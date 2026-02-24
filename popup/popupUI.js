@@ -4,7 +4,7 @@
  * 提供純函數來更新 Popup UI 狀態，便於單元測試。
  * 這些函數不直接依賴 Chrome API，僅操作 DOM 元素。
  */
-import { UI_ICONS } from '../scripts/config/index.js';
+import { UI_ICONS, UI_MESSAGES } from '../scripts/config/index.js';
 
 /**
  * DOM 元素集合類型定義
@@ -131,7 +131,7 @@ export function setButtonText(button, text) {
 export function updateUIForSavedPage(elements, response) {
   // 啟用標記按鈕
   if (elements.highlightButton) {
-    setButtonText(elements.highlightButton, 'Start Highlighting');
+    setButtonText(elements.highlightButton, UI_MESSAGES.POPUP.START_HIGHLIGHT);
     elements.highlightButton.disabled = false;
   }
 
@@ -153,7 +153,7 @@ export function updateUIForSavedPage(elements, response) {
   }
 
   // 更新狀態
-  setStatus(elements, 'Page saved. Ready to highlight or update.');
+  setStatus(elements, UI_MESSAGES.POPUP.PAGE_READY);
 }
 
 /**
@@ -166,7 +166,7 @@ export function updateUIForSavedPage(elements, response) {
 export function updateUIForUnsavedPage(elements, response) {
   // 啟用標記按鈕 (Highlight-First)
   if (elements.highlightButton) {
-    setButtonText(elements.highlightButton, 'Start Highlighting');
+    setButtonText(elements.highlightButton, UI_MESSAGES.POPUP.START_HIGHLIGHT);
     elements.highlightButton.disabled = false;
   }
 
@@ -187,9 +187,9 @@ export function updateUIForUnsavedPage(elements, response) {
 
   // 更新狀態
   if (response.wasDeleted) {
-    setStatus(elements, 'Original page was deleted. Save to create new page.', '#d63384');
+    setStatus(elements, UI_MESSAGES.POPUP.DELETED_PAGE, '#d63384');
   } else {
-    setStatus(elements, 'Start highlighting to mark this page.');
+    setStatus(elements, UI_MESSAGES.POPUP.START_HIGHLIGHT);
   }
 }
 
@@ -238,7 +238,7 @@ function formatCount(count, singular, plural) {
  * @returns {string|Array<string|{type: string, content: string}>} 格式化的訊息或結構化內容（含 SVG 警告）
  */
 export function formatSaveSuccessMessage(response) {
-  let action = 'Saved';
+  let action = UI_MESSAGES.POPUP.SAVE_SUCCESS;
   let details = '';
 
   const imageCount = response.imageCount || 0;
@@ -249,32 +249,28 @@ export function formatSaveSuccessMessage(response) {
   const countsDetails = `(${blocksText}, ${imagesText})`;
 
   if (response.recreated) {
-    action = 'Recreated (original was deleted)';
+    action = UI_MESSAGES.POPUP.RECREATED;
     details = countsDetails;
   } else if (response.highlightsUpdated) {
-    action = 'Highlights updated';
+    action = UI_MESSAGES.POPUP.HIGHLIGHTS_UPDATED;
     const highlightCount = response.highlightCount || 0;
     const highlightsText = formatCount(highlightCount, 'highlight', 'highlights');
     details = `(${highlightsText})`;
   } else if (response.updated) {
-    action = 'Updated';
+    action = UI_MESSAGES.POPUP.UPDATED;
     details = countsDetails;
   } else if (response.created) {
-    action = 'Created';
+    action = UI_MESSAGES.POPUP.CREATED;
     details = countsDetails;
 
     if (response.warning) {
       const warnIcon = UI_ICONS.WARNING;
 
       // Return structured array for safe rendering
-      return [
-        `${action} successfully! ${details}`,
-        { type: 'svg', content: warnIcon },
-        response.warning,
-      ];
+      return [`${action} ${details}`, { type: 'svg', content: warnIcon }, response.warning];
     }
   }
 
   // Default return string
-  return `${action} successfully! ${details}`;
+  return `${action} ${details}`;
 }

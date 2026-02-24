@@ -133,7 +133,7 @@ describe('Sidepanel JS Logic', () => {
       await onActivated({ tabId: 300 });
 
       const emptyP = document.querySelector('#empty-state p');
-      expect(emptyP.textContent).toBe('Not supported on this page.');
+      expect(emptyP.textContent).toBe('不支援此頁面');
     });
 
     it('should resolve tab url via computeStableUrl fallback if content script rejects', async () => {
@@ -583,7 +583,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     await clickUnsyncedTab();
 
     const unsyncedView = document.querySelector('#unsynced-view');
-    expect(unsyncedView.textContent).toContain('All highlights are synced');
+    expect(unsyncedView.textContent).toContain('已全部同步');
   });
   describe('deleteUnsyncedPage', () => {
     it('should remove the page from storage, cache, and DOM', async () => {
@@ -614,7 +614,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
       // Get the current unsynced count label
       const countLabel = document.querySelector('#unsynced-count-label');
-      expect(countLabel.textContent).toBe('0 pages');
+      expect(countLabel.textContent).toBe('0 個頁面');
 
       // Trigger CSS animation end to remove card
       const animationEndEvent = new Event('animationend');

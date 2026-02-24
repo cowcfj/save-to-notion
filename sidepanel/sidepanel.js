@@ -16,6 +16,7 @@ import {
   URL_ALIAS_PREFIX,
   RESTRICTED_PROTOCOLS,
 } from '../scripts/config/constants.js';
+import { UI_MESSAGES } from '../scripts/config/messages.js';
 import Logger from '../scripts/utils/Logger.js';
 
 let els = {};
@@ -208,7 +209,7 @@ async function loadCurrentTab(specificTabId = null) {
     }
 
     if (!tab?.url || RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol)) {
-      showEmpty('Not supported on this page.');
+      showEmpty(UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
       return;
     }
 
@@ -223,7 +224,7 @@ async function loadCurrentTab(specificTabId = null) {
     await renderHighlightsForUrl(stableUrl, tab.url);
   } catch (error) {
     Logger.error('[SidePanel] Failed to load tab', { error });
-    showEmpty('Failed to load annotations.');
+    showEmpty(UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
   }
 }
 
@@ -413,17 +414,17 @@ async function handleDelete(highlightId, storageKey) {
  */
 async function handleSyncClick() {
   els.syncButton.disabled = true;
-  showMessage('Syncing...', 'info');
+  showMessage(UI_MESSAGES.SIDEPANEL.SYNCING, 'info');
 
   try {
     const response = await chrome.runtime.sendMessage({ action: 'savePage' });
     if (response?.success) {
-      showMessage('Synced successfully!', 'success');
+      showMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
-      showMessage(response?.error || 'Sync failed', 'error');
+      showMessage(response?.error || UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
     }
   } catch {
-    showMessage('Sync failed', 'error');
+    showMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
   } finally {
     setTimeout(() => {
       els.syncButton.disabled = false;
@@ -436,18 +437,18 @@ async function handleSyncClick() {
  */
 async function handleOpenNotionClick() {
   els.openNotionButton.disabled = true;
-  showMessage('Opening...', 'info');
+  showMessage(UI_MESSAGES.SIDEPANEL.OPENING, 'info');
 
   try {
     const url = els.openNotionButton.dataset.targetUrl;
     const response = await chrome.runtime.sendMessage({ action: 'openNotionPage', url });
     if (response?.success) {
-      showMessage('Opened successfully!', 'success');
+      showMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
     } else {
-      showMessage(response?.error || 'Failed to open', 'error');
+      showMessage(response?.error || UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
     }
   } catch {
-    showMessage('Failed to open', 'error');
+    showMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
   } finally {
     setTimeout(() => {
       els.openNotionButton.disabled = false;
@@ -521,7 +522,7 @@ function showEmpty(msg = null) {
     els.emptyState.querySelector('p').textContent = msg;
     els.emptyState.querySelector('.subtitle').style.display = 'none';
   } else {
-    els.emptyState.querySelector('p').textContent = 'No highlights found on this page.';
+    els.emptyState.querySelector('p').textContent = UI_MESSAGES.SIDEPANEL.NO_HIGHLIGHTS;
     els.emptyState.querySelector('.subtitle').style.display = 'block';
   }
 }
@@ -554,14 +555,22 @@ function switchView(viewName) {
 
   if (viewName === 'unsynced') {
     currentViewEls.forEach(el => el && (el.style.display = 'none'));
-    if (els.syncButton) {els.syncButton.style.display = 'none';}
-    if (els.openNotionButton) {els.openNotionButton.style.display = 'none';}
+    if (els.syncButton) {
+      els.syncButton.style.display = 'none';
+    }
+    if (els.openNotionButton) {
+      els.openNotionButton.style.display = 'none';
+    }
     unsyncedView.style.display = 'block';
     renderUnsyncedView();
   } else {
     unsyncedView.style.display = 'none';
-    if (els.syncButton) {els.syncButton.style.display = '';}
-    if (els.openNotionButton) {els.openNotionButton.style.display = '';}
+    if (els.syncButton) {
+      els.syncButton.style.display = '';
+    }
+    if (els.openNotionButton) {
+      els.openNotionButton.style.display = '';
+    }
     if (loadMoreBtn) {
       loadMoreBtn.style.display = 'none';
     }
@@ -619,7 +628,7 @@ async function renderUnsyncedView() {
   }
   if (els.unsyncedCountLabel) {
     const count = cachedUnsyncedPages.length;
-    els.unsyncedCountLabel.textContent = `${count} page${count === 1 ? '' : 's'}`;
+    els.unsyncedCountLabel.textContent = `${count} 個頁面`;
   }
 
   appendCards(container, PAGE_BATCH_SIZE);
@@ -643,7 +652,7 @@ function appendCards(container, count) {
 
     card.querySelector('.page-title').textContent = page.title;
     card.querySelector('.page-meta').textContent =
-      `${extractDomain(page.url)} • ${page.highlightCount} highlight${page.highlightCount === 1 ? '' : 's'}`;
+      `${extractDomain(page.url)} • ${page.highlightCount} 個標註`;
 
     // 標註預覽
     const previewContainer = card.querySelector('.page-card-previews');
@@ -694,7 +703,7 @@ function renderUnsyncedEmptyState() {
   container.textContent = '';
   const emptyMessage = document.createElement('p');
   emptyMessage.className = 'unsynced-empty';
-  emptyMessage.textContent = 'All highlights are synced!';
+  emptyMessage.textContent = UI_MESSAGES.SIDEPANEL.ALL_SYNCED;
   container.append(emptyMessage);
 }
 
@@ -748,7 +757,7 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
   // 更新工具列計數和 badge
   const count = cachedUnsyncedPages.length;
   if (els.unsyncedCountLabel) {
-    els.unsyncedCountLabel.textContent = `${count} page${count === 1 ? '' : 's'}`;
+    els.unsyncedCountLabel.textContent = `${count} 個頁面`;
   }
   if (count === 0) {
     if (els.unsyncedToolbar) {

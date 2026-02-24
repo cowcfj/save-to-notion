@@ -100,13 +100,13 @@ describe('popupUI', () => {
 
       updateUIForSavedPage(elements, response);
 
-      expect(elements.highlightButton.textContent).toBe('Start Highlighting');
+      expect(elements.highlightButton.textContent).toBe('開始標註');
       expect(elements.highlightButton.disabled).toBe(false);
       expect(elements.clearHighlightsButton.style.display).toBe('block');
       expect(elements.saveButton.style.display).toBe('none');
       expect(elements.openNotionButton.style.display).toBe('block');
       expect(elements.openNotionButton.dataset.url).toBe('https://notion.so/test-page');
-      expect(elements.status.textContent).toBe('Page saved. Ready to highlight or update.');
+      expect(elements.status.textContent).toBe('頁面已儲存，可開始標註。');
     });
   });
 
@@ -121,7 +121,7 @@ describe('popupUI', () => {
       expect(elements.clearHighlightsButton.style.display).toBe('none');
       expect(elements.saveButton.style.display).toBe('block');
       expect(elements.openNotionButton.style.display).toBe('none');
-      expect(elements.status.textContent).toBe('Start highlighting to mark this page.');
+      expect(elements.status.textContent).toBe('開始標註');
     });
 
     test('已刪除頁面應顯示警告訊息', () => {
@@ -129,9 +129,7 @@ describe('popupUI', () => {
 
       updateUIForUnsavedPage(elements, response);
 
-      expect(elements.status.textContent).toBe(
-        'Original page was deleted. Save to create new page.'
-      );
+      expect(elements.status.textContent).toBe('原頁面已刪除，請重新儲存。');
       expect(elements.status.style.color).toBe('rgb(214, 51, 132)');
     });
   });
@@ -157,31 +155,31 @@ describe('popupUI', () => {
     test('應格式化創建成功訊息 (複數)', () => {
       const response = { success: true, created: true, blockCount: 5, imageCount: 2 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('Created successfully! (5 blocks, 2 images)');
+      expect(message).toBe('建立成功 (5 blocks, 2 images)');
     });
 
     test('應格式化創建成功訊息 (單數)', () => {
       const response = { success: true, created: true, blockCount: 1, imageCount: 1 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('Created successfully! (1 block, 1 image)');
+      expect(message).toBe('建立成功 (1 block, 1 image)');
     });
 
     test('應格式化更新成功訊息 (混合單複數)', () => {
       const response = { success: true, updated: true, blockCount: 1, imageCount: 2 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('Updated successfully! (1 block, 2 images)');
+      expect(message).toBe('更新成功 (1 block, 2 images)');
     });
 
     test('應格式化標記更新訊息', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 10 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('Highlights updated successfully! (10 highlights)');
+      expect(message).toBe('標註已更新 (10 highlights)');
     });
 
     test('應格式化高亮更新訊息 (單數)', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 1 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('Highlights updated successfully! (1 highlight)');
+      expect(message).toBe('標註已更新 (1 highlight)');
     });
 
     test('應包含警告訊息', () => {

@@ -50,7 +50,7 @@ test.describe('Popup UI', () => {
     const saveButton = page.locator('#save-button');
     await expect(saveButton).toBeVisible();
 
-    await expect(page.locator('#status')).toHaveText(/highlight/i);
+    await expect(page.locator('#status')).toHaveText(/標註/);
   });
 
   test('模擬已保存狀態下的 UI 變化', async ({ page, context, extensionId }) => {
@@ -67,7 +67,7 @@ test.describe('Popup UI', () => {
       document.querySelector('#highlight-button').style.display = 'block';
       document.querySelector('#highlight-button').disabled = false;
       document.querySelector('#open-notion-button').style.display = 'block';
-      document.querySelector('#status').textContent = 'Page saved. Ready to highlight or update.';
+      document.querySelector('#status').textContent = '頁面已儲存，可開始標註。';
     });
 
     // 檢查 UI 元素切換
@@ -76,7 +76,7 @@ test.describe('Popup UI', () => {
     await expect(page.locator('#open-notion-button')).toBeVisible();
 
     const statusText = await page.textContent('#status');
-    expect(statusText).toMatch(/saved|保存/i);
+    expect(statusText).toMatch(/頁面已儲存/);
   });
 
   test('清除標記應該顯示確認彈窗', async ({ page, context, extensionId }) => {
