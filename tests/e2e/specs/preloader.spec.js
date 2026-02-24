@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-skipped-tests */
 import { test, expect } from '../fixtures';
 
 test.describe('Preloader E2E Tests', () => {
@@ -52,10 +53,8 @@ test.describe('Preloader E2E Tests', () => {
       });
     });
 
-    // 如果 Preloader 未就緒，跳過此測試
     if (!pingResponse.status) {
-      test.skip();
-      return;
+      test.skip(true, 'Preloader is not ready, skipping test');
     }
 
     // 4. 模擬按下 Ctrl+S（現在可以確保會被緩衝）

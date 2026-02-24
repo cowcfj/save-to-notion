@@ -21,6 +21,7 @@ describe('StorageUtil', () => {
         trackingParams.forEach(param => urlObj.searchParams.delete(param));
         // 移除尾部斜杠（除了根路徑）
         if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+          // eslint-disable-next-line sonarjs/slow-regex
           urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
         }
         return urlObj.toString();
@@ -126,9 +127,30 @@ describe('StorageUtil', () => {
        * 2. Chrome Storage API 是基於回調的，使用 new Promise 包裝是處理回調式 API 的標準做法
        * 3. 改用 async/await 需要額外的輔助函數來轉換回調，會增加複雜性且偏離實際實現
        */
+
       loadHighlights(pageUrl) {
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
+
+        // 輔助函式：解析舊版 Storage 的資料
+        const parseLegacyHighlights = legacy => {
+          if (!legacy) {
+            return [];
+          }
+          try {
+            const parsed = JSON.parse(legacy);
+            let highlights = [];
+            if (Array.isArray(parsed)) {
+              highlights = parsed;
+            } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
+              highlights = parsed.highlights;
+            }
+            return highlights;
+          } catch (error) {
+            console.error('Failed to parse legacy highlights:', error);
+            return [];
+          }
+        };
 
         return new Promise(resolve => {
           try {
@@ -150,46 +172,20 @@ describe('StorageUtil', () => {
 
               // 回退到 localStorage
               const legacy = localStorage.getItem(pageKey);
-              if (legacy) {
-                try {
-                  const parsed = JSON.parse(legacy);
-                  let highlights = [];
-                  if (Array.isArray(parsed)) {
-                    highlights = parsed;
-                  } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                    highlights = parsed.highlights;
-                  }
-
-                  if (highlights.length > 0) {
-                    resolve(highlights);
-                    return;
-                  }
-                } catch (error) {
-                  console.error('Failed to parse legacy highlights:', error);
-                }
+              const legacyHighlights = parseLegacyHighlights(legacy);
+              if (legacyHighlights.length > 0) {
+                resolve(legacyHighlights);
+                return;
               }
               resolve([]);
             });
           } catch {
             console.log('Chrome storage not available, falling back to localStorage');
             const legacy = localStorage.getItem(pageKey);
-            if (legacy) {
-              try {
-                const parsed = JSON.parse(legacy);
-                let highlights = [];
-                if (Array.isArray(parsed)) {
-                  highlights = parsed;
-                } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                  highlights = parsed.highlights;
-                }
-
-                if (highlights.length > 0) {
-                  resolve(highlights);
-                  return;
-                }
-              } catch (error) {
-                console.error('Failed to parse legacy highlights:', error);
-              }
+            const legacyHighlights = parseLegacyHighlights(legacy);
+            if (legacyHighlights.length > 0) {
+              resolve(legacyHighlights);
+              return;
             }
             resolve([]);
           }

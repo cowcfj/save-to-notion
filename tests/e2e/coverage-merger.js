@@ -3,9 +3,10 @@
  *
  * 將 Jest 單元測試覆蓋率和 E2E 測試覆蓋率合併為統一報告
  */
+/* eslint-disable security/detect-non-literal-fs-filename */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { createCoverageMap } = require('istanbul-lib-coverage');
 const { createContext } = require('istanbul-lib-report');
 const reports = require('istanbul-reports');
@@ -172,7 +173,12 @@ ${'='.repeat(60)}`);
       const before = beforeSummary[metric].pct || 0;
       const after = afterSummary[metric].pct || 0;
       const diff = after - before;
-      const arrow = diff > 0 ? '↗️' : (diff < 0 ? '↘️' : '→');
+      let arrow = '→';
+      if (diff > 0) {
+        arrow = '↗️';
+      } else if (diff < 0) {
+        arrow = '↘️';
+      }
       const sign = diff > 0 ? '+' : '';
 
       console.log(

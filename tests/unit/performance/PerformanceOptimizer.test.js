@@ -201,6 +201,7 @@ describe('PerformanceOptimizer', () => {
     });
 
     // skip 'should clean by pattern' as it's not supported in prod implementation
+    // eslint-disable-next-line jest/no-disabled-tests
     test.skip('應該按模式清理緩存', () => {
       // 添加不同的緩存項
       optimizer.cachedQuery('img.test');

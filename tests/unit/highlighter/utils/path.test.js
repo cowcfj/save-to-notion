@@ -8,6 +8,8 @@ const {
   parsePathFromString,
   getNodeByPath,
   isValidPathString,
+  resolveElementNode,
+  resolveTextNode,
 } = require('../../../../scripts/highlighter/utils/path.js');
 
 describe('utils/path', () => {
@@ -56,6 +58,14 @@ describe('utils/path', () => {
       const path = getNodePath(thirdDiv);
       expect(path).toBe('div[2]');
     });
+
+    test('should return path for custom element with hyphen', () => {
+      const el = document.createElement('my-widget');
+      document.body.append(el);
+
+      const path = getNodePath(el);
+      expect(path).toBe('my-widget[0]');
+    });
   });
 
   describe('parsePathFromString', () => {
@@ -88,6 +98,14 @@ describe('utils/path', () => {
       expect(parsePathFromString(null)).toBe(null);
       expect(parsePathFromString()).toBe(null);
       expect(parsePathFromString(123)).toBe(null);
+    });
+
+    test('should parse path with hyphenated custom element', () => {
+      const result = parsePathFromString('my-widget[0]/custom-el[1]');
+      expect(result).toEqual([
+        { type: 'element', tag: 'my-widget', index: 0 },
+        { type: 'element', tag: 'custom-el', index: 1 },
+      ]);
     });
   });
 
@@ -161,6 +179,104 @@ describe('utils/path', () => {
     });
   });
 
+  describe('resolveElementNode', () => {
+    test('should return child element at given index', () => {
+      document.body.innerHTML = '<div><p></p><span></span></div>';
+      const div = document.body.firstElementChild;
+      const span = div.children[1];
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'span', index: 1 });
+      expect(result).toBe(span);
+    });
+
+    test('should return null when children is missing', () => {
+      const textNode = document.createTextNode('hello');
+      const result = resolveElementNode(textNode, { type: 'element', tag: 'p', index: 0 });
+      expect(result).toBeNull();
+    });
+
+    test('should return null when current is null', () => {
+      const result = resolveElementNode(null, { type: 'element', tag: 'p', index: 0 });
+      expect(result).toBeNull();
+    });
+
+    test('should fuzzy match by tag when index is out of range', () => {
+      document.body.innerHTML = '<div><p>First</p></div>';
+      const div = document.body.firstElementChild;
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'p', index: 99 });
+      expect(result).not.toBeNull();
+      expect(result.tagName.toLowerCase()).toBe('p');
+    });
+
+    test('should return null when index is out of range and no matching tag', () => {
+      document.body.innerHTML = '<div><p>First</p></div>';
+      const div = document.body.firstElementChild;
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'span', index: 99 });
+      expect(result).toBeNull();
+    });
+
+    test('should fuzzy match when index is in range but tag does not match', () => {
+      document.body.innerHTML = '<div><span>Wrong</span><p>Right</p></div>';
+      const div = document.body.firstElementChild;
+
+      // index 0 是 span，但 step.tag 是 'p' → 不匹配，fallback 到模糊匹配找到 <p>
+      const result = resolveElementNode(div, { type: 'element', tag: 'p', index: 0 });
+      expect(result).not.toBeNull();
+      expect(result.tagName.toLowerCase()).toBe('p');
+      expect(result.textContent).toBe('Right');
+    });
+  });
+
+  describe('resolveTextNode', () => {
+    test('should return text node at given index', () => {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('hello'));
+      div.append(document.createTextNode('world'));
+      document.body.append(div);
+
+      const result = resolveTextNode(div, { type: 'text', index: 1 });
+      expect(result).not.toBeNull();
+      expect(result.nodeType).toBe(Node.TEXT_NODE);
+      expect(result.textContent).toBe('world');
+    });
+
+    test('should return null when childNodes is missing', () => {
+      const result = resolveTextNode(null, { type: 'text', index: 0 });
+      expect(result).toBeNull();
+    });
+
+    test('should return null when index is out of range', () => {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('only'));
+      document.body.append(div);
+
+      const result = resolveTextNode(div, { type: 'text', index: 5 });
+      expect(result).toBeNull();
+    });
+
+    test('should return null when index is negative', () => {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('text'));
+      document.body.append(div);
+
+      const result = resolveTextNode(div, { type: 'text', index: -1 });
+      expect(result).toBeNull();
+    });
+
+    test('should skip non-text childNodes', () => {
+      const div = document.createElement('div');
+      div.innerHTML = 'before<span>el</span>after';
+      document.body.append(div);
+
+      // 只有文字節點，index 0 = 'before', index 1 = 'after'
+      const result = resolveTextNode(div, { type: 'text', index: 1 });
+      expect(result).not.toBeNull();
+      expect(result.textContent).toBe('after');
+    });
+  });
+
   describe('isValidPathString', () => {
     test('should return true for valid paths', () => {
       expect(isValidPathString('div[0]')).toBe(true);
@@ -185,6 +301,11 @@ describe('utils/path', () => {
       expect(isValidPathString()).toBe(false);
       expect(isValidPathString(123)).toBe(false);
       expect(isValidPathString({})).toBe(false);
+    });
+
+    test('should return true for hyphenated custom element paths', () => {
+      expect(isValidPathString('my-widget[0]')).toBe(true);
+      expect(isValidPathString('my-widget[0]/custom-el[1]')).toBe(true);
     });
   });
 
@@ -219,6 +340,16 @@ describe('utils/path', () => {
 
       expect(retrievedNode).toBe(secondP);
       expect(retrievedNode.textContent).toBe('Second');
+    });
+
+    test('should round-trip a custom element with hyphen', () => {
+      const el = document.createElement('my-widget');
+      document.body.append(el);
+
+      const path = getNodePath(el);
+      const retrievedNode = getNodeByPath(path);
+
+      expect(retrievedNode).toBe(el);
     });
   });
 });

@@ -24,6 +24,7 @@ const backgroundFunctions = {
       ];
       trackingParams.forEach(param => urlObj.searchParams.delete(param));
       if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+        // eslint-disable-next-line sonarjs/slow-regex
         urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
       }
       return urlObj.toString();

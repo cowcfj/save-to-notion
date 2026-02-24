@@ -1,5 +1,4 @@
 /* global document */
-/* eslint-disable no-unused-vars */
 
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
@@ -20,7 +19,7 @@ describe('PerformanceOptimizer (extra tests)', () => {
     expect(res1).toBeDefined();
 
     // second query should hit cache
-    const res2 = optimizer.cachedQuery('.a', document);
+    optimizer.cachedQuery('.a', document);
     // cache stats should reflect a hit
     expect(optimizer.cacheStats.hits).toBeGreaterThanOrEqual(0);
     expect(optimizer.queryCache.size).toBeGreaterThanOrEqual(1);

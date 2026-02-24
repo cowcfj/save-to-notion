@@ -13,6 +13,8 @@ import Logger from '../utils/Logger.js';
 import { normalizeUrl } from '../utils/urlUtils.js';
 import { convertBgColorToName } from '../highlighter/utils/color.js';
 
+const MIGRATED_SPAN_SELECTOR = '.simple-highlight[data-migrated="true"]';
+
 /**
  * 遷移階段狀態
  */
@@ -190,6 +192,7 @@ export class MigrationExecutor {
    * 階段1：創建新標註，隱藏舊 span
    *
    * @param {object} highlightManager
+   * @returns {Promise<object>}
    */
   async executePhase1(highlightManager) {
     const oldSpans = document.querySelectorAll('.simple-highlight');
@@ -229,11 +232,13 @@ export class MigrationExecutor {
    * 階段2：驗證新標註能正常恢復
    *
    * @param {object} highlightManager
+   * @returns {Promise<object>}
    */
   async executePhase2(highlightManager) {
-    const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
+    const oldSpans = document.querySelectorAll(MIGRATED_SPAN_SELECTOR);
     const newHighlightsCount = highlightManager.getCount();
-    const oldHighlightsFound = this.statistics.oldHighlightsFound || oldSpans.length;
+    const oldHighlightsFound =
+      this.statistics.oldHighlightsFound > 0 ? this.statistics.oldHighlightsFound : oldSpans.length;
 
     // 補回丟失的統計數據
     if (this.statistics.oldHighlightsFound === 0) {
@@ -261,9 +266,10 @@ export class MigrationExecutor {
    * 階段3：完全移除舊 span
    *
    * @param {object} _highlightManager - 保留參數以維持接口一致性
+   * @returns {Promise<object>}
    */
   async executePhase3(_highlightManager) {
-    const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
+    const oldSpans = document.querySelectorAll(MIGRATED_SPAN_SELECTOR);
     let removed = 0;
 
     for (const span of oldSpans) {
@@ -359,11 +365,12 @@ export class MigrationExecutor {
    * 回滾：恢復舊標註顯示
    *
    * @param {string} reason - 回滾原因
+   * @returns {Promise<object>}
    */
   async rollback(reason) {
     Logger.warn(`[MigrationExecutor] ⚠️ 執行回滾，原因: ${reason}`);
 
-    const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
+    const oldSpans = document.querySelectorAll(MIGRATED_SPAN_SELECTOR);
     oldSpans.forEach(span => {
       span.style.opacity = '1';
       span.style.pointerEvents = 'auto';

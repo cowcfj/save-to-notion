@@ -69,7 +69,7 @@
   /**
    * 顯示更新信息
    *
-   * @param info
+   * @param {object} info
    */
   function displayUpdateInfo(info) {
     // 更新版本信息
@@ -83,7 +83,7 @@
   /**
    * 顯示默認更新信息
    *
-   * @param currentVersion
+   * @param {string} currentVersion
    */
   function displayDefaultUpdateInfo(currentVersion) {
     document.querySelector('#prev-version').textContent = 'v—';
@@ -94,7 +94,7 @@
   /**
    * 載入更新內容
    *
-   * @param version
+   * @param {string} version
    */
   function loadUpdateContent(version) {
     const updateContent = getUpdateContentByVersion(version);
@@ -111,7 +111,8 @@
   /**
    * 根據版本獲取更新內容
    *
-   * @param version
+   * @param {string} version
+   * @returns {string|undefined}
    */
   function getUpdateContentByVersion(version) {
     const updateContents = {
@@ -184,6 +185,8 @@
 
   /**
    * 獲取通用更新內容
+   *
+   * @returns {string}
    */
   function getGenericUpdateContent() {
     return `

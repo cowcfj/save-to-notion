@@ -6,7 +6,6 @@
 
 /* global chrome */
 
-import { URL_NORMALIZATION } from '../scripts/config/constants.js';
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
@@ -38,7 +37,7 @@ export async function checkSettings() {
 /**
  * 檢查頁面狀態
  *
- * @param options
+ * @param {object} [options={}] - 額外選項
  * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
  */
 export async function checkPageStatus(options = {}) {
@@ -142,7 +141,7 @@ export async function clearHighlights(tabId, tabUrl) {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       func: clearHighlightsInPage,
-      args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
+      args: [pageKey],
     });
     const clearedCount =
       results && Array.isArray(results) && results[0] && typeof results[0].result === 'number'
@@ -159,11 +158,11 @@ export async function clearHighlights(tabId, tabUrl) {
  * 在頁面中執行清除標記的函數
  * 注意：此函數會被序列化後在 content script 中執行
  *
- * @param {string[]} trackingParams - 要移除的追蹤參數列表
  * @param {string} pageKey - 用於清除存儲的鍵
- * @returns {number} 清除的標記數量
+ * @returns {Promise<number>} 清除的標記數量
  */
-function clearHighlightsInPage(trackingParams, pageKey) {
+// Exported for testing
+export async function clearHighlightsInPage(pageKey) {
   // 清除頁面上的標記
   const highlights = document.querySelectorAll('.simple-highlight');
   highlights.forEach(highlight => {
@@ -176,8 +175,8 @@ function clearHighlightsInPage(trackingParams, pageKey) {
   // 清除本地存儲
   try {
     // 檢查 chrome.storage 是否可用（content script 環境）
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.remove([pageKey]);
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      await chrome.storage.local.remove([pageKey]);
     } else {
       // 降級到 localStorage（舊版或受限環境）
       localStorage.removeItem(pageKey);
@@ -191,11 +190,6 @@ function clearHighlightsInPage(trackingParams, pageKey) {
         // 完全失敗，靜默忽略
       }
     }
-  }
-
-  // 更新工具欄計數（如果存在）
-  if (globalThis.simpleHighlighter) {
-    globalThis.simpleHighlighter.updateHighlightCount();
   }
 
   return highlights.length;

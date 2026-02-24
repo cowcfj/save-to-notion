@@ -1,7 +1,8 @@
+/* eslint-disable security/detect-non-literal-fs-filename */
 import { test as base, chromium } from '@playwright/test';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
+import path from 'node:path';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 import v8toIstanbul from 'v8-to-istanbul';
 
 export const test = base.extend({
@@ -78,7 +79,11 @@ export const test = base.extend({
       }
     }
 
-    // 3. 處理覆蓋率數據
+    // 3. 確保 coverage/e2e 目錄存在（供後續存儲與 merge 使用）
+    const nycOutput = path.join(__dirname, '../../coverage/e2e');
+    fs.mkdirSync(nycOutput, { recursive: true });
+
+    // 4. 存儲覆蓋率數據至 coverage/e2e 目錄（逐一寫入覆蓋率檔案）
     for (const entry of allCoverage) {
       // 只處理擴充功能的腳本
       if (!entry.url.includes('chrome-extension://')) {
@@ -104,12 +109,6 @@ export const test = base.extend({
 
         // 轉換為 Istanbul 格式
         const istanbulCoverage = converter.toIstanbul();
-
-        // 4. 存儲到 coverage/e2e 目錄，供 merge 使用
-        const nycOutput = path.join(__dirname, '../../coverage/e2e');
-        if (!fs.existsSync(nycOutput)) {
-          fs.mkdirSync(nycOutput, { recursive: true });
-        }
 
         // 為每個文件/測試生成唯一報告
         const reportName = `playwright-${crypto.randomUUID()}.json`;

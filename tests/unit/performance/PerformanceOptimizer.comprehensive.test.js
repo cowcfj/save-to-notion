@@ -258,7 +258,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
       // 移除所有圖片
       const images = mockDocument.querySelectorAll('img');
-      images.forEach(img => img.parentNode.removeChild(img));
+      for (const img of images) {
+        img.remove();
+      }
 
       optimizer.refreshCache('img', mockDocument);
 
@@ -580,7 +582,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
   describe('batchProcessWithRetry helper', () => {
     test('應該在第一次嘗試就成功並返回結果', async () => {
       const module = require('../../../scripts/performance/PerformanceOptimizer');
-      const customBatchFn = jest.fn((items, processor) => Promise.resolve(items.map(processor)));
+      const customBatchFn = jest.fn((items, processor) =>
+        Promise.resolve(items.map(item => processor(item)))
+      );
       const processor = value => ({ url: `image-${value}` });
 
       const { results, meta } = await module.batchProcessWithRetry([1, 2], processor, {
@@ -603,7 +607,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
         if (attempt === 1) {
           return Promise.reject(new Error('Batch boom'));
         }
-        return Promise.resolve(items.map(processor));
+        return Promise.resolve(items.map(item => processor(item)));
       });
       const processor = value => ({ url: `ix-${value}` });
 
@@ -640,7 +644,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
     test('應該在 captureFailedResults 時回報失敗索引', async () => {
       const module = require('../../../scripts/performance/PerformanceOptimizer');
-      const customBatchFn = jest.fn((items, processor) => Promise.resolve(items.map(processor)));
+      const customBatchFn = jest.fn((items, processor) =>
+        Promise.resolve(items.map(item => processor(item)))
+      );
       const processor = value => (value % 2 === 0 ? null : { url: `valid-${value}` });
 
       const { meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {

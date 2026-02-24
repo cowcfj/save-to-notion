@@ -250,6 +250,7 @@ awesome.init();
       }
 
       const defuddled = new Defuddle(document.cloneNode(true)).parse();
+      expect(defuddled).toBeTruthy();
 
       console.log('\n📰 Defuddle (新聞站):');
       console.log('標題:', defuddled.title);

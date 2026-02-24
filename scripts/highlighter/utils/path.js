@@ -3,6 +3,9 @@
  * 提供 DOM 節點路徑序列化和反序列化功能
  */
 
+/** 匹配路徑步驟格式 'tagName[index]' 的正則表達式（支援含連字號的自訂元素，如 my-widget） */
+const PATH_REGEX = /^([\w-]+)\[(\d+)\]$/;
+
 /**
  * 獲取節點的路徑（從當前節點到 document.body）
  *
@@ -83,12 +86,13 @@ export function parsePathFromString(pathString) {
       continue;
     }
 
-    const match = step.match(/^(\w+)\[(\d+)]$/);
+    const match = PATH_REGEX.exec(step);
     if (!match) {
       return null; // 格式錯誤
     }
 
-    const [, tag, indexStr] = match;
+    const [, rawTag, indexStr] = match;
+    const tag = rawTag.toLowerCase();
     const index = Number.parseInt(indexStr, 10);
 
     if (tag === 'text') {
@@ -99,6 +103,65 @@ export function parsePathFromString(pathString) {
   }
 
   return path;
+}
+
+/**
+ * 根據 element 類型的路徑步驟，從當前節點導覽到下一個子元素
+ *
+ * @param {Element} current - 當前 DOM 元素
+ * @param {{type: 'element', tag: string, index: number}} step - 路徑步驟
+ * @returns {Element|null} 下一個 DOM 元素，或 null
+ */
+export function resolveElementNode(current, step) {
+  try {
+    if (!current?.children) {
+      return null;
+    }
+
+    if (!Number.isInteger(step.index) || step.index < 0) {
+      return null;
+    }
+
+    const children = Array.from(current.children);
+    const tag = step.tag?.toLowerCase();
+
+    if (step.index < children.length && children[step.index].tagName?.toLowerCase() === tag) {
+      return children[step.index];
+    }
+
+    // 模糊匹配：查找具有相同標籤名的元素
+    const matchingElements = children.filter(child => child.tagName?.toLowerCase() === tag);
+    return matchingElements.length > 0 ? matchingElements[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 根據 text 類型的路徑步驟，從當前節點導覽到下一個文字節點
+ *
+ * @param {Node} current - 當前 DOM 節點
+ * @param {{type: 'text', index: number}} step - 路徑步驟
+ * @returns {Text|null} 下一個文字節點，或 null
+ */
+export function resolveTextNode(current, step) {
+  try {
+    if (!current?.childNodes) {
+      return null;
+    }
+
+    const textNodes = Array.from(current.childNodes).filter(
+      node => node.nodeType === Node.TEXT_NODE
+    );
+
+    if (step.index < 0 || step.index >= textNodes.length) {
+      return null;
+    }
+
+    return textNodes[step.index];
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -119,7 +182,7 @@ export function getNodeByPath(path) {
   }
 
   // 確保 document.body 存在
-  if (!document || !document.body) {
+  if (!document?.body) {
     return null;
   }
 
@@ -131,43 +194,14 @@ export function getNodeByPath(path) {
   let current = document.body;
 
   for (const step of path) {
-    try {
-      if (step.type === 'element') {
-        if (!current || !current.children) {
-          return null;
-        }
-
-        const children = Array.from(current.children);
-
-        if (step.index < 0 || step.index >= children.length) {
-          // 模糊匹配：查找具有相同標籤名的元素
-          const matchingElements = children.filter(
-            child => child.tagName && child.tagName.toLowerCase() === step.tag
-          );
-          if (matchingElements.length > 0) {
-            current = matchingElements[0];
-            continue;
-          }
-          return null;
-        }
-
-        current = children[step.index];
-      } else if (step.type === 'text') {
-        if (!current || !current.childNodes) {
-          return null;
-        }
-
-        const textNodes = Array.from(current.childNodes).filter(
-          node => node.nodeType === Node.TEXT_NODE
-        );
-
-        if (step.index < 0 || step.index >= textNodes.length) {
-          return null;
-        }
-
-        current = textNodes[step.index];
-      }
-    } catch {
+    if (step.type === 'element') {
+      current = resolveElementNode(current, step);
+    } else if (step.type === 'text') {
+      current = resolveTextNode(current, step);
+    } else {
+      return null;
+    }
+    if (!current) {
       return null;
     }
   }
@@ -194,10 +228,9 @@ export function isValidPathString(pathString) {
   }
 
   const steps = pathString.split('/');
-  const regex = /^\w+\[\d+]$/;
 
   for (const step of steps) {
-    if (!step || !regex.test(step)) {
+    if (!step || !PATH_REGEX.test(step)) {
       return false;
     }
   }

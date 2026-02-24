@@ -119,11 +119,11 @@ describe('Validation Utils Coverage Tests', () => {
       expect(isValidUrl('https://example.com')).toBe(true);
       expect(isValidUrl('http://test.com/path')).toBe(true);
       expect(isValidUrl('https://example.com:8080/path?query=value')).toBe(true);
+      expect(isValidUrl('sftp://invalid')).toBe(true); // sftp is valid URL scheme
     });
 
     test('should return false for invalid URLs', () => {
       expect(isValidUrl('not a url')).toBe(false);
-      expect(isValidUrl('ftp://invalid')).toBe(true); // ftp is valid URL scheme
       expect(isValidUrl('://invalid')).toBe(false);
     });
 

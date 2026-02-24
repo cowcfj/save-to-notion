@@ -15,7 +15,7 @@ test.describe('Migration Execute', () => {
     await context.addInitScript(() => {
       globalThis.HighlighterV2 = {
         manager: {
-          addHighlight: () => `new-id-${Math.random()}`,
+          addHighlight: () => `new-id-${crypto.randomUUID()}`,
           getCount: () => 1,
         },
       };
@@ -68,7 +68,7 @@ test.describe('Migration Execute', () => {
     await page.goto(popupUrl);
     const response = await page.evaluate(() => {
       return new Promise(resolve => {
-        chrome.runtime.sendMessage({ action: 'migration_execute', url: 'ftp://host' }, resolve);
+        chrome.runtime.sendMessage({ action: 'migration_execute', url: 'sftp://host' }, resolve);
       });
     });
     expect(response.success).toBe(false);
