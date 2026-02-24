@@ -316,7 +316,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
    * @param {number} timeoutMs - 超時毫秒數
    * @returns {Promise<string|null>}
    */
-  const waitForStableUrl = (timeoutMs = 2000) => {
+  const waitForStableUrl = (timeoutMs = 1000) => {
     // 如果已經通過其他途徑設置了，直接返回
     if (globalThis.__NOTION_STABLE_URL__) {
       return Promise.resolve(globalThis.__NOTION_STABLE_URL__);

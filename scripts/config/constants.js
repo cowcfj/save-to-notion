@@ -102,15 +102,20 @@ export const IMAGE_LIMITS = {
 // Notion API 相關常量
 // ==========================================
 
+// ---- Notion API 共用值（避免物件字面量內部的重複定義）----
+const _NOTION_API_VERSION = '2025-09-03';
+const _NOTION_MAX_RETRIES = 3;
+const _NOTION_RETRY_DELAY = 1000;
+
 export const NOTION_API = {
   // [Breaking Change] API version 2025-09-03 adds multi-data-source database support.
   // This version is required; using older versions will fail with:
   // "Databases with multiple data sources are not supported in this API version".
-  VERSION: '2025-09-03',
+  VERSION: _NOTION_API_VERSION,
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
-  MAX_RETRIES: 3, // 最大重試次數
-  RETRY_DELAY: 1000, // 基礎重試延遲（ms）
+  MAX_RETRIES: _NOTION_MAX_RETRIES, // 最大重試次數
+  RETRY_DELAY: _NOTION_RETRY_DELAY, // 基礎重試延遲（ms）
   // IMAGE_RETRY_DELAY removed as it is unused
 
   // 操作特定配置
@@ -137,33 +142,19 @@ export const NOTION_API = {
   PAGE_SIZE: 100, // 分頁大小
   // 頁面結構配置
   HIGHLIGHT_SECTION_HEADER: '📝 頁面標記', // 高亮標記區域的標題
+
+  // ---- NotionService 別名（與 NOTION_API 主要欄位一致）----
+  API_VERSION: _NOTION_API_VERSION,
+  DEFAULT_MAX_RETRIES: _NOTION_MAX_RETRIES,
+  DEFAULT_BASE_DELAY: _NOTION_RETRY_DELAY,
 };
 
 /**
- * Notion 服務配置（整合自 NotionService.js）
- * 集中管理 API 版本、延遲、重試等參數
+ * Notion 服務配置（已棄用，請直接使用 NOTION_API）
+ *
+ * @deprecated 請改用 NOTION_API，此別名將在未來版本移除
  */
-export const NOTION_CONFIG = {
-  API_VERSION: NOTION_API.VERSION,
-  BASE_URL: NOTION_API.BASE_URL,
-  BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
-  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
-  DEFAULT_BASE_DELAY: NOTION_API.RETRY_DELAY,
-  // 操作特定配置
-  CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
-  CHECK_DELAY: NOTION_API.CHECK_DELAY,
-  CREATE_RETRIES: NOTION_API.CREATE_RETRIES,
-  CREATE_DELAY: NOTION_API.CREATE_DELAY,
-  DELETE_RETRIES: NOTION_API.DELETE_RETRIES,
-  DELETE_DELAY: NOTION_API.DELETE_DELAY,
-  RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
-  PAGE_SIZE: NOTION_API.PAGE_SIZE,
-  // 頁面結構配置
-  HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
-  // 批量刪除配置
-  DELETE_CONCURRENCY: NOTION_API.DELETE_CONCURRENCY,
-  DELETE_BATCH_DELAY_MS: NOTION_API.DELETE_BATCH_DELAY_MS,
-};
+export const NOTION_CONFIG = NOTION_API;
 
 /**
  * 程式語言映射表 (用於 DomConverter.mapLanguage)

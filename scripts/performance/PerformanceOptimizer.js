@@ -24,6 +24,9 @@ export const PERFORMANCE_OPTIMIZER = {
   MAX_BATCH_SIZE: 500, // Maximum batch size
   MIN_BATCH_SIZE: 10, // Minimum batch size
 
+  // Validation settings
+  MAX_VALIDATION_SAMPLE_SIZE: 5, // 抽樣驗證的最大元素數量
+
   // Next.js data processing settings
   MAX_NEXT_DATA_SIZE: 5 * 1024 * 1024, // 5MB - Safe upper limit for JSON.parse blocking the main thread
 };
@@ -445,6 +448,13 @@ class PerformanceOptimizer {
    * - 處理單個元素和 NodeList 兩種情況，並兼容 JSDOM 測試環境
    * - 此驗證邏輯與緩存策略緊密相關，不建議獨立提取
    *
+   * 效能優化（抽樣驗證）：
+   * - NodeList 只驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
+   * - 如果前幾個元素都仍在 DOM 中，整個列表極不可能部分失效
+   * - 設計取捨：若超出抽樣範圍的元素已被移除，快取仍視為有效，
+   *   呼叫方將取得包含過時節點的 NodeList。此風險可接受，因為
+   *   DOM 部分失效的機率極低，且 TTL 機制會定期淘汰過期快取。
+   *
    * @private
    * @static
    * @param {Element|NodeList|Array} result - 要驗證的元素或元素列表
@@ -455,37 +465,59 @@ class PerformanceOptimizer {
       return false;
     }
 
+    const MAX_VALIDATION_SAMPLE_SIZE = PERFORMANCE_OPTIMIZER.MAX_VALIDATION_SAMPLE_SIZE;
+
     try {
+      // 單個元素
       if (result.nodeType) {
-        // 單個元素
-        return document.contains(result);
-      } else if (result.length !== undefined) {
-        // NodeList 或數組
-        return Array.from(result).every(el => {
-          // 確保 el 是有效的 Node 對象
-          if (!el?.nodeType) {
-            return false;
-          }
-
-          // Use isConnected if available (standard DOM)
-          if (typeof el.isConnected === 'boolean') {
-            return el.isConnected;
-          }
-
-          try {
-            return document.contains(el);
-          } catch {
-            return false;
-          }
-        });
+        return PerformanceOptimizer._isElementConnected(result);
       }
+
+      // 非集合類型
+      if (result.length === undefined) {
+        return false;
+      }
+
+      // NodeList 或數組：抽樣驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
+      // 使用直接索引避免 Array.from 對整個 NodeList 的 O(n) 物質化
+      const sampleSize = Math.min(result.length, MAX_VALIDATION_SAMPLE_SIZE);
+      // 空列表視為無效（避免返回已清空的快取）
+      if (sampleSize === 0) {
+        return false;
+      }
+
+      for (let i = 0; i < sampleSize; i++) {
+        const el = result[i];
+        if (!el?.nodeType || !PerformanceOptimizer._isElementConnected(el)) {
+          return false;
+        }
+      }
+      return true;
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
       Logger.warn('元素驗證失敗', { action: 'validateCachedElements', error: error.message });
+    }
+    return false;
+  }
+
+  /**
+   * 檢查單個 DOM 元素是否仍連接到文檔
+   * 優先使用標準的 isConnected 屬性，不支援時退回 document.contains。
+   *
+   * @private
+   * @static
+   * @param {Element} el - 要檢查的元素
+   * @returns {boolean} 元素是否仍在 DOM 中
+   */
+  static _isElementConnected(el) {
+    if (typeof el.isConnected === 'boolean') {
+      return el.isConnected;
+    }
+    try {
+      return document.contains(el);
+    } catch {
       return false;
     }
-
-    return false;
   }
 
   /**
@@ -650,8 +682,17 @@ class PerformanceOptimizer {
       selectors.push('article h1', 'article h2', 'article h3', 'article p', 'article img');
     }
 
+    // [role="main"] * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
+    // 預熱成本過高，且沒有實際查詢使用此選擇器，改為使用具體的後代選擇器
+    // (descendant selector，以空格分隔；若要限制為直接子元素，應使用 > 組合器)。
     if (context.querySelector('[role="main"]')) {
-      selectors.push('[role="main"] *');
+      selectors.push(
+        '[role="main"] h1',
+        '[role="main"] h2',
+        '[role="main"] h3',
+        '[role="main"] p',
+        '[role="main"] img'
+      );
     }
 
     // 檢查是否有常見的 CMS 類名（使用 CMS_CONTENT_SELECTORS 前 4 個核心選擇器）

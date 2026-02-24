@@ -370,7 +370,9 @@ describe('Logger', () => {
     });
 
     test('應該正確處理純量參數 (數字, 字串)', () => {
-      Logger.info('Scalar test', 123, 'test-string');
+      // warn/error 使用即時發送路徑（sendToBackground），適合此測試
+      // info/log/debug 使用批量模式（_queueForBackground），不會立即觸發 sendMessage
+      Logger.warn('Scalar test', 123, 'test-string');
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs).toEqual([123, 'test-string']);
@@ -384,6 +386,202 @@ describe('Logger', () => {
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs[0]).toBe('[Unserializable Object]');
+    });
+
+    test('應該將 function 參數序列化為 "[Function]"', () => {
+      Logger.warn('Function test', () => {});
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toBe('[Function]');
+    });
+
+    test('應該將 symbol 參數序列化為 toString 結果', () => {
+      Logger.warn('Symbol test', Symbol('mySymbol'));
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toBe('Symbol(mySymbol)');
+    });
+  });
+
+  describe('語法糖方法 (success, start, ready)', () => {
+    beforeEach(() => {
+      globalThis.chrome = undefined;
+      require('../../../scripts/utils/Logger.js');
+      Logger = globalThis.window.Logger;
+    });
+
+    test('應該正確加上特定的 LOG_ICONS', () => {
+      const infoSpy = jest.spyOn(Logger, 'info').mockImplementation(() => {});
+
+      Logger.success('Success message');
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('✅ Success message'));
+
+      Logger.start('Start message');
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('🚀 Start message'));
+
+      Logger.ready('Ready message');
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('📦 Ready message'));
+
+      infoSpy.mockRestore();
+    });
+  });
+
+  describe('批量轉發機制 (_queueForBackground & _flushToBackground)', () => {
+    beforeEach(() => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({
+            version_name: '1.0.0-dev',
+          }),
+          sendMessage: jest.fn((msg, callback) => {
+            if (callback) {
+              callback();
+            }
+          }),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      Logger = globalThis.window.Logger;
+
+      jest.useFakeTimers();
+      globalThis.chrome.runtime.sendMessage.mockClear();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    test('應該將 info/log/debug 日誌加入佇列並在超時後發送', () => {
+      Logger.info('Queue message 1', { data: 1 });
+      Logger.debug('Queue message 2');
+
+      // 尚未觸發計時器，不應發送
+      expect(globalThis.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+
+      // 快進 500ms
+      jest.advanceTimersByTime(500);
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const args = globalThis.chrome.runtime.sendMessage.mock.calls[0][0];
+      expect(args.action).toBe('devLogSinkBatch');
+      expect(args.logs).toHaveLength(2);
+      expect(args.logs[0].message).toBe('Queue message 1');
+      expect(args.logs[1].message).toBe('Queue message 2');
+    });
+
+    test('當達到 MAX_BATCH_SIZE (20) 時應該立即發送', () => {
+      for (let i = 0; i < 20; i++) {
+        Logger.info(`Msg ${i}`);
+      }
+      // 不須等到 advanceTimersByTime 就應觸發 send
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const args = globalThis.chrome.runtime.sendMessage.mock.calls[0][0];
+      expect(args.logs).toHaveLength(20);
+
+      // 不會再次觸發
+      jest.advanceTimersByTime(500);
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    test('_queueForBackground 發生不可序列化參數時會 fallback', () => {
+      const circular = {};
+      circular.myself = circular;
+
+      Logger.info('Circular test', circular);
+      jest.advanceTimersByTime(500);
+
+      const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
+      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+    });
+
+    test('在 sendMessage 失敗時應優雅忽略', () => {
+      globalThis.chrome.runtime.sendMessage.mockImplementationOnce((msg, cb) => {
+        if (cb) {
+          cb();
+        }
+        throw new Error('IPC failed');
+      });
+
+      Logger.info('Fail safe test');
+      expect(() => {
+        jest.advanceTimersByTime(500);
+      }).not.toThrow();
+    });
+  });
+
+  describe('Buffer 寫入操作 (addLogToBuffer & getBuffer)', () => {
+    test('getBuffer 應該返回 null (在預設無 DEV_LOG_SINK 的情況下)', () => {
+      const buffer = Logger.getBuffer();
+      expect(buffer).toBeNull();
+    });
+  });
+
+  describe('parseArgsToContext 直接匯出函數', () => {
+    let parseArgsToContext;
+
+    beforeEach(() => {
+      globalThis.chrome = undefined;
+      const mod = require('../../../scripts/utils/Logger.js');
+      parseArgsToContext = mod.parseArgsToContext;
+    });
+
+    test('空陣列應返回空物件', () => {
+      expect(parseArgsToContext([])).toEqual({});
+    });
+
+    test('非陣列 (null, undefined) 應返回空物件', () => {
+      expect(parseArgsToContext(null)).toEqual({});
+      expect(parseArgsToContext(undefined)).toEqual({});
+    });
+
+    test('第一個參數為物件且有多個參數時應展開為 context 並包含 details', () => {
+      expect(parseArgsToContext([{ key: 'val' }, 'extra', 42])).toEqual({
+        key: 'val',
+        details: ['extra', 42],
+      });
+    });
+
+    test('第一個參數非物件時應將所有參數放入 details', () => {
+      expect(parseArgsToContext(['a', 'b', 123])).toEqual({
+        details: ['a', 'b', 123],
+      });
+    });
+
+    test('第一個參數為 Error 時應提取 message、stack、name', () => {
+      const err = new Error('something failed');
+      const result = parseArgsToContext([err]);
+      expect(result.message).toBe('something failed');
+      expect(result.name).toBe('Error');
+      expect(typeof result.stack).toBe('string');
+    });
+
+    test('Error 帶有自訂屬性時應一併保留', () => {
+      const err = new Error('api error');
+      err.code = 'ERR_NETWORK';
+      err.statusCode = 500;
+      const result = parseArgsToContext([err]);
+      expect(result.message).toBe('api error');
+      expect(result.code).toBe('ERR_NETWORK');
+      expect(result.statusCode).toBe(500);
+    });
+
+    test('Error 加上額外參數時應存入 details', () => {
+      const err = new TypeError('type mismatch');
+      const result = parseArgsToContext([err, 'extra', 42]);
+      expect(result.message).toBe('type mismatch');
+      expect(result.name).toBe('TypeError');
+      expect(result.details).toEqual(['extra', 42]);
     });
   });
 
@@ -415,6 +613,135 @@ describe('Logger', () => {
 
       Logger = globalThis.window.Logger;
       expect(Logger.debugEnabled).toBe(false);
+    });
+  });
+
+  describe('頁面卸載沖刷機制 (visibilitychange & beforeunload)', () => {
+    test('應在非 Background 環境中註冊 visibilitychange 與 beforeunload 監聽器', () => {
+      const docSpy = jest.spyOn(document, 'addEventListener');
+      const winSpy = jest.spyOn(globalThis, 'addEventListener');
+
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+          sendMessage: jest.fn(),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+
+      const visibilityCall = docSpy.mock.calls.find(call => call[0] === 'visibilitychange');
+      expect(visibilityCall).toBeDefined();
+
+      const beforeunloadCall = winSpy.mock.calls.find(call => call[0] === 'beforeunload');
+      expect(beforeunloadCall).toBeDefined();
+
+      docSpy.mockRestore();
+      winSpy.mockRestore();
+    });
+
+    test('visibilitychange 回調在頁面隱藏時應觸發批量發送', () => {
+      const docSpy = jest.spyOn(document, 'addEventListener');
+
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+          sendMessage: jest.fn((msg, callback) => {
+            if (callback) {
+              callback();
+            }
+          }),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      const LoadedLogger = globalThis.window.Logger;
+
+      // 將一條日誌加入佇列
+      LoadedLogger.info('flush on hidden');
+
+      // 找到 visibilitychange 回調並觸發
+      const visibilityCallback = docSpy.mock.calls.find(call => call[0] === 'visibilitychange')[1];
+
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        configurable: true,
+      });
+      visibilityCallback();
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'devLogSinkBatch' }),
+        expect.any(Function)
+      );
+
+      // 清理
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        configurable: true,
+      });
+      docSpy.mockRestore();
+    });
+
+    test('beforeunload 回調應觸發批量發送', () => {
+      const winSpy = jest.spyOn(globalThis, 'addEventListener');
+
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+          sendMessage: jest.fn((msg, callback) => {
+            if (callback) {
+              callback();
+            }
+          }),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      const LoadedLogger = globalThis.window.Logger;
+
+      // 將一條日誌加入佇列
+      LoadedLogger.info('flush on unload');
+
+      // 找到 beforeunload 回調並觸發
+      const beforeunloadCallback = winSpy.mock.calls.find(call => call[0] === 'beforeunload')[1];
+      beforeunloadCallback();
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'devLogSinkBatch' }),
+        expect.any(Function)
+      );
+
+      winSpy.mockRestore();
     });
   });
 });

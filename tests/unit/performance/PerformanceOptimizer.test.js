@@ -94,6 +94,29 @@ describe('PerformanceOptimizer', () => {
       expect(stats.cache.size).toBeLessThanOrEqual(2);
       expect(stats.cache.evictions).toBeGreaterThan(0);
     });
+
+    test('應該能清除過期或強制清除全部快取', () => {
+      // 造假一條過期資料
+      optimizer.queryCache.set('oldKey', {
+        timestamp: Date.now() - 100_000,
+        result: [],
+      });
+      optimizer.queryCache.set('newKey', {
+        timestamp: Date.now(),
+        result: [],
+      });
+
+      // 測試時間過期機制
+      const clearedCount = optimizer.clearExpiredCache({ maxAge: 50_000 });
+      expect(clearedCount).toBe(1);
+      expect(optimizer.queryCache.has('oldKey')).toBe(false);
+      expect(optimizer.queryCache.has('newKey')).toBe(true);
+
+      // 測試強制清空機制
+      const forceCleared = optimizer.clearExpiredCache({ force: true });
+      expect(forceCleared).toBe(1);
+      expect(optimizer.queryCache.size).toBe(0);
+    });
   });
 
   describe('批處理系統', () => {
@@ -171,14 +194,231 @@ describe('PerformanceOptimizer', () => {
     });
   });
 
-  describe('預加載功能', () => {
-    test('應該預加載選擇器', () => {
-      const selectors = ['img', 'p', 'a'];
+  describe('預加載功能 (preloadSelectors)', () => {
+    test('不合法的輸入或未啟用緩存時應提早返回空的 Promise', async () => {
+      optimizer.options.enableCache = false;
+      const result1 = await optimizer.preloadSelectors(['img']);
+      expect(result1).toEqual([]);
 
-      // 預加載不應該拋出錯誤
-      expect(() => {
-        optimizer.preloadSelectors(selectors);
-      }).not.toThrow();
+      optimizer.options.enableCache = true;
+      const result2 = await optimizer.preloadSelectors(null);
+      expect(result2).toEqual([]);
+
+      const result3 = await optimizer.preloadSelectors('not array');
+      expect(result3).toEqual([]);
+    });
+
+    test('預加載應正確呼叫 cachedQuery', async () => {
+      const selectors = ['img', '.test-container'];
+      const spy = jest.spyOn(optimizer, 'cachedQuery');
+      const results = await optimizer.preloadSelectors(selectors);
+
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(results).toHaveLength(2);
+      spy.mockRestore();
+    });
+
+    test('如果 _preloadSingleSelector 拋出異常，應該捕獲並解析為包含 error 的物件', async () => {
+      const spy = jest.spyOn(optimizer, 'cachedQuery').mockImplementation(() => {
+        throw new Error('preload error');
+      });
+      const results = await optimizer.preloadSelectors(['img']);
+      expect(results).toEqual([
+        {
+          selector: 'img',
+          cached: false,
+          error: 'preload error',
+        },
+      ]);
+      spy.mockRestore();
+    });
+  });
+
+  describe('預熱分析 (_analyzePageForPrewarming)', () => {
+    test('應該依據 DOM 內容動態產生預熱選擇器', () => {
+      // 構建帶有 article 標籤的假文件
+      const fakeDoc = document.implementation.createHTMLDocument('Fake Doc');
+      fakeDoc.body.innerHTML = '<article></article>';
+      const selectorsArticle = PerformanceOptimizer._analyzePageForPrewarming(fakeDoc);
+      expect(selectorsArticle).toContain('article h1');
+      expect(selectorsArticle).toContain('article img');
+
+      // 構建帶有 [role="main"] 標籤的假文件
+      fakeDoc.body.innerHTML = '<main role="main"></main>';
+      const selectorsMain = PerformanceOptimizer._analyzePageForPrewarming(fakeDoc);
+      expect(selectorsMain).toContain('[role="main"] h1');
+      expect(selectorsMain).toContain('[role="main"] p');
+    });
+
+    test('如果出現特定的網址或 CMS，會對應產生特定選擇器', () => {
+      // 測試沒有特定結構時的 fallback (空陣列或預設)
+      const emptyDoc = document.implementation.createHTMLDocument('Empty Doc');
+      const selectorsEmpty = PerformanceOptimizer._analyzePageForPrewarming(emptyDoc);
+      expect(selectorsEmpty).toEqual([]);
+
+      // 測試有 CMS 結構時：這裡用 constants 的 CMS_CONTENT_SELECTORS 裡的第一個 `.entry-content`
+      const cmsDoc = document.implementation.createHTMLDocument('CMS Doc');
+      cmsDoc.body.innerHTML = '<div class="entry-content"></div>';
+      const selectorsCms = PerformanceOptimizer._analyzePageForPrewarming(cmsDoc);
+      expect(selectorsCms).toContain('.entry-content p');
+      expect(selectorsCms).toContain('.entry-content h1');
+    });
+  });
+
+  describe('單一選擇器預熱 (_preloadSingleSelector)', () => {
+    test('如果已經預熱過該選擇器，應回傳 null', () => {
+      optimizer.prewarmedSelectors.add('.tested-already');
+      const result = optimizer._preloadSingleSelector('.tested-already', document);
+      expect(result).toBeNull();
+    });
+
+    test('如果查詢結果為空陣列或為 null，應回傳 null', () => {
+      // 空陣列 [] 但有 length!==undefined
+      jest.spyOn(optimizer, 'cachedQuery').mockReturnValueOnce([]);
+      const resultArray = optimizer._preloadSingleSelector('.not-exist', document);
+      expect(resultArray).toBeNull();
+
+      // null 情況 (在 623-624 行 default return null)
+      jest.spyOn(optimizer, 'cachedQuery').mockReturnValueOnce(null);
+      const resultNull = optimizer._preloadSingleSelector('.null-result', document);
+      expect(resultNull).toBeNull();
+    });
+
+    test('如果查詢結果有實體節點但長度不明 (nodeType)，應以 count 1 紀錄並回傳', () => {
+      const fakeNode = { nodeType: 1 };
+      jest.spyOn(optimizer, 'cachedQuery').mockReturnValueOnce(fakeNode);
+      const result = optimizer._preloadSingleSelector('.fake-node', document);
+      expect(result).toEqual(
+        expect.objectContaining({ selector: '.fake-node', count: 1, cached: true })
+      );
+      expect(optimizer.cacheStats.prewarms).toBe(1);
+      expect(optimizer.prewarmedSelectors.has('.fake-node')).toBe(true);
+    });
+
+    test('遇到例外狀況時，應捕捉錯誤並回傳 cached: false 物件', () => {
+      jest.spyOn(optimizer, 'cachedQuery').mockImplementationOnce(() => {
+        throw new Error('sync query error');
+      });
+      const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
+      const spyError = jest.spyOn(ErrorHandler, 'logError').mockImplementation(() => {});
+
+      const result = optimizer._preloadSingleSelector('.error-node', document);
+
+      expect(result).toEqual({ selector: '.error-node', error: 'sync query error', cached: false });
+      expect(spyError).toHaveBeenCalled();
+
+      spyError.mockRestore();
+    });
+  });
+
+  describe('智慧預熱 (smartPrewarm)', () => {
+    test('應結合同步分析結果與預設選擇器，並呼叫 preloadSelectors', async () => {
+      optimizer.options.prewarmSelectors = ['.default-1'];
+      const spyAnalyze = jest
+        .spyOn(PerformanceOptimizer, '_analyzePageForPrewarming')
+        .mockReturnValue(['.dynamic-1']);
+      const spyPreload = jest
+        .spyOn(optimizer, 'preloadSelectors')
+        .mockImplementation(async () => ['done']);
+
+      const results = await optimizer.smartPrewarm(document);
+      expect(spyAnalyze).toHaveBeenCalledWith(document);
+      expect(spyPreload).toHaveBeenCalledWith(['.default-1', '.dynamic-1'], document);
+      expect(results).toEqual(['done']);
+
+      spyAnalyze.mockRestore();
+      spyPreload.mockRestore();
+    });
+  });
+
+  describe('_validateCachedElements', () => {
+    test('應該處理 falsy 輸入', () => {
+      expect(PerformanceOptimizer._validateCachedElements(null)).toBe(false);
+      expect(PerformanceOptimizer._validateCachedElements(undefined)).toBe(false);
+    });
+
+    test('如果傳入長度為 0 的列表，應返回 false', () => {
+      expect(PerformanceOptimizer._validateCachedElements([])).toBe(false);
+    });
+
+    test('應該處理 NodeList / Array 中缺乏 nodeType 的元素', () => {
+      const invalidList = [{ notNodeType: true }, document.createElement('div')];
+      expect(PerformanceOptimizer._validateCachedElements(invalidList)).toBe(false);
+    });
+
+    test('如果 isConnected 不為 boolean，應該退回使用 document.contains', () => {
+      const div = document.createElement('div');
+      document.body.append(div);
+
+      // 模擬環境不支持 isConnected
+      Object.defineProperty(div, 'isConnected', { value: undefined });
+
+      expect(PerformanceOptimizer._validateCachedElements([div])).toBe(true);
+
+      div.remove();
+      expect(PerformanceOptimizer._validateCachedElements([div])).toBe(false);
+    });
+
+    test('當 document.contains 拋出例外時，應該返回 false', () => {
+      const div = document.createElement('div');
+      Object.defineProperty(div, 'isConnected', { value: undefined });
+
+      // 改寫 document.contains 以拋出錯誤
+      jest.spyOn(document, 'contains').mockImplementationOnce(() => {
+        throw new Error('contain error');
+      });
+
+      expect(PerformanceOptimizer._validateCachedElements([div])).toBe(false);
+      document.contains.mockRestore();
+    });
+
+    test('如果 result 不是節點也沒有 length，應該返回 false', () => {
+      const weirdObject = { length: undefined };
+      expect(PerformanceOptimizer._validateCachedElements(weirdObject)).toBe(false);
+    });
+
+    test('如果發生意外錯誤，應該被全域 try-catch 攔截', () => {
+      // 模擬 result.nodeType 訪問拋出錯誤
+      const throwingObject = {};
+      Object.defineProperty(throwingObject, 'nodeType', {
+        get: () => {
+          throw new Error('accidental error');
+        },
+      });
+
+      expect(PerformanceOptimizer._validateCachedElements(throwingObject)).toBe(false);
+    });
+
+    test('抽樣邊界：前 5 個元素在 DOM 但第 6 個已移除，應返回 true（抽樣不檢查）', () => {
+      const elements = [];
+      for (let i = 0; i < 6; i++) {
+        const el = document.createElement('span');
+        if (i < 5) {
+          document.body.append(el);
+        }
+        elements.push(el);
+      }
+
+      // MAX_VALIDATION_SAMPLE_SIZE = 5，只驗證前 5 個
+      expect(PerformanceOptimizer._validateCachedElements(elements)).toBe(true);
+
+      // 清理
+      elements.slice(0, 5).forEach(el => el.remove());
+    });
+
+    test('單個元素路徑：附加到 DOM 應返回 true，移除後應返回 false', () => {
+      const el = document.createElement('div');
+
+      // 未附加到 DOM
+      expect(PerformanceOptimizer._validateCachedElements(el)).toBe(false);
+
+      // 附加到 DOM
+      document.body.append(el);
+      expect(PerformanceOptimizer._validateCachedElements(el)).toBe(true);
+
+      // 從 DOM 移除
+      el.remove();
+      expect(PerformanceOptimizer._validateCachedElements(el)).toBe(false);
     });
   });
 
