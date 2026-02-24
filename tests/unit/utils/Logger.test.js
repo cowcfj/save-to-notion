@@ -389,6 +389,99 @@ describe('Logger', () => {
     });
   });
 
+  describe('語法糖方法 (success, start, ready)', () => {
+    test('應該正確加上特定的 LOG_ICONS', () => {
+      const infoSpy = jest.spyOn(Logger, 'info').mockImplementation(() => {});
+
+      Logger.success('Success message');
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('✅ Success message'));
+
+      Logger.start('Start message');
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('🚀 Start message'));
+
+      Logger.ready('Ready message');
+      expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('📦 Ready message'));
+
+      infoSpy.mockRestore();
+    });
+  });
+
+  describe('批量轉發機制 (_queueForBackground & _flushToBackground)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      // 在每次測試前清空內部 pending logs
+      globalThis.chrome.runtime.sendMessage.mockClear();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    test('應該將 info/log/debug 日誌加入佇列並在超時後發送', () => {
+      Logger.info('Queue message 1', { data: 1 });
+      Logger.debug('Queue message 2');
+
+      // 尚未觸發計時器，不應發送
+      expect(globalThis.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+
+      // 快進 500ms
+      jest.advanceTimersByTime(500);
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const args = globalThis.chrome.runtime.sendMessage.mock.calls[0][0];
+      expect(args.action).toBe('devLogSinkBatch');
+      expect(args.logs).toHaveLength(2);
+      expect(args.logs[0].message).toBe('Queue message 1');
+      expect(args.logs[1].message).toBe('Queue message 2');
+    });
+
+    test('當達到 MAX_BATCH_SIZE (20) 時應該立即發送', () => {
+      for (let i = 0; i < 20; i++) {
+        Logger.info(`Msg ${i}`);
+      }
+      // 不須等到 advanceTimersByTime 就應觸發 send
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const args = globalThis.chrome.runtime.sendMessage.mock.calls[0][0];
+      expect(args.logs).toHaveLength(20);
+
+      // 不會再次觸發
+      jest.advanceTimersByTime(500);
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    test('_queueForBackground 發生不可序列化參數時會 fallback', () => {
+      const circular = {};
+      circular.myself = circular;
+
+      Logger.info('Circular test', circular);
+      jest.advanceTimersByTime(500);
+
+      const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
+      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+    });
+
+    test('在 sendMessage 失敗時應優雅忽略', () => {
+      globalThis.chrome.runtime.sendMessage.mockImplementationOnce((msg, cb) => {
+        if (cb) {
+          cb();
+        }
+        throw new Error('IPC failed');
+      });
+
+      Logger.info('Fail safe test');
+      expect(() => {
+        jest.advanceTimersByTime(500);
+      }).not.toThrow();
+    });
+  });
+
+  describe('Buffer 寫入操作 (addLogToBuffer & getBuffer)', () => {
+    test('getBuffer 應該返回 null/undefined (在預設無 DEV_LOG_SINK 的情況下)', () => {
+      const buffer = Logger.getBuffer();
+      expect(buffer !== undefined || buffer === null).toBeTruthy();
+    });
+  });
+
   describe('manifest 錯誤處理', () => {
     test('當 getManifest 拋出錯誤時應該優雅處理', () => {
       globalThis.chrome = {

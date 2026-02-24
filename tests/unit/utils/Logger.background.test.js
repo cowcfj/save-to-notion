@@ -94,4 +94,61 @@ describe('Logger (背景環境整合測試)', () => {
     // 驗證物件結構被保留 (不是字串化)
     expect(context.reason).toBe(reasonObj);
   });
+
+  describe('addLogToBuffer (Background 模式)', () => {
+    let TestLogger;
+
+    beforeEach(() => {
+      // 模擬在啟動時有開啟 debug mode 的標誌 (可透過 chrome storage get)
+      globalThis.__NOTION_DEV_LOG_SINK = true;
+      jest.isolateModules(() => {
+        TestLogger = require('../../../scripts/utils/Logger.js').default;
+      });
+    });
+
+    afterEach(() => {
+      delete globalThis.__NOTION_DEV_LOG_SINK;
+    });
+
+    test('addLogToBuffer 正常運作：預設 source', () => {
+      const buffer = TestLogger.getBuffer();
+      expect(buffer).not.toBeNull();
+
+      TestLogger.addLogToBuffer({ level: 'info', message: 'test msg 1', context: {} });
+      const logs = buffer.getAll();
+      const lastLog = logs.at(-1);
+
+      expect(lastLog.message).toBe('test msg 1');
+      expect(lastLog.source).toBe('unknown');
+    });
+
+    test('addLogToBuffer 正常運作：指定 source', () => {
+      const buffer = TestLogger.getBuffer();
+      TestLogger.addLogToBuffer({
+        level: 'warn',
+        message: 'test msg 2',
+        context: {},
+        source: '/test.html',
+      });
+      const logs = buffer.getAll();
+      expect(logs.at(-1).source).toBe('/test.html');
+    });
+
+    test('addLogToBuffer 發生錯誤時應捕獲並記錄', () => {
+      const buffer = TestLogger.getBuffer();
+      const spyError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      jest.spyOn(buffer, 'push').mockImplementationOnce(() => {
+        throw new Error('Push exception');
+      });
+
+      TestLogger.addLogToBuffer({ level: 'error', message: 'err', context: {} });
+
+      expect(spyError).toHaveBeenCalledWith(
+        '添加外部日誌到緩衝區失敗',
+        expect.objectContaining({ action: 'addLogToBuffer' })
+      );
+      spyError.mockRestore();
+    });
+  });
 });
