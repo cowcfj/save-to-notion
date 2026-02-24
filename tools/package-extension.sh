@@ -48,6 +48,12 @@ cp -a dist "$RM_DIR/"
 # Copy scripts directory, excluding test-only and bundled directories
 rsync -a \
     --exclude='__mocks__' \
+    --exclude='background' \
+    --exclude='background.js' \
+    --exclude='config/extraction.js' \
+    --exclude='config/patterns.js' \
+    --exclude='config/ui-selectors.js' \
+    --exclude='config/README.md' \
     --exclude='content' \
     --exclude='highlighter' \
     --exclude='legacy' \
