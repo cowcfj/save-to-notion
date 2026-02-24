@@ -24,6 +24,9 @@ export const PERFORMANCE_OPTIMIZER = {
   MAX_BATCH_SIZE: 500, // Maximum batch size
   MIN_BATCH_SIZE: 10, // Minimum batch size
 
+  // Validation settings
+  MAX_VALIDATION_SAMPLE_SIZE: 5, // 抽樣驗證的最大元素數量
+
   // Next.js data processing settings
   MAX_NEXT_DATA_SIZE: 5 * 1024 * 1024, // 5MB - Safe upper limit for JSON.parse blocking the main thread
 };
@@ -462,7 +465,7 @@ class PerformanceOptimizer {
       return false;
     }
 
-    const MAX_VALIDATION_SAMPLE_SIZE = 5;
+    const MAX_VALIDATION_SAMPLE_SIZE = PERFORMANCE_OPTIMIZER.MAX_VALIDATION_SAMPLE_SIZE;
 
     try {
       // 單個元素

@@ -526,6 +526,32 @@ describe('Logger', () => {
         details: ['a', 'b', 123],
       });
     });
+
+    test('第一個參數為 Error 時應提取 message、stack、name', () => {
+      const err = new Error('something failed');
+      const result = parseArgsToContext([err]);
+      expect(result.message).toBe('something failed');
+      expect(result.name).toBe('Error');
+      expect(typeof result.stack).toBe('string');
+    });
+
+    test('Error 帶有自訂屬性時應一併保留', () => {
+      const err = new Error('api error');
+      err.code = 'ERR_NETWORK';
+      err.statusCode = 500;
+      const result = parseArgsToContext([err]);
+      expect(result.message).toBe('api error');
+      expect(result.code).toBe('ERR_NETWORK');
+      expect(result.statusCode).toBe(500);
+    });
+
+    test('Error 加上額外參數時應存入 details', () => {
+      const err = new TypeError('type mismatch');
+      const result = parseArgsToContext([err, 'extra', 42]);
+      expect(result.message).toBe('type mismatch');
+      expect(result.name).toBe('TypeError');
+      expect(result.details).toEqual(['extra', 42]);
+    });
   });
 
   describe('manifest 錯誤處理', () => {

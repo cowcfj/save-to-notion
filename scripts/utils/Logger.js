@@ -220,6 +220,24 @@ function parseArgsToContext(args) {
   if (!Array.isArray(args) || args.length === 0) {
     return {};
   }
+  // Error 的 message/stack/name 為 non-enumerable，展開運算子會遺失
+  if (args[0] instanceof Error) {
+    const err = args[0];
+    const context = {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+    };
+    for (const key of Object.getOwnPropertyNames(err)) {
+      if (!(key in context)) {
+        context[key] = err[key];
+      }
+    }
+    if (args.length > 1) {
+      context.details = args.slice(1);
+    }
+    return context;
+  }
   if (typeof args[0] === 'object' && args[0] !== null) {
     const context = { ...args[0] };
     if (args.length > 1) {
