@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.36.0](https://github.com/cowcfj/save-to-notion/compare/v2.35.0...v2.36.0) (2026-02-24)
+
+
+### ✨ 新功能
+
+* **logger:** 增強錯誤處理的上下文提取功能 ([086dee0](https://github.com/cowcfj/save-to-notion/commit/086dee03e8150b77c4a61fb8d7df4042ab3bcd98))
+* 優化代碼註解與存儲邏輯 ([#273](https://github.com/cowcfj/save-to-notion/issues/273)) ([4cb47cb](https://github.com/cowcfj/save-to-notion/commit/4cb47cbc80ac0e10ca4d7189e124c1463ae8195f))
+* 統一 UI 語言為繁體中文 ([#276](https://github.com/cowcfj/save-to-notion/issues/276)) ([0677430](https://github.com/cowcfj/save-to-notion/commit/067743096b18da55544258469e7a39f082413a2e))
+
+
+### ♻️ 代碼重構
+
+* 重構 StorageUtil 測試中的舊版 Storage 資料解析邏輯 ([4cb47cb](https://github.com/cowcfj/save-to-notion/commit/4cb47cbc80ac0e10ca4d7189e124c1463ae8195f))
+
 ## [2.35.0](https://github.com/cowcfj/save-to-notion/compare/v2.34.0...v2.35.0) (2026-02-22)
 
 
