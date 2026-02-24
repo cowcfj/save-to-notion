@@ -72,11 +72,11 @@ function formatMessage(level, args) {
 }
 
 /**
- * 將日誌加入待發送佇列（節流批量轉發檀制）
+ * 將日誌加入待發送佇列（節流批量轉發機制）
  *
  * 創建節流計時器：500ms 內無新日誌則批量發送，
  * 或累積至 MAX_BATCH_SIZE 條立即發送。
- * warn/error 級別則玉過此機制直接發送。
+ * warn/error 級別則略過此機制直接發送。
  *
  * @param {string} level - 日誌級別字符串
  * @param {string} message - 主訊息

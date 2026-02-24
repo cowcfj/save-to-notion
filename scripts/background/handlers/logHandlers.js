@@ -46,6 +46,24 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
 };
 
 /**
+ * 驗證日誌來源請求的合法性
+ * 允許來自擴充功能內部（Popup/Options）或 Content Script 的請求
+ *
+ * @param {object} sender - 訊息發送者資訊
+ * @returns {object|null} 驗證失敗時回傳錯誤物件，成功時回傳 null
+ */
+function validateLogSourceRequest(sender) {
+  const internalError = validateInternalRequest(sender);
+  if (internalError) {
+    const csError = validateContentScriptRequest(sender);
+    if (csError) {
+      return csError;
+    }
+  }
+  return null;
+}
+
+/**
  * 將日誌 args 陣列解析為 context 物件
  *
  * @param {Array} args - 日誌額外參數
@@ -73,15 +91,10 @@ function parseArgsToContext(args) {
  * @param {Function} sendResponse - 回應回調
  */
 export const handleDevLogSink = (message, sender, sendResponse) => {
-  // 安全性驗證：確保請求來自擴充功能內部或 Content Script
-  // 優先允許內部請求，如果不是內部請求則檢查是否為我們的 Content Script
-  const internalError = validateInternalRequest(sender);
-  if (internalError) {
-    const csError = validateContentScriptRequest(sender);
-    if (csError) {
-      sendResponse(csError);
-      return;
-    }
+  const validationError = validateLogSourceRequest(sender);
+  if (validationError) {
+    sendResponse(validationError);
+    return;
   }
 
   try {
@@ -115,14 +128,10 @@ export const handleDevLogSink = (message, sender, sendResponse) => {
  * @param {Function} sendResponse - 回應回調函數
  */
 export const handleDevLogSinkBatch = (message, sender, sendResponse) => {
-  // 安全性驗證：和單條版相同
-  const internalError = validateInternalRequest(sender);
-  if (internalError) {
-    const csError = validateContentScriptRequest(sender);
-    if (csError) {
-      sendResponse(csError);
-      return;
-    }
+  const validationError = validateLogSourceRequest(sender);
+  if (validationError) {
+    sendResponse(validationError);
+    return;
   }
 
   try {
