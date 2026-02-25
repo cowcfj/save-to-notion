@@ -190,14 +190,16 @@ describe('migrationHandlers', () => {
       const urls = ['https://a.com', 'https://b.com'];
       const sendResponse = jest.fn();
 
-      chrome.storage.local.get.mockImplementation(key => {
-        if (key === 'highlights_https://a.com') {
-          return Promise.resolve({ 'highlights_https://a.com': [{ id: '1' }] });
+      chrome.storage.local.get.mockImplementation(keysArg => {
+        // keysArg 現在是陣列，需要回傳對應的 key 值
+        const result = {};
+        if (Array.isArray(keysArg) && keysArg.includes('highlights_https://a.com')) {
+          result['highlights_https://a.com'] = [{ id: '1' }];
         }
-        if (key === 'highlights_https://b.com') {
-          return Promise.resolve({ 'highlights_https://b.com': [{ id: '2' }] });
+        if (Array.isArray(keysArg) && keysArg.includes('highlights_https://b.com')) {
+          result['highlights_https://b.com'] = [{ id: '2' }];
         }
-        return Promise.resolve({});
+        return Promise.resolve(result);
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
@@ -237,9 +239,10 @@ describe('migrationHandlers', () => {
       );
 
       // 刪除原始 key 以避免 migration_get_pending 重複計算
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
-        'highlights_https://a.com/original-slug'
-      );
+      // _removeLegacyKeys 現在傳入陣列（keysToRemove），而非單個字串
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith([
+        'highlights_https://a.com/original-slug',
+      ]);
 
       // 確保回報的 url 是 stableUrl
       expect(sendResponse).toHaveBeenCalledWith(

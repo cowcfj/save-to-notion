@@ -25,13 +25,82 @@ import { computeStableUrl } from '../../utils/urlUtils.js';
  * @param {string} url - 原始 URL
  * @returns {Promise<object>} 返回執行結果狀態與詳細資訊
  */
+/**
+ * 組合寫入資料：highlights_ 與 saved_（若符合搬移條件）
+ *
+ * @param {string} writeKey - highlights_ 目標 key
+ * @param {string} finalUrl - 目標穩定 URL
+ * @param {Array} newHighlights - 轉換後的標註陣列
+ * @param {boolean} shouldMigrateToStable - 是否需要遷移到穩定 key
+ * @param {object} storageResult - storage 批量讀取結果
+ * @param {string} savedKey - 舊 saved_ key
+ * @param {string|null} savedStableKey - 穩定 saved_ key
+ * @returns {object} 待寫入的 storage 資料
+ */
+function _buildWriteData(
+  writeKey,
+  finalUrl,
+  newHighlights,
+  shouldMigrateToStable,
+  storageResult,
+  savedKey,
+  savedStableKey
+) {
+  const writeData = { [writeKey]: { url: finalUrl, highlights: newHighlights } };
+  if (
+    shouldMigrateToStable &&
+    storageResult[savedKey] &&
+    savedStableKey &&
+    !storageResult[savedStableKey]
+  ) {
+    // saved_ 在舊 URL 下存在，且穩定 URL 下尚無資料 → 一起搬移
+    writeData[savedStableKey] = storageResult[savedKey];
+  }
+  return writeData;
+}
+
+/**
+ * 刪除舊版 key（highlights_ 及已搬移的 saved_）
+ *
+ * @param {string} pageKey - 舊 highlights_ key
+ * @param {boolean} shouldMigrateToStable - 是否已遷移到穩定 key
+ * @param {object} storageResult - storage 批量讀取結果
+ * @param {string} savedKey - 舊 saved_ key
+ * @param {string|null} savedStableKey - 穩定 saved_ key
+ * @returns {Promise<void>}
+ */
+async function _removeLegacyKeys(
+  pageKey,
+  shouldMigrateToStable,
+  storageResult,
+  savedKey,
+  savedStableKey
+) {
+  const keysToRemove = [pageKey];
+  if (shouldMigrateToStable && storageResult[savedKey] && savedStableKey) {
+    keysToRemove.push(savedKey);
+  }
+  await chrome.storage.local.remove(keysToRemove);
+}
+
 async function _migrateSingleUrl(url) {
   const pageKey = `highlights_${url}`;
 
-  // 同步計算穩定 URL（無需 async），並批量讀取兩個 key 以縮小 TOCTOU 窗口
+  // 同步計算穩定 URL（無需 async），並批量讀取所有相關 key 以縮小 TOCTOU 窗口
   const stableUrl = computeStableUrl(url);
   const stableKey = stableUrl && stableUrl !== url ? `highlights_${stableUrl}` : null;
-  const keysToFetch = stableKey ? [pageKey, stableKey] : pageKey;
+
+  // 同時讀取 saved_ 狀態，確保遷移時不孤立 Notion 保存狀態
+  const savedKey = `saved_${url}`;
+  const savedStableKey = stableUrl && stableUrl !== url ? `saved_${stableUrl}` : null;
+  const keysToFetch = [pageKey];
+  if (stableKey) {
+    keysToFetch.push(stableKey);
+  }
+  keysToFetch.push(savedKey);
+  if (savedStableKey) {
+    keysToFetch.push(savedStableKey);
+  }
 
   const storageResult = await chrome.storage.local.get(keysToFetch);
   const data = storageResult[pageKey];
@@ -66,12 +135,27 @@ async function _migrateSingleUrl(url) {
   const finalUrl = shouldMigrateToStable ? stableUrl : url;
   const writeKey = shouldMigrateToStable ? stableKey : pageKey;
 
-  // 單次 set 寫入目標 key
-  await chrome.storage.local.set({ [writeKey]: { url: finalUrl, highlights: newHighlights } });
+  // 原子寫入：highlights_ 與 saved_（若存在）一起搬移
+  const writeData = _buildWriteData(
+    writeKey,
+    finalUrl,
+    newHighlights,
+    shouldMigrateToStable,
+    storageResult,
+    savedKey,
+    savedStableKey
+  );
+  await chrome.storage.local.set(writeData);
 
-  // 若完成穩定遷移，或 stableKey 已存在資料（pageKey 為重複 key），刪除原始 key 避免 migration_get_pending 重複計算
+  // 若完成穩定遷移，刪除舊 key（highlights_ 及已搬移的 saved_）
   if (stableKey) {
-    await chrome.storage.local.remove(pageKey);
+    await _removeLegacyKeys(
+      pageKey,
+      shouldMigrateToStable,
+      storageResult,
+      savedKey,
+      savedStableKey
+    );
   }
 
   return {
