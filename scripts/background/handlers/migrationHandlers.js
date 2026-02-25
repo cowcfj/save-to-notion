@@ -58,7 +58,7 @@ async function _migrateUrlKey(url, stableUrl, newHighlights, storageService, raw
   const savedData = rawStorageResult[savedKey] || null;
   const savedStableExists = Boolean(rawStorageResult[savedStableKey]);
 
-  // 原子寫入：highlights_ 到穩定 URL，同時遷移 saved_（若穩定 URL 岚無）
+  // 原子寫入：highlights_ 到穩定 URL，同時遷移 saved_（若穩定 URL 尚無）
   await storageService.savePageDataAndHighlights(
     stableUrl,
     !savedStableExists && savedData ? savedData : null,
