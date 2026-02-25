@@ -1,5 +1,13 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.36.2](https://github.com/cowcfj/save-to-notion/compare/v2.36.1...v2.36.2) (2026-02-25)
+
+
+### 🐛 Bug 修復
+
+* **security:** 審核修復 — 移除不必要的 DOMParser 並添加 workflow 權限限制 ([#281](https://github.com/cowcfj/save-to-notion/issues/281)) ([6feaa90](https://github.com/cowcfj/save-to-notion/commit/6feaa9057383cf250956b578946a5b62afb2f0fb))
+* 更新模組引入路徑以提高穩定性 ([#279](https://github.com/cowcfj/save-to-notion/issues/279)) ([d9a3f28](https://github.com/cowcfj/save-to-notion/commit/d9a3f28a548626a0f12465bd9e7373a59ae5090b))
+
 ## [2.36.1](https://github.com/cowcfj/save-to-notion/compare/v2.36.0...v2.36.1) (2026-02-24)
 
 
