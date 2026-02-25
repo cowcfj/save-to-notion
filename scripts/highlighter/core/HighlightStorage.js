@@ -90,7 +90,7 @@ export class HighlightStorage {
       // 由於使用 CSS Custom Highlight API，不會修改 DOM 結構，因此沒有競態條件問題
       const restorePromises = highlights.map(async item => {
         try {
-          const result = this.manager.restoreLocalHighlight(item);
+          const result = await this.manager.restoreLocalHighlight(item);
           return result ? 1 : 0;
         } catch (error) {
           Logger.warn(`Failed to restore highlight ${item.id}`, error);

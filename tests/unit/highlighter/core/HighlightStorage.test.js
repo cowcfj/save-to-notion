@@ -135,7 +135,7 @@ describe('core/HighlightStorage', () => {
         { id: 'h2', text: 'test2', color: 'green' },
       ];
       StorageUtil.loadHighlights.mockResolvedValue(mockData);
-      mockManager.restoreLocalHighlight = jest.fn().mockReturnValue(true);
+      mockManager.restoreLocalHighlight = jest.fn().mockResolvedValue(true);
       mockManager.clearAll = jest.fn();
 
       const result = await storage.restore();
@@ -185,7 +185,7 @@ describe('core/HighlightStorage', () => {
         return [];
       });
 
-      mockManager.restoreLocalHighlight = jest.fn().mockReturnValue(true);
+      mockManager.restoreLocalHighlight = jest.fn().mockResolvedValue(true);
 
       const result = await storage.restore();
 

@@ -4,10 +4,7 @@
 
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
-import {
-  deserializeRange,
-  findRangeByTextContent,
-} from '../../../../scripts/highlighter/core/Range.js';
+import { restoreRangeWithRetry } from '../../../../scripts/highlighter/core/Range.js';
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
@@ -33,8 +30,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
 
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
   serializeRange: jest.fn(),
-  deserializeRange: jest.fn(),
-  findRangeByTextContent: jest.fn(),
+  restoreRangeWithRetry: jest.fn(),
 }));
 
 describe('core/HighlightManager', () => {
@@ -460,7 +456,7 @@ describe('core/HighlightManager', () => {
   });
 
   describe('restoreLocalHighlight', () => {
-    test('should restore highlight from valid item', () => {
+    test('should restore highlight from valid item', async () => {
       const item = {
         id: 'h1',
         text: 'test',
@@ -468,24 +464,84 @@ describe('core/HighlightManager', () => {
         rangeInfo: { startContainer: [], endContainer: [] }, // simplified mock
       };
 
-      // Mock deserializeRange
+      // Mock restoreRangeWithRetry
       const mockRange = document.createRange();
-      jest.mocked(deserializeRange).mockReturnValue(mockRange);
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
 
-      const result = manager.restoreLocalHighlight(item);
+      const result = await manager.restoreLocalHighlight(item);
 
       expect(result).toBe(true);
+      expect(restoreRangeWithRetry).toHaveBeenCalledWith(item.rangeInfo, item.text);
       expect(manager.highlights.size).toBe(1);
       expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('yellow');
     });
 
-    test('should return false if range creation fails', () => {
-      const item = { id: 'h1', text: 'test' };
-      jest.mocked(deserializeRange).mockReturnValue(null);
-      jest.mocked(findRangeByTextContent).mockReturnValue(null);
+    test('should auto-generate ID when item.id is undefined', async () => {
+      const item = {
+        text: 'auto-id test',
+        color: 'blue',
+        rangeInfo: { startContainer: [], endContainer: [] },
+      };
 
-      const result = manager.restoreLocalHighlight(item);
+      const mockRange = document.createRange();
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+
+      const initialNextId = manager.nextId;
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(true);
+      expect(manager.highlights.size).toBe(1);
+      expect(manager.highlights.has(`h${initialNextId}`)).toBe(true);
+      expect(manager.nextId).toBe(initialNextId + 1);
+      expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('blue');
+    });
+
+    test('should return false if range creation fails', async () => {
+      const item = { id: 'h1', text: 'test' };
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(null);
+
+      const result = await manager.restoreLocalHighlight(item);
       expect(result).toBe(false);
+    });
+
+    test('should rollback highlight when applyHighlightAPI returns false', async () => {
+      const item = {
+        id: 'h5',
+        text: 'rollback test',
+        color: 'invalid-color',
+        rangeInfo: { startContainer: [], endContainer: [] },
+      };
+
+      const mockRange = document.createRange();
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      mockStyleManager.getHighlightObject.mockReturnValueOnce(null);
+
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(false);
+      expect(manager.highlights.size).toBe(0);
+    });
+
+    test('should cleanup stale entry when applyHighlightAPI throws', async () => {
+      const item = {
+        id: 'h7',
+        text: 'throw test',
+        color: 'yellow',
+        rangeInfo: { startContainer: [], endContainer: [] },
+      };
+
+      const mockRange = document.createRange();
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      jest.spyOn(manager, 'applyHighlightAPI').mockImplementation(() => {
+        throw new Error('styleManager failure');
+      });
+
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(false);
+      expect(manager.highlights.size).toBe(0);
+
+      manager.applyHighlightAPI.mockRestore();
     });
   });
 });
