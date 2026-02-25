@@ -384,9 +384,10 @@ export class HighlightManager {
    * @returns {Promise<boolean>}
    */
   async restoreLocalHighlight(item) {
+    let id;
     try {
       // 確保 id 存在且為字串，若無則生成新 ID
-      const id = item.id ? String(item.id) : `h${this.nextId++}`;
+      id = item.id ? String(item.id) : `h${this.nextId++}`;
 
       // 使用 restoreRangeWithRetry：含 expectedText 驗證、prefix/suffix消歧義、DOM穩定性重試
       const range = await restoreRangeWithRetry(item.rangeInfo, item.text);
@@ -403,7 +404,14 @@ export class HighlightManager {
         };
 
         this.highlights.set(id, highlight);
-        this.applyHighlightAPI(range, highlight.color);
+
+        // 應用視覺效果，失敗時回滾（與 addHighlight 模式一致）
+        const applied = this.applyHighlightAPI(range, highlight.color);
+        if (!applied) {
+          this.highlights.delete(id);
+          Logger.warn('無法應用視覺效果，恢復標註已取消', { action: 'restoreLocalHighlight', id });
+          return false;
+        }
 
         // 更新 nextId 以避免衝突
         const numId = Number.parseInt(id.replace('h', ''), 10);
@@ -414,6 +422,10 @@ export class HighlightManager {
         return true;
       }
     } catch (error) {
+      // 清理可能殘留的 Map 條目（防止 applyHighlightAPI 拋出異常時的殘留）
+      if (id) {
+        this.highlights.delete(id);
+      }
       Logger.warn('恢復標註失敗', {
         action: 'restoreLocalHighlight',
         id: item.id,
