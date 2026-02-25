@@ -239,15 +239,24 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始刪除', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
 
-        // 同時檢查原始 URL 和穩定 URL 下的數據
+        // 同時檢查原始 URL 和穩定 URL 下的 highlights_ 與 saved_ 資料
         const resolvedUrl = computeStableUrl(url);
-        const dataAtOriginal = await storageService.getHighlights(url);
-        const dataAtStable =
-          resolvedUrl && resolvedUrl !== url
-            ? await storageService.getHighlights(resolvedUrl)
-            : null;
+        const effectiveUrl = resolvedUrl && resolvedUrl !== url ? resolvedUrl : null;
 
-        if (!dataAtOriginal && !dataAtStable) {
+        const [dataAtOriginal, savedAtOriginal] = await Promise.all([
+          storageService.getHighlights(url),
+          storageService.getSavedPageData(url),
+        ]);
+        const [dataAtStable, savedAtStable] = effectiveUrl
+          ? await Promise.all([
+              storageService.getHighlights(effectiveUrl),
+              storageService.getSavedPageData(effectiveUrl),
+            ])
+          : [null, null];
+
+        // 只要任一 key 有資料就視為「存在」
+        const hasAnyData = dataAtOriginal || savedAtOriginal || dataAtStable || savedAtStable;
+        if (!hasAnyData) {
           sendResponse({ success: true, message: '數據不存在，無需刪除' });
           return;
         }
@@ -255,8 +264,8 @@ export function createMigrationHandlers(services) {
         // 清理原始 URL 的 keys
         await storageService.clearLegacyKeys(url);
         // 若穩定 URL 不同，也清理穩定 URL 的 keys
-        if (resolvedUrl && resolvedUrl !== url) {
-          await storageService.clearLegacyKeys(resolvedUrl);
+        if (effectiveUrl) {
+          await storageService.clearLegacyKeys(effectiveUrl);
         }
 
         Logger.log('刪除完成', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
@@ -547,8 +556,10 @@ export function createMigrationHandlers(services) {
         const deletedCount = highlights.length - remainingHighlights.length;
 
         if (remainingHighlights.length === 0) {
-          // 沒有剩餘標註，刪除整個 key
-          await storageService.clearLegacyKeys(url);
+          // 沒有剩餘標註，僅刪除 highlights_ key
+          // 刻意不呼叫 clearLegacyKeys（會連 saved_ 頁面狀態一起刪）
+          // 用空陣列更新讓 key 保持結構完整，由呼叫端或 migration_delete 負責後續清理
+          await storageService.updateHighlights(url, []);
         } else {
           // 使用 StorageService.updateHighlights 更新（保留其他欄位）
           await storageService.updateHighlights(url, remainingHighlights);

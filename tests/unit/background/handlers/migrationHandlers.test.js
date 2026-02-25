@@ -189,14 +189,38 @@ describe('migrationHandlers', () => {
       const url = 'https://example.com/no-data';
       const sendResponse = jest.fn();
 
-      // StorageService.getHighlights 回傳 null
+      // highlights_ 和 saved_ 均為 null
       mockStorageService.getHighlights.mockResolvedValue(null);
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
 
       await handlers.migration_delete({ url }, defaultSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ message: '數據不存在，無需刪除' })
       );
+    });
+
+    test('仅有 saved_ 資料時也應識別為「存在」並清理', async () => {
+      const url = 'https://example.com/saved-only';
+      const sendResponse = jest.fn();
+
+      // highlights_ 為 null，但 saved_ 有資料
+      mockStorageService.getHighlights.mockResolvedValue(null);
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-abc',
+        notionUrl: 'https://notion.so/page-abc',
+        title: 'My Page',
+        lastUpdated: Date.now(),
+        savedAt: Date.now(),
+      });
+
+      await handlers.migration_delete({ url }, defaultSender, sendResponse);
+
+      // 應識別為存在並執行刪除（不應回傳「不存在」）
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: '成功刪除標註數據' })
+      );
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(url);
     });
 
     test('應該同時檢查並清理原始 URL 和穩定 URL 的數據', async () => {
@@ -314,7 +338,7 @@ describe('migrationHandlers', () => {
       const savedData = { title: 'My Page', notionPageId: 'page-123' };
 
       chrome.storage.local.get.mockResolvedValue({
-        [`highlights_${oldUrl}`]: {
+        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
           url: oldUrl,
           highlights: [{ id: '1', text: 'highlight text' }],
         },
@@ -473,7 +497,7 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('所有標註都失敗時應刪除整個 key', async () => {
+    test('所有標註都失敗時應清空 highlights_ key（保留 saved_）', async () => {
       const url = 'https://example.com/all-failed';
       const sendResponse = jest.fn();
       const existingData = {
@@ -485,9 +509,9 @@ describe('migrationHandlers', () => {
 
       await handlers.migration_delete_failed({ url }, defaultSender, sendResponse);
 
-      // 沒有剩餘標註 → 呼叫 clearLegacyKeys
-      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(url);
-      expect(mockStorageService.updateHighlights).not.toHaveBeenCalled();
+      // 沒有剩餘標註 → 用空陣列更新 highlights（不調用 clearLegacyKeys 以保留 saved_）
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(url, []);
+      expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, deletedCount: 1 })
       );
