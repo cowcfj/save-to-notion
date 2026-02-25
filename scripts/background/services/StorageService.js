@@ -361,6 +361,74 @@ class StorageService {
   }
 
   /**
+   * 獲取所有 highlights_* 的資料（用於遷移掃描）
+   *
+   * 回傳格式：
+   * ```
+   * {
+   *   "https://example.com": { url, highlights: [...] },
+   *   ...
+   * }
+   * ```
+   *
+   * @returns {Promise<Record<string, object>>} key 為 URL，value 為完整標註資料
+   */
+  async getAllHighlights() {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    try {
+      const allData = await this.storage.local.get(null);
+      const result = {};
+      for (const [key, value] of Object.entries(allData)) {
+        if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+          const url = key.slice(HIGHLIGHTS_PREFIX.length);
+          result[url] = value;
+        }
+      }
+      return result;
+    } catch (error) {
+      this.logger.error?.('[StorageService] getAllHighlights failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 更新指定 URL 的標註陣列（保留其他欄位）
+   *
+   * 若更新後陣列為空，**不**自動刪除 key（由呼叫端決定是否刪除）。
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {Array} highlights - 更新後的標註陣列
+   * @returns {Promise<void>}
+   */
+  async updateHighlights(pageUrl, highlights) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+    try {
+      // 讀取現有資料以保留其他欄位（如 url、lastUpdated）
+      const existing = await this.storage.local.get([key]);
+      const currentData = existing[key];
+
+      const newData =
+        currentData && !Array.isArray(currentData)
+          ? { ...currentData, highlights }
+          : { url: normalizedUrl, highlights };
+
+      await this.storage.local.set({ [key]: newData });
+    } catch (error) {
+      this.logger.error?.('[StorageService] updateHighlights failed', { error });
+      throw error;
+    }
+  }
+
+  /**
    * 獲取所有已保存頁面的 URL
    *
    * @returns {Promise<string[]>}
@@ -385,4 +453,4 @@ class StorageService {
 // 導出
 export { StorageService };
 export { TRACKING_PARAMS as URL_TRACKING_PARAMS, normalizeUrl } from '../../utils/urlUtils.js';
-export {URL_ALIAS_PREFIX} from '../../config/constants.js';
+export { URL_ALIAS_PREFIX } from '../../config/constants.js';
