@@ -1,4 +1,25 @@
-import { SENSITIVE_KEY_PATTERN, LOGGING_SAFE_HEADERS } from '../config/index.js';
+/**
+ * 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
+ * `auth(?![a-z])` 匹配 auth、auth_token，但排除 author、authorName
+ * `token(?![a-z])` 匹配 token、privateToken，但排除 tokenCount、tokenizer
+ * `_?key\b` 精確匹配 apiKey、api_key 等，避免誤判 keyboard、keydown
+ * 用於日誌脫敏，集中在此維持高內聚
+ */
+const SENSITIVE_KEY_PATTERN =
+  /auth(?![a-z])|token(?![a-z])|secret|credential|password|pwd|_?key\b|cookie|session|authorization|bearer|viewer/i;
+
+/**
+ * 安全的 HTTP Headers 白名單（不包含敏感資訊）
+ * 用於日誌脫敏，集中在此維持高內聚
+ */
+const LOGGING_SAFE_HEADERS = [
+  'content-type',
+  'content-length',
+  'user-agent',
+  'accept',
+  'accept-language',
+  'cache-control',
+];
 
 const MAX_DEPTH = 3;
 const SANITIZED_LABEL = '[REDACTED_TOKEN]';
@@ -78,7 +99,7 @@ export const LogSanitizer = {
       return [];
     }
 
-    // Map returns a new array, deep cloning is done during sanitization properties
+    // map 回傳新陣列；深拷貝已在 sanitizeEntry 的遞歸清理中完成
     return logs.map(log => ({
       ...log,
       ...this.sanitizeEntry(log.message, log.context, options),
@@ -103,8 +124,13 @@ export const LogSanitizer = {
       return value;
     }
 
-    // 處理循環引用
-    if (typeof value === 'object' || typeof value === 'function') {
+    // 函式直接回傳標記，不加入 seen（避免共享引用被誤判為循環）
+    if (typeof value === 'function') {
+      return '[Function]';
+    }
+
+    // 處理循環引用（僅適用於物件）
+    if (typeof value === 'object') {
       if (seen.has(value)) {
         return '[Circular]';
       }
@@ -115,19 +141,20 @@ export const LogSanitizer = {
       return this._sanitizeString(value);
     }
 
+    let result;
     if (Array.isArray(value)) {
-      return this._sanitizeArray(value, depth, seen, options);
+      result = this._sanitizeArray(value, depth, seen, options);
+    } else if (value instanceof Error) {
+      result = this._sanitizeError(value, depth, seen, options);
+    } else if (typeof value === 'object') {
+      result = this._sanitizeObject(value, depth, seen, options);
+    } else {
+      return value;
     }
 
-    if (value instanceof Error) {
-      return this._sanitizeError(value, depth, seen, options);
-    }
-
-    if (typeof value === 'object') {
-      return this._sanitizeObject(value, depth, seen, options);
-    }
-
-    return value;
+    // DFS 回溯：處理完畢後移除，避免共享引用被誤判為循環
+    seen.delete(value);
+    return result;
   },
 
   /**
@@ -268,6 +295,11 @@ export const LogSanitizer = {
           sanitized =
             sanitized.slice(0, Math.max(0, prefixEnd + 3)) +
             sanitized.slice(Math.max(0, lastSep + 1));
+        } else if (lastSep !== -1) {
+          // 無 "at " 前綴時，保留路徑前文字並移除目錄部分只保留檔名
+          const firstSep = sanitized.indexOf('/');
+          sanitized =
+            sanitized.slice(0, Math.max(0, firstSep)) + sanitized.slice(Math.max(0, lastSep + 1));
         }
       }
 
@@ -287,8 +319,6 @@ export const LogSanitizer = {
   },
 
   /**
-   * 清理字串內容
-   *
    * 清理字串內容
    *
    * @param {string|*} str - 輸入字串（如果不是字串將嘗試轉換）

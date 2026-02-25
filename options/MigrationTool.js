@@ -3,7 +3,7 @@
  * 負責舊版標註數據的遷移 UI 與協調
  */
 /* global chrome */
-import { UI_ICONS } from '../scripts/config/index.js';
+import { UI_ICONS } from '../scripts/config/icons.js';
 import { COMMON_CSS_CLASSES } from '../scripts/config/constants.js';
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';

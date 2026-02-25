@@ -20,7 +20,7 @@ import {
   formatSaveSuccessMessage,
 } from './popupUI.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
-import { UI_ICONS } from '../scripts/config/index.js';
+import { UI_ICONS } from '../scripts/config/icons.js';
 import {
   checkSettings,
   checkPageStatus,

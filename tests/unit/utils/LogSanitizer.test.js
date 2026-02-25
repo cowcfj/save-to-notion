@@ -47,7 +47,7 @@ describe('LogSanitizer', () => {
       expect(ctx.user.email).not.toContain('admin@test.com');
       expect(ctx.user.apiKey).toBe('[REDACTED_SENSITIVE_KEY]');
       expect(ctx.raw).toContain('[REDACTED_TOKEN]');
-      // URL sanitization (from securityUtils)
+      // URL sanitization (from LogSanitizer)
       expect(ctx.url).toBe('https://notion.so/my-page-123'); // Path is preserved by default sanitizeUrl logic unless specific rules apply
     });
 
@@ -197,6 +197,40 @@ describe('LogSanitizer', () => {
       expect(sanitized[0].context.normalField).toBe('safe-value');
     });
 
+    test('should not over-redact non-sensitive keys containing common words', () => {
+      const logs = [
+        {
+          context: {
+            api_version: '2024-01-01',
+            accessLevel: 'admin',
+            isPrivate: false,
+            keyboardShortcut: 'Ctrl+S',
+            refreshInterval: 30_000,
+            authorName: 'John Doe',
+            tokenCount: 42,
+            // 以下仍應被遮蔽
+            apiKey: 'secret-123',
+            access_key: 'AKIAIOSFODNN7',
+            privateToken: 'pt_abc123',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      // 非敏感欄位應保留原值
+      expect(sanitized[0].context.api_version).toBe('2024-01-01');
+      expect(sanitized[0].context.accessLevel).toBe('admin');
+      expect(sanitized[0].context.isPrivate).toBe(false);
+      expect(sanitized[0].context.keyboardShortcut).toBe('Ctrl+S');
+      expect(sanitized[0].context.refreshInterval).toBe(30_000);
+      expect(sanitized[0].context.authorName).toBe('John Doe');
+      expect(sanitized[0].context.tokenCount).toBe(42);
+      // 敏感欄位仍應被遮蔽
+      expect(sanitized[0].context.apiKey).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.access_key).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.privateToken).toBe('[REDACTED_SENSITIVE_KEY]');
+    });
+
     test('should redact Bearer token in string values', () => {
       const logs = [
         {
@@ -209,9 +243,9 @@ describe('LogSanitizer', () => {
       ];
 
       const sanitized = LogSanitizer.sanitize(logs);
-      // 在 message 字串中，因為不是整個字串都是 Bearer token，所以不會被替換
-      // authHeader 因為鍵名匹配而被脫敏
-      expect(sanitized[0].context.authHeader).toBe('[REDACTED_SENSITIVE_KEY]');
+      // authHeader 鍵名不再被 auth 模式誤匹配（auth 後接字母 H），
+      // 但值中的 Bearer token 仍被 _sanitizeString 的 Bearer 模式正確脫敏
+      expect(sanitized[0].context.authHeader).toBe('[REDACTED_AUTH_HEADER]');
       // plainValue 的鍵名安全，但值符合 Basic token 格式
       expect(sanitized[0].context.plainValue).toBe('[REDACTED_AUTH_HEADER]');
     });
@@ -284,6 +318,27 @@ describe('LogSanitizer', () => {
       expect(sanitizedStack).toContain('exportDebugLogs');
     });
 
+    test('should sanitize file paths without "at " prefix in stack traces', () => {
+      const error = new Error('ENOENT');
+      error.stack = 'Error: ENOENT: /home/user/project/file.js';
+
+      const logs = [
+        {
+          message: 'File error',
+          context: { error },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      const sanitizedStack = sanitized[0].context.error.stack;
+
+      // 應移除目錄路徑，只保留檔名
+      expect(sanitizedStack).toContain('file.js');
+      expect(sanitizedStack).not.toContain('/home/user/project/');
+      // 應保留錯誤前綴
+      expect(sanitizedStack).toContain('Error: ENOENT:');
+    });
+
     describe('Advanced Pattern Redaction', () => {
       test('should redact embedded Bearer tokens in strings', () => {
         const msg =
@@ -321,6 +376,55 @@ describe('LogSanitizer', () => {
         expect(sanitized[0].message).not.toContain(apiKey);
         expect(sanitized[0].message).toContain('[REDACTED_API_KEY]');
       });
+    });
+
+    test('should handle function values in context objects', () => {
+      const logs = [
+        {
+          context: {
+            callback: () => {},
+            normalField: 'safe-value',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.callback).toBe('[Function]');
+      expect(sanitized[0].context.normalField).toBe('safe-value');
+    });
+
+    test('should not treat shared function references as circular', () => {
+      const sharedFn = () => {};
+      const logs = [
+        {
+          context: {
+            handler: sharedFn,
+            callback: sharedFn,
+            items: [sharedFn],
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.handler).toBe('[Function]');
+      expect(sanitized[0].context.callback).toBe('[Function]');
+      expect(sanitized[0].context.items[0]).toBe('[Function]');
+    });
+
+    test('should not treat shared object references as circular', () => {
+      const shared = { x: 1 };
+      const logs = [
+        {
+          context: {
+            a: shared,
+            b: shared,
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.a).toEqual({ x: 1 });
+      expect(sanitized[0].context.b).toEqual({ x: 1 });
     });
 
     describe('_sanitizeString edge cases', () => {

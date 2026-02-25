@@ -12,7 +12,7 @@
 
 - `constants.js`: 核心常數 (API 端點、上限配置等)
 - `messages.js`: 所有的 UI 顯示文字與錯誤訊息
-- `index.js`: 提供給 Background/Popup/Options 統一引入路徑的聚合檔
+- `index.js`: 提供給 Background 模組統一引入路徑的聚合檔。**注意：UI 擴充環境 (Popup/Options/Side Panel) 請避免使用此聚合檔，以免連帶引入被打包腳本排除的模組而引發錯誤。**
 
 > **🚨 開發預警 / Warning**
 > 修改這些共用檔案時，請注意不可引入需要特定 Web API（如 `window`、`document`）或特定 Chrome API（如 `chrome.tabs.*`）的操作，以確保它在跨環境中都是安全的常數定義。
