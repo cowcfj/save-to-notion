@@ -18,13 +18,8 @@ import {
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
+import { SAVED_PREFIX, HIGHLIGHTS_PREFIX } from '../../config/constants.js';
 
-/**
- * 處理單個 URL 的遷移邏輯，包含穩定 URL 檢查與資料轉移
- *
- * @param {string} url - 原始 URL
- * @returns {Promise<object>} 返回執行結果狀態與詳細資訊
- */
 /**
  * 轉換標註格式：對沒有 rangeInfo 的項目加上 needsRangeInfo 標記
  * 純函數，無副作用
@@ -51,8 +46,8 @@ function _convertHighlightFormat(oldHighlights) {
  * @returns {Promise<{migrated: boolean}>}
  */
 async function _migrateUrlKey(url, stableUrl, newHighlights, storageService, rawStorageResult) {
-  const savedKey = `saved_${url}`;
-  const savedStableKey = `saved_${stableUrl}`;
+  const savedKey = `${SAVED_PREFIX}${url}`;
+  const savedStableKey = `${SAVED_PREFIX}${stableUrl}`;
 
   // saved_ 在舊 URL 下存在且穩定 URL 下尚無資料時，一起遷移
   const savedData = rawStorageResult[savedKey] || null;
@@ -73,13 +68,13 @@ async function _migrateUrlKey(url, stableUrl, newHighlights, storageService, raw
 
 async function _migrateSingleUrl(url, storageService) {
   // 讀取標註資料（第一手讀取，包含 saved_ 狀態）
-  const pageKey = `highlights_${url}`;
+  const pageKey = `${HIGHLIGHTS_PREFIX}${url}`;
   const stableUrl = computeStableUrl(url);
-  const stableKey = stableUrl && stableUrl !== url ? `highlights_${stableUrl}` : null;
+  const stableKey = stableUrl && stableUrl !== url ? `${HIGHLIGHTS_PREFIX}${stableUrl}` : null;
 
   // 批量讀取 highlights_、saved_（舊與穩定）以縮小 TOCTOU 窗口
-  const savedKey = `saved_${url}`;
-  const savedStableKey = stableUrl && stableUrl !== url ? `saved_${stableUrl}` : null;
+  const savedKey = `${SAVED_PREFIX}${url}`;
+  const savedStableKey = stableUrl && stableUrl !== url ? `${SAVED_PREFIX}${stableUrl}` : null;
   const keysToFetch = [pageKey];
   if (stableKey) {
     keysToFetch.push(stableKey);
@@ -89,6 +84,7 @@ async function _migrateSingleUrl(url, storageService) {
     keysToFetch.push(savedStableKey);
   }
 
+  // TODO: replace with StorageService.getBulk / bulkGet when available
   // 保留對原始 storage 的直接讀取（不經 StorageService），
   // 是為了同時取得 highlights_ 和 saved_ 的快照（StorageService 無批量讀不同前綴的 API）
   const storageResult = await chrome.storage.local.get(keysToFetch);
@@ -237,17 +233,25 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始刪除', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
 
-        // 使用 StorageService 讀取，享有 alias 回退查詢
-        const resolvedUrl = computeStableUrl(url) || url;
-        const data = await storageService.getHighlights(resolvedUrl);
+        // 同時檢查原始 URL 和穩定 URL 下的數據
+        const resolvedUrl = computeStableUrl(url);
+        const dataAtOriginal = await storageService.getHighlights(url);
+        const dataAtStable =
+          resolvedUrl && resolvedUrl !== url
+            ? await storageService.getHighlights(resolvedUrl)
+            : null;
 
-        if (!data) {
+        if (!dataAtOriginal && !dataAtStable) {
           sendResponse({ success: true, message: '數據不存在，無需刪除' });
           return;
         }
 
-        // 使用 StorageService 安全刪除
-        await storageService.clearLegacyKeys(resolvedUrl);
+        // 清理原始 URL 的 keys
+        await storageService.clearLegacyKeys(url);
+        // 若穩定 URL 不同，也清理穩定 URL 的 keys
+        if (resolvedUrl && resolvedUrl !== url) {
+          await storageService.clearLegacyKeys(resolvedUrl);
+        }
 
         Logger.log('刪除完成', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
         sendResponse({
@@ -397,9 +401,12 @@ export function createMigrationHandlers(services) {
 
         // 使用 StorageService.clearLegacyKeys 安全刪除（同時清理 highlights_ + saved_）
         await Promise.all(
-          urls.map(urlItem => {
-            const resolvedUrl = computeStableUrl(urlItem) || urlItem;
-            return storageService.clearLegacyKeys(resolvedUrl);
+          urls.map(async urlItem => {
+            const resolvedUrl = computeStableUrl(urlItem);
+            await storageService.clearLegacyKeys(urlItem);
+            if (resolvedUrl && resolvedUrl !== urlItem) {
+              await storageService.clearLegacyKeys(resolvedUrl);
+            }
           })
         );
 

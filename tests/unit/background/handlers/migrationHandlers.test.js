@@ -266,6 +266,50 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('應該在遷移至穩定 URL 時，同時遷移 saved_ 數據', async () => {
+      const oldUrl = 'https://a.com/old-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      const savedData = { title: 'My Page', notionPageId: 'page-123' };
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`highlights_${oldUrl}`]: {
+          url: oldUrl,
+          highlights: [{ id: '1', text: 'highlight text' }],
+        },
+        [`saved_${oldUrl}`]: savedData,
+        // highlights_${stableUrl} 不存在 → 觸發遷移
+        // saved_${stableUrl} 不存在 → saved_ 也需遷移
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      // 驗證 savePageDataAndHighlights 帶有 stableUrl 和遷移的 savedData
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        savedData,
+        expect.objectContaining({ url: stableUrl, highlights: expect.any(Array) })
+      );
+
+      // 驗證 clearLegacyKeys 被呼叫（清除舊 URL 的 keys）
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(oldUrl);
+
+      // 驗證 sendResponse 報告 stableUrl
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            details: expect.arrayContaining([
+              expect.objectContaining({ url: expect.stringContaining(stableUrl) }),
+            ]),
+          }),
+        })
+      );
+    });
+
     test('如果穩定 URL key 已經有數據，不應覆蓋它（原地轉換）', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
@@ -472,6 +516,25 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del2.com');
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, count: 2 })
+      );
+    });
+
+    test('應該同時清理原始 URL 和穩定 URL 的數據', async () => {
+      const originalUrl = 'https://example.com/original-path';
+      const stableUrl = 'https://example.com/stable-path';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      await handlers.migration_batch_delete({ urls: [originalUrl] }, defaultSender, sendResponse);
+
+      // 驗證 clearLegacyKeys 同時被呼叫（對原始和穩定 URL 都呼叫）
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(originalUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(stableUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(2);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, count: 1 })
       );
     });
   });

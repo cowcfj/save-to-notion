@@ -363,6 +363,10 @@ class StorageService {
   /**
    * 獲取所有 highlights_* 的資料（用於遷移掃描）
    *
+   * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
+   * 屬於昂貴的一次性 migration-only helper，不應在 hot paths 或頻繁觸發的流程中使用。
+   * 若需讀取單一 URL 的標註，請改用 `getHighlights(pageUrl)`。
+   *
    * 回傳格式：
    * ```
    * {

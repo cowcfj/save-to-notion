@@ -404,6 +404,31 @@ describe('StorageService', () => {
         },
       });
     });
+
+    it('應該在 storage.local.set 失敗時記錄錯誤並拋出（寫入階段）', async () => {
+      const existingData = { url: 'https://example.com/page', otherField: 'test' };
+      mockStorage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: existingData,
+      });
+
+      mockStorage.local.set.mockRejectedValue(new Error('Write failed'));
+
+      await expect(service.updateHighlights('https://example.com/page', ['h1'])).rejects.toThrow(
+        'Write failed'
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[StorageService] updateHighlights failed',
+        expect.objectContaining({ error: expect.any(Error) })
+      );
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
+          ...existingData,
+          highlights: ['h1'],
+        },
+      });
+    });
   });
 
   describe('error handling', () => {
