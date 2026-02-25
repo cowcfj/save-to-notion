@@ -76,7 +76,6 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         noscript.textContent = '<img src="https://example.com/img.jpg">';
         div.append(noscript);
 
-        // 模擬 DOMParser
         const result = extractFromNoscript(div);
         expect(result).toBe('https://example.com/img.jpg');
     });

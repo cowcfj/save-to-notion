@@ -655,27 +655,6 @@ function extractFromBackgroundImage(imgNode) {
 }
 
 /**
- * 使用 DOMParser 從 HTML 提取圖片 src
- *
- * @param {string} html - HTML 字串
- * @returns {string|null} 圖片 src 或 null
- * @private
- */
-function _extractWithDOMParser(html) {
-  if (typeof DOMParser === 'undefined') {
-    return null;
-  }
-  try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const img = doc.querySelector('img[src]');
-    const src = img?.getAttribute('src');
-    return src && !src.startsWith('data:') ? src : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * 使用正則表達式從 HTML 提取圖片 src
  *
  * @param {string} html - HTML 字串
@@ -695,7 +674,7 @@ function _extractWithRegex(html) {
 
 /**
  * 從 noscript 標籤提取 URL
- * 使用 DOMParser 優先策略（更穩健）+ Regex 回退（相容性）
+ * 使用正則表達式掃描 src 屬性（避免不必要的 DOM 解析以縮小攻擊面）
  *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
@@ -716,7 +695,7 @@ function extractFromNoscript(imgNode) {
         continue;
       }
 
-      const src = _extractWithDOMParser(html) || _extractWithRegex(html);
+      const src = _extractWithRegex(html);
       if (src) {
         return src;
       }
