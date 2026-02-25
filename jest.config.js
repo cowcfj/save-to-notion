@@ -22,17 +22,16 @@ module.exports = {
     'sidepanel/**/*.js', // 新增 sidepanel 目錄
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
-    '!**/node_modules/**',
-    '!lib/**' // 第三方庫（Readability.js）
+    '!**/node_modules/**'
   ],
 
-  // 覆蓋率門檼 (當前基準: 29.51%, 逐步提升)
+  // 覆蓋率門檼 (已根據目前測試結果大幅提升)
   coverageThreshold: {
     global: {
-      branches: 28,
-      functions: 40,
-      lines: 32,
-      statements: 32
+      branches: 70,
+      functions: 80,
+      lines: 80,
+      statements: 80
     }
   },
 
@@ -46,9 +45,6 @@ module.exports = {
     '/internal/',
     '/tests/manual/', // 手動測試放在此目錄，不應在 CI 或常規測試中執行
     '/tests/e2e/', // e2e 測試單獨執行，不進入單元測試與覆蓋率
-    '/tests/unit/pageComplexityDetector.wrapper.test.js', // 已被 pageComplexityDetector.test.js 取代
-    '/tests/integration/thomas-frank-integration.test.js', // 未實現功能，暫時排除 (User Request)
-    '/tests/integration/thomas-frank-simple.test.js', // 尚未實作方案的簡化測試，暫時排除
     '/tests/e2e/oauth-end-to-end.test.js' // OAuth 功能尚未實作，暫時排除測試
   ],
   // 忽略模組路徑以避免 Jest Haste Map 命名衝突（重複的 package.json）
@@ -77,8 +73,8 @@ module.exports = {
   testTimeout: 30000,
 
   // Node.js 20.x 性能優化設置
-  maxWorkers: 2, // 進一步限制並行工作進程數量，避免內存問題
-  maxConcurrency: 3,  // 限制最大並發測試數量
+  maxWorkers: 4, // 略微提高以便利用更多核心
+  maxConcurrency: 5,  // 略微提高並發測試數量
 
   // 減少不必要的 mock 清理以提升性能
   clearMocks: false, // 改為手動清理特定測試
