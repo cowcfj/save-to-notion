@@ -7,6 +7,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 import {
   deserializeRange,
   findRangeByTextContent,
+  restoreRangeWithRetry,
 } from '../../../../scripts/highlighter/core/Range.js';
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
@@ -35,6 +36,7 @@ jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
   serializeRange: jest.fn(),
   deserializeRange: jest.fn(),
   findRangeByTextContent: jest.fn(),
+  restoreRangeWithRetry: jest.fn(),
 }));
 
 describe('core/HighlightManager', () => {
@@ -460,7 +462,7 @@ describe('core/HighlightManager', () => {
   });
 
   describe('restoreLocalHighlight', () => {
-    test('should restore highlight from valid item', () => {
+    test('should restore highlight from valid item', async () => {
       const item = {
         id: 'h1',
         text: 'test',
@@ -468,23 +470,22 @@ describe('core/HighlightManager', () => {
         rangeInfo: { startContainer: [], endContainer: [] }, // simplified mock
       };
 
-      // Mock deserializeRange
+      // Mock restoreRangeWithRetry
       const mockRange = document.createRange();
-      jest.mocked(deserializeRange).mockReturnValue(mockRange);
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
 
-      const result = manager.restoreLocalHighlight(item);
+      const result = await manager.restoreLocalHighlight(item);
 
       expect(result).toBe(true);
       expect(manager.highlights.size).toBe(1);
       expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('yellow');
     });
 
-    test('should return false if range creation fails', () => {
+    test('should return false if range creation fails', async () => {
       const item = { id: 'h1', text: 'test' };
-      jest.mocked(deserializeRange).mockReturnValue(null);
-      jest.mocked(findRangeByTextContent).mockReturnValue(null);
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(null);
 
-      const result = manager.restoreLocalHighlight(item);
+      const result = await manager.restoreLocalHighlight(item);
       expect(result).toBe(false);
     });
   });

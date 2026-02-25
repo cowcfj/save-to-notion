@@ -3,7 +3,7 @@
  * 管理標註的核心邏輯，並協調其他模組完成樣式、交互、存儲和遷移工作。
  */
 
-import { serializeRange, deserializeRange, findRangeByTextContent } from './Range.js';
+import { serializeRange, restoreRangeWithRetry } from './Range.js';
 import { COLORS } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
 
@@ -383,22 +383,18 @@ export class HighlightManager {
    * @param {object} item - 標註數據
    * @returns {boolean}
    */
-  restoreLocalHighlight(item) {
+  async restoreLocalHighlight(item) {
     try {
-      let range = null;
-      if (item.rangeInfo) {
-        range = deserializeRange(item.rangeInfo);
-      }
+      // 確保 id 存在且為字串，若無則生成新 ID
+      const id = item.id ? String(item.id) : `h${this.nextId++}`;
 
-      // 如果反序列化失敗，嘗試文本搜尋
-      if (!range && item.text) {
-        range = findRangeByTextContent(item.text);
-      }
+      // 使用 restoreRangeWithRetry：含 expectedText 驗證、prefix/suffix消歧義、DOM穩定性重試
+      const range = await restoreRangeWithRetry(item.rangeInfo, item.text);
 
       if (range) {
         // 重建 highlight
         const highlight = {
-          id: item.id,
+          id,
           range,
           color: item.color || 'yellow',
           text: item.text,
@@ -406,11 +402,11 @@ export class HighlightManager {
           rangeInfo: item.rangeInfo,
         };
 
-        this.highlights.set(item.id, highlight);
+        this.highlights.set(id, highlight);
         this.applyHighlightAPI(range, highlight.color);
 
         // 更新 nextId 以避免衝突
-        const numId = Number.parseInt(item.id.replace('h', ''), 10);
+        const numId = Number.parseInt(id.replace('h', ''), 10);
         if (!Number.isNaN(numId) && numId >= this.nextId) {
           this.nextId = numId + 1;
         }
