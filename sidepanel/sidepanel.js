@@ -496,26 +496,32 @@ async function handleDelete(highlightId, storageKey) {
 
     const data = result[storageKey];
 
+    let newData;
+    let shouldRemove = false;
+
     if (storageKey.startsWith(PAGE_PREFIX)) {
       // Phase 3： page_* 新格式的 partial 刪除
       data.highlights = (data.highlights || []).filter(hl => hl.id !== highlightId);
-      const shouldRemove = data.highlights.length === 0 && !data.notion;
-      if (shouldRemove) {
-        await chrome.storage.local.remove(storageKey);
-      } else {
-        await chrome.storage.local.set({ [storageKey]: data });
-      }
+      shouldRemove = data.highlights.length === 0 && !data.notion;
+      newData = data;
     } else if (data.highlights) {
       // 舊格式：有 highlights 物件結構
       data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
-      if (data.highlights.length === 0) {
-        await chrome.storage.local.remove(storageKey);
-      } else {
-        await chrome.storage.local.set({ [storageKey]: data });
-      }
+      shouldRemove = data.highlights.length === 0;
+      newData = data;
+    } else if (Array.isArray(data)) {
+      // 舊版 array 格式：過濾掉指定標註
+      newData = data.filter(hl => hl.id !== highlightId);
+      shouldRemove = newData.length === 0;
     } else {
-      // 舊版 array 格式：直接刪除
+      // 無法識別的格式，安全地移除
+      shouldRemove = true;
+    }
+
+    if (shouldRemove) {
       await chrome.storage.local.remove(storageKey);
+    } else {
+      await chrome.storage.local.set({ [storageKey]: newData });
     }
 
     // 通知 Content script 清除 DOM 高亮
