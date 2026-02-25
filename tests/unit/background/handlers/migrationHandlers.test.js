@@ -309,6 +309,14 @@ describe('migrationHandlers', () => {
   });
 
   describe('migration_get_pending', () => {
+    test('安全性驗證失敗時應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_get_pending({}, { id: 'invalid-sender' }, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('應該正確回收待處理和失敗的項目', async () => {
       const sendResponse = jest.fn();
 
@@ -329,9 +337,35 @@ describe('migrationHandlers', () => {
         })
       );
     });
+
+    test('如果 getAllHighlights 拋出錯誤，應該捕捉並回傳錯誤訊息', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getAllHighlights.mockRejectedValue(new Error('Storage Error'));
+
+      await handlers.migration_get_pending({}, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('發生未知錯誤'),
+        })
+      );
+    });
   });
 
   describe('migration_delete_failed', () => {
+    test('安全性驗證失敗時應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_delete_failed(
+        { url: 'https://example.com' },
+        { id: 'invalid-sender' },
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('應該只刪除標記為失敗的標註', async () => {
       const url = 'https://example.com/mixed';
       const sendResponse = jest.fn();
@@ -376,9 +410,57 @@ describe('migrationHandlers', () => {
         expect.objectContaining({ success: true, deletedCount: 1 })
       );
     });
+
+    test('如果沒有提供 url 應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_delete_failed({}, defaultSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('缺少 URL') })
+      );
+    });
+
+    test('如果找不到對應的標註資料應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getHighlights.mockResolvedValue(null);
+
+      await handlers.migration_delete_failed(
+        { url: 'https://no.data' },
+        defaultSender,
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('標註數據') })
+      );
+    });
+
+    test('如果存儲服務拋出錯誤，應該捕捉並回傳錯誤訊息', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getHighlights.mockRejectedValue(new Error('Storage exception'));
+
+      await handlers.migration_delete_failed(
+        { url: 'https://error.com' },
+        defaultSender,
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('發生未知錯誤') })
+      );
+    });
   });
 
   describe('migration_batch_delete', () => {
+    test('安全性驗證失敗時應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_batch_delete(
+        { urls: ['https://example.com'] },
+        { id: 'invalid-sender' },
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('應該成功批量刪除多個 URL 的數據', async () => {
       const urls = ['https://del1.com', 'https://del2.com'];
       const sendResponse = jest.fn();
