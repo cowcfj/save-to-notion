@@ -381,7 +381,7 @@ export class HighlightManager {
    * 僅恢復單個標註（由 Storage 調用）
    *
    * @param {object} item - 標註數據
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
   async restoreLocalHighlight(item) {
     try {
