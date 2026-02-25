@@ -17,8 +17,9 @@ module.exports = {
   // 覆蓋率收集
   collectCoverageFrom: [
     'scripts/**/*.js',
-    'options/options.js',
+    'options/**/*.js',
     'popup/**/*.js', // 新增 popup 目錄
+    'sidepanel/**/*.js', // 新增 sidepanel 目錄
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**',
@@ -45,9 +46,6 @@ module.exports = {
     '/internal/',
     '/tests/manual/', // 手動測試放在此目錄，不應在 CI 或常規測試中執行
     '/tests/e2e/', // e2e 測試單獨執行，不進入單元測試與覆蓋率
-    '/tests/unit/content-extraction-comparison.test.js', // 暫時忽略有問題的測試文件
-    '/tests/unit/content.test.js', // 依賴已刪除的 content.testable.js，待重構
-    '/tests/unit/content-extraction.wrapper.test.js', // 依賴已刪除的 content-extraction.testable.js
     '/tests/unit/pageComplexityDetector.wrapper.test.js', // 已被 pageComplexityDetector.test.js 取代
     '/tests/integration/thomas-frank-integration.test.js', // 未實現功能，暫時排除 (User Request)
     '/tests/integration/thomas-frank-simple.test.js', // 尚未實作方案的簡化測試，暫時排除

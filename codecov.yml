@@ -55,12 +55,18 @@ flags:
   unit:
     paths:
       - scripts/
-    carryforward: true  # 允許攜帶上次覆蓋率
-  
+      - options/
+      - popup/
+      - sidepanel/
+    carryforward: true # 允許攜帶上次覆蓋率
+
   e2e:
     paths:
       - scripts/
-    carryforward: true  # 允許攜帶上次覆蓋率
+      - options/
+      - popup/
+      - sidepanel/
+    carryforward: true # 允許攜帶上次覆蓋率
 
 
 # 說明：
