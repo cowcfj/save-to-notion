@@ -1,5 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.36.3](https://github.com/cowcfj/save-to-notion/compare/v2.36.2...v2.36.3) (2026-02-25)
+
+
+### 🐛 Bug 修復
+
+* 修正 restoreLocalHighlight 方法以使用 restoreRangeWithRetry ([#284](https://github.com/cowcfj/save-to-notion/issues/284)) ([9ae3619](https://github.com/cowcfj/save-to-notion/commit/9ae36190540c5db34603501930eb2d2e8b46ab57))
+
+
+### 🧹 其他變更
+
+* clean up deprecated tests and update coverage config ([3cca664](https://github.com/cowcfj/save-to-notion/commit/3cca66471883f30faa1091c8654a9edbabcdbe35))
+* 更新 Jest 配置與移除不必要的測試檔案 ([2f89a9b](https://github.com/cowcfj/save-to-notion/commit/2f89a9be8468ccda0383c06796a5bbea954c3747))
+
 ## [2.36.2](https://github.com/cowcfj/save-to-notion/compare/v2.36.1...v2.36.2) (2026-02-25)
 
 
