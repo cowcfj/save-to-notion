@@ -284,27 +284,3 @@ export const PLACEHOLDER_KEYWORDS = [
   'miscellaneous_sprite', // 排除雜項佈局圖片 (e.g., miscellaneous_sprite.png)
   '.gif', // 排除 GIF 圖片（通常為動畫圖標或佔位符，非內容圖片）
 ];
-
-// ==========================================
-// 日誌脫敏模式
-// ==========================================
-
-/**
- * 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
- * 用於 LogSanitizer.js
- */
-export const SENSITIVE_KEY_PATTERN =
-  /auth|token|secret|credential|password|pwd|key|cookie|session|authorization|bearer|viewer|access|refresh|api|private/i;
-
-/**
- * 安全的 HTTP Headers 白名單（不包含敏感資訊）
- * 用於 LogSanitizer.js
- */
-export const LOGGING_SAFE_HEADERS = [
-  'content-type',
-  'content-length',
-  'user-agent',
-  'accept',
-  'accept-language',
-  'cache-control',
-];

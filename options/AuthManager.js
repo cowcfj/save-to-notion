@@ -2,7 +2,8 @@
 import Logger from '../scripts/utils/Logger.js';
 import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { UI_MESSAGES, UI_ICONS } from '../scripts/config/index.js';
+import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { UI_ICONS } from '../scripts/config/icons.js';
 
 /**
  * AuthManager.js
