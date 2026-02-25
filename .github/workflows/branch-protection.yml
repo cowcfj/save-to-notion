@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/branch-protection.yml'
 
+permissions: {} # admin 權限由倉庫設定控制，此處限制其他不必要的 token 權限
+
 jobs:
   setup-branch-protection:
     runs-on: ubuntu-latest
