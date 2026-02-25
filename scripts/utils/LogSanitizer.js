@@ -1,10 +1,12 @@
 /**
  * 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
+ * `auth(?![a-zA-Z])` 匹配 auth、auth_token，但排除 author、authorName
+ * `token(?![a-zA-Z])` 匹配 token、privateToken，但排除 tokenCount、tokenizer
  * `_?key\b` 精確匹配 apiKey、api_key 等，避免誤判 keyboard、keydown
  * 用於日誌脫敏，集中在此維持高內聚
  */
 const SENSITIVE_KEY_PATTERN =
-  /auth|token|secret|credential|password|pwd|_?key\b|cookie|session|authorization|bearer|viewer/i;
+  /auth(?![a-zA-Z])|token(?![a-zA-Z])|secret|credential|password|pwd|_?key\b|cookie|session|authorization|bearer|viewer/i;
 
 /**
  * 安全的 HTTP Headers 白名單（不包含敏感資訊）
@@ -139,19 +141,20 @@ export const LogSanitizer = {
       return this._sanitizeString(value);
     }
 
+    let result;
     if (Array.isArray(value)) {
-      return this._sanitizeArray(value, depth, seen, options);
+      result = this._sanitizeArray(value, depth, seen, options);
+    } else if (value instanceof Error) {
+      result = this._sanitizeError(value, depth, seen, options);
+    } else if (typeof value === 'object') {
+      result = this._sanitizeObject(value, depth, seen, options);
+    } else {
+      return value;
     }
 
-    if (value instanceof Error) {
-      return this._sanitizeError(value, depth, seen, options);
-    }
-
-    if (typeof value === 'object') {
-      return this._sanitizeObject(value, depth, seen, options);
-    }
-
-    return value;
+    // DFS 回溯：處理完畢後移除，避免共享引用被誤判為循環
+    seen.delete(value);
+    return result;
   },
 
   /**
@@ -292,6 +295,11 @@ export const LogSanitizer = {
           sanitized =
             sanitized.slice(0, Math.max(0, prefixEnd + 3)) +
             sanitized.slice(Math.max(0, lastSep + 1));
+        } else if (lastSep !== -1) {
+          // 無 "at " 前綴時，保留路徑前文字並移除目錄部分只保留檔名
+          const firstSep = sanitized.indexOf('/');
+          sanitized =
+            sanitized.slice(0, Math.max(0, firstSep)) + sanitized.slice(Math.max(0, lastSep + 1));
         }
       }
 
