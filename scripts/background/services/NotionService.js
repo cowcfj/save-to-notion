@@ -12,7 +12,7 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { NOTION_CONFIG, ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/index.js';
+import { NOTION_API, ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/index.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
@@ -40,7 +40,7 @@ class NotionService {
    */
   constructor(options = {}) {
     this.apiKey = options.apiKey || null;
-    this.config = { ...NOTION_CONFIG, ...options.config };
+    this.config = { ...NOTION_API, ...options.config };
     this.client = null;
 
     // 初始化共用 RetryManager
@@ -898,7 +898,7 @@ class NotionService {
    * @static
    * @private
    */
-  static _findHighlightSectionBlocks(blocks, headerText = NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER) {
+  static _findHighlightSectionBlocks(blocks, headerText = NOTION_API.HIGHLIGHT_SECTION_HEADER) {
     const blocksToDelete = [];
     let foundHighlightSection = false;
 

@@ -197,6 +197,36 @@ describe('LogSanitizer', () => {
       expect(sanitized[0].context.normalField).toBe('safe-value');
     });
 
+    test('should not over-redact non-sensitive keys containing common words', () => {
+      const logs = [
+        {
+          context: {
+            api_version: '2024-01-01',
+            accessLevel: 'admin',
+            isPrivate: false,
+            keyboardShortcut: 'Ctrl+S',
+            refreshInterval: 30_000,
+            // 以下仍應被遮蔽
+            apiKey: 'secret-123',
+            access_key: 'AKIAIOSFODNN7',
+            privateToken: 'pt_abc123',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      // 非敏感欄位應保留原值
+      expect(sanitized[0].context.api_version).toBe('2024-01-01');
+      expect(sanitized[0].context.accessLevel).toBe('admin');
+      expect(sanitized[0].context.isPrivate).toBe(false);
+      expect(sanitized[0].context.keyboardShortcut).toBe('Ctrl+S');
+      expect(sanitized[0].context.refreshInterval).toBe(30_000);
+      // 敏感欄位仍應被遮蔽
+      expect(sanitized[0].context.apiKey).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.access_key).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.privateToken).toBe('[REDACTED_SENSITIVE_KEY]');
+    });
+
     test('should redact Bearer token in string values', () => {
       const logs = [
         {
