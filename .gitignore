@@ -70,7 +70,7 @@ CLAUDE.md
 .serena/
 .claude/
 .kilocode/
-AGENTS.md
+# AGENTS.md is tracked to serve as AI context for CodeRabbit and Cursor
 AI_AGENT_QUICK_REF.md
 *_GUIDE.md
 *_INTERNAL.md
@@ -376,6 +376,6 @@ docs/specs/future/shadow_dom_migration.md
 .agent/skills/file-organizer/scripts/organizer.py
 .agent/skills/local-docs-backup/SKILL.md
 .agent/skills/mcp-sync/SKILL.md
-.agent/.shared/staging/content_extraction_analysis.md
+.agent/.shared/staging/
 .agents/skills/using-superpowers/SKILL.md
 .agents/skills/using-superpowers/SKILL.md

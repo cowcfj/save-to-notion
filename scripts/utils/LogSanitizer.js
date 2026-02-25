@@ -97,7 +97,7 @@ export const LogSanitizer = {
       return [];
     }
 
-    // Map returns a new array, deep cloning is done during sanitization properties
+    // map 回傳新陣列；深拷貝已在 sanitizeEntry 的遞歸清理中完成
     return logs.map(log => ({
       ...log,
       ...this.sanitizeEntry(log.message, log.context, options),
@@ -122,8 +122,13 @@ export const LogSanitizer = {
       return value;
     }
 
-    // 處理循環引用
-    if (typeof value === 'object' || typeof value === 'function') {
+    // 函式直接回傳標記，不加入 seen（避免共享引用被誤判為循環）
+    if (typeof value === 'function') {
+      return '[Function]';
+    }
+
+    // 處理循環引用（僅適用於物件）
+    if (typeof value === 'object') {
       if (seen.has(value)) {
         return '[Circular]';
       }
@@ -144,10 +149,6 @@ export const LogSanitizer = {
 
     if (typeof value === 'object') {
       return this._sanitizeObject(value, depth, seen, options);
-    }
-
-    if (typeof value === 'function') {
-      return '[Function]';
     }
 
     return value;
@@ -310,8 +311,6 @@ export const LogSanitizer = {
   },
 
   /**
-   * 清理字串內容
-   *
    * 清理字串內容
    *
    * @param {string|*} str - 輸入字串（如果不是字串將嘗試轉換）

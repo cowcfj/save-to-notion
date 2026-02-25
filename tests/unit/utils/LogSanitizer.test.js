@@ -47,7 +47,7 @@ describe('LogSanitizer', () => {
       expect(ctx.user.email).not.toContain('admin@test.com');
       expect(ctx.user.apiKey).toBe('[REDACTED_SENSITIVE_KEY]');
       expect(ctx.raw).toContain('[REDACTED_TOKEN]');
-      // URL sanitization (from securityUtils)
+      // URL sanitization (from LogSanitizer)
       expect(ctx.url).toBe('https://notion.so/my-page-123'); // Path is preserved by default sanitizeUrl logic unless specific rules apply
     });
 
@@ -366,6 +366,24 @@ describe('LogSanitizer', () => {
       const sanitized = LogSanitizer.sanitize(logs);
       expect(sanitized[0].context.callback).toBe('[Function]');
       expect(sanitized[0].context.normalField).toBe('safe-value');
+    });
+
+    test('should not treat shared function references as circular', () => {
+      const sharedFn = () => {};
+      const logs = [
+        {
+          context: {
+            handler: sharedFn,
+            callback: sharedFn,
+            items: [sharedFn],
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.handler).toBe('[Function]');
+      expect(sanitized[0].context.callback).toBe('[Function]');
+      expect(sanitized[0].context.items[0]).toBe('[Function]');
     });
 
     describe('_sanitizeString edge cases', () => {

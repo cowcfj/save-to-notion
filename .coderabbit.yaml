@@ -10,7 +10,7 @@ tools:
   eslint: false
 
 reviews:
-  profile: 'chill'
+  profile: 'assertive'
   request_changes_workflow: false
   high_level_summary: false
   changed_files_summary: false
@@ -23,6 +23,14 @@ reviews:
     ignore_usernames:
       - 'release-please[bot]'
       - 'github-actions[bot]'
+
+  path_instructions:
+    - path: '**/*'
+      instructions: |
+        # Project Specific Guidelines
+        1. Language: All user-facing UI text, strings, and messages MUST be in Traditional Chinese (zh-TW).
+        2. Architecture: Follow the defined storage structures and specs. Do not introduce unauthorized storage fields.
+        3. Code Quality: Avoid N+1 issues, blocking operations, and ensure high code quality. Suggest optimizations that follow modern JavaScript/Chrome Extension best practices.
 
   finishing_touches:
     unit_tests:
@@ -47,3 +55,10 @@ code_generation:
 issue_enrichment:
   auto_enrich:
     enabled: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - 'AGENTS.md'
+      - '.agent/.shared/knowledge/**/*.json'
