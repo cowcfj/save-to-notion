@@ -318,7 +318,7 @@ describe('migrationHandlers', () => {
           url: oldUrl,
           highlights: [{ id: '1', text: 'highlight text' }],
         },
-        [`saved_${oldUrl}`]: savedData,
+        [`${SAVED_PREFIX}${oldUrl}`]: savedData,
         // highlights_${stableUrl} 不存在 → 觸發遷移
         // saved_${stableUrl} 不存在 → saved_ 也需遷移
       });
