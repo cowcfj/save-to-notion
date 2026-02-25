@@ -14,6 +14,10 @@
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
+import {
+  HIGHLIGHTS_PREFIX,
+  SAVED_PREFIX,
+} from '../../../../scripts/background/services/StorageService.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
@@ -232,11 +236,17 @@ describe('migrationHandlers', () => {
       // chrome.storage.local.get 仍被 _migrateSingleUrl 內部直接呼叫（批量快照）
       chrome.storage.local.get.mockImplementation(keysArg => {
         const result = {};
-        if (Array.isArray(keysArg) && keysArg.includes('highlights_https://a.com')) {
-          result['highlights_https://a.com'] = { url: 'https://a.com', highlights: [{ id: '1' }] };
+        if (Array.isArray(keysArg) && keysArg.includes(`${HIGHLIGHTS_PREFIX}https://a.com`)) {
+          result[`${HIGHLIGHTS_PREFIX}https://a.com`] = {
+            url: 'https://a.com',
+            highlights: [{ id: '1' }],
+          };
         }
-        if (Array.isArray(keysArg) && keysArg.includes('highlights_https://b.com')) {
-          result['highlights_https://b.com'] = { url: 'https://b.com', highlights: [{ id: '2' }] };
+        if (Array.isArray(keysArg) && keysArg.includes(`${HIGHLIGHTS_PREFIX}https://b.com`)) {
+          result[`${HIGHLIGHTS_PREFIX}https://b.com`] = {
+            url: 'https://b.com',
+            highlights: [{ id: '2' }],
+          };
         }
         return Promise.resolve(result);
       });
@@ -262,7 +272,7 @@ describe('migrationHandlers', () => {
 
       // _migrateSingleUrl 批量快照讀取
       chrome.storage.local.get.mockResolvedValue({
-        'highlights_https://a.com/original-slug': {
+        [`${HIGHLIGHTS_PREFIX}https://a.com/original-slug`]: {
           url: 'https://a.com/original-slug',
           highlights: [{ id: '1' }],
         },
@@ -346,8 +356,8 @@ describe('migrationHandlers', () => {
       computeStableUrl.mockReturnValue(stableUrl);
 
       chrome.storage.local.get.mockResolvedValue({
-        'highlights_https://a.com/original-slug': { highlights: [{ id: '1' }] },
-        [`highlights_${stableUrl}`]: [{ id: '2', isNew: true }], // 穩定 key 已存在數據
+        [`${HIGHLIGHTS_PREFIX}https://a.com/original-slug`]: { highlights: [{ id: '1' }] },
+        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: [{ id: '2', isNew: true }], // 穩定 key 已存在數據
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);

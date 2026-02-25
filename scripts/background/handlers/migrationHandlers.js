@@ -84,9 +84,10 @@ async function _migrateSingleUrl(url, storageService) {
     keysToFetch.push(savedStableKey);
   }
 
-  // TODO: replace with StorageService.getBulk / bulkGet when available
-  // 保留對原始 storage 的直接讀取（不經 StorageService），
-  // 是為了同時取得 highlights_ 和 saved_ 的快照（StorageService 無批量讀不同前綴的 API）
+  // Tech debt: 此處直接存取 chrome.storage.local 是因為 StorageService
+  // 目前缺少跨前綴批量讀取 API（同時讀 highlights_ 和 saved_）。
+  // 待 StorageService 新增 getBulk() 後替換此段。
+  // Tracking: https://github.com/cowcfj/save-to-notion/issues (搜尋 "StorageService getBulk")
   const storageResult = await chrome.storage.local.get(keysToFetch);
   const data = storageResult[pageKey];
 
@@ -117,7 +118,12 @@ async function _migrateSingleUrl(url, storageService) {
     // 使用 StorageService 原子遷移：自動處理 saved_ + highlights_
     await _migrateUrlKey(url, stableUrl, newHighlights, storageService, storageResult);
   } else {
-    // 原地格式轉換：更新現有 key
+    // 原地格式轉換（就地更新現有 key）
+    // 刻意不呼叫 clearLegacyKeys：
+    //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key，無舊 key 可刪
+    //   - 若 stableKey 存在但已有資料（shouldMigrateToStable = false）：代表穩定 URL 那邊
+    //     已有獨立資料，此時 url 的 key 仍是有效資料（使用者可能仍在用此 URL 訪問），
+    //     不應刪除；舊 key 的清理責任交給後續線上路徑（migrateStorageKey）。
     await storageService.updateHighlights(url, newHighlights);
   }
 
