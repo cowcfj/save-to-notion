@@ -428,7 +428,7 @@ export class HighlightManager {
       }
       Logger.warn('恢復標註失敗', {
         action: 'restoreLocalHighlight',
-        id: item.id,
+        id,
         error,
       });
     }
