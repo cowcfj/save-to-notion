@@ -13,6 +13,7 @@ import { normalizeUrl, computeStableUrl, isRootUrl } from '../scripts/utils/urlU
 import {
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
+  PAGE_PREFIX,
   URL_ALIAS_PREFIX,
   RESTRICTED_PROTOCOLS,
 } from '../scripts/config/constants.js';
@@ -54,16 +55,111 @@ function extractDomain(url) {
 }
 
 /**
- * 從 chrome.storage.local 取出所有 highlights_ key，
- * 過濾已同步（有 notionPageId）的頁面，回傳未同步頁面的摘要列表。
+ * 將標註陣列轉換為預覽清單
+ *
+ * @param {Array} highlights
+ * @returns {Array<{text, truncated, color}>}
+ */
+function buildPreviewHighlights(highlights) {
+  return highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => {
+    const rawText = hl.text || '';
+    return {
+      text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
+      truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
+      color: hl.color || 'yellow',
+    };
+  });
+}
+
+/**
+ * 從 page_* 對象建立頁面條目（新格式）
+ *
+ * @param {string} key - storage key
+ * @param {string} url - normalized url
+ * @param {object} value - page_* 物件
+ * @returns {object|null} 頁面條目，若應跳過則返回 null
+ */
+function buildPageEntry(key, url, value) {
+  if (value.notion?.pageId || isRootUrl(url)) {
+    return null; // 已同步或根路徑，跳過
+  }
+  const highlights = Array.isArray(value.highlights) ? value.highlights : [];
+  if (highlights.length === 0) {
+    return null; // 無標註不顯示
+  }
+  return {
+    url,
+    storageKey: key,
+    title: value.notion?.title || value.metadata?.title || extractDomain(url),
+    highlightCount: highlights.length,
+    lastUpdated: value.metadata?.lastUpdated || 0,
+    previewHighlights: buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - PREVIEW_HIGHLIGHT_COUNT),
+  };
+}
+
+/**
+ * 從 highlights_* 對象建立頁面條目（舊格式）
+ *
+ * @param {string} key - storage key
+ * @param {string} url - normalized url
+ * @param {*} value - highlights_* 值
+ * @param {object} all - 完整 storage 資料
+ * @param {Map} aliasMap - alias 映射
+ * @returns {object|null}
+ */
+function buildLegacyPageEntry(key, url, value, all, aliasMap) {
+  if (isRootUrl(url)) {
+    return null;
+  }
+  const canonicalUrl = aliasMap.get(url) || url;
+  const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
+  const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
+  if (savedDataOriginal?.notionPageId || savedDataCanonical?.notionPageId) {
+    return null; // 已同步
+  }
+  const savedData = savedDataOriginal || savedDataCanonical;
+  const highlights = Array.isArray(value) ? value : value?.highlights || [];
+  if (highlights.length === 0) {
+    return null;
+  }
+  return {
+    url,
+    storageKey: key,
+    title: savedData?.title || value?.title || extractDomain(url),
+    highlightCount: highlights.length,
+    lastUpdated: value?.updatedAt || 0,
+    previewHighlights: buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - PREVIEW_HIGHLIGHT_COUNT),
+  };
+}
+
+/**
+ * 從 chrome.storage.local 取出所有未同步頁面的標註資料。
+ *
+ * Phase 3：同時掃描 page_* 新格式和 highlights_* 舊格式，去重。
  *
  * @returns {Promise<Array<{url, storageKey, title, highlightCount, lastUpdated, previewHighlights, remainingCount}>>}
  */
 async function getUnsyncedPages() {
   const all = await chrome.storage.local.get(null);
   const pages = [];
+  const seenUrls = new Set();
 
-  // 收集所有 url_alias 映射，用於去重
+  // 第一輪：處理 page_* 新格式
+  for (const [key, value] of Object.entries(all)) {
+    if (!key.startsWith(PAGE_PREFIX)) {
+      continue;
+    }
+    const url = key.slice(PAGE_PREFIX.length);
+    seenUrls.add(url); // 基給 page_* 的 url 都記錄，避免舊格式重複
+    const entry = buildPageEntry(key, url, value);
+    if (entry) {
+      pages.push(entry);
+    }
+  }
+
+  // 第二輪：處理尚未升級的 highlights_* 舊格式
   const aliasMap = new Map();
   for (const [key, value] of Object.entries(all)) {
     if (key.startsWith(URL_ALIAS_PREFIX)) {
@@ -71,61 +167,26 @@ async function getUnsyncedPages() {
     }
   }
 
-  // 追蹤已處理的 canonical URL，避免同一個 stable URL 產生重複的卡片
-  const seenCanonicalUrls = new Set();
-
   for (const [key, value] of Object.entries(all)) {
     if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
       continue;
     }
     const url = key.slice(HIGHLIGHTS_PREFIX.length);
-
-    // 跳過根路徑（首頁），通常是不正確的短網址回退結果
-    if (isRootUrl(url)) {
-      continue;
-    }
-
-    // 去重：如果這個 url 有 alias，我們追蹤 alias 的目標。
-    // 如果 alias 的目標已處理過，跳過它。
     const canonicalUrl = aliasMap.get(url) || url;
-    if (seenCanonicalUrls.has(canonicalUrl)) {
+
+    // 若 url 或 canonical 已經在 page_* 掃描過，跳過
+    if (seenUrls.has(url) || seenUrls.has(canonicalUrl)) {
       continue;
     }
-    seenCanonicalUrls.add(canonicalUrl);
-    // 預防其他 alias 直接指向這個 url 產生重複
-    seenCanonicalUrls.add(url);
+    seenUrls.add(url);
+    seenUrls.add(canonicalUrl);
 
-    // 同時檢查原 URL 和 canonical URL 是否已同步
-    const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
-    const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
-    if (savedDataOriginal?.notionPageId || savedDataCanonical?.notionPageId) {
-      continue;
+    const entry = buildLegacyPageEntry(key, url, value, all, aliasMap);
+    if (entry) {
+      pages.push(entry);
     }
-
-    const savedData = savedDataOriginal || savedDataCanonical;
-
-    const highlights = Array.isArray(value) ? value : value?.highlights || [];
-    const previewHighlights = highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => {
-      const rawText = hl.text || '';
-      return {
-        text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
-        truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
-        color: hl.color || 'yellow',
-      };
-    });
-
-    pages.push({
-      url,
-      storageKey: key,
-      title: savedData?.title || value?.title || extractDomain(url),
-      highlightCount: highlights.length,
-      lastUpdated: value?.updatedAt || 0,
-      previewHighlights,
-      remainingCount: Math.max(0, highlights.length - PREVIEW_HIGHLIGHT_COUNT),
-    });
   }
 
-  // 最近更新的頁面排最前
   return pages.toSorted((pa, pb) => pb.lastUpdated - pa.lastUpdated);
 }
 
@@ -257,8 +318,82 @@ async function getStableUrlForTab(tabId, url) {
 }
 
 /**
+ * 從 storage 查詢結果解析標註資料和目標 key
+ *
+ * @param {object} result - chrome.storage.local.get 結果
+ * @param {{pageKey, pageOrigKey, hlKey, hlOrigKey, aliasKeyOrig, aliasKeyNorm}} keys
+ * @returns {Promise<{highlightsData, targetKey, notionData}>}
+ */
+async function resolveHighlightData(result, keys) {
+  const { pageKey, pageOrigKey, hlKey, hlOrigKey, aliasKeyOrig, aliasKeyNorm } = keys;
+
+  if (result[pageKey]) {
+    return {
+      highlightsData: result[pageKey].highlights,
+      notionData: result[pageKey].notion,
+      targetKey: pageKey,
+    };
+  }
+  if (result[pageOrigKey]) {
+    return {
+      highlightsData: result[pageOrigKey].highlights,
+      notionData: result[pageOrigKey].notion,
+      targetKey: pageOrigKey,
+    };
+  }
+  if (result[hlKey]) {
+    return { highlightsData: result[hlKey], notionData: null, targetKey: hlKey };
+  }
+  if (result[hlOrigKey]) {
+    return { highlightsData: result[hlOrigKey], notionData: null, targetKey: hlOrigKey };
+  }
+
+  // 檢查 alias
+  const stableUrlFromAlias = result[aliasKeyOrig] || result[aliasKeyNorm];
+  if (!stableUrlFromAlias) {
+    return { highlightsData: null, notionData: null, targetKey: null };
+  }
+
+  const aliaPageKey = `${PAGE_PREFIX}${stableUrlFromAlias}`;
+  const aliasHlKey = `${HIGHLIGHTS_PREFIX}${stableUrlFromAlias}`;
+  const aliasResult = await chrome.storage.local.get([aliaPageKey, aliasHlKey]);
+
+  if (aliasResult[aliaPageKey]) {
+    return {
+      highlightsData: aliasResult[aliaPageKey].highlights,
+      notionData: aliasResult[aliaPageKey].notion,
+      targetKey: aliaPageKey,
+    };
+  }
+  if (aliasResult[aliasHlKey]) {
+    return { highlightsData: aliasResult[aliasHlKey], notionData: null, targetKey: aliasHlKey };
+  }
+  return { highlightsData: null, notionData: null, targetKey: null };
+}
+
+/**
+ * 判斷頁面是否已儲存到 Notion
+ *
+ * @param {*} notionData - page_*.notion（或 null 疋於未升級）
+ * @param {string|null} targetKey - 目標 storage key
+ * @returns {Promise<boolean>}
+ */
+async function checkSavedData(notionData, targetKey) {
+  if (notionData !== null && notionData !== undefined) {
+    return Boolean(notionData?.pageId);
+  }
+  if (!targetKey) {
+    return false;
+  }
+  // 舊格式：對應 saved_* key
+  const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
+  const savedResult = await chrome.storage.local.get(savedKey);
+  return Boolean(savedResult[savedKey]);
+}
+
+/**
  * 根據 URL 渲染標註列表
- * 使用兩層查找法 (直接查 + Alias 查)
+ * Phase 3：優先讀取 page_* 新格式，再回退 highlights_*。
  *
  * @param {string} url
  * @param {string} originalTabUrl
@@ -267,36 +402,17 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
   const normalizedUrl = normalizeUrl(url);
   const normalizedOriginal = normalizeUrl(originalTabUrl);
 
-  const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
-  const origKey = `${HIGHLIGHTS_PREFIX}${normalizedOriginal}`;
-  const aliasKeyOrig = `${URL_ALIAS_PREFIX}${normalizedOriginal}`;
-  const aliasKeyNorm = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+  const keys = {
+    pageKey: `${PAGE_PREFIX}${normalizedUrl}`,
+    pageOrigKey: `${PAGE_PREFIX}${normalizedOriginal}`,
+    hlKey: `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    hlOrigKey: `${HIGHLIGHTS_PREFIX}${normalizedOriginal}`,
+    aliasKeyOrig: `${URL_ALIAS_PREFIX}${normalizedOriginal}`,
+    aliasKeyNorm: `${URL_ALIAS_PREFIX}${normalizedUrl}`,
+  };
 
-  // 批量查詢所有可能的 Key
-  const result = await chrome.storage.local.get([key, origKey, aliasKeyOrig, aliasKeyNorm]);
-
-  // 查找邏輯
-  let highlightsData = null;
-  let targetKey = null;
-
-  if (result[key]) {
-    highlightsData = result[key];
-    targetKey = key;
-  } else if (result[origKey]) {
-    highlightsData = result[origKey];
-    targetKey = origKey;
-  } else {
-    // Check aliases
-    const stableUrlFromAlias = result[aliasKeyOrig] || result[aliasKeyNorm];
-    if (stableUrlFromAlias) {
-      const aliasActualKey = `${HIGHLIGHTS_PREFIX}${stableUrlFromAlias}`;
-      const aliasResult = await chrome.storage.local.get(aliasActualKey);
-      if (aliasResult[aliasActualKey]) {
-        highlightsData = aliasResult[aliasActualKey];
-        targetKey = aliasActualKey;
-      }
-    }
-  }
+  const result = await chrome.storage.local.get(Object.values(keys));
+  const { highlightsData, notionData, targetKey } = await resolveHighlightData(result, keys);
 
   const highlights = Array.isArray(highlightsData)
     ? highlightsData
@@ -306,23 +422,17 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
     return;
   }
 
-  // 渲染列表
   renderList(highlights, targetKey);
 
-  // 檢查是否已儲存到 Notion 以啟用 Sync 按鈕
-  const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
-  const savedResult = await chrome.storage.local.get(savedKey);
+  const hasSavedData = await checkSavedData(notionData, targetKey);
+  els.syncButton.disabled = !hasSavedData;
+  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
 
-  if (savedResult[savedKey]) {
-    els.syncButton.disabled = false; // If saved, enable sync button
-    els.openNotionButton.style.display = 'inline-flex'; // Show open in notion button
-  } else {
-    els.syncButton.disabled = true; // If not saved, disable sync button
-    els.openNotionButton.style.display = 'none';
-  }
+  const targetUrl = targetKey?.startsWith(PAGE_PREFIX)
+    ? targetKey.slice(PAGE_PREFIX.length)
+    : (targetKey?.replace(HIGHLIGHTS_PREFIX, '') ?? '');
 
-  // Store the target page url for syncing / opening
-  els.syncButton.dataset.targetUrl = targetKey.replace(HIGHLIGHTS_PREFIX, '');
+  els.syncButton.dataset.targetUrl = targetUrl;
   els.openNotionButton.dataset.targetUrl = originalTabUrl;
 }
 
@@ -372,6 +482,8 @@ function renderList(highlights, storageKey) {
 /**
  * 刪除單個標註
  *
+ * Phase 3：如果 storageKey 為 page_*，執行 partial 刪除（保留 notion）。
+ *
  * @param {string} highlightId
  * @param {string} storageKey
  */
@@ -383,13 +495,27 @@ async function handleDelete(highlightId, storageKey) {
     }
 
     const data = result[storageKey];
-    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
 
-    // 儲存回 storage, 會自動觸發 onChanged 重繪
-    if (data.highlights.length === 0) {
-      await chrome.storage.local.remove(storageKey);
+    if (storageKey.startsWith(PAGE_PREFIX)) {
+      // Phase 3： page_* 新格式的 partial 刪除
+      data.highlights = (data.highlights || []).filter(hl => hl.id !== highlightId);
+      const shouldRemove = data.highlights.length === 0 && !data.notion;
+      if (shouldRemove) {
+        await chrome.storage.local.remove(storageKey);
+      } else {
+        await chrome.storage.local.set({ [storageKey]: data });
+      }
+    } else if (data.highlights) {
+      // 舊格式：有 highlights 物件結構
+      data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
+      if (data.highlights.length === 0) {
+        await chrome.storage.local.remove(storageKey);
+      } else {
+        await chrome.storage.local.set({ [storageKey]: data });
+      }
     } else {
-      await chrome.storage.local.set({ [storageKey]: data });
+      // 舊版 array 格式：直接刪除
+      await chrome.storage.local.remove(storageKey);
     }
 
     // 通知 Content script 清除 DOM 高亮
@@ -467,9 +593,12 @@ function handleStorageChange(changes, namespace) {
   if (namespace !== 'local') {
     return;
   }
-  // 只要 highlights 或 saved 有變，就重整當前頁面資料
+  // Phase 3：只要 page_*、highlights_* 或 saved_* 有變，就重整當前頁面資料
   const hasRelevantChanges = Object.keys(changes).some(
-    key => key.startsWith(HIGHLIGHTS_PREFIX) || key.startsWith(SAVED_PREFIX)
+    key =>
+      key.startsWith(PAGE_PREFIX) ||
+      key.startsWith(HIGHLIGHTS_PREFIX) ||
+      key.startsWith(SAVED_PREFIX)
   );
 
   if (!hasRelevantChanges) {

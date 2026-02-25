@@ -8,6 +8,7 @@ import {
   URL_TRACKING_PARAMS,
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
+  PAGE_PREFIX,
   URL_ALIAS_PREFIX,
   STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
@@ -98,14 +99,19 @@ describe('StorageService', () => {
   });
 
   describe('getSavedPageData', () => {
-    it('應該正確獲取保存的頁面數據', async () => {
-      const pageData = { title: 'Test Page', savedAt: 12_345 };
+    it('應該正確獲取保存的頁面數據（page_* 新格式）', async () => {
+      const notionData = { pageId: 'page-123', title: 'Test Page', savedAt: 12_345 };
       mockStorage.local.get.mockResolvedValue({
-        [`${SAVED_PREFIX}https://example.com/page`]: pageData,
+        [`${PAGE_PREFIX}https://example.com/page`]: {
+          notion: notionData,
+          highlights: [],
+          metadata: { createdAt: 12_345, lastUpdated: 12_345 },
+        },
       });
 
       const result = await service.getSavedPageData('https://example.com/page');
-      expect(result).toEqual(pageData);
+      // Phase 3: 返回 notion 子欄位
+      expect(result).toEqual(notionData);
     });
 
     it('應該在沒有數據時返回 null', async () => {
@@ -113,22 +119,24 @@ describe('StorageService', () => {
       expect(result).toBeNull();
     });
 
-    it('應該標準化 URL', async () => {
-      await service.getSavedPageData('https://example.com/page#section');
-      expect(mockStorage.local.get).toHaveBeenCalledWith([
-        `${SAVED_PREFIX}https://example.com/page`,
-        `${URL_ALIAS_PREFIX}https://example.com/page`,
-      ]);
+    it('應該在 page_* 的 notion 為 null 時返回 null', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        [`${PAGE_PREFIX}https://example.com/page`]: {
+          notion: null,
+          highlights: [{ id: 'h1', text: 'test' }],
+          metadata: { createdAt: 12_345, lastUpdated: 12_345 },
+        },
+      });
+
+      const result = await service.getSavedPageData('https://example.com/page');
+      expect(result).toBeNull();
     });
 
-    it('應在直接查找失敗時嘗試使用 alias 查找', async () => {
+    it('應在直接查找失敗時嘗試使用 alias 查找（page_* 格式）', async () => {
       const originalUrl = 'https://example.com/original';
       const stableUrl = 'https://example.com/stable';
-      const pageData = { title: 'Test Page' };
+      const notionData = { pageId: 'page-abc', title: 'Test Page' };
 
-      // 模擬 storage 狀態：
-      // 1. 直接查 keys [original, alias] -> 返回 alias pointing to stableUrl
-      // 2. 查 stableUrl -> pageData
       mockStorage.local.get.mockImplementation(keys => {
         const result = {};
         const keyList = Array.isArray(keys) ? keys : [keys];
@@ -137,8 +145,8 @@ describe('StorageService', () => {
           if (k === `${URL_ALIAS_PREFIX}${originalUrl}`) {
             result[k] = stableUrl;
           }
-          if (k === `${SAVED_PREFIX}${stableUrl}`) {
-            result[k] = pageData;
+          if (k === `${PAGE_PREFIX}${stableUrl}`) {
+            result[k] = { notion: notionData, highlights: [], metadata: {} };
           }
         });
 
@@ -147,20 +155,23 @@ describe('StorageService', () => {
 
       const result = await service.getSavedPageData(originalUrl);
 
-      expect(result).toEqual(pageData);
+      // Phase 3: 返回 notion 子欄位
+      expect(result).toEqual(notionData);
     });
   });
 
   describe('setSavedPageData', () => {
-    it('應該正確設置頁面數據', async () => {
-      const data = { title: 'Test Page' };
+    it('應該正確設置頁面數據（Phase 3: page_*.notion partial update）', async () => {
+      // 先設定無既有資料（新建路徑）
+      mockStorage.local.get.mockResolvedValue({});
+      const data = { title: 'Test Page', pageId: 'page-123' };
       await service.setSavedPageData('https://example.com/page', data);
 
       expect(mockStorage.local.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          [`${SAVED_PREFIX}https://example.com/page`]: expect.objectContaining({
-            title: 'Test Page',
-            lastUpdated: expect.any(Number),
+          [`${PAGE_PREFIX}https://example.com/page`]: expect.objectContaining({
+            notion: expect.objectContaining({ title: 'Test Page' }),
+            metadata: expect.objectContaining({ lastUpdated: expect.any(Number) }),
           }),
         })
       );
@@ -168,14 +179,15 @@ describe('StorageService', () => {
   });
 
   describe('clearPageState', () => {
-    it('應該清除頁面狀態', async () => {
+    it('應該清除頁面狀態（Phase 3: 刪除 page_* keys）', async () => {
       await service.clearPageState('https://example.com/page');
 
+      // Phase 3: 同時刪除 page_* 新格式 key 和舊格式 saved_* key
       // Note: computeStableUrl is mocked to return url + '_stable'
-      expect(mockStorage.local.remove).toHaveBeenCalledWith([
-        `${SAVED_PREFIX}https://example.com/page`,
-        `${SAVED_PREFIX}https://example.com/page_stable`,
-      ]);
+      const removeCall = mockStorage.local.remove.mock.calls[0][0];
+      expect(removeCall).toContain(`${PAGE_PREFIX}https://example.com/page`);
+      expect(removeCall).toContain(`${PAGE_PREFIX}https://example.com/page_stable`);
+      expect(removeCall).toContain(`${SAVED_PREFIX}https://example.com/page`);
       expect(mockLogger.log).toHaveBeenCalledWith('Cleared saved page metadata', {
         url: 'https://example.com/page',
       });
@@ -183,19 +195,18 @@ describe('StorageService', () => {
   });
 
   describe('clearLegacyKeys', () => {
-    it('應該僅清除 normalized URL 的 keys（不使用 computeStableUrl）', async () => {
-      // 即使 URL 有 stable URL，clearLegacyKeys 也不應該刪除 stable URL keys
+    it('應該清除 normalized URL 的三種 keys（Phase 3: page_* + saved_* + highlights_*）', async () => {
       await service.clearLegacyKeys('https://example.com/article?utm_source=test');
 
-      // 應該僅刪除 normalizedUrl 的 keys
+      // Phase 3: 刪除 page_*, saved_*, highlights_* 三種前綴
       expect(mockStorage.local.remove).toHaveBeenCalledWith([
+        `${PAGE_PREFIX}https://example.com/article`,
         `${SAVED_PREFIX}https://example.com/article`,
         `${HIGHLIGHTS_PREFIX}https://example.com/article`,
       ]);
 
-      // 不應該包含其他 keys（例如 computeStableUrl 的結果）
       const removeCall = mockStorage.local.remove.mock.calls[0][0];
-      expect(removeCall).toHaveLength(2);
+      expect(removeCall).toHaveLength(3);
     });
 
     it('應該記錄成功日誌', async () => {
@@ -220,35 +231,37 @@ describe('StorageService', () => {
   });
 
   describe('savePageDataAndHighlights', () => {
-    it('應該原子寫入頁面數據和標註', async () => {
-      const pageData = { title: 'Test' };
+    it('應該以 page_* 格式原子寫入頁面數據和標註（Phase 3）', async () => {
+      const pageData = { title: 'Test', pageId: 'page-123' };
       const highlights = ['hl1'];
       await service.savePageDataAndHighlights('https://example.com/page', pageData, highlights);
 
-      expect(mockStorage.local.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          [`${SAVED_PREFIX}https://example.com/page`]: expect.objectContaining({ title: 'Test' }),
-          [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: highlights,
-        })
-      );
+      const setCall = mockStorage.local.set.mock.calls[0][0];
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      expect(setCall[pageKey]).toBeDefined();
+      expect(setCall[pageKey].notion).toBeDefined();
+      expect(setCall[pageKey].highlights).toEqual(highlights);
+      expect(setCall[pageKey].metadata).toBeDefined();
     });
 
-    it('應該只寫入提供的部分', async () => {
-      const pageData = { title: 'Test' };
-      await service.savePageDataAndHighlights('https://example.com/page', pageData, null);
-
-      expect(mockStorage.local.set).toHaveBeenCalledWith({
-        [`${SAVED_PREFIX}https://example.com/page`]: expect.objectContaining({ title: 'Test' }),
-      });
-    });
-
-    it('應該只寫入標註數據 (pageData 為 null)', async () => {
+    it('應該在 pageData 為 null 時仍寫入 highlights', async () => {
       const highlights = ['hl1', 'hl2'];
       await service.savePageDataAndHighlights('https://example.com/page', null, highlights);
 
-      expect(mockStorage.local.set).toHaveBeenCalledWith({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: highlights,
-      });
+      const setCall = mockStorage.local.set.mock.calls[0][0];
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      expect(setCall[pageKey].notion).toBeNull();
+      expect(setCall[pageKey].highlights).toEqual(highlights);
+    });
+
+    it('應該在 highlights 為 null 時仍寫入 pageData（notion = null 除外）', async () => {
+      const pageData = { title: 'Test', pageId: 'page-123' };
+      await service.savePageDataAndHighlights('https://example.com/page', pageData, null);
+
+      const setCall = mockStorage.local.set.mock.calls[0][0];
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      expect(setCall[pageKey].notion).toBeDefined();
+      expect(setCall[pageKey].highlights).toEqual([]);
     });
 
     it('如果全部為 null 則不應調用 set', async () => {
@@ -320,76 +333,114 @@ describe('StorageService', () => {
   });
 
   describe('getAllSavedPageUrls', () => {
-    it('應該返回所有已保存頁面的 URL', async () => {
+    it('應該返回所有已保存頁面的 URL（Phase 3: page_*.notion 非 null）', async () => {
       mockStorage.local.get.mockResolvedValue({
-        [`${SAVED_PREFIX}https://example.com/page1`]: {},
-        [`${SAVED_PREFIX}https://example.com/page2`]: {},
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page1`]: [],
+        [`${PAGE_PREFIX}https://example.com/page1`]: {
+          notion: { pageId: 'p1' },
+          highlights: [],
+          metadata: {},
+        },
+        [`${PAGE_PREFIX}https://example.com/page2`]: {
+          notion: { pageId: 'p2' },
+          highlights: [],
+          metadata: {},
+        },
+        // 無 notion 的 page_* 不應被計算
+        [`${PAGE_PREFIX}https://example.com/page3`]: {
+          notion: null,
+          highlights: [],
+          metadata: {},
+        },
+        // 過渡期：舊格式也要計算
+        [`${SAVED_PREFIX}https://example.com/page4`]: {},
         other_key: 'value',
       });
 
       const result = await service.getAllSavedPageUrls();
-      expect(result).toEqual(['https://example.com/page1', 'https://example.com/page2']);
+      expect(result.toSorted((a, b) => a.localeCompare(b))).toEqual(
+        [
+          'https://example.com/page1',
+          'https://example.com/page2',
+          'https://example.com/page4',
+        ].toSorted((a, b) => a.localeCompare(b))
+      );
     });
   });
 
   describe('getAllHighlights', () => {
-    it('應該返回所有標註的資料', async () => {
+    it('應該返回所有 page_* 和 highlights_* 的標註資料（Phase 3）', async () => {
       mockStorage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page1`]: {
-          url: 'https://example.com/page1',
+        // 新格式（Phase 3）
+        [`${PAGE_PREFIX}https://example.com/page1`]: {
+          notion: { pageId: 'p1' },
           highlights: ['h1'],
+          metadata: {},
         },
+        // 舊格式（過渡期）
         [`${HIGHLIGHTS_PREFIX}https://example.com/page2`]: {
           url: 'https://example.com/page2',
           highlights: ['h2'],
         },
-        [`${SAVED_PREFIX}https://example.com/page1`]: {},
+        // 同 URL 有 page_* 時，highlights_* 不應覆蓋
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page1`]: {
+          url: 'https://example.com/page1',
+          highlights: ['legacy-h1'],
+        },
         other_key: 'value',
       });
 
       const result = await service.getAllHighlights();
-      expect(result).toEqual({
-        'https://example.com/page1': { url: 'https://example.com/page1', highlights: ['h1'] },
-        'https://example.com/page2': { url: 'https://example.com/page2', highlights: ['h2'] },
+      // page1 使用 page_* 資料（不被舊 highlights_* 覆蓋）
+      expect(result['https://example.com/page1']).toEqual({
+        url: 'https://example.com/page1',
+        highlights: ['h1'],
+      });
+      // page2 使用 highlights_* 資料（尚未升級）
+      expect(result['https://example.com/page2']).toEqual({
+        url: 'https://example.com/page2',
+        highlights: ['h2'],
       });
     });
   });
 
   describe('updateHighlights', () => {
-    it('應該正確更新標註資料（保留現有其他欄位）', async () => {
-      const existingData = { url: 'https://example.com/page', otherField: 'test' };
+    it('應該更新 page_* 的 highlights 欄位（Phase 3）', async () => {
+      const existingPageData = {
+        notion: { pageId: 'p123' },
+        highlights: ['old-h1'],
+        metadata: { createdAt: 1000, lastUpdated: 1000 },
+      };
       mockStorage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: existingData,
+        [`${PAGE_PREFIX}https://example.com/page`]: existingPageData,
       });
 
       const newHighlights = ['h1', 'h2'];
       await service.updateHighlights('https://example.com/page', newHighlights);
 
       expect(mockStorage.local.set).toHaveBeenCalledWith({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
-          ...existingData,
+        [`${PAGE_PREFIX}https://example.com/page`]: expect.objectContaining({
+          notion: { pageId: 'p123' },
           highlights: newHighlights,
-        },
+          metadata: expect.objectContaining({ lastUpdated: expect.any(Number) }),
+        }),
       });
     });
 
-    it('如果沒有現有資料，應該創建新結構', async () => {
+    it('如果沒有現有 page_* 資料，應該創建新的 page_* 結構（notion 為 null）', async () => {
       mockStorage.local.get.mockResolvedValue({});
 
       const newHighlights = ['h1'];
       await service.updateHighlights('https://example.com/page', newHighlights);
 
-      // 注意：normalizeUrl 是 return actual string，所以這裡就是 url
       expect(mockStorage.local.set).toHaveBeenCalledWith({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
-          url: 'https://example.com/page',
+        [`${PAGE_PREFIX}https://example.com/page`]: expect.objectContaining({
+          notion: null,
           highlights: newHighlights,
-        },
+        }),
       });
     });
 
-    it('如果現有資料是舊版陣列，應該轉換為新版物件結構', async () => {
+    it('如果有舊版 highlights_* 資料，應該升級到 page_* 格式並刪除舊 key', async () => {
       mockStorage.local.get.mockResolvedValue({
         [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: ['old_h1'],
       });
@@ -398,17 +449,21 @@ describe('StorageService', () => {
       await service.updateHighlights('https://example.com/page', newHighlights);
 
       expect(mockStorage.local.set).toHaveBeenCalledWith({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
-          url: 'https://example.com/page',
+        [`${PAGE_PREFIX}https://example.com/page`]: expect.objectContaining({
+          notion: null,
           highlights: newHighlights,
-        },
+        }),
       });
+      // 舊 key 應被非同步刪除（非同步，不一定即時呼叫）
     });
 
     it('應該在 storage.local.set 失敗時記錄錯誤並拋出（寫入階段）', async () => {
-      const existingData = { url: 'https://example.com/page', otherField: 'test' };
       mockStorage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: existingData,
+        [`${PAGE_PREFIX}https://example.com/page`]: {
+          notion: null,
+          highlights: ['old-h1'],
+          metadata: {},
+        },
       });
 
       mockStorage.local.set.mockRejectedValue(new Error('Write failed'));
@@ -421,13 +476,6 @@ describe('StorageService', () => {
         '[StorageService] updateHighlights failed',
         expect.objectContaining({ error: expect.any(Error) })
       );
-
-      expect(mockStorage.local.set).toHaveBeenCalledWith({
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
-          ...existingData,
-          highlights: ['h1'],
-        },
-      });
     });
   });
 

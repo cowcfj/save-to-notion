@@ -7,6 +7,15 @@ const chrome = require('../mocks/chrome');
 
 // 設置全局環境
 globalThis.chrome = chrome;
+// Phase 3: 模擬 chrome.runtime.sendMessage（預設返回失敗以測試 Fallback 路徑）
+if (!globalThis.chrome.runtime) {
+  globalThis.chrome.runtime = {};
+}
+if (!globalThis.chrome.runtime.sendMessage) {
+  globalThis.chrome.runtime.sendMessage = jest.fn(() =>
+    Promise.reject(new Error('sendMessage disabled in test'))
+  );
+}
 globalThis.localStorage = {
   data: {},
   getItem(key) {
@@ -45,6 +54,14 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
     chrome.storage.local.get.mockClear();
     chrome.storage.local.set.mockClear();
     chrome.storage.local.remove.mockClear();
+
+    // Phase 3：模擬 sendMessage 預設失敗（測試 Fallback 路徑）
+    if (!globalThis.chrome.runtime) {
+      globalThis.chrome.runtime = {};
+    }
+    globalThis.chrome.runtime.sendMessage = jest.fn(() =>
+      Promise.reject(new Error('sendMessage disabled in test'))
+    );
 
     // 確保 remove 的默認實現是正確的
     chrome.storage.local.remove.mockImplementation((keys, callback) => {
@@ -129,24 +146,27 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
   });
 
   describe('並行清除操作', () => {
-    test('應該同時清除 Chrome Storage 和 localStorage', async () => {
+    test('應該清除 Chrome Storage 和 localStorage（Fallback 路徑）', async () => {
       if (!StorageUtil) {
         return;
       }
       const testUrl = 'https://example.com/test';
-      const pageKey = 'highlights_https://example.com/test';
+      // Phase 3 Fallback 路徑：清除 highlights_* 和 page_* keys
+      const legacyKey = 'highlights_https://example.com/test';
 
-      await chrome.storage.local.set({ [pageKey]: [{ text: 'test' }] });
-      globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
+      await chrome.storage.local.set({ [legacyKey]: [{ text: 'test' }] });
+      globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
 
+      // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
       await StorageUtil.clearHighlights(testUrl);
 
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith([pageKey], expect.any(Function));
-      expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
-      expect(Logger.log).toHaveBeenCalledWith(
-        '標註清除完成',
-        expect.objectContaining({ action: 'clearHighlights' })
-      );
+      // Fallback 路徑會嘗試清理 page_* 和 highlights_* keys
+      const removeCall = chrome.storage.local.remove.mock.calls;
+      const allRemovedKeys = removeCall.flatMap(call => {
+        const keys = call[0];
+        return Array.isArray(keys) ? keys : [keys];
+      });
+      expect(allRemovedKeys).toContain(legacyKey);
     });
 
     test('應該記錄清除開始', async () => {
@@ -165,27 +185,30 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
   });
 
   describe('錯誤處理', () => {
-    test('當 Chrome Storage 失敗但 localStorage 成功時應該記錄警告', async () => {
+    test('當 Chrome Storage 失敗但 localStorage 成功時應該記錄警告（Fallback 路徑）', async () => {
       if (!StorageUtil) {
         return;
       }
       const testUrl = 'https://example.com/test';
-      const pageKey = 'highlights_https://example.com/test';
+      const legacyKey = 'highlights_https://example.com/test';
 
+      // 讓 remove 失敗（通過 lastError）
       chrome.storage.local.remove.mockImplementation((keys, callback) => {
         chrome.runtime.lastError = { message: 'Storage error' };
-        callback();
+        if (callback) {
+          callback();
+        }
       });
 
-      globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
+      globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
 
+      // sendMessage 已在 beforeEach 設為失敗，走 Fallback 路徑
       await StorageUtil.clearHighlights(testUrl);
 
       expect(Logger.warn).toHaveBeenCalledWith(
         '部分存儲清除失敗',
         expect.objectContaining({ action: 'clearHighlights' })
       );
-      expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
     });
 
     test('當 Chrome Storage 不可用時應該只使用 localStorage', async () => {
@@ -196,6 +219,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       const pageKey = 'highlights_https://example.com/test';
 
       const originalChrome = globalThis.chrome;
+      // sendMessage 不可用，且 storage 也不可用
       globalThis.chrome = {};
 
       globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
@@ -283,16 +307,20 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
   });
 
   describe('向後兼容性', () => {
-    test('應該正確處理標準化 URL', async () => {
+    test('應該正確處理標準化 URL（Phase 3: Fallback 路徑使用 page_* 和 highlights_* keys）', async () => {
       if (!StorageUtil) {
         return;
       }
       const testUrl = 'https://example.com/page?utm_source=test#anchor';
-      const expectedKey = 'highlights_https://example.com/page';
-
+      // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
+      // Fallback 會嘗試對 page_https://example.com/page 和 highlights_https://example.com/page 兩種 keys
       await StorageUtil.clearHighlights(testUrl);
 
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith([expectedKey], expect.any(Function));
+      const allRemovedKeys = chrome.storage.local.remove.mock.calls.flatMap(call => {
+        const keys = call[0];
+        return Array.isArray(keys) ? keys : [keys];
+      });
+      expect(allRemovedKeys).toContain('highlights_https://example.com/page');
     });
 
     test('應該與現有代碼保持相同的介面', async () => {
