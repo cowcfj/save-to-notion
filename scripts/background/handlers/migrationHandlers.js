@@ -18,21 +18,76 @@ import {
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
+import { SAVED_PREFIX, HIGHLIGHTS_PREFIX } from '../../config/constants.js';
 
 /**
- * 處理單個 URL 的遷移邏輯，包含穩定 URL 檢查與資料轉移
+ * 轉換標註格式：對沒有 rangeInfo 的項目加上 needsRangeInfo 標記
+ * 純函數，無副作用
  *
- * @param {string} url - 原始 URL
- * @returns {Promise<object>} 返回執行結果狀態與詳細資訊
+ * @param {Array} oldHighlights - 舊標註陣列
+ * @returns {Array} 轉換後的標註陣列
  */
-async function _migrateSingleUrl(url) {
-  const pageKey = `highlights_${url}`;
+function _convertHighlightFormat(oldHighlights) {
+  return oldHighlights.map(item => ({
+    ...item,
+    needsRangeInfo: !item.rangeInfo,
+  }));
+}
 
-  // 同步計算穩定 URL（無需 async），並批量讀取兩個 key 以縮小 TOCTOU 窗口
+/**
+ * URL Key 遷移：將 highlights_ + saved_ 從舊 URL 遷移到穩定 URL
+ * 可被 migrateStorageKey 和 _migrateSingleUrl 共用的核心邏輯
+ *
+ * @param {string} url - 舊原始 URL
+ * @param {string} stableUrl - 穩定 URL
+ * @param {Array} newHighlights - 轉換後的標註陣列
+ * @param {object} storageService - StorageService 實例
+ * @param {object} rawStorageResult - 原始批量讀取結果（用於判斷 saved_ 狀態）
+ * @returns {Promise<{migrated: boolean}>}
+ */
+async function _migrateUrlKey(url, stableUrl, newHighlights, storageService, rawStorageResult) {
+  const savedKey = `${SAVED_PREFIX}${url}`;
+  const savedStableKey = `${SAVED_PREFIX}${stableUrl}`;
+
+  // saved_ 在舊 URL 下存在且穩定 URL 下尚無資料時，一起遷移
+  const savedData = rawStorageResult[savedKey] || null;
+  const savedStableExists = Boolean(rawStorageResult[savedStableKey]);
+
+  // 原子寫入：highlights_ 到穩定 URL，同時遷移 saved_（若穩定 URL 尚無）
+  await storageService.savePageDataAndHighlights(
+    stableUrl,
+    !savedStableExists && savedData ? savedData : null,
+    { url: stableUrl, highlights: newHighlights }
+  );
+
+  // 安全刪除舊 key（highlights_ + saved_）
+  await storageService.clearLegacyKeys(url);
+
+  return { migrated: true };
+}
+
+async function _migrateSingleUrl(url, storageService) {
+  // 讀取標註資料（第一手讀取，包含 saved_ 狀態）
+  const pageKey = `${HIGHLIGHTS_PREFIX}${url}`;
   const stableUrl = computeStableUrl(url);
-  const stableKey = stableUrl && stableUrl !== url ? `highlights_${stableUrl}` : null;
-  const keysToFetch = stableKey ? [pageKey, stableKey] : pageKey;
+  const stableKey = stableUrl && stableUrl !== url ? `${HIGHLIGHTS_PREFIX}${stableUrl}` : null;
 
+  // 批量讀取 highlights_、saved_（舊與穩定）以縮小 TOCTOU 窗口
+  const savedKey = `${SAVED_PREFIX}${url}`;
+  const savedStableKey = stableUrl && stableUrl !== url ? `${SAVED_PREFIX}${stableUrl}` : null;
+  const keysToFetch = [pageKey];
+  if (stableKey) {
+    keysToFetch.push(stableKey);
+  }
+  keysToFetch.push(savedKey);
+  if (savedStableKey) {
+    keysToFetch.push(savedStableKey);
+  }
+
+  // Tech debt: 此處直接存取 chrome.storage.local 是因為 StorageService
+  // 目前缺少跨前綴批量讀取 API（同時讀 highlights_ 和 saved_）。
+  // 待 StorageService 新增 getBulk() 後替換此段。
+  // Tracking: https://github.com/cowcfj/save-to-notion/issues (搜尋 "StorageService getBulk")
   const storageResult = await chrome.storage.local.get(keysToFetch);
   const data = storageResult[pageKey];
 
@@ -44,9 +99,8 @@ async function _migrateSingleUrl(url) {
     };
   }
 
-  // 提取標註數據（支持新舊格式）
+  // Phase 2: 職責 1 - 格式轉換（純函數，無副作用）
   const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
-
   if (oldHighlights.length === 0) {
     return {
       status: 'skipped',
@@ -54,31 +108,30 @@ async function _migrateSingleUrl(url) {
       url: sanitizeUrlForLogging(url),
     };
   }
+  const newHighlights = _convertHighlightFormat(oldHighlights);
 
-  // 轉換格式：對於沒有 rangeInfo 的項目添加 needsRangeInfo 標記
-  const newHighlights = oldHighlights.map(item => ({
-    ...item,
-    needsRangeInfo: !item.rangeInfo,
-  }));
-
-  // 若穩定 key 不存在（由同一批次讀取決定），則遷移到穩定 key
+  // Phase 2: 職責 2 - URL Key 遷移（若需要）
   const shouldMigrateToStable = stableKey && !storageResult[stableKey];
   const finalUrl = shouldMigrateToStable ? stableUrl : url;
-  const writeKey = shouldMigrateToStable ? stableKey : pageKey;
 
-  // 單次 set 寫入目標 key
-  await chrome.storage.local.set({ [writeKey]: { url: finalUrl, highlights: newHighlights } });
-
-  // 若完成穩定遷移，或 stableKey 已存在資料（pageKey 為重複 key），刪除原始 key 避免 migration_get_pending 重複計算
-  if (stableKey) {
-    await chrome.storage.local.remove(pageKey);
+  if (shouldMigrateToStable) {
+    // 使用 StorageService 原子遷移：自動處理 saved_ + highlights_
+    await _migrateUrlKey(url, stableUrl, newHighlights, storageService, storageResult);
+  } else {
+    // 原地格式轉換（就地更新現有 key）
+    // 刻意不呼叫 clearLegacyKeys：
+    //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key，無舊 key 可刪
+    //   - 若 stableKey 存在但已有資料（shouldMigrateToStable = false）：代表穩定 URL 那邊
+    //     已有獨立資料，此時 url 的 key 仍是有效資料（使用者可能仍在用此 URL 訪問），
+    //     不應刪除；舊 key 的清理責任交給後續線上路徑（migrateStorageKey）。
+    await storageService.updateHighlights(url, newHighlights);
   }
 
   return {
     status: 'success',
     url: sanitizeUrlForLogging(finalUrl),
     count: newHighlights.length,
-    pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
+    pending: newHighlights.filter(item => item.needsRangeInfo).length,
   };
 }
 
@@ -112,7 +165,7 @@ const validatePrivilegedRequest = (sender, url = null) => {
  * @returns {object} 遷移處理函數映射
  */
 export function createMigrationHandlers(services) {
-  const { migrationService } = services;
+  const { migrationService, storageService } = services;
 
   return {
     /**
@@ -186,21 +239,34 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始刪除', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
 
-        const stableUrl = computeStableUrl(url);
-        const resolvedUrl = stableUrl || url;
-        const pageKey = `highlights_${resolvedUrl}`;
+        // 同時檢查原始 URL 和穩定 URL 下的 highlights_ 與 saved_ 資料
+        const resolvedUrl = computeStableUrl(url);
+        const effectiveUrl = resolvedUrl && resolvedUrl !== url ? resolvedUrl : null;
 
-        // 檢查數據是否存在
-        const result = await chrome.storage.local.get(pageKey);
-        const data = result[pageKey];
+        const [dataAtOriginal, savedAtOriginal] = await Promise.all([
+          storageService.getHighlights(url),
+          storageService.getSavedPageData(url),
+        ]);
+        const [dataAtStable, savedAtStable] = effectiveUrl
+          ? await Promise.all([
+              storageService.getHighlights(effectiveUrl),
+              storageService.getSavedPageData(effectiveUrl),
+            ])
+          : [null, null];
 
-        if (!data) {
+        // 只要任一 key 有資料就視為「存在」
+        const hasAnyData = dataAtOriginal || savedAtOriginal || dataAtStable || savedAtStable;
+        if (!hasAnyData) {
           sendResponse({ success: true, message: '數據不存在，無需刪除' });
           return;
         }
 
-        // 刪除數據
-        await chrome.storage.local.remove(pageKey);
+        // 清理原始 URL 的 keys
+        await storageService.clearLegacyKeys(url);
+        // 若穩定 URL 不同，也清理穩定 URL 的 keys
+        if (effectiveUrl) {
+          await storageService.clearLegacyKeys(effectiveUrl);
+        }
 
         Logger.log('刪除完成', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
         sendResponse({
@@ -266,7 +332,7 @@ export function createMigrationHandlers(services) {
 
         for (const url of urls) {
           try {
-            const itemResult = await _migrateSingleUrl(url);
+            const itemResult = await _migrateSingleUrl(url, storageService);
             results.details.push(itemResult);
 
             if (itemResult.status === 'success') {
@@ -348,11 +414,16 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
 
-        const keysToRemove = urls.map(urlItem => {
-          const stableUrl = computeStableUrl(urlItem);
-          return `highlights_${stableUrl || urlItem}`;
-        });
-        await chrome.storage.local.remove(keysToRemove);
+        // 使用 StorageService.clearLegacyKeys 安全刪除（同時清理 highlights_ + saved_）
+        await Promise.all(
+          urls.map(async urlItem => {
+            const resolvedUrl = computeStableUrl(urlItem);
+            await storageService.clearLegacyKeys(urlItem);
+            if (resolvedUrl && resolvedUrl !== urlItem) {
+              await storageService.clearLegacyKeys(resolvedUrl);
+            }
+          })
+        );
 
         Logger.log('批量刪除完成', { action: 'migration_batch_delete', pageCount: urls.length });
         sendResponse({
@@ -390,16 +461,12 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        const allData = await chrome.storage.local.get(null);
+        // 使用 StorageService.getAllHighlights() 取代直接操作 chrome.storage.local
+        const allHighlights = await storageService.getAllHighlights();
         const pendingItems = [];
         const failedItems = [];
 
-        for (const [key, value] of Object.entries(allData)) {
-          if (!key.startsWith('highlights_')) {
-            continue;
-          }
-
-          const url = key.replace('highlights_', '');
+        for (const [url, value] of Object.entries(allHighlights)) {
           const highlights = value?.highlights || (Array.isArray(value) ? value : []);
 
           // 計算需要 rangeInfo 的標註數量
@@ -413,19 +480,11 @@ export function createMigrationHandlers(services) {
           ).length;
 
           if (pendingCount > 0) {
-            pendingItems.push({
-              url,
-              totalCount: highlights.length,
-              pendingCount,
-            });
+            pendingItems.push({ url, totalCount: highlights.length, pendingCount });
           }
 
           if (failedCount > 0) {
-            failedItems.push({
-              url,
-              totalCount: highlights.length,
-              failedCount,
-            });
+            failedItems.push({ url, totalCount: highlights.length, failedCount });
           }
         }
 
@@ -483,34 +542,27 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        const key = `highlights_${url}`;
-        const result = await chrome.storage.local.get(key);
+        const data = await storageService.getHighlights(url);
 
-        if (!result[key]) {
+        if (!data) {
           sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.NO_HIGHLIGHT_DATA });
           return;
         }
 
-        const data = result[key];
         const highlights = data.highlights || (Array.isArray(data) ? data : []);
 
         // 過濾掉失敗的標註
         const remainingHighlights = highlights.filter(highlight => !highlight.migrationFailed);
-
         const deletedCount = highlights.length - remainingHighlights.length;
 
         if (remainingHighlights.length === 0) {
-          // 沒有剩餘標註，刪除整個 key
-          await chrome.storage.local.remove(key);
+          // 沒有剩餘標註，僅刪除 highlights_ key
+          // 刻意不呼叫 clearLegacyKeys（會連 saved_ 頁面狀態一起刪）
+          // 用空陣列更新讓 key 保持結構完整，由呼叫端或 migration_delete 負責後續清理
+          await storageService.updateHighlights(url, []);
         } else {
-          // 更新數據：確保格式正確，避免舊數組格式导致鍵值污染
-          const newData = Array.isArray(data)
-            ? { url, highlights: remainingHighlights }
-            : { ...data, highlights: remainingHighlights };
-
-          await chrome.storage.local.set({
-            [key]: newData,
-          });
+          // 使用 StorageService.updateHighlights 更新（保留其他欄位）
+          await storageService.updateHighlights(url, remainingHighlights);
         }
 
         Logger.log('刪除失敗標註', {

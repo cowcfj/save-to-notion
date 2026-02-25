@@ -333,6 +333,104 @@ describe('StorageService', () => {
     });
   });
 
+  describe('getAllHighlights', () => {
+    it('應該返回所有標註的資料', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page1`]: {
+          url: 'https://example.com/page1',
+          highlights: ['h1'],
+        },
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page2`]: {
+          url: 'https://example.com/page2',
+          highlights: ['h2'],
+        },
+        [`${SAVED_PREFIX}https://example.com/page1`]: {},
+        other_key: 'value',
+      });
+
+      const result = await service.getAllHighlights();
+      expect(result).toEqual({
+        'https://example.com/page1': { url: 'https://example.com/page1', highlights: ['h1'] },
+        'https://example.com/page2': { url: 'https://example.com/page2', highlights: ['h2'] },
+      });
+    });
+  });
+
+  describe('updateHighlights', () => {
+    it('應該正確更新標註資料（保留現有其他欄位）', async () => {
+      const existingData = { url: 'https://example.com/page', otherField: 'test' };
+      mockStorage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: existingData,
+      });
+
+      const newHighlights = ['h1', 'h2'];
+      await service.updateHighlights('https://example.com/page', newHighlights);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
+          ...existingData,
+          highlights: newHighlights,
+        },
+      });
+    });
+
+    it('如果沒有現有資料，應該創建新結構', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+
+      const newHighlights = ['h1'];
+      await service.updateHighlights('https://example.com/page', newHighlights);
+
+      // 注意：normalizeUrl 是 return actual string，所以這裡就是 url
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
+          url: 'https://example.com/page',
+          highlights: newHighlights,
+        },
+      });
+    });
+
+    it('如果現有資料是舊版陣列，應該轉換為新版物件結構', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: ['old_h1'],
+      });
+
+      const newHighlights = ['h1'];
+      await service.updateHighlights('https://example.com/page', newHighlights);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
+          url: 'https://example.com/page',
+          highlights: newHighlights,
+        },
+      });
+    });
+
+    it('應該在 storage.local.set 失敗時記錄錯誤並拋出（寫入階段）', async () => {
+      const existingData = { url: 'https://example.com/page', otherField: 'test' };
+      mockStorage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: existingData,
+      });
+
+      mockStorage.local.set.mockRejectedValue(new Error('Write failed'));
+
+      await expect(service.updateHighlights('https://example.com/page', ['h1'])).rejects.toThrow(
+        'Write failed'
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[StorageService] updateHighlights failed',
+        expect.objectContaining({ error: expect.any(Error) })
+      );
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: {
+          ...existingData,
+          highlights: ['h1'],
+        },
+      });
+    });
+  });
+
   describe('error handling', () => {
     it('應該在沒有 storage 時拋出錯誤', async () => {
       const originalChrome = globalThis.chrome;
@@ -346,6 +444,8 @@ describe('StorageService', () => {
       await expect(serviceNoStorage.getConfig(['key'])).rejects.toThrow(STORAGE_ERROR);
       await expect(serviceNoStorage.setConfig({ key: 'val' })).rejects.toThrow(STORAGE_ERROR);
       await expect(serviceNoStorage.getAllSavedPageUrls()).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.getAllHighlights()).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.updateHighlights('url', [])).rejects.toThrow(STORAGE_ERROR);
 
       globalThis.chrome = originalChrome;
     });
@@ -393,6 +493,22 @@ describe('StorageService', () => {
     it('應該在 getAllSavedPageUrls 失敗時記錄錯誤並拋出', async () => {
       mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
       await expect(service.getAllSavedPageUrls()).rejects.toThrow('Storage fail');
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
+    });
+
+    it('應該在 getAllHighlights 失敗時記錄錯誤並拋出', async () => {
+      mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
+      await expect(service.getAllHighlights()).rejects.toThrow('Storage fail');
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
+    });
+
+    it('應該在 updateHighlights 失敗時記錄錯誤並拋出', async () => {
+      mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
+      await expect(service.updateHighlights('url', [])).rejects.toThrow('Storage fail');
       expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
         error: expect.any(Error),
       });

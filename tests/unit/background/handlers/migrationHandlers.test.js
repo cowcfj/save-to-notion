@@ -14,6 +14,10 @@
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
+import {
+  HIGHLIGHTS_PREFIX,
+  SAVED_PREFIX,
+} from '../../../../scripts/background/services/StorageService.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
@@ -68,15 +72,27 @@ const defaultSender = {
 describe('migrationHandlers', () => {
   let handlers = null;
   let mockServices = null;
+  let mockStorageService = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
     computeStableUrl.mockReturnValue(null); // 預設不返回穩定 URL
+
+    // StorageService mock（Phase 1+2 後所有 handler 均使用此服務）
+    mockStorageService = {
+      getHighlights: jest.fn().mockResolvedValue(null),
+      getAllHighlights: jest.fn().mockResolvedValue({}),
+      updateHighlights: jest.fn().mockResolvedValue(),
+      clearLegacyKeys: jest.fn().mockResolvedValue(),
+      savePageDataAndHighlights: jest.fn().mockResolvedValue(),
+      getSavedPageData: jest.fn().mockResolvedValue(null),
+    };
+
     mockServices = {
       migrationService: {
         executeContentMigration: jest.fn(),
       },
-      // ...other services if needed
+      storageService: mockStorageService,
     };
     handlers = createMigrationHandlers(mockServices);
   });
@@ -104,12 +120,9 @@ describe('migrationHandlers', () => {
         const sendResponse = jest.fn();
         const request = { url: 'https://example.com' };
 
-        chrome.storage.local.get.mockResolvedValue({});
-
         await handlers.migration_execute(request, sender, sendResponse);
 
         // 正面斷言：驗證成功路徑被執行
-        // 如果安全性檢查通過，應該會調用 executeContentMigration
         expect(mockServices.migrationService.executeContentMigration).toHaveBeenCalled();
 
         // 負面斷言：確認沒有返回拒絕訪問錯誤
@@ -162,12 +175,13 @@ describe('migrationHandlers', () => {
       const url = 'https://example.com/data';
       const sendResponse = jest.fn();
 
-      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
-      chrome.storage.local.remove.mockResolvedValue();
+      // StorageService.getHighlights 回傳有資料
+      mockStorageService.getHighlights.mockResolvedValue({ url, highlights: [{ id: '1' }] });
 
       await handlers.migration_delete({ url }, defaultSender, sendResponse);
 
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith(`highlights_${url}`);
+      expect(mockStorageService.getHighlights).toHaveBeenCalledWith(url);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(url);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
@@ -175,12 +189,65 @@ describe('migrationHandlers', () => {
       const url = 'https://example.com/no-data';
       const sendResponse = jest.fn();
 
-      chrome.storage.local.get.mockResolvedValue({});
+      // highlights_ 和 saved_ 均為 null
+      mockStorageService.getHighlights.mockResolvedValue(null);
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
 
       await handlers.migration_delete({ url }, defaultSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ message: '數據不存在，無需刪除' })
+      );
+    });
+
+    test('仅有 saved_ 資料時也應識別為「存在」並清理', async () => {
+      const url = 'https://example.com/saved-only';
+      const sendResponse = jest.fn();
+
+      // highlights_ 為 null，但 saved_ 有資料
+      mockStorageService.getHighlights.mockResolvedValue(null);
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-abc',
+        notionUrl: 'https://notion.so/page-abc',
+        title: 'My Page',
+        lastUpdated: Date.now(),
+        savedAt: Date.now(),
+      });
+
+      await handlers.migration_delete({ url }, defaultSender, sendResponse);
+
+      // 應識別為存在並執行刪除（不應回傳「不存在」）
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: '成功刪除標註數據' })
+      );
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(url);
+    });
+
+    test('應該同時檢查並清理原始 URL 和穩定 URL 的數據', async () => {
+      const originalUrl = 'https://example.com/old-path';
+      const stableUrl = 'https://example.com/stable-path';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      // 原始 URL 有數據、穩定 URL 也有數據
+      mockStorageService.getHighlights
+        .mockResolvedValueOnce({ url: originalUrl, highlights: [{ id: '1' }] })
+        .mockResolvedValueOnce({ url: stableUrl, highlights: [{ id: '2' }] });
+
+      await handlers.migration_delete({ url: originalUrl }, defaultSender, sendResponse);
+
+      // 驗證 getHighlights 被呼叫兩次（原始 + 穩定 URL）
+      expect(mockStorageService.getHighlights).toHaveBeenCalledWith(originalUrl);
+      expect(mockStorageService.getHighlights).toHaveBeenCalledWith(stableUrl);
+
+      // 驗證 clearLegacyKeys 同時清理兩個 URL
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(originalUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(stableUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(2);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: '成功刪除標註數據' })
       );
     });
   });
@@ -190,19 +257,28 @@ describe('migrationHandlers', () => {
       const urls = ['https://a.com', 'https://b.com'];
       const sendResponse = jest.fn();
 
-      chrome.storage.local.get.mockImplementation(key => {
-        if (key === 'highlights_https://a.com') {
-          return Promise.resolve({ 'highlights_https://a.com': [{ id: '1' }] });
+      // chrome.storage.local.get 仍被 _migrateSingleUrl 內部直接呼叫（批量快照）
+      chrome.storage.local.get.mockImplementation(keysArg => {
+        const result = {};
+        if (Array.isArray(keysArg) && keysArg.includes(`${HIGHLIGHTS_PREFIX}https://a.com`)) {
+          result[`${HIGHLIGHTS_PREFIX}https://a.com`] = {
+            url: 'https://a.com',
+            highlights: [{ id: '1' }],
+          };
         }
-        if (key === 'highlights_https://b.com') {
-          return Promise.resolve({ 'highlights_https://b.com': [{ id: '2' }] });
+        if (Array.isArray(keysArg) && keysArg.includes(`${HIGHLIGHTS_PREFIX}https://b.com`)) {
+          result[`${HIGHLIGHTS_PREFIX}https://b.com`] = {
+            url: 'https://b.com',
+            highlights: [{ id: '2' }],
+          };
         }
-        return Promise.resolve({});
+        return Promise.resolve(result);
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      expect(chrome.storage.local.set).toHaveBeenCalledTimes(2);
+      // 原地格式轉換：應呼叫 storageService.updateHighlights 兩次
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -218,27 +294,25 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      // 使用 mockResolvedValue 以支援批量 get([pageKey, stableKey])
+      // _migrateSingleUrl 批量快照讀取
       chrome.storage.local.get.mockResolvedValue({
-        'highlights_https://a.com/original-slug': [{ id: '1' }],
+        [`${HIGHLIGHTS_PREFIX}https://a.com/original-slug`]: {
+          url: 'https://a.com/original-slug',
+          highlights: [{ id: '1' }],
+        },
         // highlights_${stableUrl} 不存在 → 應觸發遷移
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      // 只寫入穩定 key（不再重複寫原始 key）
-      expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
-      expect(chrome.storage.local.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          [`highlights_${stableUrl}`]: expect.objectContaining({
-            url: stableUrl,
-          }),
-        })
+      // 應呼叫 _migrateUrlKey（使用 savePageDataAndHighlights + clearLegacyKeys）
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        null, // 無 saved_ 資料
+        expect.objectContaining({ url: stableUrl })
       );
-
-      // 刪除原始 key 以避免 migration_get_pending 重複計算
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
-        'highlights_https://a.com/original-slug'
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(
+        'https://a.com/original-slug'
       );
 
       // 確保回報的 url 是 stableUrl
@@ -254,7 +328,51 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('如果穩定 URL key 已經有數據，不應覆蓋它', async () => {
+    test('應該在遷移至穩定 URL 時，同時遷移 saved_ 數據', async () => {
+      const oldUrl = 'https://a.com/old-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      const savedData = { title: 'My Page', notionPageId: 'page-123' };
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
+          url: oldUrl,
+          highlights: [{ id: '1', text: 'highlight text' }],
+        },
+        [`${SAVED_PREFIX}${oldUrl}`]: savedData,
+        // highlights_${stableUrl} 不存在 → 觸發遷移
+        // saved_${stableUrl} 不存在 → saved_ 也需遷移
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      // 驗證 savePageDataAndHighlights 帶有 stableUrl 和遷移的 savedData
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        savedData,
+        expect.objectContaining({ url: stableUrl, highlights: expect.any(Array) })
+      );
+
+      // 驗證 clearLegacyKeys 被呼叫（清除舊 URL 的 keys）
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(oldUrl);
+
+      // 驗證 sendResponse 報告 stableUrl
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            details: expect.arrayContaining([
+              expect.objectContaining({ url: expect.stringContaining(stableUrl) }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    test('如果穩定 URL key 已經有數據，不應覆蓋它（原地轉換）', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
       const sendResponse = jest.fn();
@@ -262,21 +380,16 @@ describe('migrationHandlers', () => {
       computeStableUrl.mockReturnValue(stableUrl);
 
       chrome.storage.local.get.mockResolvedValue({
-        'highlights_https://a.com/original-slug': [{ id: '1' }],
-        [`highlights_${stableUrl}`]: [{ id: '2', isNew: true }], // 穩定 key 已存在數據
+        [`${HIGHLIGHTS_PREFIX}https://a.com/original-slug`]: { highlights: [{ id: '1' }] },
+        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: [{ id: '2', isNew: true }], // 穩定 key 已存在數據
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      // 只會寫入一次（原來的 key），不會寫入穩定的 key
-      expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
-      expect(chrome.storage.local.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ['highlights_https://a.com/original-slug']: expect.anything(),
-        })
-      );
+      // 穩定 key 已存在 → shouldMigrateToStable = false → 原地轉換
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(1);
+      expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
 
-      // 驗證回報的是原始 URL（非穩定 URL，因為穩定 key 已存在，不觸發遷移）
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -302,12 +415,21 @@ describe('migrationHandlers', () => {
   });
 
   describe('migration_get_pending', () => {
+    test('安全性驗證失敗時應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_get_pending({}, { id: 'invalid-sender' }, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('應該正確回收待處理和失敗的項目', async () => {
       const sendResponse = jest.fn();
-      chrome.storage.local.get.mockResolvedValue({
-        'highlights_https://pending.com': { highlights: [{ id: 'p1', needsRangeInfo: true }] },
-        'highlights_https://failed.com': { highlights: [{ id: 'f1', migrationFailed: true }] },
-        other_key: 'random',
+
+      // 改用 storageService.getAllHighlights（Phase 1）
+      mockStorageService.getAllHighlights.mockResolvedValue({
+        'https://pending.com': { highlights: [{ id: 'p1', needsRangeInfo: true }] },
+        'https://failed.com': { highlights: [{ id: 'f1', migrationFailed: true }] },
       });
 
       await handlers.migration_get_pending({}, defaultSender, sendResponse);
@@ -321,9 +443,35 @@ describe('migrationHandlers', () => {
         })
       );
     });
+
+    test('如果 getAllHighlights 拋出錯誤，應該捕捉並回傳錯誤訊息', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getAllHighlights.mockRejectedValue(new Error('Storage Error'));
+
+      await handlers.migration_get_pending({}, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('發生未知錯誤'),
+        })
+      );
+    });
   });
 
   describe('migration_delete_failed', () => {
+    test('安全性驗證失敗時應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_delete_failed(
+        { url: 'https://example.com' },
+        { id: 'invalid-sender' },
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('應該只刪除標記為失敗的標註', async () => {
       const url = 'https://example.com/mixed';
       const sendResponse = jest.fn();
@@ -335,36 +483,120 @@ describe('migrationHandlers', () => {
         ],
       };
 
-      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: existingData });
+      // 改用 storageService.getHighlights（Phase 1）
+      mockStorageService.getHighlights.mockResolvedValue(existingData);
 
       await handlers.migration_delete_failed({ url }, defaultSender, sendResponse);
 
-      expect(chrome.storage.local.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          [`highlights_${url}`]: expect.objectContaining({
-            highlights: [{ id: 'good', text: 'ok' }],
-          }),
-        })
-      );
+      // 有剩餘標註 → 呼叫 updateHighlights（而非 clearLegacyKeys）
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(url, [
+        { id: 'good', text: 'ok' },
+      ]);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, deletedCount: 1 })
+      );
+    });
+
+    test('所有標註都失敗時應清空 highlights_ key（保留 saved_）', async () => {
+      const url = 'https://example.com/all-failed';
+      const sendResponse = jest.fn();
+      const existingData = {
+        url,
+        highlights: [{ id: 'bad', migrationFailed: true }],
+      };
+
+      mockStorageService.getHighlights.mockResolvedValue(existingData);
+
+      await handlers.migration_delete_failed({ url }, defaultSender, sendResponse);
+
+      // 沒有剩餘標註 → 用空陣列更新 highlights（不調用 clearLegacyKeys 以保留 saved_）
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(url, []);
+      expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, deletedCount: 1 })
+      );
+    });
+
+    test('如果沒有提供 url 應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_delete_failed({}, defaultSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('缺少 URL') })
+      );
+    });
+
+    test('如果找不到對應的標註資料應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getHighlights.mockResolvedValue(null);
+
+      await handlers.migration_delete_failed(
+        { url: 'https://no.data' },
+        defaultSender,
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('標註數據') })
+      );
+    });
+
+    test('如果存儲服務拋出錯誤，應該捕捉並回傳錯誤訊息', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getHighlights.mockRejectedValue(new Error('Storage exception'));
+
+      await handlers.migration_delete_failed(
+        { url: 'https://error.com' },
+        defaultSender,
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('發生未知錯誤') })
       );
     });
   });
 
   describe('migration_batch_delete', () => {
+    test('安全性驗證失敗時應回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.migration_batch_delete(
+        { urls: ['https://example.com'] },
+        { id: 'invalid-sender' },
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('應該成功批量刪除多個 URL 的數據', async () => {
       const urls = ['https://del1.com', 'https://del2.com'];
       const sendResponse = jest.fn();
 
       await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
 
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith([
-        'highlights_https://del1.com',
-        'highlights_https://del2.com',
-      ]);
+      // 改用 storageService.clearLegacyKeys （同時清理 highlights_ + saved_）
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del1.com');
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del2.com');
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, count: 2 })
+      );
+    });
+
+    test('應該同時清理原始 URL 和穩定 URL 的數據', async () => {
+      const originalUrl = 'https://example.com/original-path';
+      const stableUrl = 'https://example.com/stable-path';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      await handlers.migration_batch_delete({ urls: [originalUrl] }, defaultSender, sendResponse);
+
+      // 驗證 clearLegacyKeys 同時被呼叫（對原始和穩定 URL 都呼叫）
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(originalUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(stableUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(2);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, count: 1 })
       );
     });
   });
@@ -376,19 +608,14 @@ describe('migrationHandlers', () => {
       const sendResponse = jest.fn();
       const expectedResult = { success: true, count: 5 };
 
-      // Mock service method
       mockServices.migrationService.executeContentMigration.mockResolvedValue(expectedResult);
 
-      // Execute handler
       await handlers.migration_execute(request, defaultSender, sendResponse);
 
-      // Verify service call
       expect(mockServices.migrationService.executeContentMigration).toHaveBeenCalledWith(
         request,
         defaultSender
       );
-
-      // Verify response
       expect(sendResponse).toHaveBeenCalledWith(expectedResult);
     });
 
