@@ -146,6 +146,10 @@ export const LogSanitizer = {
       return this._sanitizeObject(value, depth, seen, options);
     }
 
+    if (typeof value === 'function') {
+      return '[Function]';
+    }
+
     return value;
   },
 

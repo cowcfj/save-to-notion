@@ -353,6 +353,21 @@ describe('LogSanitizer', () => {
       });
     });
 
+    test('should handle function values in context objects', () => {
+      const logs = [
+        {
+          context: {
+            callback: () => {},
+            normalField: 'safe-value',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.callback).toBe('[Function]');
+      expect(sanitized[0].context.normalField).toBe('safe-value');
+    });
+
     describe('_sanitizeString edge cases', () => {
       test('should handles null/undefined/non-string values effectively', () => {
         // Direct method testing if possible, or via sanitizeEntry
