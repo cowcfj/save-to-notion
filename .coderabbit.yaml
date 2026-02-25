@@ -5,11 +5,10 @@
 language: 'zh'
 inheritance: true
 
-tools:
-  biome: false
-  eslint: false
-
 reviews:
+  tools:
+    biome: false
+    eslint: false
   profile: 'assertive'
   request_changes_workflow: false
   high_level_summary: false
