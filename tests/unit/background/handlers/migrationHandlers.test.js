@@ -194,6 +194,34 @@ describe('migrationHandlers', () => {
         expect.objectContaining({ message: '數據不存在，無需刪除' })
       );
     });
+
+    test('應該同時檢查並清理原始 URL 和穩定 URL 的數據', async () => {
+      const originalUrl = 'https://example.com/old-path';
+      const stableUrl = 'https://example.com/stable-path';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      // 原始 URL 有數據、穩定 URL 也有數據
+      mockStorageService.getHighlights
+        .mockResolvedValueOnce({ url: originalUrl, highlights: [{ id: '1' }] })
+        .mockResolvedValueOnce({ url: stableUrl, highlights: [{ id: '2' }] });
+
+      await handlers.migration_delete({ url: originalUrl }, defaultSender, sendResponse);
+
+      // 驗證 getHighlights 被呼叫兩次（原始 + 穩定 URL）
+      expect(mockStorageService.getHighlights).toHaveBeenCalledWith(originalUrl);
+      expect(mockStorageService.getHighlights).toHaveBeenCalledWith(stableUrl);
+
+      // 驗證 clearLegacyKeys 同時清理兩個 URL
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(originalUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(stableUrl);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(2);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: '成功刪除標註數據' })
+      );
+    });
   });
 
   describe('migration_batch', () => {

@@ -35,7 +35,7 @@ function _convertHighlightFormat(oldHighlights) {
 }
 
 /**
- * URL Key 遷移：將 highlights_ + saved_ 從舊 URL 搜移到穩定 URL
+ * URL Key 遷移：將 highlights_ + saved_ 從舊 URL 遷移到穩定 URL
  * 可被 migrateStorageKey 和 _migrateSingleUrl 共用的核心邏輯
  *
  * @param {string} url - 舊原始 URL
