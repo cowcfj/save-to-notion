@@ -4,11 +4,7 @@
 
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
-import {
-  deserializeRange,
-  findRangeByTextContent,
-  restoreRangeWithRetry,
-} from '../../../../scripts/highlighter/core/Range.js';
+import { restoreRangeWithRetry } from '../../../../scripts/highlighter/core/Range.js';
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
@@ -34,8 +30,6 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
 
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
   serializeRange: jest.fn(),
-  deserializeRange: jest.fn(),
-  findRangeByTextContent: jest.fn(),
   restoreRangeWithRetry: jest.fn(),
 }));
 
