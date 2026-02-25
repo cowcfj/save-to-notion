@@ -7,8 +7,10 @@ inheritance: true
 
 reviews:
   tools:
-    biome: false
-    eslint: false
+    biome:
+      enabled: false
+    eslint:
+      enabled: false
   profile: 'assertive'
   request_changes_workflow: false
   high_level_summary: false
