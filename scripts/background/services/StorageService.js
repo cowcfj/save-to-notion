@@ -591,6 +591,20 @@ class StorageService {
   }
 
   /**
+   * 規範化舊格式標註資料，確保回傳形狀一律為 { highlights: [...] }
+   *
+   * @param {any} value - 原始儲存值（可能是陣列或含 highlights 欄位的物件）
+   * @returns {object} 統一為 { highlights: [...] } 格式
+   * @private
+   */
+  _normalizeLegacyHighlight(value) {
+    if (value && typeof value === 'object' && 'highlights' in value) {
+      return value;
+    }
+    return { highlights: Array.isArray(value) ? value : [] };
+  }
+
+  /**
    * 獲取所有 highlights_* 和 page_* 的資料（用於遷移掃描）
    *
    * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
@@ -620,25 +634,23 @@ class StorageService {
 
       // Phase 3：優先處理 page_* 格式（新格式）
       for (const [key, value] of Object.entries(allData)) {
-        if (key.startsWith(PAGE_PREFIX)) {
-          const url = key.slice(PAGE_PREFIX.length);
-          result[url] = { url, highlights: value.highlights || [] };
+        if (!key.startsWith(PAGE_PREFIX)) {
+          continue;
         }
+        const url = key.slice(PAGE_PREFIX.length);
+        result[url] = { url, highlights: value.highlights || [] };
       }
 
       // 過渡期：補充尚未升級的 highlights_* 格式（同 URL 不覆蓋 page_* 結果）
       for (const [key, value] of Object.entries(allData)) {
-        if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-          const url = key.slice(HIGHLIGHTS_PREFIX.length);
-          if (!result[url]) {
-            // 規範化舊格式：確保回傳形狀一律為 { highlights: [...] }
-            if (value && typeof value === 'object' && 'highlights' in value) {
-              result[url] = value;
-            } else {
-              result[url] = { highlights: Array.isArray(value) ? value : [] };
-            }
-          }
+        if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
+          continue;
         }
+        const url = key.slice(HIGHLIGHTS_PREFIX.length);
+        if (result[url]) {
+          continue;
+        }
+        result[url] = this._normalizeLegacyHighlight(value);
       }
 
       return result;
