@@ -457,6 +457,17 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(updateSpy).toHaveBeenCalled();
     });
 
+    test('應該在匹配 key (如 highlights_) 時觸發 updateSaveButtonVisibility', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      const listener = addListenerSpy.mock.calls[0][0];
+
+      listener({ 'highlights_https://example.com': { newValue: {} } }, 'local');
+
+      expect(updateSpy).toHaveBeenCalled();
+    });
+
     test('應該在非 local namespace 時忽略變更', () => {
       const tb = new Toolbar(managerMock);
       const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();

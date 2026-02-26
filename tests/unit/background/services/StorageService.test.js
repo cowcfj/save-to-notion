@@ -188,6 +188,27 @@ describe('StorageService', () => {
         })
       );
     });
+
+    it('應該在刪除舊 saved_* key 失敗時記錄 debug 日誌', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+      mockStorage.local.remove.mockRejectedValue(new Error('Remove failed'));
+      // 使用 optional chaining 的 mock
+      mockLogger.debug = jest.fn();
+
+      const data = { title: 'Test Page', pageId: 'page-123' };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      // Verify that data was still set correctly despite the remove error
+      expect(mockStorage.local.set).toHaveBeenCalled();
+
+      // Since remove is non-blocking (Promise.catch), we might need to wait for the microtask queue
+      await new Promise(process.nextTick);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        '[StorageService] Failed to remove legacy saved key',
+        expect.objectContaining({ error: 'Remove failed' })
+      );
+    });
   });
 
   describe('clearPageState', () => {
@@ -467,6 +488,27 @@ describe('StorageService', () => {
         }),
       });
       // 舊 key 應被非同步刪除（非同步，不一定即時呼叫）
+    });
+
+    it('應該在刪除舊 highlights_* key 失敗時記錄 debug 日誌', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: ['old_h1'],
+      });
+      mockStorage.local.remove.mockRejectedValue(new Error('Remove highlights failed'));
+      mockLogger.debug = jest.fn();
+
+      await service.updateHighlights('https://example.com/page', ['h1']);
+
+      // 確保 set 已經被呼叫
+      expect(mockStorage.local.set).toHaveBeenCalled();
+
+      // 等待微任務佇列清空，讓 .catch 執行
+      await new Promise(process.nextTick);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        '[StorageService] Failed to remove legacy highlights key',
+        expect.objectContaining({ error: 'Remove highlights failed' })
+      );
     });
 
     it('應該在 storage.local.set 失敗時記錄錯誤並拋出（寫入階段）', async () => {
