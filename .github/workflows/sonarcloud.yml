@@ -12,7 +12,7 @@ jobs:
   sonarcloud:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    if: ${{ !startsWith(github.head_ref, 'release-please--') && github.actor != 'dependabot[bot]' }}
     permissions:
       pull-requests: write
       contents: read
