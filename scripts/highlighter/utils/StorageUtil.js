@@ -16,6 +16,7 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 
@@ -25,6 +26,9 @@ const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 const StorageUtil = {
   /**
    * 保存標記數據
+   *
+   * Phase 3：透過訊息轉發給 Background 的 UPDATE_HIGHLIGHTS handler 處理，
+   * 利用 Background 的 _withLock 互斥鎖避免並發衝突。
    *
    * @param {string} pageUrl - 頁面 URL
    * @param {object | Array} highlightData - 標註數據
@@ -36,20 +40,105 @@ const StorageUtil = {
       Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'saveHighlights', error: error.message });
       throw error;
     }
-    const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `highlights_${normalizedUrl}`;
+
+    const highlights = Array.isArray(highlightData)
+      ? highlightData
+      : highlightData?.highlights || [];
+
+    // Phase 3：送給 Background 處理（含 _withLock）
+    if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
+      return;
+    }
+
+    // Fallback：直接寫入（過渡期安全網）
+    await this._fallbackDirectSave(pageUrl, highlights, highlightData);
+  },
+
+  /**
+   * 嘗試透過 Background 轉發儲存標註
+   *
+   * @param {string} pageUrl
+   * @param {Array} highlights
+   * @returns {Promise<boolean>} true 表示處理成功
+   * @private
+   */
+  async _tryBackgroundUpdate(pageUrl, highlights) {
+    if (typeof chrome === 'undefined' || !chrome?.runtime?.sendMessage) {
+      return false;
+    }
 
     try {
-      await this._saveToChromeStorage(pageKey, highlightData);
+      const response = await chrome.runtime.sendMessage({
+        action: 'UPDATE_HIGHLIGHTS',
+        url: pageUrl,
+        highlights,
+      });
+      if (response?.success === true) {
+        return true;
+      }
+      Logger.warn('[StorageUtil] sendMessage 回傳失敗（success !== true），回退直接寫入 storage', {
+        action: 'saveHighlights',
+      });
+    } catch {
+      // sendMessage 失敗（如 Background SW 未啟動），回退到直接寫入
+      Logger.warn('[StorageUtil] sendMessage 發送異常，回退直接寫入 storage', {
+        action: 'saveHighlights',
+      });
+    }
+    return false;
+  },
+
+  /**
+   * 背景儲存失效或不存在時，直接寫入 Storage
+   *
+   * @param {string} pageUrl
+   * @param {Array} highlights
+   * @param {any} highlightData - 提供給 localStorage 的原始資料
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _fallbackDirectSave(pageUrl, highlights, highlightData) {
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+
+    try {
+      // 讀取現有資料以保留 notion 物件及已有 metadata 欄位
+      let preservedNotionOrNull = null;
+      let existingMetadata = {};
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        const data = await new Promise((resolve, reject) => {
+          chrome.storage.local.get([pageKey], result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        });
+        const existingPage = data?.[pageKey];
+        if (existingPage?.notion) {
+          preservedNotionOrNull = existingPage.notion;
+        }
+        if (existingPage?.metadata) {
+          existingMetadata = existingPage.metadata;
+        }
+      }
+
+      await this._saveToChromeStorage(pageKey, {
+        notion: preservedNotionOrNull,
+        highlights,
+        metadata: { ...existingMetadata, lastUpdated: Date.now() },
+      });
     } catch (error) {
-      Logger.warn('Chrome Storage 不可用或失敗，回退到 localStorage', {
+      Logger.warn('Chrome Storage 不可用，回退到 localStorage', {
         action: 'saveHighlights',
         error: error.message,
       });
+      const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
       try {
-        await this._saveToLocalStorage(pageKey, highlightData);
+        await this._saveToLocalStorage(legacyKey, highlightData);
       } catch (localError) {
-        Logger.error('保存標註失敗（Chrome 與本地皆失敗）', {
+        Logger.error('保存標註失敗（Chrome 與本地執行失敗）', {
           action: 'saveHighlights',
           error: localError.message,
         });
@@ -108,6 +197,8 @@ const StorageUtil = {
   /**
    * 加載標記數據
    *
+   * Phase 3：先查 page_*，再回退 highlights_*（舊格式）。
+   *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<Array>}
    */
@@ -118,11 +209,14 @@ const StorageUtil = {
       throw error;
     }
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `highlights_${normalizedUrl}`;
+    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+    const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
     try {
-      const data = await this._loadFromChromeStorage(pageKey);
-      if (data && data.length > 0) {
+      // Phase 3：同時查詢新舊格式
+      // null = 找不到資料（需回退），[] = 明確空陣列（不回退）
+      const data = await this._loadBothFormats(pageKey, legacyKey);
+      if (data !== null && data !== undefined) {
         return data;
       }
     } catch {
@@ -130,7 +224,7 @@ const StorageUtil = {
     }
 
     try {
-      return await this._loadFromLocalStorage(pageKey);
+      return await this._loadFromLocalStorage(legacyKey);
     } catch (error) {
       Logger.error('從 localStorage 加載標註失敗', {
         action: 'loadHighlights',
@@ -138,6 +232,44 @@ const StorageUtil = {
       });
       return [];
     }
+  },
+
+  /**
+   * 同時查詢 page_* 和 highlights_* 格式
+   *
+   * @param {string} pageKey - page_* key
+   * @param {string} legacyKey - highlights_* key
+   * @returns {Promise<Array>}
+   * @private
+   */
+  async _loadBothFormats(pageKey, legacyKey) {
+    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+      throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
+    }
+
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get([pageKey, legacyKey], data => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        // 優先返回 page_* 格式
+        if (data[pageKey]) {
+          resolve(this._parseHighlightFormat(data[pageKey]));
+          return;
+        }
+
+        // 回退 highlights_* 舊格式
+        if (data[legacyKey]) {
+          resolve(this._parseHighlightFormat(data[legacyKey]));
+          return;
+        }
+
+        // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
+        resolve(null);
+      });
+    });
   },
 
   /**
@@ -216,6 +348,11 @@ const StorageUtil = {
   /**
    * 解析不同版本的標注數據格式
    *
+   * 支援：
+   * - page_* 新格式（Phase 3）：{ notion, highlights: [...] }
+   * - 對象格式（新版）：{ url, highlights: [...] }
+   * - 數組格式（舊版）：[...]
+   *
    * @param {any} data - 存儲的數據
    * @returns {Array} List of highlights
    * @private
@@ -225,14 +362,14 @@ const StorageUtil = {
       return [];
     }
 
+    // Phase 3 page_* 新格式：{ notion, highlights: [...] }
+    if (data.highlights !== undefined && !Array.isArray(data)) {
+      return Array.isArray(data.highlights) ? data.highlights : [];
+    }
+
     // 支援數組（舊版）
     if (Array.isArray(data)) {
       return data;
-    }
-
-    // 支援對象格式（新版 {url, highlights}）
-    if (data.highlights && Array.isArray(data.highlights)) {
-      return data.highlights;
     }
 
     return [];
@@ -241,28 +378,80 @@ const StorageUtil = {
   /**
    * 清除指定頁面的標記數據
    *
+   * Phase 3：透過訊息轉發給 Background 處理（含 _withLock）。
+   *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
   async clearHighlights(pageUrl) {
-    // 輸入驗證
     if (!pageUrl || typeof pageUrl !== 'string') {
       const error = new Error(MESSAGES.INVALID_PAGE_URL);
       Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'clearHighlights', error: error.message });
       throw error;
     }
 
+    // Phase 3：送給 Background 結層處理（含 _withLock，保留 notion 欄位）
+    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'CLEAR_HIGHLIGHTS',
+          url: pageUrl,
+        });
+        // sendMessage 成功且 Background 確認成功才 return
+        if (response?.success === true) {
+          return;
+        }
+        // sendMessage 成功但回傳 { success: false }：回退到直接清除
+        Logger.warn('[StorageUtil] sendMessage 回傳失敗，回退直接清除 storage', {
+          action: 'clearHighlights',
+        });
+      } catch {
+        Logger.warn('[StorageUtil] sendMessage 失敗，回退直接清除 storage', {
+          action: 'clearHighlights',
+        });
+      }
+    }
+
+    // Fallback：直接清除（舊格式安全網）
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `highlights_${normalizedUrl}`;
+    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+    const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
     Logger.log('開始清除標註', { action: 'clearHighlights', pageKey });
 
+    // 對 page_* entry 進行讀→改→寫，只清空 highlights 欄位，保留 notion 等其他狀態
+    const clearPageHighlights = async () => {
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        const existing = await new Promise((resolve, reject) => {
+          chrome.storage.local.get([pageKey], result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        });
+        const current = existing[pageKey];
+        if (current) {
+          await new Promise((resolve, reject) => {
+            chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } }, () => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve();
+              }
+            });
+          });
+        }
+      }
+    };
+
     const results = await Promise.allSettled([
-      this._clearFromChromeStorage(pageKey),
-      this._clearFromLocalStorage(pageKey),
+      clearPageHighlights(),
+      this._clearFromChromeStorage(legacyKey),
+      this._clearFromLocalStorage(legacyKey),
     ]);
 
-    // 檢查結果
     const failures = results.filter(result => result.status === 'rejected');
     if (failures.length === results.length) {
       const error = new Error('Failed to clear highlights from all storage locations');
@@ -274,10 +463,7 @@ const StorageUtil = {
     }
 
     if (failures.length > 0) {
-      Logger.warn('部分存儲清除失敗', {
-        action: 'clearHighlights',
-        reasons: failures.map(failure => failure.reason.message || failure.reason),
-      });
+      Logger.warn('部分存儲清除失敗', { action: 'clearHighlights' });
     } else {
       Logger.log('標註清除完成', { action: 'clearHighlights' });
     }

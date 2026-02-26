@@ -89,7 +89,7 @@ jest.mock('../../../../scripts/config/constants.js', () => {
 globalThis.chrome = {
   tabs: {
     query: jest.fn(),
-    sendMessage: jest.fn(),
+    sendMessage: jest.fn().mockReturnValue(Promise.resolve()),
     create: jest.fn(),
   },
   runtime: {

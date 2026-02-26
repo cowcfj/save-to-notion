@@ -1,4 +1,5 @@
-import { LogSanitizer } from '../../../scripts/utils/LogSanitizer.js';
+import { LogSanitizer, sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
+import { URL_NORMALIZATION } from '../../../scripts/config/constants.js';
 
 describe('LogSanitizer', () => {
   describe('sanitize()', () => {
@@ -362,10 +363,15 @@ describe('LogSanitizer', () => {
         const msg = `Fetcher failed for ${url}`;
         const sanitized = LogSanitizer.sanitize([{ message: msg }]);
 
+        // secret_12345 被 _sanitizeString 的 secret_ token 規則移除
         expect(sanitized[0].message).not.toContain('secret_12345');
-        expect(sanitized[0].message).not.toContain('user_id=admins');
-        // Real sanitizeUrlForLogging returns protocol+host+path
-        expect(sanitized[0].message).toContain('https://api.notion.com/v1/page');
+        // 新邏輯：sanitizeUrlForLogging 只移除已知追蹤參數（utm_*、gclid 等）
+        // user_id 不是追蹤參數，所以保留（有利於偵錯，不含私密資訊）
+        // 原訊息: `Fetcher failed for https://api.notion.com/v1/page?token=secret_12345&user_id=admins`
+        // 經過 sanitize 後: `Fetcher failed for https://api.notion.com/v1/page?token=[REDACTED_TOKEN]&user_id=admins`
+        expect(sanitized[0].message).toContain(
+          'https://api.notion.com/v1/page?token=[REDACTED_TOKEN]&user_id=admins'
+        );
       });
 
       test('should redact Generic API Keys match specific patterns', () => {
@@ -446,6 +452,36 @@ describe('LogSanitizer', () => {
         const secretObj = { toString: () => 'Token is secret_123' };
         expect(LogSanitizer.sanitizeEntry(secretObj, {}).message).toContain('[REDACTED_TOKEN]');
       });
+    });
+  });
+
+  describe('LOG_TRACKING_PARAMS 與 constants.js 同步', () => {
+    test('sanitizeUrlForLogging 應移除 URL_NORMALIZATION.TRACKING_PARAMS 中定義的所有追蹤參數', () => {
+      // 建構一個包含所有追蹤參數的 URL
+      const params = URL_NORMALIZATION.TRACKING_PARAMS.map(p => `${p}=test`).join('&');
+      const url = `https://example.com/page?keep=1&${params}`;
+
+      const sanitized = sanitizeUrlForLogging(url);
+
+      // 所有追蹤參數都應被移除
+      for (const param of URL_NORMALIZATION.TRACKING_PARAMS) {
+        expect(sanitized).not.toContain(`${param}=`);
+      }
+      // 非追蹤參數應保留
+      expect(sanitized).toContain('keep=1');
+    });
+  });
+
+  describe('URL userinfo 脫敏', () => {
+    test('sanitizeUrlForLogging 應清除 URL userinfo 以防止認證資訊洩漏', () => {
+      const url = 'https://user:pass@example.com/path?keep=1';
+      const sanitized = sanitizeUrlForLogging(url);
+
+      expect(sanitized).not.toContain('user:pass');
+      expect(sanitized).not.toContain('user:');
+      expect(sanitized).not.toContain(':pass@');
+      expect(sanitized).toContain('example.com/path');
+      expect(sanitized).toContain('keep=1');
     });
   });
 });

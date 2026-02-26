@@ -2,10 +2,16 @@
  * StorageService - 存儲操作封裝
  *
  * 職責：封裝 chrome.storage 操作，提供統一的異步接口
- * - 頁面保存狀態管理
+ * - 頁面保存狀態管理（Phase 3：統一 page_* 格式）
  * - 標註 (Highlights) 數據管理與遷移
+ * - 向後兼容舊 saved_* / highlights_* 格式（讀時升級）
  * - 配置讀取
  * - URL 標準化（使用統一的 urlUtils）
+ *
+ * Phase 3 設計：
+ * - 所有寫入一律寫入 page_* 格式
+ * - 讀取時先查 page_*，沒有才查舊格式，找到舊格式則觸發讀時升級
+ * - _withLock 確保同一 URL 的 read-modify-write 序列化
  *
  * @module services/StorageService
  */
@@ -16,13 +22,14 @@
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
-import { URL_ALIAS_PREFIX } from '../../config/constants.js';
+import { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
 
 /**
- * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
+ * URL 標準化相關常量（向後兼容：既有代碼可繼續導入這些常量）
  */
 export const SAVED_PREFIX = 'saved_';
 export const HIGHLIGHTS_PREFIX = 'highlights_';
+// PAGE_PREFIX 在底部統一從 constants.js 重新導出
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
@@ -38,14 +45,172 @@ class StorageService {
   constructor(options = {}) {
     this.storage = options.chromeStorage || (typeof chrome === 'undefined' ? null : chrome.storage);
     this.logger = options.logger || console;
+    // Phase 3: URL-keyed Promise Chain Mutex（防止並發 read-modify-write 衝突）
+    this._locks = new Map();
+  }
+
+  /**
+   * 互斥鎖（Promise Chain per URL）
+   *
+   * 確保同一 URL 的 read-modify-write 操作序列化執行，防止並發覆蓋。
+   *
+   * @param {string} url - 正規化後的 URL（作為鎖的 key）
+   * @param {Function} fn - 要序列化執行的 async 函式
+   * @returns {Promise<any>}
+   * @private
+   */
+  async _withLock(url, fn) {
+    const prev = this._locks.get(url) || Promise.resolve();
+    let resolveNext;
+    const next = new Promise(resolve => {
+      resolveNext = resolve;
+    });
+    this._locks.set(url, next);
+    try {
+      await prev;
+      return await fn();
+    } finally {
+      resolveNext();
+      // 若此 Promise 仍是最新的，則清除（避免 Map 無限增長）
+      if (this._locks.get(url) === next) {
+        this._locks.delete(url);
+      }
+    }
+  }
+
+  /**
+   * 批量讀取頁面狀態（新舊格式統一入口）
+   *
+   * 一次讀取同時嘗試 page_* / saved_* / url_alias_*，
+   * 回傳統一格式的 state 物件或 null。
+   *
+   * @param {string} normalizedUrl - 已正規化的 URL
+   * @returns {Promise<{format: 'new', key: string, data: object} | {format: 'legacy', savedKey: string, savedData: object} | null>}
+   * @private
+   */
+  async _getPageState(normalizedUrl) {
+    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+    const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
+    const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+
+    const result = await this.storage.local.get([pageKey, savedKey, aliasKey]);
+
+    // 已是新格式（page_*）
+    if (result[pageKey]) {
+      return { format: 'new', key: pageKey, data: result[pageKey] };
+    }
+
+    // 有 alias → 嘗試查詢 stable URL 的 page_*
+    const stableUrl = result[aliasKey];
+    if (stableUrl) {
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const stableSavedKey = `${SAVED_PREFIX}${stableUrl}`;
+      const r2 = await this.storage.local.get([stablePageKey, stableSavedKey]);
+      if (r2[stablePageKey]) {
+        return { format: 'new', key: stablePageKey, data: r2[stablePageKey] };
+      }
+      if (r2[stableSavedKey]) {
+        // 使用 stableUrl（而非 normalizedUrl）觸發升級，確保寫入正確的 key
+        return {
+          format: 'legacy',
+          savedKey: stableSavedKey,
+          savedData: r2[stableSavedKey],
+          resolvedUrl: stableUrl,
+        };
+      }
+    }
+
+    // 舊格式（saved_*）
+    if (result[savedKey]) {
+      return { format: 'legacy', savedKey, savedData: result[savedKey] };
+    }
+
+    return null;
+  }
+
+  /**
+   * 將舊格式資料轉換為 page_* 物件結構
+   *
+   * @param {object|null} savedData - 舊 saved_* 資料
+   * @param {Array} highlights - 舊 highlights_* 資料
+   * @param {string} normalizedUrl - 正規化 URL
+   * @param {string} [migratedFrom] - 遷移來源 key（可選）
+   * @returns {object} page_* 格式物件
+   * @private
+   */
+  _buildPageObject(savedData, highlights, normalizedUrl, migratedFrom) {
+    const now = Date.now();
+    return {
+      notion: savedData
+        ? {
+            pageId: savedData.notionPageId || savedData.pageId || null,
+            url: savedData.notionUrl || savedData.url || null,
+            title: savedData.title || null,
+            savedAt: savedData.savedAt || savedData.lastUpdated || now,
+            lastVerifiedAt: savedData.lastVerifiedAt || null,
+          }
+        : null,
+      highlights: Array.isArray(highlights) ? highlights : highlights?.highlights || [],
+      metadata: {
+        createdAt: savedData?.savedAt || savedData?.lastUpdated || now,
+        lastUpdated: now,
+        ...(migratedFrom ? { migratedFrom } : {}),
+      },
+    };
+  }
+
+  /**
+   * 觸發讀時升級：將舊格式資料升級為 page_* 並刪除舊 key
+   * 升級被移至 _withLock 內執行以避免併發寫入異常。
+   *
+   * @param {string} targetUrl - 目標 URL (可能是 normalizedUrl 或是 alias resolve 之後的 resolvedUrl)
+   * @param {object|null} savedData - 舊 saved_* 資料
+   * @param {string} savedKey - 舊 saved_* key
+   * @private
+   */
+  _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
+    const pageKey = `${PAGE_PREFIX}${targetUrl}`;
+    const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
+
+    // 在鎖的保護下進行升級，避免併發覆蓋
+    this._withLock(targetUrl, async () => {
+      // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
+      const readResult = await this.storage.local.get([pageKey, highlightKey]);
+      const existingPage = readResult[pageKey];
+      const highlightData = readResult[highlightKey];
+      const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
+
+      // 若已有較新的 page_* 資料（以 metadata.lastUpdated 判斷），合併而非覆寫
+      let finalObj;
+      if (
+        existingPage &&
+        (existingPage.metadata?.lastUpdated ?? 0) > (builtObj.metadata?.lastUpdated ?? 0)
+      ) {
+        finalObj = {
+          ...builtObj,
+          ...existingPage,
+          highlights: existingPage.highlights?.length
+            ? existingPage.highlights
+            : builtObj.highlights,
+        };
+      } else {
+        finalObj = builtObj;
+      }
+
+      await this.storage.local.set({ [pageKey]: finalObj });
+      await this.storage.local.remove([savedKey, highlightKey]);
+    }).catch(error => {
+      this.logger.warn?.('[StorageService] 讀時升級失敗', { error });
+    });
   }
 
   /**
    * 獲取頁面保存狀態
    *
    * 查找優先順序：
-   * 1. 直接以 pageUrl 為 key 查找
-   * 2. 查找 url_alias 映射，若存在則以 alias 指向的 stableUrl 重新查找
+   * 1. page_* 新格式（返回 notion 子欄位）
+   * 2. url_alias 映射後的 page_*
+   * 3. 舊格式 saved_*（觸發讀時升級）
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<object | null>}
@@ -56,27 +221,35 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `${SAVED_PREFIX}${normalizedUrl}`;
-    const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
 
     try {
-      // 批量查詢：同時查找直接存儲和 alias
-      const result = await this.storage.local.get([key, aliasKey]);
+      const state = await this._getPageState(normalizedUrl);
 
-      if (result[key]) {
-        return result[key];
+      if (!state) {
+        return null;
       }
 
-      // 直接查找失敗，檢查是否有 alias
-      const stableUrl = result[aliasKey];
-
-      if (stableUrl) {
-        const stableKey = `${SAVED_PREFIX}${stableUrl}`;
-        const stableResult = await this.storage.local.get([stableKey]);
-        return stableResult[stableKey] || null;
+      if (state.format === 'new') {
+        // 新格式：返回 notion 子欄位，並映射為調用者預期的欄位名
+        // 內部儲存格式: { pageId, url, title, savedAt, lastVerifiedAt }
+        // 調用者預期格式: { notionPageId, notionUrl, title, savedAt, lastVerifiedAt }
+        const notion = state.data.notion;
+        if (!notion) {
+          return null;
+        }
+        return {
+          notionPageId: notion.pageId || null,
+          notionUrl: notion.url || null,
+          title: notion.title || null,
+          savedAt: notion.savedAt || null,
+          lastVerifiedAt: notion.lastVerifiedAt || null,
+        };
       }
 
-      return null;
+      // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
+      const targetUrl = state.resolvedUrl || normalizedUrl;
+      this._triggerReadTimeUpgrade(targetUrl, state.savedData, state.savedKey);
+      return state.savedData;
     } catch (error) {
       this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
@@ -86,8 +259,10 @@ class StorageService {
   /**
    * 獲取頁面標註數據
    *
+   * 查找優先順序：page_* 新格式 → highlights_* 舊格式
+   *
    * @param {string} pageUrl - 頁面 URL
-   * @returns {Promise<any | null>}
+   * @returns {Promise<any | null>} highlights 陣列或 null
    */
   async getHighlights(pageUrl) {
     if (!this.storage) {
@@ -95,11 +270,25 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
     try {
-      const result = await this.storage.local.get([key]);
-      return result[key] || null;
+      const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+      // 批量讀取：同時查詢新舊格式
+      const result = await this.storage.local.get([pageKey, hlKey]);
+
+      if (result[pageKey]) {
+        // 新格式：返回 highlights 陣列
+        return result[pageKey].highlights || [];
+      }
+
+      if (result[hlKey]) {
+        // 舊格式：返回資料（觸發讀時升級由 getSavedPageData 路徑處理）
+        return result[hlKey];
+      }
+
+      return null;
     } catch (error) {
       this.logger.error?.('[StorageService] getHighlights failed', { error });
       throw error;
@@ -109,31 +298,22 @@ class StorageService {
   /**
    * 設置頁面標註數據
    *
+   * Phase 3：委託給 updateHighlights（寫入 page_* 格式）
+   *
    * @param {string} pageUrl - 頁面 URL
-   * @param {any} data - 標註數據
+   * @param {any} data - 標註數據（陣列或 {url, highlights} 物件）
    * @returns {Promise<void>}
    */
   async setHighlights(pageUrl, data) {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-
-    const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
-
-    try {
-      await this.storage.local.set({ [key]: data });
-    } catch (error) {
-      this.logger.error?.('[StorageService] setHighlights failed', { error });
-      throw error;
-    }
+    const highlights = Array.isArray(data) ? data : data?.highlights || [];
+    return this.updateHighlights(pageUrl, highlights);
   }
 
   /**
-   * 原子寫入頁面數據和標註
+   * 原子寫入頁面數據和標註（Phase 3：統一寫入 page_* 格式）
    *
    * @param {string} pageUrl - 頁面 URL
-   * @param {object|null} pageData - 頁面數據
+   * @param {object|null} pageData - 頁面數據（原 saved_* 格式）
    * @param {Array|null} highlights - 標註數據
    * @returns {Promise<void>}
    */
@@ -142,38 +322,30 @@ class StorageService {
       throw new Error(STORAGE_ERROR);
     }
 
+    if (!pageData && !highlights) {
+      return;
+    }
+
     const normalizedUrl = normalizeUrl(pageUrl);
-    const dataToSet = {};
+    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    if (pageData) {
-      const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
-      dataToSet[savedKey] = {
-        ...pageData,
-        lastUpdated: Date.now(),
-      };
-    }
-
-    if (highlights) {
-      const highlightKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
-      dataToSet[highlightKey] = highlights;
-    }
-
-    // 只有當有資料要寫入時才執行 set
-    if (Object.keys(dataToSet).length > 0) {
+    return this._withLock(normalizedUrl, async () => {
       try {
-        await this.storage.local.set(dataToSet);
+        // Phase 3：一次寫入統一 page_* 物件（鎖內序列化，避免並發覆寫）
+        const pageObj = this._buildPageObject(pageData, highlights || [], normalizedUrl);
+        await this.storage.local.set({ [pageKey]: pageObj });
       } catch (error) {
         this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
         throw error;
       }
-    }
+    });
   }
 
   /**
-   * 設置頁面保存狀態
+   * 設置頁面保存狀態（Phase 3：partial update page_*.notion 子欄位，含互斥鎖）
    *
    * @param {string} pageUrl - 頁面 URL
-   * @param {object} data - 保存數據
+   * @param {object} data - 保存數據（原 saved_* 格式）
    * @returns {Promise<void>}
    */
   async setSavedPageData(pageUrl, data) {
@@ -182,24 +354,52 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `${SAVED_PREFIX}${normalizedUrl}`;
 
-    try {
-      await this.storage.local.set({
-        [key]: {
-          ...data,
-          lastUpdated: Date.now(),
-        },
-      });
-    } catch (error) {
-      this.logger.error?.('[StorageService] setSavedPageData failed', { error });
-      throw error;
-    }
+    return this._withLock(normalizedUrl, async () => {
+      try {
+        const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+        const existing = await this.storage.local.get([pageKey]);
+        const current = existing[pageKey] || {};
+
+        // 將傳入的 data 轉換為 notion 子欄位格式
+        const notionData = {
+          pageId: data.notionPageId || data.pageId || current.notion?.pageId || null,
+          url: data.notionUrl || data.url || current.notion?.url || null,
+          title: data.title || current.notion?.title || null,
+          savedAt: data.savedAt || current.notion?.savedAt || Date.now(),
+          lastVerifiedAt: data.lastVerifiedAt || current.notion?.lastVerifiedAt || null,
+        };
+
+        const newData = {
+          highlights: current.highlights || [],
+          ...current,
+          notion: notionData,
+          metadata: {
+            ...current.metadata,
+            lastUpdated: Date.now(),
+          },
+        };
+
+        await this.storage.local.set({ [pageKey]: newData });
+
+        // 過渡期：若有舊 saved_* key，非阻塞刪除
+        const oldKey = `${SAVED_PREFIX}${normalizedUrl}`;
+        this.storage.local.remove([oldKey]).catch(error => {
+          this.logger.debug?.('[StorageService] Failed to remove legacy saved key', {
+            oldKey,
+            error: error?.message ?? error,
+          });
+        });
+      } catch (error) {
+        this.logger.error?.('[StorageService] setSavedPageData failed', { error });
+        throw error;
+      }
+    });
   }
 
   /**
    * 移除單一 URL 的 savedPageData（不連帶清理穩定 URL）
-   * 用於清除舊的 originalUrl 殘留數據，避免 autoSyncLocalState 誤刪新數據
+   * Phase 3：同時清理 page_*.notion 欄位（若 highlights 為空則刪整個 key）
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
@@ -210,23 +410,47 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `${SAVED_PREFIX}${normalizedUrl}`;
 
-    try {
-      await this.storage.local.remove([key]);
-      this.logger.log?.('Removed stale savedPageData', {
-        url: sanitizeUrlForLogging(normalizedUrl),
-      });
-    } catch (error) {
-      this.logger.error?.('[StorageService] removeSavedPageData failed', { error });
-      throw error;
-    }
+    return this._withLock(normalizedUrl, async () => {
+      try {
+        const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+        const existing = await this.storage.local.get([pageKey]);
+        const current = existing[pageKey];
+
+        if (current) {
+          const highlights = current.highlights || [];
+          if (highlights.length === 0) {
+            // 無標注也無保存狀態 → 刪整個 key
+            await this.storage.local.remove([pageKey]);
+          } else {
+            // 有標注 → 只清空 notion 欄位
+            await this.storage.local.set({
+              [pageKey]: {
+                ...current,
+                notion: null,
+                metadata: { ...current.metadata, lastUpdated: Date.now() },
+              },
+            });
+          }
+        }
+
+        // 過渡期：也清理舊 key
+        const oldKey = `${SAVED_PREFIX}${normalizedUrl}`;
+        await this.storage.local.remove([oldKey]);
+
+        this.logger.log?.('Removed stale savedPageData', {
+          url: sanitizeUrlForLogging(normalizedUrl),
+        });
+      } catch (error) {
+        this.logger.error?.('[StorageService] removeSavedPageData failed', { error });
+        throw error;
+      }
+    });
   }
 
   /**
    * 清除頁面狀態
-   * 同時清理穩定 URL 和原始 URL 的存儲 key（確保完全清除），
-   * 以及對應的 URL alias 映射。
+   * Phase 3：刪除 page_* key（含 stableUrl），過渡期同時清理舊 saved_* key。
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
@@ -239,9 +463,16 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
 
-    const keysToRemove = [`${SAVED_PREFIX}${normalizedUrl}`];
+    // Phase 3：清除新格式 key
+    const keysToRemove = [`${PAGE_PREFIX}${normalizedUrl}`];
 
-    // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key 和 alias
+    // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key
+    if (stableUrl && stableUrl !== normalizedUrl) {
+      keysToRemove.push(`${PAGE_PREFIX}${stableUrl}`);
+    }
+
+    // 過渡期：同時清理舊格式 key
+    keysToRemove.push(`${SAVED_PREFIX}${normalizedUrl}`);
     if (stableUrl && stableUrl !== normalizedUrl) {
       keysToRemove.push(`${SAVED_PREFIX}${stableUrl}`);
     }
@@ -294,10 +525,8 @@ class StorageService {
   /**
    * 清理舊版 URL 的 Storage Keys（僅刪除精確 key，不使用 computeStableUrl）
    *
-   * 使用場景：在 URL 遷移後安全刪除舊資料，避免誤刪新寫入的穩定 URL key。
-   * 與 clearPageState 的區別：
-   * - clearPageState: 完整清理，包含 normalizedUrl 和 computeStableUrl(pageUrl) 的 keys
-   * - clearLegacyKeys: 僅刪除 normalizedUrl 的 keys，不計算 stable URL
+   * Phase 3：同時清理 page_* + 舊 saved_* + highlights_* 三種前綴。
+   * 使用場景：URL 遷移後安全刪除來源 URL 的資料。
    *
    * @param {string} legacyUrl - 舊版 URL
    * @returns {Promise<void>}
@@ -309,6 +538,7 @@ class StorageService {
 
     const normalizedUrl = normalizeUrl(legacyUrl);
     const keysToRemove = [
+      `${PAGE_PREFIX}${normalizedUrl}`,
       `${SAVED_PREFIX}${normalizedUrl}`,
       `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
     ];
@@ -361,11 +591,27 @@ class StorageService {
   }
 
   /**
-   * 獲取所有 highlights_* 的資料（用於遷移掃描）
+   * 規範化舊格式標註資料，確保回傳形狀一律為 { highlights: [...] }
+   *
+   * @param {any} value - 原始儲存值（可能是陣列或含 highlights 欄位的物件）
+   * @returns {object} 統一為 { highlights: [...] } 格式
+   * @private
+   */
+  _normalizeLegacyHighlight(value) {
+    if (value && typeof value === 'object' && 'highlights' in value) {
+      return value;
+    }
+    return { highlights: Array.isArray(value) ? value : [] };
+  }
+
+  /**
+   * 獲取所有 highlights_* 和 page_* 的資料（用於遷移掃描）
    *
    * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
    * 屬於昂貴的一次性 migration-only helper，不應在 hot paths 或頻繁觸發的流程中使用。
    * 若需讀取單一 URL 的標註，請改用 `getHighlights(pageUrl)`。
+   *
+   * Phase 3：同時掃描 page_* + highlights_*，去重（同 URL 優先用 page_* 資料）。
    *
    * 回傳格式：
    * ```
@@ -385,12 +631,28 @@ class StorageService {
     try {
       const allData = await this.storage.local.get(null);
       const result = {};
+
+      // Phase 3：優先處理 page_* 格式（新格式）
       for (const [key, value] of Object.entries(allData)) {
-        if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-          const url = key.slice(HIGHLIGHTS_PREFIX.length);
-          result[url] = value;
+        if (!key.startsWith(PAGE_PREFIX)) {
+          continue;
         }
+        const url = key.slice(PAGE_PREFIX.length);
+        result[url] = { url, highlights: value.highlights || [] };
       }
+
+      // 過渡期：補充尚未升級的 highlights_* 格式（同 URL 不覆蓋 page_* 結果）
+      for (const [key, value] of Object.entries(allData)) {
+        if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
+          continue;
+        }
+        const url = key.slice(HIGHLIGHTS_PREFIX.length);
+        if (result[url]) {
+          continue;
+        }
+        result[url] = this._normalizeLegacyHighlight(value);
+      }
+
       return result;
     } catch (error) {
       this.logger.error?.('[StorageService] getAllHighlights failed', { error });
@@ -399,9 +661,9 @@ class StorageService {
   }
 
   /**
-   * 更新指定 URL 的標註陣列（保留其他欄位）
+   * 更新指定 URL 的標註陣列（Phase 3：partial update page_*.highlights，含互斥鎖）
    *
-   * 若更新後陣列為空，**不**自動刪除 key（由呼叫端決定是否刪除）。
+   * 若更新後陣列為空且 notion 為 null，**不**自動刪除 key（由呼叫端決定是否刪除）。
    *
    * @param {string} pageUrl - 頁面 URL
    * @param {Array} highlights - 更新後的標註陣列
@@ -413,27 +675,57 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
-    try {
-      // 讀取現有資料以保留其他欄位（如 url、lastUpdated）
-      const existing = await this.storage.local.get([key]);
-      const currentData = existing[key];
+    return this._withLock(normalizedUrl, async () => {
+      try {
+        const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+        const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
-      const newData =
-        currentData && !Array.isArray(currentData)
-          ? { ...currentData, highlights }
-          : { url: normalizedUrl, highlights };
+        // 讀取現有資料（優先 page_*，回退 highlights_*）
+        const existing = await this.storage.local.get([pageKey, hlKey]);
+        const current = existing[pageKey];
 
-      await this.storage.local.set({ [key]: newData });
-    } catch (error) {
-      this.logger.error?.('[StorageService] updateHighlights failed', { error });
-      throw error;
-    }
+        let newData;
+        if (current) {
+          // 新格式：partial update highlights 欄位
+          newData = {
+            ...current,
+            highlights,
+            metadata: { ...current.metadata, lastUpdated: Date.now() },
+          };
+        } else {
+          // 尚無 page_* → 建立新物件（notion 為 null，表示未保存到 Notion）
+          const oldHl = existing[hlKey];
+          newData = this._buildPageObject(
+            null,
+            highlights,
+            normalizedUrl,
+            oldHl ? hlKey : undefined
+          );
+        }
+
+        await this.storage.local.set({ [pageKey]: newData });
+
+        // 過渡期：若讀到舊 highlights_* key，非阻塞刪除
+        if (existing[hlKey]) {
+          this.storage.local.remove([hlKey]).catch(error => {
+            this.logger.debug?.('[StorageService] Failed to remove legacy highlights key', {
+              hlKey,
+              error: error?.message ?? error,
+            });
+          });
+        }
+      } catch (error) {
+        this.logger.error?.('[StorageService] updateHighlights failed', { error });
+        throw error;
+      }
+    });
   }
 
   /**
    * 獲取所有已保存頁面的 URL
+   *
+   * Phase 3：合併 page_*（notion 非 null）+ saved_* 的 URLs（去重）。
    *
    * @returns {Promise<string[]>}
    */
@@ -444,9 +736,19 @@ class StorageService {
 
     try {
       const result = await this.storage.local.get(null);
-      return Object.keys(result)
-        .filter(key => key.startsWith(SAVED_PREFIX))
-        .map(key => key.slice(SAVED_PREFIX.length));
+      const urlSet = new Set();
+
+      for (const [key, value] of Object.entries(result)) {
+        if (key.startsWith(PAGE_PREFIX) && value.notion) {
+          // 新格式：有 notion 欄位代表已保存
+          urlSet.add(key.slice(PAGE_PREFIX.length));
+        } else if (key.startsWith(SAVED_PREFIX)) {
+          // 舊格式（過渡期）
+          urlSet.add(key.slice(SAVED_PREFIX.length));
+        }
+      }
+
+      return Array.from(urlSet);
     } catch (error) {
       this.logger.error?.('[StorageService] getAllSavedPageUrls failed', { error });
       throw error;
@@ -457,4 +759,4 @@ class StorageService {
 // 導出
 export { StorageService };
 export { TRACKING_PARAMS as URL_TRACKING_PARAMS, normalizeUrl } from '../../utils/urlUtils.js';
-export { URL_ALIAS_PREFIX } from '../../config/constants.js';
+export { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/constants.js'; // Phase 3: PAGE_PREFIX 統一從此處導出

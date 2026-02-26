@@ -95,6 +95,43 @@ export class Toolbar {
 
     // Ctrl+點擊刪除標註
     this.bindClickDeleteEvents();
+
+    // 監聽 Storage 變更以即時更新按鈕狀態
+    this.bindStorageEvents();
+  }
+
+  /**
+   * 綁定 Storage 變更事件
+   */
+  bindStorageEvents() {
+    this._storageListener = (changes, namespace) => {
+      if (namespace !== 'local') {
+        return;
+      }
+
+      const hasRelevantChanges = Object.keys(changes).some(
+        key => key.startsWith('page_') || key.startsWith('saved_') || key.startsWith('highlights_')
+      );
+
+      if (hasRelevantChanges) {
+        // storage 變更可能代表其他地方（例如 Popup）已完成網頁保存
+        this.updateSaveButtonVisibility();
+      }
+    };
+
+    if (globalThis.chrome?.storage?.onChanged) {
+      globalThis.chrome.storage.onChanged.addListener(this._storageListener);
+    }
+
+    // [New] 混和推播 (Hybrid Push) 策略：除 storage 事件外，額外監聽 background 主動推送的存檔完成事件
+    this._messageListener = message => {
+      if (message?.action === 'PAGE_SAVE_HINT' && message.isSaved) {
+        this.updateSaveButtonVisibility();
+      }
+    };
+    if (globalThis.chrome?.runtime?.onMessage) {
+      globalThis.chrome.runtime.onMessage.addListener(this._messageListener);
+    }
   }
 
   /**
@@ -538,6 +575,16 @@ export class Toolbar {
 
     if (this.clickDeleteHandler) {
       document.removeEventListener('click', this.clickDeleteHandler);
+    }
+
+    if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
+      globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
+      this._storageListener = null;
+    }
+
+    if (this._messageListener && globalThis.chrome?.runtime?.onMessage) {
+      globalThis.chrome.runtime.onMessage.removeListener(this._messageListener);
+      this._messageListener = null;
     }
 
     // 移除 DOM 元素

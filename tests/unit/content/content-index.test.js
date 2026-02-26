@@ -57,6 +57,7 @@ describe('Content Script Entry (index.js)', () => {
   describe('Message Handlers & Side Effects', () => {
     let messageHandler;
     let sendMessageMock;
+    let preloaderHandler;
 
     beforeEach(() => {
       // Capture the message handler by isolating the module
@@ -66,15 +67,26 @@ describe('Content Script Entry (index.js)', () => {
       });
       globalThis.chrome.runtime.sendMessage = sendMessageMock;
 
-      // Setup default cache for PING
-      globalThis.__NOTION_PRELOADER_CACHE__ = {
-        shortlink: 'https://wp.me/p1',
-        nextRouteInfo: { page: '/p1' },
+      // Setup event responder to simulate preloader cache
+      preloaderHandler = () => {
+        document.dispatchEvent(
+          new CustomEvent('notion-preloader-response', {
+            detail: {
+              shortlink: 'https://wp.me/p1',
+              nextRouteInfo: { page: '/p1' },
+            },
+          })
+        );
       };
+      document.addEventListener('notion-preloader-request', preloaderHandler);
 
       jest.isolateModules(() => {
         require('../../../scripts/content/index.js');
       });
+    });
+
+    afterEach(() => {
+      document.removeEventListener('notion-preloader-request', preloaderHandler);
     });
 
     test('PING 應該返回正確的元數據', () => {

@@ -137,8 +137,8 @@ describe('Sidepanel JS Logic', () => {
     });
 
     it('should resolve tab url via computeStableUrl fallback if content script rejects', async () => {
-      chrome.tabs.sendMessage.mockRejectedValue(new Error('Extension context invalidated'));
-      computeStableUrl.mockReturnValue('https://example.com/computed');
+      chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
+      computeStableUrl.mockReturnValueOnce('https://example.com/computed');
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 400 });
@@ -147,8 +147,8 @@ describe('Sidepanel JS Logic', () => {
     });
 
     it('should fallback to normalizeUrl if all else fails', async () => {
-      chrome.tabs.sendMessage.mockRejectedValue(new Error('Extension context invalidated'));
-      computeStableUrl.mockReturnValue(null);
+      chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
+      computeStableUrl.mockReturnValueOnce(null);
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 400 });
@@ -205,6 +205,106 @@ describe('Sidepanel JS Logic', () => {
       await onActivated({ tabId: 500 });
 
       expect(document.querySelector('#sync-button').disabled).toBe(true);
+    });
+
+    it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {
+      const fakeStore = {
+        'page_https://example.com/alias': {
+          highlights: [{ id: '1', text: 'alias text', color: 'blue' }],
+          notion: { pageId: 'resolved' },
+        },
+        'url_alias:https://example.js/stable': 'https://example.com/alias',
+      };
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 500 });
+      // renderHighlightsForUrl has multiple await cycles for alias resolution
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#highlights-list').children).toHaveLength(1);
+      expect(document.querySelector('#sync-button').disabled).toBe(false); // as notion pageId exists
+    });
+
+    it('若 page_* 找不到，應透過 alias 解析 highlights_* 前綴', async () => {
+      const fakeStore = {
+        'highlights_https://example.com/alias': {
+          highlights: [{ id: '1', text: 'alias old text', color: 'red' }],
+        },
+        'url_alias:https://example.js/stable': 'https://example.com/alias',
+      };
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 500 });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#highlights-list').children).toHaveLength(1);
+      expect(document.querySelector('#sync-button').disabled).toBe(true);
+    });
+
+    it('若 alias 解析未命中任何資料，應顯示 empty state', async () => {
+      const fakeStore = {
+        'url_alias:https://example.js/stable': 'https://example.com/empty-alias',
+      };
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 500 });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#empty-state').style.display).toBe('flex');
     });
   });
 
@@ -264,6 +364,185 @@ describe('Sidepanel JS Logic', () => {
       expect(chrome.storage.local.set).toHaveBeenCalled();
       const args = chrome.storage.local.set.mock.calls[0][0];
       expect(args['highlights_https://example.js/stable'].highlights).toHaveLength(1);
+    });
+
+    it('在新的 page_* 格式上應能正確處理 handleDelete（部分刪除與完全移除）', async () => {
+      // test remove full
+      let fakeStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'h1', color: 'yellow' }],
+        },
+      };
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+
+      let delBtn = document.querySelector('.delete-button');
+      if (delBtn) {
+        delBtn.click();
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith('page_https://example.js/stable');
+
+      // test partial
+      chrome.storage.local.remove.mockClear();
+      chrome.storage.local.set.mockClear();
+      fakeStore = {
+        'page_https://example.js/stable': {
+          highlights: [
+            { id: '1', text: 'h1', color: 'yellow' },
+            { id: '2', text: 'h2', color: 'blue' },
+          ],
+        },
+      };
+
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      delBtn = document.querySelector('.delete-button');
+      if (delBtn) {
+        delBtn.click();
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(chrome.storage.local.set).toHaveBeenCalled();
+    });
+
+    it('在舊的 array 格式上應能正確處理 handleDelete', async () => {
+      // test remove full
+      let fakeStore = {
+        'highlights_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'h1', color: 'red' }],
+        },
+      };
+      // For this legacy array format, when handleDelete reads, we want it to read array, but when render Highlights reads, we want it to have { highlights: [] } so it renders.
+      // Wait, renderHighlights also accepts array if properly formatted! Let's check:
+      chrome.storage.local.get.mockImplementation(async k => {
+        // If it's a direct pull by handleDelete, pretend it's an array to trigger legacy code path
+        if (typeof k === 'string') {
+          return { [k]: [{ id: '1', text: 'h1', color: 'red' }] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+
+      let delBtn = document.querySelector('.delete-button');
+      if (delBtn) {
+        delBtn.click();
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        'highlights_https://example.js/stable'
+      );
+
+      // test partial
+      chrome.storage.local.remove.mockClear();
+      chrome.storage.local.set.mockClear();
+
+      fakeStore = {
+        'highlights_https://example.js/stable': {
+          highlights: [
+            { id: '1', text: 'h1', color: 'red' },
+            { id: '2', text: 'h2', color: 'blue' },
+          ],
+        },
+      };
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return {
+            [k]: [
+              { id: '1', text: 'h1', color: 'red' },
+              { id: '2', text: 'h2', color: 'blue' },
+            ],
+          };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      delBtn = document.querySelector('.delete-button');
+      if (delBtn) {
+        delBtn.click();
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(chrome.storage.local.set).toHaveBeenCalled();
+    });
+
+    it('在 handleDelete 期間若遇到未知資料格式應能優雅地移除', async () => {
+      const fakeStore = {
+        'highlights_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'h1', color: 'yellow' }],
+        },
+      };
+      chrome.storage.local.get.mockImplementation(async k => {
+        // give garbage on direct single-key get
+        if (typeof k === 'string') {
+          return { [k]: 'unknown_string_data' };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      const delBtn = document.querySelector('.delete-button');
+      if (delBtn) {
+        delBtn.click();
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        'highlights_https://example.js/stable'
+      );
     });
 
     it('should trigger sync click successfully', async () => {
@@ -584,6 +863,58 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     const unsyncedView = document.querySelector('#unsynced-view');
     expect(unsyncedView.textContent).toContain('已全部同步');
+  });
+
+  it('should skip root urls inside getUnsyncedPages (page_* format)', async () => {
+    await initModule({
+      'page_https://example.com/': { highlights: [{ id: '1', text: 'root' }] },
+      'page_https://example.org/': { highlights: [{ id: '2', text: 'another root' }] },
+    });
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(0); // root urls are skipped
+  });
+
+  it('should skip empty highlights inside getUnsyncedPages (page_* format)', async () => {
+    await initModule({
+      'page_https://example.com/p': { highlights: [] },
+      'page_https://example.com/q': { highlights: null },
+    });
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(0);
+  });
+
+  it('should include valid page_* items without notion data inside getUnsyncedPages', async () => {
+    await initModule({
+      'page_https://example.com/p': {
+        highlights: [{ id: '1', text: 'valid' }],
+        metadata: { title: 'example.com/p' },
+      },
+    });
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(1);
+    expect(cards[0].querySelector('.page-title').textContent).toContain('example.com/p');
+  });
+
+  it('should skip root urls inside getUnsyncedPages (highlights_* format)', async () => {
+    await initModule({
+      'highlights_https://example.com/': { highlights: [{ id: '1', text: 'root legacy' }] },
+    });
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(0);
+  });
+
+  it('should skip empty highlights inside getUnsyncedPages (highlights_* format)', async () => {
+    await initModule({
+      'highlights_https://example.com/p': { highlights: [] },
+      'highlights_https://example.com/q': [],
+    });
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(0);
   });
   describe('deleteUnsyncedPage', () => {
     it('should remove the page from storage, cache, and DOM', async () => {

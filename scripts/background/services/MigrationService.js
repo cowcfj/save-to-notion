@@ -1,5 +1,6 @@
 import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { isRootUrl } from '../../utils/urlUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 
 const MIGRATION_CONFIG = Object.freeze({
@@ -31,6 +32,15 @@ export class MigrationService {
       return false;
     }
 
+    // 防禦層 1：拒絕遷移到根路徑 URL（首頁），防止不同頁面資料被覆寫到同一 key
+    if (isRootUrl(stableUrl)) {
+      Logger.warn('Blocked migration to root URL', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+      return false;
+    }
+
     try {
       // 並行取得 saved 和 highlights 數據
       const [pageData, highlights] = await Promise.all([
@@ -40,6 +50,21 @@ export class MigrationService {
 
       // 兩者皆無 → 不需遷移
       if (!pageData && !highlights) {
+        return false;
+      }
+
+      // 防禦層 2：目標 key 已有資料時拒絕覆寫（防止不同文章頁的資料互相破壞）
+      const [existingHighlights, existingPageData] = await Promise.all([
+        this.storageService.getHighlights(stableUrl),
+        this.storageService.getSavedPageData(stableUrl),
+      ]);
+      if ((existingHighlights && existingHighlights.length > 0) || existingPageData) {
+        Logger.warn('Migration target already has data, skipping to prevent overwrite', {
+          stable: sanitizeUrlForLogging(stableUrl),
+          legacy: sanitizeUrlForLogging(legacyUrl),
+          existingHighlightsCount: existingHighlights?.length ?? 0,
+          hasExistingPageData: Boolean(existingPageData),
+        });
         return false;
       }
 

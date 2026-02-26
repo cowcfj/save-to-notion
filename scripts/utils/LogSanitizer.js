@@ -27,8 +27,52 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 // 安全的 HTTP Headers 白名單 Set（為了性能而在內部轉換）
 const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
+// 日誌脫敏中需移除的追蹤參數（從 constants.js 統一引入，無循環依賴風險）
+import { URL_NORMALIZATION } from '../config/constants.js';
+
+const LOG_TRACKING_PARAMS = URL_NORMALIZATION?.TRACKING_PARAMS ?? [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'gclid',
+  'fbclid',
+  'mc_cid',
+  'mc_eid',
+  'igshid',
+  'vero_id',
+];
+
 /**
- * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
+ * URL query 參數中的敏感鍵名清單
+ * 出現這些鍵名時，其值會被遮蔽為 [REDACTED]，而非直接刪除（保留鍵名便於偵錯）
+ */
+const SENSITIVE_QUERY_KEYS = [
+  'token',
+  'access_token',
+  'refresh_token',
+  'id_token',
+  'code',
+  'session',
+  'session_id',
+  'key',
+  'api_key',
+  'apikey',
+  'password',
+  'passwd',
+  'auth',
+  'secret',
+];
+
+/**
+ * 清理 URL 用於日誌記錄，只移除已知追蹤參數，保留有意義的 query 參數
+ *
+ * 設計原則：
+ * - 移除已知廣告追蹤參數（utm_*、gclid 等）保護隱私
+ * - 遮蔽敏感 query 參數值（token、code、session 等），保留鍵名便於偵錯
+ * - 保留有意義的 query（如 WordPress ?p=7741、分頁 ?page=2 等）便於偵錯
+ * - 移除 fragment (#hash)
  *
  * @param {string} url - 原始 URL
  * @returns {string} 清理後的 URL
@@ -40,8 +84,22 @@ export function sanitizeUrlForLogging(url) {
 
   try {
     const urlObj = new URL(url);
-    // 只返回協議、主機名和路徑，移除查詢參數和片段
-    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+    // 移除 URL userinfo 防止認證資訊洩漏
+    urlObj.username = '';
+    urlObj.password = '';
+    // 移除已知追蹤參數
+    for (const param of LOG_TRACKING_PARAMS) {
+      urlObj.searchParams.delete(param);
+    }
+    // 移除 fragment
+    urlObj.hash = '';
+
+    // 遮蔽敏感 query 參數值（用字串替換而非 URLSearchParams.set，避免括號被 percent-encoded）
+    let result = urlObj.toString();
+    for (const param of SENSITIVE_QUERY_KEYS) {
+      result = result.replaceAll(new RegExp(`([?&]${param}=)[^&#]*`, 'gi'), `$1${SANITIZED_LABEL}`);
+    }
+    return result;
   } catch {
     // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
     return '[invalid-url]';

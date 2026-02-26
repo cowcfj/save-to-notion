@@ -27,6 +27,25 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 // ============================================================================
 
 /**
+ * 主動通知指定 tab 保存狀態已更新（混合式推播策略）
+ * 使用保存時記錄的 activeTabId，避免儲存完成後重新查詢活動 tab 造成 race condition
+ *
+ * @param {number|undefined} activeTabId - 發起保存的 tab ID
+ * @param {boolean} isSaved - 是否已保存
+ */
+function sendPageSaveHint(activeTabId, isSaved) {
+  if (!activeTabId) {
+    return;
+  }
+  if (!chrome.tabs?.sendMessage) {
+    return;
+  }
+  chrome.tabs.sendMessage(activeTabId, { action: 'PAGE_SAVE_HINT', isSaved }).catch(() => {
+    /* 忽略錯誤，由 storage.onChanged 兜底 */
+  });
+}
+
+/**
  * 獲取活動標籤頁
  *
  * @returns {Promise<chrome.tabs.Tab>}
@@ -267,7 +286,15 @@ export function createSaveHandlers(services) {
    * @returns {Promise<object>} 保存結果
    */
   async function performCreatePage(params) {
-    const { normUrl, originalUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
+    const {
+      normUrl,
+      originalUrl,
+      dataSourceId,
+      dataSourceType,
+      contentResult,
+      apiKey,
+      activeTabId,
+    } = params;
 
     // 第一次嘗試
     const buildOptions = {
@@ -325,6 +352,9 @@ export function createSaveHandlers(services) {
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
       result.blockCount = contentResult.blocks.length;
       result.created = true;
+
+      // [New] 混合式推播 (Hybrid Push) 策略：主動通知 Toolbar 刷新 UI
+      sendPageSaveHint(activeTabId, true);
     }
 
     return result;
@@ -338,7 +368,8 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handleExistingPageUpdate(params) {
-    const { savedData, highlights, contentResult, normUrl, sendResponse, apiKey } = params;
+    const { savedData, highlights, contentResult, normUrl, sendResponse, apiKey, activeTabId } =
+      params;
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     if (highlights.length > 0) {
@@ -357,6 +388,10 @@ export function createSaveHandlers(services) {
           ...savedData,
           lastUpdated: new Date().toISOString(),
         });
+
+        // 混合式推播
+        sendPageSaveHint(activeTabId, true);
+
         sendResponse(result);
       } else {
         sendErrorResponse(result, sendResponse);
@@ -376,6 +411,10 @@ export function createSaveHandlers(services) {
           ...savedData,
           lastUpdated: new Date().toISOString(),
         });
+
+        // 混合式推播
+        sendPageSaveHint(activeTabId, true);
+
         sendResponse(result);
       } else {
         sendErrorResponse(result, sendResponse);

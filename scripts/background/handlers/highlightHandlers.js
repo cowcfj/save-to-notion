@@ -18,6 +18,7 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -462,6 +463,112 @@ export function createHighlightHandlers(services) {
         });
         const safeMessage = sanitizeApiError(error, 'sync_highlights');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+      }
+    },
+    /**
+     * Phase 3: 儲存標註至 Storage（Content Script 透過 sendMessage 路由）
+     *
+     * StorageUtil 的 saveHighlights 轉發至此，利用 Background 的 StorageService._withLock
+     * 確保所有寫入序列化，避免跨 context 並發覆蓋。
+     *
+     * @param {object} request - { url: string, highlights: Array }
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
+     */
+    UPDATE_HIGHLIGHTS: async (request, sender, sendResponse) => {
+      try {
+        // 安全性驗證：只允許來自我們自己的 content script
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'UPDATE_HIGHLIGHTS',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
+        const { url, highlights } = request;
+        if (!url || !Array.isArray(highlights)) {
+          sendResponse({
+            success: false,
+            error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url 或 highlights' },
+          });
+          return;
+        }
+
+        const { storageService } = services;
+        await storageService.updateHighlights(url, highlights);
+
+        Logger.log('Phase 3: UPDATE_HIGHLIGHTS 成功', {
+          action: 'UPDATE_HIGHLIGHTS',
+          count: highlights.length,
+        });
+        sendResponse({ success: true });
+      } catch (error) {
+        Logger.error('Phase 3: UPDATE_HIGHLIGHTS 失敗', {
+          action: 'UPDATE_HIGHLIGHTS',
+          error: error.message,
+        });
+        sendResponse({
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
+        });
+      }
+    },
+
+    /**
+     * Phase 3: 清除標註（Content Script 透過 sendMessage 路由）
+     *
+     * StorageUtil 的 clearHighlights 轉發至此，利用 Background 的 StorageService._withLock
+     * 確保清除操作序列化，並保留 notion 欄位（若存在）。
+     *
+     * @param {object} request - { url: string }
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
+     */
+    CLEAR_HIGHLIGHTS: async (request, sender, sendResponse) => {
+      try {
+        // 安全性驗證：只允許來自我們自己的 content script
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'CLEAR_HIGHLIGHTS',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
+        const { url } = request;
+        if (!url) {
+          sendResponse({
+            success: false,
+            error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url' },
+          });
+          return;
+        }
+
+        // 清除 highlights，保留 notion（透過 updateHighlights 寫入空陣列）
+        const { storageService } = services;
+        await storageService.updateHighlights(url, []);
+
+        Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', {
+          action: 'CLEAR_HIGHLIGHTS',
+          url: sanitizeUrlForLogging(url),
+        });
+        sendResponse({ success: true });
+      } catch (error) {
+        Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {
+          action: 'CLEAR_HIGHLIGHTS',
+          error: error.message,
+        });
+        sendResponse({
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
+        });
       }
     },
   };

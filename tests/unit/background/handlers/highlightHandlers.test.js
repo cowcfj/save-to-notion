@@ -47,6 +47,7 @@ describe('highlightHandlers', () => {
         setHighlighterState: jest.fn(),
         getSavedPageData: jest.fn(),
         getConfig: jest.fn(),
+        updateHighlights: jest.fn(),
       },
       tabService: {
         getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
@@ -426,6 +427,106 @@ describe('highlightHandlers', () => {
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+    });
+  });
+
+  describe('UPDATE_HIGHLIGHTS', () => {
+    it('應該成功更新標註', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com', highlights: [{ text: 'hl1' }] };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+
+      await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        [{ text: 'hl1' }]
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    it('應該處理缺少參數的情況', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com' }; // Missing highlights
+
+      await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.objectContaining({ code: 'INVALID_REQUEST' }),
+        })
+      );
+    });
+
+    it('應該處理 updateHighlights 失敗', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com', highlights: [] };
+
+      mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Update failed'));
+
+      await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
+        })
+      );
+    });
+  });
+
+  describe('CLEAR_HIGHLIGHTS', () => {
+    it('應該成功清除標註', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com' };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        []
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    it('應該處理缺少 url 的情況', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = {};
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.objectContaining({ code: 'INVALID_REQUEST' }),
+        })
+      );
+    });
+
+    it('應該處理清除失敗', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com' };
+
+      mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Clear failed'));
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
+        })
+      );
     });
   });
 });

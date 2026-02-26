@@ -29,7 +29,17 @@ const { DEFAULT_PAGE_TITLE } = CONTENT_QUALITY;
 // ============================================================
 // Preloader 快取接管
 // ============================================================
-const preloaderCache = globalThis.__NOTION_PRELOADER_CACHE__;
+let preloaderCache = null;
+
+// 嘗試透過事件獲取快取 (Decoupling Phase 8)
+const cacheResponseHandler = event => {
+  preloaderCache = event.detail;
+  // 保持向後相容，供其他可能舊有的腳本讀取
+  globalThis.__NOTION_PRELOADER_CACHE__ = preloaderCache;
+};
+document.addEventListener('notion-preloader-response', cacheResponseHandler);
+document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
 if (preloaderCache) {
   Logger.debug('偵測到 Preloader 快取', {
     action: 'initializeContentBundle',
