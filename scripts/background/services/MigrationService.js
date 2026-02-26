@@ -27,7 +27,7 @@ export class MigrationService {
    * @param {string} legacyUrl - 舊的 URL (來源 Key)
    * @param {object} [options={}] - 遷移選項
    * @param {boolean} [options.convertFormat=false] - 是否在遷移時轉換 highlights 格式
-   * @param {Function|null} [options.formatConverter=null] - highlights 格式轉換函式
+   * @param {Function|null} [options.formatConverter=null] - highlights 格式轉換函式（可為 sync 或 async）
    * @returns {Promise<boolean>} - 是否執行了遷移
    */
   async migrateStorageKey(stableUrl, legacyUrl, options = {}) {
@@ -73,7 +73,7 @@ export class MigrationService {
         return false;
       }
 
-      const { migratedHighlights, formatConverted } = this._resolveMigratedHighlights({
+      const { migratedHighlights, formatConverted } = await this._resolveMigratedHighlights({
         highlights,
         convertFormat,
         formatConverter,
@@ -122,9 +122,15 @@ export class MigrationService {
    * @param {Function|null} params.formatConverter
    * @param {string} params.stableUrl
    * @param {string} params.legacyUrl
-   * @returns {{ migratedHighlights: Array|null, formatConverted: boolean }}
+   * @returns {Promise<{ migratedHighlights: Array|null, formatConverted: boolean }>}
    */
-  _resolveMigratedHighlights({ highlights, convertFormat, formatConverter, stableUrl, legacyUrl }) {
+  async _resolveMigratedHighlights({
+    highlights,
+    convertFormat,
+    formatConverter,
+    stableUrl,
+    legacyUrl,
+  }) {
     const canConvert = convertFormat && Array.isArray(highlights) && highlights.length > 0;
     if (!canConvert) {
       return { migratedHighlights: highlights, formatConverted: false };
@@ -138,7 +144,7 @@ export class MigrationService {
       return { migratedHighlights: highlights, formatConverted: false };
     }
 
-    const migratedHighlights = formatConverter(highlights);
+    const migratedHighlights = await formatConverter(highlights);
     if (!Array.isArray(migratedHighlights)) {
       throw new TypeError('formatConverter must return an array');
     }

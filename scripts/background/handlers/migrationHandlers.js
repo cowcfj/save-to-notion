@@ -68,11 +68,12 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
       url: sanitizeUrlForLogging(url),
     };
   }
-  const convertedHighlights = _convertHighlightFormat(oldHighlights);
 
   // Phase 4: 統一遷移管線
   const shouldMigrateToStable = stableKey && !storageResult[stableKey];
   const finalUrl = shouldMigrateToStable ? stableUrl : url;
+  const count = oldHighlights.length;
+  let pending = 0;
 
   if (shouldMigrateToStable) {
     // 委託給統一管線：格式轉換 + URL Key 遷移 + saved_ 伴隨遷移 + 刪舊 key
@@ -80,20 +81,23 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
       convertFormat: true,
       formatConverter: _convertHighlightFormat,
     });
+    pending = oldHighlights.filter(item => !item.rangeInfo).length;
   } else {
     // 原地格式轉換（就地更新現有 key）
     // 刻意不搬移 key：
     //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
     //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
     //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
+    const convertedHighlights = _convertHighlightFormat(oldHighlights);
     await storageService.updateHighlights(url, convertedHighlights);
+    pending = convertedHighlights.filter(item => item.needsRangeInfo).length;
   }
 
   return {
     status: 'success',
     url: sanitizeUrlForLogging(finalUrl),
-    count: convertedHighlights.length,
-    pending: convertedHighlights.filter(item => item.needsRangeInfo).length,
+    count,
+    pending,
   };
 }
 

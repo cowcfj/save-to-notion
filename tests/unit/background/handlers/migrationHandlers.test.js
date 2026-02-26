@@ -14,7 +14,7 @@
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
-import { HIGHLIGHTS_PREFIX } from '../../../../scripts/background/services/StorageService.js';
+import { HIGHLIGHTS_PREFIX } from '../../../../scripts/config/constants.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
