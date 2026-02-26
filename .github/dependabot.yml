@@ -16,6 +16,30 @@ updates:
       - 'bot'
     reviewers:
       - 'cowcfj'
+    groups:
+      linters:
+        patterns:
+          - 'eslint*'
+          - 'prettier'
+      babel:
+        patterns:
+          - '@babel/*'
+      rollup:
+        patterns:
+          - 'rollup'
+          - '@rollup/plugin-*'
+      testing:
+        patterns:
+          - 'jest*'
+          - '@playwright/test'
+          - 'puppeteer'
+    ignore:
+      - dependency-name: 'puppeteer'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@playwright/test'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'jest'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
