@@ -73,34 +73,20 @@ export class MigrationService {
         return false;
       }
 
-      let migratedHighlights = highlights;
-      if (convertFormat && Array.isArray(highlights) && highlights.length > 0) {
-        if (typeof formatConverter === 'function') {
-          migratedHighlights = formatConverter(highlights);
-          if (!Array.isArray(migratedHighlights)) {
-            throw new TypeError('formatConverter must return an array');
-          }
-        } else {
-          Logger.warn(
-            'convertFormat enabled without a valid formatConverter, skipping conversion',
-            {
-              stable: sanitizeUrlForLogging(stableUrl),
-              legacy: sanitizeUrlForLogging(legacyUrl),
-            }
-          );
-        }
-      }
+      const { migratedHighlights, formatConverted } = this._resolveMigratedHighlights({
+        highlights,
+        convertFormat,
+        formatConverter,
+        stableUrl,
+        legacyUrl,
+      });
 
       Logger.info('Migrating legacy data to stable URL', {
         legacy: sanitizeUrlForLogging(legacyUrl),
         stable: sanitizeUrlForLogging(stableUrl),
         hasPageData: Boolean(pageData),
         hasHighlights: Boolean(highlights),
-        formatConverted:
-          convertFormat &&
-          Array.isArray(highlights) &&
-          highlights.length > 0 &&
-          typeof formatConverter === 'function',
+        formatConverted,
       });
 
       // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
@@ -125,6 +111,39 @@ export class MigrationService {
       // 如果遷移失敗，保持舊數據不動，確保數據安全
       return false;
     }
+  }
+
+  /**
+   * 解析遷移時的 highlights（可選格式轉換）
+   *
+   * @param {object} params
+   * @param {Array|null} params.highlights
+   * @param {boolean} params.convertFormat
+   * @param {Function|null} params.formatConverter
+   * @param {string} params.stableUrl
+   * @param {string} params.legacyUrl
+   * @returns {{ migratedHighlights: Array|null, formatConverted: boolean }}
+   */
+  _resolveMigratedHighlights({ highlights, convertFormat, formatConverter, stableUrl, legacyUrl }) {
+    const canConvert = convertFormat && Array.isArray(highlights) && highlights.length > 0;
+    if (!canConvert) {
+      return { migratedHighlights: highlights, formatConverted: false };
+    }
+
+    if (typeof formatConverter !== 'function') {
+      Logger.warn('convertFormat enabled without a valid formatConverter, skipping conversion', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+      return { migratedHighlights: highlights, formatConverted: false };
+    }
+
+    const migratedHighlights = formatConverter(highlights);
+    if (!Array.isArray(migratedHighlights)) {
+      throw new TypeError('formatConverter must return an array');
+    }
+
+    return { migratedHighlights, formatConverted: true };
   }
 
   /**
