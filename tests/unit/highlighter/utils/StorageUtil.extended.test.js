@@ -113,6 +113,21 @@ describe('Highlighter StorageUtil', () => {
 
       expect(localStorage.setItem).toHaveBeenCalled();
     });
+
+    test('Chrome Storage local.get 發生 lastError 時應回退到 localStorage', async () => {
+      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+        mockChrome.runtime.lastError = { message: 'Get error' };
+        setTimeout(() => {
+          if (callback) {
+            callback(); // skipcq: JS-0255
+          }
+        }, 0);
+      });
+
+      const testData = [{ text: 'test', color: 'yellow' }];
+      await StorageUtil.saveHighlights('https://example.com', testData);
+      expect(localStorage.setItem).toHaveBeenCalled();
+    });
   });
 
   describe('loadHighlights', () => {
@@ -298,6 +313,37 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('成功清除應不拋出錯誤', async () => {
+      await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
+    });
+
+    test('clearPageHighlights 內部 get 發生 lastError 時應被 Promise.allSettled 處理不中斷流程', async () => {
+      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+        mockChrome.runtime.lastError = { message: 'Clear get error' };
+        setTimeout(() => {
+          if (callback) {
+            callback();
+          }
+        }, 0);
+      });
+      await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
+    });
+
+    test('clearPageHighlights 內部 set 發生 lastError 時應被 Promise.allSettled 處理不中斷流程', async () => {
+      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+        setTimeout(() => {
+          if (callback) {
+            callback({ [keys[0]]: { highlights: ['hl'] } });
+          }
+        }, 0);
+      });
+      mockChrome.storage.local.set = jest.fn((data, callback) => {
+        mockChrome.runtime.lastError = { message: 'Clear set error' };
+        setTimeout(() => {
+          if (callback) {
+            callback();
+          }
+        }, 0);
+      });
       await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
     });
   });

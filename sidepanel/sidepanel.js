@@ -66,7 +66,7 @@ function buildPreviewHighlights(highlights) {
     return {
       text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
       truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
-      color: (hl && hl.color) || 'yellow',
+      color: hl?.color || 'yellow',
     };
   });
 }
