@@ -325,6 +325,20 @@ export function createSaveHandlers(services) {
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
       result.blockCount = contentResult.blocks.length;
       result.created = true;
+
+      // [New] 混合式推播 (Hybrid Push) 策略：主動通知 Toolbar 刷新 UI
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        if (tabs[0]) {
+          chrome.tabs
+            .sendMessage(tabs[0].id, {
+              action: 'PAGE_SAVE_HINT',
+              isSaved: true,
+            })
+            .catch(() => {
+              /* 忽略錯誤，由 storage.onChanged 兜底 */
+            });
+        }
+      });
     }
 
     return result;
@@ -357,6 +371,16 @@ export function createSaveHandlers(services) {
           ...savedData,
           lastUpdated: new Date().toISOString(),
         });
+
+        // 混合式推播
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+          if (tabs[0]) {
+            chrome.tabs
+              .sendMessage(tabs[0].id, { action: 'PAGE_SAVE_HINT', isSaved: true })
+              .catch(() => {});
+          }
+        });
+
         sendResponse(result);
       } else {
         sendErrorResponse(result, sendResponse);
@@ -376,6 +400,16 @@ export function createSaveHandlers(services) {
           ...savedData,
           lastUpdated: new Date().toISOString(),
         });
+
+        // 混合式推播
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+          if (tabs[0]) {
+            chrome.tabs
+              .sendMessage(tabs[0].id, { action: 'PAGE_SAVE_HINT', isSaved: true })
+              .catch(() => {});
+          }
+        });
+
         sendResponse(result);
       } else {
         sendErrorResponse(result, sendResponse);

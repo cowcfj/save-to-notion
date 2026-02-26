@@ -122,6 +122,16 @@ export class Toolbar {
     if (globalThis.chrome?.storage?.onChanged) {
       globalThis.chrome.storage.onChanged.addListener(this._storageListener);
     }
+
+    // [New] 混和推播 (Hybrid Push) 策略：除 storage 事件外，額外監聽 background 主動推送的存檔完成事件
+    this._messageListener = message => {
+      if (message?.action === 'PAGE_SAVE_HINT' && message.isSaved) {
+        this.updateSaveButtonVisibility();
+      }
+    };
+    if (globalThis.chrome?.runtime?.onMessage) {
+      globalThis.chrome.runtime.onMessage.addListener(this._messageListener);
+    }
   }
 
   /**
@@ -570,6 +580,11 @@ export class Toolbar {
     if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
       globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
       this._storageListener = null;
+    }
+
+    if (this._messageListener && globalThis.chrome?.runtime?.onMessage) {
+      globalThis.chrome.runtime.onMessage.removeListener(this._messageListener);
+      this._messageListener = null;
     }
 
     // 移除 DOM 元素
