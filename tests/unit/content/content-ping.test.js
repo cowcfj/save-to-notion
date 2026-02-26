@@ -27,6 +27,16 @@ describe('Content Script PING Handler', () => {
       timestamp: Date.now(),
     };
 
+    // Respond to preloader requests with the global cache object
+    // This perfectly emulates the decouple phase logic that sends the cache
+    document.addEventListener('notion-preloader-request', () => {
+      document.dispatchEvent(
+        new CustomEvent('notion-preloader-response', {
+          detail: globalThis.__NOTION_PRELOADER_CACHE__,
+        })
+      );
+    });
+
     // Mock document methods
     jest.spyOn(document, 'querySelector').mockImplementation(() => null);
 
@@ -48,6 +58,13 @@ describe('Content Script PING Handler', () => {
     // Setup Preloader Cache
     globalThis.__NOTION_PRELOADER_CACHE__.nextRouteInfo = { page: '/test', query: { id: '1' } };
     globalThis.__NOTION_PRELOADER_CACHE__.shortlink = 'https://example.com/?p=7741';
+
+    // Dispatch again because we updated the values AFTER the initial require setup it
+    document.dispatchEvent(
+      new CustomEvent('notion-preloader-response', {
+        detail: globalThis.__NOTION_PRELOADER_CACHE__,
+      })
+    );
 
     const sendResponse = jest.fn();
     const result = messageHandler({ action: 'PING' }, {}, sendResponse);
@@ -104,6 +121,12 @@ describe('Content Script PING Handler', () => {
     // 只設定 shortlink
     globalThis.__NOTION_PRELOADER_CACHE__.nextRouteInfo = null;
     globalThis.__NOTION_PRELOADER_CACHE__.shortlink = 'https://example.com/?p=123';
+
+    document.dispatchEvent(
+      new CustomEvent('notion-preloader-response', {
+        detail: globalThis.__NOTION_PRELOADER_CACHE__,
+      })
+    );
 
     const sendResponse = jest.fn();
     const result = messageHandler({ action: 'PING' }, {}, sendResponse);

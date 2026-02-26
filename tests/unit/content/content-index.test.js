@@ -66,11 +66,17 @@ describe('Content Script Entry (index.js)', () => {
       });
       globalThis.chrome.runtime.sendMessage = sendMessageMock;
 
-      // Setup default cache for PING
-      globalThis.__NOTION_PRELOADER_CACHE__ = {
-        shortlink: 'https://wp.me/p1',
-        nextRouteInfo: { page: '/p1' },
-      };
+      // Setup event responder to simulate preloader cache
+      document.addEventListener('notion-preloader-request', () => {
+        document.dispatchEvent(
+          new CustomEvent('notion-preloader-response', {
+            detail: {
+              shortlink: 'https://wp.me/p1',
+              nextRouteInfo: { page: '/p1' },
+            },
+          })
+        );
+      });
 
       jest.isolateModules(() => {
         require('../../../scripts/content/index.js');

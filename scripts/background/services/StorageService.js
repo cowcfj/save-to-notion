@@ -160,27 +160,27 @@ class StorageService {
   }
 
   /**
-   * 觸發讀時升級：將舊格式資料升級為 page_* 並刪除舊 key（非阻塞）
+   * 觸發讀時升級：將舊格式資料升級為 page_* 並刪除舊 key
+   * 升級被移至 _withLock 內執行以避免併發寫入異常。
    *
-   * @param {string} normalizedUrl - 正規化 URL
+   * @param {string} targetUrl - 目標 URL (可能是 normalizedUrl 或是 alias resolve 之後的 resolvedUrl)
    * @param {object|null} savedData - 舊 saved_* 資料
    * @param {string} savedKey - 舊 saved_* key
    * @private
    */
-  _triggerReadTimeUpgrade(normalizedUrl, savedData, savedKey) {
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-    const highlightKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+  _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
+    const pageKey = `${PAGE_PREFIX}${targetUrl}`;
+    const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
 
-    // 非阻塞：非同步升級，失敗不影響主流程
-    const upgrade = async () => {
+    // 在鎖的保護下進行升級，避免併發覆蓋
+    this._withLock(targetUrl, async () => {
       const result = await this.storage.local.get([highlightKey]);
       const highlightData = result[highlightKey];
-      const pageObj = this._buildPageObject(savedData, highlightData, normalizedUrl, savedKey);
+      const pageObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
       await this.storage.local.set({ [pageKey]: pageObj });
       await this.storage.local.remove([savedKey, highlightKey]);
-    };
-    upgrade().catch(error => {
-      this.logger.warn?.('[StorageService] 讀時升級失敗（非阻塞）', { error });
+    }).catch(error => {
+      this.logger.warn?.('[StorageService] 讀時升級失敗', { error });
     });
   }
 
@@ -215,7 +215,8 @@ class StorageService {
       }
 
       // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
-      this._triggerReadTimeUpgrade(normalizedUrl, state.savedData, state.savedKey);
+      const targetUrl = state.resolvedUrl || normalizedUrl;
+      this._triggerReadTimeUpgrade(targetUrl, state.savedData, state.savedKey);
       return state.savedData;
     } catch (error) {
       this.logger.error?.('[StorageService] getSavedPageData failed', { error });

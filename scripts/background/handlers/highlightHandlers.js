@@ -18,6 +18,7 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -554,7 +555,10 @@ export function createHighlightHandlers(services) {
         const { storageService } = services;
         await storageService.updateHighlights(url, []);
 
-        Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', { action: 'CLEAR_HIGHLIGHTS', url });
+        Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', {
+          action: 'CLEAR_HIGHLIGHTS',
+          url: sanitizeUrlForLogging(url),
+        });
         sendResponse({ success: true });
       } catch (error) {
         Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {

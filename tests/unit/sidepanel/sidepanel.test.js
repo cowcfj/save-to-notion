@@ -207,7 +207,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#sync-button').disabled).toBe(true);
     });
 
-    it('should resolve using page_* prefix via alias if direct keys miss', async () => {
+    it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {
       const fakeStore = {
         'page_https://example.com/alias': {
           highlights: [{ id: '1', text: 'alias text', color: 'blue' }],
@@ -243,7 +243,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#sync-button').disabled).toBe(false); // as notion pageId exists
     });
 
-    it('should resolve using highlights_* prefix via alias if page_* alias misses', async () => {
+    it('若 page_* 找不到，應透過 alias 解析 highlights_* 前綴', async () => {
       const fakeStore = {
         'highlights_https://example.com/alias': {
           highlights: [{ id: '1', text: 'alias old text', color: 'red' }],
@@ -277,12 +277,11 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#sync-button').disabled).toBe(true);
     });
 
-    it('should show empty state if alias resolution returns nothing', async () => {
+    it('若 alias 解析未命中任何資料，應顯示 empty state', async () => {
       const fakeStore = {
         'url_alias:https://example.js/stable': 'https://example.com/empty-alias',
       };
       chrome.storage.local.get.mockImplementation(async k => {
-        console.log('Mock GET:', k);
         if (typeof k === 'string') {
           return { [k]: fakeStore[k] };
         }
@@ -367,7 +366,7 @@ describe('Sidepanel JS Logic', () => {
       expect(args['highlights_https://example.js/stable'].highlights).toHaveLength(1);
     });
 
-    it('should handleDelete on new page_* format correctly (partial delete vs full remove)', async () => {
+    it('在新的 page_* 格式上應能正確處理 handleDelete（部分刪除與完全移除）', async () => {
       // test remove full
       let fakeStore = {
         'page_https://example.js/stable': {
@@ -375,7 +374,6 @@ describe('Sidepanel JS Logic', () => {
         },
       };
       chrome.storage.local.get.mockImplementation(async k => {
-        console.log('Mock GET:', k);
         if (typeof k === 'string') {
           return { [k]: fakeStore[k] };
         }
@@ -426,7 +424,7 @@ describe('Sidepanel JS Logic', () => {
       expect(chrome.storage.local.set).toHaveBeenCalled();
     });
 
-    it('should handleDelete on legacy array format correctly', async () => {
+    it('在舊的 array 格式上應能正確處理 handleDelete', async () => {
       // test remove full
       let fakeStore = {
         'highlights_https://example.js/stable': {
@@ -436,7 +434,6 @@ describe('Sidepanel JS Logic', () => {
       // For this legacy array format, when handleDelete reads, we want it to read array, but when render Highlights reads, we want it to have { highlights: [] } so it renders.
       // Wait, renderHighlights also accepts array if properly formatted! Let's check:
       chrome.storage.local.get.mockImplementation(async k => {
-        console.log('Mock GET:', k);
         // If it's a direct pull by handleDelete, pretend it's an array to trigger legacy code path
         if (typeof k === 'string') {
           return { [k]: [{ id: '1', text: 'h1', color: 'red' }] };
@@ -480,7 +477,6 @@ describe('Sidepanel JS Logic', () => {
         },
       };
       chrome.storage.local.get.mockImplementation(async k => {
-        console.log('Mock GET:', k);
         if (typeof k === 'string') {
           return {
             [k]: [
@@ -512,14 +508,13 @@ describe('Sidepanel JS Logic', () => {
       expect(chrome.storage.local.set).toHaveBeenCalled();
     });
 
-    it('should gracefully remove unknown data formats during handleDelete', async () => {
+    it('在 handleDelete 期間若遇到未知資料格式應能優雅地移除', async () => {
       const fakeStore = {
         'highlights_https://example.js/stable': {
           highlights: [{ id: '1', text: 'h1', color: 'yellow' }],
         },
       };
       chrome.storage.local.get.mockImplementation(async k => {
-        console.log('Mock GET:', k);
         // give garbage on direct single-key get
         if (typeof k === 'string') {
           return { [k]: 'unknown_string_data' };

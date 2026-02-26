@@ -366,7 +366,11 @@ describe('LogSanitizer', () => {
         expect(sanitized[0].message).not.toContain('secret_12345');
         // 新邏輯：sanitizeUrlForLogging 只移除已知追蹤參數（utm_*、gclid 等）
         // user_id 不是追蹤參數，所以保留（有利於偵錯，不含私密資訊）
-        expect(sanitized[0].message).toContain('https://api.notion.com/v1/page');
+        // 原訊息: `Fetcher failed for https://api.notion.com/v1/page?token=secret_12345&user_id=admins`
+        // 經過 sanitize 後: `Fetcher failed for https://api.notion.com/v1/page?token=[REDACTED_TOKEN]&user_id=admins`
+        expect(sanitized[0].message).toContain(
+          'https://api.notion.com/v1/page?token=[REDACTED_TOKEN]&user_id=admins'
+        );
       });
 
       test('should redact Generic API Keys match specific patterns', () => {

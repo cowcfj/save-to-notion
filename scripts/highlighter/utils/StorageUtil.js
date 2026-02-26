@@ -48,29 +48,76 @@ const StorageUtil = {
       ? highlightData
       : highlightData?.highlights || [];
 
-    // Phase 3：送給 Background 結層處理（含 _withLock）
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
-      try {
-        await chrome.runtime.sendMessage({
-          action: 'UPDATE_HIGHLIGHTS',
-          url: pageUrl,
-          highlights,
-        });
-        return;
-      } catch {
-        // sendMessage 失敗（如 Background SW 未啟動），回退到直接寫入
-        Logger.warn('[StorageUtil] sendMessage 失敗，回退直接寫入 storage', {
-          action: 'saveHighlights',
-        });
-      }
+    // Phase 3：送給 Background 處理（含 _withLock）
+    if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
+      return;
     }
 
     // Fallback：直接寫入（過渡期安全網）
+    await this._fallbackDirectSave(pageUrl, highlights, highlightData);
+  },
+
+  /**
+   * 嘗試透過 Background 轉發儲存標註
+   *
+   * @param {string} pageUrl
+   * @param {Array} highlights
+   * @returns {Promise<boolean>} true 表示處理成功
+   * @private
+   */
+  async _tryBackgroundUpdate(pageUrl, highlights) {
+    if (typeof chrome === 'undefined' || !chrome?.runtime?.sendMessage) {
+      return false;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'UPDATE_HIGHLIGHTS',
+        url: pageUrl,
+        highlights,
+      });
+      if (response?.success === true) {
+        return true;
+      }
+      Logger.warn('[StorageUtil] sendMessage 回傳失敗（success !== true），回退直接寫入 storage', {
+        action: 'saveHighlights',
+      });
+    } catch {
+      // sendMessage 失敗（如 Background SW 未啟動），回退到直接寫入
+      Logger.warn('[StorageUtil] sendMessage 發送異常，回退直接寫入 storage', {
+        action: 'saveHighlights',
+      });
+    }
+    return false;
+  },
+
+  /**
+   * 背景儲存失效或不存在時，直接寫入 Storage
+   *
+   * @param {string} pageUrl
+   * @param {Array} highlights
+   * @param {any} highlightData - 提供給 localStorage 的原始資料
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _fallbackDirectSave(pageUrl, highlights, highlightData) {
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+
     try {
+      // 讀取現有資料以保留 notion 物件
+      let preservedNotionOrNull = null;
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        const data = await new Promise(resolve => {
+          chrome.storage.local.get([pageKey], result => resolve(result));
+        });
+        if (data?.[pageKey]?.notion) {
+          preservedNotionOrNull = data[pageKey].notion;
+        }
+      }
+
       await this._saveToChromeStorage(pageKey, {
-        notion: null,
+        notion: preservedNotionOrNull,
         highlights,
         metadata: { lastUpdated: Date.now() },
       });
@@ -83,7 +130,7 @@ const StorageUtil = {
       try {
         await this._saveToLocalStorage(legacyKey, highlightData);
       } catch (localError) {
-        Logger.error('保存標註失敗（Chrome 與本地直失敗）', {
+        Logger.error('保存標註失敗（Chrome 與本地執行失敗）', {
           action: 'saveHighlights',
           error: localError.message,
         });

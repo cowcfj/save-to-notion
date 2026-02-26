@@ -512,7 +512,10 @@ function _touchMetadata(data) {
 function _computeDeleteResult(data, highlightId, storageKey) {
   if (storageKey.startsWith(PAGE_PREFIX)) {
     // Phase 3：page_* 新格式的 partial 刪除
-    data.highlights = (data.highlights || []).filter(hl => hl.id !== highlightId);
+    if (!Array.isArray(data.highlights)) {
+      data.highlights = [];
+    }
+    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
     const shouldRemove = data.highlights.length === 0 && !data.notion;
     if (!shouldRemove) {
       _touchMetadata(data);
@@ -522,6 +525,9 @@ function _computeDeleteResult(data, highlightId, storageKey) {
 
   if (data.highlights) {
     // 舊格式：有 highlights 物件結構
+    if (!Array.isArray(data.highlights)) {
+      data.highlights = [];
+    }
     data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
     const shouldRemove = data.highlights.length === 0;
     if (!shouldRemove) {

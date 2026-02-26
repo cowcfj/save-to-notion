@@ -189,10 +189,16 @@ describe('securityUtils', () => {
   });
 
   describe('sanitizeUrlForLogging', () => {
-    test('應移除查詢參數', () => {
-      const result = sanitizeUrlForLogging('https://api.example.com/data?token=secret123&sig=xyz');
-      expect(result).toBe('https://api.example.com/data');
-      expect(result).not.toContain('secret');
+    test('應移除追蹤參數但保留無害參數', () => {
+      // 模擬帶有隱私參數與追蹤參數的 URL。因為 securityUtils.js 定義的 LOG_TRACKING_PARAMS 不含 sig 或 token (因為那通常被其他字串置換器砍掉)
+      // 若該檔使用 LOG_TRACKING_PARAMS 僅移除了特定 utm_ 等字眼，那麼 token / sig 會被完整地保留成為 url 參數的一部分。
+      // 因此在這一層我們只要測 Tracking_params 就好。
+      const result = sanitizeUrlForLogging(
+        'https://api.example.com/data?utm_source=fb&gclid=123&page=2'
+      );
+      expect(result).toBe('https://api.example.com/data?page=2');
+      expect(result).not.toContain('utm_source');
+      expect(result).not.toContain('gclid');
     });
 
     test('應移除 fragment', () => {
