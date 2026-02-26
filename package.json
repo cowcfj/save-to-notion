@@ -52,7 +52,7 @@
   "homepage": "https://github.com/cowcfj/save-to-notion",
   "devDependencies": {
     "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-env": "^7.29.0",
     "@playwright/test": "^1.58.1",
     "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-json": "^6.1.0",
