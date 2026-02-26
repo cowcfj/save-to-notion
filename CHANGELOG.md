@@ -1,5 +1,49 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.37.0](https://github.com/cowcfj/save-to-notion/compare/v2.36.3...v2.37.0) (2026-02-26)
+
+
+### ✨ 新功能
+
+* **LogSanitizer:** 增加敏感 query 參數遮蔽功能 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **sidepanel:** 新增 partial 刪除邏輯，優化 metadata 更新 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **StorageService:** 使用 stableUrl 觸發升級，確保正確寫入 key ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **StorageUtil:** 優化讀取現有資料的邏輯，保留 metadata ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **StorageUtil:** 更新資料格式處理邏輯，區分 null 和空陣列 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* 支援新標註結構的頁面條目管理 ([#286](https://github.com/cowcfj/save-to-notion/issues/286)) ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+
+
+### 🐛 Bug 修復
+
+* **highlighter:** 更新工具欄以考慮高亮變更 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **sidepanel:** 修正 highlights 的處理邏輯，確保不會因為 undefined 而導致錯誤 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **storage:** 改進舊資料刪除的錯誤處理 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+
+
+### ♻️ 代碼重構
+
+* **content:** 改進快取事件處理 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* **log:** 將追蹤參數從 constants 引入以避免循環依賴 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+
+
+### 🧪 測試
+
+* **toolbar:** 增加在匹配 highlights key 時觸發更新按鈕可見性的測試 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* 增加單元測試以驗證新功能 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+* 增加對 sendMessage 回傳失敗的清除邏輯測試 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+
+
+### 🧹 其他變更
+
+* add .gitattributes for line endings and language stats ([2a69f64](https://github.com/cowcfj/save-to-notion/commit/2a69f6486d920d4573635e3b68a815a887400cab))
+* **deps-dev:** bump @babel/preset-env from 7.28.5 to 7.29.0 in the babel group ([#293](https://github.com/cowcfj/save-to-notion/issues/293)) ([a695e6a](https://github.com/cowcfj/save-to-notion/commit/a695e6a2a61b79ee36e8558abed443fc7c57a3d4))
+* **deps-dev:** bump @babel/preset-env in the babel group ([a695e6a](https://github.com/cowcfj/save-to-notion/commit/a695e6a2a61b79ee36e8558abed443fc7c57a3d4))
+* **deps-dev:** bump basic-ftp ([9f983f3](https://github.com/cowcfj/save-to-notion/commit/9f983f3c66173e14ae85293ff263d1d345c13023))
+* **deps-dev:** bump basic-ftp from 5.0.5 to 5.2.0 in the npm_and_yarn group across 1 directory ([#287](https://github.com/cowcfj/save-to-notion/issues/287)) ([9f983f3](https://github.com/cowcfj/save-to-notion/commit/9f983f3c66173e14ae85293ff263d1d345c13023))
+* **deps-dev:** bump rollup ([9c1b584](https://github.com/cowcfj/save-to-notion/commit/9c1b584a106da6bcedaf6613a58161edf1973349))
+* **deps-dev:** bump rollup from 4.55.1 to 4.59.0 in the npm_and_yarn group across 1 directory ([#289](https://github.com/cowcfj/save-to-notion/issues/289)) ([9c1b584](https://github.com/cowcfj/save-to-notion/commit/9c1b584a106da6bcedaf6613a58161edf1973349))
+* **deps-dev:** bump the linters group with 8 updates ([#292](https://github.com/cowcfj/save-to-notion/issues/292)) ([d7a63c7](https://github.com/cowcfj/save-to-notion/commit/d7a63c7779da1701f3846aaf2ef87ee6a2dce0b6))
+
 ## [2.36.3](https://github.com/cowcfj/save-to-notion/compare/v2.36.2...v2.36.3) (2026-02-25)
 
 
