@@ -210,8 +210,20 @@ class StorageService {
       }
 
       if (state.format === 'new') {
-        // 新格式：直接返回 notion 子欄位（可能為 null，行為與舊格式 key 不存在一致）
-        return state.data.notion || null;
+        // 新格式：返回 notion 子欄位，並映射為調用者預期的欄位名
+        // 內部儲存格式: { pageId, url, title, savedAt, lastVerifiedAt }
+        // 調用者預期格式: { notionPageId, notionUrl, title, savedAt, lastVerifiedAt }
+        const notion = state.data.notion;
+        if (!notion) {
+          return null;
+        }
+        return {
+          notionPageId: notion.pageId || null,
+          notionUrl: notion.url || null,
+          title: notion.title || null,
+          savedAt: notion.savedAt || null,
+          lastVerifiedAt: notion.lastVerifiedAt || null,
+        };
       }
 
       // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
