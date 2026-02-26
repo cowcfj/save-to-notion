@@ -490,7 +490,10 @@ export function createHighlightHandlers(services) {
 
         const { url, highlights } = request;
         if (!url || !Array.isArray(highlights)) {
-          sendResponse({ success: false, error: 'Invalid request: missing url or highlights' });
+          sendResponse({
+            success: false,
+            error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url 或 highlights' },
+          });
           return;
         }
 
@@ -507,7 +510,10 @@ export function createHighlightHandlers(services) {
           action: 'UPDATE_HIGHLIGHTS',
           error: error.message,
         });
-        sendResponse({ success: false, error: error.message });
+        sendResponse({
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
+        });
       }
     },
 
@@ -537,7 +543,10 @@ export function createHighlightHandlers(services) {
 
         const { url } = request;
         if (!url) {
-          sendResponse({ success: false, error: 'Invalid request: missing url' });
+          sendResponse({
+            success: false,
+            error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url' },
+          });
           return;
         }
 
@@ -552,7 +561,10 @@ export function createHighlightHandlers(services) {
           action: 'CLEAR_HIGHLIGHTS',
           error: error.message,
         });
-        sendResponse({ success: false, error: error.message });
+        sendResponse({
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
+        });
       }
     },
   };

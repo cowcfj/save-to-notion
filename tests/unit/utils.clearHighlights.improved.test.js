@@ -169,6 +169,30 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       expect(allRemovedKeys).toContain(legacyKey);
     });
 
+    test('sendMessage 回傳 { success: false } 時應同樣觸發 Fallback 清除邏輯', async () => {
+      if (!StorageUtil) {
+        return;
+      }
+      const testUrl = 'https://example.com/test';
+      const legacyKey = 'highlights_https://example.com/test';
+
+      await chrome.storage.local.set({ [legacyKey]: [{ text: 'test' }] });
+      globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
+
+      // sendMessage resolve { success: false }（非 reject）
+      globalThis.chrome.runtime.sendMessage = jest.fn(() => Promise.resolve({ success: false }));
+
+      await StorageUtil.clearHighlights(testUrl);
+
+      // Fallback 路徑應仍清理 highlights_* key
+      const removeCall = chrome.storage.local.remove.mock.calls;
+      const allRemovedKeys = removeCall.flatMap(call => {
+        const keys = call[0];
+        return Array.isArray(keys) ? keys : [keys];
+      });
+      expect(allRemovedKeys).toContain(legacyKey);
+    });
+
     test('應該記錄清除開始', async () => {
       if (!StorageUtil) {
         return;

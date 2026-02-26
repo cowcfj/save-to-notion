@@ -110,7 +110,13 @@ class StorageService {
         return { format: 'new', key: stablePageKey, data: r2[stablePageKey] };
       }
       if (r2[stableSavedKey]) {
-        return { format: 'legacy', savedKey: stableSavedKey, savedData: r2[stableSavedKey] };
+        // 使用 stableUrl（而非 normalizedUrl）觸發升級，確保寫入正確的 key
+        return {
+          format: 'legacy',
+          savedKey: stableSavedKey,
+          savedData: r2[stableSavedKey],
+          resolvedUrl: stableUrl,
+        };
       }
     }
 

@@ -385,7 +385,11 @@ async function checkSavedData(notionData, targetKey) {
   if (!targetKey) {
     return false;
   }
-  // 舊格式：對應 saved_* key
+  // 舊格式：僅當 targetKey 以 HIGHLIGHTS_PREFIX 開頭才對應查詢 saved_* key
+  // page_* key 不做此轉換，否則會誤將 page_* 當成 saved_* 查詢
+  if (!targetKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return false;
+  }
   const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
   const savedResult = await chrome.storage.local.get(savedKey);
   return Boolean(savedResult[savedKey]);
@@ -480,6 +484,57 @@ function renderList(highlights, storageKey) {
 }
 
 /**
+ * 更新物件的 metadata.lastUpdated 時間戳
+ *
+ * @param {object} data
+ */
+function _touchMetadata(data) {
+  if (!data.metadata) {
+    data.metadata = {};
+  }
+  data.metadata.lastUpdated = Date.now();
+}
+
+/**
+ * 根據資料格式計算刪除後的結果
+ *
+ * @param {object|Array} data - 目前 storage 中的資料
+ * @param {string} highlightId - 要刪除的標註 ID
+ * @param {string} storageKey - storage key
+ * @returns {{ newData: any, shouldRemove: boolean }}
+ */
+function _computeDeleteResult(data, highlightId, storageKey) {
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    // Phase 3：page_* 新格式的 partial 刪除
+    data.highlights = (data.highlights || []).filter(hl => hl.id !== highlightId);
+    const shouldRemove = data.highlights.length === 0 && !data.notion;
+    if (!shouldRemove) {
+      _touchMetadata(data);
+    }
+    return { newData: data, shouldRemove };
+  }
+
+  if (data.highlights) {
+    // 舊格式：有 highlights 物件結構
+    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
+    const shouldRemove = data.highlights.length === 0;
+    if (!shouldRemove) {
+      _touchMetadata(data);
+    }
+    return { newData: data, shouldRemove };
+  }
+
+  if (Array.isArray(data)) {
+    // 舊版 array 格式
+    const newData = data.filter(hl => hl.id !== highlightId);
+    return { newData, shouldRemove: newData.length === 0 };
+  }
+
+  // 無法識別的格式，安全地移除
+  return { newData: undefined, shouldRemove: true };
+}
+
+/**
  * 刪除單個標註
  *
  * Phase 3：如果 storageKey 為 page_*，執行 partial 刪除（保留 notion）。
@@ -494,29 +549,11 @@ async function handleDelete(highlightId, storageKey) {
       return;
     }
 
-    const data = result[storageKey];
-
-    let newData;
-    let shouldRemove = false;
-
-    if (storageKey.startsWith(PAGE_PREFIX)) {
-      // Phase 3： page_* 新格式的 partial 刪除
-      data.highlights = (data.highlights || []).filter(hl => hl.id !== highlightId);
-      shouldRemove = data.highlights.length === 0 && !data.notion;
-      newData = data;
-    } else if (data.highlights) {
-      // 舊格式：有 highlights 物件結構
-      data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
-      shouldRemove = data.highlights.length === 0;
-      newData = data;
-    } else if (Array.isArray(data)) {
-      // 舊版 array 格式：過濾掉指定標註
-      newData = data.filter(hl => hl.id !== highlightId);
-      shouldRemove = newData.length === 0;
-    } else {
-      // 無法識別的格式，安全地移除
-      shouldRemove = true;
-    }
+    const { newData, shouldRemove } = _computeDeleteResult(
+      result[storageKey],
+      highlightId,
+      storageKey
+    );
 
     if (shouldRemove) {
       await chrome.storage.local.remove(storageKey);

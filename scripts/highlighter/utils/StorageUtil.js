@@ -159,8 +159,9 @@ const StorageUtil = {
 
     try {
       // Phase 3：同時查詢新舊格式
+      // null = 找不到資料（需回退），[] = 明確空陣列（不回退）
       const data = await this._loadBothFormats(pageKey, legacyKey);
-      if (data && data.length > 0) {
+      if (data !== null && data !== undefined) {
         return data;
       }
     } catch {
@@ -210,7 +211,8 @@ const StorageUtil = {
           return;
         }
 
-        resolve([]);
+        // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
+        resolve(null);
       });
     });
   },
@@ -336,11 +338,18 @@ const StorageUtil = {
     // Phase 3：送給 Background 結層處理（含 _withLock，保留 notion 欄位）
     if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
       try {
-        await chrome.runtime.sendMessage({
+        const response = await chrome.runtime.sendMessage({
           action: 'CLEAR_HIGHLIGHTS',
           url: pageUrl,
         });
-        return;
+        // sendMessage 成功且 Background 確認成功才 return
+        if (response?.success === true) {
+          return;
+        }
+        // sendMessage 成功但回傳 { success: false }：回退到直接清除
+        Logger.warn('[StorageUtil] sendMessage 回傳失敗，回退直接清除 storage', {
+          action: 'clearHighlights',
+        });
       } catch {
         Logger.warn('[StorageUtil] sendMessage 失敗，回退直接清除 storage', {
           action: 'clearHighlights',
