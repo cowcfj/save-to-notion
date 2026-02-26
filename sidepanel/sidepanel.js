@@ -385,8 +385,14 @@ async function checkSavedData(notionData, targetKey) {
   if (!targetKey) {
     return false;
   }
+
+  // Phase 3 新格式：若剛新增標註但尚未同步，notionData 為 null，但稍後同步時 storage 會更新
+  if (targetKey.startsWith(PAGE_PREFIX)) {
+    const result = await chrome.storage.local.get(targetKey);
+    return Boolean(result[targetKey]?.notion?.pageId);
+  }
+
   // 舊格式：僅當 targetKey 以 HIGHLIGHTS_PREFIX 開頭才對應查詢 saved_* key
-  // page_* key 不做此轉換，否則會誤將 page_* 當成 saved_* 查詢
   if (!targetKey.startsWith(HIGHLIGHTS_PREFIX)) {
     return false;
   }

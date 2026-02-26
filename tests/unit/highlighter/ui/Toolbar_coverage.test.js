@@ -378,11 +378,25 @@ describe('Toolbar 覆蓋率補強', () => {
   describe('cleanup', () => {
     test('應該移除所有事件監聽器', () => {
       const removeSelectionSpy = jest.spyOn(document, 'removeEventListener');
+      const removeStorageSpy = jest.fn();
+
+      globalThis.window.chrome.storage = {
+        onChanged: {
+          removeListener: removeStorageSpy,
+        },
+      };
+
+      const mockListener = () => {};
+      toolbar._storageListener = mockListener;
 
       toolbar.cleanup();
 
       expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', toolbar.selectionHandler);
       expect(removeSelectionSpy).toHaveBeenCalledWith('click', toolbar.clickDeleteHandler);
+      expect(removeStorageSpy).toHaveBeenCalledWith(mockListener);
+      expect(toolbar._storageListener).toBeNull();
+
+      delete globalThis.window.chrome.storage;
     });
 
     test('應該移除 DOM 元素', () => {
@@ -400,6 +414,71 @@ describe('Toolbar 覆蓋率補強', () => {
       toolbar.miniIcon = null;
 
       expect(() => toolbar.cleanup()).not.toThrow();
+    });
+  });
+
+  describe('bindStorageEvents', () => {
+    let addListenerSpy;
+    let removeListenerSpy;
+
+    beforeEach(() => {
+      addListenerSpy = jest.fn();
+      removeListenerSpy = jest.fn();
+
+      globalThis.window.chrome.storage = {
+        onChanged: {
+          addListener: addListenerSpy,
+          removeListener: removeListenerSpy,
+        },
+      };
+    });
+
+    afterEach(() => {
+      delete globalThis.window.chrome.storage;
+    });
+
+    test('應該在初始化時註冊 storage 監聽器', () => {
+      const tb = new Toolbar(managerMock);
+      expect(addListenerSpy).toHaveBeenCalledWith(expect.any(Function));
+      // 確保將 listener 存了下來
+      expect(tb._storageListener).toBeDefined();
+    });
+
+    test('應該在 local namespace 及匹配 key 時觸發 updateSaveButtonVisibility', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      // 取出綁定的 listener
+      const listener = addListenerSpy.mock.calls[0][0];
+
+      // 觸發 listener：使用有效的 key 前綴 'page_'
+      listener({ 'page_https://example.com': { newValue: {} } }, 'local');
+
+      expect(updateSpy).toHaveBeenCalled();
+    });
+
+    test('應該在非 local namespace 時忽略變更', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      const listener = addListenerSpy.mock.calls[0][0];
+
+      // 觸發 listener：sync namespace 不應觸發
+      listener({ 'page_https://example.com': { newValue: {} } }, 'sync');
+
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    test('應該在沒有相關 key 變更時忽略', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      const listener = addListenerSpy.mock.calls[0][0];
+
+      // 觸發 listener：不相干的 key
+      listener({ settings: { newValue: {} } }, 'local');
+
+      expect(updateSpy).not.toHaveBeenCalled();
     });
   });
 

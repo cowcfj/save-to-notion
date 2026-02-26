@@ -95,6 +95,33 @@ export class Toolbar {
 
     // Ctrl+點擊刪除標註
     this.bindClickDeleteEvents();
+
+    // 監聽 Storage 變更以即時更新按鈕狀態
+    this.bindStorageEvents();
+  }
+
+  /**
+   * 綁定 Storage 變更事件
+   */
+  bindStorageEvents() {
+    this._storageListener = (changes, namespace) => {
+      if (namespace !== 'local') {
+        return;
+      }
+
+      const hasRelevantChanges = Object.keys(changes).some(
+        key => key.startsWith('page_') || key.startsWith('saved_')
+      );
+
+      if (hasRelevantChanges) {
+        // storage 變更可能代表其他地方（例如 Popup）已完成網頁保存
+        this.updateSaveButtonVisibility();
+      }
+    };
+
+    if (globalThis.chrome?.storage?.onChanged) {
+      globalThis.chrome.storage.onChanged.addListener(this._storageListener);
+    }
   }
 
   /**
@@ -538,6 +565,11 @@ export class Toolbar {
 
     if (this.clickDeleteHandler) {
       document.removeEventListener('click', this.clickDeleteHandler);
+    }
+
+    if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
+      globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
+      this._storageListener = null;
     }
 
     // 移除 DOM 元素
