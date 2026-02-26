@@ -33,6 +33,8 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   buildStableUrlFromNextData: jest.fn(),
   hasSameOrigin: jest.fn(),
   normalizeUrl: jest.fn(url => url),
+  // isRootUrl 預設回傳 false（非根 URL），避免防護邏輯意外攔截正常 URL
+  isRootUrl: jest.fn(() => false),
 }));
 
 // Mock chrome API

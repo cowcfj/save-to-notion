@@ -156,6 +156,18 @@ class TabService {
     });
 
     let migrated = false;
+
+    // 防禦：拒絕使用根路徑 URL（首頁）作為 stableUrl
+    // 成因：某些 WordPress 站點在首頁上設置 <link rel="shortlink"> 指向首頁，
+    // 若不加防護，不同文章的資料將被遷移到同一個首頁 key 下互相覆寫。
+    if (hasStableUrl && isRootUrl(stableUrl)) {
+      this.logger.warn('[TabService] Blocked root URL as stableUrl, falling back to originalUrl', {
+        rejected: sanitizeUrlForLogging(stableUrl),
+        fallback: sanitizeUrlForLogging(originalUrl),
+      });
+      return { stableUrl: originalUrl, originalUrl, hasStableUrl: false, migrated: false };
+    }
+
     if (hasStableUrl && migrationService) {
       migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);
     }

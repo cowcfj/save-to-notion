@@ -27,8 +27,29 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 // 安全的 HTTP Headers 白名單 Set（為了性能而在內部轉換）
 const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
+// 日誌脫敏中需移除的追蹤參數（與 URL_NORMALIZATION.TRACKING_PARAMS 保持一致）
+// 注意：此清單應與 constants.js 的 TRACKING_PARAMS 同步，但為了避免循環依賴在此直接定義
+const LOG_TRACKING_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'gclid',
+  'fbclid',
+  'mc_cid',
+  'mc_eid',
+  'igshid',
+  'vero_id',
+];
+
 /**
- * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
+ * 清理 URL 用於日誌記錄，只移除已知追蹤參數，保留有意義的 query 參數
+ *
+ * 設計原則：
+ * - 移除已知廣告追蹤參數（utm_*、gclid 等）保護隱私
+ * - 保留有意義的 query（如 WordPress ?p=7741、分頁 ?page=2 等）便於偵錯
+ * - 移除 fragment (#hash)
  *
  * @param {string} url - 原始 URL
  * @returns {string} 清理後的 URL
@@ -40,8 +61,13 @@ export function sanitizeUrlForLogging(url) {
 
   try {
     const urlObj = new URL(url);
-    // 只返回協議、主機名和路徑，移除查詢參數和片段
-    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+    // 移除已知追蹤參數
+    for (const param of LOG_TRACKING_PARAMS) {
+      urlObj.searchParams.delete(param);
+    }
+    // 移除 fragment
+    urlObj.hash = '';
+    return urlObj.toString();
   } catch {
     // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
     return '[invalid-url]';

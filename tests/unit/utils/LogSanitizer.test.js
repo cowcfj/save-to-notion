@@ -362,9 +362,10 @@ describe('LogSanitizer', () => {
         const msg = `Fetcher failed for ${url}`;
         const sanitized = LogSanitizer.sanitize([{ message: msg }]);
 
+        // secret_12345 被 _sanitizeString 的 secret_ token 規則移除
         expect(sanitized[0].message).not.toContain('secret_12345');
-        expect(sanitized[0].message).not.toContain('user_id=admins');
-        // Real sanitizeUrlForLogging returns protocol+host+path
+        // 新邏輯：sanitizeUrlForLogging 只移除已知追蹤參數（utm_*、gclid 等）
+        // user_id 不是追蹤參數，所以保留（有利於偵錯，不含私密資訊）
         expect(sanitized[0].message).toContain('https://api.notion.com/v1/page');
       });
 
