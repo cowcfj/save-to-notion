@@ -277,6 +277,12 @@ describe('migrationHandlers', () => {
 
       // 原地格式轉換：應呼叫 storageService.updateHighlights 兩次
       expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(2);
+      expect(mockStorageService.updateHighlights).toHaveBeenNthCalledWith(1, 'https://a.com', [
+        { id: '1', needsRangeInfo: true },
+      ]);
+      expect(mockStorageService.updateHighlights).toHaveBeenNthCalledWith(2, 'https://b.com', [
+        { id: '2', needsRangeInfo: true },
+      ]);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,

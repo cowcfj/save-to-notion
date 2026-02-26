@@ -115,6 +115,85 @@ describe('MigrationService', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(legacyUrl);
     });
 
+    test('should convert highlights format when convertFormat is enabled', async () => {
+      const legacyHighlights = [{ id: 'h-1' }];
+      const convertedHighlights = [{ id: 'h-1', needsRangeInfo: true }];
+      const formatConverter = jest.fn().mockReturnValue(convertedHighlights);
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(legacyHighlights) : Promise.resolve(null)
+      );
+      mockStorageService.savePageDataAndHighlights.mockResolvedValue();
+      mockStorageService.clearLegacyKeys.mockResolvedValue();
+
+      const result = await service.migrateStorageKey(stableUrl, legacyUrl, {
+        convertFormat: true,
+        formatConverter,
+      });
+
+      expect(result).toBe(true);
+      expect(formatConverter).toHaveBeenCalledWith(legacyHighlights);
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        pageData,
+        convertedHighlights
+      );
+    });
+
+    test('should keep original highlights when convertFormat is disabled', async () => {
+      const legacyHighlights = [{ id: 'h-2' }];
+      const formatConverter = jest.fn().mockReturnValue([{ id: 'converted' }]);
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(legacyHighlights) : Promise.resolve(null)
+      );
+      mockStorageService.savePageDataAndHighlights.mockResolvedValue();
+      mockStorageService.clearLegacyKeys.mockResolvedValue();
+
+      const result = await service.migrateStorageKey(stableUrl, legacyUrl, {
+        convertFormat: false,
+        formatConverter,
+      });
+
+      expect(result).toBe(true);
+      expect(formatConverter).not.toHaveBeenCalled();
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        pageData,
+        legacyHighlights
+      );
+    });
+
+    test('should return false and NOT delete legacy data if format conversion fails', async () => {
+      const legacyHighlights = [{ id: 'h-3' }];
+      const formatConverter = jest.fn(() => {
+        throw new Error('Convert failed');
+      });
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(legacyHighlights) : Promise.resolve(null)
+      );
+
+      const result = await service.migrateStorageKey(stableUrl, legacyUrl, {
+        convertFormat: true,
+        formatConverter,
+      });
+
+      expect(result).toBe(false);
+      expect(formatConverter).toHaveBeenCalledWith(legacyHighlights);
+      expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
+      expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
+    });
+
     test('should return false and NOT delete legacy data if write fails', async () => {
       mockStorageService.getSavedPageData.mockImplementation(url =>
         url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)

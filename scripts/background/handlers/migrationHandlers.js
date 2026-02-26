@@ -68,6 +68,7 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
       url: sanitizeUrlForLogging(url),
     };
   }
+  const convertedHighlights = _convertHighlightFormat(oldHighlights);
 
   // Phase 4: 統一遷移管線
   const shouldMigrateToStable = stableKey && !storageResult[stableKey];
@@ -85,11 +86,9 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
     //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
     //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
     //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
-    const newHighlights = _convertHighlightFormat(oldHighlights);
-    await storageService.updateHighlights(url, newHighlights);
+    await storageService.updateHighlights(url, convertedHighlights);
   }
 
-  const convertedHighlights = _convertHighlightFormat(oldHighlights);
   return {
     status: 'success',
     url: sanitizeUrlForLogging(finalUrl),

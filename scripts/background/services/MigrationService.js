@@ -25,9 +25,14 @@ export class MigrationService {
    *
    * @param {string} stableUrl - 新的穩定 URL (目標 Key)
    * @param {string} legacyUrl - 舊的 URL (來源 Key)
+   * @param {object} [options={}] - 遷移選項
+   * @param {boolean} [options.convertFormat=false] - 是否在遷移時轉換 highlights 格式
+   * @param {Function|null} [options.formatConverter=null] - highlights 格式轉換函式
    * @returns {Promise<boolean>} - 是否執行了遷移
    */
-  async migrateStorageKey(stableUrl, legacyUrl) {
+  async migrateStorageKey(stableUrl, legacyUrl, options = {}) {
+    const { convertFormat = false, formatConverter = null } = options;
+
     if (!stableUrl || !legacyUrl || stableUrl === legacyUrl) {
       return false;
     }
@@ -68,15 +73,38 @@ export class MigrationService {
         return false;
       }
 
+      let migratedHighlights = highlights;
+      if (convertFormat && Array.isArray(highlights) && highlights.length > 0) {
+        if (typeof formatConverter === 'function') {
+          migratedHighlights = formatConverter(highlights);
+          if (!Array.isArray(migratedHighlights)) {
+            throw new TypeError('formatConverter must return an array');
+          }
+        } else {
+          Logger.warn(
+            'convertFormat enabled without a valid formatConverter, skipping conversion',
+            {
+              stable: sanitizeUrlForLogging(stableUrl),
+              legacy: sanitizeUrlForLogging(legacyUrl),
+            }
+          );
+        }
+      }
+
       Logger.info('Migrating legacy data to stable URL', {
         legacy: sanitizeUrlForLogging(legacyUrl),
         stable: sanitizeUrlForLogging(stableUrl),
         hasPageData: Boolean(pageData),
         hasHighlights: Boolean(highlights),
+        formatConverted:
+          convertFormat &&
+          Array.isArray(highlights) &&
+          highlights.length > 0 &&
+          typeof formatConverter === 'function',
       });
 
       // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
-      await this.storageService.savePageDataAndHighlights(stableUrl, pageData, highlights);
+      await this.storageService.savePageDataAndHighlights(stableUrl, pageData, migratedHighlights);
 
       // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
       // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
