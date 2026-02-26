@@ -14,10 +14,7 @@
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
-import {
-  HIGHLIGHTS_PREFIX,
-  SAVED_PREFIX,
-} from '../../../../scripts/background/services/StorageService.js';
+import { HIGHLIGHTS_PREFIX } from '../../../../scripts/background/services/StorageService.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
@@ -91,6 +88,7 @@ describe('migrationHandlers', () => {
     mockServices = {
       migrationService: {
         executeContentMigration: jest.fn(),
+        migrateStorageKey: jest.fn().mockResolvedValue(true),
       },
       storageService: mockStorageService,
     };
@@ -287,7 +285,7 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('應該在計算出穩定 URL 時，將數據遷移到穩定 URL key 並刪除原始 key', async () => {
+    test('應該在計算出穩定 URL 時，委託統一管線遷移到穩定 URL', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
       const sendResponse = jest.fn();
@@ -305,14 +303,14 @@ describe('migrationHandlers', () => {
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      // 應呼叫 _migrateUrlKey（使用 savePageDataAndHighlights + clearLegacyKeys）
-      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+      // Phase 4：委託給 migrationService.migrateStorageKey
+      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
         stableUrl,
-        null, // 無 saved_ 資料
-        expect.objectContaining({ url: stableUrl })
-      );
-      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(
-        'https://a.com/original-slug'
+        'https://a.com/original-slug',
+        expect.objectContaining({
+          convertFormat: true,
+          formatConverter: expect.any(Function),
+        })
       );
 
       // 確保回報的 url 是 stableUrl
@@ -328,36 +326,32 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('應該在遷移至穩定 URL 時，同時遷移 saved_ 數據', async () => {
+    test('應該在遷移至穩定 URL 時，委託統一管線處理 saved_ 伴隨遷移', async () => {
       const oldUrl = 'https://a.com/old-slug';
       const stableUrl = 'https://a.com/stable-part';
       const sendResponse = jest.fn();
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      const savedData = { title: 'My Page', notionPageId: 'page-123' };
-
       chrome.storage.local.get.mockResolvedValue({
         [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
           url: oldUrl,
           highlights: [{ id: '1', text: 'highlight text' }],
         },
-        [`${SAVED_PREFIX}${oldUrl}`]: savedData,
         // highlights_${stableUrl} 不存在 → 觸發遷移
-        // saved_${stableUrl} 不存在 → saved_ 也需遷移
       });
 
       await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
 
-      // 驗證 savePageDataAndHighlights 帶有 stableUrl 和遷移的 savedData
-      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+      // Phase 4：委託給統一管線（saved_ 伴隨遷移由 MigrationService 內部處理）
+      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
         stableUrl,
-        savedData,
-        expect.objectContaining({ url: stableUrl, highlights: expect.any(Array) })
+        oldUrl,
+        expect.objectContaining({
+          convertFormat: true,
+          formatConverter: expect.any(Function),
+        })
       );
-
-      // 驗證 clearLegacyKeys 被呼叫（清除舊 URL 的 keys）
-      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(oldUrl);
 
       // 驗證 sendResponse 報告 stableUrl
       expect(sendResponse).toHaveBeenCalledWith(

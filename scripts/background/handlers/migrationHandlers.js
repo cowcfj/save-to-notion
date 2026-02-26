@@ -18,7 +18,7 @@ import {
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
-import { SAVED_PREFIX, HIGHLIGHTS_PREFIX } from '../../config/constants.js';
+import { HIGHLIGHTS_PREFIX } from '../../config/constants.js';
 
 /**
  * 轉換標註格式：對沒有 rangeInfo 的項目加上 needsRangeInfo 標記
@@ -34,60 +34,21 @@ function _convertHighlightFormat(oldHighlights) {
   }));
 }
 
-/**
- * URL Key 遷移：將 highlights_ + saved_ 從舊 URL 遷移到穩定 URL
- * 可被 migrateStorageKey 和 _migrateSingleUrl 共用的核心邏輯
- *
- * @param {string} url - 舊原始 URL
- * @param {string} stableUrl - 穩定 URL
- * @param {Array} newHighlights - 轉換後的標註陣列
- * @param {object} storageService - StorageService 實例
- * @param {object} rawStorageResult - 原始批量讀取結果（用於判斷 saved_ 狀態）
- * @returns {Promise<{migrated: boolean}>}
- */
-async function _migrateUrlKey(url, stableUrl, newHighlights, storageService, rawStorageResult) {
-  const savedKey = `${SAVED_PREFIX}${url}`;
-  const savedStableKey = `${SAVED_PREFIX}${stableUrl}`;
+// Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
 
-  // saved_ 在舊 URL 下存在且穩定 URL 下尚無資料時，一起遷移
-  const savedData = rawStorageResult[savedKey] || null;
-  const savedStableExists = Boolean(rawStorageResult[savedStableKey]);
-
-  // 原子寫入：highlights_ 到穩定 URL，同時遷移 saved_（若穩定 URL 尚無）
-  await storageService.savePageDataAndHighlights(
-    stableUrl,
-    !savedStableExists && savedData ? savedData : null,
-    { url: stableUrl, highlights: newHighlights }
-  );
-
-  // 安全刪除舊 key（highlights_ + saved_）
-  await storageService.clearLegacyKeys(url);
-
-  return { migrated: true };
-}
-
-async function _migrateSingleUrl(url, storageService) {
-  // 讀取標註資料（第一手讀取，包含 saved_ 狀態）
+async function _migrateSingleUrl(url, storageService, migrationService) {
+  // 讀取標註資料，判斷是否需要遷移
   const pageKey = `${HIGHLIGHTS_PREFIX}${url}`;
   const stableUrl = computeStableUrl(url);
   const stableKey = stableUrl && stableUrl !== url ? `${HIGHLIGHTS_PREFIX}${stableUrl}` : null;
 
-  // 批量讀取 highlights_、saved_（舊與穩定）以縮小 TOCTOU 窗口
-  const savedKey = `${SAVED_PREFIX}${url}`;
-  const savedStableKey = stableUrl && stableUrl !== url ? `${SAVED_PREFIX}${stableUrl}` : null;
+  // Tech debt: 此處直接存取 chrome.storage.local 是因為 StorageService
+  // 目前缺少跨前綴批量讀取 API（同時讀 highlights_ 和 saved_）。
+  // 待 StorageService 新增 getBulk() 後替換此段。
   const keysToFetch = [pageKey];
   if (stableKey) {
     keysToFetch.push(stableKey);
   }
-  keysToFetch.push(savedKey);
-  if (savedStableKey) {
-    keysToFetch.push(savedStableKey);
-  }
-
-  // Tech debt: 此處直接存取 chrome.storage.local 是因為 StorageService
-  // 目前缺少跨前綴批量讀取 API（同時讀 highlights_ 和 saved_）。
-  // 待 StorageService 新增 getBulk() 後替換此段。
-  // Tracking: https://github.com/cowcfj/save-to-notion/issues (搜尋 "StorageService getBulk")
   const storageResult = await chrome.storage.local.get(keysToFetch);
   const data = storageResult[pageKey];
 
@@ -99,7 +60,6 @@ async function _migrateSingleUrl(url, storageService) {
     };
   }
 
-  // Phase 2: 職責 1 - 格式轉換（純函數，無副作用）
   const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
   if (oldHighlights.length === 0) {
     return {
@@ -108,30 +68,33 @@ async function _migrateSingleUrl(url, storageService) {
       url: sanitizeUrlForLogging(url),
     };
   }
-  const newHighlights = _convertHighlightFormat(oldHighlights);
 
-  // Phase 2: 職責 2 - URL Key 遷移（若需要）
+  // Phase 4: 統一遷移管線
   const shouldMigrateToStable = stableKey && !storageResult[stableKey];
   const finalUrl = shouldMigrateToStable ? stableUrl : url;
 
   if (shouldMigrateToStable) {
-    // 使用 StorageService 原子遷移：自動處理 saved_ + highlights_
-    await _migrateUrlKey(url, stableUrl, newHighlights, storageService, storageResult);
+    // 委託給統一管線：格式轉換 + URL Key 遷移 + saved_ 伴隨遷移 + 刪舊 key
+    await migrationService.migrateStorageKey(stableUrl, url, {
+      convertFormat: true,
+      formatConverter: _convertHighlightFormat,
+    });
   } else {
     // 原地格式轉換（就地更新現有 key）
-    // 刻意不呼叫 clearLegacyKeys：
-    //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key，無舊 key 可刪
-    //   - 若 stableKey 存在但已有資料（shouldMigrateToStable = false）：代表穩定 URL 那邊
-    //     已有獨立資料，此時 url 的 key 仍是有效資料（使用者可能仍在用此 URL 訪問），
-    //     不應刪除；舊 key 的清理責任交給後續線上路徑（migrateStorageKey）。
+    // 刻意不搬移 key：
+    //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
+    //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
+    //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
+    const newHighlights = _convertHighlightFormat(oldHighlights);
     await storageService.updateHighlights(url, newHighlights);
   }
 
+  const convertedHighlights = _convertHighlightFormat(oldHighlights);
   return {
     status: 'success',
     url: sanitizeUrlForLogging(finalUrl),
-    count: newHighlights.length,
-    pending: newHighlights.filter(item => item.needsRangeInfo).length,
+    count: convertedHighlights.length,
+    pending: convertedHighlights.filter(item => item.needsRangeInfo).length,
   };
 }
 
@@ -332,7 +295,7 @@ export function createMigrationHandlers(services) {
 
         for (const url of urls) {
           try {
-            const itemResult = await _migrateSingleUrl(url, storageService);
+            const itemResult = await _migrateSingleUrl(url, storageService, migrationService);
             results.details.push(itemResult);
 
             if (itemResult.status === 'success') {
