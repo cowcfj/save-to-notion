@@ -30,7 +30,7 @@
 
 ### 3. 📝 Git Commit 規範 (Strict)
 
-生成 Commit Message 時，**必須**遵循以下格式：
+生成 Commit Message 時，**必須**綜合分析所有變更的檔案路徑與內容，並嚴格遵循以下格式：
 
 ```text
 <type>: <subject>
@@ -38,9 +38,20 @@
 <body (optional)>
 ```
 
-- **language**: 必須使用 **繁體中文**。
-- **types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
-- **example**: `feat: 新增使用者認證功能`
+- **Language (語言)**: 必須使用 **繁體中文**。
+- **Type Selection Rules (類型判斷規則 - 嚴格執行)**:
+  - `test`: **若變更的檔案僅包含測試程式碼**（如 `.test.js`, `.spec.js`, `tests/` 目錄），則**必須**使用 `test`，絕不可以使用 `feat` 或 `fix`。
+  - `docs`: 僅修改文件（如 `.md`, 註解等）。
+  - `chore`: 專案配置、建置腳本、依賴套件更新（如 `package.json`, `.github/`, config 檔）。
+  - `refactor`: 重構現有程式碼（不新增功能也不修復 bug）。
+  - `style`: 程式碼格式調整（空白、格式化、缺少分號等），不影響程式碼運行。
+  - `fix`: 錯誤修復（修改業務邏輯源碼）。
+  - `feat`: 新增功能（修改業務邏輯源碼）。
+
+- **Examples**:
+  - `test: 新增 StorageUtil 單元測試` (僅修改 test 檔)
+  - `feat: 新增使用者認證功能` (修改業務源碼)
+  - `chore: 更新 GitHub Actions 設置` (修改 .github/ 檔)
 
 ### 4. 📂 上下文感知 (Context Awareness)
 
