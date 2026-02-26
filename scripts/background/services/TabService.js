@@ -389,6 +389,13 @@ class TabService {
     const maskedPageId = `${savedData.notionPageId?.slice(0, 4)}...`;
     this.logger.debug(`[TabService] Cache expired, verifying Notion page: ${maskedPageId}`);
 
+    // 防護：notionPageId 不存在時跳過聯網驗證，直接顯示已保存狀態
+    if (!savedData.notionPageId) {
+      this.logger.debug('[TabService] No notionPageId in savedData, skipping Notion verification');
+      await this._updateBadgeStatus(tabId, savedData);
+      return;
+    }
+
     try {
       const apiKey = await this.getApiKey();
       if (!apiKey) {
@@ -436,14 +443,19 @@ class TabService {
   }
 
   async _getHighlightsFromStorage(normUrl) {
-    const key = `highlights_${normUrl}`;
-    const data = await chrome.storage.local.get([key]);
-    const storedData = data[key];
+    const hlKey = `highlights_${normUrl}`;
+    const pageKey = `page_${normUrl}`;
+    // 同時查詢新舊格式，優先使用 page_* 新格式（遷移後的資料所在）
+    const data = await chrome.storage.local.get([hlKey, pageKey]);
+
+    // 確定來源：優先 page_* 新格式，再查 highlights_* 舊格式
+    const storedData = data[pageKey] || data[hlKey];
     const highlights = Array.isArray(storedData) ? storedData : storedData?.highlights;
 
     const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
 
-    this.logger.debug(`[TabService] Checking highlights for ${key}:`, {
+    const keyUsed = data[pageKey] ? pageKey : hlKey;
+    this.logger.debug(`[TabService] Checking highlights for ${keyUsed}:`, {
       found: hasHighlights,
       count: hasHighlights ? highlights.length : 0,
     });

@@ -552,11 +552,16 @@ describe('TabService', () => {
         // 2. 配置 service 的 URL 標準化行為
         service.normalizeUrl = jest.fn().mockReturnValue(mockOriginalUrl);
 
-        // 3. Mock 外部儲存 API：穩定 URL 為空，原始 URL 有數據
+        // 3. Mock 外部儲存 API：穩定 URL 為空，原始 URL 的 highlights_* key 有數據
         chrome.storage.local.get.mockImplementation(async keys => {
-          if (keys.includes(`highlights_${mockStableUrl}`)) {
+          // 穩定 URL 的新舊格式都沒有數據
+          if (
+            keys.includes(`highlights_${mockStableUrl}`) ||
+            keys.includes(`page_${mockStableUrl}`)
+          ) {
             return {};
           }
+          // 原始 URL 的舊格式有數據
           if (keys.includes(`highlights_${mockOriginalUrl}`)) {
             return { [`highlights_${mockOriginalUrl}`]: [{ text: 'fallback-highlight' }] };
           }
@@ -572,9 +577,15 @@ describe('TabService', () => {
         // 5. 執行測試
         await service._updateTabStatusInternal(mockTabId, mockRawUrl);
 
-        // 6. 驗證：儲存 API 應該被呼叫了兩次（一次穩定，一次原始）
-        expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockStableUrl}`]);
-        expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockOriginalUrl}`]);
+        // 6. 驗證：新邏輯同時查詢 highlights_* 和 page_* 兩個 key
+        expect(chrome.storage.local.get).toHaveBeenCalledWith([
+          `highlights_${mockStableUrl}`,
+          `page_${mockStableUrl}`,
+        ]);
+        expect(chrome.storage.local.get).toHaveBeenCalledWith([
+          `highlights_${mockOriginalUrl}`,
+          `page_${mockOriginalUrl}`,
+        ]);
 
         // 驗證最終成功觸發了注入
         expect(service.injectionService.ensureBundleInjected).toHaveBeenCalledWith(mockTabId);
