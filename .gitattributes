@@ -1,0 +1,43 @@
+# -------------------------------------------------------------------
+# 1. 統一換行符號 (Auto normalize line endings to LF)
+# 避免 macOS/Windows 協作時的 CRLF 衝突
+# -------------------------------------------------------------------
+* text=auto eol=lf
+
+# 明確指定常見純文字檔格式
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+
+# -------------------------------------------------------------------
+# 2. 二進位檔案 (Denote binary files)
+# 防止 Git 嘗試將圖片視為純文字進行合併
+# -------------------------------------------------------------------
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+
+# -------------------------------------------------------------------
+# 3. 最佳化 GitHub 專案語言統計 (Linguist)
+# -------------------------------------------------------------------
+# 將這些目錄標記為文件，不計入核心代碼的語言統計
+docs/** linguist-documentation
+site/** linguist-documentation
+AGENTS.md linguist-documentation
+
+# 標記為自動生成，不計入統計，且在 GitHub PR 中預設折疊
+dist/** linguist-generated
+playwright-report/** linguist-generated
+coverage/** linguist-generated
+
+# -------------------------------------------------------------------
+# 4. 最佳化 Diff 視圖
+# -------------------------------------------------------------------
+# 避免 package-lock.json 產生巨大的 Diff 擾亂 Code Review
+package-lock.json -diff
