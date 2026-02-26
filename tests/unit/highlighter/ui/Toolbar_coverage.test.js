@@ -442,6 +442,7 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(addListenerSpy).toHaveBeenCalledWith(expect.any(Function));
       // 確保將 listener 存了下來
       expect(tb._storageListener).toBeDefined();
+      tb.cleanup();
     });
 
     test('應該在 local namespace 及匹配 key 時觸發 updateSaveButtonVisibility', () => {
@@ -455,6 +456,7 @@ describe('Toolbar 覆蓋率補強', () => {
       listener({ 'page_https://example.com': { newValue: {} } }, 'local');
 
       expect(updateSpy).toHaveBeenCalled();
+      tb.cleanup();
     });
 
     test('應該在匹配 key (如 highlights_) 時觸發 updateSaveButtonVisibility', () => {
@@ -466,6 +468,19 @@ describe('Toolbar 覆蓋率補強', () => {
       listener({ 'highlights_https://example.com': { newValue: {} } }, 'local');
 
       expect(updateSpy).toHaveBeenCalled();
+      tb.cleanup();
+    });
+
+    test('應該在匹配 key (如 saved_) 時觸發 updateSaveButtonVisibility', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      const listener = addListenerSpy.mock.calls[0][0];
+
+      listener({ 'saved_https://example.com': { newValue: {} } }, 'local');
+
+      expect(updateSpy).toHaveBeenCalled();
+      tb.cleanup();
     });
 
     test('應該在非 local namespace 時忽略變更', () => {
@@ -478,6 +493,7 @@ describe('Toolbar 覆蓋率補強', () => {
       listener({ 'page_https://example.com': { newValue: {} } }, 'sync');
 
       expect(updateSpy).not.toHaveBeenCalled();
+      tb.cleanup();
     });
 
     test('應該在沒有相關 key 變更時忽略', () => {
@@ -490,6 +506,7 @@ describe('Toolbar 覆蓋率補強', () => {
       listener({ settings: { newValue: {} } }, 'local');
 
       expect(updateSpy).not.toHaveBeenCalled();
+      tb.cleanup();
     });
   });
 

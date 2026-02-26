@@ -34,10 +34,13 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
  * @param {boolean} isSaved - 是否已保存
  */
 function sendPageSaveHint(activeTabId, isSaved) {
-  if (!activeTabId) {return;}
-  Promise.resolve(
-    chrome.tabs?.sendMessage?.(activeTabId, { action: 'PAGE_SAVE_HINT', isSaved })
-  ).catch(() => {
+  if (!activeTabId) {
+    return;
+  }
+  if (!chrome.tabs?.sendMessage) {
+    return;
+  }
+  chrome.tabs.sendMessage(activeTabId, { action: 'PAGE_SAVE_HINT', isSaved }).catch(() => {
     /* 忽略錯誤，由 storage.onChanged 兜底 */
   });
 }

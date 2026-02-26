@@ -84,6 +84,9 @@ export function sanitizeUrlForLogging(url) {
 
   try {
     const urlObj = new URL(url);
+    // 移除 URL userinfo 防止認證資訊洩漏
+    urlObj.username = '';
+    urlObj.password = '';
     // 移除已知追蹤參數
     for (const param of LOG_TRACKING_PARAMS) {
       urlObj.searchParams.delete(param);

@@ -471,4 +471,17 @@ describe('LogSanitizer', () => {
       expect(sanitized).toContain('keep=1');
     });
   });
+
+  describe('URL userinfo 脫敏', () => {
+    test('sanitizeUrlForLogging 應清除 URL userinfo 以防止認證資訊洩漏', () => {
+      const url = 'https://user:pass@example.com/path?keep=1';
+      const sanitized = sanitizeUrlForLogging(url);
+
+      expect(sanitized).not.toContain('user:pass');
+      expect(sanitized).not.toContain('user:');
+      expect(sanitized).not.toContain(':pass@');
+      expect(sanitized).toContain('example.com/path');
+      expect(sanitized).toContain('keep=1');
+    });
+  });
 });
