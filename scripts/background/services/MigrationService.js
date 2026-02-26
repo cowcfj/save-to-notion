@@ -25,9 +25,14 @@ export class MigrationService {
    *
    * @param {string} stableUrl - 新的穩定 URL (目標 Key)
    * @param {string} legacyUrl - 舊的 URL (來源 Key)
+   * @param {object} [options={}] - 遷移選項
+   * @param {boolean} [options.convertFormat=false] - 是否在遷移時轉換 highlights 格式
+   * @param {Function|null} [options.formatConverter=null] - highlights 格式轉換函式（可為 sync 或 async）
    * @returns {Promise<boolean>} - 是否執行了遷移
    */
-  async migrateStorageKey(stableUrl, legacyUrl) {
+  async migrateStorageKey(stableUrl, legacyUrl, options = {}) {
+    const { convertFormat = false, formatConverter = null } = options;
+
     if (!stableUrl || !legacyUrl || stableUrl === legacyUrl) {
       return false;
     }
@@ -43,40 +48,51 @@ export class MigrationService {
 
     try {
       // 並行取得 saved 和 highlights 數據
-      const [pageData, highlights] = await Promise.all([
+      const [pageData, legacyHighlightsRaw] = await Promise.all([
         this.storageService.getSavedPageData(legacyUrl),
         this.storageService.getHighlights(legacyUrl),
       ]);
+      const legacyHighlights = this._normalizeHighlights(legacyHighlightsRaw);
 
       // 兩者皆無 → 不需遷移
-      if (!pageData && !highlights) {
+      if (!pageData && legacyHighlights.length === 0) {
         return false;
       }
 
       // 防禦層 2：目標 key 已有資料時拒絕覆寫（防止不同文章頁的資料互相破壞）
-      const [existingHighlights, existingPageData] = await Promise.all([
+      const [existingHighlightsRaw, existingPageData] = await Promise.all([
         this.storageService.getHighlights(stableUrl),
         this.storageService.getSavedPageData(stableUrl),
       ]);
-      if ((existingHighlights && existingHighlights.length > 0) || existingPageData) {
+      const existingHighlights = this._normalizeHighlights(existingHighlightsRaw);
+      if (existingHighlights.length > 0 || existingPageData) {
         Logger.warn('Migration target already has data, skipping to prevent overwrite', {
           stable: sanitizeUrlForLogging(stableUrl),
           legacy: sanitizeUrlForLogging(legacyUrl),
-          existingHighlightsCount: existingHighlights?.length ?? 0,
+          existingHighlightsCount: existingHighlights.length,
           hasExistingPageData: Boolean(existingPageData),
         });
         return false;
       }
 
+      const { migratedHighlights, formatConverted } = await this._resolveMigratedHighlights({
+        highlights: legacyHighlights,
+        convertFormat,
+        formatConverter,
+        stableUrl,
+        legacyUrl,
+      });
+
       Logger.info('Migrating legacy data to stable URL', {
         legacy: sanitizeUrlForLogging(legacyUrl),
         stable: sanitizeUrlForLogging(stableUrl),
         hasPageData: Boolean(pageData),
-        hasHighlights: Boolean(highlights),
+        hasHighlights: legacyHighlights.length > 0,
+        formatConverted,
       });
 
       // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
-      await this.storageService.savePageDataAndHighlights(stableUrl, pageData, highlights);
+      await this.storageService.savePageDataAndHighlights(stableUrl, pageData, migratedHighlights);
 
       // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
       // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
@@ -97,6 +113,65 @@ export class MigrationService {
       // 如果遷移失敗，保持舊數據不動，確保數據安全
       return false;
     }
+  }
+
+  /**
+   * 將 highlights 讀取結果正規化為陣列。
+   *
+   * StorageService.getHighlights 在過渡期可能返回：
+   * - page_*：陣列
+   * - highlights_*：{ highlights: [...] } 或其他 legacy 形狀
+   *
+   * @param {any} value
+   * @returns {Array}
+   */
+  _normalizeHighlights(value) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (value && typeof value === 'object' && Array.isArray(value.highlights)) {
+      return value.highlights;
+    }
+    return [];
+  }
+
+  /**
+   * 解析遷移時的 highlights（可選格式轉換）
+   *
+   * @param {object} params
+   * @param {Array} params.highlights
+   * @param {boolean} params.convertFormat
+   * @param {Function|null} params.formatConverter
+   * @param {string} params.stableUrl
+   * @param {string} params.legacyUrl
+   * @returns {Promise<{ migratedHighlights: Array, formatConverted: boolean }>}
+   */
+  async _resolveMigratedHighlights({
+    highlights,
+    convertFormat,
+    formatConverter,
+    stableUrl,
+    legacyUrl,
+  }) {
+    const canConvert = convertFormat && Array.isArray(highlights) && highlights.length > 0;
+    if (!canConvert) {
+      return { migratedHighlights: highlights, formatConverted: false };
+    }
+
+    if (typeof formatConverter !== 'function') {
+      Logger.warn('convertFormat enabled without a valid formatConverter, skipping conversion', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+      return { migratedHighlights: highlights, formatConverted: false };
+    }
+
+    const migratedHighlights = await formatConverter(highlights);
+    if (!Array.isArray(migratedHighlights)) {
+      throw new TypeError('formatConverter must return an array');
+    }
+
+    return { migratedHighlights, formatConverted: true };
   }
 
   /**
