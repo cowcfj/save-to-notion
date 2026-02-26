@@ -102,21 +102,32 @@ const StorageUtil = {
     const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
     try {
-      // 讀取現有資料以保留 notion 物件
+      // 讀取現有資料以保留 notion 物件及已有 metadata 欄位
       let preservedNotionOrNull = null;
+      let existingMetadata = {};
       if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const data = await new Promise(resolve => {
-          chrome.storage.local.get([pageKey], result => resolve(result));
+        const data = await new Promise((resolve, reject) => {
+          chrome.storage.local.get([pageKey], result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
         });
-        if (data?.[pageKey]?.notion) {
-          preservedNotionOrNull = data[pageKey].notion;
+        const existingPage = data?.[pageKey];
+        if (existingPage?.notion) {
+          preservedNotionOrNull = existingPage.notion;
+        }
+        if (existingPage?.metadata) {
+          existingMetadata = existingPage.metadata;
         }
       }
 
       await this._saveToChromeStorage(pageKey, {
         notion: preservedNotionOrNull,
         highlights,
-        metadata: { lastUpdated: Date.now() },
+        metadata: { ...existingMetadata, lastUpdated: Date.now() },
       });
     } catch (error) {
       Logger.warn('Chrome Storage 不可用，回退到 localStorage', {
@@ -408,8 +419,35 @@ const StorageUtil = {
 
     Logger.log('開始清除標註', { action: 'clearHighlights', pageKey });
 
+    // 對 page_* entry 進行讀→改→寫，只清空 highlights 欄位，保留 notion 等其他狀態
+    const clearPageHighlights = async () => {
+      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+        const existing = await new Promise((resolve, reject) => {
+          chrome.storage.local.get([pageKey], result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        });
+        const current = existing[pageKey];
+        if (current) {
+          await new Promise((resolve, reject) => {
+            chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } }, () => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve();
+              }
+            });
+          });
+        }
+      }
+    };
+
     const results = await Promise.allSettled([
-      this._clearFromChromeStorage(pageKey),
+      clearPageHighlights(),
       this._clearFromChromeStorage(legacyKey),
       this._clearFromLocalStorage(legacyKey),
     ]);

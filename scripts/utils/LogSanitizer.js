@@ -45,10 +45,32 @@ const LOG_TRACKING_PARAMS = URL_NORMALIZATION?.TRACKING_PARAMS ?? [
 ];
 
 /**
+ * URL query 參數中的敏感鍵名清單
+ * 出現這些鍵名時，其值會被遮蔽為 [REDACTED]，而非直接刪除（保留鍵名便於偵錯）
+ */
+const SENSITIVE_QUERY_KEYS = [
+  'token',
+  'access_token',
+  'refresh_token',
+  'id_token',
+  'code',
+  'session',
+  'session_id',
+  'key',
+  'api_key',
+  'apikey',
+  'password',
+  'passwd',
+  'auth',
+  'secret',
+];
+
+/**
  * 清理 URL 用於日誌記錄，只移除已知追蹤參數，保留有意義的 query 參數
  *
  * 設計原則：
  * - 移除已知廣告追蹤參數（utm_*、gclid 等）保護隱私
+ * - 遮蔽敏感 query 參數值（token、code、session 等），保留鍵名便於偵錯
  * - 保留有意義的 query（如 WordPress ?p=7741、分頁 ?page=2 等）便於偵錯
  * - 移除 fragment (#hash)
  *
@@ -68,7 +90,13 @@ export function sanitizeUrlForLogging(url) {
     }
     // 移除 fragment
     urlObj.hash = '';
-    return urlObj.toString();
+
+    // 遮蔽敏感 query 參數值（用字串替換而非 URLSearchParams.set，避免括號被 percent-encoded）
+    let result = urlObj.toString();
+    for (const param of SENSITIVE_QUERY_KEYS) {
+      result = result.replaceAll(new RegExp(`([?&]${param}=)[^&#]*`, 'gi'), `$1${SANITIZED_LABEL}`);
+    }
+    return result;
   } catch {
     // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
     return '[invalid-url]';

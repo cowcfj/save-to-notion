@@ -174,10 +174,30 @@ class StorageService {
 
     // 在鎖的保護下進行升級，避免併發覆蓋
     this._withLock(targetUrl, async () => {
-      const result = await this.storage.local.get([highlightKey]);
-      const highlightData = result[highlightKey];
-      const pageObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
-      await this.storage.local.set({ [pageKey]: pageObj });
+      // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
+      const readResult = await this.storage.local.get([pageKey, highlightKey]);
+      const existingPage = readResult[pageKey];
+      const highlightData = readResult[highlightKey];
+      const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
+
+      // 若已有較新的 page_* 資料（以 metadata.lastUpdated 判斷），合併而非覆寫
+      let finalObj;
+      if (
+        existingPage &&
+        (existingPage.metadata?.lastUpdated ?? 0) > (builtObj.metadata?.lastUpdated ?? 0)
+      ) {
+        finalObj = {
+          ...builtObj,
+          ...existingPage,
+          highlights: existingPage.highlights?.length
+            ? existingPage.highlights
+            : builtObj.highlights,
+        };
+      } else {
+        finalObj = builtObj;
+      }
+
+      await this.storage.local.set({ [pageKey]: finalObj });
       await this.storage.local.remove([savedKey, highlightKey]);
     }).catch(error => {
       this.logger.warn?.('[StorageService] 讀時升級失敗', { error });
@@ -309,14 +329,16 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    try {
-      // Phase 3：一次寫入統一 page_* 物件
-      const pageObj = this._buildPageObject(pageData, highlights || [], normalizedUrl);
-      await this.storage.local.set({ [pageKey]: pageObj });
-    } catch (error) {
-      this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
-      throw error;
-    }
+    return this._withLock(normalizedUrl, async () => {
+      try {
+        // Phase 3：一次寫入統一 page_* 物件（鎖內序列化，避免並發覆寫）
+        const pageObj = this._buildPageObject(pageData, highlights || [], normalizedUrl);
+        await this.storage.local.set({ [pageKey]: pageObj });
+      } catch (error) {
+        this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
+        throw error;
+      }
+    });
   }
 
   /**
@@ -609,7 +631,12 @@ class StorageService {
         if (key.startsWith(HIGHLIGHTS_PREFIX)) {
           const url = key.slice(HIGHLIGHTS_PREFIX.length);
           if (!result[url]) {
-            result[url] = value;
+            // 規範化舊格式：確保回傳形狀一律為 { highlights: [...] }
+            if (value && typeof value === 'object' && 'highlights' in value) {
+              result[url] = value;
+            } else {
+              result[url] = { highlights: Array.isArray(value) ? value : [] };
+            }
           }
         }
       }

@@ -62,11 +62,11 @@ function extractDomain(url) {
  */
 function buildPreviewHighlights(highlights) {
   return highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => {
-    const rawText = hl.text || '';
+    const rawText = String(hl && typeof hl.text === 'string' ? hl.text : '');
     return {
       text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
       truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
-      color: hl.color || 'yellow',
+      color: (hl && hl.color) || 'yellow',
     };
   });
 }

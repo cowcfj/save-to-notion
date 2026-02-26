@@ -264,27 +264,48 @@ describe('StorageService', () => {
   });
 
   describe('savePageDataAndHighlights', () => {
+    const sampleHighlight = {
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      text: 'Example highlight text',
+      color: 'yellow',
+      timestamp: 1_700_000_000_000,
+      domPath: 'body > article > p:nth-child(2)',
+    };
+
     it('應該以 page_* 格式原子寫入頁面數據和標註（Phase 3）', async () => {
       const pageData = { title: 'Test', pageId: 'page-123' };
-      const highlights = ['hl1'];
+      const highlights = [sampleHighlight];
       await service.savePageDataAndHighlights('https://example.com/page', pageData, highlights);
 
       const setCall = mockStorage.local.set.mock.calls[0][0];
       const pageKey = `${PAGE_PREFIX}https://example.com/page`;
       expect(setCall[pageKey]).toBeDefined();
       expect(setCall[pageKey].notion).toBeDefined();
-      expect(setCall[pageKey].highlights).toEqual(highlights);
+      expect(setCall[pageKey].highlights).toHaveLength(1);
+      expect(setCall[pageKey].highlights[0].id).toBe(sampleHighlight.id);
+      expect(setCall[pageKey].highlights[0].text).toBe(sampleHighlight.text);
+      expect(setCall[pageKey].highlights[0].color).toBe(sampleHighlight.color);
+      expect(setCall[pageKey].highlights[0].timestamp).toBe(sampleHighlight.timestamp);
+      expect(setCall[pageKey].highlights[0].domPath).toBe(sampleHighlight.domPath);
       expect(setCall[pageKey].metadata).toBeDefined();
     });
 
     it('應該在 pageData 為 null 時仍寫入 highlights', async () => {
-      const highlights = ['hl1', 'hl2'];
+      const highlights = [
+        sampleHighlight,
+        {
+          ...sampleHighlight,
+          id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+          text: 'Second highlight',
+        },
+      ];
       await service.savePageDataAndHighlights('https://example.com/page', null, highlights);
 
       const setCall = mockStorage.local.set.mock.calls[0][0];
       const pageKey = `${PAGE_PREFIX}https://example.com/page`;
       expect(setCall[pageKey].notion).toBeNull();
-      expect(setCall[pageKey].highlights).toEqual(highlights);
+      expect(setCall[pageKey].highlights).toHaveLength(2);
+      expect(setCall[pageKey].highlights[0].id).toBe(sampleHighlight.id);
     });
 
     it('應該在 highlights 為 null 時仍寫入 pageData（notion = null 除外）', async () => {
