@@ -110,8 +110,14 @@ describe('StorageService', () => {
       });
 
       const result = await service.getSavedPageData('https://example.com/page');
-      // Phase 3: 返回 notion 子欄位
-      expect(result).toEqual(notionData);
+      // Phase 3: 返回映射後的 notion 子欄位 (notionPageId, notionUrl, etc.)
+      expect(result).toEqual({
+        notionPageId: 'page-123',
+        notionUrl: null,
+        title: 'Test Page',
+        savedAt: 12_345,
+        lastVerifiedAt: null,
+      });
     });
 
     it('應該在沒有數據時返回 null', async () => {
@@ -155,8 +161,14 @@ describe('StorageService', () => {
 
       const result = await service.getSavedPageData(originalUrl);
 
-      // Phase 3: 返回 notion 子欄位
-      expect(result).toEqual(notionData);
+      // Phase 3: 返回映射後的 notion 子欄位
+      expect(result).toEqual({
+        notionPageId: 'page-abc',
+        notionUrl: null,
+        title: 'Test Page',
+        savedAt: null,
+        lastVerifiedAt: null,
+      });
     });
   });
 

@@ -152,7 +152,7 @@ async function getUnsyncedPages() {
       continue;
     }
     const url = key.slice(PAGE_PREFIX.length);
-    seenUrls.add(url); // 基給 page_* 的 url 都記錄，避免舊格式重複
+    seenUrls.add(url); // 記錄 page_* 的 url，避免舊格式重複
     const entry = buildPageEntry(key, url, value);
     if (entry) {
       pages.push(entry);

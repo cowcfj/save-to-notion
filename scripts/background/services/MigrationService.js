@@ -54,12 +54,16 @@ export class MigrationService {
       }
 
       // 防禦層 2：目標 key 已有資料時拒絕覆寫（防止不同文章頁的資料互相破壞）
-      const existingHighlights = await this.storageService.getHighlights(stableUrl);
-      if (existingHighlights && existingHighlights.length > 0) {
-        Logger.warn('Migration target already has highlights, skipping to prevent overwrite', {
+      const [existingHighlights, existingPageData] = await Promise.all([
+        this.storageService.getHighlights(stableUrl),
+        this.storageService.getSavedPageData(stableUrl),
+      ]);
+      if ((existingHighlights && existingHighlights.length > 0) || existingPageData) {
+        Logger.warn('Migration target already has data, skipping to prevent overwrite', {
           stable: sanitizeUrlForLogging(stableUrl),
           legacy: sanitizeUrlForLogging(legacyUrl),
-          existingCount: existingHighlights.length,
+          existingHighlightsCount: existingHighlights?.length ?? 0,
+          hasExistingPageData: Boolean(existingPageData),
         });
         return false;
       }

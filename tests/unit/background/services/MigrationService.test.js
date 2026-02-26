@@ -93,7 +93,9 @@ describe('MigrationService', () => {
     });
 
     test('should perform atomic migration (copy then delete) when legacy data exists', async () => {
-      mockStorageService.getSavedPageData.mockResolvedValue(pageData);
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
       mockStorageService.getHighlights.mockResolvedValue(null);
       mockStorageService.savePageDataAndHighlights.mockResolvedValue();
       mockStorageService.clearLegacyKeys.mockResolvedValue();
@@ -114,7 +116,9 @@ describe('MigrationService', () => {
     });
 
     test('should return false and NOT delete legacy data if write fails', async () => {
-      mockStorageService.getSavedPageData.mockResolvedValue(pageData);
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
       mockStorageService.getHighlights.mockResolvedValue(null); // Explicit mock
       mockStorageService.savePageDataAndHighlights.mockRejectedValue(new Error('Write failed'));
 

@@ -16,12 +16,9 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
-
-// Storage key 前綴常量
-const HIGHLIGHTS_PREFIX = 'highlights_';
-const PAGE_PREFIX = 'page_';
 
 /**
  * StorageUtil 對象

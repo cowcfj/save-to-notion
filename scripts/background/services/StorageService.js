@@ -362,7 +362,12 @@ class StorageService {
 
         // 過渡期：若有舊 saved_* key，非阻塞刪除
         const oldKey = `${SAVED_PREFIX}${normalizedUrl}`;
-        this.storage.local.remove([oldKey]).catch(() => {});
+        this.storage.local.remove([oldKey]).catch(error => {
+          this.logger.debug?.('[StorageService] Failed to remove legacy saved key', {
+            oldKey,
+            error: error?.message ?? error,
+          });
+        });
       } catch (error) {
         this.logger.error?.('[StorageService] setSavedPageData failed', { error });
         throw error;
@@ -664,7 +669,12 @@ class StorageService {
 
         // 過渡期：若讀到舊 highlights_* key，非阻塞刪除
         if (existing[hlKey]) {
-          this.storage.local.remove([hlKey]).catch(() => {});
+          this.storage.local.remove([hlKey]).catch(error => {
+            this.logger.debug?.('[StorageService] Failed to remove legacy highlights key', {
+              hlKey,
+              error: error?.message ?? error,
+            });
+          });
         }
       } catch (error) {
         this.logger.error?.('[StorageService] updateHighlights failed', { error });

@@ -34,8 +34,10 @@ let preloaderCache = null;
 // 嘗試透過事件獲取快取 (Decoupling Phase 8)
 const cacheResponseHandler = event => {
   preloaderCache = event.detail;
+  // 保持向後相容，供其他可能舊有的腳本讀取
+  globalThis.__NOTION_PRELOADER_CACHE__ = preloaderCache;
 };
-document.addEventListener('notion-preloader-response', cacheResponseHandler, { once: true });
+document.addEventListener('notion-preloader-response', cacheResponseHandler);
 document.dispatchEvent(new CustomEvent('notion-preloader-request'));
 
 if (preloaderCache) {
@@ -46,9 +48,6 @@ if (preloaderCache) {
     age: `${Date.now() - preloaderCache.timestamp}ms`,
   });
   // 快取可供 ContentExtractor 使用以跳過初始掃描
-
-  // 保持向後相容，供其他可能舊有的腳本讀取
-  globalThis.__NOTION_PRELOADER_CACHE__ = preloaderCache;
 }
 
 // 標記 Bundle 已就緒（供 Preloader 和 InjectionService 檢測）

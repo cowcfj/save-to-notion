@@ -110,7 +110,7 @@ export class Toolbar {
       }
 
       const hasRelevantChanges = Object.keys(changes).some(
-        key => key.startsWith('page_') || key.startsWith('saved_')
+        key => key.startsWith('page_') || key.startsWith('saved_') || key.startsWith('highlights_')
       );
 
       if (hasRelevantChanges) {

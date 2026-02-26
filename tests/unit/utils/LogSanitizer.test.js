@@ -1,4 +1,5 @@
-import { LogSanitizer } from '../../../scripts/utils/LogSanitizer.js';
+import { LogSanitizer, sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
+import { URL_NORMALIZATION } from '../../../scripts/config/constants.js';
 
 describe('LogSanitizer', () => {
   describe('sanitize()', () => {
@@ -451,6 +452,23 @@ describe('LogSanitizer', () => {
         const secretObj = { toString: () => 'Token is secret_123' };
         expect(LogSanitizer.sanitizeEntry(secretObj, {}).message).toContain('[REDACTED_TOKEN]');
       });
+    });
+  });
+
+  describe('LOG_TRACKING_PARAMS 與 constants.js 同步', () => {
+    test('sanitizeUrlForLogging 應移除 URL_NORMALIZATION.TRACKING_PARAMS 中定義的所有追蹤參數', () => {
+      // 建構一個包含所有追蹤參數的 URL
+      const params = URL_NORMALIZATION.TRACKING_PARAMS.map(p => `${p}=test`).join('&');
+      const url = `https://example.com/page?keep=1&${params}`;
+
+      const sanitized = sanitizeUrlForLogging(url);
+
+      // 所有追蹤參數都應被移除
+      for (const param of URL_NORMALIZATION.TRACKING_PARAMS) {
+        expect(sanitized).not.toContain(`${param}=`);
+      }
+      // 非追蹤參數應保留
+      expect(sanitized).toContain('keep=1');
     });
   });
 });

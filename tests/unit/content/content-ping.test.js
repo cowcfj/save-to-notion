@@ -4,6 +4,7 @@
 
 describe('Content Script PING Handler', () => {
   let messageHandler;
+  let preloaderHandler;
 
   beforeEach(() => {
     jest.resetModules();
@@ -29,13 +30,14 @@ describe('Content Script PING Handler', () => {
 
     // Respond to preloader requests with the global cache object
     // This perfectly emulates the decouple phase logic that sends the cache
-    document.addEventListener('notion-preloader-request', () => {
+    preloaderHandler = () => {
       document.dispatchEvent(
         new CustomEvent('notion-preloader-response', {
           detail: globalThis.__NOTION_PRELOADER_CACHE__,
         })
       );
-    });
+    };
+    document.addEventListener('notion-preloader-request', preloaderHandler);
 
     // Mock document methods
     jest.spyOn(document, 'querySelector').mockImplementation(() => null);
@@ -48,6 +50,7 @@ describe('Content Script PING Handler', () => {
   });
 
   afterEach(() => {
+    document.removeEventListener('notion-preloader-request', preloaderHandler);
     delete globalThis.__NOTION_PRELOADER_CACHE__;
     delete globalThis.__NOTION_BUNDLE_READY__;
     delete globalThis.chrome;
@@ -55,14 +58,14 @@ describe('Content Script PING Handler', () => {
   });
 
   test('PING 應該返回 shortlink 和 nextRouteInfo', () => {
-    // Setup Preloader Cache
-    globalThis.__NOTION_PRELOADER_CACHE__.nextRouteInfo = { page: '/test', query: { id: '1' } };
-    globalThis.__NOTION_PRELOADER_CACHE__.shortlink = 'https://example.com/?p=7741';
-
-    // Dispatch again because we updated the values AFTER the initial require setup it
+    // Dispatch a fresh cache object with updated values
     document.dispatchEvent(
       new CustomEvent('notion-preloader-response', {
-        detail: globalThis.__NOTION_PRELOADER_CACHE__,
+        detail: {
+          ...globalThis.__NOTION_PRELOADER_CACHE__,
+          nextRouteInfo: { page: '/test', query: { id: '1' } },
+          shortlink: 'https://example.com/?p=7741',
+        },
       })
     );
 
@@ -118,13 +121,14 @@ describe('Content Script PING Handler', () => {
   });
 
   test('當元數據部分缺失時，PING 應該正確返回', () => {
-    // 只設定 shortlink
-    globalThis.__NOTION_PRELOADER_CACHE__.nextRouteInfo = null;
-    globalThis.__NOTION_PRELOADER_CACHE__.shortlink = 'https://example.com/?p=123';
-
+    // Dispatch a fresh cache object with only shortlink
     document.dispatchEvent(
       new CustomEvent('notion-preloader-response', {
-        detail: globalThis.__NOTION_PRELOADER_CACHE__,
+        detail: {
+          ...globalThis.__NOTION_PRELOADER_CACHE__,
+          nextRouteInfo: null,
+          shortlink: 'https://example.com/?p=123',
+        },
       })
     );
 
