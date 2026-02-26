@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.37.1](https://github.com/cowcfj/save-to-notion/compare/v2.37.0...v2.37.1) (2026-02-26)
+
+
+### ♻️ 代碼重構
+
+* Consolidate migration logic into MigrationService ([#295](https://github.com/cowcfj/save-to-notion/issues/295)) ([48fd358](https://github.com/cowcfj/save-to-notion/commit/48fd35850b25167390a202b9328cc08b6150c90f))
+
 ## [2.37.0](https://github.com/cowcfj/save-to-notion/compare/v2.36.3...v2.37.0) (2026-02-26)
 
 
