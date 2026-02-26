@@ -5,28 +5,42 @@
     "local": {
       "limits": "5MB (unlimitedStorage permission)",
       "patterns": {
-        "saved_{stableUrl}": {
-          "description": "Cached state of a preserved page",
+        "page_{stableUrl}": {
+          "description": "Unified page state (Phase 3 Architecture) containing Notion saved status and local highlights",
           "schema": {
-            "notionPageId": "string (UUID)",
-            "notionUrl": "string (https://www.notion.so/...)",
-            "title": "string",
-            "lastUpdated": "number (timestamp ms)",
-            "lastVerifiedAt": "number (timestamp ms)",
-            "savedAt": "number (timestamp ms)"
+            "notion": {
+              "type": "object | null",
+              "description": "Notion metadata and synchronization status. Null if highlights exist but not saved to Notion.",
+              "properties": {
+                "pageId": "string (UUID)",
+                "url": "string (https://www.notion.so/...)",
+                "title": "string",
+                "savedAt": "number (timestamp ms)",
+                "lastVerifiedAt": "number (timestamp ms)"
+              }
+            },
+            "highlights": {
+              "type": "array",
+              "description": "List of highlights for the specific page",
+              "items": {
+                "id": "string (UUID)",
+                "text": "string (Content)",
+                "color": "string (notion color name)",
+                "rangeInfo": "object (DOM selection info)",
+                "timestamp": "number (timestamp ms)"
+              }
+            },
+            "metadata": {
+              "type": "object",
+              "properties": {
+                "createdAt": "number (timestamp ms)",
+                "lastUpdated": "number (timestamp ms)",
+                "migratedFrom": "string (optional, e.g., highlights_URL)"
+              }
+            }
           }
         },
-        "highlights_{stableUrl}": {
-          "description": "List of highlights for a specific page",
-          "schema": {
-            "id": "string (UUID)",
-            "text": "string (Content)",
-            "color": "string (notion color name)",
-            "timestamp": "number",
-            "domPath": "string (selector)"
-          }
-        },
-        "url_alias:{normalizedUrl}": {
+        "url_alias_{normalizedUrl}": {
           "description": "Mapping from original URL to stable URL to handle async race conditions",
           "schema": "string (stableUrl)"
         }
