@@ -70,32 +70,48 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
   }
 
   // Phase 4: 統一遷移管線
-  const shouldMigrateToStable = stableKey && !storageResult[stableKey];
-  const finalUrl = shouldMigrateToStable ? stableUrl : url;
+  const shouldMigrateToStable = Boolean(stableKey && !storageResult[stableKey]);
   const count = oldHighlights.length;
-  let pending = 0;
+  const pending = oldHighlights.filter(item => !item.rangeInfo).length;
+  let reportUrl = url;
+
+  const applyInPlaceConversion = async () => {
+    const convertedHighlights = _convertHighlightFormat(oldHighlights);
+    await storageService.updateHighlights(url, convertedHighlights);
+  };
 
   if (shouldMigrateToStable) {
     // 委託給統一管線：格式轉換 + URL Key 遷移 + saved_ 伴隨遷移 + 刪舊 key
-    await migrationService.migrateStorageKey(stableUrl, url, {
-      convertFormat: true,
-      formatConverter: _convertHighlightFormat,
-    });
-    pending = oldHighlights.filter(item => !item.rangeInfo).length;
+    try {
+      const migrated = await migrationService.migrateStorageKey(stableUrl, url, {
+        convertFormat: true,
+        formatConverter: _convertHighlightFormat,
+      });
+      if (migrated) {
+        reportUrl = stableUrl;
+      } else {
+        await applyInPlaceConversion();
+      }
+    } catch (error) {
+      Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
+        action: 'migration_batch',
+        url: sanitizeUrlForLogging(url),
+        error: error?.message ?? String(error),
+      });
+      await applyInPlaceConversion();
+    }
   } else {
     // 原地格式轉換（就地更新現有 key）
     // 刻意不搬移 key：
     //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
     //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
     //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
-    const convertedHighlights = _convertHighlightFormat(oldHighlights);
-    await storageService.updateHighlights(url, convertedHighlights);
-    pending = convertedHighlights.filter(item => item.needsRangeInfo).length;
+    await applyInPlaceConversion();
   }
 
   return {
     status: 'success',
-    url: sanitizeUrlForLogging(finalUrl),
+    url: sanitizeUrlForLogging(reportUrl),
     count,
     pending,
   };

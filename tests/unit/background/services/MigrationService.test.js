@@ -109,10 +109,55 @@ describe('MigrationService', () => {
       expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
         stableUrl,
         pageData,
-        null
+        []
       );
       // 3. Verify delete old key using clearLegacyKeys (不會誤刪 stable URL)
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(legacyUrl);
+    });
+
+    test('should normalize wrapped legacy highlights object before migration', async () => {
+      const legacyHighlights = [{ id: 'legacy-1' }];
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockImplementation(url =>
+        url === legacyUrl
+          ? Promise.resolve({ highlights: legacyHighlights })
+          : Promise.resolve(null)
+      );
+      mockStorageService.savePageDataAndHighlights.mockResolvedValue();
+      mockStorageService.clearLegacyKeys.mockResolvedValue();
+
+      const result = await service.migrateStorageKey(stableUrl, legacyUrl);
+
+      expect(result).toBe(true);
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        pageData,
+        legacyHighlights
+      );
+    });
+
+    test('should block overwrite when target highlights are wrapped object', async () => {
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === legacyUrl) {
+          return Promise.resolve([]);
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: 'existing-1' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      const result = await service.migrateStorageKey(stableUrl, legacyUrl);
+
+      expect(result).toBe(false);
+      expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
+      expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
     });
 
     test('should convert highlights format when convertFormat is enabled', async () => {

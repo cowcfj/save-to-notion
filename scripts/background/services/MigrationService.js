@@ -48,33 +48,35 @@ export class MigrationService {
 
     try {
       // 並行取得 saved 和 highlights 數據
-      const [pageData, highlights] = await Promise.all([
+      const [pageData, legacyHighlightsRaw] = await Promise.all([
         this.storageService.getSavedPageData(legacyUrl),
         this.storageService.getHighlights(legacyUrl),
       ]);
+      const legacyHighlights = this._normalizeHighlights(legacyHighlightsRaw);
 
       // 兩者皆無 → 不需遷移
-      if (!pageData && !highlights) {
+      if (!pageData && legacyHighlights.length === 0) {
         return false;
       }
 
       // 防禦層 2：目標 key 已有資料時拒絕覆寫（防止不同文章頁的資料互相破壞）
-      const [existingHighlights, existingPageData] = await Promise.all([
+      const [existingHighlightsRaw, existingPageData] = await Promise.all([
         this.storageService.getHighlights(stableUrl),
         this.storageService.getSavedPageData(stableUrl),
       ]);
-      if ((existingHighlights && existingHighlights.length > 0) || existingPageData) {
+      const existingHighlights = this._normalizeHighlights(existingHighlightsRaw);
+      if (existingHighlights.length > 0 || existingPageData) {
         Logger.warn('Migration target already has data, skipping to prevent overwrite', {
           stable: sanitizeUrlForLogging(stableUrl),
           legacy: sanitizeUrlForLogging(legacyUrl),
-          existingHighlightsCount: existingHighlights?.length ?? 0,
+          existingHighlightsCount: existingHighlights.length,
           hasExistingPageData: Boolean(existingPageData),
         });
         return false;
       }
 
       const { migratedHighlights, formatConverted } = await this._resolveMigratedHighlights({
-        highlights,
+        highlights: legacyHighlights,
         convertFormat,
         formatConverter,
         stableUrl,
@@ -85,7 +87,7 @@ export class MigrationService {
         legacy: sanitizeUrlForLogging(legacyUrl),
         stable: sanitizeUrlForLogging(stableUrl),
         hasPageData: Boolean(pageData),
-        hasHighlights: Boolean(highlights),
+        hasHighlights: legacyHighlights.length > 0,
         formatConverted,
       });
 
@@ -114,15 +116,35 @@ export class MigrationService {
   }
 
   /**
+   * 將 highlights 讀取結果正規化為陣列。
+   *
+   * StorageService.getHighlights 在過渡期可能返回：
+   * - page_*：陣列
+   * - highlights_*：{ highlights: [...] } 或其他 legacy 形狀
+   *
+   * @param {any} value
+   * @returns {Array}
+   */
+  _normalizeHighlights(value) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (value && typeof value === 'object' && Array.isArray(value.highlights)) {
+      return value.highlights;
+    }
+    return [];
+  }
+
+  /**
    * 解析遷移時的 highlights（可選格式轉換）
    *
    * @param {object} params
-   * @param {Array|null} params.highlights
+   * @param {Array} params.highlights
    * @param {boolean} params.convertFormat
    * @param {Function|null} params.formatConverter
    * @param {string} params.stableUrl
    * @param {string} params.legacyUrl
-   * @returns {Promise<{ migratedHighlights: Array|null, formatConverted: boolean }>}
+   * @returns {Promise<{ migratedHighlights: Array, formatConverted: boolean }>}
    */
   async _resolveMigratedHighlights({
     highlights,

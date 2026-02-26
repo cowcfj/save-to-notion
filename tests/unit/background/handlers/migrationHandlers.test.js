@@ -372,6 +372,76 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('當 migrateStorageKey 回傳 false 時應回退為原地轉換並回報原始 URL', async () => {
+      const oldUrl = 'https://a.com/old-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+      mockServices.migrationService.migrateStorageKey.mockResolvedValueOnce(false);
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
+          url: oldUrl,
+          highlights: [{ id: '1', text: 'highlight text' }],
+        },
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+        stableUrl,
+        oldUrl,
+        expect.objectContaining({
+          convertFormat: true,
+          formatConverter: expect.any(Function),
+        })
+      );
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(oldUrl, [
+        { id: '1', text: 'highlight text', needsRangeInfo: true },
+      ]);
+
+      const response = sendResponse.mock.calls[0][0];
+      const detail = response.results.details[0];
+      expect(response.success).toBe(true);
+      expect(detail.status).toBe('success');
+      expect(detail.url).toContain('old-slug');
+      expect(detail.url).not.toContain('stable-part');
+    });
+
+    test('當 migrateStorageKey 拋錯時應回退為原地轉換並回報原始 URL', async () => {
+      const oldUrl = 'https://a.com/old-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+      mockServices.migrationService.migrateStorageKey.mockRejectedValueOnce(
+        new Error('migrate error')
+      );
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
+          url: oldUrl,
+          highlights: [{ id: '1', text: 'highlight text' }],
+        },
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalled();
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(oldUrl, [
+        { id: '1', text: 'highlight text', needsRangeInfo: true },
+      ]);
+
+      const response = sendResponse.mock.calls[0][0];
+      const detail = response.results.details[0];
+      expect(response.success).toBe(true);
+      expect(response.results.success).toBe(1);
+      expect(response.results.failed).toBe(0);
+      expect(detail.url).toContain('old-slug');
+      expect(detail.url).not.toContain('stable-part');
+    });
+
     test('如果穩定 URL key 已經有數據，不應覆蓋它（原地轉換）', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
