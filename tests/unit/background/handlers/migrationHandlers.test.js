@@ -601,6 +601,41 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('stable/legacy 無法判斷是否同頁時不應記錄衝突 warning', async () => {
+      const oldUrl = 'https://a.com/original-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({ highlights: [{ id: '1' }] });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: '2' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({ notionUrl: 'https://notion.so/legacy-page' });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ notionPageId: 'stable-page' });
+        }
+        return Promise.resolve(null);
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      expect(Logger.warn).not.toHaveBeenCalledWith(
+        'stable/legacy notion 衝突，保留 stable 資料',
+        expect.anything()
+      );
+    });
+
     test('應該拒絕無效的 URLs', async () => {
       const urls = ['invalid-url'];
       const sendResponse = jest.fn();

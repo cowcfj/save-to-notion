@@ -95,7 +95,7 @@ function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LAB
     return `${rawKey}=${sanitizedLabel}`;
   });
 
-  urlObj.search = redactedPairs.length > 0 ? `?${redactedPairs.join('&')}` : '';
+  urlObj.search = `?${redactedPairs.join('&')}`;
 }
 
 /**

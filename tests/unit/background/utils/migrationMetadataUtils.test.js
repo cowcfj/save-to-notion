@@ -17,8 +17,8 @@ describe('migrationMetadataUtils', () => {
       expect(hasNotionData({ notionUrl: 'https://notion.so/page-1' })).toBe(true);
     });
 
-    test('should return true when url exists', () => {
-      expect(hasNotionData({ url: 'https://notion.so/page-2' })).toBe(true);
+    test('should return false when only generic url exists', () => {
+      expect(hasNotionData({ url: 'https://example.com/article' })).toBe(false);
     });
 
     test('should return false when no notion fields exist', () => {
@@ -37,16 +37,20 @@ describe('migrationMetadataUtils', () => {
 
     test('should compare by notion url when page ids are unavailable', () => {
       expect(
-        isSameNotionPage({ notionUrl: 'https://notion.so/a' }, { url: 'https://notion.so/a' })
+        isSameNotionPage({ notionUrl: 'https://notion.so/a' }, { notionUrl: 'https://notion.so/a' })
       ).toBe(true);
       expect(
         isSameNotionPage({ notionUrl: 'https://notion.so/a' }, { notionUrl: 'https://notion.so/b' })
       ).toBe(false);
     });
 
-    test('should default to true when both ids and urls are unavailable', () => {
-      expect(isSameNotionPage({ title: 'a' }, { title: 'b' })).toBe(true);
-      expect(isSameNotionPage(null, null)).toBe(true);
+    test('should return null when both ids and notion urls are unavailable', () => {
+      expect(isSameNotionPage({ title: 'a' }, { title: 'b' })).toBeNull();
+      expect(isSameNotionPage(null, null)).toBeNull();
+    });
+
+    test('should return null when only one side has pageId or notionUrl', () => {
+      expect(isSameNotionPage({ pageId: 'id-1' }, { notionUrl: 'https://notion.so/a' })).toBeNull();
     });
   });
 });

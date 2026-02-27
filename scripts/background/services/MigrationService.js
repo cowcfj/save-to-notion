@@ -154,7 +154,8 @@ export class MigrationService {
       return true;
     }
 
-    if (hasStableNotion && hasLegacyNotion && !isSameNotionPage(stableSavedData, legacySavedData)) {
+    const samePage = isSameNotionPage(stableSavedData, legacySavedData);
+    if (hasStableNotion && hasLegacyNotion && samePage === false) {
       Logger.warn('Stable/legacy notion metadata conflict, keeping stable data', {
         stable: sanitizeUrlForLogging(stableUrl),
         legacy: sanitizeUrlForLogging(legacyUrl),

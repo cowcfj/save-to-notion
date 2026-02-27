@@ -71,7 +71,8 @@ class TabService {
     this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
 
     // 連續不存在保護：第一次 false 先標記 pending，第二次連續 false 才清理
-    this.deletionPendingPages = new Map();
+    // 只需追蹤是否待確認，不需保存 timestamp（無 TTL 策略）。
+    this.deletionPendingPages = new Set();
   }
 
   /**
@@ -464,7 +465,7 @@ class TabService {
       return { shouldDelete: true, deletionPending: false };
     }
 
-    this.deletionPendingPages.set(pageId, Date.now());
+    this.deletionPendingPages.add(pageId);
     return { shouldDelete: false, deletionPending: true };
   }
 

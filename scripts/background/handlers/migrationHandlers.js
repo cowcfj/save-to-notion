@@ -76,7 +76,8 @@ async function _supplementSavedMetadataForStableKey(storageService, originalUrl,
     return true;
   }
 
-  if (hasStableNotion && hasLegacyNotion && !isSameNotionPage(stableSavedData, legacySavedData)) {
+  const samePage = isSameNotionPage(stableSavedData, legacySavedData);
+  if (hasStableNotion && hasLegacyNotion && samePage === false) {
     Logger.warn('stable/legacy notion 衝突，保留 stable 資料', {
       action: 'migration_batch',
       stableUrl: sanitizeUrlForLogging(stableUrl),

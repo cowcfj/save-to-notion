@@ -3,6 +3,7 @@
  */
 
 import { MigrationService } from '../../../../scripts/background/services/MigrationService.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -160,6 +161,34 @@ describe('MigrationService', () => {
       expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(stableUrl, pageData);
       expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
       expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
+    });
+
+    test('should not log conflict warning when stable/legacy notion cannot be determined as same page', async () => {
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === legacyUrl) {
+          return Promise.resolve({ notionUrl: 'https://notion.so/legacy-only-url' });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ notionPageId: 'stable-only-page-id' });
+        }
+        return Promise.resolve(null);
+      });
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === legacyUrl) {
+          return Promise.resolve([]);
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: 'existing-1' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      await service.migrateStorageKey(stableUrl, legacyUrl);
+
+      expect(Logger.warn).not.toHaveBeenCalledWith(
+        'Stable/legacy notion metadata conflict, keeping stable data',
+        expect.anything()
+      );
     });
 
     test('should convert highlights format when convertFormat is enabled', async () => {
