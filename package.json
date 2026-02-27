@@ -46,6 +46,7 @@
   "author": "Cow Chan",
   "license": "MIT",
   "type": "commonjs",
+  "private": true,
   "bugs": {
     "url": "https://github.com/cowcfj/save-to-notion/issues"
   },
@@ -107,6 +108,9 @@
     },
     "@typescript-eslint/typescript-estree": {
       "minimatch": "^9.0.6"
+    },
+    "eslint-plugin-sonarjs": {
+      "minimatch": ">=10.2.3"
     }
   },
   "lint-staged": {
