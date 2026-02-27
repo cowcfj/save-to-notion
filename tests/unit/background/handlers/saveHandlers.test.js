@@ -66,6 +66,7 @@ describe('saveHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const deletionPendingPages = new Map();
     mockServices = {
       notionService: {
         checkPageExists: jest.fn(),
@@ -91,6 +92,25 @@ describe('saveHandlers', () => {
       },
       tabService: {
         getPreloaderData: jest.fn().mockResolvedValue(null),
+        consumeDeletionConfirmation: jest.fn().mockImplementation((notionPageId, exists) => {
+          const pageId = notionPageId ? String(notionPageId) : null;
+          if (!pageId) {
+            return { shouldDelete: false, deletionPending: false };
+          }
+
+          if (exists !== false) {
+            deletionPendingPages.delete(pageId);
+            return { shouldDelete: false, deletionPending: false };
+          }
+
+          if (deletionPendingPages.has(pageId)) {
+            deletionPendingPages.delete(pageId);
+            return { shouldDelete: true, deletionPending: false };
+          }
+
+          deletionPendingPages.set(pageId, Date.now());
+          return { shouldDelete: false, deletionPending: true };
+        }),
         resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
           Promise.resolve({
             stableUrl: url,

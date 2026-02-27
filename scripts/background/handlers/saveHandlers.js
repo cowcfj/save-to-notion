@@ -162,39 +162,22 @@ export function createSaveHandlers(services) {
     migrationService, // Added MigrationService
   } = services;
 
-  // fallback 狀態（僅在 tabService 未提供 consumeDeletionConfirmation 時使用）
-  const localDeletionPendingPages = new Map();
+  if (typeof tabService?.consumeDeletionConfirmation !== 'function') {
+    throw new TypeError(
+      'createSaveHandlers requires tabService.consumeDeletionConfirmation function'
+    );
+  }
 
   /**
    * 連續不存在確認：false/false 才允許清理
-   * 優先委託 TabService，確保背景自動同步與 Popup 查詢共用同一套狀態。
+   * 委託 TabService，確保背景自動同步與 Popup 查詢共用同一套狀態。
    *
    * @param {string|null|undefined} notionPageId
    * @param {boolean|null} exists
    * @returns {{ shouldDelete: boolean, deletionPending: boolean }}
    */
   function consumeDeletionConfirmation(notionPageId, exists) {
-    if (typeof tabService.consumeDeletionConfirmation === 'function') {
-      return tabService.consumeDeletionConfirmation(notionPageId, exists);
-    }
-
-    const pageId = notionPageId ? String(notionPageId) : null;
-    if (!pageId) {
-      return { shouldDelete: false, deletionPending: false };
-    }
-
-    if (exists !== false) {
-      localDeletionPendingPages.delete(pageId);
-      return { shouldDelete: false, deletionPending: false };
-    }
-
-    if (localDeletionPendingPages.has(pageId)) {
-      localDeletionPendingPages.delete(pageId);
-      return { shouldDelete: true, deletionPending: false };
-    }
-
-    localDeletionPendingPages.set(pageId, Date.now());
-    return { shouldDelete: false, deletionPending: true };
+    return tabService.consumeDeletionConfirmation(notionPageId, exists);
   }
 
   /**
