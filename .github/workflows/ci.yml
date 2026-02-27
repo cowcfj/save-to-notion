@@ -22,12 +22,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -36,7 +36,65 @@ jobs:
         env:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-        run: npm ci
+        run: npm ci --ignore-scripts
+
+      - name: Enforce minimatch security floor (ReDoS guard)
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const packages = lock.packages || {};
+
+          const parseVersion = version =>
+            String(version)
+              .split('.')
+              .slice(0, 3)
+              .map(part => Number.parseInt(part, 10) || 0);
+
+          const compareVersion = (a, b) => {
+            const pa = parseVersion(a);
+            const pb = parseVersion(b);
+            for (let index = 0; index < 3; index += 1) {
+              if (pa[index] > pb[index]) return 1;
+              if (pa[index] < pb[index]) return -1;
+            }
+            return 0;
+          };
+
+          const isVulnerable = version => {
+            if (compareVersion(version, '3.1.3') < 0) return true;
+            if (compareVersion(version, '9.0.0') >= 0 && compareVersion(version, '9.0.6') < 0) return true;
+            if (compareVersion(version, '10.0.0') >= 0 && compareVersion(version, '10.2.1') < 0) return true;
+            return false;
+          };
+
+          const minimatchEntries = Object.entries(packages)
+            .filter(([packagePath, meta]) => packagePath.includes('node_modules/minimatch') && meta?.version)
+            .map(([packagePath, meta]) => ({ packagePath, version: meta.version }));
+
+          const vulnerable = minimatchEntries.filter(entry => isVulnerable(entry.version));
+
+          if (minimatchEntries.length === 0) {
+            console.error('❌ 未在 package-lock.json 中找到 minimatch，請檢查 lockfile 結構。');
+            process.exit(1);
+          }
+
+          const uniqueVersions = [...new Set(minimatchEntries.map(entry => entry.version))].sort((a, b) =>
+            compareVersion(a, b)
+          );
+          console.log(`✅ minimatch versions in lockfile: ${uniqueVersions.join(', ')}`);
+
+          if (vulnerable.length > 0) {
+            console.error('❌ 發現 vulnerable minimatch 版本：');
+            for (const entry of vulnerable) {
+              console.error(`- ${entry.packagePath}: ${entry.version}`);
+            }
+            process.exit(1);
+          }
+
+          console.log('✅ minimatch 版本均符合安全下限。');
+          NODE
 
       - name: Node.js 20.x compatibility check
         run: |
@@ -104,7 +162,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: steps.validate-coverage.outputs.valid == 'true'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           files: coverage/merged/lcov.info
           flags: combined
@@ -113,7 +171,7 @@ jobs:
 
       - name: Upload Test Artifacts (Action Report)
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: junit-report
           path: junit.xml
