@@ -5,11 +5,34 @@
  * @returns {boolean}
  */
 function _extractNotionPageId(savedData) {
-  return savedData?.notionPageId || savedData?.pageId || savedData?.notion?.pageId || null;
+  const candidates = [savedData?.notionPageId, savedData?.pageId, savedData?.notion?.pageId];
+  for (const value of candidates) {
+    const normalized = _normalizeStringCandidate(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
 }
 
 function _extractNotionUrl(savedData) {
-  return savedData?.notionUrl || savedData?.notion?.url || null;
+  const candidates = [savedData?.notionUrl, savedData?.notion?.url];
+  for (const value of candidates) {
+    const normalized = _normalizeStringCandidate(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+function _normalizeStringCandidate(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function _canonicalizeNotionUrl(url) {

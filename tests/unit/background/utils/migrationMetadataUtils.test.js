@@ -43,6 +43,24 @@ describe('migrationMetadataUtils', () => {
     test('should return false when notion nested object is null', () => {
       expect(hasNotionData({ notion: null, highlights: [{ id: 'h1' }] })).toBe(false);
     });
+
+    test('should return false when nested notion fields are empty strings', () => {
+      expect(hasNotionData({ notion: { pageId: '', url: '' }, highlights: [{ id: 'h1' }] })).toBe(
+        false
+      );
+    });
+
+    test('should return false when nested notion fields are whitespace-only', () => {
+      expect(
+        hasNotionData({ notion: { pageId: '   ', url: '   ' }, highlights: [{ id: 'h1' }] })
+      ).toBe(false);
+    });
+
+    test('should return true when one nested field is empty but another is valid', () => {
+      expect(
+        hasNotionData({ notion: { pageId: '', url: 'https://notion.so/valid' }, highlights: [] })
+      ).toBe(true);
+    });
   });
 
   describe('isSameNotionPage', () => {
@@ -146,6 +164,15 @@ describe('migrationMetadataUtils', () => {
           { notionUrl: 'https://notion.so/page-b' }
         )
       ).toBe(false);
+    });
+
+    test('should return null when both sides only contain whitespace id/url', () => {
+      expect(
+        isSameNotionPage(
+          { notionPageId: '   ', notionUrl: '   ' },
+          { notionPageId: ' ', notionUrl: '\n\t' }
+        )
+      ).toBeNull();
     });
   });
 });

@@ -598,7 +598,7 @@ describe('MigrationService', () => {
       mockStorageService.getHighlights.mockResolvedValue(['hi']);
 
       // We will actually execute the callback passed to injectWithResponse
-      mockInjectionService.injectWithResponse.mockImplementation(async (tabId, cb) => {
+      mockInjectionService.injectWithResponse.mockImplementation(async (_tabId, cb) => {
         // Setup global mock state for _waitForScriptReady
         globalThis.MigrationExecutor = class {
           migrate() {
@@ -610,15 +610,16 @@ describe('MigrationService', () => {
         };
         globalThis.HighlighterV2 = { manager: {} };
 
-        return cb('exec_err', 'mgr_err');
+        try {
+          return cb('exec_err', 'mgr_err');
+        } finally {
+          delete globalThis.MigrationExecutor;
+          delete globalThis.HighlighterV2;
+        }
       });
 
       const result = await service.executeContentMigration({ url: targetUrl }, sender);
       expect(result.success).toBe(true);
-
-      // Cleanup global mocks
-      delete globalThis.MigrationExecutor;
-      delete globalThis.HighlighterV2;
     });
 
     test('should handle execution failure in injectWithResponse cb', async () => {
@@ -626,10 +627,15 @@ describe('MigrationService', () => {
       mockTabService.queryTabs.mockResolvedValue([existingTab]);
       mockStorageService.getHighlights.mockResolvedValue(['hi']);
 
-      mockInjectionService.injectWithResponse.mockImplementation(async (tabId, cb) => {
-        delete globalThis.MigrationExecutor;
-        delete globalThis.HighlighterV2;
-        return cb('exec_err', 'mgr_err');
+      mockInjectionService.injectWithResponse.mockImplementation(async (_tabId, cb) => {
+        try {
+          delete globalThis.MigrationExecutor;
+          delete globalThis.HighlighterV2;
+          return cb('exec_err', 'mgr_err');
+        } finally {
+          delete globalThis.MigrationExecutor;
+          delete globalThis.HighlighterV2;
+        }
       });
 
       await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow();

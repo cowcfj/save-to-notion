@@ -893,16 +893,18 @@ describe('TabService', () => {
     it('應處理 normalize 拋出例外', () => {
       globalThis.history.pushState({}, 'Test', 'https://example.com/test');
       const originalURL = globalThis.URL;
-      globalThis.URL = jest.fn().mockImplementation(() => {
-        throw new Error('mock error');
-      });
+      try {
+        globalThis.URL = jest.fn().mockImplementation(() => {
+          throw new Error('mock error');
+        });
 
-      store['highlights_https://example.com/test'] = '[{"text":"hi"}]';
+        store['highlights_https://example.com/test'] = '[{"text":"hi"}]';
 
-      const res = _migrationScript([]);
-      expect(res.migrated).toBe(true);
-
-      globalThis.URL = originalURL;
+        const res = _migrationScript([]);
+        expect(res.migrated).toBe(true);
+      } finally {
+        globalThis.URL = originalURL;
+      }
     });
 
     it('應處理取得的 raw 資料為 falsy 的情況', () => {
@@ -950,11 +952,11 @@ describe('TabService', () => {
         throw new Error('simulate error');
       });
       globalThis.localStorage.setItem('highlights_https://example.com/test', 'some json');
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       const res = _migrationScript(['utm_source']);
       expect(res.migrated).toBe(false);
       expect(res.error).toBeDefined();
-      console.error.mockRestore();
+      consoleSpy.mockRestore();
     });
   });
 });
