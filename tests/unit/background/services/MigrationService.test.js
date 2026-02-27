@@ -409,6 +409,44 @@ describe('MigrationService', () => {
       expect(mockTabService.removeTab).not.toHaveBeenCalled();
     });
 
+    test('should treat nested migration outcome error as failure', async () => {
+      const existingTab = { id: 778, status: 'complete', url: targetUrl };
+      mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockInjectionService.injectAndExecute.mockResolvedValue();
+      mockInjectionService.injectWithResponse
+        .mockResolvedValueOnce({ ready: true })
+        .mockResolvedValueOnce({
+          success: true,
+          result: { error: 'Migration failed after max retries' },
+          statistics: { newHighlightsCreated: 0 },
+        });
+
+      await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow(
+        'Migration failed after max retries'
+      );
+      expect(mockTabService.removeTab).not.toHaveBeenCalled();
+    });
+
+    test('should treat rolled back migration result as failure', async () => {
+      const existingTab = { id: 779, status: 'complete', url: targetUrl };
+      mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockInjectionService.injectAndExecute.mockResolvedValue();
+      mockInjectionService.injectWithResponse
+        .mockResolvedValueOnce({ ready: true })
+        .mockResolvedValueOnce({
+          success: true,
+          result: { rolledBack: true, reason: 'verification_failed' },
+          statistics: { newHighlightsCreated: 0 },
+        });
+
+      await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow(
+        'Migration rolled back: verification_failed'
+      );
+      expect(mockTabService.removeTab).not.toHaveBeenCalled();
+    });
+
     test('should handle create tab failure', async () => {
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
       mockTabService.queryTabs.mockResolvedValue([]);

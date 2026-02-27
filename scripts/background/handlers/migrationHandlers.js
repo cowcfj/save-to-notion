@@ -7,7 +7,7 @@
  * @module handlers/migrationHandlers
  */
 
-/* global chrome, Logger */
+/* global Logger */
 
 import {
   validateInternalRequest,
@@ -18,7 +18,6 @@ import {
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
-import { HIGHLIGHTS_PREFIX } from '../../config/constants.js';
 
 /**
  * 轉換標註格式：對沒有 rangeInfo 的項目加上 needsRangeInfo 標記
@@ -111,26 +110,30 @@ async function _supplementSavedMetadataForStableKey(storageService, originalUrl,
   return false;
 }
 
-async function _buildStorageSnapshot(url) {
-  const pageKey = `${HIGHLIGHTS_PREFIX}${url}`;
-  const stableUrl = computeStableUrl(url);
-  const stableKey = stableUrl && stableUrl !== url ? `${HIGHLIGHTS_PREFIX}${stableUrl}` : null;
-
-  // Tech debt: 此處直接存取 chrome.storage.local 是因為 StorageService
-  // 目前缺少跨前綴批量讀取 API（同時讀 highlights_ 和 saved_）。
-  // 待 StorageService 新增 getBulk() 後替換此段。
-  const keysToFetch = [pageKey];
-  if (stableKey) {
-    keysToFetch.push(stableKey);
+function _normalizeHighlightsValue(data) {
+  if (Array.isArray(data)) {
+    return data;
   }
-  const storageResult = await chrome.storage.local.get(keysToFetch);
+  if (data && typeof data === 'object' && Array.isArray(data.highlights)) {
+    return data.highlights;
+  }
+  return [];
+}
+
+async function _buildStorageSnapshot(url, storageService) {
+  const stableUrl = computeStableUrl(url);
+  const hasStableUrl = Boolean(stableUrl && stableUrl !== url);
+  const [legacyData, stableData] = await Promise.all([
+    storageService.getHighlights(url),
+    hasStableUrl ? storageService.getHighlights(stableUrl) : Promise.resolve(null),
+  ]);
+  const stableHighlights = _normalizeHighlightsValue(stableData);
 
   return {
-    pageKey,
     stableUrl,
-    stableKey,
-    storageResult,
-    shouldMigrateToStable: Boolean(stableKey && !storageResult[stableKey]),
+    hasStableUrl,
+    legacyData,
+    shouldMigrateToStable: Boolean(hasStableUrl && stableHighlights.length === 0),
   };
 }
 
@@ -145,7 +148,7 @@ function _extractLegacyHighlights(data, url) {
     };
   }
 
-  const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
+  const oldHighlights = _normalizeHighlightsValue(data);
   if (oldHighlights.length === 0) {
     return {
       skipResult: {
@@ -211,8 +214,8 @@ function _finalizeMigrationResult(reportUrl, oldHighlights) {
 // Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
 
 async function _migrateSingleUrl(url, storageService, migrationService) {
-  const snapshot = await _buildStorageSnapshot(url);
-  const extraction = _extractLegacyHighlights(snapshot.storageResult[snapshot.pageKey], url);
+  const snapshot = await _buildStorageSnapshot(url, storageService);
+  const extraction = _extractLegacyHighlights(snapshot.legacyData, url);
   if (extraction.skipResult) {
     return extraction.skipResult;
   }
@@ -230,11 +233,7 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
     });
   } else {
     // 原地格式轉換（就地更新現有 key）
-    // 刻意不搬移 key：
-    //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
-    //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
-    //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
-    if (snapshot.stableKey) {
+    if (snapshot.hasStableUrl) {
       const supplemented = await _supplementSavedMetadataForStableKey(
         storageService,
         url,

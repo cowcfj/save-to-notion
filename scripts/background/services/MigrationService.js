@@ -395,6 +395,10 @@ export class MigrationService {
       if (migrationResult?.error) {
         throw new Error(migrationResult.error);
       }
+      const migrationExecutionError = this._resolveMigrationExecutionError(migrationResult);
+      if (migrationExecutionError) {
+        throw new Error(migrationExecutionError);
+      }
 
       const stats = migrationResult?.statistics || {};
       Logger.log('Migration completed', {
@@ -420,6 +424,24 @@ export class MigrationService {
         await this.tabService.removeTab(createdTabId).catch(() => {});
       }
     }
+  }
+
+  /**
+   * 解析頁面端遷移結果中的明確失敗訊號。
+   *
+   * @param {object} migrationResult
+   * @returns {string|null}
+   * @private
+   */
+  _resolveMigrationExecutionError(migrationResult) {
+    const outcome = migrationResult?.result;
+    if (outcome?.error) {
+      return outcome.error;
+    }
+    if (outcome?.rolledBack) {
+      return outcome.reason ? `Migration rolled back: ${outcome.reason}` : 'Migration rolled back';
+    }
+    return null;
   }
 
   /**

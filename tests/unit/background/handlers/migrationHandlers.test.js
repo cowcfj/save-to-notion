@@ -2,8 +2,6 @@
  * @jest-environment jsdom
  */
 
-/* global chrome */
-
 /* skipcq: JS-0255 */
 
 /**
@@ -14,7 +12,6 @@
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
-import { HIGHLIGHTS_PREFIX } from '../../../../scripts/config/constants.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
@@ -257,22 +254,20 @@ describe('migrationHandlers', () => {
       const urls = ['https://a.com', 'https://b.com'];
       const sendResponse = jest.fn();
 
-      // chrome.storage.local.get 仍被 _migrateSingleUrl 內部直接呼叫（批量快照）
-      chrome.storage.local.get.mockImplementation(keysArg => {
-        const result = {};
-        if (Array.isArray(keysArg) && keysArg.includes(`${HIGHLIGHTS_PREFIX}https://a.com`)) {
-          result[`${HIGHLIGHTS_PREFIX}https://a.com`] = {
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === 'https://a.com') {
+          return Promise.resolve({
             url: 'https://a.com',
             highlights: [{ id: '1' }],
-          };
+          });
         }
-        if (Array.isArray(keysArg) && keysArg.includes(`${HIGHLIGHTS_PREFIX}https://b.com`)) {
-          result[`${HIGHLIGHTS_PREFIX}https://b.com`] = {
+        if (url === 'https://b.com') {
+          return Promise.resolve({
             url: 'https://b.com',
             highlights: [{ id: '2' }],
-          };
+          });
         }
-        return Promise.resolve(result);
+        return Promise.resolve(null);
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
@@ -293,6 +288,30 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('應支援 page_* 來源（getHighlights 回傳陣列）並完成原地轉換', async () => {
+      const urls = ['https://a.com/page-only'];
+      const sendResponse = jest.fn();
+
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === 'https://a.com/page-only') {
+          return Promise.resolve([{ id: 'p1' }]);
+        }
+        return Promise.resolve(null);
+      });
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith('https://a.com/page-only', [
+        { id: 'p1', needsRangeInfo: true },
+      ]);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({ success: 1, failed: 0 }),
+        })
+      );
+    });
+
     test('應該在計算出穩定 URL 時，委託統一管線遷移到穩定 URL', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
@@ -300,13 +319,17 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      // _migrateSingleUrl 批量快照讀取
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}https://a.com/original-slug`]: {
-          url: 'https://a.com/original-slug',
-          highlights: [{ id: '1' }],
-        },
-        // highlights_${stableUrl} 不存在 → 應觸發遷移
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === 'https://a.com/original-slug') {
+          return Promise.resolve({
+            url: 'https://a.com/original-slug',
+            highlights: [{ id: '1' }],
+          });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
@@ -341,12 +364,17 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
-          url: oldUrl,
-          highlights: [{ id: '1', text: 'highlight text' }],
-        },
-        // highlights_${stableUrl} 不存在 → 觸發遷移
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            url: oldUrl,
+            highlights: [{ id: '1', text: 'highlight text' }],
+          });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
       });
 
       await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
@@ -382,11 +410,17 @@ describe('migrationHandlers', () => {
       computeStableUrl.mockReturnValue(stableUrl);
       mockServices.migrationService.migrateStorageKey.mockResolvedValueOnce(false);
 
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
-          url: oldUrl,
-          highlights: [{ id: '1', text: 'highlight text' }],
-        },
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            url: oldUrl,
+            highlights: [{ id: '1', text: 'highlight text' }],
+          });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
       });
 
       await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
@@ -421,11 +455,17 @@ describe('migrationHandlers', () => {
         new Error('migrate error')
       );
 
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: {
-          url: oldUrl,
-          highlights: [{ id: '1', text: 'highlight text' }],
-        },
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            url: oldUrl,
+            highlights: [{ id: '1', text: 'highlight text' }],
+          });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
       });
 
       await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
@@ -451,9 +491,14 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}https://a.com/original-slug`]: { highlights: [{ id: '1' }] },
-        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: [{ id: '2', isNew: true }], // 穩定 key 已存在數據
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === 'https://a.com/original-slug') {
+          return Promise.resolve({ highlights: [{ id: '1' }] });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve([{ id: '2', isNew: true }]); // 穩定 key 已存在數據
+        }
+        return Promise.resolve(null);
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
@@ -481,9 +526,14 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: { highlights: [{ id: '1' }] },
-        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: { highlights: [{ id: '2' }] },
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({ highlights: [{ id: '1' }] });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: '2' }] });
+        }
+        return Promise.resolve(null);
       });
 
       mockStorageService.getSavedPageData.mockImplementation(url => {
@@ -516,9 +566,14 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      chrome.storage.local.get.mockResolvedValue({
-        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: { highlights: [{ id: '1' }] },
-        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: { highlights: [{ id: '2' }] },
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({ highlights: [{ id: '1' }] });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: '2' }] });
+        }
+        return Promise.resolve(null);
       });
 
       mockStorageService.getSavedPageData.mockImplementation(url => {
