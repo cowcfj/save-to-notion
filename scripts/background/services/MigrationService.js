@@ -581,6 +581,19 @@ export class MigrationService {
   }
 
   /**
+   * 檢查 stable URL 是否可用於補遷移與 alias
+   * 條件需與 migrateStorageKey 的 root URL 防護一致
+   *
+   * @param {string} originalUrl
+   * @param {string} stableUrl
+   * @returns {boolean}
+   * @private
+   */
+  _isValidStableAliasTarget(originalUrl, stableUrl) {
+    return Boolean(stableUrl && stableUrl !== originalUrl && !isRootUrl(stableUrl));
+  }
+
+  /**
    * 補遷移 Notion saved metadata 到穩定 URL（批量遷移路徑用）
    * 同時設定 URL alias
    *
@@ -590,7 +603,8 @@ export class MigrationService {
    * @private
    */
   async _supplementBatchSavedMetadata(originalUrl, stableUrl) {
-    if (!stableUrl || stableUrl === originalUrl) {
+    const canUseStableTarget = this._isValidStableAliasTarget(originalUrl, stableUrl);
+    if (!canUseStableTarget) {
       return false;
     }
 
@@ -619,8 +633,10 @@ export class MigrationService {
 
       return supplemented;
     } finally {
-      // 無論是否補遷移（甚至補遷移過程失敗）都設定 alias
-      await this._setUrlAliasSafe(originalUrl, stableUrl);
+      // 僅對合法 stable 目標設定 alias，避免 root URL 目標繞過防護
+      if (canUseStableTarget) {
+        await this._setUrlAliasSafe(originalUrl, stableUrl);
+      }
     }
   }
 

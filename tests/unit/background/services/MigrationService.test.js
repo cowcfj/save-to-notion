@@ -660,6 +660,21 @@ describe('MigrationService', () => {
       expect(mockStorageService.getSavedPageData).not.toHaveBeenCalled();
       expect(mockStorageService.setUrlAlias).not.toHaveBeenCalled();
     });
+
+    test('should return false and skip metadata/alias when stableUrl is root URL', async () => {
+      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
+      isRootUrl.mockReturnValueOnce(true);
+
+      const result = await service._supplementBatchSavedMetadata(
+        originalUrl,
+        'https://example.com/'
+      );
+
+      expect(result).toBe(false);
+      expect(mockStorageService.getSavedPageData).not.toHaveBeenCalled();
+      expect(mockStorageService.setSavedPageData).not.toHaveBeenCalled();
+      expect(mockStorageService.setUrlAlias).not.toHaveBeenCalled();
+    });
   });
 
   describe('_applyInPlaceConversion', () => {
@@ -731,6 +746,25 @@ describe('MigrationService', () => {
         })
       );
       expect(service._applyInPlaceConversion).toHaveBeenCalledWith(url, oldHighlights);
+      expect(result).toBe(url);
+    });
+
+    test('should fallback without alias when stableUrl is root URL and migrateStorageKey returns false', async () => {
+      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const rootStableUrl = 'https://example.com/';
+
+      isRootUrl.mockReturnValueOnce(true);
+      service.migrateStorageKey = jest.fn().mockResolvedValue(false);
+      service._applyInPlaceConversion = jest.fn().mockResolvedValue();
+
+      const result = await service._tryBatchStableMigration({
+        url,
+        stableUrl: rootStableUrl,
+        oldHighlights,
+      });
+
+      expect(service._applyInPlaceConversion).toHaveBeenCalledWith(url, oldHighlights);
+      expect(mockStorageService.setUrlAlias).not.toHaveBeenCalled();
       expect(result).toBe(url);
     });
   });
