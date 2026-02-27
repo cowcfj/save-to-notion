@@ -258,7 +258,7 @@ export class MigrationTool {
       const urlDiv = document.createElement('div');
       urlDiv.className = 'item-url';
       urlDiv.title = item.url;
-      urlDiv.textContent = MigrationTool.truncateUrl(item.url);
+      urlDiv.textContent = MigrationScanner.truncateUrl(item.url, 60);
       infoDiv.append(urlDiv);
 
       const countDiv = document.createElement('div');
@@ -693,7 +693,7 @@ export class MigrationTool {
 
         const checkIcon = createSafeIcon(UI_ICONS.CHECK);
         spanUrl.append(checkIcon);
-        spanUrl.append(document.createTextNode(` ${MigrationTool.truncateUrl(urlTitle)}`));
+        spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(urlTitle, 60)}`));
 
         const badge = document.createElement('span');
         badge.className = COMMON_CSS_CLASSES.COUNT_BADGE;
@@ -777,19 +777,7 @@ export class MigrationTool {
     migrationResult.append(box);
   }
 
-  /**
-   * 截斷 URL 用於顯示
-   *
-   * @param {string} url - URL 字符串
-   * @param {number} maxLength - 最大長度
-   * @returns {string} 截斷後的 URL
-   */
-  static truncateUrl(url, maxLength = 60) {
-    if (url.length <= maxLength) {
-      return url;
-    }
-    return `${url.slice(0, Math.max(0, maxLength - 3))}...`;
-  }
+  /* truncateUrl 已移除 — 統一使用 MigrationScanner.truncateUrl(url, 60) */
 
   /* escapeHtml static method removed as it is no longer needed with DOM API refactoring */
 
@@ -850,7 +838,7 @@ export class MigrationTool {
 
       const iconSpan = createSafeIcon(UI_ICONS.STAR);
       spanUrl.append(iconSpan);
-      spanUrl.append(document.createTextNode(` ${MigrationTool.truncateUrl(item.url)}`));
+      spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(item.url, 60)}`));
 
       const badge = document.createElement('span');
       badge.className = COMMON_CSS_CLASSES.COUNT_BADGE;
@@ -906,7 +894,7 @@ export class MigrationTool {
 
       const iconSpan = createSafeIcon(UI_ICONS.WARNING);
       spanUrl.append(iconSpan);
-      spanUrl.append(document.createTextNode(` ${MigrationTool.truncateUrl(item.url)}`));
+      spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(item.url, 60)}`));
 
       const badge = document.createElement('span');
       badge.className = `${COMMON_CSS_CLASSES.COUNT_BADGE} failed`;

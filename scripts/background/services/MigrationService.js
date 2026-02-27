@@ -1,6 +1,6 @@
 import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
-import { isRootUrl } from '../../utils/urlUtils.js';
+import { isRootUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';
 
@@ -441,5 +441,237 @@ export class MigrationService {
     throw new Error(
       `Migration executor script load timeout for tabId: ${tabId} after ${maxRetries} retries`
     );
+  }
+
+  // =====================================================
+  // 批量遷移路徑（原 migrationHandlers helpers）
+  // =====================================================
+
+  /**
+   * 遷移單一 URL 的批量遷移入口（供 migration_batch handler 呼叫）
+   *
+   * @param {string} url - 待遷移的 URL
+   * @returns {Promise<object>} 遷移結果
+   */
+  async migrateBatchUrl(url) {
+    const snapshot = await this._buildStorageSnapshot(url);
+    const extraction = MigrationService._extractLegacyHighlights(snapshot.legacyData, url);
+    if (extraction.skipResult) {
+      return extraction.skipResult;
+    }
+
+    const { oldHighlights } = extraction;
+    let reportUrl = url;
+
+    if (snapshot.shouldMigrateToStable) {
+      reportUrl = await this._tryBatchStableMigration({
+        url,
+        stableUrl: snapshot.stableUrl,
+        oldHighlights,
+      });
+    } else {
+      // 原地格式轉換（就地更新現有 key）
+      if (snapshot.hasStableUrl) {
+        const supplemented = await this._supplementBatchSavedMetadata(url, snapshot.stableUrl);
+        if (supplemented) {
+          reportUrl = snapshot.stableUrl;
+        }
+      }
+      await this._applyInPlaceConversion(url, oldHighlights);
+    }
+
+    return MigrationService._finalizeBatchResult(reportUrl, oldHighlights);
+  }
+
+  /**
+   * 建構 storage 快照：同時讀取 legacy key 和 stable key 的數據
+   *
+   * @param {string} url
+   * @returns {Promise<object>}
+   * @private
+   */
+  async _buildStorageSnapshot(url) {
+    const stableUrl = computeStableUrl(url);
+    const hasStableUrl = Boolean(stableUrl && stableUrl !== url);
+    const [legacyData, stableData] = await Promise.all([
+      this.storageService.getHighlights(url),
+      hasStableUrl ? this.storageService.getHighlights(stableUrl) : Promise.resolve(null),
+    ]);
+    const stableHighlights = this._normalizeHighlights(stableData);
+
+    return {
+      stableUrl,
+      hasStableUrl,
+      legacyData,
+      shouldMigrateToStable: Boolean(hasStableUrl && stableHighlights.length === 0),
+    };
+  }
+
+  /**
+   * 提取並驗證舊版 highlights
+   *
+   * @param {any} data
+   * @param {string} url
+   * @returns {{ skipResult?: object, oldHighlights?: Array }}
+   * @private
+   */
+  static _extractLegacyHighlights(data, url) {
+    if (!data) {
+      return {
+        skipResult: {
+          status: 'skipped',
+          reason: '無數據',
+          url: sanitizeUrlForLogging(url),
+        },
+      };
+    }
+
+    const oldHighlights = Array.isArray(data)
+      ? data
+      : (Array.isArray(data?.highlights)
+        ? data.highlights
+        : []);
+
+    if (oldHighlights.length === 0) {
+      return {
+        skipResult: {
+          status: 'skipped',
+          reason: '無標註',
+          url: sanitizeUrlForLogging(url),
+        },
+      };
+    }
+
+    return { oldHighlights };
+  }
+
+  /**
+   * 對沒有 rangeInfo 的項目加上 needsRangeInfo 標記（純函數）
+   *
+   * @param {Array} highlights
+   * @returns {Array}
+   * @private
+   */
+  static _convertHighlightFormat(highlights) {
+    return highlights.map(item => ({
+      ...item,
+      needsRangeInfo: !item.rangeInfo,
+    }));
+  }
+
+  /**
+   * 原地格式轉換（就地更新現有 key）
+   *
+   * @param {string} url
+   * @param {Array} oldHighlights
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _applyInPlaceConversion(url, oldHighlights) {
+    const converted = MigrationService._convertHighlightFormat(oldHighlights);
+    await this.storageService.updateHighlights(url, converted);
+  }
+
+  /**
+   * 補遷移 Notion saved metadata 到穩定 URL（批量遷移路徑用）
+   * 同時設定 URL alias
+   *
+   * @param {string} originalUrl
+   * @param {string} stableUrl
+   * @returns {Promise<boolean>} 是否已補遷移
+   * @private
+   */
+  async _supplementBatchSavedMetadata(originalUrl, stableUrl) {
+    if (!stableUrl || stableUrl === originalUrl) {
+      return false;
+    }
+
+    const [stableSavedData, legacySavedData] = await Promise.all([
+      this.storageService.getSavedPageData(stableUrl),
+      this.storageService.getSavedPageData(originalUrl),
+    ]);
+
+    const hasStableNotion = hasNotionData(stableSavedData);
+    const hasLegacyNotion = hasNotionData(legacySavedData);
+
+    let supplemented = false;
+    if (!hasStableNotion && hasLegacyNotion) {
+      await this.storageService.setSavedPageData(stableUrl, legacySavedData);
+      Logger.info('已補遷移 saved metadata 到穩定 URL', {
+        action: 'migration_batch',
+        from: sanitizeUrlForLogging(originalUrl),
+        to: sanitizeUrlForLogging(stableUrl),
+      });
+      supplemented = true;
+    } else if (hasStableNotion && hasLegacyNotion) {
+      const samePage = isSameNotionPage(stableSavedData, legacySavedData);
+      if (samePage === false) {
+        Logger.warn('stable/legacy notion 衝突，保留 stable 資料', {
+          action: 'migration_batch',
+          stableUrl: sanitizeUrlForLogging(stableUrl),
+          legacyUrl: sanitizeUrlForLogging(originalUrl),
+        });
+      }
+    }
+
+    // 無論是否補遷移都設定 alias
+    await this._setUrlAliasSafe(originalUrl, stableUrl);
+    return supplemented;
+  }
+
+  /**
+   * 嘗試批量遷移至穩定 URL
+   *
+   * @param {object} params
+   * @param {string} params.url
+   * @param {string} params.stableUrl
+   * @param {Array} params.oldHighlights
+   * @returns {Promise<string>} 最終報告用的 URL
+   * @private
+   */
+  async _tryBatchStableMigration({ url, stableUrl, oldHighlights }) {
+    try {
+      const migrated = await this.migrateStorageKey(stableUrl, url, {
+        convertFormat: true,
+        formatConverter: MigrationService._convertHighlightFormat,
+      });
+
+      if (migrated) {
+        return stableUrl;
+      }
+
+      const supplemented = await this._supplementBatchSavedMetadata(url, stableUrl);
+      if (supplemented) {
+        return stableUrl;
+      }
+
+      await this._applyInPlaceConversion(url, oldHighlights);
+      return url;
+    } catch (error) {
+      Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
+        action: 'migration_batch',
+        url: sanitizeUrlForLogging(url),
+        error: error?.message ?? String(error),
+      });
+      await this._applyInPlaceConversion(url, oldHighlights);
+      return url;
+    }
+  }
+
+  /**
+   * 組裝批量遷移結果物件（純函數）
+   *
+   * @param {string} reportUrl
+   * @param {Array} oldHighlights
+   * @returns {object}
+   * @private
+   */
+  static _finalizeBatchResult(reportUrl, oldHighlights) {
+    return {
+      status: 'success',
+      url: sanitizeUrlForLogging(reportUrl),
+      count: oldHighlights.length,
+      pending: oldHighlights.filter(item => !item.rangeInfo).length,
+    };
   }
 }

@@ -135,10 +135,11 @@ describe('MigrationTool', () => {
     });
   });
 
-  describe('truncateUrl', () => {
+  describe('truncateUrl (已移至 MigrationScanner.truncateUrl)', () => {
     test('截斷過長的 URL', () => {
+      // MigrationTool.truncateUrl 已移除，UI 改用 MigrationScanner.truncateUrl(url, 60)
       const longUrl = 'https://example.com/very/long/path/to/some/resource/that/exceeds/the/limit';
-      const truncated = MigrationTool.truncateUrl(longUrl, 60);
+      const truncated = MigrationScanner.truncateUrl(longUrl, 60);
 
       expect(truncated.length).toBeLessThanOrEqual(60);
       expect(truncated).toContain('...');
@@ -146,7 +147,7 @@ describe('MigrationTool', () => {
 
     test('保留短 URL 不變', () => {
       const shortUrl = 'https://example.com';
-      const result = MigrationTool.truncateUrl(shortUrl, 60);
+      const result = MigrationScanner.truncateUrl(shortUrl, 60);
 
       expect(result).toBe(shortUrl);
     });
@@ -251,15 +252,15 @@ describe('MigrationTool Extended', () => {
     });
   });
 
-  describe('truncateUrl extended', () => {
+  describe('truncateUrl extended (委託 MigrationScanner)', () => {
     test('應處理空 URL', () => {
-      const result = MigrationTool.truncateUrl('', 60);
+      const result = MigrationScanner.truncateUrl('', 60);
       expect(result).toBe('');
     });
 
     test('應處理臨界長度', () => {
       const url = 'a'.repeat(60);
-      const result = MigrationTool.truncateUrl(url, 60);
+      const result = MigrationScanner.truncateUrl(url, 60);
       expect(result).toHaveLength(60);
     });
   });

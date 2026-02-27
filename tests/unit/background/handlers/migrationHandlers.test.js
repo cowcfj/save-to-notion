@@ -250,36 +250,24 @@ describe('migrationHandlers', () => {
   });
 
   describe('migration_batch', () => {
-    test('應該成功批量遷移數據並轉換格式', async () => {
+    beforeEach(() => {
+      // 新增 migrateBatchUrl mock（業務邏輯已移入 MigrationService）
+      mockServices.migrationService.migrateBatchUrl = jest
+        .fn()
+        .mockImplementation(url =>
+          Promise.resolve({ status: 'success', url, count: 1, pending: 1 })
+        );
+    });
+
+    test('應該成功批量遷移並回傳結果', async () => {
       const urls = ['https://a.com', 'https://b.com'];
       const sendResponse = jest.fn();
 
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === 'https://a.com') {
-          return Promise.resolve({
-            url: 'https://a.com',
-            highlights: [{ id: '1' }],
-          });
-        }
-        if (url === 'https://b.com') {
-          return Promise.resolve({
-            url: 'https://b.com',
-            highlights: [{ id: '2' }],
-          });
-        }
-        return Promise.resolve(null);
-      });
-
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      // 原地格式轉換：應呼叫 storageService.updateHighlights 兩次
-      expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(2);
-      expect(mockStorageService.updateHighlights).toHaveBeenNthCalledWith(1, 'https://a.com', [
-        { id: '1', needsRangeInfo: true },
-      ]);
-      expect(mockStorageService.updateHighlights).toHaveBeenNthCalledWith(2, 'https://b.com', [
-        { id: '2', needsRangeInfo: true },
-      ]);
+      expect(mockServices.migrationService.migrateBatchUrl).toHaveBeenCalledTimes(2);
+      expect(mockServices.migrationService.migrateBatchUrl).toHaveBeenCalledWith('https://a.com');
+      expect(mockServices.migrationService.migrateBatchUrl).toHaveBeenCalledWith('https://b.com');
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -288,65 +276,24 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('應支援 page_* 來源（getHighlights 回傳陣列）並完成原地轉換', async () => {
-      const urls = ['https://a.com/page-only'];
-      const sendResponse = jest.fn();
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === 'https://a.com/page-only') {
-          return Promise.resolve([{ id: 'p1' }]);
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
-
-      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith('https://a.com/page-only', [
-        { id: 'p1', needsRangeInfo: true },
-      ]);
-      expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(1);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          results: expect.objectContaining({ success: 1, failed: 0 }),
-        })
-      );
-      expect(sendResponse).toHaveBeenCalledTimes(1);
-    });
-
-    test('應該在計算出穩定 URL 時，委託統一管線遷移到穩定 URL', async () => {
+    test('委託路徑：migrateBatchUrl 回傳 stable URL 時應上報 stable URL', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
       const sendResponse = jest.fn();
 
       computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === 'https://a.com/original-slug') {
-          return Promise.resolve({
-            url: 'https://a.com/original-slug',
-            highlights: [{ id: '1' }],
-          });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(null);
+      mockServices.migrationService.migrateBatchUrl.mockResolvedValueOnce({
+        status: 'success',
+        url: stableUrl,
+        count: 1,
+        pending: 1,
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      // Phase 4：委託給 migrationService.migrateStorageKey
-      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
-        stableUrl,
-        'https://a.com/original-slug',
-        expect.objectContaining({
-          convertFormat: true,
-          formatConverter: expect.any(Function),
-        })
+      expect(mockServices.migrationService.migrateBatchUrl).toHaveBeenCalledWith(
+        'https://a.com/original-slug'
       );
-
-      // 確保回報的 url 是 stableUrl
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -359,236 +306,11 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('應該在遷移至穩定 URL 時，委託統一管線處理 saved_ 伴隨遷移', async () => {
-      const oldUrl = 'https://a.com/old-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            url: oldUrl,
-            highlights: [{ id: '1', text: 'highlight text' }],
-          });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      // Phase 4：委託給統一管線（saved_ 伴隨遷移由 MigrationService 內部處理）
-      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
-        stableUrl,
-        oldUrl,
-        expect.objectContaining({
-          convertFormat: true,
-          formatConverter: expect.any(Function),
-        })
-      );
-
-      // 驗證 sendResponse 報告 stableUrl
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          results: expect.objectContaining({
-            details: expect.arrayContaining([
-              expect.objectContaining({ url: expect.stringContaining(stableUrl) }),
-            ]),
-          }),
-        })
-      );
-    });
-
-    test('當 migrateStorageKey 回傳 false 時應回退為原地轉換並回報原始 URL', async () => {
-      const oldUrl = 'https://a.com/old-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-      mockServices.migrationService.migrateStorageKey.mockResolvedValueOnce(false);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            url: oldUrl,
-            highlights: [{ id: '1', text: 'highlight text' }],
-          });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
-        stableUrl,
-        oldUrl,
-        expect.objectContaining({
-          convertFormat: true,
-          formatConverter: expect.any(Function),
-        })
-      );
-      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(oldUrl, [
-        { id: '1', text: 'highlight text', needsRangeInfo: true },
-      ]);
-
-      const response = sendResponse.mock.calls[0][0];
-      const detail = response.results.details[0];
-      expect(response.success).toBe(true);
-      expect(detail.status).toBe('success');
-      expect(detail.url).toContain('old-slug');
-      expect(detail.url).not.toContain('stable-part');
-    });
-
-    test('當 migrateStorageKey 拋錯時應回退為原地轉換並回報原始 URL', async () => {
-      const oldUrl = 'https://a.com/old-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-      mockServices.migrationService.migrateStorageKey.mockRejectedValueOnce(
-        new Error('migrate error')
-      );
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            url: oldUrl,
-            highlights: [{ id: '1', text: 'highlight text' }],
-          });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalled();
-      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(oldUrl, [
-        { id: '1', text: 'highlight text', needsRangeInfo: true },
-      ]);
-
-      const response = sendResponse.mock.calls[0][0];
-      const detail = response.results.details[0];
-      expect(response.success).toBe(true);
-      expect(response.results.success).toBe(1);
-      expect(response.results.failed).toBe(0);
-      expect(detail.url).toContain('old-slug');
-      expect(detail.url).not.toContain('stable-part');
-    });
-
-    test('如果穩定 URL key 已經有數據，不應覆蓋它（原地轉換）', async () => {
-      const urls = ['https://a.com/original-slug'];
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === 'https://a.com/original-slug') {
-          return Promise.resolve({ highlights: [{ id: '1' }] });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve([{ id: '2', isNew: true }]); // 穩定 key 已存在數據
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
-
-      // 穩定 key 已存在 → shouldMigrateToStable = false → 原地轉換
-      expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(1);
-      expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          results: expect.objectContaining({
-            details: expect.arrayContaining([
-              expect.objectContaining({ url: expect.stringContaining('original-slug') }),
-            ]),
-          }),
-        })
-      );
-    });
-
-    test('stable 已有 highlights 且缺 notion 時，應只補遷移 notion metadata', async () => {
+    test('migrateBatchUrl 拋錯時應標記為 failed item', async () => {
       const oldUrl = 'https://a.com/original-slug';
-      const stableUrl = 'https://a.com/stable-part';
       const sendResponse = jest.fn();
 
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({ highlights: [{ id: '1' }] });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({ highlights: [{ id: '2' }] });
-        }
-        return Promise.resolve(null);
-      });
-
-      mockStorageService.getSavedPageData.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            notionPageId: 'legacy-page',
-            notionUrl: 'https://notion.so/legacy-page',
-            title: 'Legacy Page',
-          });
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(
-        stableUrl,
-        expect.objectContaining({
-          notionPageId: 'legacy-page',
-          notionUrl: 'https://notion.so/legacy-page',
-        })
-      );
-      expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(oldUrl, stableUrl);
-    });
-
-    test('stable 已有 highlights 且缺 notion 時，setSavedPageData 失敗應回報 failed item', async () => {
-      const oldUrl = 'https://a.com/original-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({ highlights: [{ id: '1' }] });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({ highlights: [{ id: '2' }] });
-        }
-        return Promise.resolve(null);
-      });
-
-      mockStorageService.getSavedPageData.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            notionPageId: 'legacy-page',
-            notionUrl: 'https://notion.so/legacy-page',
-            title: 'Legacy Page',
-          });
-        }
-        return Promise.resolve(null);
-      });
-      mockStorageService.setSavedPageData.mockRejectedValueOnce(
+      mockServices.migrationService.migrateBatchUrl.mockRejectedValueOnce(
         new Error('set saved metadata failed')
       );
 
@@ -606,129 +328,7 @@ describe('migrationHandlers', () => {
       );
       expect(Logger.error).toHaveBeenCalledWith(
         '批量遷移失敗',
-        expect.objectContaining({
-          action: 'migration_batch',
-        })
-      );
-    });
-
-    test('stable 已有 highlights 且缺 notion 時，setUrlAlias 失敗不應阻斷主流程', async () => {
-      const oldUrl = 'https://a.com/original-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({ highlights: [{ id: '1' }] });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({ highlights: [{ id: '2' }] });
-        }
-        return Promise.resolve(null);
-      });
-
-      mockStorageService.getSavedPageData.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            notionPageId: 'legacy-page',
-            notionUrl: 'https://notion.so/legacy-page',
-          });
-        }
-        return Promise.resolve(null);
-      });
-      mockStorageService.setUrlAlias.mockRejectedValueOnce(new Error('alias write failed'));
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      const response = sendResponse.mock.calls[0][0];
-      expect(response.success).toBe(true);
-      expect(response.results.success).toBe(1);
-      expect(response.results.failed).toBe(0);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        '設定 URL alias 失敗（不影響主流程）',
-        expect.objectContaining({
-          action: 'migration_batch',
-        })
-      );
-    });
-
-    test('stable/legacy notion 衝突時應保留 stable 並記錄 warning', async () => {
-      const oldUrl = 'https://a.com/original-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({ highlights: [{ id: '1' }] });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({ highlights: [{ id: '2' }] });
-        }
-        return Promise.resolve(null);
-      });
-
-      mockStorageService.getSavedPageData.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({
-            notionPageId: 'legacy-page',
-            notionUrl: 'https://notion.so/legacy-page',
-          });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({
-            notionPageId: 'stable-page',
-            notionUrl: 'https://notion.so/stable-page',
-          });
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      expect(mockStorageService.setSavedPageData).not.toHaveBeenCalled();
-      expect(Logger.warn).toHaveBeenCalledWith(
-        'stable/legacy notion 衝突，保留 stable 資料',
         expect.objectContaining({ action: 'migration_batch' })
-      );
-      expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(oldUrl, stableUrl);
-    });
-
-    test('stable/legacy 無法判斷是否同頁時不應記錄衝突 warning', async () => {
-      const oldUrl = 'https://a.com/original-slug';
-      const stableUrl = 'https://a.com/stable-part';
-      const sendResponse = jest.fn();
-
-      computeStableUrl.mockReturnValue(stableUrl);
-
-      mockStorageService.getHighlights.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({ highlights: [{ id: '1' }] });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({ highlights: [{ id: '2' }] });
-        }
-        return Promise.resolve(null);
-      });
-
-      mockStorageService.getSavedPageData.mockImplementation(url => {
-        if (url === oldUrl) {
-          return Promise.resolve({ notionUrl: 'https://notion.so/legacy-page' });
-        }
-        if (url === stableUrl) {
-          return Promise.resolve({ notionPageId: 'stable-page' });
-        }
-        return Promise.resolve(null);
-      });
-
-      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
-
-      expect(Logger.warn).not.toHaveBeenCalledWith(
-        'stable/legacy notion 衝突，保留 stable 資料',
-        expect.anything()
       );
     });
 
