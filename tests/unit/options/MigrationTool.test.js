@@ -50,6 +50,12 @@ describe('MigrationTool', () => {
         <span id="migration-progress-text">0%</span>
       </div>
       <div id="migration-result"></div>
+      <section id="pending-migration-section" style="display: none">
+        <div id="pending-migration-list"></div>
+      </section>
+      <section id="failed-migration-section" style="display: none">
+        <div id="failed-migration-list"></div>
+      </section>
     `;
 
     mockUiManager = new UIManager();
@@ -192,6 +198,12 @@ describe('MigrationTool Extended', () => {
         <span id="migration-progress-text">0%</span>
       </div>
       <div id="migration-result"></div>
+      <section id="pending-migration-section" style="display: none">
+        <div id="pending-migration-list"></div>
+      </section>
+      <section id="failed-migration-section" style="display: none">
+        <div id="failed-migration-list"></div>
+      </section>
     `;
 
     mockUiManager = new UIManager();
@@ -273,6 +285,69 @@ describe('MigrationTool Extended', () => {
       const url = 'a'.repeat(60);
       const result = MigrationScanner.truncateUrl(url, 60);
       expect(result).toHaveLength(60);
+    });
+  });
+
+  describe('truncateUrl rendering coverage', () => {
+    test('showBatchMigrationResult 應透過 MigrationScanner.truncateUrl 渲染成功項目 URL', () => {
+      const truncateSpy = jest
+        .spyOn(MigrationScanner, 'truncateUrl')
+        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
+
+      migrationTool.showBatchMigrationResult({
+        success: 1,
+        details: [
+          {
+            status: 'success',
+            url: 'https://example.com/success',
+            count: 2,
+            pending: 1,
+          },
+        ],
+      });
+
+      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/success', 60);
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.textContent).toContain('cut(https://example.com/success,60)');
+      truncateSpy.mockRestore();
+    });
+
+    test('renderPendingList 應透過 MigrationScanner.truncateUrl 渲染待完成 URL', () => {
+      const truncateSpy = jest
+        .spyOn(MigrationScanner, 'truncateUrl')
+        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
+
+      migrationTool.renderPendingList([
+        {
+          url: 'https://example.com/pending',
+          totalCount: 3,
+          pendingCount: 1,
+        },
+      ]);
+
+      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/pending', 60);
+      const pendingList = document.querySelector('#pending-migration-list');
+      expect(pendingList.textContent).toContain('cut(https://example.com/pending,60)');
+      truncateSpy.mockRestore();
+    });
+
+    test('renderFailedList 應透過 MigrationScanner.truncateUrl 渲染失敗 URL', () => {
+      const truncateSpy = jest
+        .spyOn(MigrationScanner, 'truncateUrl')
+        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
+
+      migrationTool.renderFailedList([
+        {
+          url: 'https://example.com/failed',
+          totalCount: 3,
+          failedCount: 2,
+        },
+      ]);
+
+      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/failed', 60);
+      const failedList = document.querySelector('#failed-migration-list');
+      expect(failedList.textContent).toContain('cut(https://example.com/failed,60)');
+      truncateSpy.mockRestore();
     });
   });
 });

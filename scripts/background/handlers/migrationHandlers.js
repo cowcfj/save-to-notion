@@ -209,7 +209,6 @@ export function createMigrationHandlers(services) {
 
         for (const url of urls) {
           try {
-            // 委託給 MigrationService.migrateBatchUrl (Service 層級作業)
             const itemResult = await migrationService.migrateBatchUrl(url);
             results.details.push(itemResult);
 

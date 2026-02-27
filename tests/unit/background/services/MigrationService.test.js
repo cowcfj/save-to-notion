@@ -509,6 +509,55 @@ describe('MigrationService', () => {
       });
       expect(service._applyInPlaceConversion).not.toHaveBeenCalled();
     });
+
+    test('should call _tryBatchStableMigration when shouldMigrateToStable is true', async () => {
+      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const stableUrl = 'https://example.com/stable';
+      const oldHighlights = [{ id: 'legacy-1' }];
+
+      computeStableUrl.mockReturnValueOnce(stableUrl);
+      mockStorageService.getHighlights
+        .mockResolvedValueOnce(oldHighlights)
+        .mockResolvedValueOnce({ highlights: [] });
+      service._tryBatchStableMigration = jest.fn().mockResolvedValue(stableUrl);
+
+      const result = await service.migrateBatchUrl(url);
+
+      expect(service._tryBatchStableMigration).toHaveBeenCalledWith({
+        url,
+        stableUrl,
+        oldHighlights,
+      });
+      expect(result).toEqual({
+        status: 'success',
+        url: `safe://${stableUrl}`,
+        count: 1,
+        pending: 1,
+      });
+    });
+
+    test('should update reportUrl to stableUrl when hasStableUrl and supplemented is true', async () => {
+      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const stableUrl = 'https://example.com/stable';
+      const oldHighlights = [{ id: 'legacy-2', rangeInfo: { start: 1 } }];
+
+      computeStableUrl.mockReturnValueOnce(stableUrl);
+      mockStorageService.getHighlights
+        .mockResolvedValueOnce(oldHighlights)
+        .mockResolvedValueOnce({ highlights: [{ id: 'already-stable' }] });
+      service._supplementBatchSavedMetadata = jest.fn().mockResolvedValue(true);
+      service._applyInPlaceConversion = jest.fn().mockResolvedValue();
+
+      const result = await service.migrateBatchUrl(url);
+
+      expect(service._supplementBatchSavedMetadata).toHaveBeenCalledWith(url, stableUrl);
+      expect(result).toEqual({
+        status: 'success',
+        url: `safe://${stableUrl}`,
+        count: 1,
+        pending: 0,
+      });
+    });
   });
 
   describe('_supplementBatchSavedMetadata', () => {
@@ -603,6 +652,86 @@ describe('MigrationService', () => {
         'set failed'
       );
       expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(originalUrl, stableUrl);
+    });
+
+    test('should return false when stableUrl is empty or equal to originalUrl', async () => {
+      expect(await service._supplementBatchSavedMetadata(originalUrl, '')).toBe(false);
+      expect(await service._supplementBatchSavedMetadata(originalUrl, originalUrl)).toBe(false);
+      expect(mockStorageService.getSavedPageData).not.toHaveBeenCalled();
+      expect(mockStorageService.setUrlAlias).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_applyInPlaceConversion', () => {
+    test('should convert rangeInfo to needsRangeInfo and update storage', async () => {
+      const url = 'https://example.com/article';
+      const oldHighlights = [{ id: 'h-1' }, { id: 'h-2', rangeInfo: { start: 1 } }];
+
+      await service._applyInPlaceConversion(url, oldHighlights);
+
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledWith(url, [
+        { id: 'h-1', needsRangeInfo: true },
+        { id: 'h-2', rangeInfo: { start: 1 }, needsRangeInfo: false },
+      ]);
+    });
+  });
+
+  describe('_tryBatchStableMigration', () => {
+    const url = 'https://example.com/original';
+    const stableUrl = 'https://example.com/stable';
+    const oldHighlights = [{ id: 'legacy-1' }];
+
+    test('should return stableUrl when migrateStorageKey succeeds', async () => {
+      service.migrateStorageKey = jest.fn().mockResolvedValue(true);
+
+      const result = await service._tryBatchStableMigration({ url, stableUrl, oldHighlights });
+
+      expect(service.migrateStorageKey).toHaveBeenCalledWith(stableUrl, url, {
+        convertFormat: true,
+        formatConverter: MigrationService._convertHighlightFormat,
+      });
+      expect(result).toBe(stableUrl);
+    });
+
+    test('should return stableUrl when migrateStorageKey fails but metadata is supplemented', async () => {
+      service.migrateStorageKey = jest.fn().mockResolvedValue(false);
+      service._supplementBatchSavedMetadata = jest.fn().mockResolvedValue(true);
+      service._applyInPlaceConversion = jest.fn().mockResolvedValue();
+
+      const result = await service._tryBatchStableMigration({ url, stableUrl, oldHighlights });
+
+      expect(service._supplementBatchSavedMetadata).toHaveBeenCalledWith(url, stableUrl);
+      expect(service._applyInPlaceConversion).not.toHaveBeenCalled();
+      expect(result).toBe(stableUrl);
+    });
+
+    test('should fallback to in-place conversion when migrateStorageKey and supplement both fail', async () => {
+      service.migrateStorageKey = jest.fn().mockResolvedValue(false);
+      service._supplementBatchSavedMetadata = jest.fn().mockResolvedValue(false);
+      service._applyInPlaceConversion = jest.fn().mockResolvedValue();
+
+      const result = await service._tryBatchStableMigration({ url, stableUrl, oldHighlights });
+
+      expect(service._applyInPlaceConversion).toHaveBeenCalledWith(url, oldHighlights);
+      expect(result).toBe(url);
+    });
+
+    test('should fallback to in-place conversion when migrateStorageKey throws', async () => {
+      service.migrateStorageKey = jest.fn().mockRejectedValue(new Error('migrate failed'));
+      service._applyInPlaceConversion = jest.fn().mockResolvedValue();
+
+      const result = await service._tryBatchStableMigration({ url, stableUrl, oldHighlights });
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '遷移至穩定 URL 失敗，回退為原地轉換',
+        expect.objectContaining({
+          action: 'migration_batch',
+          url: `safe://${url}`,
+          error: 'migrate failed',
+        })
+      );
+      expect(service._applyInPlaceConversion).toHaveBeenCalledWith(url, oldHighlights);
+      expect(result).toBe(url);
     });
   });
 

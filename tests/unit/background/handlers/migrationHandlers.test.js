@@ -332,6 +332,27 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('應將單一 URL 嚴格委託給 migrateBatchUrl 並回傳原始 detail', async () => {
+      const url = 'https://strict.com/article';
+      const sendResponse = jest.fn();
+      const delegatedResult = { status: 'success', url, count: 3, pending: 1 };
+
+      mockServices.migrationService.migrateBatchUrl.mockResolvedValueOnce(delegatedResult);
+
+      await handlers.migration_batch({ urls: [url] }, defaultSender, sendResponse);
+
+      expect(mockServices.migrationService.migrateBatchUrl).toHaveBeenCalledTimes(1);
+      expect(mockServices.migrationService.migrateBatchUrl).toHaveBeenCalledWith(url);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        results: {
+          success: 1,
+          failed: 0,
+          details: [delegatedResult],
+        },
+      });
+    });
+
     test('應該拒絕無效的 URLs', async () => {
       const urls = ['invalid-url'];
       const sendResponse = jest.fn();
