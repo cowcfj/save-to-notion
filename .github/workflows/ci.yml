@@ -33,7 +33,7 @@ jobs:
           cache: 'npm'
 
       - name: Upgrade npm
-        run: npm install -g npm@11
+        run: npm install -g npm@11 --ignore-scripts
 
       - name: Install dependencies
         env:
