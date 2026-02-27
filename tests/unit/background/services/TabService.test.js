@@ -10,6 +10,7 @@ import {
   _migrationScript,
 } from '../../../../scripts/background/services/TabService.js';
 import Logger from '../../../../scripts/utils/Logger.js';
+import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
@@ -548,17 +549,14 @@ describe('TabService', () => {
   });
 
   describe('resolveTabUrl edges', () => {
-    const { resolveStorageUrl } = require('../../../../scripts/utils/urlUtils.js');
-    const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
-
     afterEach(() => {
-      resolveStorageUrl.mockRestore?.();
-      isRootUrl.mockRestore?.();
+      urlUtils.resolveStorageUrl.mockRestore?.();
+      urlUtils.isRootUrl.mockRestore?.();
     });
 
     it('應處理 isRootUrl 為 true 的情況', async () => {
-      resolveStorageUrl.mockReturnValueOnce('https://example.com/');
-      isRootUrl.mockReturnValueOnce(true);
+      urlUtils.resolveStorageUrl.mockReturnValueOnce('https://example.com/');
+      urlUtils.isRootUrl.mockReturnValueOnce(true);
 
       const res = await service.resolveTabUrl(1, 'https://example.com/?some=param');
 
@@ -571,8 +569,8 @@ describe('TabService', () => {
     });
 
     it('應執行 migrationService.migrateStorageKey', async () => {
-      resolveStorageUrl.mockReturnValueOnce('https://example.com/stable');
-      isRootUrl.mockReturnValueOnce(false);
+      urlUtils.resolveStorageUrl.mockReturnValueOnce('https://example.com/stable');
+      urlUtils.isRootUrl.mockReturnValueOnce(false);
 
       const mockMigrationService = { migrateStorageKey: jest.fn().mockResolvedValue(true) };
       const res = await service.resolveTabUrl(1, 'https://example.com/?a=1', mockMigrationService);
@@ -588,8 +586,7 @@ describe('TabService', () => {
 
   describe('_sendStableUrl behavior', () => {
     it('_sendStableUrl 應阻擋 root url 寫入', () => {
-      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
-      isRootUrl.mockReturnValueOnce(true);
+      urlUtils.isRootUrl.mockReturnValueOnce(true);
 
       service._sendStableUrl(1, 'https://example.com/');
       expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -600,8 +597,7 @@ describe('TabService', () => {
     });
 
     it('_sendStableUrl 應正常發送訊息', () => {
-      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
-      isRootUrl.mockReturnValueOnce(false);
+      urlUtils.isRootUrl.mockReturnValueOnce(false);
       chrome.tabs.sendMessage.mockReturnValue(Promise.resolve());
 
       service._sendStableUrl(1, 'https://example.com/page');
@@ -656,10 +652,9 @@ describe('TabService', () => {
 
       // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
       // 使用 import 的 mock 對象，避免 require 與手動還原
-      const { resolveStorageUrl } = await import('../../../../scripts/utils/urlUtils.js');
       // 重要：在測試結束後還原 mock，避免影響後續測試 (如 getPreloaderData edge cases)
-      const originalImpl = resolveStorageUrl.getMockImplementation();
-      resolveStorageUrl.mockReturnValue(mockStableUrl);
+      const originalImpl = urlUtils.resolveStorageUrl.getMockImplementation();
+      urlUtils.resolveStorageUrl.mockReturnValue(mockStableUrl);
 
       try {
         // 2. 配置 service 的 URL 標準化行為
@@ -705,10 +700,10 @@ describe('TabService', () => {
       } finally {
         // 還原 Mock
         if (originalImpl) {
-          resolveStorageUrl.mockImplementation(originalImpl);
+          urlUtils.resolveStorageUrl.mockImplementation(originalImpl);
         } else {
-          resolveStorageUrl.mockReset(); // 或者 mockBack to default implementation if needed
-          resolveStorageUrl.mockImplementation(url => url); // Restore default mock behavior defined at top of file
+          urlUtils.resolveStorageUrl.mockReset(); // 或者 mockBack to default implementation if needed
+          urlUtils.resolveStorageUrl.mockImplementation(url => url); // Restore default mock behavior defined at top of file
         }
       }
     });

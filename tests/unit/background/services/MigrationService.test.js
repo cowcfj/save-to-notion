@@ -223,7 +223,7 @@ describe('MigrationService', () => {
         isSameNotionPage,
       } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
       hasNotionData.mockReturnValue(true);
-      isSameNotionPage.mockReturnValue(undefined);
+      isSameNotionPage.mockReturnValue(null);
 
       mockStorageService.getSavedPageData.mockImplementation(url => {
         if (url === legacyUrl) {

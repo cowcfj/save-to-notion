@@ -102,5 +102,50 @@ describe('migrationMetadataUtils', () => {
         )
       ).toBe(false);
     });
+
+    test('should compare notion urls by canonicalized host casing', () => {
+      expect(
+        isSameNotionPage(
+          { notionUrl: 'https://NOTION.SO/My-Page' },
+          { notionUrl: 'https://notion.so/My-Page' }
+        )
+      ).toBe(true);
+    });
+
+    test('should compare notion urls by canonicalized trailing slash', () => {
+      expect(
+        isSameNotionPage(
+          { notionUrl: 'https://notion.so/my-page/' },
+          { notionUrl: 'https://notion.so/my-page' }
+        )
+      ).toBe(true);
+    });
+
+    test('should compare notion urls by canonicalized query and hash removal', () => {
+      expect(
+        isSameNotionPage(
+          { notionUrl: 'https://notion.so/my-page?ref=abc#section' },
+          { notionUrl: 'https://notion.so/my-page' }
+        )
+      ).toBe(true);
+    });
+
+    test('should compare notion urls by canonicalized percent-encoding', () => {
+      expect(
+        isSameNotionPage(
+          { notionUrl: 'https://notion.so/%7Eworkspace/page' },
+          { notionUrl: 'https://notion.so/~workspace/page' }
+        )
+      ).toBe(true);
+    });
+
+    test('should return false for different canonicalized notion urls', () => {
+      expect(
+        isSameNotionPage(
+          { notionUrl: 'https://notion.so/page-a?x=1#y' },
+          { notionUrl: 'https://notion.so/page-b' }
+        )
+      ).toBe(false);
+    });
   });
 });
