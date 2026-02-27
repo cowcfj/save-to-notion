@@ -309,6 +309,8 @@ export function setupHighlighter(options = {}) {
 
 // 自動初始化（在 browser 環境中）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
+  let hasRetriedLateStableRestore = false;
+
   /**
    * 等待 Background Script 通過 SET_STABLE_URL 訊息發送穩定 URL。
    * 帶超時保護：若超時未收到，返回 null（頁面可能無穩定 URL）。
@@ -452,6 +454,30 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   // 🔑 監聽來自 Popup 的訊息（如保存完成後顯示 Toolbar）
   if (globalThis.chrome?.runtime?.onMessage) {
     globalThis.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+      if (request.action === 'SET_STABLE_URL' && request.stableUrl) {
+        globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
+
+        const manager = globalThis.HighlighterV2?.manager;
+        const restoreManager = globalThis.HighlighterV2?.restoreManager;
+        const hasNoHighlights = typeof manager?.getCount === 'function' && manager.getCount() === 0;
+
+        if (
+          !hasRetriedLateStableRestore &&
+          hasNoHighlights &&
+          typeof restoreManager?.restore === 'function'
+        ) {
+          hasRetriedLateStableRestore = true;
+          Promise.resolve(restoreManager.restore()).catch(error => {
+            Logger.warn('[Highlighter] Late stable URL restore retry failed', {
+              action: 'SET_STABLE_URL',
+              error: error?.message ?? String(error),
+            });
+          });
+        }
+
+        return undefined;
+      }
+
       if (request.action === 'showToolbar') {
         // 保存完成後，創建並顯示 Toolbar
         if (globalThis.notionHighlighter?.createAndShowToolbar) {

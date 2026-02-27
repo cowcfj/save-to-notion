@@ -133,6 +133,41 @@ export function createSaveHandlers(services) {
     migrationService, // Added MigrationService
   } = services;
 
+  // fallback 狀態（僅在 tabService 未提供 consumeDeletionConfirmation 時使用）
+  const localDeletionPendingPages = new Map();
+
+  /**
+   * 連續不存在確認：false/false 才允許清理
+   * 優先委託 TabService，確保背景自動同步與 Popup 查詢共用同一套狀態。
+   *
+   * @param {string|null|undefined} notionPageId
+   * @param {boolean|null} exists
+   * @returns {{ shouldDelete: boolean, deletionPending: boolean }}
+   */
+  function consumeDeletionConfirmation(notionPageId, exists) {
+    if (typeof tabService.consumeDeletionConfirmation === 'function') {
+      return tabService.consumeDeletionConfirmation(notionPageId, exists);
+    }
+
+    const pageId = notionPageId ? String(notionPageId) : null;
+    if (!pageId) {
+      return { shouldDelete: false, deletionPending: false };
+    }
+
+    if (exists !== false) {
+      localDeletionPendingPages.delete(pageId);
+      return { shouldDelete: false, deletionPending: false };
+    }
+
+    if (localDeletionPendingPages.has(pageId)) {
+      localDeletionPendingPages.delete(pageId);
+      return { shouldDelete: true, deletionPending: false };
+    }
+
+    localDeletionPendingPages.set(pageId, Date.now());
+    return { shouldDelete: false, deletionPending: true };
+  }
+
   /**
    * 驗證請求並獲取配置
    *
@@ -480,6 +515,7 @@ export function createSaveHandlers(services) {
     const pageExists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
     if (pageExists === null) {
+      consumeDeletionConfirmation(savedData.notionPageId, null);
       Logger.warn('無法確認 Notion 頁面存在性', {
         action: 'checkPageExists',
         pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
@@ -492,9 +528,11 @@ export function createSaveHandlers(services) {
       return;
     }
 
+    const deletionCheck = consumeDeletionConfirmation(savedData.notionPageId, pageExists);
+
     if (pageExists) {
       await _handleExistingPageUpdate(params);
-    } else {
+    } else if (deletionCheck.shouldDelete) {
       // 頁面已刪除：清理狀態並重新創建新頁面
       const result = await _handlePageRecreation(params);
 
@@ -504,6 +542,16 @@ export function createSaveHandlers(services) {
       } else {
         sendErrorResponse(result, sendResponse);
       }
+    } else {
+      Logger.warn('首次檢測頁面不存在，暫不清理本地狀態', {
+        action: 'checkPageExists',
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+      });
+      sendResponse({
+        success: false,
+        deletionPending: true,
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+      });
     }
   }
 
@@ -884,7 +932,9 @@ export function createSaveHandlers(services) {
           });
         }
 
-        if (exists === false) {
+        const deletionCheck = consumeDeletionConfirmation(savedData.notionPageId, exists);
+
+        if (exists === false && deletionCheck.shouldDelete) {
           Logger.log('頁面已在 Notion 中刪除，正在清理狀態', {
             action: 'syncLocalState',
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
@@ -901,6 +951,22 @@ export function createSaveHandlers(services) {
             success: true,
             isSaved: false,
             wasDeleted: true,
+            stableUrl: normUrl,
+          });
+        }
+
+        if (exists === false && deletionCheck.deletionPending) {
+          Logger.warn('首次檢測頁面不存在，標記 deletionPending', {
+            action: 'syncLocalState',
+            pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+          });
+          return sendResponse({
+            success: true,
+            isSaved: true,
+            deletionPending: true,
+            notionPageId: savedData.notionPageId,
+            notionUrl: savedData.notionUrl,
+            title: savedData.title,
             stableUrl: normUrl,
           });
         }

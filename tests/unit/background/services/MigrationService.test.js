@@ -31,6 +31,7 @@ describe('MigrationService', () => {
     mockStorageService = {
       getSavedPageData: jest.fn(),
       setSavedPageData: jest.fn(),
+      setUrlAlias: jest.fn(),
       clearPageState: jest.fn(),
       clearLegacyKeys: jest.fn(),
       getHighlights: jest.fn(),
@@ -139,7 +140,7 @@ describe('MigrationService', () => {
       );
     });
 
-    test('should block overwrite when target highlights are wrapped object', async () => {
+    test('should supplement notion metadata when target already has highlights', async () => {
       mockStorageService.getSavedPageData.mockImplementation(url =>
         url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
       );
@@ -155,7 +156,8 @@ describe('MigrationService', () => {
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
+      expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(stableUrl, pageData);
       expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
       expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
     });

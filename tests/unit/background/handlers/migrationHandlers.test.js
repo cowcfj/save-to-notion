@@ -83,6 +83,8 @@ describe('migrationHandlers', () => {
       clearLegacyKeys: jest.fn().mockResolvedValue(),
       savePageDataAndHighlights: jest.fn().mockResolvedValue(),
       getSavedPageData: jest.fn().mockResolvedValue(null),
+      setSavedPageData: jest.fn().mockResolvedValue(),
+      setUrlAlias: jest.fn().mockResolvedValue(),
     };
 
     mockServices = {
@@ -469,6 +471,78 @@ describe('migrationHandlers', () => {
             ]),
           }),
         })
+      );
+    });
+
+    test('stable 已有 highlights 且缺 notion 時，應只補遷移 notion metadata', async () => {
+      const oldUrl = 'https://a.com/original-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: { highlights: [{ id: '1' }] },
+        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: { highlights: [{ id: '2' }] },
+      });
+
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            notionPageId: 'legacy-page',
+            notionUrl: 'https://notion.so/legacy-page',
+            title: 'Legacy Page',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(
+        stableUrl,
+        expect.objectContaining({
+          notionPageId: 'legacy-page',
+          notionUrl: 'https://notion.so/legacy-page',
+        })
+      );
+      expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(oldUrl, stableUrl);
+    });
+
+    test('stable/legacy notion 衝突時應保留 stable 並記錄 warning', async () => {
+      const oldUrl = 'https://a.com/original-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}${oldUrl}`]: { highlights: [{ id: '1' }] },
+        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: { highlights: [{ id: '2' }] },
+      });
+
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            notionPageId: 'legacy-page',
+            notionUrl: 'https://notion.so/legacy-page',
+          });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({
+            notionPageId: 'stable-page',
+            notionUrl: 'https://notion.so/stable-page',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      expect(mockStorageService.setSavedPageData).not.toHaveBeenCalled();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        'stable/legacy notion 衝突，保留 stable 資料',
+        expect.objectContaining({ action: 'migration_batch' })
       );
     });
 

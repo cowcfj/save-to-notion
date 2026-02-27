@@ -292,6 +292,30 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
     });
 
+    test('savePage: pageExists 連續兩次 false 才應清理並重建', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page-id',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({ success: false, deletionPending: true })
+      );
+
+      await handlers.savePage({}, validSender, sendResponse);
+      expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+      expect(mockServices.notionService.createPage).toHaveBeenCalled();
+    });
+
     // ===== openNotionPage Tests =====
     test('openNotionPage: 應該成功打開已保存的 Notion 頁面', async () => {
       const sendResponse = jest.fn();
@@ -691,7 +715,7 @@ describe('saveHandlers', () => {
   });
 
   describe('Notion Page Deletion Handling', () => {
-    it('checkPageStatus 應在 Notion 頁面已刪除時清理本地狀態', async () => {
+    it('checkPageStatus 第一次 false 應標記 deletionPending 並保留已保存狀態', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
@@ -707,9 +731,34 @@ describe('saveHandlers', () => {
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
+      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: true,
+          deletionPending: true,
+        })
+      );
+    });
+
+    it('checkPageStatus 連續第二次 false 才應清理本地狀態', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-extension-id', tab: { id: 1 } };
+      const rawUrl = 'https://example.com';
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page123',
+        notionUrl: 'https://notion.so/page123',
+      });
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
       expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
-      expect(sendResponse).toHaveBeenCalledWith(
+      expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
           isSaved: false,

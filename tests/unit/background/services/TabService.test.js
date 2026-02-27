@@ -254,7 +254,7 @@ describe('TabService', () => {
         );
       });
 
-      it('should clear local state if Notion page is deleted', async () => {
+      it('should clear local state only after two consecutive false checks', async () => {
         const expiredData = {
           notionPageId: 'page-123',
           lastVerifiedAt: Date.now() - 70_000,
@@ -263,7 +263,9 @@ describe('TabService', () => {
         service.checkPageExists = jest.fn().mockResolvedValue(false); // 模擬已刪除
 
         await service.updateTabStatus(1, 'https://example.com');
+        expect(service.clearPageState).not.toHaveBeenCalled();
 
+        await service.updateTabStatus(1, 'https://example.com');
         expect(service.clearPageState).toHaveBeenCalledWith('https://example.com');
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       });

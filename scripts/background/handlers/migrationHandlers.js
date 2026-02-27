@@ -34,6 +34,83 @@ function _convertHighlightFormat(oldHighlights) {
   }));
 }
 
+function _hasNotionData(savedData) {
+  return Boolean(
+    savedData?.notionPageId || savedData?.pageId || savedData?.notionUrl || savedData?.url
+  );
+}
+
+function _isSameNotionPage(stableSavedData, legacySavedData) {
+  const stablePageId = stableSavedData?.notionPageId || stableSavedData?.pageId || null;
+  const legacyPageId = legacySavedData?.notionPageId || legacySavedData?.pageId || null;
+
+  if (stablePageId && legacyPageId) {
+    return stablePageId === legacyPageId;
+  }
+
+  const stableUrl = stableSavedData?.notionUrl || stableSavedData?.url || null;
+  const legacyUrl = legacySavedData?.notionUrl || legacySavedData?.url || null;
+  if (stableUrl && legacyUrl) {
+    return stableUrl === legacyUrl;
+  }
+
+  return true;
+}
+
+async function _setUrlAliasSafe(storageService, originalUrl, stableUrl) {
+  if (typeof storageService.setUrlAlias !== 'function') {
+    return;
+  }
+  await storageService.setUrlAlias(originalUrl, stableUrl).catch(error => {
+    Logger.warn('設定 URL alias 失敗（不影響主流程）', {
+      action: 'migration_batch',
+      from: sanitizeUrlForLogging(originalUrl),
+      to: sanitizeUrlForLogging(stableUrl),
+      error: error?.message ?? String(error),
+    });
+  });
+}
+
+async function _supplementSavedMetadataForStableKey(storageService, originalUrl, stableUrl) {
+  if (!stableUrl || stableUrl === originalUrl) {
+    return false;
+  }
+
+  const [stableSavedData, legacySavedData] = await Promise.all([
+    storageService.getSavedPageData(stableUrl),
+    storageService.getSavedPageData(originalUrl),
+  ]);
+
+  const hasStableNotion = _hasNotionData(stableSavedData);
+  const hasLegacyNotion = _hasNotionData(legacySavedData);
+
+  if (
+    !hasStableNotion &&
+    hasLegacyNotion &&
+    typeof storageService.setSavedPageData === 'function'
+  ) {
+    await storageService.setSavedPageData(stableUrl, legacySavedData);
+    Logger.info('已補遷移 saved metadata 到穩定 URL', {
+      action: 'migration_batch',
+      from: sanitizeUrlForLogging(originalUrl),
+      to: sanitizeUrlForLogging(stableUrl),
+    });
+    await _setUrlAliasSafe(storageService, originalUrl, stableUrl);
+    return true;
+  }
+
+  if (hasStableNotion && hasLegacyNotion && !_isSameNotionPage(stableSavedData, legacySavedData)) {
+    Logger.warn('stable/legacy notion 衝突，保留 stable 資料', {
+      action: 'migration_batch',
+      stableUrl: sanitizeUrlForLogging(stableUrl),
+      legacyUrl: sanitizeUrlForLogging(originalUrl),
+    });
+  }
+
+  await _setUrlAliasSafe(storageService, originalUrl, stableUrl);
+  return false;
+}
+
 // Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
 
 async function _migrateSingleUrl(url, storageService, migrationService) {
@@ -90,7 +167,16 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
       if (migrated) {
         reportUrl = stableUrl;
       } else {
-        await applyInPlaceConversion();
+        const supplemented = await _supplementSavedMetadataForStableKey(
+          storageService,
+          url,
+          stableUrl
+        );
+        if (supplemented) {
+          reportUrl = stableUrl;
+        } else {
+          await applyInPlaceConversion();
+        }
       }
     } catch (error) {
       Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
@@ -106,6 +192,16 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
     //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
     //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
     //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
+    if (stableKey) {
+      const supplemented = await _supplementSavedMetadataForStableKey(
+        storageService,
+        url,
+        stableUrl
+      );
+      if (supplemented) {
+        reportUrl = stableUrl;
+      }
+    }
     await applyInPlaceConversion();
   }
 

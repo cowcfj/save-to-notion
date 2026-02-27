@@ -66,13 +66,23 @@ export class MigrationService {
       ]);
       const existingHighlights = this._normalizeHighlights(existingHighlightsRaw);
       if (existingHighlights.length > 0 || existingPageData) {
-        Logger.warn('Migration target already has data, skipping to prevent overwrite', {
+        const supplementedNotion = await this._supplementStableNotionIfNeeded({
+          stableUrl,
+          legacyUrl,
+          stableSavedData: existingPageData,
+          legacySavedData: pageData,
+        });
+
+        await this._setUrlAliasSafe(legacyUrl, stableUrl);
+
+        Logger.warn('Migration target already has data, skipping highlight overwrite', {
           stable: sanitizeUrlForLogging(stableUrl),
           legacy: sanitizeUrlForLogging(legacyUrl),
           existingHighlightsCount: existingHighlights.length,
           hasExistingPageData: Boolean(existingPageData),
+          supplementedNotion,
         });
-        return false;
+        return supplementedNotion;
       }
 
       const { migratedHighlights, formatConverted } = await this._resolveMigratedHighlights({
@@ -94,6 +104,8 @@ export class MigrationService {
       // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
       await this.storageService.savePageDataAndHighlights(stableUrl, pageData, migratedHighlights);
 
+      await this._setUrlAliasSafe(legacyUrl, stableUrl);
+
       // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
       // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
       // 不會呼叫 computeStableUrl，確保不會與新寫入的 stableUrl key 衝突
@@ -113,6 +125,105 @@ export class MigrationService {
       // 如果遷移失敗，保持舊數據不動，確保數據安全
       return false;
     }
+  }
+
+  /**
+   * 判斷 savedData 是否含 Notion 資訊
+   *
+   * @param {object|null} savedData
+   * @returns {boolean}
+   * @private
+   */
+  _hasNotionData(savedData) {
+    return Boolean(
+      savedData?.notionPageId || savedData?.pageId || savedData?.notionUrl || savedData?.url
+    );
+  }
+
+  /**
+   * 比對兩筆 savedData 是否指向同一 Notion 頁面
+   *
+   * @param {object|null} stableSavedData
+   * @param {object|null} legacySavedData
+   * @returns {boolean}
+   * @private
+   */
+  _isSameNotionPage(stableSavedData, legacySavedData) {
+    const stablePageId = stableSavedData?.notionPageId || stableSavedData?.pageId || null;
+    const legacyPageId = legacySavedData?.notionPageId || legacySavedData?.pageId || null;
+
+    if (stablePageId && legacyPageId) {
+      return stablePageId === legacyPageId;
+    }
+
+    const stableUrl = stableSavedData?.notionUrl || stableSavedData?.url || null;
+    const legacyUrl = legacySavedData?.notionUrl || legacySavedData?.url || null;
+    if (stableUrl && legacyUrl) {
+      return stableUrl === legacyUrl;
+    }
+
+    return true;
+  }
+
+  /**
+   * stable 已有 highlights 時，只補 notion metadata（不覆寫 highlights）
+   *
+   * @param {object} params
+   * @param {string} params.stableUrl
+   * @param {string} params.legacyUrl
+   * @param {object|null} params.stableSavedData
+   * @param {object|null} params.legacySavedData
+   * @returns {Promise<boolean>} 是否有補遷移 saved metadata
+   * @private
+   */
+  async _supplementStableNotionIfNeeded(params) {
+    const { stableUrl, legacyUrl, stableSavedData, legacySavedData } = params;
+
+    const hasStableNotion = this._hasNotionData(stableSavedData);
+    const hasLegacyNotion = this._hasNotionData(legacySavedData);
+
+    if (!hasStableNotion && hasLegacyNotion) {
+      await this.storageService.setSavedPageData(stableUrl, legacySavedData);
+      Logger.info('Supplemented notion metadata on stable URL', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+      return true;
+    }
+
+    if (
+      hasStableNotion &&
+      hasLegacyNotion &&
+      !this._isSameNotionPage(stableSavedData, legacySavedData)
+    ) {
+      Logger.warn('Stable/legacy notion metadata conflict, keeping stable data', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+    }
+
+    return false;
+  }
+
+  /**
+   * 設定 url_alias（失敗不阻斷主流程）
+   *
+   * @param {string} legacyUrl
+   * @param {string} stableUrl
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _setUrlAliasSafe(legacyUrl, stableUrl) {
+    if (typeof this.storageService.setUrlAlias !== 'function') {
+      return;
+    }
+    await Promise.resolve(this.storageService.setUrlAlias(legacyUrl, stableUrl)).catch(error => {
+      Logger.warn('Failed to set URL alias during migration', {
+        legacy: sanitizeUrlForLogging(legacyUrl),
+        stable: sanitizeUrlForLogging(stableUrl),
+        error: error?.message ?? String(error),
+      });
+    });
   }
 
   /**

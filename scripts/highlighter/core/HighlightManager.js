@@ -4,7 +4,7 @@
  */
 
 import { serializeRange, restoreRangeWithRetry } from './Range.js';
-import { COLORS } from '../utils/color.js';
+import { COLORS, convertBgColorToName } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
 
 /**
@@ -365,6 +365,115 @@ export class HighlightManager {
     return this.storage.collectForNotion();
   }
 
+  /**
+   * 解析候選顏色（恢復流程專用）
+   *
+   * @param {string} rawColor
+   * @returns {string[]}
+   * @private
+   */
+  _buildRestoreColorCandidates(rawColor) {
+    const candidates = [];
+    const color = typeof rawColor === 'string' ? rawColor.trim().toLowerCase() : '';
+
+    const pushCandidate = value => {
+      if (!value || typeof value !== 'string') {
+        return;
+      }
+      if (!candidates.includes(value)) {
+        candidates.push(value);
+      }
+    };
+
+    pushCandidate(color);
+
+    if (color.startsWith('#') || color.startsWith('rgb(')) {
+      pushCandidate(convertBgColorToName(color));
+    }
+
+    pushCandidate(this.currentColor);
+    pushCandidate('yellow');
+
+    return candidates;
+  }
+
+  /**
+   * 標準化恢復顏色（若無有效顏色則回退）
+   *
+   * @param {string} rawColor
+   * @returns {string}
+   * @private
+   */
+  _normalizeRestoreColor(rawColor) {
+    const candidates = this._buildRestoreColorCandidates(rawColor);
+
+    // 若 styleManager 尚未注入，回退到第一個候選值
+    if (!this.styleManager) {
+      return candidates[0] || 'yellow';
+    }
+
+    const matched = candidates.find(candidate => this.styleManager.getHighlightObject(candidate));
+    return matched || 'yellow';
+  }
+
+  /**
+   * 以防禦模式套用標註樣式
+   *
+   * @param {Range} range
+   * @param {string} color
+   * @returns {boolean}
+   * @private
+   */
+  _tryApplyHighlight(range, color) {
+    try {
+      return this.applyHighlightAPI(range, color);
+    } catch (error) {
+      Logger.warn('套用標註樣式時發生異常', {
+        action: 'restoreLocalHighlight',
+        color,
+        error: error?.message ?? String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 恢復流程的樣式套用重試鏈
+   * 1) 原顏色
+   * 2) fallback 顏色
+   * 3) 重建 style object 後重試
+   *
+   * @param {Range} range
+   * @param {string} preferredColor
+   * @returns {{applied: boolean, color: string}}
+   * @private
+   */
+  _applyHighlightWithRestoreFallback(range, preferredColor) {
+    const normalizedColor = this._normalizeRestoreColor(preferredColor);
+    const fallbackColor = this._normalizeRestoreColor(this.currentColor);
+
+    if (this._tryApplyHighlight(range, normalizedColor)) {
+      return { applied: true, color: normalizedColor };
+    }
+
+    if (fallbackColor !== normalizedColor && this._tryApplyHighlight(range, fallbackColor)) {
+      return { applied: true, color: fallbackColor };
+    }
+
+    // 最後嘗試：重建 style objects 後再重試
+    if (this.styleManager?.initialize) {
+      this.styleManager.initialize();
+      if (this._tryApplyHighlight(range, fallbackColor)) {
+        return { applied: true, color: fallbackColor };
+      }
+      if (fallbackColor !== normalizedColor && this._tryApplyHighlight(range, normalizedColor)) {
+        return { applied: true, color: normalizedColor };
+      }
+    }
+
+    return { applied: false, color: normalizedColor };
+  }
+
   // --- Restoration Implementation ---
   //
   // 架構說明：恢復邏輯保留在 HighlightManager 而非 HighlightStorage 的原因：
@@ -393,11 +502,13 @@ export class HighlightManager {
       const range = await restoreRangeWithRetry(item.rangeInfo, item.text);
 
       if (range) {
+        const normalizedColor = this._normalizeRestoreColor(item.color || 'yellow');
+
         // 重建 highlight
         const highlight = {
           id,
           range,
-          color: item.color || 'yellow',
+          color: normalizedColor,
           text: item.text,
           timestamp: item.timestamp || Date.now(),
           rangeInfo: item.rangeInfo,
@@ -405,13 +516,14 @@ export class HighlightManager {
 
         this.highlights.set(id, highlight);
 
-        // 應用視覺效果，失敗時回滾（與 addHighlight 模式一致）
-        const applied = this.applyHighlightAPI(range, highlight.color);
+        // 應用視覺效果，失敗時走 fallback + style 重建重試鏈
+        const { applied, color } = this._applyHighlightWithRestoreFallback(range, highlight.color);
         if (!applied) {
           this.highlights.delete(id);
           Logger.warn('無法應用視覺效果，恢復標註已取消', { action: 'restoreLocalHighlight', id });
           return false;
         }
+        highlight.color = color;
 
         // 更新 nextId 以避免衝突
         const numId = Number.parseInt(id.replace('h', ''), 10);
