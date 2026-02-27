@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.38.0](https://github.com/cowcfj/save-to-notion/compare/v2.37.1...v2.38.0) (2026-02-27)
+
+
+### ✨ 新功能
+
+* 增加穩定 URL 的遷移邏輯與重構處理 ([#297](https://github.com/cowcfj/save-to-notion/issues/297)) ([4f7b6ce](https://github.com/cowcfj/save-to-notion/commit/4f7b6cef759009f28d9fae2acd159ef6c51c2c3f))
+
 ## [2.37.1](https://github.com/cowcfj/save-to-notion/compare/v2.37.0...v2.37.1) (2026-02-26)
 
 
