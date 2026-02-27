@@ -4,9 +4,23 @@ import { MigrationTool } from '../../../options/MigrationTool.js';
 import { UIManager } from '../../../options/UIManager.js';
 import { MigrationScanner } from '../../../options/MigrationScanner.js';
 
-// Mock dependencies
-jest.mock('../../../options/UIManager.js');
-jest.mock('../../../options/MigrationScanner.js');
+jest.mock('../../../options/MigrationScanner.js', () => {
+  const actualObj = jest.requireActual('../../../options/MigrationScanner.js');
+
+  const mockScannerInstance = {
+    scanStorage: jest.fn(),
+  };
+
+  const MockClass = jest.fn().mockImplementation(() => mockScannerInstance);
+  MockClass.truncateUrl = actualObj.MigrationScanner.truncateUrl;
+  MockClass.requestBatchMigration = jest.fn();
+
+  return {
+    ...actualObj,
+    MigrationScanner: MockClass,
+    mockScannerInstance, // Export it so tests can access it
+  };
+});
 
 describe('MigrationTool', () => {
   let migrationTool = null;
@@ -36,19 +50,22 @@ describe('MigrationTool', () => {
         <span id="migration-progress-text">0%</span>
       </div>
       <div id="migration-result"></div>
+      <section id="pending-migration-section" style="display: none">
+        <div id="pending-migration-list"></div>
+      </section>
+      <section id="failed-migration-section" style="display: none">
+        <div id="failed-migration-list"></div>
+      </section>
     `;
 
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
 
-    // Mock scanner instance
-    mockScanner = {
-      scanStorage: jest.fn(),
-    };
+    // 從 mock 中取得我們剛剛建立的實例
+    const { mockScannerInstance } = require('../../../options/MigrationScanner.js');
+    mockScanner = mockScannerInstance;
 
     MigrationScanner.requestBatchMigration = jest.fn();
-
-    MigrationScanner.mockImplementation(() => mockScanner);
 
     migrationTool = new MigrationTool(mockUiManager);
     migrationTool.init();
@@ -135,10 +152,11 @@ describe('MigrationTool', () => {
     });
   });
 
-  describe('truncateUrl', () => {
+  describe('truncateUrl (已移至 MigrationScanner.truncateUrl)', () => {
     test('截斷過長的 URL', () => {
+      // MigrationTool.truncateUrl 已移除，UI 改用 MigrationScanner.truncateUrl(url, 60)
       const longUrl = 'https://example.com/very/long/path/to/some/resource/that/exceeds/the/limit';
-      const truncated = MigrationTool.truncateUrl(longUrl, 60);
+      const truncated = MigrationScanner.truncateUrl(longUrl, 60);
 
       expect(truncated.length).toBeLessThanOrEqual(60);
       expect(truncated).toContain('...');
@@ -146,7 +164,7 @@ describe('MigrationTool', () => {
 
     test('保留短 URL 不變', () => {
       const shortUrl = 'https://example.com';
-      const result = MigrationTool.truncateUrl(shortUrl, 60);
+      const result = MigrationScanner.truncateUrl(shortUrl, 60);
 
       expect(result).toBe(shortUrl);
     });
@@ -180,14 +198,20 @@ describe('MigrationTool Extended', () => {
         <span id="migration-progress-text">0%</span>
       </div>
       <div id="migration-result"></div>
+      <section id="pending-migration-section" style="display: none">
+        <div id="pending-migration-list"></div>
+      </section>
+      <section id="failed-migration-section" style="display: none">
+        <div id="failed-migration-list"></div>
+      </section>
     `;
 
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
 
-    mockScanner = { scanStorage: jest.fn() };
+    const { mockScannerInstance } = require('../../../options/MigrationScanner.js');
+    mockScanner = mockScannerInstance;
     MigrationScanner.requestBatchMigration = jest.fn();
-    MigrationScanner.mockImplementation(() => mockScanner);
 
     migrationTool = new MigrationTool(mockUiManager);
     migrationTool.init();
@@ -251,16 +275,79 @@ describe('MigrationTool Extended', () => {
     });
   });
 
-  describe('truncateUrl extended', () => {
+  describe('truncateUrl extended (委託 MigrationScanner)', () => {
     test('應處理空 URL', () => {
-      const result = MigrationTool.truncateUrl('', 60);
+      const result = MigrationScanner.truncateUrl('', 60);
       expect(result).toBe('');
     });
 
     test('應處理臨界長度', () => {
       const url = 'a'.repeat(60);
-      const result = MigrationTool.truncateUrl(url, 60);
+      const result = MigrationScanner.truncateUrl(url, 60);
       expect(result).toHaveLength(60);
+    });
+  });
+
+  describe('truncateUrl rendering coverage', () => {
+    test('showBatchMigrationResult 應透過 MigrationScanner.truncateUrl 渲染成功項目 URL', () => {
+      const truncateSpy = jest
+        .spyOn(MigrationScanner, 'truncateUrl')
+        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
+
+      migrationTool.showBatchMigrationResult({
+        success: 1,
+        details: [
+          {
+            status: 'success',
+            url: 'https://example.com/success',
+            count: 2,
+            pending: 1,
+          },
+        ],
+      });
+
+      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/success', 60);
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.textContent).toContain('cut(https://example.com/success,60)');
+      truncateSpy.mockRestore();
+    });
+
+    test('renderPendingList 應透過 MigrationScanner.truncateUrl 渲染待完成 URL', () => {
+      const truncateSpy = jest
+        .spyOn(MigrationScanner, 'truncateUrl')
+        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
+
+      migrationTool.renderPendingList([
+        {
+          url: 'https://example.com/pending',
+          totalCount: 3,
+          pendingCount: 1,
+        },
+      ]);
+
+      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/pending', 60);
+      const pendingList = document.querySelector('#pending-migration-list');
+      expect(pendingList.textContent).toContain('cut(https://example.com/pending,60)');
+      truncateSpy.mockRestore();
+    });
+
+    test('renderFailedList 應透過 MigrationScanner.truncateUrl 渲染失敗 URL', () => {
+      const truncateSpy = jest
+        .spyOn(MigrationScanner, 'truncateUrl')
+        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
+
+      migrationTool.renderFailedList([
+        {
+          url: 'https://example.com/failed',
+          totalCount: 3,
+          failedCount: 2,
+        },
+      ]);
+
+      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/failed', 60);
+      const failedList = document.querySelector('#failed-migration-list');
+      expect(failedList.textContent).toContain('cut(https://example.com/failed,60)');
+      truncateSpy.mockRestore();
     });
   });
 });
