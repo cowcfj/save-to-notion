@@ -25,6 +25,24 @@ describe('migrationMetadataUtils', () => {
       expect(hasNotionData({ title: 'no-notion' })).toBe(false);
       expect(hasNotionData(null)).toBe(false);
     });
+
+    test('should return true when notion nested fields exist', () => {
+      expect(
+        hasNotionData({
+          notion: {
+            pageId: 'nested-page-1',
+            url: 'https://notion.so/nested-page-1',
+            title: 'Nested Title',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        })
+      ).toBe(true);
+    });
+
+    test('should return false when notion nested object is null', () => {
+      expect(hasNotionData({ notion: null, highlights: [{ id: 'h1' }] })).toBe(false);
+    });
   });
 
   describe('isSameNotionPage', () => {
@@ -51,6 +69,38 @@ describe('migrationMetadataUtils', () => {
 
     test('should return null when only one side has pageId or notionUrl', () => {
       expect(isSameNotionPage({ pageId: 'id-1' }, { notionUrl: 'https://notion.so/a' })).toBeNull();
+    });
+
+    test('should compare correctly between flat and nested notion fields', () => {
+      expect(
+        isSameNotionPage(
+          { notionPageId: 'mixed-id', notionUrl: 'https://notion.so/flat' },
+          { notion: { pageId: 'mixed-id', url: 'https://notion.so/nested' } }
+        )
+      ).toBe(true);
+
+      expect(
+        isSameNotionPage(
+          { notionUrl: 'https://notion.so/flat-a' },
+          { notion: { url: 'https://notion.so/flat-b' } }
+        )
+      ).toBe(false);
+    });
+
+    test('should compare correctly when both sides use nested notion fields', () => {
+      expect(
+        isSameNotionPage(
+          { notion: { pageId: 'nested-id-1', url: 'https://notion.so/a' } },
+          { notion: { pageId: 'nested-id-1', url: 'https://notion.so/b' } }
+        )
+      ).toBe(true);
+
+      expect(
+        isSameNotionPage(
+          { notion: { pageId: 'nested-id-1', url: 'https://notion.so/a' } },
+          { notion: { pageId: 'nested-id-2', url: 'https://notion.so/a' } }
+        )
+      ).toBe(false);
     });
   });
 });

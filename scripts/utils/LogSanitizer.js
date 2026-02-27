@@ -63,8 +63,23 @@ const SENSITIVE_QUERY_KEYS = [
   'passwd',
   'auth',
   'secret',
+  'authorization',
+  'authorization_token',
+  'bearer',
+  'private_token',
+  'credential',
+  'credentials',
 ];
 const SENSITIVE_QUERY_KEYS_SET = new Set(SENSITIVE_QUERY_KEYS.map(key => key.toLowerCase()));
+const SENSITIVE_QUERY_KEY_PARTS = new Set([
+  'token',
+  'secret',
+  'auth',
+  'password',
+  'passwd',
+  'credential',
+  'credentials',
+]);
 
 function _safeDecodeUrlComponent(value) {
   try {
@@ -72,6 +87,21 @@ function _safeDecodeUrlComponent(value) {
   } catch {
     return value;
   }
+}
+
+function _isSensitiveQueryKey(queryKey) {
+  if (!queryKey || typeof queryKey !== 'string') {
+    return false;
+  }
+
+  const lowerKey = queryKey.replaceAll('.', '_').toLowerCase();
+
+  if (SENSITIVE_QUERY_KEYS_SET.has(lowerKey)) {
+    return true;
+  }
+
+  const parts = lowerKey.split(/[_-]+/).filter(Boolean);
+  return parts.length > 1 && parts.some(part => SENSITIVE_QUERY_KEY_PARTS.has(part));
 }
 
 function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LABEL) {
@@ -87,8 +117,8 @@ function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LAB
     }
 
     const rawKey = pair.slice(0, equalIndex);
-    const decodedKey = _safeDecodeUrlComponent(rawKey).toLowerCase();
-    if (!SENSITIVE_QUERY_KEYS_SET.has(decodedKey)) {
+    const decodedKey = _safeDecodeUrlComponent(rawKey);
+    if (!_isSensitiveQueryKey(decodedKey)) {
       return pair;
     }
 

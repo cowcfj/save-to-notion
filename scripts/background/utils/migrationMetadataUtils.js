@@ -4,8 +4,16 @@
  * @param {object|null} savedData
  * @returns {boolean}
  */
+function _extractNotionPageId(savedData) {
+  return savedData?.notionPageId || savedData?.pageId || savedData?.notion?.pageId || null;
+}
+
+function _extractNotionUrl(savedData) {
+  return savedData?.notionUrl || savedData?.notion?.url || null;
+}
+
 export function hasNotionData(savedData) {
-  return Boolean(savedData?.notionPageId || savedData?.pageId || savedData?.notionUrl);
+  return Boolean(_extractNotionPageId(savedData) || _extractNotionUrl(savedData));
 }
 
 /**
@@ -16,15 +24,15 @@ export function hasNotionData(savedData) {
  * @returns {boolean|null}
  */
 export function isSameNotionPage(stableSavedData, legacySavedData) {
-  const stablePageId = stableSavedData?.notionPageId || stableSavedData?.pageId || null;
-  const legacyPageId = legacySavedData?.notionPageId || legacySavedData?.pageId || null;
+  const stablePageId = _extractNotionPageId(stableSavedData);
+  const legacyPageId = _extractNotionPageId(legacySavedData);
 
   if (stablePageId && legacyPageId) {
     return stablePageId === legacyPageId;
   }
 
-  const stableUrl = stableSavedData?.notionUrl || null;
-  const legacyUrl = legacySavedData?.notionUrl || null;
+  const stableUrl = _extractNotionUrl(stableSavedData);
+  const legacyUrl = _extractNotionUrl(legacySavedData);
   if (stableUrl && legacyUrl) {
     return stableUrl === legacyUrl;
   }

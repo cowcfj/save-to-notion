@@ -470,6 +470,27 @@ describe('LogSanitizer', () => {
       // 非追蹤參數應保留
       expect(sanitized).toContain('keep=1');
     });
+
+    test('sanitizeUrlForLogging 應遮蔽擴充後的高風險 query keys 並保留非敏感參數', () => {
+      const url =
+        'https://example.com/page?authorization=abc&private_token=pt-1&credential=cred-x&page=2';
+      const sanitized = sanitizeUrlForLogging(url);
+
+      expect(sanitized).toContain('authorization=[REDACTED_TOKEN]');
+      expect(sanitized).toContain('private_token=[REDACTED_TOKEN]');
+      expect(sanitized).toContain('credential=[REDACTED_TOKEN]');
+      expect(sanitized).toContain('page=2');
+    });
+
+    test('sanitizeUrlForLogging 應僅在邊界規則命中時遮蔽，避免過度脫敏', () => {
+      const url = 'https://example.com/page?session_token=abc123&tokenCount=42&author=alice&keep=1';
+      const sanitized = sanitizeUrlForLogging(url);
+
+      expect(sanitized).toContain('session_token=[REDACTED_TOKEN]');
+      expect(sanitized).toContain('tokenCount=42');
+      expect(sanitized).toContain('author=alice');
+      expect(sanitized).toContain('keep=1');
+    });
   });
 
   describe('URL userinfo 脫敏', () => {

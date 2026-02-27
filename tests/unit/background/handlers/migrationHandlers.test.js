@@ -304,12 +304,14 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.updateHighlights).toHaveBeenCalledWith('https://a.com/page-only', [
         { id: 'p1', needsRangeInfo: true },
       ]);
+      expect(mockStorageService.updateHighlights).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
           results: expect.objectContaining({ success: 1, failed: 0 }),
         })
       );
+      expect(sendResponse).toHaveBeenCalledTimes(1);
     });
 
     test('應該在計算出穩定 URL 時，委託統一管線遷移到穩定 URL', async () => {
@@ -559,6 +561,99 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(oldUrl, stableUrl);
     });
 
+    test('stable 已有 highlights 且缺 notion 時，setSavedPageData 失敗應回報 failed item', async () => {
+      const oldUrl = 'https://a.com/original-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({ highlights: [{ id: '1' }] });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: '2' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            notionPageId: 'legacy-page',
+            notionUrl: 'https://notion.so/legacy-page',
+            title: 'Legacy Page',
+          });
+        }
+        return Promise.resolve(null);
+      });
+      mockStorageService.setSavedPageData.mockRejectedValueOnce(
+        new Error('set saved metadata failed')
+      );
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+      expect(response.results.success).toBe(0);
+      expect(response.results.failed).toBe(1);
+      expect(response.results.details[0]).toEqual(
+        expect.objectContaining({
+          status: 'failed',
+          reason: 'set saved metadata failed',
+        })
+      );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '批量遷移失敗',
+        expect.objectContaining({
+          action: 'migration_batch',
+        })
+      );
+    });
+
+    test('stable 已有 highlights 且缺 notion 時，setUrlAlias 失敗不應阻斷主流程', async () => {
+      const oldUrl = 'https://a.com/original-slug';
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({ highlights: [{ id: '1' }] });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: '2' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === oldUrl) {
+          return Promise.resolve({
+            notionPageId: 'legacy-page',
+            notionUrl: 'https://notion.so/legacy-page',
+          });
+        }
+        return Promise.resolve(null);
+      });
+      mockStorageService.setUrlAlias.mockRejectedValueOnce(new Error('alias write failed'));
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+      expect(response.results.success).toBe(1);
+      expect(response.results.failed).toBe(0);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '設定 URL alias 失敗（不影響主流程）',
+        expect.objectContaining({
+          action: 'migration_batch',
+        })
+      );
+    });
+
     test('stable/legacy notion 衝突時應保留 stable 並記錄 warning', async () => {
       const oldUrl = 'https://a.com/original-slug';
       const stableUrl = 'https://a.com/stable-part';
@@ -599,6 +694,7 @@ describe('migrationHandlers', () => {
         'stable/legacy notion 衝突，保留 stable 資料',
         expect.objectContaining({ action: 'migration_batch' })
       );
+      expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(oldUrl, stableUrl);
     });
 
     test('stable/legacy 無法判斷是否同頁時不應記錄衝突 warning', async () => {
