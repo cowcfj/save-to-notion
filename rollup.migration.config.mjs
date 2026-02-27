@@ -15,6 +15,7 @@ export default {
     file: 'dist/migration-executor.js',
     format: 'iife',
     name: 'MigrationExecutor',
+    exports: 'named',
     sourcemap: isDev ? 'inline' : true,
     banner: '/* eslint-disable */\n/* Save to Notion - Migration Executor */',
   },
