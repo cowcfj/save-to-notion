@@ -80,6 +80,7 @@ jobs:
 
           if (minimatchEntries.length === 0) {
             console.warn('⚠️ 未在 package-lock.json 中找到 minimatch，略過版本檢查。');
+            process.exit(0);
           }
 
           const uniqueVersions = [...new Set(minimatchEntries.map(entry => entry.version))].sort((a, b) =>
