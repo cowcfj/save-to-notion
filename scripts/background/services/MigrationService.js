@@ -136,29 +136,41 @@ export class MigrationService {
    * @param {string} params.legacyUrl
    * @param {object|null} params.stableSavedData
    * @param {object|null} params.legacySavedData
+   * @param {object} [options={}]
+   * @param {object} [options.logContext={}] - 額外日志上下文
+   * @param {object} [options.logMessages={}] - 自訂日志文案
+   * @param {string} [options.logMessages.supplemented] - 補遷移成功文案
+   * @param {string} [options.logMessages.conflict] - metadata 衝突文案
    * @returns {Promise<boolean>} 是否有補遷移 saved metadata
    * @private
    */
-  async _supplementStableNotionIfNeeded(params) {
+  async _supplementStableNotionIfNeeded(params, options = {}) {
     const { stableUrl, legacyUrl, stableSavedData, legacySavedData } = params;
+    const { logContext = {}, logMessages = {} } = options;
+    const supplementedMessage =
+      logMessages.supplemented ?? 'Supplemented notion metadata on stable URL';
+    const conflictMessage =
+      logMessages.conflict ?? 'Stable/legacy notion metadata conflict, keeping stable data';
 
     const hasStableNotion = hasNotionData(stableSavedData);
     const hasLegacyNotion = hasNotionData(legacySavedData);
 
     if (!hasStableNotion && hasLegacyNotion) {
       await this.storageService.setSavedPageData(stableUrl, legacySavedData);
-      Logger.info('Supplemented notion metadata on stable URL', {
+      Logger.info(supplementedMessage, {
         stable: sanitizeUrlForLogging(stableUrl),
         legacy: sanitizeUrlForLogging(legacyUrl),
+        ...logContext,
       });
       return true;
     }
 
     const samePage = isSameNotionPage(stableSavedData, legacySavedData);
     if (hasStableNotion && hasLegacyNotion && samePage === false) {
-      Logger.warn('Stable/legacy notion metadata conflict, keeping stable data', {
+      Logger.warn(conflictMessage, {
         stable: sanitizeUrlForLogging(stableUrl),
         legacy: sanitizeUrlForLogging(legacyUrl),
+        ...logContext,
       });
     }
 
@@ -455,7 +467,7 @@ export class MigrationService {
    */
   async migrateBatchUrl(url) {
     const snapshot = await this._buildStorageSnapshot(url);
-    const extraction = MigrationService._extractLegacyHighlights(snapshot.legacyData, url);
+    const extraction = this._extractLegacyHighlights(snapshot.legacyData, url);
     if (extraction.skipResult) {
       return extraction.skipResult;
     }
@@ -515,7 +527,7 @@ export class MigrationService {
    * @returns {{ skipResult?: object, oldHighlights?: Array }}
    * @private
    */
-  static _extractLegacyHighlights(data, url) {
+  _extractLegacyHighlights(data, url) {
     if (!data) {
       return {
         skipResult: {
@@ -526,12 +538,7 @@ export class MigrationService {
       };
     }
 
-    let oldHighlights = [];
-    if (Array.isArray(data)) {
-      oldHighlights = data;
-    } else if (Array.isArray(data?.highlights)) {
-      oldHighlights = data.highlights;
-    }
+    const oldHighlights = this._normalizeHighlights(data);
 
     if (oldHighlights.length === 0) {
       return {
@@ -587,37 +594,34 @@ export class MigrationService {
       return false;
     }
 
-    const [stableSavedData, legacySavedData] = await Promise.all([
-      this.storageService.getSavedPageData(stableUrl),
-      this.storageService.getSavedPageData(originalUrl),
-    ]);
-
-    const hasStableNotion = hasNotionData(stableSavedData);
-    const hasLegacyNotion = hasNotionData(legacySavedData);
-
     let supplemented = false;
-    if (!hasStableNotion && hasLegacyNotion) {
-      await this.storageService.setSavedPageData(stableUrl, legacySavedData);
-      Logger.info('已補遷移 saved metadata 到穩定 URL', {
-        action: 'migration_batch',
-        from: sanitizeUrlForLogging(originalUrl),
-        to: sanitizeUrlForLogging(stableUrl),
-      });
-      supplemented = true;
-    } else if (hasStableNotion && hasLegacyNotion) {
-      const samePage = isSameNotionPage(stableSavedData, legacySavedData);
-      if (samePage === false) {
-        Logger.warn('stable/legacy notion 衝突，保留 stable 資料', {
-          action: 'migration_batch',
-          stableUrl: sanitizeUrlForLogging(stableUrl),
-          legacyUrl: sanitizeUrlForLogging(originalUrl),
-        });
-      }
-    }
+    try {
+      const [stableSavedData, legacySavedData] = await Promise.all([
+        this.storageService.getSavedPageData(stableUrl),
+        this.storageService.getSavedPageData(originalUrl),
+      ]);
 
-    // 無論是否補遷移都設定 alias
-    await this._setUrlAliasSafe(originalUrl, stableUrl);
-    return supplemented;
+      supplemented = await this._supplementStableNotionIfNeeded(
+        {
+          stableUrl,
+          legacyUrl: originalUrl,
+          stableSavedData,
+          legacySavedData,
+        },
+        {
+          logContext: { action: 'migration_batch' },
+          logMessages: {
+            supplemented: '已補遷移 saved metadata 到穩定 URL',
+            conflict: 'stable/legacy notion 衝突，保留 stable 資料',
+          },
+        }
+      );
+
+      return supplemented;
+    } finally {
+      // 無論是否補遷移（甚至補遷移過程失敗）都設定 alias
+      await this._setUrlAliasSafe(originalUrl, stableUrl);
+    }
   }
 
   /**
