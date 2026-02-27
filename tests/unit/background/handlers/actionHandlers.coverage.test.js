@@ -171,6 +171,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     mockTabService = {
       getPreloaderData: jest.fn().mockResolvedValue(null),
+      consumeDeletionConfirmation: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
       resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
         Promise.resolve({
           stableUrl: url,
@@ -380,6 +383,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
       mockNotionService.checkPageExists.mockResolvedValue(false); // Page deleted
+      mockTabService.consumeDeletionConfirmation.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
       mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
 
       await handlers.savePage({}, internalSender, sendResponse);
@@ -413,6 +420,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
       mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
+      mockTabService.consumeDeletionConfirmation.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
       mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
 
       await handlers.savePage({}, internalSender, sendResponse);
@@ -421,6 +432,103 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ created: true, recreated: true })
+      );
+    });
+  });
+
+  describe('SAVE_PAGE_FROM_TOOLBAR Handler', () => {
+    const mockContentResult = {
+      title: 'Test Page',
+      blocks: [{ type: 'paragraph' }],
+      siteIcon: 'icon.png',
+    };
+
+    beforeEach(() => {
+      mockStorageService.getConfig.mockResolvedValue({
+        notionApiKey: 'secret-key',
+        notionDataSourceId: 'db-123',
+      });
+      mockInjectionService.collectHighlights.mockResolvedValue([]);
+      mockPageContentService.extractContent.mockResolvedValue(mockContentResult);
+    });
+
+    test('應該在不是 Content Script 的情況下拒絕', async () => {
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, { id: 'mock-ext-id' }, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('必須在標籤頁上下文中'),
+        })
+      );
+    });
+
+    test('應該在受限頁面返回錯誤', async () => {
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR(
+        {},
+        { id: 'mock-ext-id', tab: { id: 1, url: 'chrome://extensions/' } },
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+        })
+      );
+    });
+
+    test('應該在缺少 API Key 時失敗', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getConfig.mockResolvedValue({});
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+        })
+      );
+    });
+
+    test('應該在有 API Key 但缺少 Data Source ID 時失敗', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'valid-key' });
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+        })
+      );
+    });
+
+    test('正常保存新頁面', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
+      mockNotionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'notion.so/new',
+      });
+
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
+
+      expect(mockNotionService.createPage).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('保存時內容提取失敗', async () => {
+      const sendResponse = jest.fn();
+      mockPageContentService.extractContent.mockRejectedValue(new Error('Extract failed'));
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED,
+        })
       );
     });
   });

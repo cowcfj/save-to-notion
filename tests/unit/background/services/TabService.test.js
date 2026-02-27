@@ -1,9 +1,16 @@
-/**
+/*
+ * @jest-environment jsdom
+ * @jest-environment-options {"url": "https://example.com/"}
+ *
  * TabService 單元測試
  */
 
-import { TabService } from '../../../../scripts/background/services/TabService.js';
+import {
+  TabService,
+  _migrationScript,
+} from '../../../../scripts/background/services/TabService.js';
 import Logger from '../../../../scripts/utils/Logger.js';
+import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
@@ -62,7 +69,10 @@ globalThis.chrome = {
       removeListener: jest.fn(),
     },
     get: jest.fn(),
-    sendMessage: jest.fn(),
+    sendMessage: jest.fn().mockReturnValue(Promise.resolve()),
+    query: jest.fn().mockResolvedValue([]),
+    create: jest.fn().mockResolvedValue({}),
+    remove: jest.fn().mockResolvedValue(),
   },
 };
 
@@ -111,11 +121,21 @@ describe('TabService', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize with default options', () => {
+    it('should initialize with default options', async () => {
       const defaultService = new TabService();
       expect(defaultService.logger).toBe(Logger);
       expect(typeof defaultService.normalizeUrl).toBe('function');
       expect(typeof defaultService.getSavedPageData).toBe('function');
+
+      // Call defaults to satisfy function coverage
+      expect(defaultService.normalizeUrl('test')).toBe('test');
+      expect(await defaultService.getSavedPageData()).toBeNull();
+      expect(defaultService.isRestrictedUrl()).toBe(false);
+      expect(defaultService.isRecoverableError()).toBe(false);
+      expect(await defaultService.checkPageExists()).toBeNull();
+      expect(await defaultService.getApiKey()).toBeNull();
+      await expect(defaultService.clearPageState()).resolves.toBeUndefined();
+      await expect(defaultService.setSavedPageData()).resolves.toBeUndefined();
     });
 
     it('should accept custom options', () => {
@@ -254,7 +274,7 @@ describe('TabService', () => {
         );
       });
 
-      it('should clear local state if Notion page is deleted', async () => {
+      it('should clear local state only after two consecutive false checks', async () => {
         const expiredData = {
           notionPageId: 'page-123',
           lastVerifiedAt: Date.now() - 70_000,
@@ -263,7 +283,9 @@ describe('TabService', () => {
         service.checkPageExists = jest.fn().mockResolvedValue(false); // 模擬已刪除
 
         await service.updateTabStatus(1, 'https://example.com');
+        expect(service.clearPageState).not.toHaveBeenCalled();
 
+        await service.updateTabStatus(1, 'https://example.com');
         expect(service.clearPageState).toHaveBeenCalledWith('https://example.com');
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       });
@@ -499,6 +521,93 @@ describe('TabService', () => {
       );
     });
   });
+
+  describe('Wrappers (waitForTabComplete, queryTabs, createTab, removeTab)', () => {
+    it('queryTabs should wrap chrome.tabs.query', async () => {
+      chrome.tabs.query = jest.fn().mockResolvedValue([]);
+      await service.queryTabs({ active: true });
+      expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true });
+    });
+
+    it('createTab should wrap chrome.tabs.create', async () => {
+      chrome.tabs.create = jest.fn().mockResolvedValue({});
+      await service.createTab({ url: 'https://test.com' });
+      expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://test.com' });
+    });
+
+    it('removeTab should wrap chrome.tabs.remove', async () => {
+      chrome.tabs.remove = jest.fn().mockResolvedValue();
+      await service.removeTab(1);
+      expect(chrome.tabs.remove).toHaveBeenCalledWith(1);
+    });
+
+    it('waitForTabComplete should call _waitForTabCompilation', async () => {
+      const waitForSpy = jest.spyOn(service, '_waitForTabCompilation').mockResolvedValue(true);
+      await service.waitForTabComplete(1);
+      expect(waitForSpy).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('resolveTabUrl edges', () => {
+    afterEach(() => {
+      urlUtils.resolveStorageUrl.mockRestore?.();
+      urlUtils.isRootUrl.mockRestore?.();
+    });
+
+    it('應處理 isRootUrl 為 true 的情況', async () => {
+      urlUtils.resolveStorageUrl.mockReturnValueOnce('https://example.com/');
+      urlUtils.isRootUrl.mockReturnValueOnce(true);
+
+      const res = await service.resolveTabUrl(1, 'https://example.com/?some=param');
+
+      expect(res.hasStableUrl).toBe(false);
+      expect(res.stableUrl).toBe('https://example.com/?some=param'); // fallbacks to originalUrl
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Blocked root URL as stableUrl'),
+        expect.anything()
+      );
+    });
+
+    it('應執行 migrationService.migrateStorageKey', async () => {
+      urlUtils.resolveStorageUrl.mockReturnValueOnce('https://example.com/stable');
+      urlUtils.isRootUrl.mockReturnValueOnce(false);
+
+      const mockMigrationService = { migrateStorageKey: jest.fn().mockResolvedValue(true) };
+      const res = await service.resolveTabUrl(1, 'https://example.com/?a=1', mockMigrationService);
+
+      expect(res.hasStableUrl).toBe(true);
+      expect(res.migrated).toBe(true);
+      expect(mockMigrationService.migrateStorageKey).toHaveBeenCalledWith(
+        'https://example.com/stable',
+        'https://example.com/?a=1'
+      );
+    });
+  });
+
+  describe('_sendStableUrl behavior', () => {
+    it('_sendStableUrl 應阻擋 root url 寫入', () => {
+      urlUtils.isRootUrl.mockReturnValueOnce(true);
+
+      service._sendStableUrl(1, 'https://example.com/');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Blocked SET_STABLE_URL'),
+        expect.anything()
+      );
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('_sendStableUrl 應正常發送訊息', () => {
+      urlUtils.isRootUrl.mockReturnValueOnce(false);
+      chrome.tabs.sendMessage.mockReturnValue(Promise.resolve());
+
+      service._sendStableUrl(1, 'https://example.com/page');
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/page',
+      });
+    });
+  });
+
   describe('Coverage Improvements', () => {
     it('_waitForTabCompilation should return null if chrome.tabs.get fails', async () => {
       chrome.tabs.get.mockRejectedValue(new Error('Get tab failed'));
@@ -543,10 +652,9 @@ describe('TabService', () => {
 
       // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
       // 使用 import 的 mock 對象，避免 require 與手動還原
-      const { resolveStorageUrl } = await import('../../../../scripts/utils/urlUtils.js');
       // 重要：在測試結束後還原 mock，避免影響後續測試 (如 getPreloaderData edge cases)
-      const originalImpl = resolveStorageUrl.getMockImplementation();
-      resolveStorageUrl.mockReturnValue(mockStableUrl);
+      const originalImpl = urlUtils.resolveStorageUrl.getMockImplementation();
+      urlUtils.resolveStorageUrl.mockReturnValue(mockStableUrl);
 
       try {
         // 2. 配置 service 的 URL 標準化行為
@@ -592,10 +700,10 @@ describe('TabService', () => {
       } finally {
         // 還原 Mock
         if (originalImpl) {
-          resolveStorageUrl.mockImplementation(originalImpl);
+          urlUtils.resolveStorageUrl.mockImplementation(originalImpl);
         } else {
-          resolveStorageUrl.mockReset(); // 或者 mockBack to default implementation if needed
-          resolveStorageUrl.mockImplementation(url => url); // Restore default mock behavior defined at top of file
+          urlUtils.resolveStorageUrl.mockReset(); // 或者 mockBack to default implementation if needed
+          urlUtils.resolveStorageUrl.mockImplementation(url => url); // Restore default mock behavior defined at top of file
         }
       }
     });
@@ -748,6 +856,107 @@ describe('TabService', () => {
 
       jest.useRealTimers();
       updateStatusSpy.mockRestore();
+    });
+  });
+
+  describe('_migrationScript isolated', () => {
+    let originalHref;
+    let store = {};
+
+    beforeEach(() => {
+      originalHref = globalThis.location.href;
+      // Use history.pushState instead of deleting location
+      globalThis.history.pushState({}, 'Test Title', 'https://example.com/test?utm_source=123');
+
+      store = {};
+      jest.spyOn(Storage.prototype, 'getItem').mockImplementation(k => store[k] || null);
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation((k, v) => (store[k] = String(v)));
+      jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(k => delete store[k]);
+      jest.spyOn(Storage.prototype, 'key').mockImplementation(i => Object.keys(store)[i] || null);
+      jest
+        .spyOn(Storage.prototype, 'length', 'get')
+        .mockImplementation(() => Object.keys(store).length);
+    });
+
+    afterEach(() => {
+      globalThis.history.pushState({}, 'Original', originalHref);
+      jest.restoreAllMocks();
+    });
+
+    it('應處理 trailing slash', () => {
+      globalThis.history.pushState({}, 'Slash', 'https://example.com/test/');
+      store['highlights_https://example.com/test'] = '[{"text":"hi"}]';
+      const res = _migrationScript([]);
+      expect(res.migrated).toBe(true);
+    });
+
+    it('應處理 normalize 拋出例外', () => {
+      globalThis.history.pushState({}, 'Test', 'https://example.com/test');
+      const originalURL = globalThis.URL;
+      try {
+        globalThis.URL = jest.fn().mockImplementation(() => {
+          throw new Error('mock error');
+        });
+
+        store['highlights_https://example.com/test'] = '[{"text":"hi"}]';
+
+        const res = _migrationScript([]);
+        expect(res.migrated).toBe(true);
+      } finally {
+        globalThis.URL = originalURL;
+      }
+    });
+
+    it('應處理取得的 raw 資料為 falsy 的情況', () => {
+      globalThis.history.pushState({}, 'Test', 'https://example.com/test');
+      globalThis.localStorage.setItem('highlights_https://example.com/test', ''); // empty string
+      const res = _migrationScript([]);
+      expect(res.migrated).toBe(false);
+    });
+
+    it('應找不到 key 時返回 migrated: false', () => {
+      const res = _migrationScript(['utm_source']);
+      expect(res.migrated).toBe(false);
+    });
+
+    it('應成功遷移資料 (Highlights_ 開頭)', () => {
+      globalThis.localStorage.setItem(
+        'highlights_https://example.com/test',
+        JSON.stringify([{ text: 'hi' }])
+      );
+      const res = _migrationScript(['utm_source']);
+      expect(res.migrated).toBe(true);
+      expect(res.data[0].text).toBe('hi');
+      expect(globalThis.localStorage.getItem('highlights_https://example.com/test')).toBeNull(); // removed
+    });
+
+    it('應成功遷移資料 (Fallback 遍歷)', () => {
+      globalThis.history.pushState({}, 'Other', 'https://example.com/other');
+      globalThis.localStorage.setItem('highlights_some-old-key', JSON.stringify([{ text: 'hi2' }]));
+      const res = _migrationScript([]);
+      expect(res.migrated).toBe(true);
+      expect(res.data[0].text).toBe('hi2');
+    });
+
+    it('解析錯誤應被捕捉並返回 false', () => {
+      globalThis.localStorage.setItem('highlights_https://example.com/test', 'invalid-json');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const res = _migrationScript(['utm_source']);
+      expect(res.migrated).toBe(false);
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('異常應被捕獲並返回 false', () => {
+      Storage.prototype.getItem.mockImplementation(() => {
+        throw new Error('simulate error');
+      });
+      globalThis.localStorage.setItem('highlights_https://example.com/test', 'some json');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const res = _migrationScript(['utm_source']);
+      expect(res.migrated).toBe(false);
+      expect(res.error).toBeDefined();
+      consoleSpy.mockRestore();
     });
   });
 });

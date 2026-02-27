@@ -3,6 +3,7 @@
  */
 
 import { MigrationService } from '../../../../scripts/background/services/MigrationService.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -19,6 +20,15 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => `safe://${url}`),
 }));
 
+jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+  isRootUrl: jest.fn(() => false),
+}));
+
+jest.mock('../../../../scripts/background/utils/migrationMetadataUtils.js', () => ({
+  hasNotionData: jest.fn(),
+  isSameNotionPage: jest.fn(),
+}));
+
 describe('MigrationService', () => {
   let service;
   let mockStorageService;
@@ -31,6 +41,7 @@ describe('MigrationService', () => {
     mockStorageService = {
       getSavedPageData: jest.fn(),
       setSavedPageData: jest.fn(),
+      setUrlAlias: jest.fn(),
       clearPageState: jest.fn(),
       clearLegacyKeys: jest.fn(),
       getHighlights: jest.fn(),
@@ -79,6 +90,16 @@ describe('MigrationService', () => {
       expect(await service.migrateStorageKey(null, legacyUrl)).toBe(false);
       expect(await service.migrateStorageKey(stableUrl, null)).toBe(false);
       expect(await service.migrateStorageKey(stableUrl, stableUrl)).toBe(false);
+    });
+
+    test('should block migration to root URL', async () => {
+      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
+      isRootUrl.mockReturnValueOnce(true);
+      expect(await service.migrateStorageKey('https://example.com/', legacyUrl)).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Blocked migration'),
+        expect.anything()
+      );
     });
 
     test('should return false if no legacy data exists', async () => {
@@ -139,7 +160,13 @@ describe('MigrationService', () => {
       );
     });
 
-    test('should block overwrite when target highlights are wrapped object', async () => {
+    test('should supplement notion metadata when target already has highlights', async () => {
+      const {
+        hasNotionData,
+      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      // legacyData is pageData, stableData is null. we want legacy to have notion, stable to not have notion.
+      hasNotionData.mockImplementation(data => data === pageData);
+
       mockStorageService.getSavedPageData.mockImplementation(url =>
         url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
       );
@@ -155,9 +182,101 @@ describe('MigrationService', () => {
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
+      expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(stableUrl, pageData);
       expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
       expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
+    });
+
+    test('should log conflict warning when stable/legacy notion are determined as different pages', async () => {
+      const {
+        hasNotionData,
+        isSameNotionPage,
+      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      hasNotionData.mockReturnValue(true);
+      isSameNotionPage.mockReturnValue(false);
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve({ notionPageId: 'other' })
+      );
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === legacyUrl) {
+          return Promise.resolve([]);
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: 'existing-1' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      await service.migrateStorageKey(stableUrl, legacyUrl);
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        'Stable/legacy notion metadata conflict, keeping stable data',
+        expect.anything()
+      );
+    });
+
+    test('should not log conflict warning when stable/legacy notion cannot be determined as same page', async () => {
+      const {
+        hasNotionData,
+        isSameNotionPage,
+      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      hasNotionData.mockReturnValue(true);
+      isSameNotionPage.mockReturnValue(null);
+
+      mockStorageService.getSavedPageData.mockImplementation(url => {
+        if (url === legacyUrl) {
+          return Promise.resolve({ notionUrl: 'https://notion.so/legacy-only-url' });
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ notionPageId: 'stable-only-page-id' });
+        }
+        return Promise.resolve(null);
+      });
+      mockStorageService.getHighlights.mockImplementation(url => {
+        if (url === legacyUrl) {
+          return Promise.resolve([]);
+        }
+        if (url === stableUrl) {
+          return Promise.resolve({ highlights: [{ id: 'existing-1' }] });
+        }
+        return Promise.resolve(null);
+      });
+
+      await service.migrateStorageKey(stableUrl, legacyUrl);
+
+      expect(Logger.warn).not.toHaveBeenCalledWith(
+        'Stable/legacy notion metadata conflict, keeping stable data',
+        expect.anything()
+      );
+    });
+
+    test('should not throw if setUrlAlias is not a function or throws', async () => {
+      mockStorageService.setUrlAlias = undefined;
+      const {
+        hasNotionData,
+      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      hasNotionData.mockReturnValue(false);
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockResolvedValue(null);
+      mockStorageService.savePageDataAndHighlights.mockResolvedValue();
+      mockStorageService.clearLegacyKeys.mockResolvedValue();
+
+      let result = await service.migrateStorageKey(stableUrl, legacyUrl);
+      expect(result).toBe(true);
+
+      // Now test the catch block
+      mockStorageService.setUrlAlias = jest.fn().mockRejectedValue(new Error('alias err'));
+      result = await service.migrateStorageKey(stableUrl, legacyUrl);
+      expect(result).toBe(true);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to set URL alias'),
+        expect.anything()
+      );
     });
 
     test('should convert highlights format when convertFormat is enabled', async () => {
@@ -213,6 +332,34 @@ describe('MigrationService', () => {
         stableUrl,
         pageData,
         convertedHighlights
+      );
+    });
+
+    test('should skip conversion if formatConverter is active but not a function', async () => {
+      const legacyHighlights = [{ id: 'h-2' }];
+      const pageData = { notionPageId: 'page-123', title: 'Test Page' };
+      const legacyUrl = 'https://example.com/legacy';
+      const stableUrl = 'https://example.com/stable';
+
+      mockStorageService.getSavedPageData.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(pageData) : Promise.resolve(null)
+      );
+      mockStorageService.getHighlights.mockImplementation(url =>
+        url === legacyUrl ? Promise.resolve(legacyHighlights) : Promise.resolve(null)
+      );
+      mockStorageService.savePageDataAndHighlights.mockResolvedValue();
+      mockStorageService.clearLegacyKeys.mockResolvedValue();
+
+      const result = await service.migrateStorageKey(stableUrl, legacyUrl, {
+        convertFormat: true,
+        formatConverter: 'not-a-fn',
+      });
+
+      expect(result).toBe(true);
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        pageData,
+        legacyHighlights
       );
     });
 
@@ -407,14 +554,108 @@ describe('MigrationService', () => {
       expect(mockTabService.removeTab).not.toHaveBeenCalled();
     });
 
-    test('should handle create tab failure', async () => {
+    test('should treat nested migration outcome error as failure', async () => {
+      const existingTab = { id: 778, status: 'complete', url: targetUrl };
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
-      mockTabService.queryTabs.mockResolvedValue([]);
-      mockTabService.createTab.mockRejectedValue(new Error('Tab Error'));
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockInjectionService.injectAndExecute.mockResolvedValue();
+      mockInjectionService.injectWithResponse
+        .mockResolvedValueOnce({ ready: true })
+        .mockResolvedValueOnce({
+          success: true,
+          result: { error: 'Migration failed after max retries' },
+          statistics: { newHighlightsCreated: 0 },
+        });
 
       await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow(
-        'Tab Error'
+        'Migration failed after max retries'
       );
+      expect(mockTabService.removeTab).not.toHaveBeenCalled();
+    });
+
+    test('should treat rolled back migration result as failure', async () => {
+      const existingTab = { id: 779, status: 'complete', url: targetUrl };
+      mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockInjectionService.injectAndExecute.mockResolvedValue();
+      mockInjectionService.injectWithResponse
+        .mockResolvedValueOnce({ ready: true })
+        .mockResolvedValueOnce({
+          success: true,
+          result: { rolledBack: true, reason: 'verification_failed' },
+          statistics: { newHighlightsCreated: 0 },
+        });
+
+      await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow(
+        'Migration rolled back: verification_failed'
+      );
+      expect(mockTabService.removeTab).not.toHaveBeenCalled();
+    });
+
+    test('should execute the injectWithResponse callbacks properly for coverage', async () => {
+      const existingTab = { id: 888, status: 'complete', url: targetUrl };
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockStorageService.getHighlights.mockResolvedValue(['hi']);
+
+      // We will actually execute the callback passed to injectWithResponse
+      mockInjectionService.injectWithResponse.mockImplementation(async (_tabId, cb) => {
+        // Setup global mock state for _waitForScriptReady
+        globalThis.MigrationExecutor = class {
+          migrate() {
+            return Promise.resolve({ rolledBack: false });
+          }
+          getStatistics() {
+            return { newHighlightsCreated: 1 };
+          }
+        };
+        globalThis.HighlighterV2 = { manager: {} };
+
+        try {
+          return cb('exec_err', 'mgr_err');
+        } finally {
+          delete globalThis.MigrationExecutor;
+          delete globalThis.HighlighterV2;
+        }
+      });
+
+      const result = await service.executeContentMigration({ url: targetUrl }, sender);
+      expect(result.success).toBe(true);
+    });
+
+    test('should handle execution failure in injectWithResponse cb', async () => {
+      const existingTab = { id: 888, status: 'complete', url: targetUrl };
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockStorageService.getHighlights.mockResolvedValue(['hi']);
+
+      mockInjectionService.injectWithResponse.mockImplementation(async (_tabId, cb) => {
+        try {
+          delete globalThis.MigrationExecutor;
+          delete globalThis.HighlighterV2;
+          return cb('exec_err', 'mgr_err');
+        } finally {
+          delete globalThis.MigrationExecutor;
+          delete globalThis.HighlighterV2;
+        }
+      });
+
+      await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow();
+    });
+
+    test('should timeout _waitForScriptReady if ready check fails', async () => {
+      const existingTab = { id: 888, status: 'complete', url: targetUrl };
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
+      mockStorageService.getHighlights.mockResolvedValue(['hi']);
+
+      // Always return ready: false
+      mockInjectionService.injectWithResponse.mockResolvedValue({ ready: false });
+
+      const originalSetTimeout = globalThis.setTimeout;
+      globalThis.setTimeout = jest.fn(cb => cb());
+
+      const promise = service.executeContentMigration({ url: targetUrl }, sender);
+      await expect(promise).rejects.toThrow(/timeout/);
+
+      globalThis.setTimeout = originalSetTimeout;
     });
   });
 });

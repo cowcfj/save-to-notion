@@ -7,7 +7,7 @@
  * @module handlers/migrationHandlers
  */
 
-/* global chrome, Logger */
+/* global Logger */
 
 import {
   validateInternalRequest,
@@ -18,7 +18,7 @@ import {
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
-import { HIGHLIGHTS_PREFIX } from '../../config/constants.js';
+import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';
 
 /**
  * 轉換標註格式：對沒有 rangeInfo 的項目加上 needsRangeInfo 標記
@@ -34,87 +34,198 @@ function _convertHighlightFormat(oldHighlights) {
   }));
 }
 
-// Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
-
-async function _migrateSingleUrl(url, storageService, migrationService) {
-  // 讀取標註資料，判斷是否需要遷移
-  const pageKey = `${HIGHLIGHTS_PREFIX}${url}`;
-  const stableUrl = computeStableUrl(url);
-  const stableKey = stableUrl && stableUrl !== url ? `${HIGHLIGHTS_PREFIX}${stableUrl}` : null;
-
-  // Tech debt: 此處直接存取 chrome.storage.local 是因為 StorageService
-  // 目前缺少跨前綴批量讀取 API（同時讀 highlights_ 和 saved_）。
-  // 待 StorageService 新增 getBulk() 後替換此段。
-  const keysToFetch = [pageKey];
-  if (stableKey) {
-    keysToFetch.push(stableKey);
+async function _setUrlAliasSafe(storageService, originalUrl, stableUrl) {
+  if (typeof storageService.setUrlAlias !== 'function') {
+    return;
   }
-  const storageResult = await chrome.storage.local.get(keysToFetch);
-  const data = storageResult[pageKey];
+  await storageService.setUrlAlias(originalUrl, stableUrl).catch(error => {
+    Logger.warn('設定 URL alias 失敗（不影響主流程）', {
+      action: 'migration_batch',
+      from: sanitizeUrlForLogging(originalUrl),
+      to: sanitizeUrlForLogging(stableUrl),
+      error: error?.message ?? String(error),
+    });
+  });
+}
 
+async function _supplementSavedMetadataForStableKey(storageService, originalUrl, stableUrl) {
+  if (!stableUrl || stableUrl === originalUrl) {
+    return false;
+  }
+
+  const [stableSavedData, legacySavedData] = await Promise.all([
+    storageService.getSavedPageData(stableUrl),
+    storageService.getSavedPageData(originalUrl),
+  ]);
+
+  const hasStableNotion = hasNotionData(stableSavedData);
+  const hasLegacyNotion = hasNotionData(legacySavedData);
+
+  if (
+    !hasStableNotion &&
+    hasLegacyNotion &&
+    typeof storageService.setSavedPageData === 'function'
+  ) {
+    await storageService.setSavedPageData(stableUrl, legacySavedData);
+    Logger.info('已補遷移 saved metadata 到穩定 URL', {
+      action: 'migration_batch',
+      from: sanitizeUrlForLogging(originalUrl),
+      to: sanitizeUrlForLogging(stableUrl),
+    });
+    await _setUrlAliasSafe(storageService, originalUrl, stableUrl);
+    return true;
+  }
+
+  const samePage = isSameNotionPage(stableSavedData, legacySavedData);
+  if (hasStableNotion && hasLegacyNotion && samePage === false) {
+    Logger.warn('stable/legacy notion 衝突，保留 stable 資料', {
+      action: 'migration_batch',
+      stableUrl: sanitizeUrlForLogging(stableUrl),
+      legacyUrl: sanitizeUrlForLogging(originalUrl),
+    });
+  }
+
+  await _setUrlAliasSafe(storageService, originalUrl, stableUrl);
+  return false;
+}
+
+function _normalizeHighlightsValue(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data && typeof data === 'object' && Array.isArray(data.highlights)) {
+    return data.highlights;
+  }
+  return [];
+}
+
+async function _buildStorageSnapshot(url, storageService) {
+  const stableUrl = computeStableUrl(url);
+  const hasStableUrl = Boolean(stableUrl && stableUrl !== url);
+  const [legacyData, stableData] = await Promise.all([
+    storageService.getHighlights(url),
+    hasStableUrl ? storageService.getHighlights(stableUrl) : Promise.resolve(null),
+  ]);
+  const stableHighlights = _normalizeHighlightsValue(stableData);
+
+  return {
+    stableUrl,
+    hasStableUrl,
+    legacyData,
+    shouldMigrateToStable: Boolean(hasStableUrl && stableHighlights.length === 0),
+  };
+}
+
+function _extractLegacyHighlights(data, url) {
   if (!data) {
     return {
-      status: 'skipped',
-      reason: '無數據',
-      url: sanitizeUrlForLogging(url),
+      skipResult: {
+        status: 'skipped',
+        reason: '無數據',
+        url: sanitizeUrlForLogging(url),
+      },
     };
   }
 
-  const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
+  const oldHighlights = _normalizeHighlightsValue(data);
   if (oldHighlights.length === 0) {
     return {
-      status: 'skipped',
-      reason: '無標註',
-      url: sanitizeUrlForLogging(url),
+      skipResult: {
+        status: 'skipped',
+        reason: '無標註',
+        url: sanitizeUrlForLogging(url),
+      },
     };
   }
 
-  // Phase 4: 統一遷移管線
-  const shouldMigrateToStable = Boolean(stableKey && !storageResult[stableKey]);
-  const count = oldHighlights.length;
-  const pending = oldHighlights.filter(item => !item.rangeInfo).length;
-  let reportUrl = url;
+  return { oldHighlights };
+}
 
-  const applyInPlaceConversion = async () => {
-    const convertedHighlights = _convertHighlightFormat(oldHighlights);
-    await storageService.updateHighlights(url, convertedHighlights);
-  };
+async function _applyInPlaceConversion(storageService, url, oldHighlights) {
+  const convertedHighlights = _convertHighlightFormat(oldHighlights);
+  await storageService.updateHighlights(url, convertedHighlights);
+}
 
-  if (shouldMigrateToStable) {
-    // 委託給統一管線：格式轉換 + URL Key 遷移 + saved_ 伴隨遷移 + 刪舊 key
-    try {
-      const migrated = await migrationService.migrateStorageKey(stableUrl, url, {
-        convertFormat: true,
-        formatConverter: _convertHighlightFormat,
-      });
-      if (migrated) {
-        reportUrl = stableUrl;
-      } else {
-        await applyInPlaceConversion();
-      }
-    } catch (error) {
-      Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
-        action: 'migration_batch',
-        url: sanitizeUrlForLogging(url),
-        error: error?.message ?? String(error),
-      });
-      await applyInPlaceConversion();
+async function _tryStableMigration({
+  url,
+  stableUrl,
+  storageService,
+  migrationService,
+  oldHighlights,
+}) {
+  try {
+    const migrated = await migrationService.migrateStorageKey(stableUrl, url, {
+      convertFormat: true,
+      formatConverter: _convertHighlightFormat,
+    });
+
+    if (migrated) {
+      return stableUrl;
     }
-  } else {
-    // 原地格式轉換（就地更新現有 key）
-    // 刻意不搬移 key：
-    //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
-    //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
-    //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
-    await applyInPlaceConversion();
-  }
 
+    const supplemented = await _supplementSavedMetadataForStableKey(storageService, url, stableUrl);
+    if (supplemented) {
+      return stableUrl;
+    }
+
+    await _applyInPlaceConversion(storageService, url, oldHighlights);
+    return url;
+  } catch (error) {
+    Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
+      action: 'migration_batch',
+      url: sanitizeUrlForLogging(url),
+      error: error?.message ?? String(error),
+    });
+    await _applyInPlaceConversion(storageService, url, oldHighlights);
+    return url;
+  }
+}
+
+function _finalizeMigrationResult(reportUrl, oldHighlights) {
   return {
     status: 'success',
     url: sanitizeUrlForLogging(reportUrl),
-    count,
-    pending,
+    count: oldHighlights.length,
+    pending: oldHighlights.filter(item => !item.rangeInfo).length,
   };
+}
+
+// Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
+
+async function _migrateSingleUrl(url, storageService, migrationService) {
+  const snapshot = await _buildStorageSnapshot(url, storageService);
+  const extraction = _extractLegacyHighlights(snapshot.legacyData, url);
+  if (extraction.skipResult) {
+    return extraction.skipResult;
+  }
+
+  const { oldHighlights } = extraction;
+  let reportUrl = url;
+
+  if (snapshot.shouldMigrateToStable) {
+    reportUrl = await _tryStableMigration({
+      url,
+      stableUrl: snapshot.stableUrl,
+      storageService,
+      migrationService,
+      oldHighlights,
+    });
+  } else {
+    // 原地格式轉換（就地更新現有 key）
+    if (snapshot.hasStableUrl) {
+      const supplemented = await _supplementSavedMetadataForStableKey(
+        storageService,
+        url,
+        snapshot.stableUrl
+      );
+      if (supplemented) {
+        reportUrl = snapshot.stableUrl;
+      }
+    }
+    await _applyInPlaceConversion(storageService, url, oldHighlights);
+  }
+
+  return _finalizeMigrationResult(reportUrl, oldHighlights);
 }
 
 /**

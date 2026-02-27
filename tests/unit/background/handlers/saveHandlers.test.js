@@ -66,6 +66,7 @@ describe('saveHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const deletionPendingPages = new Map();
     mockServices = {
       notionService: {
         checkPageExists: jest.fn(),
@@ -91,6 +92,25 @@ describe('saveHandlers', () => {
       },
       tabService: {
         getPreloaderData: jest.fn().mockResolvedValue(null),
+        consumeDeletionConfirmation: jest.fn().mockImplementation((notionPageId, exists) => {
+          const pageId = notionPageId ? String(notionPageId) : null;
+          if (!pageId) {
+            return { shouldDelete: false, deletionPending: false };
+          }
+
+          if (exists !== false) {
+            deletionPendingPages.delete(pageId);
+            return { shouldDelete: false, deletionPending: false };
+          }
+
+          if (deletionPendingPages.has(pageId)) {
+            deletionPendingPages.delete(pageId);
+            return { shouldDelete: true, deletionPending: false };
+          }
+
+          deletionPendingPages.set(pageId, Date.now());
+          return { shouldDelete: false, deletionPending: true };
+        }),
         resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
           Promise.resolve({
             stableUrl: url,
@@ -290,6 +310,30 @@ describe('saveHandlers', () => {
 
       expect(mockServices.notionService.refreshPageContent).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+    });
+
+    test('savePage: pageExists 連續兩次 false 才應清理並重建', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page-id',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({ success: false, deletionPending: true })
+      );
+
+      await handlers.savePage({}, validSender, sendResponse);
+      expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+      expect(mockServices.notionService.createPage).toHaveBeenCalled();
     });
 
     // ===== openNotionPage Tests =====
@@ -691,7 +735,7 @@ describe('saveHandlers', () => {
   });
 
   describe('Notion Page Deletion Handling', () => {
-    it('checkPageStatus 應在 Notion 頁面已刪除時清理本地狀態', async () => {
+    it('checkPageStatus 第一次 false 應標記 deletionPending 並保留已保存狀態', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
@@ -707,9 +751,34 @@ describe('saveHandlers', () => {
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
+      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: true,
+          deletionPending: true,
+        })
+      );
+    });
+
+    it('checkPageStatus 連續第二次 false 才應清理本地狀態', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-extension-id', tab: { id: 1 } };
+      const rawUrl = 'https://example.com';
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page123',
+        notionUrl: 'https://notion.so/page123',
+      });
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
       expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
-      expect(sendResponse).toHaveBeenCalledWith(
+      expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
           isSaved: false,

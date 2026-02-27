@@ -69,6 +69,10 @@ class TabService {
     this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
     this.clearPageState = options.clearPageState || (() => Promise.resolve());
     this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
+
+    // 連續不存在保護：第一次 false 先標記 pending，第二次連續 false 才清理
+    // 只需追蹤是否待確認，不需保存 timestamp（無 TTL 策略）。
+    this.deletionPendingPages = new Set();
   }
 
   /**
@@ -400,13 +404,15 @@ class TabService {
       const apiKey = await this.getApiKey();
       if (!apiKey) {
         // 沒有 API Key，回退到基本徽章顯示
+        this.consumeDeletionConfirmation(savedData.notionPageId, null);
         await this._updateBadgeStatus(tabId, savedData);
         return;
       }
 
       const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
+      const deletionCheck = this.consumeDeletionConfirmation(savedData.notionPageId, exists);
 
-      if (exists === false) {
+      if (exists === false && deletionCheck.shouldDelete) {
         this.logger.log('頁面已在 Notion 中刪除，自動清理本地狀態', {
           action: 'autoSyncLocalState',
           pageId: savedData.notionPageId?.slice(0, 4),
@@ -414,16 +420,53 @@ class TabService {
         // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
         await this.clearPageState(fallbackUrl || normUrl);
         await this._updateBadgeStatus(tabId, null);
-      } else {
-        // 更新驗證時間
+      } else if (exists === false && deletionCheck.deletionPending) {
+        this.logger.warn('[TabService] First deletion check failed, mark as pending', {
+          pageId: savedData.notionPageId?.slice(0, 4),
+          action: 'autoSyncLocalState',
+        });
+        await this._updateBadgeStatus(tabId, savedData);
+      } else if (exists === true) {
         const updatedData = { ...savedData, lastVerifiedAt: now };
         await this.setSavedPageData(normUrl, updatedData);
         await this._updateBadgeStatus(tabId, updatedData);
+      } else {
+        await this._updateBadgeStatus(tabId, savedData);
       }
     } catch (error) {
       this.logger.warn('[TabService] 自動驗證失敗，跳過並保留當前狀態', { error });
       await this._updateBadgeStatus(tabId, savedData);
     }
+  }
+
+  /**
+   * 連續不存在確認：false/false 才允許清理
+   * - 第一次 false: deletionPending=true, shouldDelete=false
+   * - 第二次連續 false: deletionPending=false, shouldDelete=true
+   * - true / null: 清除 pending
+   *
+   * @param {string|null|undefined} notionPageId
+   * @param {boolean|null} exists
+   * @returns {{ shouldDelete: boolean, deletionPending: boolean }}
+   */
+  consumeDeletionConfirmation(notionPageId, exists) {
+    const pageId = notionPageId ? String(notionPageId) : null;
+    if (!pageId) {
+      return { shouldDelete: false, deletionPending: false };
+    }
+
+    if (exists !== false) {
+      this.deletionPendingPages.delete(pageId);
+      return { shouldDelete: false, deletionPending: false };
+    }
+
+    if (this.deletionPendingPages.has(pageId)) {
+      this.deletionPendingPages.delete(pageId);
+      return { shouldDelete: true, deletionPending: false };
+    }
+
+    this.deletionPendingPages.add(pageId);
+    return { shouldDelete: false, deletionPending: true };
   }
 
   /**

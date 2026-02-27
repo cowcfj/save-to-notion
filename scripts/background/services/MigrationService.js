@@ -2,6 +2,7 @@ import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { isRootUrl } from '../../utils/urlUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';
 
 const MIGRATION_CONFIG = Object.freeze({
   SCRIPT_READY_MAX_RETRIES: 10,
@@ -66,13 +67,23 @@ export class MigrationService {
       ]);
       const existingHighlights = this._normalizeHighlights(existingHighlightsRaw);
       if (existingHighlights.length > 0 || existingPageData) {
-        Logger.warn('Migration target already has data, skipping to prevent overwrite', {
+        const supplementedNotion = await this._supplementStableNotionIfNeeded({
+          stableUrl,
+          legacyUrl,
+          stableSavedData: existingPageData,
+          legacySavedData: pageData,
+        });
+
+        await this._setUrlAliasSafe(legacyUrl, stableUrl);
+
+        Logger.warn('Migration target already has data, skipping highlight overwrite', {
           stable: sanitizeUrlForLogging(stableUrl),
           legacy: sanitizeUrlForLogging(legacyUrl),
           existingHighlightsCount: existingHighlights.length,
           hasExistingPageData: Boolean(existingPageData),
+          supplementedNotion,
         });
-        return false;
+        return supplementedNotion;
       }
 
       const { migratedHighlights, formatConverted } = await this._resolveMigratedHighlights({
@@ -94,6 +105,8 @@ export class MigrationService {
       // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
       await this.storageService.savePageDataAndHighlights(stableUrl, pageData, migratedHighlights);
 
+      await this._setUrlAliasSafe(legacyUrl, stableUrl);
+
       // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
       // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
       // 不會呼叫 computeStableUrl，確保不會與新寫入的 stableUrl key 衝突
@@ -113,6 +126,64 @@ export class MigrationService {
       // 如果遷移失敗，保持舊數據不動，確保數據安全
       return false;
     }
+  }
+
+  /**
+   * stable 已有 highlights 時，只補 notion metadata（不覆寫 highlights）
+   *
+   * @param {object} params
+   * @param {string} params.stableUrl
+   * @param {string} params.legacyUrl
+   * @param {object|null} params.stableSavedData
+   * @param {object|null} params.legacySavedData
+   * @returns {Promise<boolean>} 是否有補遷移 saved metadata
+   * @private
+   */
+  async _supplementStableNotionIfNeeded(params) {
+    const { stableUrl, legacyUrl, stableSavedData, legacySavedData } = params;
+
+    const hasStableNotion = hasNotionData(stableSavedData);
+    const hasLegacyNotion = hasNotionData(legacySavedData);
+
+    if (!hasStableNotion && hasLegacyNotion) {
+      await this.storageService.setSavedPageData(stableUrl, legacySavedData);
+      Logger.info('Supplemented notion metadata on stable URL', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+      return true;
+    }
+
+    const samePage = isSameNotionPage(stableSavedData, legacySavedData);
+    if (hasStableNotion && hasLegacyNotion && samePage === false) {
+      Logger.warn('Stable/legacy notion metadata conflict, keeping stable data', {
+        stable: sanitizeUrlForLogging(stableUrl),
+        legacy: sanitizeUrlForLogging(legacyUrl),
+      });
+    }
+
+    return false;
+  }
+
+  /**
+   * 設定 url_alias（失敗不阻斷主流程）
+   *
+   * @param {string} legacyUrl
+   * @param {string} stableUrl
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _setUrlAliasSafe(legacyUrl, stableUrl) {
+    if (typeof this.storageService.setUrlAlias !== 'function') {
+      return;
+    }
+    await Promise.resolve(this.storageService.setUrlAlias(legacyUrl, stableUrl)).catch(error => {
+      Logger.warn('Failed to set URL alias during migration', {
+        legacy: sanitizeUrlForLogging(legacyUrl),
+        stable: sanitizeUrlForLogging(stableUrl),
+        error: error?.message ?? String(error),
+      });
+    });
   }
 
   /**
@@ -284,6 +355,10 @@ export class MigrationService {
       if (migrationResult?.error) {
         throw new Error(migrationResult.error);
       }
+      const migrationExecutionError = this._resolveMigrationExecutionError(migrationResult);
+      if (migrationExecutionError) {
+        throw new Error(migrationExecutionError);
+      }
 
       const stats = migrationResult?.statistics || {};
       Logger.log('Migration completed', {
@@ -309,6 +384,24 @@ export class MigrationService {
         await this.tabService.removeTab(createdTabId).catch(() => {});
       }
     }
+  }
+
+  /**
+   * 解析頁面端遷移結果中的明確失敗訊號。
+   *
+   * @param {object} migrationResult
+   * @returns {string|null}
+   * @private
+   */
+  _resolveMigrationExecutionError(migrationResult) {
+    const outcome = migrationResult?.result;
+    if (outcome?.error) {
+      return outcome.error;
+    }
+    if (outcome?.rolledBack) {
+      return outcome.reason ? `Migration rolled back: ${outcome.reason}` : 'Migration rolled back';
+    }
+    return null;
   }
 
   /**

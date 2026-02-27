@@ -63,7 +63,70 @@ const SENSITIVE_QUERY_KEYS = [
   'passwd',
   'auth',
   'secret',
+  'authorization',
+  'authorization_token',
+  'bearer',
+  'private_token',
+  'credential',
+  'credentials',
 ];
+const SENSITIVE_QUERY_KEYS_SET = new Set(SENSITIVE_QUERY_KEYS.map(key => key.toLowerCase()));
+const SENSITIVE_QUERY_KEY_PARTS = new Set([
+  'token',
+  'secret',
+  'auth',
+  'password',
+  'passwd',
+  'credential',
+  'credentials',
+]);
+
+function _safeDecodeUrlComponent(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function _isSensitiveQueryKey(queryKey) {
+  if (!queryKey || typeof queryKey !== 'string') {
+    return false;
+  }
+
+  const lowerKey = queryKey.replaceAll('.', '_').toLowerCase();
+
+  if (SENSITIVE_QUERY_KEYS_SET.has(lowerKey)) {
+    return true;
+  }
+
+  const parts = lowerKey.split(/[_-]+/).filter(Boolean);
+  return parts.length > 1 && parts.some(part => SENSITIVE_QUERY_KEY_PARTS.has(part));
+}
+
+function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LABEL) {
+  const rawSearch = urlObj.search.startsWith('?') ? urlObj.search.slice(1) : urlObj.search;
+  if (!rawSearch) {
+    return;
+  }
+
+  const redactedPairs = rawSearch.split('&').map(pair => {
+    const equalIndex = pair.indexOf('=');
+    if (equalIndex === -1) {
+      return pair;
+    }
+
+    const rawKey = pair.slice(0, equalIndex);
+    const decodedKey = _safeDecodeUrlComponent(rawKey);
+    if (!_isSensitiveQueryKey(decodedKey)) {
+      return pair;
+    }
+
+    return `${rawKey}=${sanitizedLabel}`;
+  });
+
+  urlObj.search = `?${redactedPairs.join('&')}`;
+}
 
 /**
  * 清理 URL 用於日誌記錄，只移除已知追蹤參數，保留有意義的 query 參數
@@ -94,12 +157,9 @@ export function sanitizeUrlForLogging(url) {
     // 移除 fragment
     urlObj.hash = '';
 
-    // 遮蔽敏感 query 參數值（用字串替換而非 URLSearchParams.set，避免括號被 percent-encoded）
-    let result = urlObj.toString();
-    for (const param of SENSITIVE_QUERY_KEYS) {
-      result = result.replaceAll(new RegExp(`([?&]${param}=)[^&#]*`, 'gi'), `$1${SANITIZED_LABEL}`);
-    }
-    return result;
+    // 遮蔽敏感 query 參數值（保留 query key 便於偵錯）
+    _redactSensitiveQueryInUrlString(urlObj, SANITIZED_LABEL);
+    return urlObj.toString();
   } catch {
     // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
     return '[invalid-url]';

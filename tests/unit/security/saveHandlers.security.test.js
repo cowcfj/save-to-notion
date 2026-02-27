@@ -28,6 +28,9 @@ const mockPageContentService = {
 
 const mockTabService = {
   getPreloaderData: jest.fn().mockResolvedValue(null),
+  consumeDeletionConfirmation: jest
+    .fn()
+    .mockReturnValue({ shouldDelete: false, deletionPending: false }),
   resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
     stableUrl: url,
     originalUrl: url,

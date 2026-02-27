@@ -514,12 +514,63 @@ describe('core/HighlightManager', () => {
 
       const mockRange = document.createRange();
       jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
-      mockStyleManager.getHighlightObject.mockReturnValueOnce(null);
+      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
       const result = await manager.restoreLocalHighlight(item);
 
       expect(result).toBe(false);
       expect(manager.highlights.size).toBe(0);
+
+      manager.applyHighlightAPI.mockRestore();
+    });
+
+    test('should retry with fallback color when original color cannot be applied', async () => {
+      const item = {
+        id: 'h8',
+        text: 'fallback test',
+        color: 'blue',
+        rangeInfo: { startContainer: [], endContainer: [] },
+      };
+
+      const mockRange = document.createRange();
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+
+      jest
+        .spyOn(manager, 'applyHighlightAPI')
+        .mockImplementationOnce(() => false)
+        .mockImplementationOnce(() => true);
+
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(true);
+      expect(manager.highlights.get('h8')?.color).toBe('yellow');
+
+      manager.applyHighlightAPI.mockRestore();
+    });
+
+    test('should rebuild style objects and retry when initial attempts fail', async () => {
+      const item = {
+        id: 'h9',
+        text: 'rebuild style test',
+        color: 'blue',
+        rangeInfo: { startContainer: [], endContainer: [] },
+      };
+
+      const mockRange = document.createRange();
+      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+
+      jest
+        .spyOn(manager, 'applyHighlightAPI')
+        .mockImplementationOnce(() => false)
+        .mockImplementationOnce(() => false)
+        .mockImplementationOnce(() => true);
+
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(true);
+      expect(mockStyleManager.initialize).toHaveBeenCalled();
+
+      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cleanup stale entry when applyHighlightAPI throws', async () => {
