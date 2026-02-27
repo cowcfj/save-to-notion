@@ -111,10 +111,7 @@ async function _supplementSavedMetadataForStableKey(storageService, originalUrl,
   return false;
 }
 
-// Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
-
-async function _migrateSingleUrl(url, storageService, migrationService) {
-  // 讀取標註資料，判斷是否需要遷移
+async function _buildStorageSnapshot(url) {
   const pageKey = `${HIGHLIGHTS_PREFIX}${url}`;
   const stableUrl = computeStableUrl(url);
   const stableKey = stableUrl && stableUrl !== url ? `${HIGHLIGHTS_PREFIX}${stableUrl}` : null;
@@ -127,90 +124,130 @@ async function _migrateSingleUrl(url, storageService, migrationService) {
     keysToFetch.push(stableKey);
   }
   const storageResult = await chrome.storage.local.get(keysToFetch);
-  const data = storageResult[pageKey];
 
+  return {
+    pageKey,
+    stableUrl,
+    stableKey,
+    storageResult,
+    shouldMigrateToStable: Boolean(stableKey && !storageResult[stableKey]),
+  };
+}
+
+function _extractLegacyHighlights(data, url) {
   if (!data) {
     return {
-      status: 'skipped',
-      reason: '無數據',
-      url: sanitizeUrlForLogging(url),
+      skipResult: {
+        status: 'skipped',
+        reason: '無數據',
+        url: sanitizeUrlForLogging(url),
+      },
     };
   }
 
   const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
   if (oldHighlights.length === 0) {
     return {
-      status: 'skipped',
-      reason: '無標註',
-      url: sanitizeUrlForLogging(url),
+      skipResult: {
+        status: 'skipped',
+        reason: '無標註',
+        url: sanitizeUrlForLogging(url),
+      },
     };
   }
 
-  // Phase 4: 統一遷移管線
-  const shouldMigrateToStable = Boolean(stableKey && !storageResult[stableKey]);
-  const count = oldHighlights.length;
-  const pending = oldHighlights.filter(item => !item.rangeInfo).length;
+  return { oldHighlights };
+}
+
+async function _applyInPlaceConversion(storageService, url, oldHighlights) {
+  const convertedHighlights = _convertHighlightFormat(oldHighlights);
+  await storageService.updateHighlights(url, convertedHighlights);
+}
+
+async function _tryStableMigration({
+  url,
+  stableUrl,
+  storageService,
+  migrationService,
+  oldHighlights,
+}) {
+  try {
+    const migrated = await migrationService.migrateStorageKey(stableUrl, url, {
+      convertFormat: true,
+      formatConverter: _convertHighlightFormat,
+    });
+
+    if (migrated) {
+      return stableUrl;
+    }
+
+    const supplemented = await _supplementSavedMetadataForStableKey(storageService, url, stableUrl);
+    if (supplemented) {
+      return stableUrl;
+    }
+
+    await _applyInPlaceConversion(storageService, url, oldHighlights);
+    return url;
+  } catch (error) {
+    Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
+      action: 'migration_batch',
+      url: sanitizeUrlForLogging(url),
+      error: error?.message ?? String(error),
+    });
+    await _applyInPlaceConversion(storageService, url, oldHighlights);
+    return url;
+  }
+}
+
+function _finalizeMigrationResult(reportUrl, oldHighlights) {
+  return {
+    status: 'success',
+    url: sanitizeUrlForLogging(reportUrl),
+    count: oldHighlights.length,
+    pending: oldHighlights.filter(item => !item.rangeInfo).length,
+  };
+}
+
+// Phase 4: _migrateUrlKey 已移除 — 邏輯合併進 MigrationService.migrateStorageKey
+
+async function _migrateSingleUrl(url, storageService, migrationService) {
+  const snapshot = await _buildStorageSnapshot(url);
+  const extraction = _extractLegacyHighlights(snapshot.storageResult[snapshot.pageKey], url);
+  if (extraction.skipResult) {
+    return extraction.skipResult;
+  }
+
+  const { oldHighlights } = extraction;
   let reportUrl = url;
 
-  const applyInPlaceConversion = async () => {
-    const convertedHighlights = _convertHighlightFormat(oldHighlights);
-    await storageService.updateHighlights(url, convertedHighlights);
-  };
-
-  if (shouldMigrateToStable) {
-    // 委託給統一管線：格式轉換 + URL Key 遷移 + saved_ 伴隨遷移 + 刪舊 key
-    try {
-      const migrated = await migrationService.migrateStorageKey(stableUrl, url, {
-        convertFormat: true,
-        formatConverter: _convertHighlightFormat,
-      });
-      if (migrated) {
-        reportUrl = stableUrl;
-      } else {
-        const supplemented = await _supplementSavedMetadataForStableKey(
-          storageService,
-          url,
-          stableUrl
-        );
-        if (supplemented) {
-          reportUrl = stableUrl;
-        } else {
-          await applyInPlaceConversion();
-        }
-      }
-    } catch (error) {
-      Logger.warn('遷移至穩定 URL 失敗，回退為原地轉換', {
-        action: 'migration_batch',
-        url: sanitizeUrlForLogging(url),
-        error: error?.message ?? String(error),
-      });
-      await applyInPlaceConversion();
-    }
+  if (snapshot.shouldMigrateToStable) {
+    reportUrl = await _tryStableMigration({
+      url,
+      stableUrl: snapshot.stableUrl,
+      storageService,
+      migrationService,
+      oldHighlights,
+    });
   } else {
     // 原地格式轉換（就地更新現有 key）
     // 刻意不搬移 key：
     //   - 若 stableKey 不存在（stableKey = null）：url 本身就是穩定 key
     //   - 若 stableKey 存在但已有資料：穩定 URL 那邊已有獨立資料，
     //     舊 key 的清理責任交給後續線上路徑（migrateStorageKey）
-    if (stableKey) {
+    if (snapshot.stableKey) {
       const supplemented = await _supplementSavedMetadataForStableKey(
         storageService,
         url,
-        stableUrl
+        snapshot.stableUrl
       );
       if (supplemented) {
-        reportUrl = stableUrl;
+        reportUrl = snapshot.stableUrl;
       }
     }
-    await applyInPlaceConversion();
+    await _applyInPlaceConversion(storageService, url, oldHighlights);
   }
 
-  return {
-    status: 'success',
-    url: sanitizeUrlForLogging(reportUrl),
-    count,
-    pending,
-  };
+  return _finalizeMigrationResult(reportUrl, oldHighlights);
 }
 
 /**

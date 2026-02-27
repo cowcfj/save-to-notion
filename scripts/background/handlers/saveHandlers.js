@@ -113,6 +113,35 @@ function sendErrorResponse(result, sendResponse) {
   });
 }
 
+function _validateCheckPageStatusSender(sender) {
+  const isContentScript = Boolean(sender.tab);
+  return isContentScript ? validateContentScriptRequest(sender) : validateInternalRequest(sender);
+}
+
+async function _resolveStatusTab(sender) {
+  let activeTab = sender.tab;
+  if (!activeTab?.url) {
+    activeTab = await getActiveTab();
+  }
+  return activeTab;
+}
+
+function _buildSavedStatusResponse(savedData, normUrl, extra = {}) {
+  return {
+    success: true,
+    isSaved: true,
+    notionPageId: savedData.notionPageId,
+    notionUrl: savedData.notionUrl,
+    title: savedData.title,
+    stableUrl: normUrl,
+    ...extra,
+  };
+}
+
+function _shouldReturnCachedStatus({ forceRefresh, migratedFromOldKey, isCacheValid }) {
+  return !forceRefresh && !migratedFromOldKey && isCacheValid;
+}
+
 // ============================================================================
 // 工廠函數
 // ============================================================================
@@ -555,6 +584,92 @@ export function createSaveHandlers(services) {
     }
   }
 
+  async function _loadStatusContext(activeTab) {
+    return resolvePageData(activeTab);
+  }
+
+  async function _resolveExistsWithRetry(savedData, apiKey) {
+    let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
+
+    Logger.debug('checkPageExists result', {
+      action: 'checkPageExists',
+      result: exists,
+    });
+
+    if (exists !== null) {
+      return exists;
+    }
+
+    Logger.warn('首次檢查頁面存在性失敗，正在重試', {
+      action: 'checkPageExists',
+      pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+    });
+
+    await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
+    exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
+
+    Logger.debug('Retry checkPageExists result', {
+      action: 'checkPageExists',
+      attempt: 'retry',
+      result: exists,
+    });
+
+    return exists;
+  }
+
+  async function _handleDeletedOrPending(params) {
+    const { exists, deletionCheck, savedData, originalUrl, normUrl, activeTab, sendResponse } =
+      params;
+
+    if (exists === false && deletionCheck.shouldDelete) {
+      Logger.log('頁面已在 Notion 中刪除，正在清理狀態', {
+        action: 'syncLocalState',
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+      });
+
+      // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
+      await storageService.clearPageState(originalUrl || normUrl);
+
+      try {
+        chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
+      } catch {
+        /* ignore */
+      }
+
+      sendResponse({
+        success: true,
+        isSaved: false,
+        wasDeleted: true,
+        stableUrl: normUrl,
+      });
+      return true;
+    }
+
+    if (exists === false && deletionCheck.deletionPending) {
+      Logger.warn('首次檢測頁面不存在，標記 deletionPending', {
+        action: 'syncLocalState',
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+      });
+      sendResponse(
+        _buildSavedStatusResponse(savedData, normUrl, {
+          deletionPending: true,
+        })
+      );
+      return true;
+    }
+
+    return false;
+  }
+
+  async function _touchLastVerifiedIfNeeded(exists, savedData, normUrl, now) {
+    if (exists !== true) {
+      return;
+    }
+
+    const updatedData = { ...savedData, lastVerifiedAt: now };
+    await storageService.setSavedPageData(normUrl, updatedData);
+  }
+
   return {
     /**
      * 保存頁面
@@ -839,24 +954,13 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
-        // 安全性驗證：支援 Popup 和 Content Script 兩種來源
-        // - Content Script（sender.tab 存在）：使用 validateContentScriptRequest
-        // - Popup / Background（sender.tab 不存在）：使用 validateInternalRequest
-        const isContentScript = Boolean(sender.tab);
-        const validationError = isContentScript
-          ? validateContentScriptRequest(sender)
-          : validateInternalRequest(sender);
+        const validationError = _validateCheckPageStatusSender(sender);
         if (validationError) {
           sendResponse(validationError);
           return;
         }
 
-        let activeTab = sender.tab;
-
-        // Prefer using an optional chain expression instead
-        if (!activeTab?.url) {
-          activeTab = await getActiveTab();
-        }
+        const activeTab = await _resolveStatusTab(sender);
 
         // Phase 2: 統一 URL 解析 + 自動遷移
         // 使用 resolvePageData 复用逻辑，减少 cognitive complexity
@@ -865,7 +969,7 @@ export function createSaveHandlers(services) {
           savedData,
           migrated: migratedFromOldKey,
           originalUrl,
-        } = await resolvePageData(activeTab);
+        } = await _loadStatusContext(activeTab);
 
         if (!savedData?.notionPageId) {
           return sendResponse({ success: true, isSaved: false, stableUrl: normUrl });
@@ -887,103 +991,40 @@ export function createSaveHandlers(services) {
         }
 
         // It just migrated, we trust the data and don't need to re-verify immediately unless forced
-        if (!request.forceRefresh && !migratedFromOldKey && isCacheValid) {
-          return sendResponse({
-            success: true,
-            isSaved: true,
-            notionPageId: savedData.notionPageId,
-            notionUrl: savedData.notionUrl,
-            title: savedData.title,
-            stableUrl: normUrl,
-          });
+        if (
+          _shouldReturnCachedStatus({
+            forceRefresh: request.forceRefresh,
+            migratedFromOldKey,
+            isCacheValid,
+          })
+        ) {
+          return sendResponse(_buildSavedStatusResponse(savedData, normUrl));
         }
 
         const config = await storageService.getConfig(['notionApiKey']);
         if (!config.notionApiKey) {
-          return sendResponse({
-            success: true,
-            isSaved: true,
-            notionPageId: savedData.notionPageId,
-            notionUrl: savedData.notionUrl,
-            title: savedData.title,
-            stableUrl: normUrl,
-          });
+          return sendResponse(_buildSavedStatusResponse(savedData, normUrl));
         }
 
-        const apiKey = config.notionApiKey;
-        let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
-
-        Logger.debug('checkPageExists result', {
-          action: 'checkPageExists',
-          result: exists,
-        });
-
-        if (exists === null) {
-          Logger.warn('首次檢查頁面存在性失敗，正在重試', {
-            action: 'checkPageExists',
-            pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-          });
-          await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
-          exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
-          Logger.debug('Retry checkPageExists result', {
-            action: 'checkPageExists',
-            attempt: 'retry',
-            result: exists,
-          });
-        }
+        const exists = await _resolveExistsWithRetry(savedData, config.notionApiKey);
 
         const deletionCheck = consumeDeletionConfirmation(savedData.notionPageId, exists);
-
-        if (exists === false && deletionCheck.shouldDelete) {
-          Logger.log('頁面已在 Notion 中刪除，正在清理狀態', {
-            action: 'syncLocalState',
-            pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-          });
-          // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-          await storageService.clearPageState(originalUrl || normUrl);
-
-          try {
-            chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-          } catch {
-            /* ignore */
-          }
-          return sendResponse({
-            success: true,
-            isSaved: false,
-            wasDeleted: true,
-            stableUrl: normUrl,
-          });
-        }
-
-        if (exists === false && deletionCheck.deletionPending) {
-          Logger.warn('首次檢測頁面不存在，標記 deletionPending', {
-            action: 'syncLocalState',
-            pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-          });
-          return sendResponse({
-            success: true,
-            isSaved: true,
-            deletionPending: true,
-            notionPageId: savedData.notionPageId,
-            notionUrl: savedData.notionUrl,
-            title: savedData.title,
-            stableUrl: normUrl,
-          });
-        }
-
-        if (exists === true) {
-          const updatedData = { ...savedData, lastVerifiedAt: now };
-          await storageService.setSavedPageData(normUrl, updatedData);
-        }
-
-        sendResponse({
-          success: true,
-          isSaved: true,
-          notionPageId: savedData.notionPageId,
-          notionUrl: savedData.notionUrl,
-          title: savedData.title,
-          stableUrl: normUrl,
+        const statusHandled = await _handleDeletedOrPending({
+          exists,
+          deletionCheck,
+          savedData,
+          originalUrl,
+          normUrl,
+          activeTab,
+          sendResponse,
         });
+        if (statusHandled) {
+          return;
+        }
+
+        await _touchLastVerifiedIfNeeded(exists, savedData, normUrl, now);
+
+        sendResponse(_buildSavedStatusResponse(savedData, normUrl));
       } catch (error) {
         Logger.error('檢查頁面狀態時出錯', { action: 'checkPageStatus', error: error.message });
         const safeMessage = sanitizeApiError(error, 'check_page_status');
