@@ -4,9 +4,23 @@ import { MigrationTool } from '../../../options/MigrationTool.js';
 import { UIManager } from '../../../options/UIManager.js';
 import { MigrationScanner } from '../../../options/MigrationScanner.js';
 
-// Mock dependencies
-jest.mock('../../../options/UIManager.js');
-jest.mock('../../../options/MigrationScanner.js');
+jest.mock('../../../options/MigrationScanner.js', () => {
+  const actualObj = jest.requireActual('../../../options/MigrationScanner.js');
+
+  const mockScannerInstance = {
+    scanStorage: jest.fn(),
+  };
+
+  const MockClass = jest.fn().mockImplementation(() => mockScannerInstance);
+  MockClass.truncateUrl = actualObj.MigrationScanner.truncateUrl;
+  MockClass.requestBatchMigration = jest.fn();
+
+  return {
+    ...actualObj,
+    MigrationScanner: MockClass,
+    mockScannerInstance, // Export it so tests can access it
+  };
+});
 
 describe('MigrationTool', () => {
   let migrationTool = null;
@@ -41,14 +55,11 @@ describe('MigrationTool', () => {
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
 
-    // Mock scanner instance
-    mockScanner = {
-      scanStorage: jest.fn(),
-    };
+    // 從 mock 中取得我們剛剛建立的實例
+    const { mockScannerInstance } = require('../../../options/MigrationScanner.js');
+    mockScanner = mockScannerInstance;
 
     MigrationScanner.requestBatchMigration = jest.fn();
-
-    MigrationScanner.mockImplementation(() => mockScanner);
 
     migrationTool = new MigrationTool(mockUiManager);
     migrationTool.init();
@@ -186,9 +197,9 @@ describe('MigrationTool Extended', () => {
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
 
-    mockScanner = { scanStorage: jest.fn() };
+    const { mockScannerInstance } = require('../../../options/MigrationScanner.js');
+    mockScanner = mockScannerInstance;
     MigrationScanner.requestBatchMigration = jest.fn();
-    MigrationScanner.mockImplementation(() => mockScanner);
 
     migrationTool = new MigrationTool(mockUiManager);
     migrationTool.init();

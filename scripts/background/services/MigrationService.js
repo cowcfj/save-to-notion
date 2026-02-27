@@ -526,11 +526,12 @@ export class MigrationService {
       };
     }
 
-    const oldHighlights = Array.isArray(data)
-      ? data
-      : (Array.isArray(data?.highlights)
-        ? data.highlights
-        : []);
+    let oldHighlights = [];
+    if (Array.isArray(data)) {
+      oldHighlights = data;
+    } else if (Array.isArray(data?.highlights)) {
+      oldHighlights = data.highlights;
+    }
 
     if (oldHighlights.length === 0) {
       return {
