@@ -1,5 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.38.1](https://github.com/cowcfj/save-to-notion/compare/v2.38.0...v2.38.1) (2026-02-27)
+
+
+### 🐛 Bug 修復
+
+* 強化 minimatch 安全性及更新 GitHub Actions 版本 ([#300](https://github.com/cowcfj/save-to-notion/issues/300)) ([fab33ef](https://github.com/cowcfj/save-to-notion/commit/fab33ef57b7b224ff2f2ba9b3aa76c1082b3d21f))
+* 更新 minimatch 版本以修復安全性問題，調整 GitHub Actions 設定 ([5d84032](https://github.com/cowcfj/save-to-notion/commit/5d840326340490fe64534c69b2f1dd1b2651d3b6))
+
+
+### 🧹 其他變更
+
+* **deps:** bump @notionhq/client from 5.9.0 to 5.11.0 ([#304](https://github.com/cowcfj/save-to-notion/issues/304)) ([6765e4d](https://github.com/cowcfj/save-to-notion/commit/6765e4d48bceb89669320edd600218395c876f1f))
+
 ## [2.38.0](https://github.com/cowcfj/save-to-notion/compare/v2.37.1...v2.38.0) (2026-02-27)
 
 
