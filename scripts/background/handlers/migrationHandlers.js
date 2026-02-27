@@ -18,6 +18,7 @@ import {
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
+import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';
 
 /**
  * 轉換標註格式：對沒有 rangeInfo 的項目加上 needsRangeInfo 標記
@@ -31,29 +32,6 @@ function _convertHighlightFormat(oldHighlights) {
     ...item,
     needsRangeInfo: !item.rangeInfo,
   }));
-}
-
-function _hasNotionData(savedData) {
-  return Boolean(
-    savedData?.notionPageId || savedData?.pageId || savedData?.notionUrl || savedData?.url
-  );
-}
-
-function _isSameNotionPage(stableSavedData, legacySavedData) {
-  const stablePageId = stableSavedData?.notionPageId || stableSavedData?.pageId || null;
-  const legacyPageId = legacySavedData?.notionPageId || legacySavedData?.pageId || null;
-
-  if (stablePageId && legacyPageId) {
-    return stablePageId === legacyPageId;
-  }
-
-  const stableUrl = stableSavedData?.notionUrl || stableSavedData?.url || null;
-  const legacyUrl = legacySavedData?.notionUrl || legacySavedData?.url || null;
-  if (stableUrl && legacyUrl) {
-    return stableUrl === legacyUrl;
-  }
-
-  return true;
 }
 
 async function _setUrlAliasSafe(storageService, originalUrl, stableUrl) {
@@ -80,8 +58,8 @@ async function _supplementSavedMetadataForStableKey(storageService, originalUrl,
     storageService.getSavedPageData(originalUrl),
   ]);
 
-  const hasStableNotion = _hasNotionData(stableSavedData);
-  const hasLegacyNotion = _hasNotionData(legacySavedData);
+  const hasStableNotion = hasNotionData(stableSavedData);
+  const hasLegacyNotion = hasNotionData(legacySavedData);
 
   if (
     !hasStableNotion &&
@@ -98,7 +76,7 @@ async function _supplementSavedMetadataForStableKey(storageService, originalUrl,
     return true;
   }
 
-  if (hasStableNotion && hasLegacyNotion && !_isSameNotionPage(stableSavedData, legacySavedData)) {
+  if (hasStableNotion && hasLegacyNotion && !isSameNotionPage(stableSavedData, legacySavedData)) {
     Logger.warn('stable/legacy notion 衝突，保留 stable 資料', {
       action: 'migration_batch',
       stableUrl: sanitizeUrlForLogging(stableUrl),

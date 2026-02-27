@@ -2,6 +2,7 @@ import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { isRootUrl } from '../../utils/urlUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';
 
 const MIGRATION_CONFIG = Object.freeze({
   SCRIPT_READY_MAX_RETRIES: 10,
@@ -128,44 +129,6 @@ export class MigrationService {
   }
 
   /**
-   * 判斷 savedData 是否含 Notion 資訊
-   *
-   * @param {object|null} savedData
-   * @returns {boolean}
-   * @private
-   */
-  _hasNotionData(savedData) {
-    return Boolean(
-      savedData?.notionPageId || savedData?.pageId || savedData?.notionUrl || savedData?.url
-    );
-  }
-
-  /**
-   * 比對兩筆 savedData 是否指向同一 Notion 頁面
-   *
-   * @param {object|null} stableSavedData
-   * @param {object|null} legacySavedData
-   * @returns {boolean}
-   * @private
-   */
-  _isSameNotionPage(stableSavedData, legacySavedData) {
-    const stablePageId = stableSavedData?.notionPageId || stableSavedData?.pageId || null;
-    const legacyPageId = legacySavedData?.notionPageId || legacySavedData?.pageId || null;
-
-    if (stablePageId && legacyPageId) {
-      return stablePageId === legacyPageId;
-    }
-
-    const stableUrl = stableSavedData?.notionUrl || stableSavedData?.url || null;
-    const legacyUrl = legacySavedData?.notionUrl || legacySavedData?.url || null;
-    if (stableUrl && legacyUrl) {
-      return stableUrl === legacyUrl;
-    }
-
-    return true;
-  }
-
-  /**
    * stable 已有 highlights 時，只補 notion metadata（不覆寫 highlights）
    *
    * @param {object} params
@@ -179,8 +142,8 @@ export class MigrationService {
   async _supplementStableNotionIfNeeded(params) {
     const { stableUrl, legacyUrl, stableSavedData, legacySavedData } = params;
 
-    const hasStableNotion = this._hasNotionData(stableSavedData);
-    const hasLegacyNotion = this._hasNotionData(legacySavedData);
+    const hasStableNotion = hasNotionData(stableSavedData);
+    const hasLegacyNotion = hasNotionData(legacySavedData);
 
     if (!hasStableNotion && hasLegacyNotion) {
       await this.storageService.setSavedPageData(stableUrl, legacySavedData);
@@ -191,11 +154,7 @@ export class MigrationService {
       return true;
     }
 
-    if (
-      hasStableNotion &&
-      hasLegacyNotion &&
-      !this._isSameNotionPage(stableSavedData, legacySavedData)
-    ) {
+    if (hasStableNotion && hasLegacyNotion && !isSameNotionPage(stableSavedData, legacySavedData)) {
       Logger.warn('Stable/legacy notion metadata conflict, keeping stable data', {
         stable: sanitizeUrlForLogging(stableUrl),
         legacy: sanitizeUrlForLogging(legacyUrl),
