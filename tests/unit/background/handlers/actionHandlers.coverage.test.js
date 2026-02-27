@@ -171,6 +171,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     mockTabService = {
       getPreloaderData: jest.fn().mockResolvedValue(null),
+      consumeDeletionConfirmation: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
       resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
         Promise.resolve({
           stableUrl: url,
@@ -380,6 +383,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
       mockNotionService.checkPageExists.mockResolvedValue(false); // Page deleted
+      mockTabService.consumeDeletionConfirmation.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
       mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
 
       await handlers.savePage({}, internalSender, sendResponse);
@@ -413,6 +420,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
       mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
+      mockTabService.consumeDeletionConfirmation.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
       mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
 
       await handlers.savePage({}, internalSender, sendResponse);
