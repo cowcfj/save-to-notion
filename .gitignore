@@ -379,3 +379,7 @@ docs/specs/future/shadow_dom_migration.md
 .agent/.shared/staging/
 .agents/skills/using-superpowers/SKILL.md
 .agents/skills/using-superpowers/SKILL.md
+
+# Deprecated Configurations
+.deepsource.toml
+.serenaignore
