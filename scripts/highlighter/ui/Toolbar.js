@@ -75,7 +75,10 @@ export class Toolbar {
     this.container.style.display = 'none';
     this.miniIcon.style.display = 'none';
 
-    // 重用 host 時，先移除舊的 toolbar container / mini icon，確保 Shadow Root 內僅保留一組
+    // 重用 host 時，先移除 shadowRoot 內既有的 TOOLBAR_SELECTORS.CONTAINER / MINI_ICON，
+    // 再 append 新 instance 的 this.container / this.miniIcon。
+    // 被移除的舊 instance 節點會變成 detached（不在 DOM），不可重用舊引用；
+    // 新 instance 需重新建立或重新查詢元素。若 this.host 未連接，稍後會補 append 到 body。
     this.shadowRoot.querySelectorAll(TOOLBAR_SELECTORS.CONTAINER).forEach(el => el.remove());
     this.shadowRoot.querySelectorAll(TOOLBAR_SELECTORS.MINI_ICON).forEach(el => el.remove());
     this.shadowRoot.append(this.container);
@@ -698,11 +701,8 @@ export class Toolbar {
    * @private
    */
   static _getLatestInstance(instances) {
-    let latestInstance = null;
-    instances.forEach(instance => {
-      latestInstance = instance;
-    });
-    return latestInstance;
+    const latestInstance = [...instances].pop();
+    return latestInstance ?? null;
   }
 }
 
