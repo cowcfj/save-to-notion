@@ -1,5 +1,20 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.39.0](https://github.com/cowcfj/save-to-notion/compare/v2.38.1...v2.39.0) (2026-02-28)
+
+
+### ✨ 新功能
+
+* **coverage:** 更新 Jest 覆蓋率配置與合併腳本 ([b9572f6](https://github.com/cowcfj/save-to-notion/commit/b9572f618f3eb6f22b5da2f1c97f96fa4cb5d1e8))
+
+
+### 🧹 其他變更
+
+* archive .deepsource.toml, .serenaignore and .serena, remove from git tracking ([2aa41b1](https://github.com/cowcfj/save-to-notion/commit/2aa41b14a180daed6269760eb0caa4c05764eccc))
+* **deps-dev:** bump @playwright/test ([929ae7e](https://github.com/cowcfj/save-to-notion/commit/929ae7e81248ef59e5a1bbdf7606609eefdc253b))
+* **deps-dev:** bump @playwright/test from 1.58.1 to 1.58.2 in the testing group across 1 directory ([#307](https://github.com/cowcfj/save-to-notion/issues/307)) ([929ae7e](https://github.com/cowcfj/save-to-notion/commit/929ae7e81248ef59e5a1bbdf7606609eefdc253b))
+* **deps:** remove unused devDependencies (puppeteer, jest-junit, baseline-browser-mapping) ([fa41c9e](https://github.com/cowcfj/save-to-notion/commit/fa41c9e0041a70fed8f8369f87b5ade318ddb023))
+
 ## [2.38.1](https://github.com/cowcfj/save-to-notion/compare/v2.38.0...v2.38.1) (2026-02-27)
 
 
