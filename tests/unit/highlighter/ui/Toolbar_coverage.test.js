@@ -148,6 +148,13 @@ describe('Toolbar 覆蓋率補強', () => {
 
   afterEach(() => {
     toolbar?.cleanup();
+
+    // 防止測試中途失敗造成 shared state 洩漏，影響後續案例
+    if (Toolbar._sharedState?.instances) {
+      [...Toolbar._sharedState.instances].forEach(instance => instance.cleanup());
+      Toolbar._sharedState.instances.clear();
+      Toolbar._sharedState.globalOwner = null;
+    }
   });
 
   describe('constructor', () => {
@@ -188,6 +195,65 @@ describe('Toolbar 覆蓋率補強', () => {
 
       firstToolbar.cleanup();
       secondToolbar.cleanup();
+    });
+
+    test('遇到同 ID 但無 owner 標記元素時，不應重用該元素', () => {
+      toolbar.cleanup();
+      injectStylesIntoShadowRoot.mockClear();
+
+      const fakeHost = document.createElement('div');
+      fakeHost.id = 'notion-highlighter-host';
+      document.body.append(fakeHost);
+
+      const tb = new Toolbar(managerMock);
+
+      expect(tb.host).not.toBe(fakeHost);
+      expect(tb.host.dataset.highlighterOwner).toBe('true');
+      expect(tb.host.id).toBe('notion-highlighter-host');
+      expect(
+        document.querySelector('#notion-highlighter-host[data-highlighter-owner="true"]')
+      ).toBe(tb.host);
+
+      tb.cleanup();
+      fakeHost.remove();
+    });
+
+    test('多實例時應只註冊一組全域事件監聽器', () => {
+      toolbar.cleanup();
+      injectStylesIntoShadowRoot.mockClear();
+
+      const addDocumentListenerSpy = jest.spyOn(document, 'addEventListener');
+      const storageAddSpy = jest.fn();
+      const runtimeAddSpy = jest.fn();
+      globalThis.window.chrome.storage = {
+        onChanged: {
+          addListener: storageAddSpy,
+          removeListener: jest.fn(),
+        },
+      };
+      globalThis.window.chrome.runtime.onMessage = {
+        addListener: runtimeAddSpy,
+        removeListener: jest.fn(),
+      };
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+
+      expect(addDocumentListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
+      expect(addDocumentListenerSpy).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(
+        addDocumentListenerSpy.mock.calls.filter(([eventName]) => eventName === 'mouseup')
+      ).toHaveLength(1);
+      expect(
+        addDocumentListenerSpy.mock.calls.filter(([eventName]) => eventName === 'click')
+      ).toHaveLength(1);
+      expect(storageAddSpy).toHaveBeenCalledTimes(1);
+      expect(runtimeAddSpy).toHaveBeenCalledTimes(1);
+
+      firstToolbar.cleanup();
+      secondToolbar.cleanup();
+      delete globalThis.window.chrome.storage;
+      delete globalThis.window.chrome.runtime.onMessage;
     });
   });
 
@@ -423,11 +489,13 @@ describe('Toolbar 覆蓋率補強', () => {
 
       const mockListener = () => {};
       toolbar._storageListener = mockListener;
+      const selectionHandler = toolbar.selectionHandler;
+      const clickDeleteHandler = toolbar.clickDeleteHandler;
 
       toolbar.cleanup();
 
-      expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', toolbar.selectionHandler);
-      expect(removeSelectionSpy).toHaveBeenCalledWith('click', toolbar.clickDeleteHandler);
+      expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', selectionHandler);
+      expect(removeSelectionSpy).toHaveBeenCalledWith('click', clickDeleteHandler);
       expect(removeStorageSpy).toHaveBeenCalledWith(mockListener);
       expect(toolbar._storageListener).toBeNull();
 
@@ -465,6 +533,79 @@ describe('Toolbar 覆蓋率補強', () => {
 
       delete globalThis.window.chrome.runtime.onMessage;
     });
+
+    test('兩個實例時清理非最後一個，不應移除共享 host', () => {
+      toolbar.cleanup();
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+      const host = secondToolbar.host;
+
+      secondToolbar.cleanup();
+
+      expect(document.body.contains(host)).toBe(true);
+      expect(Toolbar._sharedState.instances.size).toBe(1);
+
+      firstToolbar.cleanup();
+    });
+
+    test('owner cleanup 後應轉移全域事件給下一個實例，最後一個 cleanup 才移除 host', () => {
+      toolbar.cleanup();
+
+      const removeDocumentListenerSpy = jest.spyOn(document, 'removeEventListener');
+      const addDocumentListenerSpy = jest.spyOn(document, 'addEventListener');
+      const storageAddSpy = jest.fn();
+      const storageRemoveSpy = jest.fn();
+      const runtimeAddSpy = jest.fn();
+      const runtimeRemoveSpy = jest.fn();
+      globalThis.window.chrome.storage = {
+        onChanged: {
+          addListener: storageAddSpy,
+          removeListener: storageRemoveSpy,
+        },
+      };
+      globalThis.window.chrome.runtime.onMessage = {
+        addListener: runtimeAddSpy,
+        removeListener: runtimeRemoveSpy,
+      };
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+      const sharedHost = firstToolbar.host;
+      const mouseupBindCountBeforeTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'mouseup'
+      ).length;
+      const clickBindCountBeforeTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'click'
+      ).length;
+      const storageAddCountBeforeTransfer = storageAddSpy.mock.calls.length;
+      const runtimeAddCountBeforeTransfer = runtimeAddSpy.mock.calls.length;
+
+      firstToolbar.cleanup();
+
+      expect(Toolbar._sharedState.globalOwner).toBe(secondToolbar);
+      expect(document.body.contains(sharedHost)).toBe(true);
+      expect(removeDocumentListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
+      expect(removeDocumentListenerSpy).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(storageRemoveSpy).toHaveBeenCalledTimes(1);
+      expect(runtimeRemoveSpy).toHaveBeenCalledTimes(1);
+      const mouseupBindCallsAfterTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'mouseup'
+      );
+      const clickBindCallsAfterTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'click'
+      );
+      expect(mouseupBindCallsAfterTransfer).toHaveLength(mouseupBindCountBeforeTransfer + 1);
+      expect(clickBindCallsAfterTransfer).toHaveLength(clickBindCountBeforeTransfer + 1);
+      expect(storageAddSpy.mock.calls).toHaveLength(storageAddCountBeforeTransfer + 1);
+      expect(runtimeAddSpy.mock.calls).toHaveLength(runtimeAddCountBeforeTransfer + 1);
+
+      secondToolbar.cleanup();
+      expect(document.body.contains(sharedHost)).toBe(false);
+
+      delete globalThis.window.chrome.storage;
+      delete globalThis.window.chrome.runtime.onMessage;
+    });
   });
 
   describe('bindStorageEvents', () => {
@@ -472,6 +613,9 @@ describe('Toolbar 覆蓋率補強', () => {
     let removeListenerSpy;
 
     beforeEach(() => {
+      toolbar?.cleanup();
+      toolbar = null;
+
       addListenerSpy = jest.fn();
       removeListenerSpy = jest.fn();
 

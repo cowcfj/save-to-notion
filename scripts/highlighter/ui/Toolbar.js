@@ -22,6 +22,9 @@ const STYLE_NONE = 'none';
 const STYLE_BLOCK = 'block';
 const TOOLBAR_HOST_ID = 'notion-highlighter-host';
 const TOOLBAR_HOST_SELECTOR = `#${TOOLBAR_HOST_ID}`;
+const TOOLBAR_HOST_OWNER_ATTR = 'data-highlighter-owner';
+const TOOLBAR_HOST_OWNER_VALUE = 'true';
+const TOOLBAR_OWNED_HOST_SELECTOR = `${TOOLBAR_HOST_SELECTOR}[${TOOLBAR_HOST_OWNER_ATTR}="${TOOLBAR_HOST_OWNER_VALUE}"]`;
 
 /**
  * 工具欄管理器類別
@@ -41,15 +44,19 @@ export class Toolbar {
     this.stateManager = new ToolbarStateManager();
     this.isHighlightModeActive = false;
     this._initialized = false;
+    this._eventsBound = false;
+    this._globalEventsBound = false;
+    this._cleanedUp = false;
 
-    // 建立或重用單一 Shadow DOM Host，避免重複實例造成多個 host
-    const existingHost = document.querySelector(TOOLBAR_HOST_SELECTOR);
+    // 僅重用由擴展建立且帶有擁有權標記的 host，避免誤用宿主頁同 ID 元素
+    const existingHost = document.querySelector(TOOLBAR_OWNED_HOST_SELECTOR);
     if (existingHost) {
       this.host = existingHost;
       this.shadowRoot = this.host.shadowRoot || this.host.attachShadow({ mode: 'open' });
     } else {
       this.host = document.createElement('div');
       this.host.id = TOOLBAR_HOST_ID;
+      this.host.setAttribute(TOOLBAR_HOST_OWNER_ATTR, TOOLBAR_HOST_OWNER_VALUE);
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
       document.body.append(this.host);
     }
@@ -79,6 +86,8 @@ export class Toolbar {
       document.body.append(this.host);
     }
 
+    Toolbar._sharedState.instances.add(this);
+
     // 綁定事件
     this.bindEvents();
   }
@@ -104,6 +113,11 @@ export class Toolbar {
    * 綁定所有事件
    */
   bindEvents() {
+    if (this._eventsBound) {
+      return;
+    }
+    this._eventsBound = true;
+
     // 工具欄控制按鈕
     this.bindControlButtons();
 
@@ -116,14 +130,66 @@ export class Toolbar {
     // 最小化圖標
     bindMiniIconEvents(this.miniIcon, () => this.expand());
 
+    const sharedState = Toolbar._sharedState;
+    if (!sharedState.globalOwner) {
+      sharedState.globalOwner = this;
+    }
+
+    // 全域事件僅由單一 active instance 管理，避免重複監聽
+    if (sharedState.globalOwner === this) {
+      this._bindGlobalEvents();
+    }
+  }
+
+  /**
+   * 綁定全域事件（僅 owner instance 可執行）
+   */
+  _bindGlobalEvents() {
+    if (this._globalEventsBound) {
+      return;
+    }
+
     // 選擇事件（標註模式）
     this.bindSelectionEvents();
 
     // Ctrl+點擊刪除標註
     this.bindClickDeleteEvents();
 
-    // 監聽 Storage 變更以即時更新按鈕狀態
+    // 監聽 Storage / Message 事件
     this.bindStorageEvents();
+
+    this._globalEventsBound = true;
+  }
+
+  /**
+   * 移除全域事件（可重入）
+   */
+  _unbindGlobalEvents() {
+    if (!this._globalEventsBound) {
+      return;
+    }
+
+    if (this.selectionHandler) {
+      document.removeEventListener('mouseup', this.selectionHandler);
+      this.selectionHandler = null;
+    }
+
+    if (this.clickDeleteHandler) {
+      document.removeEventListener('click', this.clickDeleteHandler);
+      this.clickDeleteHandler = null;
+    }
+
+    if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
+      globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
+      this._storageListener = null;
+    }
+
+    if (this._messageListener && globalThis.chrome?.runtime?.onMessage) {
+      globalThis.chrome.runtime.onMessage.removeListener(this._messageListener);
+      this._messageListener = null;
+    }
+
+    this._globalEventsBound = false;
   }
 
   /**
@@ -595,28 +661,52 @@ export class Toolbar {
    * 清理資源
    */
   cleanup() {
-    // 移除事件監聽器
-    if (this.selectionHandler) {
-      document.removeEventListener('mouseup', this.selectionHandler);
+    if (this._cleanedUp) {
+      return;
+    }
+    this._cleanedUp = true;
+
+    const sharedState = Toolbar._sharedState;
+    sharedState.instances.delete(this);
+
+    if (sharedState.globalOwner === this) {
+      this._unbindGlobalEvents();
+
+      if (sharedState.instances.size > 0) {
+        const nextOwner = Toolbar._getLatestInstance(sharedState.instances);
+        sharedState.globalOwner = nextOwner;
+        nextOwner._bindGlobalEvents();
+      } else {
+        sharedState.globalOwner = null;
+      }
+    } else if (this._globalEventsBound) {
+      // 防禦：理論上只有 owner 會綁全域事件，仍保留清理保障
+      this._unbindGlobalEvents();
     }
 
-    if (this.clickDeleteHandler) {
-      document.removeEventListener('click', this.clickDeleteHandler);
-    }
-
-    if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
-      globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
-      this._storageListener = null;
-    }
-
-    if (this._messageListener && globalThis.chrome?.runtime?.onMessage) {
-      globalThis.chrome.runtime.onMessage.removeListener(this._messageListener);
-      this._messageListener = null;
-    }
-
-    // 移除 DOM 元素（移除 host 即可清除內部所有元素）
-    if (this.host) {
+    // 僅在最後一個 instance 清理時移除共享 host
+    if (sharedState.instances.size === 0 && this.host) {
       this.host.remove();
     }
   }
+
+  /**
+   * 取得最近建立且仍存活的 instance
+   *
+   * @param {Set<Toolbar>} instances
+   * @returns {Toolbar|null}
+   * @private
+   */
+  static _getLatestInstance(instances) {
+    let latestInstance = null;
+    instances.forEach(instance => {
+      latestInstance = instance;
+    });
+    return latestInstance;
+  }
 }
+
+Toolbar._sharedState = {
+  instances: new Set(),
+  globalOwner: null,
+};
