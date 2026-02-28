@@ -100,18 +100,23 @@ test.describe('Migration Handlers E2E Tests', () => {
     expect(response.success).toBe(true);
     expect(response.results.success).toBe(2);
 
-    // 驗證數據已轉換為 page_* 新格式並標記 needsRangeInfo
-    const checkResult = await page.evaluate(async url => {
-      const res = await chrome.storage.local.get([`page_${url}`, `highlights_${url}`]);
-      return {
-        pageData: res[`page_${url}`],
-        legacyData: res[`highlights_${url}`],
-      };
-    }, urls[0]);
+    // 驗證所有 URLs 都已轉換為 page_* 新格式並標記 needsRangeInfo
+    for (const url of urls) {
+      const checkResult = await page.evaluate(async targetUrl => {
+        const res = await chrome.storage.local.get([
+          `page_${targetUrl}`,
+          `highlights_${targetUrl}`,
+        ]);
+        return {
+          pageData: res[`page_${targetUrl}`],
+          legacyData: res[`highlights_${targetUrl}`],
+        };
+      }, url);
 
-    expect(checkResult.pageData).toBeDefined();
-    expect(checkResult.pageData.highlights[0].needsRangeInfo).toBe(true);
-    expect(checkResult.legacyData).toBeUndefined();
+      expect(checkResult.pageData).toBeDefined();
+      expect(checkResult.pageData.highlights[0].needsRangeInfo).toBe(true);
+      expect(checkResult.legacyData).toBeUndefined();
+    }
 
     await page.close();
   });
@@ -173,13 +178,17 @@ test.describe('Migration Handlers E2E Tests', () => {
     expect(response.deletedCount).toBe(1);
 
     const checkResult = await page.evaluate(async url => {
-      const res = await chrome.storage.local.get(`page_${url}`);
-      return res[`page_${url}`];
+      const res = await chrome.storage.local.get([`page_${url}`, `highlights_${url}`]);
+      return {
+        pageData: res[`page_${url}`],
+        legacyData: res[`highlights_${url}`],
+      };
     }, testUrl);
 
-    expect(checkResult).toBeDefined();
-    expect(checkResult.highlights.length).toBe(1);
-    expect(checkResult.highlights[0].id).toBe('h1');
+    expect(checkResult.pageData).toBeDefined();
+    expect(checkResult.pageData.highlights.length).toBe(1);
+    expect(checkResult.pageData.highlights[0].id).toBe('h1');
+    expect(checkResult.legacyData).toBeUndefined();
     await page.close();
   });
 });

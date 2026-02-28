@@ -211,7 +211,7 @@ export class Toolbar {
       }
 
       // 忽略工具欄內的點擊
-      // 使用 composedPath() 以正確販湋穿越 Shadow Boundary 的點擊來源
+      // 使用 composedPath() 以正確辨識穿越 Shadow Boundary 的點擊來源
       if (event.composedPath().some(el => el === this.host || el === this.container)) {
         return;
       }
