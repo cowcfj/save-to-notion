@@ -145,10 +145,15 @@ jobs:
       - name: Validate coverage file
         id: validate-coverage
         run: |
-          LCOV_FILE="coverage/merged/lcov.info"
-
-          if [ ! -f "$LCOV_FILE" ]; then
-            echo "⚠️ Coverage file not found: $LCOV_FILE"
+          LCOV_FILE=""
+          if [ -f "coverage/merged/lcov.info" ]; then
+            LCOV_FILE="coverage/merged/lcov.info"
+            echo "Found merged coverage file."
+          elif [ -f "coverage/jest/lcov.info" ]; then
+            LCOV_FILE="coverage/jest/lcov.info"
+            echo "Found jest coverage file."
+          else
+            echo "⚠️ Coverage file not found in merged or jest directories."
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -158,6 +163,7 @@ jobs:
             LINE_COUNT=$(wc -l < "$LCOV_FILE")
             echo "✅ Valid LCOV file detected ($LINE_COUNT lines)"
             echo "valid=true" >> $GITHUB_OUTPUT
+            echo "file=$LCOV_FILE" >> $GITHUB_OUTPUT
           else
             echo "⚠️ Invalid LCOV format in $LCOV_FILE"
             echo "valid=false" >> $GITHUB_OUTPUT
@@ -167,7 +173,7 @@ jobs:
         if: steps.validate-coverage.outputs.valid == 'true'
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
-          files: coverage/merged/lcov.info
+          files: ${{ steps.validate-coverage.outputs.file }}
           flags: combined
           fail_ci_if_error: false
           use_oidc: true

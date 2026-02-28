@@ -4,7 +4,7 @@
  */
 
 import { ToolbarStates, ToolbarStateManager } from './ToolbarState.js';
-import { injectGlobalStyles } from './styles/toolbarStyles.js';
+import { injectStylesIntoShadowRoot } from './styles/toolbarStyles.js';
 import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
@@ -20,6 +20,11 @@ const STYLE_TEXT_BOTTOM = 'text-bottom';
 const STYLE_INLINE_FLEX = 'inline-flex';
 const STYLE_NONE = 'none';
 const STYLE_BLOCK = 'block';
+const TOOLBAR_HOST_ID = 'notion-highlighter-host';
+const TOOLBAR_HOST_SELECTOR = `#${TOOLBAR_HOST_ID}`;
+const TOOLBAR_HOST_OWNER_ATTR = 'data-highlighter-owner';
+const TOOLBAR_HOST_OWNER_VALUE = 'true';
+const TOOLBAR_OWNED_HOST_SELECTOR = `${TOOLBAR_HOST_SELECTOR}[${TOOLBAR_HOST_OWNER_ATTR}="${TOOLBAR_HOST_OWNER_VALUE}"]`;
 
 /**
  * 工具欄管理器類別
@@ -39,19 +44,52 @@ export class Toolbar {
     this.stateManager = new ToolbarStateManager();
     this.isHighlightModeActive = false;
     this._initialized = false;
+    this._eventsBound = false;
+    this._globalEventsBound = false;
+    this._cleanedUp = false;
 
-    // 注入全局樣式
-    injectGlobalStyles();
+    // 僅重用由擴展建立且帶有擁有權標記的 host，避免誤用宿主頁同 ID 元素
+    const existingHost = document.querySelector(TOOLBAR_OWNED_HOST_SELECTOR);
+    if (existingHost) {
+      this.host = existingHost;
+      this.shadowRoot = this.host.shadowRoot || this.host.attachShadow({ mode: 'open' });
+    } else {
+      this.host = document.createElement('div');
+      this.host.id = TOOLBAR_HOST_ID;
+      this.host.setAttribute(TOOLBAR_HOST_OWNER_ATTR, TOOLBAR_HOST_OWNER_VALUE);
+      this.shadowRoot = this.host.attachShadow({ mode: 'open' });
+      document.body.append(this.host);
+    }
+
+    // 僅在首次建立 host 時注入樣式，重用時不重複注入
+    if (this.host.dataset.toolbarStylesInjected !== 'true') {
+      injectStylesIntoShadowRoot(this.shadowRoot);
+      this.host.dataset.toolbarStylesInjected = 'true';
+    }
 
     // 創建 UI 元素
     this.container = createToolbarContainer();
     this.miniIcon = createMiniIcon();
 
-    // 插入到 DOM（默認隱藏）
+    // 插入到 Shadow Root（默認隱藏）
     this.container.style.display = 'none';
     this.miniIcon.style.display = 'none';
-    document.body.append(this.container);
-    document.body.append(this.miniIcon);
+
+    // 重用 host 時，先移除 shadowRoot 內既有的 TOOLBAR_SELECTORS.CONTAINER / MINI_ICON，
+    // 再 append 新 instance 的 this.container / this.miniIcon。
+    // 被移除的舊 instance 節點會變成 detached（不在 DOM），不可重用舊引用；
+    // 新 instance 需重新建立或重新查詢元素。若 this.host 未連接，稍後會補 append 到 body。
+    this.shadowRoot.querySelectorAll(TOOLBAR_SELECTORS.CONTAINER).forEach(el => el.remove());
+    this.shadowRoot.querySelectorAll(TOOLBAR_SELECTORS.MINI_ICON).forEach(el => el.remove());
+    this.shadowRoot.append(this.container);
+    this.shadowRoot.append(this.miniIcon);
+
+    // 防禦：若 host 尚未連接到 DOM，補上插入
+    if (!this.host.isConnected) {
+      document.body.append(this.host);
+    }
+
+    Toolbar._sharedState.instances.add(this);
 
     // 綁定事件
     this.bindEvents();
@@ -78,6 +116,11 @@ export class Toolbar {
    * 綁定所有事件
    */
   bindEvents() {
+    if (this._eventsBound) {
+      return;
+    }
+    this._eventsBound = true;
+
     // 工具欄控制按鈕
     this.bindControlButtons();
 
@@ -90,14 +133,66 @@ export class Toolbar {
     // 最小化圖標
     bindMiniIconEvents(this.miniIcon, () => this.expand());
 
+    const sharedState = Toolbar._sharedState;
+    if (!sharedState.globalOwner) {
+      sharedState.globalOwner = this;
+    }
+
+    // 全域事件僅由單一 active instance 管理，避免重複監聽
+    if (sharedState.globalOwner === this) {
+      this._bindGlobalEvents();
+    }
+  }
+
+  /**
+   * 綁定全域事件（僅 owner instance 可執行）
+   */
+  _bindGlobalEvents() {
+    if (this._globalEventsBound) {
+      return;
+    }
+
     // 選擇事件（標註模式）
     this.bindSelectionEvents();
 
     // Ctrl+點擊刪除標註
     this.bindClickDeleteEvents();
 
-    // 監聽 Storage 變更以即時更新按鈕狀態
+    // 監聽 Storage / Message 事件
     this.bindStorageEvents();
+
+    this._globalEventsBound = true;
+  }
+
+  /**
+   * 移除全域事件（可重入）
+   */
+  _unbindGlobalEvents() {
+    if (!this._globalEventsBound) {
+      return;
+    }
+
+    if (this.selectionHandler) {
+      document.removeEventListener('mouseup', this.selectionHandler);
+      this.selectionHandler = null;
+    }
+
+    if (this.clickDeleteHandler) {
+      document.removeEventListener('click', this.clickDeleteHandler);
+      this.clickDeleteHandler = null;
+    }
+
+    if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
+      globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
+      this._storageListener = null;
+    }
+
+    if (this._messageListener && globalThis.chrome?.runtime?.onMessage) {
+      globalThis.chrome.runtime.onMessage.removeListener(this._messageListener);
+      this._messageListener = null;
+    }
+
+    this._globalEventsBound = false;
   }
 
   /**
@@ -203,7 +298,8 @@ export class Toolbar {
       }
 
       // 忽略工具欄內的點擊
-      if (event.target.closest(TOOLBAR_SELECTORS.CONTAINER)) {
+      // 使用 composedPath() 以正確辨識穿越 Shadow Boundary 的點擊來源
+      if (event.composedPath().some(el => el === this.host || el === this.container)) {
         return;
       }
 
@@ -568,32 +664,49 @@ export class Toolbar {
    * 清理資源
    */
   cleanup() {
-    // 移除事件監聽器
-    if (this.selectionHandler) {
-      document.removeEventListener('mouseup', this.selectionHandler);
+    if (this._cleanedUp) {
+      return;
+    }
+    this._cleanedUp = true;
+
+    const sharedState = Toolbar._sharedState;
+    sharedState.instances.delete(this);
+
+    if (sharedState.globalOwner === this) {
+      this._unbindGlobalEvents();
+
+      if (sharedState.instances.size > 0) {
+        const nextOwner = Toolbar._getLatestInstance(sharedState.instances);
+        sharedState.globalOwner = nextOwner;
+        nextOwner._bindGlobalEvents();
+      } else {
+        sharedState.globalOwner = null;
+      }
+    } else if (this._globalEventsBound) {
+      // 防禦：理論上只有 owner 會綁全域事件，仍保留清理保障
+      this._unbindGlobalEvents();
     }
 
-    if (this.clickDeleteHandler) {
-      document.removeEventListener('click', this.clickDeleteHandler);
-    }
-
-    if (this._storageListener && globalThis.chrome?.storage?.onChanged) {
-      globalThis.chrome.storage.onChanged.removeListener(this._storageListener);
-      this._storageListener = null;
-    }
-
-    if (this._messageListener && globalThis.chrome?.runtime?.onMessage) {
-      globalThis.chrome.runtime.onMessage.removeListener(this._messageListener);
-      this._messageListener = null;
-    }
-
-    // 移除 DOM 元素
-    if (this.container) {
-      this.container.remove();
-    }
-
-    if (this.miniIcon) {
-      this.miniIcon.remove();
+    // 僅在最後一個 instance 清理時移除共享 host
+    if (sharedState.instances.size === 0 && this.host) {
+      this.host.remove();
     }
   }
+
+  /**
+   * 取得最近建立且仍存活的 instance
+   *
+   * @param {Set<Toolbar>} instances
+   * @returns {Toolbar|null}
+   * @private
+   */
+  static _getLatestInstance(instances) {
+    const latestInstance = [...instances].pop();
+    return latestInstance ?? null;
+  }
 }
+
+Toolbar._sharedState = {
+  instances: new Set(),
+  globalOwner: null,
+};

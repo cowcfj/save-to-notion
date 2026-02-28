@@ -1,20 +1,50 @@
 import { TOOLBAR_SELECTORS } from '../../../config/ui-selectors.js';
 
 /**
- * 注入全局樣式到頁面
+ * 取得 Toolbar 的完整 CSS 字串，供 Shadow DOM 使用。
+ * CSS 以 :host 選擇器開頭，確保在 Shadow Root 內完整隔離。
+ *
+ * @returns {string} CSS 字串
  */
-export function injectGlobalStyles() {
-  const styleId = 'notion-highlighter-v2-styles';
+export function getToolbarCSS() {
+  return `
+        /* ============================================
+         * Shadow DOM Host 全域重置
+         * 防止宿主頁面 CSS（如 Foundation、Bootstrap）入侵
+         * ============================================ */
+        :host {
+            all: initial;
+            display: block;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
 
-  // 避免重複注入
-  if (document.querySelector(`#${styleId}`)) {
-    return;
-  }
+        /* 子元素 box model 重置 */
+        :host *,
+        :host *::before,
+        :host *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-  const style = document.createElement('style');
-  style.id = styleId;
-  style.textContent = `
-        /* 容器樣式 */
+        /* 按鈕重置 — 防止宿主的 button {...} 規則覆蓋 */
+        :host :where(button) {
+            all: unset;
+            box-sizing: border-box;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.5;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        /* ============================================
+         * 容器樣式
+         * ============================================ */
         ${TOOLBAR_SELECTORS.CONTAINER} {
             position: fixed;
             top: 20px;
@@ -223,11 +253,47 @@ export function injectGlobalStyles() {
             border: 1px solid rgba(0,0,0,0.05);
         }
 
-        #notion-highlighter-mini-icon:hover {
+        ${TOOLBAR_SELECTORS.MINI_ICON}:hover {
             transform: scale(1.1) rotate(15deg);
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
     `;
+}
 
-  document.head.append(style);
+/**
+ * 將 Toolbar 樣式注入到 Shadow Root。
+ * 優先使用 adoptedStyleSheets（效能更佳），
+ * 否則回退到建立 <style> 元素。
+ *
+ * @param {ShadowRoot} shadowRoot - 目標 Shadow Root
+ */
+export function injectStylesIntoShadowRoot(shadowRoot) {
+  const css = getToolbarCSS();
+
+  if (typeof CSSStyleSheet !== 'undefined' && 'adoptedStyleSheets' in Document.prototype) {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      shadowRoot.adoptedStyleSheets = [sheet];
+      return;
+    } catch {
+      // 若 adoptedStyleSheets 在此環境不可用，fallback 到 <style>
+    }
+  }
+
+  // Fallback：建立 <style> 元素插入 shadowRoot
+  const style = document.createElement('style');
+  style.textContent = css;
+  shadowRoot.prepend(style);
+}
+
+/**
+ * 向後相容的空函式（舊版 API，已不再注入到 document.head）。
+ *
+ * @deprecated 請改用 injectStylesIntoShadowRoot(shadowRoot)
+ *
+ * 樣式已改為在 Shadow DOM 中注入，這個函式僅保留為 no-op 相容入口。
+ */
+export function injectGlobalStyles() {
+  // No-op：樣式現由 Toolbar.js 透過 Shadow DOM 注入
 }

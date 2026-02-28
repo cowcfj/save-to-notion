@@ -19,6 +19,9 @@ archive/*
 # 覆蓋率報告 - 追蹤 lcov.info 用於 CI 上傳
 coverage/*
 !coverage/lcov.info
+!coverage/jest/
+coverage/jest/*
+!coverage/jest/lcov.info
 !coverage/merged/
 coverage/merged/*
 !coverage/merged/lcov.info

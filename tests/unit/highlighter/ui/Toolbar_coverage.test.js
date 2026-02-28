@@ -20,6 +20,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 import Logger from '../../../../scripts/utils/Logger.js';
 import { Toolbar } from '../../../../scripts/highlighter/ui/Toolbar.js';
 import { createToolbarContainer } from '../../../../scripts/highlighter/ui/components/ToolbarContainer.js';
+import { injectStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/toolbarStyles.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/ui/components/ToolbarContainer.js', () => ({
@@ -38,6 +39,13 @@ jest.mock('../../../../scripts/highlighter/ui/components/MiniIcon.js', () => ({
 
 jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => ({
   renderColorPicker: jest.fn(),
+}));
+
+// Mock toolbarStyles — Shadow DOM 環境中的樣式注入
+jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
+  injectStylesIntoShadowRoot: jest.fn(),
+  getToolbarCSS: jest.fn(() => ''),
+  injectGlobalStyles: jest.fn(), // 向後相容
 }));
 
 describe('Toolbar 覆蓋率補強', () => {
@@ -140,6 +148,13 @@ describe('Toolbar 覆蓋率補強', () => {
 
   afterEach(() => {
     toolbar?.cleanup();
+
+    // 防止測試中途失敗造成 shared state 洩漏，影響後續案例
+    if (Toolbar._sharedState?.instances) {
+      [...Toolbar._sharedState.instances].forEach(instance => instance.cleanup());
+      Toolbar._sharedState.instances.clear();
+      Toolbar._sharedState.globalOwner = null;
+    }
   });
 
   describe('constructor', () => {
@@ -153,6 +168,92 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(toolbar.isHighlightModeActive).toBe(false);
       expect(toolbar.container).toBeTruthy();
       expect(toolbar.miniIcon).toBeTruthy();
+    });
+
+    test('重複實例化時應重用單一 host/shadowRoot 並只注入一次樣式', () => {
+      toolbar.cleanup();
+      injectStylesIntoShadowRoot.mockClear();
+
+      createToolbarContainer.mockImplementation(() => createMockContainer());
+      createMiniIcon.mockImplementation(() => {
+        const icon = document.createElement('div');
+        icon.id = 'notion-highlighter-mini-icon';
+        return icon;
+      });
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+
+      expect(document.querySelectorAll('#notion-highlighter-host')).toHaveLength(1);
+      expect(secondToolbar.host).toBe(firstToolbar.host);
+      expect(secondToolbar.shadowRoot).toBe(firstToolbar.shadowRoot);
+      expect(firstToolbar.shadowRoot.querySelectorAll('#notion-highlighter-v2')).toHaveLength(1);
+      expect(
+        firstToolbar.shadowRoot.querySelectorAll('#notion-highlighter-mini-icon')
+      ).toHaveLength(1);
+      expect(injectStylesIntoShadowRoot).toHaveBeenCalledTimes(1);
+
+      firstToolbar.cleanup();
+      secondToolbar.cleanup();
+    });
+
+    test('遇到同 ID 但無 owner 標記元素時，不應重用該元素', () => {
+      toolbar.cleanup();
+      injectStylesIntoShadowRoot.mockClear();
+
+      const fakeHost = document.createElement('div');
+      fakeHost.id = 'notion-highlighter-host';
+      document.body.append(fakeHost);
+
+      const tb = new Toolbar(managerMock);
+
+      expect(tb.host).not.toBe(fakeHost);
+      expect(tb.host.dataset.highlighterOwner).toBe('true');
+      expect(tb.host.id).toBe('notion-highlighter-host');
+      expect(
+        document.querySelector('#notion-highlighter-host[data-highlighter-owner="true"]')
+      ).toBe(tb.host);
+
+      tb.cleanup();
+      fakeHost.remove();
+    });
+
+    test('多實例時應只註冊一組全域事件監聽器', () => {
+      toolbar.cleanup();
+      injectStylesIntoShadowRoot.mockClear();
+
+      const addDocumentListenerSpy = jest.spyOn(document, 'addEventListener');
+      const storageAddSpy = jest.fn();
+      const runtimeAddSpy = jest.fn();
+      globalThis.window.chrome.storage = {
+        onChanged: {
+          addListener: storageAddSpy,
+          removeListener: jest.fn(),
+        },
+      };
+      globalThis.window.chrome.runtime.onMessage = {
+        addListener: runtimeAddSpy,
+        removeListener: jest.fn(),
+      };
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+
+      expect(addDocumentListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
+      expect(addDocumentListenerSpy).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(
+        addDocumentListenerSpy.mock.calls.filter(([eventName]) => eventName === 'mouseup')
+      ).toHaveLength(1);
+      expect(
+        addDocumentListenerSpy.mock.calls.filter(([eventName]) => eventName === 'click')
+      ).toHaveLength(1);
+      expect(storageAddSpy).toHaveBeenCalledTimes(1);
+      expect(runtimeAddSpy).toHaveBeenCalledTimes(1);
+
+      firstToolbar.cleanup();
+      secondToolbar.cleanup();
+      delete globalThis.window.chrome.storage;
+      delete globalThis.window.chrome.runtime.onMessage;
     });
   });
 
@@ -388,32 +489,122 @@ describe('Toolbar 覆蓋率補強', () => {
 
       const mockListener = () => {};
       toolbar._storageListener = mockListener;
+      const selectionHandler = toolbar.selectionHandler;
+      const clickDeleteHandler = toolbar.clickDeleteHandler;
 
       toolbar.cleanup();
 
-      expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', toolbar.selectionHandler);
-      expect(removeSelectionSpy).toHaveBeenCalledWith('click', toolbar.clickDeleteHandler);
+      expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', selectionHandler);
+      expect(removeSelectionSpy).toHaveBeenCalledWith('click', clickDeleteHandler);
       expect(removeStorageSpy).toHaveBeenCalledWith(mockListener);
       expect(toolbar._storageListener).toBeNull();
 
       delete globalThis.window.chrome.storage;
     });
 
-    test('應該移除 DOM 元素', () => {
-      document.body.append(toolbar.container);
-      document.body.append(toolbar.miniIcon);
+    test('應該移除 Shadow DOM Host 元素', () => {
+      // host 在 constructor 中已插入 body
+      expect(document.body.contains(toolbar.host)).toBe(true);
 
       toolbar.cleanup();
 
-      expect(document.body.contains(toolbar.container)).toBe(false);
-      expect(document.body.contains(toolbar.miniIcon)).toBe(false);
+      expect(document.body.contains(toolbar.host)).toBe(false);
     });
 
-    test('應該在元素不存在時安全返回', () => {
-      toolbar.container = null;
-      toolbar.miniIcon = null;
+    test('應該在 host 不存在時安全返回', () => {
+      toolbar.host = null;
 
       expect(() => toolbar.cleanup()).not.toThrow();
+    });
+
+    test('應該移除 runtime message listener 並清空引用', () => {
+      const removeRuntimeListenerSpy = jest.fn();
+      globalThis.window.chrome.runtime.onMessage = {
+        removeListener: removeRuntimeListenerSpy,
+      };
+
+      const messageListener = toolbar._messageListener;
+      expect(messageListener).toBeDefined();
+
+      toolbar.cleanup();
+
+      expect(removeRuntimeListenerSpy).toHaveBeenCalledWith(messageListener);
+      expect(toolbar._messageListener).toBeNull();
+
+      delete globalThis.window.chrome.runtime.onMessage;
+    });
+
+    test('兩個實例時清理非最後一個，不應移除共享 host', () => {
+      toolbar.cleanup();
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+      const host = secondToolbar.host;
+
+      secondToolbar.cleanup();
+
+      expect(document.body.contains(host)).toBe(true);
+      expect(Toolbar._sharedState.instances.size).toBe(1);
+
+      firstToolbar.cleanup();
+    });
+
+    test('owner cleanup 後應轉移全域事件給下一個實例，最後一個 cleanup 才移除 host', () => {
+      toolbar.cleanup();
+
+      const removeDocumentListenerSpy = jest.spyOn(document, 'removeEventListener');
+      const addDocumentListenerSpy = jest.spyOn(document, 'addEventListener');
+      const storageAddSpy = jest.fn();
+      const storageRemoveSpy = jest.fn();
+      const runtimeAddSpy = jest.fn();
+      const runtimeRemoveSpy = jest.fn();
+      globalThis.window.chrome.storage = {
+        onChanged: {
+          addListener: storageAddSpy,
+          removeListener: storageRemoveSpy,
+        },
+      };
+      globalThis.window.chrome.runtime.onMessage = {
+        addListener: runtimeAddSpy,
+        removeListener: runtimeRemoveSpy,
+      };
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+      const sharedHost = firstToolbar.host;
+      const mouseupBindCountBeforeTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'mouseup'
+      ).length;
+      const clickBindCountBeforeTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'click'
+      ).length;
+      const storageAddCountBeforeTransfer = storageAddSpy.mock.calls.length;
+      const runtimeAddCountBeforeTransfer = runtimeAddSpy.mock.calls.length;
+
+      firstToolbar.cleanup();
+
+      expect(Toolbar._sharedState.globalOwner).toBe(secondToolbar);
+      expect(document.body.contains(sharedHost)).toBe(true);
+      expect(removeDocumentListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
+      expect(removeDocumentListenerSpy).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(storageRemoveSpy).toHaveBeenCalledTimes(1);
+      expect(runtimeRemoveSpy).toHaveBeenCalledTimes(1);
+      const mouseupBindCallsAfterTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'mouseup'
+      );
+      const clickBindCallsAfterTransfer = addDocumentListenerSpy.mock.calls.filter(
+        ([eventName]) => eventName === 'click'
+      );
+      expect(mouseupBindCallsAfterTransfer).toHaveLength(mouseupBindCountBeforeTransfer + 1);
+      expect(clickBindCallsAfterTransfer).toHaveLength(clickBindCountBeforeTransfer + 1);
+      expect(storageAddSpy.mock.calls).toHaveLength(storageAddCountBeforeTransfer + 1);
+      expect(runtimeAddSpy.mock.calls).toHaveLength(runtimeAddCountBeforeTransfer + 1);
+
+      secondToolbar.cleanup();
+      expect(document.body.contains(sharedHost)).toBe(false);
+
+      delete globalThis.window.chrome.storage;
+      delete globalThis.window.chrome.runtime.onMessage;
     });
   });
 
@@ -422,6 +613,9 @@ describe('Toolbar 覆蓋率補強', () => {
     let removeListenerSpy;
 
     beforeEach(() => {
+      toolbar?.cleanup();
+      toolbar = null;
+
       addListenerSpy = jest.fn();
       removeListenerSpy = jest.fn();
 
@@ -545,6 +739,25 @@ describe('Toolbar 覆蓋率補強', () => {
       jest.runAllTimers();
 
       expect(managerMock.addHighlight).not.toHaveBeenCalled();
+    });
+
+    test('應該在 composedPath 包含 host/container 時忽略事件', () => {
+      toolbar.isHighlightModeActive = true;
+
+      const getSelectionSpy = jest.spyOn(globalThis, 'getSelection');
+      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+      Object.defineProperty(mouseupEvent, 'composedPath', {
+        value: () => [toolbar.host, toolbar.container, document.body, document],
+        configurable: true,
+      });
+
+      document.dispatchEvent(mouseupEvent);
+      jest.runAllTimers();
+
+      expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      expect(getSelectionSpy).not.toHaveBeenCalled();
+
+      getSelectionSpy.mockRestore();
     });
 
     test('應該在選擇為空時不創建標註', () => {

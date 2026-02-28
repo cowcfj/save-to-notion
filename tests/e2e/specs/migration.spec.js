@@ -81,7 +81,7 @@ test.describe('Migration Handlers E2E Tests', () => {
     const page = await context.newPage();
     await page.goto(popupUrl);
 
-    const urls = ['https://a.com', 'https://b.com'];
+    const urls = ['https://a.com/article-a', 'https://b.com/article-b'];
 
     // 注入舊數據格式 (僅陣列)
     await page.evaluate(async testUrls => {
@@ -100,14 +100,23 @@ test.describe('Migration Handlers E2E Tests', () => {
     expect(response.success).toBe(true);
     expect(response.results.success).toBe(2);
 
-    // 驗證數據已轉換為新格式物件並標記 needsRangeInfo
-    const checkResult = await page.evaluate(async url => {
-      const res = await chrome.storage.local.get(`highlights_${url}`);
-      return res[`highlights_${url}`];
-    }, urls[0]);
+    // 驗證所有 URLs 都已轉換為 page_* 新格式並標記 needsRangeInfo
+    for (const url of urls) {
+      const checkResult = await page.evaluate(async targetUrl => {
+        const res = await chrome.storage.local.get([
+          `page_${targetUrl}`,
+          `highlights_${targetUrl}`,
+        ]);
+        return {
+          pageData: res[`page_${targetUrl}`],
+          legacyData: res[`highlights_${targetUrl}`],
+        };
+      }, url);
 
-    expect(checkResult.url).toBe(urls[0]);
-    expect(checkResult.highlights[0].needsRangeInfo).toBe(true);
+      expect(checkResult.pageData).toBeDefined();
+      expect(checkResult.pageData.highlights[0].needsRangeInfo).toBe(true);
+      expect(checkResult.legacyData).toBeUndefined();
+    }
 
     await page.close();
   });
@@ -117,7 +126,7 @@ test.describe('Migration Handlers E2E Tests', () => {
     const page = await context.newPage();
     await page.goto(popupUrl);
 
-    const urls = ['https://delete1.com', 'https://delete2.com'];
+    const urls = ['https://delete1.com/p1', 'https://delete2.com/p2'];
     await page.evaluate(async testUrls => {
       for (const url of testUrls) {
         await chrome.storage.local.set({ [`highlights_${url}`]: [{ id: '1' }] });
@@ -134,7 +143,7 @@ test.describe('Migration Handlers E2E Tests', () => {
     expect(response.count).toBe(2);
 
     const storageData = await page.evaluate(testUrls => {
-      const keys = testUrls.map(url => `highlights_${url}`);
+      const keys = testUrls.flatMap(url => [`highlights_${url}`, `page_${url}`]);
       return chrome.storage.local.get(keys);
     }, urls);
     expect(Object.keys(storageData).length).toBe(0);
@@ -169,11 +178,17 @@ test.describe('Migration Handlers E2E Tests', () => {
     expect(response.deletedCount).toBe(1);
 
     const checkResult = await page.evaluate(async url => {
-      const res = await chrome.storage.local.get(`highlights_${url}`);
-      return res[`highlights_${url}`];
+      const res = await chrome.storage.local.get([`page_${url}`, `highlights_${url}`]);
+      return {
+        pageData: res[`page_${url}`],
+        legacyData: res[`highlights_${url}`],
+      };
     }, testUrl);
-    expect(checkResult.highlights.length).toBe(1);
-    expect(checkResult.highlights[0].id).toBe('h1');
+
+    expect(checkResult.pageData).toBeDefined();
+    expect(checkResult.pageData.highlights.length).toBe(1);
+    expect(checkResult.pageData.highlights[0].id).toBe('h1');
+    expect(checkResult.legacyData).toBeUndefined();
     await page.close();
   });
 });

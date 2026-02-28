@@ -18,6 +18,13 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
   renderColorPicker: jest.fn(),
 }));
 
+// Mock toolbarStyles — Shadow DOM 環境中的樣式注入
+jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
+  injectStylesIntoShadowRoot: jest.fn(),
+  getToolbarCSS: jest.fn(() => ''),
+  injectGlobalStyles: jest.fn(), // 向後相容
+}));
+
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   error: jest.fn(),
   log: jest.fn(),
