@@ -4,7 +4,7 @@
  */
 
 import { ToolbarStates, ToolbarStateManager } from './ToolbarState.js';
-import { injectGlobalStyles } from './styles/toolbarStyles.js';
+import { injectStylesIntoShadowRoot } from './styles/toolbarStyles.js';
 import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
@@ -40,18 +40,26 @@ export class Toolbar {
     this.isHighlightModeActive = false;
     this._initialized = false;
 
-    // 注入全局樣式
-    injectGlobalStyles();
+    // 建立 Shadow DOM Host 以隔離宿主頁面的 CSS 污染
+    this.host = document.createElement('div');
+    this.host.id = 'notion-highlighter-host';
+    this.shadowRoot = this.host.attachShadow({ mode: 'open' });
+
+    // 將 Toolbar 樣式注入 Shadow Root（不再注入 document.head）
+    injectStylesIntoShadowRoot(this.shadowRoot);
 
     // 創建 UI 元素
     this.container = createToolbarContainer();
     this.miniIcon = createMiniIcon();
 
-    // 插入到 DOM（默認隱藏）
+    // 插入到 Shadow Root（默認隱藏）
     this.container.style.display = 'none';
     this.miniIcon.style.display = 'none';
-    document.body.append(this.container);
-    document.body.append(this.miniIcon);
+    this.shadowRoot.append(this.container);
+    this.shadowRoot.append(this.miniIcon);
+
+    // Host 插入 body
+    document.body.append(this.host);
 
     // 綁定事件
     this.bindEvents();
@@ -203,7 +211,8 @@ export class Toolbar {
       }
 
       // 忽略工具欄內的點擊
-      if (event.target.closest(TOOLBAR_SELECTORS.CONTAINER)) {
+      // 使用 composedPath() 以正確販湋穿越 Shadow Boundary 的點擊來源
+      if (event.composedPath().some(el => el === this.host || el === this.container)) {
         return;
       }
 
@@ -587,13 +596,9 @@ export class Toolbar {
       this._messageListener = null;
     }
 
-    // 移除 DOM 元素
-    if (this.container) {
-      this.container.remove();
-    }
-
-    if (this.miniIcon) {
-      this.miniIcon.remove();
+    // 移除 DOM 元素（移除 host 即可清除內部所有元素）
+    if (this.host) {
+      this.host.remove();
     }
   }
 }

@@ -40,6 +40,13 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
   renderColorPicker: jest.fn(),
 }));
 
+// Mock toolbarStyles — Shadow DOM 環境中的樣式注入
+jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
+  injectStylesIntoShadowRoot: jest.fn(),
+  getToolbarCSS: jest.fn(() => ''),
+  injectGlobalStyles: jest.fn(), // 向後相容
+}));
+
 describe('Toolbar 覆蓋率補強', () => {
   let managerMock = null;
   let toolbar = null;
@@ -399,19 +406,17 @@ describe('Toolbar 覆蓋率補強', () => {
       delete globalThis.window.chrome.storage;
     });
 
-    test('應該移除 DOM 元素', () => {
-      document.body.append(toolbar.container);
-      document.body.append(toolbar.miniIcon);
+    test('應該移除 Shadow DOM Host 元素', () => {
+      // host 在 constructor 中已插入 body
+      expect(document.body.contains(toolbar.host)).toBe(true);
 
       toolbar.cleanup();
 
-      expect(document.body.contains(toolbar.container)).toBe(false);
-      expect(document.body.contains(toolbar.miniIcon)).toBe(false);
+      expect(document.body.contains(toolbar.host)).toBe(false);
     });
 
-    test('應該在元素不存在時安全返回', () => {
-      toolbar.container = null;
-      toolbar.miniIcon = null;
+    test('應該在 host 不存在時安全返回', () => {
+      toolbar.host = null;
 
       expect(() => toolbar.cleanup()).not.toThrow();
     });
