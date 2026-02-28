@@ -420,6 +420,23 @@ describe('Toolbar 覆蓋率補強', () => {
 
       expect(() => toolbar.cleanup()).not.toThrow();
     });
+
+    test('應該移除 runtime message listener 並清空引用', () => {
+      const removeRuntimeListenerSpy = jest.fn();
+      globalThis.window.chrome.runtime.onMessage = {
+        removeListener: removeRuntimeListenerSpy,
+      };
+
+      const messageListener = toolbar._messageListener;
+      expect(messageListener).toBeDefined();
+
+      toolbar.cleanup();
+
+      expect(removeRuntimeListenerSpy).toHaveBeenCalledWith(messageListener);
+      expect(toolbar._messageListener).toBeNull();
+
+      delete globalThis.window.chrome.runtime.onMessage;
+    });
   });
 
   describe('bindStorageEvents', () => {
@@ -550,6 +567,25 @@ describe('Toolbar 覆蓋率補強', () => {
       jest.runAllTimers();
 
       expect(managerMock.addHighlight).not.toHaveBeenCalled();
+    });
+
+    test('應該在 composedPath 包含 host/container 時忽略事件', () => {
+      toolbar.isHighlightModeActive = true;
+
+      const getSelectionSpy = jest.spyOn(globalThis, 'getSelection');
+      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+      Object.defineProperty(mouseupEvent, 'composedPath', {
+        value: () => [toolbar.host, toolbar.container, document.body, document],
+        configurable: true,
+      });
+
+      document.dispatchEvent(mouseupEvent);
+      jest.runAllTimers();
+
+      expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      expect(getSelectionSpy).not.toHaveBeenCalled();
+
+      getSelectionSpy.mockRestore();
     });
 
     test('應該在選擇為空時不創建標註', () => {
