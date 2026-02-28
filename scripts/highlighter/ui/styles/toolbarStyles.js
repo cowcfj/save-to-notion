@@ -30,7 +30,7 @@ export function getToolbarCSS() {
         }
 
         /* 按鈕重置 — 防止宿主的 button {...} 規則覆蓋 */
-        :host button {
+        :host :where(button) {
             all: unset;
             box-sizing: border-box;
             cursor: pointer;

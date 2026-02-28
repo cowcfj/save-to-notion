@@ -46,6 +46,8 @@ describe('toolbarStyles', () => {
     const css = getToolbarCSS();
 
     expect(css).toContain(':host');
+    expect(css).toContain(':host :where(button)');
+    expect(css).not.toContain(':host button {');
     expect(css).toContain(TOOLBAR_SELECTORS.CONTAINER);
     expect(css).toContain(TOOLBAR_SELECTORS.MINI_ICON);
     expect(css).toContain(`${TOOLBAR_SELECTORS.MINI_ICON}:hover`);
