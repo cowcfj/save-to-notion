@@ -20,6 +20,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 import Logger from '../../../../scripts/utils/Logger.js';
 import { Toolbar } from '../../../../scripts/highlighter/ui/Toolbar.js';
 import { createToolbarContainer } from '../../../../scripts/highlighter/ui/components/ToolbarContainer.js';
+import { injectStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/toolbarStyles.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/ui/components/ToolbarContainer.js', () => ({
@@ -160,6 +161,33 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(toolbar.isHighlightModeActive).toBe(false);
       expect(toolbar.container).toBeTruthy();
       expect(toolbar.miniIcon).toBeTruthy();
+    });
+
+    test('重複實例化時應重用單一 host/shadowRoot 並只注入一次樣式', () => {
+      toolbar.cleanup();
+      injectStylesIntoShadowRoot.mockClear();
+
+      createToolbarContainer.mockImplementation(() => createMockContainer());
+      createMiniIcon.mockImplementation(() => {
+        const icon = document.createElement('div');
+        icon.id = 'notion-highlighter-mini-icon';
+        return icon;
+      });
+
+      const firstToolbar = new Toolbar(managerMock);
+      const secondToolbar = new Toolbar(managerMock);
+
+      expect(document.querySelectorAll('#notion-highlighter-host')).toHaveLength(1);
+      expect(secondToolbar.host).toBe(firstToolbar.host);
+      expect(secondToolbar.shadowRoot).toBe(firstToolbar.shadowRoot);
+      expect(firstToolbar.shadowRoot.querySelectorAll('#notion-highlighter-v2')).toHaveLength(1);
+      expect(
+        firstToolbar.shadowRoot.querySelectorAll('#notion-highlighter-mini-icon')
+      ).toHaveLength(1);
+      expect(injectStylesIntoShadowRoot).toHaveBeenCalledTimes(1);
+
+      firstToolbar.cleanup();
+      secondToolbar.cleanup();
     });
   });
 

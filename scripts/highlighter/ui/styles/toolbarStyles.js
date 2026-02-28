@@ -253,7 +253,7 @@ export function getToolbarCSS() {
             border: 1px solid rgba(0,0,0,0.05);
         }
 
-        #notion-highlighter-mini-icon:hover {
+        ${TOOLBAR_SELECTORS.MINI_ICON}:hover {
             transform: scale(1.1) rotate(15deg);
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }

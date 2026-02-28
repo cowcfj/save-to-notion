@@ -20,6 +20,8 @@ const STYLE_TEXT_BOTTOM = 'text-bottom';
 const STYLE_INLINE_FLEX = 'inline-flex';
 const STYLE_NONE = 'none';
 const STYLE_BLOCK = 'block';
+const TOOLBAR_HOST_ID = 'notion-highlighter-host';
+const TOOLBAR_HOST_SELECTOR = `#${TOOLBAR_HOST_ID}`;
 
 /**
  * 工具欄管理器類別
@@ -40,13 +42,23 @@ export class Toolbar {
     this.isHighlightModeActive = false;
     this._initialized = false;
 
-    // 建立 Shadow DOM Host 以隔離宿主頁面的 CSS 污染
-    this.host = document.createElement('div');
-    this.host.id = 'notion-highlighter-host';
-    this.shadowRoot = this.host.attachShadow({ mode: 'open' });
+    // 建立或重用單一 Shadow DOM Host，避免重複實例造成多個 host
+    const existingHost = document.querySelector(TOOLBAR_HOST_SELECTOR);
+    if (existingHost) {
+      this.host = existingHost;
+      this.shadowRoot = this.host.shadowRoot || this.host.attachShadow({ mode: 'open' });
+    } else {
+      this.host = document.createElement('div');
+      this.host.id = TOOLBAR_HOST_ID;
+      this.shadowRoot = this.host.attachShadow({ mode: 'open' });
+      document.body.append(this.host);
+    }
 
-    // 將 Toolbar 樣式注入 Shadow Root（不再注入 document.head）
-    injectStylesIntoShadowRoot(this.shadowRoot);
+    // 僅在首次建立 host 時注入樣式，重用時不重複注入
+    if (this.host.dataset.toolbarStylesInjected !== 'true') {
+      injectStylesIntoShadowRoot(this.shadowRoot);
+      this.host.dataset.toolbarStylesInjected = 'true';
+    }
 
     // 創建 UI 元素
     this.container = createToolbarContainer();
@@ -55,11 +67,17 @@ export class Toolbar {
     // 插入到 Shadow Root（默認隱藏）
     this.container.style.display = 'none';
     this.miniIcon.style.display = 'none';
+
+    // 重用 host 時，先移除舊的 toolbar container / mini icon，確保 Shadow Root 內僅保留一組
+    this.shadowRoot.querySelectorAll(TOOLBAR_SELECTORS.CONTAINER).forEach(el => el.remove());
+    this.shadowRoot.querySelectorAll(TOOLBAR_SELECTORS.MINI_ICON).forEach(el => el.remove());
     this.shadowRoot.append(this.container);
     this.shadowRoot.append(this.miniIcon);
 
-    // Host 插入 body
-    document.body.append(this.host);
+    // 防禦：若 host 尚未連接到 DOM，補上插入
+    if (!this.host.isConnected) {
+      document.body.append(this.host);
+    }
 
     // 綁定事件
     this.bindEvents();
