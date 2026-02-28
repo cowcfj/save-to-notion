@@ -196,7 +196,7 @@ ${'='.repeat(60)}`);
     console.log('\n🔄 開始合併覆蓋率數據...\n');
 
     // 1. 加載 Jest 覆蓋率
-    const jestCoverageFile = path.join('coverage', 'coverage-final.json');
+    const jestCoverageFile = path.join('coverage', 'jest', 'coverage-final.json');
     this.loadJestCoverage(jestCoverageFile);
 
     // 記錄 Jest 覆蓋率摘要（可能為空）

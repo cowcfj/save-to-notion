@@ -38,6 +38,9 @@ module.exports = {
   // 覆蓋率報告格式
   coverageReporters: ['text', 'lcov', 'html', 'json'],
 
+  // 覆蓋率輸出目錄
+  coverageDirectory: 'coverage/jest',
+
   // 忽略的路徑
   testPathIgnorePatterns: [
     '/node_modules/',
