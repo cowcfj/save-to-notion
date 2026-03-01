@@ -157,6 +157,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       setSavedPageData: jest.fn(),
       clearPageState: jest.fn(),
       setUrlAlias: jest.fn().mockResolvedValue(),
+      removeSavedPageData: jest.fn().mockResolvedValue(),
     };
 
     mockInjectionService = {
@@ -232,6 +233,42 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toEqual([]);
       expect(result.siteIcon).toBeNull();
+    });
+
+    test('BlockBuilder 缺失時應使用 fallback 函數並保持流程正常', async () => {
+      const blockBuilderModule = require('../../../../scripts/background/utils/BlockBuilder.js');
+      const originalBuildHighlightBlocks = blockBuilderModule.buildHighlightBlocks;
+      blockBuilderModule.buildHighlightBlocks = undefined;
+
+      try {
+        const fallbackResult = processContentResult({ title: 'Fallback', blocks: [] }, [
+          { text: 'isolated highlight' },
+        ]);
+        expect(fallbackResult.blocks).toEqual([]);
+
+        mockStorageService.getConfig.mockResolvedValue({
+          notionApiKey: 'secret-key',
+          notionDataSourceId: 'db-123',
+        });
+        mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
+        mockNotionService.checkPageExists.mockResolvedValue(true);
+        mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'isolated highlight' }]);
+        mockPageContentService.extractContent.mockResolvedValue({ title: 'Fallback', blocks: [] });
+        mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
+        chrome.tabs.query.mockResolvedValue([{ id: 99, url: 'https://example.com/isolated' }]);
+
+        const sendResponse = jest.fn();
+        await handlers.savePage({}, internalSender, sendResponse);
+
+        expect(mockNotionService.updateHighlightsSection).toHaveBeenCalledWith('existing-id', [], {
+          apiKey: 'secret-key',
+        });
+        expect(sendResponse).toHaveBeenCalledWith(
+          expect.objectContaining({ success: true, highlightsUpdated: true })
+        );
+      } finally {
+        blockBuilderModule.buildHighlightBlocks = originalBuildHighlightBlocks;
+      }
     });
   });
 
@@ -344,6 +381,81 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
     });
 
+    test('新頁面保存成功時，PAGE_SAVE_HINT 失敗不應中斷主流程', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
+      mockNotionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'notion.so/new',
+      });
+      chrome.tabs.sendMessage.mockReturnValueOnce(Promise.reject(new Error('hint failed')));
+
+      await handlers.savePage({}, internalSender, sendResponse);
+      await Promise.resolve();
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ action: 'PAGE_SAVE_HINT', isSaved: true })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('setUrlAlias 失敗時應忽略錯誤並保持成功回應', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
+      mockStorageService.setUrlAlias.mockRejectedValue(new Error('alias failed'));
+      mockNotionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'alias-page-id',
+        url: 'notion.so/alias',
+      });
+      mockTabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com/stable',
+        originalUrl: 'https://example.com/original',
+        migrated: false,
+      });
+
+      await handlers.savePage({}, internalSender, sendResponse);
+
+      expect(mockStorageService.setUrlAlias).toHaveBeenCalledWith(
+        'https://example.com/original',
+        'https://example.com/stable'
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('清理 originalUrl 舊資料失敗時應忽略錯誤並保持成功回應', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ notionPageId: 'old-page-id' });
+      mockStorageService.removeSavedPageData.mockRejectedValue(new Error('cleanup failed'));
+      mockNotionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'notion.so/new',
+      });
+      mockTabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com/stable-cleanup',
+        originalUrl: 'https://example.com/original-cleanup',
+        migrated: false,
+      });
+
+      await handlers.savePage({}, internalSender, sendResponse);
+
+      expect(mockStorageService.removeSavedPageData).toHaveBeenCalledWith(
+        'https://example.com/original-cleanup'
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
     // 測試 determineAndExecuteSaveAction：已有頁面流程 - 更新標註
     test('已有頁面：有新標註時應該調用 updateHighlightsSection', async () => {
       const sendResponse = jest.fn();
@@ -361,6 +473,27 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ highlightsUpdated: true })
+      );
+    });
+
+    test('已有頁面：標註更新失敗時應走統一錯誤回應', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
+      mockNotionService.checkPageExists.mockResolvedValue(true);
+      mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'new highlight' }]);
+      mockNotionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'Update failed',
+        details: { phase: 'updateHighlightsSection' },
+      });
+
+      await handlers.savePage({}, internalSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('在 updateHighlightsSection 階段'),
+        })
       );
     });
 
