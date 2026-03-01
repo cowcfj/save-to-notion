@@ -205,8 +205,59 @@ describe('StorageService', () => {
       await new Promise(process.nextTick);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        '[StorageService] Failed to remove legacy saved key',
+        '[StorageService] Failed to remove legacy keys',
         expect.objectContaining({ error: 'Remove failed' })
+      );
+    });
+
+    it('應該在 page_* 不存在時，從舊格式 highlights_* 取回並保留標注', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
+      const legacyHighlights = [
+        { id: 'h1', text: 'first highlight', color: 'yellow' },
+        { id: 'h2', text: 'second highlight', color: 'green' },
+      ];
+
+      // page_* 不存在，highlights_* 存在（舊格式純陣列）
+      mockStorage.local.get.mockResolvedValue({ [hlKey]: legacyHighlights });
+
+      const data = { title: 'Test Page', notionPageId: 'page-abc', savedAt: 1000 };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({
+            highlights: legacyHighlights,
+            notion: expect.objectContaining({ pageId: 'page-abc' }),
+          }),
+        })
+      );
+      // highlights_* 應被清理（已遷移到 page_*）
+      expect(mockStorage.local.remove).toHaveBeenCalledWith(expect.arrayContaining([hlKey]));
+    });
+
+    it('應該在 page_* 已存在時，保留其 highlights 而非回退到 highlights_*', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
+      const existingHighlights = [{ id: 'h3', text: 'existing in page_*' }];
+      const staleHighlights = [{ id: 'h1', text: 'stale in highlights_*' }];
+
+      // page_* 已存在（有自己的 highlights），highlights_* 也存在（舊資料）
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: { highlights: existingHighlights, notion: null, metadata: {} },
+        [hlKey]: staleHighlights,
+      });
+
+      const data = { title: 'Test', notionPageId: 'page-xyz' };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      // 應使用 page_* 的 highlights，而非 highlights_* 的舊資料
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({
+            highlights: existingHighlights,
+          }),
+        })
       );
     });
   });

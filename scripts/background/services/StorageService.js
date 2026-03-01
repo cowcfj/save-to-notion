@@ -358,8 +358,20 @@ class StorageService {
     return this._withLock(normalizedUrl, async () => {
       try {
         const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const existing = await this.storage.local.get([pageKey]);
+        const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+        const existing = await this.storage.local.get([pageKey, hlKey]);
         const current = existing[pageKey] || {};
+
+        // 保留現有 highlights；若 page_* 不存在，從舊格式 highlights_* 取回
+        // 支援舊格式：純陣列 [...] 和物件格式 { highlights: [...] }
+        const legacyHighlights = existing[hlKey];
+        const legacyArray = Array.isArray(legacyHighlights)
+          ? legacyHighlights
+          : (Array.isArray(legacyHighlights?.highlights)
+            ? legacyHighlights.highlights
+            : []);
+        // ?? 確保：若 current.highlights 為 undefined（page_* 不存在），才回退到 legacyArray
+        const existingHighlights = current.highlights ?? legacyArray;
 
         // 將傳入的 data 轉換為 notion 子欄位格式
         const notionData = {
@@ -371,7 +383,7 @@ class StorageService {
         };
 
         const newData = {
-          highlights: current.highlights || [],
+          highlights: existingHighlights,
           ...current,
           notion: notionData,
           metadata: {
@@ -382,11 +394,15 @@ class StorageService {
 
         await this.storage.local.set({ [pageKey]: newData });
 
-        // 過渡期：若有舊 saved_* key，非阻塞刪除
+        // 過渡期：刪除舊 saved_* key；若 highlights_* 已遷移到 page_*，一併清理
         const oldKey = `${SAVED_PREFIX}${normalizedUrl}`;
-        this.storage.local.remove([oldKey]).catch(error => {
-          this.logger.debug?.('[StorageService] Failed to remove legacy saved key', {
-            oldKey,
+        const keysToRemove = [oldKey];
+        if (existing[hlKey]) {
+          keysToRemove.push(hlKey);
+        }
+        this.storage.local.remove(keysToRemove).catch(error => {
+          this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
+            keys: keysToRemove,
             error: error?.message ?? error,
           });
         });
