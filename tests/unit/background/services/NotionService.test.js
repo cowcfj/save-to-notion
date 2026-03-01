@@ -18,11 +18,8 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 // 2. Imports
-import {
-  NotionService,
-  NOTION_CONFIG,
-} from '../../../../scripts/background/services/NotionService.js';
-import { CONTENT_QUALITY } from '../../../../scripts/config/index.js';
+import { NotionService } from '../../../../scripts/background/services/NotionService.js';
+import { CONTENT_QUALITY, NOTION_API } from '../../../../scripts/config/index.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 const createMockResponse = (data, ok = true, status = 200) => ({
@@ -175,7 +172,7 @@ describe('NotionService', () => {
   describe('constructor', () => {
     it('應該正確初始化', () => {
       expect(service.apiKey).toBe('test-api-key');
-      expect(service.config.API_VERSION).toBe(NOTION_CONFIG.API_VERSION);
+      expect(service.config.API_VERSION).toBe(NOTION_API.API_VERSION);
     });
 
     it('setApiKey 應該更新 API Key', () => {
