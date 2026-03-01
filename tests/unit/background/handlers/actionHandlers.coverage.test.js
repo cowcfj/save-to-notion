@@ -610,6 +610,23 @@ describe('actionHandlers 覆蓋率補強', () => {
       });
     });
 
+    test('應該在 sender.tab.url 為空字串時回傳 NO_ACTIVE_TAB 並提前中止', async () => {
+      const sendResponse = jest.fn();
+
+      await handlers.SAVE_PAGE_FROM_TOOLBAR(
+        {},
+        { id: 'mock-ext-id', tab: { id: 1, url: '' } },
+        sendResponse
+      );
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+      });
+      expect(mockStorageService.getConfig).not.toHaveBeenCalled();
+      expect(mockTabService.resolveTabUrl).not.toHaveBeenCalled();
+    });
+
     test('應該在受限頁面返回錯誤', async () => {
       const sendResponse = jest.fn();
       await handlers.SAVE_PAGE_FROM_TOOLBAR(

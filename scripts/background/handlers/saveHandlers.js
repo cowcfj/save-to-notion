@@ -303,6 +303,14 @@ export function createSaveHandlers(services) {
       return null;
     }
 
+    if (typeof activeTab.url !== 'string' || activeTab.url.trim().length === 0) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+      });
+      return null;
+    }
+
     if (isRestrictedInjectionUrl(activeTab.url)) {
       sendResponse({
         success: false,
