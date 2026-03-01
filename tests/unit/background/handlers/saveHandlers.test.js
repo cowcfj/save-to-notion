@@ -80,6 +80,7 @@ describe('saveHandlers', () => {
         getSavedPageData: jest.fn(),
         setSavedPageData: jest.fn(),
         clearPageState: jest.fn(),
+        clearNotionState: jest.fn(),
         setUrlAlias: jest.fn().mockResolvedValue(),
       },
       injectionService: {
@@ -326,13 +327,13 @@ describe('saveHandlers', () => {
       });
 
       await handlers.savePage({}, validSender, sendResponse);
-      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({ success: false, deletionPending: true })
       );
 
       await handlers.savePage({}, validSender, sendResponse);
-      expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
     });
 
@@ -751,7 +752,7 @@ describe('saveHandlers', () => {
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -776,7 +777,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({

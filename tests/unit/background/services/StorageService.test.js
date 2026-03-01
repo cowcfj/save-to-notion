@@ -278,6 +278,37 @@ describe('StorageService', () => {
     });
   });
 
+  describe('clearNotionState', () => {
+    it('應清除 notion 欄位但保留 highlights', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [{ id: '1', text: 'test' }],
+          notion: { pageId: 'abc123', url: 'https://notion.so/abc' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      await service.clearNotionState('https://example.com/page');
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({
+            highlights: [{ id: '1', text: 'test' }],
+            notion: null,
+          }),
+        })
+      );
+    });
+
+    it('page_* 不存在時不應呼叫 set', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+
+      await expect(service.clearNotionState('https://example.com/page')).resolves.toBeUndefined();
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+  });
+
   describe('clearLegacyKeys', () => {
     it('應該清除 normalized URL 的三種 keys（Phase 3: page_* + saved_* + highlights_*）', async () => {
       await service.clearLegacyKeys('https://example.com/article?utm_source=test');

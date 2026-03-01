@@ -550,7 +550,7 @@ export function createSaveHandlers(services) {
 
     // 只清理頁面 metadata（notionPageId 等），保留本地標註
     // Highlight-First：標註獨立於 Notion 頁面生命週期
-    await storageService.clearPageState(originalUrl || normUrl);
+    await storageService.clearNotionState(originalUrl || normUrl);
 
     return await performCreatePage(params);
   }
@@ -714,7 +714,7 @@ export function createSaveHandlers(services) {
       });
 
       // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-      await storageService.clearPageState(originalUrl || normUrl);
+      await storageService.clearNotionState(originalUrl || normUrl);
 
       try {
         chrome.action.setBadgeText({ text: '', tabId: activeTab.id });

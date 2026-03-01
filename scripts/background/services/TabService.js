@@ -68,6 +68,7 @@ class TabService {
     this.checkPageExists = options.checkPageExists || (() => Promise.resolve(null));
     this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
     this.clearPageState = options.clearPageState || (() => Promise.resolve());
+    this.clearNotionState = options.clearNotionState || (() => Promise.resolve());
     this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
 
     // 連續不存在保護：第一次 false 先標記 pending，第二次連續 false 才清理
@@ -418,7 +419,7 @@ class TabService {
           pageId: savedData.notionPageId?.slice(0, 4),
         });
         // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-        await this.clearPageState(fallbackUrl || normUrl);
+        await this.clearNotionState(fallbackUrl || normUrl);
         await this._updateBadgeStatus(tabId, null);
       } else if (exists === false && deletionCheck.deletionPending) {
         this.logger.warn('[TabService] First deletion check failed, mark as pending', {

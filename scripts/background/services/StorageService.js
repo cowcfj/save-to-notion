@@ -506,6 +506,65 @@ class StorageService {
   }
 
   /**
+   * 僅清除 Notion 綁定元數據，保留標注
+   * Highlight-First：標注獨立於 Notion 頁面生命週期
+   * 用於 Notion 頁面已刪除但本地標注需要保留的情境
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @returns {Promise<void>}
+   */
+  async clearNotionState(pageUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const stableUrl = computeStableUrl(pageUrl);
+
+    return this._withLock(normalizedUrl, async () => {
+      const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+      const stableKey =
+        stableUrl && stableUrl !== normalizedUrl ? `${PAGE_PREFIX}${stableUrl}` : null;
+
+      const keysToRead = stableKey ? [pageKey, stableKey] : [pageKey];
+      const existing = await this.storage.local.get(keysToRead);
+
+      const updates = {};
+
+      if (existing[pageKey]) {
+        updates[pageKey] = {
+          ...existing[pageKey],
+          notion: null,
+          metadata: { ...existing[pageKey].metadata, lastUpdated: Date.now() },
+        };
+      }
+
+      if (stableKey && existing[stableKey]) {
+        updates[stableKey] = {
+          ...existing[stableKey],
+          notion: null,
+          metadata: { ...existing[stableKey].metadata, lastUpdated: Date.now() },
+        };
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await this.storage.local.set(updates);
+      }
+
+      // 清理舊格式 saved_* key（無 highlights，可安全刪除）
+      const oldKeys = [`${SAVED_PREFIX}${normalizedUrl}`];
+      if (stableUrl && stableUrl !== normalizedUrl) {
+        oldKeys.push(`${SAVED_PREFIX}${stableUrl}`);
+      }
+      await this.storage.local.remove(oldKeys).catch(() => {});
+
+      this.logger.log?.('Cleared Notion metadata (highlights preserved)', {
+        url: sanitizeUrlForLogging(normalizedUrl),
+      });
+    });
+  }
+
+  /**
    * 設置 URL alias 映射（originalUrl → stableUrl）
    *
    * 用於解決 preloader PING 不穩定問題：
