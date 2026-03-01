@@ -647,10 +647,9 @@ export function createSaveHandlers(services) {
    * @param {object} activeTab - 活動標籤頁
    * @param {object} configData - 驗證階段返回的配置數據 { config, dataSourceId, dataSourceType }
    * @param {Function} sendResponse - 回應函數
-   * @param {string} actionLabel - 用於日誌的動作名稱
    * @returns {Promise<void>}
    */
-  async function _runSaveFlow(activeTab, configData, sendResponse, actionLabel = 'savePage') {
+  async function _runSaveFlow(activeTab, configData, sendResponse) {
     const { config, dataSourceId, dataSourceType } = configData;
 
     const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
@@ -774,7 +773,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        await _runSaveFlow(configData.activeTab, configData, sendResponse, 'savePage');
+        await _runSaveFlow(configData.activeTab, configData, sendResponse);
       } catch (error) {
         Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
         const safeMessage = sanitizeApiError(error, 'save_page_unknown');
@@ -798,12 +797,7 @@ export function createSaveHandlers(services) {
         }
 
         // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        await _runSaveFlow(
-          configData.activeTab,
-          configData,
-          sendResponse,
-          'SAVE_PAGE_FROM_TOOLBAR'
-        );
+        await _runSaveFlow(configData.activeTab, configData, sendResponse);
       } catch (error) {
         Logger.error('從 Toolbar 保存頁面時發生錯誤', {
           action: 'SAVE_PAGE_FROM_TOOLBAR',
