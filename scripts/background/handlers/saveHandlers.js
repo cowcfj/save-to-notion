@@ -272,7 +272,10 @@ export function createSaveHandlers(services) {
 
     const activeTab = sender.tab;
     if (!activeTab) {
-      sendResponse({ success: false, error: 'Cannot determine active tab from sender.' });
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+      });
       return null;
     }
 

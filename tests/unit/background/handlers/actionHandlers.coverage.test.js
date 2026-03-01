@@ -68,6 +68,7 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
 // 引入測試所需模組
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
+import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
 
 jest.mock('../../../../scripts/config/constants.js', () => {
   const original = jest.requireActual('../../../../scripts/config/constants.js');
@@ -594,6 +595,18 @@ describe('actionHandlers 覆蓋率補強', () => {
           error: expect.stringContaining('必須在標籤頁上下文中'),
         })
       );
+    });
+
+    test('應該在缺少 sender.tab 時回傳 NO_ACTIVE_TAB 友善訊息', async () => {
+      const sendResponse = jest.fn();
+      validateContentScriptRequest.mockReturnValueOnce(null);
+
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, { id: 'mock-ext-id' }, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+      });
     });
 
     test('應該在受限頁面返回錯誤', async () => {
