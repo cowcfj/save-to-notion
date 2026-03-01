@@ -168,6 +168,13 @@ export function createSaveHandlers(services) {
     );
   }
 
+  const NOTION_CONFIG_KEYS = [
+    'notionApiKey',
+    'notionDataSourceId',
+    'notionDatabaseId',
+    'notionDataSourceType',
+  ];
+
   /**
    * 連續不存在確認：false/false 才允許清理
    * 委託 TabService，確保背景自動同步與 Popup 查詢共用同一套狀態。
@@ -178,6 +185,36 @@ export function createSaveHandlers(services) {
    */
   function consumeDeletionConfirmation(notionPageId, exists) {
     return tabService.consumeDeletionConfirmation(notionPageId, exists);
+  }
+
+  /**
+   * 載入並驗證 Notion 必要設定
+   *
+   * @param {Function} sendResponse - 回應函數
+   * @returns {Promise<object|null>} 配置對象或 null
+   */
+  async function _loadAndValidateNotionConfig(sendResponse) {
+    const config = await storageService.getConfig(NOTION_CONFIG_KEYS);
+
+    if (!config.notionApiKey) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+      });
+      return null;
+    }
+
+    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+    if (!dataSourceId) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+      });
+      return null;
+    }
+
+    const dataSourceType = config.notionDataSourceType || 'data_source';
+    return { config, dataSourceId, dataSourceType };
   }
 
   /**
@@ -217,33 +254,12 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const config = await storageService.getConfig([
-      'notionApiKey',
-      'notionDataSourceId',
-      'notionDatabaseId',
-      'notionDataSourceType',
-    ]);
-
-    if (!config.notionApiKey) {
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-      });
+    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    if (!configData) {
       return null;
     }
 
-    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
-    if (!dataSourceId) {
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
-      });
-      return null;
-    }
-
-    const dataSourceType = config.notionDataSourceType || 'data_source';
-
-    return { config, dataSourceId, dataSourceType, activeTab };
+    return { ...configData, activeTab };
   }
 
   /**
@@ -287,33 +303,12 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const config = await storageService.getConfig([
-      'notionApiKey',
-      'notionDataSourceId',
-      'notionDatabaseId',
-      'notionDataSourceType',
-    ]);
-
-    if (!config.notionApiKey) {
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-      });
+    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    if (!configData) {
       return null;
     }
 
-    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
-    if (!dataSourceId) {
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
-      });
-      return null;
-    }
-
-    const dataSourceType = config.notionDataSourceType || 'data_source';
-
-    return { config, dataSourceId, dataSourceType, activeTab };
+    return { ...configData, activeTab };
   }
 
   /**
