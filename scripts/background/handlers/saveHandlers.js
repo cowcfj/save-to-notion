@@ -213,8 +213,15 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    // 僅允許 'page' 或 'database'；其餘（含 legacy 'data_source'）回退為 'database'
-    const dataSourceType = config.notionDataSourceType === 'page' ? 'page' : 'database';
+    // 保留三類輸入語意：'page' | 'database' | 'data_source'
+    // 其餘無效值回退為 'database'，以維持向後相容
+    const rawDataSourceType = config.notionDataSourceType;
+    let dataSourceType = 'database';
+    if (rawDataSourceType === 'page') {
+      dataSourceType = 'page';
+    } else if (rawDataSourceType === 'data_source') {
+      dataSourceType = 'data_source';
+    }
     return { config, dataSourceId, dataSourceType };
   }
 

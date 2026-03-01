@@ -254,6 +254,54 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('savePage: notionDataSourceType=data_source 應保留並傳遞給 buildPageData', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'ds-123',
+        notionDataSourceType: 'data_source',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
+        expect.objectContaining({ dataSourceType: 'data_source' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('savePage: 無效 notionDataSourceType 應回退為 database', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'db-123',
+        notionDataSourceType: 'invalid_type',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
+        expect.objectContaining({ dataSourceType: 'database' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
     test('savePage: 當 stableUrl 與 originalUrl 不同時應設定 alias', async () => {
       const sendResponse = jest.fn();
       const stableUrl = 'https://example.com/stable';

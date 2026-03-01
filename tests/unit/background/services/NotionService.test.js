@@ -447,6 +447,19 @@ describe('NotionService', () => {
       expect(result.pageData.properties.URL.url).toBe('https://example.com');
     });
 
+    it('should build page data for database type via data_source_id parent', () => {
+      const result = service.buildPageData({
+        title: 'Database Parent',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-456',
+        dataSourceType: 'database',
+        blocks: [],
+      });
+
+      expect(result.pageData.parent.type).toBe('data_source_id');
+      expect(result.pageData.parent.data_source_id).toBe('db-456');
+    });
+
     it('should build page data for page type', () => {
       const result = service.buildPageData({
         title: 'Child Page',
