@@ -1,16 +1,17 @@
 # 🤖 AI Agent 開發手冊 (Hub)
 
-> **單一真理來源 (Single Source of Truth)**: 本文件僅作為索引，詳細規範請查閱 `docs/guides/`。
+> **單一真理來源 (Single Source of Truth)**: 本文件僅作為索引，詳細規範與技術架構請查閱 `docs/guides/` 與 `docs/specs/`。
 
 ## 🗺️ 知識導航 (Knowledge Map)
 
 > [!IMPORTANT]
-> **按需載入原則**：**嚴禁**一次性讀取所有 guides。請先查閱 [`INDEX.md`](docs/guides/INDEX.md) 摘要索引，再決定是否深入閱讀具體指南。
+> **按需載入原則**：**嚴禁**一次性讀取所有 guides。請先查閱**本表 (Knowledge Map)** 的摘要索引，再決定是否深入閱讀具體指南。
 
 當你遇到特定任務時，請**優先**閱讀以下指南：
 
 | 領域 (Domain)     | 關鍵指南 (Essential Guide)                                                     | 適用場景 (When to use)                          |
 | ----------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- |
+| **📐 規格**       | [`docs/specs/README.md`](docs/specs/README.md)                                 | 查閱系統核心架構、技術規格與藍圖                |
 | **🧪 測試**       | [`TESTING_GUIDE.md`](docs/guides/TESTING_GUIDE.md)                             | 編寫單元測試、Mock API、檢查覆蓋率              |
 | **🏛️ 架構**       | [`ARCHITECTURE_DECISION_GUIDE.md`](docs/guides/ARCHITECTURE_DECISION_GUIDE.md) | 新功能設計、撰寫 implementation_plan 等前置作業 |
 | **🐛 除錯**       | [`DEBUGGING_GUIDE.md`](docs/guides/DEBUGGING_GUIDE.md)                         | 修復 Bug、分析日誌、系統化排查                  |
@@ -27,6 +28,9 @@
 | **📏 規範**       | [`PROJECT_STANDARDS.md`](docs/guides/PROJECT_STANDARDS.md)                     | 語言規範、Git Commit 格式                       |
 | **🤝 協作**       | [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md)                                 | Pull Request 建立流程、規範與 Review 準備       |
 | **🚀 發布**       | [`RELEASE_WORKFLOW.md`](docs/guides/RELEASE_WORKFLOW.md)                       | 版本發布流程、Store 上架準備                    |
+| **🚀 模板**       | [`GITHUB_RELEASE_TEMPLATE.md`](docs/guides/GITHUB_RELEASE_TEMPLATE.md)         | 撰寫 Release Notes 內容格式                     |
+| **📝 報告**       | [`REPORT_WRITING_STANDARDS.md`](docs/guides/REPORT_WRITING_STANDARDS.md)       | 撰寫各類報告或總結時的格式規範                  |
+| **🌐 提取**       | [`NEXTJS_EXTRACTION_GUIDE.md`](docs/guides/NEXTJS_EXTRACTION_GUIDE.md)         | Next.js App Router 網站內容提取經驗             |
 
 ## 🚀 3 分鐘快速入門 (3-Minute Quick Start)
 
@@ -67,8 +71,9 @@ graph TD
         CS -->|Message: PARSED_DATA| BG
     end
 
-    subgraph "Documentation Guides (Source of Truth)"
+    subgraph "Knowledge Base (Source of Truth)"
         Guides[docs/guides/*.md]
+        Specs[docs/specs/*.md]
     end
 ```
 
@@ -114,14 +119,14 @@ graph TD
 
 ## 🔧 工具使用策略 (Tool Strategy)
 
-| 任務類型         | 首選工具                                    | 備選工具         |
-| ---------------- | ------------------------------------------- | ---------------- |
-| **領域專屬邏輯** | **專屬與共用技能 (Skills)**                 | -                |
-| **文件操作**     | Native Tools (`read_file`, `grep`)          | MCP `filesystem` |
-| **GitHub 操作**  | MCP `github`                                | -                |
-| **搜索代碼**     | `grep_search` (精確), `find_by_name` (模糊) | -                |
-| **思考與規劃**   | MCP `sequentialthinking`                    | -                |
-| **Web 搜索**     | `search_web`                                | -                |
+| 任務類型         | 首選工具                                    | 備選工具 |
+| ---------------- | ------------------------------------------- | -------- |
+| **領域專屬邏輯** | **專屬與共用技能 (Skills)**                 | -        |
+| **文件操作**     | Native Tools                                | -        |
+| **GitHub 操作**  | MCP `github`                                | -        |
+| **搜索代碼**     | `grep_search` (精確), `find_by_name` (模糊) | -        |
+| **思考與規劃**   | MCP `sequentialthinking`                    | -        |
+| **Web 搜索**     | `search_web`                                | -        |
 
 ---
 
