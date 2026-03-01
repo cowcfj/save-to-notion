@@ -307,6 +307,39 @@ describe('StorageService', () => {
       await expect(service.clearNotionState('https://example.com/page')).resolves.toBeUndefined();
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
+
+    it('應通過 URL alias 解析並清除 stableUrl 下的 key', async () => {
+      const shortUrl = 'https://example.com/short';
+      const stableUrl = 'https://example.com/stable/';
+      const aliasKey = `${URL_ALIAS_PREFIX}${shortUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      mockStorage.local.get
+        .mockResolvedValueOnce({
+          // 第一次 get：[page_{short}, saved_{short}, url_alias_{short}]
+          [aliasKey]: stableUrl,
+        })
+        .mockResolvedValueOnce({
+          // 第二次 get：[page_{stable}, saved_{stable}]
+          [stablePageKey]: {
+            highlights: [{ id: '2', text: 'alias test' }],
+            notion: { pageId: 'xyz', url: 'https://notion.so/xyz' },
+            metadata: { lastUpdated: 200 },
+          },
+        });
+
+      await service.clearNotionState(shortUrl);
+
+      // 應寫入 stableUrl 下的 key，而非 shortUrl 的 key
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [stablePageKey]: expect.objectContaining({
+            highlights: [{ id: '2', text: 'alias test' }],
+            notion: null,
+          }),
+        })
+      );
+    });
   });
 
   describe('clearLegacyKeys', () => {

@@ -522,39 +522,26 @@ class StorageService {
     const stableUrl = computeStableUrl(pageUrl);
 
     return this._withLock(normalizedUrl, async () => {
-      const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-      const stableKey =
-        stableUrl && stableUrl !== normalizedUrl ? `${PAGE_PREFIX}${stableUrl}` : null;
+      // 使用與 getSavedPageData 相同的 URL 別名解析路徑，確保清除的 key 與讀取的 key 一致
+      const state = await this._getPageState(normalizedUrl);
 
-      const keysToRead = stableKey ? [pageKey, stableKey] : [pageKey];
-      const existing = await this.storage.local.get(keysToRead);
-
-      const updates = {};
-
-      if (existing[pageKey]) {
-        updates[pageKey] = {
-          ...existing[pageKey],
-          notion: null,
-          metadata: { ...existing[pageKey].metadata, lastUpdated: Date.now() },
-        };
-      }
-
-      if (stableKey && existing[stableKey]) {
-        updates[stableKey] = {
-          ...existing[stableKey],
-          notion: null,
-          metadata: { ...existing[stableKey].metadata, lastUpdated: Date.now() },
-        };
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await this.storage.local.set(updates);
+      if (state?.format === 'new') {
+        await this.storage.local.set({
+          [state.key]: {
+            ...state.data,
+            notion: null,
+            metadata: { ...state.data.metadata, lastUpdated: Date.now() },
+          },
+        });
       }
 
       // 清理舊格式 saved_* key（無 highlights，可安全刪除）
       const oldKeys = [`${SAVED_PREFIX}${normalizedUrl}`];
       if (stableUrl && stableUrl !== normalizedUrl) {
         oldKeys.push(`${SAVED_PREFIX}${stableUrl}`);
+      }
+      if (state?.format === 'legacy') {
+        oldKeys.push(state.savedKey);
       }
       await this.storage.local.remove(oldKeys).catch(() => {});
 
