@@ -224,14 +224,24 @@ describe('StorageService', () => {
       const data = { title: 'Test Page', notionPageId: 'page-abc', savedAt: 1000 };
       await service.setSavedPageData('https://example.com/page', data);
 
-      expect(mockStorage.local.set).toHaveBeenCalledWith(
+      const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
+      expect(setPayload.notion).toEqual(expect.objectContaining({ pageId: 'page-abc' }));
+      expect(setPayload.highlights).toEqual([
         expect.objectContaining({
-          [pageKey]: expect.objectContaining({
-            highlights: legacyHighlights,
-            notion: expect.objectContaining({ pageId: 'page-abc' }),
-          }),
-        })
-      );
+          id: 'h1',
+          text: 'first highlight',
+          color: 'yellow',
+          rangeInfo: expect.any(Object),
+          timestamp: expect.any(Number),
+        }),
+        expect.objectContaining({
+          id: 'h2',
+          text: 'second highlight',
+          color: 'green',
+          rangeInfo: expect.any(Object),
+          timestamp: expect.any(Number),
+        }),
+      ]);
       // highlights_* 應被清理（已遷移到 page_*）
       expect(mockStorage.local.remove).toHaveBeenCalledWith(expect.arrayContaining([hlKey]));
     });
@@ -239,7 +249,15 @@ describe('StorageService', () => {
     it('應該在 page_* 已存在時，保留其 highlights 而非回退到 highlights_*', async () => {
       const pageKey = `${PAGE_PREFIX}https://example.com/page`;
       const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
-      const existingHighlights = [{ id: 'h3', text: 'existing in page_*' }];
+      const existingHighlights = [
+        {
+          id: 'h3',
+          text: 'existing in page_*',
+          color: 'yellow',
+          rangeInfo: { start: 0, end: 3 },
+          timestamp: 1_700_000_000_001,
+        },
+      ];
       const staleHighlights = [{ id: 'h1', text: 'stale in highlights_*' }];
 
       // page_* 已存在（有自己的 highlights），highlights_* 也存在（舊資料）
@@ -259,6 +277,22 @@ describe('StorageService', () => {
           }),
         })
       );
+    });
+
+    it('應該在 current.highlights 非陣列時覆寫為合法 highlights 陣列', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: { highlights: { invalid: true }, notion: null, metadata: {} },
+        [hlKey]: [{ id: 'legacy', text: 'legacy text', color: 'yellow' }],
+      });
+
+      const data = { title: 'Test', notionPageId: 'page-xyz' };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
+      expect(Array.isArray(setPayload.highlights)).toBe(true);
+      expect(setPayload.highlights).toEqual([]);
     });
   });
 

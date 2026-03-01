@@ -160,6 +160,33 @@ class StorageService {
   }
 
   /**
+   * 規範化 highlights 陣列，確保符合 schema 最低要求
+   *
+   * @param {any} highlights - 原始 highlights 值
+   * @returns {Array<object>} 規範化後的 highlights
+   * @private
+   */
+  _normalizeHighlightsArray(highlights) {
+    if (!Array.isArray(highlights)) {
+      return [];
+    }
+
+    return highlights
+      .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+      .map(item => ({
+        ...item,
+        id: typeof item.id === 'string' ? item.id : '',
+        text: typeof item.text === 'string' ? item.text : '',
+        color: typeof item.color === 'string' ? item.color : 'yellow',
+        rangeInfo:
+          item.rangeInfo && typeof item.rangeInfo === 'object' && !Array.isArray(item.rangeInfo)
+            ? item.rangeInfo
+            : {},
+        timestamp: Number.isFinite(item.timestamp) ? item.timestamp : Date.now(),
+      }));
+  }
+
+  /**
    * 觸發讀時升級：將舊格式資料升級為 page_* 並刪除舊 key
    * 升級被移至 _withLock 內執行以避免併發寫入異常。
    *
@@ -372,7 +399,9 @@ class StorageService {
           legacyArray = legacyHighlights.highlights;
         }
         // ?? 確保：若 current.highlights 為 undefined（page_* 不存在），才回退到 legacyArray
-        const existingHighlights = current.highlights ?? legacyArray;
+        const existingHighlights = this._normalizeHighlightsArray(
+          current.highlights ?? legacyArray
+        );
 
         // 將傳入的 data 轉換為 notion 子欄位格式
         const notionData = {
@@ -384,8 +413,8 @@ class StorageService {
         };
 
         const newData = {
-          highlights: existingHighlights,
           ...current,
+          highlights: existingHighlights,
           notion: notionData,
           metadata: {
             ...current.metadata,
