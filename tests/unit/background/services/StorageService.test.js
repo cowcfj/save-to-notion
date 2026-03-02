@@ -112,17 +112,12 @@ describe('StorageService', () => {
         const result = {};
 
         // _getPageState 讀取：page_* / saved_* / url_alias_*
-        if (
-          keyList.includes(pageKey) &&
-          keyList.includes(savedKey) &&
-          keyList.includes(aliasKey) &&
-          keyList.length === 3
-        ) {
+        if (keyList.includes(pageKey) && keyList.includes(savedKey) && keyList.includes(aliasKey)) {
           result[savedKey] = savedData;
         }
 
         // _triggerReadTimeUpgrade 讀取：page_* / highlights_*
-        if (keyList.includes(pageKey) && keyList.includes(highlightKey) && keyList.length === 2) {
+        if (keyList.includes(pageKey) && keyList.includes(highlightKey)) {
           result[highlightKey] = highlightData;
         }
 
