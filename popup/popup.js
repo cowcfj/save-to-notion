@@ -257,7 +257,7 @@ export async function initPopup() {
         window.close();
       } else {
         // currentTab 不可用（例如 chrome:// 頁面、PDF 檢視器）
-        alert('側邊欄無法在此頁面開啟。');
+        setStatus('側邊欄無法在此頁面開啟。', 'error');
       }
     });
   }
