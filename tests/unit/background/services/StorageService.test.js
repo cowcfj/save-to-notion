@@ -352,6 +352,39 @@ describe('StorageService', () => {
       nowSpy.mockRestore();
     });
 
+    it('應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL', async () => {
+      const url = 'https://example.com/retry-hit-max-attempt';
+      const savedData = { notionPageId: 'legacy-7', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_004_500;
+      const ttlMs = 30 * 60 * 1000;
+      const firstFailureAt = now - 20_000;
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 4,
+        firstFailureAt,
+        lastFailureAt: now - 1000,
+        nextRetryAt: now - 1,
+      });
+      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed at attempt 5'));
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
+        attempts: 5,
+        firstFailureAt,
+        lastFailureAt: now,
+        nextRetryAt: firstFailureAt + ttlMs,
+      });
+
+      nowSpy.mockRestore();
+    });
+
     it('超過 TTL 後，應重置並允許新一輪嘗試', async () => {
       const url = 'https://example.com/retry-reset-after-ttl';
       const savedData = { notionPageId: 'legacy-6', title: 'legacy title' };

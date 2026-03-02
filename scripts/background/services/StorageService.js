@@ -261,7 +261,7 @@ class StorageService {
         UPGRADE_RETRY_MAX_DELAY_MS,
         UPGRADE_RETRY_BASE_DELAY_MS * Math.pow(2, attempts - 1)
       );
-      const jitterDelay = Math.floor(delay * (0.5 + Math.random() * 0.5));
+      const jitterDelay = Math.floor(delay * (0.5 + Math.random() * 0.5)); // NOSONAR: Math.random() 僅用於 retry jitter 時間分散，非安全敏感用途
       nextRetryAt = now + jitterDelay;
     }
 
