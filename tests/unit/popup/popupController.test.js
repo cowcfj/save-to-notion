@@ -42,6 +42,7 @@ describe('popup.js Controller', () => {
     const mockElements = {
       saveButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
       highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      manageButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
       clearHighlightsButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
       openNotionButton: {
         addEventListener: jest.fn(),
@@ -68,6 +69,9 @@ describe('popup.js Controller', () => {
         query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
         sendMessage: jest.fn().mockResolvedValue({}),
         onActivated: { addListener: jest.fn() },
+      },
+      sidePanel: {
+        open: jest.fn(),
       },
     };
     globalThis.window.close = jest.fn();
@@ -149,6 +153,10 @@ describe('popup.js Controller', () => {
       'click',
       expect.any(Function)
     );
+    expect(mockElements.manageButton.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function)
+    );
     expect(mockElements.openNotionButton.addEventListener).toHaveBeenCalledWith(
       'click',
       expect.any(Function)
@@ -224,6 +232,29 @@ describe('popup.js Controller', () => {
       await triggerEvent(mockElements.openNotionButton);
 
       expect(openNotionPage).toHaveBeenCalledWith('https://notion.so/new');
+    });
+
+    it('manageButton click should open side panel and close popup when current tab exists', async () => {
+      const { mockElements } = setup();
+      getActiveTab.mockResolvedValue({ id: 777, url: 'https://example.com' });
+      await initPopup();
+
+      await triggerEvent(mockElements.manageButton);
+
+      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 777 });
+      expect(globalThis.window.close).toHaveBeenCalled();
+    });
+
+    it('manageButton click should show error when current tab is unavailable', async () => {
+      const { mockElements } = setup();
+      getActiveTab.mockResolvedValue(null);
+      await initPopup();
+
+      await triggerEvent(mockElements.manageButton);
+
+      expect(setStatus).toHaveBeenCalledWith(mockElements, '側邊欄無法在此頁面開啟。', '#d63384');
+      expect(globalThis.chrome.sidePanel.open).not.toHaveBeenCalled();
+      expect(globalThis.window.close).not.toHaveBeenCalled();
     });
 
     it('clearHighlightsButton click should show modal', async () => {
