@@ -73,6 +73,7 @@ describe('TabService Migration Script', () => {
     const result = _migrationScript([]);
 
     expect(result).toEqual({ migrated: true, data, foundKey: key });
+    expect(localStorage.getItem(key)).toBeNull();
   });
 
   test('當 malformed 與同源可解析 key 共存時，應優先遷移同源可解析 key', () => {

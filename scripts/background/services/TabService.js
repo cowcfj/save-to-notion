@@ -491,7 +491,7 @@ class TabService {
     const pageKey = `page_${normUrl}`;
     // 刻意繞過 StorageService：呼叫方 resolveTabUrl 已在上游將 URL 解析為正確的 stableUrl，
     // 此處查詢的已是最終 canonical key，不需要再走 alias 解析和鎖機制，可減少不必要的開銷。
-    // 雙查機制（stableUrl → originalUrl）由 _updateTabStatusInternal L239-253 負責。
+    // 雙查機制（stableUrl → originalUrl）由 _updateTabStatusInternal 負責。
     const data = await chrome.storage.local.get([hlKey, pageKey]);
 
     // 確定來源：優先 page_* 新格式，再查 highlights_* 舊格式
