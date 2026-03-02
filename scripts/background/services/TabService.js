@@ -731,10 +731,11 @@ function _migrationScript(trackingParams) {
 
       try {
         const keyUrl = k.replace('highlights_', '');
-        if (currentOrigin && new URL(keyUrl).origin === currentOrigin) {
+        const parsedUrlOrigin = new URL(keyUrl).origin;
+        if (currentOrigin && parsedUrlOrigin === currentOrigin) {
           return k;
         }
-        // 若 origin 不匹配，繼續找下一個
+        // 若 origin 不匹配或當前 origin 不存在，繼續找下一個
       } catch {
         // URL 解析失敗（舊版非 URL 格式的 key），記錄第一個作為後備候選
         if (!legacyCandidate) {

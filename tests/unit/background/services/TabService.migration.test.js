@@ -1,5 +1,4 @@
 /**
- 
  * TabService.migration.test.js
  *
  * 專門用於測試 TabService 中注入頁面的遷移腳本 (_migrationScript)。
@@ -104,6 +103,38 @@ describe('TabService Migration Script', () => {
 
     expect(result).toEqual({ migrated: false });
     expect(localStorage.getItem(key)).toBe(JSON.stringify(data));
+  });
+
+  test('後備方案應跳過非 highlights_ 開頭的 key', () => {
+    localStorage.setItem('other_key', 'some-data');
+    const legacyKey = 'highlights_old-page';
+    const data = [{ text: 'legacy-data' }];
+    localStorage.setItem(legacyKey, JSON.stringify(data));
+
+    const result = _migrationScript([]);
+
+    expect(result).toEqual({ migrated: true, data, foundKey: legacyKey });
+    expect(localStorage.getItem(legacyKey)).toBeNull();
+    // other_key 應該不被修改
+    expect(localStorage.getItem('other_key')).toBe('some-data');
+  });
+
+  test('當 URL 解析失敗時 (getCurrentOrigin catch)，應安全回退到 legacy key', () => {
+    const originalURL = globalThis.URL;
+    globalThis.URL = jest.fn().mockImplementation(() => {
+      throw new TypeError('Invalid URL');
+    });
+
+    const legacyKey = 'highlights_legacy-key';
+    const data = [{ text: 'legacy-data' }];
+    localStorage.setItem(legacyKey, JSON.stringify(data));
+
+    try {
+      const result = _migrationScript([]);
+      expect(result).toEqual({ migrated: true, data, foundKey: legacyKey });
+    } finally {
+      globalThis.URL = originalURL;
+    }
   });
 
   test('應該能處理 JSON 解析錯誤', () => {
