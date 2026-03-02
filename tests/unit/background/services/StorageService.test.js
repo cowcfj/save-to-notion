@@ -96,9 +96,42 @@ describe('StorageService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('getSavedPageData', () => {
+    const setupLegacyReadPath = ({ url, savedData, highlightData = [] }) => {
+      const normalizedUrl = normalizeUrl(url);
+      const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+      const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
+      const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+      const highlightKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        const result = {};
+
+        // _getPageState 讀取：page_* / saved_* / url_alias_*
+        if (keyList.includes(pageKey) && keyList.includes(savedKey) && keyList.includes(aliasKey)) {
+          result[savedKey] = savedData;
+        }
+
+        // _triggerReadTimeUpgrade 讀取：page_* / highlights_*
+        if (keyList.includes(pageKey) && keyList.includes(highlightKey)) {
+          result[highlightKey] = highlightData;
+        }
+
+        return Promise.resolve(result);
+      });
+
+      return { normalizedUrl, pageKey, savedKey, highlightKey };
+    };
+
+    const flushReadTimeUpgrade = async () => {
+      await new Promise(process.nextTick);
+      await new Promise(process.nextTick);
+    };
+
     it('應該正確獲取保存的頁面數據（page_* 新格式）', async () => {
       const notionData = { pageId: 'page-123', title: 'Test Page', savedAt: 12_345 };
       mockStorage.local.get.mockResolvedValue({
@@ -168,6 +201,198 @@ describe('StorageService', () => {
         title: 'Test Page',
         savedAt: null,
         lastVerifiedAt: null,
+      });
+    });
+
+    it('讀時升級第一次失敗後，應記錄重試狀態與 nextRetryAt', async () => {
+      const url = 'https://example.com/retry-first-failure';
+      const savedData = { notionPageId: 'legacy-1', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed'));
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      const retryState = service._failedUpgradeAttempts.get(normalizedUrl);
+      expect(retryState).toEqual({
+        attempts: 1,
+        firstFailureAt: 1_700_000_000_000,
+        lastFailureAt: 1_700_000_000_000,
+        nextRetryAt: 1_700_000_000_500,
+      });
+    });
+
+    it('尚未到達 nextRetryAt 時，應跳過重試', async () => {
+      const url = 'https://example.com/retry-skip-before-next-window';
+      const savedData = { notionPageId: 'legacy-2', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_001_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 1,
+        firstFailureAt: now - 1000,
+        lastFailureAt: now - 1000,
+        nextRetryAt: now + 30_000,
+      });
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.local.remove).not.toHaveBeenCalled();
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
+        expect.objectContaining({
+          attempts: 1,
+          nextRetryAt: now + 30_000,
+        })
+      );
+    });
+
+    it('超過 nextRetryAt 後，應允許再次嘗試讀時升級', async () => {
+      const url = 'https://example.com/retry-after-next-window';
+      const savedData = { notionPageId: 'legacy-3', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_002_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 1,
+        firstFailureAt: now - 2000,
+        lastFailureAt: now - 1500,
+        nextRetryAt: now - 1,
+      });
+      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed again'));
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
+        attempts: 2,
+        firstFailureAt: now - 2000,
+        lastFailureAt: now,
+        nextRetryAt: now + 1000,
+      });
+    });
+
+    it('讀時升級成功後，應清除失敗追蹤狀態', async () => {
+      const url = 'https://example.com/retry-clear-on-success';
+      const savedData = { notionPageId: 'legacy-4', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_003_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 2,
+        firstFailureAt: now - 5000,
+        lastFailureAt: now - 1000,
+        nextRetryAt: now - 1,
+      });
+      mockStorage.local.set.mockResolvedValue();
+      mockStorage.local.remove.mockResolvedValue();
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(mockStorage.local.remove).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.has(normalizedUrl)).toBe(false);
+    });
+
+    it('達到 maxAttempts 且仍在 TTL 內時，應跳過重試', async () => {
+      const url = 'https://example.com/retry-max-attempts';
+      const savedData = { notionPageId: 'legacy-5', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_004_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 5,
+        firstFailureAt: now - 10_000, // 仍在 30 分鐘 TTL 內
+        lastFailureAt: now - 1000,
+        nextRetryAt: now - 1,
+      });
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.local.remove).not.toHaveBeenCalled();
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
+        expect.objectContaining({
+          attempts: 5,
+        })
+      );
+    });
+
+    it('應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL', async () => {
+      const url = 'https://example.com/retry-hit-max-attempt';
+      const savedData = { notionPageId: 'legacy-7', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_004_500;
+      const ttlMs = 30 * 60 * 1000;
+      const firstFailureAt = now - 20_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 4,
+        firstFailureAt,
+        lastFailureAt: now - 1000,
+        nextRetryAt: now - 1,
+      });
+      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed at attempt 5'));
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
+        attempts: 5,
+        firstFailureAt,
+        lastFailureAt: now,
+        nextRetryAt: firstFailureAt + ttlMs,
+      });
+    });
+
+    it('超過 TTL 後，應重置並允許新一輪嘗試', async () => {
+      const url = 'https://example.com/retry-reset-after-ttl';
+      const savedData = { notionPageId: 'legacy-6', title: 'legacy title' };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      const now = 1_700_000_005_000;
+      const ttlMs = 30 * 60 * 1000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Math, 'random').mockReturnValue(0);
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 5,
+        firstFailureAt: now - ttlMs - 1,
+        lastFailureAt: now - ttlMs - 1,
+        nextRetryAt: now + 999_999,
+      });
+      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed after ttl'));
+
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      expect(result).toEqual(savedData);
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
+        attempts: 1,
+        firstFailureAt: now,
+        lastFailureAt: now,
+        nextRetryAt: now + 500,
       });
     });
   });
@@ -568,6 +793,33 @@ describe('StorageService', () => {
         ].toSorted((a, b) => a.localeCompare(b))
       );
     });
+
+    it('應在提供 allData 時直接使用該資料且不呼叫 storage.local.get', async () => {
+      const allData = {
+        [`${PAGE_PREFIX}https://example.com/all-data-page1`]: {
+          notion: { pageId: 'p1' },
+          highlights: [],
+          metadata: {},
+        },
+        [`${PAGE_PREFIX}https://example.com/all-data-page2`]: {
+          notion: null,
+          highlights: [],
+          metadata: {},
+        },
+        [`${SAVED_PREFIX}https://example.com/all-data-page3`]: {},
+        other_key: 'value',
+      };
+      mockStorage.local.get.mockClear();
+
+      const result = await service.getAllSavedPageUrls(allData);
+
+      expect(mockStorage.local.get).not.toHaveBeenCalled();
+      expect(result.toSorted((a, b) => a.localeCompare(b))).toEqual(
+        ['https://example.com/all-data-page1', 'https://example.com/all-data-page3'].toSorted(
+          (a, b) => a.localeCompare(b)
+        )
+      );
+    });
   });
 
   describe('getAllHighlights', () => {
@@ -602,6 +854,38 @@ describe('StorageService', () => {
       expect(result['https://example.com/page2']).toEqual({
         url: 'https://example.com/page2',
         highlights: ['h2'],
+      });
+    });
+
+    it('應在提供 allData 時直接使用該資料且不呼叫 storage.local.get', async () => {
+      const allData = {
+        [`${PAGE_PREFIX}https://example.com/all-data-page1`]: {
+          notion: { pageId: 'p1' },
+          highlights: ['new-h1'],
+          metadata: {},
+        },
+        [`${HIGHLIGHTS_PREFIX}https://example.com/all-data-page1`]: {
+          url: 'https://example.com/all-data-page1',
+          highlights: ['legacy-h1'],
+        },
+        [`${HIGHLIGHTS_PREFIX}https://example.com/all-data-page2`]: {
+          url: 'https://example.com/all-data-page2',
+          highlights: ['legacy-h2'],
+        },
+        other_key: 'value',
+      };
+      mockStorage.local.get.mockClear();
+
+      const result = await service.getAllHighlights(allData);
+
+      expect(mockStorage.local.get).not.toHaveBeenCalled();
+      expect(result['https://example.com/all-data-page1']).toEqual({
+        url: 'https://example.com/all-data-page1',
+        highlights: ['new-h1'],
+      });
+      expect(result['https://example.com/all-data-page2']).toEqual({
+        url: 'https://example.com/all-data-page2',
+        highlights: ['legacy-h2'],
       });
     });
   });

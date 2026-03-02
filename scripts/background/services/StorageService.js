@@ -33,6 +33,11 @@ export const HIGHLIGHTS_PREFIX = 'highlights_';
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
+const UPGRADE_RETRY_MAX_ATTEMPTS = 5;
+const UPGRADE_RETRY_BASE_DELAY_MS = 1000;
+const UPGRADE_RETRY_MAX_DELAY_MS = 60_000;
+const UPGRADE_RETRY_TTL_MS = 30 * 60 * 1000;
+
 /**
  * StorageService 類
  */
@@ -47,6 +52,8 @@ class StorageService {
     this.logger = options.logger || console;
     // Phase 3: URL-keyed Promise Chain Mutex（防止並發 read-modify-write 衝突）
     this._locks = new Map();
+    // 記錄讀時升級失敗狀態（URL -> retry metadata），避免暫時性錯誤被永久跳過
+    this._failedUpgradeAttempts = new Map();
   }
 
   /**
@@ -187,6 +194,98 @@ class StorageService {
   }
 
   /**
+   * 清理超過 TTL 的升級失敗追蹤狀態
+   *
+   * @param {string} url - 目標 URL
+   * @param {number} now - 當前時間戳
+   * @returns {object | null}
+   * @private
+   */
+  _pruneExpiredUpgradeFailure(url, now) {
+    const state = this._failedUpgradeAttempts.get(url);
+    if (!state) {
+      return null;
+    }
+
+    if (now - state.firstFailureAt >= UPGRADE_RETRY_TTL_MS) {
+      this._failedUpgradeAttempts.delete(url);
+      return null;
+    }
+
+    return state;
+  }
+
+  /**
+   * 判斷當前是否允許重試讀時升級
+   *
+   * @param {string} url - 目標 URL
+   * @param {number} now - 當前時間戳
+   * @returns {boolean}
+   * @private
+   */
+  _canRetryUpgrade(url, now) {
+    const state = this._pruneExpiredUpgradeFailure(url, now);
+    if (!state) {
+      return true;
+    }
+
+    if (
+      state.attempts >= UPGRADE_RETRY_MAX_ATTEMPTS &&
+      now - state.firstFailureAt < UPGRADE_RETRY_TTL_MS
+    ) {
+      return false;
+    }
+
+    return now >= state.nextRetryAt;
+  }
+
+  /**
+   * 記錄讀時升級失敗並更新退避時間
+   *
+   * @param {string} url - 目標 URL
+   * @param {number} now - 當前時間戳
+   * @returns {object} 更新後的狀態
+   * @private
+   */
+  _recordUpgradeFailure(url, now) {
+    const existing = this._pruneExpiredUpgradeFailure(url, now);
+    const attempts = (existing?.attempts || 0) + 1;
+    const firstFailureAt = existing?.firstFailureAt || now;
+    const reachedMaxAttempts = attempts >= UPGRADE_RETRY_MAX_ATTEMPTS;
+
+    let nextRetryAt;
+    if (reachedMaxAttempts) {
+      nextRetryAt = firstFailureAt + UPGRADE_RETRY_TTL_MS;
+    } else {
+      const delay = Math.min(
+        UPGRADE_RETRY_MAX_DELAY_MS,
+        UPGRADE_RETRY_BASE_DELAY_MS * Math.pow(2, attempts - 1)
+      );
+      const jitterDelay = Math.floor(delay * (0.5 + Math.random() * 0.5)); // NOSONAR: Math.random() 僅用於 retry jitter 時間分散，非安全敏感用途
+      nextRetryAt = now + jitterDelay;
+    }
+
+    const state = {
+      attempts,
+      firstFailureAt,
+      lastFailureAt: now,
+      nextRetryAt,
+    };
+    this._failedUpgradeAttempts.set(url, state);
+    return state;
+  }
+
+  /**
+   * 清除讀時升級失敗追蹤狀態
+   *
+   * @param {string} url - 目標 URL
+   * @private
+   */
+  _clearUpgradeFailure(url) {
+    this._failedUpgradeAttempts.delete(url);
+  }
+
+  /**
    * 觸發讀時升級：將舊格式資料升級為 page_* 並刪除舊 key
    * 升級被移至 _withLock 內執行以避免併發寫入異常。
    *
@@ -196,36 +295,52 @@ class StorageService {
    * @private
    */
   _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
+    const now = Date.now();
+    if (!this._canRetryUpgrade(targetUrl, now)) {
+      return;
+    }
+
     const pageKey = `${PAGE_PREFIX}${targetUrl}`;
     const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
 
     // 在鎖的保護下進行升級，避免併發覆蓋
     this._withLock(targetUrl, async () => {
-      // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
-      const readResult = await this.storage.local.get([pageKey, highlightKey]);
-      const existingPage = readResult[pageKey];
-      const highlightData = readResult[highlightKey];
-      const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
-
-      // 若已有較新的 page_* 資料（以 metadata.lastUpdated 判斷），合併而非覆寫
-      let finalObj;
-      if (
-        existingPage &&
-        (existingPage.metadata?.lastUpdated ?? 0) > (builtObj.metadata?.lastUpdated ?? 0)
-      ) {
-        finalObj = {
-          ...builtObj,
-          ...existingPage,
-          highlights: existingPage.highlights?.length
-            ? existingPage.highlights
-            : builtObj.highlights,
-        };
-      } else {
-        finalObj = builtObj;
+      const lockNow = Date.now();
+      if (!this._canRetryUpgrade(targetUrl, lockNow)) {
+        return;
       }
 
-      await this.storage.local.set({ [pageKey]: finalObj });
-      await this.storage.local.remove([savedKey, highlightKey]);
+      // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
+      try {
+        const readResult = await this.storage.local.get([pageKey, highlightKey]);
+        const existingPage = readResult[pageKey];
+        const highlightData = readResult[highlightKey];
+        const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
+
+        // 若已有較新的 page_* 資料（以 metadata.lastUpdated 判斷），合併而非覆寫
+        let finalObj;
+        if (
+          existingPage &&
+          (existingPage.metadata?.lastUpdated ?? 0) > (builtObj.metadata?.lastUpdated ?? 0)
+        ) {
+          finalObj = {
+            ...builtObj,
+            ...existingPage,
+            highlights: existingPage.highlights?.length
+              ? existingPage.highlights
+              : builtObj.highlights,
+          };
+        } else {
+          finalObj = builtObj;
+        }
+
+        await this.storage.local.set({ [pageKey]: finalObj });
+        await this.storage.local.remove([savedKey, highlightKey]);
+        this._clearUpgradeFailure(targetUrl);
+      } catch (error) {
+        this._recordUpgradeFailure(targetUrl, Date.now());
+        throw error;
+      }
     }).catch(error => {
       this.logger.warn?.('[StorageService] 讀時升級失敗', { error });
     });
@@ -697,6 +812,19 @@ class StorageService {
   }
 
   /**
+   * 共用全量儲存空間讀取
+   *
+   * @returns {Promise<object>}
+   * @private
+   */
+  async _getAllStorageData() {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+    return await this.storage.local.get(null);
+  }
+
+  /**
    * 獲取所有 highlights_* 和 page_* 的資料（用於遷移掃描）
    *
    * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
@@ -713,19 +841,20 @@ class StorageService {
    * }
    * ```
    *
+   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
    * @returns {Promise<Record<string, object>>} key 為 URL，value 為完整標註資料
    */
-  async getAllHighlights() {
+  async getAllHighlights(allData = null) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
     }
 
     try {
-      const allData = await this.storage.local.get(null);
+      const data = allData || (await this._getAllStorageData());
       const result = {};
 
       // Phase 3：優先處理 page_* 格式（新格式）
-      for (const [key, value] of Object.entries(allData)) {
+      for (const [key, value] of Object.entries(data)) {
         if (!key.startsWith(PAGE_PREFIX)) {
           continue;
         }
@@ -734,7 +863,7 @@ class StorageService {
       }
 
       // 過渡期：補充尚未升級的 highlights_* 格式（同 URL 不覆蓋 page_* 結果）
-      for (const [key, value] of Object.entries(allData)) {
+      for (const [key, value] of Object.entries(data)) {
         if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
           continue;
         }
@@ -819,15 +948,16 @@ class StorageService {
    *
    * Phase 3：合併 page_*（notion 非 null）+ saved_* 的 URLs（去重）。
    *
+   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
    * @returns {Promise<string[]>}
    */
-  async getAllSavedPageUrls() {
+  async getAllSavedPageUrls(allData = null) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
     }
 
     try {
-      const result = await this.storage.local.get(null);
+      const result = allData || (await this._getAllStorageData());
       const urlSet = new Set();
 
       for (const [key, value] of Object.entries(result)) {
