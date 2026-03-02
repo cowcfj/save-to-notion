@@ -38,7 +38,7 @@ export default [
         document: 'readonly',
         console: 'readonly',
         navigator: 'readonly',
-        
+
         // Node.js globals
         process: 'readonly',
         __dirname: 'readonly',
@@ -46,7 +46,7 @@ export default [
         require: 'readonly',
         module: 'readonly',
         exports: 'readonly',
-        
+
         // Jest globals
         describe: 'readonly',
         test: 'readonly',
@@ -56,7 +56,7 @@ export default [
         beforeAll: 'readonly',
         afterAll: 'readonly',
         jest: 'readonly',
-        
+
         // Chrome Extension globals
         chrome: 'readonly',
 
@@ -69,8 +69,8 @@ export default [
         RetryManager: 'readonly',
         withRetry: 'readonly',
         fetchWithRetry: 'readonly',
-        Node: 'readonly'
-      }
+        Node: 'readonly',
+      },
     },
     plugins: {
       regexp,
@@ -80,45 +80,57 @@ export default [
       jest,
       promise,
       compat,
-      jsdoc
+      jsdoc,
     },
     rules: {
       // Base ESLint rules
-      'no-unused-vars': ['warn', {
-        argsIgnorePattern: '^_', 
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_'
-      }],
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'no-empty': ['warn', { allowEmptyCatch: true }],
       'no-case-declarations': 'off',
-      'no-implicit-coercion': ['warn', {
-        boolean: true,
-        number: false,
-        string: false,
-        disallowTemplateShorthand: false
-      }],
+      'no-implicit-coercion': [
+        'warn',
+        {
+          boolean: true,
+          number: false,
+          string: false,
+          disallowTemplateShorthand: false,
+        },
+      ],
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
 
       // Code Style
       'prefer-template': 'warn',
       'object-shorthand': ['warn', 'always'],
       'prefer-const': 'warn',
-      'prefer-arrow-callback': ['warn', {
-        allowNamedFunctions: false,
-        allowUnboundThis: true
-      }],
+      'prefer-arrow-callback': [
+        'warn',
+        {
+          allowNamedFunctions: false,
+          allowUnboundThis: true,
+        },
+      ],
       'no-var': 'warn',
 
       // Variable Naming
-      'id-length': ['warn', {
-        min: 2,
-        exceptions: ['i', 'j', 'k', 'x', 'y', 'z', '_', '$'],
-        properties: 'never'
-      }],
+      'id-length': [
+        'warn',
+        {
+          min: 2,
+          exceptions: ['i', 'j', 'k', 'x', 'y', 'z', '_', '$'],
+          properties: 'never',
+        },
+      ],
 
       // Best Practices
-      'eqeqeq': ['warn', 'always', { null: 'ignore' }],
-      'curly': ['warn', 'all'],
+      eqeqeq: ['warn', 'always', { null: 'ignore' }],
+      curly: ['warn', 'all'],
       'dot-notation': 'warn',
       'no-else-return': 'warn',
       'no-lonely-if': 'warn',
@@ -150,7 +162,7 @@ export default [
 
       // 4. Promise
       ...promise.configs.recommended.rules,
-      'promise/always-return': 'off', 
+      'promise/always-return': 'off',
       'promise/catch-or-return': 'warn',
 
       // 5. Compat
@@ -161,7 +173,10 @@ export default [
       'jsdoc/check-alignment': 'warn',
       'jsdoc/check-param-names': 'warn',
       'jsdoc/check-property-names': 'warn',
-      'jsdoc/check-tag-names': ['warn', { definedTags: ['jest-environment'] }],
+      'jsdoc/check-tag-names': [
+        'warn',
+        { definedTags: ['jest-environment', 'jest-environment-options'] },
+      ],
       'jsdoc/check-types': 'warn',
       'jsdoc/check-values': 'warn',
       'jsdoc/empty-tags': 'warn',
@@ -196,16 +211,16 @@ export default [
       'regexp/unicode-escape': 'warn',
       'regexp/no-useless-flag': 'warn',
       'regexp/prefer-regexp-exec': 'warn',
-      'regexp/prefer-regexp-test': 'warn'
+      'regexp/prefer-regexp-test': 'warn',
     },
     linterOptions: {
-      reportUnusedDisableDirectives: true
-    }
+      reportUnusedDisableDirectives: true,
+    },
   },
   {
     files: ['**/*.js'],
     ignores: ['tests/**'],
-    rules: {}
+    rules: {},
   },
   {
     ignores: [
@@ -219,7 +234,7 @@ export default [
       'lib/**',
       'tests/manual/**',
       '*.config.js',
-    ]
+    ],
   },
   {
     files: ['tests/**/*.js'],
@@ -248,7 +263,12 @@ export default [
       'no-console': 'off',
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-param': 'off',
-      'jsdoc/require-returns': 'off'
-    }
-  }
+      'jsdoc/require-returns': 'off',
+      'jsdoc/valid-types': 'off', // 測試文件中的 jest docblock 標籤（如 @jest-environment-options）含 JSON，不是標準 JSDoc 類型
+      'jsdoc/check-tag-names': [
+        'warn',
+        { definedTags: ['jest-environment', 'jest-environment-options'] },
+      ], // 允許 Jest docblock 標籤
+    },
+  },
 ];
