@@ -21,6 +21,7 @@ import { RESTRICTED_PROTOCOLS } from '../../config/constants.js';
 const INJECTION_CONFIG = {
   PING_TIMEOUT_MS: 2000,
   PING_TIMEOUT_ERROR: 'PING timeout',
+  CONTENT_BUNDLE_PATH: 'dist/content.bundle.js',
 };
 
 /**
@@ -182,7 +183,7 @@ class InjectionService {
 
     // Unified bundle is the only target now.
     // 不使用 fetch HEAD 探測（額外網路請求）— 路徑由 build 時確定，直接信任。
-    const bundlePath = 'dist/content.bundle.js';
+    const bundlePath = INJECTION_CONFIG.CONTENT_BUNDLE_PATH;
     this._highlighterPath = bundlePath;
     return bundlePath;
   }
@@ -395,7 +396,7 @@ class InjectionService {
         chrome.scripting.executeScript(
           {
             target: { tabId },
-            files: ['dist/content.bundle.js'],
+            files: [INJECTION_CONFIG.CONTENT_BUNDLE_PATH],
           },
           () => {
             if (chrome.runtime.lastError) {
