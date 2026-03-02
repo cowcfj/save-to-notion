@@ -111,6 +111,7 @@ describe('TabService', () => {
       checkPageExists: jest.fn().mockResolvedValue(true),
       getApiKey: jest.fn().mockResolvedValue('test-api-key'),
       clearPageState: jest.fn().mockResolvedValue(),
+      clearNotionState: jest.fn().mockResolvedValue(),
       setSavedPageData: jest.fn().mockResolvedValue(),
     });
 
@@ -283,10 +284,10 @@ describe('TabService', () => {
         service.checkPageExists = jest.fn().mockResolvedValue(false); // 模擬已刪除
 
         await service.updateTabStatus(1, 'https://example.com');
-        expect(service.clearPageState).not.toHaveBeenCalled();
+        expect(service.clearNotionState).not.toHaveBeenCalled();
 
         await service.updateTabStatus(1, 'https://example.com');
-        expect(service.clearPageState).toHaveBeenCalledWith('https://example.com');
+        expect(service.clearNotionState).toHaveBeenCalledWith('https://example.com');
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       });
 

@@ -160,6 +160,33 @@ class StorageService {
   }
 
   /**
+   * 規範化 highlights 陣列，確保符合 schema 最低要求
+   *
+   * @param {any} highlights - 原始 highlights 值
+   * @returns {Array<object>} 規範化後的 highlights
+   * @private
+   */
+  _normalizeHighlightsArray(highlights) {
+    if (!Array.isArray(highlights)) {
+      return [];
+    }
+
+    return highlights
+      .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+      .map(item => ({
+        ...item,
+        id: typeof item.id === 'string' ? item.id : '',
+        text: typeof item.text === 'string' ? item.text : '',
+        color: typeof item.color === 'string' ? item.color : 'yellow',
+        rangeInfo:
+          item.rangeInfo && typeof item.rangeInfo === 'object' && !Array.isArray(item.rangeInfo)
+            ? item.rangeInfo
+            : {},
+        timestamp: Number.isFinite(item.timestamp) ? item.timestamp : Date.now(),
+      }));
+  }
+
+  /**
    * 觸發讀時升級：將舊格式資料升級為 page_* 並刪除舊 key
    * 升級被移至 _withLock 內執行以避免併發寫入異常。
    *
@@ -358,8 +385,23 @@ class StorageService {
     return this._withLock(normalizedUrl, async () => {
       try {
         const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const existing = await this.storage.local.get([pageKey]);
+        const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+        const existing = await this.storage.local.get([pageKey, hlKey]);
         const current = existing[pageKey] || {};
+
+        // 保留現有 highlights；若 page_* 不存在，從舊格式 highlights_* 取回
+        // 支援舊格式：純陣列 [...] 和物件格式 { highlights: [...] }
+        const legacyHighlights = existing[hlKey];
+        let legacyArray = [];
+        if (Array.isArray(legacyHighlights)) {
+          legacyArray = legacyHighlights;
+        } else if (Array.isArray(legacyHighlights?.highlights)) {
+          legacyArray = legacyHighlights.highlights;
+        }
+        // ?? 確保：若 current.highlights 為 undefined（page_* 不存在），才回退到 legacyArray
+        const existingHighlights = this._normalizeHighlightsArray(
+          current.highlights ?? legacyArray
+        );
 
         // 將傳入的 data 轉換為 notion 子欄位格式
         const notionData = {
@@ -371,8 +413,8 @@ class StorageService {
         };
 
         const newData = {
-          highlights: current.highlights || [],
           ...current,
+          highlights: existingHighlights,
           notion: notionData,
           metadata: {
             ...current.metadata,
@@ -382,11 +424,15 @@ class StorageService {
 
         await this.storage.local.set({ [pageKey]: newData });
 
-        // 過渡期：若有舊 saved_* key，非阻塞刪除
+        // 過渡期：刪除舊 saved_* key；若 highlights_* 已遷移到 page_*，一併清理
         const oldKey = `${SAVED_PREFIX}${normalizedUrl}`;
-        this.storage.local.remove([oldKey]).catch(error => {
-          this.logger.debug?.('[StorageService] Failed to remove legacy saved key', {
-            oldKey,
+        const keysToRemove = [oldKey];
+        if (existing[hlKey]) {
+          keysToRemove.push(hlKey);
+        }
+        this.storage.local.remove(keysToRemove).catch(error => {
+          this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
+            keys: keysToRemove,
             error: error?.message ?? error,
           });
         });
@@ -486,6 +532,52 @@ class StorageService {
       this.logger.error?.('[StorageService] clearPageState failed', { error });
       throw error;
     }
+  }
+
+  /**
+   * 僅清除 Notion 綁定元數據，保留標注
+   * Highlight-First：標注獨立於 Notion 頁面生命週期
+   * 用於 Notion 頁面已刪除但本地標注需要保留的情境
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @returns {Promise<void>}
+   */
+  async clearNotionState(pageUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const stableUrl = computeStableUrl(pageUrl);
+
+    return this._withLock(normalizedUrl, async () => {
+      // 使用與 getSavedPageData 相同的 URL 別名解析路徑，確保清除的 key 與讀取的 key 一致
+      const state = await this._getPageState(normalizedUrl);
+
+      if (state?.format === 'new') {
+        await this.storage.local.set({
+          [state.key]: {
+            ...state.data,
+            notion: null,
+            metadata: { ...state.data.metadata, lastUpdated: Date.now() },
+          },
+        });
+      }
+
+      // 清理舊格式 saved_* key（無 highlights，可安全刪除）
+      const oldKeys = [`${SAVED_PREFIX}${normalizedUrl}`];
+      if (stableUrl && stableUrl !== normalizedUrl) {
+        oldKeys.push(`${SAVED_PREFIX}${stableUrl}`);
+      }
+      if (state?.format === 'legacy') {
+        oldKeys.push(state.savedKey);
+      }
+      await this.storage.local.remove(oldKeys).catch(() => {});
+
+      this.logger.log?.('Cleared Notion metadata (highlights preserved)', {
+        url: sanitizeUrlForLogging(normalizedUrl),
+      });
+    });
   }
 
   /**

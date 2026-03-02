@@ -62,6 +62,7 @@ const tabService = new TabService({
   checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
   getApiKey: () => storageService.getConfig(['notionApiKey']).then(config => config.notionApiKey),
   clearPageState: url => storageService.clearPageState(url),
+  clearNotionState: url => storageService.clearNotionState(url),
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
 

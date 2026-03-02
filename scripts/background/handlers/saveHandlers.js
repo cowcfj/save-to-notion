@@ -168,6 +168,13 @@ export function createSaveHandlers(services) {
     );
   }
 
+  const NOTION_CONFIG_KEYS = [
+    'notionApiKey',
+    'notionDataSourceId',
+    'notionDatabaseId',
+    'notionDataSourceType',
+  ];
+
   /**
    * 連續不存在確認：false/false 才允許清理
    * 委託 TabService，確保背景自動同步與 Popup 查詢共用同一套狀態。
@@ -178,6 +185,39 @@ export function createSaveHandlers(services) {
    */
   function consumeDeletionConfirmation(notionPageId, exists) {
     return tabService.consumeDeletionConfirmation(notionPageId, exists);
+  }
+
+  /**
+   * 載入並驗證 Notion 必要設定
+   *
+   * @param {Function} sendResponse - 回應函數
+   * @returns {Promise<object|null>} 配置對象或 null
+   */
+  async function _loadAndValidateNotionConfig(sendResponse) {
+    const config = await storageService.getConfig(NOTION_CONFIG_KEYS);
+
+    if (!config.notionApiKey) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+      });
+      return null;
+    }
+
+    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+    if (!dataSourceId) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+      });
+      return null;
+    }
+
+    // 正規化至二元語意：'page' | 'database'
+    // 其餘所有值（含 'data_source'、無效值）一律回退為 'database'
+    const rawDataSourceType = config.notionDataSourceType;
+    const dataSourceType = rawDataSourceType === 'page' ? 'page' : 'database';
+    return { config, dataSourceId, dataSourceType };
   }
 
   /**
@@ -217,33 +257,69 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const config = await storageService.getConfig([
-      'notionApiKey',
-      'notionDataSourceId',
-      'notionDatabaseId',
-      'notionDataSourceType',
-    ]);
+    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    if (!configData) {
+      return null;
+    }
 
-    if (!config.notionApiKey) {
+    return { ...configData, activeTab };
+  }
+
+  /**
+   * 驗證 Toolbar (Content Script) 請求並獲取配置
+   * 邏輯與 validateRequestAndGetConfig 相同，但使用 Content Script 安全性驗證，
+   * 且 activeTab 從 sender.tab 獲取（而非查詢活動標籤頁）。
+   *
+   * @param {object} sender - 請求發送者
+   * @param {Function} sendResponse - 回應函數
+   * @returns {Promise<object|null>} 配置對象或 null
+   */
+  async function _validateToolbarRequestAndGetConfig(sender, sendResponse) {
+    // Content Script 安全性驗證
+    const validationError = validateContentScriptRequest(sender);
+    if (validationError) {
+      Logger.warn('安全性阻擋', {
+        action: 'SAVE_PAGE_FROM_TOOLBAR',
+        reason: 'invalid_content_script_request',
+        error: validationError.error,
+        senderId: sender?.id,
+        tabId: sender?.tab?.id,
+      });
+      sendResponse(validationError);
+      return null;
+    }
+
+    const activeTab = sender.tab;
+    if (!activeTab) {
       sendResponse({
         success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
       });
       return null;
     }
 
-    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
-    if (!dataSourceId) {
+    if (typeof activeTab.url !== 'string' || activeTab.url.trim().length === 0) {
       sendResponse({
         success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
       });
       return null;
     }
 
-    const dataSourceType = config.notionDataSourceType || 'data_source';
+    if (isRestrictedInjectionUrl(activeTab.url)) {
+      sendResponse({
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+      });
+      return null;
+    }
 
-    return { config, dataSourceId, dataSourceType, activeTab };
+    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    if (!configData) {
+      return null;
+    }
+
+    return { ...configData, activeTab };
   }
 
   /**
@@ -485,7 +561,7 @@ export function createSaveHandlers(services) {
 
     // 只清理頁面 metadata（notionPageId 等），保留本地標註
     // Highlight-First：標註獨立於 Notion 頁面生命週期
-    await storageService.clearPageState(originalUrl || normUrl);
+    await storageService.clearNotionState(originalUrl || normUrl);
 
     return await performCreatePage(params);
   }
@@ -571,6 +647,44 @@ export function createSaveHandlers(services) {
     return resolvePageData(activeTab);
   }
 
+  /**
+   * 執行完整的頁面保存流程（兩個保存入口共用）
+   *
+   * 封裝了從 URL 解析到最終保存的完整後段邏輯：
+   * resolvePageData → extractPageContent → processContentResult → determineAndExecuteSaveAction
+   *
+   * @param {object} activeTab - 活動標籤頁
+   * @param {object} configData - 驗證階段返回的配置數據 { config, dataSourceId, dataSourceType }
+   * @param {Function} sendResponse - 回應函數
+   * @returns {Promise<void>}
+   */
+  async function _runSaveFlow(activeTab, configData, sendResponse) {
+    const { config, dataSourceId, dataSourceType } = configData;
+
+    const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
+
+    const extractionData = await extractPageContent(activeTab, sendResponse);
+    if (!extractionData) {
+      return;
+    }
+    const { result, highlights } = extractionData;
+
+    const contentResult = processContentResult(result, highlights);
+
+    await determineAndExecuteSaveAction({
+      savedData,
+      normUrl,
+      originalUrl,
+      dataSourceId,
+      dataSourceType,
+      contentResult,
+      highlights,
+      apiKey: config.notionApiKey,
+      activeTabId: activeTab.id,
+      sendResponse,
+    });
+  }
+
   async function _resolveExistsWithRetry(savedData, apiKey) {
     let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
@@ -611,7 +725,7 @@ export function createSaveHandlers(services) {
       });
 
       // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-      await storageService.clearPageState(originalUrl || normUrl);
+      await storageService.clearNotionState(originalUrl || normUrl);
 
       try {
         chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
@@ -667,32 +781,8 @@ export function createSaveHandlers(services) {
         if (!configData) {
           return;
         }
-        const { config, dataSourceId, dataSourceType, activeTab } = configData;
 
-        const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
-
-        const extractionData = await extractPageContent(activeTab, sendResponse);
-        if (!extractionData) {
-          return;
-        }
-        const { result, highlights } = extractionData;
-
-        // 處理內容結果並添加標註
-        const contentResult = processContentResult(result, highlights);
-
-        // 執行保存操作
-        await determineAndExecuteSaveAction({
-          savedData,
-          normUrl,
-          originalUrl,
-          dataSourceId,
-          dataSourceType,
-          contentResult,
-          highlights,
-          apiKey: config.notionApiKey,
-          activeTabId: activeTab.id,
-          sendResponse,
-        });
+        await _runSaveFlow(configData.activeTab, configData, sendResponse);
       } catch (error) {
         Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
         const safeMessage = sanitizeApiError(error, 'save_page_unknown');
@@ -710,83 +800,13 @@ export function createSaveHandlers(services) {
      */
     SAVE_PAGE_FROM_TOOLBAR: async (request, sender, sendResponse) => {
       try {
-        // Content Script 安全性驗證
-        const validationError = validateContentScriptRequest(sender);
-        if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'SAVE_PAGE_FROM_TOOLBAR',
-            reason: 'invalid_content_script_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            tabId: sender?.tab?.id,
-          });
-          sendResponse(validationError);
-          return;
-        }
-
-        const activeTab = sender.tab;
-        if (!activeTab) {
-          sendResponse({ success: false, error: 'Cannot determine active tab from sender.' });
-          return;
-        }
-
-        if (isRestrictedInjectionUrl(activeTab.url)) {
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
-          });
-          return;
-        }
-
-        const config = await storageService.getConfig([
-          'notionApiKey',
-          'notionDataSourceId',
-          'notionDatabaseId',
-          'notionDataSourceType',
-        ]);
-
-        if (!config.notionApiKey) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-          });
-          return;
-        }
-
-        const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
-        const dataSourceType = config.notionDataSourceType || 'data_source';
-
-        if (!dataSourceId) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
-          });
+        const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse);
+        if (!configData) {
           return;
         }
 
         // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
-
-        const extractionData = await extractPageContent(activeTab, sendResponse);
-        if (!extractionData) {
-          return;
-        }
-        const { result, highlights } = extractionData;
-
-        const contentResult = processContentResult(result, highlights);
-
-        await determineAndExecuteSaveAction({
-          savedData,
-          normUrl,
-          originalUrl,
-          dataSourceId,
-          dataSourceType,
-          contentResult,
-          highlights,
-          apiKey: config.notionApiKey,
-          activeTabId: activeTab.id,
-          sendResponse,
-        });
+        await _runSaveFlow(configData.activeTab, configData, sendResponse);
       } catch (error) {
         Logger.error('從 Toolbar 保存頁面時發生錯誤', {
           action: 'SAVE_PAGE_FROM_TOOLBAR',

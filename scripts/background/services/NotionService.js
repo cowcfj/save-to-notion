@@ -662,7 +662,7 @@ class NotionService {
    * @param {string} options.title - 頁面標題
    * @param {string} options.pageUrl - 原始頁面 URL
    * @param {string} options.dataSourceId - 數據源 ID (database 或 page)
-   * @param {string} options.dataSourceType - 類型 ('database' 或 'page')
+   * @param {string} options.dataSourceType - 類型 ('page' 或 'database')
    * @param {Array} options.blocks - 內容區塊 (最多取前 100 個)
    * @param {string} [options.siteIcon] - 網站 Icon URL
    * @param {string} [options.coverImage] - 封面圖片 URL（用於頁面封面）
@@ -681,7 +681,7 @@ class NotionService {
 
     // 前端已驗證圖片，此處直接使用
 
-    // 構建 parent 配置
+    // 構建 parent 配置：僅 'page' 走 page_id，其餘（'database'）走 data_source_id
     const parentConfig =
       dataSourceType === 'page'
         ? { type: 'page_id', page_id: dataSourceId }

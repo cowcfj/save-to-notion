@@ -205,9 +205,94 @@ describe('StorageService', () => {
       await new Promise(process.nextTick);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        '[StorageService] Failed to remove legacy saved key',
+        '[StorageService] Failed to remove legacy keys',
         expect.objectContaining({ error: 'Remove failed' })
       );
+    });
+
+    it('應該在 page_* 不存在時，從舊格式 highlights_* 取回並保留標注', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
+      const legacyHighlights = [
+        { id: 'h1', text: 'first highlight', color: 'yellow' },
+        { id: 'h2', text: 'second highlight', color: 'green' },
+      ];
+
+      // page_* 不存在，highlights_* 存在（舊格式純陣列）
+      mockStorage.local.get.mockResolvedValue({ [hlKey]: legacyHighlights });
+
+      const data = { title: 'Test Page', notionPageId: 'page-abc', savedAt: 1000 };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
+      expect(setPayload.notion).toEqual(expect.objectContaining({ pageId: 'page-abc' }));
+      expect(setPayload.highlights).toEqual([
+        expect.objectContaining({
+          id: 'h1',
+          text: 'first highlight',
+          color: 'yellow',
+          rangeInfo: expect.any(Object),
+          timestamp: expect.any(Number),
+        }),
+        expect.objectContaining({
+          id: 'h2',
+          text: 'second highlight',
+          color: 'green',
+          rangeInfo: expect.any(Object),
+          timestamp: expect.any(Number),
+        }),
+      ]);
+      // highlights_* 應被清理（已遷移到 page_*）
+      expect(mockStorage.local.remove).toHaveBeenCalledWith(expect.arrayContaining([hlKey]));
+    });
+
+    it('應該在 page_* 已存在時，保留其 highlights 而非回退到 highlights_*', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
+      const existingHighlights = [
+        {
+          id: 'h3',
+          text: 'existing in page_*',
+          color: 'yellow',
+          rangeInfo: { start: 0, end: 3 },
+          timestamp: 1_700_000_000_001,
+        },
+      ];
+      const staleHighlights = [{ id: 'h1', text: 'stale in highlights_*' }];
+
+      // page_* 已存在（有自己的 highlights），highlights_* 也存在（舊資料）
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: { highlights: existingHighlights, notion: null, metadata: {} },
+        [hlKey]: staleHighlights,
+      });
+
+      const data = { title: 'Test', notionPageId: 'page-xyz' };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      // 應使用 page_* 的 highlights，而非 highlights_* 的舊資料
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({
+            highlights: existingHighlights,
+          }),
+        })
+      );
+    });
+
+    it('應該在 current.highlights 非陣列時覆寫為合法 highlights 陣列', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      const hlKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: { highlights: { invalid: true }, notion: null, metadata: {} },
+        [hlKey]: [{ id: 'legacy', text: 'legacy text', color: 'yellow' }],
+      });
+
+      const data = { title: 'Test', notionPageId: 'page-xyz' };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
+      expect(Array.isArray(setPayload.highlights)).toBe(true);
+      expect(setPayload.highlights).toEqual([]);
     });
   });
 
@@ -224,6 +309,70 @@ describe('StorageService', () => {
       expect(mockLogger.log).toHaveBeenCalledWith('Cleared saved page metadata', {
         url: 'https://example.com/page',
       });
+    });
+  });
+
+  describe('clearNotionState', () => {
+    it('應清除 notion 欄位但保留 highlights', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [{ id: '1', text: 'test' }],
+          notion: { pageId: 'abc123', url: 'https://notion.so/abc' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      await service.clearNotionState('https://example.com/page');
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({
+            highlights: [{ id: '1', text: 'test' }],
+            notion: null,
+          }),
+        })
+      );
+    });
+
+    it('page_* 不存在時不應呼叫 set', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+
+      await expect(service.clearNotionState('https://example.com/page')).resolves.toBeUndefined();
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('應通過 URL alias 解析並清除 stableUrl 下的 key', async () => {
+      const shortUrl = 'https://example.com/short';
+      const stableUrl = 'https://example.com/stable/';
+      const aliasKey = `${URL_ALIAS_PREFIX}${shortUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      mockStorage.local.get
+        .mockResolvedValueOnce({
+          // 第一次 get：[page_{short}, saved_{short}, url_alias_{short}]
+          [aliasKey]: stableUrl,
+        })
+        .mockResolvedValueOnce({
+          // 第二次 get：[page_{stable}, saved_{stable}]
+          [stablePageKey]: {
+            highlights: [{ id: '2', text: 'alias test' }],
+            notion: { pageId: 'xyz', url: 'https://notion.so/xyz' },
+            metadata: { lastUpdated: 200 },
+          },
+        });
+
+      await service.clearNotionState(shortUrl);
+
+      // 應寫入 stableUrl 下的 key，而非 shortUrl 的 key
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [stablePageKey]: expect.objectContaining({
+            highlights: [{ id: '2', text: 'alias test' }],
+            notion: null,
+          }),
+        })
+      );
     });
   });
 

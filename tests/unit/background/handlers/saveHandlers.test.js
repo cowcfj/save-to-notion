@@ -80,6 +80,7 @@ describe('saveHandlers', () => {
         getSavedPageData: jest.fn(),
         setSavedPageData: jest.fn(),
         clearPageState: jest.fn(),
+        clearNotionState: jest.fn(),
         setUrlAlias: jest.fn().mockResolvedValue(),
       },
       injectionService: {
@@ -253,6 +254,54 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('savePage: notionDataSourceType=data_source 應正規化為 database 並傳遞給 buildPageData', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'ds-123',
+        notionDataSourceType: 'data_source',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
+        expect.objectContaining({ dataSourceType: 'database' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('savePage: 無效 notionDataSourceType 應回退為 database', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'db-123',
+        notionDataSourceType: 'invalid_type',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
+        expect.objectContaining({ dataSourceType: 'database' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
     test('savePage: 當 stableUrl 與 originalUrl 不同時應設定 alias', async () => {
       const sendResponse = jest.fn();
       const stableUrl = 'https://example.com/stable';
@@ -326,13 +375,13 @@ describe('saveHandlers', () => {
       });
 
       await handlers.savePage({}, validSender, sendResponse);
-      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({ success: false, deletionPending: true })
       );
 
       await handlers.savePage({}, validSender, sendResponse);
-      expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
     });
 
@@ -751,7 +800,7 @@ describe('saveHandlers', () => {
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(mockServices.storageService.clearPageState).not.toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -776,7 +825,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
