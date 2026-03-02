@@ -71,7 +71,7 @@ export class HighlightManager {
       // 初始化樣式管理器（外層已確認 this.styleManager 存在）
       this.styleManager.initialize();
 
-      // 步騅1：檢查並遷移 localStorage 數據（外層已確認 this.migration 存在）
+      // 步驟1：檢查並遷移 localStorage 數據（外層已確認 this.migration 存在）
       await this.checkAndMigrateLegacyData();
 
       // 步驟2：從存儲恢復標註（如果允許）
