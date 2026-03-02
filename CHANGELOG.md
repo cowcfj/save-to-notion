@@ -1,5 +1,40 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.40.0](https://github.com/cowcfj/save-to-notion/compare/v2.39.0...v2.40.0) (2026-03-02)
+
+
+### ✨ 新功能
+
+* 新增 context-driven-development 和 git-commit 技能文檔 ([32c8f22](https://github.com/cowcfj/save-to-notion/commit/32c8f2234423b05e7896a8c2e1a2949d427215f0))
+
+
+### 🐛 Bug 修復
+
+* **P5:** popup.js 將阻塞性 alert() 改為 setStatus() 非阻塞錯誤提示 ([#316](https://github.com/cowcfj/save-to-notion/issues/316)) ([1dc52b9](https://github.com/cowcfj/save-to-notion/commit/1dc52b9cba810934045394b5128ec3f413978bd8))
+
+
+### 📝 文檔更新
+
+* 更新代理規範文件。 ([ec61797](https://github.com/cowcfj/save-to-notion/commit/ec617978bc3ed8997967ad33512dc3d12f9d6c37))
+
+
+### ♻️ 代碼重構
+
+* **P1:** saveHandlers 提取共用保存流程，消除重複代碼 ([#312](https://github.com/cowcfj/save-to-notion/issues/312)) ([f28baeb](https://github.com/cowcfj/save-to-notion/commit/f28baebc448bf540a7da815c16d7c8ed8a636dc3))
+
+
+### ⚡ 效能優化
+
+* **P2:** StorageService 效能改進，防重複升級與全量讀取優化 ([#313](https://github.com/cowcfj/save-to-notion/issues/313)) ([0a10376](https://github.com/cowcfj/save-to-notion/commit/0a10376e1617c6eb2cbe1c958b2478403b403822))
+* **P3:** 移除 InjectionService 的 fetch HEAD 探測 ([#315](https://github.com/cowcfj/save-to-notion/issues/315)) ([43cadfc](https://github.com/cowcfj/save-to-notion/commit/43cadfcc99ff94717feabe315fdd754c456b3cc6))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump jsdom from 27.4.0 to 28.1.0 ([#309](https://github.com/cowcfj/save-to-notion/issues/309)) ([a188609](https://github.com/cowcfj/save-to-notion/commit/a18860923c7de21a7bb51200398dd10bfdf84a5f))
+* **deps-dev:** bump lint-staged from 16.2.7 to 16.3.0 ([#310](https://github.com/cowcfj/save-to-notion/issues/310)) ([d5f0895](https://github.com/cowcfj/save-to-notion/commit/d5f0895f993cb46b0072ff6f47ad2a657ef78f2e))
+* **git:** untrack .agents/skills ([70a15f2](https://github.com/cowcfj/save-to-notion/commit/70a15f2f1e7df4c254f27cc0778de292afc14210))
+
 ## [2.39.0](https://github.com/cowcfj/save-to-notion/compare/v2.38.1...v2.39.0) (2026-02-28)
 
 
