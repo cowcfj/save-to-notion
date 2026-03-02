@@ -280,15 +280,16 @@ describe('InjectionService', () => {
   });
 
   describe('_resolveHighlighterPath', () => {
-    it('應該在 fetch 失敗時回退到預設路徑', async () => {
-      const originalFetch = globalThis.fetch;
-      globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network fail'));
-      try {
-        const path = await service._resolveHighlighterPath();
-        expect(path).toBe('dist/content.bundle.js');
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+    it('應直接回傳預設 bundle 路徑並寫入快取', async () => {
+      const path = await service._resolveHighlighterPath();
+      expect(path).toBe('dist/content.bundle.js');
+      expect(service._highlighterPath).toBe('dist/content.bundle.js');
+    });
+
+    it('應在已有快取時直接回傳快取值', async () => {
+      service._highlighterPath = 'cached/path.js';
+      const cachedPath = await service._resolveHighlighterPath();
+      expect(cachedPath).toBe('cached/path.js');
     });
   });
 
