@@ -47,6 +47,8 @@ class StorageService {
     this.logger = options.logger || console;
     // Phase 3: URL-keyed Promise Chain Mutex（防止並發 read-modify-write 衝突）
     this._locks = new Map();
+    // 記錄升級失敗的 URL，避免火災和忘記（fire-and-forget）導致重複失敗
+    this._failedUpgrades = new Set();
   }
 
   /**
@@ -196,6 +198,10 @@ class StorageService {
    * @private
    */
   _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
+    if (this._failedUpgrades.has(targetUrl)) {
+      return;
+    }
+
     const pageKey = `${PAGE_PREFIX}${targetUrl}`;
     const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
 
@@ -228,6 +234,7 @@ class StorageService {
       await this.storage.local.remove([savedKey, highlightKey]);
     }).catch(error => {
       this.logger.warn?.('[StorageService] 讀時升級失敗', { error });
+      this._failedUpgrades.add(targetUrl);
     });
   }
 
@@ -697,6 +704,19 @@ class StorageService {
   }
 
   /**
+   * 共用全量儲存空間讀取
+   *
+   * @returns {Promise<object>}
+   * @private
+   */
+  async _getAllStorageData() {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+    return await this.storage.local.get(null);
+  }
+
+  /**
    * 獲取所有 highlights_* 和 page_* 的資料（用於遷移掃描）
    *
    * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
@@ -713,19 +733,20 @@ class StorageService {
    * }
    * ```
    *
+   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
    * @returns {Promise<Record<string, object>>} key 為 URL，value 為完整標註資料
    */
-  async getAllHighlights() {
+  async getAllHighlights(allData = null) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
     }
 
     try {
-      const allData = await this.storage.local.get(null);
+      const data = allData || (await this._getAllStorageData());
       const result = {};
 
       // Phase 3：優先處理 page_* 格式（新格式）
-      for (const [key, value] of Object.entries(allData)) {
+      for (const [key, value] of Object.entries(data)) {
         if (!key.startsWith(PAGE_PREFIX)) {
           continue;
         }
@@ -734,7 +755,7 @@ class StorageService {
       }
 
       // 過渡期：補充尚未升級的 highlights_* 格式（同 URL 不覆蓋 page_* 結果）
-      for (const [key, value] of Object.entries(allData)) {
+      for (const [key, value] of Object.entries(data)) {
         if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
           continue;
         }
@@ -819,15 +840,16 @@ class StorageService {
    *
    * Phase 3：合併 page_*（notion 非 null）+ saved_* 的 URLs（去重）。
    *
+   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
    * @returns {Promise<string[]>}
    */
-  async getAllSavedPageUrls() {
+  async getAllSavedPageUrls(allData = null) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
     }
 
     try {
-      const result = await this.storage.local.get(null);
+      const result = allData || (await this._getAllStorageData());
       const urlSet = new Set();
 
       for (const [key, value] of Object.entries(result)) {
