@@ -47,12 +47,17 @@ const StorageUtil = {
 
     // 單一迴圈重試：最多 3 次，第一次立即執行，後續失敗才延遲重試。
     // 目的：避免可回復的暫時性中斷過早繞道到競態風險較高的 fallback 路徑。
+    const canRetryBackground =
+      typeof chrome !== 'undefined' &&
+      chrome?.runtime &&
+      typeof chrome.runtime.sendMessage === 'function';
     const MAX_ATTEMPTS = 3;
+    const attemptLimit = canRetryBackground ? MAX_ATTEMPTS : 1;
     const RETRY_DELAY_MS = 500;
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
       if (attempt > 1) {
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${MAX_ATTEMPTS}`, {
+        Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`, {
           action: 'saveHighlights',
         });
       }
@@ -80,7 +85,11 @@ const StorageUtil = {
    * @private
    */
   async _tryBackgroundUpdate(pageUrl, highlights) {
-    if (typeof chrome === 'undefined' || !chrome?.runtime?.sendMessage) {
+    if (
+      typeof chrome === 'undefined' ||
+      !chrome?.runtime ||
+      typeof chrome.runtime.sendMessage !== 'function'
+    ) {
       return false;
     }
 

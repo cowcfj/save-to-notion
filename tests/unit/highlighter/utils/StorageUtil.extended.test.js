@@ -264,6 +264,38 @@ describe('Highlighter StorageUtil', () => {
         jest.useRealTimers();
       }
     });
+
+    test('sendMessage 不可用時，不應等待重試延遲且應直接走 fallback 儲存', async () => {
+      jest.useFakeTimers();
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      try {
+        delete mockChrome.runtime.sendMessage;
+        mockChrome.storage.local.get = jest.fn((keys, callback) => {
+          callback({});
+        });
+        mockChrome.storage.local.set = jest.fn((data, callback) => {
+          if (callback) {
+            callback();
+          }
+        });
+
+        const baselineTimerCount = jest.getTimerCount();
+        const testData = [{ text: 'no-sendMessage', color: 'yellow' }];
+        await StorageUtil.saveHighlights('https://example.com', testData);
+
+        expect(mockChrome.storage.local.set).toHaveBeenCalled();
+        expect(jest.getTimerCount()).toBe(baselineTimerCount);
+
+        const retryWarnCalls = warnSpy.mock.calls.filter(([message]) => {
+          return typeof message === 'string' && message.includes('嘗試重試');
+        });
+        expect(retryWarnCalls).toHaveLength(0);
+      } finally {
+        warnSpy.mockRestore();
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('loadHighlights', () => {
