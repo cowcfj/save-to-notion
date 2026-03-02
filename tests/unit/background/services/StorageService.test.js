@@ -815,6 +815,33 @@ describe('StorageService', () => {
         ].toSorted((a, b) => a.localeCompare(b))
       );
     });
+
+    it('應在提供 allData 時直接使用該資料且不呼叫 storage.local.get', async () => {
+      const allData = {
+        [`${PAGE_PREFIX}https://example.com/all-data-page1`]: {
+          notion: { pageId: 'p1' },
+          highlights: [],
+          metadata: {},
+        },
+        [`${PAGE_PREFIX}https://example.com/all-data-page2`]: {
+          notion: null,
+          highlights: [],
+          metadata: {},
+        },
+        [`${SAVED_PREFIX}https://example.com/all-data-page3`]: {},
+        other_key: 'value',
+      };
+      mockStorage.local.get.mockClear();
+
+      const result = await service.getAllSavedPageUrls(allData);
+
+      expect(mockStorage.local.get).not.toHaveBeenCalled();
+      expect(result.toSorted((a, b) => a.localeCompare(b))).toEqual(
+        ['https://example.com/all-data-page1', 'https://example.com/all-data-page3'].toSorted(
+          (a, b) => a.localeCompare(b)
+        )
+      );
+    });
   });
 
   describe('getAllHighlights', () => {
@@ -849,6 +876,38 @@ describe('StorageService', () => {
       expect(result['https://example.com/page2']).toEqual({
         url: 'https://example.com/page2',
         highlights: ['h2'],
+      });
+    });
+
+    it('應在提供 allData 時直接使用該資料且不呼叫 storage.local.get', async () => {
+      const allData = {
+        [`${PAGE_PREFIX}https://example.com/all-data-page1`]: {
+          notion: { pageId: 'p1' },
+          highlights: ['new-h1'],
+          metadata: {},
+        },
+        [`${HIGHLIGHTS_PREFIX}https://example.com/all-data-page1`]: {
+          url: 'https://example.com/all-data-page1',
+          highlights: ['legacy-h1'],
+        },
+        [`${HIGHLIGHTS_PREFIX}https://example.com/all-data-page2`]: {
+          url: 'https://example.com/all-data-page2',
+          highlights: ['legacy-h2'],
+        },
+        other_key: 'value',
+      };
+      mockStorage.local.get.mockClear();
+
+      const result = await service.getAllHighlights(allData);
+
+      expect(mockStorage.local.get).not.toHaveBeenCalled();
+      expect(result['https://example.com/all-data-page1']).toEqual({
+        url: 'https://example.com/all-data-page1',
+        highlights: ['new-h1'],
+      });
+      expect(result['https://example.com/all-data-page2']).toEqual({
+        url: 'https://example.com/all-data-page2',
+        highlights: ['legacy-h2'],
       });
     });
   });
