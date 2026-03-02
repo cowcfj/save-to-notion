@@ -82,6 +82,12 @@ describe('Highlighter StorageUtil', () => {
   });
 
   describe('saveHighlights', () => {
+    const collectUpdateHighlightCalls = sendMessageMock => {
+      return sendMessageMock.mock.calls.filter(([payload]) => {
+        return payload?.action === 'UPDATE_HIGHLIGHTS';
+      });
+    };
+
     test.each([
       ['空字串', ''],
       ['null', null],
@@ -177,22 +183,18 @@ describe('Highlighter StorageUtil', () => {
 
         const testData = [{ text: 'retry-fail', color: 'yellow' }];
         const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
-        const getUpdateCalls = () =>
-          mockChrome.runtime.sendMessage.mock.calls.filter(([payload]) => {
-            return payload?.action === 'UPDATE_HIGHLIGHTS';
-          });
 
         await Promise.resolve();
-        expect(getUpdateCalls()).toHaveLength(1);
+        expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(1);
 
         await jest.advanceTimersByTimeAsync(500);
         await Promise.resolve();
-        expect(getUpdateCalls()).toHaveLength(2);
+        expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(2);
 
         await jest.advanceTimersByTimeAsync(500);
         await savePromise;
 
-        expect(getUpdateCalls()).toHaveLength(3);
+        expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(3);
         expect(mockChrome.storage.local.set).toHaveBeenCalled();
       } finally {
         jest.runOnlyPendingTimers();
@@ -222,18 +224,14 @@ describe('Highlighter StorageUtil', () => {
 
         const testData = [{ text: 'retry-success', color: 'green' }];
         const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
-        const getUpdateCalls = () =>
-          mockChrome.runtime.sendMessage.mock.calls.filter(([payload]) => {
-            return payload?.action === 'UPDATE_HIGHLIGHTS';
-          });
 
         await Promise.resolve();
-        expect(getUpdateCalls()).toHaveLength(1);
+        expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(1);
 
         await jest.advanceTimersByTimeAsync(500);
         await savePromise;
 
-        expect(getUpdateCalls()).toHaveLength(2);
+        expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(2);
         expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
       } finally {
         jest.runOnlyPendingTimers();
@@ -254,9 +252,7 @@ describe('Highlighter StorageUtil', () => {
         const testData = [{ text: 'first-success', color: 'blue' }];
         await StorageUtil.saveHighlights('https://example.com', testData);
 
-        const updateCalls = mockChrome.runtime.sendMessage.mock.calls.filter(([payload]) => {
-          return payload?.action === 'UPDATE_HIGHLIGHTS';
-        });
+        const updateCalls = collectUpdateHighlightCalls(mockChrome.runtime.sendMessage);
         expect(updateCalls).toHaveLength(1);
         expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
       } finally {
