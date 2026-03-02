@@ -224,8 +224,6 @@ tests/reports/
 docs/design/README.md
 docs/
 .agent/skills/browser-automation/SKILL.md
-.agent/skills/claude-memory/
-.agent/skills/
 docs/eslint_report.txt
 docs/README.md
 docs/archive/old-releases/README.md
@@ -252,5 +250,4 @@ docs/specs/
 .deepsource.toml
 .serenaignore
 skills-lock.json
-.agents/skills/context-driven-development/
 .agent/.shared/staging/
