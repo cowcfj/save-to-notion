@@ -180,23 +180,10 @@ class InjectionService {
       return this._highlighterPath;
     }
 
-    // Unified bundle is the only target now
+    // Unified bundle is the only target now.
+    // 不使用 fetch HEAD 探測（額外網路請求）— 路徑由 build 時確定，直接信任。
     const bundlePath = 'dist/content.bundle.js';
-    const candidates = [bundlePath];
-
-    for (const path of candidates) {
-      try {
-        const response = await fetch(chrome.runtime.getURL(path), { method: 'HEAD' });
-        if (response.ok) {
-          this._highlighterPath = path;
-          return path;
-        }
-      } catch {
-        // Continue to next candidate
-      }
-    }
-
-    // Fallback (should typically be caught by candidates, but return unified bundle as default)
+    this._highlighterPath = bundlePath;
     return bundlePath;
   }
 
