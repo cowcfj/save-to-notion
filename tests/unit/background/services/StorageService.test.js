@@ -209,8 +209,8 @@ describe('StorageService', () => {
       const savedData = { notionPageId: 'legacy-1', title: 'legacy title' };
       const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
 
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
-      const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+      jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      jest.spyOn(Math, 'random').mockReturnValue(0);
       mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed'));
 
       const result = await service.getSavedPageData(url);
@@ -224,9 +224,6 @@ describe('StorageService', () => {
         lastFailureAt: 1_700_000_000_000,
         nextRetryAt: 1_700_000_000_500,
       });
-
-      nowSpy.mockRestore();
-      randomSpy.mockRestore();
     });
 
     it('尚未到達 nextRetryAt 時，應跳過重試', async () => {
@@ -235,7 +232,7 @@ describe('StorageService', () => {
       const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
 
       const now = 1_700_000_001_000;
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
       service._failedUpgradeAttempts.set(normalizedUrl, {
         attempts: 1,
         firstFailureAt: now - 1000,
@@ -255,8 +252,6 @@ describe('StorageService', () => {
           nextRetryAt: now + 30_000,
         })
       );
-
-      nowSpy.mockRestore();
     });
 
     it('超過 nextRetryAt 後，應允許再次嘗試讀時升級', async () => {
@@ -265,8 +260,8 @@ describe('StorageService', () => {
       const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
 
       const now = 1_700_000_002_000;
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
-      const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Math, 'random').mockReturnValue(0);
       service._failedUpgradeAttempts.set(normalizedUrl, {
         attempts: 1,
         firstFailureAt: now - 2000,
@@ -286,9 +281,6 @@ describe('StorageService', () => {
         lastFailureAt: now,
         nextRetryAt: now + 1000,
       });
-
-      nowSpy.mockRestore();
-      randomSpy.mockRestore();
     });
 
     it('讀時升級成功後，應清除失敗追蹤狀態', async () => {
@@ -297,7 +289,7 @@ describe('StorageService', () => {
       const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
 
       const now = 1_700_000_003_000;
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
       service._failedUpgradeAttempts.set(normalizedUrl, {
         attempts: 2,
         firstFailureAt: now - 5000,
@@ -314,8 +306,6 @@ describe('StorageService', () => {
       expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
       expect(mockStorage.local.remove).toHaveBeenCalledTimes(1);
       expect(service._failedUpgradeAttempts.has(normalizedUrl)).toBe(false);
-
-      nowSpy.mockRestore();
     });
 
     it('達到 maxAttempts 且仍在 TTL 內時，應跳過重試', async () => {
@@ -324,7 +314,7 @@ describe('StorageService', () => {
       const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
 
       const now = 1_700_000_004_000;
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
       service._failedUpgradeAttempts.set(normalizedUrl, {
         attempts: 5,
         firstFailureAt: now - 10_000, // 仍在 30 分鐘 TTL 內
@@ -343,8 +333,6 @@ describe('StorageService', () => {
           attempts: 5,
         })
       );
-
-      nowSpy.mockRestore();
     });
 
     it('應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL', async () => {
@@ -355,7 +343,7 @@ describe('StorageService', () => {
       const now = 1_700_000_004_500;
       const ttlMs = 30 * 60 * 1000;
       const firstFailureAt = now - 20_000;
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
 
       service._failedUpgradeAttempts.set(normalizedUrl, {
         attempts: 4,
@@ -376,8 +364,6 @@ describe('StorageService', () => {
         lastFailureAt: now,
         nextRetryAt: firstFailureAt + ttlMs,
       });
-
-      nowSpy.mockRestore();
     });
 
     it('超過 TTL 後，應重置並允許新一輪嘗試', async () => {
@@ -387,8 +373,8 @@ describe('StorageService', () => {
 
       const now = 1_700_000_005_000;
       const ttlMs = 30 * 60 * 1000;
-      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
-      const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      jest.spyOn(Math, 'random').mockReturnValue(0);
       service._failedUpgradeAttempts.set(normalizedUrl, {
         attempts: 5,
         firstFailureAt: now - ttlMs - 1,
@@ -408,9 +394,6 @@ describe('StorageService', () => {
         lastFailureAt: now,
         nextRetryAt: now + 500,
       });
-
-      nowSpy.mockRestore();
-      randomSpy.mockRestore();
     });
   });
 
