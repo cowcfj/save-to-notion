@@ -50,7 +50,27 @@ const StorageUtil = {
       return;
     }
 
-    // Fallback：直接寫入（過渡期安全網）
+    // 重試：Service Worker 可能正在啟動，短暫延遲後再嘗試最多 2 次。
+    // 目的：避免可回復的暫時性中斷繞端走競態風險的 fallback 路徑。
+    const RETRY_COUNT = 2;
+    const RETRY_DELAY_MS = 500;
+    for (let attempt = 1; attempt <= RETRY_COUNT; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${RETRY_COUNT}`, {
+        action: 'saveHighlights',
+      });
+      if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
+        return;
+      }
+    }
+
+    // Fallback：重試後仍失敗，直接寫入（過渡期安全網）
+    Logger.warn(
+      '[StorageUtil] 所有重試均失敗，走 fallback 直接寫入。注意：此路徑繞過 _withLock，可能發生並發衝突。',
+      {
+        action: 'saveHighlights',
+      }
+    );
     await this._fallbackDirectSave(pageUrl, highlights, highlightData);
   },
 
