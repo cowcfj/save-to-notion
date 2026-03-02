@@ -455,7 +455,7 @@ describe('background error branches (integration)', () => {
     );
   });
 
-  test('savePage：Notion API image validation_error 觸發自動重試（排除圖片）→ 成功', async () => {
+  test('savePage：Notion API image validation_error → 返回友善錯誤（不自動重試）', async () => {
     jest.useFakeTimers();
 
     // 活動分頁 + 有 API/DB
@@ -495,7 +495,7 @@ describe('background error branches (integration)', () => {
     };
     setupScriptMock(contentResult);
 
-    // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
+    // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true（防呆：不應被呼叫）
     let fetchCall = 0;
     globalThis.fetch = jest.fn((requestUrl, init) => {
       const method = init?.method?.toUpperCase() || 'GET';
@@ -508,7 +508,7 @@ describe('background error branches (integration)', () => {
           text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
-      // 2. 攔截建頁 (POST) -> 第1次 400, 第2次 200
+      // 2. 攔截建頁 (POST) -> 第1次 400, 第2次 200（現行行為下不應進入第2次）
       fetchCall += 1;
       if (fetchCall === 1) {
         return Promise.resolve({
@@ -547,8 +547,9 @@ describe('background error branches (integration)', () => {
       throw new Error('sendResponse was not called within the timeout');
     }
     const resp = sendResponse.mock.calls[0][0];
-    expect(resp.success).toBe(true);
-    // 可存在 warning（All images were skipped...），但不強制檢查文案
+    expect(resp.success).toBe(false);
+    expect(resp.error).toBe(ErrorHandler.formatUserMessage('image_validation_error'));
+    expect(fetchCall).toBe(1);
 
     jest.useRealTimers();
   });

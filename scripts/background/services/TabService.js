@@ -489,7 +489,9 @@ class TabService {
   async _getHighlightsFromStorage(normUrl) {
     const hlKey = `highlights_${normUrl}`;
     const pageKey = `page_${normUrl}`;
-    // 同時查詢新舊格式，優先使用 page_* 新格式（遷移後的資料所在）
+    // 刻意繞過 StorageService：呼叫方 resolveTabUrl 已在上游將 URL 解析為正確的 stableUrl，
+    // 此處查詢的已是最終 canonical key，不需要再走 alias 解析和鎖機制，可減少不必要的開銷。
+    // 雙查機制（stableUrl → originalUrl）由 _updateTabStatusInternal 負責。
     const data = await chrome.storage.local.get([hlKey, pageKey]);
 
     // 確定來源：優先 page_* 新格式，再查 highlights_* 舊格式
@@ -721,14 +723,36 @@ function _migrationScript(trackingParams) {
     }
 
     // 後備方案：遍歷查找 highlights_ 開頭的鍵（僅當前者未找到時）
-    // 注意：這可能會找到不相關的其他頁面數據，但在舊版邏輯中也是如此
+    // 優先序：
+    //   1) 同 origin 且可解析的 key（避免跨頁面誤遷移）
+    //   2) 首個不可解析的 legacy key（向後兼容）
+    //   3) 無可用 key 時返回 null
+    const currentOrigin = (() => {
+      try {
+        return new URL(globalThis.location.href).origin;
+      } catch {
+        return null;
+      }
+    })();
+    let legacyCandidate = null;
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k?.startsWith('highlights_')) {
-        return k;
+        try {
+          const keyUrl = k.replace('highlights_', '');
+          if (currentOrigin && new URL(keyUrl).origin === currentOrigin) {
+            return k;
+          }
+          // 若 origin 不匹配，繼續找下一個
+        } catch {
+          // URL 解析失敗（舊版非 URL 格式的 key），記錄第一個作為後備候選
+          if (!legacyCandidate) {
+            legacyCandidate = k;
+          }
+        }
       }
     }
-    return null;
+    return legacyCandidate;
   };
 
   try {
