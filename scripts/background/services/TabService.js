@@ -723,9 +723,10 @@ function _migrationScript(trackingParams) {
     }
 
     // 後備方案：遍歷查找 highlights_ 開頭的鍵（僅當前者未找到時）
-    // 安全修復：
-    //   - 若 key URL 可解析，僅返回與當前頁面 origin 一致的 key，避免跨頁面誤遷移。
-    //   - 若 key URL 解析失敗（舊版非標準格式），保守地允許返回（向後兼容）。
+    // 優先序：
+    //   1) 同 origin 且可解析的 key（避免跨頁面誤遷移）
+    //   2) 首個不可解析的 legacy key（向後兼容）
+    //   3) 無可用 key 時返回 null
     const currentOrigin = (() => {
       try {
         return new URL(globalThis.location.href).origin;
@@ -733,6 +734,7 @@ function _migrationScript(trackingParams) {
         return null;
       }
     })();
+    let legacyCandidate = null;
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k?.startsWith('highlights_')) {
@@ -743,12 +745,14 @@ function _migrationScript(trackingParams) {
           }
           // 若 origin 不匹配，繼續找下一個
         } catch {
-          // URL 解析失敗（舊版非 URL 格式的 key），保守地允許返回以向後兼容
-          return k;
+          // URL 解析失敗（舊版非 URL 格式的 key），記錄第一個作為後備候選
+          if (!legacyCandidate) {
+            legacyCandidate = k;
+          }
         }
       }
     }
-    return null;
+    return legacyCandidate;
   };
 
   try {

@@ -75,6 +75,24 @@ describe('TabService Migration Script', () => {
     expect(result).toEqual({ migrated: true, data, foundKey: key });
   });
 
+  test('當 malformed 與同源可解析 key 共存時，應優先遷移同源可解析 key', () => {
+    globalThis.history.pushState({}, 'Same Origin', 'https://example.com/page');
+
+    const malformedKey = 'highlights_not-a-valid-url%%';
+    const malformedData = [{ text: 'legacy-malformed' }];
+    localStorage.setItem(malformedKey, JSON.stringify(malformedData));
+
+    const sameOriginKey = 'highlights_https://example.com/preferred';
+    const sameOriginData = [{ text: 'preferred-same-origin' }];
+    localStorage.setItem(sameOriginKey, JSON.stringify(sameOriginData));
+
+    const result = _migrationScript([]);
+
+    expect(result).toEqual({ migrated: true, data: sameOriginData, foundKey: sameOriginKey });
+    expect(localStorage.getItem(sameOriginKey)).toBeNull();
+    expect(localStorage.getItem(malformedKey)).toBe(JSON.stringify(malformedData));
+  });
+
   test('後備方案不應遷移其他域名的 highlights（安全修復驗證）', () => {
     // 當前 location 是 example.com，key 屬於 other.com — 不應被遷移
     const key = 'highlights_https://other.com/page';
