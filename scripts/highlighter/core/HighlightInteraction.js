@@ -89,10 +89,11 @@ export class HighlightInteraction {
    */
   static rangesOverlap(range1, range2) {
     try {
+      // compareBoundaryPoints 返回 -1/0/1，語意明確
+      // 重疊條件：range1.end > range2.start 且 range1.start < range2.end
       return (
-        range1.isPointInRange(range2.startContainer, range2.startOffset) ||
-        range1.isPointInRange(range2.endContainer, range2.endOffset) ||
-        range2.isPointInRange(range1.startContainer, range1.startOffset)
+        range1.compareBoundaryPoints(Range.END_TO_START, range2) < 0 &&
+        range1.compareBoundaryPoints(Range.START_TO_END, range2) > 0
       );
     } catch {
       return false;
