@@ -14,9 +14,12 @@
 
 import { _migrationScript } from '../../../../scripts/background/services/TabService.js';
 
+const BASE_URL = 'https://example.com/page';
+
 describe('TabService Migration Script', () => {
   beforeEach(() => {
     localStorage.clear();
+    globalThis.history.pushState({}, 'Base', BASE_URL);
 
     globalThis.chrome = {
       runtime: {
@@ -29,6 +32,7 @@ describe('TabService Migration Script', () => {
 
   afterEach(() => {
     localStorage.clear();
+    globalThis.history.pushState({}, 'Base', BASE_URL);
     jest.restoreAllMocks();
   });
 
@@ -44,6 +48,18 @@ describe('TabService Migration Script', () => {
     localStorage.setItem(key, JSON.stringify(data));
 
     const result = _migrationScript([]);
+
+    expect(result).toEqual({ migrated: true, data, foundKey: key });
+    expect(localStorage.getItem(key)).toBeNull();
+  });
+
+  test('應該正確移除 tracking params 並匹配標準化 URL', () => {
+    globalThis.history.pushState({}, 'Tracking', 'https://example.com/page?utm_source=fb&id=123');
+    const key = 'highlights_https://example.com/page?id=123';
+    const data = [{ text: 'tracking-test' }];
+    localStorage.setItem(key, JSON.stringify(data));
+
+    const result = _migrationScript(['utm_source']);
 
     expect(result).toEqual({ migrated: true, data, foundKey: key });
     expect(localStorage.getItem(key)).toBeNull();
