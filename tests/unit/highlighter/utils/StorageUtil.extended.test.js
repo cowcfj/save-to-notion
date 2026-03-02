@@ -161,6 +161,109 @@ describe('Highlighter StorageUtil', () => {
       expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
       warnSpy.mockRestore();
     });
+
+    test('sendMessage 連續失敗時，應最多嘗試 3 次後回退儲存', async () => {
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        mockChrome.storage.local.get = jest.fn((keys, callback) => {
+          callback({});
+        });
+        mockChrome.storage.local.set = jest.fn((data, callback) => {
+          if (callback) {
+            callback();
+          }
+        });
+
+        const testData = [{ text: 'retry-fail', color: 'yellow' }];
+        const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
+        const getUpdateCalls = () =>
+          mockChrome.runtime.sendMessage.mock.calls.filter(([payload]) => {
+            return payload?.action === 'UPDATE_HIGHLIGHTS';
+          });
+
+        await Promise.resolve();
+        expect(getUpdateCalls()).toHaveLength(1);
+
+        await jest.advanceTimersByTimeAsync(500);
+        await Promise.resolve();
+        expect(getUpdateCalls()).toHaveLength(2);
+
+        await jest.advanceTimersByTimeAsync(500);
+        await savePromise;
+
+        expect(getUpdateCalls()).toHaveLength(3);
+        expect(mockChrome.storage.local.set).toHaveBeenCalled();
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    test('第 2 次 sendMessage 成功時，應停止重試且不觸發 fallback', async () => {
+      jest.useFakeTimers();
+      try {
+        let updateAttempt = 0;
+        mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async payload => {
+          if (payload?.action === 'UPDATE_HIGHLIGHTS') {
+            updateAttempt += 1;
+            return { success: updateAttempt >= 2 };
+          }
+          return { success: true };
+        });
+        mockChrome.storage.local.get = jest.fn((keys, callback) => {
+          callback({});
+        });
+        mockChrome.storage.local.set = jest.fn((data, callback) => {
+          if (callback) {
+            callback();
+          }
+        });
+
+        const testData = [{ text: 'retry-success', color: 'green' }];
+        const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
+        const getUpdateCalls = () =>
+          mockChrome.runtime.sendMessage.mock.calls.filter(([payload]) => {
+            return payload?.action === 'UPDATE_HIGHLIGHTS';
+          });
+
+        await Promise.resolve();
+        expect(getUpdateCalls()).toHaveLength(1);
+
+        await jest.advanceTimersByTimeAsync(500);
+        await savePromise;
+
+        expect(getUpdateCalls()).toHaveLength(2);
+        expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    test('第 1 次 sendMessage 成功時，應立即返回且不等待重試', async () => {
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
+        mockChrome.storage.local.set = jest.fn((data, callback) => {
+          if (callback) {
+            callback();
+          }
+        });
+
+        const testData = [{ text: 'first-success', color: 'blue' }];
+        await StorageUtil.saveHighlights('https://example.com', testData);
+
+        const updateCalls = mockChrome.runtime.sendMessage.mock.calls.filter(([payload]) => {
+          return payload?.action === 'UPDATE_HIGHLIGHTS';
+        });
+        expect(updateCalls).toHaveLength(1);
+        expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('loadHighlights', () => {

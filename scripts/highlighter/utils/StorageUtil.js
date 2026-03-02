@@ -45,20 +45,17 @@ const StorageUtil = {
       ? highlightData
       : highlightData?.highlights || [];
 
-    // Phase 3：送給 Background 處理（含 _withLock）
-    if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
-      return;
-    }
-
-    // 重試：Service Worker 可能正在啟動，短暫延遲後再嘗試最多 2 次。
-    // 目的：避免可回復的暫時性中斷繞端走競態風險的 fallback 路徑。
-    const RETRY_COUNT = 2;
+    // 單一迴圈重試：最多 3 次，第一次立即執行，後續失敗才延遲重試。
+    // 目的：避免可回復的暫時性中斷過早繞道到競態風險較高的 fallback 路徑。
+    const MAX_ATTEMPTS = 3;
     const RETRY_DELAY_MS = 500;
-    for (let attempt = 1; attempt <= RETRY_COUNT; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-      Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${RETRY_COUNT}`, {
-        action: 'saveHighlights',
-      });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (attempt > 1) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${MAX_ATTEMPTS}`, {
+          action: 'saveHighlights',
+        });
+      }
       if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
         return;
       }
@@ -96,12 +93,15 @@ const StorageUtil = {
       if (response?.success === true) {
         return true;
       }
-      Logger.warn('[StorageUtil] sendMessage 回傳失敗（success !== true），回退直接寫入 storage', {
-        action: 'saveHighlights',
-      });
+      Logger.warn(
+        '[StorageUtil] sendMessage 回傳失敗（success !== true），交由上層重試/回退策略處理',
+        {
+          action: 'saveHighlights',
+        }
+      );
     } catch {
-      // sendMessage 失敗（如 Background SW 未啟動），回退到直接寫入
-      Logger.warn('[StorageUtil] sendMessage 發送異常，回退直接寫入 storage', {
+      // sendMessage 失敗（如 Background SW 未啟動），交由上層重試/回退策略處理
+      Logger.warn('[StorageUtil] sendMessage 發送異常，交由上層重試/回退策略處理', {
         action: 'saveHighlights',
       });
     }
