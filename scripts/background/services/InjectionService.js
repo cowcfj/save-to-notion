@@ -181,7 +181,7 @@ class InjectionService {
       return this._highlighterPath;
     }
 
-    // Unified bundle is the only target now.
+    // 統一打包目標為唯一目標。
     // 不使用 fetch HEAD 探測（額外網路請求）— 路徑由 build 時確定，直接信任。
     const bundlePath = INJECTION_CONFIG.CONTENT_BUNDLE_PATH;
     this._highlighterPath = bundlePath;
