@@ -21,6 +21,7 @@ import { RESTRICTED_PROTOCOLS } from '../../config/constants.js';
 const INJECTION_CONFIG = {
   PING_TIMEOUT_MS: 2000,
   PING_TIMEOUT_ERROR: 'PING timeout',
+  CONTENT_BUNDLE_PATH: 'dist/content.bundle.js',
 };
 
 /**
@@ -180,23 +181,10 @@ class InjectionService {
       return this._highlighterPath;
     }
 
-    // Unified bundle is the only target now
-    const bundlePath = 'dist/content.bundle.js';
-    const candidates = [bundlePath];
-
-    for (const path of candidates) {
-      try {
-        const response = await fetch(chrome.runtime.getURL(path), { method: 'HEAD' });
-        if (response.ok) {
-          this._highlighterPath = path;
-          return path;
-        }
-      } catch {
-        // Continue to next candidate
-      }
-    }
-
-    // Fallback (should typically be caught by candidates, but return unified bundle as default)
+    // 統一打包目標為唯一目標。
+    // 不使用 fetch HEAD 探測（額外網路請求）— 路徑由 build 時確定，直接信任。
+    const bundlePath = INJECTION_CONFIG.CONTENT_BUNDLE_PATH;
+    this._highlighterPath = bundlePath;
     return bundlePath;
   }
 
@@ -408,7 +396,7 @@ class InjectionService {
         chrome.scripting.executeScript(
           {
             target: { tabId },
-            files: ['dist/content.bundle.js'],
+            files: [INJECTION_CONFIG.CONTENT_BUNDLE_PATH],
           },
           () => {
             if (chrome.runtime.lastError) {
