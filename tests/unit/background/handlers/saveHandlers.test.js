@@ -254,7 +254,7 @@ describe('saveHandlers', () => {
       );
     });
 
-    test('savePage: notionDataSourceType=data_source 應保留並傳遞給 buildPageData', async () => {
+    test('savePage: notionDataSourceType=data_source 應正規化為 database 並傳遞給 buildPageData', async () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getConfig.mockResolvedValue({
         notionApiKey: 'valid-key',
@@ -271,7 +271,7 @@ describe('saveHandlers', () => {
       await handlers.savePage({}, validSender, sendResponse);
 
       expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
-        expect.objectContaining({ dataSourceType: 'data_source' })
+        expect.objectContaining({ dataSourceType: 'database' })
       );
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, created: true })
