@@ -49,15 +49,24 @@ export function findTextInPage(textToFind, context = {}) {
     }
 
     // 方法1：使用 window.find() API（最快，但可能不夠精確）
+    // 副作用說明：window.find() 會修改瀏覽器的選區（Selection），
+    // 保留前置清理，並透過 finally 在成功/失敗/例外時統一清理。
     const selection = globalThis.getSelection();
     selection.removeAllRanges();
+    let matchedRange = null;
 
-    const found = globalThis.find(cleanText, false, false, false, false, true, false);
-
-    if (found && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0).cloneRange();
+    try {
+      const found = globalThis.find(cleanText, false, false, false, false, true, false);
+      if (found && selection.rangeCount > 0) {
+        matchedRange = selection.getRangeAt(0).cloneRange();
+      }
+    } finally {
+      // 覆蓋 getRangeAt/cloneRange 例外與一般路徑，確保選區副作用被清理
       selection.removeAllRanges();
-      return range;
+    }
+
+    if (matchedRange) {
+      return matchedRange;
     }
 
     // 方法2：使用 TreeWalker 精確查找

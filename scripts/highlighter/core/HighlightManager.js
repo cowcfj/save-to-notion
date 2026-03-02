@@ -68,15 +68,11 @@ export class HighlightManager {
 
       Logger.start('開始初始化', { action: 'initialize' });
 
-      // 初始化樣式管理器
-      if (this.styleManager) {
-        this.styleManager.initialize();
-      }
+      // 初始化樣式管理器（外層已確認 this.styleManager 存在）
+      this.styleManager.initialize();
 
-      // 步驟1：檢查並遷移 localStorage 數據
-      if (this.migration) {
-        await this.checkAndMigrateLegacyData();
-      }
+      // 步驟1：檢查並遷移 localStorage 數據（外層已確認 this.migration 存在）
+      await this.checkAndMigrateLegacyData();
 
       // 步驟2：從存儲恢復標註（如果允許）
       if (skipRestore) {
@@ -309,10 +305,13 @@ export class HighlightManager {
    */
   static rangesOverlap(range1, range2) {
     try {
+      // compareBoundaryPoints 的方向容易誤讀。以 range1 作為 this 呼叫時：
+      // END_TO_START < 0  等價於 range1.end > range2.start
+      // START_TO_END > 0  等價於 range1.start < range2.end
+      // 因此重疊條件是 < 0 && > 0；若改成 > 0 && < 0 會把結果顛倒。
       return (
-        range1.isPointInRange(range2.startContainer, range2.startOffset) ||
-        range1.isPointInRange(range2.endContainer, range2.endOffset) ||
-        range2.isPointInRange(range1.startContainer, range1.startOffset)
+        range1.compareBoundaryPoints(Range.END_TO_START, range2) < 0 &&
+        range1.compareBoundaryPoints(Range.START_TO_END, range2) > 0
       );
     } catch {
       return false;

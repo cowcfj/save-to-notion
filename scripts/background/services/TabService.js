@@ -709,6 +709,43 @@ function _migrationScript(trackingParams) {
     }
   };
 
+  // 內部輔助函數：獲取當前頁面的 origin
+  // eslint-disable-next-line unicorn/consistent-function-scoping
+  const getCurrentOrigin = () => {
+    try {
+      return new URL(globalThis.location.href).origin;
+    } catch {
+      return null;
+    }
+  };
+
+  // 內部輔助函數：遍歷 localStorage 尋找後備的 key
+  // eslint-disable-next-line unicorn/consistent-function-scoping
+  const findFallbackKey = currentOrigin => {
+    let legacyCandidate = null;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith('highlights_')) {
+        continue;
+      }
+
+      try {
+        const keyUrl = k.replace('highlights_', '');
+        const parsedUrlOrigin = new URL(keyUrl).origin;
+        if (currentOrigin && parsedUrlOrigin === currentOrigin) {
+          return k;
+        }
+        // 若 origin 不匹配或當前 origin 不存在，繼續找下一個
+      } catch {
+        // URL 解析失敗（舊版非 URL 格式的 key），記錄第一個作為後備候選
+        if (!legacyCandidate) {
+          legacyCandidate = k;
+        }
+      }
+    }
+    return legacyCandidate;
+  };
+
   // 內部輔助函數：查找存儲鍵
   const findKey = () => {
     const currentUrl = globalThis.location.href;
@@ -727,32 +764,7 @@ function _migrationScript(trackingParams) {
     //   1) 同 origin 且可解析的 key（避免跨頁面誤遷移）
     //   2) 首個不可解析的 legacy key（向後兼容）
     //   3) 無可用 key 時返回 null
-    const currentOrigin = (() => {
-      try {
-        return new URL(globalThis.location.href).origin;
-      } catch {
-        return null;
-      }
-    })();
-    let legacyCandidate = null;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith('highlights_')) {
-        try {
-          const keyUrl = k.replace('highlights_', '');
-          if (currentOrigin && new URL(keyUrl).origin === currentOrigin) {
-            return k;
-          }
-          // 若 origin 不匹配，繼續找下一個
-        } catch {
-          // URL 解析失敗（舊版非 URL 格式的 key），記錄第一個作為後備候選
-          if (!legacyCandidate) {
-            legacyCandidate = k;
-          }
-        }
-      }
-    }
-    return legacyCandidate;
+    return findFallbackKey(getCurrentOrigin());
   };
 
   try {

@@ -61,6 +61,7 @@ describe('TextSearch Utils Coverage Tests', () => {
         true,
         false
       );
+      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
     });
 
     test('should return null for empty text', () => {
@@ -99,6 +100,7 @@ describe('TextSearch Utils Coverage Tests', () => {
         true,
         false
       );
+      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
     });
 
     test('should fallback to TreeWalker when window.find fails', () => {
@@ -115,6 +117,30 @@ describe('TextSearch Utils Coverage Tests', () => {
       const range = findTextInPage('Test');
 
       expect(range).not.toBeNull();
+      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+    });
+
+    test('should cleanup selection when cloneRange throws', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      const mockSelection = {
+        removeAllRanges: jest.fn(),
+        getRangeAt: jest.fn(() => ({
+          cloneRange: () => {
+            throw new Error('cloneRange error');
+          },
+        })),
+        rangeCount: 1,
+      };
+
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = jest.fn(() => true);
+
+      const range = findTextInPage('Test');
+
+      expect(range).toBeNull();
+      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+      expect(globalThis.Logger.error).toHaveBeenCalled();
     });
 
     test('should handle errors gracefully', () => {
