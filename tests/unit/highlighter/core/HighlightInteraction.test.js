@@ -211,6 +211,44 @@ describe('core/HighlightInteraction', () => {
       expect(overlaps).toBe(true);
     });
 
+    test('should treat touching boundaries as non-overlapping', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Boundary Touch';
+      document.body.append(div);
+
+      const range1 = document.createRange();
+      range1.setStart(div.firstChild, 0);
+      range1.setEnd(div.firstChild, 5);
+
+      const range2 = document.createRange();
+      range2.setStart(div.firstChild, 5);
+      range2.setEnd(div.firstChild, 10);
+
+      const overlaps = HighlightInteraction.rangesOverlap(range1, range2);
+      expect(overlaps).toBe(false);
+    });
+
+    test('should return symmetric result when range order is swapped', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Symmetric Test';
+      document.body.append(div);
+
+      const range1 = document.createRange();
+      range1.setStart(div.firstChild, 1);
+      range1.setEnd(div.firstChild, 8);
+
+      const range2 = document.createRange();
+      range2.setStart(div.firstChild, 5);
+      range2.setEnd(div.firstChild, 12);
+
+      const forward = HighlightInteraction.rangesOverlap(range1, range2);
+      const reverse = HighlightInteraction.rangesOverlap(range2, range1);
+
+      expect(forward).toBe(true);
+      expect(reverse).toBe(true);
+      expect(forward).toBe(reverse);
+    });
+
     test('should detect non-overlapping ranges', () => {
       const div = document.createElement('div');
       div.textContent = 'Non Overlapping';

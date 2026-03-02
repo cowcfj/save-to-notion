@@ -352,6 +352,51 @@ describe('core/HighlightManager', () => {
       div.remove();
     });
 
+    test('should treat touching boundaries as non-overlapping', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Boundary Touch Test';
+      document.body.append(div);
+
+      const textNode = div.firstChild;
+
+      const range1 = document.createRange();
+      range1.setStart(textNode, 0);
+      range1.setEnd(textNode, 5);
+
+      const range2 = document.createRange();
+      range2.setStart(textNode, 5);
+      range2.setEnd(textNode, 10);
+
+      expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
+
+      div.remove();
+    });
+
+    test('should return symmetric result when range order is swapped', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Symmetric Overlap Test';
+      document.body.append(div);
+
+      const textNode = div.firstChild;
+
+      const range1 = document.createRange();
+      range1.setStart(textNode, 2);
+      range1.setEnd(textNode, 9);
+
+      const range2 = document.createRange();
+      range2.setStart(textNode, 6);
+      range2.setEnd(textNode, 12);
+
+      const forward = HighlightManager.rangesOverlap(range1, range2);
+      const reverse = HighlightManager.rangesOverlap(range2, range1);
+
+      expect(forward).toBe(true);
+      expect(reverse).toBe(true);
+      expect(forward).toBe(reverse);
+
+      div.remove();
+    });
+
     test('should detect non-overlapping ranges correctly', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World Test';
