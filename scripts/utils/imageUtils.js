@@ -56,6 +56,18 @@ function _resolveUrl(url) {
 /**
  * 內部使用的 URL 標準化邏輯
  *
+ * 「第一階段」編碼：讓 `new URL()` 能夠正確解析輸入 URL
+ *
+ * 設計說明：
+ * 1. `decodeURI` 先解碼現有 %XX，避免後續 `encodeURI` 產生雙重編碼（%25XX）。
+ * 2. `encodeURI` 再編碼，修復未編碼字元，但保留 URL 語義分隔符（`? & = / :`）。
+ * 3. 字元層編碼：對 `( ) ' [ ] ^ | { } < >` 做 `encodeURIComponent`，
+ *    這些字元 `encodeURI` 不處理，但在 Notion/Markdown 語境下會破壞解析。
+ *
+ * ❗ 此函數後，`new URL(normalized).href` 會再次語法標準化，
+ *    將 `%28` 自動解碼回 `(`。因此 `_applyNotionCompatibilityEncoding`
+ *    必須在 `urlObj.href` 從 URL 對象取出後才執行（後置編碼）。
+ *
  * @param {string} url - 原始 URL
  * @returns {string} 標準化後的 URL
  * @private
@@ -250,7 +262,23 @@ function _standardizeSearchParams(urlObj) {
 /**
  * 應用 Notion/Markdown 兼容性編碼
  *
- * @param {string} url - 原始 URL 字串
+ * 「第二階段」編碼：修復 `new URL().href` 自動解碼引起的問題
+ *
+ * 設計說明：
+ * `new URL(url).href` 會將 `%28` 解碼回 `(`。即使 `_normalizeUrlInternal`
+ * 已將 `(` 編碼為 `%28`，`urlObj.href` 仍會將它解回。
+ * 因此必須在此後置步驟再次編碼。
+ *
+ * 不會雙重編碼的原因：
+ * 此函數只用字面字元比對（`'('`, `')'`, `"'"`），
+ * 而 `urlObj.href` 中不會出現已是 `%28` 形式的對應字元，
+ * 因此此函數не會引發 `%2528`（雙重編碼）。
+ *
+ * ⚠️ 維護注意：`_normalizeUrlInternal` 先對原始輸入做前置編碼（供 `new URL()` 正確解析）；
+ * 此函數後置修復 `urlObj.href` 取出後可能被自動解碼的字元。
+ * 如果未來修改其中任一步驟，請確認不會圖謀雙重編碼。
+ *
+ * @param {string} url - 原始 URL 字串（`urlObj.href` 取出後）
  * @returns {string} 編碼後的 URL
  * @private
  */
