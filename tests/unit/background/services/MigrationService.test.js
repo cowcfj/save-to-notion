@@ -518,7 +518,9 @@ describe('MigrationService', () => {
       computeStableUrl.mockReturnValueOnce(stableUrl);
       mockStorageService.getHighlights
         .mockResolvedValueOnce(oldHighlights)
-        .mockResolvedValueOnce({ highlights: [] });
+        // stable key 不存在（null）→ shouldMigrateToStable = true
+        // 注意：{ highlights: [] } 代表「已存在但空」，不觸發遷移
+        .mockResolvedValueOnce(null);
       service._tryBatchStableMigration = jest.fn().mockResolvedValue(stableUrl);
 
       const result = await service.migrateBatchUrl(url);

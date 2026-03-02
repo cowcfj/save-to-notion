@@ -509,13 +509,15 @@ export class MigrationService {
       this.storageService.getHighlights(url),
       hasStableUrl ? this.storageService.getHighlights(stableUrl) : Promise.resolve(null),
     ]);
-    const stableHighlights = this._normalizeHighlights(stableData);
 
     return {
       stableUrl,
       hasStableUrl,
       legacyData,
-      shouldMigrateToStable: Boolean(hasStableUrl && stableHighlights.length === 0),
+      // 僅在 stable key 完全不存在時（null）才遷移。
+      // 若 stable 已有資料（即使是 []），不應覆蓋——
+      // 這樣可以區分「stable 鍵未設定」和「highlights 已清空」兩種語義。
+      shouldMigrateToStable: Boolean(hasStableUrl && stableData == null),
     };
   }
 

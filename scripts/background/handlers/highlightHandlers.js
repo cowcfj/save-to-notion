@@ -140,8 +140,9 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   );
 
   // 格式化失敗訊息為用戶友善格式（與 saveHandlers.sendErrorResponse 模式一致）
+  // 建立新物件返回，避免直接修改 notionService 回傳的 result（防止副作用）
   if (!result.success && result.error) {
-    result.error = ErrorHandler.formatUserMessage(result.error);
+    return { ...result, error: ErrorHandler.formatUserMessage(result.error) };
   }
 
   return result;

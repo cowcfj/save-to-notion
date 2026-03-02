@@ -340,10 +340,14 @@ class InjectionService {
     try {
       // 發送 PING 檢查 Bundle 是否存在（帶超時保護）
       const response = await Promise.race([
-        new Promise((resolve, reject) => {
+        new Promise(resolve => {
+          // 使用 resolve(null) 而非 reject：
+          // 若 timeout 先贏得 race，這個 Promise 可能在之後才 settle。
+          // 用 reject 會在「已無人監聽」時產生 Unhandled Rejection；
+          // 改為 resolve(null) 讓它靜默關閉，PING 錯誤由外層 try/catch 統一處理。
           chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
             if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
+              resolve(null); // 靜默：錯誤已由 timeout race 或後續注入流程處理
             } else {
               resolve(result);
             }

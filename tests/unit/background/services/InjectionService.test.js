@@ -213,10 +213,17 @@ describe('InjectionService', () => {
     });
 
     it('應在權限受限頁面時返回 false', async () => {
-      // Arrange: 權限受限（sendMessage 失敗）
+      // PING 請求根本就無法送達（sendMessage 靜默失敗）
+      // → 流程繼續嘗試注入，注入也遇到可恢復錯誤 → 返回 false
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        // PING 失敗：用 resolve(null)（新行為）
         chrome.runtime.lastError = { message: 'Cannot access contents of page' };
         callback();
+      });
+      // 注入也遇到可恢復錯誤（模擬頁面權限受限）
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
+        cb();
       });
 
       // Act
@@ -224,9 +231,8 @@ describe('InjectionService', () => {
 
       // Assert
       expect(result).toBe(false);
-      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('PING failed with recoverable error'),
+        expect.stringContaining('Bundle injection skipped'),
         expect.objectContaining({ error: expect.anything() })
       );
     });
