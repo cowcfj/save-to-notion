@@ -45,12 +45,34 @@ const StorageUtil = {
       ? highlightData
       : highlightData?.highlights || [];
 
-    // Phase 3：送給 Background 處理（含 _withLock）
-    if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
-      return;
+    // 單一迴圈重試：最多 3 次，第一次立即執行，後續失敗才延遲重試。
+    // 目的：避免可回復的暫時性中斷過早繞道到競態風險較高的 fallback 路徑。
+    const canRetryBackground =
+      typeof chrome !== 'undefined' &&
+      chrome?.runtime &&
+      typeof chrome.runtime.sendMessage === 'function';
+    const MAX_ATTEMPTS = 3;
+    const attemptLimit = canRetryBackground ? MAX_ATTEMPTS : 1;
+    const RETRY_DELAY_MS = 500;
+    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+      if (attempt > 1) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`, {
+          action: 'saveHighlights',
+        });
+      }
+      if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
+        return;
+      }
     }
 
-    // Fallback：直接寫入（過渡期安全網）
+    // Fallback：重試後仍失敗，直接寫入（過渡期安全網）
+    Logger.warn(
+      '[StorageUtil] 所有重試均失敗，走 fallback 直接寫入。注意：此路徑繞過 _withLock，可能發生並發衝突。',
+      {
+        action: 'saveHighlights',
+      }
+    );
     await this._fallbackDirectSave(pageUrl, highlights, highlightData);
   },
 
@@ -63,7 +85,11 @@ const StorageUtil = {
    * @private
    */
   async _tryBackgroundUpdate(pageUrl, highlights) {
-    if (typeof chrome === 'undefined' || !chrome?.runtime?.sendMessage) {
+    if (
+      typeof chrome === 'undefined' ||
+      !chrome?.runtime ||
+      typeof chrome.runtime.sendMessage !== 'function'
+    ) {
       return false;
     }
 
@@ -76,12 +102,15 @@ const StorageUtil = {
       if (response?.success === true) {
         return true;
       }
-      Logger.warn('[StorageUtil] sendMessage 回傳失敗（success !== true），回退直接寫入 storage', {
-        action: 'saveHighlights',
-      });
+      Logger.warn(
+        '[StorageUtil] sendMessage 回傳失敗（success !== true），交由上層重試/回退策略處理',
+        {
+          action: 'saveHighlights',
+        }
+      );
     } catch {
-      // sendMessage 失敗（如 Background SW 未啟動），回退到直接寫入
-      Logger.warn('[StorageUtil] sendMessage 發送異常，回退直接寫入 storage', {
+      // sendMessage 失敗（如 Background SW 未啟動），交由上層重試/回退策略處理
+      Logger.warn('[StorageUtil] sendMessage 發送異常，交由上層重試/回退策略處理', {
         action: 'saveHighlights',
       });
     }
