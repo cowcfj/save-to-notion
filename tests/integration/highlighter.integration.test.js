@@ -238,7 +238,11 @@ describe('Highlighter Integration Tests', () => {
 
       // 由於在 jsdom 中 addHighlight 可能因缺少 CSS Highlight API 返迴 null，
       // 但其本身不應拋錯並且回傳值類型必須是字串或 null。
-      expect(id === null || typeof id === 'string').toBe(true);
+      if (id === null) {
+        expect(id).toBeNull();
+      } else {
+        expect(typeof id).toBe('string');
+      }
 
       if (id !== null) {
         expect(manager.highlights.has(id)).toBe(true);

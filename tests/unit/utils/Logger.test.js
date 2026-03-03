@@ -12,6 +12,16 @@
  * - 錯誤過濾
  */
 
+function loadInDevelopmentMode(loader) {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'development';
+  try {
+    return loader();
+  } finally {
+    process.env.NODE_ENV = previousNodeEnv;
+  }
+}
+
 describe('Logger', () => {
   let Logger = null;
   let originalChrome = null;
@@ -66,10 +76,7 @@ describe('Logger', () => {
       globalThis.chrome = undefined;
 
       // 載入 Logger 模組
-      const __prevEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-      require('../../../scripts/utils/Logger.js');
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -143,7 +150,6 @@ describe('Logger', () => {
           id: 'test-extension-id',
           getManifest: jest.fn().mockReturnValue({
             version: '1.0.0',
-            version: '1.0.0',
             version_name: '1.0.0-dev',
           }),
           sendMessage: jest.fn((msg, callback) => {
@@ -164,10 +170,7 @@ describe('Logger', () => {
       };
 
       // 載入 Logger 模組
-      const __prevEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-      require('../../../scripts/utils/Logger.js');
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -231,13 +234,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -271,13 +268,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -317,10 +308,7 @@ describe('Logger', () => {
   describe('消息格式化', () => {
     beforeEach(() => {
       globalThis.chrome = undefined;
-      const __prevEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-      require('../../../scripts/utils/Logger.js');
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -362,13 +350,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -435,10 +417,7 @@ describe('Logger', () => {
   describe('語法糖方法 (success, start, ready)', () => {
     beforeEach(() => {
       globalThis.chrome = undefined;
-      const __prevEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-      require('../../../scripts/utils/Logger.js');
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -484,13 +463,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
 
       jest.useFakeTimers();
@@ -571,10 +544,7 @@ describe('Logger', () => {
 
     beforeEach(() => {
       globalThis.chrome = undefined;
-      const __prevEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-      const mod = require('../../../scripts/utils/Logger.js');
-      process.env.NODE_ENV = __prevEnv;
+      const mod = loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       parseArgsToContext = mod.parseArgsToContext;
     });
 
@@ -650,10 +620,7 @@ describe('Logger', () => {
 
       // 不應該拋出錯誤
       expect(() => {
-        const __prevEnv = process.env.NODE_ENV;
-        process.env.NODE_ENV = 'development';
-        require('../../../scripts/utils/Logger.js');
-        process.env.NODE_ENV = __prevEnv;
+        loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       }).not.toThrow();
 
       Logger = globalThis.window.Logger;
@@ -683,13 +650,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
 
       const visibilityCall = docSpy.mock.calls.find(call => call[0] === 'visibilitychange');
       expect(visibilityCall).toBeDefined();
@@ -725,13 +686,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       const LoadedLogger = globalThis.window.Logger;
 
       // 將一條日誌加入佇列
@@ -783,13 +738,7 @@ describe('Logger', () => {
         },
       };
 
-      const __prevEnv = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'development';
-
-      require('../../../scripts/utils/Logger.js');
-
-      process.env.NODE_ENV = __prevEnv;
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
       const LoadedLogger = globalThis.window.Logger;
 
       // 將一條日誌加入佇列

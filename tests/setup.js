@@ -245,6 +245,10 @@ beforeEach(() => {
   }
 });
 
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
 // 輔助函數：創建 mock Response
 globalThis.createMockResponse = (data, status = 200, ok = true) => ({
   ok,
