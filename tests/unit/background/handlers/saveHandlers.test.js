@@ -33,9 +33,6 @@ jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
   },
 }));
 
-console.log('!!! Global Logger At Top is:', Object.keys(globalThis.Logger || {}));
-console.log('!!! Global Logger addLogToBuffer is:', globalThis.Logger?.addLogToBuffer?.toString());
-
 describe('saveHandlers', () => {
   let handlers = null;
   let mockServices = null;
