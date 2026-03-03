@@ -8,7 +8,7 @@
 
 // 確保 TextEncoder/TextDecoder 可用（某些 Node 版本需要）
 if (globalThis.TextEncoder === undefined) {
-  const { TextEncoder, TextDecoder } = require('util');
+  const { TextEncoder, TextDecoder } = require('node:util');
   globalThis.TextEncoder = TextEncoder;
   globalThis.TextDecoder = TextDecoder;
 }

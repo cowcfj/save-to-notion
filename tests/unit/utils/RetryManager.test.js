@@ -814,9 +814,14 @@ describe('RetryManager Comprehensive Tests', () => {
     test('應該延遲指定的毫秒數', async () => {
       jest.useFakeTimers();
       try {
-        const delayPromise = RetryManager._delay(100);
+        let resolved = false;
+        const delayPromise = RetryManager._delay(100).then(() => {
+          resolved = true;
+        });
+        expect(resolved).toBe(false); // 暫未解析
         jest.advanceTimersByTime(100);
         await delayPromise;
+        expect(resolved).toBe(true); // 時間推進後應已解析
       } finally {
         jest.useRealTimers();
       }
