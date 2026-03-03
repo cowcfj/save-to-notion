@@ -21,14 +21,12 @@
 | **📝 Notion**     | [`NOTION_API_PATTERNS.md`](docs/guides/NOTION_API_PATTERNS.md)                 | API Rate Limits、Block 結構、常量配置           |
 | **💻 編碼**       | [`CODE_PATTERNS_GUIDE.md`](docs/guides/CODE_PATTERNS_GUIDE.md)                 | Linter 規則、Magic Numbers、Async/Await         |
 | **🔒 安全 (App)** | [`SECURITY_BEST_PRACTICES.md`](docs/guides/SECURITY_BEST_PRACTICES.md)         | 威脅模型評估、避免過度設計、RFD 防護、DOM 安全  |
-| **🔑 安全 (Ops)** | [`GITHUB_SYNC_POLICY.md`](docs/guides/GITHUB_SYNC_POLICY.md)                   | 權限管理、Token 安全、文件同步策略              |
 | **📚 文檔**       | [`DOCUMENTATION_STRATEGY.md`](docs/guides/DOCUMENTATION_STRATEGY.md)           | 文檔更新規則、Markdown 格式                     |
 | **🤖 MCP**        | [`MCP_USAGE_GUIDELINES.md`](docs/guides/MCP_USAGE_GUIDELINES.md)               | Tool 使用準則、避免誤用、MCP 列表               |
 | **🎯 目標**       | [`GOALS.md`](docs/guides/GOALS.md)                                             | 了解項目路線圖、功能優先級                      |
 | **📏 規範**       | [`PROJECT_STANDARDS.md`](docs/guides/PROJECT_STANDARDS.md)                     | 語言規範、Git Commit 格式                       |
 | **🤝 協作**       | [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md)                                 | Pull Request 建立流程、規範與 Review 準備       |
 | **🚀 發布**       | [`RELEASE_WORKFLOW.md`](docs/guides/RELEASE_WORKFLOW.md)                       | 版本發布流程、Store 上架準備                    |
-| **🚀 模板**       | [`GITHUB_RELEASE_TEMPLATE.md`](docs/guides/GITHUB_RELEASE_TEMPLATE.md)         | 撰寫 Release Notes 內容格式                     |
 | **📝 報告**       | [`REPORT_WRITING_STANDARDS.md`](docs/guides/REPORT_WRITING_STANDARDS.md)       | 撰寫各類報告或總結時的格式規範                  |
 | **🌐 提取**       | [`NEXTJS_EXTRACTION_GUIDE.md`](docs/guides/NEXTJS_EXTRACTION_GUIDE.md)         | Next.js App Router 網站內容提取經驗             |
 
@@ -50,6 +48,7 @@
 9.  **API 版本鎖定**: 關於 Notion API 的版本鎖定與強制升降級規則，必須嚴格遵守 [`NOTION_API_PATTERNS.md`](docs/guides/NOTION_API_PATTERNS.md#23-api-版本鎖定-api-version-locking) 的定義。
 10. **純淨代碼原則 (Pure Code Artifacts)**: 嚴禁將 AI 的思考過程、內部筆記、嘗試性獨白（如 "Let's try..."、"Actually..."）留存在源代碼或測試代碼中。代碼註解必須保持專業並僅與實作邏輯相關。
 11. **強制 PR 模板 (Mandatory PR Template)**: 建立 Pull Request 前，**無論使用任何工具**，皆嚴禁「憑空創造」描述結構。**必須**讀取 `.github/pull_request_template.md` 作為 body 基礎，並詳閱 [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md) 的自動化規範。
+12. **嚴禁濫改 Git 設定 (Strict Git Policy)**: 絕對禁止擅自修改 `.gitignore` 來**解除隱藏或追蹤**你生成的分析報告或內部日誌。你的所有輔助分析檔案（包括報告、計畫）皆**嚴禁**執行 `git add / git commit`。有疑慮時直接詢問人工開發者。
 
 ### 觸發器 (Triggers)
 

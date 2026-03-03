@@ -1,0 +1,30 @@
+{
+  "project_context": "Notion Chrome Extension (MV3)",
+  "description": "Project-specific critical bounds and checklist for code review. All AI agents MUST enforce these rules when reviewing PRs.",
+  "review_critical_bounds": [
+    {
+      "category": "Log Security Leak",
+      "severity": "CRITICAL",
+      "condition": "Attempting to log complete sender, tab, request objects or raw HTML content.",
+      "enforcement": "Reject PR. Require using IDs only (e.g., sender?.id, tab?.id), and wrapping URLs with sanitizeUrlForLogging() and API errors with sanitizeApiError()."
+    },
+    {
+      "category": "Storage Quota Violation",
+      "severity": "CRITICAL",
+      "condition": "Attempting to store large HTML content, Base64 images, or heavy payloads into chrome.storage.sync.",
+      "enforcement": "Reject PR. Require storing large payloads in chrome.storage.local or IndexedDB."
+    },
+    {
+      "category": "Test Coverage Regression",
+      "severity": "CRITICAL",
+      "condition": "Introducing new core business logic without corresponding unit or E2E tests.",
+      "enforcement": "Reject PR. Require TDD and ensure Codecov checks do not fail (< 50%)."
+    }
+  ],
+  "quick_checklist": [
+    "Single Responsibility: The PR focuses on one specific issue without sneaking in unrelated refactoring.",
+    "Log Sanitization: Verify all Logger.info/error calls correctly sanitize data (No PII, no raw HTML).",
+    "Data Isolation: Verify cache/large data usage strictly targets storage.local.",
+    "Language: Verify code comments and documentation are maintained in Traditional Chinese."
+  ]
+}
