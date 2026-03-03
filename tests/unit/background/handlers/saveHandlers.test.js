@@ -755,6 +755,13 @@ describe('saveHandlers', () => {
         sendResponse
       );
 
+      expect(console.error).toHaveBeenCalledWith(
+        '[ClientLog] dev log sink failed',
+        expect.objectContaining({
+          action: 'dev_log_sink',
+          error: expect.any(String),
+        })
+      );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
   });
