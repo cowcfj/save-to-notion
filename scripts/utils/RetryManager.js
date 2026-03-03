@@ -329,6 +329,7 @@ class RetryManager {
       process.env.NODE_ENV !== 'production'
     ) {
       // 開發/測試環境降級：避免完全靜默
+      // eslint-disable-next-line no-console
       console.warn(message);
     }
 

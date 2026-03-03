@@ -84,7 +84,7 @@ export default [
           disallowTemplateShorthand: false,
         },
       ],
-      'no-console': ['error', { allow: ['warn', 'error', 'info'] }],
+      'no-console': ['error', { allow: ['error'] }],
 
       // Code Style
       'prefer-template': 'error',
