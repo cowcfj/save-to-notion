@@ -49,6 +49,7 @@
     - **後執行**：只有在獲得用戶**明確同意**後，才寫入程式碼。
 9.  **API 版本鎖定**: 關於 Notion API 的版本鎖定與強制升降級規則，必須嚴格遵守 [`NOTION_API_PATTERNS.md`](docs/guides/NOTION_API_PATTERNS.md#23-api-版本鎖定-api-version-locking) 的定義。
 10. **純淨代碼原則 (Pure Code Artifacts)**: 嚴禁將 AI 的思考過程、內部筆記、嘗試性獨白（如 "Let's try..."、"Actually..."）留存在源代碼或測試代碼中。代碼註解必須保持專業並僅與實作邏輯相關。
+11. **強制 PR 模板 (Mandatory PR Template)**: 建立 Pull Request 前，**無論使用任何工具**，皆嚴禁「憑空創造」描述結構。**必須**讀取 `.github/pull_request_template.md` 作為 body 基礎，並詳閱 [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md) 的自動化規範。
 
 ### 觸發器 (Triggers)
 
