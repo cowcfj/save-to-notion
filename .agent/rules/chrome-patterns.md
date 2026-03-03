@@ -12,8 +12,8 @@ globs: ['manifest.json', '**/*background*', '**/*content*', '**/*popup*']
 
 When this rule is triggered, you MUST immediately do the following two things:
 
-1. **Invoke the Extension Expert Skill**:
-   - You MUST follow the `extension-expert` skill to ensure compliance with Manifest V3 limitations (e.g., ephemeral service workers, CSP).
+1. **Invoke the Browser Extension Builder Skill**:
+   - You MUST follow the `browser-extension-builder` skill to ensure compliance with Manifest V3 limitations (e.g., ephemeral service workers, CSP).
 
 2. **Load Project-Specific Context**:
    - You MUST load and read the relevant JSON schema files to understand the project's data structures and message passing contracts:
