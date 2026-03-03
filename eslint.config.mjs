@@ -219,7 +219,7 @@ export default [
     ],
   },
   {
-    files: ['.agents/skills/**/*.js', 'scripts/**/*.js'],
+    files: ['.agents/skills/**/*.js', 'scripts/utils/Logger.js'],
     rules: {
       'no-console': 'off',
       'unicorn/no-abusive-eslint-disable': 'off',
