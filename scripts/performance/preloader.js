@@ -115,8 +115,7 @@
       chrome.runtime.sendMessage({ action: 'USER_ACTIVATE_SHORTCUT' }, _response => {
         if (chrome.runtime.lastError) {
           // 記錄連接錯誤以便診斷（如 Background 未準備好、權限問題等）
-          // eslint-disable-next-line no-console
-          console.warn(
+          console.error(
             '[Notion Preloader] Failed to send shortcut message:',
             chrome.runtime.lastError.message
           );
