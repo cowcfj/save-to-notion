@@ -21,13 +21,29 @@ jest.mock('../../../scripts/utils/Logger', () => ({
 // Blob Polyfill for JSDOM
 if (globalThis.Blob === undefined) {
   globalThis.Blob = class Blob {
-    constructor(content) {
-      this.content = content;
-      this.size = JSON.stringify(content).length;
+    constructor(parts = []) {
+      const encoder = new TextEncoder();
+      const normalizedParts = Array.isArray(parts) ? parts : [parts];
+      this._chunks = normalizedParts.map(part => {
+        if (part instanceof ArrayBuffer) {
+          return new Uint8Array(part);
+        }
+        if (ArrayBuffer.isView(part)) {
+          return new Uint8Array(part.buffer, part.byteOffset, part.byteLength);
+        }
+        return encoder.encode(String(part ?? ''));
+      });
+      this.size = this._chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
     }
 
     async arrayBuffer() {
-      return new ArrayBuffer(0);
+      const merged = new Uint8Array(this.size);
+      let offset = 0;
+      for (const chunk of this._chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return merged.buffer;
     }
   };
 }

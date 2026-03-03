@@ -337,7 +337,7 @@ describe('Highlighter Integration Tests', () => {
       // Find and highlight text
       const range = findTextInPage('this');
       // findTextInPage 可能返回 null，需要適當處理
-      expect(range).toBeDefined();
+      expect(range).not.toBeNull();
       if (range) {
         const id = manager.addHighlight(range, 'red');
         expect(id === null || typeof id === 'string').toBe(true);
@@ -364,19 +364,20 @@ describe('Highlighter Integration Tests', () => {
     // 可能的問題：MutationObserver 與 fake timers 的兼容性
     test('should integrate DOM stability waiting', async () => {
       jest.useFakeTimers();
+      try {
+        const stabilityPromise = waitForDOMStability({
+          stabilityThresholdMs: 100,
+          maxWaitMs: 500,
+        });
 
-      const stabilityPromise = waitForDOMStability({
-        stabilityThresholdMs: 100,
-        maxWaitMs: 500,
-      });
+        // 使用 runAllTimersAsync 來處理所有 pending 的 timers 和 promises
+        await jest.runAllTimersAsync();
 
-      // 使用 runAllTimersAsync 來處理所有 pending 的 timers 和 promises
-      await jest.runAllTimersAsync();
-
-      const isStable = await stabilityPromise;
-      expect(isStable).toBe(true);
-
-      jest.useRealTimers();
+        const isStable = await stabilityPromise;
+        expect(isStable).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
