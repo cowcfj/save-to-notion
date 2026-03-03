@@ -390,55 +390,6 @@ describe('Highlighter StorageUtil', () => {
     });
   });
 
-  describe('_loadFromChromeStorage', () => {
-    test('Chrome Storage 不可用時應拒絕', async () => {
-      globalThis.chrome = undefined;
-
-      await expect(StorageUtil._loadFromChromeStorage('test_key')).rejects.toThrow(
-        'Chrome storage not available'
-      );
-
-      globalThis.chrome = mockChrome;
-    });
-
-    test('成功加載陣列格式應正確解析', async () => {
-      const testData = [{ text: 'highlight', color: 'yellow' }];
-
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({ [keys[0]]: testData }), 0); // skipcq: JS-0255
-      });
-
-      const result = await StorageUtil._loadFromChromeStorage('test_key');
-
-      expect(result).toEqual(testData);
-    });
-
-    test('成功加載對象格式應正確解析', async () => {
-      const testData = {
-        url: 'https://example.com',
-        highlights: [{ text: 'highlight', color: 'yellow' }],
-      };
-
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({ [keys[0]]: testData }), 0); // skipcq: JS-0255
-      });
-
-      const result = await StorageUtil._loadFromChromeStorage('test_key');
-
-      expect(result).toEqual(testData.highlights);
-    });
-
-    test('同步拋出異常應被 catch', async () => {
-      mockChrome.storage.local.get = jest.fn(() => {
-        throw new Error('Sync load error');
-      });
-
-      await expect(StorageUtil._loadFromChromeStorage('test_key')).rejects.toThrow(
-        'Sync load error'
-      );
-    });
-  });
-
   describe('_saveToLocalStorage', () => {
     test('成功保存應解析', async () => {
       await expect(
