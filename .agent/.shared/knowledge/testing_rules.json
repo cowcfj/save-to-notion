@@ -1,0 +1,29 @@
+{
+  "project_context": "Notion Chrome Extension (MV3)",
+  "description": "Project-specific testing boundaries, environments, and mock strategies. All AI agents must enforce these rules when writing or fixing tests.",
+  "testing_methodology": {
+    "coverage_baseline": {
+      "critical_paths": "90%+ for Storage, Migration, and Highlighting algorithms.",
+      "general": ">= 50% for all new code before PR submission."
+    }
+  },
+  "unit_testing": {
+    "chrome_api_mocking": {
+      "rule": "Do not mutate window.chrome directly. Override global.chrome.",
+      "setup": "Declare mock variables and spies at the top level and initialize them in beforeEach.",
+      "teardown": "You MUST execute jest.clearAllMocks() and clean up global.chrome in afterEach to prevent test pollution."
+    }
+  },
+  "e2e_testing": {
+    "framework": "Playwright",
+    "architecture": "Service Worker Direct Injection",
+    "rationale": "To verify Content Script impact on DOM and bypass difficult message timing issues, we inject directly into the Service Worker context.",
+    "implementation_rule": {
+      "do": "Reference `tests/e2e/specs/highlight.spec.js` and use `serviceWorker.evaluate` for direct injection testing.",
+      "do_not": "Do NOT use direct injection if testing Background Worker message routing logic. Instead, mock `chrome.runtime.sendMessage`."
+    }
+  },
+  "linting_overrides": {
+    "rule": "Follow the project's ESLint configuration. Do not emit DeepSource (skipcq) comments."
+  }
+}
