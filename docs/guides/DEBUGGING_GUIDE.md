@@ -44,13 +44,3 @@
 > 「在未完成根因調查之前，嚴禁嘗試任何修復 (NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST)。」
 
 遇到問題時，若腦中閃過「先隨便改改看」、「直接跳過測試手動測」等念頭，請立即**停止 (STOP)**，退回 Phase 1 並參考 `debugging_rules.json` 裡的工具指示去收集更多情報 (如 DevTools Console 或 Service Worker 日誌)。
-
----
-
-## 🏗️ 內部構建指示 (給人類開發者)
-
-```bash
-# 為 Chrome Web Store 構建擴展包
-./internal/scripts/build.sh
-# 輸出: internal/build/notion-smart-clipper-v${VERSION}.zip
-```
