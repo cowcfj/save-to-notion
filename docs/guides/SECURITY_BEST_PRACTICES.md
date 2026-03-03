@@ -19,9 +19,6 @@
 
 - **強烈要求**：請隨時調用本專案的 **`security-review`** 技能，讓它作為你的 Code Reviewer。
 
-_如果你是 Antigravity Agent，請在變更安全敏感區塊時主動觸發該技能。_
-_如果你是 Cursor 或 Claude Code，請在你的系統提示詞中回溯你對 `security-review` 技能與防禦 XSS 的最高標準理解。_
-
 ---
 
 ## 🧠 2. 強制載入專案領域知識庫 (Project Knowledge Base)

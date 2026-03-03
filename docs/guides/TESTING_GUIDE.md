@@ -21,9 +21,6 @@
 - **若是 E2E (Playwright) 測試**：請調用或遵循 `e2e-testing-patterns` 技能。
 - **若是開發新功能**：請調用 `test-driven-development` 技能 (先寫失敗的測試，才寫實作代碼)。
 
-_如果你是 Antigravity Agent，請立即調用上述對應技能。_
-_如果你是 Cursor 或 Claude Code，請在你的系統提示詞中回溯你對上述測試模式與 TDD 的最高標準理解。_
-
 ---
 
 ## 🧠 2. 強制載入專案領域知識庫 (Project Knowledge Base)
