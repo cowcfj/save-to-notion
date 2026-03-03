@@ -251,3 +251,4 @@ docs/specs/
 .serenaignore
 skills-lock.json
 .agents/.shared/staging/
+*_report.json
