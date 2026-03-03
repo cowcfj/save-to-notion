@@ -58,6 +58,7 @@
 Antigravity 系統會在特定情境下自動注入規則警告：
 
 - 修改關鍵 API 時會觸發 `.agents/rules/notion-api.md` 或 `chrome-patterns.md`。
+- 修改核心服務與配置時會觸發 `.agents/rules/architecture.md` 要求評估 ADR。
 - 涉及敏感操作時會觸發 `.agents/rules/security.md`。
 
 ## 🏗️ 專案架構概覽 (Architecture)
