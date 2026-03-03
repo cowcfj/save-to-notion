@@ -114,6 +114,7 @@ graph TD
 | **e2e-testing-patterns**           | 端到端自動化測試    | 驗證整個擴充功能的使用者交互行為與核心流程     |
 | **requesting-code-review**         | 發布前嚴格質量把關  | 重大功能開發完成準備提交 Pull Request 前       |
 | **receiving-code-review**          | 審核與驗證回饋意見  | 收到他人或 AI 的 Code Review 意見準備實作前    |
+| **security-review**                | 代碼資安縱深防禦    | 日常開發與審核中防止 XSS、注入、越權存取等漏洞 |
 | **verification-before-completion** | 強制驗證結果防呆    | 在宣告任何已修復或已完成的任務之前             |
 
 > [!TIP]

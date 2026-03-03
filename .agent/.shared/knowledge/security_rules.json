@@ -1,0 +1,40 @@
+{
+  "project_context": "Notion Chrome Extension (MV3)",
+  "description": "Project-specific security boundaries and rules. All AI agents must enforce these rules when writing or reviewing code.",
+  "extension_safety": {
+    "file_download_trigger": {
+      "threat": "RFD (Reflected File Download)",
+      "rule": "Force strict whitelisting. Appended files must be restricted to '.json' or '.txt' and have explicitly designated MIME types. Never use arbitrary user input for filenames."
+    },
+    "dom_operations": {
+      "rule": "Always prefer `textContent`. If SVG mixed content requires text updates, find the TEXT_NODE and update its `textContent` rather than using `innerHTML` on the parent."
+    }
+  },
+  "production_build_safety": {
+    "source_maps": {
+      "rule": "Source maps MUST be disabled in production (`NODE_ENV=production`) to prevent reverse engineering."
+    },
+    "console_stripping": {
+      "rule": "Do not use `drop_console: true`. Use `pure_funcs: ['console.log', 'console.debug']` to remove noise while keeping `info`, `warn`, and `error` for crash tracking."
+    },
+    "log_sanitization": {
+      "rule": "Rely on `LogSanitizer` to strip sensitive properties (like `sender`, `tab`, PII) before emitting logs in production."
+    }
+  },
+  "supply_chain_security": {
+    "minimatch": {
+      "threat": "ReDoS",
+      "minimum_versions": {
+        "3.x": "3.1.3",
+        "9.x": "9.0.6",
+        "10.x": "10.2.1"
+      }
+    },
+    "remediation_flow": [
+      "Use `overrides` in package.json to lock safe version ranges.",
+      "Regenerate package-lock.json.",
+      "Run CI checks to block vulnerable versions.",
+      "Run tests (`npm run test:quick`) to verify no regressions."
+    ]
+  }
+}
