@@ -17,7 +17,7 @@ When this rule is triggered, you MUST immediately do the following two things:
    - `[notion_constraints.json](../../.agent/.shared/knowledge/notion_constraints.json)`
    - **DO NOT** guess these limits or upgrade the API version without checking this file.
 
-2. **Invoke the QA Testing Skill for Verification**:
+2. **Invoke the E2E Testing Skill for Verification**:
    - If you modify any core API interactions (Save, Highlight, Migration), you MUST use the `e2e-testing-patterns` skill and the instructions in `testing_rules.json` to verify your changes.
 
 ## 🔗 Hub Reference
