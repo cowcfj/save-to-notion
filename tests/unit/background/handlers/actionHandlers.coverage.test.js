@@ -127,7 +127,6 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    console.log('In beforeEach, globalThis.Logger is:', globalThis.Logger);
 
     mockNotionService = {
       setApiKey: jest.fn(),
