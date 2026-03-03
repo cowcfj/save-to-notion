@@ -168,21 +168,4 @@
     // 未處理的訊息不需要異步響應
     return false;
   });
-
-  // 調試模式：在 DevTools Console 執行 localStorage.setItem('NOTION_DEBUG', '1') 啟用
-  // 啟用後重新載入頁面即可看到調試訊息
-  try {
-    if (localStorage.getItem('NOTION_DEBUG')) {
-      // eslint-disable-next-line no-console
-      console.info('Notion Preloader initialized:', preloaderCache, {
-        hasArticle: Boolean(preloaderCache.article),
-        hasMainContent: Boolean(preloaderCache.mainContent),
-        hasNextRouteInfo: Boolean(preloaderCache.nextRouteInfo),
-        hasShortlink: Boolean(preloaderCache.shortlink),
-      });
-    }
-  } catch {
-    // 忽略 localStorage 訪問錯誤（如隱私模式或禁用 Cookie）
-    // 避免因調試功能導致整個腳本崩潰
-  }
 })();
