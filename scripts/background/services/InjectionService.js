@@ -461,6 +461,7 @@ class InjectionService {
               globalThis.notionHighlighter.show();
               const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
               // skipcq: JS-0002 - Running in page context
+              // eslint-disable-next-line no-console
               console.info(`[Notion Highlighter] 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
               return;
@@ -468,6 +469,7 @@ class InjectionService {
 
             if (Date.now() - startTime > timeout) {
               // skipcq: JS-0002 - Running in page context
+              // eslint-disable-next-line no-console
               console.warn('[Notion Highlighter] 初始化超時');
               resolve({ initialized: false, highlightCount: 0 });
               return;

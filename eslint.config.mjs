@@ -7,25 +7,6 @@ import promise from 'eslint-plugin-promise';
 import compat from 'eslint-plugin-compat';
 import jsdoc from 'eslint-plugin-jsdoc';
 
-/**
- * 將規則集中的所有 'error' 強制轉換為 'warn'
- * @param {Object} rules 原始規則對象
- * @returns {Object} 轉換後的規則對象
- */
-function mapRulesToWarn(rules) {
-  const newRules = {};
-  for (const [key, value] of Object.entries(rules || {})) {
-    if (value === 'error') {
-      newRules[key] = 'warn';
-    } else if (Array.isArray(value) && value[0] === 'error') {
-      newRules[key] = ['warn', ...value.slice(1)];
-    } else {
-      newRules[key] = value;
-    }
-  }
-  return newRules;
-}
-
 export default [
   {
     files: ['**/*.js'],
@@ -85,14 +66,14 @@ export default [
     rules: {
       // Base ESLint rules
       'no-unused-vars': [
-        'warn',
+        'error',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      'no-empty': ['warn', { allowEmptyCatch: true }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
       'no-case-declarations': 'off',
       'no-implicit-coercion': [
         'warn',
@@ -103,12 +84,12 @@ export default [
           disallowTemplateShorthand: false,
         },
       ],
-      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      'no-console': ['error', { allow: ['error'] }],
 
       // Code Style
-      'prefer-template': 'warn',
-      'object-shorthand': ['warn', 'always'],
-      'prefer-const': 'warn',
+      'prefer-template': 'error',
+      'object-shorthand': ['error', 'always'],
+      'prefer-const': 'error',
       'prefer-arrow-callback': [
         'warn',
         {
@@ -116,7 +97,7 @@ export default [
           allowUnboundThis: true,
         },
       ],
-      'no-var': 'warn',
+      'no-var': 'error',
 
       // Variable Naming
       'id-length': [
@@ -129,16 +110,16 @@ export default [
       ],
 
       // Best Practices
-      eqeqeq: ['warn', 'always', { null: 'ignore' }],
-      curly: ['warn', 'all'],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      curly: ['error', 'all'],
       'dot-notation': 'warn',
       'no-else-return': 'warn',
       'no-lonely-if': 'warn',
 
       // --- Plugin Rules ---
 
-      // 1. SonarJS (所有推薦規則降級為 warn)
-      ...mapRulesToWarn(sonarjs.configs.recommended.rules),
+      // 1. SonarJS
+      ...sonarjs.configs.recommended.rules,
       'sonarjs/cognitive-complexity': ['warn', 15],
       'sonarjs/no-duplicate-string': 'warn',
 
@@ -146,8 +127,8 @@ export default [
       ...security.configs.recommended.rules,
       'security/detect-object-injection': 'off',
 
-      // 3. Unicorn (所有推薦規則降級為 warn)
-      ...mapRulesToWarn(unicorn.configs.recommended.rules),
+      // 3. Unicorn
+      ...unicorn.configs.recommended.rules,
       // 個別規則覆蓋以維持開發彈性
       'unicorn/no-array-for-each': 'off',
       'unicorn/no-null': 'off',
@@ -163,7 +144,7 @@ export default [
       // 4. Promise
       ...promise.configs.recommended.rules,
       'promise/always-return': 'off',
-      'promise/catch-or-return': 'warn',
+      'promise/catch-or-return': 'error',
 
       // 5. Compat
       ...compat.configs.recommended.rules,
@@ -230,6 +211,7 @@ export default [
       'build/**',
       '.nyc_output/**',
       '.history/**',
+      'docs/archive/**',
       'archive/**',
       'lib/**',
       'tests/manual/**',
@@ -237,10 +219,17 @@ export default [
     ],
   },
   {
+    files: ['.agents/skills/**/*.js', 'scripts/utils/Logger.js'],
+    rules: {
+      'no-console': 'off',
+      'unicorn/no-abusive-eslint-disable': 'off',
+    },
+  },
+  {
     files: ['tests/**/*.js'],
     plugins: { jest },
     rules: {
-      ...mapRulesToWarn(jest.configs.recommended.rules),
+      ...jest.configs.recommended.rules,
       'jest/expect-expect': 'warn',
       'jest/no-disabled-tests': 'warn',
       'jest/no-focused-tests': 'warn',

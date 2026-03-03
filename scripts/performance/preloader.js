@@ -115,7 +115,7 @@
       chrome.runtime.sendMessage({ action: 'USER_ACTIVATE_SHORTCUT' }, _response => {
         if (chrome.runtime.lastError) {
           // 記錄連接錯誤以便診斷（如 Background 未準備好、權限問題等）
-          console.warn(
+          console.error(
             '[Notion Preloader] Failed to send shortcut message:',
             chrome.runtime.lastError.message
           );
@@ -168,20 +168,4 @@
     // 未處理的訊息不需要異步響應
     return false;
   });
-
-  // 調試模式：在 DevTools Console 執行 localStorage.setItem('NOTION_DEBUG', '1') 啟用
-  // 啟用後重新載入頁面即可看到調試訊息
-  try {
-    if (localStorage.getItem('NOTION_DEBUG')) {
-      console.info('Notion Preloader initialized:', preloaderCache, {
-        hasArticle: Boolean(preloaderCache.article),
-        hasMainContent: Boolean(preloaderCache.mainContent),
-        hasNextRouteInfo: Boolean(preloaderCache.nextRouteInfo),
-        hasShortlink: Boolean(preloaderCache.shortlink),
-      });
-    }
-  } catch {
-    // 忽略 localStorage 訪問錯誤（如隱私模式或禁用 Cookie）
-    // 避免因調試功能導致整個腳本崩潰
-  }
 })();

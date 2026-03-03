@@ -990,7 +990,7 @@ export const NextJsExtractor = {
     if (!imageUrl) {
       Logger.debug('NextJsExtractor._createBlockFromImageAtom: 無法找到圖片 URL', {
         atomKeys: Object.keys(atom),
-        // eslint-disable-next-line
+        // eslint-disable-next-line unicorn/explicit-length-check
         hasSize: Boolean(atom.size && Object.keys(atom.size).length > 0),
       });
       return null;
