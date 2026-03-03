@@ -99,7 +99,6 @@ graph TD
 | 技能名稱                      | 位置 (內外部)                              | 適用場景                               |
 | ----------------------------- | ------------------------------------------ | -------------------------------------- |
 | **browser-extension-builder** | `.agent/skills/browser-extension-builder/` | Manifest V3 驗證、功能腳手架、架構檢查 |
-| **Notion QA**                 | `.agent/skills/notion-qa/`                 | Notion API 行為測試、數據對齊驗證      |
 | **Local Docs Backup**         | `.agent/skills/local-docs-backup/`         | 文檔版本備份、同步衝突處理             |
 
 ### 🌟 推薦共用技能 (Recommended Shared)

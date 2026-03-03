@@ -18,7 +18,7 @@ When this rule is triggered, you MUST immediately do the following two things:
    - **DO NOT** guess these limits or upgrade the API version without checking this file.
 
 2. **Invoke the QA Testing Skill for Verification**:
-   - If you modify any core API interactions (Save, Highlight, Migration), you MUST use the `notion-qa` skill to understand how to run the E2E tests (`python3 scripts/run_e2e_suite.py`) to verify your changes.
+   - If you modify any core API interactions (Save, Highlight, Migration), you MUST use the `e2e-testing-patterns` skill and the instructions in `testing_rules.json` to verify your changes.
 
 ## 🔗 Hub Reference
 

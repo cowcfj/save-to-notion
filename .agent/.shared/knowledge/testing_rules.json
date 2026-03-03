@@ -26,6 +26,16 @@
     "implementation_rule": {
       "do": "Reference `tests/e2e/specs/highlight.spec.js` and use `serviceWorker.evaluate` for direct injection testing.",
       "do_not": "Do NOT use direct injection if testing Background Worker message routing logic. Instead, mock `chrome.runtime.sendMessage`."
+    },
+    "test_execution_tags": {
+      "save": "基本頁面保存功能",
+      "highlight": "文本標註功能",
+      "long": "超長文章保存",
+      "migration": "標註遷移功能",
+      "perf": "性能測試",
+      "network": "網絡錯誤處理",
+      "compat": "瀏覽器兼容性",
+      "instruction": "Use these strings with `npm run test:e2e -- --grep=\"<string>\"` instead of running wrapper scripts."
     }
   },
   "linting_overrides": {
