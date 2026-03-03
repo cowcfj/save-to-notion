@@ -48,7 +48,10 @@
 9.  **API 版本鎖定**: 關於 Notion API 的版本鎖定與強制升降級規則，必須嚴格遵守 [`NOTION_API_PATTERNS.md`](docs/guides/NOTION_API_PATTERNS.md#23-api-版本鎖定-api-version-locking) 的定義。
 10. **純淨代碼原則 (Pure Code Artifacts)**: 嚴禁將 AI 的思考過程、內部筆記、嘗試性獨白（如 "Let's try..."、"Actually..."）留存在源代碼或測試代碼中。代碼註解必須保持專業並僅與實作邏輯相關。
 11. **強制 PR 模板 (Mandatory PR Template)**: 建立 Pull Request 前，**無論使用任何工具**，皆嚴禁「憑空創造」描述結構。**必須**讀取 `.github/pull_request_template.md` 作為 body 基礎，並詳閱 [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md) 的自動化規範。
-12. **嚴禁濫改 Git 設定 (Strict Git Policy)**: 絕對禁止擅自修改 `.gitignore` 來**解除隱藏或追蹤**你生成的分析報告或內部日誌。你的所有輔助分析檔案（包括報告、計畫）皆**嚴禁**執行 `git add / git commit`。有疑慮時直接詢問人工開發者。
+12. **嚴禁濫改 Git 設定 (Strict Git Policy)**:
+    - 絕對禁止擅自修改 `.gitignore` 來解除隱藏或追蹤檔案。
+    - **【紅線警告】** 嚴禁使用 `git add -f` 或 `--force` 來強行提交被忽略的檔案。
+    - 包含但不限於 `docs/`（非公開網站用）、`.agent/`、`internal/` 等輔助目錄，**嚴禁**執行 `git add / git commit`。若遇到 Git 報錯提示檔案被 `.gitignore` 忽略，請立刻停止操作並詢問人工開發者。
 
 ### 觸發器 (Triggers)
 
