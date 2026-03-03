@@ -1278,10 +1278,25 @@ describe('PerformanceOptimizer - 全面測試', () => {
 describe('PerformanceOptimizer（額外測試）', () => {
   /** @type {PerformanceOptimizer} 性能優化器實例,在 beforeEach 中初始化 */
   let optimizer = null;
+  let originalChrome = null;
+  let hadChrome = false;
 
   beforeEach(() => {
+    hadChrome = Object.prototype.hasOwnProperty.call(globalThis, 'chrome');
+    originalChrome = globalThis.chrome;
     document.body.innerHTML = '';
     optimizer = new PerformanceOptimizer({ cacheMaxSize: 50, enableBatching: true });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    if (hadChrome) {
+      globalThis.chrome = originalChrome;
+    } else {
+      delete globalThis.chrome;
+    }
+    optimizer = null;
+    document.body.innerHTML = '';
   });
 
   test('cachedQuery 應快取並返回元素', () => {
@@ -1352,8 +1367,12 @@ describe('PerformanceOptimizer（額外測試）', () => {
 describe('PerformanceOptimizer 進階功能測試', () => {
   /** @type {PerformanceOptimizer | null} */
   let optimizer = null;
+  let originalChrome = null;
+  let hadChrome = false;
 
   beforeEach(() => {
+    hadChrome = Object.prototype.hasOwnProperty.call(globalThis, 'chrome');
+    originalChrome = globalThis.chrome;
     document.body.innerHTML = `
       <div class="test-container">
           <img src="test1.jpg" alt="Test 1">
@@ -1376,6 +1395,17 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       cacheMaxSize: 100,
       cacheTTL: 300_000, // 5分鐘 TTL
     });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    if (hadChrome) {
+      globalThis.chrome = originalChrome;
+    } else {
+      delete globalThis.chrome;
+    }
+    optimizer = null;
+    document.body.innerHTML = '';
   });
 
   describe('TTL 機制和緩存管理', () => {

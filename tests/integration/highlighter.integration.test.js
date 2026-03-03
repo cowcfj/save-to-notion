@@ -233,29 +233,21 @@ describe('Highlighter Integration Tests', () => {
       range.setStart(textNode, 0);
       range.setEnd(textNode, 4);
 
-      // Add highlight - 在 jsdom 環境中可能返回 null
+      // Add highlight
+      const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
       const id = manager.addHighlight(range, 'yellow');
+      expect(typeof id).toBe('string');
+      expect(manager.highlights.has(id)).toBe(true);
 
-      // 由於在 jsdom 中 addHighlight 可能因缺少 CSS Highlight API 返迴 null，
-      // 但其本身不應拋錯並且回傳值類型必須是字串或 null。
-      if (id === null) {
-        expect(id).toBeNull();
-      } else {
-        expect(typeof id).toBe('string');
-      }
+      // Verify highlight data
+      const highlight = manager.highlights.get(id);
+      expect(highlight.text).toBe('Test');
+      expect(highlight.color).toBe('yellow');
 
-      if (id !== null) {
-        expect(manager.highlights.has(id)).toBe(true);
-
-        // Verify highlight data
-        const highlight = manager.highlights.get(id);
-        expect(highlight.text).toBe('Test');
-        expect(highlight.color).toBe('yellow');
-
-        // Remove highlight
-        manager.removeHighlight(id);
-        expect(manager.highlights.has(id)).toBe(false);
-      }
+      // Remove highlight
+      manager.removeHighlight(id);
+      expect(manager.highlights.has(id)).toBe(false);
+      applyHighlightSpy.mockRestore();
 
       // Serialize and verify - 這應該始終有效
       const serialized = serializeRange(range);
