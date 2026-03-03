@@ -18,49 +18,12 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
 }));
 
 // Mock Logger
-globalThis.Logger = {
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-};
 
 // Mock chrome API
-globalThis.chrome = {
-  runtime: {
-    id: 'test-extension-id',
-    lastError: null,
-  },
-  tabs: {
-    query: jest.fn(),
-    create: jest.fn(),
-    remove: jest.fn(),
-    onUpdated: {
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      hasListener: jest.fn(),
-    },
-    get: jest.fn(),
-  },
-  storage: {
-    local: {
-      get: jest.fn(),
-      set: jest.fn(),
-      remove: jest.fn(),
-    },
-  },
-  scripting: {
-    executeScript: jest.fn(),
-  },
-};
 
 const defaultSender = {
-  id: 'test-extension-id',
-  url: 'chrome-extension://test-extension-id/popup.html',
+  id: 'mock-extension-id',
+  url: 'chrome-extension://mock-extension-id/popup.html',
 };
 
 describe('migrationHandlers', () => {
@@ -100,16 +63,16 @@ describe('migrationHandlers', () => {
       {
         scenario: '來自 Popup/Background (無 tab 對象)',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           // tab undefined
         },
       },
       {
         scenario: '來自 Options Page (在 Tab 中打開)',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           tab: { id: 123 },
-          url: 'chrome-extension://test-extension-id/options.html',
+          url: 'chrome-extension://mock-extension-id/options.html',
         },
       },
     ])('應該允許: $scenario', ({ sender }) => {
@@ -134,7 +97,7 @@ describe('migrationHandlers', () => {
       {
         scenario: '來自 Content Script',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           tab: { id: 456 },
           url: 'https://malicious-site.com',
         },
@@ -148,7 +111,7 @@ describe('migrationHandlers', () => {
       {
         scenario: '來自 Content Script (sender.url 為網頁 URL)',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           tab: { id: 789 },
           url: 'https://google.com',
         },

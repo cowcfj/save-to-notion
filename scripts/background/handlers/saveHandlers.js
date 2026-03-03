@@ -1092,6 +1092,7 @@ export function createSaveHandlers(services) {
         sendResponse({ success: true });
       } catch (error) {
         // 日誌處理不應崩潰
+        console.error('DEV LOG SINK ERROR ==================>', error);
         const safeMessage = sanitizeApiError(error, 'dev_log_sink');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }

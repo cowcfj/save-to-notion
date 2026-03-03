@@ -236,8 +236,11 @@ describe('Highlighter Integration Tests', () => {
       // Add highlight - 在 jsdom 環境中可能返回 null
       const id = manager.addHighlight(range, 'yellow');
 
-      // 驗證 addHighlight 基本行為（不論成功與否都不應拋錯）
-      if (id) {
+      // 由於在 jsdom 中 addHighlight 可能因缺少 CSS Highlight API 返迴 null，
+      // 但其本身不應拋錯並且回傳值類型必須是字串或 null。
+      expect(id === null || typeof id === 'string').toBe(true);
+
+      if (id !== null) {
         expect(manager.highlights.has(id)).toBe(true);
 
         // Verify highlight data
@@ -276,8 +279,10 @@ describe('Highlighter Integration Tests', () => {
       const id2 = manager.addHighlight(range2, 'blue');
 
       // 在 jsdom 環境中，addHighlight 可能不成功
-      // 驗證 clearAll 不會拋錯
-      if (id1 && id2) {
+      expect(id1 === null || typeof id1 === 'string').toBe(true);
+      expect(id2 === null || typeof id2 === 'string').toBe(true);
+
+      if (id1 !== null && id2 !== null) {
         expect(manager.getCount()).toBe(2);
         expect(manager.highlights.get(id1).color).toBe('yellow');
         expect(manager.highlights.get(id2).color).toBe('blue');
@@ -328,10 +333,11 @@ describe('Highlighter Integration Tests', () => {
       // Find and highlight text
       const range = findTextInPage('this');
       // findTextInPage 可能返回 null，需要適當處理
+      expect(range).toBeDefined();
       if (range) {
         const id = manager.addHighlight(range, 'red');
-        // addHighlight 可能返回 null 如果 range 無效
-        if (id) {
+        expect(id === null || typeof id === 'string').toBe(true);
+        if (id !== null) {
           expect(manager.highlights.get(id).text).toBe('this');
         }
       }
@@ -352,8 +358,7 @@ describe('Highlighter Integration Tests', () => {
 
     // SKIP: 此測試在 fake timers 環境下會掛起，需要進一步調查
     // 可能的問題：MutationObserver 與 fake timers 的兼容性
-    // eslint-disable-next-line jest/no-disabled-tests
-    test.skip('should integrate DOM stability waiting', async () => {
+    test('should integrate DOM stability waiting', async () => {
       jest.useFakeTimers();
 
       const stabilityPromise = waitForDOMStability({

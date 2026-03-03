@@ -34,6 +34,10 @@ globalThis.Logger = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  addLogToBuffer: jest.fn(),
 };
 
 // 同時設定 window.Logger

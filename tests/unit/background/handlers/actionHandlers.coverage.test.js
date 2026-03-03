@@ -127,19 +127,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Mock Logger 為非調試模式
-    globalThis.Logger = {
-      debugEnabled: false,
-      error: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      log: jest.fn(),
-      debug: jest.fn(),
-      addLogToBuffer: jest.fn(),
-      start: jest.fn(),
-      success: jest.fn(),
-    };
+    console.log('In beforeEach, globalThis.Logger is:', globalThis.Logger);
 
     mockNotionService = {
       setApiKey: jest.fn(),

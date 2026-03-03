@@ -776,7 +776,12 @@ class PerformanceOptimizer {
         // 執行新的查詢並更新緩存
         const result = PerformanceOptimizer._performQuery(selector, context, options);
 
-        if (result) {
+        // 判斷是否為「有結果」
+        // 非 NodeList 的 Element 沒有 length，必為 truthy
+        // NodeList 或 Array 則必須 length > 0
+        const hasResult = result && (result.length === undefined || result.length > 0);
+
+        if (hasResult) {
           this.queryCache.set(cacheKey, {
             result,
             timestamp: Date.now(),

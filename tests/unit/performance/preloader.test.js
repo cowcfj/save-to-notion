@@ -248,7 +248,7 @@ describe('Preloader Performance Script', () => {
     });
 
     test('應該處理快捷鍵發送訊息後的錯誤', () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       runPreloader();
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
@@ -258,8 +258,8 @@ describe('Preloader Performance Script', () => {
       const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
       callback();
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to send shortcut message'),
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Notion Preloader] Failed to send shortcut message:'),
         'Connection error'
       );
 

@@ -108,7 +108,6 @@ describe('StorageUtil', () => {
               }
             });
           } catch {
-            console.log('Chrome storage not available, using localStorage');
             try {
               localStorage.setItem(pageKey, JSON.stringify(highlightData));
               resolve();
@@ -180,7 +179,6 @@ describe('StorageUtil', () => {
               resolve([]);
             });
           } catch {
-            console.log('Chrome storage not available, falling back to localStorage');
             const legacy = localStorage.getItem(pageKey);
             const legacyHighlights = parseLegacyHighlights(legacy);
             if (legacyHighlights.length > 0) {

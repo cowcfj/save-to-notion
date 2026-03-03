@@ -69,11 +69,12 @@ module.exports = {
   },
 
   // 防止測試掛起
-  forceExit: true,
+  forceExit: false,
   detectOpenHandles: true,
 
   // 增加超時時間（30秒）
-  testTimeout: 30000,
+  // 默認逾時設定 10 秒，促使超時測試能提早報錯
+  testTimeout: 10000,
 
   // Node.js 20.x 性能優化設置
   maxWorkers: 4, // 略微提高以便利用更多核心

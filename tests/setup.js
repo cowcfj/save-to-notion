@@ -140,6 +140,10 @@ globalThis.Logger = {
       // 忽略 console 錯誤
     }
   }),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  addLogToBuffer: jest.fn(),
 };
 
 // ImageUtils mock is handled in presetup.js
@@ -200,9 +204,14 @@ globalThis.console = {
   debug: jest.fn(),
 };
 
-// 每個測試前清理 mocks（在 beforeEach 中已經有，但這裡確保 Logger 相關測試正常）
+// 每個測試前重置全局狀態與 Mocks
 beforeEach(() => {
-  // 清理 Logger mocks
+  // 1. 清理 DOM 結構
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.innerHTML = '';
+  }
+
+  // 2. 清理全局 Logger mocks
   if (globalThis.Logger) {
     Object.keys(globalThis.Logger).forEach(method => {
       if (globalThis.Logger[method]?.mockClear) {
@@ -211,44 +220,29 @@ beforeEach(() => {
     });
   }
 
-  // 清理 console mocks（確保 Logger 測試不會受影響）
+  // 3. 清理 console mocks（防止各測試互相污染）
   if (globalThis.console) {
-    ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
+    Object.keys(globalThis.console).forEach(method => {
       if (globalThis.console[method]?.mockClear) {
         globalThis.console[method].mockClear();
       }
     });
   }
-});
 
-// 每個測試前重置 mocks
-beforeEach(() => {
-  // 清理 DOM
-  if (typeof document !== 'undefined' && document.body) {
-    document.body.innerHTML = '';
-  }
-
-  // 清理 fetch mock
+  // 4. 清理 fetch mock
   if (globalThis.fetch?.mockClear) {
     globalThis.fetch.mockClear();
   }
 
-  // 清理 localStorage
-  if (globalThis.localStorage?._reset) {
+  // 5. 清理 localStorage
+  if (globalThis.localStorage && typeof globalThis.localStorage._reset === 'function') {
     globalThis.localStorage._reset();
   }
 
-  // 清理 Chrome storage
-  if (globalThis.chrome?._clearStorage) {
+  // 6. 清理 Chrome API storage mocks
+  if (globalThis.chrome && typeof globalThis.chrome._clearStorage === 'function') {
     globalThis.chrome._clearStorage();
   }
-
-  // 清理 console mocks
-  Object.keys(console).forEach(method => {
-    if (console[method]?.mockClear) {
-      console[method].mockClear();
-    }
-  });
 });
 
 // 輔助函數：創建 mock Response
