@@ -66,6 +66,9 @@ export function isDevelopment() {
     const versionString = manifest.version_name || manifest.version || '';
     return /dev/i.test(versionString);
   } catch (error) {
+    // Logger Bootstrap 限制：此函數在 Logger.initDebugState() 執行過程中被調用，
+    // 若此處使用 Logger，將形成循環依賴。必須使用 console 作為降級輸出。
+    // skipcq: JS-0002
     console.warn('[環境檢測] 無法讀取 manifest:', error);
     return false;
   }
