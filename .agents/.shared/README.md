@@ -1,6 +1,6 @@
 # 🧠 跨代理共用知識與能力層 (Cross-Agent Shared Layer)
 
-此目錄 (`.agent/.shared/`) 是本專案中所有 AI Agent (Planner, Coder, Reviewer) 的協作中樞。
+此目錄 (`.agents/.shared/`) 是本專案中所有 AI Agent (Planner, Coder, Reviewer) 的協作中樞。
 它提供了單一真理來源 (Single Source of Truth) 與資源重用機制。
 
 ## 📂 目錄結構

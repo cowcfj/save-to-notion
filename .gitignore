@@ -211,7 +211,7 @@ tests/reports/
 .kiro/steering/
 .qoder/rules/
 .augment/rules/
-.agent/rules/
+.agents/rules/
 .clinerules/byterover-rules.md
 .kilocode/rules/byterover-rules.md
 .roo/rules/byterover-rules.md
@@ -220,10 +220,10 @@ tests/reports/
 .kiro/steering/byterover-rules.md
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md*.bak
-.agent/skills/
+.agents/skills/
 docs/design/README.md
 docs/
-.agent/skills/browser-automation/SKILL.md
+.agents/skills/browser-automation/SKILL.md
 docs/eslint_report.txt
 docs/README.md
 docs/archive/old-releases/README.md
@@ -250,4 +250,4 @@ docs/specs/
 .deepsource.toml
 .serenaignore
 skills-lock.json
-.agent/.shared/staging/
+.agents/.shared/staging/

@@ -51,14 +51,14 @@
 12. **嚴禁濫改 Git 設定 (Strict Git Policy)**:
     - 絕對禁止擅自修改 `.gitignore` 來解除隱藏或追蹤檔案。
     - **【紅線警告】** 嚴禁使用 `git add -f` 或 `--force` 來強行提交被忽略的檔案。
-    - 包含但不限於 `docs/`（非公開網站用）、`.agent/`、`internal/` 等輔助目錄，**嚴禁**執行 `git add / git commit`。若遇到 Git 報錯提示檔案被 `.gitignore` 忽略，請立刻停止操作並詢問人工開發者。
+    - 包含但不限於 `docs/`（非公開網站用）、`.agents/`、`internal/` 等輔助目錄，**嚴禁**執行 `git add / git commit`。若遇到 Git 報錯提示檔案被 `.gitignore` 忽略，請立刻停止操作並詢問人工開發者。
 
 ### 觸發器 (Triggers)
 
 Antigravity 系統會在特定情境下自動注入規則警告：
 
-- 修改關鍵 API 時會觸發 `.agent/rules/notion-api.md` 或 `chrome-patterns.md`。
-- 涉及敏感操作時會觸發 `.agent/rules/security.md`。
+- 修改關鍵 API 時會觸發 `.agents/rules/notion-api.md` 或 `chrome-patterns.md`。
+- 涉及敏感操作時會觸發 `.agents/rules/security.md`。
 
 ## 🏗️ 專案架構概覽 (Architecture)
 
@@ -82,7 +82,7 @@ graph TD
 
 ## 🧠 跨代理協作層 (Cross-Agent Layer)
 
-本專案啟用 `.agent/.shared/` 架構以支持多代理協作。
+本專案啟用 `.agents/.shared/` 架構以支持多代理協作。
 
 | 目錄           | 用途                       | 關鍵檔案                                                             |
 | -------------- | -------------------------- | -------------------------------------------------------------------- |
@@ -99,10 +99,10 @@ graph TD
 
 ### 📌 專案專屬技能 (Project Specific)
 
-| 技能名稱                      | 位置 (內外部)                              | 適用場景                               |
-| ----------------------------- | ------------------------------------------ | -------------------------------------- |
-| **browser-extension-builder** | `.agent/skills/browser-extension-builder/` | Manifest V3 驗證、功能腳手架、架構檢查 |
-| **Local Docs Backup**         | `.agent/skills/local-docs-backup/`         | 文檔版本備份、同步衝突處理             |
+| 技能名稱                      | 位置 (內外部)                               | 適用場景                               |
+| ----------------------------- | ------------------------------------------- | -------------------------------------- |
+| **browser-extension-builder** | `.agents/skills/browser-extension-builder/` | Manifest V3 驗證、功能腳手架、架構檢查 |
+| **Local Docs Backup**         | `.agents/skills/local-docs-backup/`         | 文檔版本備份、同步衝突處理             |
 
 ### 🌟 推薦共用技能 (Recommended Shared)
 

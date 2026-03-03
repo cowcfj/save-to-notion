@@ -7,7 +7,7 @@
       "include-component-in-tag": false,
       "exclude-paths": [
         "site/",
-        ".agent/",
+        ".agents/",
         ".github/",
         ".gemini/",
         ".husky/",
