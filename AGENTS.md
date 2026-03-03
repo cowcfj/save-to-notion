@@ -104,15 +104,16 @@ graph TD
 
 ### 🌟 推薦共用技能 (Recommended Shared)
 
-| 技能名稱                           | 核心價值           | 適用場景                                       |
-| ---------------------------------- | ------------------ | ---------------------------------------------- |
-| **complex-site-analysis**          | 反向工程複雜 DOM   | 開發/修改 Content Script 解析 NotionSPA 結構時 |
-| **systematic-debugging**           | 系統化根因分析     | 遇到難以重現的 Bug 或異步問題時                |
-| **ui-ux-pro-max**                  | 專業交互與動畫設計 | 提升產品高級感與用戶體驗 (UX) 時               |
-| **test-driven-development**        | 穩定性優先開發模式 | 修改核心服務邏輯 (Services) 前編寫規格時       |
-| **test-fixing**                    | 系統化修復測試用例 | 大規模重構後或 CI/CD 單元測試失敗時            |
-| **requesting-code-review**         | 發布前嚴格質量把關 | 重大功能開發完成準備提交 Pull Request 前       |
-| **verification-before-completion** | 強制驗證結果防呆   | 在宣告任何已修復或已完成的任務之前             |
+| 技能名稱                           | 核心價值            | 適用場景                                       |
+| ---------------------------------- | ------------------- | ---------------------------------------------- |
+| **complex-site-analysis**          | 反向工程複雜 DOM    | 開發/修改 Content Script 解析 NotionSPA 結構時 |
+| **systematic-debugging**           | 系統化根因分析      | 遇到難以重現的 Bug 或異步問題時                |
+| **ui-ux-pro-max**                  | 專業交互與動畫設計  | 提升產品高級感與用戶體驗 (UX) 時               |
+| **test-driven-development**        | 穩定性優先開發模式  | 修改核心服務邏輯 (Services) 前編寫規格時       |
+| **javascript-testing-patterns**    | JavaScript 測試規範 | 撰寫與重構 JavaScript 單元測試與 Mock 策略     |
+| **e2e-testing-patterns**           | 端到端自動化測試    | 驗證整個擴充功能的使用者交互行為與核心流程     |
+| **requesting-code-review**         | 發布前嚴格質量把關  | 重大功能開發完成準備提交 Pull Request 前       |
+| **verification-before-completion** | 強制驗證結果防呆    | 在宣告任何已修復或已完成的任務之前             |
 
 > [!TIP]
 > **主動加載技能**：如果你需要手動獲取技能指令，請使用 `view_file` 讀取對應目錄下的 `SKILL.md`。
