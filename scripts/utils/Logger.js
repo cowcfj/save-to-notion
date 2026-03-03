@@ -401,7 +401,6 @@ const Logger = {
     }
 
     writeToBuffer('debug', message, args);
-    // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     _queueForBackground('debug', message, args);
   },
@@ -412,7 +411,6 @@ const Logger = {
     }
 
     writeToBuffer('log', message, args);
-    // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     _queueForBackground('log', message, args);
   },

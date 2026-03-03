@@ -230,11 +230,19 @@ export default [
       'build/**',
       '.nyc_output/**',
       '.history/**',
+      'docs/archive/**',
       'archive/**',
       'lib/**',
       'tests/manual/**',
       '*.config.js',
     ],
+  },
+  {
+    files: ['.agents/skills/**/*.js', 'scripts/**/*.js'],
+    rules: {
+      'no-console': 'off',
+      'unicorn/no-abusive-eslint-disable': 'off',
+    },
   },
   {
     files: ['tests/**/*.js'],
