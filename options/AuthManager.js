@@ -11,18 +11,11 @@ import { AuthMode, NOTION_OAUTH } from '../scripts/config/constants.js';
  * 負責 Notion 授權流程（OAuth + 手動 API Key）與狀態管理
  */
 
-// ==========================================
-// AuthManager 常數定義
-// ==========================================
-const CLASS_AUTH_SUCCESS = 'auth-status success';
-const CLASS_AUTH_STATUS = 'auth-status';
-const STYLE_INLINE_FLEX = 'inline-flex';
-
 export class AuthManager {
   // 將常數綁定到類別上供實例使用
-  static CLASS_AUTH_SUCCESS = CLASS_AUTH_SUCCESS;
-  static CLASS_AUTH_STATUS = CLASS_AUTH_STATUS;
-  static STYLE_INLINE_FLEX = STYLE_INLINE_FLEX;
+  static CLASS_AUTH_SUCCESS = 'auth-status success';
+  static CLASS_AUTH_STATUS = 'auth-status';
+  static STYLE_INLINE_FLEX = 'inline-flex';
 
   /**
    * @param {import('./UIManager.js').UIManager} uiManager
