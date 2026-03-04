@@ -390,6 +390,89 @@ export class AuthManager {
   // ==========================================
 
   /**
+   * 前置檢查 chrome.identity API 是否可用
+   *
+   * @private
+   */
+  _checkIdentityApi() {
+    const missingIdentityApi = [];
+    if (typeof chrome?.identity?.getRedirectURL !== 'function') {
+      missingIdentityApi.push('getRedirectURL');
+    }
+    if (typeof chrome?.identity?.launchWebAuthFlow !== 'function') {
+      missingIdentityApi.push('launchWebAuthFlow');
+    }
+    if (missingIdentityApi.length > 0) {
+      Logger.error('[Auth] OAuth Identity API 不可用', {
+        action: 'startOAuthFlow',
+        missingIdentityApi,
+      });
+      const unavailableError = new Error(
+        `OAuth Identity API unavailable: ${missingIdentityApi.join(', ')}`
+      );
+      unavailableError.code = 'oauth_identity_unavailable';
+      throw unavailableError;
+    }
+  }
+
+  /**
+   * 拿 Auth Code 去向後端伺服器交換 Token
+   *
+   * @private
+   * @param {string} code - OAuth code
+   * @param {string} redirectUri - Redirect URI
+   * @returns {Promise<object>} Token data
+   */
+  async _exchangeOAuthToken(code, redirectUri) {
+    const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
+    const tokenResponse = await fetch(serverUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirect_uri: redirectUri }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      throw new Error(errorData.message || `Token 交換失敗 (${tokenResponse.status})`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    const hasAccessToken =
+      typeof tokenData.access_token === 'string' && tokenData.access_token.trim().length > 0;
+    const hasRefreshToken =
+      typeof tokenData.refresh_token === 'string' && tokenData.refresh_token.trim().length > 0;
+
+    if (!hasAccessToken || !hasRefreshToken) {
+      throw new Error('OAuth token 回應缺少必要欄位');
+    }
+
+    return tokenData;
+  }
+
+  /**
+   * 清理 OAuth 流程產生的暫存 State 與還原 UI 按鈕
+   *
+   * @private
+   * @param {string} csrfState - 剛剛用到的 CSRF State
+   */
+  async _cleanupOAuthState(csrfState) {
+    if (csrfState) {
+      try {
+        await chrome.storage.session.remove('oauthState');
+      } catch (cleanupError) {
+        Logger.warn('[Auth] 清理 OAuth state 失敗', {
+          action: 'startOAuthFlow',
+          error: sanitizeApiError(cleanupError, 'oauth_state_cleanup'),
+        });
+      }
+    }
+    if (this.elements.oauthConnectButton) {
+      this.elements.oauthConnectButton.disabled = false;
+      this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;
+    }
+  }
+
+  /**
    * 啟動 Notion OAuth 授權流程
    * 使用 chrome.identity.launchWebAuthFlow
    */
@@ -398,25 +481,8 @@ export class AuthManager {
     try {
       Logger.start('開始 Notion OAuth 流程', { action: 'startOAuthFlow' });
 
-      // 前置檢查：Manifest 未包含 identity 權限時，chrome.identity 會不可用
-      const missingIdentityApi = [];
-      if (typeof chrome?.identity?.getRedirectURL !== 'function') {
-        missingIdentityApi.push('getRedirectURL');
-      }
-      if (typeof chrome?.identity?.launchWebAuthFlow !== 'function') {
-        missingIdentityApi.push('launchWebAuthFlow');
-      }
-      if (missingIdentityApi.length > 0) {
-        Logger.error('[Auth] OAuth Identity API 不可用', {
-          action: 'startOAuthFlow',
-          missingIdentityApi,
-        });
-        const unavailableError = new Error(
-          `OAuth Identity API unavailable: ${missingIdentityApi.join(', ')}`
-        );
-        unavailableError.code = 'oauth_identity_unavailable';
-        throw unavailableError;
-      }
+      // 前置檢查
+      this._checkIdentityApi();
 
       // 更新按鈕為載入狀態
       if (this.elements.oauthConnectButton) {
@@ -466,26 +532,7 @@ export class AuthManager {
       }
 
       // 7. 將 code 送到後端交換 Token
-      const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
-      const tokenResponse = await fetch(serverUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirect_uri: redirectUri }),
-      });
-
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || `Token 交換失敗 (${tokenResponse.status})`);
-      }
-
-      const tokenData = await tokenResponse.json();
-      const hasAccessToken =
-        typeof tokenData.access_token === 'string' && tokenData.access_token.trim().length > 0;
-      const hasRefreshToken =
-        typeof tokenData.refresh_token === 'string' && tokenData.refresh_token.trim().length > 0;
-      if (!hasAccessToken || !hasRefreshToken) {
-        throw new Error('OAuth token 回應缺少必要欄位');
-      }
+      const tokenData = await this._exchangeOAuthToken(code, redirectUri);
 
       // 8. 存儲 Token 及相關資料到 chrome.storage.local
       await chrome.storage.local.set({
@@ -517,20 +564,7 @@ export class AuthManager {
           : ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
       this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
     } finally {
-      if (csrfState) {
-        try {
-          await chrome.storage.session.remove('oauthState');
-        } catch (cleanupError) {
-          Logger.warn('[Auth] 清理 OAuth state 失敗', {
-            action: 'startOAuthFlow',
-            error: sanitizeApiError(cleanupError, 'oauth_state_cleanup'),
-          });
-        }
-      }
-      if (this.elements.oauthConnectButton) {
-        this.elements.oauthConnectButton.disabled = false;
-        this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;
-      }
+      await this._cleanupOAuthState(csrfState);
     }
   }
 
