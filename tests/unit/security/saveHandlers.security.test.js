@@ -1,4 +1,5 @@
 import { createSaveHandlers } from '../../../scripts/background/handlers/saveHandlers.js';
+import { getActiveNotionToken } from '../../../scripts/utils/notionAuth.js';
 
 // Mocks
 const mockNotionService = {
@@ -52,6 +53,10 @@ jest.mock('../../../scripts/utils/securityUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
 }));
 
+jest.mock('../../../scripts/utils/notionAuth.js', () => ({
+  getActiveNotionToken: jest.fn(),
+}));
+
 import { validateInternalRequest } from '../../../scripts/utils/securityUtils.js';
 
 describe('saveHandlers Security Verification', () => {
@@ -76,6 +81,7 @@ describe('saveHandlers Security Verification', () => {
     });
 
     jest.clearAllMocks();
+    getActiveNotionToken.mockResolvedValue({ token: 'TRUSTED_STORAGE_KEY', mode: 'manual' });
 
     // Default trusted internal request
     validateInternalRequest.mockReturnValue(null);

@@ -69,6 +69,7 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
+import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
 
 jest.mock('../../../../scripts/config/constants.js', () => {
   const original = jest.requireActual('../../../../scripts/config/constants.js');
@@ -85,6 +86,10 @@ jest.mock('../../../../scripts/config/constants.js', () => {
     },
   };
 });
+
+jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
+  getActiveNotionToken: jest.fn(),
+}));
 
 // Mock chrome API
 globalThis.chrome = {
@@ -127,6 +132,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getActiveNotionToken.mockResolvedValue({ token: 'secret-key', mode: 'manual' });
 
     mockNotionService = {
       setApiKey: jest.fn(),
@@ -311,6 +317,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在缺少 API Key 時失敗', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({});
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
 
       await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
@@ -632,6 +639,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在缺少 API Key 時失敗', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({});
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -755,6 +763,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在 API Key 未設置時報錯', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
 
       await handlers.checkNotionPageExists({ pageId: '123' }, internalSender, sendResponse);
 
@@ -931,6 +940,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
 
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       await handlers.updateHighlights({}, internalSender, sendResponse);

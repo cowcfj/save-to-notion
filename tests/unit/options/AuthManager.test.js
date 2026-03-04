@@ -3,6 +3,7 @@
 import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 
 // Mock dependencies
 jest.mock('../../../options/UIManager.js');
@@ -123,7 +124,7 @@ describe('AuthManager Extended', () => {
       <div id="auth-status"></div>
       <div id="oauth-status"></div>
       <button id="oauth-button"></button>
-      <button id="oauth-connect-button">以 OAuth 連接 Notion</button>
+      <button id="oauth-connect-button">${UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT}</button>
       <button id="oauth-disconnect-button"></button>
       <button id="disconnect-button"></button>
       <input id="api-key" />
@@ -437,7 +438,7 @@ describe('AuthManager Extended', () => {
       );
       expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
       expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-        '以 OAuth 連接 Notion'
+        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
       );
     });
 
@@ -456,7 +457,7 @@ describe('AuthManager Extended', () => {
       );
       expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
       expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-        '以 OAuth 連接 Notion'
+        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
       );
     });
   });

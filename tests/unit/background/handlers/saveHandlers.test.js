@@ -6,6 +6,7 @@ import { createSaveHandlers } from '../../../../scripts/background/handlers/save
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import { validateInternalRequest } from '../../../../scripts/utils/securityUtils.js';
 import { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
+import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
 
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(),
@@ -26,6 +27,10 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   resolveStorageUrl: jest.fn(url => url), // Default identity
 }));
 
+jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
+  getActiveNotionToken: jest.fn(),
+}));
+
 jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
   __esModule: true,
   ErrorHandler: {
@@ -39,6 +44,7 @@ describe('saveHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getActiveNotionToken.mockResolvedValue({ token: 'valid-key', mode: 'manual' });
     const deletionPendingPages = new Map();
     mockServices = {
       notionService: {
@@ -141,7 +147,7 @@ describe('saveHandlers', () => {
     it('checkNotionPageExists 應該處理意外錯誤', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'mock-extension-id' };
-      mockServices.storageService.getConfig.mockRejectedValue(new Error('Fatal'));
+      getActiveNotionToken.mockRejectedValueOnce(new Error('Fatal'));
 
       await handlers.checkNotionPageExists({ pageId: 'page1' }, sender, sendResponse);
 
@@ -524,7 +530,8 @@ describe('saveHandlers', () => {
     });
 
     test('savePage: API Key 缺失應報錯', async () => {
-      mockServices.storageService.getConfig.mockResolvedValue({}); // No API key
+      mockServices.storageService.getConfig.mockResolvedValue({});
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
       const sendResponse = jest.fn();
       const sender = { id: chrome.runtime.id };
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
@@ -847,13 +854,12 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
-    it('checkPageStatus 應該在缺少 notionApiKey 時返回已保存但不執行檢查', async () => {
-      // 模擬已有保存數據但後來清除了 API Key
+    it('checkPageStatus 應該在缺少可用 token 時返回已保存但不執行檢查', async () => {
       mockServices.storageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'page123',
         lastVerifiedAt: Date.now() - 1_000_000, // 過期了
       });
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: null });
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
 
       const sendResponse = jest.fn();

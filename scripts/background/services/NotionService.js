@@ -12,13 +12,14 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { NOTION_API, ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/index.js';
+import { NOTION_API, ERROR_MESSAGES, CONTENT_QUALITY, AuthMode } from '../../config/index.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 // 導入重試管理器
 import { RetryManager } from '../../utils/RetryManager.js';
+import { getActiveNotionToken, refreshOAuthToken } from '../../utils/notionAuth.js';
 
 /**
  * 延遲函數
@@ -188,6 +189,60 @@ class NotionService {
   }
 
   /**
+   * 判斷是否為授權失敗錯誤
+   *
+   * @param {Error|object} error
+   * @returns {boolean}
+   * @private
+   */
+  _isUnauthorizedError(error) {
+    return error?.status === 401 || error?.code === 'unauthorized';
+  }
+
+  /**
+   * 執行 Notion API 請求，遇到 OAuth 401 時自動刷新 token 並重試一次
+   *
+   * @param {Function} operation - 執行 SDK 調用的函數 (接收 client 作為參數)
+   * @param {object} options - 配置與重試選項
+   * @returns {Promise<any>}
+   * @private
+   */
+  async _callNotionApiWithRetry(operation, options = {}) {
+    try {
+      return await this._executeWithRetry(operation, options);
+    } catch (error) {
+      if (!this._isUnauthorizedError(error)) {
+        throw error;
+      }
+
+      const currentApiKey = options.apiKey || this.apiKey;
+      const activeToken = await getActiveNotionToken();
+      const isOAuthRequest =
+        activeToken.mode === AuthMode.OAUTH &&
+        Boolean(activeToken.token) &&
+        currentApiKey === activeToken.token;
+
+      if (!isOAuthRequest) {
+        throw error;
+      }
+
+      const refreshedToken = await refreshOAuthToken();
+      if (!refreshedToken) {
+        throw error;
+      }
+
+      if (!options.apiKey || this.apiKey === activeToken.token) {
+        this.setApiKey(refreshedToken);
+      }
+
+      return this._executeWithRetry(operation, {
+        ...options,
+        apiKey: refreshedToken,
+      });
+    }
+  }
+
+  /**
    * (Legacy/Internal) 執行原始 API 請求
    * 封裝 SDK 的 request 方法，支持 Scoped Client
    *
@@ -203,7 +258,7 @@ class NotionService {
   async _apiRequest(path, options = {}) {
     const { method = 'GET', body, queryParams, apiKey } = options;
 
-    return await this._executeWithRetry(
+    return await this._callNotionApiWithRetry(
       client =>
         client.request({
           path: path.startsWith('/') ? path.slice(1) : path,
@@ -242,7 +297,7 @@ class NotionService {
         searchParams.filter = filter;
       }
 
-      const response = await this._executeWithRetry(client => client.search(searchParams), {
+      const response = await this._callNotionApiWithRetry(client => client.search(searchParams), {
         ...options,
         label: 'Search',
       });
@@ -272,7 +327,7 @@ class NotionService {
 
     try {
       while (hasMore) {
-        const response = await this._executeWithRetry(
+        const response = await this._callNotionApiWithRetry(
           client =>
             client.blocks.children.list({
               block_id: pageId,
@@ -329,7 +384,7 @@ class NotionService {
     // 刪除單個區塊的函數
     const deleteBlock = async blockId => {
       try {
-        await this._executeWithRetry(client => client.blocks.delete({ block_id: blockId }), {
+        await this._callNotionApiWithRetry(client => client.blocks.delete({ block_id: blockId }), {
           ...options,
           maxRetries: DELETE_RETRIES,
           baseDelay: DELETE_DELAY,
@@ -380,7 +435,7 @@ class NotionService {
    */
   async checkPageExists(pageId, options = {}) {
     try {
-      const response = await this._executeWithRetry(
+      const response = await this._callNotionApiWithRetry(
         client => client.pages.retrieve({ page_id: pageId }),
         {
           ...options,
@@ -463,7 +518,7 @@ class NotionService {
           batchSize: sanitizedBatch.length,
         });
 
-        await this._executeWithRetry(
+        await this._callNotionApiWithRetry(
           client =>
             client.blocks.children.append({
               block_id: pageId,
@@ -525,7 +580,7 @@ class NotionService {
     const { autoBatch = false, allBlocks = [] } = options;
 
     try {
-      const response = await this._executeWithRetry(client => client.pages.create(pageData), {
+      const response = await this._callNotionApiWithRetry(client => client.pages.create(pageData), {
         ...options,
         maxRetries: this.config.CREATE_RETRIES,
         baseDelay: this.config.CREATE_DELAY,
@@ -580,7 +635,7 @@ class NotionService {
    */
   async updatePageTitle(pageId, title, options = {}) {
     try {
-      await this._executeWithRetry(
+      await this._callNotionApiWithRetry(
         client =>
           client.pages.update({
             page_id: pageId,
@@ -846,7 +901,7 @@ class NotionService {
 
       // 步驟 4: 添加新的標記區塊
       if (highlightBlocks.length > 0) {
-        const response = await this._executeWithRetry(
+        const response = await this._callNotionApiWithRetry(
           client =>
             client.blocks.children.append({
               block_id: pageId,

@@ -19,6 +19,7 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
+import { getActiveNotionToken } from '../../utils/notionAuth.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -42,16 +43,15 @@ async function getActiveTab() {
 /**
  * 獲取 Notion API Key
  *
- * @param {StorageService} storageService
  * @returns {Promise<string>} API Key
  * @throws {Error} 如果 API Key 未設置
  */
-async function ensureNotionApiKey(storageService) {
-  const config = await storageService.getConfig(['notionApiKey']);
-  if (!config.notionApiKey) {
+async function ensureNotionApiKey() {
+  const { token } = await getActiveNotionToken();
+  if (!token) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
-  return config.notionApiKey;
+  return token;
 }
 
 /**
@@ -103,7 +103,7 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   const { storageService, notionService, tabService, migrationService } = services;
 
   // 1. 確保有 API Key
-  const apiKey = await ensureNotionApiKey(storageService);
+  const apiKey = await ensureNotionApiKey();
 
   // Phase 2: 統一 URL 解析 + 自動遷移
   const {

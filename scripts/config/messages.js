@@ -47,6 +47,8 @@ export const UI_MESSAGES = {
     // 按鈕動作
     ACTION_CONNECT: '連接到 Notion',
     ACTION_RECONNECT: '重新設置',
+    OAUTH_ACTION_CONNECT: '以 OAuth 連接 Notion',
+    OAUTH_CONNECTING: '連接中...',
 
     // 即時提示
     NOTIFY_SUCCESS: 'Notion 連接成功！',

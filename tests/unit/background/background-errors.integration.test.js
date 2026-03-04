@@ -155,7 +155,7 @@ describe('background error branches (integration)', () => {
       { id: 1, url: 'https://example.com/page', title: 't', active: true },
     ]);
     // 提供 notionApiKey 但不提供 saved_ 鍵 → 觸發 Page not saved yet
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -333,7 +333,7 @@ describe('background error branches (integration)', () => {
       { id: 1, url: 'https://example.com/page', title: 'P', active: true },
     ]);
     // 提供 notionApiKey，但不提供 saved_ 鍵
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -358,7 +358,7 @@ describe('background error branches (integration)', () => {
     const url = 'https://example.com/page';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 1, url, title: 'P', active: true }]);
     // 有 API Key 且頁面已保存
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -389,7 +389,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article-inject-fail';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 10, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -413,7 +413,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article-400';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 11, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -558,7 +558,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article-validation-image';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 21, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -641,7 +641,7 @@ describe('background error branches (integration)', () => {
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
     const url = 'https://example.com/article-400-gen';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article2', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
       mockCb?.(res);
       return Promise.resolve(res);
