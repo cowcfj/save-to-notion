@@ -1,5 +1,68 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.41.0](https://github.com/cowcfj/save-to-notion/compare/v2.40.0...v2.41.0) (2026-03-04)
+
+
+### ✨ 新功能
+
+* **NotionService:** 增強 API 調用的重試邏輯 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+* 新增專案特定的代碼審查規則與檢查清單 ([7bb34d4](https://github.com/cowcfj/save-to-notion/commit/7bb34d419e614f032746f6261d810384bfa90684))
+* 新增專案特定的除錯規則與檢查清單 ([d7781ec](https://github.com/cowcfj/save-to-notion/commit/d7781ece5093b7b916d20260b50547390ad42d61))
+
+
+### 🐛 Bug 修復
+
+* Improve TabService migration robustness and backward compatibility ([#317](https://github.com/cowcfj/save-to-notion/issues/317)) ([daba6aa](https://github.com/cowcfj/save-to-notion/commit/daba6aa208155a9eadcfffd1a2d002d725eb737e))
+* **notionAuth:** 增加 OAuth 令牌刷新時的錯誤處理 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+* 修正 PING 請求錯誤處理及穩定性遷移邏輯 ([#320](https://github.com/cowcfj/save-to-notion/issues/320)) ([5e68c31](https://github.com/cowcfj/save-to-notion/commit/5e68c31ef7be4a67719a6ffe11e7a285bbaba190))
+* 修正 URL 編碼邏輯以避免雙重編碼問題 ([#322](https://github.com/cowcfj/save-to-notion/issues/322)) ([c6430ce](https://github.com/cowcfj/save-to-notion/commit/c6430ce9f357d58fc1bc8725efb1c89c1dbcdf10))
+* 增加重試機制以避免儲存競態條件 ([#321](https://github.com/cowcfj/save-to-notion/issues/321)) ([ff25e05](https://github.com/cowcfj/save-to-notion/commit/ff25e05923b4a5a7fad31ad4e16da0bd5445e621))
+
+
+### 📝 文檔更新
+
+* **.agent:** link testing rules and QA skill to shared mocks directory ([2525c1f](https://github.com/cowcfj/save-to-notion/commit/2525c1f248d95317decc2cad1b819e679d2f26b3))
+* **.agent:** refactor chrome-patterns trigger to invoke extension-expert and load json schemas ([8ddb447](https://github.com/cowcfj/save-to-notion/commit/8ddb4477a9e1bfee79e7fb0c6529000a026c0ad5))
+* **.agent:** remove redundant project_context.md as docs/ serves this purpose ([93a30fe](https://github.com/cowcfj/save-to-notion/commit/93a30fe9818118e06d8ad906300f98f4843e528a))
+* **.agent:** remove remaining notion-qa conceptual terminology ([19df411](https://github.com/cowcfj/save-to-notion/commit/19df4118bb5d04f4295dbef0581addf6f1254503))
+* **.agent:** retire notion-qa skill and migrate test data schema ([2f2782c](https://github.com/cowcfj/save-to-notion/commit/2f2782c743684639dfdb5e0d5f5f506d79890b09))
+* **.agents:** add architecture trigger rule to prompt ADR evaluation ([265e605](https://github.com/cowcfj/save-to-notion/commit/265e60517f7be9a2021d3f6a82287688ed50365e))
+* **.agent:** update extension skill reference to browser-extension-builder ([d5f0fc1](https://github.com/cowcfj/save-to-notion/commit/d5f0fc176a1453e86ae8a3720c980dbb0e237c27))
+* **agents:** add receiving-code-review to shared skills ([b690df8](https://github.com/cowcfj/save-to-notion/commit/b690df8910f9a588e853bd034391b734198990b8))
+* **agents:** update testing skills references ([54d8cb5](https://github.com/cowcfj/save-to-notion/commit/54d8cb5c730fdd8eaa39bc4f2c54a3bee06b494f))
+* **api:** refactor notion-api trigger and guide into hub architecture ([27164cb](https://github.com/cowcfj/save-to-notion/commit/27164cb1e49c59c7bd18b71228cdf51356e269ed))
+* formalize Architecture Decision Records (ADR) workflow ([0f2ecfd](https://github.com/cowcfj/save-to-notion/commit/0f2ecfda989a5b468eae88a90a9e1b875e8b0592))
+* remove manual build instructions from debugging guide ([12a7d2f](https://github.com/cowcfj/save-to-notion/commit/12a7d2fbee65db55214576109df7d5a5c36d2b2f))
+* remove outdated AI tool name distinctions from guides ([e58a318](https://github.com/cowcfj/save-to-notion/commit/e58a318d73165c30c883290a14eec49c9582f42f))
+* **security:** integrate security-review skill, centralize rules, and refactor guide to hub ([d140381](https://github.com/cowcfj/save-to-notion/commit/d140381337723ed186a3aefc21e4349eafe7a2e8))
+* strictly forbid AI agents from force-adding ignored internal directories to Git ([9b6d22d](https://github.com/cowcfj/save-to-notion/commit/9b6d22ddf0e155a8d7cfd8bff9ce1d834efe9c68))
+* **testing:** centralize testing rules and refactor guide to hub ([d6b02a1](https://github.com/cowcfj/save-to-notion/commit/d6b02a145e1bd5217ee64571b9a84e53abdef0e1))
+
+
+### ♻️ 代碼重構
+
+* **StorageUtil:** 移除未被調用的 _loadFromChromeStorage 死代碼 ([#323](https://github.com/cowcfj/save-to-notion/issues/323)) ([37b1a91](https://github.com/cowcfj/save-to-notion/commit/37b1a9139a1b22c5c044ecf0f955389ea68a3dc8))
+* 更新 PR 模板以強制使用標準化描述結構 ([c16faf0](https://github.com/cowcfj/save-to-notion/commit/c16faf09745ea662d7291a81225e49307b4c1f7a))
+
+
+### 🧪 測試
+
+* **AuthManager:** 增加單元測試以驗證初始化行為 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+* **notionAuth:** 增加對 OAuth 令牌刷新邏輯的測試 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+* **NotionService:** 增加對 API 重試邏輯的測試 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+
+
+### 🧹 其他變更
+
+* move linter_rules to knowledge base for strict adherence ([e418ed5](https://github.com/cowcfj/save-to-notion/commit/e418ed5c880b13cbea68d9cc3149814ea8ff2807))
+* remove auto-created security-review skill (user will install manually) ([b2a8064](https://github.com/cowcfj/save-to-notion/commit/b2a8064871b46922176b5a0f21ca0f8b4f76c347))
+* rename .agent directory to .agents to align with global tools like skilldeck ([6e08b20](https://github.com/cowcfj/save-to-notion/commit/6e08b205d4d67433c6e6deb34791b636ccdefb2d))
+* untrack internal docs and rules ignored by gitignore ([26fd609](https://github.com/cowcfj/save-to-notion/commit/26fd60918fe33bc70455bf1d4e5ffca535bd9f83))
+* 刪除不再使用的 skills-lock.json 檔案 ([4e08337](https://github.com/cowcfj/save-to-notion/commit/4e083373b3e0a2d29ed83f73063c87a3d0bf08cf))
+* 更新 .gitignore 以排除 *_report.json 文件 ([f9c4bd8](https://github.com/cowcfj/save-to-notion/commit/f9c4bd8865c19b72e3564ba2e1ad294fda0f56d5))
+* 更新 .gitignore 以排除不必要的文檔和舊版本 ([17dc529](https://github.com/cowcfj/save-to-notion/commit/17dc5292346f5f9592a81afd71232eb0dfd5fbb7))
+* 更新 ESLint 配置以減少警告並新增報告腳本 ([#324](https://github.com/cowcfj/save-to-notion/issues/324)) ([f2f4d17](https://github.com/cowcfj/save-to-notion/commit/f2f4d1724ea5bcb4e1dfbe5f83cef6fd6089ec0d))
+
 ## [2.40.0](https://github.com/cowcfj/save-to-notion/compare/v2.39.0...v2.40.0) (2026-03-02)
 
 
