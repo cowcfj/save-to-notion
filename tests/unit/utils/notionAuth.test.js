@@ -107,6 +107,14 @@ describe('notionAuth utils', () => {
 
     const result = await refreshOAuthToken();
 
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Extension-Key': expect.any(String),
+        }),
+      })
+    );
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       notionOAuthToken: 'access_token_2',
       notionRefreshToken: 'refresh_token_2_new',

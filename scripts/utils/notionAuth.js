@@ -41,7 +41,10 @@ export async function refreshOAuthToken() {
     const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
     const response = await fetch(serverUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Extension-Key': NOTION_OAUTH.EXTENSION_API_KEY,
+      },
       body: JSON.stringify({ refresh_token: localData.notionRefreshToken }),
     });
 

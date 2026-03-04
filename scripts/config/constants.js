@@ -173,6 +173,9 @@ export const AuthMode = {
  * Notion OAuth 配置
  * NOTION_OAUTH_SERVER_URL: 後端 Token 代理伺服器位址
  * NOTION_CLIENT_ID: Notion Public Integration 的 Client ID（公開資訊，非 Secret）
+ * EXTENSION_API_KEY: 用於驗證 /notion/refresh 請求的 API Key
+ *   ⚠️  必須與伺服器端 Cloudflare Worker 的 EXTENSION_API_KEY binding 保持一致
+ *   ⚠️  建議透過 CI/CD 建置時以 @rollup/plugin-replace 注入，而非硬編碼
  */
 export const NOTION_OAUTH = {
   // 部署後端時需更新為實際的 Cloudflare Workers URL
@@ -180,6 +183,8 @@ export const NOTION_OAUTH = {
   CLIENT_ID: '319d872b-594c-8139-81d3-0037cd2c93bd',
   TOKEN_ENDPOINT: '/v1/oauth/notion/token',
   REFRESH_ENDPOINT: '/v1/oauth/notion/refresh',
+  // 此值必須與 Cloudflare Worker 的 EXTENSION_API_KEY secret 相同
+  EXTENSION_API_KEY: '__EXTENSION_API_KEY__',
 };
 
 /**
