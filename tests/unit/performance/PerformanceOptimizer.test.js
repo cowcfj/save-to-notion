@@ -788,12 +788,22 @@ describe('PerformanceOptimizer - 全面測試', () => {
       expect(optimizer.cacheStats.hits).toBeGreaterThan(0);
     });
 
-    test('應該根據不同的 context 生成不同的緩存鍵', () => {
-      // 使用不同的選擇器而不是不同的 context 來測試
-      optimizer.cachedQuery('p', mockDocument);
-      optimizer.cachedQuery('article', mockDocument);
+    test('應該在相同 selector 且不同 context 時生成不同的緩存鍵', () => {
+      const contextA = mockDocument.createElement('div');
+      contextA.id = 'ctx-a';
+      contextA.innerHTML = '<article><p>A</p></article>';
+
+      const contextB = mockDocument.createElement('section');
+      contextB.id = 'ctx-b';
+      contextB.innerHTML = '<article><p>B</p></article>';
+
+      mockDocument.body.append(contextA, contextB);
+
+      optimizer.cachedQuery('article', contextA);
+      optimizer.cachedQuery('article', contextB);
 
       expect(optimizer.queryCache.size).toBe(2);
+      expect(new Set(Array.from(optimizer.queryCache.keys())).size).toBe(2);
     });
   });
 
@@ -865,6 +875,10 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
     test('應該刪除查詢結果為空的緩存', () => {
       optimizer.cachedQuery('img', mockDocument);
+      const imgCacheKeysBefore = Array.from(optimizer.queryCache.entries())
+        .filter(([_key, value]) => value?.selector === 'img')
+        .map(([key]) => key);
+      expect(imgCacheKeysBefore.length).toBeGreaterThan(0);
 
       // 移除所有圖片
       const images = mockDocument.querySelectorAll('img');
@@ -875,7 +889,12 @@ describe('PerformanceOptimizer - 全面測試', () => {
       optimizer.refreshCache('img', mockDocument);
 
       // 緩存應該被刪除
-      expect(optimizer.queryCache.has('img:document:{}')).toBe(false);
+      imgCacheKeysBefore.forEach(key => {
+        expect(optimizer.queryCache.has(key)).toBe(false);
+      });
+      expect(
+        Array.from(optimizer.queryCache.values()).some(cacheEntry => cacheEntry?.selector === 'img')
+      ).toBe(false);
     });
   });
 

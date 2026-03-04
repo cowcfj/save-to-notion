@@ -235,58 +235,66 @@ describe('Highlighter Integration Tests', () => {
 
       // Add highlight
       const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
-      const id = manager.addHighlight(range, 'yellow');
-      expect(typeof id).toBe('string');
-      expect(manager.highlights.has(id)).toBe(true);
+      try {
+        const id = manager.addHighlight(range, 'yellow');
+        expect(typeof id).toBe('string');
+        expect(manager.highlights.has(id)).toBe(true);
 
-      // Verify highlight data
-      const highlight = manager.highlights.get(id);
-      expect(highlight.text).toBe('Test');
-      expect(highlight.color).toBe('yellow');
+        // Verify highlight data
+        const highlight = manager.highlights.get(id);
+        expect(highlight.text).toBe('Test');
+        expect(highlight.color).toBe('yellow');
 
-      // Remove highlight
-      manager.removeHighlight(id);
-      expect(manager.highlights.has(id)).toBe(false);
-      applyHighlightSpy.mockRestore();
+        // Remove highlight
+        manager.removeHighlight(id);
+        expect(manager.highlights.has(id)).toBe(false);
 
-      // Serialize and verify - 這應該始終有效
-      const serialized = serializeRange(range);
-      expect(serialized).toHaveProperty('startContainerPath');
-      expect(serialized).toHaveProperty('endContainerPath');
+        // Serialize and verify - 這應該始終有效
+        const serialized = serializeRange(range);
+        expect(serialized).toHaveProperty('startContainerPath');
+        expect(serialized).toHaveProperty('endContainerPath');
+      } finally {
+        applyHighlightSpy.mockRestore();
+      }
     });
 
     test('should handle multiple highlights', async () => {
       document.body.innerHTML = '<p>First paragraph</p><p>Second paragraph</p>';
       const manager = initHighlighter();
       await manager.initializationComplete;
+      const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
+      const getHighlightObjectSpy =
+        manager.styleManager &&
+        jest.spyOn(manager.styleManager, 'getHighlightObject').mockReturnValue({ add: jest.fn() });
 
-      // Add first highlight
-      const p1 = document.body.children[0].firstChild;
-      const range1 = document.createRange();
-      range1.setStart(p1, 0);
-      range1.setEnd(p1, 5);
-      const id1 = manager.addHighlight(range1, 'yellow');
+      try {
+        // Add first highlight
+        const p1 = document.body.children[0].firstChild;
+        const range1 = document.createRange();
+        range1.setStart(p1, 0);
+        range1.setEnd(p1, 5);
+        const id1 = manager.addHighlight(range1, 'yellow');
 
-      // Add second highlight
-      const p2 = document.body.children[1].firstChild;
-      const range2 = document.createRange();
-      range2.setStart(p2, 0);
-      range2.setEnd(p2, 6);
-      const id2 = manager.addHighlight(range2, 'blue');
+        // Add second highlight
+        const p2 = document.body.children[1].firstChild;
+        const range2 = document.createRange();
+        range2.setStart(p2, 0);
+        range2.setEnd(p2, 6);
+        const id2 = manager.addHighlight(range2, 'blue');
 
-      // 在 jsdom 環境中，addHighlight 可能不成功
-      expect(id1 === null || typeof id1 === 'string').toBe(true);
-      expect(id2 === null || typeof id2 === 'string').toBe(true);
-
-      if (id1 !== null && id2 !== null) {
+        expect(typeof id1).toBe('string');
+        expect(typeof id2).toBe('string');
         expect(manager.getCount()).toBe(2);
         expect(manager.highlights.get(id1).color).toBe('yellow');
         expect(manager.highlights.get(id2).color).toBe('blue');
-      }
 
-      // Clear all - 應該始終有效
-      manager.clearAll();
-      expect(manager.getCount()).toBe(0);
+        // Clear all - 應該始終有效
+        manager.clearAll();
+        expect(manager.getCount()).toBe(0);
+      } finally {
+        applyHighlightSpy.mockRestore();
+        getHighlightObjectSpy?.mockRestore();
+      }
     });
 
     test('should save highlights to storage', async () => {
