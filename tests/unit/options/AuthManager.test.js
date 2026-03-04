@@ -470,6 +470,27 @@ describe('AuthManager Extended', () => {
         UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
       );
     });
+
+    test('Identity API 不可用時應顯示明確錯誤且不進入 OAuth 流程', async () => {
+      delete chrome.identity;
+
+      await authManager.startOAuthFlow();
+
+      expect(Logger.error).toHaveBeenCalledWith('OAuth Identity API 不可用', {
+        action: 'startOAuthFlow',
+        missingIdentityApi: expect.arrayContaining(['getRedirectURL', 'launchWebAuthFlow']),
+      });
+      expect(chrome.storage.session.set).not.toHaveBeenCalled();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE}`,
+        'error'
+      );
+      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
+      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
+        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
+      );
+    });
   });
 
   describe('disconnectOAuth', () => {

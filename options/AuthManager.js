@@ -417,6 +417,26 @@ export class AuthManager {
     try {
       Logger.start('開始 Notion OAuth 流程', { action: 'startOAuthFlow' });
 
+      // 前置檢查：Manifest 未包含 identity 權限時，chrome.identity 會不可用
+      const missingIdentityApi = [];
+      if (typeof chrome?.identity?.getRedirectURL !== 'function') {
+        missingIdentityApi.push('getRedirectURL');
+      }
+      if (typeof chrome?.identity?.launchWebAuthFlow !== 'function') {
+        missingIdentityApi.push('launchWebAuthFlow');
+      }
+      if (missingIdentityApi.length > 0) {
+        Logger.error('OAuth Identity API 不可用', {
+          action: 'startOAuthFlow',
+          missingIdentityApi,
+        });
+        const unavailableError = new Error(
+          `OAuth Identity API unavailable: ${missingIdentityApi.join(', ')}`
+        );
+        unavailableError.code = 'oauth_identity_unavailable';
+        throw unavailableError;
+      }
+
       // 更新按鈕為載入狀態
       if (this.elements.oauthConnectButton) {
         this.elements.oauthConnectButton.disabled = true;
@@ -506,8 +526,10 @@ export class AuthManager {
         action: 'startOAuthFlow',
         error: error.message || error,
       });
-      const safeMessage = sanitizeApiError(error, 'oauth_flow');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      const errorMsg =
+        error?.code === 'oauth_identity_unavailable'
+          ? UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE
+          : ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
       this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
     } finally {
       if (this.elements.oauthConnectButton) {
