@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 describe('manifest permissions', () => {
   test('應包含 OAuth 必需的 identity 權限', () => {
