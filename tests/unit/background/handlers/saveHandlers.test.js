@@ -753,7 +753,8 @@ describe('saveHandlers', () => {
       );
 
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('❌ [錯誤] [ClientLog] dev_log_sink:')
+        expect.stringContaining('❌ [錯誤] [ClientLog] dev_log_sink:'),
+        expect.anything()
       );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });

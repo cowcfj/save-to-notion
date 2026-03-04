@@ -33,13 +33,27 @@ describe('AuthManager', () => {
     globalThis.chrome = {
       storage: {
         sync: {
-          get: jest.fn(),
-          set: jest.fn(),
-          remove: jest.fn(),
+          get: jest.fn().mockResolvedValue({}),
+          set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
+        },
+        local: {
+          get: jest.fn().mockResolvedValue({}),
+          set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
+        },
+        session: {
+          get: jest.fn().mockResolvedValue({}),
+          set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
         },
       },
       tabs: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue(),
+      },
+      identity: {
+        launchWebAuthFlow: jest.fn().mockResolvedValue(),
+        getRedirectURL: jest.fn().mockReturnValue('https://mocked.chromiumapp.org/'),
       },
     };
 
@@ -59,17 +73,16 @@ describe('AuthManager', () => {
     jest.clearAllMocks();
   });
 
-  test('checkAuthStatus updates UI when authenticated', () => {
+  test('checkAuthStatus updates UI when authenticated', async () => {
     const mockData = {
       notionApiKey: 'secret_123',
       notionDatabaseId: 'db_456',
     };
 
-    chrome.storage.sync.get.mockImplementation((keys, sendResponse) => {
-      sendResponse(mockData);
-    });
+    chrome.storage.sync.get.mockResolvedValue(mockData);
+    chrome.storage.local.get.mockResolvedValue({});
 
-    authManager.checkAuthStatus();
+    await authManager.checkAuthStatus();
 
     expect(document.querySelector('#api-key').value).toBe('secret_123');
     expect(document.querySelector('#database-id').value).toBe('db_456');
@@ -80,15 +93,11 @@ describe('AuthManager', () => {
   });
 
   test('disconnectFromNotion clears storage and updates UI', async () => {
-    chrome.storage.sync.remove.mockImplementation((keys, sendResponse) => {
-      if (sendResponse) {
-        sendResponse();
-      }
-    });
+    chrome.storage.sync.remove.mockResolvedValue();
+    chrome.storage.local.remove.mockResolvedValue();
     // Mock checkAuthStatus behavior (simulate disconnected state)
-    chrome.storage.sync.get.mockImplementation((keys, sendResponse) => {
-      sendResponse({}); // Empty result
-    });
+    chrome.storage.sync.get.mockResolvedValue({});
+    chrome.storage.local.get.mockResolvedValue({});
 
     await authManager.disconnectFromNotion();
 
@@ -125,13 +134,27 @@ describe('AuthManager Extended', () => {
     globalThis.chrome = {
       storage: {
         sync: {
-          get: jest.fn(),
-          set: jest.fn(),
-          remove: jest.fn(),
+          get: jest.fn().mockResolvedValue({}),
+          set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
+        },
+        local: {
+          get: jest.fn().mockResolvedValue({}),
+          set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
+        },
+        session: {
+          get: jest.fn().mockResolvedValue({}),
+          set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
         },
       },
       tabs: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue(),
+      },
+      identity: {
+        launchWebAuthFlow: jest.fn().mockResolvedValue(),
+        getRedirectURL: jest.fn().mockReturnValue('https://mocked.chromiumapp.org/'),
       },
       runtime: {
         lastError: null,
@@ -168,24 +191,30 @@ describe('AuthManager Extended', () => {
   });
 
   describe('handleConnectedState', () => {
-    test('已連接狀態應顯示連接訊息', () => {
+    test('已連接狀態應顯示連接訊息', async () => {
       const result = {
         notionApiKey: 'secret_test',
         notionDatabaseId: 'db_123',
       };
 
       authManager.handleConnectedState(result);
+
+      // 等待 Promise.then 執行
+      await Promise.resolve();
 
       expect(document.querySelector('#auth-status').textContent).toContain('已連接');
     });
 
-    test('應調用 loadDatabases', () => {
+    test('應調用 loadDatabases', async () => {
       const result = {
         notionApiKey: 'secret_test',
         notionDatabaseId: 'db_123',
       };
 
       authManager.handleConnectedState(result);
+
+      // 等待 Promise.then 執行
+      await Promise.resolve();
 
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_test');
     });
@@ -270,12 +299,11 @@ describe('AuthManager Extended', () => {
   });
 
   describe('checkAuthStatus', () => {
-    test('無 API Key 時應顯示未連接', () => {
-      chrome.storage.sync.get.mockImplementation((keys, sendResponse) => {
-        sendResponse({});
-      });
+    test('無 API Key 時應顯示未連接', async () => {
+      chrome.storage.sync.get.mockResolvedValue({});
+      chrome.storage.local.get.mockResolvedValue({});
 
-      authManager.checkAuthStatus();
+      await authManager.checkAuthStatus();
 
       expect(document.querySelector('#auth-status').textContent).toContain('未連接');
     });
@@ -285,14 +313,10 @@ describe('AuthManager Extended', () => {
     test('斷開連接應清除 API Key 輸入', async () => {
       document.querySelector('#api-key').value = 'secret_test';
 
-      chrome.storage.sync.remove.mockImplementation((keys, sendResponse) => {
-        if (sendResponse) {
-          sendResponse();
-        }
-      });
-      chrome.storage.sync.get.mockImplementation((keys, sendResponse) => {
-        sendResponse({});
-      });
+      chrome.storage.sync.remove.mockResolvedValue();
+      chrome.storage.local.remove.mockResolvedValue();
+      chrome.storage.sync.get.mockResolvedValue({});
+      chrome.storage.local.get.mockResolvedValue({});
 
       await authManager.disconnectFromNotion();
 
