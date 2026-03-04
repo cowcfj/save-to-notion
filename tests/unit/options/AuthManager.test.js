@@ -4,9 +4,22 @@ import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { NOTION_OAUTH } from '../../../scripts/config/constants.js';
 
 // Mock dependencies
 jest.mock('../../../options/UIManager.js');
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
 
 describe('AuthManager', () => {
   let authManager = null;
@@ -58,22 +71,13 @@ describe('AuthManager', () => {
         getRedirectURL: jest.fn().mockReturnValue('https://mocked.chromiumapp.org/'),
       },
     };
-
-    // Mock Logger
-    globalThis.Logger = {
-      debug: jest.fn(),
-      success: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-    };
   });
 
   afterEach(() => {
     document.body.innerHTML = '';
     jest.clearAllMocks();
     jest.restoreAllMocks();
+    delete globalThis.chrome;
   });
 
   test('checkAuthStatus updates UI when authenticated', async () => {
@@ -177,16 +181,6 @@ describe('AuthManager Extended', () => {
 
     globalThis.fetch = jest.fn();
 
-    globalThis.Logger = {
-      debug: jest.fn(),
-      success: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-    };
-
     authManager = new AuthManager(mockUiManager);
     authManager.init({ loadDataSources: mockLoadDatabases });
   });
@@ -195,6 +189,8 @@ describe('AuthManager Extended', () => {
     document.body.innerHTML = '';
     jest.clearAllMocks();
     jest.restoreAllMocks();
+    delete globalThis.chrome;
+    delete globalThis.fetch;
   });
 
   describe('init', () => {
@@ -422,6 +418,20 @@ describe('AuthManager Extended', () => {
 
       await authManager.startOAuthFlow();
 
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`,
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: expect.stringContaining('"code":"oauth_code_abc"'),
+        })
+      );
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: expect.stringContaining('"redirect_uri":"https://mocked.chromiumapp.org/"'),
+        })
+      );
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         notionAuthMode: 'oauth',
         notionOAuthToken: 'oauth_access_token',
@@ -559,6 +569,13 @@ describe('AuthManager Extended', () => {
 
       const result = await AuthManager.refreshOAuthToken();
 
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"refresh_token":"refresh_2"'),
+        })
+      );
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         notionOAuthToken: 'new_access_token',
         notionRefreshToken: 'new_refresh_token',
