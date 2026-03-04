@@ -4,13 +4,26 @@ import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
+import { AuthMode, NOTION_OAUTH } from '../scripts/config/constants.js';
 
 /**
  * AuthManager.js
- * 負責 Notion 授權流程與狀態管理
+ * 負責 Notion 授權流程（OAuth + 手動 API Key）與狀態管理
  */
 
+// ==========================================
+// AuthManager 常數定義
+// ==========================================
+const CLASS_AUTH_SUCCESS = 'auth-status success';
+const CLASS_AUTH_STATUS = 'auth-status';
+const STYLE_INLINE_FLEX = 'inline-flex';
+
 export class AuthManager {
+  // 將常數綁定到類別上供實例使用
+  static CLASS_AUTH_SUCCESS = CLASS_AUTH_SUCCESS;
+  static CLASS_AUTH_STATUS = CLASS_AUTH_STATUS;
+  static STYLE_INLINE_FLEX = STYLE_INLINE_FLEX;
+
   /**
    * @param {import('./UIManager.js').UIManager} uiManager
    */
@@ -18,6 +31,8 @@ export class AuthManager {
     this.ui = uiManager;
     this.elements = {};
     this.dependencies = {};
+    /** @type {'oauth' | 'manual' | null} 目前的認證模式 */
+    this.currentAuthMode = null;
   }
 
   /**
@@ -25,7 +40,7 @@ export class AuthManager {
    *
    * @param {object} dependencies - 依賴項 { loadDataSources }
    */
-  init(dependencies = {}) {
+  async init(dependencies = {}) {
     this.dependencies = dependencies;
 
     // 快取 DOM 元素
@@ -35,6 +50,10 @@ export class AuthManager {
     this.elements.disconnectButton = document.querySelector('#disconnect-button');
     this.elements.testApiButton = document.querySelector('#test-api-button');
     this.elements.authStatus = document.querySelector('#auth-status');
+    // OAuth 專用元素
+    this.elements.oauthConnectButton = document.querySelector('#oauth-connect-button');
+    this.elements.oauthDisconnectButton = document.querySelector('#oauth-disconnect-button');
+    this.elements.oauthStatus = document.querySelector('#oauth-status');
     // 其他相關設定
     this.elements.titleTemplateInput = document.querySelector('#title-template');
     this.elements.addSourceCheckbox = document.querySelector('#add-source');
@@ -42,9 +61,75 @@ export class AuthManager {
     this.elements.highlightStyleSelect = document.querySelector('#highlight-style');
     this.elements.debugToggle = document.querySelector('#enable-debug-logs');
 
+    // 執行 storage 遷移（sync → local）
+    await this._migrateDataSourceId();
+
     // 綁定事件
     this.setupEventListeners();
   }
+
+  // ==========================================
+  // Storage 遷移
+  // ==========================================
+
+  /**
+   * 一次性遷移：將 notionDataSourceId 從 sync 搬到 local
+   *
+   * @private
+   */
+  async _migrateDataSourceId() {
+    try {
+      const localData = await chrome.storage.local.get('notionDataSourceId');
+      if (localData.notionDataSourceId) {
+        return; // 已遷移
+      }
+
+      const syncData = await chrome.storage.sync.get(['notionDataSourceId', 'notionDatabaseId']);
+      const id = syncData.notionDataSourceId || syncData.notionDatabaseId;
+      if (id) {
+        await chrome.storage.local.set({ notionDataSourceId: id });
+        Logger.info('已完成 notionDataSourceId 遷移 (sync → local)', {
+          action: 'migrateDataSourceId',
+        });
+      }
+    } catch (error) {
+      Logger.error('遷移 notionDataSourceId 失敗', {
+        action: 'migrateDataSourceId',
+        error,
+      });
+    }
+  }
+
+  // ==========================================
+  // 統一 Token 取得
+  // ==========================================
+
+  /**
+   * 取得目前有效的 Notion API Token（不論模式）
+   * 優先讀取 OAuth Token（local），若無則讀取手動 API Key（sync）
+   *
+   * @returns {Promise<{token: string|null, mode: string|null}>}
+   */
+  static async getActiveNotionToken() {
+    // 優先：local 中的 OAuth Token
+    const localData = await chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken']);
+
+    if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
+      return { token: localData.notionOAuthToken, mode: AuthMode.OAUTH };
+    }
+
+    // 備選：sync 中的手動 API Key
+    const syncData = await chrome.storage.sync.get(['notionApiKey']);
+    if (syncData.notionApiKey) {
+      return { token: syncData.notionApiKey, mode: AuthMode.MANUAL };
+    }
+
+    return { token: null, mode: null };
+  }
+
+  // ==========================================
+  // 事件設定
+  // ==========================================
 
   /**
    * 更新按鈕內容（圖標 + 文字）
@@ -66,6 +151,13 @@ export class AuthManager {
   }
 
   setupEventListeners() {
+    // OAuth 一鍵連接按鈕
+    this.elements.oauthConnectButton?.addEventListener('click', () => this.startOAuthFlow());
+
+    // OAuth 斷開按鈕
+    this.elements.oauthDisconnectButton?.addEventListener('click', () => this.disconnectOAuth());
+
+    // 手動模式：保留現有的設定指南按鈕
     this.elements.oauthButton?.addEventListener('click', () => this.startNotionSetup());
     this.elements.disconnectButton?.addEventListener('click', () => this.disconnectFromNotion());
     this.elements.testApiButton?.addEventListener('click', () => this.testApiKey());
@@ -121,56 +213,109 @@ export class AuthManager {
     }
   }
 
+  // ==========================================
+  // 認證狀態檢查
+  // ==========================================
+
   /**
-   * 檢查授權狀態和載入設置
+   * 檢查授權狀態和載入設置（支援 OAuth + 手動雙模式）
    */
-  checkAuthStatus() {
-    chrome.storage.sync.get(
-      [
-        'notionApiKey',
+  async checkAuthStatus() {
+    // 同時讀取 local 和 sync
+    const [localData, syncData] = await Promise.all([
+      chrome.storage.local.get([
+        'notionAuthMode',
+        'notionOAuthToken',
+        'notionWorkspaceName',
         'notionDataSourceId',
+      ]),
+      chrome.storage.sync.get([
+        'notionApiKey',
         'notionDatabaseId',
         'titleTemplate',
         'addSource',
         'addTimestamp',
         'highlightStyle',
         'enableDebugLogs',
-      ],
-      result => {
-        if (result.notionApiKey) {
-          this.handleConnectedState(result);
-        } else {
-          this.handleDisconnectedState();
-        }
+      ]),
+    ]);
 
-        // 載入模板設置
-        if (this.elements.titleTemplateInput) {
-          this.elements.titleTemplateInput.value = result.titleTemplate || '{title}';
-        }
-        if (this.elements.addSourceCheckbox) {
-          this.elements.addSourceCheckbox.checked = result.addSource !== false;
-        }
-        if (this.elements.addTimestampCheckbox) {
-          this.elements.addTimestampCheckbox.checked = result.addTimestamp !== false;
-        }
-        if (this.elements.highlightStyleSelect) {
-          this.elements.highlightStyleSelect.value = result.highlightStyle || 'background';
-        }
-        if (this.elements.debugToggle) {
-          this.elements.debugToggle.checked = Boolean(result.enableDebugLogs);
-        }
-      }
-    );
+    // 判斷認證模式
+    if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
+      this.currentAuthMode = AuthMode.OAUTH;
+      this._handleOAuthConnectedState(localData);
+    } else if (syncData.notionApiKey) {
+      this.currentAuthMode = AuthMode.MANUAL;
+      this._handleManualConnectedState(syncData, localData);
+    } else {
+      this.currentAuthMode = null;
+      this.handleDisconnectedState();
+    }
+
+    // 載入通用設置（不論認證模式）
+    this._loadGeneralSettings(syncData);
   }
 
-  handleConnectedState(result) {
+  /**
+   * OAuth 已連接的 UI 狀態
+   *
+   * @param {object} localData - 本地存儲的資料
+   * @private
+   */
+  _handleOAuthConnectedState(localData) {
+    const workspaceName = localData.notionWorkspaceName || 'Notion Workspace';
+
+    // 更新 OAuth 狀態區域
+    if (this.elements.oauthStatus) {
+      this.elements.oauthStatus.textContent = '';
+      this.elements.oauthStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
+      const textSpan = document.createElement('span');
+      textSpan.textContent = `已連接 — ${workspaceName}`;
+      this.elements.oauthStatus.append(textSpan);
+      this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
+    }
+
+    // OAuth 按鈕切換為已連接狀態
+    if (this.elements.oauthConnectButton) {
+      this.elements.oauthConnectButton.style.display = 'none';
+    }
+    if (this.elements.oauthDisconnectButton) {
+      this.elements.oauthDisconnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+    }
+
+    // 手動模式區域顯示提示（OAuth 已連接）
     if (this.elements.authStatus) {
       this.elements.authStatus.textContent = '';
       this.elements.authStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
       const textSpan = document.createElement('span');
       textSpan.textContent = UI_MESSAGES.AUTH.STATUS_CONNECTED;
       this.elements.authStatus.append(textSpan);
-      this.elements.authStatus.className = 'auth-status success';
+      this.elements.authStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
+    }
+
+    // 載入 OAuth 模式的資料來源
+    const token = localData.notionOAuthToken;
+    if (token) {
+      this.dependencies.loadDataSources?.(token);
+    }
+  }
+
+  /**
+   * 手動 API Key 已連接的 UI 狀態
+   *
+   * @param {object} syncData - 遠端同步的資料
+   * @param {object} localData - 本地存儲的資料
+   * @private
+   */
+  _handleManualConnectedState(syncData, localData) {
+    // 沿用原本的 handleConnectedState 邏輯
+    if (this.elements.authStatus) {
+      this.elements.authStatus.textContent = '';
+      this.elements.authStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
+      const textSpan = document.createElement('span');
+      textSpan.textContent = UI_MESSAGES.AUTH.STATUS_CONNECTED;
+      this.elements.authStatus.append(textSpan);
+      this.elements.authStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
     }
     this._updateButtonContent(
       this.elements.oauthButton,
@@ -178,15 +323,16 @@ export class AuthManager {
       UI_MESSAGES.AUTH.ACTION_RECONNECT
     );
     if (this.elements.disconnectButton) {
-      this.elements.disconnectButton.style.display = 'inline-flex';
+      this.elements.disconnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
     }
 
     if (this.elements.apiKeyInput) {
-      this.elements.apiKeyInput.value = result.notionApiKey;
+      this.elements.apiKeyInput.value = syncData.notionApiKey;
     }
 
-    const storedLegacyId = result.notionDatabaseId || '';
-    const storedDataSourceId = result.notionDataSourceId || '';
+    // 資料來源 ID 從 local 讀取（遷移後統一在 local）
+    const storedDataSourceId = localData.notionDataSourceId || '';
+    const storedLegacyId = syncData.notionDatabaseId || '';
     const resolvedId = storedDataSourceId || storedLegacyId;
 
     if (this.elements.databaseIdInput) {
@@ -199,14 +345,62 @@ export class AuthManager {
       this.ui.hideDataSourceUpgradeNotice();
     }
 
+    // OAuth 區域顯示未連接
+    if (this.elements.oauthStatus) {
+      this.elements.oauthStatus.textContent = '未連接 OAuth';
+      this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
+    }
+    if (this.elements.oauthConnectButton) {
+      this.elements.oauthConnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+    }
+    if (this.elements.oauthDisconnectButton) {
+      this.elements.oauthDisconnectButton.style.display = 'none';
+    }
+
     // 載入資料來源列表
-    this.dependencies.loadDataSources?.(result.notionApiKey);
+    this.dependencies.loadDataSources?.(syncData.notionApiKey);
+  }
+
+  /**
+   * 載入通用設置（模板、timestamp 等）
+   *
+   * @param {object} syncData - 遠端同步的資料
+   * @private
+   */
+  _loadGeneralSettings(syncData) {
+    if (this.elements.titleTemplateInput) {
+      this.elements.titleTemplateInput.value = syncData.titleTemplate || '{title}';
+    }
+    if (this.elements.addSourceCheckbox) {
+      this.elements.addSourceCheckbox.checked = syncData.addSource !== false;
+    }
+    if (this.elements.addTimestampCheckbox) {
+      this.elements.addTimestampCheckbox.checked = syncData.addTimestamp !== false;
+    }
+    if (this.elements.highlightStyleSelect) {
+      this.elements.highlightStyleSelect.value = syncData.highlightStyle || 'background';
+    }
+    if (this.elements.debugToggle) {
+      this.elements.debugToggle.checked = Boolean(syncData.enableDebugLogs);
+    }
+  }
+
+  // 保留向後相容
+  handleConnectedState(result) {
+    chrome.storage.local
+      .get(['notionDataSourceId'])
+      .then(localData => {
+        this._handleManualConnectedState(result, localData);
+      })
+      .catch(error => {
+        Logger.error('讀取 local storage 失敗', { action: 'handleConnectedState', error });
+      });
   }
 
   handleDisconnectedState() {
     if (this.elements.authStatus) {
       this.elements.authStatus.textContent = UI_MESSAGES.AUTH.STATUS_DISCONNECTED;
-      this.elements.authStatus.className = 'auth-status';
+      this.elements.authStatus.className = AuthManager.CLASS_AUTH_STATUS;
     }
     this._updateButtonContent(
       this.elements.oauthButton,
@@ -216,8 +410,175 @@ export class AuthManager {
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'none';
     }
+
+    // OAuth 區域也顯示未連接
+    if (this.elements.oauthStatus) {
+      this.elements.oauthStatus.textContent = '未連接';
+      this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
+    }
+    if (this.elements.oauthConnectButton) {
+      this.elements.oauthConnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+    }
+    if (this.elements.oauthDisconnectButton) {
+      this.elements.oauthDisconnectButton.style.display = 'none';
+    }
+
     this.ui.hideDataSourceUpgradeNotice();
   }
+
+  // ==========================================
+  // OAuth 流程
+  // ==========================================
+
+  /**
+   * 啟動 Notion OAuth 授權流程
+   * 使用 chrome.identity.launchWebAuthFlow
+   */
+  async startOAuthFlow() {
+    try {
+      Logger.start('開始 Notion OAuth 流程', { action: 'startOAuthFlow' });
+
+      // 更新按鈕為載入狀態
+      if (this.elements.oauthConnectButton) {
+        this.elements.oauthConnectButton.disabled = true;
+        this.elements.oauthConnectButton.textContent = '連接中...';
+      }
+
+      // 1. 產生 CSRF state 並暫存
+      const csrfState = crypto.randomUUID();
+      await chrome.storage.session.set({ oauthState: csrfState });
+
+      // 2. 取得 redirect URI（Chrome 自動綁定 extension ID）
+      const redirectUri = chrome.identity.getRedirectURL();
+
+      // 3. 組成 Notion 授權 URL
+      const authUrl =
+        `https://api.notion.com/v1/oauth/authorize?` +
+        `client_id=${encodeURIComponent(NOTION_OAUTH.CLIENT_ID)}&` +
+        `response_type=code&owner=user&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${encodeURIComponent(csrfState)}`;
+
+      // 4. 啟動 OAuth 流程
+      const callbackUrl = await chrome.identity.launchWebAuthFlow({
+        url: authUrl,
+        interactive: true,
+      });
+
+      if (!callbackUrl) {
+        throw new Error('OAuth 流程被取消或未回傳 URL');
+      }
+
+      // 5. 解析 callback URL
+      const url = new URL(callbackUrl);
+      const code = url.searchParams.get('code');
+      const returnedState = url.searchParams.get('state');
+
+      // 6. 驗證 CSRF state
+      const storedState = await chrome.storage.session.get('oauthState');
+      if (returnedState !== storedState.oauthState) {
+        throw new Error('CSRF state 驗證失敗，請重試');
+      }
+
+      if (!code) {
+        const errorParam = url.searchParams.get('error');
+        throw new Error(`Notion 授權失敗: ${errorParam || '未知錯誤'}`);
+      }
+
+      // 7. 將 code 送到後端交換 Token
+      const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
+      const tokenResponse = await fetch(serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, redirect_uri: redirectUri }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Token 交換失敗 (${tokenResponse.status})`);
+      }
+
+      const tokenData = await tokenResponse.json();
+
+      // 8. 存儲 Token 及相關資料到 chrome.storage.local
+      await chrome.storage.local.set({
+        notionAuthMode: AuthMode.OAUTH,
+        notionOAuthToken: tokenData.access_token,
+        notionRefreshToken: tokenData.refresh_token,
+        notionWorkspaceId: tokenData.workspace_id,
+        notionWorkspaceName: tokenData.workspace_name,
+        notionBotId: tokenData.bot_id,
+      });
+
+      // 9. 清除 CSRF state
+      await chrome.storage.session.remove('oauthState');
+
+      Logger.success('Notion OAuth 連接成功', {
+        action: 'startOAuthFlow',
+        workspace: tokenData.workspace_name,
+      });
+
+      this.ui.showStatus(`✅ 已成功連接 Notion — ${tokenData.workspace_name}`, 'success');
+
+      // 10. 更新 UI
+      await this.checkAuthStatus();
+    } catch (error) {
+      Logger.error('Notion OAuth 流程失敗', {
+        action: 'startOAuthFlow',
+        error: error.message || error,
+      });
+      const safeMessage = sanitizeApiError(error, 'oauth_flow');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
+    } finally {
+      if (this.elements.oauthConnectButton) {
+        this.elements.oauthConnectButton.disabled = false;
+        this.elements.oauthConnectButton.textContent = '以 OAuth 連接 Notion';
+      }
+    }
+  }
+
+  /**
+   * 斷開 OAuth 連接
+   */
+  async disconnectOAuth() {
+    try {
+      Logger.start('開始斷開 OAuth 連接', { action: 'disconnectOAuth' });
+
+      await chrome.storage.local.remove([
+        'notionAuthMode',
+        'notionOAuthToken',
+        'notionRefreshToken',
+        'notionWorkspaceId',
+        'notionWorkspaceName',
+        'notionBotId',
+        'notionDataSourceId',
+      ]);
+
+      Logger.info('已清除 OAuth 資料', { action: 'disconnectOAuth' });
+
+      // 檢查是否有手動 Key 可自動切回
+      const syncData = await chrome.storage.sync.get(['notionApiKey']);
+      if (syncData.notionApiKey) {
+        Logger.info('偵測到手動 API Key，自動切回手動模式', { action: 'disconnectOAuth' });
+      }
+
+      await this.checkAuthStatus();
+      this.ui.showStatus('已斷開 OAuth 連接', 'success');
+    } catch (error) {
+      Logger.error('斷開 OAuth 失敗', {
+        action: 'disconnectOAuth',
+        error: error.message || error,
+      });
+      const safeMessage = sanitizeApiError(error, 'disconnect_oauth');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.ui.showStatus(`斷開 OAuth 失敗：${errorMsg}`, 'error');
+    }
+  }
+
+  // ==========================================
+  // 手動模式（保留現有邏輯）
+  // ==========================================
 
   async startNotionSetup() {
     try {
@@ -273,19 +634,24 @@ export class AuthManager {
 
   async disconnectFromNotion() {
     try {
-      Logger.start('開始斷開 Notion 連接', {
+      Logger.start('開始斷開手動 Notion 連接', {
         action: 'disconnect',
         phase: 'start',
       });
 
-      await chrome.storage.sync.remove(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']);
+      // 清除 sync 中的手動 Key
+      await chrome.storage.sync.remove(['notionApiKey', 'notionDatabaseId']);
+      // 清除 local 中的 dataSourceId（如果當前是手動模式）
+      if (this.currentAuthMode === AuthMode.MANUAL) {
+        await chrome.storage.local.remove(['notionDataSourceId']);
+      }
 
-      Logger.info('已清除授權數據', {
+      Logger.info('已清除手動授權數據', {
         action: 'disconnect',
         phase: 'clearData',
       });
 
-      this.checkAuthStatus();
+      await this.checkAuthStatus();
 
       if (this.elements.apiKeyInput) {
         this.elements.apiKeyInput.value = '';
@@ -338,6 +704,59 @@ export class AuthManager {
         btn.disabled = false;
         btn.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
       }
+    }
+  }
+
+  // ==========================================
+  // Token 刷新（供外部呼叫）
+  // ==========================================
+
+  /**
+   * 刷新 OAuth Token
+   *
+   * @returns {Promise<string|null>} 新的 access_token 或 null
+   */
+  static async refreshOAuthToken() {
+    try {
+      const localData = await chrome.storage.local.get(['notionRefreshToken']);
+      if (!localData.notionRefreshToken) {
+        Logger.error('無法刷新 Token：缺少 refresh_token', {
+          action: 'refreshOAuthToken',
+        });
+        return null;
+      }
+
+      const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
+      const response = await fetch(serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: localData.notionRefreshToken }),
+      });
+
+      if (!response.ok) {
+        Logger.error('Token 刷新請求失敗', {
+          action: 'refreshOAuthToken',
+          status: response.status,
+        });
+        return null;
+      }
+
+      const data = await response.json();
+
+      // 更新本地存儲
+      await chrome.storage.local.set({
+        notionOAuthToken: data.access_token,
+        notionRefreshToken: data.refresh_token,
+      });
+
+      Logger.success('OAuth Token 已刷新', { action: 'refreshOAuthToken' });
+      return data.access_token;
+    } catch (error) {
+      Logger.error('OAuth Token 刷新失敗', {
+        action: 'refreshOAuthToken',
+        error: error.message || error,
+      });
+      return null;
     }
   }
 }

@@ -157,6 +157,31 @@ export const NOTION_API = {
  */
 export const NOTION_CONFIG = NOTION_API;
 
+// ==========================================
+// Notion OAuth 相關常量
+// ==========================================
+
+/**
+ * 認證模式枚舉
+ */
+export const AuthMode = {
+  OAUTH: 'oauth',
+  MANUAL: 'manual',
+};
+
+/**
+ * Notion OAuth 配置
+ * NOTION_OAUTH_SERVER_URL: 後端 Token 代理伺服器位址
+ * NOTION_CLIENT_ID: Notion Public Integration 的 Client ID（公開資訊，非 Secret）
+ */
+export const NOTION_OAUTH = {
+  // 部署後端時需更新為實際的 Cloudflare Workers URL
+  SERVER_URL: 'https://save-to-notion-api.bulldrive.workers.dev',
+  CLIENT_ID: '316d872b-594c-81a7-9726-00370347bb84',
+  TOKEN_ENDPOINT: '/v1/oauth/notion/token',
+  REFRESH_ENDPOINT: '/v1/oauth/notion/refresh',
+};
+
 /**
  * 程式語言映射表 (用於 DomConverter.mapLanguage)
  * 將常見縮寫或別名映射至 Notion API 支援的語言名稱
