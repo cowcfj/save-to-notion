@@ -177,7 +177,7 @@ export const AuthMode = {
 export const NOTION_OAUTH = {
   // 部署後端時需更新為實際的 Cloudflare Workers URL
   SERVER_URL: 'https://save-to-notion-api.bulldrive.workers.dev',
-  CLIENT_ID: '316d872b-594c-81a7-9726-00370347bb84',
+  CLIENT_ID: '319d872b-594c-8139-81d3-0037cd2c93bd',
   TOKEN_ENDPOINT: '/v1/oauth/notion/token',
   REFRESH_ENDPOINT: '/v1/oauth/notion/refresh',
 };
