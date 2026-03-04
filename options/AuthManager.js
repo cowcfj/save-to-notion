@@ -167,35 +167,44 @@ export class AuthManager {
    * 檢查授權狀態和載入設置（支援 OAuth + 手動雙模式）
    */
   async checkAuthStatus() {
-    // 同時讀取 local 和 sync
-    const [localData, syncData] = await Promise.all([
-      chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken', 'notionWorkspaceName']),
-      chrome.storage.sync.get([
-        'notionApiKey',
-        'notionDataSourceId',
-        'notionDatabaseId',
-        'titleTemplate',
-        'addSource',
-        'addTimestamp',
-        'highlightStyle',
-        'enableDebugLogs',
-      ]),
-    ]);
+    try {
+      // 同時讀取 local 和 sync
+      const [localData, syncData] = await Promise.all([
+        chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken', 'notionWorkspaceName']),
+        chrome.storage.sync.get([
+          'notionApiKey',
+          'notionDataSourceId',
+          'notionDatabaseId',
+          'titleTemplate',
+          'addSource',
+          'addTimestamp',
+          'highlightStyle',
+          'enableDebugLogs',
+        ]),
+      ]);
 
-    // 判斷認證模式
-    if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
-      this.currentAuthMode = AuthMode.OAUTH;
-      this._handleOAuthConnectedState(localData);
-    } else if (syncData.notionApiKey) {
-      this.currentAuthMode = AuthMode.MANUAL;
-      this._handleManualConnectedState(syncData);
-    } else {
+      // 判斷認證模式
+      if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
+        this.currentAuthMode = AuthMode.OAUTH;
+        this._handleOAuthConnectedState(localData);
+      } else if (syncData.notionApiKey) {
+        this.currentAuthMode = AuthMode.MANUAL;
+        this._handleManualConnectedState(syncData);
+      } else {
+        this.currentAuthMode = null;
+        this.handleDisconnectedState();
+      }
+
+      // 載入通用設置（不論認證模式）
+      this._loadGeneralSettings(syncData);
+    } catch (error) {
       this.currentAuthMode = null;
       this.handleDisconnectedState();
+      Logger.error('[Auth] 讀取授權狀態失敗', {
+        action: 'checkAuthStatus',
+        error: sanitizeApiError(error, 'check_auth_status'),
+      });
     }
-
-    // 載入通用設置（不論認證模式）
-    this._loadGeneralSettings(syncData);
   }
 
   /**
@@ -238,7 +247,12 @@ export class AuthManager {
     // 載入 OAuth 模式的資料來源
     const token = localData.notionOAuthToken;
     if (token) {
-      this.dependencies.loadDataSources?.(token);
+      Promise.resolve(this.dependencies.loadDataSources?.(token)).catch(error => {
+        Logger.error('[Auth] 載入資料來源失敗', {
+          action: 'loadDataSourcesOAuth',
+          error: sanitizeApiError(error, 'load_datasources_oauth'),
+        });
+      });
     }
   }
 
@@ -298,7 +312,12 @@ export class AuthManager {
     }
 
     // 載入資料來源列表
-    this.dependencies.loadDataSources?.(syncData.notionApiKey);
+    Promise.resolve(this.dependencies.loadDataSources?.(syncData.notionApiKey)).catch(error => {
+      Logger.error('[Auth] 載入資料來源失敗', {
+        action: 'loadDataSourcesManual',
+        error: sanitizeApiError(error, 'load_datasources_manual'),
+      });
+    });
   }
 
   /**
@@ -375,6 +394,7 @@ export class AuthManager {
    * 使用 chrome.identity.launchWebAuthFlow
    */
   async startOAuthFlow() {
+    let csrfState = null;
     try {
       Logger.start('開始 Notion OAuth 流程', { action: 'startOAuthFlow' });
 
@@ -405,7 +425,7 @@ export class AuthManager {
       }
 
       // 1. 產生 CSRF state 並暫存
-      const csrfState = crypto.randomUUID();
+      csrfState = crypto.randomUUID();
       await chrome.storage.session.set({ oauthState: csrfState });
 
       // 2. 取得 redirect URI（Chrome 自動綁定 extension ID）
@@ -477,9 +497,6 @@ export class AuthManager {
         notionBotId: tokenData.bot_id,
       });
 
-      // 9. 清除 CSRF state
-      await chrome.storage.session.remove('oauthState');
-
       Logger.success('Notion OAuth 連接成功', {
         action: 'startOAuthFlow',
         workspace: tokenData.workspace_name,
@@ -500,6 +517,16 @@ export class AuthManager {
           : ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
       this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
     } finally {
+      if (csrfState) {
+        try {
+          await chrome.storage.session.remove('oauthState');
+        } catch (cleanupError) {
+          Logger.warn('[Auth] 清理 OAuth state 失敗', {
+            action: 'startOAuthFlow',
+            error: sanitizeApiError(cleanupError, 'oauth_state_cleanup'),
+          });
+        }
+      }
       if (this.elements.oauthConnectButton) {
         this.elements.oauthConnectButton.disabled = false;
         this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;

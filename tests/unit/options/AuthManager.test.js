@@ -404,6 +404,55 @@ describe('AuthManager Extended', () => {
 
       expect(document.querySelector('#database-id').value).toBe('db_legacy_456');
     });
+
+    test('storage 讀取失敗時應回退未連接狀態並記錄錯誤', async () => {
+      chrome.storage.local.get.mockRejectedValueOnce(new Error('local storage failed'));
+
+      await authManager.checkAuthStatus();
+
+      expect(authManager.currentAuthMode).toBeNull();
+      expect(document.querySelector('#auth-status').textContent).toContain('未連接');
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] 讀取授權狀態失敗', {
+        action: 'checkAuthStatus',
+        error: expect.any(String),
+      });
+    });
+
+    test('OAuth 模式 loadDataSources 拋錯時應攔截並記錄', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth_token_123',
+        notionWorkspaceName: 'My Workspace',
+      });
+      chrome.storage.sync.get.mockResolvedValue({});
+      mockLoadDatabases.mockRejectedValueOnce(new Error('oauth load failed'));
+
+      await authManager.checkAuthStatus();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
+        action: 'loadDataSourcesOAuth',
+        error: expect.any(String),
+      });
+    });
+
+    test('手動模式 loadDataSources 拋錯時應攔截並記錄', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+      });
+      mockLoadDatabases.mockRejectedValueOnce(new Error('manual load failed'));
+
+      await authManager.checkAuthStatus();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
+        action: 'loadDataSourcesManual',
+        error: expect.any(String),
+      });
+    });
   });
 
   describe('startOAuthFlow', () => {
@@ -525,6 +574,7 @@ describe('AuthManager Extended', () => {
         expect.stringContaining('OAuth 連接失敗'),
         'error'
       );
+      expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
       expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
       expect(document.querySelector('#oauth-connect-button').textContent).toBe(
         UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
