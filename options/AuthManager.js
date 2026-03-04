@@ -433,7 +433,9 @@ export class AuthManager {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json().catch(() => ({}));
-      throw new Error(errorData.message || `Token 交換失敗 (${tokenResponse.status})`);
+      throw new Error(
+        errorData.message || errorData.error || `Token 交換失敗 (${tokenResponse.status})`
+      );
     }
 
     const tokenData = await tokenResponse.json();
@@ -528,6 +530,10 @@ export class AuthManager {
 
       if (!code) {
         const errorParam = url.searchParams.get('error');
+        Logger.error('[Auth] Notion OAuth callback 錯誤', {
+          action: 'startOAuthFlow',
+          oauthError: errorParam || 'no_error_param',
+        });
         throw new Error(`Notion 授權失敗: ${errorParam || '未知錯誤'}`);
       }
 
@@ -558,10 +564,29 @@ export class AuthManager {
         action: 'startOAuthFlow',
         error: sanitizeApiError(error, 'oauth_flow'),
       });
-      const errorMsg =
-        error?.code === 'oauth_identity_unavailable'
-          ? UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE
-          : ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
+      const msg = error?.message ?? '';
+      const msgLower = msg.toLowerCase();
+      const isOAuthCallbackError = msg.startsWith('Notion 授權失敗:');
+      const isRedirectError =
+        msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect');
+      let errorMsg;
+      if (isOAuthCallbackError) {
+        const oauthError = msg.replace('Notion 授權失敗: ', '').trim();
+        if (oauthError === 'access_denied') {
+          errorMsg = '您取消了 Notion 授權，請重試';
+        } else if (oauthError === 'canceled' || oauthError === 'cancelled') {
+          errorMsg =
+            'Notion 授權碼生成失敗，可能是 redirect_uri 格式不符。請確認 Notion Integration 中登記的 URI 與擴充功能 URL 完全一致（注意尾部斜線）';
+        } else {
+          errorMsg = `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`;
+        }
+      } else if (isRedirectError) {
+        errorMsg = 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定';
+      } else if (error?.code === 'oauth_identity_unavailable') {
+        errorMsg = UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
+      } else {
+        errorMsg = ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
+      }
       this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
     } finally {
       await this._cleanupOAuthState(csrfState);
