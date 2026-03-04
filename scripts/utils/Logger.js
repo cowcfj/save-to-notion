@@ -545,9 +545,7 @@ if (!isBackground && typeof document !== 'undefined') {
 // Global Assignment (Module & Classic Script compatible fallback)
 // 確保覆蓋 Service Worker (self) 與 Window 環境。
 // 注意：此條件在大多數瀏覽器環境為真，但在純 Node.js 環境中可能兩者皆為 undefined，這符合預期 (避免污染測試環境全域)。
-if (
-  process.env.NODE_ENV !== 'test' &&
-  (globalThis.self !== undefined || globalThis.window !== undefined)
-) {
+const isTestEnv = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+if (!isTestEnv && (globalThis.self !== undefined || globalThis.window !== undefined)) {
   globalThis.Logger = Logger;
 }
