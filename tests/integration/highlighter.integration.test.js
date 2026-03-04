@@ -233,11 +233,11 @@ describe('Highlighter Integration Tests', () => {
       range.setStart(textNode, 0);
       range.setEnd(textNode, 4);
 
-      // Add highlight - 在 jsdom 環境中可能返回 null
-      const id = manager.addHighlight(range, 'yellow');
-
-      // 驗證 addHighlight 基本行為（不論成功與否都不應拋錯）
-      if (id) {
+      // Add highlight
+      const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
+      try {
+        const id = manager.addHighlight(range, 'yellow');
+        expect(typeof id).toBe('string');
         expect(manager.highlights.has(id)).toBe(true);
 
         // Verify highlight data
@@ -248,44 +248,53 @@ describe('Highlighter Integration Tests', () => {
         // Remove highlight
         manager.removeHighlight(id);
         expect(manager.highlights.has(id)).toBe(false);
-      }
 
-      // Serialize and verify - 這應該始終有效
-      const serialized = serializeRange(range);
-      expect(serialized).toHaveProperty('startContainerPath');
-      expect(serialized).toHaveProperty('endContainerPath');
+        // Serialize and verify - 這應該始終有效
+        const serialized = serializeRange(range);
+        expect(serialized).toHaveProperty('startContainerPath');
+        expect(serialized).toHaveProperty('endContainerPath');
+      } finally {
+        applyHighlightSpy.mockRestore();
+      }
     });
 
     test('should handle multiple highlights', async () => {
       document.body.innerHTML = '<p>First paragraph</p><p>Second paragraph</p>';
       const manager = initHighlighter();
       await manager.initializationComplete;
+      const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
+      const getHighlightObjectSpy =
+        manager.styleManager &&
+        jest.spyOn(manager.styleManager, 'getHighlightObject').mockReturnValue({ add: jest.fn() });
 
-      // Add first highlight
-      const p1 = document.body.children[0].firstChild;
-      const range1 = document.createRange();
-      range1.setStart(p1, 0);
-      range1.setEnd(p1, 5);
-      const id1 = manager.addHighlight(range1, 'yellow');
+      try {
+        // Add first highlight
+        const p1 = document.body.children[0].firstChild;
+        const range1 = document.createRange();
+        range1.setStart(p1, 0);
+        range1.setEnd(p1, 5);
+        const id1 = manager.addHighlight(range1, 'yellow');
 
-      // Add second highlight
-      const p2 = document.body.children[1].firstChild;
-      const range2 = document.createRange();
-      range2.setStart(p2, 0);
-      range2.setEnd(p2, 6);
-      const id2 = manager.addHighlight(range2, 'blue');
+        // Add second highlight
+        const p2 = document.body.children[1].firstChild;
+        const range2 = document.createRange();
+        range2.setStart(p2, 0);
+        range2.setEnd(p2, 6);
+        const id2 = manager.addHighlight(range2, 'blue');
 
-      // 在 jsdom 環境中，addHighlight 可能不成功
-      // 驗證 clearAll 不會拋錯
-      if (id1 && id2) {
+        expect(typeof id1).toBe('string');
+        expect(typeof id2).toBe('string');
         expect(manager.getCount()).toBe(2);
         expect(manager.highlights.get(id1).color).toBe('yellow');
         expect(manager.highlights.get(id2).color).toBe('blue');
-      }
 
-      // Clear all - 應該始終有效
-      manager.clearAll();
-      expect(manager.getCount()).toBe(0);
+        // Clear all - 應該始終有效
+        manager.clearAll();
+        expect(manager.getCount()).toBe(0);
+      } finally {
+        applyHighlightSpy.mockRestore();
+        getHighlightObjectSpy?.mockRestore();
+      }
     });
 
     test('should save highlights to storage', async () => {
@@ -328,12 +337,15 @@ describe('Highlighter Integration Tests', () => {
       // Find and highlight text
       const range = findTextInPage('this');
       // findTextInPage 可能返回 null，需要適當處理
-      if (range) {
+      expect(range).not.toBeNull();
+      const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
+      try {
         const id = manager.addHighlight(range, 'red');
-        // addHighlight 可能返回 null 如果 range 無效
-        if (id) {
-          expect(manager.highlights.get(id).text).toBe('this');
-        }
+        expect(id).not.toBeNull();
+        expect(typeof id).toBe('string');
+        expect(manager.highlights.get(id).text).toBe('this');
+      } finally {
+        applyHighlightSpy.mockRestore();
       }
     });
 
@@ -352,22 +364,22 @@ describe('Highlighter Integration Tests', () => {
 
     // SKIP: 此測試在 fake timers 環境下會掛起，需要進一步調查
     // 可能的問題：MutationObserver 與 fake timers 的兼容性
-    // eslint-disable-next-line jest/no-disabled-tests
-    test.skip('should integrate DOM stability waiting', async () => {
+    test('應整合 DOM 穩定性等待', async () => {
       jest.useFakeTimers();
+      try {
+        const stabilityPromise = waitForDOMStability({
+          stabilityThresholdMs: 100,
+          maxWaitMs: 500,
+        });
 
-      const stabilityPromise = waitForDOMStability({
-        stabilityThresholdMs: 100,
-        maxWaitMs: 500,
-      });
+        // 使用 runAllTimersAsync 來處理所有 pending 的 timers 和 promises
+        await jest.runAllTimersAsync();
 
-      // 使用 runAllTimersAsync 來處理所有 pending 的 timers 和 promises
-      await jest.runAllTimersAsync();
-
-      const isStable = await stabilityPromise;
-      expect(isStable).toBe(true);
-
-      jest.useRealTimers();
+        const isStable = await stabilityPromise;
+        expect(isStable).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

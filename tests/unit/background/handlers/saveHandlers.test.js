@@ -33,33 +33,6 @@ jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
   },
 }));
 
-// Mock Logger
-globalThis.Logger = {
-  log: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  addLogToBuffer: jest.fn(),
-};
-
-// Mock chrome API
-globalThis.chrome = {
-  runtime: {
-    id: 'test-extension-id',
-  },
-  tabs: {
-    query: jest.fn(),
-    create: jest.fn(),
-  },
-  action: {
-    setBadgeText: jest.fn(),
-  },
-};
-
 describe('saveHandlers', () => {
   let handlers = null;
   let mockServices = null;
@@ -167,7 +140,7 @@ describe('saveHandlers', () => {
 
     it('checkNotionPageExists 應該處理意外錯誤', async () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       mockServices.storageService.getConfig.mockRejectedValue(new Error('Fatal'));
 
       await handlers.checkNotionPageExists({ pageId: 'page1' }, sender, sendResponse);
@@ -179,7 +152,7 @@ describe('saveHandlers', () => {
 
     test('devLogSink 應拒絕非 Content Script 請求', async () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id', url: 'https://evil.com' };
+      const sender = { id: 'mock-extension-id', url: 'https://evil.com' };
       await handlers.devLogSink({}, sender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
@@ -190,11 +163,11 @@ describe('saveHandlers', () => {
   describe('Action Logic', () => {
     // Shared setup for action tests
     const validSender = {
-      id: 'test-extension-id',
-      origin: 'chrome-extension://test-extension-id',
+      id: 'mock-extension-id',
+      origin: 'chrome-extension://mock-extension-id',
     };
     const validContentScriptSender = {
-      id: 'test-extension-id',
+      id: 'mock-extension-id',
       tab: { id: 1 },
       url: 'https://example.com',
     };
@@ -474,7 +447,7 @@ describe('saveHandlers', () => {
 
   describe('devLogSink Log Level Validation', () => {
     const validSender = {
-      id: 'test-extension-id',
+      id: 'mock-extension-id',
       tab: { id: 1 },
       url: 'https://example.com',
     };
@@ -608,7 +581,7 @@ describe('saveHandlers', () => {
     const stableUrl = 'https://example.com/stable';
     const legacyUrl = 'https://example.com/legacy';
     const originalTabUrl = 'https://example.com/legacy';
-    const sender = { id: 'test-extension-id', origin: 'chrome-extension://test-extension-id' };
+    const sender = { id: 'mock-extension-id', origin: 'chrome-extension://mock-extension-id' };
     const sendResponse = jest.fn();
 
     beforeEach(() => {
@@ -696,9 +669,9 @@ describe('saveHandlers', () => {
 
   describe('devLogSink', () => {
     const sender = {
-      id: 'test-extension-id',
+      id: 'mock-extension-id',
       tab: { id: 1 },
-      origin: 'chrome-extension://test-extension-id',
+      origin: 'chrome-extension://mock-extension-id',
     };
 
     it('應該處理單一字串訊息', async () => {
@@ -779,6 +752,9 @@ describe('saveHandlers', () => {
         sendResponse
       );
 
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('❌ [錯誤] [ClientLog] dev_log_sink:')
+      );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
   });
@@ -786,7 +762,7 @@ describe('saveHandlers', () => {
   describe('Notion Page Deletion Handling', () => {
     it('checkPageStatus 第一次 false 應標記 deletionPending 並保留已保存狀態', async () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id', tab: { id: 1 } };
+      const sender = { id: 'mock-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
 
       mockServices.storageService.getSavedPageData.mockResolvedValue({
@@ -812,7 +788,7 @@ describe('saveHandlers', () => {
 
     it('checkPageStatus 連續第二次 false 才應清理本地狀態', async () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id', tab: { id: 1 } };
+      const sender = { id: 'mock-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
 
       mockServices.storageService.getSavedPageData.mockResolvedValue({
@@ -847,7 +823,7 @@ describe('saveHandlers', () => {
         .mockResolvedValueOnce(true);
 
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       await handlers.checkPageStatus({ url: 'https://example.com' }, sender, sendResponse);
 
       expect(mockServices.notionService.checkPageExists).toHaveBeenCalledTimes(2);
@@ -857,7 +833,7 @@ describe('saveHandlers', () => {
     it('checkPageStatus 應該處理一般錯誤', async () => {
       mockServices.storageService.getSavedPageData.mockRejectedValue(new Error('Fatal Error'));
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       await handlers.checkPageStatus({ url: 'https://example.com' }, sender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
@@ -865,7 +841,7 @@ describe('saveHandlers', () => {
     it('savePage 應在發生意外時返回錯誤', async () => {
       chrome.tabs.query.mockRejectedValue(new Error('Query failed'));
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' }; // Valid sender ensures validation passes
+      const sender = { id: 'mock-extension-id' }; // Valid sender ensures validation passes
       await handlers.savePage({}, sender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
@@ -880,7 +856,7 @@ describe('saveHandlers', () => {
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
 
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       await handlers.checkPageStatus({ url: 'https://example.com' }, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
@@ -899,7 +875,7 @@ describe('saveHandlers', () => {
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
 
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       await handlers.checkPageStatus(
         { url: 'https://example.com', forceRefresh: true },
         sender,

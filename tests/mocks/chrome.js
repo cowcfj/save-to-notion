@@ -2,7 +2,8 @@
 // 模擬 Chrome Extension API 供測試使用
 
 // 內存存儲模擬真實行為
-const storageData = {};
+const localStorageData = {};
+const syncStorageData = {};
 let mockTabIdCounter = 1000;
 
 const chrome = {
@@ -11,17 +12,17 @@ const chrome = {
       get: jest.fn((keys, callback) => {
         const result = {};
         if (typeof keys === 'string') {
-          if (storageData[keys] !== undefined) {
-            result[keys] = storageData[keys];
+          if (localStorageData[keys] !== undefined) {
+            result[keys] = localStorageData[keys];
           }
         } else if (Array.isArray(keys)) {
           keys.forEach(key => {
-            if (storageData[key] !== undefined) {
-              result[key] = storageData[key];
+            if (localStorageData[key] !== undefined) {
+              result[key] = localStorageData[key];
             }
           });
         } else if (keys === null || keys === undefined) {
-          Object.assign(result, storageData);
+          Object.assign(result, localStorageData);
         }
         if (callback) {
           callback(result);
@@ -29,7 +30,7 @@ const chrome = {
         return Promise.resolve(result);
       }),
       set: jest.fn((items, callback) => {
-        Object.assign(storageData, items);
+        Object.assign(localStorageData, items);
         if (callback) {
           callback();
         }
@@ -38,7 +39,7 @@ const chrome = {
       remove: jest.fn((keys, callback) => {
         const keysArray = Array.isArray(keys) ? keys : [keys];
         keysArray.forEach(key => {
-          delete storageData[key];
+          delete localStorageData[key];
         });
         if (callback) {
           callback();
@@ -46,8 +47,8 @@ const chrome = {
         return Promise.resolve();
       }),
       clear: jest.fn(callback => {
-        Object.keys(storageData).forEach(key => {
-          delete storageData[key];
+        Object.keys(localStorageData).forEach(key => {
+          delete localStorageData[key];
         });
         if (callback) {
           callback();
@@ -55,7 +56,7 @@ const chrome = {
         return Promise.resolve();
       }),
       getBytesInUse: jest.fn((keys, callback) => {
-        const size = JSON.stringify(storageData).length;
+        const size = JSON.stringify(localStorageData).length;
         if (callback) {
           callback(size);
         }
@@ -66,17 +67,17 @@ const chrome = {
       get: jest.fn((keys, callback) => {
         const result = {};
         if (typeof keys === 'string') {
-          if (storageData[keys] !== undefined) {
-            result[keys] = storageData[keys];
+          if (syncStorageData[keys] !== undefined) {
+            result[keys] = syncStorageData[keys];
           }
         } else if (Array.isArray(keys)) {
           keys.forEach(key => {
-            if (storageData[key] !== undefined) {
-              result[key] = storageData[key];
+            if (syncStorageData[key] !== undefined) {
+              result[key] = syncStorageData[key];
             }
           });
         } else if (keys === null || keys === undefined) {
-          Object.assign(result, storageData);
+          Object.assign(result, syncStorageData);
         }
         if (callback) {
           callback(result);
@@ -84,7 +85,7 @@ const chrome = {
         return Promise.resolve(result);
       }),
       set: jest.fn((items, callback) => {
-        Object.assign(storageData, items);
+        Object.assign(syncStorageData, items);
         if (callback) {
           callback();
         }
@@ -93,7 +94,16 @@ const chrome = {
       remove: jest.fn((keys, callback) => {
         const keysArray = Array.isArray(keys) ? keys : [keys];
         keysArray.forEach(key => {
-          delete storageData[key];
+          delete syncStorageData[key];
+        });
+        if (callback) {
+          callback();
+        }
+        return Promise.resolve();
+      }),
+      clear: jest.fn(callback => {
+        Object.keys(syncStorageData).forEach(key => {
+          delete syncStorageData[key];
         });
         if (callback) {
           callback();
@@ -117,6 +127,10 @@ const chrome = {
       hasListener: jest.fn(),
     },
     onInstalled: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    },
+    onConnect: {
       addListener: jest.fn(),
       removeListener: jest.fn(),
     },
@@ -198,16 +212,45 @@ const chrome = {
     }),
   },
 
+  sidePanel: {
+    setOptions: jest.fn(() => Promise.resolve()),
+    setPanelBehavior: jest.fn(() => Promise.resolve()),
+    open: jest.fn(() => Promise.resolve()),
+  },
+
+  notifications: {
+    create: jest.fn((id, options, callback) => {
+      if (callback) {
+        callback(id || 'mock-notification-id');
+      }
+      return Promise.resolve(id || 'mock-notification-id');
+    }),
+    clear: jest.fn((id, callback) => {
+      if (callback) {
+        callback(true);
+      }
+      return Promise.resolve(true);
+    }),
+    onClicked: { addListener: jest.fn(), removeListener: jest.fn() },
+    onClosed: { addListener: jest.fn(), removeListener: jest.fn() },
+  },
+
   // 輔助方法：清理存儲數據（測試用）
   _clearStorage: () => {
-    Object.keys(storageData).forEach(key => {
-      delete storageData[key];
+    Object.keys(localStorageData).forEach(key => {
+      delete localStorageData[key];
+    });
+    Object.keys(syncStorageData).forEach(key => {
+      delete syncStorageData[key];
     });
     mockTabIdCounter = 1000;
   },
 
   // 輔助方法：獲取存儲數據（測試用）
-  _getStorage: () => ({ ...storageData }),
+  _getStorage: () => ({
+    local: { ...localStorageData },
+    sync: { ...syncStorageData },
+  }),
 };
 
 globalThis.chrome = chrome;

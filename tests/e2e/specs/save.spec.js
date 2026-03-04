@@ -127,11 +127,9 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
   await popup.close();
 
   // 7. Assertions
-  if (!response.success) {
-    console.log('Save Failed Error:', response.error);
-  }
   expect(response.success).toBe(true);
   expect(response.created).toBe(true);
-  // blockCount 在 Mock 環境下可能為 0（example.com 內容極少）
+  // blockCount 应為數字且在 Mock 環境下可能為 0（example.com 內容極少）
+  expect(typeof response.blockCount).toBe('number');
   expect(response.blockCount).toBeGreaterThanOrEqual(0);
 });

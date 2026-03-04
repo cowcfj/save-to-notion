@@ -1,4 +1,4 @@
-import { normalizeUrl, computeStableUrl } from '../scripts/utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 
 describe('Key Mismatch Reproduction', () => {
   const originalUrlEncoded =
@@ -7,16 +7,12 @@ describe('Key Mismatch Reproduction', () => {
   test('normalizeUrl should be idempotent', () => {
     const once = normalizeUrl(originalUrlEncoded);
     const twice = normalizeUrl(once);
-    console.log('Once:', once);
-    console.log('Twice:', twice);
     expect(once).toBe(twice);
   });
 
   test('computeStableUrl output should survive double normalizeUrl', () => {
     const stable = computeStableUrl(originalUrlEncoded);
-    console.log('Stable:             ', stable);
     const normalized = normalizeUrl(stable);
-    console.log('normalizeUrl(stable):', normalized);
     expect(stable).toBe(normalized);
   });
 
@@ -29,8 +25,6 @@ describe('Key Mismatch Reproduction', () => {
     const contentNorm = normalizeUrl(stable);
     const csKey = `highlights_${contentNorm}`;
 
-    console.log('Background key:', bgKey);
-    console.log('Content key:   ', csKey);
     expect(bgKey).toBe(csKey);
   });
 
@@ -39,10 +33,8 @@ describe('Key Mismatch Reproduction', () => {
     const originalNorm = normalizeUrl(originalUrlEncoded);
     const fallbackKey = `highlights_${normalizeUrl(originalNorm)}`;
 
-    console.log('Fallback key:', fallbackKey);
     // Check if this matches the old key
     const oldKey = `highlights_${normalizeUrl(originalUrlEncoded)}`;
-    console.log('Old key:     ', oldKey);
     expect(fallbackKey).toBe(oldKey);
   });
 });

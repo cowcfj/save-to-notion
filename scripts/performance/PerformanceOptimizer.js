@@ -189,8 +189,9 @@ class PerformanceOptimizer {
 
     const result = PerformanceOptimizer._performQuery(selector, context, options);
 
-    // 緩存結果
-    if (result) {
+    // 緩存結果：空集合不應進入快取
+    const hasResult = result && (result.length === undefined || result.length > 0);
+    if (hasResult) {
       // 維護緩存大小限制
       this._maintainCacheSizeLimit(cacheKey);
 
@@ -682,17 +683,11 @@ class PerformanceOptimizer {
       selectors.push('article h1', 'article h2', 'article h3', 'article p', 'article img');
     }
 
-    // [role="main"] * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
+    // main * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
     // 預熱成本過高，且沒有實際查詢使用此選擇器，改為使用具體的後代選擇器
     // (descendant selector，以空格分隔；若要限制為直接子元素，應使用 > 組合器)。
-    if (context.querySelector('[role="main"]')) {
-      selectors.push(
-        '[role="main"] h1',
-        '[role="main"] h2',
-        '[role="main"] h3',
-        '[role="main"] p',
-        '[role="main"] img'
-      );
+    if (context.querySelector('main')) {
+      selectors.push('main h1', 'main h2', 'main h3', 'main p', 'main img');
     }
 
     // 檢查是否有常見的 CMS 類名（使用 CMS_CONTENT_SELECTORS 前 4 個核心選擇器）
@@ -776,7 +771,12 @@ class PerformanceOptimizer {
         // 執行新的查詢並更新緩存
         const result = PerformanceOptimizer._performQuery(selector, context, options);
 
-        if (result) {
+        // 判斷是否為「有結果」
+        // 非 NodeList 的 Element 沒有 length，必為 truthy
+        // NodeList 或 Array 則必須 length > 0
+        const hasResult = result && (result.length === undefined || result.length > 0);
+
+        if (hasResult) {
           this.queryCache.set(cacheKey, {
             result,
             timestamp: Date.now(),

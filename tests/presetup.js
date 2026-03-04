@@ -24,7 +24,7 @@ globalThis.ImageUtils = {
 
 // 同時設定 window.ImageUtils（對於 jsdom 環境）
 if (globalThis.window !== undefined) {
-  globalThis.ImageUtils = globalThis.ImageUtils;
+  globalThis.window.ImageUtils = globalThis.ImageUtils;
 }
 
 // Mock Logger (基本實現，在 setup.js 中會被更完整的版本覆蓋)
@@ -34,9 +34,13 @@ globalThis.Logger = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  addLogToBuffer: jest.fn(),
 };
 
 // 同時設定 window.Logger
 if (globalThis.window !== undefined) {
-  globalThis.Logger = globalThis.Logger;
+  globalThis.window.Logger = globalThis.Logger;
 }

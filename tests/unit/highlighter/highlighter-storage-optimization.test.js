@@ -145,11 +145,6 @@ describe('標註存儲優化 (v2.8.0)', () => {
       const oldSize = JSON.stringify(oldFormat).length;
       const newSize = JSON.stringify(newFormat).length;
       const saved = oldSize - newSize;
-      const savedPercent = ((saved / oldSize) * 100).toFixed(1);
-
-      console.log(`舊格式大小: ${oldSize} bytes`);
-      console.log(`新格式大小: ${newSize} bytes`);
-      console.log(`節省空間: ${saved} bytes (${savedPercent}%)`);
 
       // 驗證確實節省了空間
       expect(newSize).toBeLessThan(oldSize);
@@ -174,10 +169,6 @@ describe('標註存儲優化 (v2.8.0)', () => {
 
       const saved = oldTotalSize - newTotalSize;
       const savedKB = (saved / 1024).toFixed(1);
-
-      console.log(`舊格式總大小: ${(oldTotalSize / 1024).toFixed(1)} KB`);
-      console.log(`新格式總大小: ${(newTotalSize / 1024).toFixed(1)} KB`);
-      console.log(`節省空間: ${savedKB} KB`);
 
       // 驗證節省效果
       expect(saved).toBeGreaterThan(0);

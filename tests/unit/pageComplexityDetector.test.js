@@ -124,13 +124,6 @@ describe('頁面複雜度檢測器', () => {
       const complexity = detectPageComplexity(dom.window.document);
       const selection = selectExtractor(complexity);
 
-      console.log('GitHub Pages 測試結果:', {
-        codeBlocks: complexity.metrics.codeBlocks,
-        lists: complexity.metrics.lists,
-        hasMarkdownFeatures: complexity.hasMarkdownFeatures,
-        isClean: complexity.isClean,
-      });
-
       expect(complexity.isClean).toBe(true);
       // GitHub Pages 測試：至少有1個代碼塊和3個列表項
       expect(complexity.metrics.codeBlocks).toBeGreaterThanOrEqual(1);
@@ -231,12 +224,6 @@ describe('頁面複雜度檢測器', () => {
 
       const complexity = detectPageComplexity(dom.window.document);
       const selection = selectExtractor(complexity);
-
-      console.log('新聞網站測試結果:', {
-        adElements: complexity.metrics.adElements,
-        hasAds: complexity.hasAds,
-        adSelectors: '[class*="ad"], [id*="ad"], .advertisement, .sponsor',
-      });
 
       // 擴充後的 AD_SELECTORS 現在能匹配所有 5 個廣告元素
       // .advertisement, .ad-banner ([class^="ad-"]), #ad-section ([id^="ad-"]), .sponsor-content, .ad-widget ([class^="ad-"])

@@ -16,7 +16,7 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
         const path = [];
 
         for (const step of steps) {
-          const match = step.match(/^([\da-z-]+)\[(\d+)]$/i);
+          const match = /^([\da-z-]+)\[(\d+)]$/i.exec(step);
           if (!match) {
             return null;
           }
@@ -207,10 +207,6 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
       const saved = oldSize - newSize;
       const savedPercent = ((saved / oldSize) * 100).toFixed(1);
 
-      console.log(`舊格式: ${oldSize} bytes`);
-      console.log(`新格式: ${newSize} bytes`);
-      console.log(`節省: ${saved} bytes (${savedPercent}%)`);
-
       expect(newSize).toBeLessThan(oldSize);
       expect(Number.parseFloat(savedPercent)).toBeGreaterThan(70); // 至少節省 70%
     });
@@ -225,10 +221,6 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
       const newTotal = avgNewSize * pathsPerHighlight * highlightCount;
       const saved = oldTotal - newTotal;
       const savedKB = (saved / 1024).toFixed(1);
-
-      console.log(`舊格式總大小: ${(oldTotal / 1024).toFixed(1)} KB`);
-      console.log(`新格式總大小: ${(newTotal / 1024).toFixed(1)} KB`);
-      console.log(`總節省: ${savedKB} KB`);
 
       expect(Number.parseFloat(savedKB)).toBeGreaterThan(15); // 至少節省 15 KB
     });
@@ -249,9 +241,6 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
       const highlightCount = 70;
 
       const saved = (oldIdAvg - newIdAvg) * highlightCount;
-      const savedKB = (saved / 1024).toFixed(2);
-
-      console.log(`ID 壓縮節省: ${saved} bytes (${savedKB} KB)`);
 
       expect(saved).toBeGreaterThan(500); // 至少節省 500 bytes
     });
