@@ -459,6 +459,13 @@ export class AuthManager {
       }
 
       const tokenData = await tokenResponse.json();
+      const hasAccessToken =
+        typeof tokenData.access_token === 'string' && tokenData.access_token.trim().length > 0;
+      const hasRefreshToken =
+        typeof tokenData.refresh_token === 'string' && tokenData.refresh_token.trim().length > 0;
+      if (!hasAccessToken || !hasRefreshToken) {
+        throw new Error('OAuth token 回應缺少必要欄位');
+      }
 
       // 8. 存儲 Token 及相關資料到 chrome.storage.local
       await chrome.storage.local.set({
@@ -506,6 +513,7 @@ export class AuthManager {
   async disconnectOAuth() {
     try {
       Logger.start('開始斷開 OAuth 連接', { action: 'disconnectOAuth' });
+      const syncData = await chrome.storage.sync.get(['notionApiKey']);
 
       await chrome.storage.local.remove([
         'notionAuthMode',
@@ -515,14 +523,16 @@ export class AuthManager {
         'notionWorkspaceName',
         'notionBotId',
       ]);
-      await chrome.storage.sync.remove(['notionDataSourceId', 'notionDatabaseId']);
-
-      Logger.info('[Auth] 已清除 OAuth 資料', { action: 'disconnectOAuth' });
-
-      // 檢查是否有手動 Key 可自動切回
-      const syncData = await chrome.storage.sync.get(['notionApiKey']);
       if (syncData.notionApiKey) {
+        Logger.info('[Auth] 已清除 OAuth 資料（保留手動資料來源設定）', {
+          action: 'disconnectOAuth',
+        });
         Logger.info('[Auth] 偵測到手動 API Key，自動切回手動模式', {
+          action: 'disconnectOAuth',
+        });
+      } else {
+        await chrome.storage.sync.remove(['notionDataSourceId', 'notionDatabaseId']);
+        Logger.info('[Auth] 已清除 OAuth 資料與資料來源設定', {
           action: 'disconnectOAuth',
         });
       }

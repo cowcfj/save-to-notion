@@ -234,14 +234,13 @@ describe('AuthManager Extended', () => {
     });
 
     test('讀取 local storage 失敗時應記錄錯誤', async () => {
-      const loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
       jest.spyOn(authManager, '_handleManualConnectedState').mockImplementationOnce(() => {
         throw new Error('storage read failed');
       });
 
       await authManager.handleConnectedState({ notionApiKey: 'secret_test' });
 
-      expect(loggerErrorSpy).toHaveBeenCalledWith('[存儲] 讀取設定失敗', {
+      expect(Logger.error).toHaveBeenCalledWith('[存儲] 讀取設定失敗', {
         action: 'handleConnectedState',
         error: expect.any(String),
       });
@@ -428,6 +427,11 @@ describe('AuthManager Extended', () => {
 
       await authManager.startOAuthFlow();
 
+      expect(chrome.identity.launchWebAuthFlow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining(`client_id=${encodeURIComponent(NOTION_OAUTH.CLIENT_ID)}`),
+        })
+      );
       expect(globalThis.fetch).toHaveBeenCalledWith(
         `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`,
         expect.objectContaining({
@@ -459,6 +463,52 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
       expect(document.querySelector('#oauth-connect-button').textContent).toBe(
         UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
+      );
+    });
+
+    test('token 回應缺少 access_token 時應中止存儲並顯示錯誤', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-no-access');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-no-access'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-no-access' });
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          refresh_token: 'oauth_refresh_token',
+          workspace_name: 'Workspace A',
+        }),
+      });
+
+      await authManager.startOAuthFlow();
+
+      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('OAuth token 回應缺少必要欄位'),
+        'error'
+      );
+    });
+
+    test('token 回應缺少 refresh_token 時應中止存儲並顯示錯誤', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-no-refresh');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-no-refresh'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-no-refresh' });
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          access_token: 'oauth_access_token',
+          workspace_name: 'Workspace A',
+        }),
+      });
+
+      await authManager.startOAuthFlow();
+
+      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('OAuth token 回應缺少必要欄位'),
+        'error'
       );
     });
 
@@ -504,7 +554,7 @@ describe('AuthManager Extended', () => {
   });
 
   describe('disconnectOAuth', () => {
-    test('應清理 OAuth 資料並更新 UI', async () => {
+    test('有手動 API Key 時應保留資料來源設定', async () => {
       const checkAuthStatusSpy = jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
       chrome.storage.sync.get.mockResolvedValueOnce({ notionApiKey: 'secret_manual_fallback' });
 
@@ -518,6 +568,20 @@ describe('AuthManager Extended', () => {
         'notionWorkspaceName',
         'notionBotId',
       ]);
+      expect(chrome.storage.sync.remove).not.toHaveBeenCalledWith([
+        'notionDataSourceId',
+        'notionDatabaseId',
+      ]);
+      expect(checkAuthStatusSpy).toHaveBeenCalled();
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith('已斷開 OAuth 連接', 'success');
+    });
+
+    test('無手動 API Key 時應清除資料來源設定', async () => {
+      const checkAuthStatusSpy = jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
+      chrome.storage.sync.get.mockResolvedValueOnce({});
+
+      await authManager.disconnectOAuth();
+
       expect(chrome.storage.sync.remove).toHaveBeenCalledWith([
         'notionDataSourceId',
         'notionDatabaseId',

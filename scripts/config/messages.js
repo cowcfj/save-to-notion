@@ -261,8 +261,7 @@ export const ERROR_MESSAGES = {
     'Cannot access contents': '無法存取此頁面內容，可能是受保護的系統頁面',
     'Receiving end does not exist': '頁面載入中，請稍候再試',
     'Could not establish connection': '頁面通訊失敗，請重新整理頁面',
-    getRedirectURL: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
-    launchWebAuthFlow: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
+    oauth_identity_unavailable: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
     'OAuth Identity API unavailable': UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
 
     // Notion API 錯誤（已轉換的關鍵字）

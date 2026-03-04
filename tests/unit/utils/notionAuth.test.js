@@ -34,6 +34,7 @@ describe('notionAuth utils', () => {
   afterEach(() => {
     delete globalThis.chrome;
     delete globalThis.fetch;
+    jest.clearAllMocks();
   });
 
   test('getActiveNotionToken 應優先回傳 OAuth token', async () => {
