@@ -199,6 +199,15 @@ describe('AuthManager Extended', () => {
       expect(authManager.elements.disconnectButton).toBeTruthy();
       expect(authManager.elements.apiKeyInput).toBeTruthy();
     });
+
+    test('應立即綁定事件，不受遷移流程阻塞', async () => {
+      const setupSpy = jest.spyOn(authManager, 'setupEventListeners');
+
+      const initPromise = authManager.init({ loadDataSources: mockLoadDatabases });
+
+      expect(setupSpy).toHaveBeenCalledTimes(1);
+      await initPromise;
+    });
   });
 
   describe('handleConnectedState', () => {
@@ -226,13 +235,15 @@ describe('AuthManager Extended', () => {
 
     test('讀取 local storage 失敗時應記錄錯誤', async () => {
       const loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
-      chrome.storage.local.get.mockRejectedValueOnce(new Error('storage read failed'));
+      jest.spyOn(authManager, '_handleManualConnectedState').mockImplementationOnce(() => {
+        throw new Error('storage read failed');
+      });
 
       await authManager.handleConnectedState({ notionApiKey: 'secret_test' });
 
-      expect(loggerErrorSpy).toHaveBeenCalledWith('讀取 local storage 失敗', {
+      expect(loggerErrorSpy).toHaveBeenCalledWith('[存儲] 讀取設定失敗', {
         action: 'handleConnectedState',
-        error: expect.any(Error),
+        error: expect.any(String),
       });
     });
   });
@@ -354,46 +365,45 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#highlight-style').value).toBe('underline');
       expect(document.querySelector('#enable-debug-logs').checked).toBe(true);
     });
-  });
 
-  describe('_migrateDataSourceId', () => {
-    test('已遷移時應直接返回', async () => {
-      chrome.storage.sync.get.mockClear();
-      chrome.storage.local.set.mockClear();
-      chrome.storage.local.get.mockResolvedValueOnce({ notionDataSourceId: 'ds_already' });
+    test('OAuth 已連接但 workspaceName 缺失時應使用繁中預設值', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth_token_123',
+      });
+      chrome.storage.sync.get.mockResolvedValue({});
 
-      await authManager._migrateDataSourceId();
+      await authManager.checkAuthStatus();
 
-      expect(chrome.storage.sync.get).not.toHaveBeenCalledWith([
-        'notionDataSourceId',
-        'notionDatabaseId',
-      ]);
-      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(document.querySelector('#oauth-status').textContent).toContain(
+        '已連接 — Notion 工作區'
+      );
     });
 
-    test('存在舊資料時應遷移並記錄', async () => {
-      const loggerInfoSpy = jest.spyOn(Logger, 'info').mockImplementation(() => {});
-      chrome.storage.local.get.mockResolvedValueOnce({});
-      chrome.storage.sync.get.mockResolvedValueOnce({ notionDatabaseId: 'legacy_db' });
-
-      await authManager._migrateDataSourceId();
-
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({ notionDataSourceId: 'legacy_db' });
-      expect(loggerInfoSpy).toHaveBeenCalledWith('已完成 notionDataSourceId 遷移 (sync → local)', {
-        action: 'migrateDataSourceId',
+    test('手動模式應優先使用 sync 的 notionDataSourceId', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+        notionDataSourceId: 'ds_sync_123',
+        notionDatabaseId: 'db_legacy_456',
       });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#database-id').value).toBe('ds_sync_123');
+      expect(mockLoadDatabases).toHaveBeenCalledWith('secret_manual_key');
     });
 
-    test('遷移失敗時應記錄錯誤', async () => {
-      const loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
-      chrome.storage.local.get.mockRejectedValueOnce(new Error('migrate fail'));
-
-      await authManager._migrateDataSourceId();
-
-      expect(loggerErrorSpy).toHaveBeenCalledWith('遷移 notionDataSourceId 失敗', {
-        action: 'migrateDataSourceId',
-        error: expect.any(Error),
+    test('手動模式在缺 notionDataSourceId 時應回退 notionDatabaseId', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+        notionDatabaseId: 'db_legacy_456',
       });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#database-id').value).toBe('db_legacy_456');
     });
   });
 
@@ -476,7 +486,7 @@ describe('AuthManager Extended', () => {
 
       await authManager.startOAuthFlow();
 
-      expect(Logger.error).toHaveBeenCalledWith('OAuth Identity API 不可用', {
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Identity API 不可用', {
         action: 'startOAuthFlow',
         missingIdentityApi: expect.arrayContaining(['getRedirectURL', 'launchWebAuthFlow']),
       });
@@ -507,7 +517,10 @@ describe('AuthManager Extended', () => {
         'notionWorkspaceId',
         'notionWorkspaceName',
         'notionBotId',
+      ]);
+      expect(chrome.storage.sync.remove).toHaveBeenCalledWith([
         'notionDataSourceId',
+        'notionDatabaseId',
       ]);
       expect(checkAuthStatusSpy).toHaveBeenCalled();
       expect(mockUiManager.showStatus).toHaveBeenCalledWith('已斷開 OAuth 連接', 'success');
@@ -610,13 +623,15 @@ describe('AuthManager Extended', () => {
       document.querySelector('#api-key').value = 'secret_test';
 
       chrome.storage.sync.remove.mockResolvedValue();
-      chrome.storage.local.remove.mockResolvedValue();
       chrome.storage.sync.get.mockResolvedValue({});
       chrome.storage.local.get.mockResolvedValue({});
 
       await authManager.disconnectFromNotion();
 
       expect(document.querySelector('#api-key').value).toBe('');
+      expect(chrome.storage.sync.remove).toHaveBeenCalledWith(
+        expect.arrayContaining(['notionApiKey', 'notionDatabaseId', 'notionDataSourceId'])
+      );
     });
 
     test('斷開連接失敗應處理錯誤', async () => {

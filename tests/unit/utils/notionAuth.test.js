@@ -7,6 +7,7 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   default: {
     error: jest.fn(),
     success: jest.fn(),
+    warn: jest.fn(),
   },
 }));
 
@@ -112,5 +113,45 @@ describe('notionAuth utils', () => {
       action: 'refreshOAuthToken',
     });
     expect(result).toBe('access_token_2');
+  });
+
+  test('refreshOAuthToken 回應缺少 access_token 時不應覆寫 storage', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_token_2' });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        refresh_token: 'refresh_token_2_new',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBeNull();
+    expect(chrome.storage.local.set).not.toHaveBeenCalled();
+    expect(Logger.success).not.toHaveBeenCalled();
+    expect(Logger.error).toHaveBeenCalledWith('OAuth Token 刷新回應缺少必要欄位', {
+      action: 'refreshOAuthToken',
+      error: expect.any(String),
+    });
+  });
+
+  test('refreshOAuthToken 回應缺少 refresh_token 時不應覆寫 storage', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_token_2' });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: 'access_token_2',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBeNull();
+    expect(chrome.storage.local.set).not.toHaveBeenCalled();
+    expect(Logger.success).not.toHaveBeenCalled();
+    expect(Logger.error).toHaveBeenCalledWith('OAuth Token 刷新回應缺少必要欄位', {
+      action: 'refreshOAuthToken',
+      error: expect.any(String),
+    });
   });
 });

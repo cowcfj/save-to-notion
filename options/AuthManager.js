@@ -55,43 +55,8 @@ export class AuthManager {
     this.elements.highlightStyleSelect = document.querySelector('#highlight-style');
     this.elements.debugToggle = document.querySelector('#enable-debug-logs');
 
-    // 執行 storage 遷移（sync → local）
-    await this._migrateDataSourceId();
-
     // 綁定事件
     this.setupEventListeners();
-  }
-
-  // ==========================================
-  // Storage 遷移
-  // ==========================================
-
-  /**
-   * 一次性遷移：將 notionDataSourceId 從 sync 搬到 local
-   *
-   * @private
-   */
-  async _migrateDataSourceId() {
-    try {
-      const localData = await chrome.storage.local.get('notionDataSourceId');
-      if (localData.notionDataSourceId) {
-        return; // 已遷移
-      }
-
-      const syncData = await chrome.storage.sync.get(['notionDataSourceId', 'notionDatabaseId']);
-      const id = syncData.notionDataSourceId || syncData.notionDatabaseId;
-      if (id) {
-        await chrome.storage.local.set({ notionDataSourceId: id });
-        Logger.info('已完成 notionDataSourceId 遷移 (sync → local)', {
-          action: 'migrateDataSourceId',
-        });
-      }
-    } catch (error) {
-      Logger.error('遷移 notionDataSourceId 失敗', {
-        action: 'migrateDataSourceId',
-        error,
-      });
-    }
   }
 
   // ==========================================
@@ -182,9 +147,9 @@ export class AuthManager {
             }
           );
         } catch (error) {
-          Logger.error('切換日誌模式失敗', {
+          Logger.error('[存儲] 切換日誌模式失敗', {
             action: 'toggleDebugLogs',
-            error,
+            error: sanitizeApiError(error, 'toggle_debug_logs'),
           });
           const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
           const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
@@ -204,14 +169,10 @@ export class AuthManager {
   async checkAuthStatus() {
     // 同時讀取 local 和 sync
     const [localData, syncData] = await Promise.all([
-      chrome.storage.local.get([
-        'notionAuthMode',
-        'notionOAuthToken',
-        'notionWorkspaceName',
-        'notionDataSourceId',
-      ]),
+      chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken', 'notionWorkspaceName']),
       chrome.storage.sync.get([
         'notionApiKey',
+        'notionDataSourceId',
         'notionDatabaseId',
         'titleTemplate',
         'addSource',
@@ -227,7 +188,7 @@ export class AuthManager {
       this._handleOAuthConnectedState(localData);
     } else if (syncData.notionApiKey) {
       this.currentAuthMode = AuthMode.MANUAL;
-      this._handleManualConnectedState(syncData, localData);
+      this._handleManualConnectedState(syncData);
     } else {
       this.currentAuthMode = null;
       this.handleDisconnectedState();
@@ -244,7 +205,7 @@ export class AuthManager {
    * @private
    */
   _handleOAuthConnectedState(localData) {
-    const workspaceName = localData.notionWorkspaceName || 'Notion Workspace';
+    const workspaceName = localData.notionWorkspaceName || 'Notion 工作區';
 
     // 更新 OAuth 狀態區域
     if (this.elements.oauthStatus) {
@@ -285,10 +246,9 @@ export class AuthManager {
    * 手動 API Key 已連接的 UI 狀態
    *
    * @param {object} syncData - 遠端同步的資料
-   * @param {object} localData - 本地存儲的資料
    * @private
    */
-  _handleManualConnectedState(syncData, localData) {
+  _handleManualConnectedState(syncData) {
     // 沿用原本的 handleConnectedState 邏輯
     if (this.elements.authStatus) {
       this.elements.authStatus.textContent = '';
@@ -311,8 +271,7 @@ export class AuthManager {
       this.elements.apiKeyInput.value = syncData.notionApiKey;
     }
 
-    // 資料來源 ID 從 local 讀取（遷移後統一在 local）
-    const storedDataSourceId = localData.notionDataSourceId || '';
+    const storedDataSourceId = syncData.notionDataSourceId || '';
     const storedLegacyId = syncData.notionDatabaseId || '';
     const resolvedId = storedDataSourceId || storedLegacyId;
 
@@ -369,10 +328,12 @@ export class AuthManager {
   // 保留向後相容
   async handleConnectedState(result) {
     try {
-      const localData = await chrome.storage.local.get(['notionDataSourceId']);
-      this._handleManualConnectedState(result, localData);
+      this._handleManualConnectedState(result);
     } catch (error) {
-      Logger.error('讀取 local storage 失敗', { action: 'handleConnectedState', error });
+      Logger.error('[存儲] 讀取設定失敗', {
+        action: 'handleConnectedState',
+        error: sanitizeApiError(error, 'handle_connected_state'),
+      });
     }
   }
 
@@ -426,7 +387,7 @@ export class AuthManager {
         missingIdentityApi.push('launchWebAuthFlow');
       }
       if (missingIdentityApi.length > 0) {
-        Logger.error('OAuth Identity API 不可用', {
+        Logger.error('[Auth] OAuth Identity API 不可用', {
           action: 'startOAuthFlow',
           missingIdentityApi,
         });
@@ -522,9 +483,9 @@ export class AuthManager {
       // 10. 更新 UI
       await this.checkAuthStatus();
     } catch (error) {
-      Logger.error('Notion OAuth 流程失敗', {
+      Logger.error('[Auth] Notion OAuth 流程失敗', {
         action: 'startOAuthFlow',
-        error: error.message || error,
+        error: sanitizeApiError(error, 'oauth_flow'),
       });
       const errorMsg =
         error?.code === 'oauth_identity_unavailable'
@@ -553,23 +514,25 @@ export class AuthManager {
         'notionWorkspaceId',
         'notionWorkspaceName',
         'notionBotId',
-        'notionDataSourceId',
       ]);
+      await chrome.storage.sync.remove(['notionDataSourceId', 'notionDatabaseId']);
 
-      Logger.info('已清除 OAuth 資料', { action: 'disconnectOAuth' });
+      Logger.info('[Auth] 已清除 OAuth 資料', { action: 'disconnectOAuth' });
 
       // 檢查是否有手動 Key 可自動切回
       const syncData = await chrome.storage.sync.get(['notionApiKey']);
       if (syncData.notionApiKey) {
-        Logger.info('偵測到手動 API Key，自動切回手動模式', { action: 'disconnectOAuth' });
+        Logger.info('[Auth] 偵測到手動 API Key，自動切回手動模式', {
+          action: 'disconnectOAuth',
+        });
       }
 
       await this.checkAuthStatus();
       this.ui.showStatus('已斷開 OAuth 連接', 'success');
     } catch (error) {
-      Logger.error('斷開 OAuth 失敗', {
+      Logger.error('[Auth] 斷開 OAuth 失敗', {
         action: 'disconnectOAuth',
-        error: error.message || error,
+        error: sanitizeApiError(error, 'disconnect_oauth'),
       });
       const safeMessage = sanitizeApiError(error, 'disconnect_oauth');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
@@ -627,7 +590,7 @@ export class AuthManager {
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       Logger.error('打開 Notion 頁面失敗', {
         action: 'startNotionSetup',
-        error,
+        error: sanitizeApiError(error, 'open_notion_page'),
       });
       this.ui.showStatus(UI_MESSAGES.AUTH.OPEN_NOTION_FAILED(errorMsg), 'error');
     }
@@ -641,11 +604,7 @@ export class AuthManager {
       });
 
       // 清除 sync 中的手動 Key
-      await chrome.storage.sync.remove(['notionApiKey', 'notionDatabaseId']);
-      // 清除 local 中的 dataSourceId（如果當前是手動模式）
-      if (this.currentAuthMode === AuthMode.MANUAL) {
-        await chrome.storage.local.remove(['notionDataSourceId']);
-      }
+      await chrome.storage.sync.remove(['notionApiKey', 'notionDatabaseId', 'notionDataSourceId']);
 
       Logger.info('已清除手動授權數據', {
         action: 'disconnect',
@@ -669,7 +628,7 @@ export class AuthManager {
     } catch (error) {
       Logger.error('斷開連接失敗', {
         action: 'disconnect',
-        error: error.message || error,
+        error: sanitizeApiError(error, 'disconnect'),
       });
       const safeMessage = sanitizeApiError(error, 'disconnect');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
@@ -698,7 +657,10 @@ export class AuthManager {
       await this.dependencies.loadDataSources?.(apiKey);
       Logger.success('API Key 測試成功', { action: 'testApiKey' });
     } catch (error) {
-      Logger.error('API 測試失敗', { action: 'testApiKey', error });
+      Logger.error('[Auth] API 測試失敗', {
+        action: 'testApiKey',
+        error: sanitizeApiError(error, 'test_api_key'),
+      });
     } finally {
       const btn = this.elements.testApiButton;
       if (btn) {

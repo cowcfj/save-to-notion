@@ -235,9 +235,11 @@ class NotionService {
         this.setApiKey(refreshedToken);
       }
 
+      const retryOptions = { ...options, apiKey: refreshedToken };
+      delete retryOptions.client;
+
       return this._executeWithRetry(operation, {
-        ...options,
-        apiKey: refreshedToken,
+        ...retryOptions,
       });
     }
   }

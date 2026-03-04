@@ -1,6 +1,7 @@
 /* global chrome */
 import Logger from './Logger.js';
 import { AuthMode, NOTION_OAUTH } from '../config/constants.js';
+import { sanitizeApiError } from './securityUtils.js';
 
 /**
  * 取得目前有效的 Notion API Token（不論模式）
@@ -53,6 +54,19 @@ export async function refreshOAuthToken() {
     }
 
     const data = await response.json();
+    const hasValidAccessToken =
+      typeof data?.access_token === 'string' && data.access_token.trim().length > 0;
+    const hasValidRefreshToken =
+      typeof data?.refresh_token === 'string' && data.refresh_token.trim().length > 0;
+
+    if (!hasValidAccessToken || !hasValidRefreshToken) {
+      Logger.error('OAuth Token 刷新回應缺少必要欄位', {
+        action: 'refreshOAuthToken',
+        error: sanitizeApiError('invalid_token_response', 'refreshOAuthToken'),
+      });
+      return null;
+    }
+
     await chrome.storage.local.set({
       notionOAuthToken: data.access_token,
       notionRefreshToken: data.refresh_token,
@@ -63,7 +77,7 @@ export async function refreshOAuthToken() {
   } catch (error) {
     Logger.error('OAuth Token 刷新失敗', {
       action: 'refreshOAuthToken',
-      error: error.message || error,
+      error: sanitizeApiError(error, 'refreshOAuthToken'),
     });
     return null;
   }

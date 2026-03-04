@@ -215,6 +215,7 @@ describe('NotionService', () => {
     it('401 + OAuth + refresh 成功時應重試一次', async () => {
       const unauthorizedError = new Error('Unauthorized');
       unauthorizedError.status = 401;
+      const staleClient = { id: 'stale-client' };
 
       const executeWithRetrySpy = jest
         .spyOn(service, '_executeWithRetry')
@@ -230,6 +231,7 @@ describe('NotionService', () => {
       const result = await service._callNotionApiWithRetry(jest.fn(), {
         apiKey: 'oauth_old_token',
         label: 'TestOperation',
+        client: staleClient,
       });
 
       expect(result).toEqual({ ok: true });
@@ -242,6 +244,7 @@ describe('NotionService', () => {
           apiKey: 'oauth_new_token',
         })
       );
+      expect(executeWithRetrySpy.mock.calls[1][1].client).toBeUndefined();
     });
 
     it('401 + OAuth + refresh 失敗時應拋出原錯誤', async () => {
