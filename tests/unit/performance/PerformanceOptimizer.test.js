@@ -251,10 +251,10 @@ describe('PerformanceOptimizer', () => {
       expect(selectorsArticle).toContain('article img');
 
       // 構建帶有 [role="main"] 標籤的假文件
-      fakeDoc.body.innerHTML = '<main role="main"></main>';
+      fakeDoc.body.innerHTML = '<main></main>';
       const selectorsMain = PerformanceOptimizer._analyzePageForPrewarming(fakeDoc);
-      expect(selectorsMain).toContain('[role="main"] h1');
-      expect(selectorsMain).toContain('[role="main"] p');
+      expect(selectorsMain).toContain('main h1');
+      expect(selectorsMain).toContain('main p');
     });
 
     test('如果出現特定的網址或 CMS，會對應產生特定選擇器', () => {
@@ -954,10 +954,8 @@ describe('PerformanceOptimizer - 全面測試', () => {
     test('應該識別 role="main" 結構', async () => {
       await optimizer.smartPrewarm(mockDocument);
 
-      // 應該包含 role="main" 相關的選擇器
-      const hasMainRole = Array.from(optimizer.queryCache.keys()).some(key =>
-        key.includes('[role="main"]')
-      );
+      // 應該包含 main 相關的選擇器
+      const hasMainRole = Array.from(optimizer.queryCache.keys()).some(key => key.includes('main'));
       expect(hasMainRole).toBe(true);
     });
 

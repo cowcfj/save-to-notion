@@ -683,17 +683,11 @@ class PerformanceOptimizer {
       selectors.push('article h1', 'article h2', 'article h3', 'article p', 'article img');
     }
 
-    // [role="main"] * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
+    // main * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
     // 預熱成本過高，且沒有實際查詢使用此選擇器，改為使用具體的後代選擇器
     // (descendant selector，以空格分隔；若要限制為直接子元素，應使用 > 組合器)。
-    if (context.querySelector('[role="main"]')) {
-      selectors.push(
-        '[role="main"] h1',
-        '[role="main"] h2',
-        '[role="main"] h3',
-        '[role="main"] p',
-        '[role="main"] img'
-      );
+    if (context.querySelector('main')) {
+      selectors.push('main h1', 'main h2', 'main h3', 'main p', 'main img');
     }
 
     // 檢查是否有常見的 CMS 類名（使用 CMS_CONTENT_SELECTORS 前 4 個核心選擇器）
