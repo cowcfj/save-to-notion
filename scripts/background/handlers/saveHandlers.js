@@ -1093,7 +1093,7 @@ export function createSaveHandlers(services) {
       } catch (error) {
         // 日誌處理不應崩潰
         const safeMessage = sanitizeApiError(error, 'dev_log_sink');
-        console.error(`❌ [錯誤] [ClientLog] dev_log_sink: ${safeMessage}`);
+        console.error('❌ [錯誤] [ClientLog] dev_log_sink:', safeMessage);
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },

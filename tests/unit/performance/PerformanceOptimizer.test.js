@@ -1301,7 +1301,7 @@ describe('PerformanceOptimizer（額外測試）', () => {
   let hadChrome = false;
 
   beforeEach(() => {
-    hadChrome = Object.prototype.hasOwnProperty.call(globalThis, 'chrome');
+    hadChrome = Object.hasOwn(globalThis, 'chrome');
     originalChrome = globalThis.chrome;
     document.body.innerHTML = '';
     optimizer = new PerformanceOptimizer({ cacheMaxSize: 50, enableBatching: true });
@@ -1390,7 +1390,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
   let hadChrome = false;
 
   beforeEach(() => {
-    hadChrome = Object.prototype.hasOwnProperty.call(globalThis, 'chrome');
+    hadChrome = Object.hasOwn(globalThis, 'chrome');
     originalChrome = globalThis.chrome;
     document.body.innerHTML = `
       <div class="test-container">
