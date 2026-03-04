@@ -189,8 +189,9 @@ class PerformanceOptimizer {
 
     const result = PerformanceOptimizer._performQuery(selector, context, options);
 
-    // 緩存結果
-    if (result) {
+    // 緩存結果：空集合不應進入快取
+    const hasResult = result && (result.length === undefined || result.length > 0);
+    if (hasResult) {
       // 維護緩存大小限制
       this._maintainCacheSizeLimit(cacheKey);
 

@@ -5,7 +5,14 @@
 /* eslint-env jest */
 
 // 模擬 DOM 環境
+const fs = require('node:fs');
+const path = require('node:path');
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
+
+const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
+  path.resolve(__dirname, '../../mocks/performance/performance-html-fixture.html'),
+  'utf8'
+);
 
 describe('PerformanceOptimizer', () => {
   let optimizer = null;
@@ -609,26 +616,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
     originalLogger = globalThis.Logger;
     originalChrome = globalThis.chrome;
     // 創建新的 DOM 環境
-    document.body.innerHTML = `
-    <article>
-        <h1>Article Title</h1>
-        <h2>Subtitle</h2>
-        <p>Paragraph 1</p>
-        <p>Paragraph 2</p>
-        <img src="test1.jpg" alt="Test 1">
-        <img src="test2.jpg" alt="Test 2">
-    </article>
-    <div class="test-container" id="test-id">
-        <img src="test3.jpg" data-src="lazy.jpg">
-        <div class="entry-content">
-            <p>Content paragraph</p>
-            <img src="content-img.jpg">
-        </div>
-    </div>
-    <div role="main">
-        <p>Main content</p>
-    </div>
-`;
+    document.body.innerHTML = PERFORMANCE_HTML_FIXTURE;
     mockDocument = document;
 
     // 使用 Jest 原生的 globalThis
@@ -767,8 +755,12 @@ describe('PerformanceOptimizer - 全面測試', () => {
     });
 
     test('應該處理無效選擇器', () => {
+      const beforeSize = optimizer.queryCache.size;
+      const beforeKeys = Array.from(optimizer.queryCache.keys());
       const result = optimizer.cachedQuery(':::invalid:::', mockDocument);
       expect(result).toEqual([]);
+      expect(optimizer.queryCache.size).toBe(beforeSize);
+      expect(Array.from(optimizer.queryCache.keys())).toEqual(beforeKeys);
     });
 
     test('應該在禁用緩存時直接查詢', () => {
@@ -1163,13 +1155,21 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
   describe('_maintainCacheSizeLimit - 維護緩存大小', () => {
     test('應該在達到限制時移除最舊的項目', () => {
+      // 建立可命中的 selector，確保查詢結果會被快取
+      document.body.innerHTML = Array.from(
+        { length: optimizer.options.cacheMaxSize + 1 },
+        (_unused, i) => `<div id="cache-item-${i}"></div>`
+      ).join('');
+
       // 填滿緩存
       for (let i = 0; i < optimizer.options.cacheMaxSize; i++) {
-        optimizer.cachedQuery(`selector${i}`, mockDocument);
+        optimizer.cachedQuery(`#cache-item-${i}`, mockDocument, { single: true });
       }
 
       // 添加新項目
-      optimizer.cachedQuery('new-selector', mockDocument);
+      optimizer.cachedQuery(`#cache-item-${optimizer.options.cacheMaxSize}`, mockDocument, {
+        single: true,
+      });
 
       // 大小應該不超過限制
       expect(optimizer.queryCache.size).toBeLessThanOrEqual(optimizer.options.cacheMaxSize);
@@ -1392,22 +1392,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
   beforeEach(() => {
     hadChrome = Object.hasOwn(globalThis, 'chrome');
     originalChrome = globalThis.chrome;
-    document.body.innerHTML = `
-      <div class="test-container">
-          <img src="test1.jpg" alt="Test 1">
-          <img src="test2.jpg" alt="Test 2">
-          <article>
-              <h1>Article Title</h1>
-              <p>Test paragraph 1</p>
-              <p>Test paragraph 2</p>
-              <img class="article-img" src="article.jpg" alt="Article image">
-          </article>
-          <main>
-              <p>Main content paragraph</p>
-              <img class="main-img" src="main.jpg" alt="Main image">
-          </main>
-          <a href="#test">Test link</a>
-      </div>`;
+    document.body.innerHTML = PERFORMANCE_HTML_FIXTURE;
     optimizer = new PerformanceOptimizer({
       enableCache: true,
       enableBatching: true,

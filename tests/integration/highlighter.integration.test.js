@@ -338,12 +338,14 @@ describe('Highlighter Integration Tests', () => {
       const range = findTextInPage('this');
       // findTextInPage 可能返回 null，需要適當處理
       expect(range).not.toBeNull();
-      if (range) {
+      const applyHighlightSpy = jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(true);
+      try {
         const id = manager.addHighlight(range, 'red');
-        expect(id === null || typeof id === 'string').toBe(true);
-        if (id !== null) {
-          expect(manager.highlights.get(id).text).toBe('this');
-        }
+        expect(id).not.toBeNull();
+        expect(typeof id).toBe('string');
+        expect(manager.highlights.get(id).text).toBe('this');
+      } finally {
+        applyHighlightSpy.mockRestore();
       }
     });
 
@@ -362,7 +364,7 @@ describe('Highlighter Integration Tests', () => {
 
     // SKIP: 此測試在 fake timers 環境下會掛起，需要進一步調查
     // 可能的問題：MutationObserver 與 fake timers 的兼容性
-    test('should integrate DOM stability waiting', async () => {
+    test('應整合 DOM 穩定性等待', async () => {
       jest.useFakeTimers();
       try {
         const stabilityPromise = waitForDOMStability({
