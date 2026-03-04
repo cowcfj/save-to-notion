@@ -118,6 +118,8 @@ jobs:
       # E2E 測試可在本地使用 npm run test:e2e 運行（需要 headed 模式）
 
       - name: Verify Production Build
+        env:
+          EXTENSION_API_KEY: ${{ secrets.EXTENSION_API_KEY }}
         run: |
           echo "Building production bundle..."
           npm run build:prod

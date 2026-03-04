@@ -116,9 +116,9 @@
 
           <div class="card">
             <h3>Notion 連接</h3>
-            <div id="auth-status" class="auth-status"></div>
+            <div id="oauth-status" class="auth-status"></div>
             <div class="auth-actions">
-              <button id="oauth-button" class="btn-primary">
+              <button id="oauth-connect-button" class="btn-primary">
                 <span class="icon"
                   ><svg
                     width="16"
@@ -129,7 +129,43 @@
                   >
                     <use href="#icon-link" /></svg
                 ></span>
-                <span>連接到 Notion</span>
+                <span>以 OAuth 連接 Notion</span>
+              </button>
+              <button id="oauth-disconnect-button" class="btn-danger hidden">
+                <span class="icon"
+                  ><svg
+                    width="16"
+                    height="16"
+                    class="icon-svg"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <use href="#icon-unlink" /></svg
+                ></span>
+                <span>斷開 OAuth</span>
+              </button>
+            </div>
+            <p class="section-desc text-sm gap-top-sm">
+              一鍵連接您的 Notion 帳戶（推薦），無需手動建立 Integration。
+            </p>
+          </div>
+
+          <div class="card">
+            <h3>手動配置（進階）</h3>
+            <div id="auth-status" class="auth-status"></div>
+            <div class="auth-actions">
+              <button id="oauth-button" class="btn-secondary">
+                <span class="icon"
+                  ><svg
+                    width="16"
+                    height="16"
+                    class="icon-svg"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <use href="#icon-link" /></svg
+                ></span>
+                <span>建立 Integration</span>
               </button>
               <button id="disconnect-button" class="btn-danger hidden">
                 <span class="icon"
@@ -146,12 +182,12 @@
               </button>
             </div>
             <p class="section-desc text-sm gap-top-sm">
-              點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
+              適合進階用戶：手動建立 Notion Integration 並輸入 API Key。
             </p>
           </div>
 
           <div class="card">
-            <h3>手動配置</h3>
+            <h3>API 設定</h3>
             <div class="form-group">
               <label for="api-key">Notion API Key</label>
               <div class="input-wrapper">

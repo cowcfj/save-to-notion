@@ -21,6 +21,7 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS, CONTENT_QUALITY } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
+import { getActiveNotionToken } from '../../utils/notionAuth.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -63,16 +64,15 @@ async function getActiveTab() {
 /**
  * 獲取 Notion API Key
  *
- * @param {StorageService} storageService
  * @returns {Promise<string>} API Key
  * @throws {Error} 如果 API Key 未設置
  */
-async function ensureNotionApiKey(storageService) {
-  const config = await storageService.getConfig(['notionApiKey']);
-  if (!config.notionApiKey) {
+async function ensureNotionApiKey() {
+  const { token } = await getActiveNotionToken();
+  if (!token) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
-  return config.notionApiKey;
+  return token;
 }
 /**
  * 處理內容提取結果
@@ -195,8 +195,9 @@ export function createSaveHandlers(services) {
    */
   async function _loadAndValidateNotionConfig(sendResponse) {
     const config = await storageService.getConfig(NOTION_CONFIG_KEYS);
+    const { token: apiKey } = await getActiveNotionToken();
 
-    if (!config.notionApiKey) {
+    if (!apiKey) {
       sendResponse({
         success: false,
         error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
@@ -217,7 +218,7 @@ export function createSaveHandlers(services) {
     // 其餘所有值（含 'data_source'、無效值）一律回退為 'database'
     const rawDataSourceType = config.notionDataSourceType;
     const dataSourceType = rawDataSourceType === 'page' ? 'page' : 'database';
-    return { config, dataSourceId, dataSourceType };
+    return { config, dataSourceId, dataSourceType, apiKey };
   }
 
   /**
@@ -659,7 +660,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<void>}
    */
   async function _runSaveFlow(activeTab, configData, sendResponse) {
-    const { config, dataSourceId, dataSourceType } = configData;
+    const { dataSourceId, dataSourceType, apiKey } = configData;
 
     const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
 
@@ -679,7 +680,7 @@ export function createSaveHandlers(services) {
       dataSourceType,
       contentResult,
       highlights,
-      apiKey: config.notionApiKey,
+      apiKey,
       activeTabId: activeTab.id,
       sendResponse,
     });
@@ -937,7 +938,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const apiKey = await ensureNotionApiKey(storageService);
+        const apiKey = await ensureNotionApiKey();
 
         const exists = await notionService.checkPageExists(pageId, { apiKey });
         sendResponse({ success: true, exists });
@@ -1004,12 +1005,12 @@ export function createSaveHandlers(services) {
           return sendResponse(_buildSavedStatusResponse(savedData, normUrl));
         }
 
-        const config = await storageService.getConfig(['notionApiKey']);
-        if (!config.notionApiKey) {
+        const activeToken = await getActiveNotionToken();
+        if (!activeToken.token) {
           return sendResponse(_buildSavedStatusResponse(savedData, normUrl));
         }
 
-        const exists = await _resolveExistsWithRetry(savedData, config.notionApiKey);
+        const exists = await _resolveExistsWithRetry(savedData, activeToken.token);
 
         const deletionCheck = consumeDeletionConfirmation(savedData.notionPageId, exists);
         const statusHandled = await _handleDeletedOrPending({

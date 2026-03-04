@@ -17,11 +17,17 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   debugEnabled: true,
 }));
 
+jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
+  getActiveNotionToken: jest.fn(),
+  refreshOAuthToken: jest.fn(),
+}));
+
 // 2. Imports
 import { NotionService } from '../../../../scripts/background/services/NotionService.js';
 import { CONTENT_QUALITY, NOTION_API } from '../../../../scripts/config/index.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
+import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
   status,
@@ -149,6 +155,8 @@ describe('NotionService', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
+    refreshOAuthToken.mockResolvedValue(null);
     mockLogger = {
       log: jest.fn(),
       warn: jest.fn(),
@@ -200,6 +208,82 @@ describe('NotionService', () => {
         expect.anything(),
         expect.objectContaining({ cache: 'no-store' })
       );
+    });
+  });
+
+  describe('OAuth 401 retry flow', () => {
+    it('401 + OAuth + refresh 成功時應重試一次', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+      const staleClient = { id: 'stale-client' };
+
+      const executeWithRetrySpy = jest
+        .spyOn(service, '_executeWithRetry')
+        .mockRejectedValueOnce(unauthorizedError)
+        .mockResolvedValueOnce({ ok: true });
+
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth_old_token',
+        mode: 'oauth',
+      });
+      refreshOAuthToken.mockResolvedValueOnce('oauth_new_token');
+
+      const result = await service._callNotionApiWithRetry(jest.fn(), {
+        apiKey: 'oauth_old_token',
+        label: 'TestOperation',
+        client: staleClient,
+      });
+
+      expect(result).toEqual({ ok: true });
+      expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
+      expect(executeWithRetrySpy).toHaveBeenCalledTimes(2);
+      expect(executeWithRetrySpy).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Function),
+        expect.objectContaining({
+          apiKey: 'oauth_new_token',
+        })
+      );
+      expect(executeWithRetrySpy.mock.calls[1][1].client).toBeUndefined();
+    });
+
+    it('401 + OAuth + refresh 失敗時應拋出原錯誤', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+
+      jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth_old_token',
+        mode: 'oauth',
+      });
+      refreshOAuthToken.mockResolvedValueOnce(null);
+
+      await expect(
+        service._callNotionApiWithRetry(jest.fn(), {
+          apiKey: 'oauth_old_token',
+          label: 'TestOperation',
+        })
+      ).rejects.toBe(unauthorizedError);
+      expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('401 + 非 OAuth 模式時不應刷新 token', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+
+      jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'manual_key',
+        mode: 'manual',
+      });
+
+      await expect(
+        service._callNotionApiWithRetry(jest.fn(), {
+          apiKey: 'manual_key',
+          label: 'TestOperation',
+        })
+      ).rejects.toBe(unauthorizedError);
+      expect(refreshOAuthToken).not.toHaveBeenCalled();
     });
   });
 

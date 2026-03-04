@@ -8,12 +8,14 @@ import {
 } from '../../../../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
+import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
 
 jest.mock('../../../../scripts/utils/Logger.js');
 jest.mock('../../../../scripts/background/services/InjectionService.js');
 jest.mock('../../../../scripts/utils/securityUtils.js');
 jest.mock('../../../../scripts/utils/ErrorHandler.js');
 jest.mock('../../../../scripts/utils/urlUtils.js');
+jest.mock('../../../../scripts/utils/notionAuth.js');
 
 describe('highlightHandlers', () => {
   let handlers;
@@ -21,6 +23,7 @@ describe('highlightHandlers', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    getActiveNotionToken.mockResolvedValue({ token: 'key1', mode: 'manual' });
 
     // Default mock behaviors for utilities
     validateContentScriptRequest.mockReturnValue(null);
@@ -287,7 +290,7 @@ describe('highlightHandlers', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: null });
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
 
       await handlers.updateHighlights({}, sender, sendResponse);
 
