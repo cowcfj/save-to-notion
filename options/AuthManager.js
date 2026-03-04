@@ -379,15 +379,13 @@ export class AuthManager {
   }
 
   // 保留向後相容
-  handleConnectedState(result) {
-    chrome.storage.local
-      .get(['notionDataSourceId'])
-      .then(localData => {
-        this._handleManualConnectedState(result, localData);
-      })
-      .catch(error => {
-        Logger.error('讀取 local storage 失敗', { action: 'handleConnectedState', error });
-      });
+  async handleConnectedState(result) {
+    try {
+      const localData = await chrome.storage.local.get(['notionDataSourceId']);
+      this._handleManualConnectedState(result, localData);
+    } catch (error) {
+      Logger.error('讀取 local storage 失敗', { action: 'handleConnectedState', error });
+    }
   }
 
   handleDisconnectedState() {

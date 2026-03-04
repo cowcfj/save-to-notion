@@ -197,10 +197,7 @@ describe('AuthManager Extended', () => {
         notionDatabaseId: 'db_123',
       };
 
-      authManager.handleConnectedState(result);
-
-      // 等待 Promise.then 執行
-      await Promise.resolve();
+      await authManager.handleConnectedState(result);
 
       expect(document.querySelector('#auth-status').textContent).toContain('已連接');
     });
@@ -211,10 +208,7 @@ describe('AuthManager Extended', () => {
         notionDatabaseId: 'db_123',
       };
 
-      authManager.handleConnectedState(result);
-
-      // 等待 Promise.then 執行
-      await Promise.resolve();
+      await authManager.handleConnectedState(result);
 
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_test');
     });
