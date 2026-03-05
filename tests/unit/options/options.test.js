@@ -144,7 +144,7 @@ describe('options.js', () => {
       `;
 
       mockUi = { showStatus: jest.fn() };
-      mockAuth = { checkAuthStatus: jest.fn() };
+      mockAuth = { currentAuthMode: 'manual', checkAuthStatus: jest.fn() };
       mockSet = jest.fn((data, cb) => {
         if (cb) {
           cb();
@@ -182,8 +182,9 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
-    it('should validate empty API key', () => {
+    it('should validate empty API key if not in OAuth mode', () => {
       document.querySelector('#api-key').value = '';
+      mockAuth.currentAuthMode = 'manual';
       saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('API Key'),
@@ -191,6 +192,20 @@ describe('options.js', () => {
         'status'
       );
       expect(mockSet).not.toHaveBeenCalled();
+    });
+
+    it('should allow empty API key if in OAuth mode', () => {
+      document.querySelector('#api-key').value = '';
+      mockAuth.currentAuthMode = 'oauth';
+      saveSettings(mockUi, mockAuth);
+      // Because API key check is bypassed, it should proceed to save or hit the next validation
+      // In this setup, database-id is valid, so it should attempt to save
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionApiKey: '',
+        }),
+        expect.any(Function)
+      );
     });
 
     it('should validate empty Database ID', () => {

@@ -181,25 +181,26 @@
                 <span>斷開連接</span>
               </button>
             </div>
-            <p class="section-desc text-sm gap-top-sm">
-              適合進階用戶：手動建立 Notion Integration 並輸入 API Key。
-            </p>
-          </div>
-
-          <div class="card">
-            <h3>API 設定</h3>
-            <div class="form-group">
+            <div class="form-group gap-top-sm">
               <label for="api-key">Notion API Key</label>
               <div class="input-wrapper">
                 <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
                 <button type="button" id="test-api-button" class="btn-secondary">驗證</button>
               </div>
             </div>
+          </div>
 
+          <!-- 保存目標模塊 -->
+          <div class="card">
+            <h3>保存目標</h3>
             <div class="form-group">
-              <label for="database-id">資料來源 ID (Page/Database)</label>
               <div class="input-wrapper">
-                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
+                <input
+                  type="text"
+                  id="database-id"
+                  class="hidden"
+                  placeholder="輸入 Page ID 或 Database ID"
+                />
               </div>
 
               <!-- 可搜索的數據庫選擇器組件 -->
@@ -271,27 +272,26 @@
                 >。
               </p>
             </div>
-
-            <hr class="divider" />
-
-            <!-- 介面設定 (Interface) -->
-            <div class="setting-group">
-              <h3>介面設定</h3>
-              <div class="form-group">
-                <label for="ui-zoom-level">介面縮放 (Interface Zoom)</label>
-                <div class="input-wrapper">
-                  <select id="ui-zoom-level" class="form-select-enhanced">
-                    <option value="1">中 (100%) - 預設</option>
-                    <option value="1.1">大 (110%)</option>
-                  </select>
-                </div>
-                <p class="help-text">調整擴充功能設定頁面的顯示比例。</p>
-              </div>
-            </div>
-
-            <button id="save-button" class="btn-primary full-width">儲存設定</button>
-            <p id="status" class="status-message"></p>
           </div>
+
+          <!-- 介面設定模塊 (Interface) -->
+          <div class="card">
+            <h3>介面設定</h3>
+            <div class="form-group">
+              <label for="ui-zoom-level">介面縮放 (Interface Zoom)</label>
+              <div class="input-wrapper">
+                <select id="ui-zoom-level" class="form-select-enhanced">
+                  <option value="1">中 (100%) - 預設</option>
+                  <option value="1.1">大 (110%)</option>
+                </select>
+              </div>
+              <p class="help-text">調整擴充功能設定頁面的顯示比例。</p>
+            </div>
+          </div>
+
+          <!-- 全局儲存按鈕 -->
+          <button id="save-button" class="btn-primary full-width">儲存設定</button>
+          <p id="status" class="status-message"></p>
         </section>
 
         <!-- 模板設定區塊 -->
