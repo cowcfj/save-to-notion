@@ -224,7 +224,7 @@ describe('SearchableDatabaseSelector', () => {
 
   describe('performServerSearch', () => {
     beforeEach(() => {
-      mockGetApiKey.mockReturnValue('secret_test_key');
+      mockGetApiKey.mockResolvedValue('secret_test_key');
     });
 
     it('should not trigger search for query less than 2 characters', async () => {
@@ -233,7 +233,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should not trigger search if API key is missing', async () => {
-      mockGetApiKey.mockReturnValue('');
+      mockGetApiKey.mockResolvedValue('');
       await selector.performServerSearch('test query');
       expect(mockLoadDataSources).not.toHaveBeenCalled();
     });

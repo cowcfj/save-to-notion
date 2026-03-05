@@ -47,6 +47,20 @@ describe('popupActions.js', () => {
       expect(result.valid).toBe(false);
     });
 
+    it('當缺少 API Key 但處於 OAuth 模式時應該返回 valid: true', async () => {
+      await chrome.storage.sync.set({
+        notionDataSourceId: 'test-db',
+      });
+      await chrome.storage.local.set({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'test-token',
+      });
+
+      const result = await checkSettings();
+      expect(result.valid).toBe(true);
+      expect(result.dataSourceId).toBe('test-db');
+    });
+
     it('應該同時支持 notionDataSourceId 和 notionDatabaseId (兼容性檢查)', async () => {
       await chrome.storage.sync.set({
         notionApiKey: 'test-key',
