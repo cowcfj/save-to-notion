@@ -6,6 +6,20 @@
  * 使用 jest.fn() 以支持測試中的 mockReturnValue() 等方法
  */
 
+// 確保 Web Streams API 在 jsdom / jest 環境中可用（某些 Node/undici 版本需要）
+if (globalThis.ReadableStream === undefined) {
+  const { ReadableStream, WritableStream, TransformStream } = require('node:stream/web');
+  globalThis.ReadableStream = ReadableStream;
+  globalThis.WritableStream = WritableStream;
+  globalThis.TransformStream = TransformStream;
+}
+
+if (globalThis.MessagePort === undefined) {
+  const { MessageChannel, MessagePort } = require('node:worker_threads');
+  globalThis.MessageChannel = MessageChannel;
+  globalThis.MessagePort = MessagePort;
+}
+
 // Mock ImageUtils (用於依賴 window.ImageUtils 的模組)
 // 這個 mock 必須在任何模組載入前設定，否則解構會失敗
 globalThis.ImageUtils = {

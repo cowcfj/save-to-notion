@@ -6,8 +6,6 @@
  * @author Content Extraction Team
  */
 
-const { JSDOM } = require('jsdom');
-
 // 將頁面複雜度檢測器轉為 CommonJS 格式，以便測試
 // 【重構】直接導入源代碼而非測試替身
 const {
@@ -95,10 +93,7 @@ describe('頁面複雜度檢測器', () => {
   describe('技術文檔頁面檢測', () => {
     test('GitHub Pages 文檔站檢測', () => {
       // 模擬 GitHub Pages 文檔站
-      const dom = new JSDOM(
-        `
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <head><title>API Documentation</title></head>
                 <body>
                     <main>
@@ -116,12 +111,9 @@ describe('頁面複雜度檢測器', () => {
                         </article>
                     </main>
                 </body>
-                </html>
-            `,
-        { url: 'https://example.github.io/docs/api/' }
-      );
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       expect(complexity.isClean).toBe(true);
@@ -134,10 +126,7 @@ describe('頁面複雜度檢測器', () => {
     });
 
     test('包含大量代碼塊的技術文檔', () => {
-      const dom = new JSDOM(
-        `
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <article>
                         <h1>Command Reference</h1>
@@ -149,12 +138,9 @@ describe('頁面複雜度檢測器', () => {
                         <pre><code>kubectl apply -f config.yaml</code></pre>
                     </article>
                 </body>
-                </html>
-            `,
-        { url: 'https://docs.example.com/commands' }
-      );
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       expect(complexity.hasMarkdownFeatures).toBe(true);
@@ -163,10 +149,7 @@ describe('頁面複雜度檢測器', () => {
     });
 
     test('包含大量列表的文檔頁面', () => {
-      const dom = new JSDOM(
-        `
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <article>
                         <h1>Configuration Options</h1>
@@ -175,12 +158,9 @@ describe('頁面複雜度檢測器', () => {
                         </ul>
                     </article>
                 </body>
-                </html>
-            `,
-        { url: 'https://example.com/config' }
-      );
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       // 源代碼 hasMarkdownFeatures 依賴 codeBlocks >= 3 或 markdownContainers > 0
@@ -193,10 +173,7 @@ describe('頁面複雜度檢測器', () => {
 
   describe('新聞網站頁面檢測', () => {
     test('包含廣告的新聞頁面', () => {
-      const dom = new JSDOM(
-        `
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <header>
                         <nav>Navigation</nav>
@@ -217,12 +194,9 @@ describe('頁面複雜度檢測器', () => {
                     </main>
                     <footer>Footer content</footer>
                 </body>
-                </html>
-            `,
-        { url: 'https://news.example.com/article' }
-      );
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       // 擴充後的 AD_SELECTORS 現在能匹配所有 5 個廣告元素
@@ -236,10 +210,7 @@ describe('頁面複雜度檢測器', () => {
     });
 
     test('複雜佈局的媒體網站', () => {
-      const dom = new JSDOM(
-        `
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <header>Header</header>
                     <nav>Main nav</nav>
@@ -255,12 +226,9 @@ describe('頁面複雜度檢測器', () => {
                         </article>
                     </main>
                 </body>
-                </html>
-            `,
-        { url: 'https://complex-news.com/story' }
-      );
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       expect(complexity.isComplexLayout).toBe(true);
@@ -272,9 +240,7 @@ describe('頁面複雜度檢測器', () => {
 
   describe('邊界情況測試', () => {
     test('高連結密度頁面', () => {
-      const dom = new JSDOM(`
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <article>
                         <p>
@@ -284,10 +250,9 @@ describe('頁面複雜度檢測器', () => {
                         </p>
                     </article>
                 </body>
-                </html>
-            `);
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       // 源代碼不再計算 linkDensity，改為純靠文本長度和廣告組合觸發 fallback
@@ -297,19 +262,16 @@ describe('頁面複雜度檢測器', () => {
     });
 
     test('內容過短的頁面', () => {
-      const dom = new JSDOM(`
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <article>
                         <h1>Short</h1>
                         <p>Very brief content.</p>
                     </article>
                 </body>
-                </html>
-            `);
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
       const selection = selectExtractor(complexity);
 
       expect(complexity.metrics.textLength).toBeLessThan(500);
@@ -318,19 +280,16 @@ describe('頁面複雜度檢測器', () => {
 
     test('長文內容頁面', () => {
       const longContent = 'This is a very long article with lots of content. '.repeat(200);
-      const dom = new JSDOM(`
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <article>
                         <h1>Long Article</h1>
                         <p>${longContent}</p>
                     </article>
                 </body>
-                </html>
-            `);
+            `;
 
-      const complexity = detectPageComplexity(dom.window.document);
+      const complexity = detectPageComplexity(document);
 
       expect(complexity.isLongForm).toBe(true);
       expect(complexity.metrics.textLength).toBeGreaterThan(5000);
@@ -493,9 +452,7 @@ describe('頁面複雜度檢測器', () => {
     });
 
     test('損壞的 HTML 結構', () => {
-      const dom = new JSDOM(`
-                <!DOCTYPE html>
-                <html>
+      document.documentElement.innerHTML = `
                 <body>
                     <article>
                         <h1>Title
@@ -503,11 +460,11 @@ describe('頁面複雜度檢測器', () => {
                         <div>Broken structure
                     </article>
                 </body>
-            `);
+            `;
 
       // 應該能夠處理損壞的 HTML 而不崩潰
       expect(() => {
-        const complexity = detectPageComplexity(dom.window.document);
+        const complexity = detectPageComplexity(document);
         selectExtractor(complexity);
       }).not.toThrow();
     });

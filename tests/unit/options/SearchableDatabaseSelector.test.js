@@ -214,10 +214,11 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.dropdown.style.display).toBe('none');
     });
 
-    it('should handle refresh button', () => {
-      mockGetApiKey.mockReturnValue('secret_123');
+    it('should handle refresh button', async () => {
+      mockGetApiKey.mockResolvedValue('secret_123');
 
       selector.refreshButton.click();
+      await new Promise(process.nextTick); // wait for async getApiKey inside refreshDataSources
       expect(mockLoadDataSources).toHaveBeenCalledWith('secret_123');
     });
   });

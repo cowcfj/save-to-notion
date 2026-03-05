@@ -571,8 +571,8 @@ export class SearchableDatabaseSelector {
     }
   }
 
-  refreshDataSources() {
-    const apiKey = this.getApiKey();
+  async refreshDataSources() {
+    const apiKey = await this.getApiKey();
     if (apiKey) {
       this.showLoading();
       this.loadDataSources(apiKey);

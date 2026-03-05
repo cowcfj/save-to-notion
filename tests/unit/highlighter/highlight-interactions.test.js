@@ -3,21 +3,11 @@
  * 測試高亮添加、刪除、顏色切換等用戶交互
  */
 
-const { JSDOM } = require('jsdom');
-
 describe('Highlighter Interactions', () => {
-  let dom = null;
-  let document = null;
-  let window = null;
-
   beforeEach(() => {
-    dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
-    document = dom.window.document;
-    window = dom.window;
-    globalThis.document = document;
-    globalThis.window = window;
-    globalThis.Selection = window.Selection;
-    globalThis.Range = window.Range;
+    document.documentElement.innerHTML = '<body></body>';
+    globalThis.Selection = globalThis.Selection;
+    globalThis.Range = globalThis.Range;
   });
 
   describe('文本選擇和高亮創建', () => {
@@ -29,7 +19,7 @@ describe('Highlighter Interactions', () => {
       const range = document.createRange();
       range.selectNodeContents(paragraph);
 
-      const selection = window.getSelection();
+      const selection = globalThis.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
 
@@ -46,7 +36,7 @@ describe('Highlighter Interactions', () => {
       range.setStart(textNode, 0);
       range.setEnd(textNode, 7);
 
-      const selection = window.getSelection();
+      const selection = globalThis.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
 
@@ -66,7 +56,7 @@ describe('Highlighter Interactions', () => {
       range.setStart(firstP.firstChild, 0);
       range.setEnd(secondP.firstChild, 5);
 
-      const selection = window.getSelection();
+      const selection = globalThis.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
 
@@ -148,7 +138,7 @@ describe('Highlighter Interactions', () => {
     it('應該能夠檢測 Highlight API 是否可用', () => {
       // 在 JSDOM 中，Highlight API 不可用
       const hasHighlightAPI =
-        window.Highlight !== undefined &&
+        globalThis.Highlight !== undefined &&
         typeof CSS !== 'undefined' &&
         CSS.highlights !== undefined;
 
@@ -201,7 +191,7 @@ describe('Highlighter Interactions', () => {
 
       paragraph.addEventListener('mouseup', handler);
 
-      const event = new window.MouseEvent('mouseup', {
+      const event = new globalThis.MouseEvent('mouseup', {
         bubbles: true,
         cancelable: true,
       });
@@ -224,7 +214,7 @@ describe('Highlighter Interactions', () => {
         }
       });
 
-      const event = new window.MouseEvent('click', {
+      const event = new globalThis.MouseEvent('click', {
         bubbles: true,
         cancelable: true,
         ctrlKey: true,
@@ -246,7 +236,7 @@ describe('Highlighter Interactions', () => {
         dblclickHandled = true;
       });
 
-      const event = new window.MouseEvent('dblclick', {
+      const event = new globalThis.MouseEvent('dblclick', {
         bubbles: true,
         cancelable: true,
       });

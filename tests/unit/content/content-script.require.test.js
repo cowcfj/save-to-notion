@@ -2,7 +2,6 @@
  * Require-style test: set up jsdom globals then require the content script file
  * so Jest's coverage instrumentation picks up content.js execution.
  */
-const { JSDOM } = require('jsdom');
 const path = require('path');
 
 describe('content script require test', () => {
@@ -13,11 +12,7 @@ describe('content script require test', () => {
   test('require scripts/content.js with jsdom globals', async () => {
     const html =
       '<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
-    const dom = new JSDOM(html);
-    // expose globals
-    globalThis.window = dom.window;
-    globalThis.document = dom.window.document;
-    globalThis.navigator = dom.window.navigator;
+    document.documentElement.innerHTML = html;
 
     // mocks
     globalThis.Readability = function (doc) {
@@ -56,9 +51,5 @@ describe('content script require test', () => {
     expect(result).toBeDefined();
     expect(typeof result.title).toBe('string');
     expect(result.title.length).toBeGreaterThan(0);
-    // cleanup
-    delete globalThis.window;
-    delete globalThis.document;
-    delete globalThis.navigator;
   }, 10_000);
 });

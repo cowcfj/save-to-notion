@@ -3,19 +3,9 @@
  * 測試各種 CMS 平台的內容提取邏輯
  */
 
-const { JSDOM } = require('jsdom');
-
 describe('CMS Content Extraction', () => {
-  /** @type {JSDOM} JSDOM 實例,在 beforeEach 中初始化 */
-  let dom = null;
-  /** @type {Document} 文檔對象,在 beforeEach 中初始化 */
-  let document = null;
-
   beforeEach(() => {
-    dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
-    document = dom.window.document;
-    globalThis.document = document;
-    globalThis.window = dom.window;
+    document.documentElement.innerHTML = '<body></body>';
   });
 
   describe('Drupal CMS 內容提取', () => {
