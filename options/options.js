@@ -23,7 +23,11 @@ export function initOptions() {
   const ui = new UIManager();
 
   const auth = new AuthManager(ui);
-  const dataSource = new DataSourceManager(ui, () => {
+  const dataSource = new DataSourceManager(ui, async () => {
+    const activeAuth = await AuthManager.getActiveNotionToken();
+    if (activeAuth && activeAuth.token) {
+      return activeAuth.token;
+    }
     return document.querySelector('#api-key')?.value || '';
   });
   const storage = new StorageManager(ui);

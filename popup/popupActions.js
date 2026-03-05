@@ -22,9 +22,11 @@ export async function checkSettings() {
       'notionDataSourceId',
       'notionDatabaseId',
     ]);
+    const localResult = await chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken']);
+    const isOAuth = localResult.notionAuthMode === 'oauth' && localResult.notionOAuthToken;
     const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
     return {
-      valid: Boolean(result.notionApiKey && dataSourceId),
+      valid: Boolean((result.notionApiKey || isOAuth) && dataSourceId),
       apiKey: result.notionApiKey,
       dataSourceId,
     };

@@ -207,7 +207,7 @@ export class SearchableDatabaseSelector {
       return;
     }
 
-    const apiKey = this.getApiKey();
+    const apiKey = await this.getApiKey();
     if (!apiKey) {
       Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
       return;
