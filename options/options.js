@@ -25,7 +25,7 @@ export function initOptions() {
   const auth = new AuthManager(ui);
   const dataSource = new DataSourceManager(ui, async () => {
     const activeAuth = await AuthManager.getActiveNotionToken();
-    if (activeAuth && activeAuth.token) {
+    if (activeAuth?.token) {
       return activeAuth.token;
     }
     return document.querySelector('#api-key')?.value || '';
