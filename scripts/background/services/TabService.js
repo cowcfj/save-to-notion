@@ -404,8 +404,8 @@ class TabService {
     try {
       const apiKey = await this.getApiKey();
       if (!apiKey) {
-        // 沒有 API Key，回退到基本徽章顯示
-        this.consumeDeletionConfirmation(savedData.notionPageId, null);
+        // 沒有 API Key，無法執行聯網驗證，跳過並保留當前狀態
+        // 注意：不呼叫 consumeDeletionConfirmation，避免清除由 checkPageStatus 設置的 deletionPending
         await this._updateBadgeStatus(tabId, savedData);
         return;
       }
