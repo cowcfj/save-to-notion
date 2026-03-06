@@ -359,7 +359,10 @@ describe('TabService', () => {
 
         expect(mockLogger.warn).toHaveBeenCalledWith(
           expect.stringContaining('First deletion check failed'),
-          expect.anything()
+          expect.objectContaining({
+            pageId: 'page',
+            action: 'autoSyncLocalState',
+          })
         );
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
       });
