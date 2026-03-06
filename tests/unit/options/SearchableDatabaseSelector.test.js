@@ -201,6 +201,7 @@ describe('SearchableDatabaseSelector', () => {
 
   describe('Interactions', () => {
     it('should toggle dropdown', () => {
+      expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false); // Empty list initially
 
@@ -208,10 +209,12 @@ describe('SearchableDatabaseSelector', () => {
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(true);
       expect(selector.dropdown.style.display).toBe('block');
+      expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('true');
 
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false);
       expect(selector.dropdown.style.display).toBe('none');
+      expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
     });
 
     it('should handle refresh button', async () => {
@@ -265,6 +268,27 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.isSearching).toBe(false);
 
       showSearchingStateSpy.mockRestore();
+    });
+
+    it('should discard stale search request when request id is outdated', async () => {
+      let resolveFirstApiKey;
+      mockGetApiKey
+        .mockImplementationOnce(
+          () =>
+            new Promise(resolve => {
+              resolveFirstApiKey = resolve;
+            })
+        )
+        .mockResolvedValueOnce('secret_test_key');
+
+      const firstSearchPromise = selector.performServerSearch('test query');
+      const secondSearchPromise = selector.performServerSearch('test query');
+
+      resolveFirstApiKey('secret_test_key');
+      await Promise.all([firstSearchPromise, secondSearchPromise]);
+
+      expect(mockLoadDataSources).toHaveBeenCalledTimes(1);
+      expect(mockLoadDataSources).toHaveBeenCalledWith('secret_test_key', 'test query');
     });
 
     it('should handle search error gracefully', async () => {

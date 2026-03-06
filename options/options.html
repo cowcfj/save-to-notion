@@ -213,7 +213,15 @@
                       placeholder="搜尋資料來源..."
                       autocomplete="off"
                     />
-                    <button type="button" id="selector-toggle" class="selector-toggle">
+                    <button
+                      type="button"
+                      id="selector-toggle"
+                      class="selector-toggle"
+                      aria-label="切換資料來源選單"
+                      aria-controls="data-source-list"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                    >
                       <svg
                         width="12"
                         height="12"
@@ -251,7 +259,7 @@
                         </svg>
                       </button>
                     </div>
-                    <div class="dropdown-list" id="data-source-list">
+                    <div class="dropdown-list" id="data-source-list" role="listbox">
                       <div class="loading-state">載入中...</div>
                     </div>
                   </div>

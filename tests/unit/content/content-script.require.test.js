@@ -15,12 +15,10 @@ describe('content script require test', () => {
     delete globalThis.Readability;
     delete globalThis.ImageUtils;
     delete globalThis.chrome;
-    if (globalThis.window && '__UNIT_TESTING__' in globalThis.window) {
-      delete globalThis.window.__UNIT_TESTING__;
+    if ('__UNIT_TESTING__' in globalThis) {
+      delete globalThis.__UNIT_TESTING__;
     }
-    if (globalThis.window && '__notion_extraction_result' in globalThis.window) {
-      delete globalThis.window.__notion_extraction_result;
-    } else if ('__notion_extraction_result' in globalThis) {
+    if ('__notion_extraction_result' in globalThis) {
       delete globalThis.__notion_extraction_result;
     }
   });
@@ -43,14 +41,14 @@ describe('content script require test', () => {
     };
 
     // mark unit testing mode
-    globalThis.window.__UNIT_TESTING__ = true;
+    globalThis.__UNIT_TESTING__ = true;
 
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
 
     // Ensure it's not cached
     delete require.cache[require.resolve(scriptPath)];
 
-    // Require the script — it runs immediately and should set window.__notion_extraction_result
+    // Require the script — it runs immediately and should set globalThis.__notion_extraction_result
     require(scriptPath);
 
     // allow async operations to complete
@@ -58,8 +56,8 @@ describe('content script require test', () => {
     let result = null;
     for (let i = 0; i < 30; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
-      if (globalThis.window.__notion_extraction_result) {
-        result = globalThis.window.__notion_extraction_result;
+      if (globalThis.__notion_extraction_result) {
+        result = globalThis.__notion_extraction_result;
         break;
       }
     }
@@ -69,7 +67,7 @@ describe('content script require test', () => {
     expect(result.title.length).toBeGreaterThan(0);
   }, 10_000);
 
-  test('should start without stale extraction result', () => {
-    expect(globalThis.window?.__notion_extraction_result).toBeUndefined();
+  test('應該在沒有過期的擷取結果時啟動', () => {
+    expect(globalThis.__notion_extraction_result).toBeUndefined();
   });
 });

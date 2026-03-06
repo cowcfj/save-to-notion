@@ -4,7 +4,11 @@
  */
 
 import Logger from '../scripts/utils/Logger.js';
-import { createSafeIcon, sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import {
+  createSafeIcon,
+  sanitizeApiError,
+  sanitizeUrlForLogging,
+} from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 
@@ -39,6 +43,8 @@ export class SearchableDatabaseSelector {
     this.focusedIndex = -1;
     this.searchTimeout = null; // 防抖動計時器
     this.isSearching = false; // 搜尋狀態標記
+    this.searchRequestId = 0; // 單調遞增：用於丟棄過期搜尋請求
+    this.currentSearchQuery = '';
 
     this.initializeElements();
     this.setupEventListeners();
@@ -53,6 +59,7 @@ export class SearchableDatabaseSelector {
     this.dataSourceCount = document.querySelector('#data-source-count');
     this.refreshButton = document.querySelector('#refresh-databases');
     this.databaseIdInput = document.querySelector('#database-id');
+    this.setToggleExpanded(false);
 
     Logger.info('[Selector] 元素初始化完成', {
       hasContainer: Boolean(this.container),
@@ -71,6 +78,7 @@ export class SearchableDatabaseSelector {
   setupEventListeners() {
     this._handleSearchInput = event => {
       const query = event.target.value.trim();
+      this.currentSearchQuery = query;
 
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
@@ -206,31 +214,50 @@ export class SearchableDatabaseSelector {
     if (!query || query.length < 2) {
       return;
     }
+    this.currentSearchQuery = query;
+    const requestId = ++this.searchRequestId;
 
     try {
       const apiKey = await this.getApiKey();
+      if (this.isStaleSearchRequest(requestId, query)) {
+        return;
+      }
+
       if (!apiKey) {
         Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
         return;
       }
 
       this.isSearching = true;
+      if (this.isStaleSearchRequest(requestId, query)) {
+        return;
+      }
       this.showSearchingState(query);
+      if (this.isStaleSearchRequest(requestId, query)) {
+        return;
+      }
+
       await this.loadDataSources(apiKey, query);
+      if (this.isStaleSearchRequest(requestId, query)) {
+        return;
+      }
+
       Logger.info('伺服器端搜尋完成', { queryLength: query.length });
     } catch (error) {
-      Logger.error('[Selector] 伺服器端搜尋失敗', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-
       // 安全地處理錯誤訊息
       const safeError = sanitizeApiError(error, 'server_search');
+      Logger.error(
+        '[Selector] 伺服器端搜尋失敗',
+        SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
+      );
       const errorMsg = ErrorHandler.formatUserMessage(safeError);
 
       this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
     } finally {
-      this.isSearching = false;
-      this.restoreListAfterLoading();
+      if (!this.isStaleSearchRequest(requestId, query)) {
+        this.isSearching = false;
+        this.restoreListAfterLoading();
+      }
     }
   }
 
@@ -467,6 +494,7 @@ export class SearchableDatabaseSelector {
     }
     this.isOpen = true;
     this.toggleButton?.classList.add('open');
+    this.setToggleExpanded(true);
   }
 
   hideDropdown() {
@@ -476,6 +504,7 @@ export class SearchableDatabaseSelector {
     this.isOpen = false;
     this.focusedIndex = -1;
     this.toggleButton?.classList.remove('open');
+    this.setToggleExpanded(false);
     this.renderDataSourceList();
   }
 
@@ -584,11 +613,11 @@ export class SearchableDatabaseSelector {
       this.showLoading();
       await this.loadDataSources(apiKey);
     } catch (error) {
-      Logger.error('[Selector] 重新載入資料來源失敗', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-
       const safeError = sanitizeApiError(error, 'refresh_data_sources');
+      Logger.error(
+        '[Selector] 重新載入資料來源失敗',
+        SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
+      );
       const errorMsg = ErrorHandler.formatUserMessage(safeError);
       this.showStatus(`重新載入失敗: ${errorMsg}`, 'error');
     } finally {
@@ -620,6 +649,41 @@ export class SearchableDatabaseSelector {
     if (loadingState) {
       this.renderDataSourceList();
     }
+  }
+
+  isStaleSearchRequest(requestId, query) {
+    return requestId !== this.searchRequestId || this.currentSearchQuery !== query;
+  }
+
+  setToggleExpanded(isExpanded) {
+    if (this.toggleButton) {
+      this.toggleButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    }
+  }
+
+  static createSafeErrorLogContext(safeError) {
+    if (typeof safeError === 'string') {
+      return { message: safeError };
+    }
+
+    if (safeError && typeof safeError === 'object') {
+      const context = {};
+      if (typeof safeError.message === 'string') {
+        context.message = safeError.message;
+      }
+      if (typeof safeError.details === 'string') {
+        context.details = safeError.details;
+      }
+      if (typeof safeError.code === 'string') {
+        context.code = safeError.code;
+      }
+      if (typeof safeError.url === 'string') {
+        context.url = sanitizeUrlForLogging(safeError.url);
+      }
+      return Object.keys(context).length > 0 ? context : { message: 'Unknown Error' };
+    }
+
+    return { message: 'Unknown Error' };
   }
 
   static extractDataSourceTitle(ds) {
