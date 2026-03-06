@@ -614,6 +614,7 @@ describe('AuthManager Extended', () => {
         'notionAuthMode',
         'notionOAuthToken',
         'notionRefreshToken',
+        'notionRefreshProof',
         'notionWorkspaceId',
         'notionWorkspaceName',
         'notionBotId',
@@ -706,12 +707,16 @@ describe('AuthManager Extended', () => {
     });
 
     test('refreshOAuthToken: 成功刷新並回傳 access token', async () => {
-      chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_2' });
+      chrome.storage.local.get.mockResolvedValueOnce({
+        notionRefreshToken: 'refresh_2',
+        notionRefreshProof: 'proof_2',
+      });
       globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
           access_token: 'new_access_token',
           refresh_token: 'new_refresh_token',
+          refresh_proof: 'proof_2_new',
         }),
       });
 
@@ -724,9 +729,16 @@ describe('AuthManager Extended', () => {
           body: expect.stringContaining('"refresh_token":"refresh_2"'),
         })
       );
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        expect.objectContaining({
+          body: expect.stringContaining('"refresh_proof":"proof_2"'),
+        })
+      );
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         notionOAuthToken: 'new_access_token',
         notionRefreshToken: 'new_refresh_token',
+        notionRefreshProof: 'proof_2_new',
       });
       expect(result).toBe('new_access_token');
     });

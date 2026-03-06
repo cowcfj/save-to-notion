@@ -30,7 +30,7 @@ export async function getActiveNotionToken() {
  */
 export async function refreshOAuthToken() {
   try {
-    const localData = await chrome.storage.local.get(['notionRefreshToken']);
+    const localData = await chrome.storage.local.get(['notionRefreshToken', 'notionRefreshProof']);
     if (!localData.notionRefreshToken) {
       Logger.error('無法刷新 Token：缺少 refresh_token', {
         action: 'refreshOAuthToken',
@@ -45,7 +45,10 @@ export async function refreshOAuthToken() {
         'Content-Type': 'application/json',
         'X-Extension-Key': NOTION_OAUTH.EXTENSION_API_KEY,
       },
-      body: JSON.stringify({ refresh_token: localData.notionRefreshToken }),
+      body: JSON.stringify({
+        refresh_token: localData.notionRefreshToken,
+        ...(localData.notionRefreshProof ? { refresh_proof: localData.notionRefreshProof } : {}),
+      }),
     });
 
     if (!response.ok) {
@@ -70,10 +73,19 @@ export async function refreshOAuthToken() {
       return null;
     }
 
-    await chrome.storage.local.set({
+    const hasValidRefreshProof =
+      typeof data?.refresh_proof === 'string' && data.refresh_proof.trim().length > 0;
+
+    const nextStorage = {
       notionOAuthToken: data.access_token,
       notionRefreshToken: data.refresh_token,
-    });
+      ...(hasValidRefreshProof ? { notionRefreshProof: data.refresh_proof } : {}),
+    };
+
+    await chrome.storage.local.set(nextStorage);
+    if (!hasValidRefreshProof) {
+      await chrome.storage.local.remove(['notionRefreshProof']);
+    }
 
     Logger.success('OAuth Token 已刷新', { action: 'refreshOAuthToken' });
     return data.access_token;

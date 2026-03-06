@@ -25,6 +25,7 @@ describe('notionAuth utils', () => {
         local: {
           get: jest.fn().mockResolvedValue({}),
           set: jest.fn().mockResolvedValue(),
+          remove: jest.fn().mockResolvedValue(),
         },
       },
     };
@@ -95,13 +96,17 @@ describe('notionAuth utils', () => {
     });
   });
 
-  test('refreshOAuthToken 成功時應更新 storage 並回傳 access token', async () => {
-    chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_token_2' });
+  test('refreshOAuthToken 成功時應更新 storage、攜帶 proof 並回傳 access token', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_2',
+      notionRefreshProof: 'refresh_proof_2',
+    });
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,
       json: jest.fn().mockResolvedValue({
         access_token: 'access_token_2',
         refresh_token: 'refresh_token_2_new',
+        refresh_proof: 'refresh_proof_2_new',
       }),
     });
 
@@ -113,16 +118,37 @@ describe('notionAuth utils', () => {
         headers: expect.objectContaining({
           'X-Extension-Key': expect.any(String),
         }),
+        body: expect.stringContaining('\"refresh_proof\":\"refresh_proof_2\"'),
       })
     );
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       notionOAuthToken: 'access_token_2',
       notionRefreshToken: 'refresh_token_2_new',
+      notionRefreshProof: 'refresh_proof_2_new',
     });
     expect(Logger.success).toHaveBeenCalledWith('OAuth Token 已刷新', {
       action: 'refreshOAuthToken',
     });
     expect(result).toBe('access_token_2');
+  });
+
+  test('refreshOAuthToken 回應未帶 refresh_proof 時應清除舊 proof', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_3',
+      notionRefreshProof: 'refresh_proof_3',
+    });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: 'access_token_3',
+        refresh_token: 'refresh_token_3_new',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBe('access_token_3');
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith(['notionRefreshProof']);
   });
 
   test('refreshOAuthToken 回應缺少 access_token 時不應覆寫 storage', async () => {

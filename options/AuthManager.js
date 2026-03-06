@@ -541,14 +541,20 @@ export class AuthManager {
       const tokenData = await this._exchangeOAuthToken(code, redirectUri);
 
       // 8. 存儲 Token 及相關資料到 chrome.storage.local
+      const hasRefreshProof =
+        typeof tokenData.refresh_proof === 'string' && tokenData.refresh_proof.trim().length > 0;
       await chrome.storage.local.set({
         notionAuthMode: AuthMode.OAUTH,
         notionOAuthToken: tokenData.access_token,
         notionRefreshToken: tokenData.refresh_token,
+        ...(hasRefreshProof ? { notionRefreshProof: tokenData.refresh_proof } : {}),
         notionWorkspaceId: tokenData.workspace_id,
         notionWorkspaceName: tokenData.workspace_name,
         notionBotId: tokenData.bot_id,
       });
+      if (!hasRefreshProof) {
+        await chrome.storage.local.remove(['notionRefreshProof']);
+      }
 
       Logger.success('Notion OAuth 連接成功', {
         action: 'startOAuthFlow',
@@ -605,6 +611,7 @@ export class AuthManager {
         'notionAuthMode',
         'notionOAuthToken',
         'notionRefreshToken',
+        'notionRefreshProof',
         'notionWorkspaceId',
         'notionWorkspaceName',
         'notionBotId',
