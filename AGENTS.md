@@ -19,7 +19,7 @@
 | **👀 審核**       | [`CODE_REVIEW_GUIDE.md`](docs/guides/CODE_REVIEW_GUIDE.md)                     | PR 審核、代碼質量評估                           |
 | **🌐 Chrome**     | [`CHROME_EXTENSION_PATTERNS.md`](docs/guides/CHROME_EXTENSION_PATTERNS.md)     | MV3 API、Message Passing、Storage               |
 | **📝 Notion**     | [`NOTION_API_PATTERNS.md`](docs/guides/NOTION_API_PATTERNS.md)                 | API Rate Limits、Block 結構、常量配置           |
-| **💻 編碼**       | [`CODE_PATTERNS_GUIDE.md`](docs/guides/CODE_PATTERNS_GUIDE.md)                 | Linter 規則、Magic Numbers、Async/Await         |
+| **💻 編碼**       | [`CODE_PATTERNS_GUIDE.md`](docs/guides/CODE_PATTERNS_GUIDE.md)                 | 日誌系統約定、防禦性程式設計、DOM 安全、Linter  |
 | **🔒 安全 (App)** | [`SECURITY_BEST_PRACTICES.md`](docs/guides/SECURITY_BEST_PRACTICES.md)         | 威脅模型評估、避免過度設計、RFD 防護、DOM 安全  |
 | **📚 文檔**       | [`DOCUMENTATION_STRATEGY.md`](docs/guides/DOCUMENTATION_STRATEGY.md)           | 文檔更新規則、Markdown 格式                     |
 | **🤖 MCP**        | [`MCP_USAGE_GUIDELINES.md`](docs/guides/MCP_USAGE_GUIDELINES.md)               | Tool 使用準則、避免誤用、MCP 列表               |

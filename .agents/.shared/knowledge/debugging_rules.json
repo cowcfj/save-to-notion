@@ -1,6 +1,66 @@
 {
   "project_context": "Notion Chrome Extension (MV3)",
-  "description": "Project-specific debugging environments, storage targets, and test commands. AI agents must use these rules during root-cause analysis.",
+  "description": "Project-specific debugging environments, logging rules, storage targets, and test commands. AI agents must use these rules during root-cause analysis and code generation.",
+  "logging_rules": {
+    "description": "Unified Logger system rules. The Logger class auto-manages emoji icons — agents and developers MUST NOT manually insert emoji into log messages.",
+    "methods": {
+      "Logger.success(msg, ctx?)": {
+        "output_prefix": "[INFO] ✅",
+        "use_for": "操作成功確認"
+      },
+      "Logger.start(msg, ctx?)": {
+        "output_prefix": "[INFO] 🚀",
+        "use_for": "流程啟動"
+      },
+      "Logger.ready(msg, ctx?)": {
+        "output_prefix": "[INFO] 📦",
+        "use_for": "模組或資源就緒"
+      },
+      "Logger.info(msg, ctx?)": {
+        "output_prefix": "[INFO]",
+        "use_for": "一般資訊（無自動圖標）"
+      },
+      "Logger.debug(msg, ctx?)": {
+        "output_prefix": "[DEBUG]",
+        "use_for": "開發除錯（受 enableDebugLogs 開關控制）"
+      },
+      "Logger.warn(msg, ctx?)": {
+        "output_prefix": "[WARN] ⚠️",
+        "use_for": "非致命性警告"
+      },
+      "Logger.error(msg, ctx?)": {
+        "output_prefix": "[ERROR] ❌",
+        "use_for": "錯誤記錄（始終顯示，不受 debug 開關影響）"
+      }
+    },
+    "emoji_rules": {
+      "auto_managed": ["✅", "🚀", "📦", "⚠️", "❌"],
+      "manual_allowed": ["🔍", "🗑️", "📋"],
+      "rule": "除非需要「搜索 🔍」或「垃圾桶 🗑️」等特殊語義圖標，否則嚴禁手動輸入圖標。使用對應的 Logger 專用方法即可。"
+    },
+    "structured_fields": {
+      "action": "公開 API 函數名稱 (e.g. 'loadHighlights', 'savePage')",
+      "operation": "內部操作步驟 (e.g. 'parseLocalStorage', 'buildUrl')",
+      "phase": "執行階段 (optional, e.g. 'validation', 'apiCall')",
+      "result": "操作結果 (e.g. 'blocked', 'success', 'failed')",
+      "reason": "原因代碼 (e.g. 'restricted_url', 'timeout')",
+      "error": "錯誤物件 (Logger 會自動展開 Stack Trace)"
+    },
+    "security": {
+      "forbidden": [
+        "完整的 sender/tab 物件",
+        "用戶內容 (title, highlight text)",
+        "Schema 結構 (properties)",
+        "PII (email)"
+      ],
+      "allowed": ["必要的 ID", "脫敏後的錯誤訊息"],
+      "reference": "docs/guides/SECURITY_BEST_PRACTICES.md"
+    },
+    "design_decisions": {
+      "no_timestamp": "單用戶場景 + Chrome DevTools 內建時間戳，FIFO LogBuffer 隱含時間順序",
+      "console_dx": "持久化層結構化，展示層人性化（控制台保留多參數展開行為，不強制 JSON.stringify）"
+    }
+  },
   "precise_test_fixing": {
     "execution": {
       "command": "npx jest <path/to/test.js> --no-coverage",
@@ -70,11 +130,5 @@
         "Missing CSS Highlight API support."
       ]
     }
-  },
-  "logging_patterns": {
-    "init": "[初始化]...",
-    "storage": "[存儲]...",
-    "highlight": "[標註]...",
-    "error": "[錯誤]..."
   }
 }
