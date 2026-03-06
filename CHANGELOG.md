@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.43.0](https://github.com/cowcfj/save-to-notion/compare/v2.42.0...v2.43.0) (2026-03-06)
+
+
+### ✨ 新功能
+
+* 增加 OAuth 刷新流程中的 refresh_proof 支援 ([#329](https://github.com/cowcfj/save-to-notion/issues/329)) ([30ce878](https://github.com/cowcfj/save-to-notion/commit/30ce8789fca40debb15da0944106d46e2ee5f1f4))
+
+
+### 🧹 其他變更
+
+* 移除報告撰寫標準指南的連結 ([aca681b](https://github.com/cowcfj/save-to-notion/commit/aca681b49e08d28e43d20a06d7a224c91f258e46))
+
 ## [2.42.0](https://github.com/cowcfj/save-to-notion/compare/v2.41.0...v2.42.0) (2026-03-06)
 
 
