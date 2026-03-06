@@ -13,9 +13,18 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 }));
 
 import Logger from '../../../scripts/utils/Logger.js';
-import { getActiveNotionToken, refreshOAuthToken } from '../../../scripts/utils/notionAuth.js';
+import {
+  getActiveNotionToken,
+  refreshOAuthToken,
+  isNonEmptyString,
+} from '../../../scripts/utils/notionAuth.js';
 
 describe('notionAuth utils', () => {
+  test('isNonEmptyString 應正確判斷非空字串', () => {
+    expect(isNonEmptyString(' proof ')).toBe(true);
+    expect(isNonEmptyString('   ')).toBe(false);
+    expect(isNonEmptyString(null)).toBe(false);
+  });
   beforeEach(() => {
     globalThis.chrome = {
       storage: {

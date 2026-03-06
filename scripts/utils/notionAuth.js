@@ -4,6 +4,16 @@ import { AuthMode, NOTION_OAUTH } from '../config/constants.js';
 import { sanitizeApiError } from './securityUtils.js';
 
 /**
+ * 檢查值是否為有效的非空字串
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
  * 取得目前有效的 Notion API Token（不論模式）
  * 優先讀取 OAuth Token（local），若無則讀取手動 API Key（sync）
  *
@@ -60,10 +70,8 @@ export async function refreshOAuthToken() {
     }
 
     const data = await response.json();
-    const hasValidAccessToken =
-      typeof data?.access_token === 'string' && data.access_token.trim().length > 0;
-    const hasValidRefreshToken =
-      typeof data?.refresh_token === 'string' && data.refresh_token.trim().length > 0;
+    const hasValidAccessToken = isNonEmptyString(data?.access_token);
+    const hasValidRefreshToken = isNonEmptyString(data?.refresh_token);
 
     if (!hasValidAccessToken || !hasValidRefreshToken) {
       Logger.error('OAuth Token 刷新回應缺少必要欄位', {
@@ -73,8 +81,7 @@ export async function refreshOAuthToken() {
       return null;
     }
 
-    const hasValidRefreshProof =
-      typeof data?.refresh_proof === 'string' && data.refresh_proof.trim().length > 0;
+    const hasValidRefreshProof = isNonEmptyString(data?.refresh_proof);
 
     const nextStorage = {
       notionOAuthToken: data.access_token,

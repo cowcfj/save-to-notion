@@ -5,7 +5,11 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { AuthMode, NOTION_OAUTH } from '../scripts/config/constants.js';
-import { getActiveNotionToken, refreshOAuthToken } from '../scripts/utils/notionAuth.js';
+import {
+  getActiveNotionToken,
+  refreshOAuthToken,
+  isNonEmptyString,
+} from '../scripts/utils/notionAuth.js';
 
 /**
  * AuthManager.js
@@ -439,10 +443,8 @@ export class AuthManager {
     }
 
     const tokenData = await tokenResponse.json();
-    const hasAccessToken =
-      typeof tokenData.access_token === 'string' && tokenData.access_token.trim().length > 0;
-    const hasRefreshToken =
-      typeof tokenData.refresh_token === 'string' && tokenData.refresh_token.trim().length > 0;
+    const hasAccessToken = isNonEmptyString(tokenData.access_token);
+    const hasRefreshToken = isNonEmptyString(tokenData.refresh_token);
 
     if (!hasAccessToken || !hasRefreshToken) {
       throw new Error('OAuth token 回應缺少必要欄位');
@@ -541,8 +543,7 @@ export class AuthManager {
       const tokenData = await this._exchangeOAuthToken(code, redirectUri);
 
       // 8. 存儲 Token 及相關資料到 chrome.storage.local
-      const hasRefreshProof =
-        typeof tokenData.refresh_proof === 'string' && tokenData.refresh_proof.trim().length > 0;
+      const hasRefreshProof = isNonEmptyString(tokenData.refresh_proof);
       await chrome.storage.local.set({
         notionAuthMode: AuthMode.OAUTH,
         notionOAuthToken: tokenData.access_token,
