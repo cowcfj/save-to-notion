@@ -2,7 +2,12 @@
  * @jest-environment jsdom
  */
 
+jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
+  refreshOAuthToken: jest.fn(),
+}));
+
 import { createNotionHandlers } from '../../../../scripts/background/handlers/notionHandlers.js';
+import { refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
 
 // Mock Logger
 globalThis.Logger = {
@@ -121,6 +126,29 @@ describe('notionHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false, error: expect.any(String) })
       );
+    });
+  });
+
+  describe('refreshOAuthToken', () => {
+    test('應該允許內部請求並回傳刷新後 token', async () => {
+      const sender = { id: 'test-extension-id' };
+      const sendResponse = jest.fn();
+      refreshOAuthToken.mockResolvedValueOnce('oauth_token_refreshed');
+
+      await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
+
+      expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, token: 'oauth_token_refreshed' });
+    });
+
+    test('刷新失敗時應回傳失敗結果', async () => {
+      const sender = { id: 'test-extension-id' };
+      const sendResponse = jest.fn();
+      refreshOAuthToken.mockResolvedValueOnce(null);
+
+      await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({ success: false, token: null });
     });
   });
 });

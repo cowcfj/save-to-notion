@@ -4,6 +4,13 @@
   "storage_areas": {
     "local": {
       "limits": "5MB (unlimitedStorage permission)",
+      "keys": {
+        "notionAuthEpoch": {
+          "type": "number",
+          "description": "Monotonic epoch for OAuth auth-state mutations across contexts; used to detect stale refresh writes",
+          "default": 0
+        }
+      },
       "patterns": {
         "page_{stableUrl}": {
           "description": "Unified page state (Phase 3 Architecture) containing Notion saved status and local highlights",

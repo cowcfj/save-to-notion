@@ -91,10 +91,10 @@
     "content_script": {
       "symptom": "Highlighting functionality is broken.",
       "tools": "Target Website DevTools Console",
-      "filters": ["[標註]", "[存儲]", "[初始化]"],
+      "filters": ["初始化完成", "初始化失敗", "跳過恢復標註（頁面已刪除）"],
       "checklist": [
         "Check CSS.highlights support: `'highlights' in CSS` in console.",
-        "Verify initialization log: `[INFO] ✅ [初始化] 標註系統初始化完成` or similar.",
+        "Verify initialization log contains `[INFO] ✅ 初始化完成` (from `Logger.success('初始化完成', { action: 'initialize' })`).",
         "Inspect local storage: `chrome.storage.local.get(['highlights_${url}'])`.",
         "Compare stored URL with current URL using `normalizeUrl(window.location.href)`."
       ]
@@ -104,7 +104,7 @@
       "tools": "chrome://extensions/ → Inspect service worker",
       "checklist": [
         "Check for API 400/500 status codes.",
-        "Look for batch processing logs: `[存儲] 準備分批添加區塊: 總共 X 個`.",
+        "Look for batch processing logs like `[INFO] [NotionService] 準備分批添加區塊`.",
         "Verify Notion API rate limit delays between batches (350ms).",
         "Check storage quota: `chrome.storage.local.getBytesInUse()`."
       ]

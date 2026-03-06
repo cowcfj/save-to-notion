@@ -3,6 +3,9 @@ import Logger from './Logger.js';
 import { AuthMode, NOTION_OAUTH } from '../config/constants.js';
 import { sanitizeApiError } from './securityUtils.js';
 
+const AUTH_EPOCH_KEY = 'notionAuthEpoch';
+const REFRESH_OAUTH_TOKEN_ACTION = 'refreshOAuthToken';
+
 /**
  * 檢查值是否為有效的非空字串
  *
@@ -15,17 +18,41 @@ export function isNonEmptyString(value) {
 
 let refreshInFlightPromise = null;
 
-async function shouldAbortRefreshMutation(oldRefreshToken) {
-  const latestAuthState = await chrome.storage.local.get(['notionAuthMode', 'notionRefreshToken']);
+function normalizeAuthEpoch(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function isBackgroundContext() {
+  return globalThis.window === undefined;
+}
+
+async function getAuthMutationState() {
+  return chrome.storage.local.get(['notionAuthMode', 'notionRefreshToken', AUTH_EPOCH_KEY]);
+}
+
+export async function getNextAuthEpoch() {
+  const authState = await chrome.storage.local.get([AUTH_EPOCH_KEY]);
+  return normalizeAuthEpoch(authState[AUTH_EPOCH_KEY]) + 1;
+}
+
+async function shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch) {
+  const latestAuthState = await getAuthMutationState();
 
   return (
     latestAuthState.notionAuthMode !== AuthMode.OAUTH ||
-    latestAuthState.notionRefreshToken !== oldRefreshToken
+    latestAuthState.notionRefreshToken !== oldRefreshToken ||
+    normalizeAuthEpoch(latestAuthState[AUTH_EPOCH_KEY]) !== startAuthEpoch
   );
 }
 
-async function clearStoredRefreshProof(action) {
+async function clearStoredRefreshProof(action, nextAuthEpoch = null) {
   try {
+    const nextState = { notionRefreshProof: null };
+    if (nextAuthEpoch !== null) {
+      nextState[AUTH_EPOCH_KEY] = nextAuthEpoch;
+    }
+
+    await chrome.storage.local.set(nextState);
     await chrome.storage.local.remove(['notionRefreshProof']);
   } catch (error) {
     Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
@@ -57,8 +84,14 @@ export async function getActiveNotionToken() {
 
 async function performRefreshOAuthToken() {
   try {
-    const localData = await chrome.storage.local.get(['notionRefreshToken', 'notionRefreshProof']);
+    const localData = await chrome.storage.local.get([
+      'notionAuthMode',
+      'notionRefreshToken',
+      'notionRefreshProof',
+      AUTH_EPOCH_KEY,
+    ]);
     const oldRefreshToken = localData.notionRefreshToken;
+    const startAuthEpoch = normalizeAuthEpoch(localData[AUTH_EPOCH_KEY]);
 
     if (!oldRefreshToken) {
       Logger.error('無法刷新 Token：缺少 refresh_token', {
@@ -92,11 +125,11 @@ async function performRefreshOAuthToken() {
       }
 
       if (errorCode === 'INVALID_REFRESH_PROOF') {
-        if (await shouldAbortRefreshMutation(oldRefreshToken)) {
+        if (await shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch)) {
           return null;
         }
 
-        await clearStoredRefreshProof('refreshOAuthToken');
+        await clearStoredRefreshProof('refreshOAuthToken', startAuthEpoch + 1);
       }
 
       Logger.error('Token 刷新請求失敗', {
@@ -123,10 +156,11 @@ async function performRefreshOAuthToken() {
     const nextStorage = {
       notionOAuthToken: data.access_token,
       notionRefreshToken: data.refresh_token,
-      ...(hasValidRefreshProof ? { notionRefreshProof: data.refresh_proof } : {}),
+      notionRefreshProof: hasValidRefreshProof ? data.refresh_proof : null,
+      [AUTH_EPOCH_KEY]: startAuthEpoch + 1,
     };
 
-    if (await shouldAbortRefreshMutation(oldRefreshToken)) {
+    if (await shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch)) {
       return null;
     }
 
@@ -146,12 +180,30 @@ async function performRefreshOAuthToken() {
   }
 }
 
+async function requestBackgroundRefreshOAuthToken() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: REFRESH_OAUTH_TOKEN_ACTION });
+
+    return response?.success ? (response.token ?? null) : null;
+  } catch (error) {
+    Logger.error('[Auth] 委派 Background 刷新 OAuth Token 失敗', {
+      action: 'refreshOAuthToken',
+      error: sanitizeApiError(error, 'refresh_oauth_token_delegate'),
+    });
+    return null;
+  }
+}
+
 /**
  * 刷新 OAuth Token
  *
  * @returns {Promise<string|null>} 新的 access_token 或 null
  */
 export async function refreshOAuthToken() {
+  if (!isBackgroundContext() && chrome.runtime?.sendMessage) {
+    return requestBackgroundRefreshOAuthToken();
+  }
+
   if (refreshInFlightPromise) {
     return refreshInFlightPromise;
   }

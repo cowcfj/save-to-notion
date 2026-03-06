@@ -8,6 +8,7 @@ import { AuthMode, NOTION_OAUTH } from '../scripts/config/constants.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
+  getNextAuthEpoch,
   isNonEmptyString,
 } from '../scripts/utils/notionAuth.js';
 
@@ -521,14 +522,17 @@ export class AuthManager {
    */
   async _saveOAuthTokenData(tokenData) {
     const hasRefreshProof = isNonEmptyString(tokenData.refresh_proof);
+    const nextAuthEpoch = await getNextAuthEpoch();
+
     await chrome.storage.local.set({
       notionAuthMode: AuthMode.OAUTH,
       notionOAuthToken: tokenData.access_token,
       notionRefreshToken: tokenData.refresh_token,
-      ...(hasRefreshProof ? { notionRefreshProof: tokenData.refresh_proof } : {}),
+      notionRefreshProof: hasRefreshProof ? tokenData.refresh_proof : null,
       notionWorkspaceId: tokenData.workspace_id,
       notionWorkspaceName: tokenData.workspace_name,
       notionBotId: tokenData.bot_id,
+      notionAuthEpoch: nextAuthEpoch,
     });
     if (!hasRefreshProof) {
       try {
@@ -634,6 +638,7 @@ export class AuthManager {
     try {
       Logger.start('開始斷開 OAuth 連接', { action: 'disconnectOAuth' });
       const syncData = await chrome.storage.sync.get(['notionApiKey']);
+      const nextAuthEpoch = await getNextAuthEpoch();
 
       await chrome.storage.local.remove([
         'notionAuthMode',
@@ -644,6 +649,7 @@ export class AuthManager {
         'notionWorkspaceName',
         'notionBotId',
       ]);
+      await chrome.storage.local.set({ notionAuthEpoch: nextAuthEpoch });
       if (syncData.notionApiKey) {
         Logger.info('[Auth] 已清除 OAuth 資料（保留手動資料來源設定）', {
           action: 'disconnectOAuth',
