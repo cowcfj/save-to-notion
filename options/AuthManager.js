@@ -531,7 +531,14 @@ export class AuthManager {
       notionBotId: tokenData.bot_id,
     });
     if (!hasRefreshProof) {
-      await chrome.storage.local.remove(['notionRefreshProof']);
+      try {
+        await chrome.storage.local.remove(['notionRefreshProof']);
+      } catch (error) {
+        Logger.warn('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+          action: '_saveOAuthTokenData',
+          error: sanitizeApiError(error, '_saveOAuthTokenData'),
+        });
+      }
     }
   }
 

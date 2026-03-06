@@ -105,6 +105,60 @@ describe('notionAuth utils', () => {
     });
   });
 
+  test('refreshOAuthToken 遇到 INVALID_REFRESH_PROOF 時應清理本地 proof', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_invalid_proof',
+      notionRefreshProof: 'stale_proof',
+    });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: jest.fn().mockResolvedValue({
+        error_code: 'INVALID_REFRESH_PROOF',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBeNull();
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith(['notionRefreshProof']);
+  });
+
+  test('refreshOAuthToken 並發呼叫時應共用同一次 refresh', async () => {
+    let resolveRefresh;
+    const refreshPromise = new Promise(resolve => {
+      resolveRefresh = resolve;
+    });
+
+    chrome.storage.local.get.mockResolvedValue({
+      notionRefreshToken: 'shared_refresh_token',
+      notionRefreshProof: 'shared_refresh_proof',
+    });
+    globalThis.fetch.mockReturnValue(refreshPromise);
+
+    const firstCall = refreshOAuthToken();
+    const secondCall = refreshOAuthToken();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(1);
+
+    resolveRefresh({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: 'shared_access_token',
+        refresh_token: 'shared_refresh_token_new',
+        refresh_proof: 'shared_refresh_proof_new',
+      }),
+    });
+
+    await expect(firstCall).resolves.toBe('shared_access_token');
+    await expect(secondCall).resolves.toBe('shared_access_token');
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+  });
+
   test('refreshOAuthToken 成功時應更新 storage、攜帶 proof 並回傳 access token', async () => {
     chrome.storage.local.get.mockResolvedValueOnce({
       notionRefreshToken: 'refresh_token_2',

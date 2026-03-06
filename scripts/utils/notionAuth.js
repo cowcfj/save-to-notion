@@ -13,6 +13,19 @@ export function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+let refreshInFlightPromise = null;
+
+async function clearStoredRefreshProof(action) {
+  try {
+    await chrome.storage.local.remove(['notionRefreshProof']);
+  } catch (error) {
+    Logger.warn('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+      action,
+      error: sanitizeApiError(error, action),
+    });
+  }
+}
+
 /**
  * 取得目前有效的 Notion API Token（不論模式）
  * 優先讀取 OAuth Token（local），若無則讀取手動 API Key（sync）
@@ -33,12 +46,7 @@ export async function getActiveNotionToken() {
   return { token: null, mode: null };
 }
 
-/**
- * 刷新 OAuth Token
- *
- * @returns {Promise<string|null>} 新的 access_token 或 null
- */
-export async function refreshOAuthToken() {
+async function performRefreshOAuthToken() {
   try {
     const localData = await chrome.storage.local.get(['notionRefreshToken', 'notionRefreshProof']);
     if (!localData.notionRefreshToken) {
@@ -64,6 +72,18 @@ export async function refreshOAuthToken() {
     });
 
     if (!response.ok) {
+      let errorCode = null;
+      try {
+        const errorData = await response.json();
+        errorCode = errorData?.error_code ?? null;
+      } catch {
+        errorCode = null;
+      }
+
+      if (errorCode === 'INVALID_REFRESH_PROOF') {
+        await clearStoredRefreshProof('refreshOAuthToken');
+      }
+
       Logger.error('Token 刷新請求失敗', {
         action: 'refreshOAuthToken',
         status: response.status,
@@ -93,14 +113,7 @@ export async function refreshOAuthToken() {
 
     await chrome.storage.local.set(nextStorage);
     if (!hasValidRefreshProof) {
-      try {
-        await chrome.storage.local.remove(['notionRefreshProof']);
-      } catch (error) {
-        Logger.warn('清理舊的 refresh_proof 失敗，將忽略並繼續', {
-          action: 'refreshOAuthToken',
-          error: sanitizeApiError(error, 'refreshOAuthToken'),
-        });
-      }
+      await clearStoredRefreshProof('refreshOAuthToken');
     }
 
     Logger.success('OAuth Token 已刷新', { action: 'refreshOAuthToken' });
@@ -112,4 +125,21 @@ export async function refreshOAuthToken() {
     });
     return null;
   }
+}
+
+/**
+ * 刷新 OAuth Token
+ *
+ * @returns {Promise<string|null>} 新的 access_token 或 null
+ */
+export async function refreshOAuthToken() {
+  if (refreshInFlightPromise) {
+    return refreshInFlightPromise;
+  }
+
+  refreshInFlightPromise = performRefreshOAuthToken().finally(() => {
+    refreshInFlightPromise = null;
+  });
+
+  return refreshInFlightPromise;
 }

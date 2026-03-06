@@ -561,6 +561,46 @@ describe('AuthManager Extended', () => {
       );
     });
 
+    test('清理舊 refresh_proof 失敗時仍應視為 OAuth 連接成功', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-remove-proof-failed');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-remove-proof-failed'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-remove-proof-failed' });
+      chrome.storage.local.remove.mockRejectedValueOnce(new Error('remove proof failed'));
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          access_token: 'oauth_access_token',
+          refresh_token: 'oauth_refresh_token',
+          workspace_id: 'workspace_id',
+          workspace_name: 'Workspace A',
+          bot_id: 'bot_id',
+        }),
+      });
+      jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
+
+      await authManager.startOAuthFlow();
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionOAuthToken: 'oauth_access_token',
+          notionRefreshToken: 'oauth_refresh_token',
+          notionWorkspaceId: 'workspace_id',
+          notionWorkspaceName: 'Workspace A',
+          notionBotId: 'bot_id',
+        })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+        action: '_saveOAuthTokenData',
+        error: expect.any(String),
+      });
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        '✅ 已成功連接 Notion — Workspace A',
+        'success'
+      );
+    });
+
     test('CSRF 驗證失敗時應顯示錯誤且恢復按鈕', async () => {
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-abc');
       chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
