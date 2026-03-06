@@ -6,8 +6,6 @@
 describe('Highlighter Interactions', () => {
   beforeEach(() => {
     document.documentElement.innerHTML = '<body></body>';
-    globalThis.Selection = globalThis.Selection;
-    globalThis.Range = globalThis.Range;
   });
 
   describe('文本選擇和高亮創建', () => {

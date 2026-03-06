@@ -365,7 +365,6 @@ describe('options.js', () => {
       expect(mockDataSourceInstance.init).toHaveBeenCalled();
       expect(mockStorageInstance.init).toHaveBeenCalled();
       expect(mockMigrationInstance.init).toHaveBeenCalled();
-      expect(mockMigrationInstance.init).toHaveBeenCalled();
       expect(mockAuthInstance.checkAuthStatus).toHaveBeenCalled();
     });
 

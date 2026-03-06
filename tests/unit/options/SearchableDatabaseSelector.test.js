@@ -408,7 +408,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('performServerSearch 應該在 API Key 缺失時記錄警告 (Line 204)', async () => {
-      mockGetApiKey.mockReturnValue(null);
+      mockGetApiKey.mockResolvedValue(null);
       await selector.performServerSearch('query');
       expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 API Key'));
     });

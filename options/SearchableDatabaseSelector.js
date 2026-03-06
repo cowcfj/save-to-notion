@@ -575,7 +575,7 @@ export class SearchableDatabaseSelector {
     const apiKey = await this.getApiKey();
     if (apiKey) {
       this.showLoading();
-      this.loadDataSources(apiKey);
+      await this.loadDataSources(apiKey);
     }
   }
 

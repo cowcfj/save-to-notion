@@ -9,6 +9,17 @@ describe('content script require test', () => {
     jest.resetModules();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+    delete globalThis.Readability;
+    delete globalThis.ImageUtils;
+    delete globalThis.chrome;
+    if (globalThis.window && '__UNIT_TESTING__' in globalThis.window) {
+      delete globalThis.window.__UNIT_TESTING__;
+    }
+  });
+
   test('require scripts/content.js with jsdom globals', async () => {
     const html =
       '<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';

@@ -1,8 +1,11 @@
+const convert = () => null;
+const resolve = () => null;
+const utils = {
+  isColor: () => false,
+};
+
 module.exports = {
-  resolve: () => null,
-  utils: {
-    cssCalc: () => null,
-    resolveGradient: () => null,
-    splitValue: () => [],
-  },
+  convert,
+  resolve,
+  utils,
 };
