@@ -246,7 +246,10 @@ describe('Background Script Lifecycle', () => {
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('顯示更新通知失敗'),
-        expect.anything()
+        expect.objectContaining({
+          error: expect.any(Error),
+          action: 'showUpdateNotification',
+        })
       );
     });
 
