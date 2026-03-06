@@ -233,9 +233,6 @@ export class SearchableDatabaseSelector {
         return;
       }
       this.showSearchingState(query);
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
 
       await this.loadDataSources(apiKey, query);
       if (this.isStaleSearchRequest(requestId, query)) {

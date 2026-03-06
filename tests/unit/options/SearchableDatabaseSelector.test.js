@@ -41,7 +41,7 @@ describe('SearchableDatabaseSelector', () => {
 
     mockShowStatus = jest.fn();
     mockLoadDataSources = jest.fn();
-    mockGetApiKey = jest.fn(() => 'mock_api_key');
+    mockGetApiKey = jest.fn().mockResolvedValue('mock_api_key');
 
     selector = new SearchableDatabaseSelector({
       showStatus: mockShowStatus,
