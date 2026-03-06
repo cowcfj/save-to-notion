@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.42.0](https://github.com/cowcfj/save-to-notion/compare/v2.41.0...v2.42.0) (2026-03-06)
+
+
+### ✨ 新功能
+
+* 更新 OAuth 模式下的 API Key 驗證邏輯 ([#327](https://github.com/cowcfj/save-to-notion/issues/327)) ([da111c4](https://github.com/cowcfj/save-to-notion/commit/da111c4a39c935b7557c393fb40aeffea82b00c3))
+
 ## [2.41.0](https://github.com/cowcfj/save-to-notion/compare/v2.40.0...v2.41.0) (2026-03-04)
 
 
