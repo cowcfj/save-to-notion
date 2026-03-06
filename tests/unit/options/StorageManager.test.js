@@ -191,6 +191,68 @@ describe('StorageManager', () => {
       expect(Logger.error).not.toHaveBeenCalled();
     });
 
+    it('should exclude OAuth keys from backup payload', async () => {
+      const OriginalBlob = globalThis.Blob;
+      globalThis.Blob = class TestBlob {
+        constructor(parts = []) {
+          this._text = parts.join('');
+        }
+
+        async text() {
+          return this._text;
+        }
+      };
+
+      mockGet.mockImplementation((_keys, sendResponse) => {
+        sendResponse({
+          notionAuthMode: 'oauth',
+          notionOAuthToken: 'oauth_token_secret',
+          notionRefreshToken: 'refresh_token_secret',
+          notionRefreshProof: 'refresh_proof_secret',
+          notionAuthEpoch: 9,
+          notionWorkspaceId: 'workspace_id_secret',
+          notionWorkspaceName: 'Workspace Secret',
+          notionBotId: 'bot_id_secret',
+          page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
+        });
+      });
+
+      let exportedBlob = null;
+      const clickSpy = jest.fn();
+      const originalCreateElement = document.createElement.bind(document);
+      jest.spyOn(globalThis.URL, 'createObjectURL').mockImplementation(blob => {
+        exportedBlob = blob;
+        return 'blob:url';
+      });
+      jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        if (tagName === 'a') {
+          return {
+            click: clickSpy,
+            href: '',
+            download: '',
+            remove: jest.fn(),
+          };
+        }
+        return originalCreateElement(tagName);
+      });
+      jest.spyOn(document.body, 'appendChild').mockImplementation(() => undefined);
+
+      await storageManager.exportData();
+
+      const text = await exportedBlob.text();
+      const backup = JSON.parse(text);
+
+      expect(backup.data).toEqual({
+        page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
+      });
+      expect(backup.data).not.toHaveProperty('notionOAuthToken');
+      expect(backup.data).not.toHaveProperty('notionRefreshToken');
+      expect(backup.data).not.toHaveProperty('notionRefreshProof');
+      expect(backup.data).not.toHaveProperty('notionAuthEpoch');
+
+      globalThis.Blob = OriginalBlob;
+    });
+
     it('should handle export error', async () => {
       mockGet.mockImplementation((_keys, _callback) => {
         // Simulate runtime.lastError behavior if needed, or throw
@@ -214,6 +276,35 @@ describe('StorageManager', () => {
       await storageManager.importData(event);
 
       expect(mockSet).toHaveBeenCalledWith({ key: 'value' }, expect.any(Function));
+    });
+
+    it('should ignore OAuth keys when importing backup data', async () => {
+      const mockContent = JSON.stringify({
+        data: {
+          notionAuthMode: 'oauth',
+          notionOAuthToken: 'oauth_token_secret',
+          notionRefreshToken: 'refresh_token_secret',
+          notionRefreshProof: 'refresh_proof_secret',
+          notionAuthEpoch: 9,
+          notionWorkspaceId: 'workspace_id_secret',
+          notionWorkspaceName: 'Workspace Secret',
+          notionBotId: 'bot_id_secret',
+          page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
+        },
+      });
+      const mockFile = {
+        text: jest.fn().mockResolvedValue(mockContent),
+      };
+      const event = { target: { files: [mockFile] } };
+
+      await storageManager.importData(event);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        {
+          page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
+        },
+        expect.any(Function)
+      );
     });
 
     it('should reject backup with array data', async () => {
