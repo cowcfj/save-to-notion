@@ -27,7 +27,6 @@
 | **📏 規範**       | [`PROJECT_STANDARDS.md`](docs/guides/PROJECT_STANDARDS.md)                     | 語言規範、Git Commit 格式                       |
 | **🤝 協作**       | [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md)                                 | Pull Request 建立流程、規範與 Review 準備       |
 | **🚀 發布**       | [`RELEASE_WORKFLOW.md`](docs/guides/RELEASE_WORKFLOW.md)                       | 版本發布流程、Store 上架準備                    |
-| **📝 報告**       | [`REPORT_WRITING_STANDARDS.md`](docs/guides/REPORT_WRITING_STANDARDS.md)       | 撰寫各類報告或總結時的格式規範                  |
 | **🌐 提取**       | [`NEXTJS_EXTRACTION_GUIDE.md`](docs/guides/NEXTJS_EXTRACTION_GUIDE.md)         | Next.js App Router 網站內容提取經驗             |
 
 ## 🚀 3 分鐘快速入門 (3-Minute Quick Start)
