@@ -79,6 +79,16 @@
         }
       }
     },
+    "auth": {
+      "refreshOAuthToken": {
+        "description": "Delegate OAuth refresh requests to the Background worker as the single coordination entrypoint",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "token": "string | null"
+        }
+      }
+    },
     "utility": {
       "devLogSink": {
         "description": "Forward content script logs to background",

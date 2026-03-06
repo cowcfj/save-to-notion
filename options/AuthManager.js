@@ -5,7 +5,12 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { AuthMode, NOTION_OAUTH } from '../scripts/config/constants.js';
-import { getActiveNotionToken, refreshOAuthToken } from '../scripts/utils/notionAuth.js';
+import {
+  getActiveNotionToken,
+  refreshOAuthToken,
+  getNextAuthEpoch,
+  isNonEmptyString,
+} from '../scripts/utils/notionAuth.js';
 
 /**
  * AuthManager.js
@@ -439,10 +444,8 @@ export class AuthManager {
     }
 
     const tokenData = await tokenResponse.json();
-    const hasAccessToken =
-      typeof tokenData.access_token === 'string' && tokenData.access_token.trim().length > 0;
-    const hasRefreshToken =
-      typeof tokenData.refresh_token === 'string' && tokenData.refresh_token.trim().length > 0;
+    const hasAccessToken = isNonEmptyString(tokenData.access_token);
+    const hasRefreshToken = isNonEmptyString(tokenData.refresh_token);
 
     if (!hasAccessToken || !hasRefreshToken) {
       throw new Error('OAuth token 回應缺少必要欄位');
@@ -471,6 +474,75 @@ export class AuthManager {
     if (this.elements.oauthConnectButton) {
       this.elements.oauthConnectButton.disabled = false;
       this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;
+    }
+  }
+
+  /**
+   * 處理 OAuth 流程中的錯誤並顯示給使用者
+   *
+   * @private
+   * @param {Error} error - 錯誤物件
+   */
+  _handleOAuthError(error) {
+    Logger.error('[錯誤] [Auth] Notion OAuth 流程失敗', {
+      action: 'startOAuthFlow',
+      error: sanitizeApiError(error, 'oauth_flow'),
+    });
+    const msg = error?.message ?? '';
+    const msgLower = msg.toLowerCase();
+    const isOAuthCallbackError = msg.startsWith('Notion 授權失敗:');
+    const isRedirectError =
+      msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect');
+    let errorMsg;
+    if (isOAuthCallbackError) {
+      const oauthError = msg.replace('Notion 授權失敗: ', '').trim();
+      if (oauthError === 'access_denied') {
+        errorMsg = '您取消了 Notion 授權，請重試';
+      } else if (oauthError === 'canceled' || oauthError === 'cancelled') {
+        errorMsg =
+          'Notion 授權碼生成失敗，可能是 redirect_uri 格式不符。請確認 Notion Integration 中登記的 URI 與擴充功能 URL 完全一致（注意尾部斜線）';
+      } else {
+        errorMsg = `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`;
+      }
+    } else if (isRedirectError) {
+      errorMsg = 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定';
+    } else if (error?.code === 'oauth_identity_unavailable') {
+      errorMsg = UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
+    } else {
+      errorMsg = ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
+    }
+    this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
+  }
+
+  /**
+   * 存儲 Token 及相關資料到 chrome.storage.local
+   *
+   * @private
+   * @param {object} tokenData - 交換回來的 Token 資料
+   */
+  async _saveOAuthTokenData(tokenData) {
+    const hasRefreshProof = isNonEmptyString(tokenData.refresh_proof);
+    const nextAuthEpoch = await getNextAuthEpoch();
+
+    await chrome.storage.local.set({
+      notionAuthMode: AuthMode.OAUTH,
+      notionOAuthToken: tokenData.access_token,
+      notionRefreshToken: tokenData.refresh_token,
+      notionRefreshProof: hasRefreshProof ? tokenData.refresh_proof : null,
+      notionWorkspaceId: tokenData.workspace_id,
+      notionWorkspaceName: tokenData.workspace_name,
+      notionBotId: tokenData.bot_id,
+      notionAuthEpoch: nextAuthEpoch,
+    });
+    if (!hasRefreshProof) {
+      try {
+        await chrome.storage.local.remove(['notionRefreshProof']);
+      } catch (error) {
+        Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
+          action: '_saveOAuthTokenData',
+          error: sanitizeApiError(error, '_saveOAuthTokenData'),
+        });
+      }
     }
   }
 
@@ -541,14 +613,7 @@ export class AuthManager {
       const tokenData = await this._exchangeOAuthToken(code, redirectUri);
 
       // 8. 存儲 Token 及相關資料到 chrome.storage.local
-      await chrome.storage.local.set({
-        notionAuthMode: AuthMode.OAUTH,
-        notionOAuthToken: tokenData.access_token,
-        notionRefreshToken: tokenData.refresh_token,
-        notionWorkspaceId: tokenData.workspace_id,
-        notionWorkspaceName: tokenData.workspace_name,
-        notionBotId: tokenData.bot_id,
-      });
+      await this._saveOAuthTokenData(tokenData);
 
       Logger.success('Notion OAuth 連接成功', {
         action: 'startOAuthFlow',
@@ -560,34 +625,7 @@ export class AuthManager {
       // 10. 更新 UI
       await this.checkAuthStatus();
     } catch (error) {
-      Logger.error('[Auth] Notion OAuth 流程失敗', {
-        action: 'startOAuthFlow',
-        error: sanitizeApiError(error, 'oauth_flow'),
-      });
-      const msg = error?.message ?? '';
-      const msgLower = msg.toLowerCase();
-      const isOAuthCallbackError = msg.startsWith('Notion 授權失敗:');
-      const isRedirectError =
-        msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect');
-      let errorMsg;
-      if (isOAuthCallbackError) {
-        const oauthError = msg.replace('Notion 授權失敗: ', '').trim();
-        if (oauthError === 'access_denied') {
-          errorMsg = '您取消了 Notion 授權，請重試';
-        } else if (oauthError === 'canceled' || oauthError === 'cancelled') {
-          errorMsg =
-            'Notion 授權碼生成失敗，可能是 redirect_uri 格式不符。請確認 Notion Integration 中登記的 URI 與擴充功能 URL 完全一致（注意尾部斜線）';
-        } else {
-          errorMsg = `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`;
-        }
-      } else if (isRedirectError) {
-        errorMsg = 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定';
-      } else if (error?.code === 'oauth_identity_unavailable') {
-        errorMsg = UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
-      } else {
-        errorMsg = ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
-      }
-      this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
+      this._handleOAuthError(error);
     } finally {
       await this._cleanupOAuthState(csrfState);
     }
@@ -600,15 +638,18 @@ export class AuthManager {
     try {
       Logger.start('開始斷開 OAuth 連接', { action: 'disconnectOAuth' });
       const syncData = await chrome.storage.sync.get(['notionApiKey']);
+      const nextAuthEpoch = await getNextAuthEpoch();
 
       await chrome.storage.local.remove([
         'notionAuthMode',
         'notionOAuthToken',
         'notionRefreshToken',
+        'notionRefreshProof',
         'notionWorkspaceId',
         'notionWorkspaceName',
         'notionBotId',
       ]);
+      await chrome.storage.local.set({ notionAuthEpoch: nextAuthEpoch });
       if (syncData.notionApiKey) {
         Logger.info('[Auth] 已清除 OAuth 資料（保留手動資料來源設定）', {
           action: 'disconnectOAuth',

@@ -499,9 +499,11 @@ describe('AuthManager Extended', () => {
         notionAuthMode: 'oauth',
         notionOAuthToken: 'oauth_access_token',
         notionRefreshToken: 'oauth_refresh_token',
+        notionRefreshProof: null,
         notionWorkspaceId: 'workspace_id_1',
         notionWorkspaceName: 'Workspace A',
         notionBotId: 'bot_1',
+        notionAuthEpoch: 1,
       });
       expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
       expect(checkAuthStatusSpy).toHaveBeenCalled();
@@ -561,6 +563,91 @@ describe('AuthManager Extended', () => {
       );
     });
 
+    test('清理舊 refresh_proof 失敗時仍應視為 OAuth 連接成功', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-remove-proof-failed');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-remove-proof-failed'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-remove-proof-failed' });
+      chrome.storage.local.remove.mockRejectedValueOnce(new Error('remove proof failed'));
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          access_token: 'oauth_access_token',
+          refresh_token: 'oauth_refresh_token',
+          workspace_id: 'workspace_id',
+          workspace_name: 'Workspace A',
+          bot_id: 'bot_id',
+        }),
+      });
+      jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
+
+      await authManager.startOAuthFlow();
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionOAuthToken: 'oauth_access_token',
+          notionRefreshToken: 'oauth_refresh_token',
+          notionRefreshProof: null,
+          notionWorkspaceId: 'workspace_id',
+          notionWorkspaceName: 'Workspace A',
+          notionBotId: 'bot_id',
+          notionAuthEpoch: expect.any(Number),
+        })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
+        action: '_saveOAuthTokenData',
+        error: expect.any(String),
+      });
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        '✅ 已成功連接 Notion — Workspace A',
+        'success'
+      );
+    });
+
+    test('token 回應包含 refresh_proof 時應持久化 refresh proof', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-with-proof');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?code=oauth_code_with_proof&state=state-with-proof'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-with-proof' });
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          access_token: 'oauth_access_token_proof',
+          refresh_token: 'oauth_refresh_token_proof',
+          refresh_proof: 'oauth_refresh_proof_value',
+          workspace_id: 'workspace_id_proof',
+          workspace_name: 'Workspace Proof',
+          bot_id: 'bot_id_proof',
+        }),
+      });
+      jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
+
+      await authManager.startOAuthFlow();
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionAuthMode: 'oauth',
+          notionOAuthToken: 'oauth_access_token_proof',
+          notionRefreshToken: 'oauth_refresh_token_proof',
+          notionRefreshProof: 'oauth_refresh_proof_value',
+          notionWorkspaceId: 'workspace_id_proof',
+          notionWorkspaceName: 'Workspace Proof',
+          notionBotId: 'bot_id_proof',
+          notionAuthEpoch: expect.any(Number),
+        })
+      );
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        '✅ 已成功連接 Notion — Workspace Proof',
+        'success'
+      );
+      expect(Logger.success).toHaveBeenCalledWith('Notion OAuth 連接成功', {
+        action: 'startOAuthFlow',
+        workspace: 'Workspace Proof',
+      });
+    });
+
     test('CSRF 驗證失敗時應顯示錯誤且恢復按鈕', async () => {
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-abc');
       chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
@@ -574,6 +661,10 @@ describe('AuthManager Extended', () => {
         expect.stringContaining('OAuth 連接失敗'),
         'error'
       );
+      expect(Logger.error).toHaveBeenCalledWith('[錯誤] [Auth] Notion OAuth 流程失敗', {
+        action: 'startOAuthFlow',
+        error: expect.any(String),
+      });
       expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
       expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
       expect(document.querySelector('#oauth-connect-button').textContent).toBe(
@@ -614,6 +705,7 @@ describe('AuthManager Extended', () => {
         'notionAuthMode',
         'notionOAuthToken',
         'notionRefreshToken',
+        'notionRefreshProof',
         'notionWorkspaceId',
         'notionWorkspaceName',
         'notionBotId',
@@ -706,12 +798,20 @@ describe('AuthManager Extended', () => {
     });
 
     test('refreshOAuthToken: 成功刷新並回傳 access token', async () => {
-      chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_2' });
+      chrome.storage.local.get.mockResolvedValueOnce({
+        notionRefreshToken: 'refresh_2',
+        notionRefreshProof: 'proof_2',
+      });
+      chrome.storage.local.get.mockResolvedValueOnce({
+        notionAuthMode: 'oauth',
+        notionRefreshToken: 'refresh_2',
+      });
       globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
           access_token: 'new_access_token',
           refresh_token: 'new_refresh_token',
+          refresh_proof: 'proof_2_new',
         }),
       });
 
@@ -724,9 +824,17 @@ describe('AuthManager Extended', () => {
           body: expect.stringContaining('"refresh_token":"refresh_2"'),
         })
       );
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        expect.objectContaining({
+          body: expect.stringContaining('"refresh_proof":"proof_2"'),
+        })
+      );
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         notionOAuthToken: 'new_access_token',
         notionRefreshToken: 'new_refresh_token',
+        notionRefreshProof: 'proof_2_new',
+        notionAuthEpoch: 1,
       });
       expect(result).toBe('new_access_token');
     });

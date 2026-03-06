@@ -8,6 +8,7 @@
 
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { sanitizeApiError, validateInternalRequest } from '../../utils/securityUtils.js';
+import { refreshOAuthToken as refreshOAuthTokenCoordinator } from '../../utils/notionAuth.js';
 
 export function createNotionHandlers({ notionService }) {
   return {
@@ -51,6 +52,33 @@ export function createNotionHandlers({ notionService }) {
         const safeMessage = sanitizeApiError(error, 'search_notion');
         sendResponse({
           success: false,
+          error: ErrorHandler.formatUserMessage(safeMessage),
+        });
+      }
+    },
+
+    /**
+     * 刷新 OAuth Token（統一交由 Background 協調）
+     *
+     * @param {object} _request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
+     */
+    refreshOAuthToken: async (_request, sender, sendResponse) => {
+      const validationError = validateInternalRequest(sender);
+      if (validationError) {
+        sendResponse(validationError);
+        return;
+      }
+
+      try {
+        const token = await refreshOAuthTokenCoordinator();
+        sendResponse({ success: Boolean(token), token: token ?? null });
+      } catch (error) {
+        const safeMessage = sanitizeApiError(error, 'refresh_oauth_token');
+        sendResponse({
+          success: false,
+          token: null,
           error: ErrorHandler.formatUserMessage(safeMessage),
         });
       }

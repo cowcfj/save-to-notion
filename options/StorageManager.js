@@ -22,6 +22,17 @@ import { URL_ALIAS_PREFIX } from '../scripts/config/constants.js';
  * 處理數據的備份、恢復、檢查、清理與優化
  */
 export class StorageManager {
+  static OAUTH_BACKUP_EXCLUDED_KEYS = [
+    'notionAuthMode',
+    'notionOAuthToken',
+    'notionRefreshToken',
+    'notionRefreshProof',
+    'notionAuthEpoch',
+    'notionWorkspaceId',
+    'notionWorkspaceName',
+    'notionBotId',
+  ];
+
   constructor(uiManager) {
     this.ui = uiManager;
     this.elements = {};
@@ -127,6 +138,18 @@ export class StorageManager {
     );
   }
 
+  static sanitizeBackupData(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(data).filter(
+        ([key]) => !StorageManager.OAUTH_BACKUP_EXCLUDED_KEYS.includes(key)
+      )
+    );
+  }
+
   async exportData() {
     try {
       Logger.start('開始導出備份數據');
@@ -135,11 +158,12 @@ export class StorageManager {
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
       });
+      const sanitizedData = StorageManager.sanitizeBackupData(data);
 
       const backup = {
         timestamp: new Date().toISOString(),
         version: chrome.runtime.getManifest().version,
-        data,
+        data: sanitizedData,
       };
 
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -186,11 +210,13 @@ export class StorageManager {
         throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
       }
 
+      const sanitizedData = StorageManager.sanitizeBackupData(backup.data);
+
       await new Promise(resolve => {
-        chrome.storage.local.set(backup.data, resolve);
+        chrome.storage.local.set(sanitizedData, resolve);
       });
 
-      const count = Object.keys(backup.data).length;
+      const count = Object.keys(sanitizedData).length;
       const icon = UI_ICONS.SUCCESS;
       this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(count)}`, 'success');
       Logger.success(`成功導入 ${count} 條數據`);
