@@ -303,6 +303,7 @@ describe('TabService', () => {
         await service.updateTabStatus(1, 'https://example.com');
 
         expect(mockLogger.warn).toHaveBeenCalled();
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
         // 依然顯示勾勾
       });
 
