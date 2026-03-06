@@ -9,6 +9,7 @@
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
+import { AuthMode } from '../scripts/config/constants.js';
 
 /**
  * 檢查設置是否完整
@@ -17,14 +18,14 @@ import Logger from '../scripts/utils/Logger.js';
  */
 export async function checkSettings() {
   try {
-    const result = await chrome.storage.sync.get([
-      'notionApiKey',
-      'notionDataSourceId',
-      'notionDatabaseId',
+    const [result, localResult] = await Promise.all([
+      chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']),
+      chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken']),
     ]);
+    const isOAuth = localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken;
     const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
     return {
-      valid: Boolean(result.notionApiKey && dataSourceId),
+      valid: Boolean((result.notionApiKey || isOAuth) && dataSourceId),
       apiKey: result.notionApiKey,
       dataSourceId,
     };

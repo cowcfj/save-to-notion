@@ -41,7 +41,7 @@ describe('SearchableDatabaseSelector', () => {
 
     mockShowStatus = jest.fn();
     mockLoadDataSources = jest.fn();
-    mockGetApiKey = jest.fn(() => 'mock_api_key');
+    mockGetApiKey = jest.fn().mockResolvedValue('mock_api_key');
 
     selector = new SearchableDatabaseSelector({
       showStatus: mockShowStatus,
@@ -201,6 +201,7 @@ describe('SearchableDatabaseSelector', () => {
 
   describe('Interactions', () => {
     it('should toggle dropdown', () => {
+      expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false); // Empty list initially
 
@@ -208,23 +209,39 @@ describe('SearchableDatabaseSelector', () => {
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(true);
       expect(selector.dropdown.style.display).toBe('block');
+      expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('true');
 
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false);
       expect(selector.dropdown.style.display).toBe('none');
+      expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('should handle refresh button', () => {
-      mockGetApiKey.mockReturnValue('secret_123');
+    it('應該處理 refresh 按鈕點擊', async () => {
+      mockGetApiKey.mockResolvedValue('secret_123');
 
       selector.refreshButton.click();
+      await new Promise(process.nextTick); // 等待 refreshDataSources 內的非同步 getApiKey 完成
       expect(mockLoadDataSources).toHaveBeenCalledWith('secret_123');
+    });
+
+    it('應該在 refresh 失敗時恢復載入狀態', async () => {
+      selector.populateDataSources([
+        { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
+      ]);
+      mockGetApiKey.mockResolvedValue('secret_123');
+      mockLoadDataSources.mockRejectedValueOnce(new Error('refresh failed'));
+
+      await expect(selector.refreshDataSources()).resolves.toBeUndefined();
+
+      expect(selector.dataSourceList.querySelector('.loading-state')).toBeNull();
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('重新載入失敗'), 'error');
     });
   });
 
   describe('performServerSearch', () => {
     beforeEach(() => {
-      mockGetApiKey.mockReturnValue('secret_test_key');
+      mockGetApiKey.mockResolvedValue('secret_test_key');
     });
 
     it('should not trigger search for query less than 2 characters', async () => {
@@ -233,18 +250,20 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should not trigger search if API key is missing', async () => {
-      mockGetApiKey.mockReturnValue('');
+      mockGetApiKey.mockResolvedValue('');
       await selector.performServerSearch('test query');
       expect(mockLoadDataSources).not.toHaveBeenCalled();
     });
 
     it('should call loadDataSources with query for valid search', async () => {
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
       expect(mockLoadDataSources).toHaveBeenCalledWith('secret_test_key', 'test query');
     });
 
     it('should show searching state before API call', async () => {
       const showSearchingStateSpy = jest.spyOn(selector, 'showSearchingState');
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
 
       expect(showSearchingStateSpy).toHaveBeenCalledWith('test query');
@@ -253,19 +272,53 @@ describe('SearchableDatabaseSelector', () => {
       showSearchingStateSpy.mockRestore();
     });
 
+    it('應該在 request id 過期時丟棄舊搜尋請求', async () => {
+      let resolveFirstApiKey;
+      mockGetApiKey
+        .mockImplementationOnce(
+          () =>
+            new Promise(resolve => {
+              resolveFirstApiKey = resolve;
+            })
+        )
+        .mockResolvedValueOnce('secret_test_key');
+
+      selector.searchInput.value = 'test query';
+      const firstSearchPromise = selector.performServerSearch('test query');
+      const secondSearchPromise = selector.performServerSearch('test query');
+
+      resolveFirstApiKey('secret_test_key');
+      await Promise.all([firstSearchPromise, secondSearchPromise]);
+
+      expect(mockLoadDataSources).toHaveBeenCalledTimes(1);
+      expect(mockLoadDataSources).toHaveBeenCalledWith('secret_test_key', 'test query');
+    });
+
     it('should handle search error gracefully', async () => {
       // NOTE:
       // 雖然真實的 DataSourceManager.loadDataSources 會 catch 錯誤並返回空陣列，
       // 但此處透過 mockRejectedValueOnce 模擬錯誤，是為了測試 SearchableDatabaseSelector
       // 自身的 try-catch 錯誤處理邏輯（防禦性程式設計）。
       mockLoadDataSources.mockRejectedValueOnce(new Error('API Error'));
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
+      expect(selector.isSearching).toBe(false);
+    });
+
+    it('應該在 getApiKey 拒絕時安全處理', async () => {
+      mockGetApiKey.mockRejectedValueOnce(new Error('api key failed'));
+      selector.searchInput.value = 'test query';
+      await expect(selector.performServerSearch('test query')).resolves.toBeUndefined();
+
+      expect(mockLoadDataSources).not.toHaveBeenCalled();
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
       expect(selector.isSearching).toBe(false);
     });
 
     it('should handle error without message property', async () => {
       mockLoadDataSources.mockRejectedValueOnce({});
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 發生未知錯誤，請稍後再試', 'error');
     });
@@ -407,7 +460,8 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('performServerSearch 應該在 API Key 缺失時記錄警告 (Line 204)', async () => {
-      mockGetApiKey.mockReturnValue(null);
+      mockGetApiKey.mockResolvedValue(null);
+      selector.searchInput.value = 'query';
       await selector.performServerSearch('query');
       expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 API Key'));
     });

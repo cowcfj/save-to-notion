@@ -4,6 +4,7 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
+import { AuthMode } from '../scripts/config/constants.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
@@ -22,7 +23,11 @@ export function initOptions() {
   const ui = new UIManager();
 
   const auth = new AuthManager(ui);
-  const dataSource = new DataSourceManager(ui, () => {
+  const dataSource = new DataSourceManager(ui, async () => {
+    const activeAuth = await AuthManager.getActiveNotionToken();
+    if (activeAuth?.token) {
+      return activeAuth.token;
+    }
     return document.querySelector('#api-key')?.value || '';
   });
   const storage = new StorageManager(ui);
@@ -216,8 +221,8 @@ export function saveSettings(ui, auth, statusId = 'status') {
   const typeInput = document.querySelector('#database-type');
   const uiZoomLevel = document.querySelector('#ui-zoom-level')?.value;
 
-  // 驗證
-  if (!apiKey) {
+  // 驗證 API Key，但如果是在 OAuth 模式下就忽略 API Key 檢查
+  if (!apiKey && auth.currentAuthMode !== AuthMode.OAUTH) {
     ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error', statusId);
     return;
   }

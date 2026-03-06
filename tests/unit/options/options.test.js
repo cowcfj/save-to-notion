@@ -144,7 +144,7 @@ describe('options.js', () => {
       `;
 
       mockUi = { showStatus: jest.fn() };
-      mockAuth = { checkAuthStatus: jest.fn() };
+      mockAuth = { currentAuthMode: 'manual', checkAuthStatus: jest.fn() };
       mockSet = jest.fn((data, cb) => {
         if (cb) {
           cb();
@@ -182,8 +182,9 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
-    it('should validate empty API key', () => {
+    it('should validate empty API key if not in OAuth mode', () => {
       document.querySelector('#api-key').value = '';
+      mockAuth.currentAuthMode = 'manual';
       saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('API Key'),
@@ -191,6 +192,20 @@ describe('options.js', () => {
         'status'
       );
       expect(mockSet).not.toHaveBeenCalled();
+    });
+
+    it('should allow empty API key if in OAuth mode', () => {
+      document.querySelector('#api-key').value = '';
+      mockAuth.currentAuthMode = 'oauth';
+      saveSettings(mockUi, mockAuth);
+      // Because API key check is bypassed, it should proceed to save or hit the next validation
+      // In this setup, database-id is valid, so it should attempt to save
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionApiKey: '',
+        }),
+        expect.any(Function)
+      );
     });
 
     it('should validate empty Database ID', () => {
@@ -351,6 +366,55 @@ describe('options.js', () => {
       expect(mockStorageInstance.init).toHaveBeenCalled();
       expect(mockMigrationInstance.init).toHaveBeenCalled();
       expect(mockAuthInstance.checkAuthStatus).toHaveBeenCalled();
+    });
+
+    describe('DataSourceManager getApiKey callback', () => {
+      beforeEach(() => {
+        // Need to add #api-key to the DOM for testing fallback
+        document.body.innerHTML += '<input id="api-key" value="fallback-key" />';
+      });
+
+      it('should return token from AuthManager if activeAuth exists', async () => {
+        AuthManager.getActiveNotionToken = jest.fn().mockResolvedValue({ token: 'oauth-token' });
+        initOptions();
+
+        const getApiKeyCallback = DataSourceManager.mock.calls[0][1];
+        const token = await getApiKeyCallback();
+
+        expect(token).toBe('oauth-token');
+        expect(AuthManager.getActiveNotionToken).toHaveBeenCalled();
+      });
+
+      it('should fallback to #api-key if token is missing', async () => {
+        AuthManager.getActiveNotionToken = jest.fn().mockResolvedValue({ token: null });
+        initOptions();
+
+        const getApiKeyCallback = DataSourceManager.mock.calls[0][1];
+        const token = await getApiKeyCallback();
+
+        expect(token).toBe('fallback-key');
+      });
+
+      it('should fallback to #api-key if activeAuth is null', async () => {
+        AuthManager.getActiveNotionToken = jest.fn().mockResolvedValue(null);
+        initOptions();
+
+        const getApiKeyCallback = DataSourceManager.mock.calls[0][1];
+        const token = await getApiKeyCallback();
+
+        expect(token).toBe('fallback-key');
+      });
+
+      it('should return empty string if fallback input is missing or empty', async () => {
+        AuthManager.getActiveNotionToken = jest.fn().mockResolvedValue(null);
+        document.querySelector('#api-key').value = '';
+        initOptions();
+
+        const getApiKeyCallback = DataSourceManager.mock.calls[0][1];
+        const token = await getApiKeyCallback();
+
+        expect(token).toBe('');
+      });
     });
 
     it('should display app version', () => {

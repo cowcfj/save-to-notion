@@ -3,8 +3,6 @@
  * minimal mocks (Readability, ImageUtils) and asserts that it produces a
  * valid extraction result exposed to window.__notion_extraction_result.
  */
-const jsdom = require('jsdom');
-const { JSDOM } = jsdom;
 const fs = require('node:fs');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
@@ -35,18 +33,8 @@ describe('content script integration test', () => {
     const html =
       '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
 
-    const virtualConsole = new jsdom.VirtualConsole();
-    // 新版 jsdom 的 VirtualConsole 使用 on() 而非 sendTo()
-    virtualConsole.on('error', () => {
-      // 忽略虛擬控制台錯誤
-    });
-
-    const dom = new JSDOM(html, {
-      runScripts: 'dangerously',
-      resources: 'usable',
-      virtualConsole,
-    });
-    const { window } = dom;
+    document.documentElement.innerHTML = html;
+    const window = globalThis.window;
 
     // Inject chrome mock into JSDOM window to enable Logger
     window.chrome = {
@@ -94,21 +82,23 @@ describe('content script integration test', () => {
     // Indicate unit testing mode so content.js exposes result to window
     window.__UNIT_TESTING__ = true;
 
-    // Load Logger.js first (content.js depends on it)
-    const loggerPath = path.resolve(__dirname, '../../../scripts/utils/Logger.js');
-    const loggerCode = fs.readFileSync(loggerPath, 'utf8');
-    const loggerEl = window.document.createElement('script');
-    loggerEl.textContent = loggerCode;
-    window.document.body.append(loggerEl);
+    window.Logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      success: jest.fn(),
+    };
 
     // Load the script file content and evaluate it in the window
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
     const scriptCode = fs.readFileSync(scriptPath, 'utf8');
 
-    // Evaluate the content script inside the jsdom window
-    const scriptEl = window.document.createElement('script');
-    scriptEl.textContent = scriptCode;
-    window.document.body.append(scriptEl);
+    // eslint-disable-next-line security/detect-eval-with-expression
+    eval(scriptCode);
 
     // Wait for the script to execute and set window.__notion_extraction_result with polling
     /** @type {*} 提取結果,在輪詢循環中初始化 */

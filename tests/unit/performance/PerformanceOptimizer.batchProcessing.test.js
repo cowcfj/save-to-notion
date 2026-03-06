@@ -4,11 +4,6 @@
  */
 /* eslint-env jest */
 
-const { JSDOM } = require('jsdom');
-const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
-
-globalThis.document = dom.window.document;
-globalThis.window = dom.window;
 globalThis.performance = { now: () => Date.now() };
 globalThis.requestIdleCallback = cb => setTimeout(cb, 0);
 globalThis.cancelIdleCallback = clearTimeout;

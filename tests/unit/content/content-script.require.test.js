@@ -2,44 +2,56 @@
  * Require-style test: set up jsdom globals then require the content script file
  * so Jest's coverage instrumentation picks up content.js execution.
  */
-const { JSDOM } = require('jsdom');
 const path = require('path');
+
+function setupContentMocks() {
+  globalThis.Readability = function (doc) {
+    return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
+  };
+
+  globalThis.ImageUtils = {
+    cleanImageUrl: url => url,
+    isValidImageUrl: (..._args) => true,
+    extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
+    generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
+  };
+}
 
 describe('content script require test', () => {
   beforeEach(() => {
     jest.resetModules();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+    delete globalThis.Readability;
+    delete globalThis.ImageUtils;
+    delete globalThis.chrome;
+    if ('__UNIT_TESTING__' in globalThis) {
+      delete globalThis.__UNIT_TESTING__;
+    }
+    if ('__notion_extraction_result' in globalThis) {
+      delete globalThis.__notion_extraction_result;
+    }
+  });
+
   test('require scripts/content.js with jsdom globals', async () => {
     const html =
       '<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
-    const dom = new JSDOM(html);
-    // expose globals
-    globalThis.window = dom.window;
-    globalThis.document = dom.window.document;
-    globalThis.navigator = dom.window.navigator;
+    document.documentElement.innerHTML = html;
 
-    // mocks
-    globalThis.Readability = function (doc) {
-      return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
-    };
-
-    globalThis.ImageUtils = {
-      cleanImageUrl: url => url,
-      isValidImageUrl: (..._args) => true,
-      extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-      generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-    };
+    setupContentMocks();
 
     // mark unit testing mode
-    globalThis.window.__UNIT_TESTING__ = true;
+    globalThis.__UNIT_TESTING__ = true;
 
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
 
     // Ensure it's not cached
     delete require.cache[require.resolve(scriptPath)];
 
-    // Require the script — it runs immediately and should set window.__notion_extraction_result
+    // 載入此腳本 — 會立即執行並應設定 globalThis.__notion_extraction_result
     require(scriptPath);
 
     // allow async operations to complete
@@ -47,8 +59,8 @@ describe('content script require test', () => {
     let result = null;
     for (let i = 0; i < 30; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
-      if (globalThis.window.__notion_extraction_result) {
-        result = globalThis.window.__notion_extraction_result;
+      if (globalThis.__notion_extraction_result) {
+        result = globalThis.__notion_extraction_result;
         break;
       }
     }
@@ -56,9 +68,34 @@ describe('content script require test', () => {
     expect(result).toBeDefined();
     expect(typeof result.title).toBe('string');
     expect(result.title.length).toBeGreaterThan(0);
-    // cleanup
-    delete globalThis.window;
-    delete globalThis.document;
-    delete globalThis.navigator;
+  }, 10_000);
+
+  test('應該在存在過期的擷取結果時覆寫並啟動', async () => {
+    const html =
+      '<!doctype html><html><head><title>Stale Result Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
+    document.documentElement.innerHTML = html;
+
+    setupContentMocks();
+
+    globalThis.__UNIT_TESTING__ = true;
+    globalThis.__notion_extraction_result = { title: 'stale-result' };
+    globalThis.chrome = require('../../mocks/chrome.js');
+
+    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
+    delete require.cache[require.resolve(scriptPath)];
+    require(scriptPath);
+
+    let result = null;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      if (globalThis.__notion_extraction_result?.title !== 'stale-result') {
+        result = globalThis.__notion_extraction_result;
+        break;
+      }
+    }
+
+    expect(result).toBeDefined();
+    expect(result.title).not.toBe('stale-result');
+    expect(typeof result.title).toBe('string');
   }, 10_000);
 });
