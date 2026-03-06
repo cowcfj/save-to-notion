@@ -127,7 +127,7 @@ describe('notionAuth utils', () => {
         headers: expect.objectContaining({
           'X-Extension-Key': expect.any(String),
         }),
-        body: expect.stringContaining('\"refresh_proof\":\"refresh_proof_2\"'),
+        body: expect.stringContaining('"refresh_proof":"refresh_proof_2"'),
       })
     );
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
