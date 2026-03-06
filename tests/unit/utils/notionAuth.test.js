@@ -20,11 +20,6 @@ import {
 } from '../../../scripts/utils/notionAuth.js';
 
 describe('notionAuth utils', () => {
-  test('isNonEmptyString 應正確判斷非空字串', () => {
-    expect(isNonEmptyString(' proof ')).toBe(true);
-    expect(isNonEmptyString('   ')).toBe(false);
-    expect(isNonEmptyString(null)).toBe(false);
-  });
   beforeEach(() => {
     globalThis.chrome = {
       storage: {
@@ -46,6 +41,12 @@ describe('notionAuth utils', () => {
     delete globalThis.chrome;
     delete globalThis.fetch;
     jest.clearAllMocks();
+  });
+
+  test('isNonEmptyString 應正確判斷非空字串', () => {
+    expect(isNonEmptyString(' proof ')).toBe(true);
+    expect(isNonEmptyString('   ')).toBe(false);
+    expect(isNonEmptyString(null)).toBe(false);
   });
 
   test('getActiveNotionToken 應優先回傳 OAuth token', async () => {
@@ -281,7 +282,7 @@ describe('notionAuth utils', () => {
       notionOAuthToken: 'access_token_4',
       notionRefreshToken: 'refresh_token_4_new',
     });
-    expect(Logger.warn).toHaveBeenCalledWith('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+    expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
       action: 'refreshOAuthToken',
       error: expect.any(String),
     });

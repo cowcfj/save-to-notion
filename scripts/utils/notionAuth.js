@@ -28,7 +28,7 @@ async function clearStoredRefreshProof(action) {
   try {
     await chrome.storage.local.remove(['notionRefreshProof']);
   } catch (error) {
-    Logger.warn('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+    Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
       action,
       error: sanitizeApiError(error, action),
     });

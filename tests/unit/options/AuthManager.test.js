@@ -591,13 +591,10 @@ describe('AuthManager Extended', () => {
           notionBotId: 'bot_id',
         })
       );
-      expect(Logger.warn).toHaveBeenCalledWith(
-        '📦 [存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續',
-        {
-          action: '_saveOAuthTokenData',
-          error: expect.any(String),
-        }
-      );
+      expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
+        action: '_saveOAuthTokenData',
+        error: expect.any(String),
+      });
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         '✅ 已成功連接 Notion — Workspace A',
         'success'
@@ -617,7 +614,7 @@ describe('AuthManager Extended', () => {
         expect.stringContaining('OAuth 連接失敗'),
         'error'
       );
-      expect(Logger.error).toHaveBeenCalledWith('❌ [錯誤] [Auth] Notion OAuth 流程失敗', {
+      expect(Logger.error).toHaveBeenCalledWith('[錯誤] [Auth] Notion OAuth 流程失敗', {
         action: 'startOAuthFlow',
         error: expect.any(String),
       });
