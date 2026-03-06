@@ -160,6 +160,60 @@ describe('notionAuth utils', () => {
     expect(chrome.storage.local.remove).toHaveBeenCalledWith(['notionRefreshProof']);
   });
 
+  test('refreshOAuthToken 本地 proof 為空白字串時不應送出 refresh_proof', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_blank',
+      notionRefreshProof: '   ',
+    });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: 'access_token_blank',
+        refresh_token: 'refresh_token_blank_new',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBe('access_token_blank');
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ refresh_token: 'refresh_token_blank' }),
+      })
+    );
+  });
+
+  test('refreshOAuthToken 清理舊 proof 失敗時仍應回傳新 token', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_4',
+      notionRefreshProof: 'refresh_proof_4',
+    });
+    chrome.storage.local.remove.mockRejectedValueOnce(new Error('remove failed'));
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: 'access_token_4',
+        refresh_token: 'refresh_token_4_new',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBe('access_token_4');
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      notionOAuthToken: 'access_token_4',
+      notionRefreshToken: 'refresh_token_4_new',
+    });
+    expect(Logger.warn).toHaveBeenCalledWith('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+      action: 'refreshOAuthToken',
+      error: expect.any(String),
+    });
+    expect(Logger.success).toHaveBeenCalledWith('OAuth Token 已刷新', {
+      action: 'refreshOAuthToken',
+    });
+  });
+
   test('refreshOAuthToken 回應缺少 access_token 時不應覆寫 storage', async () => {
     chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_token_2' });
     globalThis.fetch.mockResolvedValueOnce({

@@ -57,7 +57,9 @@ export async function refreshOAuthToken() {
       },
       body: JSON.stringify({
         refresh_token: localData.notionRefreshToken,
-        ...(localData.notionRefreshProof ? { refresh_proof: localData.notionRefreshProof } : {}),
+        ...(isNonEmptyString(localData.notionRefreshProof)
+          ? { refresh_proof: localData.notionRefreshProof }
+          : {}),
       }),
     });
 
@@ -91,7 +93,14 @@ export async function refreshOAuthToken() {
 
     await chrome.storage.local.set(nextStorage);
     if (!hasValidRefreshProof) {
-      await chrome.storage.local.remove(['notionRefreshProof']);
+      try {
+        await chrome.storage.local.remove(['notionRefreshProof']);
+      } catch (error) {
+        Logger.warn('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+          action: 'refreshOAuthToken',
+          error: sanitizeApiError(error, 'refreshOAuthToken'),
+        });
+      }
     }
 
     Logger.success('OAuth Token 已刷新', { action: 'refreshOAuthToken' });
