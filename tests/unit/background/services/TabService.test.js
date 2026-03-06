@@ -330,6 +330,56 @@ describe('TabService', () => {
         // 不應呼叫 checkPageExists（因為沒有 apiKey）
         expect(service.checkPageExists).not.toHaveBeenCalled();
       });
+
+      it('should skip Verification if notionPageId is missing', async () => {
+        const expiredData = {
+          lastVerifiedAt: Date.now() - 70_000,
+          // 故意缺少 notionPageId
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+
+        await service.updateTabStatus(1, 'https://example.com');
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          expect.stringContaining('No notionPageId in savedData')
+        );
+        expect(service.checkPageExists).not.toHaveBeenCalled();
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+      });
+
+      it('should mark as pending on first deletion check failure', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(false);
+        // 不 mock consumeDeletionConfirmation，讓它真實回傳 { deletionPending: true }
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('First deletion check failed'),
+          expect.anything()
+        );
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+      });
+
+      it('should update lastVerifiedAt if page remains true', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(true);
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(service.setSavedPageData).toHaveBeenCalledWith(
+          'https://example.com',
+          expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
+        );
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+      });
     });
   });
 
