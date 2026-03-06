@@ -256,12 +256,14 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should call loadDataSources with query for valid search', async () => {
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
       expect(mockLoadDataSources).toHaveBeenCalledWith('secret_test_key', 'test query');
     });
 
     it('should show searching state before API call', async () => {
       const showSearchingStateSpy = jest.spyOn(selector, 'showSearchingState');
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
 
       expect(showSearchingStateSpy).toHaveBeenCalledWith('test query');
@@ -281,6 +283,7 @@ describe('SearchableDatabaseSelector', () => {
         )
         .mockResolvedValueOnce('secret_test_key');
 
+      selector.searchInput.value = 'test query';
       const firstSearchPromise = selector.performServerSearch('test query');
       const secondSearchPromise = selector.performServerSearch('test query');
 
@@ -297,6 +300,7 @@ describe('SearchableDatabaseSelector', () => {
       // 但此處透過 mockRejectedValueOnce 模擬錯誤，是為了測試 SearchableDatabaseSelector
       // 自身的 try-catch 錯誤處理邏輯（防禦性程式設計）。
       mockLoadDataSources.mockRejectedValueOnce(new Error('API Error'));
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
       expect(selector.isSearching).toBe(false);
@@ -304,7 +308,7 @@ describe('SearchableDatabaseSelector', () => {
 
     it('應該在 getApiKey 拒絕時安全處理', async () => {
       mockGetApiKey.mockRejectedValueOnce(new Error('api key failed'));
-
+      selector.searchInput.value = 'test query';
       await expect(selector.performServerSearch('test query')).resolves.toBeUndefined();
 
       expect(mockLoadDataSources).not.toHaveBeenCalled();
@@ -314,6 +318,7 @@ describe('SearchableDatabaseSelector', () => {
 
     it('should handle error without message property', async () => {
       mockLoadDataSources.mockRejectedValueOnce({});
+      selector.searchInput.value = 'test query';
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 發生未知錯誤，請稍後再試', 'error');
     });
@@ -456,6 +461,7 @@ describe('SearchableDatabaseSelector', () => {
 
     it('performServerSearch 應該在 API Key 缺失時記錄警告 (Line 204)', async () => {
       mockGetApiKey.mockResolvedValue(null);
+      selector.searchInput.value = 'query';
       await selector.performServerSearch('query');
       expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 API Key'));
     });

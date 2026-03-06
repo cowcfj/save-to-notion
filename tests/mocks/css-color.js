@@ -89,7 +89,7 @@ function colorToHex(value, opt = {}) {
     return alpha ? `${normalizedHex.hex}${normalizedHex.alphaHex}` : normalizedHex.hex;
   }
 
-  const rgbMatch = normalized.match(RGB_PATTERN);
+  const rgbMatch = RGB_PATTERN.exec(normalized);
   if (rgbMatch) {
     const red = parseRgbValue(rgbMatch[1]);
     const green = parseRgbValue(rgbMatch[2]);
@@ -100,7 +100,7 @@ function colorToHex(value, opt = {}) {
     return `#${numberToHex(red)}${numberToHex(green)}${numberToHex(blue)}`;
   }
 
-  const rgbaMatch = normalized.match(RGBA_PATTERN);
+  const rgbaMatch = RGBA_PATTERN.exec(normalized);
   if (rgbaMatch) {
     const red = parseRgbValue(rgbaMatch[1]);
     const green = parseRgbValue(rgbaMatch[2]);
