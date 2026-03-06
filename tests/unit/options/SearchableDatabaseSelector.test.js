@@ -217,15 +217,15 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('should handle refresh button', async () => {
+    it('應該處理 refresh 按鈕點擊', async () => {
       mockGetApiKey.mockResolvedValue('secret_123');
 
       selector.refreshButton.click();
-      await new Promise(process.nextTick); // wait for async getApiKey inside refreshDataSources
+      await new Promise(process.nextTick); // 等待 refreshDataSources 內的非同步 getApiKey 完成
       expect(mockLoadDataSources).toHaveBeenCalledWith('secret_123');
     });
 
-    it('should recover loading state when refresh fails', async () => {
+    it('應該在 refresh 失敗時恢復載入狀態', async () => {
       selector.populateDataSources([
         { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
       ]);
@@ -270,7 +270,7 @@ describe('SearchableDatabaseSelector', () => {
       showSearchingStateSpy.mockRestore();
     });
 
-    it('should discard stale search request when request id is outdated', async () => {
+    it('應該在 request id 過期時丟棄舊搜尋請求', async () => {
       let resolveFirstApiKey;
       mockGetApiKey
         .mockImplementationOnce(
@@ -302,7 +302,7 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.isSearching).toBe(false);
     });
 
-    it('should handle getApiKey rejection gracefully', async () => {
+    it('應該在 getApiKey 拒絕時安全處理', async () => {
       mockGetApiKey.mockRejectedValueOnce(new Error('api key failed'));
 
       await expect(selector.performServerSearch('test query')).resolves.toBeUndefined();

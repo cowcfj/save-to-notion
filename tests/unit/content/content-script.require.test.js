@@ -4,6 +4,19 @@
  */
 const path = require('path');
 
+function setupContentMocks() {
+  globalThis.Readability = function (doc) {
+    return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
+  };
+
+  globalThis.ImageUtils = {
+    cleanImageUrl: url => url,
+    isValidImageUrl: (..._args) => true,
+    extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
+    generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
+  };
+}
+
 describe('content script require test', () => {
   beforeEach(() => {
     jest.resetModules();
@@ -28,17 +41,7 @@ describe('content script require test', () => {
       '<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
     document.documentElement.innerHTML = html;
 
-    // mocks
-    globalThis.Readability = function (doc) {
-      return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
-    };
-
-    globalThis.ImageUtils = {
-      cleanImageUrl: url => url,
-      isValidImageUrl: (..._args) => true,
-      extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-      generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-    };
+    setupContentMocks();
 
     // mark unit testing mode
     globalThis.__UNIT_TESTING__ = true;
@@ -67,21 +70,12 @@ describe('content script require test', () => {
     expect(result.title.length).toBeGreaterThan(0);
   }, 10_000);
 
-  test('應該在沒有過期的擷取結果時啟動', async () => {
+  test('應該在存在過期的擷取結果時覆寫並啟動', async () => {
     const html =
       '<!doctype html><html><head><title>Stale Result Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
     document.documentElement.innerHTML = html;
 
-    globalThis.Readability = function (doc) {
-      return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
-    };
-
-    globalThis.ImageUtils = {
-      cleanImageUrl: url => url,
-      isValidImageUrl: (..._args) => true,
-      extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-      generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-    };
+    setupContentMocks();
 
     globalThis.__UNIT_TESTING__ = true;
     globalThis.__notion_extraction_result = { title: 'stale-result' };
@@ -103,5 +97,5 @@ describe('content script require test', () => {
     expect(result).toBeDefined();
     expect(result.title).not.toBe('stale-result');
     expect(typeof result.title).toBe('string');
-  });
+  }, 10_000);
 });

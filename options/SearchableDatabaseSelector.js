@@ -244,7 +244,7 @@ export class SearchableDatabaseSelector {
       // 安全地處理錯誤訊息
       const safeError = sanitizeApiError(error, 'server_search');
       Logger.error(
-        '[Selector] 伺服器端搜尋失敗',
+        '❌ [錯誤] 伺服器端搜尋失敗',
         SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
       );
       const errorMsg = ErrorHandler.formatUserMessage(safeError);
@@ -612,7 +612,7 @@ export class SearchableDatabaseSelector {
     } catch (error) {
       const safeError = sanitizeApiError(error, 'refresh_data_sources');
       Logger.error(
-        '[Selector] 重新載入資料來源失敗',
+        '❌ [錯誤] 重新載入資料來源失敗',
         SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
       );
       const errorMsg = ErrorHandler.formatUserMessage(safeError);
@@ -649,7 +649,10 @@ export class SearchableDatabaseSelector {
   }
 
   isStaleSearchRequest(requestId, query) {
-    return requestId !== this.searchRequestId || this.currentSearchQuery !== query;
+    const currentInputQuery = this.searchInput
+      ? this.searchInput.value.trim()
+      : this.currentSearchQuery;
+    return requestId !== this.searchRequestId || currentInputQuery !== query;
   }
 
   setToggleExpanded(isExpanded) {
@@ -677,10 +680,10 @@ export class SearchableDatabaseSelector {
       if (typeof safeError.url === 'string') {
         context.url = sanitizeUrlForLogging(safeError.url);
       }
-      return Object.keys(context).length > 0 ? context : { message: 'Unknown Error' };
+      return Object.keys(context).length > 0 ? context : { message: '未知錯誤' };
     }
 
-    return { message: 'Unknown Error' };
+    return { message: '未知錯誤' };
   }
 
   static extractDataSourceTitle(ds) {
