@@ -9,6 +9,7 @@
 import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl, computeStableUrl } from './utils/urlUtils.js';
+import { getActiveNotionToken } from './utils/notionAuth.js';
 
 import { TAB_SERVICE } from './config/constants.js';
 
@@ -60,7 +61,7 @@ const tabService = new TabService({
   isRecoverableError: isRecoverableInjectionError,
   // 新增驗證所需的依賴
   checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
-  getApiKey: () => storageService.getConfig(['notionApiKey']).then(config => config.notionApiKey),
+  getApiKey: () => getActiveNotionToken().then(result => result.token),
   clearPageState: url => storageService.clearPageState(url),
   clearNotionState: url => storageService.clearNotionState(url),
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
