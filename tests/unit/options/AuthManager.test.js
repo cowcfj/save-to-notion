@@ -591,10 +591,13 @@ describe('AuthManager Extended', () => {
           notionBotId: 'bot_id',
         })
       );
-      expect(Logger.warn).toHaveBeenCalledWith('清理舊的 refresh_proof 失敗，將忽略並繼續', {
-        action: '_saveOAuthTokenData',
-        error: expect.any(String),
-      });
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '📦 [存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續',
+        {
+          action: '_saveOAuthTokenData',
+          error: expect.any(String),
+        }
+      );
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         '✅ 已成功連接 Notion — Workspace A',
         'success'
@@ -614,6 +617,10 @@ describe('AuthManager Extended', () => {
         expect.stringContaining('OAuth 連接失敗'),
         'error'
       );
+      expect(Logger.error).toHaveBeenCalledWith('❌ [錯誤] [Auth] Notion OAuth 流程失敗', {
+        action: 'startOAuthFlow',
+        error: expect.any(String),
+      });
       expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
       expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
       expect(document.querySelector('#oauth-connect-button').textContent).toBe(
@@ -750,6 +757,10 @@ describe('AuthManager Extended', () => {
       chrome.storage.local.get.mockResolvedValueOnce({
         notionRefreshToken: 'refresh_2',
         notionRefreshProof: 'proof_2',
+      });
+      chrome.storage.local.get.mockResolvedValueOnce({
+        notionAuthMode: 'oauth',
+        notionRefreshToken: 'refresh_2',
       });
       globalThis.fetch.mockResolvedValueOnce({
         ok: true,

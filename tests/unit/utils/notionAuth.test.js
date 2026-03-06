@@ -110,6 +110,10 @@ describe('notionAuth utils', () => {
       notionRefreshToken: 'refresh_token_invalid_proof',
       notionRefreshProof: 'stale_proof',
     });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_invalid_proof',
+    });
     globalThis.fetch.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -131,6 +135,7 @@ describe('notionAuth utils', () => {
     });
 
     chrome.storage.local.get.mockResolvedValue({
+      notionAuthMode: 'oauth',
       notionRefreshToken: 'shared_refresh_token',
       notionRefreshProof: 'shared_refresh_proof',
     });
@@ -156,6 +161,7 @@ describe('notionAuth utils', () => {
 
     await expect(firstCall).resolves.toBe('shared_access_token');
     await expect(secondCall).resolves.toBe('shared_access_token');
+    expect(chrome.storage.local.get).toHaveBeenCalledTimes(2);
     expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
   });
 
@@ -163,6 +169,10 @@ describe('notionAuth utils', () => {
     chrome.storage.local.get.mockResolvedValueOnce({
       notionRefreshToken: 'refresh_token_2',
       notionRefreshProof: 'refresh_proof_2',
+    });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_2',
     });
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,
@@ -200,6 +210,10 @@ describe('notionAuth utils', () => {
       notionRefreshToken: 'refresh_token_3',
       notionRefreshProof: 'refresh_proof_3',
     });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_3',
+    });
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,
       json: jest.fn().mockResolvedValue({
@@ -218,6 +232,10 @@ describe('notionAuth utils', () => {
     chrome.storage.local.get.mockResolvedValueOnce({
       notionRefreshToken: 'refresh_token_blank',
       notionRefreshProof: '   ',
+    });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_blank',
     });
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,
@@ -242,6 +260,10 @@ describe('notionAuth utils', () => {
     chrome.storage.local.get.mockResolvedValueOnce({
       notionRefreshToken: 'refresh_token_4',
       notionRefreshProof: 'refresh_proof_4',
+    });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_4',
     });
     chrome.storage.local.remove.mockRejectedValueOnce(new Error('remove failed'));
     globalThis.fetch.mockResolvedValueOnce({
@@ -306,5 +328,52 @@ describe('notionAuth utils', () => {
       action: 'refreshOAuthToken',
       error: expect.any(String),
     });
+  });
+
+  test('refreshOAuthToken 若刷新期間已切離 OAuth 模式則不應覆寫 storage', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_switched_mode',
+      notionRefreshProof: 'refresh_proof_switched_mode',
+    });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'manual',
+      notionRefreshToken: 'refresh_token_switched_mode',
+    });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        access_token: 'access_token_switched_mode',
+        refresh_token: 'refresh_token_switched_mode_new',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBeNull();
+    expect(chrome.storage.local.set).not.toHaveBeenCalled();
+    expect(chrome.storage.local.remove).not.toHaveBeenCalled();
+  });
+
+  test('refreshOAuthToken 若刷新期間 refresh token 已變更則不應清除 proof', async () => {
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionRefreshToken: 'refresh_token_old',
+      notionRefreshProof: 'refresh_proof_old',
+    });
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_newer',
+    });
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: jest.fn().mockResolvedValue({
+        error_code: 'INVALID_REFRESH_PROOF',
+      }),
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBeNull();
+    expect(chrome.storage.local.remove).not.toHaveBeenCalled();
   });
 });

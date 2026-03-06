@@ -483,7 +483,7 @@ export class AuthManager {
    * @param {Error} error - 錯誤物件
    */
   _handleOAuthError(error) {
-    Logger.error('[Auth] Notion OAuth 流程失敗', {
+    Logger.error('❌ [錯誤] [Auth] Notion OAuth 流程失敗', {
       action: 'startOAuthFlow',
       error: sanitizeApiError(error, 'oauth_flow'),
     });
@@ -534,7 +534,7 @@ export class AuthManager {
       try {
         await chrome.storage.local.remove(['notionRefreshProof']);
       } catch (error) {
-        Logger.warn('清理舊的 refresh_proof 失敗，將忽略並繼續', {
+        Logger.warn('📦 [存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
           action: '_saveOAuthTokenData',
           error: sanitizeApiError(error, '_saveOAuthTokenData'),
         });

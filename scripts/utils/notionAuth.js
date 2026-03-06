@@ -15,6 +15,15 @@ export function isNonEmptyString(value) {
 
 let refreshInFlightPromise = null;
 
+async function shouldAbortRefreshMutation(oldRefreshToken) {
+  const latestAuthState = await chrome.storage.local.get(['notionAuthMode', 'notionRefreshToken']);
+
+  return (
+    latestAuthState.notionAuthMode !== AuthMode.OAUTH ||
+    latestAuthState.notionRefreshToken !== oldRefreshToken
+  );
+}
+
 async function clearStoredRefreshProof(action) {
   try {
     await chrome.storage.local.remove(['notionRefreshProof']);
@@ -49,7 +58,9 @@ export async function getActiveNotionToken() {
 async function performRefreshOAuthToken() {
   try {
     const localData = await chrome.storage.local.get(['notionRefreshToken', 'notionRefreshProof']);
-    if (!localData.notionRefreshToken) {
+    const oldRefreshToken = localData.notionRefreshToken;
+
+    if (!oldRefreshToken) {
       Logger.error('無法刷新 Token：缺少 refresh_token', {
         action: 'refreshOAuthToken',
       });
@@ -81,6 +92,10 @@ async function performRefreshOAuthToken() {
       }
 
       if (errorCode === 'INVALID_REFRESH_PROOF') {
+        if (await shouldAbortRefreshMutation(oldRefreshToken)) {
+          return null;
+        }
+
         await clearStoredRefreshProof('refreshOAuthToken');
       }
 
@@ -110,6 +125,10 @@ async function performRefreshOAuthToken() {
       notionRefreshToken: data.refresh_token,
       ...(hasValidRefreshProof ? { notionRefreshProof: data.refresh_proof } : {}),
     };
+
+    if (await shouldAbortRefreshMutation(oldRefreshToken)) {
+      return null;
+    }
 
     await chrome.storage.local.set(nextStorage);
     if (!hasValidRefreshProof) {
