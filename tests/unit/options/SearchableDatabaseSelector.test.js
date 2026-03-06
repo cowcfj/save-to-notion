@@ -221,6 +221,19 @@ describe('SearchableDatabaseSelector', () => {
       await new Promise(process.nextTick); // wait for async getApiKey inside refreshDataSources
       expect(mockLoadDataSources).toHaveBeenCalledWith('secret_123');
     });
+
+    it('should recover loading state when refresh fails', async () => {
+      selector.populateDataSources([
+        { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
+      ]);
+      mockGetApiKey.mockResolvedValue('secret_123');
+      mockLoadDataSources.mockRejectedValueOnce(new Error('refresh failed'));
+
+      await expect(selector.refreshDataSources()).resolves.toBeUndefined();
+
+      expect(selector.dataSourceList.querySelector('.loading-state')).toBeNull();
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('重新載入失敗'), 'error');
+    });
   });
 
   describe('performServerSearch', () => {
@@ -261,6 +274,16 @@ describe('SearchableDatabaseSelector', () => {
       // 自身的 try-catch 錯誤處理邏輯（防禦性程式設計）。
       mockLoadDataSources.mockRejectedValueOnce(new Error('API Error'));
       await selector.performServerSearch('test query');
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
+      expect(selector.isSearching).toBe(false);
+    });
+
+    it('should handle getApiKey rejection gracefully', async () => {
+      mockGetApiKey.mockRejectedValueOnce(new Error('api key failed'));
+
+      await expect(selector.performServerSearch('test query')).resolves.toBeUndefined();
+
+      expect(mockLoadDataSources).not.toHaveBeenCalled();
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
       expect(selector.isSearching).toBe(false);
     });

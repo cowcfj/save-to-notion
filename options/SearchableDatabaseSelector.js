@@ -207,20 +207,21 @@ export class SearchableDatabaseSelector {
       return;
     }
 
-    const apiKey = await this.getApiKey();
-    if (!apiKey) {
-      Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
-      return;
-    }
-
-    this.isSearching = true;
-    this.showSearchingState(query);
-
     try {
+      const apiKey = await this.getApiKey();
+      if (!apiKey) {
+        Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
+        return;
+      }
+
+      this.isSearching = true;
+      this.showSearchingState(query);
       await this.loadDataSources(apiKey, query);
       Logger.info('伺服器端搜尋完成', { queryLength: query.length });
     } catch (error) {
-      Logger.error('[Selector] 伺服器端搜尋失敗', { error: error.message });
+      Logger.error('[Selector] 伺服器端搜尋失敗', {
+        error: error instanceof Error ? error.message : String(error),
+      });
 
       // 安全地處理錯誤訊息
       const safeError = sanitizeApiError(error, 'server_search');
@@ -229,6 +230,7 @@ export class SearchableDatabaseSelector {
       this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
     } finally {
       this.isSearching = false;
+      this.restoreListAfterLoading();
     }
   }
 
@@ -572,10 +574,25 @@ export class SearchableDatabaseSelector {
   }
 
   async refreshDataSources() {
-    const apiKey = await this.getApiKey();
-    if (apiKey) {
+    try {
+      const apiKey = await this.getApiKey();
+      if (!apiKey) {
+        Logger.warn('無法重新載入資料來源：缺少 API Key');
+        return;
+      }
+
       this.showLoading();
       await this.loadDataSources(apiKey);
+    } catch (error) {
+      Logger.error('[Selector] 重新載入資料來源失敗', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      const safeError = sanitizeApiError(error, 'refresh_data_sources');
+      const errorMsg = ErrorHandler.formatUserMessage(safeError);
+      this.showStatus(`重新載入失敗: ${errorMsg}`, 'error');
+    } finally {
+      this.restoreListAfterLoading();
     }
   }
 
@@ -593,6 +610,16 @@ export class SearchableDatabaseSelector {
       this.dataSourceList.append(container);
     }
     this.showDropdown();
+  }
+
+  restoreListAfterLoading() {
+    if (!this.dataSourceList) {
+      return;
+    }
+    const loadingState = this.dataSourceList.querySelector('.loading-state');
+    if (loadingState) {
+      this.renderDataSourceList();
+    }
   }
 
   static extractDataSourceTitle(ds) {

@@ -18,6 +18,11 @@ describe('content script require test', () => {
     if (globalThis.window && '__UNIT_TESTING__' in globalThis.window) {
       delete globalThis.window.__UNIT_TESTING__;
     }
+    if (globalThis.window && '__notion_extraction_result' in globalThis.window) {
+      delete globalThis.window.__notion_extraction_result;
+    } else if ('__notion_extraction_result' in globalThis) {
+      delete globalThis.__notion_extraction_result;
+    }
   });
 
   test('require scripts/content.js with jsdom globals', async () => {
@@ -63,4 +68,8 @@ describe('content script require test', () => {
     expect(typeof result.title).toBe('string');
     expect(result.title.length).toBeGreaterThan(0);
   }, 10_000);
+
+  test('should start without stale extraction result', () => {
+    expect(globalThis.window?.__notion_extraction_result).toBeUndefined();
+  });
 });
