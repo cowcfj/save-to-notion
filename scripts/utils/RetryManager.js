@@ -608,3 +608,5 @@ if (typeof module !== 'undefined' && module.exports) {
   globalThis.withRetry = withRetry;
   globalThis.fetchWithRetry = fetchWithRetry;
 }
+
+// 觸發 release-please 的空白變更
