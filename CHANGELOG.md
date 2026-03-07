@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.43.1](https://github.com/cowcfj/save-to-notion/compare/v2.43.0...v2.43.1) (2026-03-07)
+
+
+### 🐛 Bug 修復
+
+* trigger release for storage management refactoring ([#332](https://github.com/cowcfj/save-to-notion/issues/332)) ([ad8c703](https://github.com/cowcfj/save-to-notion/commit/ad8c7033aaafe6616317bdc57e11d2b5f163d8e9))
+
 ## [2.43.0](https://github.com/cowcfj/save-to-notion/compare/v2.42.0...v2.43.0) (2026-03-06)
 
 
