@@ -2,780 +2,671 @@
 
 ## [2.43.1](https://github.com/cowcfj/save-to-notion/compare/v2.43.0...v2.43.1) (2026-03-07)
 
-
 ### 🐛 Bug 修復
 
-* trigger release for storage management refactoring ([#332](https://github.com/cowcfj/save-to-notion/issues/332)) ([ad8c703](https://github.com/cowcfj/save-to-notion/commit/ad8c7033aaafe6616317bdc57e11d2b5f163d8e9))
+- trigger release for storage management refactoring ([#332](https://github.com/cowcfj/save-to-notion/issues/332)) ([ad8c703](https://github.com/cowcfj/save-to-notion/commit/ad8c7033aaafe6616317bdc57e11d2b5f163d8e9))
 
 ## [2.43.0](https://github.com/cowcfj/save-to-notion/compare/v2.42.0...v2.43.0) (2026-03-06)
 
-
 ### ✨ 新功能
 
-* 增加 OAuth 刷新流程中的 refresh_proof 支援 ([#329](https://github.com/cowcfj/save-to-notion/issues/329)) ([30ce878](https://github.com/cowcfj/save-to-notion/commit/30ce8789fca40debb15da0944106d46e2ee5f1f4))
-
+- 增加 OAuth 刷新流程中的 refresh_proof 支援 ([#329](https://github.com/cowcfj/save-to-notion/issues/329)) ([30ce878](https://github.com/cowcfj/save-to-notion/commit/30ce8789fca40debb15da0944106d46e2ee5f1f4))
 
 ### 🧹 其他變更
 
-* 移除報告撰寫標準指南的連結 ([aca681b](https://github.com/cowcfj/save-to-notion/commit/aca681b49e08d28e43d20a06d7a224c91f258e46))
+- 移除報告撰寫標準指南的連結 ([aca681b](https://github.com/cowcfj/save-to-notion/commit/aca681b49e08d28e43d20a06d7a224c91f258e46))
 
 ## [2.42.0](https://github.com/cowcfj/save-to-notion/compare/v2.41.0...v2.42.0) (2026-03-06)
 
-
 ### ✨ 新功能
 
-* 更新 OAuth 模式下的 API Key 驗證邏輯 ([#327](https://github.com/cowcfj/save-to-notion/issues/327)) ([da111c4](https://github.com/cowcfj/save-to-notion/commit/da111c4a39c935b7557c393fb40aeffea82b00c3))
+- 更新 OAuth 模式下的 API Key 驗證邏輯 ([#327](https://github.com/cowcfj/save-to-notion/issues/327)) ([da111c4](https://github.com/cowcfj/save-to-notion/commit/da111c4a39c935b7557c393fb40aeffea82b00c3))
 
 ## [2.41.0](https://github.com/cowcfj/save-to-notion/compare/v2.40.0...v2.41.0) (2026-03-04)
 
-
 ### ✨ 新功能
 
-* **NotionService:** 增強 API 調用的重試邏輯 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
-* 新增專案特定的代碼審查規則與檢查清單 ([7bb34d4](https://github.com/cowcfj/save-to-notion/commit/7bb34d419e614f032746f6261d810384bfa90684))
-* 新增專案特定的除錯規則與檢查清單 ([d7781ec](https://github.com/cowcfj/save-to-notion/commit/d7781ece5093b7b916d20260b50547390ad42d61))
-
+- **NotionService:** 增強 API 調用的重試邏輯 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+- 新增專案特定的代碼審查規則與檢查清單 ([7bb34d4](https://github.com/cowcfj/save-to-notion/commit/7bb34d419e614f032746f6261d810384bfa90684))
+- 新增專案特定的除錯規則與檢查清單 ([d7781ec](https://github.com/cowcfj/save-to-notion/commit/d7781ece5093b7b916d20260b50547390ad42d61))
 
 ### 🐛 Bug 修復
 
-* Improve TabService migration robustness and backward compatibility ([#317](https://github.com/cowcfj/save-to-notion/issues/317)) ([daba6aa](https://github.com/cowcfj/save-to-notion/commit/daba6aa208155a9eadcfffd1a2d002d725eb737e))
-* **notionAuth:** 增加 OAuth 令牌刷新時的錯誤處理 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
-* 修正 PING 請求錯誤處理及穩定性遷移邏輯 ([#320](https://github.com/cowcfj/save-to-notion/issues/320)) ([5e68c31](https://github.com/cowcfj/save-to-notion/commit/5e68c31ef7be4a67719a6ffe11e7a285bbaba190))
-* 修正 URL 編碼邏輯以避免雙重編碼問題 ([#322](https://github.com/cowcfj/save-to-notion/issues/322)) ([c6430ce](https://github.com/cowcfj/save-to-notion/commit/c6430ce9f357d58fc1bc8725efb1c89c1dbcdf10))
-* 增加重試機制以避免儲存競態條件 ([#321](https://github.com/cowcfj/save-to-notion/issues/321)) ([ff25e05](https://github.com/cowcfj/save-to-notion/commit/ff25e05923b4a5a7fad31ad4e16da0bd5445e621))
-
+- Improve TabService migration robustness and backward compatibility ([#317](https://github.com/cowcfj/save-to-notion/issues/317)) ([daba6aa](https://github.com/cowcfj/save-to-notion/commit/daba6aa208155a9eadcfffd1a2d002d725eb737e))
+- **notionAuth:** 增加 OAuth 令牌刷新時的錯誤處理 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+- 修正 PING 請求錯誤處理及穩定性遷移邏輯 ([#320](https://github.com/cowcfj/save-to-notion/issues/320)) ([5e68c31](https://github.com/cowcfj/save-to-notion/commit/5e68c31ef7be4a67719a6ffe11e7a285bbaba190))
+- 修正 URL 編碼邏輯以避免雙重編碼問題 ([#322](https://github.com/cowcfj/save-to-notion/issues/322)) ([c6430ce](https://github.com/cowcfj/save-to-notion/commit/c6430ce9f357d58fc1bc8725efb1c89c1dbcdf10))
+- 增加重試機制以避免儲存競態條件 ([#321](https://github.com/cowcfj/save-to-notion/issues/321)) ([ff25e05](https://github.com/cowcfj/save-to-notion/commit/ff25e05923b4a5a7fad31ad4e16da0bd5445e621))
 
 ### 📝 文檔更新
 
-* **.agent:** link testing rules and QA skill to shared mocks directory ([2525c1f](https://github.com/cowcfj/save-to-notion/commit/2525c1f248d95317decc2cad1b819e679d2f26b3))
-* **.agent:** refactor chrome-patterns trigger to invoke extension-expert and load json schemas ([8ddb447](https://github.com/cowcfj/save-to-notion/commit/8ddb4477a9e1bfee79e7fb0c6529000a026c0ad5))
-* **.agent:** remove redundant project_context.md as docs/ serves this purpose ([93a30fe](https://github.com/cowcfj/save-to-notion/commit/93a30fe9818118e06d8ad906300f98f4843e528a))
-* **.agent:** remove remaining notion-qa conceptual terminology ([19df411](https://github.com/cowcfj/save-to-notion/commit/19df4118bb5d04f4295dbef0581addf6f1254503))
-* **.agent:** retire notion-qa skill and migrate test data schema ([2f2782c](https://github.com/cowcfj/save-to-notion/commit/2f2782c743684639dfdb5e0d5f5f506d79890b09))
-* **.agents:** add architecture trigger rule to prompt ADR evaluation ([265e605](https://github.com/cowcfj/save-to-notion/commit/265e60517f7be9a2021d3f6a82287688ed50365e))
-* **.agent:** update extension skill reference to browser-extension-builder ([d5f0fc1](https://github.com/cowcfj/save-to-notion/commit/d5f0fc176a1453e86ae8a3720c980dbb0e237c27))
-* **agents:** add receiving-code-review to shared skills ([b690df8](https://github.com/cowcfj/save-to-notion/commit/b690df8910f9a588e853bd034391b734198990b8))
-* **agents:** update testing skills references ([54d8cb5](https://github.com/cowcfj/save-to-notion/commit/54d8cb5c730fdd8eaa39bc4f2c54a3bee06b494f))
-* **api:** refactor notion-api trigger and guide into hub architecture ([27164cb](https://github.com/cowcfj/save-to-notion/commit/27164cb1e49c59c7bd18b71228cdf51356e269ed))
-* formalize Architecture Decision Records (ADR) workflow ([0f2ecfd](https://github.com/cowcfj/save-to-notion/commit/0f2ecfda989a5b468eae88a90a9e1b875e8b0592))
-* remove manual build instructions from debugging guide ([12a7d2f](https://github.com/cowcfj/save-to-notion/commit/12a7d2fbee65db55214576109df7d5a5c36d2b2f))
-* remove outdated AI tool name distinctions from guides ([e58a318](https://github.com/cowcfj/save-to-notion/commit/e58a318d73165c30c883290a14eec49c9582f42f))
-* **security:** integrate security-review skill, centralize rules, and refactor guide to hub ([d140381](https://github.com/cowcfj/save-to-notion/commit/d140381337723ed186a3aefc21e4349eafe7a2e8))
-* strictly forbid AI agents from force-adding ignored internal directories to Git ([9b6d22d](https://github.com/cowcfj/save-to-notion/commit/9b6d22ddf0e155a8d7cfd8bff9ce1d834efe9c68))
-* **testing:** centralize testing rules and refactor guide to hub ([d6b02a1](https://github.com/cowcfj/save-to-notion/commit/d6b02a145e1bd5217ee64571b9a84e53abdef0e1))
-
+- **.agent:** link testing rules and QA skill to shared mocks directory ([2525c1f](https://github.com/cowcfj/save-to-notion/commit/2525c1f248d95317decc2cad1b819e679d2f26b3))
+- **.agent:** refactor chrome-patterns trigger to invoke extension-expert and load json schemas ([8ddb447](https://github.com/cowcfj/save-to-notion/commit/8ddb4477a9e1bfee79e7fb0c6529000a026c0ad5))
+- **.agent:** remove redundant project_context.md as docs/ serves this purpose ([93a30fe](https://github.com/cowcfj/save-to-notion/commit/93a30fe9818118e06d8ad906300f98f4843e528a))
+- **.agent:** remove remaining notion-qa conceptual terminology ([19df411](https://github.com/cowcfj/save-to-notion/commit/19df4118bb5d04f4295dbef0581addf6f1254503))
+- **.agent:** retire notion-qa skill and migrate test data schema ([2f2782c](https://github.com/cowcfj/save-to-notion/commit/2f2782c743684639dfdb5e0d5f5f506d79890b09))
+- **.agents:** add architecture trigger rule to prompt ADR evaluation ([265e605](https://github.com/cowcfj/save-to-notion/commit/265e60517f7be9a2021d3f6a82287688ed50365e))
+- **.agent:** update extension skill reference to browser-extension-builder ([d5f0fc1](https://github.com/cowcfj/save-to-notion/commit/d5f0fc176a1453e86ae8a3720c980dbb0e237c27))
+- **agents:** add receiving-code-review to shared skills ([b690df8](https://github.com/cowcfj/save-to-notion/commit/b690df8910f9a588e853bd034391b734198990b8))
+- **agents:** update testing skills references ([54d8cb5](https://github.com/cowcfj/save-to-notion/commit/54d8cb5c730fdd8eaa39bc4f2c54a3bee06b494f))
+- **api:** refactor notion-api trigger and guide into hub architecture ([27164cb](https://github.com/cowcfj/save-to-notion/commit/27164cb1e49c59c7bd18b71228cdf51356e269ed))
+- formalize Architecture Decision Records (ADR) workflow ([0f2ecfd](https://github.com/cowcfj/save-to-notion/commit/0f2ecfda989a5b468eae88a90a9e1b875e8b0592))
+- remove manual build instructions from debugging guide ([12a7d2f](https://github.com/cowcfj/save-to-notion/commit/12a7d2fbee65db55214576109df7d5a5c36d2b2f))
+- remove outdated AI tool name distinctions from guides ([e58a318](https://github.com/cowcfj/save-to-notion/commit/e58a318d73165c30c883290a14eec49c9582f42f))
+- **security:** integrate security-review skill, centralize rules, and refactor guide to hub ([d140381](https://github.com/cowcfj/save-to-notion/commit/d140381337723ed186a3aefc21e4349eafe7a2e8))
+- strictly forbid AI agents from force-adding ignored internal directories to Git ([9b6d22d](https://github.com/cowcfj/save-to-notion/commit/9b6d22ddf0e155a8d7cfd8bff9ce1d834efe9c68))
+- **testing:** centralize testing rules and refactor guide to hub ([d6b02a1](https://github.com/cowcfj/save-to-notion/commit/d6b02a145e1bd5217ee64571b9a84e53abdef0e1))
 
 ### ♻️ 代碼重構
 
-* **StorageUtil:** 移除未被調用的 _loadFromChromeStorage 死代碼 ([#323](https://github.com/cowcfj/save-to-notion/issues/323)) ([37b1a91](https://github.com/cowcfj/save-to-notion/commit/37b1a9139a1b22c5c044ecf0f955389ea68a3dc8))
-* 更新 PR 模板以強制使用標準化描述結構 ([c16faf0](https://github.com/cowcfj/save-to-notion/commit/c16faf09745ea662d7291a81225e49307b4c1f7a))
-
+- **StorageUtil:** 移除未被調用的 \_loadFromChromeStorage 死代碼 ([#323](https://github.com/cowcfj/save-to-notion/issues/323)) ([37b1a91](https://github.com/cowcfj/save-to-notion/commit/37b1a9139a1b22c5c044ecf0f955389ea68a3dc8))
+- 更新 PR 模板以強制使用標準化描述結構 ([c16faf0](https://github.com/cowcfj/save-to-notion/commit/c16faf09745ea662d7291a81225e49307b4c1f7a))
 
 ### 🧪 測試
 
-* **AuthManager:** 增加單元測試以驗證初始化行為 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
-* **notionAuth:** 增加對 OAuth 令牌刷新邏輯的測試 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
-* **NotionService:** 增加對 API 重試邏輯的測試 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
-
+- **AuthManager:** 增加單元測試以驗證初始化行為 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+- **notionAuth:** 增加對 OAuth 令牌刷新邏輯的測試 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
+- **NotionService:** 增加對 API 重試邏輯的測試 ([435201d](https://github.com/cowcfj/save-to-notion/commit/435201d3c9742cbc2722873c64addb28155d9b1f))
 
 ### 🧹 其他變更
 
-* move linter_rules to knowledge base for strict adherence ([e418ed5](https://github.com/cowcfj/save-to-notion/commit/e418ed5c880b13cbea68d9cc3149814ea8ff2807))
-* remove auto-created security-review skill (user will install manually) ([b2a8064](https://github.com/cowcfj/save-to-notion/commit/b2a8064871b46922176b5a0f21ca0f8b4f76c347))
-* rename .agent directory to .agents to align with global tools like skilldeck ([6e08b20](https://github.com/cowcfj/save-to-notion/commit/6e08b205d4d67433c6e6deb34791b636ccdefb2d))
-* untrack internal docs and rules ignored by gitignore ([26fd609](https://github.com/cowcfj/save-to-notion/commit/26fd60918fe33bc70455bf1d4e5ffca535bd9f83))
-* 刪除不再使用的 skills-lock.json 檔案 ([4e08337](https://github.com/cowcfj/save-to-notion/commit/4e083373b3e0a2d29ed83f73063c87a3d0bf08cf))
-* 更新 .gitignore 以排除 *_report.json 文件 ([f9c4bd8](https://github.com/cowcfj/save-to-notion/commit/f9c4bd8865c19b72e3564ba2e1ad294fda0f56d5))
-* 更新 .gitignore 以排除不必要的文檔和舊版本 ([17dc529](https://github.com/cowcfj/save-to-notion/commit/17dc5292346f5f9592a81afd71232eb0dfd5fbb7))
-* 更新 ESLint 配置以減少警告並新增報告腳本 ([#324](https://github.com/cowcfj/save-to-notion/issues/324)) ([f2f4d17](https://github.com/cowcfj/save-to-notion/commit/f2f4d1724ea5bcb4e1dfbe5f83cef6fd6089ec0d))
+- move linter_rules to knowledge base for strict adherence ([e418ed5](https://github.com/cowcfj/save-to-notion/commit/e418ed5c880b13cbea68d9cc3149814ea8ff2807))
+- remove auto-created security-review skill (user will install manually) ([b2a8064](https://github.com/cowcfj/save-to-notion/commit/b2a8064871b46922176b5a0f21ca0f8b4f76c347))
+- rename .agent directory to .agents to align with global tools like skilldeck ([6e08b20](https://github.com/cowcfj/save-to-notion/commit/6e08b205d4d67433c6e6deb34791b636ccdefb2d))
+- untrack internal docs and rules ignored by gitignore ([26fd609](https://github.com/cowcfj/save-to-notion/commit/26fd60918fe33bc70455bf1d4e5ffca535bd9f83))
+- 刪除不再使用的 skills-lock.json 檔案 ([4e08337](https://github.com/cowcfj/save-to-notion/commit/4e083373b3e0a2d29ed83f73063c87a3d0bf08cf))
+- 更新 .gitignore 以排除 \*\_report.json 文件 ([f9c4bd8](https://github.com/cowcfj/save-to-notion/commit/f9c4bd8865c19b72e3564ba2e1ad294fda0f56d5))
+- 更新 .gitignore 以排除不必要的文檔和舊版本 ([17dc529](https://github.com/cowcfj/save-to-notion/commit/17dc5292346f5f9592a81afd71232eb0dfd5fbb7))
+- 更新 ESLint 配置以減少警告並新增報告腳本 ([#324](https://github.com/cowcfj/save-to-notion/issues/324)) ([f2f4d17](https://github.com/cowcfj/save-to-notion/commit/f2f4d1724ea5bcb4e1dfbe5f83cef6fd6089ec0d))
 
 ## [2.40.0](https://github.com/cowcfj/save-to-notion/compare/v2.39.0...v2.40.0) (2026-03-02)
 
-
 ### ✨ 新功能
 
-* 新增 context-driven-development 和 git-commit 技能文檔 ([32c8f22](https://github.com/cowcfj/save-to-notion/commit/32c8f2234423b05e7896a8c2e1a2949d427215f0))
-
+- 新增 context-driven-development 和 git-commit 技能文檔 ([32c8f22](https://github.com/cowcfj/save-to-notion/commit/32c8f2234423b05e7896a8c2e1a2949d427215f0))
 
 ### 🐛 Bug 修復
 
-* **P5:** popup.js 將阻塞性 alert() 改為 setStatus() 非阻塞錯誤提示 ([#316](https://github.com/cowcfj/save-to-notion/issues/316)) ([1dc52b9](https://github.com/cowcfj/save-to-notion/commit/1dc52b9cba810934045394b5128ec3f413978bd8))
-
+- **P5:** popup.js 將阻塞性 alert() 改為 setStatus() 非阻塞錯誤提示 ([#316](https://github.com/cowcfj/save-to-notion/issues/316)) ([1dc52b9](https://github.com/cowcfj/save-to-notion/commit/1dc52b9cba810934045394b5128ec3f413978bd8))
 
 ### 📝 文檔更新
 
-* 更新代理規範文件。 ([ec61797](https://github.com/cowcfj/save-to-notion/commit/ec617978bc3ed8997967ad33512dc3d12f9d6c37))
-
+- 更新代理規範文件。 ([ec61797](https://github.com/cowcfj/save-to-notion/commit/ec617978bc3ed8997967ad33512dc3d12f9d6c37))
 
 ### ♻️ 代碼重構
 
-* **P1:** saveHandlers 提取共用保存流程，消除重複代碼 ([#312](https://github.com/cowcfj/save-to-notion/issues/312)) ([f28baeb](https://github.com/cowcfj/save-to-notion/commit/f28baebc448bf540a7da815c16d7c8ed8a636dc3))
-
+- **P1:** saveHandlers 提取共用保存流程，消除重複代碼 ([#312](https://github.com/cowcfj/save-to-notion/issues/312)) ([f28baeb](https://github.com/cowcfj/save-to-notion/commit/f28baebc448bf540a7da815c16d7c8ed8a636dc3))
 
 ### ⚡ 效能優化
 
-* **P2:** StorageService 效能改進，防重複升級與全量讀取優化 ([#313](https://github.com/cowcfj/save-to-notion/issues/313)) ([0a10376](https://github.com/cowcfj/save-to-notion/commit/0a10376e1617c6eb2cbe1c958b2478403b403822))
-* **P3:** 移除 InjectionService 的 fetch HEAD 探測 ([#315](https://github.com/cowcfj/save-to-notion/issues/315)) ([43cadfc](https://github.com/cowcfj/save-to-notion/commit/43cadfcc99ff94717feabe315fdd754c456b3cc6))
-
+- **P2:** StorageService 效能改進，防重複升級與全量讀取優化 ([#313](https://github.com/cowcfj/save-to-notion/issues/313)) ([0a10376](https://github.com/cowcfj/save-to-notion/commit/0a10376e1617c6eb2cbe1c958b2478403b403822))
+- **P3:** 移除 InjectionService 的 fetch HEAD 探測 ([#315](https://github.com/cowcfj/save-to-notion/issues/315)) ([43cadfc](https://github.com/cowcfj/save-to-notion/commit/43cadfcc99ff94717feabe315fdd754c456b3cc6))
 
 ### 🧹 其他變更
 
-* **deps-dev:** bump jsdom from 27.4.0 to 28.1.0 ([#309](https://github.com/cowcfj/save-to-notion/issues/309)) ([a188609](https://github.com/cowcfj/save-to-notion/commit/a18860923c7de21a7bb51200398dd10bfdf84a5f))
-* **deps-dev:** bump lint-staged from 16.2.7 to 16.3.0 ([#310](https://github.com/cowcfj/save-to-notion/issues/310)) ([d5f0895](https://github.com/cowcfj/save-to-notion/commit/d5f0895f993cb46b0072ff6f47ad2a657ef78f2e))
-* **git:** untrack .agents/skills ([70a15f2](https://github.com/cowcfj/save-to-notion/commit/70a15f2f1e7df4c254f27cc0778de292afc14210))
+- **deps-dev:** bump jsdom from 27.4.0 to 28.1.0 ([#309](https://github.com/cowcfj/save-to-notion/issues/309)) ([a188609](https://github.com/cowcfj/save-to-notion/commit/a18860923c7de21a7bb51200398dd10bfdf84a5f))
+- **deps-dev:** bump lint-staged from 16.2.7 to 16.3.0 ([#310](https://github.com/cowcfj/save-to-notion/issues/310)) ([d5f0895](https://github.com/cowcfj/save-to-notion/commit/d5f0895f993cb46b0072ff6f47ad2a657ef78f2e))
+- **git:** untrack .agents/skills ([70a15f2](https://github.com/cowcfj/save-to-notion/commit/70a15f2f1e7df4c254f27cc0778de292afc14210))
 
 ## [2.39.0](https://github.com/cowcfj/save-to-notion/compare/v2.38.1...v2.39.0) (2026-02-28)
 
-
 ### ✨ 新功能
 
-* **coverage:** 更新 Jest 覆蓋率配置與合併腳本 ([b9572f6](https://github.com/cowcfj/save-to-notion/commit/b9572f618f3eb6f22b5da2f1c97f96fa4cb5d1e8))
-
+- **coverage:** 更新 Jest 覆蓋率配置與合併腳本 ([b9572f6](https://github.com/cowcfj/save-to-notion/commit/b9572f618f3eb6f22b5da2f1c97f96fa4cb5d1e8))
 
 ### 🧹 其他變更
 
-* archive .deepsource.toml, .serenaignore and .serena, remove from git tracking ([2aa41b1](https://github.com/cowcfj/save-to-notion/commit/2aa41b14a180daed6269760eb0caa4c05764eccc))
-* **deps-dev:** bump @playwright/test ([929ae7e](https://github.com/cowcfj/save-to-notion/commit/929ae7e81248ef59e5a1bbdf7606609eefdc253b))
-* **deps-dev:** bump @playwright/test from 1.58.1 to 1.58.2 in the testing group across 1 directory ([#307](https://github.com/cowcfj/save-to-notion/issues/307)) ([929ae7e](https://github.com/cowcfj/save-to-notion/commit/929ae7e81248ef59e5a1bbdf7606609eefdc253b))
-* **deps:** remove unused devDependencies (puppeteer, jest-junit, baseline-browser-mapping) ([fa41c9e](https://github.com/cowcfj/save-to-notion/commit/fa41c9e0041a70fed8f8369f87b5ade318ddb023))
+- archive .deepsource.toml, .serenaignore and .serena, remove from git tracking ([2aa41b1](https://github.com/cowcfj/save-to-notion/commit/2aa41b14a180daed6269760eb0caa4c05764eccc))
+- **deps-dev:** bump @playwright/test ([929ae7e](https://github.com/cowcfj/save-to-notion/commit/929ae7e81248ef59e5a1bbdf7606609eefdc253b))
+- **deps-dev:** bump @playwright/test from 1.58.1 to 1.58.2 in the testing group across 1 directory ([#307](https://github.com/cowcfj/save-to-notion/issues/307)) ([929ae7e](https://github.com/cowcfj/save-to-notion/commit/929ae7e81248ef59e5a1bbdf7606609eefdc253b))
+- **deps:** remove unused devDependencies (puppeteer, jest-junit, baseline-browser-mapping) ([fa41c9e](https://github.com/cowcfj/save-to-notion/commit/fa41c9e0041a70fed8f8369f87b5ade318ddb023))
 
 ## [2.38.1](https://github.com/cowcfj/save-to-notion/compare/v2.38.0...v2.38.1) (2026-02-27)
 
-
 ### 🐛 Bug 修復
 
-* 強化 minimatch 安全性及更新 GitHub Actions 版本 ([#300](https://github.com/cowcfj/save-to-notion/issues/300)) ([fab33ef](https://github.com/cowcfj/save-to-notion/commit/fab33ef57b7b224ff2f2ba9b3aa76c1082b3d21f))
-* 更新 minimatch 版本以修復安全性問題，調整 GitHub Actions 設定 ([5d84032](https://github.com/cowcfj/save-to-notion/commit/5d840326340490fe64534c69b2f1dd1b2651d3b6))
-
+- 強化 minimatch 安全性及更新 GitHub Actions 版本 ([#300](https://github.com/cowcfj/save-to-notion/issues/300)) ([fab33ef](https://github.com/cowcfj/save-to-notion/commit/fab33ef57b7b224ff2f2ba9b3aa76c1082b3d21f))
+- 更新 minimatch 版本以修復安全性問題，調整 GitHub Actions 設定 ([5d84032](https://github.com/cowcfj/save-to-notion/commit/5d840326340490fe64534c69b2f1dd1b2651d3b6))
 
 ### 🧹 其他變更
 
-* **deps:** bump @notionhq/client from 5.9.0 to 5.11.0 ([#304](https://github.com/cowcfj/save-to-notion/issues/304)) ([6765e4d](https://github.com/cowcfj/save-to-notion/commit/6765e4d48bceb89669320edd600218395c876f1f))
+- **deps:** bump @notionhq/client from 5.9.0 to 5.11.0 ([#304](https://github.com/cowcfj/save-to-notion/issues/304)) ([6765e4d](https://github.com/cowcfj/save-to-notion/commit/6765e4d48bceb89669320edd600218395c876f1f))
 
 ## [2.38.0](https://github.com/cowcfj/save-to-notion/compare/v2.37.1...v2.38.0) (2026-02-27)
 
-
 ### ✨ 新功能
 
-* 增加穩定 URL 的遷移邏輯與重構處理 ([#297](https://github.com/cowcfj/save-to-notion/issues/297)) ([4f7b6ce](https://github.com/cowcfj/save-to-notion/commit/4f7b6cef759009f28d9fae2acd159ef6c51c2c3f))
+- 增加穩定 URL 的遷移邏輯與重構處理 ([#297](https://github.com/cowcfj/save-to-notion/issues/297)) ([4f7b6ce](https://github.com/cowcfj/save-to-notion/commit/4f7b6cef759009f28d9fae2acd159ef6c51c2c3f))
 
 ## [2.37.1](https://github.com/cowcfj/save-to-notion/compare/v2.37.0...v2.37.1) (2026-02-26)
 
-
 ### ♻️ 代碼重構
 
-* Consolidate migration logic into MigrationService ([#295](https://github.com/cowcfj/save-to-notion/issues/295)) ([48fd358](https://github.com/cowcfj/save-to-notion/commit/48fd35850b25167390a202b9328cc08b6150c90f))
+- Consolidate migration logic into MigrationService ([#295](https://github.com/cowcfj/save-to-notion/issues/295)) ([48fd358](https://github.com/cowcfj/save-to-notion/commit/48fd35850b25167390a202b9328cc08b6150c90f))
 
 ## [2.37.0](https://github.com/cowcfj/save-to-notion/compare/v2.36.3...v2.37.0) (2026-02-26)
 
-
 ### ✨ 新功能
 
-* **LogSanitizer:** 增加敏感 query 參數遮蔽功能 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **sidepanel:** 新增 partial 刪除邏輯，優化 metadata 更新 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **StorageService:** 使用 stableUrl 觸發升級，確保正確寫入 key ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **StorageUtil:** 優化讀取現有資料的邏輯，保留 metadata ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **StorageUtil:** 更新資料格式處理邏輯，區分 null 和空陣列 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* 支援新標註結構的頁面條目管理 ([#286](https://github.com/cowcfj/save-to-notion/issues/286)) ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-
+- **LogSanitizer:** 增加敏感 query 參數遮蔽功能 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **sidepanel:** 新增 partial 刪除邏輯，優化 metadata 更新 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **StorageService:** 使用 stableUrl 觸發升級，確保正確寫入 key ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **StorageUtil:** 優化讀取現有資料的邏輯，保留 metadata ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **StorageUtil:** 更新資料格式處理邏輯，區分 null 和空陣列 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- 支援新標註結構的頁面條目管理 ([#286](https://github.com/cowcfj/save-to-notion/issues/286)) ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
 
 ### 🐛 Bug 修復
 
-* **highlighter:** 更新工具欄以考慮高亮變更 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **sidepanel:** 修正 highlights 的處理邏輯，確保不會因為 undefined 而導致錯誤 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **storage:** 改進舊資料刪除的錯誤處理 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-
+- **highlighter:** 更新工具欄以考慮高亮變更 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **sidepanel:** 修正 highlights 的處理邏輯，確保不會因為 undefined 而導致錯誤 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **storage:** 改進舊資料刪除的錯誤處理 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
 
 ### ♻️ 代碼重構
 
-* **content:** 改進快取事件處理 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* **log:** 將追蹤參數從 constants 引入以避免循環依賴 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-
+- **content:** 改進快取事件處理 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- **log:** 將追蹤參數從 constants 引入以避免循環依賴 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
 
 ### 🧪 測試
 
-* **toolbar:** 增加在匹配 highlights key 時觸發更新按鈕可見性的測試 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* 增加單元測試以驗證新功能 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-* 增加對 sendMessage 回傳失敗的清除邏輯測試 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
-
+- **toolbar:** 增加在匹配 highlights key 時觸發更新按鈕可見性的測試 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- 增加單元測試以驗證新功能 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
+- 增加對 sendMessage 回傳失敗的清除邏輯測試 ([2b0bb96](https://github.com/cowcfj/save-to-notion/commit/2b0bb9602390814a223fad1bea0a9b1f5bacf147))
 
 ### 🧹 其他變更
 
-* add .gitattributes for line endings and language stats ([2a69f64](https://github.com/cowcfj/save-to-notion/commit/2a69f6486d920d4573635e3b68a815a887400cab))
-* **deps-dev:** bump @babel/preset-env from 7.28.5 to 7.29.0 in the babel group ([#293](https://github.com/cowcfj/save-to-notion/issues/293)) ([a695e6a](https://github.com/cowcfj/save-to-notion/commit/a695e6a2a61b79ee36e8558abed443fc7c57a3d4))
-* **deps-dev:** bump @babel/preset-env in the babel group ([a695e6a](https://github.com/cowcfj/save-to-notion/commit/a695e6a2a61b79ee36e8558abed443fc7c57a3d4))
-* **deps-dev:** bump basic-ftp ([9f983f3](https://github.com/cowcfj/save-to-notion/commit/9f983f3c66173e14ae85293ff263d1d345c13023))
-* **deps-dev:** bump basic-ftp from 5.0.5 to 5.2.0 in the npm_and_yarn group across 1 directory ([#287](https://github.com/cowcfj/save-to-notion/issues/287)) ([9f983f3](https://github.com/cowcfj/save-to-notion/commit/9f983f3c66173e14ae85293ff263d1d345c13023))
-* **deps-dev:** bump rollup ([9c1b584](https://github.com/cowcfj/save-to-notion/commit/9c1b584a106da6bcedaf6613a58161edf1973349))
-* **deps-dev:** bump rollup from 4.55.1 to 4.59.0 in the npm_and_yarn group across 1 directory ([#289](https://github.com/cowcfj/save-to-notion/issues/289)) ([9c1b584](https://github.com/cowcfj/save-to-notion/commit/9c1b584a106da6bcedaf6613a58161edf1973349))
-* **deps-dev:** bump the linters group with 8 updates ([#292](https://github.com/cowcfj/save-to-notion/issues/292)) ([d7a63c7](https://github.com/cowcfj/save-to-notion/commit/d7a63c7779da1701f3846aaf2ef87ee6a2dce0b6))
+- add .gitattributes for line endings and language stats ([2a69f64](https://github.com/cowcfj/save-to-notion/commit/2a69f6486d920d4573635e3b68a815a887400cab))
+- **deps-dev:** bump @babel/preset-env from 7.28.5 to 7.29.0 in the babel group ([#293](https://github.com/cowcfj/save-to-notion/issues/293)) ([a695e6a](https://github.com/cowcfj/save-to-notion/commit/a695e6a2a61b79ee36e8558abed443fc7c57a3d4))
+- **deps-dev:** bump @babel/preset-env in the babel group ([a695e6a](https://github.com/cowcfj/save-to-notion/commit/a695e6a2a61b79ee36e8558abed443fc7c57a3d4))
+- **deps-dev:** bump basic-ftp ([9f983f3](https://github.com/cowcfj/save-to-notion/commit/9f983f3c66173e14ae85293ff263d1d345c13023))
+- **deps-dev:** bump basic-ftp from 5.0.5 to 5.2.0 in the npm_and_yarn group across 1 directory ([#287](https://github.com/cowcfj/save-to-notion/issues/287)) ([9f983f3](https://github.com/cowcfj/save-to-notion/commit/9f983f3c66173e14ae85293ff263d1d345c13023))
+- **deps-dev:** bump rollup ([9c1b584](https://github.com/cowcfj/save-to-notion/commit/9c1b584a106da6bcedaf6613a58161edf1973349))
+- **deps-dev:** bump rollup from 4.55.1 to 4.59.0 in the npm_and_yarn group across 1 directory ([#289](https://github.com/cowcfj/save-to-notion/issues/289)) ([9c1b584](https://github.com/cowcfj/save-to-notion/commit/9c1b584a106da6bcedaf6613a58161edf1973349))
+- **deps-dev:** bump the linters group with 8 updates ([#292](https://github.com/cowcfj/save-to-notion/issues/292)) ([d7a63c7](https://github.com/cowcfj/save-to-notion/commit/d7a63c7779da1701f3846aaf2ef87ee6a2dce0b6))
 
 ## [2.36.3](https://github.com/cowcfj/save-to-notion/compare/v2.36.2...v2.36.3) (2026-02-25)
 
-
 ### 🐛 Bug 修復
 
-* 修正 restoreLocalHighlight 方法以使用 restoreRangeWithRetry ([#284](https://github.com/cowcfj/save-to-notion/issues/284)) ([9ae3619](https://github.com/cowcfj/save-to-notion/commit/9ae36190540c5db34603501930eb2d2e8b46ab57))
-
+- 修正 restoreLocalHighlight 方法以使用 restoreRangeWithRetry ([#284](https://github.com/cowcfj/save-to-notion/issues/284)) ([9ae3619](https://github.com/cowcfj/save-to-notion/commit/9ae36190540c5db34603501930eb2d2e8b46ab57))
 
 ### 🧹 其他變更
 
-* clean up deprecated tests and update coverage config ([3cca664](https://github.com/cowcfj/save-to-notion/commit/3cca66471883f30faa1091c8654a9edbabcdbe35))
-* 更新 Jest 配置與移除不必要的測試檔案 ([2f89a9b](https://github.com/cowcfj/save-to-notion/commit/2f89a9be8468ccda0383c06796a5bbea954c3747))
+- clean up deprecated tests and update coverage config ([3cca664](https://github.com/cowcfj/save-to-notion/commit/3cca66471883f30faa1091c8654a9edbabcdbe35))
+- 更新 Jest 配置與移除不必要的測試檔案 ([2f89a9b](https://github.com/cowcfj/save-to-notion/commit/2f89a9be8468ccda0383c06796a5bbea954c3747))
 
 ## [2.36.2](https://github.com/cowcfj/save-to-notion/compare/v2.36.1...v2.36.2) (2026-02-25)
 
-
 ### 🐛 Bug 修復
 
-* **security:** 審核修復 — 移除不必要的 DOMParser 並添加 workflow 權限限制 ([#281](https://github.com/cowcfj/save-to-notion/issues/281)) ([6feaa90](https://github.com/cowcfj/save-to-notion/commit/6feaa9057383cf250956b578946a5b62afb2f0fb))
-* 更新模組引入路徑以提高穩定性 ([#279](https://github.com/cowcfj/save-to-notion/issues/279)) ([d9a3f28](https://github.com/cowcfj/save-to-notion/commit/d9a3f28a548626a0f12465bd9e7373a59ae5090b))
+- **security:** 審核修復 — 移除不必要的 DOMParser 並添加 workflow 權限限制 ([#281](https://github.com/cowcfj/save-to-notion/issues/281)) ([6feaa90](https://github.com/cowcfj/save-to-notion/commit/6feaa9057383cf250956b578946a5b62afb2f0fb))
+- 更新模組引入路徑以提高穩定性 ([#279](https://github.com/cowcfj/save-to-notion/issues/279)) ([d9a3f28](https://github.com/cowcfj/save-to-notion/commit/d9a3f28a548626a0f12465bd9e7373a59ae5090b))
 
 ## [2.36.1](https://github.com/cowcfj/save-to-notion/compare/v2.36.0...v2.36.1) (2026-02-24)
 
-
 ### 🐛 Bug 修復
 
-* 修復 Chrome 商店安裝失敗的問題並優化打包體積 ([#277](https://github.com/cowcfj/save-to-notion/issues/277)) ([e8e61e3](https://github.com/cowcfj/save-to-notion/commit/e8e61e3cbe52df47372dd12a34312824c80d3195))
+- 修復 Chrome 商店安裝失敗的問題並優化打包體積 ([#277](https://github.com/cowcfj/save-to-notion/issues/277)) ([e8e61e3](https://github.com/cowcfj/save-to-notion/commit/e8e61e3cbe52df47372dd12a34312824c80d3195))
 
 ## [2.36.0](https://github.com/cowcfj/save-to-notion/compare/v2.35.0...v2.36.0) (2026-02-24)
 
-
 ### ✨ 新功能
 
-* **logger:** 增強錯誤處理的上下文提取功能 ([086dee0](https://github.com/cowcfj/save-to-notion/commit/086dee03e8150b77c4a61fb8d7df4042ab3bcd98))
-* 優化代碼註解與存儲邏輯 ([#273](https://github.com/cowcfj/save-to-notion/issues/273)) ([4cb47cb](https://github.com/cowcfj/save-to-notion/commit/4cb47cbc80ac0e10ca4d7189e124c1463ae8195f))
-* 統一 UI 語言為繁體中文 ([#276](https://github.com/cowcfj/save-to-notion/issues/276)) ([0677430](https://github.com/cowcfj/save-to-notion/commit/067743096b18da55544258469e7a39f082413a2e))
-
+- **logger:** 增強錯誤處理的上下文提取功能 ([086dee0](https://github.com/cowcfj/save-to-notion/commit/086dee03e8150b77c4a61fb8d7df4042ab3bcd98))
+- 優化代碼註解與存儲邏輯 ([#273](https://github.com/cowcfj/save-to-notion/issues/273)) ([4cb47cb](https://github.com/cowcfj/save-to-notion/commit/4cb47cbc80ac0e10ca4d7189e124c1463ae8195f))
+- 統一 UI 語言為繁體中文 ([#276](https://github.com/cowcfj/save-to-notion/issues/276)) ([0677430](https://github.com/cowcfj/save-to-notion/commit/067743096b18da55544258469e7a39f082413a2e))
 
 ### ♻️ 代碼重構
 
-* 重構 StorageUtil 測試中的舊版 Storage 資料解析邏輯 ([4cb47cb](https://github.com/cowcfj/save-to-notion/commit/4cb47cbc80ac0e10ca4d7189e124c1463ae8195f))
+- 重構 StorageUtil 測試中的舊版 Storage 資料解析邏輯 ([4cb47cb](https://github.com/cowcfj/save-to-notion/commit/4cb47cbc80ac0e10ca4d7189e124c1463ae8195f))
 
 ## [2.35.0](https://github.com/cowcfj/save-to-notion/compare/v2.34.0...v2.35.0) (2026-02-22)
 
-
 ### ✨ 新功能
 
-* implement native Chrome Side Panel for highlights ([#268](https://github.com/cowcfj/save-to-notion/issues/268)) ([eeff62f](https://github.com/cowcfj/save-to-notion/commit/eeff62f1ccbf47fd53a3be5e5e5aeec289b9b8cb))
-* **sidepanel:** add Pending Sync view and improve sidepanel structure ([#271](https://github.com/cowcfj/save-to-notion/issues/271)) ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
-
+- implement native Chrome Side Panel for highlights ([#268](https://github.com/cowcfj/save-to-notion/issues/268)) ([eeff62f](https://github.com/cowcfj/save-to-notion/commit/eeff62f1ccbf47fd53a3be5e5e5aeec289b9b8cb))
+- **sidepanel:** add Pending Sync view and improve sidepanel structure ([#271](https://github.com/cowcfj/save-to-notion/issues/271)) ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
 
 ### 🐛 Bug 修復
 
-* **popup:** remove orphaned 'Open in Notion' HTML fragment ([2bacb86](https://github.com/cowcfj/save-to-notion/commit/2bacb86c542b1caac7886b98246f3ba5af479014))
-* **sidepanel:** 修正未同步頁面過濾邏輯 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
-
+- **popup:** remove orphaned 'Open in Notion' HTML fragment ([2bacb86](https://github.com/cowcfj/save-to-notion/commit/2bacb86c542b1caac7886b98246f3ba5af479014))
+- **sidepanel:** 修正未同步頁面過濾邏輯 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
 
 ### ♻️ 代碼重構
 
-* Remove legacy Toolbar UI components ([#270](https://github.com/cowcfj/save-to-notion/issues/270)) ([2bacb86](https://github.com/cowcfj/save-to-notion/commit/2bacb86c542b1caac7886b98246f3ba5af479014))
-* **sidepanel:** 調整側邊欄文字顏色 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
-
+- Remove legacy Toolbar UI components ([#270](https://github.com/cowcfj/save-to-notion/issues/270)) ([2bacb86](https://github.com/cowcfj/save-to-notion/commit/2bacb86c542b1caac7886b98246f3ba5af479014))
+- **sidepanel:** 調整側邊欄文字顏色 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
 
 ### 🧪 測試
 
-* 新增側邊欄測試 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
+- 新增側邊欄測試 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
 
 ## [2.34.0](https://github.com/cowcfj/save-to-notion/compare/v2.33.0...v2.34.0) (2026-02-20)
 
-
 ### ✨ 新功能
 
-* 增強內容錨定功能，改善模糊匹配 ([#263](https://github.com/cowcfj/save-to-notion/issues/263)) ([df579ae](https://github.com/cowcfj/save-to-notion/commit/df579ae518451b2b32209a16e77375347e7977ee))
-
+- 增強內容錨定功能，改善模糊匹配 ([#263](https://github.com/cowcfj/save-to-notion/issues/263)) ([df579ae](https://github.com/cowcfj/save-to-notion/commit/df579ae518451b2b32209a16e77375347e7977ee))
 
 ### 🐛 Bug 修復
 
-* 處理舊版數據遷移與穩定 URL 的儲存隔離衝突 (已修正分支) ([#267](https://github.com/cowcfj/save-to-notion/issues/267)) ([6877608](https://github.com/cowcfj/save-to-notion/commit/6877608f14b9cbd3251130f1a0c6f336042ec6d6))
+- 處理舊版數據遷移與穩定 URL 的儲存隔離衝突 (已修正分支) ([#267](https://github.com/cowcfj/save-to-notion/issues/267)) ([6877608](https://github.com/cowcfj/save-to-notion/commit/6877608f14b9cbd3251130f1a0c6f336042ec6d6))
 
 ## [2.33.0](https://github.com/cowcfj/save-to-notion/compare/v2.32.0...v2.33.0) (2026-02-19)
 
-
 ### ✨ 新功能
 
-* 新增使用超能力的技能說明文件 ([4a2c415](https://github.com/cowcfj/save-to-notion/commit/4a2c41527f5ea51fd97096b08d9e6385aeb92c1c))
-* 更新 Notion 服務以改善頁面內容提取和注入邏輯 ([#261](https://github.com/cowcfj/save-to-notion/issues/261)) ([3854e9e](https://github.com/cowcfj/save-to-notion/commit/3854e9eea012108b28aad72bc2768ef17e670635))
-
+- 新增使用超能力的技能說明文件 ([4a2c415](https://github.com/cowcfj/save-to-notion/commit/4a2c41527f5ea51fd97096b08d9e6385aeb92c1c))
+- 更新 Notion 服務以改善頁面內容提取和注入邏輯 ([#261](https://github.com/cowcfj/save-to-notion/issues/261)) ([3854e9e](https://github.com/cowcfj/save-to-notion/commit/3854e9eea012108b28aad72bc2768ef17e670635))
 
 ### 🧹 其他變更
 
-* remove SKILL.md and stop tracking ([40b8fa0](https://github.com/cowcfj/save-to-notion/commit/40b8fa07970a8ffaa927db6a147a1a1e8952a0f0))
+- remove SKILL.md and stop tracking ([40b8fa0](https://github.com/cowcfj/save-to-notion/commit/40b8fa07970a8ffaa927db6a147a1a1e8952a0f0))
 
 ## [2.32.0](https://github.com/cowcfj/save-to-notion/compare/v2.31.1...v2.32.0) (2026-02-14)
 
-
 ### ✨ 新功能
 
-* 增強 MetadataExtractor 和 NextJsExtractor 的標題一致性檢查 ([#258](https://github.com/cowcfj/save-to-notion/issues/258)) ([cf216c3](https://github.com/cowcfj/save-to-notion/commit/cf216c390ffa8f0225e5d3856335037776d2bb59))
-* 實現穩定 URL 提取階段 1 ([#259](https://github.com/cowcfj/save-to-notion/issues/259)) ([5eef5af](https://github.com/cowcfj/save-to-notion/commit/5eef5af27e66a22270b10c3e50e165df986e702d))
-* 實現穩定 URL 提取階段 2 ([#260](https://github.com/cowcfj/save-to-notion/issues/260)) ([7a1748a](https://github.com/cowcfj/save-to-notion/commit/7a1748a63185f3e8644e69697b2a4ba3fb0144f6))
-* 新增介面縮放設定 ([#256](https://github.com/cowcfj/save-to-notion/issues/256)) ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
-* 更新 config.yaml 以新增忽略模式，刪除測試輸出檔案 ([cc9d300](https://github.com/cowcfj/save-to-notion/commit/cc9d3009314c7b7322654416681503a72fecef3d))
-* 更新配置文件以增強忽略模式，包含更多文件類型 ([4aab5d4](https://github.com/cowcfj/save-to-notion/commit/4aab5d4b62ac1332a8841cd7b76a9725f6b720e9))
-
+- 增強 MetadataExtractor 和 NextJsExtractor 的標題一致性檢查 ([#258](https://github.com/cowcfj/save-to-notion/issues/258)) ([cf216c3](https://github.com/cowcfj/save-to-notion/commit/cf216c390ffa8f0225e5d3856335037776d2bb59))
+- 實現穩定 URL 提取階段 1 ([#259](https://github.com/cowcfj/save-to-notion/issues/259)) ([5eef5af](https://github.com/cowcfj/save-to-notion/commit/5eef5af27e66a22270b10c3e50e165df986e702d))
+- 實現穩定 URL 提取階段 2 ([#260](https://github.com/cowcfj/save-to-notion/issues/260)) ([7a1748a](https://github.com/cowcfj/save-to-notion/commit/7a1748a63185f3e8644e69697b2a4ba3fb0144f6))
+- 新增介面縮放設定 ([#256](https://github.com/cowcfj/save-to-notion/issues/256)) ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
+- 更新 config.yaml 以新增忽略模式，刪除測試輸出檔案 ([cc9d300](https://github.com/cowcfj/save-to-notion/commit/cc9d3009314c7b7322654416681503a72fecef3d))
+- 更新配置文件以增強忽略模式，包含更多文件類型 ([4aab5d4](https://github.com/cowcfj/save-to-notion/commit/4aab5d4b62ac1332a8841cd7b76a9725f6b720e9))
 
 ### 🐛 Bug 修復
 
-* **imageUtils:** 修正 cleanImageUrl 函數的邊界條件測試 ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
-
+- **imageUtils:** 修正 cleanImageUrl 函數的邊界條件測試 ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
 
 ### 🧪 測試
 
-* **retryManager:** 增強重試管理器的錯誤日誌測試 ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
+- **retryManager:** 增強重試管理器的錯誤日誌測試 ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
 
 ## [2.31.1](https://github.com/cowcfj/save-to-notion/compare/v2.31.0...v2.31.1) (2026-02-10)
 
-
 ### 🧹 其他變更
 
-* 移除 package-extension.sh 中的 lib 目錄複製步驟 ([56de324](https://github.com/cowcfj/save-to-notion/commit/56de324af1fa9dc05e5e9ea7f1576dbd58c9b8bc))
+- 移除 package-extension.sh 中的 lib 目錄複製步驟 ([56de324](https://github.com/cowcfj/save-to-notion/commit/56de324af1fa9dc05e5e9ea7f1576dbd58c9b8bc))
 
 ## [2.31.0](https://github.com/cowcfj/save-to-notion/compare/v2.30.0...v2.31.0) (2026-02-10)
 
-
 ### ✨ 新功能
 
-* 更新依賴與優化內容提取邏輯 ([#252](https://github.com/cowcfj/save-to-notion/issues/252)) ([acbf5c5](https://github.com/cowcfj/save-to-notion/commit/acbf5c5813e44f881466af6ef69e20711e5e4125))
-
+- 更新依賴與優化內容提取邏輯 ([#252](https://github.com/cowcfj/save-to-notion/issues/252)) ([acbf5c5](https://github.com/cowcfj/save-to-notion/commit/acbf5c5813e44f881466af6ef69e20711e5e4125))
 
 ### 📝 文檔更新
 
-* 更新 README.md ([c13267b](https://github.com/cowcfj/save-to-notion/commit/c13267bbb9939e22a29d00d2d2a2d8f63c119c54))
-
+- 更新 README.md ([c13267b](https://github.com/cowcfj/save-to-notion/commit/c13267bbb9939e22a29d00d2d2a2d8f63c119c54))
 
 ### 🧹 其他變更
 
-* 移除 lib 目錄及其相關說明文件 ([1060932](https://github.com/cowcfj/save-to-notion/commit/10609320cd98ccec53d0985f2dfc747e455c5c56))
+- 移除 lib 目錄及其相關說明文件 ([1060932](https://github.com/cowcfj/save-to-notion/commit/10609320cd98ccec53d0985f2dfc747e455c5c56))
 
 ## [2.30.0](https://github.com/cowcfj/save-to-notion/compare/v2.29.0...v2.30.0) (2026-02-08)
 
-
 ### ✨ 新功能
 
-* 新增 Next.js 提取器以支持內容提取 ([#250](https://github.com/cowcfj/save-to-notion/issues/250)) ([c8fa9a3](https://github.com/cowcfj/save-to-notion/commit/c8fa9a3f9004c44538e7389f920461323ddb4ed1))
-
+- 新增 Next.js 提取器以支持內容提取 ([#250](https://github.com/cowcfj/save-to-notion/issues/250)) ([c8fa9a3](https://github.com/cowcfj/save-to-notion/commit/c8fa9a3f9004c44538e7389f920461323ddb4ed1))
 
 ### 🐛 Bug 修復
 
-* 修正 Chrome 使用者徽章標籤格式並更新擴展描述 ([b567fc0](https://github.com/cowcfj/save-to-notion/commit/b567fc0b1e842b3c492ea7eb4c25b6a23c3340e1))
+- 修正 Chrome 使用者徽章標籤格式並更新擴展描述 ([b567fc0](https://github.com/cowcfj/save-to-notion/commit/b567fc0b1e842b3c492ea7eb4c25b6a23c3340e1))
 
 ## [2.29.0](https://github.com/cowcfj/save-to-notion/compare/v2.28.0...v2.29.0) (2026-02-08)
 
-
 ### ✨ 新功能
 
-* 更新資料來源選擇器及日誌記錄功能 ([#247](https://github.com/cowcfj/save-to-notion/issues/247)) ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-
+- 更新資料來源選擇器及日誌記錄功能 ([#247](https://github.com/cowcfj/save-to-notion/issues/247)) ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
 
 ### 🐛 Bug 修復
 
-* **constants:** 更新 Notion API 版本註解 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-* **SearchableDatabaseSelector:** 調整資料來源計數邏輯 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-* 修正 sanitizeApiError 函數的測試用例 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-
+- **constants:** 更新 Notion API 版本註解 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+- **SearchableDatabaseSelector:** 調整資料來源計數邏輯 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+- 修正 sanitizeApiError 函數的測試用例 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
 
 ### ♻️ 代碼重構
 
-* **InjectionService:** 確保測試用例的清理 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-* 更新 StorageManager 和 Logger 測試以包含新的 Logger 方法 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-
+- **InjectionService:** 確保測試用例的清理 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+- 更新 StorageManager 和 Logger 測試以包含新的 Logger 方法 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
 
 ### 🧪 測試
 
-* **tests:** 增加單元測試以驗證日誌層級和資料來源計數 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
-* 增加 highlightHandlers, logHandlers, notionHandlers 和 saveHandlers 的測試 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+- **tests:** 增加單元測試以驗證日誌層級和資料來源計數 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+- 增加 highlightHandlers, logHandlers, notionHandlers 和 saveHandlers 的測試 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
 
 ## [2.28.0](https://github.com/cowcfj/save-to-notion/compare/v2.27.0...v2.28.0) (2026-02-04)
 
-
 ### ✨ 新功能
 
-* implement debug log export MVP ([#245](https://github.com/cowcfj/save-to-notion/issues/245)) ([becb08b](https://github.com/cowcfj/save-to-notion/commit/becb08b44662df60083cd81e8f042203389a178c))
-* 更新 .gitignore 以包含新的文檔和報告文件 ([a1ec677](https://github.com/cowcfj/save-to-notion/commit/a1ec677c52f12c9c81519e012f21abfd59556389))
-* 更新日誌記錄以提高可讀性和可追蹤性 ([#244](https://github.com/cowcfj/save-to-notion/issues/244)) ([b29be37](https://github.com/cowcfj/save-to-notion/commit/b29be37c5f3d55be77c2e660bc3392441d99ab8a))
-* 更新選項頁面按鈕以包含圖示並改善導出按鈕行為 ([#246](https://github.com/cowcfj/save-to-notion/issues/246)) ([5a2fb0e](https://github.com/cowcfj/save-to-notion/commit/5a2fb0ee7b209e2ab536a8bac134059301382d35))
-
+- implement debug log export MVP ([#245](https://github.com/cowcfj/save-to-notion/issues/245)) ([becb08b](https://github.com/cowcfj/save-to-notion/commit/becb08b44662df60083cd81e8f042203389a178c))
+- 更新 .gitignore 以包含新的文檔和報告文件 ([a1ec677](https://github.com/cowcfj/save-to-notion/commit/a1ec677c52f12c9c81519e012f21abfd59556389))
+- 更新日誌記錄以提高可讀性和可追蹤性 ([#244](https://github.com/cowcfj/save-to-notion/issues/244)) ([b29be37](https://github.com/cowcfj/save-to-notion/commit/b29be37c5f3d55be77c2e660bc3392441d99ab8a))
+- 更新選項頁面按鈕以包含圖示並改善導出按鈕行為 ([#246](https://github.com/cowcfj/save-to-notion/issues/246)) ([5a2fb0e](https://github.com/cowcfj/save-to-notion/commit/5a2fb0ee7b209e2ab536a8bac134059301382d35))
 
 ### 🐛 Bug 修復
 
-* 改善受限頁面保存時的錯誤訊息 ([#242](https://github.com/cowcfj/save-to-notion/issues/242)) ([c672619](https://github.com/cowcfj/save-to-notion/commit/c672619c95adfb873fd8d97a5a2706bd00d4af79))
+- 改善受限頁面保存時的錯誤訊息 ([#242](https://github.com/cowcfj/save-to-notion/issues/242)) ([c672619](https://github.com/cowcfj/save-to-notion/commit/c672619c95adfb873fd8d97a5a2706bd00d4af79))
 
 ## [2.27.0](https://github.com/cowcfj/save-to-notion/compare/v2.26.0...v2.27.0) (2026-02-01)
 
-
 ### ✨ 新功能
 
-* 優化錯誤處理和訊息格式化 ([#240](https://github.com/cowcfj/save-to-notion/issues/240)) ([98ec23b](https://github.com/cowcfj/save-to-notion/commit/98ec23b930f34f5fb375466c38274038c0610dfe))
+- 優化錯誤處理和訊息格式化 ([#240](https://github.com/cowcfj/save-to-notion/issues/240)) ([98ec23b](https://github.com/cowcfj/save-to-notion/commit/98ec23b930f34f5fb375466c38274038c0610dfe))
 
 ## [2.26.0](https://github.com/cowcfj/save-to-notion/compare/v2.25.0...v2.26.0) (2026-02-01)
 
-
 ### ✨ 新功能
 
-* 優化錯誤處理及訊息格式化 ([#239](https://github.com/cowcfj/save-to-notion/issues/239)) ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
-* 新增 `baseline-browser-mapping` 依賴並更新背景腳本與設定以支援瀏覽器映射功能。 ([e46da8a](https://github.com/cowcfj/save-to-notion/commit/e46da8abf16f74d4a992ad0880dbaa0d195a744d))
-
+- 優化錯誤處理及訊息格式化 ([#239](https://github.com/cowcfj/save-to-notion/issues/239)) ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
+- 新增 `baseline-browser-mapping` 依賴並更新背景腳本與設定以支援瀏覽器映射功能。 ([e46da8a](https://github.com/cowcfj/save-to-notion/commit/e46da8abf16f74d4a992ad0880dbaa0d195a744d))
 
 ### 🐛 Bug 修復
 
-* **background:** 改進錯誤處理 ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
-
+- **background:** 改進錯誤處理 ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
 
 ### ♻️ 代碼重構
 
-* **tests:** 調整測試導入路徑 ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
-
+- **tests:** 調整測試導入路徑 ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
 
 ### 🧪 測試
 
-* 增加 e2e 測試覆蓋率及修復測試問題 ([#233](https://github.com/cowcfj/save-to-notion/issues/233)) ([906fa07](https://github.com/cowcfj/save-to-notion/commit/906fa07302aed3a3e7050b4fb58528e617129f18))
-
+- 增加 e2e 測試覆蓋率及修復測試問題 ([#233](https://github.com/cowcfj/save-to-notion/issues/233)) ([906fa07](https://github.com/cowcfj/save-to-notion/commit/906fa07302aed3a3e7050b4fb58528e617129f18))
 
 ### 🧹 其他變更
 
-* **deps-dev:** bump @babel/core from 7.28.5 to 7.29.0 ([#235](https://github.com/cowcfj/save-to-notion/issues/235)) ([b92d517](https://github.com/cowcfj/save-to-notion/commit/b92d517032979145196511a4fed6264fb7a30e07))
-* **deps-dev:** bump @playwright/test from 1.57.0 to 1.58.1 ([#237](https://github.com/cowcfj/save-to-notion/issues/237)) ([008a91d](https://github.com/cowcfj/save-to-notion/commit/008a91dc7d88449088036779aada0641dbb26955))
-* **deps:** bump @notionhq/client from 5.6.0 to 5.9.0 ([#236](https://github.com/cowcfj/save-to-notion/issues/236)) ([febb411](https://github.com/cowcfj/save-to-notion/commit/febb41127c452d6f61d00dc48d3fafd3da89df89))
-* 更新 .gitignore 檔案以調整忽略規則 ([b7c7557](https://github.com/cowcfj/save-to-notion/commit/b7c755739cd669deda85bf6f320e7b1ec5d69089))
+- **deps-dev:** bump @babel/core from 7.28.5 to 7.29.0 ([#235](https://github.com/cowcfj/save-to-notion/issues/235)) ([b92d517](https://github.com/cowcfj/save-to-notion/commit/b92d517032979145196511a4fed6264fb7a30e07))
+- **deps-dev:** bump @playwright/test from 1.57.0 to 1.58.1 ([#237](https://github.com/cowcfj/save-to-notion/issues/237)) ([008a91d](https://github.com/cowcfj/save-to-notion/commit/008a91dc7d88449088036779aada0641dbb26955))
+- **deps:** bump @notionhq/client from 5.6.0 to 5.9.0 ([#236](https://github.com/cowcfj/save-to-notion/issues/236)) ([febb411](https://github.com/cowcfj/save-to-notion/commit/febb41127c452d6f61d00dc48d3fafd3da89df89))
+- 更新 .gitignore 檔案以調整忽略規則 ([b7c7557](https://github.com/cowcfj/save-to-notion/commit/b7c755739cd669deda85bf6f320e7b1ec5d69089))
 
 ## [2.25.0](https://github.com/cowcfj/save-to-notion/compare/v2.24.0...v2.25.0) (2026-01-16)
 
-
 ### ✨ 新功能
 
-* 增加資料庫搜尋功能及排序邏輯 ([#230](https://github.com/cowcfj/save-to-notion/issues/230)) ([b8c5e4a](https://github.com/cowcfj/save-to-notion/commit/b8c5e4aa9dbb0c42c6955ce26fedfb4dca238b1b))
+- 增加資料庫搜尋功能及排序邏輯 ([#230](https://github.com/cowcfj/save-to-notion/issues/230)) ([b8c5e4a](https://github.com/cowcfj/save-to-notion/commit/b8c5e4aa9dbb0c42c6955ce26fedfb4dca238b1b))
 
 ## [2.24.0](https://github.com/cowcfj/save-to-notion/compare/v2.23.0...v2.24.0) (2026-01-16)
 
-
 ### ✨ 新功能
 
-* 改善用戶界面與可用性 ([#229](https://github.com/cowcfj/save-to-notion/issues/229)) ([811059d](https://github.com/cowcfj/save-to-notion/commit/811059d83b8979127c366558580d50109aae50d1))
-
+- 改善用戶界面與可用性 ([#229](https://github.com/cowcfj/save-to-notion/issues/229)) ([811059d](https://github.com/cowcfj/save-to-notion/commit/811059d83b8979127c366558580d50109aae50d1))
 
 ### 🐛 Bug 修復
 
-* upgrade @notionhq/client from 5.4.0 to 5.6.0 ([#228](https://github.com/cowcfj/save-to-notion/issues/228)) ([ccc321f](https://github.com/cowcfj/save-to-notion/commit/ccc321f687eecd8872a44b957d469c14602665e4))
-
+- upgrade @notionhq/client from 5.4.0 to 5.6.0 ([#228](https://github.com/cowcfj/save-to-notion/issues/228)) ([ccc321f](https://github.com/cowcfj/save-to-notion/commit/ccc321f687eecd8872a44b957d469c14602665e4))
 
 ### 📝 文檔更新
 
-* 更新 README.md 專案說明。 ([aa3df49](https://github.com/cowcfj/save-to-notion/commit/aa3df49e2a91b5d189829444c202c77d6617ce67))
-
+- 更新 README.md 專案說明。 ([aa3df49](https://github.com/cowcfj/save-to-notion/commit/aa3df49e2a91b5d189829444c202c77d6617ce67))
 
 ### ♻️ 代碼重構
 
-* 更新技術架構與核心技術說明 ([a950085](https://github.com/cowcfj/save-to-notion/commit/a9500853612127d0c0e1fd26125db9600af72a01))
-* 重構錯誤處理及移除不必要的代碼 ([#222](https://github.com/cowcfj/save-to-notion/issues/222)) ([db20a0b](https://github.com/cowcfj/save-to-notion/commit/db20a0b7ec672e0a7b8834ae7408c08fdacc6876))
-
+- 更新技術架構與核心技術說明 ([a950085](https://github.com/cowcfj/save-to-notion/commit/a9500853612127d0c0e1fd26125db9600af72a01))
+- 重構錯誤處理及移除不必要的代碼 ([#222](https://github.com/cowcfj/save-to-notion/issues/222)) ([db20a0b](https://github.com/cowcfj/save-to-notion/commit/db20a0b7ec672e0a7b8834ae7408c08fdacc6876))
 
 ### 🧹 其他變更
 
-* **deps-dev:** bump jsdom from 26.1.0 to 27.4.0 ([#225](https://github.com/cowcfj/save-to-notion/issues/225)) ([5d2f6a6](https://github.com/cowcfj/save-to-notion/commit/5d2f6a6f93600b40d7ec786df50f79538c974eaf))
-* **deps-dev:** bump rollup from 4.53.3 to 4.54.0 ([#226](https://github.com/cowcfj/save-to-notion/issues/226)) ([9a87706](https://github.com/cowcfj/save-to-notion/commit/9a877066e3f1e7b7d2fc46d9206e0d23118730a8))
-* 更新 .gitignore 以排除新的代理技能文檔 ([a163937](https://github.com/cowcfj/save-to-notion/commit/a1639374f26a35d85da8f4a36b742ef6a94b3def))
+- **deps-dev:** bump jsdom from 26.1.0 to 27.4.0 ([#225](https://github.com/cowcfj/save-to-notion/issues/225)) ([5d2f6a6](https://github.com/cowcfj/save-to-notion/commit/5d2f6a6f93600b40d7ec786df50f79538c974eaf))
+- **deps-dev:** bump rollup from 4.53.3 to 4.54.0 ([#226](https://github.com/cowcfj/save-to-notion/issues/226)) ([9a87706](https://github.com/cowcfj/save-to-notion/commit/9a877066e3f1e7b7d2fc46d9206e0d23118730a8))
+- 更新 .gitignore 以排除新的代理技能文檔 ([a163937](https://github.com/cowcfj/save-to-notion/commit/a1639374f26a35d85da8f4a36b742ef6a94b3def))
 
 ## [2.23.0](https://github.com/cowcfj/save-to-notion/compare/v2.22.0...v2.23.0) (2025-12-30)
 
-
 ### ✨ 新功能
 
-* 新增標註持久化和樣式管理功能 ([#220](https://github.com/cowcfj/save-to-notion/issues/220)) ([a8ab942](https://github.com/cowcfj/save-to-notion/commit/a8ab942aa778ab0f4c34e2cc8b29f29b45054ee0))
-
+- 新增標註持久化和樣式管理功能 ([#220](https://github.com/cowcfj/save-to-notion/issues/220)) ([a8ab942](https://github.com/cowcfj/save-to-notion/commit/a8ab942aa778ab0f4c34e2cc8b29f29b45054ee0))
 
 ### 📝 文檔更新
 
-* 更新 README.md 說明文件。 ([f292a2d](https://github.com/cowcfj/save-to-notion/commit/f292a2d856a1fb267a99f37abfe8a35cbe94538b))
-
+- 更新 README.md 說明文件。 ([f292a2d](https://github.com/cowcfj/save-to-notion/commit/f292a2d856a1fb267a99f37abfe8a35cbe94538b))
 
 ### ♻️ 代碼重構
 
-* **HighlightStorage.test:** 增加 collectForNotion 方法的邊界檢查與高亮映射測試 ([a8ab942](https://github.com/cowcfj/save-to-notion/commit/a8ab942aa778ab0f4c34e2cc8b29f29b45054ee0))
+- **HighlightStorage.test:** 增加 collectForNotion 方法的邊界檢查與高亮映射測試 ([a8ab942](https://github.com/cowcfj/save-to-notion/commit/a8ab942aa778ab0f4c34e2cc8b29f29b45054ee0))
 
 ## [2.22.0](https://github.com/cowcfj/save-to-notion/compare/v2.21.0...v2.22.0) (2025-12-26)
 
-
 ### ✨ 新功能
 
-* 優化 TabService 和 Promise 使用邏輯 ([#210](https://github.com/cowcfj/save-to-notion/issues/210)) ([c59df77](https://github.com/cowcfj/save-to-notion/commit/c59df7771abb798bd6caaeee13888aec12ebdf53))
-* 增加標註樣式選擇功能及清理代碼 ([#217](https://github.com/cowcfj/save-to-notion/issues/217)) ([d1fa92e](https://github.com/cowcfj/save-to-notion/commit/d1fa92efcb96ce02f711ac448bafa92bdb8deadf))
-* 改進性能優化器和自適應性能管理器 ([#216](https://github.com/cowcfj/save-to-notion/issues/216)) ([2f83a2d](https://github.com/cowcfj/save-to-notion/commit/2f83a2d77405cdda16373f49acfaaa19dcec2d66))
-* 新增 .agent/rules/ 到 .gitignore ([5831e48](https://github.com/cowcfj/save-to-notion/commit/5831e4827ba1f258ab4752c79423592b7e2571ba))
-* 更新 README 和 index.html，新增圖片展示及輕盒子功能 ([8df8a16](https://github.com/cowcfj/save-to-notion/commit/8df8a16f07e3afefe47c3119f430e80ebb096241))
-
+- 優化 TabService 和 Promise 使用邏輯 ([#210](https://github.com/cowcfj/save-to-notion/issues/210)) ([c59df77](https://github.com/cowcfj/save-to-notion/commit/c59df7771abb798bd6caaeee13888aec12ebdf53))
+- 增加標註樣式選擇功能及清理代碼 ([#217](https://github.com/cowcfj/save-to-notion/issues/217)) ([d1fa92e](https://github.com/cowcfj/save-to-notion/commit/d1fa92efcb96ce02f711ac448bafa92bdb8deadf))
+- 改進性能優化器和自適應性能管理器 ([#216](https://github.com/cowcfj/save-to-notion/issues/216)) ([2f83a2d](https://github.com/cowcfj/save-to-notion/commit/2f83a2d77405cdda16373f49acfaaa19dcec2d66))
+- 新增 .agent/rules/ 到 .gitignore ([5831e48](https://github.com/cowcfj/save-to-notion/commit/5831e4827ba1f258ab4752c79423592b7e2571ba))
+- 更新 README 和 index.html，新增圖片展示及輕盒子功能 ([8df8a16](https://github.com/cowcfj/save-to-notion/commit/8df8a16f07e3afefe47c3119f430e80ebb096241))
 
 ### 🐛 Bug 修復
 
-* 確保在已銷毀狀態下，方法能正常處理並返回預期結果 ([2f83a2d](https://github.com/cowcfj/save-to-notion/commit/2f83a2d77405cdda16373f49acfaaa19dcec2d66))
-
+- 確保在已銷毀狀態下，方法能正常處理並返回預期結果 ([2f83a2d](https://github.com/cowcfj/save-to-notion/commit/2f83a2d77405cdda16373f49acfaaa19dcec2d66))
 
 ### ♻️ 代碼重構
 
-* format code with Prettier ([#213](https://github.com/cowcfj/save-to-notion/issues/213)) ([e676619](https://github.com/cowcfj/save-to-notion/commit/e676619e1a41e8c71c9fb7b2b640b0ac6c01b7c3))
-
+- format code with Prettier ([#213](https://github.com/cowcfj/save-to-notion/issues/213)) ([e676619](https://github.com/cowcfj/save-to-notion/commit/e676619e1a41e8c71c9fb7b2b640b0ac6c01b7c3))
 
 ### 🧹 其他變更
 
-* 移除設定頁面使用者介面。 ([dd667c9](https://github.com/cowcfj/save-to-notion/commit/dd667c98e7a3f869a9603ed328c60966f533ca28))
+- 移除設定頁面使用者介面。 ([dd667c9](https://github.com/cowcfj/save-to-notion/commit/dd667c98e7a3f869a9603ed328c60966f533ca28))
 
 ## [2.21.0](https://github.com/cowcfj/save-to-notion/compare/v2.20.0...v2.21.0) (2025-12-24)
 
-
 ### ✨ 新功能
 
-* 增加 Notion API 操作特定配置及驗證功能 ([#207](https://github.com/cowcfj/save-to-notion/issues/207)) ([f7e833f](https://github.com/cowcfj/save-to-notion/commit/f7e833f29de2ab31880fbbc2ae6e099e52350f8a))
-* 新增頁面驗證與強制刷新功能 ([#209](https://github.com/cowcfj/save-to-notion/issues/209)) ([f02edc6](https://github.com/cowcfj/save-to-notion/commit/f02edc651e0f591f0f9cd311b856a520a6c6a602))
-* 重構 NotionService 圖片過濾邏輯及更新 API 路徑 ([#208](https://github.com/cowcfj/save-to-notion/issues/208)) ([0da3d5c](https://github.com/cowcfj/save-to-notion/commit/0da3d5c7458926405ac2efdcce5c944628b5a85a))
-* 重構異步操作並改進日誌記錄 ([#204](https://github.com/cowcfj/save-to-notion/issues/204)) ([d7b82f2](https://github.com/cowcfj/save-to-notion/commit/d7b82f21a30f168896147c8736cb31189cb348e2))
-* 重構目錄結構，模塊化背景服務與內容提取系統 ([b2e8224](https://github.com/cowcfj/save-to-notion/commit/b2e8224e60e27cf7c015572bfdbd60ec12e0975c))
-* 重構背景服務與測試改善 ([#206](https://github.com/cowcfj/save-to-notion/issues/206)) ([4e98f3f](https://github.com/cowcfj/save-to-notion/commit/4e98f3fb36d7875c2bc6e4b6100a71280fa0c156))
+- 增加 Notion API 操作特定配置及驗證功能 ([#207](https://github.com/cowcfj/save-to-notion/issues/207)) ([f7e833f](https://github.com/cowcfj/save-to-notion/commit/f7e833f29de2ab31880fbbc2ae6e099e52350f8a))
+- 新增頁面驗證與強制刷新功能 ([#209](https://github.com/cowcfj/save-to-notion/issues/209)) ([f02edc6](https://github.com/cowcfj/save-to-notion/commit/f02edc651e0f591f0f9cd311b856a520a6c6a602))
+- 重構 NotionService 圖片過濾邏輯及更新 API 路徑 ([#208](https://github.com/cowcfj/save-to-notion/issues/208)) ([0da3d5c](https://github.com/cowcfj/save-to-notion/commit/0da3d5c7458926405ac2efdcce5c944628b5a85a))
+- 重構異步操作並改進日誌記錄 ([#204](https://github.com/cowcfj/save-to-notion/issues/204)) ([d7b82f2](https://github.com/cowcfj/save-to-notion/commit/d7b82f21a30f168896147c8736cb31189cb348e2))
+- 重構目錄結構，模塊化背景服務與內容提取系統 ([b2e8224](https://github.com/cowcfj/save-to-notion/commit/b2e8224e60e27cf7c015572bfdbd60ec12e0975c))
+- 重構背景服務與測試改善 ([#206](https://github.com/cowcfj/save-to-notion/issues/206)) ([4e98f3f](https://github.com/cowcfj/save-to-notion/commit/4e98f3fb36d7875c2bc6e4b6100a71280fa0c156))
 
 ## [2.20.0](https://github.com/cowcfj/save-to-notion/compare/v2.19.2...v2.20.0) (2025-12-22)
 
-
 ### ✨ 新功能
 
-* Add Chrome Web Store and DeepSource badges to README.md ([#199](https://github.com/cowcfj/save-to-notion/issues/199)) ([1a82e58](https://github.com/cowcfj/save-to-notion/commit/1a82e58deba63537622c21aa57ec6d707f7d00f7))
-* 增強 validatePrivilegedRequest 函數的安全性檢查邏輯 ([#203](https://github.com/cowcfj/save-to-notion/issues/203)) ([6264e3a](https://github.com/cowcfj/save-to-notion/commit/6264e3a10bfae8ac9063234fcee8ca097f437b4f))
-* 新增遷移工具 UI 元素與應用程式版本號顯示功能 ([#201](https://github.com/cowcfj/save-to-notion/issues/201)) ([fc51a0b](https://github.com/cowcfj/save-to-notion/commit/fc51a0b667095db402204fef1f0c4dc3bc537a4c))
-* 更新 release-please 配置，新增排除路徑與檔案 ([1e63418](https://github.com/cowcfj/save-to-notion/commit/1e6341826d611ecb2355bdb62229bb0809834230))
-* 更新靜態網站部署工作流程及新增隱私政策頁面 ([c3442de](https://github.com/cowcfj/save-to-notion/commit/c3442dea575d8e3c44145a1b8408cffe6c4ba017))
-* 重構遷移處理邏輯至單獨模組 ([#202](https://github.com/cowcfj/save-to-notion/issues/202)) ([bfcdfaa](https://github.com/cowcfj/save-to-notion/commit/bfcdfaa40ea1f34dbd9e236d1340dd803a8b37b0))
-
+- Add Chrome Web Store and DeepSource badges to README.md ([#199](https://github.com/cowcfj/save-to-notion/issues/199)) ([1a82e58](https://github.com/cowcfj/save-to-notion/commit/1a82e58deba63537622c21aa57ec6d707f7d00f7))
+- 增強 validatePrivilegedRequest 函數的安全性檢查邏輯 ([#203](https://github.com/cowcfj/save-to-notion/issues/203)) ([6264e3a](https://github.com/cowcfj/save-to-notion/commit/6264e3a10bfae8ac9063234fcee8ca097f437b4f))
+- 新增遷移工具 UI 元素與應用程式版本號顯示功能 ([#201](https://github.com/cowcfj/save-to-notion/issues/201)) ([fc51a0b](https://github.com/cowcfj/save-to-notion/commit/fc51a0b667095db402204fef1f0c4dc3bc537a4c))
+- 更新 release-please 配置，新增排除路徑與檔案 ([1e63418](https://github.com/cowcfj/save-to-notion/commit/1e6341826d611ecb2355bdb62229bb0809834230))
+- 更新靜態網站部署工作流程及新增隱私政策頁面 ([c3442de](https://github.com/cowcfj/save-to-notion/commit/c3442dea575d8e3c44145a1b8408cffe6c4ba017))
+- 重構遷移處理邏輯至單獨模組 ([#202](https://github.com/cowcfj/save-to-notion/issues/202)) ([bfcdfaa](https://github.com/cowcfj/save-to-notion/commit/bfcdfaa40ea1f34dbd9e236d1340dd803a8b37b0))
 
 ### 🧹 其他變更
 
-* 更新網站首頁內容並同步專案說明文件 ([01a3ed1](https://github.com/cowcfj/save-to-notion/commit/01a3ed1efd7d7d885f6fa3302b2d65f81ce2653e))
+- 更新網站首頁內容並同步專案說明文件 ([01a3ed1](https://github.com/cowcfj/save-to-notion/commit/01a3ed1efd7d7d885f6fa3302b2d65f81ce2653e))
 
 ## [2.19.2](https://github.com/cowcfj/save-to-notion/compare/v2.19.1...v2.19.2) (2025-12-21)
 
-
 ### 🐛 Bug 修復
 
-* 增加選項目錄的複製功能至打包腳本 ([#196](https://github.com/cowcfj/save-to-notion/issues/196)) ([23d727b](https://github.com/cowcfj/save-to-notion/commit/23d727b2f7516e116566ca0a25d71ec0d36be2d2))
-
+- 增加選項目錄的複製功能至打包腳本 ([#196](https://github.com/cowcfj/save-to-notion/issues/196)) ([23d727b](https://github.com/cowcfj/save-to-notion/commit/23d727b2f7516e116566ca0a25d71ec0d36be2d2))
 
 ### 📝 文檔更新
 
-* 更新 README.md 說明文件。 ([6377f05](https://github.com/cowcfj/save-to-notion/commit/6377f05d9ec03b1ebca9ff0dd793849ef3b57b1a))
-* 更新專案文件 ([255f234](https://github.com/cowcfj/save-to-notion/commit/255f2344a895fd80c575e1e0f9985536d97dd571))
-
+- 更新 README.md 說明文件。 ([6377f05](https://github.com/cowcfj/save-to-notion/commit/6377f05d9ec03b1ebca9ff0dd793849ef3b57b1a))
+- 更新專案文件 ([255f234](https://github.com/cowcfj/save-to-notion/commit/255f2344a895fd80c575e1e0f9985536d97dd571))
 
 ### ♻️ 代碼重構
 
-* format code with Prettier ([#194](https://github.com/cowcfj/save-to-notion/issues/194)) ([3979a1c](https://github.com/cowcfj/save-to-notion/commit/3979a1c9462faa84894d44757165aaf735bb5b38))
-
+- format code with Prettier ([#194](https://github.com/cowcfj/save-to-notion/issues/194)) ([3979a1c](https://github.com/cowcfj/save-to-notion/commit/3979a1c9462faa84894d44757165aaf735bb5b38))
 
 ### 🧹 其他變更
 
-* 更新 README 檔案並調整首頁內容。 ([ba244dd](https://github.com/cowcfj/save-to-notion/commit/ba244ddd3b71325184aacba960234af738a70172))
+- 更新 README 檔案並調整首頁內容。 ([ba244dd](https://github.com/cowcfj/save-to-notion/commit/ba244ddd3b71325184aacba960234af738a70172))
 
 ## [2.19.1](https://github.com/cowcfj/save-to-notion/compare/v2.19.0...v2.19.1) (2025-12-21)
 
-
 ### 🐛 Bug 修復
 
-* 移除打包過程中的 help.html 檔案複製 ([ab3c5ed](https://github.com/cowcfj/save-to-notion/commit/ab3c5ed37c57d4cae7167d4d60c28fac4425e52d))
+- 移除打包過程中的 help.html 檔案複製 ([ab3c5ed](https://github.com/cowcfj/save-to-notion/commit/ab3c5ed37c57d4cae7167d4d60c28fac4425e52d))
 
 ## [2.19.0](https://github.com/cowcfj/save-to-notion/compare/v2.18.1...v2.19.0) (2025-12-21)
 
-
 ### ✨ 新功能
 
-* **migration:** 完成標註數據遷移工具的重構與測試 ([#187](https://github.com/cowcfj/save-to-notion/issues/187)) ([cbd05f0](https://github.com/cowcfj/save-to-notion/commit/cbd05f072402b579a195bcc75526627be7651636))
-* **tests:** 增加背景狀態更新測試及內容腳本整合測試的模擬 ([6fd0172](https://github.com/cowcfj/save-to-notion/commit/6fd0172a44be1239ee0b31dedccc00f3e9ddc718))
-* **tests:** 更新背景狀態測試和內容腳本整合測試的模擬 ([bc748a4](https://github.com/cowcfj/save-to-notion/commit/bc748a4cdc8735002f0d97e08aac3e46c4aa26d3))
-* 新增 Preloader 功能及高亮標註自動恢復 ([#191](https://github.com/cowcfj/save-to-notion/issues/191)) ([dc8d261](https://github.com/cowcfj/save-to-notion/commit/dc8d261c44900b0b27f5ace5a1d318d349d62eda))
-* 新增功能以改善用戶體驗 ([0cf6d74](https://github.com/cowcfj/save-to-notion/commit/0cf6d74b7cdd60c780c7329f6aa048a5a60fc668))
-* 新增存儲和用戶界面管理功能 ([#189](https://github.com/cowcfj/save-to-notion/issues/189)) ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
-* 更新 Codecov 配置以允許攜帶上次覆蓋率並新增快速測試命令 ([0778b03](https://github.com/cowcfj/save-to-notion/commit/0778b03c496e00d6f01f7c2b64e98fe77b85e688))
-* 更新選項頁面 UI 與功能 ([#190](https://github.com/cowcfj/save-to-notion/issues/190)) ([d449a53](https://github.com/cowcfj/save-to-notion/commit/d449a5363443a75490cf298739baa4010bb33633))
-
+- **migration:** 完成標註數據遷移工具的重構與測試 ([#187](https://github.com/cowcfj/save-to-notion/issues/187)) ([cbd05f0](https://github.com/cowcfj/save-to-notion/commit/cbd05f072402b579a195bcc75526627be7651636))
+- **tests:** 增加背景狀態更新測試及內容腳本整合測試的模擬 ([6fd0172](https://github.com/cowcfj/save-to-notion/commit/6fd0172a44be1239ee0b31dedccc00f3e9ddc718))
+- **tests:** 更新背景狀態測試和內容腳本整合測試的模擬 ([bc748a4](https://github.com/cowcfj/save-to-notion/commit/bc748a4cdc8735002f0d97e08aac3e46c4aa26d3))
+- 新增 Preloader 功能及高亮標註自動恢復 ([#191](https://github.com/cowcfj/save-to-notion/issues/191)) ([dc8d261](https://github.com/cowcfj/save-to-notion/commit/dc8d261c44900b0b27f5ace5a1d318d349d62eda))
+- 新增功能以改善用戶體驗 ([0cf6d74](https://github.com/cowcfj/save-to-notion/commit/0cf6d74b7cdd60c780c7329f6aa048a5a60fc668))
+- 新增存儲和用戶界面管理功能 ([#189](https://github.com/cowcfj/save-to-notion/issues/189)) ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
+- 更新 Codecov 配置以允許攜帶上次覆蓋率並新增快速測試命令 ([0778b03](https://github.com/cowcfj/save-to-notion/commit/0778b03c496e00d6f01f7c2b64e98fe77b85e688))
+- 更新選項頁面 UI 與功能 ([#190](https://github.com/cowcfj/save-to-notion/issues/190)) ([d449a53](https://github.com/cowcfj/save-to-notion/commit/d449a5363443a75490cf298739baa4010bb33633))
 
 ### 🐛 Bug 修復
 
-* 禁用 carryforward 以防止保留先前的覆蓋率數據 ([64b8e08](https://github.com/cowcfj/save-to-notion/commit/64b8e0842b0e7144ec51700727827657a88a9b67))
-
+- 禁用 carryforward 以防止保留先前的覆蓋率數據 ([64b8e08](https://github.com/cowcfj/save-to-notion/commit/64b8e0842b0e7144ec51700727827657a88a9b67))
 
 ### ♻️ 代碼重構
 
-* format code with Prettier ([#192](https://github.com/cowcfj/save-to-notion/issues/192)) ([4871a49](https://github.com/cowcfj/save-to-notion/commit/4871a4996bba0b33a6cba9b61d9330ad0f6e8a5e))
-* **MigrationExecutor:** 移除不必要的註解 ([cbd05f0](https://github.com/cowcfj/save-to-notion/commit/cbd05f072402b579a195bcc75526627be7651636))
-* **tests:** 更新 DataSourceManager 測試中的 json 方法，改用 Promise.resolve 以符合預期行為 ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
-* 更新 codecov.yml，排除已重構的遷移檔案以避免計算覆蓋率 ([2175ae1](https://github.com/cowcfj/save-to-notion/commit/2175ae16a07e38d89017a89a7e2c12f2fbcc9fe0))
-* 移除 HighlightManager 初始化中的無痛自動遷移步驟 ([24c9e03](https://github.com/cowcfj/save-to-notion/commit/24c9e03fa1edbea3bbc5391aa367fc85672b75a5))
-
+- format code with Prettier ([#192](https://github.com/cowcfj/save-to-notion/issues/192)) ([4871a49](https://github.com/cowcfj/save-to-notion/commit/4871a4996bba0b33a6cba9b61d9330ad0f6e8a5e))
+- **MigrationExecutor:** 移除不必要的註解 ([cbd05f0](https://github.com/cowcfj/save-to-notion/commit/cbd05f072402b579a195bcc75526627be7651636))
+- **tests:** 更新 DataSourceManager 測試中的 json 方法，改用 Promise.resolve 以符合預期行為 ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
+- 更新 codecov.yml，排除已重構的遷移檔案以避免計算覆蓋率 ([2175ae1](https://github.com/cowcfj/save-to-notion/commit/2175ae16a07e38d89017a89a7e2c12f2fbcc9fe0))
+- 移除 HighlightManager 初始化中的無痛自動遷移步驟 ([24c9e03](https://github.com/cowcfj/save-to-notion/commit/24c9e03fa1edbea3bbc5391aa367fc85672b75a5))
 
 ### 👷 建置與 CI
 
-* 優化 Rollup 配置 ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
-
+- 優化 Rollup 配置 ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
 
 ### 🧹 其他變更
 
-* 刪除 `utils.test.js` 單元測試檔案並修改 `codecov.yml` 配置。 ([03ddb59](https://github.com/cowcfj/save-to-notion/commit/03ddb5984ae291c085afc35e12364fd40693bfd4))
-* 忽略程式碼覆蓋率報告檔案並新增至 .gitignore。 ([176be72](https://github.com/cowcfj/save-to-notion/commit/176be7265fcdc518ba25d8260376e2d2c77aff04))
-* 更新 .gitignore 檔案以反映新的忽略規則。 ([88bb16d](https://github.com/cowcfj/save-to-notion/commit/88bb16d7aba162fd4b3bb86c43ac68ef26acf778))
-* 更新 Codecov 配置 ([99a10a3](https://github.com/cowcfj/save-to-notion/commit/99a10a3cc97489a9c0c4d35fd801dabc0c102edb))
-* 更新 lcov 覆蓋率數據。 ([b679d77](https://github.com/cowcfj/save-to-notion/commit/b679d772382d31ee67f9d4450a40e4f669c10047))
-* 移除 MCP 交互式測試指南文件 ([887557a](https://github.com/cowcfj/save-to-notion/commit/887557a2c2d19893e8066642c240e4fce3151aac))
-* 移除 Thomas Frank 方案的整合測試與對比測試文件 ([443cd19](https://github.com/cowcfj/save-to-notion/commit/443cd193fc384312fd5d8cd6a9764c80ba11e83d))
-* 移除過時的 MIGRATION-STATUS.md 文件 ([059a2cb](https://github.com/cowcfj/save-to-notion/commit/059a2cbd52b1c4ee9ba20ca6fff005154bdb5689))
+- 刪除 `utils.test.js` 單元測試檔案並修改 `codecov.yml` 配置。 ([03ddb59](https://github.com/cowcfj/save-to-notion/commit/03ddb5984ae291c085afc35e12364fd40693bfd4))
+- 忽略程式碼覆蓋率報告檔案並新增至 .gitignore。 ([176be72](https://github.com/cowcfj/save-to-notion/commit/176be7265fcdc518ba25d8260376e2d2c77aff04))
+- 更新 .gitignore 檔案以反映新的忽略規則。 ([88bb16d](https://github.com/cowcfj/save-to-notion/commit/88bb16d7aba162fd4b3bb86c43ac68ef26acf778))
+- 更新 Codecov 配置 ([99a10a3](https://github.com/cowcfj/save-to-notion/commit/99a10a3cc97489a9c0c4d35fd801dabc0c102edb))
+- 更新 lcov 覆蓋率數據。 ([b679d77](https://github.com/cowcfj/save-to-notion/commit/b679d772382d31ee67f9d4450a40e4f669c10047))
+- 移除 MCP 交互式測試指南文件 ([887557a](https://github.com/cowcfj/save-to-notion/commit/887557a2c2d19893e8066642c240e4fce3151aac))
+- 移除 Thomas Frank 方案的整合測試與對比測試文件 ([443cd19](https://github.com/cowcfj/save-to-notion/commit/443cd193fc384312fd5d8cd6a9764c80ba11e83d))
+- 移除過時的 MIGRATION-STATUS.md 文件 ([059a2cb](https://github.com/cowcfj/save-to-notion/commit/059a2cbd52b1c4ee9ba20ca6fff005154bdb5689))
 
 ## [2.18.1](https://github.com/cowcfj/save-to-notion/compare/v2.18.0...v2.18.1) (2025-12-20)
 
-
 ### 🐛 Bug 修復
 
-* 修正 e2e 測試命令以使用非生產環境構建 ([#183](https://github.com/cowcfj/save-to-notion/issues/183)) ([d9cb27a](https://github.com/cowcfj/save-to-notion/commit/d9cb27a1eef6e763d38e6b74ea59d8004da8a810))
-
+- 修正 e2e 測試命令以使用非生產環境構建 ([#183](https://github.com/cowcfj/save-to-notion/issues/183)) ([d9cb27a](https://github.com/cowcfj/save-to-notion/commit/d9cb27a1eef6e763d38e6b74ea59d8004da8a810))
 
 ### 👷 建置與 CI
 
-* 新增程式碼覆蓋率報告檔案。 ([600da1f](https://github.com/cowcfj/save-to-notion/commit/600da1fa6c735e538a1634666c0aa77c8dbe13b3))
-
+- 新增程式碼覆蓋率報告檔案。 ([600da1f](https://github.com/cowcfj/save-to-notion/commit/600da1fa6c735e538a1634666c0aa77c8dbe13b3))
 
 ### 🧹 其他變更
 
-* 更新 README.md，合併 Highlighter 進入入口文件說明 ([6b17887](https://github.com/cowcfj/save-to-notion/commit/6b17887d2010d6d7c6cdafeb76ec308149a61fb9))
-* 更新文檔站點識別模式與單元測試 ([#186](https://github.com/cowcfj/save-to-notion/issues/186)) ([7e33d43](https://github.com/cowcfj/save-to-notion/commit/7e33d43cf8b499b45fee09ba65aea55fb6e6618e))
-* 更新程式碼覆蓋率報告資料。 ([831396b](https://github.com/cowcfj/save-to-notion/commit/831396b942dfb6f42d9ea5bcb76712e0ccab85f6))
-* 移除 utils.js 的單元測試及相關文件 ([#185](https://github.com/cowcfj/save-to-notion/issues/185)) ([6a21571](https://github.com/cowcfj/save-to-notion/commit/6a21571a9111b01702d64590ed5c2983e8f3e596))
+- 更新 README.md，合併 Highlighter 進入入口文件說明 ([6b17887](https://github.com/cowcfj/save-to-notion/commit/6b17887d2010d6d7c6cdafeb76ec308149a61fb9))
+- 更新文檔站點識別模式與單元測試 ([#186](https://github.com/cowcfj/save-to-notion/issues/186)) ([7e33d43](https://github.com/cowcfj/save-to-notion/commit/7e33d43cf8b499b45fee09ba65aea55fb6e6618e))
+- 更新程式碼覆蓋率報告資料。 ([831396b](https://github.com/cowcfj/save-to-notion/commit/831396b942dfb6f42d9ea5bcb76712e0ccab85f6))
+- 移除 utils.js 的單元測試及相關文件 ([#185](https://github.com/cowcfj/save-to-notion/issues/185)) ([6a21571](https://github.com/cowcfj/save-to-notion/commit/6a21571a9111b01702d64590ed5c2983e8f3e596))
 
 ## [2.18.0](https://github.com/cowcfj/save-to-notion/compare/v2.17.0...v2.18.0) (2025-12-20)
 
-
 ### ✨ 新功能
 
-* 增強 actionHandlers 測試覆蓋率，新增 savePage 流程測試 ([d834e2e](https://github.com/cowcfj/save-to-notion/commit/d834e2e1f4fd5ee96eb46c8463ad4351669b51e4))
-* 擴充廣告元素選擇器以支持頁面複雜度檢測 ([#180](https://github.com/cowcfj/save-to-notion/issues/180)) ([f71d468](https://github.com/cowcfj/save-to-notion/commit/f71d468f7d8a83c7286800ba678e2121c103a462))
-
+- 增強 actionHandlers 測試覆蓋率，新增 savePage 流程測試 ([d834e2e](https://github.com/cowcfj/save-to-notion/commit/d834e2e1f4fd5ee96eb46c8463ad4351669b51e4))
+- 擴充廣告元素選擇器以支持頁面複雜度檢測 ([#180](https://github.com/cowcfj/save-to-notion/issues/180)) ([f71d468](https://github.com/cowcfj/save-to-notion/commit/f71d468f7d8a83c7286800ba678e2121c103a462))
 
 ### ♻️ 代碼重構
 
-* 刪除 ImageCollector 中重複的 Logger 記錄，提升代碼整潔度 ([23bb205](https://github.com/cowcfj/save-to-notion/commit/23bb2050f0685d9a939191853399a176b5c01510))
-* 刪除 Range.testable.js ([aea052b](https://github.com/cowcfj/save-to-notion/commit/aea052bbca6d3d54b74179539e2e068a3210da3f))
-* 刪除冗餘的 background-utils 測試檔 ([8d9a56a](https://github.com/cowcfj/save-to-notion/commit/8d9a56ab6e841b65f3b8fa4124228ab64824c2d1))
-* 模組化 Logger、ImageUtils 和 StorageUtil ([#181](https://github.com/cowcfj/save-to-notion/issues/181)) ([23bb205](https://github.com/cowcfj/save-to-notion/commit/23bb2050f0685d9a939191853399a176b5c01510))
-
+- 刪除 ImageCollector 中重複的 Logger 記錄，提升代碼整潔度 ([23bb205](https://github.com/cowcfj/save-to-notion/commit/23bb2050f0685d9a939191853399a176b5c01510))
+- 刪除 Range.testable.js ([aea052b](https://github.com/cowcfj/save-to-notion/commit/aea052bbca6d3d54b74179539e2e068a3210da3f))
+- 刪除冗餘的 background-utils 測試檔 ([8d9a56a](https://github.com/cowcfj/save-to-notion/commit/8d9a56ab6e841b65f3b8fa4124228ab64824c2d1))
+- 模組化 Logger、ImageUtils 和 StorageUtil ([#181](https://github.com/cowcfj/save-to-notion/issues/181)) ([23bb205](https://github.com/cowcfj/save-to-notion/commit/23bb2050f0685d9a939191853399a176b5c01510))
 
 ### 🧹 其他變更
 
-* 刪除未使用的 utils-wrapper.js ([c2d84e8](https://github.com/cowcfj/save-to-notion/commit/c2d84e888c4703c51e9336c14ae5e346b59d4795))
-* 在 actionHandlers 測試中添加 Chrome API 使用說明註解 ([#182](https://github.com/cowcfj/save-to-notion/issues/182)) ([eadfda0](https://github.com/cowcfj/save-to-notion/commit/eadfda0b5b49e6ae36f9e8c460f93cc7bd24c848))
-* 更新程式碼覆蓋率報告。 ([052f6e9](https://github.com/cowcfj/save-to-notion/commit/052f6e98a0f4318ca9b0a6f83961d955f2f9b79c))
-* 更新覆蓋率報告。 ([bd3103d](https://github.com/cowcfj/save-to-notion/commit/bd3103dfae7f74674038cc1a4f80bc968285ac78))
-* 清理 jest.config.js 中已刪除的 testable 檔案引用 ([a97c54b](https://github.com/cowcfj/save-to-notion/commit/a97c54b0a15468d42fa6a5b0c771657e869b04c1))
-* 移除 htmlToNotionConverter.js 的過時引用 ([7535347](https://github.com/cowcfj/save-to-notion/commit/7535347cd5ce81f5acaa371207cc108c036ad989))
-* 移除不再使用的測試替身文件以修復覆蓋率計算 ([72c2bfa](https://github.com/cowcfj/save-to-notion/commit/72c2bfac363373bb054e18eb5b35618a91c9bafa))
+- 刪除未使用的 utils-wrapper.js ([c2d84e8](https://github.com/cowcfj/save-to-notion/commit/c2d84e888c4703c51e9336c14ae5e346b59d4795))
+- 在 actionHandlers 測試中添加 Chrome API 使用說明註解 ([#182](https://github.com/cowcfj/save-to-notion/issues/182)) ([eadfda0](https://github.com/cowcfj/save-to-notion/commit/eadfda0b5b49e6ae36f9e8c460f93cc7bd24c848))
+- 更新程式碼覆蓋率報告。 ([052f6e9](https://github.com/cowcfj/save-to-notion/commit/052f6e98a0f4318ca9b0a6f83961d955f2f9b79c))
+- 更新覆蓋率報告。 ([bd3103d](https://github.com/cowcfj/save-to-notion/commit/bd3103dfae7f74674038cc1a4f80bc968285ac78))
+- 清理 jest.config.js 中已刪除的 testable 檔案引用 ([a97c54b](https://github.com/cowcfj/save-to-notion/commit/a97c54b0a15468d42fa6a5b0c771657e869b04c1))
+- 移除 htmlToNotionConverter.js 的過時引用 ([7535347](https://github.com/cowcfj/save-to-notion/commit/7535347cd5ce81f5acaa371207cc108c036ad989))
+- 移除不再使用的測試替身文件以修復覆蓋率計算 ([72c2bfa](https://github.com/cowcfj/save-to-notion/commit/72c2bfac363373bb054e18eb5b35618a91c9bafa))
 
 ## [2.17.0](https://github.com/cowcfj/save-to-notion/compare/v2.16.0...v2.17.0) (2025-12-17)
 
-
 ### ✨ 新功能
 
-* 優化生產環境下的測試代碼剝離插件 ([7cd0246](https://github.com/cowcfj/save-to-notion/commit/7cd02465598f4876a37ad6edc278d9daacaeaebf))
-* 全面改版說明頁面使用者介面與體驗，並更新使用者指南。 ([7b452eb](https://github.com/cowcfj/save-to-notion/commit/7b452eb2eb5e02ab2ec26195af6fb9c8e5c028a1))
-* 增加 Jest 覆蓋率報告格式的 JSON 輸出 ([328fed9](https://github.com/cowcfj/save-to-notion/commit/328fed94db401624f183a498e52bcd8220498de7))
-* 增強測試覆蓋率及新增用戶登錄功能 ([#174](https://github.com/cowcfj/save-to-notion/issues/174)) ([d6bc6dd](https://github.com/cowcfj/save-to-notion/commit/d6bc6dd695f6cba7acc63500a1d34bff264a428b))
-* 新增多個工作流程與規則文件以改善開發體驗 ([0ab8cbd](https://github.com/cowcfj/save-to-notion/commit/0ab8cbdf130c16e0c39b6e41f0772ab75dc0f0cd))
-* 新增拉取請求模板以標準化描述，改善代碼審查流程 ([a995d41](https://github.com/cowcfj/save-to-notion/commit/a995d416192213a5638db665e7e8fa8a4b2b5e9f))
-* 新增測試編寫原則與策略文檔 ([00aed57](https://github.com/cowcfj/save-to-notion/commit/00aed57f8dd6778698b557d9e2e7ff6c300c2469))
-* 新增用戶登錄功能 ([fbf1cb6](https://github.com/cowcfj/save-to-notion/commit/fbf1cb63a3d3c7d9c9ce08fac03d37f43d829300))
-* 新增程式碼審核規則文件以提升代碼審查質量 ([36d9f8b](https://github.com/cowcfj/save-to-notion/commit/36d9f8bd939179a7a3b305b62fcef2f6306018a3))
-* 新增調試規則文件以系統化錯誤排查流程 ([ced9647](https://github.com/cowcfj/save-to-notion/commit/ced96472b4b418d436ab112c47730e1b1acc27d9))
-* 新增重構代理規則並優化審閱者、除錯及 ES6 代理的觸發條件與 glob 模式。 ([d4e23be](https://github.com/cowcfj/save-to-notion/commit/d4e23befff9b389105c70152178cdfa33cf67352))
-* 模擬 tabs.get 返回已完成狀態以增強 onInstalled 測試覆蓋率 ([6db371f](https://github.com/cowcfj/save-to-notion/commit/6db371f63803c22ab6baa4fe16132aa5fa58b462))
-
+- 優化生產環境下的測試代碼剝離插件 ([7cd0246](https://github.com/cowcfj/save-to-notion/commit/7cd02465598f4876a37ad6edc278d9daacaeaebf))
+- 全面改版說明頁面使用者介面與體驗，並更新使用者指南。 ([7b452eb](https://github.com/cowcfj/save-to-notion/commit/7b452eb2eb5e02ab2ec26195af6fb9c8e5c028a1))
+- 增加 Jest 覆蓋率報告格式的 JSON 輸出 ([328fed9](https://github.com/cowcfj/save-to-notion/commit/328fed94db401624f183a498e52bcd8220498de7))
+- 增強測試覆蓋率及新增用戶登錄功能 ([#174](https://github.com/cowcfj/save-to-notion/issues/174)) ([d6bc6dd](https://github.com/cowcfj/save-to-notion/commit/d6bc6dd695f6cba7acc63500a1d34bff264a428b))
+- 新增多個工作流程與規則文件以改善開發體驗 ([0ab8cbd](https://github.com/cowcfj/save-to-notion/commit/0ab8cbdf130c16e0c39b6e41f0772ab75dc0f0cd))
+- 新增拉取請求模板以標準化描述，改善代碼審查流程 ([a995d41](https://github.com/cowcfj/save-to-notion/commit/a995d416192213a5638db665e7e8fa8a4b2b5e9f))
+- 新增測試編寫原則與策略文檔 ([00aed57](https://github.com/cowcfj/save-to-notion/commit/00aed57f8dd6778698b557d9e2e7ff6c300c2469))
+- 新增用戶登錄功能 ([fbf1cb6](https://github.com/cowcfj/save-to-notion/commit/fbf1cb63a3d3c7d9c9ce08fac03d37f43d829300))
+- 新增程式碼審核規則文件以提升代碼審查質量 ([36d9f8b](https://github.com/cowcfj/save-to-notion/commit/36d9f8bd939179a7a3b305b62fcef2f6306018a3))
+- 新增調試規則文件以系統化錯誤排查流程 ([ced9647](https://github.com/cowcfj/save-to-notion/commit/ced96472b4b418d436ab112c47730e1b1acc27d9))
+- 新增重構代理規則並優化審閱者、除錯及 ES6 代理的觸發條件與 glob 模式。 ([d4e23be](https://github.com/cowcfj/save-to-notion/commit/d4e23befff9b389105c70152178cdfa33cf67352))
+- 模擬 tabs.get 返回已完成狀態以增強 onInstalled 測試覆蓋率 ([6db371f](https://github.com/cowcfj/save-to-notion/commit/6db371f63803c22ab6baa4fe16132aa5fa58b462))
 
 ### 🐛 Bug 修復
 
-* 修正顯示更新通知的競態條件錯誤 ([#173](https://github.com/cowcfj/save-to-notion/issues/173)) ([6ac36b5](https://github.com/cowcfj/save-to-notion/commit/6ac36b5e6430d765cbf31b428650572a9afaf73d))
-
+- 修正顯示更新通知的競態條件錯誤 ([#173](https://github.com/cowcfj/save-to-notion/issues/173)) ([6ac36b5](https://github.com/cowcfj/save-to-notion/commit/6ac36b5e6430d765cbf31b428650572a9afaf73d))
 
 ### 👷 建置與 CI
 
-* 修復覆蓋率上傳問題，在 main 分支也收集並上傳覆蓋率數據 ([c38e9fb](https://github.com/cowcfj/save-to-notion/commit/c38e9fb0de1d4e8d3cf00357dcb47733c197092f))
-
+- 修復覆蓋率上傳問題，在 main 分支也收集並上傳覆蓋率數據 ([c38e9fb](https://github.com/cowcfj/save-to-notion/commit/c38e9fb0de1d4e8d3cf00357dcb47733c197092f))
 
 ### 🧹 其他變更
 
-* 新增對 RELEASE_NOTES_v*.md 的忽略規則 ([163add1](https://github.com/cowcfj/save-to-notion/commit/163add1a73b28f3642caa1a42d8557a149f553a5))
-* 移除 CI 中的 Jest 測試並更新測試流程 ([#171](https://github.com/cowcfj/save-to-notion/issues/171)) ([9ac0c26](https://github.com/cowcfj/save-to-notion/commit/9ac0c26a675cb83882fbd5da12b2337f0cc9c6f0))
-* 移除過時的版本發布說明文件 ([edffb74](https://github.com/cowcfj/save-to-notion/commit/edffb749bfb6c98e2c2d148c153a8c69947cc27e))
+- 新增對 RELEASE_NOTES_v\*.md 的忽略規則 ([163add1](https://github.com/cowcfj/save-to-notion/commit/163add1a73b28f3642caa1a42d8557a149f553a5))
+- 移除 CI 中的 Jest 測試並更新測試流程 ([#171](https://github.com/cowcfj/save-to-notion/issues/171)) ([9ac0c26](https://github.com/cowcfj/save-to-notion/commit/9ac0c26a675cb83882fbd5da12b2337f0cc9c6f0))
+- 移除過時的版本發布說明文件 ([edffb74](https://github.com/cowcfj/save-to-notion/commit/edffb749bfb6c98e2c2d148c153a8c69947cc27e))
 
 ## [2.16.0](https://github.com/cowcfj/save-to-notion/compare/v2.15.0...v2.16.0) (2025-12-15)
 
-
 ### ✨ 新功能
 
-* Enhance highlighter tool and optimize content extraction ([#168](https://github.com/cowcfj/save-to-notion/issues/168)) ([ae7412e](https://github.com/cowcfj/save-to-notion/commit/ae7412ec1b74cf806f0ed8f98d88479c5d0b1c34))
-* 新增多個 byterover 規則文件到 .gitignore ([8807bf9](https://github.com/cowcfj/save-to-notion/commit/8807bf924e0951883af89a9620762e374aace8a3))
-
+- Enhance highlighter tool and optimize content extraction ([#168](https://github.com/cowcfj/save-to-notion/issues/168)) ([ae7412e](https://github.com/cowcfj/save-to-notion/commit/ae7412ec1b74cf806f0ed8f98d88479c5d0b1c34))
+- 新增多個 byterover 規則文件到 .gitignore ([8807bf9](https://github.com/cowcfj/save-to-notion/commit/8807bf924e0951883af89a9620762e374aace8a3))
 
 ### 🐛 Bug 修復
 
-* 統一測試退出行為及排除未實作測試 ([#166](https://github.com/cowcfj/save-to-notion/issues/166)) ([57cf8da](https://github.com/cowcfj/save-to-notion/commit/57cf8da7675937940f93087330fe5ea5f034ed45))
-* 統一錯誤日誌記錄與回調參數名稱 ([#165](https://github.com/cowcfj/save-to-notion/issues/165)) ([2edab2e](https://github.com/cowcfj/save-to-notion/commit/2edab2ed304a6ed5700b67b5fe4bef35b59d7994))
-
+- 統一測試退出行為及排除未實作測試 ([#166](https://github.com/cowcfj/save-to-notion/issues/166)) ([57cf8da](https://github.com/cowcfj/save-to-notion/commit/57cf8da7675937940f93087330fe5ea5f034ed45))
+- 統一錯誤日誌記錄與回調參數名稱 ([#165](https://github.com/cowcfj/save-to-notion/issues/165)) ([2edab2e](https://github.com/cowcfj/save-to-notion/commit/2edab2ed304a6ed5700b67b5fe4bef35b59d7994))
 
 ### ♻️ 代碼重構
 
-* 重構 normalizeUrl 函數以提高可讀性，更新日誌記錄信息 ([#167](https://github.com/cowcfj/save-to-notion/issues/167)) ([ccf7b83](https://github.com/cowcfj/save-to-notion/commit/ccf7b83dd6fb6cb37808ea701c57d859216dbd6a))
-
+- 重構 normalizeUrl 函數以提高可讀性，更新日誌記錄信息 ([#167](https://github.com/cowcfj/save-to-notion/issues/167)) ([ccf7b83](https://github.com/cowcfj/save-to-notion/commit/ccf7b83dd6fb6cb37808ea701c57d859216dbd6a))
 
 ### 🧪 測試
 
-* improve test coverage for Logger, HighlightManager and content scripts ([acd46e2](https://github.com/cowcfj/save-to-notion/commit/acd46e272727ef6a707d37571081f83e12560246)), closes [#169](https://github.com/cowcfj/save-to-notion/issues/169)
-
+- improve test coverage for Logger, HighlightManager and content scripts ([acd46e2](https://github.com/cowcfj/save-to-notion/commit/acd46e272727ef6a707d37571081f83e12560246)), closes [#169](https://github.com/cowcfj/save-to-notion/issues/169)
 
 ### 🧹 其他變更
 
-* 更新 .gitignore 忽略模式 ([1d7e15f](https://github.com/cowcfj/save-to-notion/commit/1d7e15f1ef7426587790d396fcba865b05d118e0))
+- 更新 .gitignore 忽略模式 ([1d7e15f](https://github.com/cowcfj/save-to-notion/commit/1d7e15f1ef7426587790d396fcba865b05d118e0))
 
 ## [2.15.0](https://github.com/cowcfj/save-to-notion/compare/v2.14.4...v2.15.0) (2025-12-09)
 
-
 ### ✨ 新功能
 
-* 支援手動觸發發布工作流程並調整資產打包與上傳的標籤處理邏輯。 ([58bf0af](https://github.com/cowcfj/save-to-notion/commit/58bf0af3b99326c59a0b83f2edee836b57773ffd))
-
+- 支援手動觸發發布工作流程並調整資產打包與上傳的標籤處理邏輯。 ([58bf0af](https://github.com/cowcfj/save-to-notion/commit/58bf0af3b99326c59a0b83f2edee836b57773ffd))
 
 ### 🐛 Bug 修復
 
-* force add package script ignored by gitignore ([54adefd](https://github.com/cowcfj/save-to-notion/commit/54adefd3952a7660435872d74551f94121019c29))
+- force add package script ignored by gitignore ([54adefd](https://github.com/cowcfj/save-to-notion/commit/54adefd3952a7660435872d74551f94121019c29))
 
 ## [2.14.4](https://github.com/cowcfj/save-to-notion/compare/v2.14.3...v2.14.4) (2025-12-09)
 
-
 ### ✨ 新功能
 
-* 新增 CodeRabbit 自動程式碼審查設定並簡化 DeepSource 配置。 ([b7c34c1](https://github.com/cowcfj/save-to-notion/commit/b7c34c15c5cd028bf2505344dbdc5ef8dd0da65e))
-* 新增 release-please 工作流程與配置，整合自動化版本釋出與資產上傳 ([848c540](https://github.com/cowcfj/save-to-notion/commit/848c540888501ff8082f512664544d3858cdcd04))
-* 重構 CI 工作流程，新增測試與構建步驟，移除舊有的覆蓋率上傳與測試工作流程 ([ab59ef6](https://github.com/cowcfj/save-to-notion/commit/ab59ef662610ca7aa4afa86b356b6434b7927975))
-
+- 新增 CodeRabbit 自動程式碼審查設定並簡化 DeepSource 配置。 ([b7c34c1](https://github.com/cowcfj/save-to-notion/commit/b7c34c15c5cd028bf2505344dbdc5ef8dd0da65e))
+- 新增 release-please 工作流程與配置，整合自動化版本釋出與資產上傳 ([848c540](https://github.com/cowcfj/save-to-notion/commit/848c540888501ff8082f512664544d3858cdcd04))
+- 重構 CI 工作流程，新增測試與構建步驟，移除舊有的覆蓋率上傳與測試工作流程 ([ab59ef6](https://github.com/cowcfj/save-to-notion/commit/ab59ef662610ca7aa4afa86b356b6434b7927975))
 
 ### 📝 文檔更新
 
-* 更新 README 檔案內容以提供最新資訊。 ([6883550](https://github.com/cowcfj/save-to-notion/commit/6883550a0ef17c315113fe4b245361f90247465c))
-
+- 更新 README 檔案內容以提供最新資訊。 ([6883550](https://github.com/cowcfj/save-to-notion/commit/6883550a0ef17c315113fe4b245361f90247465c))
 
 ### ♻️ 代碼重構
 
-* 更新 DeepSource 設定檔中排除模式的定義語法 ([45a2a88](https://github.com/cowcfj/save-to-notion/commit/45a2a88c6bf5a7b00e796cfc7bcc0ea42648050c))
-
+- 更新 DeepSource 設定檔中排除模式的定義語法 ([45a2a88](https://github.com/cowcfj/save-to-notion/commit/45a2a88c6bf5a7b00e796cfc7bcc0ea42648050c))
 
 ### 🧹 其他變更
 
-* **deps-dev:** bump @rollup/plugin-node-resolve from 15.3.1 to 16.0.3 ([#157](https://github.com/cowcfj/save-to-notion/issues/157)) ([621e32d](https://github.com/cowcfj/save-to-notion/commit/621e32da1e4d8ce42c4cb2304050a0a6e2144f9c))
-* **deps-dev:** bump lint-staged from 15.5.2 to 16.2.7 ([#159](https://github.com/cowcfj/save-to-notion/issues/159)) ([4e68539](https://github.com/cowcfj/save-to-notion/commit/4e6853970cc1e2f31b115f21a220cbb6c400a4c8))
-* **deps-dev:** bump prettier from 3.6.2 to 3.7.4 ([#158](https://github.com/cowcfj/save-to-notion/issues/158)) ([b0e8735](https://github.com/cowcfj/save-to-notion/commit/b0e873569cb95b52ca1d72f6d93e8fef41c47371))
-* **deps:** bump codecov/codecov-action from 4 to 5 ([#156](https://github.com/cowcfj/save-to-notion/issues/156)) ([509024a](https://github.com/cowcfj/save-to-notion/commit/509024aed0d79298b1920cb6aed3d172567b8595))
-* force release to 2.14.4 ([e8c77c2](https://github.com/cowcfj/save-to-notion/commit/e8c77c2740140998fda8bf0927b05129c5fa59f3))
-* 新增 DeepSource 測試與排除模式，並為 JavaScript 分析器配置文件覆蓋率、圈複雜度及問題過濾規則 ([47fcb1e](https://github.com/cowcfj/save-to-notion/commit/47fcb1eee51b629dbada624a94997bfa7723132a))
-* 更新 release-please action 的擁有者。 ([829ded7](https://github.com/cowcfj/save-to-notion/commit/829ded79c807dfaf77bbc01e0c8c014c3c813253))
-* 避免在 `release-please--` 分支上執行 CI 測試。 ([90cdb4b](https://github.com/cowcfj/save-to-notion/commit/90cdb4b4d6172f4cda3311b5dff8b67cc4653378))
+- **deps-dev:** bump @rollup/plugin-node-resolve from 15.3.1 to 16.0.3 ([#157](https://github.com/cowcfj/save-to-notion/issues/157)) ([621e32d](https://github.com/cowcfj/save-to-notion/commit/621e32da1e4d8ce42c4cb2304050a0a6e2144f9c))
+- **deps-dev:** bump lint-staged from 15.5.2 to 16.2.7 ([#159](https://github.com/cowcfj/save-to-notion/issues/159)) ([4e68539](https://github.com/cowcfj/save-to-notion/commit/4e6853970cc1e2f31b115f21a220cbb6c400a4c8))
+- **deps-dev:** bump prettier from 3.6.2 to 3.7.4 ([#158](https://github.com/cowcfj/save-to-notion/issues/158)) ([b0e8735](https://github.com/cowcfj/save-to-notion/commit/b0e873569cb95b52ca1d72f6d93e8fef41c47371))
+- **deps:** bump codecov/codecov-action from 4 to 5 ([#156](https://github.com/cowcfj/save-to-notion/issues/156)) ([509024a](https://github.com/cowcfj/save-to-notion/commit/509024aed0d79298b1920cb6aed3d172567b8595))
+- force release to 2.14.4 ([e8c77c2](https://github.com/cowcfj/save-to-notion/commit/e8c77c2740140998fda8bf0927b05129c5fa59f3))
+- 新增 DeepSource 測試與排除模式，並為 JavaScript 分析器配置文件覆蓋率、圈複雜度及問題過濾規則 ([47fcb1e](https://github.com/cowcfj/save-to-notion/commit/47fcb1eee51b629dbada624a94997bfa7723132a))
+- 更新 release-please action 的擁有者。 ([829ded7](https://github.com/cowcfj/save-to-notion/commit/829ded79c807dfaf77bbc01e0c8c014c3c813253))
+- 避免在 `release-please--` 分支上執行 CI 測試。 ([90cdb4b](https://github.com/cowcfj/save-to-notion/commit/90cdb4b4d6172f4cda3311b5dff8b67cc4653378))
 
 ## v2.14.3 - 2025-12-09
 
