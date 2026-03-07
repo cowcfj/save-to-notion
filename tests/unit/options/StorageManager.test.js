@@ -1588,5 +1588,16 @@ describe('StorageManager Phase 3 Compatibility', () => {
       expect(Object.keys(plan.optimizedData)).toContain(validKey);
       expect(plan.keysToRemove).not.toContain(validKey);
     });
+
+    test('應接受物件格式的 highlights_*，不應誤判為碎片', async () => {
+      mockGet.mockImplementation((_k, respond) => {
+        respond({
+          'highlights_valid.com': { highlights: [{ id: '1' }] },
+        });
+      });
+      const plan = await generateOptimizationPlan();
+      expect(plan.optimizations.some(o => o.includes('修復數據碎片'))).toBe(false);
+      expect(Object.keys(plan.optimizedData)).toContain('highlights_valid.com');
+    });
   });
 });

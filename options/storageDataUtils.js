@@ -495,8 +495,12 @@ function _analyzeStructureForOptimization(data, plan) {
   }
 
   const hasFragmentation = Object.keys(data).some(key => {
-    // 舊格式 highlights_* 結構破損
-    if (key.startsWith(HIGHLIGHTS_PREFIX) && (!data[key] || !Array.isArray(data[key]))) {
+    // 舊格式 highlights_* 結構破損（兼容純陣列與物件格式 { highlights: [...] }）
+    if (
+      key.startsWith(HIGHLIGHTS_PREFIX) &&
+      !Array.isArray(data[key]) &&
+      !(data[key] && Array.isArray(data[key].highlights))
+    ) {
       return true;
     }
     // Phase 3 page_* highlights 欄位結構破損
