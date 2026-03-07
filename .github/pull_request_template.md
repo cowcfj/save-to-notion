@@ -21,6 +21,7 @@
 
 ## ✅ 提交前檢查清單
 
+- [ ] **PR 標題合規**: 我的 PR 標題確實遵循 Conventional Commits 規範 (如 `feat: `, `fix: `, `refactor: `)，以確保 `release-please` 正常分析版本號。
 - [ ] **流程與安全自評**: 我已閱讀並確認變更符合 [`PR_WORKFLOW.md`](docs/guides/PR_WORKFLOW.md) 中的測試規範、代碼規範與安全性指引。
 
 ## 🔗 相關 Issue
