@@ -94,19 +94,19 @@ export function analyzeData(data) {
  * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
  */
 function _analyzeDataEntry(key, value, report, pageUrls) {
-  if (key.startsWith('page_')) {
+  if (key.startsWith(PAGE_PREFIX)) {
     _analyzePageData(key, value, report);
     return;
   }
-  if (key.startsWith('highlights_')) {
+  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
     _analyzeHighlightData(key, value, report, pageUrls);
     return;
   }
-  if (key.startsWith('saved_')) {
+  if (key.startsWith(SAVED_PREFIX)) {
     report.legacySavedKeys++;
     return;
   }
-  if (key.startsWith('url_alias:')) {
+  if (key.startsWith(URL_ALIAS_PREFIX)) {
     report.aliasKeys++;
     return;
   }
@@ -153,7 +153,7 @@ function _analyzePageData(key, value, report) {
  * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
  */
 function _analyzeHighlightData(key, value, report, pageUrls) {
-  const url = key.slice(11);
+  const url = key.slice(HIGHLIGHTS_PREFIX.length);
   if (!pageUrls.has(url)) {
     const hl = Array.isArray(value) ? value : value?.highlights;
     if (Array.isArray(hl) && hl.length > 0) {
