@@ -1,0 +1,54 @@
+# 驗證 PR 標題是否符合 Conventional Commits 格式
+# 因為 squash merge 會使用 PR 標題作為最終 commit 訊息，
+# 不合規的標題會導致 release-please 無法解析版本變更。
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main, develop]
+
+jobs:
+  validate-pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # 允許的 type（與 release-please-config.json 的 changelog-sections 對應）
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+          # 允許帶 scope，例如 feat(ui): ...
+          requireScope: false
+          # 禁止 WIP 前綴
+          wip: false
+          # 自訂錯誤訊息
+          validateSingleCommit: false
+          subjectPattern: ^.+$
+          subjectPatternError: |
+            ❌ PR 標題不符合 Conventional Commits 格式。
+
+            正確格式：`type: 描述` 或 `type(scope): 描述`
+
+            允許的 type：feat, fix, docs, style, refactor, perf, test, build, ci, chore
+
+            範例：
+            ✅ feat: 新增資料庫選擇器
+            ✅ fix(auth): 修復 OAuth 登入失敗問題
+            ✅ refactor: 重構存儲管理邏輯
+
+            ❌ Refactor storage management
+            ❌ Add new feature
