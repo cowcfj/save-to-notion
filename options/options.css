@@ -525,6 +525,49 @@ select:focus {
   color: var(--text-primary);
 }
 
+/* 健康狀態顯示 */
+.health-status {
+  margin-top: var(--spacing-sm);
+  font-size: 13px;
+}
+
+.health-item {
+  padding: 4px 0;
+  line-height: 1.5;
+}
+
+.health-ok {
+  color: var(--success-color, #16a34a);
+}
+
+.health-warning {
+  color: var(--warning-color, #d97706);
+}
+
+.health-error {
+  color: var(--error-color, #dc2626);
+}
+
+.health-legacy-info {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.health-cleanup-summary {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: var(--surface-hover, #f8fafc);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--primary-color, #6366f1);
+}
+
+#execute-cleanup-button {
+  margin-top: var(--spacing-sm);
+}
+
 /* Storage Stats */
 .storage-visual {
   margin-bottom: var(--spacing-md);

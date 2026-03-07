@@ -404,6 +404,17 @@
               </span>
               <span class="button-text">刷新統計</span>
             </button>
+
+            <!-- 健康狀態顯示區 -->
+            <div id="health-status" class="health-status"></div>
+
+            <!-- 執行清理按鈕（僅在有可清理項目時顯示） -->
+            <button id="execute-cleanup-button" class="btn-danger" style="display: none">
+              <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                <use href="#icon-trash" />
+              </svg>
+              <span class="button-text">執行清理</span>
+            </button>
           </div>
 
           <div class="card">
@@ -482,12 +493,7 @@
                 </svg>
                 <span class="button-text">匯出備份</span>
               </button>
-              <button id="check-data-button" class="btn-secondary">
-                <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
-                  <use href="#icon-search" />
-                </svg>
-                <span class="button-text">檢查完整性</span>
-              </button>
+
             </div>
             <div class="button-group">
               <input type="file" id="import-data-file" accept=".json" class="hidden" />
@@ -602,48 +608,6 @@
               </div>
             </div>
 
-            <hr class="divider" />
-
-            <!-- 優化工具 -->
-            <div class="optimization-tool">
-              <h4>
-                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                  <use href="#icon-bolt" />
-                </svg>
-                數據庫優化
-              </h4>
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="cleanup-deleted-pages" checked />
-                <label for="cleanup-deleted-pages">清理無標註且未儲存的殘留數據</label>
-              </div>
-              <div class="button-group">
-                <button id="preview-cleanup-button" class="btn-secondary">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-search" />
-                  </svg>
-                  <span class="button-text">檢測無效數據</span>
-                </button>
-                <button id="execute-cleanup-button" class="btn-danger hidden">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-trash" />
-                  </svg>
-                  <span class="button-text">確認清理</span>
-                </button>
-                <button id="analyze-optimization-button" class="btn-secondary">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-bolt" />
-                  </svg>
-                  <span class="button-text">分析結構優化</span>
-                </button>
-                <button id="execute-optimization-button" class="btn-primary hidden">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-bolt" />
-                  </svg>
-                  <span class="button-text">執行重整</span>
-                </button>
-              </div>
-              <div id="cleanup-preview" class="preview-box"></div>
-              <div id="optimization-preview" class="preview-box"></div>
             </div>
           </div>
         </section>
