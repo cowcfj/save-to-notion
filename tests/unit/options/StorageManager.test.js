@@ -409,15 +409,15 @@ describe('StorageManager — 使用量與健康狀態', () => {
       },
     });
 
-    test('無問題時應顯示 ✅ 並套用 health-ok 樣式', () => {
+    test('無問題時應顯示健康資訊並套用 health-ok 樣式', () => {
       storageManager.updateHealthDisplay(baseReport());
 
       const el = storageManager.elements.healthStatus;
       expect(el.classList.contains('health-ok')).toBe(true);
-      expect(el.textContent).toContain('✅');
+      expect(el.textContent).toContain('數據完整');
     });
 
-    test('有損壞數據時應顯示 ❌ 並套用 health-error 樣式', () => {
+    test('有損壞數據時應顯示錯誤資訊並套用 health-error 樣式', () => {
       const report = baseReport();
       report.corruptedData = ['page_bad.com'];
 
@@ -425,10 +425,10 @@ describe('StorageManager — 使用量與健康狀態', () => {
 
       const el = storageManager.elements.healthStatus;
       expect(el.classList.contains('health-error')).toBe(true);
-      expect(el.textContent).toContain('❌');
+      expect(el.textContent).toContain('發現 1 個損壞的數據項');
     });
 
-    test('有升級殘留時應顯示 ⚠️ 並套用 health-warning 樣式', () => {
+    test('有升級殘留時應顯示警告資訊並套用 health-warning 樣式', () => {
       const report = baseReport();
       report.migrationKeys = 3;
       report.migrationDataSize = 2048;
@@ -437,10 +437,10 @@ describe('StorageManager — 使用量與健康狀態', () => {
 
       const el = storageManager.elements.healthStatus;
       expect(el.classList.contains('health-warning')).toBe(true);
-      expect(el.textContent).toContain('⚠️');
+      expect(el.textContent).toContain('個舊版格式升級殘留');
     });
 
-    test('有舊版保存紀錄時應顯示 ℹ️ 提示（不影響主健康度）', () => {
+    test('有舊版保存紀錄時應顯示提示（不影響主健康度）', () => {
       const report = baseReport();
       report.legacySavedKeys = 5;
 
@@ -450,7 +450,7 @@ describe('StorageManager — 使用量與健康狀態', () => {
       // 主狀態仍為 ok
       expect(el.classList.contains('health-ok')).toBe(true);
       // 但有舊版資訊行
-      expect(el.textContent).toContain('ℹ️');
+      expect(el.textContent).toContain('個舊版網頁保存紀錄');
     });
 
     test('有可清理項目時應顯示清理摘要並顯示「執行清理」按鈕', () => {
@@ -466,7 +466,7 @@ describe('StorageManager — 使用量與健康狀態', () => {
 
       const btn = storageManager.elements.executeCleanupButton;
       expect(btn.style.display).toBe('inline-block');
-      expect(storageManager.elements.healthStatus.textContent).toContain('🧹');
+      expect(storageManager.elements.healthStatus.textContent).toContain('可清理：1 個空記錄');
     });
 
     test('無可清理項目時應隱藏「執行清理」按鈕', () => {

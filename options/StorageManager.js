@@ -16,15 +16,7 @@ import {
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
-import {
-  sanitizeBackupData,
-  analyzeData,
-  getStorageUsage,
-  analyzePageForCleanup,
-  collectOrphanHighlightItems,
-  collectOrphanAliasItems,
-  generateOptimizationPlan,
-} from './storageDataUtils.js';
+import { sanitizeBackupData, getStorageHealthReport } from './storageDataUtils.js';
 
 /**
  * 管理存儲空間的 UI 控制層
@@ -35,8 +27,7 @@ export class StorageManager {
   constructor(uiManager) {
     this.ui = uiManager;
     this.elements = {};
-    this.cleanupPlan = null;
-    this.optimizationPlan = null;
+    this._lastHealthReport = null; // 暫存健康度報告，供「執行清理」按鈕直接使用
   }
 
   init() {
@@ -51,7 +42,6 @@ export class StorageManager {
       exportButton: document.querySelector('#export-data-button'),
       importButton: document.querySelector('#import-data-button'),
       importFile: document.querySelector('#import-data-file'),
-      checkButton: document.querySelector('#check-data-button'),
       dataStatus: document.querySelector('#data-status'),
 
       // 使用量統計
@@ -63,14 +53,9 @@ export class StorageManager {
       highlightsCount: document.querySelector('#highlights-count'),
       configCount: document.querySelector('#config-count'),
 
-      // 清理與優化
-      previewCleanupButton: document.querySelector('#preview-cleanup-button'),
+      // 健康狀態與清理
+      healthStatus: document.querySelector('#health-status'),
       executeCleanupButton: document.querySelector('#execute-cleanup-button'),
-      analyzeOptimizationButton: document.querySelector('#analyze-optimization-button'),
-      executeOptimizationButton: document.querySelector('#execute-optimization-button'),
-      cleanupPreview: document.querySelector('#cleanup-preview'),
-      optimizationPreview: document.querySelector('#optimization-preview'),
-      cleanupDeletedPages: document.querySelector('#cleanup-deleted-pages'),
     };
   }
 
@@ -78,26 +63,18 @@ export class StorageManager {
     // 備份
     this.elements.exportButton?.addEventListener('click', () => this.exportData());
 
-    // 恢復
+    // 還原
     this.elements.importButton?.addEventListener('click', () => {
       this.elements.importFile?.click();
     });
     this.elements.importFile?.addEventListener('change', event => this.importData(event));
 
-    // 檢查數據
-    this.elements.checkButton?.addEventListener('click', () => this.checkDataIntegrity());
-
-    // 刷新使用量
+    // 刷新使用量（同時刷新健康狀態）
     this.elements.refreshUsageButton?.addEventListener('click', () => this.updateStorageUsage());
 
-    // 清理與優化
-    this.elements.previewCleanupButton?.addEventListener('click', () => this.previewSafeCleanup());
-    this.elements.executeCleanupButton?.addEventListener('click', () => this.executeSafeCleanup());
-    this.elements.analyzeOptimizationButton?.addEventListener('click', () =>
-      this.analyzeOptimization()
-    );
-    this.elements.executeOptimizationButton?.addEventListener('click', () =>
-      this.executeOptimization()
+    // 執行清理（僅在有可清理項目時顯示）
+    this.elements.executeCleanupButton?.addEventListener('click', () =>
+      this.executeUnifiedCleanup()
     );
   }
 
@@ -189,51 +166,6 @@ export class StorageManager {
     }
   }
 
-  async checkDataIntegrity() {
-    try {
-      this.showDataStatus(UI_MESSAGES.STORAGE.CHECKING, 'info');
-      Logger.start('開始檢查數據完整性');
-
-      const data = await new Promise(resolve => {
-        chrome.storage.local.get(null, resolve);
-      });
-
-      const report = analyzeData(data);
-
-      let statusText = `${UI_MESSAGES.STORAGE.REPORT_TITLE}\n`;
-      statusText += `${UI_MESSAGES.STORAGE.TOTAL_ITEMS(report.totalKeys)}\n`;
-      statusText += `${UI_MESSAGES.STORAGE.HIGHLIGHT_PAGES(report.highlightPages)}\n`;
-      statusText += `${UI_MESSAGES.STORAGE.CONFIG_ITEMS(report.configKeys)}\n`;
-
-      if (report.migrationKeys > 0) {
-        const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
-        statusText += `${UI_MESSAGES.STORAGE.MIGRATION_DATA(report.migrationKeys, migrationSizeKB)}\n`;
-      }
-
-      if (report.legacySavedKeys > 0) {
-        statusText += `${UI_MESSAGES.STORAGE.LEGACY_SAVED_ITEMS(report.legacySavedKeys)}\n`;
-      }
-
-      if (report.corruptedData.length > 0) {
-        statusText += UI_MESSAGES.STORAGE.CORRUPTED_DATA(report.corruptedData.length);
-        this.showDataStatus(statusText, 'error');
-      } else if (report.migrationKeys > 0) {
-        statusText += UI_MESSAGES.STORAGE.OPTIMIZATION_SUGGESTION;
-        this.showDataStatus(statusText, 'warning');
-      } else {
-        this.showDataStatus(statusText, 'success');
-      }
-
-      Logger.success('數據完整性檢查完成');
-    } catch (error) {
-      Logger.error('Data check failed', { action: 'check_integrity', error });
-      const icon = UI_ICONS.ERROR;
-      const safeMessage = sanitizeApiError(error, 'check_duplicates');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CHECK_FAILED}${errorMsg}`, 'error');
-    }
-  }
-
   /**
    * 確保按鈕具有正確的 DOM 結構（圖標與文字容器）
    *
@@ -268,8 +200,10 @@ export class StorageManager {
 
     try {
       Logger.start('開始更新存儲使用量統計');
-      const usage = await getStorageUsage();
-      this.updateUsageDisplay(usage);
+      const report = await getStorageHealthReport();
+      this._lastHealthReport = report;
+      this.updateUsageDisplay(report);
+      this.updateHealthDisplay(report);
 
       // 顯示成功提示
       this._updateUsageButtonState(button, 'success', '已更新');
@@ -375,539 +309,170 @@ export class StorageManager {
     }
   }
 
-  async previewSafeCleanup() {
-    const cleanDeletedPages = this.elements.cleanupDeletedPages?.checked;
-
-    this.setPreviewButtonLoading(true);
-    Logger.start('開始生成清理預覽計劃');
-
-    try {
-      const plan = await this.generateSafeCleanupPlan(cleanDeletedPages);
-      this.cleanupPlan = plan;
-      this.displayCleanupPreview(plan);
-      Logger.success(`清理預覽生成完成，發現 ${plan.items.length} 個可清理項目`);
-
-      if (plan.items.length > 0) {
-        if (this.elements.executeCleanupButton) {
-          this.elements.executeCleanupButton.style.display = 'inline-block';
-        }
-      } else if (this.elements.executeCleanupButton) {
-        this.elements.executeCleanupButton.style.display = 'none';
-      }
-    } catch (error) {
-      Logger.error('Cleanup preview failed', { action: 'cleanup_preview', error });
-      const safeMessage = sanitizeApiError(error, 'preview_cleanup');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${UI_MESSAGES.STORAGE.PREVIEW_CLEANUP_FAILED}${errorMsg}`, 'error');
-    } finally {
-      this.setPreviewButtonLoading(false);
-    }
-  }
-
-  setPreviewButtonLoading(loading) {
-    const button = this.elements.previewCleanupButton;
-    if (!button) {
+  /**
+   * 更新健康狀態顯示區塊，並根據清理計劃控制「執行清理」按鈕的可見性
+   *
+   * @param {object} report getStorageHealthReport() 的報告結果
+   */
+  updateHealthDisplay(report) {
+    const el = this.elements.healthStatus;
+    if (!el) {
       return;
     }
-    const buttonText = button.querySelector('.button-text');
 
-    if (loading) {
-      button.classList.add('loading');
-      button.disabled = true;
-      if (buttonText) {
-        // 僅更新文字，保留原有圖標
-        buttonText.textContent = ' 掃描中...';
-      }
+    el.textContent = '';
+    el.className = 'health-status';
+
+    const { corruptedData, migrationKeys, migrationDataSize, legacySavedKeys, cleanupPlan } =
+      report;
+
+    this._renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize);
+    this._renderLegacySavedInfo(el, legacySavedKeys);
+    this._renderCleanupSummary(el, cleanupPlan);
+  }
+
+  /**
+   * 渲染健康度主狀態（ok / warning / error）
+   *
+   * @private
+   * @param {HTMLElement} el 容器元素
+   * @param {Array} corruptedData 損壞數據清單
+   * @param {number} migrationKeys 升級殘留數量
+   * @param {number} migrationDataSize 升級殘留大小（bytes）
+   */
+  _renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize) {
+    const HEALTH_ITEM_CLASS = 'health-item';
+    const item = document.createElement('div');
+    item.className = HEALTH_ITEM_CLASS;
+
+    if (corruptedData.length > 0) {
+      el.classList.add('health-error');
+      item.textContent = UI_MESSAGES.STORAGE.HEALTH_CORRUPTED(corruptedData.length);
+    } else if (migrationKeys > 0) {
+      el.classList.add('health-warning');
+      const migrationSizeKB = (migrationDataSize / 1024).toFixed(1);
+      item.textContent = UI_MESSAGES.STORAGE.HEALTH_MIGRATION_LEFTOVERS(
+        migrationKeys,
+        migrationSizeKB
+      );
     } else {
-      button.classList.remove('loading');
-      button.disabled = false;
-      if (buttonText) {
-        // 僅更新文字，保留原有圖標
-        buttonText.textContent = ' 檢測無效數據';
-      }
+      el.classList.add('health-ok');
+      item.textContent = UI_MESSAGES.STORAGE.HEALTH_OK;
     }
+    el.append(item);
   }
 
-  updateCheckProgress(current, total) {
-    const button = this.elements.previewCleanupButton;
-    if (!button) {
+  /**
+   * 渲染舊版網頁保存紀錄提示（純資訊，不影響健康度）
+   *
+   * @private
+   * @param {HTMLElement} el 容器元素
+   * @param {number} legacySavedKeys 舊版紀錄數量
+   */
+  _renderLegacySavedInfo(el, legacySavedKeys) {
+    if (legacySavedKeys <= 0) {
       return;
     }
-    const buttonText = button.querySelector('.button-text');
-
-    if (total > 0 && buttonText) {
-      const percentage = Math.round((current / total) * 100);
-      // 僅更新文字，避免重複插入圖標
-      buttonText.textContent = ` 掃描中... ${current}/${total} (${percentage}%)`;
-    }
+    const info = document.createElement('div');
+    info.className = 'health-item health-legacy-info';
+    info.textContent = UI_MESSAGES.STORAGE.HEALTH_LEGACY_SAVED(legacySavedKeys);
+    el.append(info);
   }
 
-  async generateSafeCleanupPlan(cleanDeletedPages) {
-    const data = await new Promise(resolve => {
-      chrome.storage.local.get(null, resolve);
-    });
+  /**
+   * 渲染清理摘要，並控制「執行清理」按鈕的可見性
+   *
+   * @private
+   * @param {HTMLElement} el 容器元素
+   * @param {object} cleanupPlan 清理計劃
+   */
+  _renderCleanupSummary(el, cleanupPlan) {
+    const { totalKeys, spaceFreed, summary } = cleanupPlan;
+    const btn = this.elements.executeCleanupButton;
 
-    const plan = {
-      items: [],
-      totalKeys: 0,
-      spaceFreed: 0,
-      deletedPages: 0,
-      orphanHighlights: 0,
-    };
-
-    if (cleanDeletedPages) {
-      const savedPages = Object.keys(data)
-        .filter(key => key.startsWith('saved_'))
-        .map(key => ({
-          key,
-          url: key.replace('saved_', ''),
-          data: data[key],
-        }));
-
-      this.updateCheckProgress(0, savedPages.length);
-
-      for (let i = 0; i < savedPages.length; i++) {
-        const page = savedPages[i];
-        this.updateCheckProgress(i + 1, savedPages.length);
-
-        if (!page.data?.notionPageId) {
-          continue;
-        }
-
-        const cleanupResult = await analyzePageForCleanup(page);
-        if (cleanupResult) {
-          plan.items.push(cleanupResult.item);
-          plan.spaceFreed += cleanupResult.spaceFreedDelta;
-          plan.deletedPages += cleanupResult.deletedPagesDelta;
-        }
-
-        if (i < savedPages.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 350));
-        }
+    if (totalKeys <= 0) {
+      if (btn) {
+        btn.style.display = 'none';
       }
-
-      // 孤兒掃描只在「清理已刪除頁面」啟用時執行：
-      // 因為 orphan cleanup helpers
-      // 的掃描結果與頁面刪除清理是同一個操作單元，
-      // 讓用戶透過同一個勾選框控制所有「殘留資料」的清理。
-      const orphanHighlightResult = collectOrphanHighlightItems(data);
-      plan.items.push(...orphanHighlightResult.items);
-      plan.spaceFreed += orphanHighlightResult.spaceFreedDelta;
-      plan.orphanHighlights += orphanHighlightResult.orphanHighlightsDelta;
-
-      const orphanAliasResult = collectOrphanAliasItems(data);
-      plan.items.push(...orphanAliasResult.items);
-      plan.spaceFreed += orphanAliasResult.spaceFreedDelta;
-    } // end of if (cleanDeletedPages)
-
-    plan.totalKeys = plan.items.length;
-    return plan;
-  }
-
-  displayCleanupPreview(plan) {
-    if (!this.elements.cleanupPreview) {
-      return;
-    }
-    this.elements.cleanupPreview.className = 'cleanup-preview show';
-
-    if (plan.items.length === 0) {
-      const container = document.createElement('div');
-      container.className = 'cleanup-summary';
-
-      const strong = document.createElement('strong');
-      const icon = UI_ICONS.SUCCESS;
-      strong.append(createSafeIcon(icon));
-      strong.append(document.createTextNode(' 沒有發現需要清理的數據'));
-      container.append(strong);
-
-      const paragraph = document.createElement('p');
-      paragraph.textContent = '所有頁面記錄都是有效的，無需清理。';
-      container.append(paragraph);
-
-      this.elements.cleanupPreview.textContent = '';
-      this.elements.cleanupPreview.append(container);
       return;
     }
 
-    const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
+    const spaceKB = (spaceFreed / 1024).toFixed(1);
+    const summaryEl = document.createElement('div');
+    summaryEl.className = 'health-item health-cleanup-summary';
 
-    const summaryLines = [
-      UI_MESSAGES.STORAGE.CLEANUP_TITLE,
-      '',
-      UI_MESSAGES.STORAGE.CLEANUP_WILL_CLEAN,
-    ];
-
-    if (plan.deletedPages > 0) {
-      summaryLines.push(UI_MESSAGES.STORAGE.DELETED_PAGES_DATA(plan.deletedPages));
+    const parts = [];
+    if (summary.emptyRecords > 0) {
+      parts.push(`${summary.emptyRecords} 個空記錄`);
+    }
+    if (summary.orphanRecords > 0) {
+      parts.push(`${summary.orphanRecords} 個孤兒資料`);
+    }
+    if (summary.migrationLeftovers > 0) {
+      parts.push(`${summary.migrationLeftovers} 個升級殘留`);
+    }
+    if (summary.corruptedRecords > 0) {
+      parts.push(`${summary.corruptedRecords} 個損壞項目`);
     }
 
-    if (plan.orphanHighlights > 0) {
-      summaryLines.push(UI_MESSAGES.STORAGE.ORPHANED_HIGHLIGHTS_COUNT(plan.orphanHighlights));
+    summaryEl.textContent = UI_MESSAGES.STORAGE.CLEANUP_SUMMARY(parts, spaceKB);
+    el.append(summaryEl);
+
+    if (btn) {
+      btn.style.display = 'inline-block';
     }
-
-    summaryLines.push('', UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
-
-    // summaryText variable removed as it was unused
-
-    const icon = UI_ICONS.WARNING;
-
-    this.elements.cleanupPreview.textContent = '';
-
-    // 1. 構建 Summary 區塊
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'cleanup-summary';
-
-    const paragraph = document.createElement('p');
-    // 處理換行
-    summaryLines.forEach((line, index) => {
-      paragraph.append(document.createTextNode(line));
-      if (index < summaryLines.length - 1) {
-        paragraph.append(document.createElement('br'));
-      }
-    });
-    summaryDiv.append(paragraph);
-
-    const warningDiv = document.createElement('div');
-    warningDiv.className = 'warning-notice';
-    // icon 是受信任的 SVG 字串
-    warningDiv.append(createSafeIcon(icon));
-
-    // " 重要提醒："
-    warningDiv.append(document.createTextNode(' '));
-    const labelStrong = document.createElement('strong');
-    labelStrong.textContent = '重要提醒：';
-    warningDiv.append(labelStrong);
-    warningDiv.append(document.createTextNode('這只會清理擴展中的無效記錄，'));
-
-    // "絕對不會影響您在 Notion 中保存的任何頁面"
-    const panicStrong = document.createElement('strong');
-    panicStrong.textContent = '絕對不會影響您在 Notion 中保存的任何頁面';
-    warningDiv.append(panicStrong);
-    warningDiv.append(document.createTextNode('。'));
-
-    summaryDiv.append(warningDiv);
-    this.elements.cleanupPreview.append(summaryDiv);
-
-    // 2. 構建 List 區塊
-    const listDiv = document.createElement('div');
-    listDiv.className = 'cleanup-list';
-
-    // 使用 DocumentFragment 優化效能
-    const fragment = document.createDocumentFragment();
-
-    plan.items.slice(0, 10).forEach(item => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'cleanup-item';
-
-      const urlStrong = document.createElement('strong');
-      // 安全核心：textContent 自動轉義
-      try {
-        urlStrong.textContent = decodeURIComponent(item.url);
-      } catch (error) {
-        // 如果 URL 編碼格式錯誤，則回退顯示原始 URL 並記錄警告
-        Logger.warn('Failed to decode URL in cleanup preview', {
-          action: 'preview_decode_url',
-          url: item.url,
-          error,
-        });
-        urlStrong.textContent = item.url;
-      }
-      itemDiv.append(urlStrong);
-
-      itemDiv.append(document.createTextNode(` - ${item.reason}`));
-      itemDiv.append(document.createElement('br'));
-
-      const sizeSmall = document.createElement('small');
-      sizeSmall.textContent = `${(item.size / 1024).toFixed(1)} KB`;
-      itemDiv.append(sizeSmall);
-
-      fragment.append(itemDiv);
-    });
-
-    if (plan.items.length > 10) {
-      const moreDiv = document.createElement('div');
-      moreDiv.className = 'cleanup-item';
-      const em = document.createElement('em');
-      em.textContent = `... 還有 ${plan.items.length - 10} 個項目`;
-      moreDiv.append(em);
-      fragment.append(moreDiv);
-    }
-
-    listDiv.append(fragment);
-    this.elements.cleanupPreview.append(listDiv);
   }
 
-  async executeSafeCleanup() {
-    if (!this.cleanupPlan || this.cleanupPlan.items.length === 0) {
-      const icon = UI_ICONS.ERROR;
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.EXECUTE_CLEANUP_NONE}`, 'error');
+  /**
+   * 執行統一清理：使用暫存的 _lastHealthReport.cleanupPlan 執行清理
+   * 清理完成後重新呼叫 updateStorageUsage() 刷新全部狀態
+   */
+  async executeUnifiedCleanup() {
+    const plan = this._lastHealthReport?.cleanupPlan;
+    if (!plan || plan.items.length === 0) {
+      this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info');
       return;
+    }
+
+    const button = this.elements.executeCleanupButton;
+    if (button) {
+      button.disabled = true;
     }
 
     try {
-      const icon = UI_ICONS.REFRESH;
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CLEANUP_EXECUTING}`, 'info');
-      Logger.start('開始執行清理操作');
+      this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_EXECUTING, 'info');
+      Logger.start(`開始執行統一清理，共 ${plan.items.length} 個項目`);
 
-      const keysToRemove = this.cleanupPlan.items.map(item => item.key);
+      const keysToRemove = plan.items.map(item => item.key);
 
-      await chrome.storage.local.remove(keysToRemove);
-
-      const spaceKB = (this.cleanupPlan.spaceFreed / 1024).toFixed(1);
-      const successIcon = UI_ICONS.SUCCESS;
-      let message = `${successIcon} ${UI_MESSAGES.STORAGE.CLEANUP_SUCCESS(this.cleanupPlan.totalKeys, spaceKB)}`;
-
-      if (this.cleanupPlan.deletedPages > 0) {
-        message += `\n${UI_MESSAGES.STORAGE.CLEANUP_DELETED_PAGES(this.cleanupPlan.deletedPages)}`;
-      }
-
-      if (this.cleanupPlan.orphanHighlights > 0) {
-        message += `\n${UI_MESSAGES.STORAGE.CLEANUP_ORPHAN_HIGHLIGHTS(this.cleanupPlan.orphanHighlights)}`;
-      }
-
-      this.showDataStatus(message, 'success');
-      Logger.success(`清理完成，釋放空間 ${(this.cleanupPlan.spaceFreed / 1024).toFixed(1)} KB`);
-
-      this.updateStorageUsage();
-      if (this.elements.executeCleanupButton) {
-        this.elements.executeCleanupButton.style.display = 'none';
-      }
-      if (this.elements.cleanupPreview) {
-        this.elements.cleanupPreview.className = 'cleanup-preview';
-      }
-      this.cleanupPlan = null;
-    } catch (error) {
-      Logger.error('Cleanup execution failed', { action: 'execute_cleanup', error });
-      const failIcon = UI_ICONS.ERROR;
-      const safeMessage = sanitizeApiError(error, 'cleanup');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${failIcon} ${UI_MESSAGES.STORAGE.CLEANUP_FAILED}${errorMsg}`, 'error');
-    }
-  }
-
-  async analyzeOptimization() {
-    const plan = await generateOptimizationPlan();
-    this.optimizationPlan = plan;
-    this.displayOptimizationPreview(plan);
-
-    if (plan.canOptimize) {
-      if (this.elements.executeOptimizationButton) {
-        this.elements.executeOptimizationButton.style.display = 'inline-block';
-      }
-    } else if (this.elements.executeOptimizationButton) {
-      this.elements.executeOptimizationButton.style.display = 'none';
-    }
-  }
-
-  displayOptimizationPreview(plan) {
-    if (!this.elements.optimizationPreview) {
-      return;
-    }
-    this.elements.optimizationPreview.className = 'optimization-preview show';
-
-    // 清空舊內容
-    this.elements.optimizationPreview.textContent = '';
-
-    // Use shared createSafeIcon helper
-
-    if (!plan.canOptimize) {
-      const container = document.createElement('div');
-      container.className = 'optimization-summary';
-
-      // Header
-      const strong = document.createElement('strong');
-      strong.append(createSafeIcon(UI_ICONS.SUCCESS));
-      strong.append(document.createTextNode(' 數據已經處於最佳狀態'));
-      container.append(strong);
-
-      // Description
-      const paragraph = document.createElement('p');
-      paragraph.textContent = '當前數據結構已經很好，暫時不需要重整優化。';
-      container.append(paragraph);
-
-      // Stats
-      const statsDiv = document.createElement('div');
-      statsDiv.className = 'data-stats';
-
-      const items = [
-        { icon: UI_ICONS.INFO, text: ` 標記頁面：${plan.highlightPages}` },
-        { icon: UI_ICONS.INFO, text: ` 總標記數：${plan.totalHighlights}` },
-        { icon: UI_ICONS.INFO, text: ` 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB` },
-      ];
-
-      items.forEach(item => {
-        const div = document.createElement('div');
-        div.append(createSafeIcon(item.icon));
-        div.append(document.createTextNode(item.text));
-        statsDiv.append(div);
-      });
-
-      container.append(statsDiv);
-      this.elements.optimizationPreview.append(container);
-      return;
-    }
-
-    const spaceSavedMB = (plan.spaceSaved / (1024 * 1024)).toFixed(3);
-    const percentSaved = ((plan.spaceSaved / plan.originalSize) * 100).toFixed(1);
-
-    const container = document.createElement('div');
-    container.className = 'optimization-summary';
-
-    // Header
-    const strong = document.createElement('strong');
-    strong.append(createSafeIcon(UI_ICONS.BOLT));
-    strong.append(document.createTextNode(' 數據重整分析結果'));
-    container.append(strong);
-
-    // Description
-    const paragraph = document.createElement('p');
-    paragraph.append(document.createTextNode('可以優化您的數據結構，預計節省 '));
-
-    const mbStrong = document.createElement('strong');
-    mbStrong.textContent = `${spaceSavedMB} MB`;
-    paragraph.append(mbStrong);
-
-    paragraph.append(document.createTextNode(' 空間（'));
-
-    const pctStrong = document.createElement('strong');
-    pctStrong.textContent = `${percentSaved}%`;
-    paragraph.append(pctStrong);
-
-    paragraph.append(document.createTextNode('）'));
-    container.append(paragraph);
-
-    // Details Container
-    const detailsDiv = document.createElement('div');
-    detailsDiv.className = 'optimization-details';
-
-    // Size Comparison Grid
-    const comparisonDiv = document.createElement('div');
-    comparisonDiv.className = 'size-comparison';
-
-    const comparisonItems = [
-      {
-        icon: UI_ICONS.BAR_CHART,
-        label: ' 當前大小：',
-        value: `${(plan.originalSize / 1024).toFixed(1)} KB`,
-        className: 'highlight-text',
-      },
-      {
-        icon: UI_ICONS.BAR_CHART,
-        label: ' 優化後：',
-        value: `${(plan.optimizedSize / 1024).toFixed(1)} KB`,
-        className: 'highlight-success',
-      },
-      {
-        icon: UI_ICONS.SAVE,
-        label: ' 節省空間：',
-        value: `${(plan.spaceSaved / 1024).toFixed(1)} KB`,
-        className: 'highlight-primary',
-      },
-    ];
-
-    comparisonItems.forEach(item => {
-      const div = document.createElement('div');
-      div.append(createSafeIcon(item.icon));
-      div.append(document.createTextNode(item.label));
-
-      const span = document.createElement('span');
-      span.className = item.className;
-      span.textContent = item.value;
-      div.append(span);
-
-      comparisonDiv.append(div);
-    });
-
-    detailsDiv.append(comparisonDiv);
-
-    // Optimization List
-    const listDiv = document.createElement('div');
-    listDiv.className = 'optimization-list';
-
-    const listStrong = document.createElement('strong');
-    listStrong.textContent = '將執行的優化：';
-    listDiv.append(listStrong);
-
-    plan.optimizations.forEach(opt => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'optimization-item';
-      itemDiv.append(createSafeIcon(UI_ICONS.CHECK));
-      itemDiv.append(document.createTextNode(` ${opt}`));
-      listDiv.append(itemDiv);
-    });
-
-    detailsDiv.append(listDiv);
-    container.append(detailsDiv);
-    this.elements.optimizationPreview.append(container);
-  }
-
-  async executeOptimization() {
-    try {
-      if (!this.optimizationPlan?.canOptimize) {
-        const icon = UI_ICONS.ERROR;
-        this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZE_EXECUTE_NONE}`, 'error');
-        return;
-      }
-
-      const icon = UI_ICONS.REFRESH;
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZING}`, 'info');
-
-      const optimizedData = this.optimizationPlan.optimizedData;
-      const keysToRemove = this.optimizationPlan.keysToRemove;
-
-      if (keysToRemove.length > 0) {
-        await new Promise((resolve, reject) => {
-          chrome.storage.local.remove(keysToRemove, () => {
-            if (chrome.runtime.lastError) {
-              reject(chrome.runtime.lastError);
-            } else {
-              resolve();
-            }
-          });
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.remove(keysToRemove, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve();
+          }
         });
-      }
-
-      const currentData = await new Promise(resolve => {
-        chrome.storage.local.get(null, resolve);
       });
 
-      const needsUpdate = Object.keys(optimizedData).some(key => {
-        return JSON.stringify(currentData[key]) !== JSON.stringify(optimizedData[key]);
-      });
-
-      if (needsUpdate) {
-        await new Promise((resolve, reject) => {
-          chrome.storage.local.set(optimizedData, () => {
-            if (chrome.runtime.lastError) {
-              reject(chrome.runtime.lastError);
-            } else {
-              resolve();
-            }
-          });
-        });
-      }
-
-      const spaceSavedKB = (this.optimizationPlan.spaceSaved / 1024).toFixed(1);
-      const successIcon = UI_ICONS.SUCCESS;
+      const spaceKB = (plan.spaceFreed / 1024).toFixed(1);
+      Logger.success(`清理完成，移除 ${keysToRemove.length} 個項目，釋放 ${spaceKB} KB`);
       this.showDataStatus(
-        `${successIcon} ${UI_MESSAGES.STORAGE.OPTIMIZE_SUCCESS(spaceSavedKB)}`,
+        UI_MESSAGES.STORAGE.UNIFIED_CLEANUP_SUCCESS(keysToRemove.length, spaceKB),
         'success'
       );
 
-      this.updateStorageUsage();
-      if (this.elements.executeOptimizationButton) {
-        this.elements.executeOptimizationButton.style.display = 'none';
-      }
-      if (this.elements.optimizationPreview) {
-        this.elements.optimizationPreview.className = 'optimization-preview';
-      }
-      this.optimizationPlan = null;
+      // 清理後重新刷新全部狀態（包含健康度和清理按鈕）
+      await this.updateStorageUsage();
     } catch (error) {
-      Logger.error('Optimization failed', { action: 'execute_optimization', error });
-      const failIcon = UI_ICONS.ERROR;
-      const safeMessage = sanitizeApiError(error, 'optimization');
+      Logger.error('Unified cleanup failed', { action: 'execute_cleanup', error });
+      const safeMessage = sanitizeApiError(error, 'execute_cleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${failIcon} ${UI_MESSAGES.STORAGE.OPTIMIZE_FAILED}${errorMsg}`, 'error');
+      this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_FAILED(errorMsg), 'error');
+
+      if (button) {
+        button.disabled = false;
+      }
     }
   }
 

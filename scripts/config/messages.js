@@ -110,45 +110,30 @@ export const UI_MESSAGES = {
     SYNC_FAILED_PREFIX: '同步失敗：',
   },
   STORAGE: {
-    CHECKING: '正在檢查數據完整性...',
-    REPORT_TITLE: '數據完整性報告：',
-    TOTAL_ITEMS: count => `• 總共 ${count} 個數據項`,
-    HIGHLIGHT_PAGES: count => `• ${count} 個頁面有標記`,
-    CONFIG_ITEMS: count => `• ${count} 個配置項`,
-    MIGRATION_DATA: (count, size) => `• ${count} 個遷移數據（${size} KB，可清理）`,
-    LEGACY_SAVED_ITEMS: count => `• ${count} 個舊格式保存狀態（等待自動升級）`,
-
-    CORRUPTED_DATA: count => `• ${count} 個損壞的數據項`,
-    OPTIMIZATION_SUGGESTION: '• 建議使用「數據重整」功能清理遷移數據',
-    INTEGRITY_OK: '• 所有數據完整無損',
+    // === 備份/恢復 ===
     BACKUP_START: '正在備份數據...',
-    RESTORE_START: '正在恢復數據...',
-    INVALID_BACKUP_FORMAT: '無效的備份文件格式',
-    CLEANUP_NONE: '沒有需要清理的數據',
-    OPTIMIZE_NONE: '數據已經處於最佳狀態',
-    CLEANUP_TITLE: '檢測殘留數據',
-    CLEANUP_WILL_CLEAN: '將清理：',
-    DELETED_PAGES_DATA: count => `• ${count} 筆無效的殘留數據`,
-    SPACE_FREED_ESTIMATE: size => `釋放約 ${size} MB 空間`,
-    EXECUTE_CLEANUP_NONE: '沒有清理計劃可執行',
-    CLEANUP_EXECUTING: '正在執行安全清理...',
-    CLEANUP_SUCCESS: (keys, size) =>
-      `安全清理完成！已移除 ${keys} 個無效記錄，釋放 ${size} KB 空間`,
-    CLEANUP_DELETED_PAGES: count => `• 清理了 ${count} 筆無效的殘留數據`,
-    ORPHANED_HIGHLIGHTS_COUNT: count => `• ${count} 個孤兒標注資料（無對應的已保存頁面）`,
-    CLEANUP_ORPHAN_HIGHLIGHTS: count => `• 清理了 ${count} 個孤兒標注資料`,
-    CLEANUP_FAILED: '清理失敗：',
-    PREVIEW_CLEANUP_FAILED: '檢測無效數據失敗：',
-    OPTIMIZE_SUCCESS: size =>
-      `數據重整完成！已清理遷移數據，節省 ${size} KB 空間，所有標記內容完整保留`,
-    OPTIMIZE_FAILED: '數據重整失敗：',
     BACKUP_SUCCESS: '數據備份成功！備份文件已下載。',
     BACKUP_FAILED: '備份失敗：',
+    RESTORE_START: '正在恢復數據...',
     RESTORE_SUCCESS: count => `數據恢復成功！已恢復 ${count} 項數據。正在重新整理...`,
     RESTORE_FAILED: '恢復失敗：',
-    CHECK_FAILED: '檢查失敗：',
-    OPTIMIZE_EXECUTE_NONE: '沒有重整計劃可執行',
-    OPTIMIZING: '正在執行數據重整...',
+    INVALID_BACKUP_FORMAT: '無效的備份文件格式',
+
+    // === 統一清理（由 getStorageHealthReport 驅動）===
+    CLEANUP_EXECUTING: '正在執行數據優化...',
+    UNIFIED_CLEANUP_SUCCESS: (keys, size) =>
+      `數據優化完成！已清理 ${keys} 個項目，釋放 ${size} KB 空間`,
+    CLEANUP_SUMMARY: (parts, spaceKB) => `可清理：${parts.join('、')}，預計釋放 ${spaceKB} KB`,
+    NO_CLEANUP_NEEDED: '無可清理項目',
+    CLEANUP_FAILED: errorMsg => `清理失敗：${errorMsg}`,
+
+    // === 數據健康度 ===
+    HEALTH_CORRUPTED: count => `發現 ${count} 個損壞的數據項`,
+    HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
+    HEALTH_LEGACY_SAVED: count => `${count} 個舊版網頁保存紀錄（重訪相關網頁時會自動升級）`,
+    HEALTH_OK: '數據完整',
+
+    // === 使用量警告 ===
     USAGE_TOO_LARGE: size => `數據量過大 (${size} MB)，可能影響擴展性能，建議立即清理`,
     USAGE_LARGE: size => `數據量較大 (${size} MB)，建議清理不需要的標記數據以維持最佳性能`,
   },
