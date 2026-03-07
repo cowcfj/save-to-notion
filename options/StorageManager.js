@@ -306,49 +306,95 @@ export class StorageManager {
 
     // Pass 2：完整分析
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('page_')) {
-        // Phase 3 統一格式
-        report.highlightPages++;
-        const hl = value?.highlights;
-        if (Array.isArray(hl)) {
-          report.totalHighlights += hl.length;
-        }
-        // 結構驗證
-        if (
-          !value ||
-          typeof value !== 'object' ||
-          (value.highlights !== undefined && !Array.isArray(value.highlights))
-        ) {
-          report.corruptedData.push(key);
-        }
-      } else if (key.startsWith('highlights_')) {
-        // 舊格式：只在無對應 page_* 時計入（避免重複計數）
-        const url = key.slice(11); // 'highlights_'.length === 11
-        if (!pageUrls.has(url)) {
-          report.highlightPages++;
-          const hl = Array.isArray(value) ? value : value?.highlights;
-          if (Array.isArray(hl)) {
-            report.totalHighlights += hl.length;
-          }
-        }
-        // 結構驗證（不論是否重複計數，壞數據都要標記）
-        if (!Array.isArray(value) && (!value || !Array.isArray(value.highlights))) {
-          report.corruptedData.push(key);
-        }
-      } else if (key.startsWith('saved_')) {
-        report.legacySavedKeys++;
-      } else if (key.startsWith('url_alias:')) {
-        report.aliasKeys++;
-      } else if (key.startsWith('config_') || key.includes('notion')) {
-        report.configKeys++;
-      } else if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-        report.migrationKeys++;
-        const size = new Blob([JSON.stringify({ [key]: value })]).size;
-        report.migrationDataSize += size;
-      }
+      StorageManager._analyzeDataEntry(key, value, report, pageUrls);
     }
 
     return report;
+  }
+
+  /**
+   * 輔助方法：分析單個數據項並更新報告
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} report 分析報告
+   * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
+   * @private
+   */
+  static _analyzeDataEntry(key, value, report, pageUrls) {
+    if (key.startsWith('page_')) {
+      StorageManager._analyzePageData(key, value, report);
+      return;
+    }
+    if (key.startsWith('highlights_')) {
+      StorageManager._analyzeHighlightData(key, value, report, pageUrls);
+      return;
+    }
+    if (key.startsWith('saved_')) {
+      report.legacySavedKeys++;
+      return;
+    }
+    if (key.startsWith('url_alias:')) {
+      report.aliasKeys++;
+      return;
+    }
+    if (key.startsWith('config_') || key.includes('notion')) {
+      report.configKeys++;
+      return;
+    }
+    if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+      report.migrationKeys++;
+      const size = new Blob([JSON.stringify({ [key]: value })]).size;
+      report.migrationDataSize += size;
+    }
+  }
+
+  /**
+   * 輔助方法：分析 page_* 數據並更新報告
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} report 分析報告
+   * @private
+   */
+  static _analyzePageData(key, value, report) {
+    report.highlightPages++;
+    const hl = value?.highlights;
+    if (Array.isArray(hl)) {
+      report.totalHighlights += hl.length;
+    }
+    // 結構驗證
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      (value.highlights !== undefined && !Array.isArray(value.highlights))
+    ) {
+      report.corruptedData.push(key);
+    }
+  }
+
+  /**
+   * 輔助方法：分析 highlights_* 數據並更新報告
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} report 分析報告
+   * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
+   * @private
+   */
+  static _analyzeHighlightData(key, value, report, pageUrls) {
+    const url = key.slice(11);
+    if (!pageUrls.has(url)) {
+      report.highlightPages++;
+      const hl = Array.isArray(value) ? value : value?.highlights;
+      if (Array.isArray(hl)) {
+        report.totalHighlights += hl.length;
+      }
+    }
+    // 結構驗證（不論是否重複計數，壞數據都要標記）
+    if (!Array.isArray(value) && (!value || !Array.isArray(value.highlights))) {
+      report.corruptedData.push(key);
+    }
   }
 
   /**
@@ -467,10 +513,6 @@ export class StorageManager {
     const sizeInBytes = new Blob([jsonString]).size;
     const referenceSize = 100 * 1024 * 1024; // 100MB
 
-    let pagesCount = 0;
-    let highlightsCount = 0;
-    let configCount = 0;
-
     // 先收集 page_* 的 URL，避免與 highlights_* 重複計數
     const pageUrls = new Set();
     for (const key of Object.keys(data)) {
@@ -479,25 +521,9 @@ export class StorageManager {
       }
     }
 
+    const counts = { pagesCount: 0, highlightsCount: 0, configCount: 0 };
     for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('page_')) {
-        pagesCount++;
-        const hl = value?.highlights;
-        if (Array.isArray(hl)) {
-          highlightsCount += hl.length;
-        }
-      } else if (key.startsWith('highlights_')) {
-        // 舊格式：只在無對應 page_* 時計入（避免重複計數）
-        const url = key.slice(11);
-        if (!pageUrls.has(url)) {
-          pagesCount++;
-          if (Array.isArray(value)) {
-            highlightsCount += value.length;
-          }
-        }
-      } else if (key.includes('notion') || key.startsWith('config_')) {
-        configCount++;
-      }
+      StorageManager._countStorageUsageEntry(key, value, counts, pageUrls);
     }
 
     const percentage = Math.min((sizeInBytes / referenceSize) * 100, 100).toFixed(1);
@@ -506,11 +532,41 @@ export class StorageManager {
       used: sizeInBytes,
       percentage,
       usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
-      pages: pagesCount,
-      highlights: highlightsCount,
-      configs: configCount,
+      pages: counts.pagesCount,
+      highlights: counts.highlightsCount,
+      configs: counts.configCount,
       isUnlimited: true,
     };
+  }
+
+  /**
+   * 輔助方法：計算單個數據項的空間使用量
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} counts 統計物件
+   * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
+   * @private
+   */
+  static _countStorageUsageEntry(key, value, counts, pageUrls) {
+    if (key.startsWith('page_')) {
+      counts.pagesCount++;
+      const hl = value?.highlights;
+      if (Array.isArray(hl)) {
+        counts.highlightsCount += hl.length;
+      }
+    } else if (key.startsWith('highlights_')) {
+      // 舊格式：只在無對應 page_* 時計入（避免重複計數）
+      const url = key.slice(11);
+      if (!pageUrls.has(url)) {
+        counts.pagesCount++;
+        if (Array.isArray(value)) {
+          counts.highlightsCount += value.length;
+        }
+      }
+    } else if (key.includes('notion') || key.startsWith('config_')) {
+      counts.configCount++;
+    }
   }
 
   updateUsageDisplay(usage) {
@@ -1065,39 +1121,65 @@ export class StorageManager {
     }
 
     if (key.startsWith('page_')) {
-      // Phase 3 統一格式：有標注或有 Notion 綁定 → 保留
-      const hl = value?.highlights;
-      const hasHighlights = Array.isArray(hl) && hl.length > 0;
-      const hasNotion = Boolean(value?.notion?.pageId);
-
-      if (hasHighlights || hasNotion) {
-        plan.highlightPages++;
-        if (hasHighlights) {
-          plan.totalHighlights += hl.length;
-        }
-        plan.optimizedData[key] = value;
-      } else {
-        // 空的 page_* key（無標注且無 Notion 綁定）→ 可清理
-        stats.emptyHighlightKeys++;
-        stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-        plan.keysToRemove.push(key);
-      }
+      StorageManager._processPageOptimization(key, value, plan, stats);
       return;
     }
 
     if (key.startsWith('highlights_')) {
-      const highlightsArray = Array.isArray(value) ? value : value?.highlights;
-      if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
-        plan.highlightPages++;
-        plan.totalHighlights += highlightsArray.length;
-        plan.optimizedData[key] = value;
-      } else {
-        stats.emptyHighlightKeys++;
-        stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-        plan.keysToRemove.push(key);
-      }
+      StorageManager._processHighlightOptimization(key, value, plan, stats);
     } else {
       plan.optimizedData[key] = value;
+    }
+  }
+
+  /**
+   * 輔助方法：處理 page_* 數據項的優化分析
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} plan 計劃
+   * @param {object} stats 統計
+   * @private
+   */
+  static _processPageOptimization(key, value, plan, stats) {
+    // Phase 3 統一格式：有標注或有 Notion 綁定 → 保留
+    const hl = value?.highlights;
+    const hasHighlights = Array.isArray(hl) && hl.length > 0;
+    const hasNotion = Boolean(value?.notion?.pageId);
+
+    if (hasHighlights || hasNotion) {
+      plan.highlightPages++;
+      if (hasHighlights) {
+        plan.totalHighlights += hl.length;
+      }
+      plan.optimizedData[key] = value;
+    } else {
+      // 空的 page_* key（無標注且無 Notion 綁定）→ 可清理
+      stats.emptyHighlightKeys++;
+      stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
+      plan.keysToRemove.push(key);
+    }
+  }
+
+  /**
+   * 輔助方法：處理 highlights_* 數據項的優化分析
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} plan 計劃
+   * @param {object} stats 統計
+   * @private
+   */
+  static _processHighlightOptimization(key, value, plan, stats) {
+    const highlightsArray = Array.isArray(value) ? value : value?.highlights;
+    if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
+      plan.highlightPages++;
+      plan.totalHighlights += highlightsArray.length;
+      plan.optimizedData[key] = value;
+    } else {
+      stats.emptyHighlightKeys++;
+      stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
+      plan.keysToRemove.push(key);
     }
   }
 
