@@ -113,6 +113,7 @@ describe('StorageManager', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
     delete globalThis.chrome;
   });
@@ -553,6 +554,12 @@ describe('StorageManager — executeUnifiedCleanup', () => {
       },
     };
 
+    mockGet.mockImplementation((keys, cb) =>
+      cb({
+        'page_empty.com': { notion: null, highlights: [] },
+        'highlights_orphan.com': [],
+      })
+    );
     mockRemove.mockImplementation((keys, cb) => cb?.());
 
     await storageManager.executeUnifiedCleanup();
@@ -575,6 +582,12 @@ describe('StorageManager — executeUnifiedCleanup', () => {
       },
     };
 
+    mockGet.mockImplementationOnce((keys, cb) =>
+      cb({
+        'page_empty.com': { notion: null, highlights: [] },
+      })
+    );
+
     const button = storageManager.elements.executeCleanupButton;
     const updateStorageUsageSpy = jest
       .spyOn(storageManager, 'updateStorageUsage')
@@ -591,12 +604,18 @@ describe('StorageManager — executeUnifiedCleanup', () => {
   test('chrome.storage.local.remove 失敗時應顯示錯誤', async () => {
     storageManager._lastHealthReport = {
       cleanupPlan: {
-        items: [{ key: 'k1', size: 10, reason: 'r1' }],
+        items: [{ key: 'page_k1', size: 10, reason: 'r1' }],
         totalKeys: 1,
         spaceFreed: 10,
         summary: { emptyRecords: 0, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
       },
     };
+
+    mockGet.mockImplementationOnce((keys, cb) =>
+      cb({
+        page_k1: { notion: null, highlights: [] },
+      })
+    );
 
     mockRemove.mockImplementation((keys, cb) => {
       globalThis.chrome.runtime.lastError = { message: 'Remove failed' };
@@ -608,6 +627,61 @@ describe('StorageManager — executeUnifiedCleanup', () => {
 
     expect(Logger.error).toHaveBeenCalled();
     expect(storageManager.elements.dataStatus.textContent).toContain('清理失敗');
+  });
+
+  test('重新驗證後只應刪除最新清理計劃仍存在的 key', async () => {
+    storageManager._lastHealthReport = {
+      cleanupPlan: {
+        items: [
+          { key: 'page_empty.com', size: 100, reason: '空記錄' },
+          { key: 'highlights_orphan.com', size: 50, reason: '孤兒資料' },
+        ],
+        totalKeys: 2,
+        spaceFreed: 150,
+        summary: { emptyRecords: 1, orphanRecords: 1, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
+    };
+
+    mockGet.mockImplementationOnce((keys, cb) =>
+      cb({
+        'highlights_orphan.com': [],
+      })
+    );
+    mockRemove.mockImplementation((keys, cb) => cb?.());
+    jest.spyOn(storageManager, 'updateStorageUsage').mockResolvedValue(undefined);
+
+    await storageManager.executeUnifiedCleanup();
+
+    expect(mockRemove).toHaveBeenCalledWith(['highlights_orphan.com'], expect.any(Function));
+  });
+
+  test('重新驗證後若無可刪 key，則不應呼叫 remove 且應更新健康顯示', async () => {
+    storageManager._lastHealthReport = {
+      cleanupPlan: {
+        items: [{ key: 'page_empty.com', size: 100, reason: '空記錄' }],
+        totalKeys: 1,
+        spaceFreed: 100,
+        summary: { emptyRecords: 1, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
+    };
+
+    mockGet.mockImplementationOnce((keys, cb) =>
+      cb({
+        'page_valid.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+      })
+    );
+    const updateHealthDisplaySpy = jest.spyOn(storageManager, 'updateHealthDisplay');
+    const updateStorageUsageSpy = jest
+      .spyOn(storageManager, 'updateStorageUsage')
+      .mockResolvedValue(undefined);
+
+    await storageManager.executeUnifiedCleanup();
+
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(updateStorageUsageSpy).not.toHaveBeenCalled();
+    expect(updateHealthDisplaySpy).toHaveBeenCalled();
+    expect(storageManager._lastHealthReport.cleanupPlan.totalKeys).toBe(0);
+    expect(storageManager.elements.dataStatus.textContent).toContain('無可清理項目');
   });
 });
 
@@ -681,6 +755,7 @@ describe('getStorageHealthReport', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     delete globalThis.chrome;
   });
 
@@ -852,6 +927,7 @@ describe('storageDataUtils — Legacy / 輔助函數', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     delete globalThis.chrome;
   });
 

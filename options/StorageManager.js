@@ -428,8 +428,8 @@ export class StorageManager {
    * 清理完成後重新呼叫 updateStorageUsage() 刷新全部狀態
    */
   async executeUnifiedCleanup() {
-    const plan = this._lastHealthReport?.cleanupPlan;
-    if (!plan || plan.items.length === 0) {
+    const cachedPlan = this._lastHealthReport?.cleanupPlan;
+    if (!cachedPlan || cachedPlan.items.length === 0) {
       this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info');
       return;
     }
@@ -441,9 +441,26 @@ export class StorageManager {
 
     try {
       this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_EXECUTING, 'info');
-      Logger.start(`開始執行統一清理，共 ${plan.items.length} 個項目`);
 
-      const keysToRemove = plan.items.map(item => item.key);
+      const latestReport = await getStorageHealthReport();
+      this._lastHealthReport = latestReport;
+
+      const latestItemsByKey = new Map(
+        latestReport.cleanupPlan.items.map(item => [item.key, item])
+      );
+      const validatedItems = cachedPlan.items
+        .map(item => latestItemsByKey.get(item.key))
+        .filter(Boolean);
+
+      if (validatedItems.length === 0) {
+        this.updateHealthDisplay(latestReport);
+        this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info');
+        return;
+      }
+
+      Logger.start(`開始執行統一清理，共 ${validatedItems.length} 個項目`);
+
+      const keysToRemove = validatedItems.map(item => item.key);
 
       await new Promise((resolve, reject) => {
         chrome.storage.local.remove(keysToRemove, () => {
@@ -455,7 +472,11 @@ export class StorageManager {
         });
       });
 
-      const spaceKB = (plan.spaceFreed / 1024).toFixed(1);
+      const actualFreed = validatedItems.reduce(
+        (total, item) => total + (typeof item.size === 'number' ? item.size : 0),
+        0
+      );
+      const spaceKB = (actualFreed / 1024).toFixed(1);
       Logger.success(`清理完成，移除 ${keysToRemove.length} 個項目，釋放 ${spaceKB} KB`);
       this.showDataStatus(
         UI_MESSAGES.STORAGE.UNIFIED_CLEANUP_SUCCESS(keysToRemove.length, spaceKB),
