@@ -244,7 +244,7 @@ function _countStorageUsageEntry(key, value, counts, pageUrls) {
  * 透過 chrome.runtime API 確認 Notion 頁面是否仍然存在
  *
  * @param {string} pageId Notion Page ID
- * @returns {Promise<boolean>} 頁面是否存在
+ * @returns {Promise<boolean|null>} 頁面是否存在；檢查失敗時回傳 null
  */
 export async function checkNotionPageExists(pageId) {
   try {
@@ -255,7 +255,7 @@ export async function checkNotionPageExists(pageId) {
     return response?.exists === true;
   } catch (error) {
     Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
-    return true;
+    return null;
   }
 }
 
@@ -263,33 +263,36 @@ export async function checkNotionPageExists(pageId) {
  * 分析單個頁面是否符合清理條件（Notion 頁面是否已刪除）
  *
  * @param {object} page 頁面物件 { key, url, data }
- * @param {object} plan 清理計劃（直接修改）
- * @returns {Promise<void>}
+ * @returns {Promise<{item: object, spaceFreedDelta: number, deletedPagesDelta: number} | null>}
  */
-export async function analyzePageForCleanup(page, plan) {
+export async function analyzePageForCleanup(page) {
   try {
     const exists = await checkNotionPageExists(page.data.notionPageId);
 
-    if (!exists) {
-      const { key: savedKey, url } = page;
-      const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
+    if (exists !== false) {
+      return null;
+    }
 
-      plan.items.push({
+    const { key: savedKey, url } = page;
+    const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
+
+    return {
+      item: {
         key: savedKey,
         url,
         size: savedSize,
         reason: '無效殘留的保存狀態',
-      });
-
-      plan.spaceFreed += savedSize;
-      plan.deletedPages++;
-    }
+      },
+      spaceFreedDelta: savedSize,
+      deletedPagesDelta: 1,
+    };
   } catch (error) {
     Logger.error('Page existence check failed', {
       action: 'check_page_existence',
       url: page.url,
       error,
     });
+    return null;
   }
 }
 

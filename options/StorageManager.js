@@ -474,7 +474,12 @@ export class StorageManager {
           continue;
         }
 
-        await analyzePageForCleanup(page, plan);
+        const cleanupResult = await analyzePageForCleanup(page);
+        if (cleanupResult) {
+          plan.items.push(cleanupResult.item);
+          plan.spaceFreed += cleanupResult.spaceFreedDelta;
+          plan.deletedPages += cleanupResult.deletedPagesDelta;
+        }
 
         if (i < savedPages.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 350));

@@ -9,6 +9,7 @@ import {
   sanitizeBackupData,
   analyzeData,
   getStorageUsage,
+  analyzePageForCleanup,
   generateOptimizationPlan,
   collectOrphanAliasItems,
   collectOrphanHighlightItems,
@@ -1004,6 +1005,39 @@ describe('StorageManager Branch Coverage', () => {
   });
 
   describe('generateSafeCleanupPlan Branches', () => {
+    test('analyzePageForCleanup 應在 Notion 頁面不存在時回傳清理結果物件', async () => {
+      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({ exists: false });
+
+      const result = await analyzePageForCleanup({
+        key: 'saved_page1',
+        url: 'page1',
+        data: { notionPageId: 'p1' },
+      });
+
+      expect(result).toMatchObject({
+        item: {
+          key: 'saved_page1',
+          url: 'page1',
+          reason: '無效殘留的保存狀態',
+        },
+        deletedPagesDelta: 1,
+      });
+      expect(result.spaceFreedDelta).toBeGreaterThan(0);
+    });
+
+    test('analyzePageForCleanup 應在檢查失敗時回傳 null 並記錄錯誤', async () => {
+      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockRejectedValue(new Error('API Down'));
+
+      const result = await analyzePageForCleanup({
+        key: 'saved_page1',
+        url: 'page1',
+        data: { notionPageId: 'p1' },
+      });
+
+      expect(result).toBeNull();
+      expect(Logger.error).toHaveBeenCalled();
+    });
+
     test('應處理檢測 Notion 頁面是否存在時的失敗情況', async () => {
       mockGet.mockImplementation((k, respond) => {
         const mockData = {
