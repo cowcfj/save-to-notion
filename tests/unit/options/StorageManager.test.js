@@ -625,8 +625,52 @@ describe('StorageManager — executeUnifiedCleanup', () => {
 
     await storageManager.executeUnifiedCleanup();
 
-    expect(Logger.error).toHaveBeenCalled();
+    expect(Logger.error).toHaveBeenCalledWith(
+      '執行統一清理失敗',
+      expect.objectContaining({
+        action: 'executeUnifiedCleanup',
+        error: expect.anything(),
+      })
+    );
     expect(storageManager.elements.dataStatus.textContent).toContain('清理失敗');
+  });
+
+  test('清理流程的日誌應使用 zh-TW 訊息與 executeUnifiedCleanup action', async () => {
+    storageManager._lastHealthReport = {
+      cleanupPlan: {
+        items: [{ key: 'page_empty.com', size: 100, reason: '空記錄' }],
+        totalKeys: 1,
+        spaceFreed: 100,
+        summary: { emptyRecords: 1, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
+    };
+
+    mockGet.mockImplementationOnce((keys, cb) =>
+      cb({
+        'page_empty.com': { notion: null, highlights: [] },
+      })
+    );
+    jest.spyOn(storageManager, 'updateStorageUsage').mockResolvedValue(undefined);
+    mockRemove.mockImplementation((keys, cb) => cb?.());
+
+    await storageManager.executeUnifiedCleanup();
+
+    expect(Logger.start).toHaveBeenCalledWith(
+      '開始執行統一清理',
+      expect.objectContaining({
+        action: 'executeUnifiedCleanup',
+        operation: 'validateCleanupPlan',
+      })
+    );
+    expect(Logger.success).toHaveBeenCalledWith(
+      '統一清理完成',
+      expect.objectContaining({
+        action: 'executeUnifiedCleanup',
+        result: 'success',
+        removedCount: 1,
+        freedBytes: expect.any(Number),
+      })
+    );
   });
 
   test('重新驗證後只應刪除最新清理計劃仍存在的 key', async () => {
@@ -817,6 +861,21 @@ describe('getStorageHealthReport', () => {
     expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
   });
 
+  test('缺少 highlights 的 page_* 應視為損壞資料', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_missing_highlights.com': { notion: { pageId: 'p1' } },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.corruptedData).toContain('page_missing_highlights.com');
+    expect(report.pages).toBe(0);
+    expect(report.highlights).toBe(0);
+    expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
+  });
+
   test('migration_* key 應計入 migrationKeys 並加入清理計劃', async () => {
     mockGet.mockImplementation((k, cb) =>
       cb({
@@ -880,6 +939,7 @@ describe('getStorageHealthReport', () => {
     const report = await getStorageHealthReport();
 
     expect(report.corruptedData).toEqual([]);
+    expect(report.cleanupPlan.summary.corruptedRecords).toBe(0);
     expect(report.cleanupPlan.summary.orphanRecords).toBe(1);
     expect(
       report.cleanupPlan.items.some(
@@ -887,6 +947,37 @@ describe('getStorageHealthReport', () => {
           item.key === 'url_alias:https://example.com/bad' && item.reason === '無效的 URL 別名'
       )
     ).toBe(true);
+  });
+
+  test('損壞的 page_* 不應遮蔽同 URL 的合法 highlights_* 計數', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_stable.com': { notion: { pageId: 'p1' } },
+        'highlights_stable.com': [{ id: '1' }, { id: '2' }],
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.corruptedData).toContain('page_stable.com');
+    expect(report.pages).toBe(1);
+    expect(report.highlights).toBe(2);
+    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_stable.com')).toBe(false);
+  });
+
+  test('損壞的 page_* 不應阻止空 highlights_* 被判定為孤兒', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_orphan.com': { notion: { pageId: 'p1' } },
+        'highlights_orphan.com': [],
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.corruptedData).toContain('page_orphan.com');
+    expect(report.cleanupPlan.summary.orphanRecords).toBe(1);
+    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_orphan.com')).toBe(true);
   });
 
   test('有對應 page_* 的 highlights_* 不應計入孤兒', async () => {

@@ -36,6 +36,12 @@ const REFERENCE_STORAGE_SIZE_BYTES = 100 * 1024 * 1024;
 const CONFIG_PREFIX = 'config_';
 const CONFIG_KEY_SUBSTR = 'notion';
 
+function _isCorruptedPageEntry(value) {
+  return (
+    !value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.highlights)
+  );
+}
+
 /**
  * 過濾備份數據，僅保留白名單前綴的 key
  *
@@ -83,8 +89,8 @@ export async function getStorageHealthReport() {
 
   // 預先收集 page_* 的 URL（供去重計數用）
   const pageUrls = new Set();
-  for (const key of Object.keys(data)) {
-    if (key.startsWith(PAGE_PREFIX)) {
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith(PAGE_PREFIX) && !_isCorruptedPageEntry(value)) {
       pageUrls.add(key.slice(PAGE_PREFIX.length));
     }
   }
@@ -164,10 +170,7 @@ function _analyzePageEntry(key, value, report) {
   const plan = report.cleanupPlan;
 
   // 結構破損 → 加入清理計劃
-  const isCorrupted =
-    !value ||
-    typeof value !== 'object' ||
-    (value.highlights !== undefined && !Array.isArray(value.highlights));
+  const isCorrupted = _isCorruptedPageEntry(value);
 
   if (isCorrupted) {
     report.corruptedData.push(key);

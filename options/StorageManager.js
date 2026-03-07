@@ -458,7 +458,11 @@ export class StorageManager {
         return;
       }
 
-      Logger.start(`開始執行統一清理，共 ${validatedItems.length} 個項目`);
+      Logger.start('開始執行統一清理', {
+        action: 'executeUnifiedCleanup',
+        operation: 'validateCleanupPlan',
+        count: validatedItems.length,
+      });
 
       const keysToRemove = validatedItems.map(item => item.key);
 
@@ -477,7 +481,12 @@ export class StorageManager {
         0
       );
       const spaceKB = (actualFreed / 1024).toFixed(1);
-      Logger.success(`清理完成，移除 ${keysToRemove.length} 個項目，釋放 ${spaceKB} KB`);
+      Logger.success('統一清理完成', {
+        action: 'executeUnifiedCleanup',
+        result: 'success',
+        removedCount: keysToRemove.length,
+        freedBytes: actualFreed,
+      });
       this.showDataStatus(
         UI_MESSAGES.STORAGE.UNIFIED_CLEANUP_SUCCESS(keysToRemove.length, spaceKB),
         'success'
@@ -486,8 +495,12 @@ export class StorageManager {
       // 清理後重新刷新全部狀態（包含健康度和清理按鈕）
       await this.updateStorageUsage();
     } catch (error) {
-      Logger.error('Unified cleanup failed', { action: 'execute_cleanup', error });
-      const safeMessage = sanitizeApiError(error, 'execute_cleanup');
+      Logger.error('執行統一清理失敗', {
+        action: 'executeUnifiedCleanup',
+        result: 'failed',
+        error,
+      });
+      const safeMessage = sanitizeApiError(error, 'executeUnifiedCleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_FAILED(errorMsg), 'error');
     } finally {
