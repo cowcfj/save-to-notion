@@ -4,12 +4,13 @@
  *
  * 包含：備份白名單、數據分析、使用量計算、清理邏輯、優化邏輯等。
  * 由 StorageManager.js 的 UI 控制器層呼叫。
+ *
+ * 主要入口函數：
+ * - getStorageHealthReport() — 一次掃描，輸出使用量 + 健康度 + 清理計劃
  */
 
 /* global chrome */
 
-import Logger from '../scripts/utils/Logger.js';
-import { sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import {
   PAGE_PREFIX,
   HIGHLIGHTS_PREFIX,
@@ -31,7 +32,7 @@ export const BACKUP_ALLOWED_PREFIXES = [
 ];
 
 const REFERENCE_STORAGE_SIZE_BYTES = 100 * 1024 * 1024;
-const MIGRATION_CLEANUP_THRESHOLD_BYTES = 1024;
+
 const CONFIG_PREFIX = 'config_';
 const CONFIG_KEY_SUBSTR = 'notion';
 
@@ -53,133 +54,20 @@ export function sanitizeBackupData(data) {
   );
 }
 
-// ─── 數據分析 ──────────────────────────────────────────────────────────
+// ─── 健康度報告（統一入口） ───────────────────────────────────────────
 
 /**
- * 分析 storage 數據，生成完整的統計報告
+ * 一次掃描，三個輸出：使用量統計 + 健康度 + 清理計劃
  *
- * @param {object} data storage 完整快照
- * @returns {object} 統計報告
- */
-export function analyzeData(data) {
-  const report = {
-    totalKeys: Object.keys(data).length,
-    highlightPages: 0,
-    totalHighlights: 0,
-    configKeys: 0,
-    migrationKeys: 0,
-    migrationDataSize: 0,
-    legacySavedKeys: 0,
-    aliasKeys: 0, // 內部統計用，不在用戶報告中顯示
-    corruptedData: [],
-  };
-
-  // Pass 1：收集所有 page_* 的 URL（用於避免與 highlights_* 重複計數）
-  const pageUrls = new Set();
-  for (const key of Object.keys(data)) {
-    if (key.startsWith(PAGE_PREFIX)) {
-      pageUrls.add(key.slice(PAGE_PREFIX.length));
-    }
-  }
-
-  // Pass 2：完整分析
-  for (const [key, value] of Object.entries(data)) {
-    _analyzeDataEntry(key, value, report, pageUrls);
-  }
-
-  return report;
-}
-
-/**
- * 輔助：分析單個數據項並更新報告
+ * 取代原本分散的 analyzeData() + getStorageUsage() + collectOrphanHighlightItems()
+ * + collectOrphanAliasItems() + generateOptimizationPlan() 等多次讀取的設計。
  *
- * @param {string} key 鍵名
- * @param {any} value 值
- * @param {object} report 分析報告
- * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
+ * @returns {Promise<object>} 統一報告物件，包含：
+ *   - used, usedMB, percentage, isUnlimited, pages, highlights, configs（使用量）
+ *   - migrationKeys, migrationDataSize, legacySavedKeys, corruptedData（健康度）
+ *   - cleanupPlan: { items, totalKeys, spaceFreed, summary }（清理計劃）
  */
-function _analyzeDataEntry(key, value, report, pageUrls) {
-  if (key.startsWith(PAGE_PREFIX)) {
-    _analyzePageData(key, value, report);
-    return;
-  }
-  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-    _analyzeHighlightData(key, value, report, pageUrls);
-    return;
-  }
-  if (key.startsWith(SAVED_PREFIX)) {
-    report.legacySavedKeys++;
-    return;
-  }
-  if (key.startsWith(URL_ALIAS_PREFIX)) {
-    report.aliasKeys++;
-    return;
-  }
-  if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
-    report.configKeys++;
-    return;
-  }
-  if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-    report.migrationKeys++;
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    report.migrationDataSize += size;
-  }
-}
-
-/**
- * 輔助：分析 page_* 數據並更新報告
- *
- * @param {string} key 鍵名
- * @param {any} value 值
- * @param {object} report 分析報告
- */
-function _analyzePageData(key, value, report) {
-  const hl = value?.highlights;
-  if (Array.isArray(hl) && hl.length > 0) {
-    report.highlightPages++;
-    report.totalHighlights += hl.length;
-  }
-  // 結構驗證
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    (value.highlights !== undefined && !Array.isArray(value.highlights))
-  ) {
-    report.corruptedData.push(key);
-  }
-}
-
-/**
- * 輔助：分析 highlights_* 數據並更新報告
- *
- * @param {string} key 鍵名
- * @param {any} value 值
- * @param {object} report 分析報告
- * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
- */
-function _analyzeHighlightData(key, value, report, pageUrls) {
-  const url = key.slice(HIGHLIGHTS_PREFIX.length);
-  if (!pageUrls.has(url)) {
-    const hl = Array.isArray(value) ? value : value?.highlights;
-    if (Array.isArray(hl) && hl.length > 0) {
-      report.highlightPages++;
-      report.totalHighlights += hl.length;
-    }
-  }
-  // 結構驗證（不論是否重複計數，壞數據都要標記）
-  if (!Array.isArray(value) && (!value || !Array.isArray(value.highlights))) {
-    report.corruptedData.push(key);
-  }
-}
-
-// ─── 使用量計算 ────────────────────────────────────────────────────────
-
-/**
- * 從 chrome.storage.local 讀取並計算詳細使用量統計
- *
- * @returns {Promise<object>} 使用量統計結果
- */
-export async function getStorageUsage() {
+export async function getStorageHealthReport() {
   const data = await new Promise((resolve, reject) => {
     chrome.storage.local.get(null, result => {
       if (chrome.runtime.lastError) {
@@ -192,9 +80,8 @@ export async function getStorageUsage() {
 
   const jsonString = JSON.stringify(data);
   const sizeInBytes = new Blob([jsonString]).size;
-  const referenceSize = REFERENCE_STORAGE_SIZE_BYTES;
 
-  // 先收集 page_* 的 URL，避免與 highlights_* 重複計數
+  // 預先收集 page_* 的 URL（供去重計數用）
   const pageUrls = new Set();
   for (const key of Object.keys(data)) {
     if (key.startsWith(PAGE_PREFIX)) {
@@ -202,399 +89,200 @@ export async function getStorageUsage() {
     }
   }
 
-  const counts = { pagesCount: 0, highlightsCount: 0, configCount: 0 };
-  for (const [key, value] of Object.entries(data)) {
-    _countStorageUsageEntry(key, value, counts, pageUrls);
-  }
-
-  const percentage = Math.min((sizeInBytes / referenceSize) * 100, 100).toFixed(1);
-
-  return {
+  const report = {
+    // === 使用量統計 ===
     used: sizeInBytes,
-    percentage,
     usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
-    pages: counts.pagesCount,
-    highlights: counts.highlightsCount,
-    configs: counts.configCount,
+    percentage: Math.min((sizeInBytes / REFERENCE_STORAGE_SIZE_BYTES) * 100, 100).toFixed(1),
     isUnlimited: true,
-  };
-}
+    pages: 0,
+    highlights: 0,
+    configs: 0,
 
-/**
- * 輔助：計算單個數據項的空間使用量
- *
- * @param {string} key 鍵名
- * @param {any} value 值
- * @param {object} counts 統計物件
- * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
- */
-function _countStorageUsageEntry(key, value, counts, pageUrls) {
-  if (key.startsWith(PAGE_PREFIX)) {
-    counts.pagesCount++;
-    const hl = value?.highlights;
-    if (Array.isArray(hl)) {
-      counts.highlightsCount += hl.length;
-    }
-  } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-    // 舊格式：只在無對應 page_* 時計入（避免重複計數）
-    const url = key.slice(HIGHLIGHTS_PREFIX.length);
-    if (!pageUrls.has(url)) {
-      counts.pagesCount++;
-      if (Array.isArray(value)) {
-        counts.highlightsCount += value.length;
-      }
-    }
-  } else if (key.includes(CONFIG_KEY_SUBSTR) || key.startsWith(CONFIG_PREFIX)) {
-    counts.configCount++;
-  }
-}
-
-// ─── 清理邏輯 ──────────────────────────────────────────────────────────
-
-/**
- * 透過 chrome.runtime API 確認 Notion 頁面是否仍然存在
- *
- * @param {string} pageId Notion Page ID
- * @returns {Promise<boolean|null>} 頁面是否存在；檢查失敗時回傳 null
- */
-export async function checkNotionPageExists(pageId) {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: 'checkNotionPageExists',
-      pageId,
-    });
-
-    if (response?.success === true) {
-      return response.exists === true;
-    }
-
-    throw new Error(response?.error || 'checkNotionPageExists failed');
-  } catch (error) {
-    Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
-    return null;
-  }
-}
-
-/**
- * 分析單個頁面是否符合清理條件（Notion 頁面是否已刪除）
- *
- * @param {object} page 頁面物件 { key, url, data }
- * @returns {Promise<{item: object, spaceFreedDelta: number, deletedPagesDelta: number} | null>}
- */
-export async function analyzePageForCleanup(page) {
-  try {
-    const exists = await checkNotionPageExists(page.data.notionPageId);
-
-    if (exists !== false) {
-      return null;
-    }
-
-    const { key: savedKey, url } = page;
-    const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
-
-    return {
-      item: {
-        key: savedKey,
-        url,
-        size: savedSize,
-        reason: '無效殘留的保存狀態',
-      },
-      spaceFreedDelta: savedSize,
-      deletedPagesDelta: 1,
-    };
-  } catch (error) {
-    Logger.error('Page existence check failed', {
-      action: 'check_page_existence',
-      url: sanitizeUrlForLogging(page.url),
-      error,
-    });
-    return null;
-  }
-}
-
-/**
- * 掃描孤兒 highlights_ key：既無有效標注，也無對應的 saved_ 或 page_* 記錄
- * 這是唯一符合「應刪除」條件的孤兒資料。
- *
- * @param {object} data  storage 完整快照
- * @returns {{items: object[], spaceFreedDelta: number, orphanHighlightsDelta: number}}
- */
-export function collectOrphanHighlightItems(data) {
-  const result = {
-    items: [],
-    spaceFreedDelta: 0,
-    orphanHighlightsDelta: 0,
-  };
-
-  for (const [key, value] of Object.entries(data)) {
-    if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
-      continue;
-    }
-
-    const url = key.slice(HIGHLIGHTS_PREFIX.length);
-
-    // 1. 有效標注 → 保留
-    const highlights = Array.isArray(value) ? value : value?.highlights;
-    if (Array.isArray(highlights) && highlights.length > 0) {
-      continue;
-    }
-
-    // 2. 有對應的 page_* 記錄 → 保留（Phase 3 格式已包含此數據）
-    if (data[`${PAGE_PREFIX}${url}`]) {
-      continue;
-    }
-
-    // 3. 有對應的 saved_ 記錄 → 保留（用戶只是保存網頁未做標注）
-    if (data[`${SAVED_PREFIX}${url}`]) {
-      continue;
-    }
-
-    // 4. 孤兒 key → 加入清理計畫
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    result.items.push({
-      key,
-      url,
-      size,
-      reason: '孤兒資料（無標注且未保存到 Notion）',
-    });
-    result.spaceFreedDelta += size;
-    result.orphanHighlightsDelta += 1;
-  }
-
-  return result;
-}
-
-/**
- * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 page_* / highlights_* / saved_* 記錄
- * alias 孤兒計入 items 和 spaceFreedDelta，但不計入 orphanHighlightsDelta，
- * 因為 alias key 是內部實作細節，不在用戶可見的清理摘要中單獨列出。
- *
- * @param {object} data  storage 完整快照
- * @returns {{items: object[], spaceFreedDelta: number}}
- */
-export function collectOrphanAliasItems(data) {
-  const result = {
-    items: [],
-    spaceFreedDelta: 0,
-  };
-
-  for (const [key, normUrl] of Object.entries(data)) {
-    if (!key.startsWith(URL_ALIAS_PREFIX)) {
-      continue;
-    }
-
-    // 防衛：alias value 必須是字串才能安全用於 key 查詢
-    if (typeof normUrl !== 'string' || normUrl === '') {
-      continue;
-    }
-
-    const pageKey = `${PAGE_PREFIX}${normUrl}`;
-    const highlightsKey = `${HIGHLIGHTS_PREFIX}${normUrl}`;
-    const savedKey = `${SAVED_PREFIX}${normUrl}`;
-
-    // alias value is the normUrl; check if target data still exists
-    if (
-      Object.hasOwn(data, pageKey) ||
-      Object.hasOwn(data, highlightsKey) ||
-      Object.hasOwn(data, savedKey)
-    ) {
-      continue;
-    }
-
-    // 孤兒 alias → 加入清理計畫
-    const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
-    result.items.push({
-      key,
-      url: encodeURIComponent(normUrl),
-      size,
-      reason: '孤兒 URL 別名（目標頁面已無資料）',
-    });
-    result.spaceFreedDelta += size;
-  }
-
-  return result;
-}
-
-// ─── 優化邏輯 ──────────────────────────────────────────────────────────
-
-/**
- * 從 chrome.storage.local 讀取數據並生成優化計劃
- *
- * @returns {Promise<object>} 優化計劃
- */
-export function generateOptimizationPlan() {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(null, data => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message || String(chrome.runtime.lastError)));
-        return;
-      }
-
-      if (!data || typeof data !== 'object') {
-        reject(new Error('Failed to read storage data'));
-        return;
-      }
-
-      const plan = {
-        canOptimize: false,
-        originalSize: 0,
-        optimizedSize: 0,
-        spaceSaved: 0,
-        optimizations: [],
-        highlightPages: 0,
-        totalHighlights: 0,
-        keysToRemove: [],
-        optimizedData: {},
-      };
-
-      const originalData = JSON.stringify(data);
-      plan.originalSize = new Blob([originalData]).size;
-
-      // 使用輔助函數分析數據結構
-      _analyzeStructureForOptimization(data, plan);
-
-      if (plan.highlightPages > 0 || plan.keysToRemove.length > 0) {
-        const optimizedJson = JSON.stringify(plan.optimizedData);
-        plan.optimizedSize = new Blob([optimizedJson]).size;
-        plan.spaceSaved = plan.originalSize - plan.optimizedSize;
-      }
-
-      resolve(plan);
-    });
-  });
-}
-
-/**
- * 輔助：分析存儲數據結構並填充優化計劃
- *
- * @param {object} data 存儲數據
- * @param {object} plan 優化計劃
- */
-function _analyzeStructureForOptimization(data, plan) {
-  const stats = {
+    // === 健康度 ===
+    migrationKeys: 0,
     migrationDataSize: 0,
-    migrationKeysCount: 0,
-    emptyHighlightKeys: 0,
-    emptyHighlightSize: 0,
+    legacySavedKeys: 0,
+    corruptedData: [],
+
+    // === 清理計劃 ===
+    cleanupPlan: {
+      items: [],
+      totalKeys: 0,
+      spaceFreed: 0,
+      summary: {
+        emptyRecords: 0, // 空 page_*（無標注且無 Notion 綁定）
+        orphanRecords: 0, // 孤兒 highlights_* / url_alias:
+        migrationLeftovers: 0, // 舊版升級殘留（migration / _v1_ / _backup_）
+        corruptedRecords: 0, // 損壞數據（結構不合法）
+      },
+    },
   };
 
+  // 單次遍歷：同時更新使用量計數、健康度、清理計劃
   for (const [key, value] of Object.entries(data)) {
-    processOptimizationEntry(key, value, plan, stats);
+    _analyzeHealthEntry(key, value, report, pageUrls, data);
   }
 
-  if (stats.migrationDataSize > MIGRATION_CLEANUP_THRESHOLD_BYTES) {
-    const sizeKB = (stats.migrationDataSize / 1024).toFixed(1);
-    plan.optimizations.push(`清理遷移數據（${stats.migrationKeysCount} 項，${sizeKB} KB）`);
-    plan.canOptimize = true;
-  }
-
-  if (stats.emptyHighlightKeys > 0) {
-    const sizeKB = (stats.emptyHighlightSize / 1024).toFixed(1);
-    plan.optimizations.push(`移除空標註紀錄（${stats.emptyHighlightKeys} 項，${sizeKB} KB）`);
-    plan.canOptimize = true;
-  }
-
-  const hasFragmentation = Object.keys(data).some(key => {
-    // 舊格式 highlights_* 結構破損（兼容純陣列與物件格式 { highlights: [...] }）
-    if (
-      key.startsWith(HIGHLIGHTS_PREFIX) &&
-      !Array.isArray(data[key]) &&
-      !(data[key] && Array.isArray(data[key].highlights))
-    ) {
-      return true;
-    }
-    // Phase 3 page_* highlights 欄位結構破損
-    if (
-      key.startsWith(PAGE_PREFIX) &&
-      data[key]?.highlights !== undefined &&
-      !Array.isArray(data[key].highlights)
-    ) {
-      return true;
-    }
-    return false;
-  });
-
-  if (hasFragmentation) {
-    plan.optimizations.push('修復數據碎片');
-    plan.canOptimize = true;
-  }
+  report.cleanupPlan.totalKeys = report.cleanupPlan.items.length;
+  return report;
 }
 
 /**
- * 導出：處理單個數據項的優化分析
- * (測試用導出，內部實作請透過 generateOptimizationPlan 呼叫)
+ * 輔助（路由器）：分派各類 key 到對應的分析子函數
  *
  * @param {string} key 鍵名
  * @param {any} value 值
- * @param {object} plan 計劃
- * @param {object} stats 統計
+ * @param {object} report 統一報告
+ * @param {Set<string>} pageUrls page_* 前綴的 URL 集合
+ * @param {object} data 完整 storage 快照（供孤兒檢查用）
  */
-export function processOptimizationEntry(key, value, plan, stats) {
-  if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-    stats.migrationKeysCount++;
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    stats.migrationDataSize += size;
-    plan.keysToRemove.push(key);
-    return;
-  }
-
+function _analyzeHealthEntry(key, value, report, pageUrls, data) {
   if (key.startsWith(PAGE_PREFIX)) {
-    _processPageOptimization(key, value, plan, stats);
-    return;
-  }
-
-  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-    _processHighlightOptimization(key, value, plan, stats);
-  } else {
-    plan.optimizedData[key] = value;
+    _analyzePageEntry(key, value, report);
+  } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+    _analyzeHighlightsEntry(key, value, report, pageUrls, data);
+  } else if (key.startsWith(SAVED_PREFIX)) {
+    report.legacySavedKeys++;
+  } else if (key.startsWith(URL_ALIAS_PREFIX)) {
+    _analyzeAliasEntry(key, value, report, data);
+  } else if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
+    report.configs++;
+  } else if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+    _analyzeMigrationEntry(key, value, report);
   }
 }
 
 /**
- * 輔助：處理 page_* 數據項的優化分析
+ * 輔助：分析 page_* 數據項
  *
  * @param {string} key 鍵名
  * @param {any} value 值
- * @param {object} plan 計劃
- * @param {object} stats 統計
+ * @param {object} report 統一報告
  */
-function _processPageOptimization(key, value, plan, stats) {
-  // Phase 3 統一格式：有標注或有 Notion 綁定 → 保留
+function _analyzePageEntry(key, value, report) {
+  const plan = report.cleanupPlan;
   const hl = value?.highlights;
   const hasHighlights = Array.isArray(hl) && hl.length > 0;
   const hasNotion = Boolean(value?.notion?.pageId);
 
-  if (hasHighlights || hasNotion) {
-    plan.highlightPages++;
-    if (hasHighlights) {
-      plan.totalHighlights += hl.length;
-    }
-    plan.optimizedData[key] = value;
-  } else {
-    // 空的 page_* key（無標注且無 Notion 綁定）→ 可清理
-    stats.emptyHighlightKeys++;
-    stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.keysToRemove.push(key);
+  report.pages++;
+  if (hasHighlights) {
+    report.highlights += hl.length;
+  }
+
+  // 結構破損 → 加入清理計劃
+  const isCorrupted =
+    !value ||
+    typeof value !== 'object' ||
+    (value.highlights !== undefined && !Array.isArray(value.highlights));
+
+  if (isCorrupted) {
+    report.corruptedData.push(key);
+    const size = new Blob([JSON.stringify({ [key]: value })]).size;
+    plan.items.push({ key, size, reason: '損壞的頁面數據' });
+    plan.spaceFreed += size;
+    plan.summary.corruptedRecords++;
+    return;
+  }
+
+  // 空 page_*（無標注且無 Notion 綁定）→ 加入清理計劃
+  if (!hasHighlights && !hasNotion) {
+    const size = new Blob([JSON.stringify({ [key]: value })]).size;
+    plan.items.push({ key, size, reason: '空記錄（無標注且無保存）' });
+    plan.spaceFreed += size;
+    plan.summary.emptyRecords++;
   }
 }
 
 /**
- * 輔助：處理 highlights_* 數據項的優化分析
+ * 輔助：分析 highlights_* 數據項
  *
  * @param {string} key 鍵名
  * @param {any} value 值
- * @param {object} plan 計劃
- * @param {object} stats 統計
+ * @param {object} report 統一報告
+ * @param {Set<string>} pageUrls page_* 前綴的 URL 集合
+ * @param {object} data 完整 storage 快照
  */
-function _processHighlightOptimization(key, value, plan, stats) {
-  const highlightsArray = Array.isArray(value) ? value : value?.highlights;
-  if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
-    plan.highlightPages++;
-    plan.totalHighlights += highlightsArray.length;
-    plan.optimizedData[key] = value;
-  } else {
-    stats.emptyHighlightKeys++;
-    stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.keysToRemove.push(key);
+function _analyzeHighlightsEntry(key, value, report, pageUrls, data) {
+  const plan = report.cleanupPlan;
+  const url = key.slice(HIGHLIGHTS_PREFIX.length);
+
+  // 使用量計數（僅在無對應 page_* 時計入，避免重複）
+  if (!pageUrls.has(url)) {
+    report.pages++;
+    const hl = Array.isArray(value) ? value : value?.highlights;
+    if (Array.isArray(hl)) {
+      report.highlights += hl.length;
+    }
   }
+
+  // 結構破損 → 加入清理計劃
+  const isValid = Array.isArray(value) || (value && Array.isArray(value.highlights));
+  if (!isValid) {
+    report.corruptedData.push(key);
+    const size = new Blob([JSON.stringify({ [key]: value })]).size;
+    plan.items.push({ key, url, size, reason: '損壞的標注數據' });
+    plan.spaceFreed += size;
+    plan.summary.corruptedRecords++;
+    return;
+  }
+
+  // 孤兒 highlights_*（既無有效標注，也無對應記錄）→ 加入清理計劃
+  const highlights = Array.isArray(value) ? value : value.highlights;
+  const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
+  const hasSaved = Object.hasOwn(data, `${SAVED_PREFIX}${url}`);
+  const hasPage = pageUrls.has(url);
+
+  if (!hasHighlights && !hasSaved && !hasPage) {
+    const size = new Blob([JSON.stringify({ [key]: value })]).size;
+    plan.items.push({ key, url, size, reason: '孤兒資料（無標注且無對應記錄）' });
+    plan.spaceFreed += size;
+    plan.summary.orphanRecords++;
+  }
+}
+
+/**
+ * 輔助：分析 url_alias: 數據項
+ *
+ * @param {string} key 鍵名
+ * @param {any} normUrl 目標正規化 URL
+ * @param {object} report 統一報告
+ * @param {object} data 完整 storage 快照
+ */
+function _analyzeAliasEntry(key, normUrl, report, data) {
+  if (typeof normUrl !== 'string' || normUrl === '') {
+    return;
+  }
+
+  const hasTarget =
+    Object.hasOwn(data, `${PAGE_PREFIX}${normUrl}`) ||
+    Object.hasOwn(data, `${HIGHLIGHTS_PREFIX}${normUrl}`) ||
+    Object.hasOwn(data, `${SAVED_PREFIX}${normUrl}`);
+
+  if (!hasTarget) {
+    const plan = report.cleanupPlan;
+    const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
+    plan.items.push({ key, url: encodeURIComponent(normUrl), size, reason: '孤兒 URL 別名' });
+    plan.spaceFreed += size;
+    plan.summary.orphanRecords++;
+  }
+}
+
+/**
+ * 輔助：分析舊版升級殘留數據項
+ *
+ * @param {string} key 鍵名
+ * @param {any} value 值
+ * @param {object} report 統一報告
+ */
+function _analyzeMigrationEntry(key, value, report) {
+  report.migrationKeys++;
+  const size = new Blob([JSON.stringify({ [key]: value })]).size;
+  report.migrationDataSize += size;
+
+  const plan = report.cleanupPlan;
+  plan.items.push({ key, size, reason: '舊版格式升級殘留' });
+  plan.spaceFreed += size;
+  plan.summary.migrationLeftovers++;
 }

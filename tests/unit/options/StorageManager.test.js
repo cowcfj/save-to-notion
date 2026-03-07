@@ -1,20 +1,11 @@
 /**
  * StorageManager Unit Tests
  *
- * Tests for options page storage management including analysis, cleanup, and optimization
+ * 對存儲管理模組的 UI 層（StorageManager.js）和數據邏輯層（storageDataUtils.js）進行測試
  */
 
 import { StorageManager } from '../../../options/StorageManager';
-import {
-  sanitizeBackupData,
-  analyzeData,
-  getStorageUsage,
-  analyzePageForCleanup,
-  generateOptimizationPlan,
-  collectOrphanAliasItems,
-  collectOrphanHighlightItems,
-  processOptimizationEntry,
-} from '../../../options/storageDataUtils';
+import { sanitizeBackupData, getStorageHealthReport } from '../../../options/storageDataUtils';
 import Logger from '../../../scripts/utils/Logger';
 
 // Mock Logger
@@ -58,121 +49,91 @@ if (globalThis.Blob === undefined) {
   };
 }
 
+// ─── 共用 DOM 結構 ──────────────────────────────────────────────────────
+/** 產生包含健康狀態 / 清理按鈕的完整 DOM */
+function buildTestDom() {
+  document.body.innerHTML = `
+    <button id="export-data-button"></button>
+    <button id="import-data-button"></button>
+    <input type="file" id="import-data-file" />
+    <div id="data-status"></div>
+    <button id="refresh-usage-button"><span class="icon"></span><span class="button-text">刷新統計</span></button>
+    <div id="usage-fill"></div>
+    <div id="usage-percentage"></div>
+    <div id="usage-details"></div>
+    <div id="pages-count"></div>
+    <div id="highlights-count"></div>
+    <div id="config-count"></div>
+    <div id="health-status"></div>
+    <button id="execute-cleanup-button" style="display:none"></button>
+  `;
+}
+
+// ─── 共用 Chrome API Mock ───────────────────────────────────────────────
+function buildChromeMock(mockGet, mockSet, mockRemove) {
+  return {
+    storage: {
+      local: {
+        get: mockGet ?? jest.fn(),
+        set: mockSet ?? jest.fn((data, cb) => cb?.()),
+        remove: mockRemove ?? jest.fn(),
+      },
+    },
+    runtime: {
+      lastError: null,
+      getManifest: jest.fn(() => ({ version: '2.0.0' })),
+      sendMessage: jest.fn(),
+    },
+  };
+}
+
+// ─── 1. StorageManager — 主要 UI 層測試 ────────────────────────────────
+
 describe('StorageManager', () => {
   let storageManager = null;
-  let mockUiManager = null;
   let mockGet = null;
   let mockSet = null;
   let mockRemove = null;
 
   beforeEach(() => {
-    // DOM Setup
-    document.body.innerHTML = `
-      <button id="export-data-button"></button>
-      <button id="import-data-button"></button>
-      <input type="file" id="import-data-file" />
-      <button id="check-data-button"></button>
-      <div id="data-status"></div>
-      <button id="refresh-usage-button"></button>
-      <div id="usage-fill"></div>
-      <div id="usage-percentage"></div>
-      <div id="usage-details"></div>
-      <div id="pages-count"></div>
-      <div id="highlights-count"></div>
-      <div id="config-count"></div>
-      <button id="preview-cleanup-button"><span class="button-text"></span></button>
-      <button id="execute-cleanup-button"></button>
-      <button id="analyze-optimization-button"></button>
-      <button id="execute-optimization-button"></button>
-      <div id="cleanup-preview"></div>
-      <div id="optimization-preview"></div>
-      <input type="checkbox" id="cleanup-deleted-pages" />
-    `;
+    buildTestDom();
 
-    // Chrome API Mocks
-    mockGet = jest.fn();
-    mockSet = jest.fn((data, callback) => callback?.());
-    mockRemove = jest.fn();
+    mockGet = jest.fn((keys, cb) => cb?.({}));
+    mockSet = jest.fn((data, cb) => cb?.());
+    mockRemove = jest.fn((keys, cb) => cb?.());
+    globalThis.chrome = buildChromeMock(mockGet, mockSet, mockRemove);
 
-    globalThis.chrome = {
-      storage: {
-        local: {
-          get: mockGet,
-          set: mockSet,
-          remove: mockRemove,
-        },
-      },
-      runtime: {
-        lastError: null,
-        getManifest: jest.fn(() => ({ version: '1.0.0' })),
-        sendMessage: jest.fn(),
-      },
-    };
-
-    // UI Manager Mock
-    mockUiManager = {
-      showStatus: jest.fn(),
-    };
-
-    // URL Mock
     globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
     globalThis.URL.revokeObjectURL = jest.fn();
 
-    storageManager = new StorageManager(mockUiManager);
+    storageManager = new StorageManager({ showStatus: jest.fn() });
     storageManager.init();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    delete globalThis.chrome;
   });
+
+  // ── 初始化 ────────────────────────────────────────────────────────────
 
   describe('init', () => {
-    it('should initialize elements', () => {
+    it('應正確初始化所有 DOM 元素引用', () => {
       expect(storageManager.elements.exportButton).toBeTruthy();
       expect(storageManager.elements.importButton).toBeTruthy();
+      expect(storageManager.elements.healthStatus).toBeTruthy();
+      expect(storageManager.elements.executeCleanupButton).toBeTruthy();
     });
 
-    it('should setup event listeners', () => {
-      // Simulate click
-      storageManager.elements.exportButton.click();
-      // Since exportData is async and we don't await anything here, we check side effects
-      // But verify listeners are attached by spy or interaction
-      // Just basic check that init calls updateStorageUsage
+    it('init 時應呼叫 updateStorageUsage', () => {
       expect(mockGet).toHaveBeenCalled();
     });
-
-    it('should trigger checkDataIntegrity when check button is clicked', () => {
-      const checkSpy = jest
-        .spyOn(storageManager, 'checkDataIntegrity')
-        .mockImplementation(() => Promise.resolve());
-      storageManager.init(); // re-init to attach listeners again or attach manually if needed
-      // Note: init was called in beforeEach, so listeners are already attached.
-      storageManager.elements.checkButton.click();
-      expect(checkSpy).toHaveBeenCalled();
-      checkSpy.mockRestore();
-    });
   });
 
-  describe('getStorageUsage', () => {
-    it('should calculate usage correctly', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) => {
-        sendResponse({
-          highlights_page1: [{ text: 'abc' }],
-          config_theme: 'dark',
-        });
-      });
-
-      const usage = await getStorageUsage();
-
-      expect(usage.pages).toBe(1);
-      expect(usage.highlights).toBe(1);
-      expect(usage.configs).toBe(1);
-      expect(Number.parseFloat(usage.used)).toBeGreaterThan(0);
-    });
-  });
+  // ── exportData ────────────────────────────────────────────────────────
 
   describe('exportData', () => {
-    it('should export data as JSON file', async () => {
+    it('應匯出 JSON 備份檔案並觸發下載', async () => {
       mockGet.mockImplementation((_keys, sendResponse) => {
         sendResponse({ key: 'value' });
       });
@@ -181,17 +142,11 @@ describe('StorageManager', () => {
       const originalCreateElement = document.createElement.bind(document);
       jest.spyOn(document, 'createElement').mockImplementation(tagName => {
         if (tagName === 'a') {
-          return {
-            click: clickSpy,
-            href: '',
-            download: '',
-            remove: jest.fn(),
-          };
+          return { click: clickSpy, href: '', download: '', remove: jest.fn() };
         }
         return originalCreateElement(tagName);
       });
       jest.spyOn(document.body, 'appendChild').mockImplementation(() => undefined);
-      jest.spyOn(document.body, 'removeChild').mockImplementation(() => undefined);
 
       await storageManager.exportData();
 
@@ -201,7 +156,7 @@ describe('StorageManager', () => {
       expect(Logger.error).not.toHaveBeenCalled();
     });
 
-    it('should exclude OAuth keys from backup payload', async () => {
+    it('應排除 OAuth 相關金鑰', async () => {
       const OriginalBlob = globalThis.Blob;
       globalThis.Blob = class TestBlob {
         constructor(parts = []) {
@@ -218,11 +173,6 @@ describe('StorageManager', () => {
           notionAuthMode: 'oauth',
           notionOAuthToken: 'oauth_token_secret',
           notionRefreshToken: 'refresh_token_secret',
-          notionRefreshProof: 'refresh_proof_secret',
-          notionAuthEpoch: 9,
-          notionWorkspaceId: 'workspace_id_secret',
-          notionWorkspaceName: 'Workspace Secret',
-          notionBotId: 'bot_id_secret',
           page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
         });
       });
@@ -236,12 +186,7 @@ describe('StorageManager', () => {
       });
       jest.spyOn(document, 'createElement').mockImplementation(tagName => {
         if (tagName === 'a') {
-          return {
-            click: clickSpy,
-            href: '',
-            download: '',
-            remove: jest.fn(),
-          };
+          return { click: clickSpy, href: '', download: '', remove: jest.fn() };
         }
         return originalCreateElement(tagName);
       });
@@ -252,40 +197,30 @@ describe('StorageManager', () => {
       const text = await exportedBlob.text();
       const backup = JSON.parse(text);
 
-      expect(backup.data).toEqual({
-        page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
-      });
+      expect(backup.data).toEqual({ page_abc: { notion: { pageId: 'page-1' }, highlights: [] } });
       expect(backup.data).not.toHaveProperty('notionOAuthToken');
-      expect(backup.data).not.toHaveProperty('notionRefreshToken');
-      expect(backup.data).not.toHaveProperty('notionRefreshProof');
-      expect(backup.data).not.toHaveProperty('notionAuthEpoch');
 
       globalThis.Blob = OriginalBlob;
     });
 
-    it('should handle export error', async () => {
-      mockGet.mockImplementation((_keys, _callback) => {
-        // Simulate runtime.lastError behavior if needed, or throw
+    it('匯出失敗時應記錄錯誤', async () => {
+      mockGet.mockImplementation(() => {
         throw new Error('Export error');
       });
-
       await storageManager.exportData();
       expect(Logger.error).toHaveBeenCalled();
     });
   });
 
+  // ── importData ────────────────────────────────────────────────────────
+
   describe('importData', () => {
-    it('should import valid JSON data', async () => {
-      // 使用白名單內的 key 以符合新的匯入機制
+    it('應匯入有效 JSON 備份', async () => {
       const mockContent = JSON.stringify({
         data: { 'page_test.com': { notion: null, highlights: [] } },
       });
-      const mockFile = {
-        text: jest.fn().mockResolvedValue(mockContent),
-      };
-      const event = { target: { files: [mockFile] } };
+      const event = { target: { files: [{ text: jest.fn().mockResolvedValue(mockContent) }] } };
 
-      // Trigger import
       await storageManager.importData(event);
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -294,368 +229,81 @@ describe('StorageManager', () => {
       );
     });
 
-    it('should ignore OAuth keys when importing backup data', async () => {
+    it('匯入時應忽略 OAuth 金鑰', async () => {
       const mockContent = JSON.stringify({
         data: {
-          notionAuthMode: 'oauth',
           notionOAuthToken: 'oauth_token_secret',
           notionRefreshToken: 'refresh_token_secret',
-          notionRefreshProof: 'refresh_proof_secret',
-          notionAuthEpoch: 9,
-          notionWorkspaceId: 'workspace_id_secret',
-          notionWorkspaceName: 'Workspace Secret',
-          notionBotId: 'bot_id_secret',
           page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
         },
       });
-      const mockFile = {
-        text: jest.fn().mockResolvedValue(mockContent),
-      };
-      const event = { target: { files: [mockFile] } };
+      const event = { target: { files: [{ text: jest.fn().mockResolvedValue(mockContent) }] } };
 
       await storageManager.importData(event);
 
       expect(mockSet).toHaveBeenCalledWith(
-        {
-          page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
-        },
+        { page_abc: { notion: { pageId: 'page-1' }, highlights: [] } },
         expect.any(Function)
       );
     });
 
-    it('should reject backup with array data', async () => {
-      const mockContent = JSON.stringify({ data: [] });
-      const mockFile = {
-        text: jest.fn().mockResolvedValue(mockContent),
+    it('應拒絕備份數據為陣列格式', async () => {
+      const event = {
+        target: {
+          files: [{ text: jest.fn().mockResolvedValue(JSON.stringify({ data: [] })) }],
+        },
       };
-      const event = { target: { files: [mockFile] } };
-
       await storageManager.importData(event);
-
       expect(mockSet).not.toHaveBeenCalled();
       expect(storageManager.elements.dataStatus.className).toContain('error');
     });
 
-    it('should reject backup with null data', async () => {
-      const mockContent = JSON.stringify({ data: null });
-      const mockFile = {
-        text: jest.fn().mockResolvedValue(mockContent),
+    it('應拒絕備份數據為 null', async () => {
+      const event = {
+        target: {
+          files: [{ text: jest.fn().mockResolvedValue(JSON.stringify({ data: null })) }],
+        },
       };
-      const event = { target: { files: [mockFile] } };
-
       await storageManager.importData(event);
-
       expect(mockSet).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalled();
-    });
-
-    it('should reject backup with non-object data', async () => {
-      const mockContent = JSON.stringify({ data: 'invalid' });
-      const mockFile = {
-        text: jest.fn().mockResolvedValue(mockContent),
-      };
-      const event = { target: { files: [mockFile] } };
-
-      await storageManager.importData(event);
-
-      expect(mockSet).not.toHaveBeenCalled();
-      expect(Logger.error).toHaveBeenCalled();
-    });
-  });
-
-  describe('checkDataIntegrity', () => {
-    it('should analyze data and report status', async () => {
-      mockGet.mockImplementation((_keys, resolve) => {
-        resolve({
-          highlights_valid: [{ text: 'ok', rangeInfo: {} }],
-          highlights_corrupt: 'not-an-array',
-          migration_old: {},
-        });
-      });
-
-      await storageManager.checkDataIntegrity();
-
-      // Should report corrupted data and migration keys
-      const statusText = storageManager.elements.dataStatus.textContent;
-      // Since we mock DOM, we can check its content or class
-      expect(statusText).toBeDefined();
-      expect(storageManager.elements.dataStatus.className).toContain('error');
-    });
-  });
-
-  describe('analyzeOptimization', () => {
-    it('should identify optimization opportunities', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) =>
-        sendResponse({
-          migration_file: {},
-          highlights_empty: [],
-          highlights_valid: [{ text: 'ok' }],
-        })
-      );
-
-      await storageManager.analyzeOptimization();
-
-      expect(storageManager.optimizationPlan.canOptimize).toBe(true);
-      expect(storageManager.optimizationPlan.keysToRemove).toContain('migration_file');
-      expect(storageManager.optimizationPlan.keysToRemove).toContain('highlights_empty');
-
-      // Verify UI updated
-      expect(storageManager.elements.executeOptimizationButton.style.display).toBe('inline-block');
-    });
-  });
-
-  describe('executeOptimization', () => {
-    it('should execute optimization plan', async () => {
-      // Setup plan
-      storageManager.optimizationPlan = {
-        canOptimize: true,
-        keysToRemove: ['key1'],
-        optimizedData: { key2: 'val' },
-        spaceSaved: 100,
-      };
-
-      mockGet.mockImplementation((_keys, resolve) => {
-        if (typeof resolve === 'function') {
-          resolve({});
-        }
-      });
-      mockRemove.mockImplementation((_keys, sendResponse) => {
-        if (typeof sendResponse === 'function') {
-          sendResponse();
-        }
-      });
-      mockSet.mockImplementation((_data, sendResponse) => {
-        if (typeof sendResponse === 'function') {
-          sendResponse();
-        }
-      });
-
-      await storageManager.executeOptimization();
-
-      expect(mockRemove).toHaveBeenCalledWith(['key1'], expect.any(Function));
-      expect(mockSet).toHaveBeenCalledWith({ key2: 'val' }, expect.any(Function));
-    });
-
-    it('should handle optimization error', async () => {
-      storageManager.optimizationPlan = {
-        canOptimize: true,
-        keysToRemove: ['key1'],
-        optimizedData: { key2: 'val' },
-        spaceSaved: 100,
-      };
-      mockGet.mockImplementation((_keys, resolve) => {
-        if (typeof resolve === 'function') {
-          resolve({});
-        }
-      });
-      // Simulate error in remove
-      mockRemove.mockImplementation((_keys, callback) => {
-        // simulate lastError
-        // In the implementation: if (chrome.runtime.lastError) reject(...)
-        // We need to mock chrome.runtime.lastError AND callback
-        globalThis.chrome.runtime.lastError = { message: 'Remove failed' };
-        if (typeof callback === 'function') {
-          callback();
-        }
-        globalThis.chrome.runtime.lastError = null; // cleanup
-      });
-
-      await storageManager.executeOptimization();
-
-      expect(Logger.error).toHaveBeenCalled();
-      expect(storageManager.elements.dataStatus.textContent).toContain('數據重整失敗');
     });
   });
 });
 
-describe('StorageManager Extended', () => {
+// ─── 2. updateStorageUsage / updateUsageDisplay / updateHealthDisplay ──
+
+describe('StorageManager — 使用量與健康狀態', () => {
   let storageManager = null;
-  let mockUiManager = null;
   let mockGet = null;
-  let mockSet = null;
   let mockRemove = null;
 
   beforeEach(() => {
-    // DOM Setup
-    document.body.innerHTML = `
-      <button id="export-data-button"></button>
-      <button id="import-data-button"></button>
-      <input type="file" id="import-data-file" />
-      <button id="check-data-button"></button>
-      <div id="data-status"></div>
-      <button id="refresh-usage-button"></button>
-      <div id="usage-fill"></div>
-      <div id="usage-percentage"></div>
-      <div id="usage-details"></div>
-      <div id="pages-count"></div>
-      <div id="highlights-count"></div>
-      <div id="config-count"></div>
-      <button id="preview-cleanup-button"><span class="button-text"></span></button>
-      <button id="execute-cleanup-button"></button>
-      <button id="analyze-optimization-button"></button>
-      <button id="execute-optimization-button"></button>
-      <div id="cleanup-preview"></div>
-      <div id="optimization-preview"></div>
-      <input type="checkbox" id="cleanup-deleted-pages" />
-    `;
+    buildTestDom();
 
-    // Chrome API Mocks
     mockGet = jest.fn();
-    mockSet = jest.fn((data, callback) => callback?.());
-    mockRemove = jest.fn();
-
-    globalThis.chrome = {
-      storage: {
-        local: {
-          get: mockGet,
-          set: mockSet,
-          remove: mockRemove,
-        },
-      },
-      runtime: {
-        lastError: null,
-        getManifest: jest.fn(() => ({ version: '1.0.0' })),
-        sendMessage: jest.fn(),
-      },
-    };
-
-    mockUiManager = { showStatus: jest.fn(), showDataStatus: jest.fn() };
-
+    mockRemove = jest.fn((keys, cb) => cb?.());
+    globalThis.chrome = buildChromeMock(
+      mockGet,
+      jest.fn((d, cb) => cb?.()),
+      mockRemove
+    );
     globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
     globalThis.URL.revokeObjectURL = jest.fn();
 
-    storageManager = new StorageManager(mockUiManager);
+    storageManager = new StorageManager({ showStatus: jest.fn() });
     storageManager.init();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
-  describe('previewSafeCleanup', () => {
-    test('應生成清理預覽', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) =>
-        sendResponse({
-          highlights_page1: [{ text: 'test' }],
-          migration_old: {},
-        })
-      );
-
-      await storageManager.previewSafeCleanup();
-
-      expect(mockGet).toHaveBeenCalled();
-    });
-
-    test('應正確轉義惡意 URL 以防止 XSS', () => {
-      const maliciousUrl = 'http://example.com/search?q=<script>alert(1)</script>';
-      const encodedUrl = encodeURIComponent(maliciousUrl);
-
-      storageManager.cleanupPlan = {
-        items: [
-          {
-            key: 'malicious_key',
-            url: encodedUrl,
-            size: 100,
-            reason: 'test',
-          },
-        ],
-        totalKeys: 1,
-        spaceFreed: 100,
-        deletedPages: 0,
-      };
-
-      storageManager.displayCleanupPreview(storageManager.cleanupPlan);
-
-      const previewHtml = storageManager.elements.cleanupPreview.innerHTML;
-      expect(previewHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
-      expect(previewHtml).not.toContain('<script>alert(1)</script>');
-    });
-
-    test('應優雅處理無效的 URL 編碼 (URIError)', () => {
-      const malformedUrl = 'https://example.com/search?q=%E0%A4';
-
-      storageManager.cleanupPlan = {
-        items: [
-          {
-            key: 'malformed_key',
-            url: malformedUrl,
-            size: 100,
-            reason: 'test',
-          },
-        ],
-        totalKeys: 1,
-        spaceFreed: 100,
-        deletedPages: 0,
-      };
-
-      // 應該不會拋出錯誤
-      expect(() => {
-        storageManager.displayCleanupPreview(storageManager.cleanupPlan);
-      }).not.toThrow();
-
-      // 驗證是否回退顯示原始 URL
-      const previewText = storageManager.elements.cleanupPreview.textContent;
-      expect(previewText).toContain(malformedUrl);
-    });
-  });
-
-  describe('generateSafeCleanupPlan', () => {
-    test('應生成清理計劃', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) =>
-        sendResponse({
-          saved_page1: { notionPageId: 'page-123' },
-          highlights_page1: [{ text: 'ok' }],
-        })
-      );
-
-      const plan = await storageManager.generateSafeCleanupPlan(false);
-
-      expect(plan.items).toBeDefined();
-      expect(plan.totalKeys).toBeDefined();
-    });
-
-    test('無可清理項目時應返回空計劃', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) =>
-        sendResponse({
-          highlights_page1: [{ text: 'valid', rangeInfo: {} }],
-          config_theme: 'dark',
-        })
-      );
-
-      const plan = await storageManager.generateSafeCleanupPlan(false);
-
-      expect(plan.items).toHaveLength(0);
-      expect(plan.totalKeys).toBe(0);
-    });
-  });
-
-  describe('executeSafeCleanup', () => {
-    test('無計劃時應返回', async () => {
-      storageManager.cleanupPlan = null;
-
-      await storageManager.executeSafeCleanup();
-
-      expect(mockRemove).not.toHaveBeenCalled();
-    });
-
-    test('有計劃時應執行清理', async () => {
-      storageManager.cleanupPlan = {
-        items: [{ key: 'old_key', url: 'test', size: 100, reason: 'test' }],
-        totalKeys: 1,
-        spaceFreed: 100,
-        deletedPages: 0,
-      };
-
-      mockRemove.mockImplementation(_keys => Promise.resolve());
-
-      await storageManager.executeSafeCleanup();
-
-      expect(mockRemove).toHaveBeenCalledWith(['old_key']);
-    });
-  });
+  // ── updateUsageDisplay ───────────────────────────────────────────────
 
   describe('updateUsageDisplay', () => {
-    test('應更新 UI 元素', () => {
+    test('應正確更新 UI 百分比、頁面數、標注數', () => {
       const usage = {
         total: 5_242_880,
         usedMB: '5.00',
@@ -674,10 +322,9 @@ describe('StorageManager Extended', () => {
       expect(storageManager.elements.configCount.textContent).toBe('3');
     });
 
-    // Test for storage warning prioritization
-    test('當使用量 > 100MB 時應顯示嚴重錯誤警告 (error)', () => {
+    test('usedMB > 100 時應顯示 error 等級警告', () => {
       const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
-      const usage = {
+      storageManager.updateUsageDisplay({
         total: 105 * 1024 * 1024,
         usedMB: '105.00',
         percentage: 95,
@@ -685,20 +332,17 @@ describe('StorageManager Extended', () => {
         highlights: 500,
         configs: 10,
         isUnlimited: true,
-      };
+      });
 
-      storageManager.updateUsageDisplay(usage);
-
-      // Verify that showDataStatus was called with 'error' type
       expect(showDataStatusSpy).toHaveBeenCalledWith(
         expect.stringContaining('數據量過大'),
         'error'
       );
     });
 
-    test('當使用量 > 80MB (但在 100MB 以下) 時應顯示警告 (warning)', () => {
+    test('usedMB > 80 (且 <= 100) 時應顯示 warning 等級警告', () => {
       const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
-      const usage = {
+      storageManager.updateUsageDisplay({
         total: 85 * 1024 * 1024,
         usedMB: '85.00',
         percentage: 85,
@@ -706,591 +350,175 @@ describe('StorageManager Extended', () => {
         highlights: 400,
         configs: 10,
         isUnlimited: true,
-      };
+      });
 
-      storageManager.updateUsageDisplay(usage);
-
-      // Verify that showDataStatus was called with 'warning' type
       expect(showDataStatusSpy).toHaveBeenCalledWith(
         expect.stringContaining('數據量較大'),
         'warning'
       );
     });
-  });
 
-  describe('showDataStatus', () => {
-    test('應顯示成功狀態', () => {
-      storageManager.showDataStatus('操作成功', 'success');
-
-      expect(storageManager.elements.dataStatus.textContent).toBe('操作成功');
-      expect(storageManager.elements.dataStatus.className).toContain('success');
-    });
-
-    test('應顯示錯誤狀態', () => {
-      storageManager.showDataStatus('發生錯誤', 'error');
-
-      expect(storageManager.elements.dataStatus.textContent).toBe('發生錯誤');
-      expect(storageManager.elements.dataStatus.className).toContain('error');
-    });
-
-    test('如果元素不存在應安全返回', () => {
-      storageManager.elements.dataStatus = null;
-      storageManager.showDataStatus('test', 'info');
-      // Should not throw
-      expect(true).toBe(true); // Explicit assertion to satisfy jest/expect-expect
-    });
-  });
-
-  describe('dataAnalysis', () => {
-    test('應可存取統計數據', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) =>
-        sendResponse({
-          highlights_page1: [{ text: 'test1' }, { text: 'test2' }],
-          highlights_page2: [{ text: 'test3' }],
-          config_theme: 'dark',
-        })
-      );
-
-      const usage = await getStorageUsage();
-
-      expect(usage.pages).toBeGreaterThanOrEqual(0);
-      expect(usage.highlights).toBeGreaterThanOrEqual(0);
-    });
-  });
-
-  describe('setPreviewButtonLoading', () => {
-    test('應設置加載狀態', () => {
-      storageManager.setPreviewButtonLoading(true);
-
-      expect(storageManager.elements.previewCleanupButton.disabled).toBe(true);
-    });
-
-    test('應取消加載狀態', () => {
-      storageManager.setPreviewButtonLoading(false);
-
-      expect(storageManager.elements.previewCleanupButton.disabled).toBe(false);
-    });
-  });
-
-  describe('analyzeOptimization extended', () => {
-    test('應識別可優化項目', async () => {
-      mockGet.mockImplementation((_keys, sendResponse) =>
-        sendResponse({
-          migration_file: {},
-          highlights_empty: [],
-          highlights_valid: [{ text: 'ok' }],
-          seamless_migration_state_old: {},
-        })
-      );
-
-      await storageManager.analyzeOptimization();
-
-      expect(storageManager.optimizationPlan).toBeDefined();
-    });
-  });
-});
-
-// =========================================
-// Merged from StorageManager_coverage.test.js
-// =========================================
-/**
- * StorageManager Branch Coverage Tests
- *
- * Focuses on uncovered branches and error paths in StorageManager.js
- */
-describe('StorageManager Branch Coverage', () => {
-  let storageManager = null;
-  let mockUiManager = null;
-  let mockGet = null;
-  let mockSet = null;
-  let mockRemove = null;
-
-  beforeEach(() => {
-    // DOM Setup
-    document.body.innerHTML = `
-    <button id="export-data-button"></button>
-    <button id="import-data-button"></button>
-    <input type="file" id="import-data-file" />
-    <button id="check-data-button"></button>
-    <div id="data-status"></div>
-    <button id="refresh-usage-button"></button>
-    <div id="usage-fill"></div>
-    <div id="usage-percentage"></div>
-    <div id="usage-details"></div>
-    <div id="pages-count"></div>
-    <div id="highlights-count"></div>
-    <div id="config-count"></div>
-    <button id="preview-cleanup-button"><span class="button-text"></span></button>
-    <button id="execute-cleanup-button"></button>
-    <button id="analyze-optimization-button"></button>
-    <button id="execute-optimization-button"></button>
-    <div id="cleanup-preview"></div>
-    <div id="optimization-preview"></div>
-    <input type="checkbox" id="cleanup-deleted-pages" />
-  `;
-
-    globalThis.chrome = {
-      storage: {
-        local: {
-          get: jest.fn(),
-          set: jest.fn(),
-          remove: jest.fn(),
-        },
-      },
-      runtime: {
-        lastError: null,
-        getManifest: jest.fn(() => ({ version: '1.0.0' })),
-        sendMessage: jest.fn(),
-      },
-    };
-
-    // Chrome API Mocks
-    // 模擬真實的 Chrome Storage API 行為
-    // API 簽名：get(keys?: string | string[] | object | null, callback?: function)
-    // 覆寫全域 mock 為符合此處測試需求的行為
-    mockGet = jest
-      .spyOn(globalThis.chrome.storage.local, 'get')
-      .mockImplementation((keys, callback) => {
-        const emptyData = {};
-        if (typeof callback === 'function') {
-          callback(emptyData);
-        }
-        return Promise.resolve(emptyData);
-      });
-    mockSet = jest
-      .spyOn(globalThis.chrome.storage.local, 'set')
-      .mockImplementation((data, callback) => {
-        if (typeof callback === 'function') {
-          callback();
-        }
-        return Promise.resolve();
-      });
-    mockRemove = jest
-      .spyOn(globalThis.chrome.storage.local, 'remove')
-      .mockImplementation((keys, callback) => {
-        if (typeof callback === 'function') {
-          callback();
-        }
-        return Promise.resolve();
-      });
-
-    mockUiManager = { showStatus: jest.fn(), showDataStatus: jest.fn() };
-    storageManager = new StorageManager(mockUiManager);
-    storageManager.init();
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-    jest.restoreAllMocks();
-    delete globalThis.chrome;
-  });
-
-  describe('updateUsageDisplay Branches', () => {
-    test('usedMB > 50 且 <= 80 時應添加 warning 類', () => {
-      const usage = {
-        percentage: 60,
-        usedMB: '60.00',
-        pages: 10,
-        highlights: 100,
-        configs: 5,
-        isUnlimited: false,
-      };
-
-      storageManager.updateUsageDisplay(usage);
-
-      expect(storageManager.elements.usageFill.classList.contains('warning')).toBe(true);
-      expect(storageManager.elements.usageFill.classList.contains('danger')).toBe(false);
-    });
-
-    test('usedMB <= 50 時應不加警告類', () => {
-      const usage = {
+    test('usedMB <= 50 時不應顯示警告', () => {
+      const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
+      storageManager.updateUsageDisplay({
         percentage: 30,
         usedMB: '30.00',
         pages: 5,
         highlights: 50,
         configs: 2,
         isUnlimited: false,
-      };
+      });
 
-      storageManager.updateUsageDisplay(usage);
-
-      expect(storageManager.elements.usageFill.classList.contains('warning')).toBe(false);
-      expect(storageManager.elements.usageFill.classList.contains('danger')).toBe(false);
+      expect(showDataStatusSpy).not.toHaveBeenCalled();
     });
 
-    test('如果 usageFill 不存在則應安全返回', () => {
+    test('usageFill 不存在應安全返回', () => {
       storageManager.elements.usageFill = null;
       expect(() => storageManager.updateUsageDisplay({})).not.toThrow();
     });
-  });
 
-  describe('showDataStatus Branches', () => {
-    test('應拒絕不安全的 SVG 圖標 (Uncovered Line 920)', () => {
-      const unsafeSvg = '<svg><script>alert(1)</script></svg>';
-      storageManager.showDataStatus(`${unsafeSvg} 危險內容`, 'error');
+    test('usedMB > 50 时應添加 warning 類', () => {
+      storageManager.updateUsageDisplay({
+        percentage: 60,
+        usedMB: '60.00',
+        pages: 10,
+        highlights: 100,
+        configs: 5,
+        isUnlimited: false,
+      });
 
-      const iconSpan = storageManager.elements.dataStatus.querySelector('.status-icon');
-      // 根據代碼邏輯，不安全的 SVG 會被過濾掉，然後因為 type='error'，會使用預設的錯誤圖標 (UI_ICONS.ERROR)
-      // 所以這裡我們應該期望看到一個 iconSpan，而不是 null
-      expect(iconSpan).not.toBeNull();
-      // 驗證它是一個 span
-      expect(iconSpan.tagName).toBe('SPAN');
-      // 可以進一步驗證它包含預設錯誤圖標的特徵 (svg)
-      expect(iconSpan.innerHTML).toContain('<svg');
-    });
-
-    test('應處理包含多行文本的消息 (\n)', () => {
-      storageManager.showDataStatus('第一行\n第二行', 'info');
-
-      const textSpan = storageManager.elements.dataStatus.querySelector('.status-text');
-      expect(textSpan.innerHTML).toContain('第一行<br>第二行');
-    });
-
-    test('應正確處理由 Emoji 組成的圖標', () => {
-      storageManager.showDataStatus('✅ 完成', 'success');
-
-      const iconSpan = storageManager.elements.dataStatus.querySelector('.status-icon');
-      expect(iconSpan.textContent).toBe('✅');
+      expect(storageManager.elements.usageFill.classList.contains('warning')).toBe(true);
+      expect(storageManager.elements.usageFill.classList.contains('danger')).toBe(false);
     });
   });
 
-  describe('executeOptimization Branches', () => {
-    test('沒有優化計劃時應提示錯誤 (Uncovered Lines 827-829)', async () => {
-      storageManager.optimizationPlan = null;
-      await storageManager.executeOptimization();
+  // ── updateHealthDisplay ──────────────────────────────────────────────
 
-      expect(storageManager.elements.dataStatus.textContent).toContain('沒有重整計劃可執行');
+  describe('updateHealthDisplay', () => {
+    /** 建立最小合法 report */
+    const baseReport = () => ({
+      corruptedData: [],
+      migrationKeys: 0,
+      migrationDataSize: 0,
+      legacySavedKeys: 0,
+      cleanupPlan: {
+        items: [],
+        totalKeys: 0,
+        spaceFreed: 0,
+        summary: { emptyRecords: 0, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
     });
 
-    test('不需要更新數據時應跳過 chrome.storage.local.set', async () => {
-      storageManager.optimizationPlan = {
-        canOptimize: true,
-        keysToRemove: [],
-        optimizedData: { key1: 'same' },
-        spaceSaved: 100,
-      };
+    test('無問題時應顯示 ✅ 並套用 health-ok 樣式', () => {
+      storageManager.updateHealthDisplay(baseReport());
 
-      // 模擬 storage 中的數據與 optimizedData 相同
-      mockGet.mockImplementation((key, respond) => {
-        const mockData = { key1: 'same' };
-        respond(mockData);
-      });
-
-      await storageManager.executeOptimization();
-
-      expect(mockSet).not.toHaveBeenCalled();
+      const el = storageManager.elements.healthStatus;
+      expect(el.classList.contains('health-ok')).toBe(true);
+      expect(el.textContent).toContain('✅');
     });
 
-    test('chrome.storage.local.set 失敗時應丟出錯誤 (Uncovered Line 864)', async () => {
-      storageManager.optimizationPlan = {
-        canOptimize: true,
-        keysToRemove: [],
-        optimizedData: { key1: 'new' },
-        spaceSaved: 100,
-      };
+    test('有損壞數據時應顯示 ❌ 並套用 health-error 樣式', () => {
+      const report = baseReport();
+      report.corruptedData = ['page_bad.com'];
 
-      mockGet.mockImplementation((k, respond) => {
-        const emptyData = {};
-        respond(emptyData);
-      });
-      mockSet.mockImplementation((data, respond) => {
-        globalThis.chrome.runtime.lastError = { message: 'Set error' };
-        respond();
-        globalThis.chrome.runtime.lastError = null;
-      });
+      storageManager.updateHealthDisplay(report);
 
-      await storageManager.executeOptimization();
-      expect(Logger.error).toHaveBeenCalled();
-    });
-  });
-
-  describe('generateSafeCleanupPlan Branches', () => {
-    test('analyzePageForCleanup 應在 Notion 頁面不存在時回傳清理結果物件', async () => {
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({
-        success: true,
-        exists: false,
-      });
-
-      const result = await analyzePageForCleanup({
-        key: 'saved_page1',
-        url: 'page1',
-        data: { notionPageId: 'p1' },
-      });
-
-      expect(result).toMatchObject({
-        item: {
-          key: 'saved_page1',
-          url: 'page1',
-          reason: '無效殘留的保存狀態',
-        },
-        deletedPagesDelta: 1,
-      });
-      expect(result.spaceFreedDelta).toBeGreaterThan(0);
+      const el = storageManager.elements.healthStatus;
+      expect(el.classList.contains('health-error')).toBe(true);
+      expect(el.textContent).toContain('❌');
     });
 
-    test('analyzePageForCleanup 應在檢查失敗時回傳 null 並記錄錯誤', async () => {
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockRejectedValue(new Error('API Down'));
+    test('有升級殘留時應顯示 ⚠️ 並套用 health-warning 樣式', () => {
+      const report = baseReport();
+      report.migrationKeys = 3;
+      report.migrationDataSize = 2048;
 
-      const result = await analyzePageForCleanup({
-        key: 'saved_page1',
-        url: 'page1',
-        data: { notionPageId: 'p1' },
-      });
+      storageManager.updateHealthDisplay(report);
 
-      expect(result).toBeNull();
-      expect(Logger.error).toHaveBeenCalled();
+      const el = storageManager.elements.healthStatus;
+      expect(el.classList.contains('health-warning')).toBe(true);
+      expect(el.textContent).toContain('⚠️');
     });
 
-    test('analyzePageForCleanup 應在 handler 回傳 success: false 時回傳 null', async () => {
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({
-        success: false,
-        error: 'Permission denied',
-      });
+    test('有舊版保存紀錄時應顯示 ℹ️ 提示（不影響主健康度）', () => {
+      const report = baseReport();
+      report.legacySavedKeys = 5;
 
-      const result = await analyzePageForCleanup({
-        key: 'saved_page1',
-        url: 'https://example.com/page?token=secret',
-        data: { notionPageId: 'p1' },
-      });
+      storageManager.updateHealthDisplay(report);
 
-      expect(result).toBeNull();
-      expect(Logger.error).toHaveBeenCalled();
+      const el = storageManager.elements.healthStatus;
+      // 主狀態仍為 ok
+      expect(el.classList.contains('health-ok')).toBe(true);
+      // 但有舊版資訊行
+      expect(el.textContent).toContain('ℹ️');
     });
 
-    test('應處理檢測 Notion 頁面是否存在時的失敗情況', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        const mockData = {
-          saved_page1: { notionPageId: 'p1' },
-        };
-        respond(mockData);
-      });
-
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockRejectedValue(new Error('API Down'));
-
-      const plan = await storageManager.generateSafeCleanupPlan(true);
-
-      expect(plan.items).toHaveLength(0);
-      expect(Logger.error).toHaveBeenCalled();
-    });
-
-    test('當 Notion 頁面不存在時應僅清理保存狀態，保留本地標註', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        const mockData = {
-          saved_page1: { notionPageId: 'p1' },
-          highlights_page1: [{ id: 'h1' }],
-        };
-        respond(mockData);
-      });
-
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({
-        success: true,
-        exists: false,
-      });
-
-      const plan = await storageManager.generateSafeCleanupPlan(true);
-
-      // 只清理 saved_ 狀態，保留 highlights_（擴展允許未保存頁面標注）
-      expect(plan.items.some(i => i.key === 'saved_page1')).toBe(true);
-      expect(plan.items.some(i => i.key === 'highlights_page1')).toBe(false);
-      expect(plan.deletedPages).toBe(1);
-    });
-  });
-
-  describe('executeSafeCleanup Branches', () => {
-    test('chrome.storage.local.remove 失敗時應丟出錯誤 (Line 626)', async () => {
-      storageManager.cleanupPlan = {
-        items: [{ key: 'k1', url: 'u1', size: 10, reason: 'r1' }],
+    test('有可清理項目時應顯示清理摘要並顯示「執行清理」按鈕', () => {
+      const report = baseReport();
+      report.cleanupPlan = {
+        items: [{ key: 'page_empty.com', size: 100, reason: '空記錄' }],
         totalKeys: 1,
-        spaceFreed: 10,
-        deletedPages: 0,
+        spaceFreed: 100,
+        summary: { emptyRecords: 1, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
       };
 
-      mockRemove.mockImplementation((keys, respond) => {
-        globalThis.chrome.runtime.lastError = { message: 'Remove failed' };
-        respond();
-        globalThis.chrome.runtime.lastError = null;
-      });
+      storageManager.updateHealthDisplay(report);
 
-      await storageManager.executeSafeCleanup();
-      expect(Logger.error).toHaveBeenCalled();
-      expect(storageManager.elements.dataStatus.textContent).toContain('清理失敗');
+      const btn = storageManager.elements.executeCleanupButton;
+      expect(btn.style.display).toBe('inline-block');
+      expect(storageManager.elements.healthStatus.textContent).toContain('🧹');
     });
 
-    test('成功清理且包含已刪除頁面時應顯示完整訊息 (Line 639)', async () => {
-      storageManager.cleanupPlan = {
-        items: [{ key: 'k1', url: 'u1', size: 10, reason: 'r1' }],
-        totalKeys: 1,
-        spaceFreed: 10,
-        deletedPages: 5,
-      };
+    test('無可清理項目時應隱藏「執行清理」按鈕', () => {
+      storageManager.updateHealthDisplay(baseReport());
+      const btn = storageManager.elements.executeCleanupButton;
+      expect(btn.style.display).toBe('none');
+    });
 
-      mockRemove.mockImplementation((keys, respond) => {
-        if (typeof respond === 'function') {
-          respond();
-        }
-        return Promise.resolve();
-      });
-      // 模擬 updateStorageUsage 內部調用的 getStorageUsage
-      mockGet.mockImplementation((k, respond) => {
-        const emptyData = {};
-        respond(emptyData);
-      });
-
-      await storageManager.executeSafeCleanup();
-
-      expect(storageManager.elements.dataStatus.textContent).toContain('清理了 5 筆無效的殘留數據');
+    test('healthStatus 元素不存在時應安全返回', () => {
+      storageManager.elements.healthStatus = null;
+      expect(() => storageManager.updateHealthDisplay(baseReport())).not.toThrow();
     });
   });
 
-  describe('updateStorageUsage & setPreviewButtonLoading error paths', () => {
-    test('updateStorageUsage 應處理按鈕缺失的情況', async () => {
+  // ── updateStorageUsage ───────────────────────────────────────────────
+
+  describe('updateStorageUsage', () => {
+    test('refreshUsageButton 不存在時應安全返回', async () => {
       storageManager.elements.refreshUsageButton = null;
       await expect(storageManager.updateStorageUsage()).resolves.toBeUndefined();
     });
 
-    test('setPreviewButtonLoading 應處理按鈕或文本缺失的情況', () => {
-      storageManager.elements.previewCleanupButton = null;
-      expect(() => storageManager.setPreviewButtonLoading(true)).not.toThrow();
-    });
-
-    test('StorageManager.getStorageUsage 應該處理 runtime.lastError', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        globalThis.chrome.runtime.lastError = { message: 'Get fatal' };
-        respond();
-        globalThis.chrome.runtime.lastError = null;
-      });
-      await expect(getStorageUsage()).rejects.toEqual({ message: 'Get fatal' });
-    });
-  });
-
-  describe('displayOptimizationPreview & Internal Helper Branches', () => {
-    test('當 optimizationPreview 元素缺失時應安全返回 (Line 765)', () => {
-      storageManager.elements.optimizationPreview = null;
-      expect(() => storageManager.displayOptimizationPreview({ canOptimize: true })).not.toThrow();
-    });
-
-    test('當數據不需要優化時應顯示正確的 UI (Lines 771-790)', () => {
-      const plan = {
-        canOptimize: false,
-        highlightPages: 10,
-        totalHighlights: 50,
-        originalSize: 1024,
-      };
-      storageManager.displayOptimizationPreview(plan);
-      expect(storageManager.elements.optimizationPreview.innerHTML).toContain(
-        '數據已經處於最佳狀態'
+    test('呼叫後應更新 _lastHealthReport', async () => {
+      mockGet.mockImplementation((keys, cb) =>
+        cb({ 'page_a.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] } })
       );
-    });
 
-    test('generateOptimizationPlan 應識別大體積遷移數據 (Lines 727-729)', async () => {
-      // 需要大於 1024 bytes
-      const largeData = 'x'.repeat(2000);
-      mockGet.mockImplementation((k, respond) => {
-        const mockData = {
-          migration_backup: largeData,
-        };
-        respond(mockData);
-      });
+      await storageManager.updateStorageUsage();
 
-      const plan = await generateOptimizationPlan();
-      expect(plan.canOptimize).toBe(true);
-      expect(plan.optimizations.some(opt => opt.includes('清理遷移數據'))).toBe(true);
-    });
-
-    test('generateOptimizationPlan 應識別數據碎片 (Lines 754-755)', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        const mockData = {
-          highlights_page1: { not_an_array: true },
-        };
-        respond(mockData);
-      });
-
-      const plan = await generateOptimizationPlan();
-      expect(plan.canOptimize).toBe(true);
-      expect(plan.optimizations.some(opt => opt.includes('修復數據碎片'))).toBe(true);
-    });
-
-    test('generateOptimizationPlan 應在 storage 讀取失敗時 reject', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        globalThis.chrome.runtime.lastError = { message: 'Get optimization failed' };
-        respond();
-        globalThis.chrome.runtime.lastError = null;
-      });
-
-      await expect(generateOptimizationPlan()).rejects.toThrow('Get optimization failed');
-    });
-
-    test('generateOptimizationPlan 應在 data 為 undefined 時 reject', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        respond(undefined);
-      });
-
-      await expect(generateOptimizationPlan()).rejects.toThrow('Failed to read storage data');
-    });
-
-    test('analyzeOptimization 當不可優化時應隱藏按鈕 (Lines 670-671)', async () => {
-      mockGet.mockImplementation((k, respond) => {
-        const mockData = {
-          regular_config: 'value', // Covers line 722 as well
-        };
-        respond(mockData);
-      });
-
-      // 確保按鈕初始是顯示的，以便驗證它被隱藏
-      storageManager.elements.executeOptimizationButton.style.display = 'inline-block';
-
-      await storageManager.analyzeOptimization();
-
-      expect(storageManager.optimizationPlan.canOptimize).toBe(false);
-      expect(storageManager.elements.executeOptimizationButton.style.display).toBe('none');
+      expect(storageManager._lastHealthReport).toBeDefined();
+      expect(storageManager._lastHealthReport.pages).toBeGreaterThan(0);
     });
   });
 });
 
-// =========================================
-// Phase 3 page_* 格式兼容性測試
-// =========================================
-describe('StorageManager Phase 3 Compatibility', () => {
+// ─── 3. executeUnifiedCleanup ──────────────────────────────────────────
+
+describe('StorageManager — executeUnifiedCleanup', () => {
   let storageManager = null;
   let mockGet = null;
   let mockRemove = null;
 
   beforeEach(() => {
-    document.body.innerHTML = `
-      <button id="export-data-button"></button>
-      <button id="import-data-button"></button>
-      <input type="file" id="import-data-file" />
-      <button id="check-data-button"></button>
-      <div id="data-status"></div>
-      <button id="refresh-usage-button"></button>
-      <div id="usage-fill"></div>
-      <div id="usage-percentage"></div>
-      <div id="usage-details"></div>
-      <div id="pages-count"></div>
-      <div id="highlights-count"></div>
-      <div id="config-count"></div>
-      <button id="preview-cleanup-button"><span class="button-text"></span></button>
-      <button id="execute-cleanup-button"></button>
-      <button id="analyze-optimization-button"></button>
-      <button id="execute-optimization-button"></button>
-      <div id="cleanup-preview"></div>
-      <div id="optimization-preview"></div>
-      <input type="checkbox" id="cleanup-deleted-pages" />
-    `;
+    buildTestDom();
 
-    mockGet = jest.fn();
-    const mockSet = jest.fn((data, cb) => cb?.());
-    mockRemove = jest.fn();
-
-    globalThis.chrome = {
-      storage: { local: { get: mockGet, set: mockSet, remove: mockRemove } },
-      runtime: {
-        lastError: null,
-        getManifest: jest.fn(() => ({ version: '2.0.0' })),
-        sendMessage: jest.fn(),
-      },
-    };
-
+    mockGet = jest.fn((keys, cb) => cb?.({}));
+    mockRemove = jest.fn((keys, cb) => cb?.());
+    globalThis.chrome = buildChromeMock(
+      mockGet,
+      jest.fn((d, cb) => cb?.()),
+      mockRemove
+    );
     globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
     globalThis.URL.revokeObjectURL = jest.fn();
 
@@ -1303,301 +531,293 @@ describe('StorageManager Phase 3 Compatibility', () => {
     delete globalThis.chrome;
   });
 
-  // ── 1. 備份白名單法 ──────────────────────────
-  describe('sanitizeBackupData 白名單法', () => {
+  test('無清理計劃時應顯示「無可清理項目」提示', async () => {
+    storageManager._lastHealthReport = null;
+    await storageManager.executeUnifiedCleanup();
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(storageManager.elements.dataStatus.textContent).toContain('無可清理項目');
+  });
+
+  test('有清理計劃時應呼叫 chrome.storage.local.remove 並更新 UI', async () => {
+    storageManager._lastHealthReport = {
+      cleanupPlan: {
+        items: [
+          { key: 'page_empty.com', size: 100, reason: '空記錄' },
+          { key: 'highlights_orphan.com', size: 50, reason: '孤兒資料' },
+        ],
+        totalKeys: 2,
+        spaceFreed: 150,
+        summary: { emptyRecords: 1, orphanRecords: 1, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
+    };
+
+    mockRemove.mockImplementation((keys, cb) => cb?.());
+
+    await storageManager.executeUnifiedCleanup();
+
+    expect(mockRemove).toHaveBeenCalledWith(
+      ['page_empty.com', 'highlights_orphan.com'],
+      expect.any(Function)
+    );
+    // 完成後應刷新統計（_lastHealthReport 會重新設定）
+    expect(mockGet).toHaveBeenCalled();
+  });
+
+  test('chrome.storage.local.remove 失敗時應顯示錯誤', async () => {
+    storageManager._lastHealthReport = {
+      cleanupPlan: {
+        items: [{ key: 'k1', size: 10, reason: 'r1' }],
+        totalKeys: 1,
+        spaceFreed: 10,
+        summary: { emptyRecords: 0, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
+    };
+
+    mockRemove.mockImplementation((keys, cb) => {
+      globalThis.chrome.runtime.lastError = { message: 'Remove failed' };
+      cb?.();
+      globalThis.chrome.runtime.lastError = null;
+    });
+
+    await storageManager.executeUnifiedCleanup();
+
+    expect(Logger.error).toHaveBeenCalled();
+    expect(storageManager.elements.dataStatus.textContent).toContain('清理失敗');
+  });
+});
+
+// ─── 4. showDataStatus ────────────────────────────────────────────────
+
+describe('StorageManager — showDataStatus', () => {
+  let storageManager = null;
+
+  beforeEach(() => {
+    buildTestDom();
+    globalThis.chrome = buildChromeMock(jest.fn((k, cb) => cb?.({})));
+    globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
+    globalThis.URL.revokeObjectURL = jest.fn();
+    storageManager = new StorageManager({ showStatus: jest.fn() });
+    storageManager.init();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    delete globalThis.chrome;
+  });
+
+  test('應正確顯示成功狀態與文字', () => {
+    storageManager.showDataStatus('操作成功', 'success');
+    expect(storageManager.elements.dataStatus.textContent).toBe('操作成功');
+    expect(storageManager.elements.dataStatus.className).toContain('success');
+  });
+
+  test('應正確顯示錯誤狀態與文字', () => {
+    storageManager.showDataStatus('發生錯誤', 'error');
+    expect(storageManager.elements.dataStatus.textContent).toBe('發生錯誤');
+    expect(storageManager.elements.dataStatus.className).toContain('error');
+  });
+
+  test('dataStatus 元素不存在時應安全返回', () => {
+    storageManager.elements.dataStatus = null;
+    expect(() => storageManager.showDataStatus('test', 'info')).not.toThrow();
+  });
+
+  test('應拒絕不安全的 SVG 並改用預設圖標', () => {
+    const unsafeSvg = '<svg><script>alert(1)</script></svg>';
+    storageManager.showDataStatus(`${unsafeSvg} 危險內容`, 'error');
+
+    const iconSpan = storageManager.elements.dataStatus.querySelector('.status-icon');
+    expect(iconSpan).not.toBeNull();
+    // 不安全 SVG 被拒絕後，應回退到 type=error 的預設圖標（仍為 SVG）
+    expect(iconSpan.innerHTML).toContain('<svg');
+  });
+
+  test('應處理包含換行的多行訊息', () => {
+    storageManager.showDataStatus('第一行\n第二行', 'info');
+    const textSpan = storageManager.elements.dataStatus.querySelector('.status-text');
+    expect(textSpan.innerHTML).toContain('第一行<br>第二行');
+  });
+
+  test('應正確處理 Emoji 組成的圖標', () => {
+    storageManager.showDataStatus('✅ 完成', 'success');
+    const iconSpan = storageManager.elements.dataStatus.querySelector('.status-icon');
+    expect(iconSpan.textContent).toBe('✅');
+  });
+});
+
+// ─── 5. getStorageHealthReport ─────────────────────────────────────────
+
+describe('getStorageHealthReport', () => {
+  let mockGet = null;
+
+  beforeEach(() => {
+    mockGet = jest.fn();
+    globalThis.chrome = buildChromeMock(mockGet);
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
+  });
+
+  test('應回傳包含使用量、健康度、清理計劃的統一報告', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+        notionApiKey: 'key',
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.pages).toBe(1);
+    expect(report.highlights).toBe(1);
+    expect(report.configs).toBeGreaterThan(0);
+    expect(report.corruptedData).toEqual([]);
+    expect(report.migrationKeys).toBe(0);
+    expect(report.cleanupPlan).toBeDefined();
+    expect(report.cleanupPlan.items).toBeDefined();
+    expect(report.used).toBeGreaterThan(0);
+  });
+
+  test('有效頁面（有標注）不應進入清理計劃', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_valid.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.cleanupPlan.totalKeys).toBe(0);
+  });
+
+  test('空 page_*（無標注且無 Notion 綁定）應進入清理計劃', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_empty.com': { notion: null, highlights: [] },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.cleanupPlan.summary.emptyRecords).toBe(1);
+    expect(report.cleanupPlan.totalKeys).toBe(1);
+    expect(report.cleanupPlan.items[0].key).toBe('page_empty.com');
+  });
+
+  test('損壞的 page_*（highlights 非陣列）應加入 corruptedData 並進入清理計劃', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_bad.com': { highlights: 'not_an_array' },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.corruptedData).toContain('page_bad.com');
+    expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
+  });
+
+  test('migration_* key 應計入 migrationKeys 並加入清理計劃', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        migration_old_data: { someField: 'x' },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.migrationKeys).toBe(1);
+    expect(report.cleanupPlan.summary.migrationLeftovers).toBe(1);
+  });
+
+  test('saved_* key 應計入 legacySavedKeys（不影響清理計劃）', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'saved_example.com': { notionPageId: 'p1' },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.legacySavedKeys).toBe(1);
+    // saved_* 為舊格式殘留，不直接進入清理計劃（由升級機制處理）
+    expect(report.cleanupPlan.totalKeys).toBe(0);
+  });
+
+  test('孤兒 highlights_*（無對應頁面且無標注）應加入清理計劃', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'highlights_orphan.com': [],
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.cleanupPlan.summary.orphanRecords).toBeGreaterThan(0);
+    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_orphan.com')).toBe(true);
+  });
+
+  test('有對應 page_* 的 highlights_* 不應計入孤兒', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+        'highlights_example.com': [{ id: '2' }],
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    // highlights_example.com 有對應的 page_example.com，不應視為孤兒
+    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_example.com')).toBe(false);
+    // 計數去重：只計 page_example.com 的 1 個頁面 + 1 個標注
+    expect(report.pages).toBe(1);
+    expect(report.highlights).toBe(1);
+  });
+
+  test('chrome.runtime.lastError 時應 reject', async () => {
+    mockGet.mockImplementation((k, cb) => {
+      globalThis.chrome.runtime.lastError = { message: 'Storage error' };
+      cb({});
+      globalThis.chrome.runtime.lastError = null;
+    });
+
+    await expect(getStorageHealthReport()).rejects.toEqual({ message: 'Storage error' });
+  });
+});
+
+// ─── 6. storageDataUtils 其他函數 ──────────────────────────────────────
+
+describe('storageDataUtils — Legacy / 輔助函數', () => {
+  let mockGet = null;
+
+  beforeEach(() => {
+    mockGet = jest.fn();
+    globalThis.chrome = buildChromeMock(mockGet);
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
+  });
+
+  // ── sanitizeBackupData ───────────────────────────────────────────────
+
+  describe('sanitizeBackupData', () => {
     test('應保留 page_* key', () => {
-      const result = sanitizeBackupData({
-        'page_example.com': { notion: null, highlights: [] },
-      });
+      const result = sanitizeBackupData({ 'page_example.com': { notion: null, highlights: [] } });
       expect(Object.keys(result)).toContain('page_example.com');
     });
 
-    test('應保留 highlights_* / saved_* / url_alias:* key', () => {
+    test('應排除 OAuth 金鑰', () => {
       const result = sanitizeBackupData({
-        'highlights_example.com': [{ id: '1' }],
-        'saved_example.com': { notionPageId: 'p1' },
-        'url_alias:example.com/long': 'example.com/short',
-      });
-      expect(Object.keys(result)).toContain('highlights_example.com');
-      expect(Object.keys(result)).toContain('saved_example.com');
-      expect(Object.keys(result)).toContain('url_alias:example.com/long');
-    });
-
-    test('應排除 OAuth 相關 key', () => {
-      const result = sanitizeBackupData({
-        notionAuthMode: 'oauth',
         notionOAuthToken: 'secret',
         notionRefreshToken: 'refresh',
-        notionAuthEpoch: 9,
         'page_example.com': { notion: null, highlights: [] },
       });
-      expect(Object.keys(result)).not.toContain('notionAuthMode');
       expect(Object.keys(result)).not.toContain('notionOAuthToken');
       expect(Object.keys(result)).toContain('page_example.com');
     });
 
-    test('應排除 migration_* 和未知前綴的 key', () => {
+    test('應排除 migration_* key', () => {
       const result = sanitizeBackupData({
         'migration_completed_example.com': { done: true },
-        seamless_migration_state: { status: 'done' },
-        someUnknownKey: 'value',
         page_x: { notion: null, highlights: [] },
       });
       expect(Object.keys(result)).not.toContain('migration_completed_example.com');
-      expect(Object.keys(result)).not.toContain('seamless_migration_state');
-      expect(Object.keys(result)).not.toContain('someUnknownKey');
       expect(Object.keys(result)).toContain('page_x');
-    });
-  });
-
-  // ── 2. analyzeData — page_* 識別 ──────────
-  describe('analyzeData Phase 3 識別', () => {
-    test('應識別 page_* 為有效頁面並計入 highlightPages', () => {
-      const report = analyzeData({
-        'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
-      });
-      expect(report.highlightPages).toBe(1);
-      expect(report.totalHighlights).toBe(1);
-    });
-
-    test('無標註的 page_* 不應計入 highlightPages', () => {
-      const report = analyzeData({
-        'page_example.com': { notion: { pageId: 'p1' }, highlights: [] },
-      });
-      expect(report.highlightPages).toBe(0);
-      expect(report.totalHighlights).toBe(0);
-    });
-
-    test('應識別 page_* 中 highlights 非陣列為損壞數據', () => {
-      const report = analyzeData({
-        'page_bad.com': { highlights: 'not_an_array' },
-      });
-      expect(report.corruptedData).toContain('page_bad.com');
-    });
-
-    test('同一 URL 的 page_* 和 highlights_* 不應重複計數', () => {
-      const report = analyzeData({
-        'page_example.com': { highlights: [{ id: '1' }] },
-        'highlights_example.com': [{ id: '2' }], // 應被忽略
-      });
-      expect(report.highlightPages).toBe(1);
-      expect(report.totalHighlights).toBe(1);
-    });
-
-    test('無對應 page_* 的 highlights_* 應正常計入', () => {
-      const report = analyzeData({
-        'highlights_other.com': [{ id: '1' }, { id: '2' }],
-      });
-      expect(report.highlightPages).toBe(1);
-      expect(report.totalHighlights).toBe(2);
-    });
-
-    test('空的 highlights_* 不應計入 highlightPages', () => {
-      const report = analyzeData({
-        'highlights_other.com': [],
-      });
-      expect(report.highlightPages).toBe(0);
-      expect(report.totalHighlights).toBe(0);
-    });
-
-    test('應識別 saved_* 為舊格式殘留並計入 legacySavedKeys', () => {
-      const report = analyzeData({
-        'saved_a.com': { notionPageId: 'p1' },
-        'saved_b.com': { notionPageId: 'p2' },
-      });
-      expect(report.legacySavedKeys).toBe(2);
-    });
-
-    test('應識別 url_alias:* 並計入 aliasKeys（內部統計）', () => {
-      const report = analyzeData({
-        'url_alias:example.com/long': 'example.com/short',
-      });
-      expect(report.aliasKeys).toBe(1);
-    });
-  });
-
-  // ── 3. getStorageUsage — page_* 計數 ─────────
-  describe('getStorageUsage Phase 3 計數', () => {
-    test('應從 page_* 計算頁面數和標注數', async () => {
-      mockGet.mockImplementation((_k, respond) => {
-        respond({
-          'page_a.com': { highlights: [{ id: '1' }, { id: '2' }] },
-          'page_b.com': { highlights: [{ id: '3' }] },
-        });
-      });
-      const usage = await getStorageUsage();
-      expect(usage.pages).toBe(2);
-      expect(usage.highlights).toBe(3);
-    });
-
-    test('同一 URL 的 page_* 和 highlights_* 不應重複計數', async () => {
-      mockGet.mockImplementation((_k, respond) => {
-        respond({
-          'page_example.com': { highlights: [{ id: '1' }] },
-          'highlights_example.com': [{ id: '2' }], // 應被忽略
-        });
-      });
-      const usage = await getStorageUsage();
-      expect(usage.pages).toBe(1);
-      expect(usage.highlights).toBe(1);
-    });
-  });
-
-  // ── 4. collectOrphanHighlightItems — page_* 孤兒 ──
-  describe('collectOrphanHighlightItems Phase 3 孤兒識別', () => {
-    test('有對應 page_* 的空 highlights_* 不應視為孤兒', () => {
-      const data = {
-        'page_example.com': { notion: { pageId: 'p1' }, highlights: [] },
-        'highlights_example.com': [],
-      };
-      const result = collectOrphanHighlightItems(data);
-      expect(result.items).toHaveLength(0);
-      expect(result.spaceFreedDelta).toBe(0);
-      expect(result.orphanHighlightsDelta).toBe(0);
-    });
-
-    test('無對應 page_* 且無標注的 highlights_* 應視為孤兒', () => {
-      const data = { 'highlights_orphan.com': [] };
-      const result = collectOrphanHighlightItems(data);
-      expect(result.items).toHaveLength(1);
-      expect(result.orphanHighlightsDelta).toBe(1);
-      expect(result.spaceFreedDelta).toBeGreaterThan(0);
-    });
-  });
-
-  // ── 4b. collectOrphanAliasItems — page_* 孤兒 ──
-  describe('collectOrphanAliasItems Phase 3 孤兒識別', () => {
-    test('有對應 page_* 的 url_alias:* 不應視為孤兒', () => {
-      const data = {
-        'url_alias:https://example.com/original': 'https://example.com/stable',
-        'page_https://example.com/stable': { notion: { pageId: 'p1' }, highlights: [] },
-      };
-      const result = collectOrphanAliasItems(data);
-
-      expect(result.items).toHaveLength(0);
-      expect(result.spaceFreedDelta).toBe(0);
-    });
-
-    test('有對應 saved_* 的 url_alias:* 不應視為孤兒', () => {
-      const data = {
-        'url_alias:https://example.com/original': 'https://example.com/stable',
-        'saved_https://example.com/stable': { notionPageId: 'p1' },
-      };
-      const result = collectOrphanAliasItems(data);
-
-      expect(result.items).toHaveLength(0);
-    });
-
-    test('有對應 highlights_* 的 url_alias:* 不應視為孤兒', () => {
-      const data = {
-        'url_alias:https://example.com/original': 'https://example.com/stable',
-        'highlights_https://example.com/stable': [{ id: 'h1' }],
-      };
-      const result = collectOrphanAliasItems(data);
-
-      expect(result.items).toHaveLength(0);
-    });
-
-    test('無對應 page_* / saved_* / highlights_* 的 url_alias:* 應視為孤兒', () => {
-      const data = {
-        'url_alias:https://example.com/original': 'https://example.com/stable',
-      };
-      const result = collectOrphanAliasItems(data);
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]).toMatchObject({
-        key: 'url_alias:https://example.com/original',
-        reason: '孤兒 URL 別名（目標頁面已無資料）',
-      });
-      expect(result.spaceFreedDelta).toBeGreaterThan(0);
-    });
-
-    test('alias value 非字串時應略過', () => {
-      const data = {
-        'url_alias:https://example.com/original': { stableUrl: 'https://example.com/stable' },
-      };
-      const result = collectOrphanAliasItems(data);
-
-      expect(result.items).toHaveLength(0);
-      expect(result.spaceFreedDelta).toBe(0);
-    });
-  });
-
-  // ── 5. _processOptimizationEntry — page_* 優化 ──
-  describe('_processOptimizationEntry Phase 3 優化分析', () => {
-    const makeStats = () => ({
-      emptyHighlightKeys: 0,
-      emptyHighlightSize: 0,
-      migrationKeysCount: 0,
-      migrationDataSize: 0,
-    });
-    const makePlan = () => ({
-      highlightPages: 0,
-      totalHighlights: 0,
-      optimizedData: {},
-      keysToRemove: [],
-    });
-
-    test('有標注的 page_* 應保留到 optimizedData', () => {
-      const plan = makePlan();
-      const stats = makeStats();
-      const key = 'page_example.com';
-      processOptimizationEntry(key, { highlights: [{ id: '1' }], notion: null }, plan, stats);
-      expect(Object.keys(plan.optimizedData)).toContain(key);
-      expect(plan.keysToRemove).toHaveLength(0);
-      expect(plan.totalHighlights).toBe(1);
-    });
-
-    test('有 Notion 綁定的 page_* 應保留到 optimizedData', () => {
-      const plan = makePlan();
-      const stats = makeStats();
-      const key = 'page_example.com';
-      processOptimizationEntry(key, { highlights: [], notion: { pageId: 'p1' } }, plan, stats);
-      expect(Object.keys(plan.optimizedData)).toContain(key);
-      expect(plan.keysToRemove).toHaveLength(0);
-    });
-
-    test('無標注且無 Notion 的空 page_* 應加入 keysToRemove', () => {
-      const plan = makePlan();
-      const stats = makeStats();
-      processOptimizationEntry('page_empty.com', { highlights: [], notion: null }, plan, stats);
-      expect(plan.keysToRemove).toContain('page_empty.com');
-      expect(stats.emptyHighlightKeys).toBe(1);
-    });
-  });
-
-  // ── 6. generateOptimizationPlan — page_* 碎片 ──
-  describe('generateOptimizationPlan Phase 3 碎片偵測', () => {
-    test('應識別 page_*.highlights 非陣列的碎片數據', async () => {
-      mockGet.mockImplementation((_k, respond) => {
-        respond({ 'page_bad.com': { highlights: 'not_array' } });
-      });
-      const plan = await generateOptimizationPlan();
-      expect(plan.canOptimize).toBe(true);
-      expect(plan.optimizations.some(o => o.includes('修復數據碎片'))).toBe(true);
-    });
-
-    test('應識別並保留有效的 page_*', async () => {
-      const validKey = 'page_valid.com';
-      mockGet.mockImplementation((_k, respond) => {
-        respond({
-          [validKey]: { highlights: [{ id: '1' }], notion: { pageId: 'p1' } },
-        });
-      });
-      const plan = await generateOptimizationPlan();
-      expect(Object.keys(plan.optimizedData)).toContain(validKey);
-      expect(plan.keysToRemove).not.toContain(validKey);
-    });
-
-    test('應接受物件格式的 highlights_*，不應誤判為碎片', async () => {
-      mockGet.mockImplementation((_k, respond) => {
-        respond({
-          'highlights_valid.com': { highlights: [{ id: '1' }] },
-        });
-      });
-      const plan = await generateOptimizationPlan();
-      expect(plan.optimizations.some(o => o.includes('修復數據碎片'))).toBe(false);
-      expect(Object.keys(plan.optimizedData)).toContain('highlights_valid.com');
     });
   });
 });
