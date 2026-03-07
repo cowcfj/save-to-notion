@@ -9,7 +9,13 @@
 /* global chrome */
 
 import Logger from '../scripts/utils/Logger.js';
-import { URL_ALIAS_PREFIX } from '../scripts/config/constants.js';
+import { sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
+import {
+  PAGE_PREFIX,
+  HIGHLIGHTS_PREFIX,
+  SAVED_PREFIX,
+  URL_ALIAS_PREFIX,
+} from '../scripts/config/constants.js';
 
 // ─── 備份 ──────────────────────────────────────────────────────────────
 
@@ -18,10 +24,10 @@ import { URL_ALIAS_PREFIX } from '../scripts/config/constants.js';
  * ⚠️ 新增用戶數據 storage key 時，若前綴不在此清單中，請同步更新。
  */
 export const BACKUP_ALLOWED_PREFIXES = [
-  'page_', // Phase 3 統一格式（notion + highlights + metadata）
-  'highlights_', // 舊格式標注（過渡期：尚未被讀時升級的數據）
-  'saved_', // 舊格式保存狀態（過渡期）
-  'url_alias:', // URL 正規化映射
+  PAGE_PREFIX, // Phase 3 統一格式（notion + highlights + metadata）
+  HIGHLIGHTS_PREFIX, // 舊格式標注（過渡期：尚未被讀時升級的數據）
+  SAVED_PREFIX, // 舊格式保存狀態（過渡期）
+  URL_ALIAS_PREFIX, // URL 正規化映射
 ];
 
 /**
@@ -123,9 +129,9 @@ function _analyzeDataEntry(key, value, report, pageUrls) {
  * @param {object} report 分析報告
  */
 function _analyzePageData(key, value, report) {
-  report.highlightPages++;
   const hl = value?.highlights;
-  if (Array.isArray(hl)) {
+  if (Array.isArray(hl) && hl.length > 0) {
+    report.highlightPages++;
     report.totalHighlights += hl.length;
   }
   // 結構驗證
@@ -149,9 +155,9 @@ function _analyzePageData(key, value, report) {
 function _analyzeHighlightData(key, value, report, pageUrls) {
   const url = key.slice(11);
   if (!pageUrls.has(url)) {
-    report.highlightPages++;
     const hl = Array.isArray(value) ? value : value?.highlights;
-    if (Array.isArray(hl)) {
+    if (Array.isArray(hl) && hl.length > 0) {
+      report.highlightPages++;
       report.totalHighlights += hl.length;
     }
   }
@@ -252,7 +258,12 @@ export async function checkNotionPageExists(pageId) {
       action: 'checkNotionPageExists',
       pageId,
     });
-    return response?.exists === true;
+
+    if (response?.success === true) {
+      return response.exists === true;
+    }
+
+    throw new Error(response?.error || 'checkNotionPageExists failed');
   } catch (error) {
     Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
     return null;
@@ -289,7 +300,7 @@ export async function analyzePageForCleanup(page) {
   } catch (error) {
     Logger.error('Page existence check failed', {
       action: 'check_page_existence',
-      url: page.url,
+      url: sanitizeUrlForLogging(page.url),
       error,
     });
     return null;
@@ -407,8 +418,18 @@ export function collectOrphanAliasItems(data) {
  * @returns {Promise<object>} 優化計劃
  */
 export function generateOptimizationPlan() {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     chrome.storage.local.get(null, data => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message || String(chrome.runtime.lastError)));
+        return;
+      }
+
+      if (!data || typeof data !== 'object') {
+        reject(new Error('Failed to read storage data'));
+        return;
+      }
+
       const plan = {
         canOptimize: false,
         originalSize: 0,

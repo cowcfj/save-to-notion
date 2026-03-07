@@ -1006,7 +1006,10 @@ describe('StorageManager Branch Coverage', () => {
 
   describe('generateSafeCleanupPlan Branches', () => {
     test('analyzePageForCleanup 應在 Notion 頁面不存在時回傳清理結果物件', async () => {
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({ exists: false });
+      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+        exists: false,
+      });
 
       const result = await analyzePageForCleanup({
         key: 'saved_page1',
@@ -1031,6 +1034,22 @@ describe('StorageManager Branch Coverage', () => {
       const result = await analyzePageForCleanup({
         key: 'saved_page1',
         url: 'page1',
+        data: { notionPageId: 'p1' },
+      });
+
+      expect(result).toBeNull();
+      expect(Logger.error).toHaveBeenCalled();
+    });
+
+    test('analyzePageForCleanup 應在 handler 回傳 success: false 時回傳 null', async () => {
+      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({
+        success: false,
+        error: 'Permission denied',
+      });
+
+      const result = await analyzePageForCleanup({
+        key: 'saved_page1',
+        url: 'https://example.com/page?token=secret',
         data: { notionPageId: 'p1' },
       });
 
@@ -1063,7 +1082,10 @@ describe('StorageManager Branch Coverage', () => {
         respond(mockData);
       });
 
-      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({ exists: false });
+      jest.spyOn(globalThis.chrome.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+        exists: false,
+      });
 
       const plan = await storageManager.generateSafeCleanupPlan(true);
 
@@ -1188,6 +1210,24 @@ describe('StorageManager Branch Coverage', () => {
       expect(plan.optimizations.some(opt => opt.includes('修復數據碎片'))).toBe(true);
     });
 
+    test('generateOptimizationPlan 應在 storage 讀取失敗時 reject', async () => {
+      mockGet.mockImplementation((k, respond) => {
+        globalThis.chrome.runtime.lastError = { message: 'Get optimization failed' };
+        respond();
+        globalThis.chrome.runtime.lastError = null;
+      });
+
+      await expect(generateOptimizationPlan()).rejects.toThrow('Get optimization failed');
+    });
+
+    test('generateOptimizationPlan 應在 data 為 undefined 時 reject', async () => {
+      mockGet.mockImplementation((k, respond) => {
+        respond(undefined);
+      });
+
+      await expect(generateOptimizationPlan()).rejects.toThrow('Failed to read storage data');
+    });
+
     test('analyzeOptimization 當不可優化時應隱藏按鈕 (Lines 670-671)', async () => {
       mockGet.mockImplementation((k, respond) => {
         const mockData = {
@@ -1258,7 +1298,10 @@ describe('StorageManager Phase 3 Compatibility', () => {
     storageManager.init();
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+    delete globalThis.chrome;
+  });
 
   // ── 1. 備份白名單法 ──────────────────────────
   describe('sanitizeBackupData 白名單法', () => {
@@ -1317,6 +1360,14 @@ describe('StorageManager Phase 3 Compatibility', () => {
       expect(report.totalHighlights).toBe(1);
     });
 
+    test('無標註的 page_* 不應計入 highlightPages', () => {
+      const report = analyzeData({
+        'page_example.com': { notion: { pageId: 'p1' }, highlights: [] },
+      });
+      expect(report.highlightPages).toBe(0);
+      expect(report.totalHighlights).toBe(0);
+    });
+
     test('應識別 page_* 中 highlights 非陣列為損壞數據', () => {
       const report = analyzeData({
         'page_bad.com': { highlights: 'not_an_array' },
@@ -1339,6 +1390,14 @@ describe('StorageManager Phase 3 Compatibility', () => {
       });
       expect(report.highlightPages).toBe(1);
       expect(report.totalHighlights).toBe(2);
+    });
+
+    test('空的 highlights_* 不應計入 highlightPages', () => {
+      const report = analyzeData({
+        'highlights_other.com': [],
+      });
+      expect(report.highlightPages).toBe(0);
+      expect(report.totalHighlights).toBe(0);
     });
 
     test('應識別 saved_* 為舊格式殘留並計入 legacySavedKeys', () => {
