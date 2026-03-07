@@ -5,6 +5,14 @@
  */
 
 import { StorageManager } from '../../../options/StorageManager';
+import {
+  sanitizeBackupData,
+  analyzeData,
+  getStorageUsage,
+  generateOptimizationPlan,
+  collectOrphanHighlightItems,
+  processOptimizationEntry,
+} from '../../../options/storageDataUtils';
 import Logger from '../../../scripts/utils/Logger';
 
 // Mock Logger
@@ -152,7 +160,7 @@ describe('StorageManager', () => {
         });
       });
 
-      const usage = await StorageManager.getStorageUsage();
+      const usage = await getStorageUsage();
 
       expect(usage.pages).toBe(1);
       expect(usage.highlights).toBe(1);
@@ -741,7 +749,7 @@ describe('StorageManager Extended', () => {
         })
       );
 
-      const usage = await StorageManager.getStorageUsage();
+      const usage = await getStorageUsage();
 
       expect(usage.pages).toBeGreaterThanOrEqual(0);
       expect(usage.highlights).toBeGreaterThanOrEqual(0);
@@ -1094,7 +1102,7 @@ describe('StorageManager Branch Coverage', () => {
         respond();
         globalThis.chrome.runtime.lastError = null;
       });
-      await expect(StorageManager.getStorageUsage()).rejects.toEqual({ message: 'Get fatal' });
+      await expect(getStorageUsage()).rejects.toEqual({ message: 'Get fatal' });
     });
   });
 
@@ -1127,7 +1135,7 @@ describe('StorageManager Branch Coverage', () => {
         respond(mockData);
       });
 
-      const plan = await StorageManager.generateOptimizationPlan();
+      const plan = await generateOptimizationPlan();
       expect(plan.canOptimize).toBe(true);
       expect(plan.optimizations.some(opt => opt.includes('清理遷移數據'))).toBe(true);
     });
@@ -1140,7 +1148,7 @@ describe('StorageManager Branch Coverage', () => {
         respond(mockData);
       });
 
-      const plan = await StorageManager.generateOptimizationPlan();
+      const plan = await generateOptimizationPlan();
       expect(plan.canOptimize).toBe(true);
       expect(plan.optimizations.some(opt => opt.includes('修復數據碎片'))).toBe(true);
     });
@@ -1220,14 +1228,14 @@ describe('StorageManager Phase 3 Compatibility', () => {
   // ── 1. 備份白名單法 ──────────────────────────
   describe('sanitizeBackupData 白名單法', () => {
     test('應保留 page_* key', () => {
-      const result = StorageManager.sanitizeBackupData({
+      const result = sanitizeBackupData({
         'page_example.com': { notion: null, highlights: [] },
       });
       expect(Object.keys(result)).toContain('page_example.com');
     });
 
     test('應保留 highlights_* / saved_* / url_alias:* key', () => {
-      const result = StorageManager.sanitizeBackupData({
+      const result = sanitizeBackupData({
         'highlights_example.com': [{ id: '1' }],
         'saved_example.com': { notionPageId: 'p1' },
         'url_alias:example.com/long': 'example.com/short',
@@ -1238,7 +1246,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
 
     test('應排除 OAuth 相關 key', () => {
-      const result = StorageManager.sanitizeBackupData({
+      const result = sanitizeBackupData({
         notionAuthMode: 'oauth',
         notionOAuthToken: 'secret',
         notionRefreshToken: 'refresh',
@@ -1251,7 +1259,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
 
     test('應排除 migration_* 和未知前綴的 key', () => {
-      const result = StorageManager.sanitizeBackupData({
+      const result = sanitizeBackupData({
         'migration_completed_example.com': { done: true },
         seamless_migration_state: { status: 'done' },
         someUnknownKey: 'value',
@@ -1267,7 +1275,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
   // ── 2. analyzeData — page_* 識別 ──────────
   describe('analyzeData Phase 3 識別', () => {
     test('應識別 page_* 為有效頁面並計入 highlightPages', () => {
-      const report = StorageManager.analyzeData({
+      const report = analyzeData({
         'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
       });
       expect(report.highlightPages).toBe(1);
@@ -1275,14 +1283,14 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
 
     test('應識別 page_* 中 highlights 非陣列為損壞數據', () => {
-      const report = StorageManager.analyzeData({
+      const report = analyzeData({
         'page_bad.com': { highlights: 'not_an_array' },
       });
       expect(report.corruptedData).toContain('page_bad.com');
     });
 
     test('同一 URL 的 page_* 和 highlights_* 不應重複計數', () => {
-      const report = StorageManager.analyzeData({
+      const report = analyzeData({
         'page_example.com': { highlights: [{ id: '1' }] },
         'highlights_example.com': [{ id: '2' }], // 應被忽略
       });
@@ -1291,7 +1299,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
 
     test('無對應 page_* 的 highlights_* 應正常計入', () => {
-      const report = StorageManager.analyzeData({
+      const report = analyzeData({
         'highlights_other.com': [{ id: '1' }, { id: '2' }],
       });
       expect(report.highlightPages).toBe(1);
@@ -1299,7 +1307,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
 
     test('應識別 saved_* 為舊格式殘留並計入 legacySavedKeys', () => {
-      const report = StorageManager.analyzeData({
+      const report = analyzeData({
         'saved_a.com': { notionPageId: 'p1' },
         'saved_b.com': { notionPageId: 'p2' },
       });
@@ -1307,7 +1315,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
 
     test('應識別 url_alias:* 並計入 aliasKeys（內部統計）', () => {
-      const report = StorageManager.analyzeData({
+      const report = analyzeData({
         'url_alias:example.com/long': 'example.com/short',
       });
       expect(report.aliasKeys).toBe(1);
@@ -1323,7 +1331,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
           'page_b.com': { highlights: [{ id: '3' }] },
         });
       });
-      const usage = await StorageManager.getStorageUsage();
+      const usage = await getStorageUsage();
       expect(usage.pages).toBe(2);
       expect(usage.highlights).toBe(3);
     });
@@ -1335,7 +1343,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
           'highlights_example.com': [{ id: '2' }], // 應被忽略
         });
       });
-      const usage = await StorageManager.getStorageUsage();
+      const usage = await getStorageUsage();
       expect(usage.pages).toBe(1);
       expect(usage.highlights).toBe(1);
     });
@@ -1349,14 +1357,14 @@ describe('StorageManager Phase 3 Compatibility', () => {
         'highlights_example.com': [],
       };
       const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
-      storageManager._collectOrphanHighlightItems(data, plan);
+      collectOrphanHighlightItems(data, plan);
       expect(plan.items).toHaveLength(0);
     });
 
     test('無對應 page_* 且無標注的 highlights_* 應視為孤兒', () => {
       const data = { 'highlights_orphan.com': [] };
       const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
-      storageManager._collectOrphanHighlightItems(data, plan);
+      collectOrphanHighlightItems(data, plan);
       expect(plan.items).toHaveLength(1);
       expect(plan.orphanHighlights).toBe(1);
     });
@@ -1381,12 +1389,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
       const plan = makePlan();
       const stats = makeStats();
       const key = 'page_example.com';
-      StorageManager._processOptimizationEntry(
-        key,
-        { highlights: [{ id: '1' }], notion: null },
-        plan,
-        stats
-      );
+      processOptimizationEntry(key, { highlights: [{ id: '1' }], notion: null }, plan, stats);
       expect(Object.keys(plan.optimizedData)).toContain(key);
       expect(plan.keysToRemove).toHaveLength(0);
       expect(plan.totalHighlights).toBe(1);
@@ -1396,12 +1399,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
       const plan = makePlan();
       const stats = makeStats();
       const key = 'page_example.com';
-      StorageManager._processOptimizationEntry(
-        key,
-        { highlights: [], notion: { pageId: 'p1' } },
-        plan,
-        stats
-      );
+      processOptimizationEntry(key, { highlights: [], notion: { pageId: 'p1' } }, plan, stats);
       expect(Object.keys(plan.optimizedData)).toContain(key);
       expect(plan.keysToRemove).toHaveLength(0);
     });
@@ -1409,12 +1407,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
     test('無標注且無 Notion 的空 page_* 應加入 keysToRemove', () => {
       const plan = makePlan();
       const stats = makeStats();
-      StorageManager._processOptimizationEntry(
-        'page_empty.com',
-        { highlights: [], notion: null },
-        plan,
-        stats
-      );
+      processOptimizationEntry('page_empty.com', { highlights: [], notion: null }, plan, stats);
       expect(plan.keysToRemove).toContain('page_empty.com');
       expect(stats.emptyHighlightKeys).toBe(1);
     });
@@ -1426,7 +1419,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
       mockGet.mockImplementation((_k, respond) => {
         respond({ 'page_bad.com': { highlights: 'not_array' } });
       });
-      const plan = await StorageManager.generateOptimizationPlan();
+      const plan = await generateOptimizationPlan();
       expect(plan.canOptimize).toBe(true);
       expect(plan.optimizations.some(o => o.includes('修復數據碎片'))).toBe(true);
     });
@@ -1438,7 +1431,7 @@ describe('StorageManager Phase 3 Compatibility', () => {
           [validKey]: { highlights: [{ id: '1' }], notion: { pageId: 'p1' } },
         });
       });
-      const plan = await StorageManager.generateOptimizationPlan();
+      const plan = await generateOptimizationPlan();
       expect(Object.keys(plan.optimizedData)).toContain(validKey);
       expect(plan.keysToRemove).not.toContain(validKey);
     });
