@@ -338,7 +338,7 @@ export function collectOrphanHighlightItems(data, plan) {
 }
 
 /**
- * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 highlights_ 或 saved_ 記錄
+ * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 page_* / highlights_* / saved_* 記錄
  * alias 孤兒計入 plan.items 和 plan.spaceFreed，但不計入 plan.orphanHighlights，
  * 因為 alias key 是內部實作細節，不在用戶可見的清理摘要中單獨列出。
  *
@@ -356,8 +356,16 @@ export function collectOrphanAliasItems(data, plan) {
       continue;
     }
 
+    const pageKey = `page_${normUrl}`;
+    const highlightsKey = `highlights_${normUrl}`;
+    const savedKey = `saved_${normUrl}`;
+
     // alias value is the normUrl; check if target data still exists
-    if (data[`highlights_${normUrl}`] || data[`saved_${normUrl}`]) {
+    if (
+      Object.hasOwn(data, pageKey) ||
+      Object.hasOwn(data, highlightsKey) ||
+      Object.hasOwn(data, savedKey)
+    ) {
       continue;
     }
 

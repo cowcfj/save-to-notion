@@ -10,6 +10,7 @@ import {
   analyzeData,
   getStorageUsage,
   generateOptimizationPlan,
+  collectOrphanAliasItems,
   collectOrphanHighlightItems,
   processOptimizationEntry,
 } from '../../../options/storageDataUtils';
@@ -1367,6 +1368,71 @@ describe('StorageManager Phase 3 Compatibility', () => {
       collectOrphanHighlightItems(data, plan);
       expect(plan.items).toHaveLength(1);
       expect(plan.orphanHighlights).toBe(1);
+    });
+  });
+
+  // ── 4b. collectOrphanAliasItems — page_* 孤兒 ──
+  describe('collectOrphanAliasItems Phase 3 孤兒識別', () => {
+    test('有對應 page_* 的 url_alias:* 不應視為孤兒', () => {
+      const data = {
+        'url_alias:https://example.com/original': 'https://example.com/stable',
+        'page_https://example.com/stable': { notion: { pageId: 'p1' }, highlights: [] },
+      };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+
+      collectOrphanAliasItems(data, plan);
+
+      expect(plan.items).toHaveLength(0);
+    });
+
+    test('有對應 saved_* 的 url_alias:* 不應視為孤兒', () => {
+      const data = {
+        'url_alias:https://example.com/original': 'https://example.com/stable',
+        'saved_https://example.com/stable': { notionPageId: 'p1' },
+      };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+
+      collectOrphanAliasItems(data, plan);
+
+      expect(plan.items).toHaveLength(0);
+    });
+
+    test('有對應 highlights_* 的 url_alias:* 不應視為孤兒', () => {
+      const data = {
+        'url_alias:https://example.com/original': 'https://example.com/stable',
+        'highlights_https://example.com/stable': [{ id: 'h1' }],
+      };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+
+      collectOrphanAliasItems(data, plan);
+
+      expect(plan.items).toHaveLength(0);
+    });
+
+    test('無對應 page_* / saved_* / highlights_* 的 url_alias:* 應視為孤兒', () => {
+      const data = {
+        'url_alias:https://example.com/original': 'https://example.com/stable',
+      };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+
+      collectOrphanAliasItems(data, plan);
+
+      expect(plan.items).toHaveLength(1);
+      expect(plan.items[0]).toMatchObject({
+        key: 'url_alias:https://example.com/original',
+        reason: '孤兒 URL 別名（目標頁面已無資料）',
+      });
+    });
+
+    test('alias value 非字串時應略過', () => {
+      const data = {
+        'url_alias:https://example.com/original': { stableUrl: 'https://example.com/stable' },
+      };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+
+      collectOrphanAliasItems(data, plan);
+
+      expect(plan.items).toHaveLength(0);
     });
   });
 
