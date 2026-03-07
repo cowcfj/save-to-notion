@@ -266,7 +266,10 @@ describe('StorageManager', () => {
 
   describe('importData', () => {
     it('should import valid JSON data', async () => {
-      const mockContent = JSON.stringify({ data: { key: 'value' } });
+      // 使用白名單內的 key 以符合新的匯入機制
+      const mockContent = JSON.stringify({
+        data: { 'page_test.com': { notion: null, highlights: [] } },
+      });
       const mockFile = {
         text: jest.fn().mockResolvedValue(mockContent),
       };
@@ -275,7 +278,10 @@ describe('StorageManager', () => {
       // Trigger import
       await storageManager.importData(event);
 
-      expect(mockSet).toHaveBeenCalledWith({ key: 'value' }, expect.any(Function));
+      expect(mockSet).toHaveBeenCalledWith(
+        { 'page_test.com': { notion: null, highlights: [] } },
+        expect.any(Function)
+      );
     });
 
     it('should ignore OAuth keys when importing backup data', async () => {
@@ -1154,6 +1160,287 @@ describe('StorageManager Branch Coverage', () => {
 
       expect(storageManager.optimizationPlan.canOptimize).toBe(false);
       expect(storageManager.elements.executeOptimizationButton.style.display).toBe('none');
+    });
+  });
+});
+
+// =========================================
+// Phase 3 page_* 格式兼容性測試
+// =========================================
+describe('StorageManager Phase 3 Compatibility', () => {
+  let storageManager = null;
+  let mockGet = null;
+  let mockRemove = null;
+
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <button id="export-data-button"></button>
+      <button id="import-data-button"></button>
+      <input type="file" id="import-data-file" />
+      <button id="check-data-button"></button>
+      <div id="data-status"></div>
+      <button id="refresh-usage-button"></button>
+      <div id="usage-fill"></div>
+      <div id="usage-percentage"></div>
+      <div id="usage-details"></div>
+      <div id="pages-count"></div>
+      <div id="highlights-count"></div>
+      <div id="config-count"></div>
+      <button id="preview-cleanup-button"><span class="button-text"></span></button>
+      <button id="execute-cleanup-button"></button>
+      <button id="analyze-optimization-button"></button>
+      <button id="execute-optimization-button"></button>
+      <div id="cleanup-preview"></div>
+      <div id="optimization-preview"></div>
+      <input type="checkbox" id="cleanup-deleted-pages" />
+    `;
+
+    mockGet = jest.fn();
+    const mockSet = jest.fn((data, cb) => cb?.());
+    mockRemove = jest.fn();
+
+    globalThis.chrome = {
+      storage: { local: { get: mockGet, set: mockSet, remove: mockRemove } },
+      runtime: {
+        lastError: null,
+        getManifest: jest.fn(() => ({ version: '2.0.0' })),
+        sendMessage: jest.fn(),
+      },
+    };
+
+    globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
+    globalThis.URL.revokeObjectURL = jest.fn();
+
+    storageManager = new StorageManager({ showStatus: jest.fn() });
+    storageManager.init();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  // ── 1. 備份白名單法 ──────────────────────────
+  describe('sanitizeBackupData 白名單法', () => {
+    test('應保留 page_* key', () => {
+      const result = StorageManager.sanitizeBackupData({
+        'page_example.com': { notion: null, highlights: [] },
+      });
+      expect(Object.keys(result)).toContain('page_example.com');
+    });
+
+    test('應保留 highlights_* / saved_* / url_alias:* key', () => {
+      const result = StorageManager.sanitizeBackupData({
+        'highlights_example.com': [{ id: '1' }],
+        'saved_example.com': { notionPageId: 'p1' },
+        'url_alias:example.com/long': 'example.com/short',
+      });
+      expect(Object.keys(result)).toContain('highlights_example.com');
+      expect(Object.keys(result)).toContain('saved_example.com');
+      expect(Object.keys(result)).toContain('url_alias:example.com/long');
+    });
+
+    test('應排除 OAuth 相關 key', () => {
+      const result = StorageManager.sanitizeBackupData({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'secret',
+        notionRefreshToken: 'refresh',
+        notionAuthEpoch: 9,
+        'page_example.com': { notion: null, highlights: [] },
+      });
+      expect(Object.keys(result)).not.toContain('notionAuthMode');
+      expect(Object.keys(result)).not.toContain('notionOAuthToken');
+      expect(Object.keys(result)).toContain('page_example.com');
+    });
+
+    test('應排除 migration_* 和未知前綴的 key', () => {
+      const result = StorageManager.sanitizeBackupData({
+        'migration_completed_example.com': { done: true },
+        seamless_migration_state: { status: 'done' },
+        someUnknownKey: 'value',
+        page_x: { notion: null, highlights: [] },
+      });
+      expect(Object.keys(result)).not.toContain('migration_completed_example.com');
+      expect(Object.keys(result)).not.toContain('seamless_migration_state');
+      expect(Object.keys(result)).not.toContain('someUnknownKey');
+      expect(Object.keys(result)).toContain('page_x');
+    });
+  });
+
+  // ── 2. analyzeData — page_* 識別 ──────────
+  describe('analyzeData Phase 3 識別', () => {
+    test('應識別 page_* 為有效頁面並計入 highlightPages', () => {
+      const report = StorageManager.analyzeData({
+        'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+      });
+      expect(report.highlightPages).toBe(1);
+      expect(report.totalHighlights).toBe(1);
+    });
+
+    test('應識別 page_* 中 highlights 非陣列為損壞數據', () => {
+      const report = StorageManager.analyzeData({
+        'page_bad.com': { highlights: 'not_an_array' },
+      });
+      expect(report.corruptedData).toContain('page_bad.com');
+    });
+
+    test('同一 URL 的 page_* 和 highlights_* 不應重複計數', () => {
+      const report = StorageManager.analyzeData({
+        'page_example.com': { highlights: [{ id: '1' }] },
+        'highlights_example.com': [{ id: '2' }], // 應被忽略
+      });
+      expect(report.highlightPages).toBe(1);
+      expect(report.totalHighlights).toBe(1);
+    });
+
+    test('無對應 page_* 的 highlights_* 應正常計入', () => {
+      const report = StorageManager.analyzeData({
+        'highlights_other.com': [{ id: '1' }, { id: '2' }],
+      });
+      expect(report.highlightPages).toBe(1);
+      expect(report.totalHighlights).toBe(2);
+    });
+
+    test('應識別 saved_* 為舊格式殘留並計入 legacySavedKeys', () => {
+      const report = StorageManager.analyzeData({
+        'saved_a.com': { notionPageId: 'p1' },
+        'saved_b.com': { notionPageId: 'p2' },
+      });
+      expect(report.legacySavedKeys).toBe(2);
+    });
+
+    test('應識別 url_alias:* 並計入 aliasKeys（內部統計）', () => {
+      const report = StorageManager.analyzeData({
+        'url_alias:example.com/long': 'example.com/short',
+      });
+      expect(report.aliasKeys).toBe(1);
+    });
+  });
+
+  // ── 3. getStorageUsage — page_* 計數 ─────────
+  describe('getStorageUsage Phase 3 計數', () => {
+    test('應從 page_* 計算頁面數和標注數', async () => {
+      mockGet.mockImplementation((_k, respond) => {
+        respond({
+          'page_a.com': { highlights: [{ id: '1' }, { id: '2' }] },
+          'page_b.com': { highlights: [{ id: '3' }] },
+        });
+      });
+      const usage = await StorageManager.getStorageUsage();
+      expect(usage.pages).toBe(2);
+      expect(usage.highlights).toBe(3);
+    });
+
+    test('同一 URL 的 page_* 和 highlights_* 不應重複計數', async () => {
+      mockGet.mockImplementation((_k, respond) => {
+        respond({
+          'page_example.com': { highlights: [{ id: '1' }] },
+          'highlights_example.com': [{ id: '2' }], // 應被忽略
+        });
+      });
+      const usage = await StorageManager.getStorageUsage();
+      expect(usage.pages).toBe(1);
+      expect(usage.highlights).toBe(1);
+    });
+  });
+
+  // ── 4. _collectOrphanHighlightItems — page_* 孤兒 ──
+  describe('_collectOrphanHighlightItems Phase 3 孤兒識別', () => {
+    test('有對應 page_* 的空 highlights_* 不應視為孤兒', () => {
+      const data = {
+        'page_example.com': { notion: { pageId: 'p1' }, highlights: [] },
+        'highlights_example.com': [],
+      };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      storageManager._collectOrphanHighlightItems(data, plan);
+      expect(plan.items).toHaveLength(0);
+    });
+
+    test('無對應 page_* 且無標注的 highlights_* 應視為孤兒', () => {
+      const data = { 'highlights_orphan.com': [] };
+      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      storageManager._collectOrphanHighlightItems(data, plan);
+      expect(plan.items).toHaveLength(1);
+      expect(plan.orphanHighlights).toBe(1);
+    });
+  });
+
+  // ── 5. _processOptimizationEntry — page_* 優化 ──
+  describe('_processOptimizationEntry Phase 3 優化分析', () => {
+    const makeStats = () => ({
+      emptyHighlightKeys: 0,
+      emptyHighlightSize: 0,
+      migrationKeysCount: 0,
+      migrationDataSize: 0,
+    });
+    const makePlan = () => ({
+      highlightPages: 0,
+      totalHighlights: 0,
+      optimizedData: {},
+      keysToRemove: [],
+    });
+
+    test('有標注的 page_* 應保留到 optimizedData', () => {
+      const plan = makePlan();
+      const stats = makeStats();
+      const key = 'page_example.com';
+      StorageManager._processOptimizationEntry(
+        key,
+        { highlights: [{ id: '1' }], notion: null },
+        plan,
+        stats
+      );
+      expect(Object.keys(plan.optimizedData)).toContain(key);
+      expect(plan.keysToRemove).toHaveLength(0);
+      expect(plan.totalHighlights).toBe(1);
+    });
+
+    test('有 Notion 綁定的 page_* 應保留到 optimizedData', () => {
+      const plan = makePlan();
+      const stats = makeStats();
+      const key = 'page_example.com';
+      StorageManager._processOptimizationEntry(
+        key,
+        { highlights: [], notion: { pageId: 'p1' } },
+        plan,
+        stats
+      );
+      expect(Object.keys(plan.optimizedData)).toContain(key);
+      expect(plan.keysToRemove).toHaveLength(0);
+    });
+
+    test('無標注且無 Notion 的空 page_* 應加入 keysToRemove', () => {
+      const plan = makePlan();
+      const stats = makeStats();
+      StorageManager._processOptimizationEntry(
+        'page_empty.com',
+        { highlights: [], notion: null },
+        plan,
+        stats
+      );
+      expect(plan.keysToRemove).toContain('page_empty.com');
+      expect(stats.emptyHighlightKeys).toBe(1);
+    });
+  });
+
+  // ── 6. generateOptimizationPlan — page_* 碎片 ──
+  describe('generateOptimizationPlan Phase 3 碎片偵測', () => {
+    test('應識別 page_*.highlights 非陣列的碎片數據', async () => {
+      mockGet.mockImplementation((_k, respond) => {
+        respond({ 'page_bad.com': { highlights: 'not_array' } });
+      });
+      const plan = await StorageManager.generateOptimizationPlan();
+      expect(plan.canOptimize).toBe(true);
+      expect(plan.optimizations.some(o => o.includes('修復數據碎片'))).toBe(true);
+    });
+
+    test('應識別並保留有效的 page_*', async () => {
+      const validKey = 'page_valid.com';
+      mockGet.mockImplementation((_k, respond) => {
+        respond({
+          [validKey]: { highlights: [{ id: '1' }], notion: { pageId: 'p1' } },
+        });
+      });
+      const plan = await StorageManager.generateOptimizationPlan();
+      expect(Object.keys(plan.optimizedData)).toContain(validKey);
+      expect(plan.keysToRemove).not.toContain(validKey);
     });
   });
 });

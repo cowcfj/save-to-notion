@@ -116,6 +116,8 @@ export const UI_MESSAGES = {
     HIGHLIGHT_PAGES: count => `• ${count} 個頁面有標記`,
     CONFIG_ITEMS: count => `• ${count} 個配置項`,
     MIGRATION_DATA: (count, size) => `• ${count} 個遷移數據（${size} KB，可清理）`,
+    LEGACY_SAVED_ITEMS: count => `• ${count} 個舊格式保存狀態（等待自動升級）`,
+
     CORRUPTED_DATA: count => `• ${count} 個損壞的數據項`,
     OPTIMIZATION_SUGGESTION: '• 建議使用「數據重整」功能清理遷移數據',
     INTEGRITY_OK: '• 所有數據完整無損',
