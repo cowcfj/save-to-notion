@@ -404,6 +404,22 @@
               </span>
               <span class="button-text">刷新統計</span>
             </button>
+
+            <!-- 健康狀態顯示區 -->
+            <output
+              id="health-status"
+              class="health-status"
+              aria-live="polite"
+              aria-atomic="true"
+            ></output>
+
+            <!-- 執行清理按鈕（僅在有可清理項目時顯示） -->
+            <button id="execute-cleanup-button" class="btn-danger" style="display: none">
+              <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                <use href="#icon-trash" />
+              </svg>
+              <span class="button-text">執行清理</span>
+            </button>
           </div>
 
           <div class="card">
@@ -482,14 +498,6 @@
                 </svg>
                 <span class="button-text">匯出備份</span>
               </button>
-              <button id="check-data-button" class="btn-secondary">
-                <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
-                  <use href="#icon-search" />
-                </svg>
-                <span class="button-text">檢查完整性</span>
-              </button>
-            </div>
-            <div class="button-group">
               <input type="file" id="import-data-file" accept=".json" class="hidden" />
               <button id="import-data-button" class="btn-secondary">
                 <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
@@ -514,16 +522,10 @@
           </div>
 
           <div class="card">
-            <h3>資料遷移與優化</h3>
+            <h3>舊版數據遷移</h3>
 
             <!-- 遷移工具 -->
             <div class="migration-tool">
-              <h4>
-                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                  <use href="#icon-transfer" />
-                </svg>
-                舊版數據遷移
-              </h4>
               <p class="text-sm">將 v2.5 以前的 DOM 標記升級為現代 Highlight API 格式。</p>
               <div class="migration-controls">
                 <button id="migration-scan-button" class="btn-secondary">
@@ -600,50 +602,6 @@
                 <div id="failed-migration-list" class="result-list"></div>
                 <p class="hint">這些標註因頁面內容已更改而無法恢復。您可以刪除這些數據。</p>
               </div>
-            </div>
-
-            <hr class="divider" />
-
-            <!-- 優化工具 -->
-            <div class="optimization-tool">
-              <h4>
-                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                  <use href="#icon-bolt" />
-                </svg>
-                數據庫優化
-              </h4>
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="cleanup-deleted-pages" checked />
-                <label for="cleanup-deleted-pages">清理無標註且未儲存的殘留數據</label>
-              </div>
-              <div class="button-group">
-                <button id="preview-cleanup-button" class="btn-secondary">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-search" />
-                  </svg>
-                  <span class="button-text">檢測無效數據</span>
-                </button>
-                <button id="execute-cleanup-button" class="btn-danger hidden">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-trash" />
-                  </svg>
-                  <span class="button-text">確認清理</span>
-                </button>
-                <button id="analyze-optimization-button" class="btn-secondary">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-bolt" />
-                  </svg>
-                  <span class="button-text">分析結構優化</span>
-                </button>
-                <button id="execute-optimization-button" class="btn-primary hidden">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
-                    <use href="#icon-bolt" />
-                  </svg>
-                  <span class="button-text">執行重整</span>
-                </button>
-              </div>
-              <div id="cleanup-preview" class="preview-box"></div>
-              <div id="optimization-preview" class="preview-box"></div>
             </div>
           </div>
         </section>
@@ -723,16 +681,16 @@
             </h3>
             <div class="quick-start-grid">
               <div class="step-card">
-                <strong>1. 連接擴展</strong>
-                <p>點擊擴展圖標 → Settings → 點擊「連接到 Notion」</p>
+                <strong>1. 連接到 Notion</strong>
+                <p>在「一般設定」點擊「以 OAuth 連接 Notion」授權，或選擇手動配置輸入 API Key。</p>
               </div>
               <div class="step-card">
-                <strong>2. 授權訪問</strong>
-                <p>在 Notion 創建 Integration，複製 Secret Key 並保存</p>
+                <strong>2. 預備資料庫</strong>
+                <p>確保您的 Notion 中已有資料庫，且該資料庫已授權給本擴展存取。</p>
               </div>
               <div class="step-card">
-                <strong>3. 開始使用</strong>
-                <p>選擇目標數據庫，點擊保存按鈕即可剪藏！</p>
+                <strong>3. 開始剪藏</strong>
+                <p>在任意網頁點擊擴展圖標，選擇目標資料庫後即可一鍵保存！</p>
               </div>
             </div>
           </div>
@@ -806,6 +764,18 @@
                 <div class="feature-content">
                   <strong>狀態同步</strong>
                   <div>圖標徽章即時顯示保存狀態</div>
+                </div>
+              </div>
+
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <svg width="24" height="24" aria-hidden="true" focusable="false">
+                    <use href="#icon-list" />
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <strong>側邊欄管理標註</strong>
+                  <div>在右側邊欄集中查看、管理與刪除所有標註</div>
                 </div>
               </div>
             </div>
