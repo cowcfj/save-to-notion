@@ -162,14 +162,6 @@ function _analyzeHealthEntry(key, value, report, pageUrls, data) {
  */
 function _analyzePageEntry(key, value, report) {
   const plan = report.cleanupPlan;
-  const hl = value?.highlights;
-  const hasHighlights = Array.isArray(hl) && hl.length > 0;
-  const hasNotion = Boolean(value?.notion?.pageId);
-
-  report.pages++;
-  if (hasHighlights) {
-    report.highlights += hl.length;
-  }
 
   // 結構破損 → 加入清理計劃
   const isCorrupted =
@@ -184,6 +176,15 @@ function _analyzePageEntry(key, value, report) {
     plan.spaceFreed += size;
     plan.summary.corruptedRecords++;
     return;
+  }
+
+  const hl = value.highlights;
+  const hasHighlights = Array.isArray(hl) && hl.length > 0;
+  const hasNotion = Boolean(value?.notion?.pageId);
+
+  report.pages++;
+  if (Array.isArray(hl)) {
+    report.highlights += hl.length;
   }
 
   // 空 page_*（無標注且無 Notion 綁定）→ 加入清理計劃
@@ -208,15 +209,6 @@ function _analyzeHighlightsEntry(key, value, report, pageUrls, data) {
   const plan = report.cleanupPlan;
   const url = key.slice(HIGHLIGHTS_PREFIX.length);
 
-  // 使用量計數（僅在無對應 page_* 時計入，避免重複）
-  if (!pageUrls.has(url)) {
-    report.pages++;
-    const hl = Array.isArray(value) ? value : value?.highlights;
-    if (Array.isArray(hl)) {
-      report.highlights += hl.length;
-    }
-  }
-
   // 結構破損 → 加入清理計劃
   const isValid = Array.isArray(value) || (value && Array.isArray(value.highlights));
   if (!isValid) {
@@ -226,6 +218,13 @@ function _analyzeHighlightsEntry(key, value, report, pageUrls, data) {
     plan.spaceFreed += size;
     plan.summary.corruptedRecords++;
     return;
+  }
+
+  // 使用量計數（僅在無對應 page_* 時計入，避免重複）
+  if (!pageUrls.has(url)) {
+    report.pages++;
+    const hl = Array.isArray(value) ? value : value.highlights;
+    report.highlights += hl.length;
   }
 
   // 孤兒 highlights_*（既無有效標注，也無對應記錄）→ 加入清理計劃
@@ -251,7 +250,19 @@ function _analyzeHighlightsEntry(key, value, report, pageUrls, data) {
  * @param {object} data 完整 storage 快照
  */
 function _analyzeAliasEntry(key, normUrl, report, data) {
+  const plan = report.cleanupPlan;
+
   if (typeof normUrl !== 'string' || normUrl === '') {
+    const rawUrl = normUrl === '' ? key : String(normUrl ?? key);
+    const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
+    plan.items.push({
+      key,
+      url: encodeURIComponent(rawUrl),
+      size,
+      reason: '無效的 URL 別名',
+    });
+    plan.spaceFreed += size;
+    plan.summary.orphanRecords++;
     return;
   }
 
@@ -261,7 +272,6 @@ function _analyzeAliasEntry(key, normUrl, report, data) {
     Object.hasOwn(data, `${SAVED_PREFIX}${normUrl}`);
 
   if (!hasTarget) {
-    const plan = report.cleanupPlan;
     const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
     plan.items.push({ key, url: encodeURIComponent(normUrl), size, reason: '孤兒 URL 別名' });
     plan.spaceFreed += size;

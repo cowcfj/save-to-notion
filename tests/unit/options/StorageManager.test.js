@@ -7,6 +7,8 @@
 import { StorageManager } from '../../../options/StorageManager';
 import { sanitizeBackupData, getStorageHealthReport } from '../../../options/storageDataUtils';
 import Logger from '../../../scripts/utils/Logger';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Mock Logger
 jest.mock('../../../scripts/utils/Logger', () => ({
@@ -735,6 +737,8 @@ describe('getStorageHealthReport', () => {
 
     const report = await getStorageHealthReport();
     expect(report.corruptedData).toContain('page_bad.com');
+    expect(report.pages).toBe(0);
+    expect(report.highlights).toBe(0);
     expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
   });
 
@@ -773,6 +777,41 @@ describe('getStorageHealthReport', () => {
     const report = await getStorageHealthReport();
     expect(report.cleanupPlan.summary.orphanRecords).toBeGreaterThan(0);
     expect(report.cleanupPlan.items.some(i => i.key === 'highlights_orphan.com')).toBe(true);
+  });
+
+  test('損壞的 highlights_* 不應增加 pages 或 highlights，但仍應進入清理計劃', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'highlights_bad.com': { highlights: 'not_an_array' },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.pages).toBe(0);
+    expect(report.highlights).toBe(0);
+    expect(report.corruptedData).toContain('highlights_bad.com');
+    expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
+    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_bad.com')).toBe(true);
+  });
+
+  test('無效的 url_alias:* 應加入清理計劃並計入 orphanRecords', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'url_alias:https://example.com/bad': '',
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.corruptedData).toEqual([]);
+    expect(report.cleanupPlan.summary.orphanRecords).toBe(1);
+    expect(
+      report.cleanupPlan.items.some(
+        item =>
+          item.key === 'url_alias:https://example.com/bad' && item.reason === '無效的 URL 別名'
+      )
+    ).toBe(true);
   });
 
   test('有對應 page_* 的 highlights_* 不應計入孤兒', async () => {
@@ -842,5 +881,17 @@ describe('storageDataUtils — Legacy / 輔助函數', () => {
       expect(Object.keys(result)).not.toContain('migration_completed_example.com');
       expect(Object.keys(result)).toContain('page_x');
     });
+  });
+});
+
+describe('options.html 結構', () => {
+  test('health-status 應為 polite live region', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+
+    expect(html).toContain('id="health-status"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('aria-atomic="true"');
   });
 });

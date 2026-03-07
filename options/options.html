@@ -406,7 +406,13 @@
             </button>
 
             <!-- 健康狀態顯示區 -->
-            <div id="health-status" class="health-status"></div>
+            <div
+              id="health-status"
+              class="health-status"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            ></div>
 
             <!-- 執行清理按鈕（僅在有可清理項目時顯示） -->
             <button id="execute-cleanup-button" class="btn-danger" style="display: none">
