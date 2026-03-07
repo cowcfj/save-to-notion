@@ -469,7 +469,7 @@ export class StorageManager {
       const safeMessage = sanitizeApiError(error, 'execute_cleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_FAILED(errorMsg), 'error');
-
+    } finally {
       if (button) {
         button.disabled = false;
       }

@@ -563,6 +563,29 @@ describe('StorageManager — executeUnifiedCleanup', () => {
     expect(mockGet).toHaveBeenCalled();
   });
 
+  test('清理成功後應重新啟用執行清理按鈕', async () => {
+    storageManager._lastHealthReport = {
+      cleanupPlan: {
+        items: [{ key: 'page_empty.com', size: 100, reason: '空記錄' }],
+        totalKeys: 1,
+        spaceFreed: 100,
+        summary: { emptyRecords: 1, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 0 },
+      },
+    };
+
+    const button = storageManager.elements.executeCleanupButton;
+    const updateStorageUsageSpy = jest
+      .spyOn(storageManager, 'updateStorageUsage')
+      .mockResolvedValue(undefined);
+
+    mockRemove.mockImplementation((keys, cb) => cb?.());
+
+    await storageManager.executeUnifiedCleanup();
+
+    expect(updateStorageUsageSpy).toHaveBeenCalled();
+    expect(button.disabled).toBe(false);
+  });
+
   test('chrome.storage.local.remove 失敗時應顯示錯誤', async () => {
     storageManager._lastHealthReport = {
       cleanupPlan: {
