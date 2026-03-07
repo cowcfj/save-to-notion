@@ -66,7 +66,7 @@ function buildTestDom() {
     <div id="pages-count"></div>
     <div id="highlights-count"></div>
     <div id="config-count"></div>
-    <div id="health-status"></div>
+    <output id="health-status"></output>
     <button id="execute-cleanup-button" style="display:none"></button>
   `;
 }
@@ -1052,12 +1052,11 @@ describe('storageDataUtils — Legacy / 輔助函數', () => {
 });
 
 describe('options.html 結構', () => {
-  test('health-status 應為 polite live region', () => {
+  test('health-status 應為 polite live region 的 output 標籤', () => {
     const htmlPath = path.resolve(__dirname, '../../../options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
-    expect(html).toContain('id="health-status"');
-    expect(html).toContain('role="status"');
+    expect(html).toMatch(/<output[^>]*id="health-status"/);
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });
