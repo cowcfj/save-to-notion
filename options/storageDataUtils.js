@@ -30,6 +30,11 @@ export const BACKUP_ALLOWED_PREFIXES = [
   URL_ALIAS_PREFIX, // URL 正規化映射
 ];
 
+const REFERENCE_STORAGE_SIZE_BYTES = 100 * 1024 * 1024;
+const MIGRATION_CLEANUP_THRESHOLD_BYTES = 1024;
+const CONFIG_PREFIX = 'config_';
+const CONFIG_KEY_SUBSTR = 'notion';
+
 /**
  * 過濾備份數據，僅保留白名單前綴的 key
  *
@@ -72,8 +77,8 @@ export function analyzeData(data) {
   // Pass 1：收集所有 page_* 的 URL（用於避免與 highlights_* 重複計數）
   const pageUrls = new Set();
   for (const key of Object.keys(data)) {
-    if (key.startsWith('page_')) {
-      pageUrls.add(key.slice(5));
+    if (key.startsWith(PAGE_PREFIX)) {
+      pageUrls.add(key.slice(PAGE_PREFIX.length));
     }
   }
 
@@ -110,7 +115,7 @@ function _analyzeDataEntry(key, value, report, pageUrls) {
     report.aliasKeys++;
     return;
   }
-  if (key.startsWith('config_') || key.includes('notion')) {
+  if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
     report.configKeys++;
     return;
   }
@@ -187,13 +192,13 @@ export async function getStorageUsage() {
 
   const jsonString = JSON.stringify(data);
   const sizeInBytes = new Blob([jsonString]).size;
-  const referenceSize = 100 * 1024 * 1024; // 100MB
+  const referenceSize = REFERENCE_STORAGE_SIZE_BYTES;
 
   // 先收集 page_* 的 URL，避免與 highlights_* 重複計數
   const pageUrls = new Set();
   for (const key of Object.keys(data)) {
-    if (key.startsWith('page_')) {
-      pageUrls.add(key.slice(5));
+    if (key.startsWith(PAGE_PREFIX)) {
+      pageUrls.add(key.slice(PAGE_PREFIX.length));
     }
   }
 
@@ -224,22 +229,22 @@ export async function getStorageUsage() {
  * @param {Set<string>} pageUrls page_ 前綴的 URL 集合
  */
 function _countStorageUsageEntry(key, value, counts, pageUrls) {
-  if (key.startsWith('page_')) {
+  if (key.startsWith(PAGE_PREFIX)) {
     counts.pagesCount++;
     const hl = value?.highlights;
     if (Array.isArray(hl)) {
       counts.highlightsCount += hl.length;
     }
-  } else if (key.startsWith('highlights_')) {
+  } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
     // 舊格式：只在無對應 page_* 時計入（避免重複計數）
-    const url = key.slice(11);
+    const url = key.slice(HIGHLIGHTS_PREFIX.length);
     if (!pageUrls.has(url)) {
       counts.pagesCount++;
       if (Array.isArray(value)) {
         counts.highlightsCount += value.length;
       }
     }
-  } else if (key.includes('notion') || key.startsWith('config_')) {
+  } else if (key.includes(CONFIG_KEY_SUBSTR) || key.startsWith(CONFIG_PREFIX)) {
     counts.configCount++;
   }
 }
@@ -322,11 +327,11 @@ export function collectOrphanHighlightItems(data) {
   };
 
   for (const [key, value] of Object.entries(data)) {
-    if (!key.startsWith('highlights_')) {
+    if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
       continue;
     }
 
-    const url = key.replace('highlights_', '');
+    const url = key.slice(HIGHLIGHTS_PREFIX.length);
 
     // 1. 有效標注 → 保留
     const highlights = Array.isArray(value) ? value : value?.highlights;
@@ -335,12 +340,12 @@ export function collectOrphanHighlightItems(data) {
     }
 
     // 2. 有對應的 page_* 記錄 → 保留（Phase 3 格式已包含此數據）
-    if (data[`page_${url}`]) {
+    if (data[`${PAGE_PREFIX}${url}`]) {
       continue;
     }
 
     // 3. 有對應的 saved_ 記錄 → 保留（用戶只是保存網頁未做標注）
-    if (data[`saved_${url}`]) {
+    if (data[`${SAVED_PREFIX}${url}`]) {
       continue;
     }
 
@@ -383,9 +388,9 @@ export function collectOrphanAliasItems(data) {
       continue;
     }
 
-    const pageKey = `page_${normUrl}`;
-    const highlightsKey = `highlights_${normUrl}`;
-    const savedKey = `saved_${normUrl}`;
+    const pageKey = `${PAGE_PREFIX}${normUrl}`;
+    const highlightsKey = `${HIGHLIGHTS_PREFIX}${normUrl}`;
+    const savedKey = `${SAVED_PREFIX}${normUrl}`;
 
     // alias value is the normUrl; check if target data still exists
     if (
@@ -477,7 +482,7 @@ function _analyzeStructureForOptimization(data, plan) {
     processOptimizationEntry(key, value, plan, stats);
   }
 
-  if (stats.migrationDataSize > 1024) {
+  if (stats.migrationDataSize > MIGRATION_CLEANUP_THRESHOLD_BYTES) {
     const sizeKB = (stats.migrationDataSize / 1024).toFixed(1);
     plan.optimizations.push(`清理遷移數據（${stats.migrationKeysCount} 項，${sizeKB} KB）`);
     plan.canOptimize = true;
@@ -491,12 +496,12 @@ function _analyzeStructureForOptimization(data, plan) {
 
   const hasFragmentation = Object.keys(data).some(key => {
     // 舊格式 highlights_* 結構破損
-    if (key.startsWith('highlights_') && (!data[key] || !Array.isArray(data[key]))) {
+    if (key.startsWith(HIGHLIGHTS_PREFIX) && (!data[key] || !Array.isArray(data[key]))) {
       return true;
     }
     // Phase 3 page_* highlights 欄位結構破損
     if (
-      key.startsWith('page_') &&
+      key.startsWith(PAGE_PREFIX) &&
       data[key]?.highlights !== undefined &&
       !Array.isArray(data[key].highlights)
     ) {
@@ -529,12 +534,12 @@ export function processOptimizationEntry(key, value, plan, stats) {
     return;
   }
 
-  if (key.startsWith('page_')) {
+  if (key.startsWith(PAGE_PREFIX)) {
     _processPageOptimization(key, value, plan, stats);
     return;
   }
 
-  if (key.startsWith('highlights_')) {
+  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
     _processHighlightOptimization(key, value, plan, stats);
   } else {
     plan.optimizedData[key] = value;
