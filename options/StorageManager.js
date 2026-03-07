@@ -1,6 +1,7 @@
 /**
  * StorageManager.js
- * 負責存儲空間分析、清理與優化
+ * UI 控制層：負責展示、事件纁定與用戶交互。
+ * 純數據邏輯請參閱 storageDataUtils.js
  */
 
 /* global chrome */
@@ -15,65 +16,27 @@ import {
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
-import { URL_ALIAS_PREFIX } from '../scripts/config/constants.js';
+import {
+  sanitizeBackupData,
+  analyzeData,
+  getStorageUsage,
+  analyzePageForCleanup,
+  collectOrphanHighlightItems,
+  collectOrphanAliasItems,
+  generateOptimizationPlan,
+} from './storageDataUtils.js';
 
 /**
- * 管理存儲空間的類別
- * 處理數據的備份、恢復、檢查、清理與優化
+ * 管理存儲空間的 UI 控制層
+ * 負責展示、事件纁定與用戶交互。
+ * 純數據邏輯請參閱 storageDataUtils.js
  */
 export class StorageManager {
-  static OAUTH_BACKUP_EXCLUDED_KEYS = [
-    'notionAuthMode',
-    'notionOAuthToken',
-    'notionRefreshToken',
-    'notionRefreshProof',
-    'notionAuthEpoch',
-    'notionWorkspaceId',
-    'notionWorkspaceName',
-    'notionBotId',
-  ];
-
   constructor(uiManager) {
     this.ui = uiManager;
     this.elements = {};
     this.cleanupPlan = null;
     this.optimizationPlan = null;
-  }
-
-  /**
-   * 輔助方法：分析單個頁面是否需要清理
-   *
-   * @param {object} page 頁面物件
-   * @param {object} data 存儲數據
-   * @param {object} plan 清理計劃
-   * @private
-   */
-  async _analyzePageForCleanup(page, data, plan) {
-    try {
-      const exists = await StorageManager.checkNotionPageExists(page.data.notionPageId);
-
-      if (!exists) {
-        const { key: savedKey, url } = page;
-
-        const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
-
-        plan.items.push({
-          key: savedKey,
-          url,
-          size: savedSize,
-          reason: '無效殘留的保存狀態',
-        });
-
-        plan.spaceFreed += savedSize;
-        plan.deletedPages++;
-      }
-    } catch (error) {
-      Logger.error('Page existence check failed', {
-        action: 'check_page_existence',
-        url: page.url,
-        error,
-      });
-    }
   }
 
   init() {
@@ -138,18 +101,6 @@ export class StorageManager {
     );
   }
 
-  static sanitizeBackupData(data) {
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(data).filter(
-        ([key]) => !StorageManager.OAUTH_BACKUP_EXCLUDED_KEYS.includes(key)
-      )
-    );
-  }
-
   async exportData() {
     try {
       Logger.start('開始導出備份數據');
@@ -158,7 +109,7 @@ export class StorageManager {
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
       });
-      const sanitizedData = StorageManager.sanitizeBackupData(data);
+      const sanitizedData = sanitizeBackupData(data);
 
       const backup = {
         timestamp: new Date().toISOString(),
@@ -210,7 +161,7 @@ export class StorageManager {
         throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
       }
 
-      const sanitizedData = StorageManager.sanitizeBackupData(backup.data);
+      const sanitizedData = sanitizeBackupData(backup.data);
 
       await new Promise(resolve => {
         chrome.storage.local.set(sanitizedData, resolve);
@@ -247,7 +198,7 @@ export class StorageManager {
         chrome.storage.local.get(null, resolve);
       });
 
-      const report = StorageManager.analyzeData(data);
+      const report = analyzeData(data);
 
       let statusText = `${UI_MESSAGES.STORAGE.REPORT_TITLE}\n`;
       statusText += `${UI_MESSAGES.STORAGE.TOTAL_ITEMS(report.totalKeys)}\n`;
@@ -259,6 +210,10 @@ export class StorageManager {
         statusText += `${UI_MESSAGES.STORAGE.MIGRATION_DATA(report.migrationKeys, migrationSizeKB)}\n`;
       }
 
+      if (report.legacySavedKeys > 0) {
+        statusText += `${UI_MESSAGES.STORAGE.LEGACY_SAVED_ITEMS(report.legacySavedKeys)}\n`;
+      }
+
       if (report.corruptedData.length > 0) {
         statusText += UI_MESSAGES.STORAGE.CORRUPTED_DATA(report.corruptedData.length);
         this.showDataStatus(statusText, 'error');
@@ -268,6 +223,7 @@ export class StorageManager {
       } else {
         this.showDataStatus(statusText, 'success');
       }
+
       Logger.success('數據完整性檢查完成');
     } catch (error) {
       Logger.error('Data check failed', { action: 'check_integrity', error });
@@ -276,34 +232,6 @@ export class StorageManager {
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CHECK_FAILED}${errorMsg}`, 'error');
     }
-  }
-
-  static analyzeData(data) {
-    const report = {
-      totalKeys: Object.keys(data).length,
-      highlightPages: 0,
-      configKeys: 0,
-      migrationKeys: 0,
-      migrationDataSize: 0,
-      corruptedData: [],
-    };
-
-    for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('highlights_')) {
-        report.highlightPages++;
-        if (!Array.isArray(value) && (!value || !Array.isArray(value.highlights))) {
-          report.corruptedData.push(key);
-        }
-      } else if (key.startsWith('config_') || key.includes('notion')) {
-        report.configKeys++;
-      } else if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-        report.migrationKeys++;
-        const size = new Blob([JSON.stringify({ [key]: value })]).size;
-        report.migrationDataSize += size;
-      }
-    }
-
-    return report;
   }
 
   /**
@@ -340,7 +268,7 @@ export class StorageManager {
 
     try {
       Logger.start('開始更新存儲使用量統計');
-      const usage = await StorageManager.getStorageUsage();
+      const usage = await getStorageUsage();
       this.updateUsageDisplay(usage);
 
       // 顯示成功提示
@@ -405,49 +333,6 @@ export class StorageManager {
     // 更新文字
     textSpan.textContent = text;
     button.disabled = disabled;
-  }
-
-  static async getStorageUsage() {
-    const data = await new Promise((resolve, reject) => {
-      chrome.storage.local.get(null, result => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-          return;
-        }
-        resolve(result);
-      });
-    });
-
-    const jsonString = JSON.stringify(data);
-    const sizeInBytes = new Blob([jsonString]).size;
-    const referenceSize = 100 * 1024 * 1024; // 100MB
-
-    let pagesCount = 0;
-    let highlightsCount = 0;
-    let configCount = 0;
-
-    for (const [key, value] of Object.entries(data)) {
-      if (key.startsWith('highlights_')) {
-        pagesCount++;
-        if (Array.isArray(value)) {
-          highlightsCount += value.length;
-        }
-      } else if (key.includes('notion') || key.startsWith('config_')) {
-        configCount++;
-      }
-    }
-
-    const percentage = Math.min((sizeInBytes / referenceSize) * 100, 100).toFixed(1);
-
-    return {
-      used: sizeInBytes,
-      percentage,
-      usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
-      pages: pagesCount,
-      highlights: highlightsCount,
-      configs: configCount,
-      isUnlimited: true,
-    };
   }
 
   updateUsageDisplay(usage) {
@@ -589,7 +474,12 @@ export class StorageManager {
           continue;
         }
 
-        await this._analyzePageForCleanup(page, data, plan);
+        const cleanupResult = await analyzePageForCleanup(page);
+        if (cleanupResult) {
+          plan.items.push(cleanupResult.item);
+          plan.spaceFreed += cleanupResult.spaceFreedDelta;
+          plan.deletedPages += cleanupResult.deletedPagesDelta;
+        }
 
         if (i < savedPages.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 350));
@@ -597,105 +487,21 @@ export class StorageManager {
       }
 
       // 孤兒掃描只在「清理已刪除頁面」啟用時執行：
-      // 因為 _collectOrphanHighlightItems 和 _collectOrphanAliasItems
+      // 因為 orphan cleanup helpers
       // 的掃描結果與頁面刪除清理是同一個操作單元，
       // 讓用戶透過同一個勾選框控制所有「殘留資料」的清理。
-      this._collectOrphanHighlightItems(data, plan);
-      this._collectOrphanAliasItems(data, plan);
+      const orphanHighlightResult = collectOrphanHighlightItems(data);
+      plan.items.push(...orphanHighlightResult.items);
+      plan.spaceFreed += orphanHighlightResult.spaceFreedDelta;
+      plan.orphanHighlights += orphanHighlightResult.orphanHighlightsDelta;
+
+      const orphanAliasResult = collectOrphanAliasItems(data);
+      plan.items.push(...orphanAliasResult.items);
+      plan.spaceFreed += orphanAliasResult.spaceFreedDelta;
     } // end of if (cleanDeletedPages)
 
     plan.totalKeys = plan.items.length;
     return plan;
-  }
-
-  /**
-   * 掃描孤兒 highlights_ key：既無有效標注，也無對應的 saved_ 記錄
-   * 這是唯一符合「應刪除」條件的孤兒資料
-   *
-   * @param {object} data  storage 完整快照
-   * @param {object} plan  清理計劃（直接修改）
-   * @private
-   */
-  _collectOrphanHighlightItems(data, plan) {
-    for (const [key, value] of Object.entries(data)) {
-      if (!key.startsWith('highlights_')) {
-        continue;
-      }
-
-      const url = key.replace('highlights_', '');
-
-      // 1. 有效標注 → 保留
-      const highlights = Array.isArray(value) ? value : value?.highlights;
-      if (Array.isArray(highlights) && highlights.length > 0) {
-        continue;
-      }
-
-      // 2. 有對應的 saved_ 記錄 → 保留（用戶只是保存網頁未做標注）
-      if (data[`saved_${url}`]) {
-        continue;
-      }
-
-      // 3. 孤兒 key → 加入清理計畫
-      const size = new Blob([JSON.stringify({ [key]: value })]).size;
-      plan.items.push({
-        key,
-        url,
-        size,
-        reason: '孤兒資料（無標注且未保存到 Notion）',
-      });
-      plan.spaceFreed += size;
-      plan.orphanHighlights += 1;
-    }
-  }
-
-  /**
-   * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 highlights_ 或 saved_ 記錄
-   *
-   * @param {object} data  storage 完整快照
-   * @param {object} plan  清理計劃（直接修改）
-   * alias 孤兒計入 plan.items 和 plan.spaceFreed，但不計入 plan.orphanHighlights，
-   * 因為 alias key 是內部實作細節，不在用戶可見的清理摘要中單獨列出。
-   * @private
-   */
-  _collectOrphanAliasItems(data, plan) {
-    for (const [key, normUrl] of Object.entries(data)) {
-      if (!key.startsWith(URL_ALIAS_PREFIX)) {
-        continue;
-      }
-
-      // 防衛：alias value 必須是字串才能安全用於 key 查詢
-      if (typeof normUrl !== 'string' || normUrl === '') {
-        continue;
-      }
-
-      // alias value is the normUrl; check if target data still exists
-      if (data[`highlights_${normUrl}`] || data[`saved_${normUrl}`]) {
-        continue;
-      }
-
-      // 孤兒 alias → 加入清理計畫
-      const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
-      plan.items.push({
-        key,
-        url: encodeURIComponent(normUrl),
-        size,
-        reason: '孤兒 URL 別名（目標頁面已無資料）',
-      });
-      plan.spaceFreed += size;
-    }
-  }
-
-  static async checkNotionPageExists(pageId) {
-    try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'checkNotionPageExists',
-        pageId,
-      });
-      return response?.exists === true;
-    } catch (error) {
-      Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
-      return true;
-    }
   }
 
   displayCleanupPreview(plan) {
@@ -880,7 +686,7 @@ export class StorageManager {
   }
 
   async analyzeOptimization() {
-    const plan = await StorageManager.generateOptimizationPlan();
+    const plan = await generateOptimizationPlan();
     this.optimizationPlan = plan;
     this.displayOptimizationPreview(plan);
 
@@ -890,113 +696,6 @@ export class StorageManager {
       }
     } else if (this.elements.executeOptimizationButton) {
       this.elements.executeOptimizationButton.style.display = 'none';
-    }
-  }
-
-  static generateOptimizationPlan() {
-    return new Promise(resolve => {
-      chrome.storage.local.get(null, data => {
-        const plan = {
-          canOptimize: false,
-          originalSize: 0,
-          optimizedSize: 0,
-          spaceSaved: 0,
-          optimizations: [],
-          highlightPages: 0,
-          totalHighlights: 0,
-          keysToRemove: [],
-          optimizedData: {},
-        };
-
-        const originalData = JSON.stringify(data);
-        plan.originalSize = new Blob([originalData]).size;
-
-        // 使用輔助方法分析數據結構
-        StorageManager._analyzeStructureForOptimization(data, plan);
-
-        if (plan.highlightPages > 0 || plan.keysToRemove.length > 0) {
-          const optimizedJson = JSON.stringify(plan.optimizedData);
-          plan.optimizedSize = new Blob([optimizedJson]).size;
-          plan.spaceSaved = plan.originalSize - plan.optimizedSize;
-        }
-
-        resolve(plan);
-      });
-    });
-  }
-
-  /**
-   * 輔助方法：分析存儲數據結構並填充優化計劃
-   *
-   * @param {object} data 存儲數據
-   * @param {object} plan 優化計劃
-   * @private
-   */
-  static _analyzeStructureForOptimization(data, plan) {
-    const stats = {
-      migrationDataSize: 0,
-      migrationKeysCount: 0,
-      emptyHighlightKeys: 0,
-      emptyHighlightSize: 0,
-    };
-
-    for (const [key, value] of Object.entries(data)) {
-      StorageManager._processOptimizationEntry(key, value, plan, stats);
-    }
-
-    if (stats.migrationDataSize > 1024) {
-      const sizeKB = (stats.migrationDataSize / 1024).toFixed(1);
-      plan.optimizations.push(`清理遷移數據（${stats.migrationKeysCount} 項，${sizeKB} KB）`);
-      plan.canOptimize = true;
-    }
-
-    if (stats.emptyHighlightKeys > 0) {
-      const sizeKB = (stats.emptyHighlightSize / 1024).toFixed(1);
-      plan.optimizations.push(`移除空標註紀錄（${stats.emptyHighlightKeys} 項，${sizeKB} KB）`);
-      plan.canOptimize = true;
-    }
-
-    const hasFragmentation = Object.keys(data).some(
-      key => key.startsWith('highlights_') && (!data[key] || !Array.isArray(data[key]))
-    );
-
-    if (hasFragmentation) {
-      plan.optimizations.push('修復數據碎片');
-      plan.canOptimize = true;
-    }
-  }
-
-  /**
-   * 輔助方法：處理單個數據項的優化分析
-   *
-   * @param {string} key 鍵名
-   * @param {any} value 值
-   * @param {object} plan 計劃
-   * @param {object} stats 統計
-   * @private
-   */
-  static _processOptimizationEntry(key, value, plan, stats) {
-    if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-      stats.migrationKeysCount++;
-      const size = new Blob([JSON.stringify({ [key]: value })]).size;
-      stats.migrationDataSize += size;
-      plan.keysToRemove.push(key);
-      return;
-    }
-
-    if (key.startsWith('highlights_')) {
-      const highlightsArray = Array.isArray(value) ? value : value?.highlights;
-      if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
-        plan.highlightPages++;
-        plan.totalHighlights += highlightsArray.length;
-        plan.optimizedData[key] = value;
-      } else {
-        stats.emptyHighlightKeys++;
-        stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-        plan.keysToRemove.push(key);
-      }
-    } else {
-      plan.optimizedData[key] = value;
     }
   }
 
