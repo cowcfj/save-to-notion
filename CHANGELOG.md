@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.43.2](https://github.com/cowcfj/save-to-notion/compare/v2.43.1...v2.43.2) (2026-03-07)
+
+
+### 🐛 Bug 修復
+
+* 修正 release-please 觸發機制並包含先前跳過的變更 ([#334](https://github.com/cowcfj/save-to-notion/issues/334)) ([48550f4](https://github.com/cowcfj/save-to-notion/commit/48550f432a59d0f8f55e84e38908a1391798398c))
+
 ## [2.43.1](https://github.com/cowcfj/save-to-notion/compare/v2.43.0...v2.43.1) (2026-03-07)
 
 ### 🐛 Bug 修復
