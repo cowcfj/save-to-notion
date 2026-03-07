@@ -487,11 +487,17 @@ export class StorageManager {
       }
 
       // 孤兒掃描只在「清理已刪除頁面」啟用時執行：
-      // 因為 _collectOrphanHighlightItems 和 _collectOrphanAliasItems
+      // 因為 orphan cleanup helpers
       // 的掃描結果與頁面刪除清理是同一個操作單元，
       // 讓用戶透過同一個勾選框控制所有「殘留資料」的清理。
-      collectOrphanHighlightItems(data, plan);
-      collectOrphanAliasItems(data, plan);
+      const orphanHighlightResult = collectOrphanHighlightItems(data);
+      plan.items.push(...orphanHighlightResult.items);
+      plan.spaceFreed += orphanHighlightResult.spaceFreedDelta;
+      plan.orphanHighlights += orphanHighlightResult.orphanHighlightsDelta;
+
+      const orphanAliasResult = collectOrphanAliasItems(data);
+      plan.items.push(...orphanAliasResult.items);
+      plan.spaceFreed += orphanAliasResult.spaceFreedDelta;
     } // end of if (cleanDeletedPages)
 
     plan.totalKeys = plan.items.length;

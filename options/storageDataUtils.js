@@ -298,12 +298,18 @@ export async function analyzePageForCleanup(page) {
 
 /**
  * 掃描孤兒 highlights_ key：既無有效標注，也無對應的 saved_ 或 page_* 記錄
- * 這是唯一符合「應刪除」條件的孤兒資料
+ * 這是唯一符合「應刪除」條件的孤兒資料。
  *
  * @param {object} data  storage 完整快照
- * @param {object} plan  清理計劃（直接修改）
+ * @returns {{items: object[], spaceFreedDelta: number, orphanHighlightsDelta: number}}
  */
-export function collectOrphanHighlightItems(data, plan) {
+export function collectOrphanHighlightItems(data) {
+  const result = {
+    items: [],
+    spaceFreedDelta: 0,
+    orphanHighlightsDelta: 0,
+  };
+
   for (const [key, value] of Object.entries(data)) {
     if (!key.startsWith('highlights_')) {
       continue;
@@ -329,26 +335,33 @@ export function collectOrphanHighlightItems(data, plan) {
 
     // 4. 孤兒 key → 加入清理計畫
     const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.items.push({
+    result.items.push({
       key,
       url,
       size,
       reason: '孤兒資料（無標注且未保存到 Notion）',
     });
-    plan.spaceFreed += size;
-    plan.orphanHighlights += 1;
+    result.spaceFreedDelta += size;
+    result.orphanHighlightsDelta += 1;
   }
+
+  return result;
 }
 
 /**
  * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 page_* / highlights_* / saved_* 記錄
- * alias 孤兒計入 plan.items 和 plan.spaceFreed，但不計入 plan.orphanHighlights，
+ * alias 孤兒計入 items 和 spaceFreedDelta，但不計入 orphanHighlightsDelta，
  * 因為 alias key 是內部實作細節，不在用戶可見的清理摘要中單獨列出。
  *
  * @param {object} data  storage 完整快照
- * @param {object} plan  清理計劃（直接修改）
+ * @returns {{items: object[], spaceFreedDelta: number}}
  */
-export function collectOrphanAliasItems(data, plan) {
+export function collectOrphanAliasItems(data) {
+  const result = {
+    items: [],
+    spaceFreedDelta: 0,
+  };
+
   for (const [key, normUrl] of Object.entries(data)) {
     if (!key.startsWith(URL_ALIAS_PREFIX)) {
       continue;
@@ -374,14 +387,16 @@ export function collectOrphanAliasItems(data, plan) {
 
     // 孤兒 alias → 加入清理計畫
     const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
-    plan.items.push({
+    result.items.push({
       key,
       url: encodeURIComponent(normUrl),
       size,
       reason: '孤兒 URL 別名（目標頁面已無資料）',
     });
-    plan.spaceFreed += size;
+    result.spaceFreedDelta += size;
   }
+
+  return result;
 }
 
 // ─── 優化邏輯 ──────────────────────────────────────────────────────────

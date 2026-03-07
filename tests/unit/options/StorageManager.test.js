@@ -1384,24 +1384,25 @@ describe('StorageManager Phase 3 Compatibility', () => {
     });
   });
 
-  // ── 4. _collectOrphanHighlightItems — page_* 孤兒 ──
-  describe('_collectOrphanHighlightItems Phase 3 孤兒識別', () => {
+  // ── 4. collectOrphanHighlightItems — page_* 孤兒 ──
+  describe('collectOrphanHighlightItems Phase 3 孤兒識別', () => {
     test('有對應 page_* 的空 highlights_* 不應視為孤兒', () => {
       const data = {
         'page_example.com': { notion: { pageId: 'p1' }, highlights: [] },
         'highlights_example.com': [],
       };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
-      collectOrphanHighlightItems(data, plan);
-      expect(plan.items).toHaveLength(0);
+      const result = collectOrphanHighlightItems(data);
+      expect(result.items).toHaveLength(0);
+      expect(result.spaceFreedDelta).toBe(0);
+      expect(result.orphanHighlightsDelta).toBe(0);
     });
 
     test('無對應 page_* 且無標注的 highlights_* 應視為孤兒', () => {
       const data = { 'highlights_orphan.com': [] };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
-      collectOrphanHighlightItems(data, plan);
-      expect(plan.items).toHaveLength(1);
-      expect(plan.orphanHighlights).toBe(1);
+      const result = collectOrphanHighlightItems(data);
+      expect(result.items).toHaveLength(1);
+      expect(result.orphanHighlightsDelta).toBe(1);
+      expect(result.spaceFreedDelta).toBeGreaterThan(0);
     });
   });
 
@@ -1412,11 +1413,10 @@ describe('StorageManager Phase 3 Compatibility', () => {
         'url_alias:https://example.com/original': 'https://example.com/stable',
         'page_https://example.com/stable': { notion: { pageId: 'p1' }, highlights: [] },
       };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      const result = collectOrphanAliasItems(data);
 
-      collectOrphanAliasItems(data, plan);
-
-      expect(plan.items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
+      expect(result.spaceFreedDelta).toBe(0);
     });
 
     test('有對應 saved_* 的 url_alias:* 不應視為孤兒', () => {
@@ -1424,11 +1424,9 @@ describe('StorageManager Phase 3 Compatibility', () => {
         'url_alias:https://example.com/original': 'https://example.com/stable',
         'saved_https://example.com/stable': { notionPageId: 'p1' },
       };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      const result = collectOrphanAliasItems(data);
 
-      collectOrphanAliasItems(data, plan);
-
-      expect(plan.items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
     });
 
     test('有對應 highlights_* 的 url_alias:* 不應視為孤兒', () => {
@@ -1436,37 +1434,33 @@ describe('StorageManager Phase 3 Compatibility', () => {
         'url_alias:https://example.com/original': 'https://example.com/stable',
         'highlights_https://example.com/stable': [{ id: 'h1' }],
       };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      const result = collectOrphanAliasItems(data);
 
-      collectOrphanAliasItems(data, plan);
-
-      expect(plan.items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
     });
 
     test('無對應 page_* / saved_* / highlights_* 的 url_alias:* 應視為孤兒', () => {
       const data = {
         'url_alias:https://example.com/original': 'https://example.com/stable',
       };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      const result = collectOrphanAliasItems(data);
 
-      collectOrphanAliasItems(data, plan);
-
-      expect(plan.items).toHaveLength(1);
-      expect(plan.items[0]).toMatchObject({
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
         key: 'url_alias:https://example.com/original',
         reason: '孤兒 URL 別名（目標頁面已無資料）',
       });
+      expect(result.spaceFreedDelta).toBeGreaterThan(0);
     });
 
     test('alias value 非字串時應略過', () => {
       const data = {
         'url_alias:https://example.com/original': { stableUrl: 'https://example.com/stable' },
       };
-      const plan = { items: [], spaceFreed: 0, orphanHighlights: 0 };
+      const result = collectOrphanAliasItems(data);
 
-      collectOrphanAliasItems(data, plan);
-
-      expect(plan.items).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
+      expect(result.spaceFreedDelta).toBe(0);
     });
   });
 
