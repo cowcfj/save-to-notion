@@ -1157,17 +1157,12 @@ export const NextJsExtractor = {
 
     // 遞歸遍歷子 blocks
     if (Array.isArray(model.blocks)) {
-      const texts = [];
-      for (const child of model.blocks) {
-        if (!child || typeof child !== 'object') {
-          continue;
-        }
-        const childText = this._extractBbcText(child.model || child);
-        if (childText) {
-          texts.push(childText);
-        }
-      }
-      return texts.join('');
+      return model.blocks
+        .map(child =>
+          child && typeof child === 'object' ? this._extractBbcText(child.model || child) : ''
+        )
+        .filter(Boolean)
+        .join('');
     }
 
     return '';
