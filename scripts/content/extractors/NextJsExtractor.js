@@ -110,7 +110,7 @@ export const NextJsExtractor = {
       const metadata = {
         title: articleData.title,
         excerpt: articleData.excerpt || articleData.description,
-        byline: articleData.author?.name || articleData.author,
+        byline: articleData.byline || articleData.author?.name || articleData.author,
       };
 
       return {
@@ -295,20 +295,50 @@ export const NextJsExtractor = {
         const result = this._getValueByPath(target, path);
 
         if (result) {
-          const hasBlocks = Array.isArray(result.blocks);
-          const hasContent = typeof result.content === 'string';
-          const hasBody = typeof result.body === 'string';
-          const hasMarkup = typeof result.markup === 'string';
-          const hasStoryAtoms = Array.isArray(result.storyAtoms);
+          const normalizedResult = this._normalizeKnownPathResult(path, result);
+          const hasBlocks = Array.isArray(normalizedResult.blocks);
+          const hasContent = typeof normalizedResult.content === 'string';
+          const hasBody = typeof normalizedResult.body === 'string';
+          const hasMarkup = typeof normalizedResult.markup === 'string';
+          const hasStoryAtoms = Array.isArray(normalizedResult.storyAtoms);
 
           if (hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms) {
             Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
-            return result;
+            return normalizedResult;
           }
         }
       }
     }
     return null;
+  },
+
+  /**
+   * 標準化已知路徑的提取結果，統一回傳 extractor 可消費的文章形狀
+   *
+   * @param {string} path
+   * @param {object} result
+   * @returns {object}
+   */
+  _normalizeKnownPathResult(path, result) {
+    if (path === 'props.pageProps.pageData') {
+      let summary = '';
+
+      if (typeof result.summary === 'string') {
+        summary = result.summary;
+      } else if (typeof result.description === 'string') {
+        summary = result.description;
+      }
+
+      return {
+        ...result,
+        blocks: result.content?.model?.blocks ?? result.blocks ?? [],
+        title: result.title ?? result.promo?.headlines?.seoHeadline ?? '',
+        excerpt: result.excerpt ?? result.description ?? summary,
+        byline: result.byline ?? '',
+      };
+    }
+
+    return result;
   },
 
   /**
@@ -1080,6 +1110,10 @@ export const NextJsExtractor = {
    * @param {Array} result - 收集區塊結果的陣列
    */
   _processSingleBbcBlock(block, result) {
+    if (!block || typeof block !== 'object') {
+      return;
+    }
+
     const { type, model } = block;
 
     if (!type || !model) {
@@ -1222,15 +1256,13 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _buildBbcImageBlock(model) {
-    const BBC_IMAGE_BASE_URL = 'https://ichef.bbci.co.uk/ace/ws';
-    const BBC_DEFAULT_IMAGE_WIDTH = 1024;
     const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
     const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
     const captionBlock = subBlocks.find(blk => blk.type === 'caption');
 
     if (rawImage?.model?.locator && rawImage?.model?.originCode) {
       const { locator, originCode } = rawImage.model;
-      const imageUrl = `${BBC_IMAGE_BASE_URL}/${BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
+      const imageUrl = `${NEXTJS_CONFIG.BBC_IMAGE_BASE_URL}/${NEXTJS_CONFIG.BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
       const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
 
       return {

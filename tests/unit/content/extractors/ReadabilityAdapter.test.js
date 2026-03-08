@@ -676,12 +676,29 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
     );
     const container = doc.querySelector('.lazyload-wrapper');
 
-    prepareLazyImages(doc);
+    const count = prepareLazyImages(doc);
 
-    // lazyload-wrapper 符合 [class*="lazyload"] selector，應被處理
-    expect(container.classList.contains('lazyload-wrapper')).toBe(true); // class 名保留
-    // fixedCount 會增加，但 class 名本身不被移除（只移除 opacity-0）
-    // 這個 container 被處理主要是因為它的子 img 被偵測到
+    expect(container.classList.contains('lazyload-wrapper')).toBe(true);
+    expect(count).toBe(0);
+  });
+
+  test('應該只在實際修改 DOM 時移除 lazyload 與可見性樣式並計數', () => {
+    const doc = new DOMParser().parseFromString(
+      `<html><body>
+        <div class="lazyload hero" style="opacity: 0; visibility: hidden;">
+          <img src="https://example.com/photo.jpg">
+        </div>
+      </body></html>`,
+      'text/html'
+    );
+    const container = doc.querySelector('.hero');
+
+    const count = prepareLazyImages(doc);
+
+    expect(container.classList.contains('lazyload')).toBe(false);
+    expect(container.style.opacity).toBe('');
+    expect(container.style.visibility).toBe('');
+    expect(count).toBe(1);
   });
 
   test('不含 img 的 opacity-0 元素不應被修改（保護非圖片動畫）', () => {

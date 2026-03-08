@@ -12,7 +12,7 @@ export const NEXTJS_CONFIG = {
   // 常見 Next.js 網站的文章數據路徑
   ARTICLE_PATHS: [
     // BBC News (Pages Router, {type, model} 巢狀格式)
-    'props.pageProps.pageData.content.model',
+    'props.pageProps.pageData',
 
     // Yahoo News App Router (RSC format)
     'pageData.pageState.article.data.contentMeta', // Contains storyAtoms
@@ -55,6 +55,10 @@ export const NEXTJS_CONFIG = {
 
   // 最小有效區塊數
   MIN_VALID_BLOCKS: 3,
+
+  // BBC 圖片 CDN 設定
+  BBC_IMAGE_BASE_URL: 'https://ichef.bbci.co.uk/ace/ws',
+  BBC_DEFAULT_IMAGE_WIDTH: 1024,
 
   // [NEW] 啟發式搜索特徵
   HEURISTIC_PATTERNS: {

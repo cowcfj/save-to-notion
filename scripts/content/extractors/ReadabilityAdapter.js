@@ -738,9 +738,33 @@ function prepareLazyImages(doc) {
   const hiddenImageContainers = doc.querySelectorAll('.opacity-0, [class*="lazyload"]');
   hiddenImageContainers.forEach(container => {
     // 只影響含有 <img> 的容器，保留非圖片動畫元素的原始樣式
-    if (container.querySelector('img') || container.tagName === 'IMG') {
+    if (!(container.querySelector('img') || container.tagName === 'IMG')) {
+      return;
+    }
+
+    let changed = false;
+
+    if (container.classList.contains('opacity-0')) {
       container.classList.remove('opacity-0');
-      // 避免使用 style.opacity 覆蓋內聯樣式導致其他效果失效，改以移除 class 為主
+      changed = true;
+    }
+
+    if (container.classList.contains('lazyload')) {
+      container.classList.remove('lazyload');
+      changed = true;
+    }
+
+    if (container.style.opacity) {
+      container.style.opacity = '';
+      changed = true;
+    }
+
+    if (container.style.visibility) {
+      container.style.visibility = '';
+      changed = true;
+    }
+
+    if (changed) {
       fixedCount++;
     }
   });

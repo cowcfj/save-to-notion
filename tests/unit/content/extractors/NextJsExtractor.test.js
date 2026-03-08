@@ -534,6 +534,37 @@ describe('NextJsExtractor', () => {
         'https://ichef.bbci.co.uk/ace/ws/1024/cpsprodpb/a985/live/test-image.jpg.webp'
       );
       expect(result.blocks[3].image.caption[0].text.content).toBe('圖片說明');
+      expect(result.metadata.title).toBe('BBC Test Article');
+    });
+
+    it('頂層 BBC blocks 混入 null 時不應讓整體提取失敗', () => {
+      const bbcBlocks = [
+        { type: 'headline', model: { blocks: [{ model: { text: '文章標題' } }] } },
+        null,
+        {
+          type: 'text',
+          model: {
+            blocks: [{ type: 'paragraph', model: { text: '第一段文字', blocks: [] } }],
+          },
+        },
+        {
+          type: 'text',
+          model: {
+            blocks: [{ type: 'paragraph', model: { text: '第二段文字', blocks: [] } }],
+          },
+        },
+      ];
+
+      const mockJson = buildBbcNextData(bbcBlocks);
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('BBC Test Article');
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].type).toBe('heading_1');
     });
 
     it('byline/relatedContent blocks 應被跳過', () => {
