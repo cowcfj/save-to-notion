@@ -1222,13 +1222,15 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _buildBbcImageBlock(model) {
+    const BBC_IMAGE_BASE_URL = 'https://ichef.bbci.co.uk/ace/ws';
+    const BBC_DEFAULT_IMAGE_WIDTH = 1024;
     const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
     const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
     const captionBlock = subBlocks.find(blk => blk.type === 'caption');
 
     if (rawImage?.model?.locator && rawImage?.model?.originCode) {
       const { locator, originCode } = rawImage.model;
-      const imageUrl = `https://ichef.bbci.co.uk/ace/ws/1024/${originCode}/${locator}.webp`;
+      const imageUrl = `${BBC_IMAGE_BASE_URL}/${BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
       const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
 
       return {
