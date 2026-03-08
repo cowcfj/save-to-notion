@@ -749,8 +749,11 @@ function prepareLazyImages(doc) {
       changed = true;
     }
 
-    if (container.classList.contains('lazyload')) {
-      container.classList.remove('lazyload');
+    const lazyloadClasses = [...container.classList].filter(className =>
+      className.startsWith('lazyload')
+    );
+    if (lazyloadClasses.length > 0) {
+      container.classList.remove(...lazyloadClasses);
       changed = true;
     }
 

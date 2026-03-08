@@ -2,16 +2,25 @@
  * @jest-environment jsdom
  */
 
+import Logger from '../../../../scripts/utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
 import { NEXTJS_CONFIG } from '../../../../scripts/config/extraction.js';
 
 // Mock Logger to avoid cluttering test output
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  info: jest.fn(),
+  __esModule: true,
+  default: {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+  },
+}));
+
+jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
+  sanitizeUrlForLogging: jest.fn(url => (url == null ? '[empty-url]' : `safe:${url}`)),
 }));
 
 describe('NextJsExtractor', () => {
@@ -68,6 +77,49 @@ describe('NextJsExtractor', () => {
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+    });
+
+    it('should sanitize SPA navigation warning log context keys', () => {
+      mockDoc.defaultView.location.pathname = '/new-article';
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: { title: 'Old Article', blocks: [] } } } },
+        asPath: '/old-article',
+        page: '/article',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+
+      expect(Logger.warn).toHaveBeenCalledWith('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
+        action: '_validatePagesRouterData',
+        page: sanitizeUrlForLogging(mockJson.page),
+        asPath: sanitizeUrlForLogging(mockJson.asPath),
+        currentPath: sanitizeUrlForLogging(mockDoc.defaultView.location.pathname),
+      });
+    });
+
+    it('should sanitize SPA home-page log context keys with the same shape', () => {
+      mockDoc.defaultView.location.pathname = '/news/article';
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: { title: 'Home payload', blocks: [] } } } },
+        asPath: '/',
+        page: '/',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+
+      expect(Logger.info).toHaveBeenCalledWith(
+        'SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取',
+        {
+          action: '_validatePagesRouterData',
+          page: sanitizeUrlForLogging(mockJson.page),
+          asPath: sanitizeUrlForLogging(mockJson.asPath),
+          currentPath: sanitizeUrlForLogging(mockDoc.defaultView.location.pathname),
+        }
+      );
     });
 
     it('should extract normally when asPath matches current URL', () => {
@@ -457,6 +509,11 @@ describe('NextJsExtractor', () => {
       expect(NextJsExtractor._isBbcFormat(bbcBlocks)).toBe(true);
     });
 
+    it('_isBbcFormat: 首項為 null 時仍應識別後續 BBC block', () => {
+      const bbcBlocks = [null, { type: 'paragraph', model: { text: 'hello' } }];
+      expect(NextJsExtractor._isBbcFormat(bbcBlocks)).toBe(true);
+    });
+
     it('_isBbcFormat: 應拒絕標準 {blockType, text} 格式', () => {
       const standardBlocks = [{ blockType: 'paragraph', text: 'hello' }];
       expect(NextJsExtractor._isBbcFormat(standardBlocks)).toBe(false);
@@ -537,10 +594,10 @@ describe('NextJsExtractor', () => {
       expect(result.metadata.title).toBe('BBC Test Article');
     });
 
-    it('頂層 BBC blocks 混入 null 時不應讓整體提取失敗', () => {
+    it('頂層 BBC blocks 首項為 null 時不應讓整體提取失敗', () => {
       const bbcBlocks = [
-        { type: 'headline', model: { blocks: [{ model: { text: '文章標題' } }] } },
         null,
+        { type: 'headline', model: { blocks: [{ model: { text: '文章標題' } }] } },
         {
           type: 'text',
           model: {

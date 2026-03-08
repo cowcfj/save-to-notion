@@ -15,6 +15,7 @@ import {
   NEXTJS_CONFIG,
 } from '../../config/extraction.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 export const NextJsExtractor = {
   /**
@@ -170,25 +171,24 @@ export const NextJsExtractor = {
    */
   _validatePagesRouterData(rawData, doc) {
     const currentPath = doc.defaultView?.location?.pathname;
+    const logContext = {
+      action: '_validatePagesRouterData',
+      page: sanitizeUrlForLogging(rawData?.page),
+      asPath: sanitizeUrlForLogging(rawData?.asPath),
+      currentPath: sanitizeUrlForLogging(currentPath),
+    };
 
     // [診斷] 當 __NEXT_DATA__.page 為首頁 "/" 但當前路徑是文章頁時，
     // 代表使用者是從首頁透過 SPA 導航進入的，__NEXT_DATA__ 僅含首頁資料。
     // 這不是錯誤，只需記錄日誌讓回退機制接手即可。
     if (rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/') {
-      Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', {
-        action: '_validatePagesRouterData',
-        page: rawData.page,
-        currentPath,
-      });
+      Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', logContext);
       return false;
     }
 
     // 1. asPath 檢查 (如果有的話)
     if (rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
-      Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
-        asPath: rawData.asPath,
-        currentPath,
-      });
+      Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', logContext);
       return false;
     }
     return true;
@@ -1047,14 +1047,14 @@ export const NextJsExtractor = {
    * @returns {boolean}
    */
   _isBbcFormat(blocks) {
-    const first = blocks[0];
-    return (
-      first != null &&
-      typeof first === 'object' &&
-      typeof first.type === 'string' &&
-      first.model != null &&
-      typeof first.model === 'object' &&
-      !first.blockType // 確保不是已知標準格式
+    return blocks.some(
+      block =>
+        block != null &&
+        typeof block === 'object' &&
+        typeof block.type === 'string' &&
+        block.model != null &&
+        typeof block.model === 'object' &&
+        !block.blockType
     );
   },
 

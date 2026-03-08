@@ -665,7 +665,7 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
     expect(container.classList.contains('opacity-0')).toBe(false);
   });
 
-  test('應該移除含有 img 的 lazyload class 容器', () => {
+  test('應該移除含有 img 的 lazyload-* class 容器', () => {
     const doc = new DOMParser().parseFromString(
       `<html><body>
         <div class="lazyload-wrapper">
@@ -678,8 +678,8 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
 
     const count = prepareLazyImages(doc);
 
-    expect(container.classList.contains('lazyload-wrapper')).toBe(true);
-    expect(count).toBe(0);
+    expect(container.classList.contains('lazyload-wrapper')).toBe(false);
+    expect(count).toBe(1);
   });
 
   test('應該只在實際修改 DOM 時移除 lazyload 與可見性樣式並計數', () => {
