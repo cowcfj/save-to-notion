@@ -20,6 +20,7 @@ export default {
       terser({
         compress: {
           drop_debugger: true, // 移除 debugger
+          passes: 2,
           pure_funcs: [
             // 移除特定除錯與日誌函式，保留 warn/error/info
             'console.log',

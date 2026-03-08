@@ -56,10 +56,6 @@ export const NEXTJS_CONFIG = {
   // 最小有效區塊數
   MIN_VALID_BLOCKS: 3,
 
-  // BBC 圖片 CDN 設定
-  BBC_IMAGE_BASE_URL: 'https://ichef.bbci.co.uk/ace/ws',
-  BBC_DEFAULT_IMAGE_WIDTH: 1024,
-
   // [NEW] 啟發式搜索特徵
   HEURISTIC_PATTERNS: {
     // 用於驗證內容是否有效的欄位 (OR 邏輯 - 滿足其一即可)
@@ -93,6 +89,8 @@ export const NEXTJS_CONFIG = {
 
 export const OG_IMAGE_SELECTOR = 'meta[property="og:image"]';
 export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
+export const BBC_IMAGE_BASE_URL = 'https://ichef.bbci.co.uk/ace/ws';
+export const BBC_DEFAULT_IMAGE_WIDTH = 1024;
 
 // ==========================================
 // 封面圖選擇器 (原 selectors.js)

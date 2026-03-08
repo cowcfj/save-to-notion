@@ -9,7 +9,11 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { NEXTJS_CONFIG } from '../../config/extraction.js';
+import {
+  BBC_DEFAULT_IMAGE_WIDTH,
+  BBC_IMAGE_BASE_URL,
+  NEXTJS_CONFIG,
+} from '../../config/extraction.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 export const NextJsExtractor = {
@@ -108,8 +112,8 @@ export const NextJsExtractor = {
       // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
       // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
       const metadata = {
-        title: articleData.title,
-        excerpt: articleData.excerpt || articleData.description,
+        title: articleData.title || articleData.promo?.headlines?.seoHeadline,
+        excerpt: articleData.excerpt || articleData.description || articleData.summary,
         byline: articleData.byline || articleData.author?.name || articleData.author,
       };
 
@@ -197,7 +201,7 @@ export const NextJsExtractor = {
    * @returns {Array} blocks
    */
   _processArticleContent(articleData) {
-    const rawBlocks = [...(articleData.blocks || [])];
+    const rawBlocks = [...(articleData.blocks || articleData.content?.model?.blocks || [])];
 
     // [BBC] 偵測 BBC {type, model} 巢狀格式，使用專用轉換器
     if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
@@ -295,50 +299,21 @@ export const NextJsExtractor = {
         const result = this._getValueByPath(target, path);
 
         if (result) {
-          const normalizedResult = this._normalizeKnownPathResult(path, result);
-          const hasBlocks = Array.isArray(normalizedResult.blocks);
-          const hasContent = typeof normalizedResult.content === 'string';
-          const hasBody = typeof normalizedResult.body === 'string';
-          const hasMarkup = typeof normalizedResult.markup === 'string';
-          const hasStoryAtoms = Array.isArray(normalizedResult.storyAtoms);
+          const hasBlocks =
+            Array.isArray(result.blocks) || Array.isArray(result.content?.model?.blocks);
+          const hasContent = typeof result.content === 'string';
+          const hasBody = typeof result.body === 'string';
+          const hasMarkup = typeof result.markup === 'string';
+          const hasStoryAtoms = Array.isArray(result.storyAtoms);
 
           if (hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms) {
             Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
-            return normalizedResult;
+            return result;
           }
         }
       }
     }
     return null;
-  },
-
-  /**
-   * 標準化已知路徑的提取結果，統一回傳 extractor 可消費的文章形狀
-   *
-   * @param {string} path
-   * @param {object} result
-   * @returns {object}
-   */
-  _normalizeKnownPathResult(path, result) {
-    if (path === 'props.pageProps.pageData') {
-      let summary = '';
-
-      if (typeof result.summary === 'string') {
-        summary = result.summary;
-      } else if (typeof result.description === 'string') {
-        summary = result.description;
-      }
-
-      return {
-        ...result,
-        blocks: result.content?.model?.blocks ?? result.blocks ?? [],
-        title: result.title ?? result.promo?.headlines?.seoHeadline ?? '',
-        excerpt: result.excerpt ?? result.description ?? summary,
-        byline: result.byline ?? '',
-      };
-    }
-
-    return result;
   },
 
   /**
@@ -1262,7 +1237,7 @@ export const NextJsExtractor = {
 
     if (rawImage?.model?.locator && rawImage?.model?.originCode) {
       const { locator, originCode } = rawImage.model;
-      const imageUrl = `${NEXTJS_CONFIG.BBC_IMAGE_BASE_URL}/${NEXTJS_CONFIG.BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
+      const imageUrl = `${BBC_IMAGE_BASE_URL}/${BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
       const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
 
       return {
