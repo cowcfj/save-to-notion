@@ -171,11 +171,12 @@ export const NextJsExtractor = {
    */
   _validatePagesRouterData(rawData, doc) {
     const currentPath = doc.defaultView?.location?.pathname;
+    const currentOrigin = doc.defaultView?.location?.origin;
     const logContext = {
       action: '_validatePagesRouterData',
-      page: sanitizeUrlForLogging(rawData?.page),
-      asPath: sanitizeUrlForLogging(rawData?.asPath),
-      currentPath: sanitizeUrlForLogging(currentPath),
+      page: sanitizeUrlForLogging(rawData?.page, currentOrigin),
+      asPath: sanitizeUrlForLogging(rawData?.asPath, currentOrigin),
+      currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
     };
 
     // [診斷] 當 __NEXT_DATA__.page 為首頁 "/" 但當前路徑是文章頁時，
@@ -201,7 +202,7 @@ export const NextJsExtractor = {
    * @returns {Array} blocks
    */
   _processArticleContent(articleData) {
-    const rawBlocks = [...(articleData.blocks || articleData.content?.model?.blocks || [])];
+    const rawBlocks = [...this._getStructuredContentBlocks(articleData)];
 
     // [BBC] 偵測 BBC {type, model} 巢狀格式，使用專用轉換器
     if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
@@ -216,30 +217,8 @@ export const NextJsExtractor = {
       articleData.storyAtoms.length > 0
     ) {
       blocks = this._convertStoryAtoms(articleData.storyAtoms);
-    }
-    // [NEW] 處理 Yahoo 風格的 body/markup 內容 (如果沒有標準 blocks 且沒有 storyAtoms)
-    else if (rawBlocks.length === 0) {
-      if (articleData.body && typeof articleData.body === 'string') {
-        const formattedBody = articleData.body
-          .replaceAll(/<\/p>/gi, '\n\n')
-          .replaceAll(/<br\s*\/?>/gi, '\n')
-          .trim();
-
-        rawBlocks.push({
-          blockType: 'paragraph',
-          text: formattedBody,
-        });
-      } else if (articleData.markup && typeof articleData.markup === 'string') {
-        const formattedMarkup = articleData.markup
-          .replaceAll(/<\/p>/gi, '\n\n')
-          .replaceAll(/<br\s*\/?>/gi, '\n')
-          .trim();
-
-        rawBlocks.push({
-          blockType: 'paragraph',
-          text: formattedMarkup,
-        });
-      }
+    } else if (rawBlocks.length === 0) {
+      this._appendYahooBodyOrMarkupBlock(articleData, rawBlocks);
     }
 
     // 如果 blocks 尚未生成（即不是 storyAtoms），則處理 rawBlocks
@@ -256,6 +235,49 @@ export const NextJsExtractor = {
     }
 
     return blocks;
+  },
+
+  /**
+   * 取得結構化內容 block 來源，優先使用非空 blocks，否則回退到巢狀 content.model.blocks
+   *
+   * @param {object} articleData
+   * @returns {Array}
+   */
+  _getStructuredContentBlocks(articleData) {
+    if (Array.isArray(articleData.blocks) && articleData.blocks.length > 0) {
+      return articleData.blocks;
+    }
+
+    return articleData.content?.model?.blocks || [];
+  },
+
+  /**
+   * 將 Yahoo 風格的 body/markup 內容轉為暫存 raw block
+   *
+   * @param {object} articleData
+   * @param {Array} rawBlocks
+   * @returns {void}
+   */
+  _appendYahooBodyOrMarkupBlock(articleData, rawBlocks) {
+    let textContent = '';
+
+    if (typeof articleData.body === 'string') {
+      textContent = articleData.body;
+    } else if (typeof articleData.markup === 'string') {
+      textContent = articleData.markup;
+    }
+
+    if (!textContent) {
+      return;
+    }
+
+    rawBlocks.push({
+      blockType: 'paragraph',
+      text: textContent
+        .replaceAll(/<\/p>/gi, '\n\n')
+        .replaceAll(/<br\s*\/?>/gi, '\n')
+        .trim(),
+    });
   },
 
   /**

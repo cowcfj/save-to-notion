@@ -20,18 +20,37 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
-  sanitizeUrlForLogging: jest.fn(url => (url == null ? '[empty-url]' : `safe:${url}`)),
+  sanitizeUrlForLogging: jest.fn((url, baseOrigin = 'http://localhost') => {
+    if (url == null || url === '') {
+      return '[empty-url]';
+    }
+
+    const hasScheme = /^[a-zA-Z][\w+.-]*:/.test(url);
+    const isRelative = /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
+
+    if (hasScheme) {
+      return new URL(url).toString();
+    }
+
+    if (isRelative) {
+      return new URL(url, baseOrigin || 'http://localhost').toString();
+    }
+
+    return '[invalid-url]';
+  }),
 }));
 
 describe('NextJsExtractor', () => {
   let mockDoc;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockDoc = {
       getElementById: jest.fn(),
       querySelector: jest.fn(),
       querySelectorAll: jest.fn().mockReturnValue([]),
-      defaultView: { location: { pathname: '/' } },
+      defaultView: { location: { origin: 'https://example.com', pathname: '/' } },
     };
   });
 
@@ -93,9 +112,12 @@ describe('NextJsExtractor', () => {
 
       expect(Logger.warn).toHaveBeenCalledWith('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
         action: '_validatePagesRouterData',
-        page: sanitizeUrlForLogging(mockJson.page),
-        asPath: sanitizeUrlForLogging(mockJson.asPath),
-        currentPath: sanitizeUrlForLogging(mockDoc.defaultView.location.pathname),
+        page: sanitizeUrlForLogging(mockJson.page, mockDoc.defaultView.location.origin),
+        asPath: sanitizeUrlForLogging(mockJson.asPath, mockDoc.defaultView.location.origin),
+        currentPath: sanitizeUrlForLogging(
+          mockDoc.defaultView.location.pathname,
+          mockDoc.defaultView.location.origin
+        ),
       });
     });
 
@@ -115,9 +137,12 @@ describe('NextJsExtractor', () => {
         'SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取',
         {
           action: '_validatePagesRouterData',
-          page: sanitizeUrlForLogging(mockJson.page),
-          asPath: sanitizeUrlForLogging(mockJson.asPath),
-          currentPath: sanitizeUrlForLogging(mockDoc.defaultView.location.pathname),
+          page: sanitizeUrlForLogging(mockJson.page, mockDoc.defaultView.location.origin),
+          asPath: sanitizeUrlForLogging(mockJson.asPath, mockDoc.defaultView.location.origin),
+          currentPath: sanitizeUrlForLogging(
+            mockDoc.defaultView.location.pathname,
+            mockDoc.defaultView.location.origin
+          ),
         }
       );
     });
@@ -613,6 +638,46 @@ describe('NextJsExtractor', () => {
       ];
 
       const mockJson = buildBbcNextData(bbcBlocks);
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('BBC Test Article');
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].type).toBe('heading_1');
+    });
+
+    it('articleData.blocks 為空陣列時應回退使用 content.model.blocks 的 BBC 內容', () => {
+      const bbcBlocks = [
+        { type: 'headline', model: { blocks: [{ model: { text: '文章標題' } }] } },
+        {
+          type: 'text',
+          model: {
+            blocks: [{ type: 'paragraph', model: { text: '第一段文字', blocks: [] } }],
+          },
+        },
+        {
+          type: 'text',
+          model: {
+            blocks: [{ type: 'paragraph', model: { text: '第二段文字', blocks: [] } }],
+          },
+        },
+      ];
+
+      const mockJson = {
+        props: {
+          pageProps: {
+            pageData: {
+              blocks: [],
+              content: { model: { blocks: bbcBlocks } },
+              promo: { headlines: { seoHeadline: 'BBC Test Article' } },
+            },
+          },
+        },
+      };
+
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       mockDoc.querySelectorAll.mockReturnValue([]);
 

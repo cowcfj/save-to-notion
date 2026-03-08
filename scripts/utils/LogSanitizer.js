@@ -138,15 +138,34 @@ function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LAB
  * - 移除 fragment (#hash)
  *
  * @param {string} url - 原始 URL
+ * @param {string} [baseOrigin='http://localhost'] - 相對路徑解析基底
  * @returns {string} 清理後的 URL
  */
-export function sanitizeUrlForLogging(url) {
+const LOG_FALLBACK_BASE_ORIGIN = 'http://localhost';
+
+export function sanitizeUrlForLogging(url, baseOrigin = LOG_FALLBACK_BASE_ORIGIN) {
   if (!url || typeof url !== 'string') {
     return '[empty-url]';
   }
 
+  const hasScheme = /^[a-zA-Z][\w+.-]*:/.test(url);
+  const isRelativePath = /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
+
   try {
-    const urlObj = new URL(url);
+    if (!hasScheme && !isRelativePath) {
+      return '[invalid-url]';
+    }
+
+    let safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
+    if (!hasScheme) {
+      try {
+        safeBaseOrigin = new URL(baseOrigin).origin;
+      } catch {
+        safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
+      }
+    }
+
+    const urlObj = hasScheme ? new URL(url) : new URL(url, safeBaseOrigin);
     // 移除 URL userinfo 防止認證資訊洩漏
     urlObj.username = '';
     urlObj.password = '';
