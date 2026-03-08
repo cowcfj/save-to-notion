@@ -1193,6 +1193,9 @@ export const NextJsExtractor = {
     const result = [];
     const paragraphs = Array.isArray(model.blocks) ? model.blocks : [];
     for (const para of paragraphs) {
+      if (!para || typeof para !== 'object') {
+        continue;
+      }
       if (para.type === 'paragraph' || para.type === 'introduction') {
         const paraText = this._extractBbcText(para.model || {});
         if (paraText) {

@@ -582,6 +582,64 @@ describe('NextJsExtractor', () => {
       // 轉換後 0 blocks < 3 → 應回傳 null
       expect(result).toBeNull();
     });
+
+    it('邊界測試：無效或空內容的處理 (分支覆蓋率)', () => {
+      const bbcBlocks = [
+        // 缺少 type 或 model 的 block
+        { type: 'paragraph' },
+        { model: { text: 'test' } },
+        // 空 headline
+        { type: 'headline', model: {} },
+        // 空 subheadline
+        { type: 'subheadline', model: { blocks: [] } },
+        // 即使是 text block 沒內容也不產生 blocks
+        { type: 'text', model: { blocks: [{ type: 'paragraph', model: {} }] } },
+        // 缺少圖片必要屬性的 image
+        { type: 'image', model: { blocks: [{ type: 'rawImage', model: {} }] } },
+        // 新增：涵蓋 _extractBbcText model !object (line 1140)
+        { type: 'headline', model: null },
+        // 新增：涵蓋 subheadline 正常提取 (line 1091)
+        {
+          type: 'subheadline',
+          model: { blocks: [{ type: 'paragraph', model: { text: 'Sub Heading Text' } }] },
+        },
+        // 新增：涵蓋 _extractBbcText child !object (line 1153)
+        {
+          type: 'text',
+          model: {
+            blocks: [null, 'string-is-not-object', { type: 'paragraph', model: { text: '' } }],
+          },
+        },
+        // 新增：涵蓋 switch-case 略過區塊的邏輯 (line 1110)
+        { type: 'byline', model: {} },
+        // 未知類型的 fallback block: 成功提取 fallback 文字
+        { type: 'unknown_type', model: { text: 'fallback_text' } },
+        // 未知類型的 fallback block: 提取不出文字
+        { type: 'unknown_empty', model: {} },
+      ];
+
+      // 只靠以上可能產出 1 個 block，不足品質門檻(3)，所以我們再加個有效片段
+      const validBlocks = [
+        { type: 'text', model: { blocks: [{ type: 'paragraph', model: { text: 'para 1' } }] } },
+        { type: 'text', model: { blocks: [{ type: 'paragraph', model: { text: 'para 2' } }] } },
+      ];
+
+      const mockJson = buildBbcNextData([...validBlocks, ...bbcBlocks]);
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      // 1 個來自 fallback_text, 1 個來自 subheadline, 2 個來自 para 1/2
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(4);
+      const texts = result.blocks.map(
+        b => b.paragraph?.rich_text[0]?.text?.content || b.heading_2?.rich_text[0]?.text?.content
+      );
+      expect(texts).toContain('fallback_text');
+      expect(texts).toContain('Sub Heading Text');
+      expect(texts).toContain('para 1');
+      expect(texts).toContain('para 2');
+    });
   });
 
   describe('convertBlocks', () => {
