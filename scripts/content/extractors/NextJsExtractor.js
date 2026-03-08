@@ -1057,115 +1057,73 @@ export const NextJsExtractor = {
    */
   _convertBbcBlocks(blocks) {
     const result = [];
-
     for (const block of blocks) {
-      const { type, model } = block;
+      this._processSingleBbcBlock(block, result);
+    }
+    return result;
+  },
 
-      if (!type || !model) {
-        continue;
-      }
+  /**
+   * 處理單一 BBC Block，將轉碼結果附加到 result 陣列中
+   *
+   * @param {object} block - 單一 block 物件
+   * @param {Array} result - 收集區塊結果的陣列
+   */
+  _processSingleBbcBlock(block, result) {
+    const { type, model } = block;
 
-      switch (type) {
-        case 'headline': {
-          const text = this._extractBbcText(model);
-          if (text) {
-            result.push({
-              object: 'block',
-              type: 'heading_1',
-              heading_1: { rich_text: this._createRichTextChunks(text) },
-            });
-          }
-          break;
-        }
-
-        case 'subheadline': {
-          const text = this._extractBbcText(model);
-          if (text) {
-            result.push({
-              object: 'block',
-              type: 'heading_2',
-              heading_2: { rich_text: this._createRichTextChunks(text) },
-            });
-          }
-          break;
-        }
-
-        case 'text': {
-          // text block 的 model.blocks 包含多個 paragraph
-          const paragraphs = Array.isArray(model.blocks) ? model.blocks : [];
-          for (const para of paragraphs) {
-            if (para.type === 'paragraph' || para.type === 'introduction') {
-              const paraText = this._extractBbcText(para.model || {});
-              if (paraText) {
-                result.push({
-                  object: 'block',
-                  type: 'paragraph',
-                  paragraph: { rich_text: this._createRichTextChunks(paraText) },
-                });
-              }
-            }
-          }
-          break;
-        }
-
-        case 'image': {
-          // 找 rawImage 子 block
-          const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
-          const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
-          const captionBlock = subBlocks.find(blk => blk.type === 'caption');
-
-          if (rawImage?.model?.locator && rawImage?.model?.originCode) {
-            const { locator, originCode } = rawImage.model;
-            const imageUrl = `https://ichef.bbci.co.uk/ace/ws/1024/${originCode}/${locator}.webp`;
-            const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
-
-            result.push({
-              object: 'block',
-              type: 'image',
-              image: {
-                type: 'external',
-                external: { url: imageUrl },
-                caption: captionText ? this._createRichTextChunks(captionText) : [],
-              },
-            });
-          }
-          break;
-        }
-
-        // 跳過頁面雜訊 block 類型
-        case 'byline': {
-          break;
-        }
-        case 'relatedContent': {
-          break;
-        }
-        case 'wsoj': {
-          break;
-        }
-        case 'include': {
-          break;
-        }
-        case 'social-embed': {
-          break;
-        }
-
-        default: {
-          // 嘗試通用文字提取（作為安全網）
-          if (model.blocks || model.text) {
-            const fallbackText = this._extractBbcText(model);
-            if (fallbackText) {
-              result.push({
-                object: 'block',
-                type: 'paragraph',
-                paragraph: { rich_text: this._createRichTextChunks(fallbackText) },
-              });
-            }
-          }
-        }
-      }
+    if (!type || !model) {
+      return;
     }
 
-    return result;
+    switch (type) {
+      case 'headline': {
+        const h1Block = this._buildBbcHeadingBlock(model, false);
+        if (h1Block) {
+          result.push(h1Block);
+        }
+        break;
+      }
+
+      case 'subheadline': {
+        const h2Block = this._buildBbcHeadingBlock(model, true);
+        if (h2Block) {
+          result.push(h2Block);
+        }
+        break;
+      }
+
+      case 'text': {
+        result.push(...this._buildBbcTextBlocks(model));
+        break;
+      }
+
+      case 'image': {
+        const imgBlock = this._buildBbcImageBlock(model);
+        if (imgBlock) {
+          result.push(imgBlock);
+        }
+        break;
+      }
+
+      // 跳過頁面雜訊 block 類型
+      case 'byline':
+      case 'relatedContent':
+      case 'wsoj':
+      case 'include':
+      case 'social-embed': {
+        break;
+      }
+
+      default: {
+        // 嘗試通用文字提取（作為安全網）
+        const fallbackBlock = this._buildBbcFallbackBlock(model);
+        if (fallbackBlock) {
+          result.push(fallbackBlock);
+        }
+        break;
+      }
+    }
   },
 
   /**
@@ -1203,5 +1161,98 @@ export const NextJsExtractor = {
     }
 
     return '';
+  },
+
+  /**
+   * 建立 BBC Heading (H1 / H2) Block
+   *
+   * @param {object} model
+   * @param {boolean} isSubheading
+   * @returns {object|null}
+   */
+  _buildBbcHeadingBlock(model, isSubheading) {
+    const text = this._extractBbcText(model);
+    if (!text) {
+      return null;
+    }
+    const blockType = isSubheading ? 'heading_2' : 'heading_1';
+    return {
+      object: 'block',
+      type: blockType,
+      [blockType]: { rich_text: this._createRichTextChunks(text) },
+    };
+  },
+
+  /**
+   * 建立 BBC Text Blocks (可能有多個 Paragraphs)
+   *
+   * @param {object} model
+   * @returns {Array}
+   */
+  _buildBbcTextBlocks(model) {
+    const result = [];
+    const paragraphs = Array.isArray(model.blocks) ? model.blocks : [];
+    for (const para of paragraphs) {
+      if (para.type === 'paragraph' || para.type === 'introduction') {
+        const paraText = this._extractBbcText(para.model || {});
+        if (paraText) {
+          result.push({
+            object: 'block',
+            type: 'paragraph',
+            paragraph: { rich_text: this._createRichTextChunks(paraText) },
+          });
+        }
+      }
+    }
+    return result;
+  },
+
+  /**
+   * 建立 BBC Image Block
+   *
+   * @param {object} model
+   * @returns {object|null}
+   */
+  _buildBbcImageBlock(model) {
+    const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
+    const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
+    const captionBlock = subBlocks.find(blk => blk.type === 'caption');
+
+    if (rawImage?.model?.locator && rawImage?.model?.originCode) {
+      const { locator, originCode } = rawImage.model;
+      const imageUrl = `https://ichef.bbci.co.uk/ace/ws/1024/${originCode}/${locator}.webp`;
+      const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
+
+      return {
+        object: 'block',
+        type: 'image',
+        image: {
+          type: 'external',
+          external: { url: imageUrl },
+          caption: captionText ? this._createRichTextChunks(captionText) : [],
+        },
+      };
+    }
+    return null;
+  },
+
+  /**
+   * 建立 BBC 通用 Fallback Text Block
+   *
+   * @param {object} model
+   * @returns {object|null}
+   */
+  _buildBbcFallbackBlock(model) {
+    if (model.blocks || model.text) {
+      const fallbackText = this._extractBbcText(model);
+      if (fallbackText) {
+        return {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: this._createRichTextChunks(fallbackText) },
+        };
+      }
+    }
+    return null;
   },
 };
