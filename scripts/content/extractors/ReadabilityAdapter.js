@@ -732,6 +732,46 @@ function prepareLazyImages(doc) {
     }
   });
 
+  // 移除 CSS 可見性遮蔽：處理使用 opacity-0 / lazyload class 隱藏圖片的容器
+  // 部分網站（如 HK01、使用 Tailwind CSS）透過 opacity:0 延遲顯示圖片，而非 data-src
+  // Readability 的評分演算法會忽略這些視覺上不可見的圖片容器
+  const hiddenImageContainers = doc.querySelectorAll('.opacity-0, [class*="lazyload"]');
+  hiddenImageContainers.forEach(container => {
+    // 只影響含有 <img> 的容器，保留非圖片動畫元素的原始樣式
+    if (!(container.querySelector('img') || container.tagName === 'IMG')) {
+      return;
+    }
+
+    let changed = false;
+
+    if (container.classList.contains('opacity-0')) {
+      container.classList.remove('opacity-0');
+      changed = true;
+    }
+
+    const lazyloadClasses = [...container.classList].filter(className =>
+      className.startsWith('lazyload')
+    );
+    if (lazyloadClasses.length > 0) {
+      container.classList.remove(...lazyloadClasses);
+      changed = true;
+    }
+
+    if (container.style.opacity) {
+      container.style.opacity = '';
+      changed = true;
+    }
+
+    if (container.style.visibility) {
+      container.style.visibility = '';
+      changed = true;
+    }
+
+    if (changed) {
+      fixedCount++;
+    }
+  });
+
   if (fixedCount > 0) {
     Logger.log('懶加載圖片預處理完成', {
       action: 'prepareLazyImages',

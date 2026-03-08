@@ -491,6 +491,25 @@ describe('LogSanitizer', () => {
       expect(sanitized).toContain('author=alice');
       expect(sanitized).toContain('keep=1');
     });
+
+    test('sanitizeUrlForLogging 應將相對路徑依 baseOrigin 轉成完整 URL', () => {
+      const sanitized = sanitizeUrlForLogging(
+        '/news/article?utm_source=fb&page=2#section',
+        'https://example.com'
+      );
+
+      expect(sanitized).toBe('https://example.com/news/article?page=2');
+    });
+
+    test('sanitizeUrlForLogging 應在缺少 baseOrigin 時用 localhost 解析相對路徑', () => {
+      const sanitized = sanitizeUrlForLogging('/relative/path?utm_source=fb&keep=1#section');
+
+      expect(sanitized).toBe('http://localhost/relative/path?keep=1');
+    });
+
+    test('sanitizeUrlForLogging 不應把一般非 URL 字串誤判為相對路徑', () => {
+      expect(sanitizeUrlForLogging('not-a-valid-url')).toBe('[invalid-url]');
+    });
   });
 
   describe('URL userinfo 脫敏', () => {

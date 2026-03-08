@@ -9,8 +9,13 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { NEXTJS_CONFIG } from '../../config/extraction.js';
+import {
+  BBC_DEFAULT_IMAGE_WIDTH,
+  BBC_IMAGE_BASE_URL,
+  NEXTJS_CONFIG,
+} from '../../config/extraction.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 export const NextJsExtractor = {
   /**
@@ -96,12 +101,21 @@ export const NextJsExtractor = {
 
       const blocks = this._processArticleContent(articleData);
 
+      // 品質門檻：blocks 數量不足代表格式可能不相容，回退到標準提取
+      if (blocks.length < NEXTJS_CONFIG.MIN_VALID_BLOCKS) {
+        Logger.info(
+          `結構化提取品質不足 (${blocks.length}/${NEXTJS_CONFIG.MIN_VALID_BLOCKS} blocks)，回退到標準提取`,
+          { action, source: extractionSource }
+        );
+        return null;
+      }
+
       // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
       // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
       const metadata = {
-        title: articleData.title,
-        excerpt: articleData.excerpt || articleData.description,
-        byline: articleData.author?.name || articleData.author,
+        title: articleData.title || articleData.promo?.headlines?.seoHeadline,
+        excerpt: articleData.excerpt || articleData.description || articleData.summary,
+        byline: articleData.byline || articleData.author?.name || articleData.author,
       };
 
       return {
@@ -156,16 +170,27 @@ export const NextJsExtractor = {
    * @returns {boolean} true 表示數據有效，false 表示數據已過期
    */
   _validatePagesRouterData(rawData, doc) {
+    const currentPath = doc.defaultView?.location?.pathname;
+    const currentOrigin = doc.defaultView?.location?.origin;
+    const logContext = {
+      action: '_validatePagesRouterData',
+      page: sanitizeUrlForLogging(rawData?.page, currentOrigin),
+      asPath: sanitizeUrlForLogging(rawData?.asPath, currentOrigin),
+      currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
+    };
+
+    // [診斷] 當 __NEXT_DATA__.page 為首頁 "/" 但當前路徑是文章頁時，
+    // 代表使用者是從首頁透過 SPA 導航進入的，__NEXT_DATA__ 僅含首頁資料。
+    // 這不是錯誤，只需記錄日誌讓回退機制接手即可。
+    if (rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/') {
+      Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', logContext);
+      return false;
+    }
+
     // 1. asPath 檢查 (如果有的話)
-    if (rawData?.asPath) {
-      const currentPath = doc.defaultView?.location?.pathname;
-      if (currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
-        Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
-          asPath: rawData.asPath,
-          currentPath,
-        });
-        return false;
-      }
+    if (rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
+      Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', logContext);
+      return false;
     }
     return true;
   },
@@ -177,7 +202,12 @@ export const NextJsExtractor = {
    * @returns {Array} blocks
    */
   _processArticleContent(articleData) {
-    const rawBlocks = [...(articleData.blocks || [])];
+    const rawBlocks = [...this._getStructuredContentBlocks(articleData)];
+
+    // [BBC] 偵測 BBC {type, model} 巢狀格式，使用專用轉換器
+    if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
+      return this._convertBbcBlocks(rawBlocks);
+    }
     let blocks = [];
 
     // [NEW] 優先處理 Yahoo storyAtoms (直接轉換為 Notion Blocks)
@@ -187,30 +217,8 @@ export const NextJsExtractor = {
       articleData.storyAtoms.length > 0
     ) {
       blocks = this._convertStoryAtoms(articleData.storyAtoms);
-    }
-    // [NEW] 處理 Yahoo 風格的 body/markup 內容 (如果沒有標準 blocks 且沒有 storyAtoms)
-    else if (rawBlocks.length === 0) {
-      if (articleData.body && typeof articleData.body === 'string') {
-        const formattedBody = articleData.body
-          .replaceAll(/<\/p>/gi, '\n\n')
-          .replaceAll(/<br\s*\/?>/gi, '\n')
-          .trim();
-
-        rawBlocks.push({
-          blockType: 'paragraph',
-          text: formattedBody,
-        });
-      } else if (articleData.markup && typeof articleData.markup === 'string') {
-        const formattedMarkup = articleData.markup
-          .replaceAll(/<\/p>/gi, '\n\n')
-          .replaceAll(/<br\s*\/?>/gi, '\n')
-          .trim();
-
-        rawBlocks.push({
-          blockType: 'paragraph',
-          text: formattedMarkup,
-        });
-      }
+    } else if (rawBlocks.length === 0) {
+      this._appendYahooBodyOrMarkupBlock(articleData, rawBlocks);
     }
 
     // 如果 blocks 尚未生成（即不是 storyAtoms），則處理 rawBlocks
@@ -227,6 +235,49 @@ export const NextJsExtractor = {
     }
 
     return blocks;
+  },
+
+  /**
+   * 取得結構化內容 block 來源，優先使用非空 blocks，否則回退到巢狀 content.model.blocks
+   *
+   * @param {object} articleData
+   * @returns {Array}
+   */
+  _getStructuredContentBlocks(articleData) {
+    if (Array.isArray(articleData.blocks) && articleData.blocks.length > 0) {
+      return articleData.blocks;
+    }
+
+    return articleData.content?.model?.blocks || [];
+  },
+
+  /**
+   * 將 Yahoo 風格的 body/markup 內容轉為暫存 raw block
+   *
+   * @param {object} articleData
+   * @param {Array} rawBlocks
+   * @returns {void}
+   */
+  _appendYahooBodyOrMarkupBlock(articleData, rawBlocks) {
+    let textContent = '';
+
+    if (typeof articleData.body === 'string') {
+      textContent = articleData.body;
+    } else if (typeof articleData.markup === 'string') {
+      textContent = articleData.markup;
+    }
+
+    if (!textContent) {
+      return;
+    }
+
+    rawBlocks.push({
+      blockType: 'paragraph',
+      text: textContent
+        .replaceAll(/<\/p>/gi, '\n\n')
+        .replaceAll(/<br\s*\/?>/gi, '\n')
+        .trim(),
+    });
   },
 
   /**
@@ -270,7 +321,8 @@ export const NextJsExtractor = {
         const result = this._getValueByPath(target, path);
 
         if (result) {
-          const hasBlocks = Array.isArray(result.blocks);
+          const hasBlocks =
+            Array.isArray(result.blocks) || Array.isArray(result.content?.model?.blocks);
           const hasContent = typeof result.content === 'string';
           const hasBody = typeof result.body === 'string';
           const hasMarkup = typeof result.markup === 'string';
@@ -1007,5 +1059,239 @@ export const NextJsExtractor = {
         caption: this._createRichTextChunks(atom.caption),
       },
     };
+  },
+
+  /**
+   * 偵測是否為 BBC {type, model} 格式
+   * BBC blocks 使用 `type` + `model`，而非 `blockType` + `text`
+   *
+   * @param {Array} blocks
+   * @returns {boolean}
+   */
+  _isBbcFormat(blocks) {
+    return blocks.some(
+      block =>
+        block != null &&
+        typeof block === 'object' &&
+        typeof block.type === 'string' &&
+        block.model != null &&
+        typeof block.model === 'object' &&
+        !block.blockType
+    );
+  },
+
+  /**
+   * 轉換 BBC {type, model} 巢狀 blocks 為 Notion Blocks
+   *
+   * BBC block 類型映射:
+   * - headline/subheadline → heading_1/heading_2
+   * - text → paragraph(s)
+   * - image → image (使用 BBC CDN URL)
+   * - byline/relatedContent/wsoj → 跳過
+   *
+   * @param {Array} blocks - BBC 頂層 blocks 陣列
+   * @returns {Array} Notion blocks
+   */
+  _convertBbcBlocks(blocks) {
+    const result = [];
+    for (const block of blocks) {
+      this._processSingleBbcBlock(block, result);
+    }
+    return result;
+  },
+
+  /**
+   * 處理單一 BBC Block，將轉碼結果附加到 result 陣列中
+   *
+   * @param {object} block - 單一 block 物件
+   * @param {Array} result - 收集區塊結果的陣列
+   */
+  _processSingleBbcBlock(block, result) {
+    if (!block || typeof block !== 'object') {
+      return;
+    }
+
+    const { type, model } = block;
+
+    if (!type || !model) {
+      return;
+    }
+
+    switch (type) {
+      case 'headline': {
+        const h1Block = this._buildBbcHeadingBlock(model, false);
+        if (h1Block) {
+          result.push(h1Block);
+        }
+        break;
+      }
+
+      case 'subheadline': {
+        const h2Block = this._buildBbcHeadingBlock(model, true);
+        if (h2Block) {
+          result.push(h2Block);
+        }
+        break;
+      }
+
+      case 'text': {
+        result.push(...this._buildBbcTextBlocks(model));
+        break;
+      }
+
+      case 'image': {
+        const imgBlock = this._buildBbcImageBlock(model);
+        if (imgBlock) {
+          result.push(imgBlock);
+        }
+        break;
+      }
+
+      // 跳過頁面雜訊 block 類型
+      case 'byline':
+      case 'relatedContent':
+      case 'wsoj':
+      case 'include':
+      case 'social-embed': {
+        break;
+      }
+
+      default: {
+        // 嘗試通用文字提取（作為安全網）
+        const fallbackBlock = this._buildBbcFallbackBlock(model);
+        if (fallbackBlock) {
+          result.push(fallbackBlock);
+        }
+        break;
+      }
+    }
+  },
+
+  /**
+   * 遞歸提取 BBC model 中的純文字
+   *
+   * BBC 文字結構: model → blocks → paragraph/fragment → model.text
+   * 支援多層 model.blocks 巢狀
+   *
+   * @param {object} model - BBC model 物件
+   * @returns {string} 合併後的純文字
+   */
+  _extractBbcText(model) {
+    if (!model || typeof model !== 'object') {
+      return '';
+    }
+
+    // 直接有 text 屬性（fragment 層級）
+    if (typeof model.text === 'string' && model.text.trim()) {
+      return model.text.trim();
+    }
+
+    // 遞歸遍歷子 blocks
+    if (Array.isArray(model.blocks)) {
+      return model.blocks
+        .map(child =>
+          child && typeof child === 'object' ? this._extractBbcText(child.model || child) : ''
+        )
+        .filter(Boolean)
+        .join('');
+    }
+
+    return '';
+  },
+
+  /**
+   * 建立 BBC Heading (H1 / H2) Block
+   *
+   * @param {object} model
+   * @param {boolean} isSubheading
+   * @returns {object|null}
+   */
+  _buildBbcHeadingBlock(model, isSubheading) {
+    const text = this._extractBbcText(model);
+    if (!text) {
+      return null;
+    }
+    const blockType = isSubheading ? 'heading_2' : 'heading_1';
+    return {
+      object: 'block',
+      type: blockType,
+      [blockType]: { rich_text: this._createRichTextChunks(text) },
+    };
+  },
+
+  /**
+   * 建立 BBC Text Blocks (可能有多個 Paragraphs)
+   *
+   * @param {object} model
+   * @returns {Array}
+   */
+  _buildBbcTextBlocks(model) {
+    const result = [];
+    const paragraphs = Array.isArray(model.blocks) ? model.blocks : [];
+    for (const para of paragraphs) {
+      if (!para || typeof para !== 'object') {
+        continue;
+      }
+      if (para.type === 'paragraph' || para.type === 'introduction') {
+        const paraText = this._extractBbcText(para.model || {});
+        if (paraText) {
+          result.push({
+            object: 'block',
+            type: 'paragraph',
+            paragraph: { rich_text: this._createRichTextChunks(paraText) },
+          });
+        }
+      }
+    }
+    return result;
+  },
+
+  /**
+   * 建立 BBC Image Block
+   *
+   * @param {object} model
+   * @returns {object|null}
+   */
+  _buildBbcImageBlock(model) {
+    const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
+    const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
+    const captionBlock = subBlocks.find(blk => blk.type === 'caption');
+
+    if (rawImage?.model?.locator && rawImage?.model?.originCode) {
+      const { locator, originCode } = rawImage.model;
+      const imageUrl = `${BBC_IMAGE_BASE_URL}/${BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
+      const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
+
+      return {
+        object: 'block',
+        type: 'image',
+        image: {
+          type: 'external',
+          external: { url: imageUrl },
+          caption: captionText ? this._createRichTextChunks(captionText) : [],
+        },
+      };
+    }
+    return null;
+  },
+
+  /**
+   * 建立 BBC 通用 Fallback Text Block
+   *
+   * @param {object} model
+   * @returns {object|null}
+   */
+  _buildBbcFallbackBlock(model) {
+    if (model.blocks || model.text) {
+      const fallbackText = this._extractBbcText(model);
+      if (fallbackText) {
+        return {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: this._createRichTextChunks(fallbackText) },
+        };
+      }
+    }
+    return null;
   },
 };

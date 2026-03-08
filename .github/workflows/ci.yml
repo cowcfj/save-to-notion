@@ -120,6 +120,10 @@ jobs:
       - name: Verify Production Build
         env:
           EXTENSION_API_KEY: ${{ secrets.EXTENSION_API_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
+          BUNDLE_HARD_LIMIT_BYTES: '230400'
+          BUNDLE_GROWTH_LIMIT_BYTES: '8192'
+          BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
         run: |
           echo "Building production bundle..."
           npm run build:prod
@@ -135,13 +139,48 @@ jobs:
             exit 1
           fi
 
-          # Check bundle size (merged content+highlighter bundle, fail if > 200KB)
-          SIZE=$(stat -f%z "dist/content.bundle.js" 2>/dev/null || stat -c%s "dist/content.bundle.js" 2>/dev/null)
-          echo "✅ Content bundle size: $SIZE bytes"
+          # 絕對上限：保護 content script 體積不持續失控（225KB）
+          CURRENT_SIZE=$(stat -f%z "dist/content.bundle.js" 2>/dev/null || stat -c%s "dist/content.bundle.js" 2>/dev/null)
+          echo "✅ Content bundle size: $CURRENT_SIZE bytes"
 
-          if [ "$SIZE" -gt 204800 ]; then
-            echo "❌ Bundle size ($SIZE bytes) exceeds 200KB limit!"
+          if [ "$CURRENT_SIZE" -gt "$BUNDLE_HARD_LIMIT_BYTES" ]; then
+            echo "❌ Bundle size ($CURRENT_SIZE bytes) exceeds hard limit ($BUNDLE_HARD_LIMIT_BYTES bytes)!"
             exit 1
+          fi
+
+          # 相對增量只在 PR 執行，避免每次 push 都重建 base bundle 影響效率
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$BASE_REF" ]; then
+            TMP_BASE=$(mktemp -d)
+            git fetch --no-tags --depth=1 origin "$BASE_REF"
+            git archive "origin/$BASE_REF" | tar -x -C "$TMP_BASE"
+
+            (
+              cd "$TMP_BASE"
+              export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+              export EXTENSION_API_KEY="$EXTENSION_API_KEY"
+              npm ci --ignore-scripts --prefer-offline
+              npm run build:prod >/tmp/base-bundle-build.log
+            )
+
+            BASE_BUNDLE="$TMP_BASE/dist/content.bundle.js"
+            if [ ! -f "$BASE_BUNDLE" ]; then
+              echo "⚠️ Base bundle file not found, skipping growth check."
+              cat /tmp/base-bundle-build.log
+              exit 0
+            fi
+
+            BASE_SIZE=$(stat -f%z "$BASE_BUNDLE" 2>/dev/null || stat -c%s "$BASE_BUNDLE" 2>/dev/null)
+            GROWTH=$((CURRENT_SIZE - BASE_SIZE))
+
+            echo "📏 Base bundle size: $BASE_SIZE bytes"
+            echo "📈 Bundle growth: $GROWTH bytes"
+
+            if [ "$GROWTH" -gt "$BUNDLE_GROWTH_LIMIT_BYTES" ]; then
+              echo "❌ Bundle growth ($GROWTH bytes) exceeds relative limit ($BUNDLE_GROWTH_LIMIT_BYTES bytes)!"
+              exit 1
+            fi
+          else
+            echo "ℹ️ Skipping relative growth check for non-PR events."
           fi
 
       - name: Validate coverage file

@@ -11,6 +11,9 @@
 export const NEXTJS_CONFIG = {
   // 常見 Next.js 網站的文章數據路徑
   ARTICLE_PATHS: [
+    // BBC News (Pages Router, {type, model} 巢狀格式)
+    'props.pageProps.pageData',
+
     // Yahoo News App Router (RSC format)
     'pageData.pageState.article.data.contentMeta', // Contains storyAtoms
     'props.pageData.pageState.article.data.contentMeta',
@@ -86,6 +89,8 @@ export const NEXTJS_CONFIG = {
 
 export const OG_IMAGE_SELECTOR = 'meta[property="og:image"]';
 export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
+export const BBC_IMAGE_BASE_URL = 'https://ichef.bbci.co.uk/ace/ws';
+export const BBC_DEFAULT_IMAGE_WIDTH = 1024;
 
 // ==========================================
 // 封面圖選擇器 (原 selectors.js)
