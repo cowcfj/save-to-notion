@@ -1044,12 +1044,11 @@ export const NextJsExtractor = {
   _isBbcFormat(blocks) {
     const first = blocks[0];
     return (
-      first !== null &&
-      first !== undefined &&
+      first != null &&
       typeof first === 'object' &&
       typeof first.type === 'string' &&
+      first.model != null &&
       typeof first.model === 'object' &&
-      first.model !== null &&
       !first.blockType // 確保不是已知標準格式
     );
   },
