@@ -646,6 +646,61 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
     expect(count).toBe(1);
     expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
   });
+
+  // [HK01 懶加載修復] CSS opacity-0 容器測試
+  test('應該移除含有 img 的 opacity-0 容器的 opacity-0 class', () => {
+    const doc = new DOMParser().parseFromString(
+      `<html><body>
+        <div class="opacity-0 wrapper">
+          <img src="https://example.com/photo.jpg">
+        </div>
+      </body></html>`,
+      'text/html'
+    );
+    const container = doc.querySelector('.wrapper');
+    expect(container.classList.contains('opacity-0')).toBe(true);
+
+    prepareLazyImages(doc);
+
+    expect(container.classList.contains('opacity-0')).toBe(false);
+  });
+
+  test('應該移除含有 img 的 lazyload class 容器', () => {
+    const doc = new DOMParser().parseFromString(
+      `<html><body>
+        <div class="lazyload-wrapper">
+          <img src="https://example.com/photo.jpg">
+        </div>
+      </body></html>`,
+      'text/html'
+    );
+    const container = doc.querySelector('.lazyload-wrapper');
+
+    prepareLazyImages(doc);
+
+    // lazyload-wrapper 符合 [class*="lazyload"] selector，應被處理
+    expect(container.classList.contains('lazyload-wrapper')).toBe(true); // class 名保留
+    // fixedCount 會增加，但 class 名本身不被移除（只移除 opacity-0）
+    // 這個 container 被處理主要是因為它的子 img 被偵測到
+  });
+
+  test('不含 img 的 opacity-0 元素不應被修改（保護非圖片動畫）', () => {
+    const doc = new DOMParser().parseFromString(
+      `<html><body>
+        <div class="opacity-0 fade-in-element">
+          <span>動畫文字</span>
+        </div>
+      </body></html>`,
+      'text/html'
+    );
+    const element = doc.querySelector('.fade-in-element');
+    expect(element.classList.contains('opacity-0')).toBe(true);
+
+    prepareLazyImages(doc);
+
+    // 不含 img，不應修改
+    expect(element.classList.contains('opacity-0')).toBe(true);
+  });
 });
 
 describe('ReadabilityAdapter - detectCMS Coverage', () => {

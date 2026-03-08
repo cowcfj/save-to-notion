@@ -165,16 +165,27 @@ export const NextJsExtractor = {
    * @returns {boolean} true 表示數據有效，false 表示數據已過期
    */
   _validatePagesRouterData(rawData, doc) {
+    const currentPath = doc.defaultView?.location?.pathname;
+
+    // [診斷] 當 __NEXT_DATA__.page 為首頁 "/" 但當前路徑是文章頁時，
+    // 代表使用者是從首頁透過 SPA 導航進入的，__NEXT_DATA__ 僅含首頁資料。
+    // 這不是錯誤，只需記錄日誌讓回退機制接手即可。
+    if (rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/') {
+      Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', {
+        action: '_validatePagesRouterData',
+        page: rawData.page,
+        currentPath,
+      });
+      return false;
+    }
+
     // 1. asPath 檢查 (如果有的話)
-    if (rawData?.asPath) {
-      const currentPath = doc.defaultView?.location?.pathname;
-      if (currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
-        Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
-          asPath: rawData.asPath,
-          currentPath,
-        });
-        return false;
-      }
+    if (rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
+      Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
+        asPath: rawData.asPath,
+        currentPath,
+      });
+      return false;
     }
     return true;
   },
