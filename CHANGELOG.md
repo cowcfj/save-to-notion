@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.44.0](https://github.com/cowcfj/save-to-notion/compare/v2.43.2...v2.44.0) (2026-03-08)
+
+
+### ✨ 新功能
+
+* 支援 BBC 文章提取及品質門檻回退機制 ([#339](https://github.com/cowcfj/save-to-notion/issues/339)) ([2b2d3f0](https://github.com/cowcfj/save-to-notion/commit/2b2d3f0345ebff26eca98ec0d0ce726c16d56ec6))
+
+
+### 👷 建置與 CI
+
+* **deps-dev:** bump @rollup/plugin-terser from 0.4.4 to 1.0.0 ([#337](https://github.com/cowcfj/save-to-notion/issues/337)) ([7caa7ff](https://github.com/cowcfj/save-to-notion/commit/7caa7ffec4ab6fa328fb4c693da941a29b3edad4))
+
 ## [2.43.2](https://github.com/cowcfj/save-to-notion/compare/v2.43.1...v2.43.2) (2026-03-07)
 
 
