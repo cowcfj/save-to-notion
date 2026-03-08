@@ -11,6 +11,9 @@
 export const NEXTJS_CONFIG = {
   // 常見 Next.js 網站的文章數據路徑
   ARTICLE_PATHS: [
+    // BBC News (Pages Router, {type, model} 巢狀格式)
+    'props.pageProps.pageData.content.model',
+
     // Yahoo News App Router (RSC format)
     'pageData.pageState.article.data.contentMeta', // Contains storyAtoms
     'props.pageData.pageState.article.data.contentMeta',

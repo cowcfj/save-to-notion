@@ -75,7 +75,20 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = path;
 
       const mockJson = {
-        props: { initialProps: { pageProps: { article: { title: 'Same Article', blocks: [] } } } },
+        props: {
+          initialProps: {
+            pageProps: {
+              article: {
+                title: 'Same Article',
+                blocks: [
+                  { blockType: 'paragraph', text: 'Para 1' },
+                  { blockType: 'paragraph', text: 'Para 2' },
+                  { blockType: 'paragraph', text: 'Para 3' },
+                ],
+              },
+            },
+          },
+        },
         asPath: path,
         page: '/article',
       };
@@ -105,12 +118,22 @@ describe('NextJsExtractor', () => {
 
     it('should extract normally when asPath is missing but title matches', () => {
       mockDoc.defaultView.location.pathname = '/current-article';
-      // 注意：document.title 通常包含後綴
       mockDoc.title = 'Current Article Title | HK01';
 
       const mockJson = {
         props: {
-          initialProps: { pageProps: { article: { title: 'Current Article Title', blocks: [] } } },
+          initialProps: {
+            pageProps: {
+              article: {
+                title: 'Current Article Title',
+                blocks: [
+                  { blockType: 'paragraph', text: 'Para 1' },
+                  { blockType: 'paragraph', text: 'Para 2' },
+                  { blockType: 'paragraph', text: 'Para 3' },
+                ],
+              },
+            },
+          },
         },
         page: '/article',
       };
@@ -127,7 +150,20 @@ describe('NextJsExtractor', () => {
       mockDoc.title = 'Different Title'; // 即使不匹配
 
       const mockJson = {
-        props: { initialProps: { pageProps: { article: { title: 'HK01', blocks: [] } } } },
+        props: {
+          initialProps: {
+            pageProps: {
+              article: {
+                title: 'HK01',
+                blocks: [
+                  { blockType: 'paragraph', text: 'Para 1' },
+                  { blockType: 'paragraph', text: 'Para 2' },
+                  { blockType: 'paragraph', text: 'Para 3' },
+                ],
+              },
+            },
+          },
+        },
         page: '/article',
       };
 
@@ -136,12 +172,24 @@ describe('NextJsExtractor', () => {
     });
 
     it('should extract normally when defaultView is not available (title check skipped or defaults)', () => {
-      // 如果沒有 defaultView，asPath 檢查跳過；title 檢查依賴 doc.title (mockDoc 有)
       delete mockDoc.defaultView;
       mockDoc.title = 'Same Title';
 
       const mockJson = {
-        props: { initialProps: { pageProps: { article: { title: 'Same Title', blocks: [] } } } },
+        props: {
+          initialProps: {
+            pageProps: {
+              article: {
+                title: 'Same Title',
+                blocks: [
+                  { blockType: 'paragraph', text: 'Para 1' },
+                  { blockType: 'paragraph', text: 'Para 2' },
+                  { blockType: 'paragraph', text: 'Para 3' },
+                ],
+              },
+            },
+          },
+        },
         page: '/article',
       };
 
@@ -159,7 +207,11 @@ describe('NextJsExtractor', () => {
       const longText = 'a'.repeat(3000); // Exceeds 2000 limit
       const mockArticle = {
         title: 'Long Text',
-        blocks: [{ blockType: 'paragraph', text: longText }],
+        blocks: [
+          { blockType: 'paragraph', text: longText },
+          { blockType: 'paragraph', text: 'Short para 2' },
+          { blockType: 'paragraph', text: 'Short para 3' },
+        ],
       };
 
       const mockJson = { props: { initialProps: { pageProps: { article: mockArticle } } } };
@@ -167,7 +219,7 @@ describe('NextJsExtractor', () => {
 
       const result = NextJsExtractor.extract(mockDoc);
       expect(result).not.toBeNull();
-      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks).toHaveLength(3);
       const chunks = result.blocks[0].paragraph.rich_text;
       expect(chunks.length).toBeGreaterThan(1);
       expect(chunks[0].text.content.length).toBeLessThanOrEqual(2000);
@@ -178,12 +230,17 @@ describe('NextJsExtractor', () => {
       const mockArticle = {
         title: 'String Author',
         author: 'Jane Doe',
-        blocks: [],
+        blocks: [
+          { blockType: 'paragraph', text: 'Para 1' },
+          { blockType: 'paragraph', text: 'Para 2' },
+          { blockType: 'paragraph', text: 'Para 3' },
+        ],
       };
       const mockJson = { props: { initialProps: { pageProps: { article: mockArticle } } } };
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
 
       const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
       expect(result.metadata.byline).toBe('Jane Doe');
     });
 
@@ -198,10 +255,10 @@ describe('NextJsExtractor', () => {
             blockType: 'image',
             image: { cdnUrl: 'https://example.com/img.jpg', caption: 'Test Cap' },
           },
+          { blockType: 'paragraph', text: 'Third paragraph' },
         ],
       };
 
-      // Construct deep object: props.initialProps.pageProps.article
       const mockJson = {
         props: {
           initialProps: {
@@ -220,7 +277,7 @@ describe('NextJsExtractor', () => {
       expect(result.type).toBe('nextjs');
       expect(result.metadata.title).toBe('Test Title');
       expect(result.metadata.byline).toBe('Test Author');
-      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks).toHaveLength(3);
       expect(result.blocks[0].type).toBe('paragraph');
       expect(result.blocks[1].type).toBe('image');
       expect(result.blocks[1].image.external.url).toBe('https://example.com/img.jpg');
@@ -230,7 +287,11 @@ describe('NextJsExtractor', () => {
       const mockArticle = {
         title: 'Teaser Test',
         teaser: ['This is a teaser summary.'],
-        blocks: [{ blockType: 'paragraph', text: 'Existing content' }],
+        blocks: [
+          { blockType: 'paragraph', text: 'Existing content 1' },
+          { blockType: 'paragraph', text: 'Existing content 2' },
+          { blockType: 'paragraph', text: 'Existing content 3' },
+        ],
       };
 
       const mockJson = {
@@ -241,7 +302,7 @@ describe('NextJsExtractor', () => {
       const result = NextJsExtractor.extract(mockDoc);
 
       expect(result).not.toBeNull();
-      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks).toHaveLength(4); // teaser + 3 paragraphs
       expect(result.blocks[0].type).toBe('quote');
       expect(result.blocks[0].quote.rich_text[0].text.content).toBe('This is a teaser summary.');
       expect(result.blocks[1].type).toBe('paragraph');
@@ -254,20 +315,21 @@ describe('NextJsExtractor', () => {
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
     });
 
-    it('should handle article with content but no blocks', () => {
+    it('should return null for article with 0 blocks (回退到 Readability)', () => {
+      // MIN_VALID_BLOCKS 品質門檻：blocks 不足時 NextJsExtractor 回傳 null，
+      // 由 ContentExtractor 回退到 Readability 提取。
       const mockArticle = {
         title: 'Content Only',
         content: 'Some content',
-        // no blocks
+        // 無 blocks — 符合品質門檻不足的情況
       };
 
       const mockJson = { props: { pageProps: { article: mockArticle } } };
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
 
       const result = NextJsExtractor.extract(mockDoc);
-      expect(result).not.toBeNull();
-      expect(result.blocks).toEqual([]); // blocks should be empty array
-      expect(result.metadata.title).toBe('Content Only');
+      // 0 blocks < MIN_VALID_BLOCKS(3)，應回傳 null
+      expect(result).toBeNull();
     });
 
     it('should handle JSON parse error gracefully', () => {
@@ -279,9 +341,12 @@ describe('NextJsExtractor', () => {
       mockDoc.querySelector.mockReturnValue(null);
       const articleData = {
         title: 'App Router Title',
-        blocks: [{ blockType: 'paragraph', text: 'Content' }],
+        blocks: [
+          { blockType: 'paragraph', text: 'Content 1' },
+          { blockType: 'paragraph', text: 'Content 2' },
+          { blockType: 'paragraph', text: 'Content 3' },
+        ],
       };
-      // Mock App Router fragment: self.__next_f.push([1, articleData])
       const fragment = JSON.stringify([1, articleData], null, 2);
 
       mockDoc.querySelectorAll.mockReturnValue([
@@ -291,7 +356,7 @@ describe('NextJsExtractor', () => {
       const result = NextJsExtractor.extract(mockDoc);
       expect(result).not.toBeNull();
       expect(result.metadata.title).toBe('App Router Title');
-      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks).toHaveLength(3);
     });
 
     it('should use heuristic search when standard paths fail', () => {
@@ -300,7 +365,11 @@ describe('NextJsExtractor', () => {
           nested: {
             unknownKey: {
               title: 'Heuristic Title',
-              blocks: [{ blockType: 'paragraph', text: 'Found me' }],
+              blocks: [
+                { blockType: 'paragraph', text: 'Found me 1' },
+                { blockType: 'paragraph', text: 'Found me 2' },
+                { blockType: 'paragraph', text: 'Found me 3' },
+              ],
             },
           },
         },
@@ -314,34 +383,26 @@ describe('NextJsExtractor', () => {
     });
 
     it('should extract Yahoo News App Router content correctly', () => {
-      // Mock Yahoo RSC structure with body field
+      // Yahoo body 字段：整個 body HTML 作為一個 block 推入
+      // 不足 MIN_VALID_BLOCKS(3)，自動回退到 Readability
       const longContent = 'A'.repeat(201);
       const yahooArticle = {
         title: 'Yahoo Test',
         body: `<p>${longContent}</p>`,
-        // These should be excluded by heuristic search
         postArticleStream: [{ title: 'Ad 1' }],
         recommendedContentsResp: [{ title: 'Ad 2' }],
       };
 
-      // Mock finding this via heuristic search (simulating deep nesting)
-      const deepYahooData = {
-        someWrapper: {
-          ...yahooArticle,
-        },
-      };
+      const deepYahooData = { someWrapper: { ...yahooArticle } };
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(deepYahooData) });
       mockDoc.querySelectorAll.mockReturnValue([]);
 
       const result = NextJsExtractor.extract(mockDoc);
 
-      expect(result).not.toBeNull();
-      expect(result.metadata.title).toBe('Yahoo Test');
-      // Should extract body content as a paragraph block
-      // Note: _stripHtml removes tags, so we expect just the content
-      expect(result.blocks).toHaveLength(1);
-      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe(longContent);
+      // body 只推入 1 個 block → 不足 MIN_VALID_BLOCKS(3) → 回傳 null
+      // ContentExtractor 會回退到 Readability 提取
+      expect(result).toBeNull();
     });
 
     it('should extract Yahoo News App Router content with storyAtoms correctly', () => {
@@ -371,6 +432,155 @@ describe('NextJsExtractor', () => {
       expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('Para 1');
       expect(result.blocks[1].type).toBe('image');
       expect(result.blocks[2].type).toBe('heading_2');
+    });
+  });
+
+  describe('BBC format (_isBbcFormat / _convertBbcBlocks / _extractBbcText)', () => {
+    // 模擬 BBC __NEXT_DATA__.props.pageProps.pageData.content.model 結構
+    const buildBbcNextData = blocks => ({
+      props: {
+        pageProps: {
+          pageData: {
+            content: {
+              model: { blocks },
+            },
+            promo: {
+              headlines: { seoHeadline: 'BBC Test Article' },
+            },
+          },
+        },
+      },
+    });
+
+    it('_isBbcFormat: 應識別 BBC {type, model} 格式', () => {
+      const bbcBlocks = [{ type: 'paragraph', model: { text: 'hello' } }];
+      expect(NextJsExtractor._isBbcFormat(bbcBlocks)).toBe(true);
+    });
+
+    it('_isBbcFormat: 應拒絕標準 {blockType, text} 格式', () => {
+      const standardBlocks = [{ blockType: 'paragraph', text: 'hello' }];
+      expect(NextJsExtractor._isBbcFormat(standardBlocks)).toBe(false);
+    });
+
+    it('應從 BBC 結構提取 heading + paragraph + image', () => {
+      const bbcBlocks = [
+        {
+          type: 'headline',
+          model: { blocks: [{ model: { text: '文章標題' } }] },
+        },
+        {
+          type: 'text',
+          model: {
+            blocks: [
+              {
+                type: 'paragraph',
+                model: {
+                  text: '第一段文字',
+                  blocks: [{ type: 'fragment', model: { text: '第一段文字', attributes: [] } }],
+                },
+              },
+            ],
+          },
+        },
+        {
+          type: 'text',
+          model: {
+            blocks: [
+              {
+                type: 'paragraph',
+                model: { text: '第二段文字', blocks: [{ model: { text: '第二段文字' } }] },
+              },
+            ],
+          },
+        },
+        {
+          type: 'image',
+          model: {
+            blocks: [
+              {
+                type: 'rawImage',
+                model: {
+                  locator: 'a985/live/test-image.jpg',
+                  originCode: 'cpsprodpb',
+                  width: 1024,
+                  height: 576,
+                },
+              },
+              {
+                type: 'caption',
+                model: { blocks: [{ model: { text: '圖片說明' } }] },
+              },
+            ],
+          },
+        },
+      ];
+
+      const mockJson = buildBbcNextData(bbcBlocks);
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+
+      expect(result).not.toBeNull();
+      // headline → heading_1, 2x text → 2 paragraphs, image → image
+      expect(result.blocks).toHaveLength(4);
+      expect(result.blocks[0].type).toBe('heading_1');
+      expect(result.blocks[0].heading_1.rich_text[0].text.content).toBe('文章標題');
+      expect(result.blocks[1].type).toBe('paragraph');
+      expect(result.blocks[1].paragraph.rich_text[0].text.content).toBe('第一段文字');
+      expect(result.blocks[2].type).toBe('paragraph');
+      expect(result.blocks[3].type).toBe('image');
+      expect(result.blocks[3].image.external.url).toBe(
+        'https://ichef.bbci.co.uk/ace/ws/1024/cpsprodpb/a985/live/test-image.jpg.webp'
+      );
+      expect(result.blocks[3].image.caption[0].text.content).toBe('圖片說明');
+    });
+
+    it('byline/relatedContent blocks 應被跳過', () => {
+      const bbcBlocks = [
+        { type: 'headline', model: { blocks: [{ model: { text: '標題A' } }] } },
+        { type: 'byline', model: { blocks: [] } },
+        {
+          type: 'text',
+          model: { blocks: [{ type: 'paragraph', model: { text: 'Para 1', blocks: [] } }] },
+        },
+        { type: 'relatedContent', model: { blocks: [] } },
+        {
+          type: 'text',
+          model: { blocks: [{ type: 'paragraph', model: { text: 'Para 2', blocks: [] } }] },
+        },
+        {
+          type: 'text',
+          model: { blocks: [{ type: 'paragraph', model: { text: 'Para 3', blocks: [] } }] },
+        },
+      ];
+
+      const mockJson = buildBbcNextData(bbcBlocks);
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      // byline, relatedContent 各少一個 block
+      const types = result.blocks.map(b => b.type);
+      expect(types).not.toContain('byline');
+      expect(types).not.toContain('relatedContent');
+    });
+
+    it('品質門檻：BBC blocks < MIN_VALID_BLOCKS 時回傳 null', () => {
+      // 只有 1 個 byline（被跳過），結果 0 blocks → null
+      const bbcBlocks = [
+        { type: 'byline', model: { blocks: [] } },
+        { type: 'relatedContent', model: { blocks: [] } },
+      ];
+
+      const mockJson = buildBbcNextData(bbcBlocks);
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      // 轉換後 0 blocks < 3 → 應回傳 null
+      expect(result).toBeNull();
     });
   });
 

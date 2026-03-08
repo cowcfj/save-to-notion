@@ -96,6 +96,15 @@ export const NextJsExtractor = {
 
       const blocks = this._processArticleContent(articleData);
 
+      // 品質門檻：blocks 數量不足代表格式可能不相容，回退到標準提取
+      if (blocks.length < NEXTJS_CONFIG.MIN_VALID_BLOCKS) {
+        Logger.info(
+          `結構化提取品質不足 (${blocks.length}/${NEXTJS_CONFIG.MIN_VALID_BLOCKS} blocks)，回退到標準提取`,
+          { action, source: extractionSource }
+        );
+        return null;
+      }
+
       // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
       // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
       const metadata = {
@@ -178,6 +187,11 @@ export const NextJsExtractor = {
    */
   _processArticleContent(articleData) {
     const rawBlocks = [...(articleData.blocks || [])];
+
+    // [BBC] 偵測 BBC {type, model} 巢狀格式，使用專用轉換器
+    if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
+      return this._convertBbcBlocks(rawBlocks);
+    }
     let blocks = [];
 
     // [NEW] 優先處理 Yahoo storyAtoms (直接轉換為 Notion Blocks)
@@ -1007,5 +1021,187 @@ export const NextJsExtractor = {
         caption: this._createRichTextChunks(atom.caption),
       },
     };
+  },
+
+  /**
+   * 偵測是否為 BBC {type, model} 格式
+   * BBC blocks 使用 `type` + `model`，而非 `blockType` + `text`
+   *
+   * @param {Array} blocks
+   * @returns {boolean}
+   */
+  _isBbcFormat(blocks) {
+    const first = blocks[0];
+    return (
+      first !== null &&
+      first !== undefined &&
+      typeof first === 'object' &&
+      typeof first.type === 'string' &&
+      typeof first.model === 'object' &&
+      first.model !== null &&
+      !first.blockType // 確保不是已知標準格式
+    );
+  },
+
+  /**
+   * 轉換 BBC {type, model} 巢狀 blocks 為 Notion Blocks
+   *
+   * BBC block 類型映射:
+   * - headline/subheadline → heading_1/heading_2
+   * - text → paragraph(s)
+   * - image → image (使用 BBC CDN URL)
+   * - byline/relatedContent/wsoj → 跳過
+   *
+   * @param {Array} blocks - BBC 頂層 blocks 陣列
+   * @returns {Array} Notion blocks
+   */
+  _convertBbcBlocks(blocks) {
+    const result = [];
+
+    for (const block of blocks) {
+      const { type, model } = block;
+
+      if (!type || !model) {
+        continue;
+      }
+
+      switch (type) {
+        case 'headline': {
+          const text = this._extractBbcText(model);
+          if (text) {
+            result.push({
+              object: 'block',
+              type: 'heading_1',
+              heading_1: { rich_text: this._createRichTextChunks(text) },
+            });
+          }
+          break;
+        }
+
+        case 'subheadline': {
+          const text = this._extractBbcText(model);
+          if (text) {
+            result.push({
+              object: 'block',
+              type: 'heading_2',
+              heading_2: { rich_text: this._createRichTextChunks(text) },
+            });
+          }
+          break;
+        }
+
+        case 'text': {
+          // text block 的 model.blocks 包含多個 paragraph
+          const paragraphs = Array.isArray(model.blocks) ? model.blocks : [];
+          for (const para of paragraphs) {
+            if (para.type === 'paragraph' || para.type === 'introduction') {
+              const paraText = this._extractBbcText(para.model || {});
+              if (paraText) {
+                result.push({
+                  object: 'block',
+                  type: 'paragraph',
+                  paragraph: { rich_text: this._createRichTextChunks(paraText) },
+                });
+              }
+            }
+          }
+          break;
+        }
+
+        case 'image': {
+          // 找 rawImage 子 block
+          const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
+          const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
+          const captionBlock = subBlocks.find(blk => blk.type === 'caption');
+
+          if (rawImage?.model?.locator && rawImage?.model?.originCode) {
+            const { locator, originCode } = rawImage.model;
+            const imageUrl = `https://ichef.bbci.co.uk/ace/ws/1024/${originCode}/${locator}.webp`;
+            const captionText = captionBlock ? this._extractBbcText(captionBlock.model || {}) : '';
+
+            result.push({
+              object: 'block',
+              type: 'image',
+              image: {
+                type: 'external',
+                external: { url: imageUrl },
+                caption: captionText ? this._createRichTextChunks(captionText) : [],
+              },
+            });
+          }
+          break;
+        }
+
+        // 跳過頁面雜訊 block 類型
+        case 'byline': {
+          break;
+        }
+        case 'relatedContent': {
+          break;
+        }
+        case 'wsoj': {
+          break;
+        }
+        case 'include': {
+          break;
+        }
+        case 'social-embed': {
+          break;
+        }
+
+        default: {
+          // 嘗試通用文字提取（作為安全網）
+          if (model.blocks || model.text) {
+            const fallbackText = this._extractBbcText(model);
+            if (fallbackText) {
+              result.push({
+                object: 'block',
+                type: 'paragraph',
+                paragraph: { rich_text: this._createRichTextChunks(fallbackText) },
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return result;
+  },
+
+  /**
+   * 遞歸提取 BBC model 中的純文字
+   *
+   * BBC 文字結構: model → blocks → paragraph/fragment → model.text
+   * 支援多層 model.blocks 巢狀
+   *
+   * @param {object} model - BBC model 物件
+   * @returns {string} 合併後的純文字
+   */
+  _extractBbcText(model) {
+    if (!model || typeof model !== 'object') {
+      return '';
+    }
+
+    // 直接有 text 屬性（fragment 層級）
+    if (typeof model.text === 'string' && model.text.trim()) {
+      return model.text.trim();
+    }
+
+    // 遞歸遍歷子 blocks
+    if (Array.isArray(model.blocks)) {
+      const texts = [];
+      for (const child of model.blocks) {
+        if (!child || typeof child !== 'object') {
+          continue;
+        }
+        const childText = this._extractBbcText(child.model || child);
+        if (childText) {
+          texts.push(childText);
+        }
+      }
+      return texts.join('');
+    }
+
+    return '';
   },
 };
