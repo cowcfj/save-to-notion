@@ -18,11 +18,12 @@
 
 - `linter_rules.json`: 當前專案的代碼風格偏好。
 
-### 3. `mocks/` (測試資源)
+### 3. `references/` (資料結構參考)
 
-存放標準化的 API 回傳範例，用於單元測試與邏輯驗證。
+存放標準化的 API 回傳範例與 Schema 定義，供 Agent 理解資料結構。
 
 - `notion_api/`: 各種 Notion Block, Page, Database 的 JSON 結構。
+- `fixtures/`: 測試資料 Schema 定義與範例。
 
 ### 4. `staging/` (暫存區)
 
@@ -31,5 +32,5 @@ Agent 在協作過程中的中間產物緩衝區。
 ## 🤖 Agent 使用規範
 
 1.  **Read First**: 在生成代碼前，優先讀取 `knowledge/` 中的規範，而非依賴訓練數據。
-2.  **Reuse**: 編寫測試時，優先引用 `mocks/` 中的數據，而非重新生成。
+2.  **Reuse**: 編寫測試時，優先參考 `references/` 中的資料結構範例，而非重新生成。
 3.  **Update**: 當修改了 `docs/` 中的原始規範時，必須同步更新此處的 JSON。

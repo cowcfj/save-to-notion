@@ -9,9 +9,9 @@
   },
   "unit_testing": {
     "fixture_strategy": {
-      "location": ".agents/.shared/mocks/",
-      "rule": "ALWAYS load mock data (HTML snippets, Notion JSON responses) from the mocks directory instead of hardcoding large payloads in test files.",
-      "notion_api": "Use `.agents/.shared/mocks/notion_api/` for testing Notion block structures and database properties."
+      "location": ".agents/.shared/references/",
+      "rule": "ALWAYS reference data structures (HTML snippets, Notion JSON responses) from the references directory instead of hardcoding large payloads in test files.",
+      "notion_api": "Use `.agents/.shared/references/notion_api/` for Notion block structures and database properties."
     },
     "chrome_api_mocking": {
       "rule": "Do not mutate window.chrome directly. Override global.chrome.",
