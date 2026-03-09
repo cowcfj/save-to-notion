@@ -237,3 +237,4 @@ docs/specs/
 skills-lock.json
 .agents/.shared/staging/
 *_report.json
+AGENTS.md
