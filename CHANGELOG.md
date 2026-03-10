@@ -1,5 +1,24 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.45.0](https://github.com/cowcfj/save-to-notion/compare/v2.44.0...v2.45.0) (2026-03-10)
+
+
+### ✨ 新功能
+
+* add agent type to agent configuration and class with a default value ([16a6f0c](https://github.com/cowcfj/save-to-notion/commit/16a6f0c01dfaad9010299eda3698b2a928ef1d92))
+* 新增網域專屬清洗規則 ([#341](https://github.com/cowcfj/save-to-notion/issues/341)) ([e91bb6f](https://github.com/cowcfj/save-to-notion/commit/e91bb6fb6a0e2e59344a6e54c923b0be2f8785c9))
+
+
+### 📝 文檔更新
+
+* Update AGENTS documentation and gitignore rules. ([de9b1e4](https://github.com/cowcfj/save-to-notion/commit/de9b1e40b055b26c7127952f003b8de22400848c))
+
+
+### 🧹 其他變更
+
+* Add new patterns to .gitignore. ([75c80b0](https://github.com/cowcfj/save-to-notion/commit/75c80b0f8a962e91f9d970b55a71ddd01cae5dba))
+* update ignored patterns in .gitignore ([8b44d91](https://github.com/cowcfj/save-to-notion/commit/8b44d9168d02a05f6471fffa3218a08ae7e5ff20))
+
 ## [2.44.0](https://github.com/cowcfj/save-to-notion/compare/v2.43.2...v2.44.0) (2026-03-08)
 
 
