@@ -677,8 +677,10 @@ function performSmartCleaning(articleContent, cmsType, domainRules = null) {
     });
   }
 
-  // 4. 安全性清洗 (Security Cleaning)
-  // 移除所有元素的 on* 屬性 (e.g. onerror, onclick) 以防止 DOMParser 保留潛在的 XSS 風險
+  // 4. 輕量級屬性清理 (Lightweight Attribute Sanitization)
+  // 縱深防禦 (Defense-in-Depth)：移除 on* 事件屬性，防止 DOMParser 保留殘餘的事件處理器。
+  // 注意：此處並非完整的 XSS 防禦層。Readability 在解析階段已自動剔除 <script>、<iframe> 等危險標籤。
+  // 完整的安全驗證邏輯集中在 scripts/utils/securityUtils.js 中。
   const allElements = tempDiv.querySelectorAll('*');
   allElements.forEach(el => {
     // 遍歷所有屬性
