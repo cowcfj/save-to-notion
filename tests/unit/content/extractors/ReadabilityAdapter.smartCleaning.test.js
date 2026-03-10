@@ -17,6 +17,22 @@ globalThis.PerformanceOptimizer = {
   cachedQuery: jest.fn(),
 };
 
+// Mock @mozilla/readability
+jest.mock('@mozilla/readability', () => {
+  const mockCapture = { doc: null };
+  return {
+    __getMockCapture: () => mockCapture,
+    Readability: class MockReadability {
+      constructor(clonedDoc, _options) {
+        mockCapture.doc = clonedDoc;
+      }
+      parse() {
+        return { content: '<div class="main-article">正文內容</div>', title: 'Mock' };
+      }
+    },
+  };
+});
+
 // Mock Config to ensure stable test environment
 jest.mock('../../../../scripts/config/extraction.js', () => ({
   GENERIC_CLEANING_RULES: ['.ad', '.promo', '#remove-me'],
@@ -51,6 +67,7 @@ jest.mock('../../../../scripts/config/extraction.js', () => ({
 const {
   performSmartCleaning,
   getDomainRules,
+  parseArticleWithReadability,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
 
 describe('ReadabilityAdapter - performSmartCleaning', () => {
@@ -268,6 +285,47 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       const result = performSmartCleaning(html, null, null);
 
       expect(result).toContain('No domain rules');
+    });
+  });
+
+  describe('Container Narrowing (parseArticleWithReadability)', () => {
+    test('應將傳入的 document 窄化為 domainRules 指定的 container', () => {
+      // 1. 構建帶有目標網域的 document
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = `
+        <div class="sidebar">噪音</div>
+        <div class="main-article">正文內容</div>
+        <div class="footer">噪音</div>
+      `;
+
+      // 構建能夠欺騙 hostname 檢查的 fakeDoc
+      const fakeDoc = new Proxy(doc, {
+        get(target, prop) {
+          if (prop === 'location' || prop === 'defaultView') {
+            return { location: { hostname: 'example.com' }, hostname: 'example.com' };
+          }
+          const val = target[prop];
+          return typeof val === 'function' ? val.bind(target) : val;
+        },
+      });
+
+      // 清除之前的 mock 狀態
+      const { __getMockCapture } = require('@mozilla/readability');
+      const mockCapture = __getMockCapture();
+      mockCapture.doc = null;
+
+      // 3. 執行
+      const result = parseArticleWithReadability(fakeDoc);
+
+      // 4. 驗證 capturedDoc 的 body 只包含 container 的內容，不包含 sidebar 和 footer
+      const capturedDoc = mockCapture.doc;
+      expect(capturedDoc).not.toBeNull();
+      const bodyHtml = capturedDoc.body.innerHTML;
+      expect(bodyHtml).toContain('正文內容');
+      expect(bodyHtml).toContain('main-article');
+      expect(bodyHtml).not.toContain('sidebar');
+      expect(bodyHtml).not.toContain('footer');
+      expect(result.content).toBe('<div class="main-article">正文內容</div>');
     });
   });
 });
