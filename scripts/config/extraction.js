@@ -250,15 +250,27 @@ export const NOISE_SELECTORS = [
   '.widget',
   '.widgets',
 
-  // 模糊匹配 (通用捕獲更多噪音)
-  '[class*="comment"]',
-  '[id*="comment"]',
-  '[class*="recommend"]',
-  '[id*="recommend"]',
-  '[class*="related"]',
-  '[id*="related"]',
-  '[class*="share"]',
-  '[id*="share"]',
+  // 前綴/後綴匹配 (比 *contains* 更安全，避免誤殺正文)
+  // 評論區塊 (comment-xxx 或 xxx-comment 命名慣例)
+  '[class^="comment-"]',
+  '[class$="-comment"]',
+  '[class$="-comments"]',
+  '[id^="comment-"]',
+  '[id$="-comment"]',
+  '[id$="-comments"]',
+  // 推薦區塊
+  '[class^="recommend"]',
+  '[id^="recommend"]',
+  // 相關文章區塊
+  '[class^="related-"]',
+  '[class$="-related"]',
+  '[id^="related-"]',
+  '[id$="-related"]',
+  // 分享按鈕 (share-xxx 命名慣例，避免匹配 sharepoint, share-price 等)
+  '[class^="share-"]',
+  '[class$="-share"]',
+  '[id^="share-"]',
+  '[id$="-share"]',
 ];
 
 /**

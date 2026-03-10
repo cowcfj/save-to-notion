@@ -843,6 +843,28 @@ function parseArticleWithReadability() {
   // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
   prepareLazyImages(clonedDocument);
 
+  // 2.6 網域容器聚焦 (Domain Container Narrowing)
+  // 如果網域規則指定了 container，將克隆文檔縮窄至該容器，讓 Readability 聚焦於正文
+  // 注意：這不是「刪除節點」(ADR-0002 禁止的預處理)，而是「聚焦範圍」
+  if (domainRules?.container) {
+    const containerEl = clonedDocument.querySelector(domainRules.container);
+    if (containerEl) {
+      Logger.log('套用網域容器聚焦', {
+        action: 'parseArticleWithReadability',
+        container: domainRules.container,
+      });
+      // 清空 body 並將容器內容設為唯一子節點
+      const clonedBody = clonedDocument.body;
+      clonedBody.innerHTML = '';
+      clonedBody.append(containerEl);
+    } else {
+      Logger.info('網域容器未找到，使用完整文檔', {
+        action: 'parseArticleWithReadability',
+        container: domainRules.container,
+      });
+    }
+  }
+
   // 3. 執行 Readability 解析
   let parsedArticle = null;
 
@@ -931,6 +953,7 @@ export {
   findContentCmsFallback,
   extractLargestListFallback,
   detectCMS,
+  getDomainRules,
   performSmartCleaning,
   parseArticleWithReadability,
   prepareLazyImages,
