@@ -96,6 +96,7 @@ export const IMAGE_PATH_PATTERNS = [
   /\/profile_images\//i,
   /\/creatr-uploaded-images\//i,
   /\/ny\/api\/res\//i,
+  /\.gtimg\.com\//i, // 騰訊圖片 CDN (例如 news.qq.com 上的無副檔名圖片)
 ];
 
 export const EXCLUDE_PATTERNS = [
