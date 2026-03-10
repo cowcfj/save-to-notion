@@ -249,6 +249,28 @@ export const NOISE_SELECTORS = [
   '.recommended',
   '.widget',
   '.widgets',
+
+  // 前綴/後綴匹配 (比 *contains* 更安全，避免誤殺正文)
+  // 評論區塊 (comment-xxx 或 xxx-comment 命名慣例)
+  '[class^="comment-"]',
+  '[class$="-comment"]',
+  '[class$="-comments"]',
+  '[id^="comment-"]',
+  '[id$="-comment"]',
+  '[id$="-comments"]',
+  // 推薦區塊
+  '[class^="recommend"]',
+  '[id^="recommend"]',
+  // 相關文章區塊
+  '[class^="related-"]',
+  '[class$="-related"]',
+  '[id^="related-"]',
+  '[id$="-related"]',
+  // 分享按鈕 (share-xxx 命名慣例，避免匹配 sharepoint, share-price 等)
+  '[class^="share-"]',
+  '[class$="-share"]',
+  '[id^="share-"]',
+  '[id$="-share"]',
 ];
 
 /**
@@ -442,6 +464,19 @@ export const CMS_CLEANING_RULES = {
     remove: ['.wpc-related-posts', '.sharedaddy', '.jp-relatedposts', '#comments', '.author-bio'],
   },
   // 可擴展其他 CMS
+};
+
+/**
+ * 網域專屬清洗規則 (Domain Specific Cleaning)
+ * 針對無法使用通用規則或需要特殊處理容器的邊緣網站
+ */
+export const DOMAIN_CLEANING_RULES = {
+  'news.qq.com': {
+    container: 'div.content-left', // Readability 解析前先過濾掉這個外層以外的 DOM
+    remove: [
+      // 專屬雜訊：只存放通用規則無法涵蓋的怪異選取器
+    ],
+  },
 };
 
 /**

@@ -18,6 +18,7 @@ import {
   ARTICLE_STRUCTURE_SELECTORS,
   CMS_CLEANING_RULES,
   GENERIC_CLEANING_RULES,
+  DOMAIN_CLEANING_RULES,
 } from '../../config/extraction.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
@@ -578,14 +579,36 @@ function detectCMS() {
 }
 
 /**
+ * 獲取網域專屬清洗規則
+ *
+ * @param {string} hostname - 當前的網域 (e.g. news.qq.com)
+ * @returns {object|null} 網域專屬規則對象或 null
+ */
+function getDomainRules(hostname) {
+  if (!hostname) {
+    return null;
+  }
+
+  // 比對完整主機名稱，或檢查是否以指定網域結尾（用於子網域匹配）
+  for (const [domain, rules] of Object.entries(DOMAIN_CLEANING_RULES)) {
+    if (hostname === domain || hostname.endsWith(`.${domain}`)) {
+      Logger.log('檢測到網域專屬清洗規則', { action: 'getDomainRules', domain });
+      return rules;
+    }
+  }
+  return null;
+}
+
+/**
  * 執行智慧清洗 (Smart Cleaning)
  * 在 Readability 解析後，針對特定 CMS 或通用雜訊進行二次清理
  *
  * @param {string} articleContent - Readability 返回的 HTML 內容
  * @param {string|null} cmsType - 檢測到的 CMS 類型
+ * @param {object|null} domainRules - 該網域的專屬清洗規則
  * @returns {string} 清洗後的 HTML 內容
  */
-function performSmartCleaning(articleContent, cmsType) {
+function performSmartCleaning(articleContent, cmsType, domainRules = null) {
   if (!articleContent) {
     return '';
   }
@@ -643,8 +666,21 @@ function performSmartCleaning(articleContent, cmsType) {
     });
   }
 
-  // 3. 安全性清洗 (Security Cleaning)
-  // 移除所有元素的 on* 屬性 (e.g. onerror, onclick) 以防止 DOMParser 保留潛在的 XSS 風險
+  // 3. 網域特定清洗 (Domain Specific Cleaning)
+  if (domainRules && Array.isArray(domainRules.remove)) {
+    domainRules.remove.forEach(selector => {
+      const elements = safeQueryElements(tempDiv, selector);
+      elements.forEach(el => {
+        el.remove();
+        removedCount++;
+      });
+    });
+  }
+
+  // 4. 輕量級屬性清理 (Lightweight Attribute Sanitization)
+  // 縱深防禦 (Defense-in-Depth)：移除 on* 事件屬性，防止 DOMParser 保留殘餘的事件處理器。
+  // 注意：此處並非完整的 XSS 防禦層。Readability 在解析階段已自動剔除 <script>、<iframe> 等危險標籤。
+  // 完整的安全驗證邏輯集中在 scripts/utils/securityUtils.js 中。
   const allElements = tempDiv.querySelectorAll('*');
   allElements.forEach(el => {
     // 遍歷所有屬性
@@ -787,10 +823,12 @@ function prepareLazyImages(doc) {
  * 使用 Readability.js 解析文章內容
  * 包含性能優化、錯誤處理和邊緣情況處理
  *
+ * @param {Document} [doc] - 要解析的 DOM Document，預設使用全局 document
  * @returns {object} 解析後的文章對象,包含 title 和 content 屬性
  * @throws {Error} 當 Readability 不可用或解析失敗時拋出錯誤
  */
-function parseArticleWithReadability() {
+function parseArticleWithReadability(doc) {
+  const targetDoc = doc || document;
   // 1. (Removed) Readability dependency check is no longer needed with NPM package
 
   Logger.log('開始 Readability 內容解析', { action: 'parseArticleWithReadability' });
@@ -798,11 +836,41 @@ function parseArticleWithReadability() {
   // 1. 檢測 CMS 類型 (用於後續清洗)
   const cmsType = detectCMS();
 
+  // 1.5 獲取網域專屬清洗規則
+  const hostname =
+    targetDoc.location?.hostname ||
+    targetDoc.defaultView?.location?.hostname ||
+    globalThis.location?.hostname ||
+    '';
+  const domainRules = getDomainRules(hostname);
+
   // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
-  const clonedDocument = document.cloneNode(true);
+  const clonedDocument = targetDoc.cloneNode(true);
 
   // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
   prepareLazyImages(clonedDocument);
+
+  // 2.6 網域容器聚焦 (Domain Container Narrowing)
+  // 如果網域規則指定了 container，將克隆文檔縮窄至該容器，讓 Readability 聚焦於正文
+  // 注意：這不是「刪除節點」(ADR-0002 禁止的預處理)，而是「聚焦範圍」
+  if (domainRules?.container) {
+    const containerEl = clonedDocument.querySelector(domainRules.container);
+    if (containerEl) {
+      Logger.log('套用網域容器聚焦', {
+        action: 'parseArticleWithReadability',
+        container: domainRules.container,
+      });
+      // 清空 body 並將容器內容設為唯一子節點
+      const clonedBody = clonedDocument.body;
+      clonedBody.innerHTML = '';
+      clonedBody.append(containerEl);
+    } else {
+      Logger.info('網域容器未找到，使用完整文檔', {
+        action: 'parseArticleWithReadability',
+        container: domainRules.container,
+      });
+    }
+  }
 
   // 3. 執行 Readability 解析
   let parsedArticle = null;
@@ -827,8 +895,12 @@ function parseArticleWithReadability() {
   // 4. [Moved] 執行智慧清洗 (獨立於 Readability 解析過程)
   try {
     if (parsedArticle?.content) {
-      Logger.log('正在執行智慧清洗', { action: 'parseArticleWithReadability', cmsType });
-      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType);
+      Logger.log('正在執行智慧清洗', {
+        action: 'parseArticleWithReadability',
+        cmsType,
+        hasDomainRules: Boolean(domainRules),
+      });
+      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType, domainRules);
     }
   } catch (cleaningError) {
     // 清洗失敗不應阻斷流程，僅記錄錯誤
@@ -854,7 +926,7 @@ function parseArticleWithReadability() {
     Logger.warn('Readability 結果缺少標題，使用備用標題', {
       action: 'parseArticleWithReadability',
     });
-    parsedArticle.title = document.title || 'Untitled Page';
+    parsedArticle.title = targetDoc.title || 'Untitled Page';
   }
 
   Logger.log('解析完成統計', {
@@ -888,6 +960,7 @@ export {
   findContentCmsFallback,
   extractLargestListFallback,
   detectCMS,
+  getDomainRules,
   performSmartCleaning,
   parseArticleWithReadability,
   prepareLazyImages,

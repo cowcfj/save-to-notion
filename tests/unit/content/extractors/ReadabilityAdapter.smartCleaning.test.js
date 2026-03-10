@@ -9,6 +9,9 @@ const Logger = {
   error: jest.fn(),
   info: jest.fn(),
   debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 };
 globalThis.Logger = Logger;
 
@@ -16,6 +19,22 @@ globalThis.Logger = Logger;
 globalThis.PerformanceOptimizer = {
   cachedQuery: jest.fn(),
 };
+
+// Mock @mozilla/readability
+jest.mock('@mozilla/readability', () => {
+  const mockCapture = { doc: null };
+  return {
+    __getMockCapture: () => mockCapture,
+    Readability: class MockReadability {
+      constructor(clonedDoc, _options) {
+        mockCapture.doc = clonedDoc;
+      }
+      parse() {
+        return { content: '<div class="main-article">正文內容</div>', title: 'Mock' };
+      }
+    },
+  };
+});
 
 // Mock Config to ensure stable test environment
 jest.mock('../../../../scripts/config/extraction.js', () => ({
@@ -30,6 +49,16 @@ jest.mock('../../../../scripts/config/extraction.js', () => ({
       signals: [],
     },
   },
+  DOMAIN_CLEANING_RULES: {
+    'example.com': {
+      container: '.main-article',
+      remove: ['.site-specific-ad', '#custom-widget'],
+    },
+    'news.qq.com': {
+      container: 'div.content-left',
+      remove: [],
+    },
+  },
   CMS_CONTENT_SELECTORS: [],
   ARTICLE_STRUCTURE_SELECTORS: [],
 }));
@@ -40,12 +69,22 @@ jest.mock('../../../../scripts/config/extraction.js', () => ({
 
 const {
   performSmartCleaning,
+  getDomainRules,
+  parseArticleWithReadability,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
 
 describe('ReadabilityAdapter - performSmartCleaning', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    document.body.innerHTML = '';
+    if (globalThis.chrome) {
+      delete globalThis.chrome;
+    }
   });
 
   describe('Basic Functionality', () => {
@@ -202,6 +241,140 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       expect(doc.querySelector('img').hasAttribute('onerror')).toBe(false);
       expect(doc.querySelector('a').hasAttribute('onmouseover')).toBe(false);
       // Case insensitive check might depend on browser implementation, but standard says attributes are removed
+    });
+  });
+
+  describe('Domain Rule Matching (getDomainRules)', () => {
+    test('精確匹配已註冊的網域', () => {
+      const rules = getDomainRules('example.com');
+      expect(rules).not.toBeNull();
+      expect(rules.container).toBe('.main-article');
+    });
+
+    test('子網域匹配 (hostname.endsWith)', () => {
+      const rules = getDomainRules('sub.news.qq.com');
+      expect(rules).not.toBeNull();
+      expect(rules.container).toBe('div.content-left');
+    });
+
+    test('無匹配時返回 null', () => {
+      expect(getDomainRules('unknown-site.org')).toBeNull();
+    });
+
+    test('空字串或 null 返回 null', () => {
+      expect(getDomainRules('')).toBeNull();
+      expect(getDomainRules(null)).toBeNull();
+      expect(getDomainRules(undefined)).toBeNull();
+    });
+  });
+
+  describe('Domain Specific Cleaning (performSmartCleaning with domainRules)', () => {
+    test('應移除 domainRules.remove 指定的元素', () => {
+      const html = `
+        <div class="content">Article content</div>
+        <div class="site-specific-ad">Domain Ad</div>
+        <div id="custom-widget">Widget</div>
+      `;
+      const domainRules = getDomainRules('example.com');
+      const result = performSmartCleaning(html, null, domainRules);
+
+      expect(result).toContain('Article content');
+      expect(result).not.toContain('Domain Ad');
+      expect(result).not.toContain('Widget');
+    });
+
+    test('當 domainRules.remove 為空陣列時不應影響結果', () => {
+      const html = '<div class="content">Clean content</div>';
+      const domainRules = getDomainRules('news.qq.com');
+      const result = performSmartCleaning(html, null, domainRules);
+
+      expect(result).toContain('Clean content');
+    });
+
+    test('當 domainRules 為 null 時不應影響結果', () => {
+      const html = '<div class="content">No domain rules</div>';
+      const result = performSmartCleaning(html, null, null);
+
+      expect(result).toContain('No domain rules');
+    });
+  });
+
+  describe('Container Narrowing (parseArticleWithReadability)', () => {
+    test('應將傳入的 document 窄化為 domainRules 指定的 container', () => {
+      // 1. 構建帶有目標網域的 document
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = `
+        <div class="sidebar">噪音</div>
+        <div class="main-article">正文內容</div>
+        <div class="footer">噪音</div>
+      `;
+
+      // 構建能夠欺騙 hostname 檢查的 fakeDoc
+      const fakeDoc = new Proxy(doc, {
+        get(target, prop) {
+          if (prop === 'location' || prop === 'defaultView') {
+            return { location: { hostname: 'example.com' }, hostname: 'example.com' };
+          }
+          const val = target[prop];
+          return typeof val === 'function' ? val.bind(target) : val;
+        },
+      });
+
+      // 清除之前的 mock 狀態
+      const { __getMockCapture } = require('@mozilla/readability');
+      const mockCapture = __getMockCapture();
+      mockCapture.doc = null;
+
+      // 3. 執行
+      const result = parseArticleWithReadability(fakeDoc);
+
+      // 4. 驗證 capturedDoc 的 body 只包含 container 的內容，不包含 sidebar 和 footer
+      const capturedDoc = mockCapture.doc;
+      expect(capturedDoc).not.toBeNull();
+      const bodyHtml = capturedDoc.body.innerHTML;
+      expect(bodyHtml).toContain('正文內容');
+      expect(bodyHtml).toContain('main-article');
+      expect(bodyHtml).not.toContain('sidebar');
+      expect(bodyHtml).not.toContain('footer');
+      expect(result.content).toBe('<div class="main-article">正文內容</div>');
+    });
+
+    test('當 domainRules.container 存在但在文檔中找不到時，應回退使用完整文檔', () => {
+      // 1. 構建帶有目標網域，但不包含 .main-article 的 document
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = `
+        <div class="sidebar">噪音</div>
+        <div class="other-content">沒有目標容器</div>
+        <div class="footer">噪音</div>
+      `;
+
+      // 構建能夠欺騙 hostname 檢查的 fakeDoc
+      const fakeDoc = new Proxy(doc, {
+        get(target, prop) {
+          if (prop === 'location' || prop === 'defaultView') {
+            return { location: { hostname: 'example.com' }, hostname: 'example.com' };
+          }
+          const val = target[prop];
+          return typeof val === 'function' ? val.bind(target) : val;
+        },
+      });
+
+      // 清除之前的 mock 狀態
+      const { __getMockCapture } = require('@mozilla/readability');
+      const mockCapture = __getMockCapture();
+      mockCapture.doc = null;
+
+      // 3. 執行
+      const result = parseArticleWithReadability(fakeDoc);
+
+      // 4. 驗證 capturedDoc 的 body 包含了完整的內容（未被窄化）
+      const capturedDoc = mockCapture.doc;
+      expect(capturedDoc).not.toBeNull();
+      const bodyHtml = capturedDoc.body.innerHTML;
+      expect(bodyHtml).toContain('沒有目標容器');
+      expect(bodyHtml).toContain('sidebar');
+      expect(bodyHtml).toContain('footer');
+      expect(result.content).toBe('<div class="main-article">正文內容</div>'); // Mock 寫死的返回值
     });
   });
 });
