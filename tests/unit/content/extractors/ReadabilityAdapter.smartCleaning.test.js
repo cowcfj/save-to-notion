@@ -9,6 +9,9 @@ const Logger = {
   error: jest.fn(),
   info: jest.fn(),
   debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 };
 globalThis.Logger = Logger;
 
@@ -334,6 +337,44 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       expect(bodyHtml).not.toContain('sidebar');
       expect(bodyHtml).not.toContain('footer');
       expect(result.content).toBe('<div class="main-article">正文內容</div>');
+    });
+
+    test('當 domainRules.container 存在但在文檔中找不到時，應回退使用完整文檔', () => {
+      // 1. 構建帶有目標網域，但不包含 .main-article 的 document
+      const doc = document.implementation.createHTMLDocument();
+      doc.body.innerHTML = `
+        <div class="sidebar">噪音</div>
+        <div class="other-content">沒有目標容器</div>
+        <div class="footer">噪音</div>
+      `;
+
+      // 構建能夠欺騙 hostname 檢查的 fakeDoc
+      const fakeDoc = new Proxy(doc, {
+        get(target, prop) {
+          if (prop === 'location' || prop === 'defaultView') {
+            return { location: { hostname: 'example.com' }, hostname: 'example.com' };
+          }
+          const val = target[prop];
+          return typeof val === 'function' ? val.bind(target) : val;
+        },
+      });
+
+      // 清除之前的 mock 狀態
+      const { __getMockCapture } = require('@mozilla/readability');
+      const mockCapture = __getMockCapture();
+      mockCapture.doc = null;
+
+      // 3. 執行
+      const result = parseArticleWithReadability(fakeDoc);
+
+      // 4. 驗證 capturedDoc 的 body 包含了完整的內容（未被窄化）
+      const capturedDoc = mockCapture.doc;
+      expect(capturedDoc).not.toBeNull();
+      const bodyHtml = capturedDoc.body.innerHTML;
+      expect(bodyHtml).toContain('沒有目標容器');
+      expect(bodyHtml).toContain('sidebar');
+      expect(bodyHtml).toContain('footer');
+      expect(result.content).toBe('<div class="main-article">正文內容</div>'); // Mock 寫死的返回值
     });
   });
 });
