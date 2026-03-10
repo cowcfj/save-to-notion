@@ -589,7 +589,7 @@ function getDomainRules(hostname) {
     return null;
   }
 
-  // Match exact hostname or check if ends with (for subdomains)
+  // 比對完整主機名稱，或檢查是否以指定網域結尾（用於子網域匹配）
   for (const [domain, rules] of Object.entries(DOMAIN_CLEANING_RULES)) {
     if (hostname === domain || hostname.endsWith(`.${domain}`)) {
       Logger.log('檢測到網域專屬清洗規則', { action: 'getDomainRules', domain });
@@ -823,10 +823,12 @@ function prepareLazyImages(doc) {
  * 使用 Readability.js 解析文章內容
  * 包含性能優化、錯誤處理和邊緣情況處理
  *
+ * @param {Document} [doc] - 要解析的 DOM Document，預設使用全局 document
  * @returns {object} 解析後的文章對象,包含 title 和 content 屬性
  * @throws {Error} 當 Readability 不可用或解析失敗時拋出錯誤
  */
-function parseArticleWithReadability() {
+function parseArticleWithReadability(doc) {
+  const targetDoc = doc || document;
   // 1. (Removed) Readability dependency check is no longer needed with NPM package
 
   Logger.log('開始 Readability 內容解析', { action: 'parseArticleWithReadability' });
@@ -835,10 +837,15 @@ function parseArticleWithReadability() {
   const cmsType = detectCMS();
 
   // 1.5 獲取網域專屬清洗規則
-  const domainRules = getDomainRules(globalThis.location.hostname);
+  const hostname =
+    targetDoc.location?.hostname ||
+    targetDoc.defaultView?.location?.hostname ||
+    globalThis.location?.hostname ||
+    '';
+  const domainRules = getDomainRules(hostname);
 
   // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
-  const clonedDocument = document.cloneNode(true);
+  const clonedDocument = targetDoc.cloneNode(true);
 
   // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
   prepareLazyImages(clonedDocument);
