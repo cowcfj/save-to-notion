@@ -76,6 +76,14 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
     document.body.innerHTML = '';
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+    document.body.innerHTML = '';
+    if (globalThis.chrome) {
+      delete globalThis.chrome;
+    }
+  });
+
   describe('Basic Functionality', () => {
     test('當輸入為 null 或 undefined 時應返回空字串', () => {
       expect(performSmartCleaning(null)).toBe('');

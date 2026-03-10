@@ -926,7 +926,7 @@ function parseArticleWithReadability(doc) {
     Logger.warn('Readability 結果缺少標題，使用備用標題', {
       action: 'parseArticleWithReadability',
     });
-    parsedArticle.title = document.title || 'Untitled Page';
+    parsedArticle.title = targetDoc.title || 'Untitled Page';
   }
 
   Logger.log('解析完成統計', {
