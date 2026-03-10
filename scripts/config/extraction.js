@@ -249,6 +249,16 @@ export const NOISE_SELECTORS = [
   '.recommended',
   '.widget',
   '.widgets',
+
+  // 模糊匹配 (通用捕獲更多噪音)
+  '[class*="comment"]',
+  '[id*="comment"]',
+  '[class*="recommend"]',
+  '[id*="recommend"]',
+  '[class*="related"]',
+  '[id*="related"]',
+  '[class*="share"]',
+  '[id*="share"]',
 ];
 
 /**
@@ -442,6 +452,19 @@ export const CMS_CLEANING_RULES = {
     remove: ['.wpc-related-posts', '.sharedaddy', '.jp-relatedposts', '#comments', '.author-bio'],
   },
   // 可擴展其他 CMS
+};
+
+/**
+ * 網域專屬清洗規則 (Domain Specific Cleaning)
+ * 針對無法使用通用規則或需要特殊處理容器的邊緣網站
+ */
+export const DOMAIN_CLEANING_RULES = {
+  'news.qq.com': {
+    container: 'div.content-left', // Readability 解析前先過濾掉這個外層以外的 DOM
+    remove: [
+      // 專屬雜訊：只存放通用規則無法涵蓋的怪異選取器
+    ],
+  },
 };
 
 /**

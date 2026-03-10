@@ -18,6 +18,7 @@ import {
   ARTICLE_STRUCTURE_SELECTORS,
   CMS_CLEANING_RULES,
   GENERIC_CLEANING_RULES,
+  DOMAIN_CLEANING_RULES,
 } from '../../config/extraction.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
@@ -578,14 +579,36 @@ function detectCMS() {
 }
 
 /**
+ * 獲取網域專屬清洗規則
+ *
+ * @param {string} hostname - 當前的網域 (e.g. news.qq.com)
+ * @returns {object|null} 網域專屬規則對象或 null
+ */
+function getDomainRules(hostname) {
+  if (!hostname) {
+    return null;
+  }
+
+  // Match exact hostname or check if ends with (for subdomains)
+  for (const [domain, rules] of Object.entries(DOMAIN_CLEANING_RULES)) {
+    if (hostname === domain || hostname.endsWith(`.${domain}`)) {
+      Logger.log('檢測到網域專屬清洗規則', { action: 'getDomainRules', domain });
+      return rules;
+    }
+  }
+  return null;
+}
+
+/**
  * 執行智慧清洗 (Smart Cleaning)
  * 在 Readability 解析後，針對特定 CMS 或通用雜訊進行二次清理
  *
  * @param {string} articleContent - Readability 返回的 HTML 內容
  * @param {string|null} cmsType - 檢測到的 CMS 類型
+ * @param {object|null} domainRules - 該網域的專屬清洗規則
  * @returns {string} 清洗後的 HTML 內容
  */
-function performSmartCleaning(articleContent, cmsType) {
+function performSmartCleaning(articleContent, cmsType, domainRules = null) {
   if (!articleContent) {
     return '';
   }
@@ -643,7 +666,18 @@ function performSmartCleaning(articleContent, cmsType) {
     });
   }
 
-  // 3. 安全性清洗 (Security Cleaning)
+  // 3. 網域特定清洗 (Domain Specific Cleaning)
+  if (domainRules && Array.isArray(domainRules.remove)) {
+    domainRules.remove.forEach(selector => {
+      const elements = safeQueryElements(tempDiv, selector);
+      elements.forEach(el => {
+        el.remove();
+        removedCount++;
+      });
+    });
+  }
+
+  // 4. 安全性清洗 (Security Cleaning)
   // 移除所有元素的 on* 屬性 (e.g. onerror, onclick) 以防止 DOMParser 保留潛在的 XSS 風險
   const allElements = tempDiv.querySelectorAll('*');
   allElements.forEach(el => {
@@ -798,6 +832,9 @@ function parseArticleWithReadability() {
   // 1. 檢測 CMS 類型 (用於後續清洗)
   const cmsType = detectCMS();
 
+  // 1.5 獲取網域專屬清洗規則
+  const domainRules = getDomainRules(globalThis.location.hostname);
+
   // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
   const clonedDocument = document.cloneNode(true);
 
@@ -827,8 +864,12 @@ function parseArticleWithReadability() {
   // 4. [Moved] 執行智慧清洗 (獨立於 Readability 解析過程)
   try {
     if (parsedArticle?.content) {
-      Logger.log('正在執行智慧清洗', { action: 'parseArticleWithReadability', cmsType });
-      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType);
+      Logger.log('正在執行智慧清洗', {
+        action: 'parseArticleWithReadability',
+        cmsType,
+        hasDomainRules: Boolean(domainRules),
+      });
+      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType, domainRules);
     }
   } catch (cleaningError) {
     // 清洗失敗不應阻斷流程，僅記錄錯誤
