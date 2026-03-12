@@ -19,12 +19,19 @@
       "severity": "CRITICAL",
       "condition": "Introducing new core business logic without corresponding unit or E2E tests.",
       "enforcement": "Reject PR. Require TDD and ensure Codecov checks do not fail (< 50%)."
+    },
+    {
+      "category": "Unverified Severity Claim",
+      "severity": "WARNING",
+      "condition": "Classifying an issue as CRITICAL or security-related without citing the specific source line and providing a concrete reproduction scenario.",
+      "enforcement": "Require reviewer to re-verify against source code. Downgrade severity if evidence is insufficient or relies on assumptions about runtime behavior not confirmed by code."
     }
   ],
   "quick_checklist": [
     "Single Responsibility: The PR focuses on one specific issue without sneaking in unrelated refactoring.",
     "Log Sanitization: Verify all Logger.info/error calls correctly sanitize data (No PII, no raw HTML).",
     "Data Isolation: Verify cache/large data usage strictly targets storage.local.",
-    "Language: Verify code comments and documentation are maintained in Traditional Chinese."
+    "Language: Verify code comments and documentation are maintained in Traditional Chinese.",
+    "Evidence-Based Severity: Every CRITICAL or security-related finding must cite specific source lines and a concrete reproduction scenario. Downgrade if unverified."
   ]
 }
