@@ -202,38 +202,31 @@
 notion-chrome/
 ├── .github/               # CI 與 workflow（ci.yml、release-please.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
-├── rollup.all.config.mjs  # 🆕 統一構建配置
+├── rollup.all.config.mjs  # 統一構建配置
 ├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
-├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popupUI.js, popupActions.js）
-├── sidepanel/             # 側邊欄 UI（sidepanel.html, sidepanel.js, sidepanel.css）
-├── options/               # 設置頁面 UI（options.html, options.js, options.css）
+├── popup/                 # 彈出窗口 UI（處理 API 調用與 DOM 更新）
+├── sidepanel/             # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
+├── options/               # 設置頁面 UI（模塊化設置邏輯：Auth, DataSource, Storage 等）
 ├── scripts/               # 核心腳本與子模組
-│   ├── background.js
-│   ├── background/        # 🆕 模塊化背景服務
-│   │   ├── services/      #     服務層 (Notion, Storage, Injection, Tab, PageContent)
-│   │   ├── handlers/      #     業務處理器 (Save, Highlight, Migration)
-│   │   └── utils/         #     背景工具 (BlockBuilder)
-│   ├── content/           # 🆕 ES6 模塊化內容提取系統
-│   │   ├── index.js       #     入口文件 (合併 Highlighter)
-│   │   ├── extractors/    #     提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
-│   │   ├── converters/    #     轉換層（ConverterFactory, DomConverter）
-│   │   └── adapters/      #     適配層（ReadabilityAdapter）
-│   ├── config/            # 集中化配置管理
-│   │   ├── constants.js   #     統一常量定義
-│   │   ├── selectors.js   #     DOM 選擇器配置
-│   │   ├── patterns.js    #     正則表達式配置
-│   │   ├── features.js    #     功能開關配置
-│   │   ├── env.js         #     環境檢測工具
-│   │   └── index.js       #     統一導出入口
-│   ├── highlighter/       # 🆕 ES6 模塊化標註系統
-│   │   ├── index.js       #     入口文件
-│   │   ├── core/          #     核心模組（Range, HighlightManager, Storage, Style, Interaction）
-│   │   ├── ui/            #     UI 組件（Toolbar, Components, Styles）
-│   │   └── utils/         #     工具模組（color, dom, validation, path, textSearch, domStability）
+│   ├── background.js      # 處理擴展邏輯、API 調用、模板處理與更新通知
+│   ├── background/        # 模塊化背景服務
+│   │   ├── services/      # 服務層 (Notion, Storage, Injection, Tab, PageContent)
+│   │   ├── handlers/      # 業務處理器 (Save, Highlight, Migration)
+│   │   └── utils/         # 背景工具 (BlockBuilder)
+│   ├── content/           # 模塊化內容提取系統 (產出: dist/content.bundle.js)
+│   │   ├── index.js       # 入口文件
+│   │   ├── extractors/    # 提取層 (ContentExtractor, ReadabilityAdapter, ImageCollector 等)
+│   │   ├── converters/    # 轉換層 (ConverterFactory, DomConverter)
+│   │   └── adapters/      # 適配層 (整合 Readability.js 等)
+│   ├── config/            # 集中化配置管理 (常量、DOM選擇器、正則匹配、開關等)
+│   ├── highlighter/       # 基於 CSS Highlight API 的新一代標註引擎 (產出: dist/highlighter-v2.bundle.js)
+│   │   ├── core/          # 核心模組 (Range, HighlightManager, Storage 等)
+│   │   ├── ui/            # UI 組件 (Toolbar, Components, Styles)
+│   │   └── utils/         # 工具模組 (color, dom, textSearch 等)
 │   ├── performance/       # 性能優化模組
-│   └── utils/             # 🆕 工具模組 (Logger, Security, ErrorHandler, ImageUtils)
+│   └── utils/             # 工具模組 (Logger, Security, ErrorHandler, ImageUtils)
 
-├── dist/                  # 🆕 構建產物
+├── dist/                  # 構建產物
 │   ├── content.bundle.js         # Content Script 統一打包版
 │   └── *.js.map           # Source maps
 ├── update-notification/   # 更新通知頁面與邏輯
@@ -314,34 +307,6 @@ vim scripts/highlighter/core/Range.js
 
 # 4. 重新載入 Extension（Chrome Extension 頁面點擊刷新圖標）
 ```
-
-### 主要組件
-
-- **background.js**：處理擴展邏輯、API 調用、模板處理、更新通知
-- **content/**：模塊化內容提取系統（ES6 模塊）
-  - 位置：`scripts/content/` (ES6 模塊)
-  - 構建產物：`dist/content.bundle.js` (211KB)
-  - **extractors/**：提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
-  - **converters/**：轉換層（ConverterFactory, DomConverter）
-  - **adapters/**：適配層（ReadabilityAdapter 整合 Readability.js）
-- **popup/**：模塊化彈出頁面邏輯
-  - 位置：`popup/` (ES6 模塊)
-  - 職責：Actions (API 調用)、UI (DOM 更新)
-- **sidepanel/**：🆕 側邊欄面板邏輯
-  - 位置：`sidepanel/` (ES6 模塊)
-  - 職責：常駐顯示保存狀態，支援快速操作與頁面同步
-- **智慧型注入策略 (Smart Injection)**：
-  - **Preloader**：`< 5KB` 全域注入，負責快捷鍵監聽與性能預熱。
-  - **按需注入**：主程式 `content.bundle.js` 僅在頁面有標註或用戶主動點擊時才載入，大幅降低記憶體佔用。
-- **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎（已模組化）
-  - 位置：`scripts/highlighter/` (ES6 模塊)
-  - 構建產物：`dist/highlighter-v2.bundle.js` (15KB 壓縮版)
-- **config/**：🆕 集中化配置管理
-  - `constants.js`：統一常量定義（圖片驗證、性能優化、錯誤處理）
-  - `selectors.js`：DOM 選擇器配置（技術內容標記）
-- **options**：🆕 模塊化設置頁面核心邏輯
-  - 位置：`scripts/options/` (ES6 模塊：UIManager, AuthManager, DataSourceManager, StorageManager, MigrationTool)
-- **utils/Logger.js**：🆕 統一日誌系統，支持環境感知與調試模式控制（`scripts/utils/` 目錄下）
 
 ### 構建流程
 
