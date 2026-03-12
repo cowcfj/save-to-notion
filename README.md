@@ -6,7 +6,7 @@
 [![Chrome Users](https://img.shields.io/chrome-web-store/users/gmelegphcncnddlaeogfhododhbcbmhp?label=Chrome%20Users)](https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-一個智能的 Chrome 擴展，精準將網頁內容保存至 Notion。具備強大的智能內容提取功能，結合 Readability 與獨家演算法，為絕大多數網頁提供純淨的正文與圖片保存體驗；同時針對結構複雜的網站（如 明報、HK01、Yahoo 香港新聞等香港媒體，持續擴展中）提供深度優化支持，並支援可持久保存及遷移的多色標註功能。
+一個智能的 Chrome 擴展，精準將網頁內容保存至 Notion。具備強大的智能內容提取功能，結合 Readability 與獨家演算法，為絕大多數網頁提供純淨的正文與圖片保存體驗；同時針對結構複雜的網站（如 BBC、明報、HK01、Yahoo 香港新聞等，持續擴展中）提供深度優化支持，並可持久保存遷移的多色標註功能。
 
 ## 目錄
 
@@ -35,11 +35,21 @@
 2. 打開 `chrome://extensions/`，開啟「開發者模式」
 3. 點擊「載入未封裝項目」，選擇下載的資料夾
 
-### 2. 設置 Notion Integration
+### 2. 連接 Notion
+
+本擴展提供兩種安全連接方式：
+
+**方法一：OAuth 安全授權（推薦）**
 
 1. 點擊擴展圖標 → Settings → 連接到 Notion
-2. 在 Notion 創建 Integration，複製 API Token
-3. 貼上 Token，選擇目標資料來源（Notion 介面仍顯示為 Database），保存設置
+2. 點擊授權按鈕，在彈出的 Notion 登入頁面完成授權並選擇工作區
+3. 選擇目標資料來源（Notion 介面顯示為 Database 或 Data Source），保存設置
+
+**方法二：API Token 手動配置（進階）**
+
+1. 訪問 [Notion Integrations](https://www.notion.so/my-integrations) 頁面創建 Integration，並複製 Internal Integration Token
+2. 點擊擴展圖標 → Settings → 連接到 Notion，選擇手動輸入 API Key
+3. 貼上 Token，選擇目標資料來源，保存設置
 
 ### 3. 授權資料來源（Database）
 
@@ -96,15 +106,14 @@
 - **CSS Highlight API**：使用瀏覽器原生功能，零 DOM 修改，完美跨元素支持
 - **多顏色標註**：4 種顏色（🟡黃、🟢綠、🔵藍、🔴紅），適應不同使用場景
 - **自定義樣式**：支持背景顏色、文字顏色、底線三種模式，適應暗色模式與個人偏好
-- **自動遷移**：智能遷移舊標註，自動回滾機制，確保數據安全
 - **實時同步**：標記變更即時同步到 Notion 頁面
 - **雙重刪除**：雙擊刪除或 Ctrl/Cmd + 點擊快速刪除
-- **快速跳轉**：工具欄和標註列表雙重 "Open in Notion" 按鈕，一鍵跳轉到 Notion 頁面
 
 ### 📄 智能內容提取
 
 - **Next.js原生支持**：深度解析 **Next.js (App Router/Pages Router)** 網站數據，精準還原高品質內容
-- **深度優化**：針對 **HK01、明報、Yahoo HK** 等複雜網站特別優化，支援完整、乾淨的內容保存
+- **深度優化**：針對 **BBC、HK01、明報、Yahoo HK** 等複雜網站特別優化，提供網域專屬清洗規則支援完整、乾淨的內容保存
+- **雙重回退機制**：內建品質門檻檢測，當遭遇提取異常時自動重試或回退，確保內容高成功率提取
 - **Mozilla Readability**：智能提取文章主要內容，支持多種 CMS 系統
 - **自動過濾**：自動過濾廣告和無關內容
 - **完整保存**：支持超長文章（8000+ 字），自動分批處理
@@ -122,8 +131,10 @@
 - **內容選項**：可添加時間戳和來源信息
 - **預覽功能**：即時查看模板效果
 
-### ⚙️ 便捷設置
+### ⚙️ 便捷設置與安全穩定
 
+- **OAuth 認證**：支援新版 Notion OAuth 安全授權，內建 Token 自動刷新與過期防護機制
+- **儲存與備份**：內建增強的存儲管理，支援擴展配置的自動備份與還原功能
 - 一鍵連接 Notion Integration
 - 自動載入資料來源列表
 - API Key 連接測試
@@ -156,7 +167,7 @@
 
 ### 文本標註
 
-1. 點擊「Start Highlighting」啟用標註模式
+1. 點擊「開始標注」啟用標註模式
 2. 選擇標註顏色（🟡黃色、🟢綠色、🔵藍色、🔴紅色）
 3. 選中文字自動創建標註（支持跨段落選擇）
 4. 點擊「同步」將標記保存到 Notion
@@ -172,7 +183,7 @@
 
 ## 🛠️ 技術架構
 
-### 擴展標準
+### 擴展標準與協作模式
 
 - **Manifest V3**：使用最新的 Chrome 擴展標準
 - **ES6 模組化**：核心系統已重構為獨立模組，提升可維護性
@@ -186,8 +197,6 @@
 
 - **Range API**：精確的文本位置記錄和恢復
 - **URL 正規化**：移除追蹤參數（`utm_*`、`gclid`、`fbclid` 等）
-- **多層回退機制**：確保內容提取成功率
-- **完善錯誤處理**：統一的錯誤處理和用戶反饋機制
 
 ---
 
@@ -200,6 +209,7 @@ notion-chrome/
 ├── rollup.all.config.mjs  # 🆕 統一構建配置
 ├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
 ├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popupUI.js, popupActions.js）
+├── sidepanel/             # 側邊欄 UI（sidepanel.html, sidepanel.js, sidepanel.css）
 ├── options/               # 設置頁面 UI（options.html, options.js, options.css）
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js
@@ -312,15 +322,18 @@ vim scripts/highlighter/core/Range.js
 ### 主要組件
 
 - **background.js**：處理擴展邏輯、API 調用、模板處理、更新通知
-- **content/**：🆕 模塊化內容提取系統（ES6 模塊）
+- **content/**：模塊化內容提取系統（ES6 模塊）
   - 位置：`scripts/content/` (ES6 模塊)
   - 構建產物：`dist/content.bundle.js` (211KB)
   - **extractors/**：提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
   - **converters/**：轉換層（ConverterFactory, DomConverter）
   - **adapters/**：適配層（ReadabilityAdapter 整合 Readability.js）
-- **popup/**：🆕 模塊化彈出頁面邏輯
+- **popup/**：模塊化彈出頁面邏輯
   - 位置：`popup/` (ES6 模塊)
   - 職責：Actions (API 調用)、UI (DOM 更新)
+- **sidepanel/**：🆕 側邊欄面板邏輯
+  - 位置：`sidepanel/` (ES6 模塊)
+  - 職責：常駐顯示保存狀態，支援快速操作與頁面同步
 - **智慧型注入策略 (Smart Injection)**：
   - **Preloader**：`< 5KB` 全域注入，負責快捷鍵監聽與性能預熱。
   - **按需注入**：主程式 `content.bundle.js` 僅在頁面有標註或用戶主動點擊時才載入，大幅降低記憶體佔用。
