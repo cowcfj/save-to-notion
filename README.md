@@ -322,7 +322,7 @@ vim scripts/highlighter/core/Range.js
 
 ## 🤝 貢獻
 
-歡迎提交 Issue 和 Pull Request 來改進這個項目！
+歡迎提交 [Issue](https://github.com/cowcfj/save-to-notion/issues) 和 [Pull Request](https://github.com/cowcfj/save-to-notion/pulls) 來改進這個項目！
 
 ## 🔒 隱私政策
 
