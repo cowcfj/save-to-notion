@@ -2,41 +2,35 @@
 
 ## [2.45.0](https://github.com/cowcfj/save-to-notion/compare/v2.44.0...v2.45.0) (2026-03-10)
 
-
 ### ✨ 新功能
 
-* add agent type to agent configuration and class with a default value ([16a6f0c](https://github.com/cowcfj/save-to-notion/commit/16a6f0c01dfaad9010299eda3698b2a928ef1d92))
-* 新增網域專屬清洗規則 ([#341](https://github.com/cowcfj/save-to-notion/issues/341)) ([e91bb6f](https://github.com/cowcfj/save-to-notion/commit/e91bb6fb6a0e2e59344a6e54c923b0be2f8785c9))
-
+- add agent type to agent configuration and class with a default value ([16a6f0c](https://github.com/cowcfj/save-to-notion/commit/16a6f0c01dfaad9010299eda3698b2a928ef1d92))
+- 新增網域專屬清洗規則 ([#341](https://github.com/cowcfj/save-to-notion/issues/341)) ([e91bb6f](https://github.com/cowcfj/save-to-notion/commit/e91bb6fb6a0e2e59344a6e54c923b0be2f8785c9))
 
 ### 📝 文檔更新
 
-* Update AGENTS documentation and gitignore rules. ([de9b1e4](https://github.com/cowcfj/save-to-notion/commit/de9b1e40b055b26c7127952f003b8de22400848c))
-
+- Update AGENTS documentation and gitignore rules. ([de9b1e4](https://github.com/cowcfj/save-to-notion/commit/de9b1e40b055b26c7127952f003b8de22400848c))
 
 ### 🧹 其他變更
 
-* Add new patterns to .gitignore. ([75c80b0](https://github.com/cowcfj/save-to-notion/commit/75c80b0f8a962e91f9d970b55a71ddd01cae5dba))
-* update ignored patterns in .gitignore ([8b44d91](https://github.com/cowcfj/save-to-notion/commit/8b44d9168d02a05f6471fffa3218a08ae7e5ff20))
+- Add new patterns to .gitignore. ([75c80b0](https://github.com/cowcfj/save-to-notion/commit/75c80b0f8a962e91f9d970b55a71ddd01cae5dba))
+- update ignored patterns in .gitignore ([8b44d91](https://github.com/cowcfj/save-to-notion/commit/8b44d9168d02a05f6471fffa3218a08ae7e5ff20))
 
 ## [2.44.0](https://github.com/cowcfj/save-to-notion/compare/v2.43.2...v2.44.0) (2026-03-08)
 
-
 ### ✨ 新功能
 
-* 支援 BBC 文章提取及品質門檻回退機制 ([#339](https://github.com/cowcfj/save-to-notion/issues/339)) ([2b2d3f0](https://github.com/cowcfj/save-to-notion/commit/2b2d3f0345ebff26eca98ec0d0ce726c16d56ec6))
-
+- 支援 BBC 文章提取及品質門檻回退機制 ([#339](https://github.com/cowcfj/save-to-notion/issues/339)) ([2b2d3f0](https://github.com/cowcfj/save-to-notion/commit/2b2d3f0345ebff26eca98ec0d0ce726c16d56ec6))
 
 ### 👷 建置與 CI
 
-* **deps-dev:** bump @rollup/plugin-terser from 0.4.4 to 1.0.0 ([#337](https://github.com/cowcfj/save-to-notion/issues/337)) ([7caa7ff](https://github.com/cowcfj/save-to-notion/commit/7caa7ffec4ab6fa328fb4c693da941a29b3edad4))
+- **deps-dev:** bump @rollup/plugin-terser from 0.4.4 to 1.0.0 ([#337](https://github.com/cowcfj/save-to-notion/issues/337)) ([7caa7ff](https://github.com/cowcfj/save-to-notion/commit/7caa7ffec4ab6fa328fb4c693da941a29b3edad4))
 
 ## [2.43.2](https://github.com/cowcfj/save-to-notion/compare/v2.43.1...v2.43.2) (2026-03-07)
 
-
 ### 🐛 Bug 修復
 
-* 修正 release-please 觸發機制並包含先前跳過的變更 ([#334](https://github.com/cowcfj/save-to-notion/issues/334)) ([48550f4](https://github.com/cowcfj/save-to-notion/commit/48550f432a59d0f8f55e84e38908a1391798398c))
+- 修正 release-please 觸發機制並包含先前跳過的變更 ([#334](https://github.com/cowcfj/save-to-notion/issues/334)) ([48550f4](https://github.com/cowcfj/save-to-notion/commit/48550f432a59d0f8f55e84e38908a1391798398c))
 
 ## [2.43.1](https://github.com/cowcfj/save-to-notion/compare/v2.43.0...v2.43.1) (2026-03-07)
 

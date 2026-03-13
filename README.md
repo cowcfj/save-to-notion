@@ -326,7 +326,7 @@ vim scripts/highlighter/core/Range.js
 
 ## 🔒 隱私政策
 
-請查看我們的 [隱私政策](PRIVACY.md) 了解更多資訊。
+請查看我們的 [隱私政策](https://cowcfj.github.io/save-to-notion/privacy.html) 了解更多資訊。
 
 ## 📄 許可證
 
