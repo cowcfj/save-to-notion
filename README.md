@@ -4,7 +4,7 @@
 [![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/ci.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![Chrome Users](https://img.shields.io/chrome-web-store/users/gmelegphcncnddlaeogfhododhbcbmhp?label=Chrome%20Users)](https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 一個智能的 Chrome 擴展，精準將網頁內容保存至 Notion。具備強大的智能內容提取功能，結合 Readability 與獨家演算法，為絕大多數網頁提供純淨的正文與圖片保存體驗；同時針對結構複雜的網站（如 BBC、明報、HK01、Yahoo 香港新聞等，持續擴展中）提供深度優化支持，並可持久保存遷移的多色標註功能。
 
@@ -330,4 +330,15 @@ vim scripts/highlighter/core/Range.js
 
 ## 📄 許可證
 
-MIT License
+[GPLv3 License](./LICENSE)
+
+本專案採用 GPLv3 授權。如果您需要將其整合至閉源商業產品，請與我聯繫取得商業授權（Dual Licensing）。
+
+## 🙏 致謝 / Acknowledgements
+
+This extension relies on the following open-source projects:
+
+- **[@mozilla/readability](https://github.com/mozilla/readability)**
+  Used for extracting main content from web pages.
+  Licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+  Copyright (c) 2010 Arc90 Inc.
