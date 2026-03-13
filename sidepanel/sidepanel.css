@@ -77,8 +77,8 @@ body {
   background: none;
   border: 1px solid transparent;
   border-radius: 6px;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   cursor: pointer;
   color: var(--text-muted);
   transition: all 0.2s ease;

@@ -189,7 +189,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#sync-button').disabled).toBe(false);
     });
 
-    it('should disable sync button if page is not saved', async () => {
+    it('sync button 不論頁面是否已保存皆應可用（savePage 可自動建立）', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return {};
@@ -204,7 +204,8 @@ describe('Sidepanel JS Logic', () => {
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
 
-      expect(document.querySelector('#sync-button').disabled).toBe(true);
+      // Sync 按鈕始終可用（savePage 可自動建立新頁面）
+      expect(document.querySelector('#sync-button').disabled).toBe(false);
     });
 
     it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {
@@ -274,7 +275,8 @@ describe('Sidepanel JS Logic', () => {
       await Promise.resolve();
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(1);
-      expect(document.querySelector('#sync-button').disabled).toBe(true);
+      // Sync 按鈕始終可用（不論是否有 notion pageId）
+      expect(document.querySelector('#sync-button').disabled).toBe(false);
     });
 
     it('若 alias 解析未命中任何資料，應顯示 empty state', async () => {

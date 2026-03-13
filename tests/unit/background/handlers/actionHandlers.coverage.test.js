@@ -98,6 +98,12 @@ globalThis.chrome = {
     sendMessage: jest.fn().mockReturnValue(Promise.resolve()),
     create: jest.fn(),
   },
+  storage: {
+    sync: {
+      // _runSaveFlow 需要讀取 highlightContentStyle 設定
+      get: jest.fn().mockResolvedValue({ highlightContentStyle: 'COLOR_SYNC' }),
+    },
+  },
   runtime: {
     id: 'mock-ext-id',
     lastError: null,

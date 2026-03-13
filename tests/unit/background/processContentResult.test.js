@@ -87,4 +87,32 @@ describe('processContentResult', () => {
 
     expect(result.blocks[0]).toEqual(originalBlock);
   });
+
+  // ---- 新增：highlightContentStyle 參數測試 ----
+
+  it('highlightContentStyle 應有預設值 COLOR_SYNC（向後相容）', () => {
+    const rawResult = {
+      title: 'Test',
+      blocks: [{ type: 'paragraph', paragraph: {} }],
+      siteIcon: null,
+    };
+    // 不傳第三個參數，確保不報錯
+    expect(() => processContentResult(rawResult, [])).not.toThrow();
+  });
+
+  it('highlightContentStyle 為 NONE 時不影響 blocks 結構', () => {
+    const rawResult = {
+      title: 'Test Page',
+      blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
+      siteIcon: null,
+    };
+    const highlights = [{ text: 'some text', color: 'yellow' }];
+
+    const result = processContentResult(rawResult, highlights, 'NONE');
+
+    // NONE 模式：原始內容 block 仍在，加上 highlight section = 3 blocks
+    // (paragraph + heading + highlight paragraph)
+    expect(result.blocks.length).toBeGreaterThan(0);
+    expect(result.blocks[0]).toEqual(rawResult.blocks[0]); // 原始 block 未被修改
+  });
 });

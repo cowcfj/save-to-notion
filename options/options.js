@@ -101,6 +101,14 @@ export function initOptions() {
       document.body.style.zoom = zoomSelect.value;
     });
   }
+
+  // 12. 初始化 Notion 同步樣式選單
+  const highlightContentStyleSelect = document.querySelector('#highlight-content-style');
+  if (highlightContentStyleSelect) {
+    chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' }, result => {
+      highlightContentStyleSelect.value = result.highlightContentStyle;
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -259,6 +267,12 @@ export function saveSettings(ui, auth, statusId = 'status') {
   const highlightStyle = document.querySelector('#highlight-style');
   if (highlightStyle) {
     settings.highlightStyle = highlightStyle.value;
+  }
+
+  // 保存 Notion 同步樣式
+  const highlightContentStyle = document.querySelector('#highlight-content-style');
+  if (highlightContentStyle) {
+    settings.highlightContentStyle = highlightContentStyle.value;
   }
 
   // 單次原子操作保存所有設置
