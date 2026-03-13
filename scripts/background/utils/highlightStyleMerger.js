@@ -33,6 +33,7 @@ const VALID_HIGHLIGHT_COLORS = new Set(['yellow', 'green', 'blue', 'red']);
  */
 const HIGHLIGHT_STYLE_OPTIONS = {
   COLOR_SYNC: 'COLOR_SYNC',
+  COLOR_TEXT: 'COLOR_TEXT',
   BOLD: { bold: true },
   NONE: null,
 };
@@ -69,6 +70,12 @@ function resolveStyle(styleKey, highlight) {
     // 白名單驗證：不合法的顏色回退到 yellow
     const color = VALID_HIGHLIGHT_COLORS.has(rawColor) ? rawColor : 'yellow';
     return { color: `${color}_background` };
+  }
+  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT) {
+    const rawColor = highlight.color || 'yellow';
+    // 白名單驗證：文字顏色同樣回退到 yellow
+    const color = VALID_HIGHLIGHT_COLORS.has(rawColor) ? rawColor : 'yellow';
+    return { color };
   }
   return HIGHLIGHT_STYLE_OPTIONS[styleKey] || null;
 }

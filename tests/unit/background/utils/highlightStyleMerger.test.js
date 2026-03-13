@@ -79,6 +79,29 @@ describe('resolveStyle', () => {
     const hl = { color: 'yellow' };
     expect(resolveStyle('NONE', hl)).toBeNull();
   });
+
+  test('COLOR_TEXT：yellow → { color: "yellow" }（文字色，無 _background）', () => {
+    const hl = { color: 'yellow' };
+    expect(resolveStyle('COLOR_TEXT', hl)).toEqual({ color: 'yellow' });
+  });
+
+  test('COLOR_TEXT：green → { color: "green" }', () => {
+    const hl = { color: 'green' };
+    expect(resolveStyle('COLOR_TEXT', hl)).toEqual({ color: 'green' });
+  });
+
+  test('COLOR_TEXT：非法顏色（purple）→ { color: "yellow" }', () => {
+    const hl = { color: 'purple' };
+    expect(resolveStyle('COLOR_TEXT', hl)).toEqual({ color: 'yellow' });
+  });
+
+  test('COLOR_TEXT vs COLOR_SYNC：前者不含 _background 後綴', () => {
+    const hl = { color: 'blue' };
+    const textResult = resolveStyle('COLOR_TEXT', hl);
+    const bgResult = resolveStyle('COLOR_SYNC', hl);
+    expect(textResult.color).toBe('blue');
+    expect(bgResult.color).toBe('blue_background');
+  });
 });
 
 // ============================================================================
@@ -274,6 +297,34 @@ describe('mergeHighlightsWithStyle — 核心功能', () => {
     const result = mergeHighlightsWithStyle([imageBlock], highlights, 'COLOR_SYNC');
     expect(result[0]).toBe(imageBlock);
   });
+
+  test('COLOR_TEXT：yellow 標註應套用文字色（非背景色）', () => {
+    const blocks = [makeParagraphBlock([makeRT('這篇文章介紹重要概念和場景')])];
+    const highlights = [{ text: '重要概念', color: 'yellow', rangeInfo: {} }];
+    const result = mergeHighlightsWithStyle(blocks, highlights, 'COLOR_TEXT');
+
+    const richText = result[0].paragraph.rich_text;
+    // 應有文字色（非背景色）
+    const highlighted = richText.find(rt => rt.annotations?.color === 'yellow');
+    expect(highlighted).toBeDefined();
+    expect(highlighted.text.content).toBe('重要概念');
+    // 確認不是背景色
+    const bgPart = richText.find(rt => rt.annotations?.color === 'yellow_background');
+    expect(bgPart).toBeUndefined();
+  });
+
+  test('COLOR_TEXT：多顏色標註分別套用對應文字色', () => {
+    const blocks = [makeParagraphBlock([makeRT('紅色天空和藍色海洋')])];
+    const highlights = [
+      { text: '紅色', color: 'red', rangeInfo: {} },
+      { text: '藍色', color: 'blue', rangeInfo: {} },
+    ];
+    const result = mergeHighlightsWithStyle(blocks, highlights, 'COLOR_TEXT');
+
+    const richText = result[0].paragraph.rich_text;
+    expect(richText.find(rt => rt.annotations?.color === 'red')?.text.content).toBe('紅色');
+    expect(richText.find(rt => rt.annotations?.color === 'blue')?.text.content).toBe('藍色');
+  });
 });
 
 // ============================================================================
@@ -396,6 +447,10 @@ describe('VALID_HIGHLIGHT_COLORS', () => {
 describe('HIGHLIGHT_STYLE_OPTIONS', () => {
   test('COLOR_SYNC 是字符串 "COLOR_SYNC"', () => {
     expect(HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC).toBe('COLOR_SYNC');
+  });
+
+  test('COLOR_TEXT 是字符串 "COLOR_TEXT"', () => {
+    expect(HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT).toBe('COLOR_TEXT');
   });
 
   test('BOLD 含 bold: true', () => {
