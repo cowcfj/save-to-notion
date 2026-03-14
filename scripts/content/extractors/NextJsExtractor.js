@@ -17,6 +17,9 @@ import {
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
+const PAGES_ROUTER = 'pages-router';
+const APP_ROUTER = 'app-router';
+
 export const NextJsExtractor = {
   /**
    * 檢測頁面是否為 Next.js 網站
@@ -47,18 +50,7 @@ export const NextJsExtractor = {
   extract(doc) {
     const action = 'NextJsExtractor.extract';
     try {
-      const PAGES_ROUTER = 'pages-router';
-      let extractionSource = 'unknown';
-      let rawData = this._getPagesRouterData(doc);
-
-      if (rawData) {
-        extractionSource = PAGES_ROUTER;
-      } else {
-        rawData = this._getAppRouterData(doc);
-        if (rawData) {
-          extractionSource = 'app-router';
-        }
-      }
+      const { rawData, extractionSource } = this._resolveInitialData(doc);
 
       if (!rawData) {
         Logger.warn('未能提取任何 Next.js 數據', { action });
@@ -89,18 +81,7 @@ export const NextJsExtractor = {
   async extractAsync(doc) {
     const action = 'NextJsExtractor.extractAsync';
     try {
-      const PAGES_ROUTER = 'pages-router';
-      let extractionSource = 'unknown';
-      let rawData = this._getPagesRouterData(doc);
-
-      if (rawData) {
-        extractionSource = PAGES_ROUTER;
-      } else {
-        rawData = this._getAppRouterData(doc);
-        if (rawData) {
-          extractionSource = 'app-router';
-        }
-      }
+      const { rawData, extractionSource } = this._resolveInitialData(doc);
 
       if (!rawData) {
         Logger.warn('未能提取任何 Next.js 數據', { action });
@@ -111,13 +92,9 @@ export const NextJsExtractor = {
         const validation = this._validatePagesRouterDataDetailed(rawData, doc);
         if (!validation.isValid) {
           if (validation.reason === 'stale') {
-            const nextData = await this._fetchNextData(doc, rawData?.buildId);
-            if (nextData) {
-              const normalized = this._normalizeNextDataPayload(nextData, rawData);
-              const result = this._extractFromRawData(normalized, 'next-data', doc, action);
-              if (result) {
-                return result;
-              }
+            const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
+            if (fallbackResult) {
+              return fallbackResult;
             }
           }
           return null;
@@ -132,6 +109,44 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  /**
+   * 解析並獲取初始提取數據
+   *
+   * @param {Document} doc
+   * @returns {{ rawData: object|null, extractionSource: string }}
+   */
+  _resolveInitialData(doc) {
+    const rawPagesData = this._getPagesRouterData(doc);
+    if (rawPagesData) {
+      return { rawData: rawPagesData, extractionSource: PAGES_ROUTER };
+    }
+
+    const rawAppData = this._getAppRouterData(doc);
+    if (rawAppData) {
+      return { rawData: rawAppData, extractionSource: APP_ROUTER };
+    }
+
+    return { rawData: null, extractionSource: 'unknown' };
+  },
+
+  /**
+   * 處理過期的 Pages Router 數據
+   *
+   * @param {Document} doc
+   * @param {object} rawData
+   * @param {string} action
+   * @returns {Promise<object|null>}
+   */
+  async _handleStalePagesRouterData(doc, rawData, action) {
+    const nextData = await this._fetchNextData(doc, rawData?.buildId);
+    if (!nextData) {
+      return null;
+    }
+
+    const normalized = this._normalizeNextDataPayload(nextData, rawData);
+    return this._extractFromRawData(normalized, 'next-data', doc, action);
   },
 
   /**
@@ -310,10 +325,7 @@ export const NextJsExtractor = {
   async _fetchNextData(doc, buildId) {
     const action = '_fetchNextData';
     const pageUrl =
-      doc?.defaultView?.location?.href ||
-      doc?.location?.href ||
-      globalThis.location?.href ||
-      '';
+      doc?.defaultView?.location?.href || doc?.location?.href || globalThis.location?.href || '';
     const dataUrl = this._buildNextDataUrl(pageUrl, buildId);
 
     if (!dataUrl) {

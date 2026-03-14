@@ -513,10 +513,10 @@ describe('NextJsExtractor', () => {
   });
 
   describe('extractAsync', () => {
-    const originalFetch = global.fetch;
+    const originalFetch = globalThis.fetch;
 
     afterEach(() => {
-      global.fetch = originalFetch;
+      globalThis.fetch = originalFetch;
     });
 
     it('stale 時嘗試使用 _next/data 並成功提取', async () => {
@@ -532,7 +532,7 @@ describe('NextJsExtractor', () => {
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
 
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           pageProps: {
@@ -550,7 +550,7 @@ describe('NextJsExtractor', () => {
 
       const result = await NextJsExtractor.extractAsync(mockDoc);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
         expect.any(Object)
       );
