@@ -21,6 +21,7 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { LOCAL_STORAGE_KEYS } from '../../config/storageKeys.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
 
@@ -797,12 +798,11 @@ class StorageService {
       throw new Error(STORAGE_ERROR);
     }
 
-    const LOCAL_KEYS = new Set(['notionDataSourceId', 'notionDatabaseId', 'notionDataSourceType']);
     const localConfig = {};
     const syncConfig = {};
 
     for (const [key, value] of Object.entries(config)) {
-      if (LOCAL_KEYS.has(key)) {
+      if (LOCAL_STORAGE_KEYS.has(key)) {
         localConfig[key] = value;
       } else {
         syncConfig[key] = value;

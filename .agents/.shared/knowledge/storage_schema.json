@@ -5,10 +5,47 @@
     "local": {
       "limits": "5MB (unlimitedStorage permission)",
       "keys": {
+        "notionAuthMode": {
+          "type": "string",
+          "enum": ["oauth", "manual"],
+          "description": "Current authentication mode"
+        },
+        "notionOAuthToken": {
+          "type": "string",
+          "description": "OAuth access token",
+          "sensitive": true
+        },
+        "notionRefreshToken": {
+          "type": "string",
+          "description": "OAuth refresh token",
+          "sensitive": true
+        },
+        "notionRefreshProof": {
+          "type": "string | null",
+          "description": "OAuth refresh proof (if provided by server)",
+          "sensitive": true
+        },
+        "notionWorkspaceName": {
+          "type": "string",
+          "description": "Notion workspace name for OAuth display"
+        },
         "notionAuthEpoch": {
           "type": "number",
           "description": "Monotonic epoch for OAuth auth-state mutations across contexts; used to detect stale refresh writes",
           "default": 0
+        },
+        "notionDataSourceId": {
+          "type": "string",
+          "description": "Selected data source ID (db or page)"
+        },
+        "notionDatabaseId": {
+          "type": "string",
+          "description": "Legacy database ID (compat fallback)"
+        },
+        "notionDataSourceType": {
+          "type": "string",
+          "enum": ["database", "page"],
+          "default": "database"
         }
       },
       "patterns": {
@@ -61,13 +98,41 @@
           "description": "Notion Integration Secret (Bearer Token)",
           "sensitive": true
         },
+        "titleTemplate": {
+          "type": "string",
+          "description": "Title template for saved pages"
+        },
+        "addSource": {
+          "type": "boolean",
+          "description": "Whether to append source URL"
+        },
+        "addTimestamp": {
+          "type": "boolean",
+          "description": "Whether to append timestamp"
+        },
+        "highlightStyle": {
+          "type": "string",
+          "description": "Highlight style in saved content"
+        },
+        "highlightContentStyle": {
+          "type": "string",
+          "description": "Highlight content sync style"
+        },
+        "enableDebugLogs": {
+          "type": "boolean",
+          "description": "Enable debug logging"
+        },
+        "uiZoomLevel": {
+          "type": "string",
+          "description": "UI zoom level setting"
+        },
         "notionDatabaseId": {
           "type": "string",
-          "description": "Default target database ID"
+          "description": "Legacy database ID (compat fallback)"
         },
         "notionDataSourceId": {
           "type": "string",
-          "description": "Selected data source ID (db or page)"
+          "description": "Selected data source ID (legacy fallback)"
         },
         "notionDataSourceType": {
           "type": "string",

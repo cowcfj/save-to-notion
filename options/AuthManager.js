@@ -11,6 +11,12 @@ import {
   getNextAuthEpoch,
   isNonEmptyString,
 } from '../scripts/utils/notionAuth.js';
+import {
+  AUTH_LOCAL_KEYS,
+  DATA_SOURCE_KEYS,
+  SYNC_CONFIG_KEYS,
+  mergeDataSourceConfig,
+} from '../scripts/config/storageKeys.js';
 
 /**
  * AuthManager.js
@@ -174,29 +180,11 @@ export class AuthManager {
     try {
       // 同時讀取 local 和 sync
       const [localData, syncData] = await Promise.all([
-        chrome.storage.local.get([
-          'notionAuthMode',
-          'notionOAuthToken',
-          'notionWorkspaceName',
-          'notionDataSourceId',
-          'notionDatabaseId',
-        ]),
-        chrome.storage.sync.get([
-          'notionApiKey',
-          'notionDataSourceId',
-          'notionDatabaseId',
-          'titleTemplate',
-          'addSource',
-          'addTimestamp',
-          'highlightStyle',
-          'enableDebugLogs',
-        ]),
+        chrome.storage.local.get([...AUTH_LOCAL_KEYS, ...DATA_SOURCE_KEYS]),
+        chrome.storage.sync.get([...SYNC_CONFIG_KEYS, ...DATA_SOURCE_KEYS]),
       ]);
 
-      const sourceData = {
-        notionDataSourceId: localData.notionDataSourceId || syncData.notionDataSourceId,
-        notionDatabaseId: localData.notionDatabaseId || syncData.notionDatabaseId,
-      };
+      const sourceData = mergeDataSourceConfig(localData, syncData);
 
       // 判斷認證模式
       if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
