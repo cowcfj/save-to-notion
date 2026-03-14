@@ -105,7 +105,7 @@ function scoreCandidate(fullText, idx, text, prefix, suffix) {
     const actualPrefix = fullText.slice(Math.max(0, idx - prefix.length), idx);
     if (actualPrefix.endsWith(prefix)) {
       score += 2;
-    } else if (actualPrefix.includes(prefix.slice(-10))) {
+    } else if (actualPrefix.endsWith(prefix.slice(-10))) {
       score += 1;
     }
   }
@@ -114,7 +114,7 @@ function scoreCandidate(fullText, idx, text, prefix, suffix) {
     const actualSuffix = fullText.slice(idx + text.length, idx + text.length + suffix.length);
     if (actualSuffix.startsWith(suffix)) {
       score += 2;
-    } else if (actualSuffix.includes(suffix.slice(0, 10))) {
+    } else if (actualSuffix.startsWith(suffix.slice(0, 10))) {
       score += 1;
     }
   }
