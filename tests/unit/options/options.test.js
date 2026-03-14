@@ -146,23 +146,14 @@ describe('options.js', () => {
 
       mockUi = { showStatus: jest.fn() };
       mockAuth = { currentAuthMode: 'manual', checkAuthStatus: jest.fn() };
-      mockSet = jest.fn((data, cb) => {
-        if (cb) {
-          cb();
-        }
-      });
-      mockLocalSet = jest.fn((data, cb) => {
-        if (cb) {
-          cb();
-        }
-      });
+      mockSet = jest.fn().mockResolvedValue();
+      mockLocalSet = jest.fn().mockResolvedValue();
 
       globalThis.chrome = {
         storage: {
           local: { set: mockLocalSet },
           sync: { set: mockSet },
         },
-        runtime: { lastError: null },
       };
     });
     afterEach(() => {
@@ -171,15 +162,14 @@ describe('options.js', () => {
     });
 
     it('should save settings and update status', async () => {
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockLocalSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionDatabaseId: 'a1b2c3d4e5f67890abcdef1234567890',
           notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
           notionDataSourceType: 'page',
-        }),
-        expect.any(Function)
+        })
       );
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -190,11 +180,9 @@ describe('options.js', () => {
           addTimestamp: false,
           uiZoomLevel: '1',
           highlightStyle: 'background',
-        }),
-        expect.any(Function)
+        })
       );
 
-      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('成功'),
         'success',
@@ -224,8 +212,7 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionApiKey: '',
-        }),
-        expect.any(Function)
+        })
       );
     });
 
@@ -241,9 +228,8 @@ describe('options.js', () => {
     });
 
     it('should handle save error', async () => {
-      globalThis.chrome.runtime.lastError = { message: 'Storage error' };
-      saveSettings(mockUi, mockAuth);
-      await new Promise(resolve => setTimeout(resolve, 0));
+      mockSet.mockRejectedValueOnce(new Error('Storage error'));
+      await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
         'error',
@@ -258,8 +244,7 @@ describe('options.js', () => {
       expect(mockLocalSet).toHaveBeenCalledWith(
         expect.not.objectContaining({
           notionDataSourceType: expect.anything(),
-        }),
-        expect.any(Function)
+        })
       );
     });
 
@@ -270,8 +255,7 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           highlightStyle: 'text',
-        }),
-        expect.any(Function)
+        })
       );
     });
 
@@ -281,8 +265,7 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           highlightStyle: 'background',
-        }),
-        expect.any(Function)
+        })
       );
     });
 
@@ -293,8 +276,7 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           highlightStyle: 'underline',
-        }),
-        expect.any(Function)
+        })
       );
     });
     it('should save uiZoomLevel', () => {
@@ -304,8 +286,7 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           uiZoomLevel: '1.1',
-        }),
-        expect.any(Function)
+        })
       );
     });
   });

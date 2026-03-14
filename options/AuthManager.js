@@ -138,18 +138,17 @@ export class AuthManager {
 
     // 日誌模式切換
     if (this.elements.debugToggle) {
-      this.elements.debugToggle.addEventListener('change', () => {
+      this.elements.debugToggle.addEventListener('change', async () => {
         try {
-          chrome.storage.sync.set(
-            { enableDebugLogs: Boolean(this.elements.debugToggle.checked) },
-            () => {
-              this.ui.showStatus(
-                this.elements.debugToggle.checked
-                  ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
-                  : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
-                'success'
-              );
-            }
+          await chrome.storage.sync.set({
+            enableDebugLogs: Boolean(this.elements.debugToggle.checked),
+          });
+
+          this.ui.showStatus(
+            this.elements.debugToggle.checked
+              ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
+              : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
+            'success'
           );
         } catch (error) {
           Logger.error('[存儲] 切換日誌模式失敗', {

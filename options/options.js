@@ -11,7 +11,7 @@ import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
 
 /**
  * Options Page Main Controller
@@ -220,7 +220,7 @@ export function cleanDatabaseId(input) {
  * @param {AuthManager} auth
  * @param {string} [statusId='status']
  */
-export function saveSettings(ui, auth, statusId = 'status') {
+export async function saveSettings(ui, auth, statusId = 'status') {
   const apiKey = document.querySelector('#api-key').value.trim();
   const rawDatabaseId = document.querySelector('#database-id').value;
   const titleTemplate = document.querySelector('#title-template').value;
@@ -277,25 +277,27 @@ export function saveSettings(ui, auth, statusId = 'status') {
   }
 
   // 分離儲存至 local 與 sync
-  Promise.all([
-    new Promise(resolve => chrome.storage.local.set(localSettings, resolve)),
-    new Promise(resolve => chrome.storage.sync.set(syncSettings, resolve)),
-  ])
-    .then(() => {
-      if (chrome.runtime.lastError) {
-        Logger.error('Settings save failed:', chrome.runtime.lastError);
-        ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
-      } else {
-        ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
+  try {
+    await Promise.all([
+      chrome.storage.local.set(localSettings),
+      chrome.storage.sync.set(syncSettings),
+    ]);
 
-        // 刷新認證狀態以更新 UI
-        auth.checkAuthStatus();
-      }
-    })
-    .catch(error => {
-      Logger.error('Settings save failed:', error);
-      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
+    ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
+
+    // 刷新認證狀態以更新 UI
+    auth.checkAuthStatus();
+  } catch (error) {
+    const safeMessage = sanitizeApiError(error, 'save_settings');
+    const safeError = safeMessage instanceof Error ? safeMessage : new Error(String(safeMessage));
+    ErrorHandler.logError({
+      type: ErrorTypes.STORAGE,
+      context: 'save_settings',
+      originalError: safeError,
     });
+
+    ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
+  }
 }
 
 /**

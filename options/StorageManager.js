@@ -140,9 +140,7 @@ export class StorageManager {
 
       const sanitizedData = sanitizeBackupData(backup.data);
 
-      await new Promise(resolve => {
-        chrome.storage.local.set(sanitizedData, resolve);
-      });
+      await chrome.storage.local.set(sanitizedData);
 
       const count = Object.keys(sanitizedData).length;
       const icon = UI_ICONS.SUCCESS;

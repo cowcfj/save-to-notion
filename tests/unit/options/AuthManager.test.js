@@ -35,6 +35,7 @@ describe('AuthManager', () => {
         <input id="api-key" />
         <input id="database-id" />
         <button id="test-api-button"></button>
+        <input type="checkbox" id="enable-debug-logs" />
     `;
 
     mockUiManager = new UIManager();
@@ -114,6 +115,20 @@ describe('AuthManager', () => {
     expect(mockUiManager.showStatus).toHaveBeenCalledWith(
       expect.stringContaining('成功斷開'),
       'success'
+    );
+  });
+
+  test('debug toggle failure shows error message', async () => {
+    const toggle = document.querySelector('#enable-debug-logs');
+    toggle.checked = true;
+    chrome.storage.sync.set.mockRejectedValueOnce(new Error('Storage error'));
+
+    toggle.dispatchEvent(new Event('change'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+      expect.stringContaining('切換日誌模式失敗'),
+      'error'
     );
   });
 });
