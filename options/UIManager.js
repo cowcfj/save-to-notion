@@ -9,7 +9,8 @@ import {
   createSafeIcon,
 } from '../scripts/utils/securityUtils.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
-import { NOTION_API, UI_STATUS_TYPES } from '../scripts/config/constants.js';
+import { NOTION_API } from '../scripts/config/api.js';
+import { UI_STATUS_TYPES } from '../scripts/config/ui.js';
 
 /**
  * 選項頁面的 UI 選擇器常數

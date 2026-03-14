@@ -9,7 +9,7 @@
 /* global chrome */
 
 import Logger from './Logger.js';
-import { SECURITY_CONSTANTS } from '../config/constants.js';
+import { SECURITY_CONSTANTS } from '../config/app.js';
 
 import { API_ERROR_PATTERNS, SECURITY_ERROR_MESSAGES } from '../config/messages.js';
 
@@ -596,7 +596,7 @@ export function validateLogExportData(data) {
 
 /**
  * 允許的 SVG 屬性白名單與安全協議（屬性級過濾）
- * 注意：定義已移動至 constants.js，此函數負責邏輯檢查
+ * 注意：定義已移動至 app.js，此函數負責邏輯檢查
  *
  * @param {string} name - 屬性名
  * @param {string} value - 屬性值

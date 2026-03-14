@@ -42,3 +42,13 @@ export function mergeDataSourceConfig(localData = {}, syncData = {}) {
     notionDataSourceType: localData.notionDataSourceType || syncData.notionDataSourceType,
   };
 }
+
+// ==========================================
+// 存儲前綴常量 (Storage Prefixes)
+// ==========================================
+
+export const SAVED_PREFIX = 'saved_';
+export const HIGHLIGHTS_PREFIX = 'highlights_';
+export const URL_ALIAS_PREFIX = 'url_alias:';
+export const HIGHLIGHTS_LEGACY_PREFIX = 'nh_highlights_'; // 舊版標註存儲前綴
+export const PAGE_PREFIX = 'page_'; // Phase 3: 統一頁面狀態結構前綴

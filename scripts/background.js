@@ -11,7 +11,7 @@ import './utils/Logger.js'; // Side-effect import to register self.Logger
 import { normalizeUrl, computeStableUrl } from './utils/urlUtils.js';
 import { getActiveNotionToken } from './utils/notionAuth.js';
 
-import { TAB_SERVICE } from './config/constants.js';
+import { TAB_SERVICE } from './config/app.js';
 
 // Import Services
 import { StorageService } from './background/services/StorageService.js';

@@ -7,10 +7,10 @@ const {
   IMAGE_VALIDATION_CONSTANTS,
   IMAGE_VALIDATION_CONFIG,
   CONTENT_QUALITY,
-  NOTION_API,
-  LOG_LEVELS,
   TEXT_PROCESSING,
-} = require('../../../scripts/config/constants');
+} = require('../../../scripts/config/extraction');
+const { NOTION_API } = require('../../../scripts/config/api');
+const { LOG_LEVELS } = require('../../../scripts/config/messages');
 
 describe('配置模組 - constants.js', () => {
   describe('IMAGE_VALIDATION_CONSTANTS', () => {

@@ -4,7 +4,7 @@ import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
-import { NOTION_OAUTH } from '../../../scripts/config/constants.js';
+import { NOTION_OAUTH } from '../../../scripts/config/api.js';
 
 // Mock dependencies
 jest.mock('../../../options/UIManager.js');

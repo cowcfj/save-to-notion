@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../../../scripts/config/ui-selectors.js';
+import { TOOLBAR_SELECTORS } from '../../../../../scripts/config/ui.js';
 import * as toolbarStylesModule from '../../../../../scripts/highlighter/ui/styles/toolbarStyles.js';
 
 const { getToolbarCSS, injectStylesIntoShadowRoot } = toolbarStylesModule;

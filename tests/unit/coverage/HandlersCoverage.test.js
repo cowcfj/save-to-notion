@@ -8,8 +8,8 @@
  */
 
 // Mock constants BEFORE imports
-jest.mock('../../../scripts/config/constants.js', () => {
-    const original = jest.requireActual('../../../scripts/config/constants.js');
+jest.mock('../../../scripts/config/app.js', () => {
+    const original = jest.requireActual('../../../scripts/config/app.js');
     return {
         __esModule: true,
         ...original,

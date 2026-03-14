@@ -7,7 +7,7 @@
 
 import { sanitizeUrlForLogging } from './securityUtils.js';
 import Logger from './Logger.js';
-import { IMAGE_VALIDATION } from '../config/constants.js';
+import { IMAGE_VALIDATION } from '../config/extraction.js';
 import {
   IMAGE_ATTRIBUTES,
   IMAGE_EXTENSIONS,

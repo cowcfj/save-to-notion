@@ -81,8 +81,8 @@ import { validateContentScriptRequest } from '../../../../scripts/utils/security
 import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
 import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
-jest.mock('../../../../scripts/config/constants.js', () => {
-  const original = jest.requireActual('../../../../scripts/config/constants.js');
+jest.mock('../../../../scripts/config/app.js', () => {
+  const original = jest.requireActual('../../../../scripts/config/app.js');
   return {
     __esModule: true,
     ...original,

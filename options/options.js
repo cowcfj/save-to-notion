@@ -4,7 +4,7 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
-import { AuthMode } from '../scripts/config/constants.js';
+import { AuthMode } from '../scripts/config/api.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';

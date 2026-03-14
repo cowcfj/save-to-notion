@@ -8,7 +8,8 @@
  */
 
 // 導入統一配置（從統一入口點導入，保持一致性）
-import { TEXT_PROCESSING, NOTION_API } from '../../config/index.js';
+import { TEXT_PROCESSING } from '../../config/index.js';
+import { NOTION_API } from '../../config/api.js';
 
 /**
  * 文本內容最大長度（從統一配置獲取）

@@ -38,6 +38,11 @@ jest.mock('@mozilla/readability', () => {
 
 // Mock Config to ensure stable test environment
 jest.mock('../../../../scripts/config/extraction.js', () => ({
+  CONTENT_QUALITY: {
+    MIN_CONTENT_LENGTH: 250,
+    MAX_LINK_DENSITY: 0.25,
+    LIST_EXCEPTION_THRESHOLD: 8,
+  },
   GENERIC_CLEANING_RULES: ['.ad', '.promo', '#remove-me'],
   CMS_CLEANING_RULES: {
     wordpress: {

@@ -15,8 +15,8 @@ import {
   HIGHLIGHTS_PREFIX,
   PAGE_PREFIX,
   URL_ALIAS_PREFIX,
-  RESTRICTED_PROTOCOLS,
-} from '../scripts/config/constants.js';
+} from '../scripts/config/storageKeys.js';
+import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import Logger from '../scripts/utils/Logger.js';
 

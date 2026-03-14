@@ -14,7 +14,7 @@
 
 /* global chrome */
 
-import { CONTENT_QUALITY } from '../config/constants.js';
+import { CONTENT_QUALITY } from '../config/extraction.js';
 import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';

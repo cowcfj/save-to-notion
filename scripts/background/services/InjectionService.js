@@ -13,7 +13,7 @@
 /* global chrome */
 
 import Logger from '../../utils/Logger.js';
-import { RESTRICTED_PROTOCOLS } from '../../config/constants.js';
+import { RESTRICTED_PROTOCOLS } from '../../config/app.js';
 
 /**
  * 腳本注入服務的超時與錯誤定義

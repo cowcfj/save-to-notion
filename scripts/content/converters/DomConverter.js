@@ -21,8 +21,8 @@ import {
   BLOCKS_SUPPORTING_CHILDREN,
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
   CODE_LANGUAGE_MAP,
-  IMAGE_LIMITS,
-} from '../../config/constants.js';
+} from '../../config/api.js';
+import { IMAGE_LIMITS } from '../../config/extraction.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 /**

@@ -11,12 +11,9 @@
 
 /* global chrome */
 
-import {
-  TAB_SERVICE,
-  URL_NORMALIZATION,
-  HANDLER_CONSTANTS,
-  URL_ALIAS_PREFIX,
-} from '../../config/constants.js';
+import { TAB_SERVICE, HANDLER_CONSTANTS } from '../../config/app.js';
+import { URL_NORMALIZATION } from '../../config/extraction.js';
+import { URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';

@@ -11,15 +11,15 @@
 /* global Logger, PerformanceOptimizer */
 
 import { Readability } from '@mozilla/readability';
-import { CONTENT_QUALITY } from '../../config/constants.js';
-import { LIST_PREFIX_PATTERNS, IMAGE_ATTRIBUTES } from '../../config/patterns.js';
 import {
+  CONTENT_QUALITY,
   CMS_CONTENT_SELECTORS,
   ARTICLE_STRUCTURE_SELECTORS,
   CMS_CLEANING_RULES,
   GENERIC_CLEANING_RULES,
   DOMAIN_CLEANING_RULES,
 } from '../../config/extraction.js';
+import { LIST_PREFIX_PATTERNS, IMAGE_ATTRIBUTES } from '../../config/patterns.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
 const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;

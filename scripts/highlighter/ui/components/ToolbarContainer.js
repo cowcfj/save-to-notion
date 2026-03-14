@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../config/ui-selectors.js';
+import { TOOLBAR_SELECTORS } from '../../../config/ui.js';
 
 /**
  * 創建工具欄容器

@@ -21,9 +21,8 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
-import { LOCAL_STORAGE_KEYS } from '../../config/storageKeys.js';
+import { LOCAL_STORAGE_KEYS, URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/storageKeys.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
-import { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
 
 /**
  * URL 標準化相關常量（向後兼容：既有代碼可繼續導入這些常量）
@@ -1008,4 +1007,4 @@ class StorageService {
 // 導出
 export { StorageService };
 export { TRACKING_PARAMS as URL_TRACKING_PARAMS, normalizeUrl } from '../../utils/urlUtils.js';
-export { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/constants.js'; // Phase 3: PAGE_PREFIX 統一從此處導出
+export { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/storageKeys.js'; // Phase 3: PAGE_PREFIX 統一從此處導出

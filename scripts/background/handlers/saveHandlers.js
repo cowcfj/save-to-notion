@@ -22,7 +22,8 @@ import {
   HIGHLIGHT_STYLE_OPTIONS,
 } from '../utils/highlightStyleMerger.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS, CONTENT_QUALITY } from '../../config/constants.js';
+import { HANDLER_CONSTANTS } from '../../config/app.js';
+import { CONTENT_QUALITY } from '../../config/extraction.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { getActiveNotionToken } from '../../utils/notionAuth.js';

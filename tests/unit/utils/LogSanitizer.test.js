@@ -1,5 +1,5 @@
 import { LogSanitizer, sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
-import { URL_NORMALIZATION } from '../../../scripts/config/constants.js';
+import { URL_NORMALIZATION } from '../../../scripts/config/extraction.js';
 
 describe('LogSanitizer', () => {
   describe('sanitize()', () => {

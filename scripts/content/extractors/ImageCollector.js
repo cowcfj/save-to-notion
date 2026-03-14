@@ -30,8 +30,9 @@ import {
   IMAGE_SELECTORS,
   GALLERY_SELECTORS,
   EXCLUSION_SELECTORS,
+  IMAGE_VALIDATION_CONSTANTS,
+  IMAGE_LIMITS,
 } from '../../config/extraction.js';
-import { IMAGE_VALIDATION_CONSTANTS, IMAGE_LIMITS } from '../../config/constants.js';
 
 const ImageCollector = {
   /**

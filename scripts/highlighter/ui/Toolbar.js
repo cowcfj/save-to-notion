@@ -8,7 +8,7 @@ import { injectStylesIntoShadowRoot } from './styles/toolbarStyles.js';
 import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
-import { TOOLBAR_SELECTORS } from '../../config/ui-selectors.js';
+import { TOOLBAR_SELECTORS } from '../../config/ui.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeApiError, createSafeIcon } from '../../utils/securityUtils.js';

@@ -1,6 +1,4 @@
-/* global Logger */
-import { ERROR_MESSAGES } from '../config/messages.js';
-import { ERROR_TYPES } from '../config/constants.js';
+import { ERROR_MESSAGES, ERROR_TYPES } from '../config/messages.js';
 // [REMOVED] escapeHtml as it is no longer needed
 // import { escapeHtml } from './securityUtils.js';
 
@@ -13,9 +11,9 @@ import { ERROR_TYPES } from '../config/constants.js';
  * 錯誤類型枚舉
  */
 /**
- * 錯誤類型枚舉 (已移至 constants.js)
+ * 錯誤類型枚舉 (已移至 messages.js)
  *
- * @type {import('../config/constants.js').ERROR_TYPES}
+ * @type {import('../config/messages.js').ERROR_TYPES}
  */
 const ErrorTypes = ERROR_TYPES;
 

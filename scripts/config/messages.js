@@ -329,3 +329,39 @@ export const API_ERROR_PATTERNS = {
   // 5. 伺服器錯誤 (需組合判斷)
   SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
 };
+
+// ==========================================
+// 日誌與錯誤類型定義
+// ==========================================
+
+/**
+ * 日誌級別定義（來自 Logger.js）
+ */
+export const LOG_LEVELS = {
+  DEBUG: 0,
+  LOG: 1,
+  INFO: 2,
+  WARN: 3,
+  ERROR: 4,
+};
+
+/**
+ * 應用程式錯誤類型枚舉
+ */
+export const ERROR_TYPES = {
+  // 原有類型
+  EXTRACTION_FAILED: 'extraction_failed',
+  INVALID_URL: 'invalid_url',
+  NETWORK_ERROR: 'network_error',
+  PARSING_ERROR: 'parsing_error',
+  PERFORMANCE_WARNING: 'performance_warning',
+  DOM_ERROR: 'dom_error',
+  VALIDATION_ERROR: 'validation_error',
+  TIMEOUT_ERROR: 'timeout_error',
+  // 背景服務相關類型
+  STORAGE: 'storage', // 存儲操作錯誤
+  NOTION_API: 'notion_api', // Notion API 錯誤
+  INJECTION: 'injection', // 腳本注入錯誤
+  PERMISSION: 'permission', // 權限不足
+  INTERNAL: 'internal', // 內部錯誤
+};

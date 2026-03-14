@@ -9,7 +9,7 @@
 
 import { LogBuffer } from './LogBuffer.js';
 import { LogSanitizer } from './LogSanitizer.js';
-import { LOG_ICONS } from '../config/constants.js';
+import { LOG_ICONS } from '../config/ui.js';
 
 // 內部狀態
 let _debugEnabled = false;

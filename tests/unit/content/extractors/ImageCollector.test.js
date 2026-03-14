@@ -52,7 +52,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 globalThis.Logger = Logger;
 
 // Mock constants
-jest.mock('../../../../scripts/config/constants', () => ({
+jest.mock('../../../../scripts/config/extraction', () => ({
   IMAGE_VALIDATION_CONSTANTS: {
     MAX_URL_LENGTH: 2000,
     MIN_IMAGE_WIDTH: 550,
@@ -70,6 +70,13 @@ jest.mock('../../../../scripts/config/constants', () => ({
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
   },
+  FEATURED_IMAGE_SELECTORS: ['meta[property="og:image"]'],
+  IMAGE_SELECTORS: ['img'],
+  GALLERY_SELECTORS: ['.gallery img'],
+  EXCLUSION_SELECTORS: ['.ad img'],
+}));
+
+jest.mock('../../../../scripts/config/messages', () => ({
   ERROR_TYPES: {
     EXTRACTION_FAILED: 'extraction_failed',
     INVALID_URL: 'invalid_url',
