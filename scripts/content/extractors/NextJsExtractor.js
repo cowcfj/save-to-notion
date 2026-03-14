@@ -134,12 +134,24 @@ export const NextJsExtractor = {
   /**
    * 處理過期的 Pages Router 數據
    *
+   * 優先順序：
+   * 1. 嘗試從 Next.js router 組件讀取 SPA 導航後的最新數據
+   * 2. 後備：透過 _next/data 端點重新取得
+   *
    * @param {Document} doc
    * @param {object} rawData
    * @param {string} action
    * @returns {Promise<object|null>}
    */
   async _handleStalePagesRouterData(doc, rawData, action) {
+    // 優先：嘗試從 Next.js router 組件讀取 SPA 導航後的數據
+    const routerData = this._getRouterComponentData(doc);
+    if (routerData) {
+      const result = this._extractFromRawData(routerData, 'router-component', doc, action);
+      if (result) {return result;}
+    }
+
+    // 後備：嘗試從 _next/data 端點取得
     const nextData = await this._fetchNextData(doc, rawData?.buildId);
     if (!nextData) {
       return null;
@@ -147,6 +159,35 @@ export const NextJsExtractor = {
 
     const normalized = this._normalizeNextDataPayload(nextData, rawData);
     return this._extractFromRawData(normalized, 'next-data', doc, action);
+  },
+
+  /**
+   * 從 Next.js router.components 讀取 SPA 導航後的最新 pageProps
+   *
+   * Next.js Pages Router 在 SPA 導航後會將最新的 pageProps 存於
+   * window.next.router.components 中，各 key 為路由 pattern（如 '/article'）。
+   *
+   * @param {Document} doc
+   * @returns {{ props: { pageProps: object } }|null}
+   */
+  _getRouterComponentData(doc) {
+    try {
+      const win = doc.defaultView || globalThis;
+      const router = win?.next?.router;
+      if (!router?.components) {return null;}
+
+      // 遍歷所有已載入的 router 組件，找到最先有 pageProps 的項目
+      // HK01 通常是 '/article'，其他網站可能用 '/[...path]' 等不同 key
+      for (const [, comp] of Object.entries(router.components)) {
+        const pageProps = comp?.props?.initialProps?.pageProps || comp?.props?.pageProps;
+        if (pageProps && Object.keys(pageProps).length > 0) {
+          return { props: { pageProps } };
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
   },
 
   /**
@@ -242,10 +283,11 @@ export const NextJsExtractor = {
     }
 
     // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
-    if (extractionSource === PAGES_ROUTER && articleData?.title) {
+    // 適用於 pages-router、next-data 及 router-component 來源，僅排除 App Router
+    if (extractionSource !== APP_ROUTER && articleData?.title) {
       const docTitle = doc.title;
       if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
-        Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {
+        Logger.warn('SPA 導航偵測：結構化數據標題與 document.title 不符，放棄結構化提取', {
           action,
           source: extractionSource,
           reason: 'title_mismatch',

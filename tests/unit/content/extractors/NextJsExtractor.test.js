@@ -519,6 +519,118 @@ describe('NextJsExtractor', () => {
       globalThis.fetch = originalFetch;
     });
 
+    it('stale 時優先從 router 組件提取，不呼叫 fetch', async () => {
+      // 模擬：__NEXT_DATA__ 為首頁資料 (stale)，router.components 有最新文章數據
+      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
+      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
+      mockDoc.title = 'Router Article | HK01';
+
+      // __NEXT_DATA__ 為首頁 (stale)
+      const staleJson = {
+        page: '/',
+        asPath: '/',
+        buildId: 'build123',
+        props: { initialProps: { pageProps: {} } },
+      };
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(staleJson) });
+
+      // 模擬 window.next.router.components 含有最新文章數據
+      mockDoc.defaultView.next = {
+        router: {
+          components: {
+            '/article': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: {
+                      title: 'Router Article',
+                      blocks: [
+                        { blockType: 'paragraph', text: 'Para 1 from router' },
+                        { blockType: 'paragraph', text: 'Para 2 from router' },
+                        { blockType: 'paragraph', text: 'Para 3 from router' },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      globalThis.fetch = jest.fn(); // 不應被呼叫
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Router Article');
+      expect(result.blocks.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('router 數據標題不匹配時回退到 _fetchNextData', async () => {
+      // 模擬：router.components 有過時數據，document.title 是新文章
+      mockDoc.defaultView.location.pathname = '/news/new-article';
+      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/new-article';
+      mockDoc.title = 'Correct New Article | HK01'; // 與 router 數據的標題不符
+
+      // __NEXT_DATA__ 為首頁 (stale)
+      const staleJson = {
+        page: '/',
+        buildId: 'build456',
+        props: { initialProps: { pageProps: {} } },
+      };
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(staleJson) });
+
+      // router 含有舊文章的數據（標題與 document.title 不符）
+      mockDoc.defaultView.next = {
+        router: {
+          components: {
+            '/article': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: {
+                      title: 'Old Stale Router Article',
+                      blocks: [
+                        { blockType: 'paragraph', text: 'Old 1' },
+                        { blockType: 'paragraph', text: 'Old 2' },
+                        { blockType: 'paragraph', text: 'Old 3' },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      // fetch 回傳正確的新文章數據
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          pageProps: {
+            article: {
+              title: 'Correct New Article',
+              blocks: [
+                { blockType: 'paragraph', text: 'New 1' },
+                { blockType: 'paragraph', text: 'New 2' },
+                { blockType: 'paragraph', text: 'New 3' },
+              ],
+            },
+          },
+        }),
+      });
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      // 應回退到 fetch 並取得正確數據
+      expect(globalThis.fetch).toHaveBeenCalled();
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Correct New Article');
+    });
+
     it('stale 時嘗試使用 _next/data 並成功提取', async () => {
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
@@ -557,6 +669,78 @@ describe('NextJsExtractor', () => {
       expect(result).not.toBeNull();
       expect(result.metadata.title).toBe('OK');
       expect(result.blocks.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('_getRouterComponentData', () => {
+    it('應從 router.components 成功提取 pageProps', () => {
+      // 設定 doc.defaultView.next.router.components 含有正確 pageProps
+      mockDoc.defaultView.next = {
+        router: {
+          components: {
+            '/article': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: { title: 'Router Test', blocks: [] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.props.pageProps.article.title).toBe('Router Test');
+    });
+
+    it('window.next 不存在時應返回 null', () => {
+      // mockDoc.defaultView 沒有 next 屬性
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+      expect(result).toBeNull();
+    });
+
+    it('router.components 為空物件時應返回 null', () => {
+      mockDoc.defaultView.next = {
+        router: { components: {} },
+      };
+
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+      expect(result).toBeNull();
+    });
+
+    it('pageProps 為空物件時應跳過並返回 null', () => {
+      mockDoc.defaultView.next = {
+        router: {
+          components: {
+            '/article': {
+              props: {
+                initialProps: { pageProps: {} }, // 空的 pageProps
+              },
+            },
+          },
+        },
+      };
+
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+      expect(result).toBeNull();
+    });
+
+    it('存取 router 過程拋出異常時應安全返回 null', () => {
+      // 設定一個會讓存取拋異常的 getter
+      const badDefaultView = {};
+      Object.defineProperty(badDefaultView, 'next', {
+        get() {
+          throw new Error('permission denied');
+        },
+      });
+      const badDoc = { ...mockDoc, defaultView: badDefaultView };
+
+      const result = NextJsExtractor._getRouterComponentData(badDoc);
+      expect(result).toBeNull();
     });
   });
 
