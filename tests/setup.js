@@ -192,8 +192,7 @@ const localStorageMock = (() => {
   };
 })();
 
-const shouldMockLocalStorage =
-  globalThis.window === undefined || !globalThis.window.localStorage;
+const shouldMockLocalStorage = !globalThis.window?.localStorage;
 
 if (shouldMockLocalStorage) {
   Object.defineProperty(globalThis, 'localStorage', {
