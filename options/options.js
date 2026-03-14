@@ -289,7 +289,9 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     auth.checkAuthStatus();
   } catch (error) {
     const safeMessage = sanitizeApiError(error, 'save_settings');
-    const safeError = safeMessage instanceof Error ? safeMessage : new Error(String(safeMessage));
+    const errorMessage =
+      typeof safeMessage === 'string' ? safeMessage : JSON.stringify(safeMessage);
+    const safeError = safeMessage instanceof Error ? safeMessage : new Error(errorMessage);
     ErrorHandler.logError({
       type: ErrorTypes.STORAGE,
       context: 'save_settings',
