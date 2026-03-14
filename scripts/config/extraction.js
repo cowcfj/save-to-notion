@@ -477,6 +477,10 @@ export const DOMAIN_CLEANING_RULES = {
       // 專屬雜訊：只存放通用規則無法涵蓋的怪異選取器
     ],
   },
+  'hk01.com': {
+    container: 'main article, [role="main"] article',
+    remove: [],
+  },
 };
 
 /**

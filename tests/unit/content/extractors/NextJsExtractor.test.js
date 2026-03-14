@@ -560,6 +560,13 @@ describe('NextJsExtractor', () => {
     });
   });
 
+  describe('_buildNextDataUrl', () => {
+    it('root path 會轉為 /index.json', () => {
+      const url = NextJsExtractor._buildNextDataUrl('https://www.hk01.com/', 'build123');
+      expect(url).toBe('https://www.hk01.com/_next/data/build123/index.json');
+    });
+  });
+
   describe('BBC format (_isBbcFormat / _convertBbcBlocks / _extractBbcText)', () => {
     // 模擬 BBC __NEXT_DATA__.props.pageProps.pageData.content.model 結構
     const buildBbcNextData = blocks => ({
