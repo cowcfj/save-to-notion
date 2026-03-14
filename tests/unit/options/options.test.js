@@ -237,13 +237,34 @@ describe('options.js', () => {
       );
     });
 
-    it('should not save notionDataSourceType if database-type input is empty', () => {
+    it('should handle local.set failure', async () => {
+      mockLocalSet.mockRejectedValueOnce(new Error('Storage error'));
+      await saveSettings(mockUi, mockAuth);
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('失敗'),
+        'error',
+        'status'
+      );
+    });
+
+    it('should fallback notionDataSourceType to database when input is empty', async () => {
       document.querySelector('#database-type').value = '';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockLocalSet).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          notionDataSourceType: expect.anything(),
+        expect.objectContaining({
+          notionDataSourceType: 'database',
+        })
+      );
+    });
+
+    it('should fallback notionDataSourceType to database for invalid value', async () => {
+      document.querySelector('#database-type').value = 'invalid';
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockLocalSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionDataSourceType: 'database',
         })
       );
     });

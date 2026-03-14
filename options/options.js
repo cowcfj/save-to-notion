@@ -259,10 +259,12 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     uiZoomLevel: uiZoomLevel || '1',
   };
 
-  // 如果類型欄位存在，一併保存
-  if (typeInput?.value) {
-    localSettings.notionDataSourceType = typeInput.value;
-  }
+  // 如果類型欄位存在，一併保存並驗證
+  const allowedDataSourceTypes = ['database', 'page'];
+  const rawDataSourceType = typeInput?.value;
+  localSettings.notionDataSourceType = allowedDataSourceTypes.includes(rawDataSourceType)
+    ? rawDataSourceType
+    : 'database';
 
   // 保存標註樣式
   const highlightStyle = document.querySelector('#highlight-style');
