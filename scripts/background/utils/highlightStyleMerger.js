@@ -62,7 +62,7 @@ function createRichText(content, annotations) {
 /**
  * 根據 styleKey 和 highlight 數據獲取實際的 Notion annotation 樣式
  *
- * @param {string} styleKey - 用戶選擇的樣式類型（'COLOR_SYNC' | 'BOLD' | 'NONE'）
+ * @param {string} styleKey - 用戶選擇的樣式類型（'COLOR_SYNC' | 'COLOR_TEXT' | 'BOLD' | 'NONE'）
  * @param {{ text: string, color: string, rangeInfo?: object }} highlight - 標註數據
  * @returns {object|null} Notion annotation 物件，或 null（關閉時）
  */
@@ -362,7 +362,7 @@ function applyHighlightsToBlock(block, highlights, styleKey) {
  *
  * @param {Array<object>} blocks - Notion API 格式的區塊陣列
  * @param {Array<{text: string, color: string, rangeInfo?: object}>} highlights - 標註數據陣列
- * @param {string} [styleKey='COLOR_SYNC'] - 樣式鍵（'COLOR_SYNC' | 'BOLD' | 'NONE'）
+ * @param {string} [styleKey='COLOR_SYNC'] - 樣式鍵（'COLOR_SYNC' | 'COLOR_TEXT' | 'BOLD' | 'NONE'）
  * @returns {Array<object>} 處理後的區塊陣列
  */
 function mergeHighlightsWithStyle(blocks, highlights, styleKey = 'COLOR_SYNC') {
@@ -381,7 +381,11 @@ function mergeHighlightsWithStyle(blocks, highlights, styleKey = 'COLOR_SYNC') {
     });
   } catch (error) {
     if (typeof Logger !== 'undefined') {
-      Logger.warn('[HighlightMerger] 標註樣式合併失敗，使用原始模式:', error);
+      Logger.warn('[HighlightMerger] 標註樣式合併失敗，使用原始模式:', {
+        action: 'mergeHighlightStyles',
+        result: 'fallback_to_original',
+        error,
+      });
     }
     return blocks; // 整體失敗：降級為原始 blocks
   }

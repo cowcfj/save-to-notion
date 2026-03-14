@@ -29,6 +29,15 @@ jest.mock('../../../../scripts/background/utils/BlockBuilder.js', () => ({
   ),
 }));
 
+jest.mock('../../../../scripts/background/utils/highlightStyleMerger.js', () => {
+  const actual = jest.requireActual('../../../../scripts/background/utils/highlightStyleMerger.js');
+  return {
+    __esModule: true,
+    ...actual,
+    mergeHighlightsWithStyle: jest.fn(blocks => blocks),
+  };
+});
+
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
 }));
@@ -70,6 +79,7 @@ import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
 import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
+import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
 jest.mock('../../../../scripts/config/constants.js', () => {
   const original = jest.requireActual('../../../../scripts/config/constants.js');
@@ -292,6 +302,23 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockStorageService.getConfig.mockResolvedValue(mockConfig);
       mockInjectionService.collectHighlights.mockResolvedValue([]);
       mockPageContentService.extractContent.mockResolvedValue(mockContentResult);
+    });
+
+    test('非法 highlightContentStyle 應回退 COLOR_SYNC', async () => {
+      const sendResponse = jest.fn();
+      chrome.storage.sync.get.mockResolvedValueOnce({ highlightContentStyle: 'INVALID_STYLE' });
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
+      mockNotionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'notion.so/new',
+      });
+
+      await handlers.savePage({}, internalSender, sendResponse);
+
+      expect(mergeHighlightsWithStyle).toHaveBeenCalled();
+      const styleKey = mergeHighlightsWithStyle.mock.calls[0][2];
+      expect(styleKey).toBe('COLOR_SYNC');
     });
 
     test('應該在受限頁面（如 chrome://extensions/）返回明確錯誤訊息', async () => {

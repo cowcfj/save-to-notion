@@ -17,12 +17,17 @@ import {
   sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
-import { mergeHighlightsWithStyle } from '../utils/highlightStyleMerger.js';
+import {
+  mergeHighlightsWithStyle,
+  HIGHLIGHT_STYLE_OPTIONS,
+} from '../utils/highlightStyleMerger.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS, CONTENT_QUALITY } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { getActiveNotionToken } from '../../utils/notionAuth.js';
+
+const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -80,7 +85,7 @@ async function ensureNotionApiKey() {
  *
  * @param {object} rawResult - 注入腳本返回的原始結果
  * @param {Array} highlights - 標註數據
- * @param {string} [highlightContentStyle='COLOR_SYNC'] - Notion 同步樣式設定（'COLOR_SYNC' | 'BOLD' | 'NONE'）
+ * @param {string} [highlightContentStyle='COLOR_SYNC'] - Notion 同步樣式設定（'COLOR_SYNC' | 'COLOR_TEXT' | 'BOLD' | 'NONE'）
  * @returns {object} 處理後的內容結果 { title, blocks, siteIcon, coverImage }
  */
 export function processContentResult(rawResult, highlights, highlightContentStyle = 'COLOR_SYNC') {
@@ -679,8 +684,9 @@ export function createSaveHandlers(services) {
     let highlightContentStyle = 'COLOR_SYNC';
     try {
       const syncConfig = await chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' });
-      if (typeof syncConfig?.highlightContentStyle === 'string') {
-        highlightContentStyle = syncConfig.highlightContentStyle;
+      const storedStyle = syncConfig?.highlightContentStyle;
+      if (typeof storedStyle === 'string' && VALID_HIGHLIGHT_STYLE_KEYS.has(storedStyle)) {
+        highlightContentStyle = storedStyle;
       }
     } catch (error) {
       Logger.warn('讀取同步樣式失敗，使用預設值', {
