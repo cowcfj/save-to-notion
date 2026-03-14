@@ -40,7 +40,21 @@ describe('core/HighlightInteraction', () => {
     });
 
     test('should return false if Ctrl pressed but no highlight at point', () => {
-      document.caretRangeFromPoint = jest.fn(() => null);
+      const div = document.createElement('div');
+      div.textContent = 'No hit';
+      document.body.append(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 2);
+      range.getClientRects = jest.fn(() => [{ left: 0, right: 10, top: 0, bottom: 10 }]);
+
+      mockManager.highlights.set('h1', {
+        id: 'h1',
+        range,
+        color: 'yellow',
+        text: 'No',
+      });
 
       const event = {
         ctrlKey: true,
@@ -64,6 +78,7 @@ describe('core/HighlightInteraction', () => {
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
       range.setEnd(div.firstChild, 5);
+      range.getClientRects = jest.fn(() => [{ left: 0, right: 100, top: 0, bottom: 20 }]);
 
       // 添加 mock highlight
       mockManager.highlights.set('h1', {
@@ -71,14 +86,6 @@ describe('core/HighlightInteraction', () => {
         range,
         color: 'yellow',
         text: 'Click',
-      });
-
-      // Mock caretRangeFromPoint to return a range within the highlight
-      document.caretRangeFromPoint = jest.fn(() => {
-        const caretRange = document.createRange();
-        caretRange.setStart(div.firstChild, 2);
-        caretRange.setEnd(div.firstChild, 2);
-        return caretRange;
       });
 
       const event = {
@@ -105,19 +112,13 @@ describe('core/HighlightInteraction', () => {
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
       range.setEnd(div.firstChild, 3);
+      range.getClientRects = jest.fn(() => [{ left: 0, right: 100, top: 0, bottom: 20 }]);
 
       mockManager.highlights.set('h1', {
         id: 'h1',
         range,
         color: 'yellow',
         text: 'Mac',
-      });
-
-      document.caretRangeFromPoint = jest.fn(() => {
-        const caretRange = document.createRange();
-        caretRange.setStart(div.firstChild, 1);
-        caretRange.setEnd(div.firstChild, 1);
-        return caretRange;
       });
 
       const event = {
@@ -137,7 +138,22 @@ describe('core/HighlightInteraction', () => {
 
   describe('getHighlightAtPoint', () => {
     test('should return null when no highlight at point', () => {
-      document.caretRangeFromPoint = jest.fn(() => null);
+      const div = document.createElement('div');
+      div.textContent = 'No hit';
+      document.body.append(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 2);
+      range.getClientRects = jest.fn(() => [{ left: 0, right: 10, top: 0, bottom: 10 }]);
+
+      mockManager.highlights.set('h1', {
+        id: 'h1',
+        range,
+        color: 'yellow',
+        text: 'No',
+      });
+
       const foundId = interaction.getHighlightAtPoint(100, 100);
       expect(foundId).toBeNull();
     });
@@ -150,19 +166,13 @@ describe('core/HighlightInteraction', () => {
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
       range.setEnd(div.firstChild, 5);
+      range.getClientRects = jest.fn(() => [{ left: 0, right: 100, top: 0, bottom: 20 }]);
 
       mockManager.highlights.set('h1', {
         id: 'h1',
         range,
         color: 'yellow',
         text: 'Click',
-      });
-
-      document.caretRangeFromPoint = jest.fn(() => {
-        const caretRange = document.createRange();
-        caretRange.setStart(div.firstChild, 2);
-        caretRange.setEnd(div.firstChild, 2);
-        return caretRange;
       });
 
       const foundId = interaction.getHighlightAtPoint(50, 10);
@@ -177,15 +187,27 @@ describe('core/HighlightInteraction', () => {
         text: 'Test',
       });
 
-      document.caretRangeFromPoint = jest.fn(() => document.createRange());
-
       const foundId = interaction.getHighlightAtPoint(50, 10);
       expect(foundId).toBeNull();
     });
 
     test('should handle errors gracefully', () => {
-      document.caretRangeFromPoint = jest.fn(() => {
+      const div = document.createElement('div');
+      div.textContent = 'Error case';
+      document.body.append(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 2);
+      range.getClientRects = jest.fn(() => {
         throw new Error('Test error');
+      });
+
+      mockManager.highlights.set('h1', {
+        id: 'h1',
+        range,
+        color: 'yellow',
+        text: 'Er',
       });
 
       const foundId = interaction.getHighlightAtPoint(50, 10);
@@ -233,16 +255,16 @@ describe('core/HighlightInteraction', () => {
       div.textContent = 'Symmetric Test';
       document.body.append(div);
 
-      const range1 = document.createRange();
-      range1.setStart(div.firstChild, 1);
-      range1.setEnd(div.firstChild, 8);
+      const firstRange = document.createRange();
+      firstRange.setStart(div.firstChild, 1);
+      firstRange.setEnd(div.firstChild, 8);
 
-      const range2 = document.createRange();
-      range2.setStart(div.firstChild, 5);
-      range2.setEnd(div.firstChild, 12);
+      const secondRange = document.createRange();
+      secondRange.setStart(div.firstChild, 5);
+      secondRange.setEnd(div.firstChild, 12);
 
-      const forward = HighlightInteraction.rangesOverlap(range1, range2);
-      const reverse = HighlightInteraction.rangesOverlap(range2, range1);
+      const forward = HighlightInteraction.rangesOverlap(firstRange, secondRange);
+      const reverse = HighlightInteraction.rangesOverlap(secondRange, firstRange);
 
       expect(forward).toBe(true);
       expect(reverse).toBe(true);
