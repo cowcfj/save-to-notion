@@ -758,6 +758,15 @@ describe('StorageService', () => {
       await service.setConfig({ apiKey: 'new-key' });
       expect(mockStorage.sync.set).toHaveBeenCalledWith({ apiKey: 'new-key' });
     });
+
+    it('應該將 local key 儲存到 local storage', async () => {
+      await service.setConfig({ notionDataSourceId: 'ds_local_123' });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        notionDataSourceId: 'ds_local_123',
+      });
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
   });
 
   describe('getAllSavedPageUrls', () => {

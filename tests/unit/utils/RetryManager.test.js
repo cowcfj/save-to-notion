@@ -892,6 +892,24 @@ describe('RetryManager Comprehensive Tests', () => {
 
       delete globalThis.ErrorHandler;
     });
+
+    test('應該使用 ErrorHandler 類別實例', () => {
+      const logErrorSpy = jest.fn();
+      class MockErrorHandler {
+        logError(payload) {
+          logErrorSpy(payload);
+        }
+      }
+
+      globalThis.ErrorHandler = MockErrorHandler;
+
+      const error = new Error('Test error');
+      RetryManager._logRetryAttempt(error, 1, 3, 100);
+
+      expect(logErrorSpy).toHaveBeenCalled();
+
+      delete globalThis.ErrorHandler;
+    });
   });
 
   describe('_logRetrySuccess - 記錄重試成功', () => {

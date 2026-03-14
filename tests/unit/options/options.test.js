@@ -259,6 +259,21 @@ describe('options.js', () => {
       );
     });
 
+    it('should save highlightContentStyle when element exists', async () => {
+      const highlightContentStyle = document.createElement('input');
+      highlightContentStyle.id = 'highlight-content-style';
+      highlightContentStyle.value = 'inline';
+      document.body.append(highlightContentStyle);
+
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          highlightContentStyle: 'inline',
+        })
+      );
+    });
+
     it('should save default highlightStyle (background)', () => {
       saveSettings(mockUi, mockAuth);
 
@@ -504,6 +519,7 @@ describe('options.js', () => {
 
   describe('Log Export', () => {
     let mockSendMessage = null;
+    let anchorClickSpy = null;
 
     beforeEach(() => {
       document.body.innerHTML = `
@@ -511,8 +527,15 @@ describe('options.js', () => {
         <div id="export-status"></div>
       `;
 
+      anchorClickSpy = jest
+        .spyOn(HTMLAnchorElement.prototype, 'click')
+        .mockImplementation(() => {});
       mockSendMessage = jest.fn();
       globalThis.chrome.runtime.sendMessage = mockSendMessage;
+    });
+
+    afterEach(() => {
+      anchorClickSpy?.mockRestore();
     });
 
     it('should stay disabled while exporting and restore afterwards without changing text', async () => {
