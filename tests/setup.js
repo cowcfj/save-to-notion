@@ -192,7 +192,17 @@ const localStorageMock = (() => {
   };
 })();
 
-globalThis.localStorage = localStorageMock;
+const shouldMockLocalStorage =
+  globalThis.window === undefined || !globalThis.window.localStorage;
+
+if (shouldMockLocalStorage) {
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: localStorageMock,
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
+}
 
 // Mock console 方法（防止測試輸出過多）
 globalThis.console = {

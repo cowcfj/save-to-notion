@@ -11,7 +11,8 @@ import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
+import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
 
 /**
  * Options Page Main Controller
@@ -220,7 +221,7 @@ export function cleanDatabaseId(input) {
  * @param {AuthManager} auth
  * @param {string} [statusId='status']
  */
-export function saveSettings(ui, auth, statusId = 'status') {
+export async function saveSettings(ui, auth, statusId = 'status') {
   const apiKey = document.querySelector('#api-key').value.trim();
   const rawDatabaseId = document.querySelector('#database-id').value;
   const titleTemplate = document.querySelector('#title-template').value;
@@ -242,51 +243,69 @@ export function saveSettings(ui, auth, statusId = 'status') {
     return;
   }
 
-  // 構建完整的設置對象
-  const settings = {
-    notionApiKey: apiKey,
+  // 從集中配置取得 storage key 名稱
+  const [dataSourceIdKey, databaseIdKey, dataSourceTypeKey] = DATA_SOURCE_KEYS;
 
+  // 構建完整的設置對象
+  const localSettings = {
     // 為了兼容性，同時保存兩種 ID 格式
     // notionDatabaseId 是舊版 (僅支援 Database)
     // notionDataSourceId 是新版 (支援 Page 和 Database)
-    notionDatabaseId: databaseId,
-    notionDataSourceId: databaseId, // 統一存到兩個欄位，確保兼容
+    [databaseIdKey]: databaseId,
+    [dataSourceIdKey]: databaseId, // 統一存到兩個欄位，確保兼容
+  };
 
+  const syncSettings = {
+    notionApiKey: apiKey,
     titleTemplate,
     addSource,
     addTimestamp,
     uiZoomLevel: uiZoomLevel || '1',
   };
 
-  // 如果類型欄位存在，一併保存
-  if (typeInput?.value) {
-    settings.notionDataSourceType = typeInput.value;
-  }
+  // 如果類型欄位存在，一併保存並驗證
+  const allowedDataSourceTypes = ['database', 'page'];
+  const rawDataSourceType = typeInput?.value;
+  localSettings[dataSourceTypeKey] = allowedDataSourceTypes.includes(rawDataSourceType)
+    ? rawDataSourceType
+    : 'database';
 
   // 保存標註樣式
   const highlightStyle = document.querySelector('#highlight-style');
   if (highlightStyle) {
-    settings.highlightStyle = highlightStyle.value;
+    syncSettings.highlightStyle = highlightStyle.value;
   }
 
   // 保存 Notion 同步樣式
   const highlightContentStyle = document.querySelector('#highlight-content-style');
   if (highlightContentStyle) {
-    settings.highlightContentStyle = highlightContentStyle.value;
+    syncSettings.highlightContentStyle = highlightContentStyle.value;
   }
 
-  // 單次原子操作保存所有設置
-  chrome.storage.sync.set(settings, () => {
-    if (chrome.runtime.lastError) {
-      Logger.error('Settings save failed:', chrome.runtime.lastError);
-      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
-    } else {
-      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
+  // 分離儲存至 local 與 sync
+  try {
+    await Promise.all([
+      chrome.storage.local.set(localSettings),
+      chrome.storage.sync.set(syncSettings),
+    ]);
 
-      // 刷新認證狀態以更新 UI
-      auth.checkAuthStatus();
-    }
-  });
+    ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
+
+    // 刷新認證狀態以更新 UI
+    auth.checkAuthStatus();
+  } catch (error) {
+    const safeMessage = sanitizeApiError(error, 'save_settings');
+    const errorMessage =
+      typeof safeMessage === 'string' ? safeMessage : JSON.stringify(safeMessage);
+    const safeError = safeMessage instanceof Error ? safeMessage : new Error(errorMessage);
+    ErrorHandler.logError({
+      type: ErrorTypes.STORAGE,
+      context: 'save_settings',
+      originalError: safeError,
+    });
+
+    ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
+  }
 }
 
 /**

@@ -26,6 +26,7 @@ import { HANDLER_CONSTANTS, CONTENT_QUALITY } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { getActiveNotionToken } from '../../utils/notionAuth.js';
+import { DATA_SOURCE_KEYS } from '../../config/storageKeys.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
 
@@ -178,12 +179,7 @@ export function createSaveHandlers(services) {
     );
   }
 
-  const NOTION_CONFIG_KEYS = [
-    'notionApiKey',
-    'notionDataSourceId',
-    'notionDatabaseId',
-    'notionDataSourceType',
-  ];
+  const NOTION_CONFIG_KEYS = ['notionApiKey', ...DATA_SOURCE_KEYS];
 
   /**
    * 連續不存在確認：false/false 才允許清理

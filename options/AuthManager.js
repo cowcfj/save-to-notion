@@ -11,6 +11,12 @@ import {
   getNextAuthEpoch,
   isNonEmptyString,
 } from '../scripts/utils/notionAuth.js';
+import {
+  AUTH_LOCAL_KEYS,
+  DATA_SOURCE_KEYS,
+  SYNC_CONFIG_KEYS,
+  mergeDataSourceConfig,
+} from '../scripts/config/storageKeys.js';
 
 /**
  * AuthManager.js
@@ -138,18 +144,17 @@ export class AuthManager {
 
     // 日誌模式切換
     if (this.elements.debugToggle) {
-      this.elements.debugToggle.addEventListener('change', () => {
+      this.elements.debugToggle.addEventListener('change', async () => {
         try {
-          chrome.storage.sync.set(
-            { enableDebugLogs: Boolean(this.elements.debugToggle.checked) },
-            () => {
-              this.ui.showStatus(
-                this.elements.debugToggle.checked
-                  ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
-                  : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
-                'success'
-              );
-            }
+          await chrome.storage.sync.set({
+            enableDebugLogs: Boolean(this.elements.debugToggle.checked),
+          });
+
+          this.ui.showStatus(
+            this.elements.debugToggle.checked
+              ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
+              : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
+            'success'
           );
         } catch (error) {
           Logger.error('[存儲] 切換日誌模式失敗', {
@@ -175,26 +180,19 @@ export class AuthManager {
     try {
       // 同時讀取 local 和 sync
       const [localData, syncData] = await Promise.all([
-        chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken', 'notionWorkspaceName']),
-        chrome.storage.sync.get([
-          'notionApiKey',
-          'notionDataSourceId',
-          'notionDatabaseId',
-          'titleTemplate',
-          'addSource',
-          'addTimestamp',
-          'highlightStyle',
-          'enableDebugLogs',
-        ]),
+        chrome.storage.local.get([...AUTH_LOCAL_KEYS, ...DATA_SOURCE_KEYS]),
+        chrome.storage.sync.get([...SYNC_CONFIG_KEYS, ...DATA_SOURCE_KEYS]),
       ]);
+
+      const sourceData = mergeDataSourceConfig(localData, syncData);
 
       // 判斷認證模式
       if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
         this.currentAuthMode = AuthMode.OAUTH;
-        this._handleOAuthConnectedState(localData);
+        this._handleOAuthConnectedState(localData, sourceData);
       } else if (syncData.notionApiKey) {
         this.currentAuthMode = AuthMode.MANUAL;
-        this._handleManualConnectedState(syncData);
+        this._handleManualConnectedState(syncData, sourceData);
       } else {
         this.currentAuthMode = null;
         this.handleDisconnectedState();
@@ -216,9 +214,10 @@ export class AuthManager {
    * OAuth 已連接的 UI 狀態
    *
    * @param {object} localData - 本地存儲的資料
+   * @param {object} [sourceData=localData] - 資料來源資料 (local with sync fallback)
    * @private
    */
-  _handleOAuthConnectedState(localData) {
+  _handleOAuthConnectedState(localData, sourceData = localData) {
     const workspaceName = localData.notionWorkspaceName || 'Notion 工作區';
 
     // 更新 OAuth 狀態區域
@@ -249,6 +248,20 @@ export class AuthManager {
       this.elements.authStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
     }
 
+    const storedDataSourceId = sourceData?.notionDataSourceId || '';
+    const storedLegacyId = sourceData?.notionDatabaseId || '';
+    const resolvedId = storedDataSourceId || storedLegacyId;
+
+    if (this.elements.databaseIdInput) {
+      this.elements.databaseIdInput.value = resolvedId;
+    }
+
+    if (storedLegacyId && !storedDataSourceId) {
+      this.ui.showDataSourceUpgradeNotice?.(storedLegacyId);
+    } else {
+      this.ui.hideDataSourceUpgradeNotice?.();
+    }
+
     // 載入 OAuth 模式的資料來源
     const token = localData.notionOAuthToken;
     if (token) {
@@ -265,9 +278,10 @@ export class AuthManager {
    * 手動 API Key 已連接的 UI 狀態
    *
    * @param {object} syncData - 遠端同步的資料
+   * @param {object} [sourceData=syncData] - 資料來源資料 (local with sync fallback)
    * @private
    */
-  _handleManualConnectedState(syncData) {
+  _handleManualConnectedState(syncData, sourceData = syncData) {
     // 沿用原本的 handleConnectedState 邏輯
     if (this.elements.authStatus) {
       this.elements.authStatus.textContent = '';
@@ -290,8 +304,8 @@ export class AuthManager {
       this.elements.apiKeyInput.value = syncData.notionApiKey;
     }
 
-    const storedDataSourceId = syncData.notionDataSourceId || '';
-    const storedLegacyId = syncData.notionDatabaseId || '';
+    const storedDataSourceId = sourceData.notionDataSourceId || '';
+    const storedLegacyId = sourceData.notionDatabaseId || '';
     const resolvedId = storedDataSourceId || storedLegacyId;
 
     if (this.elements.databaseIdInput) {

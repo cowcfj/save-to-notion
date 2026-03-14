@@ -77,7 +77,12 @@ function buildChromeMock(mockGet, mockSet, mockRemove) {
     storage: {
       local: {
         get: mockGet ?? jest.fn(),
-        set: mockSet ?? jest.fn((data, cb) => cb?.()),
+        set:
+          mockSet ??
+          jest.fn((data, cb) => {
+            cb?.();
+            return Promise.resolve();
+          }),
         remove: mockRemove ?? jest.fn(),
       },
     },
@@ -101,7 +106,10 @@ describe('StorageManager', () => {
     buildTestDom();
 
     mockGet = jest.fn((keys, cb) => cb?.({}));
-    mockSet = jest.fn((data, cb) => cb?.());
+    mockSet = jest.fn((data, cb) => {
+      cb?.();
+      return Promise.resolve();
+    });
     mockRemove = jest.fn((keys, cb) => cb?.());
     globalThis.chrome = buildChromeMock(mockGet, mockSet, mockRemove);
 
@@ -226,10 +234,7 @@ describe('StorageManager', () => {
 
       await storageManager.importData(event);
 
-      expect(mockSet).toHaveBeenCalledWith(
-        { 'page_test.com': { notion: null, highlights: [] } },
-        expect.any(Function)
-      );
+      expect(mockSet).toHaveBeenCalledWith({ 'page_test.com': { notion: null, highlights: [] } });
     });
 
     it('匯入時應忽略 OAuth 金鑰', async () => {
@@ -244,10 +249,9 @@ describe('StorageManager', () => {
 
       await storageManager.importData(event);
 
-      expect(mockSet).toHaveBeenCalledWith(
-        { page_abc: { notion: { pageId: 'page-1' }, highlights: [] } },
-        expect.any(Function)
-      );
+      expect(mockSet).toHaveBeenCalledWith({
+        page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
+      });
     });
 
     it('應拒絕備份數據為陣列格式', async () => {
@@ -270,6 +274,28 @@ describe('StorageManager', () => {
       await storageManager.importData(event);
       expect(mockSet).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalled();
+    });
+
+    it('匯入儲存失敗時應顯示錯誤', async () => {
+      mockSet.mockRejectedValueOnce(new Error('Storage error'));
+      const event = {
+        target: {
+          files: [
+            { text: jest.fn().mockResolvedValue(JSON.stringify({ data: { page_test: {} } })) },
+          ],
+        },
+      };
+
+      await storageManager.importData(event);
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        'Import failed',
+        expect.objectContaining({
+          action: 'import_backup',
+          error: expect.objectContaining({ message: 'Storage error' }),
+        })
+      );
+      expect(storageManager.elements.dataStatus.className).toContain('error');
     });
   });
 });

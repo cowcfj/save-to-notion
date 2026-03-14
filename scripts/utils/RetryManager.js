@@ -21,9 +21,14 @@ function getErrorHandler() {
   }
 
   // 若是類別（原型上有 logError），則嘗試實例化
-  if (typeof ref === 'function' && ref.prototype && typeof ref.prototype.logError === 'function') {
+  if (
+    typeof globalRef === 'function' &&
+    globalRef.prototype &&
+    typeof globalRef.prototype.logError === 'function'
+  ) {
+    const ErrorHandlerCtor = globalRef;
     try {
-      return new ref();
+      return new ErrorHandlerCtor();
     } catch {
       return null;
     }

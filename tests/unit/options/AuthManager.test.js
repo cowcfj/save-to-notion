@@ -35,6 +35,7 @@ describe('AuthManager', () => {
         <input id="api-key" />
         <input id="database-id" />
         <button id="test-api-button"></button>
+        <input type="checkbox" id="enable-debug-logs" />
     `;
 
     mockUiManager = new UIManager();
@@ -116,6 +117,34 @@ describe('AuthManager', () => {
       'success'
     );
   });
+
+  test('除錯切換成功顯示成功訊息', async () => {
+    const toggle = document.querySelector('#enable-debug-logs');
+    toggle.checked = true;
+    chrome.storage.sync.set.mockResolvedValueOnce();
+
+    toggle.dispatchEvent(new Event('change'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED,
+      'success'
+    );
+  });
+
+  test('除錯切換失敗顯示錯誤訊息', async () => {
+    const toggle = document.querySelector('#enable-debug-logs');
+    toggle.checked = true;
+    chrome.storage.sync.set.mockRejectedValueOnce(new Error('Storage error'));
+
+    toggle.dispatchEvent(new Event('change'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+      expect.stringContaining('切換日誌模式失敗'),
+      'error'
+    );
+  });
 });
 
 describe('AuthManager Extended', () => {
@@ -147,6 +176,8 @@ describe('AuthManager Extended', () => {
 
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
+    mockUiManager.showDataSourceUpgradeNotice = jest.fn();
+    mockUiManager.hideDataSourceUpgradeNotice = jest.fn();
     mockLoadDatabases = jest.fn();
 
     globalThis.chrome = {
@@ -340,6 +371,7 @@ describe('AuthManager Extended', () => {
         notionAuthMode: 'oauth',
         notionOAuthToken: 'oauth_token_123',
         notionWorkspaceName: 'My Workspace',
+        notionDataSourceId: 'ds_local_123',
       });
       chrome.storage.sync.get.mockResolvedValue({
         titleTemplate: '{title} - custom',
@@ -358,11 +390,41 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#oauth-connect-button').style.display).toBe('none');
       expect(document.querySelector('#oauth-disconnect-button').style.display).toBe('inline-flex');
       expect(mockLoadDatabases).toHaveBeenCalledWith('oauth_token_123');
+      expect(document.querySelector('#database-id').value).toBe('ds_local_123');
       expect(document.querySelector('#title-template').value).toBe('{title} - custom');
       expect(document.querySelector('#add-source').checked).toBe(true);
       expect(document.querySelector('#add-timestamp').checked).toBe(false);
       expect(document.querySelector('#highlight-style').value).toBe('underline');
       expect(document.querySelector('#enable-debug-logs').checked).toBe(true);
+    });
+
+    test('OAuth 模式缺 local 儲存時應備援至 sync 讀取保存目標', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth_token_123',
+      });
+      chrome.storage.sync.get.mockResolvedValue({
+        notionDataSourceId: 'ds_sync_123',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#database-id').value).toBe('ds_sync_123');
+    });
+
+    test('OAuth 模式缺 notionDataSourceId 時應提示升級', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth_token_123',
+      });
+      chrome.storage.sync.get.mockResolvedValue({
+        notionDatabaseId: 'db_legacy_456',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(mockUiManager.showDataSourceUpgradeNotice).toHaveBeenCalledWith('db_legacy_456');
+      expect(mockUiManager.hideDataSourceUpgradeNotice).not.toHaveBeenCalled();
     });
 
     test('OAuth 已連接但 workspaceName 缺失時應使用繁中預設值', async () => {
@@ -379,8 +441,10 @@ describe('AuthManager Extended', () => {
       );
     });
 
-    test('手動模式應優先使用 sync 的 notionDataSourceId', async () => {
-      chrome.storage.local.get.mockResolvedValue({});
+    test('手動模式應優先使用 local 的 notionDataSourceId', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionDataSourceId: 'ds_local_123',
+      });
       chrome.storage.sync.get.mockResolvedValue({
         notionApiKey: 'secret_manual_key',
         notionDataSourceId: 'ds_sync_123',
@@ -389,7 +453,7 @@ describe('AuthManager Extended', () => {
 
       await authManager.checkAuthStatus();
 
-      expect(document.querySelector('#database-id').value).toBe('ds_sync_123');
+      expect(document.querySelector('#database-id').value).toBe('ds_local_123');
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_manual_key');
     });
 

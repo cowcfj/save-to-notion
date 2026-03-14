@@ -42,6 +42,7 @@ export class HighlightInteraction {
 
   /**
    * 檢測點擊位置是否在標註內
+   * 透過 Range.getClientRects() 做點位命中判斷
    *
    * @param {number} x - X 座標
    * @param {number} y - Y 座標
@@ -49,27 +50,13 @@ export class HighlightInteraction {
    */
   getHighlightAtPoint(x, y) {
     try {
-      let range = null;
-
-      // 使用 caretRangeFromPoint (Chrome/Safari) 或 caretPositionFromPoint (Firefox)
-      if (document.caretRangeFromPoint) {
-        range = document.caretRangeFromPoint(x, y);
-      } else if (document.caretPositionFromPoint) {
-        const pos = document.caretPositionFromPoint(x, y);
-        if (pos) {
-          range = document.createRange();
-          range.setStart(pos.offsetNode, pos.offset);
-          range.setEnd(pos.offsetNode, pos.offset);
-        }
-      }
-
-      if (!range) {
-        return null;
-      }
-
       // 遍歷所有標註，檢查是否與點擊位置重疊
       for (const [id, highlight] of this.manager.highlights.entries()) {
-        if (highlight.range && HighlightInteraction.rangesOverlap(range, highlight.range)) {
+        if (!highlight.range) {
+          continue;
+        }
+
+        if (HighlightInteraction.isPointInRange(highlight.range, x, y)) {
           return id;
         }
       }
@@ -100,5 +87,40 @@ export class HighlightInteraction {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * 檢查點位是否落在 Range 的任何矩形區塊內
+   *
+   * @param {Range} range - 目標 Range
+   * @param {number} x - X 座標
+   * @param {number} y - Y 座標
+   * @returns {boolean} 是否命中
+   */
+  static isPointInRange(range, x, y) {
+    try {
+      const rects = range.getClientRects();
+      for (const rect of rects) {
+        if (HighlightInteraction.isPointInRect(rect, x, y)) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 檢查點位是否落在單一矩形內
+   *
+   * @param {DOMRect} rect - 矩形
+   * @param {number} x - X 座標
+   * @param {number} y - Y 座標
+   * @returns {boolean} 是否命中
+   */
+  static isPointInRect(rect, x, y) {
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 }

@@ -122,6 +122,7 @@ describe('options.js', () => {
     let mockUi = null;
     let mockAuth = null;
     let mockSet = null;
+    let mockLocalSet = null;
 
     beforeEach(() => {
       document.body.innerHTML = `
@@ -145,33 +146,41 @@ describe('options.js', () => {
 
       mockUi = { showStatus: jest.fn() };
       mockAuth = { currentAuthMode: 'manual', checkAuthStatus: jest.fn() };
-      mockSet = jest.fn((data, cb) => {
-        if (cb) {
-          cb();
-        }
-      });
+      mockSet = jest.fn().mockResolvedValue();
+      mockLocalSet = jest.fn().mockResolvedValue();
 
       globalThis.chrome = {
         storage: {
+          local: { set: mockLocalSet },
           sync: { set: mockSet },
         },
-        runtime: { lastError: null },
       };
     });
+    afterEach(() => {
+      jest.clearAllMocks();
+      delete globalThis.chrome;
+    });
 
-    it('should save settings and update status', () => {
-      saveSettings(mockUi, mockAuth);
+    it('應儲存設定並更新狀態', async () => {
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockLocalSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionDatabaseId: 'a1b2c3d4e5f67890abcdef1234567890',
+          notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+          notionDataSourceType: 'page',
+        })
+      );
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionApiKey: 'key_123',
-          notionDatabaseId: 'a1b2c3d4e5f67890abcdef1234567890',
-          notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
-          notionDataSourceType: 'page',
+          titleTemplate: '{title}',
           addSource: true,
           addTimestamp: false,
-        }),
-        expect.any(Function)
+          uiZoomLevel: '1',
+          highlightStyle: 'background',
+        })
       );
 
       expect(mockUi.showStatus).toHaveBeenCalledWith(
@@ -182,10 +191,10 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
-    it('should validate empty API key if not in OAuth mode', () => {
+    it('should validate empty API key if not in OAuth mode', async () => {
       document.querySelector('#api-key').value = '';
       mockAuth.currentAuthMode = 'manual';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('API Key'),
         'error',
@@ -194,23 +203,22 @@ describe('options.js', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('should allow empty API key if in OAuth mode', () => {
+    it('should allow empty API key if in OAuth mode', async () => {
       document.querySelector('#api-key').value = '';
       mockAuth.currentAuthMode = 'oauth';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
       // Because API key check is bypassed, it should proceed to save or hit the next validation
       // In this setup, database-id is valid, so it should attempt to save
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionApiKey: '',
-        }),
-        expect.any(Function)
+        })
       );
     });
 
-    it('should validate empty Database ID', () => {
+    it('should validate empty Database ID', async () => {
       document.querySelector('#database-id').value = '';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('ID'),
         'error',
@@ -219,9 +227,9 @@ describe('options.js', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('should handle save error', () => {
-      globalThis.chrome.runtime.lastError = { message: 'Storage error' };
-      saveSettings(mockUi, mockAuth);
+    it('應處理儲存失敗', async () => {
+      mockSet.mockRejectedValueOnce(new Error('Storage error'));
+      await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
         'error',
@@ -229,61 +237,92 @@ describe('options.js', () => {
       );
     });
 
-    it('should not save notionDataSourceType if database-type input is empty', () => {
-      document.querySelector('#database-type').value = '';
-      saveSettings(mockUi, mockAuth);
-
-      expect(mockSet).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          notionDataSourceType: expect.anything(),
-        }),
-        expect.any(Function)
+    it('應處理 local.set 儲存失敗', async () => {
+      mockLocalSet.mockRejectedValueOnce(new Error('Storage error'));
+      await saveSettings(mockUi, mockAuth);
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('失敗'),
+        'error',
+        'status'
       );
     });
 
-    it('should save highlightStyle when element exists', () => {
+    it('輸入為空時應將 notionDataSourceType 回退為 database', async () => {
+      document.querySelector('#database-type').value = '';
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockLocalSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionDataSourceType: 'database',
+        })
+      );
+    });
+
+    it('無效值時應將 notionDataSourceType 回退為 database', async () => {
+      document.querySelector('#database-type').value = 'invalid';
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockLocalSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionDataSourceType: 'database',
+        })
+      );
+    });
+
+    it('should save highlightStyle when element exists', async () => {
       document.querySelector('#highlight-style').value = 'text';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           highlightStyle: 'text',
-        }),
-        expect.any(Function)
+        })
       );
     });
 
-    it('should save default highlightStyle (background)', () => {
-      saveSettings(mockUi, mockAuth);
+    it('當元素存在時應儲存 highlightContentStyle', async () => {
+      const highlightContentStyle = document.createElement('input');
+      highlightContentStyle.id = 'highlight-content-style';
+      highlightContentStyle.value = 'inline';
+      document.body.append(highlightContentStyle);
+
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          highlightContentStyle: 'inline',
+        })
+      );
+    });
+
+    it('should save default highlightStyle (background)', async () => {
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           highlightStyle: 'background',
-        }),
-        expect.any(Function)
+        })
       );
     });
 
-    it('should save underline highlightStyle', () => {
+    it('should save underline highlightStyle', async () => {
       document.querySelector('#highlight-style').value = 'underline';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           highlightStyle: 'underline',
-        }),
-        expect.any(Function)
+        })
       );
     });
-    it('should save uiZoomLevel', () => {
+    it('should save uiZoomLevel', async () => {
       document.querySelector('#ui-zoom-level').value = '1.1';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           uiZoomLevel: '1.1',
-        }),
-        expect.any(Function)
+        })
       );
     });
   });
@@ -501,6 +540,7 @@ describe('options.js', () => {
 
   describe('Log Export', () => {
     let mockSendMessage = null;
+    let anchorClickSpy = null;
 
     beforeEach(() => {
       document.body.innerHTML = `
@@ -508,8 +548,15 @@ describe('options.js', () => {
         <div id="export-status"></div>
       `;
 
+      anchorClickSpy = jest
+        .spyOn(HTMLAnchorElement.prototype, 'click')
+        .mockImplementation(() => {});
       mockSendMessage = jest.fn();
       globalThis.chrome.runtime.sendMessage = mockSendMessage;
+    });
+
+    afterEach(() => {
+      anchorClickSpy?.mockRestore();
     });
 
     it('should stay disabled while exporting and restore afterwards without changing text', async () => {

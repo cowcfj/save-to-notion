@@ -21,6 +21,7 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { LOCAL_STORAGE_KEYS } from '../../config/storageKeys.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
 
@@ -760,7 +761,9 @@ class StorageService {
   }
 
   /**
-   * 獲取配置（從 sync storage）
+   * 獲取配置（合併 sync 與 local storage）
+   * - notionDataSourceId 等保存目標設定存在 local
+   * - 其餘設定存在 sync
    *
    * @param {string[]} keys - 要獲取的配置鍵
    * @returns {Promise<object>}
@@ -771,7 +774,11 @@ class StorageService {
     }
 
     try {
-      return await this.storage.sync.get(keys);
+      const [syncConfig, localConfig] = await Promise.all([
+        this.storage.sync.get(keys),
+        this.storage.local.get(keys),
+      ]);
+      return { ...syncConfig, ...localConfig };
     } catch (error) {
       this.logger.error?.('[StorageService] getConfig failed', { error });
       throw error;
@@ -779,7 +786,9 @@ class StorageService {
   }
 
   /**
-   * 設置配置（到 sync storage）
+   * 設置配置（分派至 sync 或 local storage）
+   * - notionDataSourceId 等保存目標設定存在 local
+   * - 其餘設定存在 sync
    *
    * @param {object} config - 配置對象
    * @returns {Promise<void>}
@@ -789,8 +798,26 @@ class StorageService {
       throw new Error(STORAGE_ERROR);
     }
 
+    const localConfig = {};
+    const syncConfig = {};
+
+    for (const [key, value] of Object.entries(config)) {
+      if (LOCAL_STORAGE_KEYS.has(key)) {
+        localConfig[key] = value;
+      } else {
+        syncConfig[key] = value;
+      }
+    }
+
     try {
-      await this.storage.sync.set(config);
+      const promises = [];
+      if (Object.keys(syncConfig).length > 0) {
+        promises.push(this.storage.sync.set(syncConfig));
+      }
+      if (Object.keys(localConfig).length > 0) {
+        promises.push(this.storage.local.set(localConfig));
+      }
+      await Promise.all(promises);
     } catch (error) {
       this.logger.error?.('[StorageService] setConfig failed', { error });
       throw error;
