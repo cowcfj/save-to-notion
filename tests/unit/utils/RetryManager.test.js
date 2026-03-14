@@ -881,16 +881,24 @@ describe('RetryManager Comprehensive Tests', () => {
     });
 
     test('應該使用 ErrorHandler 如果可用', () => {
-      globalThis.ErrorHandler = {
-        logError: jest.fn(),
-      };
+      const originalErrorHandler = globalThis.ErrorHandler;
 
-      const error = new Error('Test error');
-      RetryManager._logRetryAttempt(error, 1, 3, 100);
+      try {
+        globalThis.ErrorHandler = {
+          logError: jest.fn(),
+        };
 
-      expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
+        const error = new Error('Test error');
+        RetryManager._logRetryAttempt(error, 1, 3, 100);
 
-      delete globalThis.ErrorHandler;
+        expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
+      } finally {
+        if (originalErrorHandler === undefined) {
+          delete globalThis.ErrorHandler;
+        } else {
+          globalThis.ErrorHandler = originalErrorHandler;
+        }
+      }
     });
 
     test('應該使用 ErrorHandler 類別實例', () => {

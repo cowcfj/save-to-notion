@@ -259,7 +259,7 @@ describe('options.js', () => {
       );
     });
 
-    it('should save highlightContentStyle when element exists', async () => {
+    it('當元素存在時應儲存 highlightContentStyle', async () => {
       const highlightContentStyle = document.createElement('input');
       highlightContentStyle.id = 'highlight-content-style';
       highlightContentStyle.value = 'inline';
