@@ -211,7 +211,7 @@ describe('Content Script Entry (index.js)', () => {
 
   describe('extractPageContent', () => {
     test('應該成功提取並轉換內容', async () => {
-      ContentExtractor.extract.mockReturnValue({
+      ContentExtractor.extractAsync.mockResolvedValue({
         content: '<div>Test content</div>',
         type: 'readability',
         metadata: { title: 'Test Title' },
@@ -238,7 +238,7 @@ describe('Content Script Entry (index.js)', () => {
     });
 
     test('應該在正文無圖片時將首張額外圖片插入到開頭', async () => {
-      ContentExtractor.extract.mockReturnValue({
+      ContentExtractor.extractAsync.mockResolvedValue({
         content: '<div>No image</div>',
         type: 'readability',
         metadata: { title: 'No Image' },
@@ -265,7 +265,7 @@ describe('Content Script Entry (index.js)', () => {
     });
 
     test('應該在提取不到內容時返回後備區塊', async () => {
-      ContentExtractor.extract.mockReturnValue({
+      ContentExtractor.extractAsync.mockResolvedValue({
         content: '',
         blocks: [],
       });
@@ -276,9 +276,7 @@ describe('Content Script Entry (index.js)', () => {
     });
 
     test('應該處理提取過程中的異常', async () => {
-      ContentExtractor.extract.mockImplementation(() => {
-        throw new Error('Unexpected crash');
-      });
+      ContentExtractor.extractAsync.mockRejectedValue(new Error('Unexpected crash'));
 
       const result = await extractPageContent();
 

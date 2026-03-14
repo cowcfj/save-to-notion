@@ -512,6 +512,61 @@ describe('NextJsExtractor', () => {
     });
   });
 
+  describe('extractAsync', () => {
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it('stale 時嘗試使用 _next/data 並成功提取', async () => {
+      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
+      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
+
+      const mockJson = {
+        page: '/',
+        asPath: '/',
+        buildId: 'build123',
+        props: { initialProps: { pageProps: {} } },
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          pageProps: {
+            article: {
+              title: 'OK',
+              blocks: [
+                { blockType: 'paragraph', text: 'One' },
+                { blockType: 'paragraph', text: 'Two' },
+                { blockType: 'paragraph', text: 'Three' },
+              ],
+            },
+          },
+        }),
+      });
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
+        expect.any(Object)
+      );
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('OK');
+      expect(result.blocks.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('_buildNextDataUrl', () => {
+    it('root path 會轉為 /index.json', () => {
+      const url = NextJsExtractor._buildNextDataUrl('https://www.hk01.com/', 'build123');
+      expect(url).toBe('https://www.hk01.com/_next/data/build123/index.json');
+    });
+  });
+
   describe('BBC format (_isBbcFormat / _convertBbcBlocks / _extractBbcText)', () => {
     // 模擬 BBC __NEXT_DATA__.props.pageProps.pageData.content.model 結構
     const buildBbcNextData = blocks => ({

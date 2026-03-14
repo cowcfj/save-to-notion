@@ -17,6 +17,9 @@ import {
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
+const PAGES_ROUTER = 'pages-router';
+const APP_ROUTER = 'app-router';
+
 export const NextJsExtractor = {
   /**
    * 檢測頁面是否為 Next.js 網站
@@ -47,18 +50,7 @@ export const NextJsExtractor = {
   extract(doc) {
     const action = 'NextJsExtractor.extract';
     try {
-      const PAGES_ROUTER = 'pages-router';
-      let extractionSource = 'unknown';
-      let rawData = this._getPagesRouterData(doc);
-
-      if (rawData) {
-        extractionSource = PAGES_ROUTER;
-      } else {
-        rawData = this._getAppRouterData(doc);
-        if (rawData) {
-          extractionSource = 'app-router';
-        }
-      }
+      const { rawData, extractionSource } = this._resolveInitialData(doc);
 
       if (!rawData) {
         Logger.warn('未能提取任何 Next.js 數據', { action });
@@ -70,61 +62,7 @@ export const NextJsExtractor = {
         return null;
       }
 
-      const articleData = this._findArticleData(rawData);
-
-      if (!articleData) {
-        Logger.info('在數據中未找到結構化文章內容，將使用標準提取', {
-          action,
-          source: extractionSource,
-        });
-        return null;
-      }
-
-      // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
-      if (extractionSource === PAGES_ROUTER && articleData?.title) {
-        const docTitle = doc.title;
-        if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
-          Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {
-            action,
-            articleTitle: articleData.title,
-            docTitle,
-          });
-          return null;
-        }
-      }
-
-      Logger.log('成功提取 Next.js 文章數據', {
-        action,
-        source: extractionSource,
-        title: articleData.title,
-      });
-
-      const blocks = this._processArticleContent(articleData);
-
-      // 品質門檻：blocks 數量不足代表格式可能不相容，回退到標準提取
-      if (blocks.length < NEXTJS_CONFIG.MIN_VALID_BLOCKS) {
-        Logger.info(
-          `結構化提取品質不足 (${blocks.length}/${NEXTJS_CONFIG.MIN_VALID_BLOCKS} blocks)，回退到標準提取`,
-          { action, source: extractionSource }
-        );
-        return null;
-      }
-
-      // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
-      // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
-      const metadata = {
-        title: articleData.title || articleData.promo?.headlines?.seoHeadline,
-        excerpt: articleData.excerpt || articleData.description || articleData.summary,
-        byline: articleData.byline || articleData.author?.name || articleData.author,
-      };
-
-      return {
-        content: '', // Next.js 提取器不生成 HTML content
-        blocks,
-        metadata,
-        type: 'nextjs',
-        rawArticle: articleData,
-      };
+      return this._extractFromRawData(rawData, extractionSource, doc, action);
     } catch (error) {
       Logger.error('Next.js 提取過程發生錯誤', {
         action,
@@ -132,6 +70,83 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  /**
+   * Async 提取：在 SPA stale 時嘗試使用 _next/data
+   *
+   * @param {Document} doc
+   * @returns {Promise<{ content: string, blocks: Array, metadata: object, type: 'nextjs' } | null>}
+   */
+  async extractAsync(doc) {
+    const action = 'NextJsExtractor.extractAsync';
+    try {
+      const { rawData, extractionSource } = this._resolveInitialData(doc);
+
+      if (!rawData) {
+        Logger.warn('未能提取任何 Next.js 數據', { action });
+        return null;
+      }
+
+      if (extractionSource === PAGES_ROUTER) {
+        const validation = this._validatePagesRouterDataDetailed(rawData, doc);
+        if (!validation.isValid) {
+          if (validation.reason === 'stale') {
+            const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
+            if (fallbackResult) {
+              return fallbackResult;
+            }
+          }
+          return null;
+        }
+      }
+
+      return this._extractFromRawData(rawData, extractionSource, doc, action);
+    } catch (error) {
+      Logger.error('Next.js 提取過程發生錯誤', {
+        action,
+        error: error.message,
+      });
+      return null;
+    }
+  },
+
+  /**
+   * 解析並獲取初始提取數據
+   *
+   * @param {Document} doc
+   * @returns {{ rawData: object|null, extractionSource: string }}
+   */
+  _resolveInitialData(doc) {
+    const rawPagesData = this._getPagesRouterData(doc);
+    if (rawPagesData) {
+      return { rawData: rawPagesData, extractionSource: PAGES_ROUTER };
+    }
+
+    const rawAppData = this._getAppRouterData(doc);
+    if (rawAppData) {
+      return { rawData: rawAppData, extractionSource: APP_ROUTER };
+    }
+
+    return { rawData: null, extractionSource: 'unknown' };
+  },
+
+  /**
+   * 處理過期的 Pages Router 數據
+   *
+   * @param {Document} doc
+   * @param {object} rawData
+   * @param {string} action
+   * @returns {Promise<object|null>}
+   */
+  async _handleStalePagesRouterData(doc, rawData, action) {
+    const nextData = await this._fetchNextData(doc, rawData?.buildId);
+    if (!nextData) {
+      return null;
+    }
+
+    const normalized = this._normalizeNextDataPayload(nextData, rawData);
+    return this._extractFromRawData(normalized, 'next-data', doc, action);
   },
 
   /**
@@ -170,6 +185,17 @@ export const NextJsExtractor = {
    * @returns {boolean} true 表示數據有效，false 表示數據已過期
    */
   _validatePagesRouterData(rawData, doc) {
+    return this._validatePagesRouterDataDetailed(rawData, doc).isValid;
+  },
+
+  /**
+   * 驗證 Pages Router 數據的有效性（含原因）
+   *
+   * @param {object} rawData - __NEXT_DATA__ 原始數據
+   * @param {Document} doc - 當前文檔對象
+   * @returns {{ isValid: boolean, reason: 'valid' | 'stale' | 'unknown' }}
+   */
+  _validatePagesRouterDataDetailed(rawData, doc) {
     const currentPath = doc.defaultView?.location?.pathname;
     const currentOrigin = doc.defaultView?.location?.origin;
     const logContext = {
@@ -184,15 +210,187 @@ export const NextJsExtractor = {
     // 這不是錯誤，只需記錄日誌讓回退機制接手即可。
     if (rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/') {
       Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', logContext);
-      return false;
+      return { isValid: false, reason: 'stale' };
     }
 
     // 1. asPath 檢查 (如果有的話)
     if (rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
       Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', logContext);
-      return false;
+      return { isValid: false, reason: 'stale' };
     }
-    return true;
+    return { isValid: true, reason: 'valid' };
+  },
+
+  /**
+   * 從 rawData 提取文章內容
+   *
+   * @param {object} rawData
+   * @param {string} extractionSource
+   * @param {Document} doc
+   * @param {string} action
+   * @returns {object|null}
+   */
+  _extractFromRawData(rawData, extractionSource, doc, action = 'NextJsExtractor.extract') {
+    const articleData = this._findArticleData(rawData);
+
+    if (!articleData) {
+      Logger.info('在數據中未找到結構化文章內容，將使用標準提取', {
+        action,
+        source: extractionSource,
+      });
+      return null;
+    }
+
+    // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
+    if (extractionSource === PAGES_ROUTER && articleData?.title) {
+      const docTitle = doc.title;
+      if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
+        Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {
+          action,
+          source: extractionSource,
+          reason: 'title_mismatch',
+          result: 'skip_structured',
+          hasTitle: Boolean(articleData?.title),
+          hasDocTitle: Boolean(docTitle),
+          isTitleConsistent: false,
+        });
+        return null;
+      }
+    }
+
+    Logger.log('成功提取 Next.js 文章數據', {
+      action,
+      source: extractionSource,
+      result: 'structured',
+      hasTitle: Boolean(articleData?.title),
+    });
+
+    const blocks = this._processArticleContent(articleData);
+
+    // 品質門檻：blocks 數量不足代表格式可能不相容，回退到標準提取
+    if (blocks.length < NEXTJS_CONFIG.MIN_VALID_BLOCKS) {
+      Logger.info(
+        `結構化提取品質不足 (${blocks.length}/${NEXTJS_CONFIG.MIN_VALID_BLOCKS} blocks)，回退到標準提取`,
+        { action, source: extractionSource }
+      );
+      return null;
+    }
+
+    // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
+    // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
+    const metadata = {
+      title: articleData.title || articleData.promo?.headlines?.seoHeadline,
+      excerpt: articleData.excerpt || articleData.description || articleData.summary,
+      byline: articleData.byline || articleData.author?.name || articleData.author,
+    };
+
+    return {
+      content: '', // Next.js 提取器不生成 HTML content
+      blocks,
+      metadata,
+      type: 'nextjs',
+      rawArticle: articleData,
+    };
+  },
+
+  /**
+   * 建立 Next.js _next/data URL
+   *
+   * @param {string} originalUrl
+   * @param {string} buildId
+   * @returns {string|null}
+   */
+  _buildNextDataUrl(originalUrl, buildId) {
+    if (!originalUrl || !buildId) {
+      return null;
+    }
+
+    try {
+      const urlObj = new URL(originalUrl);
+      let path = urlObj.pathname || '/';
+      if (path === '/') {
+        path = '/index';
+      }
+      if (path.length > 1 && path.endsWith('/')) {
+        path = path.slice(0, -1);
+      }
+      return `${urlObj.origin}/_next/data/${buildId}${path}.json${urlObj.search}`;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 取得 Next.js _next/data JSON
+   *
+   * @param {Document} doc
+   * @param {string} buildId
+   * @returns {Promise<object|null>}
+   */
+  async _fetchNextData(doc, buildId) {
+    const action = '_fetchNextData';
+    const pageUrl =
+      doc?.defaultView?.location?.href || doc?.location?.href || globalThis.location?.href || '';
+    const dataUrl = this._buildNextDataUrl(pageUrl, buildId);
+
+    if (!dataUrl) {
+      Logger.warn('無法構建 Next.js data URL', {
+        action,
+        buildId: Boolean(buildId),
+      });
+      return null;
+    }
+
+    try {
+      const response = await fetch(dataUrl, { credentials: 'same-origin' });
+      if (!response?.ok) {
+        Logger.warn('Next.js data 取得失敗', {
+          action,
+          status: response?.status,
+          url: sanitizeUrlForLogging(dataUrl),
+        });
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      Logger.warn('Next.js data 取得失敗', {
+        action,
+        error: error.message,
+        url: sanitizeUrlForLogging(dataUrl),
+      });
+      return null;
+    }
+  },
+
+  /**
+   * 正規化 _next/data 回傳格式，對齊 __NEXT_DATA__ 結構
+   *
+   * @param {object} payload
+   * @param {object} fallbackRawData
+   * @returns {object|null}
+   */
+  _normalizeNextDataPayload(payload, fallbackRawData) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    const pageProps =
+      payload?.pageProps ||
+      payload?.props?.pageProps ||
+      payload?.props?.initialProps?.pageProps ||
+      payload?.initialProps?.pageProps ||
+      payload?.props ||
+      payload;
+
+    return {
+      page: fallbackRawData?.page || payload?.page || '',
+      query: fallbackRawData?.query || payload?.query || {},
+      buildId: fallbackRawData?.buildId || payload?.buildId,
+      props: {
+        pageProps,
+        initialProps: { pageProps },
+      },
+    };
   },
 
   /**

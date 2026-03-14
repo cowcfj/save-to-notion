@@ -137,6 +137,12 @@ describe('saveHandlers Security Verification', () => {
           query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
           sendMessage: jest.fn(),
         },
+        storage: {
+          sync: {
+            // _runSaveFlow 需要讀取 highlightContentStyle 設定
+            get: jest.fn().mockResolvedValue({ highlightContentStyle: 'COLOR_SYNC' }),
+          },
+        },
         runtime: {
           id: 'trusted-extension-id',
           lastError: null,

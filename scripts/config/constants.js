@@ -80,8 +80,6 @@ export const CONTENT_QUALITY = {
   DEFAULT_PAGE_TITLE: 'Untitled', // 預設頁面標題
 };
 
-// TECHNICAL_TERMS moved to patterns.js
-
 // ==========================================
 // 圖片收集相關常量
 // ==========================================

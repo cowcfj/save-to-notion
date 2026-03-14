@@ -27,6 +27,7 @@ jest.mock('@mozilla/readability', () => ({
 }));
 
 const { Readability } = require('@mozilla/readability');
+const { DOMAIN_CLEANING_RULES } = require('../../../../scripts/config/extraction.js');
 
 // 引用 ReadabilityAdapter 模組
 const {
@@ -413,6 +414,26 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
     expect(output).not.toContain('onerror');
     expect(output).toContain('<div>');
     expect(output).toContain('<a href="#">Link</a>');
+  });
+});
+
+describe('ReadabilityAdapter - domain rules', () => {
+  test('HK01 domain rule should define container selector', () => {
+    expect(DOMAIN_CLEANING_RULES['hk01.com']).toBeDefined();
+    const rule = DOMAIN_CLEANING_RULES['hk01.com'];
+    const container = rule.container;
+    expect(container).toBeDefined();
+    expect(typeof container).toBe('string');
+    expect(container.trim().length).toBeGreaterThan(0);
+    expect(/[.#a-zA-Z]/.test(container)).toBe(true);
+
+    const remove = rule.remove;
+    expect(remove).toBeDefined();
+    expect(Array.isArray(remove)).toBe(true);
+    expect(remove.length).toBeGreaterThan(0);
+    remove.forEach(item => {
+      expect(typeof item).toBe('string');
+    });
   });
 });
 

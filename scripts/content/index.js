@@ -153,7 +153,7 @@ async function extractPageContent() {
 
   try {
     // 1. 提取內容和元數據
-    const extractResult = ContentExtractor.extract(document);
+    const extractResult = await ContentExtractor.extractAsync(document);
     const { content, type, metadata, blocks: preExtractedBlocks } = extractResult || {};
 
     // 檢查是否有有效內容 (HTML Content 或預提取的 Blocks)

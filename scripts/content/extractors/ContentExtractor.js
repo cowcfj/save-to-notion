@@ -19,6 +19,116 @@ import { MetadataExtractor } from './MetadataExtractor.js';
 import { MarkdownExtractor } from './MarkdownExtractor.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
+import { waitForDOMStability } from '../../highlighter/utils/domStability.js';
+import { DOM_STABILITY } from '../../config/extraction.js';
+
+const buildNextJsResult = (doc, nextResult) => {
+  const baseMetadata = MetadataExtractor.extract(doc, null);
+  const nextMetadata = nextResult.metadata || {};
+  const finalMetadata = { ...baseMetadata, ...nextMetadata };
+
+  if (nextMetadata.byline) {
+    finalMetadata.author = nextMetadata.byline;
+  }
+
+  return {
+    content: nextResult.content, // HTML (可能為空)
+    blocks: nextResult.blocks, // Notion Blocks
+    type: nextResult.type, // 'nextjs'
+    metadata: finalMetadata,
+    rawArticle: nextResult.rawArticle,
+    debug: {
+      extractor: 'nextjs',
+    },
+  };
+};
+
+const logNextJsDetected = action => {
+  Logger.log('檢測到 Next.js 網站，嘗試結構化提取', { action });
+};
+
+const logNextJsFallback = action => {
+  Logger.info('Next.js 結構化提取未返回有效結果，回退到標準流程', { action });
+};
+
+const logNextJsError = (action, error) => {
+  Logger.warn('Next.js 偵測/抽取失敗，改以標準抽取處理', {
+    action,
+    error: error.message,
+  });
+};
+
+const runStandardExtraction = (doc, action) => {
+  const complexity = detectPageComplexity(doc);
+  const selection = selectExtractor(complexity);
+
+  Logger.log('頁面分析結果', {
+    action,
+    extractor: selection.extractor,
+    confidence: `${selection.confidence}%`,
+  });
+
+  let result = null;
+
+  if (selection.extractor === 'markdown') {
+    result = ContentExtractor.extractTechnicalContent(doc);
+  }
+
+  if (!result) {
+    result = ContentExtractor.extractReadability(doc);
+  }
+
+  const metadata = MetadataExtractor.extract(doc, result ? result.rawArticle : null);
+
+  return {
+    content: result ? result.content : null,
+    type: result ? result.type : 'html', // 'html' or 'markdown'
+    metadata,
+    rawArticle: result ? result.rawArticle : null,
+    debug: {
+      complexity,
+      selection,
+    },
+  };
+};
+
+const runNextJsExtraction = (doc, action) => {
+  try {
+    if (NextJsExtractor.detect(doc)) {
+      logNextJsDetected(action);
+      const nextResult = NextJsExtractor.extract(doc);
+      if (nextResult) {
+        return buildNextJsResult(doc, nextResult);
+      }
+      logNextJsFallback(action);
+    }
+  } catch (error) {
+    logNextJsError(action, error);
+  }
+
+  return null;
+};
+
+const runNextJsExtractionAsync = async (doc, action) => {
+  try {
+    if (NextJsExtractor.detect(doc)) {
+      logNextJsDetected(action);
+      const nextResult = await NextJsExtractor.extractAsync(doc);
+      if (nextResult) {
+        return buildNextJsResult(doc, nextResult);
+      }
+      logNextJsFallback(action);
+      await waitForDOMStability({
+        stabilityThresholdMs: DOM_STABILITY.THRESHOLD_MS,
+        maxWaitMs: DOM_STABILITY.MAX_WAIT_MS,
+      });
+    }
+  } catch (error) {
+    logNextJsError(action, error);
+  }
+
+  return null;
+};
 
 const ContentExtractor = {
   /**
@@ -31,79 +141,30 @@ const ContentExtractor = {
   extract(doc) {
     Logger.log('開始內容提取', { action: 'extract' });
 
-    // 0. 優先檢查 Next.js 結構化數據
-    try {
-      if (NextJsExtractor.detect(doc)) {
-        Logger.log('檢測到 Next.js 網站，嘗試結構化提取', { action: 'extract' });
-        const nextResult = NextJsExtractor.extract(doc);
-        if (nextResult) {
-          // 合併 metadata: 先獲取基礎 metadata (favicon 等)，再用 Next.js 的 metadata 覆蓋
-          const baseMetadata = MetadataExtractor.extract(doc, null);
-          const nextMetadata = nextResult.metadata || {};
-          const finalMetadata = { ...baseMetadata, ...nextMetadata };
-
-          // 確保 byline 被映射到 author
-          if (nextMetadata.byline) {
-            finalMetadata.author = nextMetadata.byline;
-          }
-
-          return {
-            content: nextResult.content, // HTML (可能為空)
-            blocks: nextResult.blocks, // Notion Blocks
-            type: nextResult.type, // 'nextjs'
-            metadata: finalMetadata,
-            rawArticle: nextResult.rawArticle,
-            debug: {
-              extractor: 'nextjs',
-            },
-          };
-        }
-        Logger.info('Next.js 結構化提取未返回有效結果，回退到標準流程', { action: 'extract' });
-      }
-    } catch (error) {
-      Logger.warn('Next.js detection/extraction failed, falling back to standard extraction', {
-        action: 'extract',
-        error: error.message,
-      });
+    const nextResult = runNextJsExtraction(doc, 'extract');
+    if (nextResult) {
+      return nextResult;
     }
 
-    // 1. 檢測頁面複雜度與類型
-    const complexity = detectPageComplexity(doc);
-    const selection = selectExtractor(complexity);
+    return runStandardExtraction(doc, 'extract');
+  },
 
-    Logger.log('頁面分析結果', {
-      action: 'extract',
-      extractor: selection.extractor,
-      confidence: `${selection.confidence}%`,
-    });
+  /**
+   * 執行內容提取 (Async)
+   *
+   * @param {Document} doc - DOM Document
+   * @returns {Promise<object>} 提取結果 { content, type, metadata, rawArticle, blocks? }
+   *                   (blocks 為可選的預先提取 Notion 區塊)
+   */
+  async extractAsync(doc) {
+    Logger.log('開始內容提取', { action: 'extractAsync' });
 
-    let result = null;
-
-    // 2. 根據選擇的策略執行提取
-    if (selection.extractor === 'markdown') {
-      result = ContentExtractor.extractTechnicalContent(doc);
+    const nextResult = await runNextJsExtractionAsync(doc, 'extractAsync');
+    if (nextResult) {
+      return nextResult;
     }
 
-    // 如果 Technical 策略失敗或未選擇，回退到 Readability
-    if (!result) {
-      result = ContentExtractor.extractReadability(doc);
-    }
-
-    // 3. 提取元數據
-    // 使用 MetadataExtractor 類靜態方法
-    const metadata = MetadataExtractor.extract(doc, result ? result.rawArticle : null);
-
-    // 4. 組合最終結果
-    return {
-      content: result ? result.content : null,
-      type: result ? result.type : 'html', // 'html' or 'markdown'
-      metadata,
-      rawArticle: result ? result.rawArticle : null,
-      debug: {
-        complexity,
-        selection,
-      },
-    };
+    return runStandardExtraction(doc, 'extractAsync');
   },
 
   /**

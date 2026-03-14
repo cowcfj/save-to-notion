@@ -3,6 +3,9 @@
  */
 
 const { processContentResult } = require('../../../scripts/background/handlers/saveHandlers.js');
+const {
+  HIGHLIGHT_STYLE_OPTIONS,
+} = require('../../../scripts/background/utils/highlightStyleMerger.js');
 
 describe('processContentResult', () => {
   it('should return default content for null input', () => {
@@ -86,5 +89,36 @@ describe('processContentResult', () => {
     const result = processContentResult(rawResult, highlights);
 
     expect(result.blocks[0]).toEqual(originalBlock);
+  });
+
+  // ---- 新增：highlightContentStyle 參數測試 ----
+
+  it('highlightContentStyle 應有預設值 COLOR_SYNC（向後相容）', () => {
+    const rawResult = {
+      title: 'Test',
+      blocks: [{ type: 'paragraph', paragraph: {} }],
+      siteIcon: null,
+    };
+    const result = processContentResult(rawResult, []);
+    expect(result.highlightContentStyle).toBe(HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC);
+    expect(result.title).toBe(rawResult.title);
+    expect(result.blocks).toEqual(rawResult.blocks);
+    expect(result.siteIcon).toBe(rawResult.siteIcon);
+  });
+
+  it('highlightContentStyle 為 NONE 時不影響 blocks 結構', () => {
+    const rawResult = {
+      title: 'Test Page',
+      blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
+      siteIcon: null,
+    };
+    const highlights = [{ text: 'some text', color: 'yellow' }];
+
+    const result = processContentResult(rawResult, highlights, 'NONE');
+
+    // NONE 模式：原始內容 block 仍在，加上 highlight section = 3 blocks
+    // (paragraph + heading + highlight paragraph)
+    expect(result.blocks).toHaveLength(3);
+    expect(result.blocks[0]).toEqual(rawResult.blocks[0]); // 原始 block 未被修改
   });
 });

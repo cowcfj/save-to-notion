@@ -6,6 +6,7 @@ language: 'zh'
 inheritance: true
 
 reviews:
+  review_details: true
   tools:
     biome:
       enabled: false

@@ -34,6 +34,7 @@ jest.mock('../../../../scripts/content/extractors/NextJsExtractor', () => ({
   NextJsExtractor: {
     detect: jest.fn(),
     extract: jest.fn(),
+    extractAsync: jest.fn(),
   },
 }));
 
@@ -47,6 +48,10 @@ jest.mock(
   { virtual: true }
 );
 
+jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({
+  waitForDOMStability: jest.fn().mockResolvedValue(true),
+}));
+
 const { ContentExtractor } = require('../../../../scripts/content/extractors/ContentExtractor');
 const {
   parseArticleWithReadability,
@@ -56,6 +61,8 @@ const {
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter');
 const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
+const domStability = require('../../../../scripts/highlighter/utils/domStability.js');
+const { DOM_STABILITY } = require('../../../../scripts/config/extraction.js');
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
@@ -133,9 +140,9 @@ describe('ContentExtractor', () => {
       expect(extractLargestListFallback).toHaveBeenCalled();
     });
 
-    test('should use Technical extraction when selected (extractus)', () => {
+    test('should use Technical extraction when selected (markdown)', () => {
       pageComplexityDetector.detectPageComplexity.mockReturnValue({});
-      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'extractus' });
+      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'markdown' });
 
       // Mock DOM for technical content
       document.body.innerHTML = '<div class="markdown-body">Technical Content</div>';
@@ -148,9 +155,9 @@ describe('ContentExtractor', () => {
       expect(parseArticleWithReadability).not.toHaveBeenCalled();
     });
 
-    test('should fallback to Readability if Technical extraction fails', () => {
+    test('should fallback to Readability if Technical extraction fails (markdown)', () => {
       pageComplexityDetector.detectPageComplexity.mockReturnValue({});
-      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'extractus' });
+      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'markdown' });
 
       // No technical content in DOM
       document.body.innerHTML = '<div>Normal Content</div>';
@@ -185,7 +192,7 @@ describe('ContentExtractor', () => {
 
       expect(result.content).toBe('Fallback');
       expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Next.js detection/extraction failed'),
+        expect.stringContaining('Next.js 偵測/抽取失敗'),
         expect.objectContaining({ error: 'Next.js Error' })
       );
     });
@@ -210,6 +217,36 @@ describe('ContentExtractor', () => {
         expect.stringContaining('Readability 解析失敗'),
         expect.any(Object)
       );
+    });
+  });
+
+  describe('extractAsync', () => {
+    test('stale 時等待 DOM 穩定後回退 Readability', async () => {
+      const { NextJsExtractor } = require('../../../../scripts/content/extractors/NextJsExtractor');
+      NextJsExtractor.detect.mockReturnValue(true);
+      NextJsExtractor.extractAsync.mockResolvedValue(null);
+
+      pageComplexityDetector.detectPageComplexity.mockReturnValue({});
+      pageComplexityDetector.selectExtractor.mockReturnValue({
+        extractor: 'readability',
+        confidence: 80,
+      });
+
+      parseArticleWithReadability.mockReturnValue({
+        content: '<div>Async Readability</div>',
+      });
+      isContentGood.mockReturnValue(true);
+
+      MetadataExtractor.extract.mockReturnValue({ title: 'Async Title' });
+
+      const result = await ContentExtractor.extractAsync(document);
+
+      expect(domStability.waitForDOMStability).toHaveBeenCalled();
+      expect(domStability.waitForDOMStability).toHaveBeenCalledWith({
+        stabilityThresholdMs: DOM_STABILITY.THRESHOLD_MS,
+        maxWaitMs: DOM_STABILITY.MAX_WAIT_MS,
+      });
+      expect(result.content).toBe('<div>Async Readability</div>');
     });
   });
 });

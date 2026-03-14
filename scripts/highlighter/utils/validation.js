@@ -3,6 +3,8 @@
  * 提供數據驗證相關的工具函式
  */
 
+import { HIGHLIGHT_COLOR_WHITELIST } from '../../config/highlightConstants.js';
+
 /**
  * 檢查字串是否非空
  *
@@ -64,8 +66,7 @@ export function isCollapsedRange(range) {
  * isValidColor('purple') // false
  */
 export function isValidColor(color) {
-  const validColors = ['yellow', 'green', 'blue', 'red'];
-  return validColors.includes(color);
+  return HIGHLIGHT_COLOR_WHITELIST.includes(color);
 }
 
 /**

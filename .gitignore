@@ -73,6 +73,7 @@ CLAUDE.md
 .serena/
 .claude/
 .kilocode/
+.worktrees/
 # AGENTS.md is tracked to serve as AI context for CodeRabbit and Cursor
 AI_AGENT_QUICK_REF.md
 *_GUIDE.md

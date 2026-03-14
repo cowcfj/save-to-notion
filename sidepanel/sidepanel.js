@@ -435,7 +435,8 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
   renderList(highlights, targetKey);
 
   const hasSavedData = await checkSavedData(notionData, targetKey);
-  els.syncButton.disabled = !hasSavedData;
+  // Sync 按鈕始終可用（savePage 可自動建立新頁面）
+  els.syncButton.disabled = false;
   els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
 
   const targetUrl = targetKey?.startsWith(PAGE_PREFIX)
@@ -690,7 +691,6 @@ function showLoading() {
   els.loadingState.style.display = isActive ? 'flex' : 'none';
   els.emptyState.style.display = 'none';
   els.highlightsList.style.display = 'none';
-  els.syncButton.disabled = true;
   els.openNotionButton.style.display = 'none';
 }
 
@@ -699,7 +699,6 @@ function showEmpty(msg = null) {
   els.loadingState.style.display = 'none';
   els.emptyState.style.display = isActive ? 'flex' : 'none';
   els.highlightsList.style.display = 'none';
-  els.syncButton.disabled = true;
   els.openNotionButton.style.display = 'none';
 
   if (msg) {
