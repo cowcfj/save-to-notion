@@ -242,7 +242,7 @@ export const NextJsExtractor = {
     }
 
     // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
-    if (extractionSource === 'pages-router' && articleData?.title) {
+    if (extractionSource === PAGES_ROUTER && articleData?.title) {
       const docTitle = doc.title;
       if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
         Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {

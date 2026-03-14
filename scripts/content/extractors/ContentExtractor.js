@@ -20,6 +20,7 @@ import { MarkdownExtractor } from './MarkdownExtractor.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 import { waitForDOMStability } from '../../highlighter/utils/domStability.js';
+import { DOM_STABILITY } from '../../config/extraction.js';
 
 const buildNextJsResult = (doc, nextResult) => {
   const baseMetadata = MetadataExtractor.extract(doc, null);
@@ -117,7 +118,10 @@ const runNextJsExtractionAsync = async (doc, action) => {
         return buildNextJsResult(doc, nextResult);
       }
       logNextJsFallback(action);
-      await waitForDOMStability({ stabilityThresholdMs: 150, maxWaitMs: 500 });
+      await waitForDOMStability({
+        stabilityThresholdMs: DOM_STABILITY.THRESHOLD_MS,
+        maxWaitMs: DOM_STABILITY.MAX_WAIT_MS,
+      });
     }
   } catch (error) {
     logNextJsError(action, error);

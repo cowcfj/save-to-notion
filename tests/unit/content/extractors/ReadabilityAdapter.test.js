@@ -420,7 +420,11 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
 describe('ReadabilityAdapter - domain rules', () => {
   test('HK01 domain rule should define container selector', () => {
     expect(DOMAIN_CLEANING_RULES['hk01.com']).toBeDefined();
-    expect(DOMAIN_CLEANING_RULES['hk01.com'].container).toBeDefined();
+    const container = DOMAIN_CLEANING_RULES['hk01.com'].container;
+    expect(container).toBeDefined();
+    expect(typeof container).toBe('string');
+    expect(container.trim().length).toBeGreaterThan(0);
+    expect(/[.#a-zA-Z]/.test(container)).toBe(true);
   });
 });
 

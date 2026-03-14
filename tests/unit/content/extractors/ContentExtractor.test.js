@@ -241,6 +241,10 @@ describe('ContentExtractor', () => {
       const result = await ContentExtractor.extractAsync(document);
 
       expect(domStability.waitForDOMStability).toHaveBeenCalled();
+      expect(domStability.waitForDOMStability).toHaveBeenCalledWith({
+        stabilityThresholdMs: 150,
+        maxWaitMs: 500,
+      });
       expect(result.content).toBe('<div>Async Readability</div>');
     });
   });

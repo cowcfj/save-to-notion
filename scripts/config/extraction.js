@@ -87,6 +87,10 @@ export const NEXTJS_CONFIG = {
 // 常量定義
 // ==========================================
 
+export const DOM_STABILITY = {
+  THRESHOLD_MS: 150,
+  MAX_WAIT_MS: 500,
+};
 export const OG_IMAGE_SELECTOR = 'meta[property="og:image"]';
 export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
 export const BBC_IMAGE_BASE_URL = 'https://ichef.bbci.co.uk/ace/ws';

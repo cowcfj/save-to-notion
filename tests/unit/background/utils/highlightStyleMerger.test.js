@@ -44,59 +44,77 @@ function buildFullText(richTextArray) {
 // ============================================================================
 
 describe('resolveStyle', () => {
-  test('COLOR_SYNC：yellow → yellow_background', () => {
-    const hl = { color: 'yellow' };
-    expect(resolveStyle('COLOR_SYNC', hl)).toEqual({ color: 'yellow_background' });
-  });
+  const STYLE_CASES = [
+    {
+      name: 'COLOR_SYNC：yellow → yellow_background',
+      mode: 'COLOR_SYNC',
+      hl: { color: 'yellow' },
+      expected: { color: 'yellow_background' },
+    },
+    {
+      name: 'COLOR_SYNC：green → green_background',
+      mode: 'COLOR_SYNC',
+      hl: { color: 'green' },
+      expected: { color: 'green_background' },
+    },
+    {
+      name: 'COLOR_SYNC：blue → blue_background',
+      mode: 'COLOR_SYNC',
+      hl: { color: 'blue' },
+      expected: { color: 'blue_background' },
+    },
+    {
+      name: 'COLOR_SYNC：red → red_background',
+      mode: 'COLOR_SYNC',
+      hl: { color: 'red' },
+      expected: { color: 'red_background' },
+    },
+    {
+      name: 'COLOR_SYNC：非法顏色（purple）→ yellow_background',
+      mode: 'COLOR_SYNC',
+      hl: { color: 'purple' },
+      expected: { color: 'yellow_background' },
+    },
+    {
+      name: 'COLOR_SYNC：未設定顏色 → yellow_background',
+      mode: 'COLOR_SYNC',
+      hl: {},
+      expected: { color: 'yellow_background' },
+    },
+    {
+      name: 'BOLD：返回 { bold: true }',
+      mode: 'BOLD',
+      hl: { color: 'yellow' },
+      expected: { bold: true },
+    },
+    {
+      name: 'NONE：返回 null',
+      mode: 'NONE',
+      hl: { color: 'yellow' },
+      expected: null,
+    },
+    {
+      name: 'COLOR_TEXT：yellow → { color: "yellow" }（文字色，無 _background）',
+      mode: 'COLOR_TEXT',
+      hl: { color: 'yellow' },
+      expected: { color: 'yellow' },
+    },
+    {
+      name: 'COLOR_TEXT：green → { color: "green" }',
+      mode: 'COLOR_TEXT',
+      hl: { color: 'green' },
+      expected: { color: 'green' },
+    },
+    {
+      name: 'COLOR_TEXT：非法顏色（purple）→ { color: "yellow" }',
+      mode: 'COLOR_TEXT',
+      hl: { color: 'purple' },
+      expected: { color: 'yellow' },
+    },
+  ];
 
-  test('COLOR_SYNC：green → green_background', () => {
-    const hl = { color: 'green' };
-    expect(resolveStyle('COLOR_SYNC', hl)).toEqual({ color: 'green_background' });
-  });
-
-  test('COLOR_SYNC：blue → blue_background', () => {
-    const hl = { color: 'blue' };
-    expect(resolveStyle('COLOR_SYNC', hl)).toEqual({ color: 'blue_background' });
-  });
-
-  test('COLOR_SYNC：red → red_background', () => {
-    const hl = { color: 'red' };
-    expect(resolveStyle('COLOR_SYNC', hl)).toEqual({ color: 'red_background' });
-  });
-
-  test('COLOR_SYNC：非法顏色（purple）→ yellow_background', () => {
-    const hl = { color: 'purple' };
-    expect(resolveStyle('COLOR_SYNC', hl)).toEqual({ color: 'yellow_background' });
-  });
-
-  test('COLOR_SYNC：未設定顏色 → yellow_background', () => {
-    const hl = {};
-    expect(resolveStyle('COLOR_SYNC', hl)).toEqual({ color: 'yellow_background' });
-  });
-
-  test('BOLD：返回 { bold: true }', () => {
-    const hl = { color: 'yellow' };
-    expect(resolveStyle('BOLD', hl)).toEqual({ bold: true });
-  });
-
-  test('NONE：返回 null', () => {
-    const hl = { color: 'yellow' };
-    expect(resolveStyle('NONE', hl)).toBeNull();
-  });
-
-  test('COLOR_TEXT：yellow → { color: "yellow" }（文字色，無 _background）', () => {
-    const hl = { color: 'yellow' };
-    expect(resolveStyle('COLOR_TEXT', hl)).toEqual({ color: 'yellow' });
-  });
-
-  test('COLOR_TEXT：green → { color: "green" }', () => {
-    const hl = { color: 'green' };
-    expect(resolveStyle('COLOR_TEXT', hl)).toEqual({ color: 'green' });
-  });
-
-  test('COLOR_TEXT：非法顏色（purple）→ { color: "yellow" }', () => {
-    const hl = { color: 'purple' };
-    expect(resolveStyle('COLOR_TEXT', hl)).toEqual({ color: 'yellow' });
+  test.each(STYLE_CASES)('$name', ({ mode, hl, expected }) => {
+    expect(resolveStyle(mode, hl)).toEqual(expected);
   });
 
   test('COLOR_TEXT vs COLOR_SYNC：前者不含 _background 後綴', () => {
@@ -227,8 +245,9 @@ describe('mergeHighlightsWithStyle — 核心功能', () => {
 
   test('blocks 為空時直接返回原始 blocks', () => {
     const highlights = [{ text: '文字', color: 'yellow', rangeInfo: {} }];
-    const result = mergeHighlightsWithStyle([], highlights, 'COLOR_SYNC');
-    expect(result).toEqual([]);
+    const blocks = [];
+    const result = mergeHighlightsWithStyle(blocks, highlights, 'COLOR_SYNC');
+    expect(result).toBe(blocks);
   });
 
   test('COLOR_SYNC：正確將 yellow 標註應用為 yellow_background', () => {
