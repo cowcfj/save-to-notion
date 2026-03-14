@@ -122,6 +122,7 @@ describe('options.js', () => {
     let mockUi = null;
     let mockAuth = null;
     let mockSet = null;
+    let mockLocalSet = null;
 
     beforeEach(() => {
       document.body.innerHTML = `
@@ -150,30 +151,50 @@ describe('options.js', () => {
           cb();
         }
       });
+      mockLocalSet = jest.fn((data, cb) => {
+        if (cb) {
+          cb();
+        }
+      });
 
       globalThis.chrome = {
         storage: {
+          local: { set: mockLocalSet },
           sync: { set: mockSet },
         },
         runtime: { lastError: null },
       };
     });
+    afterEach(() => {
+      jest.clearAllMocks();
+      delete globalThis.chrome;
+    });
 
-    it('should save settings and update status', () => {
+    it('should save settings and update status', async () => {
       saveSettings(mockUi, mockAuth);
 
-      expect(mockSet).toHaveBeenCalledWith(
+      expect(mockLocalSet).toHaveBeenCalledWith(
         expect.objectContaining({
-          notionApiKey: 'key_123',
           notionDatabaseId: 'a1b2c3d4e5f67890abcdef1234567890',
           notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
           notionDataSourceType: 'page',
-          addSource: true,
-          addTimestamp: false,
         }),
         expect.any(Function)
       );
 
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionApiKey: 'key_123',
+          titleTemplate: '{title}',
+          addSource: true,
+          addTimestamp: false,
+          uiZoomLevel: '1',
+          highlightStyle: 'background',
+        }),
+        expect.any(Function)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('成功'),
         'success',
@@ -219,9 +240,10 @@ describe('options.js', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('should handle save error', () => {
+    it('should handle save error', async () => {
       globalThis.chrome.runtime.lastError = { message: 'Storage error' };
       saveSettings(mockUi, mockAuth);
+      await new Promise(resolve => setTimeout(resolve, 0));
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
         'error',
@@ -233,7 +255,7 @@ describe('options.js', () => {
       document.querySelector('#database-type').value = '';
       saveSettings(mockUi, mockAuth);
 
-      expect(mockSet).toHaveBeenCalledWith(
+      expect(mockLocalSet).toHaveBeenCalledWith(
         expect.not.objectContaining({
           notionDataSourceType: expect.anything(),
         }),
