@@ -12,6 +12,7 @@ import Logger from '../scripts/utils/Logger.js';
 
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
+import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
 
 /**
  * Options Page Main Controller
@@ -242,13 +243,16 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     return;
   }
 
+  // 從集中配置取得 storage key 名稱
+  const [dataSourceIdKey, databaseIdKey, dataSourceTypeKey] = DATA_SOURCE_KEYS;
+
   // 構建完整的設置對象
   const localSettings = {
     // 為了兼容性，同時保存兩種 ID 格式
     // notionDatabaseId 是舊版 (僅支援 Database)
     // notionDataSourceId 是新版 (支援 Page 和 Database)
-    notionDatabaseId: databaseId,
-    notionDataSourceId: databaseId, // 統一存到兩個欄位，確保兼容
+    [databaseIdKey]: databaseId,
+    [dataSourceIdKey]: databaseId, // 統一存到兩個欄位，確保兼容
   };
 
   const syncSettings = {
@@ -262,7 +266,7 @@ export async function saveSettings(ui, auth, statusId = 'status') {
   // 如果類型欄位存在，一併保存並驗證
   const allowedDataSourceTypes = ['database', 'page'];
   const rawDataSourceType = typeInput?.value;
-  localSettings.notionDataSourceType = allowedDataSourceTypes.includes(rawDataSourceType)
+  localSettings[dataSourceTypeKey] = allowedDataSourceTypes.includes(rawDataSourceType)
     ? rawDataSourceType
     : 'database';
 

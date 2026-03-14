@@ -191,10 +191,10 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
-    it('should validate empty API key if not in OAuth mode', () => {
+    it('should validate empty API key if not in OAuth mode', async () => {
       document.querySelector('#api-key').value = '';
       mockAuth.currentAuthMode = 'manual';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('API Key'),
         'error',
@@ -203,10 +203,10 @@ describe('options.js', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('should allow empty API key if in OAuth mode', () => {
+    it('should allow empty API key if in OAuth mode', async () => {
       document.querySelector('#api-key').value = '';
       mockAuth.currentAuthMode = 'oauth';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
       // Because API key check is bypassed, it should proceed to save or hit the next validation
       // In this setup, database-id is valid, so it should attempt to save
       expect(mockSet).toHaveBeenCalledWith(
@@ -216,9 +216,9 @@ describe('options.js', () => {
       );
     });
 
-    it('should validate empty Database ID', () => {
+    it('should validate empty Database ID', async () => {
       document.querySelector('#database-id').value = '';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('ID'),
         'error',
@@ -237,7 +237,7 @@ describe('options.js', () => {
       );
     });
 
-    it('should handle local.set failure', async () => {
+    it('應處理 local.set 儲存失敗', async () => {
       mockLocalSet.mockRejectedValueOnce(new Error('Storage error'));
       await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
@@ -247,7 +247,7 @@ describe('options.js', () => {
       );
     });
 
-    it('should fallback notionDataSourceType to database when input is empty', async () => {
+    it('輸入為空時應將 notionDataSourceType 回退為 database', async () => {
       document.querySelector('#database-type').value = '';
       await saveSettings(mockUi, mockAuth);
 
@@ -258,7 +258,7 @@ describe('options.js', () => {
       );
     });
 
-    it('should fallback notionDataSourceType to database for invalid value', async () => {
+    it('無效值時應將 notionDataSourceType 回退為 database', async () => {
       document.querySelector('#database-type').value = 'invalid';
       await saveSettings(mockUi, mockAuth);
 
@@ -269,9 +269,9 @@ describe('options.js', () => {
       );
     });
 
-    it('should save highlightStyle when element exists', () => {
+    it('should save highlightStyle when element exists', async () => {
       document.querySelector('#highlight-style').value = 'text';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -295,8 +295,8 @@ describe('options.js', () => {
       );
     });
 
-    it('should save default highlightStyle (background)', () => {
-      saveSettings(mockUi, mockAuth);
+    it('should save default highlightStyle (background)', async () => {
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -305,9 +305,9 @@ describe('options.js', () => {
       );
     });
 
-    it('should save underline highlightStyle', () => {
+    it('should save underline highlightStyle', async () => {
       document.querySelector('#highlight-style').value = 'underline';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -315,9 +315,9 @@ describe('options.js', () => {
         })
       );
     });
-    it('should save uiZoomLevel', () => {
+    it('should save uiZoomLevel', async () => {
       document.querySelector('#ui-zoom-level').value = '1.1';
-      saveSettings(mockUi, mockAuth);
+      await saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
