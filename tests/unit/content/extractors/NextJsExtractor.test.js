@@ -729,18 +729,26 @@ describe('NextJsExtractor', () => {
       expect(result).toBeNull();
     });
 
-    it('存取 router 過程拋出異常時應安全返回 null', () => {
+    it('存取 router 過程拋出異常時應記錄 debug 並安全返回 null', () => {
       // 設定一個會讓存取拋異常的 getter
+      const error = new Error('permission denied');
       const badDefaultView = {};
       Object.defineProperty(badDefaultView, 'next', {
         get() {
-          throw new Error('permission denied');
+          throw error;
         },
       });
       const badDoc = { ...mockDoc, defaultView: badDefaultView };
 
       const result = NextJsExtractor._getRouterComponentData(badDoc);
       expect(result).toBeNull();
+      expect(Logger.debug).toHaveBeenCalledWith(
+        'NextJsExtractor._getRouterComponentData 讀取失敗',
+        {
+          action: 'NextJsExtractor._getRouterComponentData',
+          error,
+        }
+      );
     });
   });
 

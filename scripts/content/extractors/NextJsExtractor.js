@@ -148,7 +148,9 @@ export const NextJsExtractor = {
     const routerData = this._getRouterComponentData(doc);
     if (routerData) {
       const result = this._extractFromRawData(routerData, 'router-component', doc, action);
-      if (result) {return result;}
+      if (result) {
+        return result;
+      }
     }
 
     // 後備：嘗試從 _next/data 端點取得
@@ -171,10 +173,13 @@ export const NextJsExtractor = {
    * @returns {{ props: { pageProps: object } }|null}
    */
   _getRouterComponentData(doc) {
+    const action = 'NextJsExtractor._getRouterComponentData';
     try {
       const win = doc.defaultView || globalThis;
       const router = win?.next?.router;
-      if (!router?.components) {return null;}
+      if (!router?.components) {
+        return null;
+      }
 
       // 遍歷所有已載入的 router 組件，找到最先有 pageProps 的項目
       // HK01 通常是 '/article'，其他網站可能用 '/[...path]' 等不同 key
@@ -185,7 +190,11 @@ export const NextJsExtractor = {
         }
       }
       return null;
-    } catch {
+    } catch (error) {
+      Logger.debug('NextJsExtractor._getRouterComponentData 讀取失敗', {
+        action,
+        error,
+      });
       return null;
     }
   },
