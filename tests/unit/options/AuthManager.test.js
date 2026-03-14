@@ -118,7 +118,7 @@ describe('AuthManager', () => {
     );
   });
 
-  test('debug toggle failure shows error message', async () => {
+  test('除錯切換失敗顯示錯誤訊息', async () => {
     const toggle = document.querySelector('#enable-debug-logs');
     toggle.checked = true;
     chrome.storage.sync.set.mockRejectedValueOnce(new Error('Storage error'));

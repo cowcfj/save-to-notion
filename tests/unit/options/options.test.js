@@ -161,7 +161,7 @@ describe('options.js', () => {
       delete globalThis.chrome;
     });
 
-    it('should save settings and update status', async () => {
+    it('應儲存設定並更新狀態', async () => {
       await saveSettings(mockUi, mockAuth);
 
       expect(mockLocalSet).toHaveBeenCalledWith(
@@ -227,7 +227,7 @@ describe('options.js', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('should handle save error', async () => {
+    it('應處理儲存失敗', async () => {
       mockSet.mockRejectedValueOnce(new Error('Storage error'));
       await saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(

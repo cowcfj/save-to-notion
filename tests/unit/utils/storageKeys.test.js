@@ -32,4 +32,18 @@ describe('mergeDataSourceConfig', () => {
       notionDataSourceType: 'database',
     });
   });
+
+  test('local 部分設定時回退 sync', () => {
+    const local = { notionDataSourceId: 'local-id' };
+    const sync = {
+      notionDataSourceId: 'sync-id',
+      notionDatabaseId: 'sync-db',
+      notionDataSourceType: 'database',
+    };
+    expect(mergeDataSourceConfig(local, sync)).toEqual({
+      notionDataSourceId: 'local-id',
+      notionDatabaseId: 'sync-db',
+      notionDataSourceType: 'database',
+    });
+  });
 });

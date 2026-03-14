@@ -288,7 +288,13 @@ describe('StorageManager', () => {
 
       await storageManager.importData(event);
 
-      expect(Logger.error).toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith(
+        'Import failed',
+        expect.objectContaining({
+          action: 'import_backup',
+          error: expect.objectContaining({ message: 'Storage error' }),
+        })
+      );
       expect(storageManager.elements.dataStatus.className).toContain('error');
     });
   });
