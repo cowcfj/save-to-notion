@@ -19,6 +19,7 @@ import { MetadataExtractor } from './MetadataExtractor.js';
 import { MarkdownExtractor } from './MarkdownExtractor.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
+import { waitForDOMStability } from '../../highlighter/utils/domStability.js';
 
 const ContentExtractor = {
   /**
@@ -91,6 +92,93 @@ const ContentExtractor = {
 
     // 3. 提取元數據
     // 使用 MetadataExtractor 類靜態方法
+    const metadata = MetadataExtractor.extract(doc, result ? result.rawArticle : null);
+
+    // 4. 組合最終結果
+    return {
+      content: result ? result.content : null,
+      type: result ? result.type : 'html', // 'html' or 'markdown'
+      metadata,
+      rawArticle: result ? result.rawArticle : null,
+      debug: {
+        complexity,
+        selection,
+      },
+    };
+  },
+
+  /**
+   * 執行內容提取 (Async)
+   *
+   * @param {Document} doc - DOM Document
+   * @returns {Promise<object>} 提取結果 { content, type, metadata, rawArticle, blocks? }
+   *                   (blocks 為可選的預先提取 Notion 區塊)
+   */
+  async extractAsync(doc) {
+    Logger.log('開始內容提取', { action: 'extractAsync' });
+
+    // 0. 優先檢查 Next.js 結構化數據 (Async)
+    try {
+      if (NextJsExtractor.detect(doc)) {
+        Logger.log('檢測到 Next.js 網站，嘗試結構化提取', { action: 'extractAsync' });
+        const nextResult = await NextJsExtractor.extractAsync(doc);
+        if (nextResult) {
+          // 合併 metadata: 先獲取基礎 metadata (favicon 等)，再用 Next.js 的 metadata 覆蓋
+          const baseMetadata = MetadataExtractor.extract(doc, null);
+          const nextMetadata = nextResult.metadata || {};
+          const finalMetadata = { ...baseMetadata, ...nextMetadata };
+
+          // 確保 byline 被映射到 author
+          if (nextMetadata.byline) {
+            finalMetadata.author = nextMetadata.byline;
+          }
+
+          return {
+            content: nextResult.content, // HTML (可能為空)
+            blocks: nextResult.blocks, // Notion Blocks
+            type: nextResult.type, // 'nextjs'
+            metadata: finalMetadata,
+            rawArticle: nextResult.rawArticle,
+            debug: {
+              extractor: 'nextjs',
+            },
+          };
+        }
+        Logger.info('Next.js 結構化提取未返回有效結果，回退到標準流程', {
+          action: 'extractAsync',
+        });
+        await waitForDOMStability({ stabilityThresholdMs: 150, maxWaitMs: 500 });
+      }
+    } catch (error) {
+      Logger.warn('Next.js detection/extraction failed, falling back to standard extraction', {
+        action: 'extractAsync',
+        error: error.message,
+      });
+    }
+
+    // 1. 檢測頁面複雜度與類型
+    const complexity = detectPageComplexity(doc);
+    const selection = selectExtractor(complexity);
+
+    Logger.log('頁面分析結果', {
+      action: 'extractAsync',
+      extractor: selection.extractor,
+      confidence: `${selection.confidence}%`,
+    });
+
+    let result = null;
+
+    // 2. 根據選擇的策略執行提取
+    if (selection.extractor === 'markdown') {
+      result = ContentExtractor.extractTechnicalContent(doc);
+    }
+
+    // 如果 Technical 策略失敗或未選擇，回退到 Readability
+    if (!result) {
+      result = ContentExtractor.extractReadability(doc);
+    }
+
+    // 3. 提取元數據
     const metadata = MetadataExtractor.extract(doc, result ? result.rawArticle : null);
 
     // 4. 組合最終結果

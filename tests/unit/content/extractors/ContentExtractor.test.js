@@ -34,6 +34,7 @@ jest.mock('../../../../scripts/content/extractors/NextJsExtractor', () => ({
   NextJsExtractor: {
     detect: jest.fn(),
     extract: jest.fn(),
+    extractAsync: jest.fn(),
   },
 }));
 
@@ -47,6 +48,10 @@ jest.mock(
   { virtual: true }
 );
 
+jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({
+  waitForDOMStability: jest.fn().mockResolvedValue(true),
+}));
+
 const { ContentExtractor } = require('../../../../scripts/content/extractors/ContentExtractor');
 const {
   parseArticleWithReadability,
@@ -56,6 +61,7 @@ const {
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter');
 const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
+const domStability = require('../../../../scripts/highlighter/utils/domStability.js');
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
@@ -210,6 +216,32 @@ describe('ContentExtractor', () => {
         expect.stringContaining('Readability 解析失敗'),
         expect.any(Object)
       );
+    });
+  });
+
+  describe('extractAsync', () => {
+    test('stale 時等待 DOM 穩定後回退 Readability', async () => {
+      const { NextJsExtractor } = require('../../../../scripts/content/extractors/NextJsExtractor');
+      NextJsExtractor.detect.mockReturnValue(true);
+      NextJsExtractor.extractAsync.mockResolvedValue(null);
+
+      pageComplexityDetector.detectPageComplexity.mockReturnValue({});
+      pageComplexityDetector.selectExtractor.mockReturnValue({
+        extractor: 'readability',
+        confidence: 80,
+      });
+
+      parseArticleWithReadability.mockReturnValue({
+        content: '<div>Async Readability</div>',
+      });
+      isContentGood.mockReturnValue(true);
+
+      MetadataExtractor.extract.mockReturnValue({ title: 'Async Title' });
+
+      const result = await ContentExtractor.extractAsync(document);
+
+      expect(domStability.waitForDOMStability).toHaveBeenCalled();
+      expect(result.content).toBe('<div>Async Readability</div>');
     });
   });
 });

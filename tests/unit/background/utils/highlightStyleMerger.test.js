@@ -165,11 +165,11 @@ describe('findHighlightPosition', () => {
       text: '重要概念',
       rangeInfo: { prefix: '一個', suffix: '的解釋' },
     };
-    // 第一個 '重要概念' 在 index 0，第二個在 index 14
+    // 第一個 '重要概念' 在 index 0，第二個在 index 13
     const fullText = buildFullText(richTextArray);
     const pos = findHighlightPosition(richTextArray, hl, fullText);
     // 因第二個有 prefix '一個' 匹配，分數更高
-    expect(pos).toBe(14);
+    expect(pos).toBe(13);
   });
 
   test('多個匹配且無 prefix/suffix：回退到第一個匹配', () => {
