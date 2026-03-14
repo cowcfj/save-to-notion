@@ -100,7 +100,7 @@ export function processContentResult(rawResult, highlights, highlightContentStyl
     mergedBlocks.push(...highlightBlocks);
   }
 
-  return { title, blocks: mergedBlocks, siteIcon, coverImage };
+  return { title, blocks: mergedBlocks, siteIcon, coverImage, highlightContentStyle };
 }
 
 /**
@@ -676,12 +676,19 @@ export function createSaveHandlers(services) {
     const { result, highlights } = extractionData;
 
     // 讀取用戶的 Notion 同步樣式設定（預設為 COLOR_SYNC）
-    const syncConfig = await chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' });
-    const contentResult = processContentResult(
-      result,
-      highlights,
-      syncConfig.highlightContentStyle
-    );
+    let highlightContentStyle = 'COLOR_SYNC';
+    try {
+      const syncConfig = await chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' });
+      if (typeof syncConfig?.highlightContentStyle === 'string') {
+        highlightContentStyle = syncConfig.highlightContentStyle;
+      }
+    } catch (error) {
+      Logger.warn('讀取同步樣式失敗，使用預設值', {
+        action: 'getHighlightContentStyle',
+        error: error?.message,
+      });
+    }
+    const contentResult = processContentResult(result, highlights, highlightContentStyle);
 
     await determineAndExecuteSaveAction({
       savedData,

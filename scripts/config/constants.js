@@ -80,6 +80,17 @@ export const CONTENT_QUALITY = {
   DEFAULT_PAGE_TITLE: 'Untitled', // 預設頁面標題
 };
 
+// ==========================================
+// 標註相關常量
+// ==========================================
+
+/**
+ * 標註顏色白名單（四色）
+ *
+ * @type {string[]}
+ */
+export const HIGHLIGHT_COLOR_WHITELIST = ['yellow', 'green', 'blue', 'red'];
+
 // TECHNICAL_TERMS moved to patterns.js
 
 // ==========================================

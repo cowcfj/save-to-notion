@@ -11,6 +11,8 @@
 
 /* global Logger */
 
+import { HIGHLIGHT_COLOR_WHITELIST } from '../../config/constants.js';
+
 // ============================================================================
 // 常量定義
 // ============================================================================
@@ -20,7 +22,7 @@
  *
  * @type {Set<string>}
  */
-const VALID_HIGHLIGHT_COLORS = new Set(['yellow', 'green', 'blue', 'red']);
+const VALID_HIGHLIGHT_COLORS = new Set(HIGHLIGHT_COLOR_WHITELIST);
 
 /**
  * 用戶設定的樣式選項
@@ -134,11 +136,16 @@ function scoreCandidate(fullText, idx, text, prefix, suffix) {
  *
  * @param {Array<{text: {content: string}, annotations: object}>} richTextArray - block 的 rich_text 陣列
  * @param {{ text: string, rangeInfo?: { prefix?: string, suffix?: string } }} highlight - 標註數據
+ * @param {string} fullText - 拼接後的純文本（必填）
  * @returns {number} 匹配到的字符偏移量（在拼接純文本中），-1 表示未找到
  */
-function findHighlightPosition(richTextArray, highlight) {
-  // 1. 拼接 block 的完整純文本
-  const fullText = richTextArray.map(rt => rt.text.content).join('');
+function findHighlightPosition(richTextArray, highlight, fullText) {
+  if (!Array.isArray(richTextArray)) {
+    return -1;
+  }
+  if (typeof fullText !== 'string') {
+    throw new TypeError('[HighlightMerger] fullText is required');
+  }
 
   const { text, rangeInfo } = highlight;
   if (!text || fullText.length === 0) {
@@ -312,10 +319,12 @@ function applyHighlightsToBlock(block, highlights, styleKey) {
     return block;
   }
 
+  const fullText = richTextArray.map(rt => rt.text.content).join('');
+
   // 收集所有在此 block 中匹配的標註位置（block 層級操作）
   const matches = [];
   for (const hl of highlights) {
-    const pos = findHighlightPosition(richTextArray, hl);
+    const pos = findHighlightPosition(richTextArray, hl, fullText);
     if (pos !== -1) {
       matches.push({ start: pos, end: pos + hl.text.length, highlight: hl });
     }

@@ -3,6 +3,9 @@
  */
 
 const { processContentResult } = require('../../../scripts/background/handlers/saveHandlers.js');
+const {
+  HIGHLIGHT_STYLE_OPTIONS,
+} = require('../../../scripts/background/utils/highlightStyleMerger.js');
 
 describe('processContentResult', () => {
   it('should return default content for null input', () => {
@@ -96,8 +99,11 @@ describe('processContentResult', () => {
       blocks: [{ type: 'paragraph', paragraph: {} }],
       siteIcon: null,
     };
-    // 不傳第三個參數，確保不報錯
-    expect(() => processContentResult(rawResult, [])).not.toThrow();
+    const result = processContentResult(rawResult, []);
+    expect(result.highlightContentStyle).toBe(HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC);
+    expect(result.title).toBe(rawResult.title);
+    expect(result.blocks).toEqual(rawResult.blocks);
+    expect(result.siteIcon).toBe(rawResult.siteIcon);
   });
 
   it('highlightContentStyle 為 NONE 時不影響 blocks 結構', () => {
@@ -112,7 +118,7 @@ describe('processContentResult', () => {
 
     // NONE 模式：原始內容 block 仍在，加上 highlight section = 3 blocks
     // (paragraph + heading + highlight paragraph)
-    expect(result.blocks.length).toBeGreaterThan(0);
+    expect(result.blocks).toHaveLength(3);
     expect(result.blocks[0]).toEqual(rawResult.blocks[0]); // 原始 block 未被修改
   });
 });

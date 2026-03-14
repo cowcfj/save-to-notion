@@ -35,6 +35,10 @@ function makeRT(content, annotations = {}) {
   return { type: 'text', text: { content }, annotations };
 }
 
+function buildFullText(richTextArray) {
+  return richTextArray.map(rt => rt.text.content).join('');
+}
+
 // ============================================================================
 // resolveStyle
 // ============================================================================
@@ -144,13 +148,15 @@ describe('findHighlightPosition', () => {
   test('單個匹配：直接返回正確位置', () => {
     const richTextArray = [makeRT('這篇文章介紹重要概念和場景')];
     const hl = { text: '重要概念', rangeInfo: {} };
-    expect(findHighlightPosition(richTextArray, hl)).toBe(6);
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(6);
   });
 
   test('文字不存在時返回 -1', () => {
     const richTextArray = [makeRT('這篇文章沒有標註')];
     const hl = { text: '重要概念', rangeInfo: {} };
-    expect(findHighlightPosition(richTextArray, hl)).toBe(-1);
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(-1);
   });
 
   test('多個匹配：用 prefix/suffix 精確定位第二個', () => {
@@ -160,34 +166,38 @@ describe('findHighlightPosition', () => {
       rangeInfo: { prefix: '一個', suffix: '的解釋' },
     };
     // 第一個 '重要概念' 在 index 0，第二個在 index 14
-    const pos = findHighlightPosition(richTextArray, hl);
+    const fullText = buildFullText(richTextArray);
+    const pos = findHighlightPosition(richTextArray, hl, fullText);
     // 因第二個有 prefix '一個' 匹配，分數更高
-    expect(pos).toBeGreaterThan(0);
+    expect(pos).toBe(14);
   });
 
   test('多個匹配且無 prefix/suffix：回退到第一個匹配', () => {
     const richTextArray = [makeRT('概念是概念')];
     const hl = { text: '概念', rangeInfo: {} };
     // 無 prefix/suffix →所有候選分數相同 → 拿第一個
-    expect(findHighlightPosition(richTextArray, hl)).toBe(0);
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(0);
   });
 
   test('跨多個 rich_text 片段的拼接搜索', () => {
     const richTextArray = [makeRT('這篇文章'), makeRT('探討'), makeRT('重要概念')];
     const hl = { text: '重要概念', rangeInfo: {} };
     // 拼接後：'這篇文章探討重要概念'，位置 = 6
-    expect(findHighlightPosition(richTextArray, hl)).toBe(6);
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(6);
   });
 
   test('空文字返回 -1', () => {
     const richTextArray = [makeRT('這篇文章')];
     const hl = { text: '', rangeInfo: {} };
-    expect(findHighlightPosition(richTextArray, hl)).toBe(-1);
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(-1);
   });
 
   test('空 rich_text 陣列返回 -1', () => {
     const hl = { text: '概念', rangeInfo: {} };
-    expect(findHighlightPosition([], hl)).toBe(-1);
+    expect(findHighlightPosition([], hl, '')).toBe(-1);
   });
 });
 
