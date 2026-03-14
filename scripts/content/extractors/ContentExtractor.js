@@ -52,7 +52,7 @@ const logNextJsFallback = action => {
 };
 
 const logNextJsError = (action, error) => {
-  Logger.warn('Next.js detection/extraction failed, falling back to standard extraction', {
+  Logger.warn('Next.js 偵測/抽取失敗，改以標準抽取處理', {
     action,
     error: error.message,
   });

@@ -483,7 +483,7 @@ export const DOMAIN_CLEANING_RULES = {
   },
   'hk01.com': {
     container: 'main article, [role="main"] article',
-    remove: [],
+    remove: ['.related-articles'],
   },
 };
 

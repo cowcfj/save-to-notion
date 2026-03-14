@@ -11,7 +11,10 @@
 
 /* global Logger */
 
-import { HIGHLIGHT_COLOR_WHITELIST } from '../../config/constants.js';
+import {
+  HIGHLIGHT_COLOR_WHITELIST,
+  HIGHLIGHT_MATCH_SCORING,
+} from '../../config/highlightConstants.js';
 
 // ============================================================================
 // 常量定義
@@ -46,6 +49,18 @@ const HIGHLIGHT_STYLE_OPTIONS = {
 // ============================================================================
 // 內部輔助函數
 // ============================================================================
+
+/**
+ * 取得 highlight 去重鍵：優先使用可用 id，否則回退物件引用
+ *
+ * @param {object} highlight - 標註數據
+ * @returns {string|object} 去重鍵
+ */
+function getHighlightKey(highlight) {
+  const id =
+    typeof highlight?.id === 'string' && highlight.id.trim().length > 0 ? highlight.id : null;
+  return id ?? highlight;
+}
 
 /**
  * 創建 Notion rich_text 物件
@@ -93,8 +108,8 @@ function resolveStyle(styleKey, highlight) {
  * 計算單一候選位置的 prefix/suffix 比對分數
  *
  * 分數規則：
- * - prefix 完全匹配：+2 分；尾部 10 字符部分匹配：+1 分
- * - suffix 完全匹配：+2 分；首部 10 字符部分匹配：+1 分
+ * - prefix 完全匹配：EXACT_CONTEXT_SCORE；尾部 PARTIAL_CONTEXT_WINDOW 字符部分匹配：PARTIAL_CONTEXT_SCORE
+ * - suffix 完全匹配：EXACT_CONTEXT_SCORE；首部 PARTIAL_CONTEXT_WINDOW 字符部分匹配：PARTIAL_CONTEXT_SCORE
  *
  * @param {string} fullText - 拼接後的純文本
  * @param {number} idx - 候選位置索引
@@ -109,18 +124,22 @@ function scoreCandidate(fullText, idx, text, prefix, suffix) {
   if (prefix) {
     const actualPrefix = fullText.slice(Math.max(0, idx - prefix.length), idx);
     if (actualPrefix.endsWith(prefix)) {
-      score += 2;
-    } else if (actualPrefix.endsWith(prefix.slice(-10))) {
-      score += 1;
+      score += HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
+    } else if (
+      actualPrefix.endsWith(prefix.slice(-HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_WINDOW))
+    ) {
+      score += HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_SCORE;
     }
   }
 
   if (suffix) {
     const actualSuffix = fullText.slice(idx + text.length, idx + text.length + suffix.length);
     if (actualSuffix.startsWith(suffix)) {
-      score += 2;
-    } else if (actualSuffix.startsWith(suffix.slice(0, 10))) {
-      score += 1;
+      score += HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
+    } else if (
+      actualSuffix.startsWith(suffix.slice(0, HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_WINDOW))
+    ) {
+      score += HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_SCORE;
     }
   }
 
@@ -314,9 +333,10 @@ function splitRichTextByMatches(richTextArray, matches, styleKey) {
  * @param {object} block - Notion block 物件
  * @param {Array<{text: string, color: string, rangeInfo?: object}>} highlights - 標註數據
  * @param {string} styleKey - 樣式鍵
+ * @param {Set<string|object>} [consumed] - 已消耗的 highlight 集合
  * @returns {object} 處理後的 block
  */
-function applyHighlightsToBlock(block, highlights, styleKey) {
+function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
   const richTextArray = block[block.type]?.rich_text;
   if (!richTextArray || richTextArray.length === 0) {
     return block;
@@ -327,9 +347,16 @@ function applyHighlightsToBlock(block, highlights, styleKey) {
   // 收集所有在此 block 中匹配的標註位置（block 層級操作）
   const matches = [];
   for (const hl of highlights) {
+    const key = getHighlightKey(hl);
+    if (consumed?.has(key)) {
+      continue;
+    }
     const pos = findHighlightPosition(richTextArray, hl, fullText);
     if (pos !== -1) {
       matches.push({ start: pos, end: pos + hl.text.length, highlight: hl });
+      if (consumed) {
+        consumed.add(key);
+      }
     }
   }
 
@@ -374,10 +401,12 @@ function mergeHighlightsWithStyle(blocks, highlights, styleKey = 'COLOR_SYNC') {
     return blocks;
   }
 
+  const consumed = new Set();
+
   try {
     return blocks.map(block => {
       try {
-        return applyHighlightsToBlock(block, highlights, styleKey);
+        return applyHighlightsToBlock(block, highlights, styleKey, consumed);
       } catch {
         return block; // 單個 block 失敗：保留原始
       }
@@ -385,7 +414,7 @@ function mergeHighlightsWithStyle(blocks, highlights, styleKey = 'COLOR_SYNC') {
   } catch (error) {
     if (typeof Logger !== 'undefined') {
       Logger.warn('[HighlightMerger] 標註樣式合併失敗，使用原始模式:', {
-        action: 'mergeHighlightStyles',
+        action: 'mergeHighlightsWithStyle',
         result: 'fallback_to_original',
         error,
       });

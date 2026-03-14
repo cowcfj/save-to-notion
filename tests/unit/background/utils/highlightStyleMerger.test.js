@@ -279,6 +279,23 @@ describe('mergeHighlightsWithStyle — 核心功能', () => {
     expect(greenPart.text.content).toBe('綠色');
   });
 
+  test('同一標註僅套用一次（跨 block 去重）', () => {
+    const block1 = makeParagraphBlock([makeRT('這裡有重要概念')]);
+    const block2 = makeParagraphBlock([makeRT('這裡也有重要概念')]);
+    const highlights = [{ id: 'hl-1', text: '重要概念', color: 'yellow', rangeInfo: {} }];
+
+    const result = mergeHighlightsWithStyle([block1, block2], highlights, 'COLOR_SYNC');
+
+    const richText1 = result[0].paragraph.rich_text;
+    const richText2 = result[1].paragraph.rich_text;
+
+    const highlighted1 = richText1.find(rt => rt.annotations?.color === 'yellow_background');
+    expect(highlighted1).toBeDefined();
+
+    expect(richText2).toHaveLength(1);
+    expect(richText2[0].text.content).toBe('這裡也有重要概念');
+  });
+
   test('BOLD：正確分割並套用粗體', () => {
     const blocks = [makeParagraphBlock([makeRT('這是重要文字需要粗體')])];
     const highlights = [{ text: '重要文字', color: 'yellow', rangeInfo: {} }];

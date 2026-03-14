@@ -3,7 +3,7 @@
  * 提供數據驗證相關的工具函式
  */
 
-import { HIGHLIGHT_COLOR_WHITELIST } from '../../config/constants.js';
+import { HIGHLIGHT_COLOR_WHITELIST } from '../../config/highlightConstants.js';
 
 /**
  * 檢查字串是否非空

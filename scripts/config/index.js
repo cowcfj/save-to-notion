@@ -14,6 +14,7 @@
 
 // 常量配置
 export * from './constants.js';
+export * from './highlightConstants.js';
 
 // 提取配置 (DOM 選擇器與 Next.js 配置)
 export * from './extraction.js';

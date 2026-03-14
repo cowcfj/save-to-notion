@@ -247,8 +247,12 @@ export const NextJsExtractor = {
       if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
         Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {
           action,
-          articleTitle: articleData.title,
-          docTitle,
+          source: extractionSource,
+          reason: 'title_mismatch',
+          result: 'skip_structured',
+          hasTitle: Boolean(articleData?.title),
+          hasDocTitle: Boolean(docTitle),
+          isTitleConsistent: false,
         });
         return null;
       }
@@ -257,7 +261,8 @@ export const NextJsExtractor = {
     Logger.log('成功提取 Next.js 文章數據', {
       action,
       source: extractionSource,
-      title: articleData.title,
+      result: 'structured',
+      hasTitle: Boolean(articleData?.title),
     });
 
     const blocks = this._processArticleContent(articleData);
