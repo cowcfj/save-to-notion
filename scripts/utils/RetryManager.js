@@ -26,9 +26,8 @@ function getErrorHandler() {
     globalRef.prototype &&
     typeof globalRef.prototype.logError === 'function'
   ) {
-    const ErrorHandlerCtor = globalRef;
     try {
-      return new ErrorHandlerCtor();
+      return Reflect.construct(globalRef, []);
     } catch {
       return null;
     }
