@@ -243,15 +243,16 @@ export function saveSettings(ui, auth, statusId = 'status') {
   }
 
   // 構建完整的設置對象
-  const settings = {
-    notionApiKey: apiKey,
-
+  const localSettings = {
     // 為了兼容性，同時保存兩種 ID 格式
     // notionDatabaseId 是舊版 (僅支援 Database)
     // notionDataSourceId 是新版 (支援 Page 和 Database)
     notionDatabaseId: databaseId,
     notionDataSourceId: databaseId, // 統一存到兩個欄位，確保兼容
+  };
 
+  const syncSettings = {
+    notionApiKey: apiKey,
     titleTemplate,
     addSource,
     addTimestamp,
@@ -260,33 +261,41 @@ export function saveSettings(ui, auth, statusId = 'status') {
 
   // 如果類型欄位存在，一併保存
   if (typeInput?.value) {
-    settings.notionDataSourceType = typeInput.value;
+    localSettings.notionDataSourceType = typeInput.value;
   }
 
   // 保存標註樣式
   const highlightStyle = document.querySelector('#highlight-style');
   if (highlightStyle) {
-    settings.highlightStyle = highlightStyle.value;
+    syncSettings.highlightStyle = highlightStyle.value;
   }
 
   // 保存 Notion 同步樣式
   const highlightContentStyle = document.querySelector('#highlight-content-style');
   if (highlightContentStyle) {
-    settings.highlightContentStyle = highlightContentStyle.value;
+    syncSettings.highlightContentStyle = highlightContentStyle.value;
   }
 
-  // 單次原子操作保存所有設置
-  chrome.storage.sync.set(settings, () => {
-    if (chrome.runtime.lastError) {
-      Logger.error('Settings save failed:', chrome.runtime.lastError);
-      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
-    } else {
-      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
+  // 分離儲存至 local 與 sync
+  Promise.all([
+    new Promise(resolve => chrome.storage.local.set(localSettings, resolve)),
+    new Promise(resolve => chrome.storage.sync.set(syncSettings, resolve)),
+  ])
+    .then(() => {
+      if (chrome.runtime.lastError) {
+        Logger.error('Settings save failed:', chrome.runtime.lastError);
+        ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
+      } else {
+        ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 
-      // 刷新認證狀態以更新 UI
-      auth.checkAuthStatus();
-    }
-  });
+        // 刷新認證狀態以更新 UI
+        auth.checkAuthStatus();
+      }
+    })
+    .catch(error => {
+      Logger.error('Settings save failed:', error);
+      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
+    });
 }
 
 /**
