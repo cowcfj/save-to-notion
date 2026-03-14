@@ -1,5 +1,24 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.46.0](https://github.com/cowcfj/save-to-notion/compare/v2.45.0...v2.46.0) (2026-03-14)
+
+
+### ✨ 新功能
+
+* 實作原文內容標註顏色同步功能 ([#343](https://github.com/cowcfj/save-to-notion/issues/343)) ([1fcf6c1](https://github.com/cowcfj/save-to-notion/commit/1fcf6c1ccf4e56b233495e659c8ebfdbc578fdf2))
+* 提取 HK01 SPA 導航文章數據並修正錯誤處理 ([#349](https://github.com/cowcfj/save-to-notion/issues/349)) ([6f7c8d1](https://github.com/cowcfj/save-to-notion/commit/6f7c8d1cdb563b13c1193af1247fe97f813d62dc))
+
+
+### 🐛 Bug 修復
+
+* 將 docs 目錄加入排除路徑並隱藏文檔更新部分 ([bf0e842](https://github.com/cowcfj/save-to-notion/commit/bf0e84244926b25c08bfc2a007afbcc6a307d544))
+* 將保存目標設定從 sync 移至 local 儲存 ([#347](https://github.com/cowcfj/save-to-notion/issues/347)) ([fcfa841](https://github.com/cowcfj/save-to-notion/commit/fcfa8419c8a8adce5f1c25493062f072ab2603e4))
+
+
+### 🧹 其他變更
+
+* Update license from MIT to GPLv3. ([34f4cec](https://github.com/cowcfj/save-to-notion/commit/34f4cec72c2e294c0d94599516c3f10d4e034598))
+
 ## [2.45.0](https://github.com/cowcfj/save-to-notion/compare/v2.44.0...v2.45.0) (2026-03-10)
 
 ### ✨ 新功能
