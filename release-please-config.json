@@ -6,6 +6,7 @@
       "extra-files": ["manifest.json"],
       "include-component-in-tag": false,
       "exclude-paths": [
+        "docs/",
         "site/",
         ".agents/",
         ".github/",
@@ -49,7 +50,8 @@
         },
         {
           "type": "docs",
-          "section": "📝 文檔更新"
+          "section": "📝 文檔更新",
+          "hidden": true
         },
         {
           "type": "style",
