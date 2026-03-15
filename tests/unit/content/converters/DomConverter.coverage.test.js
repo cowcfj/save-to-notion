@@ -214,7 +214,7 @@ describe('DomConverter 覆蓋率補強', () => {
           '[Content] Dropping invalid image to ensure page save',
           expect.objectContaining({
             action: 'createImageBlock',
-            url: expect.any(String),
+            url: src,
           })
         );
       } finally {

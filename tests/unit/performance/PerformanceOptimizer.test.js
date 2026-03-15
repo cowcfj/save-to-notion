@@ -16,8 +16,10 @@ const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
 
 describe('PerformanceOptimizer', () => {
   let optimizer = null;
+  let originalChrome = null;
 
   beforeEach(() => {
+    originalChrome = globalThis.chrome;
     // 設定測試用 DOM
     document.title = 'Test';
     document.body.innerHTML = `
@@ -44,6 +46,15 @@ describe('PerformanceOptimizer', () => {
       enableMetrics: true,
       cacheMaxSize: 100,
     });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    if (originalChrome === undefined) {
+      delete globalThis.chrome;
+    } else {
+      globalThis.chrome = originalChrome;
+    }
   });
 
   describe('DOM 查詢緩存', () => {
@@ -110,16 +121,19 @@ describe('PerformanceOptimizer', () => {
       expect(smallOptimizer.queryCache.has('a')).toBe(false);
 
       const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-      expect(() =>
-        PerformanceOptimizer._performQuery('!!!', document, { single: true })
-      ).not.toThrow();
-      expect(spy).toHaveBeenCalled();
-      expect(spy).toHaveBeenCalledWith(
-        expect.stringContaining('[ERROR]'),
-        expect.stringContaining('DOM Query Error'),
-        expect.any(Object)
-      );
-      spy.mockRestore();
+      try {
+        expect(() =>
+          PerformanceOptimizer._performQuery('!!!', document, { single: true })
+        ).not.toThrow();
+        expect(spy).toHaveBeenCalled();
+        expect(spy).toHaveBeenCalledWith(
+          expect.stringContaining('[ERROR]'),
+          expect.stringContaining('DOM Query Error'),
+          expect.any(Object)
+        );
+      } finally {
+        spy.mockRestore();
+      }
     });
 
     test('應該能清除過期或強制清除全部快取', () => {

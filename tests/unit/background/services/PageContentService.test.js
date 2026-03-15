@@ -235,7 +235,7 @@ describe('PageContentService', () => {
 
       const injectedService = new PageContentService({
         injectionService: mockInjector,
-        logger: Logger,
+        logger: mockLogger,
       });
 
       const result = await injectedService.extractContent(123);
@@ -255,7 +255,7 @@ describe('PageContentService', () => {
 
       const injectedService = new PageContentService({
         injectionService: mockInjector,
-        logger: Logger,
+        logger: mockLogger,
       });
 
       const result = await injectedService.extractContent(123);
@@ -273,7 +273,7 @@ describe('PageContentService', () => {
 
       const injectedService = new PageContentService({
         injectionService: mockInjector,
-        logger: Logger,
+        logger: mockLogger,
       });
 
       const result = await injectedService.extractContent(123);
