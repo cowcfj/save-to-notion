@@ -31,12 +31,6 @@ export * from './extraction.js';
 // UI 選擇器與 UI 狀態常量
 export * from './ui.js';
 
-// 正則表達式和模式配置
-export * from './patterns.js';
-
-// 功能開關配置
-export * from './features.js';
-
 // 訊息、錯誤類型與日誌級別
 export * from './messages.js';
 

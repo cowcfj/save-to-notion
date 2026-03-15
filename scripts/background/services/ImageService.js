@@ -8,11 +8,8 @@
  */
 
 // 導入統一配置
-import {
-  IMAGE_VALIDATION_CONFIG,
-  IMAGE_EXTENSIONS,
-  IMAGE_PATH_PATTERNS,
-} from '../../config/index.js';
+import { IMAGE_VALIDATION_CONFIG } from '../../config/index.js';
+import { IMAGE_EXTENSIONS, IMAGE_PATH_PATTERNS } from '../../utils/imageUtils.js';
 
 // 從配置獲取默認值
 const DEFAULT_CACHE_SIZE = IMAGE_VALIDATION_CONFIG.MAX_CACHE_SIZE;
