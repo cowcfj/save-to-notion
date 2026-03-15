@@ -16,7 +16,7 @@ import {
   HIGHLIGHTS_PREFIX,
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../scripts/config/constants.js';
+} from '../scripts/config/storageKeys.js';
 
 // ─── 備份 ──────────────────────────────────────────────────────────────
 

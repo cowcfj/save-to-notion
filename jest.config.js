@@ -20,6 +20,13 @@ module.exports = {
     'options/**/*.js',
     'popup/**/*.js', // 新增 popup 目錄
     'sidepanel/**/*.js', // 新增 sidepanel 目錄
+    '!scripts/config/app.js',                // 純常量配置
+    '!scripts/config/api.js',                // 純常量配置（API URL、版本、數值）
+    '!scripts/config/icons.js',              // 純 SVG 字串常量
+    '!scripts/config/ui.js',                 // 純 CSS 選擇器與類名常量
+    '!scripts/config/extraction.js',         // 純選擇器與數值常量
+    '!scripts/config/highlightConstants.js', // 純數值常量
+    '!scripts/config/index.js',              // 純 re-export barrel file
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'

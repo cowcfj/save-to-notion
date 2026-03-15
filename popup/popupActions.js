@@ -9,7 +9,7 @@
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
-import { AuthMode } from '../scripts/config/constants.js';
+import { AuthMode } from '../scripts/config/api.js';
 
 /**
  * 檢查設置是否完整

@@ -11,15 +11,28 @@
 /* global Logger, PerformanceOptimizer */
 
 import { Readability } from '@mozilla/readability';
-import { CONTENT_QUALITY } from '../../config/constants.js';
-import { LIST_PREFIX_PATTERNS, IMAGE_ATTRIBUTES } from '../../config/patterns.js';
 import {
+  CONTENT_QUALITY,
   CMS_CONTENT_SELECTORS,
   ARTICLE_STRUCTURE_SELECTORS,
   CMS_CLEANING_RULES,
   GENERIC_CLEANING_RULES,
   DOMAIN_CLEANING_RULES,
 } from '../../config/extraction.js';
+import { IMAGE_ATTRIBUTES } from '../../utils/imageUtils.js';
+
+/**
+ * 列表處理的預編譯正則表達式模式
+ * 性能優化：避免在循環中重複編譯
+ */
+const LIST_PREFIX_PATTERNS = {
+  // 移除列表前綴：連字符、項目符號、星號、數字、點、管道、括號和空格
+  bulletPrefix: /^(?:[-\u{2022}*·–—►▶✔▪]|\d+[.)])\s+/u,
+  // 多餘空格正規化
+  multipleSpaces: /\s+/g,
+  // 空白行檢測
+  emptyLine: /^\s*$/,
+};
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
 const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;

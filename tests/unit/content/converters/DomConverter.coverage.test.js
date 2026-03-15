@@ -8,13 +8,39 @@
  * 針對未覆蓋的分支和邊界情況
  */
 
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+import Logger from '../../../../scripts/utils/Logger.js';
 import { DomConverter, domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 describe('DomConverter 覆蓋率補強', () => {
   let converter = null;
+  let originalChrome = null;
 
   beforeEach(() => {
+    originalChrome = globalThis.chrome;
     converter = new DomConverter();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    if (originalChrome === undefined) {
+      delete globalThis.chrome;
+    } else {
+      globalThis.chrome = originalChrome;
+    }
   });
 
   describe('initStrategies H4-H6 處理', () => {
@@ -134,6 +160,15 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks).toHaveLength(1);
       expect(blocks[0].bulleted_list_item.rich_text.length).toBeGreaterThanOrEqual(1);
     });
+
+    test('LI 中的嵌套列表應該成為 children', () => {
+      const html = '<ul><li>Item<ul><li>Sub</li></ul></li></ul>';
+      const blocks = converter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('bulleted_list_item');
+      expect(blocks[0].bulleted_list_item.children?.length).toBeGreaterThan(0);
+    });
   });
 
   describe('processFigure', () => {
@@ -163,6 +198,35 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks[0].type).toBe('image');
       // 空 figcaption 應產生空的 caption 陣列，不覆蓋原有 alt
       expect(blocks[0].image.caption).toHaveLength(0);
+    });
+  });
+
+  describe('createImageBlock', () => {
+    test('無效圖片應該被丟棄並記錄 warn', () => {
+      const src = 'https://example.com/invalid.jpg';
+      const html = `<img src="${src}" alt="test" />`;
+
+      const originalImageUtils = globalThis.ImageUtils;
+      try {
+        globalThis.ImageUtils = {
+          extractImageSrc: jest.fn().mockReturnValue(src),
+          cleanImageUrl: jest.fn(url => url),
+          isValidCleanedImageUrl: jest.fn().mockReturnValue(false),
+        };
+
+        const blocks = converter.convert(html);
+
+        expect(blocks).toHaveLength(0);
+        expect(Logger.warn).toHaveBeenCalledWith(
+          '[Content] Dropping invalid image to ensure page save',
+          expect.objectContaining({
+            action: 'createImageBlock',
+            url: src,
+          })
+        );
+      } finally {
+        globalThis.ImageUtils = originalImageUtils;
+      }
     });
   });
 
@@ -304,6 +368,28 @@ describe('DomConverter 覆蓋率補強', () => {
       const cleaned = DomConverter.cleanBlocks(blocks);
 
       expect(cleaned.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('應該扁平化列表內不安全的子 block', () => {
+      const blocks = [
+        {
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: [{ type: 'text', text: { content: 'Parent' } }],
+            children: [
+              {
+                type: 'image',
+                image: { type: 'external', external: { url: 'https://example.com/a.png' } },
+              },
+            ],
+          },
+        },
+      ];
+      const cleaned = DomConverter.cleanBlocks(blocks);
+
+      expect(cleaned).toHaveLength(2);
+      expect(cleaned[0].type).toBe('bulleted_list_item');
+      expect(cleaned[1].type).toBe('image');
     });
   });
 

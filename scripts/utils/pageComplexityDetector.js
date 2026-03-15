@@ -1,12 +1,130 @@
 import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/extraction.js';
-import {
-  TECHNICAL_TERMS,
-  DOC_HOST_PATTERNS,
-  DOC_PATH_PATTERNS,
-  TECHNICAL_DOC_URL_PATTERNS,
-  TECHNICAL_DOC_TITLE_PATTERNS,
-} from '../config/index.js';
 import Logger from './Logger.js';
+
+// ==========================================
+// 文檔站點識別模式（原 config/patterns.js Group C）
+// ==========================================
+
+/** 文檔站點主機名模式 */
+const DOC_HOST_PATTERNS = [
+  /\.github\.io$/,
+  /^docs?\./,
+  /\.readthedocs\.io$/,
+  /\.gitbook\.io$/,
+  /^wiki\./,
+  /^api\./,
+  /^developer\./,
+  /^guide\./,
+];
+
+/** 基礎文檔路徑模式（共用基礎，減少重複） */
+const BASE_DOC_PATH_PATTERNS = [
+  /\/docs?\//,
+  /\/documentation\//,
+  /\/guide\//,
+  /\/manual\//,
+  /\/api\//,
+  /\/reference\//,
+  /\/cli\//,
+];
+
+/** 文檔站點路徑模式 */
+const DOC_PATH_PATTERNS = [
+  ...BASE_DOC_PATH_PATTERNS,
+  /\/wiki\//,
+  /\/getting-started\//,
+  /\/tutorial\//,
+];
+
+/** 技術文檔 URL 模式 */
+const TECHNICAL_DOC_URL_PATTERNS = [
+  ...BASE_DOC_PATH_PATTERNS,
+  /\/commands?\//,
+  /github\.io.*docs/,
+  /\.github\.io/,
+];
+
+/** 技術文檔標題模式 */
+const TECHNICAL_DOC_TITLE_PATTERNS = [
+  /documentation/,
+  /commands?/,
+  /reference/,
+  /guide/,
+  /manual/,
+  /cli/,
+  /api/,
+];
+
+/** 技術內容關鍵詞 */
+const TECHNICAL_TERMS = [
+  // 編程概念
+  'function',
+  'class',
+  'method',
+  'variable',
+  'constant',
+  'interface',
+  'callback',
+  'async',
+  'await',
+  'syntax',
+  'parameter',
+  'argument',
+  'return',
+  'exception',
+  'error',
+  // API & Web
+  'api',
+  'endpoint',
+  'request',
+  'response',
+  'header',
+  'json',
+  'xml',
+  'yaml',
+  'http',
+  'https',
+  'rest',
+  'graphql',
+  // 工具 & CLI
+  'cli',
+  'command',
+  'option',
+  'flag',
+  'usage',
+  'install',
+  'configure',
+  'build',
+  'deploy',
+  'npm',
+  'git',
+  'docker',
+  'kubernetes',
+  'sdk',
+  // 語言 & 框架
+  'javascript',
+  'python',
+  'java',
+  'go',
+  'rust',
+  'c++',
+  'typescript',
+  'react',
+  'vue',
+  'angular',
+  'node',
+  'express',
+  'django',
+  'flask',
+  'spring',
+  // 文檔特定
+  'example',
+  'tutorial',
+  'guide',
+  'reference',
+  'deprecated',
+  'version',
+];
 
 /**
  * 頁面複雜度檢測器

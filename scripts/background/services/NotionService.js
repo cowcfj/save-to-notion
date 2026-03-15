@@ -12,7 +12,8 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { NOTION_API, ERROR_MESSAGES, CONTENT_QUALITY, AuthMode } from '../../config/index.js';
+import { ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/index.js';
+import { NOTION_API, AuthMode } from '../../config/api.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
@@ -993,4 +994,3 @@ class NotionService {
 
 // 導出
 export { NotionService };
-export { NOTION_CONFIG } from '../../config/index.js';

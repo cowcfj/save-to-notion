@@ -1,6 +1,6 @@
 /* global chrome */
 import Logger from './Logger.js';
-import { AuthMode, NOTION_OAUTH } from '../config/constants.js';
+import { AuthMode, NOTION_OAUTH } from '../config/api.js';
 import { sanitizeApiError } from './securityUtils.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';

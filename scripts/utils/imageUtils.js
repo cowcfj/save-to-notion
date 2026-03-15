@@ -7,16 +7,93 @@
 
 import { sanitizeUrlForLogging } from './securityUtils.js';
 import Logger from './Logger.js';
-import { IMAGE_VALIDATION } from '../config/constants.js';
-import {
-  IMAGE_ATTRIBUTES,
-  IMAGE_EXTENSIONS,
-  IMAGE_PATH_PATTERNS,
-  EXCLUDE_PATTERNS,
-  PLACEHOLDER_KEYWORDS,
-} from '../config/patterns.js';
+import { IMAGE_VALIDATION } from '../config/extraction.js';
 
-// 重新導出 IMAGE_ATTRIBUTES 以維持向後兼容
+// ==========================================
+// 圖片驗證常量（原 config/patterns.js Group A）
+// ==========================================
+
+/** 圖片 URL 驗證屬性列表 */
+export const IMAGE_ATTRIBUTES = [
+  'src',
+  'data-src',
+  'data-lazy-src',
+  'data-original',
+  'data-srcset',
+  'data-lazy-srcset',
+  'data-original-src',
+  'data-actualsrc',
+  'data-src-original',
+  'data-echo',
+  'data-href',
+  'data-large',
+  'data-bigsrc',
+  'data-full-src',
+  'data-hi-res-src',
+  'data-large-src',
+  'data-zoom-src',
+  'data-image-src',
+  'data-img-src',
+  'data-real-src',
+  'data-lazy',
+  'data-url',
+  'data-image',
+  'data-img',
+  'data-fallback-src',
+  'data-origin',
+];
+
+export const IMAGE_EXTENSIONS = /\.(?:jpg|jpeg|png|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)$/i;
+
+export const IMAGE_PATH_PATTERNS = [
+  /\/images?\//i,
+  /\/imgs?\//i,
+  /\/photos?\//i,
+  /\/pictures?\//i,
+  /\/media\//i,
+  /\/uploads?\//i,
+  /\/assets?\//i,
+  /\/files?\//i,
+  /\/content\//i,
+  /\/wp-content\//i,
+  /\/cdn\//i,
+  /cdn\d*\./i,
+  /\/static\//i,
+  /\/thumbs?\//i,
+  /\/thumbnails?\//i,
+  /\/resize\//i,
+  /\/crop\//i,
+  /\/(\d{4})\/(\d{2})\//,
+  /\/avatars?\//i,
+  /\/u\/\d+(?:$|\/|\?)/i,
+  /\/profile_images\//i,
+  /\/creatr-uploaded-images\//i,
+  /\/ny\/api\/res\//i,
+  /\.gtimg\.com\//i, // 騰訊圖片 CDN (例如 news.qq.com 上的無副檔名圖片)
+];
+
+const EXCLUDE_PATTERNS = [
+  /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
+  /\/api\//i,
+  /\/ajax\//i,
+  /\/callback/i,
+  /\/track/i,
+  /\/analytics/i,
+  /\/pixel/i,
+];
+
+/** 圖片佔位符關鍵字 */
+const PLACEHOLDER_KEYWORDS = [
+  'placeholder',
+  'loading',
+  'spinner',
+  'blank',
+  'empty',
+  '1x1',
+  'transparent',
+  'miscellaneous_sprite', // 排除雜項佈局圖片 (e.g., miscellaneous_sprite.png)
+  '.gif', // 排除 GIF 圖片（通常為動畫圖標或佔位符，非內容圖片）
+];
 
 /**
  * 解析 URL 字串，支援相對路徑與路徑簡化
@@ -883,4 +960,3 @@ export {
 };
 
 export default ImageUtils;
-export { IMAGE_ATTRIBUTES } from '../config/patterns.js';

@@ -4,9 +4,24 @@
  */
 /* eslint-env jest */
 
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+  },
+}));
+
 // 模擬 DOM 環境
 const fs = require('node:fs');
 const path = require('node:path');
+const Logger = require('../../../scripts/utils/Logger.js').default;
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
 const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
@@ -16,8 +31,10 @@ const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
 
 describe('PerformanceOptimizer', () => {
   let optimizer = null;
+  let originalChrome = null;
 
   beforeEach(() => {
+    originalChrome = globalThis.chrome;
     // 設定測試用 DOM
     document.title = 'Test';
     document.body.innerHTML = `
@@ -44,6 +61,15 @@ describe('PerformanceOptimizer', () => {
       enableMetrics: true,
       cacheMaxSize: 100,
     });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    if (originalChrome === undefined) {
+      delete globalThis.chrome;
+    } else {
+      globalThis.chrome = originalChrome;
+    }
   });
 
   describe('DOM 查詢緩存', () => {
@@ -100,6 +126,27 @@ describe('PerformanceOptimizer', () => {
       stats = smallOptimizer.getPerformanceStats();
       expect(stats.cache.size).toBeLessThanOrEqual(2);
       expect(stats.cache.evictions).toBeGreaterThan(0);
+    });
+
+    test('應該維持快取上限並處理無效選擇器', () => {
+      const smallOptimizer = new PerformanceOptimizer({ cacheMaxSize: 2 });
+      smallOptimizer.queryCache.set('a', { result: 1, timestamp: 1 });
+      smallOptimizer.queryCache.set('b', { result: 2, timestamp: 2 });
+      smallOptimizer._maintainCacheSizeLimit('c');
+      expect(smallOptimizer.queryCache.has('a')).toBe(false);
+
+      const errorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => undefined);
+      try {
+        expect(() =>
+          PerformanceOptimizer._performQuery('!!!', document, { single: true })
+        ).not.toThrow();
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DOM Query Error'),
+          expect.objectContaining({ error: expect.any(Error) })
+        );
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
 
     test('應該能清除過期或強制清除全部快取', () => {

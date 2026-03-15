@@ -511,3 +511,88 @@ export const GENERIC_CLEANING_RULES = [
   // Note: [style*="display: none"] removed; handled by style regex check in ReadabilityAdapter
   '[hidden]',
 ];
+
+// ==========================================
+// 圖片驗證相關常量
+// ==========================================
+
+/**
+ * 圖片驗證常量（來自 imageUtils.js）
+ */
+export const IMAGE_VALIDATION_CONSTANTS = {
+  MAX_URL_LENGTH: 2000, // Notion API 限制通常為 2000 字符
+  URL_LENGTH_SAFETY_MARGIN: 500, // 安全邊際，避免臨界值問題
+  URL_LENGTH_INLINE_SAFETY_MARGIN: 100, // 行內圖片 URL 安全邊際，較寬鬆
+  MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
+  SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
+  MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
+  MIN_IMAGE_WIDTH: 550, // 最小圖片寬度 (User Request: 550)
+  MIN_IMAGE_HEIGHT: 300, // 最小圖片高度 (調整以支援 16:9 比例)
+  MAX_RECURSION_DEPTH: 5, // 遞歸解析最大深度
+};
+
+export const IMAGE_VALIDATION = IMAGE_VALIDATION_CONSTANTS;
+
+export const IMAGE_VALIDATION_CONFIG = {
+  MAX_CACHE_SIZE: 500, // 緩存大小限制
+  CACHE_TTL: 30 * 60 * 1000, // 30分鐘 TTL
+  SUPPORTED_PROTOCOLS: ['http:', 'https:', 'data:', 'blob:'],
+};
+
+// ==========================================
+// 內容質量評估常量
+// ==========================================
+
+/**
+ * 內容質量評估常量（來自 content.js）
+ */
+export const CONTENT_QUALITY = {
+  MIN_CONTENT_LENGTH: 250, // 內容長度最小值
+  MAX_LINK_DENSITY: 0.25, // 最大鏈接密度（25%）
+  LIST_EXCEPTION_THRESHOLD: 8, // 列表項數量閾值（允許例外）
+  DEFAULT_PAGE_TITLE: 'Untitled', // 預設頁面標題
+};
+
+// ==========================================
+// 圖片收集相關常量
+// ==========================================
+
+/** 圖片數量限制配置 */
+export const IMAGE_LIMITS = {
+  MAX_MAIN_CONTENT_IMAGES: 6,
+  MAX_ADDITIONAL_IMAGES: 2,
+  MAIN_CONTENT_SUFFICIENT_THRESHOLD: 2,
+  MAX_GALLERY_IMAGES: 6,
+  MIN_IMAGES_FOR_ARTICLE_SEARCH: 3, // 觸發文章區域搜索的最小圖片數
+  MAX_IMAGES_FROM_ARTICLE_SEARCH: 5, // 文章區域搜索的最大圖片數
+  BATCH_PROCESS_THRESHOLD: 5, // 觸發批次處理的圖片數量閾值
+};
+
+// ==========================================
+// 文本處理相關常量
+// ==========================================
+
+export const TEXT_PROCESSING = {
+  MAX_RICH_TEXT_LENGTH: 2000, // Notion rich_text 區塊最大長度
+  MIN_SPLIT_RATIO: 0.5, // 文本分割時的最小比例
+};
+
+// ==========================================
+// URL 標準化相關常量
+// ==========================================
+
+export const URL_NORMALIZATION = {
+  TRACKING_PARAMS: [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_term',
+    'utm_content',
+    'gclid',
+    'fbclid',
+    'mc_cid',
+    'mc_eid',
+    'igshid',
+    'vero_id',
+  ],
+};

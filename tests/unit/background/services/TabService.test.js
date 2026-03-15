@@ -21,17 +21,21 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/config/constants.js', () => ({
+jest.mock('../../../../scripts/config/app.js', () => ({
   TAB_SERVICE: {
     LOADING_TIMEOUT_MS: 1000,
     STATUS_UPDATE_DELAY_MS: 100,
     PRELOADER_PING_TIMEOUT_MS: 500,
   },
-  URL_NORMALIZATION: {
-    TRACKING_PARAMS: ['utm_source'],
-  },
   HANDLER_CONSTANTS: {
     PAGE_STATUS_CACHE_TTL: 60_000,
+  },
+  RESTRICTED_PROTOCOLS: ['chrome://', 'chrome-extension://', 'about:'],
+}));
+
+jest.mock('../../../../scripts/config/extraction.js', () => ({
+  URL_NORMALIZATION: {
+    TRACKING_PARAMS: ['utm_source'],
   },
 }));
 

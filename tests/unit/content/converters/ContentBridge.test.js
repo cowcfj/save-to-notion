@@ -318,6 +318,11 @@ describe('ContentBridge', () => {
       expect(result).toEqual([]);
     });
 
+    test('應處理只有空白的字串', () => {
+      const result = createTextBlocks('   ');
+      expect(result).toHaveLength(0);
+    });
+
     test('應將純文本轉換為段落區塊', () => {
       const result = createTextBlocks('Hello World');
       expect(result).toHaveLength(1);

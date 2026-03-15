@@ -28,7 +28,7 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
 // 日誌脫敏中需移除的追蹤參數（從 constants.js 統一引入，無循環依賴風險）
-import { URL_NORMALIZATION } from '../config/constants.js';
+import { URL_NORMALIZATION } from '../config/extraction.js';
 
 const LOG_TRACKING_PARAMS = URL_NORMALIZATION?.TRACKING_PARAMS ?? [
   'utm_source',

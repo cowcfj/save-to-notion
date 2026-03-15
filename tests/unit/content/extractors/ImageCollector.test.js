@@ -52,7 +52,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 globalThis.Logger = Logger;
 
 // Mock constants
-jest.mock('../../../../scripts/config/constants', () => ({
+jest.mock('../../../../scripts/config/extraction', () => ({
   IMAGE_VALIDATION_CONSTANTS: {
     MAX_URL_LENGTH: 2000,
     MIN_IMAGE_WIDTH: 550,
@@ -70,6 +70,13 @@ jest.mock('../../../../scripts/config/constants', () => ({
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
   },
+  FEATURED_IMAGE_SELECTORS: ['meta[property="og:image"]'],
+  IMAGE_SELECTORS: ['img'],
+  GALLERY_SELECTORS: ['.gallery img'],
+  EXCLUSION_SELECTORS: ['.ad img'],
+}));
+
+jest.mock('../../../../scripts/config/messages', () => ({
   ERROR_TYPES: {
     EXTRACTION_FAILED: 'extraction_failed',
     INVALID_URL: 'invalid_url',
@@ -187,6 +194,16 @@ describe('ImageCollector', () => {
   });
 
   describe('processImageForCollection', () => {
+    test('should return null when extractImageSrc returns null', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = 'https://example.com/test.jpg';
+
+      extractImageSrc.mockReturnValue(null);
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+      expect(result).toBeNull();
+    });
+
     test('should process valid image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/img.jpg';
@@ -231,6 +248,23 @@ describe('ImageCollector', () => {
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
       expect(result).toBeNull();
+    });
+
+    test('should handle cleanImageUrl errors', () => {
+      cleanImageUrl.mockImplementation(() => {
+        throw new Error('Process Error');
+      });
+
+      extractImageSrc.mockReturnValue('https://example.com/test.jpg');
+
+      const img = document.createElement('img');
+      const result = ImageCollector.processImageForCollection(img, 0);
+
+      expect(result).toBeNull();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '處理圖片失敗',
+        expect.objectContaining({ error: 'Process Error' })
+      );
     });
   });
 

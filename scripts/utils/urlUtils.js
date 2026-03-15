@@ -4,7 +4,7 @@
  */
 
 // 從統一配置導入 TRACKING_PARAMS（Single Source of Truth）
-import { URL_NORMALIZATION } from '../config/constants.js';
+import { URL_NORMALIZATION } from '../config/extraction.js';
 
 // Logger 回退定義：在 Rollup 打包時由 intro 注入自 self.Logger
 // 在直接載入時使用回退定義

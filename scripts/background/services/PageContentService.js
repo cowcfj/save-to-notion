@@ -15,7 +15,8 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { LOG_ICONS, CONTENT_QUALITY } from '../../config/constants.js';
+import { LOG_ICONS } from '../../config/ui.js';
+import { CONTENT_QUALITY } from '../../config/extraction.js';
 
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
 

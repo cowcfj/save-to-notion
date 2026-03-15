@@ -16,7 +16,7 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { HANDLER_CONSTANTS } from '../../config/app.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { getActiveNotionToken } from '../../utils/notionAuth.js';

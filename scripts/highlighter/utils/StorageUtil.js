@@ -16,7 +16,7 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
-import { HIGHLIGHTS_PREFIX, PAGE_PREFIX } from '../../config/constants.js';
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX } from '../../config/storageKeys.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 
