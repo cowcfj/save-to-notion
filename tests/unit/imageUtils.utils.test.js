@@ -38,6 +38,7 @@ const {
   isValidCleanedImageUrl,
   generateImageCacheKey,
   IMAGE_ATTRIBUTES,
+  IMAGE_VALIDATION,
 } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
 
 describe('ImageUtils - cleanImageUrl', () => {
@@ -356,6 +357,11 @@ describe('ImageUtils - extractFromPicture / extractFromBackgroundImage', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    document.body.innerHTML = '';
+    jest.clearAllMocks();
+  });
+
   test('extractFromPicture 應該從 srcset 取得最佳 URL', () => {
     const picture = document.createElement('picture');
     const source = document.createElement('source');
@@ -373,8 +379,8 @@ describe('ImageUtils - extractFromPicture / extractFromBackgroundImage', () => {
     const target = document.createElement('div');
 
     globalThis.getComputedStyle = jest.fn(() => ({
-      backgroundImage: 'url(\"https://example.com/bg.png\")',
-      getPropertyValue: jest.fn(() => 'url(\"https://example.com/bg.png\")'),
+      backgroundImage: 'url("https://example.com/bg.png")',
+      getPropertyValue: jest.fn(() => 'url("https://example.com/bg.png")'),
     }));
 
     try {
@@ -399,8 +405,8 @@ describe('ImageUtils - extractFromPicture / extractFromBackgroundImage', () => {
       }
       if (node === parent) {
         return {
-          backgroundImage: 'url(\"https://example.com/parent.png\")',
-          getPropertyValue: jest.fn(() => 'url(\"https://example.com/parent.png\")'),
+          backgroundImage: 'url("https://example.com/parent.png")',
+          getPropertyValue: jest.fn(() => 'url("https://example.com/parent.png")'),
         };
       }
       return {
@@ -472,7 +478,10 @@ describe('ImageUtils - coverage 補強', () => {
       const result = cleanImageUrl('https://example.com');
 
       expect(result).toBeNull();
-      expect(Logger.error).toHaveBeenCalledWith('URL 轉換失敗', expect.any(Object));
+      expect(Logger.error).toHaveBeenCalledWith(
+        'URL 轉換失敗',
+        expect.objectContaining({ action: 'cleanImageUrl', url: expect.any(String) })
+      );
     } finally {
       globalThis.URL = originalURL;
     }
@@ -480,12 +489,12 @@ describe('ImageUtils - coverage 補強', () => {
 
   test('cleanImageUrl 應該處理遞迴深度限制', () => {
     const url = 'https://example.com/image.jpg';
-    const result = cleanImageUrl(url, 10);
+    const result = cleanImageUrl(url, IMAGE_VALIDATION.MAX_RECURSION_DEPTH);
 
     expect(result).toBe(url);
     expect(Logger.warn).toHaveBeenCalledWith(
       '達到最大遞迴深度',
-      expect.objectContaining({ depth: 10 })
+      expect.objectContaining({ depth: IMAGE_VALIDATION.MAX_RECURSION_DEPTH })
     );
   });
 
@@ -529,11 +538,14 @@ describe('ImageUtils - coverage 補強', () => {
     expect(() => cleanImageUrl(malformedUrl)).not.toThrow();
   });
 
+  const NEXTJS_WIDTH = 128;
+  const NEXTJS_QUALITY = 75;
+
   test('isValidImageUrl 應該解包 Next.js 影像 URL（絕對）', () => {
     const validTarget = 'https://example.com/foo.png';
     const nextJsUrl = `https://vercel.com/_next/image?url=${encodeURIComponent(
       validTarget
-    )}&w=128&q=75`;
+    )}&w=${NEXTJS_WIDTH}&q=${NEXTJS_QUALITY}`;
 
     const cleaned = cleanImageUrl(nextJsUrl);
     expect(cleaned).toBe(validTarget);
@@ -543,7 +555,7 @@ describe('ImageUtils - coverage 補強', () => {
   test('isValidImageUrl 應該解包 Next.js 影像 URL（相對）', () => {
     const relativeTarget = '/assets/bar.jpg';
     const origin = 'https://vercel.com';
-    const nextJsUrl = `${origin}/_next/image?url=${encodeURIComponent(relativeTarget)}&w=128&q=75`;
+    const nextJsUrl = `${origin}/_next/image?url=${encodeURIComponent(relativeTarget)}&w=${NEXTJS_WIDTH}&q=${NEXTJS_QUALITY}`;
 
     const expected = `${origin}${relativeTarget}`;
     const cleaned = cleanImageUrl(nextJsUrl);

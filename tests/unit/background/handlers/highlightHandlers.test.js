@@ -401,7 +401,7 @@ describe('highlightHandlers', () => {
     it('USER_ACTIVATE_SHORTCUT 應該處理安全性驗證失敗', async () => {
       validateContentScriptRequest.mockReturnValue({
         success: false,
-        error: 'Security check failed',
+        error: '安全性驗證失敗',
       });
 
       const sendResponse = jest.fn();
@@ -410,8 +410,9 @@ describe('highlightHandlers', () => {
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.any(String) })
+        expect.objectContaining({ success: false, error: '安全性驗證失敗' })
       );
+      expect(mockServices.injectionService.ensureBundleInjected).not.toHaveBeenCalled();
     });
 
     it('USER_ACTIVATE_SHORTCUT 應該處理受限 URL', async () => {
@@ -462,8 +463,10 @@ describe('highlightHandlers', () => {
       await handlers.startHighlight({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.any(String) })
+        expect.objectContaining({ success: false, error: '拒絕訪問' })
       );
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(mockServices.injectionService.injectHighlighter).not.toHaveBeenCalled();
     });
   });
 

@@ -474,10 +474,10 @@ describe('頁面複雜度檢測器', () => {
     test('detectPageComplexity 應該在例外時回退到安全預設值', () => {
       const badDoc = {
         get body() {
-          throw new Error('boom');
+          throw new Error('發生錯誤');
         },
         location: { href: 'https://example.com' },
-        title: 'Test',
+        title: '測試',
       };
 
       const result = detectPageComplexity(badDoc);
@@ -493,16 +493,12 @@ describe('頁面複雜度檢測器', () => {
       );
     });
 
-    test('Markdown 信心度應該正確加減分', () => {
-      let hasAdsAccess = 0;
+    test('Markdown 信心度應該正確加分', () => {
       const complexity = {
         isClean: true,
         hasMarkdownFeatures: true,
         hasTechnicalContent: true,
-        get hasAds() {
-          hasAdsAccess += 1;
-          return hasAdsAccess > 1;
-        },
+        hasAds: false,
         isComplexLayout: false,
         hasRichMedia: false,
         isLongForm: false,
@@ -515,7 +511,28 @@ describe('頁面複雜度檢測器', () => {
       const selection = selectExtractor(complexity);
 
       expect(selection.extractor).toBe('markdown');
-      expect(selection.confidence).toBe(75);
+      expect(selection.confidence).toBe(100);
+    });
+
+    test('Readability 信心度應該正確反映複雜度', () => {
+      const complexity = {
+        isClean: false,
+        hasMarkdownFeatures: false,
+        hasTechnicalContent: false,
+        hasAds: true,
+        isComplexLayout: true,
+        hasRichMedia: false,
+        isLongForm: false,
+        metrics: {
+          markdownContainers: 0,
+          textLength: 1000,
+        },
+      };
+
+      const selection = selectExtractor(complexity);
+
+      expect(selection.extractor).toBe('readability');
+      expect(selection.confidence).toBe(85);
     });
   });
 });

@@ -77,17 +77,17 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(typeof ERROR_MESSAGES.DEFAULT).toBe('string');
     });
 
-    test('handles empty/zero keys', () => {
+    test('應處理空字串與零值鍵', () => {
       const emptyMapping = ERROR_MESSAGES.PATTERNS[''];
       const zeroMapping = ERROR_MESSAGES.PATTERNS[0];
-      const emptyExpected = emptyMapping || ERROR_MESSAGES.DEFAULT;
-      const zeroExpected = zeroMapping || ERROR_MESSAGES.DEFAULT;
+      const emptyExpected = emptyMapping ?? ERROR_MESSAGES.DEFAULT;
+      const zeroExpected = zeroMapping ?? ERROR_MESSAGES.DEFAULT;
 
       expect(ErrorHandler.formatUserMessage('')).toBe(emptyExpected);
       expect(ErrorHandler.formatUserMessage(0)).toBe(zeroExpected);
     });
 
-    test('handles undefined/null keys', () => {
+    test('應處理 undefined/null 鍵', () => {
       expect(ErrorHandler.formatUserMessage(undefined)).toBe(ERROR_MESSAGES.DEFAULT);
       expect(ErrorHandler.formatUserMessage(null)).toBe(ERROR_MESSAGES.DEFAULT);
     });

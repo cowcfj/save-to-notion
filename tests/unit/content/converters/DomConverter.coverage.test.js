@@ -32,6 +32,10 @@ describe('DomConverter 覆蓋率補強', () => {
     converter = new DomConverter();
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('initStrategies H4-H6 處理', () => {
     test('H4 應該創建加粗段落', () => {
       const html = '<h4>Heading 4</h4>';

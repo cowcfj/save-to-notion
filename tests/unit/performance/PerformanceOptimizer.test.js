@@ -110,7 +110,15 @@ describe('PerformanceOptimizer', () => {
       expect(smallOptimizer.queryCache.has('a')).toBe(false);
 
       const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-      PerformanceOptimizer._performQuery('!!!', document, { single: true });
+      expect(() =>
+        PerformanceOptimizer._performQuery('!!!', document, { single: true })
+      ).not.toThrow();
+      expect(spy).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('[ERROR]'),
+        expect.stringContaining('DOM Query Error'),
+        expect.any(Object)
+      );
       spy.mockRestore();
     });
 

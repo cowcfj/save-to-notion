@@ -189,6 +189,9 @@ describe('PageContentService', () => {
           error: jest.fn(),
           success: jest.fn(),
           debug: jest.fn(),
+          start: jest.fn(),
+          ready: jest.fn(),
+          info: jest.fn(),
         };
         globalThis.Logger = spyLogger;
 
@@ -211,6 +214,13 @@ describe('PageContentService', () => {
           }
         }
       }),
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+      delete globalThis.extractPageContent;
+      delete globalThis.Logger;
+      delete globalThis.chrome;
     });
 
     test('extractContent 應該執行注入腳本並回傳結果', async () => {
