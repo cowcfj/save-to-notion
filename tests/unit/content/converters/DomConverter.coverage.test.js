@@ -27,13 +27,20 @@ import { DomConverter, domConverter } from '../../../../scripts/content/converte
 
 describe('DomConverter 覆蓋率補強', () => {
   let converter = null;
+  let originalChrome = null;
 
   beforeEach(() => {
+    originalChrome = globalThis.chrome;
     converter = new DomConverter();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    if (originalChrome === undefined) {
+      delete globalThis.chrome;
+    } else {
+      globalThis.chrome = originalChrome;
+    }
   });
 
   describe('initStrategies H4-H6 處理', () => {
@@ -207,7 +214,7 @@ describe('DomConverter 覆蓋率補強', () => {
           isValidCleanedImageUrl: jest.fn().mockReturnValue(false),
         };
 
-        const blocks = domConverter.convert(html);
+        const blocks = converter.convert(html);
 
         expect(blocks).toHaveLength(0);
         expect(Logger.warn).toHaveBeenCalledWith(

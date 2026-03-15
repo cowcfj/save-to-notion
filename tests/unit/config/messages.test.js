@@ -124,7 +124,9 @@ describe('配置模組 - messages.js 動態函式', () => {
         CLEANUP_SUMMARY_SIZE
       );
       expect(typeof result).toBe('string');
-      expect(result).toContain(CLEANUP_SUMMARY_ITEMS[0]);
+      CLEANUP_SUMMARY_ITEMS.forEach(item => {
+        expect(result).toContain(item);
+      });
       expect(result).toContain(String(CLEANUP_SUMMARY_SIZE));
     });
 

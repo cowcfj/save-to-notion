@@ -7,6 +7,8 @@ import {
 } from '../../../../scripts/background/services/PageContentService.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
+const TEST_TAB_ID = 123;
+
 describe('PageContentService', () => {
   let mockInjectionService = null;
   let mockLogger = null;
@@ -52,7 +54,7 @@ describe('PageContentService', () => {
     test('應拋出錯誤當 injectionService 不存在', async () => {
       const serviceWithoutInjector = new PageContentService({ logger: mockLogger });
 
-      await expect(serviceWithoutInjector.extractContent(123)).rejects.toThrow(
+      await expect(serviceWithoutInjector.extractContent(TEST_TAB_ID)).rejects.toThrow(
         'InjectionService is required'
       );
     });
@@ -67,10 +69,10 @@ describe('PageContentService', () => {
 
       mockInjectionService.injectWithResponse.mockResolvedValue(mockResult);
 
-      const result = await service.extractContent(123);
+      const result = await service.extractContent(TEST_TAB_ID);
 
       expect(mockInjectionService.injectWithResponse).toHaveBeenCalledWith(
-        123,
+        TEST_TAB_ID,
         expect.any(Function),
         CONTENT_EXTRACTION_SCRIPTS,
         ['Untitled'] // CONTENT_QUALITY.DEFAULT_PAGE_TITLE resolve to 'Untitled'
@@ -84,7 +86,7 @@ describe('PageContentService', () => {
       // 空結果或無效結果
       mockInjectionService.injectWithResponse.mockResolvedValue(null);
 
-      const result = await service.extractContent(123);
+      const result = await service.extractContent(TEST_TAB_ID);
 
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toHaveLength(1);
@@ -95,7 +97,7 @@ describe('PageContentService', () => {
       // 缺少 blocks 的結果
       mockInjectionService.injectWithResponse.mockResolvedValue({ title: 'Test' });
 
-      const result = await service.extractContent(123);
+      const result = await service.extractContent(TEST_TAB_ID);
 
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toHaveLength(1);
@@ -104,7 +106,7 @@ describe('PageContentService', () => {
     test('應處理 null 結果', async () => {
       mockInjectionService.injectWithResponse.mockResolvedValue(null);
 
-      const result = await service.extractContent(123);
+      const result = await service.extractContent(TEST_TAB_ID);
 
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toHaveLength(1);
@@ -114,7 +116,7 @@ describe('PageContentService', () => {
       const injectionError = new Error('Injection failed');
       mockInjectionService.injectWithResponse.mockRejectedValue(injectionError);
 
-      await expect(service.extractContent(123)).rejects.toThrow('Injection failed');
+      await expect(service.extractContent(TEST_TAB_ID)).rejects.toThrow('Injection failed');
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
@@ -131,7 +133,7 @@ describe('PageContentService', () => {
 
       mockInjectionService.injectWithResponse.mockResolvedValue(mockResult);
 
-      await service.extractContent(123);
+      await service.extractContent(TEST_TAB_ID);
 
       // 驗證日誌包含成功訊息
       // 在 PageContentService.js 中，成功日誌使用 this.logger.info 輸出
@@ -177,7 +179,7 @@ describe('PageContentService', () => {
     });
   });
 
-  describe('Injected Logic Coverage', () => {
+  describe('注入邏輯覆蓋測試', () => {
     const createMockInjector = setupGlobalFn => ({
       injectWithResponse: jest.fn(async (_tabId, func, _scripts, args) => {
         const originalExtract = globalThis.extractPageContent;
@@ -195,11 +197,10 @@ describe('PageContentService', () => {
         };
         globalThis.Logger = spyLogger;
 
-        if (setupGlobalFn) {
-          await setupGlobalFn(globalThis, spyLogger);
-        }
-
         try {
+          if (setupGlobalFn) {
+            await setupGlobalFn(globalThis, spyLogger);
+          }
           return await func(...(args || []));
         } finally {
           if (originalExtract === undefined) {
@@ -238,7 +239,7 @@ describe('PageContentService', () => {
         logger: mockLogger,
       });
 
-      const result = await injectedService.extractContent(123);
+      const result = await injectedService.extractContent(TEST_TAB_ID);
 
       expect(result).toEqual({
         title: 'Injected Title',
@@ -258,7 +259,7 @@ describe('PageContentService', () => {
         logger: mockLogger,
       });
 
-      const result = await injectedService.extractContent(123);
+      const result = await injectedService.extractContent(TEST_TAB_ID);
 
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content).toContain(
@@ -276,7 +277,7 @@ describe('PageContentService', () => {
         logger: mockLogger,
       });
 
-      const result = await injectedService.extractContent(123);
+      const result = await injectedService.extractContent(TEST_TAB_ID);
 
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content).toContain(

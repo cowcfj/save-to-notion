@@ -4,9 +4,24 @@
  */
 /* eslint-env jest */
 
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+  },
+}));
+
 // 模擬 DOM 環境
 const fs = require('node:fs');
 const path = require('node:path');
+const Logger = require('../../../scripts/utils/Logger.js').default;
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
 const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
@@ -120,19 +135,17 @@ describe('PerformanceOptimizer', () => {
       smallOptimizer._maintainCacheSizeLimit('c');
       expect(smallOptimizer.queryCache.has('a')).toBe(false);
 
-      const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const errorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => undefined);
       try {
         expect(() =>
           PerformanceOptimizer._performQuery('!!!', document, { single: true })
         ).not.toThrow();
-        expect(spy).toHaveBeenCalled();
-        expect(spy).toHaveBeenCalledWith(
-          expect.stringContaining('[ERROR]'),
+        expect(errorSpy).toHaveBeenCalledWith(
           expect.stringContaining('DOM Query Error'),
-          expect.any(Object)
+          expect.objectContaining({ error: expect.any(Error) })
         );
       } finally {
-        spy.mockRestore();
+        errorSpy.mockRestore();
       }
     });
 
