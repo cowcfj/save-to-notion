@@ -176,4 +176,102 @@ describe('PageContentService', () => {
       });
     });
   });
+
+  describe('Injected Logic Coverage', () => {
+    const createMockInjector = setupGlobalFn => ({
+      injectWithResponse: jest.fn(async (_tabId, func, _scripts, args) => {
+        const originalExtract = globalThis.extractPageContent;
+        const originalLogger = globalThis.Logger;
+
+        const spyLogger = {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          success: jest.fn(),
+          debug: jest.fn(),
+        };
+        globalThis.Logger = spyLogger;
+
+        if (setupGlobalFn) {
+          await setupGlobalFn(globalThis, spyLogger);
+        }
+
+        try {
+          return await func(...(args || []));
+        } finally {
+          if (originalExtract === undefined) {
+            delete globalThis.extractPageContent;
+          } else {
+            globalThis.extractPageContent = originalExtract;
+          }
+          if (originalLogger === undefined) {
+            delete globalThis.Logger;
+          } else {
+            globalThis.Logger = originalLogger;
+          }
+        }
+      }),
+    });
+
+    test('extractContent 應該執行注入腳本並回傳結果', async () => {
+      const mockInjector = createMockInjector(global => {
+        global.extractPageContent = jest.fn().mockResolvedValue({
+          title: 'Injected Title',
+          blocks: [{ type: 'paragraph' }],
+          additionalImages: [],
+          metadata: { siteIcon: 'icon.png' },
+        });
+      });
+
+      const injectedService = new PageContentService({
+        injectionService: mockInjector,
+        logger: Logger,
+      });
+
+      const result = await injectedService.extractContent(123);
+
+      expect(result).toEqual({
+        title: 'Injected Title',
+        blocks: expect.any(Array),
+        siteIcon: 'icon.png',
+        coverImage: null,
+      });
+    });
+
+    test('extractContent 應該處理 extractPageContent 不可用', async () => {
+      const mockInjector = createMockInjector(global => {
+        delete global.extractPageContent;
+      });
+
+      const injectedService = new PageContentService({
+        injectionService: mockInjector,
+        logger: Logger,
+      });
+
+      const result = await injectedService.extractContent(123);
+
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content).toContain(
+        'extractPageContent not available'
+      );
+    });
+
+    test('extractContent 應該處理提取失敗', async () => {
+      const mockInjector = createMockInjector(global => {
+        global.extractPageContent = jest.fn().mockRejectedValue(new Error('Injected Error'));
+      });
+
+      const injectedService = new PageContentService({
+        injectionService: mockInjector,
+        logger: Logger,
+      });
+
+      const result = await injectedService.extractContent(123);
+
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content).toContain(
+        'Extraction failed: Injected Error'
+      );
+    });
+  });
 });

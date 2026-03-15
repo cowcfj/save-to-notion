@@ -1,8 +1,23 @@
 // 圖片處理工具函數測試
 // 測試 scripts/utils/imageUtils.js 中的函數
 
+jest.mock('../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
 // 先設置 Chrome Mock,再導入源碼
 import '../mocks/chrome.js';
+import Logger from '../../scripts/utils/Logger.js';
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
 delete globalThis.ImageUtils;
@@ -17,6 +32,10 @@ const {
   isValidImageUrl,
   extractImageSrc,
   extractBestUrlFromSrcset,
+  extractFromPicture,
+  extractFromBackgroundImage,
+  extractFromNoscript,
+  isValidCleanedImageUrl,
   generateImageCacheKey,
   IMAGE_ATTRIBUTES,
 } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
@@ -329,6 +348,232 @@ describe('ImageUtils - extractImageSrc', () => {
       'data-src': 'blob:http://example.com/test',
     });
     expect(extractImageSrc(img)).toBeNull();
+  });
+});
+
+describe('ImageUtils - extractFromPicture / extractFromBackgroundImage', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('extractFromPicture 應該從 srcset 取得最佳 URL', () => {
+    const picture = document.createElement('picture');
+    const source = document.createElement('source');
+    source.setAttribute('srcset', 'https://example.com/a.jpg 1x, https://example.com/b.jpg 2x');
+    const img = document.createElement('img');
+
+    picture.append(source, img);
+    document.body.append(picture);
+
+    expect(extractFromPicture(img)).toBe('https://example.com/b.jpg');
+  });
+
+  test('extractFromBackgroundImage 應該讀取元素本身背景圖', () => {
+    const originalGetComputedStyle = globalThis.getComputedStyle;
+    const target = document.createElement('div');
+
+    globalThis.getComputedStyle = jest.fn(() => ({
+      backgroundImage: 'url(\"https://example.com/bg.png\")',
+      getPropertyValue: jest.fn(() => 'url(\"https://example.com/bg.png\")'),
+    }));
+
+    try {
+      expect(extractFromBackgroundImage(target)).toBe('https://example.com/bg.png');
+    } finally {
+      globalThis.getComputedStyle = originalGetComputedStyle;
+    }
+  });
+
+  test('extractFromBackgroundImage 應該讀取父節點背景圖', () => {
+    const originalGetComputedStyle = globalThis.getComputedStyle;
+    const parent = document.createElement('div');
+    const child = document.createElement('div');
+    parent.append(child);
+
+    globalThis.getComputedStyle = jest.fn(node => {
+      if (node === child) {
+        return {
+          backgroundImage: 'none',
+          getPropertyValue: jest.fn(() => 'none'),
+        };
+      }
+      if (node === parent) {
+        return {
+          backgroundImage: 'url(\"https://example.com/parent.png\")',
+          getPropertyValue: jest.fn(() => 'url(\"https://example.com/parent.png\")'),
+        };
+      }
+      return {
+        backgroundImage: 'none',
+        getPropertyValue: jest.fn(() => 'none'),
+      };
+    });
+
+    try {
+      expect(extractFromBackgroundImage(child)).toBe('https://example.com/parent.png');
+    } finally {
+      globalThis.getComputedStyle = originalGetComputedStyle;
+    }
+  });
+});
+
+describe('ImageUtils - coverage 補強', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('extractBestUrlFromSrcset 應該處理 SrcsetParser 錯誤', () => {
+    const originalParser = globalThis.SrcsetParser;
+    try {
+      globalThis.SrcsetParser = {
+        parse: jest.fn(() => {
+          throw new Error('Parser Error');
+        }),
+      };
+
+      const srcset = 'image.jpg 100w';
+      const result = extractBestUrlFromSrcset(srcset);
+
+      expect(result).toBe('image.jpg');
+      expect(Logger.error).toHaveBeenCalledWith(
+        'SrcsetParser 失敗',
+        expect.objectContaining({ error: 'Parser Error' })
+      );
+    } finally {
+      globalThis.SrcsetParser = originalParser;
+    }
+  });
+
+  test('extractBestUrlFromSrcset 應該使用 SrcsetParser 成功結果', () => {
+    const originalParser = globalThis.SrcsetParser;
+    const expectedUrl = 'best-image.jpg';
+    try {
+      globalThis.SrcsetParser = {
+        parse: jest.fn(() => expectedUrl),
+      };
+
+      const srcset = 'image.jpg 100w';
+      const result = extractBestUrlFromSrcset(srcset);
+
+      expect(result).toBe(expectedUrl);
+    } finally {
+      globalThis.SrcsetParser = originalParser;
+    }
+  });
+
+  test('cleanImageUrl 應該處理 URL 建構錯誤', () => {
+    const originalURL = globalThis.URL;
+
+    try {
+      globalThis.URL = jest.fn(() => {
+        throw new Error('URL Error');
+      });
+
+      const result = cleanImageUrl('https://example.com');
+
+      expect(result).toBeNull();
+      expect(Logger.error).toHaveBeenCalledWith('URL 轉換失敗', expect.any(Object));
+    } finally {
+      globalThis.URL = originalURL;
+    }
+  });
+
+  test('cleanImageUrl 應該處理遞迴深度限制', () => {
+    const url = 'https://example.com/image.jpg';
+    const result = cleanImageUrl(url, 10);
+
+    expect(result).toBe(url);
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '達到最大遞迴深度',
+      expect.objectContaining({ depth: 10 })
+    );
+  });
+
+  test('isValidImageUrl 應該處理 _checkUrlPatterns 例外', () => {
+    const originalURL = globalThis.URL;
+    const initialUrl = 'https://example.com/initial.jpg';
+    const cleanedUrl = 'https://example.com/cleaned.jpg';
+
+    try {
+      globalThis.URL = jest.fn((url, base) => {
+        const urlStr = url.toString();
+
+        if (urlStr === initialUrl || (base && urlStr === initialUrl)) {
+          return {
+            protocol: 'https:',
+            hostname: 'example.com',
+            pathname: '/initial.jpg',
+            searchParams: new URLSearchParams(),
+            href: cleanedUrl,
+            search: '',
+            hash: '',
+          };
+        }
+
+        if (urlStr === cleanedUrl || (base && urlStr === cleanedUrl)) {
+          throw new Error('Pattern check failed');
+        }
+
+        return new originalURL(url, base);
+      });
+
+      const result = isValidImageUrl(initialUrl);
+      expect(result).toBe(false);
+    } finally {
+      globalThis.URL = originalURL;
+    }
+  });
+
+  test('cleanImageUrl 應該處理 decodeURI 例外', () => {
+    const malformedUrl = 'https://example.com/%';
+    expect(() => cleanImageUrl(malformedUrl)).not.toThrow();
+  });
+
+  test('isValidImageUrl 應該解包 Next.js 影像 URL（絕對）', () => {
+    const validTarget = 'https://example.com/foo.png';
+    const nextJsUrl = `https://vercel.com/_next/image?url=${encodeURIComponent(
+      validTarget
+    )}&w=128&q=75`;
+
+    const cleaned = cleanImageUrl(nextJsUrl);
+    expect(cleaned).toBe(validTarget);
+    expect(isValidImageUrl(nextJsUrl)).toBe(true);
+  });
+
+  test('isValidImageUrl 應該解包 Next.js 影像 URL（相對）', () => {
+    const relativeTarget = '/assets/bar.jpg';
+    const origin = 'https://vercel.com';
+    const nextJsUrl = `${origin}/_next/image?url=${encodeURIComponent(relativeTarget)}&w=128&q=75`;
+
+    const expected = `${origin}${relativeTarget}`;
+    const cleaned = cleanImageUrl(nextJsUrl);
+    expect(cleaned).toBe(expected);
+    expect(isValidImageUrl(nextJsUrl)).toBe(true);
+  });
+
+  test('isValidImageUrl 應該接受白名單 Avatar URL', () => {
+    const githubAvatar = 'https://avatars.githubusercontent.com/u/14985020?v=4';
+    expect(isValidImageUrl(githubAvatar)).toBe(true);
+
+    const genericAvatar = 'https://example.com/avatars/user123';
+    expect(isValidImageUrl(genericAvatar)).toBe(true);
+  });
+});
+
+describe('ImageUtils - extractFromNoscript / isValidCleanedImageUrl', () => {
+  test('extractFromNoscript 應該提取 noscript 內的圖片 URL', () => {
+    const div = document.createElement('div');
+    const noscript = document.createElement('noscript');
+    noscript.textContent = '<img src="https://example.com/img.jpg">';
+    div.append(noscript);
+
+    const result = extractFromNoscript(div);
+    expect(result).toBe('https://example.com/img.jpg');
+  });
+
+  test('isValidCleanedImageUrl 應該驗證 HTTPS 並拒絕 data:', () => {
+    expect(isValidCleanedImageUrl('https://example.com/image.jpg')).toBe(true);
+    expect(isValidCleanedImageUrl('data:image/jpeg;base64,123')).toBe(false);
   });
 });
 

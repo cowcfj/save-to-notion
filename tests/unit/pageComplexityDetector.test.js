@@ -469,4 +469,53 @@ describe('頁面複雜度檢測器', () => {
       }).not.toThrow();
     });
   });
+
+  describe('Coverage 補強', () => {
+    test('detectPageComplexity 應該在例外時回退到安全預設值', () => {
+      const badDoc = {
+        get body() {
+          throw new Error('boom');
+        },
+        location: { href: 'https://example.com' },
+        title: 'Test',
+      };
+
+      const result = detectPageComplexity(badDoc);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          isClean: false,
+          hasMarkdownFeatures: false,
+          hasTechnicalContent: false,
+          hasAds: true,
+          isComplexLayout: true,
+        })
+      );
+    });
+
+    test('Markdown 信心度應該正確加減分', () => {
+      let hasAdsAccess = 0;
+      const complexity = {
+        isClean: true,
+        hasMarkdownFeatures: true,
+        hasTechnicalContent: true,
+        get hasAds() {
+          hasAdsAccess += 1;
+          return hasAdsAccess > 1;
+        },
+        isComplexLayout: false,
+        hasRichMedia: false,
+        isLongForm: false,
+        metrics: {
+          markdownContainers: 0,
+          textLength: 1000,
+        },
+      };
+
+      const selection = selectExtractor(complexity);
+
+      expect(selection.extractor).toBe('markdown');
+      expect(selection.confidence).toBe(75);
+    });
+  });
 });

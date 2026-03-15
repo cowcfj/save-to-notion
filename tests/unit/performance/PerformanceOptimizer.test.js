@@ -102,6 +102,18 @@ describe('PerformanceOptimizer', () => {
       expect(stats.cache.evictions).toBeGreaterThan(0);
     });
 
+    test('應該維持快取上限並處理無效選擇器', () => {
+      const smallOptimizer = new PerformanceOptimizer({ cacheMaxSize: 2 });
+      smallOptimizer.queryCache.set('a', { result: 1, timestamp: 1 });
+      smallOptimizer.queryCache.set('b', { result: 2, timestamp: 2 });
+      smallOptimizer._maintainCacheSizeLimit('c');
+      expect(smallOptimizer.queryCache.has('a')).toBe(false);
+
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      PerformanceOptimizer._performQuery('!!!', document, { single: true });
+      spy.mockRestore();
+    });
+
     test('應該能清除過期或強制清除全部快取', () => {
       // 造假一條過期資料
       optimizer.queryCache.set('oldKey', {

@@ -398,6 +398,22 @@ describe('highlightHandlers', () => {
   });
 
   describe('Coverage Improvements (Base)', () => {
+    it('USER_ACTIVATE_SHORTCUT 應該處理安全性驗證失敗', async () => {
+      validateContentScriptRequest.mockReturnValue({
+        success: false,
+        error: 'Security check failed',
+      });
+
+      const sendResponse = jest.fn();
+      const sender = { id: 'wrong-id', tab: { id: 1, url: 'https://example.com' } };
+
+      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.any(String) })
+      );
+    });
+
     it('USER_ACTIVATE_SHORTCUT 應該處理受限 URL', async () => {
       isRestrictedInjectionUrl.mockReturnValue(true);
       const sendResponse = jest.fn();
@@ -430,6 +446,24 @@ describe('highlightHandlers', () => {
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+    });
+  });
+
+  describe('startHighlight 安全性驗證', () => {
+    it('應該拒絕非內部調用', async () => {
+      validateInternalRequest.mockReturnValue({
+        success: false,
+        error: '拒絕訪問',
+      });
+
+      const sendResponse = jest.fn();
+      const sender = { id: 'wrong-id', tab: { id: 1, url: 'https://example.com' } };
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.any(String) })
+      );
     });
   });
 

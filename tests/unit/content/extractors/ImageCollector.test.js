@@ -194,6 +194,16 @@ describe('ImageCollector', () => {
   });
 
   describe('processImageForCollection', () => {
+    test('should return null when extractImageSrc returns null', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = 'https://example.com/test.jpg';
+
+      extractImageSrc.mockReturnValue(null);
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+      expect(result).toBeNull();
+    });
+
     test('should process valid image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/img.jpg';
@@ -238,6 +248,23 @@ describe('ImageCollector', () => {
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
       expect(result).toBeNull();
+    });
+
+    test('should handle cleanImageUrl errors', () => {
+      cleanImageUrl.mockImplementation(() => {
+        throw new Error('Process Error');
+      });
+
+      extractImageSrc.mockReturnValue('https://example.com/test.jpg');
+
+      const img = document.createElement('img');
+      const result = ImageCollector.processImageForCollection(img, 0);
+
+      expect(result).toBeNull();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '處理圖片失敗',
+        expect.objectContaining({ error: 'Process Error' })
+      );
     });
   });
 
