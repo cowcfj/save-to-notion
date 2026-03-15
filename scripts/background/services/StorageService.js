@@ -21,15 +21,19 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
-import { LOCAL_STORAGE_KEYS, URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/storageKeys.js';
+import {
+  LOCAL_STORAGE_KEYS,
+  URL_ALIAS_PREFIX,
+  PAGE_PREFIX,
+  SAVED_PREFIX,
+  HIGHLIGHTS_PREFIX,
+} from '../../config/storageKeys.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 
 /**
  * URL 標準化相關常量（向後兼容：既有代碼可繼續導入這些常量）
  */
-export const SAVED_PREFIX = 'saved_';
-export const HIGHLIGHTS_PREFIX = 'highlights_';
-// PAGE_PREFIX 在底部統一從 storageKeys.js 重新導出
+// PAGE_PREFIX/SAVED_PREFIX/HIGHLIGHTS_PREFIX 在底部統一從 storageKeys.js 重新導出
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
@@ -1007,4 +1011,9 @@ class StorageService {
 // 導出
 export { StorageService };
 export { TRACKING_PARAMS as URL_TRACKING_PARAMS, normalizeUrl } from '../../utils/urlUtils.js';
-export { URL_ALIAS_PREFIX, PAGE_PREFIX } from '../../config/storageKeys.js'; // Phase 3: PAGE_PREFIX 統一從此處導出
+export {
+  URL_ALIAS_PREFIX,
+  PAGE_PREFIX,
+  SAVED_PREFIX,
+  HIGHLIGHTS_PREFIX,
+} from '../../config/storageKeys.js'; // Phase 3: 前綴常量統一從此處導出

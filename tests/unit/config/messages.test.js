@@ -4,6 +4,7 @@
  */
 
 const { UI_MESSAGES, ERROR_MESSAGES } = require('../../../scripts/config/messages');
+const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 
 describe('配置模組 - messages.js 動態函式', () => {
   const singleParamFunctions = [
@@ -74,6 +75,21 @@ describe('配置模組 - messages.js 動態函式', () => {
 
     test('ERROR_MESSAGES.DEFAULT 應為字串', () => {
       expect(typeof ERROR_MESSAGES.DEFAULT).toBe('string');
+    });
+
+    test('handles empty/zero keys', () => {
+      const emptyMapping = ERROR_MESSAGES.PATTERNS[''];
+      const zeroMapping = ERROR_MESSAGES.PATTERNS[0];
+      const emptyExpected = emptyMapping || ERROR_MESSAGES.DEFAULT;
+      const zeroExpected = zeroMapping || ERROR_MESSAGES.DEFAULT;
+
+      expect(ErrorHandler.formatUserMessage('')).toBe(emptyExpected);
+      expect(ErrorHandler.formatUserMessage(0)).toBe(zeroExpected);
+    });
+
+    test('handles undefined/null keys', () => {
+      expect(ErrorHandler.formatUserMessage(undefined)).toBe(ERROR_MESSAGES.DEFAULT);
+      expect(ErrorHandler.formatUserMessage(null)).toBe(ERROR_MESSAGES.DEFAULT);
     });
   });
 });
