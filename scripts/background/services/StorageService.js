@@ -29,7 +29,7 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
  */
 export const SAVED_PREFIX = 'saved_';
 export const HIGHLIGHTS_PREFIX = 'highlights_';
-// PAGE_PREFIX 在底部統一從 constants.js 重新導出
+// PAGE_PREFIX 在底部統一從 storageKeys.js 重新導出
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 

@@ -15,9 +15,9 @@ const _NOTION_MAX_RETRIES = 3;
 const _NOTION_RETRY_DELAY = 1000;
 
 export const NOTION_API = {
-  // [Breaking Change] API version 2025-09-03 adds multi-data-source database support.
-  // This version is required; using older versions will fail with:
-  // "Databases with multiple data sources are not supported in this API version".
+  // [Breaking Change] API 版本 2025-09-03 新增多資料來源資料庫支援。
+  // 此版本為必要版本；使用舊版本將導致錯誤：
+  // "Databases with multiple data sources are not supported in this API version"。
   VERSION: _NOTION_API_VERSION,
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
