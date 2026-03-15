@@ -17,11 +17,6 @@ const getImageUtils = () =>
 
 import Logger from '../../utils/Logger.js';
 
-import {
-  BLOCKS_SUPPORTING_CHILDREN,
-  UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
-  CODE_LANGUAGE_MAP,
-} from '../../config/api.js';
 import { IMAGE_LIMITS } from '../../config/extraction.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
@@ -31,6 +26,62 @@ import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = 2000;
+
+/**
+ * DomConverter 專用常數（單檔案在地化）
+ */
+const CODE_LANGUAGE_MAP = {
+  js: 'javascript',
+  ts: 'typescript',
+  py: 'python',
+  md: 'markdown',
+  html: 'html',
+  css: 'css',
+  json: 'json',
+  sh: 'bash',
+  bash: 'bash',
+  c: 'c',
+  cpp: 'c++',
+  java: 'java',
+  go: 'go',
+  rust: 'rust',
+};
+
+/**
+ * 支持嵌套 Children 的 Block 類型 (Notion API 2025-09-03)
+ */
+const BLOCKS_SUPPORTING_CHILDREN = new Set([
+  'bulleted_list_item',
+  'numbered_list_item',
+  'to_do',
+  'toggle',
+  'callout',
+  'column_list',
+  'column',
+]);
+
+/**
+ * 在列表項 (List Item) 中不安全、需要被扁平化 (Flatten) 的子 Blocks 類型
+ * Notion API 對於列表內嵌套複雜 Block (如圖片、Code、Header) 往往校驗失敗。
+ */
+const UNSAFE_LIST_CHILDREN_FOR_FLATTENING = new Set([
+  'code',
+  'image',
+  'bookmark',
+  'embed',
+  'video',
+  'pdf',
+  'file',
+  'audio',
+  'equation',
+  'divider',
+  'table',
+  'callout',
+  'quote',
+  'heading_1',
+  'heading_2',
+  'heading_3',
+]);
 
 /**
  * DomConverter 類
@@ -680,10 +731,10 @@ class DomConverter {
     }
 
     const MAX_DEPTH = 1;
-    const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.includes(type);
+    const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.has(type);
 
     const hasUnsafeChild = blockTypeData.children.some(
-      child => child && UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
+      child => child && UNSAFE_LIST_CHILDREN_FOR_FLATTENING.has(child.type)
     );
 
     const shouldFlatten =
