@@ -994,4 +994,3 @@ class NotionService {
 
 // 導出
 export { NotionService };
-export { NOTION_CONFIG } from '../../config/index.js';
