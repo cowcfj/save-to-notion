@@ -20,6 +20,8 @@ module.exports = {
     'options/**/*.js',
     'popup/**/*.js', // 新增 popup 目錄
     'sidepanel/**/*.js', // 新增 sidepanel 目錄
+    '!scripts/config/**', // 純配置/常量，無業務邏輯
+    'scripts/config/env.js', // 例外：env.js 含環境檢測邏輯
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'
