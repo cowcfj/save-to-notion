@@ -45,7 +45,7 @@
     "last 2 Chrome versions"
   ],
   "author": "Cow Chan",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "type": "commonjs",
   "private": true,
   "engines": {
