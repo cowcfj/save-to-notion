@@ -5,6 +5,7 @@ import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
 import { AuthMode } from '../scripts/config/api.js';
+import { BUILD_ENV } from '../scripts/config/env.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
@@ -36,6 +37,14 @@ export function initOptions() {
 
   // 2. 注入依賴並啟動
   ui.init();
+
+  // OAuth 功能開關：OSS 版本隱藏 OAuth UI
+  if (!BUILD_ENV.ENABLE_OAUTH) {
+    const oauthConnectBtn = document.querySelector('#oauth-connect-button');
+    const oauthDisconnectBtn = document.querySelector('#oauth-disconnect-button');
+    if (oauthConnectBtn) {oauthConnectBtn.style.display = 'none';}
+    if (oauthDisconnectBtn) {oauthDisconnectBtn.style.display = 'none';}
+  }
 
   // AuthManager 需要 DataSourceManager 來載入資料來源列表
   auth.init({

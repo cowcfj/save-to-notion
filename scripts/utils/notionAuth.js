@@ -1,6 +1,7 @@
 /* global chrome */
 import Logger from './Logger.js';
 import { AuthMode, NOTION_OAUTH } from '../config/api.js';
+import { BUILD_ENV } from '../config/env.js';
 import { sanitizeApiError } from './securityUtils.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';
@@ -100,12 +101,12 @@ async function performRefreshOAuthToken() {
       return null;
     }
 
-    const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
+    const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
     const response = await fetch(serverUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Extension-Key': NOTION_OAUTH.EXTENSION_API_KEY,
+        'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
       },
       body: JSON.stringify({
         refresh_token: localData.notionRefreshToken,
