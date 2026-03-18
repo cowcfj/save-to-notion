@@ -5,8 +5,18 @@ import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/api.js';
+import { BUILD_ENV } from '../../../scripts/config/env.js';
 
 // Mock dependencies
+jest.mock('../../../scripts/config/env.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env.js'),
+  BUILD_ENV: {
+    ENABLE_OAUTH: true,
+    OAUTH_SERVER_URL: 'https://test-server.example.com',
+    OAUTH_CLIENT_ID: 'test-client-id',
+    EXTENSION_API_KEY: 'test-api-key',
+  },
+}));
 jest.mock('../../../options/UIManager.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
@@ -542,11 +552,13 @@ describe('AuthManager Extended', () => {
 
       expect(chrome.identity.launchWebAuthFlow).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining(`client_id=${encodeURIComponent(NOTION_OAUTH.CLIENT_ID)}`),
+          url: expect.stringContaining(
+            `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}`
+          ),
         })
       );
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`,
+        `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`,
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -882,14 +894,14 @@ describe('AuthManager Extended', () => {
       const result = await AuthManager.refreshOAuthToken();
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('"refresh_token":"refresh_2"'),
         })
       );
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
         expect.objectContaining({
           body: expect.stringContaining('"refresh_proof":"proof_2"'),
         })

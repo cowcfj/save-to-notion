@@ -5,6 +5,7 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { AuthMode, NOTION_OAUTH } from '../scripts/config/api.js';
+import { BUILD_ENV } from '../scripts/config/env.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
@@ -443,7 +444,7 @@ export class AuthManager {
    * @returns {Promise<object>} Token data
    */
   async _exchangeOAuthToken(code, redirectUri) {
-    const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
+    const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
     const tokenResponse = await fetch(serverUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -588,7 +589,7 @@ export class AuthManager {
       // 3. 組成 Notion 授權 URL
       const authUrl =
         `https://api.notion.com/v1/oauth/authorize?` +
-        `client_id=${encodeURIComponent(NOTION_OAUTH.CLIENT_ID)}&` +
+        `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}&` +
         `response_type=code&owner=user&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `state=${encodeURIComponent(csrfState)}`;
