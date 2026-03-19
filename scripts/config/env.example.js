@@ -148,7 +148,7 @@ export const ENV = Object.freeze({
  *
  * @see docs/specs/BUILD_ENVIRONMENT_STRATEGY_SPEC.md
  */
-export const BUILD_ENV = {
+export const BUILD_ENV = Object.freeze({
   // 控制 UI 是否渲染 OAuth 登入區塊，以及 AuthManager 是否啟動 OAuth 流程
   ENABLE_OAUTH: false,
   // 後端 Token 代理伺服器位址
@@ -157,4 +157,4 @@ export const BUILD_ENV = {
   OAUTH_CLIENT_ID: '',
   // 用於驗證 /refresh 請求，須與 Cloudflare Worker 的 EXTENSION_API_KEY binding 一致
   EXTENSION_API_KEY: '',
-};
+});

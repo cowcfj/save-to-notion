@@ -68,22 +68,7 @@ jobs:
             echo "::error::Missing required secrets (PROD_SERVER_URL, PROD_CLIENT_ID, EXTENSION_API_KEY)"
             exit 1
           fi
-          cat <<'SCRIPT' > /tmp/gen-env.js
-          const fs = require('fs');
-          const src = fs.readFileSync('scripts/config/env.example.js', 'utf8');
-          const out = src
-            .replace("ENABLE_OAUTH: false", "ENABLE_OAUTH: true")
-            .replace("OAUTH_SERVER_URL: ''", `OAUTH_SERVER_URL: '${process.env.PROD_SERVER_URL}'`)
-            .replace("OAUTH_CLIENT_ID: ''", `OAUTH_CLIENT_ID: '${process.env.PROD_CLIENT_ID}'`)
-            .replace("EXTENSION_API_KEY: ''", `EXTENSION_API_KEY: '${process.env.EXTENSION_API_KEY}'`);
-          if (!out.includes('ENABLE_OAUTH: true')) {
-            console.error('ERROR: ENABLE_OAUTH replacement failed');
-            process.exit(1);
-          }
-          fs.writeFileSync('scripts/config/env.js', out);
-          console.log('✓ env.js generated with production config');
-          SCRIPT
-          node /tmp/gen-env.js
+          node scripts/config/generateBuildEnv.js
 
       - name: Build production bundle
         run: |

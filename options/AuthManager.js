@@ -486,6 +486,15 @@ export class AuthManager {
         });
       }
     }
+    this._restoreOAuthConnectButton();
+  }
+
+  /**
+   * 還原 OAuth 連接按鈕至預設狀態
+   *
+   * @private
+   */
+  _restoreOAuthConnectButton() {
     if (this.elements.oauthConnectButton) {
       this.elements.oauthConnectButton.disabled = false;
       this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;
@@ -572,6 +581,15 @@ export class AuthManager {
 
       // 前置檢查
       this._checkIdentityApi();
+
+      if (!isNonEmptyString(BUILD_ENV.OAUTH_CLIENT_ID)) {
+        Logger.error('[Auth] OAuth Client ID 未設定', {
+          action: 'startOAuthFlow',
+          missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
+        });
+        await this._cleanupOAuthState('oauthState');
+        return;
+      }
 
       // 更新按鈕為載入狀態
       if (this.elements.oauthConnectButton) {

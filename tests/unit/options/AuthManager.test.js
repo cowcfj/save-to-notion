@@ -768,6 +768,24 @@ describe('AuthManager Extended', () => {
         UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
       );
     });
+
+    test('缺少 OAUTH_CLIENT_ID 時應記錄錯誤、清理 state 並恢復按鈕', async () => {
+      BUILD_ENV.OAUTH_CLIENT_ID = '   ';
+
+      await authManager.startOAuthFlow();
+
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
+        action: 'startOAuthFlow',
+        missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
+      });
+      expect(chrome.storage.session.set).not.toHaveBeenCalled();
+      expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
+      expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
+      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
+      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
+        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
+      );
+    });
   });
 
   describe('disconnectOAuth', () => {
@@ -897,6 +915,9 @@ describe('AuthManager Extended', () => {
         `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
         expect.objectContaining({
           method: 'POST',
+          headers: expect.objectContaining({
+            'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
+          }),
           body: expect.stringContaining('"refresh_token":"refresh_2"'),
         })
       );

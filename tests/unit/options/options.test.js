@@ -21,6 +21,15 @@ import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 // Mocks for dependencies
+jest.mock('../../../scripts/config/env.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env.js'),
+  BUILD_ENV: {
+    ENABLE_OAUTH: true,
+    OAUTH_SERVER_URL: '',
+    OAUTH_CLIENT_ID: '',
+    EXTENSION_API_KEY: '',
+  },
+}));
 jest.mock('../../../options/UIManager.js');
 jest.mock('../../../options/AuthManager.js');
 jest.mock('../../../options/DataSourceManager.js');
