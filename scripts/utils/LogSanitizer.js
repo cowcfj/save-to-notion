@@ -27,10 +27,13 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 // 安全的 HTTP Headers 白名單 Set（為了性能而在內部轉換）
 const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
-// 日誌脫敏中需移除的追蹤參數（從 constants.js 統一引入，無循環依賴風險）
-import { URL_NORMALIZATION } from '../config/extraction.js';
-
-const LOG_TRACKING_PARAMS = URL_NORMALIZATION?.TRACKING_PARAMS ?? [
+/**
+ * 日誌脫敏中需移除的追蹤參數
+ * 維護說明：此清單與 config/extraction.js 的 URL_NORMALIZATION.TRACKING_PARAMS 保持同步。
+ * 刻意保留獨立副本以避免安全模組依賴功能配置。
+ * 同步性由 LogSanitizer.test.js 自動驗證 — 若不一致測試會失敗。
+ */
+export const LOG_TRACKING_PARAMS = Object.freeze([
   'utm_source',
   'utm_medium',
   'utm_campaign',
@@ -42,7 +45,7 @@ const LOG_TRACKING_PARAMS = URL_NORMALIZATION?.TRACKING_PARAMS ?? [
   'mc_eid',
   'igshid',
   'vero_id',
-];
+]);
 
 /**
  * URL query 參數中的敏感鍵名清單
