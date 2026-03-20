@@ -50,7 +50,6 @@ rsync -a \
     --exclude='__mocks__' \
     --exclude='background' \
     --exclude='background.js' \
-    --exclude='config/extraction.js' \
     --exclude='config/patterns.js' \
     --exclude='config/ui-selectors.js' \
     --exclude='config/README.md' \

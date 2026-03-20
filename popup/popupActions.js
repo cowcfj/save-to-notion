@@ -19,7 +19,7 @@ import { AuthMode } from '../scripts/config/api.js';
 export async function checkSettings() {
   try {
     const [syncResult, localResult] = await Promise.all([
-      chrome.storage.sync.get(['notionApiKey']),
+      chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']),
       chrome.storage.local.get([
         'notionAuthMode',
         'notionOAuthToken',
@@ -28,7 +28,25 @@ export async function checkSettings() {
       ]),
     ]);
     const isOAuth = localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken;
-    const dataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
+
+    // Local 優先，sync 回退（向後兼容 v2.47.0 前僅存於 sync 的升級用戶）
+    const localDataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
+    const syncDataSourceId = syncResult.notionDataSourceId || syncResult.notionDatabaseId;
+    const dataSourceId = localDataSourceId || syncDataSourceId;
+
+    // 透明遷移：若 dataSourceId 僅存於 sync，自動複製至 local
+    if (!localDataSourceId && syncDataSourceId) {
+      chrome.storage.local
+        .set({
+          notionDataSourceId: syncDataSourceId,
+          notionDatabaseId: syncDataSourceId,
+        })
+        .catch(() => {});
+      Logger.warn('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
+        action: 'migrateDataSourceKey',
+      });
+    }
+
     return {
       valid: Boolean((syncResult.notionApiKey || isOAuth) && dataSourceId),
       apiKey: syncResult.notionApiKey,

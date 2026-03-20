@@ -73,6 +73,47 @@ describe('popupActions.js', () => {
       expect(result.valid).toBe(true);
       expect(result.dataSourceId).toBe('old-db-id');
     });
+
+    it('當 local 無 dataSourceId 但 sync 有時，應回退讀取 sync 並返回 valid: true', async () => {
+      // 模擬 v2.47.0 前的升級用戶：dataSourceId 只在 sync
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'sync-db-id',
+      });
+      // local 中沒有 notionDataSourceId
+
+      const result = await checkSettings();
+      expect(result.valid).toBe(true);
+      expect(result.dataSourceId).toBe('sync-db-id');
+    });
+
+    it('當 sync 回退觸發時，應自動遷移 dataSourceId 至 local', async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'sync-db-id',
+      });
+
+      await checkSettings();
+
+      // 驗證自動遷移：local 應被寫入
+      const localData = await chrome.storage.local.get(['notionDataSourceId', 'notionDatabaseId']);
+      expect(localData.notionDataSourceId).toBe('sync-db-id');
+      expect(localData.notionDatabaseId).toBe('sync-db-id');
+    });
+
+    it('當 local 和 sync 都有 dataSourceId 時，應優先使用 local', async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'sync-db-id',
+      });
+      await chrome.storage.local.set({
+        notionDataSourceId: 'local-db-id',
+      });
+
+      const result = await checkSettings();
+      expect(result.valid).toBe(true);
+      expect(result.dataSourceId).toBe('local-db-id');
+    });
   });
 
   describe('checkPageStatus', () => {
