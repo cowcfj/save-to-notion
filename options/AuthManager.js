@@ -691,7 +691,8 @@ export class AuthManager {
           action: 'disconnectOAuth',
         });
       } else {
-        await chrome.storage.sync.remove(['notionDataSourceId', 'notionDatabaseId']);
+        await chrome.storage.sync.remove(DATA_SOURCE_KEYS);
+        await chrome.storage.local.remove(DATA_SOURCE_KEYS);
         Logger.info('[Auth] 已清除 OAuth 資料與資料來源設定', {
           action: 'disconnectOAuth',
         });
@@ -773,8 +774,9 @@ export class AuthManager {
         phase: 'start',
       });
 
-      // 清除 sync 中的手動 Key
-      await chrome.storage.sync.remove(['notionApiKey', 'notionDatabaseId', 'notionDataSourceId']);
+      // 清除 sync 中的手動 Key 與資料來源
+      await chrome.storage.sync.remove(['notionApiKey', ...DATA_SOURCE_KEYS]);
+      await chrome.storage.local.remove(DATA_SOURCE_KEYS);
 
       Logger.info('已清除手動授權數據', {
         action: 'disconnect',

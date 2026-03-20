@@ -297,11 +297,12 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     syncSettings.highlightContentStyle = highlightContentStyle.value;
   }
 
-  // 分離儲存至 local 與 sync
+  // 分離儲存至 local 與 sync（同時清除 sync 中的舊資料來源 key，防止跨裝置同步汙染）
   try {
     await Promise.all([
       chrome.storage.local.set(localSettings),
       chrome.storage.sync.set(syncSettings),
+      chrome.storage.sync.remove(DATA_SOURCE_KEYS),
     ]);
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
