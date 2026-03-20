@@ -213,15 +213,23 @@ describe('popupActions', () => {
 
   describe('checkSettings', () => {
     test('設置完整時應返回 valid: true', async () => {
-      const mockData = {
+      const mockSyncData = {
         notionApiKey: 'test-key',
+      };
+      const mockLocalData = {
         notionDataSourceId: 'test-datasource',
       };
       chrome.storage.sync.get.mockImplementation((keys, respond) => {
         if (respond) {
-          respond(mockData);
+          respond(mockSyncData);
         }
-        return Promise.resolve(mockData);
+        return Promise.resolve(mockSyncData);
+      });
+      chrome.storage.local.get.mockImplementation((keys, respond) => {
+        if (respond) {
+          respond(mockLocalData);
+        }
+        return Promise.resolve(mockLocalData);
       });
 
       const result = await checkSettings();
@@ -234,6 +242,12 @@ describe('popupActions', () => {
     test('缺少設置時應返回 valid: false', async () => {
       const mockData = {};
       chrome.storage.sync.get.mockImplementation((keys, respond) => {
+        if (respond) {
+          respond(mockData);
+        }
+        return Promise.resolve(mockData);
+      });
+      chrome.storage.local.get.mockImplementation((keys, respond) => {
         if (respond) {
           respond(mockData);
         }
@@ -381,11 +395,14 @@ describe('initPopup integration', () => {
     const { initPopup } = await import('../../popup/popup.js');
 
     // Mock 設置完整
-    const mockSettings = {
+    const mockSyncSettings = {
       notionApiKey: 'test-key',
+    };
+    const mockLocalSettings = {
       notionDataSourceId: 'test-datasource',
     };
-    chrome.storage.sync.get.mockResolvedValue(mockSettings);
+    chrome.storage.sync.get.mockResolvedValue(mockSyncSettings);
+    chrome.storage.local.get.mockResolvedValue(mockLocalSettings);
 
     // Mock 頁面狀態：未保存
     chrome.runtime.sendMessage.mockResolvedValue({
@@ -431,11 +448,14 @@ describe('initPopup integration', () => {
     const { initPopup } = await import('../../popup/popup.js');
 
     // Mock 設置完整
-    const mockSettings = {
+    const mockSyncSettings = {
       notionApiKey: 'test-key',
+    };
+    const mockLocalSettings = {
       notionDataSourceId: 'test-datasource',
     };
-    chrome.storage.sync.get.mockResolvedValue(mockSettings);
+    chrome.storage.sync.get.mockResolvedValue(mockSyncSettings);
+    chrome.storage.local.get.mockResolvedValue(mockLocalSettings);
 
     // Mock 頁面狀態：未保存
     chrome.runtime.sendMessage.mockResolvedValue({

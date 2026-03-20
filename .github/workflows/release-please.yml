@@ -68,7 +68,79 @@ jobs:
             echo "::error::Missing required secrets (PROD_SERVER_URL, PROD_CLIENT_ID, EXTENSION_API_KEY)"
             exit 1
           fi
-          node scripts/config/generateBuildEnv.js
+          cat <<'SCRIPT' > /tmp/gen-env.js
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+
+          function normalizeModuleSource(source) {
+            return source
+              .split('\n')
+              .map(line => {
+                const trimmedLine = line.trimStart();
+                if (!trimmedLine.startsWith('export ')) {
+                  return line;
+                }
+
+                const leadingWhitespaceLength = line.length - trimmedLine.length;
+                return `${line.slice(0, leadingWhitespaceLength)}${trimmedLine.slice('export '.length)}`;
+              })
+              .join('\n');
+          }
+
+          function parseBuildEnvFromSource(source) {
+            const script = new vm.Script(
+              `${normalizeModuleSource(source)}\nmodule.exports = { BUILD_ENV };`,
+              { filename: 'scripts/config/env.js' }
+            );
+            const context = {
+              module: { exports: {} },
+              exports: {},
+              console,
+              globalThis: {},
+            };
+            script.runInNewContext(context);
+            return context.module.exports.BUILD_ENV;
+          }
+
+          function validateGeneratedEnvSource(source) {
+            let buildEnv;
+            try {
+              buildEnv = parseBuildEnvFromSource(source);
+            } catch (error) {
+              throw new Error(`Generated env.js syntax validation failed: ${error.message}`);
+            }
+
+            if (!buildEnv || typeof buildEnv !== 'object') {
+              throw new Error('Generated env.js validation failed: BUILD_ENV export is missing');
+            }
+            if (buildEnv.ENABLE_OAUTH !== true) {
+              throw new Error('Generated env.js validation failed: ENABLE_OAUTH was not enabled');
+            }
+
+            for (const key of ['OAUTH_SERVER_URL', 'OAUTH_CLIENT_ID', 'EXTENSION_API_KEY']) {
+              if (typeof buildEnv[key] !== 'string' || buildEnv[key].trim().length === 0) {
+                throw new Error(`Generated env.js validation failed: ${key} is missing or empty`);
+              }
+            }
+
+            if (!Object.isFrozen(buildEnv)) {
+              throw new Error('Generated env.js validation failed: BUILD_ENV must be frozen');
+            }
+          }
+
+          const src = fs.readFileSync('scripts/config/env.example.js', 'utf8');
+          const out = src
+            .replaceAll('ENABLE_OAUTH: false', 'ENABLE_OAUTH: true')
+            .replaceAll("OAUTH_SERVER_URL: ''", `OAUTH_SERVER_URL: ${JSON.stringify(process.env.PROD_SERVER_URL)}`)
+            .replaceAll("OAUTH_CLIENT_ID: ''", `OAUTH_CLIENT_ID: ${JSON.stringify(process.env.PROD_CLIENT_ID)}`)
+            .replaceAll("EXTENSION_API_KEY: ''", `EXTENSION_API_KEY: ${JSON.stringify(process.env.EXTENSION_API_KEY)}`);
+
+          validateGeneratedEnvSource(out);
+          fs.writeFileSync('scripts/config/env.js', out);
+          validateGeneratedEnvSource(fs.readFileSync('scripts/config/env.js', 'utf8'));
+          process.stdout.write('✓ env.js generated with production config');
+          SCRIPT
+          node /tmp/gen-env.js
 
       - name: Build production bundle
         run: |

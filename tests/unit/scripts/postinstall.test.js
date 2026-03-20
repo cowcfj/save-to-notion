@@ -8,6 +8,7 @@ describe('scripts/postinstall.js', () => {
   const templatePath = `${projectRoot}/scripts/config/env.example.js`;
 
   function loadPostinstall({ envExists, templateExists = true, copyError = null }) {
+    process.exitCode = undefined;
     const joinMock = jest.fn((...parts) => parts.join('/'));
     const existsSyncMock = jest.fn(filePath => {
       if (filePath === targetPath) {
@@ -55,6 +56,7 @@ describe('scripts/postinstall.js', () => {
   }
 
   afterEach(() => {
+    process.exitCode = undefined;
     jest.restoreAllMocks();
     jest.resetModules();
     jest.unmock('node:fs');
@@ -83,6 +85,7 @@ describe('scripts/postinstall.js', () => {
     expect(consoleInfoSpy).toHaveBeenCalledWith('已從 env.example.js 建立 scripts/config/env.js');
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
   });
 
   test('當 env.js 已存在時不應複製也不應輸出提示', () => {
@@ -96,9 +99,10 @@ describe('scripts/postinstall.js', () => {
     expect(consoleInfoSpy).not.toHaveBeenCalled();
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
   });
 
-  test('當 template 不存在時應跳過複製並輸出警告', () => {
+  test('當 template 不存在時應中止安裝並輸出警告', () => {
     const { copyFileSyncMock, consoleInfoSpy, consoleWarnSpy, consoleErrorSpy } = loadPostinstall({
       envExists: false,
       templateExists: false,
@@ -110,9 +114,10 @@ describe('scripts/postinstall.js', () => {
       '找不到範本檔 env.example.js，已跳過建立 scripts/config/env.js'
     );
     expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 
-  test('當複製失敗時應輸出錯誤細節', () => {
+  test('當複製失敗時應中止安裝並輸出錯誤細節', () => {
     const copyError = new Error('disk full');
     const { consoleInfoSpy, consoleWarnSpy, consoleErrorSpy } = loadPostinstall({
       envExists: false,
@@ -123,5 +128,6 @@ describe('scripts/postinstall.js', () => {
     expect(consoleInfoSpy).not.toHaveBeenCalled();
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith('建立 scripts/config/env.js 失敗：', copyError);
+    expect(process.exitCode).toBe(1);
   });
 });
