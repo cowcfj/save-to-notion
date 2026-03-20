@@ -29,7 +29,9 @@ const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
 /**
  * 日誌脫敏中需移除的追蹤參數
- * 維護說明：此清單應與 config/extraction.js 的 URL_NORMALIZATION.TRACKING_PARAMS 保持同步
+ * 維護說明：此清單與 config/extraction.js 的 URL_NORMALIZATION.TRACKING_PARAMS 保持同步。
+ * 刻意保留獨立副本以避免安全模組依賴功能配置。
+ * 同步性由 LogSanitizer.test.js 自動驗證 — 若不一致測試會失敗。
  */
 const LOG_TRACKING_PARAMS = [
   'utm_source',
