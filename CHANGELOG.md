@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.47.1](https://github.com/cowcfj/save-to-notion/compare/v2.47.0...v2.47.1) (2026-03-20)
+
+
+### 🐛 Bug 修復
+
+* 同步日誌脫敏追蹤參數至 LogSanitizer.js ([#356](https://github.com/cowcfj/save-to-notion/issues/356)) ([6d6e453](https://github.com/cowcfj/save-to-notion/commit/6d6e453489fec3377075560e79ae19277e84917f))
+
 ## [2.47.0](https://github.com/cowcfj/save-to-notion/compare/v2.46.0...v2.47.0) (2026-03-20)
 
 
