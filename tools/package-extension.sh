@@ -65,6 +65,66 @@ rsync -a \
 echo "📂 Scripts folder content:"
 ls -R "$RM_DIR/scripts/"
 
+# Verify ES module import chains — ensure no missing files in the package
+echo "🔍 Verifying ES module import chains..."
+node -e "
+const fs = require('node:fs');
+const path = require('node:path');
+
+const pkgDir = path.resolve('$RM_DIR');
+const visited = new Set();
+const missing = [];
+
+function resolveImports(filePath) {
+  const absPath = path.resolve(filePath);
+  if (visited.has(absPath) || !fs.existsSync(absPath)) return;
+  visited.add(absPath);
+
+  const content = fs.readFileSync(absPath, 'utf8');
+  const importRegex = /(?:import|export)\s+.*?from\s+['\"]([^'\"]+)['\"];?/g;
+  let match;
+  while ((match = importRegex.exec(content)) !== null) {
+    const specifier = match[1];
+    if (!specifier.startsWith('.')) continue;
+    const resolved = path.resolve(path.dirname(absPath), specifier);
+    if (!fs.existsSync(resolved)) {
+      missing.push({ from: path.relative(pkgDir, absPath), needs: specifier, resolved: path.relative(pkgDir, resolved) });
+    } else {
+      resolveImports(resolved);
+    }
+  }
+}
+
+// Find all <script type=\"module\" src=\"...\"> in HTML files (attribute order varies)
+const htmlDirs = ['popup', 'options', 'sidepanel', 'update-notification'];
+for (const dir of htmlDirs) {
+  const dirPath = path.join(pkgDir, dir);
+  if (!fs.existsSync(dirPath)) continue;
+  for (const file of fs.readdirSync(dirPath)) {
+    if (!file.endsWith('.html')) continue;
+    const html = fs.readFileSync(path.join(dirPath, file), 'utf8');
+    const scriptTagRegex = /<script\b([^>]*)>/g;
+    let tag;
+    while ((tag = scriptTagRegex.exec(html)) !== null) {
+      const attrs = tag[1];
+      if (!/type=['\"]module['\"]/.test(attrs)) continue;
+      const srcMatch = attrs.match(/src=['\"]([^'\"]+)['\"]/);
+      if (srcMatch) resolveImports(path.join(dirPath, srcMatch[1]));
+    }
+  }
+}
+
+if (missing.length > 0) {
+  console.error('❌ Missing ES module dependencies in package:');
+  for (const m of missing) {
+    console.error('   ' + m.from + ' → import from ' + JSON.stringify(m.needs) + ' → file not found: ' + m.resolved);
+  }
+  process.exit(1);
+} else {
+  console.log('✅ All ES module import chains verified (' + visited.size + ' files checked)');
+}
+"
+
 echo "🤐 Zipping..."
 cd "$RM_DIR"
 zip -r "../releases/$ZIP_NAME" .
