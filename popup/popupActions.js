@@ -41,10 +41,17 @@ export async function checkSettings() {
           notionDataSourceId: syncDataSourceId,
           notionDatabaseId: syncDataSourceId,
         })
-        .catch(() => {});
-      Logger.warn('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
-        action: 'migrateDataSourceKey',
-      });
+        .then(() => {
+          Logger.warn('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
+            action: 'migrateDataSourceKey',
+          });
+        })
+        .catch(error => {
+          Logger.warn('[Settings] dataSourceId 遷移失敗，下次開啟 popup 會重試', {
+            action: 'migrateDataSourceKey',
+            error: error?.message,
+          });
+        });
     }
 
     return {
