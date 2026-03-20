@@ -1,5 +1,31 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.47.0](https://github.com/cowcfj/save-to-notion/compare/v2.46.0...v2.47.0) (2026-03-20)
+
+
+### ✨ 新功能
+
+* 支援 OSS/PROD 環境分離 ([#352](https://github.com/cowcfj/save-to-notion/issues/352)) ([7a452d4](https://github.com/cowcfj/save-to-notion/commit/7a452d406fdcadf5eb5ae5351bfa8293a7eb59bb))
+* 新增 Cloudflare Worker 範例以支援 Notion OAuth 代理 ([279f26b](https://github.com/cowcfj/save-to-notion/commit/279f26be08d117c443bb47229c3fcf2c0c077667))
+
+
+### 🐛 Bug 修復
+
+* 更新資料來源鍵的清除邏輯以確保本地與同步儲存的隔離 ([#355](https://github.com/cowcfj/save-to-notion/issues/355)) ([deeb82b](https://github.com/cowcfj/save-to-notion/commit/deeb82b4c5d1cabf15d9f9f036b3d5a63a353bae))
+* 移除標註顏色選項中的紫色 ([91b7aed](https://github.com/cowcfj/save-to-notion/commit/91b7aed70597f85c8634bd042ea6b94e4e3e4d1d))
+
+
+### ♻️ 代碼重構
+
+* Split constants.js into multiple modules ([#350](https://github.com/cowcfj/save-to-notion/issues/350)) ([a07d816](https://github.com/cowcfj/save-to-notion/commit/a07d816c435696dc8b1abcf241a864bef43616dd))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump flatted from 3.3.3 to 3.4.2 ([#353](https://github.com/cowcfj/save-to-notion/issues/353)) ([1092f14](https://github.com/cowcfj/save-to-notion/commit/1092f14ad519db0dc2cabad385e89e800290188a))
+* **deps:** bump undici from 7.22.0 to 7.24.5 ([#354](https://github.com/cowcfj/save-to-notion/issues/354)) ([55d2f27](https://github.com/cowcfj/save-to-notion/commit/55d2f27f68ed507637397171cc0ae6f3c0b0e8be))
+* Update project license from MIT to GPL-3.0. ([b369854](https://github.com/cowcfj/save-to-notion/commit/b3698549d32fbc34a072760f4b15e5bd667d2b93))
+
 ## [2.46.0](https://github.com/cowcfj/save-to-notion/compare/v2.45.0...v2.46.0) (2026-03-14)
 
 
