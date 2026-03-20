@@ -33,7 +33,7 @@ const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
  * 刻意保留獨立副本以避免安全模組依賴功能配置。
  * 同步性由 LogSanitizer.test.js 自動驗證 — 若不一致測試會失敗。
  */
-export const LOG_TRACKING_PARAMS = [
+export const LOG_TRACKING_PARAMS = Object.freeze([
   'utm_source',
   'utm_medium',
   'utm_campaign',
@@ -45,7 +45,7 @@ export const LOG_TRACKING_PARAMS = [
   'mc_eid',
   'igshid',
   'vero_id',
-];
+]);
 
 /**
  * URL query 參數中的敏感鍵名清單
