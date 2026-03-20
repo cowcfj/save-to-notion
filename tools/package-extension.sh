@@ -65,8 +65,8 @@ rsync -a \
 echo "📂 Scripts folder content:"
 ls -R "$RM_DIR/scripts/"
 
-# Verify ES module import chains — ensure no missing files in the package
-echo "🔍 Verifying ES module import chains..."
+# 驗證 ES 模組匯入鏈 — 確保套件中無遺失檔案
+echo "🔍 驗證 ES 模組匯入鏈..."
 node -e "
 const fs = require('node:fs');
 const path = require('node:path');
@@ -77,14 +77,18 @@ const missing = [];
 
 function resolveImports(filePath) {
   const absPath = path.resolve(filePath);
-  if (visited.has(absPath) || !fs.existsSync(absPath)) return;
+  if (visited.has(absPath)) return;
+  if (!fs.existsSync(absPath)) {
+    missing.push({ from: filePath, needs: filePath, resolved: path.relative(pkgDir, absPath) });
+    return;
+  }
   visited.add(absPath);
 
   const content = fs.readFileSync(absPath, 'utf8');
-  const importRegex = /(?:import|export)\s+.*?from\s+['\"]([^'\"]+)['\"];?/g;
+  const importRegex = /(?:import|export)\s+[\s\S]*?from\s+['\"]([^'\"]+)['\"];?|import\s+['\"]([^'\"]+)['\"];?/g;
   let match;
   while ((match = importRegex.exec(content)) !== null) {
-    const specifier = match[1];
+    const specifier = match[1] || match[2];
     if (!specifier.startsWith('.')) continue;
     const resolved = path.resolve(path.dirname(absPath), specifier);
     if (!fs.existsSync(resolved)) {
@@ -95,7 +99,7 @@ function resolveImports(filePath) {
   }
 }
 
-// Find all <script type=\"module\" src=\"...\"> in HTML files (attribute order varies)
+// 找出所有 HTML 檔案中的 <script type=\"module\" src=\"...\"> 入口（屬性順序不固定）
 const htmlDirs = ['popup', 'options', 'sidepanel', 'update-notification'];
 for (const dir of htmlDirs) {
   const dirPath = path.join(pkgDir, dir);
@@ -115,13 +119,13 @@ for (const dir of htmlDirs) {
 }
 
 if (missing.length > 0) {
-  console.error('❌ Missing ES module dependencies in package:');
+  console.error('❌ 套件中存在遺失的 ES 模組依賴：');
   for (const m of missing) {
     console.error('   ' + m.from + ' → import from ' + JSON.stringify(m.needs) + ' → file not found: ' + m.resolved);
   }
   process.exit(1);
 } else {
-  console.log('✅ All ES module import chains verified (' + visited.size + ' files checked)');
+  console.log('✅ 所有 ES 模組匯入鏈驗證通過（已檢查 ' + visited.size + ' 個檔案）');
 }
 "
 

@@ -101,6 +101,38 @@ describe('popupActions.js', () => {
       expect(localData.notionDatabaseId).toBe('sync-db-id');
     });
 
+    it('當 sync 僅有 notionDatabaseId (legacy key) 時，應回退並正確遷移', async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDatabaseId: 'legacy-sync-id',
+      });
+
+      const result = await checkSettings();
+      expect(result.valid).toBe(true);
+      expect(result.dataSourceId).toBe('legacy-sync-id');
+
+      const localData = await chrome.storage.local.get(['notionDataSourceId', 'notionDatabaseId']);
+      expect(localData.notionDataSourceId).toBe('legacy-sync-id');
+      expect(localData.notionDatabaseId).toBe('legacy-sync-id');
+    });
+
+    it('當 chrome.storage.local.set 拋錯時，checkSettings 仍應正常回傳', async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'sync-db-id',
+      });
+
+      const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+      chrome.storage.local.set = jest.fn().mockRejectedValueOnce(new Error('Quota exceeded'));
+
+      const result = await checkSettings();
+      expect(result.valid).toBe(true);
+      expect(result.dataSourceId).toBe('sync-db-id');
+
+      // 還原
+      chrome.storage.local.set = originalSet;
+    });
+
     it('當 local 和 sync 都有 dataSourceId 時，應優先使用 local', async () => {
       await chrome.storage.sync.set({
         notionApiKey: 'test-key',

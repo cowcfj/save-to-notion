@@ -42,14 +42,16 @@ export async function checkSettings() {
           notionDatabaseId: syncDataSourceId,
         })
         .then(() => {
-          Logger.warn('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
-            action: 'migrateDataSourceKey',
+          Logger.success('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
+            action: 'checkSettings',
+            operation: 'migrateDataSourceKey',
           });
         })
         .catch(error => {
           Logger.warn('[Settings] dataSourceId 遷移失敗，下次開啟 popup 會重試', {
-            action: 'migrateDataSourceKey',
-            error: error?.message,
+            action: 'checkSettings',
+            operation: 'migrateDataSourceKey',
+            error,
           });
         });
     }
