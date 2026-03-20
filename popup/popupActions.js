@@ -18,15 +18,20 @@ import { AuthMode } from '../scripts/config/api.js';
  */
 export async function checkSettings() {
   try {
-    const [result, localResult] = await Promise.all([
-      chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']),
-      chrome.storage.local.get(['notionAuthMode', 'notionOAuthToken']),
+    const [syncResult, localResult] = await Promise.all([
+      chrome.storage.sync.get(['notionApiKey']),
+      chrome.storage.local.get([
+        'notionAuthMode',
+        'notionOAuthToken',
+        'notionDataSourceId',
+        'notionDatabaseId',
+      ]),
     ]);
     const isOAuth = localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken;
-    const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
+    const dataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
     return {
-      valid: Boolean((result.notionApiKey || isOAuth) && dataSourceId),
-      apiKey: result.notionApiKey,
+      valid: Boolean((syncResult.notionApiKey || isOAuth) && dataSourceId),
+      apiKey: syncResult.notionApiKey,
       dataSourceId,
     };
   } catch (error) {

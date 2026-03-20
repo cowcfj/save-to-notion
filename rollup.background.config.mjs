@@ -2,7 +2,6 @@ import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
-import replace from '@rollup/plugin-replace';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -35,12 +34,6 @@ export default {
     banner: '/* eslint-disable */\n/* Save to Notion - Background Script */',
   },
   plugins: [
-    replace({
-      preventAssignment: true,
-      values: {
-        __EXTENSION_API_KEY__: JSON.stringify(process.env.EXTENSION_API_KEY || ''),
-      },
-    }),
     stripTestConfig(),
     resolve({
       browser: true,

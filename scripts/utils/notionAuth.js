@@ -1,6 +1,7 @@
 /* global chrome */
 import Logger from './Logger.js';
 import { AuthMode, NOTION_OAUTH } from '../config/api.js';
+import { BUILD_ENV } from '../config/env.js';
 import { sanitizeApiError } from './securityUtils.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';
@@ -62,6 +63,45 @@ async function clearStoredRefreshProof(action, nextAuthEpoch = null) {
   }
 }
 
+function getMissingRefreshBuildEnvKeys(buildEnv) {
+  const missingBuildEnvKeys = [];
+
+  if (!isNonEmptyString(buildEnv.OAUTH_SERVER_URL)) {
+    missingBuildEnvKeys.push('OAUTH_SERVER_URL');
+  }
+  if (!isNonEmptyString(buildEnv.EXTENSION_API_KEY)) {
+    missingBuildEnvKeys.push('EXTENSION_API_KEY');
+  }
+
+  return missingBuildEnvKeys;
+}
+
+async function getRefreshErrorCode(response) {
+  try {
+    const errorData = await response.json();
+    return errorData?.error_code ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleFailedRefreshResponse(response, oldRefreshToken, startAuthEpoch) {
+  const errorCode = await getRefreshErrorCode(response);
+
+  if (errorCode === 'INVALID_REFRESH_PROOF') {
+    if (await shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch)) {
+      return;
+    }
+
+    await clearStoredRefreshProof('refreshOAuthToken', startAuthEpoch + 1);
+  }
+
+  Logger.error('Token 刷新請求失敗', {
+    action: 'refreshOAuthToken',
+    status: response.status,
+  });
+}
+
 /**
  * 取得目前有效的 Notion API Token（不論模式）
  * 優先讀取 OAuth Token（local），若無則讀取手動 API Key（sync）
@@ -100,12 +140,21 @@ async function performRefreshOAuthToken() {
       return null;
     }
 
-    const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
+    const missingBuildEnvKeys = getMissingRefreshBuildEnvKeys(BUILD_ENV);
+    if (missingBuildEnvKeys.length > 0) {
+      Logger.error('無法刷新 Token：缺少 OAuth 建置環境設定', {
+        action: 'refreshOAuthToken',
+        missingBuildEnvKeys,
+      });
+      return null;
+    }
+
+    const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
     const response = await fetch(serverUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Extension-Key': NOTION_OAUTH.EXTENSION_API_KEY,
+        'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
       },
       body: JSON.stringify({
         refresh_token: localData.notionRefreshToken,
@@ -116,26 +165,7 @@ async function performRefreshOAuthToken() {
     });
 
     if (!response.ok) {
-      let errorCode = null;
-      try {
-        const errorData = await response.json();
-        errorCode = errorData?.error_code ?? null;
-      } catch {
-        errorCode = null;
-      }
-
-      if (errorCode === 'INVALID_REFRESH_PROOF') {
-        if (await shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch)) {
-          return null;
-        }
-
-        await clearStoredRefreshProof('refreshOAuthToken', startAuthEpoch + 1);
-      }
-
-      Logger.error('Token 刷新請求失敗', {
-        action: 'refreshOAuthToken',
-        status: response.status,
-      });
+      await handleFailedRefreshResponse(response, oldRefreshToken, startAuthEpoch);
       return null;
     }
 

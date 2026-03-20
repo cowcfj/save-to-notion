@@ -17,9 +17,18 @@ import { AuthManager } from '../../../options/AuthManager.js';
 import { DataSourceManager } from '../../../options/DataSourceManager.js';
 import { StorageManager } from '../../../options/StorageManager.js';
 import { MigrationTool } from '../../../options/MigrationTool.js';
+import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 // Mocks for dependencies
+jest.mock('../../../scripts/config/env.js', () => ({
+  BUILD_ENV: {
+    ENABLE_OAUTH: true,
+    OAUTH_SERVER_URL: '',
+    OAUTH_CLIENT_ID: '',
+    EXTENSION_API_KEY: '',
+  },
+}));
 jest.mock('../../../options/UIManager.js');
 jest.mock('../../../options/AuthManager.js');
 jest.mock('../../../options/DataSourceManager.js');
@@ -37,6 +46,22 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     error: jest.fn(),
   },
 }));
+
+function appendSaveFormFields() {
+  document.body.innerHTML += `
+    <input id="api-key" value="key_123" />
+    <input id="database-id" value="a1b2c3d4e5f67890abcdef1234567890" />
+    <input id="title-template" value="{title}" />
+    <input type="checkbox" id="add-source" checked />
+    <input type="checkbox" id="add-timestamp" />
+    <input id="database-type" value="database" />
+  `;
+}
+
+async function flushAsyncClick() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 describe('options.js', () => {
   describe('formatTitle', () => {
@@ -333,9 +358,11 @@ describe('options.js', () => {
     let mockDataSourceInstance = null;
     let mockStorageInstance = null;
     let mockMigrationInstance = null;
+    const originalEnableOauth = BUILD_ENV.ENABLE_OAUTH;
 
     beforeEach(() => {
       jest.clearAllMocks();
+      BUILD_ENV.ENABLE_OAUTH = originalEnableOauth;
 
       // Setup mock instances
       mockUiInstance = { init: jest.fn(), showStatus: jest.fn() };
@@ -388,6 +415,10 @@ describe('options.js', () => {
           },
         },
       };
+    });
+
+    afterEach(() => {
+      BUILD_ENV.ENABLE_OAUTH = originalEnableOauth;
     });
 
     it('should initialize all managers and check auth status', () => {
@@ -495,6 +526,52 @@ describe('options.js', () => {
       );
     });
 
+    it('當 OAuth 被停用時應隱藏連接按鈕', () => {
+      BUILD_ENV.ENABLE_OAUTH = false;
+      document.body.innerHTML += `
+        <button id="oauth-connect-button" style="display:block"></button>
+        <button id="oauth-disconnect-button" style="display:block"></button>
+      `;
+
+      initOptions();
+
+      expect(document.querySelector('#oauth-connect-button').style.display).toBe('none');
+      expect(document.querySelector('#oauth-disconnect-button').style.display).toBe('none');
+    });
+
+    it('應監聽 storageUsageUpdate 事件並更新儲存使用量', () => {
+      initOptions();
+
+      document.dispatchEvent(new Event('storageUsageUpdate'));
+
+      expect(mockStorageInstance.updateStorageUsage).toHaveBeenCalledTimes(1);
+    });
+
+    it('應初始化 Notion 同步樣式選單', () => {
+      document.body.innerHTML += `
+        <select id="highlight-content-style">
+          <option value="COLOR_SYNC">COLOR_SYNC</option>
+          <option value="inline">inline</option>
+        </select>
+      `;
+      globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
+        if (Array.isArray(keys)) {
+          cb({});
+          return;
+        }
+
+        cb({ highlightContentStyle: 'inline' });
+      });
+
+      initOptions();
+
+      expect(globalThis.chrome.storage.sync.get).toHaveBeenCalledWith(
+        { highlightContentStyle: 'COLOR_SYNC' },
+        expect.any(Function)
+      );
+      expect(document.querySelector('#highlight-content-style').value).toBe('inline');
+    });
+
     it('should handle navigation', () => {
       initOptions();
       const navItem = document.querySelector('.nav-item');
@@ -503,6 +580,115 @@ describe('options.js', () => {
       navItem.click();
       expect(navItem.classList.contains('active')).toBe(true);
       expect(section.classList.contains('active')).toBe(true);
+    });
+
+    it('導航項目缺少 data-section 時應記錄警告', () => {
+      document.body.innerHTML = `
+        <button id="save-button"></button>
+        <button id="save-templates-button"></button>
+        <div id="app-version"></div>
+        <div class="nav-item"></div>
+        <div id="section-general" class="settings-section"></div>
+      `;
+
+      initOptions();
+
+      document.querySelector('.nav-item').click();
+
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 data-section'), {
+        action: 'setupSidebarNavigation',
+        tagName: 'DIV',
+        targetId: null,
+        sectionName: null,
+      });
+    });
+
+    it('導航目標區塊不存在時應記錄警告', () => {
+      document.body.innerHTML = `
+        <button id="save-button"></button>
+        <button id="save-templates-button"></button>
+        <div id="app-version"></div>
+        <div class="nav-item" data-section="advanced"></div>
+        <div id="section-general" class="settings-section"></div>
+      `;
+
+      initOptions();
+
+      document.querySelector('.nav-item').click();
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('找不到目標區塊'),
+        expect.objectContaining({
+          action: 'setupSidebarNavigation',
+          targetId: 'section-advanced',
+        })
+      );
+    });
+
+    it('切換導航時應停用非目標區塊並更新 aria 屬性', () => {
+      document.body.innerHTML = `
+        <button id="save-button"></button>
+        <button id="save-templates-button"></button>
+        <div id="app-version"></div>
+        <button class="nav-item active" data-section="general" aria-selected="true"></button>
+        <button class="nav-item" data-section="advanced" aria-selected="false"></button>
+        <section id="section-general" class="settings-section active" aria-hidden="false"></section>
+        <section id="section-advanced" class="settings-section" aria-hidden="true"></section>
+      `;
+
+      initOptions();
+
+      const navItems = document.querySelectorAll('.nav-item');
+      const sections = document.querySelectorAll('.settings-section');
+
+      navItems[1].click();
+
+      expect(navItems[0].classList.contains('active')).toBe(false);
+      expect(navItems[0].getAttribute('aria-selected')).toBe('false');
+      expect(navItems[1].classList.contains('active')).toBe(true);
+      expect(navItems[1].getAttribute('aria-selected')).toBe('true');
+      expect(sections[0].classList.contains('active')).toBe(false);
+      expect(sections[0].getAttribute('aria-hidden')).toBe('true');
+      expect(sections[1].classList.contains('active')).toBe(true);
+      expect(sections[1].getAttribute('aria-hidden')).toBe('false');
+    });
+
+    it('點擊保存按鈕時應以 status 狀態區儲存設定', async () => {
+      appendSaveFormFields();
+      globalThis.chrome.storage.local = { set: jest.fn().mockResolvedValue() };
+      globalThis.chrome.storage.sync.set = jest.fn().mockResolvedValue();
+
+      initOptions();
+      document.querySelector('#save-button').click();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notionApiKey: 'key_123',
+        })
+      );
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('成功'),
+        'success',
+        'status'
+      );
+    });
+
+    it('點擊保存模板按鈕時應以 template-status 狀態區儲存設定', async () => {
+      appendSaveFormFields();
+      document.body.innerHTML += '<div id="template-status"></div>';
+      globalThis.chrome.storage.local = { set: jest.fn().mockResolvedValue() };
+      globalThis.chrome.storage.sync.set = jest.fn().mockResolvedValue();
+
+      initOptions();
+      document.querySelector('#save-templates-button').click();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('成功'),
+        'success',
+        'template-status'
+      );
     });
 
     it('should initialize zoom level', () => {
@@ -541,8 +727,11 @@ describe('options.js', () => {
   describe('Log Export', () => {
     let mockSendMessage = null;
     let anchorClickSpy = null;
+    let originalCreateObjectURL = null;
+    let originalRevokeObjectURL = null;
 
     beforeEach(() => {
+      jest.useFakeTimers();
       document.body.innerHTML = `
         <button id="export-logs-button">導出日誌</button>
         <div id="export-status"></div>
@@ -552,11 +741,19 @@ describe('options.js', () => {
         .spyOn(HTMLAnchorElement.prototype, 'click')
         .mockImplementation(() => {});
       mockSendMessage = jest.fn();
+      originalCreateObjectURL = globalThis.URL.createObjectURL;
+      originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
+      globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
+      globalThis.URL.revokeObjectURL = jest.fn();
       globalThis.chrome.runtime.sendMessage = mockSendMessage;
     });
 
     afterEach(() => {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
       anchorClickSpy?.mockRestore();
+      globalThis.URL.createObjectURL = originalCreateObjectURL;
+      globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
     });
 
     it('should stay disabled while exporting and restore afterwards without changing text', async () => {
@@ -570,10 +767,6 @@ describe('options.js', () => {
           count: 10,
         },
       });
-
-      // Mock URL.createObjectURL and URL.revokeObjectURL
-      globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
-      globalThis.URL.revokeObjectURL = jest.fn();
 
       // Initialize to attach event listeners
       initOptions();
@@ -589,7 +782,7 @@ describe('options.js', () => {
       expect(exportBtn.textContent).toBe(originalText); //文字不應該改變
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await flushAsyncClick();
 
       // Check final state
       expect(exportBtn.disabled).toBe(false);
@@ -597,6 +790,15 @@ describe('options.js', () => {
 
       const statusEl = document.querySelector('#export-status');
       expect(statusEl.textContent).toContain('已成功匯出 10 條日誌');
+      expect(globalThis.URL.createObjectURL).toHaveBeenCalled();
+      expect(globalThis.URL.revokeObjectURL).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(100);
+      expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith('blob:url');
+
+      jest.advanceTimersByTime(3000);
+      expect(statusEl.textContent).toBe('');
+      expect(statusEl.className).toBe('status-message');
     });
 
     it('should restore disabled state even on error without changing text', async () => {
@@ -617,7 +819,7 @@ describe('options.js', () => {
       expect(exportBtn.textContent).toBe(originalText);
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await flushAsyncClick();
 
       // Check final state
       expect(exportBtn.disabled).toBe(false);
@@ -625,6 +827,55 @@ describe('options.js', () => {
 
       const statusEl = document.querySelector('#export-status');
       expect(statusEl.textContent).toContain('網路連線異常');
+
+      jest.advanceTimersByTime(5000);
+      expect(statusEl.textContent).toBe('');
+      expect(statusEl.className).toBe('status-message');
+    });
+
+    it('當背景頁沒有回應時應顯示錯誤並恢復按鈕狀態', async () => {
+      mockSendMessage.mockResolvedValue(undefined);
+
+      initOptions();
+
+      const exportBtn = document.querySelector('#export-logs-button');
+      exportBtn.click();
+      await flushAsyncClick();
+
+      const statusEl = document.querySelector('#export-status');
+      expect(statusEl.textContent).toContain('匯出失敗');
+      expect(exportBtn.disabled).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
+    });
+
+    it('當背景頁返回明確錯誤時應顯示錯誤訊息', async () => {
+      mockSendMessage.mockResolvedValue({ error: 'custom export error' });
+
+      initOptions();
+
+      const exportBtn = document.querySelector('#export-logs-button');
+      exportBtn.click();
+      await flushAsyncClick();
+
+      const statusEl = document.querySelector('#export-status');
+      expect(statusEl.textContent).toContain('匯出失敗');
+      expect(exportBtn.disabled).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
+    });
+
+    it('當背景頁返回 success false 時應顯示預設失敗訊息', async () => {
+      mockSendMessage.mockResolvedValue({ success: false });
+
+      initOptions();
+
+      const exportBtn = document.querySelector('#export-logs-button');
+      exportBtn.click();
+      await flushAsyncClick();
+
+      const statusEl = document.querySelector('#export-status');
+      expect(statusEl.textContent).toContain('匯出失敗');
+      expect(exportBtn.disabled).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
     });
   });
 });

@@ -5,8 +5,18 @@ import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/api.js';
+import { BUILD_ENV } from '../../../scripts/config/env.js';
 
 // Mock dependencies
+jest.mock('../../../scripts/config/env.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env.js'),
+  BUILD_ENV: {
+    ENABLE_OAUTH: true,
+    OAUTH_SERVER_URL: 'https://test-server.example.com',
+    OAUTH_CLIENT_ID: 'test-client-id',
+    EXTENSION_API_KEY: 'test-api-key',
+  },
+}));
 jest.mock('../../../options/UIManager.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
@@ -542,11 +552,13 @@ describe('AuthManager Extended', () => {
 
       expect(chrome.identity.launchWebAuthFlow).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining(`client_id=${encodeURIComponent(NOTION_OAUTH.CLIENT_ID)}`),
+          url: expect.stringContaining(
+            `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}`
+          ),
         })
       );
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`,
+        `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`,
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -756,6 +768,24 @@ describe('AuthManager Extended', () => {
         UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
       );
     });
+
+    test('缺少 OAUTH_CLIENT_ID 時應記錄錯誤、清理 state 並恢復按鈕', async () => {
+      BUILD_ENV.OAUTH_CLIENT_ID = '   ';
+
+      await authManager.startOAuthFlow();
+
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
+        action: 'startOAuthFlow',
+        missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
+      });
+      expect(chrome.storage.session.set).not.toHaveBeenCalled();
+      expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
+      expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
+      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
+      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
+        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
+      );
+    });
   });
 
   describe('disconnectOAuth', () => {
@@ -882,14 +912,17 @@ describe('AuthManager Extended', () => {
       const result = await AuthManager.refreshOAuthToken();
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
         expect.objectContaining({
           method: 'POST',
+          headers: expect.objectContaining({
+            'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
+          }),
           body: expect.stringContaining('"refresh_token":"refresh_2"'),
         })
       );
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
+        `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`,
         expect.objectContaining({
           body: expect.stringContaining('"refresh_proof":"proof_2"'),
         })

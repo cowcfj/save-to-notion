@@ -1,4 +1,8 @@
 *.pem
+
+# 建置環境配置（含 OAuth 敏感資訊，不追蹤）
+scripts/config/env.js
+
 .DS# 內部文檔目錄(所有內部開發文檔)
 .history/
 

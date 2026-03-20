@@ -5,6 +5,7 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { AuthMode, NOTION_OAUTH } from '../scripts/config/api.js';
+import { BUILD_ENV } from '../scripts/config/env.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
@@ -443,7 +444,7 @@ export class AuthManager {
    * @returns {Promise<object>} Token data
    */
   async _exchangeOAuthToken(code, redirectUri) {
-    const serverUrl = `${NOTION_OAUTH.SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
+    const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
     const tokenResponse = await fetch(serverUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -485,6 +486,15 @@ export class AuthManager {
         });
       }
     }
+    this._restoreOAuthConnectButton();
+  }
+
+  /**
+   * 還原 OAuth 連接按鈕至預設狀態
+   *
+   * @private
+   */
+  _restoreOAuthConnectButton() {
     if (this.elements.oauthConnectButton) {
       this.elements.oauthConnectButton.disabled = false;
       this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;
@@ -572,6 +582,15 @@ export class AuthManager {
       // 前置檢查
       this._checkIdentityApi();
 
+      if (!isNonEmptyString(BUILD_ENV.OAUTH_CLIENT_ID)) {
+        Logger.error('[Auth] OAuth Client ID 未設定', {
+          action: 'startOAuthFlow',
+          missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
+        });
+        await this._cleanupOAuthState('oauthState');
+        return;
+      }
+
       // 更新按鈕為載入狀態
       if (this.elements.oauthConnectButton) {
         this.elements.oauthConnectButton.disabled = true;
@@ -588,7 +607,7 @@ export class AuthManager {
       // 3. 組成 Notion 授權 URL
       const authUrl =
         `https://api.notion.com/v1/oauth/authorize?` +
-        `client_id=${encodeURIComponent(NOTION_OAUTH.CLIENT_ID)}&` +
+        `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}&` +
         `response_type=code&owner=user&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `state=${encodeURIComponent(csrfState)}`;

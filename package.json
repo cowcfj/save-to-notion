@@ -21,7 +21,7 @@
     "lint:report": "eslint . --format json --output-file docs/reports/eslint_report.json",
     "format": "prettier --write \"**/*.{js,json,md,html}\"",
     "format:check": "prettier --check \"**/*.{js,json,md,html}\"",
-    "postinstall": "npm run build",
+    "postinstall": "node scripts/postinstall.js && npm run build",
     "build": "rollup -c rollup.all.config.mjs",
     "build:watch": "rollup -c rollup.all.config.mjs -w",
     "build:highlighter": "rollup -c rollup.config.mjs",

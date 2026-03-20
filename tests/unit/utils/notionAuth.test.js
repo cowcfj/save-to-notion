@@ -11,8 +11,18 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     warn: jest.fn(),
   },
 }));
+jest.mock('../../../scripts/config/env.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env.js'),
+  BUILD_ENV: {
+    ENABLE_OAUTH: true,
+    OAUTH_SERVER_URL: 'https://test-server.example.com',
+    OAUTH_CLIENT_ID: 'test-client-id',
+    EXTENSION_API_KEY: 'test-api-key',
+  },
+}));
 
 import Logger from '../../../scripts/utils/Logger.js';
+import { BUILD_ENV } from '../../../scripts/config/env.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
@@ -21,6 +31,10 @@ import {
 
 describe('notionAuth utils', () => {
   beforeEach(() => {
+    BUILD_ENV.ENABLE_OAUTH = true;
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://test-server.example.com';
+    BUILD_ENV.OAUTH_CLIENT_ID = 'test-client-id';
+    BUILD_ENV.EXTENSION_API_KEY = 'test-api-key';
     globalThis.chrome = {
       storage: {
         sync: {
@@ -90,6 +104,23 @@ describe('notionAuth utils', () => {
     expect(result).toBeNull();
     expect(Logger.error).toHaveBeenCalledWith('無法刷新 Token：缺少 refresh_token', {
       action: 'refreshOAuthToken',
+    });
+  });
+
+  test('refreshOAuthToken 缺少必要建置環境設定時不應發送請求', async () => {
+    BUILD_ENV.EXTENSION_API_KEY = '';
+    chrome.storage.local.get.mockResolvedValueOnce({
+      notionAuthMode: 'oauth',
+      notionRefreshToken: 'refresh_token_missing_build_env',
+    });
+
+    const result = await refreshOAuthToken();
+
+    expect(result).toBeNull();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(Logger.error).toHaveBeenCalledWith('無法刷新 Token：缺少 OAuth 建置環境設定', {
+      action: 'refreshOAuthToken',
+      missingBuildEnvKeys: ['EXTENSION_API_KEY'],
     });
   });
 
@@ -200,7 +231,7 @@ describe('notionAuth utils', () => {
       expect.any(String),
       expect.objectContaining({
         headers: expect.objectContaining({
-          'X-Extension-Key': expect.any(String),
+          'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
         }),
         body: expect.stringContaining('"refresh_proof":"refresh_proof_2"'),
       })

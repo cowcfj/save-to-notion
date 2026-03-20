@@ -135,3 +135,26 @@ export const ENV = Object.freeze({
     return isProduction();
   },
 });
+
+// ==========================================
+// 建置環境配置 (Build Environment Config)
+// ==========================================
+
+/**
+ * 建置環境配置
+ * 此物件為所有 OAuth 相關配置的「單一真理來源 (Single Source of Truth)」。
+ * - 本地開發：由 postinstall 自動從 env.example.js 複製，預設值為 OAuth 關閉。
+ * - CI/CD 生產：由 GitHub Actions 腳本基於 env.example.js 動態生成並注入 Secrets。
+ *
+ * @see docs/specs/BUILD_ENVIRONMENT_STRATEGY_SPEC.md
+ */
+export const BUILD_ENV = Object.freeze({
+  // 控制 UI 是否渲染 OAuth 登入區塊，以及 AuthManager 是否啟動 OAuth 流程
+  ENABLE_OAUTH: false,
+  // 後端 Token 代理伺服器位址
+  OAUTH_SERVER_URL: '',
+  // Notion Public Integration Client ID
+  OAUTH_CLIENT_ID: '',
+  // 用於驗證 /refresh 請求，須與 Cloudflare Worker 的 EXTENSION_API_KEY binding 一致
+  EXTENSION_API_KEY: '',
+});

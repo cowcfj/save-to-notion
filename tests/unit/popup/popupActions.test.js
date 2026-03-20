@@ -20,6 +20,8 @@ describe('popupActions.js', () => {
     it('當設置完整時應該返回 valid: true', async () => {
       await chrome.storage.sync.set({
         notionApiKey: 'test-key',
+      });
+      await chrome.storage.local.set({
         notionDataSourceId: 'test-db',
       });
 
@@ -30,7 +32,7 @@ describe('popupActions.js', () => {
     });
 
     it('當缺少 API Key 時應該返回 valid: false', async () => {
-      await chrome.storage.sync.set({
+      await chrome.storage.local.set({
         notionDataSourceId: 'test-db',
       });
 
@@ -48,10 +50,8 @@ describe('popupActions.js', () => {
     });
 
     it('當缺少 API Key 但處於 OAuth 模式時應該返回 valid: true', async () => {
-      await chrome.storage.sync.set({
-        notionDataSourceId: 'test-db',
-      });
       await chrome.storage.local.set({
+        notionDataSourceId: 'test-db',
         notionAuthMode: 'oauth',
         notionOAuthToken: 'test-token',
       });
@@ -64,6 +64,8 @@ describe('popupActions.js', () => {
     it('應該同時支持 notionDataSourceId 和 notionDatabaseId (兼容性檢查)', async () => {
       await chrome.storage.sync.set({
         notionApiKey: 'test-key',
+      });
+      await chrome.storage.local.set({
         notionDatabaseId: 'old-db-id',
       });
 
