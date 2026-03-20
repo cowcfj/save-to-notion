@@ -26,6 +26,7 @@ describe('scripts/postinstall.js', () => {
         throw copyError;
       }
     });
+    const readFileSyncMock = jest.fn(() => 'export const BUILD_ENV = Object.freeze({});');
     const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -35,23 +36,31 @@ describe('scripts/postinstall.js', () => {
     jest.doMock('node:fs', () => ({
       existsSync: existsSyncMock,
       copyFileSync: copyFileSyncMock,
+      readFileSync: readFileSyncMock,
     }));
     jest.doMock('node:path', () => ({
       join: joinMock,
     }));
 
+    let thrownError = null;
     jest.isolateModules(() => {
-      require('../../../scripts/postinstall.js');
+      try {
+        require('../../../scripts/postinstall.js');
+      } catch (error) {
+        thrownError = error;
+      }
     });
 
     return {
       joinMock,
       existsSyncMock,
       copyFileSyncMock,
+      readFileSyncMock,
       consoleInfoSpy,
       consoleWarnSpy,
       consoleErrorSpy,
       cwdSpy,
+      thrownError,
     };
   }
 
@@ -68,33 +77,46 @@ describe('scripts/postinstall.js', () => {
       joinMock,
       existsSyncMock,
       copyFileSyncMock,
+      readFileSyncMock,
       consoleInfoSpy,
       consoleWarnSpy,
       consoleErrorSpy,
       cwdSpy,
+      thrownError,
     } = loadPostinstall({
       envExists: false,
     });
 
+    expect(thrownError).toBeNull();
     expect(cwdSpy).toHaveBeenCalled();
     expect(joinMock).toHaveBeenNthCalledWith(1, projectRoot, 'scripts', 'config', 'env.js');
     expect(joinMock).toHaveBeenNthCalledWith(2, projectRoot, 'scripts', 'config', 'env.example.js');
     expect(existsSyncMock).toHaveBeenNthCalledWith(1, targetPath);
     expect(existsSyncMock).toHaveBeenNthCalledWith(2, templatePath);
     expect(copyFileSyncMock).toHaveBeenCalledWith(templatePath, targetPath);
+    expect(readFileSyncMock).toHaveBeenCalledWith(targetPath, 'utf8');
     expect(consoleInfoSpy).toHaveBeenCalledWith('已從 env.example.js 建立 scripts/config/env.js');
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     expect(process.exitCode).toBeUndefined();
   });
 
-  test('當 env.js 已存在時不應複製也不應輸出提示', () => {
-    const { existsSyncMock, copyFileSyncMock, consoleInfoSpy, consoleWarnSpy, consoleErrorSpy } =
-      loadPostinstall({
-        envExists: true,
-      });
+  test('當 env.js 已存在時應驗證 BUILD_ENV 匯出而不複製', () => {
+    const {
+      existsSyncMock,
+      copyFileSyncMock,
+      readFileSyncMock,
+      consoleInfoSpy,
+      consoleWarnSpy,
+      consoleErrorSpy,
+      thrownError,
+    } = loadPostinstall({
+      envExists: true,
+    });
 
+    expect(thrownError).toBeNull();
     expect(existsSyncMock).toHaveBeenCalledWith(targetPath);
+    expect(readFileSyncMock).toHaveBeenCalledWith(targetPath, 'utf8');
     expect(copyFileSyncMock).not.toHaveBeenCalled();
     expect(consoleInfoSpy).not.toHaveBeenCalled();
     expect(consoleWarnSpy).not.toHaveBeenCalled();
@@ -102,32 +124,27 @@ describe('scripts/postinstall.js', () => {
     expect(process.exitCode).toBeUndefined();
   });
 
-  test('當 template 不存在時應中止安裝並輸出警告', () => {
-    const { copyFileSyncMock, consoleInfoSpy, consoleWarnSpy, consoleErrorSpy } = loadPostinstall({
+  test('當 template 不存在時應拋出錯誤中止安裝', () => {
+    const { copyFileSyncMock, thrownError } = loadPostinstall({
       envExists: false,
       templateExists: false,
     });
 
     expect(copyFileSyncMock).not.toHaveBeenCalled();
-    expect(consoleInfoSpy).not.toHaveBeenCalled();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '找不到範本檔 env.example.js，已跳過建立 scripts/config/env.js'
-    );
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
-    expect(process.exitCode).toBe(1);
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError.message).toContain('找不到 env.example.js');
   });
 
-  test('當複製失敗時應中止安裝並輸出錯誤細節', () => {
+  test('當複製失敗時應拋出錯誤中止安裝', () => {
     const copyError = new Error('disk full');
-    const { consoleInfoSpy, consoleWarnSpy, consoleErrorSpy } = loadPostinstall({
+    const { thrownError } = loadPostinstall({
       envExists: false,
       templateExists: true,
       copyError,
     });
 
-    expect(consoleInfoSpy).not.toHaveBeenCalled();
-    expect(consoleWarnSpy).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith('建立 scripts/config/env.js 失敗：', copyError);
-    expect(process.exitCode).toBe(1);
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError.message).toContain('建立 scripts/config/env.js 失敗');
+    expect(thrownError.message).toContain('disk full');
   });
 });
