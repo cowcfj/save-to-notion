@@ -1,4 +1,8 @@
-import { LogSanitizer, sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
+import {
+  LogSanitizer,
+  sanitizeUrlForLogging,
+  LOG_TRACKING_PARAMS,
+} from '../../../scripts/utils/LogSanitizer.js';
 import { URL_NORMALIZATION } from '../../../scripts/config/extraction.js';
 
 describe('LogSanitizer', () => {
@@ -456,6 +460,11 @@ describe('LogSanitizer', () => {
   });
 
   describe('LOG_TRACKING_PARAMS 追蹤參數移除', () => {
+    test('LOG_TRACKING_PARAMS 應與 URL_NORMALIZATION.TRACKING_PARAMS 保持同步', () => {
+      expect(LOG_TRACKING_PARAMS).toHaveLength(URL_NORMALIZATION.TRACKING_PARAMS.length);
+      expect(new Set(LOG_TRACKING_PARAMS)).toEqual(new Set(URL_NORMALIZATION.TRACKING_PARAMS));
+    });
+
     test('sanitizeUrlForLogging 應移除所有已知追蹤參數', () => {
       // 建構一個包含所有追蹤參數的 URL
       const params = URL_NORMALIZATION.TRACKING_PARAMS.map(p => `${p}=test`).join('&');
