@@ -39,6 +39,8 @@
 
 **👉 方式 A：快捷授權 (推薦，支援 OAuth 一鍵登入)**
 
+> ⚠️ **注意**：此一鍵登入功能僅支援官方發布的版本（包含 Chrome 商店與 GitHub Releases 載點）。若您使用的是自行編譯的 Fork 或二次開發版本，請使用下方的「方式 B」，或查閱文末的「自訂 Notion OAuth」開發說明。
+
 1. 點擊擴展圖標 → `⚙️ 設定` → 點擊「**🔌 連接到 Notion**」
 2. 在跳轉的 Notion 官方頁面完成授權並選擇工作區
 3. 回到擴展的設定介面，選擇目標資料庫（Data Source），點擊「保存設置」
@@ -157,7 +159,7 @@
 ### 文本標註
 
 1. 點擊「**開始標註**」啟用標註模式
-2. 選擇標註顏色（🟡黃色、🟢綠色、🔵藍色、🔴紅色、🟣紫色）
+2. 選擇標註顏色（🟡黃色、🟢綠色、🔵藍色、🔴紅色）
 3. 選中文字自動創建標註（支持跨段落選擇）
 4. 點擊「同步」將標記保存到 Notion
 5. **刪除標註**：
@@ -317,6 +319,36 @@ vim scripts/highlighter/core/Range.js
   - 保留關鍵全局變數
 
 **構建配置**：`rollup.config.mjs`
+
+### 🔌 自訂 Notion OAuth (適用於二次開發)
+
+開源版與官方生產版的建置環境已完全分離。為避免依賴無法公開的官方後端代理，開源版預設會隱藏 OAuth 按鈕（僅顯示傳統的「手動填寫 Integration Token」）。
+
+如果您希望在自己開發的版本中啟用 Notion OAuth 一鍵登入，請按照以下步驟設定：
+
+1. **部署自己的 OAuth 代理伺服器**：
+   - 您需要實作一個後端服務（如 Cloudflare Worker）來安全保管您的 `client_secret`，並代理 Notion 的 `/v1/oauth/token` 與 `/v1/oauth/refresh` 請求。
+   - **安全建議**：為了防止他人濫用您的代理伺服器，請自行生成一組專屬的金鑰（API Key），並在您的後端服務中檢查請求標頭 `X-Extension-Key` 是否與該金鑰相符。
+   - <details>
+       <summary>💡 查看 Cloudflare Worker 代理伺服器範例</summary>
+
+     我們準備了一份可以直接複製使用的 [Cloudflare Worker 代理程式碼範例](examples/cloudflare-worker-oauth.js)，其中已包含 CORS 處理與基本的安全性防護，可大幅節省您的建置時間。
+     </details>
+
+2. **申請 Notion Public Integration**：
+   - 在 Notion Integrations 頁面建立一組 Public API，取得 `client_id`。
+3. **配置本地環境變數**：
+   - 首次執行 `npm install` 後，專案會自動將模板複製為 `scripts/config/env.js`（此檔案並未被 Git 追蹤，以防機密外洩）。
+   - 開啟 `scripts/config/env.js`，將尾段的 `BUILD_ENV` 區塊修改為您的專屬配置：
+     ```javascript
+     export const BUILD_ENV = Object.freeze({
+       ENABLE_OAUTH: true, // 👈 將此設為 true 以在設定頁顯示 OAuth 按鈕
+       OAUTH_SERVER_URL: 'https://your-oauth-proxy-url.com', // 👈 填寫您的後端代理伺服器網址
+       OAUTH_CLIENT_ID: 'your-notion-client-id', // 👈 填寫您的 Notion Client ID
+       EXTENSION_API_KEY: 'your-custom-header-key', // 👈 填入您在步驟 1 中自訂的 API Key。擴充功能會在發送請求時，自動將其附加至 `X-Extension-Key` Header 中。
+     });
+     ```
+4. **重新打包並載入**：若您處於 `npm run dev` 開發模式，存檔後即會自動重新打包。刷新擴充功能後，即可在設定頁中看到生效的 OAuth 登入選項。
 
 ---
 
