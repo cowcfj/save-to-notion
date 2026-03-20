@@ -6,6 +6,7 @@ import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/api.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/config/env.js', () => ({
@@ -818,10 +819,8 @@ describe('AuthManager Extended', () => {
 
       await authManager.disconnectOAuth();
 
-      expect(chrome.storage.sync.remove).toHaveBeenCalledWith([
-        'notionDataSourceId',
-        'notionDatabaseId',
-      ]);
+      expect(chrome.storage.sync.remove).toHaveBeenCalledWith(DATA_SOURCE_KEYS);
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(DATA_SOURCE_KEYS);
       expect(checkAuthStatusSpy).toHaveBeenCalled();
       expect(mockUiManager.showStatus).toHaveBeenCalledWith('已斷開 OAuth 連接', 'success');
     });
@@ -942,15 +941,18 @@ describe('AuthManager Extended', () => {
       document.querySelector('#api-key').value = 'secret_test';
 
       chrome.storage.sync.remove.mockResolvedValue();
+      chrome.storage.local.remove.mockResolvedValue();
       chrome.storage.sync.get.mockResolvedValue({});
       chrome.storage.local.get.mockResolvedValue({});
 
       await authManager.disconnectFromNotion();
 
       expect(document.querySelector('#api-key').value).toBe('');
-      expect(chrome.storage.sync.remove).toHaveBeenCalledWith(
-        expect.arrayContaining(['notionApiKey', 'notionDatabaseId', 'notionDataSourceId'])
-      );
+      expect(chrome.storage.sync.remove).toHaveBeenCalledWith([
+        'notionApiKey',
+        ...DATA_SOURCE_KEYS,
+      ]);
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(DATA_SOURCE_KEYS);
     });
 
     test('斷開連接失敗應處理錯誤', async () => {

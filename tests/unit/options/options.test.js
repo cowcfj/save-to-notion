@@ -19,6 +19,7 @@ import { StorageManager } from '../../../options/StorageManager.js';
 import { MigrationTool } from '../../../options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env.js', () => ({
@@ -148,6 +149,7 @@ describe('options.js', () => {
     let mockAuth = null;
     let mockSet = null;
     let mockLocalSet = null;
+    let mockSyncRemove = null;
 
     beforeEach(() => {
       document.body.innerHTML = `
@@ -173,11 +175,12 @@ describe('options.js', () => {
       mockAuth = { currentAuthMode: 'manual', checkAuthStatus: jest.fn() };
       mockSet = jest.fn().mockResolvedValue();
       mockLocalSet = jest.fn().mockResolvedValue();
+      mockSyncRemove = jest.fn().mockResolvedValue();
 
       globalThis.chrome = {
         storage: {
           local: { set: mockLocalSet },
-          sync: { set: mockSet },
+          sync: { set: mockSet, remove: mockSyncRemove },
         },
       };
     });
@@ -207,6 +210,8 @@ describe('options.js', () => {
           highlightStyle: 'background',
         })
       );
+
+      expect(mockSyncRemove).toHaveBeenCalledWith(DATA_SOURCE_KEYS);
 
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('成功'),
@@ -412,6 +417,7 @@ describe('options.js', () => {
           sync: {
             get: jest.fn((keys, cb) => cb({})),
             set: jest.fn(),
+            remove: jest.fn().mockResolvedValue(),
           },
         },
       };
