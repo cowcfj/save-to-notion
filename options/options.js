@@ -42,8 +42,12 @@ export function initOptions() {
   if (!BUILD_ENV.ENABLE_OAUTH) {
     const oauthConnectBtn = document.querySelector('#oauth-connect-button');
     const oauthDisconnectBtn = document.querySelector('#oauth-disconnect-button');
-    if (oauthConnectBtn) {oauthConnectBtn.style.display = 'none';}
-    if (oauthDisconnectBtn) {oauthDisconnectBtn.style.display = 'none';}
+    if (oauthConnectBtn) {
+      oauthConnectBtn.style.display = 'none';
+    }
+    if (oauthDisconnectBtn) {
+      oauthDisconnectBtn.style.display = 'none';
+    }
   }
 
   // AuthManager 需要 DataSourceManager 來載入資料來源列表
@@ -144,7 +148,9 @@ function setupSidebarNavigation() {
       if (!sectionName) {
         Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_MISSING_ATTR, {
           action: 'setupSidebarNavigation',
-          element: item,
+          tagName: item.tagName,
+          targetId: item.id || null,
+          sectionName: item.dataset?.section || null,
         });
         return;
       }

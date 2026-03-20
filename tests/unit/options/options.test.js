@@ -22,7 +22,6 @@ import Logger from '../../../scripts/utils/Logger.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env.js'),
   BUILD_ENV: {
     ENABLE_OAUTH: true,
     OAUTH_SERVER_URL: '',
@@ -596,13 +595,12 @@ describe('options.js', () => {
 
       document.querySelector('.nav-item').click();
 
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('缺少 data-section'),
-        expect.objectContaining({
-          action: 'setupSidebarNavigation',
-          element: expect.any(HTMLElement),
-        })
-      );
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 data-section'), {
+        action: 'setupSidebarNavigation',
+        tagName: 'DIV',
+        targetId: null,
+        sectionName: null,
+      });
     });
 
     it('導航目標區塊不存在時應記錄警告', () => {

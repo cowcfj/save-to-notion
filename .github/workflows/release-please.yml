@@ -58,19 +58,51 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Generate production env.js
+      - name: 產生正式版 env.js
         env:
           PROD_SERVER_URL: ${{ secrets.PROD_SERVER_URL }}
           PROD_CLIENT_ID: ${{ secrets.PROD_CLIENT_ID }}
           EXTENSION_API_KEY: ${{ secrets.EXTENSION_API_KEY }}
         run: |
           if [ -z "$PROD_SERVER_URL" ] || [ -z "$PROD_CLIENT_ID" ] || [ -z "$EXTENSION_API_KEY" ]; then
-            echo "::error::Missing required secrets (PROD_SERVER_URL, PROD_CLIENT_ID, EXTENSION_API_KEY)"
+            echo "::error::缺少必要的 Secrets（PROD_SERVER_URL, PROD_CLIENT_ID, EXTENSION_API_KEY）"
             exit 1
           fi
           cat <<'SCRIPT' > /tmp/gen-env.js
           const fs = require('node:fs');
           const vm = require('node:vm');
+
+          function assertNonEmptyString(value, fieldName) {
+            const trimmedValue = String(value ?? '').trim();
+            if (trimmedValue.length === 0) {
+              throw new Error(`缺少必要值：${fieldName}`);
+            }
+
+            return trimmedValue;
+          }
+
+          function assertHttpsUrl(value, fieldName) {
+            let parsedUrl;
+            try {
+              parsedUrl = new URL(value);
+            } catch (error) {
+              throw new Error(`欄位 ${fieldName} 不是有效的 URL：${error.message}`);
+            }
+
+            if (parsedUrl.protocol !== 'https:') {
+              throw new Error(`欄位 ${fieldName} 必須使用 https: 協定`);
+            }
+
+            return value;
+          }
+
+          function replaceExact(source, target, replacement, fieldName) {
+            if (!source.includes(target)) {
+              throw new Error(`在 env.example.js 中找不到替換目標：${fieldName}`);
+            }
+
+            return source.replaceAll(target, replacement);
+          }
 
           function normalizeModuleSource(source) {
             return source
@@ -107,38 +139,53 @@ jobs:
             try {
               buildEnv = parseBuildEnvFromSource(source);
             } catch (error) {
-              throw new Error(`Generated env.js syntax validation failed: ${error.message}`);
+              throw new Error(`env.js 語法驗證失敗：${error.message}`);
             }
 
             if (!buildEnv || typeof buildEnv !== 'object') {
-              throw new Error('Generated env.js validation failed: BUILD_ENV export is missing');
+              throw new Error('env.js 驗證失敗：缺少 BUILD_ENV 匯出');
             }
             if (buildEnv.ENABLE_OAUTH !== true) {
-              throw new Error('Generated env.js validation failed: ENABLE_OAUTH was not enabled');
+              throw new Error('env.js 驗證失敗：ENABLE_OAUTH 未啟用');
             }
 
             for (const key of ['OAUTH_SERVER_URL', 'OAUTH_CLIENT_ID', 'EXTENSION_API_KEY']) {
               if (typeof buildEnv[key] !== 'string' || buildEnv[key].trim().length === 0) {
-                throw new Error(`Generated env.js validation failed: ${key} is missing or empty`);
+                throw new Error(`env.js 驗證失敗：${key} 缺少值或為空字串`);
               }
             }
 
             if (!Object.isFrozen(buildEnv)) {
-              throw new Error('Generated env.js validation failed: BUILD_ENV must be frozen');
+              throw new Error('env.js 驗證失敗：BUILD_ENV 必須為 frozen 物件');
             }
           }
 
+          const prodServerUrl = assertHttpsUrl(
+            assertNonEmptyString(process.env.PROD_SERVER_URL, 'PROD_SERVER_URL'),
+            'PROD_SERVER_URL'
+          );
+          const prodClientId = assertNonEmptyString(process.env.PROD_CLIENT_ID, 'PROD_CLIENT_ID');
+          const extensionApiKey = assertNonEmptyString(
+            process.env.EXTENSION_API_KEY,
+            'EXTENSION_API_KEY'
+          );
+
           const src = fs.readFileSync('scripts/config/env.example.js', 'utf8');
-          const out = src
-            .replaceAll('ENABLE_OAUTH: false', 'ENABLE_OAUTH: true')
-            .replaceAll("OAUTH_SERVER_URL: ''", `OAUTH_SERVER_URL: ${JSON.stringify(process.env.PROD_SERVER_URL)}`)
-            .replaceAll("OAUTH_CLIENT_ID: ''", `OAUTH_CLIENT_ID: ${JSON.stringify(process.env.PROD_CLIENT_ID)}`)
-            .replaceAll("EXTENSION_API_KEY: ''", `EXTENSION_API_KEY: ${JSON.stringify(process.env.EXTENSION_API_KEY)}`);
+          const out = [
+            ['ENABLE_OAUTH: false', 'ENABLE_OAUTH: true', 'ENABLE_OAUTH'],
+            ["OAUTH_SERVER_URL: ''", `OAUTH_SERVER_URL: ${JSON.stringify(prodServerUrl)}`, 'OAUTH_SERVER_URL'],
+            ["OAUTH_CLIENT_ID: ''", `OAUTH_CLIENT_ID: ${JSON.stringify(prodClientId)}`, 'OAUTH_CLIENT_ID'],
+            ["EXTENSION_API_KEY: ''", `EXTENSION_API_KEY: ${JSON.stringify(extensionApiKey)}`, 'EXTENSION_API_KEY'],
+          ].reduce(
+            (currentSource, [target, replacement, fieldName]) =>
+              replaceExact(currentSource, target, replacement, fieldName),
+            src
+          );
 
           validateGeneratedEnvSource(out);
           fs.writeFileSync('scripts/config/env.js', out);
           validateGeneratedEnvSource(fs.readFileSync('scripts/config/env.js', 'utf8'));
-          process.stdout.write('✓ env.js generated with production config');
+          process.stdout.write('✓ 已使用正式環境設定產生 env.js');
           SCRIPT
           node /tmp/gen-env.js
 
