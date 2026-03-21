@@ -153,7 +153,15 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
     });
 
-    await storageService.clearNotionState(resolvedUrl);
+    try {
+      await storageService.clearNotionState(resolvedUrl);
+    } catch (clearError) {
+      Logger.error('清除本地 Notion 狀態失敗', {
+        action: 'performHighlightUpdate',
+        url: sanitizeUrlForLogging(resolvedUrl),
+        error: clearError?.message,
+      });
+    }
 
     return {
       ...result,
