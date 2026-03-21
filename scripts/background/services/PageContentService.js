@@ -84,6 +84,7 @@ class PageContentService {
 
               // 適配返回格式：添加 siteIcon 和 coverImage
               return {
+                extractionStatus: extractResult.extractionStatus || 'success',
                 title: extractResult.title || document.title || defaultPageTitle,
                 blocks: [...contentBlocks, ...imageBlocks],
                 siteIcon:
@@ -95,6 +96,7 @@ class PageContentService {
             // Fallback: 基本提取
             PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
             return {
+              extractionStatus: 'failed',
               title: document.title || defaultPageTitle,
               blocks: [
                 {
@@ -116,6 +118,7 @@ class PageContentService {
           } catch (error) {
             PageLogger.error?.('[PageContentService] 提取失敗', { error });
             return {
+              extractionStatus: 'failed',
               title: document.title || defaultPageTitle,
               blocks: [
                 {
@@ -142,7 +145,20 @@ class PageContentService {
 
       // 處理注入結果
       // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
-      if (result?.title && result?.blocks) {
+      if (result?.extractionStatus === 'failed' && result?.title && Array.isArray(result?.blocks)) {
+        this.logger.warn?.(`${LOG_ICONS.WARN} [PageContentService] 提取失敗結果已返回`, {
+          title: result.title,
+          blockCount: result.blocks.length,
+          error: result.error || null,
+        });
+        return result;
+      }
+
+      if (
+        result?.extractionStatus === 'success' &&
+        result?.title &&
+        Array.isArray(result?.blocks)
+      ) {
         this.logger.info?.(`${LOG_ICONS.SUCCESS} [PageContentService] 提取成功`, {
           title: result.title,
           blockCount: result.blocks.length,
@@ -157,6 +173,7 @@ class PageContentService {
         resultKeys: Object.keys(result || {}),
       });
       return {
+        extractionStatus: 'failed',
         title: CONTENT_QUALITY.DEFAULT_PAGE_TITLE,
         blocks: [
           {

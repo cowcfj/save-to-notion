@@ -62,6 +62,7 @@ describe('PageContentService', () => {
     test('應調用 injectWithResponse 並返回提取結果', async () => {
       // injectWithResponse 直接返回函數執行結果
       const mockResult = {
+        extractionStatus: 'success',
         title: 'Test Page',
         blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
         siteIcon: 'https://example.com/icon.png',
@@ -80,6 +81,7 @@ describe('PageContentService', () => {
       expect(result.title).toBe('Test Page');
       expect(result.blocks).toHaveLength(1);
       expect(result.siteIcon).toBe('https://example.com/icon.png');
+      expect(result.extractionStatus).toBe('success');
     });
 
     test('應返回回退結果當提取結果為空', async () => {
@@ -91,6 +93,7 @@ describe('PageContentService', () => {
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toHaveLength(1);
       expect(result.siteIcon).toBeNull();
+      expect(result.extractionStatus).toBe('failed');
     });
 
     test('應返回回退結果當提取結果缺少必要欄位', async () => {
@@ -101,6 +104,7 @@ describe('PageContentService', () => {
 
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toHaveLength(1);
+      expect(result.extractionStatus).toBe('failed');
     });
 
     test('應處理 null 結果', async () => {
@@ -110,6 +114,7 @@ describe('PageContentService', () => {
 
       expect(result.title).toBe('Untitled');
       expect(result.blocks).toHaveLength(1);
+      expect(result.extractionStatus).toBe('failed');
     });
 
     test('應拋出錯誤當注入失敗', async () => {
@@ -123,6 +128,7 @@ describe('PageContentService', () => {
     test('應記錄成功提取的日誌', async () => {
       // injectWithResponse 直接返回函數執行結果，不是包裝在陣列中
       const mockResult = {
+        extractionStatus: 'success',
         title: 'Test Page',
         blocks: [
           { type: 'paragraph', paragraph: { rich_text: [] } },
@@ -227,6 +233,7 @@ describe('PageContentService', () => {
     test('extractContent 應該執行注入腳本並回傳結果', async () => {
       const mockInjector = createMockInjector(global => {
         global.extractPageContent = jest.fn().mockResolvedValue({
+          extractionStatus: 'success',
           title: 'Injected Title',
           blocks: [{ type: 'paragraph' }],
           additionalImages: [],
@@ -242,6 +249,7 @@ describe('PageContentService', () => {
       const result = await injectedService.extractContent(TEST_TAB_ID);
 
       expect(result).toEqual({
+        extractionStatus: 'success',
         title: 'Injected Title',
         blocks: expect.any(Array),
         siteIcon: 'icon.png',
@@ -265,6 +273,7 @@ describe('PageContentService', () => {
       expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content).toContain(
         'extractPageContent not available'
       );
+      expect(result.extractionStatus).toBe('failed');
     });
 
     test('extractContent 應該處理提取失敗', async () => {
@@ -283,6 +292,7 @@ describe('PageContentService', () => {
       expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content).toContain(
         'Extraction failed: Injected Error'
       );
+      expect(result.extractionStatus).toBe('failed');
     });
   });
 });

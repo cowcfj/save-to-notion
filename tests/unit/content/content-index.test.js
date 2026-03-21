@@ -235,6 +235,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(result.title).toBe('Test Title');
       expect(result.coverImage).toBe('https://example.com/cover.jpg');
+      expect(result.extractionStatus).toBe('success');
     });
 
     test('應該在正文無圖片時將首張額外圖片插入到開頭', async () => {
@@ -273,6 +274,7 @@ describe('Content Script Entry (index.js)', () => {
       const result = await extractPageContent();
 
       expect(result.blocks[0].paragraph.rich_text[0].text.content).toMatch(/failed/i);
+      expect(result.extractionStatus).toBe('failed');
     });
 
     test('應該處理提取過程中的異常', async () => {
@@ -281,6 +283,7 @@ describe('Content Script Entry (index.js)', () => {
       const result = await extractPageContent();
 
       expect(result.error).toBe('Unexpected crash');
+      expect(result.extractionStatus).toBe('failed');
     });
   });
 });
