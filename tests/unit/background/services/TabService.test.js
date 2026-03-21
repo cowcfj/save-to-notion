@@ -322,7 +322,7 @@ describe('TabService', () => {
         service.getApiKey = jest.fn().mockResolvedValue(null); // 模擬 OAuth 用戶取不到 key
 
         // 先模擬 checkPageStatus 已將此頁面標記為 pending
-        service.deletionPendingPages.add('page-123');
+        service.consumeDeletionConfirmation('page-123', false);
 
         // 執行背景的 tab 狀態更新（由 onActivated / onUpdated 觸發）
         await service.updateTabStatus(1, 'https://example.com');
@@ -386,6 +386,60 @@ describe('TabService', () => {
           expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
         );
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+      });
+    });
+  });
+
+  describe('consumeDeletionConfirmation', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should treat expired pending deletion as a new first failure', () => {
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValueOnce(1000)
+        .mockReturnValueOnce(1000 + 5 * 60 * 1000 + 1);
+
+      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+
+      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+    });
+
+    it('should clear pending deletion state after exists becomes true', () => {
+      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+
+      expect(service.consumeDeletionConfirmation('page-1', true)).toEqual({
+        shouldDelete: false,
+        deletionPending: false,
+      });
+
+      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+    });
+
+    it('should delete only on a second false within the confirmation window', () => {
+      jest.spyOn(Date, 'now').mockReturnValue(10_000);
+
+      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+
+      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+        shouldDelete: true,
+        deletionPending: false,
       });
     });
   });

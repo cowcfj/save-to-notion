@@ -18,6 +18,8 @@ import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
+const DELETION_CONFIRMATION_WINDOW_MS = 5 * 60 * 1000;
+
 /**
  * TabService 類
  */
@@ -68,9 +70,9 @@ class TabService {
     this.clearNotionState = options.clearNotionState || (() => Promise.resolve());
     this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
 
-    // 連續不存在保護：第一次 false 先標記 pending，第二次連續 false 才清理
-    // 只需追蹤是否待確認，不需保存 timestamp（無 TTL 策略）。
-    this.deletionPendingPages = new Set();
+    // 連續不存在保護：短時間窗內連續兩次 false 才清理。
+    // Map metadata 讓暫時性 false negative 過期後重新視為第一次失敗。
+    this.deletionPendingPages = new Map();
   }
 
   /**
@@ -438,9 +440,10 @@ class TabService {
   }
 
   /**
-   * 連續不存在確認：false/false 才允許清理
+   * 連續不存在確認：時間窗內 false/false 才允許清理
    * - 第一次 false: deletionPending=true, shouldDelete=false
-   * - 第二次連續 false: deletionPending=false, shouldDelete=true
+   * - 時間窗內第二次連續 false: deletionPending=false, shouldDelete=true
+   * - 時間窗外第二次 false: 視為新的第一次
    * - true / null: 清除 pending
    *
    * @param {string|null|undefined} notionPageId
@@ -458,12 +461,29 @@ class TabService {
       return { shouldDelete: false, deletionPending: false };
     }
 
-    if (this.deletionPendingPages.has(pageId)) {
-      this.deletionPendingPages.delete(pageId);
-      return { shouldDelete: true, deletionPending: false };
+    const now = Date.now();
+    const pendingState = this.deletionPendingPages.get(pageId);
+
+    if (pendingState) {
+      const firstFailedAt = pendingState.firstFailedAt || 0;
+      const withinConfirmationWindow = now - firstFailedAt <= DELETION_CONFIRMATION_WINDOW_MS;
+
+      if (withinConfirmationWindow) {
+        this.deletionPendingPages.delete(pageId);
+        return { shouldDelete: true, deletionPending: false };
+      }
+
+      this.deletionPendingPages.set(pageId, {
+        firstFailedAt: now,
+        lastFailedAt: now,
+      });
+      return { shouldDelete: false, deletionPending: true };
     }
 
-    this.deletionPendingPages.add(pageId);
+    this.deletionPendingPages.set(pageId, {
+      firstFailedAt: now,
+      lastFailedAt: now,
+    });
     return { shouldDelete: false, deletionPending: true };
   }
 
