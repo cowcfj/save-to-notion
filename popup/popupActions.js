@@ -10,6 +10,7 @@ import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/api.js';
+import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 
 /**
  * 檢查設置是否完整
@@ -19,7 +20,7 @@ import { AuthMode } from '../scripts/config/api.js';
 export async function checkSettings() {
   try {
     const [syncResult, localResult] = await Promise.all([
-      chrome.storage.sync.get(['notionApiKey']),
+      chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']),
       chrome.storage.local.get([
         'notionAuthMode',
         'notionOAuthToken',
@@ -28,7 +29,21 @@ export async function checkSettings() {
       ]),
     ]);
     const isOAuth = localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken;
-    const dataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
+
+    // Local 優先，sync 回退（向後兼容 v2.47.0 前僅存於 sync 的升級用戶）
+    const localDataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
+    const syncDataSourceId = syncResult.notionDataSourceId || syncResult.notionDatabaseId;
+    const dataSourceId = localDataSourceId || syncDataSourceId;
+
+    await migrateDataSourceKeys({
+      localData: localResult,
+      syncData: syncResult,
+      storageArea: chrome.storage.local,
+      logger: Logger,
+      action: 'checkSettings',
+      retryContext: 'popup',
+    });
+
     return {
       valid: Boolean((syncResult.notionApiKey || isOAuth) && dataSourceId),
       apiKey: syncResult.notionApiKey,

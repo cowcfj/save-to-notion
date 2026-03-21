@@ -27,6 +27,7 @@ import {
   getActiveNotionToken,
   refreshOAuthToken,
   isNonEmptyString,
+  migrateDataSourceKeys,
 } from '../../../scripts/utils/notionAuth.js';
 
 describe('notionAuth utils', () => {
@@ -480,5 +481,120 @@ describe('notionAuth utils', () => {
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'refreshOAuthToken' });
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(result).toBe('delegated_access_token');
+  });
+});
+
+describe('migrateDataSourceKeys', () => {
+  test('local 已有 notionDataSourceId 時不應遷移', async () => {
+    const storageArea = { set: jest.fn() };
+
+    const result = await migrateDataSourceKeys({
+      localData: { notionDataSourceId: 'existing-id' },
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea,
+    });
+
+    expect(result).toBe(false);
+    expect(storageArea.set).not.toHaveBeenCalled();
+  });
+
+  test('local 已有 notionDatabaseId (legacy) 時不應遷移', async () => {
+    const storageArea = { set: jest.fn() };
+
+    const result = await migrateDataSourceKeys({
+      localData: { notionDatabaseId: 'legacy-local-id' },
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea,
+    });
+
+    expect(result).toBe(false);
+    expect(storageArea.set).not.toHaveBeenCalled();
+  });
+
+  test('sync 無 dataSourceId 時不應遷移', async () => {
+    const storageArea = { set: jest.fn() };
+
+    const result = await migrateDataSourceKeys({
+      localData: {},
+      syncData: {},
+      storageArea,
+    });
+
+    expect(result).toBe(false);
+    expect(storageArea.set).not.toHaveBeenCalled();
+  });
+
+  test('storageArea.set 不存在時不應遷移', async () => {
+    const result = await migrateDataSourceKeys({
+      localData: {},
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea: {},
+    });
+
+    expect(result).toBe(false);
+  });
+
+  test('local 空 + sync 有 notionDataSourceId 時應遷移並回傳 true', async () => {
+    const storageArea = { set: jest.fn().mockResolvedValue() };
+    const logger = { success: jest.fn(), warn: jest.fn() };
+
+    const result = await migrateDataSourceKeys({
+      localData: {},
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea,
+      logger,
+      action: 'testAction',
+      retryContext: 'test',
+    });
+
+    expect(result).toBe(true);
+    expect(storageArea.set).toHaveBeenCalledWith({
+      notionDataSourceId: 'sync-id',
+      notionDatabaseId: 'sync-id',
+    });
+    expect(logger.success).toHaveBeenCalledWith(
+      '[Settings] 已自動遷移 dataSourceId 從 sync 至 local',
+      { action: 'testAction', operation: 'migrateDataSourceKey' }
+    );
+  });
+
+  test('local 空 + sync 有 notionDatabaseId (legacy) 時應遷移', async () => {
+    const storageArea = { set: jest.fn().mockResolvedValue() };
+    const logger = { success: jest.fn(), warn: jest.fn() };
+
+    const result = await migrateDataSourceKeys({
+      localData: {},
+      syncData: { notionDatabaseId: 'legacy-sync-id' },
+      storageArea,
+      logger,
+      action: 'testAction',
+      retryContext: 'test',
+    });
+
+    expect(result).toBe(true);
+    expect(storageArea.set).toHaveBeenCalledWith({
+      notionDataSourceId: 'legacy-sync-id',
+      notionDatabaseId: 'legacy-sync-id',
+    });
+  });
+
+  test('storageArea.set 拋錯時應回傳 false 並記錄警告', async () => {
+    const storageArea = { set: jest.fn().mockRejectedValue(new Error('Quota exceeded')) };
+    const logger = { success: jest.fn(), warn: jest.fn() };
+
+    const result = await migrateDataSourceKeys({
+      localData: {},
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea,
+      logger,
+      action: 'testAction',
+      retryContext: 'popup',
+    });
+
+    expect(result).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[Settings] dataSourceId 遷移失敗，下次開啟 popup 會重試',
+      expect.objectContaining({ action: 'testAction', operation: 'migrateDataSourceKey' })
+    );
   });
 });

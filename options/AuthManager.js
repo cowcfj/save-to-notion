@@ -11,6 +11,7 @@ import {
   refreshOAuthToken,
   getNextAuthEpoch,
   isNonEmptyString,
+  migrateDataSourceKeys,
 } from '../scripts/utils/notionAuth.js';
 import {
   AUTH_LOCAL_KEYS,
@@ -186,6 +187,14 @@ export class AuthManager {
       ]);
 
       const sourceData = mergeDataSourceConfig(localData, syncData);
+      await migrateDataSourceKeys({
+        localData,
+        syncData,
+        storageArea: chrome.storage.local,
+        logger: Logger,
+        action: 'checkAuthStatus',
+        retryContext: 'options',
+      });
 
       // 判斷認證模式
       if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {
