@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.47.2](https://github.com/cowcfj/save-to-notion/compare/v2.47.1...v2.47.2) (2026-03-21)
+
+
+### 🐛 Bug 修復
+
+* 更新設定檢查與模組導入鏈驗證 ([#358](https://github.com/cowcfj/save-to-notion/issues/358)) ([14b8cbd](https://github.com/cowcfj/save-to-notion/commit/14b8cbddf041a8f5ef5d0e3d17ebb140f3316402))
+
+
+### 🧹 其他變更
+
+* 移除 package-extension.sh 中不必要的 config/extraction.js 排除 ([14b8cbd](https://github.com/cowcfj/save-to-notion/commit/14b8cbddf041a8f5ef5d0e3d17ebb140f3316402))
+
 ## [2.47.1](https://github.com/cowcfj/save-to-notion/compare/v2.47.0...v2.47.1) (2026-03-20)
 
 
