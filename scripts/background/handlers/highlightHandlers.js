@@ -113,14 +113,11 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
   let savedData = await storageService.getSavedPageData(normUrl);
-  let resolvedUrl = normUrl;
+  const foundViaStableUrl = Boolean(savedData?.notionPageId);
 
   // 雙查安全網：遷移失敗時回退查詢原始 URL
-  if (!savedData?.notionPageId && !migrated && normUrl !== originalUrl) {
+  if (!foundViaStableUrl && !migrated && normUrl !== originalUrl) {
     savedData = await storageService.getSavedPageData(originalUrl);
-    if (savedData?.notionPageId) {
-      resolvedUrl = originalUrl;
-    }
   }
 
   if (!savedData?.notionPageId) {
@@ -130,6 +127,8 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
     };
   }
+
+  const resolvedUrl = foundViaStableUrl ? normUrl : originalUrl;
 
   // 轉換標記為 Blocks
   const highlightBlocks = buildHighlightBlocks(highlights);
