@@ -631,6 +631,14 @@ export class Toolbar {
 
         if (response?.success) {
           Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
+        } else if (response?.errorCode === 'PAGE_DELETED') {
+          Toolbar._setStatusIcon(
+            statusDiv,
+            'X',
+            null,
+            response?.error || UI_MESSAGES.POPUP.DELETED_PAGE
+          );
+          await this.updateSaveButtonVisibility();
         } else if (response?.errorCode === 'PAGE_NOT_SAVED') {
           // 頁面尚未保存到 Notion，提供引導性訊息
           Toolbar._setStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');

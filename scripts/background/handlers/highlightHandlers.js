@@ -139,6 +139,22 @@ async function performHighlightUpdate(services, activeTab, highlights) {
     }
   );
 
+  if (!result.success && result.error === 'object_not_found') {
+    Logger.warn('同步標註時發現遠端頁面已刪除，清除本地 notion 綁定', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(originalUrl || normUrl),
+      pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+    });
+
+    await storageService.clearNotionState(originalUrl || normUrl);
+
+    return {
+      ...result,
+      errorCode: 'PAGE_DELETED',
+      error: UI_MESSAGES.POPUP.DELETED_PAGE,
+    };
+  }
+
   // 格式化失敗訊息為用戶友善格式（與 saveHandlers.sendErrorResponse 模式一致）
   // 建立新物件返回，避免直接修改 notionService 回傳的 result（防止副作用）
   if (!result.success && result.error) {
