@@ -391,6 +391,9 @@ describe('TabService', () => {
   });
 
   describe('consumeDeletionConfirmation', () => {
+    // 與 TabService 中 DELETION_CONFIRMATION_WINDOW_MS 一致（5 分鐘）
+    const WINDOW_MS = 5 * 60 * 1000;
+
     afterEach(() => {
       jest.restoreAllMocks();
     });
@@ -399,7 +402,7 @@ describe('TabService', () => {
       jest
         .spyOn(Date, 'now')
         .mockReturnValueOnce(1000)
-        .mockReturnValueOnce(1000 + 5 * 60 * 1000 + 1);
+        .mockReturnValueOnce(1000 + WINDOW_MS + 1); // 窗口過期 +1ms
 
       expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
         shouldDelete: false,

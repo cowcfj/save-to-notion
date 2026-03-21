@@ -441,6 +441,11 @@ class TabService {
 
   /**
    * 連續不存在確認：時間窗內 false/false 才允許清理
+   *
+   * 預設確認窗口為 5 分鐘（{@link DELETION_CONFIRMATION_WINDOW_MS}）。
+   * 在此窗口內，連續兩次 `exists===false` 才觸發刪除，
+   * 防止 Notion API 暫時性 false negative 導致誤刪。
+   *
    * - 第一次 false: deletionPending=true, shouldDelete=false
    * - 時間窗內第二次連續 false: deletionPending=false, shouldDelete=true
    * - 時間窗外第二次 false: 視為新的第一次
@@ -477,7 +482,6 @@ class TabService {
     // 首次失敗或確認窗口過期：開始新一輪確認週期
     this.deletionPendingPages.set(pageId, {
       firstFailedAt: now,
-      lastFailedAt: now,
     });
     return { shouldDelete: false, deletionPending: true };
   }
