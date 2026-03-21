@@ -24,7 +24,9 @@ const mockInjectionService = {
 };
 
 const mockPageContentService = {
-  extractContent: jest.fn().mockResolvedValue({ title: 'Test Page', blocks: [] }),
+  extractContent: jest
+    .fn()
+    .mockResolvedValue({ extractionStatus: 'success', title: 'Test Page', blocks: [] }),
 };
 
 const mockTabService = {

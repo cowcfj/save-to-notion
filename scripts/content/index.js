@@ -163,6 +163,7 @@ async function extractPageContent() {
     if (!hasContent && !hasBlocks) {
       Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
+        extractionStatus: 'failed',
         title: document.title || DEFAULT_PAGE_TITLE,
         blocks: [
           {
@@ -255,6 +256,7 @@ async function extractPageContent() {
 
     // 4. 返回結果
     return {
+      extractionStatus: 'success',
       title: metadata.title || document.title || DEFAULT_PAGE_TITLE,
       blocks,
       metadata, // 包含 author, description, favicon
@@ -276,6 +278,7 @@ async function extractPageContent() {
     });
 
     return {
+      extractionStatus: 'failed',
       title: document.title || DEFAULT_PAGE_TITLE,
       blocks: [
         {

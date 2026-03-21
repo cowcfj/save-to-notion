@@ -382,18 +382,25 @@ export function createSaveHandlers(services) {
       });
     }
 
-    if (!result?.title || !result?.blocks) {
+    const hasSuccessfulExtraction =
+      result?.extractionStatus === 'success' &&
+      Boolean(result?.title) &&
+      Array.isArray(result?.blocks);
+
+    if (!hasSuccessfulExtraction) {
       Logger.error('內容提取結果驗證失敗', {
         action: 'validateContent',
         hasResult: Boolean(result),
+        extractionStatus: result?.extractionStatus ?? 'missing',
         hasTitle: Boolean(result?.title),
         hasBlocks: Array.isArray(result?.blocks),
         blocksCount: result?.blocks?.length ?? 0,
+        extractionError: result?.error ?? null,
         url: sanitizeUrlForLogging(activeTab.url),
       });
 
       let error = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
-      if (result) {
+      if (result && result?.extractionStatus !== 'failed') {
         error = result.title
           ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING
           : ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING;

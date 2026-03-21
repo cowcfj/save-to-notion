@@ -15,7 +15,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { LOG_ICONS } from '../../config/ui.js';
+
 import { CONTENT_QUALITY } from '../../config/extraction.js';
 
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
@@ -84,6 +84,7 @@ class PageContentService {
 
               // 適配返回格式：添加 siteIcon 和 coverImage
               return {
+                extractionStatus: extractResult.extractionStatus || 'success',
                 title: extractResult.title || document.title || defaultPageTitle,
                 blocks: [...contentBlocks, ...imageBlocks],
                 siteIcon:
@@ -95,6 +96,7 @@ class PageContentService {
             // Fallback: 基本提取
             PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
             return {
+              extractionStatus: 'failed',
               title: document.title || defaultPageTitle,
               blocks: [
                 {
@@ -116,6 +118,7 @@ class PageContentService {
           } catch (error) {
             PageLogger.error?.('[PageContentService] 提取失敗', { error });
             return {
+              extractionStatus: 'failed',
               title: document.title || defaultPageTitle,
               blocks: [
                 {
@@ -142,8 +145,21 @@ class PageContentService {
 
       // 處理注入結果
       // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
-      if (result?.title && result?.blocks) {
-        this.logger.info?.(`${LOG_ICONS.SUCCESS} [PageContentService] 提取成功`, {
+      if (result?.extractionStatus === 'failed' && result?.title && Array.isArray(result?.blocks)) {
+        this.logger.warn?.('[PageContentService] 提取失敗結果已返回', {
+          title: result.title,
+          blockCount: result.blocks.length,
+          error: result.error || null,
+        });
+        return result;
+      }
+
+      if (
+        result?.extractionStatus === 'success' &&
+        result?.title &&
+        Array.isArray(result?.blocks)
+      ) {
+        this.logger.success?.('[PageContentService] 提取成功', {
           title: result.title,
           blockCount: result.blocks.length,
           hasSiteIcon: Boolean(result.siteIcon),
@@ -153,10 +169,11 @@ class PageContentService {
       }
 
       // 結果無效
-      this.logger.warn?.(`${LOG_ICONS.WARN} [PageContentService] 提取結果無效`, {
+      this.logger.warn?.('[PageContentService] 提取結果無效', {
         resultKeys: Object.keys(result || {}),
       });
       return {
+        extractionStatus: 'failed',
         title: CONTENT_QUALITY.DEFAULT_PAGE_TITLE,
         blocks: [
           {
@@ -171,7 +188,7 @@ class PageContentService {
         coverImage: null,
       };
     } catch (error) {
-      this.logger.error?.(`${LOG_ICONS.ERROR} [PageContentService] 注入失敗`, { error });
+      this.logger.error?.('[PageContentService] 注入失敗', { error });
       throw error;
     }
   }

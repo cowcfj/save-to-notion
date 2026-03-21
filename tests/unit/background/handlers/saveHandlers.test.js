@@ -187,6 +187,7 @@ describe('saveHandlers', () => {
       });
       // Default extraction result
       mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
         title: 'Test Page',
         blocks: [],
       });
@@ -230,6 +231,40 @@ describe('saveHandlers', () => {
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('savePage: 提取結果為 failed 時不應建立 Notion 頁面', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'failed',
+        title: 'Protected Page',
+        blocks: [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: { content: 'Extraction failed. The page may be empty or protected.' },
+                },
+              ],
+            },
+          },
+        ],
+        error: 'Content extraction failed',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
       );
     });
 
@@ -494,6 +529,7 @@ describe('saveHandlers', () => {
       mockServices.injectionService.collectHighlights.mockResolvedValue([]);
       mockServices.injectionService.injectHighlighter.mockResolvedValue(true);
       mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
         title: 'Test Page',
         blocks: [],
       });
@@ -657,6 +693,7 @@ describe('saveHandlers', () => {
 
     test('savePage: 保存流程中也應觸發遷移', async () => {
       mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
         title: 'Legacy Title',
         blocks: [],
       });
