@@ -472,14 +472,9 @@ class TabService {
         this.deletionPendingPages.delete(pageId);
         return { shouldDelete: true, deletionPending: false };
       }
-
-      this.deletionPendingPages.set(pageId, {
-        firstFailedAt: now,
-        lastFailedAt: now,
-      });
-      return { shouldDelete: false, deletionPending: true };
     }
 
+    // 首次失敗或確認窗口過期：開始新一輪確認週期
     this.deletionPendingPages.set(pageId, {
       firstFailedAt: now,
       lastFailedAt: now,
