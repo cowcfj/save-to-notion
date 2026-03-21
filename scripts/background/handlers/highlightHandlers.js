@@ -534,13 +534,14 @@ export function createHighlightHandlers(services) {
         // 允許兩種來源：
         // 1. Content Script（sender.tab 存在）
         // 2. Popup / Options 等內部頁面（sender.tab 不存在）
-        const validationError = sender?.tab
+        const isContentScript = Boolean(sender?.tab);
+        const validationError = isContentScript
           ? validateContentScriptRequest(sender)
           : validateInternalRequest(sender);
         if (validationError) {
           Logger.warn('安全性阻擋', {
             action: 'CLEAR_HIGHLIGHTS',
-            reason: 'invalid_content_script_request',
+            reason: isContentScript ? 'invalid_content_script_request' : 'invalid_internal_request',
             error: validationError.error,
           });
           sendResponse(validationError);
