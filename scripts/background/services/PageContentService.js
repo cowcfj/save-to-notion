@@ -146,7 +146,7 @@ class PageContentService {
       // 處理注入結果
       // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
       if (result?.extractionStatus === 'failed' && result?.title && Array.isArray(result?.blocks)) {
-        this.logger.warn?.(`${LOG_ICONS.WARN} [PageContentService] 提取失敗結果已返回`, {
+        this.logger.warn?.('[PageContentService] 提取失敗結果已返回', {
           title: result.title,
           blockCount: result.blocks.length,
           error: result.error || null,
