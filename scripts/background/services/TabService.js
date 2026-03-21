@@ -367,10 +367,14 @@ class TabService {
    */
   async _verifyAndUpdateStatus(tabId, normUrl, fallbackUrl = null) {
     let savedData = await this.getSavedPageData(normUrl);
+    let resolvedUrl = normUrl;
 
     // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
     if (!savedData && fallbackUrl && fallbackUrl !== normUrl) {
       savedData = await this.getSavedPageData(fallbackUrl);
+      if (savedData) {
+        resolvedUrl = fallbackUrl;
+      }
     }
 
     if (!savedData) {
@@ -417,8 +421,8 @@ class TabService {
           action: 'autoSyncLocalState',
           pageId: savedData.notionPageId?.slice(0, 4),
         });
-        // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-        await this.clearNotionState(fallbackUrl || normUrl);
+        // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
+        await this.clearNotionState(resolvedUrl);
         await this._updateBadgeStatus(tabId, null);
       } else if (exists === false && deletionCheck.deletionPending) {
         this.logger.warn('[TabService] First deletion check failed, mark as pending', {

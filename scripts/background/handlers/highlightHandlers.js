@@ -113,10 +113,14 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
   let savedData = await storageService.getSavedPageData(normUrl);
+  let resolvedUrl = normUrl;
 
   // 雙查安全網：遷移失敗時回退查詢原始 URL
   if (!savedData?.notionPageId && !migrated && normUrl !== originalUrl) {
     savedData = await storageService.getSavedPageData(originalUrl);
+    if (savedData?.notionPageId) {
+      resolvedUrl = originalUrl;
+    }
   }
 
   if (!savedData?.notionPageId) {
@@ -142,11 +146,11 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   if (!result.success && result.error === 'object_not_found') {
     Logger.warn('同步標註時發現遠端頁面已刪除，清除本地 notion 綁定', {
       action: 'performHighlightUpdate',
-      url: sanitizeUrlForLogging(originalUrl || normUrl),
+      url: sanitizeUrlForLogging(resolvedUrl),
       pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
     });
 
-    await storageService.clearNotionState(originalUrl || normUrl);
+    await storageService.clearNotionState(resolvedUrl);
 
     return {
       ...result,

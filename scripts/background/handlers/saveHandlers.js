@@ -345,15 +345,17 @@ export function createSaveHandlers(services) {
     } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
     let savedData = await storageService.getSavedPageData(normUrl);
+    let resolvedUrl = normUrl;
 
     if (!savedData && !migrated && hasStableUrl) {
       const originalData = await storageService.getSavedPageData(originalUrl);
       if (originalData) {
         savedData = originalData;
+        resolvedUrl = originalUrl;
       }
     }
 
-    return { savedData, normUrl, originalUrl, migrated };
+    return { savedData, normUrl, originalUrl, resolvedUrl, migrated };
   }
 
   /**
@@ -568,7 +570,7 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handlePageRecreation(params) {
-    const { normUrl, originalUrl } = params;
+    const { normUrl, resolvedUrl } = params;
     Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
       action: 'recreatePage',
       url: sanitizeUrlForLogging(normUrl),
@@ -576,7 +578,7 @@ export function createSaveHandlers(services) {
 
     // 只清理頁面 metadata（notionPageId 等），保留本地標註
     // Highlight-First：標註獨立於 Notion 頁面生命週期
-    await storageService.clearNotionState(originalUrl || normUrl);
+    await storageService.clearNotionState(resolvedUrl);
 
     return await performCreatePage(params);
   }
@@ -676,7 +678,7 @@ export function createSaveHandlers(services) {
   async function _runSaveFlow(activeTab, configData, sendResponse) {
     const { dataSourceId, dataSourceType, apiKey } = configData;
 
-    const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
+    const { savedData, normUrl, originalUrl, resolvedUrl } = await resolvePageData(activeTab);
 
     const extractionData = await extractPageContent(activeTab, sendResponse);
     if (!extractionData) {
@@ -704,6 +706,7 @@ export function createSaveHandlers(services) {
       savedData,
       normUrl,
       originalUrl,
+      resolvedUrl,
       dataSourceId,
       dataSourceType,
       contentResult,
@@ -744,7 +747,7 @@ export function createSaveHandlers(services) {
   }
 
   async function _handleDeletedOrPending(params) {
-    const { exists, deletionCheck, savedData, originalUrl, normUrl, activeTab, sendResponse } =
+    const { exists, deletionCheck, savedData, resolvedUrl, normUrl, activeTab, sendResponse } =
       params;
 
     if (exists === false && deletionCheck.shouldDelete) {
@@ -753,8 +756,7 @@ export function createSaveHandlers(services) {
         pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
       });
 
-      // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-      await storageService.clearNotionState(originalUrl || normUrl);
+      await storageService.clearNotionState(resolvedUrl);
 
       try {
         chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
@@ -1000,7 +1002,7 @@ export function createSaveHandlers(services) {
           normUrl,
           savedData,
           migrated: migratedFromOldKey,
-          originalUrl,
+          resolvedUrl,
         } = await _loadStatusContext(activeTab);
 
         if (!savedData?.notionPageId) {
@@ -1045,7 +1047,7 @@ export function createSaveHandlers(services) {
           exists,
           deletionCheck,
           savedData,
-          originalUrl,
+          resolvedUrl,
           normUrl,
           activeTab,
           sendResponse,

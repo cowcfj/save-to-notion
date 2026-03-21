@@ -142,10 +142,10 @@ describe('PageContentService', () => {
       await service.extractContent(TEST_TAB_ID);
 
       // 驗證日誌包含成功訊息
-      // 在 PageContentService.js 中，成功日誌使用 this.logger.info 輸出
+      // 在 PageContentService.js 中，成功日誌使用 this.logger.success 輸出
 
-      const infoCalls = mockLogger.info.mock.calls;
-      const successLog = infoCalls.find(call => call[0]?.includes('提取成功'));
+      const successCalls = mockLogger.success.mock.calls;
+      const successLog = successCalls.find(call => call[0]?.includes('提取成功'));
       expect(successLog).toBeDefined();
     });
   });
