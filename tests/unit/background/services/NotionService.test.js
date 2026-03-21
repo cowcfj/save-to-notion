@@ -440,6 +440,26 @@ describe('NotionService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('validation_error');
     });
+
+    it('createPage 失敗時應只記錄脫敏後的錯誤字串', async () => {
+      const rawError = {
+        code: 'object_not_found',
+        message: 'token=secret123 should not be logged',
+      };
+      service._callNotionApiWithRetry = jest.fn().mockRejectedValue(rawError);
+
+      const result = await service.createPage({ title: 'Test Page' });
+
+      expect(result).toEqual({ success: false, error: 'object_not_found' });
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[NotionService] 創建頁面失敗',
+        expect.objectContaining({
+          action: 'createPage',
+          error: 'object_not_found',
+        })
+      );
+      expect(Logger.error.mock.calls.at(-1)?.[1]?.error).not.toBe(rawError);
+    });
   });
 
   describe('updatePageTitle', () => {

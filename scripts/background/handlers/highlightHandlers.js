@@ -231,7 +231,7 @@ export function createHighlightHandlers(services) {
         if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
           Logger.warn('受限頁面無法使用標註', {
             action: 'USER_ACTIVATE_SHORTCUT',
-            url: tabUrl,
+            url: sanitizeUrlForLogging(tabUrl),
             result: 'blocked',
             reason: 'restricted_url',
           });

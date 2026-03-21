@@ -9,6 +9,7 @@ import {
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 
 jest.mock('../../../../scripts/utils/Logger.js');
 jest.mock('../../../../scripts/background/services/InjectionService.js');
@@ -448,10 +449,17 @@ describe('highlightHandlers', () => {
     it('USER_ACTIVATE_SHORTCUT 應該處理受限 URL', async () => {
       isRestrictedInjectionUrl.mockReturnValue(true);
       const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'chrome://extensions' } };
+      const blockedUrl = 'https://example.com/article?token=secret123&utm_source=test';
+      const sender = { id: 'test-id', tab: { id: 1, url: blockedUrl } };
 
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        '受限頁面無法使用標註',
+        expect.objectContaining({
+          url: sanitizeUrlForLogging(blockedUrl),
+        })
+      );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 

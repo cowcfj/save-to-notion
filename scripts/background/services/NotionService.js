@@ -623,8 +623,12 @@ class NotionService {
 
       return result;
     } catch (error) {
-      Logger.error('[NotionService] 創建頁面失敗', { action: 'createPage', error });
-      return { success: false, error: sanitizeApiError(error, 'create_page') };
+      const safeError = sanitizeApiError(error, 'create_page');
+      Logger.error('[NotionService] 創建頁面失敗', {
+        action: 'createPage',
+        error: safeError,
+      });
+      return { success: false, error: safeError };
     }
   }
 
