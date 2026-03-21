@@ -10,8 +10,6 @@ import {
   setButtonText,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
-  showModal,
-  hideModal,
   formatSaveSuccessMessage,
 } from '../../../popup/popupUI.js';
 
@@ -23,13 +21,9 @@ describe('popupUI.js', () => {
     mockElements = {
       saveButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       highlightButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
-      clearHighlightsButton: { style: { display: 'none' } },
+      manageButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
       status: { textContent: '', style: { color: '' } },
-      modal: { style: { display: 'none' } },
-      modalMessage: { textContent: '' },
-      modalConfirm: {},
-      modalCancel: {},
     };
     jest.clearAllMocks();
   });
@@ -93,7 +87,6 @@ describe('popupUI.js', () => {
       updateUIForSavedPage(mockElements, response);
 
       expect(mockElements.highlightButton.disabled).toBe(false);
-      expect(mockElements.clearHighlightsButton.style.display).toBe('block');
       expect(mockElements.saveButton.style.display).toBe('none');
       expect(mockElements.openNotionButton.style.display).toBe('block');
       expect(mockElements.openNotionButton.dataset.url).toBe(response.notionUrl);
@@ -108,7 +101,6 @@ describe('popupUI.js', () => {
 
       // Highlight-First 模式：即使未保存也不禁用標記按鈕
       expect(mockElements.highlightButton.disabled).toBe(false);
-      expect(mockElements.clearHighlightsButton.style.display).toBe('none');
       expect(mockElements.saveButton.style.display).toBe('block');
       expect(mockElements.status.textContent).toContain('開始標註');
     });
@@ -117,17 +109,6 @@ describe('popupUI.js', () => {
       const response = { wasDeleted: true };
       updateUIForUnsavedPage(mockElements, response);
       expect(mockElements.status.textContent).toContain('原頁面已刪除');
-    });
-  });
-
-  describe('showModal / hideModal', () => {
-    it('應該正確顯示和隱藏 Modal', () => {
-      showModal(mockElements, 'Confirm Message');
-      expect(mockElements.modalMessage.textContent).toBe('Confirm Message');
-      expect(mockElements.modal.style.display).toBe('flex');
-
-      hideModal(mockElements);
-      expect(mockElements.modal.style.display).toBe('none');
     });
   });
 

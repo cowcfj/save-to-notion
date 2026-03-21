@@ -15,8 +15,6 @@ import {
   setButtonState,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
-  showModal,
-  hideModal,
   formatSaveSuccessMessage,
 } from './popupUI.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
@@ -28,7 +26,6 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
-  clearHighlights,
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
@@ -190,59 +187,6 @@ export async function initPopup() {
           error: result.error,
         });
       }
-    }
-  });
-
-  // 清除標記按鈕
-  elements.clearHighlightsButton.addEventListener('click', () => {
-    showModal(elements, UI_MESSAGES.POPUP.CLEAR_CONFIRM);
-  });
-
-  // Modal Overlay 點擊關閉 (Click to close)
-  if (elements.modal) {
-    elements.modal.addEventListener('click', event => {
-      // 確保只在點擊 overlay 本身時關閉，而不是點擊內容時
-      if (event.target === elements.modal) {
-        hideModal(elements);
-      }
-    });
-  }
-
-  // Modal 取消按鈕
-  elements.modalCancel.addEventListener('click', () => {
-    hideModal(elements);
-  });
-
-  // Modal 確認按鈕
-  elements.modalConfirm.addEventListener('click', async () => {
-    hideModal(elements);
-    Logger.start('[Popup] Clearing highlights...');
-    setStatus(elements, UI_MESSAGES.POPUP.CLEARING);
-    setButtonState(elements.clearHighlightsButton, true);
-
-    const activeTab = await getActiveTab();
-    if (!activeTab?.id) {
-      setStatus(elements, UI_MESSAGES.POPUP.CLEAR_FAILED);
-      setButtonState(elements.clearHighlightsButton, false);
-      return;
-    }
-
-    const result = await clearHighlights(activeTab.id, activeTab.url);
-
-    if (result.success) {
-      Logger.success('[Popup] Highlights cleared', { count: result.clearedCount });
-      setStatus(elements, UI_MESSAGES.POPUP.CLEAR_SUCCESS(result.clearedCount));
-      setTimeout(() => {
-        setButtonState(elements.clearHighlightsButton, false);
-        setStatus(elements, UI_MESSAGES.POPUP.PAGE_READY);
-      }, 2000);
-    } else {
-      setStatus(elements, UI_MESSAGES.POPUP.CLEAR_FAILED);
-      setButtonState(elements.clearHighlightsButton, false);
-      Logger.error('Failed to clear highlights', {
-        action: 'clearHighlights',
-        error: result.error,
-      });
     }
   });
 
