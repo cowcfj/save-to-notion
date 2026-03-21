@@ -14,13 +14,8 @@ import { UI_MESSAGES } from '../scripts/config/messages.js';
  * @property {HTMLButtonElement} saveButton - 保存按鈕
  * @property {HTMLButtonElement} highlightButton - 標記按鈕
  * @property {HTMLButtonElement} manageButton - 管理標註按鈕（開啟 Side Panel）
- * @property {HTMLButtonElement} clearHighlightsButton - 清除標記按鈕
  * @property {HTMLButtonElement} openNotionButton - 打開 Notion 按鈕
  * @property {HTMLElement} status - 狀態顯示元素
- * @property {HTMLElement} modal - 確認對話框
- * @property {HTMLElement} modalMessage - 對話框訊息
- * @property {HTMLButtonElement} modalConfirm - 確認按鈕
- * @property {HTMLButtonElement} modalCancel - 取消按鈕
  */
 
 /**
@@ -33,13 +28,8 @@ export function getElements() {
     saveButton: document.querySelector('#save-button'),
     highlightButton: document.querySelector('#highlight-button'),
     manageButton: document.querySelector('#manage-button'),
-    clearHighlightsButton: document.querySelector('#clear-highlights-button'),
     openNotionButton: document.querySelector('#open-notion-button'),
     status: document.querySelector('#status'),
-    modal: document.querySelector('#confirmation-modal'),
-    modalMessage: document.querySelector('#modal-message'),
-    modalConfirm: document.querySelector('#modal-confirm'),
-    modalCancel: document.querySelector('#modal-cancel'),
   };
 }
 
@@ -136,11 +126,6 @@ export function updateUIForSavedPage(elements, response) {
     elements.highlightButton.disabled = false;
   }
 
-  // 顯示清除按鈕
-  if (elements.clearHighlightsButton) {
-    elements.clearHighlightsButton.style.display = 'block';
-  }
-
   // 隱藏保存按鈕
   if (elements.saveButton) {
     elements.saveButton.style.display = 'none';
@@ -171,11 +156,6 @@ export function updateUIForUnsavedPage(elements, response) {
     elements.highlightButton.disabled = false;
   }
 
-  // 隱藏清除按鈕
-  if (elements.clearHighlightsButton) {
-    elements.clearHighlightsButton.style.display = 'none';
-  }
-
   // 顯示保存按鈕
   if (elements.saveButton) {
     elements.saveButton.style.display = 'block';
@@ -191,32 +171,6 @@ export function updateUIForUnsavedPage(elements, response) {
     setStatus(elements, UI_MESSAGES.POPUP.DELETED_PAGE, '#d63384');
   } else {
     setStatus(elements, UI_MESSAGES.POPUP.START_HIGHLIGHT);
-  }
-}
-
-/**
- * 顯示確認對話框
- *
- * @param {PopupElements} elements - DOM 元素集合
- * @param {string} message - 對話框訊息
- */
-export function showModal(elements, message) {
-  if (elements.modalMessage) {
-    elements.modalMessage.textContent = message;
-  }
-  if (elements.modal) {
-    elements.modal.style.display = 'flex';
-  }
-}
-
-/**
- * 隱藏確認對話框
- *
- * @param {PopupElements} elements - DOM 元素集合
- */
-export function hideModal(elements) {
-  if (elements.modal) {
-    elements.modal.style.display = 'none';
   }
 }
 

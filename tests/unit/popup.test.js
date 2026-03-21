@@ -13,8 +13,6 @@ import {
   setButtonState,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
-  showModal,
-  hideModal,
   formatSaveSuccessMessage,
 } from '../../popup/popupUI.js';
 import {
@@ -22,7 +20,6 @@ import {
   checkPageStatus,
   savePage,
   openNotionPage,
-  clearHighlights,
   startHighlight,
   getActiveTab,
 } from '../../popup/popupActions.js';
@@ -37,13 +34,8 @@ describe('popupUI', () => {
       <div id="status"></div>
       <button id="save-button">Save</button>
       <button id="highlight-button"><span class="btn-text">Highlight</span></button>
-      <button id="clear-highlights-button" style="display: none;">Clear</button>
+      <button id="manage-button">Manage</button>
       <button id="open-notion-button" style="display: none;" data-url="">Open Notion</button>
-      <div id="confirmation-modal" style="display: none;">
-        <p id="modal-message"></p>
-        <button id="modal-confirm">確認</button>
-        <button id="modal-cancel">取消</button>
-      </div>
     `;
 
     elements = getElements();
@@ -54,13 +46,14 @@ describe('popupUI', () => {
     test('應返回所有 DOM 元素', () => {
       expect(elements.saveButton).toBeTruthy();
       expect(elements.highlightButton).toBeTruthy();
-      expect(elements.clearHighlightsButton).toBeTruthy();
+      expect(elements.manageButton).toBeTruthy();
       expect(elements.openNotionButton).toBeTruthy();
       expect(elements.status).toBeTruthy();
-      expect(elements.modal).toBeTruthy();
-      expect(elements.modalMessage).toBeTruthy();
-      expect(elements.modalConfirm).toBeTruthy();
-      expect(elements.modalCancel).toBeTruthy();
+      expect(elements).not.toHaveProperty('clearHighlightsButton');
+      expect(elements).not.toHaveProperty('modal');
+      expect(elements).not.toHaveProperty('modalMessage');
+      expect(elements).not.toHaveProperty('modalConfirm');
+      expect(elements).not.toHaveProperty('modalCancel');
     });
   });
 
@@ -102,7 +95,6 @@ describe('popupUI', () => {
 
       expect(elements.highlightButton.textContent).toBe('開始標註');
       expect(elements.highlightButton.disabled).toBe(false);
-      expect(elements.clearHighlightsButton.style.display).toBe('block');
       expect(elements.saveButton.style.display).toBe('none');
       expect(elements.openNotionButton.style.display).toBe('block');
       expect(elements.openNotionButton.dataset.url).toBe('https://notion.so/test-page');
@@ -118,7 +110,6 @@ describe('popupUI', () => {
 
       // Highlight-First 模式：即使未保存也不禁用標記按鈕
       expect(elements.highlightButton.disabled).toBe(false);
-      expect(elements.clearHighlightsButton.style.display).toBe('none');
       expect(elements.saveButton.style.display).toBe('block');
       expect(elements.openNotionButton.style.display).toBe('none');
       expect(elements.status.textContent).toBe('開始標註');
@@ -131,23 +122,6 @@ describe('popupUI', () => {
 
       expect(elements.status.textContent).toBe('原頁面已刪除，請重新儲存。');
       expect(elements.status.style.color).toBe('rgb(214, 51, 132)');
-    });
-  });
-
-  describe('showModal / hideModal', () => {
-    test('showModal 應顯示對話框並設置訊息', () => {
-      showModal(elements, '確定要清除嗎？');
-
-      expect(elements.modal.style.display).toBe('flex');
-      expect(elements.modalMessage.textContent).toBe('確定要清除嗎？');
-    });
-
-    test('hideModal 應隱藏對話框', () => {
-      elements.modal.style.display = 'flex';
-
-      hideModal(elements);
-
-      expect(elements.modal.style.display).toBe('none');
     });
   });
 
@@ -342,34 +316,6 @@ describe('openNotionPage', () => {
   });
 });
 
-describe('clearHighlights', () => {
-  test('清除成功應返回結果', async () => {
-    chrome.scripting.executeScript.mockResolvedValue([{ result: 5 }]);
-
-    const result = await clearHighlights(123, 'https://example.com/page?utm_source=test');
-
-    expect(result.success).toBe(true);
-    expect(result.clearedCount).toBe(5);
-    expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
-      expect.objectContaining({
-        target: { tabId: 123 },
-        func: expect.any(Function),
-        args: expect.arrayContaining(['highlights_https://example.com/page']),
-      })
-    );
-  });
-
-  test('結果無效時應返回 clearedCount 為 0', async () => {
-    // 使用 undefined 結果時，實現返回 success: true, clearedCount: 0
-    chrome.scripting.executeScript.mockResolvedValue();
-
-    const result = await clearHighlights(123, 'https://example.com');
-
-    expect(result.success).toBe(true);
-    expect(result.clearedCount).toBe(0);
-  });
-});
-
 describe('initPopup integration', () => {
   beforeEach(() => {
     // 創建 popup.html 所需的 DOM 結構
@@ -378,13 +324,7 @@ describe('initPopup integration', () => {
       <button id="save-button">Save</button>
       <button id="highlight-button"><span class="btn-text">Highlight</span></button>
       <button id="manage-button">Manage</button>
-      <button id="clear-highlights-button" style="display: none;">Clear</button>
       <button id="open-notion-button" style="display: none;">Open Notion</button>
-      <div id="confirmation-modal" style="display: none;">
-        <p id="modal-message"></p>
-        <button id="modal-confirm">確認</button>
-        <button id="modal-cancel">取消</button>
-      </div>
     `;
     jest.clearAllMocks();
     chrome._clearStorage();

@@ -11,8 +11,6 @@ import {
   setStatus,
   setButtonState,
   formatSaveSuccessMessage,
-  showModal,
-  hideModal,
 } from '../../../popup/popupUI.js';
 import {
   checkSettings,
@@ -21,7 +19,6 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
-  clearHighlights,
 } from '../../../popup/popupActions.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/messages.js';
@@ -43,7 +40,6 @@ describe('popup.js Controller', () => {
       saveButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
       highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
       manageButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      clearHighlightsButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
       openNotionButton: {
         addEventListener: jest.fn(),
         getAttribute: jest.fn(),
@@ -51,10 +47,11 @@ describe('popup.js Controller', () => {
         dataset: { url: 'https://notion.so/new' },
       },
       status: { textContent: '', style: {} },
-      modal: { addEventListener: jest.fn(), style: {} },
-      modalMessage: { textContent: '' },
-      modalConfirm: { addEventListener: jest.fn() },
-      modalCancel: { addEventListener: jest.fn() },
+      clearHighlightsButton: null,
+      modal: null,
+      modalMessage: null,
+      modalConfirm: null,
+      modalCancel: null,
     };
 
     getElements.mockReturnValue(mockElements);
@@ -161,10 +158,6 @@ describe('popup.js Controller', () => {
       'click',
       expect.any(Function)
     );
-    expect(mockElements.clearHighlightsButton.addEventListener).toHaveBeenCalledWith(
-      'click',
-      expect.any(Function)
-    );
   });
 
   describe('Event Handlers', () => {
@@ -257,48 +250,15 @@ describe('popup.js Controller', () => {
       expect(globalThis.window.close).not.toHaveBeenCalled();
     });
 
-    it('clearHighlightsButton click should show modal', async () => {
+    it('should tolerate missing clear-highlights UI controls', async () => {
       const { mockElements } = setup();
-      await initPopup();
-      await triggerEvent(mockElements.clearHighlightsButton);
-      expect(showModal).toHaveBeenCalled();
-    });
 
-    it('modal cancel should hide modal', async () => {
-      const { mockElements } = setup();
-      await initPopup();
-      await triggerEvent(mockElements.modalCancel);
-      expect(hideModal).toHaveBeenCalled();
-    });
+      await expect(initPopup()).resolves.not.toThrow();
 
-    it('modal confirm should clear highlights', async () => {
-      const { mockElements } = setup();
-      await initPopup();
-      getActiveTab.mockResolvedValue({ id: 123, url: 'https://page.com' });
-      clearHighlights.mockResolvedValue({ success: true, clearedCount: 5 });
-
-      await triggerEvent(mockElements.modalConfirm);
-
-      expect(hideModal).toHaveBeenCalled();
-      expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.CLEARING);
-      expect(clearHighlights).toHaveBeenCalledWith(123, 'https://page.com');
-      expect(setStatus).toHaveBeenCalledWith(
-        mockElements,
-        expect.stringContaining(UI_MESSAGES.POPUP.CLEAR_SUCCESS(5))
-      );
-    });
-
-    it('modal overlay click should close modal', async () => {
-      const { mockElements } = setup();
-      await initPopup();
-
-      // Trigger click on modal element itself
-      const handler = mockElements.modal.addEventListener.mock.calls.find(
-        call => call[0] === 'click'
-      )[1];
-      await handler({ target: mockElements.modal }); // Click on overlay
-
-      expect(hideModal).toHaveBeenCalled();
+      expect(mockElements.clearHighlightsButton).toBeNull();
+      expect(mockElements.modal).toBeNull();
+      expect(mockElements.modalConfirm).toBeNull();
+      expect(mockElements.modalCancel).toBeNull();
     });
   });
 });

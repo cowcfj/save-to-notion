@@ -6,8 +6,7 @@
 
 /* global chrome */
 
-import { normalizeUrl } from '../scripts/utils/urlUtils.js';
-import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
+import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/api.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
@@ -120,7 +119,7 @@ export async function startHighlight() {
 export async function openNotionPage(url) {
   // 驗證 URL 安全性
   if (!isValidNotionUrl(url)) {
-    Logger.warn('Blocked invalid URL:', url);
+    Logger.warn('Blocked invalid URL:', sanitizeUrlForLogging(url));
     return { success: false, error: '無效的 Notion URL' };
   }
 
@@ -146,72 +145,4 @@ export async function getActiveTab() {
     Logger.warn('getActiveTab failed:', error);
     return null;
   }
-}
-
-/**
- * 清除高亮
- *
- * @param {number} tabId - 標籤頁 ID
- * @param {string} tabUrl - 標籤頁 URL
- * @returns {Promise<{success: boolean, clearedCount?: number, error?: string}>}
- */
-export async function clearHighlights(tabId, tabUrl) {
-  const pageKey = `highlights_${normalizeUrl(tabUrl)}`;
-
-  try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: clearHighlightsInPage,
-      args: [pageKey],
-    });
-    const clearedCount =
-      results && Array.isArray(results) && results[0] && typeof results[0].result === 'number'
-        ? results[0].result
-        : 0;
-    return { success: true, clearedCount };
-  } catch (error) {
-    Logger.warn('clearHighlights failed:', error);
-    return { success: false, error: '無法清除標記' };
-  }
-}
-
-/**
- * 在頁面中執行清除標記的函數
- * 注意：此函數會被序列化後在 content script 中執行
- *
- * @param {string} pageKey - 用於清除存儲的鍵
- * @returns {Promise<number>} 清除的標記數量
- */
-// Exported for testing
-export async function clearHighlightsInPage(pageKey) {
-  // 清除頁面上的標記
-  const highlights = document.querySelectorAll('.simple-highlight');
-  highlights.forEach(highlight => {
-    const parent = highlight.parentNode;
-    parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
-    highlight.remove();
-    parent.normalize();
-  });
-
-  // 清除本地存儲
-  try {
-    // 檢查 chrome.storage 是否可用（content script 環境）
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      await chrome.storage.local.remove([pageKey]);
-    } else {
-      // 降級到 localStorage（舊版或受限環境）
-      localStorage.removeItem(pageKey);
-    }
-  } catch {
-    // chrome.storage.local.remove 失敗時再嘗試 localStorage
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.removeItem(pageKey);
-      } catch {
-        // 完全失敗，靜默忽略
-      }
-    }
-  }
-
-  return highlights.length;
 }

@@ -5,9 +5,8 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
-  clearHighlights,
-  clearHighlightsInPage,
 } from '../../../popup/popupActions.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 describe('popupActions.js', () => {
   beforeEach(() => {
@@ -248,6 +247,19 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('無效的 Notion URL');
     });
+
+    it('對於無效 URL 應記錄脫敏後的網址', async () => {
+      const url = 'https://malicious.com/callback?token=secret123&state=abc';
+      const warnSpy = jest.spyOn(Logger, 'warn');
+
+      await openNotionPage(url);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Blocked invalid URL:',
+        'https://malicious.com/callback?token=[REDACTED_TOKEN]&state=abc'
+      );
+      warnSpy.mockRestore();
+    });
   });
 
   describe('getActiveTab', () => {
@@ -262,124 +274,6 @@ describe('popupActions.js', () => {
       chrome.tabs.query.mockResolvedValue([]);
       const result = await getActiveTab();
       expect(result).toBeNull();
-    });
-  });
-
-  describe('clearHighlights', () => {
-    it('應該在頁面中執行清除腳本', async () => {
-      const tabId = 123;
-      const tabUrl = 'https://example.com/page';
-      chrome.scripting.executeScript.mockResolvedValue([{ result: 10 }]);
-
-      const result = await clearHighlights(tabId, tabUrl);
-
-      expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
-        expect.objectContaining({
-          target: { tabId },
-          func: expect.any(Function),
-          args: expect.any(Array),
-        })
-      );
-      expect(result.success).toBe(true);
-      expect(result.clearedCount).toBe(10);
-    });
-
-    it('處理執行失敗的情況', async () => {
-      chrome.scripting.executeScript.mockRejectedValue(new Error('Script error'));
-      const result = await clearHighlights(123, 'url');
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('無法清除標記');
-    });
-  });
-
-  describe('clearHighlightsInPage', () => {
-    let originalChrome;
-    let removeItemSpy;
-
-    beforeEach(() => {
-      // 設置 DOM
-      document.body.innerHTML = `
-        <div id="container">
-          <span class="simple-highlight">text1</span>
-          <span class="simple-highlight">text2</span>
-        </div>
-      `;
-
-      // 備份全域物件
-      originalChrome = globalThis.chrome;
-
-      // Mock localStorage 使用 spyOn 來避免直接覆寫唯讀屬性
-      removeItemSpy = jest
-        .spyOn(Object.getPrototypeOf(globalThis.localStorage), 'removeItem')
-        .mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-      // 恢復全域物件
-      globalThis.chrome = originalChrome;
-      document.body.innerHTML = '';
-      removeItemSpy.mockRestore();
-      jest.clearAllMocks();
-    });
-
-    it('應該從 DOM 中移除標記並還原文字', async () => {
-      const parent = document.querySelector('#container');
-
-      const count = await clearHighlightsInPage('test-key');
-
-      expect(count).toBe(2);
-      expect(document.querySelectorAll('.simple-highlight')).toHaveLength(0);
-      expect(parent.textContent.replaceAll(/\s+/g, ' ').trim()).toBe('text1 text2');
-    });
-
-    it('當 chrome.storage.local 可用時應清除', async () => {
-      globalThis.chrome = {
-        storage: {
-          local: {
-            remove: jest.fn(),
-          },
-        },
-      };
-
-      await clearHighlightsInPage('test-key');
-
-      expect(globalThis.chrome.storage.local.remove).toHaveBeenCalledWith(['test-key']);
-      expect(globalThis.localStorage.removeItem).not.toHaveBeenCalled();
-    });
-
-    it('當 chrome.storage.local 不可用時應降級使用 localStorage', async () => {
-      globalThis.chrome = undefined; // 模擬 content script 無法存取 chrome 的情況
-
-      await clearHighlightsInPage('test-key');
-
-      expect(globalThis.localStorage.removeItem).toHaveBeenCalledWith('test-key');
-    });
-
-    it('當 chrome.storage.local 拋出錯誤時應降級使用 localStorage', async () => {
-      globalThis.chrome = {
-        storage: {
-          local: {
-            remove: jest.fn().mockImplementation(() => {
-              throw new Error('Storage error');
-            }),
-          },
-        },
-      };
-
-      await clearHighlightsInPage('test-key');
-
-      expect(globalThis.chrome.storage.local.remove).toHaveBeenCalledWith(['test-key']);
-      expect(globalThis.localStorage.removeItem).toHaveBeenCalledWith('test-key');
-    });
-
-    it('當 localStorage 也拋出錯誤時應靜默處理', async () => {
-      globalThis.chrome = undefined;
-      globalThis.localStorage.removeItem.mockImplementationOnce(() => {
-        throw new Error('LocalStorage error');
-      });
-
-      // 不應該拋出錯誤
-      await expect(clearHighlightsInPage('test-key')).resolves.not.toThrow();
     });
   });
 });

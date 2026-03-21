@@ -49,6 +49,7 @@ describe('highlightHandlers', () => {
         getHighlighterState: jest.fn(),
         setHighlighterState: jest.fn(),
         getSavedPageData: jest.fn(),
+        getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
         getConfig: jest.fn(),
         updateHighlights: jest.fn(),
       },
@@ -67,6 +68,7 @@ describe('highlightHandlers', () => {
         ensureBundleInjected: jest.fn(),
         injectHighlighter: jest.fn(),
         collectHighlights: jest.fn(),
+        clearPageHighlights: jest.fn(),
       },
       migrationService: {
         migrateStorageKey: jest.fn().mockResolvedValue(false),
@@ -521,6 +523,44 @@ describe('highlightHandlers', () => {
   });
 
   describe('CLEAR_HIGHLIGHTS', () => {
+    it('應該拒絕無效的 content script 請求', async () => {
+      const validationError = {
+        success: false,
+        error: 'content script 驗證失敗',
+      };
+      validateContentScriptRequest.mockReturnValueOnce(validationError);
+
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com' };
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
+      expect(validateInternalRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
+    });
+
+    it('應該拒絕無效的 popup/internal 請求', async () => {
+      const validationError = {
+        success: false,
+        error: 'internal 驗證失敗',
+      };
+      validateInternalRequest.mockReturnValueOnce(validationError);
+
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+      const request = { url: 'https://example.com', tabId: 1 };
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+      expect(validateContentScriptRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
+    });
+
     it('應該成功清除標註', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
@@ -534,7 +574,58 @@ describe('highlightHandlers', () => {
         'https://example.com',
         []
       );
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: true,
+      });
+    });
+
+    it('頁面視覺清除失敗時仍應回報 storage 清除成功', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { url: 'https://example.com' };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+      mockServices.injectionService.clearPageHighlights.mockRejectedValueOnce(
+        new Error('Visual cleanup failed')
+      );
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        []
+      );
+      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: false,
+      });
+    });
+
+    it('應該允許 popup/internal sender 清除標註並清頁面高亮', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+      const request = { url: 'https://example.com', tabId: 1 };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        []
+      );
+      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: true,
+      });
     });
 
     it('應該處理缺少 url 的情況', async () => {
