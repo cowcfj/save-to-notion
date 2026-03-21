@@ -142,7 +142,11 @@ async function performHighlightUpdate(services, activeTab, highlights) {
     }
   );
 
-  if (!result.success && result.error === 'object_not_found') {
+  if (
+    !result.success &&
+    result.error === 'object_not_found' &&
+    result.details?.phase === 'fetch_blocks'
+  ) {
     Logger.warn('同步標註時發現遠端頁面已刪除，清除本地 notion 綁定', {
       action: 'performHighlightUpdate',
       url: sanitizeUrlForLogging(resolvedUrl),
