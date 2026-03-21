@@ -264,7 +264,11 @@ describe('actionHandlers 覆蓋率補強', () => {
         mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
         mockNotionService.checkPageExists.mockResolvedValue(true);
         mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'isolated highlight' }]);
-        mockPageContentService.extractContent.mockResolvedValue({ title: 'Fallback', blocks: [] });
+        mockPageContentService.extractContent.mockResolvedValue({
+          extractionStatus: 'success',
+          title: 'Fallback',
+          blocks: [],
+        });
         mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
         chrome.tabs.query.mockResolvedValue([{ id: 99, url: 'https://example.com/isolated' }]);
 
@@ -291,6 +295,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       notionDataSourceId: 'db-123',
     };
     const mockContentResult = {
+      extractionStatus: 'success',
       title: 'Test Page',
       blocks: [{ type: 'paragraph' }],
       siteIcon: 'icon.png',
@@ -600,6 +605,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   describe('SAVE_PAGE_FROM_TOOLBAR Handler', () => {
     const mockContentResult = {
+      extractionStatus: 'success',
       title: 'Test Page',
       blocks: [{ type: 'paragraph' }],
       siteIcon: 'icon.png',

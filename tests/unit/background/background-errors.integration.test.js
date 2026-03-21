@@ -23,9 +23,10 @@ import {
  */
 function setupScriptMock(contentResult) {
   const mock = chrome.scripting.executeScript
-    .mockImplementationOnce((opts, cb) => cb?.())
-    .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-    .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]));
+    .mockImplementationOnce((opts, cb) => cb?.()) // 1: injectHighlighter files
+    .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }])) // 2: injectHighlighter func
+    .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }])) // 3: collectHighlights func
+    .mockImplementationOnce((opts, cb) => cb?.()); // 4: extractContent files
 
   if (contentResult === 'error') {
     mock.mockImplementationOnce((opts, cb) => {
@@ -33,7 +34,7 @@ function setupScriptMock(contentResult) {
       cb?.();
     });
   } else {
-    mock.mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult ?? {} }]));
+    mock.mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult ?? {} }])); // 5: extractContent func
   }
 }
 
@@ -422,6 +423,7 @@ describe('background error branches (integration)', () => {
     // 模擬內容注入成功：collectHighlights 空、injectWithResponse 回傳內容
     // 模擬內容注入成功：Files -> Init -> Collect -> Extract
     const contentResult = {
+      extractionStatus: 'success',
       title: 'T',
       blocks: [
         {
@@ -476,6 +478,7 @@ describe('background error branches (integration)', () => {
     // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     // 注入：Files -> Init -> Collect -> Extract (含圖片)
     const contentResult = {
+      extractionStatus: 'success',
       title: 'T',
       blocks: [
         {
@@ -573,6 +576,7 @@ describe('background error branches (integration)', () => {
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
 
     const contentResult = {
+      extractionStatus: 'success',
       title: 'T',
       blocks: [
         {
@@ -653,6 +657,7 @@ describe('background error branches (integration)', () => {
     );
 
     const contentResult = {
+      extractionStatus: 'success',
       title: 'T2',
       blocks: [
         {
@@ -724,6 +729,7 @@ describe('background error branches (integration)', () => {
     );
 
     const contentResult = {
+      extractionStatus: 'success',
       title: 'T2',
       blocks: [
         {
