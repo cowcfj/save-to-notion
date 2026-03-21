@@ -423,6 +423,42 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#database-id').value).toBe('ds_sync_123');
     });
 
+    test('OAuth 模式缺 local 儲存時應等待非同步遷移完成', async () => {
+      let migrationCompleted = false;
+
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth_token_123',
+      });
+      chrome.storage.sync.get.mockResolvedValue({
+        notionDataSourceId: 'ds_sync_123',
+      });
+      chrome.storage.local.set.mockImplementation(
+        () =>
+          new Promise(resolve => {
+            setTimeout(() => {
+              migrationCompleted = true;
+              resolve();
+            }, 0);
+          })
+      );
+
+      await authManager.checkAuthStatus();
+
+      expect(migrationCompleted).toBe(true);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        notionDataSourceId: 'ds_sync_123',
+        notionDatabaseId: 'ds_sync_123',
+      });
+      expect(Logger.success).toHaveBeenCalledWith(
+        '[Settings] 已自動遷移 dataSourceId 從 sync 至 local',
+        {
+          action: 'checkAuthStatus',
+          operation: 'migrateDataSourceKey',
+        }
+      );
+    });
+
     test('OAuth 模式缺 notionDataSourceId 時應提示升級', async () => {
       chrome.storage.local.get.mockResolvedValue({
         notionAuthMode: 'oauth',

@@ -244,3 +244,51 @@ export async function refreshOAuthToken() {
 
   return refreshInFlightPromise;
 }
+
+/**
+ * 將僅存在 sync 的資料來源設定透明遷移至 local。
+ *
+ * @param {object} options - 遷移選項
+ * @param {object} [options.localData={}] - local storage 讀取結果
+ * @param {object} [options.syncData={}] - sync storage 讀取結果
+ * @param {{set: Function}} options.storageArea - 目標 storage area，通常為 chrome.storage.local
+ * @param {object} [options.logger] - Logger 實例
+ * @param {string} options.action - 呼叫來源，用於日誌 metadata
+ * @param {string} options.retryContext - 失敗提示中的重試場景，例如 popup 或 options
+ * @returns {Promise<boolean>} 是否實際執行了遷移
+ */
+export async function migrateDataSourceKeys({
+  localData = {},
+  syncData = {},
+  storageArea,
+  logger,
+  action,
+  retryContext,
+}) {
+  const localDataSourceId = localData.notionDataSourceId || localData.notionDatabaseId;
+  const syncDataSourceId = syncData.notionDataSourceId || syncData.notionDatabaseId;
+
+  if (localDataSourceId || !syncDataSourceId || !storageArea?.set) {
+    return false;
+  }
+
+  try {
+    await storageArea.set({
+      notionDataSourceId: syncDataSourceId,
+      notionDatabaseId: syncDataSourceId,
+    });
+
+    logger?.success?.('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
+      action,
+      operation: 'migrateDataSourceKey',
+    });
+    return true;
+  } catch (error) {
+    logger?.warn?.(`[Settings] dataSourceId 遷移失敗，下次開啟 ${retryContext} 會重試`, {
+      action,
+      operation: 'migrateDataSourceKey',
+      error,
+    });
+    return false;
+  }
+}

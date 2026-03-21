@@ -93,6 +93,17 @@ describe('popupActions.js', () => {
         notionDataSourceId: 'sync-db-id',
       });
 
+      const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+      chrome.storage.local.set = jest.fn(
+        items =>
+          new Promise(resolve => {
+            setTimeout(async () => {
+              await originalSet(items);
+              resolve();
+            }, 0);
+          })
+      );
+
       await checkSettings();
 
       // 驗證自動遷移：local 應被寫入
@@ -106,6 +117,17 @@ describe('popupActions.js', () => {
         notionApiKey: 'test-key',
         notionDatabaseId: 'legacy-sync-id',
       });
+
+      const originalSet = chrome.storage.local.set.bind(chrome.storage.local);
+      chrome.storage.local.set = jest.fn(
+        items =>
+          new Promise(resolve => {
+            setTimeout(async () => {
+              await originalSet(items);
+              resolve();
+            }, 0);
+          })
+      );
 
       const result = await checkSettings();
       expect(result.valid).toBe(true);

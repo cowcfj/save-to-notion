@@ -11,6 +11,7 @@ import {
   refreshOAuthToken,
   getNextAuthEpoch,
   isNonEmptyString,
+  migrateDataSourceKeys,
 } from '../scripts/utils/notionAuth.js';
 import {
   AUTH_LOCAL_KEYS,
@@ -186,27 +187,14 @@ export class AuthManager {
       ]);
 
       const sourceData = mergeDataSourceConfig(localData, syncData);
-
-      // 透明遷移：若 dataSourceId 僅存於 sync，自動複製至 local
-      const localDataSourceId = localData.notionDataSourceId || localData.notionDatabaseId;
-      const syncDataSourceId = syncData.notionDataSourceId || syncData.notionDatabaseId;
-      if (!localDataSourceId && syncDataSourceId) {
-        chrome.storage.local
-          .set({ notionDataSourceId: syncDataSourceId, notionDatabaseId: syncDataSourceId })
-          .then(() => {
-            Logger.success('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
-              action: 'checkAuthStatus',
-              operation: 'migrateDataSourceKey',
-            });
-          })
-          .catch(error => {
-            Logger.warn('[Settings] dataSourceId 遷移失敗，下次開啟 options 會重試', {
-              action: 'checkAuthStatus',
-              operation: 'migrateDataSourceKey',
-              error,
-            });
-          });
-      }
+      await migrateDataSourceKeys({
+        localData,
+        syncData,
+        storageArea: chrome.storage.local,
+        logger: Logger,
+        action: 'checkAuthStatus',
+        retryContext: 'options',
+      });
 
       // 判斷認證模式
       if (localData.notionAuthMode === AuthMode.OAUTH && localData.notionOAuthToken) {

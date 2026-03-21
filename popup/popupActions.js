@@ -10,6 +10,7 @@ import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/api.js';
+import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 
 /**
  * 檢查設置是否完整
@@ -34,27 +35,14 @@ export async function checkSettings() {
     const syncDataSourceId = syncResult.notionDataSourceId || syncResult.notionDatabaseId;
     const dataSourceId = localDataSourceId || syncDataSourceId;
 
-    // 透明遷移：若 dataSourceId 僅存於 sync，自動複製至 local
-    if (!localDataSourceId && syncDataSourceId) {
-      chrome.storage.local
-        .set({
-          notionDataSourceId: syncDataSourceId,
-          notionDatabaseId: syncDataSourceId,
-        })
-        .then(() => {
-          Logger.success('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
-            action: 'checkSettings',
-            operation: 'migrateDataSourceKey',
-          });
-        })
-        .catch(error => {
-          Logger.warn('[Settings] dataSourceId 遷移失敗，下次開啟 popup 會重試', {
-            action: 'checkSettings',
-            operation: 'migrateDataSourceKey',
-            error,
-          });
-        });
-    }
+    await migrateDataSourceKeys({
+      localData: localResult,
+      syncData: syncResult,
+      storageArea: chrome.storage.local,
+      logger: Logger,
+      action: 'checkSettings',
+      retryContext: 'popup',
+    });
 
     return {
       valid: Boolean((syncResult.notionApiKey || isOAuth) && dataSourceId),
