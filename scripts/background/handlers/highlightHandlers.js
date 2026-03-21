@@ -558,19 +558,22 @@ export function createHighlightHandlers(services) {
 
         // 清除 highlights，保留 notion（透過 updateHighlights 寫入空陣列）
         const { storageService } = services;
-        const currentHighlights = (await storageService.getHighlights?.(url)) || [];
+        const currentHighlights = (await storageService.getHighlights(url)) || [];
         const clearedCount = Array.isArray(currentHighlights) ? currentHighlights.length : 0;
         await storageService.updateHighlights(url, []);
 
         const targetTabId = sender?.tab?.id || request.tabId;
+        let visualCleared = false;
         if (targetTabId && typeof injectionService?.clearPageHighlights === 'function') {
           try {
             await injectionService.clearPageHighlights(targetTabId);
+            visualCleared = true;
           } catch (error) {
             Logger.warn('Phase 3: CLEAR_HIGHLIGHTS 視覺清除失敗，但 storage 已更新', {
               action: 'CLEAR_HIGHLIGHTS',
               tabId: targetTabId,
               error: error.message,
+              stack: error.stack,
             });
           }
         }
@@ -579,7 +582,7 @@ export function createHighlightHandlers(services) {
           action: 'CLEAR_HIGHLIGHTS',
           url: sanitizeUrlForLogging(url),
         });
-        sendResponse({ success: true, clearedCount });
+        sendResponse({ success: true, clearedCount, visualCleared });
       } catch (error) {
         Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {
           action: 'CLEAR_HIGHLIGHTS',

@@ -575,7 +575,11 @@ describe('highlightHandlers', () => {
         []
       );
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true, clearedCount: 2 });
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: true,
+      });
     });
 
     it('頁面視覺清除失敗時仍應回報 storage 清除成功', async () => {
@@ -595,7 +599,11 @@ describe('highlightHandlers', () => {
         []
       );
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true, clearedCount: 2 });
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: false,
+      });
     });
 
     it('應該允許 popup/internal sender 清除標註並清頁面高亮', async () => {
@@ -613,7 +621,11 @@ describe('highlightHandlers', () => {
         []
       );
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true, clearedCount: 2 });
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: true,
+      });
     });
 
     it('應該處理缺少 url 的情況', async () => {

@@ -258,6 +258,7 @@ describe('popupActions.js', () => {
         'Blocked invalid URL:',
         'https://malicious.com/callback?token=[REDACTED_TOKEN]&state=abc'
       );
+      warnSpy.mockRestore();
     });
   });
 
