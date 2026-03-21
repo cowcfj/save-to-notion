@@ -15,7 +15,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { LOG_ICONS } from '../../config/ui.js';
+
 import { CONTENT_QUALITY } from '../../config/extraction.js';
 
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
@@ -159,7 +159,7 @@ class PageContentService {
         result?.title &&
         Array.isArray(result?.blocks)
       ) {
-        this.logger.info?.(`${LOG_ICONS.SUCCESS} [PageContentService] 提取成功`, {
+        this.logger.success?.('[PageContentService] 提取成功', {
           title: result.title,
           blockCount: result.blocks.length,
           hasSiteIcon: Boolean(result.siteIcon),
@@ -169,7 +169,7 @@ class PageContentService {
       }
 
       // 結果無效
-      this.logger.warn?.(`${LOG_ICONS.WARN} [PageContentService] 提取結果無效`, {
+      this.logger.warn?.('[PageContentService] 提取結果無效', {
         resultKeys: Object.keys(result || {}),
       });
       return {
@@ -188,7 +188,7 @@ class PageContentService {
         coverImage: null,
       };
     } catch (error) {
-      this.logger.error?.(`${LOG_ICONS.ERROR} [PageContentService] 注入失敗`, { error });
+      this.logger.error?.('[PageContentService] 注入失敗', { error });
       throw error;
     }
   }
