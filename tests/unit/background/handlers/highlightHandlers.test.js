@@ -49,6 +49,7 @@ describe('highlightHandlers', () => {
         getHighlighterState: jest.fn(),
         setHighlighterState: jest.fn(),
         getSavedPageData: jest.fn(),
+        getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
         getConfig: jest.fn(),
         updateHighlights: jest.fn(),
       },
@@ -67,6 +68,7 @@ describe('highlightHandlers', () => {
         ensureBundleInjected: jest.fn(),
         injectHighlighter: jest.fn(),
         collectHighlights: jest.fn(),
+        clearPageHighlights: jest.fn(),
       },
       migrationService: {
         migrateStorageKey: jest.fn().mockResolvedValue(false),
@@ -534,7 +536,26 @@ describe('highlightHandlers', () => {
         'https://example.com',
         []
       );
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, clearedCount: 2 });
+    });
+
+    it('應該允許 popup/internal sender 清除標註並清頁面高亮', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+      const request = { url: 'https://example.com', tabId: 1 };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+
+      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+
+      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        []
+      );
+      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, clearedCount: 2 });
     });
 
     it('應該處理缺少 url 的情況', async () => {

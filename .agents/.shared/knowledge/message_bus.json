@@ -77,6 +77,17 @@
           "success": "boolean",
           "count": "number"
         }
+      },
+      "CLEAR_HIGHLIGHTS": {
+        "description": "Clear local highlights for a page through the canonical Background storage path and best-effort page visual cleanup",
+        "payload": {
+          "url": "string",
+          "tabId": "number"
+        },
+        "response": {
+          "success": "boolean",
+          "clearedCount": "number"
+        }
       }
     },
     "auth": {

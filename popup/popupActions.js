@@ -7,7 +7,7 @@
 /* global chrome */
 
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
-import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
+import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/api.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
@@ -120,7 +120,7 @@ export async function startHighlight() {
 export async function openNotionPage(url) {
   // 驗證 URL 安全性
   if (!isValidNotionUrl(url)) {
-    Logger.warn('Blocked invalid URL:', url);
+    Logger.warn('Blocked invalid URL:', sanitizeUrlForLogging(url));
     return { success: false, error: '無效的 Notion URL' };
   }
 
@@ -156,19 +156,13 @@ export async function getActiveTab() {
  * @returns {Promise<{success: boolean, clearedCount?: number, error?: string}>}
  */
 export async function clearHighlights(tabId, tabUrl) {
-  const pageKey = `highlights_${normalizeUrl(tabUrl)}`;
-
   try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: clearHighlightsInPage,
-      args: [pageKey],
+    const response = await chrome.runtime.sendMessage({
+      action: 'CLEAR_HIGHLIGHTS',
+      tabId,
+      url: normalizeUrl(tabUrl),
     });
-    const clearedCount =
-      results && Array.isArray(results) && results[0] && typeof results[0].result === 'number'
-        ? results[0].result
-        : 0;
-    return { success: true, clearedCount };
+    return response || { success: false, error: 'No response' };
   } catch (error) {
     Logger.warn('clearHighlights failed:', error);
     return { success: false, error: '無法清除標記' };

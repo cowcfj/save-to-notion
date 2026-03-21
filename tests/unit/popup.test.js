@@ -344,24 +344,21 @@ describe('openNotionPage', () => {
 
 describe('clearHighlights', () => {
   test('清除成功應返回結果', async () => {
-    chrome.scripting.executeScript.mockResolvedValue([{ result: 5 }]);
+    chrome.runtime.sendMessage.mockResolvedValue({ success: true, clearedCount: 5 });
 
     const result = await clearHighlights(123, 'https://example.com/page?utm_source=test');
 
     expect(result.success).toBe(true);
     expect(result.clearedCount).toBe(5);
-    expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
-      expect.objectContaining({
-        target: { tabId: 123 },
-        func: expect.any(Function),
-        args: expect.arrayContaining(['highlights_https://example.com/page']),
-      })
-    );
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'CLEAR_HIGHLIGHTS',
+      tabId: 123,
+      url: 'https://example.com/page',
+    });
   });
 
   test('結果無效時應返回 clearedCount 為 0', async () => {
-    // 使用 undefined 結果時，實現返回 success: true, clearedCount: 0
-    chrome.scripting.executeScript.mockResolvedValue();
+    chrome.runtime.sendMessage.mockResolvedValue({ success: true, clearedCount: 0 });
 
     const result = await clearHighlights(123, 'https://example.com');
 

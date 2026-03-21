@@ -531,8 +531,12 @@ export function createHighlightHandlers(services) {
      */
     CLEAR_HIGHLIGHTS: async (request, sender, sendResponse) => {
       try {
-        // 安全性驗證：只允許來自我們自己的 content script
-        const validationError = validateContentScriptRequest(sender);
+        // 允許兩種來源：
+        // 1. Content Script（sender.tab 存在）
+        // 2. Popup / Options 等內部頁面（sender.tab 不存在）
+        const validationError = sender?.tab
+          ? validateContentScriptRequest(sender)
+          : validateInternalRequest(sender);
         if (validationError) {
           Logger.warn('安全性阻擋', {
             action: 'CLEAR_HIGHLIGHTS',
@@ -554,13 +558,28 @@ export function createHighlightHandlers(services) {
 
         // 清除 highlights，保留 notion（透過 updateHighlights 寫入空陣列）
         const { storageService } = services;
+        const currentHighlights = (await storageService.getHighlights?.(url)) || [];
+        const clearedCount = Array.isArray(currentHighlights) ? currentHighlights.length : 0;
         await storageService.updateHighlights(url, []);
+
+        const targetTabId = sender?.tab?.id || request.tabId;
+        if (targetTabId && typeof injectionService?.clearPageHighlights === 'function') {
+          try {
+            await injectionService.clearPageHighlights(targetTabId);
+          } catch (error) {
+            Logger.warn('Phase 3: CLEAR_HIGHLIGHTS 視覺清除失敗，但 storage 已更新', {
+              action: 'CLEAR_HIGHLIGHTS',
+              tabId: targetTabId,
+              error: error.message,
+            });
+          }
+        }
 
         Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', {
           action: 'CLEAR_HIGHLIGHTS',
           url: sanitizeUrlForLogging(url),
         });
-        sendResponse({ success: true });
+        sendResponse({ success: true, clearedCount });
       } catch (error) {
         Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {
           action: 'CLEAR_HIGHLIGHTS',

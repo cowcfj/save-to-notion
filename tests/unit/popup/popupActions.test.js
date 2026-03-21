@@ -8,6 +8,7 @@ import {
   clearHighlights,
   clearHighlightsInPage,
 } from '../../../popup/popupActions.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 describe('popupActions.js', () => {
   beforeEach(() => {
@@ -248,6 +249,18 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('無效的 Notion URL');
     });
+
+    it('對於無效 URL 應記錄脫敏後的網址', async () => {
+      const url = 'https://malicious.com/callback?token=secret123&state=abc';
+      const warnSpy = jest.spyOn(Logger, 'warn');
+
+      await openNotionPage(url);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Blocked invalid URL:',
+        'https://malicious.com/callback?token=[REDACTED_TOKEN]&state=abc'
+      );
+    });
   });
 
   describe('getActiveTab', () => {
@@ -266,26 +279,25 @@ describe('popupActions.js', () => {
   });
 
   describe('clearHighlights', () => {
-    it('應該在頁面中執行清除腳本', async () => {
+    it('應該透過 background 訊息清除標註', async () => {
       const tabId = 123;
       const tabUrl = 'https://example.com/page';
-      chrome.scripting.executeScript.mockResolvedValue([{ result: 10 }]);
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true, clearedCount: 10 });
 
       const result = await clearHighlights(tabId, tabUrl);
 
-      expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
-        expect.objectContaining({
-          target: { tabId },
-          func: expect.any(Function),
-          args: expect.any(Array),
-        })
-      );
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: 'CLEAR_HIGHLIGHTS',
+        tabId,
+        url: tabUrl,
+      });
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
       expect(result.clearedCount).toBe(10);
     });
 
-    it('處理執行失敗的情況', async () => {
-      chrome.scripting.executeScript.mockRejectedValue(new Error('Script error'));
+    it('處理 background 訊息失敗的情況', async () => {
+      chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('Message error'));
       const result = await clearHighlights(123, 'url');
       expect(result.success).toBe(false);
       expect(result.error).toBe('無法清除標記');
