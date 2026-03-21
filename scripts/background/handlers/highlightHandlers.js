@@ -573,8 +573,7 @@ export function createHighlightHandlers(services) {
             Logger.warn('Phase 3: CLEAR_HIGHLIGHTS 視覺清除失敗，但 storage 已更新', {
               action: 'CLEAR_HIGHLIGHTS',
               tabId: targetTabId,
-              error: error.message,
-              stack: error.stack,
+              error,
             });
           }
         }
