@@ -44,6 +44,7 @@ describe('highlightHandlers', () => {
         updateHighlights: jest.fn(),
         syncHighlights: jest.fn(),
         updateHighlightsSection: jest.fn(),
+        checkPageExists: jest.fn(),
       },
       storageService: {
         getHighlighterState: jest.fn(),
@@ -52,6 +53,7 @@ describe('highlightHandlers', () => {
         getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
         getConfig: jest.fn(),
         updateHighlights: jest.fn(),
+        clearNotionState: jest.fn(),
       },
       tabService: {
         getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
@@ -142,6 +144,32 @@ describe('highlightHandlers', () => {
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false, error: 'Sync failed' })
+      );
+    });
+
+    it('遠端頁面已刪除時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.storageService.clearNotionState.mockResolvedValue();
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'object_not_found',
+        details: { phase: 'fetch_blocks' },
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionState).toHaveBeenCalledWith(
+        'https://example.com'
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'PAGE_DELETED',
+        })
       );
     });
 

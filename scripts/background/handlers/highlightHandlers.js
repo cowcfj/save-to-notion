@@ -113,9 +113,10 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
   let savedData = await storageService.getSavedPageData(normUrl);
+  const foundViaStableUrl = Boolean(savedData?.notionPageId);
 
   // 雙查安全網：遷移失敗時回退查詢原始 URL
-  if (!savedData?.notionPageId && !migrated && normUrl !== originalUrl) {
+  if (!foundViaStableUrl && !migrated && normUrl !== originalUrl) {
     savedData = await storageService.getSavedPageData(originalUrl);
   }
 
@@ -126,6 +127,8 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
     };
   }
+
+  const resolvedUrl = foundViaStableUrl ? normUrl : originalUrl;
 
   // 轉換標記為 Blocks
   const highlightBlocks = buildHighlightBlocks(highlights);
@@ -138,6 +141,34 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       apiKey,
     }
   );
+
+  if (
+    !result.success &&
+    result.error === 'object_not_found' &&
+    result.details?.phase === 'fetch_blocks'
+  ) {
+    Logger.warn('同步標註時發現遠端頁面已刪除，清除本地 notion 綁定', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+    });
+
+    try {
+      await storageService.clearNotionState(resolvedUrl);
+    } catch (clearError) {
+      Logger.error('清除本地 Notion 狀態失敗', {
+        action: 'performHighlightUpdate',
+        url: sanitizeUrlForLogging(resolvedUrl),
+        error: clearError?.message,
+      });
+    }
+
+    return {
+      ...result,
+      errorCode: 'PAGE_DELETED',
+      error: UI_MESSAGES.POPUP.DELETED_PAGE,
+    };
+  }
 
   // 格式化失敗訊息為用戶友善格式（與 saveHandlers.sendErrorResponse 模式一致）
   // 建立新物件返回，避免直接修改 notionService 回傳的 result（防止副作用）
