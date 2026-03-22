@@ -553,7 +553,7 @@ describe('saveHandlers', () => {
         notionUrl: null,
       });
 
-      isValidNotionUrl.mockReturnValue(false);
+      isValidNotionUrl.mockReturnValueOnce(false);
 
       await handlers.openNotionPage({ url: 'https://example.com' }, validSender, sendResponse);
 
@@ -574,6 +574,7 @@ describe('saveHandlers', () => {
         notionUrl: 'https://notion.so/page-123',
       });
       chrome.tabs.create.mockRejectedValue(new Error('Create tab failed'));
+      isValidNotionUrl.mockReturnValueOnce(true);
 
       await handlers.openNotionPage({ url: 'https://example.com' }, validSender, sendResponse);
 
