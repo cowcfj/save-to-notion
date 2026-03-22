@@ -390,7 +390,7 @@ describe('TabService', () => {
     });
   });
 
-  describe('consumeDeletionConfirmation', () => {
+  describe('remote page missing confirmation API', () => {
     // 與 TabService 中 DELETION_CONFIRMATION_WINDOW_MS 一致（5 分鐘）
     const WINDOW_MS = 5 * 60 * 1000;
 
@@ -398,50 +398,64 @@ describe('TabService', () => {
       jest.restoreAllMocks();
     });
 
-    it('should treat expired pending deletion as a new first failure', () => {
+    it('confirmRemotePageMissing should treat expired pending deletion as a new first failure', () => {
       jest
         .spyOn(Date, 'now')
         .mockReturnValueOnce(1000)
         .mockReturnValueOnce(1000 + WINDOW_MS + 1); // 窗口過期 +1ms
 
-      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
         shouldDelete: false,
         deletionPending: true,
       });
 
-      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
         shouldDelete: false,
         deletionPending: true,
       });
     });
 
-    it('should clear pending deletion state after exists becomes true', () => {
-      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+    it('resetRemotePageMissingState should clear pending deletion state', () => {
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
         shouldDelete: false,
         deletionPending: true,
       });
 
-      expect(service.consumeDeletionConfirmation('page-1', true)).toEqual({
+      expect(service.resetRemotePageMissingState('page-1')).toEqual({
         shouldDelete: false,
         deletionPending: false,
       });
 
-      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
         shouldDelete: false,
         deletionPending: true,
       });
     });
 
-    it('should delete only on a second false within the confirmation window', () => {
+    it('confirmRemotePageMissing should delete only on a second false within the confirmation window', () => {
       jest.spyOn(Date, 'now').mockReturnValue(10_000);
+
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
+        shouldDelete: true,
+        deletionPending: false,
+      });
+    });
+
+    it('consumeDeletionConfirmation should remain backward compatible', () => {
+      jest.spyOn(Date, 'now').mockReturnValue(20_000);
 
       expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
         shouldDelete: false,
         deletionPending: true,
       });
 
-      expect(service.consumeDeletionConfirmation('page-1', false)).toEqual({
-        shouldDelete: true,
+      expect(service.consumeDeletionConfirmation('page-1', null)).toEqual({
+        shouldDelete: false,
         deletionPending: false,
       });
     });

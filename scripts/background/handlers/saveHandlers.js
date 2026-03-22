@@ -174,9 +174,12 @@ export function createSaveHandlers(services) {
     migrationService, // Added MigrationService
   } = services;
 
-  if (typeof tabService?.consumeDeletionConfirmation !== 'function') {
+  if (
+    typeof tabService?.confirmRemotePageMissing !== 'function' ||
+    typeof tabService?.resetRemotePageMissingState !== 'function'
+  ) {
     throw new TypeError(
-      'createSaveHandlers requires tabService.consumeDeletionConfirmation function'
+      'createSaveHandlers requires tabService.confirmRemotePageMissing and resetRemotePageMissingState functions'
     );
   }
 
@@ -190,8 +193,12 @@ export function createSaveHandlers(services) {
    * @param {boolean|null} exists
    * @returns {{ shouldDelete: boolean, deletionPending: boolean }}
    */
-  function consumeDeletionConfirmation(notionPageId, exists) {
-    return tabService.consumeDeletionConfirmation(notionPageId, exists);
+  function resolveDeletionConfirmation(notionPageId, exists) {
+    if (exists === false) {
+      return tabService.confirmRemotePageMissing(notionPageId);
+    }
+
+    return tabService.resetRemotePageMissingState(notionPageId);
   }
 
   /**
@@ -620,7 +627,7 @@ export function createSaveHandlers(services) {
     const pageExists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
     if (pageExists === null) {
-      consumeDeletionConfirmation(savedData.notionPageId, null);
+      resolveDeletionConfirmation(savedData.notionPageId, null);
       Logger.warn('無法確認 Notion 頁面存在性', {
         action: 'checkPageExists',
         pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
@@ -633,7 +640,7 @@ export function createSaveHandlers(services) {
       return;
     }
 
-    const deletionCheck = consumeDeletionConfirmation(savedData.notionPageId, pageExists);
+    const deletionCheck = resolveDeletionConfirmation(savedData.notionPageId, pageExists);
 
     if (pageExists) {
       await _handleExistingPageUpdate(params);
@@ -1042,7 +1049,7 @@ export function createSaveHandlers(services) {
 
         const exists = await _resolveExistsWithRetry(savedData, activeToken.token);
 
-        const deletionCheck = consumeDeletionConfirmation(savedData.notionPageId, exists);
+        const deletionCheck = resolveDeletionConfirmation(savedData.notionPageId, exists);
         const statusHandled = await _handleDeletedOrPending({
           exists,
           deletionCheck,
