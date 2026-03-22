@@ -424,6 +424,74 @@ describe('saveHandlers', () => {
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
     });
 
+    test('savePage: cleanup failure 不應外露，create 成功時仍應回傳重建成功', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: false,
+        attempts: 2,
+        error: new Error('storage failure'),
+      });
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page-id',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: true,
+          recreated: true,
+        })
+      );
+      expect(sendResponse).not.toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: '清除本地 Notion 狀態失敗',
+        })
+      );
+    });
+
+    test('savePage: cleanup failure 不應覆蓋真正的 createPage 錯誤', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: false,
+        attempts: 2,
+        error: new Error('storage failure'),
+      });
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'create_failed',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('create_failed'),
+        })
+      );
+      expect(sendResponse).not.toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          error: '清除本地 Notion 狀態失敗',
+        })
+      );
+    });
+
     // ===== openNotionPage Tests =====
     test('openNotionPage: 應該成功打開已保存的 Notion 頁面', async () => {
       const sendResponse = jest.fn();
@@ -883,6 +951,41 @@ describe('saveHandlers', () => {
           success: true,
           isSaved: false,
           wasDeleted: true,
+        })
+      );
+    });
+
+    it('checkPageStatus cleanup failure 不應外露，仍應維持 deleted state', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'mock-extension-id', tab: { id: 1 } };
+      const rawUrl = 'https://example.com';
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page123',
+        notionUrl: 'https://notion.so/page123',
+      });
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: false,
+        attempts: 2,
+        error: new Error('storage failure'),
+      });
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: false,
+          wasDeleted: true,
+        })
+      );
+      expect(sendResponse).not.toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: '清除本地 Notion 狀態失敗',
         })
       );
     });

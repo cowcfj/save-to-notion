@@ -594,9 +594,14 @@ export function createSaveHandlers(services) {
       'saveHandlers._handlePageRecreation'
     );
     if (!clearResult.cleared) {
+      Logger.error('重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理', {
+        action: 'recreatePage',
+        url: sanitizeUrlForLogging(normUrl),
+        attempts: clearResult.attempts,
+        error: clearResult.error?.message,
+      });
       // Re-arm: 清除失敗，恢復 pending token 供下次重試
       tabService.confirmRemotePageMissing(params.savedData.notionPageId);
-      throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
     }
 
     return await performCreatePage(params);
@@ -780,9 +785,14 @@ export function createSaveHandlers(services) {
         'saveHandlers._handleDeletedOrPending'
       );
       if (!clearResult.cleared) {
+        Logger.error('同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理', {
+          action: 'syncLocalState',
+          url: sanitizeUrlForLogging(normUrl),
+          attempts: clearResult.attempts,
+          error: clearResult.error?.message,
+        });
         // Re-arm: 清除失敗，恢復 pending token 供下次重試
         tabService.confirmRemotePageMissing(savedData.notionPageId);
-        throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
       }
 
       try {
