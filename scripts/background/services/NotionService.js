@@ -898,6 +898,18 @@ class NotionService {
           failureCount: deleteErrors.length,
           errors: deleteErrors,
         });
+
+        return {
+          success: false,
+          error: 'highlight_section_delete_incomplete',
+          errorType: 'notion_api',
+          details: {
+            phase: 'delete_highlight_section',
+            retryable: true,
+            deletedCount,
+            failureCount: deleteErrors.length,
+          },
+        };
       }
       Logger.info('[NotionService] 刪除舊標記區塊', {
         action: 'updateHighlightsSection',

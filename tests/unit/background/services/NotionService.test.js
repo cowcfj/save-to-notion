@@ -887,6 +887,60 @@ describe('NotionService', () => {
         addedCount: 0,
       });
     });
+
+    it('刪除標記區塊部分失敗時不應繼續 append，且應回傳 retryable failure', async () => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [{ id: '2', type: 'heading_3', heading_3: { rich_text: [] } }],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 1,
+        errors: [{ id: '2', error: 'Delete failed' }],
+      });
+
+      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        error: 'highlight_section_delete_incomplete',
+        errorType: 'notion_api',
+        details: {
+          phase: 'delete_highlight_section',
+          retryable: true,
+          deletedCount: 0,
+          failureCount: 1,
+        },
+      });
+    });
+
+    it('空標記列表在刪除標記區塊部分失敗時也應回傳 retryable failure', async () => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [{ id: '2', type: 'heading_3', heading_3: { rich_text: [] } }],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 1,
+        errors: [{ id: '2', error: 'Delete failed' }],
+      });
+
+      const result = await service.updateHighlightsSection(pageId, []);
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        error: 'highlight_section_delete_incomplete',
+        errorType: 'notion_api',
+        details: {
+          phase: 'delete_highlight_section',
+          retryable: true,
+          deletedCount: 0,
+          failureCount: 1,
+        },
+      });
+    });
   });
 
   describe('_apiRequest', () => {
@@ -1247,11 +1301,12 @@ describe('NotionService', () => {
         service._deleteBlocksByIds = jest
           .fn()
           .mockResolvedValue({ successCount: 0, failureCount: 1, errors: [{ id: 'b1' }] });
-        await service.updateHighlightsSection('id', []);
+        const result = await service.updateHighlightsSection('id', []);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分標記區塊刪除失敗'),
           expect.any(Object)
         );
+        expect(result.success).toBe(false);
       });
     });
   });
