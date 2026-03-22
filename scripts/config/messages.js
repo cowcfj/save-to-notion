@@ -264,6 +264,7 @@ export const ERROR_MESSAGES = {
     'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
     validation_error: USER_MESSAGES.API_VALIDATION_FAILED,
     image_validation_error: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
+    highlight_section_delete_incomplete: '標註同步未完成，請稍後再試',
     notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
 
     // Notion SDK 原始錯誤碼（直接來自 apiError.code）

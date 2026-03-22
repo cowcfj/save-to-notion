@@ -154,6 +154,36 @@ describe('highlightHandlers', () => {
       );
     });
 
+    it('highlight section retryable failure 應返回可重試的友善訊息', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+      const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
+        '../../../../scripts/utils/ErrorHandler.js'
+      );
+
+      ErrorHandler.formatUserMessage.mockImplementation(error =>
+        ActualErrorHandler.formatUserMessage(error)
+      );
+
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'highlight_section_delete_incomplete',
+        details: { phase: 'delete_highlight_section', retryable: true },
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: '標註同步未完成，請稍後再試',
+        })
+      );
+    });
+
     it('第一次命中 object_not_found 時應保留本地 notion 綁定並回傳 PAGE_DELETION_PENDING', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
@@ -347,7 +377,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('初始化超時'),
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
         })
       );
     });
@@ -361,7 +391,10 @@ describe('highlightHandlers', () => {
       await handlers.updateHighlights({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringMatching(/API Key/) })
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED,
+        })
       );
     });
 

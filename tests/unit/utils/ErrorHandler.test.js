@@ -252,6 +252,14 @@ describe('ErrorHandler.formatUserMessage', () => {
     );
   });
 
+  test('highlight_section_delete_incomplete 應返回可重試的友善訊息', () => {
+    mockLogger.debugEnabled = false;
+
+    expect(ErrorHandler.formatUserMessage('highlight_section_delete_incomplete')).toBe(
+      ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete
+    );
+  });
+
   test('當為未知錯誤且 debugEnabled 為 false 時，應返回預設友善訊息', () => {
     mockLogger.debugEnabled = false;
     expect(ErrorHandler.formatUserMessage('Some cryptic internal system error')).toBe(

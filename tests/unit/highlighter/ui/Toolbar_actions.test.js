@@ -3,6 +3,7 @@ import { createToolbarContainer } from '../../../../scripts/highlighter/ui/compo
 
 import { createMiniIcon } from '../../../../scripts/highlighter/ui/components/MiniIcon.js';
 import Logger from '../../../../scripts/utils/Logger.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../../../scripts/config/messages.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/ui/components/ToolbarContainer.js', () => ({
@@ -156,7 +157,7 @@ describe('Toolbar Actions', () => {
           sendResponse({
             success: false,
             errorCode: 'PAGE_DELETED',
-            error: '原頁面已刪除，請重新儲存。',
+            error: UI_MESSAGES.POPUP.DELETED_PAGE,
           });
           return;
         }
@@ -169,7 +170,7 @@ describe('Toolbar Actions', () => {
       await toolbar.syncToNotion();
 
       expect(updateSpy).toHaveBeenCalled();
-      expect(statusDiv.textContent).toContain('原頁面已刪除，請重新儲存。');
+      expect(statusDiv.textContent).toContain(UI_MESSAGES.POPUP.DELETED_PAGE);
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
@@ -181,7 +182,7 @@ describe('Toolbar Actions', () => {
           sendResponse({
             success: false,
             errorCode: 'PAGE_DELETION_PENDING',
-            error: '正在確認原頁面是否已刪除，請稍後再試。',
+            error: UI_MESSAGES.POPUP.DELETION_PENDING,
           });
           return;
         }
@@ -194,7 +195,28 @@ describe('Toolbar Actions', () => {
       await toolbar.syncToNotion();
 
       expect(updateSpy).not.toHaveBeenCalled();
-      expect(statusDiv.textContent).toContain('正在確認原頁面是否已刪除，請稍後再試。');
+      expect(statusDiv.textContent).toContain(UI_MESSAGES.POPUP.DELETION_PENDING);
+      expect(statusDiv.innerHTML).toContain('<svg');
+    });
+
+    test('should keep save button state when sync reports retryable highlight failure', async () => {
+      const updateSpy = jest.spyOn(toolbar, 'updateSaveButtonVisibility').mockResolvedValue();
+
+      sendMessageMock.mockImplementation((message, sendResponse) => {
+        if (message.action === 'syncHighlights') {
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete,
+          });
+        }
+      });
+
+      await toolbar.syncToNotion();
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(statusDiv.textContent).toContain(
+        ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete
+      );
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
