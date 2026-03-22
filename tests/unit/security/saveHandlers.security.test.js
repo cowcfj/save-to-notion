@@ -31,6 +31,12 @@ const mockPageContentService = {
 
 const mockTabService = {
   getPreloaderData: jest.fn().mockResolvedValue(null),
+  confirmRemotePageMissing: jest
+    .fn()
+    .mockReturnValue({ shouldDelete: false, deletionPending: false }),
+  resetRemotePageMissingState: jest
+    .fn()
+    .mockReturnValue({ shouldDelete: false, deletionPending: false }),
   consumeDeletionConfirmation: jest
     .fn()
     .mockReturnValue({ shouldDelete: false, deletionPending: false }),

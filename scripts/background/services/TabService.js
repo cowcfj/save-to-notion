@@ -414,7 +414,10 @@ class TabService {
       }
 
       const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
-      const deletionCheck = this.consumeDeletionConfirmation(savedData.notionPageId, exists);
+      const deletionCheck =
+        exists === false
+          ? this.confirmRemotePageMissing(savedData.notionPageId)
+          : this.resetRemotePageMissingState(savedData.notionPageId);
 
       if (exists === false && deletionCheck.shouldDelete) {
         this.logger.log('頁面已在 Notion 中刪除，自動清理本地狀態', {
@@ -488,6 +491,30 @@ class TabService {
       firstFailedAt: now,
     });
     return { shouldDelete: false, deletionPending: true };
+  }
+
+  /**
+   * 標記遠端頁面疑似不存在，並回傳兩階段刪除確認結果。
+   *
+   * 這是 save/status/highlight sync 共享的 canonical API。
+   *
+   * @param {string|null|undefined} notionPageId
+   * @returns {{ shouldDelete: boolean, deletionPending: boolean }}
+   */
+  confirmRemotePageMissing(notionPageId) {
+    return this.consumeDeletionConfirmation(notionPageId, false);
+  }
+
+  /**
+   * 重置遠端頁面不存在的 pending 狀態。
+   *
+   * 用於 exists===true、exists===null 或其他不應延續 pending 的情況。
+   *
+   * @param {string|null|undefined} notionPageId
+   * @returns {{ shouldDelete: boolean, deletionPending: boolean }}
+   */
+  resetRemotePageMissingState(notionPageId) {
+    return this.consumeDeletionConfirmation(notionPageId, null);
   }
 
   /**

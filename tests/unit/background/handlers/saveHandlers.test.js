@@ -72,6 +72,27 @@ describe('saveHandlers', () => {
       },
       tabService: {
         getPreloaderData: jest.fn().mockResolvedValue(null),
+        confirmRemotePageMissing: jest.fn().mockImplementation(notionPageId => {
+          const pageId = notionPageId ? String(notionPageId) : null;
+          if (!pageId) {
+            return { shouldDelete: false, deletionPending: false };
+          }
+
+          if (deletionPendingPages.has(pageId)) {
+            deletionPendingPages.delete(pageId);
+            return { shouldDelete: true, deletionPending: false };
+          }
+
+          deletionPendingPages.set(pageId, Date.now());
+          return { shouldDelete: false, deletionPending: true };
+        }),
+        resetRemotePageMissingState: jest.fn().mockImplementation(notionPageId => {
+          const pageId = notionPageId ? String(notionPageId) : null;
+          if (pageId) {
+            deletionPendingPages.delete(pageId);
+          }
+          return { shouldDelete: false, deletionPending: false };
+        }),
         consumeDeletionConfirmation: jest.fn().mockImplementation((notionPageId, exists) => {
           const pageId = notionPageId ? String(notionPageId) : null;
           if (!pageId) {
@@ -821,6 +842,7 @@ describe('saveHandlers', () => {
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page123');
       expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -846,6 +868,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
       expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       expect(sendResponse).toHaveBeenLastCalledWith(

@@ -183,6 +183,12 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     mockTabService = {
       getPreloaderData: jest.fn().mockResolvedValue(null),
+      confirmRemotePageMissing: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
+      resetRemotePageMissingState: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
       consumeDeletionConfirmation: jest
         .fn()
         .mockReturnValue({ shouldDelete: false, deletionPending: false }),
@@ -550,7 +556,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
       mockNotionService.checkPageExists.mockResolvedValue(false); // Page deleted
-      mockTabService.consumeDeletionConfirmation.mockReturnValue({
+      mockTabService.confirmRemotePageMissing.mockReturnValue({
         shouldDelete: true,
         deletionPending: false,
       });
@@ -587,7 +593,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
       mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
-      mockTabService.consumeDeletionConfirmation.mockReturnValue({
+      mockTabService.confirmRemotePageMissing.mockReturnValue({
         shouldDelete: true,
         deletionPending: false,
       });
