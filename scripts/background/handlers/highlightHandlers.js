@@ -147,10 +147,28 @@ async function performHighlightUpdate(services, activeTab, highlights) {
     result.error === 'object_not_found' &&
     result.details?.phase === 'fetch_blocks'
   ) {
-    Logger.warn('同步標註時發現遠端頁面已刪除，清除本地 notion 綁定', {
+    const deletionCheck = tabService.confirmRemotePageMissing(savedData.notionPageId);
+
+    if (!deletionCheck.shouldDelete) {
+      Logger.warn('同步標註時首次發現遠端頁面疑似已刪除，暫不清除本地 notion 綁定', {
+        action: 'performHighlightUpdate',
+        url: sanitizeUrlForLogging(resolvedUrl),
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+        result: 'pending',
+      });
+
+      return {
+        ...result,
+        errorCode: 'PAGE_DELETION_PENDING',
+        error: UI_MESSAGES.POPUP.DELETION_PENDING,
+      };
+    }
+
+    Logger.warn('同步標註時確認遠端頁面已刪除，清除本地 notion 綁定', {
       action: 'performHighlightUpdate',
       url: sanitizeUrlForLogging(resolvedUrl),
       pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+      result: 'confirmed_deleted',
     });
 
     try {
@@ -169,6 +187,8 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       error: UI_MESSAGES.POPUP.DELETED_PAGE,
     };
   }
+
+  tabService.resetRemotePageMissingState(savedData.notionPageId);
 
   // 格式化失敗訊息為用戶友善格式（與 saveHandlers.sendErrorResponse 模式一致）
   // 建立新物件返回，避免直接修改 notionService 回傳的 result（防止副作用）

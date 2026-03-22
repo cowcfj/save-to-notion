@@ -173,6 +173,31 @@ describe('Toolbar Actions', () => {
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
+    test('should not refresh save button state when sync reports PAGE_DELETION_PENDING', async () => {
+      const updateSpy = jest.spyOn(toolbar, 'updateSaveButtonVisibility').mockResolvedValue();
+
+      sendMessageMock.mockImplementation((message, sendResponse) => {
+        if (message.action === 'syncHighlights') {
+          sendResponse({
+            success: false,
+            errorCode: 'PAGE_DELETION_PENDING',
+            error: '正在確認原頁面是否已刪除，請稍後再試。',
+          });
+          return;
+        }
+
+        if (message.action === 'checkPageStatus') {
+          sendResponse({ success: true, isSaved: true });
+        }
+      });
+
+      await toolbar.syncToNotion();
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(statusDiv.textContent).toContain('正在確認原頁面是否已刪除，請稍後再試。');
+      expect(statusDiv.innerHTML).toContain('<svg');
+    });
+
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
       // Setup runtime error
       sendMessageMock.mockImplementation((message, sendResponse) => {
