@@ -446,7 +446,7 @@ class TabService {
         : this.resetRemotePageMissingState(savedData.notionPageId);
 
     if (exists === false && deletionCheck.shouldDelete) {
-      this.logger.log('頁面已在 Notion 中刪除，自動清理本地狀態', {
+      this.logger.info('頁面已在 Notion 中刪除，自動清理本地狀態', {
         action: 'autoSyncLocalState',
         pageId: savedData.notionPageId?.slice(0, 4),
       });
