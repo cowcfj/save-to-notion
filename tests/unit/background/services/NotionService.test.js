@@ -25,6 +25,7 @@ jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
 // 2. Imports
 import { NotionService } from '../../../../scripts/background/services/NotionService.js';
 import { CONTENT_QUALITY } from '../../../../scripts/config/index.js';
+import { HIGHLIGHT_ERROR_CODES } from '../../../../scripts/config/messages.js';
 import { NOTION_API } from '../../../../scripts/config/api.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
@@ -887,6 +888,87 @@ describe('NotionService', () => {
         addedCount: 0,
       });
     });
+
+    it.each([
+      { scenario: '有新標記', input: highlightBlocks },
+      { scenario: '空標記列表', input: [] },
+    ])('刪除標記區塊部分失敗時應回傳 retryable failure（$scenario）', async ({ input }) => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [
+          {
+            id: '2',
+            type: 'heading_3',
+            heading_3: {
+              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+            },
+          },
+        ],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 1,
+        errors: [{ id: '2', error: 'Delete failed' }],
+      });
+
+      const result = await service.updateHighlightsSection(pageId, input);
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2'], expect.any(Object));
+      expect(result).toEqual({
+        success: false,
+        error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorType: 'notion_api',
+        details: {
+          phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
+          retryable: true,
+          deletedCount: 0,
+          failureCount: 1,
+          failedBlockIds: ['2'],
+        },
+      });
+    });
+
+    it('混合結果刪除（header 成功、content block 失敗）應回傳 retryable failure', async () => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [
+          {
+            id: 'header-1',
+            type: 'heading_3',
+            heading_3: {
+              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+            },
+          },
+          { id: 'content-1', type: 'paragraph' },
+        ],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 1,
+        failureCount: 1,
+        errors: [{ id: 'content-1', error: 'Delete failed' }],
+      });
+
+      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(
+        ['header-1', 'content-1'],
+        expect.any(Object)
+      );
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorType: 'notion_api',
+        details: {
+          phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
+          retryable: true,
+          deletedCount: 1,
+          failureCount: 1,
+          failedBlockIds: ['content-1'],
+        },
+      });
+    });
   });
 
   describe('_apiRequest', () => {
@@ -1247,11 +1329,12 @@ describe('NotionService', () => {
         service._deleteBlocksByIds = jest
           .fn()
           .mockResolvedValue({ successCount: 0, failureCount: 1, errors: [{ id: 'b1' }] });
-        await service.updateHighlightsSection('id', []);
+        const result = await service.updateHighlightsSection('id', []);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分標記區塊刪除失敗'),
           expect.any(Object)
         );
+        expect(result.success).toBe(false);
       });
     });
   });

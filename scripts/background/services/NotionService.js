@@ -12,7 +12,7 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/index.js';
+import { ERROR_MESSAGES, CONTENT_QUALITY, HIGHLIGHT_ERROR_CODES } from '../../config/index.js';
 import { NOTION_API, AuthMode } from '../../config/api.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
@@ -886,18 +886,32 @@ class NotionService {
       const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
-      const { successCount: deletedCount, errors: deleteErrors } = await this._deleteBlocksByIds(
-        blocksToDelete,
-        options
-      );
+      const {
+        successCount: deletedCount,
+        failureCount,
+        errors: deleteErrors,
+      } = await this._deleteBlocksByIds(blocksToDelete, options);
 
-      if (deleteErrors.length > 0) {
+      if (failureCount > 0) {
         Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
           action: 'updateHighlightsSection',
           phase: 'delete',
-          failureCount: deleteErrors.length,
+          failureCount,
           errors: deleteErrors,
         });
+
+        return {
+          success: false,
+          error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+          errorType: 'notion_api',
+          details: {
+            phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
+            retryable: true,
+            deletedCount,
+            failureCount,
+            failedBlockIds: deleteErrors.map(e => e.id),
+          },
+        };
       }
       Logger.info('[NotionService] 刪除舊標記區塊', {
         action: 'updateHighlightsSection',
