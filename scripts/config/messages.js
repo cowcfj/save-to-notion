@@ -77,6 +77,7 @@ export const UI_MESSAGES = {
     PAGE_READY: '頁面已儲存，可開始標註。',
     START_HIGHLIGHT: '開始標註',
     DELETED_PAGE: '原頁面已刪除，請重新儲存。',
+    DELETION_PENDING: '正在確認原頁面是否已刪除，請稍後再試。',
     SAVE_SUCCESS: '儲存成功！',
     RECREATED: '重建成功 (原頁面已刪除)',
     HIGHLIGHTS_UPDATED: '標註已更新',

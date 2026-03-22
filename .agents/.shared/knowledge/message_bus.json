@@ -69,13 +69,14 @@
         }
       },
       "syncHighlights": {
-        "description": "Sync specific highlights list to Notion",
+        "description": "Sync specific highlights list to Notion. When remote page deletion is suspected, first return PAGE_DELETION_PENDING without clearing notion binding; only after confirmation-window reoccurrence return PAGE_DELETED and clear notion binding.",
         "payload": {
           "highlights": "array"
         },
         "response": {
           "success": "boolean",
-          "count": "number"
+          "count": "number",
+          "errorCode": "\"PAGE_DELETION_PENDING\" | \"PAGE_DELETED\" | string (optional)"
         }
       },
       "CLEAR_HIGHLIGHTS": {

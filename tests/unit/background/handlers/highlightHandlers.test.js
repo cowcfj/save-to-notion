@@ -59,6 +59,12 @@ describe('highlightHandlers', () => {
       tabService: {
         getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
         getPreloaderData: jest.fn().mockResolvedValue(null),
+        confirmRemotePageMissing: jest
+          .fn()
+          .mockReturnValue({ shouldDelete: false, deletionPending: true }),
+        resetRemotePageMissingState: jest
+          .fn()
+          .mockReturnValue({ shouldDelete: false, deletionPending: false }),
         resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
           Promise.resolve({
             stableUrl: url,
@@ -148,13 +154,12 @@ describe('highlightHandlers', () => {
       );
     });
 
-    it('遠端頁面已刪除時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
+    it('第一次命中 object_not_found 時應保留本地 notion 綁定並回傳 PAGE_DELETION_PENDING', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { highlights: [{ text: 'test' }] };
 
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.storageService.clearNotionState.mockResolvedValue();
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
         error: 'object_not_found',
@@ -163,6 +168,36 @@ describe('highlightHandlers', () => {
 
       await handlers.syncHighlights(request, sender, sendResponse);
 
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
+      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'PAGE_DELETION_PENDING',
+        })
+      );
+    });
+
+    it('第二次命中 object_not_found 時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.storageService.clearNotionState.mockResolvedValue();
+      mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'object_not_found',
+        details: { phase: 'fetch_blocks' },
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
       expect(mockServices.storageService.clearNotionState).toHaveBeenCalledWith(
         'https://example.com'
       );
