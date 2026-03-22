@@ -202,16 +202,7 @@ export function createSaveHandlers(services) {
   }
 
   async function clearNotionStateWithCanonicalPath(pageUrl, source) {
-    if (typeof storageService.clearNotionStateWithRetry === 'function') {
-      return await storageService.clearNotionStateWithRetry(pageUrl, { source });
-    }
-
-    try {
-      await storageService.clearNotionState(pageUrl);
-      return { cleared: true, attempts: 1, recovered: false };
-    } catch (error) {
-      return { cleared: false, attempts: 1, error };
-    }
+    return await storageService.clearNotionStateWithRetry(pageUrl, { source });
   }
 
   /**
