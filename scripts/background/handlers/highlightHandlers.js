@@ -182,6 +182,9 @@ async function performHighlightUpdate(services, activeTab, highlights) {
         attempts: clearResult.attempts,
         error: clearResult.error?.message,
       });
+
+      // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
+      tabService.confirmRemotePageMissing(savedData.notionPageId);
     }
 
     return {

@@ -465,6 +465,8 @@ class TabService {
         source: 'TabService._handleNotionVerificationResult',
       });
       if (!clearResult.cleared) {
+        // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
+        this.confirmRemotePageMissing(savedData.notionPageId);
         throw clearResult.error || new Error('Failed to clear local Notion state');
       }
       await this._updateBadgeStatus(tabId, null);

@@ -724,7 +724,7 @@ class StorageService {
         await this.clearNotionState(pageUrl);
 
         if (attempt > 1) {
-          this.logger.log?.('[StorageService] clearNotionState recovered after retry', {
+          this.logger.success?.('[StorageService] clearNotionState 重試成功', {
             action: 'clearNotionStateWithRetry',
             source,
             attempts: attempt,
@@ -737,12 +737,12 @@ class StorageService {
       } catch (error) {
         if (attempt < maxAttempts) {
           // 非最後一次嘗試：記錄 warn 並等待後重試
-          this.logger.warn?.('[StorageService] clearNotionState attempt failed, retrying', {
+          this.logger.warn?.('[StorageService] clearNotionState 嘗試失敗，準備重試', {
             action: 'clearNotionStateWithRetry',
             source,
             attempt,
             url: safeUrl,
-            error: error?.message,
+            error,
           });
 
           if (retryDelayMs > 0) {
@@ -750,13 +750,13 @@ class StorageService {
           }
         } else {
           // 最後一次嘗試仍失敗：記錄 error 並回傳失敗結果
-          this.logger.error?.('[StorageService] clearNotionState retry failed', {
+          this.logger.error?.('[StorageService] clearNotionState 重試最終失敗', {
             action: 'clearNotionStateWithRetry',
             source,
             attempts: attempt,
             recovered: false,
             url: safeUrl,
-            error: error?.message,
+            error,
           });
           return { cleared: false, attempts: attempt, error };
         }

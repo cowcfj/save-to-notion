@@ -85,6 +85,7 @@ describe('StorageService', () => {
     };
     mockLogger = {
       log: jest.fn(),
+      success: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
     };
@@ -619,7 +620,7 @@ describe('StorageService', () => {
         recovered: true,
       });
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        '[StorageService] clearNotionState attempt failed, retrying',
+        '[StorageService] clearNotionState 嘗試失敗，準備重試',
         expect.objectContaining({
           action: 'clearNotionStateWithRetry',
           source: 'highlightHandlers',
@@ -627,14 +628,53 @@ describe('StorageService', () => {
           url: 'https://example.com/page',
         })
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        '[StorageService] clearNotionState recovered after retry',
+      expect(mockLogger.success).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 重試成功',
         expect.objectContaining({
           action: 'clearNotionStateWithRetry',
           source: 'highlightHandlers',
           attempts: 2,
           recovered: true,
           url: 'https://example.com/page',
+        })
+      );
+    });
+
+    it('兩次嘗試皆失敗時應回傳 cleared: false 並記錄 error 日誌', async () => {
+      const clearSpy = jest
+        .spyOn(service, 'clearNotionState')
+        .mockRejectedValueOnce(new Error('first failure'))
+        .mockRejectedValueOnce(new Error('second failure'));
+
+      const result = await service.clearNotionStateWithRetry('https://example.com/page', {
+        source: 'testSource',
+        retryDelayMs: 0,
+      });
+
+      expect(clearSpy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        cleared: false,
+        attempts: 2,
+        error: expect.any(Error),
+      });
+      expect(result.error.message).toBe('second failure');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 嘗試失敗，準備重試',
+        expect.objectContaining({
+          action: 'clearNotionStateWithRetry',
+          source: 'testSource',
+          attempt: 1,
+          error: expect.any(Error),
+        })
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 重試最終失敗',
+        expect.objectContaining({
+          action: 'clearNotionStateWithRetry',
+          source: 'testSource',
+          attempts: 2,
+          recovered: false,
+          error: expect.any(Error),
         })
       );
     });
