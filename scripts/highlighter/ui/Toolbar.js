@@ -631,40 +631,39 @@ export class Toolbar {
 
         if (response?.success) {
           Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
-        } else {switch (response?.errorCode) {
- case 'PAGE_DELETED': {
-          Toolbar._setStatusIcon(
-            statusDiv,
-            'X',
-            null,
-            response?.error || UI_MESSAGES.POPUP.DELETED_PAGE
-          );
-          await this.updateSaveButtonVisibility();
-        
- break;
- }
- case 'PAGE_DELETION_PENDING': {
-          Toolbar._setStatusIcon(
-            statusDiv,
-            'X',
-            null,
-            response?.error || UI_MESSAGES.POPUP.DELETION_PENDING
-          );
-        
- break;
- }
- case 'PAGE_NOT_SAVED': {
-          // 頁面尚未保存到 Notion，提供引導性訊息
-          Toolbar._setStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
-        
- break;
- }
- default: {
-          const rawError = sanitizeApiError(response?.error || 'Unknown error');
-          const errorMsg = ErrorHandler.formatUserMessage(rawError);
-          Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
+        } else {
+          switch (response?.errorCode) {
+            case 'PAGE_DELETED': {
+              Toolbar._setStatusIcon(
+                statusDiv,
+                'X',
+                null,
+                response?.error || UI_MESSAGES.POPUP.DELETED_PAGE
+              );
+              await this.updateSaveButtonVisibility();
+              break;
+            }
+            case 'PAGE_DELETION_PENDING': {
+              Toolbar._setStatusIcon(
+                statusDiv,
+                'X',
+                null,
+                response?.error || UI_MESSAGES.POPUP.DELETION_PENDING
+              );
+              break;
+            }
+            case 'PAGE_NOT_SAVED': {
+              // 頁面尚未保存到 Notion，提供引導性訊息
+              Toolbar._setStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
+              break;
+            }
+            default: {
+              const rawError = sanitizeApiError(response?.error || 'Unknown error');
+              const errorMsg = ErrorHandler.formatUserMessage(rawError);
+              Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
+            }
+          }
         }
- }}
       } catch (error) {
         Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
 
