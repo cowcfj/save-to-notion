@@ -198,6 +198,25 @@ describe('Toolbar Actions', () => {
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
+    test('should keep save button state when sync reports retryable highlight failure', async () => {
+      const updateSpy = jest.spyOn(toolbar, 'updateSaveButtonVisibility').mockResolvedValue();
+
+      sendMessageMock.mockImplementation((message, sendResponse) => {
+        if (message.action === 'syncHighlights') {
+          sendResponse({
+            success: false,
+            error: '標註同步未完成，請稍後再試',
+          });
+        }
+      });
+
+      await toolbar.syncToNotion();
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(statusDiv.textContent).toContain('標註同步未完成，請稍後再試');
+      expect(statusDiv.innerHTML).toContain('<svg');
+    });
+
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
       // Setup runtime error
       sendMessageMock.mockImplementation((message, sendResponse) => {
