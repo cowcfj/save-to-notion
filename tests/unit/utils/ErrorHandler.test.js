@@ -256,7 +256,7 @@ describe('ErrorHandler.formatUserMessage', () => {
     mockLogger.debugEnabled = false;
 
     expect(ErrorHandler.formatUserMessage('highlight_section_delete_incomplete')).toBe(
-      '標註同步未完成，請稍後再試'
+      ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete
     );
   });
 
