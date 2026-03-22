@@ -888,7 +888,10 @@ describe('NotionService', () => {
       });
     });
 
-    it('刪除標記區塊部分失敗時不應繼續 append，且應回傳 retryable failure', async () => {
+    it.each([
+      { scenario: '有新標記', input: highlightBlocks },
+      { scenario: '空標記列表', input: [] },
+    ])('刪除標記區塊部分失敗時應回傳 retryable failure（$scenario）', async ({ input }) => {
       service._fetchPageBlocks = jest.fn().mockResolvedValue({
         success: true,
         blocks: [{ id: '2', type: 'heading_3', heading_3: { rich_text: [] } }],
@@ -899,34 +902,7 @@ describe('NotionService', () => {
         errors: [{ id: '2', error: 'Delete failed' }],
       });
 
-      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
-
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-      expect(result).toEqual({
-        success: false,
-        error: 'highlight_section_delete_incomplete',
-        errorType: 'notion_api',
-        details: {
-          phase: 'delete_highlight_section',
-          retryable: true,
-          deletedCount: 0,
-          failureCount: 1,
-        },
-      });
-    });
-
-    it('空標記列表在刪除標記區塊部分失敗時也應回傳 retryable failure', async () => {
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: true,
-        blocks: [{ id: '2', type: 'heading_3', heading_3: { rich_text: [] } }],
-      });
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 0,
-        failureCount: 1,
-        errors: [{ id: '2', error: 'Delete failed' }],
-      });
-
-      const result = await service.updateHighlightsSection(pageId, []);
+      const result = await service.updateHighlightsSection(pageId, input);
 
       expect(globalThis.fetch).not.toHaveBeenCalled();
       expect(result).toEqual({

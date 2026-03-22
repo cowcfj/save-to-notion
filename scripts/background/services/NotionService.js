@@ -886,16 +886,17 @@ class NotionService {
       const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
-      const { successCount: deletedCount, errors: deleteErrors } = await this._deleteBlocksByIds(
-        blocksToDelete,
-        options
-      );
+      const {
+        successCount: deletedCount,
+        failureCount,
+        errors: deleteErrors,
+      } = await this._deleteBlocksByIds(blocksToDelete, options);
 
-      if (deleteErrors.length > 0) {
+      if (failureCount > 0) {
         Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
           action: 'updateHighlightsSection',
           phase: 'delete',
-          failureCount: deleteErrors.length,
+          failureCount,
           errors: deleteErrors,
         });
 
@@ -907,7 +908,7 @@ class NotionService {
             phase: 'delete_highlight_section',
             retryable: true,
             deletedCount,
-            failureCount: deleteErrors.length,
+            failureCount,
           },
         };
       }
