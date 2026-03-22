@@ -26,5 +26,5 @@
 - `icons.js`: SVG 圖標與 Emoji 映射配置 (供 Extension UI 與頁面注入腳本使用)
 - `messages.js`: 所有的 UI 顯示文字、錯誤映射與日誌級別
 
-> **🚨 開發預警 / Warning**
+> **🚨 開發預警**
 > 修改這些共用檔案時，請注意不可引入需要特定 Web API（如 `window`、`document`）或特定 Chrome API（如 `chrome.tabs.*`）的操作，以確保它在跨環境中都是安全的常數定義。
