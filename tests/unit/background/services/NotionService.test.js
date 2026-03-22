@@ -928,6 +928,47 @@ describe('NotionService', () => {
         },
       });
     });
+
+    it('混合結果刪除（header 成功、content block 失敗）應回傳 retryable failure', async () => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [
+          {
+            id: 'header-1',
+            type: 'heading_3',
+            heading_3: {
+              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+            },
+          },
+          { id: 'content-1', type: 'paragraph' },
+        ],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 1,
+        failureCount: 1,
+        errors: [{ id: 'content-1', error: 'Delete failed' }],
+      });
+
+      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(
+        ['header-1', 'content-1'],
+        expect.any(Object)
+      );
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: false,
+        error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorType: 'notion_api',
+        details: {
+          phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
+          retryable: true,
+          deletedCount: 1,
+          failureCount: 1,
+          failedBlockIds: ['content-1'],
+        },
+      });
+    });
   });
 
   describe('_apiRequest', () => {
