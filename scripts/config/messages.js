@@ -229,6 +229,7 @@ export const ERROR_MESSAGES = {
     CHROME_STORAGE_UNAVAILABLE: 'Chrome storage not available',
     INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
     LOG_INVALID_URL: '無效的 URL 參數',
+    CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
   },
 
   /**

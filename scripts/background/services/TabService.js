@@ -17,6 +17,7 @@ import { URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
+import { ERROR_MESSAGES } from '../../config/messages.js';
 
 const DELETION_CONFIRMATION_WINDOW_MS = 5 * 60 * 1000;
 
@@ -467,7 +468,7 @@ class TabService {
       if (!clearResult.cleared) {
         // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
         this.confirmRemotePageMissing(savedData.notionPageId);
-        throw clearResult.error || new Error('Failed to clear local Notion state');
+        throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
       }
       await this._updateBadgeStatus(tabId, null);
     } else if (exists === false && deletionCheck.deletionPending) {

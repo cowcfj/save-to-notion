@@ -596,7 +596,7 @@ export function createSaveHandlers(services) {
     if (!clearResult.cleared) {
       // Re-arm: 清除失敗，恢復 pending token 供下次重試
       tabService.confirmRemotePageMissing(params.savedData.notionPageId);
-      throw clearResult.error || new Error('Failed to clear local Notion state');
+      throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
     }
 
     return await performCreatePage(params);
@@ -782,7 +782,7 @@ export function createSaveHandlers(services) {
       if (!clearResult.cleared) {
         // Re-arm: 清除失敗，恢復 pending token 供下次重試
         tabService.confirmRemotePageMissing(savedData.notionPageId);
-        throw clearResult.error || new Error('Failed to clear local Notion state');
+        throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
       }
 
       try {

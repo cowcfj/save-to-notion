@@ -611,6 +611,7 @@ describe('StorageService', () => {
 
       const result = await service.clearNotionStateWithRetry('https://example.com/page', {
         source: 'highlightHandlers',
+        retryDelayMs: 0,
       });
 
       expect(clearSpy).toHaveBeenCalledTimes(2);

@@ -180,7 +180,7 @@ async function performHighlightUpdate(services, activeTab, highlights) {
         action: 'performHighlightUpdate',
         url: sanitizeUrlForLogging(resolvedUrl),
         attempts: clearResult.attempts,
-        error: clearResult.error?.message,
+        error: clearResult.error,
       });
 
       // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
