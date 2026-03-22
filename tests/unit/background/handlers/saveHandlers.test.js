@@ -1088,6 +1088,14 @@ describe('saveHandlers', () => {
           error: '清除本地 Notion 狀態失敗',
         })
       );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理',
+        expect.objectContaining({
+          action: 'syncLocalState',
+          attempts: 2,
+          error: 'storage failure',
+        })
+      );
     });
 
     it('checkPageStatus 應該在 checkPageExists 返回 null 時重試', async () => {
