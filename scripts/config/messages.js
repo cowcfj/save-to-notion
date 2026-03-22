@@ -366,3 +366,11 @@ export const ERROR_TYPES = {
   PERMISSION: 'permission', // 權限不足
   INTERNAL: 'internal', // 內部錯誤
 };
+
+/**
+ * 標記區塊操作錯誤碼
+ */
+export const HIGHLIGHT_ERROR_CODES = {
+  DELETE_INCOMPLETE: 'highlight_section_delete_incomplete',
+  PHASE_DELETE: 'delete_highlight_section',
+};
