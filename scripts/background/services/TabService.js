@@ -68,6 +68,16 @@ class TabService {
     this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
     this.clearPageState = options.clearPageState || (() => Promise.resolve());
     this.clearNotionState = options.clearNotionState || (() => Promise.resolve());
+    this.clearNotionStateWithRetry =
+      options.clearNotionStateWithRetry ||
+      (async url => {
+        try {
+          await this.clearNotionState(url);
+          return { cleared: true, attempts: 1, recovered: false };
+        } catch (error) {
+          return { cleared: false, attempts: 1, error };
+        }
+      });
     this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
 
     // 連續不存在保護：短時間窗內連續兩次 false 才清理。
@@ -451,7 +461,12 @@ class TabService {
         pageId: savedData.notionPageId?.slice(0, 4),
       });
       // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
-      await this.clearNotionState(resolvedUrl);
+      const clearResult = await this.clearNotionStateWithRetry(resolvedUrl, {
+        source: 'TabService._handleNotionVerificationResult',
+      });
+      if (!clearResult.cleared) {
+        throw clearResult.error || new Error('Failed to clear local Notion state');
+      }
       await this._updateBadgeStatus(tabId, null);
     } else if (exists === false && deletionCheck.deletionPending) {
       this.logger.warn('[TabService] First deletion check failed, mark as pending', {

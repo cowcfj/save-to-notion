@@ -41,6 +41,7 @@ const UPGRADE_RETRY_MAX_ATTEMPTS = 5;
 const UPGRADE_RETRY_BASE_DELAY_MS = 1000;
 const UPGRADE_RETRY_MAX_DELAY_MS = 60_000;
 const UPGRADE_RETRY_TTL_MS = 30 * 60 * 1000;
+const NOTION_STATE_CLEAR_RETRY_DELAY_MS = 100;
 
 /**
  * StorageService 類
@@ -697,6 +698,64 @@ class StorageService {
         url: sanitizeUrlForLogging(normalizedUrl),
       });
     });
+  }
+
+  /**
+   * 清除 Notion 綁定，失敗時做一次有限重試並統一記錄日誌。
+   *
+   * 僅負責 storage-side cleanup policy，不承擔上層 UI / 業務決策。
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {object} [options] - 補充上下文
+   * @param {string} [options.source='unknown'] - 呼叫來源
+   * @param {number} [options.retryDelayMs=100] - 重試前延遲
+   * @returns {Promise<{cleared: boolean, attempts: number, recovered?: boolean, error?: Error}>}
+   */
+  async clearNotionStateWithRetry(pageUrl, options = {}) {
+    const source = options.source || 'unknown';
+    const retryDelayMs = Number.isFinite(options.retryDelayMs)
+      ? options.retryDelayMs
+      : NOTION_STATE_CLEAR_RETRY_DELAY_MS;
+    const safeUrl = sanitizeUrlForLogging(normalizeUrl(pageUrl));
+
+    try {
+      await this.clearNotionState(pageUrl);
+      return { cleared: true, attempts: 1, recovered: false };
+    } catch (error) {
+      this.logger.warn?.('[StorageService] clearNotionState attempt failed, retrying', {
+        action: 'clearNotionStateWithRetry',
+        source,
+        attempt: 1,
+        url: safeUrl,
+        error: error?.message,
+      });
+
+      if (retryDelayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+
+      try {
+        await this.clearNotionState(pageUrl);
+        this.logger.log?.('[StorageService] clearNotionState recovered after retry', {
+          action: 'clearNotionStateWithRetry',
+          source,
+          attempts: 2,
+          recovered: true,
+          url: safeUrl,
+        });
+        return { cleared: true, attempts: 2, recovered: true };
+      } catch (retryError) {
+        this.logger.error?.('[StorageService] clearNotionState retry failed', {
+          action: 'clearNotionStateWithRetry',
+          source,
+          attempts: 2,
+          recovered: false,
+          url: safeUrl,
+          error: retryError?.message,
+        });
+        return { cleared: false, attempts: 2, error: retryError };
+      }
+    }
   }
 
   /**

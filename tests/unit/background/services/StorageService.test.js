@@ -601,6 +601,45 @@ describe('StorageService', () => {
     });
   });
 
+  describe('clearNotionStateWithRetry', () => {
+    it('第一次失敗後應重試一次並回報 recovered', async () => {
+      const clearSpy = jest
+        .spyOn(service, 'clearNotionState')
+        .mockRejectedValueOnce(new Error('temporary storage failure'))
+        .mockResolvedValueOnce();
+
+      const result = await service.clearNotionStateWithRetry('https://example.com/page', {
+        source: 'highlightHandlers',
+      });
+
+      expect(clearSpy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        cleared: true,
+        attempts: 2,
+        recovered: true,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState attempt failed, retrying',
+        expect.objectContaining({
+          action: 'clearNotionStateWithRetry',
+          source: 'highlightHandlers',
+          attempt: 1,
+          url: 'https://example.com/page',
+        })
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState recovered after retry',
+        expect.objectContaining({
+          action: 'clearNotionStateWithRetry',
+          source: 'highlightHandlers',
+          attempts: 2,
+          recovered: true,
+          url: 'https://example.com/page',
+        })
+      );
+    });
+  });
+
   describe('clearLegacyKeys', () => {
     it('應該清除 normalized URL 的三種 keys（Phase 3: page_* + saved_* + highlights_*）', async () => {
       await service.clearLegacyKeys('https://example.com/article?utm_source=test');

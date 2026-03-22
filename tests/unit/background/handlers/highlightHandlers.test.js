@@ -55,6 +55,7 @@ describe('highlightHandlers', () => {
         getConfig: jest.fn(),
         updateHighlights: jest.fn(),
         clearNotionState: jest.fn(),
+        clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
       },
       tabService: {
         getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
@@ -214,7 +215,10 @@ describe('highlightHandlers', () => {
       const request = { highlights: [{ text: 'test' }] };
 
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.storageService.clearNotionState.mockResolvedValue();
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: true,
+        attempts: 1,
+      });
       mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
         shouldDelete: true,
         deletionPending: false,
@@ -228,9 +232,42 @@ describe('highlightHandlers', () => {
       await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
-      expect(mockServices.storageService.clearNotionState).toHaveBeenCalledWith(
-        'https://example.com'
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({ source: 'highlightHandlers.performHighlightUpdate' })
       );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'PAGE_DELETED',
+        })
+      );
+    });
+
+    it('cleanup retry 最終失敗時仍應回傳 PAGE_DELETED', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: false,
+        attempts: 2,
+        error: new Error('storage unavailable'),
+      });
+      mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'object_not_found',
+        details: { phase: 'fetch_blocks' },
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,

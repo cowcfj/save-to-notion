@@ -60,6 +60,7 @@ describe('saveHandlers', () => {
         setSavedPageData: jest.fn(),
         clearPageState: jest.fn(),
         clearNotionState: jest.fn(),
+        clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
         setUrlAlias: jest.fn().mockResolvedValue(),
       },
       injectionService: {
@@ -410,13 +411,16 @@ describe('saveHandlers', () => {
       });
 
       await handlers.savePage({}, validSender, sendResponse);
-      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionStateWithRetry).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({ success: false, deletionPending: true })
       );
 
       await handlers.savePage({}, validSender, sendResponse);
-      expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({ source: 'saveHandlers._handlePageRecreation' })
+      );
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
     });
 
@@ -843,7 +847,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page123');
-      expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionStateWithRetry).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -869,7 +873,10 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
-      expect(mockServices.storageService.clearNotionState).toHaveBeenCalled();
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+      );
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({

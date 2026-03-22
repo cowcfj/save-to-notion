@@ -171,13 +171,26 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       result: 'confirmed_deleted',
     });
 
-    try {
-      await storageService.clearNotionState(resolvedUrl);
-    } catch (clearError) {
+    const clearResult =
+      typeof storageService.clearNotionStateWithRetry === 'function'
+        ? await storageService.clearNotionStateWithRetry(resolvedUrl, {
+            source: 'highlightHandlers.performHighlightUpdate',
+          })
+        : await (async () => {
+            try {
+              await storageService.clearNotionState(resolvedUrl);
+              return { cleared: true, attempts: 1, recovered: false };
+            } catch (error) {
+              return { cleared: false, attempts: 1, error };
+            }
+          })();
+
+    if (!clearResult.cleared) {
       Logger.error('清除本地 Notion 狀態失敗', {
         action: 'performHighlightUpdate',
         url: sanitizeUrlForLogging(resolvedUrl),
-        error: clearError?.message,
+        attempts: clearResult.attempts,
+        error: clearResult.error?.message,
       });
     }
 
