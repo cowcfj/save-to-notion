@@ -25,6 +25,12 @@
       "severity": "WARNING",
       "condition": "Classifying an issue as CRITICAL or security-related without citing the specific source line and providing a concrete reproduction scenario.",
       "enforcement": "Require reviewer to re-verify against source code. Downgrade severity if evidence is insufficient or relies on assumptions about runtime behavior not confirmed by code."
+    },
+    {
+      "category": "Leaked Internal Error",
+      "severity": "WARNING",
+      "condition": "Exposing internal-only, non-actionable, non-blocking cleanup/reconciliation/retry failures directly as user-facing errors.",
+      "enforcement": "Require keeping the canonical user-facing state, logging the internal failure, and handling retry/recovery inside the relevant service or canonical path unless the failure truly blocks the user's next action."
     }
   ],
   "quick_checklist": [
@@ -32,6 +38,7 @@
     "Log Sanitization: Verify all Logger.info/error calls correctly sanitize data (No PII, no raw HTML).",
     "Data Isolation: Verify cache/large data usage strictly targets storage.local.",
     "Language: Verify code comments and documentation are maintained in Traditional Chinese.",
-    "Evidence-Based Severity: Every CRITICAL or security-related finding must cite specific source lines and a concrete reproduction scenario. Downgrade if unverified."
+    "Evidence-Based Severity: Every CRITICAL or security-related finding must cite specific source lines and a concrete reproduction scenario. Downgrade if unverified.",
+    "Error Boundary: Verify internal-only, non-actionable, non-blocking failures are not surfaced directly to ordinary users."
   ]
 }
