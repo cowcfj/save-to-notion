@@ -171,14 +171,20 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       result: 'confirmed_deleted',
     });
 
-    try {
-      await storageService.clearNotionState(resolvedUrl);
-    } catch (clearError) {
+    const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
+      source: 'highlightHandlers.performHighlightUpdate',
+    });
+
+    if (!clearResult.cleared) {
       Logger.error('清除本地 Notion 狀態失敗', {
         action: 'performHighlightUpdate',
         url: sanitizeUrlForLogging(resolvedUrl),
-        error: clearError?.message,
+        attempts: clearResult.attempts,
+        error: clearResult.error,
       });
+
+      // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
+      tabService.confirmRemotePageMissing(savedData.notionPageId);
     }
 
     return {

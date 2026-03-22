@@ -64,6 +64,8 @@ const tabService = new TabService({
   getApiKey: () => getActiveNotionToken().then(result => result.token),
   clearPageState: url => storageService.clearPageState(url),
   clearNotionState: url => storageService.clearNotionState(url),
+  clearNotionStateWithRetry: (url, options) =>
+    storageService.clearNotionStateWithRetry(url, options),
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
 

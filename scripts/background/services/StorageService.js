@@ -41,6 +41,7 @@ const UPGRADE_RETRY_MAX_ATTEMPTS = 5;
 const UPGRADE_RETRY_BASE_DELAY_MS = 1000;
 const UPGRADE_RETRY_MAX_DELAY_MS = 60_000;
 const UPGRADE_RETRY_TTL_MS = 30 * 60 * 1000;
+const NOTION_STATE_CLEAR_RETRY_DELAY_MS = 100;
 
 /**
  * StorageService 類
@@ -697,6 +698,70 @@ class StorageService {
         url: sanitizeUrlForLogging(normalizedUrl),
       });
     });
+  }
+
+  /**
+   * 清除 Notion 綁定，失敗時做一次有限重試並統一記錄日誌。
+   *
+   * 僅負責 storage-side cleanup policy，不承擔上層 UI / 業務決策。
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {object} [options] - 補充上下文
+   * @param {string} [options.source='unknown'] - 呼叫來源
+   * @param {number} [options.retryDelayMs=100] - 重試前延遲
+   * @returns {Promise<{cleared: boolean, attempts: number, recovered?: boolean, error?: Error}>}
+   */
+  async clearNotionStateWithRetry(pageUrl, options = {}) {
+    const source = options.source || 'unknown';
+    const retryDelayMs = Number.isFinite(options.retryDelayMs)
+      ? options.retryDelayMs
+      : NOTION_STATE_CLEAR_RETRY_DELAY_MS;
+    const safeUrl = sanitizeUrlForLogging(normalizeUrl(pageUrl));
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await this.clearNotionState(pageUrl);
+
+        if (attempt > 1) {
+          this.logger.success?.('[StorageService] clearNotionState 重試成功', {
+            action: 'clearNotionStateWithRetry',
+            source,
+            attempts: attempt,
+            recovered: true,
+            url: safeUrl,
+          });
+        }
+
+        return { cleared: true, attempts: attempt, recovered: attempt > 1 };
+      } catch (error) {
+        if (attempt < maxAttempts) {
+          // 非最後一次嘗試：記錄 warn 並等待後重試
+          this.logger.warn?.('[StorageService] clearNotionState 嘗試失敗，準備重試', {
+            action: 'clearNotionStateWithRetry',
+            source,
+            attempt,
+            url: safeUrl,
+            error,
+          });
+
+          if (retryDelayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          }
+        } else {
+          // 最後一次嘗試仍失敗：記錄 error 並回傳失敗結果
+          this.logger.error?.('[StorageService] clearNotionState 重試最終失敗', {
+            action: 'clearNotionStateWithRetry',
+            source,
+            attempts: attempt,
+            recovered: false,
+            url: safeUrl,
+            error,
+          });
+          return { cleared: false, attempts: attempt, error };
+        }
+      }
+    }
   }
 
   /**

@@ -201,6 +201,10 @@ export function createSaveHandlers(services) {
     return tabService.resetRemotePageMissingState(notionPageId);
   }
 
+  async function clearNotionStateWithCanonicalPath(pageUrl, source) {
+    return await storageService.clearNotionStateWithRetry(pageUrl, { source });
+  }
+
   /**
    * 載入並驗證 Notion 必要設定
    *
@@ -585,7 +589,15 @@ export function createSaveHandlers(services) {
 
     // 只清理頁面 metadata（notionPageId 等），保留本地標註
     // Highlight-First：標註獨立於 Notion 頁面生命週期
-    await storageService.clearNotionState(resolvedUrl);
+    const clearResult = await clearNotionStateWithCanonicalPath(
+      resolvedUrl,
+      'saveHandlers._handlePageRecreation'
+    );
+    if (!clearResult.cleared) {
+      // Re-arm: 清除失敗，恢復 pending token 供下次重試
+      tabService.confirmRemotePageMissing(params.savedData.notionPageId);
+      throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
+    }
 
     return await performCreatePage(params);
   }
@@ -763,7 +775,15 @@ export function createSaveHandlers(services) {
         pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
       });
 
-      await storageService.clearNotionState(resolvedUrl);
+      const clearResult = await clearNotionStateWithCanonicalPath(
+        resolvedUrl,
+        'saveHandlers._handleDeletedOrPending'
+      );
+      if (!clearResult.cleared) {
+        // Re-arm: 清除失敗，恢復 pending token 供下次重試
+        tabService.confirmRemotePageMissing(savedData.notionPageId);
+        throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
+      }
 
       try {
         chrome.action.setBadgeText({ text: '', tabId: activeTab.id });

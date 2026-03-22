@@ -167,6 +167,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       setSavedPageData: jest.fn(),
       clearPageState: jest.fn(),
       clearNotionState: jest.fn(),
+      clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
       setUrlAlias: jest.fn().mockResolvedValue(),
       removeSavedPageData: jest.fn().mockResolvedValue(),
     };
@@ -564,7 +565,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, internalSender, sendResponse);
 
-      expect(mockStorageService.clearNotionState).toHaveBeenCalled();
+      expect(mockStorageService.clearNotionStateWithRetry).toHaveBeenCalled();
       expect(mockNotionService.createPage).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ created: true, recreated: true })
@@ -601,7 +602,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, internalSender, sendResponse);
 
-      expect(mockStorageService.clearNotionState).toHaveBeenCalled();
+      expect(mockStorageService.clearNotionStateWithRetry).toHaveBeenCalled();
       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ created: true, recreated: true })
