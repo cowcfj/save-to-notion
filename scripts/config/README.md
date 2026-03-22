@@ -2,33 +2,29 @@
 
 本目錄包含整個專案的共用常數、文字與設定檔。這些設定有些會被打包注入到網頁中（Content Script / Highlighter），有些則直接在擴充功能的環境中執行（Background / Popup / Options / Side Panel）。
 
-為減少最終發布版本的體積，只在「網頁注入」環境中使用的設定已經在打包腳本 (`tools/package-extension.sh`) 中被排除，因為它們已經被 Rollup 打包進 `content.bundle.js` 中。
+為減少最終發布版本的體積，只在「網頁注入」環境中使用的設定會在打包腳本中被排除，因為它們已經被 Rollup 打包進 `content.bundle.js` 中。
 
-## 模組分類與使用環境
+## 模組分類與用途
 
-### 1. 跨界共用 (跨注入環境與擴展環境)
+### 1. 系統核心與基礎配置
 
-這些模組同時被 `content`/`highlighter` (打包注入) 及 Extension 介面 (Background / Popup / Options / Side Panel) 使用。
+- `app.js`: 系統核心配置 (限制協議、處理器閾值、Tab 服務等)
+- `api.js`: API 專屬配置 (Notion API 端點、OAuth、超時) **僅供 Background Service Worker 使用**
+- `env.js`: 環境配置 (運行環境檢測與變數抽象)
+- `storageKeys.js`: 存儲鍵值配置 (Chrome Storage Keys 與前綴)
 
-- `constants.js`: 核心常數 (API 端點、上限配置等)
-- `messages.js`: 所有的 UI 顯示文字與錯誤訊息
-- `index.js`: 提供給 Background 模組統一引入路徑的聚合檔。**注意：UI 擴充環境 (Popup/Options/Side Panel) 請避免使用此聚合檔，以免連帶引入被打包腳本排除的模組而引發錯誤。**
+### 2. 跨模組聚合
+
+- `index.js`: 提供給 Background 等模組統一引入路徑的聚合檔（不含 `api.js`）。
+  > **注意：UI 擴充環境 (Popup/Options/Side Panel) 請避免使用此聚合檔，以免連帶引入被打包腳本排除的模組而引發錯誤。**
+
+### 3. UI 與內容提取配置
+
+- `extraction.js`: 內容提取配置 (解析選擇器、Next.js 配置、圖片驗證規則等)
+- `ui.js`: UI 層配置 (擴充功能介面專用的選擇器、狀態常量等)
+- `highlightConstants.js`: 螢光筆標記常量 (Highlight 相關特有類名與屬性，供 Highlighter 與 Content 使用)
+- `icons.js`: SVG 圖標與 Emoji 映射配置 (供 Extension UI 與頁面注入腳本使用)
+- `messages.js`: 所有的 UI 顯示文字、錯誤映射與日誌級別
 
 > **🚨 開發預警 / Warning**
 > 修改這些共用檔案時，請注意不可引入需要特定 Web API（如 `window`、`document`）或特定 Chrome API（如 `chrome.tabs.*`）的操作，以確保它在跨環境中都是安全的常數定義。
-
-### 2. 僅注入環境 (僅網頁內執行)
-
-這些模組**只被** `content` 或 `highlighter` 引用。打包時會透過 Rollup tree-shaking 進入 bundle；打包腳本 (`tools/package-extension.sh`) 的 rsync 排除清單也會在封裝時排除這些原始檔案，因此最終的 zip 檔中**不會包含**它們。
-
-- `extraction.js`: 定義內容提取規則與選擇器 (被 Content 使用)
-- `patterns.js`: 網頁內容的正規表達式 (被 Content 使用)
-- `ui-selectors.js`: 原有網頁 UI 的 CSS 選擇器，主要用於規避或攔截 (被 Highlighter 使用)
-
-### 3. 僅擴展環境 (不進入網頁環境)
-
-這些模組只在 Background, Popup, Options 或 Side Panel 中運行。
-
-- `icons.js`: 提供給 Extension UI 的 SVG ICONS 字串
-- `env.js`: 環境檢測工具（判斷 Extension / Background / Content / Dev 等執行環境）
-- `features.js`: 功能開關設定

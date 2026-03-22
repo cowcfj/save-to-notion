@@ -484,6 +484,7 @@ describe('saveHandlers', () => {
           '重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理',
           expect.objectContaining({
             action: 'recreatePage',
+            url: expect.any(String),
             attempts: 2,
             error: 'storage failure',
           })
@@ -516,6 +517,7 @@ describe('saveHandlers', () => {
           '重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理',
           expect.objectContaining({
             action: 'recreatePage',
+            url: expect.any(String),
             attempts: 2,
             error: 'storage failure',
           })
@@ -1092,6 +1094,7 @@ describe('saveHandlers', () => {
         '同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理',
         expect.objectContaining({
           action: 'syncLocalState',
+          url: expect.any(String),
           attempts: 2,
           error: 'storage failure',
         })
