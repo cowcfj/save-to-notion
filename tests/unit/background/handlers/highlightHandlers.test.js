@@ -377,7 +377,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('初始化超時'),
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
         })
       );
     });
@@ -391,7 +391,10 @@ describe('highlightHandlers', () => {
       await handlers.updateHighlights({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringMatching(/API Key/) })
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED,
+        })
       );
     });
 
