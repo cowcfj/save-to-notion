@@ -480,6 +480,14 @@ describe('saveHandlers', () => {
             error: '清除本地 Notion 狀態失敗',
           })
         );
+        expect(Logger.error).toHaveBeenCalledWith(
+          '重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理',
+          expect.objectContaining({
+            action: 'recreatePage',
+            attempts: 2,
+            error: 'storage failure',
+          })
+        );
       });
 
       test('cleanup failure 不應覆蓋真正的 createPage 錯誤', async () => {
@@ -502,6 +510,14 @@ describe('saveHandlers', () => {
         expect(sendResponse).not.toHaveBeenLastCalledWith(
           expect.objectContaining({
             error: '清除本地 Notion 狀態失敗',
+          })
+        );
+        expect(Logger.error).toHaveBeenCalledWith(
+          '重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理',
+          expect.objectContaining({
+            action: 'recreatePage',
+            attempts: 2,
+            error: 'storage failure',
           })
         );
       });
