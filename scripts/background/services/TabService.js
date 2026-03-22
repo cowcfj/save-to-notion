@@ -413,35 +413,57 @@ class TabService {
         return;
       }
 
-      const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
-      const deletionCheck =
-        exists === false
-          ? this.confirmRemotePageMissing(savedData.notionPageId)
-          : this.resetRemotePageMissingState(savedData.notionPageId);
-
-      if (exists === false && deletionCheck.shouldDelete) {
-        this.logger.log('頁面已在 Notion 中刪除，自動清理本地狀態', {
-          action: 'autoSyncLocalState',
-          pageId: savedData.notionPageId?.slice(0, 4),
-        });
-        // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
-        await this.clearNotionState(resolvedUrl);
-        await this._updateBadgeStatus(tabId, null);
-      } else if (exists === false && deletionCheck.deletionPending) {
-        this.logger.warn('[TabService] First deletion check failed, mark as pending', {
-          pageId: savedData.notionPageId?.slice(0, 4),
-          action: 'autoSyncLocalState',
-        });
-        await this._updateBadgeStatus(tabId, savedData);
-      } else if (exists === true) {
-        const updatedData = { ...savedData, lastVerifiedAt: now };
-        await this.setSavedPageData(normUrl, updatedData);
-        await this._updateBadgeStatus(tabId, updatedData);
-      } else {
-        await this._updateBadgeStatus(tabId, savedData);
-      }
+      await this._handleNotionVerificationResult(
+        tabId,
+        normUrl,
+        resolvedUrl,
+        savedData,
+        apiKey,
+        now
+      );
     } catch (error) {
       this.logger.warn('[TabService] 自動驗證失敗，跳過並保留當前狀態', { error });
+      await this._updateBadgeStatus(tabId, savedData);
+    }
+  }
+
+  /**
+   * 處理聯網檢查結果並更新狀態
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @param {string} normUrl - 標準化後的 URL
+   * @param {string} resolvedUrl - 實際查到 savedData 的 URL
+   * @param {object} savedData - 已保存數據
+   * @param {string} apiKey - Notion API Key
+   * @param {number} now - 當前時間戳
+   * @private
+   */
+  async _handleNotionVerificationResult(tabId, normUrl, resolvedUrl, savedData, apiKey, now) {
+    const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
+    const deletionCheck =
+      exists === false
+        ? this.confirmRemotePageMissing(savedData.notionPageId)
+        : this.resetRemotePageMissingState(savedData.notionPageId);
+
+    if (exists === false && deletionCheck.shouldDelete) {
+      this.logger.log('頁面已在 Notion 中刪除，自動清理本地狀態', {
+        action: 'autoSyncLocalState',
+        pageId: savedData.notionPageId?.slice(0, 4),
+      });
+      // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
+      await this.clearNotionState(resolvedUrl);
+      await this._updateBadgeStatus(tabId, null);
+    } else if (exists === false && deletionCheck.deletionPending) {
+      this.logger.warn('[TabService] First deletion check failed, mark as pending', {
+        pageId: savedData.notionPageId?.slice(0, 4),
+        action: 'autoSyncLocalState',
+      });
+      await this._updateBadgeStatus(tabId, savedData);
+    } else if (exists === true) {
+      const updatedData = { ...savedData, lastVerifiedAt: now };
+      await this.setSavedPageData(normUrl, updatedData);
+      await this._updateBadgeStatus(tabId, updatedData);
+    } else {
       await this._updateBadgeStatus(tabId, savedData);
     }
   }
