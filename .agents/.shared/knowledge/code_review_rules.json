@@ -36,7 +36,7 @@
       "category": "Complexity-Inflating Non-Issue",
       "severity": "WARNING",
       "condition": "Treating low-risk, ephemeral, self-recovering internal state hygiene issues as must-fix findings when the proposed fix mainly adds control-flow branches, state coupling, or maintenance cost.",
-      "enforcement": "Require reviewer to re-evaluate real user impact, persistence scope, and recovery behavior. If there is no durable data corruption, user-facing inconsistency, blocked next action, or expanding side effect, downgrade to note or acceptable technical debt."
+      "enforcement": "Reviewers must re-evaluate the real user impact, persistence scope, and recovery behavior. Downgrade the finding to a note or acceptable technical debt if it causes no durable data corruption, user-facing inconsistency, blocked actions, or expanding side effects."
     }
   ],
   "quick_checklist": [
