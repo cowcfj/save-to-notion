@@ -1,75 +1,59 @@
 // 測試更新通知功能
-// 在瀏覽器控制台中運行此腳本來測試更新通知
+// 在 Background Service Worker 的 DevTools Console 中運行此腳本
 
 (function () {
   'use strict';
 
   console.log('🧪 測試更新通知功能');
 
-  // 模擬擴展更新事件
+  // 模擬擴展更新事件（觸發完整流程）
   function testUpdateNotification() {
-    // 模擬從 v2.7.2 更新到 v2.7.3
-    const mockDetails = {
-      reason: 'update',
-      previousVersion: '2.7.2',
-    };
-
-    console.log('模擬更新事件:', mockDetails);
-
-    // 直接調用更新處理函數（需要在 background.js 中暴露）
     if (typeof handleExtensionUpdate === 'function') {
-      handleExtensionUpdate(mockDetails.previousVersion);
+      console.log("▶ 觸發 handleExtensionUpdate('2.47.0')...");
+      handleExtensionUpdate('2.47.0');
     } else {
-      console.warn('handleExtensionUpdate 函數未找到');
+      console.warn('handleExtensionUpdate 函數未找到（需在 Background DevTools 中執行）');
     }
   }
 
   // 測試版本比較邏輯
   function testVersionComparison() {
-    console.log('🔍 測試版本比較邏輯');
+    console.log('🔍 測試版本比較邏輯（只有 Major/Minor 才通知）');
 
     const testCases = [
-      { prev: '2.7.2', curr: '2.7.3', expected: true },
-      { prev: '2.7.0', curr: '2.8.0', expected: true },
-      { prev: '2.6.0', curr: '3.0.0', expected: true },
-      { prev: '2.7.3', curr: '2.7.4', expected: false },
-      { prev: '2.7.1', curr: '2.7.2', expected: false },
+      { prev: '2.47.0', curr: '2.48.0', expected: true, desc: 'Minor 升版' },
+      { prev: '2.0.0', curr: '3.0.0', expected: true, desc: 'Major 升版' },
+      { prev: '2.47.0', curr: '2.47.1', expected: false, desc: 'Patch 升版，不通知' },
+      { prev: '2.7.2', curr: '2.7.3', expected: false, desc: 'Patch 升版，不通知' },
+      { prev: '2.48.0', curr: '2.47.0', expected: false, desc: '降級，不通知' },
     ];
 
     testCases.forEach(test => {
       const result = shouldShowUpdateNotification(test.prev, test.curr);
       const status = result === test.expected ? '✅' : '❌';
-      console.log(`${status} ${test.prev} → ${test.curr}: ${result} (期望: ${test.expected})`);
+      console.log(
+        `${status} ${test.prev} → ${test.curr}: ${result} (期望: ${test.expected}) - ${test.desc}`
+      );
     });
   }
 
-  // 測試重要更新檢查
-  function testImportantUpdates() {
-    console.log('📋 測試重要更新檢查');
-
-    const versions = ['2.7.3', '2.8.0', '2.7.4', '3.0.0'];
-    versions.forEach(version => {
-      const isImportant = isImportantUpdate(version);
-      console.log(`${version}: ${isImportant ? '🔴 重要' : '⚪ 一般'}`);
-    });
-  }
-
-  // 手動打開更新通知頁面
-  function openUpdateNotification() {
-    const url = chrome.runtime.getURL('update-notification.html');
-    chrome.tabs.create({ url, active: true });
+  // 直接開啟更新通知小視窗（驗證 UI）
+  function openUpdateNotification(prev = '2.47.0', curr = '2.48.0') {
+    const url = new URL(chrome.runtime.getURL('update-notification/update-notification.html'));
+    url.searchParams.set('prev', prev);
+    url.searchParams.set('curr', curr);
+    chrome.windows.create({ url: url.toString(), type: 'popup', width: 480, height: 560 });
+    console.log(`▶ 已開啟更新通知小視窗（${prev} → ${curr}）`);
   }
 
   // 暴露測試函數到全局
   globalThis.testUpdateNotification = testUpdateNotification;
   globalThis.testVersionComparison = testVersionComparison;
-  globalThis.testImportantUpdates = testImportantUpdates;
   globalThis.openUpdateNotification = openUpdateNotification;
 
   console.log('✅ 測試函數已準備就緒');
   console.log('可用函數:');
-  console.log('- testUpdateNotification() - 測試更新通知');
-  console.log('- testVersionComparison() - 測試版本比較');
-  console.log('- testImportantUpdates() - 測試重要更新檢查');
-  console.log('- openUpdateNotification() - 手動打開更新通知');
+  console.log('- testUpdateNotification()           測試完整更新觸發流程');
+  console.log('- testVersionComparison()            測試版本比較邏輯');
+  console.log('- openUpdateNotification(prev, curr) 直接開啟通知小視窗');
 })();
