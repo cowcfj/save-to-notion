@@ -45,7 +45,7 @@
     // ESC 鍵關閉
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
-        globalThis.close();
+        closeWindow();
       }
     });
   }

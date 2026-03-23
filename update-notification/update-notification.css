@@ -1,4 +1,4 @@
-/* 更新通知小視窗樣式（480×560）*/
+/* 更新通知小視窗樣式（480×560） */
 * {
   margin: 0;
   padding: 0;
@@ -23,10 +23,10 @@ body {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   width: 100%;
   overflow: hidden;
-  animation: slideUp 0.4s ease-out;
+  animation: slide-up 0.4s ease-out;
 }
 
-@keyframes slideUp {
+@keyframes slide-up {
   from {
     opacity: 0;
     transform: translateY(20px);
