@@ -216,6 +216,7 @@ class InjectionService {
           {
             action: 'injectAndExecute',
             files,
+            ...(error?.stack ? { stack: error.stack } : {}),
           }
         );
       }
@@ -586,6 +587,7 @@ class InjectionService {
         `[Injection] injectWithResponse failed: ${error?.message || String(error)}`,
         {
           action: 'injectWithResponse',
+          ...(error?.stack ? { stack: error.stack } : {}),
         }
       );
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕

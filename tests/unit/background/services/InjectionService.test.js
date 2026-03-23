@@ -133,6 +133,30 @@ describe('InjectionService', () => {
       await expect(service.injectAndExecute(1, ['file.js'])).rejects.toThrow('Injection failed');
     });
 
+    it('should include stack trace in logged context when injection fails', async () => {
+      const injectionError = new Error('Injection failed');
+      injectionError.stack =
+        'Error: Injection failed\n    at inject (InjectionService.test.js:1:1)';
+      chrome.runtime.lastError = injectionError;
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
+
+      await expect(service.injectAndExecute(1, ['file.js'])).rejects.toThrow('Injection failed');
+
+      const injectErrorCall = mockLogger.error.mock.calls.find(
+        ([, context]) => context?.action === 'injectAndExecute'
+      );
+
+      expect(injectErrorCall).toBeDefined();
+      expect(injectErrorCall[0]).toContain('Script injection failed: Injection failed');
+      expect(injectErrorCall[1]).toEqual(
+        expect.objectContaining({
+          action: 'injectAndExecute',
+          files: ['file.js'],
+          stack: expect.stringContaining('Injection failed'),
+        })
+      );
+    });
+
     it('should resolve recoverable errors without throwing', async () => {
       chrome.runtime.lastError = { message: 'Cannot access contents of page' };
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
@@ -319,6 +343,32 @@ describe('InjectionService', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('injectWithResponse failed: Fatal'),
         expect.not.objectContaining({ error: expect.anything() })
+      );
+    });
+
+    it('should include stack trace in logged context when injectWithResponse fails', async () => {
+      const runtimeError = new Error('Fatal');
+      runtimeError.stack = 'Error: Fatal\n    at injectWithResponse (InjectionService.test.js:1:1)';
+
+      chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+        chrome.runtime.lastError = runtimeError;
+        cb();
+      });
+
+      const result = await service.injectWithResponse(1, () => {});
+      expect(result).toBeNull();
+
+      const injectWithResponseErrorCall = mockLogger.error.mock.calls.find(
+        ([, context]) => context?.action === 'injectWithResponse'
+      );
+
+      expect(injectWithResponseErrorCall).toBeDefined();
+      expect(injectWithResponseErrorCall[0]).toContain('injectWithResponse failed: Fatal');
+      expect(injectWithResponseErrorCall[1]).toEqual(
+        expect.objectContaining({
+          action: 'injectWithResponse',
+          stack: expect.stringContaining('Fatal'),
+        })
       );
     });
 
