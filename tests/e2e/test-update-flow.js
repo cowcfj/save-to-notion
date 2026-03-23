@@ -1,28 +1,28 @@
 // 測試更新通知完整流程
 console.log('🧪 開始測試更新通知功能');
 
+function shouldShowUpdateNotification(previousVersion, currentVersion) {
+  if (!previousVersion || !currentVersion) {
+    return false;
+  }
+  const prevParts = previousVersion.split('.').map(Number);
+  const currParts = currentVersion.split('.').map(Number);
+
+  if (currParts[0] > prevParts[0]) {
+    return true;
+  }
+  if (currParts[0] < prevParts[0]) {
+    return false;
+  }
+  if (currParts[1] > prevParts[1]) {
+    return true;
+  }
+  return false; // Patch 版本不通知
+}
+
 // 測試 1: 版本比較邏輯（只有 Major/Minor 才通知）
 function testVersionComparison() {
   console.log('\n📊 測試版本比較邏輯');
-
-  function shouldShowUpdateNotification(previousVersion, currentVersion) {
-    if (!previousVersion || !currentVersion) {
-      return false;
-    }
-    const prevParts = previousVersion.split('.').map(Number);
-    const currParts = currentVersion.split('.').map(Number);
-
-    if (currParts[0] > prevParts[0]) {
-      return true;
-    }
-    if (currParts[0] < prevParts[0]) {
-      return false;
-    }
-    if (currParts[1] > prevParts[1]) {
-      return true;
-    }
-    return false; // Patch 版本不通知
-  }
 
   const testCases = [
     { prev: '2.47.0', curr: '2.48.0', expected: true, desc: 'Minor 升版' },
