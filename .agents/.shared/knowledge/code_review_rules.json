@@ -46,6 +46,6 @@
     "Language: Verify code comments and documentation are maintained in Traditional Chinese.",
     "Evidence-Based Severity: Every CRITICAL or security-related finding must cite specific source lines and a concrete reproduction scenario. Downgrade if unverified.",
     "Error Boundary: Verify internal-only, non-actionable, non-blocking failures are not surfaced directly to ordinary users.",
-    "Fix Value vs Complexity: Do not escalate ephemeral, self-recovering, non-persistent state hygiene issues into must-fix findings when the proposed fix mainly increases branching, coupling, or maintenance cost."
+    "Fix Value vs Complexity: Avoid escalating low-impact, self-recovering, non-persistent state issues into must-fix findings if the fix mainly adds branching, coupling, or maintenance cost."
   ]
 }
