@@ -217,7 +217,6 @@ class InjectionService {
             action: 'injectAndExecute',
             files,
             error,
-            ...(error?.stack ? { stack: error.stack } : {}),
           }
         );
       }
@@ -276,7 +275,7 @@ class InjectionService {
     const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
     const isRecoverable = isRecoverableInjectionError(errMsg);
 
-    if (options.logErrors) {
+    if (options.logErrors || isRecoverable) {
       this._logInjectionStatus(false, isFunction, isRecoverable, errMsg);
     }
 
@@ -314,23 +313,17 @@ class InjectionService {
    * @private
    */
   _logInjectionStatus(isSuccess, isFunction, isRecoverable, errMsg) {
-    if (isSuccess) {
+    // 非可恢復錯誤不在此記錄 — 由 injectAndExecute catch block 統一發出 canonical ERROR
+    if (isSuccess || !isRecoverable) {
       return;
     }
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
-    if (isRecoverable) {
-      this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
-        action: 'logInjectionStatus',
-        operation: isFunction ? 'executeFunction' : 'injectFiles',
-        error: errMsg,
-      });
-    } else {
-      this.logger.error?.(`[Injection] ${msgPrefix} failed: ${errMsg}`, {
-        action: 'logInjectionStatus',
-        operation: isFunction ? 'executeFunction' : 'injectFiles',
-      });
-    }
+    this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
+      action: 'logInjectionStatus',
+      operation: isFunction ? 'executeFunction' : 'injectFiles',
+      error: errMsg,
+    });
   }
 
   /**
@@ -589,7 +582,6 @@ class InjectionService {
         {
           action: 'injectWithResponse',
           error,
-          ...(error?.stack ? { stack: error.stack } : {}),
         }
       );
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕

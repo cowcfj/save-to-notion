@@ -152,7 +152,7 @@ describe('InjectionService', () => {
         expect.objectContaining({
           action: 'injectAndExecute',
           files: ['file.js'],
-          stack: expect.stringContaining('Injection failed'),
+          error: expect.any(Error),
         })
       );
     });
@@ -370,7 +370,7 @@ describe('InjectionService', () => {
       expect(injectWithResponseErrorCall[1]).toEqual(
         expect.objectContaining({
           action: 'injectWithResponse',
-          stack: expect.stringContaining('Fatal'),
+          error: expect.any(Error),
         })
       );
     });
