@@ -54,6 +54,9 @@ describe('scripts/background.js require integration', () => {
       }
       return Promise.resolve(response);
     });
+    chromeMock.windows = {
+      create: jest.fn(createProps => Promise.resolve({ id: 88, ...createProps })),
+    };
 
     globalThis.chrome = chromeMock;
 
@@ -93,19 +96,11 @@ describe('scripts/background.js require integration', () => {
     // 等待異步操作完成
     await flushPromises();
 
-    // 應開啟更新通知頁
-    expect(chrome.tabs.create).toHaveBeenCalledWith({
-      url: expect.stringContaining('update-notification/update-notification.html'),
-      active: true,
-    });
-
-    // 頁面載入完成後應發送版本訊息（事件驅動，不再使用 setTimeout）
-    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-      expect.any(Number),
+    // 應開啟更新通知頁 (彈窗)
+    expect(chrome.windows.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'UPDATE_INFO',
-        previousVersion: '2.8.5',
-        currentVersion: '2.9.5',
+        url: expect.stringContaining('update-notification.html?prev=2.8.5&curr=2.9.5'),
+        type: 'popup',
       })
     );
   });
