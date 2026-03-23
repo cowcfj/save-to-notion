@@ -12,10 +12,13 @@
     const params = new URLSearchParams(globalThis.location.search);
     const prev = params.get('prev') ?? '—';
     const curr = params.get('curr') ?? chrome.runtime.getManifest().version;
+    const prevVersionElement = document.querySelector('#prev-version');
+    const currVersionElement = document.querySelector('#curr-version');
+    const currentVersionElement = document.querySelector('#current-version');
 
-    document.querySelector('#prev-version').textContent = `v${prev}`;
-    document.querySelector('#curr-version').textContent = `v${curr}`;
-    document.querySelector('#current-version').textContent = `v${curr}`;
+    prevVersionElement.textContent = `v${prev}`;
+    currVersionElement.textContent = `v${curr}`;
+    currentVersionElement.textContent = `v${curr}`;
   }
 
   /**
