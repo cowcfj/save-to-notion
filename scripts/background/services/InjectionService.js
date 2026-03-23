@@ -216,6 +216,7 @@ class InjectionService {
           {
             action: 'injectAndExecute',
             files,
+            error,
             ...(error?.stack ? { stack: error.stack } : {}),
           }
         );
@@ -587,6 +588,7 @@ class InjectionService {
         `[Injection] injectWithResponse failed: ${error?.message || String(error)}`,
         {
           action: 'injectWithResponse',
+          error,
           ...(error?.stack ? { stack: error.stack } : {}),
         }
       );

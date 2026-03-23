@@ -133,7 +133,7 @@ describe('InjectionService', () => {
       await expect(service.injectAndExecute(1, ['file.js'])).rejects.toThrow('Injection failed');
     });
 
-    it('should include stack trace in logged context when injection fails', async () => {
+    it('應在注入失敗時於日誌 context 中包含 stack trace', async () => {
       const injectionError = new Error('Injection failed');
       injectionError.stack =
         'Error: Injection failed\n    at inject (InjectionService.test.js:1:1)';
@@ -342,11 +342,14 @@ describe('InjectionService', () => {
       // 錯誤訊息應嵌入到日誌字串中，不再是 [object Object]
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('injectWithResponse failed: Fatal'),
-        expect.not.objectContaining({ error: expect.anything() })
+        expect.objectContaining({
+          action: 'injectWithResponse',
+          error: expect.any(Error),
+        })
       );
     });
 
-    it('should include stack trace in logged context when injectWithResponse fails', async () => {
+    it('應在 injectWithResponse 失敗時於日誌 context 中包含 stack trace', async () => {
       const runtimeError = new Error('Fatal');
       runtimeError.stack = 'Error: Fatal\n    at injectWithResponse (InjectionService.test.js:1:1)';
 
