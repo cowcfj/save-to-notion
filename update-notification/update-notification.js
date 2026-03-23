@@ -14,13 +14,14 @@
    */
   function initializeUpdateNotification() {
     const params = new URLSearchParams(globalThis.location.search);
-    const prev = params.get('prev') ?? '—';
+    const prevParam = params.get('prev');
+    const prev = prevParam || '—';
     const curr = params.get('curr') ?? chrome.runtime.getManifest().version;
     const prevVersionElement = document.querySelector('#prev-version');
     const currVersionElement = document.querySelector('#curr-version');
     const currentVersionElement = document.querySelector('#current-version');
 
-    prevVersionElement.textContent = `v${prev}`;
+    prevVersionElement.textContent = prevParam ? `v${prev}` : prev;
     currVersionElement.textContent = `v${curr}`;
     currentVersionElement.textContent = `v${curr}`;
   }
@@ -54,10 +55,5 @@
   document.addEventListener('DOMContentLoaded', () => {
     initializeUpdateNotification();
     setupEventListeners();
-  });
-
-  // 頁面載入動畫
-  globalThis.addEventListener('load', () => {
-    document.body.style.opacity = '1';
   });
 })();

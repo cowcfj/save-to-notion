@@ -13,8 +13,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: 12px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
 }
 
 .container {
@@ -135,7 +133,7 @@ body {
   color: #2b6cb0;
 }
 
-/* Update Body */
+/* 更新內容 */
 .update-body {
   background: #f7fafc;
   border-radius: 10px;
