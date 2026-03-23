@@ -31,6 +31,12 @@
       "severity": "WARNING",
       "condition": "Exposing internal-only, non-actionable, non-blocking cleanup/reconciliation/retry failures directly as user-facing errors.",
       "enforcement": "Require keeping the canonical user-facing state, logging the internal failure, and handling retry/recovery inside the relevant service or canonical path unless the failure truly blocks the user's next action."
+    },
+    {
+      "category": "Complexity-Inflating Non-Issue",
+      "severity": "WARNING",
+      "condition": "Treating low-risk, ephemeral, self-recovering internal state hygiene issues as must-fix findings when the proposed fix mainly adds control-flow branches, state coupling, or maintenance cost.",
+      "enforcement": "Reviewers must re-evaluate the real user impact, persistence scope, and recovery behavior, then preserve the downgrade evidence with the review decision, including source line references, a summary of the affected scope/impact, and the recovery or mitigation rationale. Downgrade the finding to a note or acceptable technical debt only if it causes no durable data corruption, user-facing inconsistency, blocked actions, or expanding side effects. CRITICAL or security-related findings must not be downgraded without citing specific source lines and a concrete reproduction or validation scenario."
     }
   ],
   "quick_checklist": [
@@ -39,6 +45,7 @@
     "Data Isolation: Verify cache/large data usage strictly targets storage.local.",
     "Language: Verify code comments and documentation are maintained in Traditional Chinese.",
     "Evidence-Based Severity: Every CRITICAL or security-related finding must cite specific source lines and a concrete reproduction scenario. Downgrade if unverified.",
-    "Error Boundary: Verify internal-only, non-actionable, non-blocking failures are not surfaced directly to ordinary users."
+    "Error Boundary: Verify internal-only, non-actionable, non-blocking failures are not surfaced directly to ordinary users.",
+    "Fix Value vs Complexity: Avoid escalating low-impact, self-recovering, non-persistent state issues into must-fix findings if the fix mainly adds branching, coupling, or maintenance cost."
   ]
 }
