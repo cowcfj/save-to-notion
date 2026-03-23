@@ -3,6 +3,10 @@
 'use strict';
 
 (function () {
+  function closeWindow() {
+    globalThis.close();
+  }
+
   /**
    * 初始化更新通知頁面
    *
@@ -26,14 +30,10 @@
    */
   function setupEventListeners() {
     // 標題列關閉按鈕
-    document.querySelector('#close-btn').addEventListener('click', () => {
-      globalThis.close();
-    });
+    document.querySelector('#close-btn').addEventListener('click', closeWindow);
 
     // 底部關閉按鈕
-    document.querySelector('#close-action-btn').addEventListener('click', () => {
-      globalThis.close();
-    });
+    document.querySelector('#close-action-btn').addEventListener('click', closeWindow);
 
     // 查看完整更新日誌按鈕
     document.querySelector('#view-changelog-btn').addEventListener('click', () => {
