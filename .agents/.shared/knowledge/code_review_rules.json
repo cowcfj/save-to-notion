@@ -31,6 +31,12 @@
       "severity": "WARNING",
       "condition": "Exposing internal-only, non-actionable, non-blocking cleanup/reconciliation/retry failures directly as user-facing errors.",
       "enforcement": "Require keeping the canonical user-facing state, logging the internal failure, and handling retry/recovery inside the relevant service or canonical path unless the failure truly blocks the user's next action."
+    },
+    {
+      "category": "Complexity-Inflating Non-Issue",
+      "severity": "WARNING",
+      "condition": "Treating low-risk, ephemeral, self-recovering internal state hygiene issues as must-fix findings when the proposed fix mainly adds control-flow branches, state coupling, or maintenance cost.",
+      "enforcement": "Require reviewer to re-evaluate real user impact, persistence scope, and recovery behavior. If there is no durable data corruption, user-facing inconsistency, blocked next action, or expanding side effect, downgrade to note or acceptable technical debt."
     }
   ],
   "quick_checklist": [
@@ -39,6 +45,7 @@
     "Data Isolation: Verify cache/large data usage strictly targets storage.local.",
     "Language: Verify code comments and documentation are maintained in Traditional Chinese.",
     "Evidence-Based Severity: Every CRITICAL or security-related finding must cite specific source lines and a concrete reproduction scenario. Downgrade if unverified.",
-    "Error Boundary: Verify internal-only, non-actionable, non-blocking failures are not surfaced directly to ordinary users."
+    "Error Boundary: Verify internal-only, non-actionable, non-blocking failures are not surfaced directly to ordinary users.",
+    "Fix Value vs Complexity: Do not escalate ephemeral, self-recovering, non-persistent state hygiene issues into must-fix findings when the proposed fix mainly increases branching, coupling, or maintenance cost."
   ]
 }
