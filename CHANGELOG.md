@@ -1,5 +1,27 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.48.0](https://github.com/cowcfj/save-to-notion/compare/v2.47.2...v2.48.0) (2026-03-23)
+
+
+### ✨ 新功能
+
+* 增加內部自癒處理的日誌記錄與測試 ([#371](https://github.com/cowcfj/save-to-notion/issues/371)) ([898b822](https://github.com/cowcfj/save-to-notion/commit/898b822a444f93a8bab44ef3c0e080db52de92e4))
+* 新增清除標註功能 ([#360](https://github.com/cowcfj/save-to-notion/issues/360)) ([536e7d8](https://github.com/cowcfj/save-to-notion/commit/536e7d8f61909ef71333669ddde9657db1c8a94b))
+* 更新 TabService 的刪除確認邏輯 ([#366](https://github.com/cowcfj/save-to-notion/issues/366)) ([9c447f6](https://github.com/cowcfj/save-to-notion/commit/9c447f636d0d956a3eb53039620443e5c26888f5))
+
+
+### 🐛 Bug 修復
+
+* 強化日誌記錄中的敏感資訊處理 ([#365](https://github.com/cowcfj/save-to-notion/issues/365)) ([2b215e4](https://github.com/cowcfj/save-to-notion/commit/2b215e4451cd10bc92d8678a3b176d3d168305e5))
+* 改善錯誤日誌可讀性並消除重複報錯 ([#373](https://github.com/cowcfj/save-to-notion/issues/373)) ([969c173](https://github.com/cowcfj/save-to-notion/commit/969c17353d8a7ed7a9a66792eb5dfc8f2cf8a84a))
+* 新增可重試的標註同步錯誤訊息處理 ([#369](https://github.com/cowcfj/save-to-notion/issues/369)) ([e9ce063](https://github.com/cowcfj/save-to-notion/commit/e9ce06335a3c0b2891d7fa8c5f05f4f361094c67))
+* 新增可重試的清除 Notion 狀態邏輯 ([#370](https://github.com/cowcfj/save-to-notion/issues/370)) ([1312bb4](https://github.com/cowcfj/save-to-notion/commit/1312bb430bcd1853121f75613420d92b62a76ae7))
+* 更新內容提取狀態處理與日誌記錄 ([#362](https://github.com/cowcfj/save-to-notion/issues/362)) ([8cdbaa3](https://github.com/cowcfj/save-to-notion/commit/8cdbaa30d5f0d3684d6364d2eb01e169acafa07e))
+* 更新標記區塊刪除邏輯以處理部分失敗情況並回傳可重試錯誤 ([#368](https://github.com/cowcfj/save-to-notion/issues/368)) ([1829b5f](https://github.com/cowcfj/save-to-notion/commit/1829b5fb75f2860f6104a99fafa78c40dcc3620e))
+* 更新標註同步邏輯以處理遠端頁面刪除確認 ([#367](https://github.com/cowcfj/save-to-notion/issues/367)) ([e383f68](https://github.com/cowcfj/save-to-notion/commit/e383f68c24007c42b20b403830f1c9270e19dd4a))
+* 更新連續不存在確認邏輯以支持時間窗內的清理 ([#363](https://github.com/cowcfj/save-to-notion/issues/363)) ([501b3d4](https://github.com/cowcfj/save-to-notion/commit/501b3d4fc8bccb4a2361ea3c33463e8b79f2b4dd))
+* 處理遠端頁面刪除時的同步邏輯 ([#364](https://github.com/cowcfj/save-to-notion/issues/364)) ([83b63f5](https://github.com/cowcfj/save-to-notion/commit/83b63f5f53c4df02c097ca1bf35700189d427d83))
+
 ## [2.47.2](https://github.com/cowcfj/save-to-notion/compare/v2.47.1...v2.47.2) (2026-03-21)
 
 
