@@ -315,10 +315,23 @@ describe('InjectionService', () => {
       // We expect it to return null because of the try-catch in injectWithResponse
       const result = await service.injectWithResponse(1, () => {});
       expect(result).toBeNull();
+      // 錯誤訊息應嵌入到日誌字串中，不再是 [object Object]
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('injectWithResponse failed'),
-        expect.objectContaining({ error: expect.anything() })
+        expect.stringContaining('injectWithResponse failed: Fatal'),
+        expect.not.objectContaining({ error: expect.anything() })
       );
+    });
+
+    it('應該只觸發一條 ERROR 日誌而非三條', async () => {
+      chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Fatal' };
+        cb();
+      });
+
+      await service.injectWithResponse(1, () => {});
+      // 除了 injectWithResponse 的 catch 外，injectAndExecute 內部設有 logErrors: false
+      // 因此整個失敗流程只應產生一條 error 日誌
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
     });
   });
 });
