@@ -93,7 +93,6 @@ jest.mock('../../scripts/background/handlers/notionHandlers.js', () => ({
 // Now require the module
 const {
   shouldShowUpdateNotification,
-  isImportantUpdate,
   handleExtensionUpdate,
   handleExtensionInstall,
 } = require('../../scripts/background.js');
@@ -128,6 +127,9 @@ describe('Background Script Lifecycle', () => {
         },
         get: jest.fn(),
       },
+      windows: {
+        create: jest.fn(),
+      },
     };
     globalThis.chrome = mockChrome;
     globalThis.Logger = mockLogger;
@@ -147,11 +149,8 @@ describe('Background Script Lifecycle', () => {
       expect(shouldShowUpdateNotification('1.1.0', '1.0.0')).toBe(false);
     });
 
-    test('Patch version upgrade: Important update should return true', () => {
-      expect(shouldShowUpdateNotification('2.7.2', '2.7.3')).toBe(true);
-    });
-
-    test('Patch version upgrade: Non-important update should return false', () => {
+    test('Patch version upgrade should return false', () => {
+      expect(shouldShowUpdateNotification('2.7.2', '2.7.3')).toBe(false);
       expect(shouldShowUpdateNotification('2.7.0', '2.7.1')).toBe(false);
     });
 
@@ -168,81 +167,26 @@ describe('Background Script Lifecycle', () => {
     });
   });
 
-  describe('isImportantUpdate', () => {
-    test('Should identify important versions', () => {
-      expect(isImportantUpdate('2.7.3')).toBe(true);
-      expect(isImportantUpdate('2.8.0')).toBe(true);
-    });
-
-    test('Should return false for regular versions', () => {
-      expect(isImportantUpdate('1.0.0')).toBe(false);
-      expect(isImportantUpdate('2.7.4')).toBe(false);
-    });
-  });
-
   describe('handleExtensionUpdate', () => {
-    test('Should show notification for important updates (Tab already complete)', async () => {
+    test('Should show notification popup for important updates', async () => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
-      mockChrome.tabs.get.mockResolvedValue({ status: 'complete' });
-      mockChrome.tabs.create.mockResolvedValue({ id: 123 });
+      mockChrome.windows.create.mockResolvedValue({ id: 123 });
 
       await handleExtensionUpdate('2.7.0');
 
-      expect(mockChrome.tabs.create).toHaveBeenCalledWith(
+      expect(mockChrome.windows.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('update-notification.html'),
-          active: true,
+          url: expect.stringContaining('update-notification.html?prev=2.7.0&curr=2.8.0'),
+          type: 'popup',
         })
       );
-      // Verify message is sent after tab load
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(123, {
-        type: 'UPDATE_INFO',
-        previousVersion: '2.7.0',
-        currentVersion: '2.8.0',
-      });
     });
 
-    test('Should wait for tab load via onUpdated listener', async () => {
+    test('Should handle failure when creating window', async () => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
-      mockChrome.tabs.create.mockResolvedValue({ id: 123 });
+      mockChrome.windows.create.mockRejectedValue(new Error('creation failed'));
 
-      // tab.get rejects early to simulate not loaded
-      mockChrome.tabs.get.mockRejectedValue(new Error('not found'));
-
-      // 截獲 listener
-      let updateListener;
-      mockChrome.tabs.onUpdated.addListener.mockImplementation(cb => {
-        updateListener = cb;
-      });
-
-      const updatePromise = handleExtensionUpdate('2.7.0');
-
-      // 在下一個 tick 觸發 listener
-      await new Promise(resolve => process.nextTick(resolve));
-      updateListener(123, { status: 'complete' });
-
-      await updatePromise;
-
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalled();
-      expect(mockChrome.tabs.onUpdated.removeListener).toHaveBeenCalled();
-    });
-
-    test('Should reject if tab is removed before load', async () => {
-      mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
-      mockChrome.tabs.create.mockResolvedValue({ id: 123 });
-      mockChrome.tabs.get.mockRejectedValue(new Error('not found'));
-
-      let removeListener;
-      mockChrome.tabs.onRemoved.addListener.mockImplementation(cb => {
-        removeListener = cb;
-      });
-
-      const updatePromise = handleExtensionUpdate('2.7.0');
-
-      await new Promise(resolve => process.nextTick(resolve));
-      removeListener(123);
-
-      await updatePromise;
+      await handleExtensionUpdate('2.7.0');
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('顯示更新通知失敗'),
@@ -253,37 +197,12 @@ describe('Background Script Lifecycle', () => {
       );
     });
 
-    test('Should reject on timeout', async () => {
-      jest.useFakeTimers();
-      mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
-      mockChrome.tabs.create.mockResolvedValue({ id: 123 });
-
-      // 不 reject，讓它一直 pending，這樣才會進到 timeout
-      mockChrome.tabs.get.mockReturnValue(new Promise(() => {}));
-
-      const updatePromise = handleExtensionUpdate('2.7.0');
-
-      // 給予 Promise 啟動和註冊 timeout 的時間
-      await Promise.resolve();
-
-      // 快進時間直到達到 timeout
-      jest.advanceTimersByTime(1500);
-
-      await updatePromise;
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('顯示更新通知失敗'),
-        expect.objectContaining({ error: expect.any(Error) })
-      );
-      jest.useRealTimers();
-    });
-
-    test('Should NOT show notification for patch updates (unless flagged as important)', async () => {
+    test('Should NOT show notification for patch updates', async () => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' });
 
-      await handleExtensionUpdate('2.8.0'); // Patch update, not important
+      await handleExtensionUpdate('2.8.0'); // Patch update
 
-      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
+      expect(mockChrome.windows.create).not.toHaveBeenCalled();
     });
   });
 

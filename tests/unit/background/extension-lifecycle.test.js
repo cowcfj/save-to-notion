@@ -6,7 +6,7 @@
 const mockChrome = {
   runtime: {
     getManifest: jest.fn(),
-    getURL: jest.fn(),
+    getURL: jest.fn(path => `chrome-extension://id/${path}`),
     onInstalled: {
       addListener: jest.fn(),
     },
@@ -24,6 +24,9 @@ const mockChrome = {
     },
     sendMessage: jest.fn(),
     get: jest.fn(),
+  },
+  windows: {
+    create: jest.fn(),
   },
 };
 globalThis.chrome = mockChrome;
@@ -122,7 +125,7 @@ describe('Background Extension Lifecycle', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' });
-    mockChrome.tabs.create.mockResolvedValue({ id: 123 });
+    mockChrome.windows.create.mockResolvedValue({ id: 123 });
     mockChrome.tabs.sendMessage.mockResolvedValue({});
     mockChrome.tabs.get.mockResolvedValue({ status: 'complete' });
   });
@@ -140,39 +143,38 @@ describe('Background Extension Lifecycle', () => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
       await background.handleExtensionUpdate('2.7.3');
 
-      expect(mockChrome.tabs.create).toHaveBeenCalled();
-      expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('已顯示更新通知頁面'));
+      expect(mockChrome.windows.create).toHaveBeenCalled();
+      expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('已顯示更新通知視窗'));
     });
   });
 
   describe('shouldShowUpdateNotification', () => {
     // 透過直接測試 shouldShowUpdateNotification（如果導出）或通過 handleExtensionUpdate 間接測試 logic
 
-    // 由於 shouldShowUpdateNotification 未導出，我們通過修改 manifest mock 來測試 handleExtensionUpdate
     const setupUpdateTest = async (previousVersion, currentVersion) => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: currentVersion });
-      mockChrome.tabs.create.mockClear();
+      mockChrome.windows.create.mockClear();
       await background.handleExtensionUpdate(previousVersion);
     };
 
     test('應該正確處理主版本升級 (2.5.0 -> 3.0.0)', async () => {
       await setupUpdateTest('2.5.0', '3.0.0');
-      expect(mockChrome.tabs.create).toHaveBeenCalled();
+      expect(mockChrome.windows.create).toHaveBeenCalled();
     });
 
     test('應該正確處理次版本升級 (2.4.5 -> 2.5.0)', async () => {
       await setupUpdateTest('2.4.5', '2.5.0');
-      expect(mockChrome.tabs.create).toHaveBeenCalled();
+      expect(mockChrome.windows.create).toHaveBeenCalled();
     });
 
     test('應該正確處理降級 (3.0.0 -> 2.5.0)', async () => {
       await setupUpdateTest('3.0.0', '2.5.0');
-      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
+      expect(mockChrome.windows.create).not.toHaveBeenCalled();
     });
 
     test('應該正確處理次版本降級 (2.5.0 -> 2.4.0)', async () => {
       await setupUpdateTest('2.5.0', '2.4.0');
-      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
+      expect(mockChrome.windows.create).not.toHaveBeenCalled();
     });
   });
 
@@ -183,37 +185,24 @@ describe('Background Extension Lifecycle', () => {
     });
   });
 
-  describe('isImportantUpdate', () => {
-    test('應該識別重要更新版本', () => {
-      expect(background.isImportantUpdate('2.8.0')).toBe(true);
-    });
-
-    test('應該識別非重要更新版本', () => {
-      expect(background.isImportantUpdate('2.9.9')).toBe(false);
-    });
-  });
-
   describe('showUpdateNotification', () => {
-    test('應該創建更新通知標籤頁', async () => {
+    test('應該創建更新通知視窗', async () => {
       mockChrome.runtime.getURL.mockReturnValue(
         'chrome-extension://id/update-notification/update-notification.html'
       );
 
       await background.showUpdateNotification('2.7.3', '2.8.1');
 
-      expect(mockChrome.tabs.create).toHaveBeenCalledWith(
+      expect(mockChrome.windows.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('update-notification.html'),
+          url: expect.stringContaining('update-notification.html?prev=2.7.3&curr=2.8.1'),
+          type: 'popup',
         })
-      );
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
-        123,
-        expect.objectContaining({ type: 'UPDATE_INFO' })
       );
     });
 
     test('應該處理錯誤', async () => {
-      mockChrome.tabs.create.mockRejectedValue(new Error('Failed'));
+      mockChrome.windows.create.mockRejectedValue(new Error('Failed'));
       await background.showUpdateNotification('2.7.3', '2.8.1');
       expect(Logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('顯示更新通知失敗'),
