@@ -32,6 +32,9 @@ import { createLogHandlers } from './background/handlers/logHandlers.js';
 import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 
+const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
+const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
+
 // ==========================================
 // SERVICE INITIALIZATION
 // ==========================================
@@ -206,8 +209,8 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     await chrome.windows.create({
       url: url.toString(),
       type: 'popup',
-      width: 480,
-      height: 560,
+      width: UPDATE_NOTIFICATION_WINDOW_WIDTH,
+      height: UPDATE_NOTIFICATION_WINDOW_HEIGHT,
       focused: true,
     });
 
