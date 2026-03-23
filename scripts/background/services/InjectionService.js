@@ -210,11 +210,15 @@ class InjectionService {
       }
     } catch (error) {
       if (options.logErrors !== false) {
-        this.logger.error?.(`[Injection] ${options.errorMessage || 'Script injection failed'}`, {
-          action: 'injectAndExecute',
-          files,
-          error,
-        });
+        const errorDetail = error?.message || String(error);
+        this.logger.error?.(
+          `[Injection] ${options.errorMessage || 'Script injection failed'}: ${errorDetail}`,
+          {
+            action: 'injectAndExecute',
+            files,
+            error,
+          }
+        );
       }
       throw error;
     }
@@ -271,7 +275,7 @@ class InjectionService {
     const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
     const isRecoverable = isRecoverableInjectionError(errMsg);
 
-    if (options.logErrors) {
+    if (options.logErrors || isRecoverable) {
       this._logInjectionStatus(false, isFunction, isRecoverable, errMsg);
     }
 
@@ -309,24 +313,17 @@ class InjectionService {
    * @private
    */
   _logInjectionStatus(isSuccess, isFunction, isRecoverable, errMsg) {
-    if (isSuccess) {
+    // 非可恢復錯誤不在此記錄 — 由 injectAndExecute catch block 統一發出 canonical ERROR
+    if (isSuccess || !isRecoverable) {
       return;
     }
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
-    if (isRecoverable) {
-      this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
-        action: 'logInjectionStatus',
-        operation: isFunction ? 'executeFunction' : 'injectFiles',
-        error: errMsg,
-      });
-    } else {
-      this.logger.error?.(`[Injection] ${msgPrefix} failed`, {
-        action: 'logInjectionStatus',
-        operation: isFunction ? 'executeFunction' : 'injectFiles',
-        error: errMsg,
-      });
-    }
+    this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
+      action: 'logInjectionStatus',
+      operation: isFunction ? 'executeFunction' : 'injectFiles',
+      error: errMsg,
+    });
   }
 
   /**
@@ -561,16 +558,16 @@ class InjectionService {
    */
   async injectWithResponse(tabId, func, files = [], args = []) {
     try {
-      // 如果有文件需要注入，先注入文件
+      // 如果有文件需要注入，先注入文件（由外層 catch 統一記錄，避免重複日誌）
       if (files && files.length > 0) {
-        await this.injectAndExecute(tabId, files, null, { logErrors: true });
+        await this.injectAndExecute(tabId, files, null, { logErrors: false });
       }
 
-      // 執行函數並返回結果
+      // 執行函數並返回結果（由外層 catch 統一記錄，避免重複日誌）
       if (func) {
         return await this.injectAndExecute(tabId, [], func, {
           returnResult: true,
-          logErrors: true,
+          logErrors: false,
           args,
         });
       } else if (files && files.length > 0) {
@@ -580,10 +577,13 @@ class InjectionService {
 
       return null;
     } catch (error) {
-      this.logger.error?.('[Injection] injectWithResponse failed', {
-        action: 'injectWithResponse',
-        error,
-      });
+      this.logger.error?.(
+        `[Injection] injectWithResponse failed: ${error?.message || String(error)}`,
+        {
+          action: 'injectWithResponse',
+          error,
+        }
+      );
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
     }

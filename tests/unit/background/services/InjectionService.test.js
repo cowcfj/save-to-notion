@@ -133,6 +133,30 @@ describe('InjectionService', () => {
       await expect(service.injectAndExecute(1, ['file.js'])).rejects.toThrow('Injection failed');
     });
 
+    it('應在注入失敗時於日誌 context 中包含 stack trace', async () => {
+      const injectionError = new Error('Injection failed');
+      injectionError.stack =
+        'Error: Injection failed\n    at inject (InjectionService.test.js:1:1)';
+      chrome.runtime.lastError = injectionError;
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
+
+      await expect(service.injectAndExecute(1, ['file.js'])).rejects.toThrow('Injection failed');
+
+      const injectErrorCall = mockLogger.error.mock.calls.find(
+        ([, context]) => context?.action === 'injectAndExecute'
+      );
+
+      expect(injectErrorCall).toBeDefined();
+      expect(injectErrorCall[0]).toContain('Script injection failed: Injection failed');
+      expect(injectErrorCall[1]).toEqual(
+        expect.objectContaining({
+          action: 'injectAndExecute',
+          files: ['file.js'],
+          error: expect.any(Error),
+        })
+      );
+    });
+
     it('should resolve recoverable errors without throwing', async () => {
       chrome.runtime.lastError = { message: 'Cannot access contents of page' };
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
@@ -315,10 +339,52 @@ describe('InjectionService', () => {
       // We expect it to return null because of the try-catch in injectWithResponse
       const result = await service.injectWithResponse(1, () => {});
       expect(result).toBeNull();
+      // 錯誤訊息應嵌入到日誌字串中，不再是 [object Object]
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('injectWithResponse failed'),
-        expect.objectContaining({ error: expect.anything() })
+        expect.stringContaining('injectWithResponse failed: Fatal'),
+        expect.objectContaining({
+          action: 'injectWithResponse',
+          error: expect.any(Error),
+        })
       );
+    });
+
+    it('應在 injectWithResponse 失敗時於日誌 context 中包含 stack trace', async () => {
+      const runtimeError = new Error('Fatal');
+      runtimeError.stack = 'Error: Fatal\n    at injectWithResponse (InjectionService.test.js:1:1)';
+
+      chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+        chrome.runtime.lastError = runtimeError;
+        cb();
+      });
+
+      const result = await service.injectWithResponse(1, () => {});
+      expect(result).toBeNull();
+
+      const injectWithResponseErrorCall = mockLogger.error.mock.calls.find(
+        ([, context]) => context?.action === 'injectWithResponse'
+      );
+
+      expect(injectWithResponseErrorCall).toBeDefined();
+      expect(injectWithResponseErrorCall[0]).toContain('injectWithResponse failed: Fatal');
+      expect(injectWithResponseErrorCall[1]).toEqual(
+        expect.objectContaining({
+          action: 'injectWithResponse',
+          error: expect.any(Error),
+        })
+      );
+    });
+
+    it('應該只觸發一條 ERROR 日誌而非三條', async () => {
+      chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Fatal' };
+        cb();
+      });
+
+      await service.injectWithResponse(1, () => {});
+      // 除了 injectWithResponse 的 catch 外，injectAndExecute 內部設有 logErrors: false
+      // 因此整個失敗流程只應產生一條 error 日誌
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
     });
   });
 });
