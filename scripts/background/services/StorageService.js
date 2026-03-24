@@ -762,6 +762,8 @@ class StorageService {
         }
       }
     }
+    // 防禦性保障：maxAttempts <= 0 時迴圈未執行，確保不返回 undefined
+    return { cleared: false, attempts: 0, error: new Error('maxAttempts 必須大於 0') };
   }
 
   /**

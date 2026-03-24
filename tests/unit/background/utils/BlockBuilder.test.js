@@ -4,6 +4,12 @@
  * 測試 Notion 區塊構建工具函數
  */
 
+const fs = require('node:fs');
+const Module = require('node:module');
+const path = require('node:path');
+const vm = require('node:vm');
+const { transformSync } = require('@babel/core');
+
 const {
   MAX_TEXT_LENGTH,
   createRichText,
@@ -21,6 +27,45 @@ const {
   createFallbackBlocks,
   isValidBlock,
 } = require('../../../../scripts/background/utils/BlockBuilder');
+
+const blockBuilderPath = path.resolve(
+  __dirname,
+  '../../../../scripts/background/utils/BlockBuilder.js'
+);
+
+function loadBlockBuilderInVm() {
+  const source = fs.readFileSync(blockBuilderPath, 'utf8');
+  const transformed = transformSync(source, {
+    filename: blockBuilderPath,
+    sourceType: 'unambiguous',
+    presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]],
+  });
+
+  const module = { exports: {} };
+  const localRequire = Module.createRequire(blockBuilderPath);
+  const dirname = path.dirname(blockBuilderPath);
+  const context = vm.createContext({
+    console,
+    process,
+    globalThis: {},
+    exports: module.exports,
+    module,
+    require: localRequire,
+    __filename: blockBuilderPath,
+    __dirname: dirname,
+  });
+
+  const wrapper = new vm.Script(
+    `(function (exports, require, module, __filename, __dirname) { ${transformed.code}\n})`,
+    {
+      filename: blockBuilderPath,
+    }
+  ).runInContext(context, { timeout: 1000 });
+
+  wrapper(module.exports, localRequire, module, blockBuilderPath, dirname);
+
+  return { context, exports: module.exports };
+}
 
 describe('BlockBuilder', () => {
   describe('createRichText', () => {
@@ -215,6 +260,24 @@ describe('BlockBuilder', () => {
     test('應該處理 null 或空字符串', () => {
       expect(splitTextForHighlight(null)).toEqual(['']);
       expect(splitTextForHighlight('')).toEqual(['']);
+    });
+
+    test('maxLength 小於等於 0 時應安全回退並返回原文', () => {
+      expect(splitTextForHighlight('需要保留的文字', 0)).toEqual(['需要保留的文字']);
+      expect(splitTextForHighlight('需要保留的文字', -5)).toEqual(['需要保留的文字']);
+    });
+
+    test('maxLength 為 NaN 時應安全回退並返回原文', () => {
+      const { context, exports } = loadBlockBuilderInVm();
+      context.__splitTextForHighlight = exports.splitTextForHighlight;
+
+      new vm.Script(
+        "globalThis.__result = __splitTextForHighlight('需要保留的文字', Number.NaN);"
+      ).runInContext(context, {
+        timeout: 1000,
+      });
+
+      expect(context.globalThis.__result).toEqual(['需要保留的文字']);
     });
   });
 

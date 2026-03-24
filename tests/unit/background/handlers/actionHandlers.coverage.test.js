@@ -78,7 +78,7 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
-import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
+import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
 jest.mock('../../../../scripts/config/app.js', () => {
@@ -99,6 +99,7 @@ jest.mock('../../../../scripts/config/app.js', () => {
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
   getActiveNotionToken: jest.fn(),
+  ensureNotionApiKey: jest.fn(),
 }));
 
 // Mock chrome API
@@ -149,6 +150,7 @@ describe('actionHandlers 覆蓋率補強', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'secret-key', mode: 'manual' });
+    ensureNotionApiKey.mockResolvedValue('secret-key');
 
     mockNotionService = {
       setApiKey: jest.fn(),
@@ -809,14 +811,17 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在 API Key 未設置時報錯', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
-      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+      ensureNotionApiKey.mockRejectedValueOnce(new Error(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY));
+      const formattedMessage = ErrorHandler.formatUserMessage(
+        ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY
+      );
 
       await handlers.checkNotionPageExists({ pageId: '123' }, internalSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/Notion API Key/), // Match partial string to handle formatting
+          error: formattedMessage,
         })
       );
     });
@@ -986,7 +991,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
-      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+      ensureNotionApiKey.mockRejectedValueOnce(new Error(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY));
+      const formattedMessage = ErrorHandler.formatUserMessage(
+        ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY
+      );
 
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       await handlers.updateHighlights({}, internalSender, sendResponse);
@@ -994,7 +1002,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/Notion API Key/),
+          error: formattedMessage,
         })
       );
     });

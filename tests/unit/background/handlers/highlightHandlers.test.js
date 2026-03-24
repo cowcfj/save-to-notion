@@ -8,7 +8,7 @@ import {
 } from '../../../../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
-import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
+import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 
 jest.mock('../../../../scripts/utils/Logger.js');
@@ -25,6 +25,7 @@ describe('highlightHandlers', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'key1', mode: 'manual' });
+    ensureNotionApiKey.mockResolvedValue('key1');
 
     // Default mock behaviors for utilities
     validateContentScriptRequest.mockReturnValue(null);
@@ -429,7 +430,9 @@ describe('highlightHandlers', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
-      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+      ensureNotionApiKey.mockRejectedValueOnce(
+        new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED)
+      );
 
       await handlers.updateHighlights({}, sender, sendResponse);
 
