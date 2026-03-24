@@ -3,6 +3,7 @@ import Logger from './Logger.js';
 import { AuthMode, NOTION_OAUTH } from '../config/api.js';
 import { BUILD_ENV } from '../config/env.js';
 import { sanitizeApiError } from './securityUtils.js';
+import { ERROR_MESSAGES } from '../config/messages.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';
 const REFRESH_OAUTH_TOKEN_ACTION = 'refreshOAuthToken';
@@ -120,6 +121,20 @@ export async function getActiveNotionToken() {
   }
 
   return { token: null, mode: null };
+}
+
+/**
+ * 確保 Notion API Key 存在並返回
+ *
+ * @returns {Promise<string>} API Key
+ * @throws {Error} 如果 API Key 未設置
+ */
+export async function ensureNotionApiKey() {
+  const { token } = await getActiveNotionToken();
+  if (!token) {
+    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
+  }
+  return token;
 }
 
 async function performRefreshOAuthToken() {

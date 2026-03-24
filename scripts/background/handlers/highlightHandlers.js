@@ -19,7 +19,7 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/app.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
-import { getActiveNotionToken } from '../../utils/notionAuth.js';
+import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -38,20 +38,6 @@ async function getActiveTab() {
     throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
-}
-
-/**
- * 獲取 Notion API Key
- *
- * @returns {Promise<string>} API Key
- * @throws {Error} 如果 API Key 未設置
- */
-async function ensureNotionApiKey() {
-  const { token } = await getActiveNotionToken();
-  if (!token) {
-    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
-  }
-  return token;
 }
 
 /**

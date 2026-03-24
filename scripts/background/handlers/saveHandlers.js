@@ -26,7 +26,7 @@ import { HANDLER_CONSTANTS } from '../../config/app.js';
 import { CONTENT_QUALITY } from '../../config/extraction.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
-import { getActiveNotionToken } from '../../utils/notionAuth.js';
+import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/storageKeys.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
@@ -69,19 +69,6 @@ async function getActiveTab() {
   return activeTab;
 }
 
-/**
- * 獲取 Notion API Key
- *
- * @returns {Promise<string>} API Key
- * @throws {Error} 如果 API Key 未設置
- */
-async function ensureNotionApiKey() {
-  const { token } = await getActiveNotionToken();
-  if (!token) {
-    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
-  }
-  return token;
-}
 /**
  * 處理內容提取結果
  *
