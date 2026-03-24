@@ -221,6 +221,30 @@ function createDivider() {
 }
 
 /**
+ * 計算文本智能分割索引
+ *
+ * @param {string} remaining - 剩餘文本
+ * @param {number} maxLength - 最大長度
+ * @returns {number} 分割索引（> 0 保證可切出非空 chunk）
+ */
+function _findSplitIndex(remaining, maxLength) {
+  const punctuation = ['\n\n', '\n', '\u3002', '.', '\uFF1F', '?', '\uFF01', '!'];
+  for (const punct of punctuation) {
+    const idx = remaining.lastIndexOf(punct, maxLength - 1);
+    if (idx > maxLength * 0.5) {
+      return idx + punct.length;
+    }
+  }
+
+  const spaceIdx = remaining.lastIndexOf(' ', maxLength - 1);
+  if (spaceIdx > maxLength * 0.5) {
+    return spaceIdx;
+  }
+
+  return maxLength;
+}
+
+/**
  * 將長文本分割成符合 Notion 限制的片段 (智能分割)
  * Notion API 限制每個 rich_text 區塊最多 2000 字符
  *
@@ -246,42 +270,13 @@ function splitTextForHighlight(text, maxLength = 2000) {
       break;
     }
 
-    // 嘗試在句號、問號、驚嘆號、換行符處分割
-    let splitIndex = -1;
-    const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
-
-    for (const punct of punctuation) {
-      const lastIndex = remaining.lastIndexOf(punct, maxLength - 1);
-      if (lastIndex > maxLength * 0.5) {
-        // 至少分割到一半以上，避免片段太短
-        splitIndex = lastIndex + punct.length;
-        break;
-      }
-    }
-
-    // 如果找不到合適的標點，嘗試在空格處分割
-    if (splitIndex === -1) {
-      splitIndex = remaining.lastIndexOf(' ', maxLength - 1);
-      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
-        // 實在找不到，強制在 maxLength 處分割
-        splitIndex = maxLength;
-      }
-    }
-
-    chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
-    remaining = remaining.slice(Math.max(0, splitIndex)).trim();
+    const splitIndex = _findSplitIndex(remaining, maxLength);
+    chunks.push(remaining.slice(0, splitIndex).trim());
+    remaining = remaining.slice(splitIndex).trim();
   }
 
   return chunks.filter(chunk => chunk.length > 0);
 }
-
-/**
- * 創建標註區塊組（包含標題和標註內容）
- *
- * @param {Array} highlights - 標註數據數組 [{text, color}]
- * @param {string} title - 標題（默認使用配置的標記區域標題）
- * @returns {Array} Notion blocks 數組
- */
 function buildHighlightBlocks(highlights, title = HIGHLIGHT_SECTION_HEADER) {
   if (!highlights || highlights.length === 0) {
     return [];
