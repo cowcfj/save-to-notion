@@ -537,7 +537,7 @@ export function createSaveHandlers(services) {
         result.highlightsUpdated = true;
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: Date.now(),
         });
 
         // 混合式推播
@@ -560,7 +560,7 @@ export function createSaveHandlers(services) {
         result.updated = true;
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: Date.now(),
         });
 
         // 混合式推播
