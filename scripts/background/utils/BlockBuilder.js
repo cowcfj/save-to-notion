@@ -235,24 +235,26 @@ function createDivider() {
  * @returns {number} 分割索引（> 0 保證可切出非空 chunk）
  */
 function _findSplitIndex(remaining, maxLength) {
-  if (maxLength <= 0) {
+  const safeMax = Math.floor(Number(maxLength));
+
+  if (!Number.isFinite(maxLength) || safeMax <= 0) {
     return 0;
   }
 
   const punctuation = ['\n\n', '\n', '\u3002', '.', '\uFF1F', '?', '\uFF01', '!'];
   for (const punct of punctuation) {
-    const idx = remaining.lastIndexOf(punct, maxLength - 1);
-    if (idx > maxLength * MIN_SPLIT_RATIO) {
+    const idx = remaining.lastIndexOf(punct, safeMax - 1);
+    if (idx > safeMax * MIN_SPLIT_RATIO) {
       return idx + punct.length;
     }
   }
 
-  const spaceIdx = remaining.lastIndexOf(' ', maxLength - 1);
-  if (spaceIdx > maxLength * MIN_SPLIT_RATIO) {
+  const spaceIdx = remaining.lastIndexOf(' ', safeMax - 1);
+  if (spaceIdx > safeMax * MIN_SPLIT_RATIO) {
     return spaceIdx;
   }
 
-  return maxLength;
+  return safeMax;
 }
 
 /**
@@ -268,11 +270,13 @@ function splitTextForHighlight(text, maxLength = 2000) {
     return [''];
   }
 
-  if (maxLength <= 0) {
+  const safeMax = Math.floor(Number(maxLength));
+
+  if (!Number.isFinite(maxLength) || safeMax <= 0) {
     return [text];
   }
 
-  if (text.length <= maxLength) {
+  if (text.length <= safeMax) {
     return [text];
   }
 
@@ -280,12 +284,12 @@ function splitTextForHighlight(text, maxLength = 2000) {
   let remaining = text;
 
   while (remaining.length > 0) {
-    if (remaining.length <= maxLength) {
+    if (remaining.length <= safeMax) {
       chunks.push(remaining);
       break;
     }
 
-    const splitIndex = _findSplitIndex(remaining, maxLength);
+    const splitIndex = _findSplitIndex(remaining, safeMax);
     if (splitIndex <= 0) {
       chunks.push(remaining);
       break;

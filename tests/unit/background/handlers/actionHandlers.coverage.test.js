@@ -811,7 +811,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在 API Key 未設置時報錯', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
-      ensureNotionApiKey.mockRejectedValueOnce(new Error('API Key'));
+      ensureNotionApiKey.mockRejectedValueOnce(new Error(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY));
       const formattedMessage = ErrorHandler.formatUserMessage(
         ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY
       );
@@ -991,7 +991,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
-      ensureNotionApiKey.mockRejectedValueOnce(new Error('API Key'));
+      ensureNotionApiKey.mockRejectedValueOnce(new Error(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY));
+      const formattedMessage = ErrorHandler.formatUserMessage(
+        ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY
+      );
 
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       await handlers.updateHighlights({}, internalSender, sendResponse);
@@ -999,7 +1002,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/API Key/),
+          error: formattedMessage,
         })
       );
     });
