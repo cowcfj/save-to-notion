@@ -9,7 +9,7 @@ import {
   isValidNotionUrl,
 } from '../../../../scripts/utils/securityUtils.js';
 import { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
-import { getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
+import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(),
@@ -33,6 +33,7 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
   getActiveNotionToken: jest.fn(),
+  ensureNotionApiKey: jest.fn(),
 }));
 
 jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
@@ -49,6 +50,7 @@ describe('saveHandlers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'valid-key', mode: 'manual' });
+    ensureNotionApiKey.mockResolvedValue('valid-key');
     const deletionPendingPages = new Map();
     mockServices = {
       notionService: {
@@ -173,7 +175,7 @@ describe('saveHandlers', () => {
     it('checkNotionPageExists 應該處理意外錯誤', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'mock-extension-id' };
-      getActiveNotionToken.mockRejectedValueOnce(new Error('Fatal'));
+      ensureNotionApiKey.mockRejectedValueOnce(new Error('Fatal'));
 
       await handlers.checkNotionPageExists({ pageId: 'page1' }, sender, sendResponse);
 
