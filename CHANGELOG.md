@@ -1,5 +1,23 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.48.1](https://github.com/cowcfj/save-to-notion/compare/v2.48.0...v2.48.1) (2026-03-24)
+
+
+### 🐛 Bug 修復
+
+* **BlockBuilder:** 引入 MIN_SPLIT_RATIO 常數以改善文本分割邏輯 ([d6be17b](https://github.com/cowcfj/save-to-notion/commit/d6be17b9aa89369bf5d81a7a2b03fbd9cc6a0e89))
+* 統一時間格式及修正安全性導入 ([#376](https://github.com/cowcfj/save-to-notion/issues/376)) ([d6be17b](https://github.com/cowcfj/save-to-notion/commit/d6be17b9aa89369bf5d81a7a2b03fbd9cc6a0e89))
+
+
+### ♻️ 代碼重構
+
+* 簡化更新通知邏輯與樣式 ([#374](https://github.com/cowcfj/save-to-notion/issues/374)) ([b2d5824](https://github.com/cowcfj/save-to-notion/commit/b2d582414d37ed228279c88be0262b0e233cf3b6))
+
+
+### 🧪 測試
+
+* **BlockBuilder:** 增加測試以確保 maxLength 小於等於 0 時安全回退 ([d6be17b](https://github.com/cowcfj/save-to-notion/commit/d6be17b9aa89369bf5d81a7a2b03fbd9cc6a0e89))
+
 ## [2.48.0](https://github.com/cowcfj/save-to-notion/compare/v2.47.2...v2.48.0) (2026-03-23)
 
 
