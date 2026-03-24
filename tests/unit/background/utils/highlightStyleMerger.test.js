@@ -499,11 +499,19 @@ describe('HIGHLIGHT_STYLE_OPTIONS', () => {
     expect(HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT).toBe('COLOR_TEXT');
   });
 
-  test('BOLD 含 bold: true', () => {
-    expect(HIGHLIGHT_STYLE_OPTIONS.BOLD).toEqual({ bold: true });
+  test('BOLD 是字符串 "BOLD"', () => {
+    expect(HIGHLIGHT_STYLE_OPTIONS.BOLD).toBe('BOLD');
   });
 
-  test('NONE 為 null', () => {
-    expect(HIGHLIGHT_STYLE_OPTIONS.NONE).toBeNull();
+  test('NONE 是字符串 "NONE"', () => {
+    expect(HIGHLIGHT_STYLE_OPTIONS.NONE).toBe('NONE');
+  });
+
+  test('resolveStyle(BOLD) 仍回傳 { bold: true }', () => {
+    expect(resolveStyle('BOLD', {})).toEqual({ bold: true });
+  });
+
+  test('resolveStyle(NONE) 仍回傳 null', () => {
+    expect(resolveStyle('NONE', {})).toBeNull();
   });
 });

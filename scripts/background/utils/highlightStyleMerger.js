@@ -39,11 +39,8 @@ const VALID_HIGHLIGHT_COLORS = new Set(HIGHLIGHT_COLOR_WHITELIST);
 const HIGHLIGHT_STYLE_OPTIONS = {
   COLOR_SYNC: 'COLOR_SYNC',
   COLOR_TEXT: 'COLOR_TEXT',
-  // HIGHLIGHT_STYLE_OPTIONS.BOLD 特意用樣式物件而非字串：resolveStyle 會以 styleKey 查詢
-  // HIGHLIGHT_STYLE_OPTIONS[styleKey] 並回傳樣式物件，mergeHighlightsWithStyle 傳入的 styleKey
-  // 也能直接解析；因此 saveHandlers.js 的 VALID_HIGHLIGHT_STYLE_KEYS 需要包含 BOLD 這個鍵。
-  BOLD: { bold: true },
-  NONE: null,
+  BOLD: 'BOLD',
+  NONE: 'NONE',
 };
 
 // ============================================================================
@@ -97,7 +94,10 @@ function resolveStyle(styleKey, highlight) {
     const color = VALID_HIGHLIGHT_COLORS.has(rawColor) ? rawColor : 'yellow';
     return { color };
   }
-  return HIGHLIGHT_STYLE_OPTIONS[styleKey] || null;
+  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.BOLD) {
+    return { bold: true };
+  }
+  return null;
 }
 
 // ============================================================================
