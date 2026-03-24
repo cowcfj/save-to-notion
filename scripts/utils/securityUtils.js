@@ -11,7 +11,7 @@
 import Logger from './Logger.js';
 import { SECURITY_CONSTANTS } from '../config/app.js';
 
-import { API_ERROR_PATTERNS, SECURITY_ERROR_MESSAGES } from '../config/messages.js';
+import { API_ERROR_PATTERNS, ERROR_MESSAGES, SECURITY_ERROR_MESSAGES } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
