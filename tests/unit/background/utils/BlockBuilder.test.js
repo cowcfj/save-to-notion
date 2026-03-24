@@ -216,6 +216,11 @@ describe('BlockBuilder', () => {
       expect(splitTextForHighlight(null)).toEqual(['']);
       expect(splitTextForHighlight('')).toEqual(['']);
     });
+
+    test('maxLength 小於等於 0 時應安全回退並返回原文', () => {
+      expect(splitTextForHighlight('需要保留的文字', 0)).toEqual(['需要保留的文字']);
+      expect(splitTextForHighlight('需要保留的文字', -5)).toEqual(['需要保留的文字']);
+    });
   });
 
   describe('buildHighlightBlocks', () => {

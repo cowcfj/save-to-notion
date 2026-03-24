@@ -812,13 +812,16 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
       ensureNotionApiKey.mockRejectedValueOnce(new Error('API Key'));
+      const formattedMessage = ErrorHandler.formatUserMessage(
+        ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY
+      );
 
       await handlers.checkNotionPageExists({ pageId: '123' }, internalSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/API Key/),
+          error: formattedMessage,
         })
       );
     });

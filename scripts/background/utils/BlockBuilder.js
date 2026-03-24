@@ -19,6 +19,13 @@ import { NOTION_API } from '../../config/api.js';
 const MAX_TEXT_LENGTH = TEXT_PROCESSING?.MAX_RICH_TEXT_LENGTH || 2000;
 
 /**
+ * 智能分割最小比例門檻
+ *
+ * @constant {number}
+ */
+const MIN_SPLIT_RATIO = 0.5;
+
+/**
  * 高亮標記區域標題（從統一配置獲取）
  *
  * @constant {string}
@@ -228,16 +235,20 @@ function createDivider() {
  * @returns {number} 分割索引（> 0 保證可切出非空 chunk）
  */
 function _findSplitIndex(remaining, maxLength) {
+  if (maxLength <= 0) {
+    return 0;
+  }
+
   const punctuation = ['\n\n', '\n', '\u3002', '.', '\uFF1F', '?', '\uFF01', '!'];
   for (const punct of punctuation) {
     const idx = remaining.lastIndexOf(punct, maxLength - 1);
-    if (idx > maxLength * 0.5) {
+    if (idx > maxLength * MIN_SPLIT_RATIO) {
       return idx + punct.length;
     }
   }
 
   const spaceIdx = remaining.lastIndexOf(' ', maxLength - 1);
-  if (spaceIdx > maxLength * 0.5) {
+  if (spaceIdx > maxLength * MIN_SPLIT_RATIO) {
     return spaceIdx;
   }
 
@@ -257,6 +268,10 @@ function splitTextForHighlight(text, maxLength = 2000) {
     return [''];
   }
 
+  if (maxLength <= 0) {
+    return [text];
+  }
+
   if (text.length <= maxLength) {
     return [text];
   }
@@ -271,6 +286,11 @@ function splitTextForHighlight(text, maxLength = 2000) {
     }
 
     const splitIndex = _findSplitIndex(remaining, maxLength);
+    if (splitIndex <= 0) {
+      chunks.push(remaining);
+      break;
+    }
+
     chunks.push(remaining.slice(0, splitIndex).trim());
     remaining = remaining.slice(splitIndex).trim();
   }
