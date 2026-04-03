@@ -159,6 +159,16 @@ function _normalizeUrlInternal(url) {
     normalized = normalized.replace(/^http:\/\//i, 'https://');
   }
 
+  // 偵測 CDN 代理 URL（如 Substack/Cloudinary/imgix）
+  // 這類 URL 在路徑中嵌入另一個 percent-encoded 的 URL，例如：
+  //   https://substackcdn.com/image/fetch/.../https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com/...
+  // 若執行 decodeURI()，%3A%2F%2F 會被解碼為 ://，而 encodeURI() 不會重新編碼
+  // `:` 和 `/`（URI-safe 字符），導致路徑結構被永久破壞。
+  // 解法：偵測到嵌入式 percent-encoded URL 時直接返回，跳過 decode/encode。
+  if (/https?%3A%2F%2F/i.test(normalized)) {
+    return normalized;
+  }
+
   // 特殊字符編碼修復
   try {
     const decoded = decodeURI(normalized);

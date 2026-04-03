@@ -66,6 +66,31 @@ describe('ImageUtils - cleanImageUrl', () => {
       const result = cleanImageUrl(url);
       expect(result).toContain('example.com/image.jpg');
     });
+
+    test('應該保留 Substack CDN URL 中嵌入的 percent-encoded URL（不破壞路徑結構）', () => {
+      // Substack CDN 在路徑中嵌入另一個 percent-encoded URL
+      // decodeURI 會把 %3A%2F%2F 解碼為 ://，破壞 CDN 路徑
+      const substackUrl =
+        'https://substackcdn.com/image/fetch/f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fabc123.jpeg';
+      const result = cleanImageUrl(substackUrl);
+      // 確保嵌入的 %3A%2F%2F 沒有被解碼為 ://
+      expect(result).toContain('https%3A%2F%2F');
+      expect(result).not.toContain('https://substack-post-media.s3.amazonaws.com%2Fpublic');
+    });
+
+    test('應該保留 Cloudinary 風格 CDN 代理 URL 中的嵌入 URL', () => {
+      const cloudinaryUrl =
+        'https://res.cloudinary.com/demo/image/fetch/https%3A%2F%2Fexample.com%2Fphoto.jpg';
+      const result = cleanImageUrl(cloudinaryUrl);
+      expect(result).toContain('https%3A%2F%2F');
+    });
+
+    test('cleanImageUrl 對 Substack URL 應通過 isValidCleanedImageUrl 驗證', () => {
+      const substackUrl =
+        'https://substackcdn.com/image/fetch/f_auto,q_auto:good/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fabc123.jpeg';
+      // /image/ 路徑匹配 IMAGE_PATH_PATTERNS，應為有效圖片 URL
+      expect(isValidImageUrl(substackUrl)).toBe(true);
+    });
   });
 
   describe('重複參數處理', () => {
