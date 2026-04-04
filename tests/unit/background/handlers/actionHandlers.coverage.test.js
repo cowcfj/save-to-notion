@@ -79,6 +79,7 @@ import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
+import { buildHighlightBlocks } from '../../../../scripts/background/utils/BlockBuilder.js';
 import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
 jest.mock('../../../../scripts/config/app.js', () => {
@@ -255,44 +256,17 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(result.siteIcon).toBeNull();
     });
 
-    test('BlockBuilder 缺失時應使用 fallback 函數並保持流程正常', async () => {
-      const blockBuilderModule = require('../../../../scripts/background/utils/BlockBuilder.js');
-      const originalBuildHighlightBlocks = blockBuilderModule.buildHighlightBlocks;
-      blockBuilderModule.buildHighlightBlocks = undefined;
+    test('有標註時 processContentResult 應呼叫 buildHighlightBlocks 並合併結果', () => {
+      const rawResult = { title: 'Test', blocks: [] };
+      const highlights = [{ text: 'highlight 1' }];
 
-      try {
-        const fallbackResult = processContentResult({ title: 'Fallback', blocks: [] }, [
-          { text: 'isolated highlight' },
-        ]);
-        expect(fallbackResult.blocks).toEqual([]);
+      const result = processContentResult(rawResult, highlights);
 
-        mockStorageService.getConfig.mockResolvedValue({
-          notionApiKey: 'secret-key',
-          notionDataSourceId: 'db-123',
-        });
-        mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
-        mockNotionService.checkPageExists.mockResolvedValue(true);
-        mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'isolated highlight' }]);
-        mockPageContentService.extractContent.mockResolvedValue({
-          extractionStatus: 'success',
-          title: 'Fallback',
-          blocks: [],
-        });
-        mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
-        chrome.tabs.query.mockResolvedValue([{ id: 99, url: 'https://example.com/isolated' }]);
-
-        const sendResponse = jest.fn();
-        await handlers.savePage({}, internalSender, sendResponse);
-
-        expect(mockNotionService.updateHighlightsSection).toHaveBeenCalledWith('existing-id', [], {
-          apiKey: 'secret-key',
-        });
-        expect(sendResponse).toHaveBeenCalledWith(
-          expect.objectContaining({ success: true, highlightsUpdated: true })
-        );
-      } finally {
-        blockBuilderModule.buildHighlightBlocks = originalBuildHighlightBlocks;
-      }
+      expect(buildHighlightBlocks).toHaveBeenCalledWith(highlights);
+      // buildHighlightBlocks 為 jest.mock，返回 [{ type: 'quote', quote: { text: ... } }]
+      // 因此 mergedBlocks 應包含 1 個 highlight block
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].type).toBe('quote');
     });
   });
 
@@ -968,6 +942,43 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
+
+    test('當 migratedFromOldKey 為 true 時應略過 TTL 快取並驗證頁面存在性', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+
+      // 設定快取仍在有效期內（TTL = 1000ms，lastVerifiedAt = 現在 - 500ms）
+      const now = Date.now();
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        notionUrl: 'https://notion.so/page-123',
+        title: 'Migrated Page',
+        lastVerifiedAt: now - 500, // 快取仍有效
+      });
+
+      // Mock resolveTabUrl 返回 migrated: true
+      mockTabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com',
+        originalUrl: 'https://example.com',
+        migrated: true, // 關鍵：剛完成遷移
+      });
+
+      // Mock API 驗證返回頁面存在
+      mockNotionService.checkPageExists.mockResolvedValue(true);
+
+      await handlers.checkPageStatus({}, internalSender, sendResponse);
+
+      // 驗證：即使快取有效，仍應呼叫 checkPageExists（略過快取）
+      expect(mockNotionService.checkPageExists).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: true,
+          notionPageId: 'page-123',
+        })
       );
     });
   });
