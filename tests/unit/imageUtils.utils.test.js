@@ -351,6 +351,23 @@ describe('ImageUtils - extractImageSrc', () => {
     expect(extractImageSrc(img)).toBe('large.jpg');
   });
 
+  test('當 srcset URL 含逗號導致截斷時，應回退到 src 屬性（Substack CDN 場景）', () => {
+    // Substack CDN URL 的 transform 參數含逗號，會破壞 srcset 的逗號分割
+    // 解析器會把 URL 截斷為 "fl_progressive:steep/https%3A%2F%2F..." 這類無效片段
+    const substackSrcset =
+      'https://substackcdn.com/image/fetch/$s_!aq2h!,w_424,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Ftest.heic 424w, https://substackcdn.com/image/fetch/$s_!aq2h!,w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Ftest.heic 1456w';
+    const fullSrcUrl =
+      'https://substackcdn.com/image/fetch/$s_!aq2h!,w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Ftest.heic';
+    const img = createMockImg({
+      srcset: substackSrcset,
+      src: fullSrcUrl,
+    });
+    const result = extractImageSrc(img);
+    // 應回退到完整的 src URL，而非截斷的 srcset 片段
+    expect(result).toBe(fullSrcUrl);
+    expect(result).toContain('substackcdn.com');
+  });
+
   test('應該優先使用 src 屬性', () => {
     const img = createMockImg({
       src: 'primary.jpg',

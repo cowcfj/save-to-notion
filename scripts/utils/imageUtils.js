@@ -844,6 +844,31 @@ function _extractFromAnchorHref(node) {
 }
 
 /**
+ * 快速檢查 URL 是否為合理的圖片 URL 格式
+ *
+ * 用於驗證 srcset 解析結果。某些 CDN（Substack/Cloudinary）的 URL
+ * 在 transform 參數中包含逗號，與 srcset 的逗號分隔符衝突，
+ * 導致 URL 被截斷為無效片段（如 "fl_progressive:steep/https%3A..."）。
+ *
+ * @param {string} url - 待驗證的 URL 字串
+ * @returns {boolean} 是否為合理的 URL 格式
+ * @private
+ */
+function _isPlausibleImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  // 偵測 CDN URL 被 srcset 逗號分割截斷的特徵：
+  // 截斷片段含嵌入式 percent-encoded URL（%3A%2F%2F），但本身不以 http(s):// 開頭
+  // 例如 "fl_progressive:steep/https%3A%2F%2Fsubstack-post-media..." 是截斷結果
+  // 而 "https://substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是完整 URL
+  if (/%3A%2F%2F/i.test(url) && !/^https?:\/\//i.test(url)) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * 從圖片元素中提取最佳的 src URL
  * 使用多層回退策略：
  * - 對於 Anchor 元素：優先使用 href（用於畫廊圖片）
@@ -868,8 +893,16 @@ function extractImageSrc(imgNode) {
     // 如果 href 無效（如 javascript: 或空），則回退到子元素提取
   }
 
+  // srcset 優先，但需驗證結果有效性
+  // Substack/Cloudinary CDN URL 的 transform 參數含逗號（如 w_424,c_limit,f_auto,...）
+  // 與 srcset 的逗號分隔符衝突，導致 URL 被截斷為無效片段。
+  // 必須驗證 srcset 結果是否為合理的圖片 URL，否則回退到 src 屬性。
+  const srcsetUrl = extractFromSrcset(imgNode);
+  if (srcsetUrl && _isPlausibleImageUrl(srcsetUrl)) {
+    return srcsetUrl;
+  }
+
   return (
-    extractFromSrcset(imgNode) ||
     extractFromAttributes(imgNode) ||
     extractFromPicture(imgNode) ||
     extractFromBackgroundImage(imgNode) ||
