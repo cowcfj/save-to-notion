@@ -859,10 +859,15 @@ function _isPlausibleImageUrl(url) {
     return false;
   }
   // 偵測 CDN URL 被 srcset 逗號分割截斷的特徵：
-  // 截斷片段含嵌入式 percent-encoded URL（%3A%2F%2F），但本身不以 http(s):// 開頭
+  // 截斷片段含嵌入式 percent-encoded URL（https%3A%2F%2F），但本身不以 http(s):// 或 // 開頭
   // 例如 "fl_progressive:steep/https%3A%2F%2Fsubstack-post-media..." 是截斷結果
   // 而 "https://substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是完整 URL
-  if (/%3A%2F%2F/i.test(url) && !/^https?:\/\//i.test(url)) {
+  // 而 "//substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是合法的 protocol-relative URL
+  if (
+    EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX.test(url) &&
+    !/^https?:\/\//i.test(url) &&
+    !url.startsWith('//')
+  ) {
     return false;
   }
   return true;

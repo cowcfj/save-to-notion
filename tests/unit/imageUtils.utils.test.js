@@ -368,6 +368,24 @@ describe('ImageUtils - extractImageSrc', () => {
     expect(result).toContain('substackcdn.com');
   });
 
+  test('當 srcset 為 protocol-relative URL 且含逗號導致截斷時，應回退到 src 屬性（Substack protocol-relative 場景）', () => {
+    // protocol-relative Substack CDN URL（//substackcdn.com/...）含 https%3A%2F%2F
+    // 截斷後會產生含 https%3A%2F%2F 但不以 http(s):// 開頭的片段，
+    // 修復後 _isPlausibleImageUrl 應識別 // 開頭的 URL 為合法 protocol-relative URL
+    const protocolRelativeSrcset =
+      '//substackcdn.com/image/fetch/$s_!aq2h!,w_424,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Ftest.heic 424w, //substackcdn.com/image/fetch/$s_!aq2h!,w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Ftest.heic 1456w';
+    const fullSrcUrl =
+      'https://substackcdn.com/image/fetch/$s_!aq2h!,w_1456,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Ftest.heic';
+    const img = createMockImg({
+      srcset: protocolRelativeSrcset,
+      src: fullSrcUrl,
+    });
+    const result = extractImageSrc(img);
+    // protocol-relative URL 截斷後的碎片不以 http(s):// 開頭，應回退到完整的 src URL
+    expect(result).toBe(fullSrcUrl);
+    expect(result).toContain('substackcdn.com');
+  });
+
   test('應該優先使用 src 屬性', () => {
     const img = createMockImg({
       src: 'primary.jpg',
