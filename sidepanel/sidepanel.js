@@ -76,8 +76,12 @@ async function refreshUnsyncedBadge() {
  */
 function appendNextUnsyncedBatch(count) {
   const result = UI.appendCards(els, cachedUnsyncedPages, displayedCardCount, count, {
-    onOpen: url => chrome.tabs.create({ url }),
-    onDelete: (storageKey, card) => deleteUnsyncedPage(storageKey, card),
+    onOpen: url => {
+      chrome.tabs.create({ url }).catch(() => {});
+    },
+    onDelete: (storageKey, card) => {
+      deleteUnsyncedPage(storageKey, card).catch(() => {});
+    },
   });
 
   displayedCardCount += result.renderedCount;
