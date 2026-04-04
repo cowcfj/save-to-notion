@@ -98,7 +98,7 @@ describe('ImageUtils - cleanImageUrl', () => {
       const substackUrl =
         'https://substackcdn.com/image/fetch/f_auto,q_auto:good/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fabc123.jpeg';
       // /image/ 路徑匹配 IMAGE_PATH_PATTERNS，應為有效圖片 URL
-      expect(isValidImageUrl(substackUrl)).toBe(true);
+      expect(isValidCleanedImageUrl(cleanImageUrl(substackUrl))).toBe(true);
     });
   });
 
