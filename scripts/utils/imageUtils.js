@@ -7,7 +7,10 @@
 
 import { sanitizeUrlForLogging } from './securityUtils.js';
 import Logger from './Logger.js';
-import { IMAGE_VALIDATION } from '../config/extraction.js';
+import {
+  EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX,
+  IMAGE_VALIDATION,
+} from '../config/extraction.js';
 
 // ==========================================
 // 圖片驗證常量（原 config/patterns.js Group A）
@@ -165,8 +168,9 @@ function _normalizeUrlInternal(url) {
   // 若執行 decodeURI()，%3A%2F%2F 會被解碼為 ://，而 encodeURI() 不會重新編碼
   // `:` 和 `/`（URI-safe 字符），導致路徑結構被永久破壞。
   // 解法：偵測到嵌入式 percent-encoded URL 時直接返回，跳過 decode/encode。
-  if (/https?%3A%2F%2F/i.test(normalized)) {
-    return normalized;
+  if (EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX.test(normalized)) {
+    // 仍需執行 Markdown/Notion 兼容字元編碼，避免特殊字元破壞解析
+    return normalized.replaceAll(/[()'[\]^|{}<>]/g, char => encodeURIComponent(char));
   }
 
   // 特殊字符編碼修復

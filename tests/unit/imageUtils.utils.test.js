@@ -85,6 +85,15 @@ describe('ImageUtils - cleanImageUrl', () => {
       expect(result).toContain('https%3A%2F%2F');
     });
 
+    test('應該在 CDN 代理 URL 路徑中編碼 Markdown 敏感字元', () => {
+      const cdnUrl =
+        "https://res.cloudinary.com/demo/image/fetch/https%3A%2F%2Fexample.com%2Fimage[1](draft)'copy'.jpg";
+      const result = cleanImageUrl(cdnUrl);
+      expect(result).toContain('%5B1%5D');
+      expect(result).toContain('%28draft%29');
+      expect(result).toContain('%27copy%27');
+    });
+
     test('cleanImageUrl 對 Substack URL 應通過 isValidCleanedImageUrl 驗證', () => {
       const substackUrl =
         'https://substackcdn.com/image/fetch/f_auto,q_auto:good/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fabc123.jpeg';
