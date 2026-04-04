@@ -75,7 +75,7 @@ async function refreshUnsyncedBadge() {
  * @param {number} count - 本次渲染數量
  */
 function appendNextUnsyncedBatch(count) {
-  const result = UI.appendCards(els, cachedUnsyncedPages, displayedCardCount, count, {
+  const renderedCount = UI.appendCards(els, cachedUnsyncedPages, displayedCardCount, count, {
     onOpen: url => {
       chrome.tabs.create({ url }).catch(() => {});
     },
@@ -84,10 +84,7 @@ function appendNextUnsyncedBatch(count) {
     },
   });
 
-  displayedCardCount += result.renderedCount;
-  if (els.loadMoreBtn) {
-    els.loadMoreBtn.style.display = result.hasMore ? 'block' : 'none';
-  }
+  displayedCardCount += renderedCount;
 }
 
 // === 業務邏輯 ===

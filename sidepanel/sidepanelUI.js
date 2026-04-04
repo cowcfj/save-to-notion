@@ -307,7 +307,7 @@ export function updateUnsyncedBadge(elements, pages) {
  * @param {number} startIndex - 起始索引
  * @param {number} count - 本次渲染數量
  * @param {{ onOpen: (url: string) => void, onDelete: (storageKey: string, card: HTMLElement) => void }} callbacks
- * @returns {{ renderedCount: number, hasMore: boolean }} 本次渲染結果
+ * @returns {number} 本次渲染的卡片數量
  */
 export function appendCards(elements, pages, startIndex, count, callbacks) {
   const container = elements.unsyncedView;
@@ -352,6 +352,9 @@ export function appendCards(elements, pages, startIndex, count, callbacks) {
 
   const renderedCount = batch.length;
   const hasMore = startIndex + renderedCount < pages.length;
+  if (elements.loadMoreBtn) {
+    elements.loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+  }
 
-  return { renderedCount, hasMore };
+  return renderedCount;
 }

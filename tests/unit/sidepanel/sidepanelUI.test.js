@@ -296,32 +296,32 @@ describe('sidepanelUI', () => {
         onDelete: jest.fn(),
       });
 
-      expect(result.renderedCount).toBe(2);
+      expect(result).toBe(2);
       expect(elements.unsyncedView.querySelectorAll('.page-card')).toHaveLength(2);
     });
 
-    it('當還有更多卡片時 hasMore 應為 true', () => {
+    it('當還有更多卡片時應顯示 loadMoreBtn', () => {
       const elements = getElements();
       const pages = [makePage(1), makePage(2), makePage(3)];
 
-      const result = appendCards(elements, pages, 0, 2, {
+      appendCards(elements, pages, 0, 2, {
         onOpen: jest.fn(),
         onDelete: jest.fn(),
       });
 
-      expect(result.hasMore).toBe(true);
+      expect(elements.loadMoreBtn.style.display).toBe('block');
     });
 
-    it('當已渲染全部卡片時 hasMore 應為 false', () => {
+    it('當已渲染全部卡片時應隱藏 loadMoreBtn', () => {
       const elements = getElements();
       const pages = [makePage(1), makePage(2)];
 
-      const result = appendCards(elements, pages, 0, 10, {
+      appendCards(elements, pages, 0, 10, {
         onOpen: jest.fn(),
         onDelete: jest.fn(),
       });
 
-      expect(result.hasMore).toBe(false);
+      expect(elements.loadMoreBtn.style.display).toBe('none');
     });
 
     it('點擊開啟按鈕應呼叫 onOpen 回調', () => {
