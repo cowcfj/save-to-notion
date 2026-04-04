@@ -79,6 +79,7 @@ import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
+import { buildHighlightBlocks } from '../../../../scripts/background/utils/BlockBuilder.js';
 import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
 jest.mock('../../../../scripts/config/app.js', () => {
@@ -256,7 +257,12 @@ describe('actionHandlers 覆蓋率補強', () => {
     });
 
     test('有標註時 processContentResult 應呼叫 buildHighlightBlocks 並合併結果', () => {
-      const result = processContentResult({ title: 'Test', blocks: [] }, [{ text: 'highlight 1' }]);
+      const rawResult = { title: 'Test', blocks: [] };
+      const highlights = [{ text: 'highlight 1' }];
+
+      const result = processContentResult(rawResult, highlights);
+
+      expect(buildHighlightBlocks).toHaveBeenCalledWith(highlights);
       // buildHighlightBlocks 為 jest.mock，返回 [{ type: 'quote', quote: { text: ... } }]
       // 因此 mergedBlocks 應包含 1 個 highlight block
       expect(result.blocks).toHaveLength(1);

@@ -1062,7 +1062,7 @@ export function createSaveHandlers(services) {
           });
         }
 
-        // It just migrated, we trust the data and don't need to re-verify immediately unless forced
+        // 剛從舊 key 遷移完成時不可直接信任快取；即使 TTL 仍有效，也必須略過快取並重新向 Notion 驗證。
         if (
           _shouldReturnCachedStatus({
             forceRefresh: request.forceRefresh,

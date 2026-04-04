@@ -391,7 +391,7 @@ function initDebugState() {
 //
 // - debug / log / info：僅在 `_debugEnabled === true` 時輸出（受 Manifest 版本或
 //   Storage `enableDebugLogs` 設定控制）。靜默模式下完全不輸出。
-// - warn / error：無論 `debugEnabled` 為何，永遠輸出到 Console 並轉發到 Background。
+// - warn / error：無論 `_debugEnabled` 為何，永遠輸出到 Console 並轉發到 Background。
 //
 // 理由：warn/error 屬於必須追蹤的異常訊號，即使在生產安靜模式下也不應被靜默。
 // 若未來需要完全靜默所有等級，應引入獨立的 `silentMode` 旗標並更新此說明。
