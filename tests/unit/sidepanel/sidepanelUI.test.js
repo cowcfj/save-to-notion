@@ -66,6 +66,19 @@ function buildDOM() {
   `;
 }
 
+// ---- 輔助函數 ----
+
+function makePage(i) {
+  return {
+    url: `https://example.com/page${i}`,
+    storageKey: `highlights_https://example.com/page${i}`,
+    title: `Page ${i}`,
+    highlightCount: 1,
+    previewHighlights: [{ text: `text ${i}`, truncated: false, color: 'yellow' }],
+    remainingCount: 0,
+  };
+}
+
 // ---- 測試 ----
 
 describe('sidepanelUI', () => {
@@ -273,20 +286,7 @@ describe('sidepanelUI', () => {
     });
   });
 
-  // === appendCards ===
-
   describe('appendCards', () => {
-    function makePage(i) {
-      return {
-        url: `https://example.com/page${i}`,
-        storageKey: `highlights_https://example.com/page${i}`,
-        title: `Page ${i}`,
-        highlightCount: 1,
-        previewHighlights: [{ text: `text ${i}`, truncated: false, color: 'yellow' }],
-        remainingCount: 0,
-      };
-    }
-
     it('應渲染指定範圍的卡片並回傳 renderedCount', () => {
       const elements = getElements();
       const pages = [makePage(1), makePage(2), makePage(3)];
