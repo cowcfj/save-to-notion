@@ -95,6 +95,7 @@ export const OG_IMAGE_SELECTOR = 'meta[property="og:image"]';
 export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
 export const BBC_IMAGE_BASE_URL = 'https://ichef.bbci.co.uk/ace/ws';
 export const BBC_DEFAULT_IMAGE_WIDTH = 1024;
+export const EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX = /https?%3A%2F%2F/i;
 
 // ==========================================
 // 封面圖選擇器 (原 selectors.js)
