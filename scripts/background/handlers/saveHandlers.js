@@ -17,6 +17,7 @@ import {
   sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
+import { parseArgsToContext } from '../../utils/Logger.js';
 import {
   mergeHighlightsWithStyle,
   HIGHLIGHT_STYLE_OPTIONS,
@@ -89,8 +90,7 @@ export function processContentResult(rawResult, highlights, highlightContentStyl
 
   // 添加標註區塊
   if (highlights && highlights.length > 0) {
-    const buildBlocks = buildHighlightBlocks || (() => []);
-    const highlightBlocks = buildBlocks(highlights);
+    const highlightBlocks = buildHighlightBlocks(highlights);
     mergedBlocks.push(...highlightBlocks);
   }
 
@@ -137,6 +137,19 @@ function _buildSavedStatusResponse(savedData, normUrl, extra = {}) {
   };
 }
 
+/**
+ * 判斷是否可直接返回快取狀態（略過 Notion API 呼叫）。
+ *
+ * 當 migratedFromOldKey 為 true 時強制返回 false（不使用快取）：
+ * 剛遷移完的頁面資料可能尚未在 Notion 端同步，
+ * 需即時驗證以確保本地與 Notion 狀態的一致性。
+ *
+ * @param {object} root0 - 參數對象
+ * @param {boolean} root0.forceRefresh - 是否強制刷新
+ * @param {boolean} root0.migratedFromOldKey - 是否剛完成 key 遷移
+ * @param {boolean} root0.isCacheValid - 快取是否仍在 TTL 內
+ * @returns {boolean} true 表示可直接使用快取
+ */
 function _shouldReturnCachedStatus({ forceRefresh, migratedFromOldKey, isCacheValid }) {
   return !forceRefresh && !migratedFromOldKey && isCacheValid;
 }
@@ -511,8 +524,7 @@ export function createSaveHandlers(services) {
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     if (highlights.length > 0) {
-      const buildBlocks = buildHighlightBlocks || (() => []);
-      const highlightBlocks = buildBlocks(highlights);
+      const highlightBlocks = buildHighlightBlocks(highlights);
       const result = await notionService.updateHighlightsSection(
         savedData.notionPageId,
         highlightBlocks,
@@ -1125,18 +1137,8 @@ export function createSaveHandlers(services) {
         logMethod(`[ClientLog] ${message}`, ...args);
 
         // 2. 寫入 LogBuffer (保留原始時間戳與來源)
-        // 解析 args 作為 context
-        let context = {};
-        if (args.length > 0) {
-          if (typeof args[0] === 'object' && args[0] !== null) {
-            context = { ...args[0] };
-            if (args.length > 1) {
-              context.details = args.slice(1);
-            }
-          } else {
-            context = { details: args };
-          }
-        }
+        // 使用統一的 parseArgsToContext 解析 args，避免邏輯重複
+        const context = parseArgsToContext(args);
 
         // 顯式調用 addLogToBuffer
         Logger.addLogToBuffer({
