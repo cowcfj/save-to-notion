@@ -7,7 +7,10 @@
 
 import { sanitizeUrlForLogging } from './securityUtils.js';
 import Logger from './Logger.js';
-import { IMAGE_VALIDATION } from '../config/extraction.js';
+import {
+  EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX,
+  IMAGE_VALIDATION,
+} from '../config/extraction.js';
 
 // ==========================================
 // 圖片驗證常量（原 config/patterns.js Group A）
@@ -157,6 +160,17 @@ function _normalizeUrlInternal(url) {
     normalized = `https:${normalized}`;
   } else if (normalized.startsWith('http://')) {
     normalized = normalized.replace(/^http:\/\//i, 'https://');
+  }
+
+  // 偵測 CDN 代理 URL（如 Substack/Cloudinary/imgix）
+  // 這類 URL 在路徑中嵌入另一個 percent-encoded 的 URL，例如：
+  //   https://substackcdn.com/image/fetch/.../https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com/...
+  // 若執行 decodeURI()，%3A%2F%2F 會被解碼為 ://，而 encodeURI() 不會重新編碼
+  // `:` 和 `/`（URI-safe 字符），導致路徑結構被永久破壞。
+  // 解法：偵測到嵌入式 percent-encoded URL 時直接返回，跳過 decode/encode。
+  if (EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX.test(normalized)) {
+    // 仍需執行 Markdown/Notion 兼容字元編碼，避免特殊字元破壞解析
+    return normalized.replaceAll(/[()'[\]^|{}<>]/g, char => encodeURIComponent(char));
   }
 
   // 特殊字符編碼修復
@@ -830,6 +844,36 @@ function _extractFromAnchorHref(node) {
 }
 
 /**
+ * 快速檢查 URL 是否為合理的圖片 URL 格式
+ *
+ * 用於驗證 srcset 解析結果。某些 CDN（Substack/Cloudinary）的 URL
+ * 在 transform 參數中包含逗號，與 srcset 的逗號分隔符衝突，
+ * 導致 URL 被截斷為無效片段（如 "fl_progressive:steep/https%3A..."）。
+ *
+ * @param {string} url - 待驗證的 URL 字串
+ * @returns {boolean} 是否為合理的 URL 格式
+ * @private
+ */
+function _isPlausibleImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  // 偵測 CDN URL 被 srcset 逗號分割截斷的特徵：
+  // 截斷片段含嵌入式 percent-encoded URL（https%3A%2F%2F），但本身不以 http(s):// 或 // 開頭
+  // 例如 "fl_progressive:steep/https%3A%2F%2Fsubstack-post-media..." 是截斷結果
+  // 而 "https://substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是完整 URL
+  // 而 "//substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是合法的 protocol-relative URL
+  if (
+    EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX.test(url) &&
+    !/^https?:\/\//i.test(url) &&
+    !url.startsWith('//')
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * 從圖片元素中提取最佳的 src URL
  * 使用多層回退策略：
  * - 對於 Anchor 元素：優先使用 href（用於畫廊圖片）
@@ -854,8 +898,16 @@ function extractImageSrc(imgNode) {
     // 如果 href 無效（如 javascript: 或空），則回退到子元素提取
   }
 
+  // srcset 優先，但需驗證結果有效性
+  // Substack/Cloudinary CDN URL 的 transform 參數含逗號（如 w_424,c_limit,f_auto,...）
+  // 與 srcset 的逗號分隔符衝突，導致 URL 被截斷為無效片段。
+  // 必須驗證 srcset 結果是否為合理的圖片 URL，否則回退到 src 屬性。
+  const srcsetUrl = extractFromSrcset(imgNode);
+  if (srcsetUrl && _isPlausibleImageUrl(srcsetUrl)) {
+    return srcsetUrl;
+  }
+
   return (
-    extractFromSrcset(imgNode) ||
     extractFromAttributes(imgNode) ||
     extractFromPicture(imgNode) ||
     extractFromBackgroundImage(imgNode) ||
