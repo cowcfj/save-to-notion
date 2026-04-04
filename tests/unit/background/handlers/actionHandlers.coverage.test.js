@@ -944,6 +944,43 @@ describe('actionHandlers 覆蓋率補強', () => {
         expect.objectContaining({ success: true, isSaved: true })
       );
     });
+
+    test('當 migratedFromOldKey 為 true 時應略過 TTL 快取並驗證頁面存在性', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+
+      // 設定快取仍在有效期內（TTL = 1000ms，lastVerifiedAt = 現在 - 500ms）
+      const now = Date.now();
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        notionUrl: 'https://notion.so/page-123',
+        title: 'Migrated Page',
+        lastVerifiedAt: now - 500, // 快取仍有效
+      });
+
+      // Mock resolveTabUrl 返回 migrated: true
+      mockTabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com',
+        originalUrl: 'https://example.com',
+        migrated: true, // 關鍵：剛完成遷移
+      });
+
+      // Mock API 驗證返回頁面存在
+      mockNotionService.checkPageExists.mockResolvedValue(true);
+
+      await handlers.checkPageStatus({}, internalSender, sendResponse);
+
+      // 驗證：即使快取有效，仍應呼叫 checkPageExists（略過快取）
+      expect(mockNotionService.checkPageExists).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: true,
+          notionPageId: 'page-123',
+        })
+      );
+    });
   });
 
   describe('updateHighlights handler', () => {
