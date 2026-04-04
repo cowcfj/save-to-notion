@@ -1,5 +1,24 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.48.2](https://github.com/cowcfj/save-to-notion/compare/v2.48.1...v2.48.2) (2026-04-04)
+
+
+### 🐛 Bug 修復
+
+* 修復 Substack/Cloudinary CDN 圖片 URL 的編碼問題 ([#383](https://github.com/cowcfj/save-to-notion/issues/383)) ([2f55eeb](https://github.com/cowcfj/save-to-notion/commit/2f55eeb072c72217e1558bba59dd428750d80d40))
+
+
+### ♻️ 代碼重構
+
+* Improve code review suggestions and logging logic ([#384](https://github.com/cowcfj/save-to-notion/issues/384)) ([a611736](https://github.com/cowcfj/save-to-notion/commit/a6117364ea775d08791996a504799e61ce069d78))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump serialize-javascript from 7.0.4 to 7.0.5 ([#378](https://github.com/cowcfj/save-to-notion/issues/378)) ([a3a209e](https://github.com/cowcfj/save-to-notion/commit/a3a209e8ec9d4a2043443bfa9b75d82c888d28f4))
+* **deps-dev:** bump the linters group with 6 updates ([#379](https://github.com/cowcfj/save-to-notion/issues/379)) ([17da33b](https://github.com/cowcfj/save-to-notion/commit/17da33b27b9c1790aa4956ff1e56412580996c24))
+* **deps:** bump picomatch ([#377](https://github.com/cowcfj/save-to-notion/issues/377)) ([3f71932](https://github.com/cowcfj/save-to-notion/commit/3f719329e12ab30904e4b65c03622c4a1d77fd81))
+
 ## [2.48.1](https://github.com/cowcfj/save-to-notion/compare/v2.48.0...v2.48.1) (2026-03-24)
 
 
