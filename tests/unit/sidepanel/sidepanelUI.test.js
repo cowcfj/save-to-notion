@@ -44,7 +44,7 @@ function buildDOM() {
     <span id="unsynced-badge"></span>
     <div class="view-tabs">
       <button class="view-tab active" data-view="current">本頁標註</button>
-      <button class="view-tab" data-view="unsynced">待同步<span id="unsynced-badge"></span></button>
+      <button class="view-tab" data-view="unsynced">待同步<span class="unsynced-badge"></span></button>
     </div>
     <template id="highlight-card-template">
       <div class="highlight-card">
@@ -84,6 +84,11 @@ function makePage(i) {
 describe('sidepanelUI', () => {
   beforeEach(() => {
     buildDOM();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
   // === 工具函數 ===
@@ -357,6 +362,24 @@ describe('sidepanelUI', () => {
       delBtn.click();
 
       expect(onDelete).toHaveBeenCalledWith('highlights_https://example.com/page1', card);
+    });
+
+    it('當卡片模板缺少可選元素時不應拋出錯誤', () => {
+      document.querySelector('#page-card-template').innerHTML = `
+        <div class="page-card">
+          <p class="page-title"></p>
+        </div>
+      `;
+      const elements = getElements();
+      const pages = [makePage(1)];
+
+      expect(() =>
+        appendCards(elements, pages, 0, 1, {
+          onOpen: jest.fn(),
+          onDelete: jest.fn(),
+        })
+      ).not.toThrow();
+      expect(elements.unsyncedView.querySelectorAll('.page-card')).toHaveLength(1);
     });
   });
 

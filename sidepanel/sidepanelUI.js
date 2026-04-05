@@ -11,6 +11,8 @@ import { UI_MESSAGES } from '../scripts/config/messages.js';
 
 /** @type {number} 每批次渲染的頁面卡片數量 */
 export const PAGE_BATCH_SIZE = 10;
+/** @type {number} 狀態訊息顯示時長 */
+export const MESSAGE_DISPLAY_DURATION_MS = 3000;
 /** @type {number} 預覽標註的最大顯示數量 */
 export const PREVIEW_HIGHLIGHT_COUNT = 3;
 /** @type {number} 預覽文字的最大長度 */
@@ -312,40 +314,61 @@ export function updateUnsyncedBadge(elements, pages) {
 export function appendCards(elements, pages, startIndex, count, callbacks) {
   const container = elements.unsyncedView;
   const template = elements.pageCardTemplate;
+  if (!container || !template?.content) {
+    return 0;
+  }
   const batch = pages.slice(startIndex, startIndex + count);
 
   batch.forEach(page => {
     const cardNode = template.content.cloneNode(true);
     const card = cardNode.querySelector('.page-card');
+    if (!card) {
+      return;
+    }
 
-    card.querySelector('.page-title').textContent = page.title;
-    card.querySelector('.page-meta').textContent =
-      `${extractDomain(page.url)} • ${UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT(page.highlightCount)}`;
+    const titleEl = card.querySelector('.page-title');
+    if (titleEl) {
+      titleEl.textContent = page.title;
+    }
+
+    const metaEl = card.querySelector('.page-meta');
+    if (metaEl) {
+      metaEl.textContent = `${extractDomain(page.url)} • ${UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT(page.highlightCount)}`;
+    }
 
     // 標註預覽
     const previewContainer = card.querySelector('.page-card-previews');
-    page.previewHighlights.forEach(highlight => {
-      const row = document.createElement('p');
-      row.className = `preview-row color-${highlight.color}`;
-      row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
-      previewContainer.append(row);
-    });
+    if (previewContainer) {
+      const previewHighlights = Array.isArray(page.previewHighlights) ? page.previewHighlights : [];
+      previewHighlights.forEach(highlight => {
+        const row = document.createElement('p');
+        row.className = `preview-row color-${highlight.color}`;
+        row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
+        previewContainer.append(row);
+      });
+    }
 
     // +N more
     const remainingEl = card.querySelector('.page-card-remaining');
-    if (page.remainingCount > 0) {
+    if (remainingEl && page.remainingCount > 0) {
       remainingEl.textContent = UI_MESSAGES.SIDEPANEL.REMAINING_COUNT(page.remainingCount);
     }
 
     // 開啟頁面
-    card.querySelector('.page-open-button').addEventListener('click', () => {
-      callbacks.onOpen(page.url);
-    });
+    const openButton = card.querySelector('.page-open-button');
+    if (openButton && typeof callbacks.onOpen === 'function') {
+      openButton.addEventListener('click', () => {
+        callbacks.onOpen(page.url);
+      });
+    }
 
     // 刪除單頁標注
-    card.querySelector('.page-delete-button').addEventListener('click', () => {
-      callbacks.onDelete(page.storageKey, card);
-    });
+    const deleteButton = card.querySelector('.page-delete-button');
+    if (deleteButton && typeof callbacks.onDelete === 'function') {
+      deleteButton.addEventListener('click', () => {
+        callbacks.onDelete(page.storageKey, card);
+      });
+    }
 
     container.append(card);
   });

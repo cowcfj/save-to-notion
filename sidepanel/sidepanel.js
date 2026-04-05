@@ -18,6 +18,7 @@ import {
 } from '../scripts/config/storageKeys.js';
 import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
 
@@ -30,9 +31,6 @@ let statusMessageTimeoutId;
 // 快取：避免每次 storage 變化都重新解析 URL
 let cachedStableUrl = null;
 let cachedTabUrl = null;
-
-// === 待同步視圖設定 ===
-const PAGE_BATCH_SIZE = UI.PAGE_BATCH_SIZE;
 
 /** @type {Array<object> | null} 快取的未同步頁面資料 */
 let cachedUnsyncedPages = null;
@@ -55,7 +53,7 @@ function showTimedMessage(text, type) {
   UI.showMessage(els, text, type);
   statusMessageTimeoutId = setTimeout(() => {
     UI.hideMessage(els);
-  }, 3000);
+  }, UI.MESSAGE_DISPLAY_DURATION_MS);
 }
 
 /**
@@ -77,10 +75,22 @@ async function refreshUnsyncedBadge() {
 function appendNextUnsyncedBatch(count) {
   const renderedCount = UI.appendCards(els, cachedUnsyncedPages, displayedCardCount, count, {
     onOpen: url => {
-      chrome.tabs.create({ url }).catch(() => {});
+      chrome.tabs.create({ url }).catch(error => {
+        Logger.warn('[SidePanel] Failed to open unsynced page tab', {
+          error,
+          url: sanitizeUrlForLogging(url),
+        });
+      });
     },
     onDelete: (storageKey, card) => {
-      deleteUnsyncedPage(storageKey, card).catch(() => {});
+      const page = cachedUnsyncedPages?.find(item => item.storageKey === storageKey);
+      deleteUnsyncedPage(storageKey, card).catch(error => {
+        Logger.warn('[SidePanel] Failed to delete unsynced page card', {
+          error,
+          storageKey,
+          url: sanitizeUrlForLogging(page?.url),
+        });
+      });
     },
   });
 
@@ -623,7 +633,9 @@ function handleStorageChange(changes, namespace) {
   // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
   clearTimeout(unsyncedBadgeTimer);
   unsyncedBadgeTimer = setTimeout(() => {
-    refreshUnsyncedBadge().catch(() => {});
+    refreshUnsyncedBadge().catch(error => {
+      Logger.error('[SidePanel] refreshUnsyncedBadge failed after storage change', { error });
+    });
   }, 300);
 
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
@@ -694,7 +706,7 @@ async function renderUnsyncedView() {
     els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
   }
 
-  appendNextUnsyncedBatch(PAGE_BATCH_SIZE);
+  appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
   UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
 }
 
@@ -705,7 +717,7 @@ function loadMoreCards() {
   if (!cachedUnsyncedPages) {
     return;
   }
-  appendNextUnsyncedBatch(PAGE_BATCH_SIZE);
+  appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
 }
 
 /**
