@@ -29,27 +29,9 @@ describe('Highlighter StorageUtil', () => {
     mockChrome = {
       storage: {
         local: {
-          set: jest.fn((data, callback) => {
-            setTimeout(() => {
-              if (callback) {
-                callback(); // skipcq: JS-0255
-              }
-            }, 0);
-          }),
-          get: jest.fn((keys, callback) => {
-            setTimeout(() => {
-              if (callback) {
-                callback({}); // skipcq: JS-0255
-              }
-            }, 0);
-          }),
-          remove: jest.fn((keys, callback) => {
-            setTimeout(() => {
-              if (callback) {
-                callback(); // skipcq: JS-0255
-              }
-            }, 0);
-          }),
+          set: jest.fn().mockResolvedValue(undefined),
+          get: jest.fn().mockResolvedValue({}),
+          remove: jest.fn().mockResolvedValue(undefined),
         },
       },
       runtime: {
@@ -103,15 +85,8 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('Chrome Storage 失敗時應回退到 localStorage', async () => {
-      // 模擬 Chrome Storage 不可用
-      mockChrome.storage.local.set = jest.fn((data, callback) => {
-        mockChrome.runtime.lastError = { message: 'Storage error' };
-        setTimeout(() => {
-          if (callback) {
-            callback(); // skipcq: JS-0255
-          }
-        }, 0);
-      });
+      // 模擬 Chrome Storage set 以 rejected Promise 方式失敗
+      mockChrome.storage.local.set = jest.fn().mockRejectedValue(new Error('Storage error'));
 
       const testData = [{ text: 'test', color: 'yellow' }];
 
@@ -120,15 +95,9 @@ describe('Highlighter StorageUtil', () => {
       expect(localStorage.setItem).toHaveBeenCalled();
     });
 
-    test('Chrome Storage local.get 發生 lastError 時應回退到 localStorage', async () => {
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        mockChrome.runtime.lastError = { message: 'Get error' };
-        setTimeout(() => {
-          if (callback) {
-            callback(); // skipcq: JS-0255
-          }
-        }, 0);
-      });
+    test('Chrome Storage local.get 發生錯誤時應回退到 localStorage', async () => {
+      // 模擬 Chrome Storage get 以 rejected Promise 方式失敗
+      mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Get error'));
 
       const testData = [{ text: 'test', color: 'yellow' }];
       await StorageUtil.saveHighlights('https://example.com', testData);
@@ -172,14 +141,8 @@ describe('Highlighter StorageUtil', () => {
       jest.useFakeTimers();
       try {
         mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-        mockChrome.storage.local.get = jest.fn((keys, callback) => {
-          callback({});
-        });
-        mockChrome.storage.local.set = jest.fn((data, callback) => {
-          if (callback) {
-            callback();
-          }
-        });
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
+        mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const testData = [{ text: 'retry-fail', color: 'yellow' }];
         const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
@@ -266,14 +229,8 @@ describe('Highlighter StorageUtil', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       try {
         delete mockChrome.runtime.sendMessage;
-        mockChrome.storage.local.get = jest.fn((keys, callback) => {
-          callback({});
-        });
-        mockChrome.storage.local.set = jest.fn((data, callback) => {
-          if (callback) {
-            callback();
-          }
-        });
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
+        mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const baselineTimerCount = jest.getTimerCount();
         const testData = [{ text: 'no-sendMessage', color: 'yellow' }];
@@ -358,15 +315,9 @@ describe('Highlighter StorageUtil', () => {
       globalThis.chrome = mockChrome;
     });
 
-    test('lastError 時應拒絕', async () => {
-      mockChrome.storage.local.set = jest.fn((data, callback) => {
-        mockChrome.runtime.lastError = { message: 'Quota exceeded' };
-        setTimeout(() => {
-          if (callback) {
-            callback(); // skipcq: JS-0255
-          }
-        }, 0);
-      });
+    test('Chrome storage set 失敗時應拒絕', async () => {
+      // MV3 原生 Promise：直接以 rejected Promise 表示失敗
+      mockChrome.storage.local.set = jest.fn().mockRejectedValue(new Error('Quota exceeded'));
 
       await expect(StorageUtil._saveToChromeStorage('test_key', { data: 'test' })).rejects.toThrow(
         'Quota exceeded'
@@ -623,14 +574,14 @@ describe('Highlighter StorageUtil', () => {
       );
     });
 
-    test('移除操作發生 lastError 時應被拒絕', async () => {
-      mockChrome.storage.local.remove = jest.fn((keys, callback) => {
-        mockChrome.runtime.lastError = { message: 'Remove operation failed' };
-        callback();
-      });
+    test('移除操作失敗時應被拒絕', async () => {
+      // MV3 原生 Promise：直接以 rejected Promise 表示失敗
+      mockChrome.storage.local.remove = jest
+        .fn()
+        .mockRejectedValue(new Error('Remove operation failed'));
 
       await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
-        'Chrome storage error: Remove operation failed'
+        'Remove operation failed'
       );
     });
 

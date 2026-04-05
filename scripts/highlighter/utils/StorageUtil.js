@@ -135,15 +135,7 @@ const StorageUtil = {
       let preservedNotionOrNull = null;
       let existingMetadata = {};
       if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const data = await new Promise((resolve, reject) => {
-          chrome.storage.local.get([pageKey], result => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
-          });
-        });
+        const data = await chrome.storage.local.get([pageKey]);
         const existingPage = data?.[pageKey];
         if (existingPage?.notion) {
           preservedNotionOrNull = existingPage.notion;
@@ -184,24 +176,11 @@ const StorageUtil = {
    * @returns {Promise<void>}
    * @private
    */
-  _saveToChromeStorage(key, data) {
+  async _saveToChromeStorage(key, data) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
+      throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
-
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.set({ [key]: data }, () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve();
-          }
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
+    await chrome.storage.local.set({ [key]: data });
   },
 
   /**
@@ -276,29 +255,20 @@ const StorageUtil = {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
 
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.get([pageKey, legacyKey], data => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
+    const data = await chrome.storage.local.get([pageKey, legacyKey]);
 
-        // 優先返回 page_* 格式
-        if (data[pageKey]) {
-          resolve(this._parseHighlightFormat(data[pageKey]));
-          return;
-        }
+    // 優先返回 page_* 格式
+    if (data[pageKey]) {
+      return this._parseHighlightFormat(data[pageKey]);
+    }
 
-        // 回退 highlights_* 舊格式
-        if (data[legacyKey]) {
-          resolve(this._parseHighlightFormat(data[legacyKey]));
-          return;
-        }
+    // 回退 highlights_* 舊格式
+    if (data[legacyKey]) {
+      return this._parseHighlightFormat(data[legacyKey]);
+    }
 
-        // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
-        resolve(null);
-      });
-    });
+    // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
+    return null;
   },
 
   /**
@@ -410,26 +380,10 @@ const StorageUtil = {
     // 對 page_* entry 進行讀→改→寫，只清空 highlights 欄位，保留 notion 等其他狀態
     const clearPageHighlights = async () => {
       if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const existing = await new Promise((resolve, reject) => {
-          chrome.storage.local.get([pageKey], result => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
-          });
-        });
+        const existing = await chrome.storage.local.get([pageKey]);
         const current = existing[pageKey];
         if (current) {
-          await new Promise((resolve, reject) => {
-            chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } }, () => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve();
-              }
-            });
-          });
+          await chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } });
         }
       }
     };
@@ -464,24 +418,11 @@ const StorageUtil = {
    * @returns {Promise<void>}
    * @private
    */
-  _clearFromChromeStorage(key) {
+  async _clearFromChromeStorage(key) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
+      throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
-
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.remove([key], () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(`Chrome storage error: ${chrome.runtime.lastError.message}`));
-          } else {
-            resolve();
-          }
-        });
-      } catch (error) {
-        reject(new Error(`Chrome storage operation failed: ${error.message}`));
-      }
-    });
+    await chrome.storage.local.remove([key]);
   },
 
   /**
