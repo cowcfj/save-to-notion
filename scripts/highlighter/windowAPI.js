@@ -71,6 +71,12 @@ function ensureToolbar(state) {
  */
 export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
   const restoreManager = storage;
+  const state = {
+    currentToolbar: toolbar,
+    isCreatingToolbar: false,
+    manager,
+    storage,
+  };
 
   // 新版 HighlighterV2 API
   globalThis.HighlighterV2 = {
@@ -103,17 +109,6 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     ...(fns.init ? { init: fns.init } : {}),
     ...(fns.initWithToolbar ? { initWithToolbar: fns.initWithToolbar } : {}),
   };
-
-  // 閉包狀態（用於 ensureToolbar）
-  const state = {
-    currentToolbar: toolbar,
-    isCreatingToolbar: false,
-    manager,
-    storage,
-  };
-
-  // 修正 getToolbar 以使用閉包 state
-  globalThis.HighlighterV2.getToolbar = () => state.currentToolbar;
 
   // 🔑 向後兼容：設置舊版 notionHighlighter API
   globalThis.notionHighlighter = {

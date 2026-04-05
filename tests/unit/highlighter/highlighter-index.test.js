@@ -174,6 +174,25 @@ describe('Highlighter Index', () => {
       expect(typeof globalThis.notionHighlighter.clearAll).toBe('function');
       expect(typeof globalThis.notionHighlighter.getCount).toBe('function');
     });
+
+    test('HighlighterV2.getToolbar 應該在延遲建立 Toolbar 後返回最新實例', () => {
+      delete globalThis.HighlighterV2;
+      delete globalThis.notionHighlighter;
+      delete globalThis.initHighlighter;
+      delete globalThis.collectHighlights;
+      delete globalThis.clearPageHighlights;
+
+      highlighterModule.setupHighlighter({ skipToolbar: true });
+
+      expect(globalThis.HighlighterV2.getToolbar()).toBeNull();
+      expect(globalThis.HighlighterV2.toolbar).toBeNull();
+
+      const toolbar = globalThis.notionHighlighter.createAndShowToolbar();
+
+      expect(toolbar).toBe(mockToolbar);
+      expect(globalThis.HighlighterV2.getToolbar()).toBe(mockToolbar);
+      expect(globalThis.HighlighterV2.toolbar).toBe(mockToolbar);
+    });
   });
 
   describe('全局函數別名', () => {
