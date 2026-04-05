@@ -172,7 +172,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
           typeof restoreManager?.restore === 'function'
         ) {
           hasRetriedLateStableRestore = true;
-          Promise.resolve(restoreManager.restore()).catch(error => {
+          restoreManager.restore().catch(error => {
             Logger.warn('[Highlighter] Late stable URL restore retry failed', {
               action: 'SET_STABLE_URL',
               error: error?.message ?? String(error),
