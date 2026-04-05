@@ -238,36 +238,6 @@ describe('Highlighter Index', () => {
     });
   });
 
-  describe('SET_STABLE_URL 晚到重試', () => {
-    test('當目前恢復數為 0 時，應觸發一次性 restore 重試', async () => {
-      highlighterModule.setupHighlighter();
-      mockManager.getCount.mockReturnValue(0);
-
-      const restoreSpy = jest
-        .spyOn(globalThis.HighlighterV2.restoreManager, 'restore')
-        .mockResolvedValue(true);
-
-      const listeners = mockChrome.runtime.onMessage.addListener.mock.calls.map(call => call[0]);
-      listeners.forEach(listener => {
-        listener(
-          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/stable' },
-          {},
-          jest.fn()
-        );
-      });
-
-      await Promise.resolve();
-      expect(restoreSpy).toHaveBeenCalledTimes(1);
-
-      listeners.forEach(listener => {
-        listener(
-          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/stable' },
-          {},
-          jest.fn()
-        );
-      });
-      await Promise.resolve();
-      expect(restoreSpy).toHaveBeenCalledTimes(1);
-    });
-  });
+  // SET_STABLE_URL 晚到重試的測試已移至 tests/unit/highlighter/entryAutoInit.test.js
+  // 因為此監聽器邏輯已從 index.js 搬移到 entryAutoInit.js
 });

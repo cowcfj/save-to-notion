@@ -22,7 +22,7 @@ import { ImageCollector } from './extractors/ImageCollector.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
-import '../highlighter/index.js';
+import '../highlighter/entryAutoInit.js';
 
 const { DEFAULT_PAGE_TITLE } = CONTENT_QUALITY;
 
