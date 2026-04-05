@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 // ---- Mocks ----
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
@@ -15,6 +16,14 @@ jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   }),
 }));
 
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
 // Chrome API polyfills
 globalThis.chrome = {
   tabs: {
@@ -22,6 +31,7 @@ globalThis.chrome = {
     onUpdated: { addListener: jest.fn() },
     query: jest.fn(),
     get: jest.fn(),
+    create: jest.fn(),
     sendMessage: jest.fn(),
   },
   storage: {
@@ -80,6 +90,7 @@ describe('Sidepanel JS Logic', () => {
 
     chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
     chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.create.mockResolvedValue({ id: 103, url: 'https://opened.example' });
     chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.js/stable' });
     chrome.storage.local.get.mockResolvedValue({});
 
@@ -652,6 +663,26 @@ describe('Sidepanel JS Logic', () => {
 
       expect(chrome.tabs.query).not.toHaveBeenCalled();
     });
+
+    it('should log refreshUnsyncedBadge failures triggered by storage change timer', async () => {
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      const error = new Error('badge refresh failed');
+
+      Logger.error.mockClear();
+      chrome.storage.local.get.mockRejectedValue(error);
+
+      onStorageChanged({ 'highlights_https://sync.me': { newValue: {} } }, 'local');
+      await jest.runOnlyPendingTimersAsync();
+
+      const refreshBadgeCall = Logger.error.mock.calls.find(
+        ([message]) => message === '[SidePanel] refreshUnsyncedBadge failed after storage change'
+      );
+
+      expect(refreshBadgeCall).toEqual([
+        '[SidePanel] refreshUnsyncedBadge failed after storage change',
+        { error },
+      ]);
+    });
   });
 }); // end describe('Sidepanel JS Logic')
 
@@ -728,6 +759,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
     chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.create.mockResolvedValue({ id: 103, url: 'https://opened.example' });
     chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.com' });
     chrome.storage.local.get.mockResolvedValue({});
   });
@@ -833,6 +865,27 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     // 點擊後應比原來多（至少 > 10）
     expect(cardsAfter.length).toBeGreaterThan(10);
     expect(document.querySelector('#load-more-btn').style.display).toBe('none');
+  });
+
+  it('should log warning when opening unsynced page fails', async () => {
+    await initModule({
+      'highlights_https://example.com/p': {
+        highlights: [{ id: '1', text: 'open fail', color: 'yellow' }],
+        updatedAt: 1000,
+      },
+    });
+    await clickUnsyncedTab();
+
+    const error = new Error('open failed');
+    chrome.tabs.create.mockRejectedValueOnce(error);
+
+    document.querySelector('.page-open-button').click();
+    await Promise.resolve();
+
+    expect(Logger.warn).toHaveBeenCalledWith('[SidePanel] Failed to open unsynced page tab', {
+      error,
+      url: 'https://example.com/p',
+    });
   });
 
   it('badge should show correct unsynced count on init', async () => {
