@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
+import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 // ---- Mocks ----
@@ -23,6 +24,16 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     error: jest.fn(),
   },
 }));
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((_resolve, _reject) => {
+    resolve = _resolve;
+    reject = _reject;
+  });
+  return { promise, resolve, reject };
+}
 
 // Chrome API polyfills
 globalThis.chrome = {
@@ -610,7 +621,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toBe('status-message error');
     });
 
-    it('should display error message returned from runtime message', async () => {
+    it('should not display raw savePage error returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
@@ -631,8 +642,48 @@ describe('Sidepanel JS Logic', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#status-message').textContent).toBe('Custom API Error');
+      expect(document.querySelector('#status-message').textContent).toBe(
+        UI_MESSAGES.SIDEPANEL.SYNC_FAILED
+      );
       expect(document.querySelector('#status-message').className).toBe('status-message error');
+      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] savePage failed', {
+        error: 'Custom API Error',
+      });
+    });
+
+    it('should not display raw openNotionPage error returned from runtime message', async () => {
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
+          return { [key]: true };
+        }
+        return {
+          'highlights_https://example.js/stable': {
+            highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          },
+        };
+      });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: false,
+        error: 'Leaked debug detail',
+      });
+
+      const openBtn = document.querySelector('#open-notion-button');
+      openBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#status-message').textContent).toBe(
+        UI_MESSAGES.SIDEPANEL.OPEN_FAILED
+      );
+      expect(document.querySelector('#status-message').className).toBe('status-message error');
+      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] openNotionPage failed', {
+        error: 'Leaked debug detail',
+      });
     });
   });
 
@@ -892,6 +943,43 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
     expect(document.querySelector('#load-more-btn').style.display).toBe('none');
     expect(document.querySelector('#unsynced-badge').textContent).toBe('');
+  });
+
+  it('should ignore stale unsynced render results after switching back to current quickly', async () => {
+    await initModule({});
+
+    const deferredUnsyncedLoad = createDeferred();
+    chrome.storage.local.get.mockImplementation(async key => {
+      if (key === null) {
+        return deferredUnsyncedLoad.promise;
+      }
+      return {};
+    });
+
+    const unsyncedTab = document.querySelector('[data-view="unsynced"]');
+    const currentTab = document.querySelector('[data-view="current"]');
+
+    unsyncedTab.click();
+    await Promise.resolve();
+    currentTab.click();
+    await Promise.resolve();
+
+    const storageData = {};
+    for (let i = 0; i < 15; i++) {
+      storageData[`highlights_https://example.com/page${i}`] = {
+        highlights: [{ id: '1', text: `x${i}`, color: 'yellow' }],
+        updatedAt: i,
+      };
+    }
+    deferredUnsyncedLoad.resolve(storageData);
+    for (let i = 0; i < 10; i++) {
+      await Promise.resolve();
+    }
+
+    expect(currentTab.classList.contains('active')).toBe(true);
+    expect(unsyncedTab.classList.contains('active')).toBe(false);
+    expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
+    expect(document.querySelector('#load-more-btn').style.display).toBe('none');
   });
 
   it('should log warning when opening unsynced page fails', async () => {

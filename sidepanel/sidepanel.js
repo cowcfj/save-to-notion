@@ -31,6 +31,9 @@ let statusMessageTimeoutId;
 // 快取：避免每次 storage 變化都重新解析 URL
 let cachedStableUrl = null;
 let cachedTabUrl = null;
+let currentActiveView = 'current';
+let currentViewRequestId = 0;
+let unsyncedViewRequestId = 0;
 
 /** @type {Array<object> | null} 快取的未同步頁面資料 */
 let cachedUnsyncedPages = null;
@@ -82,6 +85,55 @@ function renderUnsyncedFallbackState(message = UI_MESSAGES.SIDEPANEL.LOAD_FAILED
   }
 
   UI.updateUnsyncedBadge(els, []);
+}
+
+/**
+ * 記錄目前啟用中的視圖名稱。
+ *
+ * @param {'current' | 'unsynced'} viewName
+ */
+function setActiveView(viewName) {
+  currentActiveView = viewName;
+}
+
+/**
+ * 建立 current view 的最新請求序號。
+ *
+ * @returns {number}
+ */
+function beginCurrentViewRequest() {
+  currentViewRequestId += 1;
+  return currentViewRequestId;
+}
+
+/**
+ * 建立 unsynced view 的最新請求序號。
+ *
+ * @returns {number}
+ */
+function beginUnsyncedViewRequest() {
+  unsyncedViewRequestId += 1;
+  return unsyncedViewRequestId;
+}
+
+/**
+ * 檢查 current view 的非同步請求是否仍可安全套用 UI。
+ *
+ * @param {number} requestId
+ * @returns {boolean}
+ */
+function isCurrentViewRequestActive(requestId) {
+  return currentActiveView === 'current' && currentViewRequestId === requestId;
+}
+
+/**
+ * 檢查 unsynced view 的非同步請求是否仍可安全套用 UI。
+ *
+ * @param {number} requestId
+ * @returns {boolean}
+ */
+function isUnsyncedViewRequestActive(requestId) {
+  return currentActiveView === 'unsynced' && unsyncedViewRequestId === requestId;
 }
 
 /**
@@ -269,6 +321,7 @@ async function getUnsyncedPages() {
 
 async function init() {
   els = UI.getElements();
+  setActiveView('current');
 
   // 1. 綁定按鈕事件
   els.syncButton.addEventListener('click', handleSyncClick);
@@ -298,7 +351,7 @@ async function init() {
   }
 
   // 6. 初始化載入當前分頁，並更新 badge
-  await loadCurrentTab();
+  await loadCurrentTab(null, beginCurrentViewRequest());
   await refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed during init');
 }
 
@@ -308,18 +361,21 @@ async function init() {
  * @param {chrome.tabs.TabActiveInfo} activeInfo
  */
 async function handleTabChange(activeInfo) {
-  await loadCurrentTab(activeInfo.tabId);
+  await loadCurrentTab(activeInfo.tabId, beginCurrentViewRequest());
 }
 
 /**
  * 主要載入流程
  *
  * @param {number|null} specificTabId
+ * @param {number} [requestId]
  */
-async function loadCurrentTab(specificTabId = null) {
+async function loadCurrentTab(specificTabId = null, requestId = beginCurrentViewRequest()) {
   cachedStableUrl = null;
   cachedTabUrl = null;
-  UI.showLoading(els);
+  if (isCurrentViewRequestActive(requestId)) {
+    UI.showLoading(els);
+  }
 
   try {
     let tab;
@@ -331,7 +387,9 @@ async function loadCurrentTab(specificTabId = null) {
     }
 
     if (!tab?.url || RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol)) {
-      UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
+      if (isCurrentViewRequestActive(requestId)) {
+        UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
+      }
       return;
     }
 
@@ -343,10 +401,12 @@ async function loadCurrentTab(specificTabId = null) {
     cachedTabUrl = tab.url;
 
     // 獲取資料
-    await renderHighlightsForUrl(stableUrl, tab.url);
+    await renderHighlightsForUrl(stableUrl, tab.url, requestId);
   } catch (error) {
     Logger.error('[SidePanel] Failed to load tab', { error });
-    UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
+    }
   }
 }
 
@@ -468,8 +528,9 @@ async function checkSavedData(notionData, targetKey) {
  *
  * @param {string} url
  * @param {string} originalTabUrl
+ * @param {number} requestId
  */
-async function renderHighlightsForUrl(url, originalTabUrl) {
+async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
   const normalizedUrl = normalizeUrl(url);
   const normalizedOriginal = normalizeUrl(originalTabUrl);
 
@@ -484,18 +545,26 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 
   const result = await chrome.storage.local.get(Object.values(keys));
   const { highlightsData, notionData, targetKey } = await resolveHighlightData(result, keys);
+  if (!isCurrentViewRequestActive(requestId)) {
+    return;
+  }
 
   const highlights = Array.isArray(highlightsData)
     ? highlightsData
     : highlightsData?.highlights || [];
   if (highlights.length === 0) {
-    UI.showEmpty(els);
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els);
+    }
     return;
   }
 
   UI.renderList(els, highlights, targetKey, handleDelete);
 
   const hasSavedData = await checkSavedData(notionData, targetKey);
+  if (!isCurrentViewRequestActive(requestId)) {
+    return;
+  }
   // Sync 按鈕始終可用（savePage 可自動建立新頁面）
   els.syncButton.disabled = false;
   els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
@@ -621,9 +690,11 @@ async function handleSyncClick() {
     if (response?.success) {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
-      showTimedMessage(response?.error || UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+      Logger.error('[SidePanel] savePage failed', { error: response?.error || 'Unknown error' });
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
     }
-  } catch {
+  } catch (error) {
+    Logger.error('[SidePanel] savePage failed', { error });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
   } finally {
     setTimeout(() => {
@@ -645,9 +716,13 @@ async function handleOpenNotionClick() {
     if (response?.success) {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
     } else {
-      showTimedMessage(response?.error || UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
+      Logger.error('[SidePanel] openNotionPage failed', {
+        error: response?.error || 'Unknown error',
+      });
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
     }
-  } catch {
+  } catch (error) {
+    Logger.error('[SidePanel] openNotionPage failed', { error });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
   } finally {
     setTimeout(() => {
@@ -687,14 +762,14 @@ function handleStorageChange(changes, namespace) {
 
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
   if (cachedStableUrl && cachedTabUrl) {
-    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl).catch(error =>
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl, beginCurrentViewRequest()).catch(error =>
       Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
     );
     return;
   }
 
   // 初始狀態尚無快取，走完整路徑
-  loadCurrentTab();
+  loadCurrentTab(null, beginCurrentViewRequest());
 }
 
 // 啟動
@@ -712,12 +787,16 @@ function handleViewTabClick(event) {
   if (!viewName) {
     return;
   }
+  setActiveView(viewName);
   // UI 層只做 DOM 切換，業務回調在此協調
   UI.switchView(els, viewName);
   if (viewName === 'unsynced') {
-    renderUnsyncedView('[SidePanel] renderUnsyncedView failed after tab switch');
+    renderUnsyncedView(
+      '[SidePanel] renderUnsyncedView failed after tab switch',
+      beginUnsyncedViewRequest()
+    );
   } else {
-    loadCurrentTab();
+    loadCurrentTab(null, beginCurrentViewRequest());
   }
 }
 
@@ -725,13 +804,20 @@ function handleViewTabClick(event) {
  * 渲染「待同步」視圖（含分頁）
  *
  * @param {string} [logMessage] - 失敗時使用的日誌訊息
+ * @param {number} [requestId] - 本次 unsynced view 請求序號
  */
-async function renderUnsyncedView(logMessage = '[SidePanel] renderUnsyncedView failed') {
+async function renderUnsyncedView(
+  logMessage = '[SidePanel] renderUnsyncedView failed',
+  requestId = beginUnsyncedViewRequest()
+) {
   const loadMoreBtn = els.loadMoreBtn;
 
   try {
     // 每次進入時重新抓取資料
     cachedUnsyncedPages = await getUnsyncedPages();
+    if (!isUnsyncedViewRequestActive(requestId)) {
+      return;
+    }
     displayedCardCount = 0;
     els.unsyncedView.textContent = '';
 
@@ -759,6 +845,9 @@ async function renderUnsyncedView(logMessage = '[SidePanel] renderUnsyncedView f
     appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
     UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
   } catch (error) {
+    if (!isUnsyncedViewRequestActive(requestId)) {
+      return;
+    }
     Logger.error(logMessage, { error });
     renderUnsyncedFallbackState();
   }
