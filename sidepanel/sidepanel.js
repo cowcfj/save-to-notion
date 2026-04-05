@@ -42,6 +42,49 @@ let unsyncedBadgeTimer = null;
 // === UI 協調層 ===
 
 /**
+ * 將 storage key 壓縮為非敏感類型標識，避免日誌洩漏完整 URL。
+ *
+ * @param {string} storageKey
+ * @returns {'page' | 'highlights' | 'unknown'}
+ */
+function getStorageKeyType(storageKey) {
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    return 'page';
+  }
+  if (storageKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return 'highlights';
+  }
+  return 'unknown';
+}
+
+/**
+ * 待同步視圖讀取失敗時，退回到安全且可預期的 UI 狀態。
+ *
+ * @param {string} message
+ */
+function renderUnsyncedFallbackState(message = UI_MESSAGES.SIDEPANEL.LOAD_FAILED) {
+  cachedUnsyncedPages = [];
+  displayedCardCount = 0;
+
+  if (els.unsyncedView) {
+    els.unsyncedView.textContent = '';
+    const fallbackMessage = document.createElement('p');
+    fallbackMessage.className = 'unsynced-empty';
+    fallbackMessage.textContent = message;
+    els.unsyncedView.append(fallbackMessage);
+  }
+
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  if (els.loadMoreBtn) {
+    els.loadMoreBtn.style.display = 'none';
+  }
+
+  UI.updateUnsyncedBadge(els, []);
+}
+
+/**
  * 顯示計時狀態訊息，timer 到期後自動隱藏
  * 統一管理 statusMessageTimeoutId，避免 timer 狀態分散
  *
@@ -60,11 +103,17 @@ function showTimedMessage(text, type) {
  * 從 storage 抓取未同步頁面後更新 badge
  * 統一 badge 資料流，確保 storage 變更與初始化路徑一致
  *
+ * @param {string} [logMessage] - 失敗時使用的日誌訊息
  * @returns {Promise<void>}
  */
-async function refreshUnsyncedBadge() {
-  const pages = await getUnsyncedPages();
-  UI.updateUnsyncedBadge(els, pages);
+async function refreshUnsyncedBadge(logMessage = '[SidePanel] refreshUnsyncedBadge failed') {
+  try {
+    const pages = await getUnsyncedPages();
+    UI.updateUnsyncedBadge(els, pages);
+  } catch (error) {
+    Logger.error(logMessage, { error });
+    UI.updateUnsyncedBadge(els, []);
+  }
 }
 
 /**
@@ -87,7 +136,7 @@ function appendNextUnsyncedBatch(count) {
       deleteUnsyncedPage(storageKey, card).catch(error => {
         Logger.warn('[SidePanel] Failed to delete unsynced page card', {
           error,
-          storageKey,
+          storageKeyType: getStorageKeyType(storageKey),
           url: sanitizeUrlForLogging(page?.url),
         });
       });
@@ -250,7 +299,7 @@ async function init() {
 
   // 6. 初始化載入當前分頁，並更新 badge
   await loadCurrentTab();
-  await refreshUnsyncedBadge();
+  await refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed during init');
 }
 
 /**
@@ -633,9 +682,7 @@ function handleStorageChange(changes, namespace) {
   // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
   clearTimeout(unsyncedBadgeTimer);
   unsyncedBadgeTimer = setTimeout(() => {
-    refreshUnsyncedBadge().catch(error => {
-      Logger.error('[SidePanel] refreshUnsyncedBadge failed after storage change', { error });
-    });
+    refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed after storage change');
   }, 300);
 
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
@@ -668,7 +715,7 @@ function handleViewTabClick(event) {
   // UI 層只做 DOM 切換，業務回調在此協調
   UI.switchView(els, viewName);
   if (viewName === 'unsynced') {
-    renderUnsyncedView();
+    renderUnsyncedView('[SidePanel] renderUnsyncedView failed after tab switch');
   } else {
     loadCurrentTab();
   }
@@ -676,38 +723,45 @@ function handleViewTabClick(event) {
 
 /**
  * 渲染「待同步」視圖（含分頁）
+ *
+ * @param {string} [logMessage] - 失敗時使用的日誌訊息
  */
-async function renderUnsyncedView() {
+async function renderUnsyncedView(logMessage = '[SidePanel] renderUnsyncedView failed') {
   const loadMoreBtn = els.loadMoreBtn;
 
-  // 每次進入時重新抓取資料
-  cachedUnsyncedPages = await getUnsyncedPages();
-  displayedCardCount = 0;
-  els.unsyncedView.textContent = '';
+  try {
+    // 每次進入時重新抓取資料
+    cachedUnsyncedPages = await getUnsyncedPages();
+    displayedCardCount = 0;
+    els.unsyncedView.textContent = '';
 
-  if (cachedUnsyncedPages.length === 0) {
-    UI.renderUnsyncedEmptyState(els);
-    if (loadMoreBtn) {
-      loadMoreBtn.style.display = 'none';
+    if (cachedUnsyncedPages.length === 0) {
+      UI.renderUnsyncedEmptyState(els);
+      if (loadMoreBtn) {
+        loadMoreBtn.style.display = 'none';
+      }
+      if (els.unsyncedToolbar) {
+        els.unsyncedToolbar.style.display = 'none';
+      }
+      UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+      return;
     }
+
+    // 顯示工具列並更新計數
     if (els.unsyncedToolbar) {
-      els.unsyncedToolbar.style.display = 'none';
+      els.unsyncedToolbar.style.display = 'flex';
     }
+    if (els.unsyncedCountLabel) {
+      const count = cachedUnsyncedPages.length;
+      els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
+    }
+
+    appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
     UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
-    return;
+  } catch (error) {
+    Logger.error(logMessage, { error });
+    renderUnsyncedFallbackState();
   }
-
-  // 顯示工具列並更新計數
-  if (els.unsyncedToolbar) {
-    els.unsyncedToolbar.style.display = 'flex';
-  }
-  if (els.unsyncedCountLabel) {
-    const count = cachedUnsyncedPages.length;
-    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
-  }
-
-  appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
-  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
 }
 
 /**

@@ -732,7 +732,11 @@ function buildUnsyncedDOM() {
 }
 
 async function initModule(storageMock) {
-  chrome.storage.local.get.mockResolvedValue(storageMock);
+  if (typeof storageMock === 'function') {
+    chrome.storage.local.get.mockImplementation(storageMock);
+  } else {
+    chrome.storage.local.get.mockResolvedValue(storageMock);
+  }
   jest.isolateModules(() => {
     require('../../../sidepanel/sidepanel.js');
   });
@@ -867,6 +871,29 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     expect(document.querySelector('#load-more-btn').style.display).toBe('none');
   });
 
+  it('should show safe fallback UI when renderUnsyncedView fails after tab switch', async () => {
+    await initModule({});
+
+    const error = new Error('unsynced load failed');
+    chrome.storage.local.get.mockImplementation(async key => {
+      if (key === null) {
+        throw error;
+      }
+      return {};
+    });
+
+    await clickUnsyncedTab();
+
+    expect(Logger.error).toHaveBeenCalledWith(
+      '[SidePanel] renderUnsyncedView failed after tab switch',
+      { error }
+    );
+    expect(document.querySelector('#unsynced-view').textContent).toContain('載入標註失敗');
+    expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
+    expect(document.querySelector('#load-more-btn').style.display).toBe('none');
+    expect(document.querySelector('#unsynced-badge').textContent).toBe('');
+  });
+
   it('should log warning when opening unsynced page fails', async () => {
     await initModule({
       'highlights_https://example.com/p': {
@@ -903,6 +930,25 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     // badge 在初始化時就應更新
     const badge = document.querySelector('#unsynced-badge');
     expect(badge.textContent).toBe('2');
+  });
+
+  it('should log and clear badge when refreshUnsyncedBadge fails during init', async () => {
+    const error = new Error('init badge failed');
+
+    await initModule(async key => {
+      if (key === null) {
+        throw error;
+      }
+      return {};
+    });
+
+    expect(Logger.error).toHaveBeenCalledWith(
+      '[SidePanel] refreshUnsyncedBadge failed during init',
+      {
+        error,
+      }
+    );
+    expect(document.querySelector('#unsynced-badge').textContent).toBe('');
   });
 
   it('should show empty message when all highlights are synced', async () => {
