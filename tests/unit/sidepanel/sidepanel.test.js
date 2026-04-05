@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 // ---- Mocks ----
@@ -647,7 +648,7 @@ describe('Sidepanel JS Logic', () => {
       );
       expect(document.querySelector('#status-message').className).toBe('status-message error');
       expect(Logger.error).toHaveBeenCalledWith('[SidePanel] savePage failed', {
-        error: 'Custom API Error',
+        error: sanitizeApiError('Custom API Error'),
       });
     });
 
@@ -682,7 +683,7 @@ describe('Sidepanel JS Logic', () => {
       );
       expect(document.querySelector('#status-message').className).toBe('status-message error');
       expect(Logger.error).toHaveBeenCalledWith('[SidePanel] openNotionPage failed', {
-        error: 'Leaked debug detail',
+        error: sanitizeApiError('Leaked debug detail'),
       });
     });
   });
@@ -733,6 +734,82 @@ describe('Sidepanel JS Logic', () => {
         '[SidePanel] refreshUnsyncedBadge failed after storage change',
         { error },
       ]);
+    });
+
+    it('should not overwrite cached tab urls with stale loadCurrentTab results', async () => {
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      const staleStableUrl = 'https://stale.example.com/article';
+      const freshStableUrl = 'https://fresh.example.com/article';
+      const deferredStableUrl = createDeferred();
+
+      chrome.tabs.get.mockImplementation(async tabId => {
+        if (tabId === 701) {
+          return { id: 701, url: 'https://stale.example.com/raw' };
+        }
+        if (tabId === 702) {
+          return { id: 702, url: 'https://fresh.example.com/raw' };
+        }
+        return { id: tabId, url: 'https://fallback.example.com' };
+      });
+
+      chrome.tabs.sendMessage.mockImplementation(async tabId => {
+        if (tabId === 701) {
+          return deferredStableUrl.promise;
+        }
+        if (tabId === 702) {
+          return { stableUrl: freshStableUrl };
+        }
+        return { stableUrl: 'https://default.example.com' };
+      });
+
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (Array.isArray(key)) {
+          const requestedKeys = new Set(key);
+          if (requestedKeys.has(`page_${freshStableUrl}`)) {
+            return {
+              [`page_${freshStableUrl}`]: {
+                highlights: [{ id: 'fresh', text: 'fresh text', color: 'yellow' }],
+              },
+            };
+          }
+          if (requestedKeys.has(`page_${staleStableUrl}`)) {
+            return {
+              [`page_${staleStableUrl}`]: {
+                highlights: [{ id: 'stale', text: 'stale text', color: 'yellow' }],
+              },
+            };
+          }
+          return {};
+        }
+        if (typeof key === 'string') {
+          return {};
+        }
+        return {};
+      });
+
+      chrome.storage.local.get.mockClear();
+
+      const staleLoad = onActivated({ tabId: 701 });
+      await Promise.resolve();
+      const freshLoad = onActivated({ tabId: 702 });
+      await freshLoad;
+
+      deferredStableUrl.resolve({ stableUrl: staleStableUrl });
+      await staleLoad;
+
+      chrome.storage.local.get.mockClear();
+      onStorageChanged({ 'highlights_https://fresh.example.com/raw': { newValue: {} } }, 'local');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const keyedGetCalls = chrome.storage.local.get.mock.calls.filter(([arg]) =>
+        Array.isArray(arg)
+      );
+      const lastKeys = keyedGetCalls.at(-1)?.[0] || [];
+
+      expect(lastKeys).toContain(`page_${freshStableUrl}`);
+      expect(lastKeys).not.toContain(`page_${staleStableUrl}`);
     });
   });
 }); // end describe('Sidepanel JS Logic')

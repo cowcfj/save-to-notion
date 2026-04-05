@@ -18,7 +18,7 @@ import {
 } from '../scripts/config/storageKeys.js';
 import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
-import { sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
 
@@ -396,6 +396,10 @@ async function loadCurrentTab(specificTabId = null, requestId = beginCurrentView
     // 核心: 解析穩定 URL (3層 Fallback)
     const stableUrl = await getStableUrlForTab(tab.id, tab.url);
 
+    if (!isCurrentViewRequestActive(requestId)) {
+      return;
+    }
+
     // 快取 URL 供 handleStorageChange 快速路徑使用
     cachedStableUrl = stableUrl;
     cachedTabUrl = tab.url;
@@ -690,11 +694,15 @@ async function handleSyncClick() {
     if (response?.success) {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
-      Logger.error('[SidePanel] savePage failed', { error: response?.error || 'Unknown error' });
+      Logger.error('[SidePanel] savePage failed', {
+        error: sanitizeApiError(response?.error || 'Unknown error', 'save_page'),
+      });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
     }
   } catch (error) {
-    Logger.error('[SidePanel] savePage failed', { error });
+    Logger.error('[SidePanel] savePage failed', {
+      error: sanitizeApiError(error, 'save_page'),
+    });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
   } finally {
     setTimeout(() => {
@@ -717,12 +725,14 @@ async function handleOpenNotionClick() {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
     } else {
       Logger.error('[SidePanel] openNotionPage failed', {
-        error: response?.error || 'Unknown error',
+        error: sanitizeApiError(response?.error || 'Unknown error', 'open_page'),
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
     }
   } catch (error) {
-    Logger.error('[SidePanel] openNotionPage failed', { error });
+    Logger.error('[SidePanel] openNotionPage failed', {
+      error: sanitizeApiError(error, 'open_page'),
+    });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
   } finally {
     setTimeout(() => {
@@ -814,10 +824,11 @@ async function renderUnsyncedView(
 
   try {
     // 每次進入時重新抓取資料
-    cachedUnsyncedPages = await getUnsyncedPages();
+    const nextUnsyncedPages = await getUnsyncedPages();
     if (!isUnsyncedViewRequestActive(requestId)) {
       return;
     }
+    cachedUnsyncedPages = nextUnsyncedPages;
     displayedCardCount = 0;
     els.unsyncedView.textContent = '';
 
