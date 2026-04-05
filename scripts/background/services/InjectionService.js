@@ -445,9 +445,9 @@ class InjectionService {
       tabId,
       [bundlePath],
       () => {
-        // highlighter-v2.bundle.js 會自動初始化（setupHighlighter）
+        // content bundle 會匯入 highlighter/entryAutoInit.js 以完成 runtime 初始化
         // 我們只需要確保工具欄顯示即可
-        // 使用 setTimeout 確保自動初始化完成
+        // 使用輪詢等待初始化完成
         return new Promise(resolve => {
           const startTime = Date.now();
           const timeout = 2000; // Max wait 2 seconds (increased robustness)

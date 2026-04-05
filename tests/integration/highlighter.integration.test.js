@@ -1,6 +1,6 @@
 /**
  * Highlighter 整合測試
- * 測試 index.js 入口點和各模組的整合
+ * 測試 index.js 純 API 入口與各模組的整合。
  *
  * @jest-environment jsdom
  */
@@ -195,16 +195,14 @@ describe('Highlighter Integration Tests', () => {
       expect(typeof globalThis.HighlighterV2.getInstance).toBe('function');
     });
 
-    test('should send checkPageStatus message on auto-init', () => {
-      // Clear window.HighlighterV2 to allow auto-init
+    test('should expose setupHighlighter without relying on import side effects', () => {
+      // Clear window.HighlighterV2 to simulate a fresh explicit setup call
       delete globalThis.HighlighterV2;
 
-      // Import again to trigger auto-init
-      // In real scenario, this happens on page load
+      // setupHighlighter() 是顯式初始化 API；runtime auto-init 由 entryAutoInit.js 負責
       setupHighlighter();
 
-      // The message may or may not be sent depending on initialization
-      // Just verify the function is available
+      // 此測試僅驗證顯式初始化可用
       expect(globalThis.chrome.runtime.sendMessage).toBeDefined();
     });
 

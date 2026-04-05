@@ -95,7 +95,7 @@ describe('Content Script PING Handler', () => {
     });
 
     // 從所有註冊的監聽器中找到 PING 處理程序
-    // 由於引入了 highlighter，可能會有其他監聽器被註冊 (例如 highlighter/index.js)
+    // 由於引入了 highlighter runtime entry，可能會有其他監聽器被註冊 (例如 entryAutoInit.js)
     // 因此我們不能假設只有一個監聽器，也不能假設第一個就是我們的。
     // 我們遍歷所有監聽器，並確保其中 *有一個* 正確處理了 PING 請求。
 

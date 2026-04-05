@@ -1,7 +1,9 @@
 /**
- * Highlighter V2 - ES6 Module Entry Point
+ * Highlighter V2 - ES6 Module API Entry
  *
- * 整合所有模組並提供統一導出
+ * 整合所有模組並提供統一導出。
+ * 此模組為純 API / library 入口；匯入本檔不會觸發 runtime 自動初始化。
+ * 若需要 content script 載入時自動初始化，請改由 entryAutoInit.js 作為 side-effect entry。
  */
 
 // Core modules
@@ -140,7 +142,8 @@ export function initHighlighterWithToolbar(options = {}) {
  */
 
 /**
- * 默認導出：自動初始化並設置到 window
+ * 顯式初始化 Highlighter 並掛載到 window。
+ * 注意：必須由呼叫端主動執行；單純 import 本模組不會自動初始化。
  *
  * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
