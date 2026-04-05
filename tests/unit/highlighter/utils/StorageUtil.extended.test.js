@@ -220,6 +220,36 @@ describe('Highlighter StorageUtil', () => {
       }
     });
 
+    test('sendMessage 不可用時，若 storage 與 localStorage 均失敗應拋出異常', async () => {
+      jest.useFakeTimers();
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      try {
+        delete mockChrome.runtime.sendMessage;
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
+        mockChrome.storage.local.set = jest.fn().mockRejectedValue(new Error('Storage set failed'));
+        globalThis.localStorage.setItem = jest.fn(() => {
+          throw new Error('Local error');
+        });
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+        const testData = [{ text: 'fail-all', color: 'yellow' }];
+        await expect(StorageUtil.saveHighlights('https://example.com', testData)).rejects.toThrow(
+          'Local error'
+        );
+
+        expect(errorSpy).toHaveBeenCalledWith(
+          '[ERROR] ❌',
+          '保存標註失敗（Chrome 與本地執行失敗）',
+          expect.objectContaining({ action: 'saveHighlights' })
+        );
+        errorSpy.mockRestore();
+      } finally {
+        warnSpy.mockRestore();
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
+
     test('sendMessage 不可用時，不應等待重試延遲且應直接走 fallback 儲存', async () => {
       jest.useFakeTimers();
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
@@ -292,6 +322,34 @@ describe('Highlighter StorageUtil', () => {
   });
 
   describe('loadHighlights', () => {
+    test('_loadBothFormats 返回 legacy key data', async () => {
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+        'highlights_https://example.com': [{ text: 'legacy match' }],
+      });
+      const data = await StorageUtil._loadBothFormats(
+        'https://example.com',
+        'highlights_https://example.com'
+      );
+      expect(data).toEqual([{ text: 'legacy match' }]);
+    });
+
+    test('_loadBothFormats Chrome Storage 不可用應拋出錯誤', async () => {
+      const originalChrome = globalThis.chrome;
+      globalThis.chrome = undefined;
+      await expect(
+        StorageUtil._loadBothFormats('https://example.com', 'legacyKey')
+      ).rejects.toThrow('Chrome storage not available');
+      globalThis.chrome = originalChrome;
+    });
+
+    test('_resolveStableUrl Chrome Storage 不可用應返回 normalizedUrl', async () => {
+      const originalChrome = globalThis.chrome;
+      globalThis.chrome = undefined;
+      const url = await StorageUtil._resolveStableUrl('https://example.com');
+      expect(url).toBe('https://example.com');
+      globalThis.chrome = originalChrome;
+    });
+
     test.each([
       ['空字串', ''],
       ['null', null],

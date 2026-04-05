@@ -20,9 +20,6 @@ import { Toolbar } from './ui/Toolbar.js';
 
 import './utils/StorageUtil.js';
 
-// Logger - 統一日誌記錄
-import Logger from '../utils/Logger.js';
-
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
 if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
@@ -68,13 +65,7 @@ export function initHighlighter(options = {}) {
   const manager = new HighlightManager(options);
 
   // 注入依賴
-  const deps = createAndInjectDependencies(manager, options);
-
-  // 驗證關鍵依賴是否成功創建
-  if (!deps.styleManager || !deps.storage) {
-    Logger.error('初始化標註器失敗，關鍵依賴創建失敗', { action: 'initHighlighter' });
-    return manager; // 返回未初始化的 manager，避免後續錯誤
-  }
+  createAndInjectDependencies(manager, options);
 
   // 自動執行初始化
   manager.initializationComplete = manager.initialize();

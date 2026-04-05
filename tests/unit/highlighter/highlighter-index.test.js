@@ -124,10 +124,40 @@ describe('Highlighter Index', () => {
       expect(mockManager.initialize).toHaveBeenCalled();
     });
 
-    test('應該註冊 chrome.runtime.onMessage 監聽器', async () => {
-      await initHighlighter();
+    test('應該註冊 chrome.runtime.onMessage 監聽器並能處理 toggleHighlighter', async () => {
+      let messageHandler;
+      mockChrome.runtime.onMessage.addListener = jest.fn(handler => {
+        messageHandler = handler;
+      });
 
+      await initHighlighter();
       expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalled();
+
+      // 當 globalThis.notionHighlighter 初始化後，能響應 toggleHighlighter
+      globalThis.notionHighlighter = {
+        toggle: jest.fn(),
+        isActive: jest.fn().mockReturnValue(true),
+      };
+      const res1 = jest.fn();
+      const isHandled1 = messageHandler({ action: 'toggleHighlighter' }, {}, res1);
+
+      expect(isHandled1).toBe(true);
+      expect(globalThis.notionHighlighter.toggle).toHaveBeenCalled();
+      expect(res1).toHaveBeenCalledWith({ success: true, isActive: true });
+
+      // 當 notionHighlighter 未初始化時，返回錯誤
+      delete globalThis.notionHighlighter;
+      const res2 = jest.fn();
+      const isHandled2 = messageHandler({ action: 'toggleHighlighter' }, {}, res2);
+      expect(isHandled2).toBe(true);
+      expect(res2).toHaveBeenCalledWith({
+        success: false,
+        error: 'notionHighlighter not initialized',
+      });
+
+      // 不處理其他 action
+      const isHandled3 = messageHandler({ action: 'someOtherAction' }, {}, jest.fn());
+      expect(isHandled3).toBe(false);
     });
   });
 
@@ -265,7 +295,31 @@ describe('Highlighter Index', () => {
       expect(globalThis.notionHighlighter.isActive()).toBe(true);
     });
   });
+  describe('setupHighlighter Edge Cases', () => {
+    // 無 browser 環境會拋出錯誤的測試被移除，因為 JSDOM 中 globalThis.window 無法被重新定義 (non-configurable)
 
+    test('能正常初始化並傳遞正確參數，包含掛載別名函數', () => {
+      // Create a local mock for windowAPI just for this function
+      jest.isolateModules(() => {
+        jest.mock('../../../scripts/highlighter/windowAPI.js', () => ({
+          mountWindowAPI: jest.fn(),
+        }));
+        const indexMock = require('../../../scripts/highlighter/index.js');
+        const windowAPIMock = require('../../../scripts/highlighter/windowAPI.js');
+
+        const { setupHighlighter } = indexMock;
+        setupHighlighter({ skipRestore: true });
+
+        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalled();
+
+        const mountCallArgs = windowAPIMock.mountWindowAPI.mock.calls[0];
+        const funcs = mountCallArgs[3];
+
+        funcs.init();
+        funcs.initWithToolbar();
+      });
+    });
+  });
   // SET_STABLE_URL 晚到重試的測試已移至 tests/unit/highlighter/entryAutoInit.test.js
   // 因為此監聽器邏輯已從 index.js 搬移到 entryAutoInit.js
 });

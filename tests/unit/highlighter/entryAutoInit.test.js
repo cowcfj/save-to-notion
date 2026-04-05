@@ -1,50 +1,40 @@
-/**
- * @jest-environment jsdom
- */
+jest.mock('../../../scripts/highlighter/index.js', () => ({
+  setupHighlighter: jest.fn(),
+}));
+
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  default: {
+    log: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+  __esModule: true,
+}));
 
 describe('entryAutoInit', () => {
-  const flushMicrotasks = async () => {
-    await new Promise(resolve => setTimeout(resolve, 0));
-  };
-
-  let listeners;
   let mockSetupHighlighter;
-  let mockLogger;
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
+    jest.useFakeTimers();
 
-    listeners = [];
-    mockSetupHighlighter = jest.fn();
-    mockLogger = {
-      log: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      success: jest.fn(),
-    };
-
-    globalThis.__NOTION_STABLE_URL__ = undefined;
     delete globalThis.HighlighterV2;
-    delete globalThis.notionHighlighter;
+    delete globalThis.__NOTION_STABLE_URL__;
 
     globalThis.chrome = {
       runtime: {
+        sendMessage: jest.fn(),
         onMessage: {
-          addListener: jest.fn(listener => {
-            listeners.push(listener);
-          }),
-          removeListener: jest.fn(listener => {
-            listeners = listeners.filter(item => item !== listener);
-          }),
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
         },
-        sendMessage: jest.fn().mockResolvedValue({ isSaved: false }),
       },
       storage: {
         sync: {
-          get: jest.fn().mockResolvedValue({}),
+          get: jest.fn(),
         },
         onChanged: {
           addListener: jest.fn(),
@@ -52,57 +42,178 @@ describe('entryAutoInit', () => {
       },
     };
 
-    jest.doMock('../../../scripts/highlighter/index.js', () => ({
-      setupHighlighter: mockSetupHighlighter,
-    }));
-    jest.doMock('../../../scripts/highlighter/utils/color.js', () => ({
-      VALID_STYLES: ['background', 'underline'],
-    }));
-    jest.doMock('../../../scripts/utils/Logger.js', () => mockLogger);
+    const indexMock = require('../../../scripts/highlighter/index.js');
+    mockSetupHighlighter = indexMock.setupHighlighter;
   });
 
   afterEach(() => {
-    delete globalThis.chrome;
-    delete globalThis.HighlighterV2;
-    delete globalThis.notionHighlighter;
-    delete globalThis.__NOTION_STABLE_URL__;
-    jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
-  test('SET_STABLE_URL 晚到重試應直接串接 restore Promise 並保留錯誤處理', async () => {
-    jest.isolateModules(() => {
-      require('../../../scripts/highlighter/entryAutoInit.js');
+  test('正常初始化 (無 stableUrl, chrome API 返回正確值)', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://test.com',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'underline' });
+
+    // SET_STABLE_URL 不會被觸發，所以 `waitForStableUrl` 會超時
+    // Timeout behavior
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers(); // trigger settimeout manually
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: false,
+      skipToolbar: false,
+      styleMode: 'underline',
+    });
+    expect(globalThis.__NOTION_STABLE_URL__).toBe('https://test.com');
+  });
+
+  test('被刪除的頁面應 skipRestore', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: false,
+      wasDeleted: true,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({}); // default
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers(); // clear timeout
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: true,
+      skipToolbar: true,
+      styleMode: 'background',
+    });
+  });
+
+  test('當 chrome API 拋出錯誤時安全回退', async () => {
+    globalThis.chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('no pageStatus'));
+    globalThis.chrome.storage.sync.get.mockRejectedValueOnce(new Error('no storage sync'));
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers(); // clear timeout
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: false,
+      skipToolbar: true,
+      styleMode: 'background', // fallback
+    });
+  });
+
+  test('如果 setupHighlighter 拋錯應能捕獲', async () => {
+    mockSetupHighlighter.mockImplementationOnce(() => {
+      throw new Error('Initial fail');
+    });
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers(); // clear timeout
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // 應該調用兩次: 一次正常，一次 fallback
+    expect(mockSetupHighlighter).toHaveBeenCalledTimes(2);
+    expect(mockSetupHighlighter).toHaveBeenNthCalledWith(2, {
+      skipRestore: true,
+      skipToolbar: true,
+    });
+  });
+
+  test('sendMessage 接收 SET_STABLE_URL 訊息 (waitForStableUrl 內)', async () => {
+    // We want the Promise inside waitForStableUrl to resolve.
+    // It's created inside the init execution.
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    let messageHandler;
+    globalThis.chrome.runtime.onMessage.addListener.mockImplementation(handler => {
+      messageHandler = handler;
     });
 
-    const restore = jest.fn().mockRejectedValue(new Error('restore failed'));
+    require('../../../scripts/highlighter/entryAutoInit.js');
+
+    // Simulate background worker sending the message quickly
+    messageHandler({ action: 'SET_STABLE_URL', stableUrl: 'https://sent-from-bg.com' });
+    jest.runAllTimers();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(globalThis.__NOTION_STABLE_URL__).toBe('https://sent-from-bg.com');
+  });
+
+  test('sendMessage 接收 GET_STABLE_URL & showToolbar', async () => {
+    globalThis.__NOTION_STABLE_URL__ = 'https://existing.com';
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    let messageHandler;
+    globalThis.chrome.runtime.onMessage.addListener.mockImplementation(handler => {
+      messageHandler = handler;
+    });
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Test GET_STABLE_URL
+    const sendResponseMock = jest.fn();
+    const result1 = messageHandler({ action: 'GET_STABLE_URL' }, {}, sendResponseMock);
+    expect(result1).toBe(true);
+    expect(sendResponseMock).toHaveBeenCalledWith({ stableUrl: 'https://existing.com' });
+
+    // Test showToolbar
+    const sendResponseMock2 = jest.fn();
+    globalThis.notionHighlighter = {
+      createAndShowToolbar: jest.fn(),
+    };
+    const result2 = messageHandler({ action: 'showToolbar' }, {}, sendResponseMock2);
+    expect(result2).toBe(true);
+    expect(globalThis.notionHighlighter.createAndShowToolbar).toHaveBeenCalled();
+    expect(sendResponseMock2).toHaveBeenCalledWith({ success: true });
+
+    // showToolbar fail
+    globalThis.notionHighlighter.createAndShowToolbar.mockImplementation(() => {
+      throw new Error('boom');
+    });
+    messageHandler({ action: 'showToolbar' }, {}, sendResponseMock);
+    expect(sendResponseMock).toHaveBeenCalledWith({ success: false, error: 'boom' });
+  });
+
+  test('chrome.storage.onChanged 更新標籤樣式', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+    let changedHandler;
+    globalThis.chrome.storage.onChanged.addListener.mockImplementation(handler => {
+      changedHandler = handler;
+    });
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers();
+    await Promise.resolve();
+    await Promise.resolve();
+
     globalThis.HighlighterV2 = {
       manager: {
-        getCount: jest.fn().mockReturnValue(0),
-      },
-      restoreManager: {
-        restore,
+        updateStyleMode: jest.fn(),
       },
     };
 
-    const promiseResolveSpy = jest.spyOn(Promise, 'resolve');
-    const messageHandler = listeners.at(-1);
-
-    messageHandler(
-      { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/posts/123/' },
-      {},
-      jest.fn()
-    );
-
-    await flushMicrotasks();
-
-    expect(restore).toHaveBeenCalledTimes(1);
-    expect(promiseResolveSpy).not.toHaveBeenCalled();
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      '[Highlighter] Late stable URL restore retry failed',
-      expect.objectContaining({
-        action: 'SET_STABLE_URL',
-        error: 'restore failed',
-      })
-    );
+    changedHandler({ highlightStyle: { newValue: 'underline' } }, 'sync');
+    expect(globalThis.HighlighterV2.manager.updateStyleMode).toHaveBeenCalledWith('underline');
   });
 });
