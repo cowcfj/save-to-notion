@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
-import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../../../scripts/utils/securityUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import {
   SYNC_BUTTON_DEBOUNCE_MS,
@@ -1116,7 +1116,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     expect(Logger.warn).toHaveBeenCalledWith('[SidePanel] Failed to open unsynced page tab', {
       error,
-      url: 'https://example.com/p',
+      url: sanitizeUrlForLogging('https://example.com/p'),
     });
   });
 
