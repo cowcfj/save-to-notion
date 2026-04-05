@@ -18,7 +18,11 @@ import {
 } from '../scripts/config/storageKeys.js';
 import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
+import * as UI from './sidepanelUI.js';
+
+// === 共享狀態（保留於入口，UI 模組不直接存取） ===
 
 let els = {};
 
@@ -27,11 +31,9 @@ let statusMessageTimeoutId;
 // 快取：避免每次 storage 變化都重新解析 URL
 let cachedStableUrl = null;
 let cachedTabUrl = null;
-
-// === 待同步視圖設定 ===
-const PAGE_BATCH_SIZE = 10;
-const PREVIEW_HIGHLIGHT_COUNT = 3;
-const PREVIEW_TEXT_MAX_LENGTH = 80;
+let currentActiveView = 'current';
+let currentViewRequestId = 0;
+let unsyncedViewRequestId = 0;
 
 /** @type {Array<object> | null} 快取的未同步頁面資料 */
 let cachedUnsyncedPages = null;
@@ -40,36 +42,163 @@ let displayedCardCount = 0;
 /** @type {ReturnType<typeof setTimeout> | null} 未同步 badge 更新的 debounce timer */
 let unsyncedBadgeTimer = null;
 
+// === UI 協調層 ===
+
 /**
- * 從 URL 中提取 domain 名稱
+ * 將 storage key 壓縮為非敏感類型標識，避免日誌洩漏完整 URL。
  *
- * @param {string} url
- * @returns {string}
+ * @param {string} storageKey
+ * @returns {'page' | 'highlights' | 'unknown'}
  */
-function extractDomain(url) {
+function getStorageKeyType(storageKey) {
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    return 'page';
+  }
+  if (storageKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return 'highlights';
+  }
+  return 'unknown';
+}
+
+/**
+ * 待同步視圖讀取失敗時，退回到安全且可預期的 UI 狀態。
+ *
+ * @param {string} message
+ */
+function renderUnsyncedFallbackState(message = UI_MESSAGES.SIDEPANEL.LOAD_FAILED) {
+  cachedUnsyncedPages = [];
+  displayedCardCount = 0;
+
+  if (els.unsyncedView) {
+    els.unsyncedView.textContent = '';
+    const fallbackMessage = document.createElement('p');
+    fallbackMessage.className = 'unsynced-empty';
+    fallbackMessage.textContent = message;
+    els.unsyncedView.append(fallbackMessage);
+  }
+
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  if (els.loadMoreBtn) {
+    els.loadMoreBtn.style.display = 'none';
+  }
+
+  UI.updateUnsyncedBadge(els, []);
+}
+
+/**
+ * 記錄目前啟用中的視圖名稱。
+ *
+ * @param {'current' | 'unsynced'} viewName
+ */
+function setActiveView(viewName) {
+  currentActiveView = viewName;
+}
+
+/**
+ * 建立 current view 的最新請求序號。
+ *
+ * @returns {number}
+ */
+function beginCurrentViewRequest() {
+  currentViewRequestId += 1;
+  return currentViewRequestId;
+}
+
+/**
+ * 建立 unsynced view 的最新請求序號。
+ *
+ * @returns {number}
+ */
+function beginUnsyncedViewRequest() {
+  unsyncedViewRequestId += 1;
+  return unsyncedViewRequestId;
+}
+
+/**
+ * 檢查 current view 的非同步請求是否仍可安全套用 UI。
+ *
+ * @param {number} requestId
+ * @returns {boolean}
+ */
+function isCurrentViewRequestActive(requestId) {
+  return currentActiveView === 'current' && currentViewRequestId === requestId;
+}
+
+/**
+ * 檢查 unsynced view 的非同步請求是否仍可安全套用 UI。
+ *
+ * @param {number} requestId
+ * @returns {boolean}
+ */
+function isUnsyncedViewRequestActive(requestId) {
+  return currentActiveView === 'unsynced' && unsyncedViewRequestId === requestId;
+}
+
+/**
+ * 顯示計時狀態訊息，timer 到期後自動隱藏
+ * 統一管理 statusMessageTimeoutId，避免 timer 狀態分散
+ *
+ * @param {string} text
+ * @param {string} type - 'info' | 'success' | 'error'
+ */
+function showTimedMessage(text, type) {
+  clearTimeout(statusMessageTimeoutId);
+  UI.showMessage(els, text, type);
+  statusMessageTimeoutId = setTimeout(() => {
+    UI.hideMessage(els);
+  }, UI.MESSAGE_DISPLAY_DURATION_MS);
+}
+
+/**
+ * 從 storage 抓取未同步頁面後更新 badge
+ * 統一 badge 資料流，確保 storage 變更與初始化路徑一致
+ *
+ * @param {string} [logMessage] - 失敗時使用的日誌訊息
+ * @returns {Promise<void>}
+ */
+async function refreshUnsyncedBadge(logMessage = '[SidePanel] refreshUnsyncedBadge failed') {
   try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
+    const pages = await getUnsyncedPages();
+    UI.updateUnsyncedBadge(els, pages);
+  } catch (error) {
+    Logger.error(logMessage, { error });
+    UI.updateUnsyncedBadge(els, []);
   }
 }
 
 /**
- * 將標註陣列轉換為預覽清單
+ * 取出下一批卡片並插入 unsyncedView，統一 displayedCardCount / hasMore / 補位邏輯
  *
- * @param {Array} highlights
- * @returns {Array<{text, truncated, color}>}
+ * @param {number} count - 本次渲染數量
  */
-function buildPreviewHighlights(highlights) {
-  return highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => {
-    const rawText = String(hl && typeof hl.text === 'string' ? hl.text : '');
-    return {
-      text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
-      truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
-      color: hl?.color || 'yellow',
-    };
+function appendNextUnsyncedBatch(count) {
+  const renderedCount = UI.appendCards(els, cachedUnsyncedPages, displayedCardCount, count, {
+    onOpen: url => {
+      chrome.tabs.create({ url }).catch(error => {
+        Logger.warn('[SidePanel] Failed to open unsynced page tab', {
+          error,
+          url: sanitizeUrlForLogging(url),
+        });
+      });
+    },
+    onDelete: (storageKey, card) => {
+      const page = cachedUnsyncedPages?.find(item => item.storageKey === storageKey);
+      deleteUnsyncedPage(storageKey, card).catch(error => {
+        Logger.warn('[SidePanel] Failed to delete unsynced page card', {
+          error,
+          storageKeyType: getStorageKeyType(storageKey),
+          url: sanitizeUrlForLogging(page?.url),
+        });
+      });
+    },
   });
+
+  displayedCardCount += renderedCount;
 }
+
+// === 業務邏輯 ===
 
 /**
  * 從 page_* 對象建立頁面條目（新格式）
@@ -90,11 +219,11 @@ function buildPageEntry(key, url, value) {
   return {
     url,
     storageKey: key,
-    title: value.notion?.title || value.metadata?.title || extractDomain(url),
+    title: value.notion?.title || value.metadata?.title || UI.extractDomain(url),
     highlightCount: highlights.length,
     lastUpdated: value.metadata?.lastUpdated || 0,
-    previewHighlights: buildPreviewHighlights(highlights),
-    remainingCount: Math.max(0, highlights.length - PREVIEW_HIGHLIGHT_COUNT),
+    previewHighlights: UI.buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
   };
 }
 
@@ -126,11 +255,11 @@ function buildLegacyPageEntry(key, url, value, all, aliasMap) {
   return {
     url,
     storageKey: key,
-    title: savedData?.title || value?.title || extractDomain(url),
+    title: savedData?.title || value?.title || UI.extractDomain(url),
     highlightCount: highlights.length,
     lastUpdated: value?.updatedAt || 0,
-    previewHighlights: buildPreviewHighlights(highlights),
-    remainingCount: Math.max(0, highlights.length - PREVIEW_HIGHLIGHT_COUNT),
+    previewHighlights: UI.buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
   };
 }
 
@@ -191,22 +320,8 @@ async function getUnsyncedPages() {
 }
 
 async function init() {
-  els = {
-    loadingState: document.querySelector('#loading-state'),
-    emptyState: document.querySelector('#empty-state'),
-    highlightsList: document.querySelector('#highlights-list'),
-    syncButton: document.querySelector('#sync-button'),
-    openNotionButton: document.querySelector('#open-notion-button'),
-    statusMessage: document.querySelector('#status-message'),
-    template: document.querySelector('#highlight-card-template'),
-    unsyncedView: document.querySelector('#unsynced-view'),
-    loadMoreBtn: document.querySelector('#load-more-btn'),
-    unsyncedBadge: document.querySelector('#unsynced-badge'),
-    pageCardTemplate: document.querySelector('#page-card-template'),
-    unsyncedToolbar: document.querySelector('#unsynced-toolbar'),
-    unsyncedCountLabel: document.querySelector('#unsynced-count-label'),
-    clearAllBtn: document.querySelector('#clear-all-btn'),
-  };
+  els = UI.getElements();
+  setActiveView('current');
 
   // 1. 綁定按鈕事件
   els.syncButton.addEventListener('click', handleSyncClick);
@@ -236,9 +351,8 @@ async function init() {
   }
 
   // 6. 初始化載入當前分頁，並更新 badge
-  await loadCurrentTab();
-  const unsyncedPages = await getUnsyncedPages();
-  updateUnsyncedBadge(unsyncedPages);
+  await loadCurrentTab(null, beginCurrentViewRequest());
+  await refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed during init');
 }
 
 /**
@@ -247,18 +361,21 @@ async function init() {
  * @param {chrome.tabs.TabActiveInfo} activeInfo
  */
 async function handleTabChange(activeInfo) {
-  await loadCurrentTab(activeInfo.tabId);
+  await loadCurrentTab(activeInfo.tabId, beginCurrentViewRequest());
 }
 
 /**
  * 主要載入流程
  *
  * @param {number|null} specificTabId
+ * @param {number} [requestId]
  */
-async function loadCurrentTab(specificTabId = null) {
+async function loadCurrentTab(specificTabId = null, requestId = beginCurrentViewRequest()) {
   cachedStableUrl = null;
   cachedTabUrl = null;
-  showLoading();
+  if (isCurrentViewRequestActive(requestId)) {
+    UI.showLoading(els);
+  }
 
   try {
     let tab;
@@ -270,22 +387,30 @@ async function loadCurrentTab(specificTabId = null) {
     }
 
     if (!tab?.url || RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol)) {
-      showEmpty(UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
+      if (isCurrentViewRequestActive(requestId)) {
+        UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
+      }
       return;
     }
 
     // 核心: 解析穩定 URL (3層 Fallback)
     const stableUrl = await getStableUrlForTab(tab.id, tab.url);
 
+    if (!isCurrentViewRequestActive(requestId)) {
+      return;
+    }
+
     // 快取 URL 供 handleStorageChange 快速路徑使用
     cachedStableUrl = stableUrl;
     cachedTabUrl = tab.url;
 
     // 獲取資料
-    await renderHighlightsForUrl(stableUrl, tab.url);
+    await renderHighlightsForUrl(stableUrl, tab.url, requestId);
   } catch (error) {
     Logger.error('[SidePanel] Failed to load tab', { error });
-    showEmpty(UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
+    }
   }
 }
 
@@ -407,8 +532,9 @@ async function checkSavedData(notionData, targetKey) {
  *
  * @param {string} url
  * @param {string} originalTabUrl
+ * @param {number} requestId
  */
-async function renderHighlightsForUrl(url, originalTabUrl) {
+async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
   const normalizedUrl = normalizeUrl(url);
   const normalizedOriginal = normalizeUrl(originalTabUrl);
 
@@ -423,18 +549,26 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 
   const result = await chrome.storage.local.get(Object.values(keys));
   const { highlightsData, notionData, targetKey } = await resolveHighlightData(result, keys);
+  if (!isCurrentViewRequestActive(requestId)) {
+    return;
+  }
 
   const highlights = Array.isArray(highlightsData)
     ? highlightsData
     : highlightsData?.highlights || [];
   if (highlights.length === 0) {
-    showEmpty();
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els);
+    }
     return;
   }
 
-  renderList(highlights, targetKey);
+  UI.renderList(els, highlights, targetKey, handleDelete);
 
   const hasSavedData = await checkSavedData(notionData, targetKey);
+  if (!isCurrentViewRequestActive(requestId)) {
+    return;
+  }
   // Sync 按鈕始終可用（savePage 可自動建立新頁面）
   els.syncButton.disabled = false;
   els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
@@ -445,49 +579,6 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 
   els.syncButton.dataset.targetUrl = targetUrl;
   els.openNotionButton.dataset.targetUrl = originalTabUrl;
-}
-
-/**
- * 實體渲染 DOM
- *
- * @param {Array} highlights
- * @param {string} storageKey
- */
-function renderList(highlights, storageKey) {
-  els.highlightsList.textContent = '';
-
-  const COLOR_MAP = {
-    yellow: 'var(--hl-yellow)',
-    green: 'var(--hl-green)',
-    blue: 'var(--hl-blue)',
-    red: 'var(--hl-red)',
-    purple: 'var(--hl-purple)',
-    pink: 'var(--hl-pink)',
-  };
-
-  highlights.forEach(hl => {
-    const clone = els.template.content.cloneNode(true);
-    const card = clone.querySelector('.highlight-card');
-    const textEl = clone.querySelector('.highlight-text');
-    const colorInd = clone.querySelector('.highlight-color-indicator');
-    const delBtn = clone.querySelector('.delete-button');
-
-    textEl.textContent = hl.text;
-
-    // 設置顏色指示條
-    if (hl.color) {
-      colorInd.style.backgroundColor = COLOR_MAP[hl.color] || COLOR_MAP.yellow;
-    }
-
-    // 綁定刪除事件
-    delBtn.addEventListener('click', () => handleDelete(hl.id, storageKey));
-
-    els.highlightsList.append(card);
-  });
-
-  els.loadingState.style.display = 'none';
-  els.emptyState.style.display = 'none';
-  els.highlightsList.style.display = isCurrentViewActive() ? 'flex' : 'none';
 }
 
 /**
@@ -596,21 +687,27 @@ async function handleDelete(highlightId, storageKey) {
  */
 async function handleSyncClick() {
   els.syncButton.disabled = true;
-  showMessage(UI_MESSAGES.SIDEPANEL.SYNCING, 'info');
+  showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNCING, 'info');
 
   try {
     const response = await chrome.runtime.sendMessage({ action: 'savePage' });
     if (response?.success) {
-      showMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
-      showMessage(response?.error || UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+      Logger.error('[SidePanel] savePage failed', {
+        error: sanitizeApiError(response?.error || 'Unknown error', 'save_page'),
+      });
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
     }
-  } catch {
-    showMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+  } catch (error) {
+    Logger.error('[SidePanel] savePage failed', {
+      error: sanitizeApiError(error, 'save_page'),
+    });
+    showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
   } finally {
     setTimeout(() => {
       els.syncButton.disabled = false;
-    }, 2000);
+    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
   }
 }
 
@@ -619,22 +716,28 @@ async function handleSyncClick() {
  */
 async function handleOpenNotionClick() {
   els.openNotionButton.disabled = true;
-  showMessage(UI_MESSAGES.SIDEPANEL.OPENING, 'info');
+  showTimedMessage(UI_MESSAGES.SIDEPANEL.OPENING, 'info');
 
   try {
     const url = els.openNotionButton.dataset.targetUrl;
     const response = await chrome.runtime.sendMessage({ action: 'openNotionPage', url });
     if (response?.success) {
-      showMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
     } else {
-      showMessage(response?.error || UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
+      Logger.error('[SidePanel] openNotionPage failed', {
+        error: sanitizeApiError(response?.error || 'Unknown error', 'open_page'),
+      });
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
     }
-  } catch {
-    showMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
+  } catch (error) {
+    Logger.error('[SidePanel] openNotionPage failed', {
+      error: sanitizeApiError(error, 'open_page'),
+    });
+    showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
   } finally {
     setTimeout(() => {
       els.openNotionButton.disabled = false;
-    }, 1000);
+    }, UI.OPEN_BUTTON_DEBOUNCE_MS);
   }
 }
 
@@ -664,63 +767,19 @@ function handleStorageChange(changes, namespace) {
   // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
   clearTimeout(unsyncedBadgeTimer);
   unsyncedBadgeTimer = setTimeout(() => {
-    updateUnsyncedBadge(null).catch(() => {});
+    refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed after storage change');
   }, 300);
 
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
   if (cachedStableUrl && cachedTabUrl) {
-    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl).catch(error =>
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl, beginCurrentViewRequest()).catch(error =>
       Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
     );
     return;
   }
 
   // 初始狀態尚無快取，走完整路徑
-  loadCurrentTab();
-}
-
-// === UI 輔助函數 ===
-
-function isCurrentViewActive() {
-  const currentTab = document.querySelector('.view-tab[data-view="current"]');
-  return currentTab ? currentTab.classList.contains('active') : true;
-}
-
-function showLoading() {
-  const isActive = isCurrentViewActive();
-  els.loadingState.style.display = isActive ? 'flex' : 'none';
-  els.emptyState.style.display = 'none';
-  els.highlightsList.style.display = 'none';
-  els.openNotionButton.style.display = 'none';
-}
-
-function showEmpty(msg = null) {
-  const isActive = isCurrentViewActive();
-  els.loadingState.style.display = 'none';
-  els.emptyState.style.display = isActive ? 'flex' : 'none';
-  els.highlightsList.style.display = 'none';
-  els.openNotionButton.style.display = 'none';
-
-  if (msg) {
-    els.emptyState.querySelector('p').textContent = msg;
-    els.emptyState.querySelector('.subtitle').style.display = 'none';
-  } else {
-    els.emptyState.querySelector('p').textContent = UI_MESSAGES.SIDEPANEL.NO_HIGHLIGHTS;
-    els.emptyState.querySelector('.subtitle').textContent =
-      UI_MESSAGES.SIDEPANEL.NO_HIGHLIGHTS_SUBTITLE;
-    els.emptyState.querySelector('.subtitle').style.display = 'block';
-  }
-}
-
-function showMessage(text, type) {
-  els.statusMessage.textContent = text;
-  els.statusMessage.className = `status-message ${type}`;
-  els.statusMessage.style.display = 'block';
-
-  clearTimeout(statusMessageTimeoutId);
-  statusMessageTimeoutId = setTimeout(() => {
-    els.statusMessage.style.display = 'none';
-  }, 3000);
+  loadCurrentTab(null, beginCurrentViewRequest());
 }
 
 // 啟動
@@ -729,167 +788,80 @@ document.addEventListener('DOMContentLoaded', init);
 // === 待同步視圖切換邏輯 ===
 
 /**
- * 切換視圖：'current' 或 'unsynced'
- *
- * @param {'current'|'unsynced'} viewName
- */
-function switchView(viewName) {
-  const currentViewEls = [els.loadingState, els.emptyState, els.highlightsList, els.statusMessage];
-  const unsyncedView = els.unsyncedView;
-  const loadMoreBtn = els.loadMoreBtn;
-
-  if (viewName === 'unsynced') {
-    currentViewEls.forEach(el => el && (el.style.display = 'none'));
-    if (els.syncButton) {
-      els.syncButton.style.display = 'none';
-    }
-    if (els.openNotionButton) {
-      els.openNotionButton.style.display = 'none';
-    }
-    unsyncedView.style.display = 'block';
-    renderUnsyncedView();
-  } else {
-    unsyncedView.style.display = 'none';
-    if (els.syncButton) {
-      els.syncButton.style.display = '';
-    }
-    if (els.openNotionButton) {
-      els.openNotionButton.style.display = '';
-    }
-    if (loadMoreBtn) {
-      loadMoreBtn.style.display = 'none';
-    }
-    if (els.unsyncedToolbar) {
-      els.unsyncedToolbar.style.display = 'none';
-    }
-    loadCurrentTab();
-  }
-
-  // 更新 tab 的 active 樣式
-  document.querySelectorAll('.view-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.view === viewName);
-  });
-}
-
-/**
  * Tab bar 點擊事件處理
  *
  * @param {Event} event
  */
 function handleViewTabClick(event) {
   const viewName = event.currentTarget.dataset.view;
-  if (viewName) {
-    switchView(viewName);
+  if (!viewName) {
+    return;
+  }
+  setActiveView(viewName);
+  // UI 層只做 DOM 切換，業務回調在此協調
+  UI.switchView(els, viewName);
+  if (viewName === 'unsynced') {
+    renderUnsyncedView(
+      '[SidePanel] renderUnsyncedView failed after tab switch',
+      beginUnsyncedViewRequest()
+    );
+  } else {
+    loadCurrentTab(null, beginCurrentViewRequest());
   }
 }
 
 /**
  * 渲染「待同步」視圖（含分頁）
- */
-async function renderUnsyncedView() {
-  const container = els.unsyncedView;
-  const loadMoreBtn = els.loadMoreBtn;
-
-  // 每次進入時重新抓取資料
-  cachedUnsyncedPages = await getUnsyncedPages();
-  displayedCardCount = 0;
-  container.textContent = '';
-
-  if (cachedUnsyncedPages.length === 0) {
-    renderUnsyncedEmptyState();
-    if (loadMoreBtn) {
-      loadMoreBtn.style.display = 'none';
-    }
-    if (els.unsyncedToolbar) {
-      els.unsyncedToolbar.style.display = 'none';
-    }
-    updateUnsyncedBadge(cachedUnsyncedPages);
-    return;
-  }
-
-  // 顯示工具列並更新計數
-  if (els.unsyncedToolbar) {
-    els.unsyncedToolbar.style.display = 'flex';
-  }
-  if (els.unsyncedCountLabel) {
-    const count = cachedUnsyncedPages.length;
-    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
-  }
-
-  appendCards(container, PAGE_BATCH_SIZE);
-  updateUnsyncedBadge(cachedUnsyncedPages);
-}
-
-/**
- * 從 cachedUnsyncedPages 取出下一批卡片並插入 container
  *
- * @param {HTMLElement} container
- * @param {number} count
+ * @param {string} [logMessage] - 失敗時使用的日誌訊息
+ * @param {number} [requestId] - 本次 unsynced view 請求序號
  */
-function appendCards(container, count) {
+async function renderUnsyncedView(
+  logMessage = '[SidePanel] renderUnsyncedView failed',
+  requestId = beginUnsyncedViewRequest()
+) {
   const loadMoreBtn = els.loadMoreBtn;
-  const template = els.pageCardTemplate;
-  const batch = cachedUnsyncedPages.slice(displayedCardCount, displayedCardCount + count);
 
-  batch.forEach(page => {
-    const cardNode = template.content.cloneNode(true);
-    const card = cardNode.querySelector('.page-card');
+  try {
+    // 每次進入時重新抓取資料
+    const nextUnsyncedPages = await getUnsyncedPages();
+    if (!isUnsyncedViewRequestActive(requestId)) {
+      return;
+    }
+    cachedUnsyncedPages = nextUnsyncedPages;
+    displayedCardCount = 0;
+    els.unsyncedView.textContent = '';
 
-    card.querySelector('.page-title').textContent = page.title;
-    card.querySelector('.page-meta').textContent =
-      `${extractDomain(page.url)} • ${UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT(page.highlightCount)}`;
-
-    // 標註預覽
-    const previewContainer = card.querySelector('.page-card-previews');
-    page.previewHighlights.forEach(highlight => {
-      const row = document.createElement('p');
-      row.className = `preview-row color-${highlight.color}`;
-      row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
-      previewContainer.append(row);
-    });
-
-    // +N more
-    const remainingEl = card.querySelector('.page-card-remaining');
-    if (page.remainingCount > 0) {
-      remainingEl.textContent = UI_MESSAGES.SIDEPANEL.REMAINING_COUNT(page.remainingCount);
+    if (cachedUnsyncedPages.length === 0) {
+      UI.renderUnsyncedEmptyState(els);
+      if (loadMoreBtn) {
+        loadMoreBtn.style.display = 'none';
+      }
+      if (els.unsyncedToolbar) {
+        els.unsyncedToolbar.style.display = 'none';
+      }
+      UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+      return;
     }
 
-    // 開啟頁面
-    card.querySelector('.page-open-button').addEventListener('click', () => {
-      chrome.tabs.create({ url: page.url });
-    });
+    // 顯示工具列並更新計數
+    if (els.unsyncedToolbar) {
+      els.unsyncedToolbar.style.display = 'flex';
+    }
+    if (els.unsyncedCountLabel) {
+      const count = cachedUnsyncedPages.length;
+      els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
+    }
 
-    // 刪除單頁標注
-    card.querySelector('.page-delete-button').addEventListener('click', () => {
-      deleteUnsyncedPage(page.storageKey, card);
-    });
-
-    container.append(card);
-  });
-
-  displayedCardCount += batch.length;
-
-  // 更新「載入更多」按鈕
-  if (loadMoreBtn) {
-    const hasMore = displayedCardCount < cachedUnsyncedPages.length;
-    loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+    appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
+    UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+  } catch (error) {
+    if (!isUnsyncedViewRequestActive(requestId)) {
+      return;
+    }
+    Logger.error(logMessage, { error });
+    renderUnsyncedFallbackState();
   }
-}
-
-/**
- * 渲染未同步列表空狀態
- */
-function renderUnsyncedEmptyState() {
-  const container = els.unsyncedView;
-  if (!container) {
-    return;
-  }
-
-  container.textContent = '';
-  const emptyMessage = document.createElement('p');
-  emptyMessage.className = 'unsynced-empty';
-  emptyMessage.textContent = UI_MESSAGES.SIDEPANEL.ALL_SYNCED;
-  container.append(emptyMessage);
 }
 
 /**
@@ -899,22 +871,7 @@ function loadMoreCards() {
   if (!cachedUnsyncedPages) {
     return;
   }
-  const container = els.unsyncedView;
-  appendCards(container, PAGE_BATCH_SIZE);
-}
-
-/**
- * 計算未同步頁面數量，更新 Tab 上的 badge
- *
- * @param {Array|undefined} [pages] - 已取得的未同步頁面陣列；若未提供則自行呼叫 getUnsyncedPages()
- */
-async function updateUnsyncedBadge(pages) {
-  const resolvedPages = pages ?? (await getUnsyncedPages());
-  const badge = els.unsyncedBadge;
-  if (!badge) {
-    return;
-  }
-  badge.textContent = resolvedPages.length > 0 ? String(resolvedPages.length) : '';
+  appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
 }
 
 /**
@@ -951,12 +908,12 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
     if (els.loadMoreBtn) {
       els.loadMoreBtn.style.display = 'none';
     }
-    renderUnsyncedEmptyState();
+    UI.renderUnsyncedEmptyState(els);
   }
   if (count > 0 && displayedCardCount < cachedUnsyncedPages.length) {
-    appendCards(els.unsyncedView, 1);
+    appendNextUnsyncedBatch(1);
   }
-  updateUnsyncedBadge(cachedUnsyncedPages);
+  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
 }
 
 /**
@@ -984,7 +941,7 @@ async function deleteAllUnsyncedPages() {
   if (els.loadMoreBtn) {
     els.loadMoreBtn.style.display = 'none';
   }
-  renderUnsyncedEmptyState();
+  UI.renderUnsyncedEmptyState(els);
 
-  updateUnsyncedBadge(cachedUnsyncedPages);
+  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
 }

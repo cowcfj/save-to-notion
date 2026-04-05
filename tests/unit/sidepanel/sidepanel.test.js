@@ -1,5 +1,12 @@
 import { jest } from '@jest/globals';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
+import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../../../scripts/utils/securityUtils.js';
+import Logger from '../../../scripts/utils/Logger.js';
+import {
+  SYNC_BUTTON_DEBOUNCE_MS,
+  OPEN_BUTTON_DEBOUNCE_MS,
+} from '../../../sidepanel/sidepanelUI.js';
 
 // ---- Mocks ----
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
@@ -15,6 +22,24 @@ jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   }),
 }));
 
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((_resolve, _reject) => {
+    resolve = _resolve;
+    reject = _reject;
+  });
+  return { promise, resolve, reject };
+}
+
 // Chrome API polyfills
 globalThis.chrome = {
   tabs: {
@@ -22,6 +47,7 @@ globalThis.chrome = {
     onUpdated: { addListener: jest.fn() },
     query: jest.fn(),
     get: jest.fn(),
+    create: jest.fn(),
     sendMessage: jest.fn(),
   },
   storage: {
@@ -80,6 +106,7 @@ describe('Sidepanel JS Logic', () => {
 
     chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
     chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.create.mockResolvedValue({ id: 103, url: 'https://opened.example' });
     chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.js/stable' });
     chrome.storage.local.get.mockResolvedValue({});
 
@@ -575,6 +602,42 @@ describe('Sidepanel JS Logic', () => {
       expect(syncBtn.disabled).toBe(false);
     });
 
+    it('should use named debounce constants when re-enabling action buttons', async () => {
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
+          return { [key]: true };
+        }
+        return {
+          'highlights_https://example.js/stable': {
+            highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          },
+        };
+      });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      chrome.runtime.sendMessage
+        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce({ success: true });
+
+      const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
+
+      document.querySelector('#sync-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      document.querySelector('#open-notion-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), OPEN_BUTTON_DEBOUNCE_MS);
+
+      timeoutSpy.mockRestore();
+    });
+
     it('should trigger sync click gracefully when fails', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
@@ -599,7 +662,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toBe('status-message error');
     });
 
-    it('should display error message returned from runtime message', async () => {
+    it('should not display raw savePage error returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
@@ -620,8 +683,48 @@ describe('Sidepanel JS Logic', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#status-message').textContent).toBe('Custom API Error');
+      expect(document.querySelector('#status-message').textContent).toBe(
+        UI_MESSAGES.SIDEPANEL.SYNC_FAILED
+      );
       expect(document.querySelector('#status-message').className).toBe('status-message error');
+      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] savePage failed', {
+        error: sanitizeApiError('Custom API Error'),
+      });
+    });
+
+    it('should not display raw openNotionPage error returned from runtime message', async () => {
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
+          return { [key]: true };
+        }
+        return {
+          'highlights_https://example.js/stable': {
+            highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          },
+        };
+      });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: false,
+        error: 'Leaked debug detail',
+      });
+
+      const openBtn = document.querySelector('#open-notion-button');
+      openBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#status-message').textContent).toBe(
+        UI_MESSAGES.SIDEPANEL.OPEN_FAILED
+      );
+      expect(document.querySelector('#status-message').className).toBe('status-message error');
+      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] openNotionPage failed', {
+        error: sanitizeApiError('Leaked debug detail'),
+      });
     });
   });
 
@@ -651,6 +754,102 @@ describe('Sidepanel JS Logic', () => {
       onStorageChanged({ sc_some_other_key: { newValue: {} } }, 'local');
 
       expect(chrome.tabs.query).not.toHaveBeenCalled();
+    });
+
+    it('should log refreshUnsyncedBadge failures triggered by storage change timer', async () => {
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      const error = new Error('badge refresh failed');
+
+      Logger.error.mockClear();
+      chrome.storage.local.get.mockRejectedValue(error);
+
+      onStorageChanged({ 'highlights_https://sync.me': { newValue: {} } }, 'local');
+      await jest.runOnlyPendingTimersAsync();
+
+      const refreshBadgeCall = Logger.error.mock.calls.find(
+        ([message]) => message === '[SidePanel] refreshUnsyncedBadge failed after storage change'
+      );
+
+      expect(refreshBadgeCall).toEqual([
+        '[SidePanel] refreshUnsyncedBadge failed after storage change',
+        { error },
+      ]);
+    });
+
+    it('should not overwrite cached tab urls with stale loadCurrentTab results', async () => {
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      const staleStableUrl = 'https://stale.example.com/article';
+      const freshStableUrl = 'https://fresh.example.com/article';
+      const deferredStableUrl = createDeferred();
+
+      chrome.tabs.get.mockImplementation(async tabId => {
+        if (tabId === 701) {
+          return { id: 701, url: 'https://stale.example.com/raw' };
+        }
+        if (tabId === 702) {
+          return { id: 702, url: 'https://fresh.example.com/raw' };
+        }
+        return { id: tabId, url: 'https://fallback.example.com' };
+      });
+
+      chrome.tabs.sendMessage.mockImplementation(async tabId => {
+        if (tabId === 701) {
+          return deferredStableUrl.promise;
+        }
+        if (tabId === 702) {
+          return { stableUrl: freshStableUrl };
+        }
+        return { stableUrl: 'https://default.example.com' };
+      });
+
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (Array.isArray(key)) {
+          const requestedKeys = new Set(key);
+          if (requestedKeys.has(`page_${freshStableUrl}`)) {
+            return {
+              [`page_${freshStableUrl}`]: {
+                highlights: [{ id: 'fresh', text: 'fresh text', color: 'yellow' }],
+              },
+            };
+          }
+          if (requestedKeys.has(`page_${staleStableUrl}`)) {
+            return {
+              [`page_${staleStableUrl}`]: {
+                highlights: [{ id: 'stale', text: 'stale text', color: 'yellow' }],
+              },
+            };
+          }
+          return {};
+        }
+        if (typeof key === 'string') {
+          return {};
+        }
+        return {};
+      });
+
+      chrome.storage.local.get.mockClear();
+
+      const staleLoad = onActivated({ tabId: 701 });
+      await Promise.resolve();
+      const freshLoad = onActivated({ tabId: 702 });
+      await freshLoad;
+
+      deferredStableUrl.resolve({ stableUrl: staleStableUrl });
+      await staleLoad;
+
+      chrome.storage.local.get.mockClear();
+      onStorageChanged({ 'highlights_https://fresh.example.com/raw': { newValue: {} } }, 'local');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const keyedGetCalls = chrome.storage.local.get.mock.calls.filter(([arg]) =>
+        Array.isArray(arg)
+      );
+      const lastKeys = keyedGetCalls.at(-1)?.[0] || [];
+
+      expect(lastKeys).toContain(`page_${freshStableUrl}`);
+      expect(lastKeys).not.toContain(`page_${staleStableUrl}`);
     });
   });
 }); // end describe('Sidepanel JS Logic')
@@ -701,7 +900,11 @@ function buildUnsyncedDOM() {
 }
 
 async function initModule(storageMock) {
-  chrome.storage.local.get.mockResolvedValue(storageMock);
+  if (typeof storageMock === 'function') {
+    chrome.storage.local.get.mockImplementation(storageMock);
+  } else {
+    chrome.storage.local.get.mockResolvedValue(storageMock);
+  }
   jest.isolateModules(() => {
     require('../../../sidepanel/sidepanel.js');
   });
@@ -728,6 +931,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
     chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.create.mockResolvedValue({ id: 103, url: 'https://opened.example' });
     chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.com' });
     chrome.storage.local.get.mockResolvedValue({});
   });
@@ -835,6 +1039,87 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     expect(document.querySelector('#load-more-btn').style.display).toBe('none');
   });
 
+  it('should show safe fallback UI when renderUnsyncedView fails after tab switch', async () => {
+    await initModule({});
+
+    const error = new Error('unsynced load failed');
+    chrome.storage.local.get.mockImplementation(async key => {
+      if (key === null) {
+        throw error;
+      }
+      return {};
+    });
+
+    await clickUnsyncedTab();
+
+    expect(Logger.error).toHaveBeenCalledWith(
+      '[SidePanel] renderUnsyncedView failed after tab switch',
+      { error }
+    );
+    expect(document.querySelector('#unsynced-view').textContent).toContain('載入標註失敗');
+    expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
+    expect(document.querySelector('#load-more-btn').style.display).toBe('none');
+    expect(document.querySelector('#unsynced-badge').textContent).toBe('');
+  });
+
+  it('should ignore stale unsynced render results after switching back to current quickly', async () => {
+    await initModule({});
+
+    const deferredUnsyncedLoad = createDeferred();
+    chrome.storage.local.get.mockImplementation(async key => {
+      if (key === null) {
+        return deferredUnsyncedLoad.promise;
+      }
+      return {};
+    });
+
+    const unsyncedTab = document.querySelector('[data-view="unsynced"]');
+    const currentTab = document.querySelector('[data-view="current"]');
+
+    unsyncedTab.click();
+    await Promise.resolve();
+    currentTab.click();
+    await Promise.resolve();
+
+    const storageData = {};
+    for (let i = 0; i < 15; i++) {
+      storageData[`highlights_https://example.com/page${i}`] = {
+        highlights: [{ id: '1', text: `x${i}`, color: 'yellow' }],
+        updatedAt: i,
+      };
+    }
+    deferredUnsyncedLoad.resolve(storageData);
+    for (let i = 0; i < 10; i++) {
+      await Promise.resolve();
+    }
+
+    expect(currentTab.classList.contains('active')).toBe(true);
+    expect(unsyncedTab.classList.contains('active')).toBe(false);
+    expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
+    expect(document.querySelector('#load-more-btn').style.display).toBe('none');
+  });
+
+  it('should log warning when opening unsynced page fails', async () => {
+    await initModule({
+      'highlights_https://example.com/p': {
+        highlights: [{ id: '1', text: 'open fail', color: 'yellow' }],
+        updatedAt: 1000,
+      },
+    });
+    await clickUnsyncedTab();
+
+    const error = new Error('open failed');
+    chrome.tabs.create.mockRejectedValueOnce(error);
+
+    document.querySelector('.page-open-button').click();
+    await Promise.resolve();
+
+    expect(Logger.warn).toHaveBeenCalledWith('[SidePanel] Failed to open unsynced page tab', {
+      error,
+      url: sanitizeUrlForLogging('https://example.com/p'),
+    });
+  });
+
   it('badge should show correct unsynced count on init', async () => {
     await initModule({
       'highlights_https://x.com/p': {
@@ -850,6 +1135,25 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     // badge 在初始化時就應更新
     const badge = document.querySelector('#unsynced-badge');
     expect(badge.textContent).toBe('2');
+  });
+
+  it('should log and clear badge when refreshUnsyncedBadge fails during init', async () => {
+    const error = new Error('init badge failed');
+
+    await initModule(async key => {
+      if (key === null) {
+        throw error;
+      }
+      return {};
+    });
+
+    expect(Logger.error).toHaveBeenCalledWith(
+      '[SidePanel] refreshUnsyncedBadge failed during init',
+      {
+        error,
+      }
+    );
+    expect(document.querySelector('#unsynced-badge').textContent).toBe('');
   });
 
   it('should show empty message when all highlights are synced', async () => {
