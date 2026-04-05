@@ -48,6 +48,14 @@ jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
   injectGlobalStyles: jest.fn(), // 向後相容
 }));
 
+// Mock ToolbarRuntime - 避免在測試中觸發真實 Chrome API
+jest.mock('../../../../scripts/highlighter/ui/ToolbarRuntime.js', () => ({
+  checkPageStatus: jest.fn().mockResolvedValue({ success: true, isSaved: false }),
+  savePageFromToolbar: jest.fn().mockResolvedValue({ success: true }),
+  syncHighlights: jest.fn().mockResolvedValue({ success: true }),
+  openSidePanel: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('Toolbar 覆蓋率補強', () => {
   let managerMock = null;
   let toolbar = null;
@@ -434,38 +442,7 @@ describe('Toolbar 覆蓋率補強', () => {
     });
   });
 
-  describe('_sendMessageAsync', () => {
-    test('應該在 window 不可用時拒絕 Promise', async () => {
-      // 儲存原始 chrome
-      const originalChrome = globalThis.window.chrome;
-      globalThis.window.chrome = undefined;
-
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('無法連接擴展');
-
-      // 恢復
-      globalThis.window.chrome = originalChrome;
-    });
-
-    test('應該正確處理成功回應', async () => {
-      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        const response = { success: true };
-        callback(response);
-      });
-
-      const result = await Toolbar._sendMessageAsync({ action: 'test' });
-      expect(result).toEqual({ success: true });
-    });
-
-    test('應該在 lastError 時拒絕 Promise', async () => {
-      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        globalThis.window.chrome.runtime.lastError = { message: '連接失敗' };
-        callback();
-        delete globalThis.window.chrome.runtime.lastError;
-      });
-
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('連接失敗');
-    });
-  });
+  // _sendMessageAsync 方法已移至 ToolbarRuntime.js，以上測試已移至 ToolbarRuntime.test.js
 
   describe('syncToNotion 邊界情況', () => {
     test('應該在狀態元素不存在時安全返回', async () => {

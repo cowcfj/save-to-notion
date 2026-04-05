@@ -9,17 +9,20 @@ import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { TOOLBAR_SELECTORS } from '../../config/ui.js';
-import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
-import { sanitizeApiError, createSafeIcon } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
+import {
+  checkPageStatus,
+  savePageFromToolbar,
+  syncHighlights,
+  openSidePanel,
+} from './ToolbarRuntime.js';
+import { getToolbarElements, applySaveSyncVisibility, renderStatusIcon } from './ToolbarUI.js';
 
-const STYLE_INLINE_BLOCK = 'inline-block';
-const STYLE_TEXT_BOTTOM = 'text-bottom';
-const STYLE_INLINE_FLEX = 'inline-flex';
-const STYLE_NONE = 'none';
 const STYLE_BLOCK = 'block';
+const STYLE_NONE = 'none';
 const TOOLBAR_HOST_ID = 'notion-highlighter-host';
 const TOOLBAR_HOST_SELECTOR = `#${TOOLBAR_HOST_ID}`;
 const TOOLBAR_HOST_OWNER_ATTR = 'data-highlighter-owner';
@@ -280,9 +283,7 @@ export class Toolbar {
 
     if (manageBtn) {
       manageBtn.addEventListener('click', () => {
-        Toolbar._sendMessageAsync({ action: 'OPEN_SIDE_PANEL' }).catch(error =>
-          Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', error)
-        );
+        openSidePanel().catch(error => Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', error));
       });
     }
   }
@@ -466,83 +467,21 @@ export class Toolbar {
   }
 
   /**
-   * 封裝 chrome.runtime.sendMessage 為 Promise
-   *
-   * @param {object} message - 要發送的訊息
-   * @returns {Promise<object>}
-   * @private
-   */
-  static _sendMessageAsync(message) {
-    return new Promise((resolve, reject) => {
-      if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
-        reject(new Error('無法連接擴展'));
-        return;
-      }
-
-      globalThis.chrome.runtime.sendMessage(message, response => {
-        if (globalThis.chrome.runtime.lastError) {
-          reject(new Error(globalThis.chrome.runtime.lastError.message));
-          return;
-        }
-        resolve(response);
-      });
-    });
-  }
-
-  /**
-   * 設置狀態欄圖標與文字，封裝共用語意與樣式
-   *
-   * @param {HTMLElement} statusDiv
-   * @param {string} iconKey
-   * @param {string} messageKey
-   * @param {string} [customMessage]
-   * @private
-   */
-  static _setStatusIcon(statusDiv, iconKey, messageKey, customMessage) {
-    statusDiv.textContent = '';
-    const icon = createSafeIcon(UI_ICONS[iconKey]);
-    icon.style.display = STYLE_INLINE_BLOCK;
-    icon.style.marginRight = '4px';
-    icon.style.verticalAlign = STYLE_TEXT_BOTTOM;
-
-    if (iconKey === 'SYNC') {
-      icon.style.animation = 'spin 1s linear infinite';
-    }
-
-    statusDiv.append(icon);
-
-    // UI_MESSAGES.TOOLBAR 查找對應多語言常數字串，如果 customMessage 提供則取代
-    const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR[messageKey];
-    statusDiv.append(document.createTextNode(` ${textMsg}`));
-  }
-
-  /**
    * 查詢當前頁面保存狀態，切換「保存網頁」和「同步」按鈕的可見性
    */
   async updateSaveButtonVisibility() {
-    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
-    const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
+    const { saveBtn, syncBtn } = getToolbarElements(this.container);
 
     if (!saveBtn || !syncBtn) {
       return;
     }
 
     try {
-      const response = await Toolbar._sendMessageAsync({ action: 'checkPageStatus' });
-
-      if (response?.success && response.isSaved) {
-        // 已保存 → 顯示同步按鈕，隱藏保存按鈕
-        saveBtn.style.display = STYLE_NONE;
-        syncBtn.style.display = STYLE_INLINE_FLEX;
-      } else {
-        // 未保存 → 顯示保存按鈕，隱藏同步按鈕
-        saveBtn.style.display = STYLE_INLINE_FLEX;
-        syncBtn.style.display = STYLE_NONE;
-      }
+      const response = await checkPageStatus();
+      applySaveSyncVisibility(saveBtn, syncBtn, response?.success && response.isSaved);
     } catch {
       // 查詢失敗時預設顯示保存按鈕
-      saveBtn.style.display = STYLE_INLINE_FLEX;
-      syncBtn.style.display = STYLE_NONE;
+      applySaveSyncVisibility(saveBtn, syncBtn, false);
     }
   }
 
@@ -550,8 +489,7 @@ export class Toolbar {
    * 保存頁面到 Notion（從 Toolbar 發起）
    */
   async savePageToNotion() {
-    const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
-    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
+    const { saveBtn, statusDiv } = getToolbarElements(this.container);
     let success = false;
 
     if (saveBtn) {
@@ -560,18 +498,16 @@ export class Toolbar {
 
     if (statusDiv) {
       statusDiv.style.display = STYLE_BLOCK;
-      Toolbar._setStatusIcon(statusDiv, 'SYNC', null, '正在保存...');
+      renderStatusIcon(statusDiv, 'SYNC', null, '正在保存...');
     }
 
     try {
-      const response = await Toolbar._sendMessageAsync({
-        action: 'SAVE_PAGE_FROM_TOOLBAR',
-      });
+      const response = await savePageFromToolbar();
 
       if (response?.success) {
         success = true;
         if (statusDiv) {
-          Toolbar._setStatusIcon(statusDiv, 'CHECK', null, '保存成功！');
+          renderStatusIcon(statusDiv, 'CHECK', null, '保存成功！');
         }
 
         // await 確保按鈕切換完成後 finally 才執行，避免閃爍
@@ -580,12 +516,12 @@ export class Toolbar {
         const rawError = sanitizeApiError(response?.error || 'Unknown error');
         const errorMsg = ErrorHandler.formatUserMessage(rawError);
         if (statusDiv) {
-          Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
+          renderStatusIcon(statusDiv, 'X', null, errorMsg);
         }
       }
     } catch (error) {
       if (statusDiv) {
-        Toolbar._setStatusIcon(statusDiv, 'X', null, '保存失敗');
+        renderStatusIcon(statusDiv, 'X', null, '保存失敗');
       }
       Logger.error('從 Toolbar 保存頁面失敗', {
         action: 'savePageToNotion',
@@ -611,30 +547,27 @@ export class Toolbar {
    * 同步到 Notion
    */
   async syncToNotion() {
-    const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
+    const { statusDiv } = getToolbarElements(this.container);
 
     if (statusDiv) {
       statusDiv.style.display = 'block'; // Ensure it's visible during sync
 
       // Update UI to Loading State
-      Toolbar._setStatusIcon(statusDiv, 'SYNC', 'SYNCING');
+      renderStatusIcon(statusDiv, 'SYNC', 'SYNCING');
 
       Logger.start('準備同步標註到 Notion');
       try {
         // 收集標註數據
         const highlights = this.manager.collectHighlightsForNotion();
 
-        const response = await Toolbar._sendMessageAsync({
-          action: 'syncHighlights',
-          highlights,
-        });
+        const response = await syncHighlights(highlights);
 
         if (response?.success) {
-          Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
+          renderStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
         } else {
           switch (response?.errorCode) {
             case 'PAGE_DELETED': {
-              Toolbar._setStatusIcon(
+              renderStatusIcon(
                 statusDiv,
                 'X',
                 null,
@@ -644,7 +577,7 @@ export class Toolbar {
               break;
             }
             case 'PAGE_DELETION_PENDING': {
-              Toolbar._setStatusIcon(
+              renderStatusIcon(
                 statusDiv,
                 'X',
                 null,
@@ -654,18 +587,18 @@ export class Toolbar {
             }
             case 'PAGE_NOT_SAVED': {
               // 頁面尚未保存到 Notion，提供引導性訊息
-              Toolbar._setStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
+              renderStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
               break;
             }
             default: {
               const rawError = sanitizeApiError(response?.error || 'Unknown error');
               const errorMsg = ErrorHandler.formatUserMessage(rawError);
-              Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
+              renderStatusIcon(statusDiv, 'X', null, errorMsg);
             }
           }
         }
       } catch (error) {
-        Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
+        renderStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
 
         Logger.error('同步失敗:', {
           action: 'syncToNotion',
