@@ -13,6 +13,10 @@ import { UI_MESSAGES } from '../scripts/config/messages.js';
 export const PAGE_BATCH_SIZE = 10;
 /** @type {number} 狀態訊息顯示時長 */
 export const MESSAGE_DISPLAY_DURATION_MS = 3000;
+/** @type {number} 同步按鈕重新啟用延遲 */
+export const SYNC_BUTTON_DEBOUNCE_MS = 2000;
+/** @type {number} 開啟按鈕重新啟用延遲 */
+export const OPEN_BUTTON_DEBOUNCE_MS = 1000;
 /** @type {number} 預覽標註的最大顯示數量 */
 export const PREVIEW_HIGHLIGHT_COUNT = 3;
 /** @type {number} 預覽文字的最大長度 */

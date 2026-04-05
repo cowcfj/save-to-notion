@@ -707,7 +707,7 @@ async function handleSyncClick() {
   } finally {
     setTimeout(() => {
       els.syncButton.disabled = false;
-    }, 2000);
+    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
   }
 }
 
@@ -737,7 +737,7 @@ async function handleOpenNotionClick() {
   } finally {
     setTimeout(() => {
       els.openNotionButton.disabled = false;
-    }, 1000);
+    }, UI.OPEN_BUTTON_DEBOUNCE_MS);
   }
 }
 

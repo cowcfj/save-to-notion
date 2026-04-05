@@ -3,6 +3,10 @@ import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import {
+  SYNC_BUTTON_DEBOUNCE_MS,
+  OPEN_BUTTON_DEBOUNCE_MS,
+} from '../../../sidepanel/sidepanelUI.js';
 
 // ---- Mocks ----
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
@@ -596,6 +600,42 @@ describe('Sidepanel JS Logic', () => {
 
       jest.runAllTimers();
       expect(syncBtn.disabled).toBe(false);
+    });
+
+    it('should use named debounce constants when re-enabling action buttons', async () => {
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
+          return { [key]: true };
+        }
+        return {
+          'highlights_https://example.js/stable': {
+            highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          },
+        };
+      });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      chrome.runtime.sendMessage
+        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce({ success: true });
+
+      const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
+
+      document.querySelector('#sync-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      document.querySelector('#open-notion-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), OPEN_BUTTON_DEBOUNCE_MS);
+
+      timeoutSpy.mockRestore();
     });
 
     it('should trigger sync click gracefully when fails', async () => {
