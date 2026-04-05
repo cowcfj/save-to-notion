@@ -74,6 +74,8 @@ export function renderStatusIcon(statusDiv, iconKey, messageKey, customMessage) 
   statusDiv.append(icon);
 
   // 優先使用 customMessage，否則查找 UI_MESSAGES.TOOLBAR 常數
-  const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR[messageKey];
-  statusDiv.append(document.createTextNode(` ${textMsg}`));
+  const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR?.[messageKey] ?? '';
+  if (textMsg !== '') {
+    statusDiv.append(document.createTextNode(` ${textMsg}`));
+  }
 }
