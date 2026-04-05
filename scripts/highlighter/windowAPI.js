@@ -120,6 +120,10 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     },
     hide: () => state.currentToolbar?.hide(),
     minimize: () => state.currentToolbar?.minimize(),
+    isActive: () => {
+      const toolbarState = state.currentToolbar?.stateManager?.currentState;
+      return typeof toolbarState === 'string' && toolbarState !== 'hidden';
+    },
     toggle: () => {
       const tb = ensureToolbar(state);
       const toolbarState = tb.stateManager.currentState;

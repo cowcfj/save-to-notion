@@ -170,6 +170,7 @@ describe('Highlighter Index', () => {
       expect(typeof globalThis.notionHighlighter.show).toBe('function');
       expect(typeof globalThis.notionHighlighter.hide).toBe('function');
       expect(typeof globalThis.notionHighlighter.toggle).toBe('function');
+      expect(typeof globalThis.notionHighlighter.isActive).toBe('function');
       expect(typeof globalThis.notionHighlighter.collectHighlights).toBe('function');
       expect(typeof globalThis.notionHighlighter.clearAll).toBe('function');
       expect(typeof globalThis.notionHighlighter.getCount).toBe('function');
@@ -254,6 +255,14 @@ describe('Highlighter Index', () => {
       const count = await globalThis.notionHighlighter.getCount();
       expect(mockManager.getCount).toHaveBeenCalled();
       expect(count).toBe(5);
+    });
+
+    test('isActive() 應該根據 toolbar state 回傳布林值', () => {
+      mockToolbar.stateManager.currentState = 'hidden';
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+      mockToolbar.stateManager.currentState = 'expanded';
+      expect(globalThis.notionHighlighter.isActive()).toBe(true);
     });
   });
 

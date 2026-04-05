@@ -21,6 +21,7 @@ import Logger from '../utils/Logger.js';
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   let hasRetriedLateStableRestore = false;
+  const STABLE_URL_TIMEOUT_MS = 1000;
 
   /**
    * 等待 Background Script 通過 SET_STABLE_URL 訊息發送穩定 URL。
@@ -29,7 +30,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
    * @param {number} timeoutMs - 超時毫秒數
    * @returns {Promise<string|null>}
    */
-  const waitForStableUrl = (timeoutMs = 1000) => {
+  const waitForStableUrl = (timeoutMs = STABLE_URL_TIMEOUT_MS) => {
     // 如果已經通過其他途徑設置了，直接返回
     if (globalThis.__NOTION_STABLE_URL__) {
       return Promise.resolve(globalThis.__NOTION_STABLE_URL__);

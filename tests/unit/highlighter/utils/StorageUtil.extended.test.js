@@ -18,6 +18,11 @@
  */
 
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import {
+  HIGHLIGHTS_PREFIX,
+  PAGE_PREFIX,
+  URL_ALIAS_PREFIX,
+} from '../../../../scripts/config/storageKeys.js';
 
 describe('Highlighter StorageUtil', () => {
   // Jest beforeEach 模式：變數在 beforeEach 中初始化
@@ -61,6 +66,7 @@ describe('Highlighter StorageUtil', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
   describe('saveHighlights', () => {
@@ -176,14 +182,8 @@ describe('Highlighter StorageUtil', () => {
           }
           return { success: true };
         });
-        mockChrome.storage.local.get = jest.fn((keys, callback) => {
-          callback({});
-        });
-        mockChrome.storage.local.set = jest.fn((data, callback) => {
-          if (callback) {
-            callback();
-          }
-        });
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
+        mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const testData = [{ text: 'retry-success', color: 'green' }];
         const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
@@ -206,11 +206,7 @@ describe('Highlighter StorageUtil', () => {
       jest.useFakeTimers();
       try {
         mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
-        mockChrome.storage.local.set = jest.fn((data, callback) => {
-          if (callback) {
-            callback();
-          }
-        });
+        mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const testData = [{ text: 'first-success', color: 'blue' }];
         await StorageUtil.saveHighlights('https://example.com', testData);
@@ -249,6 +245,50 @@ describe('Highlighter StorageUtil', () => {
         jest.useRealTimers();
       }
     });
+
+    test('fallback 直接保存時應優先使用 alias 對應的 stable page key', async () => {
+      delete mockChrome.runtime.sendMessage;
+
+      const pageUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const normalizedUrl = pageUrl;
+      const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const testData = [{ text: 'alias-target', color: 'yellow' }];
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.length === 1 && keyList[0] === aliasKey) {
+          return Promise.resolve({ [aliasKey]: stableUrl });
+        }
+
+        if (keyList.length === 1 && keyList[0] === stablePageKey) {
+          return Promise.resolve({
+            [stablePageKey]: {
+              notion: { pageId: 'page-123' },
+              highlights: [{ text: 'old' }],
+              metadata: { createdAt: 123 },
+            },
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      await StorageUtil.saveHighlights(pageUrl, testData);
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: {
+          notion: { pageId: 'page-123' },
+          highlights: testData,
+          metadata: expect.objectContaining({
+            createdAt: 123,
+            lastUpdated: expect.any(Number),
+          }),
+        },
+      });
+    });
   });
 
   describe('loadHighlights', () => {
@@ -265,10 +305,7 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('_loadBothFormats 發生 lastError 應該觸發 catch 並嘗試 localStorage 回退', async () => {
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        mockChrome.runtime.lastError = { message: 'Get error' };
-        callback();
-      });
+      mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Get error'));
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       localStorage.getItem.mockReturnValue(JSON.stringify([{ text: 'legacy highlight' }]));
 
@@ -278,9 +315,7 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('_loadBothFormats 返回兩個 key 都沒有找到 (null)，應該繼續向下而不是直接返回空數組', async () => {
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        callback({}); // 兩個 key 都沒有
-      });
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
       localStorage.getItem.mockReturnValue(JSON.stringify([{ text: 'legacy highlight' }]));
 
       const result = await StorageUtil.loadHighlights('https://example.com');
@@ -288,9 +323,7 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('localStorage 加載拋出異常應被 catch 並返回空陣列', async () => {
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        callback({});
-      });
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
       localStorage.getItem.mockImplementation(() => {
         throw new Error('localStorage is disabled');
       });
@@ -299,6 +332,37 @@ describe('Highlighter StorageUtil', () => {
       const result = await StorageUtil.loadHighlights('https://example.com');
       expect(result).toEqual([]);
       errorSpy.mockRestore();
+    });
+
+    test('存在 alias 時應從 stable page key 讀取 highlights', async () => {
+      const pageUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const aliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.length === 1 && keyList[0] === aliasKey) {
+          return Promise.resolve({ [aliasKey]: stableUrl });
+        }
+
+        if (keyList.includes(stablePageKey)) {
+          return Promise.resolve({
+            [stablePageKey]: {
+              notion: { pageId: 'page-123' },
+              highlights: [{ text: 'stable highlight' }],
+              metadata: { lastUpdated: 123 },
+            },
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      const result = await StorageUtil.loadHighlights(pageUrl);
+
+      expect(result).toEqual([{ text: 'stable highlight' }]);
     });
   });
 
@@ -440,33 +504,15 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('clearPageHighlights 內部 get 發生 lastError 時應被 Promise.allSettled 處理不中斷流程', async () => {
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        mockChrome.runtime.lastError = { message: 'Clear get error' };
-        setTimeout(() => {
-          if (callback) {
-            callback();
-          }
-        }, 0);
-      });
+      mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Clear get error'));
       await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
     });
 
     test('clearPageHighlights 內部 set 發生 lastError 時應被 Promise.allSettled 處理不中斷流程', async () => {
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => {
-          if (callback) {
-            callback({ [keys[0]]: { highlights: ['hl'] } });
-          }
-        }, 0);
-      });
-      mockChrome.storage.local.set = jest.fn((data, callback) => {
-        mockChrome.runtime.lastError = { message: 'Clear set error' };
-        setTimeout(() => {
-          if (callback) {
-            callback();
-          }
-        }, 0);
-      });
+      mockChrome.storage.local.get = jest
+        .fn()
+        .mockResolvedValue({ [`${PAGE_PREFIX}https://example.com`]: { highlights: ['hl'] } });
+      mockChrome.storage.local.set = jest.fn().mockRejectedValue(new Error('Clear set error'));
       await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
     });
 
@@ -515,16 +561,9 @@ describe('Highlighter StorageUtil', () => {
       mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
       // 2. clearPageHighlights 失敗 (覆蓋 get 造成無法完成) -> 改讓 _clearFromChromeStorage 和 _clearFromLocalStorage 都拋出例外，且確保 _clearFromChromeStorage 拋出的被捕捉。不過因為 get/set 是被 Promise.allSettled 消化不會 reject，真正的 rejection 只會來自下面這兩個方法，但 clearPageHighlights 在 StorageUtil 是被寫為會 await 處理且自身有 try catch，實際上 clearPageHighlights 不太會 reject，只會忽略錯誤。
       // ... 等等，若要 clearPageHighlights 也被視為 rejected，我們只能讓 chrome.storage.local.get 在 new Promise 內拋出 unhandled exception 或是用特定的方法讓其 reject。
-      // 但看程式碼，clearPageHighlights 中的 new Promise 在 lastError 時會 reject。
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        mockChrome.runtime.lastError = { message: 'Clear get error' };
-        callback();
-      });
+      mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Clear get error'));
       // 3. _clearFromChromeStorage
-      mockChrome.storage.local.remove = jest.fn((keys, callback) => {
-        mockChrome.runtime.lastError = { message: 'Remove error' };
-        callback();
-      });
+      mockChrome.storage.local.remove = jest.fn().mockRejectedValue(new Error('Remove error'));
       // 4. _clearFromLocalStorage
       localStorage.removeItem.mockImplementation(() => {
         throw new Error('Local storage remove error');
@@ -550,6 +589,47 @@ describe('Highlighter StorageUtil', () => {
 
       expect(warnSpy).toHaveBeenCalled();
       warnSpy.mockRestore();
+    });
+
+    test('fallback 清除時應優先更新 alias 對應的 stable page key', async () => {
+      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+
+      const pageUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const aliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const legacyKey = `${HIGHLIGHTS_PREFIX}${pageUrl}`;
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.length === 1 && keyList[0] === aliasKey) {
+          return Promise.resolve({ [aliasKey]: stableUrl });
+        }
+
+        if (keyList.length === 1 && keyList[0] === stablePageKey) {
+          return Promise.resolve({
+            [stablePageKey]: {
+              notion: { pageId: 'page-123' },
+              highlights: [{ text: 'keep structure' }],
+              metadata: { lastUpdated: 1 },
+            },
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      await StorageUtil.clearHighlights(pageUrl);
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: {
+          notion: { pageId: 'page-123' },
+          highlights: [],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+      expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
     });
   });
 

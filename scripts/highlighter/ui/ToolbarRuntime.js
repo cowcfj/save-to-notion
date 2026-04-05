@@ -48,7 +48,7 @@ export async function syncHighlights(highlights) {
 /**
  * 打開側邊欄
  *
- * @returns {Promise<void>}
+ * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function openSidePanel() {
   if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {

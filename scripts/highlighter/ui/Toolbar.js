@@ -283,7 +283,13 @@ export class Toolbar {
 
     if (manageBtn) {
       manageBtn.addEventListener('click', () => {
-        openSidePanel().catch(error => Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', error));
+        openSidePanel()
+          .then(response => {
+            if (response?.success === false) {
+              Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', response.error);
+            }
+          })
+          .catch(error => Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', error));
       });
     }
   }
