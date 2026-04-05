@@ -366,41 +366,35 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         // 1. 等待 Background Script 發送穩定 URL
         waitForStableUrl(),
         // 2. 檢查頁面狀態（注意：Content Script 調用可能被 validateInternalRequest 拒絕）
-        new Promise(resolve => {
-          if (globalThis.chrome?.runtime?.sendMessage) {
-            globalThis.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
-              if (globalThis.chrome.runtime.lastError) {
-                Logger.warn('[Highlighter] checkPageStatus failed', {
-                  error: globalThis.chrome.runtime.lastError.message,
-                  action: 'checkPageStatus',
-                });
-                resolve(null);
-              } else {
-                resolve(result);
-              }
-            });
-          } else {
-            resolve(null);
+        (async () => {
+          if (!globalThis.chrome?.runtime?.sendMessage) {
+            return null;
           }
-        }),
+          try {
+            return await globalThis.chrome.runtime.sendMessage({ action: 'checkPageStatus' });
+          } catch (error) {
+            Logger.warn('[Highlighter] checkPageStatus failed', {
+              error: error?.message,
+              action: 'checkPageStatus',
+            });
+            return null;
+          }
+        })(),
         // 3. 加載標註樣式配置
-        new Promise(resolve => {
-          if (globalThis.chrome?.storage?.sync) {
-            globalThis.chrome.storage.sync.get(['highlightStyle'], result => {
-              if (globalThis.chrome.runtime.lastError) {
-                Logger.warn('[Highlighter] Failed to load settings', {
-                  error: globalThis.chrome.runtime.lastError,
-                  action: 'initializeExtension',
-                });
-                resolve({});
-              } else {
-                resolve(result || {});
-              }
-            });
-          } else {
-            resolve({});
+        (async () => {
+          if (!globalThis.chrome?.storage?.sync) {
+            return {};
           }
-        }),
+          try {
+            return (await globalThis.chrome.storage.sync.get(['highlightStyle'])) || {};
+          } catch (error) {
+            Logger.warn('[Highlighter] Failed to load settings', {
+              error: error?.message,
+              action: 'initializeExtension',
+            });
+            return {};
+          }
+        })(),
       ]);
 
       // 設置穩定 URL（優先使用 waitForStableUrl 的結果，回退到 pageStatus）
