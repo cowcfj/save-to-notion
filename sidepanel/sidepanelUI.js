@@ -118,7 +118,7 @@ export function buildPreviewHighlights(highlights) {
 export function isCurrentViewActive(elements) {
   const currentTab = elements.viewTabs
     ? Array.from(elements.viewTabs).find(tab => tab.dataset.view === 'current')
-    : document.querySelector('.view-tab[data-view="current"]');
+    : null;
   return currentTab ? currentTab.classList.contains('active') : true;
 }
 

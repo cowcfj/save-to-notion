@@ -157,6 +157,14 @@ describe('sidepanelUI', () => {
       currentTab.classList.remove('active');
       expect(isCurrentViewActive(elements)).toBe(false);
     });
+
+    it('viewTabs 缺失時應回傳預設值 true，而非讀取全域 DOM', () => {
+      const elements = { ...getElements(), viewTabs: undefined };
+      const currentTab = document.querySelector('.view-tab[data-view="current"]');
+      currentTab.classList.remove('active');
+
+      expect(isCurrentViewActive(elements)).toBe(true);
+    });
   });
 
   describe('showLoading', () => {
