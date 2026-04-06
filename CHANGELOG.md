@@ -1,5 +1,21 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.48.3](https://github.com/cowcfj/save-to-notion/compare/v2.48.2...v2.48.3) (2026-04-06)
+
+
+### ♻️ 代碼重構
+
+* **highlighter:** for improved modularity and async handling ([#387](https://github.com/cowcfj/save-to-notion/issues/387)) ([d62a9ff](https://github.com/cowcfj/save-to-notion/commit/d62a9ff752fa8802676a345949d358375c391824))
+* **HighlightStorageGateway:** 將重試次數與延遲時間提取至常數，並新增 sanitizeHighlightStorageKeyForLogging 函數以改善日誌記錄 ([f520b52](https://github.com/cowcfj/save-to-notion/commit/f520b522de2ff6c7605aec36459704ae5922ee1d))
+* **package.json:** 移除不必要的 build:highlighter 腳本 ([9b92be9](https://github.com/cowcfj/save-to-notion/commit/9b92be91193858730fb917ea4662c7d60188f70a))
+* Rename StorageUtil to HighlightStorageGateway ([#388](https://github.com/cowcfj/save-to-notion/issues/388)) ([f520b52](https://github.com/cowcfj/save-to-notion/commit/f520b522de2ff6c7605aec36459704ae5922ee1d))
+* **sidepanel:** 重構並分離 UI 與業務邏輯層 ([#385](https://github.com/cowcfj/save-to-notion/issues/385)) ([16c73f8](https://github.com/cowcfj/save-to-notion/commit/16c73f8341f0db252f627d5d0c33cccd49a85bde))
+
+
+### 🧪 測試
+
+* **HighlightStorageGateway:** 增加 debugListAllKeys 測試，確保輸出脫敏鍵與聚合統計 ([f520b52](https://github.com/cowcfj/save-to-notion/commit/f520b522de2ff6c7605aec36459704ae5922ee1d))
+
 ## [2.48.2](https://github.com/cowcfj/save-to-notion/compare/v2.48.1...v2.48.2) (2026-04-04)
 
 
