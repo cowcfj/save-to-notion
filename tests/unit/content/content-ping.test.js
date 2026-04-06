@@ -3,7 +3,6 @@
  */
 
 describe('Content Script PING Handler', () => {
-  let messageHandler;
   let preloaderHandler;
 
   beforeEach(() => {
@@ -13,9 +12,7 @@ describe('Content Script PING Handler', () => {
     globalThis.chrome = {
       runtime: {
         onMessage: {
-          addListener: jest.fn(handler => {
-            messageHandler = handler;
-          }),
+          addListener: jest.fn(),
         },
         sendMessage: jest.fn(),
       },
@@ -69,10 +66,13 @@ describe('Content Script PING Handler', () => {
       })
     );
 
-    const sendResponse = jest.fn();
-    const result = messageHandler({ action: 'PING' }, {}, sendResponse);
+    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+    expect(handlers.length).toBeGreaterThan(0);
 
-    expect(result).toBe(true);
+    const sendResponse = jest.fn();
+    const results = handlers.map(h => h({ action: 'PING' }, {}, sendResponse));
+
+    expect(results).toContain(true);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'bundle_ready',
@@ -132,10 +132,11 @@ describe('Content Script PING Handler', () => {
       })
     );
 
+    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
     const sendResponse = jest.fn();
-    const result = messageHandler({ action: 'PING' }, {}, sendResponse);
+    const results = handlers.map(h => h({ action: 'PING' }, {}, sendResponse));
 
-    expect(result).toBe(true);
+    expect(results).toContain(true);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'bundle_ready',
@@ -146,10 +147,14 @@ describe('Content Script PING Handler', () => {
   });
 
   test('應該忽略非 PING 的未知 Action', () => {
+    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
     const sendResponse = jest.fn();
-    const result = messageHandler({ action: 'UNKNOWN_ACTION' }, {}, sendResponse);
+    const results = handlers.map(h => h({ action: 'UNKNOWN_ACTION' }, {}, sendResponse));
 
-    expect(result).toBe(false);
+    // 所有 handlers 都應該返回 falsy (undefined, false, 等)
+    results.forEach(result => {
+      expect(Boolean(result)).toBe(false);
+    });
     expect(sendResponse).not.toHaveBeenCalled();
   });
 });

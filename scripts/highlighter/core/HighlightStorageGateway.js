@@ -1,18 +1,23 @@
 /**
- * StorageUtil - 標註存儲工具
+ * HighlightStorageGateway - 標註存儲 Gateway / Adapter 層
  *
- * 職責：處理 Highlights 相關的存儲操作
- * - 保存/讀取/清除標註
- * - 支持 Chrome Storage 和 localStorage 回退
+ * 職責：管理 Highlights 從 Content Script 到持久化層的所有 transport 邏輯：
+ * - 透過 Background message 路徑保存/清除標註（含互斥鎖保護）
+ * - 多層 fallback 策略（Background → chrome.storage.local → localStorage）
+ * - 重試機制（最多 3 次 Background 重試，save / clear 對稱）
+ * - URL alias 解譯（normalizedUrl → stableUrl）
+ * - 格式兼容（page_* 新格式 / highlights_* 舊格式）
+ *
+ * 此模組刻意不承擔業務協調邏輯（何時保存、保存哪些標註），
+ * 業務協調由 HighlightStorage / HighlightMigration 負責。
  *
  * 使用環境：Content Script / Highlighter
  *
- * @module utils/StorageUtil
+ * @module core/HighlightStorageGateway
  */
 
 /* global chrome */
 
-// 從統一工具函數導入 normalizeUrl
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
@@ -21,11 +26,65 @@ import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/s
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
+export const STORAGE_GATEWAY_RETRY = Object.freeze({
+  maxAttempts: 3,
+  delayMs: 500,
+});
 
 /**
- * StorageUtil 對象
+ * 共用的 Background 重試 helper
+ *
+ * @param {Function} actionFn - 返回 Promise<boolean> 的 action 函數（true = 成功）
+ * @param {string} actionName - 用於日誌的 action 名稱
+ * @returns {Promise<boolean>} true 表示 action 成功執行
+ * @private
  */
-const StorageUtil = {
+async function _withBackgroundRetry(actionFn, actionName) {
+  const canRetryBackground =
+    typeof chrome !== 'undefined' &&
+    chrome?.runtime &&
+    typeof chrome.runtime.sendMessage === 'function';
+  const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
+
+  for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+    if (attempt > 1) {
+      await new Promise(resolve => setTimeout(resolve, STORAGE_GATEWAY_RETRY.delayMs));
+      Logger.warn(
+        `[HighlightStorageGateway] ${actionName} sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`,
+        { action: actionName }
+      );
+    }
+    if (await actionFn()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function sanitizeHighlightStorageKeyForLogging(key) {
+  if (typeof key !== 'string') {
+    return '[invalid-storage-key]';
+  }
+
+  if (key.startsWith(PAGE_PREFIX)) {
+    return `${PAGE_PREFIX}${sanitizeUrlForLogging(key.slice(PAGE_PREFIX.length))}`;
+  }
+
+  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+    return `${HIGHLIGHTS_PREFIX}${sanitizeUrlForLogging(key.slice(HIGHLIGHTS_PREFIX.length))}`;
+  }
+
+  if (key.startsWith(URL_ALIAS_PREFIX)) {
+    return `${URL_ALIAS_PREFIX}${sanitizeUrlForLogging(key.slice(URL_ALIAS_PREFIX.length))}`;
+  }
+
+  return '[non-highlight-storage-key]';
+}
+
+/**
+ * HighlightStorageGateway 對象
+ */
+const HighlightStorageGateway = {
   /**
    * 保存標記數據
    *
@@ -47,30 +106,18 @@ const StorageUtil = {
       ? highlightData
       : highlightData?.highlights || [];
 
-    // 單一迴圈重試：最多 3 次，第一次立即執行，後續失敗才延遲重試。
-    // 目的：避免可回復的暫時性中斷過早繞道到競態風險較高的 fallback 路徑。
-    const canRetryBackground =
-      typeof chrome !== 'undefined' &&
-      chrome?.runtime &&
-      typeof chrome.runtime.sendMessage === 'function';
-    const MAX_ATTEMPTS = 3;
-    const attemptLimit = canRetryBackground ? MAX_ATTEMPTS : 1;
-    const RETRY_DELAY_MS = 500;
-    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
-      if (attempt > 1) {
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        Logger.warn(`[StorageUtil] sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`, {
-          action: 'saveHighlights',
-        });
-      }
-      if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
-        return;
-      }
+    // 透過共用 helper 進行 Background 重試
+    const success = await _withBackgroundRetry(
+      () => this._tryBackgroundUpdate(pageUrl, highlights),
+      'saveHighlights'
+    );
+    if (success) {
+      return;
     }
 
     // Fallback：重試後仍失敗，直接寫入（過渡期安全網）
     Logger.warn(
-      '[StorageUtil] 所有重試均失敗，走 fallback 直接寫入。注意：此路徑繞過 _withLock，可能發生並發衝突。',
+      '[HighlightStorageGateway] 所有重試均失敗，走 fallback 直接寫入。注意：此路徑繞過 _withLock，可能發生並發衝突。',
       {
         action: 'saveHighlights',
       }
@@ -105,14 +152,14 @@ const StorageUtil = {
         return true;
       }
       Logger.warn(
-        '[StorageUtil] sendMessage 回傳失敗（success !== true），交由上層重試/回退策略處理',
+        '[HighlightStorageGateway] sendMessage 回傳失敗（success !== true），交由上層重試/回退策略處理',
         {
           action: 'saveHighlights',
         }
       );
     } catch {
       // sendMessage 失敗（如 Background SW 未啟動），交由上層重試/回退策略處理
-      Logger.warn('[StorageUtil] sendMessage 發送異常，交由上層重試/回退策略處理', {
+      Logger.warn('[HighlightStorageGateway] sendMessage 發送異常，交由上層重試/回退策略處理', {
         action: 'saveHighlights',
       });
     }
@@ -343,6 +390,7 @@ const StorageUtil = {
    * 清除指定頁面的標記數據
    *
    * Phase 3：透過訊息轉發給 Background 處理（含 _withLock）。
+   * 重試策略與 saveHighlights 對稱：最多 3 次 Background 重試後才 fallback。
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
@@ -354,29 +402,67 @@ const StorageUtil = {
       throw error;
     }
 
-    // Phase 3：送給 Background 結層處理（含 _withLock，保留 notion 欄位）
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
-      try {
-        const response = await chrome.runtime.sendMessage({
-          action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
-          url: pageUrl,
-        });
-        // sendMessage 成功且 Background 確認成功才 return
-        if (response?.success === true) {
-          return;
-        }
-        // sendMessage 成功但回傳 { success: false }：回退到直接清除
-        Logger.warn('[StorageUtil] sendMessage 回傳失敗，回退直接清除 storage', {
-          action: 'clearHighlights',
-        });
-      } catch {
-        Logger.warn('[StorageUtil] sendMessage 失敗，回退直接清除 storage', {
-          action: 'clearHighlights',
-        });
-      }
+    // 透過共用 helper 進行 Background 重試
+    const success = await _withBackgroundRetry(
+      () => this._tryBackgroundClear(pageUrl),
+      'clearHighlights'
+    );
+    if (success) {
+      return;
     }
 
     // Fallback：直接清除（舊格式安全網）
+    Logger.warn(
+      '[HighlightStorageGateway] clearHighlights 所有重試均失敗，走 fallback 直接清除。注意：此路徑繞過 _withLock，可能發生並發衝突。',
+      { action: 'clearHighlights' }
+    );
+    await this._fallbackDirectClear(pageUrl);
+  },
+
+  /**
+   * 嘗試透過 Background 轉發清除標註
+   *
+   * @param {string} pageUrl
+   * @returns {Promise<boolean>} true 表示 Background 確認成功
+   * @private
+   */
+  async _tryBackgroundClear(pageUrl) {
+    if (
+      typeof chrome === 'undefined' ||
+      !chrome?.runtime ||
+      typeof chrome.runtime.sendMessage !== 'function'
+    ) {
+      return false;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+        url: pageUrl,
+      });
+      if (response?.success === true) {
+        return true;
+      }
+      Logger.warn(
+        '[HighlightStorageGateway] sendMessage 回傳失敗（success !== true），交由上層重試/回退策略處理',
+        { action: 'clearHighlights' }
+      );
+    } catch {
+      Logger.warn('[HighlightStorageGateway] sendMessage 失敗，交由上層重試/回退策略處理', {
+        action: 'clearHighlights',
+      });
+    }
+    return false;
+  },
+
+  /**
+   * Background 不可用時，直接清除 storage
+   *
+   * @param {string} pageUrl
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _fallbackDirectClear(pageUrl) {
     const normalizedUrl = normalizeUrl(pageUrl);
     const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
@@ -417,7 +503,7 @@ const StorageUtil = {
     if (failures.length > 0) {
       Logger.warn('部分存儲清除失敗', { action: 'clearHighlights' });
     } else {
-      Logger.log('標註清除完成', { action: 'clearHighlights' });
+      Logger.success('標註清除完成', { action: 'clearHighlights' });
     }
   },
 
@@ -480,12 +566,37 @@ const StorageUtil = {
       normalizedUrl
     );
   },
+
+  /**
+   * 列出所有標註相關的 Storage 鍵（除錯用）
+   *
+   * @returns {Promise<void>}
+   */
+  async debugListAllKeys() {
+    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+      Logger.warn('Chrome Storage 不可用', { action: 'debugListAllKeys' });
+      return;
+    }
+    const allData = await chrome.storage.local.get(null);
+    const highlightKeys = Object.keys(allData).filter(
+      key =>
+        key.startsWith(PAGE_PREFIX) ||
+        key.startsWith(HIGHLIGHTS_PREFIX) ||
+        key.startsWith(URL_ALIAS_PREFIX)
+    );
+    const prefixCounts = {
+      page: highlightKeys.filter(key => key.startsWith(PAGE_PREFIX)).length,
+      highlights: highlightKeys.filter(key => key.startsWith(HIGHLIGHTS_PREFIX)).length,
+      urlAlias: highlightKeys.filter(key => key.startsWith(URL_ALIAS_PREFIX)).length,
+    };
+    Logger.debug('標註 Storage 鍵統計', {
+      action: 'debugListAllKeys',
+      totalCount: highlightKeys.length,
+      prefixCounts,
+      sanitizedKeys: highlightKeys.map(key => sanitizeHighlightStorageKeyForLogging(key)),
+    });
+  },
 };
 
 // 導出
-export { StorageUtil };
-
-// 掛載到 window 供 IIFE 環境使用
-if (globalThis.window !== undefined) {
-  globalThis.StorageUtil = StorageUtil;
-}
+export { HighlightStorageGateway };

@@ -4,7 +4,7 @@
 
 import { HighlightMigration } from '../../../../scripts/highlighter/core/HighlightMigration.js';
 import Logger from '../../../../scripts/utils/Logger.js';
-import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
@@ -36,8 +36,8 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
   };
 });
 
-jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
-  StorageUtil: {
+jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () => ({
+  HighlightStorageGateway: {
     saveHighlights: jest.fn(),
     clearHighlights: jest.fn(),
   },
@@ -61,7 +61,7 @@ describe('core/HighlightMigration', () => {
     // Mock window objects
     globalThis.normalizeUrl = jest.fn(url => url);
     // Reset mocks
-    StorageUtil.saveHighlights.mockResolvedValue();
+    HighlightStorageGateway.saveHighlights.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -111,8 +111,8 @@ describe('core/HighlightMigration', () => {
 
       await migration.checkAndMigrate();
 
-      // Should not call StorageUtil.saveHighlights
-      expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
+      // Should not call HighlightStorageGateway.saveHighlights
+      expect(HighlightStorageGateway.saveHighlights).not.toHaveBeenCalled();
     });
 
     test('should skip migration if already completed', async () => {
@@ -139,7 +139,7 @@ describe('core/HighlightMigration', () => {
       expect(globalThis.chrome.storage.local.get).toHaveBeenCalledWith(
         'migration_completed_http://localhost/'
       );
-      expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
+      expect(HighlightStorageGateway.saveHighlights).not.toHaveBeenCalled();
     });
 
     test('should find legacy data with possible keys', async () => {
@@ -161,7 +161,7 @@ describe('core/HighlightMigration', () => {
 
       await migration.checkAndMigrate();
 
-      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalled();
     });
 
     test('should limit localStorage scan and warn when exceeding limit', async () => {
@@ -215,7 +215,7 @@ describe('core/HighlightMigration', () => {
       await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).toHaveBeenCalledWith('test content');
-      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalledWith(
         'https://example.com',
         expect.any(Object)
       );
@@ -241,7 +241,7 @@ describe('core/HighlightMigration', () => {
       await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       // 驗證調用時的顏色應該是 green
-      const saveCall = StorageUtil.saveHighlights.mock.calls[0][1];
+      const saveCall = HighlightStorageGateway.saveHighlights.mock.calls[0][1];
       expect(saveCall.highlights[0].color).toBe('green');
     });
 
@@ -263,7 +263,7 @@ describe('core/HighlightMigration', () => {
 
       await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
-      expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
+      expect(HighlightStorageGateway.saveHighlights).not.toHaveBeenCalled();
     });
 
     test('should remove old key after successful migration', async () => {
@@ -292,7 +292,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should not remove old key when saveHighlights throws', async () => {
-      StorageUtil.saveHighlights.mockRejectedValue(new Error('storage full'));
+      HighlightStorageGateway.saveHighlights.mockRejectedValue(new Error('storage full'));
       const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
       findTextInPage.mockReturnValue(document.createRange());
 
@@ -316,7 +316,7 @@ describe('core/HighlightMigration', () => {
       const legacyData = [{ text: 'found' }, { text: 'not found' }];
       await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
-      const saveArg = StorageUtil.saveHighlights.mock.calls[0][1];
+      const saveArg = HighlightStorageGateway.saveHighlights.mock.calls[0][1];
       expect(saveArg.highlights).toHaveLength(1);
       expect(saveArg.highlights[0].text).toBe('found');
     });
@@ -337,7 +337,7 @@ describe('core/HighlightMigration', () => {
         '儲存遷移完成標記失敗',
         expect.objectContaining({ action: '_markMigrationComplete' })
       );
-      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalled();
     });
   });
 });

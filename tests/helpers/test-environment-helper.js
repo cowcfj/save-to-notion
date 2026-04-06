@@ -4,8 +4,6 @@
  */
 
 class TestEnvironmentHelper {
-  constructor() {}
-
   /**
    * 創建標準的 Chrome API mock 對象
    *
@@ -72,7 +70,6 @@ class TestEnvironmentHelper {
    */
   static createMockWindow(overrides = {}) {
     return {
-      StorageUtil: undefined,
       Logger: undefined,
       normalizeUrl: undefined,
       location: { href: 'https://example.com' },

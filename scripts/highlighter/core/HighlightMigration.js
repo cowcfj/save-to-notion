@@ -9,7 +9,7 @@ import { serializeRange } from './Range.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightManager } from './HighlightManager.js';
-import { StorageUtil } from '../utils/StorageUtil.js';
+import { HighlightStorageGateway } from './HighlightStorageGateway.js';
 import { convertBgColorToName } from '../utils/color.js';
 
 /**
@@ -244,7 +244,7 @@ export class HighlightMigration {
       }
 
       if (successCount > 0) {
-        await StorageUtil.saveHighlights(normalizedUrl, {
+        await HighlightStorageGateway.saveHighlights(normalizedUrl, {
           url: normalizedUrl,
           highlights: migratedHighlights,
         });

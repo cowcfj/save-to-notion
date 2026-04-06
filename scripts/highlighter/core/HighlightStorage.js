@@ -6,7 +6,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { StorageUtil } from '../utils/StorageUtil.js';
+import { HighlightStorageGateway } from './HighlightStorageGateway.js';
 
 /**
  * HighlightStorage
@@ -30,7 +30,7 @@ export class HighlightStorage {
    * 保存標註到存儲
    */
   async save() {
-    // StorageUtil is imported, so we don't need to check window property
+    // HighlightStorageGateway 透過 ES6 import 匯入，不依賴 window 全域掛載
     if (globalThis.window === undefined) {
       return;
     }
@@ -50,10 +50,10 @@ export class HighlightStorage {
 
     try {
       if (data.highlights.length === 0) {
-        await StorageUtil.clearHighlights(currentUrl);
+        await HighlightStorageGateway.clearHighlights(currentUrl);
         Logger.info('[HighlightStorage] 已刪除空白標註記錄');
       } else {
-        await StorageUtil.saveHighlights(currentUrl, data);
+        await HighlightStorageGateway.saveHighlights(currentUrl, data);
         Logger.info(`[HighlightStorage] 已保存 ${data.highlights.length} 個標註`);
       }
     } catch (error) {
@@ -192,7 +192,7 @@ export class HighlightStorage {
       stableUrlGlobal: globalThis.__NOTION_STABLE_URL__ || 'undefined',
     });
 
-    const data = await StorageUtil.loadHighlights(currentUrl);
+    const data = await HighlightStorageGateway.loadHighlights(currentUrl);
     const highlights = Array.isArray(data) ? data : data?.highlights || [];
 
     // 若找到標註，直接返回
@@ -207,7 +207,7 @@ export class HighlightStorage {
         : globalThis.location.href;
 
       if (originalUrl !== currentUrl) {
-        const fallbackData = await StorageUtil.loadHighlights(originalUrl);
+        const fallbackData = await HighlightStorageGateway.loadHighlights(originalUrl);
         const fallbackHighlights = Array.isArray(fallbackData)
           ? fallbackData
           : fallbackData?.highlights || [];
