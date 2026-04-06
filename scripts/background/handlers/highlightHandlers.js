@@ -526,7 +526,8 @@ export function createHighlightHandlers(services) {
     /**
      * Phase 3: 儲存標註至 Storage（Content Script 透過 sendMessage 路由）
      *
-     * StorageUtil 的 saveHighlights 轉發至此，利用 Background 的 StorageService._withLock
+     * HighlightStorageGateway 的 saveHighlights 轉發至此，利用 Background 的
+     * StorageService._withLock
      * 確保所有寫入序列化，避免跨 context 並發覆蓋。
      *
      * @param {object} request - { url: string, highlights: Array }
@@ -579,7 +580,8 @@ export function createHighlightHandlers(services) {
     /**
      * Phase 3: 清除標註（Content Script 透過 sendMessage 路由）
      *
-     * StorageUtil 的 clearHighlights 轉發至此，利用 Background 的 StorageService._withLock
+     * HighlightStorageGateway 的 clearHighlights 轉發至此，利用 Background 的
+     * StorageService._withLock
      * 確保清除操作序列化，並保留 notion 欄位（若存在）。
      *
      * @param {object} request - { url: string }

@@ -1,8 +1,8 @@
 /**
- * Highlighter StorageUtil 擴充測試（白盒測試）
+ * Highlighter HighlightStorageGateway 擴充測試（白盒測試）
  *
  * 針對 scripts/highlighter/core/HighlightStorageGateway.js 的私有方法和邊緣情況測試
- * 補充現有 storageUtil.test.js 的覆蓋率
+ * 補充既有高亮儲存測試的覆蓋率
  *
  * ⚠️ 測試策略說明：
  * 此文件直接測試「私有」方法（以 _ 前綴命名），這違反了傳統的黑盒測試原則。
@@ -12,7 +12,7 @@
  * 3. 通過公共 API 測試所有存儲分支（Chrome Storage、localStorage 回退）會更加複雜
  * 4. 這是專門用於提高覆蓋率的擴充測試文件
  *
- * 如果重構 StorageUtil 的內部實現，這些測試可能需要更新。
+ * 如果重構 HighlightStorageGateway 的內部實現，這些測試可能需要更新。
  *
  * skipcq: JS-0255 - Chrome API callback 非 Node.js error-first 模式
  */
@@ -666,8 +666,8 @@ describe('Highlighter HighlightStorageGateway', () => {
       // 模擬全部失敗：
       // 1. sendMessage 不可用或失敗
       mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-      // 2. clearPageHighlights 失敗 (覆蓋 get 造成無法完成) -> 改讓 _clearFromChromeStorage 和 _clearFromLocalStorage 都拋出例外，且確保 _clearFromChromeStorage 拋出的被捕捉。不過因為 get/set 是被 Promise.allSettled 消化不會 reject，真正的 rejection 只會來自下面這兩個方法，但 clearPageHighlights 在 StorageUtil 是被寫為會 await 處理且自身有 try catch，實際上 clearPageHighlights 不太會 reject，只會忽略錯誤。
-      // ... 等等，若要 clearPageHighlights 也被視為 rejected，我們只能讓 chrome.storage.local.get 在 new Promise 內拋出 unhandled exception 或是用特定的方法讓其 reject。
+      // 2. 模擬 page_* 格式清除流程失敗：讓 chrome.storage.local.get 在讀取階段拋錯。
+      // clearPageHighlights 與其餘清除路徑都包在 Promise.allSettled 中，最終會統一彙整 rejected 結果。
       mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Clear get error'));
       // 3. _clearFromChromeStorage
       mockChrome.storage.local.remove = jest.fn().mockRejectedValue(new Error('Remove error'));
