@@ -56,88 +56,127 @@ if (preloaderCache) {
 globalThis.__NOTION_BUNDLE_READY__ = true;
 
 // ============================================================
+// 訊息處理器（抽取以降低認知複雜度）
+// ============================================================
+
+/**
+ * 處理 PING 請求，回報 bundle 狀態
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+function handlePing(sendResponse) {
+  sendResponse({
+    status: globalThis.notionHighlighter ? 'bundle_ready' : 'initializing',
+    hasPreloaderCache: Boolean(preloaderCache),
+    nextRouteInfo: preloaderCache?.nextRouteInfo || null,
+    shortlink: preloaderCache?.shortlink || null,
+  });
+}
+
+/**
+ * 處理顯示 Highlighter 請求
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleShowHighlighter(sendResponse) {
+  if (globalThis.notionHighlighter) {
+    globalThis.notionHighlighter.show();
+    sendResponse({ success: true });
+  } else {
+    sendResponse({ success: false, error: 'Highlighter not initialized' });
+  }
+}
+
+/**
+ * 處理移除標註 DOM 請求
+ *
+ * @param {string} highlightId - 標註 ID
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleRemoveHighlightDom(highlightId, sendResponse) {
+  try {
+    const removed = globalThis.HighlighterV2?.manager?.removeHighlight?.(highlightId);
+
+    if (removed === undefined) {
+      Logger.warn('Highlighter 尚未初始化，略過移除標註 DOM', {
+        action: 'REMOVE_HIGHLIGHT_DOM',
+        highlightId,
+      });
+      sendResponse({ success: false, error: 'Highlighter 尚未初始化' });
+    } else {
+      sendResponse({ success: Boolean(removed) });
+    }
+  } catch (error) {
+    Logger.error('移除標註 DOM 失敗', { action: 'REMOVE_HIGHLIGHT_DOM', error });
+    sendResponse({
+      success: false,
+      error: error?.message ?? '移除標註 DOM 失敗',
+    });
+  }
+}
+
+/**
+ * 驗證 URL 是否可作為穩定 URL
+ *
+ * @param {string} url - 待驗證的 URL
+ * @returns {boolean} - true 表示有效，false 表示無效
+ */
+function isValidStableUrl(url) {
+  if (isRootUrl(url)) {
+    Logger.debug('拒絕設置首頁 URL 為穩定 URL', { action: 'setStableUrl', rejected: url });
+    return false;
+  }
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    Logger.debug('拒絕設置無效 URL 為穩定 URL', { action: 'setStableUrl', rejected: url });
+    return false;
+  }
+}
+
+/**
+ * 處理設置穩定 URL 請求（同步處理，不需要 sendResponse）
+ *
+ * @param {string|undefined} stableUrl - 穩定 URL
+ */
+function handleSetStableUrl(stableUrl) {
+  if (!stableUrl || !isValidStableUrl(stableUrl)) {
+    return;
+  }
+  globalThis.__NOTION_STABLE_URL__ = stableUrl;
+  Logger.debug('已接收並設置穩定 URL', { action: 'setStableUrl', stableUrl });
+}
+
+// ============================================================
 // PING 響應機制（供 InjectionService.ensureBundleInjected 使用）
 // ============================================================
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === RUNTIME_ACTIONS.PING) {
-    sendResponse({
-      status: globalThis.notionHighlighter ? 'bundle_ready' : 'initializing',
-      hasPreloaderCache: Boolean(preloaderCache),
-      // Phase 2: 從 preloaderCache 取得穩定 URL 元數據（由 preloader 提取並驗證）
-      nextRouteInfo: preloaderCache?.nextRouteInfo || null,
-      shortlink: preloaderCache?.shortlink || null,
-    });
-    return true;
-  }
-
-  if (request.action === RUNTIME_ACTIONS.SHOW_HIGHLIGHTER) {
-    // 顯示 highlighter toolbar
-    if (globalThis.notionHighlighter) {
-      globalThis.notionHighlighter.show();
-      sendResponse({ success: true });
-    } else {
-      sendResponse({ success: false, error: 'Highlighter not initialized' });
+  switch (request.action) {
+    case RUNTIME_ACTIONS.PING: {
+      handlePing(sendResponse);
+      return true;
     }
-    return true;
-  }
 
-  if (request.action === RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM) {
-    try {
-      const removed = globalThis.HighlighterV2?.manager?.removeHighlight?.(request.highlightId);
-
-      if (removed === undefined) {
-        Logger.warn('Highlighter 尚未初始化，略過移除標註 DOM', {
-          action: 'REMOVE_HIGHLIGHT_DOM',
-          highlightId: request.highlightId,
-        });
-        sendResponse({ success: false, error: 'Highlighter 尚未初始化' });
-      } else {
-        sendResponse({ success: Boolean(removed) });
-      }
-    } catch (error) {
-      Logger.error('移除標註 DOM 失敗', {
-        action: 'REMOVE_HIGHLIGHT_DOM',
-        error,
-      });
-      sendResponse({
-        success: false,
-        error: error?.message ?? '移除標註 DOM 失敗',
-      });
+    case RUNTIME_ACTIONS.SHOW_HIGHLIGHTER: {
+      handleShowHighlighter(sendResponse);
+      return true;
     }
-    return true;
-  }
 
-  if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL) {
-    if (request.stableUrl) {
-      // 防禦：驗證穩定 URL 有足夠的路徑或 query 來識別具體頁面
-      if (isRootUrl(request.stableUrl)) {
-        Logger.debug('拒絕設置首頁 URL 為穩定 URL', {
-          action: 'setStableUrl',
-          rejected: request.stableUrl,
-        });
-        return false;
-      }
-      // isRootUrl 對無效 URL 回傳 false（非根路徑），需另行驗證以拒絕不可解析的 URL
-      try {
-        new URL(request.stableUrl);
-      } catch {
-        Logger.debug('拒絕設置無效 URL 為穩定 URL', {
-          action: 'setStableUrl',
-          rejected: request.stableUrl,
-        });
-        return false;
-      }
-      globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
-      Logger.debug('已接收並設置穩定 URL', {
-        action: 'setStableUrl',
-        stableUrl: request.stableUrl,
-      });
+    case RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM: {
+      handleRemoveHighlightDom(request.highlightId, sendResponse);
+      return true;
     }
-    return false;
-  }
 
-  // 未處理的訊息不需要異步響應
-  return false;
+    case RUNTIME_ACTIONS.SET_STABLE_URL: {
+      handleSetStableUrl(request.stableUrl);
+      return false;
+    }
+
+    default: {
+      return false;
+    }
+  }
 });
 
 // ============================================================
