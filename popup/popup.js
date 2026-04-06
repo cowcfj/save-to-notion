@@ -28,6 +28,7 @@ import {
   getActiveTab,
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/messages.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
@@ -122,7 +123,7 @@ export async function initPopup() {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
-          await chrome.tabs.sendMessage(tab.id, { action: 'showToolbar' });
+          await chrome.tabs.sendMessage(tab.id, { action: RUNTIME_ACTIONS.SHOW_TOOLBAR });
         }
       } catch (error) {
         // 如果 Content Script 尚未注入，忽略錯誤

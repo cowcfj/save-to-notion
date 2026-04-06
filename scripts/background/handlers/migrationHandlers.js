@@ -17,6 +17,7 @@ import {
 } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 
 const validatePrivilegedRequest = (sender, url = null) => {
@@ -55,7 +56,7 @@ export function createMigrationHandlers(services) {
      * @param {object} sender - 發送者信息
      * @param {Function} sendResponse - 回調函數
      */
-    migration_execute: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.MIGRATION_EXECUTE]: async (request, sender, sendResponse) => {
       try {
         const { url } = request;
 
@@ -92,7 +93,7 @@ export function createMigrationHandlers(services) {
      * @param {object} sender - 發送者信息
      * @param {Function} sendResponse - 回調函數
      */
-    migration_delete: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.MIGRATION_DELETE]: async (request, sender, sendResponse) => {
       try {
         const { url } = request;
 
@@ -168,7 +169,7 @@ export function createMigrationHandlers(services) {
      * @param {object} sender - 發送者信息
      * @param {Function} sendResponse - 回調函數
      */
-    migration_batch: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.MIGRATION_BATCH]: async (request, sender, sendResponse) => {
       try {
         const { urls } = request;
 
@@ -258,7 +259,7 @@ export function createMigrationHandlers(services) {
      * @param {object} sender - 發送者信息
      * @param {Function} sendResponse - 回調函數
      */
-    migration_batch_delete: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE]: async (request, sender, sendResponse) => {
       try {
         const { urls } = request;
 
@@ -324,7 +325,7 @@ export function createMigrationHandlers(services) {
      * @param {object} sender - 發送者信息
      * @param {Function} sendResponse - 回調函數
      */
-    migration_get_pending: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.MIGRATION_GET_PENDING]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
@@ -397,7 +398,7 @@ export function createMigrationHandlers(services) {
      * @param {object} sender - 發送者信息
      * @param {Function} sendResponse - 回調函數
      */
-    migration_delete_failed: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.MIGRATION_DELETE_FAILED]: async (request, sender, sendResponse) => {
       try {
         const { url } = request;
 

@@ -5,6 +5,7 @@
 /* global chrome */
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { COMMON_CSS_CLASSES } from '../scripts/config/ui.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';
@@ -412,7 +413,7 @@ export class MigrationTool {
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'migration_batch',
+        action: RUNTIME_ACTIONS.MIGRATION_BATCH,
         urls,
       });
 
@@ -487,7 +488,7 @@ export class MigrationTool {
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'migration_batch_delete',
+        action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE,
         urls,
       });
 
@@ -788,7 +789,7 @@ export class MigrationTool {
   async loadPendingMigrations() {
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'migration_get_pending',
+        action: RUNTIME_ACTIONS.MIGRATION_GET_PENDING,
       });
 
       if (response?.success) {
@@ -926,7 +927,7 @@ export class MigrationTool {
   async deleteFailedHighlights(url) {
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'migration_delete_failed',
+        action: RUNTIME_ACTIONS.MIGRATION_DELETE_FAILED,
         url,
       });
 

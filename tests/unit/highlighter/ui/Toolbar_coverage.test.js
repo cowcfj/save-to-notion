@@ -424,13 +424,15 @@ describe('Toolbar 覆蓋率補強', () => {
       await Promise.resolve();
 
       expect(openSidePanel).toHaveBeenCalled();
+      const errorContext = Logger.error.mock.calls.at(-1)?.[1];
       expect(Logger.error).toHaveBeenCalledWith(
         '開啟 Side Panel 失敗',
         expect.objectContaining({
           action: 'openSidePanel',
-          error: 'Unknown Error',
+          error: expect.any(Error),
         })
       );
+      expect(errorContext.error.message).toBe('Unknown Error');
     });
 
     test('管理按鈕在 openSidePanel rejection 時應記錄 context object', async () => {

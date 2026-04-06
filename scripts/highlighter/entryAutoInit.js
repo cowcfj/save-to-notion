@@ -18,11 +18,94 @@ import { setupHighlighter } from './index.js';
 import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 import { VALID_STYLES } from './utils/color.js';
 import Logger from '../utils/Logger.js';
+import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
 
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   let hasRetriedLateStableRestore = false;
   const STABLE_URL_TIMEOUT_MS = 1000;
+  let persistentMessageHandler = null;
+  let persistentStorageHandler = null;
+
+  const registerPersistentListeners = () => {
+    if (!persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.addListener) {
+      persistentMessageHandler = (request, _sender, sendResponse) => {
+        if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL && request.stableUrl) {
+          globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
+
+          const manager = globalThis.HighlighterV2?.manager;
+          const restoreManager = globalThis.HighlighterV2?.restoreManager;
+          const hasNoHighlights =
+            typeof manager?.getCount === 'function' && manager.getCount() === 0;
+
+          if (
+            !hasRetriedLateStableRestore &&
+            hasNoHighlights &&
+            typeof restoreManager?.restore === 'function'
+          ) {
+            hasRetriedLateStableRestore = true;
+            restoreManager.restore().catch(error => {
+              Logger.warn('[Highlighter] Late stable URL restore retry failed', {
+                action: 'SET_STABLE_URL',
+                error: error?.message ?? String(error),
+              });
+            });
+          }
+
+          return undefined;
+        }
+
+        if (request.action === RUNTIME_ACTIONS.SHOW_TOOLBAR) {
+          if (globalThis.notionHighlighter?.createAndShowToolbar) {
+            try {
+              globalThis.notionHighlighter.createAndShowToolbar();
+              sendResponse({ success: true });
+            } catch (error) {
+              Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
+              sendResponse({ success: false, error: error.message });
+            }
+          } else {
+            sendResponse({ success: false, error: 'notionHighlighter not initialized' });
+          }
+          return true;
+        }
+
+        if (request.action === RUNTIME_ACTIONS.GET_STABLE_URL) {
+          sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
+          return true;
+        }
+
+        return undefined;
+      };
+
+      globalThis.chrome.runtime.onMessage.addListener(persistentMessageHandler);
+    }
+
+    if (!persistentStorageHandler && globalThis.chrome?.storage?.onChanged?.addListener) {
+      persistentStorageHandler = (changes, namespace) => {
+        if (namespace === 'sync' && changes.highlightStyle) {
+          const newStyle = changes.highlightStyle.newValue;
+          if (newStyle && VALID_STYLES.includes(newStyle) && globalThis.HighlighterV2?.manager) {
+            globalThis.HighlighterV2.manager.updateStyleMode(newStyle);
+          }
+        }
+      };
+
+      globalThis.chrome.storage.onChanged.addListener(persistentStorageHandler);
+    }
+  };
+
+  const unregisterPersistentListeners = () => {
+    if (persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.removeListener) {
+      globalThis.chrome.runtime.onMessage.removeListener(persistentMessageHandler);
+      persistentMessageHandler = null;
+    }
+
+    if (persistentStorageHandler && globalThis.chrome?.storage?.onChanged?.removeListener) {
+      globalThis.chrome.storage.onChanged.removeListener(persistentStorageHandler);
+      persistentStorageHandler = null;
+    }
+  };
 
   /**
    * 等待 Background Script 通過 SET_STABLE_URL 訊息發送穩定 URL。
@@ -118,7 +201,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
         Logger.debug('[Highlighter] Initialized with stable URL', {
           action: 'initializeExtension',
-          stableUrl: resolvedStableUrl,
+          stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
           source: stableUrl ? 'SET_STABLE_URL' : 'checkPageStatus',
         });
       }
@@ -145,11 +228,15 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
       // 初始化 Highlighter
       setupHighlighter({ skipRestore, skipToolbar, styleMode });
+      registerPersistentListeners();
     } catch (error) {
+      unregisterPersistentListeners();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
       try {
         setupHighlighter({ skipRestore: true, skipToolbar: true });
+        registerPersistentListeners();
       } catch (fallbackError) {
+        unregisterPersistentListeners();
         Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
       }
     }
@@ -159,68 +246,4 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   (async () => {
     await initializeExtension();
   })();
-
-  // 🔑 監聽來自 Popup 的訊息（如保存完成後顯示 Toolbar）
-  if (globalThis.chrome?.runtime?.onMessage) {
-    globalThis.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-      if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL && request.stableUrl) {
-        globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
-
-        const manager = globalThis.HighlighterV2?.manager;
-        const restoreManager = globalThis.HighlighterV2?.restoreManager;
-        const hasNoHighlights = typeof manager?.getCount === 'function' && manager.getCount() === 0;
-
-        if (
-          !hasRetriedLateStableRestore &&
-          hasNoHighlights &&
-          typeof restoreManager?.restore === 'function'
-        ) {
-          hasRetriedLateStableRestore = true;
-          restoreManager.restore().catch(error => {
-            Logger.warn('[Highlighter] Late stable URL restore retry failed', {
-              action: 'SET_STABLE_URL',
-              error: error?.message ?? String(error),
-            });
-          });
-        }
-
-        return undefined;
-      }
-
-      if (request.action === RUNTIME_ACTIONS.SHOW_TOOLBAR) {
-        // 保存完成後，創建並顯示 Toolbar
-        if (globalThis.notionHighlighter?.createAndShowToolbar) {
-          try {
-            globalThis.notionHighlighter.createAndShowToolbar();
-            sendResponse({ success: true });
-          } catch (error) {
-            Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
-            sendResponse({ success: false, error: error.message });
-          }
-        } else {
-          sendResponse({ success: false, error: 'notionHighlighter not initialized' });
-        }
-        return true;
-      }
-
-      if (request.action === RUNTIME_ACTIONS.GET_STABLE_URL) {
-        sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
-        return true;
-      }
-
-      return undefined;
-    });
-  }
-
-  // 🔑 監聽設定變更以動態更新標註樣式
-  if (globalThis.chrome?.storage?.onChanged) {
-    globalThis.chrome.storage.onChanged.addListener((changes, namespace) => {
-      if (namespace === 'sync' && changes.highlightStyle) {
-        const newStyle = changes.highlightStyle.newValue;
-        if (newStyle && VALID_STYLES.includes(newStyle) && globalThis.HighlighterV2?.manager) {
-          globalThis.HighlighterV2.manager.updateStyleMode(newStyle);
-        }
-      }
-    });
-  }
 }

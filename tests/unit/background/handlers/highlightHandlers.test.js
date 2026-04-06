@@ -1,5 +1,6 @@
 import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
+import { RUNTIME_ACTIONS } from '../../../../scripts/config/runtimeActions.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,
@@ -116,7 +117,7 @@ describe('highlightHandlers', () => {
       mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
-      await handlers.updateHighlights(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
@@ -434,7 +435,7 @@ describe('highlightHandlers', () => {
         new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED)
       );
 
-      await handlers.updateHighlights({}, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -453,7 +454,11 @@ describe('highlightHandlers', () => {
         new Error('Collection failed')
       );
 
-      await handlers.updateHighlights({ highlights: [] }, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](
+        { highlights: [] },
+        sender,
+        sendResponse
+      );
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -484,7 +489,11 @@ describe('highlightHandlers', () => {
         migrated: false,
       });
 
-      await handlers.updateHighlights({ highlights: [] }, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](
+        { highlights: [] },
+        sender,
+        sendResponse
+      );
 
       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
@@ -684,7 +693,7 @@ describe('highlightHandlers', () => {
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { url: 'https://example.com' };
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
       expect(validateInternalRequest).not.toHaveBeenCalled();
@@ -703,7 +712,7 @@ describe('highlightHandlers', () => {
       const sender = { id: 'test-id' };
       const request = { url: 'https://example.com', tabId: 1 };
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(validateInternalRequest).toHaveBeenCalledWith(sender);
       expect(validateContentScriptRequest).not.toHaveBeenCalled();
@@ -718,7 +727,7 @@ describe('highlightHandlers', () => {
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
         'https://example.com',
@@ -742,7 +751,7 @@ describe('highlightHandlers', () => {
         new Error('Visual cleanup failed')
       );
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
         'https://example.com',
@@ -763,7 +772,7 @@ describe('highlightHandlers', () => {
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(validateInternalRequest).toHaveBeenCalledWith(sender);
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
@@ -783,7 +792,7 @@ describe('highlightHandlers', () => {
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = {};
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -800,7 +809,7 @@ describe('highlightHandlers', () => {
 
       mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Clear failed'));
 
-      await handlers.CLEAR_HIGHLIGHTS(request, sender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({

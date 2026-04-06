@@ -13,6 +13,7 @@
 
 import { TAB_SERVICE, HANDLER_CONSTANTS } from '../../config/app.js';
 import { URL_NORMALIZATION } from '../../config/extraction.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
@@ -314,7 +315,7 @@ class TabService {
     }
     try {
       chrome.tabs
-        .sendMessage(tabId, { action: 'SET_STABLE_URL', stableUrl: normUrl })
+        .sendMessage(tabId, { action: RUNTIME_ACTIONS.SET_STABLE_URL, stableUrl: normUrl })
         .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
     } catch (error) {
       this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
@@ -333,7 +334,7 @@ class TabService {
   async getPreloaderData(tabId) {
     try {
       const sendMessagePromise = new Promise((resolve, reject) => {
-        chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+        chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {

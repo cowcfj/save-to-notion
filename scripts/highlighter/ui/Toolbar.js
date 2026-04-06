@@ -10,6 +10,7 @@ import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { TOOLBAR_SELECTORS } from '../../config/ui.js';
 import { UI_MESSAGES } from '../../config/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
@@ -225,7 +226,7 @@ export class Toolbar {
 
     // [New] 混和推播 (Hybrid Push) 策略：除 storage 事件外，額外監聽 background 主動推送的存檔完成事件
     this._messageListener = message => {
-      if (message?.action === 'PAGE_SAVE_HINT' && message.isSaved) {
+      if (message?.action === RUNTIME_ACTIONS.PAGE_SAVE_HINT && message.isSaved) {
         this.updateSaveButtonVisibility();
       }
     };
@@ -288,9 +289,10 @@ export class Toolbar {
         openSidePanel()
           .then(response => {
             if (response?.success === false) {
+              const errorMessage = sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE);
               Logger.error(OPEN_SIDE_PANEL_ERROR_MESSAGE, {
                 action: 'openSidePanel',
-                error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE),
+                error: new Error(errorMessage || UNKNOWN_ERROR_MESSAGE),
               });
             }
           })

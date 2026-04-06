@@ -18,6 +18,7 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/app.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 
@@ -53,7 +54,7 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
   for (let i = 0; i < maxRetries; i++) {
     try {
       const pingResponse = await new Promise((resolve, reject) => {
-        chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+        chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -212,7 +213,7 @@ export function createHighlightHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender
      * @param {Function} sendResponse
      */
-    USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.USER_ACTIVATE_SHORTCUT]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證：確保請求來自我們自己的 content script
         // 這個處理器會執行腳本注入，必須確保僅限我們的 preloader.js 調用
@@ -286,7 +287,7 @@ export function createHighlightHandlers(services) {
         // 發送訊息顯示 highlighter
         try {
           const response = await new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, result => {
+            chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER }, result => {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
               } else {
@@ -324,7 +325,7 @@ export function createHighlightHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender
      * @param {Function} sendResponse
      */
-    startHighlight: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.START_HIGHLIGHT]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證：檢查請求來源
         // startHighlight 會執行腳本注入，必須確保僅限內部調用
@@ -357,7 +358,7 @@ export function createHighlightHandlers(services) {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               activeTab.id,
-              { action: 'toggleHighlighter' },
+              { action: RUNTIME_ACTIONS.TOGGLE_HIGHLIGHTER },
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題
@@ -401,7 +402,7 @@ export function createHighlightHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender
      * @param {Function} sendResponse
      */
-    updateHighlights: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證：確保請求來自擴充功能內部 (Popup)
         const validationError = validateInternalRequest(sender);
@@ -447,7 +448,7 @@ export function createHighlightHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender - 發送者信息
      * @param {Function} sendResponse - 回應函數
      */
-    syncHighlights: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.SYNC_HIGHLIGHTS]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證：確保請求來自我們自己的 content script
         const validationError = validateContentScriptRequest(sender);
@@ -572,7 +573,7 @@ export function createHighlightHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender
      * @param {Function} sendResponse
      */
-    CLEAR_HIGHLIGHTS: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS]: async (request, sender, sendResponse) => {
       try {
         // 允許兩種來源：
         // 1. Content Script（sender.tab 存在）

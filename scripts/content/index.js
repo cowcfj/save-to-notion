@@ -19,6 +19,7 @@ import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。
@@ -58,7 +59,7 @@ globalThis.__NOTION_BUNDLE_READY__ = true;
 // PING 響應機制（供 InjectionService.ensureBundleInjected 使用）
 // ============================================================
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === 'PING') {
+  if (request.action === RUNTIME_ACTIONS.PING) {
     sendResponse({
       status: 'bundle_ready',
       hasPreloaderCache: Boolean(preloaderCache),
@@ -69,7 +70,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'showHighlighter') {
+  if (request.action === RUNTIME_ACTIONS.SHOW_HIGHLIGHTER) {
     // 顯示 highlighter toolbar
     if (globalThis.notionHighlighter) {
       globalThis.notionHighlighter.show();
@@ -80,7 +81,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'SET_STABLE_URL') {
+  if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL) {
     if (request.stableUrl) {
       // 防禦：驗證穩定 URL 有足夠的路徑或 query 來識別具體頁面
       if (isRootUrl(request.stableUrl)) {
@@ -116,7 +117,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 // ============================================================
 // 重放 Preloader 緩衝事件
 // ============================================================
-chrome.runtime.sendMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, response => {
+chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.REPLAY_BUFFERED_EVENTS }, response => {
   if (chrome.runtime.lastError) {
     // Preloader 可能尚未載入或已移除，忽略錯誤
     return;

@@ -16,6 +16,7 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
@@ -96,7 +97,7 @@ const StorageUtil = {
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'UPDATE_HIGHLIGHTS',
+        action: RUNTIME_ACTIONS.UPDATE_HIGHLIGHTS,
         url: pageUrl,
         highlights,
       });
@@ -357,7 +358,7 @@ const StorageUtil = {
     if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
       try {
         const response = await chrome.runtime.sendMessage({
-          action: 'CLEAR_HIGHLIGHTS',
+          action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
           url: pageUrl,
         });
         // sendMessage 成功且 Background 確認成功才 return

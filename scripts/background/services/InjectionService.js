@@ -14,6 +14,7 @@
 
 import Logger from '../../utils/Logger.js';
 import { RESTRICTED_PROTOCOLS } from '../../config/app.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 
 /**
  * 腳本注入服務的超時與錯誤定義
@@ -342,7 +343,7 @@ class InjectionService {
           // 若 timeout 先贏得 race，這個 Promise 可能在之後才 settle。
           // 用 reject 會在「已無人監聽」時產生 Unhandled Rejection；
           // 改為 resolve(null) 讓它靜默關閉，PING 錯誤由外層 try/catch 統一處理。
-          chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+          chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
             if (chrome.runtime.lastError) {
               resolve(null); // 靜默：錯誤已由 timeout race 或後續注入流程處理
             } else {

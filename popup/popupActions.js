@@ -9,6 +9,7 @@
 import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/api.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 
 /**
@@ -69,7 +70,7 @@ export async function checkPageStatus(options = {}) {
     };
 
     const response = await chrome.runtime.sendMessage({
-      action: 'checkPageStatus',
+      action: RUNTIME_ACTIONS.CHECK_PAGE_STATUS,
       forceRefresh: safeOptions.forceRefresh,
     });
     return response || { success: false };
@@ -87,7 +88,7 @@ export async function checkPageStatus(options = {}) {
  */
 export async function savePage() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'savePage' });
+    const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
     return response || { success: false, error: 'No response' };
   } catch (error) {
     Logger.warn('savePage failed:', error);
@@ -102,7 +103,7 @@ export async function savePage() {
  */
 export async function startHighlight() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'startHighlight' });
+    const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.START_HIGHLIGHT });
     return response || { success: false, error: 'No response' };
   } catch (error) {
     Logger.warn('startHighlight failed:', error);

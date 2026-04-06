@@ -2,6 +2,10 @@ jest.mock('../../../scripts/highlighter/index.js', () => ({
   setupHighlighter: jest.fn(),
 }));
 
+jest.mock('../../../scripts/utils/securityUtils.js', () => ({
+  sanitizeUrlForLogging: jest.fn(url => `sanitized:${url}`),
+}));
+
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   default: {
     log: jest.fn(),
@@ -16,6 +20,14 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 describe('entryAutoInit', () => {
   let mockSetupHighlighter;
   let mockLogger;
+  let runtimeMessageHandlers;
+  let storageChangeHandlers;
+
+  const flushAsyncSetup = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  };
 
   beforeEach(() => {
     jest.resetModules();
@@ -24,13 +36,21 @@ describe('entryAutoInit', () => {
 
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_STABLE_URL__;
+    runtimeMessageHandlers = [];
+    storageChangeHandlers = [];
 
     globalThis.chrome = {
       runtime: {
         sendMessage: jest.fn(),
         onMessage: {
-          addListener: jest.fn(),
-          removeListener: jest.fn(),
+          addListener: jest.fn(handler => {
+            runtimeMessageHandlers.push(handler);
+          }),
+          removeListener: jest.fn(handler => {
+            runtimeMessageHandlers = runtimeMessageHandlers.filter(
+              registeredHandler => registeredHandler !== handler
+            );
+          }),
         },
       },
       storage: {
@@ -38,7 +58,14 @@ describe('entryAutoInit', () => {
           get: jest.fn(),
         },
         onChanged: {
-          addListener: jest.fn(),
+          addListener: jest.fn(handler => {
+            storageChangeHandlers.push(handler);
+          }),
+          removeListener: jest.fn(handler => {
+            storageChangeHandlers = storageChangeHandlers.filter(
+              registeredHandler => registeredHandler !== handler
+            );
+          }),
         },
       },
     };
@@ -63,9 +90,7 @@ describe('entryAutoInit', () => {
     // Timeout behavior
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers(); // trigger settimeout manually
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
@@ -84,9 +109,7 @@ describe('entryAutoInit', () => {
 
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers(); // clear timeout
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: true,
@@ -101,9 +124,7 @@ describe('entryAutoInit', () => {
 
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers(); // clear timeout
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
@@ -121,9 +142,7 @@ describe('entryAutoInit', () => {
 
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers(); // clear timeout
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
 
     // 應該調用兩次: 一次正常，一次 fallback
     expect(mockSetupHighlighter).toHaveBeenCalledTimes(2);
@@ -150,9 +169,7 @@ describe('entryAutoInit', () => {
 
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
 
     expect(mockLogger.error).toHaveBeenCalledWith(
       '回退初始化失敗',
@@ -160,25 +177,86 @@ describe('entryAutoInit', () => {
     );
   });
 
-  test('sendMessage 接收 SET_STABLE_URL 訊息 (waitForStableUrl 內)', async () => {
-    // We want the Promise inside waitForStableUrl to resolve.
-    // It's created inside the init execution.
+  test('初始化完成前只註冊 waitForStableUrl 臨時監聽器', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    let messageHandler;
-    globalThis.chrome.runtime.onMessage.addListener.mockImplementation(handler => {
-      messageHandler = handler;
-    });
+    require('../../../scripts/highlighter/entryAutoInit.js');
+
+    expect(globalThis.chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+    expect(globalThis.chrome.storage.onChanged.addListener).not.toHaveBeenCalled();
+  });
+
+  test('完成初始化後才註冊永久監聽器', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
 
-    // Simulate background worker sending the message quickly
-    messageHandler({ action: 'SET_STABLE_URL', stableUrl: 'https://sent-from-bg.com' });
     jest.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
+
+    expect(globalThis.chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(2);
+    expect(runtimeMessageHandlers).toHaveLength(1);
+    expect(globalThis.chrome.storage.onChanged.addListener).toHaveBeenCalledTimes(1);
+    expect(storageChangeHandlers).toHaveLength(1);
+  });
+
+  test('初始化失敗後不應保留永久監聽器', async () => {
+    mockSetupHighlighter.mockImplementation(() => {
+      throw new Error('setup failed');
+    });
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+
+    jest.runAllTimers();
+    await flushAsyncSetup();
+
+    expect(runtimeMessageHandlers).toHaveLength(0);
+    expect(storageChangeHandlers).toHaveLength(0);
+  });
+
+  test('初始化 stableUrl 日誌應使用脫敏後的 URL', async () => {
+    const rawStableUrl = 'https://test.com/post?id=123#token=secret';
+    const { sanitizeUrlForLogging } = require('../../../scripts/utils/securityUtils.js');
+
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: rawStableUrl,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+
+    jest.runAllTimers();
+    await flushAsyncSetup();
+
+    expect(sanitizeUrlForLogging).toHaveBeenCalledWith(rawStableUrl);
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      '[Highlighter] Initialized with stable URL',
+      expect.objectContaining({
+        action: 'initializeExtension',
+        stableUrl: `sanitized:${rawStableUrl}`,
+      })
+    );
+    expect(globalThis.__NOTION_STABLE_URL__).toBe(rawStableUrl);
+  });
+
+  test('waitForStableUrl 應由臨時 SET_STABLE_URL 監聽器處理訊息', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+
+    const waitForStableUrlHandler = runtimeMessageHandlers[0];
+    waitForStableUrlHandler({
+      action: 'SET_STABLE_URL',
+      stableUrl: 'https://sent-from-bg.com',
+    });
+    jest.runAllTimers();
+    await flushAsyncSetup();
 
     expect(globalThis.__NOTION_STABLE_URL__).toBe('https://sent-from-bg.com');
   });
@@ -188,16 +266,11 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    let messageHandler;
-    globalThis.chrome.runtime.onMessage.addListener.mockImplementation(handler => {
-      messageHandler = handler;
-    });
-
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
+
+    const messageHandler = runtimeMessageHandlers.at(-1);
 
     // Test GET_STABLE_URL
     const sendResponseMock = jest.fn();
@@ -226,15 +299,10 @@ describe('entryAutoInit', () => {
   test('chrome.storage.onChanged 更新標籤樣式', async () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
-    let changedHandler;
-    globalThis.chrome.storage.onChanged.addListener.mockImplementation(handler => {
-      changedHandler = handler;
-    });
 
     require('../../../scripts/highlighter/entryAutoInit.js');
     jest.runAllTimers();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncSetup();
 
     globalThis.HighlighterV2 = {
       manager: {
@@ -242,6 +310,7 @@ describe('entryAutoInit', () => {
       },
     };
 
+    const changedHandler = storageChangeHandlers.at(-1);
     changedHandler({ highlightStyle: { newValue: 'underline' } }, 'sync');
     expect(globalThis.HighlighterV2.manager.updateStyleMode).toHaveBeenCalledWith('underline');
   });

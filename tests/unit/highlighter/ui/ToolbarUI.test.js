@@ -13,9 +13,10 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
 
 describe('ToolbarUI', () => {
   beforeEach(() => {
-    createSafeIcon.mockImplementation(svgStr => {
+    createSafeIcon.mockImplementation(() => {
       const el = document.createElement('span');
-      el.innerHTML = svgStr || '';
+      const textNode = document.createTextNode('');
+      el.append(textNode);
       return el;
     });
   });

@@ -8,6 +8,7 @@ import { AuthMode } from '../scripts/config/api.js';
 import { BUILD_ENV } from '../scripts/config/env.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
@@ -64,10 +65,10 @@ export function initOptions() {
 
   // 4. 全域事件監聽：OAuth 回調
   chrome.runtime.onMessage.addListener(request => {
-    if (request.action === 'oauth_success') {
+    if (request.action === RUNTIME_ACTIONS.OAUTH_SUCCESS) {
       auth.checkAuthStatus();
       ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_SUCCESS, 'success');
-    } else if (request.action === 'oauth_failed') {
+    } else if (request.action === RUNTIME_ACTIONS.OAUTH_FAILED) {
       ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_ERROR, 'error');
     }
   });
@@ -412,7 +413,7 @@ function setupLogExport() {
 
         // 發送訊息給 Background
         const response = await chrome.runtime.sendMessage({
-          action: 'exportDebugLogs',
+          action: RUNTIME_ACTIONS.EXPORT_DEBUG_LOGS,
           format: 'json',
         });
 

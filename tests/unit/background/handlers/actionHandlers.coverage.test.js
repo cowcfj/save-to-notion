@@ -77,6 +77,7 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
 // 引入測試所需模組
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
+import { RUNTIME_ACTIONS } from '../../../../scripts/config/runtimeActions.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { buildHighlightBlocks } from '../../../../scripts/background/utils/BlockBuilder.js';
@@ -992,7 +993,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
-      await handlers.updateHighlights({}, internalSender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, highlightCount: 1 })
       );
@@ -1008,7 +1009,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
 
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
-      await handlers.updateHighlights({}, internalSender, sendResponse);
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, internalSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
