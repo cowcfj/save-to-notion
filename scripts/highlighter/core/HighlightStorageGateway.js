@@ -503,7 +503,7 @@ const HighlightStorageGateway = {
     if (failures.length > 0) {
       Logger.warn('部分存儲清除失敗', { action: 'clearHighlights' });
     } else {
-      Logger.log('標註清除完成', { action: 'clearHighlights' });
+      Logger.success('標註清除完成', { action: 'clearHighlights' });
     }
   },
 

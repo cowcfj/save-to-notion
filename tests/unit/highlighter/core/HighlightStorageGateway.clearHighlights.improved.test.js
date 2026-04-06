@@ -90,6 +90,7 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     Logger.info.mockClear();
     Logger.warn.mockClear();
     Logger.error.mockClear();
+    Logger.success.mockClear();
   });
 
   afterEach(() => {
@@ -159,24 +160,34 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('sendMessage 回傳 { success: false } 時應同樣觸發 Fallback 清除邏輯', async () => {
+      jest.useFakeTimers();
       const testUrl = 'https://example.com/test';
       const legacyKey = 'highlights_https://example.com/test';
 
-      await chrome.storage.local.set({ [legacyKey]: [{ text: 'test' }] });
-      globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
+      try {
+        await chrome.storage.local.set({ [legacyKey]: [{ text: 'test' }] });
+        globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
 
-      // sendMessage resolve { success: false }（非 reject）
-      globalThis.chrome.runtime.sendMessage = jest.fn(() => Promise.resolve({ success: false }));
+        // sendMessage resolve { success: false }（非 reject）
+        globalThis.chrome.runtime.sendMessage = jest.fn(() => Promise.resolve({ success: false }));
 
-      await HighlightStorageGateway.clearHighlights(testUrl);
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
 
-      // Fallback 路徑應仍清理 highlights_* key
-      const removeCall = chrome.storage.local.remove.mock.calls;
-      const allRemovedKeys = removeCall.flatMap(call => {
-        const keys = call[0];
-        return Array.isArray(keys) ? keys : [keys];
-      });
-      expect(allRemovedKeys).toContain(legacyKey);
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(1000);
+        await clearPromise;
+
+        // Fallback 路徑應仍清理 highlights_* key
+        const removeCall = chrome.storage.local.remove.mock.calls;
+        const allRemovedKeys = removeCall.flatMap(call => {
+          const keys = call[0];
+          return Array.isArray(keys) ? keys : [keys];
+        });
+        expect(allRemovedKeys).toContain(legacyKey);
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     test('應該記錄清除開始', async () => {
@@ -188,6 +199,19 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
         '開始清除標註',
         expect.objectContaining({ action: 'clearHighlights' })
       );
+    });
+
+    test('Fallback 清除成功時應使用 success 等級記錄完成訊息', async () => {
+      const testUrl = 'https://example.com/test';
+
+      await HighlightStorageGateway.clearHighlights(testUrl);
+
+      expect(Logger.success).toHaveBeenCalledWith('標註清除完成', {
+        action: 'clearHighlights',
+      });
+      expect(Logger.log).not.toHaveBeenCalledWith('標註清除完成', {
+        action: 'clearHighlights',
+      });
     });
   });
 
