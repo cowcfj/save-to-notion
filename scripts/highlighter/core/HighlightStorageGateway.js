@@ -26,6 +26,30 @@ import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/s
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
+export const STORAGE_GATEWAY_RETRY = Object.freeze({
+  maxAttempts: 3,
+  delayMs: 500,
+});
+
+function sanitizeHighlightStorageKeyForLogging(key) {
+  if (typeof key !== 'string') {
+    return '[invalid-storage-key]';
+  }
+
+  if (key.startsWith(PAGE_PREFIX)) {
+    return `${PAGE_PREFIX}${sanitizeUrlForLogging(key.slice(PAGE_PREFIX.length))}`;
+  }
+
+  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+    return `${HIGHLIGHTS_PREFIX}${sanitizeUrlForLogging(key.slice(HIGHLIGHTS_PREFIX.length))}`;
+  }
+
+  if (key.startsWith(URL_ALIAS_PREFIX)) {
+    return `${URL_ALIAS_PREFIX}${sanitizeUrlForLogging(key.slice(URL_ALIAS_PREFIX.length))}`;
+  }
+
+  return '[non-highlight-storage-key]';
+}
 
 /**
  * HighlightStorageGateway 對象
@@ -58,12 +82,10 @@ const HighlightStorageGateway = {
       typeof chrome !== 'undefined' &&
       chrome?.runtime &&
       typeof chrome.runtime.sendMessage === 'function';
-    const MAX_ATTEMPTS = 3;
-    const attemptLimit = canRetryBackground ? MAX_ATTEMPTS : 1;
-    const RETRY_DELAY_MS = 500;
+    const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
     for (let attempt = 1; attempt <= attemptLimit; attempt++) {
       if (attempt > 1) {
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        await new Promise(resolve => setTimeout(resolve, STORAGE_GATEWAY_RETRY.delayMs));
         Logger.warn(
           `[HighlightStorageGateway] sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`,
           {
@@ -369,13 +391,11 @@ const HighlightStorageGateway = {
       typeof chrome !== 'undefined' &&
       chrome?.runtime &&
       typeof chrome.runtime.sendMessage === 'function';
-    const MAX_ATTEMPTS = 3;
-    const attemptLimit = canRetryBackground ? MAX_ATTEMPTS : 1;
-    const RETRY_DELAY_MS = 500;
+    const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
 
     for (let attempt = 1; attempt <= attemptLimit; attempt++) {
       if (attempt > 1) {
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        await new Promise(resolve => setTimeout(resolve, STORAGE_GATEWAY_RETRY.delayMs));
         Logger.warn(
           `[HighlightStorageGateway] clearHighlights sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`,
           { action: 'clearHighlights' }
@@ -559,7 +579,17 @@ const HighlightStorageGateway = {
         key.startsWith(HIGHLIGHTS_PREFIX) ||
         key.startsWith(URL_ALIAS_PREFIX)
     );
-    Logger.log('所有標註 Storage 鍵', { action: 'debugListAllKeys', keys: highlightKeys });
+    const prefixCounts = {
+      page: highlightKeys.filter(key => key.startsWith(PAGE_PREFIX)).length,
+      highlights: highlightKeys.filter(key => key.startsWith(HIGHLIGHTS_PREFIX)).length,
+      urlAlias: highlightKeys.filter(key => key.startsWith(URL_ALIAS_PREFIX)).length,
+    };
+    Logger.debug('標註 Storage 鍵統計', {
+      action: 'debugListAllKeys',
+      totalCount: highlightKeys.length,
+      prefixCounts,
+      sanitizedKeys: highlightKeys.map(key => sanitizeHighlightStorageKeyForLogging(key)),
+    });
   },
 };
 

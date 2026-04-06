@@ -347,7 +347,7 @@ describe('highlightHandlers', () => {
 
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
-        { action: 'showHighlighter' },
+        { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER },
         expect.any(Function)
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -367,6 +367,13 @@ describe('highlightHandlers', () => {
 
       await handlers.startHighlight({}, sender, sendResponse);
 
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        '發送顯示訊息失敗，嘗試注入腳本',
+        expect.objectContaining({
+          action: 'startHighlight',
+          error: expect.any(Error),
+        })
+      );
       expect(mockServices.injectionService.injectHighlighter).toHaveBeenCalledWith(1);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });

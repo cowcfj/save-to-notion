@@ -389,9 +389,9 @@ export function createHighlightHandlers(services) {
           }
         } catch (error) {
           // 訊息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.info('發送顯示訊息失敗，嘗試注入腳本', {
+          Logger.warn('發送顯示訊息失敗，嘗試注入腳本', {
             action: 'startHighlight',
-            error: error.message,
+            error,
           });
         }
 

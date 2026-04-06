@@ -5,14 +5,12 @@
 
 const chrome = require('../../../mocks/chrome');
 
-// 設置全局環境
-globalThis.chrome = chrome;
 // Phase 3: 模擬 chrome.runtime.sendMessage（預設返回失敗以測試 Fallback 路徑）
-if (!globalThis.chrome.runtime) {
-  globalThis.chrome.runtime = {};
+if (!chrome.runtime) {
+  chrome.runtime = {};
 }
-if (!globalThis.chrome.runtime.sendMessage) {
-  globalThis.chrome.runtime.sendMessage = jest.fn(() =>
+if (!chrome.runtime.sendMessage) {
+  chrome.runtime.sendMessage = jest.fn(() =>
     Promise.reject(new Error('sendMessage disabled in test'))
   );
 }
@@ -49,6 +47,8 @@ import Logger from '../../../../scripts/utils/Logger.js';
 
 describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
   beforeEach(() => {
+    globalThis.chrome = chrome;
+
     // 重置 chrome.storage mock
     chrome._clearStorage();
     chrome.storage.local.get.mockClear();
@@ -90,7 +90,9 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     chrome.runtime.lastError = null;
+    delete globalThis.chrome;
   });
 
   describe('輸入驗證', () => {

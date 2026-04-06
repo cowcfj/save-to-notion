@@ -822,4 +822,47 @@ describe('Highlighter HighlightStorageGateway', () => {
       );
     });
   });
+
+  describe('debugListAllKeys', () => {
+    test('應以脫敏鍵與聚合統計輸出除錯資訊，不直接記錄原始 storage keys', async () => {
+      const rawPageUrl = 'https://example.com/article?token=secret123&utm_source=ads#frag';
+      const rawLegacyUrl = 'https://example.com/legacy?session=abcd1234#section';
+      const rawAliasUrl = 'https://example.com/alias?foo=bar#hash';
+      const rawKeys = [
+        `${PAGE_PREFIX}${rawPageUrl}`,
+        `${HIGHLIGHTS_PREFIX}${rawLegacyUrl}`,
+        `${URL_ALIAS_PREFIX}${rawAliasUrl}`,
+      ];
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+        [rawKeys[0]]: { highlights: [] },
+        [rawKeys[1]]: [],
+        [rawKeys[2]]: 'https://example.com/stable',
+        unrelated_key: true,
+      });
+      const debugSpy = jest.spyOn(Logger, 'debug').mockImplementation();
+      const logSpy = jest.spyOn(Logger, 'log').mockImplementation();
+
+      await HighlightStorageGateway.debugListAllKeys();
+
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(debugSpy).toHaveBeenCalledWith(
+        '標註 Storage 鍵統計',
+        expect.objectContaining({
+          action: 'debugListAllKeys',
+          totalCount: 3,
+          prefixCounts: {
+            page: 1,
+            highlights: 1,
+            urlAlias: 1,
+          },
+          sanitizedKeys: [
+            `${PAGE_PREFIX}${sanitizeUrlForLogging(rawPageUrl)}`,
+            `${HIGHLIGHTS_PREFIX}${sanitizeUrlForLogging(rawLegacyUrl)}`,
+            `${URL_ALIAS_PREFIX}${sanitizeUrlForLogging(rawAliasUrl)}`,
+          ],
+        })
+      );
+      expect(debugSpy.mock.calls[0][1].sanitizedKeys).not.toEqual(expect.arrayContaining(rawKeys));
+    });
+  });
 });
