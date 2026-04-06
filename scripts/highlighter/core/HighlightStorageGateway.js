@@ -167,7 +167,7 @@ const HighlightStorageGateway = {
         action: 'saveHighlights',
         error: error.message,
       });
-      const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizeUrl(pageUrl)}`;
+      const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
       try {
         await this._saveToLocalStorage(legacyKey, highlightData);
       } catch (localError) {
