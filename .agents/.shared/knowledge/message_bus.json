@@ -1,117 +1,377 @@
 {
   "description": "Chrome Extension Runtime Message Bus Registry",
-  "source_of_truth": "scripts/background/handlers/*.js",
+  "source_of_truth": {
+    "action_names": "scripts/config/runtimeActions.js",
+    "runtime_behavior": "scripts/background/handlers/*.js, scripts/content/index.js, scripts/highlighter/entryAutoInit.js, scripts/performance/preloader.js"
+  },
+  "maintenance_rule": "新增、刪除或改名任何 runtime/tabs message action 時，必須先更新 scripts/config/runtimeActions.js，再同步更新本檔的 payload/response contract。",
   "actions": {
     "save": {
       "savePage": {
-        "description": "Trigger the save to motion workflow",
-        "payload": {
-          "url": "string"
-        },
+        "description": "從 Popup 或 Side Panel 觸發頁面保存流程",
+        "payload": {},
         "response": {
           "success": "boolean",
-          "pageId": "string"
+          "url": "string (optional)",
+          "pageId": "string (optional)",
+          "notionPageId": "string (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "SAVE_PAGE_FROM_TOOLBAR": {
+        "description": "從 Highlighter Toolbar 觸發保存流程",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "url": "string (optional)",
+          "pageId": "string (optional)",
+          "notionPageId": "string (optional)",
+          "error": "string (optional)"
         }
       },
       "openNotionPage": {
-        "description": "Open a saved page in Notion",
+        "description": "依已保存頁面資料開啟對應 Notion 頁面",
         "payload": {
           "url": "string"
         },
         "response": {
           "success": "boolean",
-          "tabId": "number"
+          "tabId": "number (optional)",
+          "error": "string (optional)"
         }
       },
       "checkNotionPageExists": {
-        "description": "Verify if a page ID exists in Notion",
+        "description": "檢查指定 Notion pageId 是否仍存在",
         "payload": {
           "pageId": "string"
         },
         "response": {
           "success": "boolean",
-          "exists": "boolean"
+          "exists": "boolean (optional)",
+          "error": "string (optional)"
         }
       },
       "checkPageStatus": {
-        "description": "Check if current URL is already saved locally",
+        "description": "檢查當前頁面是否已保存，並回傳 stableUrl 與刪除確認狀態",
         "payload": {
-          "forceRefresh": "boolean"
+          "forceRefresh": "boolean (optional)",
+          "url": "string (optional)"
         },
         "response": {
           "success": "boolean",
-          "isSaved": "boolean",
-          "notionPageId": "string"
+          "isSaved": "boolean (optional)",
+          "notionPageId": "string (optional)",
+          "notionUrl": "string (optional)",
+          "title": "string (optional)",
+          "stableUrl": "string (optional)",
+          "wasDeleted": "boolean (optional)",
+          "deletionPending": "boolean (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "PAGE_SAVE_HINT": {
+        "description": "Background 對 content script 的最佳努力推播，提示頁面已保存",
+        "payload": {
+          "isSaved": "boolean"
+        },
+        "response": {
+          "success": "boolean (optional)"
         }
       }
     },
     "highlight": {
       "USER_ACTIVATE_SHORTCUT": {
-        "description": "User pressed shortcut to activate highlighter",
-        "payload": {},
-        "response": {
-          "success": "boolean"
-        }
-      },
-      "startHighlight": {
-        "description": "Initialize highlighter mode",
-        "payload": {},
-        "response": {
-          "success": "boolean"
-        }
-      },
-      "updateHighlights": {
-        "description": "Update highlights for current page in Notion",
+        "description": "Preloader 將快捷鍵事件上送至 Background",
         "payload": {},
         "response": {
           "success": "boolean",
-          "highlightsUpdated": "boolean"
+          "error": "string (optional)"
+        }
+      },
+      "startHighlight": {
+        "description": "啟動高亮工具，必要時注入 bundle 並顯示 highlighter",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "toggleHighlighter": {
+        "description": "切換 highlighter 啟用狀態",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "isActive": "boolean (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "showHighlighter": {
+        "description": "要求已注入的 content bundle 顯示 highlighter",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "showToolbar": {
+        "description": "要求已初始化的 Highlighter 顯示 Toolbar",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "updateHighlights": {
+        "description": "將目前頁面的 highlights 同步到 Notion 的 highlights section",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "highlightsUpdated": "boolean (optional)",
+          "highlightCount": "number (optional)",
+          "error": "string (optional)"
         }
       },
       "syncHighlights": {
-        "description": "Sync specific highlights list to Notion. When remote page deletion is suspected, first return PAGE_DELETION_PENDING without clearing notion binding; only after confirmation-window reoccurrence return PAGE_DELETED and clear notion binding.",
+        "description": "以 content script 提供的 highlights 陣列同步到 Notion；支援遠端頁面刪除的兩階段確認",
         "payload": {
           "highlights": "array"
         },
         "response": {
           "success": "boolean",
-          "count": "number",
-          "errorCode": "\"PAGE_DELETION_PENDING\" | \"PAGE_DELETED\" | string (optional)"
+          "count": "number (optional)",
+          "errorCode": "\"PAGE_DELETION_PENDING\" | \"PAGE_DELETED\" | string (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "UPDATE_HIGHLIGHTS": {
+        "description": "透過 canonical Background storage path 更新本地 highlights（不直接觸發 Notion 同步）",
+        "payload": {
+          "url": "string",
+          "highlights": "array"
+        },
+        "response": {
+          "success": "boolean",
+          "error": {
+            "code": "string (optional)",
+            "message": "string (optional)"
+          }
         }
       },
       "CLEAR_HIGHLIGHTS": {
-        "description": "Clear local highlights for a page through the canonical Background storage path and best-effort page visual cleanup",
+        "description": "透過 canonical Background storage path 清空本地 highlights，並最佳努力清理頁面視覺狀態",
         "payload": {
           "url": "string",
           "tabId": "number (optional)"
         },
         "response": {
           "success": "boolean",
-          "clearedCount": "number",
-          "visualCleared": "boolean"
+          "clearedCount": "number (optional)",
+          "visualCleared": "boolean (optional)",
+          "error": "string | object (optional)"
+        }
+      },
+      "GET_STABLE_URL": {
+        "description": "向 content script 讀取目前解析出的 stable URL",
+        "payload": {},
+        "response": {
+          "stableUrl": "string (optional)"
+        }
+      },
+      "SET_STABLE_URL": {
+        "description": "Background 對 content/highlighter 推送解析出的 stable URL",
+        "payload": {
+          "stableUrl": "string"
+        },
+        "response": {
+          "success": "boolean (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "REMOVE_HIGHLIGHT_DOM": {
+        "description": "Side Panel 要求 content script 移除指定 highlight 的 DOM 呈現",
+        "payload": {
+          "highlightId": "string"
+        },
+        "response": {
+          "success": "boolean (optional)",
+          "error": "string (optional)"
+        }
+      }
+    },
+    "sidepanel": {
+      "OPEN_SIDE_PANEL": {
+        "description": "Toolbar 要求 Background 開啟 Chrome Side Panel",
+        "payload": {
+          "tabId": "number (optional)"
+        },
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
         }
       }
     },
     "auth": {
+      "searchNotion": {
+        "description": "Options 頁面查詢 Notion data sources / pages",
+        "payload": {
+          "apiKey": "string (optional)",
+          "searchParams": "object"
+        },
+        "response": {
+          "success": "boolean",
+          "data": "object (optional)",
+          "error": "string (optional)"
+        }
+      },
       "refreshOAuthToken": {
-        "description": "Delegate OAuth refresh requests to the Background worker as the single coordination entrypoint",
+        "description": "非 Background context 將 OAuth refresh 委派給 Background 協調",
         "payload": {},
         "response": {
           "success": "boolean",
-          "token": "string | null"
+          "token": "string | null",
+          "error": "string (optional)"
+        }
+      },
+      "oauth_success": {
+        "description": "OAuth 流程成功後通知 Options UI 刷新狀態",
+        "payload": {},
+        "response": {
+          "success": "boolean (optional)"
+        }
+      },
+      "oauth_failed": {
+        "description": "OAuth 流程失敗後通知 Options UI 顯示錯誤",
+        "payload": {},
+        "response": {
+          "success": "boolean (optional)"
         }
       }
     },
-    "utility": {
+    "logging": {
+      "exportDebugLogs": {
+        "description": "Options 匯出目前緩衝的 debug logs",
+        "payload": {
+          "format": "\"json\" | string"
+        },
+        "response": {
+          "success": "boolean",
+          "data": "object (optional)",
+          "error": "string (optional)"
+        }
+      },
       "devLogSink": {
-        "description": "Forward content script logs to background",
+        "description": "單筆外部日誌轉發到 Background log buffer",
         "payload": {
           "level": "string",
           "message": "string",
           "args": "array"
         },
         "response": {
-          "success": "boolean"
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "devLogSinkBatch": {
+        "description": "批量外部日誌轉發到 Background log buffer",
+        "payload": {
+          "logs": "array"
+        },
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      }
+    },
+    "migration": {
+      "migration_execute": {
+        "description": "單頁內容感知遷移",
+        "payload": {
+          "url": "string"
+        },
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "migration_delete": {
+        "description": "刪除指定 URL 的舊版標註資料",
+        "payload": {
+          "url": "string"
+        },
+        "response": {
+          "success": "boolean",
+          "message": "string (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "migration_batch": {
+        "description": "批量遷移多個 URL 的舊版標註資料",
+        "payload": {
+          "urls": "array"
+        },
+        "response": {
+          "success": "boolean",
+          "results": "object (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "migration_batch_delete": {
+        "description": "批量刪除多個 URL 的舊版標註資料",
+        "payload": {
+          "urls": "array"
+        },
+        "response": {
+          "success": "boolean",
+          "count": "number (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "migration_get_pending": {
+        "description": "列出待完成定位與失敗的遷移項目",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "items": "array (optional)",
+          "failedItems": "array (optional)",
+          "error": "string (optional)"
+        }
+      },
+      "migration_delete_failed": {
+        "description": "刪除指定 URL 中已標記為 failed 的舊版標註",
+        "payload": {
+          "url": "string"
+        },
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      }
+    },
+    "bundle": {
+      "PING": {
+        "description": "Background 檢查 preloader 或 content bundle 是否就緒，並讀取頁面元資料",
+        "payload": {},
+        "response": {
+          "status": "\"preloader_only\" | \"bundle_ready\" | string (optional)",
+          "hasCache": "boolean (optional)",
+          "hasPreloaderCache": "boolean (optional)",
+          "nextRouteInfo": "object | null (optional)",
+          "shortlink": "string | null (optional)"
+        }
+      },
+      "INIT_BUNDLE": {
+        "description": "Preloader 對主 bundle 暴露初始化握手資訊",
+        "payload": {},
+        "response": {
+          "ready": "boolean",
+          "bufferedEvents": "number (optional)"
+        }
+      },
+      "REPLAY_BUFFERED_EVENTS": {
+        "description": "主 bundle 要求 preloader 重放在注入前緩衝的事件",
+        "payload": {},
+        "response": {
+          "events": "array"
         }
       }
     }
