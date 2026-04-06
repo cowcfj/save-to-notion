@@ -425,8 +425,29 @@ describe('Toolbar 覆蓋率補強', () => {
 
       expect(openSidePanel).toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalledWith(
-        '[Toolbar] OPEN_SIDE_PANEL failed',
-        'panel unavailable'
+        '開啟 Side Panel 失敗',
+        expect.objectContaining({
+          action: 'openSidePanel',
+          error: 'Unknown Error',
+        })
+      );
+    });
+
+    test('管理按鈕在 openSidePanel rejection 時應記錄 context object', async () => {
+      const manageBtn = container.querySelector('#manage-highlights-v2');
+      const runtimeError = new Error('runtime failed');
+      openSidePanel.mockRejectedValue(runtimeError);
+
+      manageBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        '開啟 Side Panel 失敗',
+        expect.objectContaining({
+          action: 'openSidePanel',
+          error: runtimeError,
+        })
       );
     });
   });

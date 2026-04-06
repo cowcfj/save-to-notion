@@ -253,7 +253,7 @@ class TabService {
 
         // 建立 url_alias 連結：避免 shortlink 與原網址各自產生獨立的 storage key
         if (highlights) {
-          const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+          const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
           chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
           this.logger.debug('[TabService] Created url_alias for fallback URL', {
             from: sanitizeUrlForLogging(originalUrl),

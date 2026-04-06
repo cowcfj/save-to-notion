@@ -198,12 +198,14 @@ describe('Highlighter Integration Tests', () => {
     test('should expose setupHighlighter without relying on import side effects', () => {
       // Clear window.HighlighterV2 to simulate a fresh explicit setup call
       delete globalThis.HighlighterV2;
+      delete globalThis.notionHighlighter;
 
       // setupHighlighter() 是顯式初始化 API；runtime auto-init 由 entryAutoInit.js 負責
-      setupHighlighter();
+      const result = setupHighlighter();
 
-      // 此測試僅驗證顯式初始化可用
-      expect(globalThis.chrome.runtime.sendMessage).toBeDefined();
+      expect(result.manager).toBeDefined();
+      expect(globalThis.HighlighterV2).toBeDefined();
+      expect(globalThis.notionHighlighter).toBeDefined();
     });
 
     test('should handle chrome.runtime.sendMessage errors gracefully', () => {

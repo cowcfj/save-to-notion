@@ -15,6 +15,7 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 
 describe('entryAutoInit', () => {
   let mockSetupHighlighter;
+  let mockLogger;
 
   beforeEach(() => {
     jest.resetModules();
@@ -44,6 +45,7 @@ describe('entryAutoInit', () => {
 
     const indexMock = require('../../../scripts/highlighter/index.js');
     mockSetupHighlighter = indexMock.setupHighlighter;
+    mockLogger = require('../../../scripts/utils/Logger.js').default;
   });
 
   afterEach(() => {
@@ -129,6 +131,33 @@ describe('entryAutoInit', () => {
       skipRestore: true,
       skipToolbar: true,
     });
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      '初始化失敗',
+      expect.objectContaining({ action: 'initializeExtension' })
+    );
+  });
+
+  test('如果 fallback setupHighlighter 也拋錯應記錄 setupHighlighter action', async () => {
+    mockSetupHighlighter
+      .mockImplementationOnce(() => {
+        throw new Error('Initial fail');
+      })
+      .mockImplementationOnce(() => {
+        throw new Error('Fallback fail');
+      });
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      '回退初始化失敗',
+      expect.objectContaining({ action: 'setupHighlighter' })
+    );
   });
 
   test('sendMessage 接收 SET_STABLE_URL 訊息 (waitForStableUrl 內)', async () => {

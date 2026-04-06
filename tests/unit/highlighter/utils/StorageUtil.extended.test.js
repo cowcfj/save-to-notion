@@ -23,6 +23,9 @@ import {
   PAGE_PREFIX,
   URL_ALIAS_PREFIX,
 } from '../../../../scripts/config/storageKeys.js';
+import Logger from '../../../../scripts/utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
+import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
 describe('Highlighter StorageUtil', () => {
   // Jest beforeEach 模式：變數在 beforeEach 中初始化
@@ -328,6 +331,7 @@ describe('Highlighter StorageUtil', () => {
       });
       const data = await StorageUtil._loadBothFormats(
         'https://example.com',
+        'https://example.com',
         'highlights_https://example.com'
       );
       expect(data).toEqual([{ text: 'legacy match' }]);
@@ -337,7 +341,7 @@ describe('Highlighter StorageUtil', () => {
       const originalChrome = globalThis.chrome;
       globalThis.chrome = undefined;
       await expect(
-        StorageUtil._loadBothFormats('https://example.com', 'legacyKey')
+        StorageUtil._loadBothFormats('https://example.com', 'https://example.com', 'legacyKey')
       ).rejects.toThrow('Chrome storage not available');
       globalThis.chrome = originalChrome;
     });
@@ -346,7 +350,7 @@ describe('Highlighter StorageUtil', () => {
       const originalChrome = globalThis.chrome;
       globalThis.chrome = undefined;
       const url = await StorageUtil._resolveStableUrl('https://example.com');
-      expect(url).toBe('https://example.com');
+      expect(url).toBe(normalizeUrl('https://example.com'));
       globalThis.chrome = originalChrome;
     });
 
@@ -421,6 +425,39 @@ describe('Highlighter StorageUtil', () => {
       const result = await StorageUtil.loadHighlights(pageUrl);
 
       expect(result).toEqual([{ text: 'stable highlight' }]);
+    });
+
+    test('存在舊格式 originalUrl alias key 時仍應能解析 stable page key', async () => {
+      const pageUrl = 'https://example.com/original/?utm_source=fb#frag';
+      const normalizedUrl = normalizeUrl(pageUrl);
+      const stableUrl = 'https://example.com/stable';
+      const legacyAliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (
+          keyList.includes(`${URL_ALIAS_PREFIX}${normalizedUrl}`) &&
+          keyList.includes(legacyAliasKey)
+        ) {
+          return Promise.resolve({ [legacyAliasKey]: stableUrl });
+        }
+
+        if (keyList.includes(stablePageKey)) {
+          return Promise.resolve({
+            [stablePageKey]: {
+              highlights: [{ text: 'legacy alias highlight' }],
+            },
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      const result = await StorageUtil.loadHighlights(pageUrl);
+
+      expect(result).toEqual([{ text: 'legacy alias highlight' }]);
     });
   });
 
@@ -688,6 +725,28 @@ describe('Highlighter StorageUtil', () => {
         },
       });
       expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
+    });
+
+    test('fallback 清除時應使用 sanitize 後的 pageKey 記錄 info 日誌', async () => {
+      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+      const pageUrl = 'https://example.com/path/?utm_source=fb#section';
+      const normalizedUrl = normalizeUrl(pageUrl);
+      const infoSpy = jest.spyOn(Logger, 'info').mockImplementation();
+      const logSpy = jest.spyOn(Logger, 'log').mockImplementation();
+
+      await StorageUtil.clearHighlights(pageUrl);
+
+      expect(infoSpy).toHaveBeenCalledWith('開始清除標註', {
+        action: 'clearHighlights',
+        pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
+      });
+      expect(logSpy).not.toHaveBeenCalledWith(
+        '開始清除標註',
+        expect.objectContaining({ action: 'clearHighlights' })
+      );
+
+      infoSpy.mockRestore();
+      logSpy.mockRestore();
     });
   });
 

@@ -14,6 +14,27 @@ const STYLE_INLINE_BLOCK = 'inline-block';
 const STYLE_TEXT_BOTTOM = 'text-bottom';
 const STYLE_INLINE_FLEX = 'inline-flex';
 const STYLE_NONE = 'none';
+const DEFAULT_STATUS_ICON_KEY = 'INFO';
+const STATUS_ICON_KEY_MAP = {
+  SYNC: 'REFRESH',
+  CHECK: 'SUCCESS',
+  X: 'ERROR',
+};
+
+function resolveStatusIconKey(iconKey) {
+  const normalizedKey = typeof iconKey === 'string' ? iconKey.toUpperCase() : '';
+  const mappedKey = STATUS_ICON_KEY_MAP[normalizedKey] ?? normalizedKey;
+
+  if (mappedKey && UI_ICONS[mappedKey]) {
+    return mappedKey;
+  }
+
+  if (UI_ICONS[DEFAULT_STATUS_ICON_KEY]) {
+    return DEFAULT_STATUS_ICON_KEY;
+  }
+
+  return null;
+}
 
 /**
  * 集中查詢 Toolbar 常用 DOM 節點
@@ -62,16 +83,20 @@ export function applySaveSyncVisibility(saveBtn, syncBtn, isSaved) {
  */
 export function renderStatusIcon(statusDiv, iconKey, messageKey, customMessage) {
   statusDiv.textContent = '';
-  const icon = createSafeIcon(UI_ICONS[iconKey]);
-  icon.style.display = STYLE_INLINE_BLOCK;
-  icon.style.marginRight = '4px';
-  icon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+  const resolvedIconKey = resolveStatusIconKey(iconKey);
 
-  if (iconKey === 'SYNC') {
-    icon.style.animation = 'spin 1s linear infinite';
+  if (resolvedIconKey) {
+    const icon = createSafeIcon(UI_ICONS[resolvedIconKey]);
+    icon.style.display = STYLE_INLINE_BLOCK;
+    icon.style.marginRight = '4px';
+    icon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+
+    if (resolvedIconKey === 'REFRESH') {
+      icon.style.animation = 'spin 1s linear infinite';
+    }
+
+    statusDiv.append(icon);
   }
-
-  statusDiv.append(icon);
 
   // 優先使用 customMessage，否則查找 UI_MESSAGES.TOOLBAR 常數
   const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR?.[messageKey] ?? '';

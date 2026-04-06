@@ -3,6 +3,7 @@ import {
   getToolbarElements,
   renderStatusIcon,
 } from '../../../../scripts/highlighter/ui/ToolbarUI.js';
+import { UI_ICONS } from '../../../../scripts/config/icons.js';
 import { TOOLBAR_SELECTORS } from '../../../../scripts/config/ui.js';
 import { createSafeIcon } from '../../../../scripts/utils/securityUtils.js';
 
@@ -63,27 +64,38 @@ describe('ToolbarUI', () => {
   });
 
   describe('renderStatusIcon', () => {
-    test('應附加圖標和包含 customMessage 的文字', () => {
+    test('應將 CHECK 映射為 SUCCESS 圖標並附加 customMessage', () => {
       const statusDiv = document.createElement('div');
-      renderStatusIcon(statusDiv, 'check', null, '自定義訊息');
+      renderStatusIcon(statusDiv, 'CHECK', null, '自定義訊息');
       expect(statusDiv.textContent.trim()).toBe('自定義訊息');
       const iconSpan = statusDiv.querySelector('span');
       expect(iconSpan).not.toBeNull();
       expect(iconSpan.style.display).toBe('inline-block');
+      expect(createSafeIcon).toHaveBeenCalledWith(UI_ICONS.SUCCESS);
     });
 
-    test('當 iconKey 為 SYNC 時應加上 spin 樣式', () => {
+    test('當 iconKey 為 SYNC 時應映射為 REFRESH 並加上 spin 樣式', () => {
       const statusDiv = document.createElement('div');
       renderStatusIcon(statusDiv, 'SYNC', null, 'Syncing');
       const iconSpan = statusDiv.querySelector('span');
       expect(iconSpan.style.animation).toBe('spin 1s linear infinite');
+      expect(createSafeIcon).toHaveBeenCalledWith(UI_ICONS.REFRESH);
     });
 
     test('當 messageKey 與 customMessage 均無時只顯示圖標', () => {
       const statusDiv = document.createElement('div');
-      renderStatusIcon(statusDiv, 'check', 'UNKNOWN_KEY');
+      renderStatusIcon(statusDiv, 'CHECK', 'UNKNOWN_KEY');
       // customMessage = undefined, messageKey 找不到 -> textMsg 為 ''
       expect(statusDiv.textContent.trim()).toBe('');
+    });
+
+    test('未知 iconKey 應回退到安全預設圖標', () => {
+      const statusDiv = document.createElement('div');
+
+      renderStatusIcon(statusDiv, 'UNKNOWN', null, 'fallback');
+
+      expect(createSafeIcon).toHaveBeenCalledWith(UI_ICONS.INFO);
+      expect(statusDiv.textContent.trim()).toBe('fallback');
     });
   });
 });

@@ -28,6 +28,8 @@ const TOOLBAR_HOST_SELECTOR = `#${TOOLBAR_HOST_ID}`;
 const TOOLBAR_HOST_OWNER_ATTR = 'data-highlighter-owner';
 const TOOLBAR_HOST_OWNER_VALUE = 'true';
 const TOOLBAR_OWNED_HOST_SELECTOR = `${TOOLBAR_HOST_SELECTOR}[${TOOLBAR_HOST_OWNER_ATTR}="${TOOLBAR_HOST_OWNER_VALUE}"]`;
+const OPEN_SIDE_PANEL_ERROR_MESSAGE = '開啟 Side Panel 失敗';
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 
 /**
  * 工具欄管理器類別
@@ -286,10 +288,18 @@ export class Toolbar {
         openSidePanel()
           .then(response => {
             if (response?.success === false) {
-              Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', response.error);
+              Logger.error(OPEN_SIDE_PANEL_ERROR_MESSAGE, {
+                action: 'openSidePanel',
+                error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE),
+              });
             }
           })
-          .catch(error => Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', error));
+          .catch(error =>
+            Logger.error(OPEN_SIDE_PANEL_ERROR_MESSAGE, {
+              action: 'openSidePanel',
+              error,
+            })
+          );
       });
     }
   }
@@ -519,7 +529,7 @@ export class Toolbar {
         // await 確保按鈕切換完成後 finally 才執行，避免閃爍
         await this.updateSaveButtonVisibility();
       } else {
-        const rawError = sanitizeApiError(response?.error || 'Unknown error');
+        const rawError = sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE);
         const errorMsg = ErrorHandler.formatUserMessage(rawError);
         if (statusDiv) {
           renderStatusIcon(statusDiv, 'X', null, errorMsg);
@@ -597,7 +607,7 @@ export class Toolbar {
               break;
             }
             default: {
-              const rawError = sanitizeApiError(response?.error || 'Unknown error');
+              const rawError = sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE);
               const errorMsg = ErrorHandler.formatUserMessage(rawError);
               renderStatusIcon(statusDiv, 'X', null, errorMsg);
             }

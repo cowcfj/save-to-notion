@@ -9,6 +9,7 @@ import {
   TabService,
   _migrationScript,
 } from '../../../../scripts/background/services/TabService.js';
+import { URL_ALIAS_PREFIX } from '../../../../scripts/config/storageKeys.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
 
@@ -207,6 +208,31 @@ describe('TabService', () => {
 
       // 驗證使用 ensureBundleInjected 而非 injectHighlighter
       expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+    });
+
+    it('should normalize originalUrl when creating fallback url_alias key', async () => {
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/stable',
+        originalUrl: 'https://example.com/original/?utm_source=fb#frag',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce([{ id: '1' }]);
+      service._waitForTabCompilation = jest
+        .fn()
+        .mockResolvedValue({ id: 1, status: 'complete', url: 'https://example.com/stable' });
+      service._sendStableUrl = jest.fn();
+      service.normalizeUrl = jest.fn(url => url.replace('/?utm_source=fb#frag', ''));
+      chrome.storage.local.set.mockResolvedValue(undefined);
+
+      await service._updateTabStatusInternal(1, 'https://example.com/original/?utm_source=fb#frag');
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/original`]: 'https://example.com/stable',
+      });
     });
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {

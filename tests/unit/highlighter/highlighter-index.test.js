@@ -316,7 +316,11 @@ describe('Highlighter Index', () => {
         const funcs = mountCallArgs[3];
 
         funcs.init();
+        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(2);
+        expect(mockChrome.runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
         funcs.initWithToolbar();
+        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(3);
+        expect(mockChrome.runtime.onMessage.removeListener).toHaveBeenCalledTimes(2);
       });
     });
   });

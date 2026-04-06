@@ -17,6 +17,7 @@ import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 
@@ -130,7 +131,7 @@ const StorageUtil = {
     const normalizedUrl = normalizeUrl(pageUrl);
 
     try {
-      const stableUrl = await this._resolveStableUrl(normalizedUrl);
+      const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
       const pageKey = `${PAGE_PREFIX}${stableUrl}`;
 
       // 讀取現有資料以保留 notion 物件及已有 metadata 欄位
@@ -224,7 +225,7 @@ const StorageUtil = {
     try {
       // Phase 3：同時查詢新舊格式
       // null = 找不到資料（需回退），[] = 明確空陣列（不回退）
-      const data = await this._loadBothFormats(normalizedUrl, legacyKey);
+      const data = await this._loadBothFormats(pageUrl, normalizedUrl, legacyKey);
       if (data !== null && data !== undefined) {
         return data;
       }
@@ -246,17 +247,18 @@ const StorageUtil = {
   /**
    * 同時查詢 page_* 和 highlights_* 格式
    *
+   * @param {string} pageUrl - 原始頁面 URL
    * @param {string} normalizedUrl - 已標準化的 URL
    * @param {string} legacyKey - highlights_* key
    * @returns {Promise<Array>}
    * @private
    */
-  async _loadBothFormats(normalizedUrl, legacyKey) {
+  async _loadBothFormats(pageUrl, normalizedUrl, legacyKey) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
 
-    const stableUrl = await this._resolveStableUrl(normalizedUrl);
+    const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
     const pageKey = `${PAGE_PREFIX}${stableUrl}`;
     const data = await chrome.storage.local.get([pageKey, legacyKey]);
 
@@ -377,15 +379,15 @@ const StorageUtil = {
     const normalizedUrl = normalizeUrl(pageUrl);
     const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
-    Logger.log('開始清除標註', {
+    Logger.info('開始清除標註', {
       action: 'clearHighlights',
-      pageKey: `${PAGE_PREFIX}${normalizedUrl}`,
+      pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
     });
 
     // 對 page_* entry 進行讀→改→寫，只清空 highlights 欄位，保留 notion 等其他狀態
     const clearPageHighlights = async () => {
       if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const stableUrl = await this._resolveStableUrl(normalizedUrl);
+        const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
         const pageKey = `${PAGE_PREFIX}${stableUrl}`;
         const existing = await chrome.storage.local.get([pageKey]);
         const current = existing[pageKey];
@@ -453,19 +455,29 @@ const StorageUtil = {
   /**
    * 解析 pageUrl 對應的 stable URL，若沒有 alias 則回退為 normalizedUrl
    *
+   * @param {string} pageUrl - 原始頁面 URL
    * @param {string} normalizedUrl - 已標準化的 URL
    * @returns {Promise<string>}
    * @private
    */
-  async _resolveStableUrl(normalizedUrl) {
+  async _resolveStableUrl(pageUrl, normalizedUrl = normalizeUrl(pageUrl)) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
       return normalizedUrl;
     }
 
-    const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
-    const aliasData = await chrome.storage.local.get([aliasKey]);
+    const normalizedAliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+    const rawAliasKey =
+      typeof pageUrl === 'string' && pageUrl !== normalizedUrl
+        ? `${URL_ALIAS_PREFIX}${pageUrl}`
+        : null;
+    const aliasKeys = rawAliasKey ? [normalizedAliasKey, rawAliasKey] : [normalizedAliasKey];
+    const aliasData = await chrome.storage.local.get(aliasKeys);
 
-    return aliasData?.[aliasKey] || normalizedUrl;
+    return (
+      aliasData?.[normalizedAliasKey] ||
+      (rawAliasKey ? aliasData?.[rawAliasKey] : null) ||
+      normalizedUrl
+    );
   },
 };
 

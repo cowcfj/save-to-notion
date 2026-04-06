@@ -15,6 +15,7 @@
  */
 
 import { setupHighlighter } from './index.js';
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 import { VALID_STYLES } from './utils/color.js';
 import Logger from '../utils/Logger.js';
 
@@ -41,7 +42,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
       // 監聽 SET_STABLE_URL 訊息
       const handler = request => {
-        if (request.action === 'SET_STABLE_URL' && request.stableUrl && !resolved) {
+        if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL && request.stableUrl && !resolved) {
           resolved = true;
           globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
           resolve(request.stableUrl);
@@ -83,7 +84,9 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
             return null;
           }
           try {
-            return await globalThis.chrome.runtime.sendMessage({ action: 'checkPageStatus' });
+            return await globalThis.chrome.runtime.sendMessage({
+              action: RUNTIME_ACTIONS.CHECK_PAGE_STATUS,
+            });
           } catch (error) {
             Logger.warn('[Highlighter] checkPageStatus failed', {
               error: error?.message,
@@ -143,11 +146,11 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       // 初始化 Highlighter
       setupHighlighter({ skipRestore, skipToolbar, styleMode });
     } catch (error) {
-      Logger.error('初始化失敗', { action: 'initializeHighlighter', error });
+      Logger.error('初始化失敗', { action: 'initializeExtension', error });
       try {
         setupHighlighter({ skipRestore: true, skipToolbar: true });
       } catch (fallbackError) {
-        Logger.error('回退初始化失敗', { action: 'fallbackInitialize', error: fallbackError });
+        Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
       }
     }
   };
@@ -160,7 +163,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   // 🔑 監聽來自 Popup 的訊息（如保存完成後顯示 Toolbar）
   if (globalThis.chrome?.runtime?.onMessage) {
     globalThis.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-      if (request.action === 'SET_STABLE_URL' && request.stableUrl) {
+      if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL && request.stableUrl) {
         globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
 
         const manager = globalThis.HighlighterV2?.manager;
@@ -184,7 +187,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         return undefined;
       }
 
-      if (request.action === 'showToolbar') {
+      if (request.action === RUNTIME_ACTIONS.SHOW_TOOLBAR) {
         // 保存完成後，創建並顯示 Toolbar
         if (globalThis.notionHighlighter?.createAndShowToolbar) {
           try {
@@ -200,7 +203,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         return true;
       }
 
-      if (request.action === 'GET_STABLE_URL') {
+      if (request.action === RUNTIME_ACTIONS.GET_STABLE_URL) {
         sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
         return true;
       }

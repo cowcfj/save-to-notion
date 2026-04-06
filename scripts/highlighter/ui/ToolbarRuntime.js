@@ -8,16 +8,24 @@
  *    若需要新增 background 通訊，直接新增 async 函數並 await sendMessage。
  */
 
+import { RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions.js';
+
+function ensureChromeRuntimeAvailable() {
+  if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
+    throw new Error(RUNTIME_ERROR_MESSAGES.EXTENSION_UNAVAILABLE);
+  }
+
+  return globalThis.chrome.runtime.sendMessage;
+}
+
 /**
  * 檢查當前頁面保存狀態
  *
  * @returns {Promise<{success: boolean, isSaved: boolean, stableUrl?: string}|null>}
  */
 export async function checkPageStatus() {
-  if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
-    throw new Error('無法連接擴展');
-  }
-  return globalThis.chrome.runtime.sendMessage({ action: 'checkPageStatus' });
+  const sendMessage = ensureChromeRuntimeAvailable();
+  return sendMessage({ action: RUNTIME_ACTIONS.CHECK_PAGE_STATUS });
 }
 
 /**
@@ -26,10 +34,8 @@ export async function checkPageStatus() {
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function savePageFromToolbar() {
-  if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
-    throw new Error('無法連接擴展');
-  }
-  return globalThis.chrome.runtime.sendMessage({ action: 'SAVE_PAGE_FROM_TOOLBAR' });
+  const sendMessage = ensureChromeRuntimeAvailable();
+  return sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE_FROM_TOOLBAR });
 }
 
 /**
@@ -39,10 +45,8 @@ export async function savePageFromToolbar() {
  * @returns {Promise<{success: boolean, errorCode?: string, error?: string}>}
  */
 export async function syncHighlights(highlights) {
-  if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
-    throw new Error('無法連接擴展');
-  }
-  return globalThis.chrome.runtime.sendMessage({ action: 'syncHighlights', highlights });
+  const sendMessage = ensureChromeRuntimeAvailable();
+  return sendMessage({ action: RUNTIME_ACTIONS.SYNC_HIGHLIGHTS, highlights });
 }
 
 /**
@@ -51,8 +55,6 @@ export async function syncHighlights(highlights) {
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function openSidePanel() {
-  if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
-    throw new Error('無法連接擴展');
-  }
-  return globalThis.chrome.runtime.sendMessage({ action: 'OPEN_SIDE_PANEL' });
+  const sendMessage = ensureChromeRuntimeAvailable();
+  return sendMessage({ action: RUNTIME_ACTIONS.OPEN_SIDE_PANEL });
 }

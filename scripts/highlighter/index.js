@@ -22,12 +22,59 @@ import './utils/StorageUtil.js';
 
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
   globalThis.normalizeUrl = normalizeUrl;
 }
 
 // globalThis 掛載層（新版 HighlighterV2 + 向後兼容 notionHighlighter）
 import { mountWindowAPI } from './windowAPI.js';
+
+let toggleHighlighterMessageListener = null;
+
+function handleToggleHighlighterMessage(request, _sender, sendResponse) {
+  if (request.action === RUNTIME_ACTIONS.TOGGLE_HIGHLIGHTER) {
+    if (globalThis.notionHighlighter) {
+      globalThis.notionHighlighter.toggle();
+      sendResponse({ success: true, isActive: globalThis.notionHighlighter.isActive() });
+      return true;
+    }
+
+    sendResponse({ success: false, error: 'notionHighlighter not initialized' });
+    return true;
+  }
+
+  return false;
+}
+
+function bindToggleHighlighterListener() {
+  const onMessage = globalThis.chrome?.runtime?.onMessage;
+  if (!onMessage?.addListener) {
+    return;
+  }
+
+  if (toggleHighlighterMessageListener && onMessage.removeListener) {
+    onMessage.removeListener(toggleHighlighterMessageListener);
+  }
+
+  toggleHighlighterMessageListener = handleToggleHighlighterMessage;
+  onMessage.addListener(toggleHighlighterMessageListener);
+}
+
+function remountWindowAPI(manager, toolbar, storage) {
+  mountWindowAPI(manager, toolbar, storage, {
+    init: opts => {
+      const nextManager = initHighlighter(opts);
+      remountWindowAPI(nextManager, null, nextManager.storage);
+      return nextManager;
+    },
+    initWithToolbar: opts => {
+      const nextState = initHighlighterWithToolbar(opts);
+      remountWindowAPI(nextState.manager, nextState.toolbar, nextState.storage);
+      return nextState;
+    },
+  });
+}
 
 /**
  * 創建並注入所有依賴模組到 HighlightManager
@@ -70,23 +117,7 @@ export function initHighlighter(options = {}) {
   // 自動執行初始化
   manager.initializationComplete = manager.initialize();
 
-  // 監聽來自 background 的訊息
-  if (globalThis.chrome?.runtime?.onMessage) {
-    globalThis.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === 'toggleHighlighter') {
-        if (globalThis.notionHighlighter) {
-          globalThis.notionHighlighter.toggle();
-          sendResponse({ success: true, isActive: globalThis.notionHighlighter.isActive() });
-          return true; // 只在實際發送響應時返回 true
-        }
-        // notionHighlighter 未初始化
-        sendResponse({ success: false, error: 'notionHighlighter not initialized' });
-        return true;
-      }
-      // 不處理的訊息不返回 true
-      return false;
-    });
-  }
+  bindToggleHighlighterListener();
 
   return manager;
 }
@@ -124,6 +155,8 @@ export function initHighlighterWithToolbar(options = {}) {
     }
   })();
 
+  bindToggleHighlighterListener();
+
   // 附加 storage 到返回值，方便 setupHighlighter 使用
   return { manager, toolbar, storage };
 }
@@ -160,10 +193,7 @@ export function setupHighlighter(options = {}) {
   const restoreManager = storage;
 
   // 掛載 globalThis API（新版 HighlighterV2 + 向後兼容 notionHighlighter）
-  mountWindowAPI(manager, toolbar, storage, {
-    init: opts => initHighlighter(opts),
-    initWithToolbar: opts => initHighlighterWithToolbar(opts),
-  });
+  remountWindowAPI(manager, toolbar, storage);
 
   return { manager, toolbar, restoreManager };
 }
