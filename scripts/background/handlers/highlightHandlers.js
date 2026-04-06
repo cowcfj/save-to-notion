@@ -363,12 +363,15 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 嘗試先發送訊息切換（如果腳本已加載）
+        // 嘗試先發送訊息顯示（如果腳本已加載）
+        // 注意：使用 SHOW_HIGHLIGHTER 而非 TOGGLE_HIGHLIGHTER，
+        // 確保「開始標注」永遠是「顯示」語意，
+        // 避免 sessionStorage 殘留 'expanded' 狀態導致第一次 toggle 反向隱藏 toolbar。
         try {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               activeTab.id,
-              { action: RUNTIME_ACTIONS.TOGGLE_HIGHLIGHTER },
+              { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER },
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題
@@ -386,7 +389,7 @@ export function createHighlightHandlers(services) {
           }
         } catch (error) {
           // 訊息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.info('發送切換訊息失敗，嘗試注入腳本', {
+          Logger.info('發送顯示訊息失敗，嘗試注入腳本', {
             action: 'startHighlight',
             error: error.message,
           });

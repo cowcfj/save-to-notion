@@ -337,7 +337,7 @@ describe('highlightHandlers', () => {
   });
 
   describe('startHighlight', () => {
-    it('應該成功切換已注入的高亮工具', async () => {
+    it('應該成功顯示已注入的高亮工具（使用 showHighlighter 而非 toggleHighlighter）', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id' };
 
@@ -347,7 +347,7 @@ describe('highlightHandlers', () => {
 
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
-        { action: 'toggleHighlighter' },
+        { action: 'showHighlighter' },
         expect.any(Function)
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
