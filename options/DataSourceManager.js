@@ -4,6 +4,7 @@
  */
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../scripts/utils/Logger.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
@@ -128,7 +129,7 @@ export class DataSourceManager {
 
       chrome.runtime.sendMessage(
         {
-          action: 'searchNotion',
+          action: RUNTIME_ACTIONS.SEARCH_NOTION,
           apiKey,
           searchParams: params,
         },

@@ -23,7 +23,15 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
 jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
   injectStylesIntoShadowRoot: jest.fn(),
   getToolbarCSS: jest.fn(() => ''),
-  injectGlobalStyles: jest.fn(), // 向後相容
+  injectGlobalStyles: jest.fn(),
+}));
+
+// Mock ToolbarRuntime - 替代 Chrome runtime API 呼叫
+jest.mock('../../../../scripts/highlighter/ui/ToolbarRuntime.js', () => ({
+  checkPageStatus: jest.fn().mockResolvedValue({ success: true, isSaved: false }),
+  savePageFromToolbar: jest.fn().mockResolvedValue({ success: true }),
+  syncHighlights: jest.fn().mockResolvedValue({ success: true }),
+  openSidePanel: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -52,21 +60,13 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 describe('Toolbar Actions', () => {
   let managerMock = null;
   let toolbar = null;
-  let sendMessageMock = null;
+  let toolbarRuntimeMock = null;
   let statusDiv = null;
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
     document.body.innerHTML = '';
-
-    // Mock chrome.runtime.sendMessage
-    sendMessageMock = jest.fn();
-    globalThis.window.chrome = {
-      runtime: {
-        sendMessage: sendMessageMock,
-      },
-    };
 
     // Reset Logger Mock
     Logger.error.mockClear();
@@ -80,6 +80,10 @@ describe('Toolbar Actions', () => {
     container.append(statusDiv);
 
     // Add other required elements to container to prevent errors during initialization
+    const saveBtn = document.createElement('button');
+    saveBtn.id = 'save-page-v2';
+    container.append(saveBtn);
+
     const countSpan = document.createElement('span');
     countSpan.id = 'highlight-count-v2';
     container.append(countSpan);
@@ -99,52 +103,45 @@ describe('Toolbar Actions', () => {
       collectHighlightsForNotion: jest.fn().mockReturnValue([{ text: 'test highlight' }]),
     };
 
+    // 获取 ToolbarRuntime mock 引用
+    const ToolbarRuntime = require('../../../../scripts/highlighter/ui/ToolbarRuntime.js');
+    toolbarRuntimeMock = ToolbarRuntime;
+    // 重置每個 mock 的預設回傳値
+    toolbarRuntimeMock.checkPageStatus.mockResolvedValue({ success: true, isSaved: false });
+    toolbarRuntimeMock.savePageFromToolbar.mockResolvedValue({ success: true });
+    toolbarRuntimeMock.syncHighlights.mockResolvedValue({ success: true });
+
     toolbar = new Toolbar(managerMock);
   });
 
   describe('syncToNotion', () => {
     test('should show success message when sync is successful', async () => {
-      // Setup success response via callback
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        sendResponse({ success: true });
-      });
+      toolbarRuntimeMock.syncHighlights.mockResolvedValue({ success: true });
 
       await toolbar.syncToNotion();
 
-      expect(sendMessageMock).toHaveBeenCalledWith(
-        {
-          action: 'syncHighlights',
-          highlights: [{ text: 'test highlight' }],
-        },
-        expect.any(Function)
-      );
+      expect(toolbarRuntimeMock.syncHighlights).toHaveBeenCalledWith([{ text: 'test highlight' }]);
       expect(statusDiv.textContent).toContain('同步成功');
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
     test('should show error message when sync fails with error message', async () => {
-      // Setup failure response via callback
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        sendResponse({ success: false, error: 'API Key Missing' });
+      toolbarRuntimeMock.syncHighlights.mockResolvedValue({
+        success: false,
+        error: 'API Key Missing',
       });
 
       await toolbar.syncToNotion();
 
-      expect(sendMessageMock).toHaveBeenCalled();
-      // ErrorHandler might return a localized message or default error
-      // verified that consistent error handling is in place
+      expect(toolbarRuntimeMock.syncHighlights).toHaveBeenCalled();
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
     test('should show default error message when sync fails without error message', async () => {
-      // Setup failure response without specific error via callback
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        sendResponse({ success: false });
-      });
+      toolbarRuntimeMock.syncHighlights.mockResolvedValue({ success: false });
 
       await toolbar.syncToNotion();
 
-      // 預期顯示錯誤訊息（可能是 "發生未知錯誤" 或配置的默認訊息）
       expect(statusDiv.textContent).toBeTruthy();
       expect(statusDiv.innerHTML).toContain('<svg');
     });
@@ -152,19 +149,10 @@ describe('Toolbar Actions', () => {
     test('should refresh save button state when sync reports PAGE_DELETED', async () => {
       const updateSpy = jest.spyOn(toolbar, 'updateSaveButtonVisibility').mockResolvedValue();
 
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        if (message.action === 'syncHighlights') {
-          sendResponse({
-            success: false,
-            errorCode: 'PAGE_DELETED',
-            error: UI_MESSAGES.POPUP.DELETED_PAGE,
-          });
-          return;
-        }
-
-        if (message.action === 'checkPageStatus') {
-          sendResponse({ success: true, isSaved: false });
-        }
+      toolbarRuntimeMock.syncHighlights.mockResolvedValue({
+        success: false,
+        errorCode: 'PAGE_DELETED',
+        error: UI_MESSAGES.POPUP.DELETED_PAGE,
       });
 
       await toolbar.syncToNotion();
@@ -177,19 +165,10 @@ describe('Toolbar Actions', () => {
     test('should not refresh save button state when sync reports PAGE_DELETION_PENDING', async () => {
       const updateSpy = jest.spyOn(toolbar, 'updateSaveButtonVisibility').mockResolvedValue();
 
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        if (message.action === 'syncHighlights') {
-          sendResponse({
-            success: false,
-            errorCode: 'PAGE_DELETION_PENDING',
-            error: UI_MESSAGES.POPUP.DELETION_PENDING,
-          });
-          return;
-        }
-
-        if (message.action === 'checkPageStatus') {
-          sendResponse({ success: true, isSaved: true });
-        }
+      toolbarRuntimeMock.syncHighlights.mockResolvedValue({
+        success: false,
+        errorCode: 'PAGE_DELETION_PENDING',
+        error: UI_MESSAGES.POPUP.DELETION_PENDING,
       });
 
       await toolbar.syncToNotion();
@@ -202,13 +181,9 @@ describe('Toolbar Actions', () => {
     test('should keep save button state when sync reports retryable highlight failure', async () => {
       const updateSpy = jest.spyOn(toolbar, 'updateSaveButtonVisibility').mockResolvedValue();
 
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        if (message.action === 'syncHighlights') {
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete,
-          });
-        }
+      toolbarRuntimeMock.syncHighlights.mockResolvedValue({
+        success: false,
+        error: ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete,
       });
 
       await toolbar.syncToNotion();
@@ -221,18 +196,40 @@ describe('Toolbar Actions', () => {
     });
 
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
-      // Setup runtime error
-      sendMessageMock.mockImplementation((message, sendResponse) => {
-        globalThis.chrome.runtime.lastError = { message: 'Connection failed' };
-        sendResponse();
-        delete globalThis.chrome.runtime.lastError;
-      });
+      const syncError = new Error('Connection failed');
+      toolbarRuntimeMock.syncHighlights.mockRejectedValue(syncError);
 
       await toolbar.syncToNotion();
 
       expect(statusDiv.textContent).toContain('同步失敗');
       expect(statusDiv.innerHTML).toContain('<svg');
-      expect(Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Object));
+      expect(Logger.error).toHaveBeenCalledWith(
+        '同步失敗:',
+        expect.objectContaining({
+          action: 'syncToNotion',
+          error: syncError,
+          errorMessage: 'Connection failed',
+        })
+      );
+    });
+  });
+
+  describe('savePageToNotion', () => {
+    test('should pass original error object to logger when save fails', async () => {
+      const saveError = new Error('Save failed');
+      toolbarRuntimeMock.savePageFromToolbar.mockRejectedValue(saveError);
+
+      await toolbar.savePageToNotion();
+
+      expect(statusDiv.textContent).toContain('保存失敗');
+      expect(Logger.error).toHaveBeenCalledWith(
+        '從 Toolbar 保存頁面失敗',
+        expect.objectContaining({
+          action: 'savePageToNotion',
+          error: saveError,
+          errorMessage: 'Save failed',
+        })
+      );
     });
   });
 });

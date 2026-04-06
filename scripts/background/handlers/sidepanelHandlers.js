@@ -3,6 +3,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 
 /**
  * 創建 Side Panel 相關的訊息處理器
@@ -19,7 +20,7 @@ export function createSidepanelHandlers() {
      * @param {chrome.runtime.MessageSender} sender 發送者資訊
      * @returns {Promise<{success: boolean, error?: string}>} 處理結果
      */
-    async OPEN_SIDE_PANEL(message, sender) {
+    async [RUNTIME_ACTIONS.OPEN_SIDE_PANEL](message, sender) {
       const windowId = sender?.tab?.windowId;
 
       // 快速路徑：windowId 可直接從 sender 取得（content script 發送的訊息）。

@@ -14,6 +14,7 @@
 
 import Logger from '../../utils/Logger.js';
 import { RESTRICTED_PROTOCOLS } from '../../config/app.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 
 /**
  * 腳本注入服務的超時與錯誤定義
@@ -342,7 +343,7 @@ class InjectionService {
           // 若 timeout 先贏得 race，這個 Promise 可能在之後才 settle。
           // 用 reject 會在「已無人監聽」時產生 Unhandled Rejection；
           // 改為 resolve(null) 讓它靜默關閉，PING 錯誤由外層 try/catch 統一處理。
-          chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+          chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
             if (chrome.runtime.lastError) {
               resolve(null); // 靜默：錯誤已由 timeout race 或後續注入流程處理
             } else {
@@ -445,9 +446,9 @@ class InjectionService {
       tabId,
       [bundlePath],
       () => {
-        // highlighter-v2.bundle.js 會自動初始化（setupHighlighter）
+        // content bundle 會匯入 highlighter/entryAutoInit.js 以完成 runtime 初始化
         // 我們只需要確保工具欄顯示即可
-        // 使用 setTimeout 確保自動初始化完成
+        // 使用輪詢等待初始化完成
         return new Promise(resolve => {
           const startTime = Date.now();
           const timeout = 2000; // Max wait 2 seconds (increased robustness)

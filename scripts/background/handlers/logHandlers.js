@@ -7,6 +7,7 @@
  */
 
 import { LogExporter } from '../../utils/LogExporter.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { ErrorHandler, ErrorTypes } from '../../utils/ErrorHandler.js';
 import {
   validateInternalRequest,
@@ -156,8 +157,8 @@ export const handleDevLogSinkBatch = (message, sender, sendResponse) => {
  */
 export function createLogHandlers() {
   return {
-    exportDebugLogs,
-    devLogSink: handleDevLogSink,
-    devLogSinkBatch: handleDevLogSinkBatch,
+    [RUNTIME_ACTIONS.EXPORT_DEBUG_LOGS]: exportDebugLogs,
+    [RUNTIME_ACTIONS.DEV_LOG_SINK]: handleDevLogSink,
+    [RUNTIME_ACTIONS.DEV_LOG_SINK_BATCH]: handleDevLogSinkBatch,
   };
 }

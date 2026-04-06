@@ -16,7 +16,9 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
-import { HIGHLIGHTS_PREFIX, PAGE_PREFIX } from '../../config/storageKeys.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 
@@ -95,7 +97,7 @@ const StorageUtil = {
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'UPDATE_HIGHLIGHTS',
+        action: RUNTIME_ACTIONS.UPDATE_HIGHLIGHTS,
         url: pageUrl,
         highlights,
       });
@@ -128,22 +130,16 @@ const StorageUtil = {
    */
   async _fallbackDirectSave(pageUrl, highlights, highlightData) {
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
     try {
+      const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
+      const pageKey = `${PAGE_PREFIX}${stableUrl}`;
+
       // 讀取現有資料以保留 notion 物件及已有 metadata 欄位
       let preservedNotionOrNull = null;
       let existingMetadata = {};
       if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const data = await new Promise((resolve, reject) => {
-          chrome.storage.local.get([pageKey], result => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
-          });
-        });
+        const data = await chrome.storage.local.get([pageKey]);
         const existingPage = data?.[pageKey];
         if (existingPage?.notion) {
           preservedNotionOrNull = existingPage.notion;
@@ -184,24 +180,11 @@ const StorageUtil = {
    * @returns {Promise<void>}
    * @private
    */
-  _saveToChromeStorage(key, data) {
+  async _saveToChromeStorage(key, data) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
+      throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
-
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.set({ [key]: data }, () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve();
-          }
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
+    await chrome.storage.local.set({ [key]: data });
   },
 
   /**
@@ -238,13 +221,12 @@ const StorageUtil = {
       throw error;
     }
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
     const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
     try {
       // Phase 3：同時查詢新舊格式
       // null = 找不到資料（需回退），[] = 明確空陣列（不回退）
-      const data = await this._loadBothFormats(pageKey, legacyKey);
+      const data = await this._loadBothFormats(pageUrl, normalizedUrl, legacyKey);
       if (data !== null && data !== undefined) {
         return data;
       }
@@ -266,39 +248,33 @@ const StorageUtil = {
   /**
    * 同時查詢 page_* 和 highlights_* 格式
    *
-   * @param {string} pageKey - page_* key
+   * @param {string} pageUrl - 原始頁面 URL
+   * @param {string} normalizedUrl - 已標準化的 URL
    * @param {string} legacyKey - highlights_* key
    * @returns {Promise<Array>}
    * @private
    */
-  async _loadBothFormats(pageKey, legacyKey) {
+  async _loadBothFormats(pageUrl, normalizedUrl, legacyKey) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
 
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.get([pageKey, legacyKey], data => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
+    const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
+    const pageKey = `${PAGE_PREFIX}${stableUrl}`;
+    const data = await chrome.storage.local.get([pageKey, legacyKey]);
 
-        // 優先返回 page_* 格式
-        if (data[pageKey]) {
-          resolve(this._parseHighlightFormat(data[pageKey]));
-          return;
-        }
+    // 優先返回 page_* 格式
+    if (data[pageKey]) {
+      return this._parseHighlightFormat(data[pageKey]);
+    }
 
-        // 回退 highlights_* 舊格式
-        if (data[legacyKey]) {
-          resolve(this._parseHighlightFormat(data[legacyKey]));
-          return;
-        }
+    // 回退 highlights_* 舊格式
+    if (data[legacyKey]) {
+      return this._parseHighlightFormat(data[legacyKey]);
+    }
 
-        // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
-        resolve(null);
-      });
-    });
+    // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
+    return null;
   },
 
   /**
@@ -382,7 +358,7 @@ const StorageUtil = {
     if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
       try {
         const response = await chrome.runtime.sendMessage({
-          action: 'CLEAR_HIGHLIGHTS',
+          action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
           url: pageUrl,
         });
         // sendMessage 成功且 Background 確認成功才 return
@@ -402,34 +378,22 @@ const StorageUtil = {
 
     // Fallback：直接清除（舊格式安全網）
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
     const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
-    Logger.log('開始清除標註', { action: 'clearHighlights', pageKey });
+    Logger.info('開始清除標註', {
+      action: 'clearHighlights',
+      pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
+    });
 
     // 對 page_* entry 進行讀→改→寫，只清空 highlights 欄位，保留 notion 等其他狀態
     const clearPageHighlights = async () => {
       if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const existing = await new Promise((resolve, reject) => {
-          chrome.storage.local.get([pageKey], result => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
-          });
-        });
+        const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
+        const pageKey = `${PAGE_PREFIX}${stableUrl}`;
+        const existing = await chrome.storage.local.get([pageKey]);
         const current = existing[pageKey];
         if (current) {
-          await new Promise((resolve, reject) => {
-            chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } }, () => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve();
-              }
-            });
-          });
+          await chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } });
         }
       }
     };
@@ -464,24 +428,11 @@ const StorageUtil = {
    * @returns {Promise<void>}
    * @private
    */
-  _clearFromChromeStorage(key) {
+  async _clearFromChromeStorage(key) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
+      throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
-
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.remove([key], () => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(`Chrome storage error: ${chrome.runtime.lastError.message}`));
-          } else {
-            resolve();
-          }
-        });
-      } catch (error) {
-        reject(new Error(`Chrome storage operation failed: ${error.message}`));
-      }
-    });
+    await chrome.storage.local.remove([key]);
   },
 
   /**
@@ -500,6 +451,34 @@ const StorageUtil = {
         reject(new Error(`localStorage operation failed: ${error.message}`));
       }
     });
+  },
+
+  /**
+   * 解析 pageUrl 對應的 stable URL，若沒有 alias 則回退為 normalizedUrl
+   *
+   * @param {string} pageUrl - 原始頁面 URL
+   * @param {string} normalizedUrl - 已標準化的 URL
+   * @returns {Promise<string>}
+   * @private
+   */
+  async _resolveStableUrl(pageUrl, normalizedUrl = normalizeUrl(pageUrl)) {
+    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+      return normalizedUrl;
+    }
+
+    const normalizedAliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+    const rawAliasKey =
+      typeof pageUrl === 'string' && pageUrl !== normalizedUrl
+        ? `${URL_ALIAS_PREFIX}${pageUrl}`
+        : null;
+    const aliasKeys = rawAliasKey ? [normalizedAliasKey, rawAliasKey] : [normalizedAliasKey];
+    const aliasData = await chrome.storage.local.get(aliasKeys);
+
+    return (
+      aliasData?.[normalizedAliasKey] ||
+      (rawAliasKey ? aliasData?.[rawAliasKey] : null) ||
+      normalizedUrl
+    );
   },
 };
 

@@ -216,13 +216,8 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       const testUrl = 'https://example.com/test';
       const legacyKey = 'highlights_https://example.com/test';
 
-      // 讓 remove 失敗（通過 lastError）
-      chrome.storage.local.remove.mockImplementation((keys, callback) => {
-        chrome.runtime.lastError = { message: 'Storage error' };
-        if (callback) {
-          callback();
-        }
-      });
+      // MV3 原生 Promise：直接以 rejected Promise 表示失敗
+      chrome.storage.local.remove.mockRejectedValue(new Error('Storage error'));
 
       globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
 
@@ -267,12 +262,12 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
           return;
         }
         const testKey = 'test_key';
-        chrome.runtime.lastError = null;
 
         await chrome.storage.local.set({ [testKey]: 'test_value' });
         await StorageUtil._clearFromChromeStorage(testKey);
 
-        expect(chrome.storage.local.remove).toHaveBeenCalledWith([testKey], expect.any(Function));
+        // MV3 原生 Promise：驗證 remove 被呼叫（不再驗證 callback 品签名）
+        expect(chrome.storage.local.remove).toHaveBeenCalledWith([testKey]);
       });
 
       test('當 Chrome Storage 不可用時應該拋出錯誤', async () => {
@@ -293,14 +288,10 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         if (!StorageUtil) {
           return;
         }
-        chrome.storage.local.remove.mockImplementation((keys, callback) => {
-          chrome.runtime.lastError = { message: 'Test error' };
-          callback();
-        });
+        // MV3 原生 Promise：直接以 rejected Promise 表示失敗
+        chrome.storage.local.remove.mockRejectedValue(new Error('Test error'));
 
-        await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
-          'Chrome storage error: Test error'
-        );
+        await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow('Test error');
       });
     });
 

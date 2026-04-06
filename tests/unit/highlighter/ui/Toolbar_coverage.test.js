@@ -21,6 +21,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 import { Toolbar } from '../../../../scripts/highlighter/ui/Toolbar.js';
 import { createToolbarContainer } from '../../../../scripts/highlighter/ui/components/ToolbarContainer.js';
 import { injectStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/toolbarStyles.js';
+import { openSidePanel } from '../../../../scripts/highlighter/ui/ToolbarRuntime.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/ui/components/ToolbarContainer.js', () => ({
@@ -46,6 +47,14 @@ jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
   injectStylesIntoShadowRoot: jest.fn(),
   getToolbarCSS: jest.fn(() => ''),
   injectGlobalStyles: jest.fn(), // 向後相容
+}));
+
+// Mock ToolbarRuntime - 避免在測試中觸發真實 Chrome API
+jest.mock('../../../../scripts/highlighter/ui/ToolbarRuntime.js', () => ({
+  checkPageStatus: jest.fn().mockResolvedValue({ success: true, isSaved: false }),
+  savePageFromToolbar: jest.fn().mockResolvedValue({ success: true }),
+  syncHighlights: jest.fn().mockResolvedValue({ success: true }),
+  openSidePanel: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe('Toolbar 覆蓋率補強', () => {
@@ -117,7 +126,7 @@ describe('Toolbar 覆蓋率補強', () => {
     document.body.innerHTML = '';
 
     // Mock chrome API
-    globalThis.window.chrome = {
+    globalThis.chrome = {
       runtime: {
         sendMessage: jest.fn(),
       },
@@ -148,6 +157,7 @@ describe('Toolbar 覆蓋率補強', () => {
 
   afterEach(() => {
     toolbar?.cleanup();
+    delete globalThis.chrome;
 
     // 防止測試中途失敗造成 shared state 洩漏，影響後續案例
     if (Toolbar._sharedState?.instances) {
@@ -225,13 +235,13 @@ describe('Toolbar 覆蓋率補強', () => {
       const addDocumentListenerSpy = jest.spyOn(document, 'addEventListener');
       const storageAddSpy = jest.fn();
       const runtimeAddSpy = jest.fn();
-      globalThis.window.chrome.storage = {
+      globalThis.chrome.storage = {
         onChanged: {
           addListener: storageAddSpy,
           removeListener: jest.fn(),
         },
       };
-      globalThis.window.chrome.runtime.onMessage = {
+      globalThis.chrome.runtime.onMessage = {
         addListener: runtimeAddSpy,
         removeListener: jest.fn(),
       };
@@ -252,8 +262,8 @@ describe('Toolbar 覆蓋率補強', () => {
 
       firstToolbar.cleanup();
       secondToolbar.cleanup();
-      delete globalThis.window.chrome.storage;
-      delete globalThis.window.chrome.runtime.onMessage;
+      delete globalThis.chrome.storage;
+      delete globalThis.chrome.runtime.onMessage;
     });
   });
 
@@ -405,6 +415,43 @@ describe('Toolbar 覆蓋率補強', () => {
 
       expect(syncSpy).toHaveBeenCalled();
     });
+
+    test('管理按鈕在 openSidePanel resolved failure 時應記錄錯誤', async () => {
+      const manageBtn = container.querySelector('#manage-highlights-v2');
+      openSidePanel.mockResolvedValue({ success: false, error: 'panel unavailable' });
+
+      manageBtn.click();
+      await Promise.resolve();
+
+      expect(openSidePanel).toHaveBeenCalled();
+      const errorContext = Logger.error.mock.calls.at(-1)?.[1];
+      expect(Logger.error).toHaveBeenCalledWith(
+        '開啟 Side Panel 失敗',
+        expect.objectContaining({
+          action: 'openSidePanel',
+          error: expect.any(Error),
+        })
+      );
+      expect(errorContext.error.message).toBe('Unknown Error');
+    });
+
+    test('管理按鈕在 openSidePanel rejection 時應記錄 context object', async () => {
+      const manageBtn = container.querySelector('#manage-highlights-v2');
+      const runtimeError = new Error('runtime failed');
+      openSidePanel.mockRejectedValue(runtimeError);
+
+      manageBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        '開啟 Side Panel 失敗',
+        expect.objectContaining({
+          action: 'openSidePanel',
+          error: runtimeError,
+        })
+      );
+    });
   });
 
   describe('bindClickDeleteEvents', () => {
@@ -434,38 +481,7 @@ describe('Toolbar 覆蓋率補強', () => {
     });
   });
 
-  describe('_sendMessageAsync', () => {
-    test('應該在 window 不可用時拒絕 Promise', async () => {
-      // 儲存原始 chrome
-      const originalChrome = globalThis.window.chrome;
-      globalThis.window.chrome = undefined;
-
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('無法連接擴展');
-
-      // 恢復
-      globalThis.window.chrome = originalChrome;
-    });
-
-    test('應該正確處理成功回應', async () => {
-      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        const response = { success: true };
-        callback(response);
-      });
-
-      const result = await Toolbar._sendMessageAsync({ action: 'test' });
-      expect(result).toEqual({ success: true });
-    });
-
-    test('應該在 lastError 時拒絕 Promise', async () => {
-      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        globalThis.window.chrome.runtime.lastError = { message: '連接失敗' };
-        callback();
-        delete globalThis.window.chrome.runtime.lastError;
-      });
-
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('連接失敗');
-    });
-  });
+  // _sendMessageAsync 方法已移至 ToolbarRuntime.js，以上測試已移至 ToolbarRuntime.test.js
 
   describe('syncToNotion 邊界情況', () => {
     test('應該在狀態元素不存在時安全返回', async () => {
@@ -481,7 +497,7 @@ describe('Toolbar 覆蓋率補強', () => {
       const removeSelectionSpy = jest.spyOn(document, 'removeEventListener');
       const removeStorageSpy = jest.fn();
 
-      globalThis.window.chrome.storage = {
+      globalThis.chrome.storage = {
         onChanged: {
           removeListener: removeStorageSpy,
         },
@@ -499,7 +515,7 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(removeStorageSpy).toHaveBeenCalledWith(mockListener);
       expect(toolbar._storageListener).toBeNull();
 
-      delete globalThis.window.chrome.storage;
+      delete globalThis.chrome.storage;
     });
 
     test('應該移除 Shadow DOM Host 元素', () => {
@@ -519,7 +535,7 @@ describe('Toolbar 覆蓋率補強', () => {
 
     test('應該移除 runtime message listener 並清空引用', () => {
       const removeRuntimeListenerSpy = jest.fn();
-      globalThis.window.chrome.runtime.onMessage = {
+      globalThis.chrome.runtime.onMessage = {
         removeListener: removeRuntimeListenerSpy,
       };
 
@@ -531,7 +547,7 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(removeRuntimeListenerSpy).toHaveBeenCalledWith(messageListener);
       expect(toolbar._messageListener).toBeNull();
 
-      delete globalThis.window.chrome.runtime.onMessage;
+      delete globalThis.chrome.runtime.onMessage;
     });
 
     test('兩個實例時清理非最後一個，不應移除共享 host', () => {
@@ -558,13 +574,13 @@ describe('Toolbar 覆蓋率補強', () => {
       const storageRemoveSpy = jest.fn();
       const runtimeAddSpy = jest.fn();
       const runtimeRemoveSpy = jest.fn();
-      globalThis.window.chrome.storage = {
+      globalThis.chrome.storage = {
         onChanged: {
           addListener: storageAddSpy,
           removeListener: storageRemoveSpy,
         },
       };
-      globalThis.window.chrome.runtime.onMessage = {
+      globalThis.chrome.runtime.onMessage = {
         addListener: runtimeAddSpy,
         removeListener: runtimeRemoveSpy,
       };
@@ -603,8 +619,8 @@ describe('Toolbar 覆蓋率補強', () => {
       secondToolbar.cleanup();
       expect(document.body.contains(sharedHost)).toBe(false);
 
-      delete globalThis.window.chrome.storage;
-      delete globalThis.window.chrome.runtime.onMessage;
+      delete globalThis.chrome.storage;
+      delete globalThis.chrome.runtime.onMessage;
     });
   });
 
@@ -619,7 +635,7 @@ describe('Toolbar 覆蓋率補強', () => {
       addListenerSpy = jest.fn();
       removeListenerSpy = jest.fn();
 
-      globalThis.window.chrome.storage = {
+      globalThis.chrome.storage = {
         onChanged: {
           addListener: addListenerSpy,
           removeListener: removeListenerSpy,
@@ -628,7 +644,7 @@ describe('Toolbar 覆蓋率補強', () => {
     });
 
     afterEach(() => {
-      delete globalThis.window.chrome.storage;
+      delete globalThis.chrome.storage;
     });
 
     test('應該在初始化時註冊 storage 監聽器', () => {

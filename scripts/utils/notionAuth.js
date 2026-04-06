@@ -2,11 +2,11 @@
 import Logger from './Logger.js';
 import { AuthMode, NOTION_OAUTH } from '../config/api.js';
 import { BUILD_ENV } from '../config/env.js';
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 import { sanitizeApiError } from './securityUtils.js';
 import { ERROR_MESSAGES } from '../config/messages.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';
-const REFRESH_OAUTH_TOKEN_ACTION = 'refreshOAuthToken';
 
 /**
  * 檢查值是否為有效的非空字串
@@ -227,7 +227,9 @@ async function performRefreshOAuthToken() {
 
 async function requestBackgroundRefreshOAuthToken() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: REFRESH_OAUTH_TOKEN_ACTION });
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.REFRESH_OAUTH_TOKEN,
+    });
 
     return response?.success ? (response.token ?? null) : null;
   } catch (error) {

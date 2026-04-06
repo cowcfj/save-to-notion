@@ -6,6 +6,7 @@
 import { serializeRange, restoreRangeWithRetry } from './Range.js';
 import { COLORS, convertBgColorToName } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
+import { HighlightInteraction } from './HighlightInteraction.js';
 
 /**
  * HighlightManager
@@ -304,18 +305,7 @@ export class HighlightManager {
    * @returns {boolean} 是否重疊
    */
   static rangesOverlap(range1, range2) {
-    try {
-      // compareBoundaryPoints 的方向容易誤讀。以 range1 作為 this 呼叫時：
-      // END_TO_START < 0  等價於 range1.end > range2.start
-      // START_TO_END > 0  等價於 range1.start < range2.end
-      // 因此重疊條件是 < 0 && > 0；若改成 > 0 && < 0 會把結果顛倒。
-      return (
-        range1.compareBoundaryPoints(Range.END_TO_START, range2) < 0 &&
-        range1.compareBoundaryPoints(Range.START_TO_END, range2) > 0
-      );
-    } catch {
-      return false;
-    }
+    return HighlightInteraction.rangesOverlap(range1, range2);
   }
 
   // --- Style ---

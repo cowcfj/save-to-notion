@@ -115,6 +115,28 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.notionHighlighter;
     });
 
+    test('REMOVE_HIGHLIGHT_DOM 應呼叫 manager.removeHighlight', () => {
+      const removeHighlight = jest.fn().mockReturnValue(true);
+      globalThis.HighlighterV2 = {
+        manager: {
+          removeHighlight,
+        },
+      };
+
+      const sendResponse = jest.fn();
+      const result = messageHandler(
+        { action: 'REMOVE_HIGHLIGHT_DOM', highlightId: 'hl-123' },
+        {},
+        sendResponse
+      );
+
+      expect(result).toBe(true);
+      expect(removeHighlight).toHaveBeenCalledWith('hl-123');
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      delete globalThis.HighlighterV2;
+    });
+
     test('應該在載入時發送 REPLAY_BUFFERED_EVENTS 訊息', () => {
       expect(sendMessageMock).toHaveBeenCalledWith(
         { action: 'REPLAY_BUFFERED_EVENTS' },

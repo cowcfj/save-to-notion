@@ -7,6 +7,7 @@
  */
 
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { sanitizeApiError, validateInternalRequest } from '../../utils/securityUtils.js';
 import { refreshOAuthToken as refreshOAuthTokenCoordinator } from '../../utils/notionAuth.js';
 
@@ -19,7 +20,7 @@ export function createNotionHandlers({ notionService }) {
      * @param {chrome.runtime.MessageSender} sender
      * @param {Function} sendResponse
      */
-    searchNotion: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.SEARCH_NOTION]: async (request, sender, sendResponse) => {
       // 1. 安全驗證：確保請求來自擴充功能內部 (Options/Popup)
       const validationError = validateInternalRequest(sender);
       if (validationError) {
@@ -64,7 +65,7 @@ export function createNotionHandlers({ notionService }) {
      * @param {chrome.runtime.MessageSender} sender
      * @param {Function} sendResponse
      */
-    refreshOAuthToken: async (_request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.REFRESH_OAUTH_TOKEN]: async (_request, sender, sendResponse) => {
       const validationError = validateInternalRequest(sender);
       if (validationError) {
         sendResponse(validationError);

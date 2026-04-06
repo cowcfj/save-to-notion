@@ -29,6 +29,7 @@
  */
 
 import Logger from '../scripts/utils/Logger.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
@@ -135,7 +136,7 @@ export class MigrationScanner {
         }
 
         const response = await chrome.runtime.sendMessage({
-          action: 'migration_execute',
+          action: RUNTIME_ACTIONS.MIGRATION_EXECUTE,
           url,
         });
 

@@ -18,6 +18,7 @@ import {
 } from '../scripts/config/storageKeys.js';
 import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
@@ -424,7 +425,9 @@ async function loadCurrentTab(specificTabId = null, requestId = beginCurrentView
 async function getStableUrlForTab(tabId, url) {
   // 1. 向 Content Script 請求已解析的 __NOTION_STABLE_URL__
   try {
-    const response = await chrome.tabs.sendMessage(tabId, { action: 'GET_STABLE_URL' });
+    const response = await chrome.tabs.sendMessage(tabId, {
+      action: RUNTIME_ACTIONS.GET_STABLE_URL,
+    });
     if (response?.stableUrl) {
       return response.stableUrl;
     }
@@ -670,7 +673,7 @@ async function handleDelete(highlightId, storageKey) {
     if (tabs?.[0]?.id) {
       await chrome.tabs
         .sendMessage(tabs[0].id, {
-          action: 'REMOVE_HIGHLIGHT_DOM',
+          action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
           highlightId,
         })
         .catch(error => {
@@ -690,7 +693,7 @@ async function handleSyncClick() {
   showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNCING, 'info');
 
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'savePage' });
+    const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
     if (response?.success) {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
@@ -720,7 +723,10 @@ async function handleOpenNotionClick() {
 
   try {
     const url = els.openNotionButton.dataset.targetUrl;
-    const response = await chrome.runtime.sendMessage({ action: 'openNotionPage', url });
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.OPEN_NOTION_PAGE,
+      url,
+    });
     if (response?.success) {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
     } else {

@@ -26,6 +26,7 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/app.js';
 import { CONTENT_QUALITY } from '../../config/extraction.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/storageKeys.js';
@@ -50,9 +51,11 @@ function sendPageSaveHint(activeTabId, isSaved) {
   if (!chrome.tabs?.sendMessage) {
     return;
   }
-  chrome.tabs.sendMessage(activeTabId, { action: 'PAGE_SAVE_HINT', isSaved }).catch(() => {
-    /* 忽略錯誤，由 storage.onChanged 兜底 */
-  });
+  chrome.tabs
+    .sendMessage(activeTabId, { action: RUNTIME_ACTIONS.PAGE_SAVE_HINT, isSaved })
+    .catch(() => {
+      /* 忽略錯誤，由 storage.onChanged 兜底 */
+    });
 }
 
 /**
@@ -844,7 +847,7 @@ export function createSaveHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender - 發送者信息
      * @param {Function} sendResponse - 回應函數
      */
-    savePage: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.SAVE_PAGE]: async (request, sender, sendResponse) => {
       try {
         const configData = await validateRequestAndGetConfig(sender, sendResponse);
         if (!configData) {
@@ -867,7 +870,7 @@ export function createSaveHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender - 發送者信息
      * @param {Function} sendResponse - 回應函數
      */
-    SAVE_PAGE_FROM_TOOLBAR: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.SAVE_PAGE_FROM_TOOLBAR]: async (request, sender, sendResponse) => {
       try {
         const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse);
         if (!configData) {
@@ -893,7 +896,7 @@ export function createSaveHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender - 發送者信息
      * @param {Function} sendResponse - 回應函數
      */
-    openNotionPage: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.OPEN_NOTION_PAGE]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證：檢查請求來源
         const validationError = validateInternalRequest(sender);
@@ -988,7 +991,7 @@ export function createSaveHandlers(services) {
      * @param {chrome.runtime.MessageSender} sender - 發送者信息
      * @param {Function} sendResponse - 回應函數
      */
-    checkNotionPageExists: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.CHECK_NOTION_PAGE_EXISTS]: async (request, sender, sendResponse) => {
       try {
         // 安全性驗證：確保請求來自擴充功能內部 (Popup)
         const validationError = validateInternalRequest(sender);
@@ -1024,7 +1027,7 @@ export function createSaveHandlers(services) {
      * @param {Function} sendResponse - 回應函數
      * @returns {Promise<void>}
      */
-    checkPageStatus: async (request, sender, sendResponse) => {
+    [RUNTIME_ACTIONS.CHECK_PAGE_STATUS]: async (request, sender, sendResponse) => {
       try {
         const validationError = _validateCheckPageStatusSender(sender);
         if (validationError) {

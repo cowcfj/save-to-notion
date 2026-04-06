@@ -10,6 +10,7 @@
 import { LogBuffer } from './LogBuffer.js';
 import { LogSanitizer } from './LogSanitizer.js';
 import { LOG_ICONS } from '../config/ui.js';
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 
 // 內部狀態
 let _debugEnabled = false;
@@ -160,7 +161,7 @@ function _flushToBackground() {
   const batch = _pendingLogs.splice(0); // 取出所有待發送項目
 
   try {
-    chrome.runtime.sendMessage({ action: 'devLogSinkBatch', logs: batch }, () => {
+    chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.DEV_LOG_SINK_BATCH, logs: batch }, () => {
       // 忽略 lastError
       if (chrome.runtime.lastError) {
         /* empty */
@@ -189,7 +190,7 @@ function sendToBackground(level, message, args) {
 
     chrome.runtime.sendMessage(
       {
-        action: 'devLogSink',
+        action: RUNTIME_ACTIONS.DEV_LOG_SINK,
         level,
         message: String(message),
         args: safeArgs,
