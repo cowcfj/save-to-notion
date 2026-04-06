@@ -7,10 +7,10 @@ import {
   HighlightStorage,
   RestoreManager,
 } from '../../../../scripts/highlighter/core/HighlightStorage.js';
-import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
 
-jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
-  StorageUtil: {
+jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () => ({
+  HighlightStorageGateway: {
     saveHighlights: jest.fn(),
     loadHighlights: jest.fn(),
     clearHighlights: jest.fn(),
@@ -51,8 +51,8 @@ describe('core/HighlightStorage', () => {
     globalThis.normalizeUrl = jest.fn(url => url);
 
     // Reset mocks
-    StorageUtil.saveHighlights.mockResolvedValue();
-    StorageUtil.clearHighlights.mockResolvedValue();
+    HighlightStorageGateway.saveHighlights.mockResolvedValue();
+    HighlightStorageGateway.clearHighlights.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -74,7 +74,7 @@ describe('core/HighlightStorage', () => {
   });
 
   describe('save', () => {
-    test('should save highlights to StorageUtil', async () => {
+    test('should save highlights to HighlightStorageGateway', async () => {
       mockManager.highlights.set('h1', {
         id: 'h1',
         color: 'yellow',
@@ -85,7 +85,7 @@ describe('core/HighlightStorage', () => {
 
       await storage.save();
 
-      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           highlights: expect.arrayContaining([expect.objectContaining({ id: 'h1', text: 'Test' })]),
@@ -97,12 +97,12 @@ describe('core/HighlightStorage', () => {
       // 空的 highlights Map
       await storage.save();
 
-      expect(StorageUtil.clearHighlights).toHaveBeenCalled();
+      expect(HighlightStorageGateway.clearHighlights).toHaveBeenCalled();
     });
 
     test('should handle save errors gracefully', async () => {
       mockManager.highlights.set('h1', { id: 'h1', text: 'Test' });
-      StorageUtil.saveHighlights.mockRejectedValue(new Error('Save failed'));
+      HighlightStorageGateway.saveHighlights.mockRejectedValue(new Error('Save failed'));
 
       await storage.save();
 
@@ -119,7 +119,7 @@ describe('core/HighlightStorage', () => {
 
       await storage.save();
 
-      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalledWith(
         'https://stable.url',
         expect.anything()
       );
@@ -129,18 +129,18 @@ describe('core/HighlightStorage', () => {
   });
 
   describe('restore', () => {
-    test('should load highlights from StorageUtil and restore them', async () => {
+    test('should load highlights from HighlightStorageGateway and restore them', async () => {
       const mockData = [
         { id: 'h1', text: 'test1', color: 'yellow' },
         { id: 'h2', text: 'test2', color: 'green' },
       ];
-      StorageUtil.loadHighlights.mockResolvedValue(mockData);
+      HighlightStorageGateway.loadHighlights.mockResolvedValue(mockData);
       mockManager.restoreLocalHighlight = jest.fn().mockResolvedValue(true);
       mockManager.clearAll = jest.fn();
 
       const result = await storage.restore();
 
-      expect(StorageUtil.loadHighlights).toHaveBeenCalled();
+      expect(HighlightStorageGateway.loadHighlights).toHaveBeenCalled();
       expect(mockManager.clearAll).toHaveBeenCalledWith({ skipStorage: true });
       expect(mockManager.restoreLocalHighlight).toHaveBeenCalledTimes(2);
       expect(result).toBe(true);
@@ -148,7 +148,7 @@ describe('core/HighlightStorage', () => {
     });
 
     test('should return false when no highlights found', async () => {
-      StorageUtil.loadHighlights.mockResolvedValue([]);
+      HighlightStorageGateway.loadHighlights.mockResolvedValue([]);
 
       const result = await storage.restore();
 
@@ -163,7 +163,7 @@ describe('core/HighlightStorage', () => {
     });
 
     test('should handle restore errors gracefully', async () => {
-      StorageUtil.loadHighlights.mockRejectedValue(new Error('Load failed'));
+      HighlightStorageGateway.loadHighlights.mockRejectedValue(new Error('Load failed'));
       const result = await storage.restore();
       expect(result).toBe(false);
     });
@@ -175,7 +175,7 @@ describe('core/HighlightStorage', () => {
 
       globalThis.normalizeUrl.mockReturnValue('https://original.url');
 
-      StorageUtil.loadHighlights.mockImplementation(async url => {
+      HighlightStorageGateway.loadHighlights.mockImplementation(async url => {
         if (url === 'https://stable.url') {
           return [];
         }
@@ -189,8 +189,8 @@ describe('core/HighlightStorage', () => {
 
       const result = await storage.restore();
 
-      expect(StorageUtil.loadHighlights).toHaveBeenCalledWith('https://stable.url');
-      expect(StorageUtil.loadHighlights).toHaveBeenCalledWith('https://original.url');
+      expect(HighlightStorageGateway.loadHighlights).toHaveBeenCalledWith('https://stable.url');
+      expect(HighlightStorageGateway.loadHighlights).toHaveBeenCalledWith('https://original.url');
       expect(mockManager.restoreLocalHighlight).toHaveBeenCalledWith(
         expect.objectContaining({ text: 'Fallback' })
       );

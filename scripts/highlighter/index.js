@@ -16,10 +16,6 @@ import { HighlightStorage } from './core/HighlightStorage.js';
 // UI modules
 import { Toolbar } from './ui/Toolbar.js';
 
-// Utility modules
-
-import './utils/StorageUtil.js';
-
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
 import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';

@@ -1,7 +1,7 @@
 /**
  * Highlighter StorageUtil 擴充測試（白盒測試）
  *
- * 針對 scripts/highlighter/utils/StorageUtil.js 的私有方法和邊緣情況測試
+ * 針對 scripts/highlighter/core/HighlightStorageGateway.js 的私有方法和邊緣情況測試
  * 補充現有 storageUtil.test.js 的覆蓋率
  *
  * ⚠️ 測試策略說明：
@@ -17,7 +17,7 @@
  * skipcq: JS-0255 - Chrome API callback 非 Node.js error-first 模式
  */
 
-import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
 import {
   HIGHLIGHTS_PREFIX,
   PAGE_PREFIX,
@@ -27,7 +27,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
-describe('Highlighter StorageUtil', () => {
+describe('Highlighter HighlightStorageGateway', () => {
   // Jest beforeEach 模式：變數在 beforeEach 中初始化
   /** @type {object} */
   let mockChrome; // skipcq: JS-0119
@@ -85,9 +85,9 @@ describe('Highlighter StorageUtil', () => {
     ])('無效的 pageUrl (%s) 應觸發錯誤', async (description, invalidUrl) => {
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      await expect(StorageUtil.saveHighlights(invalidUrl, { text: 'test' })).rejects.toThrow(
-        'Invalid pageUrl'
-      );
+      await expect(
+        HighlightStorageGateway.saveHighlights(invalidUrl, { text: 'test' })
+      ).rejects.toThrow('Invalid pageUrl');
 
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
@@ -99,7 +99,7 @@ describe('Highlighter StorageUtil', () => {
 
       const testData = [{ text: 'test', color: 'yellow' }];
 
-      await StorageUtil.saveHighlights('https://example.com', testData);
+      await HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
       expect(localStorage.setItem).toHaveBeenCalled();
     });
@@ -109,7 +109,7 @@ describe('Highlighter StorageUtil', () => {
       mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Get error'));
 
       const testData = [{ text: 'test', color: 'yellow' }];
-      await StorageUtil.saveHighlights('https://example.com', testData);
+      await HighlightStorageGateway.saveHighlights('https://example.com', testData);
       expect(localStorage.setItem).toHaveBeenCalled();
     });
 
@@ -118,7 +118,7 @@ describe('Highlighter StorageUtil', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       const testData = [{ text: 'test', color: 'yellow' }];
-      await StorageUtil.saveHighlights('https://example.com', testData);
+      await HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
         action: 'UPDATE_HIGHLIGHTS',
@@ -139,7 +139,7 @@ describe('Highlighter StorageUtil', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       const testData = [{ text: 'test', color: 'yellow' }];
-      await StorageUtil.saveHighlights('https://example.com', testData);
+      await HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
       expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
@@ -154,7 +154,7 @@ describe('Highlighter StorageUtil', () => {
         mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const testData = [{ text: 'retry-fail', color: 'yellow' }];
-        const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
+        const savePromise = HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
         await Promise.resolve();
         expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(1);
@@ -189,7 +189,7 @@ describe('Highlighter StorageUtil', () => {
         mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const testData = [{ text: 'retry-success', color: 'green' }];
-        const savePromise = StorageUtil.saveHighlights('https://example.com', testData);
+        const savePromise = HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
         await Promise.resolve();
         expect(collectUpdateHighlightCalls(mockChrome.runtime.sendMessage)).toHaveLength(1);
@@ -212,7 +212,7 @@ describe('Highlighter StorageUtil', () => {
         mockChrome.storage.local.set = jest.fn().mockResolvedValue(undefined);
 
         const testData = [{ text: 'first-success', color: 'blue' }];
-        await StorageUtil.saveHighlights('https://example.com', testData);
+        await HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
         const updateCalls = collectUpdateHighlightCalls(mockChrome.runtime.sendMessage);
         expect(updateCalls).toHaveLength(1);
@@ -236,9 +236,9 @@ describe('Highlighter StorageUtil', () => {
         const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
         const testData = [{ text: 'fail-all', color: 'yellow' }];
-        await expect(StorageUtil.saveHighlights('https://example.com', testData)).rejects.toThrow(
-          'Local error'
-        );
+        await expect(
+          HighlightStorageGateway.saveHighlights('https://example.com', testData)
+        ).rejects.toThrow('Local error');
 
         expect(errorSpy).toHaveBeenCalledWith(
           '[ERROR] ❌',
@@ -263,7 +263,7 @@ describe('Highlighter StorageUtil', () => {
 
         const baselineTimerCount = jest.getTimerCount();
         const testData = [{ text: 'no-sendMessage', color: 'yellow' }];
-        await StorageUtil.saveHighlights('https://example.com', testData);
+        await HighlightStorageGateway.saveHighlights('https://example.com', testData);
 
         expect(mockChrome.storage.local.set).toHaveBeenCalled();
         expect(jest.getTimerCount()).toBe(baselineTimerCount);
@@ -309,7 +309,7 @@ describe('Highlighter StorageUtil', () => {
         return Promise.resolve({});
       });
 
-      await StorageUtil.saveHighlights(pageUrl, testData);
+      await HighlightStorageGateway.saveHighlights(pageUrl, testData);
 
       expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         [stablePageKey]: {
@@ -329,7 +329,7 @@ describe('Highlighter StorageUtil', () => {
       mockChrome.storage.local.get = jest.fn().mockResolvedValue({
         'highlights_https://example.com': [{ text: 'legacy match' }],
       });
-      const data = await StorageUtil._loadBothFormats(
+      const data = await HighlightStorageGateway._loadBothFormats(
         'https://example.com',
         'https://example.com',
         'highlights_https://example.com'
@@ -341,7 +341,11 @@ describe('Highlighter StorageUtil', () => {
       const originalChrome = globalThis.chrome;
       globalThis.chrome = undefined;
       await expect(
-        StorageUtil._loadBothFormats('https://example.com', 'https://example.com', 'legacyKey')
+        HighlightStorageGateway._loadBothFormats(
+          'https://example.com',
+          'https://example.com',
+          'legacyKey'
+        )
       ).rejects.toThrow('Chrome storage not available');
       globalThis.chrome = originalChrome;
     });
@@ -349,7 +353,7 @@ describe('Highlighter StorageUtil', () => {
     test('_resolveStableUrl Chrome Storage 不可用應返回 normalizedUrl', async () => {
       const originalChrome = globalThis.chrome;
       globalThis.chrome = undefined;
-      const url = await StorageUtil._resolveStableUrl('https://example.com');
+      const url = await HighlightStorageGateway._resolveStableUrl('https://example.com');
       expect(url).toBe(normalizeUrl('https://example.com'));
       globalThis.chrome = originalChrome;
     });
@@ -360,7 +364,9 @@ describe('Highlighter StorageUtil', () => {
     ])('無效的 pageUrl (%s) 應觸發錯誤', async (description, invalidUrl) => {
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      await expect(StorageUtil.loadHighlights(invalidUrl)).rejects.toThrow('Invalid pageUrl');
+      await expect(HighlightStorageGateway.loadHighlights(invalidUrl)).rejects.toThrow(
+        'Invalid pageUrl'
+      );
 
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
@@ -371,7 +377,7 @@ describe('Highlighter StorageUtil', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       localStorage.getItem.mockReturnValue(JSON.stringify([{ text: 'legacy highlight' }]));
 
-      const result = await StorageUtil.loadHighlights('https://example.com');
+      const result = await HighlightStorageGateway.loadHighlights('https://example.com');
       expect(result).toEqual([{ text: 'legacy highlight' }]);
       warnSpy.mockRestore();
     });
@@ -380,7 +386,7 @@ describe('Highlighter StorageUtil', () => {
       mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
       localStorage.getItem.mockReturnValue(JSON.stringify([{ text: 'legacy highlight' }]));
 
-      const result = await StorageUtil.loadHighlights('https://example.com');
+      const result = await HighlightStorageGateway.loadHighlights('https://example.com');
       expect(result).toEqual([{ text: 'legacy highlight' }]); // 確保回推到 localStorage 加載到了資料
     });
 
@@ -391,7 +397,7 @@ describe('Highlighter StorageUtil', () => {
       });
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      const result = await StorageUtil.loadHighlights('https://example.com');
+      const result = await HighlightStorageGateway.loadHighlights('https://example.com');
       expect(result).toEqual([]);
       errorSpy.mockRestore();
     });
@@ -422,7 +428,7 @@ describe('Highlighter StorageUtil', () => {
         return Promise.resolve({});
       });
 
-      const result = await StorageUtil.loadHighlights(pageUrl);
+      const result = await HighlightStorageGateway.loadHighlights(pageUrl);
 
       expect(result).toEqual([{ text: 'stable highlight' }]);
     });
@@ -455,7 +461,7 @@ describe('Highlighter StorageUtil', () => {
         return Promise.resolve({});
       });
 
-      const result = await StorageUtil.loadHighlights(pageUrl);
+      const result = await HighlightStorageGateway.loadHighlights(pageUrl);
 
       expect(result).toEqual([{ text: 'legacy alias highlight' }]);
     });
@@ -466,7 +472,7 @@ describe('Highlighter StorageUtil', () => {
       // 移除 Chrome Storage
       globalThis.chrome = undefined;
 
-      await expect(StorageUtil._saveToChromeStorage('test_key', {})).rejects.toThrow(
+      await expect(HighlightStorageGateway._saveToChromeStorage('test_key', {})).rejects.toThrow(
         'Chrome storage not available'
       );
 
@@ -478,9 +484,9 @@ describe('Highlighter StorageUtil', () => {
       // MV3 原生 Promise：直接以 rejected Promise 表示失敗
       mockChrome.storage.local.set = jest.fn().mockRejectedValue(new Error('Quota exceeded'));
 
-      await expect(StorageUtil._saveToChromeStorage('test_key', { data: 'test' })).rejects.toThrow(
-        'Quota exceeded'
-      );
+      await expect(
+        HighlightStorageGateway._saveToChromeStorage('test_key', { data: 'test' })
+      ).rejects.toThrow('Quota exceeded');
     });
 
     test('同步拋出異常應被 catch', async () => {
@@ -488,14 +494,14 @@ describe('Highlighter StorageUtil', () => {
         throw new Error('Synchronous error');
       });
 
-      await expect(StorageUtil._saveToChromeStorage('test_key', { data: 'test' })).rejects.toThrow(
-        'Synchronous error'
-      );
+      await expect(
+        HighlightStorageGateway._saveToChromeStorage('test_key', { data: 'test' })
+      ).rejects.toThrow('Synchronous error');
     });
 
     test('成功保存時應解析', async () => {
       await expect(
-        StorageUtil._saveToChromeStorage('test_key', { data: 'test' })
+        HighlightStorageGateway._saveToChromeStorage('test_key', { data: 'test' })
       ).resolves.toBeUndefined();
     });
   });
@@ -503,7 +509,7 @@ describe('Highlighter StorageUtil', () => {
   describe('_saveToLocalStorage', () => {
     test('成功保存應解析', async () => {
       await expect(
-        StorageUtil._saveToLocalStorage('test_key', { data: 'test' })
+        HighlightStorageGateway._saveToLocalStorage('test_key', { data: 'test' })
       ).resolves.toBeUndefined();
 
       expect(localStorage.setItem).toHaveBeenCalledWith(
@@ -517,9 +523,9 @@ describe('Highlighter StorageUtil', () => {
         throw new Error('Storage full');
       });
 
-      await expect(StorageUtil._saveToLocalStorage('test_key', { data: 'test' })).rejects.toThrow(
-        'Storage full'
-      );
+      await expect(
+        HighlightStorageGateway._saveToLocalStorage('test_key', { data: 'test' })
+      ).rejects.toThrow('Storage full');
     });
   });
 
@@ -527,7 +533,7 @@ describe('Highlighter StorageUtil', () => {
     test('空數據應返回空陣列', async () => {
       localStorage.getItem.mockReturnValue(null);
 
-      const result = await StorageUtil._loadFromLocalStorage('test_key');
+      const result = await HighlightStorageGateway._loadFromLocalStorage('test_key');
 
       expect(result).toEqual([]);
     });
@@ -536,7 +542,7 @@ describe('Highlighter StorageUtil', () => {
       const testData = [{ text: 'legacy', color: 'green' }];
       localStorage.getItem.mockReturnValue(JSON.stringify(testData));
 
-      const result = await StorageUtil._loadFromLocalStorage('test_key');
+      const result = await HighlightStorageGateway._loadFromLocalStorage('test_key');
 
       expect(result).toEqual(testData);
     });
@@ -545,7 +551,7 @@ describe('Highlighter StorageUtil', () => {
       localStorage.getItem.mockReturnValue('invalid json {{{');
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      const result = await StorageUtil._loadFromLocalStorage('test_key');
+      const result = await HighlightStorageGateway._loadFromLocalStorage('test_key');
 
       expect(result).toEqual([]);
       expect(errorSpy).toHaveBeenCalled();
@@ -556,16 +562,16 @@ describe('Highlighter StorageUtil', () => {
 
   describe('_parseHighlightFormat', () => {
     test('null 應返回空陣列', () => {
-      expect(StorageUtil._parseHighlightFormat(null)).toEqual([]);
+      expect(HighlightStorageGateway._parseHighlightFormat(null)).toEqual([]);
     });
 
     test('undefined 應返回空陣列', () => {
-      expect(StorageUtil._parseHighlightFormat()).toEqual([]);
+      expect(HighlightStorageGateway._parseHighlightFormat()).toEqual([]);
     });
 
     test('陣列格式應直接返回', () => {
       const input = [{ text: 'test' }];
-      expect(StorageUtil._parseHighlightFormat(input)).toEqual(input);
+      expect(HighlightStorageGateway._parseHighlightFormat(input)).toEqual(input);
     });
 
     test('對象格式應提取 highlights 屬性', () => {
@@ -573,34 +579,38 @@ describe('Highlighter StorageUtil', () => {
         url: 'https://example.com',
         highlights: [{ text: 'test' }],
       };
-      expect(StorageUtil._parseHighlightFormat(input)).toEqual(input.highlights);
+      expect(HighlightStorageGateway._parseHighlightFormat(input)).toEqual(input.highlights);
     });
 
     test('無效對象應返回空陣列', () => {
-      expect(StorageUtil._parseHighlightFormat({ foo: 'bar' })).toEqual([]);
+      expect(HighlightStorageGateway._parseHighlightFormat({ foo: 'bar' })).toEqual([]);
     });
   });
 
   describe('clearHighlights', () => {
     test('無效的 pageUrl 應拋出錯誤', async () => {
-      await expect(StorageUtil.clearHighlights('')).rejects.toThrow(
+      await expect(HighlightStorageGateway.clearHighlights('')).rejects.toThrow(
         'Invalid pageUrl: must be a non-empty string'
       );
     });
 
     test('null pageUrl 應拋出錯誤', async () => {
-      await expect(StorageUtil.clearHighlights(null)).rejects.toThrow(
+      await expect(HighlightStorageGateway.clearHighlights(null)).rejects.toThrow(
         'Invalid pageUrl: must be a non-empty string'
       );
     });
 
     test('成功清除應不拋出錯誤', async () => {
-      await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
+      await expect(
+        HighlightStorageGateway.clearHighlights('https://example.com')
+      ).resolves.toBeUndefined();
     });
 
     test('clearPageHighlights 內部 get 發生 lastError 時應被 Promise.allSettled 處理不中斷流程', async () => {
       mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Clear get error'));
-      await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
+      await expect(
+        HighlightStorageGateway.clearHighlights('https://example.com')
+      ).resolves.toBeUndefined();
     });
 
     test('clearPageHighlights 內部 set 發生 lastError 時應被 Promise.allSettled 處理不中斷流程', async () => {
@@ -608,12 +618,14 @@ describe('Highlighter StorageUtil', () => {
         .fn()
         .mockResolvedValue({ [`${PAGE_PREFIX}https://example.com`]: { highlights: ['hl'] } });
       mockChrome.storage.local.set = jest.fn().mockRejectedValue(new Error('Clear set error'));
-      await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
+      await expect(
+        HighlightStorageGateway.clearHighlights('https://example.com')
+      ).resolves.toBeUndefined();
     });
 
     test('透過 sendMessage 背景清除成功時應直接返回', async () => {
       mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: true });
-      await StorageUtil.clearHighlights('https://example.com');
+      await HighlightStorageGateway.clearHighlights('https://example.com');
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
         action: 'CLEAR_HIGHLIGHTS',
@@ -627,7 +639,7 @@ describe('Highlighter StorageUtil', () => {
       mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      await StorageUtil.clearHighlights('https://example.com');
+      await HighlightStorageGateway.clearHighlights('https://example.com');
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
       expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
@@ -643,7 +655,7 @@ describe('Highlighter StorageUtil', () => {
       });
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      await StorageUtil.clearHighlights('https://example.com');
+      await HighlightStorageGateway.clearHighlights('https://example.com');
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
       expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
@@ -665,7 +677,7 @@ describe('Highlighter StorageUtil', () => {
       });
       const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      await expect(StorageUtil.clearHighlights('https://example.com')).rejects.toThrow(
+      await expect(HighlightStorageGateway.clearHighlights('https://example.com')).rejects.toThrow(
         'Failed to clear highlights from all storage locations'
       );
 
@@ -680,7 +692,7 @@ describe('Highlighter StorageUtil', () => {
       });
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      await StorageUtil.clearHighlights('https://example.com');
+      await HighlightStorageGateway.clearHighlights('https://example.com');
 
       expect(warnSpy).toHaveBeenCalled();
       warnSpy.mockRestore();
@@ -715,7 +727,7 @@ describe('Highlighter StorageUtil', () => {
         return Promise.resolve({});
       });
 
-      await StorageUtil.clearHighlights(pageUrl);
+      await HighlightStorageGateway.clearHighlights(pageUrl);
 
       expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         [stablePageKey]: {
@@ -734,7 +746,7 @@ describe('Highlighter StorageUtil', () => {
       const infoSpy = jest.spyOn(Logger, 'info').mockImplementation();
       const logSpy = jest.spyOn(Logger, 'log').mockImplementation();
 
-      await StorageUtil.clearHighlights(pageUrl);
+      await HighlightStorageGateway.clearHighlights(pageUrl);
 
       expect(infoSpy).toHaveBeenCalledWith('開始清除標註', {
         action: 'clearHighlights',
@@ -754,7 +766,7 @@ describe('Highlighter StorageUtil', () => {
     test('Chrome Storage 不可用時應拒絕', async () => {
       globalThis.chrome = undefined;
 
-      await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
+      await expect(HighlightStorageGateway._clearFromChromeStorage('test_key')).rejects.toThrow(
         'Chrome storage not available'
       );
 
@@ -766,7 +778,7 @@ describe('Highlighter StorageUtil', () => {
         throw new Error('Synchronous load error');
       });
 
-      await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
+      await expect(HighlightStorageGateway._clearFromChromeStorage('test_key')).rejects.toThrow(
         'Synchronous load error'
       );
     });
@@ -777,13 +789,15 @@ describe('Highlighter StorageUtil', () => {
         .fn()
         .mockRejectedValue(new Error('Remove operation failed'));
 
-      await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
+      await expect(HighlightStorageGateway._clearFromChromeStorage('test_key')).rejects.toThrow(
         'Remove operation failed'
       );
     });
 
     test('成功清除應解析', async () => {
-      await expect(StorageUtil._clearFromChromeStorage('test_key')).resolves.toBeUndefined();
+      await expect(
+        HighlightStorageGateway._clearFromChromeStorage('test_key')
+      ).resolves.toBeUndefined();
 
       expect(mockChrome.storage.local.remove).toHaveBeenCalled();
     });
@@ -791,7 +805,9 @@ describe('Highlighter StorageUtil', () => {
 
   describe('_clearFromLocalStorage', () => {
     test('成功清除應解析', async () => {
-      await expect(StorageUtil._clearFromLocalStorage('test_key')).resolves.toBeUndefined();
+      await expect(
+        HighlightStorageGateway._clearFromLocalStorage('test_key')
+      ).resolves.toBeUndefined();
 
       expect(localStorage.removeItem).toHaveBeenCalledWith('test_key');
     });
@@ -801,7 +817,9 @@ describe('Highlighter StorageUtil', () => {
         throw new Error('Cannot remove');
       });
 
-      await expect(StorageUtil._clearFromLocalStorage('test_key')).rejects.toThrow('Cannot remove');
+      await expect(HighlightStorageGateway._clearFromLocalStorage('test_key')).rejects.toThrow(
+        'Cannot remove'
+      );
     });
   });
 });

@@ -34,8 +34,8 @@ describe('Highlighter Integration Tests', () => {
       warn: jest.fn(),
     };
 
-    // 注意：不需要 mock window.StorageUtil
-    // 因為 StorageUtil 模組會在 import 時自動覆蓋 window.StorageUtil
+    // 注意：不需要 mock window.HighlightStorageGateway
+    // HighlightStorageGateway 透過 ES6 import 使用，不依賴 globalThis 掛載
 
     // Mock Chrome Extension API（使用 callback 風格，與源碼一致）
     globalThis.chrome = {
@@ -309,7 +309,7 @@ describe('Highlighter Integration Tests', () => {
       range.setEnd(textNode, 10);
       manager.addHighlight(range, 'green');
 
-      // Save - 由於使用真實的 StorageUtil，驗證 Promise 正常 resolve
+      // Save - 由於使用真實的 HighlightStorageGateway，驗證 Promise 正常 resolve
       await expect(manager.saveToStorage()).resolves.toBeUndefined();
     });
   });
