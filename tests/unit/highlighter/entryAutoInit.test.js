@@ -13,6 +13,9 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
   },
   __esModule: true,
 }));
@@ -77,6 +80,11 @@ describe('entryAutoInit', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.clearAllMocks();
+    delete globalThis.chrome;
+    delete globalThis.notionHighlighter;
+    delete globalThis.HighlighterV2;
+    delete globalThis.__NOTION_STABLE_URL__;
   });
 
   test('正常初始化 (無 stableUrl, chrome API 返回正確值)', async () => {
@@ -116,6 +124,24 @@ describe('entryAutoInit', () => {
       skipToolbar: true,
       styleMode: 'background',
     });
+  });
+
+  test('不應等待 waitForStableUrl 超時才完成初始化', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://fast-page-status.com',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'underline' });
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await flushAsyncSetup();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: false,
+      skipToolbar: false,
+      styleMode: 'underline',
+    });
+    expect(globalThis.__NOTION_STABLE_URL__).toBe('https://fast-page-status.com');
   });
 
   test('當 chrome API 拋出錯誤時安全回退', async () => {
@@ -235,7 +261,7 @@ describe('entryAutoInit', () => {
 
     expect(sanitizeUrlForLogging).toHaveBeenCalledWith(rawStableUrl);
     expect(mockLogger.debug).toHaveBeenCalledWith(
-      '[Highlighter] Initialized with stable URL',
+      '[Highlighter] 已使用穩定 URL 完成初始化',
       expect.objectContaining({
         action: 'initializeExtension',
         stableUrl: `sanitized:${rawStableUrl}`,
@@ -259,6 +285,36 @@ describe('entryAutoInit', () => {
     await flushAsyncSetup();
 
     expect(globalThis.__NOTION_STABLE_URL__).toBe('https://sent-from-bg.com');
+  });
+
+  test('晚到的 SET_STABLE_URL 不應在 skipRestore 情況下重試 restore', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: false,
+      wasDeleted: true,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await flushAsyncSetup();
+
+    const restore = jest.fn().mockResolvedValue(undefined);
+    globalThis.HighlighterV2 = {
+      wasDeleted: true,
+      manager: {
+        getCount: jest.fn().mockReturnValue(0),
+      },
+      restoreManager: {
+        restore,
+      },
+    };
+
+    const persistentHandler = runtimeMessageHandlers.at(-1);
+    persistentHandler({
+      action: 'SET_STABLE_URL',
+      stableUrl: 'https://late-arrival.com',
+    });
+
+    expect(restore).not.toHaveBeenCalled();
   });
 
   test('sendMessage 接收 GET_STABLE_URL & showToolbar', async () => {

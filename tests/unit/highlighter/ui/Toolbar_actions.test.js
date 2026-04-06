@@ -80,6 +80,10 @@ describe('Toolbar Actions', () => {
     container.append(statusDiv);
 
     // Add other required elements to container to prevent errors during initialization
+    const saveBtn = document.createElement('button');
+    saveBtn.id = 'save-page-v2';
+    container.append(saveBtn);
+
     const countSpan = document.createElement('span');
     countSpan.id = 'highlight-count-v2';
     container.append(countSpan);
@@ -192,13 +196,40 @@ describe('Toolbar Actions', () => {
     });
 
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
-      toolbarRuntimeMock.syncHighlights.mockRejectedValue(new Error('Connection failed'));
+      const syncError = new Error('Connection failed');
+      toolbarRuntimeMock.syncHighlights.mockRejectedValue(syncError);
 
       await toolbar.syncToNotion();
 
       expect(statusDiv.textContent).toContain('同步失敗');
       expect(statusDiv.innerHTML).toContain('<svg');
-      expect(Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Object));
+      expect(Logger.error).toHaveBeenCalledWith(
+        '同步失敗:',
+        expect.objectContaining({
+          action: 'syncToNotion',
+          error: syncError,
+          errorMessage: 'Connection failed',
+        })
+      );
+    });
+  });
+
+  describe('savePageToNotion', () => {
+    test('should pass original error object to logger when save fails', async () => {
+      const saveError = new Error('Save failed');
+      toolbarRuntimeMock.savePageFromToolbar.mockRejectedValue(saveError);
+
+      await toolbar.savePageToNotion();
+
+      expect(statusDiv.textContent).toContain('保存失敗');
+      expect(Logger.error).toHaveBeenCalledWith(
+        '從 Toolbar 保存頁面失敗',
+        expect.objectContaining({
+          action: 'savePageToNotion',
+          error: saveError,
+          errorMessage: 'Save failed',
+        })
+      );
     });
   });
 });

@@ -543,7 +543,8 @@ export class Toolbar {
       }
       Logger.error('從 Toolbar 保存頁面失敗', {
         action: 'savePageToNotion',
-        error: error?.message ?? String(error),
+        error,
+        errorMessage: error?.message ?? String(error),
       });
     } finally {
       // 失敗時才重新啟用按鈕（成功時按鈕已被 updateSaveButtonVisibility 隱藏）
@@ -620,8 +621,8 @@ export class Toolbar {
 
         Logger.error('同步失敗:', {
           action: 'syncToNotion',
-          error: error?.message ?? String(error),
-          stack: error?.stack,
+          error,
+          errorMessage: error?.message ?? String(error),
           details: {
             name: error?.name,
             code: error?.code,

@@ -549,6 +549,31 @@ describe('highlightHandlers', () => {
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
+
+    it('應該傳遞 content script 回報的 showHighlighter 失敗結果', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        if (msg.action === 'PING') {
+          cb({ status: 'bundle_ready' });
+        } else if (msg.action === 'showHighlighter') {
+          cb({ success: false, error: 'Highlighter not initialized' });
+        }
+      });
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue();
+
+      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        response: {
+          success: false,
+          error: 'Highlighter not initialized',
+        },
+      });
+    });
   });
 
   describe('Coverage Improvements (Base)', () => {

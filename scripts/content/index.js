@@ -81,6 +81,32 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM) {
+    try {
+      const removed = globalThis.HighlighterV2?.manager?.removeHighlight?.(request.highlightId);
+
+      if (removed === undefined) {
+        Logger.warn('Highlighter 尚未初始化，略過移除標註 DOM', {
+          action: 'REMOVE_HIGHLIGHT_DOM',
+          highlightId: request.highlightId,
+        });
+        sendResponse({ success: false, error: 'Highlighter 尚未初始化' });
+      } else {
+        sendResponse({ success: Boolean(removed) });
+      }
+    } catch (error) {
+      Logger.error('移除標註 DOM 失敗', {
+        action: 'REMOVE_HIGHLIGHT_DOM',
+        error,
+      });
+      sendResponse({
+        success: false,
+        error: error?.message ?? '移除標註 DOM 失敗',
+      });
+    }
+    return true;
+  }
+
   if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL) {
     if (request.stableUrl) {
       // 防禦：驗證穩定 URL 有足夠的路徑或 query 來識別具體頁面

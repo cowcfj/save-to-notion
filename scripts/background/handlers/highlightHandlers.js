@@ -295,8 +295,18 @@ export function createHighlightHandlers(services) {
               }
             });
           });
-          Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
-          sendResponse({ success: true, response });
+          if (response?.success === true) {
+            Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
+            sendResponse({ success: true, response });
+            return;
+          }
+
+          Logger.warn('顯示高亮工具失敗', {
+            action: 'USER_ACTIVATE_SHORTCUT',
+            responseSuccess: response?.success,
+            responseError: response?.error,
+          });
+          sendResponse({ success: false, response });
         } catch (error) {
           Logger.warn('顯示高亮工具失敗', {
             action: 'USER_ACTIVATE_SHORTCUT',

@@ -23,6 +23,7 @@ import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   let hasRetriedLateStableRestore = false;
+  let shouldSkipLateRestore = false;
   const STABLE_URL_TIMEOUT_MS = 1000;
   let persistentMessageHandler = null;
   let persistentStorageHandler = null;
@@ -35,17 +36,22 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
           const manager = globalThis.HighlighterV2?.manager;
           const restoreManager = globalThis.HighlighterV2?.restoreManager;
+          const hasSkipRestoreFlag =
+            shouldSkipLateRestore ||
+            globalThis.HighlighterV2?.skipRestore === true ||
+            globalThis.HighlighterV2?.wasDeleted === true;
           const hasNoHighlights =
             typeof manager?.getCount === 'function' && manager.getCount() === 0;
 
           if (
             !hasRetriedLateStableRestore &&
+            !hasSkipRestoreFlag &&
             hasNoHighlights &&
             typeof restoreManager?.restore === 'function'
           ) {
             hasRetriedLateStableRestore = true;
             restoreManager.restore().catch(error => {
-              Logger.warn('[Highlighter] Late stable URL restore retry failed', {
+              Logger.warn('[Highlighter] 延後收到穩定 URL，重試恢復標註失敗', {
                 action: 'SET_STABLE_URL',
                 error: error?.message ?? String(error),
               });
@@ -65,7 +71,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
               sendResponse({ success: false, error: error.message });
             }
           } else {
-            sendResponse({ success: false, error: 'notionHighlighter not initialized' });
+            sendResponse({ success: false, error: 'notionHighlighter 尚未初始化' });
           }
           return true;
         }
@@ -141,7 +147,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         if (!resolved) {
           resolved = true;
           globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
-          Logger.debug('[Highlighter] SET_STABLE_URL timeout, proceeding without stable URL', {
+          Logger.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
             action: 'waitForStableUrl',
           });
           resolve(null);
@@ -157,11 +163,26 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       let skipToolbar = true; // 默認不創建 Toolbar（頁面未保存或已刪除）
       let styleMode = 'background';
 
-      // 並行加載：穩定 URL、頁面狀態、樣式配置
-      const [stableUrl, pageStatus, settings] = await Promise.all([
-        // 1. 等待 Background Script 發送穩定 URL
-        waitForStableUrl(),
-        // 2. 檢查頁面狀態（注意：Content Script 調用可能被 validateInternalRequest 拒絕）
+      const stableUrlState = {
+        resolved: false,
+        value: null,
+      };
+      waitForStableUrl()
+        .then(stableUrl => {
+          stableUrlState.resolved = true;
+          stableUrlState.value = stableUrl;
+          return stableUrl;
+        })
+        .catch(error => {
+          Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
+            action: 'waitForStableUrl',
+            error: error?.message ?? String(error),
+          });
+        });
+
+      // 並行加載：頁面狀態、樣式配置；穩定 URL 另外等待，不阻塞初始化
+      const [pageStatus, settings] = await Promise.all([
+        // 1. 檢查頁面狀態（注意：Content Script 調用可能被 validateInternalRequest 拒絕）
         (async () => {
           if (!globalThis.chrome?.runtime?.sendMessage) {
             return null;
@@ -171,14 +192,14 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
               action: RUNTIME_ACTIONS.CHECK_PAGE_STATUS,
             });
           } catch (error) {
-            Logger.warn('[Highlighter] checkPageStatus failed', {
+            Logger.warn('[Highlighter] checkPageStatus 失敗', {
               error: error?.message,
               action: 'checkPageStatus',
             });
             return null;
           }
         })(),
-        // 3. 加載標註樣式配置
+        // 2. 加載標註樣式配置
         (async () => {
           if (!globalThis.chrome?.storage?.sync) {
             return {};
@@ -186,7 +207,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
           try {
             return (await globalThis.chrome.storage.sync.get(['highlightStyle'])) || {};
           } catch (error) {
-            Logger.warn('[Highlighter] Failed to load settings', {
+            Logger.warn('[Highlighter] 載入設定失敗', {
               error: error?.message,
               action: 'initializeExtension',
             });
@@ -195,14 +216,17 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         })(),
       ]);
 
-      // 設置穩定 URL（優先使用 waitForStableUrl 的結果，回退到 pageStatus）
-      const resolvedStableUrl = stableUrl || pageStatus?.stableUrl;
+      // 設置穩定 URL（優先使用 pageStatus，若 waitForStableUrl 已快速完成則回退使用）
+      const resolvedStableUrl = pageStatus?.stableUrl || stableUrlState.value;
       if (resolvedStableUrl) {
         globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
-        Logger.debug('[Highlighter] Initialized with stable URL', {
+        Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
           action: 'initializeExtension',
           stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-          source: stableUrl ? 'SET_STABLE_URL' : 'checkPageStatus',
+          source:
+            pageStatus?.stableUrl || !stableUrlState.resolved || !stableUrlState.value
+              ? 'checkPageStatus'
+              : 'SET_STABLE_URL',
         });
       }
 
@@ -210,7 +234,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
         styleMode = settings.highlightStyle;
       } else if (settings?.highlightStyle) {
-        Logger.warn('[Highlighter] Invalid highlightStyle value', {
+        Logger.warn('[Highlighter] highlightStyle 設定值無效', {
           value: settings.highlightStyle,
           action: 'initializeExtension',
         });
@@ -219,7 +243,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       // 處理頁面狀態（pageStatus 可能在 Content Script 中被拒絕，此時為 null 或 error）
       if (pageStatus?.wasDeleted) {
         skipRestore = true;
-        Logger.info('[Highlighter] 🗑️ Page was deleted, skipping toolbar and restore', {
+        Logger.info('[Highlighter] 頁面已刪除，略過工具列與標註恢復', {
           action: 'initializeExtension',
         });
       } else if (pageStatus?.isSaved) {
@@ -227,13 +251,22 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       }
 
       // 初始化 Highlighter
+      shouldSkipLateRestore = skipRestore;
       setupHighlighter({ skipRestore, skipToolbar, styleMode });
+      if (globalThis.HighlighterV2) {
+        globalThis.HighlighterV2.skipRestore = skipRestore;
+        globalThis.HighlighterV2.wasDeleted = pageStatus?.wasDeleted === true;
+      }
       registerPersistentListeners();
     } catch (error) {
       unregisterPersistentListeners();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
       try {
+        shouldSkipLateRestore = true;
         setupHighlighter({ skipRestore: true, skipToolbar: true });
+        if (globalThis.HighlighterV2) {
+          globalThis.HighlighterV2.skipRestore = true;
+        }
         registerPersistentListeners();
       } catch (fallbackError) {
         unregisterPersistentListeners();
