@@ -38,6 +38,9 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
   },
 }));
 
@@ -97,10 +100,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('輸入驗證', () => {
     test('應該拒絕 null 或 undefined 的 URL', async () => {
-      if (!HighlightStorageGateway) {
-        console.warn('HighlightStorageGateway not available, skipping test');
-        return;
-      }
       await expect(HighlightStorageGateway.clearHighlights(null)).rejects.toThrow(
         'Invalid pageUrl: must be a non-empty string'
       );
@@ -113,18 +112,12 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('應該拒絕空字串 URL', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       await expect(HighlightStorageGateway.clearHighlights('')).rejects.toThrow(
         'Invalid pageUrl: must be a non-empty string'
       );
     });
 
     test('應該拒絕非字串類型的 URL', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       await expect(HighlightStorageGateway.clearHighlights(123)).rejects.toThrow(
         'Invalid pageUrl: must be a non-empty string'
       );
@@ -139,9 +132,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('應該處理 URL 標準化', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const validUrl = 'https://example.com/page';
       await expect(HighlightStorageGateway.clearHighlights(validUrl)).resolves.toBeUndefined();
     });
@@ -149,9 +139,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('並行清除操作', () => {
     test('應該清除 Chrome Storage 和 localStorage（Fallback 路徑）', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
       // Phase 3 Fallback 路徑：清除 highlights_* 和 page_* keys
       const legacyKey = 'highlights_https://example.com/test';
@@ -172,9 +159,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('sendMessage 回傳 { success: false } 時應同樣觸發 Fallback 清除邏輯', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
       const legacyKey = 'highlights_https://example.com/test';
 
@@ -196,9 +180,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('應該記錄清除開始', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
 
       await HighlightStorageGateway.clearHighlights(testUrl);
@@ -212,9 +193,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('錯誤處理', () => {
     test('當 Chrome Storage 失敗但 localStorage 成功時應該記錄警告（Fallback 路徑）', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
       const legacyKey = 'highlights_https://example.com/test';
 
@@ -233,9 +211,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('當 Chrome Storage 不可用時應該只使用 localStorage', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
       const pageKey = 'highlights_https://example.com/test';
 
@@ -260,9 +235,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
   describe('輔助方法測試', () => {
     describe('_clearFromChromeStorage', () => {
       test('應該成功清除 Chrome Storage', async () => {
-        if (!HighlightStorageGateway) {
-          return;
-        }
         const testKey = 'test_key';
 
         await chrome.storage.local.set({ [testKey]: 'test_value' });
@@ -273,9 +245,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
       });
 
       test('當 Chrome Storage 不可用時應該拋出錯誤', async () => {
-        if (!HighlightStorageGateway) {
-          return;
-        }
         const originalChrome = globalThis.chrome;
         globalThis.chrome = {};
 
@@ -287,9 +256,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
       });
 
       test('當操作失敗時應該拋出包含錯誤信息的錯誤', async () => {
-        if (!HighlightStorageGateway) {
-          return;
-        }
         // MV3 原生 Promise：直接以 rejected Promise 表示失敗
         chrome.storage.local.remove.mockRejectedValue(new Error('Test error'));
 
@@ -301,9 +267,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
     describe('_clearFromLocalStorage', () => {
       test('應該成功清除 localStorage', async () => {
-        if (!HighlightStorageGateway) {
-          return;
-        }
         const testKey = 'test_key';
         globalThis.localStorage.setItem(testKey, 'test_value');
 
@@ -313,9 +276,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
       });
 
       test('正常操作應該成功完成', async () => {
-        if (!HighlightStorageGateway) {
-          return;
-        }
         const testKey = 'test_error_key';
         globalThis.localStorage.setItem(testKey, 'test_value');
 
@@ -329,9 +289,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('向後兼容性', () => {
     test('應該正確處理標準化 URL（Phase 3: Fallback 路徑使用 page_* 和 highlights_* keys）', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/page?utm_source=test#anchor';
       // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
       // Fallback 會嘗試對 page_https://example.com/page 和 highlights_https://example.com/page 兩種 keys
@@ -345,9 +302,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('應該與現有代碼保持相同的介面', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
 
       const result = HighlightStorageGateway.clearHighlights(testUrl);
@@ -359,9 +313,6 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('性能測試', () => {
     test('應該在合理時間內完成清除操作', async () => {
-      if (!HighlightStorageGateway) {
-        return;
-      }
       const testUrl = 'https://example.com/test';
 
       // 確保走正常路徑，避免重試所造成的延遲

@@ -31,6 +31,36 @@ export const STORAGE_GATEWAY_RETRY = Object.freeze({
   delayMs: 500,
 });
 
+/**
+ * 共用的 Background 重試 helper
+ *
+ * @param {Function} actionFn - 返回 Promise<boolean> 的 action 函數（true = 成功）
+ * @param {string} actionName - 用於日誌的 action 名稱
+ * @returns {Promise<boolean>} true 表示 action 成功執行
+ * @private
+ */
+async function _withBackgroundRetry(actionFn, actionName) {
+  const canRetryBackground =
+    typeof chrome !== 'undefined' &&
+    chrome?.runtime &&
+    typeof chrome.runtime.sendMessage === 'function';
+  const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
+
+  for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+    if (attempt > 1) {
+      await new Promise(resolve => setTimeout(resolve, STORAGE_GATEWAY_RETRY.delayMs));
+      Logger.warn(
+        `[HighlightStorageGateway] ${actionName} sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`,
+        { action: actionName }
+      );
+    }
+    if (await actionFn()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function sanitizeHighlightStorageKeyForLogging(key) {
   if (typeof key !== 'string') {
     return '[invalid-storage-key]';
@@ -76,26 +106,13 @@ const HighlightStorageGateway = {
       ? highlightData
       : highlightData?.highlights || [];
 
-    // 單一迴圈重試：最多 3 次，第一次立即執行，後續失敗才延遲重試。
-    // 目的：避免可回復的暫時性中斷過早繞道到競態風險較高的 fallback 路徑。
-    const canRetryBackground =
-      typeof chrome !== 'undefined' &&
-      chrome?.runtime &&
-      typeof chrome.runtime.sendMessage === 'function';
-    const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
-    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
-      if (attempt > 1) {
-        await new Promise(resolve => setTimeout(resolve, STORAGE_GATEWAY_RETRY.delayMs));
-        Logger.warn(
-          `[HighlightStorageGateway] sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`,
-          {
-            action: 'saveHighlights',
-          }
-        );
-      }
-      if (await this._tryBackgroundUpdate(pageUrl, highlights)) {
-        return;
-      }
+    // 透過共用 helper 進行 Background 重試
+    const success = await _withBackgroundRetry(
+      () => this._tryBackgroundUpdate(pageUrl, highlights),
+      'saveHighlights'
+    );
+    if (success) {
+      return;
     }
 
     // Fallback：重試後仍失敗，直接寫入（過渡期安全網）
@@ -385,25 +402,13 @@ const HighlightStorageGateway = {
       throw error;
     }
 
-    // Phase 3：送給 Background 結層處理（含 _withLock，保留 notion 欄位）
-    // 重試策略與 saveHighlights 對稱：最多 3 次，第一次立即執行，後續失敗才延遲重試。
-    const canRetryBackground =
-      typeof chrome !== 'undefined' &&
-      chrome?.runtime &&
-      typeof chrome.runtime.sendMessage === 'function';
-    const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
-
-    for (let attempt = 1; attempt <= attemptLimit; attempt++) {
-      if (attempt > 1) {
-        await new Promise(resolve => setTimeout(resolve, STORAGE_GATEWAY_RETRY.delayMs));
-        Logger.warn(
-          `[HighlightStorageGateway] clearHighlights sendMessage 失敗，嘗試重試 ${attempt}/${attemptLimit}`,
-          { action: 'clearHighlights' }
-        );
-      }
-      if (await this._tryBackgroundClear(pageUrl)) {
-        return;
-      }
+    // 透過共用 helper 進行 Background 重試
+    const success = await _withBackgroundRetry(
+      () => this._tryBackgroundClear(pageUrl),
+      'clearHighlights'
+    );
+    if (success) {
+      return;
     }
 
     // Fallback：直接清除（舊格式安全網）
