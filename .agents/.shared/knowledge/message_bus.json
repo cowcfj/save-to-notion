@@ -251,7 +251,7 @@
       "exportDebugLogs": {
         "description": "Options 匯出目前緩衝的 debug logs",
         "payload": {
-          "format": "\"json\" | string"
+          "format": "\"json\" | \"txt\""
         },
         "response": {
           "success": "boolean",

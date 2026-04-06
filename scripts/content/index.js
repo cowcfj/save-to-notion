@@ -61,7 +61,7 @@ globalThis.__NOTION_BUNDLE_READY__ = true;
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === RUNTIME_ACTIONS.PING) {
     sendResponse({
-      status: 'bundle_ready',
+      status: globalThis.notionHighlighter ? 'bundle_ready' : 'initializing',
       hasPreloaderCache: Boolean(preloaderCache),
       // Phase 2: 從 preloaderCache 取得穩定 URL 元數據（由 preloader 提取並驗證）
       nextRouteInfo: preloaderCache?.nextRouteInfo || null,

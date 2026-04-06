@@ -46,6 +46,8 @@
  * @typedef {object} SyncHighlightsResponse
  * @property {boolean} success
  * @property {number} [count]
+ * @property {number} [highlightCount] - 同步的標註數量
+ * @property {string} [message] - 操作訊息
  * @property {boolean} [highlightsUpdated]
  * @property {string} [errorCode]
  * @property {string} [error]
@@ -73,7 +75,7 @@
 /**
  * @typedef {object} UpdateHighlightsResponse
  * @property {boolean} success
- * @property {string} [error]
+ * @property {{code?: string, message?: string}|string} [error] - 錯誤資訊（可為物件或字串）
  */
 
 /**
@@ -88,7 +90,7 @@
  * @property {boolean} success
  * @property {number} [clearedCount]
  * @property {boolean} [visualCleared]
- * @property {string} [error]
+ * @property {{code?: string, message?: string}|string} [error] - 錯誤資訊（可為物件或字串）
  */
 
 /**
@@ -182,6 +184,7 @@
 /**
  * @typedef {object} UserActivateShortcutResponse
  * @property {boolean} success
+ * @property {object|string} [response] - Content script 回傳的原始響應
  * @property {string} [error]
  */
 
@@ -196,6 +199,7 @@
  * @property {boolean} success
  * @property {boolean} [highlightsUpdated]
  * @property {number} [highlightCount]
+ * @property {string} [errorCode] - 錯誤代碼（如 PAGE_DELETED, PAGE_NOT_SAVED）
  * @property {string} [error]
  */
 

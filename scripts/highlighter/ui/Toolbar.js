@@ -30,7 +30,7 @@ const TOOLBAR_HOST_OWNER_ATTR = 'data-highlighter-owner';
 const TOOLBAR_HOST_OWNER_VALUE = 'true';
 const TOOLBAR_OWNED_HOST_SELECTOR = `${TOOLBAR_HOST_SELECTOR}[${TOOLBAR_HOST_OWNER_ATTR}="${TOOLBAR_HOST_OWNER_VALUE}"]`;
 const OPEN_SIDE_PANEL_ERROR_MESSAGE = '開啟 Side Panel 失敗';
-const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
+const UNKNOWN_ERROR_MESSAGE = '發生未知錯誤';
 
 /**
  * 工具欄管理器類別

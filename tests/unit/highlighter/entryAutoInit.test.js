@@ -309,12 +309,18 @@ describe('entryAutoInit', () => {
     };
 
     const persistentHandler = runtimeMessageHandlers.at(-1);
-    persistentHandler({
-      action: 'SET_STABLE_URL',
-      stableUrl: 'https://late-arrival.com',
-    });
+    const sendResponseMock = jest.fn();
+    persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://late-arrival.com',
+      },
+      {},
+      sendResponseMock
+    );
 
     expect(restore).not.toHaveBeenCalled();
+    expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
   });
 
   test('sendMessage 接收 GET_STABLE_URL & showToolbar', async () => {
