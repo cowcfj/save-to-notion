@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { RUNTIME_ACTIONS } from '../../../scripts/config/runtimeActions.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../../scripts/utils/securityUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import {
@@ -736,7 +737,9 @@ describe('Sidepanel JS Logic', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'startHighlight' });
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.START_HIGHLIGHT,
+      });
       expect(document.querySelector('#status-message').className).toContain('success');
     });
 
