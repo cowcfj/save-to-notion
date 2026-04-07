@@ -20,6 +20,7 @@ import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import Logger from '../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
 
@@ -35,6 +36,8 @@ let cachedTabUrl = null;
 let currentActiveView = 'current';
 let currentViewRequestId = 0;
 let unsyncedViewRequestId = 0;
+const START_HIGHLIGHT_ERROR_CONTEXT = 'sidepanel_start_highlight';
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 
 /** @type {Array<object> | null} 快取的未同步頁面資料 */
 let cachedUnsyncedPages = null;
@@ -199,6 +202,21 @@ function appendNextUnsyncedBatch(count) {
   displayedCardCount += renderedCount;
 }
 
+/**
+ * 取得必要 DOM 元素，缺失時立即失敗以暴露模板退化。
+ *
+ * @template {Element} T
+ * @param {T | null | undefined} element
+ * @param {string} elementName
+ * @returns {T}
+ */
+function requireElement(element, elementName) {
+  if (!element) {
+    throw new Error(`[SidePanel] 缺少必要的 DOM 元素：${elementName}`);
+  }
+  return element;
+}
+
 // === 業務邏輯 ===
 
 /**
@@ -322,9 +340,11 @@ async function getUnsyncedPages() {
 
 async function init() {
   els = UI.getElements();
+  els.startHighlightButton = requireElement(els.startHighlightButton, 'startHighlightButton');
   setActiveView('current');
 
   // 1. 綁定按鈕事件
+  els.startHighlightButton.addEventListener('click', handleStartHighlightClick);
   els.syncButton.addEventListener('click', handleSyncClick);
   els.openNotionButton.addEventListener('click', handleOpenNotionClick);
   els.clearAllBtn?.addEventListener('click', deleteAllUnsyncedPages);
@@ -686,6 +706,54 @@ async function handleDelete(highlightId, storageKey) {
 }
 
 /**
+ * 點擊開始標註按鈕
+ */
+async function handleStartHighlightClick() {
+  els.startHighlightButton.disabled = true;
+  showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_STARTING, 'info');
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.START_HIGHLIGHT,
+    });
+
+    if (response?.success) {
+      showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED, 'success');
+    } else {
+      const safe = sanitizeApiError(
+        response?.error || UNKNOWN_ERROR_MESSAGE,
+        START_HIGHLIGHT_ERROR_CONTEXT
+      );
+      const msg = ErrorHandler.formatUserMessage(safe);
+
+      Logger.error('[SidePanel] startHighlight failed', {
+        action: 'startHighlight',
+        operation: 'highlight-init',
+        result: 'failure',
+        error: safe,
+      });
+      showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
+    }
+  } catch (error) {
+    const safe = sanitizeApiError(error, START_HIGHLIGHT_ERROR_CONTEXT);
+    const msg = ErrorHandler.formatUserMessage(safe);
+
+    Logger.error('[SidePanel] startHighlight failed', {
+      action: 'startHighlight',
+      operation: 'runtime-sendMessage',
+      result: 'failure',
+      error,
+      reason: safe,
+    });
+    showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
+  } finally {
+    setTimeout(() => {
+      els.startHighlightButton.disabled = false;
+    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
+  }
+}
+
+/**
  * 點擊同步按鈕
  */
 async function handleSyncClick() {
@@ -698,7 +766,7 @@ async function handleSyncClick() {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
       Logger.error('[SidePanel] savePage failed', {
-        error: sanitizeApiError(response?.error || 'Unknown error', 'save_page'),
+        error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page'),
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
     }
@@ -731,7 +799,7 @@ async function handleOpenNotionClick() {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
     } else {
       Logger.error('[SidePanel] openNotionPage failed', {
-        error: sanitizeApiError(response?.error || 'Unknown error', 'open_page'),
+        error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'open_page'),
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
     }

@@ -1,6 +1,9 @@
 import { jest } from '@jest/globals';
+import fs from 'node:fs';
+import path from 'node:path';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { RUNTIME_ACTIONS } from '../../../scripts/config/runtimeActions.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../../scripts/utils/securityUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import {
@@ -75,6 +78,7 @@ describe('Sidepanel JS Logic', () => {
         <div class="subtitle">Subtitle</div>
       </div>
       <div id="highlights-list" style="display:none"></div>
+      <button id="start-highlight-button"></button>
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
       <div id="status-message"></div>
@@ -129,6 +133,16 @@ describe('Sidepanel JS Logic', () => {
       expect(chrome.tabs.onUpdated.addListener).toHaveBeenCalled();
       expect(chrome.storage.onChanged.addListener).toHaveBeenCalled();
       expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    });
+
+    it('應該為開始標註按鈕顯式設定 type="button"', () => {
+      const sidepanelHtmlPath = path.resolve(process.cwd(), 'sidepanel/sidepanel.html');
+      const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, 'utf8');
+      const doc = new DOMParser().parseFromString(sidepanelHtml, 'text/html');
+      const startHighlightButton = doc.querySelector('#start-highlight-button');
+
+      expect(startHighlightButton).not.toBeNull();
+      expect(startHighlightButton?.getAttribute('type')).toBe('button');
     });
   });
 
@@ -726,6 +740,85 @@ describe('Sidepanel JS Logic', () => {
         error: sanitizeApiError('Leaked debug detail'),
       });
     });
+
+    it('應該成功觸發 startHighlight', async () => {
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+
+      const startBtn = document.querySelector('#start-highlight-button');
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.START_HIGHLIGHT,
+      });
+      expect(document.querySelector('#status-message').className).toContain('success');
+    });
+
+    it('不應直接顯示 runtime message 回傳的原始 startHighlight 錯誤', async () => {
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: false,
+        error: 'Highlighter initialization failed',
+      });
+
+      const startBtn = document.querySelector('#start-highlight-button');
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#status-message').textContent).not.toBe(
+        'Highlighter initialization failed'
+      );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] startHighlight failed',
+        expect.objectContaining({
+          action: 'startHighlight',
+          operation: 'highlight-init',
+          result: 'failure',
+          error: sanitizeApiError('Highlighter initialization failed', 'sidepanel_start_highlight'),
+        })
+      );
+    });
+
+    it('應該在 runtime sendMessage reject 時顯示格式化後的 startHighlight 錯誤', async () => {
+      const runtimeError = new Error('Network error');
+      chrome.runtime.sendMessage.mockRejectedValue(runtimeError);
+
+      const startBtn = document.querySelector('#start-highlight-button');
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#status-message').textContent).toBe(
+        `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}網路連線異常，請檢查網路後重試`
+      );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] startHighlight failed',
+        expect.objectContaining({
+          action: 'startHighlight',
+          operation: 'runtime-sendMessage',
+          result: 'failure',
+          error: runtimeError,
+          reason: sanitizeApiError(runtimeError, 'sidepanel_start_highlight'),
+        })
+      );
+    });
+
+    it('should re-enable start highlight button using named debounce constant', async () => {
+      chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
+
+      const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
+      const startBtn = document.querySelector('#start-highlight-button');
+
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
+      expect(document.querySelector('#status-message').className).toContain('error');
+
+      timeoutSpy.mockRestore();
+    });
   });
 
   describe('Storage Changes Sync', () => {
@@ -861,6 +954,7 @@ function buildUnsyncedDOM() {
     <div id="loading-state" style="display:none"><div class="spinner"></div><p></p></div>
     <div id="empty-state" style="display:none"><p>Empty</p><div class="subtitle"></div></div>
     <div id="highlights-list" style="display:none"></div>
+    <button id="start-highlight-button"></button>
     <div id="unsynced-view" style="display:none"></div>
     <div id="unsynced-toolbar" style="display:none">
       <span id="unsynced-count-label"></span>
@@ -1307,5 +1401,91 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
       }
       expect(chrome.storage.local.remove).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('Required DOM contract', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+
+    document.body.innerHTML = `
+      <div id="loading-state" style="display:none">Loading...</div>
+      <div id="empty-state" style="display:none">
+        <p>Empty</p>
+        <div class="subtitle">Subtitle</div>
+      </div>
+      <div id="highlights-list" style="display:none"></div>
+      <button id="sync-button"></button>
+      <button id="open-notion-button"></button>
+      <div id="status-message"></div>
+      <div id="unsynced-view" style="display:none"></div>
+      <div id="unsynced-toolbar" style="display:none">
+        <span id="unsynced-count-label"></span>
+        <button id="clear-all-btn"></button>
+      </div>
+      <button id="load-more-btn" style="display:none"></button>
+      <span id="unsynced-badge"></span>
+      <button class="view-tab active" data-view="current">Current</button>
+      <button class="view-tab" data-view="unsynced">Pending</button>
+      <template id="highlight-card-template">
+        <div class="highlight-card">
+          <div class="highlight-color-indicator"></div>
+          <p class="highlight-text"></p>
+          <button class="delete-button"></button>
+        </div>
+      </template>
+      <template id="page-card-template">
+        <div class="page-card">
+          <div class="page-title"></div>
+          <div class="page-meta"></div>
+          <div class="page-card-previews"></div>
+          <div class="page-card-remaining"></div>
+          <button class="page-open-button"></button>
+          <button class="page-delete-button"></button>
+        </div>
+      </template>
+    `;
+
+    chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
+    chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.create.mockResolvedValue({ id: 103, url: 'https://opened.example' });
+    chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.js/stable' });
+    chrome.storage.local.get.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('缺少開始標註按鈕時應立即失敗，避免以不完整 DOM 啟動 sidepanel', async () => {
+    const originalAddEventListener = document.addEventListener.bind(document);
+    let domContentLoadedHandler;
+
+    const addEventListenerSpy = jest
+      .spyOn(document, 'addEventListener')
+      .mockImplementation((eventName, listener, options) => {
+        if (eventName === 'DOMContentLoaded') {
+          domContentLoadedHandler = listener;
+          return;
+        }
+        return originalAddEventListener(eventName, listener, options);
+      });
+
+    try {
+      jest.isolateModules(() => {
+        require('../../../sidepanel/sidepanel.js');
+      });
+
+      expect(typeof domContentLoadedHandler).toBe('function');
+      await expect(domContentLoadedHandler()).rejects.toThrow(
+        '[SidePanel] 缺少必要的 DOM 元素：startHighlightButton'
+      );
+
+      expect(chrome.tabs.onActivated.addListener).not.toHaveBeenCalled();
+    } finally {
+      addEventListenerSpy.mockRestore();
+    }
   });
 });

@@ -51,6 +51,7 @@ const COLOR_MAP = {
  * @property {HTMLElement} unsyncedToolbar - 待同步工具列
  * @property {HTMLElement} unsyncedCountLabel - 待同步頁面計數標籤
  * @property {HTMLButtonElement} clearAllBtn - 清除全部按鈕
+ * @property {HTMLButtonElement} startHighlightButton - 開始標註按鈕
  */
 
 // === 元素獲取 ===
@@ -77,6 +78,7 @@ export function getElements() {
     unsyncedToolbar: document.querySelector('#unsynced-toolbar'),
     unsyncedCountLabel: document.querySelector('#unsynced-count-label'),
     clearAllBtn: document.querySelector('#clear-all-btn'),
+    startHighlightButton: document.querySelector('#start-highlight-button'),
   };
 }
 
