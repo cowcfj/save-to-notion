@@ -32,6 +32,7 @@ function buildDOM() {
       <div class="subtitle">選取網頁文字即可標註</div>
     </div>
     <div id="highlights-list" style="display:none"></div>
+    <button id="start-highlight-button"></button>
     <button id="sync-button"></button>
     <button id="open-notion-button" style="display:none"></button>
     <div id="status-message" style="display:none"></div>
@@ -140,6 +141,7 @@ describe('sidepanelUI', () => {
       expect(elements.emptyState).toBeTruthy();
       expect(elements.highlightsList).toBeTruthy();
       expect(elements.syncButton).toBeTruthy();
+      expect(elements.startHighlightButton).toBeTruthy();
       expect(elements.statusMessage).toBeTruthy();
       expect(elements.unsyncedView).toBeTruthy();
       expect(elements.viewTabs.length).toBeGreaterThan(0);

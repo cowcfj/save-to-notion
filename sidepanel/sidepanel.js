@@ -20,6 +20,7 @@ import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import Logger from '../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
 
@@ -325,6 +326,7 @@ async function init() {
   setActiveView('current');
 
   // 1. 綁定按鈕事件
+  els.startHighlightButton?.addEventListener('click', handleStartHighlightClick);
   els.syncButton.addEventListener('click', handleSyncClick);
   els.openNotionButton.addEventListener('click', handleOpenNotionClick);
   els.clearAllBtn?.addEventListener('click', deleteAllUnsyncedPages);
@@ -682,6 +684,42 @@ async function handleDelete(highlightId, storageKey) {
     }
   } catch (error) {
     Logger.error('Failed to delete highlight', { error });
+  }
+}
+
+/**
+ * 點擊開始標註按鈕
+ */
+async function handleStartHighlightClick() {
+  els.startHighlightButton.disabled = true;
+  showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_STARTING, 'info');
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.START_HIGHLIGHT,
+    });
+
+    if (response?.success) {
+      showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED, 'success');
+    } else {
+      const safe = sanitizeApiError(
+        response?.error || 'Unknown error',
+        'sidepanel_start_highlight'
+      );
+      const msg = ErrorHandler.formatUserMessage(safe);
+
+      Logger.error('[SidePanel] startHighlight failed', { error: safe });
+      showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
+    }
+  } catch (error) {
+    const safe = sanitizeApiError(error, 'sidepanel_start_highlight');
+
+    Logger.error('[SidePanel] startHighlight failed', { error: safe });
+    showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_FAILED, 'error');
+  } finally {
+    setTimeout(() => {
+      els.startHighlightButton.disabled = false;
+    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
   }
 }
 

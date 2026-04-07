@@ -75,6 +75,7 @@ describe('Sidepanel JS Logic', () => {
         <div class="subtitle">Subtitle</div>
       </div>
       <div id="highlights-list" style="display:none"></div>
+      <button id="start-highlight-button"></button>
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
       <div id="status-message"></div>
@@ -725,6 +726,54 @@ describe('Sidepanel JS Logic', () => {
       expect(Logger.error).toHaveBeenCalledWith('[SidePanel] openNotionPage failed', {
         error: sanitizeApiError('Leaked debug detail'),
       });
+    });
+
+    it('should trigger start highlight successfully', async () => {
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+
+      const startBtn = document.querySelector('#start-highlight-button');
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'startHighlight' });
+      expect(document.querySelector('#status-message').className).toContain('success');
+    });
+
+    it('should not display raw startHighlight error returned from runtime message', async () => {
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: false,
+        error: 'Highlighter initialization failed',
+      });
+
+      const startBtn = document.querySelector('#start-highlight-button');
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#status-message').textContent).not.toBe(
+        'Highlighter initialization failed'
+      );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] startHighlight failed',
+        expect.any(Object)
+      );
+    });
+
+    it('should re-enable start highlight button using named debounce constant', async () => {
+      chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
+
+      const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
+      const startBtn = document.querySelector('#start-highlight-button');
+
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
+      expect(document.querySelector('#status-message').className).toContain('error');
+
+      timeoutSpy.mockRestore();
     });
   });
 
