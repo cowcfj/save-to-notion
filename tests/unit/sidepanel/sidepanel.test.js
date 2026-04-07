@@ -1,4 +1,6 @@
 import { jest } from '@jest/globals';
+import fs from 'node:fs';
+import path from 'node:path';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/runtimeActions.js';
@@ -131,6 +133,16 @@ describe('Sidepanel JS Logic', () => {
       expect(chrome.tabs.onUpdated.addListener).toHaveBeenCalled();
       expect(chrome.storage.onChanged.addListener).toHaveBeenCalled();
       expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    });
+
+    it('應該為開始標註按鈕顯式設定 type="button"', () => {
+      const sidepanelHtmlPath = path.resolve(process.cwd(), 'sidepanel/sidepanel.html');
+      const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, 'utf8');
+      const doc = new DOMParser().parseFromString(sidepanelHtml, 'text/html');
+      const startHighlightButton = doc.querySelector('#start-highlight-button');
+
+      expect(startHighlightButton).not.toBeNull();
+      expect(startHighlightButton?.getAttribute('type')).toBe('button');
     });
   });
 
@@ -729,7 +741,7 @@ describe('Sidepanel JS Logic', () => {
       });
     });
 
-    it('should trigger start highlight successfully', async () => {
+    it('應該成功觸發 startHighlight', async () => {
       chrome.runtime.sendMessage.mockResolvedValue({ success: true });
 
       const startBtn = document.querySelector('#start-highlight-button');
@@ -743,7 +755,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toContain('success');
     });
 
-    it('should not display raw startHighlight error returned from runtime message', async () => {
+    it('不應直接顯示 runtime message 回傳的原始 startHighlight 錯誤', async () => {
       chrome.runtime.sendMessage.mockResolvedValue({
         success: false,
         error: 'Highlighter initialization failed',
@@ -759,11 +771,16 @@ describe('Sidepanel JS Logic', () => {
       );
       expect(Logger.error).toHaveBeenCalledWith(
         '[SidePanel] startHighlight failed',
-        expect.any(Object)
+        expect.objectContaining({
+          action: 'startHighlight',
+          operation: 'highlight-init',
+          result: 'failure',
+          error: sanitizeApiError('Highlighter initialization failed', 'sidepanel_start_highlight'),
+        })
       );
     });
 
-    it('should show formatted startHighlight error when runtime sendMessage rejects', async () => {
+    it('應該在 runtime sendMessage reject 時顯示格式化後的 startHighlight 錯誤', async () => {
       chrome.runtime.sendMessage.mockRejectedValue(new Error('Network error'));
 
       const startBtn = document.querySelector('#start-highlight-button');
@@ -774,9 +791,15 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').textContent).toBe(
         `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}網路連線異常，請檢查網路後重試`
       );
-      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] startHighlight failed', {
-        error: sanitizeApiError(new Error('Network error'), 'sidepanel_start_highlight'),
-      });
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] startHighlight failed',
+        expect.objectContaining({
+          action: 'startHighlight',
+          operation: 'runtime-sendMessage',
+          result: 'failure',
+          error: sanitizeApiError(new Error('Network error'), 'sidepanel_start_highlight'),
+        })
+      );
     });
 
     it('should re-enable start highlight button using named debounce constant', async () => {

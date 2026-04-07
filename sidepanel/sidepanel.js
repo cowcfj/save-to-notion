@@ -726,14 +726,24 @@ async function handleStartHighlightClick() {
       );
       const msg = ErrorHandler.formatUserMessage(safe);
 
-      Logger.error('[SidePanel] startHighlight failed', { error: safe });
+      Logger.error('[SidePanel] startHighlight failed', {
+        action: 'startHighlight',
+        operation: 'highlight-init',
+        result: 'failure',
+        error: safe,
+      });
       showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
     }
   } catch (error) {
     const safe = sanitizeApiError(error, START_HIGHLIGHT_ERROR_CONTEXT);
     const msg = ErrorHandler.formatUserMessage(safe);
 
-    Logger.error('[SidePanel] startHighlight failed', { error: safe });
+    Logger.error('[SidePanel] startHighlight failed', {
+      action: 'startHighlight',
+      operation: 'runtime-sendMessage',
+      result: 'failure',
+      error: safe,
+    });
     showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
   } finally {
     setTimeout(() => {
