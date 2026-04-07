@@ -713,9 +713,10 @@ async function handleStartHighlightClick() {
     }
   } catch (error) {
     const safe = sanitizeApiError(error, 'sidepanel_start_highlight');
+    const msg = ErrorHandler.formatUserMessage(safe);
 
     Logger.error('[SidePanel] startHighlight failed', { error: safe });
-    showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_FAILED, 'error');
+    showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
   } finally {
     setTimeout(() => {
       els.startHighlightButton.disabled = false;

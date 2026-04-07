@@ -760,6 +760,22 @@ describe('Sidepanel JS Logic', () => {
       );
     });
 
+    it('should show formatted startHighlight error when runtime sendMessage rejects', async () => {
+      chrome.runtime.sendMessage.mockRejectedValue(new Error('Network error'));
+
+      const startBtn = document.querySelector('#start-highlight-button');
+      startBtn.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#status-message').textContent).toBe(
+        `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}網路連線異常，請檢查網路後重試`
+      );
+      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] startHighlight failed', {
+        error: sanitizeApiError(new Error('Network error'), 'sidepanel_start_highlight'),
+      });
+    });
+
     it('should re-enable start highlight button using named debounce constant', async () => {
       chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
 
