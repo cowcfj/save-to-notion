@@ -926,6 +926,7 @@ function buildUnsyncedDOM() {
     <div id="loading-state" style="display:none"><div class="spinner"></div><p></p></div>
     <div id="empty-state" style="display:none"><p>Empty</p><div class="subtitle"></div></div>
     <div id="highlights-list" style="display:none"></div>
+    <button id="start-highlight-button"></button>
     <div id="unsynced-view" style="display:none"></div>
     <div id="unsynced-toolbar" style="display:none">
       <span id="unsynced-count-label"></span>
@@ -1372,5 +1373,91 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
       }
       expect(chrome.storage.local.remove).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('Required DOM contract', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+
+    document.body.innerHTML = `
+      <div id="loading-state" style="display:none">Loading...</div>
+      <div id="empty-state" style="display:none">
+        <p>Empty</p>
+        <div class="subtitle">Subtitle</div>
+      </div>
+      <div id="highlights-list" style="display:none"></div>
+      <button id="sync-button"></button>
+      <button id="open-notion-button"></button>
+      <div id="status-message"></div>
+      <div id="unsynced-view" style="display:none"></div>
+      <div id="unsynced-toolbar" style="display:none">
+        <span id="unsynced-count-label"></span>
+        <button id="clear-all-btn"></button>
+      </div>
+      <button id="load-more-btn" style="display:none"></button>
+      <span id="unsynced-badge"></span>
+      <button class="view-tab active" data-view="current">Current</button>
+      <button class="view-tab" data-view="unsynced">Pending</button>
+      <template id="highlight-card-template">
+        <div class="highlight-card">
+          <div class="highlight-color-indicator"></div>
+          <p class="highlight-text"></p>
+          <button class="delete-button"></button>
+        </div>
+      </template>
+      <template id="page-card-template">
+        <div class="page-card">
+          <div class="page-title"></div>
+          <div class="page-meta"></div>
+          <div class="page-card-previews"></div>
+          <div class="page-card-remaining"></div>
+          <button class="page-open-button"></button>
+          <button class="page-delete-button"></button>
+        </div>
+      </template>
+    `;
+
+    chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
+    chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.create.mockResolvedValue({ id: 103, url: 'https://opened.example' });
+    chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.js/stable' });
+    chrome.storage.local.get.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('缺少開始標註按鈕時應立即失敗，避免以不完整 DOM 啟動 sidepanel', async () => {
+    const originalAddEventListener = document.addEventListener.bind(document);
+    let domContentLoadedHandler;
+
+    const addEventListenerSpy = jest
+      .spyOn(document, 'addEventListener')
+      .mockImplementation((eventName, listener, options) => {
+        if (eventName === 'DOMContentLoaded') {
+          domContentLoadedHandler = listener;
+          return;
+        }
+        return originalAddEventListener(eventName, listener, options);
+      });
+
+    try {
+      jest.isolateModules(() => {
+        require('../../../sidepanel/sidepanel.js');
+      });
+
+      expect(typeof domContentLoadedHandler).toBe('function');
+      await expect(domContentLoadedHandler()).rejects.toThrow(
+        '[SidePanel] Missing required DOM element: startHighlightButton'
+      );
+
+      expect(chrome.tabs.onActivated.addListener).not.toHaveBeenCalled();
+    } finally {
+      addEventListenerSpy.mockRestore();
+    }
   });
 });
