@@ -212,7 +212,7 @@ function appendNextUnsyncedBatch(count) {
  */
 function requireElement(element, elementName) {
   if (!element) {
-    throw new Error(`[SidePanel] Missing required DOM element: ${elementName}`);
+    throw new Error(`[SidePanel] 缺少必要的 DOM 元素：${elementName}`);
   }
   return element;
 }
@@ -742,7 +742,8 @@ async function handleStartHighlightClick() {
       action: 'startHighlight',
       operation: 'runtime-sendMessage',
       result: 'failure',
-      error: safe,
+      error,
+      reason: safe,
     });
     showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
   } finally {

@@ -781,7 +781,8 @@ describe('Sidepanel JS Logic', () => {
     });
 
     it('應該在 runtime sendMessage reject 時顯示格式化後的 startHighlight 錯誤', async () => {
-      chrome.runtime.sendMessage.mockRejectedValue(new Error('Network error'));
+      const runtimeError = new Error('Network error');
+      chrome.runtime.sendMessage.mockRejectedValue(runtimeError);
 
       const startBtn = document.querySelector('#start-highlight-button');
       startBtn.click();
@@ -797,7 +798,8 @@ describe('Sidepanel JS Logic', () => {
           action: 'startHighlight',
           operation: 'runtime-sendMessage',
           result: 'failure',
-          error: sanitizeApiError(new Error('Network error'), 'sidepanel_start_highlight'),
+          error: runtimeError,
+          reason: sanitizeApiError(runtimeError, 'sidepanel_start_highlight'),
         })
       );
     });
@@ -1478,7 +1480,7 @@ describe('Required DOM contract', () => {
 
       expect(typeof domContentLoadedHandler).toBe('function');
       await expect(domContentLoadedHandler()).rejects.toThrow(
-        '[SidePanel] Missing required DOM element: startHighlightButton'
+        '[SidePanel] 缺少必要的 DOM 元素：startHighlightButton'
       );
 
       expect(chrome.tabs.onActivated.addListener).not.toHaveBeenCalled();
