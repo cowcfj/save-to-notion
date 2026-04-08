@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.49.0](https://github.com/cowcfj/save-to-notion/compare/v2.48.3...v2.49.0) (2026-04-08)
+
+
+### ✨ 新功能
+
+* Add start highlight button in side panel ([#389](https://github.com/cowcfj/save-to-notion/issues/389)) ([92fa6b4](https://github.com/cowcfj/save-to-notion/commit/92fa6b478fb1e5b03fe133a25482a7a44577dc1e))
+
+
+### 🐛 Bug 修復
+
+* normalize content bridge title block shape ([#393](https://github.com/cowcfj/save-to-notion/issues/393)) ([2fc342e](https://github.com/cowcfj/save-to-notion/commit/2fc342e6d079cd936612bad7ee2cdc875f46e045))
+* preserve inline whitespace in dom converter ([#391](https://github.com/cowcfj/save-to-notion/issues/391)) ([c2a42dc](https://github.com/cowcfj/save-to-notion/commit/c2a42dc51adc75e1e43236ab1578df123ce6e7e3))
+* 優先使用當前路由數據作為 Next.js 路由回退 ([#392](https://github.com/cowcfj/save-to-notion/issues/392)) ([7999a61](https://github.com/cowcfj/save-to-notion/commit/7999a61d08a550f740fd312e81fea61504913fa8))
+
 ## [2.48.3](https://github.com/cowcfj/save-to-notion/compare/v2.48.2...v2.48.3) (2026-04-06)
 
 
