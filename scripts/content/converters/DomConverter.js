@@ -690,43 +690,51 @@ class DomConverter {
       return;
     }
 
+    blockData.rich_text = DomConverter._processRichTextArray(blockData.rich_text);
+
+    if (blockData.rich_text.length === 0) {
+      blockData.rich_text = [{ type: 'text', text: { content: ' ' } }];
+    }
+  }
+
+  static _processRichTextArray(richTextArray) {
     let totalLength = 0;
-    const processedRichText = [];
+    const processed = [];
+    const count = richTextArray.length;
 
-    const richTextCount = blockData.rich_text.length;
+    for (const [index, rt] of richTextArray.entries()) {
+      const content = DomConverter._formatRichTextContent(rt.text?.content || '', index, count);
 
-    for (const [index, rt] of blockData.rich_text.entries()) {
-      let content = rt.text?.content || '';
-
-      if (index === 0) {
-        content = content.trimStart();
-      }
-      if (index === richTextCount - 1) {
-        content = content.trimEnd();
-      }
-
-      if (!content.trim() && richTextCount === 1) {
-        content = ' ';
-      }
-
-      if (totalLength + content.length > 2000) {
-        const remaining = 2000 - totalLength;
+      if (totalLength + content.length > MAX_TEXT_LENGTH) {
+        const remaining = Math.max(0, MAX_TEXT_LENGTH - totalLength);
         if (remaining > 0) {
-          rt.text.content = content.slice(0, Math.max(0, remaining));
-          processedRichText.push(rt);
+          rt.text.content = content.slice(0, remaining);
+          processed.push(rt);
         }
         break; // Max reached
       } else if (content) {
         rt.text.content = content;
         totalLength += content.length;
-        processedRichText.push(rt);
+        processed.push(rt);
       }
     }
 
-    blockData.rich_text = processedRichText;
-    if (blockData.rich_text.length === 0) {
-      blockData.rich_text = [{ type: 'text', text: { content: ' ' } }];
+    return processed;
+  }
+
+  static _formatRichTextContent(content, index, totalCount) {
+    let formatted = content;
+    if (index === 0) {
+      formatted = formatted.trimStart();
     }
+    if (index === totalCount - 1) {
+      formatted = formatted.trimEnd();
+    }
+
+    if (!formatted.trim() && totalCount === 1) {
+      formatted = ' ';
+    }
+    return formatted;
   }
 
   static _cleanBlockChildren(block, depth) {
