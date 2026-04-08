@@ -297,6 +297,14 @@ describe('ContentBridge', () => {
           type: 'heading_1',
         })
       );
+
+      // 驗證 heading_1 的 rich_text 內容
+      expect(result.blocks[0].heading_1.rich_text).toEqual([
+        {
+          type: 'text',
+          text: { content: 'Heading Title' },
+        },
+      ]);
     });
 
     test('應截斷超過 2000 字元的標題', () => {
