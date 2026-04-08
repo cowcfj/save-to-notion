@@ -25,6 +25,8 @@
 
 /* global Logger */
 
+import { TEXT_PROCESSING } from '../../config/index.js';
+
 /**
  * 將 ContentExtractor 的提取結果轉換為 background.js 預期的格式
  *
@@ -139,17 +141,26 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
 
   // 1. 插入標題 (如果 metadata 有 title 且顯式要求)
   if (includeTitle && metadata.title) {
+    const truncatedTitle = (metadata.title || '').slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH);
     const hasTitle = blocks.some(
       block =>
         block.type === 'heading_1' &&
-        block.heading_1?.rich_text?.[0]?.text?.content === metadata.title
+        block.heading_1?.rich_text?.[0]?.text?.content === truncatedTitle
     );
 
     if (!hasTitle) {
       const titleBlock = {
+        object: 'block',
         type: 'heading_1',
         heading_1: {
-          rich_text: [{ type: 'text', text: { content: metadata.title } }],
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: truncatedTitle,
+              },
+            },
+          ],
         },
       };
       blocks.splice(0, 0, titleBlock);
