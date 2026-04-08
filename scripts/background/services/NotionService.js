@@ -339,8 +339,7 @@ class NotionService {
             }),
           {
             ...options,
-            maxRetries: this.config.CHECK_RETRIES,
-            baseDelay: this.config.CHECK_DELAY,
+            ...this._getRetryPolicy('check'),
             label: 'FetchBlocks',
           }
         );
@@ -375,53 +374,23 @@ class NotionService {
     // - 單請求模式：由 NOTION_API.RATE_LIMIT_DELAY (350ms) 控制間隔
     // - 並發刪除模式：每批請求後等待延遲（見下方批次延遲邏輯）
     // 兩者適用於不同場景，不會同時生效
-    const {
-      DELETE_CONCURRENCY: CONCURRENCY,
-      DELETE_BATCH_DELAY_MS,
-      DELETE_RETRIES,
-      DELETE_DELAY,
-    } = this.config;
+    const { DELETE_CONCURRENCY: CONCURRENCY, DELETE_BATCH_DELAY_MS } = this.config;
+    const retryPolicy = this._getRetryPolicy('delete');
     const errors = [];
     let successCount = 0;
 
-    // 刪除單個區塊的函數
-    const deleteBlock = async blockId => {
-      try {
-        await this._callNotionApiWithRetry(client => client.blocks.delete({ block_id: blockId }), {
-          ...options,
-          maxRetries: DELETE_RETRIES,
-          baseDelay: DELETE_DELAY,
-          label: 'DeleteBlock',
-        });
-
-        return { success: true, id: blockId };
-      } catch (deleteError) {
-        const errorText = deleteError.message || 'Unknown error';
-        Logger.warn('[NotionService] 刪除區塊異常', {
-          action: 'deleteAllBlocks',
-          operation: 'deleteBlock',
-          blockId,
-          error: deleteError,
-        });
-        return { success: false, id: blockId, error: errorText };
-      }
-    };
+    const batches = this._createDeleteBatches(blockIds, CONCURRENCY);
 
     // 分批並發處理（每批 CONCURRENCY 個）
-    for (let i = 0; i < blockIds.length; i += CONCURRENCY) {
-      const batch = blockIds.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(batch.map(id => deleteBlock(id)));
+    for (const [batchIndex, batch] of batches.entries()) {
+      const results = await Promise.all(
+        batch.map(blockId => this._deleteBlockById(blockId, options, retryPolicy))
+      );
 
-      for (const result of results) {
-        if (result.success) {
-          successCount++;
-        } else {
-          errors.push({ id: result.id, error: result.error });
-        }
-      }
+      successCount += this._collectDeleteBatchResults(results, errors);
 
       // 批次間延遲：確保符合 Notion API 限制
-      if (i + CONCURRENCY < blockIds.length) {
+      if (batchIndex < batches.length - 1) {
         await sleep(DELETE_BATCH_DELAY_MS);
       }
     }
@@ -442,8 +411,7 @@ class NotionService {
         client => client.pages.retrieve({ page_id: pageId }),
         {
           ...options,
-          maxRetries: this.config.CHECK_RETRIES,
-          baseDelay: this.config.CHECK_DELAY,
+          ...this._getRetryPolicy('check'),
           label: 'CheckPage',
           shouldLogFailure: error => {
             // 404 or object_not_found is expected result (page deleted), so apply silent failure
@@ -481,6 +449,106 @@ class NotionService {
   }
 
   /**
+   * 依操作類型回傳對應的重試參數
+   *
+   * @param {'default'|'check'|'create'|'delete'} profile
+   * @returns {{maxRetries: number, baseDelay: number}}
+   * @private
+   */
+  _getRetryPolicy(profile = 'default') {
+    const policyMap = {
+      default: {
+        maxRetries: this.config.DEFAULT_MAX_RETRIES,
+        baseDelay: this.config.DEFAULT_BASE_DELAY,
+      },
+      check: {
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CHECK_DELAY,
+      },
+      create: {
+        maxRetries: this.config.CREATE_RETRIES,
+        baseDelay: this.config.CREATE_DELAY,
+      },
+      delete: {
+        maxRetries: this.config.DELETE_RETRIES,
+        baseDelay: this.config.DELETE_DELAY,
+      },
+    };
+
+    return policyMap[profile] || policyMap.default;
+  }
+
+  /**
+   * 將區塊 ID 依批次大小切分
+   *
+   * @param {Array<string>} blockIds
+   * @param {number} batchSize
+   * @returns {Array<Array<string>>}
+   * @private
+   */
+  _createDeleteBatches(blockIds, batchSize) {
+    const batches = [];
+
+    for (let i = 0; i < blockIds.length; i += batchSize) {
+      batches.push(blockIds.slice(i, i + batchSize));
+    }
+
+    return batches;
+  }
+
+  /**
+   * 刪除單一區塊
+   *
+   * @param {string} blockId
+   * @param {object} options
+   * @param {{maxRetries: number, baseDelay: number}} retryPolicy
+   * @returns {Promise<{success: boolean, id: string, error?: string}>}
+   * @private
+   */
+  async _deleteBlockById(blockId, options, retryPolicy) {
+    try {
+      await this._callNotionApiWithRetry(client => client.blocks.delete({ block_id: blockId }), {
+        ...options,
+        ...retryPolicy,
+        label: 'DeleteBlock',
+      });
+
+      return { success: true, id: blockId };
+    } catch (deleteError) {
+      const errorText = deleteError.message || 'Unknown error';
+      Logger.warn('[NotionService] 刪除區塊異常', {
+        action: 'deleteBlocksByIds',
+        phase: 'deleteBlock',
+        blockId,
+        error: deleteError,
+      });
+      return { success: false, id: blockId, error: errorText };
+    }
+  }
+
+  /**
+   * 聚合單批次刪除結果
+   *
+   * @param {Array<{success: boolean, id: string, error?: string}>} results
+   * @param {Array<{id: string, error: string}>} errors
+   * @returns {number}
+   * @private
+   */
+  _collectDeleteBatchResults(results, errors) {
+    let successCount = 0;
+
+    for (const result of results) {
+      if (result.success) {
+        successCount++;
+      } else {
+        errors.push({ id: result.id, error: result.error });
+      }
+    }
+
+    return successCount;
+  }
+
+  /**
    * 分批添加區塊到頁面
    *
    * @param {string} pageId - Notion 頁面 ID
@@ -490,7 +558,8 @@ class NotionService {
    * @returns {Promise<{success: boolean, addedCount: number, totalCount: number, error?: string}>}
    */
   async appendBlocksInBatches(pageId, blocks, startIndex = 0, options = {}) {
-    const { BLOCKS_PER_BATCH, CREATE_RETRIES, CREATE_DELAY, RATE_LIMIT_DELAY } = this.config;
+    const { BLOCKS_PER_BATCH, RATE_LIMIT_DELAY } = this.config;
+    const retryPolicy = this._getRetryPolicy('create');
     let addedCount = 0;
     const totalBlocks = blocks.length - startIndex;
 
@@ -529,8 +598,7 @@ class NotionService {
             }),
           {
             ...options,
-            maxRetries: CREATE_RETRIES,
-            baseDelay: CREATE_DELAY,
+            ...retryPolicy,
             label: `AppendBatch-${batchNumber}`,
           }
         );
@@ -585,8 +653,7 @@ class NotionService {
     try {
       const response = await this._callNotionApiWithRetry(client => client.pages.create(pageData), {
         ...options,
-        maxRetries: this.config.CREATE_RETRIES,
-        baseDelay: this.config.CREATE_DELAY,
+        ...this._getRetryPolicy('create'),
         label: 'CreatePage',
       });
 
@@ -654,8 +721,7 @@ class NotionService {
           }),
         {
           ...options,
-          maxRetries: this.config.CREATE_RETRIES,
-          baseDelay: this.config.CREATE_DELAY,
+          ...this._getRetryPolicy('create'),
           label: 'UpdateTitle',
         }
       );
@@ -909,7 +975,7 @@ class NotionService {
             retryable: true,
             deletedCount,
             failureCount,
-            failedBlockIds: deleteErrors.map(e => e.id),
+            failedBlockIds: deleteErrors.map(errorEntry => errorEntry.id),
           },
         };
       }
@@ -930,8 +996,7 @@ class NotionService {
             }),
           {
             ...options,
-            maxRetries: this.config.CREATE_RETRIES,
-            baseDelay: this.config.CREATE_DELAY,
+            ...this._getRetryPolicy('create'),
             label: 'AppendHighlights',
           }
         );
