@@ -20,6 +20,71 @@ import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 const PAGES_ROUTER = 'pages-router';
 const APP_ROUTER = 'app-router';
 
+const getComponentPageProps = comp =>
+  comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
+
+/**
+ * 清理路徑：移除查詢參數與 hash 片段
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+const cleanPath = path => {
+  if (!path) {
+    return '';
+  }
+  // 先移除 hash (#)，再移除查詢參數 (?)
+  return path.split('#')[0].split('?')[0];
+};
+
+/**
+ * 建立候選鍵列表，包含原始路徑、清理後路徑、以及解碼後的變體
+ *
+ * @param {object} router
+ * @param {string} currentPath
+ * @returns {Array<string>}
+ */
+const buildRouterComponentKeys = (router, currentPath) => {
+  const keys = [];
+
+  // 收集原始路徑
+  if (router?.pathname) {
+    keys.push(router.pathname);
+  }
+  if (router?.route) {
+    keys.push(router.route);
+  }
+  if (router?.asPath) {
+    const cleaned = cleanPath(router.asPath);
+    keys.push(cleaned);
+    // 嘗試解碼變體（例如：中文路徑）
+    try {
+      const decoded = decodeURIComponent(cleaned);
+      if (decoded !== cleaned) {
+        keys.push(decoded);
+      }
+    } catch {
+      // 忽略解碼錯誤
+    }
+  }
+  if (currentPath) {
+    const cleaned = cleanPath(currentPath);
+    keys.push(cleaned);
+    // 嘗試解碼變體
+    try {
+      const decoded = decodeURIComponent(cleaned);
+      if (decoded !== cleaned) {
+        keys.push(decoded);
+      }
+    } catch {
+      // 忽略解碼錯誤
+    }
+  }
+
+  // 去重並過濾空值
+  return [...new Set(keys.filter(Boolean))];
+};
+
 export const NextJsExtractor = {
   /**
    * 檢測頁面是否為 Next.js 網站
@@ -181,10 +246,20 @@ export const NextJsExtractor = {
         return null;
       }
 
-      // 遍歷所有已載入的 router 組件，找到最先有 pageProps 的項目
+      const currentPath = doc.defaultView?.location?.pathname || win?.location?.pathname;
+      const preferredKeys = buildRouterComponentKeys(router, currentPath);
+
+      for (const key of preferredKeys) {
+        const pageProps = getComponentPageProps(router.components[key]);
+        if (pageProps && Object.keys(pageProps).length > 0) {
+          return { props: { pageProps } };
+        }
+      }
+
+      // 回退：遍歷所有已載入的 router 組件，找到第一個有 pageProps 的項目
       // HK01 通常是 '/article'，其他網站可能用 '/[...path]' 等不同 key
       for (const [, comp] of Object.entries(router.components)) {
-        const pageProps = comp?.props?.initialProps?.pageProps || comp?.props?.pageProps;
+        const pageProps = getComponentPageProps(comp);
         if (pageProps && Object.keys(pageProps).length > 0) {
           return { props: { pageProps } };
         }
@@ -395,7 +470,7 @@ export const NextJsExtractor = {
     try {
       const response = await fetch(dataUrl, { credentials: 'same-origin' });
       if (!response?.ok) {
-        Logger.warn('Next.js data 取得失敗', {
+        Logger.debug('Next.js data 取得失敗', {
           action,
           status: response?.status,
           url: sanitizeUrlForLogging(dataUrl),
@@ -404,7 +479,7 @@ export const NextJsExtractor = {
       }
       return await response.json();
     } catch (error) {
-      Logger.warn('Next.js data 取得失敗', {
+      Logger.debug('Next.js data 取得失敗', {
         action,
         error: error.message,
         url: sanitizeUrlForLogging(dataUrl),

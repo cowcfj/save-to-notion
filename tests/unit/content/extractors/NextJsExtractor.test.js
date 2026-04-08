@@ -670,9 +670,131 @@ describe('NextJsExtractor', () => {
       expect(result.metadata.title).toBe('OK');
       expect(result.blocks.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('stale 時 _next/data 失敗只記錄 debug 診斷，不記錄 warn', async () => {
+      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
+      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
+
+      const mockJson = {
+        page: '/',
+        asPath: '/',
+        buildId: 'build123',
+        props: { initialProps: { pageProps: {} } },
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      });
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(result).toBeNull();
+      expect(Logger.debug).toHaveBeenCalledWith('Next.js data 取得失敗', {
+        action: '_fetchNextData',
+        status: 404,
+        url: 'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
+      });
+      expect(Logger.warn).not.toHaveBeenCalledWith('Next.js data 取得失敗', expect.any(Object));
+    });
   });
 
   describe('_getRouterComponentData', () => {
+    it('優先使用符合當前 route 的 component，而不是第一個非空 component', () => {
+      mockDoc.defaultView.location.pathname = '/news/current-article';
+      mockDoc.defaultView.next = {
+        router: {
+          pathname: '/news/[slug]',
+          asPath: '/news/current-article',
+          components: {
+            '/': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: { title: 'Home Payload', blocks: [{ blockType: 'paragraph' }] },
+                  },
+                },
+              },
+            },
+            '/news/[slug]': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: { title: 'Current Article', blocks: [{ blockType: 'paragraph' }] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.props.pageProps.article.title).toBe('Current Article');
+    });
+
+    it('找不到匹配 route key 時回退到第一個非空 component', () => {
+      mockDoc.defaultView.location.pathname = '/unknown/path';
+      mockDoc.defaultView.next = {
+        router: {
+          components: {
+            '/article': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: { title: 'Fallback OK', blocks: [] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.props.pageProps.article.title).toBe('Fallback OK');
+    });
+
+    it('僅提供 router.route 時仍可匹配正確 component', () => {
+      mockDoc.defaultView.location.pathname = '/news/current-article';
+      mockDoc.defaultView.next = {
+        router: {
+          route: '/news/[slug]',
+          components: {
+            '/': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    home: true,
+                  },
+                },
+              },
+            },
+            '/news/[slug]': {
+              props: {
+                initialProps: {
+                  pageProps: {
+                    article: { title: 'Route Match', blocks: [] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = NextJsExtractor._getRouterComponentData(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.props.pageProps.article.title).toBe('Route Match');
+    });
+
     it('應從 router.components 成功提取 pageProps', () => {
       // 設定 doc.defaultView.next.router.components 含有正確 pageProps
       mockDoc.defaultView.next = {
