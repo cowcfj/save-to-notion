@@ -701,6 +701,7 @@ class DomConverter {
     let totalLength = 0;
     const processed = [];
     const count = richTextArray.length;
+    const preserveCodeWhitespace = richTextArray.some(rt => rt.annotations?.code === true);
 
     // 找出第一個和最後一個非空白元素的索引
     let firstNonEmptyIndex = -1;
@@ -721,7 +722,8 @@ class DomConverter {
         index,
         count,
         firstNonEmptyIndex,
-        lastNonEmptyIndex
+        lastNonEmptyIndex,
+        preserveCodeWhitespace
       );
 
       if (totalLength + content.length > MAX_TEXT_LENGTH) {
@@ -743,8 +745,21 @@ class DomConverter {
     return processed;
   }
 
-  static _formatRichTextContent(content, index, totalCount, firstNonEmptyIndex, lastNonEmptyIndex) {
+  static _formatRichTextContent(
+    content,
+    index,
+    totalCount,
+    firstNonEmptyIndex,
+    lastNonEmptyIndex,
+    preserveCodeWhitespace = false
+  ) {
     let formatted = content;
+
+    // code rich_text 的前後空白與換行是有語意的，需保留原始內容；
+    // 但若整組內容都只有空白，仍維持既有 fallback 路徑，由 _cleanRichText 補單一空格。
+    if (preserveCodeWhitespace) {
+      return firstNonEmptyIndex === -1 ? '' : formatted;
+    }
 
     // 邊界之外的純空白節點：直接返回空字串（會被過濾掉）
     if (index < firstNonEmptyIndex || index > lastNonEmptyIndex) {

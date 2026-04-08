@@ -4,14 +4,14 @@
 
 import { DomConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
-describe('DomConverter Rich Text Processing', () => {
-  describe('_processRichTextArray', () => {
-    test('returns empty array when input is empty', () => {
+describe('DomConverter 富文字處理', () => {
+  describe('_processRichTextArray 處理流程', () => {
+    test('當 input 為空時應回傳空陣列', () => {
       const result = DomConverter._processRichTextArray([]);
       expect(result).toEqual([]);
     });
 
-    test('returns empty array when all elements are whitespace-only', () => {
+    test('當所有元素都只有空白時應回傳空陣列', () => {
       const input = [
         { type: 'text', text: { content: '   ' }, annotations: {} },
         { type: 'text', text: { content: '  ' }, annotations: {} },
@@ -21,14 +21,14 @@ describe('DomConverter Rich Text Processing', () => {
       expect(result).toEqual([]);
     });
 
-    test('trims surrounding spaces from single text element', () => {
+    test('單一文字元素應去除前後空白', () => {
       const input = [{ type: 'text', text: { content: '  Hello  ' }, annotations: {} }];
       const result = DomConverter._processRichTextArray(input);
       expect(result).toHaveLength(1);
       expect(result[0].text.content).toBe('Hello');
     });
 
-    test('trims leading whitespace when first element is whitespace-only', () => {
+    test('當第一個元素只有空白時應去除前導空白', () => {
       const input = [
         { type: 'text', text: { content: '   ' }, annotations: {} },
         { type: 'text', text: { content: '  Hello' }, annotations: {} },
@@ -42,7 +42,7 @@ describe('DomConverter Rich Text Processing', () => {
       expect(joined.startsWith(' ')).toBe(false);
     });
 
-    test('trims trailing whitespace when last element is whitespace-only', () => {
+    test('當最後一個元素只有空白時應去除尾端空白', () => {
       // 輸入：第一個有前導空白，最後一個是純空白
       // 預期：第一個元素 trimStart，倒數第二個元素（最後一個非空白）trimEnd
       const input = [
@@ -58,7 +58,7 @@ describe('DomConverter Rich Text Processing', () => {
       expect(joined.endsWith(' ')).toBe(false);
     });
 
-    test('handles multiple whitespace-only elements at boundaries', () => {
+    test('應正確處理前後多個只有空白的元素', () => {
       // 前後都有多個純空白節點
       const input = [
         { type: 'text', text: { content: '   ' }, annotations: {} },
@@ -77,7 +77,7 @@ describe('DomConverter Rich Text Processing', () => {
       expect(joined).toBe('Hello world');
     });
 
-    test('does not mutate original input array', () => {
+    test('不應修改原始 input 陣列', () => {
       const input = [{ type: 'text', text: { content: '  Hello  ' }, annotations: {} }];
       const originalContent = input[0].text.content;
 
@@ -85,6 +85,21 @@ describe('DomConverter Rich Text Processing', () => {
 
       // 原始輸入應保持不變
       expect(input[0].text.content).toBe(originalContent);
+    });
+
+    test('遇到 annotations.code 時應保留前後空白與換行', () => {
+      const input = [
+        {
+          type: 'text',
+          text: { content: '\n  const answer = 42;\n' },
+          annotations: { code: true },
+        },
+      ];
+
+      const result = DomConverter._processRichTextArray(input);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].text.content).toBe('\n  const answer = 42;\n');
     });
   });
 });
