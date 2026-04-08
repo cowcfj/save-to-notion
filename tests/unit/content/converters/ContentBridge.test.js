@@ -298,6 +298,51 @@ describe('ContentBridge', () => {
         })
       );
     });
+
+    test('應截斷超過 2000 字元的標題', () => {
+      const longTitle = 'A'.repeat(2500);
+      const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
+      const mockConverter = {
+        convert: jest.fn(() => mockBlocks),
+      };
+
+      const extractedContent = {
+        content: '<p>Test content</p>',
+        type: 'html',
+        metadata: { title: longTitle },
+      };
+
+      const result = bridgeContentToBlocks(extractedContent, {
+        htmlConverter: mockConverter,
+        includeTitle: true,
+      });
+
+      // 驗證標題被截斷為 2000 字元
+      expect(result.blocks[0].type).toBe('heading_1');
+      expect(result.blocks[0].heading_1.rich_text[0].text.content).toHaveLength(2000);
+      expect(result.blocks[0].heading_1.rich_text[0].text.content).toBe('A'.repeat(2000));
+    });
+
+    test('應處理 null 或 undefined 標題', () => {
+      const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
+      const mockConverter = {
+        convert: jest.fn(() => mockBlocks),
+      };
+
+      const extractedContent = {
+        content: '<p>Test content</p>',
+        type: 'html',
+        metadata: { title: null },
+      };
+
+      const result = bridgeContentToBlocks(extractedContent, {
+        htmlConverter: mockConverter,
+        includeTitle: true,
+      });
+
+      // 驗證不會因為 null 標題而崩潰
+      expect(result.blocks[0].type).toBe('paragraph'); // 沒有插入標題
+    });
   });
 
   describe('createTextBlocks', () => {

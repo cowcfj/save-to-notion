@@ -25,6 +25,8 @@
 
 /* global Logger */
 
+import { TEXT_PROCESSING } from '../../config/index.js';
+
 /**
  * 將 ContentExtractor 的提取結果轉換為 background.js 預期的格式
  *
@@ -150,7 +152,14 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
         object: 'block',
         type: 'heading_1',
         heading_1: {
-          rich_text: [{ type: 'text', text: { content: metadata.title } }],
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: (metadata.title || '').slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH),
+              },
+            },
+          ],
         },
       };
       blocks.splice(0, 0, titleBlock);
