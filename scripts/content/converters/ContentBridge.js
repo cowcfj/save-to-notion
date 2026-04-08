@@ -147,6 +147,7 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
 
     if (!hasTitle) {
       const titleBlock = {
+        object: 'block',
         type: 'heading_1',
         heading_1: {
           rich_text: [{ type: 'text', text: { content: metadata.title } }],

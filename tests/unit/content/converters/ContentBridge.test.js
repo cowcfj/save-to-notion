@@ -268,6 +268,36 @@ describe('ContentBridge', () => {
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].type).toBe('paragraph');
     });
+
+    test('includeTitle 應插入合法的 notion block shape', () => {
+      const extractedContent = {
+        content: '<p>Body</p>',
+        type: 'html',
+        metadata: { title: 'Heading Title' },
+      };
+
+      const mockConverter = {
+        convert: jest.fn(() => [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: { rich_text: [{ type: 'text', text: { content: 'Body' } }] },
+          },
+        ]),
+      };
+
+      const result = bridgeContentToBlocks(extractedContent, {
+        htmlConverter: mockConverter,
+        includeTitle: true,
+      });
+
+      expect(result.blocks[0]).toEqual(
+        expect.objectContaining({
+          object: 'block',
+          type: 'heading_1',
+        })
+      );
+    });
   });
 
   describe('createTextBlocks', () => {
