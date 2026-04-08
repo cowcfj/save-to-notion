@@ -93,6 +93,65 @@ describe('DomConverter', () => {
       expect(blocks).toHaveLength(0);
     });
 
+    test('preserves whitespace around inline formatting boundaries', () => {
+      const html = '<p>Hello <strong>world</strong> !</p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('paragraph');
+      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe(
+        'Hello world !'
+      );
+    });
+
+    test('preserves whitespace around links', () => {
+      const html = '<p>Read <a href="https://example.com">more</a> please</p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe(
+        'Read more please'
+      );
+    });
+
+    test('preserves whitespace across multiple inline format switches', () => {
+      const html = '<p><em>A</em> <strong>B</strong> <code>C</code></p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe('A B C');
+    });
+
+    test('still trims leading and trailing whitespace of entire block', () => {
+      const html = '<p>  Hello world  </p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe(
+        'Hello world'
+      );
+    });
+
+    test('trims leading whitespace when first rich_text element is whitespace-only', () => {
+      const html = '<p>   <strong>Hello</strong> world</p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      const joined = blocks[0].paragraph.rich_text.map(item => item.text.content).join('');
+      expect(joined).toBe('Hello world');
+      expect(joined.startsWith(' ')).toBe(false);
+    });
+
+    test('trims trailing whitespace when last rich_text element is whitespace-only', () => {
+      const html = '<p>Hello <em>world</em>   </p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      const joined = blocks[0].paragraph.rich_text.map(item => item.text.content).join('');
+      expect(joined).toBe('Hello world');
+      expect(joined.endsWith(' ')).toBe(false);
+    });
+
     test('should detect list-like paragraphs (bullets)', () => {
       const html = '<p>• Item 1<br>• Item 2</p>';
       const blocks = domConverter.convert(html);

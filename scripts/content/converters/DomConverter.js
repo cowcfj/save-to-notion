@@ -690,35 +690,101 @@ class DomConverter {
       return;
     }
 
-    let totalLength = 0;
-    const processedRichText = [];
+    blockData.rich_text = DomConverter._processRichTextArray(blockData.rich_text);
 
-    for (const rt of blockData.rich_text) {
-      let content = rt.text?.content || '';
-      content = content.trim();
-
-      if (!content && blockData.rich_text.length === 1) {
-        content = ' ';
-      }
-
-      if (totalLength + content.length > 2000) {
-        const remaining = 2000 - totalLength;
-        if (remaining > 0) {
-          rt.text.content = content.slice(0, Math.max(0, remaining));
-          processedRichText.push(rt);
-        }
-        break; // Max reached
-      } else if (content) {
-        rt.text.content = content;
-        totalLength += content.length;
-        processedRichText.push(rt);
-      }
-    }
-
-    blockData.rich_text = processedRichText;
     if (blockData.rich_text.length === 0) {
       blockData.rich_text = [{ type: 'text', text: { content: ' ' } }];
     }
+  }
+
+  static _processRichTextArray(richTextArray) {
+    let totalLength = 0;
+    const processed = [];
+    const count = richTextArray.length;
+    const preserveCodeWhitespace = richTextArray.some(rt => rt.annotations?.code === true);
+
+    // 找出第一個和最後一個非空白元素的索引
+    let firstNonEmptyIndex = -1;
+    let lastNonEmptyIndex = -1;
+    for (let i = 0; i < count; i++) {
+      const content = richTextArray[i].text?.content || '';
+      if (content.trim()) {
+        if (firstNonEmptyIndex === -1) {
+          firstNonEmptyIndex = i;
+        }
+        lastNonEmptyIndex = i;
+      }
+    }
+
+    for (const [index, rt] of richTextArray.entries()) {
+      const content = DomConverter._formatRichTextContent(
+        rt.text?.content || '',
+        index,
+        count,
+        firstNonEmptyIndex,
+        lastNonEmptyIndex,
+        preserveCodeWhitespace
+      );
+
+      if (totalLength + content.length > MAX_TEXT_LENGTH) {
+        const remaining = Math.max(0, MAX_TEXT_LENGTH - totalLength);
+        if (remaining > 0) {
+          // 建立副本避免污染原始輸入
+          const cloned = { ...rt, text: { ...rt.text, content: content.slice(0, remaining) } };
+          processed.push(cloned);
+        }
+        break; // Max reached
+      } else if (content) {
+        // 建立副本避免污染原始輸入
+        const cloned = { ...rt, text: { ...rt.text, content } };
+        totalLength += content.length;
+        processed.push(cloned);
+      }
+    }
+
+    return processed;
+  }
+
+  static _formatRichTextContent(
+    content,
+    index,
+    totalCount,
+    firstNonEmptyIndex,
+    lastNonEmptyIndex,
+    preserveCodeWhitespace = false
+  ) {
+    let formatted = content;
+
+    // code rich_text 的前後空白與換行是有語意的，需保留原始內容；
+    // 但若整組內容都只有空白，仍維持既有 fallback 路徑，由 _cleanRichText 補單一空格。
+    if (preserveCodeWhitespace) {
+      return firstNonEmptyIndex === -1 ? '' : formatted;
+    }
+
+    // 邊界之外的純空白節點：直接返回空字串（會被過濾掉）
+    if (index < firstNonEmptyIndex || index > lastNonEmptyIndex) {
+      return '';
+    }
+
+    // 只對第一個非空白元素做 trimStart
+    if (index === firstNonEmptyIndex) {
+      formatted = formatted.trimStart();
+    }
+
+    // 只對最後一個非空白元素做 trimEnd
+    if (index === lastNonEmptyIndex) {
+      formatted = formatted.trimEnd();
+    }
+
+    // 如果只有一個元素且為空，保留一個空格
+    // 防禦性後備：當 totalCount === 1 且內容為空白時保留單一空格
+    // 註：正常情況下 firstNonEmptyIndex === -1 時會在上方邊界檢查返回空字串
+    // 此分支保留作為防禦性措施，處理意外輸入或未來邏輯變更的情況
+    if (!formatted.trim() && totalCount === 1) {
+      formatted = ' ';
+    }
+
+    return formatted;
   }
 
   static _cleanBlockChildren(block, depth) {
