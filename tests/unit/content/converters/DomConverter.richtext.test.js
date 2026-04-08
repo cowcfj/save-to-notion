@@ -6,6 +6,28 @@ import { DomConverter } from '../../../../scripts/content/converters/DomConverte
 
 describe('DomConverter Rich Text Processing', () => {
   describe('_processRichTextArray', () => {
+    test('returns empty array when input is empty', () => {
+      const result = DomConverter._processRichTextArray([]);
+      expect(result).toEqual([]);
+    });
+
+    test('returns empty array when all elements are whitespace-only', () => {
+      const input = [
+        { type: 'text', text: { content: '   ' }, annotations: {} },
+        { type: 'text', text: { content: '  ' }, annotations: {} },
+        { type: 'text', text: { content: '\n\t' }, annotations: {} },
+      ];
+      const result = DomConverter._processRichTextArray(input);
+      expect(result).toEqual([]);
+    });
+
+    test('trims surrounding spaces from single text element', () => {
+      const input = [{ type: 'text', text: { content: '  Hello  ' }, annotations: {} }];
+      const result = DomConverter._processRichTextArray(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].text.content).toBe('Hello');
+    });
+
     test('trims leading whitespace when first element is whitespace-only', () => {
       const input = [
         { type: 'text', text: { content: '   ' }, annotations: {} },
@@ -53,6 +75,16 @@ describe('DomConverter Rich Text Processing', () => {
 
       // 預期：Hello 被 trimStart，world 被 trimEnd，中間的空白保留
       expect(joined).toBe('Hello world');
+    });
+
+    test('does not mutate original input array', () => {
+      const input = [{ type: 'text', text: { content: '  Hello  ' }, annotations: {} }];
+      const originalContent = input[0].text.content;
+
+      DomConverter._processRichTextArray(input);
+
+      // 原始輸入應保持不變
+      expect(input[0].text.content).toBe(originalContent);
     });
   });
 });

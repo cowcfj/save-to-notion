@@ -727,14 +727,16 @@ class DomConverter {
       if (totalLength + content.length > MAX_TEXT_LENGTH) {
         const remaining = Math.max(0, MAX_TEXT_LENGTH - totalLength);
         if (remaining > 0) {
-          rt.text.content = content.slice(0, remaining);
-          processed.push(rt);
+          // 建立副本避免污染原始輸入
+          const cloned = { ...rt, text: { ...rt.text, content: content.slice(0, remaining) } };
+          processed.push(cloned);
         }
         break; // Max reached
       } else if (content) {
-        rt.text.content = content;
+        // 建立副本避免污染原始輸入
+        const cloned = { ...rt, text: { ...rt.text, content } };
         totalLength += content.length;
-        processed.push(rt);
+        processed.push(cloned);
       }
     }
 
@@ -760,6 +762,9 @@ class DomConverter {
     }
 
     // 如果只有一個元素且為空，保留一個空格
+    // 防禦性後備：當 totalCount === 1 且內容為空白時保留單一空格
+    // 註：正常情況下 firstNonEmptyIndex === -1 時會在上方邊界檢查返回空字串
+    // 此分支保留作為防禦性措施，處理意外輸入或未來邏輯變更的情況
     if (!formatted.trim() && totalCount === 1) {
       formatted = ' ';
     }
