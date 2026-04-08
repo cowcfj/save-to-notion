@@ -693,11 +693,19 @@ class DomConverter {
     let totalLength = 0;
     const processedRichText = [];
 
-    for (const rt of blockData.rich_text) {
-      let content = rt.text?.content || '';
-      content = content.trim();
+    const richTextCount = blockData.rich_text.length;
 
-      if (!content && blockData.rich_text.length === 1) {
+    for (const [index, rt] of blockData.rich_text.entries()) {
+      let content = rt.text?.content || '';
+
+      if (index === 0) {
+        content = content.trimStart();
+      }
+      if (index === richTextCount - 1) {
+        content = content.trimEnd();
+      }
+
+      if (!content.trim() && richTextCount === 1) {
         content = ' ';
       }
 
