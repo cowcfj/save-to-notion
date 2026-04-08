@@ -23,9 +23,31 @@ const APP_ROUTER = 'app-router';
 const getComponentPageProps = comp =>
   comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
 
+/**
+ * 清理路徑：移除查詢參數與 hash 片段
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+const cleanPath = path => {
+  if (!path) {
+    return '';
+  }
+  // 先移除 hash (#)，再移除查詢參數 (?)
+  return path.split('#')[0].split('?')[0];
+};
+
+/**
+ * 建立候選鍵列表，包含原始路徑、清理後路徑、以及解碼後的變體
+ *
+ * @param {object} router
+ * @param {string} currentPath
+ * @returns {Array<string>}
+ */
 const buildRouterComponentKeys = (router, currentPath) => {
   const keys = [];
 
+  // 收集原始路徑
   if (router?.pathname) {
     keys.push(router.pathname);
   }
@@ -33,12 +55,33 @@ const buildRouterComponentKeys = (router, currentPath) => {
     keys.push(router.route);
   }
   if (router?.asPath) {
-    keys.push(router.asPath.split('?')[0]);
+    const cleaned = cleanPath(router.asPath);
+    keys.push(cleaned);
+    // 嘗試解碼變體（例如：中文路徑）
+    try {
+      const decoded = decodeURIComponent(cleaned);
+      if (decoded !== cleaned) {
+        keys.push(decoded);
+      }
+    } catch {
+      // 忽略解碼錯誤
+    }
   }
   if (currentPath) {
-    keys.push(currentPath.split('?')[0]);
+    const cleaned = cleanPath(currentPath);
+    keys.push(cleaned);
+    // 嘗試解碼變體
+    try {
+      const decoded = decodeURIComponent(cleaned);
+      if (decoded !== cleaned) {
+        keys.push(decoded);
+      }
+    } catch {
+      // 忽略解碼錯誤
+    }
   }
 
+  // 去重並過濾空值
   return [...new Set(keys.filter(Boolean))];
 };
 
