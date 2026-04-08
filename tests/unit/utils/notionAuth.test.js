@@ -5,10 +5,14 @@
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
-    error: jest.fn(),
+    debug: jest.fn(),
+    log: jest.fn(),
+    info: jest.fn(),
     success: jest.fn(),
     start: jest.fn(),
+    ready: jest.fn(),
     warn: jest.fn(),
+    error: jest.fn(),
   },
 }));
 jest.mock('../../../scripts/config/env.js', () => ({
@@ -105,6 +109,7 @@ describe('notionAuth utils', () => {
     expect(result).toBeNull();
     expect(Logger.error).toHaveBeenCalledWith('無法刷新 Token：缺少 refresh_token', {
       action: 'refreshOAuthToken',
+      phase: 'preflight',
     });
   });
 
@@ -121,6 +126,7 @@ describe('notionAuth utils', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(Logger.error).toHaveBeenCalledWith('無法刷新 Token：缺少 OAuth 建置環境設定', {
       action: 'refreshOAuthToken',
+      phase: 'preflight',
       missingBuildEnvKeys: ['EXTENSION_API_KEY'],
     });
   });
@@ -137,6 +143,7 @@ describe('notionAuth utils', () => {
     expect(result).toBeNull();
     expect(Logger.error).toHaveBeenCalledWith('Token 刷新請求失敗', {
       action: 'refreshOAuthToken',
+      phase: 'request',
       status: 500,
     });
   });
@@ -245,6 +252,8 @@ describe('notionAuth utils', () => {
     });
     expect(Logger.success).toHaveBeenCalledWith('OAuth Token 已刷新', {
       action: 'refreshOAuthToken',
+      phase: 'commit',
+      nextAuthEpoch: 8,
     });
     expect(result).toBe('access_token_2');
   });
@@ -344,10 +353,13 @@ describe('notionAuth utils', () => {
     });
     expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
       action: 'refreshOAuthToken',
+      phase: 'cleanup',
       error: expect.any(String),
     });
     expect(Logger.success).toHaveBeenCalledWith('OAuth Token 已刷新', {
       action: 'refreshOAuthToken',
+      phase: 'commit',
+      nextAuthEpoch: 15,
     });
   });
 
@@ -367,6 +379,7 @@ describe('notionAuth utils', () => {
     expect(Logger.success).not.toHaveBeenCalled();
     expect(Logger.error).toHaveBeenCalledWith('OAuth Token 刷新回應缺少必要欄位', {
       action: 'refreshOAuthToken',
+      phase: 'validate',
       error: expect.any(String),
     });
   });
@@ -387,6 +400,7 @@ describe('notionAuth utils', () => {
     expect(Logger.success).not.toHaveBeenCalled();
     expect(Logger.error).toHaveBeenCalledWith('OAuth Token 刷新回應缺少必要欄位', {
       action: 'refreshOAuthToken',
+      phase: 'validate',
       error: expect.any(String),
     });
   });

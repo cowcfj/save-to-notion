@@ -1248,7 +1248,12 @@ describe('NotionService', () => {
         await service._deleteBlocksByIds(['b1']);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('刪除區塊異常'),
-          expect.objectContaining({ error: expect.any(Error) })
+          expect.objectContaining({
+            action: 'deleteBlocksByIds',
+            phase: 'deleteBlock',
+            blockId: 'b1',
+            error: expect.any(Error),
+          })
         );
       });
 

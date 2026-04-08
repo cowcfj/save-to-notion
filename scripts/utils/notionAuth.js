@@ -59,6 +59,7 @@ async function clearStoredRefreshProof(action, nextAuthEpoch = null) {
   } catch (error) {
     Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
       action,
+      phase: 'cleanup',
       error: sanitizeApiError(error, action),
     });
   }
@@ -99,6 +100,7 @@ async function handleFailedRefreshResponse(response, oldRefreshToken, startAuthE
 
   Logger.error('Token 刷新請求失敗', {
     action: 'refreshOAuthToken',
+    phase: 'request',
     status: response.status,
   });
 }
@@ -151,6 +153,7 @@ async function performRefreshOAuthToken() {
     if (!oldRefreshToken) {
       Logger.error('無法刷新 Token：缺少 refresh_token', {
         action: 'refreshOAuthToken',
+        phase: 'preflight',
       });
       return null;
     }
@@ -159,6 +162,7 @@ async function performRefreshOAuthToken() {
     if (missingBuildEnvKeys.length > 0) {
       Logger.error('無法刷新 Token：缺少 OAuth 建置環境設定', {
         action: 'refreshOAuthToken',
+        phase: 'preflight',
         missingBuildEnvKeys,
       });
       return null;
@@ -191,6 +195,7 @@ async function performRefreshOAuthToken() {
     if (!hasValidAccessToken || !hasValidRefreshToken) {
       Logger.error('OAuth Token 刷新回應缺少必要欄位', {
         action: 'refreshOAuthToken',
+        phase: 'validate',
         error: sanitizeApiError('invalid_token_response', 'refreshOAuthToken'),
       });
       return null;
@@ -214,11 +219,16 @@ async function performRefreshOAuthToken() {
       await clearStoredRefreshProof('refreshOAuthToken');
     }
 
-    Logger.success('OAuth Token 已刷新', { action: 'refreshOAuthToken' });
+    Logger.success('OAuth Token 已刷新', {
+      action: 'refreshOAuthToken',
+      phase: 'commit',
+      nextAuthEpoch: nextStorage[AUTH_EPOCH_KEY],
+    });
     return data.access_token;
   } catch (error) {
     Logger.error('OAuth Token 刷新失敗', {
       action: 'refreshOAuthToken',
+      phase: 'request',
       error: sanitizeApiError(error, 'refreshOAuthToken'),
     });
     return null;
@@ -235,6 +245,7 @@ async function requestBackgroundRefreshOAuthToken() {
   } catch (error) {
     Logger.error('[Auth] 委派 Background 刷新 OAuth Token 失敗', {
       action: 'refreshOAuthToken',
+      phase: 'delegate',
       error: sanitizeApiError(error, 'refresh_oauth_token_delegate'),
     });
     return null;
