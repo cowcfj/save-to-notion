@@ -141,10 +141,11 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
 
   // 1. 插入標題 (如果 metadata 有 title 且顯式要求)
   if (includeTitle && metadata.title) {
+    const truncatedTitle = (metadata.title || '').slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH);
     const hasTitle = blocks.some(
       block =>
         block.type === 'heading_1' &&
-        block.heading_1?.rich_text?.[0]?.text?.content === metadata.title
+        block.heading_1?.rich_text?.[0]?.text?.content === truncatedTitle
     );
 
     if (!hasTitle) {
@@ -156,7 +157,7 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
             {
               type: 'text',
               text: {
-                content: (metadata.title || '').slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH),
+                content: truncatedTitle,
               },
             },
           ],

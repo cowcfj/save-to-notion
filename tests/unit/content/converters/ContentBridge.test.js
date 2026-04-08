@@ -6,6 +6,7 @@ const {
   createTextBlocks,
   createFallbackResult,
 } = require('../../../../scripts/content/converters/ContentBridge.js');
+const { TEXT_PROCESSING } = require('../../../../scripts/config/index.js');
 
 describe('ContentBridge', () => {
   // Mock Logger
@@ -307,8 +308,8 @@ describe('ContentBridge', () => {
       ]);
     });
 
-    test('應截斷超過 2000 字元的標題', () => {
-      const longTitle = 'A'.repeat(2500);
+    test('應截斷超過最大 rich_text 長度的標題', () => {
+      const longTitle = 'A'.repeat(TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH + 500);
       const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
       const mockConverter = {
         convert: jest.fn(() => mockBlocks),
@@ -325,13 +326,17 @@ describe('ContentBridge', () => {
         includeTitle: true,
       });
 
-      // 驗證標題被截斷為 2000 字元
+      // 驗證標題被截斷為 rich_text 上限
       expect(result.blocks[0].type).toBe('heading_1');
-      expect(result.blocks[0].heading_1.rich_text[0].text.content).toHaveLength(2000);
-      expect(result.blocks[0].heading_1.rich_text[0].text.content).toBe('A'.repeat(2000));
+      expect(result.blocks[0].heading_1.rich_text[0].text.content).toHaveLength(
+        TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH
+      );
+      expect(result.blocks[0].heading_1.rich_text[0].text.content).toBe(
+        'A'.repeat(TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH)
+      );
     });
 
-    test('應處理 null 或 undefined 標題', () => {
+    test('應處理 null 標題', () => {
       const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
       const mockConverter = {
         convert: jest.fn(() => mockBlocks),
@@ -350,6 +355,58 @@ describe('ContentBridge', () => {
 
       // 驗證不會因為 null 標題而崩潰
       expect(result.blocks[0].type).toBe('paragraph'); // 沒有插入標題
+    });
+
+    test('應處理 undefined 標題', () => {
+      const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
+      const mockConverter = {
+        convert: jest.fn(() => mockBlocks),
+      };
+
+      const extractedContent = {
+        content: '<p>Test content</p>',
+        type: 'html',
+        metadata: { title: undefined },
+      };
+
+      const result = bridgeContentToBlocks(extractedContent, {
+        htmlConverter: mockConverter,
+        includeTitle: true,
+      });
+
+      expect(result.blocks[0].type).toBe('paragraph');
+    });
+
+    test('應使用截斷後的標題避免重複插入 heading_1', () => {
+      const longTitle = 'A'.repeat(TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH + 50);
+      const truncatedTitle = longTitle.slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH);
+      const mockBlocks = [
+        {
+          object: 'block',
+          type: 'heading_1',
+          heading_1: {
+            rich_text: [{ type: 'text', text: { content: truncatedTitle } }],
+          },
+        },
+      ];
+      const mockConverter = {
+        convert: jest.fn(() => [...mockBlocks]),
+      };
+
+      const extractedContent = {
+        content: '<p>Test content</p>',
+        type: 'html',
+        metadata: { title: longTitle },
+      };
+
+      const result = bridgeContentToBlocks(extractedContent, {
+        htmlConverter: mockConverter,
+        includeTitle: true,
+      });
+
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].type).toBe('heading_1');
+      expect(result.blocks[0].heading_1.rich_text[0].text.content).toBe(truncatedTitle);
     });
   });
 
