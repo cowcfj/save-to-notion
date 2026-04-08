@@ -20,6 +20,28 @@ import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 const PAGES_ROUTER = 'pages-router';
 const APP_ROUTER = 'app-router';
 
+const getComponentPageProps = comp =>
+  comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
+
+const buildRouterComponentKeys = (router, currentPath) => {
+  const keys = [];
+
+  if (router?.pathname) {
+    keys.push(router.pathname);
+  }
+  if (router?.route) {
+    keys.push(router.route);
+  }
+  if (router?.asPath) {
+    keys.push(router.asPath.split('?')[0]);
+  }
+  if (currentPath) {
+    keys.push(currentPath.split('?')[0]);
+  }
+
+  return [...new Set(keys.filter(Boolean))];
+};
+
 export const NextJsExtractor = {
   /**
    * 檢測頁面是否為 Next.js 網站
@@ -181,10 +203,20 @@ export const NextJsExtractor = {
         return null;
       }
 
-      // 遍歷所有已載入的 router 組件，找到最先有 pageProps 的項目
+      const currentPath = doc.defaultView?.location?.pathname || win?.location?.pathname;
+      const preferredKeys = buildRouterComponentKeys(router, currentPath);
+
+      for (const key of preferredKeys) {
+        const pageProps = getComponentPageProps(router.components[key]);
+        if (pageProps && Object.keys(pageProps).length > 0) {
+          return { props: { pageProps } };
+        }
+      }
+
+      // 回退：遍歷所有已載入的 router 組件，找到第一個有 pageProps 的項目
       // HK01 通常是 '/article'，其他網站可能用 '/[...path]' 等不同 key
       for (const [, comp] of Object.entries(router.components)) {
-        const pageProps = comp?.props?.initialProps?.pageProps || comp?.props?.pageProps;
+        const pageProps = getComponentPageProps(comp);
         if (pageProps && Object.keys(pageProps).length > 0) {
           return { props: { pageProps } };
         }
