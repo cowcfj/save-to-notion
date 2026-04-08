@@ -408,6 +408,67 @@ describe('ContentBridge', () => {
       expect(result.blocks[0].type).toBe('heading_1');
       expect(result.blocks[0].heading_1.rich_text[0].text.content).toBe(truncatedTitle);
     });
+
+    test('應在遇到未知內容類型時使用回退處理', () => {
+      const extractedContent = {
+        content: '<p>Unknown</p>',
+        type: 'unknown',
+        metadata: { title: 'Test' },
+      };
+      const result = bridgeContentToBlocks(extractedContent);
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].type).toBe('paragraph');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('未知內容類型'),
+        expect.objectContaining({ type: 'unknown' })
+      );
+    });
+
+    test('應在使用全局 ConverterFactory 時處理轉換', () => {
+      const extractedContent = {
+        content: '<p>Global</p>',
+        type: 'html',
+        metadata: { title: 'Test' },
+      };
+
+      const mockConverter = {
+        convert: jest.fn(() => [
+          { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } },
+        ]),
+      };
+
+      globalThis.ConverterFactory = {
+        getConverter: jest.fn(() => mockConverter),
+      };
+
+      const result = bridgeContentToBlocks(extractedContent);
+      expect(globalThis.ConverterFactory.getConverter).toHaveBeenCalledWith('html');
+      expect(mockConverter.convert).toHaveBeenCalledWith('<p>Global</p>');
+      expect(result.blocks).toHaveLength(1);
+
+      delete globalThis.ConverterFactory;
+    });
+
+    test('當轉換器不可用時應回退到純文本', () => {
+      const extractedContent = {
+        content: '<p>Global</p>',
+        type: 'html',
+        metadata: { title: 'Test' },
+      };
+
+      globalThis.ConverterFactory = {
+        getConverter: jest.fn(() => null),
+      };
+
+      const result = bridgeContentToBlocks(extractedContent);
+      expect(result.blocks[0].type).toBe('paragraph');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('轉換器不可用'),
+        expect.any(Object)
+      );
+
+      delete globalThis.ConverterFactory;
+    });
   });
 
   describe('createTextBlocks', () => {
@@ -477,6 +538,14 @@ describe('ContentBridge', () => {
       expect(result[1].paragraph.rich_text[0].text.content).toBe('Second paragraph');
     });
 
+    test('應跳過只包含空白內容的段落', () => {
+      // 模擬分割後有一些空字串或僅含空白的段落片段
+      const result = createTextBlocks('First\n\n   \n\nSecond');
+      expect(result).toHaveLength(2);
+      expect(result[0].paragraph.rich_text[0].text.content).toBe('First');
+      expect(result[1].paragraph.rich_text[0].text.content).toBe('Second');
+    });
+
     test('應移除 HTML 標籤', () => {
       const result = createTextBlocks('<p>Hello</p><strong>World</strong>');
       expect(result).toHaveLength(1);
@@ -508,6 +577,47 @@ describe('ContentBridge', () => {
         ],
         siteIcon: null,
       });
+    });
+  });
+
+  describe('extractAndBridge', () => {
+    const { extractAndBridge } = require('../../../../scripts/content/converters/ContentBridge.js');
+
+    afterEach(() => {
+      delete globalThis.ContentExtractor;
+    });
+
+    test('當 ContentExtractor 未載入時，應返回回退結果', () => {
+      const doc = { title: 'Test Document Title' };
+      const result = extractAndBridge(doc);
+
+      expect(result.title).toBe('Test Document Title');
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain('not available');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('未載入'),
+        expect.any(Object)
+      );
+    });
+
+    test('當 ContentExtractor 成功提取時，應調用 bridgeContentToBlocks', () => {
+      const doc = { title: 'Test Document Title' };
+      const extractedContent = {
+        content: '<p>Extracted</p>',
+        type: 'html',
+        metadata: { title: 'Extracted Title' },
+      };
+
+      globalThis.ContentExtractor = {
+        extract: jest.fn(() => extractedContent),
+      };
+
+      const options = { includeTitle: false };
+
+      const result = extractAndBridge(doc, options);
+
+      expect(globalThis.ContentExtractor.extract).toHaveBeenCalledWith(doc);
+      expect(result.title).toBe('Extracted Title');
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain('Extracted');
     });
   });
 });
