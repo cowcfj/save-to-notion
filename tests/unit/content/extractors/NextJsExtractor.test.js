@@ -670,6 +670,35 @@ describe('NextJsExtractor', () => {
       expect(result.metadata.title).toBe('OK');
       expect(result.blocks.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('stale 時 _next/data 失敗只記錄 debug 診斷，不記錄 warn', async () => {
+      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
+      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
+
+      const mockJson = {
+        page: '/',
+        asPath: '/',
+        buildId: 'build123',
+        props: { initialProps: { pageProps: {} } },
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      });
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(result).toBeNull();
+      expect(Logger.debug).toHaveBeenCalledWith('Next.js data 取得失敗', {
+        action: '_fetchNextData',
+        status: 404,
+        url: 'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
+      });
+      expect(Logger.warn).not.toHaveBeenCalledWith('Next.js data 取得失敗', expect.any(Object));
+    });
   });
 
   describe('_getRouterComponentData', () => {

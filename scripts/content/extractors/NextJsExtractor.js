@@ -470,7 +470,7 @@ export const NextJsExtractor = {
     try {
       const response = await fetch(dataUrl, { credentials: 'same-origin' });
       if (!response?.ok) {
-        Logger.warn('Next.js data 取得失敗', {
+        Logger.debug('Next.js data 取得失敗', {
           action,
           status: response?.status,
           url: sanitizeUrlForLogging(dataUrl),
@@ -479,7 +479,7 @@ export const NextJsExtractor = {
       }
       return await response.json();
     } catch (error) {
-      Logger.warn('Next.js data 取得失敗', {
+      Logger.debug('Next.js data 取得失敗', {
         action,
         error: error.message,
         url: sanitizeUrlForLogging(dataUrl),
