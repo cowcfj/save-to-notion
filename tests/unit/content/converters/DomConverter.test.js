@@ -132,6 +132,26 @@ describe('DomConverter', () => {
       );
     });
 
+    test('trims leading whitespace when first rich_text element is whitespace-only', () => {
+      const html = '<p>   <strong>Hello</strong> world</p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      const joined = blocks[0].paragraph.rich_text.map(item => item.text.content).join('');
+      expect(joined).toBe('Hello world');
+      expect(joined.startsWith(' ')).toBe(false);
+    });
+
+    test('trims trailing whitespace when last rich_text element is whitespace-only', () => {
+      const html = '<p>Hello <em>world</em>   </p>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      const joined = blocks[0].paragraph.rich_text.map(item => item.text.content).join('');
+      expect(joined).toBe('Hello world');
+      expect(joined.endsWith(' ')).toBe(false);
+    });
+
     test('should detect list-like paragraphs (bullets)', () => {
       const html = '<p>• Item 1<br>• Item 2</p>';
       const blocks = domConverter.convert(html);

@@ -702,8 +702,27 @@ class DomConverter {
     const processed = [];
     const count = richTextArray.length;
 
+    // 找出第一個和最後一個非空白元素的索引
+    let firstNonEmptyIndex = -1;
+    let lastNonEmptyIndex = -1;
+    for (let i = 0; i < count; i++) {
+      const content = richTextArray[i].text?.content || '';
+      if (content.trim()) {
+        if (firstNonEmptyIndex === -1) {
+          firstNonEmptyIndex = i;
+        }
+        lastNonEmptyIndex = i;
+      }
+    }
+
     for (const [index, rt] of richTextArray.entries()) {
-      const content = DomConverter._formatRichTextContent(rt.text?.content || '', index, count);
+      const content = DomConverter._formatRichTextContent(
+        rt.text?.content || '',
+        index,
+        count,
+        firstNonEmptyIndex,
+        lastNonEmptyIndex
+      );
 
       if (totalLength + content.length > MAX_TEXT_LENGTH) {
         const remaining = Math.max(0, MAX_TEXT_LENGTH - totalLength);
@@ -722,18 +741,29 @@ class DomConverter {
     return processed;
   }
 
-  static _formatRichTextContent(content, index, totalCount) {
+  static _formatRichTextContent(content, index, totalCount, firstNonEmptyIndex, lastNonEmptyIndex) {
     let formatted = content;
-    if (index === 0) {
+
+    // 邊界之外的純空白節點：直接返回空字串（會被過濾掉）
+    if (index < firstNonEmptyIndex || index > lastNonEmptyIndex) {
+      return '';
+    }
+
+    // 只對第一個非空白元素做 trimStart
+    if (index === firstNonEmptyIndex) {
       formatted = formatted.trimStart();
     }
-    if (index === totalCount - 1) {
+
+    // 只對最後一個非空白元素做 trimEnd
+    if (index === lastNonEmptyIndex) {
       formatted = formatted.trimEnd();
     }
 
+    // 如果只有一個元素且為空，保留一個空格
     if (!formatted.trim() && totalCount === 1) {
       formatted = ' ';
     }
+
     return formatted;
   }
 
