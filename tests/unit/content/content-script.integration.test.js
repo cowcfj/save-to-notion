@@ -8,6 +8,67 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { execSync } = require('node:child_process');
 
+const BUILD_TIMEOUT_MS = 60_000;
+const TEST_TIMEOUT_MS = 10_000;
+const POLL_RETRY_COUNT = 30;
+const POLL_INTERVAL_MS = 200;
+
+function createExecutionContext(
+  browserWindow,
+  chromeMock,
+  loggerMock,
+  readabilityMock,
+  imageUtilsMock
+) {
+  return vm.createContext(
+    Object.assign(Object.create(globalThis), {
+      window: browserWindow,
+      self: browserWindow,
+      document: browserWindow.document,
+      location: browserWindow.location,
+      navigator: browserWindow.navigator,
+      CustomEvent: browserWindow.CustomEvent,
+      Event: browserWindow.Event,
+      Node: browserWindow.Node,
+      Element: browserWindow.Element,
+      HTMLElement: browserWindow.HTMLElement,
+      Document: browserWindow.Document,
+      DOMParser: browserWindow.DOMParser,
+      XMLSerializer: browserWindow.XMLSerializer,
+      MutationObserver: browserWindow.MutationObserver,
+      URL: browserWindow.URL,
+      URLSearchParams: browserWindow.URLSearchParams,
+      addEventListener: browserWindow.addEventListener.bind(browserWindow),
+      removeEventListener: browserWindow.removeEventListener.bind(browserWindow),
+      dispatchEvent: browserWindow.dispatchEvent.bind(browserWindow),
+      getComputedStyle: browserWindow.getComputedStyle.bind(browserWindow),
+      setTimeout: browserWindow.setTimeout.bind(browserWindow),
+      clearTimeout: browserWindow.clearTimeout.bind(browserWindow),
+      chrome: chromeMock,
+      Logger: loggerMock,
+      Readability: readabilityMock,
+      ImageUtils: imageUtilsMock,
+      __UNIT_TESTING__: true,
+    })
+  );
+}
+
+async function waitForExtractionResult(executionContext, browserWindow) {
+  for (let i = 0; i < POLL_RETRY_COUNT; i++) {
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+
+    if (executionContext.__notion_extraction_result) {
+      return executionContext.__notion_extraction_result;
+    }
+
+    if (browserWindow.__notion_extraction_result) {
+      return browserWindow.__notion_extraction_result;
+    }
+  }
+
+  return null;
+}
+
 describe('內容腳本整合測試', () => {
   let chromeMock;
   let loggerMock;
@@ -48,26 +109,17 @@ describe('內容腳本整合測試', () => {
       ready: jest.fn(),
       success: jest.fn(),
     };
-
-    globalThis.chrome = chromeMock;
-    globalThis.Logger = loggerMock;
-
-    if (globalThis.window) {
-      globalThis.window.chrome = chromeMock;
-      globalThis.window.Logger = loggerMock;
-    }
   });
 
   afterEach(() => {
     jest.clearAllMocks();
 
     if (globalThis.window) {
-      delete globalThis.window.chrome;
-      delete globalThis.window.Logger;
+      delete globalThis.window.__UNIT_TESTING__;
+      delete globalThis.window.__notion_extraction_result;
+      delete globalThis.window.Readability;
+      delete globalThis.window.ImageUtils;
     }
-
-    delete globalThis.chrome;
-    delete globalThis.Logger;
   });
 
   // 確保測試執行前已存在 bundle
@@ -98,92 +150,60 @@ describe('內容腳本整合測試', () => {
         throw new Error(`建置 content bundle 失敗：\n${details}`, { cause: error });
       }
     }
-  }, 60_000); // 提高建置逾時上限
+  }, BUILD_TIMEOUT_MS);
 
-  test('當 window.__UNIT_TESTING__ 為 true 時執行 content.js 並暴露提取結果', async () => {
-    const html =
-      '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
+  test(
+    '當 window.__UNIT_TESTING__ 為 true 時執行 content.js 並暴露提取結果',
+    async () => {
+      const html =
+        '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
 
-    document.documentElement.innerHTML = html;
-    const window = globalThis.window;
+      document.documentElement.innerHTML = html;
+      const browserWindow = globalThis.window;
 
-    // 最小化的 Readability mock，回傳解析後內容
-    window.Readability = function (doc) {
-      // Null 安全：使用傳入的 doc 或 fallback 到 window.document
-      const safeDoc = doc || window.document;
+      const readabilityMock = function (doc) {
+        const safeDoc = doc || browserWindow.document;
 
-      return {
-        parse() {
-          return {
-            title: safeDoc.title || 'Test Page',
-            content: '<p>Mock content</p>',
-            length: 300,
-          };
-        },
+        return {
+          parse() {
+            return {
+              title: safeDoc.title || 'Test Page',
+              content: '<p>Mock content</p>',
+              length: 300,
+            };
+          },
+        };
       };
-    };
 
-    // 確保存在 ImageUtils（若缺少，content.js 會提供後備實作）
-    window.ImageUtils = {
-      cleanImageUrl: url => url,
-      isValidImageUrl: (..._args) => true,
-      extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-      generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-    };
+      const imageUtilsMock = {
+        cleanImageUrl: url => url,
+        isValidImageUrl: (..._args) => true,
+        extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
+        generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
+      };
 
-    // 標記為單元測試模式，讓 content.js 將結果暴露到 window
-    window.__UNIT_TESTING__ = true;
+      browserWindow.Readability = readabilityMock;
+      browserWindow.ImageUtils = imageUtilsMock;
+      browserWindow.__UNIT_TESTING__ = true;
 
-    // 載入腳本檔案內容並在 window 中執行
-    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
-    const scriptCode = fs.readFileSync(scriptPath, 'utf8');
+      const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
+      const scriptCode = fs.readFileSync(scriptPath, 'utf8');
+      const executionContext = createExecutionContext(
+        browserWindow,
+        chromeMock,
+        loggerMock,
+        readabilityMock,
+        imageUtilsMock
+      );
 
-    const executionContext = vm.createContext(
-      Object.assign(Object.create(globalThis), {
-        window,
-        self: window,
-        document: window.document,
-        location: window.location,
-        navigator: window.navigator,
-        CustomEvent: window.CustomEvent,
-        Event: window.Event,
-        Node: window.Node,
-        Element: window.Element,
-        HTMLElement: window.HTMLElement,
-        Document: window.Document,
-        DOMParser: window.DOMParser,
-        XMLSerializer: window.XMLSerializer,
-        MutationObserver: window.MutationObserver,
-        URL: window.URL,
-        URLSearchParams: window.URLSearchParams,
-        addEventListener: window.addEventListener.bind(window),
-        removeEventListener: window.removeEventListener.bind(window),
-        dispatchEvent: window.dispatchEvent.bind(window),
-        getComputedStyle: window.getComputedStyle.bind(window),
-        setTimeout: window.setTimeout.bind(window),
-        clearTimeout: window.clearTimeout.bind(window),
-        chrome: chromeMock,
-        Logger: loggerMock,
-        Readability: window.Readability,
-        ImageUtils: window.ImageUtils,
-        __UNIT_TESTING__: true,
-      })
-    );
-    vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
+      vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
 
-    // 輪詢等待腳本執行完成，並設定 window.__notion_extraction_result
-    /** @type {*} 提取結果,在輪詢循環中初始化 */
-    let result = null;
-    for (let i = 0; i < 30; i++) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      if (window.__notion_extraction_result) {
-        result = window.__notion_extraction_result;
-        break;
-      }
-    }
+      const result = await waitForExtractionResult(executionContext, browserWindow);
 
-    expect(result).toBeDefined();
-    expect(result.title).toBe('Test Page');
-    expect(Array.isArray(result.blocks)).toBe(true);
-  }, 10_000);
+      expect(result).toBeDefined();
+      expect(result.title).toBe('Test Page');
+      expect(Array.isArray(result.blocks)).toBe(true);
+    },
+    TEST_TIMEOUT_MS
+  );
 });

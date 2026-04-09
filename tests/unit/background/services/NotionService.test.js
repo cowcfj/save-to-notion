@@ -30,10 +30,6 @@ import { NOTION_API } from '../../../../scripts/config/api.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
-const TOTAL_BLOCKS = 150;
-const BATCH_SIZE = 50;
-const EXPECTED_ADDED = TOTAL_BLOCKS - BATCH_SIZE;
-const TIMER_ADVANCE_MS = 10_000;
 
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
@@ -356,6 +352,11 @@ describe('NotionService', () => {
   });
 
   describe('appendBlocksInBatches', () => {
+    const TOTAL_BLOCKS = 150;
+    const BATCH_SIZE = 50;
+    const EXPECTED_ADDED = TOTAL_BLOCKS - BATCH_SIZE;
+    const TIMER_ADVANCE_MS = 10_000;
+
     it('應該成功分批添加區塊', async () => {
       globalThis.fetch.mockResolvedValue({
         ...mockFetchResponse,
@@ -363,19 +364,20 @@ describe('NotionService', () => {
         json: () => Promise.resolve({}),
       });
 
-      const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
+      const blocks = Array.from({ length: TOTAL_BLOCKS }, (_, i) => ({ type: 'paragraph', id: i }));
 
       const promise = service.appendBlocksInBatches('page-123', blocks);
 
       // 快進時間以處理批次間的延遲
-      await jest.advanceTimersByTimeAsync(10_000);
+      await jest.advanceTimersByTimeAsync(TIMER_ADVANCE_MS);
 
       const result = await promise;
+      const expectedCalls = Math.ceil(blocks.length / NOTION_API.BLOCKS_PER_BATCH);
 
       expect(result.success).toBe(true);
-      expect(result.addedCount).toBe(150);
-      expect(result.totalCount).toBe(150);
-      expect(globalThis.fetch).toHaveBeenCalledTimes(2); // 100 + 50
+      expect(result.addedCount).toBe(TOTAL_BLOCKS);
+      expect(result.totalCount).toBe(TOTAL_BLOCKS);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(expectedCalls);
     });
 
     it('應該處理空區塊數組', async () => {
@@ -400,7 +402,7 @@ describe('NotionService', () => {
           )
         );
 
-      const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
+      const blocks = Array.from({ length: TOTAL_BLOCKS }, (_, i) => ({ type: 'paragraph', id: i }));
 
       const promise = service.appendBlocksInBatches('page-123', blocks);
       await jest.advanceTimersByTimeAsync(10_000);
@@ -426,11 +428,12 @@ describe('NotionService', () => {
       await jest.advanceTimersByTimeAsync(TIMER_ADVANCE_MS);
 
       const result = await promise;
+      const expectedCalls = Math.ceil(EXPECTED_ADDED / NOTION_API.BLOCKS_PER_BATCH);
 
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(EXPECTED_ADDED);
       expect(result.totalCount).toBe(EXPECTED_ADDED);
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // EXPECTED_ADDED 個項目剛好只需 1 個批次
+      expect(globalThis.fetch).toHaveBeenCalledTimes(expectedCalls);
 
       // 驗證已略過前 BATCH_SIZE 個項目
       const fetchArg = globalThis.fetch.mock.calls[0][1];
@@ -667,7 +670,8 @@ describe('NotionService', () => {
     });
 
     it('子區塊數量不應超過配置的 BATCH_SIZE', () => {
-      const blocks = Array.from({ length: 150 })
+      const TOTAL_BLOCKS = 150;
+      const blocks = Array.from({ length: TOTAL_BLOCKS })
         .fill(null)
         .map(() => ({ type: 'paragraph', paragraph: { rich_text: [] } }));
 
@@ -678,7 +682,7 @@ describe('NotionService', () => {
         blocks,
       });
 
-      expect(result.pageData.children).toHaveLength(100);
+      expect(result.pageData.children).toHaveLength(NOTION_API.BLOCKS_PER_BATCH);
     });
 
     it('針對缺失的選項應使用預設值', () => {
