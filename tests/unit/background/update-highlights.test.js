@@ -629,7 +629,7 @@ async function deleteBlocksSimulated(blockIds, apiKey) {
         headers: createNotionHeaders(apiKey),
       });
     } catch {
-      // Ignore errors during simulated deletion in tests
+      // 於測試模擬刪除時忽略錯誤
     }
   }
 }
