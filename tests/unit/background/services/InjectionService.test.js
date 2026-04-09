@@ -257,7 +257,12 @@ describe('InjectionService', () => {
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Bundle injection skipped'),
-        expect.objectContaining({ error: expect.anything() })
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          error: expect.objectContaining({
+            message: 'Cannot access contents of page',
+          }),
+        })
       );
     });
 
@@ -332,7 +337,12 @@ describe('InjectionService', () => {
       await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Extension Error');
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Bundle injection failed'),
-        expect.any(Object)
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          error: expect.objectContaining({
+            message: 'Fatal Extension Error',
+          }),
+        })
       );
     });
   });
@@ -481,7 +491,12 @@ describe('InjectionService', () => {
       await expect(service.inject(1, () => {})).rejects.toThrow('Fatal crash');
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('[Injection] inject failed'),
-        expect.any(Object)
+        expect.objectContaining({
+          action: 'inject',
+          error: expect.objectContaining({
+            message: 'Fatal crash',
+          }),
+        })
       );
     });
   });

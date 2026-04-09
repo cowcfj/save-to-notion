@@ -132,6 +132,13 @@ import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 // We can keep it if needed but prefer module mock
 globalThis.ErrorHandler = ErrorHandler;
 
+const trackedSpies = [];
+const trackSpy = (...args) => {
+  const spy = jest.spyOn(...args);
+  trackedSpies.push(spy);
+  return spy;
+};
+
 describe('ImageCollector', () => {
   beforeEach(() => {
     // jest.resetAllMocks() clears all mocks including their implementations.
@@ -165,7 +172,10 @@ describe('ImageCollector', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    while (trackedSpies.length > 0) {
+      trackedSpies.pop().mockRestore();
+    }
+    jest.clearAllMocks();
   });
 
   describe('collectFeaturedImage', () => {
@@ -231,7 +241,7 @@ describe('ImageCollector', () => {
       const mockMeta = document.createElement('meta');
       mockMeta.content = 'https://example.com/meta-featured.jpg';
 
-      jest.spyOn(document, 'querySelector').mockImplementation(selector => {
+      trackSpy(document, 'querySelector').mockImplementation(selector => {
         if (selector === 'meta[property="og:image"]') {
           return mockMeta;
         }
@@ -243,7 +253,7 @@ describe('ImageCollector', () => {
     });
 
     test('should return null if no featured image found', () => {
-      jest.spyOn(document, 'querySelector').mockReturnValue(null);
+      trackSpy(document, 'querySelector').mockReturnValue(null);
       cachedQuery.mockReturnValue(null);
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
@@ -381,7 +391,7 @@ describe('ImageCollector', () => {
 
       // Mock processImageForCollection to return valid results
       // Use spyOn to allow automatic restoration
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -443,7 +453,7 @@ describe('ImageCollector', () => {
       extractImageSrc.mockImplementation(img => img.src);
 
       // Mock processImageForCollection to always return success
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -495,14 +505,14 @@ describe('ImageCollector', () => {
       const contentElement = document.createElement('div');
 
       // Mock processImageForCollection
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
         _meta: { width: img.naturalWidth },
       }));
 
-      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+      const searchSpy = trackSpy(ImageCollector, '_collectFromNextJsData');
 
       const result = await ImageCollector.collectAdditionalImages(contentElement);
 
@@ -538,10 +548,10 @@ describe('ImageCollector', () => {
       ];
       const contentElement = document.createElement('div');
 
-      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+      const searchSpy = trackSpy(ImageCollector, '_collectFromNextJsData');
 
       // Mock processImageForCollection to bypass size checks for the fake image
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -568,7 +578,7 @@ describe('ImageCollector', () => {
       NextJsExtractor.extract.mockReturnValue(null);
 
       const contentElement = document.createElement('div');
-      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+      const searchSpy = trackSpy(ImageCollector, '_collectFromNextJsData');
 
       await ImageCollector.collectAdditionalImages(contentElement);
 
@@ -612,7 +622,7 @@ describe('ImageCollector', () => {
       extractImageSrc.mockImplementation(img => img.src);
 
       // Mock processImageForCollection to always return success
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -644,7 +654,7 @@ describe('ImageCollector', () => {
   describe('Error Handling and Fallbacks', () => {
     test('collectFeaturedImage should handle meta query errors', () => {
       // 模擬 meta 查詢拋出錯誤
-      jest.spyOn(document, 'querySelector').mockImplementation(() => {
+      trackSpy(document, 'querySelector').mockImplementation(() => {
         throw new Error('Meta Error');
       });
       const result = ImageCollector.collectFeaturedImage();
@@ -657,7 +667,7 @@ describe('ImageCollector', () => {
 
     test('collectFeaturedImage should handle DOM query errors', () => {
       // 模擬 meta 查詢返回 null，以便進入 DOM 查詢
-      jest.spyOn(document, 'querySelector').mockReturnValue(null);
+      trackSpy(document, 'querySelector').mockReturnValue(null);
 
       // 模擬 cachedQuery 拋出錯誤
       cachedQuery.mockImplementation(() => {
@@ -691,10 +701,10 @@ describe('ImageCollector', () => {
       batchProcessWithRetry.mockRejectedValue(new Error('Batch Failed'));
 
       // 監控順序處理函數
-      const seqSpy = jest.spyOn(ImageCollector, 'processImagesSequentially');
+      const seqSpy = trackSpy(ImageCollector, 'processImagesSequentially');
 
       // Mock processImageForCollection for sequential fallback
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -712,12 +722,12 @@ describe('ImageCollector', () => {
     test('collectAdditionalImages should handle gallery collection errors', async () => {
       const contentElement = document.createElement('div');
 
-      jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
-      jest.spyOn(ImageCollector, '_collectFromContent').mockReturnValue([]);
-      jest.spyOn(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
-      jest.spyOn(ImageCollector, '_collectFromExpansion').mockImplementation(() => {});
-      jest.spyOn(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
-      jest.spyOn(ImageCollector, '_processImages').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      trackSpy(ImageCollector, '_collectFromContent').mockReturnValue([]);
+      trackSpy(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromExpansion').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_processImages').mockImplementation(() => {});
 
       // 模擬 cachedQuery 拋出錯誤以觸發圖集收集報錯分支
       cachedQuery.mockImplementation(() => {
@@ -745,7 +755,6 @@ describe('ImageCollector', () => {
       cachedQuery.mockReturnValue([mockImg1, mockImg2]);
 
       // Removed spy to hit line 169 and processImageForCollection directly
-      jest.restoreAllMocks();
       extractImageSrc
         .mockReturnValueOnce('https://example.com/gallery1.jpg')
         .mockReturnValueOnce('https://example.com/gallery1.jpg');
@@ -759,7 +768,7 @@ describe('ImageCollector', () => {
   describe('collectAdditionalImages extra coverage', () => {
     test('should skip collection when main content images are sufficient', async () => {
       // Mock _collectFromFeatured
-      jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      trackSpy(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
       const contentElement = document.createElement('div');
       const minImages = 2; // from mocked constants
 
@@ -776,23 +785,22 @@ describe('ImageCollector', () => {
 
     test('should fallback to expansion when no images found', async () => {
       // Mock internal methods to simulate finding nothing initially
-      jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
-      jest.spyOn(ImageCollector, '_collectFromContent').mockReturnValue([]);
-      jest.spyOn(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
-      jest.spyOn(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      trackSpy(ImageCollector, '_collectFromContent').mockReturnValue([]);
+      trackSpy(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
 
-      const expansionSpy = jest
-        .spyOn(ImageCollector, '_collectFromExpansion')
-        .mockImplementation(images => {
+      const expansionSpy = trackSpy(ImageCollector, '_collectFromExpansion').mockImplementation(
+        images => {
           const img = document.createElement('img');
           img.src = 'https://example.com/expansion.jpg';
           images.push(img);
-        });
+        }
+      );
 
       // Mock process images to return what we found
-      jest
-        .spyOn(ImageCollector, '_processImages')
-        .mockImplementation((inputImages, _, outputImages) => {
+      trackSpy(ImageCollector, '_processImages').mockImplementation(
+        (inputImages, _, outputImages) => {
           inputImages.forEach(img => {
             outputImages.push({
               object: 'block',
@@ -800,7 +808,8 @@ describe('ImageCollector', () => {
               image: { external: { url: img.src } },
             });
           });
-        });
+        }
+      );
 
       const contentElement = document.createElement('div');
       const result = await ImageCollector.collectAdditionalImages(contentElement);
@@ -891,7 +900,7 @@ describe('ImageCollector', () => {
       const img1 = document.createElement('img');
       const processedUrls = new Set(['https://example.com/seen.jpg']);
 
-      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(() => {
+      trackSpy(ImageCollector, 'processImageForCollection').mockImplementation(() => {
         return { image: { external: { url: 'https://example.com/seen.jpg' } } };
       });
 
@@ -903,8 +912,6 @@ describe('ImageCollector', () => {
     });
 
     test('_processImages native batch behaviors success case', async () => {
-      jest.restoreAllMocks(); // use native batch process calls
-
       const img1 = document.createElement('img');
       img1.src = 'https://example.com/b1.jpg';
       Object.defineProperty(img1, 'naturalWidth', { value: 800 });
@@ -915,24 +922,9 @@ describe('ImageCollector', () => {
         { image: { external: { url: 'https://example.com/existing.jpg' } } },
       ];
 
-      // We need to bypass actual extractImageSrc failures
-      // Since jest is restored, we need to mock just what we need:
-      const extractImgSpy = jest.spyOn(
-        require('../../../../scripts/utils/imageUtils.js'),
-        'extractImageSrc'
-      );
-      extractImgSpy.mockReturnValue('https://example.com/b1.jpg');
-
-      const isValidSpy = jest.spyOn(
-        require('../../../../scripts/utils/imageUtils.js'),
-        'isValidCleanedImageUrl'
-      );
-      isValidSpy.mockReturnValue(true);
-
-      // Force mock batchProcessWithRetry locally
-      const perfOpt = require('../../../../scripts/performance/PerformanceOptimizer.js');
-      jest.spyOn(perfOpt, 'batchProcessWithRetry').mockImplementation(async (items, processFn) => {
-        // execute processFn over the items to hit line 608 callbacks
+      extractImageSrc.mockReturnValue('https://example.com/b1.jpg');
+      isValidCleanedImageUrl.mockReturnValue(true);
+      batchProcessWithRetry.mockImplementation(async (items, processFn) => {
         const results = items.map(item => processFn(item));
         return { results, meta: {} };
       });
@@ -949,7 +941,7 @@ describe('ImageCollector', () => {
     test('_processImages handles simple batch fallback if retry throws', async () => {
       // By replacing the implementation, we can ensure error block happens
       batchProcessWithRetry.mockRejectedValue(new Error('Batch Failed'));
-      const seqSpy = jest.spyOn(ImageCollector, 'processImagesSequentially');
+      const seqSpy = trackSpy(ImageCollector, 'processImagesSequentially');
 
       const allImages = Array.from({ length: 6 }).fill(document.createElement('img'));
       await ImageCollector._processImages(allImages, 'https://example.com/feat.jpg', []);

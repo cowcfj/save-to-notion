@@ -1,6 +1,7 @@
-import { createSpriteIcon, injectIcons } from '../../../scripts/utils/uiUtils.js';
-import Logger from '../../../scripts/utils/Logger.js';
-import { validateSafeSvg } from '../../../scripts/utils/securityUtils.js';
+let createSpriteIcon;
+let injectIcons;
+let Logger;
+let validateSafeSvg;
 
 jest.mock('../../../scripts/utils/securityUtils.js', () => ({
   validateSafeSvg: jest.fn().mockReturnValue(true),
@@ -8,26 +9,45 @@ jest.mock('../../../scripts/utils/securityUtils.js', () => ({
 }));
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
+  __esModule: true,
+  default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+  },
 }));
 
+const loadUiUtilsModules = () => {
+  ({ default: Logger } = require('../../../scripts/utils/Logger.js'));
+  ({ validateSafeSvg } = require('../../../scripts/utils/securityUtils.js'));
+  ({ createSpriteIcon, injectIcons } = require('../../../scripts/utils/uiUtils.js'));
+};
+
 describe('uiUtils', () => {
+  beforeAll(() => {
+    if (typeof document === 'undefined') {
+      const { JSDOM } = require('jsdom');
+      const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+      globalThis.document = dom.window.document;
+    }
+    if (globalThis.CSS === undefined) {
+      globalThis.CSS = { escape: str => str };
+    }
+  });
+
   describe('createSpriteIcon', () => {
-    // 模擬 DOM 環境（如果測試環境沒有提供的話）
-    beforeAll(() => {
-      if (typeof document === 'undefined') {
-        const { JSDOM } = require('jsdom');
-        const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
-        globalThis.document = dom.window.document;
-      }
-      if (globalThis.CSS === undefined) {
-        globalThis.CSS = { escape: str => str };
-      }
+    beforeEach(() => {
+      jest.resetModules();
+      loadUiUtilsModules();
+      jest.clearAllMocks();
     });
 
-    it('應該為傳入的名稱生成帶有 icon- 前綴的小寫 href', () => {
+    it('應為傳入名稱產生帶有 icon- 前綴的小寫 href', () => {
       const iconName = 'GENERAL';
       const svg = createSpriteIcon(iconName);
       const use = svg.querySelector('use');
@@ -36,7 +56,7 @@ describe('uiUtils', () => {
       expect(use.getAttribute('href')).toBe('#icon-general');
     });
 
-    it('應該支援已經是小寫的名稱', () => {
+    it('應支援已經是小寫的名稱', () => {
       const iconName = 'trash';
       const svg = createSpriteIcon(iconName);
       const use = svg.querySelector('use');
@@ -44,7 +64,7 @@ describe('uiUtils', () => {
       expect(use.getAttribute('href')).toBe('#icon-trash');
     });
 
-    it('應該支援混合大小寫的名稱', () => {
+    it('應支援混合大小寫的名稱', () => {
       const iconName = 'SaveIcon';
       const svg = createSpriteIcon(iconName);
       const use = svg.querySelector('use');
@@ -52,7 +72,7 @@ describe('uiUtils', () => {
       expect(use.getAttribute('href')).toBe('#icon-saveicon');
     });
 
-    it('應該處理無效的名稱輸入', () => {
+    it('應處理無效的名稱輸入', () => {
       const svg1 = createSpriteIcon(null);
       const use1 = svg1.querySelector('use');
       expect(use1).toBeNull();
@@ -71,27 +91,41 @@ describe('uiUtils', () => {
 
   describe('injectIcons', () => {
     beforeEach(() => {
+      jest.resetModules();
+      loadUiUtilsModules();
       document.body.innerHTML = '';
       jest.clearAllMocks();
-      // Need to reset the internal module variables by redefining the module or just clearing DOM since the script stores __pendingSpriteContainer. Wait, it clears __pendingSpriteContainer on DOM mount.
       Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
     });
 
-    it('should handle undefined or invalid icons object', () => {
-      injectIcons(null);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        'Invalid icons object provided to injectIcons',
-        expect.any(Object)
-      );
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
 
+    it('應處理 undefined 或無效的 icons 物件', () => {
+      injectIcons(null);
       injectIcons('string');
-      expect(Logger.warn).toHaveBeenCalledWith(
+
+      expect(Logger.warn).toHaveBeenCalledTimes(2);
+      expect(Logger.warn).toHaveBeenNthCalledWith(
+        1,
         'Invalid icons object provided to injectIcons',
-        expect.any(Object)
+        expect.objectContaining({
+          action: 'injectIcons',
+          icons: null,
+        })
+      );
+      expect(Logger.warn).toHaveBeenNthCalledWith(
+        2,
+        'Invalid icons object provided to injectIcons',
+        expect.objectContaining({
+          action: 'injectIcons',
+          icons: 'string',
+        })
       );
     });
 
-    it('should inject successful basic SVG icons and maintain idempotency', () => {
+    it('應成功注入基礎 SVG icon，且保持冪等', () => {
       const icons = {
         test: '<svg width="24" height="24"><path d="M1 1"/></svg>',
       };
@@ -109,14 +143,13 @@ describe('uiUtils', () => {
       expect(symbol).not.toBeNull();
       expect(symbol.querySelector('path').getAttribute('d')).toBe('M1 1');
 
-      // Idempotency check: run again
       injectIcons(icons);
       const symbols = defs.querySelectorAll('#icon-test');
-      expect(symbols).toHaveLength(1); // Should not duplicate
+      expect(symbols).toHaveLength(1);
     });
 
-    it('should block unsafe SVGs', () => {
-      validateSafeSvg.mockReturnValueOnce(false); // Force unsafe return
+    it('應阻擋不安全的 SVG', () => {
+      validateSafeSvg.mockReturnValueOnce(false);
 
       const icons = {
         bad: '<script>alert("xss")</script><svg></svg>',
@@ -124,21 +157,24 @@ describe('uiUtils', () => {
 
       injectIcons(icons);
 
-      // Defs might exist if created before, but shouldn't have icon-bad
       const sprite = document.querySelector('#svg-sprite-definitions');
       const defs = sprite ? sprite.querySelector('defs') : null;
       if (defs) {
         expect(defs.querySelector('#icon-bad')).toBeNull();
       }
 
-      expect(Logger.warn).toHaveBeenCalledWith(
+      expect(Logger.warn).toHaveBeenCalledTimes(1);
+      expect(Logger.warn).toHaveBeenNthCalledWith(
+        1,
         'Blocked unsafe SVG icon during injection',
-        expect.any(Object)
+        expect.objectContaining({
+          action: 'injectIcons',
+          key: 'bad',
+        })
       );
     });
 
-    it('should merge with existing sprite container and build missing defs', () => {
-      // Create existing sprite container WITHOUT defs
+    it('應與既有 sprite 容器合併，並補上缺少的 defs', () => {
       const existingSprite = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       existingSprite.id = 'svg-sprite-definitions';
       document.body.append(existingSprite);
@@ -151,15 +187,14 @@ describe('uiUtils', () => {
 
       const sprite = document.querySelector('#svg-sprite-definitions');
       const defs = sprite.querySelector('defs');
-      expect(defs).not.toBeNull(); // It should have created defs
+      expect(defs).not.toBeNull();
       expect(defs.querySelector('#icon-merge')).not.toBeNull();
     });
 
-    it('should delay attachment if document is loading', () => {
+    it('當 document 尚在 loading 時應延後掛載', () => {
       Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true });
 
       const addEventSpy = jest.spyOn(document, 'addEventListener');
-
       const icons = {
         delay: '<svg><rect width="10"/></svg>',
       };
@@ -169,17 +204,17 @@ describe('uiUtils', () => {
       expect(addEventSpy).toHaveBeenCalledWith('DOMContentLoaded', expect.any(Function), {
         once: true,
       });
-      expect(document.querySelector('#svg-sprite-definitions')).toBeNull(); // Not attached yet
+      expect(document.querySelector('#svg-sprite-definitions')).toBeNull();
 
-      // Simulate DOMContentLoaded
       const eventHandler = addEventSpy.mock.calls.find(call => call[0] === 'DOMContentLoaded')[1];
       Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
       eventHandler();
 
       expect(document.querySelector('#svg-sprite-definitions')).not.toBeNull();
+      addEventSpy.mockRestore();
     });
 
-    it('should bypass scheduling if already scheduled and document is loading', () => {
+    it('當 document 尚在 loading 且已排程時應避免重複註冊', () => {
       Object.defineProperty(document, 'readyState', { value: 'loading', configurable: true });
 
       const addEventSpy = jest.spyOn(document, 'addEventListener');
@@ -187,31 +222,41 @@ describe('uiUtils', () => {
       injectIcons({ icon1: '<svg></svg>' });
       injectIcons({ icon2: '<svg></svg>' });
 
-      // Should only register the event listener once
       expect(addEventSpy).toHaveBeenCalledTimes(1);
 
-      // Simulate ready
       const eventHandler = addEventSpy.mock.calls.find(call => call[0] === 'DOMContentLoaded')[1];
       eventHandler();
 
       const defs = document.querySelector('#svg-sprite-definitions').querySelector('defs');
       expect(defs.querySelector('#icon-icon1')).not.toBeNull();
       expect(defs.querySelector('#icon-icon2')).not.toBeNull();
+      addEventSpy.mockRestore();
     });
 
-    it('should catch parsing errors for invalid structural SVG', () => {
-      const icons = {
-        // an SVG string that throws when trying to work with its nodes
-        error: '<<svg>>',
-      };
+    it('當 DOMParser 拋出例外時應記錄 Failed to parse icon', () => {
+      const parseSpy = jest.spyOn(DOMParser.prototype, 'parseFromString').mockImplementation(() => {
+        throw new Error('Parse failed');
+      });
 
-      // Since DOMParser rarely throws on invalid markup but creates a parseerror doc,
-      // it won't have an SVG element.
-      injectIcons(icons);
+      injectIcons({
+        error: '<svg><path d="M1 1"/></svg>',
+      });
 
-      const symbol = document.querySelector('#icon-error');
-      expect(symbol).toBeNull();
-      // Logger could be called depending on how the error is specifically caught, but actually missing <svg> just returns without throw, let's inject a real mock parser error
+      expect(document.querySelector('#icon-error')).toBeNull();
+
+      const parseWarning = Logger.warn.mock.calls.find(
+        ([message]) => message === 'Failed to parse icon'
+      );
+      expect(parseWarning).toBeDefined();
+      expect(parseWarning[1]).toEqual(
+        expect.objectContaining({
+          action: 'injectIcons',
+          key: 'error',
+          error: expect.any(Error),
+        })
+      );
+
+      parseSpy.mockRestore();
     });
   });
 });

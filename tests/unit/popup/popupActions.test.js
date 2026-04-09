@@ -214,8 +214,8 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(true);
     });
 
-    it('當 sendMessage 回傳 null / empty 時應該提供 fallback 回傳值', async () => {
-      chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    it.each([null, ''])('當 sendMessage 回傳 %p 時應該提供 fallback 回傳值', async response => {
+      chrome.runtime.sendMessage.mockResolvedValueOnce(response);
       const result = await savePage();
       expect(result.success).toBe(false);
       expect(result.error).toBe('No response');
@@ -245,8 +245,8 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(true);
     });
 
-    it('當 sendMessage 回傳 undefined 時應提供 fallback', async () => {
-      chrome.runtime.sendMessage.mockResolvedValueOnce(undefined);
+    it.each([undefined, null])('當 sendMessage 回傳 %p 時應提供 fallback', async response => {
+      chrome.runtime.sendMessage.mockResolvedValueOnce(response);
       const result = await startHighlight();
       expect(result.success).toBe(false);
       expect(result.error).toBe('No response');
