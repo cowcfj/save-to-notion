@@ -6,6 +6,7 @@ import {
   openNotionPage,
   getActiveTab,
 } from '../../../popup/popupActions.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 describe('popupActions.js', () => {
@@ -218,7 +219,7 @@ describe('popupActions.js', () => {
       chrome.runtime.sendMessage.mockResolvedValueOnce(response);
       const result = await savePage();
       expect(result.success).toBe(false);
-      expect(result.error).toBe('No response');
+      expect(result.error).toBe(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
     });
 
     it('當 sendMessage 拋例外時應該被捕捉並提供錯誤訊息', async () => {
@@ -249,7 +250,7 @@ describe('popupActions.js', () => {
       chrome.runtime.sendMessage.mockResolvedValueOnce(response);
       const result = await startHighlight();
       expect(result.success).toBe(false);
-      expect(result.error).toBe('No response');
+      expect(result.error).toBe(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
     });
 
     it('當 sendMessage 拋例外時應該被捕捉', async () => {

@@ -100,6 +100,8 @@ describe('uiUtils', () => {
 
     afterEach(() => {
       jest.clearAllMocks();
+      jest.restoreAllMocks();
+      delete globalThis.chrome;
     });
 
     it('應處理 undefined 或無效的 icons 物件', () => {

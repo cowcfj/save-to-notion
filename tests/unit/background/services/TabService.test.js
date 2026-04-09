@@ -1016,7 +1016,7 @@ describe('TabService', () => {
       service.setupListeners();
       const activatedCallback = chrome.tabs.onActivated.addListener.mock.calls[0][0];
 
-      await expect(activatedCallback({ tabId: 999, windowId: 1 })).resolves.not.toThrow();
+      await expect(activatedCallback({ tabId: 999, windowId: 1 })).resolves.toBeUndefined();
       expect(mockLogger.debug).toHaveBeenCalled();
     });
 

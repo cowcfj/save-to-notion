@@ -294,10 +294,7 @@ describe('InjectionService', () => {
         callback();
       });
 
-      // The try/catch around Promise.race will catch this if the Promise throws?
-      // Wait, Promise.race currently resolves with null if chrome.runtime.lastError is present.
-      // Ah! If it resolves with null, it will proceed to inject!
-      // But we can simulate `chrome.scripting.executeScript` also throwing `Receiving end does not exist`
+      // Promise.race 遇到 chrome.runtime.lastError 會 resolve(null)，因此需讓注入階段回報相同錯誤以覆蓋 recoverable path。
       chrome.scripting.executeScript.mockImplementation((opts, cb) => {
         chrome.runtime.lastError = { message: 'Receiving end does not exist' };
         cb();
@@ -310,7 +307,9 @@ describe('InjectionService', () => {
         expect.stringContaining('Bundle injection skipped'),
         expect.objectContaining({
           action: 'ensureBundleInjected',
-          error: expect.anything(),
+          error: expect.objectContaining({
+            message: expect.stringContaining('Receiving end does not exist'),
+          }),
         })
       );
     });
@@ -463,7 +462,7 @@ describe('InjectionService', () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => {
         cb([{ result: null }]);
       });
-      await expect(service.clearPageHighlights(1)).resolves.not.toThrow();
+      await expect(service.clearPageHighlights(1)).resolves.toBe(false);
       expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
         expect.objectContaining({
           func: expect.any(Function),

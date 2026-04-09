@@ -443,7 +443,7 @@ describe('MigrationExecutor Extended', () => {
     test('錯誤時應不拋出異常', async () => {
       mockChrome.storage.local.get.mockRejectedValue(new Error('Storage error'));
 
-      await expect(executor.cleanup()).resolves.not.toThrow();
+      await expect(executor.cleanup()).resolves.toBeUndefined();
     });
   });
 });

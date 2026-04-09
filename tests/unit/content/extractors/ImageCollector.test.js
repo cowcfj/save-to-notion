@@ -216,7 +216,13 @@ describe('ImageCollector', () => {
 
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
-      expect(Logger.log).toHaveBeenCalledWith('跳過側邊欄圖片', expect.any(Object));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '跳過側邊欄圖片',
+        expect.objectContaining({
+          action: 'collectFeaturedImage',
+          selector: '.featured-image img',
+        })
+      );
     });
 
     test('should return null when extractImageSrc is missing (DOM fallback)', () => {
@@ -882,7 +888,7 @@ describe('ImageCollector', () => {
           return [mockImg1, mockImg2];
         }
         if (selector === '.ad img') {
-          return [adEl];
+          return [mockImg2];
         }
         return [];
       });

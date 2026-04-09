@@ -10,6 +10,7 @@ import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securi
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/api.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+import { ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 
 /**
@@ -89,7 +90,7 @@ export async function checkPageStatus(options = {}) {
 export async function savePage() {
   try {
     const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
-    return response || { success: false, error: 'No response' };
+    return response || { success: false, error: ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE };
   } catch (error) {
     Logger.warn('savePage failed:', error);
     return { success: false, error: '無法儲存頁面，請稍後再試' };
@@ -104,7 +105,7 @@ export async function savePage() {
 export async function startHighlight() {
   try {
     const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.START_HIGHLIGHT });
-    return response || { success: false, error: 'No response' };
+    return response || { success: false, error: ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE };
   } catch (error) {
     Logger.warn('startHighlight failed:', error);
     return { success: false, error: '無法啟動標記模式，請稍後再試' };
