@@ -1,11 +1,12 @@
 # Test Data Schema & Fixtures
 
-此目錄存放測試用的靜態資源文件（HTML, Images, large JSON payloads 等）。
+此目錄存放提供給 Agent 參考的靜態資料範例與 schema 說明。
+真正會被自動化測試直接讀取的 fixture，應放在 `tests/fixtures/`。
 
 ## 用途
 
-- **HTML Snippets**: 用於測試 DOM 解析與 Content Script 邏輯 (e.g., `parser_article_content.html`).
-- **Large API Responses**: 用於測試大數據量的 API 處理 (e.g., `notion_api/blocks.json`).
+- **Reference Examples**: 提供 Agent 理解資料形狀與 fixture 類型的參考。
+- **Large API Responses**: 可保留供 Agent 參考的 Notion API 結構範例 (e.g., `notion_api/blocks.json`).
 
 ## 測試 Fixture 結構參考
 

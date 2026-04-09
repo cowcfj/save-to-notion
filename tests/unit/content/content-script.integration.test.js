@@ -6,12 +6,18 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { execSync } = require('node:child_process');
+const childProcess = require('node:child_process');
 
 const BUILD_TIMEOUT_MS = 60_000;
 const TEST_TIMEOUT_MS = 10_000;
 const POLL_RETRY_COUNT = 30;
 const POLL_INTERVAL_MS = 200;
+const PROJECT_ROOT = path.resolve(__dirname, '../../../');
+const CONTENT_BUNDLE_PATH = path.resolve(PROJECT_ROOT, 'dist/content.bundle.js');
+const CONTENT_TEST_PAGE_FIXTURE_PATH = path.resolve(
+  PROJECT_ROOT,
+  'tests/fixtures/html/content-script.integration.test-page.html'
+);
 
 function createExecutionContext(
   browserWindow,
@@ -69,6 +75,66 @@ async function waitForExtractionResult(executionContext, browserWindow) {
   return null;
 }
 
+function ensureFreshContentBundle() {
+  fs.rmSync(CONTENT_BUNDLE_PATH, { force: true });
+
+  try {
+    // 在專案根目錄執行建置指令
+    // eslint-disable-next-line sonarjs/no-os-command-from-path
+    childProcess.execSync('npm run build:content', {
+      stdio: 'pipe',
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8',
+      shell: true,
+    });
+  } catch (error) {
+    const stdout = typeof error.stdout === 'string' ? error.stdout.trim() : '';
+    const stderr = typeof error.stderr === 'string' ? error.stderr.trim() : '';
+    const details = [
+      error.message,
+      error.stack,
+      stdout && `stdout:\n${stdout}`,
+      stderr && `stderr:\n${stderr}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    throw new Error(`建置 content bundle 失敗：\n${details}`, { cause: error });
+  }
+}
+
+function loadContentTestPageHtml() {
+  return fs.readFileSync(CONTENT_TEST_PAGE_FIXTURE_PATH, 'utf8').trim();
+}
+
+describe('內容腳本整合測試輔助函式', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('ensureFreshContentBundle 應刪除舊 bundle 並重新建置', () => {
+    const rmSyncSpy = jest.spyOn(fs, 'rmSync').mockImplementation(() => undefined);
+    const execSyncSpy = jest.spyOn(childProcess, 'execSync').mockImplementation(() => '');
+
+    ensureFreshContentBundle();
+
+    expect(rmSyncSpy).toHaveBeenCalledWith(CONTENT_BUNDLE_PATH, { force: true });
+    expect(execSyncSpy).toHaveBeenCalledWith(
+      'npm run build:content',
+      expect.objectContaining({
+        cwd: PROJECT_ROOT,
+        encoding: 'utf8',
+        shell: true,
+        stdio: 'pipe',
+      })
+    );
+  });
+
+  test('loadContentTestPageHtml 應從 references fixture 讀取 HTML', () => {
+    expect(loadContentTestPageHtml()).toContain('<title>Test Page</title>');
+  });
+});
+
 describe('內容腳本整合測試', () => {
   let chromeMock;
   let loggerMock;
@@ -124,39 +190,13 @@ describe('內容腳本整合測試', () => {
 
   // 確保測試執行前已存在 bundle
   beforeAll(() => {
-    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
-    if (!fs.existsSync(scriptPath)) {
-      try {
-        // 在專案根目錄執行建置指令
-        // eslint-disable-next-line sonarjs/no-os-command-from-path
-        execSync('npm run build:content', {
-          stdio: 'pipe',
-          cwd: path.resolve(__dirname, '../../../'),
-          encoding: 'utf8',
-          shell: true,
-        });
-      } catch (error) {
-        const stdout = typeof error.stdout === 'string' ? error.stdout.trim() : '';
-        const stderr = typeof error.stderr === 'string' ? error.stderr.trim() : '';
-        const details = [
-          error.message,
-          error.stack,
-          stdout && `stdout:\n${stdout}`,
-          stderr && `stderr:\n${stderr}`,
-        ]
-          .filter(Boolean)
-          .join('\n\n');
-
-        throw new Error(`建置 content bundle 失敗：\n${details}`, { cause: error });
-      }
-    }
+    ensureFreshContentBundle();
   }, BUILD_TIMEOUT_MS);
 
   test(
     '當 window.__UNIT_TESTING__ 為 true 時執行 content.js 並暴露提取結果',
     async () => {
-      const html =
-        '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
+      const html = loadContentTestPageHtml();
 
       document.documentElement.innerHTML = html;
       const browserWindow = globalThis.window;

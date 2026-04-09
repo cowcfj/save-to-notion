@@ -33,6 +33,10 @@ reviews:
         1. Language: All user-facing UI text, strings, and messages MUST be in Traditional Chinese (zh-TW).
         2. Architecture: Follow the defined storage structures and specs. Do not introduce unauthorized storage fields.
         3. Code Quality: Avoid N+1 issues, blocking operations, and ensure high code quality. Suggest optimizations that follow modern JavaScript/Chrome Extension best practices.
+    - path: 'tests/**/*'
+      instructions: |
+        # Test Specific Guidelines
+        1. Magic Numbers / Hardcoded Literals: Do not suggest extracting hardcoded numbers or strings into separate constant files. Assertions, mocks, and fixtures should use inline literals to maximize test readability and isolation (DAMP over DRY).
 
   finishing_touches:
     unit_tests:
