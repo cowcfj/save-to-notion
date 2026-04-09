@@ -7,29 +7,26 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 
-describe('content script integration test', () => {
+describe('內容腳本整合測試', () => {
   // Ensure bundle exists before running tests
   beforeAll(() => {
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
     if (!fs.existsSync(scriptPath)) {
-      console.log('⚠️ Content bundle not found. Building it now for integration test...');
       try {
         // Execute build command in project root
         // eslint-disable-next-line sonarjs/no-os-command-from-path
         execSync('npm run build:content', {
-          stdio: 'inherit',
+          stdio: 'ignore',
           cwd: path.resolve(__dirname, '../../../'),
           shell: true,
         });
-        console.log('✅ Content bundle built successfully.');
       } catch (error) {
-        console.error('❌ Failed to build content bundle:', error);
-        throw error;
+        throw new Error(`Failed to build content bundle: ${error.message}`);
       }
     }
   }, 60_000); // Increase timeout for build
 
-  test('runs content.js and exposes result when window.__UNIT_TESTING__ is true', async () => {
+  test('當 window.__UNIT_TESTING__ 為 true 時執行 content.js 並暴露提取結果', async () => {
     const html =
       '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
 

@@ -405,6 +405,33 @@ describe('NotionService', () => {
       expect(result.addedCount).toBe(100);
       expect(result.error).toBe('validation_error');
     });
+
+    it('應該從指定索引開始處理', async () => {
+      globalThis.fetch.mockResolvedValue({
+        ...mockFetchResponse,
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
+
+      const promise = service.appendBlocksInBatches('page-123', blocks, 50);
+
+      // 快進時間以處理批次間的延遲
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      const result = await promise;
+
+      expect(result.success).toBe(true);
+      expect(result.addedCount).toBe(100); // 150 - 50 = 100
+      expect(result.totalCount).toBe(100);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // 100 items fits in 1 batch
+
+      // Verify skip first 50 items
+      const fetchArg = globalThis.fetch.mock.calls[0][1];
+      const reqBody = JSON.parse(fetchArg.body);
+      expect(reqBody.children[0].id).toBe(50);
+    });
   });
 
   describe('createPage', () => {
@@ -535,7 +562,7 @@ describe('NotionService', () => {
   });
 
   describe('buildPageData', () => {
-    it('should build page data for data_source type', () => {
+    it('應該為 data_source 類型構建頁面資料', () => {
       const result = service.buildPageData({
         title: 'Test Page',
         pageUrl: 'https://example.com',
@@ -550,7 +577,7 @@ describe('NotionService', () => {
       expect(result.pageData.properties.URL.url).toBe('https://example.com');
     });
 
-    it('should build page data for database type via data_source_id parent', () => {
+    it('應該透過 data_source_id 父節點為 database 類型構建頁面資料', () => {
       const result = service.buildPageData({
         title: 'Database Parent',
         pageUrl: 'https://example.com',
@@ -563,7 +590,7 @@ describe('NotionService', () => {
       expect(result.pageData.parent.data_source_id).toBe('db-456');
     });
 
-    it('should build page data for page type', () => {
+    it('應該為 page 類型構建頁面資料', () => {
       const result = service.buildPageData({
         title: 'Child Page',
         pageUrl: 'https://example.com',
@@ -576,7 +603,7 @@ describe('NotionService', () => {
       expect(result.pageData.parent.page_id).toBe('page-456');
     });
 
-    it('should add site icon when provided', () => {
+    it('當提供時應該加入網站圖示', () => {
       const result = service.buildPageData({
         title: 'With Icon',
         pageUrl: 'https://example.com',
@@ -591,7 +618,7 @@ describe('NotionService', () => {
       });
     });
 
-    it('should include all image blocks and return valid page data', () => {
+    it('應該包含所有圖片區塊並回傳有效的頁面資料', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },
         { type: 'image', image: { external: { url: 'sftp://invalid.com/img.jpg' } } },
@@ -608,7 +635,7 @@ describe('NotionService', () => {
       expect(result.pageData.children).toHaveLength(2);
     });
 
-    it('should limit children to BATCH_SIZE', () => {
+    it('子區塊數量不應超過配置的 BATCH_SIZE', () => {
       const blocks = Array.from({ length: 150 })
         .fill(null)
         .map(() => ({ type: 'paragraph', paragraph: { rich_text: [] } }));
@@ -623,7 +650,7 @@ describe('NotionService', () => {
       expect(result.pageData.children).toHaveLength(100);
     });
 
-    it('should use default values for missing options', () => {
+    it('針對缺失的選項應使用預設值', () => {
       const result = service.buildPageData({
         dataSourceId: 'db-123',
       });
@@ -639,7 +666,7 @@ describe('NotionService', () => {
     // Note: global fetch context is already managed by outer describe block
     // No need to redeclare or manage originalFetch here
 
-    it('should return error when delete fails', async () => {
+    it('當刪除失敗時應該回傳錯誤', async () => {
       // Mock deleteAllBlocks 失敗
       service.deleteAllBlocks = jest.fn().mockResolvedValue({
         success: false,
@@ -655,7 +682,7 @@ describe('NotionService', () => {
       expect(result.details.phase).toBe('delete_existing');
     });
 
-    it('should update title when option is set', async () => {
+    it('當設定了選項時應該更新標題', async () => {
       service.updatePageTitle = jest.fn().mockResolvedValue({ success: true });
       service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
       service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 2 });
@@ -672,7 +699,7 @@ describe('NotionService', () => {
       );
     });
 
-    it('should return success with counts on completion', async () => {
+    it('完成時應該回傳成功狀態及數量', async () => {
       service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
       service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 3 });
 
@@ -684,7 +711,7 @@ describe('NotionService', () => {
       expect(result.deletedCount).toBe(5);
     });
 
-    it('should handle exceptions gracefully', async () => {
+    it('應該優雅地處理例外狀況', async () => {
       service.deleteAllBlocks = jest.fn().mockRejectedValue(new Error('Network error'));
 
       const promise = service.refreshPageContent('page-123', []);
@@ -1021,7 +1048,7 @@ describe('NotionService', () => {
     });
   });
 
-  describe('Internal Methods and Edge Cases', () => {
+  describe('內部方法與邊界情況', () => {
     describe('_getScopedClient', () => {
       it('應該優先使用傳入的 client', () => {
         const mockClient = { request: jest.fn() };
@@ -1206,7 +1233,7 @@ describe('NotionService', () => {
       });
     });
 
-    describe('search and filtering', () => {
+    describe('搜尋與過濾', () => {
       it('應該成功執行搜索', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ results: [] }));
         await service.search({ query: 'test' });
@@ -1271,7 +1298,7 @@ describe('NotionService', () => {
       });
     });
 
-    describe('createPage autoBatch', () => {
+    describe('建立頁面自動批次處理', () => {
       it('應該在分批添加失敗時記錄警告', async () => {
         globalThis.fetch
           .mockResolvedValueOnce(createMockResponse({ id: 'id' }))
@@ -1288,7 +1315,7 @@ describe('NotionService', () => {
       });
     });
 
-    describe('updatePageTitle Error Handling', () => {
+    describe('更新頁面標題錯誤處理', () => {
       it('應該處理更新失敗並記錄錯誤', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
         await service.updatePageTitle('id', 'Title');
@@ -1299,7 +1326,7 @@ describe('NotionService', () => {
       });
     });
 
-    describe('deleteAllBlocks Warn Handling', () => {
+    describe('刪除所有區塊警告處理', () => {
       it('應該在部分失敗時記錄警告', async () => {
         service._fetchPageBlocks = jest
           .fn()
@@ -1315,7 +1342,7 @@ describe('NotionService', () => {
       });
     });
 
-    describe('refreshPageContent Warn Handling', () => {
+    describe('更新頁面內容警告處理', () => {
       it('應該在標題更新失敗時記錄警告', async () => {
         service.updatePageTitle = jest.fn().mockResolvedValue({ success: false });
         service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true });
@@ -1328,7 +1355,7 @@ describe('NotionService', () => {
       });
     });
 
-    describe('updateHighlightsSection Warn Handling', () => {
+    describe('更新標記區塊警告處理', () => {
       it('應該在刪除標記失敗時記錄警告', async () => {
         service._fetchPageBlocks = jest.fn().mockResolvedValue({ success: true, blocks: [] });
         service._deleteBlocksByIds = jest
