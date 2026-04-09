@@ -303,7 +303,10 @@ describe('InjectionService', () => {
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Bundle injection skipped'),
-        expect.any(Object)
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          error: expect.anything(),
+        })
       );
     });
 
