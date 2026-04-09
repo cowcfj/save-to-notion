@@ -30,6 +30,11 @@ import { NOTION_API } from '../../../../scripts/config/api.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
+const TOTAL_BLOCKS = 150;
+const BATCH_SIZE = 50;
+const EXPECTED_ADDED = TOTAL_BLOCKS - BATCH_SIZE;
+const TIMER_ADVANCE_MS = 10_000;
+
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
   status,
@@ -413,24 +418,50 @@ describe('NotionService', () => {
         json: () => Promise.resolve({}),
       });
 
-      const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
+      const blocks = Array.from({ length: TOTAL_BLOCKS }, (_, i) => ({ type: 'paragraph', id: i }));
 
-      const promise = service.appendBlocksInBatches('page-123', blocks, 50);
+      const promise = service.appendBlocksInBatches('page-123', blocks, BATCH_SIZE);
 
       // 快進時間以處理批次間的延遲
-      await jest.advanceTimersByTimeAsync(10_000);
+      await jest.advanceTimersByTimeAsync(TIMER_ADVANCE_MS);
 
       const result = await promise;
 
       expect(result.success).toBe(true);
-      expect(result.addedCount).toBe(100); // 150 - 50 = 100
-      expect(result.totalCount).toBe(100);
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // 100 個項目剛好只需 1 個批次
+      expect(result.addedCount).toBe(EXPECTED_ADDED);
+      expect(result.totalCount).toBe(EXPECTED_ADDED);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // EXPECTED_ADDED 個項目剛好只需 1 個批次
 
-      // 驗證已略過前 50 個項目
+      // 驗證已略過前 BATCH_SIZE 個項目
       const fetchArg = globalThis.fetch.mock.calls[0][1];
       const reqBody = JSON.parse(fetchArg.body);
-      expect(reqBody.children[0].id).toBe(50);
+      expect(reqBody.children[0].id).toBe(BATCH_SIZE);
+    });
+
+    it('startIndex 等於 blocks.length 時應回傳空結果且不發送請求', async () => {
+      const blocks = Array.from({ length: TOTAL_BLOCKS }, (_, i) => ({ type: 'paragraph', id: i }));
+
+      const promise = service.appendBlocksInBatches('page-123', blocks, blocks.length);
+      await jest.advanceTimersByTimeAsync(TIMER_ADVANCE_MS);
+      const result = await promise;
+
+      expect(result.success).toBe(true);
+      expect(result.addedCount).toBe(0);
+      expect(result.totalCount).toBe(0);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('startIndex 大於 blocks.length 時應回傳空結果且不發送請求', async () => {
+      const blocks = Array.from({ length: TOTAL_BLOCKS }, (_, i) => ({ type: 'paragraph', id: i }));
+
+      const promise = service.appendBlocksInBatches('page-123', blocks, blocks.length + 1);
+      await jest.advanceTimersByTimeAsync(TIMER_ADVANCE_MS);
+      const result = await promise;
+
+      expect(result.success).toBe(true);
+      expect(result.addedCount).toBe(0);
+      expect(result.totalCount).toBe(0);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
 

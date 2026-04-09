@@ -5,9 +5,71 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { execSync } = require('node:child_process');
 
 describe('內容腳本整合測試', () => {
+  let chromeMock;
+  let loggerMock;
+
+  beforeEach(() => {
+    const sendMessage = jest.fn();
+    const onMessageAddListener = jest.fn();
+    const storageSyncGet = jest.fn((keys, cb) => {
+      const result = {};
+      cb(result);
+    });
+    const storageOnChangedAddListener = jest.fn();
+
+    chromeMock = {
+      runtime: {
+        id: 'test-extension-id',
+        getManifest: () => ({ version: '1.0.0-dev' }),
+        sendMessage,
+        onMessage: { addListener: onMessageAddListener },
+      },
+      storage: {
+        sync: {
+          get: storageSyncGet,
+        },
+        onChanged: {
+          addListener: storageOnChangedAddListener,
+        },
+      },
+    };
+
+    loggerMock = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      success: jest.fn(),
+    };
+
+    globalThis.chrome = chromeMock;
+    globalThis.Logger = loggerMock;
+
+    if (globalThis.window) {
+      globalThis.window.chrome = chromeMock;
+      globalThis.window.Logger = loggerMock;
+    }
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+
+    if (globalThis.window) {
+      delete globalThis.window.chrome;
+      delete globalThis.window.Logger;
+    }
+
+    delete globalThis.chrome;
+    delete globalThis.Logger;
+  });
+
   // 確保測試執行前已存在 bundle
   beforeAll(() => {
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
@@ -45,25 +107,6 @@ describe('內容腳本整合測試', () => {
     document.documentElement.innerHTML = html;
     const window = globalThis.window;
 
-    // 注入 chrome mock 到 JSDOM window 以啟用 Logger
-    window.chrome = {
-      runtime: {
-        id: 'test-extension-id',
-        getManifest: () => ({ version: '1.0.0-dev' }), // 啟用偵錯日誌
-        sendMessage: jest.fn(),
-        onMessage: { addListener: jest.fn() },
-      },
-      storage: {
-        sync: {
-          get: (keys, cb) => {
-            const result = {};
-            cb(result);
-          },
-          onChanged: { addListener: jest.fn() },
-        },
-      },
-    };
-
     // 最小化的 Readability mock，回傳解析後內容
     window.Readability = function (doc) {
       // Null 安全：使用傳入的 doc 或 fallback 到 window.document
@@ -91,23 +134,42 @@ describe('內容腳本整合測試', () => {
     // 標記為單元測試模式，讓 content.js 將結果暴露到 window
     window.__UNIT_TESTING__ = true;
 
-    window.Logger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      log: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-      success: jest.fn(),
-    };
-
     // 載入腳本檔案內容並在 window 中執行
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
     const scriptCode = fs.readFileSync(scriptPath, 'utf8');
 
-    // eslint-disable-next-line security/detect-eval-with-expression
-    eval(scriptCode);
+    const executionContext = vm.createContext(
+      Object.assign(Object.create(globalThis), {
+        window,
+        self: window,
+        document: window.document,
+        location: window.location,
+        navigator: window.navigator,
+        CustomEvent: window.CustomEvent,
+        Event: window.Event,
+        Node: window.Node,
+        Element: window.Element,
+        HTMLElement: window.HTMLElement,
+        Document: window.Document,
+        DOMParser: window.DOMParser,
+        XMLSerializer: window.XMLSerializer,
+        MutationObserver: window.MutationObserver,
+        URL: window.URL,
+        URLSearchParams: window.URLSearchParams,
+        addEventListener: window.addEventListener.bind(window),
+        removeEventListener: window.removeEventListener.bind(window),
+        dispatchEvent: window.dispatchEvent.bind(window),
+        getComputedStyle: window.getComputedStyle.bind(window),
+        setTimeout: window.setTimeout.bind(window),
+        clearTimeout: window.clearTimeout.bind(window),
+        chrome: chromeMock,
+        Logger: loggerMock,
+        Readability: window.Readability,
+        ImageUtils: window.ImageUtils,
+        __UNIT_TESTING__: true,
+      })
+    );
+    vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
 
     // 輪詢等待腳本執行完成，並設定 window.__notion_extraction_result
     /** @type {*} 提取結果,在輪詢循環中初始化 */
