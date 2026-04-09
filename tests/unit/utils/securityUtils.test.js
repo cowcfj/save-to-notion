@@ -80,7 +80,6 @@ describe('securityUtils', () => {
     });
 
     test('HTTP 協議應返回 false（僅允許 HTTPS）', () => {
-       
       expect(isValidNotionUrl('http://notion.so')).toBe(false);
     });
 
@@ -803,11 +802,13 @@ describe('securityUtils', () => {
       expect(validateSafeDomElement('string', document)).toBe(false);
     });
 
-    test('元素不在 contextDocument 中應返回 false', () => {
-      const mockDoc = { ...document };
-      // Override ownerDocument in a generic way if possible, or use a pseudo-element
-      const mockEl = { nodeType: 1, isConnected: true, ownerDocument: mockDoc };
-      expect(validateSafeDomElement(mockEl, document)).toBe(false);
+    test('元素屬於另一個文件時應返回 false', () => {
+      const otherDocument = document.implementation.createHTMLDocument('Other Document');
+      const el = otherDocument.createElement('div');
+      otherDocument.body.append(el);
+
+      expect(el.isConnected).toBe(true);
+      expect(validateSafeDomElement(el, document)).toBe(false);
     });
 
     test('未連接到 DOM 樹 (isConnected = false) 應返回 false', () => {
