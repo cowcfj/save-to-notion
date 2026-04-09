@@ -42,13 +42,11 @@ describe('Background Notion Page Operations', () => {
 
         if (response.ok) {
           const pageData = await response.json();
-          console.log('✅ Notion 頁面存在:', pageId);
           return {
             exists: true,
             page: pageData,
           };
         } else if (response.status === 404) {
-          console.log('❌ Notion 頁面不存在:', pageId);
           return {
             exists: false,
             error: 'Page not found',
@@ -137,8 +135,6 @@ describe('Background Notion Page Operations', () => {
           return;
         }
 
-        console.log('🔗 打開 Notion 頁面:', url);
-
         chrome.tabs.create({ url }, tab => {
           if (chrome.runtime.lastError) {
             console.error('❌ 打開標籤頁失敗:', chrome.runtime.lastError);
@@ -147,7 +143,6 @@ describe('Background Notion Page Operations', () => {
               error: chrome.runtime.lastError.message,
             });
           } else {
-            console.log('✅ 成功打開 Notion 頁面');
             sendResponse({
               success: true,
               tabId: tab.id,
@@ -196,7 +191,6 @@ describe('Background Notion Page Operations', () => {
         exists: true,
         page: mockPageData,
       });
-      expect(console.log).toHaveBeenCalledWith('✅ Notion 頁面存在:', pageId);
     });
 
     test('應該正確處理不存在的頁面', async () => {
@@ -218,7 +212,6 @@ describe('Background Notion Page Operations', () => {
         exists: false,
         error: 'Page not found',
       });
-      expect(console.log).toHaveBeenCalledWith('❌ Notion 頁面不存在:', pageId);
     });
 
     test('應該處理 API 錯誤', async () => {
@@ -398,12 +391,10 @@ describe('Background Notion Page Operations', () => {
       handleOpenNotionPage(request, mockSendResponse);
 
       // Assert
-      expect(console.log).toHaveBeenCalledWith('🔗 打開 Notion 頁面:', request.url);
       expect(mockChrome.tabs.create).toHaveBeenCalledWith(
         { url: request.url },
         expect.any(Function)
       );
-      expect(console.log).toHaveBeenCalledWith('✅ 成功打開 Notion 頁面');
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: true,
         tabId: mockTab.id,
@@ -528,9 +519,6 @@ describe('Background Notion Page Operations', () => {
       handleOpenNotionPage(request, mockSendResponse);
 
       // Assert
-      expect(console.log).toHaveBeenCalledWith('🔗 打開 Notion 頁面:', url);
-      // 由於我們的 mock 實現中沒有調用第二個 console.log，我們只檢查基本功能
-      // 注意：這個測試可能會因為 mock 設置而失敗，我們簡化檢查
       expect(mockSendResponse).toHaveBeenCalled();
     });
   });
