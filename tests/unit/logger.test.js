@@ -27,19 +27,19 @@ describe('Logger', () => {
       start: jest.fn(),
       ready: jest.fn(),
       debug: (message, ...args) => {
-        console.log(`[DEBUG] ${message}`, ...args);
+        consoleSpy.log(`[DEBUG] ${message}`, ...args);
       },
 
       info: (message, ...args) => {
-        console.log(`[INFO] ${message}`, ...args);
+        consoleSpy.log(`[INFO] ${message}`, ...args);
       },
 
       warn: (message, ...args) => {
-        console.warn(`[WARN] ${message}`, ...args);
+        consoleSpy.warn(`[WARN] ${message}`, ...args);
       },
 
       error: (message, ...args) => {
-        console.error(`[ERROR] ${message}`, ...args);
+        consoleSpy.error(`[ERROR] ${message}`, ...args);
       },
     };
   });

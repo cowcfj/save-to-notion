@@ -9,8 +9,8 @@
   },
   "unit_testing": {
     "fixture_strategy": {
-      "location": ".agents/.shared/references/",
-      "rule": "ALWAYS reference data structures (HTML snippets, Notion JSON responses) from the references directory instead of hardcoding large payloads in test files.",
+      "location": "tests/fixtures/",
+      "rule": "ALWAYS reference external test fixtures (HTML snippets, large JSON payloads) from tests/fixtures/ instead of hardcoding large payloads in test files.",
       "notion_api": "Use `.agents/.shared/references/notion_api/` for Notion block structures and database properties."
     },
     "chrome_api_mocking": {
