@@ -336,11 +336,13 @@ describe('ErrorHandler.formatUserMessage', () => {
     mockLogger.debugEnabled = false;
     // 模擬 Notion SDK APIResponseError 的格式
     const sdkError = { code: 'object_not_found' };
-    const expectedMessage = ERROR_MESSAGES.PATTERNS.object_not_found || ERROR_MESSAGES.DEFAULT;
+    const expectedMessage = ERROR_MESSAGES.PATTERNS.object_not_found;
+    expect(expectedMessage).toBe('找不到目標頁面或資料庫，請確認資源存在且已授權');
     expect(ErrorHandler.formatUserMessage(sdkError)).toBe(expectedMessage);
   });
 
-  test('傳入空物件或 null 應返回預設友善訊息', () => {
+  test('傳入空物件（{}）、null 或 undefined 應返回預設友善訊息', () => {
+    expect(ErrorHandler.formatUserMessage({})).toBe(ERROR_MESSAGES.DEFAULT);
     expect(ErrorHandler.formatUserMessage(null)).toBe(ERROR_MESSAGES.DEFAULT);
     expect(ErrorHandler.formatUserMessage(undefined)).toBe(ERROR_MESSAGES.DEFAULT);
   });
