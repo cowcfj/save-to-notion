@@ -23,6 +23,7 @@ import {
   startHighlight,
   getActiveTab,
 } from '../../popup/popupActions.js';
+import { ERROR_MESSAGES } from '../../scripts/config/messages.js';
 
 describe('popupUI', () => {
   // DOM 元素 Mock
@@ -280,7 +281,7 @@ describe('startHighlight', () => {
     const result = await startHighlight();
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('No response');
+    expect(result.error).toBe(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
   });
 });
 

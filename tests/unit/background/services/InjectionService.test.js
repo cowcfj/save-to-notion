@@ -257,7 +257,12 @@ describe('InjectionService', () => {
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Bundle injection skipped'),
-        expect.objectContaining({ error: expect.anything() })
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          error: expect.objectContaining({
+            message: 'Cannot access contents of page',
+          }),
+        })
       );
     });
 
@@ -282,6 +287,62 @@ describe('InjectionService', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+    it('應在 PING 觸發 receiving end does not exist 時返回 false (可恢復錯誤)', async () => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = { message: 'Receiving end does not exist' };
+        callback();
+      });
+
+      // Promise.race 遇到 chrome.runtime.lastError 會 resolve(null)，因此需讓注入階段回報相同錯誤以覆蓋 recoverable path。
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Receiving end does not exist' };
+        cb();
+      });
+
+      const result = await service.ensureBundleInjected(1);
+
+      expect(result).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection skipped'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          error: expect.objectContaining({
+            message: expect.stringContaining('Receiving end does not exist'),
+          }),
+        })
+      );
+    });
+
+    it('應在 PING 拋出一般錯誤時往外拋出異常', async () => {
+      // 覆蓋 ensureBundleInjected 中不可恢復錯誤的測試路徑
+      chrome.tabs.sendMessage.mockImplementation(() => {
+        throw new Error('Fatal Native Error');
+      });
+
+      await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Native Error');
+    });
+
+    it('應在 injectAndExecute 內部拋出不可恢復異常時向外拋出', async () => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
+        callback();
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Fatal Extension Error' };
+        cb();
+      });
+
+      await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Extension Error');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection failed'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          error: expect.objectContaining({
+            message: 'Fatal Extension Error',
+          }),
+        })
+      );
     });
   });
 
@@ -385,6 +446,57 @@ describe('InjectionService', () => {
       // 除了 injectWithResponse 的 catch 外，injectAndExecute 內部設有 logErrors: false
       // 因此整個失敗流程只應產生一條 error 日誌
       expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Business Operations Wrappers', () => {
+    it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        cb([{ result: ['highlight1'] }]);
+      });
+      const result = await service.collectHighlights(1);
+      expect(result).toEqual(['highlight1']);
+    });
+
+    it('clearPageHighlights 應該觸發無文件的注射', async () => {
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        cb([{ result: null }]);
+      });
+      await expect(service.clearPageHighlights(1)).resolves.toBe(false);
+      expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
+        expect.objectContaining({
+          func: expect.any(Function),
+          target: expect.objectContaining({ tabId: 1 }),
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('injectHighlightRestore 應該注入特定的腳本', async () => {
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb([]));
+      await service.injectHighlightRestore(1);
+      expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
+        expect.objectContaining({ files: ['scripts/highlight-restore.js'] }),
+        expect.any(Function)
+      );
+    });
+
+    it('inject 應該觸發函數執行且不可返回結果，遇錯即拋', async () => {
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Fatal crash' };
+        cb();
+      });
+
+      await expect(service.inject(1, () => {})).rejects.toThrow('Fatal crash');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('[Injection] inject failed'),
+        expect.objectContaining({
+          action: 'inject',
+          error: expect.objectContaining({
+            message: 'Fatal crash',
+          }),
+        })
+      );
     });
   });
 });

@@ -484,7 +484,7 @@ describe('Background Tab Listeners', () => {
       const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
 
       // Act & Assert
-      await expect(listener(tabId, changeInfo, tab)).resolves.not.toThrow();
+      await expect(listener(tabId, changeInfo, tab)).resolves.toBeUndefined();
     });
 
     test('遷移函數應該處理存儲錯誤', async () => {
@@ -504,7 +504,7 @@ describe('Background Tab Listeners', () => {
       });
 
       // Act & Assert
-      await expect(migrateLegacyHighlights(tabId, normUrl, storageKey)).resolves.not.toThrow();
+      await expect(migrateLegacyHighlights(tabId, normUrl, storageKey)).resolves.toBeUndefined();
     });
   });
 });

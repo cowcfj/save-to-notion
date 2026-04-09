@@ -253,7 +253,7 @@ describe('popup.js Controller', () => {
     it('should tolerate missing clear-highlights UI controls', async () => {
       const { mockElements } = setup();
 
-      await expect(initPopup()).resolves.not.toThrow();
+      await expect(initPopup()).resolves.toBeUndefined();
 
       expect(mockElements.clearHighlightsButton).toBeNull();
       expect(mockElements.modal).toBeNull();

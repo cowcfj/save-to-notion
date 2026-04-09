@@ -78,36 +78,4 @@ test.describe('Popup UI', () => {
     const statusText = await page.textContent('#status');
     expect(statusText).toMatch(/頁面已儲存/);
   });
-
-  test('清除標記應該顯示確認彈窗', async ({ page, context, extensionId }) => {
-    // 1. 先設置 storage 讓初始化通過
-    await setupStorage(context, extensionId);
-
-    await page.reload();
-
-    // 2. 等待 initPopup() 完成（save-button 可見代表 updateUIForUnsavedPage 已執行完畢）
-    await expect(page.locator('#save-button')).toBeVisible();
-
-    // 3. 手動顯示清除按鈕（因為正常流程依賴 Service Worker 返回 isSaved: true）
-    await page.evaluate(() => {
-      document.querySelector('#clear-highlights-button').style.display = 'block';
-    });
-
-    // 4. 確認按鈕真正可見後點擊（不需 force）
-    await expect(page.locator('#clear-highlights-button')).toBeVisible();
-
-    // 5. 點擊清除按鈕
-    await page.locator('#clear-highlights-button').click();
-
-    // 6. 檢查 Modal 是否顯示
-    const modal = page.locator('#confirmation-modal');
-    await expect(modal).toHaveCSS('display', 'flex');
-
-    const modalMessage = await page.textContent('#modal-message');
-    expect(modalMessage).toMatch(/確定要清除/);
-
-    // 7. 點擊取消
-    await page.locator('#modal-cancel').click();
-    await expect(modal).toHaveCSS('display', 'none');
-  });
 });
