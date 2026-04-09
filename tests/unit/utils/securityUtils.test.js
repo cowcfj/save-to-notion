@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-clear-text-protocols */
 /**
  * securityUtils 單元測試
  *
@@ -17,8 +18,14 @@ import {
   validateSafeSvg,
   separateIconAndText,
   validateLogExportData,
+  validateSafeDomElement,
+  validatePreloaderCache,
+  isSafeSvgAttribute,
+  validateBackupData,
+  createSafeIcon,
 } from '../../../scripts/utils/securityUtils.js';
 import { maskSensitiveString } from '../../../scripts/utils/LogSanitizer.js';
+import { SECURITY_CONSTANTS } from '../../../scripts/config/app.js';
 
 describe('securityUtils', () => {
   describe('isValidUrl', () => {
@@ -73,7 +80,6 @@ describe('securityUtils', () => {
     });
 
     test('HTTP 協議應返回 false（僅允許 HTTPS）', () => {
-      // eslint-disable-next-line sonarjs/no-clear-text-protocols
       expect(isValidNotionUrl('http://notion.so')).toBe(false);
     });
 
@@ -786,6 +792,233 @@ describe('securityUtils', () => {
         mimeType: 'text/plain', // Wrong MIME
       };
       expect(() => validateLogExportData(invalidMime)).toThrow('Invalid MIME type');
+    });
+  });
+
+  describe('validateSafeDomElement', () => {
+    test('非 DOM 元素或無效類型應返回 false', () => {
+      expect(validateSafeDomElement(null, document)).toBe(false);
+      expect(validateSafeDomElement({}, document)).toBe(false);
+      expect(validateSafeDomElement('string', document)).toBe(false);
+    });
+
+    test('元素屬於另一個文件時應返回 false', () => {
+      const otherDocument = document.implementation.createHTMLDocument('Other Document');
+      const el = otherDocument.createElement('div');
+      otherDocument.body.append(el);
+
+      expect(el.isConnected).toBe(true);
+      expect(validateSafeDomElement(el, document)).toBe(false);
+    });
+
+    test('未連接到 DOM 樹 (isConnected = false) 應返回 false', () => {
+      const el = document.createElement('div');
+      // by default, a newly created element is disconnected
+      expect(validateSafeDomElement(el, document)).toBe(false);
+    });
+
+    test('選擇器不匹配應返回 false', () => {
+      const el = document.createElement('div');
+      document.body.append(el);
+      expect(validateSafeDomElement(el, document, '.my-class')).toBe(false);
+      el.remove();
+    });
+
+    test('合法且連接的 DOM 元素應返回 true', () => {
+      const el = document.createElement('div');
+      el.className = 'my-class';
+      document.body.append(el);
+      expect(validateSafeDomElement(el, document, '.my-class')).toBe(true);
+      el.remove();
+    });
+  });
+
+  describe('validatePreloaderCache', () => {
+    test('無效快取對象應返回 false', () => {
+      expect(validatePreloaderCache(null)).toBe(false);
+      expect(validatePreloaderCache('string')).toBe(false);
+    });
+
+    test('無效的時間戳 (NaN, Infinity, 字串) 應返回 false', () => {
+      expect(validatePreloaderCache({ timestamp: Number.NaN })).toBe(false);
+      expect(validatePreloaderCache({ timestamp: Infinity })).toBe(false);
+      expect(validatePreloaderCache({ timestamp: '123456789' })).toBe(false);
+    });
+
+    test('有效的時間戳應返回 true', () => {
+      expect(validatePreloaderCache({ timestamp: 1_612_345_678_901 })).toBe(true);
+    });
+  });
+
+  describe('isSafeSvgAttribute', () => {
+    let originalAllowed;
+    beforeEach(() => {
+      originalAllowed = [...SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS];
+      SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.push('href', 'src');
+    });
+    afterEach(() => {
+      SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS = originalAllowed;
+    });
+
+    test('on* 開頭的屬性應被拒絕', () => {
+      expect(isSafeSvgAttribute('onclick', 'alert(1)')).toBe(false);
+      expect(isSafeSvgAttribute('onmouseover', 'true')).toBe(false);
+    });
+
+    test('不在白名單內的屬性應被拒絕', () => {
+      expect(isSafeSvgAttribute('data-malicious', 'true')).toBe(false);
+      expect(isSafeSvgAttribute('unknown-attr', '123')).toBe(false);
+    });
+
+    test('白名單內的非 URL 屬性應被允許', () => {
+      expect(isSafeSvgAttribute('cx', '10')).toBe(true);
+      expect(isSafeSvgAttribute('fill', '#fff')).toBe(true);
+    });
+
+    test('href / src 包含 javascript: 協議應被拒絕', () => {
+      expect(isSafeSvgAttribute('href', 'javascript:alert(1)')).toBe(false);
+      expect(isSafeSvgAttribute('href', '  javascript: void 0;')).toBe(false);
+      expect(isSafeSvgAttribute('src', 'DATA:text/html,<html>')).toBe(false);
+    });
+
+    test('不安全的 URL 協議應被拒絕', () => {
+      expect(isSafeSvgAttribute('href', 'ftp://example.com/a.svg')).toBe(false);
+      expect(isSafeSvgAttribute('src', 'unknownproto:test')).toBe(false);
+      expect(isSafeSvgAttribute('href', 'data:image/svg+xml;base64,123')).toBe(false);
+    });
+
+    test('非法的 URL 字串應觸發 catch 並且拒絕', () => {
+      expect(isSafeSvgAttribute('href', 'http://%')).toBe(false);
+    });
+
+    test('安全的 URL 協議應被允許 (https, http, relative)', () => {
+      expect(isSafeSvgAttribute('href', 'https://example.com/icon.svg')).toBe(true);
+
+      expect(isSafeSvgAttribute('src', 'http://example.com/icon.svg')).toBe(true);
+      expect(isSafeSvgAttribute('src', '/relative/path.svg')).toBe(true);
+    });
+  });
+
+  describe('validateBackupData', () => {
+    test('無效備份結構應拋出錯誤', () => {
+      expect(() => validateBackupData(null)).toThrow('must be an object');
+      expect(() => validateBackupData({ timestamp: '123', data: {} })).toThrow(
+        'Invalid backup version'
+      );
+      expect(() => validateBackupData({ version: '1', data: {} })).toThrow(
+        'Invalid backup timestamp'
+      );
+      expect(() => validateBackupData({ version: '1', timestamp: '123' })).toThrow(
+        'Invalid backup data structure'
+      );
+    });
+
+    test('包含 __proto__ 污染鍵值的備份應拋出安全警告', () => {
+      const maliciousPayload = {
+        version: '1',
+        timestamp: '123456789',
+        data: {},
+      };
+      Object.defineProperty(maliciousPayload.data, '__proto__', {
+        value: { polluted: true },
+        enumerable: true,
+      });
+      expect(() => validateBackupData(maliciousPayload)).toThrow('Security Alert');
+    });
+
+    test('包含 constructor 污染鍵值的備份應拋出安全警告', () => {
+      const maliciousPayload = {
+        version: '1',
+        timestamp: '123456789',
+        data: {},
+      };
+      Object.defineProperty(maliciousPayload.data, 'constructor', {
+        value: { name: 'Function' },
+        enumerable: true,
+      });
+      expect(() => validateBackupData(maliciousPayload)).toThrow('Security Alert');
+    });
+
+    test('合法備份應通過驗證', () => {
+      const validPayload = {
+        version: '1',
+        timestamp: '123456789',
+        data: {
+          settings: { theme: 'dark' },
+        },
+      };
+      expect(() => validateBackupData(validPayload)).not.toThrow();
+    });
+  });
+
+  describe('createSafeIcon', () => {
+    // 雖然無法完全在 jsdom 測試 DOMParser 的深層解析行為，但可以測試分支邏輯
+    let mockDOMParser;
+    let originalDOMParser;
+
+    beforeEach(() => {
+      originalDOMParser = globalThis.DOMParser;
+      mockDOMParser = jest.fn().mockImplementation(() => ({
+        parseFromString: jest.fn().mockReturnValue({
+          documentElement: {
+            tagName: 'svg',
+            classList: { contains: jest.fn().mockReturnValue(false), add: jest.fn() },
+          },
+        }),
+      }));
+      globalThis.DOMParser = mockDOMParser;
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+      globalThis.DOMParser = originalDOMParser;
+    });
+
+    test('如果不是以 <svg 開頭，應返回純文本的 span', () => {
+      const result = createSafeIcon('Normal text');
+      expect(result.tagName.toLowerCase()).toBe('span');
+      expect(result.textContent).toBe('Normal text');
+    });
+
+    test('如果 validateSafeSvg 失敗，應返回空的 span', () => {
+      // 傳入惡意的 svg
+      const result = createSafeIcon('<svg><script>alert()</script></svg>');
+      expect(result.tagName.toLowerCase()).toBe('span');
+      expect(result.innerHTML).toBe('');
+    });
+
+    test('如果解析結果是 parsererror，應返回空的 span', () => {
+      globalThis.DOMParser = jest.fn().mockImplementation(() => ({
+        parseFromString: jest.fn().mockReturnValue({
+          documentElement: { tagName: 'parsererror' },
+        }),
+      }));
+      const result = createSafeIcon('<svg>something bad</svg>');
+      expect(result.tagName.toLowerCase()).toBe('span');
+      expect(result.innerHTML).toBe('');
+    });
+
+    test('如果解析出不是 svg 標籤，應返回空的 span', () => {
+      globalThis.DOMParser = jest.fn().mockImplementation(() => ({
+        parseFromString: jest.fn().mockReturnValue({
+          documentElement: { tagName: 'html', classList: { contains: jest.fn() } },
+        }),
+      }));
+      // MUST use valid SVG tags so validateSafeSvg passes and it reaches the parser block
+      const result = createSafeIcon('<svg><path></path></svg>');
+      expect(result.tagName.toLowerCase()).toBe('span');
+      expect(result.innerHTML).toBe('');
+    });
+
+    test('如果解析成功，應包裝並返回含有 svg 的 span', () => {
+      // 在 jsdom 裡直接不用 mock，使用原生的 DOMParser
+      globalThis.DOMParser = originalDOMParser;
+      const result = createSafeIcon('<svg width="16"><path d="M1 1"/></svg>');
+      expect(result.tagName.toLowerCase()).toBe('span');
+      expect(result.className).toBe('icon');
+      expect(result.querySelector('svg')).not.toBeNull();
+      expect(result.querySelector('svg').classList.contains('icon-svg')).toBe(true);
+      expect(result.querySelector('svg').getAttribute('xmlns')).toBe('http://www.w3.org/2000/svg');
     });
   });
 });

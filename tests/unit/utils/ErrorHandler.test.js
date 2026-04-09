@@ -113,6 +113,18 @@ describe('ErrorHandler - 測試', () => {
       expect(console.info).toHaveBeenCalled();
     });
 
+    test('應該對未知的 log 級別回退到 warn', () => {
+      // getLogLevel 對於 unknown 返回 'warn'
+      const errorInfo = {
+        type: 'unknown_error_type',
+        context: 'mystery',
+      };
+
+      ErrorHandler.logError(errorInfo);
+
+      expect(console.warn).toHaveBeenCalled();
+    });
+
     test('應該處理沒有 originalError 的情況', () => {
       const errorInfo = {
         type: ErrorTypes.VALIDATION_ERROR,
@@ -122,6 +134,19 @@ describe('ErrorHandler - 測試', () => {
       ErrorHandler.logError(errorInfo);
 
       expect(console.warn).toHaveBeenCalled();
+    });
+
+    test('應該拒絕無效的 errorInfo (非物件或 null) 並記錄警告', () => {
+      ErrorHandler.logError(null);
+      expect(console.warn).toHaveBeenCalledWith(
+        '[ErrorHandler] logError called with invalid input'
+      );
+
+      console.warn.mockClear();
+      ErrorHandler.logError('invalid_string_input');
+      expect(console.warn).toHaveBeenCalledWith(
+        '[ErrorHandler] logError called with invalid input'
+      );
     });
   });
 
@@ -140,11 +165,35 @@ describe('ErrorHandler - 測試', () => {
   });
 
   describe('logger - 獲取 Logger', () => {
-    test('應該返回 Logger 或 console', () => {
-      const logger = ErrorHandler.logger;
-      expect(logger).toBeDefined();
-      expect(typeof logger.error).toBe('function');
-      expect(typeof logger.warn).toBe('function');
+    let originalGlobalLogger;
+
+    beforeEach(() => {
+      originalGlobalLogger = globalThis.Logger;
+    });
+
+    afterEach(() => {
+      globalThis.Logger = originalGlobalLogger;
+    });
+
+    test('如果 globalThis.Logger 存在，應該返回它', () => {
+      const mockLogger = {
+        success: jest.fn(),
+        start: jest.fn(),
+        ready: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      };
+      globalThis.Logger = mockLogger;
+
+      expect(ErrorHandler.logger).toBe(mockLogger);
+    });
+
+    test('如果沒有 Logger 定義，應該降級返回 console', () => {
+      delete globalThis.Logger;
+
+      expect(ErrorHandler.logger).toBe(console);
     });
   });
 
@@ -168,6 +217,17 @@ describe('ErrorHandler - 測試', () => {
       expect(error.timestamp).toBeDefined();
     });
 
+    test('AppError.toJSON 應該返回正確的 JSON 格式', () => {
+      const error = new AppError(ErrorTypes.NETWORK_ERROR, '網絡錯誤', { url: 'test.com' });
+      const json = error.toJSON();
+
+      expect(json).toEqual({
+        type: ErrorTypes.NETWORK_ERROR,
+        message: '網絡錯誤',
+        details: { url: 'test.com' },
+      });
+    });
+
     test('AppError.toResponse 應該返回標準響應格式', () => {
       const error = new AppError(ErrorTypes.STORAGE, '存儲錯誤');
       const response = error.toResponse();
@@ -189,6 +249,11 @@ describe('ErrorHandler - 測試', () => {
       expect(Errors.permission('msg').type).toBe(ErrorTypes.PERMISSION);
       expect(Errors.internal('msg').type).toBe(ErrorTypes.INTERNAL);
       expect(Errors.timeout('msg').type).toBe(ErrorTypes.TIMEOUT_ERROR);
+      expect(Errors.extractionFailed('msg').type).toBe(ErrorTypes.EXTRACTION_FAILED);
+      expect(Errors.invalidUrl('msg').type).toBe(ErrorTypes.INVALID_URL);
+      expect(Errors.parsingError('msg').type).toBe(ErrorTypes.PARSING_ERROR);
+      expect(Errors.performanceWarning('msg').type).toBe(ErrorTypes.PERFORMANCE_WARNING);
+      expect(Errors.domError('msg').type).toBe(ErrorTypes.DOM_ERROR);
     });
   });
 });
@@ -273,6 +338,21 @@ describe('ErrorHandler.formatUserMessage', () => {
     // 注意：正規流程應先經過 sanitizeApiError 標準化，此測試驗證直接傳入 Error 物件時的容錯機制
     const error = new Error('Network error');
     expect(ErrorHandler.formatUserMessage(error)).toBe(ERROR_MESSAGES.PATTERNS['Network error']);
+  });
+
+  test('包含 .code 的 SDK 錯誤應正確查表轉換', () => {
+    mockLogger.debugEnabled = false;
+    // 模擬 Notion SDK APIResponseError 的格式
+    const sdkError = { code: 'object_not_found' };
+    const expectedMessage = ERROR_MESSAGES.PATTERNS.object_not_found;
+    expect(expectedMessage).toBe('找不到目標頁面或資料庫，請確認資源存在且已授權');
+    expect(ErrorHandler.formatUserMessage(sdkError)).toBe(expectedMessage);
+  });
+
+  test('傳入空物件（{}）、null 或 undefined 應返回預設友善訊息', () => {
+    expect(ErrorHandler.formatUserMessage({})).toBe(ERROR_MESSAGES.DEFAULT);
+    expect(ErrorHandler.formatUserMessage(null)).toBe(ERROR_MESSAGES.DEFAULT);
+    expect(ErrorHandler.formatUserMessage(undefined)).toBe(ERROR_MESSAGES.DEFAULT);
   });
 
   test('非精確匹配的訊息應返回預設錯誤（不再支援模糊匹配）', () => {
