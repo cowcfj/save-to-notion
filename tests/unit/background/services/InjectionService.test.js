@@ -315,7 +315,7 @@ describe('InjectionService', () => {
     });
 
     it('應在 PING 拋出一般錯誤時往外拋出異常', async () => {
-      // For coverage of the non-recoverable error in ensureBundleInjected
+      // 覆蓋 ensureBundleInjected 中不可恢復錯誤的測試路徑
       chrome.tabs.sendMessage.mockImplementation(() => {
         throw new Error('Fatal Native Error');
       });

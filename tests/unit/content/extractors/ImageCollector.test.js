@@ -202,7 +202,7 @@ describe('ImageCollector', () => {
       const mockAside = document.createElement('aside');
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/sidebar.jpg';
-      mockAside.append(mockImg); // element matches the skip rule
+      mockAside.append(mockImg); // 元素符合跳過規則
 
       cachedQuery.mockImplementation((selector, context, options) => {
         if (selector.includes('meta')) {
@@ -227,7 +227,7 @@ describe('ImageCollector', () => {
 
     test('should return null when extractImageSrc is missing (DOM fallback)', () => {
       const mockImg = document.createElement('img');
-      extractImageSrc.mockReturnValue(null); // Invalid src
+      extractImageSrc.mockReturnValue(null); // 無效的 src
 
       cachedQuery.mockImplementation((selector, context, options) => {
         if (selector.includes('meta')) {
@@ -747,20 +747,20 @@ describe('ImageCollector', () => {
 
     test('_collectFromGalleries should collect unique image blocks natively', () => {
       const mockImg1 = document.createElement('img');
-      mockImg1.src = 'https://example.com/gallery1.jpg'; // Valid mock size next
+      mockImg1.src = 'https://example.com/gallery1.jpg'; // 下一步補上有效的 mock 尺寸
 
       Object.defineProperty(mockImg1, 'naturalWidth', { value: 800 });
       Object.defineProperty(mockImg1, 'naturalHeight', { value: 600 });
 
       const mockImg2 = document.createElement('img');
-      mockImg2.src = 'https://example.com/gallery1.jpg'; // Duplicate
+      mockImg2.src = 'https://example.com/gallery1.jpg'; // 重複圖片
 
       Object.defineProperty(mockImg2, 'naturalWidth', { value: 800 });
       Object.defineProperty(mockImg2, 'naturalHeight', { value: 600 });
 
       cachedQuery.mockReturnValue([mockImg1, mockImg2]);
 
-      // Removed spy to hit line 169 and processImageForCollection directly
+      // 移除 spy，直接覆蓋到第 169 行並呼叫 processImageForCollection
       extractImageSrc
         .mockReturnValueOnce('https://example.com/gallery1.jpg')
         .mockReturnValueOnce('https://example.com/gallery1.jpg');
@@ -940,12 +940,12 @@ describe('ImageCollector', () => {
         'https://example.com/feat.jpg',
         additionalImages
       );
-      // Wait, there's 1 existing image, we added b1 once (deduplicated the other 5).
-      expect(additionalImages).toHaveLength(2); // existing + b1
+      // 目前已有 1 張既有圖片，這裡只新增一次 b1（其餘 5 張已去重）。
+      expect(additionalImages).toHaveLength(2); // 既有圖片 + b1
     });
 
     test('_processImages handles simple batch fallback if retry throws', async () => {
-      // By replacing the implementation, we can ensure error block happens
+      // 透過覆寫實作，確保會走到錯誤處理分支
       batchProcessWithRetry.mockRejectedValue(new Error('Batch Failed'));
       const seqSpy = trackSpy(ImageCollector, 'processImagesSequentially');
 
