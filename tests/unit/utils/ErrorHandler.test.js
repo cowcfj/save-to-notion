@@ -176,7 +176,15 @@ describe('ErrorHandler - 測試', () => {
     });
 
     test('如果 globalThis.Logger 存在，應該返回它', () => {
-      const mockLogger = { warn: jest.fn() };
+      const mockLogger = {
+        success: jest.fn(),
+        start: jest.fn(),
+        ready: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      };
       globalThis.Logger = mockLogger;
 
       expect(ErrorHandler.logger).toBe(mockLogger);
