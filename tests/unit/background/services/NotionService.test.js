@@ -425,9 +425,9 @@ describe('NotionService', () => {
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(100); // 150 - 50 = 100
       expect(result.totalCount).toBe(100);
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // 100 items fits in 1 batch
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // 100 個項目剛好只需 1 個批次
 
-      // Verify skip first 50 items
+      // 驗證已略過前 50 個項目
       const fetchArg = globalThis.fetch.mock.calls[0][1];
       const reqBody = JSON.parse(fetchArg.body);
       expect(reqBody.children[0].id).toBe(50);
