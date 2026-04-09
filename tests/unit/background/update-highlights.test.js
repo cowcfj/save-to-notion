@@ -19,11 +19,6 @@ describe('Background Update Highlights', () => {
     if (chrome._clearStorage) {
       chrome._clearStorage();
     }
-
-    // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(jest.fn());
-    jest.spyOn(console, 'warn').mockImplementation(jest.fn());
-    jest.spyOn(console, 'error').mockImplementation(jest.fn());
   });
 
   afterEach(() => {
@@ -31,6 +26,7 @@ describe('Background Update Highlights', () => {
     globalThis.fetch = originalFetch;
 
     // 清理 mocks
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -678,10 +674,6 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
     sendResponse({ success: true });
   } catch (error) {
-    console.error('💥 標記更新錯誤:', JSON.stringify(error.message));
-    if (error.stack) {
-      console.error('💥 錯誤堆疊:', JSON.stringify(error.stack));
-    }
     sendResponse({ success: false, error: error.message });
   }
 }
