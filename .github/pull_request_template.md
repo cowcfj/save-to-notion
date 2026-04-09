@@ -1,3 +1,5 @@
+<!-- 🤖 AI Prompt: CRITICAL INSTRUCTION for PR Title Generation. You MUST strictly use Conventional Commits format (e.g., `feat:`, `fix:`, `refactor:`, `chore:`). DO NOT capitalize the type. DO NOT write "Refactor xyz", it MUST be "refactor: xyz". -->
+
 # Pull Request
 
 ## 📋 變更描述
@@ -17,7 +19,7 @@
 ## 🤖 提交者聲明
 
 - [ ] 👨‍💻 由人類開發者手動提交
-- [ ] 🤖 由 AI Agent 自動建立 (請註明: Antigravity / Claude Code / Codex / 等)
+- [ ] 🤖 由 AI Agent 自動建立
 
 ## ✅ 提交前檢查清單
 
