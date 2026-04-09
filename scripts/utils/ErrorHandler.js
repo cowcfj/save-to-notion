@@ -58,16 +58,7 @@ const ErrorHandler = {
    * @returns {object} Logger 實例
    */
   get logger() {
-    if (typeof Logger !== 'undefined') {
-      return Logger;
-    }
-    if (globalThis.window !== undefined && globalThis.Logger) {
-      return globalThis.Logger;
-    }
-    if (globalThis.self !== undefined && globalThis.Logger) {
-      return globalThis.Logger;
-    }
-    return console;
+    return globalThis.Logger ?? console;
   },
 
   /**

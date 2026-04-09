@@ -164,51 +164,27 @@ describe('ErrorHandler - 測試', () => {
     });
   });
 
-  describe('logger - 獲取 Logger (Fallback 測試)', () => {
+  describe('logger - 獲取 Logger', () => {
     let originalGlobalLogger;
-    let originalWindowLogger;
-    let originalSelfLogger;
 
     beforeEach(() => {
       originalGlobalLogger = globalThis.Logger;
-      if (globalThis.window) {
-        originalWindowLogger = globalThis.window.Logger;
-      }
-      if (globalThis.self) {
-        originalSelfLogger = globalThis.self.Logger;
-      }
     });
 
     afterEach(() => {
       globalThis.Logger = originalGlobalLogger;
-      if (globalThis.window) {
-        globalThis.window.Logger = originalWindowLogger;
-      }
-      if (globalThis.self) {
-        globalThis.self.Logger = originalSelfLogger;
-      }
     });
 
     test('如果 globalThis.Logger 存在，應該返回它', () => {
-      expect(ErrorHandler.logger).toBe(originalGlobalLogger);
+      const mockLogger = { warn: jest.fn() };
+      globalThis.Logger = mockLogger;
+
+      expect(ErrorHandler.logger).toBe(mockLogger);
     });
 
-    test('如果 globalThis.Logger 不存在，但 globalThis.window.Logger 存在，應返回 window.Logger', () => {
+    test('如果沒有 Logger 定義，應該降級返回 console', () => {
       delete globalThis.Logger;
-      if (globalThis.window) {
-        globalThis.window.Logger = { isWindowLogger: true };
-      }
-      expect(ErrorHandler.logger).toEqual({ isWindowLogger: true });
-    });
 
-    test('如果完全沒有 Logger 定義，應該降級返回 console', () => {
-      delete globalThis.Logger;
-      if (globalThis.window) {
-        delete globalThis.window.Logger;
-      }
-      if (globalThis.self) {
-        delete globalThis.self.Logger;
-      }
       expect(ErrorHandler.logger).toBe(console);
     });
   });
