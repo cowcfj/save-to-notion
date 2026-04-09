@@ -130,7 +130,7 @@ describe('內容腳本整合測試輔助函式', () => {
     );
   });
 
-  test('loadContentTestPageHtml 應從 references fixture 讀取 HTML', () => {
+  test('loadContentTestPageHtml 應從 tests/fixtures/html 讀取 HTML', () => {
     expect(loadContentTestPageHtml()).toContain('<title>Test Page</title>');
   });
 });
