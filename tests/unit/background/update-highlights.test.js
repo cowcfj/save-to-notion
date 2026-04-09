@@ -19,11 +19,6 @@ describe('Background Update Highlights', () => {
     if (chrome._clearStorage) {
       chrome._clearStorage();
     }
-
-    // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(jest.fn());
-    jest.spyOn(console, 'warn').mockImplementation(jest.fn());
-    jest.spyOn(console, 'error').mockImplementation(jest.fn());
   });
 
   afterEach(() => {
@@ -31,6 +26,7 @@ describe('Background Update Highlights', () => {
     globalThis.fetch = originalFetch;
 
     // 清理 mocks
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -548,171 +544,228 @@ describe('Background Update Highlights', () => {
  */
 async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey, sendResponse) {
   try {
-    // console.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
+    const existingBlocks = await fetchExistingBlocksSimulated(pageId, apiKey);
+    const blocksToDelete = collectHighlightBlockIds(existingBlocks);
 
-    // 獲取現有頁面內容
-    const getResponse = await fetch(
-      `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Notion-Version': '2025-09-03',
-        },
-      }
-    );
-
-    if (!getResponse.ok) {
-      const errorData = await getResponse.json();
-      // console.error('❌ 獲取頁面內容失敗:', errorData);
-      throw new Error(
-        `Failed to get existing page content: ${errorData.message || getResponse.statusText}`
-      );
-    }
-
-    const existingContent = await getResponse.json();
-    const existingBlocks = existingContent.results;
-    // console.log('📋 現有區塊數量:', existingBlocks.length);
-
-    // 查找並刪除現有的標註區域
-    const blocksToDelete = [];
-    let foundHighlightSection = false;
-
-    for (const block of existingBlocks) {
-      if (
-        block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
-      ) {
-        foundHighlightSection = true;
-        blocksToDelete.push(block.id);
-        // console.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
-      } else if (foundHighlightSection) {
-        if (block.type.startsWith('heading_')) {
-          // console.log(`🛑 遇到下一個標題，停止收集標記區塊 (索引 ${i})`);
-          break;
-        }
-        if (block.type === 'paragraph') {
-          blocksToDelete.push(block.id);
-          // console.log(`📝 標記為刪除的段落 (索引 ${i}):`, block.id);
-        }
-      }
-    }
-
-    // console.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
-
-    // 刪除舊的標註區塊
-    // let deletedCount = 0;
-    if (blocksToDelete.length > 0) {
-      // console.log('🗑️ 準備刪除舊標記區塊:', blocksToDelete.length);
-      for (const blockId of blocksToDelete) {
-        try {
-          // console.log(`🗑️ 正在刪除區塊: ${blockId}`);
-          const deleteResponse = await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              'Notion-Version': '2025-09-03',
-            },
-          });
-
-          if (deleteResponse.ok) {
-            // deletedCount++;
-            // console.log(`✅ 成功刪除區塊: ${blockId}`);
-          }
-        } catch {
-          // Ignore errors during simulated deletion in tests
-        }
-      }
-    }
-
-    // console.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
-
-    // 添加新的標註（如果有）
-    if (highlights.length > 0) {
-      // console.log('➕ 準備添加新的標記區域...');
-
-      const highlightBlocks = [
-        {
-          object: 'block',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [
-              {
-                type: 'text',
-                text: { content: '📝 頁面標記' },
-              },
-            ],
-          },
-        },
-      ];
-
-      highlights.forEach((highlight, _index) => {
-        // 處理超長標註文本，需要分割成多個段落
-        const textChunks = splitTextForNotionSimulated(highlight.text, 2000);
-
-        textChunks.forEach((chunk, _chunkIndex) => {
-          highlightBlocks.push({
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [
-                {
-                  type: 'text',
-                  text: { content: chunk },
-                  annotations: {
-                    color: highlight.color,
-                  },
-                },
-              ],
-            },
-          });
-        });
-      });
-
-      const addResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03',
-        },
-        body: JSON.stringify({
-          children: highlightBlocks,
-        }),
-      });
-
-      // console.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
-      if (!addResponse.ok) {
-        const errorData = await addResponse.json();
-        throw new Error(`Failed to add new highlights: ${errorData.message || 'Unknown error'}`);
-      }
-      await addResponse.json();
-    }
-
-    // 更新本地存儲
-    await chrome.storage.local.set({
-      [`saved_${pageUrl}`]: {
-        savedAt: Date.now(),
-        notionPageId: pageId,
-        lastUpdated: Date.now(),
-      },
-    });
+    await deleteBlocksSimulated(blocksToDelete, apiKey);
+    await addHighlightsIfPresentSimulated(pageId, highlights, apiKey);
+    await updateSavedPageMetadataSimulated(pageUrl, pageId);
 
     sendResponse({ success: true });
   } catch (error) {
-    console.error('💥 標記更新錯誤:', JSON.stringify(error.message));
-    if (error.stack) {
-      console.error('💥 錯誤堆疊:', JSON.stringify(error.stack));
-    }
     sendResponse({ success: false, error: error.message });
   }
+}
+
+const NOTION_API_VERSION = '2025-09-03';
+const HIGHLIGHT_SECTION_TITLE = '📝 頁面標記';
+const NOTION_TEXT_LIMIT = 2000;
+
+function createNotionHeaders(apiKey, extraHeaders = {}) {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Notion-Version': NOTION_API_VERSION,
+    ...extraHeaders,
+  };
+}
+
+async function fetchExistingBlocksSimulated(pageId, apiKey) {
+  const getResponse = await fetch(
+    `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`,
+    {
+      method: 'GET',
+      headers: createNotionHeaders(apiKey),
+    }
+  );
+
+  if (!getResponse.ok) {
+    const errorData = await getResponse.json();
+    throw new Error(
+      `Failed to get existing page content: ${errorData.message || getResponse.statusText}`
+    );
+  }
+
+  const existingContent = await getResponse.json();
+  return existingContent.results ?? [];
+}
+
+function isHighlightSectionHeading(block) {
+  return (
+    block.type === 'heading_3' &&
+    block.heading_3?.rich_text?.[0]?.text?.content === HIGHLIGHT_SECTION_TITLE
+  );
+}
+
+function collectHighlightBlockIds(existingBlocks) {
+  const blocksToDelete = [];
+  let foundHighlightSection = false;
+
+  for (const block of existingBlocks) {
+    if (isHighlightSectionHeading(block)) {
+      foundHighlightSection = true;
+      blocksToDelete.push(block.id);
+      continue;
+    }
+
+    if (!foundHighlightSection) {
+      continue;
+    }
+
+    if (block.type.startsWith('heading_') || block.type !== 'paragraph') {
+      break;
+    }
+
+    blocksToDelete.push(block.id);
+  }
+
+  return blocksToDelete;
+}
+
+async function deleteBlocksSimulated(blockIds, apiKey) {
+  for (const blockId of blockIds) {
+    try {
+      await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
+        method: 'DELETE',
+        headers: createNotionHeaders(apiKey),
+      });
+    } catch {
+      // 於測試模擬刪除時忽略錯誤
+    }
+  }
+}
+
+function createHighlightSectionHeadingBlock() {
+  return {
+    object: 'block',
+    type: 'heading_3',
+    heading_3: {
+      rich_text: [
+        {
+          type: 'text',
+          text: { content: HIGHLIGHT_SECTION_TITLE },
+        },
+      ],
+    },
+  };
+}
+
+function createHighlightParagraphBlock(text, color) {
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [
+        {
+          type: 'text',
+          text: { content: text },
+          annotations: {
+            color,
+          },
+        },
+      ],
+    },
+  };
+}
+
+function buildHighlightBlocksSimulated(highlights) {
+  const highlightBlocks = [createHighlightSectionHeadingBlock()];
+
+  for (const highlight of highlights) {
+    const textChunks = splitTextForNotionSimulated(highlight.text, NOTION_TEXT_LIMIT);
+
+    for (const chunk of textChunks) {
+      highlightBlocks.push(createHighlightParagraphBlock(chunk, highlight.color));
+    }
+  }
+
+  return highlightBlocks;
+}
+
+async function addHighlightsIfPresentSimulated(pageId, highlights, apiKey) {
+  if (!Array.isArray(highlights) || highlights.length === 0) {
+    return;
+  }
+
+  const addResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+    method: 'PATCH',
+    headers: createNotionHeaders(apiKey, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify({
+      children: buildHighlightBlocksSimulated(highlights),
+    }),
+  });
+
+  if (!addResponse.ok) {
+    const errorData = await addResponse.json();
+    throw new Error(`Failed to add new highlights: ${errorData.message || 'Unknown error'}`);
+  }
+}
+
+async function updateSavedPageMetadataSimulated(pageUrl, pageId) {
+  const now = Date.now();
+
+  await chrome.storage.local.set({
+    [`saved_${pageUrl}`]: {
+      savedAt: now,
+      notionPageId: pageId,
+      lastUpdated: now,
+    },
+  });
 }
 
 /**
  * 輔助函數：將長文本分割成符合 Notion 限制的片段
  */
+// 標點符號優先順序（提升至函數外，避免每次迭代重建陣列）
+const SPLIT_PUNCTUATION = ['.', '。', '?', '？', '!', '！', '\n'];
+
+function findSplitIndexSimulated(text, limit) {
+  for (const punct of SPLIT_PUNCTUATION) {
+    const lastIndex = text.lastIndexOf(punct, limit - 1);
+    if (lastIndex > limit * 0.5) {
+      return lastIndex + 1;
+    }
+  }
+
+  const spaceIndex = text.lastIndexOf(' ', limit - 1);
+  if (spaceIndex >= limit * 0.5) {
+    return spaceIndex;
+  }
+
+  return limit;
+}
+
+function processNextChunkSimulated(remaining, limit, chunks) {
+  if (remaining.length <= limit) {
+    chunks.push(remaining);
+    return '';
+  }
+
+  const splitIndex = findSplitIndexSimulated(remaining, limit);
+  const chunk = remaining.slice(0, splitIndex).trim();
+  const nextRemaining = remaining.slice(splitIndex).trim();
+
+  if (chunk) {
+    chunks.push(chunk);
+  } else if (remaining === nextRemaining) {
+    // 無法前進，防止無限迴圈：強制硬切剩餘內容
+    chunks.push(remaining.slice(0, limit));
+    return remaining.slice(limit).trim();
+  }
+
+  return nextRemaining;
+}
+
 function splitTextForNotionSimulated(text, maxLength = 2000) {
-  if (!text || text.length <= maxLength) {
+  if (!text) {
+    return [];
+  }
+
+  // 防禦 maxLength <= 0 的非法輸入，確保每次至少切 1 個字元
+  const limit = Math.max(1, maxLength);
+
+  if (text.length <= limit) {
     return [text];
   }
 
@@ -720,31 +773,7 @@ function splitTextForNotionSimulated(text, maxLength = 2000) {
   let remaining = text;
 
   while (remaining.length > 0) {
-    if (remaining.length <= maxLength) {
-      chunks.push(remaining);
-      break;
-    }
-
-    let splitIndex = -1;
-    const punctuation = ['.', '。', '?', '？', '!', '！', '\n'];
-
-    for (const punct of punctuation) {
-      const lastIndex = remaining.lastIndexOf(punct, maxLength);
-      if (lastIndex > maxLength * 0.5) {
-        splitIndex = lastIndex + 1;
-        break;
-      }
-    }
-
-    if (splitIndex === -1) {
-      splitIndex = remaining.lastIndexOf(' ', maxLength);
-      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
-        splitIndex = maxLength;
-      }
-    }
-
-    chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
-    remaining = remaining.slice(Math.max(0, splitIndex)).trim();
+    remaining = processNextChunkSimulated(remaining, limit, chunks);
   }
 
   return chunks;

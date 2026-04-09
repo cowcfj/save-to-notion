@@ -84,8 +84,6 @@ describe('Background Tab Listeners', () => {
             });
 
             if (result[storageKey]) {
-              console.log('🎨 檢測到頁面有標註，準備恢復:', normUrl);
-
               // 檢查是否需要遷移舊版標註
               await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
@@ -111,8 +109,6 @@ describe('Background Tab Listeners', () => {
             try {
               const highlights = JSON.parse(legacyData);
               if (Array.isArray(highlights) && highlights.length > 0) {
-                console.log('🔄 發現舊版標註，準備遷移:', highlights.length, '個');
-
                 // 清理舊版數據
                 localStorage.removeItem(legacyKey);
 
@@ -131,8 +127,6 @@ describe('Background Tab Listeners', () => {
         });
 
         if (result?.found) {
-          console.log(`✅ 成功遷移 ${result.count} 個舊版標註`);
-
           // 將遷移的數據保存到 chrome.storage.local
           const migratedData = {
             highlights: result.data,
@@ -284,7 +278,6 @@ describe('Background Tab Listeners', () => {
         tabId,
         expect.any(Function)
       );
-      expect(console.log).toHaveBeenCalledWith('✅ 成功遷移 2 個舊版標註');
       expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         [storageKey]: {
           highlights: legacyHighlights,
@@ -438,12 +431,6 @@ describe('Background Tab Listeners', () => {
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(
         ['highlights_https://example.com/article'],
         expect.any(Function)
-      );
-
-      // 由於異步回調的複雜性，我們只檢查基本的調用
-      expect(console.log).toHaveBeenCalledWith(
-        '🎨 檢測到頁面有標註，準備恢復:',
-        'https://example.com/article'
       );
     });
 
