@@ -1,5 +1,28 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.50.0](https://github.com/cowcfj/save-to-notion/compare/v2.49.0...v2.50.0) (2026-04-09)
+
+
+### ✨ 新功能
+
+* 優化 NotionService 的重試邏輯與刪除區塊的批次處理 ([#394](https://github.com/cowcfj/save-to-notion/issues/394)) ([d0d4645](https://github.com/cowcfj/save-to-notion/commit/d0d4645a2c6b69ba1cebd54e779ac1610ded4285))
+* 增加測試用例以強化功能驗證 ([#397](https://github.com/cowcfj/save-to-notion/issues/397)) ([f3a5b0d](https://github.com/cowcfj/save-to-notion/commit/f3a5b0dd9879cc14bbe516ff861d666e8472c593))
+
+
+### 🐛 Bug 修復
+
+* 增加對 OAuth Token 刷新過程中的日誌記錄，提供更多的錯誤上下文。 ([d0d4645](https://github.com/cowcfj/save-to-notion/commit/d0d4645a2c6b69ba1cebd54e779ac1610ded4285))
+
+
+### 🧪 測試
+
+* improve test coverage for ErrorHandler and securityUtils ([#396](https://github.com/cowcfj/save-to-notion/issues/396)) ([68958bf](https://github.com/cowcfj/save-to-notion/commit/68958bf76b58b571a7a4efb1ffb215ea82fed7c7))
+
+
+### 🧹 其他變更
+
+* 移除不必要的測試檔案及更新測試案例 ([#398](https://github.com/cowcfj/save-to-notion/issues/398)) ([0998597](https://github.com/cowcfj/save-to-notion/commit/09985971dc3abaabba8edba9de3d9a4853e08923))
+
 ## [2.49.0](https://github.com/cowcfj/save-to-notion/compare/v2.48.3...v2.49.0) (2026-04-08)
 
 
