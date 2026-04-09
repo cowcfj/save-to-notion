@@ -918,12 +918,13 @@ describe('ImageCollector', () => {
     });
 
     test('_processImages native batch behaviors success case', async () => {
-      const img1 = document.createElement('img');
-      img1.src = 'https://example.com/b1.jpg';
-      Object.defineProperty(img1, 'naturalWidth', { value: 800 });
-      Object.defineProperty(img1, 'naturalHeight', { value: 600 });
-
-      const allImages = Array.from({ length: 6 }).fill(img1);
+      const allImages = Array.from({ length: 6 }, () => {
+        const img = document.createElement('img');
+        img.src = 'https://example.com/b1.jpg';
+        Object.defineProperty(img, 'naturalWidth', { value: 800 });
+        Object.defineProperty(img, 'naturalHeight', { value: 600 });
+        return img;
+      });
       const additionalImages = [
         { image: { external: { url: 'https://example.com/existing.jpg' } } },
       ];
