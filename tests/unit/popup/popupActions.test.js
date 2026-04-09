@@ -213,6 +213,20 @@ describe('popupActions.js', () => {
       );
       expect(result.success).toBe(true);
     });
+
+    it('當 sendMessage 回傳 null / empty 時應該提供 fallback 回傳值', async () => {
+      chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+      const result = await savePage();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('No response');
+    });
+
+    it('當 sendMessage 拋例外時應該被捕捉並提供錯誤訊息', async () => {
+      chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
+      const result = await savePage();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('無法儲存頁面，請稍後再試');
+    });
   });
 
   describe('startHighlight', () => {
@@ -229,6 +243,20 @@ describe('popupActions.js', () => {
         expect.objectContaining({ action: 'startHighlight' })
       );
       expect(result.success).toBe(true);
+    });
+
+    it('當 sendMessage 回傳 undefined 時應提供 fallback', async () => {
+      chrome.runtime.sendMessage.mockResolvedValueOnce(undefined);
+      const result = await startHighlight();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('No response');
+    });
+
+    it('當 sendMessage 拋例外時應該被捕捉', async () => {
+      chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('Network disconnected'));
+      const result = await startHighlight();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('無法啟動標記模式，請稍後再試');
     });
   });
 
@@ -260,6 +288,15 @@ describe('popupActions.js', () => {
       );
       warnSpy.mockRestore();
     });
+
+    it('當 chrome.tabs.create 失敗時應捕捉例外並反映錯誤', async () => {
+      const url = 'https://www.notion.so/test';
+      chrome.tabs.create.mockRejectedValueOnce(new Error('Tab creation failed'));
+
+      const result = await openNotionPage(url);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('無法開啟 Notion 頁面');
+    });
   });
 
   describe('getActiveTab', () => {
@@ -272,6 +309,12 @@ describe('popupActions.js', () => {
 
     it('如果沒有活動標籤應該返回 null', async () => {
       chrome.tabs.query.mockResolvedValue([]);
+      const result = await getActiveTab();
+      expect(result).toBeNull();
+    });
+
+    it('當 chrome.tabs.query 拋例外時應捕捉並回傳 null', async () => {
+      chrome.tabs.query.mockRejectedValueOnce(new Error('Permissions error'));
       const result = await getActiveTab();
       expect(result).toBeNull();
     });

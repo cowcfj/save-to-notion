@@ -70,7 +70,7 @@ jest.mock('../../../../scripts/config/extraction', () => ({
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
   },
-  FEATURED_IMAGE_SELECTORS: ['meta[property="og:image"]'],
+  FEATURED_IMAGE_SELECTORS: ['meta[property="og:image"]', '.featured-image img'],
   IMAGE_SELECTORS: ['img'],
   GALLERY_SELECTORS: ['.gallery img'],
   EXCLUSION_SELECTORS: ['.ad img'],
@@ -169,11 +169,14 @@ describe('ImageCollector', () => {
   });
 
   describe('collectFeaturedImage', () => {
-    test('should return valid featured image src', () => {
+    test('should return valid featured image src (DOM fallback)', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/featured.jpg';
 
       cachedQuery.mockImplementation((selector, context, options) => {
+        if (selector.includes('meta')) {
+          return null;
+        }
         if (options?.single) {
           return mockImg;
         }
@@ -183,10 +186,64 @@ describe('ImageCollector', () => {
 
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBe('https://example.com/featured.jpg');
-      expect(cachedQuery).toHaveBeenCalled();
+    });
+
+    test('should skip sidebar images (DOM fallback)', () => {
+      const mockAside = document.createElement('aside');
+      const mockImg = document.createElement('img');
+      mockImg.src = 'https://example.com/sidebar.jpg';
+      mockAside.append(mockImg); // element matches the skip rule
+
+      cachedQuery.mockImplementation((selector, context, options) => {
+        if (selector.includes('meta')) {
+          return null;
+        }
+        if (options?.single) {
+          return mockImg;
+        }
+        return null;
+      });
+
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBeNull();
+      expect(Logger.log).toHaveBeenCalledWith('跳過側邊欄圖片', expect.any(Object));
+    });
+
+    test('should return null when extractImageSrc is missing (DOM fallback)', () => {
+      const mockImg = document.createElement('img');
+      extractImageSrc.mockReturnValue(null); // Invalid src
+
+      cachedQuery.mockImplementation((selector, context, options) => {
+        if (selector.includes('meta')) {
+          return null;
+        }
+        if (options?.single) {
+          return mockImg;
+        }
+        return null;
+      });
+
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBeNull();
+    });
+
+    test('should return valid featured image src (Meta success)', () => {
+      const mockMeta = document.createElement('meta');
+      mockMeta.content = 'https://example.com/meta-featured.jpg';
+
+      jest.spyOn(document, 'querySelector').mockImplementation(selector => {
+        if (selector === 'meta[property="og:image"]') {
+          return mockMeta;
+        }
+        return null;
+      });
+
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBe('https://example.com/meta-featured.jpg');
     });
 
     test('should return null if no featured image found', () => {
+      jest.spyOn(document, 'querySelector').mockReturnValue(null);
       cachedQuery.mockReturnValue(null);
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
@@ -265,6 +322,41 @@ describe('ImageCollector', () => {
         '處理圖片失敗',
         expect.objectContaining({ error: 'Process Error' })
       );
+    });
+
+    test('processImageForCollection should log and return null when src is missing', () => {
+      const mockImg = document.createElement('img');
+      extractImageSrc.mockReturnValue(null);
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+
+      expect(result).toBeNull();
+      expect(Logger.log).toHaveBeenCalledWith('圖片缺少 src 屬性', expect.any(Object));
+    });
+
+    test('processImageForCollection should return null and log when image has invalid clean URL', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = 'https://example.com/invalid.jpg';
+
+      extractImageSrc.mockReturnValue('https://example.com/invalid.jpg');
+      isValidCleanedImageUrl.mockReturnValue(false);
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+
+      expect(result).toBeNull();
+      expect(Logger.log).toHaveBeenCalledWith('無效或不相容的圖片 URL', expect.any(Object));
+    });
+
+    test('processImageForCollection should allow image with unknown dimensions (0x0)', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = 'https://example.com/unknown.jpg';
+      extractImageSrc.mockReturnValue('https://example.com/unknown.jpg');
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+
+      expect(result).toBeDefined();
+      expect(result.image.external.url).toBe('https://example.com/unknown.jpg');
+      expect(Logger.log).toHaveBeenCalledWith('圖片尺寸未知 (0)，跳過尺寸檢查', expect.any(Object));
     });
   });
 
@@ -620,8 +712,6 @@ describe('ImageCollector', () => {
     test('collectAdditionalImages should handle gallery collection errors', async () => {
       const contentElement = document.createElement('div');
 
-      // Spy on internal methods to skip them ensure we get to gallery collection
-      // 策略 0-4 全部跳過
       jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
       jest.spyOn(ImageCollector, '_collectFromContent').mockReturnValue([]);
       jest.spyOn(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
@@ -629,15 +719,40 @@ describe('ImageCollector', () => {
       jest.spyOn(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
       jest.spyOn(ImageCollector, '_processImages').mockImplementation(() => {});
 
-      // 模擬 cachedQuery 針對圖集選擇器拋出錯誤
+      // 模擬 cachedQuery 拋出錯誤以觸發圖集收集報錯分支
       cachedQuery.mockImplementation(() => {
         throw new Error('Gallery Error');
       });
 
-      // 確保不會因錯誤崩潰
       await ImageCollector.collectAdditionalImages(contentElement);
 
       expect(Logger.warn).toHaveBeenCalledWith('圖集收集錯誤', expect.any(Object));
+    });
+
+    test('_collectFromGalleries should collect unique image blocks natively', () => {
+      const mockImg1 = document.createElement('img');
+      mockImg1.src = 'https://example.com/gallery1.jpg'; // Valid mock size next
+
+      Object.defineProperty(mockImg1, 'naturalWidth', { value: 800 });
+      Object.defineProperty(mockImg1, 'naturalHeight', { value: 600 });
+
+      const mockImg2 = document.createElement('img');
+      mockImg2.src = 'https://example.com/gallery1.jpg'; // Duplicate
+
+      Object.defineProperty(mockImg2, 'naturalWidth', { value: 800 });
+      Object.defineProperty(mockImg2, 'naturalHeight', { value: 600 });
+
+      cachedQuery.mockReturnValue([mockImg1, mockImg2]);
+
+      // Removed spy to hit line 169 and processImageForCollection directly
+      jest.restoreAllMocks();
+      extractImageSrc
+        .mockReturnValueOnce('https://example.com/gallery1.jpg')
+        .mockReturnValueOnce('https://example.com/gallery1.jpg');
+
+      const results = ImageCollector._collectFromGalleries('https://example.com/already.jpg');
+
+      expect(results).toHaveLength(1);
     });
   });
 
@@ -729,6 +844,121 @@ describe('ImageCollector', () => {
         'Next.js Data 提取結果為空',
         expect.objectContaining({ action: 'collectAdditionalImages' })
       );
+    });
+  });
+
+  describe('_collectFromArticle and _collectFromExpansion', () => {
+    test('_collectFromArticle should gather images natively', () => {
+      const mockImg1 = document.createElement('img');
+      const articleEl = document.createElement('article');
+      articleEl.append(mockImg1);
+
+      cachedQuery.mockReturnValueOnce(articleEl).mockReturnValueOnce([mockImg1]);
+
+      const allImages = [];
+      ImageCollector._collectFromArticle(allImages);
+
+      expect(allImages).toHaveLength(1);
+    });
+
+    test('_collectFromExpansion should expand search excluding ads', () => {
+      const mockImg1 = document.createElement('img'); // valid
+      const mockImg2 = document.createElement('img'); // inside ad
+      const adEl = document.createElement('div');
+      adEl.className = 'ad';
+      adEl.append(mockImg2);
+
+      cachedQuery.mockImplementation(selector => {
+        if (selector === 'img') {
+          return [mockImg1, mockImg2];
+        }
+        if (selector === '.ad img') {
+          return [adEl];
+        }
+        return [];
+      });
+
+      const allImages = [];
+      ImageCollector._collectFromExpansion(allImages);
+
+      expect(allImages).toHaveLength(1);
+      expect(allImages[0]).toBe(mockImg1);
+    });
+  });
+
+  describe('_processImages native batch behaviors', () => {
+    test('processImagesSequentially should handle duplicate log', () => {
+      const img1 = document.createElement('img');
+      const processedUrls = new Set(['https://example.com/seen.jpg']);
+
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(() => {
+        return { image: { external: { url: 'https://example.com/seen.jpg' } } };
+      });
+
+      const additionalImages = [];
+      ImageCollector.processImagesSequentially([img1], null, additionalImages, processedUrls);
+
+      expect(additionalImages).toHaveLength(0);
+      expect(Logger.log).toHaveBeenCalledWith('跳過重複的圖片 URL', expect.any(Object));
+    });
+
+    test('_processImages native batch behaviors success case', async () => {
+      jest.restoreAllMocks(); // use native batch process calls
+
+      const img1 = document.createElement('img');
+      img1.src = 'https://example.com/b1.jpg';
+      Object.defineProperty(img1, 'naturalWidth', { value: 800 });
+      Object.defineProperty(img1, 'naturalHeight', { value: 600 });
+
+      const allImages = Array.from({ length: 6 }).fill(img1);
+      const additionalImages = [
+        { image: { external: { url: 'https://example.com/existing.jpg' } } },
+      ];
+
+      // We need to bypass actual extractImageSrc failures
+      // Since jest is restored, we need to mock just what we need:
+      const extractImgSpy = jest.spyOn(
+        require('../../../../scripts/utils/imageUtils.js'),
+        'extractImageSrc'
+      );
+      extractImgSpy.mockReturnValue('https://example.com/b1.jpg');
+
+      const isValidSpy = jest.spyOn(
+        require('../../../../scripts/utils/imageUtils.js'),
+        'isValidCleanedImageUrl'
+      );
+      isValidSpy.mockReturnValue(true);
+
+      // Force mock batchProcessWithRetry locally
+      const perfOpt = require('../../../../scripts/performance/PerformanceOptimizer.js');
+      jest.spyOn(perfOpt, 'batchProcessWithRetry').mockImplementation(async (items, processFn) => {
+        // execute processFn over the items to hit line 608 callbacks
+        const results = items.map(item => processFn(item));
+        return { results, meta: {} };
+      });
+
+      await ImageCollector._processImages(
+        allImages,
+        'https://example.com/feat.jpg',
+        additionalImages
+      );
+      // Wait, there's 1 existing image, we added b1 once (deduplicated the other 5).
+      expect(additionalImages).toHaveLength(2); // existing + b1
+    });
+
+    test('_processImages handles simple batch fallback if retry throws', async () => {
+      // By replacing the implementation, we can ensure error block happens
+      batchProcessWithRetry.mockRejectedValue(new Error('Batch Failed'));
+      const seqSpy = jest.spyOn(ImageCollector, 'processImagesSequentially');
+
+      const allImages = Array.from({ length: 6 }).fill(document.createElement('img'));
+      await ImageCollector._processImages(allImages, 'https://example.com/feat.jpg', []);
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '批次處理失敗 (Retry)，回退到順序處理',
+        expect.any(Object)
+      );
+      expect(seqSpy).toHaveBeenCalled();
     });
   });
 });
