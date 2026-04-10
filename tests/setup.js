@@ -23,7 +23,9 @@ globalThis.__LOGGER_DEV__ = true;
 // Initialize runtime.lastError for ScriptInjector tests
 globalThis.chrome.runtime.lastError = null;
 
-// Mock Logger (used by scripts) - simulate dev mode behavior since __FORCE_LOG__ is set
+// [TECHNICAL DEBT]
+// 這裡的 globalThis.Logger 會在所有測試中覆蓋真正的 utils/Logger.js
+// 若測試需要驗證真實這 logger 行為，必須使用 `jest.isolateModules()` 搭配 `jest.resetModules()` 重新 import。
 // deepcode ignore UseConsoleLogInBrowser: Console usage is intentional in test environment for Logger mock
 globalThis.Logger = {
   log: jest.fn((message, ...args) => {

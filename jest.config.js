@@ -8,10 +8,47 @@ module.exports = {
   // 測試設置文件（在模組載入後執行）
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 
-  // 測試文件匹配模式
-  testMatch: [
-    '**/tests/**/*.test.js',
-    '**/tests/**/*.spec.js'
+  projects: [
+    {
+      displayName: 'unit',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/tests/unit/**/*.test.js',
+        '<rootDir>/tests/unit/**/*.spec.js'
+      ],
+      setupFiles: ['<rootDir>/tests/presetup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+      },
+      transform: {
+        '^.+\\.[tj]sx?$': 'babel-jest',
+      },
+      transformIgnorePatterns: [
+        String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+      ]
+    },
+    {
+      displayName: 'integration',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/tests/integration/**/*.test.js',
+        '<rootDir>/tests/integration/**/*.spec.js'
+      ],
+      setupFiles: ['<rootDir>/tests/presetup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+      },
+      transform: {
+        '^.+\\.[tj]sx?$': 'babel-jest',
+      },
+      transformIgnorePatterns: [
+        String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+      ]
+    }
   ],
 
   // 覆蓋率收集
@@ -90,7 +127,7 @@ module.exports = {
   // 減少不必要的 mock 清理以提升性能
   clearMocks: false, // 改為手動清理特定測試
   resetMocks: false,  // 改為手動重置特定測試
-  restoreMocks: false, // 改為手動恢復特定測試
+  restoreMocks: true, // 強制每個測試後還原 spyOn mocks，避免污染
 
   // 性能優化
   bail: false, // 不在第一個失敗時停止，繼續執行所有測試

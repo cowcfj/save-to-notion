@@ -43,9 +43,7 @@ describe('background error branches (integration)', () => {
   let originalFetch = null;
   let mockSyncStorage = {};
 
-  // 統一錯誤匹配模式，避免過於寬泛的 "失敗" 匹配
-  const API_ERROR_REGEX =
-    /Invalid request|請求無效|無法解析頁面內容|Notion API 請求失敗|發生未知錯誤|操作失敗|網路錯誤|資料驗證失敗/u;
+  // 已移除過寬的 API_ERROR_REGEX，改用具體斷言
 
   beforeEach(() => {
     jest.resetModules();
@@ -406,7 +404,10 @@ describe('background error branches (integration)', () => {
     // 這裡只驗證最終為失敗（error 字段存在），不綁定具體錯誤訊息以避免外部 fetch 影響。
     const call = sendResponse.mock.calls[0][0];
     expect(call.success).toBe(false);
-    expect(typeof call.error).toBe('string');
+    // 注入失敗後啟動 fallback extraction。但由於 fetch 未被 mock 以支持完整保存，
+    // 因此最終一定因 fetch mock 在 fallback 時失敗，引發例外。
+    // 在目前的流程下，會收到內容提取失敗的錯誤
+    expect(call.error.toString()).toMatch(/內容提取失敗|無法.*內容/);
     chrome.runtime.lastError = null;
   });
 
@@ -451,8 +452,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 400 + 'Invalid request' 經過 sanitizeApiError 會返回 'Invalid request'
-        error: expect.stringMatching(API_ERROR_REGEX),
+        // 400 錯誤被 sanitizeApiError 對應回 Notion API 請求失敗或類似預設訊息
+        error: expect.stringMatching(/Notion API 請求失敗|Invalid request|請求無效/i),
       })
     );
   });
@@ -636,8 +637,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 'image url invalid' 包含 'image'，經過 sanitizeApiError 返回 'Invalid request'
-        error: expect.stringMatching(API_ERROR_REGEX),
+        // 'image url invalid' 包含 'image'，經過 sanitizeApiError 或是前置檢查網路錯誤，導致最終返回通用網路或驗證錯誤
+        error: expect.stringMatching(/檢查頁面狀態時發生網路錯誤|Invalid request|請求無效/i),
       })
     );
   });
@@ -708,8 +709,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 當前 Fallback 訊息或經過翻譯後的訊息均包含「失敗」或「無效」
-        error: expect.stringMatching(API_ERROR_REGEX),
+        // 網路或服務不可用的訊息
+        error: expect.stringMatching(/檢查頁面狀態時發生網路錯誤|Invalid request|請求無效/i),
       })
     );
   });
@@ -719,7 +720,7 @@ describe('background error branches (integration)', () => {
     const pageId = 'page-500';
 
     chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -783,6 +784,9 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalled();
     expect(resp).toBeDefined();
     expect(resp.success).toBe(false);
-    expect(typeof resp.error).toBe('string');
+    // 500 錯誤會觸發 fetchWithRetry 重試機制，最終失敗會拋出網路錯誤或操作失敗的預設訊息
+    expect(resp.error).toMatch(
+      /Internal Server Error|操作失敗|網路錯誤|發生未知錯誤|Notion API 請求失敗/i
+    );
   });
 });

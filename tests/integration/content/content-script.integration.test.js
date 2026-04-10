@@ -80,11 +80,13 @@ function ensureFreshContentBundle() {
 
   try {
     // 在專案根目錄執行建置指令
+    // 不依賴 npm，直接呼叫專案內的 rollup
     // eslint-disable-next-line sonarjs/no-os-command-from-path
-    childProcess.execSync('npm run build:content', {
+    childProcess.execSync('node node_modules/.bin/rollup -c rollup.content.config.mjs', {
       stdio: 'pipe',
       cwd: PROJECT_ROOT,
       encoding: 'utf8',
+      env: process.env,
       shell: true,
     });
   } catch (error) {
@@ -120,7 +122,7 @@ describe('內容腳本整合測試輔助函式', () => {
 
     expect(rmSyncSpy).toHaveBeenCalledWith(CONTENT_BUNDLE_PATH, { force: true });
     expect(execSyncSpy).toHaveBeenCalledWith(
-      'npm run build:content',
+      'node node_modules/.bin/rollup -c rollup.content.config.mjs',
       expect.objectContaining({
         cwd: PROJECT_ROOT,
         encoding: 'utf8',
