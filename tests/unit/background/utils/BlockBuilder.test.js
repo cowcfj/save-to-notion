@@ -27,6 +27,9 @@ const {
   createFallbackBlocks,
   isValidBlock,
 } = require('../../../../scripts/background/utils/BlockBuilder');
+const {
+  NOTION_CODE_LANGUAGE_PLAIN_TEXT,
+} = require('../../../../scripts/config/notionCodeLanguages.js');
 
 const blockBuilderPath = path.resolve(
   __dirname,
@@ -55,6 +58,8 @@ function loadBlockBuilderInVm() {
     __dirname: dirname,
   });
 
+  // Intentional VM-based execution for isolated NaN parameter testing (SonarQube: sonarjs/code-eval)
+   
   const wrapper = new vm.Script(
     `(function (exports, require, module, __filename, __dirname) { ${transformed.code}\n})`,
     {
@@ -176,7 +181,7 @@ describe('BlockBuilder', () => {
     test('should create code block with default language', () => {
       const result = createCodeBlock('const x = 1;');
       expect(result.type).toBe('code');
-      expect(result.code.language).toBe('plain text');
+      expect(result.code.language).toBe(NOTION_CODE_LANGUAGE_PLAIN_TEXT);
       expect(result.code.rich_text[0].text.content).toBe('const x = 1;');
     });
 
@@ -271,6 +276,8 @@ describe('BlockBuilder', () => {
       const { context, exports } = loadBlockBuilderInVm();
       context.__splitTextForHighlight = exports.splitTextForHighlight;
 
+      // Intentional VM-based execution for isolated NaN parameter testing (SonarQube: sonarjs/code-eval)
+       
       new vm.Script(
         "globalThis.__result = __splitTextForHighlight('需要保留的文字', Number.NaN);"
       ).runInContext(context, {

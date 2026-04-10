@@ -21,6 +21,7 @@
 ### 3. UI 與內容提取配置
 
 - `extraction.js`: 內容提取配置 (解析選擇器、Next.js 配置、圖片驗證規則等)
+- `notionCodeLanguages.js`: Notion Code block 語言白名單、fallback 與語言提示相關共享常數
 - `ui.js`: UI 層配置 (擴充功能介面專用的選擇器、狀態常量等)
 - `highlightConstants.js`: 螢光筆標記常量 (Highlight 相關特有類名與屬性，供 Highlighter 與 Content 使用)
 - `icons.js`: SVG 圖標與 Emoji 映射配置 (供 Extension UI 與頁面注入腳本使用)

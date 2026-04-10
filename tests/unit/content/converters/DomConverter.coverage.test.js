@@ -298,12 +298,39 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(DomConverter.mapLanguage('py')).toBe('python');
     });
 
+    test('應該映射 jsx 和 tsx 語言縮寫', () => {
+      expect(DomConverter.mapLanguage('jsx')).toBe('javascript');
+      expect(DomConverter.mapLanguage('tsx')).toBe('typescript');
+    });
+
     test('null 應該返回 plain text', () => {
       expect(DomConverter.mapLanguage(null)).toBe('plain text');
     });
 
-    test('未知語言應該原樣返回', () => {
-      expect(DomConverter.mapLanguage('unknown')).toBe('unknown');
+    test('未知語言應該 fallback 到 plain text（避免 Notion API validation_error）', () => {
+      expect(DomConverter.mapLanguage('unknown')).toBe('plain text');
+      // 回歸測試：'host' 是實際觸發 bug 的語言值（來自 language-host class）
+      expect(DomConverter.mapLanguage('host')).toBe('plain text');
+    });
+
+    test('Notion API 支援的語言應該原樣保留', () => {
+      expect(DomConverter.mapLanguage('python')).toBe('python');
+      expect(DomConverter.mapLanguage('bash')).toBe('bash');
+      expect(DomConverter.mapLanguage('shell')).toBe('shell');
+      expect(DomConverter.mapLanguage('yaml')).toBe('yaml');
+      expect(DomConverter.mapLanguage('java/c/c++/c#')).toBe('java/c/c++/c#');
+    });
+  });
+
+  describe('extractCodeLanguage', () => {
+    test('應該優先採用內層 code 的語言提示', () => {
+      document.body.innerHTML =
+        '<pre data-language="python"><code class="language-jsx">const App = () => null;</code></pre>';
+
+      const preNode = document.querySelector('pre');
+      const codeNode = document.querySelector('code');
+
+      expect(DomConverter.extractCodeLanguage(preNode, codeNode)).toBe('javascript');
     });
   });
 
