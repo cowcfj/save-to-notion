@@ -298,6 +298,11 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(DomConverter.mapLanguage('py')).toBe('python');
     });
 
+    test('應該映射 jsx 和 tsx 語言縮寫', () => {
+      expect(DomConverter.mapLanguage('jsx')).toBe('javascript');
+      expect(DomConverter.mapLanguage('tsx')).toBe('typescript');
+    });
+
     test('null 應該返回 plain text', () => {
       expect(DomConverter.mapLanguage(null)).toBe('plain text');
     });
@@ -314,6 +319,18 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(DomConverter.mapLanguage('shell')).toBe('shell');
       expect(DomConverter.mapLanguage('yaml')).toBe('yaml');
       expect(DomConverter.mapLanguage('java/c/c++/c#')).toBe('java/c/c++/c#');
+    });
+  });
+
+  describe('extractCodeLanguage', () => {
+    test('應該優先採用內層 code 的語言提示', () => {
+      document.body.innerHTML =
+        '<pre data-language="python"><code class="language-jsx">const App = () => null;</code></pre>';
+
+      const preNode = document.querySelector('pre');
+      const codeNode = document.querySelector('code');
+
+      expect(DomConverter.extractCodeLanguage(preNode, codeNode)).toBe('javascript');
     });
   });
 

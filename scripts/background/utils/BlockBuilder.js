@@ -10,6 +10,7 @@
 // 導入統一配置（從統一入口點導入，保持一致性）
 import { TEXT_PROCESSING } from '../../config/index.js';
 import { NOTION_API } from '../../config/api.js';
+import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../config/notionCodeLanguages.js';
 
 /**
  * 文本內容最大長度（從統一配置獲取）
@@ -152,10 +153,10 @@ function createImage(url, caption = '') {
  * 創建代碼區塊
  *
  * @param {string} code - 代碼內容
- * @param {string} language - 程式語言 (默認 'plain text')
+ * @param {string} language - 程式語言 (默認 plain text)
  * @returns {object} Notion code block
  */
-function createCodeBlock(code, language = 'plain text') {
+function createCodeBlock(code, language = NOTION_CODE_LANGUAGE_PLAIN_TEXT) {
   return {
     object: 'block',
     type: 'code',

@@ -28,6 +28,9 @@ export * from './storageKeys.js';
 // 提取配置 (DOM 選擇器、Next.js 配置、圖片驗證、內容質量)
 export * from './extraction.js';
 
+// Notion Code 語言白名單與 fallback 常數
+export * from './notionCodeLanguages.js';
+
 // UI 選擇器與 UI 狀態常量
 export * from './ui.js';
 

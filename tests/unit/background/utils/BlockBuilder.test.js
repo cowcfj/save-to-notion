@@ -27,6 +27,9 @@ const {
   createFallbackBlocks,
   isValidBlock,
 } = require('../../../../scripts/background/utils/BlockBuilder');
+const {
+  NOTION_CODE_LANGUAGE_PLAIN_TEXT,
+} = require('../../../../scripts/config/notionCodeLanguages.js');
 
 const blockBuilderPath = path.resolve(
   __dirname,
@@ -176,7 +179,7 @@ describe('BlockBuilder', () => {
     test('should create code block with default language', () => {
       const result = createCodeBlock('const x = 1;');
       expect(result.type).toBe('code');
-      expect(result.code.language).toBe('plain text');
+      expect(result.code.language).toBe(NOTION_CODE_LANGUAGE_PLAIN_TEXT);
       expect(result.code.rich_text[0].text.content).toBe('const x = 1;');
     });
 
