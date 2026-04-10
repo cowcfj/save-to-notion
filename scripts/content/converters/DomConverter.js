@@ -131,13 +131,13 @@ const NOTION_SUPPORTED_LANGUAGES = new Set([
 ]);
 
 /**
- * CSS class name 常見別名 → Notion API 語言值的映射表
+ * CSS class name 常見縮寫與別名 → Notion API 語言值的映射表
  * 用於將 `language-xxx` / `lang-xxx` class 轉換為 Notion 接受的語言字串
  *
  * @constant {Object<string, string>}
  */
 const CODE_LANGUAGE_MAP = {
-  // 常見縮寫
+  // 常見縮寫與別名
   js: 'javascript',
   ts: 'typescript',
   py: 'python',
@@ -159,49 +159,6 @@ const CODE_LANGUAGE_MAP = {
   asm: 'assembly',
   wasm: 'webassembly',
   cpp: 'c++',
-  // 完整名稱（確保 1:1 對應也在 map 中，利於統一流程）
-  html: 'html',
-  css: 'css',
-  json: 'json',
-  bash: 'bash',
-  shell: 'shell',
-  c: 'c',
-  java: 'java',
-  go: 'go',
-  rust: 'rust',
-  python: 'python',
-  ruby: 'ruby',
-  typescript: 'typescript',
-  javascript: 'javascript',
-  sql: 'sql',
-  xml: 'xml',
-  yaml: 'yaml',
-  toml: 'toml',
-  swift: 'swift',
-  kotlin: 'kotlin',
-  scala: 'scala',
-  php: 'php',
-  perl: 'perl',
-  lua: 'lua',
-  r: 'r',
-  dart: 'dart',
-  elixir: 'elixir',
-  erlang: 'erlang',
-  haskell: 'haskell',
-  clojure: 'clojure',
-  scss: 'scss',
-  sass: 'sass',
-  less: 'less',
-  graphql: 'graphql',
-  makefile: 'makefile',
-  diff: 'diff',
-  markdown: 'markdown',
-  protobuf: 'protobuf',
-  powershell: 'powershell',
-  groovy: 'groovy',
-  nix: 'nix',
-  solidity: 'solidity',
-  mermaid: 'mermaid',
 };
 
 /**
