@@ -180,11 +180,11 @@ describe('Logger', () => {
   describe('實際使用場景', () => {
     test('應該記錄性能警告', () => {
       const time = 5200;
-      Logger.warn(`⚠️ [性能] 保存耗時 ${time}ms，超過預期`);
+      Logger.warn(` [性能] 保存耗時 ${time}ms，超過預期`);
 
       expect(consoleSpy.warn).toHaveBeenCalledWith(
         expect.stringContaining('[WARN]'),
-        '⚠️ [性能] 保存耗時 5200ms，超過預期'
+        ' [性能] 保存耗時 5200ms，超過預期'
       );
     });
   });

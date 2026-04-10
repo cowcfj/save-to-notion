@@ -452,8 +452,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 400 錯誤被 sanitizeApiError 對應回 Notion API 請求失敗或類似預設訊息
-        error: expect.stringMatching(/Notion API 請求失敗|Invalid request|請求無效/i),
+        error: ErrorHandler.formatUserMessage('notionhq_client_response_error'),
       })
     );
   });
@@ -624,8 +623,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 'image url invalid' 包含 'image'，經過 sanitizeApiError 或是前置檢查網路錯誤，導致最終返回通用網路或驗證錯誤
-        error: expect.stringMatching(/檢查頁面狀態時發生網路錯誤|Invalid request|請求無效/i),
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
       })
     );
   });
@@ -696,8 +694,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 網路或服務不可用的訊息
-        error: expect.stringMatching(/檢查頁面狀態時發生網路錯誤|Invalid request|請求無效/i),
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
       })
     );
   });
