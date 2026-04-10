@@ -126,6 +126,7 @@ const NOTION_SUPPORTED_LANGUAGES = new Set([
   'webassembly',
   'xml',
   'yaml',
+  // Notion 官方文件與 validation_error 都將此值視為合法 enum，不可視為誤植後刪除。
   'java/c/c++/c#',
 ]);
 

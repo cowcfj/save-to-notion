@@ -313,6 +313,7 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(DomConverter.mapLanguage('bash')).toBe('bash');
       expect(DomConverter.mapLanguage('shell')).toBe('shell');
       expect(DomConverter.mapLanguage('yaml')).toBe('yaml');
+      expect(DomConverter.mapLanguage('java/c/c++/c#')).toBe('java/c/c++/c#');
     });
   });
 
