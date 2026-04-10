@@ -23,6 +23,13 @@ describe('Logger', () => {
       error: jest.fn(),
     };
     globalThis.console = consoleSpy;
+    globalThis.chrome = {
+      runtime: {
+        id: 'test-runtime-id',
+        lastError: null,
+        getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+      },
+    };
 
     // Clear last error in chrome mock if any
     if (globalThis.chrome?.runtime) {
@@ -44,6 +51,7 @@ describe('Logger', () => {
     // 恢復原始 console
     globalThis.console = originalConsole;
     jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
   describe('debug', () => {
@@ -168,12 +176,9 @@ describe('Logger', () => {
   describe('實際使用場景', () => {
     test('應該記錄性能警告', () => {
       const time = 5200;
-      Logger.warn(` [性能] 保存耗時 ${time}ms，超過預期`);
+      Logger.warn(`[性能] 保存耗時 ${time}ms，超過預期`);
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        '[WARN] ⚠️',
-        ' [性能] 保存耗時 5200ms，超過預期'
-      );
+      expect(consoleSpy.warn).toHaveBeenCalledWith('[WARN] ⚠️', '[性能] 保存耗時 5200ms，超過預期');
     });
   });
 
