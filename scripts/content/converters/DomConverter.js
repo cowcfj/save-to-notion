@@ -26,6 +26,9 @@ import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = 2000;
+const MAX_CODE_LANGUAGE_HINT_LENGTH = 64;
+const NOTION_CODE_LANGUAGE_OBJECTIVE_C = 'objective-c';
+const NOTION_CODE_LANGUAGE_PLAIN_TEXT = 'plain text';
 
 /**
  * DomConverter 專用常數（單檔案在地化）
@@ -92,12 +95,12 @@ const NOTION_SUPPORTED_LANGUAGES = new Set([
   'mermaid',
   'nix',
   'notion formula',
-  'objective-c',
+  NOTION_CODE_LANGUAGE_OBJECTIVE_C,
   'ocaml',
   'pascal',
   'perl',
   'php',
-  'plain text',
+  NOTION_CODE_LANGUAGE_PLAIN_TEXT,
   'powershell',
   'prolog',
   'protobuf',
@@ -134,7 +137,7 @@ const NOTION_SUPPORTED_LANGUAGES = new Set([
  * CSS class name 常見縮寫與別名 → Notion API 語言值的映射表
  * 用於將 `language-xxx` / `lang-xxx` class 轉換為 Notion 接受的語言字串
  *
- * @constant {Object<string, string>}
+ * @constant {{[key: string]: string}}
  */
 const CODE_LANGUAGE_MAP = {
   // 常見縮寫與別名
@@ -147,8 +150,9 @@ const CODE_LANGUAGE_MAP = {
   sh: 'bash',
   zsh: 'bash',
   yml: 'yaml',
-  objc: 'objective-c',
-  objectivec: 'objective-c',
+  objc: NOTION_CODE_LANGUAGE_OBJECTIVE_C,
+  objectivec: NOTION_CODE_LANGUAGE_OBJECTIVE_C,
+  'obj-c': NOTION_CODE_LANGUAGE_OBJECTIVE_C,
   dockerfile: 'docker',
   tf: 'hcl',
   terraform: 'hcl',
@@ -159,6 +163,11 @@ const CODE_LANGUAGE_MAP = {
   asm: 'assembly',
   wasm: 'webassembly',
   cpp: 'c++',
+  plaintext: NOTION_CODE_LANGUAGE_PLAIN_TEXT,
+  'plain-text': NOTION_CODE_LANGUAGE_PLAIN_TEXT,
+  plain_text: NOTION_CODE_LANGUAGE_PLAIN_TEXT,
+  text: NOTION_CODE_LANGUAGE_PLAIN_TEXT,
+  txt: NOTION_CODE_LANGUAGE_PLAIN_TEXT,
 };
 
 /**
@@ -522,14 +531,7 @@ class DomConverter {
     // PRE 通常包含 CODE
     const codeNode = node.querySelector('code') || node;
     const text = codeNode.textContent || '';
-
-    // 嘗試獲取語言
-    let language = 'plain text';
-    const className = codeNode.className || node.className || '';
-    const langMatch = className.match(/language-(\w+)|lang-(\w+)/);
-    if (langMatch) {
-      language = DomConverter.mapLanguage(langMatch[1] || langMatch[2]);
-    }
+    const language = DomConverter.extractCodeLanguage(node, codeNode);
 
     return {
       object: 'block',
@@ -755,14 +757,61 @@ class DomConverter {
 
   // --- Utils ---
 
-  static mapLanguage(lang) {
-    if (!lang) {
-      return 'plain text';
+  static extractCodeLanguage(preNode, codeNode) {
+    const hints = DomConverter.collectCodeLanguageHints(preNode, codeNode);
+    for (const hint of hints) {
+      const resolved = DomConverter.resolveLanguageHint(hint);
+      if (resolved) {
+        return resolved;
+      }
     }
-    const normalized = lang.toLowerCase();
+    return NOTION_CODE_LANGUAGE_PLAIN_TEXT;
+  }
+
+  static collectCodeLanguageHints(...nodes) {
+    const hints = new Set();
+
+    nodes.forEach(node => {
+      if (node?.nodeType !== Node.ELEMENT_NODE) {
+        return;
+      }
+
+      ['data-language', 'data-lang', 'language', 'lang'].forEach(attr => {
+        const value = node.getAttribute(attr);
+        if (typeof value === 'string' && value.trim()) {
+          hints.add(value.trim());
+        }
+      });
+
+      Array.from(node.classList || []).forEach(token => {
+        const normalizedToken = token.toLowerCase();
+        if (normalizedToken.startsWith('language-')) {
+          hints.add(normalizedToken.slice('language-'.length));
+        } else if (normalizedToken.startsWith('lang-')) {
+          hints.add(normalizedToken.slice('lang-'.length));
+        }
+      });
+    });
+
+    return [...hints];
+  }
+
+  static resolveLanguageHint(lang) {
+    if (typeof lang !== 'string') {
+      return null;
+    }
+
+    const normalized = lang.trim().toLowerCase().slice(0, MAX_CODE_LANGUAGE_HINT_LENGTH);
+    if (!normalized) {
+      return null;
+    }
+
     const mapped = CODE_LANGUAGE_MAP[normalized] || normalized;
-    // 嚴格驗證：只允許 Notion API 支援的語言值，避免 validation_error
-    return NOTION_SUPPORTED_LANGUAGES.has(mapped) ? mapped : 'plain text';
+    return NOTION_SUPPORTED_LANGUAGES.has(mapped) ? mapped : null;
+  }
+
+  static mapLanguage(lang) {
+    return DomConverter.resolveLanguageHint(lang) || NOTION_CODE_LANGUAGE_PLAIN_TEXT;
   }
 
   /**
