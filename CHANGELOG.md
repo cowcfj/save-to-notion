@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.50.1](https://github.com/cowcfj/save-to-notion/compare/v2.50.0...v2.50.1) (2026-04-10)
+
+
+### 🐛 Bug 修復
+
+* fallback unsupported code block languages to 'plain text' ([#400](https://github.com/cowcfj/save-to-notion/issues/400)) ([150fa67](https://github.com/cowcfj/save-to-notion/commit/150fa67fa4f7f97533cc84c43a3c11011f27016f))
+
 ## [2.50.0](https://github.com/cowcfj/save-to-notion/compare/v2.49.0...v2.50.0) (2026-04-09)
 
 
