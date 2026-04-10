@@ -302,8 +302,17 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(DomConverter.mapLanguage(null)).toBe('plain text');
     });
 
-    test('未知語言應該原樣返回', () => {
-      expect(DomConverter.mapLanguage('unknown')).toBe('unknown');
+    test('未知語言應該 fallback 到 plain text（避免 Notion API validation_error）', () => {
+      expect(DomConverter.mapLanguage('unknown')).toBe('plain text');
+      // 回歸測試：'host' 是實際觸發 bug 的語言值（來自 language-host class）
+      expect(DomConverter.mapLanguage('host')).toBe('plain text');
+    });
+
+    test('Notion API 支援的語言應該原樣保留', () => {
+      expect(DomConverter.mapLanguage('python')).toBe('python');
+      expect(DomConverter.mapLanguage('bash')).toBe('bash');
+      expect(DomConverter.mapLanguage('shell')).toBe('shell');
+      expect(DomConverter.mapLanguage('yaml')).toBe('yaml');
     });
   });
 
