@@ -17,6 +17,14 @@
       "rule": "Do not mutate window.chrome directly. Override global.chrome.",
       "setup": "Declare mock variables and spies at the top level and initialize them in beforeEach.",
       "teardown": "You MUST execute jest.clearAllMocks() and clean up global.chrome in afterEach to prevent test pollution."
+    },
+    "gold_standard_references": {
+      "notion_api_validation": "tests/unit/background/notion-page-operations.test.js (示範如何深度驗證 payload 及 fetch Mocking)",
+      "chrome_message_handlers": "tests/unit/background/message-handlers.test.js (示範如何正確模擬 storage 狀態及驗證 response)"
+    },
+    "anti_patterns": {
+      "ban_shallow_assertions": "Do NOT just test if fetch or sendMessage was called. You MUST assert the exact expected payload object structure.",
+      "ban_overmocking": "Do NOT mock internal dependencies of the file under test unless it inherently involves Network/Storage I/O. Follow authentic AAA patterns."
     }
   },
   "e2e_testing": {
