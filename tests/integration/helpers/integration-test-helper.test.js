@@ -3,6 +3,8 @@ import { createSendResponseWaiter } from '../../helpers/integration-test-helper.
 describe('integration-test-helper', () => {
   afterEach(() => {
     jest.useRealTimers();
+    jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
   test('createSendResponseWaiter：callback 被呼叫後立即 resolve，且保留 mock 斷言能力', async () => {

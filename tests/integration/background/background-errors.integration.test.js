@@ -582,7 +582,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
       // 讀取既有內容
@@ -594,7 +594,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ results: [] })),
         });
       }
       // 更新內容 → 返回 validation_error 且 message 含 image
@@ -606,7 +606,10 @@ describe('background error branches (integration)', () => {
           ok: false,
           status: 400,
           json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
-          text: () => Promise.resolve('image url invalid'),
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ code: 'validation_error', message: 'image url invalid' })
+            ),
         });
       }
       return Promise.resolve({
@@ -623,7 +626,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+        error: ErrorHandler.formatUserMessage('image_validation_error'),
       })
     );
   });
@@ -661,7 +664,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
       if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'GET') {
@@ -669,7 +672,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ results: [] })),
         });
       }
       if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'PATCH') {
@@ -694,7 +697,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+        error: ErrorHandler.formatUserMessage('notionhq_client_response_error'),
       })
     );
   });
@@ -735,7 +738,7 @@ describe('background error branches (integration)', () => {
           text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
-      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/blocks\/.+\/children(?:\?.*)?$/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -768,9 +771,6 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalled();
     expect(resp).toBeDefined();
     expect(resp.success).toBe(false);
-    // 500 錯誤會觸發 fetchWithRetry 重試機制，最終失敗會拋出網路錯誤或操作失敗的預設訊息
-    expect(resp.error).toMatch(
-      /Internal Server Error|操作失敗|網路錯誤|發生未知錯誤|Notion API 請求失敗/i
-    );
+    expect(resp.error).toBe(ErrorHandler.formatUserMessage('notionhq_client_response_error'));
   });
 });

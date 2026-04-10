@@ -107,7 +107,7 @@ describe('Logger', () => {
     test('應該輸出 warn 級別日誌', () => {
       Logger.warn('警告訊息');
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith(expect.stringContaining('[WARN]'), '警告訊息');
+      expect(consoleSpy.warn).toHaveBeenCalledWith('[WARN] ⚠️', '警告訊息');
       expect(consoleSpy.warn).toHaveBeenCalledTimes(1);
     });
 
@@ -115,9 +115,9 @@ describe('Logger', () => {
       Logger.warn('API 速率限制', { remaining: 10 });
 
       expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[WARN]'),
+        '[WARN] ⚠️',
         'API 速率限制',
-        { remaining: 10 }
+        expect.objectContaining({ remaining: 10 })
       );
     });
 
@@ -125,21 +125,13 @@ describe('Logger', () => {
       const error = new Error('測試錯誤');
       Logger.warn('發生非致命錯誤', error);
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[WARN]'),
-        '發生非致命錯誤',
-        error
-      );
+      expect(consoleSpy.warn).toHaveBeenCalledWith('[WARN] ⚠️', '發生非致命錯誤', error);
     });
 
     test('應該處理 null 和 undefined', () => {
       Logger.warn('空值檢查', null);
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[WARN]'),
-        '空值檢查',
-        null
-      );
+      expect(consoleSpy.warn).toHaveBeenCalledWith('[WARN] ⚠️', '空值檢查', null);
     });
   });
 
@@ -147,7 +139,7 @@ describe('Logger', () => {
     test('應該輸出 error 級別日誌', () => {
       Logger.error('錯誤訊息');
 
-      expect(consoleSpy.error).toHaveBeenCalledWith(expect.stringContaining('[ERROR]'), '錯誤訊息');
+      expect(consoleSpy.error).toHaveBeenCalledWith('[ERROR] ❌', '錯誤訊息');
       expect(consoleSpy.error).toHaveBeenCalledTimes(1);
     });
 
@@ -155,11 +147,7 @@ describe('Logger', () => {
       const error = new Error('API 調用失敗');
       Logger.error('無法保存到 Notion', error);
 
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('[ERROR]'),
-        '無法保存到 Notion',
-        error
-      );
+      expect(consoleSpy.error).toHaveBeenCalledWith('[ERROR] ❌', '無法保存到 Notion', error);
     });
   });
 
@@ -183,7 +171,7 @@ describe('Logger', () => {
       Logger.warn(` [性能] 保存耗時 ${time}ms，超過預期`);
 
       expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[WARN]'),
+        '[WARN] ⚠️',
         ' [性能] 保存耗時 5200ms，超過預期'
       );
     });
@@ -199,7 +187,7 @@ describe('Logger', () => {
     test('應該處理 null 訊息', () => {
       Logger.error(null);
 
-      expect(consoleSpy.error).toHaveBeenCalledWith(expect.stringContaining('[ERROR]'), null);
+      expect(consoleSpy.error).toHaveBeenCalledWith('[ERROR] ❌', null);
     });
 
     test('應該處理數字訊息', () => {
