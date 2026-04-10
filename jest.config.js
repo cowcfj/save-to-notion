@@ -1,3 +1,7 @@
+const ESM_TRANSFORM_IGNORE_PATTERNS = [
+  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+];
+
 module.exports = {
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
@@ -25,9 +29,7 @@ module.exports = {
       transform: {
         '^.+\\.[tj]sx?$': 'babel-jest',
       },
-      transformIgnorePatterns: [
-        String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
-      ]
+      transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     },
     {
       displayName: 'integration',
@@ -45,9 +47,7 @@ module.exports = {
       transform: {
         '^.+\\.[tj]sx?$': 'babel-jest',
       },
-      transformIgnorePatterns: [
-        String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
-      ]
+      transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     }
   ],
 
@@ -102,9 +102,7 @@ module.exports = {
   },
 
   // 轉換 node_modules 中的 ES 模組
-  transformIgnorePatterns: [
-    String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
-  ],
+  transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS,
 
   // 模組名稱映射（用於模擬 Chrome API）
   moduleNameMapper: {
