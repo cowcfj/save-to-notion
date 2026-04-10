@@ -7,7 +7,7 @@
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, SECURITY_ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 import {
-  waitForSend,
+  createSendResponseWaiter,
   createMockLogger,
   setupChromeMock,
 } from '../../helpers/integration-test-helper.js';
@@ -43,9 +43,7 @@ describe('background error branches (integration)', () => {
   let originalFetch = null;
   let mockSyncStorage = {};
 
-  // 統一錯誤匹配模式，避免過於寬泛的 "失敗" 匹配
-  const API_ERROR_REGEX =
-    /Invalid request|請求無效|無法解析頁面內容|Notion API 請求失敗|發生未知錯誤|操作失敗|網路錯誤|資料驗證失敗/u;
+  // 已移除過寬的 API_ERROR_REGEX，改用具體斷言
 
   beforeEach(() => {
     jest.resetModules();
@@ -92,9 +90,9 @@ describe('background error branches (integration)', () => {
   };
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -119,9 +117,9 @@ describe('background error branches (integration)', () => {
       mockCb?.();
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -139,9 +137,9 @@ describe('background error branches (integration)', () => {
       { id: 1, url: 'https://example.com/page', title: 't', active: true },
     ]);
     // sync.get 已預設為返回 {}（無 notionApiKey）
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -162,9 +160,9 @@ describe('background error branches (integration)', () => {
       return Promise.resolve(res);
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -174,13 +172,13 @@ describe('background error branches (integration)', () => {
   });
 
   test('checkNotionPageExists：缺少 pageId → 返回錯誤', async () => {
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit(
       { action: 'checkNotionPageExists' },
       internalSender,
       sendResponse
     );
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -190,13 +188,13 @@ describe('background error branches (integration)', () => {
   });
 
   test('checkNotionPageExists：未配置 API Key → 返回錯誤', async () => {
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit(
       { action: 'checkNotionPageExists', pageId: 'pid-1' },
       internalSender,
       sendResponse
     );
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -206,9 +204,9 @@ describe('background error branches (integration)', () => {
   });
 
   test('openNotionPage：缺少 URL → 返回錯誤', async () => {
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'openNotionPage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -243,7 +241,7 @@ describe('background error branches (integration)', () => {
       callback?.({ status: 'bundle_ready' });
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     // 讓 create callback 觸發 lastError
     chrome.tabs.create.mockImplementationOnce((props, mockCb) => {
       chrome.runtime.lastError = { message: 'Create failed' };
@@ -254,7 +252,7 @@ describe('background error branches (integration)', () => {
       internalSender,
       sendResponse
     );
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     // 'Create failed' 經過 sanitizeApiError 清洗後會返回 'Unknown Error'，
     // ErrorHandler.formatUserMessage('Unknown Error') 返回預設錯誤訊息
     expect(sendResponse).toHaveBeenCalledWith(
@@ -268,9 +266,9 @@ describe('background error branches (integration)', () => {
 
   // ===== savePage 錯誤分支 =====
   test('savePage：無活動分頁 → 返回錯誤', async () => {
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -284,9 +282,9 @@ describe('background error branches (integration)', () => {
       { id: 7, url: 'https://example.com/a', title: 'A', active: true },
     ]);
     // 預設 sync.get 回傳 {}，觸發缺少 API Key/DB ID
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -297,10 +295,10 @@ describe('background error branches (integration)', () => {
 
   // ===== syncHighlights 錯誤與邊界分支 =====
   test('syncHighlights：無活動分頁 → 返回錯誤', async () => {
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     // 使用沒有 tab 屬性的 sender (如 internalSender) 來測試 fallback 到 getActiveTab 失敗的情況
     chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -314,13 +312,13 @@ describe('background error branches (integration)', () => {
       { id: 1, url: 'https://example.com/page', title: 'P', active: true },
     ]);
     // sync.get 預設 {} → 缺少 API Key
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit(
       { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
       contentScriptSender,
       sendResponse
     );
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -339,13 +337,13 @@ describe('background error branches (integration)', () => {
       mockCb?.(res);
       return Promise.resolve(res);
     });
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit(
       { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
       contentScriptSender,
       sendResponse
     );
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
@@ -369,13 +367,13 @@ describe('background error branches (integration)', () => {
       chrome.storage.local.set({ [savedKey]: { notionPageId: 'pid-xyz' } }, resolve)
     );
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit(
       { action: 'syncHighlights', highlights: [] },
       contentScriptSender,
       sendResponse
     );
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,
@@ -399,14 +397,17 @@ describe('background error branches (integration)', () => {
     // Explicit mock sequence: 1. Files -> 2. checkInitialization -> 3. collectHighlights -> 4. injectWithResponse
     setupScriptMock('error');
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     // 注入函數失敗後，handleSavePage 會走回退內容提取並繼續保存邏輯；
     // 這裡只驗證最終為失敗（error 字段存在），不綁定具體錯誤訊息以避免外部 fetch 影響。
     const call = sendResponse.mock.calls[0][0];
     expect(call.success).toBe(false);
-    expect(typeof call.error).toBe('string');
+    // 注入失敗後啟動 fallback extraction。但由於 fetch 未被 mock 以支持完整保存，
+    // 因此最終一定因 fetch mock 在 fallback 時失敗，引發例外。
+    // 在目前的流程下，會收到內容提取失敗的錯誤
+    expect(call.error.toString()).toMatch(/內容提取失敗|無法.*內容/);
     chrome.runtime.lastError = null;
   });
 
@@ -445,14 +446,13 @@ describe('background error branches (integration)', () => {
       })
     );
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 400 + 'Invalid request' 經過 sanitizeApiError 會返回 'Invalid request'
-        error: expect.stringMatching(API_ERROR_REGEX),
+        error: ErrorHandler.formatUserMessage('notionhq_client_response_error'),
       })
     );
   });
@@ -533,22 +533,9 @@ describe('background error branches (integration)', () => {
       });
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-
-    // 嘗試執行待處理計時器並讓出微任務，直到回傳
-    for (let i = 0; i < 50; i++) {
-      jest.advanceTimersByTime(100);
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      if (sendResponse.mock.calls.length > 0) {
-        break;
-      }
-    }
-    if (sendResponse.mock.calls.length === 0) {
-      throw new Error('sendResponse was not called within the timeout');
-    }
+    await sendResponse.waitForCall();
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(false);
     expect(resp.error).toBe(ErrorHandler.formatUserMessage('image_validation_error'));
@@ -595,7 +582,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
       // 讀取既有內容
@@ -607,7 +594,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ results: [] })),
         });
       }
       // 更新內容 → 返回 validation_error 且 message 含 image
@@ -619,7 +606,10 @@ describe('background error branches (integration)', () => {
           ok: false,
           status: 400,
           json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
-          text: () => Promise.resolve('image url invalid'),
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ code: 'validation_error', message: 'image url invalid' })
+            ),
         });
       }
       return Promise.resolve({
@@ -630,14 +620,13 @@ describe('background error branches (integration)', () => {
       });
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 'image url invalid' 包含 'image'，經過 sanitizeApiError 返回 'Invalid request'
-        error: expect.stringMatching(API_ERROR_REGEX),
+        error: ErrorHandler.formatUserMessage('image_validation_error'),
       })
     );
   });
@@ -675,7 +664,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
       if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'GET') {
@@ -683,7 +672,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve('ok'),
+          text: () => Promise.resolve(JSON.stringify({ results: [] })),
         });
       }
       if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'PATCH') {
@@ -702,14 +691,13 @@ describe('background error branches (integration)', () => {
       });
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await sendResponse.waitForCall();
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 當前 Fallback 訊息或經過翻譯後的訊息均包含「失敗」或「無效」
-        error: expect.stringMatching(API_ERROR_REGEX),
+        error: ErrorHandler.formatUserMessage('notionhq_client_response_error'),
       })
     );
   });
@@ -719,7 +707,7 @@ describe('background error branches (integration)', () => {
     const pageId = 'page-500';
 
     chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
       mockCb?.(res);
       return Promise.resolve(res);
@@ -750,7 +738,7 @@ describe('background error branches (integration)', () => {
           text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
-      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/blocks\/.+\/children(?:\?.*)?$/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -774,15 +762,15 @@ describe('background error branches (integration)', () => {
       });
     });
 
-    const sendResponse = jest.fn();
+    const sendResponse = createSendResponseWaiter(7000);
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse, 7000);
+    await sendResponse.waitForCall();
     const resp = sendResponse.mock.calls[0]?.[0];
     // 500 錯誤會觸發 fetchWithRetry 重試機制，最終可能超時
     // 但如果成功回應，應該是失敗且包含預設錯誤訊息
     expect(sendResponse).toHaveBeenCalled();
     expect(resp).toBeDefined();
     expect(resp.success).toBe(false);
-    expect(typeof resp.error).toBe('string');
+    expect(resp.error).toBe(ErrorHandler.formatUserMessage('notionhq_client_response_error'));
   });
 });

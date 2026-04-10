@@ -1,3 +1,7 @@
+const ESM_TRANSFORM_IGNORE_PATTERNS = [
+  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+];
+
 module.exports = {
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
@@ -8,27 +12,60 @@ module.exports = {
   // 測試設置文件（在模組載入後執行）
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 
-  // 測試文件匹配模式
-  testMatch: [
-    '**/tests/**/*.test.js',
-    '**/tests/**/*.spec.js'
+  projects: [
+    {
+      displayName: 'unit',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/tests/unit/**/*.test.js',
+        '<rootDir>/tests/unit/**/*.spec.js'
+      ],
+      setupFiles: ['<rootDir>/tests/presetup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+      },
+      transform: {
+        '^.+\\.[tj]sx?$': 'babel-jest',
+      },
+      transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
+    },
+    {
+      displayName: 'integration',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/tests/integration/**/*.test.js',
+        '<rootDir>/tests/integration/**/*.spec.js'
+      ],
+      setupFiles: ['<rootDir>/tests/presetup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+      },
+      transform: {
+        '^.+\\.[tj]sx?$': 'babel-jest',
+      },
+      transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
+    }
   ],
 
   // 覆蓋率收集
   collectCoverageFrom: [
-    'scripts/**/*.js',
-    'options/**/*.js',
-    'popup/**/*.js', // 新增 popup 目錄
-    'sidepanel/**/*.js', // 新增 sidepanel 目錄
-    '!scripts/config/app.js',                // 純常量配置
-    '!scripts/config/api.js',                // 純常量配置（API URL、版本、數值）
-    '!scripts/config/icons.js',              // 純 SVG 字串常量
-    '!scripts/config/ui.js',                 // 純 CSS 選擇器與類名常量
-    '!scripts/config/extraction.js',         // 純選擇器與數值常量
-    '!scripts/config/highlightConstants.js', // 純數值常量
-    '!scripts/config/index.js',              // 純 re-export barrel file
-    '!scripts/**/*.test.js',
-    '!scripts/**/*.spec.js',
+    '<rootDir>/scripts/**/*.js',
+    '<rootDir>/options/**/*.js',
+    '<rootDir>/popup/**/*.js', // 新增 popup 目錄
+    '<rootDir>/sidepanel/**/*.js', // 新增 sidepanel 目錄
+    '!<rootDir>/scripts/config/app.js',                // 純常量配置
+    '!<rootDir>/scripts/config/api.js',                // 純常量配置（API URL、版本、數值）
+    '!<rootDir>/scripts/config/icons.js',              // 純 SVG 字串常量
+    '!<rootDir>/scripts/config/ui.js',                 // 純 CSS 選擇器與類名常量
+    '!<rootDir>/scripts/config/extraction.js',         // 純選擇器與數值常量
+    '!<rootDir>/scripts/config/highlightConstants.js', // 純數值常量
+    '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
+    '!<rootDir>/scripts/**/*.test.js',
+    '!<rootDir>/scripts/**/*.spec.js',
     '!**/node_modules/**'
   ],
 
@@ -65,9 +102,7 @@ module.exports = {
   },
 
   // 轉換 node_modules 中的 ES 模組
-  transformIgnorePatterns: [
-    String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
-  ],
+  transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS,
 
   // 模組名稱映射（用於模擬 Chrome API）
   moduleNameMapper: {
@@ -90,7 +125,7 @@ module.exports = {
   // 減少不必要的 mock 清理以提升性能
   clearMocks: false, // 改為手動清理特定測試
   resetMocks: false,  // 改為手動重置特定測試
-  restoreMocks: false, // 改為手動恢復特定測試
+  restoreMocks: true, // 強制每個測試後還原 spyOn mocks，避免污染
 
   // 性能優化
   bail: false, // 不在第一個失敗時停止，繼續執行所有測試

@@ -35,37 +35,43 @@ export function createEvent() {
 }
 
 /**
- * Waits for a mock function to be called within a timeout.
- * Useful for testing async message passing or callbacks.
+ * Creates a mock sendResponse callback that can be awaited without polling.
  *
- * @param {jest.Mock} mockFn - The mock function to wait for
  * @param {number} [maxWaitMs=1500] - Maximum wait time in milliseconds
- * @returns {Promise<void>} Resolves when called, rejects on timeout
+ * @returns {jest.Mock & { waitForCall: () => Promise<unknown[]> }} Mock callback with wait helper
  */
-export function waitForSend(mockFn, maxWaitMs = 1500) {
-  if (mockFn.mock.calls.length > 0) {
-    return Promise.resolve();
-  }
+export function createSendResponseWaiter(maxWaitMs = 1500) {
+  let settled = false;
+  let resolveWait;
+  let rejectWait;
 
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`));
-    }, maxWaitMs);
-
-    // Capture the current implementation (if any) to pass-through
-    const originalImpl = mockFn.getMockImplementation();
-
-    mockFn.mockImplementationOnce(function (...args) {
-      clearTimeout(timer);
-      resolve();
-
-      // Pass through to original implementation if it exists
-      if (originalImpl) {
-        return originalImpl.apply(this, args);
-      }
-      return undefined;
-    });
+  const waitPromise = new Promise((resolve, reject) => {
+    resolveWait = resolve;
+    rejectWait = reject;
   });
+
+  const timeoutId = setTimeout(() => {
+    if (settled) {
+      return;
+    }
+
+    settled = true;
+    rejectWait(new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`));
+  }, maxWaitMs);
+
+  const sendResponse = jest.fn((...args) => {
+    if (settled) {
+      return;
+    }
+
+    settled = true;
+    clearTimeout(timeoutId);
+    resolveWait(args);
+  });
+
+  sendResponse.waitForCall = () => waitPromise;
+
+  return sendResponse;
 }
 
 /**

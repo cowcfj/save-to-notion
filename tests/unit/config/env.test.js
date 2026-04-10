@@ -1,7 +1,12 @@
 /**
- * env.js 環境檢測模組測試
- * 驗證環境檢測函數在不同環境下的正確性
+ * @jest-environment node
  */
+
+/**
+ * env.js 配置測試
+ */
+
+const envModule = require('../../../scripts/config/env.js');
 
 const {
   isExtensionContext,
@@ -13,155 +18,186 @@ const {
   getEnvironment,
   selectByEnvironment,
   ENV,
-} = require('../../../scripts/config/env');
+  BUILD_ENV,
+} = envModule;
+
+function setWindow(value) {
+  if (value === undefined) {
+    delete globalThis.window;
+    return;
+  }
+
+  globalThis.window = value;
+}
 
 describe('配置模組 - env.js', () => {
-  describe('isNodeEnvironment', () => {
-    test('應返回 boolean 值', () => {
-      const result = isNodeEnvironment();
-      expect(typeof result).toBe('boolean');
-    });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+    delete globalThis.chrome;
+    delete globalThis.window;
   });
 
   describe('isExtensionContext', () => {
-    test('應返回 boolean 值', () => {
-      const result = isExtensionContext();
-      expect(typeof result).toBe('boolean');
+    test('當 chrome.runtime.id 存在時應返回 true', () => {
+      globalThis.chrome = { runtime: { id: 'extension-id' } };
+
+      expect(isExtensionContext()).toBe(true);
+    });
+
+    test('當 chrome 不存在或缺少 runtime.id 時應返回 false', () => {
+      delete globalThis.chrome;
+      expect(isExtensionContext()).toBe(false);
+
+      globalThis.chrome = { runtime: {} };
+      expect(isExtensionContext()).toBe(false);
     });
   });
 
-  describe('isBackgroundContext', () => {
-    test('應返回 boolean 值', () => {
-      const result = isBackgroundContext();
-      expect(typeof result).toBe('boolean');
+  describe('背景與內容腳本環境判斷', () => {
+    test('extension 環境且 window 不存在時應視為 background context', () => {
+      globalThis.chrome = { runtime: { id: 'extension-id' } };
+      setWindow(undefined);
+
+      expect(isBackgroundContext()).toBe(true);
+      expect(isContentContext()).toBe(false);
+    });
+
+    test('extension 環境且 window 存在時應視為 content context', () => {
+      globalThis.chrome = { runtime: { id: 'extension-id' } };
+      setWindow({});
+
+      expect(isBackgroundContext()).toBe(false);
+      expect(isContentContext()).toBe(true);
     });
   });
 
-  describe('isContentContext', () => {
-    test('應返回 boolean 值', () => {
-      const result = isContentContext();
-      expect(typeof result).toBe('boolean');
+  describe('isNodeEnvironment', () => {
+    test('當 module.exports 存在且 window 不存在時應返回 true', () => {
+      setWindow(undefined);
+
+      expect(isNodeEnvironment()).toBe(true);
+    });
+
+    test('當 window 存在時應返回 false', () => {
+      setWindow({});
+
+      expect(isNodeEnvironment()).toBe(false);
     });
   });
 
-  describe('isDevelopment', () => {
-    test('應返回 boolean 值', () => {
-      const result = isDevelopment();
-      expect(typeof result).toBe('boolean');
+  describe('isDevelopment 與 isProduction', () => {
+    test('非 extension 環境時應返回非開發模式', () => {
+      delete globalThis.chrome;
+
+      expect(isDevelopment()).toBe(false);
+      expect(isProduction()).toBe(true);
+    });
+
+    test('version_name 包含 dev 時應返回開發模式', () => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'extension-id',
+          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
+        },
+      };
+
+      expect(isDevelopment()).toBe(true);
+      expect(isProduction()).toBe(false);
+    });
+
+    test('version_name 缺失但 version 包含 dev 時仍應返回開發模式', () => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'extension-id',
+          getManifest: jest.fn(() => ({ version: '2.0.0-dev' })),
+        },
+      };
+
+      expect(isDevelopment()).toBe(true);
+    });
+
+    test('getManifest 拋錯時應返回 false 並記錄錯誤', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      globalThis.chrome = {
+        runtime: {
+          id: 'extension-id',
+          getManifest: jest.fn(() => {
+            throw new Error('manifest unavailable');
+          }),
+        },
+      };
+
+      expect(isDevelopment()).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[環境檢測] 無法讀取 manifest:',
+        expect.any(Error)
+      );
     });
   });
 
-  describe('isProduction', () => {
-    test('應與 isDevelopment 返回相反值', () => {
-      expect(isProduction()).toBe(!isDevelopment());
-    });
+  describe('getEnvironment 與 selectByEnvironment', () => {
+    test('應聚合所有環境旗標，且開發/生產模式互斥', () => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'extension-id',
+          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
+        },
+      };
+      setWindow({});
 
-    test('應返回 boolean 值', () => {
-      const result = isProduction();
-      expect(typeof result).toBe('boolean');
-    });
-  });
-
-  describe('getEnvironment', () => {
-    test('應返回包含所有環境標誌的對象', () => {
-      const env = getEnvironment();
-
-      expect(env).toBeDefined();
-      expect(typeof env).toBe('object');
-
-      expect(env).toHaveProperty('isExtension');
-      expect(env).toHaveProperty('isBackground');
-      expect(env).toHaveProperty('isContent');
-      expect(env).toHaveProperty('isNode');
-      expect(env).toHaveProperty('isDevelopment');
-      expect(env).toHaveProperty('isProduction');
-    });
-
-    test('所有屬性應為 boolean 值', () => {
-      const env = getEnvironment();
-
-      Object.values(env).forEach(value => {
-        expect(typeof value).toBe('boolean');
+      expect(getEnvironment()).toEqual({
+        isExtension: true,
+        isBackground: false,
+        isContent: true,
+        isNode: false,
+        isDevelopment: true,
+        isProduction: false,
       });
     });
 
-    test('isDevelopment 和 isProduction 應互斥', () => {
-      const env = getEnvironment();
+    test('應依據環境選擇對應值', () => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'extension-id',
+          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
+        },
+      };
 
-      expect(env.isDevelopment).toBe(!env.isProduction);
+      expect(selectByEnvironment('development', 'production')).toBe('development');
+
+      globalThis.chrome.runtime.getManifest = jest.fn(() => ({ version_name: '2.0.0' }));
+      expect(selectByEnvironment('development', 'production')).toBe('production');
     });
   });
 
-  describe('selectByEnvironment', () => {
-    test('應根據環境返回對應值', () => {
-      const devValue = 'development';
-      const prodValue = 'production';
+  describe('ENV 與 BUILD_ENV 常量', () => {
+    test('ENV getter 應與對應函式返回一致', () => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'extension-id',
+          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
+        },
+      };
+      setWindow({});
 
-      const result = selectByEnvironment(devValue, prodValue);
-
-      if (isDevelopment()) {
-        expect(result).toBe(devValue);
-      } else {
-        expect(result).toBe(prodValue);
-      }
-    });
-
-    test('應處理不同類型的值', () => {
-      expect(selectByEnvironment(1, 2)).toEqual(expect.any(Number));
-      expect(selectByEnvironment('dev', 'prod')).toEqual(expect.any(String));
-      expect(selectByEnvironment(true, false)).toEqual(expect.any(Boolean));
-      expect(selectByEnvironment({ dev: true }, { prod: true })).toEqual(expect.any(Object));
-    });
-
-    test('應處理 null 和 undefined', () => {
-      const result1 = selectByEnvironment(null, 'prod');
-      const result2 = selectByEnvironment('dev');
-
-      if (isDevelopment()) {
-        expect(result1).toBeNull();
-        expect(result2).toBe('dev');
-      } else {
-        expect(result1).toBe('prod');
-        expect(result2).toBeUndefined();
-      }
-    });
-  });
-
-  describe('ENV 常量對象', () => {
-    test('ENV 對象應被凍結（不可修改）', () => {
-      expect(Object.isFrozen(ENV)).toBe(true);
-    });
-
-    test('ENV 值應與函數返回值一致', () => {
       expect(ENV.IS_EXTENSION).toBe(isExtensionContext());
       expect(ENV.IS_BACKGROUND).toBe(isBackgroundContext());
       expect(ENV.IS_CONTENT).toBe(isContentContext());
       expect(ENV.IS_NODE).toBe(isNodeEnvironment());
       expect(ENV.IS_DEV).toBe(isDevelopment());
       expect(ENV.IS_PROD).toBe(isProduction());
+      expect(Object.isFrozen(ENV)).toBe(true);
     });
 
-    test('ENV 提供環境標誌的訪問', () => {
-      // 驗證可以訪問這些屬性（getter 函數）
-      expect(ENV).toHaveProperty('IS_EXTENSION');
-      expect(ENV).toHaveProperty('IS_BACKGROUND');
-      expect(ENV).toHaveProperty('IS_CONTENT');
-      expect(ENV).toHaveProperty('IS_NODE');
-      expect(ENV).toHaveProperty('IS_DEV');
-      expect(ENV).toHaveProperty('IS_PROD');
-    });
-  });
-
-  describe('環境檢測一致性', () => {
-    test('getEnvironment 返回值應與獨立函數一致', () => {
-      const env = getEnvironment();
-
-      expect(env.isExtension).toBe(isExtensionContext());
-      expect(env.isBackground).toBe(isBackgroundContext());
-      expect(env.isContent).toBe(isContentContext());
-      expect(env.isNode).toBe(isNodeEnvironment());
-      expect(env.isDevelopment).toBe(isDevelopment());
-      expect(env.isProduction).toBe(isProduction());
+    test('BUILD_ENV 應保留模板預設值且為唯讀', () => {
+      expect(BUILD_ENV).toEqual({
+        ENABLE_OAUTH: false,
+        OAUTH_SERVER_URL: '',
+        OAUTH_CLIENT_ID: '',
+        EXTENSION_API_KEY: '',
+      });
+      expect(Object.isFrozen(BUILD_ENV)).toBe(true);
     });
   });
 });

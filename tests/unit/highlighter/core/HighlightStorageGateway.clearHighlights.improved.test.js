@@ -335,20 +335,26 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
   });
 
-  describe('性能測試', () => {
-    test('應該在合理時間內完成清除操作', async () => {
+  describe('快速路徑驗證', () => {
+    test('當 sendMessage 成功時，應正確呼叫 API 且不觸發 fallback', async () => {
       const testUrl = 'https://example.com/test';
+      const fallbackSpy = jest.spyOn(HighlightStorageGateway, '_fallbackDirectClear');
 
       // 確保走正常路徑，避免重試所造成的延遲
       globalThis.chrome.runtime.sendMessage = jest.fn(() => Promise.resolve({ success: true }));
 
-      const startTime = Date.now();
-
       await HighlightStorageGateway.clearHighlights(testUrl);
 
-      const duration = Date.now() - startTime;
-      // 確保操作在合理時間內完成（異步環境下通常遠小於 100ms）
-      expect(duration).toBeLessThan(100);
+      // 驗證正確呼叫了依賴
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: 'CLEAR_HIGHLIGHTS',
+        url: testUrl,
+      });
+
+      // 驗證未進入 fallback
+      expect(fallbackSpy).not.toHaveBeenCalled();
+
+      fallbackSpy.mockRestore();
     });
   });
 });
