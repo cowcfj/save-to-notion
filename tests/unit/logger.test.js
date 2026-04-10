@@ -31,7 +31,7 @@ describe('Logger', () => {
       },
     };
 
-    // Clear last error in chrome mock if any
+    // 若存在，清除 chrome mock 的 lastError
     if (globalThis.chrome?.runtime) {
       globalThis.chrome.runtime.lastError = null;
     }
@@ -39,7 +39,7 @@ describe('Logger', () => {
     // 確保 Logger 被重新評估
     jest.resetModules();
 
-    // We need to ensure Logger debug is enabled.
+    // 確保 Logger 的 debug 已啟用
     if (globalThis.chrome?.runtime?.getManifest) {
       globalThis.chrome.runtime.getManifest.mockReturnValue({ version_name: '1.0.0-dev' });
     }
