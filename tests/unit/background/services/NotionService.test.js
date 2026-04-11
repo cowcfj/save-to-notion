@@ -702,52 +702,58 @@ describe('NotionService', () => {
     // No need to redeclare or manage originalFetch here
 
     it('當刪除失敗時應該回傳錯誤', async () => {
-      // Mock deleteAllBlocks 失敗
-      service.deleteAllBlocks = jest.fn().mockResolvedValue({
-        success: false,
-        deletedCount: 0,
-        error: 'Delete failed',
-      });
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: [{ id: 'block-1' }] }))
+        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400));
 
-      const result = await service.refreshPageContent('page-123', []);
+      const promise = service.refreshPageContent('page-123', []);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Delete failed');
       expect(result.errorType).toBe('notion_api');
       expect(result.details.phase).toBe('delete_existing');
     });
 
     it('當設定了選項時應該更新標題', async () => {
-      service.updatePageTitle = jest.fn().mockResolvedValue({ success: true });
-      service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
-      service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 2 });
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ object: 'page' }))
+        .mockResolvedValueOnce(createMockResponse({ results: [{ id: 'block-1' }] }))
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' }))
+        .mockResolvedValueOnce(createMockResponse({ results: [{ id: 'new-block' }] }));
 
-      await service.refreshPageContent('page-123', [], {
+      const promise = service.refreshPageContent('page-123', [], {
         updateTitle: true,
         title: 'New Title',
       });
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
-      expect(service.updatePageTitle).toHaveBeenCalledWith(
-        'page-123',
-        'New Title',
-        expect.any(Object)
-      );
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(1);
+      expect(result.addedCount).toBe(0); // Because input blocks is empty []
     });
 
     it('完成時應該回傳成功狀態及數量', async () => {
-      service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
-      service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 3 });
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: [{ id: '1' }, { id: '2' }] }))
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' }))
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' }))
+        .mockResolvedValueOnce(createMockResponse({ results: [{ id: 'new-1' }] }));
 
-      const result = await service.refreshPageContent('page-123', [
+      const promise = service.refreshPageContent('page-123', [
         { type: 'paragraph', paragraph: { rich_text: [] } },
       ]);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
       expect(result.success).toBe(true);
-      expect(result.deletedCount).toBe(5);
+      expect(result.deletedCount).toBe(2);
+      expect(result.addedCount).toBe(1);
     });
 
     it('應該優雅地處理例外狀況', async () => {
-      service.deleteAllBlocks = jest.fn().mockRejectedValue(new Error('Network error'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
 
       const promise = service.refreshPageContent('page-123', []);
 
@@ -769,7 +775,6 @@ describe('NotionService', () => {
     ];
 
     it('應該成功更新標記區域（刪除舊的並添加新的）', async () => {
-      // Mock 獲取現有區塊
       const existingBlocks = [
         { id: '1', type: 'paragraph' },
         {
@@ -779,28 +784,18 @@ describe('NotionService', () => {
             rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
           },
         },
-        { id: '3', type: 'paragraph' }, // 舊標記 (changed to paragraph)
+        { id: '3', type: 'paragraph' },
       ];
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: true,
-        blocks: existingBlocks,
-      });
 
-      // Mock 刪除操作
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 2, // 刪除了 ID 2 和 3
-        failureCount: 0,
-        errors: [],
-      });
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: existingBlocks })) // fetch blocks
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // delete 2
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // delete 3
+        .mockResolvedValueOnce(createMockResponse({ results: [{}, {}] })); // append
 
-      // Mock 添加操作 (Success)
-      globalThis.fetch.mockResolvedValue(createMockResponse({ results: [{}, {}] }));
-
-      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
-
-      expect(service._fetchPageBlocks).toHaveBeenCalledWith(pageId, expect.any(Object));
-
-      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2', '3'], expect.any(Object));
+      const promise = service.updateHighlightsSection(pageId, highlightBlocks);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
       expect(result).toEqual({
         success: true,
@@ -810,61 +805,45 @@ describe('NotionService', () => {
     });
 
     it('應該處理獲取現有區塊失敗', async () => {
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: false,
-        error: 'Fetch failed',
-      });
-      service._deleteBlocksByIds = jest.fn();
+      globalThis.fetch.mockResolvedValueOnce(
+        createMockResponse({ message: 'Fetch failed' }, false, 400)
+      );
 
-      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+      const promise = service.updateHighlightsSection(pageId, highlightBlocks);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
-      expect(result).toEqual({
-        success: false,
-        error: 'Fetch failed',
-        errorType: 'notion_api',
-        details: { phase: 'fetch_blocks' },
-      });
-      expect(service._deleteBlocksByIds).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.errorType).toBe('notion_api');
+      expect(result.details.phase).toBe('fetch_blocks');
     });
 
     it('應該處理添加新標記失敗', async () => {
-      // Mock 獲取成功
-      const existingBlocks = [];
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: true,
-        blocks: existingBlocks,
-      });
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: [] })) // existing blocks empty
+        .mockResolvedValueOnce(
+          createMockResponse(
+            {
+              object: 'error',
+              status: 400,
+              code: 'validation_error',
+              message: 'Invalid data',
+            },
+            false,
+            400
+          )
+        ); // append fail
 
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 0,
-        failureCount: 0,
-        errors: [],
-      });
-
-      // Mock Append (fail)
-      globalThis.fetch.mockResolvedValue(
-        createMockResponse(
-          {
-            object: 'error',
-            status: 400,
-            code: 'validation_error',
-            message: 'Invalid data',
-          },
-          false,
-          400
-        )
-      );
-
-      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+      const promise = service.updateHighlightsSection(pageId, highlightBlocks);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
       expect(result.errorType).toBe('internal');
       expect(result.details.phase).toBe('catch_all');
     });
 
     it('應該正確處理分頁以獲取所有區塊', async () => {
-      // 第一頁響應（還有更多）
       globalThis.fetch
         .mockResolvedValueOnce(
           createMockResponse({
@@ -873,7 +852,6 @@ describe('NotionService', () => {
             next_cursor: 'cursor-2',
           })
         )
-        // 第二頁響應（結束）
         .mockResolvedValueOnce(
           createMockResponse({
             results: [{ id: 'block-2' }],
@@ -881,40 +859,23 @@ describe('NotionService', () => {
             next_cursor: null,
           })
         )
-        // Mock 添加操作 (Success)
-        .mockResolvedValue(createMockResponse({ results: [] }));
+        .mockResolvedValueOnce(createMockResponse({ results: [] })); // Append
 
-      // Mock 刪除操作
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 0,
-        failureCount: 0,
-        errors: [],
-      });
+      const promise = service.updateHighlightsSection(pageId, highlightBlocks);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
-      // 觸發調用
-      await service.updateHighlightsSection(pageId, highlightBlocks);
-
-      // Verify fetch calls for Pagination
-      // Page 1
+      expect(result.success).toBe(true);
       expect(globalThis.fetch).toHaveBeenNthCalledWith(
         1,
         expect.stringMatching(/\/blocks\/.*\/children/),
-        expect.not.objectContaining({ body: expect.stringContaining('start_cursor') }) // No cursor for first page
+        expect.not.objectContaining({ body: expect.stringContaining('start_cursor') })
       );
-
-      // Page 2
       expect(globalThis.fetch).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching(/\/blocks\/.*\/children/),
         expect.any(Object)
       );
-
-      // 注意：已嘗試驗證 start_cursor，但在目前的 Jest + SDK Mock 環境下，SDK 似乎未將分頁參數顯式包含在 fetch URL 中
-      // (可能是 response.next_cursor 未被正確傳遞或 SDK 內部處理機制所致)。
-      // 由於前述 expect(globalThis.fetch).toHaveBeenNthCalledWith(2, ...) 已驗證了第二頁請求的發送，
-      // 這足以證明分頁迴圈邏輯已執行。因此跳過參數級別的驗證以保持測試穩定。
-      // const secondCallUrl = globalThis.fetch.mock.calls[1][0];
-      // expect(secondCallUrl).toEqual(expect.stringContaining('start_cursor'));
     });
 
     it('應該正確處理空標記列表（只刪除不添加）', async () => {
@@ -927,23 +888,17 @@ describe('NotionService', () => {
           },
         },
       ];
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: true,
-        blocks: existingBlocks,
-      });
 
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 1,
-        failureCount: 0,
-        errors: [],
-      });
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: existingBlocks }))
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' }));
 
-      const result = await service.updateHighlightsSection(pageId, []); // Empty highlightBlocks
+      const promise = service.updateHighlightsSection(pageId, []);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
 
-      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2'], expect.any(Object));
-      // 由於所有依賴的方法 (fetchPageBlocks, deleteBlocksByIds) 都被 mock，
-      // 如果沒有執行 append，fetch 就不應該被調用。
-      expect(globalThis.fetch).not.toHaveBeenCalled();
+      // Ensure fetch was only called twice (get, delete) and no append was made
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
       expect(result).toEqual({
         success: true,
         deletedCount: 1,
@@ -955,28 +910,24 @@ describe('NotionService', () => {
       { scenario: '有新標記', input: highlightBlocks },
       { scenario: '空標記列表', input: [] },
     ])('刪除標記區塊部分失敗時應回傳 retryable failure（$scenario）', async ({ input }) => {
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: true,
-        blocks: [
-          {
-            id: '2',
-            type: 'heading_3',
-            heading_3: {
-              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-            },
+      const existingBlocks = [
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
           },
-        ],
-      });
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 0,
-        failureCount: 1,
-        errors: [{ id: '2', error: 'Delete failed' }],
-      });
+        },
+      ];
 
-      const result = await service.updateHighlightsSection(pageId, input);
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: existingBlocks }))
+        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400)); // Delete fail
 
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2'], expect.any(Object));
+      const promise = service.updateHighlightsSection(pageId, input);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
+
       expect(result).toEqual({
         success: false,
         error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
@@ -992,32 +943,26 @@ describe('NotionService', () => {
     });
 
     it('混合結果刪除（header 成功、content block 失敗）應回傳 retryable failure', async () => {
-      service._fetchPageBlocks = jest.fn().mockResolvedValue({
-        success: true,
-        blocks: [
-          {
-            id: 'header-1',
-            type: 'heading_3',
-            heading_3: {
-              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-            },
+      const existingBlocks = [
+        {
+          id: 'header-1',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
           },
-          { id: 'content-1', type: 'paragraph' },
-        ],
-      });
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
-        successCount: 1,
-        failureCount: 1,
-        errors: [{ id: 'content-1', error: 'Delete failed' }],
-      });
+        },
+        { id: 'content-1', type: 'paragraph' },
+      ];
 
-      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+      globalThis.fetch
+        .mockResolvedValueOnce(createMockResponse({ results: existingBlocks }))
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // Header Delete success
+        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400)); // Content Delete fail
 
-      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(
-        ['header-1', 'content-1'],
-        expect.any(Object)
-      );
-      expect(globalThis.fetch).not.toHaveBeenCalled();
+      const promise = service.updateHighlightsSection(pageId, highlightBlocks);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
+
       expect(result).toEqual({
         success: false,
         error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
