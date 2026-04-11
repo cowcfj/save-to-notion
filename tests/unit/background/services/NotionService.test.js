@@ -30,6 +30,7 @@ import { NOTION_API } from '../../../../scripts/config/api.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
+import notionBlockFixtures from '../../../fixtures/json/notion-api-blocks.json';
 
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
@@ -43,6 +44,11 @@ const createMockResponse = (data, ok = true, status = 200) => ({
 });
 
 const mockFetchResponse = createMockResponse({});
+
+const createMockNotionBlock = (id, fixtureType = 'paragraph') => ({
+  id,
+  ...structuredClone(notionBlockFixtures[fixtureType]),
+});
 
 describe('fetchWithRetry', () => {
   const originalFetch = globalThis.fetch;
@@ -539,7 +545,7 @@ describe('NotionService', () => {
       globalThis.fetch
         .mockResolvedValueOnce(
           createMockResponse({
-            results: [{ id: 'block-1' }, { id: 'block-2' }],
+            results: [createMockNotionBlock('block-1'), createMockNotionBlock('block-2')],
           })
         )
         .mockResolvedValue(createMockResponse({ object: 'block', id: 'deleted-block' }));
@@ -555,7 +561,7 @@ describe('NotionService', () => {
       globalThis.fetch
         .mockResolvedValueOnce(
           createMockResponse({
-            results: [{ id: 'block-1' }, { id: 'block-2' }],
+            results: [createMockNotionBlock('block-1'), createMockNotionBlock('block-2')],
           })
         )
         .mockResolvedValueOnce(createMockResponse({ object: 'block', id: 'block-1' }))
@@ -785,7 +791,21 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(true);
       expect(result.deletedCount).toBe(1);
-      expect(result.addedCount).toBe(0); // Because input blocks is empty []
+      expect(result.addedCount).toBe(0);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+
+      const appendCreateCalls = globalThis.fetch.mock.calls.filter(([url, options]) => {
+        if (!/\/blocks\/.*\/children/.test(String(url)) || !options?.body) {
+          return false;
+        }
+
+        const requestBody =
+          typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+
+        return Array.isArray(requestBody.children);
+      });
+
+      expect(appendCreateCalls).toHaveLength(0);
     });
 
     it('完成時應該回傳成功狀態及數量', async () => {
@@ -842,10 +862,10 @@ describe('NotionService', () => {
       ];
 
       globalThis.fetch
-        .mockResolvedValueOnce(createMockResponse({ results: existingBlocks })) // fetch blocks
-        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // delete 2
-        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // delete 3
-        .mockResolvedValueOnce(createMockResponse({ results: [{}] })); // append
+        .mockResolvedValueOnce(createMockResponse({ results: existingBlocks })) // 取得現有區塊
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // 刪除區塊 2
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // 刪除區塊 3
+        .mockResolvedValueOnce(createMockResponse({ results: [{}] })); // 追加新標記
 
       const promise = service.updateHighlightsSection(pageId, highlightBlocks);
       await jest.advanceTimersByTimeAsync(10_000);
@@ -878,7 +898,7 @@ describe('NotionService', () => {
 
     it('應該處理添加新標記失敗', async () => {
       globalThis.fetch
-        .mockResolvedValueOnce(createMockResponse({ results: [] })) // existing blocks empty
+        .mockResolvedValueOnce(createMockResponse({ results: [] })) // 現有區塊為空
         .mockResolvedValueOnce(
           createMockResponse(
             {
@@ -890,7 +910,7 @@ describe('NotionService', () => {
             false,
             400
           )
-        ); // append fail
+        ); // 追加失敗
 
       const promise = service.updateHighlightsSection(pageId, highlightBlocks);
       await jest.advanceTimersByTimeAsync(10_000);
@@ -917,7 +937,7 @@ describe('NotionService', () => {
             next_cursor: null,
           })
         )
-        .mockResolvedValueOnce(createMockResponse({ results: [] })); // Append
+        .mockResolvedValueOnce(createMockResponse({ results: [] })); // 追加區塊
 
       const promise = service.updateHighlightsSection(pageId, highlightBlocks);
       await jest.advanceTimersByTimeAsync(10_000);
@@ -949,7 +969,7 @@ describe('NotionService', () => {
       await jest.advanceTimersByTimeAsync(10_000);
       const result = await promise;
 
-      // Ensure fetch was only called twice (get, delete) and no append was made
+      // 確認 fetch 只被呼叫兩次（取得、刪除），且未執行 append
       expect(globalThis.fetch).toHaveBeenCalledTimes(2);
       expect(result).toEqual({
         success: true,
@@ -974,7 +994,7 @@ describe('NotionService', () => {
 
       globalThis.fetch
         .mockResolvedValueOnce(createMockResponse({ results: existingBlocks }))
-        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400)); // Delete fail
+        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400)); // 刪除失敗
 
       const promise = service.updateHighlightsSection(pageId, input);
       await jest.advanceTimersByTimeAsync(10_000);
@@ -1008,8 +1028,8 @@ describe('NotionService', () => {
 
       globalThis.fetch
         .mockResolvedValueOnce(createMockResponse({ results: existingBlocks }))
-        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // Header Delete success
-        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400)); // Content Delete fail
+        .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // 標題區塊刪除成功
+        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400)); // 內容區塊刪除失敗
 
       const promise = service.updateHighlightsSection(pageId, highlightBlocks);
       await jest.advanceTimersByTimeAsync(10_000);

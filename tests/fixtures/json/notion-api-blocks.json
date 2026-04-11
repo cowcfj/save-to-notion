@@ -1,0 +1,17 @@
+{
+  "paragraph": {
+    "object": "block",
+    "type": "paragraph",
+    "paragraph": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Lacinato kale is a variety of kale with a long tradition in Italian cuisine.",
+            "link": null
+          }
+        }
+      ]
+    }
+  }
+}
