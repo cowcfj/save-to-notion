@@ -1,6 +1,8 @@
 describe('Chrome mock 預設行為', () => {
   afterEach(() => {
+    jest.clearAllMocks();
     jest.resetModules();
+    delete globalThis.chrome;
   });
 
   test('全域 chrome.runtime.lastError 預設為 undefined', () => {
