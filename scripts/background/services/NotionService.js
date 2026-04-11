@@ -748,6 +748,11 @@ class NotionService {
    *   errors?: Array<{id: string, error: string}>,
    *   error?: string
    * }>}
+   *
+   * `success: true` 只代表刪除流程已執行完成，不代表所有區塊都成功刪除。
+   * 當 `failureCount > 0` 時，呼叫端必須進一步檢查 `failureCount` 與 `errors`
+   * 以處理部分失敗；`errors` 會包含每個失敗區塊的 `{ id, error }` 明細。
+   * `error` 只會在整體失敗時返回，例如列出區塊失敗或執行過程拋出例外。
    */
   async deleteAllBlocks(pageId, options = {}) {
     try {
@@ -873,7 +878,25 @@ class NotionService {
    * @param {boolean} [options.updateTitle] - 是否同時更新標題
    * @param {string} [options.title] - 新標題（當 updateTitle 為 true 時）
    * @param {string} [options.apiKey] - 臨時 API Key
-   * @returns {Promise<{success: boolean, addedCount?: number, deletedCount?: number, error?: string}>}
+   * @returns {Promise<{
+   *   success: boolean,
+   *   addedCount?: number,
+   *   deletedCount?: number,
+   *   error?: string,
+   *   errorType?: string,
+   *   details?: {
+   *     phase: string,
+   *     deletedCount?: number,
+   *     totalFailures?: number,
+   *     errors?: Array<{id: string, error: string}>
+   *   }
+   * }>}
+   *
+   * 回傳 shape 包含 `success`, `deletedCount`, `failureCount`, `errors`, `error`。
+   * 其中 `success: true` 代表整個刷新流程成功完成；若刪除階段出現部分失敗，
+   * `refreshPageContent` 會基於 `failureCount` 額外判斷並直接回傳失敗，而不是僅依賴
+   * `deleteAllBlocks` 的 `success`。完全失敗時會透過 `error` 返回摘要錯誤；
+   * 部分失敗時會在 `details.errors` 中帶回逐筆區塊錯誤明細，呼叫端不可只看 `success`。
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
     const { updateTitle = false, title = '' } = options;
@@ -904,6 +927,7 @@ class NotionService {
             phase: 'delete_existing',
             deletedCount: deleteResult.deletedCount,
             totalFailures: deleteResult.failureCount,
+            errors: deleteResult.errors,
           },
         };
       }

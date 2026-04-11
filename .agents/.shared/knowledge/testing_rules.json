@@ -25,7 +25,19 @@
     "anti_patterns": {
       "ban_shallow_assertions": "Do NOT just test if fetch or sendMessage was called. You MUST assert the exact expected payload object structure.",
       "ban_overmocking": "Do NOT mock internal dependencies of the file under test unless it inherently involves Network/Storage I/O. Follow authentic AAA patterns.",
-      "ban_phantom_tests": "Do NOT define custom simulate functions inside the test file that bypass real product code. For historical phantom tests (e.g. ones using XXXSimulated), prioritize migrating them into true handler/service tests or deleting them."
+      "ban_phantom_tests": "Do NOT define custom simulate functions inside the test file that bypass real product code. For historical phantom tests (e.g. ones using XXXSimulated), prioritize migrating them into true handler/service tests or deleting them.",
+      "ban_phantom_tests_pattern": {
+        "symbol_regex": [
+          "\\bSimulated\\b",
+          "Simulate",
+          "\\b[A-Za-z0-9_]*Simulated\\b",
+          "\\bFake(?:Test|Helper)\\b"
+        ],
+        "filename_regex": [
+          ".*Simulated.*\\.(?:test|spec)\\.js$",
+          ".*Fake(?:Test|Helper).*\\.(?:test|spec)\\.js$"
+        ]
+      }
     }
   },
   "e2e_testing": {

@@ -571,6 +571,7 @@ describe('NotionService', () => {
       expect(result.errors).toEqual([
         expect.objectContaining({
           id: 'block-2',
+          error: expect.any(String),
         }),
       ]);
       expect(Logger.warn).toHaveBeenCalledWith(
@@ -748,6 +749,30 @@ describe('NotionService', () => {
       expect(result.details.phase).toBe('delete_existing');
       expect(result.details.deletedCount).toBe(0);
       expect(result.details.totalFailures).toBe(1);
+      expect(result.details.errors).toEqual([
+        expect.objectContaining({
+          id: 'block-1',
+          error: expect.any(String),
+        }),
+      ]);
+    });
+
+    it('當刪除回傳具體錯誤字串時應原樣透傳', async () => {
+      const deleteError = '具體刪除錯誤';
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({
+        success: false,
+        deletedCount: 0,
+        error: deleteError,
+      });
+
+      const promise = service.refreshPageContent('page-123', []);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(deleteError);
+      expect(result.errorType).toBe('notion_api');
+      expect(result.details.phase).toBe('delete_existing');
     });
 
     it('當設定了選項時應該更新標題', async () => {
@@ -901,16 +926,10 @@ describe('NotionService', () => {
       const result = await promise;
 
       expect(result.success).toBe(true);
-      expect(globalThis.fetch).toHaveBeenNthCalledWith(
-        1,
-        expect.stringMatching(/\/blocks\/.*\/children/),
-        expect.not.objectContaining({ body: expect.stringContaining('start_cursor') })
-      );
-      expect(globalThis.fetch).toHaveBeenNthCalledWith(
-        2,
-        expect.stringMatching(/\/blocks\/.*\/children/),
-        expect.any(Object)
-      );
+      expect(globalThis.fetch.mock.calls[0][0]).toMatch(/\/blocks\/.*\/children/);
+      expect(globalThis.fetch.mock.calls[0][0]).not.toMatch(/start_cursor=/);
+      expect(globalThis.fetch.mock.calls[1][0]).toMatch(/\/blocks\/.*\/children/);
+      expect(globalThis.fetch.mock.calls[1][0]).toMatch(/start_cursor=cursor-2/);
     });
 
     it('應該正確處理空標記列表（只刪除不添加）', async () => {
