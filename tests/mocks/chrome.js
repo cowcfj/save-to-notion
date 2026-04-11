@@ -1,13 +1,37 @@
-// Chrome API Mock
-// 模擬 Chrome Extension API 供測試使用
+/**
+ * Chrome API Mock - 模擬 Chrome Extension API 供測試使用
+ *
+ * 【設計目標】
+ * 提供與真實 Chrome Extension API 相容的 mock，支援單元測試中的常見操作。
+ *
+ * 【使用約定】
+ * - 所有 storage API 同時支援 callback 與 Promise 形式（與 Chrome API 一致）
+ * - runtime.lastError 預設為 null，測試需自行覆寫模擬錯誤情境
+ * - 跨測試共享狀態：storage.local、storage.sync、mockTabIdCounter
+ *
+ * 【覆寫方式】
+ * - jest.fn().mockImplementation() 或直接赋值覆盖
+ * - 例：chrome.runtime.getManifest.mockReturnValue({...})
+ * - 例：chrome.runtime.lastError = { message: '...' }
+ *
+ * 【重設方式】
+ * - _clearStorage()：清除所有 storage 的數據
+ * - jest.clearAllMocks()（Jest 內建）
+ *
+ * 【不適用情境】
+ * - 需要精確控制 storage 回傳順序或延遲時 → 在單測自建 mock
+ * - 需要模擬多種 runtime.lastError 組合時 → 在單測自建 narrow mock
+ */
 
-// 內存存儲模擬真實行為
+// ========== 內部狀態（跨測試共享）==========
 const localStorageData = {};
 const syncStorageData = {};
 let mockTabIdCounter = 1000;
 
+/** @type {import('../').ChromeMock} */
 const chrome = {
   storage: {
+    /** storage.local - 支援 callback 與 Promise 雙模式 */
     local: {
       get: jest.fn((keys, callback) => {
         const result = {};
@@ -113,8 +137,11 @@ const chrome = {
     },
   },
 
+  /** runtime - 注意：lastError 預設為 null，需自行覆寫模擬錯誤 */
   runtime: {
+    /** @type {?{message: string}} 錯誤物件，預設 null */
     lastError: null,
+    /** sendMessage - 支援 callback 與 Promise 雙模式 */
     sendMessage: jest.fn((message, callback) => {
       if (callback) {
         callback({ success: true });
@@ -235,7 +262,8 @@ const chrome = {
     onClosed: { addListener: jest.fn(), removeListener: jest.fn() },
   },
 
-  // 輔助方法：清理存儲數據（測試用）
+  /** 輔助方法：清理存儲數據（測試用） */
+  /** @returns {void} */
   _clearStorage: () => {
     Object.keys(localStorageData).forEach(key => {
       delete localStorageData[key];
@@ -246,7 +274,8 @@ const chrome = {
     mockTabIdCounter = 1000;
   },
 
-  // 輔助方法：獲取存儲數據（測試用）
+  /** 輔助方法：獲取存儲數據（測試用） */
+  /** @returns {{local: object, sync: object}} */
   _getStorage: () => ({
     local: { ...localStorageData },
     sync: { ...syncStorageData },
