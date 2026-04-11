@@ -19,14 +19,33 @@ if (globalThis.structuredClone === undefined) {
 }
 
 // 導入 Chrome API mock
-require('./mocks/chrome');
+const sharedChromeMock = require('./mocks/chrome');
+const sharedRuntimeSendMessage = sharedChromeMock.runtime.sendMessage;
 
 // Force Logger into dev mode for testing
 globalThis.__FORCE_LOG__ = true;
 globalThis.__LOGGER_DEV__ = true;
 
-// Initialize runtime.lastError for ScriptInjector tests
-globalThis.chrome.runtime.lastError = null;
+function restoreSharedChromeMock() {
+  globalThis.chrome = sharedChromeMock;
+
+  if (globalThis.chrome?.runtime) {
+    // 對齊 Chrome 無錯誤時的預設行為，避免跨測試殘留 lastError
+    globalThis.chrome.runtime.lastError = undefined;
+
+    // 還原共用 mock 的雙模式契約，避免前一個測試留下 mockImplementation 或整個函式被覆寫
+    sharedRuntimeSendMessage.mockImplementation((payload, callback) => {
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+      return Promise.resolve({ success: true });
+    });
+
+    globalThis.chrome.runtime.sendMessage = sharedRuntimeSendMessage;
+  }
+}
+
+restoreSharedChromeMock();
 
 // [TECHNICAL DEBT]
 // 這裡的 globalThis.Logger 會在所有測試中覆蓋真正的 utils/Logger.js
@@ -154,13 +173,6 @@ globalThis.Logger = {
 };
 
 // ImageUtils mock is handled in presetup.js
-// Mock chrome.runtime.sendMessage for Logger background logging
-globalThis.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
-  if (typeof callback === 'function') {
-    callback();
-  }
-});
-
 // Mock fetch API
 globalThis.fetch = jest.fn();
 
@@ -188,13 +200,13 @@ const localStorageMock = (() => {
       const keys = Object.keys(store);
       return keys[index] || null;
     }),
-    // 輔助方法：獲取所有數據
+    // 輔助方法：取得所有資料
     _getAll: () => ({ ...store }),
-    // 輔助方法：重置數據
+    // 輔助方法：重設資料
     _reset: () => {
       store = {};
     },
-    // 輔助方法：獲取實際 store
+    // 輔助方法：取得實際 store
     _getStore: () => store,
   };
 })();
@@ -222,6 +234,9 @@ globalThis.console = {
 
 // 每個測試前重置全局狀態與 Mocks
 beforeEach(() => {
+  jest.clearAllMocks();
+  restoreSharedChromeMock();
+
   // 1. 清理 DOM 結構
   if (typeof document !== 'undefined' && document.body) {
     document.body.innerHTML = '';
@@ -263,6 +278,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.clearAllMocks();
+  delete globalThis.chrome;
 });
 
 // 輔助函數：創建 mock Response
