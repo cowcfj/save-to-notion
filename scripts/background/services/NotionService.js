@@ -892,11 +892,12 @@ class NotionService {
    *   }
    * }>}
    *
-   * 回傳 shape 包含 `success`, `deletedCount`, `failureCount`, `errors`, `error`。
+   * 回傳 shape 包含 `success`, `deletedCount`, `error`，以及失敗時的
+   * `details.phase`, `details.deletedCount`, `details.totalFailures`, `details.errors`。
    * 其中 `success: true` 代表整個刷新流程成功完成；若刪除階段出現部分失敗，
-   * `refreshPageContent` 會基於 `failureCount` 額外判斷並直接回傳失敗，而不是僅依賴
-   * `deleteAllBlocks` 的 `success`。完全失敗時會透過 `error` 返回摘要錯誤；
-   * 部分失敗時會在 `details.errors` 中帶回逐筆區塊錯誤明細，呼叫端不可只看 `success`。
+   * `refreshPageContent` 會基於 `deleteAllBlocks` 的 `failureCount` 額外判斷並直接回傳失敗。
+   * 完全失敗時會透過 `error` 返回摘要錯誤；部分失敗時會在 `details.errors`
+   * 中帶回逐筆區塊錯誤明細，呼叫端不可只看 `success`。
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
     const { updateTitle = false, title = '' } = options;

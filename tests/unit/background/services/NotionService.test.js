@@ -759,11 +759,7 @@ describe('NotionService', () => {
 
     it('當刪除回傳具體錯誤字串時應原樣透傳', async () => {
       const deleteError = '具體刪除錯誤';
-      service.deleteAllBlocks = jest.fn().mockResolvedValue({
-        success: false,
-        deletedCount: 0,
-        error: deleteError,
-      });
+      globalThis.fetch.mockRejectedValueOnce(new Error(deleteError));
 
       const promise = service.refreshPageContent('page-123', []);
       await jest.advanceTimersByTimeAsync(10_000);
@@ -773,6 +769,7 @@ describe('NotionService', () => {
       expect(result.error).toBe(deleteError);
       expect(result.errorType).toBe('notion_api');
       expect(result.details.phase).toBe('delete_existing');
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
     it('當設定了選項時應該更新標題', async () => {
