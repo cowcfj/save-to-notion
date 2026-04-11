@@ -741,7 +741,13 @@ class NotionService {
    *
    * @param {string} pageId - 頁面 ID
    * @param {object} [options] - 其他選項 (含 apiKey)
-   * @returns {Promise<{success: boolean, deletedCount: number, error?: string}>}
+   * @returns {Promise<{
+   *   success: boolean,
+   *   deletedCount: number,
+   *   failureCount?: number,
+   *   errors?: Array<{id: string, error: string}>,
+   *   error?: string
+   * }>}
    */
   async deleteAllBlocks(pageId, options = {}) {
     try {

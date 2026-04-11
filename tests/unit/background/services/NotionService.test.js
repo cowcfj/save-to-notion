@@ -551,6 +551,38 @@ describe('NotionService', () => {
       expect(result.deletedCount).toBe(2);
     });
 
+    it('部分刪除失敗時應保留 best-effort 結果並回傳失敗詳情', async () => {
+      globalThis.fetch
+        .mockResolvedValueOnce(
+          createMockResponse({
+            results: [{ id: 'block-1' }, { id: 'block-2' }],
+          })
+        )
+        .mockResolvedValueOnce(createMockResponse({ object: 'block', id: 'block-1' }))
+        .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400));
+
+      const promise = service.deleteAllBlocks('page-123');
+      await jest.advanceTimersByTimeAsync(10_000);
+      const result = await promise;
+
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(1);
+      expect(result.failureCount).toBe(1);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          id: 'block-2',
+        }),
+      ]);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('部分區塊刪除失敗'),
+        expect.objectContaining({
+          action: 'deleteAllBlocks',
+          failureCount: 1,
+          totalBlocks: 2,
+        })
+      );
+    });
+
     it('應該處理沒有區塊的情況', async () => {
       globalThis.fetch.mockResolvedValue({
         ...mockFetchResponse,
@@ -702,7 +734,7 @@ describe('NotionService', () => {
     // Note: global fetch context is already managed by outer describe block
     // No need to redeclare or manage originalFetch here
 
-    it('當刪除失敗時應該回傳錯誤', async () => {
+    it('當刪除出現部分失敗時應該回傳錯誤', async () => {
       globalThis.fetch
         .mockResolvedValueOnce(createMockResponse({ results: [{ id: 'block-1' }] }))
         .mockResolvedValueOnce(createMockResponse({ message: 'Delete failed' }, false, 400));
