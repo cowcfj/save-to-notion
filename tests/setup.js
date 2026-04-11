@@ -25,8 +25,8 @@ require('./mocks/chrome');
 globalThis.__FORCE_LOG__ = true;
 globalThis.__LOGGER_DEV__ = true;
 
-// Initialize runtime.lastError for ScriptInjector tests
-globalThis.chrome.runtime.lastError = null;
+// 初始化 runtime.lastError，對齊 Chrome 無錯誤時的預設行為
+globalThis.chrome.runtime.lastError = undefined;
 
 // [TECHNICAL DEBT]
 // 這裡的 globalThis.Logger 會在所有測試中覆蓋真正的 utils/Logger.js
@@ -188,13 +188,13 @@ const localStorageMock = (() => {
       const keys = Object.keys(store);
       return keys[index] || null;
     }),
-    // 輔助方法：獲取所有數據
+    // 輔助方法：取得所有資料
     _getAll: () => ({ ...store }),
-    // 輔助方法：重置數據
+    // 輔助方法：重設資料
     _reset: () => {
       store = {};
     },
-    // 輔助方法：獲取實際 store
+    // 輔助方法：取得實際 store
     _getStore: () => store,
   };
 })();

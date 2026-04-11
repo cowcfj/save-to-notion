@@ -6,16 +6,16 @@
  *
  * 【使用約定】
  * - 所有 storage API 同時支援 callback 與 Promise 形式（與 Chrome API 一致）
- * - runtime.lastError 預設為 null，測試需自行覆寫模擬錯誤情境
+ * - runtime.lastError 預設為 undefined，測試需自行覆寫模擬錯誤情境
  * - 跨測試共享狀態：storage.local、storage.sync、mockTabIdCounter
  *
  * 【覆寫方式】
- * - jest.fn().mockImplementation() 或直接赋值覆盖
+ * - jest.fn().mockImplementation() 或直接指派覆寫
  * - 例：chrome.runtime.getManifest.mockReturnValue({...})
  * - 例：chrome.runtime.lastError = { message: '...' }
  *
  * 【重設方式】
- * - _clearStorage()：清除所有 storage 的數據
+ * - _clearStorage()：清除所有 storage 的資料
  * - jest.clearAllMocks()（Jest 內建）
  *
  * 【不適用情境】
@@ -137,10 +137,10 @@ const chrome = {
     },
   },
 
-  /** runtime - 注意：lastError 預設為 null，需自行覆寫模擬錯誤 */
+  /** runtime - 注意：lastError 預設為 undefined，需自行覆寫模擬錯誤 */
   runtime: {
-    /** @type {?{message: string}} 錯誤物件，預設 null */
-    lastError: null,
+    /** @type {{message: string}|undefined} 錯誤物件，預設 undefined */
+    lastError: undefined,
     /** sendMessage - 支援 callback 與 Promise 雙模式 */
     sendMessage: jest.fn((message, callback) => {
       if (callback) {
@@ -216,7 +216,7 @@ const chrome = {
 
   scripting: {
     executeScript: jest.fn((injection, callback) => {
-      const results = [{ result: 5 }]; // 默認模擬清除 5 個標記
+      const results = [{ result: 5 }]; // 預設模擬清除 5 個標記
       if (callback) {
         callback(results);
       }
@@ -262,7 +262,7 @@ const chrome = {
     onClosed: { addListener: jest.fn(), removeListener: jest.fn() },
   },
 
-  /** 輔助方法：清理存儲數據（測試用） */
+  /** 輔助方法：清理儲存資料（測試用） */
   /** @returns {void} */
   _clearStorage: () => {
     Object.keys(localStorageData).forEach(key => {
@@ -274,7 +274,7 @@ const chrome = {
     mockTabIdCounter = 1000;
   },
 
-  /** 輔助方法：獲取存儲數據（測試用） */
+  /** 輔助方法：取得儲存資料（測試用） */
   /** @returns {{local: object, sync: object}} */
   _getStorage: () => ({
     local: { ...localStorageData },
