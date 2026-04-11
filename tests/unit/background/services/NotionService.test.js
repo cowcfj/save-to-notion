@@ -749,12 +749,9 @@ describe('NotionService', () => {
       expect(result.details.phase).toBe('delete_existing');
       expect(result.details.deletedCount).toBe(0);
       expect(result.details.totalFailures).toBe(1);
-      expect(result.details.errors).toEqual([
-        expect.objectContaining({
-          id: 'block-1',
-          error: expect.any(String),
-        }),
-      ]);
+      expect(result.details.failedBlockIds).toEqual(['block-1']);
+      expect(result.details.firstErrorMessage).toEqual(expect.any(String));
+      expect(result.details.errors).toBeUndefined();
     });
 
     it('當刪除回傳具體錯誤字串時應原樣透傳', async () => {
@@ -848,16 +845,20 @@ describe('NotionService', () => {
         .mockResolvedValueOnce(createMockResponse({ results: existingBlocks })) // fetch blocks
         .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // delete 2
         .mockResolvedValueOnce(createMockResponse({ object: 'block' })) // delete 3
-        .mockResolvedValueOnce(createMockResponse({ results: [{}, {}] })); // append
+        .mockResolvedValueOnce(createMockResponse({ results: [{}] })); // append
 
       const promise = service.updateHighlightsSection(pageId, highlightBlocks);
       await jest.advanceTimersByTimeAsync(10_000);
       const result = await promise;
+      const appendRequest = JSON.parse(globalThis.fetch.mock.calls[3][1].body);
 
       expect(result).toEqual({
         success: true,
         deletedCount: 2,
-        addedCount: 2,
+        addedCount: 1,
+      });
+      expect(appendRequest).toEqual({
+        children: highlightBlocks,
       });
     });
 

@@ -888,16 +888,18 @@ class NotionService {
    *     phase: string,
    *     deletedCount?: number,
    *     totalFailures?: number,
-   *     errors?: Array<{id: string, error: string}>
+   *     failedBlockIds?: Array<string>,
+   *     firstErrorMessage?: string
    *   }
    * }>}
    *
    * 回傳 shape 包含 `success`, `deletedCount`, `error`，以及失敗時的
-   * `details.phase`, `details.deletedCount`, `details.totalFailures`, `details.errors`。
+   * `details.phase`, `details.deletedCount`, `details.totalFailures`,
+   * `details.failedBlockIds`, `details.firstErrorMessage`。
    * 其中 `success: true` 代表整個刷新流程成功完成；若刪除階段出現部分失敗，
    * `refreshPageContent` 會基於 `deleteAllBlocks` 的 `failureCount` 額外判斷並直接回傳失敗。
-   * 完全失敗時會透過 `error` 返回摘要錯誤；部分失敗時會在 `details.errors`
-   * 中帶回逐筆區塊錯誤明細，呼叫端不可只看 `success`。
+   * 完全失敗時會透過 `error` 返回摘要錯誤；部分失敗時只回傳安全摘要，
+   * 避免把底層逐筆錯誤明細直接暴露給呼叫端。
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
     const { updateTitle = false, title = '' } = options;
@@ -920,6 +922,11 @@ class NotionService {
       // 步驟 2: 刪除現有區塊
       const deleteResult = await this.deleteAllBlocks(pageId, options);
       if (!deleteResult.success || deleteResult.failureCount > 0) {
+        const failedBlockIds = deleteResult.errors?.map(errorEntry => errorEntry.id) || [];
+        const firstErrorMessage = deleteResult.errors?.[0]?.error
+          ? sanitizeApiError(deleteResult.errors[0].error, 'delete_blocks')
+          : undefined;
+
         return {
           success: false,
           error: deleteResult.error || '部分區塊刪除失敗',
@@ -928,7 +935,8 @@ class NotionService {
             phase: 'delete_existing',
             deletedCount: deleteResult.deletedCount,
             totalFailures: deleteResult.failureCount,
-            errors: deleteResult.errors,
+            failedBlockIds,
+            firstErrorMessage,
           },
         };
       }
