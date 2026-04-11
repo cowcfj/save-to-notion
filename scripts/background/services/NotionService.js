@@ -889,10 +889,10 @@ class NotionService {
 
       // 步驟 2: 刪除現有區塊
       const deleteResult = await this.deleteAllBlocks(pageId, options);
-      if (!deleteResult.success) {
+      if (!deleteResult.success || deleteResult.failureCount > 0) {
         return {
           success: false,
-          error: deleteResult.error,
+          error: deleteResult.error || '部分區塊刪除失敗',
           errorType: 'notion_api',
           details: {
             phase: 'delete_existing',

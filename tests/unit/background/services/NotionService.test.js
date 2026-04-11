@@ -125,8 +125,9 @@ describe('fetchWithRetry', () => {
       { maxRetries: 1, baseDelay: 1000 }
     );
 
-    // 讓初始請求執行、失敗並進入 setTimeout
-    // 使用多次 Promise.resolve() flush 微任務，替代不支援的 jest.advanceTimersByTimeAsync
+    // 先 flush 微任務，讓初始請求失敗並排入重試計時器。
+    // 這個案例需要在重試發生前先驗證中間狀態，因此保留手動 flush，
+    // 而不是直接用 advanceTimersByTimeAsync 一次跑完整段非同步流程。
     const flushMicrotasks = async (count = 10) => {
       for (let i = 0; i < count; i++) {
         await Promise.resolve();
@@ -713,6 +714,8 @@ describe('NotionService', () => {
       expect(result.success).toBe(false);
       expect(result.errorType).toBe('notion_api');
       expect(result.details.phase).toBe('delete_existing');
+      expect(result.details.deletedCount).toBe(0);
+      expect(result.details.totalFailures).toBe(1);
     });
 
     it('當設定了選項時應該更新標題', async () => {
@@ -753,7 +756,7 @@ describe('NotionService', () => {
     });
 
     it('應該優雅地處理例外狀況', async () => {
-      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
+      service.deleteAllBlocks = jest.fn().mockRejectedValue(new Error('Network error'));
 
       const promise = service.refreshPageContent('page-123', []);
 
