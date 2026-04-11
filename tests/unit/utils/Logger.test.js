@@ -539,6 +539,16 @@ describe('Logger', () => {
       expect(cloned.myself).toBe(cloned);
     });
 
+    test('_queueForBackground 在 structuredClone 無法處理對象時會 fallback', () => {
+      const unserializable = { func: () => {} };
+
+      Logger.info('Unserializable test', unserializable);
+      jest.advanceTimersByTime(500);
+
+      const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
+      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+    });
+
     test('在 sendMessage 失敗時應優雅忽略', () => {
       globalThis.chrome.runtime.sendMessage.mockImplementationOnce((msg, cb) => {
         if (cb) {
