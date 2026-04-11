@@ -20,6 +20,7 @@ if (globalThis.structuredClone === undefined) {
 
 // 導入 Chrome API mock
 const sharedChromeMock = require('./mocks/chrome');
+const sharedRuntimeSendMessage = sharedChromeMock.runtime.sendMessage;
 
 // Force Logger into dev mode for testing
 globalThis.__FORCE_LOG__ = true;
@@ -31,11 +32,16 @@ function restoreSharedChromeMock() {
   if (globalThis.chrome?.runtime) {
     // 對齊 Chrome 無錯誤時的預設行為，避免跨測試殘留 lastError
     globalThis.chrome.runtime.lastError = undefined;
-    globalThis.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
+
+    // 還原共用 mock 的雙模式契約，避免前一個測試留下 mockImplementation 或整個函式被覆寫
+    sharedRuntimeSendMessage.mockImplementation((payload, callback) => {
       if (typeof callback === 'function') {
-        callback();
+        callback({ success: true });
       }
+      return Promise.resolve({ success: true });
     });
+
+    globalThis.chrome.runtime.sendMessage = sharedRuntimeSendMessage;
   }
 }
 
