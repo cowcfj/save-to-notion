@@ -396,7 +396,10 @@ describe('Logger', () => {
       Logger.warn('Circular test', circular);
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
-      expect(sentArgs[0]).toBe('[Unserializable Object]');
+      // structuredClone 成功複製 Circular Reference
+      // 複製後 myself 指向自身，形成自參照
+      expect(sentArgs[0]).toBeTruthy();
+      expect(sentArgs[0].myself).toBe(sentArgs[0]);
     });
 
     test('應該將 function 參數序列化為 "[Function]"', () => {
@@ -514,7 +517,10 @@ describe('Logger', () => {
       jest.advanceTimersByTime(500);
 
       const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
-      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+      // structuredClone 成功複製 Circular Reference
+      // 複製後 myself 指向自身，形成自參照
+      expect(sentLogs[0].args[0]).toBeTruthy();
+      expect(sentLogs[0].args[0].myself).toBe(sentLogs[0].args[0]);
     });
 
     test('在 sendMessage 失敗時應優雅忽略', () => {
