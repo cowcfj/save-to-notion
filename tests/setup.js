@@ -13,6 +13,11 @@ if (globalThis.TextEncoder === undefined) {
   globalThis.TextDecoder = TextDecoder;
 }
 
+if (globalThis.structuredClone === undefined) {
+  const { serialize, deserialize } = require('node:v8');
+  globalThis.structuredClone = value => deserialize(serialize(value));
+}
+
 // 導入 Chrome API mock
 require('./mocks/chrome');
 

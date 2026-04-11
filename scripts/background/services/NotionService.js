@@ -741,7 +741,18 @@ class NotionService {
    *
    * @param {string} pageId - 頁面 ID
    * @param {object} [options] - 其他選項 (含 apiKey)
-   * @returns {Promise<{success: boolean, deletedCount: number, error?: string}>}
+   * @returns {Promise<{
+   *   success: boolean,
+   *   deletedCount: number,
+   *   failureCount?: number,
+   *   errors?: Array<{id: string, error: string}>,
+   *   error?: string
+   * }>}
+   *
+   * `success: true` 只代表刪除流程已執行完成，不代表所有區塊都成功刪除。
+   * 當 `failureCount > 0` 時，呼叫端必須進一步檢查 `failureCount` 與 `errors`
+   * 以處理部分失敗；`errors` 會包含每個失敗區塊的 `{ id, error }` 明細。
+   * `error` 只會在整體失敗時返回，例如列出區塊失敗或執行過程拋出例外。
    */
   async deleteAllBlocks(pageId, options = {}) {
     try {
@@ -867,7 +878,28 @@ class NotionService {
    * @param {boolean} [options.updateTitle] - 是否同時更新標題
    * @param {string} [options.title] - 新標題（當 updateTitle 為 true 時）
    * @param {string} [options.apiKey] - 臨時 API Key
-   * @returns {Promise<{success: boolean, addedCount?: number, deletedCount?: number, error?: string}>}
+   * @returns {Promise<{
+   *   success: boolean,
+   *   addedCount?: number,
+   *   deletedCount?: number,
+   *   error?: string,
+   *   errorType?: string,
+   *   details?: {
+   *     phase: string,
+   *     deletedCount?: number,
+   *     totalFailures?: number,
+   *     failedBlockIds?: Array<string>,
+   *     firstErrorMessage?: string
+   *   }
+   * }>}
+   *
+   * 回傳 shape 包含 `success`, `deletedCount`, `error`，以及失敗時的
+   * `details.phase`, `details.deletedCount`, `details.totalFailures`,
+   * `details.failedBlockIds`, `details.firstErrorMessage`。
+   * 其中 `success: true` 代表整個刷新流程成功完成；若刪除階段出現部分失敗，
+   * `refreshPageContent` 會基於 `deleteAllBlocks` 的 `failureCount` 額外判斷並直接回傳失敗。
+   * 完全失敗時會透過 `error` 返回摘要錯誤；部分失敗時只回傳安全摘要，
+   * 避免把底層逐筆錯誤明細直接暴露給呼叫端。
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
     const { updateTitle = false, title = '' } = options;
@@ -889,15 +921,22 @@ class NotionService {
 
       // 步驟 2: 刪除現有區塊
       const deleteResult = await this.deleteAllBlocks(pageId, options);
-      if (!deleteResult.success) {
+      if (!deleteResult.success || deleteResult.failureCount > 0) {
+        const failedBlockIds = deleteResult.errors?.map(errorEntry => errorEntry.id) || [];
+        const firstErrorMessage = deleteResult.errors?.[0]?.error
+          ? sanitizeApiError(deleteResult.errors[0].error, 'delete_blocks')
+          : undefined;
+
         return {
           success: false,
-          error: deleteResult.error,
+          error: deleteResult.error || '部分區塊刪除失敗',
           errorType: 'notion_api',
           details: {
             phase: 'delete_existing',
             deletedCount: deleteResult.deletedCount,
             totalFailures: deleteResult.failureCount,
+            failedBlockIds,
+            firstErrorMessage,
           },
         };
       }

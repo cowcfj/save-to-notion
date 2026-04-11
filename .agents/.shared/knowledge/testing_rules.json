@@ -20,11 +20,24 @@
     },
     "gold_standard_references": {
       "notion_api_validation": "tests/unit/background/notion-page-operations.test.js (示範如何深度驗證 payload 及 fetch Mocking)",
-      "chrome_message_handlers": "tests/unit/background/message-handlers.test.js (示範如何正確模擬 storage 狀態及驗證 response)"
+      "chrome_message_handlers": "tests/unit/background/handlers/saveHandlers.test.js, tests/unit/background/handlers/highlightHandlers.test.js, tests/unit/background/handlers/MessageHandler.test.js (示範如何使用真實入口驗證訊息流與 storage 狀態)"
     },
     "anti_patterns": {
       "ban_shallow_assertions": "Do NOT just test if fetch or sendMessage was called. You MUST assert the exact expected payload object structure.",
-      "ban_overmocking": "Do NOT mock internal dependencies of the file under test unless it inherently involves Network/Storage I/O. Follow authentic AAA patterns."
+      "ban_overmocking": "Do NOT mock internal dependencies of the file under test unless it inherently involves Network/Storage I/O. Follow authentic AAA patterns.",
+      "ban_phantom_tests": "Do NOT define custom simulate functions inside the test file that bypass real product code. For historical phantom tests (e.g. ones using XXXSimulated), prioritize migrating them into true handler/service tests or deleting them.",
+      "ban_phantom_tests_pattern": {
+        "symbol_regex": [
+          "\\bSimulated\\b",
+          "Simulate",
+          "\\b[A-Za-z0-9_]*Simulated\\b",
+          "\\bFake(?:Test|Helper)\\b"
+        ],
+        "filename_regex": [
+          ".*Simulated.*\\.(?:test|spec)\\.js$",
+          ".*Fake(?:Test|Helper).*\\.(?:test|spec)\\.js$"
+        ]
+      }
     }
   },
   "e2e_testing": {
