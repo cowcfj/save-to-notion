@@ -402,20 +402,13 @@ describe('Logger', () => {
       expect(cloned.myself).toBe(cloned);
     });
 
-    test('當 structuredClone 失敗時應該 fallback 為 "[Unserializable Object]"', () => {
-      const originalStructuredClone = globalThis.structuredClone;
-      globalThis.structuredClone = jest.fn(() => {
-        throw new Error('clone failed');
-      });
+    test('當 structuredClone 無法處理對象時應該 fallback 為 "[Unserializable Object]"', () => {
+      const unserializable = { func: () => {} };
 
-      try {
-        Logger.warn('Clone fail test', { nested: true });
+      Logger.warn('Clone fail test', unserializable);
 
-        const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
-        expect(sentArgs[0]).toBe('[Unserializable Object]');
-      } finally {
-        globalThis.structuredClone = originalStructuredClone;
-      }
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toBe('[Unserializable Object]');
     });
 
     test('應該將 function 參數序列化為 "[Function]"', () => {
