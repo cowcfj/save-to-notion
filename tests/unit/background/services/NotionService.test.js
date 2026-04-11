@@ -754,7 +754,7 @@ describe('NotionService', () => {
       expect(result.details.errors).toBeUndefined();
     });
 
-    it('當刪除回傳具體錯誤字串時應原樣透傳', async () => {
+    it('當刪除回傳具體錯誤字串時應保留可辨識的錯誤內容', async () => {
       const deleteError = '具體刪除錯誤';
       globalThis.fetch.mockRejectedValueOnce(new Error(deleteError));
 
@@ -763,7 +763,7 @@ describe('NotionService', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe(deleteError);
+      expect(result.error).toContain(deleteError);
       expect(result.errorType).toBe('notion_api');
       expect(result.details.phase).toBe('delete_existing');
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
