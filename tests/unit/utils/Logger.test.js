@@ -389,14 +389,33 @@ describe('Logger', () => {
       expect(sentArgs).toEqual([123, 'test-string']);
     });
 
-    test('應該優雅處理無法序列化的對象 (Circular Reference)', () => {
+    test('應該正確處理包含 Circular Reference 的對象', () => {
       const circular = {};
       circular.myself = circular;
 
       Logger.warn('Circular test', circular);
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
-      expect(sentArgs[0]).toBe('[Unserializable Object]');
+      const cloned = sentArgs[0];
+
+      expect(cloned).not.toBe(circular);
+      expect(cloned.myself).toBe(cloned);
+    });
+
+    test('當 structuredClone 失敗時應該 fallback 為 "[Unserializable Object]"', () => {
+      const originalStructuredClone = globalThis.structuredClone;
+      globalThis.structuredClone = jest.fn(() => {
+        throw new Error('clone failed');
+      });
+
+      try {
+        Logger.warn('Clone fail test', { nested: true });
+
+        const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+        expect(sentArgs[0]).toBe('[Unserializable Object]');
+      } finally {
+        globalThis.structuredClone = originalStructuredClone;
+      }
     });
 
     test('應該將 function 參數序列化為 "[Function]"', () => {
@@ -506,7 +525,7 @@ describe('Logger', () => {
       expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     });
 
-    test('_queueForBackground 發生不可序列化參數時會 fallback', () => {
+    test('_queueForBackground 應該正確處理包含 Circular Reference 的對象', () => {
       const circular = {};
       circular.myself = circular;
 
@@ -514,7 +533,10 @@ describe('Logger', () => {
       jest.advanceTimersByTime(500);
 
       const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
-      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+      const cloned = sentLogs[0].args[0];
+
+      expect(cloned).not.toBe(circular);
+      expect(cloned.myself).toBe(cloned);
     });
 
     test('在 sendMessage 失敗時應優雅忽略', () => {
