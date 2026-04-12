@@ -37,13 +37,6 @@ jest.mock('../../../../scripts/utils/LogExporter.js', () => ({
   },
 }));
 
-// Mock chrome API
-globalThis.chrome = {
-  runtime: {
-    id: 'test-extension-id',
-  },
-};
-
 describe('logHandlers', () => {
   let handlers = null;
 
@@ -83,11 +76,11 @@ describe('logHandlers', () => {
     test('devLogSink 應允許來自內部或 Content Script 的請求', () => {
       const sendResponse = jest.fn();
       const internalSender = {
-        id: 'test-extension-id',
-        url: 'chrome-extension://test-extension-id/popup.html',
+        id: 'mock-extension-id',
+        url: 'chrome-extension://mock-extension-id/popup.html',
       };
       const csSender = {
-        id: 'test-extension-id',
+        id: 'mock-extension-id',
         tab: { id: 1 },
         url: 'https://example.com',
       };
@@ -104,7 +97,7 @@ describe('logHandlers', () => {
     test('devLogSinkBatch 應允許來自 Content Script 的請求並處理批量日誌', () => {
       const sendResponse = jest.fn();
       const csSender = {
-        id: 'test-extension-id',
+        id: 'mock-extension-id',
         tab: { id: 1 },
         url: 'https://example.com/page1',
       };
@@ -150,7 +143,7 @@ describe('logHandlers', () => {
 
     test('devLogSinkBatch 處理無效的 logs 格式應返回錯誤', () => {
       const sendResponse = jest.fn();
-      const internalSender = { id: 'test-extension-id' };
+      const internalSender = { id: 'mock-extension-id' };
 
       // logs 不是 array
       handlers.devLogSinkBatch({ logs: 'not array' }, internalSender, sendResponse);
@@ -159,7 +152,7 @@ describe('logHandlers', () => {
 
     test('devLogSinkBatch 發生內部錯誤時應靜默失敗', () => {
       const sendResponse = jest.fn();
-      const internalSender = { id: 'test-extension-id' };
+      const internalSender = { id: 'mock-extension-id' };
 
       // 強制 addLogToBuffer 拋出異常
       Logger.addLogToBuffer.mockImplementationOnce(() => {
@@ -178,7 +171,7 @@ describe('logHandlers', () => {
   describe('Action Logic', () => {
     test('exportDebugLogs 應在合法請求時調用 Exporter', () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       LogExporter.exportLogs.mockReturnValue({ logs: [] });
 
       handlers.exportDebugLogs({ format: 'json' }, sender, sendResponse);
@@ -189,7 +182,7 @@ describe('logHandlers', () => {
 
     test('exportDebugLogs 在 Exporter 拋出錯誤時應回傳錯誤格式', () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
 
       // 確保回傳一個自定義的 error.type 讓覆蓋率走 default || INTERNAL
       const mockError = new Error('export failed');
@@ -210,7 +203,7 @@ describe('logHandlers', () => {
 
     test('devLogSink 應正確解析多個參數的陣列為 context 與 details', () => {
       const sendResponse = jest.fn();
-      const csSender = { id: 'test-extension-id', tab: { id: 1 }, url: 'http://test.com' };
+      const csSender = { id: 'mock-extension-id', tab: { id: 1 }, url: 'http://test.com' };
 
       handlers.devLogSink(
         {
@@ -232,7 +225,7 @@ describe('logHandlers', () => {
 
     test('devLogSink 在 Logger.addLogToBuffer 拋出錯誤時應靜默失敗', () => {
       const sendResponse = jest.fn();
-      const csSender = { id: 'test-extension-id', tab: { id: 1 }, url: 'http://test.com' };
+      const csSender = { id: 'mock-extension-id', tab: { id: 1 }, url: 'http://test.com' };
 
       Logger.addLogToBuffer.mockImplementationOnce(() => {
         throw new Error('logger error');
@@ -244,7 +237,7 @@ describe('logHandlers', () => {
 
     test('devLogSinkBatch 應截斷超過 MAX_BATCH_SIZE (20) 的批次', () => {
       const sendResponse = jest.fn();
-      const internalSender = { id: 'test-extension-id' };
+      const internalSender = { id: 'mock-extension-id' };
 
       const logs = Array.from({ length: 25 }, (_, i) => ({
         level: 'info',
@@ -260,7 +253,7 @@ describe('logHandlers', () => {
 
     test('exportDebugLogs 在錯誤沒有自定義 type 時應回傳 INTERNAL 作為 errorType', () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
 
       LogExporter.exportLogs.mockImplementationOnce(() => {
         throw new Error('plain error without type');
@@ -278,7 +271,7 @@ describe('logHandlers', () => {
 
     test('devLogSink 在 sender 沒有 url 時應使用 unknown_external 作為 source', () => {
       const sendResponse = jest.fn();
-      const senderWithoutUrl = { id: 'test-extension-id' };
+      const senderWithoutUrl = { id: 'mock-extension-id' };
 
       handlers.devLogSink(
         { level: 'info', message: 'no url test', args: [] },
@@ -294,7 +287,7 @@ describe('logHandlers', () => {
 
     test('devLogSinkBatch 在 sender 沒有 url 時應使用 unknown_external 作為 source', () => {
       const sendResponse = jest.fn();
-      const senderWithoutUrl = { id: 'test-extension-id' };
+      const senderWithoutUrl = { id: 'mock-extension-id' };
 
       handlers.devLogSinkBatch(
         { logs: [{ level: 'info', message: 'batch no url', args: [] }] },

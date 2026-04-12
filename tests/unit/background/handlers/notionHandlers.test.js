@@ -21,14 +21,6 @@ globalThis.Logger = {
   error: jest.fn(),
 };
 
-// Mock chrome API
-globalThis.chrome = {
-  runtime: {
-    id: 'test-extension-id',
-    lastError: null,
-  },
-};
-
 describe('notionHandlers', () => {
   let handlers = null;
   let mockNotionService = null;
@@ -47,16 +39,16 @@ describe('notionHandlers', () => {
       {
         scenario: '來自 Popup/Background (無 tab 對象)',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           // tab undefined
         },
       },
       {
         scenario: '來自 Options Page (在 Tab 中打開)',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           tab: { id: 123 },
-          url: 'chrome-extension://test-extension-id/options.html',
+          url: 'chrome-extension://mock-extension-id/options.html',
         },
       },
     ])('應該允許: $scenario', ({ sender }) => {
@@ -85,7 +77,7 @@ describe('notionHandlers', () => {
       {
         scenario: '來自 Content Script (sender.url 為網頁 URL)',
         sender: {
-          id: 'test-extension-id',
+          id: 'mock-extension-id',
           tab: { id: 456 },
           url: 'https://malicious-site.com',
         },
@@ -114,7 +106,7 @@ describe('notionHandlers', () => {
 
     test('應該處理 Notion Service 錯誤', async () => {
       const sender = {
-        id: 'test-extension-id',
+        id: 'mock-extension-id',
       };
       const sendResponse = jest.fn();
       const request = { query: 'test' };
@@ -131,7 +123,7 @@ describe('notionHandlers', () => {
 
   describe('refreshOAuthToken', () => {
     test('應該允許內部請求並回傳刷新後 token', async () => {
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       const sendResponse = jest.fn();
       refreshOAuthToken.mockResolvedValueOnce('oauth_token_refreshed');
 
@@ -142,7 +134,7 @@ describe('notionHandlers', () => {
     });
 
     test('刷新失敗時應回傳失敗結果', async () => {
-      const sender = { id: 'test-extension-id' };
+      const sender = { id: 'mock-extension-id' };
       const sendResponse = jest.fn();
       refreshOAuthToken.mockResolvedValueOnce(null);
 

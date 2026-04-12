@@ -276,6 +276,7 @@ async function extractPageContent() {
     // 3. 收集額外圖片（可選）
     let additionalImages = [];
     let coverImage = null;
+    let imageMetrics = null;
     try {
       // 創建臨時容器來查找圖片
       // 使用 DOMParser 安全解析 HTML 內容，避免直接操作 innerHTML
@@ -292,11 +293,12 @@ async function extractPageContent() {
         mainContentImageCount: mainImageCount,
       });
 
-      // 處理新的返回結構（包含 images 和 coverImage）
+      // 處理新的返回結構（包含 images、coverImage 和 metrics）
       // 安全地處理 null/undefined 返回值，並支援向後兼容
       const collectedImages =
         imageResult?.images || (Array.isArray(imageResult) ? imageResult : []);
       coverImage = imageResult?.coverImage || null;
+      imageMetrics = imageResult?.metrics ?? imageMetrics;
 
       // 使用工具函數去重
       additionalImages = mergeUniqueImages(blocks, collectedImages);
@@ -335,6 +337,7 @@ async function extractPageContent() {
         blockCount: blocks.length,
         imageCount: additionalImages.length,
         complexity: extractResult.debug?.complexity,
+        imageMetrics,
       },
     };
   } catch (error) {

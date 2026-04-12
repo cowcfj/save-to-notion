@@ -16,14 +16,6 @@ globalThis.Logger = {
   error: jest.fn(),
 };
 
-// Mock chrome API
-globalThis.chrome = {
-  runtime: {
-    id: 'test-extension-id',
-    lastError: null,
-  },
-};
-
 describe('notionHandlers - Search Params Filtering', () => {
   let handlers = null;
   let mockNotionService = null;
@@ -39,7 +31,7 @@ describe('notionHandlers - Search Params Filtering', () => {
 
     // Mock sender (internal request)
     sender = {
-      id: 'test-extension-id',
+      id: 'mock-extension-id',
       // tab undefined implies popup/background context
     };
     sendResponse = jest.fn();

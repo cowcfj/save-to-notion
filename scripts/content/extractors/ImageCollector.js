@@ -32,6 +32,7 @@ import {
   EXCLUSION_SELECTORS,
   IMAGE_VALIDATION_CONSTANTS,
   IMAGE_LIMITS,
+  IMAGE_SIZE_RESOLVE,
 } from '../../config/extraction.js';
 
 const ImageCollector = {
@@ -209,13 +210,22 @@ const ImageCollector = {
    * @param {Element} img - 圖片元素
    * @param {number} index - 索引
    * @param {string} featuredImage - 已找到的特色圖片 URL (用於去重)
+   * @param {object} [options] - 處理選項
    * @returns {object | null} 圖片對象或 null
    */
-  processImageForCollection(img, index, featuredImage) {
+  processImageForCollection(img, index, featuredImage, options = {}) {
+    const outcome = this._evaluateImageForCollection(img, index, featuredImage);
+    if (options.detailed) {
+      return outcome;
+    }
+    return outcome.status === 'accepted' ? outcome.image : null;
+  },
+
+  _evaluateImageForCollection(img, index, featuredImage) {
     const src = extractImageSrc?.(img);
     if (!src) {
       Logger.log('圖片缺少 src 屬性', { action: 'processImageForCollection', index: index + 1 });
-      return null;
+      return { status: 'missing_src' };
     }
 
     try {
@@ -229,7 +239,7 @@ const ImageCollector = {
           action: 'processImageForCollection',
           url: sanitizeUrlForLogging(cleanedImageUrl),
         });
-        return null;
+        return { status: 'duplicate_featured' };
       }
 
       // 3. 驗證圖片 URL (使用已清理的 URL，避免重複標準化)
@@ -238,21 +248,24 @@ const ImageCollector = {
           action: 'processImageForCollection',
           url: sanitizeUrlForLogging(cleanedImageUrl),
         });
-        return null;
+        return { status: 'invalid_url' };
       }
 
       // 4. 檢查尺寸過濾小圖
       // 優先使用 naturalWidth/naturalHeight（已載入的圖片）
       // 回退到 HTML width/height 屬性或 data-width/data-height（處理懶加載圖片）
+      // 再回退到 data-resolvedWidth/resolvedHeight（前置批次解析結果）
       const imgWidth =
         img.naturalWidth ||
         Number.parseInt(img.getAttribute('width'), 10) ||
         Number.parseInt(img.dataset.width, 10) ||
+        Number.parseInt(img.dataset.resolvedWidth, 10) ||
         0;
       const imgHeight =
         img.naturalHeight ||
         Number.parseInt(img.getAttribute('height'), 10) ||
         Number.parseInt(img.dataset.height, 10) ||
+        Number.parseInt(img.dataset.resolvedHeight, 10) ||
         0;
 
       // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
@@ -268,7 +281,7 @@ const ImageCollector = {
             height: imgHeight,
             source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
           });
-          return null;
+          return { status: 'filtered_by_size' };
         }
       } else {
         // Dimensions are unknown (0), we allow it to pass but log it
@@ -280,18 +293,21 @@ const ImageCollector = {
       }
 
       return {
-        object: 'block',
-        type: 'image',
+        status: 'accepted',
         image: {
-          type: 'external',
-          external: { url: cleanedImageUrl },
-        },
-        // 添加元數據供後續處理使用
-        _meta: {
-          originalSrc: src,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-          alt: img.alt || '',
+          object: 'block',
+          type: 'image',
+          image: {
+            type: 'external',
+            external: { url: cleanedImageUrl },
+          },
+          // 添加元數據供後續處理使用
+          _meta: {
+            originalSrc: src,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            alt: img.alt || '',
+          },
         },
       };
     } catch (error) {
@@ -300,7 +316,66 @@ const ImageCollector = {
         src: sanitizeUrlForLogging(src),
         error: error.message,
       });
+      return { status: 'error' };
+    }
+  },
+
+  _normalizeImageProcessOutcome(result) {
+    if (!result) {
       return null;
+    }
+
+    if (typeof result === 'object' && typeof result.status === 'string') {
+      return result;
+    }
+
+    if (result.image?.external?.url) {
+      return { status: 'accepted', image: result };
+    }
+
+    return null;
+  },
+
+  _createImageProcessingStats() {
+    return {
+      urlValidCount: 0,
+      filteredBySize: 0,
+    };
+  },
+
+  _recordImageProcessingOutcome(
+    outcome,
+    additionalImages,
+    processedUrls,
+    stats,
+    logAction = 'collectAdditionalImages'
+  ) {
+    if (!outcome) {
+      return;
+    }
+
+    if (outcome.status === 'accepted' || outcome.status === 'filtered_by_size') {
+      stats.urlValidCount++;
+    }
+
+    if (outcome.status === 'filtered_by_size') {
+      stats.filteredBySize++;
+    }
+
+    if (outcome.status !== 'accepted') {
+      return;
+    }
+
+    const result = outcome.image;
+    const url = result.image?.external?.url;
+    if (url && !processedUrls.has(url)) {
+      processedUrls.add(url);
+      additionalImages.push(result);
+    } else if (url) {
+      Logger.log('跳過重複的圖片 URL', {
+        action: logAction,
+        url: sanitizeUrlForLogging(url),
+      });
     }
   },
 
@@ -311,13 +386,27 @@ const ImageCollector = {
    * @param {object} [options] - 配置選項
    * @param {Array} [options.nextJsBlocks] - 預先提取的 Next.js 區塊 (避免重複解析)
    * @param {number} [options.mainContentImageCount] - 主要內容區域已找到的圖片數量
-   * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
+   * @returns {Promise<{images: Array<object>, coverImage: string|null, metrics: object}>} 包含圖片對象數組 (images)、封面圖片 URL (coverImage) 和收集指標 (metrics) 的對象
    */
   async collectAdditionalImages(contentElement, options = {}) {
+    const startTime = performance.now();
+    const metrics = {
+      candidateCount: 0,
+      urlValidCount: 0,
+      unknownSizeCount: 0,
+      sizeResolveAttempted: 0,
+      sizeResolveSuccess: 0,
+      filteredBySize: 0,
+      finalCount: 0,
+      hasCoverImage: false,
+      durationMs: 0,
+    };
+
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
     const featuredImage = this._collectFromFeatured();
+    metrics.hasCoverImage = Boolean(featuredImage);
 
     // [New] 條件式收集檢查
     // 如果主內容圖片數量充足，則不收集額外圖片 (但保留封面圖)
@@ -328,9 +417,11 @@ const ImageCollector = {
         mainCount,
         threshold: IMAGE_LIMITS.MAIN_CONTENT_SUFFICIENT_THRESHOLD,
       });
+      metrics.durationMs = Math.round(performance.now() - startTime);
       return {
         images: [],
         coverImage: featuredImage,
+        metrics,
       };
     }
 
@@ -355,13 +446,26 @@ const ImageCollector = {
     // 根據之前的上下文，我們將其視為元素收集的一部分
     this._collectFromNextJsData(imageElements, options.nextJsBlocks);
 
+    // 記錄候選圖片總數
+    metrics.candidateCount = imageElements.length;
+
     Logger.log('待處理圖片元素總數', {
       action: 'collectAdditionalImages',
       count: imageElements.length,
     });
 
+    // [New] 前置批次解析尺寸未知的候選圖片
+    const resolveResult = await this._resolveUnknownSizes(imageElements);
+    metrics.unknownSizeCount = resolveResult.attempted;
+    metrics.sizeResolveAttempted = resolveResult.attempted;
+    metrics.sizeResolveSuccess = resolveResult.succeeded;
+
     // 批處理：將元素轉換為圖片對象
-    await this._processImages(imageElements, featuredImage, additionalImages);
+    const processStats =
+      (await this._processImages(imageElements, featuredImage, additionalImages)) ??
+      this._createImageProcessingStats();
+    metrics.urlValidCount = processStats.urlValidCount;
+    metrics.filteredBySize = processStats.filteredBySize;
 
     // 策略 5: 從圖集/畫廊收集 (Mingpao etc.) -> 返回圖片對象
     const galleryImages = this._collectFromGalleries(featuredImage);
@@ -404,10 +508,15 @@ const ImageCollector = {
       additionalImages.length = maxImages; // 原地截取，效能最優
     }
 
+    // 填入最終 metrics
+    metrics.finalCount = additionalImages.length;
+    metrics.durationMs = Math.round(performance.now() - startTime);
+
     // 返回結構化對象，包含封面圖片 URL 供 Notion cover 使用
     return {
       images: additionalImages,
       coverImage: featuredImage, // 封面圖片 URL（用於設置 Notion 頁面封面）
+      metrics,
     };
   },
 
@@ -557,32 +666,156 @@ const ImageCollector = {
    * @param {string|null} featuredImage - 特色圖片 URL
    * @param {Array<object>} additionalImages - 用於存儲結果的數組
    * @param {Set<string>} processedUrls - 已處理的 URL 集合 (Context)
+   * @returns {{urlValidCount: number, filteredBySize: number}} 圖片處理統計
    */
   processImagesSequentially(images, featuredImage, additionalImages, processedUrls = new Set()) {
+    const stats = ImageCollector._createImageProcessingStats();
+
     // 如果有特色圖片且尚未記錄，先加入
     if (featuredImage && !processedUrls.has(featuredImage)) {
       processedUrls.add(featuredImage);
     }
 
     images.forEach((img, index) => {
-      const result = ImageCollector.processImageForCollection(img, index, featuredImage);
-      if (result) {
-        const url = result.image?.external?.url;
-        // 檢查是否已處理過這個 URL
-        if (url && !processedUrls.has(url)) {
-          processedUrls.add(url);
-          additionalImages.push(result);
-        } else if (url) {
-          Logger.log('跳過重複的圖片 URL', {
-            action: 'processImagesSequentially',
-            url: sanitizeUrlForLogging(url),
-          });
+      const outcome = ImageCollector._normalizeImageProcessOutcome(
+        ImageCollector.processImageForCollection(img, index, featuredImage, { detailed: true })
+      );
+      ImageCollector._recordImageProcessingOutcome(
+        outcome,
+        additionalImages,
+        processedUrls,
+        stats,
+        'processImagesSequentially'
+      );
+    });
+
+    return stats;
+  },
+
+  /**
+   * 解析單張圖片的原始尺寸
+   *
+   * @param {string} url - 圖片 URL
+   * @param {number} timeoutMs - 超時毫秒數
+   * @returns {Promise<{width: number, height: number}>} 解析出的尺寸
+   * @private
+   */
+  _resolveImageSize(url, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      let settled = false;
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        img.removeEventListener('load', handleLoad);
+        img.removeEventListener('error', handleError);
+      };
+
+      const settle = callback => {
+        if (settled) {
+          return;
         }
-      }
+        settled = true;
+        cleanup();
+        callback();
+      };
+
+      const handleLoad = () =>
+        settle(() => resolve({ width: img.naturalWidth, height: img.naturalHeight }));
+
+      const handleError = () => settle(() => reject(new Error('load failed')));
+
+      const timeoutId = setTimeout(() => settle(() => reject(new Error('timeout'))), timeoutMs);
+
+      img.addEventListener('load', handleLoad);
+      img.addEventListener('error', handleError);
+      img.src = url;
     });
   },
 
+  /**
+   * 前置批次解析尺寸未知的候選圖片
+   * 成功解析的尺寸會寫入 img.dataset.resolvedWidth / resolvedHeight
+   *
+   * @param {Element[]} imageElements - 候選圖片元素列表
+   * @returns {Promise<{attempted: number, succeeded: number}>} 解析統計
+   * @private
+   */
+  async _resolveUnknownSizes(imageElements) {
+    const unknowns = imageElements.filter(img => {
+      const imgW =
+        img.naturalWidth ||
+        Number.parseInt(img.getAttribute('width'), 10) ||
+        Number.parseInt(img.dataset.width, 10) ||
+        0;
+      const imgH =
+        img.naturalHeight ||
+        Number.parseInt(img.getAttribute('height'), 10) ||
+        Number.parseInt(img.dataset.height, 10) ||
+        0;
+      return imgW === 0 || imgH === 0;
+    });
+
+    if (unknowns.length === 0) {
+      return { attempted: 0, succeeded: 0 };
+    }
+
+    Logger.log('開始批次解析尺寸未知圖片', {
+      action: '_resolveUnknownSizes',
+      count: unknowns.length,
+    });
+
+    const perImageTimeout = IMAGE_SIZE_RESOLVE.PER_IMAGE_TIMEOUT_MS;
+    const totalBudget = IMAGE_SIZE_RESOLVE.TOTAL_BUDGET_MS;
+    const budgetStart = performance.now();
+    let succeeded = 0;
+
+    for (const img of unknowns) {
+      // 檢查整體 budget 是否已耗盡
+      if (performance.now() - budgetStart > totalBudget) {
+        break;
+      }
+
+      const src = extractImageSrc?.(img) || img.src;
+      if (!src) {
+        continue;
+      }
+
+      try {
+        const remaining = totalBudget - (performance.now() - budgetStart);
+        const effectiveTimeout = Math.min(perImageTimeout, Math.max(remaining, 0));
+        if (effectiveTimeout <= 0) {
+          break;
+        }
+
+        const size = await this._resolveImageSize(src, effectiveTimeout);
+        if (size.width > 0 && size.height > 0) {
+          img.dataset.resolvedWidth = String(size.width);
+          img.dataset.resolvedHeight = String(size.height);
+          succeeded++;
+        }
+      } catch {
+        // timeout 或 load failed — 保留圖片，不寫入 dataset
+        Logger.log('尺寸解析失敗', {
+          action: '_resolveUnknownSizes',
+          src: sanitizeUrlForLogging(src),
+        });
+      }
+    }
+
+    Logger.log('批次尺寸解析完成', {
+      action: '_resolveUnknownSizes',
+      attempted: unknowns.length,
+      succeeded,
+      durationMs: Math.round(performance.now() - budgetStart),
+    });
+
+    return { attempted: unknowns.length, succeeded };
+  },
+
   async _processImages(allImages, featuredImage, additionalImages) {
+    const stats = ImageCollector._createImageProcessingStats();
+
     // 初始化已處理的 URL 集合，以防止重複 (Shared Context)
     const processedUrls = new Set();
     if (featuredImage) {
@@ -605,7 +838,9 @@ const ImageCollector = {
 
       // 定義處理函數，注意這裡不進行去重，去重在收集結果時統一處理
       const processFn = ({ img, index }) => {
-        return ImageCollector.processImageForCollection(img, index, featuredImage);
+        return ImageCollector.processImageForCollection(img, index, featuredImage, {
+          detailed: true,
+        });
       };
 
       const handleResults = results => {
@@ -613,14 +848,13 @@ const ImageCollector = {
           return;
         }
         results.forEach(result => {
-          if (!result) {
-            return;
-          }
-          const url = result.image?.external?.url;
-          if (url && !processedUrls.has(url)) {
-            processedUrls.add(url);
-            additionalImages.push(result);
-          }
+          const outcome = ImageCollector._normalizeImageProcessOutcome(result);
+          ImageCollector._recordImageProcessingOutcome(
+            outcome,
+            additionalImages,
+            processedUrls,
+            stats
+          );
         });
       };
 
@@ -629,12 +863,15 @@ const ImageCollector = {
           const indexedImages = allImages.map((img, index) => ({ img, index }));
           const { results } = await batchProcessWithRetry(indexedImages, processFn, {
             maxAttempts: 3,
-            isResultSuccessful: result => Boolean(result?.image?.external?.url),
+            isResultSuccessful: result => {
+              const outcome = ImageCollector._normalizeImageProcessOutcome(result);
+              return outcome?.status === 'accepted' && Boolean(outcome.image?.image?.external?.url);
+            },
           });
           handleResults(results);
         } catch (error) {
           Logger.warn('批次處理失敗 (Retry)，回退到順序處理', { error: error.message });
-          ImageCollector.processImagesSequentially(
+          return ImageCollector.processImagesSequentially(
             allImages,
             featuredImage,
             additionalImages,
@@ -650,7 +887,7 @@ const ImageCollector = {
           handleResults(results);
         } catch (error) {
           Logger.warn('批次處理失敗，回退到順序處理', { error: error.message });
-          ImageCollector.processImagesSequentially(
+          return ImageCollector.processImagesSequentially(
             allImages,
             featuredImage,
             additionalImages,
@@ -659,13 +896,15 @@ const ImageCollector = {
         }
       }
     } else {
-      ImageCollector.processImagesSequentially(
+      return ImageCollector.processImagesSequentially(
         allImages,
         featuredImage,
         additionalImages,
         processedUrls
       );
     }
+
+    return stats;
   },
 };
 

@@ -140,23 +140,31 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('並行清除操作', () => {
     test('應該清除 Chrome Storage 和 localStorage（Fallback 路徑）', async () => {
-      const testUrl = 'https://example.com/test';
-      // Phase 3 Fallback 路徑：清除 highlights_* 和 page_* keys
-      const legacyKey = 'highlights_https://example.com/test';
+      jest.useFakeTimers();
+      try {
+        const testUrl = 'https://example.com/test';
+        // Phase 3 Fallback 路徑：清除 highlights_* 和 page_* keys
+        const legacyKey = 'highlights_https://example.com/test';
 
-      await chrome.storage.local.set({ [legacyKey]: [{ text: 'test' }] });
-      globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
+        await chrome.storage.local.set({ [legacyKey]: [{ text: 'test' }] });
+        globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
 
-      // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
-      await HighlightStorageGateway.clearHighlights(testUrl);
+        // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      // Fallback 路徑會嘗試清理 page_* 和 highlights_* keys
-      const removeCall = chrome.storage.local.remove.mock.calls;
-      const allRemovedKeys = removeCall.flatMap(call => {
-        const keys = call[0];
-        return Array.isArray(keys) ? keys : [keys];
-      });
-      expect(allRemovedKeys).toContain(legacyKey);
+        // Fallback 路徑會嘗試清理 page_* 和 highlights_* keys
+        const removeCall = chrome.storage.local.remove.mock.calls;
+        const allRemovedKeys = removeCall.flatMap(call => {
+          const keys = call[0];
+          return Array.isArray(keys) ? keys : [keys];
+        });
+        expect(allRemovedKeys).toContain(legacyKey);
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     test('sendMessage 回傳 { success: false } 時應同樣觸發 Fallback 清除邏輯', async () => {
@@ -191,68 +199,99 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
     });
 
     test('應該記錄清除開始', async () => {
-      const testUrl = 'https://example.com/test';
+      jest.useFakeTimers();
+      try {
+        const testUrl = 'https://example.com/test';
 
-      await HighlightStorageGateway.clearHighlights(testUrl);
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      expect(Logger.info).toHaveBeenCalledWith(
-        '開始清除標註',
-        expect.objectContaining({ action: 'clearHighlights' })
-      );
+        expect(Logger.info).toHaveBeenCalledWith(
+          '開始清除標註',
+          expect.objectContaining({ action: 'clearHighlights' })
+        );
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     test('Fallback 清除成功時應使用 success 等級記錄完成訊息', async () => {
-      const testUrl = 'https://example.com/test';
+      jest.useFakeTimers();
+      try {
+        const testUrl = 'https://example.com/test';
 
-      await HighlightStorageGateway.clearHighlights(testUrl);
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      expect(Logger.success).toHaveBeenCalledWith('標註清除完成', {
-        action: 'clearHighlights',
-      });
-      expect(Logger.log).not.toHaveBeenCalledWith('標註清除完成', {
-        action: 'clearHighlights',
-      });
+        expect(Logger.success).toHaveBeenCalledWith('標註清除完成', {
+          action: 'clearHighlights',
+        });
+        expect(Logger.log).not.toHaveBeenCalledWith('標註清除完成', {
+          action: 'clearHighlights',
+        });
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
   });
 
   describe('錯誤處理', () => {
     test('當 Chrome Storage 失敗但 localStorage 成功時應該記錄警告（Fallback 路徑）', async () => {
-      const testUrl = 'https://example.com/test';
-      const legacyKey = 'highlights_https://example.com/test';
+      jest.useFakeTimers();
+      try {
+        const testUrl = 'https://example.com/test';
+        const legacyKey = 'highlights_https://example.com/test';
 
-      // MV3 原生 Promise：直接以 rejected Promise 表示失敗
-      chrome.storage.local.remove.mockRejectedValue(new Error('Storage error'));
+        // MV3 原生 Promise：直接以 rejected Promise 表示失敗
+        chrome.storage.local.remove.mockRejectedValue(new Error('Storage error'));
 
-      globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
+        globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
 
-      // sendMessage 已在 beforeEach 設為失敗，走 Fallback 路徑
-      await HighlightStorageGateway.clearHighlights(testUrl);
+        // sendMessage 已在 beforeEach 設為失敗，走 Fallback 路徑
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      expect(Logger.warn).toHaveBeenCalledWith(
-        '部分存儲清除失敗',
-        expect.objectContaining({ action: 'clearHighlights' })
-      );
+        expect(Logger.warn).toHaveBeenCalledWith(
+          '部分存儲清除失敗',
+          expect.objectContaining({ action: 'clearHighlights' })
+        );
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     test('當 Chrome Storage 不可用時應該只使用 localStorage', async () => {
-      const testUrl = 'https://example.com/test';
-      const pageKey = 'highlights_https://example.com/test';
-
+      jest.useFakeTimers();
       const originalChrome = globalThis.chrome;
-      // sendMessage 不可用，且 storage 也不可用
-      globalThis.chrome = {};
+      try {
+        const testUrl = 'https://example.com/test';
+        const pageKey = 'highlights_https://example.com/test';
 
-      globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
+        // sendMessage 不可用，且 storage 也不可用
+        globalThis.chrome = {};
 
-      await HighlightStorageGateway.clearHighlights(testUrl);
+        globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
 
-      expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
-      expect(Logger.warn).toHaveBeenCalledWith(
-        '部分存儲清除失敗',
-        expect.objectContaining({ action: 'clearHighlights' })
-      );
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      globalThis.chrome = originalChrome;
+        expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
+        expect(Logger.warn).toHaveBeenCalledWith(
+          '部分存儲清除失敗',
+          expect.objectContaining({ action: 'clearHighlights' })
+        );
+      } finally {
+        globalThis.chrome = originalChrome;
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -313,25 +352,40 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
 
   describe('向後兼容性', () => {
     test('應該正確處理標準化 URL（Phase 3: Fallback 路徑使用 page_* 和 highlights_* keys）', async () => {
-      const testUrl = 'https://example.com/page?utm_source=test#anchor';
-      // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
-      // Fallback 會嘗試對 page_https://example.com/page 和 highlights_https://example.com/page 兩種 keys
-      await HighlightStorageGateway.clearHighlights(testUrl);
+      jest.useFakeTimers();
+      try {
+        const testUrl = 'https://example.com/page?utm_source=test#anchor';
+        // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
+        // Fallback 會嘗試對 page_https://example.com/page 和 highlights_https://example.com/page 兩種 keys
+        const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      const allRemovedKeys = chrome.storage.local.remove.mock.calls.flatMap(call => {
-        const keys = call[0];
-        return Array.isArray(keys) ? keys : [keys];
-      });
-      expect(allRemovedKeys).toContain('highlights_https://example.com/page');
+        const allRemovedKeys = chrome.storage.local.remove.mock.calls.flatMap(call => {
+          const keys = call[0];
+          return Array.isArray(keys) ? keys : [keys];
+        });
+        expect(allRemovedKeys).toContain('highlights_https://example.com/page');
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     test('應該與現有代碼保持相同的介面', async () => {
-      const testUrl = 'https://example.com/test';
+      jest.useFakeTimers();
+      try {
+        const testUrl = 'https://example.com/test';
 
-      const result = HighlightStorageGateway.clearHighlights(testUrl);
-      expect(result).toBeInstanceOf(Promise);
+        const result = HighlightStorageGateway.clearHighlights(testUrl);
+        expect(result).toBeInstanceOf(Promise);
 
-      await expect(result).resolves.toBeUndefined();
+        await jest.runAllTimersAsync();
+        await expect(result).resolves.toBeUndefined();
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
   });
 
