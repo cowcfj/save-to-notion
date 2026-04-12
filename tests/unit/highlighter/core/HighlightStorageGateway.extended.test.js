@@ -115,9 +115,10 @@ describe('Highlighter HighlightStorageGateway', () => {
 
     test('透過 sendMessage 背景更新失敗時，應記錄警告並回退到直接保存', async () => {
       jest.useFakeTimers();
+      let warnSpy;
       try {
         mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
         const testData = [{ text: 'test', color: 'yellow' }];
         const savePromise = HighlightStorageGateway.saveHighlights('https://example.com', testData);
@@ -130,14 +131,16 @@ describe('Highlighter HighlightStorageGateway', () => {
           highlights: testData,
         });
         expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
-        warnSpy.mockRestore();
       } finally {
+        warnSpy?.mockRestore();
+        jest.runOnlyPendingTimers();
         jest.useRealTimers();
       }
     });
 
     test('透過 sendMessage 拋出異常時，應記錄警告並回退到直接保存', async () => {
       jest.useFakeTimers();
+      let warnSpy;
       try {
         mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async msg => {
           if (msg?.action === 'UPDATE_HIGHLIGHTS') {
@@ -145,7 +148,7 @@ describe('Highlighter HighlightStorageGateway', () => {
           }
           return { success: true };
         });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
         const testData = [{ text: 'test', color: 'yellow' }];
         const savePromise = HighlightStorageGateway.saveHighlights('https://example.com', testData);
@@ -154,8 +157,9 @@ describe('Highlighter HighlightStorageGateway', () => {
 
         expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
         expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
-        warnSpy.mockRestore();
       } finally {
+        warnSpy?.mockRestore();
+        jest.runOnlyPendingTimers();
         jest.useRealTimers();
       }
     });
@@ -240,6 +244,7 @@ describe('Highlighter HighlightStorageGateway', () => {
     test('sendMessage 不可用時，若 storage 與 localStorage 均失敗應拋出異常', async () => {
       jest.useFakeTimers();
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      let errorSpy;
       try {
         delete mockChrome.runtime.sendMessage;
         mockChrome.storage.local.get = jest.fn().mockResolvedValue({});
@@ -247,7 +252,7 @@ describe('Highlighter HighlightStorageGateway', () => {
         globalThis.localStorage.setItem = jest.fn(() => {
           throw new Error('Local error');
         });
-        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+        errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
         const testData = [{ text: 'fail-all', color: 'yellow' }];
         await expect(
@@ -259,8 +264,8 @@ describe('Highlighter HighlightStorageGateway', () => {
           '保存標註失敗（Chrome 與本地執行失敗）',
           expect.objectContaining({ action: 'saveHighlights' })
         );
-        errorSpy.mockRestore();
       } finally {
+        errorSpy?.mockRestore();
         warnSpy.mockRestore();
         jest.runOnlyPendingTimers();
         jest.useRealTimers();
@@ -692,6 +697,7 @@ describe('Highlighter HighlightStorageGateway', () => {
 
     test('如果所選的清除方法全都失敗，應拋出所有存儲清除失敗的錯誤', async () => {
       jest.useFakeTimers();
+      let errorSpy;
       try {
         // 模擬全部失敗：
         // 1. sendMessage 不可用或失敗
@@ -705,7 +711,7 @@ describe('Highlighter HighlightStorageGateway', () => {
         localStorage.removeItem.mockImplementation(() => {
           throw new Error('Local storage remove error');
         });
-        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+        errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
         const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
         const assertionPromise = await expect(clearPromise).rejects.toThrow(
@@ -715,8 +721,9 @@ describe('Highlighter HighlightStorageGateway', () => {
         await assertionPromise;
 
         expect(errorSpy).toHaveBeenCalled();
-        errorSpy.mockRestore();
       } finally {
+        errorSpy?.mockRestore();
+        jest.runOnlyPendingTimers();
         jest.useRealTimers();
       }
     });
