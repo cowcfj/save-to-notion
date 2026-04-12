@@ -175,6 +175,25 @@ describe('Highlighter HighlightStorageGateway', () => {
         await savePromise;
 
         expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalled();
+        expect(warnSpy.mock.calls).toEqual(
+          expect.arrayContaining([
+            [
+              expect.any(String),
+              '[HighlightStorageGateway] sendMessage 發送異常，交由上層重試/回退策略處理',
+              expect.objectContaining({
+                action: 'saveHighlights',
+              }),
+            ],
+            [
+              expect.any(String),
+              '[HighlightStorageGateway] 所有重試均失敗，走 fallback 直接寫入。注意：此路徑繞過 _withLock，可能發生並發衝突。',
+              expect.objectContaining({
+                action: 'saveHighlights',
+              }),
+            ],
+          ])
+        );
         expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
       } finally {
         warnSpy?.mockRestore();
