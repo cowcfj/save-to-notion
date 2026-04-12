@@ -633,17 +633,36 @@ const ImageCollector = {
    * @private
    */
   _resolveImageSize(url, timeoutMs) {
-    return Promise.race([
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        img.addEventListener('load', () =>
-          resolve({ width: img.naturalWidth, height: img.naturalHeight })
-        );
-        img.addEventListener('error', () => reject(new Error('load failed')));
-        img.src = url;
-      }),
-      new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
-    ]);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      let settled = false;
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        img.removeEventListener('load', handleLoad);
+        img.removeEventListener('error', handleError);
+      };
+
+      const settle = callback => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        callback();
+      };
+
+      const handleLoad = () =>
+        settle(() => resolve({ width: img.naturalWidth, height: img.naturalHeight }));
+
+      const handleError = () => settle(() => reject(new Error('load failed')));
+
+      const timeoutId = setTimeout(() => settle(() => reject(new Error('timeout'))), timeoutMs);
+
+      img.addEventListener('load', handleLoad);
+      img.addEventListener('error', handleError);
+      img.src = url;
+    });
   },
 
   /**

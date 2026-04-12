@@ -1200,4 +1200,94 @@ describe('ImageCollector', () => {
       expect(secondImg.dataset.resolvedHeight).toBe('480');
     });
   });
+
+  describe('_resolveImageSize', () => {
+    let OriginalImage;
+    let createdImages;
+
+    class FakeImage {
+      constructor() {
+        this.listeners = {
+          load: new Set(),
+          error: new Set(),
+        };
+        this.naturalWidth = 0;
+        this.naturalHeight = 0;
+        createdImages.push(this);
+      }
+
+      addEventListener(type, handler) {
+        this.listeners[type].add(handler);
+      }
+
+      removeEventListener(type, handler) {
+        this.listeners[type].delete(handler);
+      }
+
+      emit(type) {
+        this.listeners[type].forEach(handler => handler());
+      }
+
+      set src(value) {
+        this._src = value;
+      }
+
+      get src() {
+        return this._src;
+      }
+    }
+
+    beforeEach(() => {
+      OriginalImage = globalThis.Image;
+      createdImages = [];
+      globalThis.Image = FakeImage;
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      globalThis.Image = OriginalImage;
+      jest.useRealTimers();
+    });
+
+    test('should clear timeout and listeners after successful image load', async () => {
+      const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
+
+      const promise = ImageCollector._resolveImageSize('https://example.com/success.jpg', 3000);
+      const img = createdImages[0];
+      img.naturalWidth = 800;
+      img.naturalHeight = 600;
+
+      img.emit('load');
+
+      await expect(promise).resolves.toEqual({ width: 800, height: 600 });
+      expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+      expect(img.listeners.load.size).toBe(0);
+      expect(img.listeners.error.size).toBe(0);
+    });
+
+    test('should clear timeout and listeners after image load failure', async () => {
+      const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout');
+
+      const promise = ImageCollector._resolveImageSize('https://example.com/fail.jpg', 3000);
+      const img = createdImages[0];
+
+      img.emit('error');
+
+      await expect(promise).rejects.toThrow('load failed');
+      expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+      expect(img.listeners.load.size).toBe(0);
+      expect(img.listeners.error.size).toBe(0);
+    });
+
+    test('should clear listeners when timeout fires first', async () => {
+      const promise = ImageCollector._resolveImageSize('https://example.com/timeout.jpg', 3000);
+      const img = createdImages[0];
+
+      jest.advanceTimersByTime(3000);
+
+      await expect(promise).rejects.toThrow('timeout');
+      expect(img.listeners.load.size).toBe(0);
+      expect(img.listeners.error.size).toBe(0);
+    });
+  });
 });
