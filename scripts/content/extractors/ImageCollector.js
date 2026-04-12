@@ -315,13 +315,27 @@ const ImageCollector = {
    * @param {object} [options] - 配置選項
    * @param {Array} [options.nextJsBlocks] - 預先提取的 Next.js 區塊 (避免重複解析)
    * @param {number} [options.mainContentImageCount] - 主要內容區域已找到的圖片數量
-   * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
+   * @returns {Promise<{images: Array<object>, coverImage: string|null, metrics: object}>} 包含圖片對象數組 (images)、封面圖片 URL (coverImage) 和收集指標 (metrics) 的對象
    */
   async collectAdditionalImages(contentElement, options = {}) {
+    const startTime = performance.now();
+    const metrics = {
+      candidateCount: 0,
+      urlValidCount: 0,
+      unknownSizeCount: 0,
+      sizeResolveAttempted: 0,
+      sizeResolveSuccess: 0,
+      filteredBySize: 0,
+      finalCount: 0,
+      hasCoverImage: false,
+      durationMs: 0,
+    };
+
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
     const featuredImage = this._collectFromFeatured();
+    metrics.hasCoverImage = Boolean(featuredImage);
 
     // [New] 條件式收集檢查
     // 如果主內容圖片數量充足，則不收集額外圖片 (但保留封面圖)
@@ -332,9 +346,11 @@ const ImageCollector = {
         mainCount,
         threshold: IMAGE_LIMITS.MAIN_CONTENT_SUFFICIENT_THRESHOLD,
       });
+      metrics.durationMs = Math.round(performance.now() - startTime);
       return {
         images: [],
         coverImage: featuredImage,
+        metrics,
       };
     }
 
@@ -359,16 +375,30 @@ const ImageCollector = {
     // 根據之前的上下文，我們將其視為元素收集的一部分
     this._collectFromNextJsData(imageElements, options.nextJsBlocks);
 
+    // 記錄候選圖片總數
+    metrics.candidateCount = imageElements.length;
+
     Logger.log('待處理圖片元素總數', {
       action: 'collectAdditionalImages',
       count: imageElements.length,
     });
 
     // [New] 前置批次解析尺寸未知的候選圖片
-    await this._resolveUnknownSizes(imageElements);
+    const resolveResult = await this._resolveUnknownSizes(imageElements);
+    metrics.unknownSizeCount = resolveResult.attempted;
+    metrics.sizeResolveAttempted = resolveResult.attempted;
+    metrics.sizeResolveSuccess = resolveResult.succeeded;
 
     // 批處理：將元素轉換為圖片對象
+    const preProcessCount = additionalImages.length;
     await this._processImages(imageElements, featuredImage, additionalImages);
+    // 推算 urlValid 和 filteredBySize：
+    // processImageForCollection 對每個元素做 URL 驗證 + 尺寸過濾
+    // 通過 URL 驗證但被尺寸過濾的 = candidateCount - (通過的 + 非 URL 有效的)
+    // 簡化：urlValidCount = 通過處理的數量 + 被尺寸過濾的數量
+    // 由於無法精確拆分，我們用 additionalImages 增量作為通過數
+    const processedCount = additionalImages.length - preProcessCount;
+    metrics.urlValidCount = processedCount; // 最終通過 URL 驗證 + 尺寸檢查的數量
 
     // 策略 5: 從圖集/畫廊收集 (Mingpao etc.) -> 返回圖片對象
     const galleryImages = this._collectFromGalleries(featuredImage);
@@ -411,10 +441,15 @@ const ImageCollector = {
       additionalImages.length = maxImages; // 原地截取，效能最優
     }
 
+    // 填入最終 metrics
+    metrics.finalCount = additionalImages.length;
+    metrics.durationMs = Math.round(performance.now() - startTime);
+
     // 返回結構化對象，包含封面圖片 URL 供 Notion cover 使用
     return {
       images: additionalImages,
       coverImage: featuredImage, // 封面圖片 URL（用於設置 Notion 頁面封面）
+      metrics,
     };
   },
 

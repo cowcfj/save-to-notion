@@ -787,10 +787,54 @@ describe('ImageCollector', () => {
       });
 
       expect(result.images).toHaveLength(0);
+      expect(result.metrics).toBeDefined();
+      expect(result.metrics.candidateCount).toBe(0);
+      expect(result.metrics.hasCoverImage).toBe(false);
+      expect(result.metrics.durationMs).toBeGreaterThanOrEqual(0);
       expect(Logger.log).toHaveBeenCalledWith(
         '主內容圖片充足，跳過額外收集',
         expect.objectContaining({ mainCount: minImages + 1 })
       );
+    });
+
+    test('should return metrics with correct field types on successful collection', async () => {
+      trackSpy(ImageCollector, '_collectFromFeatured').mockReturnValue(
+        'https://example.com/cover.jpg'
+      );
+      trackSpy(ImageCollector, '_collectFromContent').mockReturnValue([]);
+      trackSpy(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromExpansion').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_resolveUnknownSizes').mockResolvedValue({
+        attempted: 0,
+        succeeded: 0,
+      });
+      trackSpy(ImageCollector, '_processImages').mockImplementation(() => {});
+
+      const contentElement = document.createElement('div');
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
+
+      const { metrics } = result;
+      expect(metrics).toBeDefined();
+
+      // 驗證所有數值欄位為 number
+      for (const key of [
+        'candidateCount',
+        'urlValidCount',
+        'unknownSizeCount',
+        'sizeResolveAttempted',
+        'sizeResolveSuccess',
+        'filteredBySize',
+        'finalCount',
+        'durationMs',
+      ]) {
+        expect(typeof metrics[key]).toBe('number');
+      }
+
+      // hasCoverImage 為 boolean
+      expect(typeof metrics.hasCoverImage).toBe('boolean');
+      expect(metrics.hasCoverImage).toBe(true);
+      expect(metrics.durationMs).toBeGreaterThanOrEqual(0);
     });
 
     test('should fallback to expansion when no images found', async () => {

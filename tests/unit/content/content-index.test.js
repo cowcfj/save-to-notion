@@ -249,6 +249,17 @@ describe('Content Script Entry (index.js)', () => {
       ImageCollector.collectAdditionalImages.mockResolvedValue({
         images: [{ type: 'image', image: { external: { url: 'img1' } } }],
         coverImage: 'https://example.com/cover.jpg',
+        metrics: {
+          candidateCount: 3,
+          urlValidCount: 1,
+          unknownSizeCount: 0,
+          sizeResolveAttempted: 0,
+          sizeResolveSuccess: 0,
+          filteredBySize: 0,
+          finalCount: 1,
+          hasCoverImage: true,
+          durationMs: 12,
+        },
       });
 
       mergeUniqueImages.mockReturnValue([{ type: 'image', image: { external: { url: 'img1' } } }]);
@@ -258,6 +269,63 @@ describe('Content Script Entry (index.js)', () => {
       expect(result.title).toBe('Test Title');
       expect(result.coverImage).toBe('https://example.com/cover.jpg');
       expect(result.extractionStatus).toBe('success');
+      expect(result.debug.imageMetrics).toBeDefined();
+      expect(result.debug.imageMetrics.candidateCount).toBe(3);
+      expect(result.debug.imageMetrics.hasCoverImage).toBe(true);
+      expect(result.debug.imageMetrics.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    test('應該在圖片收集失敗時仍返回成功結果且 imageMetrics 為 null', async () => {
+      ContentExtractor.extractAsync.mockResolvedValue({
+        content: '<div>Test content</div>',
+        type: 'readability',
+        metadata: { title: 'Test Title' },
+        blocks: [],
+      });
+
+      const mockConverter = {
+        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
+        imageCount: 0,
+      };
+      ConverterFactory.getConverter.mockReturnValue(mockConverter);
+
+      ImageCollector.collectAdditionalImages.mockRejectedValue(
+        new Error('Image collection failed')
+      );
+
+      const result = await extractPageContent();
+
+      expect(result.extractionStatus).toBe('success');
+      expect(result.debug).toBeDefined();
+      expect(result.debug.imageMetrics).toBeNull();
+    });
+
+    test('應該在 imageResult 無 metrics 時 imageMetrics 為 null', async () => {
+      ContentExtractor.extractAsync.mockResolvedValue({
+        content: '<div>Test content</div>',
+        type: 'readability',
+        metadata: { title: 'Test Title' },
+        blocks: [],
+      });
+
+      const mockConverter = {
+        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
+        imageCount: 0,
+      };
+      ConverterFactory.getConverter.mockReturnValue(mockConverter);
+
+      // 回傳舊格式（無 metrics）
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [],
+        coverImage: null,
+      });
+
+      mergeUniqueImages.mockReturnValue([]);
+
+      const result = await extractPageContent();
+
+      expect(result.extractionStatus).toBe('success');
+      expect(result.debug.imageMetrics).toBeNull();
     });
 
     test('應該在正文無圖片時將首張額外圖片插入到開頭', async () => {
