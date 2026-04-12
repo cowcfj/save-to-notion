@@ -298,7 +298,7 @@ async function extractPageContent() {
       const collectedImages =
         imageResult?.images || (Array.isArray(imageResult) ? imageResult : []);
       coverImage = imageResult?.coverImage || null;
-      imageMetrics = imageResult?.metrics || null;
+      imageMetrics = imageResult?.metrics ?? imageMetrics;
 
       // 使用工具函數去重
       additionalImages = mergeUniqueImages(blocks, collectedImages);
