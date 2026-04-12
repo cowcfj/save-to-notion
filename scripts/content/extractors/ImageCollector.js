@@ -666,6 +666,7 @@ const ImageCollector = {
    * @param {string|null} featuredImage - 特色圖片 URL
    * @param {Array<object>} additionalImages - 用於存儲結果的數組
    * @param {Set<string>} processedUrls - 已處理的 URL 集合 (Context)
+   * @returns {{urlValidCount: number, filteredBySize: number}} 圖片處理統計
    */
   processImagesSequentially(images, featuredImage, additionalImages, processedUrls = new Set()) {
     const stats = ImageCollector._createImageProcessingStats();
