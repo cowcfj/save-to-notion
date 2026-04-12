@@ -135,6 +135,11 @@ const chrome = {
         return Promise.resolve();
       }),
     },
+    onChanged: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      hasListener: jest.fn(),
+    },
   },
 
   /** runtime - 注意：lastError 預設為 undefined，需自行覆寫模擬錯誤 */
@@ -170,6 +175,13 @@ const chrome = {
   },
 
   tabs: {
+    get: jest.fn((tabId, callback) => {
+      const tab = { id: tabId, status: 'complete' };
+      if (callback) {
+        callback(tab);
+      }
+      return Promise.resolve(tab);
+    }),
     query: jest.fn((queryInfo, callback) => {
       const tabs = [
         {
@@ -212,6 +224,19 @@ const chrome = {
       addListener: jest.fn(),
       removeListener: jest.fn(),
     },
+  },
+
+  windows: {
+    create: jest.fn((createProperties, callback) => {
+      const win = {
+        id: ++mockTabIdCounter,
+        ...createProperties,
+      };
+      if (callback) {
+        callback(win);
+      }
+      return Promise.resolve(win);
+    }),
   },
 
   scripting: {
