@@ -721,7 +721,8 @@ describe('Highlighter HighlightStorageGateway', () => {
         const assertionPromise = await expect(clearPromise).rejects.toThrow(
           'Failed to clear highlights from all storage locations'
         );
-        await jest.runAllTimersAsync();
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(1000);
         await assertionPromise;
 
         expect(errorSpy).toHaveBeenCalled();
@@ -746,66 +747,83 @@ describe('Highlighter HighlightStorageGateway', () => {
     });
 
     test('fallback 清除時應優先更新 alias 對應的 stable page key', async () => {
-      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
 
-      const pageUrl = 'https://example.com/original';
-      const stableUrl = 'https://example.com/stable';
-      const aliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
-      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
-      const legacyKey = `${HIGHLIGHTS_PREFIX}${pageUrl}`;
+        const pageUrl = 'https://example.com/original';
+        const stableUrl = 'https://example.com/stable';
+        const aliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
+        const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+        const legacyKey = `${HIGHLIGHTS_PREFIX}${pageUrl}`;
 
-      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
-        const keyList = Array.isArray(keys) ? keys : [keys];
+        mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+          const keyList = Array.isArray(keys) ? keys : [keys];
 
-        if (keyList.length === 1 && keyList[0] === aliasKey) {
-          return Promise.resolve({ [aliasKey]: stableUrl });
-        }
+          if (keyList.length === 1 && keyList[0] === aliasKey) {
+            return Promise.resolve({ [aliasKey]: stableUrl });
+          }
 
-        if (keyList.length === 1 && keyList[0] === stablePageKey) {
-          return Promise.resolve({
-            [stablePageKey]: {
-              notion: { pageId: 'page-123' },
-              highlights: [{ text: 'keep structure' }],
-              metadata: { lastUpdated: 1 },
-            },
-          });
-        }
+          if (keyList.length === 1 && keyList[0] === stablePageKey) {
+            return Promise.resolve({
+              [stablePageKey]: {
+                notion: { pageId: 'page-123' },
+                highlights: [{ text: 'keep structure' }],
+                metadata: { lastUpdated: 1 },
+              },
+            });
+          }
 
-        return Promise.resolve({});
-      });
+          return Promise.resolve({});
+        });
 
-      await HighlightStorageGateway.clearHighlights(pageUrl);
+        const clearPromise = HighlightStorageGateway.clearHighlights(pageUrl);
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(1000);
+        await clearPromise;
 
-      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
-        [stablePageKey]: {
-          notion: { pageId: 'page-123' },
-          highlights: [],
-          metadata: { lastUpdated: 1 },
-        },
-      });
-      expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
+        expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+          [stablePageKey]: {
+            notion: { pageId: 'page-123' },
+            highlights: [],
+            metadata: { lastUpdated: 1 },
+          },
+        });
+        expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
 
     test('fallback 清除時應使用 sanitize 後的 pageKey 記錄 info 日誌', async () => {
-      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-      const pageUrl = 'https://example.com/path/?utm_source=fb#section';
-      const normalizedUrl = normalizeUrl(pageUrl);
+      jest.useFakeTimers();
       const infoSpy = jest.spyOn(Logger, 'info').mockImplementation();
       const logSpy = jest.spyOn(Logger, 'log').mockImplementation();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        const pageUrl = 'https://example.com/path/?utm_source=fb#section';
+        const normalizedUrl = normalizeUrl(pageUrl);
 
-      await HighlightStorageGateway.clearHighlights(pageUrl);
+        const clearPromise = HighlightStorageGateway.clearHighlights(pageUrl);
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(1000);
+        await clearPromise;
 
-      expect(infoSpy).toHaveBeenCalledWith('開始清除標註', {
-        action: 'clearHighlights',
-        pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
-      });
-      expect(logSpy).not.toHaveBeenCalledWith(
-        '開始清除標註',
-        expect.objectContaining({ action: 'clearHighlights' })
-      );
-
-      infoSpy.mockRestore();
-      logSpy.mockRestore();
+        expect(infoSpy).toHaveBeenCalledWith('開始清除標註', {
+          action: 'clearHighlights',
+          pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
+        });
+        expect(logSpy).not.toHaveBeenCalledWith(
+          '開始清除標註',
+          expect.objectContaining({ action: 'clearHighlights' })
+        );
+      } finally {
+        infoSpy.mockRestore();
+        logSpy.mockRestore();
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
     });
   });
 
