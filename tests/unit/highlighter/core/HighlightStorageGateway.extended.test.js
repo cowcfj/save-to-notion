@@ -656,9 +656,10 @@ describe('Highlighter HighlightStorageGateway', () => {
 
     test('透過 sendMessage 回傳失敗 ({success: false}) 時，應記錄警告並執行回退清除', async () => {
       jest.useFakeTimers();
+      let warnSpy;
       try {
         mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
         const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
         await jest.runAllTimersAsync();
@@ -666,14 +667,16 @@ describe('Highlighter HighlightStorageGateway', () => {
 
         expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
         expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
-        warnSpy.mockRestore();
       } finally {
+        warnSpy?.mockRestore();
+        jest.runOnlyPendingTimers();
         jest.useRealTimers();
       }
     });
 
     test('透過 sendMessage 拋出異常時，應記錄警告並執行回退清除', async () => {
       jest.useFakeTimers();
+      let warnSpy;
       try {
         mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async msg => {
           if (msg?.action === 'CLEAR_HIGHLIGHTS') {
@@ -681,7 +684,7 @@ describe('Highlighter HighlightStorageGateway', () => {
           }
           return { success: true };
         });
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
         const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
         await jest.runAllTimersAsync();
@@ -689,8 +692,9 @@ describe('Highlighter HighlightStorageGateway', () => {
 
         expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
         expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
-        warnSpy.mockRestore();
       } finally {
+        warnSpy?.mockRestore();
+        jest.runOnlyPendingTimers();
         jest.useRealTimers();
       }
     });
