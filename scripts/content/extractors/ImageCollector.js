@@ -210,13 +210,22 @@ const ImageCollector = {
    * @param {Element} img - 圖片元素
    * @param {number} index - 索引
    * @param {string} featuredImage - 已找到的特色圖片 URL (用於去重)
+   * @param {object} [options] - 處理選項
    * @returns {object | null} 圖片對象或 null
    */
-  processImageForCollection(img, index, featuredImage) {
+  processImageForCollection(img, index, featuredImage, options = {}) {
+    const outcome = this._evaluateImageForCollection(img, index, featuredImage);
+    if (options.detailed) {
+      return outcome;
+    }
+    return outcome.status === 'accepted' ? outcome.image : null;
+  },
+
+  _evaluateImageForCollection(img, index, featuredImage) {
     const src = extractImageSrc?.(img);
     if (!src) {
       Logger.log('圖片缺少 src 屬性', { action: 'processImageForCollection', index: index + 1 });
-      return null;
+      return { status: 'missing_src' };
     }
 
     try {
@@ -230,7 +239,7 @@ const ImageCollector = {
           action: 'processImageForCollection',
           url: sanitizeUrlForLogging(cleanedImageUrl),
         });
-        return null;
+        return { status: 'duplicate_featured' };
       }
 
       // 3. 驗證圖片 URL (使用已清理的 URL，避免重複標準化)
@@ -239,7 +248,7 @@ const ImageCollector = {
           action: 'processImageForCollection',
           url: sanitizeUrlForLogging(cleanedImageUrl),
         });
-        return null;
+        return { status: 'invalid_url' };
       }
 
       // 4. 檢查尺寸過濾小圖
@@ -272,7 +281,7 @@ const ImageCollector = {
             height: imgHeight,
             source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
           });
-          return null;
+          return { status: 'filtered_by_size' };
         }
       } else {
         // Dimensions are unknown (0), we allow it to pass but log it
@@ -284,18 +293,21 @@ const ImageCollector = {
       }
 
       return {
-        object: 'block',
-        type: 'image',
+        status: 'accepted',
         image: {
-          type: 'external',
-          external: { url: cleanedImageUrl },
-        },
-        // 添加元數據供後續處理使用
-        _meta: {
-          originalSrc: src,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-          alt: img.alt || '',
+          object: 'block',
+          type: 'image',
+          image: {
+            type: 'external',
+            external: { url: cleanedImageUrl },
+          },
+          // 添加元數據供後續處理使用
+          _meta: {
+            originalSrc: src,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            alt: img.alt || '',
+          },
         },
       };
     } catch (error) {
@@ -304,7 +316,66 @@ const ImageCollector = {
         src: sanitizeUrlForLogging(src),
         error: error.message,
       });
+      return { status: 'error' };
+    }
+  },
+
+  _normalizeImageProcessOutcome(result) {
+    if (!result) {
       return null;
+    }
+
+    if (typeof result === 'object' && typeof result.status === 'string') {
+      return result;
+    }
+
+    if (result.image?.external?.url) {
+      return { status: 'accepted', image: result };
+    }
+
+    return null;
+  },
+
+  _createImageProcessingStats() {
+    return {
+      urlValidCount: 0,
+      filteredBySize: 0,
+    };
+  },
+
+  _recordImageProcessingOutcome(
+    outcome,
+    additionalImages,
+    processedUrls,
+    stats,
+    logAction = 'collectAdditionalImages'
+  ) {
+    if (!outcome) {
+      return;
+    }
+
+    if (outcome.status === 'accepted' || outcome.status === 'filtered_by_size') {
+      stats.urlValidCount++;
+    }
+
+    if (outcome.status === 'filtered_by_size') {
+      stats.filteredBySize++;
+    }
+
+    if (outcome.status !== 'accepted') {
+      return;
+    }
+
+    const result = outcome.image;
+    const url = result.image?.external?.url;
+    if (url && !processedUrls.has(url)) {
+      processedUrls.add(url);
+      additionalImages.push(result);
+    } else if (url) {
+      Logger.log('跳過重複的圖片 URL', {
+        action: logAction,
+        url: sanitizeUrlForLogging(url),
+      });
     }
   },
 
@@ -390,15 +461,11 @@ const ImageCollector = {
     metrics.sizeResolveSuccess = resolveResult.succeeded;
 
     // 批處理：將元素轉換為圖片對象
-    const preProcessCount = additionalImages.length;
-    await this._processImages(imageElements, featuredImage, additionalImages);
-    // 推算 urlValid 和 filteredBySize：
-    // processImageForCollection 對每個元素做 URL 驗證 + 尺寸過濾
-    // 通過 URL 驗證但被尺寸過濾的 = candidateCount - (通過的 + 非 URL 有效的)
-    // 簡化：urlValidCount = 通過處理的數量 + 被尺寸過濾的數量
-    // 由於無法精確拆分，我們用 additionalImages 增量作為通過數
-    const processedCount = additionalImages.length - preProcessCount;
-    metrics.urlValidCount = processedCount; // 最終通過 URL 驗證 + 尺寸檢查的數量
+    const processStats =
+      (await this._processImages(imageElements, featuredImage, additionalImages)) ??
+      this._createImageProcessingStats();
+    metrics.urlValidCount = processStats.urlValidCount;
+    metrics.filteredBySize = processStats.filteredBySize;
 
     // 策略 5: 從圖集/畫廊收集 (Mingpao etc.) -> 返回圖片對象
     const galleryImages = this._collectFromGalleries(featuredImage);
@@ -601,27 +668,27 @@ const ImageCollector = {
    * @param {Set<string>} processedUrls - 已處理的 URL 集合 (Context)
    */
   processImagesSequentially(images, featuredImage, additionalImages, processedUrls = new Set()) {
+    const stats = ImageCollector._createImageProcessingStats();
+
     // 如果有特色圖片且尚未記錄，先加入
     if (featuredImage && !processedUrls.has(featuredImage)) {
       processedUrls.add(featuredImage);
     }
 
     images.forEach((img, index) => {
-      const result = ImageCollector.processImageForCollection(img, index, featuredImage);
-      if (result) {
-        const url = result.image?.external?.url;
-        // 檢查是否已處理過這個 URL
-        if (url && !processedUrls.has(url)) {
-          processedUrls.add(url);
-          additionalImages.push(result);
-        } else if (url) {
-          Logger.log('跳過重複的圖片 URL', {
-            action: 'processImagesSequentially',
-            url: sanitizeUrlForLogging(url),
-          });
-        }
-      }
+      const outcome = ImageCollector._normalizeImageProcessOutcome(
+        ImageCollector.processImageForCollection(img, index, featuredImage, { detailed: true })
+      );
+      ImageCollector._recordImageProcessingOutcome(
+        outcome,
+        additionalImages,
+        processedUrls,
+        stats,
+        'processImagesSequentially'
+      );
     });
+
+    return stats;
   },
 
   /**
@@ -746,6 +813,8 @@ const ImageCollector = {
   },
 
   async _processImages(allImages, featuredImage, additionalImages) {
+    const stats = ImageCollector._createImageProcessingStats();
+
     // 初始化已處理的 URL 集合，以防止重複 (Shared Context)
     const processedUrls = new Set();
     if (featuredImage) {
@@ -768,7 +837,9 @@ const ImageCollector = {
 
       // 定義處理函數，注意這裡不進行去重，去重在收集結果時統一處理
       const processFn = ({ img, index }) => {
-        return ImageCollector.processImageForCollection(img, index, featuredImage);
+        return ImageCollector.processImageForCollection(img, index, featuredImage, {
+          detailed: true,
+        });
       };
 
       const handleResults = results => {
@@ -776,14 +847,13 @@ const ImageCollector = {
           return;
         }
         results.forEach(result => {
-          if (!result) {
-            return;
-          }
-          const url = result.image?.external?.url;
-          if (url && !processedUrls.has(url)) {
-            processedUrls.add(url);
-            additionalImages.push(result);
-          }
+          const outcome = ImageCollector._normalizeImageProcessOutcome(result);
+          ImageCollector._recordImageProcessingOutcome(
+            outcome,
+            additionalImages,
+            processedUrls,
+            stats
+          );
         });
       };
 
@@ -792,12 +862,15 @@ const ImageCollector = {
           const indexedImages = allImages.map((img, index) => ({ img, index }));
           const { results } = await batchProcessWithRetry(indexedImages, processFn, {
             maxAttempts: 3,
-            isResultSuccessful: result => Boolean(result?.image?.external?.url),
+            isResultSuccessful: result => {
+              const outcome = ImageCollector._normalizeImageProcessOutcome(result);
+              return outcome?.status === 'accepted' && Boolean(outcome.image?.image?.external?.url);
+            },
           });
           handleResults(results);
         } catch (error) {
           Logger.warn('批次處理失敗 (Retry)，回退到順序處理', { error: error.message });
-          ImageCollector.processImagesSequentially(
+          return ImageCollector.processImagesSequentially(
             allImages,
             featuredImage,
             additionalImages,
@@ -813,7 +886,7 @@ const ImageCollector = {
           handleResults(results);
         } catch (error) {
           Logger.warn('批次處理失敗，回退到順序處理', { error: error.message });
-          ImageCollector.processImagesSequentially(
+          return ImageCollector.processImagesSequentially(
             allImages,
             featuredImage,
             additionalImages,
@@ -822,13 +895,15 @@ const ImageCollector = {
         }
       }
     } else {
-      ImageCollector.processImagesSequentially(
+      return ImageCollector.processImagesSequentially(
         allImages,
         featuredImage,
         additionalImages,
         processedUrls
       );
     }
+
+    return stats;
   },
 };
 

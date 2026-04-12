@@ -837,6 +837,45 @@ describe('ImageCollector', () => {
       expect(metrics.durationMs).toBeGreaterThanOrEqual(0);
     });
 
+    test('should track url-valid and size-filtered metrics accurately', async () => {
+      const contentElement = document.createElement('div');
+      const validImg = document.createElement('img');
+      validImg.src = 'https://example.com/valid.jpg';
+      Object.defineProperty(validImg, 'naturalWidth', { value: 800 });
+      Object.defineProperty(validImg, 'naturalHeight', { value: 600 });
+
+      const smallImg = document.createElement('img');
+      smallImg.src = 'https://example.com/small.jpg';
+      Object.defineProperty(smallImg, 'naturalWidth', { value: 320 });
+      Object.defineProperty(smallImg, 'naturalHeight', { value: 200 });
+
+      const invalidImg = document.createElement('img');
+      invalidImg.src = 'https://example.com/invalid.jpg';
+      Object.defineProperty(invalidImg, 'naturalWidth', { value: 900 });
+      Object.defineProperty(invalidImg, 'naturalHeight', { value: 700 });
+
+      trackSpy(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      trackSpy(ImageCollector, '_collectFromContent').mockReturnValue([
+        validImg,
+        smallImg,
+        invalidImg,
+      ]);
+      trackSpy(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
+      trackSpy(ImageCollector, '_collectFromGalleries').mockReturnValue([]);
+
+      extractImageSrc.mockImplementation(img => img.src);
+      isValidCleanedImageUrl.mockImplementation(url => url !== 'https://example.com/invalid.jpg');
+
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(result.images).toHaveLength(1);
+      expect(result.images[0].image.external.url).toBe('https://example.com/valid.jpg');
+      expect(result.metrics.candidateCount).toBe(3);
+      expect(result.metrics.urlValidCount).toBe(2);
+      expect(result.metrics.filteredBySize).toBe(1);
+      expect(result.metrics.finalCount).toBe(1);
+    });
+
     test('should fallback to expansion when no images found', async () => {
       // Mock internal methods to simulate finding nothing initially
       trackSpy(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
