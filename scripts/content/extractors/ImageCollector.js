@@ -32,6 +32,7 @@ import {
   EXCLUSION_SELECTORS,
   IMAGE_VALIDATION_CONSTANTS,
   IMAGE_LIMITS,
+  IMAGE_SIZE_RESOLVE,
 } from '../../config/extraction.js';
 
 const ImageCollector = {
@@ -244,15 +245,18 @@ const ImageCollector = {
       // 4. 檢查尺寸過濾小圖
       // 優先使用 naturalWidth/naturalHeight（已載入的圖片）
       // 回退到 HTML width/height 屬性或 data-width/data-height（處理懶加載圖片）
+      // 再回退到 data-resolvedWidth/resolvedHeight（前置批次解析結果）
       const imgWidth =
         img.naturalWidth ||
         Number.parseInt(img.getAttribute('width'), 10) ||
         Number.parseInt(img.dataset.width, 10) ||
+        Number.parseInt(img.dataset.resolvedWidth, 10) ||
         0;
       const imgHeight =
         img.naturalHeight ||
         Number.parseInt(img.getAttribute('height'), 10) ||
         Number.parseInt(img.dataset.height, 10) ||
+        Number.parseInt(img.dataset.resolvedHeight, 10) ||
         0;
 
       // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
@@ -359,6 +363,9 @@ const ImageCollector = {
       action: 'collectAdditionalImages',
       count: imageElements.length,
     });
+
+    // [New] 前置批次解析尺寸未知的候選圖片
+    await this._resolveUnknownSizes(imageElements);
 
     // 批處理：將元素轉換為圖片對象
     await this._processImages(imageElements, featuredImage, additionalImages);
@@ -580,6 +587,110 @@ const ImageCollector = {
         }
       }
     });
+  },
+
+  /**
+   * 解析單張圖片的原始尺寸
+   *
+   * @param {string} url - 圖片 URL
+   * @param {number} timeoutMs - 超時毫秒數
+   * @returns {Promise<{width: number, height: number}>} 解析出的尺寸
+   * @private
+   */
+  _resolveImageSize(url, timeoutMs) {
+    return Promise.race([
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.addEventListener('load', () =>
+          resolve({ width: img.naturalWidth, height: img.naturalHeight })
+        );
+        img.addEventListener('error', () => reject(new Error('load failed')));
+        img.src = url;
+      }),
+      new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
+    ]);
+  },
+
+  /**
+   * 前置批次解析尺寸未知的候選圖片
+   * 成功解析的尺寸會寫入 img.dataset.resolvedWidth / resolvedHeight
+   *
+   * @param {Element[]} imageElements - 候選圖片元素列表
+   * @returns {Promise<{attempted: number, succeeded: number}>} 解析統計
+   * @private
+   */
+  async _resolveUnknownSizes(imageElements) {
+    const unknowns = imageElements.filter(img => {
+      const imgW =
+        img.naturalWidth ||
+        Number.parseInt(img.getAttribute('width'), 10) ||
+        Number.parseInt(img.dataset.width, 10) ||
+        0;
+      const imgH =
+        img.naturalHeight ||
+        Number.parseInt(img.getAttribute('height'), 10) ||
+        Number.parseInt(img.dataset.height, 10) ||
+        0;
+      return imgW === 0 || imgH === 0;
+    });
+
+    if (unknowns.length === 0) {
+      return { attempted: 0, succeeded: 0 };
+    }
+
+    Logger.log('開始批次解析尺寸未知圖片', {
+      action: '_resolveUnknownSizes',
+      count: unknowns.length,
+    });
+
+    const perImageTimeout = IMAGE_SIZE_RESOLVE.PER_IMAGE_TIMEOUT_MS;
+    const totalBudget = IMAGE_SIZE_RESOLVE.TOTAL_BUDGET_MS;
+    const budgetStart = performance.now();
+    let succeeded = 0;
+
+    const promises = unknowns.map(async img => {
+      // 檢查整體 budget 是否已耗盡
+      if (performance.now() - budgetStart > totalBudget) {
+        return;
+      }
+
+      const src = extractImageSrc?.(img) || img.src;
+      if (!src) {
+        return;
+      }
+
+      try {
+        const remaining = totalBudget - (performance.now() - budgetStart);
+        const effectiveTimeout = Math.min(perImageTimeout, Math.max(remaining, 0));
+        if (effectiveTimeout <= 0) {
+          return;
+        }
+
+        const size = await this._resolveImageSize(src, effectiveTimeout);
+        if (size.width > 0 && size.height > 0) {
+          img.dataset.resolvedWidth = String(size.width);
+          img.dataset.resolvedHeight = String(size.height);
+          succeeded++;
+        }
+      } catch {
+        // timeout 或 load failed — 保留圖片，不寫入 dataset
+        Logger.log('尺寸解析失敗', {
+          action: '_resolveUnknownSizes',
+          src: sanitizeUrlForLogging(src),
+        });
+      }
+    });
+
+    await Promise.allSettled(promises);
+
+    Logger.log('批次尺寸解析完成', {
+      action: '_resolveUnknownSizes',
+      attempted: unknowns.length,
+      succeeded,
+      durationMs: Math.round(performance.now() - budgetStart),
+    });
+
+    return { attempted: unknowns.length, succeeded };
   },
 
   async _processImages(allImages, featuredImage, additionalImages) {
