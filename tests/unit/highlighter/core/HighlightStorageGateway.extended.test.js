@@ -718,12 +718,12 @@ describe('Highlighter HighlightStorageGateway', () => {
         errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
         const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
-        const assertionPromise = await expect(clearPromise).rejects.toThrow(
-          'Failed to clear highlights from all storage locations'
-        );
+        const capturedErrorPromise = clearPromise.catch(error => error);
         await Promise.resolve();
         await jest.advanceTimersByTimeAsync(1000);
-        await assertionPromise;
+        await expect(capturedErrorPromise).resolves.toMatchObject({
+          message: 'Failed to clear highlights from all storage locations',
+        });
 
         expect(errorSpy).toHaveBeenCalled();
       } finally {
