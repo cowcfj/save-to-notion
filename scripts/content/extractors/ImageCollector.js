@@ -683,22 +683,22 @@ const ImageCollector = {
     const budgetStart = performance.now();
     let succeeded = 0;
 
-    const promises = unknowns.map(async img => {
+    for (const img of unknowns) {
       // 檢查整體 budget 是否已耗盡
       if (performance.now() - budgetStart > totalBudget) {
-        return;
+        break;
       }
 
       const src = extractImageSrc?.(img) || img.src;
       if (!src) {
-        return;
+        continue;
       }
 
       try {
         const remaining = totalBudget - (performance.now() - budgetStart);
         const effectiveTimeout = Math.min(perImageTimeout, Math.max(remaining, 0));
         if (effectiveTimeout <= 0) {
-          return;
+          break;
         }
 
         const size = await this._resolveImageSize(src, effectiveTimeout);
@@ -714,9 +714,7 @@ const ImageCollector = {
           src: sanitizeUrlForLogging(src),
         });
       }
-    });
-
-    await Promise.allSettled(promises);
+    }
 
     Logger.log('批次尺寸解析完成', {
       action: '_resolveUnknownSizes',

@@ -1135,5 +1135,69 @@ describe('ImageCollector', () => {
 
       performance.now.mockRestore();
     });
+
+    test('should stop launching new resolves after budget is exhausted mid-run', async () => {
+      const firstImg = document.createElement('img');
+      firstImg.src = 'https://example.com/first.jpg';
+      const secondImg = document.createElement('img');
+      secondImg.src = 'https://example.com/second.jpg';
+
+      extractImageSrc.mockImplementation(img => img.src);
+
+      let currentTime = 0;
+      const nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => currentTime);
+      const resolveSpy = trackSpy(ImageCollector, '_resolveImageSize').mockImplementation(src => {
+        if (src === 'https://example.com/first.jpg') {
+          return Promise.resolve().then(() => {
+            currentTime = 6000;
+            return { width: 800, height: 600 };
+          });
+        }
+
+        return Promise.resolve({ width: 800, height: 600 });
+      });
+
+      const result = await ImageCollector._resolveUnknownSizes([firstImg, secondImg]);
+
+      expect(result).toEqual({ attempted: 2, succeeded: 1 });
+      expect(resolveSpy).toHaveBeenCalledTimes(1);
+      expect(firstImg.dataset.resolvedWidth).toBe('800');
+      expect(firstImg.dataset.resolvedHeight).toBe('600');
+      expect(secondImg.dataset.resolvedWidth).toBeUndefined();
+      expect(secondImg.dataset.resolvedHeight).toBeUndefined();
+
+      nowSpy.mockRestore();
+    });
+
+    test('should wait for previous resolve to settle before launching the next image', async () => {
+      const firstImg = document.createElement('img');
+      firstImg.src = 'https://example.com/first.jpg';
+      const secondImg = document.createElement('img');
+      secondImg.src = 'https://example.com/second.jpg';
+
+      extractImageSrc.mockImplementation(img => img.src);
+
+      let firstSettled = false;
+      trackSpy(ImageCollector, '_resolveImageSize').mockImplementation(src => {
+        if (src === 'https://example.com/first.jpg') {
+          return Promise.resolve().then(() => {
+            firstSettled = true;
+            return { width: 800, height: 600 };
+          });
+        }
+
+        return Promise.resolve(
+          firstSettled ? { width: 640, height: 480 } : { width: 0, height: 0 }
+        );
+      });
+
+      const result = await ImageCollector._resolveUnknownSizes([firstImg, secondImg]);
+
+      expect(result).toEqual({ attempted: 2, succeeded: 2 });
+      expect(firstImg.dataset.resolvedWidth).toBe('800');
+      expect(firstImg.dataset.resolvedHeight).toBe('600');
+      expect(secondImg.dataset.resolvedWidth).toBe('640');
+      expect(secondImg.dataset.resolvedHeight).toBe('480');
+    });
   });
 });
