@@ -114,36 +114,50 @@ describe('Highlighter HighlightStorageGateway', () => {
     });
 
     test('透過 sendMessage 背景更新失敗時，應記錄警告並回退到直接保存', async () => {
-      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      const testData = [{ text: 'test', color: 'yellow' }];
-      await HighlightStorageGateway.saveHighlights('https://example.com', testData);
+        const testData = [{ text: 'test', color: 'yellow' }];
+        const savePromise = HighlightStorageGateway.saveHighlights('https://example.com', testData);
+        await jest.runAllTimersAsync();
+        await savePromise;
 
-      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
-        action: 'UPDATE_HIGHLIGHTS',
-        url: 'https://example.com',
-        highlights: testData,
-      });
-      expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
-      warnSpy.mockRestore();
+        expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
+          action: 'UPDATE_HIGHLIGHTS',
+          url: 'https://example.com',
+          highlights: testData,
+        });
+        expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
+        warnSpy.mockRestore();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('透過 sendMessage 拋出異常時，應記錄警告並回退到直接保存', async () => {
-      mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async msg => {
-        if (msg?.action === 'UPDATE_HIGHLIGHTS') {
-          throw new Error('Background script not running');
-        }
-        return { success: true };
-      });
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async msg => {
+          if (msg?.action === 'UPDATE_HIGHLIGHTS') {
+            throw new Error('Background script not running');
+          }
+          return { success: true };
+        });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      const testData = [{ text: 'test', color: 'yellow' }];
-      await HighlightStorageGateway.saveHighlights('https://example.com', testData);
+        const testData = [{ text: 'test', color: 'yellow' }];
+        const savePromise = HighlightStorageGateway.saveHighlights('https://example.com', testData);
+        await jest.runAllTimersAsync();
+        await savePromise;
 
-      expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
-      expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
-      warnSpy.mockRestore();
+        expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
+        expect(mockChrome.storage.local.set).toHaveBeenCalled(); // 成功回退
+        warnSpy.mockRestore();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('sendMessage 連續失敗時，應最多嘗試 3 次後回退儲存', async () => {
@@ -636,53 +650,75 @@ describe('Highlighter HighlightStorageGateway', () => {
     });
 
     test('透過 sendMessage 回傳失敗 ({success: false}) 時，應記錄警告並執行回退清除', async () => {
-      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      await HighlightStorageGateway.clearHighlights('https://example.com');
+        const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
-      expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
-      warnSpy.mockRestore();
+        expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
+        expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
+        warnSpy.mockRestore();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('透過 sendMessage 拋出異常時，應記錄警告並執行回退清除', async () => {
-      mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async msg => {
-        if (msg?.action === 'CLEAR_HIGHLIGHTS') {
-          throw new Error('Extension context invalidated');
-        }
-        return { success: true };
-      });
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockImplementation(async msg => {
+          if (msg?.action === 'CLEAR_HIGHLIGHTS') {
+            throw new Error('Extension context invalidated');
+          }
+          return { success: true };
+        });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      await HighlightStorageGateway.clearHighlights('https://example.com');
+        const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
+        await jest.runAllTimersAsync();
+        await clearPromise;
 
-      expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
-      expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
-      warnSpy.mockRestore();
+        expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
+        expect(mockChrome.storage.local.remove).toHaveBeenCalled(); // 成功回退
+        warnSpy.mockRestore();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('如果所選的清除方法全都失敗，應拋出所有存儲清除失敗的錯誤', async () => {
-      // 模擬全部失敗：
-      // 1. sendMessage 不可用或失敗
-      mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
-      // 2. 模擬 page_* 格式清除流程失敗：讓 chrome.storage.local.get 在讀取階段拋錯。
-      // clearPageHighlights 與其餘清除路徑都包在 Promise.allSettled 中，最終會統一彙整 rejected 結果。
-      mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Clear get error'));
-      // 3. _clearFromChromeStorage
-      mockChrome.storage.local.remove = jest.fn().mockRejectedValue(new Error('Remove error'));
-      // 4. _clearFromLocalStorage
-      localStorage.removeItem.mockImplementation(() => {
-        throw new Error('Local storage remove error');
-      });
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+      jest.useFakeTimers();
+      try {
+        // 模擬全部失敗：
+        // 1. sendMessage 不可用或失敗
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+        // 2. 模擬 page_* 格式清除流程失敗：讓 chrome.storage.local.get 在讀取階段拋錯。
+        // clearPageHighlights 與其餘清除路徑都包在 Promise.allSettled 中，最終會統一彙整 rejected 結果。
+        mockChrome.storage.local.get = jest.fn().mockRejectedValue(new Error('Clear get error'));
+        // 3. _clearFromChromeStorage
+        mockChrome.storage.local.remove = jest.fn().mockRejectedValue(new Error('Remove error'));
+        // 4. _clearFromLocalStorage
+        localStorage.removeItem.mockImplementation(() => {
+          throw new Error('Local storage remove error');
+        });
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      await expect(HighlightStorageGateway.clearHighlights('https://example.com')).rejects.toThrow(
-        'Failed to clear highlights from all storage locations'
-      );
+        const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
+        const assertionPromise = await expect(clearPromise).rejects.toThrow(
+          'Failed to clear highlights from all storage locations'
+        );
+        await jest.runAllTimersAsync();
+        await assertionPromise;
 
-      expect(errorSpy).toHaveBeenCalled();
-      errorSpy.mockRestore();
+        expect(errorSpy).toHaveBeenCalled();
+        errorSpy.mockRestore();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('部分存放區清除失敗時，應記錄警告但仍然處理成功', async () => {

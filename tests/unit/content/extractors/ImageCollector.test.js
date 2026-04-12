@@ -173,6 +173,9 @@ describe('ImageCollector', () => {
       results: [],
       meta: {},
     });
+
+    // 短路 _resolveImageSize 避免真實等待 3 秒/張 (總共可能耗費數十秒)
+    trackSpy(ImageCollector, '_resolveImageSize').mockResolvedValue({ width: 800, height: 600 });
   });
 
   afterEach(() => {
@@ -1277,6 +1280,10 @@ describe('ImageCollector', () => {
     }
 
     beforeEach(() => {
+      // 恢復這這個區塊的真實實作，因為在外層被 mock 了
+      if (ImageCollector._resolveImageSize.mockRestore) {
+        ImageCollector._resolveImageSize.mockRestore();
+      }
       OriginalImage = globalThis.Image;
       createdImages = [];
       globalThis.Image = FakeImage;
