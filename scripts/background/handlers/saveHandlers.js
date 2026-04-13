@@ -215,7 +215,7 @@ export function createSaveHandlers(services) {
         action: 'checkPageStatus',
         operation: 'resolveDeletionCleanupUrl',
         url: sanitizeUrlForLogging(fallbackUrl),
-        error: error?.message,
+        error,
       });
       return fallbackUrl;
     }
@@ -813,7 +813,7 @@ export function createSaveHandlers(services) {
       const cleanupUrl = await resolveDeletionCleanupUrl(activeTab, resolvedUrl);
 
       const clearResult = await clearNotionStateWithCanonicalPath(
-        cleanupUrl,
+        resolvedUrl,
         'saveHandlers._handleDeletedOrPending',
         savedData.notionPageId
       );

@@ -316,7 +316,7 @@ describe('TabService', () => {
       );
     });
 
-    it('url_alias 寫入失敗時不應繼續更新狀態', async () => {
+    it('url_alias 寫入失敗時應記錄警告並繼續更新狀態', async () => {
       service.resolveTabUrl = jest.fn().mockResolvedValue({
         stableUrl: 'https://example.com/?p=2928',
         originalUrl: 'https://example.com/long-path',
@@ -329,10 +329,17 @@ describe('TabService', () => {
 
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
 
-      expect(service._verifyAndUpdateStatus).not.toHaveBeenCalled();
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        '[TabService] Error updating tab status: alias write failed',
+      expect(service._verifyAndUpdateStatus).toHaveBeenCalledWith(
+        1,
+        'https://example.com/?p=2928',
+        'https://example.com/long-path'
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[TabService] url_alias 寫入失敗，將繼續後續狀態更新',
         expect.objectContaining({
+          action: 'updateTabStatus',
+          originalUrl: expect.any(String),
+          stableUrl: expect.any(String),
           error: expect.any(Error),
         })
       );
@@ -357,6 +364,44 @@ describe('TabService', () => {
         Object.keys(arg).some(k => k.startsWith(URL_ALIAS_PREFIX))
       );
       expect(aliasCalls).toHaveLength(0);
+    });
+
+    it('stableUrl 查無 highlights 時應 fallback 到 originalUrl 並補寫 url_alias', async () => {
+      const highlights = [{ id: 'fallback-highlight' }];
+
+      service._getHighlightsFromStorage = jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(highlights);
+      service.normalizeUrl = jest.fn(url => `${url}?normalized=true`);
+      chrome.storage.local.set.mockResolvedValue(undefined);
+
+      const result = await service._getHighlightsWithFallback(
+        'https://example.com/stable',
+        true,
+        'https://example.com/original'
+      );
+
+      expect(result).toBe(highlights);
+      expect(service._getHighlightsFromStorage).toHaveBeenNthCalledWith(
+        1,
+        'https://example.com/stable'
+      );
+      expect(service._getHighlightsFromStorage).toHaveBeenNthCalledWith(
+        2,
+        'https://example.com/original'
+      );
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/original?normalized=true`]:
+          'https://example.com/stable',
+      });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        '[TabService] Created url_alias for fallback URL',
+        expect.objectContaining({
+          from: expect.any(String),
+          to: expect.any(String),
+        })
+      );
     });
 
     it('refresh 後解析出 stableUrl 且僅有 highlights 時，應保持未保存 badge 並注入 bundle', async () => {
@@ -546,12 +591,22 @@ describe('TabService', () => {
         };
         service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
         service.checkPageExists = jest.fn().mockResolvedValue(false);
-        service.clearNotionStateWithRetry = jest.fn().mockResolvedValue({
-          cleared: false,
-          skipped: true,
-          reason: 'pageId_mismatch',
-          attempts: 1,
-          recovered: false,
+        service.clearNotionStateWithRetry = jest.fn().mockImplementation(async (_url, options) => {
+          if (options?.expectedPageId === 'page-123') {
+            return {
+              cleared: false,
+              skipped: true,
+              reason: 'pageId_mismatch',
+              attempts: 1,
+              recovered: false,
+            };
+          }
+
+          return {
+            cleared: true,
+            attempts: 1,
+            recovered: false,
+          };
         });
 
         await service.updateTabStatus(1, 'https://example.com');
@@ -559,7 +614,19 @@ describe('TabService', () => {
 
         expect(service.clearNotionStateWithRetry).toHaveBeenCalledWith(
           'https://example.com',
-          expect.objectContaining({ source: 'TabService._handleNotionVerificationResult' })
+          expect.objectContaining({
+            source: 'TabService._handleNotionVerificationResult',
+            expectedPageId: 'page-123',
+          })
+        );
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          '[TabService] 清理已略過：本機 Notion 綁定已變更',
+          expect.objectContaining({
+            action: 'autoSyncLocalState',
+            pageId: 'page',
+            reason: 'pageId_mismatch',
+            result: 'cleanup_skipped',
+          })
         );
         expect(service.deletionPendingPages.has('page-123')).toBe(false);
         expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '✓', tabId: 1 });

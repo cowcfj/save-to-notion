@@ -1220,7 +1220,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        stableUrl,
+        rawUrl,
         expect.objectContaining({
           source: 'saveHandlers._handleDeletedOrPending',
           expectedPageId: 'page123',
@@ -1243,7 +1243,7 @@ describe('saveHandlers', () => {
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
     });
 
-    it('checkPageStatus 刪除確認時應重新解析 stableUrl 並清理 shortlink key', async () => {
+    it('checkPageStatus 刪除確認時應保留原 cleanup key，並以重新解析的 stableUrl 回應', async () => {
       const sendResponse = jest.fn();
       const rawUrl = 'https://www.rapbull.net/posts/2928/long-slug/';
       const stableUrl = 'https://www.rapbull.net/?p=2928';
@@ -1284,7 +1284,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        stableUrl,
+        rawUrl,
         expect.objectContaining({
           source: 'saveHandlers._handleDeletedOrPending',
           expectedPageId: 'page123',
@@ -1296,6 +1296,67 @@ describe('saveHandlers', () => {
           isSaved: false,
           wasDeleted: true,
           stableUrl,
+        })
+      );
+    });
+
+    it('checkPageStatus 重新解析 cleanup URL 失敗時應記錄原始 Error 並回退既有路徑', async () => {
+      const sendResponse = jest.fn();
+      const rawUrl = 'https://www.rapbull.net/posts/2928/long-slug/';
+      const refreshError = new Error('refresh stable url failed');
+      const sender = {
+        id: 'mock-extension-id',
+        tab: { id: 1, url: rawUrl },
+      };
+
+      mockServices.tabService.resolveTabUrl
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockRejectedValueOnce(refreshError);
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page123',
+        notionUrl: 'https://notion.so/page123',
+        title: 'Zombie Ass',
+        lastVerifiedAt: 0,
+      });
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        rawUrl,
+        expect.objectContaining({
+          source: 'saveHandlers._handleDeletedOrPending',
+          expectedPageId: 'page123',
+        })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '重新解析刪除清理 URL 失敗，回退至既有路徑',
+        expect.objectContaining({
+          action: 'checkPageStatus',
+          operation: 'resolveDeletionCleanupUrl',
+          url: expect.any(String),
+          error: refreshError,
+        })
+      );
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: false,
+          wasDeleted: true,
+          stableUrl: rawUrl,
         })
       );
     });
@@ -1353,7 +1414,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        stableUrl,
+        rawUrl,
         expect.objectContaining({
           source: 'saveHandlers._handleDeletedOrPending',
           expectedPageId: 'page-123',

@@ -681,7 +681,8 @@ class StorageService {
    * 用於 Notion 頁面已刪除但本地標注需要保留的情境
    *
    * @param {string} pageUrl - 頁面 URL
-   * @param options
+   * @param {object} [options] - 補充上下文
+   * @param {string} [options.expectedPageId] - 預期綁定的 Notion pageId，不匹配時跳過清除
    * @returns {Promise<{cleared: true} | {skipped: true, reason: string}>}
    */
   async clearNotionState(pageUrl, options = {}) {
@@ -746,13 +747,10 @@ class StorageService {
    *
    * @param {string} pageUrl - 頁面 URL
    * @param {object} [options] - 補充上下文
+   * @param {string} [options.expectedPageId] - 預期綁定的 Notion pageId
    * @param {string} [options.source='unknown'] - 呼叫來源
    * @param {number} [options.retryDelayMs=100] - 重試前延遲
-   * @returns {Promise<
-   *   | {cleared: true, attempts: number, recovered: boolean}
-   *   | {cleared: false, skipped: true, reason: string, attempts: number, recovered: false}
-   *   | {cleared: false, attempts: number, error: Error}
-   * >}
+   * @returns {Promise<{cleared: true, attempts: number, recovered: boolean} | {cleared: false, skipped: true, reason: string, attempts: number, recovered: false} | {cleared: false, attempts: number, error: Error}>}
    */
   async clearNotionStateWithRetry(pageUrl, options = {}) {
     const source = options.source || 'unknown';
@@ -761,64 +759,105 @@ class StorageService {
       : NOTION_STATE_CLEAR_RETRY_DELAY_MS;
     const safeUrl = sanitizeUrlForLogging(normalizeUrl(pageUrl));
     const maxAttempts = 2;
+    let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const clearResult = await this.clearNotionState(pageUrl, {
-          expectedPageId: options.expectedPageId,
-        });
-
-        if (clearResult?.skipped) {
-          return {
-            cleared: false,
-            skipped: true,
-            reason: clearResult.reason,
-            attempts: attempt,
-            recovered: false,
-          };
-        }
-
-        if (attempt > 1) {
-          this.logger.success?.('[StorageService] clearNotionState 重試成功', {
-            action: 'clearNotionStateWithRetry',
-            source,
-            attempts: attempt,
-            recovered: true,
-            url: safeUrl,
-          });
-        }
-
-        return { cleared: true, attempts: attempt, recovered: attempt > 1 };
+        return await this._executeClearAttempt(pageUrl, options, safeUrl, source, attempt);
       } catch (error) {
-        if (attempt < maxAttempts) {
-          // 非最後一次嘗試：記錄 warn 並等待後重試
-          this.logger.warn?.('[StorageService] clearNotionState 嘗試失敗，準備重試', {
-            action: 'clearNotionStateWithRetry',
-            source,
-            attempt,
-            url: safeUrl,
-            error,
-          });
+        lastError = error;
+        const isTerminal = attempt >= maxAttempts;
 
-          if (retryDelayMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-          }
-        } else {
-          // 最後一次嘗試仍失敗：記錄 error 並回傳失敗結果
-          this.logger.error?.('[StorageService] clearNotionState 重試最終失敗', {
-            action: 'clearNotionStateWithRetry',
-            source,
-            attempts: attempt,
-            recovered: false,
-            url: safeUrl,
-            error,
-          });
-          return { cleared: false, attempts: attempt, error };
+        this._logClearAttemptFailure(source, attempt, safeUrl, error, isTerminal);
+
+        if (isTerminal) {
+          break;
+        }
+
+        if (retryDelayMs > 0) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
         }
       }
     }
-    // 防禦性保障：maxAttempts <= 0 時迴圈未執行，確保不返回 undefined
-    return { cleared: false, attempts: 0, error: new Error('maxAttempts 必須大於 0') };
+
+    return {
+      cleared: false,
+      attempts: maxAttempts,
+      error: lastError || new Error('maxAttempts 必須大於 0'),
+    };
+  }
+
+  /**
+   * 執行單次 clearNotionState 嘗試，並在成功時補記錄重試成功日誌。
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {object} options - 補充上下文
+   * @param {string} [options.expectedPageId] - 預期綁定的 Notion pageId
+   * @param {string} safeUrl - 已脫敏的 URL
+   * @param {string} source - 呼叫來源
+   * @param {number} attempt - 當前嘗試次數
+   * @returns {Promise<{cleared: true, attempts: number, recovered: boolean} | {cleared: false, skipped: true, reason: string, attempts: number, recovered: false}>}
+   * @private
+   */
+  async _executeClearAttempt(pageUrl, options, safeUrl, source, attempt) {
+    const clearResult = await this.clearNotionState(pageUrl, {
+      expectedPageId: options.expectedPageId,
+    });
+
+    if (clearResult?.skipped) {
+      return {
+        cleared: false,
+        skipped: true,
+        reason: clearResult.reason,
+        attempts: attempt,
+        recovered: false,
+      };
+    }
+
+    if (attempt > 1) {
+      this.logger.success?.('[StorageService] clearNotionState 重試成功', {
+        action: 'clearNotionStateWithRetry',
+        source,
+        attempts: attempt,
+        recovered: true,
+        url: safeUrl,
+      });
+    }
+
+    return { cleared: true, attempts: attempt, recovered: attempt > 1 };
+  }
+
+  /**
+   * 根據是否為最後一次嘗試，統一記錄 clearNotionState 失敗日誌。
+   *
+   * @param {string} source - 呼叫來源
+   * @param {number} attempt - 當前嘗試次數
+   * @param {string} safeUrl - 已脫敏的 URL
+   * @param {Error} error - 失敗錯誤
+   * @param {boolean} isTerminal - 是否為最後一次嘗試
+   * @returns {void}
+   * @private
+   */
+  _logClearAttemptFailure(source, attempt, safeUrl, error, isTerminal) {
+    if (isTerminal) {
+      this.logger.error?.('[StorageService] clearNotionState 重試最終失敗', {
+        action: 'clearNotionStateWithRetry',
+        source,
+        attempts: attempt,
+        recovered: false,
+        url: safeUrl,
+        error,
+      });
+      return;
+    }
+
+    this.logger.warn?.('[StorageService] clearNotionState 嘗試失敗，準備重試', {
+      action: 'clearNotionStateWithRetry',
+      source,
+      attempt,
+      url: safeUrl,
+      error,
+    });
   }
 
   /**
