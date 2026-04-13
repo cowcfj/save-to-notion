@@ -230,9 +230,53 @@ describe('TabService', () => {
 
       await service._updateTabStatusInternal(1, 'https://example.com/original/?utm_source=fb#frag');
 
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        [`${URL_ALIAS_PREFIX}https://example.com/original`]: 'https://example.com/stable',
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [`${URL_ALIAS_PREFIX}https://example.com/original`]: 'https://example.com/stable',
+        })
+      );
+    });
+
+    it('hasStableUrl=true 時應無條件建立 url_alias（即使無 highlights）', async () => {
+      // 情境：Preloader 成功解析出 stableUrl，但頁面無 highlights 也無 savedData
+      // 預期：alias 仍被建立，確保 Popup 下次透過 fallback URL 也能找到 savedData
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
       });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null); // 無 highlights
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+      chrome.storage.local.set.mockResolvedValue(undefined);
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      // alias 應在 step-0 被建立，不依賴 highlights 是否存在
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
+      });
+    });
+
+    it('hasStableUrl=false 時不應建立 url_alias', async () => {
+      // 情境：Preloader 超時，stableUrl = originalUrl
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/long-path',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: false,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+      chrome.storage.local.set.mockResolvedValue(undefined);
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      // 不應有任何 alias 建立調用（storage.local.set 未因 alias 而被呼叫）
+      const aliasCalls = chrome.storage.local.set.mock.calls.filter(([arg]) =>
+        Object.keys(arg).some(k => k.startsWith(URL_ALIAS_PREFIX))
+      );
+      expect(aliasCalls).toHaveLength(0);
     });
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {

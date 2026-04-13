@@ -190,8 +190,8 @@ export function createSaveHandlers(services) {
     return tabService.resetRemotePageMissingState(notionPageId);
   }
 
-  async function clearNotionStateWithCanonicalPath(pageUrl, source) {
-    return await storageService.clearNotionStateWithRetry(pageUrl, { source });
+  async function clearNotionStateWithCanonicalPath(pageUrl, source, expectedPageId) {
+    return await storageService.clearNotionStateWithRetry(pageUrl, { source, expectedPageId });
   }
 
   /**
@@ -579,7 +579,8 @@ export function createSaveHandlers(services) {
     // Highlight-First：標註獨立於 Notion 頁面生命週期
     const clearResult = await clearNotionStateWithCanonicalPath(
       resolvedUrl,
-      'saveHandlers._handlePageRecreation'
+      'saveHandlers._handlePageRecreation',
+      params.savedData.notionPageId
     );
     if (!clearResult.cleared) {
       Logger.error('重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理', {
@@ -771,7 +772,8 @@ export function createSaveHandlers(services) {
 
       const clearResult = await clearNotionStateWithCanonicalPath(
         resolvedUrl,
-        'saveHandlers._handleDeletedOrPending'
+        'saveHandlers._handleDeletedOrPending',
+        savedData.notionPageId
       );
       if (!clearResult.cleared) {
         Logger.error('同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理', {

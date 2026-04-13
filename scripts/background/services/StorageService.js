@@ -681,12 +681,15 @@ class StorageService {
    * 用於 Notion 頁面已刪除但本地標注需要保留的情境
    *
    * @param {string} pageUrl - 頁面 URL
+   * @param options
    * @returns {Promise<void>}
    */
-  async clearNotionState(pageUrl) {
+  async clearNotionState(pageUrl, options = {}) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
     }
+
+    const { expectedPageId } = options;
 
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
@@ -696,6 +699,19 @@ class StorageService {
       const state = await this._getPageState(normalizedUrl);
 
       if (state?.format === 'new') {
+        if (
+          expectedPageId &&
+          state.data.notion?.pageId &&
+          state.data.notion.pageId !== expectedPageId
+        ) {
+          this.logger.warn?.('[StorageService] clearNotionState skipped: pageId mismatch', {
+            expectedPageId: expectedPageId.slice(0, 4),
+            foundPageId: state.data.notion.pageId.slice(0, 4),
+            url: sanitizeUrlForLogging(normalizedUrl),
+          });
+          return;
+        }
+
         await this.storage.local.set({
           [state.key]: {
             ...state.data,
@@ -742,7 +758,7 @@ class StorageService {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await this.clearNotionState(pageUrl);
+        await this.clearNotionState(pageUrl, { expectedPageId: options.expectedPageId });
 
         if (attempt > 1) {
           this.logger.success?.('[StorageService] clearNotionState 重試成功', {

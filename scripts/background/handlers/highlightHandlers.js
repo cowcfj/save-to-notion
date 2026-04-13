@@ -146,6 +146,7 @@ async function performHighlightUpdate(services, activeTab, highlights) {
 
     const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
       source: 'highlightHandlers.performHighlightUpdate',
+      expectedPageId: savedData.notionPageId,
     });
 
     if (!clearResult.cleared) {

@@ -426,8 +426,10 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('clearNotionState maps to StorageService.clearNotionState', async () => {
-      await actualTabServiceDeps.clearNotionState('url4');
-      expect(storageServiceMock.clearNotionState).toHaveBeenCalledWith('url4');
+      await actualTabServiceDeps.clearNotionState('url4', { expectedPageId: '123' });
+      expect(storageServiceMock.clearNotionState).toHaveBeenCalledWith('url4', {
+        expectedPageId: '123',
+      });
     });
 
     test('setSavedPageData maps to StorageService.setSavedPageData', async () => {

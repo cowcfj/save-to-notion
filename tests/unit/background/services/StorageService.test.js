@@ -675,6 +675,73 @@ describe('StorageService', () => {
         })
       );
     });
+
+    it('expectedPageId 不匹配時應跳過清除並記錄 warn', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [{ id: '1' }],
+          notion: { pageId: 'correct-id-xyz', url: 'https://notion.so/x' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      // 傳入不匹配的 expectedPageId
+      await service.clearNotionState('https://example.com/page', {
+        expectedPageId: 'wrong-id-abc',
+      });
+
+      // 不應呼叫 set：跳過清除
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState skipped: pageId mismatch',
+        expect.objectContaining({
+          expectedPageId: 'wron',
+          foundPageId: 'corr',
+        })
+      );
+    });
+
+    it('expectedPageId 匹配時應正常清除 notion 欄位', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [{ id: '1' }],
+          notion: { pageId: 'match-id-xyz', url: 'https://notion.so/x' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      await service.clearNotionState('https://example.com/page', {
+        expectedPageId: 'match-id-xyz',
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({ notion: null }),
+        })
+      );
+    });
+
+    it('未傳 expectedPageId 時行為與舊版相同（無條件清除）', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [],
+          notion: { pageId: 'any-id', url: 'https://notion.so/x' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      // 不傳 options，舊接口相容
+      await service.clearNotionState('https://example.com/page');
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({ notion: null }),
+        })
+      );
+    });
   });
 
   describe('clearNotionStateWithRetry', () => {

@@ -243,6 +243,14 @@ class TabService {
     const { stableUrl: normUrl, originalUrl, hasStableUrl } = await this.resolveTabUrl(tabId, url);
 
     try {
+      // 0. 確保 url_alias 存在：只要 Preloader 成功解析出 stableUrl，
+      //    就建立 alias，讓後續 fallback 查詢（含 Popup）也能透過
+      //    alias 找到 stableUrl 下的 savedData。冪等操作，重複寫入無害。
+      if (hasStableUrl) {
+        const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
+        chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
+      }
+
       // 1. 更新徽章狀態（雙查：若有穩定 URL，同時檢查原始 URL）
       await this._verifyAndUpdateStatus(tabId, normUrl, hasStableUrl ? originalUrl : null);
 
@@ -465,6 +473,7 @@ class TabService {
       // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
       const clearResult = await this.clearNotionStateWithRetry(resolvedUrl, {
         source: 'TabService._handleNotionVerificationResult',
+        expectedPageId: savedData.notionPageId,
       });
       if (!clearResult.cleared) {
         // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
