@@ -44,6 +44,27 @@ const UPGRADE_RETRY_TTL_MS = 30 * 60 * 1000;
 const NOTION_STATE_CLEAR_RETRY_DELAY_MS = 100;
 
 /**
+ * 取第一個有效的非空字串候選值
+ *
+ * @param {...any} candidates - 候選值
+ * @returns {string|null}
+ */
+function pickFirstNonEmptyString(...candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') {
+      continue;
+    }
+
+    const trimmed = candidate.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return null;
+}
+
+/**
  * StorageService 類
  */
 class StorageService {
@@ -155,16 +176,16 @@ class StorageService {
     return {
       notion: savedData
         ? {
-            pageId: savedData.notionPageId || savedData.pageId || null,
-            url: savedData.notionUrl || savedData.url || null,
+            pageId: pickFirstNonEmptyString(savedData.notionPageId, savedData.pageId),
+            url: pickFirstNonEmptyString(savedData.notionUrl, savedData.url),
             title: savedData.title || null,
-            savedAt: savedData.savedAt || savedData.lastUpdated || now,
-            lastVerifiedAt: savedData.lastVerifiedAt || null,
+            savedAt: savedData.savedAt ?? savedData.lastUpdated ?? now,
+            lastVerifiedAt: savedData.lastVerifiedAt ?? null,
           }
         : null,
       highlights: Array.isArray(highlights) ? highlights : highlights?.highlights || [],
       metadata: {
-        createdAt: savedData?.savedAt || savedData?.lastUpdated || now,
+        createdAt: savedData?.savedAt ?? savedData?.lastUpdated ?? now,
         lastUpdated: now,
         ...(migratedFrom ? { migratedFrom } : {}),
       },
@@ -385,11 +406,11 @@ class StorageService {
           return null;
         }
         return {
-          notionPageId: notion.pageId || null,
-          notionUrl: notion.url || null,
+          notionPageId: notion.pageId ?? null,
+          notionUrl: notion.url ?? null,
           title: notion.title || null,
-          savedAt: notion.savedAt || null,
-          lastVerifiedAt: notion.lastVerifiedAt || null,
+          savedAt: notion.savedAt ?? null,
+          lastVerifiedAt: notion.lastVerifiedAt ?? null,
         };
       }
 
@@ -525,11 +546,11 @@ class StorageService {
 
         // 將傳入的 data 轉換為 notion 子欄位格式
         const notionData = {
-          pageId: data.notionPageId || data.pageId || current.notion?.pageId || null,
-          url: data.notionUrl || data.url || current.notion?.url || null,
+          pageId: pickFirstNonEmptyString(data.notionPageId, data.pageId, current.notion?.pageId),
+          url: pickFirstNonEmptyString(data.notionUrl, data.url, current.notion?.url),
           title: data.title || current.notion?.title || null,
-          savedAt: data.savedAt || current.notion?.savedAt || Date.now(),
-          lastVerifiedAt: data.lastVerifiedAt || current.notion?.lastVerifiedAt || null,
+          savedAt: data.savedAt ?? current.notion?.savedAt ?? Date.now(),
+          lastVerifiedAt: data.lastVerifiedAt ?? current.notion?.lastVerifiedAt ?? null,
         };
 
         const newData = {
@@ -660,12 +681,16 @@ class StorageService {
    * 用於 Notion 頁面已刪除但本地標注需要保留的情境
    *
    * @param {string} pageUrl - 頁面 URL
-   * @returns {Promise<void>}
+   * @param {object} [options] - 補充上下文
+   * @param {string} [options.expectedPageId] - 預期綁定的 Notion pageId，不匹配時跳過清除
+   * @returns {Promise<{cleared: true} | {skipped: true, reason: string}>}
    */
-  async clearNotionState(pageUrl) {
+  async clearNotionState(pageUrl, options = {}) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
     }
+
+    const { expectedPageId } = options;
 
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
@@ -675,6 +700,19 @@ class StorageService {
       const state = await this._getPageState(normalizedUrl);
 
       if (state?.format === 'new') {
+        if (
+          expectedPageId &&
+          state.data.notion?.pageId &&
+          state.data.notion.pageId !== expectedPageId
+        ) {
+          this.logger.warn?.('[StorageService] clearNotionState skipped: pageId mismatch', {
+            expectedPageId: expectedPageId.slice(0, 4),
+            foundPageId: state.data.notion.pageId.slice(0, 4),
+            url: sanitizeUrlForLogging(normalizedUrl),
+          });
+          return { skipped: true, reason: 'pageId_mismatch' };
+        }
+
         await this.storage.local.set({
           [state.key]: {
             ...state.data,
@@ -697,6 +735,8 @@ class StorageService {
       this.logger.log?.('Cleared Notion metadata (highlights preserved)', {
         url: sanitizeUrlForLogging(normalizedUrl),
       });
+
+      return { cleared: true };
     });
   }
 
@@ -707,9 +747,10 @@ class StorageService {
    *
    * @param {string} pageUrl - 頁面 URL
    * @param {object} [options] - 補充上下文
+   * @param {string} [options.expectedPageId] - 預期綁定的 Notion pageId
    * @param {string} [options.source='unknown'] - 呼叫來源
    * @param {number} [options.retryDelayMs=100] - 重試前延遲
-   * @returns {Promise<{cleared: boolean, attempts: number, recovered?: boolean, error?: Error}>}
+   * @returns {Promise<{cleared: true, attempts: number, recovered: boolean} | {cleared: false, skipped: true, reason: string, attempts: number, recovered: false} | {cleared: false, attempts: number, error: Error}>}
    */
   async clearNotionStateWithRetry(pageUrl, options = {}) {
     const source = options.source || 'unknown';
@@ -718,52 +759,105 @@ class StorageService {
       : NOTION_STATE_CLEAR_RETRY_DELAY_MS;
     const safeUrl = sanitizeUrlForLogging(normalizeUrl(pageUrl));
     const maxAttempts = 2;
+    let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await this.clearNotionState(pageUrl);
+        return await this._executeClearAttempt(pageUrl, options, safeUrl, source, attempt);
+      } catch (error) {
+        lastError = error;
+        const isTerminal = attempt >= maxAttempts;
 
-        if (attempt > 1) {
-          this.logger.success?.('[StorageService] clearNotionState 重試成功', {
-            action: 'clearNotionStateWithRetry',
-            source,
-            attempts: attempt,
-            recovered: true,
-            url: safeUrl,
-          });
+        this._logClearAttemptFailure(source, attempt, safeUrl, error, isTerminal);
+
+        if (isTerminal) {
+          break;
         }
 
-        return { cleared: true, attempts: attempt, recovered: attempt > 1 };
-      } catch (error) {
-        if (attempt < maxAttempts) {
-          // 非最後一次嘗試：記錄 warn 並等待後重試
-          this.logger.warn?.('[StorageService] clearNotionState 嘗試失敗，準備重試', {
-            action: 'clearNotionStateWithRetry',
-            source,
-            attempt,
-            url: safeUrl,
-            error,
-          });
-
-          if (retryDelayMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-          }
-        } else {
-          // 最後一次嘗試仍失敗：記錄 error 並回傳失敗結果
-          this.logger.error?.('[StorageService] clearNotionState 重試最終失敗', {
-            action: 'clearNotionStateWithRetry',
-            source,
-            attempts: attempt,
-            recovered: false,
-            url: safeUrl,
-            error,
-          });
-          return { cleared: false, attempts: attempt, error };
+        if (retryDelayMs > 0) {
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
         }
       }
     }
-    // 防禦性保障：maxAttempts <= 0 時迴圈未執行，確保不返回 undefined
-    return { cleared: false, attempts: 0, error: new Error('maxAttempts 必須大於 0') };
+
+    return {
+      cleared: false,
+      attempts: maxAttempts,
+      error: lastError || new Error('maxAttempts 必須大於 0'),
+    };
+  }
+
+  /**
+   * 執行單次 clearNotionState 嘗試，並在成功時補記錄重試成功日誌。
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {object} options - 補充上下文
+   * @param {string} [options.expectedPageId] - 預期綁定的 Notion pageId
+   * @param {string} safeUrl - 已脫敏的 URL
+   * @param {string} source - 呼叫來源
+   * @param {number} attempt - 當前嘗試次數
+   * @returns {Promise<{cleared: true, attempts: number, recovered: boolean} | {cleared: false, skipped: true, reason: string, attempts: number, recovered: false}>}
+   * @private
+   */
+  async _executeClearAttempt(pageUrl, options, safeUrl, source, attempt) {
+    const clearResult = await this.clearNotionState(pageUrl, {
+      expectedPageId: options.expectedPageId,
+    });
+
+    if (clearResult?.skipped) {
+      return {
+        cleared: false,
+        skipped: true,
+        reason: clearResult.reason,
+        attempts: attempt,
+        recovered: false,
+      };
+    }
+
+    if (attempt > 1) {
+      this.logger.success?.('[StorageService] clearNotionState 重試成功', {
+        action: 'clearNotionStateWithRetry',
+        source,
+        attempts: attempt,
+        recovered: true,
+        url: safeUrl,
+      });
+    }
+
+    return { cleared: true, attempts: attempt, recovered: attempt > 1 };
+  }
+
+  /**
+   * 根據是否為最後一次嘗試，統一記錄 clearNotionState 失敗日誌。
+   *
+   * @param {string} source - 呼叫來源
+   * @param {number} attempt - 當前嘗試次數
+   * @param {string} safeUrl - 已脫敏的 URL
+   * @param {Error} error - 失敗錯誤
+   * @param {boolean} isTerminal - 是否為最後一次嘗試
+   * @returns {void}
+   * @private
+   */
+  _logClearAttemptFailure(source, attempt, safeUrl, error, isTerminal) {
+    if (isTerminal) {
+      this.logger.error?.('[StorageService] clearNotionState 重試最終失敗', {
+        action: 'clearNotionStateWithRetry',
+        source,
+        attempts: attempt,
+        recovered: false,
+        url: safeUrl,
+        error,
+      });
+      return;
+    }
+
+    this.logger.warn?.('[StorageService] clearNotionState 嘗試失敗，準備重試', {
+      action: 'clearNotionStateWithRetry',
+      source,
+      attempt,
+      url: safeUrl,
+      error,
+    });
   }
 
   /**

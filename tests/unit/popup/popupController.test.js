@@ -8,6 +8,7 @@ import { initPopup } from '../../../popup/popup.js';
 import {
   getElements,
   updateUIForSavedPage,
+  updateUIForUnsavedPage,
   setStatus,
   setButtonState,
   formatSaveSuccessMessage,
@@ -80,7 +81,7 @@ describe('popup.js Controller', () => {
     jest.clearAllMocks();
   });
 
-  it('should initialize successfully with valid settings and saved page', async () => {
+  it('當設定有效且頁面已儲存時，應成功初始化', async () => {
     const { mockElements } = setup();
     await initPopup();
 
@@ -90,7 +91,28 @@ describe('popup.js Controller', () => {
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
   });
 
-  it('should handle missing API Key', async () => {
+  it('當頁面狀態為未儲存或已刪除時，應初始化未儲存的 UI', async () => {
+    const { mockElements } = setup();
+    checkPageStatus.mockResolvedValue({
+      success: true,
+      isSaved: false,
+      wasDeleted: true,
+      stableUrl: 'https://example.com/deleted',
+    });
+
+    await initPopup();
+
+    expect(updateUIForUnsavedPage).toHaveBeenCalledWith(
+      mockElements,
+      expect.objectContaining({
+        isSaved: false,
+        wasDeleted: true,
+      })
+    );
+    expect(updateUIForSavedPage).not.toHaveBeenCalled();
+  });
+
+  it('當缺少 API Key 時應正確處理', async () => {
     const { mockElements } = setup();
     checkSettings.mockResolvedValue({ valid: false, apiKey: undefined, dataSourceId: undefined });
 
@@ -104,7 +126,7 @@ describe('popup.js Controller', () => {
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
   });
 
-  it('should handle missing Data Source ID when API Key exists', async () => {
+  it('當已有 API Key 但缺少 Data Source ID 時應正確處理', async () => {
     const { mockElements } = setup();
     checkSettings.mockResolvedValue({
       valid: false,
@@ -122,7 +144,7 @@ describe('popup.js Controller', () => {
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
   });
 
-  it('should handle initialization error', async () => {
+  it('初始化失敗時應正確處理錯誤', async () => {
     setup();
     checkPageStatus.mockRejectedValue(new Error('Init failed'));
 
@@ -138,7 +160,7 @@ describe('popup.js Controller', () => {
     );
   });
 
-  it('should setup event listeners', async () => {
+  it('應建立事件監聽器', async () => {
     const { mockElements } = setup();
     await initPopup();
 
@@ -161,7 +183,7 @@ describe('popup.js Controller', () => {
   });
 
   describe('Event Handlers', () => {
-    it('saveButton click should save page', async () => {
+    it('點擊 saveButton 時應保存頁面', async () => {
       const { mockElements } = setup();
       await initPopup();
 
@@ -175,7 +197,7 @@ describe('popup.js Controller', () => {
       expect(updateUIForSavedPage).toHaveBeenCalled();
     });
 
-    it('saveButton click failure should show error', async () => {
+    it('點擊 saveButton 失敗時應顯示錯誤', async () => {
       const { mockElements } = setup();
       await initPopup();
 
@@ -186,7 +208,7 @@ describe('popup.js Controller', () => {
       expect(setStatus).toHaveBeenCalledWith(mockElements, expect.stringContaining('發生未知錯誤'));
     });
 
-    it('highlightButton click should start highlight if saved', async () => {
+    it('當頁面已保存時，點擊 highlightButton 應啟動標註', async () => {
       const { mockElements } = setup();
       await initPopup();
       checkPageStatus.mockResolvedValue({ isSaved: true });
@@ -201,7 +223,7 @@ describe('popup.js Controller', () => {
       expect(startHighlight).toHaveBeenCalled();
     });
 
-    it('highlightButton click should start highlight even if page not saved', async () => {
+    it('即使頁面未保存，點擊 highlightButton 也應啟動標註', async () => {
       const { mockElements } = setup();
       await initPopup();
       checkPageStatus.mockResolvedValue({ isSaved: false });
@@ -217,7 +239,7 @@ describe('popup.js Controller', () => {
       );
     });
 
-    it('openNotionButton click should open notion page', async () => {
+    it('點擊 openNotionButton 時應開啟 notion 頁面', async () => {
       const { mockElements } = setup();
       await initPopup();
       openNotionPage.mockResolvedValue({ success: true });
@@ -227,7 +249,7 @@ describe('popup.js Controller', () => {
       expect(openNotionPage).toHaveBeenCalledWith('https://notion.so/new');
     });
 
-    it('manageButton click should open side panel and close popup when current tab exists', async () => {
+    it('當前分頁存在時，點擊 manageButton 應開啟側邊欄並關閉 popup', async () => {
       const { mockElements } = setup();
       getActiveTab.mockResolvedValue({ id: 777, url: 'https://example.com' });
       await initPopup();
@@ -238,7 +260,7 @@ describe('popup.js Controller', () => {
       expect(globalThis.window.close).toHaveBeenCalled();
     });
 
-    it('manageButton click should show error when current tab is unavailable', async () => {
+    it('當前分頁不可用時，點擊 manageButton 應顯示錯誤', async () => {
       const { mockElements } = setup();
       getActiveTab.mockResolvedValue(null);
       await initPopup();
@@ -250,7 +272,7 @@ describe('popup.js Controller', () => {
       expect(globalThis.window.close).not.toHaveBeenCalled();
     });
 
-    it('should tolerate missing clear-highlights UI controls', async () => {
+    it('缺少 clear-highlights 相關 UI 控制項時也應容錯處理', async () => {
       const { mockElements } = setup();
 
       await expect(initPopup()).resolves.toBeUndefined();

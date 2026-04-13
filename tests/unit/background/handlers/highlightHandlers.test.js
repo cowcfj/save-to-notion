@@ -237,7 +237,10 @@ describe('highlightHandlers', () => {
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
-        expect.objectContaining({ source: 'highlightHandlers.performHighlightUpdate' })
+        expect.objectContaining({
+          source: 'highlightHandlers.performHighlightUpdate',
+          expectedPageId: 'page1',
+        })
       );
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -272,13 +275,62 @@ describe('highlightHandlers', () => {
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
-        expect.objectContaining({ source: 'highlightHandlers.performHighlightUpdate' })
+        expect.objectContaining({
+          source: 'highlightHandlers.performHighlightUpdate',
+          expectedPageId: 'page1',
+        })
       );
       // Re-arm: confirmRemotePageMissing 被呼叫兩次（初始確認 + 清除失敗後 re-arm）
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
+          errorCode: 'PAGE_DELETED',
+        })
+      );
+    });
+
+    it('cleanup skipped 時不應回傳 PAGE_DELETED 或重新標記 deletionPending', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: false,
+        skipped: true,
+        reason: 'pageId_mismatch',
+        attempts: 1,
+        recovered: false,
+      });
+      mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
+        shouldDelete: true,
+        deletionPending: false,
+      });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'object_not_found',
+        details: { phase: 'fetch_blocks' },
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({
+          source: 'highlightHandlers.performHighlightUpdate',
+          expectedPageId: 'page1',
+        })
+      );
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+        })
+      );
+      expect(sendResponse).not.toHaveBeenCalledWith(
+        expect.objectContaining({
           errorCode: 'PAGE_DELETED',
         })
       );

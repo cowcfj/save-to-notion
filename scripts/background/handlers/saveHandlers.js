@@ -30,6 +30,7 @@ import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/storageKeys.js';
+import { getActiveTab } from './handlerUtils.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
 
@@ -56,21 +57,6 @@ function sendPageSaveHint(activeTabId, isSaved) {
     .catch(() => {
       /* 忽略錯誤，由 storage.onChanged 兜底 */
     });
-}
-
-/**
- * 獲取活動標籤頁
- *
- * @returns {Promise<chrome.tabs.Tab>}
- * @throws {Error} 如果無法獲取標籤頁
- */
-async function getActiveTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const activeTab = tabs[0];
-  if (!activeTab?.id) {
-    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
-  }
-  return activeTab;
 }
 
 /**
@@ -204,8 +190,35 @@ export function createSaveHandlers(services) {
     return tabService.resetRemotePageMissingState(notionPageId);
   }
 
-  async function clearNotionStateWithCanonicalPath(pageUrl, source) {
-    return await storageService.clearNotionStateWithRetry(pageUrl, { source });
+  async function clearNotionStateWithCanonicalPath(pageUrl, source, expectedPageId) {
+    return await storageService.clearNotionStateWithRetry(pageUrl, { source, expectedPageId });
+  }
+
+  async function getLatestSavedDataAfterCleanupSkip(resolvedUrl, fallbackData) {
+    const latestSavedData = await storageService.getSavedPageData(resolvedUrl);
+    return latestSavedData?.notionPageId ? latestSavedData : fallbackData;
+  }
+
+  async function resolveDeletionCleanupUrl(activeTab, fallbackUrl) {
+    const tabId = activeTab?.id;
+    const tabUrl = activeTab?.url || fallbackUrl;
+
+    if (!tabId || !tabUrl || typeof tabService.resolveTabUrl !== 'function') {
+      return fallbackUrl;
+    }
+
+    try {
+      const refreshed = await tabService.resolveTabUrl(tabId, tabUrl);
+      return refreshed?.stableUrl || fallbackUrl;
+    } catch (error) {
+      Logger.warn('重新解析刪除清理 URL 失敗，回退至既有路徑', {
+        action: 'checkPageStatus',
+        operation: 'resolveDeletionCleanupUrl',
+        url: sanitizeUrlForLogging(fallbackUrl),
+        error,
+      });
+      return fallbackUrl;
+    }
   }
 
   /**
@@ -593,8 +606,22 @@ export function createSaveHandlers(services) {
     // Highlight-First：標註獨立於 Notion 頁面生命週期
     const clearResult = await clearNotionStateWithCanonicalPath(
       resolvedUrl,
-      'saveHandlers._handlePageRecreation'
+      'saveHandlers._handlePageRecreation',
+      params.savedData.notionPageId
     );
+    if (clearResult.skipped) {
+      Logger.warn('重建前清理略過：本地 notion 綁定已變更，取消本次重建', {
+        action: 'recreatePage',
+        operation: 'clearNotionStateWithCanonicalPath',
+        url: sanitizeUrlForLogging(normUrl),
+        reason: clearResult.reason,
+        result: 'cleanup_skipped',
+      });
+      return {
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+      };
+    }
     if (!clearResult.cleared) {
       Logger.error('重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理', {
         action: 'recreatePage',
@@ -783,10 +810,25 @@ export function createSaveHandlers(services) {
         pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
       });
 
+      const cleanupUrl = await resolveDeletionCleanupUrl(activeTab, resolvedUrl);
+
       const clearResult = await clearNotionStateWithCanonicalPath(
         resolvedUrl,
-        'saveHandlers._handleDeletedOrPending'
+        'saveHandlers._handleDeletedOrPending',
+        savedData.notionPageId
       );
+      if (clearResult.skipped) {
+        Logger.warn('同步本地狀態時清理略過：本地 notion 綁定已變更，保留已保存狀態', {
+          action: 'checkPageStatus',
+          operation: 'syncLocalState',
+          url: sanitizeUrlForLogging(normUrl),
+          reason: clearResult.reason,
+          result: 'cleanup_skipped',
+        });
+        const latestSavedData = await getLatestSavedDataAfterCleanupSkip(cleanupUrl, savedData);
+        sendResponse(_buildSavedStatusResponse(latestSavedData, cleanupUrl));
+        return true;
+      }
       if (!clearResult.cleared) {
         Logger.error('同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理', {
           action: 'checkPageStatus',
@@ -809,7 +851,7 @@ export function createSaveHandlers(services) {
         success: true,
         isSaved: false,
         wasDeleted: true,
-        stableUrl: normUrl,
+        stableUrl: cleanupUrl,
       });
       return true;
     }

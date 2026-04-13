@@ -232,7 +232,9 @@ class NotionService {
         throw error;
       }
 
-      if (!options.apiKey || this.apiKey === activeToken.token) {
+      const shouldSyncGlobalClient = !options.apiKey || this.apiKey === activeToken.token;
+
+      if (shouldSyncGlobalClient) {
         this.setApiKey(refreshedToken);
       }
 

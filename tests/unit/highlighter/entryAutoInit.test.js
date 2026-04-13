@@ -323,6 +323,38 @@ describe('entryAutoInit', () => {
     expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
   });
 
+  test('未保存頁面晚到的 SET_STABLE_URL 只能更新 stableUrl，不應重新建立 saved UI', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: false,
+      stableUrl: 'https://example.com/original',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await flushAsyncSetup();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: false,
+      skipToolbar: true,
+      styleMode: 'background',
+    });
+
+    const persistentHandler = runtimeMessageHandlers.at(-1);
+    const sendResponseMock = jest.fn();
+    persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/stable',
+      },
+      {},
+      sendResponseMock
+    );
+
+    expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
+    expect(mockSetupHighlighter).toHaveBeenCalledTimes(1);
+    expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
+  });
+
   test('sendMessage 接收 GET_STABLE_URL & showToolbar', async () => {
     globalThis.__NOTION_STABLE_URL__ = 'https://existing.com';
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);

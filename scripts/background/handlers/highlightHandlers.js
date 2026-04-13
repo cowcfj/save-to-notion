@@ -21,25 +21,11 @@ import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
+import { getActiveTab } from './handlerUtils.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
-
-/**
- * 獲取活動標籤頁
- *
- * @returns {Promise<chrome.tabs.Tab>}
- * @throws {Error} 如果無法獲取標籤頁
- */
-async function getActiveTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const activeTab = tabs[0];
-  if (!activeTab?.id) {
-    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
-  }
-  return activeTab;
-}
 
 /**
  * 確保 Bundle 已就緒
@@ -160,7 +146,23 @@ async function performHighlightUpdate(services, activeTab, highlights) {
 
     const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
       source: 'highlightHandlers.performHighlightUpdate',
+      expectedPageId: savedData.notionPageId,
     });
+
+    if (clearResult.skipped) {
+      Logger.warn('清除本地 notion 綁定時偵測到 pageId 已變更，取消 PAGE_DELETED 狀態切換', {
+        action: 'performHighlightUpdate',
+        url: sanitizeUrlForLogging(resolvedUrl),
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+        reason: clearResult.reason,
+        result: 'cleanup_skipped',
+      });
+
+      return {
+        ...result,
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+      };
+    }
 
     if (!clearResult.cleared) {
       Logger.error('清除本地 Notion 狀態失敗', {

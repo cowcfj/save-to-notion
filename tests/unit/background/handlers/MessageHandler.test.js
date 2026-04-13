@@ -10,6 +10,7 @@ describe('MessageHandler', () => {
 
   beforeEach(() => {
     mockLogger = {
+      debug: jest.fn(),
       log: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
@@ -79,7 +80,7 @@ describe('MessageHandler', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Unknown action: unknownAction',
+        error: '未知動作：unknownAction',
       });
     });
 
@@ -145,6 +146,101 @@ describe('MessageHandler', () => {
         errorType: 'internal',
         action: 'errorAction',
       });
+    });
+
+    it('應該避免雙重回應 (safeSendResponse): handler 直接呼叫 sendResponse 且同時返回值時，實際只回應一次', async () => {
+      const mockHandler = jest.fn((req, sender, sendResponse) => {
+        sendResponse({ success: true, from: 'direct' });
+        return { success: true, from: 'return' };
+      });
+      handler.register('duplicateAction', mockHandler);
+
+      const sendResponse = jest.fn();
+      handler.handle({ action: 'duplicateAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(sendResponse).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        "偵測到 'duplicateAction' 的重複 sendResponse，已忽略"
+      );
+    });
+
+    it('應該避免雙重回應: handler 已回應後又同步拋錯時，外層 catch 不應再次回應', async () => {
+      const mockHandler = jest.fn((req, sender, sendResponse) => {
+        sendResponse({ success: true, from: 'direct' });
+        throw new Error('sync error after response');
+      });
+      handler.register('throwAfterRespondAction', mockHandler);
+
+      const sendResponse = jest.fn();
+      handler.handle({ action: 'throwAfterRespondAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(sendResponse).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
+    });
+
+    it('應該在最外層錯誤回應發送失敗時記錄 warning', async () => {
+      const sendFailure = new Error('response channel closed');
+      handler.register(
+        'syncThrowAction',
+        jest.fn(() => {
+          throw new Error('sync handler failure');
+        })
+      );
+
+      const sendResponse = jest.fn(() => {
+        throw sendFailure;
+      });
+
+      handler.handle({ action: 'syncThrowAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '錯誤回應發送失敗',
+        expect.objectContaining({
+          action: 'syncThrowAction',
+          operation: 'fallbackSendResponse',
+          phase: 'handleCatch',
+          result: 'failed',
+          reason: 'response_channel_closed',
+          error: sendFailure,
+        })
+      );
+    });
+
+    it('應該在非同步錯誤回應發送失敗時記錄 warning', async () => {
+      const sendFailure = new Error('response channel closed');
+      handler.register(
+        'asyncThrowAction',
+        jest.fn(async () => {
+          throw new Error('async handler failure');
+        })
+      );
+
+      const sendResponse = jest.fn(() => {
+        throw sendFailure;
+      });
+
+      handler.handle({ action: 'asyncThrowAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '錯誤回應發送失敗',
+        expect.objectContaining({
+          action: 'asyncThrowAction',
+          operation: 'fallbackSendResponse',
+          phase: 'promiseCatch',
+          result: 'failed',
+          reason: 'response_channel_closed',
+          error: sendFailure,
+        })
+      );
     });
   });
 

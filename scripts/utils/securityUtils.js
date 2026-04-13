@@ -48,7 +48,7 @@ export function isValidNotionUrl(urlString) {
     }
 
     // Notion 網域白名單
-    const allowedDomains = ['notion.so', 'www.notion.so'];
+    const allowedDomains = ['notion.so', 'www.notion.so', 'notion.com', 'www.notion.com'];
 
     // 規範化 hostname：轉小寫並移除 trailing dot
     let hostname = url.hostname.toLowerCase();
@@ -56,8 +56,12 @@ export function isValidNotionUrl(urlString) {
       hostname = hostname.slice(0, -1);
     }
 
-    // 允許 notion.so 的子網域（例如 xxx.notion.so）
-    return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
+    // 允許 notion.so 和 notion.com 的子網域（例如 app.notion.com, xxx.notion.so）
+    return (
+      allowedDomains.includes(hostname) ||
+      hostname.endsWith('.notion.so') ||
+      hostname.endsWith('.notion.com')
+    );
   } catch {
     return false;
   }

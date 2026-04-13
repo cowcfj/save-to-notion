@@ -94,24 +94,43 @@ class MessageHandler {
    */
   handle(request, sender, sendResponse) {
     const { action } = request;
+    let responseSent = false;
+    const safeSendResponse = payload => {
+      if (responseSent) {
+        this.logger.debug?.(`偵測到 '${action}' 的重複 sendResponse，已忽略`);
+        return;
+      }
+      responseSent = true;
+      sendResponse(payload);
+    };
+    const logFallbackSendResponseFailure = (sendError, phase) => {
+      this.logger.warn?.('錯誤回應發送失敗', {
+        action,
+        operation: 'fallbackSendResponse',
+        phase,
+        result: 'failed',
+        reason: 'response_channel_closed',
+        error: sendError,
+      });
+    };
 
     try {
       // 檢查是否有對應的處理函數
       if (!this.handlers.has(action)) {
-        sendResponse({ success: false, error: `Unknown action: ${action}` });
+        safeSendResponse({ success: false, error: `未知動作：${action}` });
         return false;
       }
 
       const handler = this.handlers.get(action);
 
       // 執行處理函數，支持 Promise
-      Promise.resolve(handler(request, sender, sendResponse))
+      Promise.resolve(handler(request, sender, safeSendResponse))
         .then(result => {
           if (result !== undefined) {
             try {
-              sendResponse(result);
+              safeSendResponse(result);
             } catch {
-              /* handler 可能已直接呼叫 sendResponse，忽略二次呼叫錯誤 */
+              /* handler 可能已直接呼叫 safeSendResponse，忽略二次呼叫錯誤 */
             }
           }
         })
@@ -119,9 +138,9 @@ class MessageHandler {
           const errorResponse = MessageHandler._formatError(error, action);
           this.logger.error?.(`Handler error for action '${action}':`, error);
           try {
-            sendResponse(errorResponse);
-          } catch {
-            /* 忽略 sendResponse 錯誤 */
+            safeSendResponse(errorResponse);
+          } catch (sendError) {
+            logFallbackSendResponseFailure(sendError, 'promiseCatch');
           }
         });
 
@@ -129,7 +148,12 @@ class MessageHandler {
     } catch (error) {
       const errorResponse = MessageHandler._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
-      sendResponse(errorResponse);
+
+      try {
+        safeSendResponse(errorResponse);
+      } catch (sendError) {
+        logFallbackSendResponseFailure(sendError, 'handleCatch');
+      }
       return false;
     }
   }

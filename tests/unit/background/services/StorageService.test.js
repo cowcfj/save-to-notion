@@ -12,6 +12,12 @@ import {
   URL_ALIAS_PREFIX,
   STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
+import {
+  buildDeletedState,
+  buildHighlight,
+  buildSavedPageData,
+  buildStaleStableState,
+} from '../../../helpers/status-fixtures.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => {
   const original = jest.requireActual('../../../../scripts/utils/urlUtils.js');
@@ -98,6 +104,38 @@ describe('StorageService', () => {
   afterEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
+  });
+
+  describe('_buildPageObject', () => {
+    it('升級舊資料時不會把 lastVerifiedAt: 0 轉成 null', () => {
+      const savedData = { title: 'Test', notionPageId: 'page', lastVerifiedAt: 0, savedAt: 0 };
+      const result = service._buildPageObject(savedData, [], 'https://example.com/test');
+      expect(result.notion.lastVerifiedAt).toBe(0);
+      expect(result.notion.savedAt).toBe(0);
+      expect(result.notion.pageId).toBe('page');
+    });
+
+    it('升級舊資料時不會把 metadata.createdAt 的 0 轉成現在時間', () => {
+      const savedData = { title: 'Test', notionPageId: 'page', savedAt: 0, lastUpdated: 12_345 };
+      const result = service._buildPageObject(savedData, [], 'https://example.com/test');
+
+      expect(result.metadata.createdAt).toBe(0);
+    });
+
+    it('升級舊資料時會忽略空字串 notion 欄位並回退到有效值', () => {
+      const savedData = {
+        title: 'Test',
+        notionPageId: '',
+        pageId: 'legacy-page-id',
+        notionUrl: '   ',
+        url: 'https://www.notion.so/legacy-page-id',
+      };
+
+      const result = service._buildPageObject(savedData, [], 'https://example.com/test');
+
+      expect(result.notion.pageId).toBe('legacy-page-id');
+      expect(result.notion.url).toBe('https://www.notion.so/legacy-page-id');
+    });
   });
 
   describe('getSavedPageData', () => {
@@ -203,6 +241,52 @@ describe('StorageService', () => {
         savedAt: null,
         lastVerifiedAt: null,
       });
+    });
+
+    it('缺少 alias 時，不應把孤立的 stable page_* 視為 original URL 的已保存狀態', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const storageData = buildStaleStableState({
+        originalUrl,
+        stableUrl,
+        includeAlias: false,
+      });
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+
+      const result = await service.getSavedPageData(originalUrl);
+
+      expect(result).toBeNull();
+    });
+
+    it('alias 指向 notion:null 的 stable page_* 時，應回傳 null 而非已保存', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const storageData = buildDeletedState({
+        originalUrl,
+        stableUrl,
+        highlights: [buildHighlight()],
+      });
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+
+      const result = await service.getSavedPageData(originalUrl);
+
+      expect(result).toBeNull();
     });
 
     it('讀時升級第一次失敗後，應記錄重試狀態與 nextRetryAt', async () => {
@@ -520,6 +604,49 @@ describe('StorageService', () => {
       expect(Array.isArray(setPayload.highlights)).toBe(true);
       expect(setPayload.highlights).toEqual([]);
     });
+
+    it('寫入 { lastVerifiedAt: 0, savedAt: 0 } 等 falsy 值後可原值保留，不被轉為 null', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+      const data = { title: 'Test Page', pageId: 'page-123', lastVerifiedAt: 0, savedAt: 0 };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload =
+        mockStorage.local.set.mock.calls[0][0][`${PAGE_PREFIX}https://example.com/page`];
+      expect(setPayload.notion.lastVerifiedAt).toBe(0);
+      expect(setPayload.notion.savedAt).toBe(0);
+    });
+
+    it('遇到空字串 notion 欄位時應保留現有有效 pageId 與 url', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [],
+          notion: {
+            pageId: 'existing-page-id',
+            url: 'https://www.notion.so/existing-page-id',
+            title: 'Existing Title',
+            savedAt: 123,
+            lastVerifiedAt: 456,
+          },
+          metadata: {},
+        },
+      });
+
+      const data = {
+        title: 'Updated Title',
+        notionPageId: '',
+        pageId: '   ',
+        notionUrl: '',
+        url: '   ',
+      };
+
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
+      expect(setPayload.notion.pageId).toBe('existing-page-id');
+      expect(setPayload.notion.url).toBe('https://www.notion.so/existing-page-id');
+      expect(setPayload.notion.title).toBe('Updated Title');
+    });
   });
 
   describe('clearPageState', () => {
@@ -564,7 +691,9 @@ describe('StorageService', () => {
     it('page_* 不存在時不應呼叫 set', async () => {
       mockStorage.local.get.mockResolvedValue({});
 
-      await expect(service.clearNotionState('https://example.com/page')).resolves.toBeUndefined();
+      await expect(service.clearNotionState('https://example.com/page')).resolves.toEqual({
+        cleared: true,
+      });
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
 
@@ -599,6 +728,129 @@ describe('StorageService', () => {
           }),
         })
       );
+    });
+
+    it('expectedPageId 不匹配時應跳過清除並記錄 warn', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [{ id: '1' }],
+          notion: { pageId: 'correct-id-xyz', url: 'https://notion.so/x' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      // 傳入不匹配的 expectedPageId
+      await expect(
+        service.clearNotionState('https://example.com/page', {
+          expectedPageId: 'wrong-id-abc',
+        })
+      ).resolves.toEqual({
+        skipped: true,
+        reason: 'pageId_mismatch',
+      });
+
+      // 不應呼叫 set：跳過清除
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[StorageService] clearNotionState skipped: pageId mismatch',
+        expect.objectContaining({
+          expectedPageId: 'wron',
+          foundPageId: 'corr',
+        })
+      );
+    });
+
+    it('expectedPageId 匹配時應正常清除 notion 欄位', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [{ id: '1' }],
+          notion: { pageId: 'match-id-xyz', url: 'https://notion.so/x' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      await service.clearNotionState('https://example.com/page', {
+        expectedPageId: 'match-id-xyz',
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({ notion: null }),
+        })
+      );
+    });
+
+    it('未傳 expectedPageId 時行為與舊版相同（無條件清除）', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [],
+          notion: { pageId: 'any-id', url: 'https://notion.so/x' },
+          metadata: { lastUpdated: 100 },
+        },
+      });
+
+      // 不傳 options，舊接口相容
+      await service.clearNotionState('https://example.com/page');
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [pageKey]: expect.objectContaining({ notion: null }),
+        })
+      );
+    });
+
+    it('clearNotionState 後，original URL 與 stable URL 都不應再回傳 saved data', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const pageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const storageData = {
+        [aliasKey]: stableUrl,
+        [pageKey]: {
+          notion: {
+            pageId: 'page-123',
+            url: 'https://www.notion.so/page-123',
+            title: 'Saved page',
+            savedAt: 100,
+            lastVerifiedAt: 100,
+          },
+          highlights: [buildHighlight()],
+          metadata: { createdAt: 100, lastUpdated: 100 },
+        },
+      };
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+      mockStorage.local.set.mockImplementation(async payload => {
+        Object.assign(storageData, payload);
+      });
+      mockStorage.local.remove.mockImplementation(async keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        keyList.forEach(key => {
+          delete storageData[key];
+        });
+      });
+
+      await service.clearNotionState(originalUrl, {
+        expectedPageId: buildSavedPageData().notionPageId,
+      });
+
+      const originalResult = await service.getSavedPageData(originalUrl);
+      const stableResult = await service.getSavedPageData(stableUrl);
+
+      expect(originalResult).toBeNull();
+      expect(stableResult).toBeNull();
+      expect(storageData[pageKey].highlights).toHaveLength(1);
+      expect(storageData[pageKey].notion).toBeNull();
     });
   });
 
@@ -677,6 +929,36 @@ describe('StorageService', () => {
           recovered: false,
           error: expect.any(Error),
         })
+      );
+    });
+
+    it('clearNotionState 回傳 skipped 時應保留 skipped 狀態而非轉成 cleared', async () => {
+      const clearSpy = jest.spyOn(service, 'clearNotionState').mockResolvedValueOnce({
+        skipped: true,
+        reason: 'pageId_mismatch',
+      });
+
+      const result = await service.clearNotionStateWithRetry('https://example.com/page', {
+        source: 'testSource',
+        retryDelayMs: 0,
+        expectedPageId: 'expected-page-id',
+      });
+
+      expect(clearSpy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        cleared: false,
+        skipped: true,
+        reason: 'pageId_mismatch',
+        attempts: 1,
+        recovered: false,
+      });
+      expect(mockLogger.warn).not.toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 嘗試失敗，準備重試',
+        expect.anything()
+      );
+      expect(mockLogger.error).not.toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 重試最終失敗',
+        expect.anything()
       );
     });
   });

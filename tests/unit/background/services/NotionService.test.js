@@ -295,6 +295,53 @@ describe('NotionService', () => {
       ).rejects.toBe(unauthorizedError);
       expect(refreshOAuthToken).not.toHaveBeenCalled();
     });
+
+    it('使用全域 token 的 OAuth 請求在 refresh 成功後會更新全域 apiKey', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+
+      jest
+        .spyOn(service, '_executeWithRetry')
+        .mockRejectedValueOnce(unauthorizedError)
+        .mockResolvedValueOnce({ ok: true });
+
+      service.apiKey = 'oauth_old_token';
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth_old_token',
+        mode: 'oauth',
+      });
+      refreshOAuthToken.mockResolvedValueOnce('oauth_new_token');
+
+      await service._callNotionApiWithRetry(jest.fn(), {
+        label: 'TestOperation',
+      });
+
+      expect(service.apiKey).toBe('oauth_new_token');
+    });
+
+    it('使用 scoped apiKey 的 OAuth 請求在 refresh 成功後不覆寫既有全域 apiKey', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+
+      jest
+        .spyOn(service, '_executeWithRetry')
+        .mockRejectedValueOnce(unauthorizedError)
+        .mockResolvedValueOnce({ ok: true });
+
+      service.apiKey = 'global_manual_token';
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth_old_scoped_token',
+        mode: 'oauth',
+      });
+      refreshOAuthToken.mockResolvedValueOnce('oauth_new_scoped_token');
+
+      await service._callNotionApiWithRetry(jest.fn(), {
+        apiKey: 'oauth_old_scoped_token',
+        label: 'TestOperation',
+      });
+
+      expect(service.apiKey).toBe('global_manual_token');
+    });
   });
 
   describe('checkPageExists', () => {

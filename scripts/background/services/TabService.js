@@ -72,9 +72,18 @@ class TabService {
     this.clearNotionState = options.clearNotionState || (() => Promise.resolve());
     this.clearNotionStateWithRetry =
       options.clearNotionStateWithRetry ||
-      (async url => {
+      (async (url, retryOptions) => {
         try {
-          await this.clearNotionState(url);
+          const clearResult = await this.clearNotionState(url, retryOptions);
+          if (clearResult?.skipped) {
+            return {
+              cleared: false,
+              skipped: true,
+              reason: clearResult.reason,
+              attempts: 1,
+              recovered: false,
+            };
+          }
           return { cleared: true, attempts: 1, recovered: false };
         } catch (error) {
           return { cleared: false, attempts: 1, error };
@@ -243,25 +252,13 @@ class TabService {
     const { stableUrl: normUrl, originalUrl, hasStableUrl } = await this.resolveTabUrl(tabId, url);
 
     try {
+      await this._persistUrlAliasIfNeeded(hasStableUrl, originalUrl, normUrl);
+
       // 1. 更新徽章狀態（雙查：若有穩定 URL，同時檢查原始 URL）
       await this._verifyAndUpdateStatus(tabId, normUrl, hasStableUrl ? originalUrl : null);
 
       // 2. 處理標註注入（雙查：穩定 URL 優先，回退到原始 URL）
-      let highlights = await this._getHighlightsFromStorage(normUrl);
-      if (!highlights && hasStableUrl) {
-        // 回退查詢：嘗試原始 URL（向後兼容）
-        highlights = await this._getHighlightsFromStorage(originalUrl);
-
-        // 建立 url_alias 連結：避免 shortlink 與原網址各自產生獨立的 storage key
-        if (highlights) {
-          const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
-          chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
-          this.logger.debug('[TabService] Created url_alias for fallback URL', {
-            from: sanitizeUrlForLogging(originalUrl),
-            to: sanitizeUrlForLogging(normUrl),
-          });
-        }
-      }
+      const highlights = await this._getHighlightsWithFallback(normUrl, hasStableUrl, originalUrl);
 
       if (!highlights) {
         // 沒有找到現有標註，執行回調或預設遷移
@@ -294,6 +291,45 @@ class TabService {
         this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });
       }
     }
+  }
+
+  async _persistUrlAliasIfNeeded(hasStableUrl, originalUrl, normUrl) {
+    if (!hasStableUrl) {
+      return;
+    }
+
+    try {
+      const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
+      await chrome.storage.local.set({ [aliasKey]: normUrl });
+    } catch (error) {
+      this.logger.warn?.('[TabService] url_alias 寫入失敗，將繼續後續狀態更新', {
+        action: 'updateTabStatus',
+        originalUrl: sanitizeUrlForLogging(originalUrl),
+        stableUrl: sanitizeUrlForLogging(normUrl),
+        error,
+      });
+    }
+  }
+
+  async _getHighlightsWithFallback(normUrl, hasStableUrl, originalUrl) {
+    const highlights = await this._getHighlightsFromStorage(normUrl);
+    if (highlights || !hasStableUrl) {
+      return highlights;
+    }
+
+    const fallbackHighlights = await this._getHighlightsFromStorage(originalUrl);
+    if (!fallbackHighlights) {
+      return fallbackHighlights;
+    }
+
+    const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
+    chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
+    this.logger.debug('[TabService] Created url_alias for fallback URL', {
+      from: sanitizeUrlForLogging(originalUrl),
+      to: sanitizeUrlForLogging(normUrl),
+    });
+
+    return fallbackHighlights;
   }
 
   /**
@@ -465,7 +501,18 @@ class TabService {
       // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
       const clearResult = await this.clearNotionStateWithRetry(resolvedUrl, {
         source: 'TabService._handleNotionVerificationResult',
+        expectedPageId: savedData.notionPageId,
       });
+      if (clearResult.skipped) {
+        this.logger.warn('[TabService] 清理已略過：本機 Notion 綁定已變更', {
+          action: 'autoSyncLocalState',
+          pageId: savedData.notionPageId?.slice(0, 4),
+          reason: clearResult.reason,
+          result: 'cleanup_skipped',
+        });
+        await this._updateBadgeStatus(tabId, savedData);
+        return;
+      }
       if (!clearResult.cleared) {
         // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
         this.confirmRemotePageMissing(savedData.notionPageId);
