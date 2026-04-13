@@ -108,6 +108,21 @@ describe('StorageService', () => {
       expect(result.notion.savedAt).toBe(0);
       expect(result.notion.pageId).toBe('page');
     });
+
+    it('升級舊資料時會忽略空字串 notion 欄位並回退到有效值', () => {
+      const savedData = {
+        title: 'Test',
+        notionPageId: '',
+        pageId: 'legacy-page-id',
+        notionUrl: '   ',
+        url: 'https://www.notion.so/legacy-page-id',
+      };
+
+      const result = service._buildPageObject(savedData, [], 'https://example.com/test');
+
+      expect(result.notion.pageId).toBe('legacy-page-id');
+      expect(result.notion.url).toBe('https://www.notion.so/legacy-page-id');
+    });
   });
 
   describe('getSavedPageData', () => {
@@ -540,6 +555,38 @@ describe('StorageService', () => {
         mockStorage.local.set.mock.calls[0][0][`${PAGE_PREFIX}https://example.com/page`];
       expect(setPayload.notion.lastVerifiedAt).toBe(0);
       expect(setPayload.notion.savedAt).toBe(0);
+    });
+
+    it('遇到空字串 notion 欄位時應保留現有有效 pageId 與 url', async () => {
+      const pageKey = `${PAGE_PREFIX}https://example.com/page`;
+      mockStorage.local.get.mockResolvedValue({
+        [pageKey]: {
+          highlights: [],
+          notion: {
+            pageId: 'existing-page-id',
+            url: 'https://www.notion.so/existing-page-id',
+            title: 'Existing Title',
+            savedAt: 123,
+            lastVerifiedAt: 456,
+          },
+          metadata: {},
+        },
+      });
+
+      const data = {
+        title: 'Updated Title',
+        notionPageId: '',
+        pageId: '   ',
+        notionUrl: '',
+        url: '   ',
+      };
+
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
+      expect(setPayload.notion.pageId).toBe('existing-page-id');
+      expect(setPayload.notion.url).toBe('https://www.notion.so/existing-page-id');
+      expect(setPayload.notion.title).toBe('Updated Title');
     });
   });
 

@@ -44,6 +44,27 @@ const UPGRADE_RETRY_TTL_MS = 30 * 60 * 1000;
 const NOTION_STATE_CLEAR_RETRY_DELAY_MS = 100;
 
 /**
+ * 取第一個有效的非空字串候選值
+ *
+ * @param {...any} candidates - 候選值
+ * @returns {string|null}
+ */
+function pickFirstNonEmptyString(...candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') {
+      continue;
+    }
+
+    const trimmed = candidate.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return null;
+}
+
+/**
  * StorageService 類
  */
 class StorageService {
@@ -155,8 +176,8 @@ class StorageService {
     return {
       notion: savedData
         ? {
-            pageId: savedData.notionPageId ?? savedData.pageId ?? null,
-            url: savedData.notionUrl ?? savedData.url ?? null,
+            pageId: pickFirstNonEmptyString(savedData.notionPageId, savedData.pageId),
+            url: pickFirstNonEmptyString(savedData.notionUrl, savedData.url),
             title: savedData.title || null,
             savedAt: savedData.savedAt ?? savedData.lastUpdated ?? now,
             lastVerifiedAt: savedData.lastVerifiedAt ?? null,
@@ -525,8 +546,8 @@ class StorageService {
 
         // 將傳入的 data 轉換為 notion 子欄位格式
         const notionData = {
-          pageId: data.notionPageId ?? data.pageId ?? current.notion?.pageId ?? null,
-          url: data.notionUrl ?? data.url ?? current.notion?.url ?? null,
+          pageId: pickFirstNonEmptyString(data.notionPageId, data.pageId, current.notion?.pageId),
+          url: pickFirstNonEmptyString(data.notionUrl, data.url, current.notion?.url),
           title: data.title || current.notion?.title || null,
           savedAt: data.savedAt ?? current.notion?.savedAt ?? Date.now(),
           lastVerifiedAt: data.lastVerifiedAt ?? current.notion?.lastVerifiedAt ?? null,
