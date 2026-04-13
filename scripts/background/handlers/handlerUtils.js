@@ -18,7 +18,7 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
  */
 export async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const activeTab = tabs[0];
+  const [activeTab] = tabs ?? [];
   if (!activeTab?.id) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
