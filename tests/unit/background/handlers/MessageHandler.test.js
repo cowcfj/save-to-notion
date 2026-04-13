@@ -10,6 +10,7 @@ describe('MessageHandler', () => {
 
   beforeEach(() => {
     mockLogger = {
+      debug: jest.fn(),
       log: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
@@ -79,7 +80,7 @@ describe('MessageHandler', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Unknown action: unknownAction',
+        error: '未知動作：unknownAction',
       });
     });
 
@@ -161,6 +162,9 @@ describe('MessageHandler', () => {
 
       expect(sendResponse).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        "偵測到 'duplicateAction' 的重複 sendResponse，已忽略"
+      );
     });
 
     it('應該避免雙重回應: handler 已回應後又同步拋錯時，外層 catch 不應再次回應', async () => {

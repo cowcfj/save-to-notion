@@ -97,7 +97,7 @@ class MessageHandler {
     let responseSent = false;
     const safeSendResponse = payload => {
       if (responseSent) {
-        this.logger.debug?.(`Duplicate sendResponse for '${action}', ignoring`);
+        this.logger.debug?.(`偵測到 '${action}' 的重複 sendResponse，已忽略`);
         return;
       }
       responseSent = true;
@@ -107,7 +107,7 @@ class MessageHandler {
     try {
       // 檢查是否有對應的處理函數
       if (!this.handlers.has(action)) {
-        safeSendResponse({ success: false, error: `Unknown action: ${action}` });
+        safeSendResponse({ success: false, error: `未知動作：${action}` });
         return false;
       }
 
