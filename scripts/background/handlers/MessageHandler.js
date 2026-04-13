@@ -96,22 +96,32 @@ class MessageHandler {
     const { action } = request;
 
     try {
+      let responseSent = false;
+      const safeSendResponse = payload => {
+        if (responseSent) {
+          this.logger.debug?.(`Duplicate sendResponse for '${action}', ignoring`);
+          return;
+        }
+        responseSent = true;
+        sendResponse(payload);
+      };
+
       // 檢查是否有對應的處理函數
       if (!this.handlers.has(action)) {
-        sendResponse({ success: false, error: `Unknown action: ${action}` });
+        safeSendResponse({ success: false, error: `Unknown action: ${action}` });
         return false;
       }
 
       const handler = this.handlers.get(action);
 
       // 執行處理函數，支持 Promise
-      Promise.resolve(handler(request, sender, sendResponse))
+      Promise.resolve(handler(request, sender, safeSendResponse))
         .then(result => {
           if (result !== undefined) {
             try {
-              sendResponse(result);
+              safeSendResponse(result);
             } catch {
-              /* handler 可能已直接呼叫 sendResponse，忽略二次呼叫錯誤 */
+              /* handler 可能已直接呼叫 safeSendResponse，忽略二次呼叫錯誤 */
             }
           }
         })
@@ -119,9 +129,9 @@ class MessageHandler {
           const errorResponse = MessageHandler._formatError(error, action);
           this.logger.error?.(`Handler error for action '${action}':`, error);
           try {
-            sendResponse(errorResponse);
+            safeSendResponse(errorResponse);
           } catch {
-            /* 忽略 sendResponse 錯誤 */
+            /* 忽略 safeSendResponse 錯誤 */
           }
         });
 
@@ -129,7 +139,15 @@ class MessageHandler {
     } catch (error) {
       const errorResponse = MessageHandler._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
-      sendResponse(errorResponse);
+
+      // 在這個 catch block，我們必須先宣告一個 fallback safeSendResponse，因為如果最外層出錯，
+      // 可能還沒經過 try block 內的宣告。
+      // 不過由於 error 發生在外層 try block，我們會直接呼叫原來的 sendResponse
+      try {
+        sendResponse(errorResponse);
+      } catch {
+        /* 忽略 */
+      }
       return false;
     }
   }

@@ -21,25 +21,11 @@ import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
+import { getActiveTab } from './handlerUtils.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
-
-/**
- * 獲取活動標籤頁
- *
- * @returns {Promise<chrome.tabs.Tab>}
- * @throws {Error} 如果無法獲取標籤頁
- */
-async function getActiveTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const activeTab = tabs[0];
-  if (!activeTab?.id) {
-    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
-  }
-  return activeTab;
-}
 
 /**
  * 確保 Bundle 已就緒

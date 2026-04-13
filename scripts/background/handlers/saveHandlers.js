@@ -30,6 +30,7 @@ import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/storageKeys.js';
+import { getActiveTab } from './handlerUtils.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
 
@@ -56,21 +57,6 @@ function sendPageSaveHint(activeTabId, isSaved) {
     .catch(() => {
       /* 忽略錯誤，由 storage.onChanged 兜底 */
     });
-}
-
-/**
- * 獲取活動標籤頁
- *
- * @returns {Promise<chrome.tabs.Tab>}
- * @throws {Error} 如果無法獲取標籤頁
- */
-async function getActiveTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const activeTab = tabs[0];
-  if (!activeTab?.id) {
-    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
-  }
-  return activeTab;
 }
 
 /**

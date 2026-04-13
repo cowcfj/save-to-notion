@@ -146,6 +146,22 @@ describe('MessageHandler', () => {
         action: 'errorAction',
       });
     });
+
+    it('應該避免雙重回應 (safeSendResponse): handler 直接呼叫 sendResponse 且同時返回值時，實際只回應一次', async () => {
+      const mockHandler = jest.fn((req, sender, sendResponse) => {
+        sendResponse({ success: true, from: 'direct' });
+        return { success: true, from: 'return' };
+      });
+      handler.register('duplicateAction', mockHandler);
+
+      const sendResponse = jest.fn();
+      handler.handle({ action: 'duplicateAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(sendResponse).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
+    });
   });
 
   describe('getRegisteredActions', () => {

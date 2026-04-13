@@ -155,11 +155,11 @@ class StorageService {
     return {
       notion: savedData
         ? {
-            pageId: savedData.notionPageId || savedData.pageId || null,
-            url: savedData.notionUrl || savedData.url || null,
+            pageId: savedData.notionPageId ?? savedData.pageId ?? null,
+            url: savedData.notionUrl ?? savedData.url ?? null,
             title: savedData.title || null,
-            savedAt: savedData.savedAt || savedData.lastUpdated || now,
-            lastVerifiedAt: savedData.lastVerifiedAt || null,
+            savedAt: savedData.savedAt ?? savedData.lastUpdated ?? now,
+            lastVerifiedAt: savedData.lastVerifiedAt ?? null,
           }
         : null,
       highlights: Array.isArray(highlights) ? highlights : highlights?.highlights || [],
@@ -385,11 +385,11 @@ class StorageService {
           return null;
         }
         return {
-          notionPageId: notion.pageId || null,
-          notionUrl: notion.url || null,
+          notionPageId: notion.pageId ?? null,
+          notionUrl: notion.url ?? null,
           title: notion.title || null,
-          savedAt: notion.savedAt || null,
-          lastVerifiedAt: notion.lastVerifiedAt || null,
+          savedAt: notion.savedAt ?? null,
+          lastVerifiedAt: notion.lastVerifiedAt ?? null,
         };
       }
 
@@ -525,11 +525,11 @@ class StorageService {
 
         // 將傳入的 data 轉換為 notion 子欄位格式
         const notionData = {
-          pageId: data.notionPageId || data.pageId || current.notion?.pageId || null,
-          url: data.notionUrl || data.url || current.notion?.url || null,
+          pageId: data.notionPageId ?? data.pageId ?? current.notion?.pageId ?? null,
+          url: data.notionUrl ?? data.url ?? current.notion?.url ?? null,
           title: data.title || current.notion?.title || null,
-          savedAt: data.savedAt || current.notion?.savedAt || Date.now(),
-          lastVerifiedAt: data.lastVerifiedAt || current.notion?.lastVerifiedAt || null,
+          savedAt: data.savedAt ?? current.notion?.savedAt ?? Date.now(),
+          lastVerifiedAt: data.lastVerifiedAt ?? current.notion?.lastVerifiedAt ?? null,
         };
 
         const newData = {

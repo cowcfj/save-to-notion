@@ -100,6 +100,16 @@ describe('StorageService', () => {
     jest.restoreAllMocks();
   });
 
+  describe('_buildPageObject', () => {
+    it('升級舊資料時不會把 lastVerifiedAt: 0 轉成 null', () => {
+      const savedData = { title: 'Test', notionPageId: 'page', lastVerifiedAt: 0, savedAt: 0 };
+      const result = service._buildPageObject(savedData, [], 'https://example.com/test');
+      expect(result.notion.lastVerifiedAt).toBe(0);
+      expect(result.notion.savedAt).toBe(0);
+      expect(result.notion.pageId).toBe('page');
+    });
+  });
+
   describe('getSavedPageData', () => {
     const setupLegacyReadPath = ({ url, savedData, highlightData = [] }) => {
       const normalizedUrl = normalizeUrl(url);
@@ -519,6 +529,17 @@ describe('StorageService', () => {
       const setPayload = mockStorage.local.set.mock.calls[0][0][pageKey];
       expect(Array.isArray(setPayload.highlights)).toBe(true);
       expect(setPayload.highlights).toEqual([]);
+    });
+
+    it('寫入 { lastVerifiedAt: 0, savedAt: 0 } 等 falsy 值後可原值保留，不被轉為 null', async () => {
+      mockStorage.local.get.mockResolvedValue({});
+      const data = { title: 'Test Page', pageId: 'page-123', lastVerifiedAt: 0, savedAt: 0 };
+      await service.setSavedPageData('https://example.com/page', data);
+
+      const setPayload =
+        mockStorage.local.set.mock.calls[0][0][`${PAGE_PREFIX}https://example.com/page`];
+      expect(setPayload.notion.lastVerifiedAt).toBe(0);
+      expect(setPayload.notion.savedAt).toBe(0);
     });
   });
 

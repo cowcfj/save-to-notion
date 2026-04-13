@@ -5,6 +5,12 @@
 
 import { NotionService } from '../../../../scripts/background/services/NotionService.js';
 import { Client } from '@notionhq/client';
+import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
+
+jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
+  getActiveNotionToken: jest.fn(),
+  refreshOAuthToken: jest.fn(),
+}));
 
 // Mock Notion SDK
 jest.mock('@notionhq/client', () => {
@@ -98,5 +104,37 @@ describe('NotionService Race Condition Fix Verification', () => {
     expect(service.client).toBeDefined();
     expect(service.client.auth).toBe('KEY_A');
     expect(service.client.search).toHaveBeenCalled();
+  });
+
+  it('refresh 流程不應該破壞既有 scoped client 隔離', async () => {
+    // 預設全域 apiKey 為 KEY_A (在 beforeEach 初始化)
+    expect(service.apiKey).toBe('KEY_A');
+
+    const unauthorizedError = new Error('Unauthorized');
+    unauthorizedError.status = 401;
+
+    jest
+      .spyOn(service, '_executeWithRetry')
+      .mockRejectedValueOnce(unauthorizedError)
+      .mockResolvedValueOnce({ ok: true });
+
+    getActiveNotionToken.mockResolvedValueOnce({
+      token: 'KEY_SCOPED_OLD',
+      mode: 'oauth',
+    });
+    refreshOAuthToken.mockResolvedValueOnce('KEY_SCOPED_NEW');
+
+    // 觸發使用 scoped client 的 retry
+    await service._callNotionApiWithRetry(jest.fn(), {
+      apiKey: 'KEY_SCOPED_OLD',
+      label: 'ScopedClientTest',
+    });
+
+    // 驗證全域的 apiKey 皆不受影響
+    expect(service.apiKey).toBe('KEY_A');
+    // 如果 client 已經實例化，驗證其 auth 也不變
+    if (service.client) {
+      expect(service.client.auth).toBe('KEY_A');
+    }
   });
 });
