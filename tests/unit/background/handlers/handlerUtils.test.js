@@ -29,4 +29,10 @@ describe('handlerUtils.getActiveTab', () => {
 
     await expect(getActiveTab()).rejects.toThrow(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   });
+
+  test('當標籤頁缺少 id 時應拋出 NO_ACTIVE_TAB', async () => {
+    chrome.tabs.query.mockResolvedValueOnce([{ url: 'https://example.com' }]);
+
+    await expect(getActiveTab()).rejects.toThrow(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
+  });
 });
