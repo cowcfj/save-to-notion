@@ -194,6 +194,11 @@ export function createSaveHandlers(services) {
     return await storageService.clearNotionStateWithRetry(pageUrl, { source, expectedPageId });
   }
 
+  async function getLatestSavedDataAfterCleanupSkip(resolvedUrl, fallbackData) {
+    const latestSavedData = await storageService.getSavedPageData(resolvedUrl);
+    return latestSavedData?.notionPageId ? latestSavedData : fallbackData;
+  }
+
   /**
    * 載入並驗證 Notion 必要設定
    *
@@ -582,6 +587,19 @@ export function createSaveHandlers(services) {
       'saveHandlers._handlePageRecreation',
       params.savedData.notionPageId
     );
+    if (clearResult.skipped) {
+      Logger.warn('重建前清理略過：本地 notion 綁定已變更，取消本次重建', {
+        action: 'recreatePage',
+        operation: 'clearNotionStateWithCanonicalPath',
+        url: sanitizeUrlForLogging(normUrl),
+        reason: clearResult.reason,
+        result: 'cleanup_skipped',
+      });
+      return {
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+      };
+    }
     if (!clearResult.cleared) {
       Logger.error('重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理', {
         action: 'recreatePage',
@@ -775,6 +793,18 @@ export function createSaveHandlers(services) {
         'saveHandlers._handleDeletedOrPending',
         savedData.notionPageId
       );
+      if (clearResult.skipped) {
+        Logger.warn('同步本地狀態時清理略過：本地 notion 綁定已變更，保留已保存狀態', {
+          action: 'checkPageStatus',
+          operation: 'syncLocalState',
+          url: sanitizeUrlForLogging(normUrl),
+          reason: clearResult.reason,
+          result: 'cleanup_skipped',
+        });
+        const latestSavedData = await getLatestSavedDataAfterCleanupSkip(resolvedUrl, savedData);
+        sendResponse(_buildSavedStatusResponse(latestSavedData, normUrl));
+        return true;
+      }
       if (!clearResult.cleared) {
         Logger.error('同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理', {
           action: 'checkPageStatus',

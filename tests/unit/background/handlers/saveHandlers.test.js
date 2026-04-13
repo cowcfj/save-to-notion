@@ -3,6 +3,7 @@
  */
 
 import { createSaveHandlers } from '../../../../scripts/background/handlers/saveHandlers.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateInternalRequest,
@@ -532,6 +533,37 @@ describe('saveHandlers', () => {
             url: expect.any(String),
             attempts: 2,
             error: expect.any(Object),
+          })
+        );
+      });
+
+      test('cleanup skipped 時不應繼續重建新頁面', async () => {
+        const sendResponse = jest.fn();
+        mockServices.storageService.getSavedPageData.mockResolvedValue({
+          notionPageId: 'existing-id',
+          notionUrl: 'https://notion.so/existing-id',
+        });
+        mockServices.notionService.checkPageExists.mockResolvedValue(false);
+        mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+          cleared: false,
+          skipped: true,
+          reason: 'pageId_mismatch',
+          attempts: 1,
+          recovered: false,
+        });
+
+        await handlers.savePage({}, validSender, sendResponse);
+        await handlers.savePage({}, validSender, sendResponse);
+
+        expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+          'https://example.com',
+          expect.objectContaining({ source: 'saveHandlers._handlePageRecreation' })
+        );
+        expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
           })
         );
       });
@@ -1114,6 +1146,63 @@ describe('saveHandlers', () => {
           error: expect.any(Object),
         })
       );
+    });
+
+    it('checkPageStatus cleanup skipped 時不應回報 wasDeleted，應保留最新已保存狀態', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'mock-extension-id', tab: { id: 1 } };
+      const rawUrl = 'https://example.com';
+
+      mockServices.storageService.getSavedPageData
+        .mockResolvedValueOnce({
+          notionPageId: 'page123',
+          notionUrl: 'https://notion.so/page123',
+          title: 'Old Title',
+          lastVerifiedAt: 0,
+        })
+        .mockResolvedValueOnce({
+          notionPageId: 'page123',
+          notionUrl: 'https://notion.so/page123',
+          title: 'Old Title',
+          lastVerifiedAt: 0,
+        })
+        .mockResolvedValueOnce({
+          notionPageId: 'page456',
+          notionUrl: 'https://notion.so/page456',
+          title: 'New Title',
+          lastVerifiedAt: 0,
+        });
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: false,
+        skipped: true,
+        reason: 'pageId_mismatch',
+        attempts: 1,
+        recovered: false,
+      });
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+      );
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: true,
+          notionPageId: 'page456',
+          notionUrl: 'https://notion.so/page456',
+        })
+      );
+      expect(sendResponse).not.toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          wasDeleted: true,
+        })
+      );
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
     });
 
     it('checkPageStatus 應該在 checkPageExists 返回 null 時重試', async () => {

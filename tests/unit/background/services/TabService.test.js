@@ -369,6 +369,32 @@ describe('TabService', () => {
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       });
 
+      it('should preserve saved badge and avoid re-arming deletion when cleanup is skipped', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(false);
+        service.clearNotionStateWithRetry = jest.fn().mockResolvedValue({
+          cleared: false,
+          skipped: true,
+          reason: 'pageId_mismatch',
+          attempts: 1,
+          recovered: false,
+        });
+
+        await service.updateTabStatus(1, 'https://example.com');
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(service.clearNotionStateWithRetry).toHaveBeenCalledWith(
+          'https://example.com',
+          expect.objectContaining({ source: 'TabService._handleNotionVerificationResult' })
+        );
+        expect(service.deletionPendingPages.has('page-123')).toBe(false);
+        expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '✓', tabId: 1 });
+      });
+
       it('should fallback to cached status if verification fails', async () => {
         const expiredData = {
           pageId: '123',

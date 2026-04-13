@@ -74,7 +74,16 @@ class TabService {
       options.clearNotionStateWithRetry ||
       (async url => {
         try {
-          await this.clearNotionState(url);
+          const clearResult = await this.clearNotionState(url);
+          if (clearResult?.skipped) {
+            return {
+              cleared: false,
+              skipped: true,
+              reason: clearResult.reason,
+              attempts: 1,
+              recovered: false,
+            };
+          }
           return { cleared: true, attempts: 1, recovered: false };
         } catch (error) {
           return { cleared: false, attempts: 1, error };
@@ -475,6 +484,19 @@ class TabService {
         source: 'TabService._handleNotionVerificationResult',
         expectedPageId: savedData.notionPageId,
       });
+      if (clearResult.skipped) {
+        this.logger.warn(
+          '[TabService] cleanup skipped because local notion binding already changed',
+          {
+            action: 'autoSyncLocalState',
+            pageId: savedData.notionPageId?.slice(0, 4),
+            reason: clearResult.reason,
+            result: 'cleanup_skipped',
+          }
+        );
+        await this._updateBadgeStatus(tabId, savedData);
+        return;
+      }
       if (!clearResult.cleared) {
         // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
         this.confirmRemotePageMissing(savedData.notionPageId);

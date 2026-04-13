@@ -149,6 +149,21 @@ async function performHighlightUpdate(services, activeTab, highlights) {
       expectedPageId: savedData.notionPageId,
     });
 
+    if (clearResult.skipped) {
+      Logger.warn('清除本地 notion 綁定時偵測到 pageId 已變更，取消 PAGE_DELETED 狀態切換', {
+        action: 'performHighlightUpdate',
+        url: sanitizeUrlForLogging(resolvedUrl),
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+        reason: clearResult.reason,
+        result: 'cleanup_skipped',
+      });
+
+      return {
+        ...result,
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+      };
+    }
+
     if (!clearResult.cleared) {
       Logger.error('清除本地 Notion 狀態失敗', {
         action: 'performHighlightUpdate',

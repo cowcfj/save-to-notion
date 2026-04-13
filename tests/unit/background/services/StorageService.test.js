@@ -639,7 +639,9 @@ describe('StorageService', () => {
     it('page_* 不存在時不應呼叫 set', async () => {
       mockStorage.local.get.mockResolvedValue({});
 
-      await expect(service.clearNotionState('https://example.com/page')).resolves.toBeUndefined();
+      await expect(service.clearNotionState('https://example.com/page')).resolves.toEqual({
+        cleared: true,
+      });
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
 
@@ -687,8 +689,13 @@ describe('StorageService', () => {
       });
 
       // 傳入不匹配的 expectedPageId
-      await service.clearNotionState('https://example.com/page', {
-        expectedPageId: 'wrong-id-abc',
+      await expect(
+        service.clearNotionState('https://example.com/page', {
+          expectedPageId: 'wrong-id-abc',
+        })
+      ).resolves.toEqual({
+        skipped: true,
+        reason: 'pageId_mismatch',
       });
 
       // 不應呼叫 set：跳過清除
@@ -819,6 +826,36 @@ describe('StorageService', () => {
           recovered: false,
           error: expect.any(Error),
         })
+      );
+    });
+
+    it('clearNotionState 回傳 skipped 時應保留 skipped 狀態而非轉成 cleared', async () => {
+      const clearSpy = jest.spyOn(service, 'clearNotionState').mockResolvedValueOnce({
+        skipped: true,
+        reason: 'pageId_mismatch',
+      });
+
+      const result = await service.clearNotionStateWithRetry('https://example.com/page', {
+        source: 'testSource',
+        retryDelayMs: 0,
+        expectedPageId: 'expected-page-id',
+      });
+
+      expect(clearSpy).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        cleared: false,
+        skipped: true,
+        reason: 'pageId_mismatch',
+        attempts: 1,
+        recovered: false,
+      });
+      expect(mockLogger.warn).not.toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 嘗試失敗，準備重試',
+        expect.anything()
+      );
+      expect(mockLogger.error).not.toHaveBeenCalledWith(
+        '[StorageService] clearNotionState 重試最終失敗',
+        expect.anything()
       );
     });
   });

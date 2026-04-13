@@ -682,7 +682,7 @@ class StorageService {
    *
    * @param {string} pageUrl - 頁面 URL
    * @param options
-   * @returns {Promise<void>}
+   * @returns {Promise<{cleared: true} | {skipped: true, reason: string}>}
    */
   async clearNotionState(pageUrl, options = {}) {
     if (!this.storage) {
@@ -709,7 +709,7 @@ class StorageService {
             foundPageId: state.data.notion.pageId.slice(0, 4),
             url: sanitizeUrlForLogging(normalizedUrl),
           });
-          return;
+          return { skipped: true, reason: 'pageId_mismatch' };
         }
 
         await this.storage.local.set({
@@ -734,6 +734,8 @@ class StorageService {
       this.logger.log?.('Cleared Notion metadata (highlights preserved)', {
         url: sanitizeUrlForLogging(normalizedUrl),
       });
+
+      return { cleared: true };
     });
   }
 
@@ -746,7 +748,11 @@ class StorageService {
    * @param {object} [options] - 補充上下文
    * @param {string} [options.source='unknown'] - 呼叫來源
    * @param {number} [options.retryDelayMs=100] - 重試前延遲
-   * @returns {Promise<{cleared: boolean, attempts: number, recovered?: boolean, error?: Error}>}
+   * @returns {Promise<
+   *   | {cleared: true, attempts: number, recovered: boolean}
+   *   | {cleared: false, skipped: true, reason: string, attempts: number, recovered: false}
+   *   | {cleared: false, attempts: number, error: Error}
+   * >}
    */
   async clearNotionStateWithRetry(pageUrl, options = {}) {
     const source = options.source || 'unknown';
@@ -758,7 +764,19 @@ class StorageService {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await this.clearNotionState(pageUrl, { expectedPageId: options.expectedPageId });
+        const clearResult = await this.clearNotionState(pageUrl, {
+          expectedPageId: options.expectedPageId,
+        });
+
+        if (clearResult?.skipped) {
+          return {
+            cleared: false,
+            skipped: true,
+            reason: clearResult.reason,
+            attempts: attempt,
+            recovered: false,
+          };
+        }
 
         if (attempt > 1) {
           this.logger.success?.('[StorageService] clearNotionState 重試成功', {
