@@ -185,7 +185,7 @@ class StorageService {
         : null,
       highlights: Array.isArray(highlights) ? highlights : highlights?.highlights || [],
       metadata: {
-        createdAt: savedData?.savedAt || savedData?.lastUpdated || now,
+        createdAt: savedData?.savedAt ?? savedData?.lastUpdated ?? now,
         lastUpdated: now,
         ...(migratedFrom ? { migratedFrom } : {}),
       },

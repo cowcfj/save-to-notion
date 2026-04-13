@@ -109,6 +109,13 @@ describe('StorageService', () => {
       expect(result.notion.pageId).toBe('page');
     });
 
+    it('升級舊資料時不會把 metadata.createdAt 的 0 轉成現在時間', () => {
+      const savedData = { title: 'Test', notionPageId: 'page', savedAt: 0, lastUpdated: 12_345 };
+      const result = service._buildPageObject(savedData, [], 'https://example.com/test');
+
+      expect(result.metadata.createdAt).toBe(0);
+    });
+
     it('升級舊資料時會忽略空字串 notion 欄位並回退到有效值', () => {
       const savedData = {
         title: 'Test',
