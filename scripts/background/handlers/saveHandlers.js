@@ -826,7 +826,7 @@ export function createSaveHandlers(services) {
           result: 'cleanup_skipped',
         });
         const latestSavedData = await getLatestSavedDataAfterCleanupSkip(cleanupUrl, savedData);
-        sendResponse(_buildSavedStatusResponse(latestSavedData, normUrl));
+        sendResponse(_buildSavedStatusResponse(latestSavedData, cleanupUrl));
         return true;
       }
       if (!clearResult.cleared) {
@@ -851,7 +851,7 @@ export function createSaveHandlers(services) {
         success: true,
         isSaved: false,
         wasDeleted: true,
-        stableUrl: normUrl,
+        stableUrl: cleanupUrl,
       });
       return true;
     }

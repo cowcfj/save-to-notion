@@ -72,9 +72,9 @@ class TabService {
     this.clearNotionState = options.clearNotionState || (() => Promise.resolve());
     this.clearNotionStateWithRetry =
       options.clearNotionStateWithRetry ||
-      (async url => {
+      (async (url, retryOptions) => {
         try {
-          const clearResult = await this.clearNotionState(url);
+          const clearResult = await this.clearNotionState(url, retryOptions);
           if (clearResult?.skipped) {
             return {
               cleared: false,
@@ -257,7 +257,7 @@ class TabService {
       //    alias 找到 stableUrl 下的 savedData。冪等操作，重複寫入無害。
       if (hasStableUrl) {
         const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
-        chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
+        await chrome.storage.local.set({ [aliasKey]: normUrl });
       }
 
       // 1. 更新徽章狀態（雙查：若有穩定 URL，同時檢查原始 URL）

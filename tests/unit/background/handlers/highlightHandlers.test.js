@@ -237,7 +237,10 @@ describe('highlightHandlers', () => {
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
-        expect.objectContaining({ source: 'highlightHandlers.performHighlightUpdate' })
+        expect.objectContaining({
+          source: 'highlightHandlers.performHighlightUpdate',
+          expectedPageId: 'page1',
+        })
       );
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -272,7 +275,10 @@ describe('highlightHandlers', () => {
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
-        expect.objectContaining({ source: 'highlightHandlers.performHighlightUpdate' })
+        expect.objectContaining({
+          source: 'highlightHandlers.performHighlightUpdate',
+          expectedPageId: 'page1',
+        })
       );
       // Re-arm: confirmRemotePageMissing 被呼叫兩次（初始確認 + 清除失敗後 re-arm）
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
@@ -311,7 +317,10 @@ describe('highlightHandlers', () => {
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
-        expect.objectContaining({ source: 'highlightHandlers.performHighlightUpdate' })
+        expect.objectContaining({
+          source: 'highlightHandlers.performHighlightUpdate',
+          expectedPageId: 'page1',
+        })
       );
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith(

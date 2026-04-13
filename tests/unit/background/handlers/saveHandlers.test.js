@@ -441,7 +441,10 @@ describe('saveHandlers', () => {
       await handlers.savePage({}, validSender, sendResponse);
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
-        expect.objectContaining({ source: 'saveHandlers._handlePageRecreation' })
+        expect.objectContaining({
+          source: 'saveHandlers._handlePageRecreation',
+          expectedPageId: 'existing-id',
+        })
       );
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
     });
@@ -558,7 +561,10 @@ describe('saveHandlers', () => {
 
         expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
           'https://example.com',
-          expect.objectContaining({ source: 'saveHandlers._handlePageRecreation' })
+          expect.objectContaining({
+            source: 'saveHandlers._handlePageRecreation',
+            expectedPageId: 'existing-id',
+          })
         );
         expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
         expect(sendResponse).toHaveBeenLastCalledWith(
@@ -1090,7 +1096,10 @@ describe('saveHandlers', () => {
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+        expect.objectContaining({
+          source: 'saveHandlers._handleDeletedOrPending',
+          expectedPageId: 'page123',
+        })
       );
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
       expect(sendResponse).toHaveBeenLastCalledWith(
@@ -1151,8 +1160,32 @@ describe('saveHandlers', () => {
 
     it('checkPageStatus cleanup skipped 時不應回報 wasDeleted，應保留最新已保存狀態', async () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'mock-extension-id', tab: { id: 1 } };
-      const rawUrl = 'https://example.com';
+      const rawUrl = 'https://www.rapbull.net/posts/2928/long-slug/';
+      const stableUrl = 'https://www.rapbull.net/?p=2928';
+      const sender = {
+        id: 'mock-extension-id',
+        tab: { id: 1, url: rawUrl },
+      };
+
+      mockServices.tabService.resolveTabUrl
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: true,
+        });
 
       mockServices.storageService.getSavedPageData
         .mockResolvedValueOnce({
@@ -1187,8 +1220,11 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+        stableUrl,
+        expect.objectContaining({
+          source: 'saveHandlers._handleDeletedOrPending',
+          expectedPageId: 'page123',
+        })
       );
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -1196,6 +1232,7 @@ describe('saveHandlers', () => {
           isSaved: true,
           notionPageId: 'page456',
           notionUrl: 'https://notion.so/page456',
+          stableUrl,
         })
       );
       expect(sendResponse).not.toHaveBeenLastCalledWith(
@@ -1248,13 +1285,17 @@ describe('saveHandlers', () => {
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         stableUrl,
-        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+        expect.objectContaining({
+          source: 'saveHandlers._handleDeletedOrPending',
+          expectedPageId: 'page123',
+        })
       );
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
           isSaved: false,
           wasDeleted: true,
+          stableUrl,
         })
       );
     });
@@ -1313,7 +1354,10 @@ describe('saveHandlers', () => {
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         stableUrl,
-        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+        expect.objectContaining({
+          source: 'saveHandlers._handleDeletedOrPending',
+          expectedPageId: 'page-123',
+        })
       );
       expect(sendResponse).toHaveBeenLastCalledWith({
         success: true,

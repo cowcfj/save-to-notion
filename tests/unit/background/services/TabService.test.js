@@ -150,6 +150,31 @@ describe('TabService', () => {
       expect(service.logger).toBe(mockLogger);
       expect(service.injectionService).toBe(mockInjectionService);
     });
+
+    it('should forward options in fallback clearNotionStateWithRetry', async () => {
+      const clearNotionState = jest
+        .fn()
+        .mockResolvedValue({ skipped: true, reason: 'pageId_mismatch' });
+      const fallbackService = new TabService({ clearNotionState });
+      const options = {
+        source: 'TabService.test',
+        expectedPageId: 'page-123',
+      };
+
+      const result = await fallbackService.clearNotionStateWithRetry(
+        'https://example.com',
+        options
+      );
+
+      expect(clearNotionState).toHaveBeenCalledWith('https://example.com', options);
+      expect(result).toEqual({
+        cleared: false,
+        skipped: true,
+        reason: 'pageId_mismatch',
+        attempts: 1,
+        recovered: false,
+      });
+    });
   });
 
   describe('updateTabStatus', () => {
@@ -257,6 +282,60 @@ describe('TabService', () => {
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
       });
+    });
+
+    it('應等待 url_alias 寫入完成後才繼續更新狀態', async () => {
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      let resolveStorageSet;
+      chrome.storage.local.set.mockReturnValue(
+        new Promise(resolve => {
+          resolveStorageSet = resolve;
+        })
+      );
+
+      const updatePromise = service._updateTabStatusInternal(1, 'https://example.com/long-path');
+      await Promise.resolve();
+
+      expect(service._verifyAndUpdateStatus).not.toHaveBeenCalled();
+
+      resolveStorageSet();
+      await updatePromise;
+
+      expect(service._verifyAndUpdateStatus).toHaveBeenCalledWith(
+        1,
+        'https://example.com/?p=2928',
+        'https://example.com/long-path'
+      );
+    });
+
+    it('url_alias 寫入失敗時不應繼續更新狀態', async () => {
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+      chrome.storage.local.set.mockRejectedValue(new Error('alias write failed'));
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(service._verifyAndUpdateStatus).not.toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[TabService] Error updating tab status: alias write failed',
+        expect.objectContaining({
+          error: expect.any(Error),
+        })
+      );
     });
 
     it('hasStableUrl=false 時不應建立 url_alias', async () => {
