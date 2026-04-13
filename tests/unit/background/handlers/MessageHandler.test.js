@@ -162,6 +162,22 @@ describe('MessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
     });
+
+    it('應該避免雙重回應: handler 已回應後又同步拋錯時，外層 catch 不應再次回應', async () => {
+      const mockHandler = jest.fn((req, sender, sendResponse) => {
+        sendResponse({ success: true, from: 'direct' });
+        throw new Error('sync error after response');
+      });
+      handler.register('throwAfterRespondAction', mockHandler);
+
+      const sendResponse = jest.fn();
+      handler.handle({ action: 'throwAfterRespondAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(sendResponse).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
+    });
   });
 
   describe('getRegisteredActions', () => {
