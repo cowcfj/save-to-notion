@@ -1205,6 +1205,59 @@ describe('saveHandlers', () => {
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
     });
 
+    it('checkPageStatus 刪除確認時應重新解析 stableUrl 並清理 shortlink key', async () => {
+      const sendResponse = jest.fn();
+      const rawUrl = 'https://www.rapbull.net/posts/2928/long-slug/';
+      const stableUrl = 'https://www.rapbull.net/?p=2928';
+      const sender = {
+        id: 'mock-extension-id',
+        tab: { id: 1, url: rawUrl },
+      };
+
+      mockServices.tabService.resolveTabUrl
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: true,
+        });
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page123',
+        notionUrl: 'https://notion.so/page123',
+        title: 'Zombie Ass',
+        lastVerifiedAt: 0,
+      });
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        stableUrl,
+        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+      );
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: false,
+          wasDeleted: true,
+        })
+      );
+    });
+
     it('checkPageStatus 應該在 checkPageExists 返回 null 時重試', async () => {
       const savedData = { notionPageId: 'page1', notionUrl: 'url1', title: 'Title1' };
       mockServices.storageService.getSavedPageData.mockResolvedValue(savedData);

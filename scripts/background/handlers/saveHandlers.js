@@ -199,6 +199,28 @@ export function createSaveHandlers(services) {
     return latestSavedData?.notionPageId ? latestSavedData : fallbackData;
   }
 
+  async function resolveDeletionCleanupUrl(activeTab, fallbackUrl) {
+    const tabId = activeTab?.id;
+    const tabUrl = activeTab?.url || fallbackUrl;
+
+    if (!tabId || !tabUrl || typeof tabService.resolveTabUrl !== 'function') {
+      return fallbackUrl;
+    }
+
+    try {
+      const refreshed = await tabService.resolveTabUrl(tabId, tabUrl);
+      return refreshed?.stableUrl || fallbackUrl;
+    } catch (error) {
+      Logger.warn('重新解析刪除清理 URL 失敗，回退至既有路徑', {
+        action: 'checkPageStatus',
+        operation: 'resolveDeletionCleanupUrl',
+        url: sanitizeUrlForLogging(fallbackUrl),
+        error: error?.message,
+      });
+      return fallbackUrl;
+    }
+  }
+
   /**
    * 載入並驗證 Notion 必要設定
    *
@@ -788,8 +810,10 @@ export function createSaveHandlers(services) {
         pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
       });
 
+      const cleanupUrl = await resolveDeletionCleanupUrl(activeTab, resolvedUrl);
+
       const clearResult = await clearNotionStateWithCanonicalPath(
-        resolvedUrl,
+        cleanupUrl,
         'saveHandlers._handleDeletedOrPending',
         savedData.notionPageId
       );
@@ -801,7 +825,7 @@ export function createSaveHandlers(services) {
           reason: clearResult.reason,
           result: 'cleanup_skipped',
         });
-        const latestSavedData = await getLatestSavedDataAfterCleanupSkip(resolvedUrl, savedData);
+        const latestSavedData = await getLatestSavedDataAfterCleanupSkip(cleanupUrl, savedData);
         sendResponse(_buildSavedStatusResponse(latestSavedData, normUrl));
         return true;
       }
