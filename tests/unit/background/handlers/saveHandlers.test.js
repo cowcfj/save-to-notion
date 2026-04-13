@@ -11,6 +11,7 @@ import {
 } from '../../../../scripts/utils/securityUtils.js';
 import { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
+import { buildSavedPageData } from '../../../helpers/status-fixtures.js';
 
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(),
@@ -1256,6 +1257,69 @@ describe('saveHandlers', () => {
           wasDeleted: true,
         })
       );
+    });
+
+    it('checkPageStatus 在 cleanup 後再次查詢，仍應保持未保存狀態', async () => {
+      const sendResponse = jest.fn();
+      const rawUrl = 'https://www.rapbull.net/posts/2928/long-slug/';
+      const stableUrl = 'https://www.rapbull.net/?p=2928';
+      const sender = {
+        id: 'mock-extension-id',
+        tab: { id: 1, url: rawUrl },
+      };
+
+      mockServices.tabService.resolveTabUrl
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl: rawUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: true,
+        })
+        .mockResolvedValueOnce({
+          stableUrl,
+          originalUrl: rawUrl,
+          migrated: false,
+          hasStableUrl: true,
+        });
+
+      mockServices.storageService.getSavedPageData
+        .mockResolvedValueOnce(buildSavedPageData({ title: 'Zombie Ass', lastVerifiedAt: 0 }))
+        .mockResolvedValueOnce(buildSavedPageData({ title: 'Zombie Ass', lastVerifiedAt: 0 }))
+        .mockResolvedValueOnce(null);
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.notionService.checkPageExists
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false);
+      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+        cleared: true,
+        attempts: 1,
+      });
+
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+      await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
+
+      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        stableUrl,
+        expect.objectContaining({ source: 'saveHandlers._handleDeletedOrPending' })
+      );
+      expect(sendResponse).toHaveBeenLastCalledWith({
+        success: true,
+        isSaved: false,
+        stableUrl,
+      });
     });
 
     it('checkPageStatus 應該在 checkPageExists 返回 null 時重試', async () => {

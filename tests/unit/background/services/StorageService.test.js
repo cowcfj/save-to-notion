@@ -12,6 +12,12 @@ import {
   URL_ALIAS_PREFIX,
   STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
+import {
+  buildDeletedState,
+  buildHighlight,
+  buildSavedPageData,
+  buildStaleStableState,
+} from '../../../helpers/status-fixtures.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => {
   const original = jest.requireActual('../../../../scripts/utils/urlUtils.js');
@@ -235,6 +241,52 @@ describe('StorageService', () => {
         savedAt: null,
         lastVerifiedAt: null,
       });
+    });
+
+    it('缺少 alias 時，不應把孤立的 stable page_* 視為 original URL 的已保存狀態', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const storageData = buildStaleStableState({
+        originalUrl,
+        stableUrl,
+        includeAlias: false,
+      });
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+
+      const result = await service.getSavedPageData(originalUrl);
+
+      expect(result).toBeNull();
+    });
+
+    it('alias 指向 notion:null 的 stable page_* 時，應回傳 null 而非已保存', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const storageData = buildDeletedState({
+        originalUrl,
+        stableUrl,
+        highlights: [buildHighlight()],
+      });
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+
+      const result = await service.getSavedPageData(originalUrl);
+
+      expect(result).toBeNull();
     });
 
     it('讀時升級第一次失敗後，應記錄重試狀態與 nextRetryAt', async () => {
@@ -748,6 +800,57 @@ describe('StorageService', () => {
           [pageKey]: expect.objectContaining({ notion: null }),
         })
       );
+    });
+
+    it('clearNotionState 後，original URL 與 stable URL 都不應再回傳 saved data', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const pageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const storageData = {
+        [aliasKey]: stableUrl,
+        [pageKey]: {
+          notion: {
+            pageId: 'page-123',
+            url: 'https://www.notion.so/page-123',
+            title: 'Saved page',
+            savedAt: 100,
+            lastVerifiedAt: 100,
+          },
+          highlights: [buildHighlight()],
+          metadata: { createdAt: 100, lastUpdated: 100 },
+        },
+      };
+
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+      mockStorage.local.set.mockImplementation(async payload => {
+        Object.assign(storageData, payload);
+      });
+      mockStorage.local.remove.mockImplementation(async keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        keyList.forEach(key => {
+          delete storageData[key];
+        });
+      });
+
+      await service.clearNotionState(originalUrl, {
+        expectedPageId: buildSavedPageData().notionPageId,
+      });
+
+      const originalResult = await service.getSavedPageData(originalUrl);
+      const stableResult = await service.getSavedPageData(stableUrl);
+
+      expect(originalResult).toBeNull();
+      expect(stableResult).toBeNull();
+      expect(storageData[pageKey].highlights).toHaveLength(1);
+      expect(storageData[pageKey].notion).toBeNull();
     });
   });
 

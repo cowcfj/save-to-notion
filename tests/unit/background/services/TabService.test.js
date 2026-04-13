@@ -12,6 +12,7 @@ import {
 import { URL_ALIAS_PREFIX } from '../../../../scripts/config/storageKeys.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
+import { buildHighlight, buildPageRecord } from '../../../helpers/status-fixtures.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
@@ -277,6 +278,96 @@ describe('TabService', () => {
         Object.keys(arg).some(k => k.startsWith(URL_ALIAS_PREFIX))
       );
       expect(aliasCalls).toHaveLength(0);
+    });
+
+    it('refresh 後解析出 stableUrl 且僅有 highlights 時，應保持未保存 badge 並注入 bundle', async () => {
+      const originalUrl = 'https://example.com/articles/slug';
+      const stableUrl = 'https://example.com/?p=2928';
+
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+      service.resolveTabUrl = jest
+        .fn()
+        .mockResolvedValueOnce({
+          stableUrl: originalUrl,
+          originalUrl,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl,
+          originalUrl,
+          hasStableUrl: true,
+        });
+
+      chrome.storage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.includes(`page_${stableUrl}`)) {
+          return Promise.resolve({
+            [`page_${stableUrl}`]: buildPageRecord({
+              notion: null,
+              highlights: [buildHighlight()],
+            }),
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete', url: stableUrl });
+
+      await service.updateTabStatus(1, originalUrl);
+      await service.updateTabStatus(1, originalUrl);
+
+      expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '', tabId: 1 });
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+      });
+    });
+
+    it('refresh 後 stableUrl 命中 notion:null 的 page_* 時，不應回彈為已保存', async () => {
+      const originalUrl = 'https://example.com/posts/long-title';
+      const stableUrl = 'https://example.com/?p=123';
+
+      service.resolveTabUrl = jest
+        .fn()
+        .mockResolvedValueOnce({
+          stableUrl: originalUrl,
+          originalUrl,
+          hasStableUrl: false,
+        })
+        .mockResolvedValueOnce({
+          stableUrl,
+          originalUrl,
+          hasStableUrl: true,
+        });
+      service.getSavedPageData = jest.fn().mockImplementation(url => {
+        if (url === originalUrl || url === stableUrl) {
+          return Promise.resolve(null);
+        }
+        return Promise.resolve(null);
+      });
+
+      chrome.storage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.includes(`page_${stableUrl}`)) {
+          return Promise.resolve({
+            [`page_${stableUrl}`]: buildPageRecord({
+              notion: null,
+              highlights: [],
+            }),
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      await service.updateTabStatus(1, originalUrl);
+      await service.updateTabStatus(1, originalUrl);
+
+      expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '', tabId: 1 });
+      expect(mockInjectionService.ensureBundleInjected).not.toHaveBeenCalled();
     });
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {

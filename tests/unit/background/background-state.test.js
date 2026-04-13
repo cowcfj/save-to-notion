@@ -46,6 +46,7 @@ globalThis.PerformanceOptimizer = {};
 // Import services directly
 import { TabService } from '../../../scripts/background/services/TabService.js';
 import { InjectionService } from '../../../scripts/background/services/InjectionService.js';
+import { buildHighlight, buildPageRecord } from '../../helpers/status-fixtures.js';
 
 describe('Background State Updates', () => {
   let tabService = null;
@@ -148,5 +149,52 @@ describe('Background State Updates', () => {
   test('tabService.updateTabStatus should ignore non-http URLs', async () => {
     await tabService.updateTabStatus(123, 'chrome://extensions');
     expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
+  });
+
+  test('tabService.updateTabStatus 在 refresh 後解析出 stableUrl 且只有 highlights 時應保持未保存', async () => {
+    const tabId = 123;
+    const originalUrl = 'https://example.com/articles/slug';
+    const stableUrl = 'https://example.com/?p=2928';
+
+    jest
+      .spyOn(tabService, 'resolveTabUrl')
+      .mockResolvedValueOnce({
+        stableUrl: originalUrl,
+        originalUrl,
+        hasStableUrl: false,
+      })
+      .mockResolvedValueOnce({
+        stableUrl,
+        originalUrl,
+        hasStableUrl: true,
+      });
+    mockGetSavedPageData.mockResolvedValue(null);
+
+    chrome.storage.local.get.mockImplementation((keys, sendResult) => {
+      const keyList = Array.isArray(keys) ? keys : [keys];
+      const result = {};
+
+      if (keyList.includes(`page_${stableUrl}`)) {
+        result[`page_${stableUrl}`] = buildPageRecord({
+          notion: null,
+          highlights: [buildHighlight()],
+        });
+      }
+
+      sendResult?.(result);
+      return Promise.resolve(result);
+    });
+
+    chrome.tabs.get.mockImplementation((requestedTabId, callback) => {
+      const tab = { id: requestedTabId, status: 'complete', url: stableUrl };
+      callback?.(tab);
+      return Promise.resolve(tab);
+    });
+
+    await tabService.updateTabStatus(tabId, originalUrl);
+    await tabService.updateTabStatus(tabId, originalUrl);
+
+    expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '', tabId });
+    expect(injectionService.ensureBundleInjected).toHaveBeenCalledWith(tabId);
   });
 });

@@ -8,6 +8,7 @@ import { initPopup } from '../../../popup/popup.js';
 import {
   getElements,
   updateUIForSavedPage,
+  updateUIForUnsavedPage,
   setStatus,
   setButtonState,
   formatSaveSuccessMessage,
@@ -88,6 +89,27 @@ describe('popup.js Controller', () => {
     expect(checkSettings).toHaveBeenCalled();
     expect(checkPageStatus).toHaveBeenCalledWith();
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
+  });
+
+  it('should initialize unsaved UI when page status is unsaved or deleted', async () => {
+    const { mockElements } = setup();
+    checkPageStatus.mockResolvedValue({
+      success: true,
+      isSaved: false,
+      wasDeleted: true,
+      stableUrl: 'https://example.com/deleted',
+    });
+
+    await initPopup();
+
+    expect(updateUIForUnsavedPage).toHaveBeenCalledWith(
+      mockElements,
+      expect.objectContaining({
+        isSaved: false,
+        wasDeleted: true,
+      })
+    );
+    expect(updateUIForSavedPage).not.toHaveBeenCalled();
   });
 
   it('should handle missing API Key', async () => {
