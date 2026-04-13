@@ -182,6 +182,66 @@ describe('MessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
     });
+
+    it('應該在最外層錯誤回應發送失敗時記錄 warning', async () => {
+      const sendFailure = new Error('response channel closed');
+      handler.register(
+        'syncThrowAction',
+        jest.fn(() => {
+          throw new Error('sync handler failure');
+        })
+      );
+
+      const sendResponse = jest.fn(() => {
+        throw sendFailure;
+      });
+
+      handler.handle({ action: 'syncThrowAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '錯誤回應發送失敗',
+        expect.objectContaining({
+          action: 'syncThrowAction',
+          operation: 'fallbackSendResponse',
+          phase: 'handleCatch',
+          result: 'failed',
+          reason: 'response_channel_closed',
+          error: sendFailure,
+        })
+      );
+    });
+
+    it('應該在非同步錯誤回應發送失敗時記錄 warning', async () => {
+      const sendFailure = new Error('response channel closed');
+      handler.register(
+        'asyncThrowAction',
+        jest.fn(async () => {
+          throw new Error('async handler failure');
+        })
+      );
+
+      const sendResponse = jest.fn(() => {
+        throw sendFailure;
+      });
+
+      handler.handle({ action: 'asyncThrowAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '錯誤回應發送失敗',
+        expect.objectContaining({
+          action: 'asyncThrowAction',
+          operation: 'fallbackSendResponse',
+          phase: 'promiseCatch',
+          result: 'failed',
+          reason: 'response_channel_closed',
+          error: sendFailure,
+        })
+      );
+    });
   });
 
   describe('getRegisteredActions', () => {

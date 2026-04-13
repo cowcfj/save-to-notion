@@ -103,6 +103,16 @@ class MessageHandler {
       responseSent = true;
       sendResponse(payload);
     };
+    const logFallbackSendResponseFailure = (sendError, phase) => {
+      this.logger.warn?.('錯誤回應發送失敗', {
+        action,
+        operation: 'fallbackSendResponse',
+        phase,
+        result: 'failed',
+        reason: 'response_channel_closed',
+        error: sendError,
+      });
+    };
 
     try {
       // 檢查是否有對應的處理函數
@@ -129,8 +139,8 @@ class MessageHandler {
           this.logger.error?.(`Handler error for action '${action}':`, error);
           try {
             safeSendResponse(errorResponse);
-          } catch {
-            /* 忽略 safeSendResponse 錯誤 */
+          } catch (sendError) {
+            logFallbackSendResponseFailure(sendError, 'promiseCatch');
           }
         });
 
@@ -141,8 +151,8 @@ class MessageHandler {
 
       try {
         safeSendResponse(errorResponse);
-      } catch {
-        /* 忽略 safeSendResponse 錯誤 */
+      } catch (sendError) {
+        logFallbackSendResponseFailure(sendError, 'handleCatch');
       }
       return false;
     }
