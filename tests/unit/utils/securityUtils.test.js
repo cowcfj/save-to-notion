@@ -87,8 +87,16 @@ describe('securityUtils', () => {
       expect(isValidNotionUrl('https://example.com')).toBe(false);
     });
 
-    test('notion.com（錯誤域名）應返回 false', () => {
-      expect(isValidNotionUrl('https://notion.com')).toBe(false);
+    test('notion.com 主域名應返回 true', () => {
+      expect(isValidNotionUrl('https://notion.com')).toBe(true);
+    });
+
+    test('app.notion.com 子域名應返回 true', () => {
+      expect(isValidNotionUrl('https://app.notion.com')).toBe(true);
+    });
+
+    test('notion.com.evil.com 偽造子域名應返回 false', () => {
+      expect(isValidNotionUrl('https://notion.com.evil.com')).toBe(false);
     });
 
     test('偽造子域名應返回 false', () => {
