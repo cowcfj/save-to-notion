@@ -47,10 +47,17 @@ async function handleDeletedRemoteStatus(context, deps, savedData) {
 
   if (clearResult.skipped) {
     const latestSavedData = await deps.storageService.getSavedPageData(cleanupUrl);
+    if (!latestSavedData?.notionPageId) {
+      return createSaveStatusResponse({
+        statusKind: SAVE_STATUS_KINDS.UNSAVED,
+        stableUrl: cleanupUrl,
+      });
+    }
+
     return createSaveStatusResponse({
       statusKind: SAVE_STATUS_KINDS.SAVED,
       stableUrl: cleanupUrl,
-      savedData: latestSavedData?.notionPageId ? latestSavedData : savedData,
+      savedData: latestSavedData,
     });
   }
 

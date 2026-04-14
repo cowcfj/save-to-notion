@@ -202,6 +202,36 @@ describe('SaveStatusCoordinator', () => {
     );
   });
 
+  test('cleanup skipped 且查無最新綁定時應回傳 unsaved', async () => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(false);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: true,
+      deletionPending: false,
+    });
+    deps.storageService.clearNotionStateWithRetry.mockResolvedValue({
+      skipped: true,
+      reason: 'pageId_mismatch',
+    });
+    deps.storageService.getSavedPageData.mockResolvedValue(null);
+
+    const result = await resolveSaveStatus(context, deps);
+
+    expect(deps.storageService.getSavedPageData).toHaveBeenCalledWith(
+      'https://example.com/article'
+    );
+    expect(result).toEqual({
+      success: true,
+      statusKind: 'unsaved',
+      isSaved: false,
+      canSave: true,
+      canSyncHighlights: false,
+      stableUrl: 'https://example.com/article',
+      wasDeleted: false,
+      deletionPending: false,
+    });
+  });
+
   test('default deps (getActiveToken) should return unverified_saved', async () => {
     context.forceRefresh = true;
     const result = await resolveSaveStatus(context, { now: deps.now });
