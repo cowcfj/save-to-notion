@@ -1,5 +1,24 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.51.0](https://github.com/cowcfj/save-to-notion/compare/v2.50.1...v2.51.0) (2026-04-14)
+
+
+### ✨ 新功能
+
+* 新增 handlerUtils 模組以簡化代碼重複 ([#409](https://github.com/cowcfj/save-to-notion/issues/409)) ([d7ff837](https://github.com/cowcfj/save-to-notion/commit/d7ff8376c88c768cad7a858b586c35857be716fd))
+* 新增圖片尺寸解析與收集指標功能 ([#408](https://github.com/cowcfj/save-to-notion/issues/408)) ([e84ab22](https://github.com/cowcfj/save-to-notion/commit/e84ab2246fc8d0c0a5864f1ac6018a085f12dbd8))
+* 移除不再需要的測試文件 ([#404](https://github.com/cowcfj/save-to-notion/issues/404)) ([399d640](https://github.com/cowcfj/save-to-notion/commit/399d6404c703459a5a1c14c9a08f8169e37d9912))
+
+
+### ♻️ 代碼重構
+
+* 重構保存狀態管理與UI更新邏輯 ([#410](https://github.com/cowcfj/save-to-notion/issues/410)) ([887570a](https://github.com/cowcfj/save-to-notion/commit/887570ae34d7f9c31704220e21dcdf567c6646e4))
+
+
+### 🧹 其他變更
+
+* 移除不再需要的測試檔案並更新環境測試 ([#402](https://github.com/cowcfj/save-to-notion/issues/402)) ([8a03514](https://github.com/cowcfj/save-to-notion/commit/8a035140b603a10a3fe5859355527e26b6248a1f))
+
 ## [2.50.1](https://github.com/cowcfj/save-to-notion/compare/v2.50.0...v2.50.1) (2026-04-10)
 
 
