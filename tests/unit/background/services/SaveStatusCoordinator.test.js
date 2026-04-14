@@ -201,4 +201,37 @@ describe('SaveStatusCoordinator', () => {
       })
     );
   });
+
+  test('default deps (getActiveToken) should return unverified_saved', async () => {
+    context.forceRefresh = true;
+    const result = await resolveSaveStatus(context, { now: deps.now });
+    expect(result.statusKind).toBe('unverified_saved');
+  });
+
+  test('default deps (resolveCleanupUrl) should use context.resolvedUrl on deletion', async () => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(false);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: true,
+      deletionPending: false,
+    });
+
+    // Omit resolveCleanupUrl to hit the default implementation
+    const minDeps = {
+      notionService: deps.notionService,
+      tabService: deps.tabService,
+      storageService: deps.storageService,
+      getActiveToken: deps.getActiveToken,
+      now: deps.now,
+    };
+
+    const result = await resolveSaveStatus(context, minDeps);
+
+    expect(deps.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+      context.resolvedUrl,
+      expect.anything()
+    );
+    expect(result.stableUrl).toBe(context.resolvedUrl);
+    expect(result.statusKind).toBe('deleted_remote');
+  });
 });
