@@ -59,7 +59,13 @@ describe('popup.js Controller', () => {
 
     // Default mocks
     checkSettings.mockResolvedValue({ valid: true });
-    checkPageStatus.mockResolvedValue({ success: true, isSaved: true });
+    checkPageStatus.mockResolvedValue({
+      success: true,
+      statusKind: 'saved',
+      isSaved: true,
+      canSave: false,
+      canSyncHighlights: true,
+    });
 
     // Mock global chrome
     globalThis.chrome = {
@@ -95,7 +101,10 @@ describe('popup.js Controller', () => {
     const { mockElements } = setup();
     checkPageStatus.mockResolvedValue({
       success: true,
+      statusKind: 'deleted_remote',
       isSaved: false,
+      canSave: true,
+      canSyncHighlights: false,
       wasDeleted: true,
       stableUrl: 'https://example.com/deleted',
     });
@@ -187,14 +196,24 @@ describe('popup.js Controller', () => {
       const { mockElements } = setup();
       await initPopup();
 
-      savePage.mockResolvedValue({ success: true, url: 'https://notion.so/page' });
+      const saveResponse = {
+        success: true,
+        statusKind: 'saved',
+        isSaved: true,
+        canSave: false,
+        canSyncHighlights: true,
+        url: 'https://notion.so/page',
+        notionUrl: 'https://notion.so/page',
+        notionPageId: 'page-123',
+      };
+      savePage.mockResolvedValue(saveResponse);
 
       await triggerEvent(mockElements.saveButton);
 
       expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.SAVING);
       expect(savePage).toHaveBeenCalled();
       expect(formatSaveSuccessMessage).toHaveBeenCalled();
-      expect(updateUIForSavedPage).toHaveBeenCalled();
+      expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, saveResponse);
     });
 
     it('點擊 saveButton 失敗時應顯示錯誤', async () => {

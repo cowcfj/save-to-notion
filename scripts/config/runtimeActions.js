@@ -14,10 +14,15 @@
 /**
  * @typedef {object} CheckPageStatusResponse
  * @property {boolean} success
+ * @property {'saved'|'unsaved'|'deletion_pending'|'deleted_remote'|'unverified_saved'|'error'} [statusKind]
  * @property {boolean} [isSaved]
+ * @property {boolean} [canSave]
+ * @property {boolean} [canSyncHighlights]
  * @property {string} [notionPageId]
  * @property {string} [notionUrl]
+ * @property {string} [title]
  * @property {string} [stableUrl]
+ * @property {boolean} [deletionPending]
  * @property {boolean} [wasDeleted]
  * @property {string} [error]
  */
@@ -31,9 +36,16 @@
  * @typedef {object} SavePageFromToolbarResponse
  * @property {boolean} success
  * @property {string} [error]
+ * @property {'saved'|'unsaved'|'deletion_pending'|'deleted_remote'|'unverified_saved'|'error'} [statusKind]
+ * @property {boolean} [isSaved]
+ * @property {boolean} [canSave]
+ * @property {boolean} [canSyncHighlights]
+ * @property {string} [stableUrl]
  * @property {string} [url]
  * @property {string} [pageId]
  * @property {string} [notionPageId]
+ * @property {string} [notionUrl]
+ * @property {string} [title]
  */
 
 /**
@@ -157,9 +169,16 @@
 /**
  * @typedef {object} SavePageResponse
  * @property {boolean} success
+ * @property {'saved'|'unsaved'|'deletion_pending'|'deleted_remote'|'unverified_saved'|'error'} [statusKind]
+ * @property {boolean} [isSaved]
+ * @property {boolean} [canSave]
+ * @property {boolean} [canSyncHighlights]
+ * @property {string} [stableUrl]
  * @property {string} [url]
  * @property {string} [pageId]
  * @property {string} [notionPageId]
+ * @property {string} [notionUrl]
+ * @property {string} [title]
  * @property {string} [error]
  */
 

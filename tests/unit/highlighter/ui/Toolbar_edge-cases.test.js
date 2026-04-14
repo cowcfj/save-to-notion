@@ -627,6 +627,8 @@ describe('Toolbar 覆蓋率補強', () => {
   describe('bindStorageEvents', () => {
     let addListenerSpy;
     let removeListenerSpy;
+    let runtimeAddSpy;
+    let runtimeRemoveSpy;
 
     beforeEach(() => {
       toolbar?.cleanup();
@@ -634,6 +636,8 @@ describe('Toolbar 覆蓋率補強', () => {
 
       addListenerSpy = jest.fn();
       removeListenerSpy = jest.fn();
+      runtimeAddSpy = jest.fn();
+      runtimeRemoveSpy = jest.fn();
 
       globalThis.chrome.storage = {
         onChanged: {
@@ -641,10 +645,19 @@ describe('Toolbar 覆蓋率補強', () => {
           removeListener: removeListenerSpy,
         },
       };
+
+      globalThis.chrome.runtime = {
+        ...globalThis.chrome.runtime,
+        onMessage: {
+          addListener: runtimeAddSpy,
+          removeListener: runtimeRemoveSpy,
+        },
+      };
     });
 
     afterEach(() => {
       delete globalThis.chrome.storage;
+      delete globalThis.chrome.runtime.onMessage;
     });
 
     test('應該在初始化時註冊 storage 監聽器', () => {
@@ -714,6 +727,30 @@ describe('Toolbar 覆蓋率補強', () => {
 
       // 觸發 listener：不相干的 key
       listener({ settings: { newValue: {} } }, 'local');
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      tb.cleanup();
+    });
+
+    test('應該在收到 PAGE_SAVE_HINT 且 isSaved 為 true 時觸發 updateSaveButtonVisibility', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      const listener = runtimeAddSpy.mock.calls[0][0];
+
+      listener({ action: 'PAGE_SAVE_HINT', isSaved: true });
+
+      expect(updateSpy).toHaveBeenCalled();
+      tb.cleanup();
+    });
+
+    test('應該在收到非 PAGE_SAVE_HINT 時忽略事件', () => {
+      const tb = new Toolbar(managerMock);
+      const updateSpy = jest.spyOn(tb, 'updateSaveButtonVisibility').mockImplementation();
+
+      const listener = runtimeAddSpy.mock.calls[0][0];
+
+      listener({ action: 'OTHER_ACTION', isSaved: true });
 
       expect(updateSpy).not.toHaveBeenCalled();
       tb.cleanup();

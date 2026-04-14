@@ -19,9 +19,27 @@ function ensureChromeRuntimeAvailable() {
 }
 
 /**
+ * @typedef {object} ToolbarSaveStatusResponse
+ * @property {boolean} success
+ * @property {string} [statusKind]
+ * @property {boolean} [isSaved]
+ * @property {boolean} [canSave]
+ * @property {boolean} [canSyncHighlights]
+ * @property {string} [stableUrl]
+ * @property {string} [url]
+ * @property {string} [pageId]
+ * @property {string} [notionPageId]
+ * @property {string} [notionUrl]
+ * @property {string} [title]
+ * @property {boolean} [wasDeleted]
+ * @property {boolean} [deletionPending]
+ * @property {string} [error]
+ */
+
+/**
  * 檢查當前頁面保存狀態
  *
- * @returns {Promise<{success: boolean, isSaved: boolean, stableUrl?: string}|null>}
+ * @returns {Promise<ToolbarSaveStatusResponse|null>}
  */
 export async function checkPageStatus() {
   const sendMessage = ensureChromeRuntimeAvailable();
@@ -31,7 +49,7 @@ export async function checkPageStatus() {
 /**
  * 從 Toolbar 觸發頁面保存到 Notion
  *
- * @returns {Promise<{success: boolean, error?: string}>}
+ * @returns {Promise<ToolbarSaveStatusResponse>}
  */
 export async function savePageFromToolbar() {
   const sendMessage = ensureChromeRuntimeAvailable();

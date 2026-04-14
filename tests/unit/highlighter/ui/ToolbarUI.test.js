@@ -24,24 +24,48 @@ describe('ToolbarUI', () => {
     test('當有任何按鈕缺失時應直接返回', () => {
       const btn = document.createElement('button');
       // 不會拋出異常即代表正常
-      expect(() => applySaveSyncVisibility(null, btn, true)).not.toThrow();
-      expect(() => applySaveSyncVisibility(btn, null, false)).not.toThrow();
+      expect(() =>
+        applySaveSyncVisibility(null, btn, { statusKind: 'saved', canSave: false })
+      ).not.toThrow();
+      expect(() =>
+        applySaveSyncVisibility(btn, null, { statusKind: 'unsaved', canSave: true })
+      ).not.toThrow();
     });
 
-    test('isSaved 為 true 時應顯示 sync 隱藏 save', () => {
+    test('saved 狀態應顯示 sync 隱藏 save', () => {
       const saveBtn = document.createElement('button');
       const syncBtn = document.createElement('button');
-      applySaveSyncVisibility(saveBtn, syncBtn, true);
+      applySaveSyncVisibility(saveBtn, syncBtn, {
+        statusKind: 'saved',
+        canSave: false,
+        canSyncHighlights: true,
+      });
       expect(saveBtn.style.display).toBe('none');
       expect(syncBtn.style.display).toBe('inline-flex');
     });
 
-    test('isSaved 為 false 時應顯示 save 隱藏 sync', () => {
+    test('deleted_remote 狀態應顯示 save 隱藏 sync', () => {
       const saveBtn = document.createElement('button');
       const syncBtn = document.createElement('button');
-      applySaveSyncVisibility(saveBtn, syncBtn, false);
+      applySaveSyncVisibility(saveBtn, syncBtn, {
+        statusKind: 'deleted_remote',
+        canSave: true,
+        canSyncHighlights: false,
+      });
       expect(saveBtn.style.display).toBe('inline-flex');
       expect(syncBtn.style.display).toBe('none');
+    });
+
+    test('deletion_pending 狀態應維持 sync 顯示', () => {
+      const saveBtn = document.createElement('button');
+      const syncBtn = document.createElement('button');
+      applySaveSyncVisibility(saveBtn, syncBtn, {
+        statusKind: 'deletion_pending',
+        canSave: false,
+        canSyncHighlights: true,
+      });
+      expect(saveBtn.style.display).toBe('none');
+      expect(syncBtn.style.display).toBe('inline-flex');
     });
   });
 
