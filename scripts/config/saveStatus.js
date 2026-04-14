@@ -1,5 +1,5 @@
 /**
- * Save status contract helpers
+ * 保存狀態契約輔助函式
  *
  * 集中定義跨 background / popup / toolbar 共享的保存狀態語意。
  */
@@ -12,6 +12,18 @@ export const SAVE_STATUS_KINDS = Object.freeze({
   UNVERIFIED_SAVED: 'unverified_saved',
   ERROR: 'error',
 });
+
+const RESERVED_RESPONSE_FIELDS = new Set([
+  'success',
+  'statusKind',
+  'stableUrl',
+  'isSaved',
+  'canSave',
+  'canSyncHighlights',
+  'wasDeleted',
+  'deletionPending',
+  'error',
+]);
 
 function resolveCapabilities(statusKind) {
   switch (statusKind) {
@@ -68,6 +80,9 @@ export function createSaveStatusResponse({
 } = {}) {
   const { canSave, canSyncHighlights } = resolveCapabilities(statusKind);
   const isSaved = isSavedStatusKind(statusKind);
+  const sanitizedExtra = Object.fromEntries(
+    Object.entries(extra).filter(([key]) => !RESERVED_RESPONSE_FIELDS.has(key))
+  );
 
   return {
     success,
@@ -82,6 +97,6 @@ export function createSaveStatusResponse({
     ...(savedData?.notionUrl ? { notionUrl: savedData.notionUrl } : {}),
     ...(savedData?.title ? { title: savedData.title } : {}),
     ...(error ? { error } : {}),
-    ...extra,
+    ...sanitizedExtra,
   };
 }
