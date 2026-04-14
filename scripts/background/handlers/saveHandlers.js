@@ -23,11 +23,12 @@ import {
   HIGHLIGHT_STYLE_OPTIONS,
 } from '../utils/highlightStyleMerger.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/app.js';
 import { CONTENT_QUALITY } from '../../config/extraction.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { SAVE_STATUS_KINDS, createSaveStatusResponse } from '../../config/saveStatus.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
+import { resolveSaveStatus } from '../services/SaveStatusCoordinator.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/storageKeys.js';
 import { getActiveTab } from './handlerUtils.js';
@@ -114,33 +115,13 @@ async function _resolveStatusTab(sender) {
   return activeTab;
 }
 
-function _buildSavedStatusResponse(savedData, normUrl, extra = {}) {
-  return {
-    success: true,
-    isSaved: true,
-    notionPageId: savedData.notionPageId,
-    notionUrl: savedData.notionUrl,
-    title: savedData.title,
-    stableUrl: normUrl,
-    ...extra,
-  };
-}
-
-/**
- * 判斷是否可直接返回快取狀態（略過 Notion API 呼叫）。
- *
- * 當 migratedFromOldKey 為 true 時強制返回 false（不使用快取）：
- * 剛遷移完的頁面資料可能尚未在 Notion 端同步，
- * 需即時驗證以確保本地與 Notion 狀態的一致性。
- *
- * @param {object} root0 - 參數對象
- * @param {boolean} root0.forceRefresh - 是否強制刷新
- * @param {boolean} root0.migratedFromOldKey - 是否剛完成 key 遷移
- * @param {boolean} root0.isCacheValid - 快取是否仍在 TTL 內
- * @returns {boolean} true 表示可直接使用快取
- */
-function _shouldReturnCachedStatus({ forceRefresh, migratedFromOldKey, isCacheValid }) {
-  return !forceRefresh && !migratedFromOldKey && isCacheValid;
+function buildSaveSuccessStatus(savedData, extra = {}) {
+  return createSaveStatusResponse({
+    statusKind: SAVE_STATUS_KINDS.SAVED,
+    stableUrl: extra.stableUrl,
+    savedData,
+    extra,
+  });
 }
 
 // ============================================================================
@@ -192,11 +173,6 @@ export function createSaveHandlers(services) {
 
   async function clearNotionStateWithCanonicalPath(pageUrl, source, expectedPageId) {
     return await storageService.clearNotionStateWithRetry(pageUrl, { source, expectedPageId });
-  }
-
-  async function getLatestSavedDataAfterCleanupSkip(resolvedUrl, fallbackData) {
-    const latestSavedData = await storageService.getSavedPageData(resolvedUrl);
-    return latestSavedData?.notionPageId ? latestSavedData : fallbackData;
   }
 
   async function resolveDeletionCleanupUrl(activeTab, fallbackUrl) {
@@ -519,6 +495,23 @@ export function createSaveHandlers(services) {
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
       result.blockCount = contentResult.blocks.length;
       result.created = true;
+      result.title = contentResult.title;
+      Object.assign(
+        result,
+        buildSaveSuccessStatus(
+          {
+            notionPageId: result.pageId,
+            notionUrl: result.url,
+            title: contentResult.title,
+          },
+          {
+            url: result.url,
+            pageId: result.pageId,
+            notionPageId: result.pageId,
+            stableUrl: normUrl,
+          }
+        )
+      );
 
       // [New] 混合式推播 (Hybrid Push) 策略：主動通知 Toolbar 刷新 UI
       sendPageSaveHint(activeTabId, true);
@@ -550,10 +543,20 @@ export function createSaveHandlers(services) {
       if (result.success) {
         result.highlightCount = highlights.length;
         result.highlightsUpdated = true;
+        result.title = savedData.title;
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
           lastUpdated: Date.now(),
         });
+        Object.assign(
+          result,
+          buildSaveSuccessStatus(savedData, {
+            url: savedData.notionUrl,
+            pageId: savedData.notionPageId,
+            notionPageId: savedData.notionPageId,
+            stableUrl: normUrl,
+          })
+        );
 
         // 混合式推播
         sendPageSaveHint(activeTabId, true);
@@ -573,10 +576,26 @@ export function createSaveHandlers(services) {
         result.imageCount = imageCount;
         result.blockCount = contentResult.blocks.length;
         result.updated = true;
+        result.title = contentResult.title;
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
           lastUpdated: Date.now(),
         });
+        Object.assign(
+          result,
+          buildSaveSuccessStatus(
+            {
+              ...savedData,
+              title: contentResult.title,
+            },
+            {
+              url: savedData.notionUrl,
+              pageId: savedData.notionPageId,
+              notionPageId: savedData.notionPageId,
+              stableUrl: normUrl,
+            }
+          )
+        );
 
         // 混合式推播
         sendPageSaveHint(activeTabId, true);
@@ -769,116 +788,6 @@ export function createSaveHandlers(services) {
       activeTabId: activeTab.id,
       sendResponse,
     });
-  }
-
-  async function _resolveExistsWithRetry(savedData, apiKey) {
-    let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
-
-    Logger.debug('checkPageExists result', {
-      action: 'checkPageExists',
-      result: exists,
-    });
-
-    if (exists !== null) {
-      return exists;
-    }
-
-    Logger.warn('首次檢查頁面存在性失敗，正在重試', {
-      action: 'checkPageExists',
-      pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-    });
-
-    await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
-    exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
-
-    Logger.debug('Retry checkPageExists result', {
-      action: 'checkPageExists',
-      attempt: 'retry',
-      result: exists,
-    });
-
-    return exists;
-  }
-
-  async function _handleDeletedOrPending(params) {
-    const { exists, deletionCheck, savedData, resolvedUrl, normUrl, activeTab, sendResponse } =
-      params;
-
-    if (exists === false && deletionCheck.shouldDelete) {
-      Logger.log('頁面已在 Notion 中刪除，正在清理狀態', {
-        action: 'syncLocalState',
-        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-      });
-
-      const cleanupUrl = await resolveDeletionCleanupUrl(activeTab, resolvedUrl);
-
-      const clearResult = await clearNotionStateWithCanonicalPath(
-        resolvedUrl,
-        'saveHandlers._handleDeletedOrPending',
-        savedData.notionPageId
-      );
-      if (clearResult.skipped) {
-        Logger.warn('同步本地狀態時清理略過：本地 notion 綁定已變更，保留已保存狀態', {
-          action: 'checkPageStatus',
-          operation: 'syncLocalState',
-          url: sanitizeUrlForLogging(normUrl),
-          reason: clearResult.reason,
-          result: 'cleanup_skipped',
-        });
-        const latestSavedData = await getLatestSavedDataAfterCleanupSkip(cleanupUrl, savedData);
-        sendResponse(_buildSavedStatusResponse(latestSavedData, cleanupUrl));
-        return true;
-      }
-      if (!clearResult.cleared) {
-        Logger.error('同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理', {
-          action: 'checkPageStatus',
-          operation: 'syncLocalState',
-          url: sanitizeUrlForLogging(normUrl),
-          attempts: clearResult.attempts,
-          error: clearResult.error,
-        });
-        // Re-arm: 清除失敗，恢復 pending token 供下次重試
-        tabService.confirmRemotePageMissing(savedData.notionPageId);
-      }
-
-      try {
-        chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-      } catch {
-        /* ignore */
-      }
-
-      sendResponse({
-        success: true,
-        isSaved: false,
-        wasDeleted: true,
-        stableUrl: cleanupUrl,
-      });
-      return true;
-    }
-
-    if (exists === false && deletionCheck.deletionPending) {
-      Logger.warn('首次檢測頁面不存在，標記 deletionPending', {
-        action: 'syncLocalState',
-        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-      });
-      sendResponse(
-        _buildSavedStatusResponse(savedData, normUrl, {
-          deletionPending: true,
-        })
-      );
-      return true;
-    }
-
-    return false;
-  }
-
-  async function _touchLastVerifiedIfNeeded(exists, savedData, normUrl, now) {
-    if (exists !== true) {
-      return;
-    }
-
-    const updatedData = { ...savedData, lastVerifiedAt: now };
-    await storageService.setSavedPageData(normUrl, updatedData);
   }
 
   return {
@@ -1088,60 +997,42 @@ export function createSaveHandlers(services) {
           resolvedUrl,
         } = await _loadStatusContext(activeTab);
 
-        if (!savedData?.notionPageId) {
-          return sendResponse({ success: true, isSaved: false, stableUrl: normUrl });
-        }
-
-        const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
-        const now = Date.now();
-        const lastVerified = savedData.lastVerifiedAt || 0;
-        const isCacheValid = now - lastVerified < TTL;
-
         // Debug Log for forceRefresh
         if (request.forceRefresh) {
           Logger.log('強制刷新頁面狀態', {
             action: 'checkPageStatus',
             url: sanitizeUrlForLogging(normUrl),
             migrated: migratedFromOldKey,
-            cacheAge: now - lastVerified,
           });
         }
 
-        // 剛從舊 key 遷移完成時不可直接信任快取；即使 TTL 仍有效，也必須略過快取並重新向 Notion 驗證。
-        if (
-          _shouldReturnCachedStatus({
-            forceRefresh: request.forceRefresh,
+        const statusResult = await resolveSaveStatus(
+          {
+            savedData,
+            normUrl,
+            resolvedUrl,
             migratedFromOldKey,
-            isCacheValid,
-          })
-        ) {
-          return sendResponse(_buildSavedStatusResponse(savedData, normUrl));
+            forceRefresh: request.forceRefresh,
+          },
+          {
+            notionService,
+            storageService,
+            tabService,
+            getActiveToken: getActiveNotionToken,
+            resolveCleanupUrl: async () => resolveDeletionCleanupUrl(activeTab, resolvedUrl),
+            logger: Logger,
+          }
+        );
+
+        if (statusResult.statusKind === SAVE_STATUS_KINDS.DELETED_REMOTE) {
+          try {
+            chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
+          } catch {
+            /* ignore */
+          }
         }
 
-        const activeToken = await getActiveNotionToken();
-        if (!activeToken.token) {
-          return sendResponse(_buildSavedStatusResponse(savedData, normUrl));
-        }
-
-        const exists = await _resolveExistsWithRetry(savedData, activeToken.token);
-
-        const deletionCheck = resolveDeletionConfirmation(savedData.notionPageId, exists);
-        const statusHandled = await _handleDeletedOrPending({
-          exists,
-          deletionCheck,
-          savedData,
-          resolvedUrl,
-          normUrl,
-          activeTab,
-          sendResponse,
-        });
-        if (statusHandled) {
-          return;
-        }
-
-        await _touchLastVerifiedIfNeeded(exists, savedData, normUrl, now);
-
-        sendResponse(_buildSavedStatusResponse(savedData, normUrl));
+        sendResponse(statusResult);
       } catch (error) {
         Logger.error('檢查頁面狀態時出錯', { action: 'checkPageStatus', error: error.message });
         const safeMessage = sanitizeApiError(error, 'check_page_status');

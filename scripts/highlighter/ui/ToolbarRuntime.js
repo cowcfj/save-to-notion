@@ -21,7 +21,14 @@ function ensureChromeRuntimeAvailable() {
 /**
  * 檢查當前頁面保存狀態
  *
- * @returns {Promise<{success: boolean, isSaved: boolean, stableUrl?: string}|null>}
+ * @returns {Promise<{
+ *   success: boolean,
+ *   statusKind?: string,
+ *   isSaved?: boolean,
+ *   canSave?: boolean,
+ *   canSyncHighlights?: boolean,
+ *   stableUrl?: string
+ * }|null>}
  */
 export async function checkPageStatus() {
   const sendMessage = ensureChromeRuntimeAvailable();
@@ -31,7 +38,7 @@ export async function checkPageStatus() {
 /**
  * 從 Toolbar 觸發頁面保存到 Notion
  *
- * @returns {Promise<{success: boolean, error?: string}>}
+ * @returns {Promise<{success: boolean, statusKind?: string, isSaved?: boolean, error?: string}>}
  */
 export async function savePageFromToolbar() {
   const sendMessage = ensureChromeRuntimeAvailable();

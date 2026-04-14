@@ -55,12 +55,15 @@ export function getToolbarElements(container) {
  *
  * @param {HTMLElement|null} saveBtn
  * @param {HTMLElement|null} syncBtn
- * @param {boolean} isSaved - 頁面是否已保存到 Notion
+ * @param {object|boolean} status - 保存狀態 contract 或向後兼容的 isSaved 布林值
  */
-export function applySaveSyncVisibility(saveBtn, syncBtn, isSaved) {
+export function applySaveSyncVisibility(saveBtn, syncBtn, status) {
   if (!saveBtn || !syncBtn) {
     return;
   }
+
+  const isSaved =
+    typeof status === 'object' && status !== null ? status.canSave === false : Boolean(status);
 
   if (isSaved) {
     // 已保存 → 顯示同步按鈕，隱藏保存按鈕

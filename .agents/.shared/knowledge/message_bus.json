@@ -12,9 +12,16 @@
         "payload": {},
         "response": {
           "success": "boolean",
+          "statusKind": "\"saved\" | \"unsaved\" | \"deletion_pending\" | \"deleted_remote\" | \"unverified_saved\" | \"error\" (optional)",
+          "isSaved": "boolean (optional)",
+          "canSave": "boolean (optional)",
+          "canSyncHighlights": "boolean (optional)",
+          "stableUrl": "string (optional)",
           "url": "string (optional)",
           "pageId": "string (optional)",
           "notionPageId": "string (optional)",
+          "notionUrl": "string (optional)",
+          "title": "string (optional)",
           "error": "string (optional)"
         }
       },
@@ -23,9 +30,16 @@
         "payload": {},
         "response": {
           "success": "boolean",
+          "statusKind": "\"saved\" | \"unsaved\" | \"deletion_pending\" | \"deleted_remote\" | \"unverified_saved\" | \"error\" (optional)",
+          "isSaved": "boolean (optional)",
+          "canSave": "boolean (optional)",
+          "canSyncHighlights": "boolean (optional)",
+          "stableUrl": "string (optional)",
           "url": "string (optional)",
           "pageId": "string (optional)",
           "notionPageId": "string (optional)",
+          "notionUrl": "string (optional)",
+          "title": "string (optional)",
           "error": "string (optional)"
         }
       },
@@ -52,14 +66,17 @@
         }
       },
       "checkPageStatus": {
-        "description": "檢查當前頁面是否已保存，並回傳 stableUrl 與刪除確認狀態",
+        "description": "檢查當前頁面是否已保存，Background 會回傳 canonical save status contract",
         "payload": {
           "forceRefresh": "boolean (optional)",
           "url": "string (optional)"
         },
         "response": {
           "success": "boolean",
+          "statusKind": "\"saved\" | \"unsaved\" | \"deletion_pending\" | \"deleted_remote\" | \"unverified_saved\" | \"error\" (optional)",
           "isSaved": "boolean (optional)",
+          "canSave": "boolean (optional)",
+          "canSyncHighlights": "boolean (optional)",
           "notionPageId": "string (optional)",
           "notionUrl": "string (optional)",
           "title": "string (optional)",

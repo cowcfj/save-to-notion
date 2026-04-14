@@ -1067,11 +1067,15 @@ describe('saveHandlers', () => {
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page123');
+      expect(mockServices.tabService.consumeDeletionConfirmation).toHaveBeenCalledWith(
+        'page123',
+        false
+      );
       expect(mockServices.storageService.clearNotionStateWithRetry).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          statusKind: 'deletion_pending',
           isSaved: true,
           deletionPending: true,
         })
@@ -1093,11 +1097,11 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
+      expect(mockServices.tabService.consumeDeletionConfirmation).toHaveBeenCalledTimes(2);
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          source: 'saveHandlers._handleDeletedOrPending',
+          source: 'SaveStatusCoordinator.resolve',
           expectedPageId: 'page123',
         })
       );
@@ -1105,6 +1109,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
+          statusKind: 'deleted_remote',
           isSaved: false,
           wasDeleted: true,
         })
@@ -1134,6 +1139,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
+          statusKind: 'deleted_remote',
           isSaved: false,
           wasDeleted: true,
         })
@@ -1144,14 +1150,13 @@ describe('saveHandlers', () => {
           error: '清除本地 Notion 狀態失敗',
         })
       );
+      expect(mockServices.tabService.consumeDeletionConfirmation).toHaveBeenCalledTimes(2);
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page123');
-      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(3);
+      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(1);
       expect(Logger.error).toHaveBeenCalledWith(
-        '同步本地狀態時清除 Notion 綁定失敗，改以內部自癒處理',
+        '清理本地 notion 狀態失敗，維持 deleted_remote 對外狀態',
         expect.objectContaining({
           action: 'checkPageStatus',
-          operation: 'syncLocalState',
-          url: expect.any(String),
           attempts: 2,
           error: expect.any(Object),
         })
@@ -1222,13 +1227,14 @@ describe('saveHandlers', () => {
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         rawUrl,
         expect.objectContaining({
-          source: 'saveHandlers._handleDeletedOrPending',
+          source: 'SaveStatusCoordinator.resolve',
           expectedPageId: 'page123',
         })
       );
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
+          statusKind: 'saved',
           isSaved: true,
           notionPageId: 'page456',
           notionUrl: 'https://notion.so/page456',
@@ -1240,7 +1246,7 @@ describe('saveHandlers', () => {
           wasDeleted: true,
         })
       );
-      expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
+      expect(mockServices.tabService.consumeDeletionConfirmation).toHaveBeenCalledTimes(2);
     });
 
     it('checkPageStatus 刪除確認時應保留原 cleanup key，並以重新解析的 stableUrl 回應', async () => {
@@ -1286,13 +1292,14 @@ describe('saveHandlers', () => {
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         rawUrl,
         expect.objectContaining({
-          source: 'saveHandlers._handleDeletedOrPending',
+          source: 'SaveStatusCoordinator.resolve',
           expectedPageId: 'page123',
         })
       );
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
+          statusKind: 'deleted_remote',
           isSaved: false,
           wasDeleted: true,
           stableUrl,
@@ -1338,7 +1345,7 @@ describe('saveHandlers', () => {
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         rawUrl,
         expect.objectContaining({
-          source: 'saveHandlers._handleDeletedOrPending',
+          source: 'SaveStatusCoordinator.resolve',
           expectedPageId: 'page123',
         })
       );
@@ -1354,6 +1361,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: true,
+          statusKind: 'deleted_remote',
           isSaved: false,
           wasDeleted: true,
           stableUrl: rawUrl,
@@ -1416,15 +1424,18 @@ describe('saveHandlers', () => {
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         rawUrl,
         expect.objectContaining({
-          source: 'saveHandlers._handleDeletedOrPending',
+          source: 'SaveStatusCoordinator.resolve',
           expectedPageId: 'page-123',
         })
       );
-      expect(sendResponse).toHaveBeenLastCalledWith({
-        success: true,
-        isSaved: false,
-        stableUrl,
-      });
+      expect(sendResponse).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          success: true,
+          statusKind: 'unsaved',
+          isSaved: false,
+          stableUrl,
+        })
+      );
     });
 
     it('checkPageStatus 應該在 checkPageExists 返回 null 時重試', async () => {

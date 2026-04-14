@@ -60,7 +60,18 @@ export async function checkSettings() {
  * 檢查頁面狀態
  *
  * @param {object} [options={}] - 額外選項
- * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
+ * @returns {Promise<{
+ *   success: boolean,
+ *   statusKind?: string,
+ *   isSaved?: boolean,
+ *   canSave?: boolean,
+ *   canSyncHighlights?: boolean,
+ *   notionUrl?: string,
+ *   notionPageId?: string,
+ *   stableUrl?: string,
+ *   wasDeleted?: boolean,
+ *   deletionPending?: boolean
+ * }>}
  */
 export async function checkPageStatus(options = {}) {
   try {
@@ -85,7 +96,7 @@ export async function checkPageStatus(options = {}) {
 /**
  * 保存頁面到 Notion
  *
- * @returns {Promise<object>} 保存結果
+ * @returns {Promise<object>} 保存結果，成功時包含 canonical save status 欄位
  */
 export async function savePage() {
   try {

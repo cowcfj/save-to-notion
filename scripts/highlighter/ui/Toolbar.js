@@ -496,7 +496,7 @@ export class Toolbar {
 
     try {
       const response = await checkPageStatus();
-      applySaveSyncVisibility(saveBtn, syncBtn, response?.success && response.isSaved);
+      applySaveSyncVisibility(saveBtn, syncBtn, response?.success ? response : false);
     } catch {
       // 查詢失敗時預設顯示保存按鈕
       applySaveSyncVisibility(saveBtn, syncBtn, false);
