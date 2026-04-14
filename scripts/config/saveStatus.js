@@ -43,6 +43,14 @@ export function isSavedStatusResponse(status) {
     return false;
   }
 
+  if (status.deletionPending === true) {
+    return true;
+  }
+
+  if (status.wasDeleted === true) {
+    return false;
+  }
+
   if (typeof status.statusKind === 'string') {
     return isSavedStatusKind(status.statusKind);
   }

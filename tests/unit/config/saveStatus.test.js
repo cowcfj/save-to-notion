@@ -9,6 +9,31 @@ describe('saveStatus edge cases', () => {
     expect(isSavedStatusResponse(undefined)).toBe(false);
   });
 
+  test('isSavedStatusResponse should treat deletionPending as saved', () => {
+    expect(
+      isSavedStatusResponse({
+        deletionPending: true,
+      })
+    ).toBe(true);
+  });
+
+  test('isSavedStatusResponse should treat wasDeleted as unsaved', () => {
+    expect(
+      isSavedStatusResponse({
+        wasDeleted: true,
+      })
+    ).toBe(false);
+  });
+
+  test('isSavedStatusResponse should prioritize deletionPending over wasDeleted', () => {
+    expect(
+      isSavedStatusResponse({
+        deletionPending: true,
+        wasDeleted: true,
+      })
+    ).toBe(true);
+  });
+
   test('createSaveStatusResponse should handle unknown statusKind correctly', () => {
     const response = createSaveStatusResponse({
       statusKind: 'unknown_kind',
