@@ -106,7 +106,7 @@ export function getToolbarCSS() {
             transform: scale(0.96);
         }
 
-        /* 主按鈕 */
+        /* 主按鈕（Highlighter mode 專用色，刻意不與全域 Primary CTA 共用 #2563eb） */
         .nh-btn-primary {
             background: #2eaadc;
             color: white;
