@@ -283,6 +283,41 @@ describe('sidepanelUI', () => {
 
       expect(indicator.style.backgroundColor).toBe('rgb(253, 224, 71)');
     });
+
+    it('多筆標註應重用同一份 computed style 結果，避免重複讀取 root style', () => {
+      const elements = getElements();
+      const originalGetComputedStyle = globalThis.getComputedStyle;
+      const getPropertyValue = jest.fn(token => {
+        const colors = {
+          '--hl-yellow': '#fde047',
+          '--hl-green': '#86efac',
+          '--hl-blue': '#93c5fd',
+          '--hl-red': '#fca5a5',
+        };
+
+        return colors[token] || '';
+      });
+
+      globalThis.getComputedStyle = jest.fn(() => ({ getPropertyValue }));
+
+      try {
+        renderList(
+          elements,
+          [
+            { id: '1', text: 'One', color: 'yellow' },
+            { id: '2', text: 'Two', color: 'green' },
+            { id: '3', text: 'Three', color: 'red' },
+          ],
+          'key',
+          jest.fn()
+        );
+
+        expect(globalThis.getComputedStyle).toHaveBeenCalledTimes(1);
+        expect(getPropertyValue).toHaveBeenCalledTimes(4);
+      } finally {
+        globalThis.getComputedStyle = originalGetComputedStyle;
+      }
+    });
   });
 
   // === 視圖切換 ===

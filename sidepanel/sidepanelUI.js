@@ -56,21 +56,40 @@ function normalizeHighlightColor(color) {
 }
 
 /**
+ * 一次解析 side panel 用到的 highlight 色票，避免迴圈中重複讀取 computed style
+ *
+ * @returns {Record<'yellow'|'green'|'blue'|'red', string>}
+ */
+function buildHighlightColorCache() {
+  const rootStyle = globalThis.getComputedStyle(document.documentElement);
+
+  return Object.fromEntries(
+    Object.entries(COLOR_MAP).map(([color, tokenName]) => {
+      const normalizedColor = normalizeHighlightColor(color);
+      const resolvedColor = rootStyle.getPropertyValue(tokenName).trim();
+
+      return [
+        normalizedColor,
+        resolvedColor ||
+          COLOR_FALLBACK_VALUES[normalizedColor] ||
+          COLOR_FALLBACK_VALUES[DEFAULT_HIGHLIGHT_COLOR],
+      ];
+    })
+  );
+}
+
+/**
  * 解析可安全指派給 DOM 的實際背景色
  *
  * @param {string} color
+ * @param {Record<string, string>} [colorCache]
  * @returns {string}
  */
-function resolveHighlightColor(color) {
+function resolveHighlightColor(color, colorCache) {
   const normalizedColor = normalizeHighlightColor(color);
-  const tokenName = COLOR_MAP[normalizedColor];
-  const resolvedColor = globalThis
-    .getComputedStyle(document.documentElement)
-    .getPropertyValue(tokenName)
-    .trim();
 
   return (
-    resolvedColor ||
+    colorCache?.[normalizedColor] ||
     COLOR_FALLBACK_VALUES[normalizedColor] ||
     COLOR_FALLBACK_VALUES[DEFAULT_HIGHLIGHT_COLOR]
   );
@@ -245,6 +264,7 @@ export function hideMessage(elements) {
  */
 export function renderList(elements, highlights, storageKey, onDelete) {
   elements.highlightsList.textContent = '';
+  const highlightColorCache = buildHighlightColorCache();
 
   highlights.forEach(hl => {
     const clone = elements.template.content.cloneNode(true);
@@ -256,7 +276,7 @@ export function renderList(elements, highlights, storageKey, onDelete) {
     textEl.textContent = hl.text;
 
     // side panel 僅接受專案支援色票，未知值一律回退 yellow
-    colorInd.style.backgroundColor = resolveHighlightColor(hl?.color);
+    colorInd.style.backgroundColor = resolveHighlightColor(hl?.color, highlightColorCache);
 
     // 綁定刪除事件（回調由呼叫端 sidepanel.js 的 handleDelete 提供）
     delBtn.addEventListener('click', () => onDelete(hl.id, storageKey));

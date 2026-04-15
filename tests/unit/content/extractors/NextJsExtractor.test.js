@@ -711,6 +711,9 @@ describe('NextJsExtractor', () => {
         'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
         expect.any(Object)
       );
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch.mock.calls[0][0]).not.toContain('?');
+      expect(globalThis.fetch.mock.calls[0][0]).not.toContain('#');
     });
 
     it('stale 時 _next/data 失敗只記錄 debug 診斷，不記錄 warn', async () => {
