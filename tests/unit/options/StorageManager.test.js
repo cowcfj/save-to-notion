@@ -1105,4 +1105,13 @@ describe('options.html 結構', () => {
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });
+
+  test('cleanup-status 應保留既有 class 並提供 polite status live region', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+
+    expect(html).toMatch(
+      /<div[^>]*id="cleanup-status"[^>]*class="status-message mt-8"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/
+    );
+  });
 });
