@@ -5,6 +5,7 @@
 import { HighlightMigration } from '../../../../scripts/highlighter/core/HighlightMigration.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
+import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
@@ -77,23 +78,29 @@ describe('core/HighlightMigration', () => {
   });
 
   describe('checkAndMigrate', () => {
-    test('should skip when normalizeUrl is not available', async () => {
+    test('should not depend on globalThis.normalizeUrl being available', async () => {
       const cachedNormalizeUrl = globalThis.normalizeUrl;
       globalThis.normalizeUrl = undefined;
 
+      const legacyData = [{ text: 'test', color: 'yellow' }];
+      localStorage.setItem('highlights_http://localhost/', JSON.stringify(legacyData));
+
       globalThis.chrome = {
+        runtime: { id: 'test-id' },
         storage: {
           local: {
-            get: jest.fn(),
+            get: jest.fn().mockResolvedValue({}),
+            set: jest.fn().mockResolvedValue({}),
           },
         },
       };
 
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
       await migration.checkAndMigrate();
 
-      // Should verify calling checkAndMigrate without normalizeUrl is safe
-      // and doesn't proceed with migration logic (e.g. accessing storage)
-      expect(globalThis.chrome.storage.local.get).not.toHaveBeenCalled();
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalled();
 
       globalThis.normalizeUrl = cachedNormalizeUrl;
     });
@@ -164,6 +171,39 @@ describe('core/HighlightMigration', () => {
       expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalled();
     });
 
+    test('should ignore a poisoned globalThis.normalizeUrl override and use the module normalizer', async () => {
+      globalThis.history.pushState({}, '', '/path?utm_source=fb#frag');
+
+      const legacyData = [{ text: 'test', color: 'yellow' }];
+      localStorage.setItem(
+        `highlights_${normalizeUrl(globalThis.location.href)}`,
+        JSON.stringify(legacyData)
+      );
+
+      globalThis.normalizeUrl = jest.fn(() => 'javascript:alert(1)');
+      globalThis.chrome = {
+        runtime: { id: 'test-id' },
+        storage: {
+          local: {
+            get: jest.fn().mockResolvedValue({}),
+            set: jest.fn().mockResolvedValue({}),
+          },
+        },
+      };
+
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
+      await migration.checkAndMigrate();
+
+      expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalledWith(
+        'http://localhost/path',
+        expect.objectContaining({
+          url: 'http://localhost/path',
+        })
+      );
+    });
+
     test('should limit localStorage scan and warn when exceeding limit', async () => {
       // Modify limit for testing
       const originalLimit = HighlightMigration.MAX_SCAN_LIMIT;
@@ -216,7 +256,7 @@ describe('core/HighlightMigration', () => {
 
       expect(findTextInPage).toHaveBeenCalledWith('test content');
       expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalledWith(
-        'https://example.com',
+        normalizeUrl('https://example.com'),
         expect.any(Object)
       );
     });
@@ -319,6 +359,22 @@ describe('core/HighlightMigration', () => {
       const saveArg = HighlightStorageGateway.saveHighlights.mock.calls[0][1];
       expect(saveArg.highlights).toHaveLength(1);
       expect(saveArg.highlights[0].text).toBe('found');
+    });
+
+    test('should skip migration when normalizedUrl is not a safe http(s) URL', async () => {
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
+      localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
+
+      await migration.migrateToNewFormat([{ text: 'test' }], 'old_key', 'javascript:alert(1)');
+
+      expect(HighlightStorageGateway.saveHighlights).not.toHaveBeenCalled();
+      expect(localStorage.getItem('old_key')).not.toBeNull();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '跳過遷移：normalizedUrl 無效',
+        expect.objectContaining({ action: 'migrateToNewFormat' })
+      );
     });
 
     test('should log warning when _markMigrationComplete fails', async () => {
