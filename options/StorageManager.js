@@ -613,7 +613,7 @@ export class StorageManager {
       targetElement.append(textSpan);
     }
 
-    targetElement.className = 'status-message';
-    targetElement.classList.add(type);
+    targetElement.classList.remove('success', 'error', 'info', 'warning');
+    targetElement.classList.add('status-message', type);
   }
 }

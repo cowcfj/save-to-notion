@@ -786,11 +786,16 @@ describe('StorageManager — showDataStatus', () => {
     expect(storageManager.elements.dataStatus.className).toContain('success');
   });
 
-  test('指定第三個參數時會寫入對應容器且不污染預設', () => {
+  test('指定第三個參數時會保留既有佈局類別並替換狀態類別', () => {
+    storageManager.elements.cleanupStatus.classList.add('warning');
+
     storageManager.showDataStatus('針對清理', 'success', 'cleanupStatus');
+
     expect(storageManager.elements.cleanupStatus.textContent).toBe('針對清理');
-    expect(storageManager.elements.cleanupStatus.className).toContain('status-message');
-    expect(storageManager.elements.cleanupStatus.className).toContain('success');
+    expect(storageManager.elements.cleanupStatus.classList.contains('status-message')).toBe(true);
+    expect(storageManager.elements.cleanupStatus.classList.contains('mt-8')).toBe(true);
+    expect(storageManager.elements.cleanupStatus.classList.contains('success')).toBe(true);
+    expect(storageManager.elements.cleanupStatus.classList.contains('warning')).toBe(false);
     expect(storageManager.elements.dataStatus.textContent).toBe('');
   });
 
