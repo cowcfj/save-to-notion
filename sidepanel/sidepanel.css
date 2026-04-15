@@ -1,22 +1,20 @@
 :root {
-  --primary-color: #007aff;
-  --primary-hover: #005ecb;
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
   --danger-color: #ef4444;
   --danger-hover: #dc2626;
-  --text-main: #333333;
+  --text-main: #1e293b;
   --text-muted: #666666;
-  --border-color: #eaeaea;
+  --border-color: #e2e8f0;
   --bg-color: #ffffff;
   --bg-hover: #f5f5f5;
   --panel-padding: 16px;
 
-  /* Highlight Colors */
+  /* Highlight Colors — purple/pink 已確認為殘留，由 audit 後移除 */
   --hl-yellow: #fde047;
   --hl-green: #86efac;
   --hl-blue: #93c5fd;
   --hl-red: #fca5a5;
-  --hl-purple: #d8b4fe;
-  --hl-pink: #fbcfe8;
 }
 
 body {
@@ -92,6 +90,17 @@ body {
 .icon-button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Focus Accessibility — 對齊 DESIGN.md */
+button:focus-visible,
+a:focus-visible,
+[role="tab"]:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
 /* State Containers (Loading, Empty) */
@@ -396,12 +405,7 @@ body {
 .preview-row.color-red {
   border-left-color: #e05c5c;
 }
-.preview-row.color-purple {
-  border-left-color: #a259e6;
-}
-.preview-row.color-pink {
-  border-left-color: #e87db0;
-}
+/* color-purple / color-pink 已由 audit 確認為殘留實作，已移除 */
 
 .page-card-remaining {
   display: block;

@@ -28,7 +28,7 @@ h2 {
 #status {
   font-size: 14px;
   min-height: 20px;
-  color: #333;
+  color: #1e293b;
 }
 
 button {
@@ -95,7 +95,7 @@ button {
 }
 
 #save-button {
-  background-color: #007aff;
+  background-color: #2563eb;
 }
 
 #manage-button {
@@ -109,7 +109,7 @@ button {
 }
 
 #save-button:hover {
-  background-color: #005ecb;
+  background-color: #1d4ed8;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -134,9 +134,9 @@ button:disabled {
 /* Focus Accessibility */
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid #007aff;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
 .links {
