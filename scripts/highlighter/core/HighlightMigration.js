@@ -11,13 +11,13 @@ import Logger from '../../utils/Logger.js';
 import { HighlightManager } from './HighlightManager.js';
 import { HighlightStorageGateway } from './HighlightStorageGateway.js';
 import { convertBgColorToName } from '../utils/color.js';
+import { normalizeUrl } from '../../utils/urlUtils.js';
 
 /**
  * HighlightMigration
  * 處理舊版標註數據的遷移
  *
- * 外部依賴: globalThis.normalizeUrl - 由 scripts/highlighter/index.js 注入
- * 此函式接受一個字串 URL 參數並返回去除雜訊後的標準化 URL 字串
+ * URL 標準化由 urlUtils.normalizeUrl 提供。
  */
 export class HighlightMigration {
   static MAX_SCAN_LIMIT = 500;
@@ -132,6 +132,29 @@ export class HighlightMigration {
     return !migrationStatus[migrationKey];
   }
 
+  static _getSafeNormalizedUrl(rawUrl) {
+    const normalizedUrl = normalizeUrl(rawUrl);
+
+    if (typeof normalizedUrl !== 'string' || normalizedUrl.trim() === '') {
+      return '';
+    }
+
+    if (normalizeUrl(normalizedUrl) !== normalizedUrl) {
+      return '';
+    }
+
+    try {
+      const parsedUrl = new URL(normalizedUrl);
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        return '';
+      }
+    } catch {
+      return '';
+    }
+
+    return normalizedUrl;
+  }
+
   /**
    * 從舊格式的項目中提取文字與顏色
    *
@@ -193,12 +216,17 @@ export class HighlightMigration {
    * 檢查並遷移 localStorage 中的舊標註數據
    */
   async checkAndMigrate() {
-    if (globalThis.window === undefined || typeof globalThis.normalizeUrl !== 'function') {
+    if (globalThis.window === undefined) {
       return;
     }
 
     try {
-      const normalizedUrl = globalThis.normalizeUrl(globalThis.location.href);
+      const normalizedUrl = HighlightMigration._getSafeNormalizedUrl(globalThis.location.href);
+      if (!normalizedUrl) {
+        Logger.warn('跳過遷移：normalizedUrl 無效', { action: 'checkAndMigrate' });
+        return;
+      }
+
       const legacy = HighlightMigration._findLegacyData(normalizedUrl);
 
       if (legacy && (await HighlightMigration._shouldRunMigration(normalizedUrl))) {
@@ -220,6 +248,12 @@ export class HighlightMigration {
    */
   async migrateToNewFormat(legacyData, oldKey, normalizedUrl) {
     try {
+      const safeNormalizedUrl = HighlightMigration._getSafeNormalizedUrl(normalizedUrl);
+      if (!safeNormalizedUrl) {
+        Logger.warn('跳過遷移：normalizedUrl 無效', { action: 'migrateToNewFormat' });
+        return;
+      }
+
       // 預先保留 ID 區間，避免與用戶操作產生競爭條件
       const baseId = this.manager.nextId;
       this.manager.nextId += legacyData.length;
@@ -244,8 +278,8 @@ export class HighlightMigration {
       }
 
       if (successCount > 0) {
-        await HighlightStorageGateway.saveHighlights(normalizedUrl, {
-          url: normalizedUrl,
+        await HighlightStorageGateway.saveHighlights(safeNormalizedUrl, {
+          url: safeNormalizedUrl,
           highlights: migratedHighlights,
         });
 
@@ -255,7 +289,7 @@ export class HighlightMigration {
         // 標記遷移完成
         await HighlightMigration._markMigrationComplete(
           oldKey,
-          normalizedUrl,
+          safeNormalizedUrl,
           legacyData.length,
           successCount,
           failCount

@@ -24,13 +24,76 @@ export const PREVIEW_TEXT_MAX_LENGTH = 80;
 
 /** 高亮顏色對應 CSS 變數映射表 */
 const COLOR_MAP = {
-  yellow: 'var(--hl-yellow)',
-  green: 'var(--hl-green)',
-  blue: 'var(--hl-blue)',
-  red: 'var(--hl-red)',
-  purple: 'var(--hl-purple)',
-  pink: 'var(--hl-pink)',
+  yellow: '--hl-yellow',
+  green: '--hl-green',
+  blue: '--hl-blue',
+  red: '--hl-red',
 };
+
+/** CSS 變數缺失時的保底色值 */
+const COLOR_FALLBACK_VALUES = {
+  yellow: '#fde047',
+  green: '#86efac',
+  blue: '#93c5fd',
+  red: '#fca5a5',
+};
+
+/** 預設高亮顏色 */
+const DEFAULT_HIGHLIGHT_COLOR = 'yellow';
+
+/**
+ * 將高亮顏色正規化為 side panel 支援的色票
+ *
+ * @param {string} color
+ * @returns {'yellow'|'green'|'blue'|'red'}
+ */
+function normalizeHighlightColor(color) {
+  if (typeof color !== 'string' || color.length === 0) {
+    return DEFAULT_HIGHLIGHT_COLOR;
+  }
+
+  return COLOR_MAP[color] ? color : DEFAULT_HIGHLIGHT_COLOR;
+}
+
+/**
+ * 一次解析 side panel 用到的 highlight 色票，避免迴圈中重複讀取 computed style
+ *
+ * @returns {Record<'yellow'|'green'|'blue'|'red', string>}
+ */
+function buildHighlightColorCache() {
+  const rootStyle = globalThis.getComputedStyle(document.documentElement);
+
+  return Object.fromEntries(
+    Object.entries(COLOR_MAP).map(([color, tokenName]) => {
+      const normalizedColor = normalizeHighlightColor(color);
+      const resolvedColor = rootStyle.getPropertyValue(tokenName).trim();
+
+      return [
+        normalizedColor,
+        resolvedColor ||
+          COLOR_FALLBACK_VALUES[normalizedColor] ||
+          COLOR_FALLBACK_VALUES[DEFAULT_HIGHLIGHT_COLOR],
+      ];
+    })
+  );
+}
+
+/**
+ * 解析可安全指派給 DOM 的實際背景色
+ *
+ * @param {string} color
+ * @param {Record<string, string>} [colorCache]
+ * @returns {string}
+ */
+function resolveHighlightColor(color, colorCache) {
+  const normalizedColor = normalizeHighlightColor(color);
+
+  return (
+    colorCache?.[normalizedColor] ||
+    COLOR_FALLBACK_VALUES[normalizedColor] ||
+    COLOR_FALLBACK_VALUES[DEFAULT_HIGHLIGHT_COLOR]
+  );
+}
 
 // === 型別定義 ===
 
@@ -110,7 +173,7 @@ export function buildPreviewHighlights(highlights) {
     return {
       text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
       truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
-      color: hl?.color || 'yellow',
+      color: normalizeHighlightColor(hl?.color),
     };
   });
 }
@@ -201,6 +264,7 @@ export function hideMessage(elements) {
  */
 export function renderList(elements, highlights, storageKey, onDelete) {
   elements.highlightsList.textContent = '';
+  const highlightColorCache = buildHighlightColorCache();
 
   highlights.forEach(hl => {
     const clone = elements.template.content.cloneNode(true);
@@ -211,10 +275,8 @@ export function renderList(elements, highlights, storageKey, onDelete) {
 
     textEl.textContent = hl.text;
 
-    // 設置顏色指示條
-    if (hl.color) {
-      colorInd.style.backgroundColor = COLOR_MAP[hl.color] || COLOR_MAP.yellow;
-    }
+    // side panel 僅接受專案支援色票，未知值一律回退 yellow
+    colorInd.style.backgroundColor = resolveHighlightColor(hl?.color, highlightColorCache);
 
     // 綁定刪除事件（回調由呼叫端 sidepanel.js 的 handleDelete 提供）
     delBtn.addEventListener('click', () => onDelete(hl.id, storageKey));
@@ -348,7 +410,7 @@ export function appendCards(elements, pages, startIndex, count, callbacks) {
       const previewHighlights = Array.isArray(page.previewHighlights) ? page.previewHighlights : [];
       previewHighlights.forEach(highlight => {
         const row = document.createElement('p');
-        row.className = `preview-row color-${highlight.color}`;
+        row.className = `preview-row color-${normalizeHighlightColor(highlight?.color)}`;
         row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
         previewContainer.append(row);
       });

@@ -23,6 +23,36 @@ const APP_ROUTER = 'app-router';
 const getComponentPageProps = comp =>
   comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
 
+const isSafeHttpOrigin = origin => {
+  if (typeof origin !== 'string' || !origin) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const normalizeNextDataPathname = pathname => {
+  if (typeof pathname !== 'string' || !pathname.startsWith('/')) {
+    return null;
+  }
+
+  const cleaned = cleanPath(pathname.trim());
+  if (!cleaned.startsWith('/')) {
+    return null;
+  }
+
+  if (cleaned === '/') {
+    return '/index';
+  }
+
+  return cleaned.endsWith('/') ? cleaned.slice(0, -1) : cleaned;
+};
+
 /**
  * 清理路徑：移除查詢參數與 hash 片段
  *
@@ -422,28 +452,22 @@ export const NextJsExtractor = {
   /**
    * 建立 Next.js _next/data URL
    *
-   * @param {string} originalUrl
+   * @param {string} origin
+   * @param {string} pathname
    * @param {string} buildId
    * @returns {string|null}
    */
-  _buildNextDataUrl(originalUrl, buildId) {
-    if (!originalUrl || !buildId) {
+  _buildNextDataUrl(origin, pathname, buildId) {
+    if (!isSafeHttpOrigin(origin) || typeof buildId !== 'string' || !buildId) {
       return null;
     }
 
-    try {
-      const urlObj = new URL(originalUrl);
-      let path = urlObj.pathname || '/';
-      if (path === '/') {
-        path = '/index';
-      }
-      if (path.length > 1 && path.endsWith('/')) {
-        path = path.slice(0, -1);
-      }
-      return `${urlObj.origin}/_next/data/${buildId}${path}.json${urlObj.search}`;
-    } catch {
+    const normalizedPath = normalizeNextDataPathname(pathname);
+    if (!normalizedPath) {
       return null;
     }
+
+    return `${origin}/_next/data/${buildId}${normalizedPath}.json`;
   },
 
   /**
@@ -455,9 +479,17 @@ export const NextJsExtractor = {
    */
   async _fetchNextData(doc, buildId) {
     const action = '_fetchNextData';
-    const pageUrl =
-      doc?.defaultView?.location?.href || doc?.location?.href || globalThis.location?.href || '';
-    const dataUrl = this._buildNextDataUrl(pageUrl, buildId);
+    const pageOrigin =
+      doc?.defaultView?.location?.origin ||
+      doc?.location?.origin ||
+      globalThis.location?.origin ||
+      '';
+    const pagePathname =
+      doc?.defaultView?.location?.pathname ||
+      doc?.location?.pathname ||
+      globalThis.location?.pathname ||
+      '';
+    const dataUrl = this._buildNextDataUrl(pageOrigin, pagePathname, buildId);
 
     if (!dataUrl) {
       Logger.warn('無法構建 Next.js data URL', {

@@ -2,6 +2,17 @@
   /* Icon Alignment - 圖標對齊偏移量 */
   /* 用於將 SVG 圖標向下微調，使其視覺中心與文字基線對齊 */
   --icon-baseline-offset: 2px;
+
+  /* Spacing tokens — 與 options.css 對齊 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* Border radius tokens */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 body {
@@ -28,19 +39,19 @@ h2 {
 #status {
   font-size: 14px;
   min-height: 20px;
-  color: #333;
+  color: #1e293b;
 }
 
 button {
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   width: 100%;
   transition: all 0.2s ease;
   transform: translateY(0);
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -71,7 +82,7 @@ button {
 .btn-icon,
 .link-icon {
   flex-shrink: 0;
-  margin-right: 8px;
+  margin-right: var(--spacing-sm);
   /* 圖標與文字的間距，配合 button 的 margin 策略而非使用 gap */
 
   /* 圖標基線對齊調整：
@@ -85,7 +96,7 @@ button {
 .status-icon-inline {
   display: inline-flex;
   vertical-align: text-bottom;
-  margin: 0 4px;
+  margin: 0 var(--spacing-xs);
 }
 
 #highlight-button:hover {
@@ -95,7 +106,7 @@ button {
 }
 
 #save-button {
-  background-color: #007aff;
+  background-color: #2563eb;
 }
 
 #manage-button {
@@ -109,7 +120,7 @@ button {
 }
 
 #save-button:hover {
-  background-color: #005ecb;
+  background-color: #1d4ed8;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -117,7 +128,7 @@ button {
 /* v2.7.0: Open in Notion 按鈕樣式 */
 #open-notion-button {
   background-color: #000000;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
 }
 
 #open-notion-button:hover {
@@ -134,9 +145,9 @@ button:disabled {
 /* Focus Accessibility */
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid #007aff;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
 .links {

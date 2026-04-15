@@ -106,7 +106,7 @@ export function getToolbarCSS() {
             transform: scale(0.96);
         }
 
-        /* 主按鈕 */
+        /* 主按鈕（Highlighter mode 專用色，刻意不與全域 Primary CTA 共用 #2563eb） */
         .nh-btn-primary {
             background: #2eaadc;
             color: white;
@@ -186,17 +186,17 @@ export function getToolbarCSS() {
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
-        /* 保存網頁按鈕 */
+        /* 保存網頁按鈕 — 與 Popup Save button 同語意，對齊 #2563eb */
         .nh-btn-save {
             flex: 1;
-            background: #007aff !important;
-            color: white !important;
-            border-color: #007aff !important;
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
             font-weight: 600;
         }
         .nh-btn-save:hover {
-            background: #005ecb !important;
-            border-color: #005ecb !important;
+            background: #1d4ed8;
+            border-color: #1d4ed8;
         }
 
         /* 顏色按鈕 */
