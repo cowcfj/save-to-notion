@@ -10,6 +10,17 @@
   --bg-hover: #f5f5f5;
   --panel-padding: 16px;
 
+  /* Spacing tokens — 與 options.css 對齊 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* Border radius tokens */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
   /* Highlight Colors — purple/pink 已確認為殘留，由 audit 後移除 */
   --hl-yellow: #fde047;
   --hl-green: #86efac;
@@ -74,7 +85,7 @@ body {
   justify-content: center;
   background: none;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   width: 36px;
   height: 36px;
   cursor: pointer;
@@ -181,7 +192,7 @@ select:focus-visible {
 
 .highlight-color-indicator {
   width: 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   background-color: var(--hl-yellow); /* Default, overridden in JS */
 }
@@ -208,7 +219,7 @@ select:focus-visible {
   width: 24px;
   height: 24px;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0;
@@ -424,7 +435,7 @@ select:focus-visible {
   margin: 8px var(--panel-padding);
   padding: 8px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: none;
   cursor: pointer;
   font-size: 12px;
