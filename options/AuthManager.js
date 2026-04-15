@@ -596,6 +596,7 @@ export class AuthManager {
           action: 'startOAuthFlow',
           missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
         });
+        this.ui.showStatus(UI_MESSAGES.AUTH.MISSING_ENV_CONFIG, 'error');
         await this._cleanupOAuthState('oauthState');
         return;
       }

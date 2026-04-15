@@ -23,8 +23,43 @@ function assertBuildEnvExport(filePath) {
   }
 }
 
+function getBuildEnvPropertyValue(source, propertyName) {
+  for (const rawLine of source.split('\n')) {
+    const line = rawLine.trim();
+    if (!line.startsWith(propertyName)) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf(':');
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    if (key !== propertyName) {
+      continue;
+    }
+
+    return line
+      .slice(separatorIndex + 1)
+      .replace(/,$/, '')
+      .trim();
+  }
+
+  return null;
+}
+
 if (fs.existsSync(targetPath)) {
   assertBuildEnvExport(targetPath);
+  // 提醒開發者 OAuth 設定為空
+  const content = fs.readFileSync(targetPath, 'utf8');
+  const oauthClientIdValue = getBuildEnvPropertyValue(content, 'OAUTH_CLIENT_ID');
+  if (oauthClientIdValue === null || oauthClientIdValue === "''" || oauthClientIdValue === '""') {
+    console.warn(
+      '\u001B[33m⚠️  scripts/config/env.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
+    );
+  }
 } else if (fs.existsSync(templatePath)) {
   try {
     fs.copyFileSync(templatePath, targetPath);

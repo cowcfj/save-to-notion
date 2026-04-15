@@ -815,6 +815,10 @@ describe('AuthManager Extended', () => {
         action: 'startOAuthFlow',
         missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
       });
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.AUTH.MISSING_ENV_CONFIG,
+        'error'
+      );
       expect(chrome.storage.session.set).not.toHaveBeenCalled();
       expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
       expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
