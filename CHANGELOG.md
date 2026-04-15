@@ -1,5 +1,22 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.52.0](https://github.com/cowcfj/save-to-notion/compare/v2.51.0...v2.52.0) (2026-04-15)
+
+
+### ✨ 新功能
+
+* 新增清理狀態顯示功能 ([#413](https://github.com/cowcfj/save-to-notion/issues/413)) ([ecc1441](https://github.com/cowcfj/save-to-notion/commit/ecc1441e72182dd1436c3304a1b8c840506f3a8e))
+
+
+### ♻️ 代碼重構
+
+* UI 重構以對齊設計規範 ([#412](https://github.com/cowcfj/save-to-notion/issues/412)) ([473046e](https://github.com/cowcfj/save-to-notion/commit/473046ea9e58c838dcb934574715b74640b7060e))
+
+
+### 🧹 其他變更
+
+* update .gitignore to exclude unnecessary system and build files ([73cdb4a](https://github.com/cowcfj/save-to-notion/commit/73cdb4aba50d7cc1476a7a4d13e7ecb06926ffb1))
+
 ## [2.51.0](https://github.com/cowcfj/save-to-notion/compare/v2.50.1...v2.51.0) (2026-04-14)
 
 
