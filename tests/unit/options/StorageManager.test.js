@@ -68,6 +68,7 @@ function buildTestDom() {
     <div id="config-count"></div>
     <output id="health-status"></output>
     <button id="execute-cleanup-button" style="display:none"></button>
+    <div id="cleanup-status" class="status-message mt-8"></div>
   `;
 }
 
@@ -564,7 +565,8 @@ describe('StorageManager — executeUnifiedCleanup', () => {
     storageManager._lastHealthReport = null;
     await storageManager.executeUnifiedCleanup();
     expect(mockRemove).not.toHaveBeenCalled();
-    expect(storageManager.elements.dataStatus.textContent).toContain('無可清理項目');
+    expect(storageManager.elements.cleanupStatus.textContent).toContain('無可清理項目');
+    expect(storageManager.elements.dataStatus.textContent).not.toContain('無可清理項目');
   });
 
   test('有清理計劃時應呼叫 chrome.storage.local.remove 並更新 UI', async () => {
@@ -596,6 +598,8 @@ describe('StorageManager — executeUnifiedCleanup', () => {
     );
     // 完成後應刷新統計（_lastHealthReport 會重新設定）
     expect(mockGet).toHaveBeenCalled();
+    expect(storageManager.elements.cleanupStatus.textContent).toBeTruthy();
+    expect(storageManager.elements.dataStatus.textContent).toBeFalsy();
   });
 
   test('清理成功後應重新啟用執行清理按鈕', async () => {
@@ -658,7 +662,8 @@ describe('StorageManager — executeUnifiedCleanup', () => {
         error: expect.anything(),
       })
     );
-    expect(storageManager.elements.dataStatus.textContent).toContain('清理失敗');
+    expect(storageManager.elements.cleanupStatus.textContent).toContain('清理失敗');
+    expect(storageManager.elements.dataStatus.textContent).not.toContain('清理失敗');
   });
 
   test('清理流程的日誌應使用 zh-TW 訊息與 executeUnifiedCleanup action', async () => {
@@ -751,7 +756,8 @@ describe('StorageManager — executeUnifiedCleanup', () => {
     expect(updateStorageUsageSpy).not.toHaveBeenCalled();
     expect(updateHealthDisplaySpy).toHaveBeenCalled();
     expect(storageManager._lastHealthReport.cleanupPlan.totalKeys).toBe(0);
-    expect(storageManager.elements.dataStatus.textContent).toContain('無可清理項目');
+    expect(storageManager.elements.cleanupStatus.textContent).toContain('無可清理項目');
+    expect(storageManager.elements.dataStatus.textContent).not.toContain('無可清理項目');
   });
 });
 
@@ -778,6 +784,14 @@ describe('StorageManager — showDataStatus', () => {
     storageManager.showDataStatus('操作成功', 'success');
     expect(storageManager.elements.dataStatus.textContent).toBe('操作成功');
     expect(storageManager.elements.dataStatus.className).toContain('success');
+  });
+
+  test('指定第三個參數時會寫入對應容器且不污染預設', () => {
+    storageManager.showDataStatus('針對清理', 'success', 'cleanupStatus');
+    expect(storageManager.elements.cleanupStatus.textContent).toBe('針對清理');
+    expect(storageManager.elements.cleanupStatus.className).toContain('status-message');
+    expect(storageManager.elements.cleanupStatus.className).toContain('success');
+    expect(storageManager.elements.dataStatus.textContent).toBe('');
   });
 
   test('應正確顯示錯誤狀態與文字', () => {

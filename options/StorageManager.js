@@ -56,6 +56,7 @@ export class StorageManager {
       // 健康狀態與清理
       healthStatus: document.querySelector('#health-status'),
       executeCleanupButton: document.querySelector('#execute-cleanup-button'),
+      cleanupStatus: document.querySelector('#cleanup-status'),
     };
   }
 
@@ -428,7 +429,7 @@ export class StorageManager {
   async executeUnifiedCleanup() {
     const cachedPlan = this._lastHealthReport?.cleanupPlan;
     if (!cachedPlan || cachedPlan.items.length === 0) {
-      this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info', 'cleanupStatus');
       return;
     }
 
@@ -438,7 +439,7 @@ export class StorageManager {
     }
 
     try {
-      this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_EXECUTING, 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_EXECUTING, 'info', 'cleanupStatus');
 
       const latestReport = await getStorageHealthReport();
       this._lastHealthReport = latestReport;
@@ -452,7 +453,7 @@ export class StorageManager {
 
       if (validatedItems.length === 0) {
         this.updateHealthDisplay(latestReport);
-        this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info');
+        this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info', 'cleanupStatus');
         return;
       }
 
@@ -487,7 +488,8 @@ export class StorageManager {
       });
       this.showDataStatus(
         UI_MESSAGES.STORAGE.UNIFIED_CLEANUP_SUCCESS(keysToRemove.length, spaceKB),
-        'success'
+        'success',
+        'cleanupStatus'
       );
 
       // 清理後重新刷新全部狀態（包含健康度和清理按鈕）
@@ -500,7 +502,7 @@ export class StorageManager {
       });
       const safeMessage = sanitizeApiError(error, 'executeUnifiedCleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_FAILED(errorMsg), 'error');
+      this.showDataStatus(UI_MESSAGES.STORAGE.CLEANUP_FAILED(errorMsg), 'error', 'cleanupStatus');
     } finally {
       if (button) {
         button.disabled = false;
@@ -518,9 +520,11 @@ export class StorageManager {
    *
    * @param {string} message - 訊息內容（可包含 Emoji 或系統生成的 SVG）
    * @param {string} type - 訊息類型（success, error, info）
+   * @param {string} elementKey - 目標容器屬性名，預設為 'dataStatus'
    */
-  showDataStatus(message, type) {
-    if (!this.elements.dataStatus) {
+  showDataStatus(message, type, elementKey = 'dataStatus') {
+    const targetElement = this.elements[elementKey];
+    if (!targetElement) {
       return;
     }
 
@@ -561,13 +565,13 @@ export class StorageManager {
     }
 
     // 清空內容
-    this.elements.dataStatus.textContent = '';
+    targetElement.textContent = '';
 
     // 如果有圖標，插入圖標
     if (safeIcon) {
       const iconSpan = createSafeIcon(safeIcon);
       iconSpan.className = 'status-icon';
-      this.elements.dataStatus.append(iconSpan);
+      targetElement.append(iconSpan);
     }
 
     // 使用 textContent 設置文本（防止 XSS），並支持換行
@@ -606,9 +610,10 @@ export class StorageManager {
         }
       });
 
-      this.elements.dataStatus.append(textSpan);
+      targetElement.append(textSpan);
     }
 
-    this.elements.dataStatus.className = `data-status ${type}`;
+    targetElement.className = 'status-message';
+    targetElement.classList.add(type);
   }
 }
