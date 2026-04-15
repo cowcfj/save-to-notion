@@ -74,7 +74,7 @@ body {
   justify-content: center;
   background: none;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   width: 36px;
   height: 36px;
   cursor: pointer;
@@ -423,7 +423,7 @@ select:focus-visible {
   margin: 8px var(--panel-padding);
   padding: 8px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   background: none;
   cursor: pointer;
   font-size: 12px;
