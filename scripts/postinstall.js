@@ -25,6 +25,14 @@ function assertBuildEnvExport(filePath) {
 
 if (fs.existsSync(targetPath)) {
   assertBuildEnvExport(targetPath);
+  // 提醒開發者 OAuth 設定為空
+  const content = fs.readFileSync(targetPath, 'utf8');
+  if (content.includes("OAUTH_CLIENT_ID: ''") || content.includes('OAUTH_CLIENT_ID: ""')) {
+    console.warn(
+      '\u001B[33m⚠️  scripts/config/env.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
+    );
+  }
 } else if (fs.existsSync(templatePath)) {
   try {
     fs.copyFileSync(templatePath, targetPath);
