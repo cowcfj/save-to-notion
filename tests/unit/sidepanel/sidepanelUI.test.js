@@ -65,6 +65,11 @@ function buildDOM() {
       </div>
     </template>
   `;
+
+  document.documentElement.style.setProperty('--hl-yellow', '#fde047');
+  document.documentElement.style.setProperty('--hl-green', '#86efac');
+  document.documentElement.style.setProperty('--hl-blue', '#93c5fd');
+  document.documentElement.style.setProperty('--hl-red', '#fca5a5');
 }
 
 // ---- 輔助函數 ----
@@ -129,6 +134,15 @@ describe('sidepanelUI', () => {
     it('應正確傳遞顏色，並為缺失顏色補預設值', () => {
       const result = buildPreviewHighlights([{ text: 'x' }]);
       expect(result[0].color).toBe('yellow');
+    });
+
+    it('應將非法顏色回退為 yellow', () => {
+      const result = buildPreviewHighlights([
+        { text: 'legacy-purple', color: 'purple' },
+        { text: 'legacy-pink', color: 'pink' },
+      ]);
+
+      expect(result.map(item => item.color)).toEqual(['yellow', 'yellow']);
     });
   });
 
@@ -259,7 +273,15 @@ describe('sidepanelUI', () => {
       const elements = getElements();
       renderList(elements, [{ id: '1', text: 'test', color: 'blue' }], 'key', jest.fn());
       const indicator = elements.highlightsList.querySelector('.highlight-color-indicator');
-      expect(indicator.style.backgroundColor).toBe('var(--hl-blue)');
+      expect(indicator.style.backgroundColor).toBe('rgb(147, 197, 253)');
+    });
+
+    it('遇到非法顏色時應回退為 yellow 背景色', () => {
+      const elements = getElements();
+      renderList(elements, [{ id: '1', text: 'legacy', color: 'purple' }], 'key', jest.fn());
+      const indicator = elements.highlightsList.querySelector('.highlight-color-indicator');
+
+      expect(indicator.style.backgroundColor).toBe('rgb(253, 224, 71)');
     });
   });
 
@@ -364,6 +386,21 @@ describe('sidepanelUI', () => {
       delBtn.click();
 
       expect(onDelete).toHaveBeenCalledWith('highlights_https://example.com/page1', card);
+    });
+
+    it('應將非法 preview 顏色回退為 yellow class', () => {
+      const elements = getElements();
+      const pages = [
+        {
+          ...makePage(1),
+          previewHighlights: [{ text: 'legacy', truncated: false, color: 'purple' }],
+        },
+      ];
+
+      appendCards(elements, pages, 0, 1, { onOpen: jest.fn(), onDelete: jest.fn() });
+
+      const previewRow = elements.unsyncedView.querySelector('.preview-row');
+      expect(previewRow.className).toContain('color-yellow');
     });
 
     it('當卡片模板缺少可選元素時不應拋出錯誤', () => {

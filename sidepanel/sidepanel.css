@@ -377,7 +377,7 @@ select:focus-visible {
   cursor: pointer;
   padding: 4px;
   color: var(--text-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   transition: background 0.15s;
   display: flex;
   align-items: center;
@@ -484,7 +484,7 @@ select:focus-visible {
   gap: 4px;
   padding: 3px 8px;
   border: 1px solid #e5534b33;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: #e5534b;
   font-size: 11px;
@@ -506,7 +506,7 @@ select:focus-visible {
   width: 26px;
   height: 26px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
