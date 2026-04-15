@@ -7,7 +7,12 @@ describe('scripts/postinstall.js', () => {
   const targetPath = `${projectRoot}/scripts/config/env.js`;
   const templatePath = `${projectRoot}/scripts/config/env.example.js`;
 
-  function loadPostinstall({ envExists, templateExists = true, copyError = null }) {
+  function loadPostinstall({
+    envExists,
+    templateExists = true,
+    copyError = null,
+    envContent = 'export const BUILD_ENV = Object.freeze({});',
+  }) {
     process.exitCode = undefined;
     const joinMock = jest.fn((...parts) => parts.join('/'));
     const existsSyncMock = jest.fn(filePath => {
@@ -26,7 +31,7 @@ describe('scripts/postinstall.js', () => {
         throw copyError;
       }
     });
-    const readFileSyncMock = jest.fn(() => 'export const BUILD_ENV = Object.freeze({});');
+    const readFileSyncMock = jest.fn(() => envContent);
     const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -102,6 +107,9 @@ describe('scripts/postinstall.js', () => {
   });
 
   test('當 env.js 已存在時應驗證 BUILD_ENV 匯出而不複製', () => {
+    const envContent = `export const BUILD_ENV = Object.freeze({
+  OAUTH_CLIENT_ID: 'configured-client-id',
+});`;
     const {
       existsSyncMock,
       copyFileSyncMock,
@@ -112,6 +120,7 @@ describe('scripts/postinstall.js', () => {
       thrownError,
     } = loadPostinstall({
       envExists: true,
+      envContent,
     });
 
     expect(thrownError).toBeNull();
@@ -122,6 +131,38 @@ describe('scripts/postinstall.js', () => {
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     expect(process.exitCode).toBeUndefined();
+  });
+
+  test('當 env.js 的 OAUTH_CLIENT_ID 為空且格式與範本不同時仍應輸出警告', () => {
+    const envContent = `export const BUILD_ENV = Object.freeze({
+  OAUTH_CLIENT_ID:'',
+});`;
+    const { consoleWarnSpy, thrownError } = loadPostinstall({
+      envExists: true,
+      envContent,
+    });
+
+    expect(thrownError).toBeNull();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '\u001B[33m⚠️  scripts/config/env.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
+    );
+  });
+
+  test('當 env.js 缺少 OAUTH_CLIENT_ID key 時仍應輸出警告', () => {
+    const envContent = `export const BUILD_ENV = Object.freeze({
+  ENABLE_OAUTH: false,
+});`;
+    const { consoleWarnSpy, thrownError } = loadPostinstall({
+      envExists: true,
+      envContent,
+    });
+
+    expect(thrownError).toBeNull();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '\u001B[33m⚠️  scripts/config/env.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
+    );
   });
 
   test('當 template 不存在時應拋出錯誤中止安裝', () => {
