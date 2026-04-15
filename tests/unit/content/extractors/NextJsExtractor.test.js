@@ -521,6 +521,7 @@ describe('NextJsExtractor', () => {
 
     it('stale 時優先從 router 組件提取，不呼叫 fetch', async () => {
       // 模擬：__NEXT_DATA__ 為首頁資料 (stale)，router.components 有最新文章數據
+      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
       mockDoc.title = 'Router Article | HK01';
@@ -570,6 +571,7 @@ describe('NextJsExtractor', () => {
 
     it('router 數據標題不匹配時回退到 _fetchNextData', async () => {
       // 模擬：router.components 有過時數據，document.title 是新文章
+      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
       mockDoc.defaultView.location.pathname = '/news/new-article';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/new-article';
       mockDoc.title = 'Correct New Article | HK01'; // 與 router 數據的標題不符
@@ -632,6 +634,7 @@ describe('NextJsExtractor', () => {
     });
 
     it('stale 時嘗試使用 _next/data 並成功提取', async () => {
+      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
 
@@ -672,6 +675,7 @@ describe('NextJsExtractor', () => {
     });
 
     it('stale fallback 建立的 _next/data 請求不應包含頁面 query 或 hash', async () => {
+      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href =
         'https://www.hk01.com/news/60330394/abc?token=attacker-controlled#section-1';
@@ -710,6 +714,7 @@ describe('NextJsExtractor', () => {
     });
 
     it('stale 時 _next/data 失敗只記錄 debug 診斷，不記錄 warn', async () => {
+      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
 
@@ -914,17 +919,38 @@ describe('NextJsExtractor', () => {
 
   describe('_buildNextDataUrl', () => {
     it('root path 會轉為 /index.json', () => {
-      const url = NextJsExtractor._buildNextDataUrl('https://www.hk01.com/', 'build123');
+      const url = NextJsExtractor._buildNextDataUrl('https://www.hk01.com', '/', 'build123');
       expect(url).toBe('https://www.hk01.com/_next/data/build123/index.json');
     });
 
-    it('會移除原始頁面上的 query string 與 hash', () => {
+    it('使用驗證後的 origin 與 pathname 建立 _next/data URL', () => {
       const url = NextJsExtractor._buildNextDataUrl(
-        'https://www.hk01.com/news/60330394/abc?token=attacker-controlled#section-1',
+        'https://www.hk01.com',
+        '/news/60330394/abc',
         'build123'
       );
 
       expect(url).toBe('https://www.hk01.com/_next/data/build123/news/60330394/abc.json');
+    });
+
+    it('拒絕非 http/https origin', () => {
+      const url = NextJsExtractor._buildNextDataUrl(
+        'javascript:alert(1)',
+        '/news/60330394/abc',
+        'build123'
+      );
+
+      expect(url).toBeNull();
+    });
+
+    it('拒絕不以斜線開頭的 pathname', () => {
+      const url = NextJsExtractor._buildNextDataUrl(
+        'https://www.hk01.com',
+        'news/60330394/abc',
+        'build123'
+      );
+
+      expect(url).toBeNull();
     });
   });
 
