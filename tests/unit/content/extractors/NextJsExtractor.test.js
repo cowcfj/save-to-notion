@@ -671,6 +671,44 @@ describe('NextJsExtractor', () => {
       expect(result.blocks.length).toBeGreaterThanOrEqual(3);
     });
 
+    it('stale fallback 建立的 _next/data 請求不應包含頁面 query 或 hash', async () => {
+      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
+      mockDoc.defaultView.location.href =
+        'https://www.hk01.com/news/60330394/abc?token=attacker-controlled#section-1';
+
+      const mockJson = {
+        page: '/',
+        asPath: '/',
+        buildId: 'build123',
+        props: { initialProps: { pageProps: {} } },
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          pageProps: {
+            article: {
+              title: 'Query Stripped',
+              blocks: [
+                { blockType: 'paragraph', text: 'One' },
+                { blockType: 'paragraph', text: 'Two' },
+                { blockType: 'paragraph', text: 'Three' },
+              ],
+            },
+          },
+        }),
+      });
+
+      await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
+        expect.any(Object)
+      );
+    });
+
     it('stale 時 _next/data 失敗只記錄 debug 診斷，不記錄 warn', async () => {
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
@@ -878,6 +916,15 @@ describe('NextJsExtractor', () => {
     it('root path 會轉為 /index.json', () => {
       const url = NextJsExtractor._buildNextDataUrl('https://www.hk01.com/', 'build123');
       expect(url).toBe('https://www.hk01.com/_next/data/build123/index.json');
+    });
+
+    it('會移除原始頁面上的 query string 與 hash', () => {
+      const url = NextJsExtractor._buildNextDataUrl(
+        'https://www.hk01.com/news/60330394/abc?token=attacker-controlled#section-1',
+        'build123'
+      );
+
+      expect(url).toBe('https://www.hk01.com/_next/data/build123/news/60330394/abc.json');
     });
   });
 

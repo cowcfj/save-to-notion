@@ -440,7 +440,8 @@ export const NextJsExtractor = {
       if (path.length > 1 && path.endsWith('/')) {
         path = path.slice(0, -1);
       }
-      return `${urlObj.origin}/_next/data/${buildId}${path}.json${urlObj.search}`;
+      // _next/data fallback 只依賴 pathname；不要將頁面 query/hash 帶入 request。
+      return `${urlObj.origin}/_next/data/${buildId}${path}.json`;
     } catch {
       return null;
     }
