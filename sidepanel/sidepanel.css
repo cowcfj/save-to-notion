@@ -440,11 +440,16 @@ select:focus-visible {
   cursor: pointer;
   font-size: 12px;
   color: var(--text-muted);
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .load-more-btn:hover {
   background-color: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* === Unsynced Empty State === */
