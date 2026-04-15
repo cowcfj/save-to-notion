@@ -379,6 +379,62 @@ describe('Highlighter HighlightStorageGateway', () => {
         },
       });
     });
+
+    test('fallback 直接保存時應忽略被污染的 alias value，回退到 normalized page key', async () => {
+      delete mockChrome.runtime.sendMessage;
+
+      const pageUrl = 'https://example.com/original';
+      const normalizedUrl = normalizeUrl(pageUrl);
+      const poisonedStableUrl = 'https://example.com/';
+      const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+      const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+      const poisonedPageKey = `${PAGE_PREFIX}${poisonedStableUrl}`;
+      const testData = [{ text: 'safe-target', color: 'green' }];
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.length === 1 && keyList[0] === aliasKey) {
+          return Promise.resolve({ [aliasKey]: poisonedStableUrl });
+        }
+
+        if (keyList.length === 1 && keyList[0] === normalizedPageKey) {
+          return Promise.resolve({
+            [normalizedPageKey]: {
+              notion: { pageId: 'page-safe' },
+              highlights: [{ text: 'old' }],
+              metadata: { createdAt: 456 },
+            },
+          });
+        }
+
+        if (keyList.length === 1 && keyList[0] === poisonedPageKey) {
+          return Promise.resolve({
+            [poisonedPageKey]: {
+              notion: { pageId: 'page-poisoned' },
+            },
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      await HighlightStorageGateway.saveHighlights(pageUrl, testData);
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        [normalizedPageKey]: {
+          notion: { pageId: 'page-safe' },
+          highlights: testData,
+          metadata: expect.objectContaining({
+            createdAt: 456,
+            lastUpdated: expect.any(Number),
+          }),
+        },
+      });
+      expect(mockChrome.storage.local.set).not.toHaveBeenCalledWith({
+        [poisonedPageKey]: expect.anything(),
+      });
+    });
   });
 
   describe('loadHighlights', () => {
@@ -414,6 +470,30 @@ describe('Highlighter HighlightStorageGateway', () => {
       expect(url).toBe(normalizeUrl('https://example.com'));
       globalThis.chrome = originalChrome;
     });
+
+    test.each([
+      ['空字串', ''],
+      ['無效 URL', 'not-a-valid-url'],
+      ['root URL', 'https://example.com/'],
+      ['未正規化 URL', 'https://example.com/path/?utm_source=fb#frag'],
+    ])(
+      '_resolveStableUrl 遇到被污染 alias value（%s）時應回退 normalizedUrl',
+      async (_, aliasValue) => {
+        const pageUrl = 'https://example.com/original/?utm_medium=social#frag';
+        const normalizedUrl = normalizeUrl(pageUrl);
+        const normalizedAliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+        const rawAliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
+
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+          [normalizedAliasKey]: aliasValue,
+          [rawAliasKey]: aliasValue,
+        });
+
+        const result = await HighlightStorageGateway._resolveStableUrl(pageUrl);
+
+        expect(result).toBe(normalizedUrl);
+      }
+    );
 
     test.each([
       ['空字串', ''],
@@ -826,6 +906,71 @@ describe('Highlighter HighlightStorageGateway', () => {
             highlights: [],
             metadata: { lastUpdated: 1 },
           },
+        });
+        expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    test('fallback 清除時應忽略被污染的 alias value，回退到 normalized page key', async () => {
+      jest.useFakeTimers();
+      try {
+        mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
+
+        const pageUrl = 'https://example.com/original';
+        const normalizedUrl = normalizeUrl(pageUrl);
+        const poisonedStableUrl = 'https://example.com/';
+        const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+        const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+        const poisonedPageKey = `${PAGE_PREFIX}${poisonedStableUrl}`;
+        const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+        mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+          const keyList = Array.isArray(keys) ? keys : [keys];
+
+          if (keyList.length === 1 && keyList[0] === aliasKey) {
+            return Promise.resolve({ [aliasKey]: poisonedStableUrl });
+          }
+
+          if (keyList.length === 1 && keyList[0] === normalizedPageKey) {
+            return Promise.resolve({
+              [normalizedPageKey]: {
+                notion: { pageId: 'page-safe' },
+                highlights: [{ text: 'keep me safe' }],
+                metadata: { lastUpdated: 99 },
+              },
+            });
+          }
+
+          if (keyList.length === 1 && keyList[0] === poisonedPageKey) {
+            return Promise.resolve({
+              [poisonedPageKey]: {
+                notion: { pageId: 'page-poisoned' },
+                highlights: [{ text: 'poison' }],
+                metadata: { lastUpdated: 1 },
+              },
+            });
+          }
+
+          return Promise.resolve({});
+        });
+
+        const clearPromise = HighlightStorageGateway.clearHighlights(pageUrl);
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(1000);
+        await clearPromise;
+
+        expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+          [normalizedPageKey]: {
+            notion: { pageId: 'page-safe' },
+            highlights: [],
+            metadata: { lastUpdated: 99 },
+          },
+        });
+        expect(mockChrome.storage.local.set).not.toHaveBeenCalledWith({
+          [poisonedPageKey]: expect.anything(),
         });
         expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
       } finally {

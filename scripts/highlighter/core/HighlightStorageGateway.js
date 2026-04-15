@@ -18,7 +18,7 @@
 
 /* global chrome */
 
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import { isRootUrl, normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
@@ -79,6 +79,28 @@ function sanitizeHighlightStorageKeyForLogging(key) {
   }
 
   return '[non-highlight-storage-key]';
+}
+
+function isSafeStableAliasUrl(candidate) {
+  if (typeof candidate !== 'string' || candidate.trim() === '') {
+    return false;
+  }
+
+  const normalizedCandidate = normalizeUrl(candidate);
+  if (normalizedCandidate !== candidate) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(candidate);
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return !isRootUrl(candidate);
 }
 
 /**
@@ -559,12 +581,24 @@ const HighlightStorageGateway = {
         : null;
     const aliasKeys = rawAliasKey ? [normalizedAliasKey, rawAliasKey] : [normalizedAliasKey];
     const aliasData = await chrome.storage.local.get(aliasKeys);
+    const aliasCandidate =
+      aliasData?.[normalizedAliasKey] || (rawAliasKey ? aliasData?.[rawAliasKey] : null);
 
-    return (
-      aliasData?.[normalizedAliasKey] ||
-      (rawAliasKey ? aliasData?.[rawAliasKey] : null) ||
-      normalizedUrl
-    );
+    if (!aliasCandidate) {
+      return normalizedUrl;
+    }
+
+    if (isSafeStableAliasUrl(aliasCandidate)) {
+      return aliasCandidate;
+    }
+
+    Logger.warn('[HighlightStorageGateway] Ignored invalid stable URL alias value', {
+      action: '_resolveStableUrl',
+      aliasKey: sanitizeHighlightStorageKeyForLogging(normalizedAliasKey),
+      stableUrl: sanitizeUrlForLogging(aliasCandidate),
+      fallbackUrl: sanitizeUrlForLogging(normalizedUrl),
+    });
+    return normalizedUrl;
   },
 
   /**
