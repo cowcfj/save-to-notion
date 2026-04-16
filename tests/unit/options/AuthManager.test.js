@@ -300,7 +300,7 @@ describe('AuthManager Extended', () => {
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('選擇保存目標'),
-        expect.any(String)
+        'info'
       );
     });
   });
