@@ -61,6 +61,25 @@ describe('popupActions.js', () => {
       expect(result.dataSourceId).toBe('test-db');
     });
 
+    it('當 OAuth 已連接但缺少保存目標時應返回 missing_data_source', async () => {
+      await chrome.storage.local.set({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'test-token',
+      });
+
+      const result = await checkSettings();
+
+      expect(result.valid).toBe(false);
+      expect(result.missingReason).toBe('missing_data_source');
+    });
+
+    it('當完全缺少授權設定時應返回 missing_auth', async () => {
+      const result = await checkSettings();
+
+      expect(result.valid).toBe(false);
+      expect(result.missingReason).toBe('missing_auth');
+    });
+
     it('應該同時支持 notionDataSourceId 和 notionDatabaseId (兼容性檢查)', async () => {
       await chrome.storage.sync.set({
         notionApiKey: 'test-key',

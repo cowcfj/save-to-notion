@@ -123,7 +123,12 @@ describe('popup.js Controller', () => {
 
   it('當缺少 API Key 時應正確處理', async () => {
     const { mockElements } = setup();
-    checkSettings.mockResolvedValue({ valid: false, apiKey: undefined, dataSourceId: undefined });
+    checkSettings.mockResolvedValue({
+      valid: false,
+      apiKey: undefined,
+      dataSourceId: undefined,
+      missingReason: 'missing_auth',
+    });
 
     await initPopup();
 
@@ -141,6 +146,7 @@ describe('popup.js Controller', () => {
       valid: false,
       apiKey: 'test-api-key',
       dataSourceId: undefined,
+      missingReason: 'missing_data_source',
     });
 
     await initPopup();
@@ -151,6 +157,29 @@ describe('popup.js Controller', () => {
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
+  });
+
+  it('當 OAuth 已連接但缺少保存目標時應顯示保存目標提示而非 API Key 提示', async () => {
+    const { mockElements } = setup();
+    checkSettings.mockResolvedValue({
+      valid: false,
+      apiKey: undefined,
+      dataSourceId: undefined,
+      missingReason: 'missing_data_source',
+      authMode: 'oauth',
+      hasOAuthToken: true,
+    });
+
+    await initPopup();
+
+    expect(setStatus).toHaveBeenCalledWith(
+      mockElements,
+      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE)
+    );
+    expect(setStatus).not.toHaveBeenCalledWith(
+      mockElements,
+      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED)
+    );
   });
 
   it('初始化失敗時應正確處理錯誤', async () => {

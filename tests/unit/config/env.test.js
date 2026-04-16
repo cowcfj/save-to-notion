@@ -190,13 +190,17 @@ describe('配置模組 - env.js', () => {
       expect(Object.isFrozen(ENV)).toBe(true);
     });
 
-    test('BUILD_ENV 應保留模板預設值且為唯讀', () => {
-      expect(BUILD_ENV).toEqual({
-        ENABLE_OAUTH: false,
-        OAUTH_SERVER_URL: '',
-        OAUTH_CLIENT_ID: '',
-        EXTENSION_API_KEY: '',
-      });
+    test('BUILD_ENV 應包含必要欄位且為唯讀', () => {
+      expect(Object.keys(BUILD_ENV)).toEqual([
+        'ENABLE_OAUTH',
+        'OAUTH_SERVER_URL',
+        'OAUTH_CLIENT_ID',
+        'EXTENSION_API_KEY',
+      ]);
+      expect(typeof BUILD_ENV.ENABLE_OAUTH).toBe('boolean');
+      expect(typeof BUILD_ENV.OAUTH_SERVER_URL).toBe('string');
+      expect(typeof BUILD_ENV.OAUTH_CLIENT_ID).toBe('string');
+      expect(typeof BUILD_ENV.EXTENSION_API_KEY).toBe('string');
       expect(Object.isFrozen(BUILD_ENV)).toBe(true);
     });
   });

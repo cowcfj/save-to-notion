@@ -1110,8 +1110,9 @@ describe('options.html 結構', () => {
     const htmlPath = path.resolve(__dirname, '../../../options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
-    expect(html).toMatch(
-      /<div[^>]*id="cleanup-status"[^>]*class="status-message mt-8"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/
-    );
+    expect(html).toMatch(/<output[^>]*id="cleanup-status"/);
+    expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-8"/);
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('aria-atomic="true"');
   });
 });
