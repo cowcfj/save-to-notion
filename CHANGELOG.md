@@ -1,5 +1,25 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.53.0](https://github.com/cowcfj/save-to-notion/compare/v2.52.0...v2.53.0) (2026-04-16)
+
+
+### ✨ 新功能
+
+* 增加 OAuth 目標選擇提示及設定檢查 ([#416](https://github.com/cowcfj/save-to-notion/issues/416)) ([6fef8be](https://github.com/cowcfj/save-to-notion/commit/6fef8bed96e48840f59cedf8c2d744e3d2ba8d30))
+
+
+### 🐛 Bug 修復
+
+* 修正 OAuth 客戶端 ID 檢查邏輯，新增測試案例以驗證設定警告 ([703e0ac](https://github.com/cowcfj/save-to-notion/commit/703e0ac69d7a5fad42c775ae495b08419fedd84e))
+* 修正 OAuth 流程中的環境變數提示與檢查 ([79a49ee](https://github.com/cowcfj/save-to-notion/commit/79a49eee8293b36a9ac2151560d18238504d526a))
+* 修正 OAuth 流程中的環境變數提示與檢查 ([#415](https://github.com/cowcfj/save-to-notion/issues/415)) ([3d2c255](https://github.com/cowcfj/save-to-notion/commit/3d2c255a43053ead24003262f1196e5252ae6ed5))
+* 修正清理狀態顯示元素為 &lt;output&gt; 標籤以改善可訪問性 ([680b076](https://github.com/cowcfj/save-to-notion/commit/680b076d42b24b1a0396d2b63a07dd742e5c89e8))
+
+
+### 🧹 其他變更
+
+* update env.example.js with new environment variable placeholders ([e98282e](https://github.com/cowcfj/save-to-notion/commit/e98282e24bb643b95ca7422e952c5d00a78d8bbc))
+
 ## [2.52.0](https://github.com/cowcfj/save-to-notion/compare/v2.51.0...v2.52.0) (2026-04-15)
 
 
