@@ -51,7 +51,9 @@ export async function initPopup() {
   if (!settings.valid) {
     // 根據實際缺失的設定顯示對應的提示訊息
     let msg = UI_MESSAGES.SETUP.MISSING_CONFIG;
-    if (!settings.apiKey) {
+    if (settings.missingReason === 'missing_data_source') {
+      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
+    } else if (settings.missingReason === 'missing_auth') {
       msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED;
     } else if (!settings.dataSourceId) {
       msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;

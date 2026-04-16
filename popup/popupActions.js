@@ -16,7 +16,15 @@ import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 /**
  * 檢查設置是否完整
  *
- * @returns {Promise<{valid: boolean, apiKey?: string, dataSourceId?: string}>}
+ * @returns {Promise<{
+ *   valid: boolean,
+ *   apiKey?: string,
+ *   dataSourceId?: string,
+ *   authMode?: string|null,
+ *   hasOAuthToken?: boolean,
+ *   hasManualApiKey?: boolean,
+ *   missingReason?: 'missing_auth'|'missing_data_source'|'unknown'
+ * }>}
  */
 export async function checkSettings() {
   try {
@@ -35,6 +43,9 @@ export async function checkSettings() {
     const localDataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
     const syncDataSourceId = syncResult.notionDataSourceId || syncResult.notionDatabaseId;
     const dataSourceId = localDataSourceId || syncDataSourceId;
+    const hasManualApiKey = Boolean(syncResult.notionApiKey);
+    const hasAuth = Boolean(hasManualApiKey || isOAuth);
+    const valid = Boolean(hasAuth && dataSourceId);
 
     await migrateDataSourceKeys({
       localData: localResult,
@@ -45,14 +56,34 @@ export async function checkSettings() {
       retryContext: 'popup',
     });
 
+    let authMode = null;
+    if (isOAuth) {
+      authMode = AuthMode.OAUTH;
+    } else if (hasManualApiKey) {
+      authMode = AuthMode.MANUAL;
+    }
+
+    let missingReason;
+    if (!valid) {
+      if (hasAuth) {
+        missingReason = 'missing_data_source';
+      } else {
+        missingReason = 'missing_auth';
+      }
+    }
+
     return {
-      valid: Boolean((syncResult.notionApiKey || isOAuth) && dataSourceId),
+      valid,
       apiKey: syncResult.notionApiKey,
       dataSourceId,
+      authMode,
+      hasOAuthToken: Boolean(isOAuth),
+      hasManualApiKey,
+      missingReason,
     };
   } catch (error) {
     Logger.warn('Failed to check settings:', error);
-    return { valid: false };
+    return { valid: false, missingReason: 'unknown' };
   }
 }
 

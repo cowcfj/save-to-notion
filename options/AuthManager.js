@@ -272,6 +272,10 @@ export class AuthManager {
       this.ui.hideDataSourceUpgradeNotice?.();
     }
 
+    if (!resolvedId) {
+      this.ui.showStatus(UI_MESSAGES.AUTH.OAUTH_TARGET_REQUIRED, 'info');
+    }
+
     // 載入 OAuth 模式的資料來源
     const token = localData.notionOAuthToken;
     if (token) {

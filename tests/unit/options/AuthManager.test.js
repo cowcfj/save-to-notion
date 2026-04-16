@@ -287,6 +287,22 @@ describe('AuthManager Extended', () => {
         error: expect.any(String),
       });
     });
+
+    test('OAuth 已連接但缺少保存目標時應顯示引導訊息', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth-token',
+        notionWorkspaceName: 'Test Workspace',
+      });
+      chrome.storage.sync.get.mockResolvedValue({});
+
+      await authManager.checkAuthStatus();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('選擇保存目標'),
+        expect.any(String)
+      );
+    });
   });
 
   describe('handleDisconnectedState', () => {

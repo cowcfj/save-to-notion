@@ -56,6 +56,7 @@ export const UI_MESSAGES = {
     // 即時提示
     NOTIFY_SUCCESS: 'Notion 連接成功！',
     NOTIFY_ERROR: 'Notion 連接失敗，請重試。',
+    OAUTH_TARGET_REQUIRED: '已連接 Notion，下一步請選擇保存目標並按儲存。',
 
     // 導航/其他
     OPENING_NOTION: '正在打開 Notion...',
