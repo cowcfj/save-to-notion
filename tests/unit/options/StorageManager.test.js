@@ -1111,6 +1111,7 @@ describe('options.html 結構', () => {
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toMatch(/<output[^>]*id="cleanup-status"/);
+    expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-8"/);
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });
