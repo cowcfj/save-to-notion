@@ -227,32 +227,51 @@ describe('StorageManager', () => {
   // ── importData ────────────────────────────────────────────────────────
 
   describe('importData', () => {
-    it('應匯入有效 JSON 備份', async () => {
-      const mockContent = JSON.stringify({
-        data: { 'page_test.com': { notion: null, highlights: [] } },
-      });
-      const event = { target: { files: [{ text: jest.fn().mockResolvedValue(mockContent) }] } };
+    /** 建立模擬的 file change event */
+    function buildFileEvent(data) {
+      const text = JSON.stringify({ data });
+      return { target: { files: [{ text: jest.fn().mockResolvedValue(text) }] } };
+    }
+
+    /** 從當前 dataStatus 抓取模式按鈕 */
+    function getModeButton(mode) {
+      return storageManager.elements.dataStatus.querySelector(`button[data-mode="${mode}"]`);
+    }
+
+    it('選檔成功後應顯示 4 個模式按鈕（3 模式 + 取消）且不直接寫入', async () => {
+      const event = buildFileEvent({ page_a: { notion: null, highlights: [] } });
 
       await storageManager.importData(event);
 
-      expect(mockSet).toHaveBeenCalledWith({ 'page_test.com': { notion: null, highlights: [] } });
+      expect(mockSet).not.toHaveBeenCalled();
+      const buttons = storageManager.elements.dataStatus.querySelectorAll('button[data-mode]');
+      expect(buttons).toHaveLength(4);
+      expect(getModeButton('overwrite-all')).toBeTruthy();
+      expect(getModeButton('new-only')).toBeTruthy();
+      expect(getModeButton('new-and-overwrite')).toBeTruthy();
+      expect(getModeButton('cancel')).toBeTruthy();
     });
 
-    it('匯入時應忽略 OAuth 金鑰', async () => {
-      const mockContent = JSON.stringify({
-        data: {
-          notionOAuthToken: 'oauth_token_secret',
-          notionRefreshToken: 'refresh_token_secret',
-          page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
-        },
+    it('選檔時應過濾非白名單 key（OAuth/migration 等）', async () => {
+      const event = buildFileEvent({
+        notionOAuthToken: 'secret',
+        migration_old: { x: 1 },
+        page_abc: { notion: { pageId: 'p1' }, highlights: [] },
       });
-      const event = { target: { files: [{ text: jest.fn().mockResolvedValue(mockContent) }] } };
 
       await storageManager.importData(event);
 
+      // 選擇 overwrite-all 模式應只寫入白名單 key
+      mockGet.mockImplementation((_keys, cb) => cb({}));
+      getModeButton('overwrite-all').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
       expect(mockSet).toHaveBeenCalledWith({
-        page_abc: { notion: { pageId: 'page-1' }, highlights: [] },
+        page_abc: { notion: { pageId: 'p1' }, highlights: [] },
       });
+      expect(mockSet.mock.calls[0][0]).not.toHaveProperty('notionOAuthToken');
+      expect(mockSet.mock.calls[0][0]).not.toHaveProperty('migration_old');
     });
 
     it('應拒絕備份數據為陣列格式', async () => {
@@ -264,6 +283,7 @@ describe('StorageManager', () => {
       await storageManager.importData(event);
       expect(mockSet).not.toHaveBeenCalled();
       expect(storageManager.elements.dataStatus.className).toContain('error');
+      expect(storageManager.elements.importFile.value).toBe('');
     });
 
     it('應拒絕備份數據為 null', async () => {
@@ -275,28 +295,178 @@ describe('StorageManager', () => {
       await storageManager.importData(event);
       expect(mockSet).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalled();
+      expect(storageManager.elements.importFile.value).toBe('');
     });
 
-    it('匯入儲存失敗時應顯示錯誤', async () => {
-      mockSet.mockRejectedValueOnce(new Error('Storage error'));
+    it('讀檔/JSON parse 失敗時應走錯誤處理', async () => {
       const event = {
-        target: {
-          files: [
-            { text: jest.fn().mockResolvedValue(JSON.stringify({ data: { page_test: {} } })) },
-          ],
-        },
+        target: { files: [{ text: jest.fn().mockResolvedValue('not-json') }] },
       };
-
       await storageManager.importData(event);
-
+      expect(mockSet).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalledWith(
         'Import failed',
-        expect.objectContaining({
-          action: 'import_backup',
-          error: expect.objectContaining({ message: 'Storage error' }),
-        })
+        expect.objectContaining({ action: 'import_backup' })
       );
       expect(storageManager.elements.dataStatus.className).toContain('error');
+      expect(storageManager.elements.importFile.value).toBe('');
+    });
+
+    describe('模式執行', () => {
+      let setTimeoutSpy = null;
+
+      beforeEach(() => {
+        // 不用 fake timers + reload spy，因為 JSDOM 的 location.reload 是 non-configurable；
+        // 改為觀察 setTimeout 是否以 2000ms 排程 reload 副作用。
+        setTimeoutSpy = jest.spyOn(globalThis, 'setTimeout').mockImplementation(() => 0);
+      });
+
+      afterEach(() => {
+        setTimeoutSpy.mockRestore();
+      });
+
+      it('「overwrite-all」模式應以完整 sanitized 資料呼叫 set 並清 importFile', async () => {
+        const backupData = {
+          page_a: { notion: null, highlights: [{ id: '1' }] },
+          page_b: { notion: { pageId: 'p' }, highlights: [] },
+        };
+        mockGet.mockImplementation((_keys, cb) => cb({ page_a: { notion: null, highlights: [] } }));
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('overwrite-all').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).toHaveBeenCalledWith(backupData);
+        expect(storageManager.elements.importFile.value).toBe('');
+
+        // reload 副作用：setTimeout 以 2000ms 排程
+        expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
+      });
+
+      it('「new-only」模式應只寫入 newKeys', async () => {
+        const backupData = {
+          page_same: { highlights: [{ id: '1' }] },
+          page_conflict: { highlights: [{ id: '2' }] },
+          page_new: { highlights: [] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            page_same: { highlights: [{ id: '1' }] },
+            page_conflict: { highlights: [{ id: '1' }] },
+          })
+        );
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('new-only').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).toHaveBeenCalledWith({ page_new: { highlights: [] } });
+      });
+
+      it('「new-and-overwrite」模式應寫入 newKeys + conflictKeys', async () => {
+        const backupData = {
+          page_same: { highlights: [{ id: '1' }] },
+          page_conflict: { highlights: [{ id: '2' }] },
+          page_new: { highlights: [] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            page_same: { highlights: [{ id: '1' }] },
+            page_conflict: { highlights: [{ id: '1' }] },
+          })
+        );
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('new-and-overwrite').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).toHaveBeenCalledWith({
+          page_new: { highlights: [] },
+          page_conflict: { highlights: [{ id: '2' }] },
+        });
+      });
+
+      it('備份與本地完全一致時應顯示 IMPORT_NOTHING_TO_DO、不寫入、不 reload', async () => {
+        const backupData = { page_same: { highlights: [{ id: '1' }] } };
+        mockGet.mockImplementation((_keys, cb) => cb({ page_same: { highlights: [{ id: '1' }] } }));
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('new-and-overwrite').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).not.toHaveBeenCalled();
+        expect(storageManager.elements.dataStatus.textContent).toContain('無需匯入');
+        expect(storageManager.elements.importFile.value).toBe('');
+
+        expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
+      });
+
+      it('成功訊息應包含新增/覆蓋/跳過數字', async () => {
+        const backupData = {
+          page_same: { highlights: [{ id: '1' }] },
+          page_conflict: { highlights: [{ id: '2' }] },
+          page_new: { highlights: [] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            page_same: { highlights: [{ id: '1' }] },
+            page_conflict: { highlights: [{ id: '1' }] },
+          })
+        );
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('new-and-overwrite').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const status = storageManager.elements.dataStatus.textContent;
+        expect(status).toContain('新增');
+        expect(status).toContain('1');
+        expect(status).toContain('覆蓋');
+        expect(status).toContain('跳過');
+      });
+
+      it('chrome.storage.local.set 丟錯時應走 RESTORE_FAILED 路徑、不 reload', async () => {
+        const backupData = { page_new: { highlights: [] } };
+        mockGet.mockImplementation((_keys, cb) => cb({}));
+        mockSet.mockRejectedValueOnce(new Error('Storage error'));
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('overwrite-all').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(Logger.error).toHaveBeenCalledWith(
+          'Import failed',
+          expect.objectContaining({
+            action: 'import_backup',
+            error: expect.objectContaining({ message: 'Storage error' }),
+          })
+        );
+        expect(storageManager.elements.dataStatus.className).toContain('error');
+        expect(storageManager.elements.importFile.value).toBe('');
+
+        expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
+      });
+
+      it('取消按鈕應清 importFile、顯示 IMPORT_CANCELED、不寫入、不 reload', async () => {
+        const backupData = { page_a: { highlights: [] } };
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton('cancel').click();
+        await Promise.resolve();
+
+        expect(mockSet).not.toHaveBeenCalled();
+        expect(storageManager.elements.dataStatus.textContent).toContain('已取消匯入');
+        expect(storageManager.elements.importFile.value).toBe('');
+
+        expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
+      });
     });
   });
 });

@@ -21,7 +21,6 @@ describe('配置模組 - messages.js 動態函式', () => {
   const PAGE_COUNT = 2;
   const HIGHLIGHT_COUNT = 15;
   const SYNC_SUCCESS_COUNT = 8;
-  const RESTORE_SIZE = 100;
   const CLEANUP_FAILED_REASON = '磁碟已滿';
   const HEALTH_CODE = 4;
   const LEGACY_SAVED_COUNT = 12;
@@ -77,7 +76,6 @@ describe('配置模組 - messages.js 動態函式', () => {
       fn: UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT,
       arg: SYNC_SUCCESS_COUNT,
     },
-    { path: 'STORAGE.RESTORE_SUCCESS', fn: UI_MESSAGES.STORAGE.RESTORE_SUCCESS, arg: RESTORE_SIZE },
     {
       path: 'STORAGE.CLEANUP_FAILED',
       fn: UI_MESSAGES.STORAGE.CLEANUP_FAILED,
@@ -138,6 +136,23 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(typeof result).toBe('string');
       expect(result).toContain(String(HEALTH_MIGRATION_LEFTOVER_COUNT));
       expect(result).toContain(String(HEALTH_MIGRATION_LEFTOVER_SIZE));
+    });
+  });
+
+  describe('三參數函式', () => {
+    test('STORAGE.IMPORT_SUCCESS 應包含新增/覆蓋/跳過三個數字', () => {
+      const newCount = 3;
+      const overwriteCount = 5;
+      const skipCount = 7;
+      const result = UI_MESSAGES.STORAGE.IMPORT_SUCCESS(newCount, overwriteCount, skipCount);
+
+      expect(typeof result).toBe('string');
+      expect(result).toContain(String(newCount));
+      expect(result).toContain(String(overwriteCount));
+      expect(result).toContain(String(skipCount));
+      expect(result).toContain('新增');
+      expect(result).toContain('覆蓋');
+      expect(result).toContain('跳過');
     });
   });
 
