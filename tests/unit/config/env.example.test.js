@@ -193,6 +193,7 @@ describe('配置模組 - env.example.js', () => {
     test('BUILD_ENV 應保留模板預設值且為唯讀', () => {
       expect(BUILD_ENV).toEqual({
         ENABLE_OAUTH: false,
+        ENABLE_ACCOUNT: false,
         OAUTH_SERVER_URL: '',
         OAUTH_CLIENT_ID: '',
         EXTENSION_API_KEY: '',
