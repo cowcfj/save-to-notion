@@ -93,8 +93,10 @@ export const NOTION_OAUTH = {
  * @see scripts/config/env.example.js — BUILD_ENV.OAUTH_SERVER_URL
  */
 export const ACCOUNT_API = {
-  /** 啟動 Google 登入流程；需附帶 ?ext_id=<chrome.runtime.id> */
+  /** 啟動 Google 登入流程；需附帶 ?ext_id=<chrome.runtime.id>&callback_mode=bridge */
   GOOGLE_START: '/v1/account/google/start',
+  /** Google callback bridge fallback page */
+  CALLBACK_BRIDGE: '/v1/account/callback-bridge',
   /** 以一次性 account_ticket 換取正式 session token */
   SESSION_EXCHANGE: '/v1/account/session/exchange',
   /** 取得最小帳號資訊（需 Bearer token） */

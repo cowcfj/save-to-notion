@@ -4,7 +4,7 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
-import { AuthMode } from '../scripts/config/api.js';
+import { ACCOUNT_API, AuthMode } from '../scripts/config/api.js';
 import { BUILD_ENV } from '../scripts/config/env.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
@@ -220,8 +220,10 @@ function initAccountUI() {
     loginBtn.addEventListener('click', () => {
       const extId = chrome.runtime.id;
       const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
-      const startUrl = `${baseUrl}/v1/account/google/start?ext_id=${extId}`;
-      chrome.tabs.create({ url: startUrl });
+      const startUrl = new URL(`${baseUrl}${ACCOUNT_API.GOOGLE_START}`);
+      startUrl.searchParams.set('ext_id', extId);
+      startUrl.searchParams.set('callback_mode', 'bridge');
+      chrome.tabs.create({ url: startUrl.toString() });
     });
   }
 

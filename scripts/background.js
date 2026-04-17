@@ -31,6 +31,7 @@ import { createMigrationHandlers } from './background/handlers/migrationHandlers
 import { createLogHandlers } from './background/handlers/logHandlers.js';
 import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
+import { createAccountAuthHandler } from './background/handlers/accountAuthHandler.js';
 
 const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
 const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
@@ -46,6 +47,7 @@ const pageContentService = new PageContentService({
 });
 const storageService = new StorageService({ logger: Logger });
 const notionService = new NotionService({ logger: Logger });
+const accountAuthHandler = createAccountAuthHandler({ logger: Logger });
 
 // Initialize MessageHandler
 const messageHandler = new MessageHandler({ logger: Logger });
@@ -114,6 +116,7 @@ if (globalThis.self !== undefined) {
 
 messageHandler.setupListener();
 tabService.setupListeners();
+accountAuthHandler.setupListeners();
 
 // ==========================================
 // LIFECYCLE MANAGEMENT
@@ -231,6 +234,7 @@ if (typeof module !== 'undefined' && module.exports) {
     injectionService,
     pageContentService,
     tabService,
+    accountAuthHandler,
     messageHandler,
     actionHandlers,
     handleExtensionUpdate,

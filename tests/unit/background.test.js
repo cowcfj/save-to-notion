@@ -89,6 +89,11 @@ jest.mock('../../scripts/background/handlers/logHandlers.js', () => ({
 jest.mock('../../scripts/background/handlers/notionHandlers.js', () => ({
   createNotionHandlers: jest.fn().mockReturnValue({}),
 }));
+jest.mock('../../scripts/background/handlers/accountAuthHandler.js', () => ({
+  createAccountAuthHandler: jest.fn().mockReturnValue({
+    setupListeners: jest.fn(),
+  }),
+}));
 
 // Now require the module
 const {
@@ -164,6 +169,24 @@ describe('Background Script Lifecycle', () => {
       expect(shouldShowUpdateNotification(undefined, '2.0.0')).toBe(false);
       expect(shouldShowUpdateNotification('1.0.0', undefined)).toBe(false);
       expect(shouldShowUpdateNotification(null, null)).toBe(false);
+    });
+  });
+
+  describe('startup listeners', () => {
+    test('應在啟動時註冊 account callback bridge listener', () => {
+      jest.resetModules();
+
+      const mockAccountAuthHandler = {
+        setupListeners: jest.fn(),
+      };
+
+      jest.doMock('../../scripts/background/handlers/accountAuthHandler.js', () => ({
+        createAccountAuthHandler: jest.fn().mockReturnValue(mockAccountAuthHandler),
+      }));
+
+      require('../../scripts/background.js');
+
+      expect(mockAccountAuthHandler.setupListeners).toHaveBeenCalledTimes(1);
     });
   });
 

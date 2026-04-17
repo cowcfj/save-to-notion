@@ -1022,16 +1022,19 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
   });
 
   describe('登入按鈕', () => {
-    it('點擊後應開新 tab 到 Google start URL（帶 ext_id）', async () => {
+    it('點擊後應開新 tab 到 Google start URL（帶 ext_id 與 callback_mode=bridge）', async () => {
       getAccountProfile.mockResolvedValue(null);
       initOptions();
       await Promise.resolve();
 
       document.querySelector('#account-login-button').click();
 
-      expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({
-        url: expect.stringContaining('/v1/account/google/start?ext_id=ext_id_123'),
-      });
+      const [{ url }] = globalThis.chrome.tabs.create.mock.calls[0];
+      const startUrl = new URL(url);
+
+      expect(startUrl.pathname).toBe('/v1/account/google/start');
+      expect(startUrl.searchParams.get('ext_id')).toBe('ext_id_123');
+      expect(startUrl.searchParams.get('callback_mode')).toBe('bridge');
     });
 
     it('登入 URL 應使用 BUILD_ENV.OAUTH_SERVER_URL 作為 base', async () => {

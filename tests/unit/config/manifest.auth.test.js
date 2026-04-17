@@ -4,6 +4,9 @@
  * 驗證 auth.html 已正確加入 web_accessible_resources，
  * 且 matches 不包含 <all_urls>（安全限制）。
  *
+ * bridge rollout 完成前，legacy direct redirect 仍可能存在，因此 auth.html 的
+ * web_accessible_resources 條目暫時 **MUST NOT** 移除。
+ *
  * @see manifest.json
  * @see docs/plans/2026-04-17-cloudflare-frontend-account-integration-plan.md §Task 2
  */
