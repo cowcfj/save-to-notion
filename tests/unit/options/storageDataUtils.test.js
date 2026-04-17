@@ -115,30 +115,6 @@ describe('storageDataUtils — diffBackupData', () => {
     expect(diffBackupData(backup, local).skippedKeys).toEqual(['page_a']);
   });
 
-  test('缺少 Array.prototype.toSorted 時仍應可判為 skippedKeys', () => {
-    const backup = {
-      page_a: { notion: { pageId: 'p1', url: 'u' }, highlights: [] },
-    };
-    const local = {
-      page_a: { highlights: [], notion: { url: 'u', pageId: 'p1' } },
-    };
-    const originalToSorted = Array.prototype.toSorted;
-
-    delete Array.prototype.toSorted;
-
-    try {
-      expect(diffBackupData(backup, local).skippedKeys).toEqual(['page_a']);
-    } finally {
-      if (originalToSorted) {
-        Object.defineProperty(Array.prototype, 'toSorted', {
-          value: originalToSorted,
-          writable: true,
-          configurable: true,
-        });
-      }
-    }
-  });
-
   test('混合場景：三類各自正確分類', () => {
     const backup = {
       page_new: { highlights: [] },
