@@ -95,6 +95,17 @@ function buildChromeMock(mockGet, mockSet, mockRemove) {
   };
 }
 
+/** 建立模擬的 file change event */
+function buildFileEvent(data) {
+  const text = JSON.stringify({ data });
+  return { target: { files: [{ text: jest.fn().mockResolvedValue(text) }] } };
+}
+
+/** 從當前 dataStatus 抓取模式按鈕 */
+function getModeButton(storageManager, mode) {
+  return storageManager.elements.dataStatus.querySelector(`button[data-mode="${mode}"]`);
+}
+
 // ─── 1. StorageManager — 主要 UI 層測試 ────────────────────────────────
 
 describe('StorageManager', () => {
@@ -227,17 +238,6 @@ describe('StorageManager', () => {
   // ── importData ────────────────────────────────────────────────────────
 
   describe('importData', () => {
-    /** 建立模擬的 file change event */
-    function buildFileEvent(data) {
-      const text = JSON.stringify({ data });
-      return { target: { files: [{ text: jest.fn().mockResolvedValue(text) }] } };
-    }
-
-    /** 從當前 dataStatus 抓取模式按鈕 */
-    function getModeButton(mode) {
-      return storageManager.elements.dataStatus.querySelector(`button[data-mode="${mode}"]`);
-    }
-
     it('選檔成功後應顯示 4 個模式按鈕（3 模式 + 取消）且不直接寫入', async () => {
       const event = buildFileEvent({ page_a: { notion: null, highlights: [] } });
 
@@ -246,10 +246,10 @@ describe('StorageManager', () => {
       expect(mockSet).not.toHaveBeenCalled();
       const buttons = storageManager.elements.dataStatus.querySelectorAll('button[data-mode]');
       expect(buttons).toHaveLength(4);
-      expect(getModeButton('overwrite-all')).toBeTruthy();
-      expect(getModeButton('new-only')).toBeTruthy();
-      expect(getModeButton('new-and-overwrite')).toBeTruthy();
-      expect(getModeButton('cancel')).toBeTruthy();
+      expect(getModeButton(storageManager, 'overwrite-all')).toBeTruthy();
+      expect(getModeButton(storageManager, 'new-only')).toBeTruthy();
+      expect(getModeButton(storageManager, 'new-and-overwrite')).toBeTruthy();
+      expect(getModeButton(storageManager, 'cancel')).toBeTruthy();
     });
 
     it('選檔時應過濾非白名單 key（OAuth/migration 等）', async () => {
@@ -263,7 +263,7 @@ describe('StorageManager', () => {
 
       // 選擇 overwrite-all 模式應只寫入白名單 key
       mockGet.mockImplementation((_keys, cb) => cb({}));
-      getModeButton('overwrite-all').click();
+      getModeButton(storageManager, 'overwrite-all').click();
       await Promise.resolve();
       await Promise.resolve();
 
@@ -333,7 +333,7 @@ describe('StorageManager', () => {
         mockGet.mockImplementation((_keys, cb) => cb({ page_a: { notion: null, highlights: [] } }));
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('overwrite-all').click();
+        getModeButton(storageManager, 'overwrite-all').click();
         await Promise.resolve();
         await Promise.resolve();
 
@@ -358,7 +358,7 @@ describe('StorageManager', () => {
         );
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('new-only').click();
+        getModeButton(storageManager, 'new-only').click();
         await Promise.resolve();
         await Promise.resolve();
 
@@ -379,7 +379,7 @@ describe('StorageManager', () => {
         );
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('new-and-overwrite').click();
+        getModeButton(storageManager, 'new-and-overwrite').click();
         await Promise.resolve();
         await Promise.resolve();
 
@@ -394,7 +394,7 @@ describe('StorageManager', () => {
         mockGet.mockImplementation((_keys, cb) => cb({ page_same: { highlights: [{ id: '1' }] } }));
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('new-and-overwrite').click();
+        getModeButton(storageManager, 'new-and-overwrite').click();
         await Promise.resolve();
         await Promise.resolve();
 
@@ -419,7 +419,7 @@ describe('StorageManager', () => {
         );
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('new-and-overwrite').click();
+        getModeButton(storageManager, 'new-and-overwrite').click();
         await Promise.resolve();
         await Promise.resolve();
 
@@ -436,7 +436,7 @@ describe('StorageManager', () => {
         mockSet.mockRejectedValueOnce(new Error('Storage error'));
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('overwrite-all').click();
+        getModeButton(storageManager, 'overwrite-all').click();
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
@@ -458,7 +458,7 @@ describe('StorageManager', () => {
         const backupData = { page_a: { highlights: [] } };
 
         await storageManager.importData(buildFileEvent(backupData));
-        getModeButton('cancel').click();
+        getModeButton(storageManager, 'cancel').click();
         await Promise.resolve();
 
         expect(mockSet).not.toHaveBeenCalled();
