@@ -7,6 +7,7 @@ import { createAccountAuthHandler } from '../../../../scripts/background/handler
 describe('accountAuthHandler', () => {
   let runtime;
   let tabs;
+  let logger;
   let onUpdatedListener;
   let onRemovedListener;
   let handler;
@@ -34,10 +35,15 @@ describe('accountAuthHandler', () => {
       },
     };
 
+    logger = {
+      warn: jest.fn(),
+    };
+
     handler = createAccountAuthHandler({
       oauthServerUrl: 'https://worker.test',
       runtime,
       tabs,
+      logger,
     });
   });
 
@@ -138,5 +144,25 @@ describe('accountAuthHandler', () => {
     await onUpdatedListener(12, { url: bridgeUrl });
 
     expect(tabs.update).toHaveBeenCalledTimes(2);
+  });
+
+  test('導向失敗時應記錄脫敏後的錯誤而非原始 Error 物件', async () => {
+    handler.setupListeners();
+
+    tabs.update.mockRejectedValueOnce(
+      new Error(
+        'tabs.update failed for https://worker.test/v1/account/callback-bridge?account_ticket=secret_ticket&ext_id=ext_id_123&token=abc123'
+      )
+    );
+
+    await onUpdatedListener(12, {
+      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123',
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith('Account callback bridge 導向失敗', {
+      action: 'handleAccountCallbackBridge',
+      tabId: 12,
+      error: 'Unknown Error',
+    });
   });
 });

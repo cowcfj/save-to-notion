@@ -2,6 +2,7 @@
 
 import { ACCOUNT_API } from '../../config/api.js';
 import { BUILD_ENV } from '../../config/env.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 
 /**
  * 建立 account callback bridge handler。
@@ -111,10 +112,11 @@ export function createAccountAuthHandler(dependencies = {}) {
       await tabs.update(tabId, { url: authUrl });
     } catch (error) {
       processedBridgeUrlsByTab.delete(tabId);
+      const safeError = sanitizeApiError(error, 'handle_account_callback_bridge');
       logger?.warn?.('Account callback bridge 導向失敗', {
         action: 'handleAccountCallbackBridge',
         tabId,
-        error,
+        error: safeError,
       });
     }
   }

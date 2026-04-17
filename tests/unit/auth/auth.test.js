@@ -18,26 +18,26 @@ jest.mock('../../../scripts/auth/accountSession.js', () => ({
   clearAccountSession: mockClearAccountSession,
 }));
 
+function buildAuthDom() {
+  document.body.innerHTML = `
+    <main>
+      <div id="status-area" class="status-area">
+        <div id="spinner"></div>
+        <p id="status-text"></p>
+      </div>
+      <p id="close-hint" style="display: none"></p>
+    </main>
+  `;
+}
+
+async function loadAuthModule() {
+  await import('../../../scripts/auth/auth.js');
+}
+
 describe('auth.js', () => {
   let originalClose;
   let domReadyHandler;
   let originalAddEventListener;
-
-  function buildAuthDom() {
-    document.body.innerHTML = `
-      <main>
-        <div id="status-area" class="status-area">
-          <div id="spinner"></div>
-          <p id="status-text"></p>
-        </div>
-        <p id="close-hint" style="display: none"></p>
-      </main>
-    `;
-  }
-
-  async function loadAuthModule() {
-    await import('../../../scripts/auth/auth.js');
-  }
 
   async function dispatchDomReady() {
     await domReadyHandler?.();
