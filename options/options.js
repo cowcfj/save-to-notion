@@ -17,6 +17,8 @@ import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
 import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
 import { getAccountProfile, clearAccountSession } from '../scripts/auth/accountSession.js';
 
+const UI_CLASS_STATUS_MSG = 'status-message';
+
 /**
  * Options Page Main Controller
  * 負責協調各个模組，處理全域事件與設置保存
@@ -238,17 +240,17 @@ function initAccountUI() {
         await renderAccountUI();
         if (statusEl) {
           statusEl.textContent = '已成功登出';
-          statusEl.className = 'status-message success';
+          statusEl.className = `${UI_CLASS_STATUS_MSG} success`;
           setTimeout(() => {
             statusEl.textContent = '';
-            statusEl.className = 'status-message';
+            statusEl.className = UI_CLASS_STATUS_MSG;
           }, 3000);
         }
       } catch (error) {
         Logger.error('Account logout failed', { error });
         if (statusEl) {
           statusEl.textContent = '登出失敗，請重試';
-          statusEl.className = 'status-message error';
+          statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
         }
       }
     });
@@ -581,12 +583,12 @@ function setupLogExport() {
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
         statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
-        statusEl.className = 'status-message success';
+        statusEl.className = `${UI_CLASS_STATUS_MSG} success`;
 
         // 3秒後清除成功訊息
         setTimeout(() => {
           statusEl.textContent = '';
-          statusEl.className = 'status-message';
+          statusEl.className = UI_CLASS_STATUS_MSG;
         }, 3000);
       } catch (error) {
         Logger.error('Log export failed', {
@@ -603,12 +605,12 @@ function setupLogExport() {
         const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX}${userFriendlyMsg}`;
 
         statusEl.textContent = errorMessage;
-        statusEl.className = 'status-message error';
+        statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
 
         // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
         setTimeout(() => {
           statusEl.textContent = '';
-          statusEl.className = 'status-message';
+          statusEl.className = UI_CLASS_STATUS_MSG;
         }, 5000);
       } finally {
         exportBtn.disabled = false;

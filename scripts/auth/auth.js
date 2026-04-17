@@ -34,6 +34,9 @@ const DOM_IDS = {
   CLOSE_HINT: '#close-hint',
 };
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ATTR_ARIA_HIDDEN = 'aria-hidden';
+
 // =============================================================================
 // UI helpers
 // =============================================================================
@@ -77,13 +80,13 @@ function showSuccess(message) {
 
     const iconCircle = document.createElement('div');
     iconCircle.className = 'icon-circle';
-    iconCircle.setAttribute('aria-hidden', 'true');
+    iconCircle.setAttribute(ATTR_ARIA_HIDDEN, 'true');
 
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute(ATTR_ARIA_HIDDEN, 'true');
 
-    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    const polyline = document.createElementNS(SVG_NS, 'polyline');
     polyline.setAttribute('points', '20 6 9 17 4 12');
     svg.append(polyline);
     iconCircle.append(svg);
@@ -114,19 +117,19 @@ function showError(message, detail) {
 
     const iconCircle = document.createElement('div');
     iconCircle.className = 'icon-circle';
-    iconCircle.setAttribute('aria-hidden', 'true');
+    iconCircle.setAttribute(ATTR_ARIA_HIDDEN, 'true');
 
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute(ATTR_ARIA_HIDDEN, 'true');
 
-    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const line1 = document.createElementNS(SVG_NS, 'line');
     line1.setAttribute('x1', '18');
     line1.setAttribute('y1', '6');
     line1.setAttribute('x2', '6');
     line1.setAttribute('y2', '18');
 
-    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const line2 = document.createElementNS(SVG_NS, 'line');
     line2.setAttribute('x1', '6');
     line2.setAttribute('y1', '6');
     line2.setAttribute('x2', '18');
