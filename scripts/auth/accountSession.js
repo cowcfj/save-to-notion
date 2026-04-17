@@ -149,10 +149,11 @@ export async function getAccountAccessToken() {
  * @returns {boolean} true 表示已過期或 expiresAt 無效
  */
 export function isAccountSessionExpired(session) {
-  const expiresAtMs = (session.expiresAt ?? 0) * 1000;
-  if (expiresAtMs <= 0) {
+  const raw = Number(session.expiresAt ?? 0);
+  if (!Number.isFinite(raw) || raw <= 0) {
     return true;
   }
+  const expiresAtMs = raw * 1000;
   return Date.now() >= expiresAtMs;
 }
 

@@ -217,14 +217,19 @@ async function exchangeTicket(ticket, baseUrl) {
   const data = await res.json();
 
   // 驗證必要欄位
-  if (!data.access_token || !data.expires_at) {
-    throw new Error('Exchange response missing required fields (access_token, expires_at)');
+  if (!data.access_token) {
+    throw new Error('Exchange response missing required field (access_token)');
+  }
+
+  const expiresAt = Number(data.expires_at);
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    throw new Error('Exchange response contains invalid expires_at');
   }
 
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token ?? '',
-    expiresAt: Number(data.expires_at),
+    expiresAt,
     userId: data.user_id ?? '',
   };
 }

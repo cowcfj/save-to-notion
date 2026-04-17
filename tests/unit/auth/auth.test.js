@@ -21,10 +21,10 @@ jest.mock('../../../scripts/auth/accountSession.js', () => ({
 function buildAuthDom() {
   document.body.innerHTML = `
     <main>
-      <div id="status-area" class="status-area">
+      <output id="status-area" class="status-area">
         <div id="spinner"></div>
         <p id="status-text"></p>
-      </div>
+      </output>
       <p id="close-hint" style="display: none"></p>
     </main>
   `;
@@ -167,6 +167,7 @@ describe('auth.js', () => {
     });
     expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
+        action: 'account_session_updated',
         userId: 'user_123',
         email: 'user@example.com',
       })

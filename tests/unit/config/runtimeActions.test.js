@@ -40,8 +40,8 @@ describe('runtimeActions', () => {
         OAUTH_SUCCESS: 'oauth_success',
         OAUTH_FAILED: 'oauth_failed',
         // Account session actions（Cloudflare-native，與 Notion OAuth 完整隔離）
-        ACCOUNT_SESSION_UPDATED: expect.stringMatching(/account/),
-        ACCOUNT_SESSION_CLEARED: expect.stringMatching(/account/),
+        ACCOUNT_SESSION_UPDATED: 'account_session_updated',
+        ACCOUNT_SESSION_CLEARED: 'account_session_cleared',
       })
     );
   });

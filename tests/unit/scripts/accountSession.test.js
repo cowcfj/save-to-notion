@@ -253,6 +253,14 @@ describe('isAccountSessionExpired', () => {
     expect(isAccountSessionExpired({ expiresAt: undefined })).toBe(true);
     expect(isAccountSessionExpired({})).toBe(true);
   });
+
+  test('expiresAt 為 NaN 時應回傳 true（視為已過期）', () => {
+    expect(isAccountSessionExpired({ expiresAt: Number.NaN })).toBe(true);
+  });
+
+  test('expiresAt 為 Infinity 時應回傳 true（非有限值視為無效）', () => {
+    expect(isAccountSessionExpired({ expiresAt: Infinity })).toBe(true);
+  });
 });
 
 // =============================================================================

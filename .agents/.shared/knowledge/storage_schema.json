@@ -68,7 +68,8 @@
         },
         "accountEmail": {
           "type": "string",
-          "description": "帳號 email，用於 Options UI 顯示"
+          "description": "帳號 email，用於 Options UI 顯示。⚠️ PII：MUST NOT 直接寫入日誌，LogSanitizer 已透過 SENSITIVE_KEY_PATTERN 自動脫敏",
+          "sensitive": true
         },
         "accountDisplayName": {
           "type": "string | null",

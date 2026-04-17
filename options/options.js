@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', initOptions);
 
 /**
  * 根據 storage 中的 account profile 更新 account card UI。
- * 可被 accounts_session_updated 、accounts_session_cleared 訊息以及 initAccountUI 呼叫。
+ * 可被 account_session_updated 、account_session_cleared 訊息以及 initAccountUI 呼叫。
  *
  * @returns {Promise<void>}
  */
@@ -195,7 +195,7 @@ async function renderAccountUI() {
 /**
  * 初始化 account UI。
  *
- * - 若 BUILD_ENV.ENABLE_ACCOUNT === false，閱藏整個 account card
+ * - 若 BUILD_ENV.ENABLE_ACCOUNT === false，隱藏整個 account card
  * - 設置登入 / 登出按鈕的事件監聽
  * - 讀取目前登入狀態並更新 UI
  */

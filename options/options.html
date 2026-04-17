@@ -307,7 +307,7 @@
                 使用 Google 帳號登入，享受同步與進階功能。
               </p>
               <div class="auth-actions">
-                <button id="account-login-button" class="btn-primary">
+                <button id="account-login-button" type="button" class="btn-primary">
                   <span class="icon">
                     <svg
                       width="16"
@@ -336,11 +336,11 @@
 
             <!-- 已登入狀態（由 JS 切換顯示） -->
             <div id="account-logged-in" style="display: none">
-              <div id="account-info" class="auth-status" style="margin-bottom: 12px">
+              <div id="account-info" class="auth-status" aria-live="polite" aria-atomic="true" style="margin-bottom: 12px">
                 <!-- 由 JS 動態填入 email / displayName -->
               </div>
               <div class="auth-actions">
-                <button id="account-logout-button" class="btn-danger">
+                <button id="account-logout-button" type="button" class="btn-danger">
                   <span class="icon">
                     <svg
                       width="16"
@@ -365,7 +365,7 @@
               </div>
             </div>
 
-            <p id="account-status" class="status-message" style="margin-top: 8px"></p>
+            <p id="account-status" class="status-message" aria-live="polite" aria-atomic="true" style="margin-top: 8px"></p>
           </div>
 
           <!-- 全局儲存按鈕 -->

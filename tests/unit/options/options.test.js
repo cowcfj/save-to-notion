@@ -950,6 +950,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     buildAccountCardDOM();
     globalThis.chrome = buildChromeMock();
     BUILD_ENV.ENABLE_ACCOUNT = true;
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
     getAccountProfile.mockReset();
     clearAccountSession.mockReset();
     clearAccountSession.mockResolvedValue();
@@ -960,6 +961,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     jest.useRealTimers();
     delete globalThis.chrome;
     BUILD_ENV.ENABLE_ACCOUNT = true;
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
     jest.clearAllMocks();
   });
 
