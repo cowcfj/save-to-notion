@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.54.0](https://github.com/cowcfj/save-to-notion/compare/v2.53.0...v2.54.0) (2026-04-17)
+
+
+### ✨ 新功能
+
+* Implement Cloudflare account integration and related features ([#417](https://github.com/cowcfj/save-to-notion/issues/417)) ([f3b9e46](https://github.com/cowcfj/save-to-notion/commit/f3b9e46417c11db3ba7be1038c8254e651057050))
+
 ## [2.53.0](https://github.com/cowcfj/save-to-notion/compare/v2.52.0...v2.53.0) (2026-04-16)
 
 
