@@ -895,6 +895,48 @@ describe('options.js', () => {
 // Account UI（Cloudflare-native）
 // =============================================================================
 
+/** 建立最小的 account card DOM */
+function buildAccountCardDOM() {
+  document.body.innerHTML = `
+    <button id="save-button"></button>
+    <button id="save-templates-button"></button>
+    <div id="app-version"></div>
+    <div class="nav-item" data-section="general"></div>
+    <div id="section-general" class="settings-section"></div>
+    <div id="account-card" style="display: none">
+      <div id="account-logged-out"></div>
+      <div id="account-logged-in" style="display: none">
+        <div id="account-info"></div>
+      </div>
+      <button id="account-login-button"></button>
+      <button id="account-logout-button"></button>
+      <p id="account-status" class="status-message"></p>
+    </div>
+  `;
+}
+
+/** 共用 chrome mock（帶 tabs + local storage） */
+function buildChromeMock(overrides = {}) {
+  return {
+    runtime: {
+      id: 'ext_id_123',
+      onMessage: { addListener: jest.fn() },
+      sendMessage: jest.fn().mockResolvedValue(),
+      getManifest: jest.fn(() => ({ version: '1.0.0' })),
+    },
+    storage: {
+      local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+      sync: {
+        get: jest.fn((keys, cb) => cb({})),
+        set: jest.fn(),
+        remove: jest.fn().mockResolvedValue(),
+      },
+    },
+    tabs: { create: jest.fn() },
+    ...overrides,
+  };
+}
+
 describe('Account UI (initAccountUI / renderAccountUI)', () => {
   // Import mock 控制器
   const {
@@ -902,48 +944,6 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     clearAccountSession,
   } = require('../../../scripts/auth/accountSession.js');
   const { BUILD_ENV } = require('../../../scripts/config/env.js');
-
-  /** 建立最小的 account card DOM */
-  function buildAccountCardDOM() {
-    document.body.innerHTML = `
-      <button id="save-button"></button>
-      <button id="save-templates-button"></button>
-      <div id="app-version"></div>
-      <div class="nav-item" data-section="general"></div>
-      <div id="section-general" class="settings-section"></div>
-      <div id="account-card" style="display: none">
-        <div id="account-logged-out"></div>
-        <div id="account-logged-in" style="display: none">
-          <div id="account-info"></div>
-        </div>
-        <button id="account-login-button"></button>
-        <button id="account-logout-button"></button>
-        <p id="account-status" class="status-message"></p>
-      </div>
-    `;
-  }
-
-  /** 共用 chrome mock（帶 tabs + local storage） */
-  function buildChromeMock(overrides = {}) {
-    return {
-      runtime: {
-        id: 'ext_id_123',
-        onMessage: { addListener: jest.fn() },
-        sendMessage: jest.fn().mockResolvedValue(),
-        getManifest: jest.fn(() => ({ version: '1.0.0' })),
-      },
-      storage: {
-        local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
-        sync: {
-          get: jest.fn((keys, cb) => cb({})),
-          set: jest.fn(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-      },
-      tabs: { create: jest.fn() },
-      ...overrides,
-    };
-  }
 
   beforeEach(() => {
     jest.useFakeTimers();
