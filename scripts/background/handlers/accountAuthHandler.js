@@ -34,7 +34,15 @@ export function createAccountAuthHandler(dependencies = {}) {
     logger = Logger,
   } = dependencies;
 
-  const bridgeOrigin = new URL(oauthServerUrl).origin;
+  let bridgeOrigin = '';
+
+  if (typeof oauthServerUrl === 'string' && oauthServerUrl.trim()) {
+    try {
+      bridgeOrigin = new URL(oauthServerUrl).origin;
+    } catch {
+      bridgeOrigin = '';
+    }
+  }
   const processedBridgeUrlsByTab = new Map();
 
   /**
@@ -44,6 +52,10 @@ export function createAccountAuthHandler(dependencies = {}) {
    * @returns {{ accountTicket: string } | null}
    */
   function parseBridgeUrl(rawUrl) {
+    if (!bridgeOrigin) {
+      return null;
+    }
+
     let parsedUrl;
 
     try {

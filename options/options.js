@@ -218,9 +218,36 @@ function initAccountUI() {
   const loginBtn = document.querySelector('#account-login-button');
   if (loginBtn) {
     loginBtn.addEventListener('click', () => {
+      const statusEl = document.querySelector('#account-status');
       const extId = chrome.runtime.id;
       const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
-      const startUrl = new URL(`${baseUrl}${ACCOUNT_API.GOOGLE_START}`);
+      if (!baseUrl) {
+        Logger.error('Account login failed: missing OAUTH_SERVER_URL', {
+          action: 'initAccountUI',
+        });
+        if (statusEl) {
+          statusEl.textContent = '登入設定異常，請稍後再試';
+          statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
+        }
+        return;
+      }
+
+      let startUrl;
+
+      try {
+        startUrl = new URL(ACCOUNT_API.GOOGLE_START, baseUrl);
+      } catch (error) {
+        Logger.error('Account login failed: invalid OAUTH_SERVER_URL', {
+          action: 'initAccountUI',
+          error,
+        });
+        if (statusEl) {
+          statusEl.textContent = '登入設定異常，請稍後再試';
+          statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
+        }
+        return;
+      }
+
       startUrl.searchParams.set('ext_id', extId);
       startUrl.searchParams.set('callback_mode', 'bridge');
       chrome.tabs.create({ url: startUrl.toString() });

@@ -34,14 +34,19 @@ describe('manifest.json — auth.html web_accessible_resources', () => {
     expect(authEntry?.matches).not.toContain('<all_urls>');
   });
 
-  test('auth.html 的 matches 應包含 workers.dev 或 localhost origin', () => {
+  test('auth.html 的 matches 應限制在正式 Worker origin 與 localhost', () => {
     const war = manifest.web_accessible_resources;
     const authEntry = war.find(entry => entry.resources?.includes('auth.html'));
-    const matchesStr = JSON.stringify(authEntry?.matches ?? []);
+    expect(authEntry?.matches).toEqual([
+      'https://save-to-notion-api.bulldrive.workers.dev/*',
+      'http://localhost/*',
+    ]);
+  });
 
-    // 至少要有一個 Cloudflare workers.dev 或本地開發 origin
-    const hasValidOrigin = matchesStr.includes('workers.dev') || matchesStr.includes('localhost');
-    expect(hasValidOrigin).toBe(true);
+  test('auth.html 的 matches 不應使用 workers.dev 萬用字元', () => {
+    const war = manifest.web_accessible_resources;
+    const authEntry = war.find(entry => entry.resources?.includes('auth.html'));
+    expect(authEntry?.matches).not.toContain('https://*.workers.dev/*');
   });
 
   test('auth.html 條目應與 content.bundle.js 條目完全分開', () => {

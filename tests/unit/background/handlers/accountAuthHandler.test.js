@@ -48,6 +48,16 @@ describe('accountAuthHandler', () => {
     expect(tabs.onRemoved.addListener).toHaveBeenCalledWith(expect.any(Function));
   });
 
+  test('oauthServerUrl 缺失時不應在初始化階段拋出例外', () => {
+    expect(() =>
+      createAccountAuthHandler({
+        oauthServerUrl: '',
+        runtime,
+        tabs,
+      })
+    ).not.toThrow();
+  });
+
   test('符合 callback bridge 條件時應導向 auth.html 並帶 account_ticket', async () => {
     handler.setupListeners();
 

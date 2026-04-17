@@ -174,15 +174,33 @@ function parseAccountTicket() {
 }
 
 /**
+ * 驗證並正規化 account API base URL。
+ *
+ * @returns {string | null}
+ */
+function resolveAccountApiBaseUrl() {
+  const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
+  if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
+    return null;
+  }
+
+  try {
+    return new URL(baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 呼叫 POST /v1/account/session/exchange，以 account_ticket 換取 session tokens。
  *
  * @param {string} ticket
+ * @param {string} baseUrl
  * @returns {Promise<{accessToken: string; refreshToken: string; expiresAt: number; userId: string}>}
  * @throws {Error} 若 HTTP 非 2xx 或回應格式不符
  */
-async function exchangeTicket(ticket) {
-  const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
-  const url = `${baseUrl}${ACCOUNT_API.SESSION_EXCHANGE}`;
+async function exchangeTicket(ticket, baseUrl) {
+  const url = new URL(ACCOUNT_API.SESSION_EXCHANGE, baseUrl).toString();
 
   const res = await fetch(url, {
     method: 'POST',
@@ -215,12 +233,12 @@ async function exchangeTicket(ticket) {
  * 呼叫 GET /v1/account/me 取得最小帳號資訊。
  *
  * @param {string} accessToken
+ * @param {string} baseUrl
  * @returns {Promise<{userId: string; email: string; displayName: string | null; avatarUrl: string | null}>}
  * @throws {Error} 若 HTTP 非 2xx 或回應格式不符
  */
-async function fetchAccountMe(accessToken) {
-  const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
-  const url = `${baseUrl}${ACCOUNT_API.ME}`;
+async function fetchAccountMe(accessToken, baseUrl) {
+  const url = new URL(ACCOUNT_API.ME, baseUrl).toString();
 
   const res = await fetch(url, {
     method: 'GET',
@@ -276,13 +294,19 @@ async function runAuthFlow() {
     return;
   }
 
+  const baseUrl = resolveAccountApiBaseUrl();
+  if (!baseUrl) {
+    showError('登入設定異常，請稍後再試', 'OAUTH_SERVER_URL 未設定或格式無效。');
+    return;
+  }
+
   showLoading('正在驗證登入資訊...');
 
   let tokens;
 
   // 步驟 2：exchange ticket → tokens
   try {
-    tokens = await exchangeTicket(ticket);
+    tokens = await exchangeTicket(ticket, baseUrl);
   } catch (error) {
     showError(
       '登入失敗：無法完成 Session 交換',
@@ -297,7 +321,7 @@ async function runAuthFlow() {
 
   // 步驟 3：GET /v1/account/me
   try {
-    profile = await fetchAccountMe(tokens.accessToken);
+    profile = await fetchAccountMe(tokens.accessToken, baseUrl);
   } catch (error) {
     // Phase 1 保守策略：account/me 失敗 → 清除已取得的 token，回退未登入狀態
     // （token 尚未寫入 storage，此處僅做防禦性清除）

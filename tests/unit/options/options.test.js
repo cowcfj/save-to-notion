@@ -1048,6 +1048,27 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         url: expect.stringContaining('https://worker.test'),
       });
     });
+
+    it('OAUTH_SERVER_URL 缺失時不應開啟登入頁，且應顯示錯誤訊息', async () => {
+      BUILD_ENV.OAUTH_SERVER_URL = '';
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      await Promise.resolve();
+
+      expect(() => {
+        document.querySelector('#account-login-button').click();
+      }).not.toThrow();
+
+      expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith(
+        'Account login failed: missing OAUTH_SERVER_URL',
+        expect.any(Object)
+      );
+
+      const statusEl = document.querySelector('#account-status');
+      expect(statusEl.textContent).toContain('登入設定');
+      expect(statusEl.className).toContain('error');
+    });
   });
 
   describe('登出按鈕', () => {
