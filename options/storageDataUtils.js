@@ -60,6 +60,80 @@ export function sanitizeBackupData(data) {
   );
 }
 
+/**
+ * 讀取整個 chrome.storage.local 快照（Promise 化）
+ *
+ * @returns {Promise<object>}
+ */
+export function getAllLocalStorage() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(null, result => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      resolve(result);
+    });
+  });
+}
+
+// ─── 備份差異比對 ─────────────────────────────────────────────────────
+
+/**
+ * 深度比較兩個值是否相等（排序 key 後做 JSON 比較）
+ * 僅用於備份 diff，不處理循環引用等邊界情況。
+ *
+ * @param {any} objA
+ * @param {any} objB
+ * @returns {boolean}
+ */
+function _deepEqual(objA, objB) {
+  return JSON.stringify(_sortKeys(objA)) === JSON.stringify(_sortKeys(objB));
+}
+
+/**
+ * 遞迴排序物件 key，消除 JSON.stringify 對 key 順序的敏感性
+ * 僅支援 JSON-safe 型別（備份資料已於白名單中保證為 JSON-safe）
+ *
+ * @param {any} value
+ * @returns {any}
+ */
+function _sortKeys(value) {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(val => _sortKeys(val));
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .toSorted(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      .map(([key, val]) => [key, _sortKeys(val)])
+  );
+}
+
+/**
+ * 比對備份數據與本地數據，分類為新增/衝突/相同
+ *
+ * @param {object} backupData 已經過 sanitizeBackupData 過濾的備份數據
+ * @param {object} localData 當前本地 storage 數據
+ * @returns {{ newKeys: object, conflictKeys: object, skippedKeys: string[] }}
+ */
+export function diffBackupData(backupData, localData) {
+  const result = { newKeys: {}, conflictKeys: {}, skippedKeys: [] };
+
+  for (const [key, value] of Object.entries(backupData)) {
+    if (!(key in localData)) {
+      result.newKeys[key] = value;
+    } else if (_deepEqual(localData[key], value)) {
+      result.skippedKeys.push(key);
+    } else {
+      result.conflictKeys[key] = value;
+    }
+  }
+  return result;
+}
+
 // ─── 健康度報告（統一入口） ───────────────────────────────────────────
 
 /**
@@ -74,15 +148,7 @@ export function sanitizeBackupData(data) {
  *   - cleanupPlan: { items, totalKeys, spaceFreed, summary }（清理計劃）
  */
 export async function getStorageHealthReport() {
-  const data = await new Promise((resolve, reject) => {
-    chrome.storage.local.get(null, result => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-        return;
-      }
-      resolve(result);
-    });
-  });
+  const data = await getAllLocalStorage();
 
   const jsonString = JSON.stringify(data);
   const sizeInBytes = new Blob([jsonString]).size;
