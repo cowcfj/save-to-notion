@@ -25,7 +25,8 @@ import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
 jest.mock('../../../scripts/config/env.js', () => ({
   BUILD_ENV: {
     ENABLE_OAUTH: true,
-    OAUTH_SERVER_URL: '',
+    ENABLE_ACCOUNT: true,
+    OAUTH_SERVER_URL: 'https://worker.test',
     OAUTH_CLIENT_ID: '',
     EXTENSION_API_KEY: '',
   },
@@ -46,6 +47,10 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     warn: jest.fn(),
     error: jest.fn(),
   },
+}));
+jest.mock('../../../scripts/auth/accountSession.js', () => ({
+  getAccountProfile: jest.fn(),
+  clearAccountSession: jest.fn().mockResolvedValue(),
 }));
 
 function appendSaveFormFields() {
@@ -882,6 +887,319 @@ describe('options.js', () => {
       expect(statusEl.textContent).toContain('匯出失敗');
       expect(exportBtn.disabled).toBe(false);
       expect(Logger.error).toHaveBeenCalled();
+    });
+  });
+});
+
+// =============================================================================
+// Account UI（Cloudflare-native）
+// =============================================================================
+
+/** 建立最小的 account card DOM */
+function buildAccountCardDOM() {
+  document.body.innerHTML = `
+    <button id="save-button"></button>
+    <button id="save-templates-button"></button>
+    <div id="app-version"></div>
+    <div class="nav-item" data-section="general"></div>
+    <div id="section-general" class="settings-section"></div>
+    <div id="account-card" style="display: none">
+      <div id="account-logged-out"></div>
+      <div id="account-logged-in" style="display: none">
+        <div id="account-info"></div>
+      </div>
+      <button id="account-login-button"></button>
+      <button id="account-logout-button"></button>
+      <p id="account-status" class="status-message"></p>
+    </div>
+  `;
+}
+
+/** 共用 chrome mock（帶 tabs + local storage） */
+function buildChromeMock(overrides = {}) {
+  return {
+    runtime: {
+      id: 'ext_id_123',
+      onMessage: { addListener: jest.fn() },
+      sendMessage: jest.fn().mockResolvedValue(),
+      getManifest: jest.fn(() => ({ version: '1.0.0' })),
+    },
+    storage: {
+      local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+      sync: {
+        get: jest.fn((keys, cb) => cb({})),
+        set: jest.fn(),
+        remove: jest.fn().mockResolvedValue(),
+      },
+    },
+    tabs: { create: jest.fn() },
+    ...overrides,
+  };
+}
+
+describe('Account UI (initAccountUI / renderAccountUI)', () => {
+  // Import mock 控制器
+  const {
+    getAccountProfile,
+    clearAccountSession,
+  } = require('../../../scripts/auth/accountSession.js');
+  const { BUILD_ENV } = require('../../../scripts/config/env.js');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    buildAccountCardDOM();
+    globalThis.chrome = buildChromeMock();
+    BUILD_ENV.ENABLE_ACCOUNT = true;
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
+    getAccountProfile.mockReset();
+    clearAccountSession.mockReset();
+    clearAccountSession.mockResolvedValue();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    delete globalThis.chrome;
+    BUILD_ENV.ENABLE_ACCOUNT = true;
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
+    jest.clearAllMocks();
+  });
+
+  describe('ENABLE_ACCOUNT feature flag', () => {
+    it('ENABLE_ACCOUNT=false 時應隱藏 account card', () => {
+      BUILD_ENV.ENABLE_ACCOUNT = false;
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      expect(document.querySelector('#account-card').style.display).toBe('none');
+    });
+
+    it('ENABLE_ACCOUNT=true 時應顯示 account card', async () => {
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      // renderAccountUI 是 async，等待 microtask
+      await Promise.resolve();
+      expect(document.querySelector('#account-card').style.display).not.toBe('none');
+    });
+  });
+
+  describe('未登入狀態', () => {
+    it('getAccountProfile 回傳 null 時應顯示 logged-out 區塊', async () => {
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      await Promise.resolve();
+
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+    });
+  });
+
+  describe('已登入狀態', () => {
+    it('getAccountProfile 回傳 profile 時應顯示 logged-in 區塊與帳號資訊', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+      initOptions();
+      await Promise.resolve();
+
+      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-info').textContent).toContain('Test User');
+    });
+
+    it('displayName 為 null 時應顯示 email', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: null,
+        avatarUrl: null,
+      });
+      initOptions();
+      await Promise.resolve();
+
+      expect(document.querySelector('#account-info').textContent).toContain('user@example.com');
+    });
+  });
+
+  describe('登入按鈕', () => {
+    it('點擊後應開新 tab 到 Google start URL（帶 ext_id 與 callback_mode=bridge）', async () => {
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      await Promise.resolve();
+
+      document.querySelector('#account-login-button').click();
+
+      const [{ url }] = globalThis.chrome.tabs.create.mock.calls[0];
+      const startUrl = new URL(url);
+
+      expect(startUrl.pathname).toBe('/v1/account/google/start');
+      expect(startUrl.searchParams.get('ext_id')).toBe('ext_id_123');
+      expect(startUrl.searchParams.get('callback_mode')).toBe('bridge');
+    });
+
+    it('登入 URL 應使用 BUILD_ENV.OAUTH_SERVER_URL 作為 base', async () => {
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      await Promise.resolve();
+
+      document.querySelector('#account-login-button').click();
+
+      expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({
+        url: expect.stringContaining('https://worker.test'),
+      });
+    });
+
+    it('OAUTH_SERVER_URL 缺失時不應開啟登入頁，且應顯示錯誤訊息', async () => {
+      BUILD_ENV.OAUTH_SERVER_URL = '';
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      await Promise.resolve();
+
+      expect(() => {
+        document.querySelector('#account-login-button').click();
+      }).not.toThrow();
+
+      expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith(
+        'Account login failed: missing OAUTH_SERVER_URL',
+        expect.any(Object)
+      );
+
+      const statusEl = document.querySelector('#account-status');
+      expect(statusEl.textContent).toContain('登入設定');
+      expect(statusEl.className).toContain('error');
+    });
+  });
+
+  describe('登出按鈕', () => {
+    beforeEach(() => {
+      getAccountProfile
+        .mockResolvedValueOnce({
+          userId: 'u1',
+          email: 'user@example.com',
+          displayName: null,
+          avatarUrl: null,
+        })
+        .mockResolvedValue(null); // 登出後回傳 null
+    });
+
+    it('成功登出後應清除 account session 並廣播 cleared 訊息', async () => {
+      clearAccountSession.mockResolvedValue();
+      initOptions();
+      await Promise.resolve();
+
+      document.querySelector('#account-logout-button').click();
+      // 清空所有 microtask：clearAccountSession + sendMessage + renderAccountUI
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(clearAccountSession).toHaveBeenCalled();
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ action: expect.stringMatching(/account.*clear/i) })
+      );
+    });
+
+    it('成功登出後應顯示成功訊息，並在 3 秒後清除', async () => {
+      clearAccountSession.mockResolvedValue();
+      initOptions();
+      await Promise.resolve();
+
+      document.querySelector('#account-logout-button').click();
+      // 清空所有 microtask：clearAccountSession + sendMessage + renderAccountUI
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const statusEl = document.querySelector('#account-status');
+      expect(statusEl.textContent).toContain('登出');
+      expect(statusEl.className).toContain('success');
+
+      jest.advanceTimersByTime(3000);
+      expect(statusEl.textContent).toBe('');
+    });
+
+    it('clearAccountSession 拋錯時應顯示錯誤訊息', async () => {
+      clearAccountSession.mockRejectedValue(new Error('clear failed'));
+      initOptions();
+      await Promise.resolve();
+
+      document.querySelector('#account-logout-button').click();
+      // 清空所有 microtask：clearAccountSession rejection + catch handler
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const statusEl = document.querySelector('#account-status');
+      expect(statusEl.textContent).toContain('失敗');
+      expect(statusEl.className).toContain('error');
+      expect(Logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('account_session_updated / account_session_cleared runtime 訊息', () => {
+    it('收到 account_session_updated 訊息時應重新讀取 profile', async () => {
+      getAccountProfile.mockResolvedValue(null);
+      initOptions();
+      await Promise.resolve();
+
+      const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      getAccountProfile.mockResolvedValue({
+        userId: 'u2',
+        email: 'new@example.com',
+        displayName: 'New',
+        avatarUrl: null,
+      });
+
+      listener({ action: 'account_session_updated' });
+      await Promise.resolve();
+
+      // getAccountProfile 應被第二次呼叫（renderAccountUI 觸發）
+      expect(getAccountProfile).toHaveBeenCalledTimes(2);
+    });
+
+    it('收到 account_session_cleared 訊息時應重新讀取 profile', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: null,
+        avatarUrl: null,
+      });
+      initOptions();
+      await Promise.resolve();
+
+      const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      getAccountProfile.mockResolvedValue(null);
+      listener({ action: 'account_session_cleared' });
+      await Promise.resolve();
+
+      expect(getAccountProfile).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('隔離性：登出只清 account，不影響 Notion OAuth', () => {
+    it('clearAccountSession 不應操作 chrome.storage.sync', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: null,
+        avatarUrl: null,
+      });
+      clearAccountSession.mockResolvedValue();
+      initOptions();
+      await Promise.resolve();
+
+      const syncSetSpy = globalThis.chrome.storage.sync.set;
+      document.querySelector('#account-logout-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // logout 不應觸碰 sync storage（Notion OAuth settings）
+      expect(syncSetSpy).not.toHaveBeenCalled();
     });
   });
 });

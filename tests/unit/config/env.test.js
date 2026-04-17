@@ -193,11 +193,13 @@ describe('配置模組 - env.js', () => {
     test('BUILD_ENV 應包含必要欄位且為唯讀', () => {
       expect(Object.keys(BUILD_ENV)).toEqual([
         'ENABLE_OAUTH',
+        'ENABLE_ACCOUNT',
         'OAUTH_SERVER_URL',
         'OAUTH_CLIENT_ID',
         'EXTENSION_API_KEY',
       ]);
       expect(typeof BUILD_ENV.ENABLE_OAUTH).toBe('boolean');
+      expect(typeof BUILD_ENV.ENABLE_ACCOUNT).toBe('boolean');
       expect(typeof BUILD_ENV.OAUTH_SERVER_URL).toBe('string');
       expect(typeof BUILD_ENV.OAUTH_CLIENT_ID).toBe('string');
       expect(typeof BUILD_ENV.EXTENSION_API_KEY).toBe('string');

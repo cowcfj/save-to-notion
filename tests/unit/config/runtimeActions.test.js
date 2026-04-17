@@ -39,8 +39,21 @@ describe('runtimeActions', () => {
         REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
         OAUTH_SUCCESS: 'oauth_success',
         OAUTH_FAILED: 'oauth_failed',
+        // Account session actions（Cloudflare-native，與 Notion OAuth 完整隔離）
+        ACCOUNT_SESSION_UPDATED: 'account_session_updated',
+        ACCOUNT_SESSION_CLEARED: 'account_session_cleared',
       })
     );
+  });
+
+  test('ACCOUNT_SESSION_UPDATED 與 ACCOUNT_SESSION_CLEARED 值不得與任何 Notion OAuth action 衝突', () => {
+    const notionOAuthActions = [
+      RUNTIME_ACTIONS.OAUTH_SUCCESS,
+      RUNTIME_ACTIONS.OAUTH_FAILED,
+      RUNTIME_ACTIONS.REFRESH_OAUTH_TOKEN,
+    ];
+    expect(notionOAuthActions).not.toContain(RUNTIME_ACTIONS.ACCOUNT_SESSION_UPDATED);
+    expect(notionOAuthActions).not.toContain(RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED);
   });
 
   test('應維持唯一 action value 並凍結 registry', () => {

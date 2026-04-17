@@ -151,6 +151,8 @@ export const ENV = Object.freeze({
 export const BUILD_ENV = Object.freeze({
   // 控制 UI 是否渲染 OAuth 登入區塊，以及 AuthManager 是否啟動 OAuth 流程
   ENABLE_OAUTH: false,
+  // 控制 UI 是否渲染 Cloudflare account 登入區塊
+  ENABLE_ACCOUNT: false,
   // 後端 Token 代理伺服器位址（末尾不可帶斜線，否則會產生雙斜線導致 API 路由失敗）
   OAUTH_SERVER_URL: '',
   // Notion Public Integration Client ID

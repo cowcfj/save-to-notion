@@ -1,12 +1,11 @@
 /**
  * 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
- * `auth(?![a-z])` 匹配 auth、auth_token，但排除 author、authorName
- * `token(?![a-z])` 匹配 token、privateToken，但排除 tokenCount、tokenizer
+ * `(?:auth|token|email)(?![a-z])` 匹配 auth、auth_token 等，但排除 author、tokenCount
  * `_?key\b` 精確匹配 apiKey、api_key 等，避免誤判 keyboard、keydown
  * 用於日誌脫敏，集中在此維持高內聚
  */
 const SENSITIVE_KEY_PATTERN =
-  /auth(?![a-z])|token(?![a-z])|secret|credential|password|pwd|_?key\b|cookie|session|authorization|bearer|viewer/i;
+  /(?:auth|token|email)(?![a-z])|secret|credential|password|pwd|_?key\b|cookie|session|authorization|bearer|viewer/i;
 
 /**
  * 安全的 HTTP Headers 白名單（不包含敏感資訊）

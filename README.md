@@ -343,6 +343,7 @@ vim scripts/highlighter/core/Range.js
      ```javascript
      export const BUILD_ENV = Object.freeze({
        ENABLE_OAUTH: true, // 👈 將此設為 true 以在設定頁顯示 OAuth 按鈕
+       ENABLE_ACCOUNT: true, // 👈 將此設為 true 以在設定頁顯示帳號登入按鈕
        OAUTH_SERVER_URL: 'https://your-oauth-proxy-url.com', // 👈 填寫您的後端代理伺服器網址
        OAUTH_CLIENT_ID: 'your-notion-client-id', // 👈 填寫您的 Notion Client ID
        EXTENSION_API_KEY: 'your-custom-header-key', // 👈 填入您在步驟 1 中自訂的 API Key。擴充功能會在發送請求時，自動將其附加至 `X-Extension-Key` Header 中。
