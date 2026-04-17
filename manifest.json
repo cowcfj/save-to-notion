@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Save to Notion (Smart Clipper)",
-  "version": "2.53.0",
+  "version": "2.54.0",
   "description": "智能網頁擷取工具，支持網站 Icon、封面圖提取、增強的圖片提取、模板自定義、多顏色標註功能，一鍵保存到 Notion。",
   "minimum_chrome_version": "110",
   "permissions": [
@@ -28,21 +28,35 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["dist/preloader.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "dist/preloader.js"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dist/content.bundle.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "dist/content.bundle.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     },
     {
       "$comment": "auth.html：account callback bridge page\nmatches 僅允許正式 Cloudflare Worker origin 與本地開發 origin。\n⚠️ MUST NOT 使用 <all_urls> 或 *.workers.dev 萬用字元，否則會擴大可被 frame 的來源。",
-      "resources": ["auth.html"],
-      "matches": ["https://save-to-notion-api.bulldrive.workers.dev/*", "http://localhost/*"]
+      "resources": [
+        "auth.html"
+      ],
+      "matches": [
+        "https://save-to-notion-api.bulldrive.workers.dev/*",
+        "http://localhost/*"
+      ]
     }
   ],
   "action": {
