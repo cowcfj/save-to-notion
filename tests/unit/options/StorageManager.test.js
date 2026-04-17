@@ -252,6 +252,28 @@ describe('StorageManager', () => {
       expect(getModeButton(storageManager, 'cancel')).toBeTruthy();
     });
 
+    it('模式按鈕應套用專案設計系統的語意 class（避免未來回退成原生樣式）', async () => {
+      await storageManager.importData(buildFileEvent({ page_a: { highlights: [] } }));
+
+      // 破壞性操作必須是 danger；推薦操作是 primary；安全操作與取消是 secondary
+      expect(getModeButton(storageManager, 'overwrite-all').classList.contains('btn-danger')).toBe(
+        true
+      );
+      expect(
+        getModeButton(storageManager, 'new-and-overwrite').classList.contains('btn-primary')
+      ).toBe(true);
+      expect(getModeButton(storageManager, 'new-only').classList.contains('btn-secondary')).toBe(
+        true
+      );
+      expect(getModeButton(storageManager, 'cancel').classList.contains('btn-secondary')).toBe(
+        true
+      );
+
+      // 模式選擇器應包在 .import-mode-panel 中，而非沿用 status-message.info
+      expect(storageManager.elements.dataStatus.querySelector('.import-mode-panel')).toBeTruthy();
+      expect(storageManager.elements.dataStatus.classList.contains('info')).toBe(false);
+    });
+
     it('選檔時應過濾非白名單 key（OAuth/migration 等）', async () => {
       const event = buildFileEvent({
         notionOAuthToken: 'secret',

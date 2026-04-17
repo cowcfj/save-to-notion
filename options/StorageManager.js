@@ -166,28 +166,42 @@ export class StorageManager {
       return;
     }
 
-    // 先清空舊狀態並套用基本樣式
+    // 清空舊狀態；面板樣式改由 .import-mode-panel 自持，不再沿用 status-message.info
     container.textContent = '';
-    container.classList.remove('success', 'error', 'warning');
-    container.classList.add('status-message', 'info');
+    container.classList.remove('success', 'error', 'warning', 'info');
+
+    const panel = document.createElement('div');
+    panel.className = 'import-mode-panel';
 
     const prompt = document.createElement('div');
     prompt.className = 'import-mode-prompt';
     prompt.textContent = UI_MESSAGES.STORAGE.IMPORT_SELECT_MODE;
-    container.append(prompt);
+    panel.append(prompt);
+
+    const hint = document.createElement('p');
+    hint.className = 'import-mode-hint';
+    hint.textContent = UI_MESSAGES.STORAGE.IMPORT_MODE_HINT;
+    panel.append(hint);
 
     const buttonGroup = document.createElement('div');
     buttonGroup.className = 'import-mode-buttons';
 
+    const MODE_TO_CLASS = {
+      'new-and-overwrite': 'btn-primary',
+      'new-only': 'btn-secondary',
+      'overwrite-all': 'btn-danger',
+    };
+
+    // 由推薦 → 安全 → 破壞性，視覺層級由上至下遞進
     const modes = [
-      { mode: 'overwrite-all', label: UI_MESSAGES.STORAGE.IMPORT_MODE_OVERWRITE_ALL },
-      { mode: 'new-only', label: UI_MESSAGES.STORAGE.IMPORT_MODE_NEW_ONLY },
       { mode: 'new-and-overwrite', label: UI_MESSAGES.STORAGE.IMPORT_MODE_NEW_AND_OVERWRITE },
+      { mode: 'new-only', label: UI_MESSAGES.STORAGE.IMPORT_MODE_NEW_ONLY },
+      { mode: 'overwrite-all', label: UI_MESSAGES.STORAGE.IMPORT_MODE_OVERWRITE_ALL },
     ];
 
     const handleClick = handler => {
       // 執行前先禁用整組按鈕，避免重複點擊
-      buttonGroup.querySelectorAll('button').forEach(btn => {
+      panel.querySelectorAll('button').forEach(btn => {
         btn.disabled = true;
       });
       handler();
@@ -196,7 +210,7 @@ export class StorageManager {
     for (const { mode, label } of modes) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'import-mode-button';
+      btn.className = `import-mode-button ${MODE_TO_CLASS[mode]}`;
       btn.dataset.mode = mode;
       btn.textContent = label;
       btn.addEventListener('click', () =>
@@ -205,15 +219,17 @@ export class StorageManager {
       buttonGroup.append(btn);
     }
 
+    panel.append(buttonGroup);
+
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
-    cancelBtn.className = 'import-mode-button import-mode-cancel';
+    cancelBtn.className = 'import-mode-button import-mode-cancel btn-secondary';
     cancelBtn.dataset.mode = 'cancel';
     cancelBtn.textContent = UI_MESSAGES.STORAGE.IMPORT_CANCEL;
     cancelBtn.addEventListener('click', () => handleClick(() => this._cancelImport()));
-    buttonGroup.append(cancelBtn);
+    panel.append(cancelBtn);
 
-    container.append(buttonGroup);
+    container.append(panel);
   }
 
   /**

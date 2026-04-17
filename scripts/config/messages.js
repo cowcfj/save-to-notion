@@ -124,6 +124,8 @@ export const UI_MESSAGES = {
 
     // === 增量匯入 ===
     IMPORT_SELECT_MODE: '請選擇匯入模式：',
+    IMPORT_MODE_HINT:
+      '「新增 + 覆蓋衝突」會合併備份，並以備份資料覆蓋衝突項；「僅匯入新資料」最安全，不會改動任何現有標註；「全部覆蓋」會清除所有現有資料。',
     IMPORT_MODE_OVERWRITE_ALL: '全部覆蓋',
     IMPORT_MODE_NEW_ONLY: '僅匯入新資料',
     IMPORT_MODE_NEW_AND_OVERWRITE: '新增 + 覆蓋衝突',
