@@ -78,3 +78,25 @@ export const NOTION_OAUTH = {
   TOKEN_ENDPOINT: '/v1/oauth/notion/token',
   REFRESH_ENDPOINT: '/v1/oauth/notion/refresh',
 };
+
+// ==========================================
+// Account API 相關常量（Cloudflare-native account system）
+// ==========================================
+
+/**
+ * Cloudflare account flow 端點路徑
+ *
+ * 本計劃使用 BUILD_ENV.OAUTH_SERVER_URL 作為 base URL。
+ * 所有端點皆在 /v1/account/* 命名空間下，與 Notion OAuth 完整隔離。
+ *
+ * @see docs/plans/2026-04-17-cloudflare-frontend-account-integration-plan.md §3.1
+ * @see scripts/config/env.example.js — BUILD_ENV.OAUTH_SERVER_URL
+ */
+export const ACCOUNT_API = {
+  /** 啟動 Google 登入流程；需附帶 ?ext_id=<chrome.runtime.id> */
+  GOOGLE_START: '/v1/account/google/start',
+  /** 以一次性 account_ticket 換取正式 session token */
+  SESSION_EXCHANGE: '/v1/account/session/exchange',
+  /** 取得最小帳號資訊（需 Bearer token） */
+  ME: '/v1/account/me',
+};

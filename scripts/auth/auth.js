@@ -1,0 +1,355 @@
+/**
+ * auth.js — Account Callback Bridge（auth.html 的主邏輯）
+ *
+ * 執行流程：
+ * 1. 解析 URL query 中的 account_ticket
+ * 2. POST /v1/account/session/exchange → 取得 tokens
+ * 3. GET /v1/account/me → 取得 profile
+ * 4. 成功：寫入 account session + profile，發送 account_session_updated，關閉頁面
+ * 5. 任一步驟失敗：清除已取得的 token，顯示錯誤頁面，不關閉
+ *
+ * 設計原則（MUST NOT 違反）：
+ * - 不使用任何 Notion OAuth 邏輯
+ * - account/me 失敗時，採保守策略：清除所有 account keys，回退未登入狀態
+ * - 成功時才寫入 storage，不留下半登入狀態
+ *
+ * @see docs/plans/2026-04-17-cloudflare-frontend-account-integration-plan.md §3.2、Task 4
+ */
+
+/* global chrome */
+
+import { BUILD_ENV } from '../config/env.example.js';
+import { ACCOUNT_API } from '../config/api.js';
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { setAccountSession, setAccountProfile, clearAccountSession } from './accountSession.js';
+
+// =============================================================================
+// DOM ID 常量（避免 magic string 重複）
+// =============================================================================
+
+const DOM_IDS = {
+  STATUS_AREA: '#status-area',
+  SPINNER: '#spinner',
+  STATUS_TEXT: '#status-text',
+  CLOSE_HINT: '#close-hint',
+};
+
+// =============================================================================
+// UI helpers
+// =============================================================================
+
+/**
+ * 顯示 loading 狀態（初始狀態）
+ *
+ * @param {string} message
+ */
+function showLoading(message) {
+  const spinner = document.querySelector(DOM_IDS.SPINNER);
+  const statusText = document.querySelector(DOM_IDS.STATUS_TEXT);
+  const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
+  const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
+
+  if (spinner) {
+    spinner.style.display = '';
+  }
+  if (statusText) {
+    statusText.textContent = message;
+  }
+  if (statusArea) {
+    statusArea.className = 'status-area';
+  }
+  if (closeHint) {
+    closeHint.style.display = 'none';
+  }
+}
+
+/**
+ * 顯示成功狀態
+ *
+ * @param {string} message
+ */
+function showSuccess(message) {
+  const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
+  const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
+
+  if (statusArea) {
+    statusArea.className = 'status-area status-success';
+
+    const iconCircle = document.createElement('div');
+    iconCircle.className = 'icon-circle';
+    iconCircle.setAttribute('aria-hidden', 'true');
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    polyline.setAttribute('points', '20 6 9 17 4 12');
+    svg.append(polyline);
+    iconCircle.append(svg);
+
+    const statusText = document.createElement('p');
+    statusText.className = 'status-text';
+    statusText.textContent = message;
+
+    statusArea.replaceChildren(iconCircle, statusText);
+  }
+  if (closeHint) {
+    closeHint.style.display = '';
+  }
+}
+
+/**
+ * 顯示錯誤狀態
+ *
+ * @param {string} message - 主要錯誤訊息（顯示給使用者）
+ * @param {string} [detail] - 技術細節（顯示在錯誤訊息下方）
+ */
+function showError(message, detail) {
+  const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
+  const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
+
+  if (statusArea) {
+    statusArea.className = 'status-area status-error';
+
+    const iconCircle = document.createElement('div');
+    iconCircle.className = 'icon-circle';
+    iconCircle.setAttribute('aria-hidden', 'true');
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line1.setAttribute('x1', '18');
+    line1.setAttribute('y1', '6');
+    line1.setAttribute('x2', '6');
+    line1.setAttribute('y2', '18');
+
+    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line2.setAttribute('x1', '6');
+    line2.setAttribute('y1', '6');
+    line2.setAttribute('x2', '18');
+    line2.setAttribute('y2', '18');
+
+    svg.append(line1, line2);
+    iconCircle.append(svg);
+
+    const statusText = document.createElement('p');
+    statusText.className = 'status-text';
+    statusText.textContent = message;
+
+    const children = [iconCircle, statusText];
+
+    if (detail) {
+      const detailEl = document.createElement('p');
+      detailEl.className = 'error-detail';
+      detailEl.textContent = detail;
+      children.push(detailEl);
+    }
+
+    statusArea.replaceChildren(...children);
+  }
+  if (closeHint) {
+    closeHint.style.display = 'none';
+  }
+}
+
+// =============================================================================
+// Auth flow
+// =============================================================================
+
+/**
+ * 解析 URL query 中的 account_ticket。
+ * 若不存在，回傳 null。
+ *
+ * @returns {string | null}
+ */
+function parseAccountTicket() {
+  const params = new URLSearchParams(globalThis.location.search);
+  return params.get('account_ticket') ?? null;
+}
+
+/**
+ * 呼叫 POST /v1/account/session/exchange，以 account_ticket 換取 session tokens。
+ *
+ * @param {string} ticket
+ * @returns {Promise<{accessToken: string; refreshToken: string; expiresAt: number; userId: string}>}
+ * @throws {Error} 若 HTTP 非 2xx 或回應格式不符
+ */
+async function exchangeTicket(ticket) {
+  const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
+  const url = `${baseUrl}${ACCOUNT_API.SESSION_EXCHANGE}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    const detail = errText ? ` — ${errText}` : '';
+    throw new Error(`Exchange failed: HTTP ${res.status}${detail}`);
+  }
+
+  const data = await res.json();
+
+  // 驗證必要欄位
+  if (!data.access_token || !data.expires_at) {
+    throw new Error('Exchange response missing required fields (access_token, expires_at)');
+  }
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token ?? '',
+    expiresAt: Number(data.expires_at),
+    userId: data.user_id ?? '',
+  };
+}
+
+/**
+ * 呼叫 GET /v1/account/me 取得最小帳號資訊。
+ *
+ * @param {string} accessToken
+ * @returns {Promise<{userId: string; email: string; displayName: string | null; avatarUrl: string | null}>}
+ * @throws {Error} 若 HTTP 非 2xx 或回應格式不符
+ */
+async function fetchAccountMe(accessToken) {
+  const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
+  const url = `${baseUrl}${ACCOUNT_API.ME}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    const detail = errText ? ` — ${errText}` : '';
+    throw new Error(`Account/me failed: HTTP ${res.status}${detail}`);
+  }
+
+  const data = await res.json();
+
+  if (!data.email) {
+    throw new Error('Account/me response missing required field (email)');
+  }
+
+  return {
+    userId: data.userId ?? data.user_id ?? '',
+    email: data.email,
+    displayName: data.displayName ?? data.display_name ?? null,
+    avatarUrl: data.avatarUrl ?? data.avatar_url ?? null,
+  };
+}
+
+/**
+ * 廣播 account_session_updated 給 extension 其他頁面（background / options）。
+ *
+ * @param {string} userId
+ * @param {string} email
+ */
+function broadcastSessionUpdated(userId, email) {
+  chrome.runtime
+    .sendMessage({
+      action: RUNTIME_ACTIONS.ACCOUNT_SESSION_UPDATED,
+      userId,
+      email,
+    })
+    .catch(() => {
+      // background 若未就緒，忽略錯誤；options 頁自行監聽 storage 變化
+    });
+}
+
+/**
+ * 主邏輯：執行完整的 account callback bridge 流程。
+ */
+async function runAuthFlow() {
+  // 步驟 1：解析 account_ticket
+  const ticket = parseAccountTicket();
+  if (!ticket) {
+    showError('登入失敗：缺少驗證票據', '未在 URL 中找到 account_ticket，請重新登入。');
+    return;
+  }
+
+  showLoading('正在驗證登入資訊...');
+
+  let tokens;
+
+  // 步驟 2：exchange ticket → tokens
+  try {
+    tokens = await exchangeTicket(ticket);
+  } catch (error) {
+    showError(
+      '登入失敗：無法完成 Session 交換',
+      error instanceof Error ? error.message : String(error)
+    );
+    return; // 無 token，無需清理
+  }
+
+  showLoading('正在取得帳號資訊...');
+
+  let profile;
+
+  // 步驟 3：GET /v1/account/me
+  try {
+    profile = await fetchAccountMe(tokens.accessToken);
+  } catch (error) {
+    // Phase 1 保守策略：account/me 失敗 → 清除已取得的 token，回退未登入狀態
+    // （token 尚未寫入 storage，此處僅做防禦性清除）
+    await clearAccountSession().catch(() => {});
+    showError('登入失敗：無法取得帳號資訊', error instanceof Error ? error.message : String(error));
+    return;
+  }
+
+  // 步驟 4：合併寫入 storage
+  // 由於上方 account/me 已成功，此時可安全寫入，不留下半登入狀態
+  try {
+    const resolvedUserId = profile.userId || tokens.userId;
+
+    await setAccountSession({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      userId: resolvedUserId,
+      email: profile.email,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    });
+
+    await setAccountProfile({
+      userId: resolvedUserId,
+      email: profile.email,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    });
+
+    // 步驟 5：廣播 account_session_updated
+    broadcastSessionUpdated(resolvedUserId, profile.email);
+  } catch (error) {
+    // 寫入 storage 失敗：清除確保不留下半登入狀態
+    await clearAccountSession().catch(() => {});
+    showError('登入失敗：無法儲存 Session', error instanceof Error ? error.message : String(error));
+    return;
+  }
+
+  // 步驟 6：顯示成功，自動關閉
+  showSuccess('登入成功！');
+
+  // 延遲 1.5s 後自動關閉（讓使用者看到成功訊息）
+  setTimeout(() => {
+    globalThis.close();
+  }, 1500);
+}
+
+// =============================================================================
+// 入口
+// =============================================================================
+
+// DOM ready 後啟動 auth flow
+document.addEventListener('DOMContentLoaded', () => {
+  runAuthFlow().catch(error => {
+    showError('發生未預期錯誤', error instanceof Error ? error.message : String(error));
+  });
+});

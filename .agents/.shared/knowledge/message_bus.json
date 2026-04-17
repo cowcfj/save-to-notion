@@ -264,6 +264,28 @@
         }
       }
     },
+    "accountSession": {
+      "$comment": "Cloudflare-native account session events — Phase 1\n禁止與 auth.notionOAuth actions 混用；storage keys 皆以 account 前綴隔離",
+      "account_session_updated": {
+        "description": "auth.html 完成 session exchange + account/me 後廣播；接收方重新讀取 chrome.storage.local",
+        "direction": "auth.html → options / background",
+        "payload": {
+          "userId": "string",
+          "email": "string"
+        },
+        "response": {
+          "success": "boolean (optional)"
+        }
+      },
+      "account_session_cleared": {
+        "description": "使用者完成本地登出（clear account* keys）後廣播；接收方更新 UI 為未登入狀態",
+        "direction": "options → background (optional)",
+        "payload": {},
+        "response": {
+          "success": "boolean (optional)"
+        }
+      }
+    },
     "logging": {
       "exportDebugLogs": {
         "description": "Options 匯出目前緩衝的 debug logs",

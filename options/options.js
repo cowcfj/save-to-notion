@@ -15,6 +15,7 @@ import Logger from '../scripts/utils/Logger.js';
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
 import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
+import { getAccountProfile, clearAccountSession } from '../scripts/auth/accountSession.js';
 
 /**
  * Options Page Main Controller
@@ -65,13 +66,30 @@ export function initOptions() {
 
   // 4. 全域事件監聽：OAuth 回調
   chrome.runtime.onMessage.addListener(request => {
-    if (request.action === RUNTIME_ACTIONS.OAUTH_SUCCESS) {
-      auth.checkAuthStatus();
-      ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_SUCCESS, 'success');
-    } else if (request.action === RUNTIME_ACTIONS.OAUTH_FAILED) {
-      ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_ERROR, 'error');
+    switch (request.action) {
+      case RUNTIME_ACTIONS.OAUTH_SUCCESS: {
+        auth.checkAuthStatus();
+        ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_SUCCESS, 'success');
+        break;
+      }
+      case RUNTIME_ACTIONS.OAUTH_FAILED: {
+        ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_ERROR, 'error');
+        break;
+      }
+      case RUNTIME_ACTIONS.ACCOUNT_SESSION_UPDATED:
+      case RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED: {
+        // account session 已更新或清除，重新讀取 profile 刷新 UI
+        renderAccountUI().catch(() => {});
+        break;
+      }
+      default: {
+        break;
+      }
     }
   });
+
+  // 4.1 初始化 account UI（與 Notion OAuth UI 完整分開）
+  initAccountUI();
 
   // 5. 全域事件監聽：儲存使用量更新 (由 MigrationTool 觸發)
   document.addEventListener('storageUsageUpdate', () => {
@@ -127,6 +145,118 @@ export function initOptions() {
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
+
+// =============================================================================
+// Account UI（Cloudflare-native Google 帳號）
+// 與既有 Notion OAuth UI 完整分開，禁止共用 DOM 或 storage
+// =============================================================================
+
+/**
+ * 根據 storage 中的 account profile 更新 account card UI。
+ * 可被 accounts_session_updated 、accounts_session_cleared 訊息以及 initAccountUI 呼叫。
+ *
+ * @returns {Promise<void>}
+ */
+async function renderAccountUI() {
+  const profile = await getAccountProfile();
+
+  const loggedOutEl = document.querySelector('#account-logged-out');
+  const loggedInEl = document.querySelector('#account-logged-in');
+  const accountInfoEl = document.querySelector('#account-info');
+
+  if (profile) {
+    // 已登入狀態
+    if (loggedOutEl) {
+      loggedOutEl.style.display = 'none';
+    }
+    if (loggedInEl) {
+      loggedInEl.style.display = '';
+    }
+    if (accountInfoEl) {
+      const name = profile.displayName ?? profile.email;
+      accountInfoEl.textContent = `已登入：${name}`;
+    }
+  } else {
+    // 未登入狀態
+    if (loggedOutEl) {
+      loggedOutEl.style.display = '';
+    }
+    if (loggedInEl) {
+      loggedInEl.style.display = 'none';
+    }
+    if (accountInfoEl) {
+      accountInfoEl.textContent = '';
+    }
+  }
+}
+
+/**
+ * 初始化 account UI。
+ *
+ * - 若 BUILD_ENV.ENABLE_ACCOUNT === false，閱藏整個 account card
+ * - 設置登入 / 登出按鈕的事件監聽
+ * - 讀取目前登入狀態並更新 UI
+ */
+function initAccountUI() {
+  const accountCard = document.querySelector('#account-card');
+  if (!accountCard) {
+    return;
+  }
+
+  // feature flag 檢查
+  if (!BUILD_ENV.ENABLE_ACCOUNT) {
+    accountCard.style.display = 'none';
+    return;
+  }
+
+  // 顯示 account card
+  accountCard.style.display = '';
+
+  // 登入按鈕：開新 tab 到 /v1/account/google/start?ext_id=<chrome.runtime.id>
+  const loginBtn = document.querySelector('#account-login-button');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      const extId = chrome.runtime.id;
+      const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
+      const startUrl = `${baseUrl}/v1/account/google/start?ext_id=${extId}`;
+      chrome.tabs.create({ url: startUrl });
+    });
+  }
+
+  // 登出按鈕：local-only clear
+  const logoutBtn = document.querySelector('#account-logout-button');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      const statusEl = document.querySelector('#account-status');
+      try {
+        await clearAccountSession();
+        chrome.runtime
+          .sendMessage({
+            action: RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED,
+          })
+          .catch(() => {});
+        await renderAccountUI();
+        if (statusEl) {
+          statusEl.textContent = '已成功登出';
+          statusEl.className = 'status-message success';
+          setTimeout(() => {
+            statusEl.textContent = '';
+            statusEl.className = 'status-message';
+          }, 3000);
+        }
+      } catch (error) {
+        Logger.error('Account logout failed', { error });
+        if (statusEl) {
+          statusEl.textContent = '登出失敗，請重試';
+          statusEl.className = 'status-message error';
+        }
+      }
+    });
+  }
+
+  // 讀取目前登入狀態
+  renderAccountUI().catch(() => {});
+}
 
 /**
  * 設置側邊欄導航

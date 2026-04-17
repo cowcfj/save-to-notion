@@ -28,25 +28,21 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "dist/preloader.js"
-      ],
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["dist/preloader.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "dist/content.bundle.js"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
+      "resources": ["dist/content.bundle.js"],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "$comment": "auth.html：account callback bridge page\nmatches 限制為正式 Cloudflare Worker origin 與本地開發 origin。\n⚠️ MUST NOT 使用 <all_urls>，否則任何網站皆可 frame 此頁。\n正式 Worker origin 請於部署時替換下方 PLACEHOLDER。",
+      "resources": ["auth.html"],
+      "matches": ["https://*.workers.dev/*", "http://localhost/*"]
     }
   ],
   "action": {

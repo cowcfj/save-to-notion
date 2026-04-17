@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>帳號登入中 — Save to Notion</title>
+    <style>
+      /* ============================================
+         auth.html — Account Callback Bridge Page
+         用途：接收 Worker 302 重定向，完成 session
+         exchange，然後自動關閉。
+         不含複雜樣式，只需最小可用的狀態呈現。
+         ============================================ */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0f172a;
+        color: #f1f5f9;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .card {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 40px 48px;
+        max-width: 400px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      }
+
+      .logo {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 20px;
+      }
+
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #f8fafc;
+      }
+
+      .subtitle {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        margin-bottom: 28px;
+      }
+
+      /* 狀態指示器 */
+      .status-area {
+        min-height: 64px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #334155;
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .status-text {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+
+      /* 成功狀態 */
+      .status-success .icon-circle {
+        width: 40px;
+        height: 40px;
+        background: rgba(34, 197, 94, 0.15);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+      }
+
+      .status-success .icon-circle svg {
+        width: 20px;
+        height: 20px;
+        stroke: #22c55e;
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .status-success .status-text {
+        color: #86efac;
+      }
+
+      /* 失敗狀態 */
+      .status-error .icon-circle {
+        width: 40px;
+        height: 40px;
+        background: rgba(239, 68, 68, 0.15);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+      }
+
+      .status-error .icon-circle svg {
+        width: 20px;
+        height: 20px;
+        stroke: #ef4444;
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .status-error .status-text {
+        color: #fca5a5;
+      }
+
+      .error-detail {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 4px;
+        word-break: break-word;
+      }
+
+      .close-hint {
+        margin-top: 20px;
+        font-size: 0.75rem;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img
+        src="../icons/icon48.png"
+        alt="Save to Notion"
+        class="logo"
+        onerror="this.style.display='none'"
+      />
+      <h1>帳號登入</h1>
+      <p class="subtitle">Save to Notion — Google 帳號驗證</p>
+
+      <!-- 狀態區域：由 auth.js 動態管理 -->
+      <output id="status-area" class="status-area" aria-live="polite" aria-atomic="true">
+        <div class="spinner" id="spinner" aria-hidden="true"></div>
+        <p class="status-text" id="status-text">正在驗證登入資訊...</p>
+      </output>
+
+      <p class="close-hint" id="close-hint" style="display: none">此頁面將自動關閉</p>
+    </div>
+
+    <!-- auth.js 處理所有 callback bridge 邏輯 -->
+    <script src="scripts/auth/auth.js"></script>
+  </body>
+</html>

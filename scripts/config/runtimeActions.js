@@ -351,6 +351,28 @@
  * @property {boolean} [success]
  */
 
+/**
+ * @typedef {object} AccountSessionUpdatedRequest
+ * @property {'account_session_updated'} action
+ * @property {string} userId - 帳號 user ID
+ * @property {string} email - 帳號 email
+ */
+
+/**
+ * @typedef {object} AccountSessionUpdatedResponse
+ * @property {boolean} [success]
+ */
+
+/**
+ * @typedef {object} AccountSessionClearedRequest
+ * @property {'account_session_cleared'} action
+ */
+
+/**
+ * @typedef {object} AccountSessionClearedResponse
+ * @property {boolean} [success]
+ */
+
 export const RUNTIME_ACTIONS = Object.freeze({
   /**
    * Request: {@link CheckPageStatusRequest}
@@ -525,6 +547,30 @@ export const RUNTIME_ACTIONS = Object.freeze({
    * @type {OAuthFailedRequest['action']}
    */
   OAUTH_FAILED: 'oauth_failed',
+
+  // ==========================================
+  // Account Session Actions（與 Notion OAuth 完整隔離）
+  // ==========================================
+
+  /**
+   * auth.html callback bridge 完成 session exchange 後廣播
+   *
+   * Request: {@link AccountSessionUpdatedRequest}
+   * Response: {@link AccountSessionUpdatedResponse}
+   *
+   * @type {AccountSessionUpdatedRequest['action']}
+   */
+  ACCOUNT_SESSION_UPDATED: 'account_session_updated',
+
+  /**
+   * 使用者執行本地登出後廣播
+   *
+   * Request: {@link AccountSessionClearedRequest}
+   * Response: {@link AccountSessionClearedResponse}
+   *
+   * @type {AccountSessionClearedRequest['action']}
+   */
+  ACCOUNT_SESSION_CLEARED: 'account_session_cleared',
 });
 
 export const RUNTIME_ERROR_MESSAGES = Object.freeze({

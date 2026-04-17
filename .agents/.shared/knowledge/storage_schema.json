@@ -46,6 +46,37 @@
           "type": "string",
           "enum": ["database", "page"],
           "default": "database"
+        },
+        "$comment_account": "=== Account Session Keys (Cloudflare-native, Phase 1) ===\n以下 key 全部以 account 前綴命名，與 Notion OAuth keys 完整隔離。\n來源：scripts/auth/accountSession.js",
+        "accountAccessToken": {
+          "type": "string",
+          "description": "Bearer token，用於呼叫 /v1/account/* 端點",
+          "sensitive": true
+        },
+        "accountRefreshToken": {
+          "type": "string",
+          "description": "Refresh token；Phase 2 reserved，Phase 1 寫入但不使用",
+          "sensitive": true
+        },
+        "accountAccessTokenExpiresAt": {
+          "type": "number",
+          "description": "Unix timestamp（秒）；前端比較時須 × 1000 轉為毫秒"
+        },
+        "accountUserId": {
+          "type": "string",
+          "description": "後端回傳的 user ID"
+        },
+        "accountEmail": {
+          "type": "string",
+          "description": "帳號 email，用於 Options UI 顯示"
+        },
+        "accountDisplayName": {
+          "type": "string | null",
+          "description": "帳號顯示名稱（可能為 null）"
+        },
+        "accountAvatarUrl": {
+          "type": "string | null",
+          "description": "帳號頭像 URL（可能為 null）"
         }
       },
       "patterns": {
