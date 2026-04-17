@@ -107,7 +107,8 @@ function _sortKeys(value) {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .toSorted(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      // eslint-disable-next-line unicorn/no-array-sort -- Object.entries() 會回傳新陣列，這裡改用 sort() 以相容較舊的 Chrome 版本。
+      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
       .map(([key, val]) => [key, _sortKeys(val)])
   );
 }

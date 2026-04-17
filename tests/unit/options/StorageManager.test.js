@@ -365,6 +365,29 @@ describe('StorageManager', () => {
         expect(mockSet).toHaveBeenCalledWith({ page_new: { highlights: [] } });
       });
 
+      it('「new-only」模式的成功訊息應將覆蓋數顯示為 0', async () => {
+        const backupData = {
+          page_same: { highlights: [{ id: '1' }] },
+          page_conflict: { highlights: [{ id: '2' }] },
+          page_new: { highlights: [] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            page_same: { highlights: [{ id: '1' }] },
+            page_conflict: { highlights: [{ id: '1' }] },
+          })
+        );
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton(storageManager, 'new-only').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(storageManager.elements.dataStatus.textContent).toContain('新增 1 項');
+        expect(storageManager.elements.dataStatus.textContent).toContain('覆蓋 0 項');
+        expect(storageManager.elements.dataStatus.textContent).toContain('跳過 1 項');
+      });
+
       it('「new-and-overwrite」模式應寫入 newKeys + conflictKeys', async () => {
         const backupData = {
           page_same: { highlights: [{ id: '1' }] },
@@ -451,6 +474,37 @@ describe('StorageManager', () => {
         expect(storageManager.elements.dataStatus.className).toContain('error');
         expect(storageManager.elements.importFile.value).toBe('');
 
+        expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
+      });
+
+      it('importFile 引用不存在時，成功路徑仍應完成匯入', async () => {
+        const backupData = { page_new: { highlights: [] } };
+        mockGet.mockImplementation((_keys, cb) => cb({}));
+
+        await storageManager.importData(buildFileEvent(backupData));
+        storageManager.elements.importFile = null;
+        getModeButton(storageManager, 'overwrite-all').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).toHaveBeenCalledWith(backupData);
+        expect(storageManager.elements.dataStatus.className).toContain('success');
+      });
+
+      it('未知匯入模式應走集中式錯誤處理', async () => {
+        const backupData = { page_new: { highlights: [] } };
+        mockGet.mockImplementation((_keys, cb) => cb({}));
+
+        await storageManager._executeImport('invalid-mode', backupData);
+
+        expect(Logger.error).toHaveBeenCalledWith(
+          'Import failed',
+          expect.objectContaining({
+            action: 'import_backup',
+            error: expect.objectContaining({ message: 'Unknown import mode: invalid-mode' }),
+          })
+        );
+        expect(storageManager.elements.dataStatus.className).toContain('error');
         expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
       });
 
