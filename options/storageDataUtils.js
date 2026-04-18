@@ -124,7 +124,7 @@ export function diffBackupData(backupData, localData) {
   const result = { newKeys: {}, conflictKeys: {}, skippedKeys: [] };
 
   for (const [key, value] of Object.entries(backupData)) {
-    if (!(key in localData)) {
+    if (!Object.hasOwn(localData, key)) {
       result.newKeys[key] = value;
     } else if (_deepEqual(localData[key], value)) {
       result.skippedKeys.push(key);
@@ -162,10 +162,12 @@ export function buildImportExecutionPlan(mode, sanitizedData, localData) {
 
   switch (mode) {
     case 'overwrite-all': {
-      dataToWrite = sanitizedData;
+      // 只寫入實際變動的 key（new + conflict），避免對 skippedKeys 做無效 I/O
+      dataToWrite = { ...diff.newKeys, ...diff.conflictKeys };
       keysToRemove = Object.keys(localData).filter(
         key =>
-          BACKUP_ALLOWED_PREFIXES.some(prefix => key.startsWith(prefix)) && !(key in sanitizedData)
+          BACKUP_ALLOWED_PREFIXES.some(prefix => key.startsWith(prefix)) &&
+          !Object.hasOwn(sanitizedData, key)
       );
       break;
     }

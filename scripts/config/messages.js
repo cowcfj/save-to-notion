@@ -118,8 +118,8 @@ export const UI_MESSAGES = {
     BACKUP_START: '正在備份數據...',
     BACKUP_SUCCESS: '數據備份成功！備份文件已下載。',
     BACKUP_FAILED: '備份失敗：',
-    RESTORE_START: '正在恢復數據...',
-    RESTORE_FAILED: '恢復失敗：',
+    IMPORT_START: '正在匯入數據...',
+    IMPORT_FAILED: '匯入失敗：',
     INVALID_BACKUP_FORMAT: '無效的備份文件格式',
 
     // === 增量匯入 ===

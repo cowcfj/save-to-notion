@@ -199,11 +199,42 @@ describe('storageDataUtils — buildImportExecutionPlan', () => {
 
     const plan = buildImportExecutionPlan('overwrite-all', sanitizedData, localData);
 
-    expect(plan.dataToWrite).toEqual(sanitizedData);
+    // 優化後：相同內容不重寫，dataToWrite 只含變動項（此例為空）
+    expect(plan.dataToWrite).toEqual({});
     expect(plan.keysToRemove).toEqual(['highlights_https://example.com/article']);
     expect(plan.effectiveNewCount).toBe(0);
     expect(plan.effectiveOverwriteCount).toBe(0);
     expect(plan.skipCount).toBe(1);
+    expect(plan.hasWork).toBe(true);
+  });
+
+  test('overwrite-all 包含新增 + 衝突 + 需移除的 legacy key 時應正確分類', () => {
+    const sanitizedData = {
+      page_new: { highlights: [{ id: 'n1' }] },
+      page_conflict: { highlights: [{ id: 'v2' }] },
+    };
+    const localData = {
+      page_conflict: { highlights: [{ id: 'v1' }] },
+      'highlights_https://legacy.example.com/x': [{ id: 'legacy-1' }],
+      'saved_https://legacy.example.com/y': true,
+    };
+
+    const plan = buildImportExecutionPlan('overwrite-all', sanitizedData, localData);
+
+    expect(plan.dataToWrite).toEqual({
+      page_new: { highlights: [{ id: 'n1' }] },
+      page_conflict: { highlights: [{ id: 'v2' }] },
+    });
+    expect(plan.keysToRemove).toEqual(
+      expect.arrayContaining([
+        'highlights_https://legacy.example.com/x',
+        'saved_https://legacy.example.com/y',
+      ])
+    );
+    expect(plan.keysToRemove).toHaveLength(2);
+    expect(plan.effectiveNewCount).toBe(1);
+    expect(plan.effectiveOverwriteCount).toBe(1);
+    expect(plan.skipCount).toBe(0);
     expect(plan.hasWork).toBe(true);
   });
 
@@ -223,5 +254,52 @@ describe('storageDataUtils — buildImportExecutionPlan', () => {
     expect(plan.effectiveOverwriteCount).toBe(0);
     expect(plan.skipCount).toBe(1);
     expect(plan.hasWork).toBe(false);
+  });
+
+  test('new-only 僅含新 key 時 dataToWrite 應等於 newKeys、hasWork 為 true', () => {
+    const sanitizedData = {
+      page_new_a: { highlights: [] },
+      page_new_b: { highlights: [{ id: 'x' }] },
+    };
+    const localData = {};
+
+    const plan = buildImportExecutionPlan('new-only', sanitizedData, localData);
+
+    expect(plan.dataToWrite).toEqual(sanitizedData);
+    expect(plan.keysToRemove).toEqual([]);
+    expect(plan.effectiveNewCount).toBe(2);
+    expect(plan.effectiveOverwriteCount).toBe(0);
+    expect(plan.skipCount).toBe(0);
+    expect(plan.hasWork).toBe(true);
+  });
+
+  test('new-and-overwrite 應合併 newKeys 與 conflictKeys', () => {
+    const sanitizedData = {
+      page_new: { highlights: [{ id: 'n1' }] },
+      page_conflict: { highlights: [{ id: 'v2' }] },
+      page_same: { highlights: [{ id: 's1' }] },
+    };
+    const localData = {
+      page_conflict: { highlights: [{ id: 'v1' }] },
+      page_same: { highlights: [{ id: 's1' }] },
+    };
+
+    const plan = buildImportExecutionPlan('new-and-overwrite', sanitizedData, localData);
+
+    expect(plan.dataToWrite).toEqual({
+      page_new: { highlights: [{ id: 'n1' }] },
+      page_conflict: { highlights: [{ id: 'v2' }] },
+    });
+    expect(plan.keysToRemove).toEqual([]);
+    expect(plan.effectiveNewCount).toBe(1);
+    expect(plan.effectiveOverwriteCount).toBe(1);
+    expect(plan.skipCount).toBe(1);
+    expect(plan.hasWork).toBe(true);
+  });
+
+  test('未知模式應拋出 Error("Unknown import mode: ...")', () => {
+    expect(() => buildImportExecutionPlan('unknown-mode', {}, {})).toThrow(
+      'Unknown import mode: unknown-mode'
+    );
   });
 });

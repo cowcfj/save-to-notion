@@ -372,7 +372,8 @@ describe('StorageManager', () => {
         };
         mockGet.mockImplementation((_keys, cb) =>
           cb({
-            page_a: { notion: null, highlights: [{ id: '1' }] },
+            // 與備份內容不同 → 視為 conflict，需寫入
+            page_a: { notion: null, highlights: [{ id: '0' }] },
             'highlights_https://example.com/article': [{ id: 'legacy-1' }],
             'url_alias:https://example.com/article': 'https://example.com/article',
           })
@@ -521,7 +522,7 @@ describe('StorageManager', () => {
         expect(status).toContain('跳過');
       });
 
-      it('chrome.storage.local.set 丟錯時應走 RESTORE_FAILED 路徑、不 reload', async () => {
+      it('chrome.storage.local.set 丟錯時應走 IMPORT_FAILED 路徑、不 reload', async () => {
         const backupData = { page_new: { highlights: [] } };
         mockGet.mockImplementation((_keys, cb) => cb({}));
         mockSet.mockRejectedValueOnce(new Error('Storage error'));
@@ -543,6 +544,40 @@ describe('StorageManager', () => {
         expect(storageManager.elements.importFile.value).toBe('');
 
         expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
+      });
+
+      it('set 成功但 remove 失敗時應記錄 "partial applied" 診斷日誌並報錯', async () => {
+        const backupData = {
+          page_new: { highlights: [{ id: '1' }] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            // 觸發 keysToRemove 非空，使 remove 被呼叫
+            'highlights_https://legacy.example.com/a': [{ id: 'legacy-1' }],
+          })
+        );
+        mockRemove.mockImplementationOnce(() => Promise.reject(new Error('remove failed')));
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton(storageManager, 'overwrite-all').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // set 成功：確實寫入新資料
+        expect(mockSet).toHaveBeenCalledWith(backupData);
+        // 明確標註 partial applied，供運維診斷
+        expect(Logger.error).toHaveBeenCalledWith(
+          expect.stringContaining('partially applied'),
+          expect.objectContaining({
+            action: 'import_backup',
+            result: 'partial',
+            writtenCount: 1,
+            pendingRemoveCount: 1,
+          })
+        );
+        // 最終仍走 IMPORT_FAILED 路徑
+        expect(storageManager.elements.dataStatus.className).toContain('error');
       });
 
       it('importFile 引用不存在時，成功路徑仍應完成匯入', async () => {

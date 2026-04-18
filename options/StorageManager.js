@@ -133,7 +133,7 @@ export class StorageManager {
 
     try {
       Logger.start('開始導入備份數據');
-      this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_START, 'info');
 
       const text = await file.text();
       const backup = JSON.parse(text);
@@ -275,7 +275,20 @@ export class StorageManager {
         await chrome.storage.local.set(dataToWrite);
       }
       if (keysToRemove.length > 0) {
-        await chrome.storage.local.remove(keysToRemove);
+        try {
+          await chrome.storage.local.remove(keysToRemove);
+        } catch (removeError) {
+          // 策略：維持 set-first 以避免「舊資料已清除、新資料未寫入」的資料損毀；
+          // 若 remove 失敗則新資料已落地、但遺留 legacy key，明確標註「部分匯入已套用」以利診斷
+          Logger.error('Import partially applied: new data written but legacy keys remove failed', {
+            action: 'import_backup',
+            result: 'partial',
+            writtenCount: Object.keys(dataToWrite).length,
+            pendingRemoveCount: keysToRemove.length,
+            error: removeError,
+          });
+          throw removeError;
+        }
       }
 
       const icon = UI_ICONS.SUCCESS;
@@ -283,9 +296,14 @@ export class StorageManager {
         `${icon} ${UI_MESSAGES.STORAGE.IMPORT_SUCCESS(effectiveNewCount, effectiveOverwriteCount, skipCount)}`,
         'success'
       );
-      Logger.success(
-        `匯入完成：新增 ${effectiveNewCount}、覆蓋 ${effectiveOverwriteCount}、跳過 ${skipCount}`
-      );
+      Logger.success('匯入完成', {
+        action: 'import_backup',
+        result: {
+          added: effectiveNewCount,
+          overwritten: effectiveOverwriteCount,
+          skipped: skipCount,
+        },
+      });
 
       if (this.elements.importFile) {
         this.elements.importFile.value = '';
@@ -311,7 +329,7 @@ export class StorageManager {
     const icon = UI_ICONS.ERROR;
     const safeMessage = sanitizeApiError(error, 'import_backup');
     const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-    this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_FAILED}${errorMsg}`, 'error');
+    this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.IMPORT_FAILED}${errorMsg}`, 'error');
     if (this.elements.importFile) {
       this.elements.importFile.value = '';
     }
