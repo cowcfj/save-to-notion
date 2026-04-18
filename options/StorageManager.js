@@ -16,7 +16,12 @@ import {
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
-import { sanitizeBackupData, getStorageHealthReport } from './storageDataUtils.js';
+import {
+  sanitizeBackupData,
+  getStorageHealthReport,
+  getAllLocalStorage,
+  buildImportExecutionPlan,
+} from './storageDataUtils.js';
 
 /**
  * 管理存儲空間的 UI 控制層
@@ -128,7 +133,6 @@ export class StorageManager {
 
     try {
       Logger.start('開始導入備份數據');
-      this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
 
       const text = await file.text();
       const backup = JSON.parse(text);
@@ -141,26 +145,202 @@ export class StorageManager {
 
       const sanitizedData = sanitizeBackupData(backup.data);
 
-      await chrome.storage.local.set(sanitizedData);
+      // 顯示模式選擇 UI；成功路徑在 _executeImport 結尾清 importFile.value，
+      // 取消路徑在 _cancelImport 清。
+      this._showImportModeSelector(sanitizedData);
+    } catch (error) {
+      this._handleImportFailure(error);
+    }
+  }
 
-      const count = Object.keys(sanitizedData).length;
-      const icon = UI_ICONS.SUCCESS;
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(count)}`, 'success');
-      Logger.success(`成功導入 ${count} 條數據`);
+  /**
+   * 顯示匯入模式選擇器：在 #data-status 動態插入三個模式按鈕 + 取消按鈕
+   *
+   * @param {object} sanitizedData - 已過濾的備份數據
+   * @private
+   */
+  _showImportModeSelector(sanitizedData) {
+    const container = this.elements.dataStatus;
+    if (!container) {
+      return;
+    }
 
-      // 清除文件選擇
+    // 清空舊狀態；面板樣式改由 .import-mode-panel 自持，不再沿用 status-message.info
+    container.textContent = '';
+    container.classList.remove('success', 'error', 'warning', 'info');
+
+    const panel = document.createElement('div');
+    panel.className = 'import-mode-panel';
+
+    const prompt = document.createElement('div');
+    prompt.className = 'import-mode-prompt';
+    prompt.textContent = UI_MESSAGES.STORAGE.IMPORT_SELECT_MODE;
+    panel.append(prompt);
+
+    const hint = document.createElement('p');
+    hint.className = 'import-mode-hint';
+    hint.textContent = UI_MESSAGES.STORAGE.IMPORT_MODE_HINT;
+    panel.append(hint);
+
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'import-mode-buttons';
+
+    const MODE_TO_CLASS = {
+      'new-and-overwrite': 'btn-primary',
+      'new-only': 'btn-secondary',
+      'overwrite-all': 'btn-danger',
+    };
+
+    // 由推薦 → 安全 → 破壞性，視覺層級由上至下遞進
+    const modes = [
+      { mode: 'new-and-overwrite', label: UI_MESSAGES.STORAGE.IMPORT_MODE_NEW_AND_OVERWRITE },
+      { mode: 'new-only', label: UI_MESSAGES.STORAGE.IMPORT_MODE_NEW_ONLY },
+      { mode: 'overwrite-all', label: UI_MESSAGES.STORAGE.IMPORT_MODE_OVERWRITE_ALL },
+    ];
+
+    const handleClick = handler => {
+      // 執行前先禁用整組按鈕，避免重複點擊
+      panel.querySelectorAll('button').forEach(btn => {
+        btn.disabled = true;
+      });
+      handler();
+    };
+
+    for (const { mode, label } of modes) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `import-mode-button ${MODE_TO_CLASS[mode]}`;
+      btn.dataset.mode = mode;
+      btn.textContent = label;
+      btn.addEventListener('click', () =>
+        handleClick(() => this._executeImport(mode, sanitizedData))
+      );
+      buttonGroup.append(btn);
+    }
+
+    panel.append(buttonGroup);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'import-mode-button import-mode-cancel btn-secondary';
+    cancelBtn.dataset.mode = 'cancel';
+    cancelBtn.textContent = UI_MESSAGES.STORAGE.IMPORT_CANCEL;
+    cancelBtn.addEventListener('click', () => handleClick(() => this._cancelImport()));
+    panel.append(cancelBtn);
+
+    container.append(panel);
+  }
+
+  /**
+   * 取消匯入：清空檔案輸入、顯示取消訊息
+   *
+   * @private
+   */
+  _cancelImport() {
+    this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_CANCELED, 'info');
+    if (this.elements.importFile) {
       this.elements.importFile.value = '';
+    }
+  }
 
-      // 重新載入頁面或狀態
+  /**
+   * 依模式執行匯入：diff → 寫入 → 結果訊息 → 清理 + reload
+   *
+   * @param {'overwrite-all'|'new-only'|'new-and-overwrite'} mode
+   * @param {object} sanitizedData - 已過濾的備份數據
+   * @private
+   */
+  async _executeImport(mode, sanitizedData) {
+    try {
+      const localData = await getAllLocalStorage();
+      const {
+        dataToWrite,
+        keysToRemove,
+        effectiveNewCount,
+        effectiveOverwriteCount,
+        skipCount,
+        conflictSkipCount,
+        hasWork,
+      } = buildImportExecutionPlan(mode, sanitizedData, localData);
+
+      // 使用者看到的「跳過」數合併顯示 identical + conflict-skipped，保持現有 UI 行為
+      const displaySkipCount = skipCount + conflictSkipCount;
+
+      if (!hasWork) {
+        // 區分「真正無差異」與「new-only 模式下全為衝突」兩種 no-op 情境
+        const message =
+          effectiveNewCount === 0 && conflictSkipCount > 0
+            ? UI_MESSAGES.STORAGE.IMPORT_NEW_ONLY_ALL_CONFLICTS(conflictSkipCount)
+            : UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO;
+        this.showDataStatus(message, 'info');
+        if (this.elements.importFile) {
+          this.elements.importFile.value = '';
+        }
+        return;
+      }
+
+      // 真正要進行 I/O 時才顯示「正在匯入」；避免被 _showImportModeSelector 立即清空
+      this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_START, 'info');
+
+      if (Object.keys(dataToWrite).length > 0) {
+        await chrome.storage.local.set(dataToWrite);
+      }
+      if (keysToRemove.length > 0) {
+        try {
+          await chrome.storage.local.remove(keysToRemove);
+        } catch (removeError) {
+          // 策略：維持 set-first 以避免「舊資料已清除、新資料未寫入」的資料損毀；
+          // 若 remove 失敗則新資料已落地、但遺留 legacy key，明確標註「部分匯入已套用」以利診斷
+          Logger.error('Import partially applied: new data written but legacy keys remove failed', {
+            action: 'import_backup',
+            result: 'partial',
+            writtenCount: Object.keys(dataToWrite).length,
+            pendingRemoveCount: keysToRemove.length,
+            error: removeError,
+          });
+          throw removeError;
+        }
+      }
+
+      const icon = UI_ICONS.SUCCESS;
+      this.showDataStatus(
+        `${icon} ${UI_MESSAGES.STORAGE.IMPORT_SUCCESS(effectiveNewCount, effectiveOverwriteCount, displaySkipCount)}`,
+        'success'
+      );
+      Logger.success('匯入完成', {
+        action: 'import_backup',
+        result: 'success',
+        addedCount: effectiveNewCount,
+        overwrittenCount: effectiveOverwriteCount,
+        skippedCount: displaySkipCount,
+      });
+
+      if (this.elements.importFile) {
+        this.elements.importFile.value = '';
+      }
+
+      // 保留現行為：2 秒後 reload，讓統計與健康度反映新資料
       setTimeout(() => {
         globalThis.location.reload();
       }, 2000);
     } catch (error) {
-      Logger.error('Import failed', { action: 'import_backup', error });
-      const icon = UI_ICONS.ERROR;
-      const safeMessage = sanitizeApiError(error, 'import_backup');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_FAILED}${errorMsg}`, 'error');
+      this._handleImportFailure(error);
+    }
+  }
+
+  /**
+   * 集中式匯入失敗處理：Logger + sanitizeApiError + UI 錯誤訊息 + 清理 importFile
+   *
+   * @param {Error} error
+   * @private
+   */
+  _handleImportFailure(error) {
+    Logger.error('Import failed', { action: 'import_backup', error });
+    const icon = UI_ICONS.ERROR;
+    const safeMessage = sanitizeApiError(error, 'import_backup');
+    const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+    this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.IMPORT_FAILED}${errorMsg}`, 'error');
+    if (this.elements.importFile) {
       this.elements.importFile.value = '';
     }
   }

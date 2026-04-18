@@ -60,6 +60,155 @@ export function sanitizeBackupData(data) {
   );
 }
 
+/**
+ * 讀取整個 chrome.storage.local 快照（Promise 化）
+ *
+ * @returns {Promise<object>}
+ */
+export function getAllLocalStorage() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(null, result => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+        return;
+      }
+      resolve(result);
+    });
+  });
+}
+
+// ─── 備份差異比對 ─────────────────────────────────────────────────────
+
+/**
+ * 深度比較兩個值是否相等（排序 key 後做 JSON 比較）
+ * 僅用於備份 diff，不處理循環引用等邊界情況。
+ *
+ * @param {any} objA
+ * @param {any} objB
+ * @returns {boolean}
+ */
+function _deepEqual(objA, objB) {
+  return JSON.stringify(_sortKeys(objA)) === JSON.stringify(_sortKeys(objB));
+}
+
+/**
+ * 遞迴排序物件 key，消除 JSON.stringify 對 key 順序的敏感性
+ * 僅支援 JSON-safe 型別（備份資料已於白名單中保證為 JSON-safe）
+ *
+ * @param {any} value
+ * @returns {any}
+ */
+function _sortKeys(value) {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(val => _sortKeys(val));
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      // eslint-disable-next-line unicorn/no-array-sort -- Object.entries() 會回傳新陣列，這裡改用 sort() 以相容較舊的 Chrome 版本。
+      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      .map(([key, val]) => [key, _sortKeys(val)])
+  );
+}
+
+/**
+ * 比對備份數據與本地數據，分類為新增/衝突/相同
+ *
+ * @param {object} backupData 已經過 sanitizeBackupData 過濾的備份數據
+ * @param {object} localData 當前本地 storage 數據
+ * @returns {{ newKeys: object, conflictKeys: object, skippedKeys: string[] }}
+ */
+export function diffBackupData(backupData, localData) {
+  const result = { newKeys: {}, conflictKeys: {}, skippedKeys: [] };
+
+  for (const [key, value] of Object.entries(backupData)) {
+    if (!Object.hasOwn(localData, key)) {
+      result.newKeys[key] = value;
+    } else if (_deepEqual(localData[key], value)) {
+      result.skippedKeys.push(key);
+    } else {
+      result.conflictKeys[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * 根據匯入模式產生實際執行計劃，將純資料決策與 UI orchestration 分離。
+ *
+ * @param {'overwrite-all'|'new-only'|'new-and-overwrite'} mode
+ * @param {object} sanitizedData 已經過 sanitizeBackupData 過濾的備份數據
+ * @param {object} localData 當前本地 storage 數據
+ * @returns {{
+ *   dataToWrite: object,
+ *   keysToRemove: string[],
+ *   effectiveNewCount: number,
+ *   effectiveOverwriteCount: number,
+ *   skipCount: number,
+ *   conflictSkipCount: number,
+ *   hasWork: boolean,
+ * }}
+ *
+ * skipCount：因內容相同而跳過的數量（identical）。
+ * conflictSkipCount：因模式限制而跳過的衝突數量（目前僅 new-only 會 > 0）。
+ * 分離這兩者可讓 UI 正確區分「完全一致（無事可做）」與「全為衝突（被 new-only 跳過）」。
+ */
+export function buildImportExecutionPlan(mode, sanitizedData, localData) {
+  const diff = diffBackupData(sanitizedData, localData);
+  const newCount = Object.keys(diff.newKeys).length;
+  const overwriteCount = Object.keys(diff.conflictKeys).length;
+
+  let dataToWrite = {};
+  let keysToRemove = [];
+  let effectiveOverwriteCount = overwriteCount;
+  const skipCount = diff.skippedKeys.length;
+  let conflictSkipCount = 0;
+
+  switch (mode) {
+    case 'overwrite-all': {
+      // 防呆：空備份在 overwrite-all 不應清空全部本地白名單資料 → 退為 no-op，交由 UI 顯示「無事可做」
+      if (Object.keys(sanitizedData).length === 0) {
+        dataToWrite = {};
+        keysToRemove = [];
+        break;
+      }
+      // 只寫入實際變動的 key（new + conflict），避免對 skippedKeys 做無效 I/O
+      dataToWrite = { ...diff.newKeys, ...diff.conflictKeys };
+      keysToRemove = Object.keys(localData).filter(
+        key =>
+          BACKUP_ALLOWED_PREFIXES.some(prefix => key.startsWith(prefix)) &&
+          !Object.hasOwn(sanitizedData, key)
+      );
+      break;
+    }
+    case 'new-only': {
+      dataToWrite = diff.newKeys;
+      effectiveOverwriteCount = 0;
+      conflictSkipCount = overwriteCount;
+      break;
+    }
+    case 'new-and-overwrite': {
+      dataToWrite = { ...diff.newKeys, ...diff.conflictKeys };
+      break;
+    }
+    default: {
+      throw new Error(`Unknown import mode: ${mode}`);
+    }
+  }
+
+  return {
+    dataToWrite,
+    keysToRemove,
+    effectiveNewCount: newCount,
+    effectiveOverwriteCount,
+    skipCount,
+    conflictSkipCount,
+    hasWork: Object.keys(dataToWrite).length > 0 || keysToRemove.length > 0,
+  };
+}
+
 // ─── 健康度報告（統一入口） ───────────────────────────────────────────
 
 /**
@@ -74,15 +223,7 @@ export function sanitizeBackupData(data) {
  *   - cleanupPlan: { items, totalKeys, spaceFreed, summary }（清理計劃）
  */
 export async function getStorageHealthReport() {
-  const data = await new Promise((resolve, reject) => {
-    chrome.storage.local.get(null, result => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-        return;
-      }
-      resolve(result);
-    });
-  });
+  const data = await getAllLocalStorage();
 
   const jsonString = JSON.stringify(data);
   const sizeInBytes = new Blob([jsonString]).size;

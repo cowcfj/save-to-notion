@@ -401,6 +401,48 @@ select:focus {
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
 }
 
+/* Import Mode Panel (還原備份：匯入模式選擇器) */
+.import-mode-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: white;
+  margin-top: var(--spacing-sm);
+}
+
+.import-mode-prompt {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.import-mode-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.import-mode-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.import-mode-cancel {
+  margin-top: var(--spacing-xs);
+}
+
+.import-mode-panel .btn-primary,
+.import-mode-panel .btn-secondary,
+.import-mode-panel .btn-danger {
+  width: 100%;
+  justify-content: center;
+}
+
 /* Feature Specifics */
 
 /* Auth */
