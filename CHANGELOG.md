@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.55.0](https://github.com/cowcfj/save-to-notion/compare/v2.54.0...v2.55.0) (2026-04-18)
+
+
+### ✨ 新功能
+
+* Add backup data comparison and incremental import features ([#419](https://github.com/cowcfj/save-to-notion/issues/419)) ([2311ad5](https://github.com/cowcfj/save-to-notion/commit/2311ad5026675ab953d470599460180785388068))
+
 ## [2.54.0](https://github.com/cowcfj/save-to-notion/compare/v2.53.0...v2.54.0) (2026-04-17)
 
 
