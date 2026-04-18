@@ -133,7 +133,6 @@ export class StorageManager {
 
     try {
       Logger.start('開始導入備份數據');
-      this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_START, 'info');
 
       const text = await file.text();
       const backup = JSON.parse(text);
@@ -264,12 +263,20 @@ export class StorageManager {
       } = buildImportExecutionPlan(mode, sanitizedData, localData);
 
       if (!hasWork) {
-        this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO, 'info');
+        // 區分「真正無差異」與「new-only 模式下全為衝突」兩種 no-op 情境
+        const message =
+          mode === 'new-only' && effectiveNewCount === 0 && skipCount > 0
+            ? UI_MESSAGES.STORAGE.IMPORT_NEW_ONLY_ALL_CONFLICTS(skipCount)
+            : UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO;
+        this.showDataStatus(message, 'info');
         if (this.elements.importFile) {
           this.elements.importFile.value = '';
         }
         return;
       }
+
+      // 真正要進行 I/O 時才顯示「正在匯入」；避免被 _showImportModeSelector 立即清空
+      this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_START, 'info');
 
       if (Object.keys(dataToWrite).length > 0) {
         await chrome.storage.local.set(dataToWrite);

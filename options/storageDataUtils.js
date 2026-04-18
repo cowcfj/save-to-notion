@@ -162,6 +162,12 @@ export function buildImportExecutionPlan(mode, sanitizedData, localData) {
 
   switch (mode) {
     case 'overwrite-all': {
+      // 防呆：空備份在 overwrite-all 不應清空全部本地白名單資料 → 退為 no-op，交由 UI 顯示「無事可做」
+      if (Object.keys(sanitizedData).length === 0) {
+        dataToWrite = {};
+        keysToRemove = [];
+        break;
+      }
       // 只寫入實際變動的 key（new + conflict），避免對 skippedKeys 做無效 I/O
       dataToWrite = { ...diff.newKeys, ...diff.conflictKeys };
       keysToRemove = Object.keys(localData).filter(

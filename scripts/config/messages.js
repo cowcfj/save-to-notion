@@ -134,6 +134,8 @@ export const UI_MESSAGES = {
     IMPORT_SUCCESS: (newCount, overwriteCount, skipCount) =>
       `匯入完成！新增 ${newCount} 項、覆蓋 ${overwriteCount} 項、跳過 ${skipCount} 項相同資料。正在重新整理...`,
     IMPORT_NOTHING_TO_DO: '備份與本地資料一致，無需匯入。',
+    IMPORT_NEW_ONLY_ALL_CONFLICTS: skipCount =>
+      `僅新增模式下無新項可匯入，已跳過 ${skipCount} 項衝突。`,
 
     // === 統一清理（由 getStorageHealthReport 驅動）===
     CLEANUP_EXECUTING: '正在執行數據優化...',
