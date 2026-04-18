@@ -135,6 +135,65 @@ export function diffBackupData(backupData, localData) {
   return result;
 }
 
+/**
+ * 根據匯入模式產生實際執行計劃，將純資料決策與 UI orchestration 分離。
+ *
+ * @param {'overwrite-all'|'new-only'|'new-and-overwrite'} mode
+ * @param {object} sanitizedData 已經過 sanitizeBackupData 過濾的備份數據
+ * @param {object} localData 當前本地 storage 數據
+ * @returns {{
+ *   dataToWrite: object,
+ *   keysToRemove: string[],
+ *   effectiveNewCount: number,
+ *   effectiveOverwriteCount: number,
+ *   skipCount: number,
+ *   hasWork: boolean,
+ * }}
+ */
+export function buildImportExecutionPlan(mode, sanitizedData, localData) {
+  const diff = diffBackupData(sanitizedData, localData);
+  const newCount = Object.keys(diff.newKeys).length;
+  const overwriteCount = Object.keys(diff.conflictKeys).length;
+
+  let dataToWrite = {};
+  let keysToRemove = [];
+  let effectiveOverwriteCount = overwriteCount;
+  let skipCount = diff.skippedKeys.length;
+
+  switch (mode) {
+    case 'overwrite-all': {
+      dataToWrite = sanitizedData;
+      keysToRemove = Object.keys(localData).filter(
+        key =>
+          BACKUP_ALLOWED_PREFIXES.some(prefix => key.startsWith(prefix)) && !(key in sanitizedData)
+      );
+      break;
+    }
+    case 'new-only': {
+      dataToWrite = diff.newKeys;
+      effectiveOverwriteCount = 0;
+      skipCount += overwriteCount;
+      break;
+    }
+    case 'new-and-overwrite': {
+      dataToWrite = { ...diff.newKeys, ...diff.conflictKeys };
+      break;
+    }
+    default: {
+      throw new Error(`Unknown import mode: ${mode}`);
+    }
+  }
+
+  return {
+    dataToWrite,
+    keysToRemove,
+    effectiveNewCount: newCount,
+    effectiveOverwriteCount,
+    skipCount,
+    hasWork: Object.keys(dataToWrite).length > 0 || keysToRemove.length > 0,
+  };
+}
+
 // ─── 健康度報告（統一入口） ───────────────────────────────────────────
 
 /**

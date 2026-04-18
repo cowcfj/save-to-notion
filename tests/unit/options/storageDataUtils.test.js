@@ -6,7 +6,11 @@
  * - diffBackupData（新增/衝突/跳過分類、key 順序無關性）
  */
 
-import { diffBackupData, getAllLocalStorage } from '../../../options/storageDataUtils';
+import {
+  buildImportExecutionPlan,
+  diffBackupData,
+  getAllLocalStorage,
+} from '../../../options/storageDataUtils';
 
 function buildChromeMock(mockGet) {
   return {
@@ -178,5 +182,46 @@ describe('storageDataUtils — diffBackupData', () => {
 
     expect(diff.conflictKeys).toEqual(backup);
     expect(diff.skippedKeys).toEqual([]);
+  });
+});
+
+describe('storageDataUtils — buildImportExecutionPlan', () => {
+  test('overwrite-all 應移除 backup 外的本地白名單 key，且保留非備份類 key', () => {
+    const sanitizedData = {
+      page_a: { highlights: [{ id: '1' }] },
+    };
+    const localData = {
+      page_a: { highlights: [{ id: '1' }] },
+      'highlights_https://example.com/article': [{ id: 'legacy-1' }],
+      notionOAuthToken: 'secret',
+      themePreference: 'dark',
+    };
+
+    const plan = buildImportExecutionPlan('overwrite-all', sanitizedData, localData);
+
+    expect(plan.dataToWrite).toEqual(sanitizedData);
+    expect(plan.keysToRemove).toEqual(['highlights_https://example.com/article']);
+    expect(plan.effectiveNewCount).toBe(0);
+    expect(plan.effectiveOverwriteCount).toBe(0);
+    expect(plan.skipCount).toBe(1);
+    expect(plan.hasWork).toBe(true);
+  });
+
+  test('new-only 僅有 conflicts 時應視為無需寫入，並把 conflicts 計入 skipCount', () => {
+    const sanitizedData = {
+      page_conflict: { highlights: [{ id: '2' }] },
+    };
+    const localData = {
+      page_conflict: { highlights: [{ id: '1' }] },
+    };
+
+    const plan = buildImportExecutionPlan('new-only', sanitizedData, localData);
+
+    expect(plan.dataToWrite).toEqual({});
+    expect(plan.keysToRemove).toEqual([]);
+    expect(plan.effectiveNewCount).toBe(0);
+    expect(plan.effectiveOverwriteCount).toBe(0);
+    expect(plan.skipCount).toBe(1);
+    expect(plan.hasWork).toBe(false);
   });
 });

@@ -366,6 +366,30 @@ describe('StorageManager', () => {
         expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
       });
 
+      it('「overwrite-all」模式應移除 backup 中不存在的本地白名單 key', async () => {
+        const backupData = {
+          page_a: { notion: null, highlights: [{ id: '1' }] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            page_a: { notion: null, highlights: [{ id: '1' }] },
+            'highlights_https://example.com/article': [{ id: 'legacy-1' }],
+            'url_alias:https://example.com/article': 'https://example.com/article',
+          })
+        );
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton(storageManager, 'overwrite-all').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).toHaveBeenCalledWith(backupData);
+        expect(mockRemove).toHaveBeenCalledWith([
+          'highlights_https://example.com/article',
+          'url_alias:https://example.com/article',
+        ]);
+      });
+
       it('「new-only」模式應只寫入 newKeys', async () => {
         const backupData = {
           page_same: { highlights: [{ id: '1' }] },
@@ -407,7 +431,29 @@ describe('StorageManager', () => {
 
         expect(storageManager.elements.dataStatus.textContent).toContain('新增 1 項');
         expect(storageManager.elements.dataStatus.textContent).toContain('覆蓋 0 項');
-        expect(storageManager.elements.dataStatus.textContent).toContain('跳過 1 項');
+        expect(storageManager.elements.dataStatus.textContent).toContain('跳過 2 項');
+      });
+
+      it('「new-only」模式僅有 conflicts 時應顯示 IMPORT_NOTHING_TO_DO、不寫入、不 reload', async () => {
+        const backupData = {
+          page_conflict: { highlights: [{ id: '2' }] },
+        };
+        mockGet.mockImplementation((_keys, cb) =>
+          cb({
+            page_conflict: { highlights: [{ id: '1' }] },
+          })
+        );
+
+        await storageManager.importData(buildFileEvent(backupData));
+        getModeButton(storageManager, 'new-only').click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockSet).not.toHaveBeenCalled();
+        expect(mockRemove).not.toHaveBeenCalled();
+        expect(storageManager.elements.dataStatus.textContent).toContain('無需匯入');
+        expect(storageManager.elements.importFile.value).toBe('');
+        expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 2000);
       });
 
       it('「new-and-overwrite」模式應寫入 newKeys + conflictKeys', async () => {

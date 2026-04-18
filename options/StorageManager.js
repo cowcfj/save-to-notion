@@ -20,7 +20,7 @@ import {
   sanitizeBackupData,
   getStorageHealthReport,
   getAllLocalStorage,
-  diffBackupData,
+  buildImportExecutionPlan,
 } from './storageDataUtils.js';
 
 /**
@@ -254,14 +254,16 @@ export class StorageManager {
   async _executeImport(mode, sanitizedData) {
     try {
       const localData = await getAllLocalStorage();
-      const diff = diffBackupData(sanitizedData, localData);
+      const {
+        dataToWrite,
+        keysToRemove,
+        effectiveNewCount,
+        effectiveOverwriteCount,
+        skipCount,
+        hasWork,
+      } = buildImportExecutionPlan(mode, sanitizedData, localData);
 
-      const newCount = Object.keys(diff.newKeys).length;
-      const overwriteCount = Object.keys(diff.conflictKeys).length;
-      const skipCount = diff.skippedKeys.length;
-
-      // 防呆：備份與本地完全一致（無新增、無衝突）
-      if (newCount === 0 && overwriteCount === 0) {
+      if (!hasWork) {
         this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO, 'info');
         if (this.elements.importFile) {
           this.elements.importFile.value = '';
@@ -269,31 +271,11 @@ export class StorageManager {
         return;
       }
 
-      // 根據模式決定寫入內容
-      let dataToWrite;
-      const effectiveNewCount = newCount;
-      let effectiveOverwriteCount = overwriteCount;
-      switch (mode) {
-        case 'overwrite-all': {
-          dataToWrite = sanitizedData;
-          break;
-        }
-        case 'new-only': {
-          dataToWrite = diff.newKeys;
-          effectiveOverwriteCount = 0;
-          break;
-        }
-        case 'new-and-overwrite': {
-          dataToWrite = { ...diff.newKeys, ...diff.conflictKeys };
-          break;
-        }
-        default: {
-          throw new Error(`Unknown import mode: ${mode}`);
-        }
-      }
-
       if (Object.keys(dataToWrite).length > 0) {
         await chrome.storage.local.set(dataToWrite);
+      }
+      if (keysToRemove.length > 0) {
+        await chrome.storage.local.remove(keysToRemove);
       }
 
       const icon = UI_ICONS.SUCCESS;
