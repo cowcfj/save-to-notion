@@ -147,8 +147,13 @@ export function diffBackupData(backupData, localData) {
  *   effectiveNewCount: number,
  *   effectiveOverwriteCount: number,
  *   skipCount: number,
+ *   conflictSkipCount: number,
  *   hasWork: boolean,
  * }}
+ *
+ * skipCount：因內容相同而跳過的數量（identical）。
+ * conflictSkipCount：因模式限制而跳過的衝突數量（目前僅 new-only 會 > 0）。
+ * 分離這兩者可讓 UI 正確區分「完全一致（無事可做）」與「全為衝突（被 new-only 跳過）」。
  */
 export function buildImportExecutionPlan(mode, sanitizedData, localData) {
   const diff = diffBackupData(sanitizedData, localData);
@@ -158,7 +163,8 @@ export function buildImportExecutionPlan(mode, sanitizedData, localData) {
   let dataToWrite = {};
   let keysToRemove = [];
   let effectiveOverwriteCount = overwriteCount;
-  let skipCount = diff.skippedKeys.length;
+  const skipCount = diff.skippedKeys.length;
+  let conflictSkipCount = 0;
 
   switch (mode) {
     case 'overwrite-all': {
@@ -180,7 +186,7 @@ export function buildImportExecutionPlan(mode, sanitizedData, localData) {
     case 'new-only': {
       dataToWrite = diff.newKeys;
       effectiveOverwriteCount = 0;
-      skipCount += overwriteCount;
+      conflictSkipCount = overwriteCount;
       break;
     }
     case 'new-and-overwrite': {
@@ -198,6 +204,7 @@ export function buildImportExecutionPlan(mode, sanitizedData, localData) {
     effectiveNewCount: newCount,
     effectiveOverwriteCount,
     skipCount,
+    conflictSkipCount,
     hasWork: Object.keys(dataToWrite).length > 0 || keysToRemove.length > 0,
   };
 }

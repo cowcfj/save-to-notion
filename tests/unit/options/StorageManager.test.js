@@ -95,10 +95,32 @@ function buildChromeMock(mockGet, mockSet, mockRemove) {
   };
 }
 
-/** 建立模擬的 file change event */
+/**
+ * 建立模擬的 file change event，並同時把真實 input 元素的 value 設為非空字串，
+ * 讓 `importFile.value === ''` 的斷言能實際驗證「清除邏輯確實被執行」而非誤判為初始值。
+ *
+ * 注意：`HTMLInputElement[type=file]` 在 JSDOM 的 `value` 規範上只允許設為空字串，
+ *      故使用 Object.defineProperty 重新定義為可讀寫以便覆寫初始值。
+ */
 function buildFileEvent(data) {
   const text = JSON.stringify({ data });
-  return { target: { files: [{ text: jest.fn().mockResolvedValue(text) }] } };
+  const fileLike = { text: jest.fn().mockResolvedValue(text) };
+
+  const input = document.querySelector('#import-data-file');
+  if (input) {
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      writable: true,
+      value: String.raw`C:\fakepath\backup.json`,
+    });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      writable: true,
+      value: [fileLike],
+    });
+  }
+
+  return { target: { files: [fileLike] } };
 }
 
 /** 從當前 dataStatus 抓取模式按鈕 */

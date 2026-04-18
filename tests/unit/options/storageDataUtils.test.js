@@ -238,7 +238,7 @@ describe('storageDataUtils — buildImportExecutionPlan', () => {
     expect(plan.hasWork).toBe(true);
   });
 
-  test('new-only 僅有 conflicts 時應視為無需寫入，並把 conflicts 計入 skipCount', () => {
+  test('new-only 僅有 conflicts 時應視為無需寫入，並把 conflicts 計入 conflictSkipCount（非 skipCount）', () => {
     const sanitizedData = {
       page_conflict: { highlights: [{ id: '2' }] },
     };
@@ -252,7 +252,26 @@ describe('storageDataUtils — buildImportExecutionPlan', () => {
     expect(plan.keysToRemove).toEqual([]);
     expect(plan.effectiveNewCount).toBe(0);
     expect(plan.effectiveOverwriteCount).toBe(0);
+    // 語義區分：skipCount 只計 identical；conflict 被 new-only 跳過時計入 conflictSkipCount
+    expect(plan.skipCount).toBe(0);
+    expect(plan.conflictSkipCount).toBe(1);
+    expect(plan.hasWork).toBe(false);
+  });
+
+  test('new-only 同時有 identical 與 conflicts 時應分別計入 skipCount / conflictSkipCount', () => {
+    const sanitizedData = {
+      page_same: { highlights: [{ id: '1' }] },
+      page_conflict: { highlights: [{ id: '2' }] },
+    };
+    const localData = {
+      page_same: { highlights: [{ id: '1' }] },
+      page_conflict: { highlights: [{ id: '1' }] },
+    };
+
+    const plan = buildImportExecutionPlan('new-only', sanitizedData, localData);
+
     expect(plan.skipCount).toBe(1);
+    expect(plan.conflictSkipCount).toBe(1);
     expect(plan.hasWork).toBe(false);
   });
 

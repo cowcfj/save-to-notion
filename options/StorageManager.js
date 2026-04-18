@@ -259,14 +259,18 @@ export class StorageManager {
         effectiveNewCount,
         effectiveOverwriteCount,
         skipCount,
+        conflictSkipCount,
         hasWork,
       } = buildImportExecutionPlan(mode, sanitizedData, localData);
+
+      // 使用者看到的「跳過」數合併顯示 identical + conflict-skipped，保持現有 UI 行為
+      const displaySkipCount = skipCount + conflictSkipCount;
 
       if (!hasWork) {
         // 區分「真正無差異」與「new-only 模式下全為衝突」兩種 no-op 情境
         const message =
-          mode === 'new-only' && effectiveNewCount === 0 && skipCount > 0
-            ? UI_MESSAGES.STORAGE.IMPORT_NEW_ONLY_ALL_CONFLICTS(skipCount)
+          effectiveNewCount === 0 && conflictSkipCount > 0
+            ? UI_MESSAGES.STORAGE.IMPORT_NEW_ONLY_ALL_CONFLICTS(conflictSkipCount)
             : UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO;
         this.showDataStatus(message, 'info');
         if (this.elements.importFile) {
@@ -300,16 +304,15 @@ export class StorageManager {
 
       const icon = UI_ICONS.SUCCESS;
       this.showDataStatus(
-        `${icon} ${UI_MESSAGES.STORAGE.IMPORT_SUCCESS(effectiveNewCount, effectiveOverwriteCount, skipCount)}`,
+        `${icon} ${UI_MESSAGES.STORAGE.IMPORT_SUCCESS(effectiveNewCount, effectiveOverwriteCount, displaySkipCount)}`,
         'success'
       );
       Logger.success('匯入完成', {
         action: 'import_backup',
-        result: {
-          added: effectiveNewCount,
-          overwritten: effectiveOverwriteCount,
-          skipped: skipCount,
-        },
+        result: 'success',
+        addedCount: effectiveNewCount,
+        overwrittenCount: effectiveOverwriteCount,
+        skippedCount: displaySkipCount,
       });
 
       if (this.elements.importFile) {
