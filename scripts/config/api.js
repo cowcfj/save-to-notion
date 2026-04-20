@@ -103,6 +103,8 @@ export const ACCOUNT_API = {
   ME: '/v1/account/me',
   /** Google Drive Sync Auth Flow */
   DRIVE_START: '/v1/account/drive/start',
+  /** Google Drive Sync Auth URL JSON endpoint */
+  DRIVE_START_URL: '/v1/account/drive/start-url',
   /** Google Drive Connection Management (GET/DELETE) */
   DRIVE_CONNECTION: '/v1/account/drive/connection',
   /** Google Drive Snapshot Status (GET) */

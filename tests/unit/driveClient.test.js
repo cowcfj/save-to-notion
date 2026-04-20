@@ -123,29 +123,24 @@ describe('Drive Client API', () => {
   });
 
   describe('OAuth Flow', () => {
-    it('startDriveOAuthFlow should fetch authorized start url and open redirected tab', async () => {
+    it('startDriveOAuthFlow should fetch authorizationUrl JSON and open tab', async () => {
       mockFetch.mockResolvedValue({
-        ok: false,
-        status: 302,
-        headers: {
-          get: jest
-            .fn()
-            .mockImplementation(name =>
-              name === 'Location' ? 'https://accounts.google.com/o/oauth2/v2/auth?drive=1' : null
-            ),
-        },
+        ok: true,
+        status: 200,
+        json: async () => ({
+          authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?drive=1',
+        }),
       });
 
       await startDriveOAuthFlow();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test-server.example.com/v1/account/drive/start',
+        'https://test-server.example.com/v1/account/drive/start-url',
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
             Authorization: 'Bearer test-token',
           }),
-          redirect: 'manual',
         })
       );
       expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({
@@ -153,15 +148,15 @@ describe('Drive Client API', () => {
       });
     });
 
-    it('startDriveOAuthFlow should throw when redirect location is missing', async () => {
+    it('startDriveOAuthFlow should throw when authorizationUrl is missing', async () => {
       mockFetch.mockResolvedValue({
-        ok: false,
-        status: 302,
-        headers: { get: jest.fn().mockReturnValue(null) },
+        ok: true,
+        status: 200,
+        json: async () => ({}),
       });
 
       await expect(startDriveOAuthFlow()).rejects.toThrow(
-        'GET /account/drive/start failed: redirect location missing'
+        'GET /account/drive/start-url failed: authorizationUrl missing'
       );
       expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
     });
