@@ -61,6 +61,8 @@ describe('DriveCloudSyncController', () => {
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
     jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
+    jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
+    jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
     jest.spyOn(driveClient, 'fetchDriveConnectionStatus').mockResolvedValue({
       connected: false,
       email: null,
@@ -159,6 +161,34 @@ describe('DriveCloudSyncController', () => {
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
       });
       expect(globalThis.confirm).toHaveBeenCalled();
+    });
+
+    it('disconnect button should revoke remote connection, clear local metadata, and render disconnected state', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ connectionEmail: null });
+
+      await initCloudSyncController(true);
+
+      renderCloudSyncCard({
+        connectionEmail: 'connected@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+
+      document.querySelector('#drive-disconnect-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise(process.nextTick);
+
+      expect(driveClient.disconnectDrive).toHaveBeenCalled();
+      expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
+        email: null,
+        connectedAt: null,
+      });
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
     });
 
     it('bypasses interaction if not logged in', async () => {

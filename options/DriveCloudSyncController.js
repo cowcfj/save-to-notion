@@ -21,6 +21,7 @@
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import {
   clearDriveSyncMetadata,
+  disconnectDrive,
   fetchDriveConnectionStatus,
   getDriveSyncMetadata,
   setDriveConnection,
@@ -421,14 +422,15 @@ async function handleDisconnect() {
 
   showLoading('中斷連線中...');
   try {
-    // 直接送 DRIVE_SYNC_MANUAL_UPLOAD 但 action 是 disconnect
-    // 實際 disconnect 邏輯由 background 處理
+    await disconnectDrive();
+    await clearDriveSyncMetadata();
+
     const response = await chrome.runtime.sendMessage({
       action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
       email: null,
       connectedAt: null,
     });
-    // response 可能 undefined（廣播訊息），不需要確認
+
     Logger.info('[CloudSync] Disconnect broadcast sent', { response });
     showSyncStatus('已中斷 Google Drive 連線', 'success');
     const metadata = await getDriveSyncMetadata();
