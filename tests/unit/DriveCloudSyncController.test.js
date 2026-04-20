@@ -11,6 +11,7 @@ import {
 import * as driveClient from '../../scripts/auth/driveClient.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
 import Logger from '../../scripts/utils/Logger.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
 
 async function flushAsyncWork() {
@@ -206,10 +207,14 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-connect-button').click();
       await flushAsyncWork();
 
+      const safeMessage = sanitizeApiError(new Error('popup blocked'), 'drive_connect_start');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '連接失敗：popup blocked'
+        `連接失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Drive connect start failed', {
+        error: safeMessage,
+      });
     });
 
     it('clears sync status without generic error when upload detects newer remote snapshot', async () => {
@@ -237,8 +242,9 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
+      const safeMessage = sanitizeApiError(new Error('背景無回應'), 'drive_sync_upload');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '上載失敗：背景無回應'
+        `上載失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -271,8 +277,9 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
+      const safeMessage = sanitizeApiError(new Error('NO_REMOTE_SNAPSHOT'), 'drive_sync_download');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '還原失敗：NO_REMOTE_SNAPSHOT'
+        `還原失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -343,6 +350,9 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-disconnect-button').click();
       await flushAsyncWork();
 
+      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Disconnect failed', {
+        error: sanitizeApiError(new Error('network down'), 'drive_disconnect'),
+      });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
         '中斷連線失敗，請重試'
       );
@@ -394,6 +404,10 @@ describe('DriveCloudSyncController', () => {
 
       await expect(initCloudSyncController(true)).resolves.toBeUndefined();
 
+      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Drive connection sync failed', {
+        action: 'syncRemoteDriveConnection',
+        error: sanitizeApiError(new Error('TOKEN_EXPIRED'), 'drive_connection_sync'),
+      });
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');

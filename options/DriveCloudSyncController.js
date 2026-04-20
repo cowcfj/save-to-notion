@@ -28,6 +28,7 @@ import {
   startDriveOAuthFlow,
 } from '../scripts/auth/driveClient.js';
 import Logger from '../scripts/utils/Logger.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 // =============================================================================
@@ -95,6 +96,28 @@ function el(selector) {
 }
 
 /**
+ * 將 error 轉為可安全記錄的字串代碼。
+ *
+ * @param {unknown} error
+ * @param {string} context
+ * @returns {string | object}
+ */
+function getSafeError(error, context) {
+  return sanitizeApiError(error, context);
+}
+
+/**
+ * 將 error 轉為使用者可見的友善訊息。
+ *
+ * @param {unknown} error
+ * @param {string} context
+ * @returns {string}
+ */
+function getUserFriendlyErrorMessage(error, context) {
+  return ErrorHandler.formatUserMessage(getSafeError(error, context));
+}
+
+/**
  * 將 server 端 Drive connection 狀態同步到本地 metadata。
  *
  * @returns {Promise<void>}
@@ -125,7 +148,7 @@ async function syncRemoteDriveConnectionSafely() {
   } catch (error) {
     Logger.error('[CloudSync] Drive connection sync failed', {
       action: 'syncRemoteDriveConnection',
-      error,
+      error: getSafeError(error, 'drive_connection_sync'),
     });
     await clearDriveSyncMetadata();
   }
@@ -369,9 +392,9 @@ async function handleUpload(force = false) {
     renderCloudSyncCard(metadata);
   } catch (error) {
     Logger.error('[CloudSync] Upload failed', {
-      error: sanitizeApiError(error, 'drive_sync_upload'),
+      error: getSafeError(error, 'drive_sync_upload'),
     });
-    showSyncStatus(error instanceof Error ? `上載失敗：${error.message}` : '上載失敗', 'error');
+    showSyncStatus(`上載失敗：${getUserFriendlyErrorMessage(error, 'drive_sync_upload')}`, 'error');
   } finally {
     hideLoading();
   }
@@ -406,9 +429,12 @@ async function handleDownload() {
     renderCloudSyncCard(metadata);
   } catch (error) {
     Logger.error('[CloudSync] Download failed', {
-      error: sanitizeApiError(error, 'drive_sync_download'),
+      error: getSafeError(error, 'drive_sync_download'),
     });
-    showSyncStatus(error instanceof Error ? `還原失敗：${error.message}` : '還原失敗', 'error');
+    showSyncStatus(
+      `還原失敗：${getUserFriendlyErrorMessage(error, 'drive_sync_download')}`,
+      'error'
+    );
   } finally {
     hideLoading();
   }
@@ -441,7 +467,9 @@ async function handleDisconnect() {
     const metadata = await getDriveSyncMetadata();
     renderCloudSyncCard(metadata);
   } catch (error) {
-    Logger.error('[CloudSync] Disconnect failed', { error });
+    Logger.error('[CloudSync] Disconnect failed', {
+      error: getSafeError(error, 'drive_disconnect'),
+    });
     showSyncStatus('中斷連線失敗，請重試', 'error');
   } finally {
     hideLoading();
@@ -475,9 +503,11 @@ export async function initCloudSyncController(isLoggedIn) {
   // 綁定按鈕事件
   el(DOM.BTN_CONNECT)?.addEventListener('click', () => {
     startDriveOAuthFlow().catch(error => {
-      Logger.error('[CloudSync] Drive connect start failed', { error });
+      Logger.error('[CloudSync] Drive connect start failed', {
+        error: getSafeError(error, 'drive_connect_start'),
+      });
       showSyncStatus(
-        error instanceof Error ? `連接失敗：${error.message}` : '連接失敗，請重試',
+        `連接失敗：${getUserFriendlyErrorMessage(error, 'drive_connect_start')}`,
         'error'
       );
     });
