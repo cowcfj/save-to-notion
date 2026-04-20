@@ -14,6 +14,13 @@ import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
 
+  async function flushAsyncWork() {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise(process.nextTick);
+  }
+
   beforeEach(() => {
     // Setup DOM
     document.body.innerHTML = `
@@ -135,6 +142,30 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-error-code').textContent).toContain('UPLOAD_FAILED');
       expect(document.querySelector('#drive-error-time').textContent).toContain('發生時間');
     });
+
+    it('falls back to raw timestamp when date formatting throws', () => {
+      const toLocaleStringSpy = jest
+        .spyOn(Date.prototype, 'toLocaleString')
+        .mockImplementation(() => {
+          throw new Error('format failed');
+        });
+
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        lastSuccessfulUploadAt: 'invalid-date-value',
+        lastErrorCode: 'UPLOAD_FAILED',
+        lastErrorAt: 'invalid-error-date',
+      });
+
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        'invalid-date-value'
+      );
+      expect(document.querySelector('#drive-error-time').textContent).toContain(
+        'invalid-error-date'
+      );
+
+      toLocaleStringSpy.mockRestore();
+    });
   });
 
   describe('initCloudSyncController', () => {
@@ -163,6 +194,83 @@ describe('DriveCloudSyncController', () => {
       expect(globalThis.confirm).toHaveBeenCalled();
     });
 
+    it('shows an error when connect flow cannot start', async () => {
+      driveClient.startDriveOAuthFlow.mockRejectedValue(new Error('popup blocked'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-connect-button').click();
+      await flushAsyncWork();
+
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '連接失敗：popup blocked'
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+    });
+
+    it('clears sync status without generic error when upload detects newer remote snapshot', async () => {
+      driveClient.getDriveSyncMetadata.mockResolvedValue({});
+      mockSendMessage.mockResolvedValueOnce({
+        success: false,
+        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      });
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(document.querySelector('#drive-error-banner').style.display).toBe('none');
+      expect(document.querySelector('#drive-sync-status').textContent).toBe('');
+      expect(document.querySelector('#drive-sync-status').className).toBe('status-message');
+    });
+
+    it('shows an error when upload receives no response from background', async () => {
+      mockSendMessage.mockResolvedValueOnce(undefined);
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '上載失敗：背景無回應'
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+    });
+
+    it('shows an error when download is rejected by background', async () => {
+      mockSendMessage.mockResolvedValueOnce({
+        success: false,
+        error: 'NO_REMOTE_SNAPSHOT',
+      });
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '還原失敗：NO_REMOTE_SNAPSHOT'
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+    });
+
+    it('skips download when user cancels confirmation', async () => {
+      globalThis.confirm.mockReturnValue(false);
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(mockSendMessage).not.toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+      });
+    });
+
     it('disconnect button should revoke remote connection, clear local metadata, and render disconnected state', async () => {
       driveClient.getDriveSyncMetadata
         .mockResolvedValueOnce({})
@@ -189,6 +297,32 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+    });
+
+    it('shows an error when disconnect fails', async () => {
+      driveClient.disconnectDrive.mockRejectedValue(new Error('network down'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-disconnect-button').click();
+      await flushAsyncWork();
+
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '中斷連線失敗，請重試'
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+    });
+
+    it('skips disconnect when user cancels confirmation', async () => {
+      globalThis.confirm.mockReturnValue(false);
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-disconnect-button').click();
+      await flushAsyncWork();
+
+      expect(driveClient.disconnectDrive).not.toHaveBeenCalled();
     });
 
     it('bypasses interaction if not logged in', async () => {
@@ -262,6 +396,69 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-connected-email').textContent).toBe('focus@test.dev');
     });
+
+    it('refreshes remote drive connection when page becomes visible again', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({ connectionEmail: null })
+        .mockResolvedValue({
+          connectionEmail: 'visible@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        });
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: false,
+          email: null,
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'visible@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        });
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      });
+
+      await initCloudSyncController(true);
+      document.dispatchEvent(new Event('visibilitychange'));
+      await flushAsyncWork();
+
+      expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
+        email: 'visible@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+    });
+
+    it('uses conflict action buttons for download and force upload flows', async () => {
+      await initCloudSyncController(true);
+
+      mockSendMessage.mockClear();
+      document.querySelector('#drive-conflict-download-button').click();
+      await flushAsyncWork();
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+      });
+
+      mockSendMessage.mockClear();
+      globalThis.confirm.mockReturnValueOnce(false);
+      document.querySelector('#drive-conflict-force-upload-button').click();
+      await flushAsyncWork();
+      expect(mockSendMessage).not.toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+        force: true,
+      });
+
+      globalThis.confirm.mockReturnValueOnce(true);
+      document.querySelector('#drive-conflict-force-upload-button').click();
+      await flushAsyncWork();
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+        force: true,
+      });
+    });
   });
 
   describe('refreshCloudSyncCard', () => {
@@ -290,6 +487,42 @@ describe('DriveCloudSyncController', () => {
         connectedAt: '2026-04-20T00:00:00.000Z',
       });
       expect(document.querySelector('#drive-connected-email').textContent).toBe('fresh@a.com');
+    });
+
+    it('clears local metadata when remote state reports disconnected', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: false,
+        email: null,
+        connectedAt: null,
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({ connectionEmail: null });
+
+      await refreshCloudSyncCard({ syncRemote: true });
+
+      expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+    });
+
+    it('clears temporary success status message after timeout', async () => {
+      jest.useFakeTimers();
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ connectionEmail: 'done@test.dev' });
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-upload-button').click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#drive-sync-status').textContent).toContain('上載成功');
+
+      await jest.advanceTimersByTimeAsync(4000);
+
+      expect(document.querySelector('#drive-sync-status').textContent).toBe('');
+      expect(document.querySelector('#drive-sync-status').className).toBe('status-message');
+      jest.useRealTimers();
     });
   });
 });
