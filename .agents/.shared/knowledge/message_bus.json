@@ -413,6 +413,63 @@
           "events": "array"
         }
       }
+    },
+    "driveSync": {
+      "$comment": "Google Drive Sync Phase A — 手動 connect / upload / download / disconnect\n禁止與 account session actions 混用觸發條件。storage keys 皆以 driveSync 前綴隔離。",
+      "DRIVE_CONNECTION_UPDATED": {
+        "description": "Drive OAuth callback bridge 完成或 disconnect 完成後廣播；接收方更新 Cloud Sync card 連線狀態",
+        "direction": "drive-auth.html / background → options",
+        "payload": {
+          "email": "string | null — 連線帳號 email，null 表示已斷線",
+          "connectedAt": "string | null — ISO 8601 timestamp"
+        },
+        "response": {
+          "success": "boolean (optional)"
+        }
+      },
+      "DRIVE_SYNC_STATUS_UPDATED": {
+        "description": "手動 upload/download 完成或 status 查詢後廣播；接收方重新讀取 driveSyncLast* metadata",
+        "direction": "background → options",
+        "payload": {
+          "lastKnownRemoteUpdatedAt": "string | null — 後端 snapshot updatedAt（ISO 8601）",
+          "lastSuccessfulUploadAt": "string | null — 本地記錄的上次上傳時間（ISO 8601）"
+        },
+        "response": {
+          "success": "boolean (optional)"
+        }
+      },
+      "DRIVE_SYNC_MANUAL_UPLOAD": {
+        "description": "Options UI 要求 Background 執行手動上傳；force=true 用於使用者二次確認後強制覆蓋",
+        "direction": "options → background",
+        "payload": {
+          "force": "boolean (optional) — 強制覆蓋遠端，需使用者二次確認"
+        },
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)",
+          "errorCode": "\"REMOTE_SNAPSHOT_NEWER\" | string (optional)"
+        }
+      },
+      "DRIVE_SYNC_MANUAL_DOWNLOAD": {
+        "description": "Options UI 要求 Background 執行手動下載並套用本地；套用前需二次確認",
+        "direction": "options → background",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "DRIVE_SYNC_CONFLICT": {
+        "description": "Background 在 upload 時偵測到 REMOTE_SNAPSHOT_NEWER 衝突，通知 UI 進入警告流程",
+        "direction": "background → options",
+        "payload": {
+          "conflictType": "\"REMOTE_SNAPSHOT_NEWER\"",
+          "remoteUpdatedAt": "string — 遠端 snapshot updatedAt（ISO 8601）"
+        },
+        "response": {
+          "success": "boolean (optional)"
+        }
+      }
     }
   }
 }

@@ -1,0 +1,254 @@
+/**
+ * drive-auth.js — Drive OAuth Callback Bridge（drive-auth.html 的主邏輯）
+ *
+ * 執行流程：
+ * 1. 解析 URL query 中的 drive_email 與 connected_at（後端回傳）
+ * 2. 呼叫 setDriveConnection() 寫入 metadata
+ * 3. 廣播 DRIVE_CONNECTION_UPDATED 給 extension 其他頁面
+ * 4. 成功後自動關閉頁面
+ * 5. 任一步驟失敗時顯示錯誤，不自動關閉
+ *
+ * 設計原則（MUST NOT 違反）：
+ * - 不使用任何 account session 或 Notion OAuth 邏輯
+ * - 不修改 account* / notion* storage keys
+ * - 此頁面只負責 Drive 連線 metadata 的寫入與廣播
+ *
+ * @see docs/plans/2026-04-20-google-drive-sync-frontend-phase-a-manual-sync-plan.md §6 Step 1
+ */
+
+/* global chrome */
+
+import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { setDriveConnection } from './driveAuth.js';
+
+// =============================================================================
+// DOM ID 常量
+// =============================================================================
+
+const DOM_IDS = {
+  STATUS_AREA: '#status-area',
+  SPINNER: '#spinner',
+  STATUS_TEXT: '#status-text',
+  CLOSE_HINT: '#close-hint',
+};
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ATTR_ARIA_HIDDEN = 'aria-hidden';
+
+// =============================================================================
+// UI helpers（與 auth.js 相同模式）
+// =============================================================================
+
+/**
+ * 顯示 loading 狀態
+ *
+ * @param {string} message
+ */
+function showLoading(message) {
+  const spinner = document.querySelector(DOM_IDS.SPINNER);
+  const statusText = document.querySelector(DOM_IDS.STATUS_TEXT);
+  const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
+  const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
+
+  if (spinner) {
+    spinner.style.display = '';
+  }
+  if (statusText) {
+    statusText.textContent = message;
+  }
+  if (statusArea) {
+    statusArea.className = 'status-area';
+  }
+  if (closeHint) {
+    closeHint.style.display = 'none';
+  }
+}
+
+/**
+ * 顯示成功狀態
+ *
+ * @param {string} message
+ */
+function showSuccess(message) {
+  const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
+  const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
+
+  if (statusArea) {
+    statusArea.className = 'status-area status-success';
+
+    const iconCircle = document.createElement('div');
+    iconCircle.className = 'icon-circle';
+    iconCircle.setAttribute(ATTR_ARIA_HIDDEN, 'true');
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute(ATTR_ARIA_HIDDEN, 'true');
+
+    const polyline = document.createElementNS(SVG_NS, 'polyline');
+    polyline.setAttribute('points', '20 6 9 17 4 12');
+    svg.append(polyline);
+    iconCircle.append(svg);
+
+    const statusText = document.createElement('p');
+    statusText.className = 'status-text';
+    statusText.textContent = message;
+
+    statusArea.replaceChildren(iconCircle, statusText);
+  }
+  if (closeHint) {
+    closeHint.style.display = '';
+  }
+}
+
+/**
+ * 顯示錯誤狀態
+ *
+ * @param {string} message
+ * @param {string} [detail]
+ */
+function showError(message, detail) {
+  const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
+  const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
+
+  if (statusArea) {
+    statusArea.className = 'status-area status-error';
+
+    const iconCircle = document.createElement('div');
+    iconCircle.className = 'icon-circle';
+    iconCircle.setAttribute(ATTR_ARIA_HIDDEN, 'true');
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute(ATTR_ARIA_HIDDEN, 'true');
+
+    const line1 = document.createElementNS(SVG_NS, 'line');
+    line1.setAttribute('x1', '18');
+    line1.setAttribute('y1', '6');
+    line1.setAttribute('x2', '6');
+    line1.setAttribute('y2', '18');
+
+    const line2 = document.createElementNS(SVG_NS, 'line');
+    line2.setAttribute('x1', '6');
+    line2.setAttribute('y1', '6');
+    line2.setAttribute('x2', '18');
+    line2.setAttribute('y2', '18');
+
+    svg.append(line1, line2);
+    iconCircle.append(svg);
+
+    const statusText = document.createElement('p');
+    statusText.className = 'status-text';
+    statusText.textContent = message;
+
+    const children = [iconCircle, statusText];
+    if (detail) {
+      const detailEl = document.createElement('p');
+      detailEl.className = 'error-detail';
+      detailEl.textContent = detail;
+      children.push(detailEl);
+    }
+
+    statusArea.replaceChildren(...children);
+  }
+  if (closeHint) {
+    closeHint.style.display = 'none';
+  }
+}
+
+// =============================================================================
+// Drive Auth Bridge 邏輯
+// =============================================================================
+
+/**
+ * 解析 URL query 中後端回傳的 Drive 連線資訊。
+ * 後端在授權完成後應回傳 ?drive_email=xxx&connected_at=ISO8601
+ * 或以 ?error=xxx 表示失敗。
+ *
+ * @returns {{ email: string; connectedAt: string } | null}
+ */
+function parseDriveCallbackParams() {
+  const params = new URLSearchParams(globalThis.location.search);
+
+  const error = params.get('error');
+  if (error) {
+    return null;
+  }
+
+  const email = params.get('drive_email');
+  const connectedAt = params.get('connected_at') ?? new Date().toISOString();
+
+  if (!email) {
+    return null;
+  }
+
+  return { email, connectedAt };
+}
+
+/**
+ * 廣播 DRIVE_CONNECTION_UPDATED 給 extension 其他頁面。
+ *
+ * @param {string | null} email - 連線帳號 email
+ * @param {string | null} connectedAt - ISO 8601 timestamp
+ */
+function broadcastDriveConnectionUpdated(email, connectedAt) {
+  chrome.runtime
+    .sendMessage({
+      action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
+      email,
+      connectedAt,
+    })
+    .catch(() => {
+      // background 若未就緒，忽略錯誤；options 頁自行監聽 storage 變化
+    });
+}
+
+/**
+ * 主邏輯：執行 Drive OAuth callback bridge 流程。
+ */
+async function runDriveAuthFlow() {
+  showLoading('正在完成 Google Drive 授權...');
+
+  // 步驟 1：解析後端回傳的 Drive 連線資訊
+  const connection = parseDriveCallbackParams();
+
+  const errorParam = new URLSearchParams(globalThis.location.search).get('error');
+  if (errorParam) {
+    showError('Google Drive 授權失敗', decodeURIComponent(errorParam));
+    return;
+  }
+
+  if (!connection) {
+    showError('Google Drive 授權失敗：缺少連線資訊', '未在 URL 中找到 drive_email，請重新連接。');
+    return;
+  }
+
+  showLoading('正在儲存連線資訊...');
+
+  // 步驟 2：寫入 drive connection metadata
+  try {
+    await setDriveConnection(connection);
+  } catch (error) {
+    showError('儲存連線資訊失敗', error instanceof Error ? error.message : String(error));
+    return;
+  }
+
+  // 步驟 3：廣播連線更新事件
+  broadcastDriveConnectionUpdated(connection.email, connection.connectedAt);
+
+  // 步驟 4：顯示成功，延遲關閉
+  showSuccess('Google Drive 連接成功！');
+
+  setTimeout(() => {
+    globalThis.close();
+  }, 1500);
+}
+
+// =============================================================================
+// 入口
+// =============================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  runDriveAuthFlow().catch(error => {
+    showError('發生未預期錯誤', error instanceof Error ? error.message : String(error));
+  });
+});

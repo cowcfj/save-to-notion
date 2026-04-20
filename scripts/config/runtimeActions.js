@@ -373,6 +373,70 @@
  * @property {boolean} [success]
  */
 
+// ==========================================
+// Drive Sync Actions typedef
+// ==========================================
+
+/**
+ * @typedef {object} DriveConnectionUpdatedRequest
+ * @property {'DRIVE_CONNECTION_UPDATED'} action
+ * @property {string | null} email - 連線帳號 email，null 表示已斷線
+ * @property {string | null} connectedAt - ISO 8601 timestamp
+ */
+
+/**
+ * @typedef {object} DriveConnectionUpdatedResponse
+ * @property {boolean} [success]
+ */
+
+/**
+ * @typedef {object} DriveSyncStatusUpdatedRequest
+ * @property {'DRIVE_SYNC_STATUS_UPDATED'} action
+ * @property {string | null} lastKnownRemoteUpdatedAt - 後端 snapshot updatedAt（ISO 8601）
+ * @property {string | null} lastSuccessfulUploadAt - 本地記錄的上次上傳時間（ISO 8601）
+ */
+
+/**
+ * @typedef {object} DriveSyncStatusUpdatedResponse
+ * @property {boolean} [success]
+ */
+
+/**
+ * @typedef {object} DriveSyncManualUploadRequest
+ * @property {'DRIVE_SYNC_MANUAL_UPLOAD'} action
+ * @property {boolean} [force] - true 表示強制覆蓋（使用者二次確認後才允許）
+ */
+
+/**
+ * @typedef {object} DriveSyncManualUploadResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ * @property {string} [errorCode] - e.g. 'REMOTE_SNAPSHOT_NEWER'
+ */
+
+/**
+ * @typedef {object} DriveSyncManualDownloadRequest
+ * @property {'DRIVE_SYNC_MANUAL_DOWNLOAD'} action
+ */
+
+/**
+ * @typedef {object} DriveSyncManualDownloadResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} DriveSyncConflictRequest
+ * @property {'DRIVE_SYNC_CONFLICT'} action
+ * @property {'REMOTE_SNAPSHOT_NEWER'} conflictType
+ * @property {string} remoteUpdatedAt - 遠端 snapshot updatedAt（ISO 8601）
+ */
+
+/**
+ * @typedef {object} DriveSyncConflictResponse
+ * @property {boolean} [success]
+ */
+
 export const RUNTIME_ACTIONS = Object.freeze({
   /**
    * Request: {@link CheckPageStatusRequest}
@@ -571,6 +635,60 @@ export const RUNTIME_ACTIONS = Object.freeze({
    * @type {AccountSessionClearedRequest['action']}
    */
   ACCOUNT_SESSION_CLEARED: 'account_session_cleared',
+
+  // ==========================================
+  // Google Drive Sync Actions（Phase A）
+  // ==========================================
+
+  /**
+   * Drive callback bridge 完成後廣播，UI 更新連線狀態
+   *
+   * Request: {@link DriveConnectionUpdatedRequest}
+   * Response: {@link DriveConnectionUpdatedResponse}
+   *
+   * @type {DriveConnectionUpdatedRequest['action']}
+   */
+  DRIVE_CONNECTION_UPDATED: 'DRIVE_CONNECTION_UPDATED',
+
+  /**
+   * 手動 upload / download 完成或 status 刷新後廣播
+   *
+   * Request: {@link DriveSyncStatusUpdatedRequest}
+   * Response: {@link DriveSyncStatusUpdatedResponse}
+   *
+   * @type {DriveSyncStatusUpdatedRequest['action']}
+   */
+  DRIVE_SYNC_STATUS_UPDATED: 'DRIVE_SYNC_STATUS_UPDATED',
+
+  /**
+   * Options UI 觸發手動上傳
+   *
+   * Request: {@link DriveSyncManualUploadRequest}
+   * Response: {@link DriveSyncManualUploadResponse}
+   *
+   * @type {DriveSyncManualUploadRequest['action']}
+   */
+  DRIVE_SYNC_MANUAL_UPLOAD: 'DRIVE_SYNC_MANUAL_UPLOAD',
+
+  /**
+   * Options UI 觸發手動下載
+   *
+   * Request: {@link DriveSyncManualDownloadRequest}
+   * Response: {@link DriveSyncManualDownloadResponse}
+   *
+   * @type {DriveSyncManualDownloadRequest['action']}
+   */
+  DRIVE_SYNC_MANUAL_DOWNLOAD: 'DRIVE_SYNC_MANUAL_DOWNLOAD',
+
+  /**
+   * Background 偵測到衝突時通知 UI（REMOTE_SNAPSHOT_NEWER）
+   *
+   * Request: {@link DriveSyncConflictRequest}
+   * Response: {@link DriveSyncConflictResponse}
+   *
+   * @type {DriveSyncConflictRequest['action']}
+   */
+  DRIVE_SYNC_CONFLICT: 'DRIVE_SYNC_CONFLICT',
 });
 
 export const RUNTIME_ERROR_MESSAGES = Object.freeze({
