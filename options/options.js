@@ -15,7 +15,11 @@ import Logger from '../scripts/utils/Logger.js';
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
 import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
-import { getAccountProfile, clearAccountSession } from '../scripts/auth/accountSession.js';
+import {
+  getAccountAccessToken,
+  getAccountProfile,
+  clearAccountSession,
+} from '../scripts/auth/accountSession.js';
 import {
   initCloudSyncController,
   setCloudSyncCardVisibility,
@@ -243,11 +247,13 @@ function updateLockedFeatures(isLocked) {
  */
 async function renderAccountUI() {
   const profile = await getAccountProfile();
+  const accessToken = await getAccountAccessToken();
+  const isLoggedIn = Boolean(profile && accessToken);
 
   const loggedOutEl = document.querySelector('#account-logged-out');
   const loggedInEl = document.querySelector('#account-logged-in');
 
-  if (profile) {
+  if (isLoggedIn) {
     // 已登入狀態
     if (loggedOutEl) {
       loggedOutEl.style.display = 'none';
@@ -379,8 +385,8 @@ function initAccountUI() {
   renderAccountUI().catch(() => {});
 
   // 初始化 Cloud Sync Controller（需在 renderAccountUI 後，使用同樣的 profile check）
-  getAccountProfile()
-    .then(profile => initCloudSyncController(Boolean(profile)))
+  Promise.all([getAccountProfile(), getAccountAccessToken()])
+    .then(([profile, accessToken]) => initCloudSyncController(Boolean(profile && accessToken)))
     .catch(() => {});
 }
 

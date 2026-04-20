@@ -187,6 +187,17 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
     });
+
+    it('falls back to disconnected state when remote sync fails', async () => {
+      driveClient.fetchDriveConnectionStatus.mockRejectedValue(new Error('TOKEN_EXPIRED'));
+      driveClient.getDriveSyncMetadata.mockResolvedValue({ connectionEmail: null });
+
+      await expect(initCloudSyncController(true)).resolves.toBeUndefined();
+
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
+    });
   });
 
   describe('refreshCloudSyncCard', () => {

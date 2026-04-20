@@ -111,6 +111,24 @@ async function syncRemoteDriveConnection() {
   await clearDriveSyncMetadata();
 }
 
+/**
+ * 嘗試同步 server 端 Drive connection；失敗時回退本地 metadata，
+ * 避免整張卡片因 API 失敗而完全不渲染。
+ *
+ * @returns {Promise<void>}
+ */
+async function syncRemoteDriveConnectionSafely() {
+  try {
+    await syncRemoteDriveConnection();
+  } catch (error) {
+    Logger.error('[CloudSync] Drive connection sync failed', {
+      action: 'syncRemoteDriveConnection',
+      error,
+    });
+    await clearDriveSyncMetadata();
+  }
+}
+
 // =============================================================================
 // Cloud Sync Card UI 渲染
 // =============================================================================
@@ -418,7 +436,7 @@ export async function initCloudSyncController(isLoggedIn) {
     return;
   }
 
-  await syncRemoteDriveConnection();
+  await syncRemoteDriveConnectionSafely();
 
   // 讀取 Drive metadata 並渲染
   const metadata = await getDriveSyncMetadata();
@@ -470,7 +488,7 @@ export async function initCloudSyncController(isLoggedIn) {
  */
 export async function refreshCloudSyncCard(options = {}) {
   if (options.syncRemote) {
-    await syncRemoteDriveConnection();
+    await syncRemoteDriveConnectionSafely();
   }
   const metadata = await getDriveSyncMetadata();
   renderCloudSyncCard(metadata);
