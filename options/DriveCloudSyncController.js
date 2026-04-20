@@ -28,6 +28,7 @@ import {
   startDriveOAuthFlow,
 } from '../scripts/auth/driveClient.js';
 import Logger from '../scripts/utils/Logger.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 // =============================================================================
 // DOM ID 常量
@@ -367,7 +368,9 @@ async function handleUpload(force = false) {
     const metadata = await getDriveSyncMetadata();
     renderCloudSyncCard(metadata);
   } catch (error) {
-    Logger.error('[CloudSync] Upload failed', { error });
+    Logger.error('[CloudSync] Upload failed', {
+      error: sanitizeApiError(error, 'drive_sync_upload'),
+    });
     showSyncStatus(error instanceof Error ? `上載失敗：${error.message}` : '上載失敗', 'error');
   } finally {
     hideLoading();
@@ -402,7 +405,9 @@ async function handleDownload() {
     const metadata = await getDriveSyncMetadata();
     renderCloudSyncCard(metadata);
   } catch (error) {
-    Logger.error('[CloudSync] Download failed', { error });
+    Logger.error('[CloudSync] Download failed', {
+      error: sanitizeApiError(error, 'drive_sync_download'),
+    });
     showSyncStatus(error instanceof Error ? `還原失敗：${error.message}` : '還原失敗', 'error');
   } finally {
     hideLoading();

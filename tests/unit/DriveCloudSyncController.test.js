@@ -10,6 +10,8 @@ import {
 } from '../../options/DriveCloudSyncController.js';
 import * as driveClient from '../../scripts/auth/driveClient.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
+import Logger from '../../scripts/utils/Logger.js';
+import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
 
 async function flushAsyncWork() {
   await Promise.resolve();
@@ -20,6 +22,7 @@ async function flushAsyncWork() {
 
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
+  let loggerErrorSpy;
 
   beforeEach(() => {
     // Setup DOM
@@ -64,6 +67,7 @@ describe('DriveCloudSyncController', () => {
       warn: jest.fn(),
       error: jest.fn(),
     };
+    loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
@@ -240,6 +244,22 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
     });
 
+    it('sanitizes upload errors before logging', async () => {
+      mockSendMessage.mockRejectedValueOnce(new Error('unauthorized: API token is invalid'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Upload failed', {
+        error: sanitizeApiError(
+          new Error('unauthorized: API token is invalid'),
+          'drive_sync_upload'
+        ),
+      });
+    });
+
     it('shows an error when download is rejected by background', async () => {
       mockSendMessage.mockResolvedValueOnce({
         success: false,
@@ -256,6 +276,22 @@ describe('DriveCloudSyncController', () => {
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+    });
+
+    it('sanitizes download errors before logging', async () => {
+      mockSendMessage.mockRejectedValueOnce(new Error('unauthorized: API token is invalid'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Download failed', {
+        error: sanitizeApiError(
+          new Error('unauthorized: API token is invalid'),
+          'drive_sync_download'
+        ),
+      });
     });
 
     it('skips download when user cancels confirmation', async () => {
