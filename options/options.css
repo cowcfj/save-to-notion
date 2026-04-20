@@ -1480,3 +1480,69 @@ h4 .icon-svg {
 .mt-12 {
   margin-top: 12px;
 }
+
+/* --- Advanced Features Profile --- */
+.profile-layout {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.profile-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.verified-badge {
+  color: var(--success-color);
+  display: inline-flex;
+  align-items: center;
+}
+
+.profile-email {
+  color: var(--text-secondary);
+}
+
+/* --- Locked Features --- */
+.locked-feature {
+  pointer-events: none;
+  opacity: 0.6;
+  filter: grayscale(1);
+  position: relative;
+}
+
+.locked-feature:hover {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Override default .card:hover */
+}
