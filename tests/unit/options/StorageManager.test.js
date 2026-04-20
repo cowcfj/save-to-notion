@@ -1464,4 +1464,11 @@ describe('options.html 結構', () => {
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });
+
+  test('Google Drive 雲端同步卡片應提示登入僅用於 Drive 授權，避免與帳號登入混淆', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+
+    expect(html).toContain('此登入用於 Google Drive 授權，用於備份和同步你的本地資料。');
+  });
 });
