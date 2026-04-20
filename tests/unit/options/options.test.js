@@ -1137,6 +1137,17 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     });
   });
 
+  describe('Google Drive API constants', () => {
+    it('should use /v1/account/drive namespace for drive endpoints', async () => {
+      const { ACCOUNT_API } = await import('../../../scripts/config/api.js');
+
+      expect(ACCOUNT_API.DRIVE_START).toBe('/v1/account/drive/start');
+      expect(ACCOUNT_API.DRIVE_CONNECTION).toBe('/v1/account/drive/connection');
+      expect(ACCOUNT_API.DRIVE_SNAPSHOT_STATUS).toBe('/v1/account/drive/snapshot/status');
+      expect(ACCOUNT_API.DRIVE_SNAPSHOT).toBe('/v1/account/drive/snapshot');
+    });
+  });
+
   describe('登出按鈕', () => {
     beforeEach(() => {
       getAccountProfile

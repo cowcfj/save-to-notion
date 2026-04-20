@@ -19,7 +19,13 @@
 /* global chrome */
 
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
-import { getDriveSyncMetadata, startDriveOAuthFlow } from '../scripts/auth/driveClient.js';
+import {
+  clearDriveSyncMetadata,
+  fetchDriveConnectionStatus,
+  getDriveSyncMetadata,
+  setDriveConnection,
+  startDriveOAuthFlow,
+} from '../scripts/auth/driveClient.js';
 import Logger from '../scripts/utils/Logger.js';
 
 // =============================================================================
@@ -84,6 +90,25 @@ function formatTimestamp(isoString) {
  */
 function el(selector) {
   return document.querySelector(selector);
+}
+
+/**
+ * 將 server 端 Drive connection 狀態同步到本地 metadata。
+ *
+ * @returns {Promise<void>}
+ */
+async function syncRemoteDriveConnection() {
+  const status = await fetchDriveConnectionStatus();
+
+  if (status.connected && status.email) {
+    await setDriveConnection({
+      email: status.email,
+      connectedAt: status.connectedAt ?? new Date().toISOString(),
+    });
+    return;
+  }
+
+  await clearDriveSyncMetadata();
 }
 
 // =============================================================================
@@ -393,13 +418,21 @@ export async function initCloudSyncController(isLoggedIn) {
     return;
   }
 
+  await syncRemoteDriveConnection();
+
   // 讀取 Drive metadata 並渲染
   const metadata = await getDriveSyncMetadata();
   renderCloudSyncCard(metadata);
 
   // 綁定按鈕事件
   el(DOM.BTN_CONNECT)?.addEventListener('click', () => {
-    startDriveOAuthFlow();
+    startDriveOAuthFlow().catch(error => {
+      Logger.error('[CloudSync] Drive connect start failed', { error });
+      showSyncStatus(
+        error instanceof Error ? `連接失敗：${error.message}` : '連接失敗，請重試',
+        'error'
+      );
+    });
   });
 
   el(DOM.BTN_UPLOAD)?.addEventListener('click', () => {
@@ -432,8 +465,13 @@ export async function initCloudSyncController(isLoggedIn) {
 
 /**
  * 刷新 Cloud Sync card（訊息更新後呼叫）
+ *
+ * @param {{ syncRemote?: boolean }} [options]
  */
-export async function refreshCloudSyncCard() {
+export async function refreshCloudSyncCard(options = {}) {
+  if (options.syncRemote) {
+    await syncRemoteDriveConnection();
+  }
   const metadata = await getDriveSyncMetadata();
   renderCloudSyncCard(metadata);
 }

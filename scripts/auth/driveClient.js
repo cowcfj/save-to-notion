@@ -104,19 +104,37 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
 
 /**
  * 啟動 Google Drive OAuth 授權流程。
- * 在新分頁開啟後端 /drive/start，並附帶 ext_id 與 callback_mode=bridge。
+ * 先以 Bearer token 呼叫受保護的 /v1/account/drive/start，
+ * 再以後端回傳的 provider redirect URL 開新分頁。
  *
  * ⚠️ 此函數 MUST 在 options.js 的 click handler 中呼叫（非 background）。
- * connect 完成後，drive-auth.html 會廣播 DRIVE_CONNECTION_UPDATED action。
+ * connect 完成後，options 頁會在重新獲焦或收到 runtime 訊息時重新同步 Drive connection state。
  *
- * @returns {void}
+ * @returns {Promise<void>}
  */
-export function startDriveOAuthFlow() {
-  const extId = chrome.runtime.id;
-  const url =
-    `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_START}` +
-    `?ext_id=${encodeURIComponent(extId)}&callback_mode=bridge`;
-  chrome.tabs.create({ url });
+export async function startDriveOAuthFlow() {
+  const headers = await buildAccountAuthHeaders();
+  const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_START}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { ...headers },
+    redirect: 'manual',
+  });
+
+  const location = res.headers.get('Location');
+
+  if ((res.status === 302 || res.status === 303) && location) {
+    await chrome.tabs.create({ url: location });
+    return;
+  }
+
+  if ((res.status === 302 || res.status === 303) && !location) {
+    throw new Error('GET /account/drive/start failed: redirect location missing');
+  }
+
+  const text = await res.text().catch(() => '');
+  throw new Error(`GET /account/drive/start failed: ${res.status} ${text}`);
 }
 
 // =============================================================================
@@ -253,7 +271,7 @@ export async function fetchDriveConnectionStatus() {
   const json = await res.json();
   return {
     connected: true,
-    email: json.email ?? null,
+    email: json.providerAccountEmail ?? json.email ?? null,
     connectedAt: json.connectedAt ?? null,
   };
 }

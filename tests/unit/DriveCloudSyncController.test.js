@@ -46,6 +46,11 @@ describe('DriveCloudSyncController', () => {
       runtime: {
         sendMessage: mockSendMessage,
       },
+      storage: {
+        local: {
+          remove: jest.fn().mockResolvedValue(),
+        },
+      },
     };
     globalThis.Logger = {
       info: jest.fn(),
@@ -55,7 +60,13 @@ describe('DriveCloudSyncController', () => {
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
-    jest.spyOn(driveClient, 'startDriveOAuthFlow').mockImplementation(() => {});
+    jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
+    jest.spyOn(driveClient, 'fetchDriveConnectionStatus').mockResolvedValue({
+      connected: false,
+      email: null,
+      connectedAt: null,
+    });
+    jest.spyOn(driveClient, 'setDriveConnection').mockResolvedValue();
   });
 
   afterEach(() => {
@@ -155,6 +166,27 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
       // Handlers not attached if not logged in initially (in actual implementation)
     });
+
+    it('syncs remote drive connection on init', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'remote@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'remote@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
+        email: 'remote@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
+    });
   });
 
   describe('refreshCloudSyncCard', () => {
@@ -162,6 +194,27 @@ describe('DriveCloudSyncController', () => {
       driveClient.getDriveSyncMetadata.mockResolvedValue({ connectionEmail: 'mock@a.com' });
       await refreshCloudSyncCard();
       expect(document.querySelector('#drive-connected-email').textContent).toBe('mock@a.com');
+    });
+
+    it('can sync remote connection state before rendering', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'fresh@a.com',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'fresh@a.com',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+
+      await refreshCloudSyncCard({ syncRemote: true });
+
+      expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
+        email: 'fresh@a.com',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      expect(document.querySelector('#drive-connected-email').textContent).toBe('fresh@a.com');
     });
   });
 });

@@ -102,11 +102,11 @@ export const ACCOUNT_API = {
   /** 取得最小帳號資訊（需 Bearer token） */
   ME: '/v1/account/me',
   /** Google Drive Sync Auth Flow */
-  DRIVE_START: '/v1/drive/start',
+  DRIVE_START: '/v1/account/drive/start',
   /** Google Drive Connection Management (GET/DELETE) */
-  DRIVE_CONNECTION: '/v1/drive/connection',
+  DRIVE_CONNECTION: '/v1/account/drive/connection',
   /** Google Drive Snapshot Status (GET) */
-  DRIVE_SNAPSHOT_STATUS: '/v1/drive/snapshot/status',
+  DRIVE_SNAPSHOT_STATUS: '/v1/account/drive/snapshot/status',
   /** Google Drive Snapshot (GET/PUT) */
-  DRIVE_SNAPSHOT: '/v1/drive/snapshot',
+  DRIVE_SNAPSHOT: '/v1/account/drive/snapshot',
 };

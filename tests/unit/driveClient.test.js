@@ -2,6 +2,12 @@
  * Drive Client API & Storage Tests
  */
 
+jest.mock('../../scripts/config/env.js', () => ({
+  BUILD_ENV: {
+    OAUTH_SERVER_URL: 'https://test-server.example.com',
+  },
+}));
+
 import {
   ALL_DRIVE_SYNC_KEYS,
   startDriveOAuthFlow,
@@ -117,11 +123,47 @@ describe('Drive Client API', () => {
   });
 
   describe('OAuth Flow', () => {
-    it('startDriveOAuthFlow should open tab', () => {
-      startDriveOAuthFlow();
-      expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({
-        url: expect.stringContaining('/drive/start?ext_id=test-ext-id&callback_mode=bridge'),
+    it('startDriveOAuthFlow should fetch authorized start url and open redirected tab', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 302,
+        headers: {
+          get: jest
+            .fn()
+            .mockImplementation(name =>
+              name === 'Location' ? 'https://accounts.google.com/o/oauth2/v2/auth?drive=1' : null
+            ),
+        },
       });
+
+      await startDriveOAuthFlow();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-server.example.com/v1/account/drive/start',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+          redirect: 'manual',
+        })
+      );
+      expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'https://accounts.google.com/o/oauth2/v2/auth?drive=1',
+      });
+    });
+
+    it('startDriveOAuthFlow should throw when redirect location is missing', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 302,
+        headers: { get: jest.fn().mockReturnValue(null) },
+      });
+
+      await expect(startDriveOAuthFlow()).rejects.toThrow(
+        'GET /account/drive/start failed: redirect location missing'
+      );
+      expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
     });
   });
 
@@ -131,11 +173,15 @@ describe('Drive Client API', () => {
         mockFetch.mockResolvedValue({
           ok: true,
           status: 200,
-          json: async () => ({ email: 'a@a' }),
+          json: async () => ({
+            providerAccountEmail: 'a@a',
+            connectedAt: '2023-01-01T00:00:00.000Z',
+          }),
         });
         const res = await fetchDriveConnectionStatus();
         expect(res.connected).toBe(true);
         expect(res.email).toBe('a@a');
+        expect(res.connectedAt).toBe('2023-01-01T00:00:00.000Z');
       });
 
       it('returns false on 404', async () => {
