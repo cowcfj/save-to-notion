@@ -1055,6 +1055,42 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(fallback.style.display).not.toBe('none');
       expect(fallback.textContent).toBe('U');
     });
+
+    it('displayName 為空白字串時應回退到 email，避免顯示空白名稱', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: '   ',
+        avatarUrl: null,
+      });
+      initOptions();
+      await Promise.resolve();
+
+      expect(document.querySelector('#profile-display-name').textContent).toBe('user@example.com');
+
+      const fallback = document.querySelector('#profile-avatar-fallback');
+      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.textContent).toBe('U');
+    });
+
+    it('displayName 與 email 都缺失時應使用安全 fallback，避免呼叫 charAt 拋錯', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: '',
+        displayName: '   ',
+        avatarUrl: null,
+      });
+
+      expect(() => initOptions()).not.toThrow();
+      await Promise.resolve();
+
+      expect(document.querySelector('#profile-display-name').textContent).toBe('');
+      expect(document.querySelector('#profile-email').textContent).toBe('');
+
+      const fallback = document.querySelector('#profile-avatar-fallback');
+      expect(fallback.style.display).toBe('flex');
+      expect(fallback.textContent).toBe('?');
+    });
   });
 
   describe('登入按鈕', () => {

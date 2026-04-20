@@ -36,6 +36,7 @@
             <span class="label">一般設定</span>
           </button>
           <button
+            type="button"
             id="tab-advanced"
             class="nav-item"
             data-section="advanced"
@@ -310,7 +311,7 @@
           </div>
 
           <!-- 全局儲存按鈕 -->
-          <button id="save-button" class="btn-primary full-width">儲存設定</button>
+          <button id="save-button" type="button" class="btn-primary full-width">儲存設定</button>
           <p id="status" class="status-message"></p>
         </section>
 
@@ -353,7 +354,7 @@
             <div id="account-logged-in" style="display: none">
               <div class="profile-layout">
                 <div class="profile-avatar">
-                  <img id="profile-avatar-img" src="" alt="Avatar" style="display: none;" />
+                  <img id="profile-avatar-img" alt="使用者頭像" style="display: none;" />
                   <div id="profile-avatar-fallback" style="display: none;"></div>
                 </div>
                 <div class="profile-details">
@@ -392,7 +393,7 @@
               <svg width="20" height="20" class="icon-svg" aria-hidden="true" focusable="false" style="vertical-align: middle; margin-right: 4px;">
                 <use href="#icon-sync" />
               </svg>
-              Google Drive Cloud Sync
+              Google Drive 雲端同步
             </h3>
             <p class="section-desc" style="margin-bottom: 12px">
               自動將您的標記備份到雲端，跨設備保持同步。<br/>

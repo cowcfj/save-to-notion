@@ -168,18 +168,22 @@ function updateProfileDOM(profile) {
     return;
   }
 
-  const displayName = profile.displayName ?? profile.email;
+  const normalizedDisplayName =
+    typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
+  const email = profile.email || '';
+  const displayName = normalizedDisplayName || email;
 
   if (nameEl) {
     nameEl.textContent = displayName;
   }
   if (emailEl) {
-    emailEl.textContent = profile.email || '';
+    emailEl.textContent = email;
   }
 
   if (profile.avatarUrl) {
     if (avatarImgEl) {
       avatarImgEl.src = profile.avatarUrl;
+      avatarImgEl.alt = UI_MESSAGES.ACCOUNT.AVATAR_ALT;
       avatarImgEl.style.display = '';
     }
     if (avatarFallbackEl) {
@@ -187,10 +191,11 @@ function updateProfileDOM(profile) {
     }
   } else {
     if (avatarImgEl) {
+      avatarImgEl.removeAttribute('src');
       avatarImgEl.style.display = 'none';
     }
     if (avatarFallbackEl) {
-      avatarFallbackEl.textContent = (profile.email || displayName).charAt(0).toUpperCase();
+      avatarFallbackEl.textContent = (displayName || '?').charAt(0).toUpperCase();
       avatarFallbackEl.style.display = 'flex';
     }
   }
@@ -216,7 +221,9 @@ function updateLockedFeatures(isLocked) {
 
     const lockedMsg = card.querySelector('.locked-message');
     if (lockedMsg) {
-      lockedMsg.textContent = isLocked ? '需先登入 Google 帳號。' : '功能即將推出。';
+      lockedMsg.textContent = isLocked
+        ? UI_MESSAGES.ACCOUNT.LOCKED_LOGIN_REQUIRED
+        : UI_MESSAGES.ACCOUNT.LOCKED_COMING_SOON;
     }
   });
 }
