@@ -19,7 +19,7 @@
 /* global chrome */
 
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
-import { getDriveSyncMetadata, startDriveOAuthFlow } from '../scripts/auth/driveAuth.js';
+import { getDriveSyncMetadata, startDriveOAuthFlow } from '../scripts/auth/driveClient.js';
 import Logger from '../scripts/utils/Logger.js';
 
 // =============================================================================

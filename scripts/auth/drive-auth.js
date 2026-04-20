@@ -19,7 +19,7 @@
 /* global chrome */
 
 import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
-import { setDriveConnection } from './driveAuth.js';
+import { setDriveConnection } from './driveClient.js';
 
 // =============================================================================
 // DOM ID 常量

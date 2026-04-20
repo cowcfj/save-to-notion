@@ -5,7 +5,7 @@
  * - DRIVE_SYNC_MANUAL_UPLOAD：建立 snapshot 並上傳到 Drive
  * - DRIVE_SYNC_MANUAL_DOWNLOAD：從 Drive 下載並套用 snapshot
  *
- * 設計原則（MUST NOT 違反）：
+ * 設計原則：
  * - upload 前 MUST NOT 修改本地 storage
  * - 收到 REMOTE_SNAPSHOT_NEWER（409 conflict）時，回傳 errorCode='REMOTE_SNAPSHOT_NEWER'，
  *   不自動重試 force=true
@@ -22,7 +22,7 @@ import {
   downloadDriveSnapshot,
   clearDriveSyncMetadata,
   updateDriveSyncRunMetadata,
-} from '../../auth/driveAuth.js';
+} from '../../auth/driveClient.js';
 import {
   buildUnifiedPageStateFromLocalStorage,
   buildDriveSnapshot,
