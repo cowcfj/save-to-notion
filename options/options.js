@@ -16,6 +16,11 @@ import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securi
 import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
 import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
 import { getAccountProfile, clearAccountSession } from '../scripts/auth/accountSession.js';
+import {
+  initCloudSyncController,
+  setCloudSyncCardVisibility,
+  refreshCloudSyncCard,
+} from './DriveCloudSyncController.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
 
@@ -82,6 +87,12 @@ export function initOptions() {
       case RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED: {
         // account session 已更新或清除，重新讀取 profile 刷新 UI
         renderAccountUI().catch(() => {});
+        break;
+      }
+      case RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED:
+      case RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED: {
+        // Drive 連線或同步狀態已更新，刷新 Cloud Sync card
+        refreshCloudSyncCard().catch(() => {});
         break;
       }
       default: {
@@ -202,30 +213,26 @@ function updateProfileDOM(profile) {
 }
 
 /**
- * 更新進階功能卡片的鎖定狀態
+ * 更新進階功能卡片的鎖定狀態（僅管理 AI Assistance card）
  *
  * @param {boolean} isLocked
  */
 function updateLockedFeatures(isLocked) {
-  const cards = [
-    document.querySelector('#cloud-sync-card'),
-    document.querySelector('#ai-assistant-card'),
-  ];
+  // Cloud Sync card 由 DriveCloudSyncController 管理，不在此處處理
+  const aiCard = document.querySelector('#ai-assistant-card');
 
-  cards.forEach(card => {
-    if (!card) {
-      return;
-    }
+  if (!aiCard) {
+    return;
+  }
 
-    card.classList.toggle('locked-feature', isLocked);
+  aiCard.classList.toggle('locked-feature', isLocked);
 
-    const lockedMsg = card.querySelector('.locked-message');
-    if (lockedMsg) {
-      lockedMsg.textContent = isLocked
-        ? UI_MESSAGES.ACCOUNT.LOCKED_LOGIN_REQUIRED
-        : UI_MESSAGES.ACCOUNT.LOCKED_COMING_SOON;
-    }
-  });
+  const lockedMsg = aiCard.querySelector('.locked-message');
+  if (lockedMsg) {
+    lockedMsg.textContent = isLocked
+      ? UI_MESSAGES.ACCOUNT.LOCKED_LOGIN_REQUIRED
+      : UI_MESSAGES.ACCOUNT.LOCKED_COMING_SOON;
+  }
 }
 
 /**
@@ -251,6 +258,7 @@ async function renderAccountUI() {
 
     updateProfileDOM(profile);
     updateLockedFeatures(false);
+    setCloudSyncCardVisibility(true);
   } else {
     // 未登入狀態
     if (loggedOutEl) {
@@ -261,6 +269,7 @@ async function renderAccountUI() {
     }
 
     updateLockedFeatures(true);
+    setCloudSyncCardVisibility(false);
   }
 }
 
@@ -368,6 +377,11 @@ function initAccountUI() {
 
   // 讀取目前登入狀態
   renderAccountUI().catch(() => {});
+
+  // 初始化 Cloud Sync Controller（需在 renderAccountUI 後，使用同樣的 profile check）
+  getAccountProfile()
+    .then(profile => initCloudSyncController(Boolean(profile)))
+    .catch(() => {});
 }
 
 /**

@@ -32,6 +32,7 @@ import { createLogHandlers } from './background/handlers/logHandlers.js';
 import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 import { createAccountAuthHandler } from './background/handlers/accountAuthHandler.js';
+import { createDriveSyncHandlers } from './background/handlers/driveSyncHandlers.js';
 
 const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
 const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
@@ -99,6 +100,7 @@ const actionHandlers = {
   ...createLogHandlers(),
   ...createNotionHandlers({ notionService }),
   ...createSidepanelHandlers(),
+  ...createDriveSyncHandlers(),
 };
 
 messageHandler.registerAll(actionHandlers);
