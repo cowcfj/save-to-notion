@@ -198,6 +198,40 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
     });
+
+    it('refreshes remote drive connection when window regains focus', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({ connectionEmail: null })
+        .mockResolvedValue({
+          connectionEmail: 'focus@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        });
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: false,
+          email: null,
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'focus@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        });
+
+      await initCloudSyncController(true);
+      globalThis.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise(process.nextTick);
+
+      expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
+        email: 'focus@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      expect(document.querySelector('#drive-connected-email').textContent).toBe('focus@test.dev');
+    });
   });
 
   describe('refreshCloudSyncCard', () => {

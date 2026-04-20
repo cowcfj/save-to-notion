@@ -129,6 +129,28 @@ async function syncRemoteDriveConnectionSafely() {
   }
 }
 
+let hasInstalledReturnSyncListeners = false;
+
+function syncOnReturn() {
+  refreshCloudSyncCard({ syncRemote: true }).catch(() => {});
+}
+
+function installReturnSyncListeners() {
+  if (hasInstalledReturnSyncListeners) {
+    return;
+  }
+
+  globalThis.addEventListener('focus', syncOnReturn);
+  globalThis.addEventListener('pageshow', syncOnReturn);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      syncOnReturn();
+    }
+  });
+
+  hasInstalledReturnSyncListeners = true;
+}
+
 // =============================================================================
 // Cloud Sync Card UI 渲染
 // =============================================================================
@@ -437,6 +459,7 @@ export async function initCloudSyncController(isLoggedIn) {
   }
 
   await syncRemoteDriveConnectionSafely();
+  installReturnSyncListeners();
 
   // 讀取 Drive metadata 並渲染
   const metadata = await getDriveSyncMetadata();
