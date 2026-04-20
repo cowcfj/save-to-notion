@@ -20,7 +20,6 @@ import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import {
   uploadDriveSnapshot,
   downloadDriveSnapshot,
-  clearDriveSyncMetadata,
   getDriveSyncMetadata,
   updateDriveSyncRunMetadata,
 } from '../../auth/driveClient.js';
@@ -163,28 +162,6 @@ async function handleManualDownload() {
 }
 
 // =============================================================================
-// Handler：中斷連線
-// =============================================================================
-
-/**
- * 處理 Drive 中斷連線（清除本地 driveSync* metadata）
- *
- * 注意：實際撤銷後端授權應由 disconnectDrive() 呼叫，
- * 此 handler 僅負責 metadata 清除（由 DriveCloudSyncController 直接呼叫後端）。
- *
- * @returns {Promise<{ success: boolean }>}
- */
-async function handleDriveDisconnect() {
-  Logger.info('[DriveSyncHandler] Drive disconnect: clearing local metadata');
-  await clearDriveSyncMetadata();
-  broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED, {
-    email: null,
-    connectedAt: null,
-  });
-  return { success: true };
-}
-
-// =============================================================================
 // Handler 工廠
 // =============================================================================
 
@@ -197,6 +174,5 @@ export function createDriveSyncHandlers() {
   return {
     [RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]: handleManualUpload,
     [RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]: handleManualDownload,
-    [RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT]: handleDriveDisconnect,
   };
 }

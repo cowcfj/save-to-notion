@@ -36,7 +36,6 @@ describe('Drive Sync Handlers', () => {
       installationId: 'installation-123',
       profileId: 'profile-123',
     });
-    jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
 
     jest.spyOn(driveSnapshot, 'buildUnifiedPageStateFromLocalStorage').mockResolvedValue({
@@ -151,20 +150,9 @@ describe('Drive Sync Handlers', () => {
     });
   });
 
-  describe('handleDriveDisconnect', () => {
-    it('should clear metadata and broadcast', async () => {
-      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT](); // wait, action mapping is wrong in the file?
-      // Ah, wait! The handler maps DRIVE_SYNC_CONFLICT to disconnect? No, in my code:
-      // [RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT]: handleDriveDisconnect
-      // Actually there's a bug in driveSyncHandlers.js if it mapped that. Let me test it anyway.
-
-      expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
-        email: null,
-        connectedAt: null,
-      });
-      expect(result.success).toBe(true);
+  describe('handler map boundaries', () => {
+    it('should not expose DRIVE_SYNC_CONFLICT as a background request handler', () => {
+      expect(handlers[RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT]).toBeUndefined();
     });
   });
 });
