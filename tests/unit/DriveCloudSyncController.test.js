@@ -11,15 +11,15 @@ import {
 import * as driveClient from '../../scripts/auth/driveClient.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
 
+async function flushAsyncWork() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise(process.nextTick);
+}
+
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
-
-  async function flushAsyncWork() {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    await new Promise(process.nextTick);
-  }
 
   beforeEach(() => {
     // Setup DOM
