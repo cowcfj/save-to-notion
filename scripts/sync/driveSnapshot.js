@@ -118,7 +118,7 @@ function _extractHighlights(value) {
  * @returns {boolean}
  */
 function _isValidSavedEntry(value) {
-  return Boolean(value) && typeof value === 'object' && Boolean(value.pageId);
+  return Boolean(value) && typeof value === 'object' && Boolean(value.pageId || value.id);
 }
 
 /**
@@ -190,10 +190,10 @@ function _processSavedEntries(raw, pages) {
       if (!existing.notion && hasValidPageId) {
         existing.notion = _normalizeSavedState(value);
       }
-    } else {
+    } else if (hasValidPageId) {
       pages.set(url, {
         url,
-        notion: hasValidPageId ? _normalizeSavedState(value) : null,
+        notion: _normalizeSavedState(value),
         highlights: [],
       });
     }
@@ -228,7 +228,7 @@ function _processHighlightEntries(raw, pages) {
       if (existing.highlights.length === 0 && rawHighlights.length > 0) {
         existing.highlights = rawHighlights;
       }
-    } else {
+    } else if (rawHighlights.length > 0) {
       pages.set(url, {
         url,
         notion: null,
