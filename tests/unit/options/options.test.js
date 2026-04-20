@@ -901,16 +901,26 @@ function buildAccountCardDOM() {
     <button id="save-button"></button>
     <button id="save-templates-button"></button>
     <div id="app-version"></div>
-    <div class="nav-item" data-section="general"></div>
+    <div class="nav-links">
+      <button class="nav-item" data-section="general" id="tab-general"></button>
+      <button id="tab-advanced" class="nav-item" data-section="advanced"></button>
+    </div>
     <div id="section-general" class="settings-section"></div>
-    <div id="account-card" style="display: none">
-      <div id="account-logged-out"></div>
-      <div id="account-logged-in" style="display: none">
-        <div id="account-info"></div>
+    <div id="section-advanced" class="settings-section">
+      <div id="account-card" style="display: none">
+        <div id="account-logged-out"></div>
+        <div id="account-logged-in" style="display: none">
+          <span id="profile-display-name"></span>
+          <span id="profile-email"></span>
+          <img id="profile-avatar-img" />
+          <div id="profile-avatar-fallback"></div>
+        </div>
+        <button id="account-login-button"></button>
+        <button id="account-logout-button"></button>
+        <p id="account-status" class="status-message"></p>
       </div>
-      <button id="account-login-button"></button>
-      <button id="account-logout-button"></button>
-      <p id="account-status" class="status-message"></p>
+      <div id="cloud-sync-card" class="card locked-feature"><span class="locked-message"></span></div>
+      <div id="ai-assistant-card" class="card locked-feature"><span class="locked-message"></span></div>
     </div>
   `;
 }
@@ -966,11 +976,13 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
   });
 
   describe('ENABLE_ACCOUNT feature flag', () => {
-    it('ENABLE_ACCOUNT=false 時應隱藏 account card', () => {
+    it('ENABLE_ACCOUNT=false 時應隱藏 account card 與 advanced tab', () => {
       BUILD_ENV.ENABLE_ACCOUNT = false;
       getAccountProfile.mockResolvedValue(null);
       initOptions();
       expect(document.querySelector('#account-card').style.display).toBe('none');
+      expect(document.querySelector('#tab-advanced').style.display).toBe('none');
+      expect(document.querySelector('#section-advanced').style.display).toBe('none');
     });
 
     it('ENABLE_ACCOUNT=true 時應顯示 account card', async () => {
@@ -983,33 +995,50 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
   });
 
   describe('未登入狀態', () => {
-    it('getAccountProfile 回傳 null 時應顯示 logged-out 區塊', async () => {
+    it('getAccountProfile 回傳 null 時應顯示 logged-out 區塊，並鎖定功能卡片', async () => {
       getAccountProfile.mockResolvedValue(null);
       initOptions();
       await Promise.resolve();
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('locked-feature')).toBe(
+        true
+      );
+      expect(
+        document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
+      ).toBe(true);
     });
   });
 
   describe('已登入狀態', () => {
-    it('getAccountProfile 回傳 profile 時應顯示 logged-in 區塊與帳號資訊', async () => {
+    it('getAccountProfile 回傳 profile 時應顯示 logged-in 區塊與帳號資訊，並解除鎖定', async () => {
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
         displayName: 'Test User',
-        avatarUrl: null,
+        avatarUrl: 'https://example.com/avatar.png',
       });
       initOptions();
       await Promise.resolve();
 
       expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-out').style.display).toBe('none');
-      expect(document.querySelector('#account-info').textContent).toContain('Test User');
+      expect(document.querySelector('#profile-display-name').textContent).toBe('Test User');
+
+      const avatarImg = document.querySelector('#profile-avatar-img');
+      expect(avatarImg.style.display).not.toBe('none');
+      expect(avatarImg.src).toContain('avatar.png');
+
+      expect(document.querySelector('#cloud-sync-card').classList.contains('locked-feature')).toBe(
+        false
+      );
+      expect(
+        document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
+      ).toBe(false);
     });
 
-    it('displayName 為 null 時應顯示 email', async () => {
+    it('displayName 為 null 時應顯示 email，avatar 為 null 時應回退', async () => {
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
@@ -1019,7 +1048,48 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await Promise.resolve();
 
-      expect(document.querySelector('#account-info').textContent).toContain('user@example.com');
+      expect(document.querySelector('#profile-display-name').textContent).toContain(
+        'user@example.com'
+      );
+      const fallback = document.querySelector('#profile-avatar-fallback');
+      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.textContent).toBe('U');
+    });
+
+    it('displayName 為空白字串時應回退到 email，避免顯示空白名稱', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: '   ',
+        avatarUrl: null,
+      });
+      initOptions();
+      await Promise.resolve();
+
+      expect(document.querySelector('#profile-display-name').textContent).toBe('user@example.com');
+
+      const fallback = document.querySelector('#profile-avatar-fallback');
+      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.textContent).toBe('U');
+    });
+
+    it('displayName 與 email 都缺失時應使用安全 fallback，避免呼叫 charAt 拋錯', async () => {
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: '',
+        displayName: '   ',
+        avatarUrl: null,
+      });
+
+      expect(() => initOptions()).not.toThrow();
+      await Promise.resolve();
+
+      expect(document.querySelector('#profile-display-name').textContent).toBe('');
+      expect(document.querySelector('#profile-email').textContent).toBe('');
+
+      const fallback = document.querySelector('#profile-avatar-fallback');
+      expect(fallback.style.display).toBe('flex');
+      expect(fallback.textContent).toBe('?');
     });
   });
 

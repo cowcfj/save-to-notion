@@ -154,6 +154,81 @@ document.addEventListener('DOMContentLoaded', initOptions);
 // =============================================================================
 
 /**
+ * 更新 Profile DOM 的顯示內容
+ *
+ * @param {object|null} profile
+ */
+function updateProfileDOM(profile) {
+  const nameEl = document.querySelector('#profile-display-name');
+  const emailEl = document.querySelector('#profile-email');
+  const avatarImgEl = document.querySelector('#profile-avatar-img');
+  const avatarFallbackEl = document.querySelector('#profile-avatar-fallback');
+
+  if (!profile) {
+    return;
+  }
+
+  const normalizedDisplayName =
+    typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
+  const email = profile.email || '';
+  const displayName = normalizedDisplayName || email;
+
+  if (nameEl) {
+    nameEl.textContent = displayName;
+  }
+  if (emailEl) {
+    emailEl.textContent = email;
+  }
+
+  if (profile.avatarUrl) {
+    if (avatarImgEl) {
+      avatarImgEl.src = profile.avatarUrl;
+      avatarImgEl.alt = UI_MESSAGES.ACCOUNT.AVATAR_ALT;
+      avatarImgEl.style.display = '';
+    }
+    if (avatarFallbackEl) {
+      avatarFallbackEl.style.display = 'none';
+    }
+  } else {
+    if (avatarImgEl) {
+      avatarImgEl.removeAttribute('src');
+      avatarImgEl.style.display = 'none';
+    }
+    if (avatarFallbackEl) {
+      avatarFallbackEl.textContent = (displayName || '?').charAt(0).toUpperCase();
+      avatarFallbackEl.style.display = 'flex';
+    }
+  }
+}
+
+/**
+ * 更新進階功能卡片的鎖定狀態
+ *
+ * @param {boolean} isLocked
+ */
+function updateLockedFeatures(isLocked) {
+  const cards = [
+    document.querySelector('#cloud-sync-card'),
+    document.querySelector('#ai-assistant-card'),
+  ];
+
+  cards.forEach(card => {
+    if (!card) {
+      return;
+    }
+
+    card.classList.toggle('locked-feature', isLocked);
+
+    const lockedMsg = card.querySelector('.locked-message');
+    if (lockedMsg) {
+      lockedMsg.textContent = isLocked
+        ? UI_MESSAGES.ACCOUNT.LOCKED_LOGIN_REQUIRED
+        : UI_MESSAGES.ACCOUNT.LOCKED_COMING_SOON;
+    }
+  });
+}
+
+/**
  * 根據 storage 中的 account profile 更新 account card UI。
  * 可被 account_session_updated 、account_session_cleared 訊息以及 initAccountUI 呼叫。
  *
@@ -164,7 +239,6 @@ async function renderAccountUI() {
 
   const loggedOutEl = document.querySelector('#account-logged-out');
   const loggedInEl = document.querySelector('#account-logged-in');
-  const accountInfoEl = document.querySelector('#account-info');
 
   if (profile) {
     // 已登入狀態
@@ -174,10 +248,9 @@ async function renderAccountUI() {
     if (loggedInEl) {
       loggedInEl.style.display = '';
     }
-    if (accountInfoEl) {
-      const name = profile.displayName ?? profile.email;
-      accountInfoEl.textContent = `已登入：${name}`;
-    }
+
+    updateProfileDOM(profile);
+    updateLockedFeatures(false);
   } else {
     // 未登入狀態
     if (loggedOutEl) {
@@ -186,21 +259,23 @@ async function renderAccountUI() {
     if (loggedInEl) {
       loggedInEl.style.display = 'none';
     }
-    if (accountInfoEl) {
-      accountInfoEl.textContent = '';
-    }
+
+    updateLockedFeatures(true);
   }
 }
 
 /**
  * 初始化 account UI。
  *
- * - 若 BUILD_ENV.ENABLE_ACCOUNT === false，隱藏整個 account card
+ * - 若 BUILD_ENV.ENABLE_ACCOUNT === false，隱藏整個 advanced tab 與對應 section
  * - 設置登入 / 登出按鈕的事件監聽
  * - 讀取目前登入狀態並更新 UI
  */
 function initAccountUI() {
   const accountCard = document.querySelector('#account-card');
+  const advancedTab = document.querySelector('#tab-advanced');
+  const advancedSection = document.querySelector('#section-advanced');
+
   if (!accountCard) {
     return;
   }
@@ -208,6 +283,12 @@ function initAccountUI() {
   // feature flag 檢查
   if (!BUILD_ENV.ENABLE_ACCOUNT) {
     accountCard.style.display = 'none';
+    if (advancedTab) {
+      advancedTab.style.display = 'none';
+    }
+    if (advancedSection) {
+      advancedSection.style.display = 'none';
+    }
     return;
   }
 

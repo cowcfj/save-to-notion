@@ -36,6 +36,22 @@
             <span class="label">一般設定</span>
           </button>
           <button
+            type="button"
+            id="tab-advanced"
+            class="nav-item"
+            data-section="advanced"
+            role="tab"
+            aria-controls="section-advanced"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span class="icon"
+              ><svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                <use href="#icon-category" /></svg
+            ></span>
+            <span class="label">進階功能</span>
+          </button>
+          <button
             id="tab-templates"
             class="nav-item"
             data-section="templates"
@@ -294,14 +310,28 @@
             </div>
           </div>
 
-          <!-- Account Card（Cloudflare-native Google 帳號）
-               由 ENABLE_ACCOUNT feature flag 控制顯示；
-               與既有「Notion 連接」card 完整分開，禁止共用 DOM 或 storage。
-               此整個 div 由 options.js 的 initAccountUI() 負責管理。 -->
+          <!-- 全局儲存按鈕 -->
+          <button id="save-button" type="button" class="btn-primary full-width">儲存設定</button>
+          <p id="status" class="status-message"></p>
+        </section>
+
+        <!-- 進階功能區塊 -->
+        <section
+          id="section-advanced"
+          class="settings-section"
+          role="tabpanel"
+          aria-labelledby="tab-advanced"
+        >
+          <header class="section-header">
+            <h2>進階功能</h2>
+            <p class="section-desc">管理 Google 帳號同步與其他進階選項</p>
+          </header>
+
+          <!-- Account Card -->
           <div id="account-card" class="card" style="display: none">
             <h3>帳號登入</h3>
 
-            <!-- 未登入狀態（預設顯示） -->
+            <!-- 未登入狀態 -->
             <div id="account-logged-out">
               <p class="section-desc" style="margin-bottom: 12px">
                 使用 Google 帳號登入，享受同步與進階功能。
@@ -309,24 +339,10 @@
               <div class="auth-actions">
                 <button id="account-login-button" type="button" class="btn-primary">
                   <span class="icon">
-                    <svg
-                      width="16"
-                      height="16"
-                      class="icon-svg"
-                      aria-hidden="true"
-                      focusable="false"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
+                    <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10"></circle>
                       <line x1="2" y1="12" x2="22" y2="12"></line>
-                      <path
-                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
-                      ></path>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                     </svg>
                   </span>
                   <span>使用 Google 登入</span>
@@ -334,27 +350,30 @@
               </div>
             </div>
 
-            <!-- 已登入狀態（由 JS 切換顯示） -->
+            <!-- 已登入狀態 -->
             <div id="account-logged-in" style="display: none">
-              <div id="account-info" class="auth-status" aria-live="polite" aria-atomic="true" style="margin-bottom: 12px">
-                <!-- 由 JS 動態填入 email / displayName -->
+              <div class="profile-layout">
+                <div class="profile-avatar">
+                  <img id="profile-avatar-img" alt="使用者頭像" style="display: none;" />
+                  <div id="profile-avatar-fallback" style="display: none;"></div>
+                </div>
+                <div class="profile-details">
+                  <div class="profile-name-row">
+                    <span id="profile-display-name"></span>
+                    <span class="verified-badge" title="已驗證">
+                      <svg width="14" height="14" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                      </svg>
+                    </span>
+                  </div>
+                  <div id="profile-email" class="profile-email text-sm"></div>
+                </div>
               </div>
-              <div class="auth-actions">
+              <div class="auth-actions" style="margin-top: 16px;">
                 <button id="account-logout-button" type="button" class="btn-danger">
                   <span class="icon">
-                    <svg
-                      width="16"
-                      height="16"
-                      class="icon-svg"
-                      aria-hidden="true"
-                      focusable="false"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
+                    <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                       <polyline points="16 17 21 12 16 7"></polyline>
                       <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -368,9 +387,44 @@
             <p id="account-status" class="status-message" aria-live="polite" aria-atomic="true" style="margin-top: 8px"></p>
           </div>
 
-          <!-- 全局儲存按鈕 -->
-          <button id="save-button" class="btn-primary full-width">儲存設定</button>
-          <p id="status" class="status-message"></p>
+          <!-- Cloud Sync Card -->
+          <div id="cloud-sync-card" class="card locked-feature">
+            <h3>
+              <svg width="20" height="20" class="icon-svg" aria-hidden="true" focusable="false" style="vertical-align: middle; margin-right: 4px;">
+                <use href="#icon-sync" />
+              </svg>
+              Google Drive 雲端同步
+            </h3>
+            <p class="section-desc" style="margin-bottom: 12px">
+              自動將您的標記備份到雲端，跨設備保持同步。<br/>
+              <span class="locked-message" style="color: var(--text-muted);">需先登入 Google 帳號。</span>
+            </p>
+            <div class="auth-actions">
+              <button type="button" class="btn-secondary" disabled>
+                <span>立即同步設定</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- AI Assistance Card -->
+          <div id="ai-assistant-card" class="card locked-feature">
+            <h3>
+              <svg width="20" height="20" class="icon-svg" aria-hidden="true" focusable="false" style="vertical-align: middle; margin-right: 4px;">
+                <use href="#icon-star" />
+              </svg>
+              AI 智能摘要與助手
+            </h3>
+            <p class="section-desc" style="margin-bottom: 12px">
+              透過先進 AI 幫助您快速整理網頁重點。<br/>
+              <span class="locked-message" style="color: var(--text-muted);">需先登入 Google 帳號。</span>
+            </p>
+            <div class="auth-actions">
+              <button type="button" class="btn-secondary" disabled>
+                <span>開啟 AI 助手</span>
+              </button>
+            </div>
+          </div>
+
         </section>
 
         <!-- 模板設定區塊 -->

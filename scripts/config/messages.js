@@ -62,6 +62,11 @@ export const UI_MESSAGES = {
     OPENING_NOTION: '正在打開 Notion...',
     OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,
   },
+  ACCOUNT: {
+    AVATAR_ALT: '使用者頭像',
+    LOCKED_LOGIN_REQUIRED: '需先登入 Google 帳號。',
+    LOCKED_COMING_SOON: '功能即將推出。',
+  },
   SETUP: {
     MISSING_CONFIG: '請先完成設定頁面的配置',
   },
