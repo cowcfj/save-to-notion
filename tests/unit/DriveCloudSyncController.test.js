@@ -105,7 +105,7 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
 
       expect(document.querySelector('#drive-connected-email').textContent).toBe('test@notion.so');
-      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('上次上傳');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('上次上載');
     });
 
     it('renders conflict state correctly', () => {

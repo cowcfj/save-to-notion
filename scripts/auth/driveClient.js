@@ -318,13 +318,15 @@ export async function fetchDriveSnapshotStatus() {
  */
 export async function uploadDriveSnapshot(snapshotPayload, force = false) {
   const headers = await buildAccountAuthHeaders();
-  const forceQuery = force ? '?force=true' : '';
-  const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_SNAPSHOT}${forceQuery}`;
+  const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_SNAPSHOT}`;
 
   const res = await fetch(url, {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify(snapshotPayload),
+    body: JSON.stringify({
+      snapshot: snapshotPayload,
+      force,
+    }),
   });
 
   if (res.status === 409) {

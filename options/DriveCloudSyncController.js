@@ -278,8 +278,8 @@ function _updateConnectedInfo(metadata) {
   const lastUploadEl = el(DOM.LAST_UPLOAD_TEXT);
   if (lastUploadEl) {
     lastUploadEl.textContent = metadata.lastSuccessfulUploadAt
-      ? `上次上傳：${formatTimestamp(metadata.lastSuccessfulUploadAt)}`
-      : '尚未上傳';
+      ? `上次上載：${formatTimestamp(metadata.lastSuccessfulUploadAt)}`
+      : '尚未上載';
   }
 }
 
@@ -341,7 +341,7 @@ export function renderCloudSyncCard(metadata) {
  * @param {boolean} [force=false] - 強制覆蓋（conflict 後使用者確認時傳 true）
  */
 async function handleUpload(force = false) {
-  showLoading(force ? '強制上傳中...' : '上傳至雲端中...');
+  showLoading(force ? '強制上載中...' : '上載到雲端中...');
   try {
     const response = await chrome.runtime.sendMessage({
       action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
@@ -358,16 +358,16 @@ async function handleUpload(force = false) {
         showSyncStatus('', '');
         return;
       }
-      throw new Error(response.error ?? `上傳失敗：${response.errorCode}`);
+      throw new Error(response.error ?? `上載失敗：${response.errorCode}`);
     }
 
-    showSyncStatus('上傳成功！', 'success');
+    showSyncStatus('上載成功！', 'success');
     // 重新讀取 metadata 刷新 UI
     const metadata = await getDriveSyncMetadata();
     renderCloudSyncCard(metadata);
   } catch (error) {
     Logger.error('[CloudSync] Upload failed', { error });
-    showSyncStatus(error instanceof Error ? `上傳失敗：${error.message}` : '上傳失敗', 'error');
+    showSyncStatus(error instanceof Error ? `上載失敗：${error.message}` : '上載失敗', 'error');
   } finally {
     hideLoading();
   }
@@ -496,7 +496,7 @@ export async function initCloudSyncController(isLoggedIn) {
   // 衝突 - 強制上傳
   el(DOM.BTN_CONFLICT_FORCE_UPLOAD)?.addEventListener('click', () => {
     const confirmed = globalThis.confirm(
-      '確定要強制上傳並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。'
+      '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。'
     );
     if (confirmed) {
       handleUpload(true).catch(() => {});

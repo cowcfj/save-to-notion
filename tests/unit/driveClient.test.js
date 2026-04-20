@@ -212,26 +212,45 @@ describe('Drive Client API', () => {
     });
 
     describe('uploadDriveSnapshot', () => {
-      it('returns success on ok', async () => {
+      it('returns success on ok with backend contract payload', async () => {
         mockFetch.mockResolvedValue({
           ok: true,
           status: 200,
           json: async () => ({ updatedAt: 'x' }),
         });
-        const res = await uploadDriveSnapshot({ payload: 1 });
+        const snapshot = { payload: 1 };
+        const res = await uploadDriveSnapshot(snapshot);
         expect(res.success).toBe(true);
+
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.not.stringContaining('?force=true'),
-          expect.any(Object)
+          'https://test-server.example.com/v1/account/drive/snapshot',
+          expect.objectContaining({
+            method: 'PUT',
+            headers: expect.objectContaining({
+              Authorization: 'Bearer test-token',
+              'Content-Type': 'application/json',
+            }),
+            body: JSON.stringify({
+              snapshot,
+              force: false,
+            }),
+          })
         );
       });
 
-      it('adds force flag if true', async () => {
+      it('sends force in request body when true', async () => {
         mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
-        await uploadDriveSnapshot({}, true);
+        const snapshot = { foo: 'bar' };
+        await uploadDriveSnapshot(snapshot, true);
+
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('?force=true'),
-          expect.any(Object)
+          'https://test-server.example.com/v1/account/drive/snapshot',
+          expect.objectContaining({
+            body: JSON.stringify({
+              snapshot,
+              force: true,
+            }),
+          })
         );
       });
 
