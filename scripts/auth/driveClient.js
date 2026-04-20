@@ -303,8 +303,8 @@ export async function fetchDriveSnapshotStatus() {
 
   const json = await res.json();
   return {
-    exists: true,
-    updatedAt: json.updatedAt ?? null,
+    exists: json.has_snapshot ?? true,
+    updatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
     size: json.size ?? null,
   };
 }
@@ -346,7 +346,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
   const json = await res.json().catch(() => ({}));
   return {
     success: true,
-    updatedAt: json.updatedAt ?? null,
+    updatedAt: json.metadata?.updated_at ?? json.updatedAt ?? null,
   };
 }
 

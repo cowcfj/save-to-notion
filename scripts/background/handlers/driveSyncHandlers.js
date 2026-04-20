@@ -21,6 +21,7 @@ import {
   uploadDriveSnapshot,
   downloadDriveSnapshot,
   clearDriveSyncMetadata,
+  getDriveSyncMetadata,
   updateDriveSyncRunMetadata,
 } from '../../auth/driveClient.js';
 import {
@@ -58,6 +59,7 @@ function broadcastDriveSyncUpdate(action, extra = {}) {
  */
 async function handleManualUpload(request) {
   const force = Boolean(request.force);
+  const metadata = await getDriveSyncMetadata();
 
   Logger.info('[DriveSyncHandler] Manual upload requested', { force });
 
@@ -65,10 +67,13 @@ async function handleManualUpload(request) {
   const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
 
   // Step 2：序列化為 snapshot
-  const snapshot = buildDriveSnapshot(pages, urlAliases);
+  const snapshot = await buildDriveSnapshot(pages, urlAliases, {
+    installationId: metadata.installationId,
+    profileId: metadata.profileId,
+  });
 
   Logger.info('[DriveSyncHandler] Snapshot built', {
-    pageCount: Object.keys(snapshot.pages).length,
+    pageCount: snapshot.metadata?.item_counts?.saved_states ?? 0,
     force,
   });
 
@@ -145,7 +150,7 @@ async function handleManualDownload() {
   await updateDriveSyncRunMetadata({
     type: 'download',
     success: true,
-    remoteUpdatedAt: remoteSnapshot.snapshotCreatedAt ?? null,
+    remoteUpdatedAt: remoteSnapshot.metadata?.updated_at ?? null,
   });
 
   Logger.success('[DriveSyncHandler] Download & apply succeeded', {

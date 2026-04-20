@@ -28,7 +28,14 @@ describe('Drive Sync Handlers', () => {
     jest
       .spyOn(driveClient, 'uploadDriveSnapshot')
       .mockResolvedValue({ success: true, updatedAt: 'x' });
-    jest.spyOn(driveClient, 'downloadDriveSnapshot').mockResolvedValue({ snapshotCreatedAt: 'y' });
+    jest.spyOn(driveClient, 'downloadDriveSnapshot').mockResolvedValue({
+      metadata: { updated_at: 'y' },
+      payload: { highlights: [], saved_states: [] },
+    });
+    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({
+      installationId: 'installation-123',
+      profileId: 'profile-123',
+    });
     jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
 
@@ -36,9 +43,13 @@ describe('Drive Sync Handlers', () => {
       pages: new Map(),
       urlAliases: new Map(),
     });
-    jest
-      .spyOn(driveSnapshot, 'buildDriveSnapshot')
-      .mockReturnValue({ schemaVersion: 'v1', pages: {} });
+    jest.spyOn(driveSnapshot, 'buildDriveSnapshot').mockResolvedValue({
+      metadata: {
+        updated_at: 'x',
+        item_counts: { highlights: 0, saved_states: 0 },
+      },
+      payload: { highlights: [], saved_states: [], url_aliases: {} },
+    });
     jest.spyOn(driveSnapshot, 'applyDriveSnapshotToLocalStorage').mockResolvedValue({
       writtenKeys: ['a', 'b'],
       removedKeys: ['c'],
@@ -58,7 +69,13 @@ describe('Drive Sync Handlers', () => {
       expect(driveSnapshot.buildUnifiedPageStateFromLocalStorage).toHaveBeenCalled();
       expect(driveSnapshot.buildDriveSnapshot).toHaveBeenCalled();
       expect(driveClient.uploadDriveSnapshot).toHaveBeenCalledWith(
-        { schemaVersion: 'v1', pages: {} },
+        {
+          metadata: {
+            updated_at: 'x',
+            item_counts: { highlights: 0, saved_states: 0 },
+          },
+          payload: { highlights: [], saved_states: [], url_aliases: {} },
+        },
         false
       );
 
@@ -104,7 +121,8 @@ describe('Drive Sync Handlers', () => {
 
       expect(driveClient.downloadDriveSnapshot).toHaveBeenCalled();
       expect(driveSnapshot.applyDriveSnapshotToLocalStorage).toHaveBeenCalledWith({
-        snapshotCreatedAt: 'y',
+        metadata: { updated_at: 'y' },
+        payload: { highlights: [], saved_states: [] },
       });
 
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({

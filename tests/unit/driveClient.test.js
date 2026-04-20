@@ -198,10 +198,11 @@ describe('Drive Client API', () => {
         mockFetch.mockResolvedValue({
           ok: true,
           status: 200,
-          json: async () => ({ updatedAt: 'time' }),
+          json: async () => ({ has_snapshot: true, remote_updated_at: 'time' }),
         });
         const res = await fetchDriveSnapshotStatus();
         expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time');
       });
 
       it('returns false on 404', async () => {
@@ -216,11 +217,16 @@ describe('Drive Client API', () => {
         mockFetch.mockResolvedValue({
           ok: true,
           status: 200,
-          json: async () => ({ updatedAt: 'x' }),
+          json: async () => ({
+            metadata: {
+              updated_at: 'x',
+            },
+          }),
         });
         const snapshot = { payload: 1 };
         const res = await uploadDriveSnapshot(snapshot);
         expect(res.success).toBe(true);
+        expect(res.updatedAt).toBe('x');
 
         expect(mockFetch).toHaveBeenCalledWith(
           'https://test-server.example.com/v1/account/drive/snapshot',

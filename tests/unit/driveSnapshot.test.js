@@ -17,6 +17,7 @@ import {
 
 describe('Drive Snapshot Canonicalization & Serialization', () => {
   let mockStorageLocal;
+  let originalCrypto;
 
   beforeEach(() => {
     mockStorageLocal = {
@@ -29,6 +30,27 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
         local: mockStorageLocal,
       },
     };
+    originalCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: {
+        subtle: {
+          digest: jest.fn().mockResolvedValue(new Uint8Array(32).fill(1).buffer),
+        },
+      },
+    });
+  });
+
+  afterEach(() => {
+    if (originalCrypto) {
+      Object.defineProperty(globalThis, 'crypto', {
+        configurable: true,
+        value: originalCrypto,
+      });
+      return;
+    }
+
+    delete globalThis.crypto;
   });
 
   describe('buildUnifiedPageStateFromLocalStorage', () => {
@@ -109,48 +131,111 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
   });
 
   describe('buildDriveSnapshot', () => {
-    it('should format snapshot filtering out empty pages', () => {
+    it('should format snapshot as backend canonical envelope while preserving backup whitelist coverage', async () => {
       const pages = new Map([
-        ['url1', { notion: { pageId: 'p1' }, highlights: [] }],
-        ['url2', { notion: null, highlights: [{ id: 'hl1' }] }],
+        [
+          'url1',
+          {
+            notion: {
+              pageId: 'p1',
+              url: 'https://example.com/1',
+              title: 'Page 1',
+              savedAt: 111,
+              lastVerifiedAt: 222,
+            },
+            highlights: [],
+          },
+        ],
+        [
+          'url2',
+          {
+            notion: null,
+            highlights: [{ id: 'hl1', text: 'Hello', color: 'yellow', rangeInfo: { start: 1 } }],
+          },
+        ],
         ['url-empty', { notion: null, highlights: [] }], // should be filtered out
       ]);
 
       const aliases = new Map([['norm1', 'url1']]);
 
-      const snapshot = buildDriveSnapshot(pages, aliases);
+      const snapshot = await buildDriveSnapshot(pages, aliases, {
+        installationId: 'installation-123',
+        profileId: 'profile-123',
+      });
 
-      expect(snapshot.schemaVersion).toBe('v1');
-      expect(snapshot.pages.url1).toBeDefined();
-      expect(snapshot.pages.url2).toBeDefined();
-      expect(snapshot.pages['url-empty']).toBeUndefined();
-      expect(snapshot.url_aliases.norm1).toBe('url1');
-      expect(snapshot.snapshotCreatedAt).toBeDefined();
+      expect(snapshot.metadata.snapshot_version).toBe(1);
+      expect(snapshot.metadata.export_schema_version).toBe(1);
+      expect(snapshot.metadata.updated_at).toBeDefined();
+      expect(snapshot.metadata.source_installation_id).toBe('installation-123');
+      expect(snapshot.metadata.source_profile_id).toBe('profile-123');
+      expect(snapshot.metadata.item_counts).toEqual({
+        highlights: 1,
+        saved_states: 1,
+      });
+
+      expect(snapshot.payload.saved_states).toEqual([
+        {
+          page_key: 'url1',
+          notion_page_id: 'p1',
+          notion_url: 'https://example.com/1',
+          title: 'Page 1',
+          saved_at: 111,
+          last_verified_at: 222,
+        },
+      ]);
+      expect(snapshot.payload.highlights).toEqual([
+        expect.objectContaining({
+          page_key: 'url2',
+          highlight_id: 'hl1',
+          text: 'Hello',
+        }),
+      ]);
+      expect(snapshot.payload.url_aliases).toEqual({
+        norm1: 'url1',
+      });
+      expect(snapshot.metadata.payload_hash).toMatch(/^[a-f0-9]{64}$/);
     });
   });
 
   describe('applyDriveSnapshotToLocalStorage', () => {
     it('should apply valid snapshot, maintaining legacy keys and pruning stale ones', async () => {
       const snapshot = {
-        schemaVersion: 'v1',
-        snapshotCreatedAt: new Date().toISOString(),
-        pages: {
-          url1: {
-            // Only legacy saved state
-            saved_state: { pageId: 'p1', url: 'https://p1', title: 'P1Title', savedAt: 123 },
-            highlights: [],
+        metadata: {
+          snapshot_version: 1,
+          export_schema_version: 1,
+          updated_at: new Date().toISOString(),
+          source_installation_id: 'installation-123',
+          source_profile_id: 'profile-123',
+          payload_hash: 'unused-in-test',
+          item_counts: {
+            highlights: 1,
+            saved_states: 1,
           },
-          url2: {
-            // Only highlights
-            saved_state: null,
-            highlights: [{ id: 'hl2' }],
-          },
-          // Missing URL handled robustly
-          '': { saved_state: null, highlights: [] },
         },
-        url_aliases: {
-          norm1: 'url1',
-          '': 'empty-alias',
+        payload: {
+          saved_states: [
+            {
+              page_key: 'url1',
+              notion_page_id: 'p1',
+              notion_url: 'https://p1',
+              title: 'P1Title',
+              saved_at: 123,
+            },
+          ],
+          highlights: [
+            {
+              page_key: 'url2',
+              highlight_id: 'hl2',
+              text: 'hello',
+              color: 'yellow',
+              range_info: { start: 1 },
+              created_at: 999,
+            },
+          ],
+          url_aliases: {
+            norm1: 'url1',
+            '': 'empty-alias',
+          },
         },
       };
 
@@ -196,7 +281,7 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
     it('should throw error on invalid snapshot', async () => {
       await expect(applyDriveSnapshotToLocalStorage(null)).rejects.toThrow('INVALID_SNAPSHOT');
       await expect(applyDriveSnapshotToLocalStorage({})).rejects.toThrow('INVALID_SNAPSHOT');
-      await expect(applyDriveSnapshotToLocalStorage({ pages: null })).rejects.toThrow(
+      await expect(applyDriveSnapshotToLocalStorage({ payload: null })).rejects.toThrow(
         'INVALID_SNAPSHOT'
       );
     });
@@ -205,10 +290,12 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
   describe('getDriveSnapshotSummary', () => {
     it('should calculate counts correctly', () => {
       const summary = getDriveSnapshotSummary({
-        snapshotCreatedAt: '2020-01-01T00:00:00Z',
-        pages: {
-          p1: { highlights: [{ id: 1 }, { id: 2 }] },
-          p2: { highlights: null },
+        metadata: {
+          updated_at: '2020-01-01T00:00:00Z',
+        },
+        payload: {
+          saved_states: [{ page_key: 'p1' }, { page_key: 'p2' }],
+          highlights: [{ id: 1 }, { id: 2 }],
         },
       });
       expect(summary.pageCount).toBe(2);
