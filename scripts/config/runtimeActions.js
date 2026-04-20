@@ -412,6 +412,8 @@
  * @property {boolean} success
  * @property {string} [error]
  * @property {string} [errorCode] - e.g. 'REMOTE_SNAPSHOT_NEWER'
+ * @property {string | null} [remoteUpdatedAt] - 發生 REMOTE_SNAPSHOT_NEWER 時的遠端 snapshot updatedAt
+ * @property {string | null} [updatedAt] - 成功時的遠端 snapshot updatedAt
  */
 
 /**
@@ -423,6 +425,7 @@
  * @typedef {object} DriveSyncManualDownloadResponse
  * @property {boolean} success
  * @property {string} [error]
+ * @property {number} [writtenKeys] - 已套用的 storage key 數量
  */
 
 /**

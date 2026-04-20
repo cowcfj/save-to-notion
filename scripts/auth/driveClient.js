@@ -122,8 +122,7 @@ export async function startDriveOAuthFlow() {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`GET /account/drive/start-url failed: ${res.status} ${text}`);
+    throw new Error(`GET /account/drive/start-url failed: ${res.status}`);
   }
 
   const json = await res.json().catch(() => ({}));
@@ -220,6 +219,9 @@ export async function updateDriveSyncRunMetadata(result) {
     if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
       patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = true;
     }
+    if (result.remoteUpdatedAt !== undefined) {
+      patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
+    }
   }
 
   await chrome.storage.local.set(patch);
@@ -265,8 +267,7 @@ export async function fetchDriveConnectionStatus() {
   }
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`GET /drive/connection failed: ${res.status} ${text}`);
+    throw new Error(`GET /drive/connection failed: ${res.status}`);
   }
 
   const json = await res.json();
@@ -298,8 +299,7 @@ export async function fetchDriveSnapshotStatus() {
   }
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`GET /drive/snapshot/status failed: ${res.status} ${text}`);
+    throw new Error(`GET /drive/snapshot/status failed: ${res.status}`);
   }
 
   const json = await res.json();
@@ -342,8 +342,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
   }
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`PUT /drive/snapshot failed: ${res.status} ${text}`);
+    throw new Error(`PUT /drive/snapshot failed: ${res.status}`);
   }
 
   const json = await res.json().catch(() => ({}));
@@ -369,12 +368,13 @@ export async function downloadDriveSnapshot() {
   });
 
   if (res.status === 404) {
-    throw new Error('NO_REMOTE_SNAPSHOT');
+    const err = new Error('NO_REMOTE_SNAPSHOT');
+    err.code = 'NO_REMOTE_SNAPSHOT';
+    throw err;
   }
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`GET /drive/snapshot failed: ${res.status} ${text}`);
+    throw new Error(`GET /drive/snapshot failed: ${res.status}`);
   }
 
   return res.json();
@@ -397,8 +397,7 @@ export async function disconnectDrive() {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`DELETE /drive/connection failed: ${res.status} ${text}`);
+    throw new Error(`DELETE /drive/connection failed: ${res.status}`);
   }
 }
 

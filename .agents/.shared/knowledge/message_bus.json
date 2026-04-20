@@ -447,7 +447,9 @@
         "response": {
           "success": "boolean",
           "error": "string (optional)",
-          "errorCode": "\"REMOTE_SNAPSHOT_NEWER\" | string (optional)"
+          "errorCode": "\"REMOTE_SNAPSHOT_NEWER\" | string (optional)",
+          "remoteUpdatedAt": "string | null (optional) — 發生衝突時的遠端 snapshot updatedAt",
+          "updatedAt": "string | null (optional) — 成功時的遠端 snapshot updatedAt"
         }
       },
       "DRIVE_SYNC_MANUAL_DOWNLOAD": {
@@ -456,7 +458,8 @@
         "payload": {},
         "response": {
           "success": "boolean",
-          "error": "string (optional)"
+          "error": "string (optional)",
+          "writtenKeys": "number (optional) — 已套用的 storage key 數量"
         }
       },
       "DRIVE_SYNC_CONFLICT": {

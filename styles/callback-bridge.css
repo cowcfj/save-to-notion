@@ -83,7 +83,7 @@
   font-size: 0.75rem;
   color: #64748b;
   margin-top: 4px;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .close-hint {

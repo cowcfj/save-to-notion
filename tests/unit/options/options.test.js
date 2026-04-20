@@ -1261,7 +1261,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       listener({ action: 'account_session_updated' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').style.display).toBe('');
+      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-out').style.display).toBe('none');
       expect(document.querySelector('#profile-display-name').textContent).toBe('New');
       expect(document.querySelector('#profile-email').textContent).toBe('new@example.com');

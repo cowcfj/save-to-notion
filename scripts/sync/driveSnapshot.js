@@ -158,7 +158,7 @@ function _normalizeSavedState(saved) {
     url: saved.url ?? saved.notionUrl ?? '',
     title: saved.title ?? '',
     savedAt: Number(saved.savedAt ?? saved.timestamp ?? Date.now()),
-    lastVerifiedAt: saved.lastVerifiedAt ? Number(saved.lastVerifiedAt) : undefined,
+    lastVerifiedAt: saved.lastVerifiedAt == null ? undefined : Number(saved.lastVerifiedAt),
   };
 }
 
@@ -465,7 +465,7 @@ function _mergeHighlightEntries(highlights, pageStates) {
       text: item.text,
       color: item.color ?? '',
       rangeInfo: item.range_info && typeof item.range_info === 'object' ? item.range_info : {},
-      timestamp: Number.isNaN(parsedCreatedAt) ? Date.now() : parsedCreatedAt,
+      timestamp: Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : Date.now(),
     };
 
     if (item.updated_at !== undefined) {
@@ -579,15 +579,51 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
 
   const toRemove = localSyncKeys.filter(key => !snapshotStorageKeys.has(key));
 
-  if (toRemove.length > 0) {
-    await chrome.storage.local.remove(toRemove);
-  }
-  await chrome.storage.local.set(toWrite);
+  await _commitSnapshotWrite(toWrite, toRemove);
 
   return {
     writtenKeys: Object.keys(toWrite),
     removedKeys: toRemove,
   };
+}
+
+/**
+ * 在 chrome.storage.local 上執行 remove → set，set 失敗時嘗試 rollback。
+ *
+ * @param {Record<string, unknown>} toWrite
+ * @param {string[]} toRemove
+ */
+async function _commitSnapshotWrite(toWrite, toRemove) {
+  /** @type {Record<string, unknown>} */
+  const backup = {};
+
+  if (toRemove.length > 0) {
+    const current = await chrome.storage.local.get(toRemove);
+    for (const key of toRemove) {
+      if (current[key] !== undefined) {
+        backup[key] = current[key];
+      }
+    }
+    await chrome.storage.local.remove(toRemove);
+  }
+
+  try {
+    await chrome.storage.local.set(toWrite);
+  } catch (error) {
+    if (Object.keys(backup).length > 0) {
+      try {
+        await chrome.storage.local.set(backup);
+      } catch {
+        // 回滾失敗時不遮蔽原始錯誤；呼叫方會透過外層 errorCode 追蹤
+      }
+    }
+    const wrapped = new Error(
+      `APPLY_INCOMPLETE: ${error instanceof Error ? error.message : String(error)}`
+    );
+    wrapped.code = 'APPLY_INCOMPLETE';
+    wrapped.cause = error;
+    throw wrapped;
+  }
 }
 
 // =============================================================================

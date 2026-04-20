@@ -66,12 +66,12 @@ async function broadcastDriveSyncUpdate(action, extra = {}) {
 /**
  * 處理 DRIVE_SYNC_MANUAL_UPLOAD
  *
- * @param {object} request
+ * @param {object} [request]
  * @param {boolean} [request.force=false] - 是否強制覆蓋（需使用者二次確認）
- * @returns {Promise<{ success: boolean; errorCode?: string; error?: string }>}
+ * @returns {Promise<{ success: boolean; errorCode?: string; error?: string; remoteUpdatedAt?: string | null; updatedAt?: string | null }>}
  */
 async function handleManualUpload(request) {
-  const force = Boolean(request.force);
+  const force = Boolean(request?.force);
 
   try {
     const metadata = await getDriveSyncMetadata();
@@ -97,10 +97,10 @@ async function handleManualUpload(request) {
         type: 'upload',
         success: false,
         errorCode: result.errorCode,
+        remoteUpdatedAt: result.remoteUpdatedAt,
       });
 
       Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
-      await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
       if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
         await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
@@ -108,11 +108,13 @@ async function handleManualUpload(request) {
           remoteUpdatedAt: result.remoteUpdatedAt ?? null,
         });
       }
+      await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
       return {
         success: false,
         errorCode: result.errorCode,
         error: result.message,
+        remoteUpdatedAt: result.remoteUpdatedAt ?? null,
       };
     }
 
@@ -173,7 +175,7 @@ async function handleManualDownload() {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCode =
-      errorMessage === 'NO_REMOTE_SNAPSHOT' ? 'NO_REMOTE_SNAPSHOT' : 'DOWNLOAD_FAILED';
+      error?.code === 'NO_REMOTE_SNAPSHOT' ? 'NO_REMOTE_SNAPSHOT' : 'DOWNLOAD_FAILED';
 
     await updateDriveSyncRunMetadata({
       type: 'download',

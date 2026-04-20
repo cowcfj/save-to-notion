@@ -66,17 +66,9 @@ describe('DriveCloudSyncController', () => {
         },
       },
     };
-    globalThis.Logger = {
-      success: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
     loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
     loggerWarnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
@@ -96,7 +88,6 @@ describe('DriveCloudSyncController', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
     delete globalThis.chrome;
-    delete globalThis.Logger;
     delete globalThis.confirm;
   });
 

@@ -31,24 +31,24 @@ import { showError, showLoading, showSuccess } from './callbackStatusView.js';
  * 後端在授權完成後應回傳 ?drive_email=xxx&connected_at=ISO8601
  * 或以 ?error=xxx 表示失敗。
  *
- * @returns {{ email: string; connectedAt: string } | null}
+ * @returns {{ connection: { email: string; connectedAt: string | null } | null; error: string | null }}
  */
 function parseDriveCallbackParams() {
   const params = new URLSearchParams(globalThis.location.search);
 
   const error = params.get('error');
   if (error) {
-    return null;
+    return { connection: null, error };
   }
 
   const email = params.get('drive_email');
-  const connectedAt = params.get('connected_at') ?? new Date().toISOString();
+  const connectedAt = params.get('connected_at') ?? null;
 
   if (!email) {
-    return null;
+    return { connection: null, error: null };
   }
 
-  return { email, connectedAt };
+  return { connection: { email, connectedAt }, error: null };
 }
 
 /**
@@ -76,11 +76,10 @@ async function runDriveAuthFlow() {
   showLoading('正在完成 Google Drive 授權...');
 
   // 步驟 1：解析後端回傳的 Drive 連線資訊
-  const connection = parseDriveCallbackParams();
+  const { connection, error } = parseDriveCallbackParams();
 
-  const errorParam = new URLSearchParams(globalThis.location.search).get('error');
-  if (errorParam) {
-    showError('Google Drive 授權失敗', errorParam);
+  if (error) {
+    showError('Google Drive 授權失敗', error);
     return;
   }
 
@@ -94,8 +93,8 @@ async function runDriveAuthFlow() {
   // 步驟 2：寫入 drive connection metadata
   try {
     await setDriveConnection(connection);
-  } catch (error) {
-    showError('儲存連線資訊失敗', error instanceof Error ? error.message : String(error));
+  } catch (error_) {
+    showError('儲存連線資訊失敗', error_ instanceof Error ? error_.message : String(error_));
     return;
   }
 

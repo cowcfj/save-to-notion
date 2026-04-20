@@ -128,7 +128,7 @@ async function syncRemoteDriveConnection() {
   if (status.connected && status.email) {
     await setDriveConnection({
       email: status.email,
-      connectedAt: status.connectedAt ?? new Date().toISOString(),
+      connectedAt: status.connectedAt ?? null,
     });
     return;
   }
@@ -157,6 +157,8 @@ async function syncRemoteDriveConnectionSafely() {
 let hasInstalledReturnSyncListeners = false;
 let isReturnSyncInFlight = false;
 let syncStatusTimeoutId = null;
+/** @type {AbortController | null} */
+let buttonListenersController = null;
 
 function syncOnReturn() {
   if (isReturnSyncInFlight) {
@@ -405,7 +407,7 @@ async function handleUpload(force = false) {
         showSyncStatus('', '');
         return;
       }
-      throw new Error(response.error ?? `上載失敗：${response.errorCode}`);
+      throw new Error(response.error ?? response.errorCode ?? '上載失敗');
     }
 
     showSyncStatus('上載成功！', 'success');
@@ -474,6 +476,7 @@ async function handleDisconnect() {
   }
 
   showLoading('中斷連線中...');
+  let disconnectSucceeded = false;
   try {
     await disconnectDrive();
     await clearDriveSyncMetadata();
@@ -490,8 +493,7 @@ async function handleDisconnect() {
     }
 
     showSyncStatus('已中斷 Google Drive 連線', 'success');
-    const metadata = await getDriveSyncMetadata();
-    renderCloudSyncCard(metadata);
+    disconnectSucceeded = true;
   } catch (error) {
     Logger.error('[CloudSync] Disconnect failed', {
       error: getSafeError(error, 'drive_disconnect'),
@@ -500,11 +502,99 @@ async function handleDisconnect() {
   } finally {
     hideLoading();
   }
+
+  if (!disconnectSucceeded) {
+    return;
+  }
+
+  try {
+    const metadata = await getDriveSyncMetadata();
+    renderCloudSyncCard(metadata);
+  } catch (error) {
+    Logger.warn('[CloudSync] Disconnect UI refresh failed', {
+      error: getSafeError(error, 'drive_disconnect_ui_refresh'),
+    });
+  }
 }
 
 // =============================================================================
 // 初始化（綁定事件 + 初次渲染）
 // =============================================================================
+
+/**
+ * 綁定 Cloud Sync card 上所有按鈕的 click 監聽器。
+ * 透過 AbortController 保證重複呼叫 initCloudSyncController 時不會疊加監聽器。
+ */
+function bindCloudSyncButtons() {
+  if (buttonListenersController) {
+    buttonListenersController.abort();
+  }
+  buttonListenersController = new AbortController();
+  const { signal } = buttonListenersController;
+
+  el(DOM.BTN_CONNECT)?.addEventListener(
+    'click',
+    () => {
+      startDriveOAuthFlow().catch(error => {
+        Logger.error('[CloudSync] Drive connect start failed', {
+          error: getSafeError(error, 'drive_connect_start'),
+        });
+        showSyncStatus(
+          `連接失敗：${getUserFriendlyErrorMessage(error, 'drive_connect_start')}`,
+          'error'
+        );
+      });
+    },
+    { signal }
+  );
+
+  el(DOM.BTN_UPLOAD)?.addEventListener(
+    'click',
+    () => {
+      handleUpload(false).catch(() => {});
+    },
+    { signal }
+  );
+
+  el(DOM.BTN_DOWNLOAD)?.addEventListener(
+    'click',
+    () => {
+      handleDownload().catch(() => {});
+    },
+    { signal }
+  );
+
+  el(DOM.BTN_DISCONNECT)?.addEventListener(
+    'click',
+    () => {
+      handleDisconnect().catch(() => {});
+    },
+    { signal }
+  );
+
+  // 衝突 - 下載雲端版本
+  el(DOM.BTN_CONFLICT_DOWNLOAD)?.addEventListener(
+    'click',
+    () => {
+      handleDownload().catch(() => {});
+    },
+    { signal }
+  );
+
+  // 衝突 - 強制上傳
+  el(DOM.BTN_CONFLICT_FORCE_UPLOAD)?.addEventListener(
+    'click',
+    () => {
+      const confirmed = globalThis.confirm(
+        '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。'
+      );
+      if (confirmed) {
+        handleUpload(true).catch(() => {});
+      }
+    },
+    { signal }
+  );
+}
 
 /**
  * 初始化 Cloud Sync Controller
@@ -526,45 +616,8 @@ export async function initCloudSyncController(isLoggedIn) {
   const metadata = await getDriveSyncMetadata();
   renderCloudSyncCard(metadata);
 
-  // 綁定按鈕事件
-  el(DOM.BTN_CONNECT)?.addEventListener('click', () => {
-    startDriveOAuthFlow().catch(error => {
-      Logger.error('[CloudSync] Drive connect start failed', {
-        error: getSafeError(error, 'drive_connect_start'),
-      });
-      showSyncStatus(
-        `連接失敗：${getUserFriendlyErrorMessage(error, 'drive_connect_start')}`,
-        'error'
-      );
-    });
-  });
-
-  el(DOM.BTN_UPLOAD)?.addEventListener('click', () => {
-    handleUpload(false).catch(() => {});
-  });
-
-  el(DOM.BTN_DOWNLOAD)?.addEventListener('click', () => {
-    handleDownload().catch(() => {});
-  });
-
-  el(DOM.BTN_DISCONNECT)?.addEventListener('click', () => {
-    handleDisconnect().catch(() => {});
-  });
-
-  // 衝突 - 下載雲端版本
-  el(DOM.BTN_CONFLICT_DOWNLOAD)?.addEventListener('click', () => {
-    handleDownload().catch(() => {});
-  });
-
-  // 衝突 - 強制上傳
-  el(DOM.BTN_CONFLICT_FORCE_UPLOAD)?.addEventListener('click', () => {
-    const confirmed = globalThis.confirm(
-      '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。'
-    );
-    if (confirmed) {
-      handleUpload(true).catch(() => {});
-    }
-  });
+  // 綁定按鈕事件（冪等，重複呼叫會先 abort 先前的 listener）
+  bindCloudSyncButtons();
 }
 
 /**

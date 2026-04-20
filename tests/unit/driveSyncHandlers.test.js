@@ -116,6 +116,7 @@ describe('Drive Sync Handlers', () => {
         type: 'upload',
         success: false,
         errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        remoteUpdatedAt: '2026-04-21T01:02:03.000Z',
       });
 
       expect(mockSendMessage).toHaveBeenCalledWith({
@@ -129,8 +130,20 @@ describe('Drive Sync Handlers', () => {
         remoteUpdatedAt: '2026-04-21T01:02:03.000Z',
       });
 
+      // CONFLICT 必須在 STATUS_UPDATED 之前送出，避免 UI 先收到通用狀態更新再被迫重繪為 conflict 視圖
+      const conflictCallIndex = mockSendMessage.mock.calls.findIndex(
+        ([payload]) => payload?.action === RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT
+      );
+      const statusUpdatedCallIndex = mockSendMessage.mock.calls.findIndex(
+        ([payload]) => payload?.action === RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED
+      );
+      expect(conflictCallIndex).toBeGreaterThan(-1);
+      expect(statusUpdatedCallIndex).toBeGreaterThan(-1);
+      expect(conflictCallIndex).toBeLessThan(statusUpdatedCallIndex);
+
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+      expect(result.remoteUpdatedAt).toBe('2026-04-21T01:02:03.000Z');
     });
 
     it('should persist failed upload metadata and broadcast when snapshot build throws', async () => {
@@ -183,7 +196,9 @@ describe('Drive Sync Handlers', () => {
     });
 
     it('should catch download errors and broadcast', async () => {
-      driveClient.downloadDriveSnapshot.mockRejectedValue(new Error('NO_REMOTE_SNAPSHOT'));
+      const snapshotError = new Error('NO_REMOTE_SNAPSHOT');
+      snapshotError.code = 'NO_REMOTE_SNAPSHOT';
+      driveClient.downloadDriveSnapshot.mockRejectedValue(snapshotError);
 
       const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]({});
 

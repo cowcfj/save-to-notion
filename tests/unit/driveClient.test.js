@@ -326,16 +326,30 @@ describe('Drive Client API', () => {
         expect(res.id).toBe(1);
       });
 
-      it('throws NO_REMOTE_SNAPSHOT on 404', async () => {
+      it('throws error with code NO_REMOTE_SNAPSHOT on 404', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 404 });
-        await expect(downloadDriveSnapshot()).rejects.toThrow('NO_REMOTE_SNAPSHOT');
+        await expect(downloadDriveSnapshot()).rejects.toMatchObject({
+          message: 'NO_REMOTE_SNAPSHOT',
+          code: 'NO_REMOTE_SNAPSHOT',
+        });
       });
     });
 
     describe('disconnectDrive', () => {
-      it('resolves on OK', async () => {
+      it('resolves on OK and calls DELETE /drive/connection with auth headers', async () => {
         mockFetch.mockResolvedValue({ ok: true });
         await expect(disconnectDrive()).resolves.toBeUndefined();
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test-server.example.com/v1/account/drive/connection',
+          expect.objectContaining({
+            method: 'DELETE',
+            headers: expect.objectContaining({
+              Authorization: 'Bearer test-token',
+              'Content-Type': 'application/json',
+            }),
+          })
+        );
       });
 
       it('throws on non-ok', async () => {

@@ -282,32 +282,42 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
     });
 
     it('should fallback highlight timestamp to Date.now when created_at is invalid', async () => {
-      const snapshot = {
-        metadata: {
-          updated_at: new Date().toISOString(),
-        },
-        payload: {
-          saved_states: [],
-          highlights: [
-            {
-              page_key: 'url-invalid-ts',
-              highlight_id: 'hl-invalid',
-              text: 'hello',
-              color: 'yellow',
-              range_info: {},
-              created_at: 'not-a-number',
-            },
-          ],
-          url_aliases: {},
-        },
-      };
+      jest.useFakeTimers();
+      const fixed = new Date('2024-06-15T12:00:00.000Z').getTime();
+      jest.setSystemTime(fixed);
 
-      mockStorageLocal.get.mockResolvedValue({});
+      try {
+        const snapshot = {
+          metadata: {
+            updated_at: new Date().toISOString(),
+          },
+          payload: {
+            saved_states: [],
+            highlights: [
+              {
+                page_key: 'url-invalid-ts',
+                highlight_id: 'hl-invalid',
+                text: 'hello',
+                color: 'yellow',
+                range_info: {},
+                created_at: 'not-a-number',
+              },
+            ],
+            url_aliases: {},
+          },
+        };
 
-      await applyDriveSnapshotToLocalStorage(snapshot);
+        mockStorageLocal.get.mockResolvedValue({});
 
-      const toWrite = mockStorageLocal.set.mock.calls[0][0];
-      expect(toWrite[`${HIGHLIGHTS_PREFIX}url-invalid-ts`][0].timestamp).toBe(Date.now());
+        await applyDriveSnapshotToLocalStorage(snapshot);
+
+        const toWrite = mockStorageLocal.set.mock.calls[0][0];
+        const ts = toWrite[`${HIGHLIGHTS_PREFIX}url-invalid-ts`][0].timestamp;
+        expect(ts).toBe(fixed);
+        expect(Number.isFinite(ts)).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('should remove stale sync keys before writing snapshot data', async () => {
