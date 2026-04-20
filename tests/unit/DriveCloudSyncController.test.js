@@ -18,14 +18,17 @@ async function flushAsyncWork() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
-  await new Promise(process.nextTick);
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
+  let loggerWarnSpy;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     // Setup DOM
     document.body.innerHTML = `
       <div id="cloud-sync-card">
@@ -64,11 +67,16 @@ describe('DriveCloudSyncController', () => {
       },
     };
     globalThis.Logger = {
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      debug: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
     };
     loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    loggerWarnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
@@ -84,7 +92,12 @@ describe('DriveCloudSyncController', () => {
   });
 
   afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
     jest.restoreAllMocks();
+    delete globalThis.chrome;
+    delete globalThis.Logger;
+    delete globalThis.confirm;
   });
 
   describe('setCloudSyncCardVisibility', () => {
@@ -183,7 +196,7 @@ describe('DriveCloudSyncController', () => {
 
       // Upload Button
       document.querySelector('#drive-upload-button').click();
-      await new Promise(process.nextTick);
+      await flushAsyncWork();
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
         force: false,
@@ -192,7 +205,7 @@ describe('DriveCloudSyncController', () => {
       // Download Button
       mockSendMessage.mockClear();
       document.querySelector('#drive-download-button').click();
-      await new Promise(process.nextTick);
+      await flushAsyncWork();
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
       });
@@ -214,6 +227,59 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Drive connect start failed', {
         error: safeMessage,
+      });
+    });
+
+    it('does not trigger return sync on initial pageshow when not restored from bfcache', async () => {
+      await initCloudSyncController(true);
+      driveClient.fetchDriveConnectionStatus.mockClear();
+
+      const pageshowEvent = new Event('pageshow');
+      Object.defineProperty(pageshowEvent, 'persisted', {
+        configurable: true,
+        value: false,
+      });
+
+      globalThis.dispatchEvent(pageshowEvent);
+      await flushAsyncWork();
+
+      expect(driveClient.fetchDriveConnectionStatus).not.toHaveBeenCalled();
+    });
+
+    it('refreshes remote drive connection on pageshow only when restored from bfcache', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({ connectionEmail: null })
+        .mockResolvedValue({
+          connectionEmail: 'pageshow@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        });
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: false,
+          email: null,
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'pageshow@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        });
+
+      await initCloudSyncController(true);
+
+      const pageshowEvent = new Event('pageshow');
+      Object.defineProperty(pageshowEvent, 'persisted', {
+        configurable: true,
+        value: true,
+      });
+
+      globalThis.dispatchEvent(pageshowEvent);
+      await flushAsyncWork();
+
+      expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
+        email: 'pageshow@test.dev',
+        connectedAt: '2026-04-20T00:00:00.000Z',
       });
     });
 
@@ -327,9 +393,7 @@ describe('DriveCloudSyncController', () => {
       });
 
       document.querySelector('#drive-disconnect-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await new Promise(process.nextTick);
+      await flushAsyncWork();
 
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
@@ -340,6 +404,29 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+    });
+
+    it('continues disconnect flow when broadcast fails', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ connectionEmail: null });
+      mockSendMessage.mockRejectedValueOnce(new Error('broadcast down'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-disconnect-button').click();
+      await flushAsyncWork();
+
+      expect(driveClient.disconnectDrive).toHaveBeenCalled();
+      expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
+      expect(loggerWarnSpy).toHaveBeenCalledWith('[CloudSync] Disconnect broadcast failed', {
+        error: expect.any(Error),
+      });
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '已中斷 Google Drive 連線'
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('success');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
     });
 
     it('shows an error when disconnect fails', async () => {
@@ -434,10 +521,7 @@ describe('DriveCloudSyncController', () => {
 
       await initCloudSyncController(true);
       globalThis.dispatchEvent(new Event('focus'));
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await new Promise(process.nextTick);
+      await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
       expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
@@ -554,7 +638,6 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('clears temporary success status message after timeout', async () => {
-      jest.useFakeTimers();
       driveClient.getDriveSyncMetadata
         .mockResolvedValueOnce({})
         .mockResolvedValueOnce({ connectionEmail: 'done@test.dev' });
@@ -572,7 +655,33 @@ describe('DriveCloudSyncController', () => {
 
       expect(document.querySelector('#drive-sync-status').textContent).toBe('');
       expect(document.querySelector('#drive-sync-status').className).toBe('status-message');
-      jest.useRealTimers();
+    });
+
+    it('clears prior status timeout before scheduling a new one', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ connectionEmail: 'done@test.dev' });
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+      expect(document.querySelector('#drive-sync-status').textContent).toContain('上載成功');
+
+      document.querySelector('#drive-disconnect-button').click();
+      await flushAsyncWork();
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '已中斷 Google Drive 連線'
+      );
+
+      await jest.advanceTimersByTimeAsync(3999);
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        '已中斷 Google Drive 連線'
+      );
+
+      await jest.advanceTimersByTimeAsync(1);
+      expect(document.querySelector('#drive-sync-status').textContent).toBe('');
     });
   });
 });

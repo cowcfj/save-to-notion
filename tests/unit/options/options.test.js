@@ -1242,10 +1242,11 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
   });
 
   describe('account_session_updated / account_session_cleared runtime 訊息', () => {
-    it('收到 account_session_updated 訊息時應重新讀取 profile', async () => {
+    it('收到 account_session_updated 訊息時應切換到已登入 UI 並顯示最新 profile', async () => {
       getAccountProfile.mockResolvedValue(null);
+      getAccountAccessToken.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
@@ -1255,15 +1256,19 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         displayName: 'New',
         avatarUrl: null,
       });
+      getAccountAccessToken.mockResolvedValue('token-456');
 
       listener({ action: 'account_session_updated' });
-      await Promise.resolve();
+      await flushAsyncClick();
 
-      // 依賴次數可能因為多個非同步流程改變，只需確認有再度觸發（> 呼叫次數即可）
-      expect(getAccountProfile.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(document.querySelector('#account-logged-in').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#profile-display-name').textContent).toBe('New');
+      expect(document.querySelector('#profile-email').textContent).toBe('new@example.com');
     });
 
-    it('收到 account_session_cleared 訊息時應重新讀取 profile', async () => {
+    it('收到 account_session_cleared 訊息時應切換到已登出 UI 並隱藏 account 卡資訊', async () => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
@@ -1271,15 +1276,18 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         avatarUrl: null,
       });
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
       getAccountProfile.mockResolvedValue(null);
+      getAccountAccessToken.mockResolvedValue(null);
       listener({ action: 'account_session_cleared' });
-      await Promise.resolve();
+      await flushAsyncClick();
 
-      expect(getAccountProfile.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(document.querySelector('#account-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
     });
   });
 

@@ -13,6 +13,7 @@ const DOM_IDS = {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ATTR_ARIA_HIDDEN = 'aria-hidden';
+const CLASS_STATUS_TEXT = 'status-text';
 
 /**
  * 顯示 loading 狀態
@@ -20,19 +21,23 @@ const ATTR_ARIA_HIDDEN = 'aria-hidden';
  * @param {string} message
  */
 export function showLoading(message) {
-  const spinner = document.querySelector(DOM_IDS.SPINNER);
-  const statusText = document.querySelector(DOM_IDS.STATUS_TEXT);
   const statusArea = document.querySelector(DOM_IDS.STATUS_AREA);
   const closeHint = document.querySelector(DOM_IDS.CLOSE_HINT);
 
-  if (spinner) {
-    spinner.style.display = '';
-  }
-  if (statusText) {
-    statusText.textContent = message;
-  }
   if (statusArea) {
+    const spinner = document.createElement('div');
+    spinner.id = DOM_IDS.SPINNER.slice(1);
+    spinner.className = 'spinner';
+    spinner.setAttribute(ATTR_ARIA_HIDDEN, 'true');
+    spinner.style.display = '';
+
+    const statusText = document.createElement('p');
+    statusText.id = DOM_IDS.STATUS_TEXT.slice(1);
+    statusText.className = CLASS_STATUS_TEXT;
+    statusText.textContent = message;
+
     statusArea.className = 'status-area';
+    statusArea.replaceChildren(spinner, statusText);
   }
   if (closeHint) {
     closeHint.style.display = 'none';
@@ -65,7 +70,7 @@ export function showSuccess(message) {
     iconCircle.append(svg);
 
     const statusText = document.createElement('p');
-    statusText.className = 'status-text';
+    statusText.className = CLASS_STATUS_TEXT;
     statusText.textContent = message;
 
     statusArea.replaceChildren(iconCircle, statusText);
@@ -112,7 +117,7 @@ export function showError(message, detail) {
     iconCircle.append(svg);
 
     const statusText = document.createElement('p');
-    statusText.className = 'status-text';
+    statusText.className = CLASS_STATUS_TEXT;
     statusText.textContent = message;
 
     const children = [iconCircle, statusText];

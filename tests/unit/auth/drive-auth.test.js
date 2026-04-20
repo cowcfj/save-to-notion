@@ -64,6 +64,7 @@ describe('drive-auth.js', () => {
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+    document.addEventListener.mockRestore();
     delete globalThis.chrome;
     globalThis.close = originalClose;
     jest.clearAllMocks();
@@ -106,5 +107,16 @@ describe('drive-auth.js', () => {
     expect(document.querySelector('#status-area').textContent).toContain('Google Drive 授權失敗');
     expect(document.querySelector('#status-area').textContent).toContain('access_denied');
     expect(globalThis.close).not.toHaveBeenCalled();
+  });
+
+  it('error 參數含有字面 % 時不應因 decodeURIComponent 而拋錯', async () => {
+    globalThis.history.replaceState({}, '', '/drive-auth.html?error=100%25+blocked');
+
+    await loadDriveAuthModule();
+    await dispatchDomReady();
+
+    expect(mockSetDriveConnection).not.toHaveBeenCalled();
+    expect(document.querySelector('#status-area').className).toContain('status-error');
+    expect(document.querySelector('#status-area').textContent).toContain('100% blocked');
   });
 });

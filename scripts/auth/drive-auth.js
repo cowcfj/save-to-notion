@@ -80,7 +80,7 @@ async function runDriveAuthFlow() {
 
   const errorParam = new URLSearchParams(globalThis.location.search).get('error');
   if (errorParam) {
-    showError('Google Drive 授權失敗', decodeURIComponent(errorParam));
+    showError('Google Drive 授權失敗', errorParam);
     return;
   }
 

@@ -456,16 +456,16 @@ function _mergeHighlightEntries(highlights, pageStates) {
       continue;
     }
 
+    const parsedCreatedAt =
+      typeof item.created_at === 'number' ? item.created_at : Number(item.created_at);
+
     const pageState = pageStates.get(item.page_key) ?? { notion: null, highlights: [] };
     const highlight = {
       id: item.highlight_id,
       text: item.text,
       color: item.color ?? '',
       rangeInfo: item.range_info && typeof item.range_info === 'object' ? item.range_info : {},
-      timestamp:
-        typeof item.created_at === 'number'
-          ? item.created_at
-          : Number(item.created_at ?? Date.now()),
+      timestamp: Number.isNaN(parsedCreatedAt) ? Date.now() : parsedCreatedAt,
     };
 
     if (item.updated_at !== undefined) {
@@ -579,12 +579,10 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
 
   const toRemove = localSyncKeys.filter(key => !snapshotStorageKeys.has(key));
 
-  if (Object.keys(toWrite).length > 0) {
-    await chrome.storage.local.set(toWrite);
-  }
   if (toRemove.length > 0) {
     await chrome.storage.local.remove(toRemove);
   }
+  await chrome.storage.local.set(toWrite);
 
   return {
     writtenKeys: Object.keys(toWrite),

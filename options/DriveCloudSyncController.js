@@ -155,9 +155,20 @@ async function syncRemoteDriveConnectionSafely() {
 }
 
 let hasInstalledReturnSyncListeners = false;
+let isReturnSyncInFlight = false;
+let syncStatusTimeoutId = null;
 
 function syncOnReturn() {
-  refreshCloudSyncCard({ syncRemote: true }).catch(() => {});
+  if (isReturnSyncInFlight) {
+    return;
+  }
+
+  isReturnSyncInFlight = true;
+  return refreshCloudSyncCard({ syncRemote: true })
+    .catch(() => {})
+    .finally(() => {
+      isReturnSyncInFlight = false;
+    });
 }
 
 function installReturnSyncListeners() {
@@ -166,7 +177,11 @@ function installReturnSyncListeners() {
   }
 
   globalThis.addEventListener('focus', syncOnReturn);
-  globalThis.addEventListener('pageshow', syncOnReturn);
+  globalThis.addEventListener('pageshow', event => {
+    if (event.persisted === true) {
+      syncOnReturn();
+    }
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       syncOnReturn();
@@ -257,12 +272,19 @@ function showSyncStatus(message, type = '') {
   if (!statusEl) {
     return;
   }
+
+  if (syncStatusTimeoutId !== null) {
+    clearTimeout(syncStatusTimeoutId);
+    syncStatusTimeoutId = null;
+  }
+
   statusEl.textContent = message;
   statusEl.className = type ? `status-message ${type}` : 'status-message';
   if (message && type !== 'error') {
-    setTimeout(() => {
+    syncStatusTimeoutId = setTimeout(() => {
       statusEl.textContent = '';
       statusEl.className = 'status-message';
+      syncStatusTimeoutId = null;
     }, 4000);
   }
 }
@@ -456,13 +478,17 @@ async function handleDisconnect() {
     await disconnectDrive();
     await clearDriveSyncMetadata();
 
-    const response = await chrome.runtime.sendMessage({
-      action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
-      email: null,
-      connectedAt: null,
-    });
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
+        email: null,
+        connectedAt: null,
+      });
+      Logger.info('[CloudSync] Disconnect broadcast sent', { response });
+    } catch (error) {
+      Logger.warn('[CloudSync] Disconnect broadcast failed', { error });
+    }
 
-    Logger.info('[CloudSync] Disconnect broadcast sent', { response });
     showSyncStatus('已中斷 Google Drive 連線', 'success');
     const metadata = await getDriveSyncMetadata();
     renderCloudSyncCard(metadata);

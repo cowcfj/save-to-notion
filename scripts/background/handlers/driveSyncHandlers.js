@@ -14,7 +14,7 @@
  * @see docs/plans/2026-04-20-google-drive-sync-frontend-phase-a-manual-sync-plan.md §6 Step 4/5
  */
 
-/* global chrome, Logger */
+/* global chrome */
 
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
 import {
@@ -28,6 +28,7 @@ import {
   buildDriveSnapshot,
   applyDriveSnapshotToLocalStorage,
 } from '../../sync/driveSnapshot.js';
+import Logger from '../../utils/Logger.js';
 
 // =============================================================================
 // 廣播工具
@@ -39,8 +40,21 @@ import {
  * @param {string} action
  * @param {object} [extra]
  */
-function broadcastDriveSyncUpdate(action, extra = {}) {
-  chrome.runtime.sendMessage({ action, ...extra }).catch(() => {
+async function broadcastDriveSyncUpdate(action, extra = {}) {
+  const payload = { action, ...extra };
+
+  if (action === RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED) {
+    try {
+      const metadata = await getDriveSyncMetadata();
+      payload.lastKnownRemoteUpdatedAt = metadata.lastKnownRemoteUpdatedAt ?? null;
+      payload.lastSuccessfulUploadAt = metadata.lastSuccessfulUploadAt ?? null;
+    } catch {
+      payload.lastKnownRemoteUpdatedAt = null;
+      payload.lastSuccessfulUploadAt = null;
+    }
+  }
+
+  await chrome.runtime.sendMessage(payload).catch(() => {
     // 其他 UI 頁面可能未開啟，忽略錯誤
   });
 }
@@ -58,56 +72,73 @@ function broadcastDriveSyncUpdate(action, extra = {}) {
  */
 async function handleManualUpload(request) {
   const force = Boolean(request.force);
-  const metadata = await getDriveSyncMetadata();
 
-  Logger.info('[DriveSyncHandler] Manual upload requested', { force });
+  try {
+    const metadata = await getDriveSyncMetadata();
 
-  // Step 1：從本地 storage 合併 unified page state
-  const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
+    Logger.info('[DriveSyncHandler] Manual upload requested', { force });
 
-  // Step 2：序列化為 snapshot
-  const snapshot = await buildDriveSnapshot(pages, urlAliases, {
-    installationId: metadata.installationId,
-    profileId: metadata.profileId,
-  });
+    const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
 
-  Logger.info('[DriveSyncHandler] Snapshot built', {
-    pageCount: snapshot.metadata?.item_counts?.saved_states ?? 0,
-    force,
-  });
+    const snapshot = await buildDriveSnapshot(pages, urlAliases, {
+      installationId: metadata.installationId,
+      profileId: metadata.profileId,
+    });
 
-  // Step 3：上傳到 Drive
-  const result = await uploadDriveSnapshot(snapshot, force);
+    Logger.info('[DriveSyncHandler] Snapshot built', {
+      pageCount: snapshot.metadata?.item_counts?.saved_states ?? 0,
+      force,
+    });
 
-  if (!result.success) {
-    // 衝突或其他錯誤
+    const result = await uploadDriveSnapshot(snapshot, force);
+
+    if (!result.success) {
+      await updateDriveSyncRunMetadata({
+        type: 'upload',
+        success: false,
+        errorCode: result.errorCode,
+      });
+
+      Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
+      await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+
+      if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+        await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
+          conflictType: 'REMOTE_SNAPSHOT_NEWER',
+          remoteUpdatedAt: result.remoteUpdatedAt ?? null,
+        });
+      }
+
+      return {
+        success: false,
+        errorCode: result.errorCode,
+        error: result.message,
+      };
+    }
+
+    await updateDriveSyncRunMetadata({
+      type: 'upload',
+      success: true,
+      remoteUpdatedAt: result.updatedAt,
+    });
+
+    Logger.success('[DriveSyncHandler] Upload succeeded', { updatedAt: result.updatedAt });
+    await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+
+    return { success: true, updatedAt: result.updatedAt };
+  } catch (error) {
     await updateDriveSyncRunMetadata({
       type: 'upload',
       success: false,
-      errorCode: result.errorCode,
+      errorCode: 'UPLOAD_FAILED',
     });
-
-    Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
-    broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+    await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
     return {
       success: false,
-      errorCode: result.errorCode,
-      error: result.message,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
-
-  // 上傳成功 → 更新 metadata
-  await updateDriveSyncRunMetadata({
-    type: 'upload',
-    success: true,
-    remoteUpdatedAt: result.updatedAt,
-  });
-
-  Logger.success('[DriveSyncHandler] Upload succeeded', { updatedAt: result.updatedAt });
-  broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
-
-  return { success: true, updatedAt: result.updatedAt };
 }
 
 // =============================================================================
@@ -120,15 +151,29 @@ async function handleManualUpload(request) {
  * @returns {Promise<{ success: boolean; writtenKeys?: number; error?: string }>}
  */
 async function handleManualDownload() {
-  Logger.info('[DriveSyncHandler] Manual download requested');
-
-  // Step 1：下載遠端 snapshot
-  let remoteSnapshot;
   try {
-    remoteSnapshot = await downloadDriveSnapshot();
+    Logger.info('[DriveSyncHandler] Manual download requested');
+
+    const remoteSnapshot = await downloadDriveSnapshot();
+    const { writtenKeys, removedKeys } = await applyDriveSnapshotToLocalStorage(remoteSnapshot);
+
+    await updateDriveSyncRunMetadata({
+      type: 'download',
+      success: true,
+      remoteUpdatedAt: remoteSnapshot.metadata?.updated_at ?? null,
+    });
+
+    Logger.success('[DriveSyncHandler] Download & apply succeeded', {
+      writtenCount: writtenKeys.length,
+      removedCount: removedKeys.length,
+    });
+    await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+
+    return { success: true, writtenKeys: writtenKeys.length };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCode =
-      error.message === 'NO_REMOTE_SNAPSHOT' ? 'NO_REMOTE_SNAPSHOT' : 'DOWNLOAD_FAILED';
+      errorMessage === 'NO_REMOTE_SNAPSHOT' ? 'NO_REMOTE_SNAPSHOT' : 'DOWNLOAD_FAILED';
 
     await updateDriveSyncRunMetadata({
       type: 'download',
@@ -137,28 +182,10 @@ async function handleManualDownload() {
     });
 
     Logger.warn('[DriveSyncHandler] Download failed', { errorCode });
-    broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+    await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage };
   }
-
-  // Step 2：套用 snapshot 到本地 storage，含 Compatibility Mirror
-  const { writtenKeys, removedKeys } = await applyDriveSnapshotToLocalStorage(remoteSnapshot);
-
-  // Step 3：更新 metadata
-  await updateDriveSyncRunMetadata({
-    type: 'download',
-    success: true,
-    remoteUpdatedAt: remoteSnapshot.metadata?.updated_at ?? null,
-  });
-
-  Logger.success('[DriveSyncHandler] Download & apply succeeded', {
-    writtenCount: writtenKeys.length,
-    removedCount: removedKeys.length,
-  });
-  broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
-
-  return { success: true, writtenKeys: writtenKeys.length };
 }
 
 // =============================================================================

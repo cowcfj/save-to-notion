@@ -205,6 +205,7 @@ export async function updateDriveSyncRunMetadata(result) {
   if (result.success) {
     patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] = null;
     patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = null;
+    patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = false;
     if (result.type === 'upload') {
       patch[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_UPLOAD_AT] = now;
     } else if (result.type === 'download') {
@@ -303,7 +304,8 @@ export async function fetchDriveSnapshotStatus() {
 
   const json = await res.json();
   return {
-    exists: json.has_snapshot ?? true,
+    exists:
+      json.has_snapshot === true || Boolean(json.remote_updated_at) || Boolean(json.updatedAt),
     updatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
     size: json.size ?? null,
   };
@@ -314,7 +316,7 @@ export async function fetchDriveSnapshotStatus() {
  *
  * @param {object} snapshotPayload - buildDriveSnapshot() 的輸出
  * @param {boolean} [force=false] - 強制覆蓋（需使用者二次確認後才傳 true）
- * @returns {Promise<{ success: true; updatedAt: string | null } | { success: false; errorCode: string; message: string }>}
+ * @returns {Promise<{ success: true; updatedAt: string | null } | { success: false; errorCode: string; message: string; remoteUpdatedAt: string | null }>}
  */
 export async function uploadDriveSnapshot(snapshotPayload, force = false) {
   const headers = await buildAccountAuthHeaders();
@@ -335,6 +337,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
       success: false,
       errorCode: json.code ?? 'REMOTE_SNAPSHOT_NEWER',
       message: json.message ?? 'Remote snapshot is newer',
+      remoteUpdatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
     };
   }
 

@@ -47,10 +47,13 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
         configurable: true,
         value: originalCrypto,
       });
-      return;
+    } else {
+      Object.defineProperty(globalThis, 'crypto', {
+        configurable: true,
+        value: undefined,
+      });
+      delete globalThis.crypto;
     }
-
-    delete globalThis.crypto;
   });
 
   describe('buildUnifiedPageStateFromLocalStorage', () => {
@@ -276,6 +279,59 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
       expect(toWrite[`${URL_ALIAS_PREFIX}norm1`]).toBe('url1');
 
       expect(result.writtenKeys.length).toBeGreaterThan(0);
+    });
+
+    it('should fallback highlight timestamp to Date.now when created_at is invalid', async () => {
+      const snapshot = {
+        metadata: {
+          updated_at: new Date().toISOString(),
+        },
+        payload: {
+          saved_states: [],
+          highlights: [
+            {
+              page_key: 'url-invalid-ts',
+              highlight_id: 'hl-invalid',
+              text: 'hello',
+              color: 'yellow',
+              range_info: {},
+              created_at: 'not-a-number',
+            },
+          ],
+          url_aliases: {},
+        },
+      };
+
+      mockStorageLocal.get.mockResolvedValue({});
+
+      await applyDriveSnapshotToLocalStorage(snapshot);
+
+      const toWrite = mockStorageLocal.set.mock.calls[0][0];
+      expect(toWrite[`${HIGHLIGHTS_PREFIX}url-invalid-ts`][0].timestamp).toBe(Date.now());
+    });
+
+    it('should remove stale sync keys before writing snapshot data', async () => {
+      const snapshot = {
+        metadata: {
+          updated_at: new Date().toISOString(),
+        },
+        payload: {
+          saved_states: [],
+          highlights: [],
+          url_aliases: {},
+        },
+      };
+
+      mockStorageLocal.get.mockResolvedValue({
+        [`${PAGE_PREFIX}legacy-url`]: { notion: {} },
+      });
+
+      await applyDriveSnapshotToLocalStorage(snapshot);
+
+      expect(mockStorageLocal.remove).toHaveBeenCalledWith([`${PAGE_PREFIX}legacy-url`]);
+      expect(mockStorageLocal.remove.mock.invocationCallOrder[0]).toBeLessThan(
+        mockStorageLocal.set.mock.invocationCallOrder[0]
+      );
     });
 
     it('should throw error on invalid snapshot', async () => {

@@ -93,6 +93,20 @@ describe('Drive Client API', () => {
           driveSyncLastErrorCode: null,
           driveSyncLastSuccessfulUploadAt: '2023-01-01T00:00:00.000Z',
           driveSyncLastKnownRemoteUpdatedAt: 'iso',
+          driveSyncNeedsManualReview: false,
+        })
+      );
+    });
+
+    it('updateDriveSyncRunMetadata should clear needsManualReview on successful download', async () => {
+      await updateDriveSyncRunMetadata({ type: 'download', success: true, remoteUpdatedAt: 'iso' });
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          driveSyncLastRunType: 'download',
+          driveSyncLastSuccessfulDownloadAt: '2023-01-01T00:00:00.000Z',
+          driveSyncLastKnownRemoteUpdatedAt: 'iso',
+          driveSyncNeedsManualReview: false,
         })
       );
     });
@@ -210,6 +224,30 @@ describe('Drive Client API', () => {
         const res = await fetchDriveSnapshotStatus();
         expect(res.exists).toBe(false);
       });
+
+      it('defaults exists to false when backend omits has_snapshot and updatedAt', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(false);
+        expect(res.updatedAt).toBeNull();
+      });
+
+      it('treats remote snapshot as existing when backend provides updatedAt', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ remote_updated_at: 'time' }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time');
+      });
     });
 
     describe('uploadDriveSnapshot', () => {
@@ -264,11 +302,15 @@ describe('Drive Client API', () => {
         mockFetch.mockResolvedValue({
           ok: false,
           status: 409,
-          json: async () => ({ code: 'REMOTE_SNAPSHOT_NEWER' }),
+          json: async () => ({
+            code: 'REMOTE_SNAPSHOT_NEWER',
+            remote_updated_at: '2026-04-21T00:00:00.000Z',
+          }),
         });
         const res = await uploadDriveSnapshot({});
         expect(res.success).toBe(false);
         expect(res.errorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+        expect(res.remoteUpdatedAt).toBe('2026-04-21T00:00:00.000Z');
       });
 
       it('throws error on 500', async () => {
