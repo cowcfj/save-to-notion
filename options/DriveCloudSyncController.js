@@ -390,6 +390,8 @@ export function renderCloudSyncCard(metadata) {
  */
 async function handleUpload(force = false) {
   showLoading(force ? '強制上載中...' : '上載到雲端中...');
+  let uploadSucceeded = false;
+  let conflictDetected = false;
   try {
     const response = await chrome.runtime.sendMessage({
       action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
@@ -400,19 +402,15 @@ async function handleUpload(force = false) {
       throw new Error('背景無回應');
     }
 
-    if (!response.success) {
-      if (response.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
-        // 進入衝突流程（UI 由 renderCloudSyncCard 處理）
-        showSyncStatus('', '');
-        return;
-      }
+    if (response.success) {
+      showSyncStatus('上載成功！', 'success');
+      uploadSucceeded = true;
+    } else if (response.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+      showSyncStatus('', '');
+      conflictDetected = true;
+    } else {
       throw new Error(response.error ?? response.errorCode ?? '上載失敗');
     }
-
-    showSyncStatus('上載成功！', 'success');
-    // 重新讀取 metadata 刷新 UI
-    const metadata = await getDriveSyncMetadata();
-    renderCloudSyncCard(metadata);
   } catch (error) {
     Logger.error('[CloudSync] Upload failed', {
       error: getSafeError(error, 'drive_sync_upload'),
@@ -420,6 +418,18 @@ async function handleUpload(force = false) {
     showSyncStatus(`上載失敗：${getUserFriendlyErrorMessage(error, 'drive_sync_upload')}`, 'error');
   } finally {
     hideLoading();
+  }
+
+  if (!uploadSucceeded && !conflictDetected) {
+    return;
+  }
+
+  try {
+    await refreshCloudSyncCard();
+  } catch (error) {
+    Logger.error('[CloudSync] Upload UI refresh failed', {
+      error: getSafeError(error, 'drive_sync_upload_ui_refresh'),
+    });
   }
 }
 
@@ -435,6 +445,7 @@ async function handleDownload() {
   }
 
   showLoading('從雲端還原中...');
+  let downloadSucceeded = false;
   try {
     const response = await chrome.runtime.sendMessage({
       action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
@@ -448,8 +459,7 @@ async function handleDownload() {
     }
 
     showSyncStatus('還原成功！頁面資料已從雲端更新。', 'success');
-    const metadata = await getDriveSyncMetadata();
-    renderCloudSyncCard(metadata);
+    downloadSucceeded = true;
   } catch (error) {
     Logger.error('[CloudSync] Download failed', {
       error: getSafeError(error, 'drive_sync_download'),
@@ -460,6 +470,18 @@ async function handleDownload() {
     );
   } finally {
     hideLoading();
+  }
+
+  if (!downloadSucceeded) {
+    return;
+  }
+
+  try {
+    await refreshCloudSyncCard();
+  } catch (error) {
+    Logger.error('[CloudSync] Download UI refresh failed', {
+      error: getSafeError(error, 'drive_sync_download_ui_refresh'),
+    });
   }
 }
 

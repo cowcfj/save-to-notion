@@ -165,6 +165,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(result).toEqual({
         success: false,
+        errorCode: 'UPLOAD_FAILED',
         error: 'build failed',
       });
     });
@@ -214,6 +215,7 @@ describe('Drive Sync Handlers', () => {
       });
 
       expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('NO_REMOTE_SNAPSHOT');
       expect(result.error).toBe('NO_REMOTE_SNAPSHOT');
     });
 
@@ -234,6 +236,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(result).toEqual({
         success: false,
+        errorCode: 'DOWNLOAD_FAILED',
         error: 'apply failed',
       });
     });

@@ -152,6 +152,7 @@ async function handleManualUpload(request) {
 
     return {
       success: false,
+      errorCode: 'UPLOAD_FAILED',
       error: error instanceof Error ? error.message : String(error),
     };
   }
@@ -210,7 +211,7 @@ async function handleManualDownload() {
     }
     await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
-    return { success: false, error: errorMessage };
+    return { success: false, errorCode, error: errorMessage };
   }
 }
 

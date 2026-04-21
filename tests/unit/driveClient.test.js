@@ -131,16 +131,10 @@ describe('Drive Client API', () => {
         success: false,
         errorCode: 'UPLOAD_FAILED',
       });
-      expect(mockStorageLocal.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          driveSyncLastErrorCode: 'UPLOAD_FAILED',
-        })
-      );
-      expect(mockStorageLocal.set).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          driveSyncNeedsManualReview: true,
-        })
-      );
+      expect(mockStorageLocal.set).toHaveBeenCalledTimes(1);
+      const payload = mockStorageLocal.set.mock.calls[0][0];
+      expect(payload.driveSyncLastErrorCode).toBe('UPLOAD_FAILED');
+      expect(payload).not.toHaveProperty('driveSyncNeedsManualReview');
     });
 
     it('clearDriveSyncConflict should unset error', async () => {
@@ -373,6 +367,12 @@ describe('Drive Client API', () => {
       it('throws on non-ok', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 500, text: async () => '' });
         await expect(disconnectDrive()).rejects.toThrow();
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/account/drive/connection'),
+          expect.objectContaining({ method: 'DELETE' })
+        );
       });
     });
   });

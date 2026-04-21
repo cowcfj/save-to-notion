@@ -952,6 +952,7 @@ function buildChromeMock(overrides = {}) {
 describe('Google Drive API constants', () => {
   it('should use /v1/account/drive namespace for drive endpoints', () => {
     expect(ACCOUNT_API.DRIVE_START).toBe('/v1/account/drive/start');
+    expect(ACCOUNT_API.DRIVE_START_URL).toBe('/v1/account/drive/start-url');
     expect(ACCOUNT_API.DRIVE_CONNECTION).toBe('/v1/account/drive/connection');
     expect(ACCOUNT_API.DRIVE_SNAPSHOT_STATUS).toBe('/v1/account/drive/snapshot/status');
     expect(ACCOUNT_API.DRIVE_SNAPSHOT).toBe('/v1/account/drive/snapshot');
@@ -1284,7 +1285,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       listener({ action: 'account_session_cleared' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
       expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
     });

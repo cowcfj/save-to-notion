@@ -1,5 +1,19 @@
 /* 共用 callback bridge 狀態樣式 */
 
+:root {
+  --callback-spinner-border: #334155;
+  --callback-spinner-accent: #6366f1;
+  --callback-text-default: #94a3b8;
+  --callback-success-bg: rgba(34, 197, 94, 0.15);
+  --callback-success-stroke: #22c55e;
+  --callback-success-text: #86efac;
+  --callback-error-bg: rgba(239, 68, 68, 0.15);
+  --callback-error-stroke: #ef4444;
+  --callback-error-text: #fca5a5;
+  --callback-detail-text: #64748b;
+  --callback-hint-text: #475569;
+}
+
 .status-area {
   min-height: 64px;
   display: flex;
@@ -11,8 +25,8 @@
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #334155;
-  border-top-color: var(--spinner-accent, #6366f1);
+  border: 3px solid var(--callback-spinner-border, #334155);
+  border-top-color: var(--spinner-accent, var(--callback-spinner-accent, #6366f1));
   border-radius: 50%;
   animation: callback-bridge-spin 0.8s linear infinite;
 }
@@ -25,7 +39,7 @@
 
 .status-text {
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--callback-text-default, #94a3b8);
   line-height: 1.5;
 }
 
@@ -48,16 +62,16 @@
   stroke-linejoin: round;
 }
 
-.status-success .icon-circle { background: rgba(34, 197, 94, 0.15); }
-.status-error .icon-circle { background: rgba(239, 68, 68, 0.15); }
-.status-success .icon-circle svg { stroke: #22c55e; }
-.status-error .icon-circle svg { stroke: #ef4444; }
-.status-success .status-text { color: #86efac; }
-.status-error .status-text { color: #fca5a5; }
+.status-success .icon-circle { background: var(--callback-success-bg, rgba(34, 197, 94, 0.15)); }
+.status-error .icon-circle { background: var(--callback-error-bg, rgba(239, 68, 68, 0.15)); }
+.status-success .icon-circle svg { stroke: var(--callback-success-stroke, #22c55e); }
+.status-error .icon-circle svg { stroke: var(--callback-error-stroke, #ef4444); }
+.status-success .status-text { color: var(--callback-success-text, #86efac); }
+.status-error .status-text { color: var(--callback-error-text, #fca5a5); }
 
 .error-detail {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--callback-detail-text, #64748b);
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
@@ -65,5 +79,5 @@
 .close-hint {
   margin-top: 20px;
   font-size: 0.75rem;
-  color: #475569;
+  color: var(--callback-hint-text, #475569);
 }

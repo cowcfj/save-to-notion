@@ -147,8 +147,21 @@ function _isValidSavedEntry(value) {
 }
 
 function _toFiniteNumber(value, fallback) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+/**
+ * 判斷 value 是否為 plain object（非 null、非陣列、非字串／其他原始型別）
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function _isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
@@ -462,16 +475,13 @@ function _mergeHighlightEntries(highlights, pageStates) {
       continue;
     }
 
-    const parsedCreatedAt =
-      typeof item.created_at === 'number' ? item.created_at : Number(item.created_at);
-
     const pageState = pageStates.get(item.page_key) ?? { notion: null, highlights: [] };
     const highlight = {
       id: item.highlight_id,
       text: item.text,
       color: item.color ?? '',
       rangeInfo: item.range_info && typeof item.range_info === 'object' ? item.range_info : {},
-      timestamp: Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : Date.now(),
+      timestamp: _toFiniteNumber(item.created_at, Date.now()),
     };
 
     if (item.updated_at !== undefined) {
@@ -540,6 +550,9 @@ function _buildPageWriteEntries(pageStates, now, toWrite, snapshotStorageKeys) {
  * @param {Set<string>} snapshotStorageKeys
  */
 function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys) {
+  if (!_isPlainObject(urlAliases)) {
+    return;
+  }
   for (const [normalizedUrl, stableUrl] of Object.entries(urlAliases)) {
     if (!normalizedUrl || typeof stableUrl !== 'string') {
       continue;
