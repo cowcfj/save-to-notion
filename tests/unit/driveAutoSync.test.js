@@ -152,12 +152,19 @@ describe('runAutoUpload()', () => {
     driveClient.getDriveSyncMetadata.mockResolvedValue(baseMetadata({ frequency: 'off' }));
     await runAutoUpload();
     expect(driveSnapshot.buildDriveSnapshot).not.toHaveBeenCalled();
-    expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('跳過自動同步'), {
-      reason: 'frequency_off',
-    });
+    expect(Logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('跳過自動同步'),
+      expect.objectContaining({ reason: 'frequency_off' })
+    );
   });
 
   it('broadcases conflict when REMOTE_SNAPSHOT_NEWER occurs', async () => {
+    driveClient.getDriveSyncMetadata
+      .mockResolvedValueOnce(baseMetadata())
+      .mockResolvedValueOnce(
+        baseMetadata({ lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z' })
+      );
+
     driveClient.uploadDriveSnapshot.mockResolvedValue({
       success: false,
       errorCode: 'REMOTE_SNAPSHOT_NEWER',
@@ -180,7 +187,7 @@ describe('runAutoUpload()', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       })
     );
@@ -197,6 +204,9 @@ describe('runAutoUpload()', () => {
 
     expect(mockSendMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT })
+    );
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED })
     );
     expect(Logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt'),

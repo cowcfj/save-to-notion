@@ -72,7 +72,7 @@ function wrapWithDriveDirtyTracking(service, methodNames) {
     const original = service[methodName].bind(service);
     service[methodName] = async function (...args) {
       const result = await original(...args);
-      markDriveDirty().catch(error => {
+      await markDriveDirty().catch(error => {
         // 記錄但不 rethrow：drive dirty tracking 失敗不應阻斷主寫入流程；
         // 下次任何 canonical write 都會重新嘗試 mark dirty。
         Logger.warn('[Background] markDriveDirty failed during wrapper forward', {
@@ -171,7 +171,7 @@ accountAuthHandler.setupListeners();
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === DRIVE_AUTO_SYNC_ALARM) {
     runAutoUpload().catch(error => {
-      Logger.error('[Alarm] Drive auto sync failed', {
+      Logger.error('[Alarm] Drive 自動同步失敗', {
         action: 'auto_sync',
         reason: error instanceof Error ? error.message : String(error),
       });

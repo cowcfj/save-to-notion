@@ -605,7 +605,7 @@ describe('Background Script Lifecycle', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        '[Alarm] Drive auto sync failed',
+        '[Alarm] Drive 自動同步失敗',
         expect.objectContaining({ reason: 'auto upload broke' })
       );
     });

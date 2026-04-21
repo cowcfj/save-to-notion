@@ -122,6 +122,9 @@ export default [
       ...sonarjs.configs.recommended.rules,
       'sonarjs/cognitive-complexity': ['warn', 15],
       'sonarjs/no-duplicate-string': 'warn',
+      // S1135（待辦標記）降為 warn：保留 IDE/CLI 提示，但不阻擋 commit/push，
+      // 讓追蹤用的註解（如指向 docs/plans 的後續任務）可與代碼共存。
+      'sonarjs/todo-tag': 'warn',
 
       // 2. Security
       ...security.configs.recommended.rules,

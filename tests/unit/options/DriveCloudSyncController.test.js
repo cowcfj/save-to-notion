@@ -90,8 +90,9 @@ describe('DriveCloudSyncController', () => {
           <option value="weekly">Weekly</option>
           <option value="monthly">Every 30 days</option>
         </select>
-        <div id="drive-auto-sync-status" role="status" aria-live="polite"></div>
-        <div id="drive-auto-sync-status-text"></div>
+        <output id="drive-auto-sync-status" aria-live="polite">
+          <span id="drive-auto-sync-status-text"></span>
+        </output>
 
         <button id="drive-connect-button"></button>
         <button id="drive-upload-button"></button>

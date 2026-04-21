@@ -471,6 +471,10 @@ export async function setDriveFrequency(frequency) {
  * 標記本地資料已變更（dirty = true）。
  * 在所有 canonical write path 後呼叫。
  *
+ * TODO(drive-sync-race): 目前 DIRTY 為單一 boolean，在 snapshot 建構完成到
+ * clearDriveDirty 執行期間的新寫入會被下一次清除動作擦除（資料延遲 race）。
+ * 完整修復見 docs/plans/2026-04-22-drive-sync-dirty-revision-race-condition-plan.md
+ *
  * @returns {Promise<void>}
  */
 export async function markDriveDirty() {
@@ -481,6 +485,10 @@ export async function markDriveDirty() {
 
 /**
  * 清除 dirty 標記，並更新 snapshot hash 與下次允許時間。
+ *
+ * TODO(drive-sync-race): 無條件把 DIRTY 翻回 false 會擦除 upload 期間新增的
+ * dirty 訊號；修復方向為加入 expectedDirtyRevision 比對。詳見
+ * docs/plans/2026-04-22-drive-sync-dirty-revision-race-condition-plan.md
  *
  * @param {{ snapshotHash?: string | null; frequency: 'off' | 'daily' | 'weekly' | 'monthly' }} options
  * @returns {Promise<void>}
