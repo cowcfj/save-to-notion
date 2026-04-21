@@ -67,11 +67,11 @@ describe('Phase B — driveClient helpers', () => {
       expect(ts - before).toBeGreaterThanOrEqual(7 * 24 * 60 * 60 * 1000 - 1000);
     });
 
-    it('monthly 加至少 28 天', () => {
+    it('monthly 加 30 天', () => {
       const before = Date.now();
       const result = computeNextEligibleAt('monthly');
       const ts = Date.parse(result);
-      expect(ts - before).toBeGreaterThanOrEqual(28 * 24 * 60 * 60 * 1000);
+      expect(ts - before).toBeGreaterThanOrEqual(30 * 24 * 60 * 60 * 1000 - 1000);
     });
 
     it('回傳值為合法 ISO 8601 字串', () => {

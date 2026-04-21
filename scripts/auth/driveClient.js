@@ -497,7 +497,7 @@ export function computeNextEligibleAt(frequency) {
     now.setDate(now.getDate() + 7);
   } else {
     // monthly
-    now.setMonth(now.getMonth() + 1);
+    now.setDate(now.getDate() + 30);
   }
   return now.toISOString();
 }
