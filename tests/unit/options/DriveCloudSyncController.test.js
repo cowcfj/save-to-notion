@@ -7,12 +7,13 @@ import {
   setCloudSyncCardVisibility,
   renderCloudSyncCard,
   refreshCloudSyncCard,
-} from '../../options/DriveCloudSyncController.js';
-import * as driveClient from '../../scripts/auth/driveClient.js';
-import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
-import Logger from '../../scripts/utils/Logger.js';
-import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+} from '../../../options/DriveCloudSyncController.js';
+import * as driveClient from '../../../scripts/auth/driveClient.js';
+import { RUNTIME_ACTIONS } from '../../../scripts/config/runtimeActions.js';
+import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import Logger from '../../../scripts/utils/Logger.js';
+import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
 
 async function flushAsyncWork() {
   await Promise.resolve();
@@ -131,7 +132,9 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
 
       expect(document.querySelector('#drive-connected-email').textContent).toBe('test@notion.so');
-      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('上次上載');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX
+      );
     });
 
     it('renders conflict state correctly', () => {
@@ -157,7 +160,9 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-error-banner').style.display).toBe('');
       expect(document.querySelector('#drive-error-code').textContent).toContain('UPLOAD_FAILED');
-      expect(document.querySelector('#drive-error-time').textContent).toContain('發生時間');
+      expect(document.querySelector('#drive-error-time').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.ERROR_TIME_PREFIX
+      );
     });
 
     it('falls back to raw timestamp when date formatting throws', () => {
@@ -191,9 +196,9 @@ describe('DriveCloudSyncController', () => {
         lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
       });
       const text = document.querySelector('#drive-last-upload-text').textContent;
-      expect(text).toContain('雲端備份');
-      expect(text).not.toContain('尚未上載');
-      expect(text).not.toContain('上次上載');
+      expect(text).toContain(UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX);
+      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED);
+      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX);
     });
 
     it('lastSuccessfulUploadAt 優先於 lastKnownRemoteUpdatedAt', () => {
@@ -203,13 +208,15 @@ describe('DriveCloudSyncController', () => {
         lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
       });
       const text = document.querySelector('#drive-last-upload-text').textContent;
-      expect(text).toContain('上次上載');
-      expect(text).not.toContain('雲端備份');
+      expect(text).toContain(UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX);
+      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX);
     });
 
     it('兩者皆無 → 維持「尚未上載」', () => {
       renderCloudSyncCard({ connectionEmail: 'nothing@test.dev' });
-      expect(document.querySelector('#drive-last-upload-text').textContent).toBe('尚未上載');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED
+      );
     });
   });
 
@@ -249,7 +256,7 @@ describe('DriveCloudSyncController', () => {
 
       const safeMessage = sanitizeApiError(new Error('popup blocked'), 'drive_connect_start');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `連接失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.CONNECT_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Drive connect start failed', {
@@ -335,9 +342,12 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
-      const safeMessage = sanitizeApiError(new Error('背景無回應'), 'drive_sync_upload');
+      const safeMessage = sanitizeApiError(
+        new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE),
+        'drive_sync_upload'
+      );
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `上載失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -372,7 +382,7 @@ describe('DriveCloudSyncController', () => {
 
       const safeMessage = sanitizeApiError(new Error('NO_REMOTE_SNAPSHOT'), 'drive_sync_download');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `還原失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -450,7 +460,7 @@ describe('DriveCloudSyncController', () => {
         error: expect.any(Error),
       });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '已中斷 Google Drive 連線'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('success');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -468,7 +478,7 @@ describe('DriveCloudSyncController', () => {
         error: sanitizeApiError(new Error('network down'), 'drive_disconnect'),
       });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '中斷連線失敗，請重試'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -561,7 +571,9 @@ describe('DriveCloudSyncController', () => {
 
       expect(driveClient.fetchDriveSnapshotStatus).toHaveBeenCalled();
       expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
-      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('雲端備份');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX
+      );
     });
 
     it('reconnect 時遠端無 snapshot → 顯示「尚未上載」且 lastKnownRemoteUpdatedAt 清為 null', async () => {
@@ -585,7 +597,9 @@ describe('DriveCloudSyncController', () => {
       await initCloudSyncController(true);
 
       expect(setSnapshotSpy).toHaveBeenCalledWith(null);
-      expect(document.querySelector('#drive-last-upload-text').textContent).toBe('尚未上載');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED
+      );
     });
 
     it('snapshot status 查詢失敗時不阻擋連線，且記錄 warn', async () => {
@@ -828,7 +842,9 @@ describe('DriveCloudSyncController', () => {
       await refreshCloudSyncCard({ syncRemote: true });
 
       expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
-      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('雲端備份');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX
+      );
     });
 
     it('clears temporary success status message after timeout', async () => {
@@ -843,7 +859,9 @@ describe('DriveCloudSyncController', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#drive-sync-status').textContent).toContain('上載成功');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS
+      );
 
       await jest.advanceTimersByTimeAsync(4000);
 
@@ -861,17 +879,19 @@ describe('DriveCloudSyncController', () => {
 
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
-      expect(document.querySelector('#drive-sync-status').textContent).toContain('上載成功');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS
+      );
 
       document.querySelector('#drive-disconnect-button').click();
       await flushAsyncWork();
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '已中斷 Google Drive 連線'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
 
       await jest.advanceTimersByTimeAsync(3999);
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '已中斷 Google Drive 連線'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
 
       await jest.advanceTimersByTimeAsync(1);

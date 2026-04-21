@@ -160,6 +160,45 @@ export const UI_MESSAGES = {
     USAGE_TOO_LARGE: size => `數據量過大 (${size} MB)，可能影響擴展性能，建議立即清理`,
     USAGE_LARGE: size => `數據量較大 (${size} MB)，建議清理不需要的標記數據以維持最佳性能`,
   },
+  CLOUD_SYNC: {
+    // === 狀態顯示（後接 timestamp 或 error code 作為結尾）===
+    LAST_UPLOAD_PREFIX: '上次上載：',
+    LAST_REMOTE_PREFIX: '雲端備份：',
+    NEVER_UPLOADED: '尚未上載',
+
+    // === 錯誤 banner（後接 error code 或 timestamp）===
+    SYNC_FAILED_PREFIX: '同步失敗：',
+    ERROR_TIME_PREFIX: '發生時間：',
+
+    // === Loading overlay 文字 ===
+    LOADING_UPLOAD: '上載到雲端中...',
+    LOADING_FORCE_UPLOAD: '強制上載中...',
+    LOADING_DOWNLOAD: '從雲端還原中...',
+    LOADING_DISCONNECT: '中斷連線中...',
+
+    // === 成功 toast ===
+    UPLOAD_SUCCESS: '上載成功！',
+    DOWNLOAD_SUCCESS: '還原成功！頁面資料已從雲端更新。',
+    DISCONNECT_SUCCESS: '已中斷 Google Drive 連線',
+
+    // === 失敗 toast（*_PREFIX 後接 sanitized error message）===
+    CONNECT_FAILED_PREFIX: '連接失敗：',
+    UPLOAD_FAILED_PREFIX: '上載失敗：',
+    DOWNLOAD_FAILED_PREFIX: '還原失敗：',
+    DISCONNECT_FAILED: '中斷連線失敗，請重試',
+
+    // === 內部 Error 訊息（拋出後交給 sanitizeApiError / ErrorHandler 處理）===
+    BG_NO_RESPONSE: '背景無回應',
+    UPLOAD_FAILED_GENERIC: '上載失敗',
+    DOWNLOAD_FAILED_GENERIC: '下載失敗',
+
+    // === Confirm dialog（含 \n\n 分段）===
+    CONFIRM_DOWNLOAD:
+      '從 Google Drive 還原資料將覆蓋本地所有已儲存的標記與保存記錄。\n\n確定要繼續嗎？',
+    CONFIRM_DISCONNECT:
+      '確定要中斷 Google Drive 連線嗎？\n\n本地資料不受影響，但雲端同步功能將停用。',
+    CONFIRM_FORCE_UPLOAD: '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。',
+  },
 };
 
 const USER_MESSAGES = {
