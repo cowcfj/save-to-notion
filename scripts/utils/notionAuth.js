@@ -320,3 +320,5 @@ export async function migrateDataSourceKeys({
     return false;
   }
 }
+
+// 觸發重新打包
