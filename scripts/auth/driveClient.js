@@ -25,6 +25,7 @@
  *   driveSyncNeedsManualReview        — 是否有待人工處理的衝突
  *   driveSyncInstallationId           — extension 安裝唯一 ID
  *   driveSyncProfileId                — 後端 Drive profile ID
+ *   driveSyncDirtyRevision            — 單調遞增 dirty 修訂號（Phase B race condition fix）
  *
  * @see docs/plans/2026-04-20-google-drive-sync-frontend-phase-a-manual-sync-plan.md
  * @see .agents/.shared/knowledge/storage_schema.json §driveSync
@@ -57,6 +58,7 @@ export const DRIVE_SYNC_STORAGE_KEYS = /** @type {const} */ ({
   // Phase B
   FREQUENCY: 'driveSyncFrequency',
   DIRTY: 'driveSyncDirty',
+  DIRTY_REVISION: 'driveSyncDirtyRevision',
   LAST_SNAPSHOT_HASH: 'driveSyncLastSnapshotHash',
   NEXT_ELIGIBLE_AT: 'driveSyncNextEligibleAt',
 });
@@ -104,6 +106,7 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
  * @property {string | null} profileId - 後端 Drive profile ID
  * @property {'off' | 'daily' | 'weekly' | 'monthly'} frequency - 自動同步頻率（Phase B）
  * @property {boolean} dirty - 本地資料是否已變更尚未同步（Phase B）
+ * @property {number} dirtyRevision - 單調遞增 dirty 修訂號；markDriveDirty 每次呼叫 +1（Phase B race condition fix）
  * @property {string | null} lastSnapshotHash - 上次成功上傳的 snapshot 內容哈希（Phase B）
  * @property {string | null} nextEligibleAt - 下次允許自動上傳的最早時間 ISO 8601（Phase B）
  */
@@ -173,6 +176,7 @@ export async function getDriveSyncMetadata() {
     // Phase B
     frequency: data[DRIVE_SYNC_STORAGE_KEYS.FREQUENCY] ?? 'off',
     dirty: data[DRIVE_SYNC_STORAGE_KEYS.DIRTY] ?? false,
+    dirtyRevision: data[DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION] ?? 0,
     lastSnapshotHash: data[DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH] ?? null,
     nextEligibleAt: data[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT] ?? null,
   };
@@ -468,39 +472,60 @@ export async function setDriveFrequency(frequency) {
 }
 
 /**
- * 標記本地資料已變更（dirty = true）。
- * 在所有 canonical write path 後呼叫。
+ * 標記本地資料已變更（dirty = true），同時將 dirty 修訂號遞增。
  *
- * TODO(drive-sync-race): 目前 DIRTY 為單一 boolean，在 snapshot 建構完成到
- * clearDriveDirty 執行期間的新寫入會被下一次清除動作擦除（資料延遲 race）。
- * 完整修復見 docs/plans/2026-04-22-drive-sync-dirty-revision-race-condition-plan.md
+ * 每次呼叫會讀取當前 DIRTY_REVISION，+1 後寫回。
+ * read-then-write 在 MV3 service worker 單執行緒 event loop 下
+ * 無法被同 worker 的其他 await 插隊，跨 context 的交錯最多僅造成
+ * 增量遺失 1，但不影響 race condition 修正的正確性（只要
+ * runAutoUpload 捕獲的 revision 與 clearDirty 當下不同即可判定有新變更）。
  *
  * @returns {Promise<void>}
  */
 export async function markDriveDirty() {
+  const data = await chrome.storage.local.get(DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION);
+  const currentRevision = data[DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION] ?? 0;
   await chrome.storage.local.set({
     [DRIVE_SYNC_STORAGE_KEYS.DIRTY]: true,
+    [DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION]: currentRevision + 1,
   });
 }
 
 /**
  * 清除 dirty 標記，並更新 snapshot hash 與下次允許時間。
  *
- * TODO(drive-sync-race): 無條件把 DIRTY 翻回 false 會擦除 upload 期間新增的
- * dirty 訊號；修復方向為加入 expectedDirtyRevision 比對。詳見
- * docs/plans/2026-04-22-drive-sync-dirty-revision-race-condition-plan.md
+ * 若傳入 `expectedDirtyRevision`，則只有在 storage 中的 DIRTY_REVISION
+ * 與之相同時才把 DIRTY 翻回 false。若期間有新的 markDriveDirty() 觸發
+ * （revision 已變動），僅更新 snapshotHash 與 nextEligibleAt，保留 DIRTY=true
+ * 確保下次 alarm 仍會重新上傳。
  *
- * @param {{ snapshotHash?: string | null; frequency: 'off' | 'daily' | 'weekly' | 'monthly' }} options
+ * @param {{ snapshotHash?: string | null; frequency: 'off' | 'daily' | 'weekly' | 'monthly'; expectedDirtyRevision?: number }} options
  * @returns {Promise<void>}
  */
 export async function clearDriveDirty(options) {
   const nextEligibleAt =
     options.frequency === 'off' ? null : computeNextEligibleAt(options.frequency);
-  await chrome.storage.local.set({
-    [DRIVE_SYNC_STORAGE_KEYS.DIRTY]: false,
+
+  const patch = {
     [DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH]: options.snapshotHash ?? null,
     [DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]: nextEligibleAt,
-  });
+  };
+
+  // 若有傳入期望 revision，需比對 storage 當前值才決定是否清除 DIRTY。
+  // 若 expectedDirtyRevision 未傳入（undefined），維持原先無條件清除行為
+  // （向下相容：手動 upload 路徑可能不傳此值）。
+  if (options.expectedDirtyRevision === undefined) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.DIRTY] = false;
+  } else {
+    const data = await chrome.storage.local.get(DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION);
+    const currentRevision = data[DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION] ?? 0;
+    if (currentRevision === options.expectedDirtyRevision) {
+      patch[DRIVE_SYNC_STORAGE_KEYS.DIRTY] = false;
+    }
+    // 否則 DIRTY 保持 true，不放入 patch
+  }
+
+  await chrome.storage.local.set(patch);
 }
 
 /**

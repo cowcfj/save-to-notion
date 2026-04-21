@@ -116,6 +116,37 @@ describe('Phase B — driveClient helpers', () => {
         })
       );
     });
+
+    it('第一次呼叫：revision 從 0 遞增為 1', async () => {
+      // storage 初始為空（revision = 0）
+      mockStorageLocal.get.mockResolvedValue({});
+      await markDriveDirty();
+      expect(mockStorageLocal.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION]: 1,
+        })
+      );
+    });
+
+    it('連續呼叫 N 次，revision 累加至 N（序列呼叫）', async () => {
+      // 每次 get 回傳上一次 set 的內容（模擬序列認測）
+      let storedRevision = 0;
+      mockStorageLocal.get.mockImplementation(() =>
+        Promise.resolve({ [DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION]: storedRevision })
+      );
+      mockStorageLocal.set.mockImplementation(data => {
+        if (DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION in data) {
+          storedRevision = data[DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION];
+        }
+        return Promise.resolve();
+      });
+
+      await markDriveDirty();
+      await markDriveDirty();
+      await markDriveDirty();
+
+      expect(storedRevision).toBe(3);
+    });
   });
 
   describe('clearDriveDirty()', () => {
@@ -139,6 +170,51 @@ describe('Phase B — driveClient helpers', () => {
       await clearDriveDirty({ snapshotHash: null, frequency: 'monthly' });
       const call = mockStorageLocal.set.mock.calls[0][0];
       expect(call[DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH]).toBeNull();
+    });
+
+    it('expectedDirtyRevision 未傳入（undefined）時，無條件清除 DIRTY = false（向下相容）', async () => {
+      await clearDriveDirty({ snapshotHash: null, frequency: 'weekly' });
+      const call = mockStorageLocal.set.mock.calls[0][0];
+      expect(call[DRIVE_SYNC_STORAGE_KEYS.DIRTY]).toBe(false);
+      // 不應呼叫 storage.get（無需比對 revision）
+      expect(mockStorageLocal.get).not.toHaveBeenCalled();
+    });
+
+    it('expectedDirtyRevision 與 storage 一致時，DIRTY 被清除', async () => {
+      // storage 中 revision = 3
+      mockStorageLocal.get.mockResolvedValue({
+        [DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION]: 3,
+      });
+      await clearDriveDirty({ snapshotHash: null, frequency: 'weekly', expectedDirtyRevision: 3 });
+      const call = mockStorageLocal.set.mock.calls[0][0];
+      expect(call[DRIVE_SYNC_STORAGE_KEYS.DIRTY]).toBe(false);
+    });
+
+    it('expectedDirtyRevision 與 storage 不一致時，DIRTY 保留 true（race condition 修正）', async () => {
+      // storage 中 revision = 4（期間有新寫入）
+      mockStorageLocal.get.mockResolvedValue({
+        [DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION]: 4,
+      });
+      await clearDriveDirty({ snapshotHash: null, frequency: 'weekly', expectedDirtyRevision: 3 });
+      const call = mockStorageLocal.set.mock.calls[0][0];
+      // DIRTY 不應被寫入 patch（保留 true）
+      expect(call[DRIVE_SYNC_STORAGE_KEYS.DIRTY]).toBeUndefined();
+    });
+
+    it('即使 revision 不一致，snapshotHash 與 nextEligibleAt 仍更新（避免 retry 風暴）', async () => {
+      mockStorageLocal.get.mockResolvedValue({
+        [DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION]: 5,
+      });
+      await clearDriveDirty({
+        snapshotHash: 'xyz',
+        frequency: 'daily',
+        expectedDirtyRevision: 3,
+      });
+      const call = mockStorageLocal.set.mock.calls[0][0];
+      expect(call[DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH]).toBe('xyz');
+      expect(Date.parse(call[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT])).toBeGreaterThan(
+        Date.now()
+      );
     });
   });
 });

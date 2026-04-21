@@ -176,12 +176,16 @@ async function handleUploadFailure(result) {
 /**
  * 處理 upload 成功：更新 metadata、清 dirty、廣播最新狀態。
  *
+ * 傳入 expectedDirtyRevision ，供 clearDriveDirty 判斷 upload 期間
+ * 是否出現新寫入，若有则保留 DIRTY=true。
+ *
  * @param {{ updatedAt?: string | null }} result
  * @param {object} snapshot
  * @param {{ frequency: 'off' | 'daily' | 'weekly' | 'monthly' }} metadata
+ * @param {number} expectedDirtyRevision
  * @returns {Promise<void>}
  */
-async function handleUploadSuccess(result, snapshot, metadata) {
+async function handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevision) {
   await updateDriveSyncRunMetadata({
     type: 'upload',
     success: true,
@@ -194,6 +198,7 @@ async function handleUploadSuccess(result, snapshot, metadata) {
   await clearDriveDirty({
     snapshotHash,
     frequency: metadata.frequency,
+    expectedDirtyRevision,
   });
 
   Logger.success('[DriveAutoSync] 自動上傳成功', {
@@ -240,6 +245,11 @@ export async function runAutoUpload(context = {}) {
 
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
 
+  // 在讀取 metadata 時同步捕获當前 dirty revision。
+  // upload 完成後，clearDriveDirty 會比對此值，
+  // 若期間有新 markDriveDirty() （revision 變大），則保留 DIRTY=true。
+  const expectedDirtyRevision = metadata.dirtyRevision;
+
   try {
     const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
     const snapshot = await buildDriveSnapshot(pages, urlAliases, {
@@ -254,7 +264,7 @@ export async function runAutoUpload(context = {}) {
       return;
     }
 
-    await handleUploadSuccess(result, snapshot, metadata);
+    await handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevision);
   } catch (error) {
     await updateDriveSyncRunMetadata({
       type: 'upload',
