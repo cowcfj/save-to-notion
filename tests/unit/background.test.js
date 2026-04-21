@@ -38,6 +38,8 @@ const mockServiceInstance = {
   clearPageState: jest.fn(),
   setSavedPageData: jest.fn(),
   checkPageExists: jest.fn(),
+  savePageDataAndHighlights: jest.fn().mockResolvedValue({}),
+  updateHighlights: jest.fn().mockResolvedValue({}),
 };
 
 jest.mock('../../scripts/background/services/StorageService.js', () => ({
@@ -391,6 +393,8 @@ describe('Background Script Lifecycle', () => {
         clearPageState: jest.fn().mockResolvedValue('cleared1'),
         clearNotionState: jest.fn().mockResolvedValue('cleared2'),
         setSavedPageData: jest.fn().mockResolvedValue('set'),
+        savePageDataAndHighlights: jest.fn().mockResolvedValue('saved'),
+        updateHighlights: jest.fn().mockResolvedValue('updated'),
       };
 
       const mockNotion = {
@@ -476,12 +480,84 @@ describe('Background Script Lifecycle', () => {
       });
     });
 
+    test('clearNotionStateWithRetry maps to StorageService.clearNotionStateWithRetry', async () => {
+      // Setup mock since it wasn't added to the shared mock storage
+      storageServiceMock.clearNotionStateWithRetry = jest.fn().mockResolvedValue('cleared3');
+      await actualTabServiceDeps.clearNotionStateWithRetry('urlRetry', { opt: 1 });
+      expect(storageServiceMock.clearNotionStateWithRetry).toHaveBeenCalledWith('urlRetry', {
+        opt: 1,
+      });
+    });
+
     test('setSavedPageData maps to StorageService.setSavedPageData', async () => {
       // Phase B dirty tracking 會 wrap setSavedPageData，
       // 但仍應正確呼叫底層並 resolve。
       await expect(
         actualTabServiceDeps.setSavedPageData('url5', { data: 1 })
       ).resolves.not.toThrow();
+    });
+
+    test('savePageDataAndHighlights dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.savePageDataAndHighlights('url', {}, []);
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('updateHighlights dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.updateHighlights('url', []);
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+  });
+
+  describe('Drive Auto Sync Alarm', () => {
+    it('listens to DRIVE_AUTO_SYNC_ALARM and calls runAutoUpload', async () => {
+      jest.resetModules();
+      const alarmsAddListener = jest.fn();
+      globalThis.chrome = {
+        runtime: { onInstalled: { addListener: jest.fn() } },
+        alarms: { onAlarm: { addListener: alarmsAddListener } },
+      };
+
+      const driveAutoSyncMock = { runAutoUpload: jest.fn().mockResolvedValue() };
+      jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
+
+      require('../../scripts/background.js');
+
+      const alarmCallback = alarmsAddListener.mock.calls[0][0];
+      await alarmCallback({ name: 'drive-auto-sync' });
+
+      expect(driveAutoSyncMock.runAutoUpload).toHaveBeenCalled();
+    });
+
+    it('logs error when runAutoUpload fails', async () => {
+      jest.resetModules();
+      const alarmsAddListener = jest.fn();
+      globalThis.chrome = {
+        runtime: { onInstalled: { addListener: jest.fn() } },
+        alarms: { onAlarm: { addListener: alarmsAddListener } },
+      };
+
+      const driveAutoSyncMock = {
+        runAutoUpload: jest.fn().mockRejectedValue(new Error('auto upload broke')),
+      };
+      jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
+
+      require('../../scripts/background.js');
+
+      const alarmCallback = alarmsAddListener.mock.calls[0][0];
+      await alarmCallback({ name: 'drive-auto-sync' });
+      // wait for promise rejection to propagate
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[Alarm] Drive auto sync failed',
+        expect.objectContaining({ reason: 'auto upload broke' })
+      );
     });
   });
 });

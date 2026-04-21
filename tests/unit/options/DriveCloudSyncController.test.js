@@ -26,6 +26,39 @@ async function flushAsyncWork() {
   await Promise.resolve();
 }
 
+const getStorageString = (key, state) => (Object.hasOwn(state, key) ? { [key]: state[key] } : {});
+
+const getStorageArray = (keys, state) => {
+  const result = {};
+  for (const key of keys) {
+    if (Object.hasOwn(state, key)) {
+      result[key] = state[key];
+    }
+  }
+  return result;
+};
+
+const getStorageObject = (keysObj, state) => {
+  const result = {};
+  for (const [key, defaultVal] of Object.entries(keysObj)) {
+    result[key] = Object.hasOwn(state, key) ? state[key] : defaultVal;
+  }
+  return result;
+};
+
+const getFromStorage = (keys, state) => {
+  if (typeof keys === 'string') {
+    return getStorageString(keys, state);
+  }
+  if (Array.isArray(keys)) {
+    return getStorageArray(keys, state);
+  }
+  if (keys && typeof keys === 'object') {
+    return getStorageObject(keys, state);
+  }
+  return { ...state };
+};
+
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
@@ -50,6 +83,13 @@ describe('DriveCloudSyncController', () => {
         <div id="drive-connected-email"></div>
         <div id="drive-last-upload-text"></div>
 
+        <select id="drive-frequency-select">
+          <option value="off">Off</option>
+          <option value="daily">Daily</option>
+        </select>
+        <div id="drive-auto-sync-status"></div>
+        <div id="drive-auto-sync-status-text"></div>
+
         <button id="drive-connect-button"></button>
         <button id="drive-upload-button"></button>
         <button id="drive-download-button"></button>
@@ -61,38 +101,14 @@ describe('DriveCloudSyncController', () => {
 
     mockSendMessage = jest.fn().mockResolvedValue({ success: true });
     const storageState = {};
+
     globalThis.chrome = {
       runtime: {
         sendMessage: mockSendMessage,
       },
       storage: {
         local: {
-          get: jest.fn().mockImplementation(async keys => {
-            if (Array.isArray(keys)) {
-              const result = {};
-              for (const key of keys) {
-                if (Object.prototype.hasOwnProperty.call(storageState, key)) {
-                  result[key] = storageState[key];
-                }
-              }
-              return result;
-            }
-            if (typeof keys === 'string') {
-              return Object.prototype.hasOwnProperty.call(storageState, keys)
-                ? { [keys]: storageState[keys] }
-                : {};
-            }
-            if (keys && typeof keys === 'object') {
-              const result = {};
-              for (const key of Object.keys(keys)) {
-                result[key] = Object.prototype.hasOwnProperty.call(storageState, key)
-                  ? storageState[key]
-                  : keys[key];
-              }
-              return result;
-            }
-            return { ...storageState };
-          }),
+          get: jest.fn().mockImplementation(async keys => getFromStorage(keys, storageState)),
           set: jest.fn().mockImplementation(async patch => {
             Object.assign(storageState, patch);
           }),
@@ -252,6 +268,26 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-last-upload-text').textContent).toBe(
         UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED
       );
+    });
+
+    it('renders frequency and auto sync status properly', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        frequency: 'daily',
+        needsManualReview: true,
+      });
+      expect(document.querySelector('#drive-frequency-select').value).toBe('daily');
+      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('');
+      expect(document.querySelector('#drive-auto-sync-status-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW
+      );
+
+      // off status hides the container
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        frequency: 'off',
+      });
+      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('none');
     });
   });
 

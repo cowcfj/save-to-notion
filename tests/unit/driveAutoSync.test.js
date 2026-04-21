@@ -4,7 +4,14 @@
  * 覆蓋 shouldRunAutoSync() 所有條件分支。
  */
 
-import { shouldRunAutoSync } from '../../scripts/background/handlers/driveAutoSync.js';
+import {
+  shouldRunAutoSync,
+  runAutoUpload,
+} from '../../scripts/background/handlers/driveAutoSync.js';
+import * as driveClient from '../../scripts/auth/driveClient.js';
+import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
+import Logger from '../../scripts/utils/Logger.js';
 
 /** 基礎合法 metadata（所有條件均滿足） */
 function baseMetadata(overrides = {}) {
@@ -83,5 +90,158 @@ describe('shouldRunAutoSync()', () => {
   it('nextEligibleAt = null（首次或 off 轉回）時應執行', () => {
     const { shouldRun } = shouldRunAutoSync(baseMetadata({ nextEligibleAt: null }));
     expect(shouldRun).toBe(true);
+  });
+});
+
+describe('runAutoUpload()', () => {
+  let mockSendMessage;
+
+  beforeEach(() => {
+    mockSendMessage = jest.fn().mockResolvedValue({});
+    globalThis.chrome = {
+      runtime: {
+        sendMessage: mockSendMessage,
+      },
+    };
+
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+
+    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue(baseMetadata());
+    jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
+    jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
+    jest
+      .spyOn(driveClient, 'uploadDriveSnapshot')
+      .mockResolvedValue({ success: true, updatedAt: '2026-04-21T00:00:00.000Z' });
+
+    jest.spyOn(driveSnapshot, 'buildUnifiedPageStateFromLocalStorage').mockResolvedValue({
+      pages: new Map(),
+      urlAliases: new Map(),
+    });
+    jest.spyOn(driveSnapshot, 'buildDriveSnapshot').mockResolvedValue({
+      metadata: { updated_at: 'x', item_counts: {} },
+      payload: {},
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete globalThis.chrome;
+  });
+
+  it('bails out early if getDriveSyncMetadata throws', async () => {
+    driveClient.getDriveSyncMetadata.mockRejectedValue(new Error('db read failed'));
+    await runAutoUpload();
+    expect(driveClient.uploadDriveSnapshot).not.toHaveBeenCalled();
+    expect(Logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('讀取 metadata 失敗'),
+      expect.any(Object)
+    );
+  });
+
+  it('bails out early if shouldRunAutoSync returns false', async () => {
+    // metadata frequency is 'off'
+    driveClient.getDriveSyncMetadata.mockResolvedValue(baseMetadata({ frequency: 'off' }));
+    await runAutoUpload();
+    expect(driveSnapshot.buildDriveSnapshot).not.toHaveBeenCalled();
+    expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('跳過自動同步'), {
+      reason: 'frequency_off',
+    });
+  });
+
+  it('broadcases conflict when REMOTE_SNAPSHOT_NEWER occurs', async () => {
+    driveClient.uploadDriveSnapshot.mockResolvedValue({
+      success: false,
+      errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+    });
+
+    await runAutoUpload();
+
+    expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
+      type: 'upload',
+      success: false,
+      errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+    });
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT,
+      conflictType: 'REMOTE_SNAPSHOT_NEWER',
+      remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+    });
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+    });
+  });
+
+  it('handles general upload failures gracefully', async () => {
+    driveClient.uploadDriveSnapshot.mockResolvedValue({
+      success: false,
+      errorCode: 'RATE_LIMIT_EXCEEDED',
+    });
+
+    await runAutoUpload();
+
+    expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
+      type: 'upload',
+      success: false,
+      errorCode: 'RATE_LIMIT_EXCEEDED',
+      remoteUpdatedAt: undefined,
+    });
+    expect(mockSendMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT })
+    );
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+    });
+  });
+
+  it('catches and logs exception during snapshot building', async () => {
+    driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(new Error('build error'));
+
+    await runAutoUpload();
+
+    expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
+      type: 'upload',
+      success: false,
+      errorCode: 'UPLOAD_FAILED',
+    });
+    expect(Logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('自動上傳例外'),
+      expect.any(Object)
+    );
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+    });
+  });
+
+  it('successfully uploads, clears dirty flag, and broadcasts status updated', async () => {
+    await runAutoUpload();
+
+    expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
+      type: 'upload',
+      success: true,
+      remoteUpdatedAt: '2026-04-21T00:00:00.000Z',
+    });
+    expect(driveClient.clearDriveDirty).toHaveBeenCalledWith({
+      snapshotHash: expect.any(String),
+      frequency: 'weekly',
+    });
+    expect(Logger.success).toHaveBeenCalledWith(
+      expect.stringContaining('自動上傳成功'),
+      expect.any(Object)
+    );
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+    });
+  });
+
+  it('ignores background broadcast errors silently', async () => {
+    mockSendMessage.mockRejectedValue(new Error('no receiver'));
+    await runAutoUpload();
+    // Should not throw
+    expect(Logger.success).toHaveBeenCalled();
   });
 });

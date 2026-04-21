@@ -6,6 +6,7 @@ import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
 import { createDriveSyncHandlers } from '../../scripts/background/handlers/driveSyncHandlers.js';
 import * as driveClient from '../../scripts/auth/driveClient.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
+import * as driveAlarmScheduler from '../../scripts/background/handlers/driveAlarmScheduler.js';
 import Logger from '../../scripts/utils/Logger.js';
 
 describe('Drive Sync Handlers', () => {
@@ -43,6 +44,8 @@ describe('Drive Sync Handlers', () => {
       lastSuccessfulUploadAt: null,
     });
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
+    jest.spyOn(driveClient, 'setDriveFrequency').mockResolvedValue();
+    jest.spyOn(driveAlarmScheduler, 'setupDriveAlarm').mockResolvedValue();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
 
     jest.spyOn(driveSnapshot, 'buildUnifiedPageStateFromLocalStorage').mockResolvedValue({
@@ -146,6 +149,30 @@ describe('Drive Sync Handlers', () => {
       expect(result.remoteUpdatedAt).toBe('2026-04-21T01:02:03.000Z');
     });
 
+    it('should ignore conflict broadcast if remoteUpdatedAt is invalid', async () => {
+      driveClient.uploadDriveSnapshot.mockResolvedValue({
+        success: false,
+        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        remoteUpdatedAt: 'Invalid Date',
+      });
+
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
+
+      expect(mockSendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT })
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it('should swallow errors when broadcastDriveSyncUpdate fails nicely', async () => {
+      driveClient.getDriveSyncMetadata
+        .mockResolvedValueOnce({ installationId: '1', profileId: '2' })
+        .mockRejectedValue(new Error('metadata error'));
+
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
+      expect(result.success).toBe(true);
+    });
+
     it('should persist failed upload metadata and broadcast when snapshot build throws', async () => {
       driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(
         new Error('build failed')
@@ -220,7 +247,9 @@ describe('Drive Sync Handlers', () => {
     });
 
     it('should persist failed download metadata and broadcast when apply throws', async () => {
-      driveSnapshot.applyDriveSnapshotToLocalStorage.mockRejectedValue(new Error('apply failed'));
+      driveSnapshot.applyDriveSnapshotToLocalStorage.mockReturnValue(
+        Promise.reject(new Error('apply failed'))
+      );
 
       const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]({});
 
@@ -245,6 +274,35 @@ describe('Drive Sync Handlers', () => {
   describe('handler map boundaries', () => {
     it('should not expose DRIVE_SYNC_CONFLICT as a background request handler', () => {
       expect(handlers[RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT]).toBeUndefined();
+    });
+  });
+
+  describe('handleScheduleUpdated', () => {
+    it('should handle valid frequency and schedule alarm', async () => {
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED]({
+        frequency: 'daily',
+      });
+      expect(driveClient.setDriveFrequency).toHaveBeenCalledWith('daily');
+      expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily');
+      expect(result.success).toBe(true);
+    });
+
+    it('should fail cleanly on invalid frequency', async () => {
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED]({
+        frequency: 'hourly',
+      });
+      expect(driveClient.setDriveFrequency).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/invalid frequency/);
+    });
+
+    it('should catch exceptions thrown during setup', async () => {
+      driveClient.setDriveFrequency.mockRejectedValue(new Error('storage locked'));
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED]({
+        frequency: 'monthly',
+      });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('storage locked');
     });
   });
 });
