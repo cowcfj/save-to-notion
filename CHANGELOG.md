@@ -1,5 +1,32 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.56.0](https://github.com/cowcfj/save-to-notion/compare/v2.55.0...v2.56.0) (2026-04-21)
+
+
+### ✨ 新功能
+
+* add remote snapshot sync and UI fallback for drive sync ([#425](https://github.com/cowcfj/save-to-notion/issues/425)) ([f6f36d1](https://github.com/cowcfj/save-to-notion/commit/f6f36d1f36726a3006bd8c6948b46703d8ea29c5))
+* Enhance Google Drive Sync and UI Improvements ([#424](https://github.com/cowcfj/save-to-notion/issues/424)) ([6312917](https://github.com/cowcfj/save-to-notion/commit/63129178a8081568203ee29ecd74a0532a8c7179))
+* implement advanced features tab and account profile ([#422](https://github.com/cowcfj/save-to-notion/issues/422)) ([afcb14c](https://github.com/cowcfj/save-to-notion/commit/afcb14cdcaafa15b9484ec4964f168a0f30cf30f))
+* Implement automatic synchronization for Drive ([#426](https://github.com/cowcfj/save-to-notion/issues/426)) ([a8d2083](https://github.com/cowcfj/save-to-notion/commit/a8d2083350841aad3e2249a20a67fcb816095f47))
+* 更新 DriveClient 以支持手動審核 ([6312917](https://github.com/cowcfj/save-to-notion/commit/63129178a8081568203ee29ecd74a0532a8c7179))
+
+
+### 🐛 Bug 修復
+
+* resolve clearDriveDirty race condition with dirtyRevision ([#427](https://github.com/cowcfj/save-to-notion/issues/427)) ([0165dc0](https://github.com/cowcfj/save-to-notion/commit/0165dc07faf64a9b8b4998add111c9b3ec6b034f))
+* 修正授權流程中的錯誤處理 ([6312917](https://github.com/cowcfj/save-to-notion/commit/63129178a8081568203ee29ecd74a0532a8c7179))
+
+
+### ♻️ 代碼重構
+
+* 新增共用樣式以改善 UI ([6312917](https://github.com/cowcfj/save-to-notion/commit/63129178a8081568203ee29ecd74a0532a8c7179))
+
+
+### 🧪 測試
+
+* 增加單元測試以覆蓋新功能 ([6312917](https://github.com/cowcfj/save-to-notion/commit/63129178a8081568203ee29ecd74a0532a8c7179))
+
 ## [2.55.0](https://github.com/cowcfj/save-to-notion/compare/v2.54.0...v2.55.0) (2026-04-18)
 
 
