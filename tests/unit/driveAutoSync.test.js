@@ -340,8 +340,8 @@ describe('runAutoUpload()', () => {
     );
   });
 
-  it('upload 成功且 dirtyRevision 為 0（默認初始值）時， expectedDirtyRevision 和對應', async () => {
-    // 僳設 oldrevision 未存在， getDriveSyncMetadata 回傳預設 0
+  it('upload 成功且 dirtyRevision 為 0（默認初始值）時，clearDriveDirty 以 expectedDirtyRevision = 0 呼叫', async () => {
+    // 假設 dirtyRevision 未存在， getDriveSyncMetadata 回傳預設 0
     driveClient.getDriveSyncMetadata
       .mockResolvedValueOnce(baseMetadata()) // baseMetadata 未含 dirtyRevision → getDriveSyncMetadata 內部預設 0
       .mockResolvedValueOnce(baseMetadata());
