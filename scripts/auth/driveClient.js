@@ -241,6 +241,19 @@ export async function clearDriveSyncConflict() {
   });
 }
 
+/**
+ * 單獨更新「後端已知 snapshot updatedAt」，不修改 conflict / error / run 欄位。
+ * 用於 reconnect 後的 UI 同步，避免誤清 needsManualReview。
+ *
+ * @param {string | null} updatedAt
+ * @returns {Promise<void>}
+ */
+export async function setLastKnownRemoteUpdatedAt(updatedAt) {
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT]: updatedAt,
+  });
+}
+
 // =============================================================================
 // Drive API 呼叫
 // =============================================================================
