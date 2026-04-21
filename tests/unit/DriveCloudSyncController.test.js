@@ -516,6 +516,28 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
     });
 
+    it('server 未回傳 connectedAt 時透傳 null，避免以本地時間污染 metadata', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'no-ts@test.dev',
+        connectedAt: null,
+      });
+      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+        exists: false,
+        updatedAt: null,
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'no-ts@test.dev',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
+        email: 'no-ts@test.dev',
+        connectedAt: null,
+      });
+    });
+
     it('reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt', async () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
         connected: true,

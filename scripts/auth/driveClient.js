@@ -65,7 +65,7 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
 /**
  * @typedef {object} DriveConnection
  * @property {string} email - 連線帳號 email（PII）
- * @property {string} connectedAt - ISO 8601 timestamp
+ * @property {string | null} connectedAt - ISO 8601 timestamp；伺服器未提供時為 null
  */
 
 /**

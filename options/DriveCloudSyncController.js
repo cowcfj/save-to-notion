@@ -130,7 +130,7 @@ async function syncRemoteDriveConnection() {
   if (status.connected && status.email) {
     await setDriveConnection({
       email: status.email,
-      connectedAt: status.connectedAt ?? new Date().toISOString(),
+      connectedAt: status.connectedAt ?? null,
     });
     await syncRemoteSnapshotStatus();
     return;
