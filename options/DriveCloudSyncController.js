@@ -429,10 +429,11 @@ function _updateAutoSyncStatus(metadata) {
     return;
   }
 
-  statusDiv.style.display = '';
   if (metadata.needsManualReview) {
+    statusDiv.style.display = '';
     statusText.textContent = UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW;
   } else {
+    statusDiv.style.display = 'none';
     statusText.textContent = '';
   }
 }

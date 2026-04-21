@@ -204,7 +204,6 @@ export const UI_MESSAGES = {
     FREQUENCY_DAILY: '每日',
     FREQUENCY_WEEKLY: '每週',
     FREQUENCY_MONTHLY: '每30天',
-    AUTO_SYNC_NEVER: '尚未自動同步',
     AUTO_SYNC_NEEDS_REVIEW: '❗ 雲端備份較新，請手動處理',
     FREQUENCY_SAVE_SUCCESS: '自動同步設定已儲存',
     FREQUENCY_SAVE_FAILED: '設定儲存失敗，請重試',

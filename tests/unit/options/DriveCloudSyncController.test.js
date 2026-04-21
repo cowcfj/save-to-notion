@@ -289,6 +289,25 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('none');
     });
+
+    it('hides auto sync status container when frequency is active but no review is needed', () => {
+      // 先觸發 needsManualReview=true 使 container 顯示
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        frequency: 'weekly',
+        needsManualReview: true,
+      });
+      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('');
+
+      // 再切換到 needsManualReview=false：container 必須被隱藏，避免 margin-bottom 佔用空白
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        frequency: 'weekly',
+        needsManualReview: false,
+      });
+      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('none');
+      expect(document.querySelector('#drive-auto-sync-status-text').textContent).toBe('');
+    });
   });
 
   describe('initCloudSyncController', () => {
