@@ -23,7 +23,9 @@ import {
   clearDriveSyncMetadata,
   disconnectDrive,
   fetchDriveConnectionStatus,
+  fetchDriveSnapshotStatus,
   getDriveSyncMetadata,
+  setLastKnownRemoteUpdatedAt,
   setDriveConnection,
   startDriveOAuthFlow,
 } from '../scripts/auth/driveClient.js';
@@ -128,12 +130,28 @@ async function syncRemoteDriveConnection() {
   if (status.connected && status.email) {
     await setDriveConnection({
       email: status.email,
-      connectedAt: status.connectedAt ?? null,
+      connectedAt: status.connectedAt ?? new Date().toISOString(),
     });
+    await syncRemoteSnapshotStatus();
     return;
   }
 
   await clearDriveSyncMetadata();
+}
+
+/**
+ * 查詢遠端 snapshot 存在狀態，並把 updatedAt 寫入 lastKnownRemoteUpdatedAt。
+ * 任何失敗都必須 silent，不得阻擋 UI 渲染。
+ */
+async function syncRemoteSnapshotStatus() {
+  try {
+    const snapshot = await fetchDriveSnapshotStatus();
+    await setLastKnownRemoteUpdatedAt(snapshot.exists ? snapshot.updatedAt : null);
+  } catch (error) {
+    Logger.warn('[CloudSync] Snapshot status sync skipped', {
+      error: getSafeError(error, 'drive_snapshot_status_sync'),
+    });
+  }
 }
 
 /**
@@ -324,10 +342,16 @@ function _updateConnectedInfo(metadata) {
   }
 
   const lastUploadEl = el(DOM.LAST_UPLOAD_TEXT);
-  if (lastUploadEl) {
-    lastUploadEl.textContent = metadata.lastSuccessfulUploadAt
-      ? `上次上載：${formatTimestamp(metadata.lastSuccessfulUploadAt)}`
-      : '尚未上載';
+  if (!lastUploadEl) {
+    return;
+  }
+
+  if (metadata.lastSuccessfulUploadAt) {
+    lastUploadEl.textContent = `上次上載：${formatTimestamp(metadata.lastSuccessfulUploadAt)}`;
+  } else if (metadata.lastKnownRemoteUpdatedAt) {
+    lastUploadEl.textContent = `雲端備份：${formatTimestamp(metadata.lastKnownRemoteUpdatedAt)}`;
+  } else {
+    lastUploadEl.textContent = '尚未上載';
   }
 }
 

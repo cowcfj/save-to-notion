@@ -175,6 +175,34 @@ describe('DriveCloudSyncController', () => {
 
       toLocaleStringSpy.mockRestore();
     });
+
+    it('lastSuccessfulUploadAt 為 null 但 lastKnownRemoteUpdatedAt 有值 → 顯示「雲端備份」', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'cross-device@test.dev',
+        lastSuccessfulUploadAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
+      });
+      const text = document.querySelector('#drive-last-upload-text').textContent;
+      expect(text).toContain('雲端備份');
+      expect(text).not.toContain('尚未上載');
+      expect(text).not.toContain('上次上載');
+    });
+
+    it('lastSuccessfulUploadAt 優先於 lastKnownRemoteUpdatedAt', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'priority@test.dev',
+        lastSuccessfulUploadAt: '2026-04-21T09:00:00Z',
+        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
+      });
+      const text = document.querySelector('#drive-last-upload-text').textContent;
+      expect(text).toContain('上次上載');
+      expect(text).not.toContain('雲端備份');
+    });
+
+    it('兩者皆無 → 維持「尚未上載」', () => {
+      renderCloudSyncCard({ connectionEmail: 'nothing@test.dev' });
+      expect(document.querySelector('#drive-last-upload-text').textContent).toBe('尚未上載');
+    });
   });
 
   describe('initCloudSyncController', () => {
@@ -465,6 +493,10 @@ describe('DriveCloudSyncController', () => {
         connectionEmail: 'remote@test.dev',
         connectedAt: '2026-04-20T00:00:00.000Z',
       });
+      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+        exists: false,
+        updatedAt: null,
+      });
 
       await initCloudSyncController(true);
 
@@ -474,6 +506,32 @@ describe('DriveCloudSyncController', () => {
         connectedAt: '2026-04-20T00:00:00.000Z',
       });
       expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
+    });
+
+    it('reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'reconnect@test.dev',
+        connectedAt: '2026-04-21T00:00:00Z',
+      });
+      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00Z',
+        size: 1024,
+      });
+      const setSnapshotSpy = jest
+        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
+        .mockResolvedValue();
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'reconnect@test.dev',
+        lastKnownRemoteUpdatedAt: '2026-04-20T09:30:00Z',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.fetchDriveSnapshotStatus).toHaveBeenCalled();
+      expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('雲端備份');
     });
 
     it('falls back to disconnected state when remote sync fails', async () => {
