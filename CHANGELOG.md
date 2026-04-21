@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.56.1](https://github.com/cowcfj/save-to-notion/compare/v2.56.0...v2.56.1) (2026-04-21)
+
+
+### 🐛 Bug 修復
+
+* **build:** trigger release to include unreleased tools changes ([1ab1706](https://github.com/cowcfj/save-to-notion/commit/1ab1706de103841ffcb460df04de433d4beeede3))
+
 ## [2.56.0](https://github.com/cowcfj/save-to-notion/compare/v2.55.0...v2.56.0) (2026-04-21)
 
 
