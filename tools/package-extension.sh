@@ -72,7 +72,6 @@ rsync -a \
     --exclude='sync' \
     --exclude='utils/LogExporter.js' \
     --exclude='utils/RetryManager.js' \
-    --exclude='utils/notionAuth.js' \
     scripts/ "$RM_DIR/scripts/"
 
 echo "📂 Scripts folder content:"
