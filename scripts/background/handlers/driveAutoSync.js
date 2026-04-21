@@ -41,7 +41,7 @@ import Logger from '../../utils/Logger.js';
  * 1. account 已登入（有 connectionEmail）
  * 2. Drive 已連接（有 connectionEmail）
  * 3. frequency 非 'off'
- * 4. driveSyncDirty === true
+ * 4. 本地有未同步變更：dirtyRevision > lastUploadedRevision
  * 5. needsManualReview !== true
  * 6. nextEligibleAt 已到期（或為 null）
  *
@@ -62,7 +62,7 @@ export function shouldRunAutoSync(metadata, context = {}) {
     return { shouldRun: false, reason: 'frequency_off' };
   }
 
-  if (!metadata.dirty) {
+  if (metadata.dirtyRevision <= metadata.lastUploadedRevision) {
     return { shouldRun: false, reason: 'not_dirty' };
   }
 
@@ -174,14 +174,20 @@ async function handleUploadFailure(result) {
 }
 
 /**
- * 處理 upload 成功：更新 metadata、清 dirty、廣播最新狀態。
+ * 處理 upload 成功：更新 metadata、記錄已上傳 revision、廣播最新狀態。
+ *
+ * 傳入 expectedDirtyRevision（上傳開始時捕獲的 dirtyRevision），
+ * clearDriveDirty 會將其寫入 LAST_UPLOADED_REVISION。若上傳期間有新的
+ * markDriveDirty() 觸發，dirtyRevision 已大於 expectedDirtyRevision，
+ * 下次 shouldRunAutoSync 比較時會判斷為 dirty → 重新觸發上傳。
  *
  * @param {{ updatedAt?: string | null }} result
  * @param {object} snapshot
  * @param {{ frequency: 'off' | 'daily' | 'weekly' | 'monthly' }} metadata
+ * @param {number} expectedDirtyRevision
  * @returns {Promise<void>}
  */
-async function handleUploadSuccess(result, snapshot, metadata) {
+async function handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevision) {
   await updateDriveSyncRunMetadata({
     type: 'upload',
     success: true,
@@ -194,6 +200,7 @@ async function handleUploadSuccess(result, snapshot, metadata) {
   await clearDriveDirty({
     snapshotHash,
     frequency: metadata.frequency,
+    expectedDirtyRevision,
   });
 
   Logger.success('[DriveAutoSync] 自動上傳成功', {
@@ -240,6 +247,12 @@ export async function runAutoUpload(context = {}) {
 
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
 
+  // 在讀取 metadata 時同步捕獲當前 dirty revision。
+  // upload 完成後，clearDriveDirty 會將此值寫入 LAST_UPLOADED_REVISION。
+  // 若期間有新 markDriveDirty()（dirtyRevision 已變大），下次 shouldRunAutoSync
+  // 會偵測到 dirtyRevision > lastUploadedRevision → 重新觸發上傳。
+  const expectedDirtyRevision = metadata.dirtyRevision;
+
   try {
     const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
     const snapshot = await buildDriveSnapshot(pages, urlAliases, {
@@ -254,7 +267,7 @@ export async function runAutoUpload(context = {}) {
       return;
     }
 
-    await handleUploadSuccess(result, snapshot, metadata);
+    await handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevision);
   } catch (error) {
     await updateDriveSyncRunMetadata({
       type: 'upload',

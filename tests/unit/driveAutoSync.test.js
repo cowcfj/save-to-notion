@@ -14,12 +14,16 @@ import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
 import Logger from '../../scripts/utils/Logger.js';
 
-/** 基礎合法 metadata（所有條件均滿足） */
+/**
+ * 基礎合法 metadata（所有條件均滿足）。
+ * 預設 `dirtyRevision=1 > lastUploadedRevision=0` → dirty。
+ */
 function baseMetadata(overrides = {}) {
   return {
     connectionEmail: 'user@example.com',
     frequency: 'weekly',
-    dirty: true,
+    dirtyRevision: 1,
+    lastUploadedRevision: 0,
     needsManualReview: false,
     nextEligibleAt: null,
     installationId: 'inst-1',
@@ -65,10 +69,27 @@ describe('shouldRunAutoSync()', () => {
     expect(shouldRun).toBe(true);
   });
 
-  it('dirty = false 時跳過', () => {
-    const { shouldRun, reason } = shouldRunAutoSync(baseMetadata({ dirty: false }));
+  it('dirtyRevision <= lastUploadedRevision（無未同步變更）時跳過', () => {
+    const { shouldRun, reason } = shouldRunAutoSync(
+      baseMetadata({ dirtyRevision: 3, lastUploadedRevision: 3 })
+    );
     expect(shouldRun).toBe(false);
     expect(reason).toBe('not_dirty');
+  });
+
+  it('dirtyRevision < lastUploadedRevision（理論上不該發生的狀態）時跳過', () => {
+    const { shouldRun, reason } = shouldRunAutoSync(
+      baseMetadata({ dirtyRevision: 2, lastUploadedRevision: 5 })
+    );
+    expect(shouldRun).toBe(false);
+    expect(reason).toBe('not_dirty');
+  });
+
+  it('dirtyRevision > lastUploadedRevision（有未同步變更）時應執行', () => {
+    const { shouldRun } = shouldRunAutoSync(
+      baseMetadata({ dirtyRevision: 5, lastUploadedRevision: 3 })
+    );
+    expect(shouldRun).toBe(true);
   });
 
   it('needsManualReview = true 時跳過', () => {
@@ -263,7 +284,7 @@ describe('runAutoUpload()', () => {
     );
   });
 
-  it('successfully uploads, clears dirty flag, and broadcasts status updated', async () => {
+  it('upload 成功：clearDriveDirty 寫入 LAST_UPLOADED_REVISION 並廣播 status updated', async () => {
     driveClient.getDriveSyncMetadata.mockResolvedValueOnce(baseMetadata()).mockResolvedValueOnce(
       baseMetadata({
         lastKnownRemoteUpdatedAt: '2026-04-21T00:00:00.000Z',
@@ -281,6 +302,8 @@ describe('runAutoUpload()', () => {
     expect(driveClient.clearDriveDirty).toHaveBeenCalledWith({
       snapshotHash: expect.any(String),
       frequency: 'weekly',
+      // baseMetadata 預設 dirtyRevision = 1
+      expectedDirtyRevision: 1,
     });
     expect(Logger.success).toHaveBeenCalledWith(
       expect.stringContaining('自動上傳成功'),
@@ -318,5 +341,22 @@ describe('runAutoUpload()', () => {
 
     expect(accountSession.getAccountAccessToken).not.toHaveBeenCalled();
     expect(driveClient.uploadDriveSnapshot).toHaveBeenCalled();
+  });
+
+  it('upload 成功：clearDriveDirty 以當時捕獲的 dirtyRevision 呼叫', async () => {
+    driveClient.getDriveSyncMetadata
+      .mockResolvedValueOnce(baseMetadata({ dirtyRevision: 5, lastUploadedRevision: 2 }))
+      .mockResolvedValueOnce(
+        baseMetadata({ lastKnownRemoteUpdatedAt: '2026-04-22T00:00:00.000Z' })
+      );
+
+    await runAutoUpload({ isAccountLoggedIn: true });
+
+    expect(driveClient.clearDriveDirty).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedDirtyRevision: 5,
+        frequency: 'weekly',
+      })
+    );
   });
 });
