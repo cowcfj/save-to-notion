@@ -247,7 +247,7 @@ export async function runAutoUpload(context = {}) {
 
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
 
-  // 在讀取 metadata 時同步捕获當前 dirty revision。
+  // 在讀取 metadata 時同步捕獲當前 dirty revision。
   // upload 完成後，clearDriveDirty 會將此值寫入 LAST_UPLOADED_REVISION。
   // 若期間有新 markDriveDirty()（dirtyRevision 已變大），下次 shouldRunAutoSync
   // 會偵測到 dirtyRevision > lastUploadedRevision → 重新觸發上傳。
