@@ -435,11 +435,11 @@
                   <option value="off">關閉（僅手動）</option>
                   <option value="daily">每日</option>
                   <option value="weekly">每週</option>
-                  <option value="monthly">每月</option>
+                  <option value="monthly">每 30 天</option>
                 </select>
               </div>
               <!-- Phase B: 自動同步狀態 -->
-              <div id="drive-auto-sync-status" style="margin-bottom: 12px; font-size: 0.75rem; color: var(--text-muted); display: none;">
+              <div id="drive-auto-sync-status" role="status" aria-live="polite" style="margin-bottom: 12px; font-size: 0.75rem; color: var(--text-muted); display: none;">
                 <span id="drive-auto-sync-status-text"></span>
               </div>
               <!-- 操作按鈕 -->

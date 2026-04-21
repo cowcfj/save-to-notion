@@ -33,9 +33,16 @@ import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 import { createAccountAuthHandler } from './background/handlers/accountAuthHandler.js';
 import { createDriveSyncHandlers } from './background/handlers/driveSyncHandlers.js';
-import { DRIVE_AUTO_SYNC_ALARM } from './background/handlers/driveAlarmScheduler.js';
+import {
+  DRIVE_AUTO_SYNC_ALARM,
+  setupDriveAlarm,
+} from './background/handlers/driveAlarmScheduler.js';
 import { runAutoUpload } from './background/handlers/driveAutoSync.js';
-import { markDriveDirty } from './auth/driveClient.js';
+import {
+  DRIVE_SYNC_FREQUENCIES,
+  DRIVE_SYNC_STORAGE_KEYS,
+  markDriveDirty,
+} from './auth/driveClient.js';
 
 const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
 const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
@@ -54,8 +61,9 @@ const notionService = new NotionService({ logger: Logger });
 const accountAuthHandler = createAccountAuthHandler({ logger: Logger });
 
 // Phase B Dirty Tracking：在 highlights / saved_state 的 canonical write path 後標記 dirty
-// 使用 fire-and-forget（不阻擋主要寫入操作）
-// guard 確保在測試 mock 環境部分方法不存在時不會拋出
+// wrapper 涵蓋 save 與 clear 兩類寫入路徑；markDriveDirty 的錯誤會被記錄但不 rethrow，
+// 避免 drive sync 的輔助寫入破壞使用者主要的 save/clear 操作。
+// guard 確保在測試 mock 環境部分方法不存在時不會拋出。
 function wrapWithDriveDirtyTracking(service, methodNames) {
   for (const methodName of methodNames) {
     if (typeof service[methodName] !== 'function') {
@@ -64,7 +72,15 @@ function wrapWithDriveDirtyTracking(service, methodNames) {
     const original = service[methodName].bind(service);
     service[methodName] = async function (...args) {
       const result = await original(...args);
-      markDriveDirty().catch(() => {});
+      markDriveDirty().catch(error => {
+        // 記錄但不 rethrow：drive dirty tracking 失敗不應阻斷主寫入流程；
+        // 下次任何 canonical write 都會重新嘗試 mark dirty。
+        Logger.warn('[Background] markDriveDirty failed during wrapper forward', {
+          action: 'drive_dirty_tracking',
+          methodName,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      });
       return result;
     };
   }
@@ -74,6 +90,8 @@ wrapWithDriveDirtyTracking(storageService, [
   'updateHighlights',
   'savePageDataAndHighlights',
   'setSavedPageData',
+  'clearPageState',
+  'clearNotionState',
 ]);
 
 // Initialize MessageHandler
@@ -159,6 +177,47 @@ chrome.alarms.onAlarm.addListener(alarm => {
       });
     });
   }
+});
+
+/**
+ * 啟動時檢查 DRIVE_AUTO_SYNC_ALARM 是否存在，缺少則依已儲存的頻率重建。
+ *
+ * Chrome alarms 通常會跨 service worker 重啟保留，但 extension update、
+ * reinstall 或 `chrome.alarms.clear` 後可能會遺失。此函數作為防禦性恢復，
+ * 確保使用者一旦啟用自動同步就不會因為這類邊界情境而失去排程。
+ *
+ * @returns {Promise<void>}
+ */
+async function ensureDriveAutoSyncAlarm() {
+  try {
+    const stored = await chrome.storage.local.get(DRIVE_SYNC_STORAGE_KEYS.FREQUENCY);
+    const frequency = stored[DRIVE_SYNC_STORAGE_KEYS.FREQUENCY] ?? 'off';
+    if (frequency === 'off' || !DRIVE_SYNC_FREQUENCIES.includes(frequency)) {
+      return;
+    }
+
+    const existing = await chrome.alarms.get(DRIVE_AUTO_SYNC_ALARM);
+    if (existing) {
+      return;
+    }
+
+    await setupDriveAlarm(frequency);
+    Logger.info('[Background] Drive auto sync alarm restored on startup', { frequency });
+  } catch (error) {
+    Logger.warn('[Background] ensureDriveAutoSyncAlarm failed', {
+      action: 'alarm_startup_recovery',
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+// Service worker 冷啟動時檢查一次；onStartup 則覆蓋瀏覽器重啟場景。
+// 不使用 top-level await：Jest 以 CommonJS require 載入 background.js 時
+// 無法解析 top-level await；ensureDriveAutoSyncAlarm 內部已吞掉所有錯誤。
+// eslint-disable-next-line unicorn/prefer-top-level-await
+ensureDriveAutoSyncAlarm();
+chrome.runtime.onStartup?.addListener(() => {
+  ensureDriveAutoSyncAlarm();
 });
 
 // ==========================================

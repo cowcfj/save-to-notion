@@ -373,6 +373,11 @@ describe('Background Script Lifecycle', () => {
   describe('TabService Dependencies from background.js', () => {
     let storageServiceMock, notionServiceMock, injectionServiceMock;
     let actualTabServiceDeps;
+    /**
+     * 保存 wrapWithDriveDirtyTracking 執行前的原始 jest.fn() 參考，
+     * 讓我們能驗證底層 storage 確實收到 args（wrapper 本身不是 jest.fn）。
+     */
+    let underlyingStorageMocks;
 
     beforeEach(() => {
       // 重新 require 模組以捕捉傳給 TabService 的參數
@@ -395,6 +400,15 @@ describe('Background Script Lifecycle', () => {
         setSavedPageData: jest.fn().mockResolvedValue('set'),
         savePageDataAndHighlights: jest.fn().mockResolvedValue('saved'),
         updateHighlights: jest.fn().mockResolvedValue('updated'),
+      };
+
+      // 快照原始 jest.fn() 參考，供 wrapper 測試驗證底層轉發
+      underlyingStorageMocks = {
+        clearPageState: mockStorage.clearPageState,
+        clearNotionState: mockStorage.clearNotionState,
+        setSavedPageData: mockStorage.setSavedPageData,
+        savePageDataAndHighlights: mockStorage.savePageDataAndHighlights,
+        updateHighlights: mockStorage.updateHighlights,
       };
 
       const mockNotion = {
@@ -470,12 +484,13 @@ describe('Background Script Lifecycle', () => {
 
     test('clearPageState maps to StorageService.clearPageState', async () => {
       await actualTabServiceDeps.clearPageState('url3');
-      expect(storageServiceMock.clearPageState).toHaveBeenCalledWith('url3');
+      // wrapWithDriveDirtyTracking 已包裝 clearPageState，需透過原始 jest.fn 驗證底層收到 args
+      expect(underlyingStorageMocks.clearPageState).toHaveBeenCalledWith('url3');
     });
 
     test('clearNotionState maps to StorageService.clearNotionState', async () => {
       await actualTabServiceDeps.clearNotionState('url4', { expectedPageId: '123' });
-      expect(storageServiceMock.clearNotionState).toHaveBeenCalledWith('url4', {
+      expect(underlyingStorageMocks.clearNotionState).toHaveBeenCalledWith('url4', {
         expectedPageId: '123',
       });
     });
@@ -491,17 +506,22 @@ describe('Background Script Lifecycle', () => {
 
     test('setSavedPageData maps to StorageService.setSavedPageData', async () => {
       // Phase B dirty tracking 會 wrap setSavedPageData，
-      // 但仍應正確呼叫底層並 resolve。
-      await expect(
-        actualTabServiceDeps.setSavedPageData('url5', { data: 1 })
-      ).resolves.not.toThrow();
+      // 驗證底層 storage 收到原始 args。
+      await actualTabServiceDeps.setSavedPageData('url5', { data: 1 });
+      expect(underlyingStorageMocks.setSavedPageData).toHaveBeenCalledWith('url5', { data: 1 });
     });
 
     test('savePageDataAndHighlights dirty tracking wrapper works', async () => {
       const bgModule = require('../../scripts/background.js');
       const driveClient = require('../../scripts/auth/driveClient.js');
 
-      await bgModule.storageService.savePageDataAndHighlights('url', {}, []);
+      await bgModule.storageService.savePageDataAndHighlights('url', { page: 1 }, [1, 2]);
+      // wrapper 既要 forward 給底層，也要標記 drive dirty
+      expect(underlyingStorageMocks.savePageDataAndHighlights).toHaveBeenCalledWith(
+        'url',
+        { page: 1 },
+        [1, 2]
+      );
       expect(driveClient.markDriveDirty).toHaveBeenCalled();
     });
 
@@ -509,7 +529,8 @@ describe('Background Script Lifecycle', () => {
       const bgModule = require('../../scripts/background.js');
       const driveClient = require('../../scripts/auth/driveClient.js');
 
-      await bgModule.storageService.updateHighlights('url', []);
+      await bgModule.storageService.updateHighlights('url', ['h1']);
+      expect(underlyingStorageMocks.updateHighlights).toHaveBeenCalledWith('url', ['h1']);
       expect(driveClient.markDriveDirty).toHaveBeenCalled();
     });
 
@@ -518,6 +539,27 @@ describe('Background Script Lifecycle', () => {
       const driveClient = require('../../scripts/auth/driveClient.js');
 
       await bgModule.storageService.setSavedPageData('url', { data: 1 });
+      expect(underlyingStorageMocks.setSavedPageData).toHaveBeenCalledWith('url', { data: 1 });
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('clearPageState dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.clearPageState('url-to-clear');
+      expect(underlyingStorageMocks.clearPageState).toHaveBeenCalledWith('url-to-clear');
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('clearNotionState dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.clearNotionState('url-clear-notion', { expectedPageId: 'p1' });
+      expect(underlyingStorageMocks.clearNotionState).toHaveBeenCalledWith('url-clear-notion', {
+        expectedPageId: 'p1',
+      });
       expect(driveClient.markDriveDirty).toHaveBeenCalled();
     });
   });

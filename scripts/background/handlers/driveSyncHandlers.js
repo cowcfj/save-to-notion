@@ -236,8 +236,10 @@ async function handleScheduleUpdated(request) {
   }
 
   try {
-    await setDriveFrequency(frequency);
+    // 先嘗試設定 alarm（可能拋錯的 side-effect），成功後才寫入 storage，
+    // 避免 storage 顯示新頻率但 alarm 未實際建立的不一致狀態。
     await setupDriveAlarm(frequency);
+    await setDriveFrequency(frequency);
     Logger.info('[DriveSyncHandler] 排程已更新', { frequency });
     return { success: true };
   } catch (error) {

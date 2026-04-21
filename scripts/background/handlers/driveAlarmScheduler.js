@@ -29,8 +29,12 @@ const FREQUENCY_PERIOD_MINUTES = {
 /**
  * 根據給定頻率設定或清除 Drive auto sync alarm。
  *
+ * 'off' 時清除現有 alarm；未知頻率會拋錯以避免 chrome.alarms.create 收到
+ * `periodInMinutes: undefined` 導致排程失效。
+ *
  * @param {'off' | 'daily' | 'weekly' | 'monthly'} frequency
  * @returns {Promise<void>}
+ * @throws {Error} 當 frequency 非 'off' 且不存在於 FREQUENCY_PERIOD_MINUTES 時
  */
 export async function setupDriveAlarm(frequency) {
   await chrome.alarms.clear(DRIVE_AUTO_SYNC_ALARM);
@@ -40,6 +44,12 @@ export async function setupDriveAlarm(frequency) {
   }
 
   const periodInMinutes = FREQUENCY_PERIOD_MINUTES[frequency];
+  if (!Number.isFinite(periodInMinutes)) {
+    throw new TypeError(
+      `[driveAlarmScheduler] setupDriveAlarm received unknown frequency: ${frequency}`
+    );
+  }
+
   await chrome.alarms.create(DRIVE_AUTO_SYNC_ALARM, {
     delayInMinutes: periodInMinutes,
     periodInMinutes,

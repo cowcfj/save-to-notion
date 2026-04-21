@@ -35,6 +35,7 @@
 import { BUILD_ENV } from '../config/env.js';
 import { ACCOUNT_API } from '../config/api.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
+import Logger from '../utils/Logger.js';
 
 // =============================================================================
 // Storage key 常量
@@ -444,13 +445,24 @@ export const DRIVE_SYNC_FREQUENCIES = /** @type {const} */ (['off', 'daily', 'we
 /**
  * 更新自動同步頻率設定，並同步更新 nextEligibleAt。
  *
+ * 不在白名單內的 frequency 會被 normalize 成 `'off'` 並記錄警告，
+ * 避免未知值流入 chrome.alarms 與 computeNextEligibleAt。
+ *
  * @param {'off' | 'daily' | 'weekly' | 'monthly'} frequency
  * @returns {Promise<void>}
  */
 export async function setDriveFrequency(frequency) {
-  const nextEligibleAt = frequency === 'off' ? null : computeNextEligibleAt(frequency);
+  const validFrequency = DRIVE_SYNC_FREQUENCIES.includes(frequency) ? frequency : 'off';
+  if (validFrequency !== frequency) {
+    // 防禦性 fallback：caller 應該在上層（driveSyncHandlers）先驗證，
+    // 此處再驗一次是為了避免任何繞過 handler 的直接呼叫寫壞 storage。
+    Logger.warn('[driveClient] setDriveFrequency received invalid frequency, fallback to off', {
+      frequency,
+    });
+  }
+  const nextEligibleAt = validFrequency === 'off' ? null : computeNextEligibleAt(validFrequency);
   await chrome.storage.local.set({
-    [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: frequency,
+    [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: validFrequency,
     [DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]: nextEligibleAt,
   });
 }

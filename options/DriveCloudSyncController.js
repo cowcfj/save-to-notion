@@ -426,6 +426,7 @@ function _updateAutoSyncStatus(metadata) {
 
   if (metadata.frequency === 'off' || !metadata.frequency) {
     statusDiv.style.display = 'none';
+    statusText.textContent = '';
     return;
   }
 
@@ -700,24 +701,45 @@ function bindCloudSyncButtons() {
     'change',
     event => {
       const frequency = event.target.value;
-      chrome.runtime
-        .sendMessage({
-          action: RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED,
-          frequency,
-        })
-        .then(response => {
-          if (response?.success) {
-            showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_SUCCESS, 'success');
-          } else {
-            showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_FAILED, 'error');
-          }
-        })
-        .catch(() => {
-          showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_FAILED, 'error');
+      handleFrequencyChange(frequency).catch(error => {
+        Logger.warn('[CloudSync] Schedule change handler failed', {
+          error: getSafeError(error, 'drive_sync_schedule_change'),
         });
+      });
     },
     { signal }
   );
+}
+
+/**
+ * 處理頻率 selector 變更：送出儲存請求、顯示狀態訊息，
+ * 並在完成後重新渲染卡片以確保 UI 與真實儲存狀態一致。
+ *
+ * @param {string} frequency
+ * @returns {Promise<void>}
+ */
+async function handleFrequencyChange(frequency) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED,
+      frequency,
+    });
+    if (response?.success) {
+      showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_SUCCESS, 'success');
+    } else {
+      showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_FAILED, 'error');
+    }
+  } catch {
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_FAILED, 'error');
+  } finally {
+    try {
+      await refreshCloudSyncCard();
+    } catch (error) {
+      Logger.warn('[CloudSync] Schedule refresh failed', {
+        error: getSafeError(error, 'drive_sync_schedule_refresh'),
+      });
+    }
+  }
 }
 
 /**

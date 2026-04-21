@@ -9,6 +9,7 @@ import {
   runAutoUpload,
 } from '../../scripts/background/handlers/driveAutoSync.js';
 import * as driveClient from '../../scripts/auth/driveClient.js';
+import * as accountSession from '../../scripts/auth/accountSession.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
 import Logger from '../../scripts/utils/Logger.js';
@@ -23,6 +24,8 @@ function baseMetadata(overrides = {}) {
     nextEligibleAt: null,
     installationId: 'inst-1',
     profileId: 'profile-1',
+    lastKnownRemoteUpdatedAt: null,
+    lastSuccessfulUploadAt: null,
     ...overrides,
   };
 }
@@ -109,6 +112,9 @@ describe('runAutoUpload()', () => {
     jest.spyOn(Logger, 'error').mockImplementation(() => {});
     jest.spyOn(Logger, 'success').mockImplementation(() => {});
 
+    // 預設視為已登入；個別案例可覆寫
+    jest.spyOn(accountSession, 'getAccountAccessToken').mockResolvedValue('fake-token');
+
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue(baseMetadata());
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
     jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
@@ -171,9 +177,31 @@ describe('runAutoUpload()', () => {
       conflictType: 'REMOTE_SNAPSHOT_NEWER',
       remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
     });
-    expect(mockSendMessage).toHaveBeenCalledWith({
-      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+        lastKnownRemoteUpdatedAt: null,
+        lastSuccessfulUploadAt: null,
+      })
+    );
+  });
+
+  it('skips DRIVE_SYNC_CONFLICT broadcast when remoteUpdatedAt is invalid', async () => {
+    driveClient.uploadDriveSnapshot.mockResolvedValue({
+      success: false,
+      errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      remoteUpdatedAt: null,
     });
+
+    await runAutoUpload();
+
+    expect(mockSendMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT })
+    );
+    expect(Logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt'),
+      expect.any(Object)
+    );
   });
 
   it('handles general upload failures gracefully', async () => {
@@ -193,9 +221,13 @@ describe('runAutoUpload()', () => {
     expect(mockSendMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT })
     );
-    expect(mockSendMessage).toHaveBeenCalledWith({
-      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-    });
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+        lastKnownRemoteUpdatedAt: null,
+        lastSuccessfulUploadAt: null,
+      })
+    );
   });
 
   it('catches and logs exception during snapshot building', async () => {
@@ -212,12 +244,23 @@ describe('runAutoUpload()', () => {
       expect.stringContaining('自動上傳例外'),
       expect.any(Object)
     );
-    expect(mockSendMessage).toHaveBeenCalledWith({
-      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-    });
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+        lastKnownRemoteUpdatedAt: null,
+        lastSuccessfulUploadAt: null,
+      })
+    );
   });
 
   it('successfully uploads, clears dirty flag, and broadcasts status updated', async () => {
+    driveClient.getDriveSyncMetadata.mockResolvedValueOnce(baseMetadata()).mockResolvedValueOnce(
+      baseMetadata({
+        lastKnownRemoteUpdatedAt: '2026-04-21T00:00:00.000Z',
+        lastSuccessfulUploadAt: '2026-04-21T00:00:00.000Z',
+      })
+    );
+
     await runAutoUpload();
 
     expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
@@ -233,9 +276,13 @@ describe('runAutoUpload()', () => {
       expect.stringContaining('自動上傳成功'),
       expect.any(Object)
     );
-    expect(mockSendMessage).toHaveBeenCalledWith({
-      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-    });
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+        lastKnownRemoteUpdatedAt: '2026-04-21T00:00:00.000Z',
+        lastSuccessfulUploadAt: '2026-04-21T00:00:00.000Z',
+      })
+    );
   });
 
   it('ignores background broadcast errors silently', async () => {
@@ -243,5 +290,23 @@ describe('runAutoUpload()', () => {
     await runAutoUpload();
     // Should not throw
     expect(Logger.success).toHaveBeenCalled();
+  });
+
+  it('skips upload when account is logged out (resolved via getAccountAccessToken)', async () => {
+    accountSession.getAccountAccessToken.mockResolvedValue(null);
+
+    await runAutoUpload();
+
+    expect(driveClient.uploadDriveSnapshot).not.toHaveBeenCalled();
+    expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('跳過自動同步'), {
+      reason: 'account_not_logged_in',
+    });
+  });
+
+  it('respects explicit isAccountLoggedIn context without calling getAccountAccessToken', async () => {
+    await runAutoUpload({ isAccountLoggedIn: true });
+
+    expect(accountSession.getAccountAccessToken).not.toHaveBeenCalled();
+    expect(driveClient.uploadDriveSnapshot).toHaveBeenCalled();
   });
 });
