@@ -168,14 +168,20 @@ export async function getDriveSyncMetadata() {
  * 由 drive-auth.html callback bridge 呼叫。
  *
  * @param {DriveConnection} connection
+ * @param {{ resetConflicts?: boolean }} [options]
  * @returns {Promise<void>}
  */
-export async function setDriveConnection(connection) {
-  await chrome.storage.local.set({
+export async function setDriveConnection(connection, options = {}) {
+  const patch = {
     [DRIVE_SYNC_STORAGE_KEYS.CONNECTION_EMAIL]: connection.email,
     [DRIVE_SYNC_STORAGE_KEYS.CONNECTED_AT]: connection.connectedAt,
-    [DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW]: false,
-  });
+  };
+
+  if (options.resetConflicts !== false) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = false;
+  }
+
+  await chrome.storage.local.set(patch);
 }
 
 /**

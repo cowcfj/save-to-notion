@@ -80,6 +80,18 @@ describe('Drive Client API', () => {
       );
     });
 
+    it('setDriveConnection 在 resetConflicts:false 時只更新連線欄位', async () => {
+      await setDriveConnection(
+        { email: 'keep-conflict@a.com', connectedAt: '2023-02-01' },
+        { resetConflicts: false }
+      );
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({
+        driveSyncConnectionEmail: 'keep-conflict@a.com',
+        driveSyncConnectedAt: '2023-02-01',
+      });
+    });
+
     it('clearDriveSyncMetadata should remove all sync keys', async () => {
       await clearDriveSyncMetadata();
       expect(mockStorageLocal.remove).toHaveBeenCalledWith(ALL_DRIVE_SYNC_KEYS);

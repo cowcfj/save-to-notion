@@ -129,10 +129,17 @@ async function syncRemoteDriveConnection() {
   const status = await fetchDriveConnectionStatus();
 
   if (status.connected && status.email) {
-    await setDriveConnection({
-      email: status.email,
-      connectedAt: status.connectedAt ?? null,
-    });
+    const previousMetadata = await getDriveSyncMetadata();
+    const connectedAt =
+      status.connectedAt ?? previousMetadata.connectedAt ?? new Date().toISOString();
+
+    await setDriveConnection(
+      {
+        email: status.email,
+        connectedAt,
+      },
+      { resetConflicts: false }
+    );
     await syncRemoteSnapshotStatus();
     return;
   }
@@ -334,7 +341,11 @@ function _updateStatePanels(isConnected, needsReview) {
 /**
  * 更新已連線狀態的帳號資訊與上傳時間
  *
- * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null }} metadata
+ * @param {{
+ *   connectionEmail?: string | null;
+ *   lastSuccessfulUploadAt?: string | null;
+ *   lastKnownRemoteUpdatedAt?: string | number | Date | null | undefined;
+ * }} metadata - `lastKnownRemoteUpdatedAt` 為最後一次已知遠端更新時間，當 `lastSuccessfulUploadAt` 缺失時用於 UI fallback
  */
 function _updateConnectedInfo(metadata) {
   const emailEl = el(DOM.CONNECTED_EMAIL);

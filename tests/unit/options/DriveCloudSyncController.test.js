@@ -60,13 +60,48 @@ describe('DriveCloudSyncController', () => {
     `;
 
     mockSendMessage = jest.fn().mockResolvedValue({ success: true });
+    const storageState = {};
     globalThis.chrome = {
       runtime: {
         sendMessage: mockSendMessage,
       },
       storage: {
         local: {
-          remove: jest.fn().mockResolvedValue(),
+          get: jest.fn().mockImplementation(async keys => {
+            if (Array.isArray(keys)) {
+              const result = {};
+              for (const key of keys) {
+                if (Object.prototype.hasOwnProperty.call(storageState, key)) {
+                  result[key] = storageState[key];
+                }
+              }
+              return result;
+            }
+            if (typeof keys === 'string') {
+              return Object.prototype.hasOwnProperty.call(storageState, keys)
+                ? { [keys]: storageState[keys] }
+                : {};
+            }
+            if (keys && typeof keys === 'object') {
+              const result = {};
+              for (const key of Object.keys(keys)) {
+                result[key] = Object.prototype.hasOwnProperty.call(storageState, key)
+                  ? storageState[key]
+                  : keys[key];
+              }
+              return result;
+            }
+            return { ...storageState };
+          }),
+          set: jest.fn().mockImplementation(async patch => {
+            Object.assign(storageState, patch);
+          }),
+          remove: jest.fn().mockImplementation(async keys => {
+            const keyList = Array.isArray(keys) ? keys : [keys];
+            for (const key of keyList) {
+              delete storageState[key];
+            }
+          }),
         },
       },
     };
@@ -75,7 +110,7 @@ describe('DriveCloudSyncController', () => {
     jest.spyOn(Logger, 'info').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
-    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
+    jest.spyOn(driveClient, 'getDriveSyncMetadata');
     jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
     jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
     jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
@@ -89,7 +124,7 @@ describe('DriveCloudSyncController', () => {
       updatedAt: null,
       size: null,
     });
-    jest.spyOn(driveClient, 'setDriveConnection').mockResolvedValue();
+    jest.spyOn(driveClient, 'setDriveConnection');
   });
 
   afterEach(() => {
@@ -311,10 +346,13 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'pageshow@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'pageshow@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
     });
 
     it('clears sync status without generic error when upload detects newer remote snapshot', async () => {
@@ -511,7 +549,7 @@ describe('DriveCloudSyncController', () => {
         connectionEmail: 'remote@test.dev',
         connectedAt: '2026-04-20T00:00:00.000Z',
       });
-      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: false,
         updatedAt: null,
       });
@@ -519,33 +557,40 @@ describe('DriveCloudSyncController', () => {
       await initCloudSyncController(true);
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'remote@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'remote@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
       expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
     });
 
-    it('server 未回傳 connectedAt 時透傳 null，避免以本地時間污染 metadata', async () => {
+    it('server 未回傳 connectedAt 時保留既有本地 connectedAt，避免以空值覆寫 metadata', async () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
         connected: true,
         email: 'no-ts@test.dev',
         connectedAt: null,
       });
-      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: false,
         updatedAt: null,
       });
       driveClient.getDriveSyncMetadata.mockResolvedValue({
         connectionEmail: 'no-ts@test.dev',
+        connectedAt: '2026-04-18T08:30:00.000Z',
       });
 
       await initCloudSyncController(true);
 
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'no-ts@test.dev',
-        connectedAt: null,
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'no-ts@test.dev',
+          connectedAt: '2026-04-18T08:30:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
     });
 
     it('reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt', async () => {
@@ -554,7 +599,7 @@ describe('DriveCloudSyncController', () => {
         email: 'reconnect@test.dev',
         connectedAt: '2026-04-21T00:00:00Z',
       });
-      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
         updatedAt: '2026-04-20T09:30:00Z',
         size: 1024,
@@ -582,7 +627,7 @@ describe('DriveCloudSyncController', () => {
         email: 'empty-remote@test.dev',
         connectedAt: '2026-04-21T00:00:00Z',
       });
-      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: false,
         updatedAt: null,
         size: null,
@@ -608,9 +653,7 @@ describe('DriveCloudSyncController', () => {
         email: 'warn-path@test.dev',
         connectedAt: '2026-04-21T00:00:00Z',
       });
-      jest
-        .spyOn(driveClient, 'fetchDriveSnapshotStatus')
-        .mockRejectedValue(new Error('TOKEN_EXPIRED'));
+      driveClient.fetchDriveSnapshotStatus.mockRejectedValueOnce(new Error('TOKEN_EXPIRED'));
       const setSnapshotSpy = jest
         .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
         .mockResolvedValue();
@@ -651,12 +694,9 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('refreshes remote drive connection when window regains focus', async () => {
-      driveClient.getDriveSyncMetadata
-        .mockResolvedValueOnce({ connectionEmail: null })
-        .mockResolvedValue({
-          connectionEmail: 'focus@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
-        });
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
       driveClient.fetchDriveConnectionStatus
         .mockResolvedValueOnce({
           connected: false,
@@ -674,20 +714,16 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'focus@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
-      expect(document.querySelector('#drive-connected-email').textContent).toBe('focus@test.dev');
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.connectionEmail).toBe('focus@test.dev');
+      expect(storedMetadata.connectedAt).toBe('2026-04-20T00:00:00.000Z');
     });
 
     it('refreshes remote drive connection when page becomes visible again', async () => {
-      driveClient.getDriveSyncMetadata
-        .mockResolvedValueOnce({ connectionEmail: null })
-        .mockResolvedValue({
-          connectionEmail: 'visible@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
-        });
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
       driveClient.fetchDriveConnectionStatus
         .mockResolvedValueOnce({
           connected: false,
@@ -710,30 +746,41 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'visible@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.connectionEmail).toBe('visible@test.dev');
+      expect(storedMetadata.connectedAt).toBe('2026-04-20T00:00:00.000Z');
     });
 
     it('focus 觸發的 snapshot status 同步 MUST NOT 清除 needsManualReview / lastErrorCode', async () => {
-      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: true,
-        email: 'conflict-safe@test.dev',
-        connectedAt: '2026-04-21T00:00:00Z',
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
+      await chrome.storage.local.set({
+        driveSyncConnectionEmail: 'conflict-safe@test.dev',
+        driveSyncConnectedAt: '2026-04-19T11:00:00Z',
+        driveSyncNeedsManualReview: true,
+        driveSyncLastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
       });
-      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'conflict-safe@test.dev',
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'conflict-safe@test.dev',
+          connectedAt: null,
+        });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
         updatedAt: '2026-04-20T09:30:00Z',
       });
-      const setSnapshotSpy = jest
-        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
-        .mockResolvedValue();
-      // 模擬正處於 conflict 狀態
-      driveClient.getDriveSyncMetadata.mockResolvedValue({
-        connectionEmail: 'conflict-safe@test.dev',
-        needsManualReview: true,
-        lastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00Z',
       });
 
       await initCloudSyncController(true);
@@ -741,13 +788,52 @@ describe('DriveCloudSyncController', () => {
       globalThis.dispatchEvent(new Event('focus'));
       await flushAsyncWork();
 
-      // 關鍵斷言：只有 LAST_KNOWN_REMOTE_UPDATED_AT 被寫入
-      for (const call of setSnapshotSpy.mock.calls) {
-        expect(call[0]).toBe('2026-04-20T09:30:00Z');
-      }
-      // Conflict UI 應該保留
+      expect(chrome.storage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          driveSyncNeedsManualReview: false,
+        })
+      );
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.needsManualReview).toBe(true);
+      expect(storedMetadata.lastErrorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+      expect(storedMetadata.connectedAt).toBe('2026-04-19T11:00:00Z');
+
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+    });
+
+    it('focus 首次連線且本地缺少 connectedAt 時才 fallback 為目前時間', async () => {
+      jest.setSystemTime(new Date('2026-04-22T10:00:00.000Z'));
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: false,
+          email: null,
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'first-connect@test.dev',
+          connectedAt: null,
+        });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+        size: null,
+      });
+
+      await initCloudSyncController(true);
+
+      globalThis.dispatchEvent(new Event('focus'));
+      await flushAsyncWork();
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.connectionEmail).toBe('first-connect@test.dev');
+      expect(storedMetadata.connectedAt).toBe('2026-04-22T10:00:00.000Z');
+      expect(storedMetadata.needsManualReview).toBe(false);
     });
 
     it('uses conflict action buttons for download and force upload flows', async () => {
@@ -800,10 +886,13 @@ describe('DriveCloudSyncController', () => {
       await refreshCloudSyncCard({ syncRemote: true });
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'fresh@a.com',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'fresh@a.com',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
       expect(document.querySelector('#drive-connected-email').textContent).toBe('fresh@a.com');
     });
 
@@ -827,7 +916,7 @@ describe('DriveCloudSyncController', () => {
         email: 'refresh@test.dev',
         connectedAt: '2026-04-21T00:00:00Z',
       });
-      jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
         updatedAt: '2026-04-20T09:30:00Z',
       });
