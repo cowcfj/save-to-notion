@@ -16,8 +16,6 @@
  * @module performance/preloader
  */
 
-/* global chrome */
-
 'use strict';
 
 import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
@@ -105,21 +103,24 @@ import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
    * 若用戶在主 Bundle 注入前觸發動作，先緩衝
    */
   const eventBuffer = [];
+  const runtime = globalThis.chrome?.runtime;
+  const canSendRuntimeMessage = typeof runtime?.sendMessage === 'function';
+  const canListenRuntimeMessage = typeof runtime?.onMessage?.addListener === 'function';
 
   /**
    * 監聽快捷鍵 Ctrl+S / Cmd+S
    */
   document.addEventListener('keydown', event => {
-    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    if ((event.ctrlKey || event.metaKey) && event.key === 's' && canSendRuntimeMessage) {
       event.preventDefault();
 
       // 發送訊息給 Background
-      chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.USER_ACTIVATE_SHORTCUT }, _response => {
-        if (chrome.runtime.lastError) {
+      runtime.sendMessage({ action: RUNTIME_ACTIONS.USER_ACTIVATE_SHORTCUT }, _response => {
+        if (runtime.lastError) {
           // 記錄連接錯誤以便診斷（如 Background 未準備好、權限問題等）
           console.error(
             '[Notion Preloader] Failed to send shortcut message:',
-            chrome.runtime.lastError.message
+            runtime.lastError.message
           );
           return;
         }
@@ -135,39 +136,41 @@ import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
   /**
    * 監聽 Background 訊息
    */
-  chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-    // PING 檢測：用於 InjectionService.ensureBundleInjected
-    if (request.action === RUNTIME_ACTIONS.PING) {
-      // 若 Bundle 已就緒，讓 Bundle 的監聽器處理（避免競爭條件）
-      if (globalThis.__NOTION_BUNDLE_READY__) {
-        return false; // 不處理，讓 Bundle 監聽器響應
+  if (canListenRuntimeMessage) {
+    runtime.onMessage.addListener((request, _sender, sendResponse) => {
+      // PING 檢測：用於 InjectionService.ensureBundleInjected
+      if (request.action === RUNTIME_ACTIONS.PING) {
+        // 若 Bundle 已就緒，讓 Bundle 的監聽器處理（避免競爭條件）
+        if (globalThis.__NOTION_BUNDLE_READY__) {
+          return false; // 不處理，讓 Bundle 監聽器響應
+        }
+
+        // Bundle 尚未載入，Preloader 響應
+        sendResponse({
+          status: 'preloader_only',
+          hasCache: Boolean(preloaderCache.article) || Boolean(preloaderCache.mainContent),
+          nextRouteInfo: preloaderCache.nextRouteInfo,
+          shortlink: preloaderCache.shortlink,
+        });
+        return true;
       }
 
-      // Bundle 尚未載入，Preloader 響應
-      sendResponse({
-        status: 'preloader_only',
-        hasCache: Boolean(preloaderCache.article) || Boolean(preloaderCache.mainContent),
-        nextRouteInfo: preloaderCache.nextRouteInfo,
-        shortlink: preloaderCache.shortlink,
-      });
-      return true;
-    }
+      // 準備接收主 Bundle
+      if (request.action === RUNTIME_ACTIONS.INIT_BUNDLE) {
+        sendResponse({ ready: true, bufferedEvents: eventBuffer.length });
+        return true;
+      }
 
-    // 準備接收主 Bundle
-    if (request.action === RUNTIME_ACTIONS.INIT_BUNDLE) {
-      sendResponse({ ready: true, bufferedEvents: eventBuffer.length });
-      return true;
-    }
+      // 重放緩衝事件（由主 Bundle 調用）
+      if (request.action === RUNTIME_ACTIONS.REPLAY_BUFFERED_EVENTS) {
+        const events = [...eventBuffer];
+        eventBuffer.length = 0;
+        sendResponse({ events });
+        return true;
+      }
 
-    // 重放緩衝事件（由主 Bundle 調用）
-    if (request.action === RUNTIME_ACTIONS.REPLAY_BUFFERED_EVENTS) {
-      const events = [...eventBuffer];
-      eventBuffer.length = 0;
-      sendResponse({ events });
-      return true;
-    }
-
-    // 未處理的訊息不需要異步響應
-    return false;
-  });
+      // 未處理的訊息不需要異步響應
+      return false;
+    });
+  }
 })();

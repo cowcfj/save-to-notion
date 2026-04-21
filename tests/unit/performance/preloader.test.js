@@ -86,6 +86,30 @@ describe('Preloader Performance Script', () => {
       runPreloader();
       expect(mockChrome.runtime.onMessage.addListener).not.toHaveBeenCalled();
     });
+
+    test('當 chrome.runtime 不可用時不應拋錯，且仍保留 preloader cache 事件', () => {
+      globalThis.chrome = {};
+
+      expect(() => runPreloader()).not.toThrow();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', event => {
+        responseDetail = event.detail;
+      });
+
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail).not.toBeNull();
+      expect(responseDetail).toEqual(
+        expect.objectContaining({
+          article: null,
+          mainContent: null,
+          nextRouteInfo: null,
+          shortlink: null,
+          timestamp: expect.any(Number),
+        })
+      );
+    });
   });
 
   describe('Cache Retrieval via Event', () => {

@@ -20,6 +20,7 @@ import { MigrationTool } from '../../../options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
+import { ACCOUNT_API } from '../../../scripts/config/api.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env.js', () => ({
@@ -50,6 +51,7 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 }));
 jest.mock('../../../scripts/auth/accountSession.js', () => ({
   getAccountProfile: jest.fn(),
+  getAccountAccessToken: jest.fn(),
   clearAccountSession: jest.fn().mockResolvedValue(),
 }));
 
@@ -947,10 +949,21 @@ function buildChromeMock(overrides = {}) {
   };
 }
 
+describe('Google Drive API constants', () => {
+  it('should use /v1/account/drive namespace for drive endpoints', () => {
+    expect(ACCOUNT_API.DRIVE_START).toBe('/v1/account/drive/start');
+    expect(ACCOUNT_API.DRIVE_START_URL).toBe('/v1/account/drive/start-url');
+    expect(ACCOUNT_API.DRIVE_CONNECTION).toBe('/v1/account/drive/connection');
+    expect(ACCOUNT_API.DRIVE_SNAPSHOT_STATUS).toBe('/v1/account/drive/snapshot/status');
+    expect(ACCOUNT_API.DRIVE_SNAPSHOT).toBe('/v1/account/drive/snapshot');
+  });
+});
+
 describe('Account UI (initAccountUI / renderAccountUI)', () => {
   // Import mock 控制器
   const {
     getAccountProfile,
+    getAccountAccessToken,
     clearAccountSession,
   } = require('../../../scripts/auth/accountSession.js');
   const { BUILD_ENV } = require('../../../scripts/config/env.js');
@@ -962,7 +975,9 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     BUILD_ENV.ENABLE_ACCOUNT = true;
     BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
     getAccountProfile.mockReset();
+    getAccountAccessToken.mockReset();
     clearAccountSession.mockReset();
+    getAccountAccessToken.mockResolvedValue(null);
     clearAccountSession.mockResolvedValue();
   });
 
@@ -1002,9 +1017,6 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').classList.contains('locked-feature')).toBe(
-        true
-      );
       expect(
         document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
       ).toBe(true);
@@ -1013,6 +1025,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
   describe('已登入狀態', () => {
     it('getAccountProfile 回傳 profile 時應顯示 logged-in 區塊與帳號資訊，並解除鎖定', async () => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
@@ -1020,7 +1033,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         avatarUrl: 'https://example.com/avatar.png',
       });
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-out').style.display).toBe('none');
@@ -1030,15 +1043,13 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(avatarImg.style.display).not.toBe('none');
       expect(avatarImg.src).toContain('avatar.png');
 
-      expect(document.querySelector('#cloud-sync-card').classList.contains('locked-feature')).toBe(
-        false
-      );
       expect(
         document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
       ).toBe(false);
     });
 
     it('displayName 為 null 時應顯示 email，avatar 為 null 時應回退', async () => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
@@ -1046,7 +1057,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         avatarUrl: null,
       });
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(document.querySelector('#profile-display-name').textContent).toContain(
         'user@example.com'
@@ -1057,6 +1068,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     });
 
     it('displayName 為空白字串時應回退到 email，避免顯示空白名稱', async () => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
@@ -1064,7 +1076,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         avatarUrl: null,
       });
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(document.querySelector('#profile-display-name').textContent).toBe('user@example.com');
 
@@ -1074,6 +1086,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     });
 
     it('displayName 與 email 都缺失時應使用安全 fallback，避免呼叫 charAt 拋錯', async () => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: '',
@@ -1082,7 +1095,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       });
 
       expect(() => initOptions()).not.toThrow();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(document.querySelector('#profile-display-name').textContent).toBe('');
       expect(document.querySelector('#profile-email').textContent).toBe('');
@@ -1090,6 +1103,23 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       const fallback = document.querySelector('#profile-avatar-fallback');
       expect(fallback.style.display).toBe('flex');
       expect(fallback.textContent).toBe('?');
+    });
+
+    it('僅有殘留 profile 但 access token 已失效時，應視為未登入', async () => {
+      getAccountAccessToken.mockResolvedValue(null);
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'stale@example.com',
+        displayName: 'Stale User',
+        avatarUrl: null,
+      });
+      initOptions();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
     });
   });
 
@@ -1145,6 +1175,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
   describe('登出按鈕', () => {
     beforeEach(() => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile
         .mockResolvedValueOnce({
           userId: 'u1',
@@ -1175,10 +1206,11 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     it('成功登出後應顯示成功訊息，並在 3 秒後清除', async () => {
       clearAccountSession.mockResolvedValue();
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       document.querySelector('#account-logout-button').click();
       // 清空所有 microtask：clearAccountSession + sendMessage + renderAccountUI
+      await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
@@ -1210,10 +1242,11 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
   });
 
   describe('account_session_updated / account_session_cleared runtime 訊息', () => {
-    it('收到 account_session_updated 訊息時應重新讀取 profile', async () => {
+    it('收到 account_session_updated 訊息時應切換到已登入 UI 並顯示最新 profile', async () => {
       getAccountProfile.mockResolvedValue(null);
+      getAccountAccessToken.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
@@ -1223,15 +1256,19 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         displayName: 'New',
         avatarUrl: null,
       });
+      getAccountAccessToken.mockResolvedValue('token-456');
 
       listener({ action: 'account_session_updated' });
-      await Promise.resolve();
+      await flushAsyncClick();
 
-      // getAccountProfile 應被第二次呼叫（renderAccountUI 觸發）
-      expect(getAccountProfile).toHaveBeenCalledTimes(2);
+      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#profile-display-name').textContent).toBe('New');
+      expect(document.querySelector('#profile-email').textContent).toBe('new@example.com');
     });
 
-    it('收到 account_session_cleared 訊息時應重新讀取 profile', async () => {
+    it('收到 account_session_cleared 訊息時應切換到已登出 UI 並隱藏 account 卡資訊', async () => {
+      getAccountAccessToken.mockResolvedValue('token-123');
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
         email: 'user@example.com',
@@ -1239,15 +1276,18 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         avatarUrl: null,
       });
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
       getAccountProfile.mockResolvedValue(null);
+      getAccountAccessToken.mockResolvedValue(null);
       listener({ action: 'account_session_cleared' });
-      await Promise.resolve();
+      await flushAsyncClick();
 
-      expect(getAccountProfile).toHaveBeenCalledTimes(2);
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
     });
   });
 

@@ -78,6 +78,58 @@
         "accountAvatarUrl": {
           "type": "string | null",
           "description": "帳號頭像 URL（可能為 null）"
+        },
+        "$comment_driveSync": "=== Google Drive Sync Metadata Keys (Phase A) ===\n所有 key 以 driveSync 前綴命名，與 account / notion keys 完整隔離。\n不包含任何 token 或 credential。\n來源：docs/plans/2026-04-20-google-drive-sync-frontend-phase-a-manual-sync-plan.md §5.3",
+        "driveSyncConnectionEmail": {
+          "type": "string | null",
+          "description": "已連接的 Google Drive 帳號 email。⚠️ PII：MUST NOT 直接寫入日誌",
+          "sensitive": true
+        },
+        "driveSyncConnectedAt": {
+          "type": "string | null",
+          "description": "Drive 授權完成時間（ISO 8601）"
+        },
+        "driveSyncLastKnownRemoteUpdatedAt": {
+          "type": "string | null",
+          "description": "上次查詢時後端回傳的 snapshot updatedAt（ISO 8601）；用於 conflict 偵測"
+        },
+        "driveSyncLastSuccessfulUploadAt": {
+          "type": "string | null",
+          "description": "上次成功上傳完成的本地記錄時間（ISO 8601）"
+        },
+        "driveSyncLastSuccessfulDownloadAt": {
+          "type": "string | null",
+          "description": "上次成功下載並套用完成的本地記錄時間（ISO 8601）"
+        },
+        "driveSyncLastErrorCode": {
+          "type": "string | null",
+          "description": "上次同步失敗的錯誤代碼，例如 REMOTE_SNAPSHOT_NEWER, NETWORK_ERROR"
+        },
+        "driveSyncLastErrorAt": {
+          "type": "string | null",
+          "description": "上次同步失敗的時間（ISO 8601）"
+        },
+        "driveSyncLastRunAt": {
+          "type": "string | null",
+          "description": "上次執行同步操作（無論成敗）的時間（ISO 8601）"
+        },
+        "driveSyncLastRunType": {
+          "type": "string | null",
+          "enum": ["upload", "download", "status_check"],
+          "description": "上次同步操作的類型"
+        },
+        "driveSyncNeedsManualReview": {
+          "type": "boolean",
+          "description": "true 表示目前有待人工處理的衝突（例如 REMOTE_SNAPSHOT_NEWER 尚未解決）",
+          "default": false
+        },
+        "driveSyncInstallationId": {
+          "type": "string | null",
+          "description": "此 extension 安裝的唯一識別碼，用於後端區分同一帳號的多個 extension 安裝"
+        },
+        "driveSyncProfileId": {
+          "type": "string | null",
+          "description": "後端 Drive profile ID（若後端有提供），用於對應 snapshot 擁有者"
         }
       },
       "patterns": {

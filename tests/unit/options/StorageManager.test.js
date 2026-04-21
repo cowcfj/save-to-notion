@@ -1464,4 +1464,12 @@ describe('options.html 結構', () => {
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });
+
+  test('Google Drive 雲端同步卡片應僅保留單一說明文案，描述備份與同步本地資料到雲端', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+
+    expect(html).toContain('連接 Google Drive 後，可備份和同步你的本地資料到雲端。');
+    expect(html).not.toContain('此登入用於 Google Drive 授權，用於備份和同步你的本地資料。');
+  });
 });
