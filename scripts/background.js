@@ -56,33 +56,25 @@ const accountAuthHandler = createAccountAuthHandler({ logger: Logger });
 // Phase B Dirty Tracking：在 highlights / saved_state 的 canonical write path 後標記 dirty
 // 使用 fire-and-forget（不阻擋主要寫入操作）
 // guard 確保在測試 mock 環境部分方法不存在時不會拋出
-if (typeof storageService.updateHighlights === 'function') {
-  const _origUpdateHighlights = storageService.updateHighlights.bind(storageService);
-  storageService.updateHighlights = async function (pageUrl, highlights) {
-    const result = await _origUpdateHighlights(pageUrl, highlights);
-    markDriveDirty().catch(() => {});
-    return result;
-  };
+function wrapWithDriveDirtyTracking(service, methodNames) {
+  for (const methodName of methodNames) {
+    if (typeof service[methodName] !== 'function') {
+      continue;
+    }
+    const original = service[methodName].bind(service);
+    service[methodName] = async function (...args) {
+      const result = await original(...args);
+      markDriveDirty().catch(() => {});
+      return result;
+    };
+  }
 }
 
-if (typeof storageService.savePageDataAndHighlights === 'function') {
-  const _origSavePageDataAndHighlights =
-    storageService.savePageDataAndHighlights.bind(storageService);
-  storageService.savePageDataAndHighlights = async function (pageUrl, pageData, highlights) {
-    const result = await _origSavePageDataAndHighlights(pageUrl, pageData, highlights);
-    markDriveDirty().catch(() => {});
-    return result;
-  };
-}
-
-if (typeof storageService.setSavedPageData === 'function') {
-  const _origSetSavedPageData = storageService.setSavedPageData.bind(storageService);
-  storageService.setSavedPageData = async function (pageUrl, data) {
-    const result = await _origSetSavedPageData(pageUrl, data);
-    markDriveDirty().catch(() => {});
-    return result;
-  };
-}
+wrapWithDriveDirtyTracking(storageService, [
+  'updateHighlights',
+  'savePageDataAndHighlights',
+  'setSavedPageData',
+]);
 
 // Initialize MessageHandler
 const messageHandler = new MessageHandler({ logger: Logger });
