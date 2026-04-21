@@ -35,6 +35,8 @@ echo "📂 Copying files..."
 
 # Copy root files
 cp -a manifest.json "$RM_DIR/"
+cp -a auth.html "$RM_DIR/"          # 帳號登入 callback bridge
+cp -a drive-auth.html "$RM_DIR/"   # Google Drive OAuth callback bridge
 
 
 # Copy directories
@@ -43,6 +45,7 @@ cp -a options "$RM_DIR/"
 cp -a popup "$RM_DIR/"
 cp -a sidepanel "$RM_DIR/"
 cp -a update-notification "$RM_DIR/"
+cp -a styles "$RM_DIR/"            # callback bridge 共用 CSS
 cp -a dist "$RM_DIR/"
 
 # Copy scripts directory, excluding test-only and bundled directories
@@ -60,6 +63,16 @@ rsync -a \
     --exclude='utils/imageUtils.js' \
     --exclude='utils/pageComplexityDetector.js' \
     --exclude='utils/README.md' \
+    --exclude='config/env.example.js' \
+    --exclude='config/highlightConstants.js' \
+    --exclude='config/index.js' \
+    --exclude='config/notionCodeLanguages.js' \
+    --exclude='performance' \
+    --exclude='postinstall.js' \
+    --exclude='sync' \
+    --exclude='utils/LogExporter.js' \
+    --exclude='utils/RetryManager.js' \
+    --exclude='utils/notionAuth.js' \
     scripts/ "$RM_DIR/scripts/"
 
 echo "📂 Scripts folder content:"
