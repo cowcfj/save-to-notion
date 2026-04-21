@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } from '../../../scripts/config/runtimeActions.js';
 
 describe('runtimeActions', () => {
@@ -68,5 +70,39 @@ describe('runtimeActions', () => {
         EXTENSION_UNAVAILABLE: '無法連接擴展',
       })
     );
+  });
+
+  // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
+  // `RUNTIME_ACTIONS.KEY` 實際被引用。只收錄卻沒人用的條目會誤導未來維護者，
+  // 且工具鏈無法自動偵測（Object.freeze 使所有 key 看起來都「被消費」）。
+  test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 options/ 中實際被引用', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const registryFile = path.join(projectRoot, 'scripts/config/runtimeActions.js');
+
+    const collectJsFiles = (dir, out = []) => {
+      if (!fs.existsSync(dir)) {return out;}
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {continue;}
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          collectJsFiles(full, out);
+        } else if (entry.name.endsWith('.js') && full !== registryFile) {
+          out.push(full);
+        }
+      }
+      return out;
+    };
+
+    const sourceFiles = [
+      ...collectJsFiles(path.join(projectRoot, 'scripts')),
+      ...collectJsFiles(path.join(projectRoot, 'options')),
+    ];
+    const codebase = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+
+    const unused = Object.keys(RUNTIME_ACTIONS).filter(
+      key => !codebase.includes(`RUNTIME_ACTIONS.${key}`)
+    );
+
+    expect(unused).toEqual([]);
   });
 });
