@@ -41,7 +41,7 @@ import Logger from '../../utils/Logger.js';
  * 1. account 已登入（有 connectionEmail）
  * 2. Drive 已連接（有 connectionEmail）
  * 3. frequency 非 'off'
- * 4. driveSyncDirty === true
+ * 4. 本地有未同步變更：dirtyRevision > lastUploadedRevision
  * 5. needsManualReview !== true
  * 6. nextEligibleAt 已到期（或為 null）
  *
@@ -62,7 +62,7 @@ export function shouldRunAutoSync(metadata, context = {}) {
     return { shouldRun: false, reason: 'frequency_off' };
   }
 
-  if (!metadata.dirty) {
+  if (metadata.dirtyRevision <= metadata.lastUploadedRevision) {
     return { shouldRun: false, reason: 'not_dirty' };
   }
 
@@ -174,10 +174,12 @@ async function handleUploadFailure(result) {
 }
 
 /**
- * 處理 upload 成功：更新 metadata、清 dirty、廣播最新狀態。
+ * 處理 upload 成功：更新 metadata、記錄已上傳 revision、廣播最新狀態。
  *
- * 傳入 expectedDirtyRevision ，供 clearDriveDirty 判斷 upload 期間
- * 是否出現新寫入，若有则保留 DIRTY=true。
+ * 傳入 expectedDirtyRevision（上傳開始時捕獲的 dirtyRevision），
+ * clearDriveDirty 會將其寫入 LAST_UPLOADED_REVISION。若上傳期間有新的
+ * markDriveDirty() 觸發，dirtyRevision 已大於 expectedDirtyRevision，
+ * 下次 shouldRunAutoSync 比較時會判斷為 dirty → 重新觸發上傳。
  *
  * @param {{ updatedAt?: string | null }} result
  * @param {object} snapshot
@@ -246,8 +248,9 @@ export async function runAutoUpload(context = {}) {
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
 
   // 在讀取 metadata 時同步捕获當前 dirty revision。
-  // upload 完成後，clearDriveDirty 會比對此值，
-  // 若期間有新 markDriveDirty() （revision 變大），則保留 DIRTY=true。
+  // upload 完成後，clearDriveDirty 會將此值寫入 LAST_UPLOADED_REVISION。
+  // 若期間有新 markDriveDirty()（dirtyRevision 已變大），下次 shouldRunAutoSync
+  // 會偵測到 dirtyRevision > lastUploadedRevision → 重新觸發上傳。
   const expectedDirtyRevision = metadata.dirtyRevision;
 
   try {
