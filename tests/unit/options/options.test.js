@@ -20,6 +20,7 @@ import { MigrationTool } from '../../../options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
+import { ACCOUNT_API } from '../../../scripts/config/api.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env.js', () => ({
@@ -948,6 +949,15 @@ function buildChromeMock(overrides = {}) {
   };
 }
 
+describe('Google Drive API constants', () => {
+  it('should use /v1/account/drive namespace for drive endpoints', () => {
+    expect(ACCOUNT_API.DRIVE_START).toBe('/v1/account/drive/start');
+    expect(ACCOUNT_API.DRIVE_CONNECTION).toBe('/v1/account/drive/connection');
+    expect(ACCOUNT_API.DRIVE_SNAPSHOT_STATUS).toBe('/v1/account/drive/snapshot/status');
+    expect(ACCOUNT_API.DRIVE_SNAPSHOT).toBe('/v1/account/drive/snapshot');
+  });
+});
+
 describe('Account UI (initAccountUI / renderAccountUI)', () => {
   // Import mock 控制器
   const {
@@ -1159,17 +1169,6 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       const statusEl = document.querySelector('#account-status');
       expect(statusEl.textContent).toContain('登入設定');
       expect(statusEl.className).toContain('error');
-    });
-  });
-
-  describe('Google Drive API constants', () => {
-    it('should use /v1/account/drive namespace for drive endpoints', async () => {
-      const { ACCOUNT_API } = await import('../../../scripts/config/api.js');
-
-      expect(ACCOUNT_API.DRIVE_START).toBe('/v1/account/drive/start');
-      expect(ACCOUNT_API.DRIVE_CONNECTION).toBe('/v1/account/drive/connection');
-      expect(ACCOUNT_API.DRIVE_SNAPSHOT_STATUS).toBe('/v1/account/drive/snapshot/status');
-      expect(ACCOUNT_API.DRIVE_SNAPSHOT).toBe('/v1/account/drive/snapshot');
     });
   });
 

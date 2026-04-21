@@ -125,6 +125,24 @@ describe('Drive Client API', () => {
       );
     });
 
+    it('updateDriveSyncRunMetadata should not set needsManualReview on non-conflict error', async () => {
+      await updateDriveSyncRunMetadata({
+        type: 'upload',
+        success: false,
+        errorCode: 'UPLOAD_FAILED',
+      });
+      expect(mockStorageLocal.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          driveSyncLastErrorCode: 'UPLOAD_FAILED',
+        })
+      );
+      expect(mockStorageLocal.set).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          driveSyncNeedsManualReview: true,
+        })
+      );
+    });
+
     it('clearDriveSyncConflict should unset error', async () => {
       await clearDriveSyncConflict();
       expect(mockStorageLocal.set).toHaveBeenCalledWith(

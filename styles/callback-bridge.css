@@ -29,10 +29,9 @@
   line-height: 1.5;
 }
 
-.status-success .icon-circle {
+.icon-circle {
   width: 40px;
   height: 40px;
-  background: rgba(34, 197, 94, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -40,44 +39,21 @@
   margin: 0 auto;
 }
 
-.status-success .icon-circle svg {
+.icon-circle svg {
   width: 20px;
   height: 20px;
-  stroke: #22c55e;
   fill: none;
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.status-success .status-text {
-  color: #86efac;
-}
-
-.status-error .icon-circle {
-  width: 40px;
-  height: 40px;
-  background: rgba(239, 68, 68, 0.15);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-}
-
-.status-error .icon-circle svg {
-  width: 20px;
-  height: 20px;
-  stroke: #ef4444;
-  fill: none;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.status-error .status-text {
-  color: #fca5a5;
-}
+.status-success .icon-circle { background: rgba(34, 197, 94, 0.15); }
+.status-error .icon-circle { background: rgba(239, 68, 68, 0.15); }
+.status-success .icon-circle svg { stroke: #22c55e; }
+.status-error .icon-circle svg { stroke: #ef4444; }
+.status-success .status-text { color: #86efac; }
+.status-error .status-text { color: #fca5a5; }
 
 .error-detail {
   font-size: 0.75rem;

@@ -150,7 +150,6 @@ async function syncRemoteDriveConnectionSafely() {
       action: 'syncRemoteDriveConnection',
       error: getSafeError(error, 'drive_connection_sync'),
     });
-    await clearDriveSyncMetadata();
   }
 }
 

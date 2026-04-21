@@ -146,6 +146,11 @@ function _isValidSavedEntry(value) {
   return Boolean(value) && typeof value === 'object' && Boolean(value.pageId || value.id);
 }
 
+function _toFiniteNumber(value, fallback) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 /**
  * 將 saved_* legacy format 正規化為 NotionMeta
  *
@@ -157,8 +162,9 @@ function _normalizeSavedState(saved) {
     pageId: saved.pageId ?? saved.id ?? '',
     url: saved.url ?? saved.notionUrl ?? '',
     title: saved.title ?? '',
-    savedAt: Number(saved.savedAt ?? saved.timestamp ?? Date.now()),
-    lastVerifiedAt: saved.lastVerifiedAt == null ? undefined : Number(saved.lastVerifiedAt),
+    savedAt: _toFiniteNumber(saved.savedAt ?? saved.timestamp, Date.now()),
+    lastVerifiedAt:
+      saved.lastVerifiedAt == null ? undefined : _toFiniteNumber(saved.lastVerifiedAt),
   };
 }
 
@@ -432,11 +438,11 @@ function _buildSavedStateWriteEntries(savedStates) {
       pageId: entry.notion_page_id ?? '',
       url: entry.notion_url ?? '',
       title: entry.title ?? '',
-      savedAt: Number(entry.saved_at ?? now),
+      savedAt: _toFiniteNumber(entry.saved_at, now),
       lastVerifiedAt:
         entry.last_verified_at === undefined || entry.last_verified_at === null
           ? undefined
-          : Number(entry.last_verified_at),
+          : _toFiniteNumber(entry.last_verified_at),
     };
     pageStates.set(entry.page_key, pageState);
   }
@@ -469,7 +475,10 @@ function _mergeHighlightEntries(highlights, pageStates) {
     };
 
     if (item.updated_at !== undefined) {
-      highlight.updatedAt = item.updated_at;
+      const updatedAt = _toFiniteNumber(item.updated_at);
+      if (updatedAt !== undefined) {
+        highlight.updatedAt = updatedAt;
+      }
     }
 
     pageState.highlights.push(highlight);

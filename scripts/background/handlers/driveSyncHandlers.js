@@ -103,10 +103,17 @@ async function handleManualUpload(request) {
       Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
 
       if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
-        await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
-          conflictType: 'REMOTE_SNAPSHOT_NEWER',
-          remoteUpdatedAt: result.remoteUpdatedAt ?? null,
-        });
+        const remoteUpdatedAt = result.remoteUpdatedAt;
+        if (remoteUpdatedAt && !Number.isNaN(Date.parse(remoteUpdatedAt))) {
+          await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
+            conflictType: 'REMOTE_SNAPSHOT_NEWER',
+            remoteUpdatedAt,
+          });
+        } else {
+          Logger.warn('[DriveSyncHandler] REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt', {
+            remoteUpdatedAt: result.remoteUpdatedAt,
+          });
+        }
       }
       await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
@@ -132,6 +139,13 @@ async function handleManualUpload(request) {
     await updateDriveSyncRunMetadata({
       type: 'upload',
       success: false,
+      errorCode: 'UPLOAD_FAILED',
+    });
+    Logger.error('[DriveSyncHandler] Upload exception', {
+      action: 'drive_upload',
+      result: 'failure',
+      reason: error instanceof Error ? error.message : String(error),
+      type: 'upload',
       errorCode: 'UPLOAD_FAILED',
     });
     await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
@@ -183,7 +197,17 @@ async function handleManualDownload() {
       errorCode,
     });
 
-    Logger.warn('[DriveSyncHandler] Download failed', { errorCode });
+    if (errorCode === 'NO_REMOTE_SNAPSHOT') {
+      Logger.warn('[DriveSyncHandler] No remote snapshot found', { type: 'download' });
+    } else {
+      Logger.error('[DriveSyncHandler] Download exception', {
+        action: 'drive_download',
+        result: 'failure',
+        reason: errorMessage,
+        type: 'download',
+        errorCode: 'DOWNLOAD_FAILED',
+      });
+    }
     await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
     return { success: false, error: errorMessage };
