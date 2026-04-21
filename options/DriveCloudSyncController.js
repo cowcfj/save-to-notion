@@ -131,7 +131,9 @@ async function syncRemoteDriveConnection() {
   if (status.connected && status.email) {
     const previousMetadata = await getDriveSyncMetadata();
     const connectedAt =
-      status.connectedAt ?? previousMetadata.connectedAt ?? new Date().toISOString();
+      status.connectedAt ??
+      (previousMetadata.connectionEmail === status.email ? previousMetadata.connectedAt : null) ??
+      new Date().toISOString();
 
     await setDriveConnection(
       {

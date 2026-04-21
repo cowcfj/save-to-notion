@@ -593,6 +593,33 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
+    it('server 未回傳 connectedAt 且 email 不同時，不重用既有本地 connectedAt', async () => {
+      jest.setSystemTime(new Date('2026-04-21T10:20:30.000Z'));
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'new-account@test.dev',
+        connectedAt: null,
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'old-account@test.dev',
+        connectedAt: '2026-04-18T08:30:00.000Z',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'new-account@test.dev',
+          connectedAt: '2026-04-21T10:20:30.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
+    });
+
     it('reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt', async () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
         connected: true,
