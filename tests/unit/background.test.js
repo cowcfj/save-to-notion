@@ -512,6 +512,14 @@ describe('Background Script Lifecycle', () => {
       await bgModule.storageService.updateHighlights('url', []);
       expect(driveClient.markDriveDirty).toHaveBeenCalled();
     });
+
+    test('setSavedPageData dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.setSavedPageData('url', { data: 1 });
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
   });
 
   describe('Drive Auto Sync Alarm', () => {
