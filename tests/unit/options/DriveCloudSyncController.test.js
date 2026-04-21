@@ -63,6 +63,7 @@ describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
   let loggerWarnSpy;
+  let loggerInfoSpy;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -123,7 +124,7 @@ describe('DriveCloudSyncController', () => {
     };
     loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
     loggerWarnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
-    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    loggerInfoSpy = jest.spyOn(Logger, 'info').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata');
@@ -532,6 +533,7 @@ describe('DriveCloudSyncController', () => {
         email: null,
         connectedAt: null,
       });
+      expect(loggerInfoSpy).toHaveBeenCalledWith('[CloudSync] Disconnect broadcast sent');
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
     });
