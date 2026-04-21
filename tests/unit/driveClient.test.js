@@ -21,6 +21,7 @@ import {
   uploadDriveSnapshot,
   downloadDriveSnapshot,
   disconnectDrive,
+  setLastKnownRemoteUpdatedAt,
 } from '../../scripts/auth/driveClient.js';
 import * as accountSession from '../../scripts/auth/accountSession.js';
 
@@ -77,6 +78,18 @@ describe('Drive Client API', () => {
           driveSyncNeedsManualReview: false,
         })
       );
+    });
+
+    it('setDriveConnection 在 resetConflicts:false 時只更新連線欄位', async () => {
+      await setDriveConnection(
+        { email: 'keep-conflict@a.com', connectedAt: '2023-02-01' },
+        { resetConflicts: false }
+      );
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({
+        driveSyncConnectionEmail: 'keep-conflict@a.com',
+        driveSyncConnectedAt: '2023-02-01',
+      });
     });
 
     it('clearDriveSyncMetadata should remove all sync keys', async () => {
@@ -145,6 +158,31 @@ describe('Drive Client API', () => {
           driveSyncLastErrorCode: null,
         })
       );
+    });
+  });
+
+  describe('setLastKnownRemoteUpdatedAt', () => {
+    it('只寫入 LAST_KNOWN_REMOTE_UPDATED_AT，不觸及其他欄位', async () => {
+      const setSpy = jest.fn().mockResolvedValue();
+      globalThis.chrome = { storage: { local: { set: setSpy, get: jest.fn() } } };
+
+      await setLastKnownRemoteUpdatedAt('2026-04-20T10:00:00Z');
+
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(setSpy).toHaveBeenCalledWith({
+        driveSyncLastKnownRemoteUpdatedAt: '2026-04-20T10:00:00Z',
+      });
+    });
+
+    it('可接受 null 以表示遠端已無 snapshot', async () => {
+      const setSpy = jest.fn().mockResolvedValue();
+      globalThis.chrome = { storage: { local: { set: setSpy, get: jest.fn() } } };
+
+      await setLastKnownRemoteUpdatedAt(null);
+
+      expect(setSpy).toHaveBeenCalledWith({
+        driveSyncLastKnownRemoteUpdatedAt: null,
+      });
     });
   });
 

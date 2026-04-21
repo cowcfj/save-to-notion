@@ -19,11 +19,14 @@
 /* global chrome */
 
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+import { UI_MESSAGES } from '../scripts/config/messages.js';
 import {
   clearDriveSyncMetadata,
   disconnectDrive,
   fetchDriveConnectionStatus,
+  fetchDriveSnapshotStatus,
   getDriveSyncMetadata,
+  setLastKnownRemoteUpdatedAt,
   setDriveConnection,
   startDriveOAuthFlow,
 } from '../scripts/auth/driveClient.js';
@@ -126,14 +129,39 @@ async function syncRemoteDriveConnection() {
   const status = await fetchDriveConnectionStatus();
 
   if (status.connected && status.email) {
-    await setDriveConnection({
-      email: status.email,
-      connectedAt: status.connectedAt ?? null,
-    });
+    const previousMetadata = await getDriveSyncMetadata();
+    const connectedAt =
+      status.connectedAt ??
+      (previousMetadata.connectionEmail === status.email ? previousMetadata.connectedAt : null) ??
+      new Date().toISOString();
+
+    await setDriveConnection(
+      {
+        email: status.email,
+        connectedAt,
+      },
+      { resetConflicts: false }
+    );
+    await syncRemoteSnapshotStatus();
     return;
   }
 
   await clearDriveSyncMetadata();
+}
+
+/**
+ * 查詢遠端 snapshot 存在狀態，並把 updatedAt 寫入 lastKnownRemoteUpdatedAt。
+ * 任何失敗都必須 silent，不得阻擋 UI 渲染。
+ */
+async function syncRemoteSnapshotStatus() {
+  try {
+    const snapshot = await fetchDriveSnapshotStatus();
+    await setLastKnownRemoteUpdatedAt(snapshot.exists ? snapshot.updatedAt : null);
+  } catch (error) {
+    Logger.warn('[CloudSync] Snapshot status sync skipped', {
+      error: getSafeError(error, 'drive_snapshot_status_sync'),
+    });
+  }
 }
 
 /**
@@ -315,7 +343,11 @@ function _updateStatePanels(isConnected, needsReview) {
 /**
  * 更新已連線狀態的帳號資訊與上傳時間
  *
- * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null }} metadata
+ * @param {{
+ *   connectionEmail?: string | null;
+ *   lastSuccessfulUploadAt?: string | null;
+ *   lastKnownRemoteUpdatedAt?: string | number | Date | null | undefined;
+ * }} metadata - `lastKnownRemoteUpdatedAt` 為最後一次已知遠端更新時間，當 `lastSuccessfulUploadAt` 缺失時用於 UI fallback
  */
 function _updateConnectedInfo(metadata) {
   const emailEl = el(DOM.CONNECTED_EMAIL);
@@ -324,10 +356,16 @@ function _updateConnectedInfo(metadata) {
   }
 
   const lastUploadEl = el(DOM.LAST_UPLOAD_TEXT);
-  if (lastUploadEl) {
-    lastUploadEl.textContent = metadata.lastSuccessfulUploadAt
-      ? `上次上載：${formatTimestamp(metadata.lastSuccessfulUploadAt)}`
-      : '尚未上載';
+  if (!lastUploadEl) {
+    return;
+  }
+
+  if (metadata.lastSuccessfulUploadAt) {
+    lastUploadEl.textContent = `${UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX}${formatTimestamp(metadata.lastSuccessfulUploadAt)}`;
+  } else if (metadata.lastKnownRemoteUpdatedAt) {
+    lastUploadEl.textContent = `${UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX}${formatTimestamp(metadata.lastKnownRemoteUpdatedAt)}`;
+  } else {
+    lastUploadEl.textContent = UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED;
   }
 }
 
@@ -352,11 +390,11 @@ function _updateErrorBanner(metadata) {
   const errorCodeEl = el(DOM.ERROR_CODE);
   const errorTimeEl = el(DOM.ERROR_TIME);
   if (errorCodeEl) {
-    errorCodeEl.textContent = `同步失敗：${metadata.lastErrorCode}`;
+    errorCodeEl.textContent = `${UI_MESSAGES.CLOUD_SYNC.SYNC_FAILED_PREFIX}${metadata.lastErrorCode}`;
   }
   if (errorTimeEl) {
     errorTimeEl.textContent = metadata.lastErrorAt
-      ? `發生時間：${formatTimestamp(metadata.lastErrorAt)}`
+      ? `${UI_MESSAGES.CLOUD_SYNC.ERROR_TIME_PREFIX}${formatTimestamp(metadata.lastErrorAt)}`
       : '';
   }
 }
@@ -389,7 +427,9 @@ export function renderCloudSyncCard(metadata) {
  * @param {boolean} [force=false] - 強制覆蓋（conflict 後使用者確認時傳 true）
  */
 async function handleUpload(force = false) {
-  showLoading(force ? '強制上載中...' : '上載到雲端中...');
+  showLoading(
+    force ? UI_MESSAGES.CLOUD_SYNC.LOADING_FORCE_UPLOAD : UI_MESSAGES.CLOUD_SYNC.LOADING_UPLOAD
+  );
   let uploadSucceeded = false;
   let conflictDetected = false;
   try {
@@ -399,23 +439,28 @@ async function handleUpload(force = false) {
     });
 
     if (!response) {
-      throw new Error('背景無回應');
+      throw new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE);
     }
 
     if (response.success) {
-      showSyncStatus('上載成功！', 'success');
+      showSyncStatus(UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS, 'success');
       uploadSucceeded = true;
     } else if (response.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
       showSyncStatus('', '');
       conflictDetected = true;
     } else {
-      throw new Error(response.error ?? response.errorCode ?? '上載失敗');
+      throw new Error(
+        response.error ?? response.errorCode ?? UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_GENERIC
+      );
     }
   } catch (error) {
     Logger.error('[CloudSync] Upload failed', {
       error: getSafeError(error, 'drive_sync_upload'),
     });
-    showSyncStatus(`上載失敗：${getUserFriendlyErrorMessage(error, 'drive_sync_upload')}`, 'error');
+    showSyncStatus(
+      `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_sync_upload')}`,
+      'error'
+    );
   } finally {
     hideLoading();
   }
@@ -437,14 +482,12 @@ async function handleUpload(force = false) {
  * 處理手動下載（含二次確認）
  */
 async function handleDownload() {
-  const confirmed = globalThis.confirm(
-    '從 Google Drive 還原資料將覆蓋本地所有已儲存的標記與保存記錄。\n\n確定要繼續嗎？'
-  );
+  const confirmed = globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD);
   if (!confirmed) {
     return;
   }
 
-  showLoading('從雲端還原中...');
+  showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_DOWNLOAD);
   let downloadSucceeded = false;
   try {
     const response = await chrome.runtime.sendMessage({
@@ -452,20 +495,20 @@ async function handleDownload() {
     });
 
     if (!response) {
-      throw new Error('背景無回應');
+      throw new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE);
     }
     if (!response.success) {
-      throw new Error(response.error ?? '下載失敗');
+      throw new Error(response.error ?? UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_GENERIC);
     }
 
-    showSyncStatus('還原成功！頁面資料已從雲端更新。', 'success');
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_SUCCESS, 'success');
     downloadSucceeded = true;
   } catch (error) {
     Logger.error('[CloudSync] Download failed', {
       error: getSafeError(error, 'drive_sync_download'),
     });
     showSyncStatus(
-      `還原失敗：${getUserFriendlyErrorMessage(error, 'drive_sync_download')}`,
+      `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_sync_download')}`,
       'error'
     );
   } finally {
@@ -489,14 +532,12 @@ async function handleDownload() {
  * 處理 disconnect（含確認）
  */
 async function handleDisconnect() {
-  const confirmed = globalThis.confirm(
-    '確定要中斷 Google Drive 連線嗎？\n\n本地資料不受影響，但雲端同步功能將停用。'
-  );
+  const confirmed = globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT);
   if (!confirmed) {
     return;
   }
 
-  showLoading('中斷連線中...');
+  showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_DISCONNECT);
   let disconnectSucceeded = false;
   try {
     await disconnectDrive();
@@ -513,13 +554,13 @@ async function handleDisconnect() {
       Logger.warn('[CloudSync] Disconnect broadcast failed', { error });
     }
 
-    showSyncStatus('已中斷 Google Drive 連線', 'success');
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS, 'success');
     disconnectSucceeded = true;
   } catch (error) {
     Logger.error('[CloudSync] Disconnect failed', {
       error: getSafeError(error, 'drive_disconnect'),
     });
-    showSyncStatus('中斷連線失敗，請重試', 'error');
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED, 'error');
   } finally {
     hideLoading();
   }
@@ -561,7 +602,7 @@ function bindCloudSyncButtons() {
           error: getSafeError(error, 'drive_connect_start'),
         });
         showSyncStatus(
-          `連接失敗：${getUserFriendlyErrorMessage(error, 'drive_connect_start')}`,
+          `${UI_MESSAGES.CLOUD_SYNC.CONNECT_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_connect_start')}`,
           'error'
         );
       });
@@ -606,9 +647,7 @@ function bindCloudSyncButtons() {
   el(DOM.BTN_CONFLICT_FORCE_UPLOAD)?.addEventListener(
     'click',
     () => {
-      const confirmed = globalThis.confirm(
-        '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。'
-      );
+      const confirmed = globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD);
       if (confirmed) {
         handleUpload(true).catch(() => {});
       }

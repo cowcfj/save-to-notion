@@ -7,14 +7,18 @@ import {
   setCloudSyncCardVisibility,
   renderCloudSyncCard,
   refreshCloudSyncCard,
-} from '../../options/DriveCloudSyncController.js';
-import * as driveClient from '../../scripts/auth/driveClient.js';
-import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
-import Logger from '../../scripts/utils/Logger.js';
-import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+} from '../../../options/DriveCloudSyncController.js';
+import * as driveClient from '../../../scripts/auth/driveClient.js';
+import { RUNTIME_ACTIONS } from '../../../scripts/config/runtimeActions.js';
+import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import Logger from '../../../scripts/utils/Logger.js';
+import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
 
 async function flushAsyncWork() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
@@ -56,13 +60,48 @@ describe('DriveCloudSyncController', () => {
     `;
 
     mockSendMessage = jest.fn().mockResolvedValue({ success: true });
+    const storageState = {};
     globalThis.chrome = {
       runtime: {
         sendMessage: mockSendMessage,
       },
       storage: {
         local: {
-          remove: jest.fn().mockResolvedValue(),
+          get: jest.fn().mockImplementation(async keys => {
+            if (Array.isArray(keys)) {
+              const result = {};
+              for (const key of keys) {
+                if (Object.prototype.hasOwnProperty.call(storageState, key)) {
+                  result[key] = storageState[key];
+                }
+              }
+              return result;
+            }
+            if (typeof keys === 'string') {
+              return Object.prototype.hasOwnProperty.call(storageState, keys)
+                ? { [keys]: storageState[keys] }
+                : {};
+            }
+            if (keys && typeof keys === 'object') {
+              const result = {};
+              for (const key of Object.keys(keys)) {
+                result[key] = Object.prototype.hasOwnProperty.call(storageState, key)
+                  ? storageState[key]
+                  : keys[key];
+              }
+              return result;
+            }
+            return { ...storageState };
+          }),
+          set: jest.fn().mockImplementation(async patch => {
+            Object.assign(storageState, patch);
+          }),
+          remove: jest.fn().mockImplementation(async keys => {
+            const keyList = Array.isArray(keys) ? keys : [keys];
+            for (const key of keyList) {
+              delete storageState[key];
+            }
+          }),
         },
       },
     };
@@ -71,7 +110,7 @@ describe('DriveCloudSyncController', () => {
     jest.spyOn(Logger, 'info').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
-    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({});
+    jest.spyOn(driveClient, 'getDriveSyncMetadata');
     jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
     jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
     jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
@@ -80,7 +119,12 @@ describe('DriveCloudSyncController', () => {
       email: null,
       connectedAt: null,
     });
-    jest.spyOn(driveClient, 'setDriveConnection').mockResolvedValue();
+    jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+      exists: false,
+      updatedAt: null,
+      size: null,
+    });
+    jest.spyOn(driveClient, 'setDriveConnection');
   });
 
   afterEach(() => {
@@ -123,7 +167,9 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
 
       expect(document.querySelector('#drive-connected-email').textContent).toBe('test@notion.so');
-      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('上次上載');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX
+      );
     });
 
     it('renders conflict state correctly', () => {
@@ -149,7 +195,9 @@ describe('DriveCloudSyncController', () => {
       });
       expect(document.querySelector('#drive-error-banner').style.display).toBe('');
       expect(document.querySelector('#drive-error-code').textContent).toContain('UPLOAD_FAILED');
-      expect(document.querySelector('#drive-error-time').textContent).toContain('發生時間');
+      expect(document.querySelector('#drive-error-time').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.ERROR_TIME_PREFIX
+      );
     });
 
     it('falls back to raw timestamp when date formatting throws', () => {
@@ -174,6 +222,36 @@ describe('DriveCloudSyncController', () => {
       );
 
       toLocaleStringSpy.mockRestore();
+    });
+
+    it('lastSuccessfulUploadAt 為 null 但 lastKnownRemoteUpdatedAt 有值 → 顯示「雲端備份」', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'cross-device@test.dev',
+        lastSuccessfulUploadAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
+      });
+      const text = document.querySelector('#drive-last-upload-text').textContent;
+      expect(text).toContain(UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX);
+      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED);
+      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX);
+    });
+
+    it('lastSuccessfulUploadAt 優先於 lastKnownRemoteUpdatedAt', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'priority@test.dev',
+        lastSuccessfulUploadAt: '2026-04-21T09:00:00Z',
+        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
+      });
+      const text = document.querySelector('#drive-last-upload-text').textContent;
+      expect(text).toContain(UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX);
+      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX);
+    });
+
+    it('兩者皆無 → 維持「尚未上載」', () => {
+      renderCloudSyncCard({ connectionEmail: 'nothing@test.dev' });
+      expect(document.querySelector('#drive-last-upload-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED
+      );
     });
   });
 
@@ -213,7 +291,7 @@ describe('DriveCloudSyncController', () => {
 
       const safeMessage = sanitizeApiError(new Error('popup blocked'), 'drive_connect_start');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `連接失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.CONNECT_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Drive connect start failed', {
@@ -268,10 +346,13 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'pageshow@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'pageshow@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
     });
 
     it('clears sync status without generic error when upload detects newer remote snapshot', async () => {
@@ -299,9 +380,12 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
-      const safeMessage = sanitizeApiError(new Error('背景無回應'), 'drive_sync_upload');
+      const safeMessage = sanitizeApiError(
+        new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE),
+        'drive_sync_upload'
+      );
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `上載失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -336,7 +420,7 @@ describe('DriveCloudSyncController', () => {
 
       const safeMessage = sanitizeApiError(new Error('NO_REMOTE_SNAPSHOT'), 'drive_sync_download');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `還原失敗：${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -414,7 +498,7 @@ describe('DriveCloudSyncController', () => {
         error: expect.any(Error),
       });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '已中斷 Google Drive 連線'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('success');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -432,7 +516,7 @@ describe('DriveCloudSyncController', () => {
         error: sanitizeApiError(new Error('network down'), 'drive_disconnect'),
       });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '中斷連線失敗，請重試'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -465,15 +549,160 @@ describe('DriveCloudSyncController', () => {
         connectionEmail: 'remote@test.dev',
         connectedAt: '2026-04-20T00:00:00.000Z',
       });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+      });
 
       await initCloudSyncController(true);
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'remote@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'remote@test.dev',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
       expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
+    });
+
+    it('server 未回傳 connectedAt 時保留既有本地 connectedAt，避免以空值覆寫 metadata', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'no-ts@test.dev',
+        connectedAt: null,
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'no-ts@test.dev',
+        connectedAt: '2026-04-18T08:30:00.000Z',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'no-ts@test.dev',
+          connectedAt: '2026-04-18T08:30:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
+    });
+
+    it('server 未回傳 connectedAt 且 email 不同時，不重用既有本地 connectedAt', async () => {
+      jest.setSystemTime(new Date('2026-04-21T10:20:30.000Z'));
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'new-account@test.dev',
+        connectedAt: null,
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'old-account@test.dev',
+        connectedAt: '2026-04-18T08:30:00.000Z',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'new-account@test.dev',
+          connectedAt: '2026-04-21T10:20:30.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
+    });
+
+    it('reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'reconnect@test.dev',
+        connectedAt: '2026-04-21T00:00:00Z',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00Z',
+        size: 1024,
+      });
+      const setSnapshotSpy = jest
+        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
+        .mockResolvedValue();
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'reconnect@test.dev',
+        lastKnownRemoteUpdatedAt: '2026-04-20T09:30:00Z',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(driveClient.fetchDriveSnapshotStatus).toHaveBeenCalled();
+      expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX
+      );
+    });
+
+    it('reconnect 時遠端無 snapshot → 顯示「尚未上載」且 lastKnownRemoteUpdatedAt 清為 null', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'empty-remote@test.dev',
+        connectedAt: '2026-04-21T00:00:00Z',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+        size: null,
+      });
+      const setSnapshotSpy = jest
+        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
+        .mockResolvedValue();
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'empty-remote@test.dev',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(setSnapshotSpy).toHaveBeenCalledWith(null);
+      expect(document.querySelector('#drive-last-upload-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED
+      );
+    });
+
+    it('snapshot status 查詢失敗時不阻擋連線，且記錄 warn', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'warn-path@test.dev',
+        connectedAt: '2026-04-21T00:00:00Z',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockRejectedValueOnce(new Error('TOKEN_EXPIRED'));
+      const setSnapshotSpy = jest
+        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
+        .mockResolvedValue();
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'warn-path@test.dev',
+      });
+
+      await initCloudSyncController(true);
+
+      expect(setSnapshotSpy).not.toHaveBeenCalled();
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        '[CloudSync] Snapshot status sync skipped',
+        expect.objectContaining({
+          error: expect.anything(),
+        })
+      );
+      // 連線仍然成功
+      expect(document.querySelector('#drive-connected-email').textContent).toBe(
+        'warn-path@test.dev'
+      );
+      // 未 throw
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('');
     });
 
     it('falls back to disconnected state when remote sync fails', async () => {
@@ -492,12 +721,9 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('refreshes remote drive connection when window regains focus', async () => {
-      driveClient.getDriveSyncMetadata
-        .mockResolvedValueOnce({ connectionEmail: null })
-        .mockResolvedValue({
-          connectionEmail: 'focus@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
-        });
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
       driveClient.fetchDriveConnectionStatus
         .mockResolvedValueOnce({
           connected: false,
@@ -515,20 +741,16 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'focus@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
-      expect(document.querySelector('#drive-connected-email').textContent).toBe('focus@test.dev');
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.connectionEmail).toBe('focus@test.dev');
+      expect(storedMetadata.connectedAt).toBe('2026-04-20T00:00:00.000Z');
     });
 
     it('refreshes remote drive connection when page becomes visible again', async () => {
-      driveClient.getDriveSyncMetadata
-        .mockResolvedValueOnce({ connectionEmail: null })
-        .mockResolvedValue({
-          connectionEmail: 'visible@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
-        });
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
       driveClient.fetchDriveConnectionStatus
         .mockResolvedValueOnce({
           connected: false,
@@ -551,10 +773,94 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'visible@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.connectionEmail).toBe('visible@test.dev');
+      expect(storedMetadata.connectedAt).toBe('2026-04-20T00:00:00.000Z');
+    });
+
+    it('focus 觸發的 snapshot status 同步 MUST NOT 清除 needsManualReview / lastErrorCode', async () => {
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
+      await chrome.storage.local.set({
+        driveSyncConnectionEmail: 'conflict-safe@test.dev',
+        driveSyncConnectedAt: '2026-04-19T11:00:00Z',
+        driveSyncNeedsManualReview: true,
+        driveSyncLastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
       });
+
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'conflict-safe@test.dev',
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'conflict-safe@test.dev',
+          connectedAt: null,
+        });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00Z',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00Z',
+      });
+
+      await initCloudSyncController(true);
+
+      globalThis.dispatchEvent(new Event('focus'));
+      await flushAsyncWork();
+
+      expect(chrome.storage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          driveSyncNeedsManualReview: false,
+        })
+      );
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.needsManualReview).toBe(true);
+      expect(storedMetadata.lastErrorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+      expect(storedMetadata.connectedAt).toBe('2026-04-19T11:00:00Z');
+
+      expect(document.querySelector('#drive-state-conflict').style.display).toBe('');
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+    });
+
+    it('focus 首次連線且本地缺少 connectedAt 時才 fallback 為目前時間', async () => {
+      jest.setSystemTime(new Date('2026-04-22T10:00:00.000Z'));
+      driveClient.getDriveSyncMetadata.mockRestore();
+      driveClient.setDriveConnection.mockRestore();
+
+      driveClient.fetchDriveConnectionStatus
+        .mockResolvedValueOnce({
+          connected: false,
+          email: null,
+          connectedAt: null,
+        })
+        .mockResolvedValueOnce({
+          connected: true,
+          email: 'first-connect@test.dev',
+          connectedAt: null,
+        });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: false,
+        updatedAt: null,
+        size: null,
+      });
+
+      await initCloudSyncController(true);
+
+      globalThis.dispatchEvent(new Event('focus'));
+      await flushAsyncWork();
+
+      const storedMetadata = await driveClient.getDriveSyncMetadata();
+      expect(storedMetadata.connectionEmail).toBe('first-connect@test.dev');
+      expect(storedMetadata.connectedAt).toBe('2026-04-22T10:00:00.000Z');
+      expect(storedMetadata.needsManualReview).toBe(false);
     });
 
     it('uses conflict action buttons for download and force upload flows', async () => {
@@ -607,10 +913,13 @@ describe('DriveCloudSyncController', () => {
       await refreshCloudSyncCard({ syncRemote: true });
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith({
-        email: 'fresh@a.com',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
+      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
+        {
+          email: 'fresh@a.com',
+          connectedAt: '2026-04-20T00:00:00.000Z',
+        },
+        expect.objectContaining({ resetConflicts: false })
+      );
       expect(document.querySelector('#drive-connected-email').textContent).toBe('fresh@a.com');
     });
 
@@ -628,6 +937,32 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
     });
 
+    it('syncRemote:true 時同時查詢 snapshot status 並恢復雲端備份顯示', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'refresh@test.dev',
+        connectedAt: '2026-04-21T00:00:00Z',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00Z',
+      });
+      const setSnapshotSpy = jest
+        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
+        .mockResolvedValue();
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'refresh@test.dev',
+        lastKnownRemoteUpdatedAt: '2026-04-20T09:30:00Z',
+      });
+
+      await refreshCloudSyncCard({ syncRemote: true });
+
+      expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX
+      );
+    });
+
     it('clears temporary success status message after timeout', async () => {
       driveClient.getDriveSyncMetadata
         .mockResolvedValueOnce({})
@@ -640,7 +975,9 @@ describe('DriveCloudSyncController', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#drive-sync-status').textContent).toContain('上載成功');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS
+      );
 
       await jest.advanceTimersByTimeAsync(4000);
 
@@ -658,17 +995,19 @@ describe('DriveCloudSyncController', () => {
 
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
-      expect(document.querySelector('#drive-sync-status').textContent).toContain('上載成功');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS
+      );
 
       document.querySelector('#drive-disconnect-button').click();
       await flushAsyncWork();
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '已中斷 Google Drive 連線'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
 
       await jest.advanceTimersByTimeAsync(3999);
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        '已中斷 Google Drive 連線'
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
 
       await jest.advanceTimersByTimeAsync(1);

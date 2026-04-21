@@ -65,7 +65,7 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
 /**
  * @typedef {object} DriveConnection
  * @property {string} email - 連線帳號 email（PII）
- * @property {string} connectedAt - ISO 8601 timestamp
+ * @property {string | null} connectedAt - ISO 8601 timestamp；伺服器未提供時為 null
  */
 
 /**
@@ -168,14 +168,20 @@ export async function getDriveSyncMetadata() {
  * 由 drive-auth.html callback bridge 呼叫。
  *
  * @param {DriveConnection} connection
+ * @param {{ resetConflicts?: boolean }} [options]
  * @returns {Promise<void>}
  */
-export async function setDriveConnection(connection) {
-  await chrome.storage.local.set({
+export async function setDriveConnection(connection, options = {}) {
+  const patch = {
     [DRIVE_SYNC_STORAGE_KEYS.CONNECTION_EMAIL]: connection.email,
     [DRIVE_SYNC_STORAGE_KEYS.CONNECTED_AT]: connection.connectedAt,
-    [DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW]: false,
-  });
+  };
+
+  if (options.resetConflicts !== false) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = false;
+  }
+
+  await chrome.storage.local.set(patch);
 }
 
 /**
@@ -238,6 +244,19 @@ export async function clearDriveSyncConflict() {
     [DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW]: false,
     [DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE]: null,
     [DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT]: null,
+  });
+}
+
+/**
+ * 單獨更新「後端已知 snapshot updatedAt」，不修改 conflict / error / run 欄位。
+ * 用於 reconnect 後的 UI 同步，避免誤清 needsManualReview。
+ *
+ * @param {string | null} updatedAt
+ * @returns {Promise<void>}
+ */
+export async function setLastKnownRemoteUpdatedAt(updatedAt) {
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT]: updatedAt,
   });
 }
 

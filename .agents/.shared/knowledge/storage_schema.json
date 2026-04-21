@@ -91,7 +91,7 @@
         },
         "driveSyncLastKnownRemoteUpdatedAt": {
           "type": "string | null",
-          "description": "上次查詢時後端回傳的 snapshot updatedAt（ISO 8601）；用於 conflict 偵測"
+          "description": "上次查詢時後端回傳的 snapshot updatedAt（ISO 8601）；用於 conflict 偵測與 reconnect 後 UI fallback（顯示『雲端備份：{time}』）。由 setLastKnownRemoteUpdatedAt() 或 updateDriveSyncRunMetadata() 寫入。"
         },
         "driveSyncLastSuccessfulUploadAt": {
           "type": "string | null",
