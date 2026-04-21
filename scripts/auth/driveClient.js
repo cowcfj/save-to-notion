@@ -53,9 +53,14 @@ export const DRIVE_SYNC_STORAGE_KEYS = /** @type {const} */ ({
   NEEDS_MANUAL_REVIEW: 'driveSyncNeedsManualReview',
   INSTALLATION_ID: 'driveSyncInstallationId',
   PROFILE_ID: 'driveSyncProfileId',
+  // Phase B
+  FREQUENCY: 'driveSyncFrequency',
+  DIRTY: 'driveSyncDirty',
+  LAST_SNAPSHOT_HASH: 'driveSyncLastSnapshotHash',
+  NEXT_ELIGIBLE_AT: 'driveSyncNextEligibleAt',
 });
 
-/** Phase A 所有 driveSync keys */
+/** Phase A + B 所有 driveSync keys */
 const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
 
 // =============================================================================
@@ -96,6 +101,10 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
  * @property {boolean} needsManualReview - 是否有待人工處理的衝突
  * @property {string | null} installationId - extension 安裝唯一 ID
  * @property {string | null} profileId - 後端 Drive profile ID
+ * @property {'off' | 'daily' | 'weekly' | 'monthly'} frequency - 自動同步頻率（Phase B）
+ * @property {boolean} dirty - 本地資料是否已變更尚未同步（Phase B）
+ * @property {string | null} lastSnapshotHash - 上次成功上傳的 snapshot 內容哈希（Phase B）
+ * @property {string | null} nextEligibleAt - 下次允許自動上傳的最早時間 ISO 8601（Phase B）
  */
 
 // =============================================================================
@@ -160,6 +169,11 @@ export async function getDriveSyncMetadata() {
     needsManualReview: data[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] ?? false,
     installationId: data[DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID] ?? null,
     profileId: data[DRIVE_SYNC_STORAGE_KEYS.PROFILE_ID] ?? null,
+    // Phase B
+    frequency: data[DRIVE_SYNC_STORAGE_KEYS.FREQUENCY] ?? 'off',
+    dirty: data[DRIVE_SYNC_STORAGE_KEYS.DIRTY] ?? false,
+    lastSnapshotHash: data[DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH] ?? null,
+    nextEligibleAt: data[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT] ?? null,
   };
 }
 
@@ -418,6 +432,74 @@ export async function disconnectDrive() {
   if (!res.ok) {
     throw new Error(`DELETE /drive/connection failed: ${res.status}`);
   }
+}
+
+// =============================================================================
+// Phase B: 自動同步 metadata helpers
+// =============================================================================
+
+/** 合法的同步頻率值 */
+export const DRIVE_SYNC_FREQUENCIES = /** @type {const} */ (['off', 'daily', 'weekly', 'monthly']);
+
+/**
+ * 更新自動同步頻率設定，並同步更新 nextEligibleAt。
+ *
+ * @param {'off' | 'daily' | 'weekly' | 'monthly'} frequency
+ * @returns {Promise<void>}
+ */
+export async function setDriveFrequency(frequency) {
+  const nextEligibleAt = frequency === 'off' ? null : computeNextEligibleAt(frequency);
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: frequency,
+    [DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]: nextEligibleAt,
+  });
+}
+
+/**
+ * 標記本地資料已變更（dirty = true）。
+ * 在所有 canonical write path 後呼叫。
+ *
+ * @returns {Promise<void>}
+ */
+export async function markDriveDirty() {
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.DIRTY]: true,
+  });
+}
+
+/**
+ * 清除 dirty 標記，並更新 snapshot hash 與下次允許時間。
+ *
+ * @param {{ snapshotHash?: string | null; frequency: 'off' | 'daily' | 'weekly' | 'monthly' }} options
+ * @returns {Promise<void>}
+ */
+export async function clearDriveDirty(options) {
+  const nextEligibleAt =
+    options.frequency === 'off' ? null : computeNextEligibleAt(options.frequency);
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.DIRTY]: false,
+    [DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH]: options.snapshotHash ?? null,
+    [DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]: nextEligibleAt,
+  });
+}
+
+/**
+ * 計算下次允許自動上傳的最早時間（基於頻率）。
+ *
+ * @param {'daily' | 'weekly' | 'monthly'} frequency
+ * @returns {string} ISO 8601 timestamp
+ */
+export function computeNextEligibleAt(frequency) {
+  const now = new Date();
+  if (frequency === 'daily') {
+    now.setDate(now.getDate() + 1);
+  } else if (frequency === 'weekly') {
+    now.setDate(now.getDate() + 7);
+  } else {
+    // monthly
+    now.setMonth(now.getMonth() + 1);
+  }
+  return now.toISOString();
 }
 
 // =============================================================================

@@ -270,6 +270,19 @@ const chrome = {
     open: jest.fn(() => Promise.resolve()),
   },
 
+  alarms: {
+    create: jest.fn(() => Promise.resolve()),
+    clear: jest.fn(() => Promise.resolve(true)),
+    get: jest.fn(() => Promise.resolve(null)),
+    getAll: jest.fn(() => Promise.resolve([])),
+    clearAll: jest.fn(() => Promise.resolve(true)),
+    onAlarm: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      hasListener: jest.fn(),
+    },
+  },
+
   notifications: {
     create: jest.fn((id, options, callback) => {
       if (callback) {

@@ -33,6 +33,9 @@ import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 import { createAccountAuthHandler } from './background/handlers/accountAuthHandler.js';
 import { createDriveSyncHandlers } from './background/handlers/driveSyncHandlers.js';
+import { DRIVE_AUTO_SYNC_ALARM } from './background/handlers/driveAlarmScheduler.js';
+import { runAutoUpload } from './background/handlers/driveAutoSync.js';
+import { markDriveDirty } from './auth/driveClient.js';
 
 const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
 const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
@@ -49,6 +52,37 @@ const pageContentService = new PageContentService({
 const storageService = new StorageService({ logger: Logger });
 const notionService = new NotionService({ logger: Logger });
 const accountAuthHandler = createAccountAuthHandler({ logger: Logger });
+
+// Phase B Dirty Tracking：在 highlights / saved_state 的 canonical write path 後標記 dirty
+// 使用 fire-and-forget（不阻擋主要寫入操作）
+// guard 確保在測試 mock 環境部分方法不存在時不會拋出
+if (typeof storageService.updateHighlights === 'function') {
+  const _origUpdateHighlights = storageService.updateHighlights.bind(storageService);
+  storageService.updateHighlights = async function (pageUrl, highlights) {
+    const result = await _origUpdateHighlights(pageUrl, highlights);
+    markDriveDirty().catch(() => {});
+    return result;
+  };
+}
+
+if (typeof storageService.savePageDataAndHighlights === 'function') {
+  const _origSavePageDataAndHighlights =
+    storageService.savePageDataAndHighlights.bind(storageService);
+  storageService.savePageDataAndHighlights = async function (pageUrl, pageData, highlights) {
+    const result = await _origSavePageDataAndHighlights(pageUrl, pageData, highlights);
+    markDriveDirty().catch(() => {});
+    return result;
+  };
+}
+
+if (typeof storageService.setSavedPageData === 'function') {
+  const _origSetSavedPageData = storageService.setSavedPageData.bind(storageService);
+  storageService.setSavedPageData = async function (pageUrl, data) {
+    const result = await _origSetSavedPageData(pageUrl, data);
+    markDriveDirty().catch(() => {});
+    return result;
+  };
+}
 
 // Initialize MessageHandler
 const messageHandler = new MessageHandler({ logger: Logger });
@@ -119,6 +153,21 @@ if (globalThis.self !== undefined) {
 messageHandler.setupListener();
 tabService.setupListeners();
 accountAuthHandler.setupListeners();
+
+// ==========================================
+// ALARM LISTENER（Phase B Drive Auto Sync）
+// ==========================================
+
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === DRIVE_AUTO_SYNC_ALARM) {
+    runAutoUpload().catch(error => {
+      Logger.error('[Alarm] Drive auto sync failed', {
+        action: 'auto_sync',
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }
+});
 
 // ==========================================
 // LIFECYCLE MANAGEMENT

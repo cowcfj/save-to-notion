@@ -238,6 +238,15 @@ export function setupChromeMock(customStorageData = {}, customSyncStorageData = 
         }),
       },
     },
+    // Phase B: Alarm API mock
+    alarms: {
+      create: jest.fn(() => Promise.resolve()),
+      clear: jest.fn(() => Promise.resolve(true)),
+      get: jest.fn(() => Promise.resolve(null)),
+      getAll: jest.fn(() => Promise.resolve([])),
+      clearAll: jest.fn(() => Promise.resolve(true)),
+      onAlarm: createEvent(),
+    },
   };
 
   return {

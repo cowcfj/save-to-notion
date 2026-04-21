@@ -440,6 +440,29 @@
  * @property {boolean} [success]
  */
 
+/**
+ * @typedef {object} DriveSyncScheduleUpdatedRequest
+ * @property {'DRIVE_SYNC_SCHEDULE_UPDATED'} action
+ * @property {'off' | 'daily' | 'weekly' | 'monthly'} frequency
+ */
+
+/**
+ * @typedef {object} DriveSyncScheduleUpdatedResponse
+ * @property {boolean} [success]
+ */
+
+/**
+ * @typedef {object} DriveSyncAutoRunResultRequest
+ * @property {'DRIVE_SYNC_AUTO_RUN_RESULT'} action
+ * @property {boolean} success
+ * @property {string} [errorCode]
+ */
+
+/**
+ * @typedef {object} DriveSyncAutoRunResultResponse
+ * @property {boolean} [success]
+ */
+
 export const RUNTIME_ACTIONS = Object.freeze({
   /**
    * Request: {@link CheckPageStatusRequest}
@@ -692,6 +715,26 @@ export const RUNTIME_ACTIONS = Object.freeze({
    * @type {DriveSyncConflictRequest['action']}
    */
   DRIVE_SYNC_CONFLICT: 'DRIVE_SYNC_CONFLICT',
+
+  /**
+   * Options UI 更新自動同步頻率後廣播
+   *
+   * Request: {@link DriveSyncScheduleUpdatedRequest}
+   * Response: {@link DriveSyncScheduleUpdatedResponse}
+   *
+   * @type {DriveSyncScheduleUpdatedRequest['action']}
+   */
+  DRIVE_SYNC_SCHEDULE_UPDATED: 'DRIVE_SYNC_SCHEDULE_UPDATED',
+
+  /**
+   * Background alarm 執行完自動同步後廣播結果
+   *
+   * Request: {@link DriveSyncAutoRunResultRequest}
+   * Response: {@link DriveSyncAutoRunResultResponse}
+   *
+   * @type {DriveSyncAutoRunResultRequest['action']}
+   */
+  DRIVE_SYNC_AUTO_RUN_RESULT: 'DRIVE_SYNC_AUTO_RUN_RESULT',
 });
 
 export const RUNTIME_ERROR_MESSAGES = Object.freeze({

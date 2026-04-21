@@ -22,12 +22,14 @@ import {
   downloadDriveSnapshot,
   getDriveSyncMetadata,
   updateDriveSyncRunMetadata,
+  setDriveFrequency,
 } from '../../auth/driveClient.js';
 import {
   buildUnifiedPageStateFromLocalStorage,
   buildDriveSnapshot,
   applyDriveSnapshotToLocalStorage,
 } from '../../sync/driveSnapshot.js';
+import { setupDriveAlarm } from './driveAlarmScheduler.js';
 import Logger from '../../utils/Logger.js';
 
 // =============================================================================
@@ -216,6 +218,38 @@ async function handleManualDownload() {
 }
 
 // =============================================================================
+// Handler：排程更新
+// =============================================================================
+
+/**
+ * 處理 DRIVE_SYNC_SCHEDULE_UPDATED
+ *
+ * @param {{ frequency: 'off' | 'daily' | 'weekly' | 'monthly' }} request
+ * @returns {Promise<{ success: boolean; error?: string }>}
+ */
+async function handleScheduleUpdated(request) {
+  const frequency = request?.frequency;
+
+  if (!['off', 'daily', 'weekly', 'monthly'].includes(frequency)) {
+    Logger.warn('[DriveSyncHandler] 無效的 frequency', { frequency });
+    return { success: false, error: `invalid frequency: ${frequency}` };
+  }
+
+  try {
+    await setDriveFrequency(frequency);
+    await setupDriveAlarm(frequency);
+    Logger.info('[DriveSyncHandler] 排程已更新', { frequency });
+    return { success: true };
+  } catch (error) {
+    Logger.error('[DriveSyncHandler] 排程更新失敗', {
+      action: 'schedule_update',
+      reason: error instanceof Error ? error.message : String(error),
+    });
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+// =============================================================================
 // Handler 工廠
 // =============================================================================
 
@@ -228,5 +262,6 @@ export function createDriveSyncHandlers() {
   return {
     [RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]: handleManualUpload,
     [RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]: handleManualDownload,
+    [RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED]: handleScheduleUpdated,
   };
 }
