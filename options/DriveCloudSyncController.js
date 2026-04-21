@@ -52,6 +52,10 @@ const DOM = {
   CONNECTED_EMAIL: '#drive-connected-email',
   LAST_UPLOAD_TEXT: '#drive-last-upload-text',
   CONFLICT_REMOTE_TIME: '#drive-conflict-remote-time',
+  // Phase B
+  FREQUENCY_SELECT: '#drive-frequency-select',
+  AUTO_SYNC_STATUS: '#drive-auto-sync-status',
+  AUTO_SYNC_STATUS_TEXT: '#drive-auto-sync-status-text',
   // Buttons
   BTN_CONNECT: '#drive-connect-button',
   BTN_UPLOAD: '#drive-upload-button',
@@ -400,9 +404,45 @@ function _updateErrorBanner(metadata) {
 }
 
 /**
+ * 更新自動同步狀態顯示
+ *
+ * @param {{
+ *   frequency?: 'off' | 'daily' | 'weekly' | 'monthly';
+ *   needsManualReview?: boolean;
+ * }} metadata
+ */
+function _updateAutoSyncStatus(metadata) {
+  const frequencySelect = el(DOM.FREQUENCY_SELECT);
+  if (frequencySelect && metadata.frequency) {
+    frequencySelect.value = metadata.frequency;
+  }
+
+  const statusDiv = el(DOM.AUTO_SYNC_STATUS);
+  const statusText = el(DOM.AUTO_SYNC_STATUS_TEXT);
+
+  if (!statusDiv || !statusText) {
+    return;
+  }
+
+  if (metadata.frequency === 'off' || !metadata.frequency) {
+    statusDiv.style.display = 'none';
+    statusText.textContent = '';
+    return;
+  }
+
+  if (metadata.needsManualReview) {
+    statusDiv.style.display = '';
+    statusText.textContent = UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW;
+  } else {
+    statusDiv.style.display = 'none';
+    statusText.textContent = '';
+  }
+}
+
+/**
  * 根據 metadata 渲染 Cloud Sync card
  *
- * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null; lastErrorCode?: string | null; lastErrorAt?: string | null; needsManualReview?: boolean }} metadata
+ * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null; lastErrorCode?: string | null; lastErrorAt?: string | null; needsManualReview?: boolean; frequency?: string }} metadata
  */
 export function renderCloudSyncCard(metadata) {
   const isConnected = Boolean(metadata?.connectionEmail);
@@ -412,6 +452,7 @@ export function renderCloudSyncCard(metadata) {
 
   if (isConnected) {
     _updateConnectedInfo(metadata);
+    _updateAutoSyncStatus(metadata);
   }
 
   _updateErrorBanner(metadata);
@@ -544,12 +585,12 @@ async function handleDisconnect() {
     await clearDriveSyncMetadata();
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      await chrome.runtime.sendMessage({
         action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
         email: null,
         connectedAt: null,
       });
-      Logger.info('[CloudSync] Disconnect broadcast sent', { response });
+      Logger.info('[CloudSync] Disconnect broadcast sent');
     } catch (error) {
       Logger.warn('[CloudSync] Disconnect broadcast failed', { error });
     }
@@ -654,6 +695,51 @@ function bindCloudSyncButtons() {
     },
     { signal }
   );
+
+  // Phase B: 頻率 selector 變更
+  el(DOM.FREQUENCY_SELECT)?.addEventListener(
+    'change',
+    event => {
+      const frequency = event.target.value;
+      handleFrequencyChange(frequency).catch(error => {
+        Logger.warn('[CloudSync] Schedule change handler failed', {
+          error: getSafeError(error, 'drive_sync_schedule_change'),
+        });
+      });
+    },
+    { signal }
+  );
+}
+
+/**
+ * 處理頻率 selector 變更：送出儲存請求、顯示狀態訊息，
+ * 並在完成後重新渲染卡片以確保 UI 與真實儲存狀態一致。
+ *
+ * @param {string} frequency
+ * @returns {Promise<void>}
+ */
+async function handleFrequencyChange(frequency) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_SCHEDULE_UPDATED,
+      frequency,
+    });
+    if (response?.success) {
+      showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_SUCCESS, 'success');
+    } else {
+      showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_FAILED, 'error');
+    }
+  } catch {
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.FREQUENCY_SAVE_FAILED, 'error');
+  } finally {
+    try {
+      await refreshCloudSyncCard();
+    } catch (error) {
+      Logger.warn('[CloudSync] Schedule refresh failed', {
+        error: getSafeError(error, 'drive_sync_schedule_refresh'),
+      });
+    }
+  }
 }
 
 /**

@@ -418,13 +418,7 @@
 
             <!-- 狀態二：已連接，可正常操作 -->
             <div id="drive-state-connected" style="display: none">
-              <!-- 連線帳號資訊 -->
               <div class="drive-account-info" style="margin-bottom: 16px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 8px; display: flex; align-items: center; gap: 10px;">
-                <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" focusable="false" style="flex-shrink: 0;">
-                  <polygon points="16,40 0,12 16,12" fill="#4285F4"/>
-                  <polygon points="16,40 32,40 48,12 32,12" fill="#34A853"/>
-                  <polygon points="0,12 16,40 32,40 16,12" fill="#FBBC05"/>
-                </svg>
                 <div>
                   <div class="text-sm" style="color: var(--text-secondary)">已連接帳號</div>
                   <div id="drive-connected-email" class="text-sm" style="font-weight: 500;"></div>
@@ -434,6 +428,20 @@
               <div id="drive-sync-summary" style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted);">
                 <span id="drive-last-upload-text">尚未上載</span>
               </div>
+              <!-- Phase B: 自動同步頻率選擇器 -->
+              <div id="drive-frequency-row" style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+                <label for="drive-frequency-select" style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">自動備份頻率</label>
+                <select id="drive-frequency-select" class="form-select-enhanced" style="flex: 1; max-width: 140px; font-size: 0.8rem;">
+                  <option value="off">關閉（僅手動）</option>
+                  <option value="daily">每日</option>
+                  <option value="weekly">每週</option>
+                  <option value="monthly">每 30 天</option>
+                </select>
+              </div>
+              <!-- Phase B: 自動同步狀態 -->
+              <output id="drive-auto-sync-status" aria-live="polite" style="margin-bottom: 12px; font-size: 0.75rem; color: var(--text-muted); display: none;">
+                <span id="drive-auto-sync-status-text"></span>
+              </output>
               <!-- 操作按鈕 -->
               <div class="button-group" style="gap: 8px; flex-wrap: wrap;">
                 <button id="drive-upload-button" type="button" class="btn-secondary">

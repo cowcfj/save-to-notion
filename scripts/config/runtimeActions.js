@@ -440,6 +440,17 @@
  * @property {boolean} [success]
  */
 
+/**
+ * @typedef {object} DriveSyncScheduleUpdatedRequest
+ * @property {'DRIVE_SYNC_SCHEDULE_UPDATED'} action
+ * @property {'off' | 'daily' | 'weekly' | 'monthly'} frequency
+ */
+
+/**
+ * @typedef {object} DriveSyncScheduleUpdatedResponse
+ * @property {boolean} [success]
+ */
+
 export const RUNTIME_ACTIONS = Object.freeze({
   /**
    * Request: {@link CheckPageStatusRequest}
@@ -692,6 +703,16 @@ export const RUNTIME_ACTIONS = Object.freeze({
    * @type {DriveSyncConflictRequest['action']}
    */
   DRIVE_SYNC_CONFLICT: 'DRIVE_SYNC_CONFLICT',
+
+  /**
+   * Options UI 更新自動同步頻率後廣播
+   *
+   * Request: {@link DriveSyncScheduleUpdatedRequest}
+   * Response: {@link DriveSyncScheduleUpdatedResponse}
+   *
+   * @type {DriveSyncScheduleUpdatedRequest['action']}
+   */
+  DRIVE_SYNC_SCHEDULE_UPDATED: 'DRIVE_SYNC_SCHEDULE_UPDATED',
 });
 
 export const RUNTIME_ERROR_MESSAGES = Object.freeze({

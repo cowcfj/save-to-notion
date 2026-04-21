@@ -38,6 +38,8 @@ const mockServiceInstance = {
   clearPageState: jest.fn(),
   setSavedPageData: jest.fn(),
   checkPageExists: jest.fn(),
+  savePageDataAndHighlights: jest.fn().mockResolvedValue({}),
+  updateHighlights: jest.fn().mockResolvedValue({}),
 };
 
 jest.mock('../../scripts/background/services/StorageService.js', () => ({
@@ -95,6 +97,21 @@ jest.mock('../../scripts/background/handlers/accountAuthHandler.js', () => ({
   }),
 }));
 
+// Phase B: mock markDriveDirty 以避免 dirty tracking wrapper 污染 storageService mock
+jest.mock('../../scripts/auth/driveClient.js', () => ({
+  ...jest.requireActual('../../scripts/auth/driveClient.js'),
+  markDriveDirty: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../../scripts/background/handlers/driveAutoSync.js', () => ({
+  runAutoUpload: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
+  DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
+  setupDriveAlarm: jest.fn().mockResolvedValue(undefined),
+}));
+
 // Now require the module
 const {
   shouldShowUpdateNotification,
@@ -134,6 +151,12 @@ describe('Background Script Lifecycle', () => {
       },
       windows: {
         create: jest.fn(),
+      },
+      // Phase B: alarm API mock
+      alarms: {
+        create: jest.fn().mockResolvedValue(undefined),
+        clear: jest.fn().mockResolvedValue(true),
+        onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
       },
     };
     globalThis.chrome = mockChrome;
@@ -350,6 +373,11 @@ describe('Background Script Lifecycle', () => {
   describe('TabService Dependencies from background.js', () => {
     let storageServiceMock, notionServiceMock, injectionServiceMock;
     let actualTabServiceDeps;
+    /**
+     * 保存 wrapWithDriveDirtyTracking 執行前的原始 jest.fn() 參考，
+     * 讓我們能驗證底層 storage 確實收到 args（wrapper 本身不是 jest.fn）。
+     */
+    let underlyingStorageMocks;
 
     beforeEach(() => {
       // 重新 require 模組以捕捉傳給 TabService 的參數
@@ -370,6 +398,17 @@ describe('Background Script Lifecycle', () => {
         clearPageState: jest.fn().mockResolvedValue('cleared1'),
         clearNotionState: jest.fn().mockResolvedValue('cleared2'),
         setSavedPageData: jest.fn().mockResolvedValue('set'),
+        savePageDataAndHighlights: jest.fn().mockResolvedValue('saved'),
+        updateHighlights: jest.fn().mockResolvedValue('updated'),
+      };
+
+      // 快照原始 jest.fn() 參考，供 wrapper 測試驗證底層轉發
+      underlyingStorageMocks = {
+        clearPageState: mockStorage.clearPageState,
+        clearNotionState: mockStorage.clearNotionState,
+        setSavedPageData: mockStorage.setSavedPageData,
+        savePageDataAndHighlights: mockStorage.savePageDataAndHighlights,
+        updateHighlights: mockStorage.updateHighlights,
       };
 
       const mockNotion = {
@@ -445,19 +484,130 @@ describe('Background Script Lifecycle', () => {
 
     test('clearPageState maps to StorageService.clearPageState', async () => {
       await actualTabServiceDeps.clearPageState('url3');
-      expect(storageServiceMock.clearPageState).toHaveBeenCalledWith('url3');
+      // wrapWithDriveDirtyTracking 已包裝 clearPageState，需透過原始 jest.fn 驗證底層收到 args
+      expect(underlyingStorageMocks.clearPageState).toHaveBeenCalledWith('url3');
     });
 
     test('clearNotionState maps to StorageService.clearNotionState', async () => {
       await actualTabServiceDeps.clearNotionState('url4', { expectedPageId: '123' });
-      expect(storageServiceMock.clearNotionState).toHaveBeenCalledWith('url4', {
+      expect(underlyingStorageMocks.clearNotionState).toHaveBeenCalledWith('url4', {
         expectedPageId: '123',
       });
     });
 
+    test('clearNotionStateWithRetry maps to StorageService.clearNotionStateWithRetry', async () => {
+      // Setup mock since it wasn't added to the shared mock storage
+      storageServiceMock.clearNotionStateWithRetry = jest.fn().mockResolvedValue('cleared3');
+      await actualTabServiceDeps.clearNotionStateWithRetry('urlRetry', { opt: 1 });
+      expect(storageServiceMock.clearNotionStateWithRetry).toHaveBeenCalledWith('urlRetry', {
+        opt: 1,
+      });
+    });
+
     test('setSavedPageData maps to StorageService.setSavedPageData', async () => {
+      // Phase B dirty tracking 會 wrap setSavedPageData，
+      // 驗證底層 storage 收到原始 args。
       await actualTabServiceDeps.setSavedPageData('url5', { data: 1 });
-      expect(storageServiceMock.setSavedPageData).toHaveBeenCalledWith('url5', { data: 1 });
+      expect(underlyingStorageMocks.setSavedPageData).toHaveBeenCalledWith('url5', { data: 1 });
+    });
+
+    test('savePageDataAndHighlights dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.savePageDataAndHighlights('url', { page: 1 }, [1, 2]);
+      // wrapper 既要 forward 給底層，也要標記 drive dirty
+      expect(underlyingStorageMocks.savePageDataAndHighlights).toHaveBeenCalledWith(
+        'url',
+        { page: 1 },
+        [1, 2]
+      );
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('updateHighlights dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.updateHighlights('url', ['h1']);
+      expect(underlyingStorageMocks.updateHighlights).toHaveBeenCalledWith('url', ['h1']);
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('setSavedPageData dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.setSavedPageData('url', { data: 1 });
+      expect(underlyingStorageMocks.setSavedPageData).toHaveBeenCalledWith('url', { data: 1 });
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('clearPageState dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.clearPageState('url-to-clear');
+      expect(underlyingStorageMocks.clearPageState).toHaveBeenCalledWith('url-to-clear');
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+
+    test('clearNotionState dirty tracking wrapper works', async () => {
+      const bgModule = require('../../scripts/background.js');
+      const driveClient = require('../../scripts/auth/driveClient.js');
+
+      await bgModule.storageService.clearNotionState('url-clear-notion', { expectedPageId: 'p1' });
+      expect(underlyingStorageMocks.clearNotionState).toHaveBeenCalledWith('url-clear-notion', {
+        expectedPageId: 'p1',
+      });
+      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    });
+  });
+
+  describe('Drive Auto Sync Alarm', () => {
+    it('listens to DRIVE_AUTO_SYNC_ALARM and calls runAutoUpload', async () => {
+      jest.resetModules();
+      const alarmsAddListener = jest.fn();
+      globalThis.chrome = {
+        runtime: { onInstalled: { addListener: jest.fn() } },
+        alarms: { onAlarm: { addListener: alarmsAddListener } },
+      };
+
+      const driveAutoSyncMock = { runAutoUpload: jest.fn().mockResolvedValue() };
+      jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
+
+      require('../../scripts/background.js');
+
+      const alarmCallback = alarmsAddListener.mock.calls[0][0];
+      await alarmCallback({ name: 'drive-auto-sync' });
+
+      expect(driveAutoSyncMock.runAutoUpload).toHaveBeenCalled();
+    });
+
+    it('logs error when runAutoUpload fails', async () => {
+      jest.resetModules();
+      const alarmsAddListener = jest.fn();
+      globalThis.chrome = {
+        runtime: { onInstalled: { addListener: jest.fn() } },
+        alarms: { onAlarm: { addListener: alarmsAddListener } },
+      };
+
+      const driveAutoSyncMock = {
+        runAutoUpload: jest.fn().mockRejectedValue(new Error('auto upload broke')),
+      };
+      jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
+
+      require('../../scripts/background.js');
+
+      const alarmCallback = alarmsAddListener.mock.calls[0][0];
+      await alarmCallback({ name: 'drive-auto-sync' });
+      // wait for promise rejection to propagate
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[Alarm] Drive 自動同步失敗',
+        expect.objectContaining({ reason: 'auto upload broke' })
+      );
     });
   });
 });

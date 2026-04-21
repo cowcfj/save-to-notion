@@ -198,6 +198,15 @@ export const UI_MESSAGES = {
     CONFIRM_DISCONNECT:
       '確定要中斷 Google Drive 連線嗎？\n\n本地資料不受影響，但雲端同步功能將停用。',
     CONFIRM_FORCE_UPLOAD: '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。',
+    // === Phase B: 自動同步頻率 ===
+    FREQUENCY_LABEL: '自動同步頻率',
+    FREQUENCY_OFF: '停用（僅手動）',
+    FREQUENCY_DAILY: '每日',
+    FREQUENCY_WEEKLY: '每週',
+    FREQUENCY_MONTHLY: '每30天',
+    AUTO_SYNC_NEEDS_REVIEW: '❗ 雲端備份較新，請手動處理',
+    FREQUENCY_SAVE_SUCCESS: '自動同步設定已儲存',
+    FREQUENCY_SAVE_FAILED: '設定儲存失敗，請重試',
   },
 };
 
