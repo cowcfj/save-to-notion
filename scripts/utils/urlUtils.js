@@ -181,9 +181,12 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
 
     // 識別「不穩定」的段（即 slug）
     const slugKeys = dynamicSegments.filter(key => {
+      const value = query[key];
+
       // 1. 欄位名明確包含 slug 或 title -> 判定為不穩定
+      //    1a. 豁免：若值為純數字（如 "10615"），視為穩定資料庫 ID，不移除
       if (/slug|title/i.test(key)) {
-        return true;
+        return !(typeof value === 'string' && /^\d+$/.test(value));
       }
 
       // 2. 欄位名明確包含分類/頻道等穩定段 -> 判定為穩定 (即使含非 ASCII)
@@ -192,15 +195,17 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
       }
 
       // 3. 值包含非 ASCII 字符（中文、日文等）且非已知穩定段 -> 判定為標題 / slug
-      const value = query[key];
-      if (typeof value === 'string' && /[^\u0020-\u007E]/.test(value)) {
-        return true;
-      }
-      return false;
+      return typeof value === 'string' && /[^\u0020-\u007E]/.test(value);
     });
 
     // 無法識別任何 slug → 放棄，避免誤判
     if (slugKeys.length === 0) {
+      return null;
+    }
+
+    // 安全閥：當所有動態段都是 slug 時，移除後只剩靜態路由殼
+    // （如 /posts），無法唯一識別頁面 → 放棄，讓 resolveStorageUrl 回退 normalizeUrl
+    if (slugKeys.length === dynamicSegments.length) {
       return null;
     }
 
