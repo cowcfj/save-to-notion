@@ -191,6 +191,54 @@ describe('urlUtils', () => {
       });
     });
 
+    describe('純數字 slug 值豁免', () => {
+      it('應該保留純數字 slug 值（如 scitw.cc 的文章 ID）', () => {
+        const routeInfo = {
+          page: '/posts/[slug]',
+          query: { slug: '10615' },
+        };
+        const result = buildStableUrlFromNextData(routeInfo, 'https://www.scitw.cc/posts/10615');
+        // 唯一動態段的值是純數字 → 視為穩定 ID → 無法產生穩定 URL → 返回 null
+        expect(result).toBeNull();
+      });
+
+      it('應該在混合路由中保留純數字 ID 並移除文字 slug', () => {
+        const routeInfo = {
+          page: '/posts/[id]/[slug]',
+          query: { id: '10615', slug: 'article-title-here' },
+        };
+        const result = buildStableUrlFromNextData(
+          routeInfo,
+          'https://www.scitw.cc/posts/10615/article-title-here'
+        );
+        // id 為純數字 → 豁免；slug 為文字 → 移除
+        expect(result).toBe('https://www.scitw.cc/posts/10615');
+      });
+
+      it('應該移除非純數字的 slug 值（不觸發豁免）', () => {
+        const routeInfo = {
+          page: '/posts/[slug]',
+          query: { slug: 'hello-world' },
+        };
+        const result = buildStableUrlFromNextData(
+          routeInfo,
+          'https://example.com/posts/hello-world'
+        );
+        // slug 含字母 → 不豁免 → 移除 → 返回穩定 URL
+        expect(result).toBe('https://example.com/posts');
+      });
+
+      it('應該移除含字母與數字混合的 slug 值', () => {
+        const routeInfo = {
+          page: '/posts/[slug]',
+          query: { slug: '123-hello' },
+        };
+        const result = buildStableUrlFromNextData(routeInfo, 'https://example.com/posts/123-hello');
+        // 值非純數字 → 不豁免
+        expect(result).toBe('https://example.com/posts');
+      });
+    });
+
     describe('邊界情況', () => {
       it('應該處理 null routeInfo', () => {
         expect(buildStableUrlFromNextData(null, 'https://example.com')).toBeNull();
@@ -263,6 +311,22 @@ describe('urlUtils', () => {
         const result = resolveStorageUrl(url, preloaderData);
         // 應使用 Phase 1 規則（computeStableUrl），而非 Phase 2a
         expect(result).toBe('https://www.hk01.com/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801');
+      });
+
+      it('應該在 Phase 2a 回退到 normalizeUrl 並保留完整純數字 slug URL（scitw.cc regression）', () => {
+        const url = 'https://www.scitw.cc/posts/10615';
+        const preloaderData = {
+          nextRouteInfo: {
+            page: '/posts/[slug]',
+            query: { slug: '10615' },
+          },
+        };
+
+        const result = resolveStorageUrl(url, preloaderData);
+
+        // buildStableUrlFromNextData 返回 null 後，應回退到 normalizeUrl，
+        // 最終仍保留完整文章 URL，而不是被截成 /posts
+        expect(result).toBe('https://www.scitw.cc/posts/10615');
       });
     });
 
