@@ -755,15 +755,21 @@ export async function initCloudSyncController(isLoggedIn) {
     return;
   }
 
-  await syncRemoteDriveConnectionSafely();
-  installReturnSyncListeners();
+  showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC);
 
-  // 讀取 Drive metadata 並渲染
-  const metadata = await getDriveSyncMetadata();
-  renderCloudSyncCard(metadata);
+  try {
+    await syncRemoteDriveConnectionSafely();
+    installReturnSyncListeners();
 
-  // 綁定按鈕事件（冪等，重複呼叫會先 abort 先前的 listener）
-  bindCloudSyncButtons();
+    // 讀取 Drive metadata 並渲染
+    const metadata = await getDriveSyncMetadata();
+    renderCloudSyncCard(metadata);
+
+    // 綁定按鈕事件（冪等，重複呼叫會先 abort 先前的 listener）
+    bindCloudSyncButtons();
+  } finally {
+    hideLoading();
+  }
 }
 
 /**

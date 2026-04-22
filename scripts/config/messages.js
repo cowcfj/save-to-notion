@@ -171,6 +171,7 @@ export const UI_MESSAGES = {
     ERROR_TIME_PREFIX: '發生時間：',
 
     // === Loading overlay 文字 ===
+    LOADING_STATUS_SYNC: '檢查雲端狀態中...',
     LOADING_UPLOAD: '上載到雲端中...',
     LOADING_FORCE_UPLOAD: '強制上載中...',
     LOADING_DOWNLOAD: '從雲端還原中...',
