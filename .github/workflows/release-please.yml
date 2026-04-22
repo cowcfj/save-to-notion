@@ -151,6 +151,9 @@ jobs:
             if (buildEnv.ENABLE_OAUTH !== true) {
               throw new Error('env.js 驗證失敗：ENABLE_OAUTH 未啟用');
             }
+            if (buildEnv.ENABLE_ACCOUNT !== true) {
+              throw new Error('env.js 驗證失敗：ENABLE_ACCOUNT 未啟用');
+            }
 
             for (const key of ['OAUTH_SERVER_URL', 'OAUTH_CLIENT_ID', 'EXTENSION_API_KEY']) {
               if (typeof buildEnv[key] !== 'string' || buildEnv[key].trim().length === 0) {
@@ -176,6 +179,7 @@ jobs:
           const src = fs.readFileSync('scripts/config/env.example.js', 'utf8');
           const out = [
             ['ENABLE_OAUTH: false', 'ENABLE_OAUTH: true', 'ENABLE_OAUTH'],
+            ['ENABLE_ACCOUNT: false', 'ENABLE_ACCOUNT: true', 'ENABLE_ACCOUNT'],
             ["OAUTH_SERVER_URL: ''", `OAUTH_SERVER_URL: ${JSON.stringify(prodServerUrl)}`, 'OAUTH_SERVER_URL'],
             ["OAUTH_CLIENT_ID: ''", `OAUTH_CLIENT_ID: ${JSON.stringify(prodClientId)}`, 'OAUTH_CLIENT_ID'],
             ["EXTENSION_API_KEY: ''", `EXTENSION_API_KEY: ${JSON.stringify(extensionApiKey)}`, 'EXTENSION_API_KEY'],
