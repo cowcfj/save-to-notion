@@ -88,6 +88,8 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
  * @property {boolean} exists - 遠端是否有 snapshot
  * @property {string | null} updatedAt - 遠端 snapshot 最後更新時間（ISO 8601）
  * @property {number | null} size - snapshot 大小（bytes，若後端提供）
+ * @property {string | null} sourceInstallationId - 寫入此 snapshot 的安裝 ID
+ * @property {string | null} sourceProfileId - 寫入此 snapshot 的 profile ID
  */
 
 /**
@@ -333,7 +335,13 @@ export async function fetchDriveSnapshotStatus() {
 
   if (res.status === 404) {
     // 尚未有 snapshot
-    return { exists: false, updatedAt: null, size: null };
+    return {
+      exists: false,
+      updatedAt: null,
+      size: null,
+      sourceInstallationId: null,
+      sourceProfileId: null,
+    };
   }
 
   if (!res.ok) {
@@ -346,6 +354,8 @@ export async function fetchDriveSnapshotStatus() {
       json.has_snapshot === true || Boolean(json.remote_updated_at) || Boolean(json.updatedAt),
     updatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
     size: json.size ?? null,
+    sourceInstallationId: json.source_installation_id ?? null,
+    sourceProfileId: json.source_profile_id ?? null,
   };
 }
 

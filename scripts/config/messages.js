@@ -208,6 +208,10 @@ export const UI_MESSAGES = {
     AUTO_SYNC_NEEDS_REVIEW: '❗ 雲端備份較新，請手動處理',
     FREQUENCY_SAVE_SUCCESS: '自動同步設定已儲存',
     FREQUENCY_SAVE_FAILED: '設定儲存失敗，請重試',
+    // === 帳號隔離警示 ===
+    SOURCE_WARNING: '⚠️ 目前雲端備份來自其他裝置或擴展安裝',
+    CONFIRM_CROSS_INSTALL_UPLOAD:
+      '目前雲端備份來自其他裝置或擴展安裝。\n\n若繼續上載，可能覆蓋該裝置最近的備份。確定要繼續嗎？',
   },
 };
 

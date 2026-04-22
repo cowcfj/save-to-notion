@@ -1546,3 +1546,13 @@ h4 .icon-svg {
   transform: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Override default .card:hover */
 }
+
+/* --- Drive Source Warning (帳號隔離警示) --- */
+.drive-source-warning {
+  color: var(--warning-color, #f59e0b);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border-radius: 6px;
+  margin: 8px 0 0;
+}

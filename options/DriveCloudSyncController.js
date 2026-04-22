@@ -56,6 +56,8 @@ const DOM = {
   FREQUENCY_SELECT: '#drive-frequency-select',
   AUTO_SYNC_STATUS: '#drive-auto-sync-status',
   AUTO_SYNC_STATUS_TEXT: '#drive-auto-sync-status-text',
+  // 帳號隔離
+  SOURCE_WARNING: '#drive-source-warning',
   // Buttons
   BTN_CONNECT: '#drive-connect-button',
   BTN_UPLOAD: '#drive-upload-button',
@@ -155,16 +157,32 @@ async function syncRemoteDriveConnection() {
 
 /**
  * 查詢遠端 snapshot 存在狀態，並把 updatedAt 寫入 lastKnownRemoteUpdatedAt。
+ * 同步更新 module-level lastSnapshotStatus cache。
  * 任何失敗都必須 silent，不得阻擋 UI 渲染。
+ *
+ * @param {{
+ *   warnMessage?: string;
+ *   errorContext?: string;
+ * }} [options]
+ * @returns {Promise<import('../scripts/auth/driveClient.js').DriveSnapshotStatus | null>}
  */
-async function syncRemoteSnapshotStatus() {
+async function syncRemoteSnapshotStatus(options = {}) {
+  const warnMessage = options.warnMessage ?? '[CloudSync] Snapshot status sync skipped';
+  const errorContext = options.errorContext ?? 'drive_snapshot_status_sync';
   try {
     const snapshot = await fetchDriveSnapshotStatus();
     await setLastKnownRemoteUpdatedAt(snapshot.exists ? snapshot.updatedAt : null);
+    lastSnapshotStatus = {
+      sourceInstallationId: snapshot.sourceInstallationId ?? null,
+      sourceProfileId: snapshot.sourceProfileId ?? null,
+    };
+    return snapshot;
   } catch (error) {
-    Logger.warn('[CloudSync] Snapshot status sync skipped', {
-      error: getSafeError(error, 'drive_snapshot_status_sync'),
+    Logger.warn(warnMessage, {
+      error: getSafeError(error, errorContext),
     });
+    lastSnapshotStatus = null;
+    return null;
   }
 }
 
@@ -190,6 +208,8 @@ let isReturnSyncInFlight = false;
 let syncStatusTimeoutId = null;
 /** @type {AbortController | null} */
 let buttonListenersController = null;
+/** @type {{ sourceInstallationId: string | null; sourceProfileId: string | null } | null} */
+let lastSnapshotStatus = null;
 
 function syncOnReturn() {
   if (isReturnSyncInFlight) {
@@ -440,11 +460,56 @@ function _updateAutoSyncStatus(metadata) {
 }
 
 /**
+ * 判斷是否屬於跨安裝快照來源。
+ *
+ * @param {string | null | undefined} remoteId
+ * @param {string | null | undefined} localId
+ * @returns {boolean}
+ */
+function _isCrossInstall(remoteId, localId) {
+  return (
+    typeof remoteId === 'string' &&
+    remoteId.length > 0 &&
+    typeof localId === 'string' &&
+    localId.length > 0 &&
+    remoteId !== localId
+  );
+}
+
+/**
+ * 更新跨安裝來源警示 banner
+ *
+ * 僅在 remote sourceInstallationId 與 local installationId 同時存在且不同時顯示；
+ * 其他情境一律隱藏。
+ *
+ * @param {{ sourceInstallationId?: string | null } | null} snapshotStatus
+ * @param {string | null} localInstallationId
+ */
+function _updateSourceWarning(snapshotStatus, localInstallationId) {
+  const warningEl = el(DOM.SOURCE_WARNING);
+  if (!warningEl) {
+    return;
+  }
+
+  const remoteId = snapshotStatus?.sourceInstallationId ?? null;
+  const shouldShow = _isCrossInstall(remoteId, localInstallationId);
+
+  if (shouldShow) {
+    warningEl.textContent = UI_MESSAGES.CLOUD_SYNC.SOURCE_WARNING;
+    warningEl.hidden = false;
+  } else {
+    warningEl.textContent = '';
+    warningEl.hidden = true;
+  }
+}
+
+/**
  * 根據 metadata 渲染 Cloud Sync card
  *
- * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null; lastErrorCode?: string | null; lastErrorAt?: string | null; needsManualReview?: boolean; frequency?: string }} metadata
+ * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null; lastErrorCode?: string | null; lastErrorAt?: string | null; needsManualReview?: boolean; frequency?: string; installationId?: string | null }} metadata
+ * @param {{ snapshotStatus?: { sourceInstallationId?: string | null } | null }} [options]
  */
-export function renderCloudSyncCard(metadata) {
+export function renderCloudSyncCard(metadata, options = {}) {
   const isConnected = Boolean(metadata?.connectionEmail);
   const needsReview = metadata?.needsManualReview ?? false;
 
@@ -453,6 +518,11 @@ export function renderCloudSyncCard(metadata) {
   if (isConnected) {
     _updateConnectedInfo(metadata);
     _updateAutoSyncStatus(metadata);
+    const snapshotStatus =
+      options.snapshotStatus === undefined ? lastSnapshotStatus : options.snapshotStatus;
+    _updateSourceWarning(snapshotStatus, metadata.installationId ?? null);
+  } else {
+    _updateSourceWarning(null, null);
   }
 
   _updateErrorBanner(metadata);
@@ -463,7 +533,43 @@ export function renderCloudSyncCard(metadata) {
 // =============================================================================
 
 /**
+ * Preflight 驗證：若遠端 snapshot 來自其他安裝，向使用者請求確認。
+ *
+ * @returns {Promise<boolean>} 若應繼續上傳回傳 true，如不應繼續回傳 false
+ */
+async function _checkCrossInstallAndConfirm() {
+  try {
+    const preflight = await syncRemoteSnapshotStatus({
+      warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
+      errorContext: 'drive_upload_preflight',
+    });
+    if (!preflight) {
+      return true;
+    }
+    const metadata = await getDriveSyncMetadata();
+    const localId = metadata.installationId ?? null;
+    const remoteId = preflight.sourceInstallationId ?? null;
+    const isCrossInstall = _isCrossInstall(remoteId, localId);
+    if (isCrossInstall) {
+      return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
+    }
+  } catch (preflightError) {
+    // fail-open：preflight 失敗時只記錄 warn，不阻斷 upload
+    Logger.warn('[CloudSync] Upload preflight check failed, continuing upload', {
+      error: getSafeError(preflightError, 'drive_upload_preflight_metadata'),
+    });
+  }
+  return true;
+}
+
+/**
  * 處理手動上傳
+ *
+ * 流程：
+ * 1. force === true → 直接上傳（沿用既有 force confirm 流程）
+ * 2. force === false → preflight 查詢 snapshot status；
+ *    若偵測跨安裝則顯示二次確認，使用者取消則中止。
+ *    preflight 失敗時記錄 warn 並繼續（fail-open）。
  *
  * @param {boolean} [force=false] - 強制覆蓋（conflict 後使用者確認時傳 true）
  */
@@ -471,6 +577,21 @@ async function handleUpload(force = false) {
   showLoading(
     force ? UI_MESSAGES.CLOUD_SYNC.LOADING_FORCE_UPLOAD : UI_MESSAGES.CLOUD_SYNC.LOADING_UPLOAD
   );
+
+  // preflight 跨安裝檢查（僅在 force === false 時執行）
+  if (force === false) {
+    try {
+      const shouldProceed = await _checkCrossInstallAndConfirm();
+      if (shouldProceed === false) {
+        hideLoading();
+        return;
+      }
+    } catch (error) {
+      hideLoading();
+      throw error;
+    }
+  }
+
   let uploadSucceeded = false;
   let conflictDetected = false;
   try {
@@ -511,7 +632,7 @@ async function handleUpload(force = false) {
   }
 
   try {
-    await refreshCloudSyncCard();
+    await refreshCloudSyncCard({ syncRemote: true });
   } catch (error) {
     Logger.error('[CloudSync] Upload UI refresh failed', {
       error: getSafeError(error, 'drive_sync_upload_ui_refresh'),
@@ -561,7 +682,7 @@ async function handleDownload() {
   }
 
   try {
-    await refreshCloudSyncCard();
+    await refreshCloudSyncCard({ syncRemote: true });
   } catch (error) {
     Logger.error('[CloudSync] Download UI refresh failed', {
       error: getSafeError(error, 'drive_sync_download_ui_refresh'),
