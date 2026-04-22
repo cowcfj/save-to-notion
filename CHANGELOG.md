@@ -1,5 +1,13 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.57.0](https://github.com/cowcfj/save-to-notion/compare/v2.56.2...v2.57.0) (2026-04-22)
+
+
+### ✨ 新功能
+
+* implement snapshot account isolation frontend warning and upload preflight ([#432](https://github.com/cowcfj/save-to-notion/issues/432)) ([db736dc](https://github.com/cowcfj/save-to-notion/commit/db736dce69e1536168d69ad775807f2fb5796ceb))
+* Improve loading status display for Google Drive sync settings ([#430](https://github.com/cowcfj/save-to-notion/issues/430)) ([3b2b0e8](https://github.com/cowcfj/save-to-notion/commit/3b2b0e822f8c447b0ba02c25b051eb3fe95b97ed))
+
 ## [2.56.2](https://github.com/cowcfj/save-to-notion/compare/v2.56.1...v2.56.2) (2026-04-22)
 
 
