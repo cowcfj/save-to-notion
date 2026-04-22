@@ -298,6 +298,43 @@ describe('Drive Client API', () => {
         expect(res.exists).toBe(true);
         expect(res.updatedAt).toBe('time');
       });
+
+      it('可解析 source_installation_id / source_profile_id', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            has_snapshot: true,
+            remote_updated_at: 'time',
+            source_installation_id: 'install-abc',
+            source_profile_id: 'profile-xyz',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.sourceInstallationId).toBe('install-abc');
+        expect(res.sourceProfileId).toBe('profile-xyz');
+      });
+
+      it('缺少 source_installation_id 欄位時回傳 sourceInstallationId: null', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ has_snapshot: true }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.sourceInstallationId).toBeNull();
+        expect(res.sourceProfileId).toBeNull();
+      });
+
+      it('404 時回傳 sourceInstallationId: null / sourceProfileId: null', async () => {
+        mockFetch.mockResolvedValue({ ok: false, status: 404 });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.sourceInstallationId).toBeNull();
+        expect(res.sourceProfileId).toBeNull();
+      });
     });
 
     describe('uploadDriveSnapshot', () => {

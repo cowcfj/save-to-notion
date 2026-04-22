@@ -83,6 +83,7 @@ describe('DriveCloudSyncController', () => {
         <div id="drive-sync-status"></div>
         <div id="drive-connected-email"></div>
         <div id="drive-last-upload-text"></div>
+        <p id="drive-source-warning" hidden></p>
 
         <select id="drive-frequency-select">
           <option value="off">Off</option>
@@ -143,6 +144,8 @@ describe('DriveCloudSyncController', () => {
       exists: false,
       updatedAt: null,
       size: null,
+      sourceInstallationId: null,
+      sourceProfileId: null,
     });
     jest.spyOn(driveClient, 'setDriveConnection');
   });
@@ -1061,12 +1064,23 @@ describe('DriveCloudSyncController', () => {
     it('clears temporary success status message after timeout', async () => {
       driveClient.getDriveSyncMetadata
         .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({ connectionEmail: 'done@test.dev' });
+        .mockResolvedValue({ connectionEmail: 'done@test.dev' });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValue({
+        exists: false,
+        updatedAt: null,
+        size: null,
+        sourceInstallationId: null,
+        sourceProfileId: null,
+      });
       mockSendMessage.mockResolvedValueOnce({ success: true });
 
       await initCloudSyncController(true);
 
       document.querySelector('#drive-upload-button').click();
+      // 等待 preflight + sendMessage 完成
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
 
@@ -1107,6 +1121,146 @@ describe('DriveCloudSyncController', () => {
 
       await jest.advanceTimersByTimeAsync(1);
       expect(document.querySelector('#drive-sync-status').textContent).toBe('');
+    });
+  });
+  describe('Source Warning (_updateSourceWarning via renderCloudSyncCard)', () => {
+    it('sourceInstallationId 與 installationId 不同時顯示 warning', () => {
+      renderCloudSyncCard(
+        { connectionEmail: 'user@test.dev', installationId: 'local-id-001' },
+        { snapshotStatus: { sourceInstallationId: 'remote-id-999' } }
+      );
+      const warning = document.querySelector('#drive-source-warning');
+      expect(warning.hidden).toBe(false);
+      expect(warning.textContent).toContain('⚠️');
+    });
+
+    it('sourceInstallationId === installationId 時隱藏 warning', () => {
+      renderCloudSyncCard(
+        { connectionEmail: 'user@test.dev', installationId: 'same-id' },
+        { snapshotStatus: { sourceInstallationId: 'same-id' } }
+      );
+      expect(document.querySelector('#drive-source-warning').hidden).toBe(true);
+    });
+
+    it('sourceInstallationId 為 null 時隱藏 warning', () => {
+      renderCloudSyncCard(
+        { connectionEmail: 'user@test.dev', installationId: 'local-id-001' },
+        { snapshotStatus: { sourceInstallationId: null } }
+      );
+      expect(document.querySelector('#drive-source-warning').hidden).toBe(true);
+    });
+
+    it('installationId 為 null 時隱藏 warning', () => {
+      renderCloudSyncCard(
+        { connectionEmail: 'user@test.dev', installationId: null },
+        { snapshotStatus: { sourceInstallationId: 'remote-id-999' } }
+      );
+      expect(document.querySelector('#drive-source-warning').hidden).toBe(true);
+    });
+
+    it('disconnected 狀態時 warning 應隱藏', () => {
+      // 先讓 warning 顯示
+      renderCloudSyncCard(
+        { connectionEmail: 'user@test.dev', installationId: 'local-id-001' },
+        { snapshotStatus: { sourceInstallationId: 'remote-id-999' } }
+      );
+      expect(document.querySelector('#drive-source-warning').hidden).toBe(false);
+
+      // 切換到 disconnected
+      renderCloudSyncCard({ connectionEmail: null });
+      expect(document.querySelector('#drive-source-warning').hidden).toBe(true);
+    });
+  });
+
+  describe('Upload preflight cross-install confirm', () => {
+    beforeEach(async () => {
+      // 基礎連線狀態：已連線
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'user@test.dev',
+        installationId: 'local-id-001',
+      });
+      await initCloudSyncController(true);
+    });
+
+    it('偵測跨安裝且使用者取消時，不應送出 DRIVE_SYNC_MANUAL_UPLOAD', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: 'time',
+        size: null,
+        sourceInstallationId: 'remote-id-999',
+        sourceProfileId: null,
+      });
+      globalThis.confirm.mockReturnValueOnce(false);
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(mockSendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })
+      );
+    });
+
+    it('偵測跨安裝且使用者確認時，應送出 DRIVE_SYNC_MANUAL_UPLOAD', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: 'time',
+        size: null,
+        sourceInstallationId: 'remote-id-999',
+        sourceProfileId: null,
+      });
+      globalThis.confirm.mockReturnValueOnce(true);
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+          force: false,
+        })
+      );
+    });
+
+    it('preflight 查詢失敗時，仍應送出 DRIVE_SYNC_MANUAL_UPLOAD（fail-open）', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockRejectedValueOnce(new Error('NETWORK_ERROR'));
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        '[CloudSync] Upload preflight check failed, continuing upload',
+        expect.any(Object)
+      );
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+          force: false,
+        })
+      );
+    });
+
+    it('同一安裝 ID 時不顯示 confirm dialog，直接上傳', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: 'time',
+        size: null,
+        sourceInstallationId: 'local-id-001',
+        sourceProfileId: null,
+      });
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      // confirm 只會被 download 的初始 setup 呼叫，不應有 CROSS_INSTALL 訊息
+      expect(globalThis.confirm).not.toHaveBeenCalledWith(
+        UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD
+      );
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })
+      );
     });
   });
 });
