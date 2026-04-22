@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.57.1](https://github.com/cowcfj/save-to-notion/compare/v2.57.0...v2.57.1) (2026-04-22)
+
+
+### 🐛 Bug 修復
+
+* fix URL truncation issue for numeric slugs in Next.js ([#433](https://github.com/cowcfj/save-to-notion/issues/433)) ([52fc416](https://github.com/cowcfj/save-to-notion/commit/52fc416929c6b9544b7246a7f0f49be0bb1f8868))
+
 ## [2.57.0](https://github.com/cowcfj/save-to-notion/compare/v2.56.2...v2.57.0) (2026-04-22)
 
 
