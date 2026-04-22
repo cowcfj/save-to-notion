@@ -599,6 +599,41 @@ describe('DriveCloudSyncController', () => {
       // Handlers not attached if not logged in initially (in actual implementation)
     });
 
+    it('shows loading overlay during initialization and hides it after completion', async () => {
+      let resolveConnectionStatus;
+      driveClient.fetchDriveConnectionStatus.mockImplementation(() => {
+        return new Promise(resolve => {
+          resolveConnectionStatus = resolve;
+        });
+      });
+
+      const initPromise = initCloudSyncController(true);
+
+      // Loading overlay should be displayed immediately
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC
+      );
+
+      // Control buttons should be disabled during load
+      expect(document.querySelector('#drive-connect-button').disabled).toBe(true);
+      expect(document.querySelector('#drive-upload-button').disabled).toBe(true);
+
+      // Resolve the mock promise to let initialization continue
+      resolveConnectionStatus({
+        connected: false,
+        email: null,
+        connectedAt: null,
+      });
+
+      await initPromise;
+
+      // Loading overlay should be hidden after initialization completes
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-connect-button').disabled).toBe(false);
+      expect(document.querySelector('#drive-upload-button').disabled).toBe(false);
+    });
+
     it('syncs remote drive connection on init', async () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
         connected: true,
