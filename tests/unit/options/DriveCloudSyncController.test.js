@@ -1196,6 +1196,37 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
+    it('preflight 確認期間應先禁用按鈕，取消後恢復互動', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: 'time',
+        size: null,
+        sourceInstallationId: 'remote-id-999',
+        sourceProfileId: null,
+      });
+
+      const uploadBtn = document.querySelector('#drive-upload-button');
+      const overlay = document.querySelector('#drive-loading-overlay');
+      let isDisabledDuringConfirm = null;
+      let isOverlayVisibleDuringConfirm = null;
+      globalThis.confirm.mockImplementationOnce(() => {
+        isDisabledDuringConfirm = uploadBtn.disabled;
+        isOverlayVisibleDuringConfirm = overlay.style.display === '';
+        return false;
+      });
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(mockSendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })
+      );
+      expect(isDisabledDuringConfirm).toBe(true);
+      expect(isOverlayVisibleDuringConfirm).toBe(true);
+      expect(uploadBtn.disabled).toBe(false);
+      expect(overlay.style.display).toBe('none');
+    });
+
     it('偵測跨安裝且使用者確認時，應送出 DRIVE_SYNC_MANUAL_UPLOAD', async () => {
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
@@ -1228,6 +1259,39 @@ describe('DriveCloudSyncController', () => {
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         '[CloudSync] Upload preflight check failed, continuing upload',
         expect.any(Object)
+      );
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+          force: false,
+        })
+      );
+    });
+
+    it('metadata 讀取失敗時應使用獨立 preflight context 記錄 warn', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: 'time',
+        size: null,
+        sourceInstallationId: 'remote-id-999',
+        sourceProfileId: null,
+      });
+      driveClient.getDriveSyncMetadata.mockRejectedValueOnce(new Error('METADATA_ERROR'));
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[Security] Unrecognized API error sanitized (context: drive_upload_preflight_metadata'
+        )
+      );
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        '[CloudSync] Upload preflight check failed, continuing upload',
+        expect.objectContaining({
+          error: sanitizeApiError(new Error('METADATA_ERROR'), 'drive_upload_preflight_metadata'),
+        })
       );
       expect(mockSendMessage).toHaveBeenCalledWith(
         expect.objectContaining({

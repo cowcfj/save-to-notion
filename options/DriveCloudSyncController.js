@@ -556,7 +556,7 @@ async function _checkCrossInstallAndConfirm() {
   } catch (preflightError) {
     // fail-open：preflight 失敗時只記錄 warn，不阻斷 upload
     Logger.warn('[CloudSync] Upload preflight check failed, continuing upload', {
-      error: getSafeError(preflightError, 'drive_upload_preflight'),
+      error: getSafeError(preflightError, 'drive_upload_preflight_metadata'),
     });
   }
   return true;
@@ -574,16 +574,24 @@ async function _checkCrossInstallAndConfirm() {
  * @param {boolean} [force=false] - 強制覆蓋（conflict 後使用者確認時傳 true）
  */
 async function handleUpload(force = false) {
-  // preflight 跨安裝檢查（僅在 force === false 時執行）
-  if (force === false) {
-    const shouldProceed = await _checkCrossInstallAndConfirm();
-    if (shouldProceed === false) {
-      return;
-    }
-  }
   showLoading(
     force ? UI_MESSAGES.CLOUD_SYNC.LOADING_FORCE_UPLOAD : UI_MESSAGES.CLOUD_SYNC.LOADING_UPLOAD
   );
+
+  // preflight 跨安裝檢查（僅在 force === false 時執行）
+  if (force === false) {
+    try {
+      const shouldProceed = await _checkCrossInstallAndConfirm();
+      if (shouldProceed === false) {
+        hideLoading();
+        return;
+      }
+    } catch (error) {
+      hideLoading();
+      throw error;
+    }
+  }
+
   let uploadSucceeded = false;
   let conflictDetected = false;
   try {
