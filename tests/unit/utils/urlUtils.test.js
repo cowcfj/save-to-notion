@@ -215,27 +215,58 @@ describe('urlUtils', () => {
         expect(result).toBe('https://www.scitw.cc/posts/10615');
       });
 
-      it('應該移除非純數字的 slug 值（不觸發豁免）', () => {
+      it('應該移除非純數字的 slug 值（不觸發豁免，但需有穩定段以避開安全閥）', () => {
         const routeInfo = {
-          page: '/posts/[slug]',
-          query: { slug: 'hello-world' },
+          page: '/category/[id]/[slug]',
+          query: { id: '123', slug: 'hello-world' },
         };
         const result = buildStableUrlFromNextData(
           routeInfo,
-          'https://example.com/posts/hello-world'
+          'https://example.com/category/123/hello-world'
         );
-        // slug 含字母 → 不豁免 → 移除 → 返回穩定 URL
-        expect(result).toBe('https://example.com/posts');
+        // slug 含字母 → 不豁免 → 移除，剩餘 id 段 → 返回穩定 URL
+        expect(result).toBe('https://example.com/category/123');
       });
 
-      it('應該移除含字母與數字混合的 slug 值', () => {
+      it('應該移除含字母與數字混合的 slug 值（需有穩定段以避開安全閥）', () => {
+        const routeInfo = {
+          page: '/category/[id]/[slug]',
+          query: { id: '123', slug: '123-hello' },
+        };
+        const result = buildStableUrlFromNextData(
+          routeInfo,
+          'https://example.com/category/123/123-hello'
+        );
+        // 值非純數字 → 不豁免
+        expect(result).toBe('https://example.com/category/123');
+      });
+    });
+
+    describe('安全閥：所有動態段均被移除時', () => {
+      it('當單一動態段被移除時（如 scitw.cc 的文字 slug），應返回 null 避免靜態殼', () => {
         const routeInfo = {
           page: '/posts/[slug]',
-          query: { slug: '123-hello' },
+          query: { slug: 'Wiki-Curious-tw' },
         };
-        const result = buildStableUrlFromNextData(routeInfo, 'https://example.com/posts/123-hello');
-        // 值非純數字 → 不豁免
-        expect(result).toBe('https://example.com/posts');
+        const result = buildStableUrlFromNextData(
+          routeInfo,
+          'https://www.scitw.cc/posts/Wiki-Curious-tw'
+        );
+        expect(result).toBeNull();
+      });
+
+      it('當多個動態段皆被移除時，應返回 null 避免靜態殼', () => {
+        // 假設 section 值含中文/非 ASCII 且不在已知穩定段清單中，這將導致 section 也被視為 slug
+        // 為了簡單起見，直接讓它名字叫 [slug2]
+        const routeInfo2 = {
+          page: '/[slug1]/[slug2]',
+          query: { slug1: 'post', slug2: 'hello-world' },
+        };
+        const result = buildStableUrlFromNextData(
+          routeInfo2,
+          'https://example.com/post/hello-world'
+        );
+        expect(result).toBeNull();
       });
     });
 
@@ -327,6 +358,21 @@ describe('urlUtils', () => {
         // buildStableUrlFromNextData 返回 null 後，應回退到 normalizeUrl，
         // 最終仍保留完整文章 URL，而不是被截成 /posts
         expect(result).toBe('https://www.scitw.cc/posts/10615');
+      });
+
+      it('應該在 Phase 2a 回退到 normalizeUrl 並保留完整文字 slug URL（安全閥機制）', () => {
+        const url = 'https://www.scitw.cc/posts/Wiki-Curious-tw';
+        const preloaderData = {
+          nextRouteInfo: {
+            page: '/posts/[slug]',
+            query: { slug: 'Wiki-Curious-tw' },
+          },
+        };
+
+        const result = resolveStorageUrl(url, preloaderData);
+
+        // buildStableUrlFromNextData 返回 null 後，應回退到 normalizeUrl
+        expect(result).toBe('https://www.scitw.cc/posts/Wiki-Curious-tw');
       });
     });
 

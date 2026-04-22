@@ -203,6 +203,12 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
       return null;
     }
 
+    // 安全閥：當所有動態段都是 slug 時，移除後只剩靜態路由殼
+    // （如 /posts），無法唯一識別頁面 → 放棄，讓 resolveStorageUrl 回退 normalizeUrl
+    if (slugKeys.length === dynamicSegments.length) {
+      return null;
+    }
+
     // 構建穩定路徑：保留穩定段，移除 slug 段
     let stablePath = page;
     for (const key of dynamicSegments) {
