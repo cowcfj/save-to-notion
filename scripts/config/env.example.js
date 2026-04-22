@@ -160,3 +160,4 @@ export const BUILD_ENV = Object.freeze({
   // 用於驗證 /refresh 請求，須與 Cloudflare Worker 的 EXTENSION_API_KEY binding 一致
   EXTENSION_API_KEY: '',
 });
+// Trigger release please pipeline
