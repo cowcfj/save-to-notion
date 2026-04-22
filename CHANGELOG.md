@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.56.2](https://github.com/cowcfj/save-to-notion/compare/v2.56.1...v2.56.2) (2026-04-22)
+
+
+### 🐛 Bug 修復
+
+* force release please to detect changes ([8079787](https://github.com/cowcfj/save-to-notion/commit/8079787e7fa0dc3d0fb01e92250b12d7ab6549da))
+
 ## [2.56.1](https://github.com/cowcfj/save-to-notion/compare/v2.56.0...v2.56.1) (2026-04-21)
 
 
