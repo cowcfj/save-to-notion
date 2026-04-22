@@ -515,17 +515,6 @@ export function renderCloudSyncCard(metadata, options = {}) {
 // =============================================================================
 
 /**
- * 處理手動上傳
- *
- * 流程：
- * 1. force === true → 直接上傳（沿用既有 force confirm 流程）
- * 2. force === false → preflight 查詢 snapshot status；
- *    若偵測跨安裝則顯示二次確認，使用者取消則中止。
- *    preflight 失敗時記錄 warn 並繼續（fail-open）。
- *
- * @param {boolean} [force=false] - 強制覆蓋（conflict 後使用者確認時傳 true）
- */
-/**
  * Preflight 驗證：若遠端 snapshot 來自其他安裝，向使用者請求確認。
  *
  * @returns {Promise<boolean>} 若應繼續上傳回傳 true，如不應繼續回傳 false
