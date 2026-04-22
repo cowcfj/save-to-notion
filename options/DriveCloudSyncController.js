@@ -160,9 +160,15 @@ async function syncRemoteDriveConnection() {
  * 同步更新 module-level lastSnapshotStatus cache。
  * 任何失敗都必須 silent，不得阻擋 UI 渲染。
  *
+ * @param {{
+ *   warnMessage?: string;
+ *   errorContext?: string;
+ * }} [options]
  * @returns {Promise<import('../scripts/auth/driveClient.js').DriveSnapshotStatus | null>}
  */
-async function syncRemoteSnapshotStatus() {
+async function syncRemoteSnapshotStatus(options = {}) {
+  const warnMessage = options.warnMessage ?? '[CloudSync] Snapshot status sync skipped';
+  const errorContext = options.errorContext ?? 'drive_snapshot_status_sync';
   try {
     const snapshot = await fetchDriveSnapshotStatus();
     await setLastKnownRemoteUpdatedAt(snapshot.exists ? snapshot.updatedAt : null);
@@ -172,8 +178,8 @@ async function syncRemoteSnapshotStatus() {
     };
     return snapshot;
   } catch (error) {
-    Logger.warn('[CloudSync] Snapshot status sync skipped', {
-      error: getSafeError(error, 'drive_snapshot_status_sync'),
+    Logger.warn(warnMessage, {
+      error: getSafeError(error, errorContext),
     });
     lastSnapshotStatus = null;
     return null;
@@ -454,6 +460,23 @@ function _updateAutoSyncStatus(metadata) {
 }
 
 /**
+ * 判斷是否屬於跨安裝快照來源。
+ *
+ * @param {string | null | undefined} remoteId
+ * @param {string | null | undefined} localId
+ * @returns {boolean}
+ */
+function _isCrossInstall(remoteId, localId) {
+  return (
+    typeof remoteId === 'string' &&
+    remoteId.length > 0 &&
+    typeof localId === 'string' &&
+    localId.length > 0 &&
+    remoteId !== localId
+  );
+}
+
+/**
  * 更新跨安裝來源警示 banner
  *
  * 僅在 remote sourceInstallationId 與 local installationId 同時存在且不同時顯示；
@@ -469,12 +492,7 @@ function _updateSourceWarning(snapshotStatus, localInstallationId) {
   }
 
   const remoteId = snapshotStatus?.sourceInstallationId ?? null;
-  const shouldShow =
-    typeof remoteId === 'string' &&
-    remoteId.length > 0 &&
-    typeof localInstallationId === 'string' &&
-    localInstallationId.length > 0 &&
-    remoteId !== localInstallationId;
+  const shouldShow = _isCrossInstall(remoteId, localInstallationId);
 
   if (shouldShow) {
     warningEl.textContent = UI_MESSAGES.CLOUD_SYNC.SOURCE_WARNING;
@@ -521,21 +539,17 @@ export function renderCloudSyncCard(metadata, options = {}) {
  */
 async function _checkCrossInstallAndConfirm() {
   try {
-    const preflight = await fetchDriveSnapshotStatus();
-    // 更新 module cache（讓後續 render 有最新資訊）
-    lastSnapshotStatus = {
-      sourceInstallationId: preflight.sourceInstallationId ?? null,
-      sourceProfileId: preflight.sourceProfileId ?? null,
-    };
+    const preflight = await syncRemoteSnapshotStatus({
+      warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
+      errorContext: 'drive_upload_preflight',
+    });
+    if (!preflight) {
+      return true;
+    }
     const metadata = await getDriveSyncMetadata();
     const localId = metadata.installationId ?? null;
     const remoteId = preflight.sourceInstallationId ?? null;
-    const isCrossInstall =
-      typeof remoteId === 'string' &&
-      remoteId.length > 0 &&
-      typeof localId === 'string' &&
-      localId.length > 0 &&
-      remoteId !== localId;
+    const isCrossInstall = _isCrossInstall(remoteId, localId);
     if (isCrossInstall) {
       return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
     }

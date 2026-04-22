@@ -1078,11 +1078,7 @@ describe('DriveCloudSyncController', () => {
 
       document.querySelector('#drive-upload-button').click();
       // 等待 preflight + sendMessage 完成
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushAsyncWork();
 
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS
