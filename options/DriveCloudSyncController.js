@@ -41,6 +41,7 @@ import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 const DOM = {
   CARD: '#cloud-sync-card',
+  STATE_LOGGED_OUT: '#drive-state-logged-out',
   STATE_DISCONNECTED: '#drive-state-disconnected',
   STATE_CONNECTED: '#drive-state-connected',
   STATE_CONFLICT: '#drive-state-conflict',
@@ -60,6 +61,7 @@ const DOM = {
   // 帳號隔離
   SOURCE_WARNING: '#drive-source-warning',
   // Buttons
+  BTN_LOGIN_PROMPT: '#drive-login-prompt-button',
   BTN_CONNECT: '#drive-connect-button',
   BTN_UPLOAD: '#drive-upload-button',
   BTN_DOWNLOAD: '#drive-download-button',
@@ -261,22 +263,9 @@ export function setCloudSyncCardVisibility(isLoggedIn) {
   }
 }
 
-/**
- * 顯示 loading overlay
- *
- * @param {string} message
- */
-function showLoading(message) {
-  const overlay = el(DOM.LOADING_OVERLAY);
-  const text = el(DOM.LOADING_TEXT);
-  if (overlay) {
-    overlay.style.display = '';
-  }
-  if (text) {
-    text.textContent = message;
-  }
-  // 禁用所有操作按鈕防止重複點擊
+function _setActionButtonsDisabled(disabled) {
   for (const selector of [
+    DOM.BTN_LOGIN_PROMPT,
     DOM.BTN_UPLOAD,
     DOM.BTN_DOWNLOAD,
     DOM.BTN_DISCONNECT,
@@ -286,9 +275,27 @@ function showLoading(message) {
   ]) {
     const btn = el(selector);
     if (btn) {
-      btn.disabled = true;
+      btn.disabled = disabled;
     }
   }
+}
+
+/**
+ * 顯示 loading overlay
+ *
+ * @param {string} message
+ */
+function showLoading(message) {
+  setCloudSyncCardVisibility(true);
+  const overlay = el(DOM.LOADING_OVERLAY);
+  const text = el(DOM.LOADING_TEXT);
+  if (overlay) {
+    overlay.style.display = '';
+  }
+  if (text) {
+    text.textContent = message;
+  }
+  _setActionButtonsDisabled(true);
 }
 
 /**
@@ -299,20 +306,7 @@ function hideLoading() {
   if (overlay) {
     overlay.style.display = 'none';
   }
-  // 恢復按鈕
-  for (const selector of [
-    DOM.BTN_UPLOAD,
-    DOM.BTN_DOWNLOAD,
-    DOM.BTN_DISCONNECT,
-    DOM.BTN_CONNECT,
-    DOM.BTN_CONFLICT_DOWNLOAD,
-    DOM.BTN_CONFLICT_FORCE_UPLOAD,
-  ]) {
-    const btn = el(selector);
-    if (btn) {
-      btn.disabled = false;
-    }
-  }
+  _setActionButtonsDisabled(false);
 }
 
 /**
@@ -346,22 +340,25 @@ function showSyncStatus(message, type = '') {
 /**
  * 更新各狀態區塊的顯示（disconnected / connected / conflict）
  *
- * @param {boolean} isConnected
- * @param {boolean} needsReview
+ * @param {'loading' | 'logged_out' | 'disconnected' | 'connected' | 'conflict'} state
  */
-function _updateStatePanels(isConnected, needsReview) {
+function _updateStatePanels(state) {
+  const stateLoggedOut = el(DOM.STATE_LOGGED_OUT);
   const stateDisconnected = el(DOM.STATE_DISCONNECTED);
   const stateConnected = el(DOM.STATE_CONNECTED);
   const stateConflict = el(DOM.STATE_CONFLICT);
 
+  if (stateLoggedOut) {
+    stateLoggedOut.style.display = state === 'logged_out' ? '' : 'none';
+  }
   if (stateDisconnected) {
-    stateDisconnected.style.display = isConnected ? 'none' : '';
+    stateDisconnected.style.display = state === 'disconnected' ? '' : 'none';
   }
   if (stateConnected) {
-    stateConnected.style.display = isConnected && !needsReview ? '' : 'none';
+    stateConnected.style.display = state === 'connected' ? '' : 'none';
   }
   if (stateConflict) {
-    stateConflict.style.display = isConnected && needsReview ? '' : 'none';
+    stateConflict.style.display = state === 'conflict' ? '' : 'none';
   }
 }
 
@@ -514,8 +511,13 @@ function _updateSourceWarning(snapshotStatus, localInstallationId) {
 export function renderCloudSyncCard(metadata, options = {}) {
   const isConnected = Boolean(metadata?.connectionEmail);
   const needsReview = metadata?.needsManualReview ?? false;
+  let panelState = 'disconnected';
 
-  _updateStatePanels(isConnected, needsReview);
+  if (isConnected) {
+    panelState = needsReview ? 'conflict' : 'connected';
+  }
+
+  _updateStatePanels(panelState);
 
   if (isConnected) {
     _updateConnectedInfo(metadata);
@@ -528,6 +530,39 @@ export function renderCloudSyncCard(metadata, options = {}) {
   }
 
   _updateErrorBanner(metadata);
+}
+
+function renderLoggedOutCloudSyncCard() {
+  setCloudSyncCardVisibility(true);
+  _updateStatePanels('logged_out');
+  _updateSourceWarning(null, null);
+  showSyncStatus('', '');
+  hideLoading();
+
+  const errorBanner = el(DOM.ERROR_BANNER);
+  if (errorBanner) {
+    errorBanner.style.display = 'none';
+  }
+
+  const errorCodeEl = el(DOM.ERROR_CODE);
+  if (errorCodeEl) {
+    errorCodeEl.textContent = '';
+  }
+
+  const errorTimeEl = el(DOM.ERROR_TIME);
+  if (errorTimeEl) {
+    errorTimeEl.textContent = '';
+  }
+
+  const loginPromptButton = el(DOM.BTN_LOGIN_PROMPT);
+  if (loginPromptButton) {
+    loginPromptButton.disabled = true;
+  }
+}
+
+export function showCloudSyncLoadingState(message) {
+  _updateStatePanels('loading');
+  showLoading(message);
 }
 
 // =============================================================================
@@ -861,9 +896,10 @@ async function handleFrequencyChange(frequency) {
  */
 export async function initCloudSyncController(isLoggedIn) {
   // 更新 card 顯示與否
-  setCloudSyncCardVisibility(isLoggedIn);
+  setCloudSyncCardVisibility(true);
 
   if (!isLoggedIn) {
+    renderLoggedOutCloudSyncCard();
     return;
   }
 

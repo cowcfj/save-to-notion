@@ -71,6 +71,7 @@ describe('DriveCloudSyncController', () => {
     // Setup DOM
     document.body.innerHTML = `
       <div id="cloud-sync-card">
+        <div id="drive-state-logged-out"></div>
         <div id="drive-state-disconnected"></div>
         <div id="drive-state-connected"></div>
         <div id="drive-state-conflict"></div>
@@ -97,6 +98,7 @@ describe('DriveCloudSyncController', () => {
         </output>
 
         <button id="drive-connect-button"></button>
+        <button id="drive-login-prompt-button"></button>
         <button id="drive-upload-button"></button>
         <button id="drive-download-button"></button>
         <button id="drive-disconnect-button"></button>
@@ -168,6 +170,20 @@ describe('DriveCloudSyncController', () => {
     it('hides card if logged out', () => {
       setCloudSyncCardVisibility(false);
       expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
+    });
+  });
+
+  describe('logged-out state', () => {
+    it('未登入時應顯示提示狀態而不是隱藏整張卡片', async () => {
+      await initCloudSyncController(false);
+
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-login-prompt-button').disabled).toBe(true);
     });
   });
 
@@ -597,7 +613,8 @@ describe('DriveCloudSyncController', () => {
 
     it('bypasses interaction if not logged in', async () => {
       await initCloudSyncController(false);
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
       // Handlers not attached if not logged in initially (in actual implementation)
     });
 

@@ -23,8 +23,8 @@ import {
 } from '../scripts/auth/accountSession.js';
 import {
   initCloudSyncController,
-  setCloudSyncCardVisibility,
   refreshCloudSyncCard,
+  showCloudSyncLoadingState,
 } from './DriveCloudSyncController.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
@@ -264,7 +264,6 @@ async function renderAccountUI() {
 
     updateProfileDOM(profile);
     updateLockedFeatures(false);
-    setCloudSyncCardVisibility(true);
   } else {
     // 未登入狀態
     if (loggedOutEl) {
@@ -275,8 +274,9 @@ async function renderAccountUI() {
     }
 
     updateLockedFeatures(true);
-    setCloudSyncCardVisibility(false);
   }
+
+  await initCloudSyncController(isLoggedIn);
 }
 
 /**
@@ -381,13 +381,10 @@ function initAccountUI() {
     });
   }
 
+  showCloudSyncLoadingState(UI_MESSAGES.CLOUD_SYNC.LOADING_ACCOUNT_STATUS);
+
   // 讀取目前登入狀態
   renderAccountUI().catch(() => {});
-
-  // 初始化 Cloud Sync Controller（需在 renderAccountUI 後，使用同樣的 profile check）
-  Promise.all([getAccountProfile(), getAccountAccessToken()])
-    .then(([profile, accessToken]) => initCloudSyncController(Boolean(profile && accessToken)))
-    .catch(() => {});
 }
 
 /**
