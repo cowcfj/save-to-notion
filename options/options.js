@@ -94,9 +94,8 @@ export function initOptions() {
         renderAccountUI().catch(() => {});
         break;
       }
-      case RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED:
       case RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED: {
-        // Drive 連線或同步狀態已更新，刷新 Cloud Sync card
+        // Drive 同步狀態已更新，刷新 Cloud Sync card
         refreshCloudSyncCard().catch(() => {});
         break;
       }

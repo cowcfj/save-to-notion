@@ -416,17 +416,6 @@
     },
     "driveSync": {
       "$comment": "Google Drive Sync Phase A — 手動 connect / upload / download / disconnect\n禁止與 account session actions 混用觸發條件。storage keys 皆以 driveSync 前綴隔離。",
-      "DRIVE_CONNECTION_UPDATED": {
-        "description": "可選的 Drive UI refresh signal；options listener 收到後可重新整理 Cloud Sync card，但 connect / disconnect 主流程不依賴此 action，現行 production flow 以 DriveCloudSyncController.syncRemoteDriveConnection() 主動重拉狀態為主",
-        "direction": "runtime → options (optional)",
-        "payload": {
-          "email": "string | null — 連線帳號 email，null 表示已斷線",
-          "connectedAt": "string | null — ISO 8601 timestamp"
-        },
-        "response": {
-          "success": "boolean (optional)"
-        }
-      },
       "DRIVE_SYNC_STATUS_UPDATED": {
         "description": "手動 upload/download 完成或 status 查詢後廣播；接收方重新讀取 driveSyncLast* metadata",
         "direction": "background → options",

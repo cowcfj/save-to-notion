@@ -540,11 +540,7 @@ describe('DriveCloudSyncController', () => {
 
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(mockSendMessage).not.toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
-        })
-      );
+      expect(mockSendMessage).not.toHaveBeenCalled();
       expect(loggerInfoSpy).not.toHaveBeenCalledWith('[CloudSync] Disconnect broadcast sent');
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
