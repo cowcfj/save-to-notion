@@ -487,10 +487,10 @@ export class AuthManager {
    * 清理 OAuth 流程產生的暫存 State 與還原 UI 按鈕
    *
    * @private
-   * @param {string} csrfState - 剛剛用到的 CSRF State
+   * @param {boolean} shouldRemoveState - 是否移除 session 中的 oauthState
    */
-  async _cleanupOAuthState(csrfState) {
-    if (csrfState) {
+  async _cleanupOAuthState(shouldRemoveState) {
+    if (shouldRemoveState) {
       try {
         await chrome.storage.session.remove('oauthState');
       } catch (cleanupError) {
@@ -602,7 +602,7 @@ export class AuthManager {
           missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
         });
         this.ui.showStatus(UI_MESSAGES.AUTH.MISSING_ENV_CONFIG, 'error');
-        await this._cleanupOAuthState('oauthState');
+        await this._cleanupOAuthState(true);
         return;
       }
 
@@ -675,7 +675,7 @@ export class AuthManager {
     } catch (error) {
       this._handleOAuthError(error);
     } finally {
-      await this._cleanupOAuthState(csrfState);
+      await this._cleanupOAuthState(Boolean(csrfState));
     }
   }
 

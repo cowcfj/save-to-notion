@@ -8,7 +8,7 @@
 
 import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
-import { AuthMode } from '../scripts/config/api.js';
+import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';

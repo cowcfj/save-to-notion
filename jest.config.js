@@ -58,7 +58,6 @@ module.exports = {
     '<rootDir>/popup/**/*.js', // 新增 popup 目錄
     '<rootDir>/sidepanel/**/*.js', // 新增 sidepanel 目錄
     '!<rootDir>/scripts/config/app.js',                // 純常量配置
-    '!<rootDir>/scripts/config/api.js',                // 純常量配置（API URL、版本、數值）
     '!<rootDir>/scripts/config/icons.js',              // 純 SVG 字串常量
     '!<rootDir>/scripts/config/ui.js',                 // 純 CSS 選擇器與類名常量
     '!<rootDir>/scripts/config/extraction.js',         // 純選擇器與數值常量

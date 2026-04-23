@@ -5,7 +5,7 @@
  * Content Scripts MUST NOT import 此模組。
  */
 
-export const ACCOUNT_API = {
+export const ACCOUNT_API = Object.freeze({
   /** 啟動 Google 登入流程；需附帶 ?ext_id=<chrome.runtime.id>&callback_mode=bridge */
   GOOGLE_START: '/v1/account/google/start',
   /** Google callback bridge fallback page */
@@ -24,4 +24,4 @@ export const ACCOUNT_API = {
   DRIVE_SNAPSHOT_STATUS: '/v1/account/drive/snapshot/status',
   /** Google Drive Snapshot (GET/PUT) */
   DRIVE_SNAPSHOT: '/v1/account/drive/snapshot',
-};
+});

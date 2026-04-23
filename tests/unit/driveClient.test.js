@@ -25,6 +25,7 @@ import {
 } from '../../scripts/auth/driveClient.js';
 import * as accountSession from '../../scripts/auth/accountSession.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
+import Logger from '../../scripts/utils/Logger.js';
 
 describe('Drive Client API', () => {
   let mockStorageLocal;
@@ -399,6 +400,32 @@ describe('Drive Client API', () => {
         expect(res.success).toBe(false);
         expect(res.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
         expect(res.remoteUpdatedAt).toBe('2026-04-21T00:00:00.000Z');
+      });
+
+      it('warns when server returns an unexpected 409 error code', async () => {
+        const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+        const responseBody = {
+          code: 'SERVER_SIDE_CONFLICT',
+          message: 'Server conflict',
+          remote_updated_at: '2026-04-21T00:00:00.000Z',
+        };
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 409,
+          json: async () => responseBody,
+        });
+
+        const res = await uploadDriveSnapshot({});
+
+        expect(res.success).toBe(false);
+        expect(res.errorCode).toBe('SERVER_SIDE_CONFLICT');
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[DriveClient] Unexpected 409 conflict code from server',
+          {
+            code: 'SERVER_SIDE_CONFLICT',
+            responseBody,
+          }
+        );
       });
 
       it('throws error on 500', async () => {

@@ -383,6 +383,12 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
 
   if (res.status === 409) {
     const json = await res.json().catch(() => ({}));
+    if (json.code && json.code !== DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
+      Logger.warn('[DriveClient] Unexpected 409 conflict code from server', {
+        code: json.code,
+        responseBody: json,
+      });
+    }
     return {
       success: false,
       errorCode: json.code ?? DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,

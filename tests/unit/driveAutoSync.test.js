@@ -180,7 +180,7 @@ describe('runAutoUpload()', () => {
     );
   });
 
-  it('broadcases conflict when REMOTE_SNAPSHOT_NEWER occurs', async () => {
+  it('broadcasts conflict when REMOTE_SNAPSHOT_NEWER occurs', async () => {
     driveClient.getDriveSyncMetadata
       .mockResolvedValueOnce(baseMetadata())
       .mockResolvedValueOnce(
