@@ -487,8 +487,9 @@ describe('DriveCloudSyncController', () => {
         new Error(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT),
         'drive_sync_download'
       );
+      expect(safeMessage).toBe('Unknown Error');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}發生未知錯誤，請稍後再試`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
