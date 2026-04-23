@@ -540,21 +540,20 @@ describe('DriveCloudSyncController', () => {
 
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
-        email: null,
-        connectedAt: null,
-      });
-      expect(loggerInfoSpy).toHaveBeenCalledWith('[CloudSync] Disconnect broadcast sent');
+      expect(mockSendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
+        })
+      );
+      expect(loggerInfoSpy).not.toHaveBeenCalledWith('[CloudSync] Disconnect broadcast sent');
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
     });
 
-    it('continues disconnect flow when broadcast fails', async () => {
+    it('disconnect 成功後應顯示成功狀態並收起 loading overlay', async () => {
       driveClient.getDriveSyncMetadata
         .mockResolvedValueOnce({})
         .mockResolvedValueOnce({ connectionEmail: null });
-      mockSendMessage.mockRejectedValueOnce(new Error('broadcast down'));
 
       await initCloudSyncController(true);
 
@@ -563,9 +562,6 @@ describe('DriveCloudSyncController', () => {
 
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(loggerWarnSpy).toHaveBeenCalledWith('[CloudSync] Disconnect broadcast failed', {
-        error: expect.any(Error),
-      });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );

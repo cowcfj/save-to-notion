@@ -707,17 +707,6 @@ async function handleDisconnect() {
     await disconnectDrive();
     await clearDriveSyncMetadata();
 
-    try {
-      await chrome.runtime.sendMessage({
-        action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
-        email: null,
-        connectedAt: null,
-      });
-      Logger.info('[CloudSync] Disconnect broadcast sent');
-    } catch (error) {
-      Logger.warn('[CloudSync] Disconnect broadcast failed', { error });
-    }
-
     showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS, 'success');
     disconnectSucceeded = true;
   } catch (error) {
