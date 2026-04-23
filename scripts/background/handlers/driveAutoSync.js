@@ -17,6 +17,7 @@
 /* global chrome */
 
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../config/driveSyncErrorCodes.js';
 import {
   getDriveSyncMetadata,
   updateDriveSyncRunMetadata,
@@ -155,12 +156,12 @@ async function handleUploadFailure(result) {
 
   Logger.warn('[DriveAutoSync] 自動上傳失敗', { errorCode: result.errorCode });
 
-  if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+  if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
     const rawRemoteUpdatedAt = result.remoteUpdatedAt;
     const parsed = rawRemoteUpdatedAt ? Date.parse(rawRemoteUpdatedAt) : Number.NaN;
     if (Number.isFinite(parsed)) {
       await broadcastAutoSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
-        conflictType: 'REMOTE_SNAPSHOT_NEWER',
+        conflictType: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
         remoteUpdatedAt: new Date(parsed).toISOString(),
       });
     } else {
@@ -272,14 +273,14 @@ export async function runAutoUpload(context = {}) {
     await updateDriveSyncRunMetadata({
       type: 'upload',
       success: false,
-      errorCode: 'UPLOAD_FAILED',
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
     });
 
     Logger.error('[DriveAutoSync] 自動上傳例外', {
       action: 'auto_sync_upload',
       result: 'failure',
       reason: error instanceof Error ? error.message : String(error),
-      errorCode: 'UPLOAD_FAILED',
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
     });
 
     await broadcastAutoSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);

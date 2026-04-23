@@ -20,6 +20,7 @@
 
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/driveSyncErrorCodes.js';
 import {
   clearDriveSyncMetadata,
   disconnectDrive,
@@ -400,7 +401,8 @@ function _updateConnectedInfo(metadata) {
  */
 function _updateErrorBanner(metadata) {
   const hasError = Boolean(
-    metadata?.lastErrorCode && metadata.lastErrorCode !== 'REMOTE_SNAPSHOT_NEWER'
+    metadata?.lastErrorCode &&
+    metadata.lastErrorCode !== DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER
   );
   const errorBanner = el(DOM.ERROR_BANNER);
 
@@ -607,7 +609,7 @@ async function handleUpload(force = false) {
     if (response.success) {
       showSyncStatus(UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS, 'success');
       uploadSucceeded = true;
-    } else if (response.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+    } else if (response.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
       showSyncStatus('', '');
       conflictDetected = true;
     } else {

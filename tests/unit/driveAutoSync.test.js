@@ -12,6 +12,7 @@ import * as driveClient from '../../scripts/auth/driveClient.js';
 import * as accountSession from '../../scripts/auth/accountSession.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/driveSyncErrorCodes.js';
 import Logger from '../../scripts/utils/Logger.js';
 
 /**
@@ -188,7 +189,7 @@ describe('runAutoUpload()', () => {
 
     driveClient.uploadDriveSnapshot.mockResolvedValue({
       success: false,
-      errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
     });
 
@@ -197,12 +198,12 @@ describe('runAutoUpload()', () => {
     expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
       type: 'upload',
       success: false,
-      errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
     });
     expect(mockSendMessage).toHaveBeenCalledWith({
       action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT,
-      conflictType: 'REMOTE_SNAPSHOT_NEWER',
+      conflictType: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       remoteUpdatedAt: '2026-04-20T00:00:00.000Z',
     });
     expect(mockSendMessage).toHaveBeenCalledWith(
@@ -217,7 +218,7 @@ describe('runAutoUpload()', () => {
   it('skips DRIVE_SYNC_CONFLICT broadcast when remoteUpdatedAt is invalid', async () => {
     driveClient.uploadDriveSnapshot.mockResolvedValue({
       success: false,
-      errorCode: 'REMOTE_SNAPSHOT_NEWER',
+      errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       remoteUpdatedAt: null,
     });
 
@@ -269,7 +270,7 @@ describe('runAutoUpload()', () => {
     expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
       type: 'upload',
       success: false,
-      errorCode: 'UPLOAD_FAILED',
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
     });
     expect(Logger.error).toHaveBeenCalledWith(
       expect.stringContaining('自動上傳例外'),

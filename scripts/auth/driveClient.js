@@ -35,6 +35,7 @@
 
 import { BUILD_ENV } from '../config/env.js';
 import { ACCOUNT_API } from '../config/api.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../config/driveSyncErrorCodes.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
 import Logger from '../utils/Logger.js';
 
@@ -241,9 +242,10 @@ export async function updateDriveSyncRunMetadata(result) {
       patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
     }
   } else {
-    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] = result.errorCode ?? 'UNKNOWN';
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] =
+      result.errorCode ?? DRIVE_SYNC_ERROR_CODES.UNKNOWN;
     patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = now;
-    if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+    if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
       patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = true;
     }
     if (result.remoteUpdatedAt !== undefined) {
@@ -383,7 +385,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
     const json = await res.json().catch(() => ({}));
     return {
       success: false,
-      errorCode: json.code ?? 'REMOTE_SNAPSHOT_NEWER',
+      errorCode: json.code ?? DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       message: json.message ?? 'Remote snapshot is newer',
       remoteUpdatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
     };
@@ -416,8 +418,8 @@ export async function downloadDriveSnapshot() {
   });
 
   if (res.status === 404) {
-    const err = new Error('NO_REMOTE_SNAPSHOT');
-    err.code = 'NO_REMOTE_SNAPSHOT';
+    const err = new Error(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT);
+    err.code = DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT;
     throw err;
   }
 

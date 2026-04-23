@@ -14,6 +14,7 @@ import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/driveSyncErrorCodes.js';
 
 async function flushAsyncWork() {
   await Promise.resolve();
@@ -200,7 +201,7 @@ describe('DriveCloudSyncController', () => {
       renderCloudSyncCard({
         connectionEmail: 'test@notion.so',
         needsManualReview: true,
-        lastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
@@ -213,11 +214,13 @@ describe('DriveCloudSyncController', () => {
     it('renders other generic errors correctly', () => {
       renderCloudSyncCard({
         connectionEmail: 'test@notion.so',
-        lastErrorCode: 'UPLOAD_FAILED',
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
         lastErrorAt: '2023-01-02T00:00:00Z',
       });
       expect(document.querySelector('#drive-error-banner').style.display).toBe('');
-      expect(document.querySelector('#drive-error-code').textContent).toContain('UPLOAD_FAILED');
+      expect(document.querySelector('#drive-error-code').textContent).toContain(
+        DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED
+      );
       expect(document.querySelector('#drive-error-time').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.ERROR_TIME_PREFIX
       );
@@ -233,7 +236,7 @@ describe('DriveCloudSyncController', () => {
       renderCloudSyncCard({
         connectionEmail: 'test@notion.so',
         lastSuccessfulUploadAt: 'invalid-date-value',
-        lastErrorCode: 'UPLOAD_FAILED',
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
         lastErrorAt: 'invalid-error-date',
       });
 
@@ -421,7 +424,7 @@ describe('DriveCloudSyncController', () => {
       driveClient.getDriveSyncMetadata.mockResolvedValue({});
       mockSendMessage.mockResolvedValueOnce({
         success: false,
-        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
 
       await initCloudSyncController(true);
@@ -472,7 +475,7 @@ describe('DriveCloudSyncController', () => {
     it('shows an error when download is rejected by background', async () => {
       mockSendMessage.mockResolvedValueOnce({
         success: false,
-        error: 'NO_REMOTE_SNAPSHOT',
+        error: DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT,
       });
 
       await initCloudSyncController(true);
@@ -480,7 +483,10 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
-      const safeMessage = sanitizeApiError(new Error('NO_REMOTE_SNAPSHOT'), 'drive_sync_download');
+      const safeMessage = sanitizeApiError(
+        new Error(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT),
+        'drive_sync_download'
+      );
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
         `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
@@ -885,7 +891,7 @@ describe('DriveCloudSyncController', () => {
         driveSyncConnectionEmail: 'conflict-safe@test.dev',
         driveSyncConnectedAt: '2026-04-19T11:00:00Z',
         driveSyncNeedsManualReview: true,
-        driveSyncLastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
+        driveSyncLastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
 
       driveClient.fetchDriveConnectionStatus
@@ -921,7 +927,7 @@ describe('DriveCloudSyncController', () => {
 
       const storedMetadata = await driveClient.getDriveSyncMetadata();
       expect(storedMetadata.needsManualReview).toBe(true);
-      expect(storedMetadata.lastErrorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+      expect(storedMetadata.lastErrorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
       expect(storedMetadata.connectedAt).toBe('2026-04-19T11:00:00Z');
 
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('');

@@ -24,6 +24,7 @@ import {
   setLastKnownRemoteUpdatedAt,
 } from '../../scripts/auth/driveClient.js';
 import * as accountSession from '../../scripts/auth/accountSession.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/driveSyncErrorCodes.js';
 
 describe('Drive Client API', () => {
   let mockStorageLocal;
@@ -128,11 +129,11 @@ describe('Drive Client API', () => {
       await updateDriveSyncRunMetadata({
         type: 'upload',
         success: false,
-        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
       expect(mockStorageLocal.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          driveSyncLastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
+          driveSyncLastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
           driveSyncNeedsManualReview: true,
         })
       );
@@ -142,11 +143,11 @@ describe('Drive Client API', () => {
       await updateDriveSyncRunMetadata({
         type: 'upload',
         success: false,
-        errorCode: 'UPLOAD_FAILED',
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
       });
       expect(mockStorageLocal.set).toHaveBeenCalledTimes(1);
       const payload = mockStorageLocal.set.mock.calls[0][0];
-      expect(payload.driveSyncLastErrorCode).toBe('UPLOAD_FAILED');
+      expect(payload.driveSyncLastErrorCode).toBe(DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED);
       expect(payload).not.toHaveProperty('driveSyncNeedsManualReview');
     });
 
@@ -396,7 +397,7 @@ describe('Drive Client API', () => {
         });
         const res = await uploadDriveSnapshot({});
         expect(res.success).toBe(false);
-        expect(res.errorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+        expect(res.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
         expect(res.remoteUpdatedAt).toBe('2026-04-21T00:00:00.000Z');
       });
 
@@ -416,8 +417,8 @@ describe('Drive Client API', () => {
       it('throws error with code NO_REMOTE_SNAPSHOT on 404', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 404 });
         await expect(downloadDriveSnapshot()).rejects.toMatchObject({
-          message: 'NO_REMOTE_SNAPSHOT',
-          code: 'NO_REMOTE_SNAPSHOT',
+          message: DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT,
+          code: DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT,
         });
       });
     });
