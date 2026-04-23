@@ -14,7 +14,7 @@ import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/api.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/extension/driveSyncErrorCodes.js';
 
 async function flushAsyncWork() {
   await Promise.resolve();

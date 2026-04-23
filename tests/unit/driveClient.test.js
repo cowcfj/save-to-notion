@@ -24,7 +24,7 @@ import {
   setLastKnownRemoteUpdatedAt,
 } from '../../scripts/auth/driveClient.js';
 import * as accountSession from '../../scripts/auth/accountSession.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/api.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
 
 describe('Drive Client API', () => {
   let mockStorageLocal;

@@ -13,7 +13,8 @@
 import { Client } from '@notionhq/client';
 // 導入統一配置
 import { ERROR_MESSAGES, CONTENT_QUALITY, HIGHLIGHT_ERROR_CODES } from '../../config/index.js';
-import { NOTION_API, AuthMode } from '../../config/api.js';
+import { NOTION_API } from '../../config/extension/notionApi.js';
+import { AuthMode } from '../../config/extension/authMode.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器

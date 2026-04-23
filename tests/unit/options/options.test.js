@@ -20,7 +20,7 @@ import { MigrationTool } from '../../../options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
-import { ACCOUNT_API } from '../../../scripts/config/api.js';
+import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env.js', () => ({

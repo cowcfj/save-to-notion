@@ -12,7 +12,7 @@ import * as driveClient from '../../scripts/auth/driveClient.js';
 import * as accountSession from '../../scripts/auth/accountSession.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/runtimeActions.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/api.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
 import Logger from '../../scripts/utils/Logger.js';
 
 /**

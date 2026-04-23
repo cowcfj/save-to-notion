@@ -11,9 +11,9 @@
  * import { IMAGE_VALIDATION_CONSTANTS, FEATURED_IMAGE_SELECTORS } from './config/index.js';
  * ```
  *
- * 注意：api.js (NOTION_API, NOTION_OAUTH 等) 僅供 Background Service Worker 使用，
- * 不在此處 re-export，消費者應直接從 './config/api.js' 引入，
- * 以確保 tree-shaking 能將其排除在 Content Script bundle 之外。
+ * 注意：`./extension/` 目錄下的 extension-only config
+ * 不在此處 re-export，消費者應直接從對應模組引入，
+ * 以確保 Content Script bundle 不會誤帶入 extension pages / Background 專用常量。
  */
 
 // 系統級別配置（限制協議、Handler、Tab 服務、安全常數）

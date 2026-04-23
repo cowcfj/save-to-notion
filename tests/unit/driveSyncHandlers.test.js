@@ -8,7 +8,7 @@ import * as driveClient from '../../scripts/auth/driveClient.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
 import * as driveAlarmScheduler from '../../scripts/background/handlers/driveAlarmScheduler.js';
 import Logger from '../../scripts/utils/Logger.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/api.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
 
 describe('Drive Sync Handlers', () => {
   let handlers;

@@ -4,7 +4,8 @@ import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
-import { AuthMode, NOTION_OAUTH } from '../scripts/config/api.js';
+import { AuthMode } from '../scripts/config/extension/authMode.js';
+import { NOTION_OAUTH } from '../scripts/config/extension/notionAuth.js';
 import { BUILD_ENV } from '../scripts/config/env.js';
 import {
   getActiveNotionToken,

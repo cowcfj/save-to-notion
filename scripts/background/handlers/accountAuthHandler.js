@@ -1,6 +1,6 @@
 /* global chrome, Logger */
 
-import { ACCOUNT_API } from '../../config/api.js';
+import { ACCOUNT_API } from '../../config/extension/accountApi.js';
 import { BUILD_ENV } from '../../config/env.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 
