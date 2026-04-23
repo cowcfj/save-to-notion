@@ -15,7 +15,7 @@
  */
 
 import { setupHighlighter } from './index.js';
-import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../config/shared/messaging/runtime/index.js';
 import { VALID_STYLES } from './utils/color.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/securityUtils.js';

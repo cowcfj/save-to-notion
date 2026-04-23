@@ -9,7 +9,7 @@ import {
   TabService,
   _migrationScript,
 } from '../../../../scripts/background/services/TabService.js';
-import { URL_ALIAS_PREFIX } from '../../../../scripts/config/storageKeys.js';
+import { URL_ALIAS_PREFIX } from '../../../../scripts/config/shared/storage/index.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
 import { buildHighlight, buildPageRecord } from '../../../helpers/status-fixtures.js';
@@ -23,7 +23,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/config/app.js', () => ({
+jest.mock('../../../../scripts/config/shared/core/index.js', () => ({
   TAB_SERVICE: {
     LOADING_TIMEOUT_MS: 1000,
     STATUS_UPDATE_DELAY_MS: 100,
@@ -35,7 +35,7 @@ jest.mock('../../../../scripts/config/app.js', () => ({
   RESTRICTED_PROTOCOLS: ['chrome://', 'chrome-extension://', 'about:'],
 }));
 
-jest.mock('../../../../scripts/config/extraction.js', () => ({
+jest.mock('../../../../scripts/config/shared/content/index.js', () => ({
   URL_NORMALIZATION: {
     TRACKING_PARAMS: ['utm_source'],
   },

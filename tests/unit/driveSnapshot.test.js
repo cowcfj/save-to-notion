@@ -13,7 +13,7 @@ import {
   HIGHLIGHTS_PREFIX,
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../../scripts/config/storageKeys.js';
+} from '../../scripts/config/shared/storage/index.js';
 
 describe('Drive Snapshot Canonicalization & Serialization', () => {
   let mockStorageLocal;

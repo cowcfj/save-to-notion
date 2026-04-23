@@ -5,7 +5,7 @@
 import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
-import { NEXTJS_CONFIG } from '../../../../scripts/config/extraction.js';
+import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content/index.js';
 
 // Mock Logger to avoid cluttering test output
 jest.mock('../../../../scripts/utils/Logger.js', () => ({

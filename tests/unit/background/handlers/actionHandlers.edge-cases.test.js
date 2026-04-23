@@ -76,15 +76,15 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
 
 // 引入測試所需模組
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/runtimeActions.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messaging/index.js';
+import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/messaging/runtime/index.js';
 import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { buildHighlightBlocks } from '../../../../scripts/background/utils/BlockBuilder.js';
 import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
-jest.mock('../../../../scripts/config/app.js', () => {
-  const original = jest.requireActual('../../../../scripts/config/app.js');
+jest.mock('../../../../scripts/config/shared/core/index.js', () => {
+  const original = jest.requireActual('../../../../scripts/config/shared/core/index.js');
   return {
     __esModule: true,
     ...original,

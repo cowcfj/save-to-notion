@@ -7,7 +7,7 @@
  */
 
 import { LogExporter } from '../../utils/LogExporter.js';
-import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
 import { ErrorHandler, ErrorTypes } from '../../utils/ErrorHandler.js';
 import {
   validateInternalRequest,

@@ -9,9 +9,13 @@
 /* global chrome */
 
 import Logger from './Logger.js';
-import { SECURITY_CONSTANTS } from '../config/app.js';
+import { SECURITY_CONSTANTS } from '../config/shared/core/index.js';
 
-import { API_ERROR_PATTERNS, SECURITY_ERROR_MESSAGES, ERROR_MESSAGES } from '../config/messages.js';
+import {
+  API_ERROR_PATTERNS,
+  SECURITY_ERROR_MESSAGES,
+  ERROR_MESSAGES,
+} from '../config/shared/messaging/index.js';
 
 // ============================================================================
 // URL 驗證函數

@@ -27,8 +27,8 @@ import {
   PAGE_PREFIX,
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
-} from '../../config/storageKeys.js';
-import { ERROR_MESSAGES } from '../../config/messages.js';
+} from '../../config/shared/storage/index.js';
+import { ERROR_MESSAGES } from '../../config/shared/messaging/index.js';
 
 /**
  * URL 標準化相關常量（向後兼容：既有代碼可繼續導入這些常量）
@@ -1177,4 +1177,4 @@ export {
   PAGE_PREFIX,
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
-} from '../../config/storageKeys.js'; // Phase 3: 前綴常量統一從此處導出
+} from '../../config/shared/storage/index.js'; // Phase 3: 前綴常量統一從此處導出

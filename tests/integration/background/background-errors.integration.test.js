@@ -5,7 +5,10 @@
 /* global chrome */
 
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES, SECURITY_ERROR_MESSAGES } from '../../../scripts/config/messages.js';
+import {
+  ERROR_MESSAGES,
+  SECURITY_ERROR_MESSAGES,
+} from '../../../scripts/config/shared/messaging/index.js';
 import {
   createSendResponseWaiter,
   createMockLogger,

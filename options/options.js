@@ -6,16 +6,16 @@ import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
 import { ACCOUNT_API } from '../scripts/config/extension/accountApi.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
-import { BUILD_ENV } from '../scripts/config/env.js';
-import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
+import { BUILD_ENV } from '../scripts/config/env/index.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/shared/messaging/index.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/messaging/runtime/index.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
-import { DATA_SOURCE_KEYS } from '../scripts/config/storageKeys.js';
+import { DATA_SOURCE_KEYS } from '../scripts/config/shared/storage/index.js';
 import {
   getAccountAccessToken,
   getAccountProfile,

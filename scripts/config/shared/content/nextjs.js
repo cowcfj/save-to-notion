@@ -1,0 +1,58 @@
+export const NEXTJS_CONFIG = {
+  ARTICLE_PATHS: [
+    'props.pageProps.pageData',
+    'pageData.pageState.article.data.contentMeta',
+    'props.pageData.pageState.article.data.contentMeta',
+    'props.pageData.pageState.article.data',
+    'pageData.pageState.article.data',
+    'props.pageData.pageState.article',
+    'pageData.pageState.article',
+    'initialArticle.data',
+    'initialArticle',
+    'props.initialProps.pageProps.article',
+    'props.pageProps.article',
+    'props.pageProps.post',
+    'props.pageProps.content',
+    'props.pageProps.data',
+  ],
+
+  BLOCK_TYPE_MAP: {
+    text: 'paragraph',
+    paragraph: 'paragraph',
+    image: 'image',
+    heading: 'heading_2',
+    heading1: 'heading_1',
+    heading2: 'heading_2',
+    heading3: 'heading_3',
+    heading_1: 'heading_1',
+    heading_2: 'heading_2',
+    heading_3: 'heading_3',
+    quote: 'quote',
+    blockquote: 'quote',
+    list: 'bulleted_list_item',
+    code: 'code',
+  },
+
+  MAX_JSON_SIZE: 2 * 1024 * 1024,
+  MIN_VALID_BLOCKS: 3,
+
+  HEURISTIC_PATTERNS: {
+    VALIDATION_FIELDS: ['blocks', 'content', 'body', 'markup', 'storyAtoms'],
+    SCORE_KEYWORDS: ['article', 'post', 'detail', 'story'],
+    EXCLUDE_KEYS: [
+      'header',
+      'footer',
+      'menu',
+      'navigation',
+      'sidebar',
+      'postArticleStream',
+      'recommendedContentsResp',
+      'breakingNews',
+      'mostPopular',
+      'taboola',
+      'trendingNow',
+    ],
+  },
+
+  APP_ROUTER_SELECTOR: 'script:not([id]):not([src])',
+};

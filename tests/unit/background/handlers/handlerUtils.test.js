@@ -3,7 +3,7 @@
  */
 
 import { getActiveTab } from '../../../../scripts/background/handlers/handlerUtils.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messaging/index.js';
 
 describe('handlerUtils.getActiveTab', () => {
   beforeEach(() => {

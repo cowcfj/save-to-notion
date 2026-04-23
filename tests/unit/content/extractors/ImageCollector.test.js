@@ -52,7 +52,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 globalThis.Logger = Logger;
 
 // Mock constants
-jest.mock('../../../../scripts/config/extraction', () => ({
+jest.mock('../../../../scripts/config/shared/content/index.js', () => ({
   IMAGE_VALIDATION_CONSTANTS: {
     MAX_URL_LENGTH: 2000,
     MIN_IMAGE_WIDTH: 550,
@@ -80,7 +80,7 @@ jest.mock('../../../../scripts/config/extraction', () => ({
   EXCLUSION_SELECTORS: ['.ad img'],
 }));
 
-jest.mock('../../../../scripts/config/messages', () => ({
+jest.mock('../../../../scripts/config/shared/messaging/index.js', () => ({
   ERROR_TYPES: {
     EXTRACTION_FAILED: 'extraction_failed',
     INVALID_URL: 'invalid_url',

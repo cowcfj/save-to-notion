@@ -29,7 +29,7 @@
  */
 
 import Logger from '../scripts/utils/Logger.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/messaging/runtime/index.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 

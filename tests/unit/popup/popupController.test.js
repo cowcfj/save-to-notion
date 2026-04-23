@@ -22,7 +22,7 @@ import {
   getActiveTab,
 } from '../../../popup/popupActions.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/messages.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messaging/index.js';
 
 // Mock dependencies
 jest.mock('../../../popup/popupUI.js');

@@ -6,7 +6,7 @@ const mockSetAccountSession = jest.fn();
 const mockSetAccountProfile = jest.fn();
 const mockClearAccountSession = jest.fn();
 
-jest.mock('../../../scripts/config/env.js', () => ({
+jest.mock('../../../scripts/config/env/index.js', () => ({
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://worker.test',
   },

@@ -5,3 +5,4 @@ export * from './ui/index.js';
 export * from './core/index.js';
 export * from './storage/index.js';
 export * from './messaging/index.js';
+export * from './content/index.js';

@@ -5,9 +5,9 @@
  * 不依賴 this，不碰 Chrome API，只處理 DOM 元素的讀取與更新。
  */
 
-import { TOOLBAR_SELECTORS } from '../../config/ui.js';
+import { TOOLBAR_SELECTORS } from '../../config/shared/ui/index.js';
 import { UI_ICONS } from '../../config/icons.js';
-import { UI_MESSAGES } from '../../config/messages.js';
+import { UI_MESSAGES } from '../../config/shared/messaging/index.js';
 import { createSafeIcon } from '../../utils/securityUtils.js';
 
 const STYLE_INLINE_BLOCK = 'inline-block';

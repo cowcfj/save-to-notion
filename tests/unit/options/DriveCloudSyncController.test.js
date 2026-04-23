@@ -9,8 +9,8 @@ import {
   refreshCloudSyncCard,
 } from '../../../options/DriveCloudSyncController.js';
 import * as driveClient from '../../../scripts/auth/driveClient.js';
-import { RUNTIME_ACTIONS } from '../../../scripts/config/runtimeActions.js';
-import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/messaging/runtime/index.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messaging/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';

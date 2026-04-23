@@ -4,7 +4,7 @@
  */
 /* eslint-env jest */
 
-import { ERROR_MESSAGES } from '../../../scripts/config/messages.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/shared/messaging/index.js';
 import {
   ErrorHandler,
   ErrorTypes,

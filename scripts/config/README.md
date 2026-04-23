@@ -4,33 +4,72 @@
 
 為減少最終發布版本的體積，只在「網頁注入」環境中使用的設定會在打包腳本中被排除，因為它們已經被 Rollup 打包進 `content.bundle.js` 中。
 
-## 模組分類與用途
+## 模組架構 (Config V3)
 
-### 1. 系統核心與基礎配置
+### 入口層
 
-- `app.js`: 系統核心配置 (限制協議、處理器閾值、Tab 服務等)
-- `env.js`: 環境配置 (運行環境檢測與變數抽象)
-- `storageKeys.js`: 存儲鍵值配置 (Chrome Storage Keys 與前綴)
-- `extension/`: extension-only shared config，不進 Content Script bundle
-  - `notionApi.js`: Notion Data API transport 與 retry 配置
-  - `notionAuth.js`: Notion OAuth endpoint paths
-  - `accountApi.js`: account 與 Google Drive Sync endpoint paths
-  - `driveSyncErrorCodes.js`: Drive Sync 已知核心錯誤碼
-  - `authMode.js`: AuthMode enum
+| 入口                 | 用途                                         | 可用環境                     |
+| -------------------- | -------------------------------------------- | ---------------------------- |
+| `index.js`           | Content-safe 聚合入口（不含 extension-only） | 所有環境                     |
+| `env/index.js`       | 環境偵測 + BUILD_ENV                         | 所有環境                     |
+| `extension/index.js` | Extension-only 配置（API、Auth、Drive Sync） | Background / Options / Popup |
+| `shared/index.js`    | Content-safe 共用配置聚合                    | 所有環境                     |
 
-### 2. 跨模組聚合
+### `env/` — 環境配置
 
-- `index.js`: 提供 Content-safe shared config 的聚合檔（不含 `extension/`）。
-  > **注意：extension pages 與 Background 若需要 API / auth / Drive Sync 相關常量，必須直接從 `scripts/config/extension/*.js` 引入。**
+- `runtime.js`: 環境偵測函數（isExtensionContext、isBackground 等）+ `ENV`
+- `build.js`: `BUILD_ENV`（OAuth 配置，本地由 postinstall 從 build.example.js 複製）
+- `build.example.js`: BUILD_ENV 範本（空值）
 
-### 3. UI 與內容提取配置
+### `shared/core/` — 系統核心配置
 
-- `extraction.js`: 內容提取配置 (解析選擇器、Next.js 配置、圖片驗證規則等)
-- `notionCodeLanguages.js`: Notion Code block 語言白名單、fallback 與語言提示相關共享常數
-- `ui.js`: UI 層配置 (擴充功能介面專用的選擇器、狀態常量等)
-- `highlightConstants.js`: 螢光筆標記常量 (Highlight 相關特有類名與屬性，供 Highlighter 與 Content 使用)
-- `icons.js`: SVG 圖標與 Emoji 映射配置 (供 Extension UI 與頁面注入腳本使用)
-- `messages.js`: 所有的 UI 顯示文字、錯誤映射與日誌級別
+- `browser.js`: `RESTRICTED_PROTOCOLS`
+- `timing.js`: `HANDLER_CONSTANTS`、`TAB_SERVICE`
+- `security.js`: `SECURITY_CONSTANTS`
+
+### `shared/storage/` — Storage Keys 與前綴
+
+- `keys.js`: `SYNC_CONFIG_KEYS`
+- `prefixes.js`: `SAVED_PREFIX`、`HIGHLIGHTS_PREFIX` 等
+- `auth.js`: `AUTH_LOCAL_KEYS`
+- `dataSource.js`: `DATA_SOURCE_KEYS`、`LOCAL_STORAGE_KEYS`、`mergeDataSourceConfig()`
+
+### `shared/ui/` — UI 配置
+
+- `icons.js`: SVG 圖標
+- `toolbar.js`: `TOOLBAR_SELECTORS`
+- `status.js`: `UI_STATUS_TYPES`
+- `classes.js`: `COMMON_CSS_CLASSES`
+- `logIcons.js`: `LOG_ICONS`
+
+### `shared/messaging/` — 訊息與 Action Registry
+
+- `ui/`: UI 文案按領域拆分（auth、settings、dataSource、storage、popup、sidepanel、toolbar、cloudSync、logs、account）
+- `errors/`: Error registry（technical、user、security、patterns、highlight）
+- `runtime/`: Runtime action registry 按領域拆分（pageStatus、save、highlight、migration、auth、driveSync、sidepanel、diagnostics）
+
+### `shared/content/` — 內容提取配置
+
+- `nextjs.js`: `NEXTJS_CONFIG`
+- `selectors.js`: 各類 DOM 選擇器（featured image、article、gallery、CMS、metadata 等）
+- `cleaning.js`: `NOISE_SELECTORS`、`EXCLUSION_SELECTORS`、`GENERIC_CLEANING_RULES`、CMS/Domain 清洗規則
+- `images.js`: `IMAGE_VALIDATION_CONSTANTS`、`IMAGE_LIMITS`、`IMAGE_SIZE_RESOLVE`
+- `quality.js`: `CONTENT_QUALITY`、`DOM_STABILITY`
+- `normalization.js`: `URL_NORMALIZATION`
+- `text.js`: `TEXT_PROCESSING`
+
+### `extension/` — Extension-only 配置
+
+- `notionApi.js`: Notion Data API transport 與 retry 配置
+- `notionAuth.js`: Notion OAuth endpoint paths
+- `accountApi.js`: account 與 Google Drive Sync endpoint paths
+- `driveSyncErrorCodes.js`: Drive Sync 已知核心錯誤碼
+- `authMode.js`: AuthMode enum
+
+### 獨立模組
+
+- `highlightConstants.js`: 螢光筆標記常量
+- `notionCodeLanguages.js`: Notion Code block 語言白名單
 
 > **🚨 開發預警**
 > 修改這些共用檔案時，請注意不可引入需要特定 Web API（如 `window`、`document`）或特定 Chrome API（如 `chrome.tabs.*`）的操作，以確保它在跨環境中都是安全的常數定義。

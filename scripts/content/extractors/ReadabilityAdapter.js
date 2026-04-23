@@ -18,7 +18,7 @@ import {
   CMS_CLEANING_RULES,
   GENERIC_CLEANING_RULES,
   DOMAIN_CLEANING_RULES,
-} from '../../config/extraction.js';
+} from '../../config/shared/content/index.js';
 import { IMAGE_ATTRIBUTES } from '../../utils/imageUtils.js';
 
 /**

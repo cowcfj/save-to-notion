@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, ERROR_TYPES } from '../config/messages.js';
+import { ERROR_MESSAGES, ERROR_TYPES } from '../config/shared/messaging/index.js';
 // [REMOVED] escapeHtml as it is no longer needed
 // import { escapeHtml } from './securityUtils.js';
 

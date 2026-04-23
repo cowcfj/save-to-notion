@@ -3,14 +3,14 @@
 import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messaging/index.js';
 import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
-import { BUILD_ENV } from '../../../scripts/config/env.js';
-import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage/index.js';
 
 // Mock dependencies
-jest.mock('../../../scripts/config/env.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env.js'),
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env/index.js'),
   BUILD_ENV: {
     ENABLE_OAUTH: true,
     OAUTH_SERVER_URL: 'https://test-server.example.com',

@@ -16,7 +16,7 @@
 
 import Logger from '../../utils/Logger.js';
 
-import { CONTENT_QUALITY } from '../../config/extraction.js';
+import { CONTENT_QUALITY } from '../../config/shared/content/index.js';
 
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
 

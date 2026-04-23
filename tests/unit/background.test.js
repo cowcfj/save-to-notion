@@ -26,7 +26,7 @@ jest.mock('../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
 }));
 
-jest.mock('../../scripts/config/app.js', () => ({
+jest.mock('../../scripts/config/shared/core/index.js', () => ({
   TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
 }));
 

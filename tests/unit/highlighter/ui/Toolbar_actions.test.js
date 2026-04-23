@@ -3,7 +3,7 @@ import { createToolbarContainer } from '../../../../scripts/highlighter/ui/compo
 
 import { createMiniIcon } from '../../../../scripts/highlighter/ui/components/MiniIcon.js';
 import Logger from '../../../../scripts/utils/Logger.js';
-import { ERROR_MESSAGES, UI_MESSAGES } from '../../../../scripts/config/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../../../scripts/config/shared/messaging/index.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/ui/components/ToolbarContainer.js', () => ({

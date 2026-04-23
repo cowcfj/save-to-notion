@@ -8,7 +8,10 @@
  *    若需要新增 background 通訊，直接新增 async 函數並 await sendMessage。
  */
 
-import { RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions.js';
+import {
+  RUNTIME_ACTIONS,
+  RUNTIME_ERROR_MESSAGES,
+} from '../../config/shared/messaging/runtime/index.js';
 
 function ensureChromeRuntimeAvailable() {
   if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {

@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } from '../../../scripts/config/runtimeActions.js';
+import {
+  RUNTIME_ACTIONS,
+  RUNTIME_ERROR_MESSAGES,
+} from '../../../scripts/config/shared/messaging/runtime/index.js';
 
 describe('runtimeActions', () => {
   test('應集中收錄目前 extension 使用的 runtime action', () => {
@@ -80,9 +83,13 @@ describe('runtimeActions', () => {
     const registryFile = path.join(projectRoot, 'scripts/config/runtimeActions.js');
 
     const collectJsFiles = (dir, out = []) => {
-      if (!fs.existsSync(dir)) {return out;}
+      if (!fs.existsSync(dir)) {
+        return out;
+      }
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {continue;}
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {
+          continue;
+        }
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           collectJsFiles(full, out);

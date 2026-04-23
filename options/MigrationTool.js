@@ -4,8 +4,8 @@
  */
 /* global chrome */
 import { UI_ICONS } from '../scripts/config/icons.js';
-import { COMMON_CSS_CLASSES } from '../scripts/config/ui.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+import { COMMON_CSS_CLASSES } from '../scripts/config/shared/ui/index.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/messaging/runtime/index.js';
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';

@@ -21,8 +21,8 @@ describe('auth callback page regressions', () => {
     expect(authHtml).toMatch(/<script\s+src="scripts\/auth\/auth\.js"\s+type="module"><\/script>/);
   });
 
-  test('auth.js 應從 env.js 讀取 BUILD_ENV', () => {
-    expect(authJs).toContain("import { BUILD_ENV } from '../config/env.js';");
+  test('auth.js 應從 env/index.js 讀取 BUILD_ENV', () => {
+    expect(authJs).toContain("import { BUILD_ENV } from '../config/env/index.js';");
     expect(authJs).not.toContain("import { BUILD_ENV } from '../config/env.example.js';");
   });
 

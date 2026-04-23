@@ -3,7 +3,7 @@
  * 驗證 mergeDataSourceConfig 的合併邏輯
  */
 
-const { mergeDataSourceConfig } = require('../../../scripts/config/storageKeys');
+const { mergeDataSourceConfig } = require('../../../scripts/config/shared/storage/dataSource');
 
 describe('配置模組 - storageKeys.js', () => {
   describe('mergeDataSourceConfig', () => {

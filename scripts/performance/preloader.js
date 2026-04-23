@@ -18,7 +18,7 @@
 
 'use strict';
 
-import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../config/shared/messaging/runtime/index.js';
 
 (function () {
   // 防止重複初始化

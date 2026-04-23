@@ -1,4 +1,4 @@
-import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/extraction.js';
+import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/shared/content/index.js';
 import Logger from './Logger.js';
 
 // ==========================================
