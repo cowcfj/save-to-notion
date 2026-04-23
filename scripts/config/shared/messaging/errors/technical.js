@@ -1,0 +1,45 @@
+export const TECHNICAL = {
+  NO_ACTIVE_TAB: 'active tab',
+  MISSING_API_KEY: 'API Key',
+  MISSING_DATA_SOURCE: 'Data Source ID',
+  MISSING_PAGE_ID: 'Page ID is missing',
+  PAGE_NOT_SAVED: 'Page not saved',
+  NO_NOTION_URL: 'No URL provided',
+  API_KEY_NOT_CONFIGURED: 'API Key',
+  GET_VERSION_FAILED: '無法獲取應用程式版本號',
+  NAV_MISSING_ITEMS: '設定頁面：找不到導航項目或設定區塊',
+  NAV_MISSING_ATTR: '設定頁面：導航項目缺少 data-section 屬性',
+  NAV_TARGET_NOT_FOUND: '設定頁面：找不到目標區塊',
+  TOOLBAR_SHOW_FAILED: 'Failed to show toolbar after save',
+  BACKGROUND_NO_RESPONSE: '未收到背景頁回應',
+  LOG_EXPORT_FAILED: '日誌導出失敗',
+  SVG_PARSE_ERROR: 'SVG parse error',
+  CHROME_STORAGE_UNAVAILABLE: 'Chrome storage not available',
+  INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
+  LOG_INVALID_URL: '無效的 URL 參數',
+  CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
+};
+
+export const LOG_LEVELS = {
+  DEBUG: 0,
+  LOG: 1,
+  INFO: 2,
+  WARN: 3,
+  ERROR: 4,
+};
+
+export const ERROR_TYPES = {
+  EXTRACTION_FAILED: 'extraction_failed',
+  INVALID_URL: 'invalid_url',
+  NETWORK_ERROR: 'network_error',
+  PARSING_ERROR: 'parsing_error',
+  PERFORMANCE_WARNING: 'performance_warning',
+  DOM_ERROR: 'dom_error',
+  VALIDATION_ERROR: 'validation_error',
+  TIMEOUT_ERROR: 'timeout_error',
+  STORAGE: 'storage',
+  NOTION_API: 'notion_api',
+  INJECTION: 'injection',
+  PERMISSION: 'permission',
+  INTERNAL: 'internal',
+};
