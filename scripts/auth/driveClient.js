@@ -34,8 +34,7 @@
 /* global chrome */
 
 import { BUILD_ENV } from '../config/env.js';
-import { ACCOUNT_API } from '../config/api.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../config/driveSyncErrorCodes.js';
+import { ACCOUNT_API, DRIVE_SYNC_ERROR_CODES } from '../config/api.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
 import Logger from '../utils/Logger.js';
 

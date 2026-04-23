@@ -20,7 +20,7 @@
 
 import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
 import { UI_MESSAGES } from '../scripts/config/messages.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/driveSyncErrorCodes.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/api.js';
 import {
   clearDriveSyncMetadata,
   disconnectDrive,
