@@ -417,8 +417,8 @@
     "driveSync": {
       "$comment": "Google Drive Sync Phase A — 手動 connect / upload / download / disconnect\n禁止與 account session actions 混用觸發條件。storage keys 皆以 driveSync 前綴隔離。",
       "DRIVE_CONNECTION_UPDATED": {
-        "description": "Drive OAuth callback bridge 完成或 disconnect 完成後廣播；接收方更新 Cloud Sync card 連線狀態",
-        "direction": "drive-auth.html / background → options",
+        "description": "Drive 連線狀態變更後廣播（由 DriveCloudSyncController.syncRemoteDriveConnection 觸發，或 disconnect 完成後觸發）；接收方更新 Cloud Sync card 連線狀態",
+        "direction": "background → options",
         "payload": {
           "email": "string | null — 連線帳號 email，null 表示已斷線",
           "connectedAt": "string | null — ISO 8601 timestamp"

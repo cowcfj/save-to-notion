@@ -36,7 +36,6 @@ echo "📂 Copying files..."
 # Copy root files
 cp -a manifest.json "$RM_DIR/"
 cp -a auth.html "$RM_DIR/"          # 帳號登入 callback bridge
-cp -a drive-auth.html "$RM_DIR/"   # Google Drive OAuth callback bridge
 
 
 # Copy directories

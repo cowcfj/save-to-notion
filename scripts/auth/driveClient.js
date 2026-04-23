@@ -186,7 +186,7 @@ export async function getDriveSyncMetadata() {
 
 /**
  * 寫入 Drive 連線成功的 metadata。
- * 由 drive-auth.html callback bridge 呼叫。
+ * 由 DriveCloudSyncController.syncRemoteDriveConnection() 呼叫。
  *
  * @param {DriveConnection} connection
  * @param {{ resetConflicts?: boolean }} [options]
