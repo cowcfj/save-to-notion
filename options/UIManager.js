@@ -9,7 +9,7 @@ import {
   createSafeIcon,
 } from '../scripts/utils/securityUtils.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
-import { NOTION_API } from '../scripts/config/api.js';
+import { NOTION_API } from '../scripts/config/extension/notionApi.js';
 import { UI_STATUS_TYPES } from '../scripts/config/ui.js';
 
 /**

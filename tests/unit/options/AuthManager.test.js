@@ -4,7 +4,7 @@ import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/messages.js';
-import { NOTION_OAUTH } from '../../../scripts/config/api.js';
+import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
 

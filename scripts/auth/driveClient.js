@@ -34,7 +34,8 @@
 /* global chrome */
 
 import { BUILD_ENV } from '../config/env.js';
-import { ACCOUNT_API } from '../config/api.js';
+import { ACCOUNT_API } from '../config/extension/accountApi.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../config/extension/driveSyncErrorCodes.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
 import Logger from '../utils/Logger.js';
 
@@ -186,7 +187,7 @@ export async function getDriveSyncMetadata() {
 
 /**
  * 寫入 Drive 連線成功的 metadata。
- * 由 drive-auth.html callback bridge 呼叫。
+ * 由 DriveCloudSyncController.syncRemoteDriveConnection() 呼叫。
  *
  * @param {DriveConnection} connection
  * @param {{ resetConflicts?: boolean }} [options]
@@ -241,9 +242,10 @@ export async function updateDriveSyncRunMetadata(result) {
       patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
     }
   } else {
-    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] = result.errorCode ?? 'UNKNOWN';
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] =
+      result.errorCode ?? DRIVE_SYNC_ERROR_CODES.UNKNOWN;
     patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = now;
-    if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+    if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
       patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = true;
     }
     if (result.remoteUpdatedAt !== undefined) {
@@ -381,9 +383,15 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
 
   if (res.status === 409) {
     const json = await res.json().catch(() => ({}));
+    if (json.code && json.code !== DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
+      Logger.warn('[DriveClient] Unexpected 409 conflict code from server', {
+        code: json.code,
+        responseBody: json,
+      });
+    }
     return {
       success: false,
-      errorCode: json.code ?? 'REMOTE_SNAPSHOT_NEWER',
+      errorCode: json.code ?? DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       message: json.message ?? 'Remote snapshot is newer',
       remoteUpdatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
     };
@@ -416,8 +424,8 @@ export async function downloadDriveSnapshot() {
   });
 
   if (res.status === 404) {
-    const err = new Error('NO_REMOTE_SNAPSHOT');
-    err.code = 'NO_REMOTE_SNAPSHOT';
+    const err = new Error(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT);
+    err.code = DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT;
     throw err;
   }
 

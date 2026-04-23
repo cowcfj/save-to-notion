@@ -26,7 +26,7 @@ jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
 import { NotionService } from '../../../../scripts/background/services/NotionService.js';
 import { CONTENT_QUALITY } from '../../../../scripts/config/index.js';
 import { HIGHLIGHT_ERROR_CODES } from '../../../../scripts/config/messages.js';
-import { NOTION_API } from '../../../../scripts/config/api.js';
+import { NOTION_API } from '../../../../scripts/config/extension/notionApi.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';

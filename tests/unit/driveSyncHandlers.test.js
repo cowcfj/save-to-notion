@@ -8,6 +8,7 @@ import * as driveClient from '../../scripts/auth/driveClient.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
 import * as driveAlarmScheduler from '../../scripts/background/handlers/driveAlarmScheduler.js';
 import Logger from '../../scripts/utils/Logger.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
 
 describe('Drive Sync Handlers', () => {
   let handlers;
@@ -108,7 +109,7 @@ describe('Drive Sync Handlers', () => {
     it('should handle conflict gracefully', async () => {
       driveClient.uploadDriveSnapshot.mockResolvedValue({
         success: false,
-        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
         message: 'Remote snapshot is newer',
         remoteUpdatedAt: '2026-04-21T01:02:03.000Z',
       });
@@ -118,7 +119,7 @@ describe('Drive Sync Handlers', () => {
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
         type: 'upload',
         success: false,
-        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
         remoteUpdatedAt: '2026-04-21T01:02:03.000Z',
       });
 
@@ -129,7 +130,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT,
-        conflictType: 'REMOTE_SNAPSHOT_NEWER',
+        conflictType: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
         remoteUpdatedAt: '2026-04-21T01:02:03.000Z',
       });
 
@@ -145,14 +146,14 @@ describe('Drive Sync Handlers', () => {
       expect(conflictCallIndex).toBeLessThan(statusUpdatedCallIndex);
 
       expect(result.success).toBe(false);
-      expect(result.errorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+      expect(result.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
       expect(result.remoteUpdatedAt).toBe('2026-04-21T01:02:03.000Z');
     });
 
     it('should ignore conflict broadcast if remoteUpdatedAt is invalid', async () => {
       driveClient.uploadDriveSnapshot.mockResolvedValue({
         success: false,
-        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
         remoteUpdatedAt: 'Invalid Date',
       });
 
@@ -183,7 +184,7 @@ describe('Drive Sync Handlers', () => {
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
         type: 'upload',
         success: false,
-        errorCode: 'UPLOAD_FAILED',
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
@@ -192,7 +193,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(result).toEqual({
         success: false,
-        errorCode: 'UPLOAD_FAILED',
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
         error: 'build failed',
       });
     });
@@ -225,7 +226,7 @@ describe('Drive Sync Handlers', () => {
 
     it('should catch download errors and broadcast', async () => {
       const snapshotError = new Error('NO_REMOTE_SNAPSHOT');
-      snapshotError.code = 'NO_REMOTE_SNAPSHOT';
+      snapshotError.code = DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT;
       driveClient.downloadDriveSnapshot.mockRejectedValue(snapshotError);
 
       const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]({});
@@ -233,7 +234,7 @@ describe('Drive Sync Handlers', () => {
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
         type: 'download',
         success: false,
-        errorCode: 'NO_REMOTE_SNAPSHOT',
+        errorCode: DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT,
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
@@ -242,7 +243,7 @@ describe('Drive Sync Handlers', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.errorCode).toBe('NO_REMOTE_SNAPSHOT');
+      expect(result.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT);
       expect(result.error).toBe('NO_REMOTE_SNAPSHOT');
     });
 
@@ -256,7 +257,7 @@ describe('Drive Sync Handlers', () => {
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
         type: 'download',
         success: false,
-        errorCode: 'DOWNLOAD_FAILED',
+        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
@@ -265,7 +266,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(result).toEqual({
         success: false,
-        errorCode: 'DOWNLOAD_FAILED',
+        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
         error: 'apply failed',
       });
     });

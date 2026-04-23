@@ -398,6 +398,18 @@
               Google Drive 雲端同步
             </h3>
 
+            <!-- 狀態零：未登入帳號 -->
+            <div id="drive-state-logged-out" style="display: none">
+              <p class="section-desc" style="margin-bottom: 12px">
+                登入帳號後，可連接 Google Drive 以備份和同步你的本地資料到雲端。
+              </p>
+              <div class="auth-actions">
+                <button id="drive-login-prompt-button" type="button" class="btn-secondary" disabled>
+                  <span>登入以啟用</span>
+                </button>
+              </div>
+            </div>
+
             <!-- 狀態一：已登入但未連接 Google Drive -->
             <div id="drive-state-disconnected" style="display: none">
               <p class="section-desc" style="margin-bottom: 12px">

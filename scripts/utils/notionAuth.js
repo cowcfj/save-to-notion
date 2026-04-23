@@ -1,6 +1,7 @@
 /* global chrome */
 import Logger from './Logger.js';
-import { AuthMode, NOTION_OAUTH } from '../config/api.js';
+import { AuthMode } from '../config/extension/authMode.js';
+import { NOTION_OAUTH } from '../config/extension/notionAuth.js';
 import { BUILD_ENV } from '../config/env.js';
 import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
 import { sanitizeApiError } from './securityUtils.js';
@@ -320,5 +321,3 @@ export async function migrateDataSourceKeys({
     return false;
   }
 }
-
-// 觸發重新打包

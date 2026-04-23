@@ -9,14 +9,19 @@
 ### 1. 系統核心與基礎配置
 
 - `app.js`: 系統核心配置 (限制協議、處理器閾值、Tab 服務等)
-- `api.js`: API 專屬配置 (Notion API 端點、OAuth、超時) **僅供 Background Service Worker 使用**
 - `env.js`: 環境配置 (運行環境檢測與變數抽象)
 - `storageKeys.js`: 存儲鍵值配置 (Chrome Storage Keys 與前綴)
+- `extension/`: extension-only shared config，不進 Content Script bundle
+  - `notionApi.js`: Notion Data API transport 與 retry 配置
+  - `notionAuth.js`: Notion OAuth endpoint paths
+  - `accountApi.js`: account 與 Google Drive Sync endpoint paths
+  - `driveSyncErrorCodes.js`: Drive Sync 已知核心錯誤碼
+  - `authMode.js`: AuthMode enum
 
 ### 2. 跨模組聚合
 
-- `index.js`: 提供給 Background 等模組統一引入路徑的聚合檔（不含 `api.js`）。
-  > **注意：UI 擴充環境 (Popup/Options/Side Panel) 請避免使用此聚合檔，以免連帶引入被打包腳本排除的模組而引發錯誤。**
+- `index.js`: 提供 Content-safe shared config 的聚合檔（不含 `extension/`）。
+  > **注意：extension pages 與 Background 若需要 API / auth / Drive Sync 相關常量，必須直接從 `scripts/config/extension/*.js` 引入。**
 
 ### 3. UI 與內容提取配置
 

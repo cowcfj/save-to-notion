@@ -20,7 +20,7 @@ import { MigrationTool } from '../../../options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
-import { ACCOUNT_API } from '../../../scripts/config/api.js';
+import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env.js', () => ({
@@ -921,7 +921,39 @@ function buildAccountCardDOM() {
         <button id="account-logout-button"></button>
         <p id="account-status" class="status-message"></p>
       </div>
-      <div id="cloud-sync-card" class="card locked-feature"><span class="locked-message"></span></div>
+      <div id="cloud-sync-card" class="card locked-feature" style="display: none">
+        <div id="drive-state-logged-out" style="display: none">
+          <p id="drive-logged-out-description"></p>
+          <button id="drive-login-prompt-button" type="button"></button>
+        </div>
+        <div id="drive-state-disconnected" style="display: none">
+          <button id="drive-connect-button" type="button"></button>
+        </div>
+        <div id="drive-state-connected" style="display: none">
+          <div id="drive-connected-email"></div>
+          <div id="drive-last-upload-text"></div>
+          <select id="drive-frequency-select"></select>
+          <output id="drive-auto-sync-status">
+            <span id="drive-auto-sync-status-text"></span>
+          </output>
+          <button id="drive-upload-button" type="button"></button>
+          <button id="drive-download-button" type="button"></button>
+          <button id="drive-disconnect-button" type="button"></button>
+        </div>
+        <div id="drive-state-conflict" style="display: none">
+          <button id="drive-conflict-download-button" type="button"></button>
+          <button id="drive-conflict-force-upload-button" type="button"></button>
+        </div>
+        <div id="drive-error-banner" style="display: none">
+          <div id="drive-error-code"></div>
+          <div id="drive-error-time"></div>
+        </div>
+        <p id="drive-source-warning" hidden></p>
+        <div id="drive-loading-overlay" style="display: none">
+          <div id="drive-loading-text"></div>
+        </div>
+        <p id="drive-sync-status" class="status-message"></p>
+      </div>
       <div id="ai-assistant-card" class="card locked-feature"><span class="locked-message"></span></div>
     </div>
   `;
@@ -1010,16 +1042,28 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
   });
 
   describe('未登入狀態', () => {
-    it('getAccountProfile 回傳 null 時應顯示 logged-out 區塊，並鎖定功能卡片', async () => {
+    it('getAccountProfile 回傳 null 時應顯示 logged-out 區塊，並保留 Google Drive Sync 卡片', async () => {
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
       expect(
         document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
       ).toBe(true);
+    });
+
+    it('初始化讀取 account session 期間應先顯示 Cloud Sync loading，避免空白', () => {
+      getAccountProfile.mockImplementation(() => new Promise(() => {}));
+      getAccountAccessToken.mockImplementation(() => new Promise(() => {}));
+
+      initOptions();
+
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
     });
   });
 
@@ -1119,7 +1163,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
     });
   });
 
@@ -1214,6 +1259,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
+      await Promise.resolve();
 
       const statusEl = document.querySelector('#account-status');
       expect(statusEl.textContent).toContain('登出');
@@ -1287,7 +1333,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
     });
   });
 

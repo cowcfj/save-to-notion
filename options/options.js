@@ -4,7 +4,8 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
-import { ACCOUNT_API, AuthMode } from '../scripts/config/api.js';
+import { ACCOUNT_API } from '../scripts/config/extension/accountApi.js';
+import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../scripts/config/env.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
@@ -22,8 +23,8 @@ import {
 } from '../scripts/auth/accountSession.js';
 import {
   initCloudSyncController,
-  setCloudSyncCardVisibility,
   refreshCloudSyncCard,
+  showCloudSyncLoadingState,
 } from './DriveCloudSyncController.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
@@ -93,9 +94,8 @@ export function initOptions() {
         renderAccountUI().catch(() => {});
         break;
       }
-      case RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED:
       case RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED: {
-        // Drive 連線或同步狀態已更新，刷新 Cloud Sync card
+        // Drive 同步狀態已更新，刷新 Cloud Sync card
         refreshCloudSyncCard().catch(() => {});
         break;
       }
@@ -264,7 +264,6 @@ async function renderAccountUI() {
 
     updateProfileDOM(profile);
     updateLockedFeatures(false);
-    setCloudSyncCardVisibility(true);
   } else {
     // 未登入狀態
     if (loggedOutEl) {
@@ -275,8 +274,9 @@ async function renderAccountUI() {
     }
 
     updateLockedFeatures(true);
-    setCloudSyncCardVisibility(false);
   }
+
+  await initCloudSyncController(isLoggedIn);
 }
 
 /**
@@ -381,13 +381,10 @@ function initAccountUI() {
     });
   }
 
+  showCloudSyncLoadingState(UI_MESSAGES.CLOUD_SYNC.LOADING_ACCOUNT_STATUS);
+
   // 讀取目前登入狀態
   renderAccountUI().catch(() => {});
-
-  // 初始化 Cloud Sync Controller（需在 renderAccountUI 後，使用同樣的 profile check）
-  Promise.all([getAccountProfile(), getAccountAccessToken()])
-    .then(([profile, accessToken]) => initCloudSyncController(Boolean(profile && accessToken)))
-    .catch(() => {});
 }
 
 /**

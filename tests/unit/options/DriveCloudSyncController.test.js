@@ -14,6 +14,7 @@ import { UI_MESSAGES } from '../../../scripts/config/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/extension/driveSyncErrorCodes.js';
 
 async function flushAsyncWork() {
   await Promise.resolve();
@@ -63,13 +64,13 @@ describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
   let loggerWarnSpy;
-  let loggerInfoSpy;
 
   beforeEach(() => {
     jest.useFakeTimers();
     // Setup DOM
     document.body.innerHTML = `
       <div id="cloud-sync-card">
+        <div id="drive-state-logged-out"></div>
         <div id="drive-state-disconnected"></div>
         <div id="drive-state-connected"></div>
         <div id="drive-state-conflict"></div>
@@ -96,6 +97,7 @@ describe('DriveCloudSyncController', () => {
         </output>
 
         <button id="drive-connect-button"></button>
+        <button id="drive-login-prompt-button"></button>
         <button id="drive-upload-button"></button>
         <button id="drive-download-button"></button>
         <button id="drive-disconnect-button"></button>
@@ -128,7 +130,6 @@ describe('DriveCloudSyncController', () => {
     };
     loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
     loggerWarnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
-    loggerInfoSpy = jest.spyOn(Logger, 'info').mockImplementation(() => {});
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata');
@@ -170,6 +171,20 @@ describe('DriveCloudSyncController', () => {
     });
   });
 
+  describe('logged-out state', () => {
+    it('未登入時應顯示提示狀態而不是隱藏整張卡片', async () => {
+      await initCloudSyncController(false);
+
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-login-prompt-button').disabled).toBe(true);
+    });
+  });
+
   describe('renderCloudSyncCard', () => {
     it('renders disconnected state correctly', () => {
       renderCloudSyncCard({ connectionEmail: null });
@@ -200,7 +215,7 @@ describe('DriveCloudSyncController', () => {
       renderCloudSyncCard({
         connectionEmail: 'test@notion.so',
         needsManualReview: true,
-        lastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
@@ -213,11 +228,13 @@ describe('DriveCloudSyncController', () => {
     it('renders other generic errors correctly', () => {
       renderCloudSyncCard({
         connectionEmail: 'test@notion.so',
-        lastErrorCode: 'UPLOAD_FAILED',
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
         lastErrorAt: '2023-01-02T00:00:00Z',
       });
       expect(document.querySelector('#drive-error-banner').style.display).toBe('');
-      expect(document.querySelector('#drive-error-code').textContent).toContain('UPLOAD_FAILED');
+      expect(document.querySelector('#drive-error-code').textContent).toContain(
+        DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED
+      );
       expect(document.querySelector('#drive-error-time').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.ERROR_TIME_PREFIX
       );
@@ -233,7 +250,7 @@ describe('DriveCloudSyncController', () => {
       renderCloudSyncCard({
         connectionEmail: 'test@notion.so',
         lastSuccessfulUploadAt: 'invalid-date-value',
-        lastErrorCode: 'UPLOAD_FAILED',
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
         lastErrorAt: 'invalid-error-date',
       });
 
@@ -421,7 +438,7 @@ describe('DriveCloudSyncController', () => {
       driveClient.getDriveSyncMetadata.mockResolvedValue({});
       mockSendMessage.mockResolvedValueOnce({
         success: false,
-        errorCode: 'REMOTE_SNAPSHOT_NEWER',
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
 
       await initCloudSyncController(true);
@@ -472,7 +489,7 @@ describe('DriveCloudSyncController', () => {
     it('shows an error when download is rejected by background', async () => {
       mockSendMessage.mockResolvedValueOnce({
         success: false,
-        error: 'NO_REMOTE_SNAPSHOT',
+        error: DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT,
       });
 
       await initCloudSyncController(true);
@@ -480,9 +497,13 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
-      const safeMessage = sanitizeApiError(new Error('NO_REMOTE_SNAPSHOT'), 'drive_sync_download');
+      const safeMessage = sanitizeApiError(
+        new Error(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT),
+        'drive_sync_download'
+      );
+      expect(safeMessage).toBe('Unknown Error');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}發生未知錯誤，請稍後再試`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
@@ -534,21 +555,15 @@ describe('DriveCloudSyncController', () => {
 
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_CONNECTION_UPDATED,
-        email: null,
-        connectedAt: null,
-      });
-      expect(loggerInfoSpy).toHaveBeenCalledWith('[CloudSync] Disconnect broadcast sent');
+      expect(mockSendMessage).not.toHaveBeenCalled();
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
     });
 
-    it('continues disconnect flow when broadcast fails', async () => {
+    it('disconnect 成功後應顯示成功狀態並收起 loading overlay', async () => {
       driveClient.getDriveSyncMetadata
         .mockResolvedValueOnce({})
         .mockResolvedValueOnce({ connectionEmail: null });
-      mockSendMessage.mockRejectedValueOnce(new Error('broadcast down'));
 
       await initCloudSyncController(true);
 
@@ -557,9 +572,6 @@ describe('DriveCloudSyncController', () => {
 
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(loggerWarnSpy).toHaveBeenCalledWith('[CloudSync] Disconnect broadcast failed', {
-        error: expect.any(Error),
-      });
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
@@ -598,7 +610,8 @@ describe('DriveCloudSyncController', () => {
 
     it('bypasses interaction if not logged in', async () => {
       await initCloudSyncController(false);
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
       // Handlers not attached if not logged in initially (in actual implementation)
     });
 
@@ -885,7 +898,7 @@ describe('DriveCloudSyncController', () => {
         driveSyncConnectionEmail: 'conflict-safe@test.dev',
         driveSyncConnectedAt: '2026-04-19T11:00:00Z',
         driveSyncNeedsManualReview: true,
-        driveSyncLastErrorCode: 'REMOTE_SNAPSHOT_NEWER',
+        driveSyncLastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
 
       driveClient.fetchDriveConnectionStatus
@@ -921,7 +934,7 @@ describe('DriveCloudSyncController', () => {
 
       const storedMetadata = await driveClient.getDriveSyncMetadata();
       expect(storedMetadata.needsManualReview).toBe(true);
-      expect(storedMetadata.lastErrorCode).toBe('REMOTE_SNAPSHOT_NEWER');
+      expect(storedMetadata.lastErrorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
       expect(storedMetadata.connectedAt).toBe('2026-04-19T11:00:00Z');
 
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('');

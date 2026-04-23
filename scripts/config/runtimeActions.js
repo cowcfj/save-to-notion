@@ -378,18 +378,6 @@
 // ==========================================
 
 /**
- * @typedef {object} DriveConnectionUpdatedRequest
- * @property {'DRIVE_CONNECTION_UPDATED'} action
- * @property {string | null} email - 連線帳號 email，null 表示已斷線
- * @property {string | null} connectedAt - ISO 8601 timestamp
- */
-
-/**
- * @typedef {object} DriveConnectionUpdatedResponse
- * @property {boolean} [success]
- */
-
-/**
  * @typedef {object} DriveSyncStatusUpdatedRequest
  * @property {'DRIVE_SYNC_STATUS_UPDATED'} action
  * @property {string | null} lastKnownRemoteUpdatedAt - 後端 snapshot updatedAt（ISO 8601）
@@ -653,16 +641,6 @@ export const RUNTIME_ACTIONS = Object.freeze({
   // ==========================================
   // Google Drive Sync Actions（Phase A）
   // ==========================================
-
-  /**
-   * Drive callback bridge 完成後廣播，UI 更新連線狀態
-   *
-   * Request: {@link DriveConnectionUpdatedRequest}
-   * Response: {@link DriveConnectionUpdatedResponse}
-   *
-   * @type {DriveConnectionUpdatedRequest['action']}
-   */
-  DRIVE_CONNECTION_UPDATED: 'DRIVE_CONNECTION_UPDATED',
 
   /**
    * 手動 upload / download 完成或 status 刷新後廣播

@@ -17,6 +17,7 @@
 /* global chrome */
 
 import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../config/extension/driveSyncErrorCodes.js';
 import {
   uploadDriveSnapshot,
   downloadDriveSnapshot,
@@ -104,11 +105,11 @@ async function handleManualUpload(request) {
 
       Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
 
-      if (result.errorCode === 'REMOTE_SNAPSHOT_NEWER') {
+      if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
         const remoteUpdatedAt = result.remoteUpdatedAt;
         if (remoteUpdatedAt && !Number.isNaN(Date.parse(remoteUpdatedAt))) {
           await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
-            conflictType: 'REMOTE_SNAPSHOT_NEWER',
+            conflictType: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
             remoteUpdatedAt,
           });
         } else {
@@ -141,20 +142,20 @@ async function handleManualUpload(request) {
     await updateDriveSyncRunMetadata({
       type: 'upload',
       success: false,
-      errorCode: 'UPLOAD_FAILED',
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
     });
     Logger.error('[DriveSyncHandler] Upload exception', {
       action: 'drive_upload',
       result: 'failure',
       reason: error instanceof Error ? error.message : String(error),
       type: 'upload',
-      errorCode: 'UPLOAD_FAILED',
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
     });
     await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 
     return {
       success: false,
-      errorCode: 'UPLOAD_FAILED',
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
       error: error instanceof Error ? error.message : String(error),
     };
   }
@@ -192,7 +193,9 @@ async function handleManualDownload() {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCode =
-      error?.code === 'NO_REMOTE_SNAPSHOT' ? 'NO_REMOTE_SNAPSHOT' : 'DOWNLOAD_FAILED';
+      error?.code === DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT
+        ? DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT
+        : DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED;
 
     await updateDriveSyncRunMetadata({
       type: 'download',
@@ -200,7 +203,7 @@ async function handleManualDownload() {
       errorCode,
     });
 
-    if (errorCode === 'NO_REMOTE_SNAPSHOT') {
+    if (errorCode === DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT) {
       Logger.warn('[DriveSyncHandler] No remote snapshot found', { type: 'download' });
     } else {
       Logger.error('[DriveSyncHandler] Download exception', {
@@ -208,7 +211,7 @@ async function handleManualDownload() {
         result: 'failure',
         reason: errorMessage,
         type: 'download',
-        errorCode: 'DOWNLOAD_FAILED',
+        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
       });
     }
     await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
