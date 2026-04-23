@@ -1,8 +1,7 @@
 /**
- * 環境檢測配置聚合入口
- *
- * Phase 1 僅建立邊界佔位，不拆遷 env.js。
- * 未來 Phase 將把環境相關常量遷入此目錄。
+ * 環境配置聚合入口
+ * 統一匯出 runtime 環境偵測與 build-time 配置
  */
 
-export * from '../env.js';
+export * from './runtime.js';
+export * from './build.js';
