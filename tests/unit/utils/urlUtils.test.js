@@ -8,6 +8,7 @@ import {
   resolveStorageUrl,
   buildStableUrlFromNextData,
   isRootUrl,
+  isSafeStableUrl,
 } from '../../../scripts/utils/urlUtils.js';
 
 describe('urlUtils', () => {
@@ -469,6 +470,37 @@ describe('urlUtils', () => {
 
     it('應該對無效 URL 回傳 false', () => {
       expect(isRootUrl('not-a-valid-url')).toBe(false);
+    });
+  });
+
+  describe('isSafeStableUrl', () => {
+    it('應該接受非 root 的 http(s) URL', () => {
+      expect(isSafeStableUrl('https://example.com/?p=123')).toBe(true);
+      expect(isSafeStableUrl('http://example.com/posts/1')).toBe(true);
+    });
+
+    it('應該拒絕 root URL、非 http(s) 與無效值', () => {
+      expect(isSafeStableUrl('https://example.com/')).toBe(false);
+      expect(isSafeStableUrl('ftp://example.com/file')).toBe(false);
+      expect(isSafeStableUrl('not-a-valid-url')).toBe(false);
+      expect(isSafeStableUrl('')).toBe(false);
+    });
+
+    it('requireNormalized=true 時應拒絕未正規化的 URL', () => {
+      expect(
+        isSafeStableUrl('https://example.com/path/?utm_source=fb#frag', {
+          requireNormalized: true,
+        })
+      ).toBe(false);
+      expect(
+        isSafeStableUrl('https://example.com/path', {
+          requireNormalized: true,
+        })
+      ).toBe(true);
+    });
+
+    it('[REGRESSION] normalize 後變成 site root 的 URL 應視為 unsafe', () => {
+      expect(isSafeStableUrl('https://example.com/?utm_source=fb')).toBe(false);
     });
   });
 });

@@ -15,6 +15,14 @@ import {
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
   computeStableUrl: jest.fn(),
+  isSafeStableUrl: jest.fn(url => {
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }),
   isRootUrl: jest.fn(url => {
     try {
       const u = new URL(url);
@@ -41,6 +49,12 @@ function createDeferred() {
     reject = _reject;
   });
   return { promise, resolve, reject };
+}
+
+async function flushMicrotasks(times = 6) {
+  for (let i = 0; i < times; i += 1) {
+    await Promise.resolve();
+  }
 }
 
 // Chrome API polyfills
@@ -119,8 +133,7 @@ describe('Sidepanel JS Logic', () => {
     });
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
-
-    await Promise.resolve();
+    await flushMicrotasks();
   });
 
   afterEach(() => {
@@ -275,11 +288,7 @@ describe('Sidepanel JS Logic', () => {
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
-      // renderHighlightsForUrl has multiple await cycles for alias resolution
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks();
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(1);
       expect(document.querySelector('#sync-button').disabled).toBe(false); // as notion pageId exists
@@ -310,10 +319,7 @@ describe('Sidepanel JS Logic', () => {
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks();
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(1);
       // Sync 按鈕始終可用（不論是否有 notion pageId）
@@ -342,10 +348,7 @@ describe('Sidepanel JS Logic', () => {
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks();
 
       expect(document.querySelector('#empty-state').style.display).toBe('flex');
     });
@@ -390,10 +393,7 @@ describe('Sidepanel JS Logic', () => {
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks();
 
       const highlightsList = document.querySelector('#highlights-list');
       const emptyState = document.querySelector('#empty-state');
@@ -410,6 +410,143 @@ describe('Sidepanel JS Logic', () => {
       expect(highlightsList.children).toHaveLength(1);
       expect(emptyState.style.display).toBe('none');
       expect(syncButton.dataset.targetUrl).toBe(normalizedOriginalUrl);
+    });
+
+    it('[REGRESSION] dual-write/migration 情境中應先命中 page_<originalUrl>，不可被 highlights_<stableUrl> 搶先', async () => {
+      const stableUrl = 'https://example.js/stable';
+      const originalTabUrl = 'https://example.js/original-permalink';
+      const normalizedOriginalUrl = 'https://example.js/original-permalink';
+
+      normalizeUrl.mockImplementation(url => url);
+      chrome.tabs.get.mockResolvedValueOnce({ id: 500, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+
+      const fakeStore = {
+        [`url_alias:${normalizedOriginalUrl}`]: stableUrl,
+        [`page_${normalizedOriginalUrl}`]: {
+          highlights: [{ id: 'page-first', text: 'page wins', color: 'blue' }],
+          notion: { pageId: 'page-align' },
+        },
+        [`highlights_${stableUrl}`]: [{ id: 'legacy-second', text: 'legacy loses', color: 'red' }],
+      };
+
+      chrome.storage.local.get.mockClear();
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (key in fakeStore) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 500 });
+      await flushMicrotasks();
+
+      const renderedTexts = Array.from(document.querySelectorAll('.highlight-text')).map(el =>
+        el.textContent?.trim()
+      );
+      const syncButton = document.querySelector('#sync-button');
+
+      expect(renderedTexts).toEqual(['page wins']);
+      expect(renderedTexts).not.toContain('legacy loses');
+      expect(syncButton.dataset.targetUrl).toBe(normalizedOriginalUrl);
+    });
+
+    it('[REGRESSION] page-only / zero-highlights 已保存頁面仍應顯示 Open in Notion', async () => {
+      const stableUrl = 'https://example.js/stable';
+      const originalTabUrl = 'https://example.js/page-without-highlights';
+
+      chrome.tabs.get.mockResolvedValueOnce({ id: 500, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+
+      const fakeStore = {
+        [`page_${stableUrl}`]: {
+          highlights: [],
+          notion: { pageId: 'page-only-123' },
+        },
+      };
+
+      chrome.storage.local.get.mockClear();
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (key in fakeStore) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 500 });
+      await flushMicrotasks();
+
+      const emptyState = document.querySelector('#empty-state');
+      const openNotionButton = document.querySelector('#open-notion-button');
+      const syncButton = document.querySelector('#sync-button');
+
+      expect(emptyState.style.display).toBe('flex');
+      expect(syncButton.disabled).toBe(false);
+      expect(openNotionButton.style.display).toBe('inline-flex');
+      expect(openNotionButton.dataset.targetUrl).toBe(originalTabUrl);
+    });
+
+    it('[REGRESSION] resolvedKey 未命中 highlights 時仍應依 lookupOrder 找到 page-only Notion 狀態', async () => {
+      const stableUrl = 'https://example.js/stable';
+      const originalTabUrl = 'https://example.js/original-page';
+      const aliasUrl = 'https://example.js/canonical-page';
+
+      normalizeUrl.mockImplementation(url => url);
+      chrome.tabs.get.mockResolvedValueOnce({ id: 501, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+
+      const fakeStore = {
+        [`url_alias:${stableUrl}`]: aliasUrl,
+        [`page_${aliasUrl}`]: {
+          notion: { pageId: 'page-only-alias-123' },
+        },
+      };
+
+      chrome.storage.local.get.mockClear();
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (key in fakeStore) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 501 });
+      await flushMicrotasks();
+
+      const openNotionButton = document.querySelector('#open-notion-button');
+
+      expect(openNotionButton.style.display).toBe('inline-flex');
+      expect(openNotionButton.dataset.targetUrl).toBe(originalTabUrl);
     });
   });
 

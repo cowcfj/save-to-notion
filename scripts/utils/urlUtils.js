@@ -293,6 +293,38 @@ export function isRootUrl(url) {
 }
 
 /**
+ * 檢查 URL 是否可安全作為 stable URL 使用
+ *
+ * @param {string|null|undefined} url - 要檢查的 URL
+ * @param {{ requireNormalized?: boolean }} [options] - 驗證選項
+ * @returns {boolean} 是否為安全可用的 stable URL
+ */
+export function isSafeStableUrl(url, options = {}) {
+  const { requireNormalized = false } = options;
+
+  if (typeof url !== 'string' || url.trim() === '') {
+    return false;
+  }
+
+  const normalizedUrl = normalizeUrl(url);
+
+  if (requireNormalized && normalizedUrl !== url) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(requireNormalized ? url : normalizedUrl);
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return !isRootUrl(normalizedUrl);
+}
+
+/**
  * 解析存儲用的 URL — 優先使用穩定 URL
  * 這是 normalizeUrl 的增強版，優先嘗試穩定 URL，再回退到標準化
  *

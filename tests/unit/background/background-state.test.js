@@ -96,9 +96,10 @@ describe('Background State Updates', () => {
     // Mock highlights in storage
     const highlightsKey = `highlights_${normUrl}`;
     chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-      // keys is array check
-      const k = Array.isArray(keys) ? keys[0] : keys;
-      if (k === highlightsKey) {
+      const keyList = Array.isArray(keys) ? keys : [keys];
+      // 使用 includes 而非 keys[0] 直接比對，
+      // 以相容 HighlightLookupResolver 的 lookupOrder（page_* 在前，highlights_* 在後）
+      if (keyList.includes(highlightsKey)) {
         const res = { [highlightsKey]: [{ id: 1, text: 'highlight' }] };
         sendResult?.(res);
         return Promise.resolve(res);

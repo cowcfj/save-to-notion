@@ -444,8 +444,7 @@ describe('Highlighter HighlightStorageGateway', () => {
       });
       const data = await HighlightStorageGateway._loadBothFormats(
         'https://example.com',
-        'https://example.com',
-        'highlights_https://example.com'
+        'https://example.com'
       );
       expect(data).toEqual([{ text: 'legacy match' }]);
     });
@@ -454,13 +453,32 @@ describe('Highlighter HighlightStorageGateway', () => {
       const originalChrome = globalThis.chrome;
       globalThis.chrome = undefined;
       await expect(
-        HighlightStorageGateway._loadBothFormats(
-          'https://example.com',
-          'https://example.com',
-          'legacyKey'
-        )
+        HighlightStorageGateway._loadBothFormats('https://example.com', 'https://example.com')
       ).rejects.toThrow('Chrome storage not available');
       globalThis.chrome = originalChrome;
+    });
+
+    test('[Resolver] alias 命中時， highlights_<stableUrl> 應被包含在 fallback 路徑', async () => {
+      // 情境：資料存在於 highlights_<stableUrl>（alias-resolved legacy 格式）
+      const pageUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const aliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
+      const hlStableKey = `${HIGHLIGHTS_PREFIX}${stableUrl}`;
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        const result = {};
+        if (keyList.some(k => k.includes('url_alias'))) {
+          result[aliasKey] = stableUrl;
+        }
+        if (keyList.includes(hlStableKey)) {
+          result[hlStableKey] = [{ text: 'alias legacy highlight' }];
+        }
+        return Promise.resolve(result);
+      });
+
+      const data = await HighlightStorageGateway.loadHighlights(pageUrl);
+      expect(data).toEqual([{ text: 'alias legacy highlight' }]);
     });
 
     test('_resolveStableUrl Chrome Storage 不可用應返回 normalizedUrl', async () => {
@@ -469,6 +487,35 @@ describe('Highlighter HighlightStorageGateway', () => {
       const url = await HighlightStorageGateway._resolveStableUrl('https://example.com');
       expect(url).toBe(normalizeUrl('https://example.com'));
       globalThis.chrome = originalChrome;
+    });
+
+    test('_resolveStableUrl 應優先採用 normalizedUrl 對應的 alias', async () => {
+      const pageUrl = 'https://example.com/original/?utm_medium=social#frag';
+      const normalizedUrl = normalizeUrl(pageUrl);
+      const normalizedAlias = 'https://example.com/stable-from-normalized';
+      const rawAlias = 'https://example.com/stable-from-raw';
+
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+        [`${URL_ALIAS_PREFIX}${normalizedUrl}`]: normalizedAlias,
+        [`${URL_ALIAS_PREFIX}${pageUrl}`]: rawAlias,
+      });
+
+      const result = await HighlightStorageGateway._resolveStableUrl(pageUrl);
+
+      expect(result).toBe(normalizedAlias);
+    });
+
+    test('_resolveStableUrl 缺少 normalizedUrl alias 時應回退 rawUrl alias', async () => {
+      const pageUrl = 'https://example.com/original/?utm_medium=social#frag';
+      const rawAlias = 'https://example.com/stable-from-raw';
+
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+        [`${URL_ALIAS_PREFIX}${pageUrl}`]: rawAlias,
+      });
+
+      const result = await HighlightStorageGateway._resolveStableUrl(pageUrl);
+
+      expect(result).toBe(rawAlias);
     });
 
     test.each([
