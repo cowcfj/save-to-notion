@@ -21,15 +21,13 @@
  * 5. Mutation 後清理 contract.legacyCleanupKeys 中存在的 key
  */
 
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import { isSafeStableUrl } from '../../utils/urlUtils.js';
 
-/**
- * Storage key 前綴常數
- */
 export const KEY_PREFIX = Object.freeze({
-  PAGE: 'page_',
-  HIGHLIGHTS: 'highlights_',
-  URL_ALIAS: 'url_alias:',
+  PAGE: PAGE_PREFIX,
+  HIGHLIGHTS: HIGHLIGHTS_PREFIX,
+  URL_ALIAS: URL_ALIAS_PREFIX,
 });
 
 /**
@@ -66,10 +64,10 @@ export function resolveKeys(normalizedUrl, aliasCandidate = null) {
   const aliasUsed = stableUrl !== normalizedUrl;
 
   // 建立各 key
-  const stablePageKey = `${KEY_PREFIX.PAGE}${stableUrl}`;
-  const normalizedPageKey = `${KEY_PREFIX.PAGE}${normalizedUrl}`;
-  const legacyNormKey = `${KEY_PREFIX.HIGHLIGHTS}${normalizedUrl}`;
-  const legacyStableKey = `${KEY_PREFIX.HIGHLIGHTS}${stableUrl}`;
+  const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+  const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+  const legacyNormKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+  const legacyStableKey = `${HIGHLIGHTS_PREFIX}${stableUrl}`;
 
   // Lookup order（計劃 §8 最小查找順序）：
   // 1. page_<stableUrl>          — alias 命中的 canonical key（若 aliasUsed）
@@ -129,11 +127,11 @@ export function getAliasLookupKeys(normalizedUrl, rawUrl = null) {
     return [];
   }
 
-  const keys = [`${KEY_PREFIX.URL_ALIAS}${normalizedUrl}`];
+  const keys = [`${URL_ALIAS_PREFIX}${normalizedUrl}`];
 
   // 若 rawUrl 與 normalizedUrl 不同，也查詢 rawUrl 版本的 alias
   if (rawUrl && typeof rawUrl === 'string' && rawUrl !== normalizedUrl) {
-    keys.push(`${KEY_PREFIX.URL_ALIAS}${rawUrl}`);
+    keys.push(`${URL_ALIAS_PREFIX}${rawUrl}`);
   }
 
   return keys;
@@ -157,9 +155,9 @@ export function pickAliasCandidate(aliasData, normalizedUrl, rawUrl = null) {
     return null;
   }
 
-  const normalizedAliasKey = `${KEY_PREFIX.URL_ALIAS}${normalizedUrl}`;
+  const normalizedAliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
   const hasRawKey = rawUrl && rawUrl !== normalizedUrl;
-  const rawAliasKey = hasRawKey ? `${KEY_PREFIX.URL_ALIAS}${rawUrl}` : null;
+  const rawAliasKey = hasRawKey ? `${URL_ALIAS_PREFIX}${rawUrl}` : null;
 
   // 優先取 normalizedUrl 版本，次取 rawUrl 版本
   const fromNorm = aliasData[normalizedAliasKey];
@@ -237,7 +235,7 @@ export function pickHighlightsFromStorage(contract, storageData) {
       continue;
     }
 
-    if (key.startsWith(KEY_PREFIX.PAGE)) {
+    if (key.startsWith(PAGE_PREFIX)) {
       const highlights = _parsePageHighlights(value);
       if (highlights !== null) {
         return { highlights, resolvedKey: key };
@@ -245,7 +243,7 @@ export function pickHighlightsFromStorage(contract, storageData) {
       continue;
     }
 
-    if (key.startsWith(KEY_PREFIX.HIGHLIGHTS)) {
+    if (key.startsWith(HIGHLIGHTS_PREFIX)) {
       const highlights = _parseLegacyHighlights(value);
       if (highlights !== null) {
         return { highlights, resolvedKey: key };

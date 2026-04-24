@@ -306,12 +306,14 @@ export function isSafeStableUrl(url, options = {}) {
     return false;
   }
 
-  if (requireNormalized && normalizeUrl(url) !== url) {
+  const normalizedUrl = normalizeUrl(url);
+
+  if (requireNormalized && normalizedUrl !== url) {
     return false;
   }
 
   try {
-    const parsedUrl = new URL(url);
+    const parsedUrl = new URL(requireNormalized ? url : normalizedUrl);
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
       return false;
     }
@@ -319,7 +321,7 @@ export function isSafeStableUrl(url, options = {}) {
     return false;
   }
 
-  return !isRootUrl(url);
+  return !isRootUrl(normalizedUrl);
 }
 
 /**

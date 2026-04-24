@@ -493,11 +493,13 @@ describe('StorageService', () => {
 
   describe('getHighlights', () => {
     const NORM_URL = 'https://example.com/posts/hello';
+    const RAW_URL = 'https://example.com/posts/hello?utm_source=twitter#frag';
     const STABLE_URL = 'https://example.com/?p=123';
     const PAGE_NORM = `${PAGE_PREFIX}${NORM_URL}`;
     const PAGE_STABLE = `${PAGE_PREFIX}${STABLE_URL}`;
     const HL_NORM = `${HIGHLIGHTS_PREFIX}${NORM_URL}`;
     const ALIAS_NORM = `${URL_ALIAS_PREFIX}${NORM_URL}`;
+    const ALIAS_RAW = `${URL_ALIAS_PREFIX}${RAW_URL}`;
     const SAMPLE_HIGHLIGHTS = [{ id: 'h1', text: 'Hello', color: 'yellow' }];
 
     it('無 alias：命中 page_<normalizedUrl>，回傳 highlights', async () => {
@@ -571,6 +573,27 @@ describe('StorageService', () => {
       const result = await service.getHighlights(NORM_URL);
       // 應優先命中 highlights_<stableUrl>，而非 highlights_<normalizedUrl>
       expect(result).toEqual(stableHlHighlights);
+    });
+
+    it('[REGRESSION] rawUrl alias key 存在時，應能透過 alias 命中 page_<stableUrl>', async () => {
+      makeStorageMock({
+        [ALIAS_RAW]: STABLE_URL,
+        [PAGE_STABLE]: { highlights: SAMPLE_HIGHLIGHTS, notion: { pageId: 'abc' } },
+      });
+
+      const result = await service.getHighlights(RAW_URL);
+
+      expect(result).toEqual(SAMPLE_HIGHLIGHTS);
+      expect(mockStorage.local.get).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          ALIAS_NORM,
+          ALIAS_RAW,
+          PAGE_NORM,
+          `${PAGE_PREFIX}${RAW_URL}`,
+          HL_NORM,
+          `${HIGHLIGHTS_PREFIX}${RAW_URL}`,
+        ])
+      );
     });
 
     it('storage 不可用時應拋出 STORAGE_ERROR', async () => {

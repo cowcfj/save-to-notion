@@ -498,5 +498,9 @@ describe('urlUtils', () => {
         })
       ).toBe(true);
     });
+
+    it('[REGRESSION] normalize 後變成 site root 的 URL 應視為 unsafe', () => {
+      expect(isSafeStableUrl('https://example.com/?utm_source=fb')).toBe(false);
+    });
   });
 });

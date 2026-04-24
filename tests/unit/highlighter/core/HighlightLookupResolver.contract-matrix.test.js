@@ -26,6 +26,7 @@ import {
   getAliasLookupKeys,
   pickAliasCandidate,
 } from '../../../../scripts/highlighter/core/HighlightLookupResolver.js';
+import { isSafeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 // ──── 常數 ────────────────────────────────────────────────────────────
 
@@ -123,13 +124,8 @@ async function simulateGatewayLoadHighlights(fixture) {
   const aliasKeys = [ALIAS_NORM];
   const aliasData = await fakeChromeStorage.local.get(aliasKeys);
   const rawAlias = aliasData?.[ALIAS_NORM] ?? null;
-  // isSafeStableAliasUrl（簡化：只接受非 root 的 http(s) URL，且不可等於 NORM_URL）
   const stableUrl =
-    rawAlias &&
-    typeof rawAlias === 'string' &&
-    rawAlias !== NORM_URL &&
-    (rawAlias.startsWith('http://') || rawAlias.startsWith('https://')) &&
-    rawAlias !== `${new URL(rawAlias).origin}/`
+    rawAlias && rawAlias !== NORM_URL && isSafeStableUrl(rawAlias, { requireNormalized: true })
       ? rawAlias
       : NORM_URL;
 
@@ -294,6 +290,19 @@ describe('Phase 3 Contract Matrix：跨模組讀取一致性', () => {
     });
 
     test('Gateway 模擬：isSafeStableAliasUrl 拒絕後退化到 page_<original>', async () => {
+      const result = await simulateGatewayLoadHighlights(fixture);
+      expect(result).toEqual(H2);
+    });
+  });
+
+  describe('F6b. alias 污染（未 normalized URL）', () => {
+    const fixture = {
+      [ALIAS_NORM]: 'https://example.com/posts/hello/?utm_source=fb',
+      [PAGE_NORM]: { highlights: H2, notion: null },
+      [`page_https://example.com/posts/hello/?utm_source=fb`]: { highlights: H1, notion: null },
+    };
+
+    test('Gateway 模擬：應比照 requireNormalized=true 拒絕未 normalized alias', async () => {
       const result = await simulateGatewayLoadHighlights(fixture);
       expect(result).toEqual(H2);
     });

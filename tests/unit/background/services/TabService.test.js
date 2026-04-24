@@ -9,7 +9,11 @@ import {
   TabService,
   _migrationScript,
 } from '../../../../scripts/background/services/TabService.js';
-import { URL_ALIAS_PREFIX } from '../../../../scripts/config/shared/storage.js';
+import {
+  URL_ALIAS_PREFIX,
+  PAGE_PREFIX,
+  HIGHLIGHTS_PREFIX,
+} from '../../../../scripts/config/shared/storage.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
@@ -57,6 +61,14 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   buildStableUrlFromNextData: jest.fn(),
   hasSameOrigin: jest.fn(),
   normalizeUrl: jest.fn(url => url),
+  isSafeStableUrl: jest.fn(url => {
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }),
   // isRootUrl 預設回傳 false（非根 URL），避免防護邏輯意外攔截正常 URL
   isRootUrl: jest.fn(() => false),
 }));
@@ -424,6 +436,42 @@ describe('TabService', () => {
       expect(mockLogger.debug).not.toHaveBeenCalledWith(
         expect.stringContaining(rawStorageKey),
         expect.anything()
+      );
+    });
+
+    it('[REGRESSION] url_alias 指向 stableUrl 時，應能命中 page_<stableUrl>', async () => {
+      const originalUrl = 'https://example.com/posts/hello';
+      const stableUrl = 'https://example.com/?p=123';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const legacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+      const highlights = [{ id: 'stable-highlight' }];
+
+      chrome.storage.local.get.mockImplementation(async keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        const result = {};
+        if (keyList.includes(`${URL_ALIAS_PREFIX}${originalUrl}`)) {
+          result[`${URL_ALIAS_PREFIX}${originalUrl}`] = stableUrl;
+        }
+        if (keyList.includes(stablePageKey)) {
+          result[stablePageKey] = { highlights };
+        }
+        return result;
+      });
+
+      const result = await service._getHighlightsFromStorage(originalUrl);
+
+      expect(result).toEqual(highlights);
+      expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
+        1,
+        expect.arrayContaining([
+          `${URL_ALIAS_PREFIX}${originalUrl}`,
+          `${PAGE_PREFIX}${originalUrl}`,
+          legacyKey,
+        ])
+      );
+      expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
+        2,
+        expect.arrayContaining([stablePageKey, `${HIGHLIGHTS_PREFIX}${stableUrl}`])
       );
     });
 
@@ -1223,14 +1271,22 @@ describe('TabService', () => {
         await service._updateTabStatusInternal(mockTabId, mockRawUrl);
 
         // 6. 驗證：resolver 優先查詢 page_* 新格式，再查 highlights_* 舊格式
-        expect(chrome.storage.local.get).toHaveBeenCalledWith([
-          `page_${mockStableUrl}`,
-          `highlights_${mockStableUrl}`,
-        ]);
-        expect(chrome.storage.local.get).toHaveBeenCalledWith([
-          `page_${mockOriginalUrl}`,
-          `highlights_${mockOriginalUrl}`,
-        ]);
+        expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
+          1,
+          expect.arrayContaining([
+            `${URL_ALIAS_PREFIX}${mockStableUrl}`,
+            `page_${mockStableUrl}`,
+            `highlights_${mockStableUrl}`,
+          ])
+        );
+        expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
+          2,
+          expect.arrayContaining([
+            `${URL_ALIAS_PREFIX}${mockOriginalUrl}`,
+            `page_${mockOriginalUrl}`,
+            `highlights_${mockOriginalUrl}`,
+          ])
+        );
 
         // 驗證最終成功觸發了注入
         expect(service.injectionService.ensureBundleInjected).toHaveBeenCalledWith(mockTabId);

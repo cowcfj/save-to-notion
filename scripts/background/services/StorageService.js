@@ -450,22 +450,26 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    const rawUrl = typeof pageUrl === 'string' ? pageUrl : null;
 
     try {
       // 步驟 1：批量讀取所有需要的 keys（包含 alias + 所有可能的 page_* 和 highlights_*）
       // 計算 alias lookup keys
-      const aliasKeys = getAliasLookupKeys(normalizedUrl);
+      const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
       // 等待 alias query 後建立 contract，所以先讀取 alias data
       const preloadKeys = [
         ...aliasKeys,
         `${PAGE_PREFIX}${normalizedUrl}`,
         `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
       ];
+      if (rawUrl && rawUrl !== normalizedUrl) {
+        preloadKeys.push(`${PAGE_PREFIX}${rawUrl}`, `${HIGHLIGHTS_PREFIX}${rawUrl}`);
+      }
 
-      const preloadResult = await this.storage.local.get(preloadKeys);
+      const preloadResult = await this.storage.local.get([...new Set(preloadKeys)]);
 
       // 步驟 2：從讀取結果選出 alias candidate
-      const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl);
+      const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
 
       // 步驟 3：產生 lookup contract
       const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);

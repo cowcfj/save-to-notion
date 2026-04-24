@@ -552,7 +552,9 @@ async function _resolveStorageForUrl(normalizedUrl, normalizedOriginal) {
   const contractA = resolveHighlightLookupKeys(normalizedUrl, aliasFromUrl);
   const contractB = resolveHighlightLookupKeys(normalizedOriginal, aliasFromOriginal);
 
-  const mergedLookupOrder = [...new Set([...contractA.lookupOrder, ...contractB.lookupOrder])];
+  const mergedPageKeys = [...new Set([...contractA.pageKeys, ...contractB.pageKeys])];
+  const mergedLegacyKeys = [...new Set([...contractA.legacyKeys, ...contractB.legacyKeys])];
+  const mergedLookupOrder = [...mergedPageKeys, ...mergedLegacyKeys];
   const mergedContract = { ...contractA, lookupOrder: mergedLookupOrder };
 
   return { contract: mergedContract, storageData };

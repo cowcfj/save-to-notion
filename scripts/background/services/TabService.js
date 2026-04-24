@@ -22,6 +22,8 @@ import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import {
   KEY_PREFIX as HIGHLIGHT_KEY_PREFIX,
   resolveKeys as resolveHighlightLookupKeys,
+  getAliasLookupKeys,
+  pickAliasCandidate,
   pickHighlightsFromStorage,
 } from '../../highlighter/core/HighlightLookupResolver.js';
 
@@ -647,14 +649,21 @@ class TabService {
   }
 
   async _getHighlightsFromStorage(normUrl) {
-    // 刻意繞過 StorageService：呼叫方 resolveTabUrl 已在上游將 URL 解析為正確的 stableUrl，
-    // 此處查詢的已是最終 canonical key，不需要再走 alias 解析和鎖機制。
-    // 雙查機制（stableUrl → originalUrl）由 _updateTabStatusInternal 負責。
-    // 使用 HighlightLookupResolver 保持 lookup order 與其他消費者一致：
-    //   page_<normUrl> → highlights_<normUrl>
-    // （aliasCandidate 永遠為 null，因為 normUrl 已是 stable URL）
-    const contract = resolveHighlightLookupKeys(normUrl, null);
-    const data = await chrome.storage.local.get(contract.lookupOrder);
+    const preloadContract = resolveHighlightLookupKeys(normUrl, null);
+    const preloadKeys = [...getAliasLookupKeys(normUrl), ...preloadContract.lookupOrder];
+    const preloadData = await chrome.storage.local.get([...new Set(preloadKeys)]);
+    const aliasCandidate = pickAliasCandidate(preloadData, normUrl);
+    const contract = resolveHighlightLookupKeys(normUrl, aliasCandidate);
+
+    let data = preloadData;
+    if (aliasCandidate && aliasCandidate !== normUrl) {
+      const extraKeys = contract.lookupOrder.filter(key => !(key in preloadData));
+      if (extraKeys.length > 0) {
+        const extraData = await chrome.storage.local.get(extraKeys);
+        data = { ...preloadData, ...extraData };
+      }
+    }
+
     const { highlights, resolvedKey } = pickHighlightsFromStorage(contract, data);
 
     const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
