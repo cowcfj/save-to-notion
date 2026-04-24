@@ -559,6 +559,38 @@ async function _resolveStorageForUrl(normalizedUrl, normalizedOriginal) {
 }
 
 /**
+ * 依 lookupOrder 尋找第一個存在的 page_* 物件，供 page-only 狀態使用。
+ *
+ * @param {import('../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract} contract
+ * @param {object} storageData
+ * @returns {{ pageKey: string | null, pageData: object | null, notionData: object | null }}
+ */
+function findPageStateFromStorage(contract, storageData) {
+  if (!storageData || typeof storageData !== 'object') {
+    return { pageKey: null, pageData: null, notionData: null };
+  }
+
+  for (const key of contract.lookupOrder) {
+    if (!key.startsWith(PAGE_PREFIX)) {
+      continue;
+    }
+
+    const value = storageData[key];
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+
+    return {
+      pageKey: key,
+      pageData: value,
+      notionData: value.notion ?? null,
+    };
+  }
+
+  return { pageKey: null, pageData: null, notionData: null };
+}
+
+/**
  * 根據 URL 渲染標註列表
  * Phase 3：優先讀取 page_* 新格式，再回退 highlights_*。
  *
@@ -575,49 +607,40 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
     contract,
     storageData
   );
+  const { pageKey, notionData } = findPageStateFromStorage(contract, storageData);
 
-  // 提取 notionData：從命中的 page_* key 取出
-  let notionData = null;
-  let targetKey = resolvedKey;
-  if (resolvedKey?.startsWith(PAGE_PREFIX)) {
-    notionData = storageData[resolvedKey]?.notion ?? null;
-  } else if (!resolvedKey) {
-    // 所有 key 均未命中：嘗試用 originalTabUrl 路徑再查一次新格式
-    const fallbackPageKey = `${PAGE_PREFIX}${normalizedOriginal}`;
-    if (storageData[fallbackPageKey]) {
-      targetKey = fallbackPageKey;
-      notionData = storageData[fallbackPageKey]?.notion ?? null;
-    }
-  }
+  const targetKey = resolvedKey ?? pageKey;
 
   if (!isCurrentViewRequestActive(requestId)) {
     return;
   }
 
   const highlights = Array.isArray(rawHighlights) ? rawHighlights : rawHighlights?.highlights || [];
-  if (highlights.length === 0) {
-    if (isCurrentViewRequestActive(requestId)) {
-      UI.showEmpty(els);
-    }
-    return;
-  }
-
-  UI.renderList(els, highlights, targetKey, handleDelete);
-
   const hasSavedData = await checkSavedData(notionData, targetKey);
+
   if (!isCurrentViewRequestActive(requestId)) {
     return;
   }
-  // Sync 按鈕始終可用（savePage 可自動建立新頁面）
-  els.syncButton.disabled = false;
-  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
 
   const targetUrl = targetKey?.startsWith(PAGE_PREFIX)
     ? targetKey.slice(PAGE_PREFIX.length)
     : (targetKey?.replace(HIGHLIGHTS_PREFIX, '') ?? '');
 
+  els.syncButton.disabled = false;
   els.syncButton.dataset.targetUrl = targetUrl;
   els.openNotionButton.dataset.targetUrl = originalTabUrl;
+
+  if (highlights.length === 0) {
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els);
+      els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
+    }
+    return;
+  }
+
+  UI.renderList(els, highlights, targetKey, handleDelete);
+  // Sync 按鈕始終可用（savePage 可自動建立新頁面）
+  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
 }
 
 /**
