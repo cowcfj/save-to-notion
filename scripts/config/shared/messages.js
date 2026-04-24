@@ -11,7 +11,7 @@ const AUTH = {
   OAUTH_ACTION_CONNECT: '以 OAuth 連接 Notion',
   OAUTH_CONNECTING: '連接中...',
   OAUTH_UNAVAILABLE: '目前環境不支援 OAuth（缺少 identity 權限或擴充功能版本不完整）',
-  MISSING_ENV_CONFIG: 'OAuth 功能未啟用，請在 scripts/config/env.js 中設定 OAUTH_CLIENT_ID',
+  MISSING_ENV_CONFIG: 'OAuth 功能未啟用，請在 scripts/config/env/build.js 中設定 OAUTH_CLIENT_ID',
 
   NOTIFY_SUCCESS: 'Notion 連接成功！',
   NOTIFY_ERROR: 'Notion 連接失敗，請重試。',

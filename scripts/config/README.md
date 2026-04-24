@@ -32,7 +32,7 @@
 `env/` 保留子目錄，因為它處理不同的 environment boundary。
 
 - `runtime.js`: `ENV` 與環境偵測函式
-- `build.js`: `BUILD_ENV`
+- `build.js`: generated `BUILD_ENV`（不追蹤）
 - `build.example.js`: build-time env 範本
 
 ### `extension/` — Extension-only config

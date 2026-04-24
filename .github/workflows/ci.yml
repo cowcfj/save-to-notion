@@ -129,8 +129,8 @@ jobs:
           BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
         run: |
           echo "Building production bundle..."
-          if [ ! -f "scripts/config/env.js" ]; then
-            cp scripts/config/env.example.js scripts/config/env.js
+          if [ ! -f "scripts/config/env/build.js" ]; then
+            cp scripts/config/env/build.example.js scripts/config/env/build.js
           fi
           npm run build:prod
 
@@ -164,8 +164,8 @@ jobs:
               cd "$TMP_BASE"
               export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
               export EXTENSION_API_KEY="$EXTENSION_API_KEY"
-              if [ ! -f "scripts/config/env.js" ]; then
-                cp scripts/config/env.example.js scripts/config/env.js
+              if [ ! -f "scripts/config/env/build.js" ]; then
+                cp scripts/config/env/build.example.js scripts/config/env/build.js
               fi
               npm ci --ignore-scripts --prefer-offline
               npm run build:prod >/tmp/base-bundle-build.log

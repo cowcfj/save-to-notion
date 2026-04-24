@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: 產生正式版 env.js
+      - name: 產生正式版 build.js
         env:
           PROD_SERVER_URL: ${{ secrets.PROD_SERVER_URL }}
           PROD_CLIENT_ID: ${{ secrets.PROD_CLIENT_ID }}
@@ -101,7 +101,7 @@ jobs:
 
           function replaceExact(source, target, replacement, fieldName) {
             if (!source.includes(target)) {
-              throw new Error(`在 env.example.js 中找不到替換目標：${fieldName}`);
+              throw new Error(`在 build.example.js 中找不到替換目標：${fieldName}`);
             }
 
             return source.replaceAll(target, replacement);
@@ -125,7 +125,7 @@ jobs:
           function parseBuildEnvFromSource(source) {
             const script = new vm.Script(
               `${normalizeModuleSource(source)}\nmodule.exports = { BUILD_ENV };`,
-              { filename: 'scripts/config/env.js' }
+              { filename: 'scripts/config/env/build.js' }
             );
             const context = {
               module: { exports: {} },
@@ -142,27 +142,27 @@ jobs:
             try {
               buildEnv = parseBuildEnvFromSource(source);
             } catch (error) {
-              throw new Error(`env.js 語法驗證失敗：${error.message}`);
+              throw new Error(`build.js 語法驗證失敗：${error.message}`);
             }
 
             if (!buildEnv || typeof buildEnv !== 'object') {
-              throw new Error('env.js 驗證失敗：缺少 BUILD_ENV 匯出');
+              throw new Error('build.js 驗證失敗：缺少 BUILD_ENV 匯出');
             }
             if (buildEnv.ENABLE_OAUTH !== true) {
-              throw new Error('env.js 驗證失敗：ENABLE_OAUTH 未啟用');
+              throw new Error('build.js 驗證失敗：ENABLE_OAUTH 未啟用');
             }
             if (buildEnv.ENABLE_ACCOUNT !== true) {
-              throw new Error('env.js 驗證失敗：ENABLE_ACCOUNT 未啟用');
+              throw new Error('build.js 驗證失敗：ENABLE_ACCOUNT 未啟用');
             }
 
             for (const key of ['OAUTH_SERVER_URL', 'OAUTH_CLIENT_ID', 'EXTENSION_API_KEY']) {
               if (typeof buildEnv[key] !== 'string' || buildEnv[key].trim().length === 0) {
-                throw new Error(`env.js 驗證失敗：${key} 缺少值或為空字串`);
+                throw new Error(`build.js 驗證失敗：${key} 缺少值或為空字串`);
               }
             }
 
             if (!Object.isFrozen(buildEnv)) {
-              throw new Error('env.js 驗證失敗：BUILD_ENV 必須為 frozen 物件');
+              throw new Error('build.js 驗證失敗：BUILD_ENV 必須為 frozen 物件');
             }
           }
 
@@ -176,7 +176,7 @@ jobs:
             'EXTENSION_API_KEY'
           );
 
-          const src = fs.readFileSync('scripts/config/env.example.js', 'utf8');
+          const src = fs.readFileSync('scripts/config/env/build.example.js', 'utf8');
           const out = [
             ['ENABLE_OAUTH: false', 'ENABLE_OAUTH: true', 'ENABLE_OAUTH'],
             ['ENABLE_ACCOUNT: false', 'ENABLE_ACCOUNT: true', 'ENABLE_ACCOUNT'],
@@ -190,9 +190,9 @@ jobs:
           );
 
           validateGeneratedEnvSource(out);
-          fs.writeFileSync('scripts/config/env.js', out);
-          validateGeneratedEnvSource(fs.readFileSync('scripts/config/env.js', 'utf8'));
-          process.stdout.write('✓ 已使用正式環境設定產生 env.js');
+          fs.writeFileSync('scripts/config/env/build.js', out);
+          validateGeneratedEnvSource(fs.readFileSync('scripts/config/env/build.js', 'utf8'));
+          process.stdout.write('✓ 已使用正式環境設定產生 build.js');
           SCRIPT
           node /tmp/gen-env.js
 

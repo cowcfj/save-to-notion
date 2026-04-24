@@ -4,8 +4,8 @@
 
 describe('scripts/postinstall.js', () => {
   const projectRoot = '/mock-root/notion-smart-clipper';
-  const targetPath = `${projectRoot}/scripts/config/env.js`;
-  const templatePath = `${projectRoot}/scripts/config/env.example.js`;
+  const targetPath = `${projectRoot}/scripts/config/env/build.js`;
+  const templatePath = `${projectRoot}/scripts/config/env/build.example.js`;
 
   function loadPostinstall({
     envExists,
@@ -77,7 +77,7 @@ describe('scripts/postinstall.js', () => {
     jest.unmock('node:path');
   });
 
-  test('當 env.js 不存在且 template 存在時應從 template 複製並輸出成功訊息', () => {
+  test('當 build.js 不存在且 template 存在時應從 template 複製並輸出成功訊息', () => {
     const {
       joinMock,
       existsSyncMock,
@@ -94,19 +94,35 @@ describe('scripts/postinstall.js', () => {
 
     expect(thrownError).toBeNull();
     expect(cwdSpy).toHaveBeenCalled();
-    expect(joinMock).toHaveBeenNthCalledWith(1, projectRoot, 'scripts', 'config', 'env.js');
-    expect(joinMock).toHaveBeenNthCalledWith(2, projectRoot, 'scripts', 'config', 'env.example.js');
+    expect(joinMock).toHaveBeenNthCalledWith(
+      1,
+      projectRoot,
+      'scripts',
+      'config',
+      'env',
+      'build.js'
+    );
+    expect(joinMock).toHaveBeenNthCalledWith(
+      2,
+      projectRoot,
+      'scripts',
+      'config',
+      'env',
+      'build.example.js'
+    );
     expect(existsSyncMock).toHaveBeenNthCalledWith(1, targetPath);
     expect(existsSyncMock).toHaveBeenNthCalledWith(2, templatePath);
     expect(copyFileSyncMock).toHaveBeenCalledWith(templatePath, targetPath);
     expect(readFileSyncMock).toHaveBeenCalledWith(targetPath, 'utf8');
-    expect(consoleInfoSpy).toHaveBeenCalledWith('已從 env.example.js 建立 scripts/config/env.js');
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '已從 scripts/config/env/build.example.js 建立 scripts/config/env/build.js'
+    );
     expect(consoleWarnSpy).not.toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     expect(process.exitCode).toBeUndefined();
   });
 
-  test('當 env.js 已存在時應驗證 BUILD_ENV 匯出而不複製', () => {
+  test('當 build.js 已存在時應驗證 BUILD_ENV 匯出而不複製', () => {
     const envContent = `export const BUILD_ENV = Object.freeze({
   OAUTH_CLIENT_ID: 'configured-client-id',
 });`;
@@ -133,7 +149,7 @@ describe('scripts/postinstall.js', () => {
     expect(process.exitCode).toBeUndefined();
   });
 
-  test('當 env.js 的 OAUTH_CLIENT_ID 為空且格式與範本不同時仍應輸出警告', () => {
+  test('當 build.js 的 OAUTH_CLIENT_ID 為空且格式與範本不同時仍應輸出警告', () => {
     const envContent = `export const BUILD_ENV = Object.freeze({
   OAUTH_CLIENT_ID:'',
 });`;
@@ -144,12 +160,12 @@ describe('scripts/postinstall.js', () => {
 
     expect(thrownError).toBeNull();
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '\u001B[33m⚠️  scripts/config/env.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+      '\u001B[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
         '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
     );
   });
 
-  test('當 env.js 缺少 OAUTH_CLIENT_ID key 時仍應輸出警告', () => {
+  test('當 build.js 缺少 OAUTH_CLIENT_ID key 時仍應輸出警告', () => {
     const envContent = `export const BUILD_ENV = Object.freeze({
   ENABLE_OAUTH: false,
 });`;
@@ -160,7 +176,7 @@ describe('scripts/postinstall.js', () => {
 
     expect(thrownError).toBeNull();
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '\u001B[33m⚠️  scripts/config/env.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+      '\u001B[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
         '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
     );
   });
@@ -173,7 +189,7 @@ describe('scripts/postinstall.js', () => {
 
     expect(copyFileSyncMock).not.toHaveBeenCalled();
     expect(thrownError).toBeInstanceOf(Error);
-    expect(thrownError.message).toContain('找不到 env.example.js');
+    expect(thrownError.message).toContain('找不到 scripts/config/env/build.example.js');
   });
 
   test('當複製失敗時應拋出錯誤中止安裝', () => {
@@ -185,7 +201,7 @@ describe('scripts/postinstall.js', () => {
     });
 
     expect(thrownError).toBeInstanceOf(Error);
-    expect(thrownError.message).toContain('建立 scripts/config/env.js 失敗');
+    expect(thrownError.message).toContain('建立 scripts/config/env/build.js 失敗');
     expect(thrownError.message).toContain('disk full');
   });
 });

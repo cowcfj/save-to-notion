@@ -338,8 +338,8 @@ vim scripts/highlighter/core/Range.js
 2. **申請 Notion Public Integration**：
    - 在 Notion Integrations 頁面建立一組 Public API，取得 `client_id`。
 3. **配置本地環境變數**：
-   - 首次執行 `npm install` 後，專案會自動將模板複製為 `scripts/config/env.js`（此檔案並未被 Git 追蹤，以防機密外洩）。
-   - 開啟 `scripts/config/env.js`，將尾段的 `BUILD_ENV` 區塊修改為您的專屬配置：
+   - `scripts/config/env.js` 是被 Git 追蹤的 façade；首次執行 `npm install` 後，專案會自動將模板複製為 `scripts/config/env/build.js`。
+   - 開啟 `scripts/config/env/build.js`，將尾段的 `BUILD_ENV` 區塊修改為您的專屬配置：
      ```javascript
      export const BUILD_ENV = Object.freeze({
        ENABLE_OAUTH: true, // 👈 將此設為 true 以在設定頁顯示 OAuth 按鈕
