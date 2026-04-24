@@ -349,6 +349,68 @@ describe('Sidepanel JS Logic', () => {
 
       expect(document.querySelector('#empty-state').style.display).toBe('flex');
     });
+
+    // ─── Step 0.4 Alignment Tests ─────────────────────────────────────────────
+    // 驗證：sidepanel 的查找路徑與 HighlightStorageGateway.loadHighlights() 一致。
+    // 使用同一個 shortlink/permalink regression fixture。
+    it('[ALIGNMENT] 當 page_<stableUrl> 缺資料時，sidepanel 應回退讀取 page_<originalUrl>', async () => {
+      const stableUrl = 'https://example.js/stable';
+      const originalTabUrl = 'https://example.js/original-permalink?utm_source=test#frag';
+      const normalizedOriginalUrl = 'https://example.js/original-permalink';
+
+      normalizeUrl.mockImplementation(url =>
+        url === originalTabUrl ? normalizedOriginalUrl : url
+      );
+      chrome.tabs.get.mockResolvedValueOnce({ id: 500, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+
+      const fakeStore = {
+        [`page_${normalizedOriginalUrl}`]: {
+          highlights: [{ id: '1', text: 'alignment test', color: 'blue' }],
+          notion: { pageId: 'page-align' },
+        },
+      };
+
+      chrome.storage.local.get.mockClear();
+      chrome.storage.local.get.mockImplementation(async k => {
+        if (typeof k === 'string') {
+          return { [k]: fakeStore[k] };
+        }
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (fakeStore[key]) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 500 });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const highlightsList = document.querySelector('#highlights-list');
+      const emptyState = document.querySelector('#empty-state');
+      const syncButton = document.querySelector('#sync-button');
+
+      expect(chrome.storage.local.get).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          `page_${stableUrl}`,
+          `page_${normalizedOriginalUrl}`,
+          `highlights_${stableUrl}`,
+          `highlights_${normalizedOriginalUrl}`,
+        ])
+      );
+      expect(highlightsList.children).toHaveLength(1);
+      expect(emptyState.style.display).toBe('none');
+      expect(syncButton.dataset.targetUrl).toBe(normalizedOriginalUrl);
+    });
   });
 
   describe('User Interactions', () => {

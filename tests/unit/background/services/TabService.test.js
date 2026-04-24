@@ -378,15 +378,14 @@ describe('TabService', () => {
       expect(aliasCalls).toHaveLength(0);
     });
 
-    it('stableUrl 查無 highlights 時應 fallback 到 originalUrl 並補寫 url_alias', async () => {
+    it('stableUrl 查無 highlights 時應 fallback 到 originalUrl 並成功回傳 highlights', async () => {
+      // 驗證 fallback 資料命中時確實回傳 highlights（功能正確性）
       const highlights = [{ id: 'fallback-highlight' }];
 
       service._getHighlightsFromStorage = jest
         .fn()
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(highlights);
-      service.normalizeUrl = jest.fn(url => `${url}?normalized=true`);
-      chrome.storage.local.set.mockResolvedValue(undefined);
 
       const result = await service._getHighlightsWithFallback(
         'https://example.com/stable',
@@ -403,17 +402,30 @@ describe('TabService', () => {
         2,
         'https://example.com/original'
       );
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        [`${URL_ALIAS_PREFIX}https://example.com/original?normalized=true`]:
-          'https://example.com/stable',
-      });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        '[TabService] Created url_alias for fallback URL',
-        expect.objectContaining({
-          from: expect.any(String),
-          to: expect.any(String),
-        })
+    });
+
+    // ─── Step 0.2 Regression Test ────────────────────────────────────────────
+    // 驗證：fallback 命中 originalUrl 時，不應無條件補寫 url_alias。
+    // 修復前此測試應 FAIL（因為現有程式碼會無條件補寫 alias）。
+    it('[REGRESSION] fallback 命中 page_<originalUrl> 時，不應立即補寫 url_alias', async () => {
+      const highlights = [{ id: 'regression-no-alias' }];
+
+      service._getHighlightsFromStorage = jest
+        .fn()
+        .mockResolvedValueOnce(null) // stableUrl miss
+        .mockResolvedValueOnce(highlights); // originalUrl hit
+
+      await service._getHighlightsWithFallback(
+        'https://example.com/stable',
+        true,
+        'https://example.com/original'
       );
+
+      // 修復後：不應在 fallback 命中後補寫 alias
+      const aliasCalls = chrome.storage.local.set.mock.calls.filter(([arg]) =>
+        Object.keys(arg).some(k => k.startsWith(URL_ALIAS_PREFIX))
+      );
+      expect(aliasCalls).toHaveLength(0);
     });
 
     it('refresh 後解析出 stableUrl 且僅有 highlights 時，應保持未保存 badge 並注入 bundle', async () => {

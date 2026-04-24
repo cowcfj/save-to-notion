@@ -408,4 +408,55 @@ describe('entryAutoInit', () => {
     changedHandler({ highlightStyle: { newValue: 'underline' } }, 'sync');
     expect(globalThis.HighlighterV2.manager.updateStyleMode).toHaveBeenCalledWith('underline');
   });
+
+  // ─── Step 0.3 Regression Tests ───────────────────────────────────────────
+  // 驗證：SET_STABLE_URL 先到時，checkPageStatus 回傳的 stableUrl 不應覆蓋它。
+  // 修復前此測試應 FAIL，因為 resolvedStableUrl = pageStatus?.stableUrl || stableUrlState.value
+  // 讓 pageStatus 的值優先。
+  test('[REGRESSION] SET_STABLE_URL 已到達時，checkPageStatus 的 stableUrl 不應覆蓋', async () => {
+    const stableUrlFromRuntime = 'https://example.com/runtime-stable'; // 較早到達的 runtime 訊息
+    const stableUrlFromPageStatus = 'https://example.com/page-status-stable'; // 較弱的 checkPageStatus 來源
+
+    // 模擬 checkPageStatus 同步返回，並有 stableUrl
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: stableUrlFromPageStatus,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'background' });
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+
+    // 在 Promise.all 之前模擬 SET_STABLE_URL 先到
+    const waitForStableUrlHandler = runtimeMessageHandlers[0];
+    waitForStableUrlHandler({
+      action: 'SET_STABLE_URL',
+      stableUrl: stableUrlFromRuntime,
+    });
+
+    jest.runAllTimers();
+    await flushAsyncSetup();
+
+    // 修復後：應使用 stableUrlFromRuntime（SET_STABLE_URL 優先）
+    // 修復前：會使用 stableUrlFromPageStatus（pageStatus 優先）
+    expect(globalThis.__NOTION_STABLE_URL__).toBe(stableUrlFromRuntime);
+  });
+
+  test('[REGRESSION] SET_STABLE_URL 未到達時，應 fallback 到 checkPageStatus 的 stableUrl', async () => {
+    // 這個測試確保移除優先權不會破壞基本 fallback 邏輯
+    const stableUrlFromPageStatus = 'https://example.com/page-status-only';
+
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: stableUrlFromPageStatus,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    // 不觸發 SET_STABLE_URL 訊息
+    jest.runAllTimers();
+    await flushAsyncSetup();
+
+    // 應使用 pageStatus.stableUrl 作為 fallback
+    expect(globalThis.__NOTION_STABLE_URL__).toBe(stableUrlFromPageStatus);
+  });
 });

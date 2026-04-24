@@ -318,16 +318,12 @@ class TabService {
     }
 
     const fallbackHighlights = await this._getHighlightsFromStorage(originalUrl);
-    if (!fallbackHighlights) {
-      return fallbackHighlights;
-    }
-
-    const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
-    chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
-    this.logger.debug('[TabService] Created url_alias for fallback URL', {
-      from: sanitizeUrlForLogging(originalUrl),
-      to: sanitizeUrlForLogging(normUrl),
-    });
+    // 這裡僅負責 stableUrl -> originalUrl 的讀取回退，不再夾帶重複 side-effect。
+    // restore 正確性由 HighlightStorageGateway._loadBothFormats() 保證：
+    // 它會同時查 page_<stableUrl> 與 page_<normalizedUrl>，避免 canonical key 與原 permalink
+    // 暫時並存時出現 restore miss。url_alias 仍由 _persistUrlAliasIfNeeded() 在
+    // hasStableUrl=true 時寫入，因此這裡的 regression fix 不是「移除 alias」，而是
+    // 避免在 fallback helper 內再做一次與讀取無關的狀態寫入。
 
     return fallbackHighlights;
   }

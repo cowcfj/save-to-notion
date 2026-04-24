@@ -602,6 +602,96 @@ describe('Highlighter HighlightStorageGateway', () => {
 
       expect(result).toEqual([{ text: 'legacy alias highlight' }]);
     });
+
+    // ─── Step 0.1 Regression Tests ───────────────────────────────────────────
+    // 驗證：url_alias 指向 stableUrl，但資料仍存於 page_<originalUrl> 的情境。
+    // 修復前此測試應 FAIL（因為 _loadBothFormats 只查 page_<stableUrl> 而非 page_<normalizedUrl>）。
+    describe('Step 0.1: shortlink/permalink alias regression', () => {
+      test('[REGRESSION] alias 指向 stableUrl 但 page_<stableUrl> 缺資料，應 fallback 到 page_<normalizedUrl>', async () => {
+        const originalUrl = 'https://www.rapbull.net/posts/1838/slug';
+        const stableUrl = 'https://www.rapbull.net/?p=1838'; // shortlink
+        const normalizedUrl = originalUrl; // normalizeUrl 不改變此 URL
+
+        const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+        const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+        const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+        const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+        const expectedHighlights = [
+          { id: 'hl-1', text: 'regression test highlight', color: 'yellow' },
+        ];
+
+        // 模擬情境：
+        // - url_alias 存在（stableUrl 已被補寫）
+        // - page_<stableUrl> 不存在（資料還沒遷移過去）
+        // - page_<normalizedUrl> 有資料
+        mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+          const keyList = Array.isArray(keys) ? keys : [keys];
+
+          // alias 查詢
+          if (keyList.includes(aliasKey)) {
+            return Promise.resolve({ [aliasKey]: stableUrl });
+          }
+
+          // 同時查 stablePageKey + legacyKey
+          const result = {};
+          if (keyList.includes(stablePageKey)) {
+            // stablePageKey 無資料（尚未遷移）
+          }
+          if (keyList.includes(normalizedPageKey)) {
+            result[normalizedPageKey] = {
+              notion: { pageId: 'page-original-123' },
+              highlights: expectedHighlights,
+              metadata: { lastUpdated: 1000 },
+            };
+          }
+          if (keyList.includes(legacyKey)) {
+            // legacyKey 也無資料
+          }
+          return Promise.resolve(result);
+        });
+
+        const result = await HighlightStorageGateway.loadHighlights(originalUrl);
+
+        // 修復後：應從 page_<normalizedUrl> 命中高亮
+        expect(result).toEqual(expectedHighlights);
+      });
+
+      test('[REGRESSION] alias miss 時應直接從 page_<normalizedUrl> 讀取（無 alias 情境）', async () => {
+        const originalUrl = 'https://www.rapbull.net/posts/1838/slug';
+        const normalizedUrl = originalUrl;
+        const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
+        const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+        const expectedHighlights = [{ id: 'hl-2', text: 'no alias highlight', color: 'green' }];
+
+        mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+          const keyList = Array.isArray(keys) ? keys : [keys];
+          const result = {};
+
+          // alias 查詢回空
+          if (keyList.every(k => k.startsWith(URL_ALIAS_PREFIX))) {
+            return Promise.resolve({});
+          }
+
+          if (keyList.includes(normalizedPageKey)) {
+            result[normalizedPageKey] = {
+              notion: { pageId: 'page-no-alias' },
+              highlights: expectedHighlights,
+              metadata: { lastUpdated: 2000 },
+            };
+          }
+          if (keyList.includes(legacyKey)) {
+            // legacyKey 無資料
+          }
+          return Promise.resolve(result);
+        });
+
+        const result = await HighlightStorageGateway.loadHighlights(originalUrl);
+
+        expect(result).toEqual(expectedHighlights);
+      });
+    });
   });
 
   describe('_saveToChromeStorage', () => {
