@@ -96,7 +96,7 @@ describe('auth.js', () => {
   });
 
   it('OAUTH_SERVER_URL 缺失時應顯示錯誤且不發送請求', async () => {
-    const { BUILD_ENV } = await import('../../../scripts/config/env.js');
+    const { BUILD_ENV } = await import('../../../scripts/config/env/index.js');
     BUILD_ENV.OAUTH_SERVER_URL = '';
     globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
 

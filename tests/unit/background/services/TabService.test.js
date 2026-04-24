@@ -16,6 +16,8 @@ import { buildHighlight, buildPageRecord } from '../../../helpers/status-fixture
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -85,6 +87,8 @@ globalThis.chrome = {
 // Mock Logger
 const mockLogger = {
   log: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),

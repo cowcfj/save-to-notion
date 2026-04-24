@@ -50,6 +50,20 @@ export function isSavedStatusKind(statusKind) {
   );
 }
 
+/**
+ * 判定保存狀態回應是否應視為「已保存」。
+ *
+ * 優先序如下（由高到低）：
+ * 1. deletionPending === true：直接返回 true（最高優先，覆蓋其他欄位）。
+ * 2. wasDeleted === true：直接返回 false。
+ * 3. statusKind 為字串：交由 isSavedStatusKind(statusKind) 判定。
+ * 4. 其餘情況回退為 Boolean(isSaved)。
+ *
+ * 注意：deletionPending 會覆蓋 statusKind（包含 deleted_remote）以避免呼叫端誤判。
+ *
+ * @param {object} status - 保存狀態回應
+ * @returns {boolean}
+ */
 export function isSavedStatusResponse(status) {
   if (!status) {
     return false;
@@ -95,7 +109,7 @@ export function createSaveStatusResponse({
     deletionPending: statusKind === SAVE_STATUS_KINDS.DELETION_PENDING,
     ...(savedData?.notionPageId ? { notionPageId: savedData.notionPageId } : {}),
     ...(savedData?.notionUrl ? { notionUrl: savedData.notionUrl } : {}),
-    ...(savedData?.title ? { title: savedData.title } : {}),
+    ...(savedData && 'title' in savedData ? { title: savedData.title } : {}),
     ...(error ? { error } : {}),
     ...sanitizedExtra,
   };

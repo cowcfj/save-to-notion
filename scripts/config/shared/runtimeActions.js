@@ -119,6 +119,38 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [error]
  */
 
+/**
+ * @typedef {object} CheckNotionPageExistsRequest
+ * @property {'checkNotionPageExists'} action
+ * @property {string} pageId
+ */
+
+/**
+ * @typedef {object} CheckNotionPageExistsResponse
+ * @property {boolean} success
+ * @property {boolean} [exists]
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} SearchNotionRequest
+ * @property {'searchNotion'} action
+ * @property {string} [apiKey]
+ * @property {{query?: string, filter?: object, sort?: object, page_size?: number, start_cursor?: string}} [searchParams]
+ * @property {string} [query]
+ * @property {object} [filter]
+ * @property {object} [sort]
+ * @property {number} [page_size]
+ * @property {string} [start_cursor]
+ */
+
+/**
+ * @typedef {object} SearchNotionResponse
+ * @property {boolean} success
+ * @property {object} [data]
+ * @property {string} [error]
+ */
+
 const SAVE_ACTIONS = {
   SAVE_PAGE: 'savePage',
   SAVE_PAGE_FROM_TOOLBAR: 'SAVE_PAGE_FROM_TOOLBAR',
@@ -219,6 +251,40 @@ const SAVE_ACTIONS = {
  * @typedef {object} UserActivateShortcutResponse
  * @property {boolean} success
  * @property {object|string} [response]
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} StartHighlightRequest
+ * @property {'startHighlight'} action
+ */
+
+/**
+ * @typedef {object} StartHighlightResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} ShowHighlighterRequest
+ * @property {'showHighlighter'} action
+ */
+
+/**
+ * @typedef {object} ShowHighlighterResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} RemoveHighlightDomRequest
+ * @property {'REMOVE_HIGHLIGHT_DOM'} action
+ * @property {string} [highlightId]
+ */
+
+/**
+ * @typedef {object} RemoveHighlightDomResponse
+ * @property {boolean} success
  * @property {string} [error]
  */
 
@@ -374,6 +440,18 @@ const MIGRATION_ACTIONS = {
  */
 
 /**
+ * @typedef {object} RefreshOAuthTokenRequest
+ * @property {'refreshOAuthToken'} action
+ */
+
+/**
+ * @typedef {object} RefreshOAuthTokenResponse
+ * @property {boolean} success
+ * @property {string|null} [token]
+ * @property {string} [error]
+ */
+
+/**
  * @typedef {object} AccountSessionUpdatedRequest
  * @property {'account_session_updated'} action
  * @property {string} userId
@@ -485,6 +563,81 @@ const DRIVE_SYNC_ACTIONS = {
  * @property {string} [error]
  */
 
+/**
+ * @typedef {object} ExportDebugLogsRequest
+ * @property {'exportDebugLogs'} action
+ * @property {string} [format]
+ */
+
+/**
+ * @typedef {object} ExportDebugLogsResponse
+ * @property {boolean} success
+ * @property {{filename?: string, content?: string, mimeType?: string, count?: number}} [data]
+ * @property {string} [error]
+ * @property {string} [errorType]
+ */
+
+/**
+ * @typedef {object} DevLogSinkRequest
+ * @property {'devLogSink'} action
+ * @property {string} [level]
+ * @property {string} [message]
+ * @property {Array<any>} [args]
+ */
+
+/**
+ * @typedef {object} DevLogSinkResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} DevLogSinkBatchRequest
+ * @property {'devLogSinkBatch'} action
+ * @property {Array<{level?: string, message?: string, args?: Array<any>}>} [logs]
+ */
+
+/**
+ * @typedef {object} DevLogSinkBatchResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} PingRequest
+ * @property {'PING'} action
+ */
+
+/**
+ * @typedef {object} PingResponse
+ * @property {'preloader_only'|'bundle_ready'|'initializing'} [status]
+ * @property {boolean} [hasCache]
+ * @property {boolean} [hasPreloaderCache]
+ * @property {object|null} [nextRouteInfo]
+ * @property {string|null} [shortlink]
+ */
+
+/**
+ * @typedef {object} InitBundleRequest
+ * @property {'INIT_BUNDLE'} action
+ */
+
+/**
+ * @typedef {object} InitBundleResponse
+ * @property {boolean} ready
+ * @property {number} bufferedEvents
+ */
+
+/**
+ * @typedef {object} ReplayBufferedEventsRequest
+ * @property {'REPLAY_BUFFERED_EVENTS'} action
+ */
+
+/**
+ * @typedef {object} ReplayBufferedEventsResponse
+ * @property {Array<{type: string, timestamp: number}>} events
+ */
+
 const SIDEPANEL_ACTIONS = {
   OPEN_SIDE_PANEL: 'OPEN_SIDE_PANEL',
 };
@@ -507,12 +660,17 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {SavePageRequest['action']} SAVE_PAGE - Request: {@link SavePageRequest}; Response: {@link SavePageResponse}
  * @property {SavePageFromToolbarRequest['action']} SAVE_PAGE_FROM_TOOLBAR - Request: {@link SavePageFromToolbarRequest}; Response: {@link SavePageFromToolbarResponse}
  * @property {OpenNotionPageRequest['action']} OPEN_NOTION_PAGE - Request: {@link OpenNotionPageRequest}; Response: {@link OpenNotionPageResponse}
+ * @property {CheckNotionPageExistsRequest['action']} CHECK_NOTION_PAGE_EXISTS - Request: {@link CheckNotionPageExistsRequest}; Response: {@link CheckNotionPageExistsResponse}
+ * @property {SearchNotionRequest['action']} SEARCH_NOTION - Request: {@link SearchNotionRequest}; Response: {@link SearchNotionResponse}
+ * @property {StartHighlightRequest['action']} START_HIGHLIGHT - Request: {@link StartHighlightRequest}; Response: {@link StartHighlightResponse}
  * @property {SyncHighlightsRequest['action']} SYNC_HIGHLIGHTS - Request: {@link SyncHighlightsRequest}; Response: {@link SyncHighlightsResponse}
  * @property {UpdateRemoteHighlightsRequest['action']} UPDATE_REMOTE_HIGHLIGHTS - Request: {@link UpdateRemoteHighlightsRequest}; Response: {@link UpdateRemoteHighlightsResponse}
  * @property {UpdateHighlightsRequest['action']} UPDATE_HIGHLIGHTS - Request: {@link UpdateHighlightsRequest}; Response: {@link UpdateHighlightsResponse}
  * @property {ClearHighlightsRequest['action']} CLEAR_HIGHLIGHTS - Request: {@link ClearHighlightsRequest}; Response: {@link ClearHighlightsResponse}
  * @property {ShowToolbarRequest['action']} SHOW_TOOLBAR - Request: {@link ShowToolbarRequest}; Response: {@link ShowToolbarResponse}
  * @property {ToggleHighlighterRequest['action']} TOGGLE_HIGHLIGHTER - Request: {@link ToggleHighlighterRequest}; Response: {@link ToggleHighlighterResponse}
+ * @property {ShowHighlighterRequest['action']} SHOW_HIGHLIGHTER - Request: {@link ShowHighlighterRequest}; Response: {@link ShowHighlighterResponse}
+ * @property {RemoveHighlightDomRequest['action']} REMOVE_HIGHLIGHT_DOM - Request: {@link RemoveHighlightDomRequest}; Response: {@link RemoveHighlightDomResponse}
  * @property {UserActivateShortcutRequest['action']} USER_ACTIVATE_SHORTCUT - Request: {@link UserActivateShortcutRequest}; Response: {@link UserActivateShortcutResponse}
  * @property {MigrationExecuteRequest['action']} MIGRATION_EXECUTE - Request: {@link MigrationExecuteRequest}; Response: {@link MigrationExecuteResponse}
  * @property {MigrationDeleteRequest['action']} MIGRATION_DELETE - Request: {@link MigrationDeleteRequest}; Response: {@link MigrationDeleteResponse}
@@ -522,6 +680,7 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {MigrationDeleteFailedRequest['action']} MIGRATION_DELETE_FAILED - Request: {@link MigrationDeleteFailedRequest}; Response: {@link MigrationDeleteFailedResponse}
  * @property {OAuthSuccessRequest['action']} OAUTH_SUCCESS - Request: {@link OAuthSuccessRequest}; Response: {@link OAuthSuccessResponse}
  * @property {OAuthFailedRequest['action']} OAUTH_FAILED - Request: {@link OAuthFailedRequest}; Response: {@link OAuthFailedResponse}
+ * @property {RefreshOAuthTokenRequest['action']} REFRESH_OAUTH_TOKEN - Request: {@link RefreshOAuthTokenRequest}; Response: {@link RefreshOAuthTokenResponse}
  * @property {AccountSessionUpdatedRequest['action']} ACCOUNT_SESSION_UPDATED - Request: {@link AccountSessionUpdatedRequest}; Response: {@link AccountSessionUpdatedResponse}
  * @property {AccountSessionClearedRequest['action']} ACCOUNT_SESSION_CLEARED - Request: {@link AccountSessionClearedRequest}; Response: {@link AccountSessionClearedResponse}
  * @property {DriveSyncStatusUpdatedRequest['action']} DRIVE_SYNC_STATUS_UPDATED - Request: {@link DriveSyncStatusUpdatedRequest}; Response: {@link DriveSyncStatusUpdatedResponse}
@@ -530,6 +689,12 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {DriveSyncConflictRequest['action']} DRIVE_SYNC_CONFLICT - Request: {@link DriveSyncConflictRequest}; Response: {@link DriveSyncConflictResponse}
  * @property {DriveSyncScheduleUpdatedRequest['action']} DRIVE_SYNC_SCHEDULE_UPDATED - Request: {@link DriveSyncScheduleUpdatedRequest}; Response: {@link DriveSyncScheduleUpdatedResponse}
  * @property {OpenSidePanelRequest['action']} OPEN_SIDE_PANEL - Request: {@link OpenSidePanelRequest}; Response: {@link OpenSidePanelResponse}
+ * @property {ExportDebugLogsRequest['action']} EXPORT_DEBUG_LOGS - Request: {@link ExportDebugLogsRequest}; Response: {@link ExportDebugLogsResponse}
+ * @property {DevLogSinkRequest['action']} DEV_LOG_SINK - Request: {@link DevLogSinkRequest}; Response: {@link DevLogSinkResponse}
+ * @property {DevLogSinkBatchRequest['action']} DEV_LOG_SINK_BATCH - Request: {@link DevLogSinkBatchRequest}; Response: {@link DevLogSinkBatchResponse}
+ * @property {PingRequest['action']} PING - Request: {@link PingRequest}; Response: {@link PingResponse}
+ * @property {InitBundleRequest['action']} INIT_BUNDLE - Request: {@link InitBundleRequest}; Response: {@link InitBundleResponse}
+ * @property {ReplayBufferedEventsRequest['action']} REPLAY_BUFFERED_EVENTS - Request: {@link ReplayBufferedEventsRequest}; Response: {@link ReplayBufferedEventsResponse}
  */
 
 /** @type {Readonly<RuntimeActionsRegistry>} */

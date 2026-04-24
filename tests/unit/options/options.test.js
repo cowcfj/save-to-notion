@@ -998,7 +998,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     getAccountAccessToken,
     clearAccountSession,
   } = require('../../../scripts/auth/accountSession.js');
-  const { BUILD_ENV } = require('../../../scripts/config/env.js');
+  const { BUILD_ENV } = require('../../../scripts/config/env/index.js');
 
   beforeEach(() => {
     jest.useFakeTimers();

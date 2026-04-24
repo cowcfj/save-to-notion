@@ -87,6 +87,9 @@ describe('runtimeActions', () => {
       ['SAVE_PAGE', 'SavePageRequest', 'SavePageResponse'],
       ['SAVE_PAGE_FROM_TOOLBAR', 'SavePageFromToolbarRequest', 'SavePageFromToolbarResponse'],
       ['OPEN_NOTION_PAGE', 'OpenNotionPageRequest', 'OpenNotionPageResponse'],
+      ['CHECK_NOTION_PAGE_EXISTS', 'CheckNotionPageExistsRequest', 'CheckNotionPageExistsResponse'],
+      ['SEARCH_NOTION', 'SearchNotionRequest', 'SearchNotionResponse'],
+      ['START_HIGHLIGHT', 'StartHighlightRequest', 'StartHighlightResponse'],
       ['SYNC_HIGHLIGHTS', 'SyncHighlightsRequest', 'SyncHighlightsResponse'],
       [
         'UPDATE_REMOTE_HIGHLIGHTS',
@@ -97,6 +100,8 @@ describe('runtimeActions', () => {
       ['CLEAR_HIGHLIGHTS', 'ClearHighlightsRequest', 'ClearHighlightsResponse'],
       ['SHOW_TOOLBAR', 'ShowToolbarRequest', 'ShowToolbarResponse'],
       ['TOGGLE_HIGHLIGHTER', 'ToggleHighlighterRequest', 'ToggleHighlighterResponse'],
+      ['SHOW_HIGHLIGHTER', 'ShowHighlighterRequest', 'ShowHighlighterResponse'],
+      ['REMOVE_HIGHLIGHT_DOM', 'RemoveHighlightDomRequest', 'RemoveHighlightDomResponse'],
       ['USER_ACTIVATE_SHORTCUT', 'UserActivateShortcutRequest', 'UserActivateShortcutResponse'],
       ['MIGRATION_EXECUTE', 'MigrationExecuteRequest', 'MigrationExecuteResponse'],
       ['MIGRATION_DELETE', 'MigrationDeleteRequest', 'MigrationDeleteResponse'],
@@ -106,6 +111,7 @@ describe('runtimeActions', () => {
       ['MIGRATION_DELETE_FAILED', 'MigrationDeleteFailedRequest', 'MigrationDeleteFailedResponse'],
       ['OAUTH_SUCCESS', 'OAuthSuccessRequest', 'OAuthSuccessResponse'],
       ['OAUTH_FAILED', 'OAuthFailedRequest', 'OAuthFailedResponse'],
+      ['REFRESH_OAUTH_TOKEN', 'RefreshOAuthTokenRequest', 'RefreshOAuthTokenResponse'],
       ['ACCOUNT_SESSION_UPDATED', 'AccountSessionUpdatedRequest', 'AccountSessionUpdatedResponse'],
       ['ACCOUNT_SESSION_CLEARED', 'AccountSessionClearedRequest', 'AccountSessionClearedResponse'],
       [
@@ -126,6 +132,12 @@ describe('runtimeActions', () => {
         'DriveSyncScheduleUpdatedResponse',
       ],
       ['OPEN_SIDE_PANEL', 'OpenSidePanelRequest', 'OpenSidePanelResponse'],
+      ['EXPORT_DEBUG_LOGS', 'ExportDebugLogsRequest', 'ExportDebugLogsResponse'],
+      ['DEV_LOG_SINK', 'DevLogSinkRequest', 'DevLogSinkResponse'],
+      ['DEV_LOG_SINK_BATCH', 'DevLogSinkBatchRequest', 'DevLogSinkBatchResponse'],
+      ['PING', 'PingRequest', 'PingResponse'],
+      ['INIT_BUNDLE', 'InitBundleRequest', 'InitBundleResponse'],
+      ['REPLAY_BUFFERED_EVENTS', 'ReplayBufferedEventsRequest', 'ReplayBufferedEventsResponse'],
     ];
 
     expect(source).toContain('@typedef {object} RuntimeActionsRegistry');
@@ -142,7 +154,7 @@ describe('runtimeActions', () => {
   // 且工具鏈無法自動偵測（Object.freeze 使所有 key 看起來都「被消費」）。
   test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 options/ 中實際被引用', () => {
     const projectRoot = path.resolve(__dirname, '../../..');
-    const registryFile = path.join(projectRoot, 'scripts/config/runtimeActions.js');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
 
     const collectJsFiles = (dir, out = []) => {
       if (!fs.existsSync(dir)) {

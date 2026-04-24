@@ -2,7 +2,7 @@
  * auth callback page regression tests
  *
  * 驗證 auth.html 會以 ES module 載入 auth.js，
- * 且 auth.js 會讀取實際的 env.js 設定。
+ * 且 auth.js 會讀取 ../config/env/index.js 的設定。
  */
 
 const fs = require('node:fs');

@@ -96,5 +96,5 @@ export const SECURITY_CONSTANTS = {
     'opacity',
   ],
 
-  SAFE_URL_PROTOCOLS: ['http:', 'https:', ''],
+  SAFE_URL_PROTOCOLS: ['http:', 'https:'],
 };

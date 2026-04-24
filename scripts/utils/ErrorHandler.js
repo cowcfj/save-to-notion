@@ -13,7 +13,7 @@ import { ERROR_MESSAGES, ERROR_TYPES } from '../config/shared/messages.js';
 /**
  * 錯誤類型枚舉 (已移至 messages.js)
  *
- * @type {import('../config/messages.js').ERROR_TYPES}
+ * @type {import('../config/shared/messages.js').ERROR_TYPES}
  */
 const ErrorTypes = ERROR_TYPES;
 
