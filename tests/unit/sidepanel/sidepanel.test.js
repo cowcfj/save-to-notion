@@ -353,28 +353,25 @@ describe('Sidepanel JS Logic', () => {
     // ─── Step 0.4 Alignment Tests ─────────────────────────────────────────────
     // 驗證：sidepanel 的查找路徑與 HighlightStorageGateway.loadHighlights() 一致。
     // 使用同一個 shortlink/permalink regression fixture。
-    it('[ALIGNMENT] alias 指向 stableUrl 但 page_<stableUrl> 缺資料時，sidepanel 應能命中 page_<originalUrl>', async () => {
-      // 此 fixture 與 HighlightStorageGateway.extended.test.js Step 0.1 一致
-      // stableUrl = shortlink，originalUrl = permalink
-      // url_alias: originalUrl -> stableUrl（已被 TabService fallback 補寫）
-      // page_<stableUrl> 不存在，page_<originalUrl> 有資料
+    it('[ALIGNMENT] 當 page_<stableUrl> 缺資料時，sidepanel 應回退讀取 page_<originalUrl>', async () => {
+      const stableUrl = 'https://example.js/stable';
+      const originalTabUrl = 'https://example.js/original-permalink?utm_source=test#frag';
+      const normalizedOriginalUrl = 'https://example.js/original-permalink';
 
-      // sidepanel 的當前 tab URL 為 https://example.js/stable（由 sendMessage 回傳）
-      // 我們模擬 alias 指向 stableUrl，但 stableUrl 查無資料
-      const stableAlias = 'https://example.js/stable'; // 被 url_alias 指向的 stableUrl
-      const originalPermalink = 'https://example.js/original-permalink'; // 資料實際所在
+      normalizeUrl.mockImplementation(url =>
+        url === originalTabUrl ? normalizedOriginalUrl : url
+      );
+      chrome.tabs.get.mockResolvedValueOnce({ id: 500, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
 
       const fakeStore = {
-        // alias 指向 stableUrl
-        'url_alias:https://example.js/stable': stableAlias,
-        // page_<stableUrl> 無資料（刻意省略）
-        // page_<original> 有資料
-        [`page_${originalPermalink}`]: {
+        [`page_${normalizedOriginalUrl}`]: {
           highlights: [{ id: '1', text: 'alignment test', color: 'blue' }],
           notion: { pageId: 'page-align' },
         },
       };
 
+      chrome.storage.local.get.mockClear();
       chrome.storage.local.get.mockImplementation(async k => {
         if (typeof k === 'string') {
           return { [k]: fakeStore[k] };
@@ -398,17 +395,21 @@ describe('Sidepanel JS Logic', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      // 注意：sidepanel 目前若只走 alias 路徑而 stableUrl 無資料，可能顯示 empty state。
-      // 修復後此測試應驗證：當 page_<normalizedStableUrl> miss 時能進一步查 page_<originalUrl>。
-      // 目前記錄現狀（若修復前 sidepanel 已有此能力則 PASS，否則 FAIL 代表需要同步修復）。
       const highlightsList = document.querySelector('#highlights-list');
       const emptyState = document.querySelector('#empty-state');
+      const syncButton = document.querySelector('#sync-button');
 
-      // 此測試的主要目的是記錄對齊基線——若任一路徑修復後這裡應 PASS
-      const hasHighlights = highlightsList.children.length > 0;
-      const hasEmptyState = emptyState.style.display === 'flex';
-      // 至少其中一種狀態應該是確定的（不應同時為 none 的 undefined 狀態）
-      expect(hasHighlights || hasEmptyState).toBe(true);
+      expect(chrome.storage.local.get).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          `page_${stableUrl}`,
+          `page_${normalizedOriginalUrl}`,
+          `highlights_${stableUrl}`,
+          `highlights_${normalizedOriginalUrl}`,
+        ])
+      );
+      expect(highlightsList.children).toHaveLength(1);
+      expect(emptyState.style.display).toBe('none');
+      expect(syncButton.dataset.targetUrl).toBe(normalizedOriginalUrl);
     });
   });
 
