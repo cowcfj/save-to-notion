@@ -116,8 +116,17 @@ describe('resolveKeys()', () => {
       expect(contract.lookupOrder[1]).toBe(PAGE_NORM);
     });
 
-    test('lookupOrder 共 3 個 key（stable + norm + legacy）', () => {
-      expect(contract.lookupOrder).toHaveLength(3);
+    test('lookupOrder 共 4 個 key（page_stable + page_norm + hl_stable + hl_norm）', () => {
+      expect(contract.lookupOrder).toHaveLength(4);
+    });
+
+    test('lookupOrder 第三個 key = highlights_<stableUrl>（alias 舊格式 fallback）', () => {
+      const HL_STABLE = `${KEY_PREFIX.HIGHLIGHTS}${STABLE_URL}`;
+      expect(contract.lookupOrder[2]).toBe(HL_STABLE);
+    });
+
+    test('lookupOrder 第四個 key = highlights_<normalizedUrl>（最終舊格式 fallback）', () => {
+      expect(contract.lookupOrder[3]).toBe(HL_NORM);
     });
 
     test('mutationTargetKey = page_<stableUrl>', () => {
@@ -126,6 +135,11 @@ describe('resolveKeys()', () => {
 
     test('legacyCleanupKeys 包含 page_<normalizedUrl>（與 stable 已不同）', () => {
       expect(contract.legacyCleanupKeys).toContain(PAGE_NORM);
+    });
+
+    test('legacyCleanupKeys 包含 highlights_<stableUrl>（alias 舊格式）', () => {
+      const HL_STABLE = `${KEY_PREFIX.HIGHLIGHTS}${STABLE_URL}`;
+      expect(contract.legacyCleanupKeys).toContain(HL_STABLE);
     });
 
     test('legacyCleanupKeys 包含 highlights_<normalizedUrl>', () => {
@@ -390,9 +404,11 @@ describe('pickHighlightsFromStorage() contract matrix', () => {
 // ============================================================
 
 describe('legacyCleanupKeys（mutation 後清理情境）', () => {
-  test('有 alias 時：legacyCleanupKeys 包含 page_<normalizedUrl> 和 highlights_<normalizedUrl>', () => {
+  test('有 alias 時：legacyCleanupKeys 包含 page_<normalizedUrl>、highlights_<stableUrl> 和 highlights_<normalizedUrl>', () => {
+    const HL_STABLE = `${KEY_PREFIX.HIGHLIGHTS}${STABLE_URL}`;
     const contract = resolveKeys(NORM_URL, STABLE_URL);
     expect(contract.legacyCleanupKeys).toContain(PAGE_NORM);
+    expect(contract.legacyCleanupKeys).toContain(HL_STABLE);
     expect(contract.legacyCleanupKeys).toContain(HL_NORM);
     // 且不能包含 mutationTargetKey 本身
     expect(contract.legacyCleanupKeys).not.toContain(PAGE_STABLE);

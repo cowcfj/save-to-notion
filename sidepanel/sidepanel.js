@@ -23,6 +23,12 @@ import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securi
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import Logger from '../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
+import {
+  resolveKeys as resolveHighlightLookupKeys,
+  getAliasLookupKeys,
+  pickAliasCandidate,
+  pickHighlightsFromStorage,
+} from '../scripts/highlighter/core/HighlightLookupResolver.js';
 
 // === 共享狀態（保留於入口，UI 模組不直接存取） ===
 
@@ -466,60 +472,6 @@ async function getStableUrlForTab(tabId, url) {
 }
 
 /**
- * 從 storage 查詢結果解析標註資料和目標 key
- *
- * @param {object} result - chrome.storage.local.get 結果
- * @param {{pageKey, pageOrigKey, hlKey, hlOrigKey, aliasKeyOrig, aliasKeyNorm}} keys
- * @returns {Promise<{highlightsData, targetKey, notionData}>}
- */
-async function resolveHighlightData(result, keys) {
-  const { pageKey, pageOrigKey, hlKey, hlOrigKey, aliasKeyOrig, aliasKeyNorm } = keys;
-
-  if (result[pageKey]) {
-    return {
-      highlightsData: result[pageKey].highlights,
-      notionData: result[pageKey].notion,
-      targetKey: pageKey,
-    };
-  }
-  if (result[pageOrigKey]) {
-    return {
-      highlightsData: result[pageOrigKey].highlights,
-      notionData: result[pageOrigKey].notion,
-      targetKey: pageOrigKey,
-    };
-  }
-  if (result[hlKey]) {
-    return { highlightsData: result[hlKey], notionData: null, targetKey: hlKey };
-  }
-  if (result[hlOrigKey]) {
-    return { highlightsData: result[hlOrigKey], notionData: null, targetKey: hlOrigKey };
-  }
-
-  // 檢查 alias
-  const stableUrlFromAlias = result[aliasKeyOrig] || result[aliasKeyNorm];
-  if (!stableUrlFromAlias) {
-    return { highlightsData: null, notionData: null, targetKey: null };
-  }
-
-  const aliaPageKey = `${PAGE_PREFIX}${stableUrlFromAlias}`;
-  const aliasHlKey = `${HIGHLIGHTS_PREFIX}${stableUrlFromAlias}`;
-  const aliasResult = await chrome.storage.local.get([aliaPageKey, aliasHlKey]);
-
-  if (aliasResult[aliaPageKey]) {
-    return {
-      highlightsData: aliasResult[aliaPageKey].highlights,
-      notionData: aliasResult[aliaPageKey].notion,
-      targetKey: aliaPageKey,
-    };
-  }
-  if (aliasResult[aliasHlKey]) {
-    return { highlightsData: aliasResult[aliasHlKey], notionData: null, targetKey: aliasHlKey };
-  }
-  return { highlightsData: null, notionData: null, targetKey: null };
-}
-
-/**
  * 判斷頁面是否已儲存到 Notion
  *
  * @param {*} notionData - page_*.notion（或 null 疋於未升級）
@@ -550,6 +502,63 @@ async function checkSavedData(notionData, targetKey) {
 }
 
 /**
+ * 批量讀取 storage 並回傳 contract 與 storageData（内部 helper）
+ *
+ * @param {string} normalizedUrl
+ * @param {string} normalizedOriginal
+ * @returns {Promise<{contract: import('../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract, storageData: object}>}
+ * @private
+ */
+async function _resolveStorageForUrl(normalizedUrl, normalizedOriginal) {
+  // 批量讀取 alias + 所有可能 keys
+  const aliasKeys = getAliasLookupKeys(normalizedUrl, normalizedOriginal);
+  const preloadKeys = [
+    ...aliasKeys,
+    `${PAGE_PREFIX}${normalizedUrl}`,
+    `${PAGE_PREFIX}${normalizedOriginal}`,
+    `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    `${HIGHLIGHTS_PREFIX}${normalizedOriginal}`,
+  ];
+
+  const preloadResult = await chrome.storage.local.get([...new Set(preloadKeys)]);
+  // 同時為兩個 URL 選 alias
+  const aliasFromUrl = pickAliasCandidate(preloadResult, normalizedUrl);
+  const aliasFromOriginal = pickAliasCandidate(preloadResult, normalizedOriginal);
+
+  // 補取尚未預先讀取的 alias-resolved keys（page_* 和 highlights_*）
+  const extraKeys = [];
+  const addExtraIfMissing = key => {
+    if (!(key in preloadResult) && !extraKeys.includes(key)) {
+      extraKeys.push(key);
+    }
+  };
+
+  if (aliasFromUrl && aliasFromUrl !== normalizedUrl) {
+    addExtraIfMissing(`${PAGE_PREFIX}${aliasFromUrl}`);
+    addExtraIfMissing(`${HIGHLIGHTS_PREFIX}${aliasFromUrl}`);
+  }
+  if (aliasFromOriginal && aliasFromOriginal !== normalizedOriginal) {
+    addExtraIfMissing(`${PAGE_PREFIX}${aliasFromOriginal}`);
+    addExtraIfMissing(`${HIGHLIGHTS_PREFIX}${aliasFromOriginal}`);
+  }
+
+  let storageData = preloadResult;
+  if (extraKeys.length > 0) {
+    const extra = await chrome.storage.local.get(extraKeys);
+    storageData = { ...preloadResult, ...extra };
+  }
+
+  // 各自建立 contract，合併 lookupOrder（去重）
+  const contractA = resolveHighlightLookupKeys(normalizedUrl, aliasFromUrl);
+  const contractB = resolveHighlightLookupKeys(normalizedOriginal, aliasFromOriginal);
+
+  const mergedLookupOrder = [...new Set([...contractA.lookupOrder, ...contractB.lookupOrder])];
+  const mergedContract = { ...contractA, lookupOrder: mergedLookupOrder };
+
+  return { contract: mergedContract, storageData };
+}
+
+/**
  * 根據 URL 渲染標註列表
  * Phase 3：優先讀取 page_* 新格式，再回退 highlights_*。
  *
@@ -561,24 +570,31 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
   const normalizedUrl = normalizeUrl(url);
   const normalizedOriginal = normalizeUrl(originalTabUrl);
 
-  const keys = {
-    pageKey: `${PAGE_PREFIX}${normalizedUrl}`,
-    pageOrigKey: `${PAGE_PREFIX}${normalizedOriginal}`,
-    hlKey: `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
-    hlOrigKey: `${HIGHLIGHTS_PREFIX}${normalizedOriginal}`,
-    aliasKeyOrig: `${URL_ALIAS_PREFIX}${normalizedOriginal}`,
-    aliasKeyNorm: `${URL_ALIAS_PREFIX}${normalizedUrl}`,
-  };
+  const { contract, storageData } = await _resolveStorageForUrl(normalizedUrl, normalizedOriginal);
+  const { highlights: rawHighlights, resolvedKey } = pickHighlightsFromStorage(
+    contract,
+    storageData
+  );
 
-  const result = await chrome.storage.local.get(Object.values(keys));
-  const { highlightsData, notionData, targetKey } = await resolveHighlightData(result, keys);
+  // 提取 notionData：從命中的 page_* key 取出
+  let notionData = null;
+  let targetKey = resolvedKey;
+  if (resolvedKey?.startsWith(PAGE_PREFIX)) {
+    notionData = storageData[resolvedKey]?.notion ?? null;
+  } else if (!resolvedKey) {
+    // 所有 key 均未命中：嘗試用 originalTabUrl 路徑再查一次新格式
+    const fallbackPageKey = `${PAGE_PREFIX}${normalizedOriginal}`;
+    if (storageData[fallbackPageKey]) {
+      targetKey = fallbackPageKey;
+      notionData = storageData[fallbackPageKey]?.notion ?? null;
+    }
+  }
+
   if (!isCurrentViewRequestActive(requestId)) {
     return;
   }
 
-  const highlights = Array.isArray(highlightsData)
-    ? highlightsData
-    : highlightsData?.highlights || [];
+  const highlights = Array.isArray(rawHighlights) ? rawHighlights : rawHighlights?.highlights || [];
   if (highlights.length === 0) {
     if (isCurrentViewRequestActive(requestId)) {
       UI.showEmpty(els);

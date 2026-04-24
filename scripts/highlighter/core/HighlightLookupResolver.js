@@ -66,17 +66,20 @@ export function resolveKeys(normalizedUrl, aliasCandidate = null) {
   // 建立各 key
   const stablePageKey = `${KEY_PREFIX.PAGE}${stableUrl}`;
   const normalizedPageKey = `${KEY_PREFIX.PAGE}${normalizedUrl}`;
-  const legacyKey = `${KEY_PREFIX.HIGHLIGHTS}${normalizedUrl}`;
+  const legacyNormKey = `${KEY_PREFIX.HIGHLIGHTS}${normalizedUrl}`;
+  const legacyStableKey = `${KEY_PREFIX.HIGHLIGHTS}${stableUrl}`;
 
   // Lookup order（計劃 §8 最小查找順序）：
-  // 1. page_<stableUrl>     — alias 命中的 canonical key
-  // 2. page_<normalizedUrl> — 資料可能仍在 original permalink
-  // 3. highlights_<normalizedUrl> — 舊格式回退
+  // 1. page_<stableUrl>          — alias 命中的 canonical key（若 aliasUsed）
+  // 2. page_<normalizedUrl>      — 資料可能仍在 original permalink
+  // 3. highlights_<stableUrl>    — 舊格式 alias-resolved URL（若 aliasUsed）
+  // 4. highlights_<normalizedUrl> — 舊格式回退（正規化後的 URL）
   //
-  // 去重：若 stableUrl === normalizedUrl，page_<stableUrl> 與 page_<normalizedUrl> 相同，只放一次
+  // 去重：若 stableUrl === normalizedUrl，page_* / highlights_* 各只放一次
   const pageKeys = aliasUsed ? [stablePageKey, normalizedPageKey] : [normalizedPageKey];
 
-  const legacyKeys = [legacyKey];
+  // 舊格式：alias 命中時同時涵蓋兩個 URL 的 highlights_* key
+  const legacyKeys = aliasUsed ? [legacyStableKey, legacyNormKey] : [legacyNormKey];
 
   const lookupOrder = [...pageKeys, ...legacyKeys];
 
@@ -94,7 +97,7 @@ export function resolveKeys(normalizedUrl, aliasCandidate = null) {
     legacyCleanupKeys.push(normalizedPageKey);
   }
   // 舊格式 highlights_* 永遠在 cleanup 名單（若存在才清理）
-  legacyCleanupKeys.push(legacyKey);
+  legacyCleanupKeys.push(...legacyKeys);
 
   return Object.freeze({
     canonicalUrl: stableUrl,
