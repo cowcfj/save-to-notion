@@ -1,5 +1,28 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.58.0](https://github.com/cowcfj/save-to-notion/compare/v2.57.1...v2.58.0) (2026-04-24)
+
+
+### ✨ 新功能
+
+* Implement HighlightLookupResolver and migrate consumers ([#439](https://github.com/cowcfj/save-to-notion/issues/439)) ([2f1bf5f](https://github.com/cowcfj/save-to-notion/commit/2f1bf5fb7cd849e45a575bc4887085645f75a55a))
+
+
+### 🐛 Bug 修復
+
+* 修復高亮恢復的回歸問題 ([#438](https://github.com/cowcfj/save-to-notion/issues/438)) ([3e405d3](https://github.com/cowcfj/save-to-notion/commit/3e405d3973e645d6a783d432e32895c713d5768b))
+
+
+### ♻️ 代碼重構
+
+* remove obsolete OAuth callback and centralize error codes ([#435](https://github.com/cowcfj/save-to-notion/issues/435)) ([6fdb3a7](https://github.com/cowcfj/save-to-notion/commit/6fdb3a70b2a0e5261056375f8f6398d6fcabed22))
+* Restructure state management and configuration modules ([#437](https://github.com/cowcfj/save-to-notion/issues/437)) ([85e8397](https://github.com/cowcfj/save-to-notion/commit/85e839722aeb8b76b658c6a7146f3413f9a5978a))
+
+
+### 🧹 其他變更
+
+* 更新 .gitignore 以排除 build.js 文件 ([557a19d](https://github.com/cowcfj/save-to-notion/commit/557a19dcde967e1eb085d04f50cb335cb0ea1d8e))
+
 ## [2.57.1](https://github.com/cowcfj/save-to-notion/compare/v2.57.0...v2.57.1) (2026-04-22)
 
 
