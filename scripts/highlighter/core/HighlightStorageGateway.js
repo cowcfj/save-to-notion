@@ -24,6 +24,11 @@ import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
 import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import {
+  resolveKeys as resolveHighlightLookupKeys,
+  getAliasLookupKeys,
+  pickHighlightsFromStorage,
+} from './HighlightLookupResolver.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 export const STORAGE_GATEWAY_RETRY = Object.freeze({
@@ -295,7 +300,7 @@ const HighlightStorageGateway = {
     try {
       // Phase 3：同時查詢新舊格式
       // null = 找不到資料（需回退），[] = 明確空陣列（不回退）
-      const data = await this._loadBothFormats(pageUrl, normalizedUrl, legacyKey);
+      const data = await this._loadBothFormats(pageUrl, normalizedUrl);
       if (data !== null && data !== undefined) {
         return data;
       }
@@ -319,49 +324,28 @@ const HighlightStorageGateway = {
    *
    * @param {string} pageUrl - 原始頁面 URL
    * @param {string} normalizedUrl - 已標準化的 URL
-   * @param {string} legacyKey - highlights_* key
    * @returns {Promise<Array>}
    * @private
    */
-  async _loadBothFormats(pageUrl, normalizedUrl, legacyKey) {
+  async _loadBothFormats(pageUrl, normalizedUrl) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
 
     const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
-    const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
-    const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    // 同時查詢三個 key：
-    //   1. page_<stableUrl>    — alias 命中的 canonical key
-    //   2. page_<normalizedUrl> — 資料可能仍在 original permalink
-    //   3. highlights_<normalizedUrl> — 舊格式回退
-    // 一次 get 可減少 round-trip，且 stablePageKey 可能等於 normalizedPageKey（無 alias 時）
-    const keysToFetch =
-      stablePageKey === normalizedPageKey
-        ? [normalizedPageKey, legacyKey]
-        : [stablePageKey, normalizedPageKey, legacyKey];
-    const data = await chrome.storage.local.get(keysToFetch);
+    // 使用 resolver contract，統一 lookupOrder：
+    //   有 alias: page_<stable> → page_<norm> → highlights_<stable> → highlights_<norm>
+    //   無 alias: page_<norm> → highlights_<norm>
+    const aliasCandidate = stableUrl === normalizedUrl ? null : stableUrl;
+    const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
 
-    // 判定順序（依計劃 §7 Minimal Lookup Contract）：
-    //   1. page_<stableUrl>
-    //   2. page_<normalizedUrl>
-    //   3. highlights_<normalizedUrl>
-    if (data[stablePageKey]) {
-      return this._parseHighlightFormat(data[stablePageKey]);
-    }
+    // 一次 get 批量讀取所有 lookupOrder 中的 keys
+    const data = await chrome.storage.local.get(contract.lookupOrder);
 
-    if (data[normalizedPageKey]) {
-      return this._parseHighlightFormat(data[normalizedPageKey]);
-    }
-
-    // 回退 highlights_* 舊格式
-    if (data[legacyKey]) {
-      return this._parseHighlightFormat(data[legacyKey]);
-    }
-
-    // 三個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
-    return null;
+    // 依 contract 順序取出第一個有效 highlights
+    const { highlights } = pickHighlightsFromStorage(contract, data);
+    return highlights; // null 表示所有 key 均未命中
   },
 
   /**
@@ -592,27 +576,31 @@ const HighlightStorageGateway = {
       return normalizedUrl;
     }
 
-    const normalizedAliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
-    const rawAliasKey =
-      typeof pageUrl === 'string' && pageUrl !== normalizedUrl
-        ? `${URL_ALIAS_PREFIX}${pageUrl}`
-        : null;
-    const aliasKeys = rawAliasKey ? [normalizedAliasKey, rawAliasKey] : [normalizedAliasKey];
+    // 使用 resolver helper 計算 alias keys（統一 API）
+    const aliasKeys = getAliasLookupKeys(
+      normalizedUrl,
+      typeof pageUrl === 'string' ? pageUrl : null
+    );
     const aliasData = await chrome.storage.local.get(aliasKeys);
+
+    // 取優先 alias candidate（normalizedUrl 版本 > rawUrl 版本）
     const aliasCandidate =
-      aliasData?.[normalizedAliasKey] || (rawAliasKey ? aliasData?.[rawAliasKey] : null);
+      aliasData?.[`${URL_ALIAS_PREFIX}${normalizedUrl}`] ??
+      (aliasKeys[1] ? aliasData?.[aliasKeys[1]] : null) ??
+      null;
 
     if (!aliasCandidate) {
       return normalizedUrl;
     }
 
+    // 保留 Gateway 的嚴格驗證邏輯（比 isValidAliasCandidate 更嚴：要求已 normalized + 排除 rootUrl）
     if (isSafeStableAliasUrl(aliasCandidate)) {
       return aliasCandidate;
     }
 
     Logger.warn('[HighlightStorageGateway] Ignored invalid stable URL alias value', {
       action: '_resolveStableUrl',
-      aliasKey: sanitizeHighlightStorageKeyForLogging(normalizedAliasKey),
+      aliasKey: sanitizeHighlightStorageKeyForLogging(`${URL_ALIAS_PREFIX}${normalizedUrl}`),
       stableUrl: sanitizeUrlForLogging(aliasCandidate),
       fallbackUrl: sanitizeUrlForLogging(normalizedUrl),
     });
