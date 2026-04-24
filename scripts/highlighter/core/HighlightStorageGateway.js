@@ -18,7 +18,7 @@
 
 /* global chrome */
 
-import { isRootUrl, normalizeUrl } from '../../utils/urlUtils.js';
+import { isSafeStableUrl, normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
@@ -87,25 +87,7 @@ function sanitizeHighlightStorageKeyForLogging(key) {
 }
 
 function isSafeStableAliasUrl(candidate) {
-  if (typeof candidate !== 'string' || candidate.trim() === '') {
-    return false;
-  }
-
-  const normalizedCandidate = normalizeUrl(candidate);
-  if (normalizedCandidate !== candidate) {
-    return false;
-  }
-
-  try {
-    const parsedUrl = new URL(candidate);
-    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-
-  return !isRootUrl(candidate);
+  return isSafeStableUrl(candidate, { requireNormalized: true });
 }
 
 /**

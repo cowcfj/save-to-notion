@@ -254,6 +254,7 @@ describe('isValidAliasCandidate()', () => {
   test.each([
     ['https://example.com/?p=123', true],
     ['http://example.com/posts/1', true],
+    ['https://example.com/', false],
     ['not-a-url', false],
     ['', false],
     [null, false],

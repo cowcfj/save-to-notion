@@ -123,7 +123,7 @@ async function simulateGatewayLoadHighlights(fixture) {
   const aliasKeys = [ALIAS_NORM];
   const aliasData = await fakeChromeStorage.local.get(aliasKeys);
   const rawAlias = aliasData?.[ALIAS_NORM] ?? null;
-  // isSafeStableAliasUrl（簡化：只要是 http/https 且 !== NORM_URL 就通過）
+  // isSafeStableAliasUrl（簡化：只接受非 root 的 http(s) URL，且不可等於 NORM_URL）
   const stableUrl =
     rawAlias &&
     typeof rawAlias === 'string' &&
@@ -287,9 +287,8 @@ describe('Phase 3 Contract Matrix：跨模組讀取一致性', () => {
       expect(resolvedKey).toBe(PAGE_NORM);
     });
 
-    test('StorageService 模擬：isValidAliasCandidate 過濾後退化', async () => {
-      // StorageService 使用 isValidAliasCandidate（不拒絕 root URL，但 hl_stable 不等於 hl_norm）
-      // root URL 可通過 isValidAliasCandidate，但 page_<rootUrl> 不存在，仍 fallback 到 page_<norm>
+    test('StorageService 模擬：isValidAliasCandidate 拒絕 root URL 後退化', async () => {
+      // StorageService 使用 isValidAliasCandidate；root URL alias 會先被拒絕，直接退化到 page_<norm>
       const result = await simulateStorageServiceGetHighlights(fixture);
       expect(result).toEqual(H2);
     });

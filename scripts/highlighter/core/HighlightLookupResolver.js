@@ -21,6 +21,8 @@
  * 5. Mutation 後清理 contract.legacyCleanupKeys 中存在的 key
  */
 
+import { isSafeStableUrl } from '../../utils/urlUtils.js';
+
 /**
  * Storage key 前綴常數
  */
@@ -174,18 +176,11 @@ export function pickAliasCandidate(aliasData, normalizedUrl, rawUrl = null) {
  * @returns {boolean}
  */
 export function isValidAliasCandidate(candidate) {
-  if (!candidate || typeof candidate !== 'string') {
+  if (typeof candidate !== 'string' || candidate.length < 10) {
     return false;
   }
-  // 最低長度保護：http://a.b 至少 10 chars
-  if (candidate.length < 10) {
-    return false;
-  }
-  // 必須是 http(s) URL
-  if (!/^https?:\/\/./.test(candidate)) {
-    return false;
-  }
-  return true;
+
+  return isSafeStableUrl(candidate);
 }
 
 /**
