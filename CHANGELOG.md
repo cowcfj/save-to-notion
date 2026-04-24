@@ -1,5 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.58.1](https://github.com/cowcfj/save-to-notion/compare/v2.58.0...v2.58.1) (2026-04-24)
+
+
+### 🐛 Bug 修復
+
+* trigger release please ([b024f57](https://github.com/cowcfj/save-to-notion/commit/b024f572c9d4d3222e98904fc858e647fb701b75))
+* trigger release please ([c0bc82a](https://github.com/cowcfj/save-to-notion/commit/c0bc82ab5d32e98719fa88215b2c7328b183c181))
+
+
+### 🧹 其他變更
+
+* 移除觸發釋出檔案 ([fc092f4](https://github.com/cowcfj/save-to-notion/commit/fc092f49aa7722287e364b05fd7dc0dbccc0cd1b))
+
 ## [2.58.0](https://github.com/cowcfj/save-to-notion/compare/v2.57.1...v2.58.0) (2026-04-24)
 
 
