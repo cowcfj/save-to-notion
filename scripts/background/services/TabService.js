@@ -20,11 +20,36 @@ import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import {
+  KEY_PREFIX as HIGHLIGHT_KEY_PREFIX,
   resolveKeys as resolveHighlightLookupKeys,
   pickHighlightsFromStorage,
 } from '../../highlighter/core/HighlightLookupResolver.js';
 
 const DELETION_CONFIRMATION_WINDOW_MS = 5 * 60 * 1000;
+
+function sanitizeHighlightStorageKeyForLogging(key) {
+  if (typeof key !== 'string') {
+    return '[invalid-storage-key]';
+  }
+
+  if (key.startsWith(HIGHLIGHT_KEY_PREFIX.PAGE)) {
+    return `${HIGHLIGHT_KEY_PREFIX.PAGE}${sanitizeUrlForLogging(
+      key.slice(HIGHLIGHT_KEY_PREFIX.PAGE.length)
+    )}`;
+  }
+
+  if (key.startsWith(HIGHLIGHT_KEY_PREFIX.HIGHLIGHTS)) {
+    return `${HIGHLIGHT_KEY_PREFIX.HIGHLIGHTS}${sanitizeUrlForLogging(
+      key.slice(HIGHLIGHT_KEY_PREFIX.HIGHLIGHTS.length)
+    )}`;
+  }
+
+  if (key.startsWith(URL_ALIAS_PREFIX)) {
+    return `${URL_ALIAS_PREFIX}${sanitizeUrlForLogging(key.slice(URL_ALIAS_PREFIX.length))}`;
+  }
+
+  return '[non-highlight-storage-key]';
+}
 
 /**
  * TabService 類
@@ -634,8 +659,9 @@ class TabService {
 
     const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
     const keyUsed = resolvedKey ?? contract.lookupOrder[0];
+    const safeKeyUsed = sanitizeHighlightStorageKeyForLogging(keyUsed);
 
-    this.logger.debug(`[TabService] Checking highlights for ${keyUsed}:`, {
+    this.logger.debug(`[TabService] Checking highlights for ${safeKeyUsed}:`, {
       found: hasHighlights,
       count: hasHighlights ? highlights.length : 0,
     });

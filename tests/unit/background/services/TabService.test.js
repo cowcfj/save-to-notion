@@ -10,6 +10,7 @@ import {
   _migrationScript,
 } from '../../../../scripts/background/services/TabService.js';
 import { URL_ALIAS_PREFIX } from '../../../../scripts/config/shared/storage.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
 import { buildHighlight, buildPageRecord } from '../../../helpers/status-fixtures.js';
@@ -401,6 +402,28 @@ describe('TabService', () => {
       expect(service._getHighlightsFromStorage).toHaveBeenNthCalledWith(
         2,
         'https://example.com/original'
+      );
+    });
+
+    it('應以脫敏後的 highlight storage key 記錄除錯資訊', async () => {
+      const rawUrl = 'https://example.com/article?token=secret123&utm_source=ads#frag';
+      const rawStorageKey = `page_${rawUrl}`;
+      chrome.storage.local.get.mockResolvedValue({
+        [rawStorageKey]: { highlights: [{ id: 'highlight-1' }] },
+      });
+
+      await service._getHighlightsFromStorage(rawUrl);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `[TabService] Checking highlights for page_${sanitizeUrlForLogging(rawUrl)}:`,
+        {
+          found: true,
+          count: 1,
+        }
+      );
+      expect(mockLogger.debug).not.toHaveBeenCalledWith(
+        expect.stringContaining(rawStorageKey),
+        expect.anything()
       );
     });
 
