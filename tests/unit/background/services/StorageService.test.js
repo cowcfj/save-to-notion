@@ -482,6 +482,90 @@ describe('StorageService', () => {
     });
   });
 
+  describe('getHighlights', () => {
+    const NORM_URL = 'https://example.com/posts/hello';
+    const STABLE_URL = 'https://example.com/?p=123';
+    const PAGE_NORM = `${PAGE_PREFIX}${NORM_URL}`;
+    const PAGE_STABLE = `${PAGE_PREFIX}${STABLE_URL}`;
+    const HL_NORM = `${HIGHLIGHTS_PREFIX}${NORM_URL}`;
+    const ALIAS_NORM = `${URL_ALIAS_PREFIX}${NORM_URL}`;
+    const SAMPLE_HIGHLIGHTS = [{ id: 'h1', text: 'Hello', color: 'yellow' }];
+
+    function makeStorageMock(data) {
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(keyList.filter(k => k in data).map(k => [k, data[k]]))
+        );
+      });
+    }
+
+    it('無 alias：命中 page_<normalizedUrl>，回傳 highlights', async () => {
+      makeStorageMock({
+        [PAGE_NORM]: { highlights: SAMPLE_HIGHLIGHTS, notion: null },
+      });
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toEqual(SAMPLE_HIGHLIGHTS);
+    });
+
+    it('無 alias：page_* 不存在，fallback 到 highlights_<normalizedUrl>（純陣列）', async () => {
+      makeStorageMock({ [HL_NORM]: SAMPLE_HIGHLIGHTS });
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toEqual(SAMPLE_HIGHLIGHTS);
+    });
+
+    it('無 alias：所有 key 均不存在，回傳 null', async () => {
+      makeStorageMock({});
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toBeNull();
+    });
+
+    it('有 alias：alias 指向 STABLE_URL，優先命中 page_<stableUrl>', async () => {
+      makeStorageMock({
+        [ALIAS_NORM]: STABLE_URL,
+        [PAGE_STABLE]: { highlights: SAMPLE_HIGHLIGHTS, notion: { pageId: 'abc' } },
+        [PAGE_NORM]: { highlights: [{ id: 'stale' }], notion: null },
+      });
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toEqual(SAMPLE_HIGHLIGHTS);
+    });
+
+    it('有 alias：page_<stableUrl> miss，fallback 到 page_<normalizedUrl>', async () => {
+      const normHighlights = [{ id: 'hn', text: 'norm', color: 'green' }];
+      makeStorageMock({
+        [ALIAS_NORM]: STABLE_URL,
+        // PAGE_STABLE 不存在
+        [PAGE_NORM]: { highlights: normHighlights, notion: null },
+      });
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toEqual(normHighlights);
+    });
+
+    it('有 alias 但非法（非 http）：退回無 alias 路徑，命中 page_<normalizedUrl>', async () => {
+      makeStorageMock({
+        [ALIAS_NORM]: 'ftp://example.com/file', // 非法 alias
+        [PAGE_NORM]: { highlights: SAMPLE_HIGHLIGHTS, notion: null },
+      });
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toEqual(SAMPLE_HIGHLIGHTS);
+    });
+
+    it('page_* highlights 欄位損壞（非陣列）：fallback 到 highlights_*', async () => {
+      makeStorageMock({
+        [PAGE_NORM]: { highlights: 'corrupted', notion: null },
+        [HL_NORM]: SAMPLE_HIGHLIGHTS,
+      });
+      const result = await service.getHighlights(NORM_URL);
+      expect(result).toEqual(SAMPLE_HIGHLIGHTS);
+    });
+
+    it('storage 不可用時應拋出 STORAGE_ERROR', async () => {
+      // 直接覆寫 storage 為 null（Jest 環境有 chrome global，constructor 會 fallback）
+      service.storage = null;
+      await expect(service.getHighlights(NORM_URL)).rejects.toThrow(STORAGE_ERROR);
+    });
+  });
+
   describe('setSavedPageData', () => {
     it('應該正確設置頁面數據（Phase 3: page_*.notion partial update）', async () => {
       // 先設定無既有資料（新建路徑）

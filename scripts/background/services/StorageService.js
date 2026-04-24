@@ -29,6 +29,12 @@ import {
   HIGHLIGHTS_PREFIX,
 } from '../../config/shared/storage.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import {
+  resolveKeys as resolveHighlightLookupKeys,
+  getAliasLookupKeys,
+  pickAliasCandidate,
+  pickHighlightsFromStorage,
+} from '../../highlighter/core/HighlightLookupResolver.js';
 
 /**
  * URL 標準化相關常量（向後兼容：既有代碼可繼續導入這些常量）
@@ -427,7 +433,12 @@ class StorageService {
   /**
    * 獲取頁面標註數據
    *
-   * 查找優先順序：page_* 新格式 → highlights_* 舊格式
+   * 查找優先順序（符合 HighlightLookupResolver contract）：
+   *   1. page_<stableUrl>     — alias 命中的 canonical key
+   *   2. page_<normalizedUrl> — 資料可能仍在 original permalink
+   *   3. highlights_<normalizedUrl> — 舊格式回退
+   *
+   * alias 輔助解析：一次批量讀取 alias + page_* + highlights_*，減少 round-trip。
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<any | null>} highlights 陣列或 null
@@ -440,23 +451,38 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
 
     try {
-      const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-      const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+      // 步驟 1：批量讀取所有需要的 keys（包含 alias + 所有可能的 page_* 和 highlights_*）
+      // 計算 alias lookup keys
+      const aliasKeys = getAliasLookupKeys(normalizedUrl);
+      // 等待 alias query 後建立 contract，所以先讀取 alias data
+      const preloadKeys = [
+        ...aliasKeys,
+        `${PAGE_PREFIX}${normalizedUrl}`,
+        `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+      ];
 
-      // 批量讀取：同時查詢新舊格式
-      const result = await this.storage.local.get([pageKey, hlKey]);
+      const preloadResult = await this.storage.local.get(preloadKeys);
 
-      if (result[pageKey]) {
-        // 新格式：返回 highlights 陣列
-        return result[pageKey].highlights || [];
+      // 步驟 2：從讀取結果選出 alias candidate
+      const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl);
+
+      // 步驟 3：產生 lookup contract
+      const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+
+      // 步驟 4：若 alias 已用且 stableUrl 的 page_* 尚未讀取，補暴擀
+      // （無 alias 時 stableUrl === normalizedUrl， page_* 已在 preloadKeys 中）
+      let storageData = preloadResult;
+      if (aliasCandidate && aliasCandidate !== normalizedUrl) {
+        const stablePageKey = `${PAGE_PREFIX}${aliasCandidate}`;
+        if (!(stablePageKey in preloadResult)) {
+          const extra = await this.storage.local.get([stablePageKey]);
+          storageData = { ...preloadResult, ...extra };
+        }
       }
 
-      if (result[hlKey]) {
-        // 舊格式：返回資料（觸發讀時升級由 getSavedPageData 路徑處理）
-        return result[hlKey];
-      }
-
-      return null;
+      // 步驟 5：依 contract 順序取出第一個有效 highlights
+      const { highlights } = pickHighlightsFromStorage(contract, storageData);
+      return highlights; // null 表示找不到
     } catch (error) {
       this.logger.error?.('[StorageService] getHighlights failed', { error });
       throw error;
