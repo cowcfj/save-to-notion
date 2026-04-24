@@ -559,6 +559,20 @@ describe('StorageService', () => {
       expect(result).toEqual(SAMPLE_HIGHLIGHTS);
     });
 
+    it('有 alias：page_* miss，fallback 到 highlights_<stableUrl>（alias 舊格式）', async () => {
+      const HL_STABLE = `${HIGHLIGHTS_PREFIX}${STABLE_URL}`;
+      const stableHlHighlights = [{ id: 'hs', text: 'stable legacy', color: 'blue' }];
+      makeStorageMock({
+        [ALIAS_NORM]: STABLE_URL,
+        // PAGE_STABLE 和 PAGE_NORM 均不存在
+        [HL_STABLE]: stableHlHighlights, // alias-resolved 舊格式 key
+        [HL_NORM]: [{ id: 'hn', text: 'norm legacy', color: 'red' }],
+      });
+      const result = await service.getHighlights(NORM_URL);
+      // 應優先命中 highlights_<stableUrl>，而非 highlights_<normalizedUrl>
+      expect(result).toEqual(stableHlHighlights);
+    });
+
     it('storage 不可用時應拋出 STORAGE_ERROR', async () => {
       // 直接覆寫 storage 為 null（Jest 環境有 chrome global，constructor 會 fallback）
       service.storage = null;

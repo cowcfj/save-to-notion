@@ -434,9 +434,10 @@ class StorageService {
    * 獲取頁面標註數據
    *
    * 查找優先順序（符合 HighlightLookupResolver contract）：
-   *   1. page_<stableUrl>     — alias 命中的 canonical key
-   *   2. page_<normalizedUrl> — 資料可能仍在 original permalink
-   *   3. highlights_<normalizedUrl> — 舊格式回退
+   *   1. page_<stableUrl>          — alias 命中的 canonical key
+   *   2. page_<normalizedUrl>      — 資料可能仍在 original permalink
+   *   3. highlights_<stableUrl>    — alias-resolved 舊格式回退（alias 命中時）
+   *   4. highlights_<normalizedUrl> — 舊格式最終回退
    *
    * alias 輔助解析：一次批量讀取 alias + page_* + highlights_*，減少 round-trip。
    *
@@ -469,13 +470,21 @@ class StorageService {
       // 步驟 3：產生 lookup contract
       const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
 
-      // 步驟 4：若 alias 已用且 stableUrl 的 page_* 尚未讀取，補暴擀
-      // （無 alias 時 stableUrl === normalizedUrl， page_* 已在 preloadKeys 中）
+      // 步驟 4：若 alias 已用，補取 stableUrl 的 page_* 和 highlights_*
+      // （無 alias 時 stableUrl === normalizedUrl，兩者都已在 preloadKeys 中）
       let storageData = preloadResult;
       if (aliasCandidate && aliasCandidate !== normalizedUrl) {
+        const extraKeys = [];
         const stablePageKey = `${PAGE_PREFIX}${aliasCandidate}`;
+        const stableHlKey = `${HIGHLIGHTS_PREFIX}${aliasCandidate}`;
         if (!(stablePageKey in preloadResult)) {
-          const extra = await this.storage.local.get([stablePageKey]);
+          extraKeys.push(stablePageKey);
+        }
+        if (!(stableHlKey in preloadResult)) {
+          extraKeys.push(stableHlKey);
+        }
+        if (extraKeys.length > 0) {
+          const extra = await this.storage.local.get(extraKeys);
           storageData = { ...preloadResult, ...extra };
         }
       }
