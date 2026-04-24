@@ -322,12 +322,11 @@ class TabService {
       return fallbackHighlights;
     }
 
-    const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
-    chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
-    this.logger.debug('[TabService] Created url_alias for fallback URL', {
-      from: sanitizeUrlForLogging(originalUrl),
-      to: sanitizeUrlForLogging(normUrl),
-    });
+    // ⚠️ 已移除自動補寫 url_alias 的副作用（Phase 2 regression fix）。
+    // 背景：若在 stableUrl miss、originalUrl hit 時立即補寫 alias，
+    // 後續 HighlightStorageGateway.loadHighlights() 會信任此 alias 優先查 page_<stableUrl>，
+    // 但資料仍在 page_<originalUrl>，造成 restore miss（regression 根因）。
+    // 若確實需要建立 alias，應由明確的 canonicalization/migration 流程負責。
 
     return fallbackHighlights;
   }

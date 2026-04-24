@@ -329,12 +329,30 @@ const HighlightStorageGateway = {
     }
 
     const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
-    const pageKey = `${PAGE_PREFIX}${stableUrl}`;
-    const data = await chrome.storage.local.get([pageKey, legacyKey]);
+    const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+    const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    // 優先返回 page_* 格式
-    if (data[pageKey]) {
-      return this._parseHighlightFormat(data[pageKey]);
+    // 同時查詢三個 key：
+    //   1. page_<stableUrl>    — alias 命中的 canonical key
+    //   2. page_<normalizedUrl> — 資料可能仍在 original permalink
+    //   3. highlights_<normalizedUrl> — 舊格式回退
+    // 一次 get 可減少 round-trip，且 stablePageKey 可能等於 normalizedPageKey（無 alias 時）
+    const keysToFetch =
+      stablePageKey === normalizedPageKey
+        ? [normalizedPageKey, legacyKey]
+        : [stablePageKey, normalizedPageKey, legacyKey];
+    const data = await chrome.storage.local.get(keysToFetch);
+
+    // 判定順序（依計劃 §7 Minimal Lookup Contract）：
+    //   1. page_<stableUrl>
+    //   2. page_<normalizedUrl>
+    //   3. highlights_<normalizedUrl>
+    if (data[stablePageKey]) {
+      return this._parseHighlightFormat(data[stablePageKey]);
+    }
+
+    if (data[normalizedPageKey]) {
+      return this._parseHighlightFormat(data[normalizedPageKey]);
     }
 
     // 回退 highlights_* 舊格式
@@ -342,7 +360,7 @@ const HighlightStorageGateway = {
       return this._parseHighlightFormat(data[legacyKey]);
     }
 
-    // 兩個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
+    // 三個 key 都找不到：回傳 null 表示「未找到」，與「明確空陣列」區分
     return null;
   },
 

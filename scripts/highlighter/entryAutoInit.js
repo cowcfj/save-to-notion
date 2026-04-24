@@ -232,17 +232,18 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         })(),
       ]);
 
-      // 設置穩定 URL（優先使用 pageStatus，若 waitForStableUrl 已快速完成則回退使用）
-      const resolvedStableUrl = pageStatus?.stableUrl || stableUrlState.value;
+      // 設置穩定 URL 優先權（Phase 3 regression fix）：
+      // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
+      // 代表最新且最權威的 canonical source。
+      // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
+      // 因此：已收到 SET_STABLE_URL 時，優先使用它；否則才回退到 pageStatus.stableUrl。
+      const resolvedStableUrl = stableUrlState.value || pageStatus?.stableUrl || null;
       if (resolvedStableUrl) {
         globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
         Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
           action: 'initializeExtension',
           stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-          source:
-            pageStatus?.stableUrl || !stableUrlState.resolved || !stableUrlState.value
-              ? 'checkPageStatus'
-              : 'SET_STABLE_URL',
+          source: stableUrlState.value ? 'SET_STABLE_URL' : 'checkPageStatus',
         });
       }
 
