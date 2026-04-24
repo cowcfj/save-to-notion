@@ -16,7 +16,7 @@
 
 /* global chrome */
 
-import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../config/extension/driveSyncErrorCodes.js';
 import {
   uploadDriveSnapshot,

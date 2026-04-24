@@ -1,36 +1,91 @@
-# Config 目錄 (常數與設定)
+# Config 目錄
 
-本目錄包含整個專案的共用常數、文字與設定檔。這些設定有些會被打包注入到網頁中（Content Script / Highlighter），有些則直接在擴充功能的環境中執行（Background / Popup / Options / Side Panel）。
+本目錄集中管理跨環境共享的常量與設定。目標是維持清楚的 runtime boundary，同時避免 `shared/` 再往下長出深層樹狀結構。
 
-為減少最終發布版本的體積，只在「網頁注入」環境中使用的設定會在打包腳本中被排除，因為它們已經被 Rollup 打包進 `content.bundle.js` 中。
+## 模組架構
 
-## 模組分類與用途
+### 入口層
 
-### 1. 系統核心與基礎配置
+| 入口                 | 用途                                              | 可用環境                     |
+| -------------------- | ------------------------------------------------- | ---------------------------- |
+| `index.js`           | Content-safe 聚合入口，不含 extension-only config | 所有環境                     |
+| `shared/index.js`    | Shared config 聚合入口                            | 所有環境                     |
+| `env/index.js`       | 環境偵測與 `BUILD_ENV`                            | 所有環境                     |
+| `extension/index.js` | Extension-only config 聚合入口                    | Background / Options / Popup |
 
-- `app.js`: 系統核心配置 (限制協議、處理器閾值、Tab 服務等)
-- `env.js`: 環境配置 (運行環境檢測與變數抽象)
-- `storageKeys.js`: 存儲鍵值配置 (Chrome Storage Keys 與前綴)
-- `extension/`: extension-only shared config，不進 Content Script bundle
-  - `notionApi.js`: Notion Data API transport 與 retry 配置
-  - `notionAuth.js`: Notion OAuth endpoint paths
-  - `accountApi.js`: account 與 Google Drive Sync endpoint paths
-  - `driveSyncErrorCodes.js`: Drive Sync 已知核心錯誤碼
-  - `authMode.js`: AuthMode enum
+### `contentSafe/` — Content bundle 專用子集
 
-### 2. 跨模組聚合
+`contentSafe/` 用來存放只應進入 Content Script / Highlighter bundle 的最小常量子集。
+這些檔案**不應**回指到大型 shared aggregate，否則會把 extension-only 的 icons/messages 一起打進 content bundle。
 
-- `index.js`: 提供 Content-safe shared config 的聚合檔（不含 `extension/`）。
-  > **注意：extension pages 與 Background 若需要 API / auth / Drive Sync 相關常量，必須直接從 `scripts/config/extension/*.js` 引入。**
+- `toolbarSelectors.js`: `TOOLBAR_SELECTORS`
+- `toolbarIcons.js`: `TOOLBAR_ICONS`
+- `toolbarMessages.js`: `TOOLBAR_MESSAGES`
 
-### 3. UI 與內容提取配置
+### `runtimeActions/` — Content-safe runtime action subsets
 
-- `extraction.js`: 內容提取配置 (解析選擇器、Next.js 配置、圖片驗證規則等)
-- `notionCodeLanguages.js`: Notion Code block 語言白名單、fallback 與語言提示相關共享常數
-- `ui.js`: UI 層配置 (擴充功能介面專用的選擇器、狀態常量等)
-- `highlightConstants.js`: 螢光筆標記常量 (Highlight 相關特有類名與屬性，供 Highlighter 與 Content 使用)
-- `icons.js`: SVG 圖標與 Emoji 映射配置 (供 Extension UI 與頁面注入腳本使用)
-- `messages.js`: 所有的 UI 顯示文字、錯誤映射與日誌級別
+`runtimeActions/` 用來存放針對特定 consumer 的小型 action registry，目標是避免 Content Script、Highlighter 與 Preloader 載入完整 aggregate registry。
 
-> **🚨 開發預警**
-> 修改這些共用檔案時，請注意不可引入需要特定 Web API（如 `window`、`document`）或特定 Chrome API（如 `chrome.tabs.*`）的操作，以確保它在跨環境中都是安全的常數定義。
+- `preloaderActions.js`: `PRELOADER_ACTIONS`
+- `contentBridgeActions.js`: `CONTENT_BRIDGE_ACTIONS`
+- `highlighterActions.js`: `HIGHLIGHTER_ACTIONS`
+- `pageSaveActions.js`: `PAGE_SAVE_ACTIONS`
+- `errorMessages.js`: `RUNTIME_ERROR_MESSAGES`
+
+### `shared/` — Shared config 的唯一目錄
+
+`shared/` 直層檔案是 shared config 的**最深合法層級**。預設 **MUST NOT** 在 `shared/` 下再新增第二層子目錄。
+
+- `core.js`: `RESTRICTED_PROTOCOLS`、`HANDLER_CONSTANTS`、`TAB_SERVICE`、`SECURITY_CONSTANTS`
+- `storage.js`: `SYNC_CONFIG_KEYS`、storage prefixes、`AUTH_LOCAL_KEYS`、`DATA_SOURCE_KEYS`、`mergeDataSourceConfig()`
+- `ui.js`: `UI_ICONS`、`TOOLBAR_SELECTORS`、`UI_STATUS_TYPES`、`COMMON_CSS_CLASSES`、`LOG_ICONS`
+- `messages.js`: `UI_MESSAGES`、`ERROR_MESSAGES`、`SECURITY_ERROR_MESSAGES`、`API_ERROR_PATTERNS`、`LOG_LEVELS`、`ERROR_TYPES`、`HIGHLIGHT_ERROR_CODES`
+- `runtimeActions.js`: `RUNTIME_ACTIONS` 與相鄰 JSDoc typedef；`RUNTIME_ERROR_MESSAGES` 由 `runtimeActions/errorMessages.js` 提供並在此 re-export
+- `content.js`: extraction constants，包括 Next.js、selectors、cleaning、images、quality、normalization、text
+- `highlightConstants.js`: `HIGHLIGHT_COLOR_WHITELIST`、`HIGHLIGHT_MATCH_SCORING`
+- `notionCodeLanguages.js`: Notion Code block 語言白名單與 fallback 常量
+- `saveStatus.js`: 保存狀態契約 helper
+
+### `env/` — 環境配置
+
+`env/` 保留子目錄，因為它處理不同的 environment boundary。
+
+- `runtime.js`: `ENV` 與環境偵測函式
+- `build.js`: generated `BUILD_ENV`（不追蹤）
+- `build.example.js`: build-time env 範本
+
+### `extension/` — Extension-only config
+
+`extension/` 保留子目錄，因為它明確隔離 Content Script 不可引用的常量。
+
+- `notionApi.js`: Notion Data API transport 與 retry 配置
+- `notionAuth.js`: Notion OAuth endpoint paths
+- `accountApi.js`: account 與 Google Drive Sync endpoint paths
+- `driveSyncErrorCodes.js`: Drive Sync 已知核心錯誤碼
+- `authMode.js`: `AuthMode`
+
+### 根目錄 leaf entry
+
+以下根目錄檔案保留作為穩定 leaf entry，但其 canonical source 已在 `shared/*.js`：
+
+- `icons.js`
+- `saveStatus.js`
+- `highlightConstants.js`
+- `notionCodeLanguages.js`
+
+## 導入規則
+
+- Shared config 預設從 `scripts/config/shared/*.js` 導入。
+- Content Script / Highlighter 若只需要極小子集，**SHOULD** 優先從 `scripts/config/contentSafe/*.js` 導入。
+- 一般 consumer 若需要 content-safe aggregate，可從 `scripts/config/index.js` 導入。
+- `extension/` 常量 **MUST NOT** 經由 `index.js` 或 `shared/index.js` re-export。
+- `env/` 與 `extension/` 的子檔案可直接導入；`shared/` 則不應再有 `shared/foo/bar.js` 這種深路徑。
+
+## 結構原則
+
+- `scripts/config/shared/*.js` 是 shared config 的預設與最深合法層級。
+- 只有在單一直層 domain file 已被證明不可維護時，才可例外提案新增 `shared/` 第二層子目錄。
+- **MUST NOT** 為了拆分而拆分出 3 到 10 行的小檔。
+- **MUST NOT** 新增只做轉手的 barrel `index.js`。
+- `contentSafe/` 的目標是維護 bundle boundary，**MUST NOT** 透過 re-export 或 aggregate import 把 `shared/ui.js`、`shared/messages.js` 重新帶回 content bundle。
+- `scripts/config/` 仍是 Content Script 與 Background 之間的中立橋樑，shared module **MUST NOT** 在模組頂層依賴 `window`、`document` 或 `chrome.tabs.*`。

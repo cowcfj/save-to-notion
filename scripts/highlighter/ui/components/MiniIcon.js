@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../config/ui.js';
+import { TOOLBAR_SELECTORS } from '../../../config/contentSafe/toolbarSelectors.js';
 
 /**
  * 創建最小化圖標

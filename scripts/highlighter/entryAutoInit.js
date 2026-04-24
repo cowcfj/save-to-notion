@@ -15,7 +15,9 @@
  */
 
 import { setupHighlighter } from './index.js';
-import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
+import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
+import { PAGE_SAVE_ACTIONS } from '../config/runtimeActions/pageSaveActions.js';
 import { VALID_STYLES } from './utils/color.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
@@ -31,7 +33,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   const registerPersistentListeners = () => {
     if (!persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.addListener) {
       persistentMessageHandler = (request, _sender, sendResponse) => {
-        if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL && request.stableUrl) {
+        if (request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL && request.stableUrl) {
           globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
 
           const manager = globalThis.HighlighterV2?.manager;
@@ -70,7 +72,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
           return true;
         }
 
-        if (request.action === RUNTIME_ACTIONS.SHOW_TOOLBAR) {
+        if (request.action === HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR) {
           if (globalThis.notionHighlighter?.createAndShowToolbar) {
             try {
               globalThis.notionHighlighter.createAndShowToolbar();
@@ -85,7 +87,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
           return true;
         }
 
-        if (request.action === RUNTIME_ACTIONS.GET_STABLE_URL) {
+        if (request.action === CONTENT_BRIDGE_ACTIONS.GET_STABLE_URL) {
           sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
           return true;
         }
@@ -140,7 +142,11 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
       // 監聽 SET_STABLE_URL 訊息
       const handler = request => {
-        if (request.action === RUNTIME_ACTIONS.SET_STABLE_URL && request.stableUrl && !resolved) {
+        if (
+          request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL &&
+          request.stableUrl &&
+          !resolved
+        ) {
           resolved = true;
           globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
           resolve(request.stableUrl);
@@ -199,7 +205,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
           }
           try {
             return await globalThis.chrome.runtime.sendMessage({
-              action: RUNTIME_ACTIONS.CHECK_PAGE_STATUS,
+              action: PAGE_SAVE_ACTIONS.CHECK_PAGE_STATUS,
             });
           } catch (error) {
             Logger.warn('[Highlighter] checkPageStatus 失敗', {

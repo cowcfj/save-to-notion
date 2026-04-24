@@ -25,7 +25,7 @@ import {
   createSafeIcon,
 } from '../../../scripts/utils/securityUtils.js';
 import { maskSensitiveString } from '../../../scripts/utils/LogSanitizer.js';
-import { SECURITY_CONSTANTS } from '../../../scripts/config/app.js';
+import { SECURITY_CONSTANTS } from '../../../scripts/config/shared/core.js';
 
 describe('securityUtils', () => {
   describe('isValidUrl', () => {

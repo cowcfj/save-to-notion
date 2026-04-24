@@ -45,38 +45,68 @@ describe('saveStatus 邊界情境', () => {
         canSave: false,
         canSyncHighlights: false,
         isSaved: false,
-        statusKind: 'unknown_kind',
-        success: true,
+        statusKind: 'error',
+        success: false,
         stableUrl: 'https://example.com',
+        error: 'unknown_status_kind',
       })
     );
   });
 
-  test('createSaveStatusResponse 不應允許 extra 覆寫 canonical 欄位', () => {
-    const response = createSaveStatusResponse({
+  test('createSaveStatusResponse 遇到未知 statusKind 時應以 msg, ctx 形式呼叫 Logger.warn', () => {
+    const warn = jest.fn();
+    globalThis.Logger = { warn };
+
+    createSaveStatusResponse({
       statusKind: 'unknown_kind',
       stableUrl: 'https://example.com',
+    });
+
+    expect(warn).toHaveBeenCalledWith('unknown status kind', {
+      operation: 'createSaveStatusResponse',
+      reason: 'unknown_status_kind',
+      statusKind: 'unknown_kind',
+    });
+
+    delete globalThis.Logger;
+  });
+
+  test('createSaveStatusResponse 不應允許 extra 覆寫 canonical 欄位與 savedData 欄位', () => {
+    const response = createSaveStatusResponse({
+      statusKind: 'saved',
+      stableUrl: 'https://example.com',
+      savedData: {
+        notionPageId: 'saved-page-id',
+        notionUrl: 'https://www.notion.so/saved-page-id',
+        title: 'saved-title',
+      },
       extra: {
-        statusKind: 'saved',
+        statusKind: 'unsaved',
         stableUrl: 'https://override.example.com',
-        canSave: true,
-        canSyncHighlights: true,
-        isSaved: true,
+        canSave: false,
+        canSyncHighlights: false,
+        isSaved: false,
         wasDeleted: true,
         deletionPending: true,
+        notionPageId: 'extra-page-id',
+        notionUrl: 'https://www.notion.so/extra-page-id',
+        title: 'extra-title',
         customFlag: 'preserved',
       },
     });
 
     expect(response).toEqual(
       expect.objectContaining({
-        statusKind: 'unknown_kind',
+        statusKind: 'saved',
         stableUrl: 'https://example.com',
         canSave: false,
-        canSyncHighlights: false,
-        isSaved: false,
+        canSyncHighlights: true,
+        isSaved: true,
         wasDeleted: false,
         deletionPending: false,
+        notionPageId: 'saved-page-id',
+        notionUrl: 'https://www.notion.so/saved-page-id',
+        title: 'saved-title',
         customFlag: 'preserved',
       })
     );

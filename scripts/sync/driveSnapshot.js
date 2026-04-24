@@ -29,7 +29,7 @@ import {
   HIGHLIGHTS_PREFIX,
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../config/storageKeys.js';
+} from '../config/shared/storage.js';
 
 // =============================================================================
 // 白名單前綴（與 storageDataUtils.js 的 BACKUP_ALLOWED_PREFIXES 一致）

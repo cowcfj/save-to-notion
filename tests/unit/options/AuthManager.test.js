@@ -3,14 +3,14 @@
 import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { UI_MESSAGES } from '../../../scripts/config/messages.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
-import { BUILD_ENV } from '../../../scripts/config/env.js';
-import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 
 // Mock dependencies
-jest.mock('../../../scripts/config/env.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env.js'),
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env/index.js'),
   BUILD_ENV: {
     ENABLE_OAUTH: true,
     OAUTH_SERVER_URL: 'https://test-server.example.com',
@@ -823,25 +823,30 @@ describe('AuthManager Extended', () => {
     });
 
     test('缺少 OAUTH_CLIENT_ID 時應記錄錯誤、清理 state 並恢復按鈕', async () => {
+      const originalOAuthClientId = BUILD_ENV.OAUTH_CLIENT_ID;
       BUILD_ENV.OAUTH_CLIENT_ID = '   ';
 
-      await authManager.startOAuthFlow();
+      try {
+        await authManager.startOAuthFlow();
 
-      expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
-        action: 'startOAuthFlow',
-        missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
-      });
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        UI_MESSAGES.AUTH.MISSING_ENV_CONFIG,
-        'error'
-      );
-      expect(chrome.storage.session.set).not.toHaveBeenCalled();
-      expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
-      expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
-      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
-      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
-      );
+        expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
+          action: 'startOAuthFlow',
+          missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
+        });
+        expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+          UI_MESSAGES.AUTH.MISSING_ENV_CONFIG,
+          'error'
+        );
+        expect(chrome.storage.session.set).not.toHaveBeenCalled();
+        expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
+        expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
+        expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
+        expect(document.querySelector('#oauth-connect-button').textContent).toBe(
+          UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
+        );
+      } finally {
+        BUILD_ENV.OAUTH_CLIENT_ID = originalOAuthClientId;
+      }
     });
   });
 

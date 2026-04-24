@@ -18,9 +18,9 @@
 
 /* global chrome */
 
-import { BUILD_ENV } from '../config/env.js';
+import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
-import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { setAccountSession, setAccountProfile, clearAccountSession } from './accountSession.js';
 import { showError, showLoading, showSuccess } from './callbackStatusView.js';
 

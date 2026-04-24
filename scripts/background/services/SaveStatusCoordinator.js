@@ -1,4 +1,4 @@
-import { HANDLER_CONSTANTS } from '../../config/app.js';
+import { HANDLER_CONSTANTS } from '../../config/shared/core.js';
 import { SAVE_STATUS_KINDS, createSaveStatusResponse } from '../../config/saveStatus.js';
 
 function defaultLogger() {

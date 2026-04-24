@@ -2,43 +2,22 @@
  * 統一配置模組導出入口
  * 集中管理所有配置的導入導出
  *
- * 使用範例：
- * ```javascript
- * // 導入所有配置
- * import * as Config from './config/index.js';
- *
- * // 或導入特定配置
- * import { IMAGE_VALIDATION_CONSTANTS, FEATURED_IMAGE_SELECTORS } from './config/index.js';
- * ```
- *
  * 注意：`./extension/` 目錄下的 extension-only config
  * 不在此處 re-export，消費者應直接從對應模組引入，
  * 以確保 Content Script bundle 不會誤帶入 extension pages / Background 專用常量。
  */
 
-// 系統級別配置（限制協議、Handler、Tab 服務、安全常數）
-export * from './app.js';
-
 // Highlight 專用常量
 export * from './highlightConstants.js';
-
-// Storage Keys 與前綴
-export * from './storageKeys.js';
-
-// 提取配置 (DOM 選擇器、Next.js 配置、圖片驗證、內容質量)
-export * from './extraction.js';
 
 // Notion Code 語言白名單與 fallback 常數
 export * from './notionCodeLanguages.js';
 
-// UI 選擇器與 UI 狀態常量
-export * from './ui.js';
-
-// 訊息、錯誤類型與日誌級別
-export * from './messages.js';
+// Content-safe shared configs (core, storage, ui, messaging, content)
+export * from './shared/index.js';
 
 // 環境檢測配置
-export * from './env.js';
+export * from './env/index.js';
 
-// UI 圖標配置
-export * from './icons.js';
+// Extension-only configs (不 re-export，保持分隔)
+// 消費者應直接從 config/extension/index.js 引入

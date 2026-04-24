@@ -20,7 +20,7 @@ import { MarkdownExtractor } from './MarkdownExtractor.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 import { waitForDOMStability } from '../../highlighter/utils/domStability.js';
-import { DOM_STABILITY } from '../../config/extraction.js';
+import { DOM_STABILITY } from '../../config/shared/content.js';
 
 const buildNextJsResult = (doc, nextResult) => {
   const baseMetadata = MetadataExtractor.extract(doc, null);

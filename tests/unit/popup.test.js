@@ -23,7 +23,7 @@ import {
   startHighlight,
   getActiveTab,
 } from '../../popup/popupActions.js';
-import { ERROR_MESSAGES } from '../../scripts/config/messages.js';
+import { ERROR_MESSAGES } from '../../scripts/config/shared/messages.js';
 
 describe('popupUI', () => {
   // DOM 元素 Mock

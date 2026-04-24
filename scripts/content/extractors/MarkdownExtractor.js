@@ -10,7 +10,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { TECHNICAL_CONTENT_SELECTORS } from '../../config/extraction.js';
+import { TECHNICAL_CONTENT_SELECTORS } from '../../config/shared/content.js';
 
 export const MarkdownExtractor = {
   /**

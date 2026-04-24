@@ -20,9 +20,9 @@
 
 import { isRootUrl, normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
-import { ERROR_MESSAGES } from '../../config/messages.js';
-import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
-import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/storageKeys.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
@@ -166,7 +166,7 @@ const HighlightStorageGateway = {
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: RUNTIME_ACTIONS.UPDATE_HIGHLIGHTS,
+        action: HIGHLIGHTER_ACTIONS.UPDATE_HIGHLIGHTS,
         url: pageUrl,
         highlights,
       });
@@ -459,7 +459,7 @@ const HighlightStorageGateway = {
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+        action: HIGHLIGHTER_ACTIONS.CLEAR_HIGHLIGHTS,
         url: pageUrl,
       });
       if (response?.success === true) {

@@ -15,8 +15,8 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     error: jest.fn(),
   },
 }));
-jest.mock('../../../scripts/config/env.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env.js'),
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  ...jest.requireActual('../../../scripts/config/env/index.js'),
   BUILD_ENV: {
     ENABLE_OAUTH: true,
     OAUTH_SERVER_URL: 'https://test-server.example.com',
@@ -26,7 +26,7 @@ jest.mock('../../../scripts/config/env.js', () => ({
 }));
 
 import Logger from '../../../scripts/utils/Logger.js';
-import { BUILD_ENV } from '../../../scripts/config/env.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,

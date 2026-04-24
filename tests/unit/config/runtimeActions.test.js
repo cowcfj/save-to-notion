@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } from '../../../scripts/config/runtimeActions.js';
+import {
+  RUNTIME_ACTIONS,
+  RUNTIME_ERROR_MESSAGES,
+} from '../../../scripts/config/shared/runtimeActions.js';
 
 describe('runtimeActions', () => {
   test('應集中收錄目前 extension 使用的 runtime action', () => {
@@ -64,6 +67,24 @@ describe('runtimeActions', () => {
     expect(Object.isFrozen(RUNTIME_ERROR_MESSAGES)).toBe(true);
   });
 
+  test('bridge actions 應與 diagnostics actions 分組分離', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
+    const source = fs.readFileSync(registryFile, 'utf8');
+
+    expect(source).toMatch(/const BRIDGE_ACTIONS = \{/);
+    expect(source).toMatch(
+      /const BRIDGE_ACTIONS = \{[\s\S]*PING: 'PING',[\s\S]*INIT_BUNDLE: 'INIT_BUNDLE',[\s\S]*REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',[\s\S]*\}/
+    );
+    expect(source).toMatch(
+      /const DIAGNOSTICS_ACTIONS = \{[\s\S]*EXPORT_DEBUG_LOGS: 'exportDebugLogs',[\s\S]*DEV_LOG_SINK: 'devLogSink',[\s\S]*DEV_LOG_SINK_BATCH: 'devLogSinkBatch',[\s\S]*\}/
+    );
+    expect(source).not.toMatch(
+      /const DIAGNOSTICS_ACTIONS = \{[\s\S]*PING: 'PING'[\s\S]*INIT_BUNDLE: 'INIT_BUNDLE'[\s\S]*REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS'[\s\S]*\}/
+    );
+    expect(source).toMatch(/\.{3}BRIDGE_ACTIONS,/);
+  });
+
   test('應暴露一致命名的 runtime 錯誤訊息', () => {
     expect(RUNTIME_ERROR_MESSAGES).toEqual(
       expect.objectContaining({
@@ -72,17 +93,103 @@ describe('runtimeActions', () => {
     );
   });
 
+  test('應在聚合 registry 保留具名 action 與 Request/Response typedef 的對照註釋', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
+    const source = fs.readFileSync(registryFile, 'utf8');
+    const actionTypePairs = [
+      ['CHECK_PAGE_STATUS', 'CheckPageStatusRequest', 'CheckPageStatusResponse'],
+      ['PAGE_SAVE_HINT', 'PageSaveHintRequest', 'PageSaveHintResponse'],
+      ['GET_STABLE_URL', 'GetStableUrlRequest', 'GetStableUrlResponse'],
+      ['SET_STABLE_URL', 'SetStableUrlRequest', 'SetStableUrlResponse'],
+      ['SAVE_PAGE', 'SavePageRequest', 'SavePageResponse'],
+      ['SAVE_PAGE_FROM_TOOLBAR', 'SavePageFromToolbarRequest', 'SavePageFromToolbarResponse'],
+      ['OPEN_NOTION_PAGE', 'OpenNotionPageRequest', 'OpenNotionPageResponse'],
+      ['CHECK_NOTION_PAGE_EXISTS', 'CheckNotionPageExistsRequest', 'CheckNotionPageExistsResponse'],
+      ['SEARCH_NOTION', 'SearchNotionRequest', 'SearchNotionResponse'],
+      ['START_HIGHLIGHT', 'StartHighlightRequest', 'StartHighlightResponse'],
+      ['SYNC_HIGHLIGHTS', 'SyncHighlightsRequest', 'SyncHighlightsResponse'],
+      [
+        'UPDATE_REMOTE_HIGHLIGHTS',
+        'UpdateRemoteHighlightsRequest',
+        'UpdateRemoteHighlightsResponse',
+      ],
+      ['UPDATE_HIGHLIGHTS', 'UpdateHighlightsRequest', 'UpdateHighlightsResponse'],
+      ['CLEAR_HIGHLIGHTS', 'ClearHighlightsRequest', 'ClearHighlightsResponse'],
+      ['SHOW_TOOLBAR', 'ShowToolbarRequest', 'ShowToolbarResponse'],
+      ['TOGGLE_HIGHLIGHTER', 'ToggleHighlighterRequest', 'ToggleHighlighterResponse'],
+      ['SHOW_HIGHLIGHTER', 'ShowHighlighterRequest', 'ShowHighlighterResponse'],
+      ['REMOVE_HIGHLIGHT_DOM', 'RemoveHighlightDomRequest', 'RemoveHighlightDomResponse'],
+      ['USER_ACTIVATE_SHORTCUT', 'UserActivateShortcutRequest', 'UserActivateShortcutResponse'],
+      ['MIGRATION_EXECUTE', 'MigrationExecuteRequest', 'MigrationExecuteResponse'],
+      ['MIGRATION_DELETE', 'MigrationDeleteRequest', 'MigrationDeleteResponse'],
+      ['MIGRATION_BATCH', 'MigrationBatchRequest', 'MigrationBatchResponse'],
+      ['MIGRATION_BATCH_DELETE', 'MigrationBatchDeleteRequest', 'MigrationBatchDeleteResponse'],
+      ['MIGRATION_GET_PENDING', 'MigrationGetPendingRequest', 'MigrationGetPendingResponse'],
+      ['MIGRATION_DELETE_FAILED', 'MigrationDeleteFailedRequest', 'MigrationDeleteFailedResponse'],
+      ['OAUTH_SUCCESS', 'OAuthSuccessRequest', 'OAuthSuccessResponse'],
+      ['OAUTH_FAILED', 'OAuthFailedRequest', 'OAuthFailedResponse'],
+      ['REFRESH_OAUTH_TOKEN', 'RefreshOAuthTokenRequest', 'RefreshOAuthTokenResponse'],
+      ['ACCOUNT_SESSION_UPDATED', 'AccountSessionUpdatedRequest', 'AccountSessionUpdatedResponse'],
+      ['ACCOUNT_SESSION_CLEARED', 'AccountSessionClearedRequest', 'AccountSessionClearedResponse'],
+      [
+        'DRIVE_SYNC_STATUS_UPDATED',
+        'DriveSyncStatusUpdatedRequest',
+        'DriveSyncStatusUpdatedResponse',
+      ],
+      ['DRIVE_SYNC_MANUAL_UPLOAD', 'DriveSyncManualUploadRequest', 'DriveSyncManualUploadResponse'],
+      [
+        'DRIVE_SYNC_MANUAL_DOWNLOAD',
+        'DriveSyncManualDownloadRequest',
+        'DriveSyncManualDownloadResponse',
+      ],
+      ['DRIVE_SYNC_CONFLICT', 'DriveSyncConflictRequest', 'DriveSyncConflictResponse'],
+      [
+        'DRIVE_SYNC_SCHEDULE_UPDATED',
+        'DriveSyncScheduleUpdatedRequest',
+        'DriveSyncScheduleUpdatedResponse',
+      ],
+      ['OPEN_SIDE_PANEL', 'OpenSidePanelRequest', 'OpenSidePanelResponse'],
+      ['EXPORT_DEBUG_LOGS', 'ExportDebugLogsRequest', 'ExportDebugLogsResponse'],
+      ['DEV_LOG_SINK', 'DevLogSinkRequest', 'DevLogSinkResponse'],
+      ['DEV_LOG_SINK_BATCH', 'DevLogSinkBatchRequest', 'DevLogSinkBatchResponse'],
+      ['PING', 'PingRequest', 'PingResponse'],
+      ['INIT_BUNDLE', 'InitBundleRequest', 'InitBundleResponse'],
+      ['REPLAY_BUFFERED_EVENTS', 'ReplayBufferedEventsRequest', 'ReplayBufferedEventsResponse'],
+    ];
+
+    expect(source).toContain('@typedef {object} RuntimeActionsRegistry');
+    for (const [actionKey, requestType, responseType] of actionTypePairs) {
+      const actionPropertyPattern = new RegExp(
+        String.raw`@property \{${requestType}\['action'\]\} ${actionKey} - Request: \{@link ${requestType}\}; Response: \{@link ${responseType}\}`
+      );
+      expect(source).toMatch(actionPropertyPattern);
+    }
+
+    const propertyPattern =
+      /@property \{[^}]+\} ([A-Z0-9_]+) - Request: \{@link [^}]+\}; Response: \{@link [^}]+\}/g;
+    const runtimeActionsRegistryKeys = new Set(
+      [...source.matchAll(propertyPattern)].map(([, actionKey]) => actionKey)
+    );
+    expect(runtimeActionsRegistryKeys).toEqual(new Set(Object.keys(RUNTIME_ACTIONS)));
+  });
+
   // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
-  // `RUNTIME_ACTIONS.KEY` 實際被引用。只收錄卻沒人用的條目會誤導未來維護者，
-  // 且工具鏈無法自動偵測（Object.freeze 使所有 key 看起來都「被消費」）。
+  // aggregate registry 或拆分後的小型 action registry 實際被引用。
   test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 options/ 中實際被引用', () => {
     const projectRoot = path.resolve(__dirname, '../../..');
-    const registryFile = path.join(projectRoot, 'scripts/config/runtimeActions.js');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
 
     const collectJsFiles = (dir, out = []) => {
-      if (!fs.existsSync(dir)) {return out;}
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      if (!fs.existsSync(dir)) {
+        return out;
+      }
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {continue;}
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {
+          continue;
+        }
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           collectJsFiles(full, out);
@@ -97,10 +204,24 @@ describe('runtimeActions', () => {
       ...collectJsFiles(path.join(projectRoot, 'scripts')),
       ...collectJsFiles(path.join(projectRoot, 'options')),
     ];
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const codebase = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 
+    const registryIdentifiers = [
+      'RUNTIME_ACTIONS',
+      'PRELOADER_ACTIONS',
+      'CONTENT_BRIDGE_ACTIONS',
+      'HIGHLIGHTER_ACTIONS',
+      'PAGE_SAVE_ACTIONS',
+    ];
+
+    const escapeRegex = value => value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+
     const unused = Object.keys(RUNTIME_ACTIONS).filter(
-      key => !codebase.includes(`RUNTIME_ACTIONS.${key}`)
+      key =>
+        !registryIdentifiers.some(identifier =>
+          new RegExp(String.raw`\b${escapeRegex(identifier)}\.${escapeRegex(key)}\b`).test(codebase)
+        )
     );
 
     expect(unused).toEqual([]);

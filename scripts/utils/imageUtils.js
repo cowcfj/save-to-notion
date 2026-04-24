@@ -10,7 +10,7 @@ import Logger from './Logger.js';
 import {
   EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX,
   IMAGE_VALIDATION,
-} from '../config/extraction.js';
+} from '../config/shared/content.js';
 
 // ==========================================
 // 圖片驗證常量（原 config/patterns.js Group A）

@@ -37,7 +37,7 @@ jest.mock('@mozilla/readability', () => {
 });
 
 // Mock Config to ensure stable test environment
-jest.mock('../../../../scripts/config/extraction.js', () => ({
+jest.mock('../../../../scripts/config/shared/content.js', () => ({
   CONTENT_QUALITY: {
     MIN_CONTENT_LENGTH: 250,
     MAX_LINK_DENSITY: 0.25,

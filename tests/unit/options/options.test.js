@@ -17,13 +17,13 @@ import { AuthManager } from '../../../options/AuthManager.js';
 import { DataSourceManager } from '../../../options/DataSourceManager.js';
 import { StorageManager } from '../../../options/StorageManager.js';
 import { MigrationTool } from '../../../options/MigrationTool.js';
-import { BUILD_ENV } from '../../../scripts/config/env.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { DATA_SOURCE_KEYS } from '../../../scripts/config/storageKeys.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
 
 // Mocks for dependencies
-jest.mock('../../../scripts/config/env.js', () => ({
+jest.mock('../../../scripts/config/env/index.js', () => ({
   BUILD_ENV: {
     ENABLE_OAUTH: true,
     ENABLE_ACCOUNT: true,
@@ -998,7 +998,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     getAccountAccessToken,
     clearAccountSession,
   } = require('../../../scripts/auth/accountSession.js');
-  const { BUILD_ENV } = require('../../../scripts/config/env.js');
+  const { BUILD_ENV } = require('../../../scripts/config/env/index.js');
 
   beforeEach(() => {
     jest.useFakeTimers();

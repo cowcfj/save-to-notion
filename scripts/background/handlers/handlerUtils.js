@@ -8,7 +8,7 @@
 
 /* global chrome */
 
-import { ERROR_MESSAGES } from '../../config/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 
 /**
  * 獲取活動標籤頁

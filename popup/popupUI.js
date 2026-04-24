@@ -5,7 +5,7 @@
  * 這些函數不直接依賴 Chrome API，僅操作 DOM 元素。
  */
 import { UI_ICONS } from '../scripts/config/icons.js';
-import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
 
 /**
  * DOM 元素集合類型定義

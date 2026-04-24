@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, ERROR_TYPES } from '../config/messages.js';
+import { ERROR_MESSAGES, ERROR_TYPES } from '../config/shared/messages.js';
 // [REMOVED] escapeHtml as it is no longer needed
 // import { escapeHtml } from './securityUtils.js';
 
@@ -13,7 +13,7 @@ import { ERROR_MESSAGES, ERROR_TYPES } from '../config/messages.js';
 /**
  * 錯誤類型枚舉 (已移至 messages.js)
  *
- * @type {import('../config/messages.js').ERROR_TYPES}
+ * @type {import('../config/shared/messages.js').ERROR_TYPES}
  */
 const ErrorTypes = ERROR_TYPES;
 
@@ -30,7 +30,7 @@ const ErrorSeverity = {
 /**
  * 錯誤類型對應的日誌級別
  */
-const LOG_LEVELS = {
+const ERROR_TYPE_TO_LOG_LEVEL = {
   [ErrorTypes.EXTRACTION_FAILED]: 'warn',
   [ErrorTypes.INVALID_URL]: 'warn',
   [ErrorTypes.NETWORK_ERROR]: 'error',
@@ -128,7 +128,7 @@ const ErrorHandler = {
    * @returns {string} 日誌級別
    */
   getLogLevel(errorType) {
-    return LOG_LEVELS[errorType] || 'warn';
+    return ERROR_TYPE_TO_LOG_LEVEL[errorType] || 'warn';
   },
 
   /**

@@ -3,7 +3,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 
 /**
  * 創建 Side Panel 相關的訊息處理器

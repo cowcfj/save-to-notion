@@ -18,7 +18,7 @@
 
 'use strict';
 
-import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
+import { PRELOADER_ACTIONS } from '../config/runtimeActions/preloaderActions.js';
 
 (function () {
   // 防止重複初始化
@@ -115,7 +115,7 @@ import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
       event.preventDefault();
 
       // 發送訊息給 Background
-      runtime.sendMessage({ action: RUNTIME_ACTIONS.USER_ACTIVATE_SHORTCUT }, _response => {
+      runtime.sendMessage({ action: PRELOADER_ACTIONS.USER_ACTIVATE_SHORTCUT }, _response => {
         if (runtime.lastError) {
           // 記錄連接錯誤以便診斷（如 Background 未準備好、權限問題等）
           console.error(
@@ -139,7 +139,7 @@ import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
   if (canListenRuntimeMessage) {
     runtime.onMessage.addListener((request, _sender, sendResponse) => {
       // PING 檢測：用於 InjectionService.ensureBundleInjected
-      if (request.action === RUNTIME_ACTIONS.PING) {
+      if (request.action === PRELOADER_ACTIONS.PING) {
         // 若 Bundle 已就緒，讓 Bundle 的監聽器處理（避免競爭條件）
         if (globalThis.__NOTION_BUNDLE_READY__) {
           return false; // 不處理，讓 Bundle 監聽器響應
@@ -156,13 +156,13 @@ import { RUNTIME_ACTIONS } from '../config/runtimeActions.js';
       }
 
       // 準備接收主 Bundle
-      if (request.action === RUNTIME_ACTIONS.INIT_BUNDLE) {
+      if (request.action === PRELOADER_ACTIONS.INIT_BUNDLE) {
         sendResponse({ ready: true, bufferedEvents: eventBuffer.length });
         return true;
       }
 
       // 重放緩衝事件（由主 Bundle 調用）
-      if (request.action === RUNTIME_ACTIONS.REPLAY_BUFFERED_EVENTS) {
+      if (request.action === PRELOADER_ACTIONS.REPLAY_BUFFERED_EVENTS) {
         const events = [...eventBuffer];
         eventBuffer.length = 0;
         sendResponse({ events });

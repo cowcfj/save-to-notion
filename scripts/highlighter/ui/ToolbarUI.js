@@ -5,9 +5,9 @@
  * 不依賴 this，不碰 Chrome API，只處理 DOM 元素的讀取與更新。
  */
 
-import { TOOLBAR_SELECTORS } from '../../config/ui.js';
-import { UI_ICONS } from '../../config/icons.js';
-import { UI_MESSAGES } from '../../config/messages.js';
+import { TOOLBAR_SELECTORS } from '../../config/contentSafe/toolbarSelectors.js';
+import { TOOLBAR_ICONS } from '../../config/contentSafe/toolbarIcons.js';
+import { TOOLBAR_MESSAGES } from '../../config/contentSafe/toolbarMessages.js';
 import { createSafeIcon } from '../../utils/securityUtils.js';
 
 const STYLE_INLINE_BLOCK = 'inline-block';
@@ -25,11 +25,11 @@ function resolveStatusIconKey(iconKey) {
   const normalizedKey = typeof iconKey === 'string' ? iconKey.toUpperCase() : '';
   const mappedKey = STATUS_ICON_KEY_MAP[normalizedKey] ?? normalizedKey;
 
-  if (mappedKey && UI_ICONS[mappedKey]) {
+  if (mappedKey && TOOLBAR_ICONS[mappedKey]) {
     return mappedKey;
   }
 
-  if (UI_ICONS[DEFAULT_STATUS_ICON_KEY]) {
+  if (TOOLBAR_ICONS[DEFAULT_STATUS_ICON_KEY]) {
     return DEFAULT_STATUS_ICON_KEY;
   }
 
@@ -80,8 +80,8 @@ export function applySaveSyncVisibility(saveBtn, syncBtn, status) {
  * 設置狀態欄圖標與文字，封裝共用語意與樣式
  *
  * @param {HTMLElement} statusDiv - 狀態欄容器
- * @param {string} iconKey - UI_ICONS 中的 key
- * @param {string|null} messageKey - UI_MESSAGES.TOOLBAR 中的 key，null 時使用 customMessage
+ * @param {string} iconKey - TOOLBAR_ICONS 中的 key
+ * @param {string|null} messageKey - TOOLBAR_MESSAGES 中的 key，null 時使用 customMessage
  * @param {string} [customMessage] - 自定義訊息（優先於 messageKey）
  */
 export function renderStatusIcon(statusDiv, iconKey, messageKey, customMessage) {
@@ -89,7 +89,7 @@ export function renderStatusIcon(statusDiv, iconKey, messageKey, customMessage) 
   const resolvedIconKey = resolveStatusIconKey(iconKey);
 
   if (resolvedIconKey) {
-    const icon = createSafeIcon(UI_ICONS[resolvedIconKey]);
+    const icon = createSafeIcon(TOOLBAR_ICONS[resolvedIconKey]);
     icon.style.display = STYLE_INLINE_BLOCK;
     icon.style.marginRight = '4px';
     icon.style.verticalAlign = STYLE_TEXT_BOTTOM;
@@ -101,8 +101,7 @@ export function renderStatusIcon(statusDiv, iconKey, messageKey, customMessage) 
     statusDiv.append(icon);
   }
 
-  // 優先使用 customMessage，否則查找 UI_MESSAGES.TOOLBAR 常數
-  const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR?.[messageKey] ?? '';
+  const textMsg = customMessage ?? TOOLBAR_MESSAGES?.[messageKey] ?? '';
   if (textMsg !== '') {
     statusDiv.append(document.createTextNode(` ${textMsg}`));
   }

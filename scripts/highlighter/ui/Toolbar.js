@@ -8,9 +8,9 @@ import { injectStylesIntoShadowRoot } from './styles/toolbarStyles.js';
 import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
-import { TOOLBAR_SELECTORS } from '../../config/ui.js';
-import { UI_MESSAGES } from '../../config/messages.js';
-import { RUNTIME_ACTIONS } from '../../config/runtimeActions.js';
+import { TOOLBAR_SELECTORS } from '../../config/contentSafe/toolbarSelectors.js';
+import { TOOLBAR_MESSAGES } from '../../config/contentSafe/toolbarMessages.js';
+import { PAGE_SAVE_ACTIONS } from '../../config/runtimeActions/pageSaveActions.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
@@ -226,7 +226,7 @@ export class Toolbar {
 
     // [New] 混和推播 (Hybrid Push) 策略：除 storage 事件外，額外監聽 background 主動推送的存檔完成事件
     this._messageListener = message => {
-      if (message?.action === RUNTIME_ACTIONS.PAGE_SAVE_HINT && message.isSaved) {
+      if (message?.action === PAGE_SAVE_ACTIONS.PAGE_SAVE_HINT && message.isSaved) {
         this.updateSaveButtonVisibility();
       }
     };
@@ -590,7 +590,7 @@ export class Toolbar {
                 statusDiv,
                 'X',
                 null,
-                response?.error || UI_MESSAGES.POPUP.DELETED_PAGE
+                response?.error || TOOLBAR_MESSAGES.DELETED_PAGE
               );
               await this.updateSaveButtonVisibility();
               break;
@@ -600,7 +600,7 @@ export class Toolbar {
                 statusDiv,
                 'X',
                 null,
-                response?.error || UI_MESSAGES.POPUP.DELETION_PENDING
+                response?.error || TOOLBAR_MESSAGES.DELETION_PENDING
               );
               break;
             }

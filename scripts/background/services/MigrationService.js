@@ -1,7 +1,7 @@
 import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { isRootUrl, computeStableUrl } from '../../utils/urlUtils.js';
-import { ERROR_MESSAGES } from '../../config/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';
 
 const MIGRATION_CONFIG = Object.freeze({

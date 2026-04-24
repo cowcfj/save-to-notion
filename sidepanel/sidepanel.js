@@ -15,10 +15,10 @@ import {
   HIGHLIGHTS_PREFIX,
   PAGE_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../scripts/config/storageKeys.js';
-import { RESTRICTED_PROTOCOLS } from '../scripts/config/app.js';
-import { UI_MESSAGES } from '../scripts/config/messages.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+} from '../scripts/config/shared/storage.js';
+import { RESTRICTED_PROTOCOLS } from '../scripts/config/shared/core.js';
+import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import Logger from '../scripts/utils/Logger.js';

@@ -9,13 +9,15 @@ import {
   TabService,
   _migrationScript,
 } from '../../../../scripts/background/services/TabService.js';
-import { URL_ALIAS_PREFIX } from '../../../../scripts/config/storageKeys.js';
+import { URL_ALIAS_PREFIX } from '../../../../scripts/config/shared/storage.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
 import { buildHighlight, buildPageRecord } from '../../../helpers/status-fixtures.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -23,7 +25,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/config/app.js', () => ({
+jest.mock('../../../../scripts/config/shared/core.js', () => ({
   TAB_SERVICE: {
     LOADING_TIMEOUT_MS: 1000,
     STATUS_UPDATE_DELAY_MS: 100,
@@ -32,10 +34,18 @@ jest.mock('../../../../scripts/config/app.js', () => ({
   HANDLER_CONSTANTS: {
     PAGE_STATUS_CACHE_TTL: 60_000,
   },
-  RESTRICTED_PROTOCOLS: ['chrome://', 'chrome-extension://', 'about:'],
+  RESTRICTED_PROTOCOLS: [
+    'chrome:',
+    'edge:',
+    'about:',
+    'data:',
+    'chrome-extension:',
+    'view-source:',
+    'file:',
+  ],
 }));
 
-jest.mock('../../../../scripts/config/extraction.js', () => ({
+jest.mock('../../../../scripts/config/shared/content.js', () => ({
   URL_NORMALIZATION: {
     TRACKING_PARAMS: ['utm_source'],
   },
@@ -85,6 +95,8 @@ globalThis.chrome = {
 // Mock Logger
 const mockLogger = {
   log: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),

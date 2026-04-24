@@ -27,13 +27,13 @@ import {
   PAGE_PREFIX,
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
-} from '../../config/storageKeys.js';
-import { ERROR_MESSAGES } from '../../config/messages.js';
+} from '../../config/shared/storage.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 
 /**
  * URL 標準化相關常量（向後兼容：既有代碼可繼續導入這些常量）
  */
-// URL_ALIAS_PREFIX/PAGE_PREFIX/SAVED_PREFIX/HIGHLIGHTS_PREFIX 在底部統一從 storageKeys.js 重新導出
+// URL_ALIAS_PREFIX/PAGE_PREFIX/SAVED_PREFIX/HIGHLIGHTS_PREFIX 在底部統一從 config/shared/storage.js 重新導出
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
@@ -1177,4 +1177,4 @@ export {
   PAGE_PREFIX,
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
-} from '../../config/storageKeys.js'; // Phase 3: 前綴常量統一從此處導出
+} from '../../config/shared/storage.js'; // Phase 3: 前綴常量統一從此處導出

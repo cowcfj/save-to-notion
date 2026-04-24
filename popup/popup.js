@@ -28,10 +28,10 @@ import {
   getActiveTab,
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/runtimeActions.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { isSavedStatusResponse } from '../scripts/config/saveStatus.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 const DEFAULT_ERROR = 'Unknown Error';

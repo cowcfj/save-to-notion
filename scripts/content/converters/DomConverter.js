@@ -17,7 +17,7 @@ const getImageUtils = () =>
 
 import Logger from '../../utils/Logger.js';
 
-import { IMAGE_LIMITS } from '../../config/extraction.js';
+import { IMAGE_LIMITS } from '../../config/shared/content.js';
 import {
   MAX_CODE_LANGUAGE_HINT_LENGTH,
   NOTION_CODE_LANGUAGE_OBJECTIVE_C,

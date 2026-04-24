@@ -2,11 +2,11 @@
 import Logger from '../scripts/utils/Logger.js';
 import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { NOTION_OAUTH } from '../scripts/config/extension/notionAuth.js';
-import { BUILD_ENV } from '../scripts/config/env.js';
+import { BUILD_ENV } from '../scripts/config/env/index.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
@@ -19,7 +19,7 @@ import {
   DATA_SOURCE_KEYS,
   SYNC_CONFIG_KEYS,
   mergeDataSourceConfig,
-} from '../scripts/config/storageKeys.js';
+} from '../scripts/config/shared/storage.js';
 
 /**
  * AuthManager.js

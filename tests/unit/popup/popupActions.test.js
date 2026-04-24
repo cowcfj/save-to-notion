@@ -6,7 +6,7 @@ import {
   openNotionPage,
   getActiveTab,
 } from '../../../popup/popupActions.js';
-import { ERROR_MESSAGES } from '../../../scripts/config/messages.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 describe('popupActions.js', () => {
