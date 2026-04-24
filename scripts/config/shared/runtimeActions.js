@@ -709,6 +709,4 @@ export const RUNTIME_ACTIONS = Object.freeze({
   ...DIAGNOSTICS_ACTIONS,
 });
 
-export const RUNTIME_ERROR_MESSAGES = Object.freeze({
-  EXTENSION_UNAVAILABLE: '無法連接擴展',
-});
+export { RUNTIME_ERROR_MESSAGES } from '../runtimeActions/errorMessages.js';

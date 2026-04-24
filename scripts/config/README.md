@@ -13,6 +13,16 @@
 | `env/index.js`       | 環境偵測與 `BUILD_ENV`                            | 所有環境                     |
 | `extension/index.js` | Extension-only config 聚合入口                    | Background / Options / Popup |
 
+### `runtimeActions/` — Content-safe runtime action subsets
+
+`runtimeActions/` 用來存放針對特定 consumer 的小型 action registry，目標是避免 Content Script、Highlighter 與 Preloader 載入完整 aggregate registry。
+
+- `preloaderActions.js`: `PRELOADER_ACTIONS`
+- `contentBridgeActions.js`: `CONTENT_BRIDGE_ACTIONS`
+- `highlighterActions.js`: `HIGHLIGHTER_ACTIONS`
+- `pageSaveActions.js`: `PAGE_SAVE_ACTIONS`
+- `errorMessages.js`: `RUNTIME_ERROR_MESSAGES`
+
 ### `shared/` — Shared config 的唯一目錄
 
 `shared/` 直層檔案是 shared config 的**最深合法層級**。預設 **MUST NOT** 在 `shared/` 下再新增第二層子目錄。
@@ -21,7 +31,7 @@
 - `storage.js`: `SYNC_CONFIG_KEYS`、storage prefixes、`AUTH_LOCAL_KEYS`、`DATA_SOURCE_KEYS`、`mergeDataSourceConfig()`
 - `ui.js`: `UI_ICONS`、`TOOLBAR_SELECTORS`、`UI_STATUS_TYPES`、`COMMON_CSS_CLASSES`、`LOG_ICONS`
 - `messages.js`: `UI_MESSAGES`、`ERROR_MESSAGES`、`SECURITY_ERROR_MESSAGES`、`API_ERROR_PATTERNS`、`LOG_LEVELS`、`ERROR_TYPES`、`HIGHLIGHT_ERROR_CODES`
-- `runtimeActions.js`: `RUNTIME_ACTIONS`、`RUNTIME_ERROR_MESSAGES` 與相鄰 JSDoc typedef
+- `runtimeActions.js`: `RUNTIME_ACTIONS` 與相鄰 JSDoc typedef；`RUNTIME_ERROR_MESSAGES` 由 `runtimeActions/errorMessages.js` 提供並在此 re-export
 - `content.js`: extraction constants，包括 Next.js、selectors、cleaning、images、quality、normalization、text
 - `highlightConstants.js`: `HIGHLIGHT_COLOR_WHITELIST`、`HIGHLIGHT_MATCH_SCORING`
 - `notionCodeLanguages.js`: Notion Code block 語言白名單與 fallback 常量

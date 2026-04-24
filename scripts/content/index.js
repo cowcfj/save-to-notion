@@ -19,7 +19,8 @@ import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
-import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
+import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
+import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。
@@ -153,22 +154,22 @@ function handleSetStableUrl(stableUrl) {
 // ============================================================
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   switch (request.action) {
-    case RUNTIME_ACTIONS.PING: {
+    case CONTENT_BRIDGE_ACTIONS.PING: {
       handlePing(sendResponse);
       return true;
     }
 
-    case RUNTIME_ACTIONS.SHOW_HIGHLIGHTER: {
+    case HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER: {
       handleShowHighlighter(sendResponse);
       return true;
     }
 
-    case RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM: {
+    case HIGHLIGHTER_ACTIONS.REMOVE_HIGHLIGHT_DOM: {
       handleRemoveHighlightDom(request.highlightId, sendResponse);
       return true;
     }
 
-    case RUNTIME_ACTIONS.SET_STABLE_URL: {
+    case CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL: {
       handleSetStableUrl(request.stableUrl);
       return false;
     }
@@ -182,7 +183,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 // ============================================================
 // 重放 Preloader 緩衝事件
 // ============================================================
-chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.REPLAY_BUFFERED_EVENTS }, response => {
+chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVENTS }, response => {
   if (chrome.runtime.lastError) {
     // Preloader 可能尚未載入或已移除，忽略錯誤
     return;

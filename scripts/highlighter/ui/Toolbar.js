@@ -10,7 +10,7 @@ import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { TOOLBAR_SELECTORS } from '../../config/shared/ui.js';
 import { UI_MESSAGES } from '../../config/shared/messages.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
+import { PAGE_SAVE_ACTIONS } from '../../config/runtimeActions/pageSaveActions.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
@@ -226,7 +226,7 @@ export class Toolbar {
 
     // [New] 混和推播 (Hybrid Push) 策略：除 storage 事件外，額外監聽 background 主動推送的存檔完成事件
     this._messageListener = message => {
-      if (message?.action === RUNTIME_ACTIONS.PAGE_SAVE_HINT && message.isSaved) {
+      if (message?.action === PAGE_SAVE_ACTIONS.PAGE_SAVE_HINT && message.isSaved) {
         this.updateSaveButtonVisibility();
       }
     };

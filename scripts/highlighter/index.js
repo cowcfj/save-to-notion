@@ -18,7 +18,7 @@ import { Toolbar } from './ui/Toolbar.js';
 
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
-import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
+import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
   globalThis.normalizeUrl = normalizeUrl;
 }
@@ -29,7 +29,7 @@ import { mountWindowAPI } from './windowAPI.js';
 let toggleHighlighterMessageListener = null;
 
 function handleToggleHighlighterMessage(request, _sender, sendResponse) {
-  if (request.action === RUNTIME_ACTIONS.TOGGLE_HIGHLIGHTER) {
+  if (request.action === HIGHLIGHTER_ACTIONS.TOGGLE_HIGHLIGHTER) {
     if (globalThis.notionHighlighter) {
       globalThis.notionHighlighter.toggle();
       sendResponse({ success: true, isActive: globalThis.notionHighlighter.isActive() });

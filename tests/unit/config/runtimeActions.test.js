@@ -157,16 +157,17 @@ describe('runtimeActions', () => {
   });
 
   // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
-  // `RUNTIME_ACTIONS.KEY` 實際被引用。只收錄卻沒人用的條目會誤導未來維護者，
-  // 且工具鏈無法自動偵測（Object.freeze 使所有 key 看起來都「被消費」）。
+  // aggregate registry 或拆分後的小型 action registry 實際被引用。
   test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 options/ 中實際被引用', () => {
     const projectRoot = path.resolve(__dirname, '../../..');
     const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
 
     const collectJsFiles = (dir, out = []) => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       if (!fs.existsSync(dir)) {
         return out;
       }
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         if (entry.name === 'node_modules' || entry.name.startsWith('.')) {
           continue;
@@ -185,10 +186,19 @@ describe('runtimeActions', () => {
       ...collectJsFiles(path.join(projectRoot, 'scripts')),
       ...collectJsFiles(path.join(projectRoot, 'options')),
     ];
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const codebase = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 
+    const registryIdentifiers = [
+      'RUNTIME_ACTIONS',
+      'PRELOADER_ACTIONS',
+      'CONTENT_BRIDGE_ACTIONS',
+      'HIGHLIGHTER_ACTIONS',
+      'PAGE_SAVE_ACTIONS',
+    ];
+
     const unused = Object.keys(RUNTIME_ACTIONS).filter(
-      key => !codebase.includes(`RUNTIME_ACTIONS.${key}`)
+      key => !registryIdentifiers.some(identifier => codebase.includes(`${identifier}.${key}`))
     );
 
     expect(unused).toEqual([]);
