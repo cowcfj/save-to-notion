@@ -1,10 +1,10 @@
 {
   "description": "Chrome Extension Runtime Message Bus Registry",
   "source_of_truth": {
-    "action_names": "scripts/config/runtimeActions.js",
+    "action_names": "scripts/config/shared/runtimeActions.js",
     "runtime_behavior": "scripts/background/handlers/*.js, scripts/content/index.js, scripts/highlighter/entryAutoInit.js, scripts/performance/preloader.js"
   },
-  "maintenance_rule": "新增、刪除或改名任何 runtime/tabs message action 時，必須先更新 scripts/config/runtimeActions.js，再同步更新本檔的 payload/response contract。",
+  "maintenance_rule": "新增、刪除或改名任何 runtime/tabs message action 時，必須先更新 scripts/config/shared/runtimeActions.js，再同步更新本檔的 payload/response contract。",
   "actions": {
     "save": {
       "savePage": {

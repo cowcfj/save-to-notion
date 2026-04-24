@@ -67,6 +67,24 @@ describe('runtimeActions', () => {
     expect(Object.isFrozen(RUNTIME_ERROR_MESSAGES)).toBe(true);
   });
 
+  test('bridge actions 應與 diagnostics actions 分組分離', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
+    const source = fs.readFileSync(registryFile, 'utf8');
+
+    expect(source).toMatch(/const BRIDGE_ACTIONS = \{/);
+    expect(source).toMatch(
+      /const BRIDGE_ACTIONS = \{[\s\S]*PING: 'PING',[\s\S]*INIT_BUNDLE: 'INIT_BUNDLE',[\s\S]*REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',[\s\S]*\}/
+    );
+    expect(source).toMatch(
+      /const DIAGNOSTICS_ACTIONS = \{[\s\S]*EXPORT_DEBUG_LOGS: 'exportDebugLogs',[\s\S]*DEV_LOG_SINK: 'devLogSink',[\s\S]*DEV_LOG_SINK_BATCH: 'devLogSinkBatch',[\s\S]*\}/
+    );
+    expect(source).not.toMatch(
+      /const DIAGNOSTICS_ACTIONS = \{[\s\S]*PING: 'PING'[\s\S]*INIT_BUNDLE: 'INIT_BUNDLE'[\s\S]*REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS'[\s\S]*\}/
+    );
+    expect(source).toMatch(/\.{3}BRIDGE_ACTIONS,/);
+  });
+
   test('應暴露一致命名的 runtime 錯誤訊息', () => {
     expect(RUNTIME_ERROR_MESSAGES).toEqual(
       expect.objectContaining({
@@ -197,8 +215,13 @@ describe('runtimeActions', () => {
       'PAGE_SAVE_ACTIONS',
     ];
 
+    const escapeRegex = value => value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+
     const unused = Object.keys(RUNTIME_ACTIONS).filter(
-      key => !registryIdentifiers.some(identifier => codebase.includes(`${identifier}.${key}`))
+      key =>
+        !registryIdentifiers.some(identifier =>
+          new RegExp(String.raw`\b${escapeRegex(identifier)}\.${escapeRegex(key)}\b`).test(codebase)
+        )
     );
 
     expect(unused).toEqual([]);

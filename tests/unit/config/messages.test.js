@@ -3,7 +3,11 @@
  * 驗證所有 arrow function message builders 回傳正確型別且嵌入參數
  */
 
-const { UI_MESSAGES, ERROR_MESSAGES } = require('../../../scripts/config/shared/messages.js');
+const {
+  UI_MESSAGES,
+  ERROR_MESSAGES,
+  ERROR_TYPES,
+} = require('../../../scripts/config/shared/messages.js');
 const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 
 describe('配置模組 - messages.js 動態函式', () => {
@@ -157,6 +161,16 @@ describe('配置模組 - messages.js 動態函式', () => {
   });
 
   describe('靜態訊息匯出完整性', () => {
+    test('ERROR_TYPES 應為凍結物件，避免 runtime mutation', () => {
+      expect(Object.isFrozen(ERROR_TYPES)).toBe(true);
+      expect(ERROR_TYPES).toEqual(
+        expect.objectContaining({
+          EXTRACTION_FAILED: 'extraction_failed',
+          INTERNAL: 'internal',
+        })
+      );
+    });
+
     test('ERROR_MESSAGES.PATTERNS 應包含錯誤映射', () => {
       expect(typeof ERROR_MESSAGES.PATTERNS).toBe('object');
       expect(Object.keys(ERROR_MESSAGES.PATTERNS).length).toBeGreaterThan(0);

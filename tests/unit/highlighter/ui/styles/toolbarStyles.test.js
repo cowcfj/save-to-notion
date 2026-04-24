@@ -55,15 +55,6 @@ describe('toolbarStyles', () => {
     expect(css).toContain('box-shadow: 0 8px 24px rgba(0,0,0,0.2);');
   });
 
-  test('getToolbarCSS 應使用 TOOLBAR_SELECTORS.MINI_ICON 組裝 hover selector', () => {
-    const css = getToolbarCSS();
-    const hoverSelector = `${TOOLBAR_SELECTORS.MINI_ICON}:hover`;
-
-    expect(css).toContain(hoverSelector);
-    expect(css).toContain('transform: scale(1.1) rotate(15deg);');
-    expect(css).toContain('box-shadow: 0 8px 24px rgba(0,0,0,0.2);');
-  });
-
   test('injectStylesIntoShadowRoot 應在 adoptedStyleSheets 可用時寫入樣式表', () => {
     Object.defineProperty(Document.prototype, 'adoptedStyleSheets', {
       value: [],

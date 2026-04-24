@@ -53,6 +53,24 @@ describe('saveStatus 邊界情境', () => {
     );
   });
 
+  test('createSaveStatusResponse 遇到未知 statusKind 時應以 msg, ctx 形式呼叫 Logger.warn', () => {
+    const warn = jest.fn();
+    globalThis.Logger = { warn };
+
+    createSaveStatusResponse({
+      statusKind: 'unknown_kind',
+      stableUrl: 'https://example.com',
+    });
+
+    expect(warn).toHaveBeenCalledWith('unknown status kind', {
+      operation: 'createSaveStatusResponse',
+      reason: 'unknown_status_kind',
+      statusKind: 'unknown_kind',
+    });
+
+    delete globalThis.Logger;
+  });
+
   test('createSaveStatusResponse 不應允許 extra 覆寫 canonical 欄位與 savedData 欄位', () => {
     const response = createSaveStatusResponse({
       statusKind: 'saved',

@@ -267,7 +267,7 @@ export const LOG_LEVELS = deepFreeze({
   ERROR: 4,
 });
 
-export const ERROR_TYPES = {
+export const ERROR_TYPES = deepFreeze({
   EXTRACTION_FAILED: 'extraction_failed',
   INVALID_URL: 'invalid_url',
   NETWORK_ERROR: 'network_error',
@@ -281,7 +281,7 @@ export const ERROR_TYPES = {
   INJECTION: 'injection',
   PERMISSION: 'permission',
   INTERNAL: 'internal',
-};
+});
 
 const USER_MESSAGES = {
   PAGE_NOT_SAVED_TO_NOTION: '頁面尚未保存到 Notion，請先點擊「保存頁面」',

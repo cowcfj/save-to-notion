@@ -103,7 +103,7 @@ export function createSaveStatusResponse({
   const normalizedError = knownStatusKind ? error : error || 'unknown_status_kind';
 
   if (!knownStatusKind) {
-    globalThis.Logger?.warn?.({
+    globalThis.Logger?.warn?.('unknown status kind', {
       operation: 'createSaveStatusResponse',
       reason: 'unknown_status_kind',
       statusKind,

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   TOOLBAR_SELECTORS as SHARED_TOOLBAR_SELECTORS,
   UI_ICONS,
@@ -23,16 +24,16 @@ describe('contentSafe config', () => {
 
   test('toolbarSelectors 應只暴露 highlighter toolbar 需要的 selector', async () => {
     const modulePath = path.join(contentSafeDir, 'toolbarSelectors.js');
-    const moduleUrl = new URL(`file://${modulePath}`);
+    const moduleUrl = pathToFileURL(modulePath);
     const { TOOLBAR_SELECTORS } = await import(moduleUrl.href);
 
     expect(Object.isFrozen(TOOLBAR_SELECTORS)).toBe(true);
-    expect(TOOLBAR_SELECTORS).toEqual(SHARED_TOOLBAR_SELECTORS);
+    expect(TOOLBAR_SELECTORS).toBe(SHARED_TOOLBAR_SELECTORS);
   });
 
   test('toolbarIcons 應只暴露 status rendering 需要的 icon', async () => {
     const modulePath = path.join(contentSafeDir, 'toolbarIcons.js');
-    const moduleUrl = new URL(`file://${modulePath}`);
+    const moduleUrl = pathToFileURL(modulePath);
     const { TOOLBAR_ICONS } = await import(moduleUrl.href);
 
     expect(Object.isFrozen(TOOLBAR_ICONS)).toBe(true);
@@ -48,7 +49,7 @@ describe('contentSafe config', () => {
 
   test('toolbarMessages 應只暴露 toolbar/content 路徑需要的訊息', async () => {
     const modulePath = path.join(contentSafeDir, 'toolbarMessages.js');
-    const moduleUrl = new URL(`file://${modulePath}`);
+    const moduleUrl = pathToFileURL(modulePath);
     const { TOOLBAR_MESSAGES } = await import(moduleUrl.href);
 
     expect(Object.isFrozen(TOOLBAR_MESSAGES)).toBe(true);

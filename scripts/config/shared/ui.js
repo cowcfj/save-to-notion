@@ -2,6 +2,8 @@
  * Shared UI 配置
  */
 
+export { TOOLBAR_SELECTORS } from '../contentSafe/toolbarSelectors.js';
+
 /**
  * UI 圖標配置模組
  * 集中管理所有系統使用的 SVG 圖標字串，實現樣式與內容的分離
@@ -82,23 +84,6 @@ export const UI_ICONS = Object.freeze({
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
   SETUP_GUIDE:
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
-});
-
-/**
- * Toolbar DOM 選擇器
- */
-export const TOOLBAR_SELECTORS = Object.freeze({
-  CONTAINER: '#notion-highlighter-v2',
-  MINI_ICON: '#notion-highlighter-mini-icon',
-  TOGGLE_HIGHLIGHT: '#toggle-highlight-v2',
-  MINIMIZE: '#minimize-highlight-v2',
-  CLOSE: '#close-highlight-v2',
-  COLOR_PICKER: '#color-picker-v2',
-  SYNC_TO_NOTION: '#sync-to-notion-v2',
-  MANAGE_HIGHLIGHTS: '#manage-highlights-v2',
-  SAVE_PAGE: '#save-page-v2',
-  STATUS_CONTAINER: '#highlight-status-v2',
-  COUNT_DISPLAY: '#sync-count-badge-v2',
 });
 
 /**
