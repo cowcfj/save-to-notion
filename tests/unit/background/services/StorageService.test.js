@@ -77,6 +77,15 @@ describe('StorageService', () => {
   let mockStorage = null;
   let mockLogger = null;
 
+  function makeStorageMock(data) {
+    mockStorage.local.get.mockImplementation(keys => {
+      const keyList = Array.isArray(keys) ? keys : [keys];
+      return Promise.resolve(
+        Object.fromEntries(keyList.filter(k => k in data).map(k => [k, data[k]]))
+      );
+    });
+  }
+
   beforeEach(() => {
     mockStorage = {
       local: {
@@ -490,15 +499,6 @@ describe('StorageService', () => {
     const HL_NORM = `${HIGHLIGHTS_PREFIX}${NORM_URL}`;
     const ALIAS_NORM = `${URL_ALIAS_PREFIX}${NORM_URL}`;
     const SAMPLE_HIGHLIGHTS = [{ id: 'h1', text: 'Hello', color: 'yellow' }];
-
-    function makeStorageMock(data) {
-      mockStorage.local.get.mockImplementation(keys => {
-        const keyList = Array.isArray(keys) ? keys : [keys];
-        return Promise.resolve(
-          Object.fromEntries(keyList.filter(k => k in data).map(k => [k, data[k]]))
-        );
-      });
-    }
 
     it('無 alias：命中 page_<normalizedUrl>，回傳 highlights', async () => {
       makeStorageMock({
