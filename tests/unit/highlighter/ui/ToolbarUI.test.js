@@ -3,8 +3,8 @@ import {
   getToolbarElements,
   renderStatusIcon,
 } from '../../../../scripts/highlighter/ui/ToolbarUI.js';
-import { UI_ICONS } from '../../../../scripts/config/icons.js';
-import { TOOLBAR_SELECTORS } from '../../../../scripts/config/shared/ui.js';
+import { TOOLBAR_ICONS } from '../../../../scripts/config/contentSafe/toolbarIcons.js';
+import { TOOLBAR_SELECTORS } from '../../../../scripts/config/contentSafe/toolbarSelectors.js';
 import { createSafeIcon } from '../../../../scripts/utils/securityUtils.js';
 
 jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
@@ -96,7 +96,7 @@ describe('ToolbarUI', () => {
       const iconSpan = statusDiv.querySelector('span');
       expect(iconSpan).not.toBeNull();
       expect(iconSpan.style.display).toBe('inline-block');
-      expect(createSafeIcon).toHaveBeenCalledWith(UI_ICONS.SUCCESS);
+      expect(createSafeIcon).toHaveBeenCalledWith(TOOLBAR_ICONS.SUCCESS);
     });
 
     test('當 iconKey 為 SYNC 時應映射為 REFRESH 並加上 spin 樣式', () => {
@@ -104,7 +104,7 @@ describe('ToolbarUI', () => {
       renderStatusIcon(statusDiv, 'SYNC', null, 'Syncing');
       const iconSpan = statusDiv.querySelector('span');
       expect(iconSpan.style.animation).toBe('spin 1s linear infinite');
-      expect(createSafeIcon).toHaveBeenCalledWith(UI_ICONS.REFRESH);
+      expect(createSafeIcon).toHaveBeenCalledWith(TOOLBAR_ICONS.REFRESH);
     });
 
     test('當 messageKey 與 customMessage 均無時只顯示圖標', () => {
@@ -119,7 +119,7 @@ describe('ToolbarUI', () => {
 
       renderStatusIcon(statusDiv, 'UNKNOWN', null, 'fallback');
 
-      expect(createSafeIcon).toHaveBeenCalledWith(UI_ICONS.INFO);
+      expect(createSafeIcon).toHaveBeenCalledWith(TOOLBAR_ICONS.INFO);
       expect(statusDiv.textContent.trim()).toBe('fallback');
     });
   });

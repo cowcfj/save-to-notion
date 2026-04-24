@@ -8,8 +8,8 @@ import { injectStylesIntoShadowRoot } from './styles/toolbarStyles.js';
 import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
-import { TOOLBAR_SELECTORS } from '../../config/shared/ui.js';
-import { UI_MESSAGES } from '../../config/shared/messages.js';
+import { TOOLBAR_SELECTORS } from '../../config/contentSafe/toolbarSelectors.js';
+import { TOOLBAR_MESSAGES } from '../../config/contentSafe/toolbarMessages.js';
 import { PAGE_SAVE_ACTIONS } from '../../config/runtimeActions/pageSaveActions.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
@@ -590,7 +590,7 @@ export class Toolbar {
                 statusDiv,
                 'X',
                 null,
-                response?.error || UI_MESSAGES.POPUP.DELETED_PAGE
+                response?.error || TOOLBAR_MESSAGES.DELETED_PAGE
               );
               await this.updateSaveButtonVisibility();
               break;
@@ -600,7 +600,7 @@ export class Toolbar {
                 statusDiv,
                 'X',
                 null,
-                response?.error || UI_MESSAGES.POPUP.DELETION_PENDING
+                response?.error || TOOLBAR_MESSAGES.DELETION_PENDING
               );
               break;
             }

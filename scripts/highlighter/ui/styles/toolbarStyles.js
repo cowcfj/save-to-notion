@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../config/shared/ui.js';
+import { TOOLBAR_SELECTORS } from '../../../config/contentSafe/toolbarSelectors.js';
 
 /**
  * 取得 Toolbar 的完整 CSS 字串，供 Shadow DOM 使用。

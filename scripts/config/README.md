@@ -13,6 +13,15 @@
 | `env/index.js`       | 環境偵測與 `BUILD_ENV`                            | 所有環境                     |
 | `extension/index.js` | Extension-only config 聚合入口                    | Background / Options / Popup |
 
+### `contentSafe/` — Content bundle 專用子集
+
+`contentSafe/` 用來存放只應進入 Content Script / Highlighter bundle 的最小常量子集。
+這些檔案**不應**回指到大型 shared aggregate，否則會把 extension-only 的 icons/messages 一起打進 content bundle。
+
+- `toolbarSelectors.js`: `TOOLBAR_SELECTORS`
+- `toolbarIcons.js`: `TOOLBAR_ICONS`
+- `toolbarMessages.js`: `TOOLBAR_MESSAGES`
+
 ### `runtimeActions/` — Content-safe runtime action subsets
 
 `runtimeActions/` 用來存放針對特定 consumer 的小型 action registry，目標是避免 Content Script、Highlighter 與 Preloader 載入完整 aggregate registry。
@@ -67,6 +76,7 @@
 ## 導入規則
 
 - Shared config 預設從 `scripts/config/shared/*.js` 導入。
+- Content Script / Highlighter 若只需要極小子集，**SHOULD** 優先從 `scripts/config/contentSafe/*.js` 導入。
 - 一般 consumer 若需要 content-safe aggregate，可從 `scripts/config/index.js` 導入。
 - `extension/` 常量 **MUST NOT** 經由 `index.js` 或 `shared/index.js` re-export。
 - `env/` 與 `extension/` 的子檔案可直接導入；`shared/` 則不應再有 `shared/foo/bar.js` 這種深路徑。
@@ -77,4 +87,5 @@
 - 只有在單一直層 domain file 已被證明不可維護時，才可例外提案新增 `shared/` 第二層子目錄。
 - **MUST NOT** 為了拆分而拆分出 3 到 10 行的小檔。
 - **MUST NOT** 新增只做轉手的 barrel `index.js`。
+- `contentSafe/` 的目標是維護 bundle boundary，**MUST NOT** 透過 re-export 或 aggregate import 把 `shared/ui.js`、`shared/messages.js` 重新帶回 content bundle。
 - `scripts/config/` 仍是 Content Script 與 Background 之間的中立橋樑，shared module **MUST NOT** 在模組頂層依賴 `window`、`document` 或 `chrome.tabs.*`。
