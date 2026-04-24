@@ -1,4 +1,0 @@
-export const TEXT_PROCESSING = {
-  MAX_RICH_TEXT_LENGTH: 2000,
-  MIN_SPLIT_RATIO: 0.5,
-};

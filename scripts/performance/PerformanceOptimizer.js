@@ -7,7 +7,7 @@ import {
   ARTICLE_SELECTORS,
   CMS_CONTENT_SELECTORS,
   PRELOADER_SELECTORS,
-} from '../config/shared/content/index.js';
+} from '../config/shared/content.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';

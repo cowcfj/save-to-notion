@@ -11,14 +11,14 @@
 
 /* global chrome */
 
-import { TAB_SERVICE, HANDLER_CONSTANTS } from '../../config/shared/core/index.js';
-import { URL_NORMALIZATION } from '../../config/shared/content/index.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
-import { URL_ALIAS_PREFIX } from '../../config/shared/storage/index.js';
+import { TAB_SERVICE, HANDLER_CONSTANTS } from '../../config/shared/core.js';
+import { URL_NORMALIZATION } from '../../config/shared/content.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
+import { URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
-import { ERROR_MESSAGES } from '../../config/shared/messaging/index.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 
 const DELETION_CONFIRMATION_WINDOW_MS = 5 * 60 * 1000;
 

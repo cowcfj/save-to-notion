@@ -22,7 +22,7 @@ import {
   HIGHLIGHTS_PREFIX,
   PAGE_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../../../../scripts/config/shared/storage/index.js';
+} from '../../../../scripts/config/shared/storage.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';

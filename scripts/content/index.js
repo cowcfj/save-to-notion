@@ -14,12 +14,12 @@
 
 /* global chrome */
 
-import { CONTENT_QUALITY } from '../config/shared/content/index.js';
+import { CONTENT_QUALITY } from '../config/shared/content.js';
 import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
-import { RUNTIME_ACTIONS } from '../config/shared/messaging/runtime/index.js';
+import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。

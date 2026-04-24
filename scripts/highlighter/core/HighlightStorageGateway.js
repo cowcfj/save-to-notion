@@ -20,13 +20,9 @@
 
 import { isRootUrl, normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
-import { ERROR_MESSAGES } from '../../config/shared/messaging/index.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
-import {
-  HIGHLIGHTS_PREFIX,
-  PAGE_PREFIX,
-  URL_ALIAS_PREFIX,
-} from '../../config/shared/storage/index.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
+import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;

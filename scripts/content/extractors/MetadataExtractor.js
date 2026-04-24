@@ -15,7 +15,7 @@ import {
   SITE_ICON_SELECTORS,
   AVATAR_KEYWORDS,
   IMAGE_SRC_ATTRIBUTES,
-} from '../../config/shared/content/index.js';
+} from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 const MetadataExtractor = {

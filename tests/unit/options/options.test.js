@@ -19,7 +19,7 @@ import { StorageManager } from '../../../options/StorageManager.js';
 import { MigrationTool } from '../../../options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage/index.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
 
 // Mocks for dependencies

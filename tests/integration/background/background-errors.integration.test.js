@@ -8,7 +8,7 @@ import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import {
   ERROR_MESSAGES,
   SECURITY_ERROR_MESSAGES,
-} from '../../../scripts/config/shared/messaging/index.js';
+} from '../../../scripts/config/shared/messages.js';
 import {
   createSendResponseWaiter,
   createMockLogger,

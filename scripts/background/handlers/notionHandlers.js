@@ -7,7 +7,7 @@
  */
 
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { sanitizeApiError, validateInternalRequest } from '../../utils/securityUtils.js';
 import { refreshOAuthToken as refreshOAuthTokenCoordinator } from '../../utils/notionAuth.js';
 

@@ -1,1 +1,1 @@
-export * from './shared/ui/icons.js';
+export { UI_ICONS } from './shared/ui.js';

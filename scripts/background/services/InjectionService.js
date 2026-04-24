@@ -13,8 +13,8 @@
 /* global chrome */
 
 import Logger from '../../utils/Logger.js';
-import { RESTRICTED_PROTOCOLS } from '../../config/shared/core/index.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
+import { RESTRICTED_PROTOCOLS } from '../../config/shared/core.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 
 /**
  * 腳本注入服務的超時與錯誤定義

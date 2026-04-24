@@ -4,7 +4,7 @@
 /* global document */
 import { DataSourceManager } from '../../../options/DataSourceManager.js';
 import { UIManager } from '../../../options/UIManager.js';
-import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messaging/index.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
 jest.mock('../../../options/UIManager.js');

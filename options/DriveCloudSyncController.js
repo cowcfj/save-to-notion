@@ -18,8 +18,8 @@
 
 /* global chrome */
 
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/messaging/runtime/index.js';
-import { UI_MESSAGES } from '../scripts/config/shared/messaging/index.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
+import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/extension/driveSyncErrorCodes.js';
 import {
   clearDriveSyncMetadata,

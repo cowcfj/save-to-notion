@@ -23,14 +23,14 @@ import {
   HIGHLIGHT_STYLE_OPTIONS,
 } from '../utils/highlightStyleMerger.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { CONTENT_QUALITY } from '../../config/shared/content/index.js';
-import { ERROR_MESSAGES } from '../../config/shared/messaging/index.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
+import { CONTENT_QUALITY } from '../../config/shared/content.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { SAVE_STATUS_KINDS, createSaveStatusResponse } from '../../config/saveStatus.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { resolveSaveStatus } from '../services/SaveStatusCoordinator.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
-import { DATA_SOURCE_KEYS } from '../../config/shared/storage/index.js';
+import { DATA_SOURCE_KEYS } from '../../config/shared/storage.js';
 import { getActiveTab } from './handlerUtils.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));

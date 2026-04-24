@@ -27,7 +27,7 @@ jest.mock('@mozilla/readability', () => ({
 }));
 
 const { Readability } = require('@mozilla/readability');
-const { DOMAIN_CLEANING_RULES } = require('../../../../scripts/config/shared/content/cleaning');
+const { DOMAIN_CLEANING_RULES } = require('../../../../scripts/config/shared/content.js');
 
 // 引用 ReadabilityAdapter 模組
 const {

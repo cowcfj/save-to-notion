@@ -16,7 +16,7 @@ import {
   HIGHLIGHTS_PREFIX,
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../scripts/config/shared/storage/index.js';
+} from '../scripts/config/shared/storage.js';
 
 // ─── 備份 ──────────────────────────────────────────────────────────────
 

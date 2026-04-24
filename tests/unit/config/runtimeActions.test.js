@@ -3,7 +3,7 @@ import path from 'node:path';
 import {
   RUNTIME_ACTIONS,
   RUNTIME_ERROR_MESSAGES,
-} from '../../../scripts/config/shared/messaging/runtime/index.js';
+} from '../../../scripts/config/shared/runtimeActions.js';
 
 describe('runtimeActions', () => {
   test('應集中收錄目前 extension 使用的 runtime action', () => {

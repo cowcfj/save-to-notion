@@ -3,7 +3,7 @@
  * 驗證所有 arrow function message builders 回傳正確型別且嵌入參數
  */
 
-const { UI_MESSAGES, ERROR_MESSAGES } = require('../../../scripts/config/shared/messaging/index');
+const { UI_MESSAGES, ERROR_MESSAGES } = require('../../../scripts/config/shared/messages.js');
 const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 
 describe('配置模組 - messages.js 動態函式', () => {

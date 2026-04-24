@@ -62,7 +62,7 @@ const {
 const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
 const domStability = require('../../../../scripts/highlighter/utils/domStability.js');
-const { DOM_STABILITY } = require('../../../../scripts/config/shared/content/quality');
+const { DOM_STABILITY } = require('../../../../scripts/config/shared/content.js');
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,

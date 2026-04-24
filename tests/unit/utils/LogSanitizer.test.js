@@ -3,7 +3,7 @@ import {
   sanitizeUrlForLogging,
   LOG_TRACKING_PARAMS,
 } from '../../../scripts/utils/LogSanitizer.js';
-import { URL_NORMALIZATION } from '../../../scripts/config/shared/content/index.js';
+import { URL_NORMALIZATION } from '../../../scripts/config/shared/content.js';
 
 describe('LogSanitizer', () => {
   describe('sanitize()', () => {

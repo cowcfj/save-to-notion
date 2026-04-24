@@ -1,1 +1,1 @@
-export * from './shared/highlight/style.js';
+export * from './shared/highlightConstants.js';

@@ -33,7 +33,7 @@ import {
   IMAGE_VALIDATION_CONSTANTS,
   IMAGE_LIMITS,
   IMAGE_SIZE_RESOLVE,
-} from '../../config/shared/content/index.js';
+} from '../../config/shared/content.js';
 
 const ImageCollector = {
   /**

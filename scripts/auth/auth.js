@@ -20,7 +20,7 @@
 
 import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
-import { RUNTIME_ACTIONS } from '../config/shared/messaging/runtime/index.js';
+import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { setAccountSession, setAccountProfile, clearAccountSession } from './accountSession.js';
 import { showError, showLoading, showSuccess } from './callbackStatusView.js';
 

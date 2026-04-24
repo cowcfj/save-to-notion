@@ -16,9 +16,9 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/shared/core/index.js';
-import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messaging/index.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
+import { HANDLER_CONSTANTS } from '../../config/shared/core.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { getActiveTab } from './handlerUtils.js';

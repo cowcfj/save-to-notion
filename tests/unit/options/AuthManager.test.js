@@ -3,10 +3,10 @@
 import { AuthManager } from '../../../options/AuthManager.js';
 import { UIManager } from '../../../options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { UI_MESSAGES } from '../../../scripts/config/shared/messaging/index.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage/index.js';
+import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/config/env/index.js', () => ({

@@ -4,7 +4,7 @@ import {
   renderStatusIcon,
 } from '../../../../scripts/highlighter/ui/ToolbarUI.js';
 import { UI_ICONS } from '../../../../scripts/config/icons.js';
-import { TOOLBAR_SELECTORS } from '../../../../scripts/config/shared/ui/index.js';
+import { TOOLBAR_SELECTORS } from '../../../../scripts/config/shared/ui.js';
 import { createSafeIcon } from '../../../../scripts/utils/securityUtils.js';
 
 jest.mock('../../../../scripts/utils/securityUtils.js', () => ({

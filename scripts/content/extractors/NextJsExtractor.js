@@ -13,7 +13,7 @@ import {
   BBC_DEFAULT_IMAGE_WIDTH,
   BBC_IMAGE_BASE_URL,
   NEXTJS_CONFIG,
-} from '../../config/shared/content/index.js';
+} from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 

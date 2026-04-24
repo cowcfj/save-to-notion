@@ -1,1 +1,1 @@
-export * from './shared/notion/codeLanguages.js';
+export * from './shared/notionCodeLanguages.js';

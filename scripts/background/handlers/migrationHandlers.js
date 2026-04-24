@@ -16,8 +16,8 @@ import {
   sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../config/shared/messaging/index.js';
-import { RUNTIME_ACTIONS } from '../../config/shared/messaging/runtime/index.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 
 const validatePrivilegedRequest = (sender, url = null) => {

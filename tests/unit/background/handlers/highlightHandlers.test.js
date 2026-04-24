@@ -1,6 +1,6 @@
 import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messaging/index.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/messaging/runtime/index.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,

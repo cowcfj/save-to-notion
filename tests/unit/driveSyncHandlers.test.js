@@ -2,7 +2,7 @@
  * Drive Sync Background Handlers Tests
  */
 
-import { RUNTIME_ACTIONS } from '../../scripts/config/shared/messaging/runtime/index.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import { createDriveSyncHandlers } from '../../scripts/background/handlers/driveSyncHandlers.js';
 import * as driveClient from '../../scripts/auth/driveClient.js';
 import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';

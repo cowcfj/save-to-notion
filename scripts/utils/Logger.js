@@ -9,8 +9,8 @@
 
 import { LogBuffer } from './LogBuffer.js';
 import { LogSanitizer } from './LogSanitizer.js';
-import { LOG_ICONS } from '../config/shared/ui/index.js';
-import { RUNTIME_ACTIONS } from '../config/shared/messaging/runtime/index.js';
+import { LOG_ICONS } from '../config/shared/ui.js';
+import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 
 // 內部狀態
 let _debugEnabled = false;

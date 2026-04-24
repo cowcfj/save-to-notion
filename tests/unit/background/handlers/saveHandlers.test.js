@@ -3,7 +3,7 @@
  */
 
 import { createSaveHandlers } from '../../../../scripts/background/handlers/saveHandlers.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messaging/index.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateInternalRequest,

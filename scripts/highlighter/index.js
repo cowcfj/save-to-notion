@@ -18,7 +18,7 @@ import { Toolbar } from './ui/Toolbar.js';
 
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
-import { RUNTIME_ACTIONS } from '../config/shared/messaging/runtime/index.js';
+import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
   globalThis.normalizeUrl = normalizeUrl;
 }
