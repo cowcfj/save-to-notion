@@ -245,3 +245,4 @@ skills-lock.json
 AGENTS.md
 .antigravityignore
 DESIGN.md
+scripts/config/env/build.js
