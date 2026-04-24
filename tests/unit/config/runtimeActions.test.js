@@ -75,6 +75,68 @@ describe('runtimeActions', () => {
     );
   });
 
+  test('應在聚合 registry 保留具名 action 與 Request/Response typedef 的對照註釋', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
+    const source = fs.readFileSync(registryFile, 'utf8');
+    const actionTypePairs = [
+      ['CHECK_PAGE_STATUS', 'CheckPageStatusRequest', 'CheckPageStatusResponse'],
+      ['PAGE_SAVE_HINT', 'PageSaveHintRequest', 'PageSaveHintResponse'],
+      ['GET_STABLE_URL', 'GetStableUrlRequest', 'GetStableUrlResponse'],
+      ['SET_STABLE_URL', 'SetStableUrlRequest', 'SetStableUrlResponse'],
+      ['SAVE_PAGE', 'SavePageRequest', 'SavePageResponse'],
+      ['SAVE_PAGE_FROM_TOOLBAR', 'SavePageFromToolbarRequest', 'SavePageFromToolbarResponse'],
+      ['OPEN_NOTION_PAGE', 'OpenNotionPageRequest', 'OpenNotionPageResponse'],
+      ['SYNC_HIGHLIGHTS', 'SyncHighlightsRequest', 'SyncHighlightsResponse'],
+      [
+        'UPDATE_REMOTE_HIGHLIGHTS',
+        'UpdateRemoteHighlightsRequest',
+        'UpdateRemoteHighlightsResponse',
+      ],
+      ['UPDATE_HIGHLIGHTS', 'UpdateHighlightsRequest', 'UpdateHighlightsResponse'],
+      ['CLEAR_HIGHLIGHTS', 'ClearHighlightsRequest', 'ClearHighlightsResponse'],
+      ['SHOW_TOOLBAR', 'ShowToolbarRequest', 'ShowToolbarResponse'],
+      ['TOGGLE_HIGHLIGHTER', 'ToggleHighlighterRequest', 'ToggleHighlighterResponse'],
+      ['USER_ACTIVATE_SHORTCUT', 'UserActivateShortcutRequest', 'UserActivateShortcutResponse'],
+      ['MIGRATION_EXECUTE', 'MigrationExecuteRequest', 'MigrationExecuteResponse'],
+      ['MIGRATION_DELETE', 'MigrationDeleteRequest', 'MigrationDeleteResponse'],
+      ['MIGRATION_BATCH', 'MigrationBatchRequest', 'MigrationBatchResponse'],
+      ['MIGRATION_BATCH_DELETE', 'MigrationBatchDeleteRequest', 'MigrationBatchDeleteResponse'],
+      ['MIGRATION_GET_PENDING', 'MigrationGetPendingRequest', 'MigrationGetPendingResponse'],
+      ['MIGRATION_DELETE_FAILED', 'MigrationDeleteFailedRequest', 'MigrationDeleteFailedResponse'],
+      ['OAUTH_SUCCESS', 'OAuthSuccessRequest', 'OAuthSuccessResponse'],
+      ['OAUTH_FAILED', 'OAuthFailedRequest', 'OAuthFailedResponse'],
+      ['ACCOUNT_SESSION_UPDATED', 'AccountSessionUpdatedRequest', 'AccountSessionUpdatedResponse'],
+      ['ACCOUNT_SESSION_CLEARED', 'AccountSessionClearedRequest', 'AccountSessionClearedResponse'],
+      [
+        'DRIVE_SYNC_STATUS_UPDATED',
+        'DriveSyncStatusUpdatedRequest',
+        'DriveSyncStatusUpdatedResponse',
+      ],
+      ['DRIVE_SYNC_MANUAL_UPLOAD', 'DriveSyncManualUploadRequest', 'DriveSyncManualUploadResponse'],
+      [
+        'DRIVE_SYNC_MANUAL_DOWNLOAD',
+        'DriveSyncManualDownloadRequest',
+        'DriveSyncManualDownloadResponse',
+      ],
+      ['DRIVE_SYNC_CONFLICT', 'DriveSyncConflictRequest', 'DriveSyncConflictResponse'],
+      [
+        'DRIVE_SYNC_SCHEDULE_UPDATED',
+        'DriveSyncScheduleUpdatedRequest',
+        'DriveSyncScheduleUpdatedResponse',
+      ],
+      ['OPEN_SIDE_PANEL', 'OpenSidePanelRequest', 'OpenSidePanelResponse'],
+    ];
+
+    expect(source).toContain('@typedef {object} RuntimeActionsRegistry');
+    for (const [actionKey, requestType, responseType] of actionTypePairs) {
+      const propertyPattern = new RegExp(
+        String.raw`@property \{${requestType}\['action'\]\} ${actionKey} - Request: \{@link ${requestType}\}; Response: \{@link ${responseType}\}`
+      );
+      expect(source).toMatch(propertyPattern);
+    }
+  });
+
   // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
   // `RUNTIME_ACTIONS.KEY` 實際被引用。只收錄卻沒人用的條目會誤導未來維護者，
   // 且工具鏈無法自動偵測（Object.freeze 使所有 key 看起來都「被消費」）。

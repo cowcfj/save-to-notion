@@ -498,6 +498,41 @@ const DIAGNOSTICS_ACTIONS = {
   REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
 };
 
+/**
+ * @typedef {object} RuntimeActionsRegistry
+ * @property {CheckPageStatusRequest['action']} CHECK_PAGE_STATUS - Request: {@link CheckPageStatusRequest}; Response: {@link CheckPageStatusResponse}
+ * @property {PageSaveHintRequest['action']} PAGE_SAVE_HINT - Request: {@link PageSaveHintRequest}; Response: {@link PageSaveHintResponse}
+ * @property {GetStableUrlRequest['action']} GET_STABLE_URL - Request: {@link GetStableUrlRequest}; Response: {@link GetStableUrlResponse}
+ * @property {SetStableUrlRequest['action']} SET_STABLE_URL - Request: {@link SetStableUrlRequest}; Response: {@link SetStableUrlResponse}
+ * @property {SavePageRequest['action']} SAVE_PAGE - Request: {@link SavePageRequest}; Response: {@link SavePageResponse}
+ * @property {SavePageFromToolbarRequest['action']} SAVE_PAGE_FROM_TOOLBAR - Request: {@link SavePageFromToolbarRequest}; Response: {@link SavePageFromToolbarResponse}
+ * @property {OpenNotionPageRequest['action']} OPEN_NOTION_PAGE - Request: {@link OpenNotionPageRequest}; Response: {@link OpenNotionPageResponse}
+ * @property {SyncHighlightsRequest['action']} SYNC_HIGHLIGHTS - Request: {@link SyncHighlightsRequest}; Response: {@link SyncHighlightsResponse}
+ * @property {UpdateRemoteHighlightsRequest['action']} UPDATE_REMOTE_HIGHLIGHTS - Request: {@link UpdateRemoteHighlightsRequest}; Response: {@link UpdateRemoteHighlightsResponse}
+ * @property {UpdateHighlightsRequest['action']} UPDATE_HIGHLIGHTS - Request: {@link UpdateHighlightsRequest}; Response: {@link UpdateHighlightsResponse}
+ * @property {ClearHighlightsRequest['action']} CLEAR_HIGHLIGHTS - Request: {@link ClearHighlightsRequest}; Response: {@link ClearHighlightsResponse}
+ * @property {ShowToolbarRequest['action']} SHOW_TOOLBAR - Request: {@link ShowToolbarRequest}; Response: {@link ShowToolbarResponse}
+ * @property {ToggleHighlighterRequest['action']} TOGGLE_HIGHLIGHTER - Request: {@link ToggleHighlighterRequest}; Response: {@link ToggleHighlighterResponse}
+ * @property {UserActivateShortcutRequest['action']} USER_ACTIVATE_SHORTCUT - Request: {@link UserActivateShortcutRequest}; Response: {@link UserActivateShortcutResponse}
+ * @property {MigrationExecuteRequest['action']} MIGRATION_EXECUTE - Request: {@link MigrationExecuteRequest}; Response: {@link MigrationExecuteResponse}
+ * @property {MigrationDeleteRequest['action']} MIGRATION_DELETE - Request: {@link MigrationDeleteRequest}; Response: {@link MigrationDeleteResponse}
+ * @property {MigrationBatchRequest['action']} MIGRATION_BATCH - Request: {@link MigrationBatchRequest}; Response: {@link MigrationBatchResponse}
+ * @property {MigrationBatchDeleteRequest['action']} MIGRATION_BATCH_DELETE - Request: {@link MigrationBatchDeleteRequest}; Response: {@link MigrationBatchDeleteResponse}
+ * @property {MigrationGetPendingRequest['action']} MIGRATION_GET_PENDING - Request: {@link MigrationGetPendingRequest}; Response: {@link MigrationGetPendingResponse}
+ * @property {MigrationDeleteFailedRequest['action']} MIGRATION_DELETE_FAILED - Request: {@link MigrationDeleteFailedRequest}; Response: {@link MigrationDeleteFailedResponse}
+ * @property {OAuthSuccessRequest['action']} OAUTH_SUCCESS - Request: {@link OAuthSuccessRequest}; Response: {@link OAuthSuccessResponse}
+ * @property {OAuthFailedRequest['action']} OAUTH_FAILED - Request: {@link OAuthFailedRequest}; Response: {@link OAuthFailedResponse}
+ * @property {AccountSessionUpdatedRequest['action']} ACCOUNT_SESSION_UPDATED - Request: {@link AccountSessionUpdatedRequest}; Response: {@link AccountSessionUpdatedResponse}
+ * @property {AccountSessionClearedRequest['action']} ACCOUNT_SESSION_CLEARED - Request: {@link AccountSessionClearedRequest}; Response: {@link AccountSessionClearedResponse}
+ * @property {DriveSyncStatusUpdatedRequest['action']} DRIVE_SYNC_STATUS_UPDATED - Request: {@link DriveSyncStatusUpdatedRequest}; Response: {@link DriveSyncStatusUpdatedResponse}
+ * @property {DriveSyncManualUploadRequest['action']} DRIVE_SYNC_MANUAL_UPLOAD - Request: {@link DriveSyncManualUploadRequest}; Response: {@link DriveSyncManualUploadResponse}
+ * @property {DriveSyncManualDownloadRequest['action']} DRIVE_SYNC_MANUAL_DOWNLOAD - Request: {@link DriveSyncManualDownloadRequest}; Response: {@link DriveSyncManualDownloadResponse}
+ * @property {DriveSyncConflictRequest['action']} DRIVE_SYNC_CONFLICT - Request: {@link DriveSyncConflictRequest}; Response: {@link DriveSyncConflictResponse}
+ * @property {DriveSyncScheduleUpdatedRequest['action']} DRIVE_SYNC_SCHEDULE_UPDATED - Request: {@link DriveSyncScheduleUpdatedRequest}; Response: {@link DriveSyncScheduleUpdatedResponse}
+ * @property {OpenSidePanelRequest['action']} OPEN_SIDE_PANEL - Request: {@link OpenSidePanelRequest}; Response: {@link OpenSidePanelResponse}
+ */
+
+/** @type {Readonly<RuntimeActionsRegistry>} */
 export const RUNTIME_ACTIONS = Object.freeze({
   ...PAGE_STATUS_ACTIONS,
   ...SAVE_ACTIONS,
