@@ -49,15 +49,28 @@ cp -a dist "$RM_DIR/"
 
 # Copy scripts directory, excluding test-only and bundled directories
 rsync -a \
+    --exclude='.DS_Store' \
     --exclude='__mocks__' \
     --exclude='background' \
     --exclude='background.js' \
+    --exclude='config/contentSafe/toolbarIcons.js' \
+    --exclude='config/contentSafe/toolbarMessages.js' \
     --exclude='config/patterns.js' \
     --exclude='config/ui-selectors.js' \
     --exclude='config/README.md' \
     --exclude='content' \
+    --exclude='config/env/build.example.js' \
+    --exclude='config/env.js' \
+    --exclude='config/extension/index.js' \
     --exclude='highlighter' \
     --exclude='legacy' \
+    --exclude='config/runtimeActions/contentBridgeActions.js' \
+    --exclude='config/runtimeActions/highlighterActions.js' \
+    --exclude='config/runtimeActions/pageSaveActions.js' \
+    --exclude='config/runtimeActions/preloaderActions.js' \
+    --exclude='config/shared/highlightConstants.js' \
+    --exclude='config/shared/index.js' \
+    --exclude='config/shared/notionCodeLanguages.js' \
     --exclude='utils/contentUtils.js' \
     --exclude='utils/imageUtils.js' \
     --exclude='utils/pageComplexityDetector.js' \
@@ -72,6 +85,13 @@ rsync -a \
     --exclude='utils/LogExporter.js' \
     --exclude='utils/RetryManager.js' \
     scripts/ "$RM_DIR/scripts/"
+
+# Sidepanel 直接依賴 HighlightLookupResolver，需顯式補回 package。
+mkdir -p "$RM_DIR/scripts/highlighter/core"
+cp -a scripts/highlighter/core/HighlightLookupResolver.js "$RM_DIR/scripts/highlighter/core/"
+
+# 清理 macOS metadata，避免從 cp -a 帶入 release package。
+find "$RM_DIR" -name '.DS_Store' -delete
 
 echo "📂 Scripts folder content:"
 ls -R "$RM_DIR/scripts/"
@@ -129,6 +149,20 @@ for (const dir of htmlDirs) {
   }
 }
 
+for (const file of ['auth.html']) {
+  const htmlPath = path.join(pkgDir, file);
+  if (!fs.existsSync(htmlPath)) continue;
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const scriptTagRegex = /<script\b([^>]*)>/g;
+  let tag;
+  while ((tag = scriptTagRegex.exec(html)) !== null) {
+    const attrs = tag[1];
+    if (!/type=['\"]module['\"]/.test(attrs)) continue;
+    const srcMatch = attrs.match(/src=['\"]([^'\"]+)['\"]/);
+    if (srcMatch) resolveImports(path.join(pkgDir, srcMatch[1]));
+  }
+}
+
 if (missing.length > 0) {
   console.error('❌ 套件中存在遺失的 ES 模組依賴：');
   for (const m of missing) {
@@ -141,6 +175,7 @@ if (missing.length > 0) {
 "
 
 echo "🤐 Zipping..."
+rm -f "releases/$ZIP_NAME"
 cd "$RM_DIR"
 zip -r "../releases/$ZIP_NAME" .
 cd ..
