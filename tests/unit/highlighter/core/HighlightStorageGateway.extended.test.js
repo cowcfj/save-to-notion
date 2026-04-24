@@ -489,6 +489,35 @@ describe('Highlighter HighlightStorageGateway', () => {
       globalThis.chrome = originalChrome;
     });
 
+    test('_resolveStableUrl 應優先採用 normalizedUrl 對應的 alias', async () => {
+      const pageUrl = 'https://example.com/original/?utm_medium=social#frag';
+      const normalizedUrl = normalizeUrl(pageUrl);
+      const normalizedAlias = 'https://example.com/stable-from-normalized';
+      const rawAlias = 'https://example.com/stable-from-raw';
+
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+        [`${URL_ALIAS_PREFIX}${normalizedUrl}`]: normalizedAlias,
+        [`${URL_ALIAS_PREFIX}${pageUrl}`]: rawAlias,
+      });
+
+      const result = await HighlightStorageGateway._resolveStableUrl(pageUrl);
+
+      expect(result).toBe(normalizedAlias);
+    });
+
+    test('_resolveStableUrl 缺少 normalizedUrl alias 時應回退 rawUrl alias', async () => {
+      const pageUrl = 'https://example.com/original/?utm_medium=social#frag';
+      const rawAlias = 'https://example.com/stable-from-raw';
+
+      mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+        [`${URL_ALIAS_PREFIX}${pageUrl}`]: rawAlias,
+      });
+
+      const result = await HighlightStorageGateway._resolveStableUrl(pageUrl);
+
+      expect(result).toBe(rawAlias);
+    });
+
     test.each([
       ['空字串', ''],
       ['無效 URL', 'not-a-valid-url'],

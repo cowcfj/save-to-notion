@@ -27,6 +27,7 @@ import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import {
   resolveKeys as resolveHighlightLookupKeys,
   getAliasLookupKeys,
+  pickAliasCandidate,
   pickHighlightsFromStorage,
 } from './HighlightLookupResolver.js';
 
@@ -565,11 +566,12 @@ const HighlightStorageGateway = {
     );
     const aliasData = await chrome.storage.local.get(aliasKeys);
 
-    // 取優先 alias candidate（normalizedUrl 版本 > rawUrl 版本）
-    const aliasCandidate =
-      aliasData?.[`${URL_ALIAS_PREFIX}${normalizedUrl}`] ??
-      (aliasKeys[1] ? aliasData?.[aliasKeys[1]] : null) ??
-      null;
+    // 取優先 alias candidate（normalizedUrl 版本 > rawUrl 版本），與 resolver 共用同一契約
+    const aliasCandidate = pickAliasCandidate(
+      aliasData,
+      normalizedUrl,
+      typeof pageUrl === 'string' ? pageUrl : null
+    );
 
     if (!aliasCandidate) {
       return normalizedUrl;
