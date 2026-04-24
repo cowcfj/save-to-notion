@@ -2,6 +2,24 @@
  * Shared messaging 配置
  */
 
+function deepFreeze(target) {
+  if (!target || (typeof target !== 'object' && typeof target !== 'function')) {
+    return target;
+  }
+
+  if (Object.isFrozen(target)) {
+    return target;
+  }
+
+  for (const value of Object.values(target)) {
+    if (value && (typeof value === 'object' || typeof value === 'function')) {
+      deepFreeze(value);
+    }
+  }
+
+  return Object.freeze(target);
+}
+
 const AUTH = {
   STATUS_CONNECTED: '已連接到 Notion',
   STATUS_DISCONNECTED: '未連接到 Notion',
@@ -204,7 +222,7 @@ const ACCOUNT = {
   LOCKED_COMING_SOON: '功能即將推出。',
 };
 
-export const UI_MESSAGES = {
+export const UI_MESSAGES = deepFreeze({
   DATA_SOURCE,
   LOGS,
   SETTINGS,
@@ -217,7 +235,7 @@ export const UI_MESSAGES = {
   TOOLBAR,
   STORAGE,
   CLOUD_SYNC,
-};
+});
 
 const TECHNICAL = {
   NO_ACTIVE_TAB: 'active tab',
@@ -241,13 +259,13 @@ const TECHNICAL = {
   CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
 };
 
-export const LOG_LEVELS = {
+export const LOG_LEVELS = deepFreeze({
   DEBUG: 0,
   LOG: 1,
   INFO: 2,
   WARN: 3,
   ERROR: 4,
-};
+});
 
 export const ERROR_TYPES = {
   EXTRACTION_FAILED: 'extraction_failed',
@@ -301,11 +319,13 @@ const USER_MESSAGES = {
   SETUP_MISSING_DATA_SOURCE: '請先在設定頁面選擇 Notion 資料庫',
 };
 
-export const SECURITY_ERROR_MESSAGES = {
+export const SECURITY_ERROR_MESSAGES = deepFreeze({
   TAB_CONTEXT_REQUIRED: '拒絕訪問：此操作必須在標籤頁上下文中調用',
   INTERNAL_ONLY: '拒絕訪問：此操作僅限擴充功能內部調用',
   CONTENT_SCRIPT_ONLY: '拒絕訪問：僅限本擴充功能的 content script 調用',
-};
+});
+
+const NOTION_SERVICE_UNAVAILABLE_MESSAGE = 'Notion 服務暫時不可用，請稍後再試';
 
 const PATTERNS = {
   'No tab with id': '頁面狀態已變更，請重新整理頁面後再試',
@@ -336,20 +356,20 @@ const PATTERNS = {
   unauthorized: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
   invalid_request_url: '請求的 URL 無效，請確認頁面網址正確',
   invalid_json: '資料格式錯誤，請稍後再試',
-  service_unavailable: 'Notion 服務暫時不可用，請稍後再試',
-  internal_server_error: 'Notion 伺服器錯誤，請稍後再試',
+  service_unavailable: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
+  internal_server_error: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
 
   'Network error': '網路連線異常，請檢查網路後重試',
   'rate limit': '請求過於頻繁，請稍後再試',
   timeout: '請求超時，請檢查網路連線',
 
-  'Internal Server Error': 'Notion 服務暫時不可用，請稍後再試',
+  'Internal Server Error': NOTION_SERVICE_UNAVAILABLE_MESSAGE,
   'Unknown Error': '發生未知錯誤，請稍後再試',
 };
 
 const DEFAULT = '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
 
-export const API_ERROR_PATTERNS = {
+export const API_ERROR_PATTERNS = deepFreeze({
   AUTH: [
     'unauthorized',
     'authentication',
@@ -375,16 +395,16 @@ export const API_ERROR_PATTERNS = {
   NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
 
   SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
-};
+});
 
-export const HIGHLIGHT_ERROR_CODES = {
+export const HIGHLIGHT_ERROR_CODES = deepFreeze({
   DELETE_INCOMPLETE: 'highlight_section_delete_incomplete',
   PHASE_DELETE: 'delete_highlight_section',
-};
+});
 
-export const ERROR_MESSAGES = {
+export const ERROR_MESSAGES = deepFreeze({
   TECHNICAL,
   USER_MESSAGES,
   PATTERNS,
   DEFAULT,
-};
+});

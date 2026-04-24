@@ -273,6 +273,7 @@ npm run build:prod
 
 # 運行測試
 npm test
+# 若要直接執行 npx jest，請先跑 npm install，確保 scripts/config/env/build.js 已由 postinstall 生成
 
 # 代碼檢查
 npm run lint

@@ -23,7 +23,12 @@ const RESERVED_RESPONSE_FIELDS = new Set([
   'wasDeleted',
   'deletionPending',
   'error',
+  'notionPageId',
+  'notionUrl',
+  'title',
 ]);
+
+const SAVE_STATUS_KIND_VALUES = new Set(Object.values(SAVE_STATUS_KINDS));
 
 function resolveCapabilities(statusKind) {
   switch (statusKind) {
@@ -92,25 +97,38 @@ export function createSaveStatusResponse({
   error,
   extra = {},
 } = {}) {
-  const { canSave, canSyncHighlights } = resolveCapabilities(statusKind);
-  const isSaved = isSavedStatusKind(statusKind);
+  const knownStatusKind = SAVE_STATUS_KIND_VALUES.has(statusKind);
+  const normalizedStatusKind = knownStatusKind ? statusKind : SAVE_STATUS_KINDS.ERROR;
+  const normalizedSuccess = knownStatusKind ? success : false;
+  const normalizedError = knownStatusKind ? error : error || 'unknown_status_kind';
+
+  if (!knownStatusKind) {
+    globalThis.Logger?.warn?.({
+      operation: 'createSaveStatusResponse',
+      reason: 'unknown_status_kind',
+      statusKind,
+    });
+  }
+
+  const { canSave, canSyncHighlights } = resolveCapabilities(normalizedStatusKind);
+  const isSaved = isSavedStatusKind(normalizedStatusKind);
   const sanitizedExtra = Object.fromEntries(
     Object.entries(extra).filter(([key]) => !RESERVED_RESPONSE_FIELDS.has(key))
   );
 
   return {
-    success,
-    statusKind,
+    success: normalizedSuccess,
+    statusKind: normalizedStatusKind,
     isSaved,
     canSave,
     canSyncHighlights,
     stableUrl,
-    wasDeleted: statusKind === SAVE_STATUS_KINDS.DELETED_REMOTE,
-    deletionPending: statusKind === SAVE_STATUS_KINDS.DELETION_PENDING,
+    wasDeleted: normalizedStatusKind === SAVE_STATUS_KINDS.DELETED_REMOTE,
+    deletionPending: normalizedStatusKind === SAVE_STATUS_KINDS.DELETION_PENDING,
     ...(savedData?.notionPageId ? { notionPageId: savedData.notionPageId } : {}),
     ...(savedData?.notionUrl ? { notionUrl: savedData.notionUrl } : {}),
     ...(savedData && 'title' in savedData ? { title: savedData.title } : {}),
-    ...(error ? { error } : {}),
+    ...(normalizedError ? { error: normalizedError } : {}),
     ...sanitizedExtra,
   };
 }

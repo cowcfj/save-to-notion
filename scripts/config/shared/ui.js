@@ -8,6 +8,9 @@
  * 安全提醒：Logger/UIManager/toolbar/highlighter 注入圖標時，應優先使用 DOMParser 或 CSP 信任的
  * shadow root，避免直接拼接 innerHTML；更新文字請使用 TEXT_NODE 的 textContent。
  */
+const SHARED_EXPORT_UPLOAD_SVG =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+
 export const UI_ICONS = Object.freeze({
   SUCCESS:
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -16,8 +19,7 @@ export const UI_ICONS = Object.freeze({
   WARNING:
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   INFO: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
-  EXPORT:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  EXPORT: SHARED_EXPORT_UPLOAD_SVG,
   REFRESH:
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>',
   LINK: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
@@ -61,8 +63,7 @@ export const UI_ICONS = Object.freeze({
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>',
   DOWNLOAD:
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-  UPLOAD:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  UPLOAD: SHARED_EXPORT_UPLOAD_SVG,
   LIST: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>',
   X_CIRCLE:
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
@@ -86,7 +87,7 @@ export const UI_ICONS = Object.freeze({
 /**
  * Toolbar DOM 選擇器
  */
-export const TOOLBAR_SELECTORS = {
+export const TOOLBAR_SELECTORS = Object.freeze({
   CONTAINER: '#notion-highlighter-v2',
   MINI_ICON: '#notion-highlighter-mini-icon',
   TOGGLE_HIGHLIGHT: '#toggle-highlight-v2',
@@ -98,38 +99,38 @@ export const TOOLBAR_SELECTORS = {
   SAVE_PAGE: '#save-page-v2',
   STATUS_CONTAINER: '#highlight-status-v2',
   COUNT_DISPLAY: '#sync-count-badge-v2',
-};
+});
 
 /**
  * UI 提示狀態類型
  */
-export const UI_STATUS_TYPES = {
+export const UI_STATUS_TYPES = Object.freeze({
   SUCCESS: 'success',
   ERROR: 'error',
   INFO: 'info',
   WARNING: 'warning',
-};
+});
 
 /**
  * 通用 UI 組件 CSS 類名
  */
-export const COMMON_CSS_CLASSES = {
+export const COMMON_CSS_CLASSES = Object.freeze({
   SUCCESS_BOX: 'success-box',
   ERROR_BOX: 'error-box',
   WARNING_BOX: 'warning-box',
   RESULT_URL: 'result-url',
   RESULT_ITEM: 'migration-result-item',
   COUNT_BADGE: 'count-badge',
-};
+});
 
 /**
  * 統一日誌圖標定義 (Centralized Emoji Config)
  * 用於 Logger.success/start/ready 等語義化方法
  */
-export const LOG_ICONS = {
+export const LOG_ICONS = Object.freeze({
   SUCCESS: '✅',
   ERROR: '❌',
   WARN: '⚠️',
   START: '🚀',
   READY: '📦',
-};
+});

@@ -34,7 +34,15 @@ jest.mock('../../../../scripts/config/shared/core.js', () => ({
   HANDLER_CONSTANTS: {
     PAGE_STATUS_CACHE_TTL: 60_000,
   },
-  RESTRICTED_PROTOCOLS: ['chrome://', 'chrome-extension://', 'about:'],
+  RESTRICTED_PROTOCOLS: [
+    'chrome:',
+    'edge:',
+    'about:',
+    'data:',
+    'chrome-extension:',
+    'view-source:',
+    'file:',
+  ],
 }));
 
 jest.mock('../../../../scripts/config/shared/content.js', () => ({

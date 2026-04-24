@@ -55,25 +55,13 @@ describe('toolbarStyles', () => {
     expect(css).toContain('box-shadow: 0 8px 24px rgba(0,0,0,0.2);');
   });
 
-  test('getToolbarCSS 應透過 TOOLBAR_SELECTORS.MINI_ICON 生成 hover selector', () => {
-    const originalDescriptor = Object.getOwnPropertyDescriptor(TOOLBAR_SELECTORS, 'MINI_ICON');
-    Object.defineProperty(TOOLBAR_SELECTORS, 'MINI_ICON', {
-      value: '#test-mini-icon',
-      writable: true,
-      enumerable: true,
-      configurable: true,
-    });
+  test('getToolbarCSS 應使用 TOOLBAR_SELECTORS.MINI_ICON 組裝 hover selector', () => {
+    const css = getToolbarCSS();
+    const hoverSelector = `${TOOLBAR_SELECTORS.MINI_ICON}:hover`;
 
-    try {
-      const css = getToolbarCSS();
-      expect(css).toContain('#test-mini-icon:hover');
-      expect(css).toContain('transform: scale(1.1) rotate(15deg);');
-      expect(css).toContain('box-shadow: 0 8px 24px rgba(0,0,0,0.2);');
-    } finally {
-      if (originalDescriptor) {
-        Object.defineProperty(TOOLBAR_SELECTORS, 'MINI_ICON', originalDescriptor);
-      }
-    }
+    expect(css).toContain(hoverSelector);
+    expect(css).toContain('transform: scale(1.1) rotate(15deg);');
+    expect(css).toContain('box-shadow: 0 8px 24px rgba(0,0,0,0.2);');
   });
 
   test('injectStylesIntoShadowRoot 應在 adoptedStyleSheets 可用時寫入樣式表', () => {

@@ -129,8 +129,17 @@ jobs:
           BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
         run: |
           echo "Building production bundle..."
-          if [ ! -f "scripts/config/env/build.js" ]; then
+          # New structure: env/build.example.js → env/build.js
+          if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
             cp scripts/config/env/build.example.js scripts/config/env/build.js
+          fi
+          # TODO(legacy-env-cleanup): main 完成遷移後移除 legacy fallback
+          # 舊路徑：scripts/config/env.js、scripts/config/env.example.js
+          if [ ! -f "scripts/config/env.js" ] && [ -f "scripts/config/env.example.js" ]; then
+            cp scripts/config/env.example.js scripts/config/env.js
+          fi
+          if [ ! -f "scripts/config/env/build.js" ] && [ ! -f "scripts/config/env/build.example.js" ] && [ ! -f "scripts/config/env.js" ] && [ ! -f "scripts/config/env.example.js" ]; then
+            echo "::warning file=.github/workflows/ci.yml::Missing env config files: scripts/config/env/build.js, scripts/config/env/build.example.js, scripts/config/env.js, scripts/config/env.example.js" >&2
           fi
           npm run build:prod
 

@@ -142,11 +142,18 @@ describe('runtimeActions', () => {
 
     expect(source).toContain('@typedef {object} RuntimeActionsRegistry');
     for (const [actionKey, requestType, responseType] of actionTypePairs) {
-      const propertyPattern = new RegExp(
+      const actionPropertyPattern = new RegExp(
         String.raw`@property \{${requestType}\['action'\]\} ${actionKey} - Request: \{@link ${requestType}\}; Response: \{@link ${responseType}\}`
       );
-      expect(source).toMatch(propertyPattern);
+      expect(source).toMatch(actionPropertyPattern);
     }
+
+    const propertyPattern =
+      /@property \{[^}]+\} ([A-Z0-9_]+) - Request: \{@link [^}]+\}; Response: \{@link [^}]+\}/g;
+    const runtimeActionsRegistryKeys = new Set(
+      [...source.matchAll(propertyPattern)].map(([, actionKey]) => actionKey)
+    );
+    expect(runtimeActionsRegistryKeys).toEqual(new Set(Object.keys(RUNTIME_ACTIONS)));
   });
 
   // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
