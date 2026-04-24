@@ -386,8 +386,6 @@ describe('TabService', () => {
         .fn()
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(highlights);
-      service.normalizeUrl = jest.fn(url => `${url}?normalized=true`);
-      chrome.storage.local.set.mockResolvedValue(undefined);
 
       const result = await service._getHighlightsWithFallback(
         'https://example.com/stable',
@@ -416,8 +414,6 @@ describe('TabService', () => {
         .fn()
         .mockResolvedValueOnce(null) // stableUrl miss
         .mockResolvedValueOnce(highlights); // originalUrl hit
-      service.normalizeUrl = jest.fn(url => url);
-      chrome.storage.local.set.mockResolvedValue(undefined);
 
       await service._getHighlightsWithFallback(
         'https://example.com/stable',

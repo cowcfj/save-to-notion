@@ -318,15 +318,12 @@ class TabService {
     }
 
     const fallbackHighlights = await this._getHighlightsFromStorage(originalUrl);
-    if (!fallbackHighlights) {
-      return fallbackHighlights;
-    }
-
-    // ⚠️ 已移除自動補寫 url_alias 的副作用（Phase 2 regression fix）。
-    // 背景：若在 stableUrl miss、originalUrl hit 時立即補寫 alias，
-    // 後續 HighlightStorageGateway.loadHighlights() 會信任此 alias 優先查 page_<stableUrl>，
-    // 但資料仍在 page_<originalUrl>，造成 restore miss（regression 根因）。
-    // 若確實需要建立 alias，應由明確的 canonicalization/migration 流程負責。
+    // 這裡僅負責 stableUrl -> originalUrl 的讀取回退，不再夾帶重複 side-effect。
+    // restore 正確性由 HighlightStorageGateway._loadBothFormats() 保證：
+    // 它會同時查 page_<stableUrl> 與 page_<normalizedUrl>，避免 canonical key 與原 permalink
+    // 暫時並存時出現 restore miss。url_alias 仍由 _persistUrlAliasIfNeeded() 在
+    // hasStableUrl=true 時寫入，因此這裡的 regression fix 不是「移除 alias」，而是
+    // 避免在 fallback helper 內再做一次與讀取無關的狀態寫入。
 
     return fallbackHighlights;
   }
