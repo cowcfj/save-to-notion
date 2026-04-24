@@ -44,7 +44,9 @@ describe('runtime action 模組拆分', () => {
     for (const { registry: actionRegistry, keys } of expectedModules) {
       expect(actionRegistry).toBeDefined();
       expect(Object.isFrozen(actionRegistry)).toBe(true);
-      expect(Object.keys(actionRegistry).toSorted()).toEqual(keys.toSorted());
+      expect(Object.keys(actionRegistry).toSorted((a, b) => a.localeCompare(b))).toEqual(
+        keys.toSorted((a, b) => a.localeCompare(b))
+      );
 
       for (const key of keys) {
         expect(actionRegistry[key]).toBe(RUNTIME_ACTIONS[key]);
