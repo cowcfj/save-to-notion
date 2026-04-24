@@ -19,6 +19,10 @@ import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import {
+  resolveKeys as resolveHighlightLookupKeys,
+  pickHighlightsFromStorage,
+} from '../../highlighter/core/HighlightLookupResolver.js';
 
 const DELETION_CONFIRMATION_WINDOW_MS = 5 * 60 * 1000;
 
@@ -618,20 +622,19 @@ class TabService {
   }
 
   async _getHighlightsFromStorage(normUrl) {
-    const hlKey = `highlights_${normUrl}`;
-    const pageKey = `page_${normUrl}`;
     // 刻意繞過 StorageService：呼叫方 resolveTabUrl 已在上游將 URL 解析為正確的 stableUrl，
-    // 此處查詢的已是最終 canonical key，不需要再走 alias 解析和鎖機制，可減少不必要的開銷。
+    // 此處查詢的已是最終 canonical key，不需要再走 alias 解析和鎖機制。
     // 雙查機制（stableUrl → originalUrl）由 _updateTabStatusInternal 負責。
-    const data = await chrome.storage.local.get([hlKey, pageKey]);
-
-    // 確定來源：優先 page_* 新格式，再查 highlights_* 舊格式
-    const storedData = data[pageKey] || data[hlKey];
-    const highlights = Array.isArray(storedData) ? storedData : storedData?.highlights;
+    // 使用 HighlightLookupResolver 保持 lookup order 與其他消費者一致：
+    //   page_<normUrl> → highlights_<normUrl>
+    // （aliasCandidate 永遠為 null，因為 normUrl 已是 stable URL）
+    const contract = resolveHighlightLookupKeys(normUrl, null);
+    const data = await chrome.storage.local.get(contract.lookupOrder);
+    const { highlights, resolvedKey } = pickHighlightsFromStorage(contract, data);
 
     const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
+    const keyUsed = resolvedKey ?? contract.lookupOrder[0];
 
-    const keyUsed = data[pageKey] ? pageKey : hlKey;
     this.logger.debug(`[TabService] Checking highlights for ${keyUsed}:`, {
       found: hasHighlights,
       count: hasHighlights ? highlights.length : 0,

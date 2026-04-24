@@ -1199,14 +1199,14 @@ describe('TabService', () => {
         // 5. 執行測試
         await service._updateTabStatusInternal(mockTabId, mockRawUrl);
 
-        // 6. 驗證：新邏輯同時查詢 highlights_* 和 page_* 兩個 key
+        // 6. 驗證：resolver 優先查詢 page_* 新格式，再查 highlights_* 舊格式
         expect(chrome.storage.local.get).toHaveBeenCalledWith([
-          `highlights_${mockStableUrl}`,
           `page_${mockStableUrl}`,
+          `highlights_${mockStableUrl}`,
         ]);
         expect(chrome.storage.local.get).toHaveBeenCalledWith([
-          `highlights_${mockOriginalUrl}`,
           `page_${mockOriginalUrl}`,
+          `highlights_${mockOriginalUrl}`,
         ]);
 
         // 驗證最終成功觸發了注入
