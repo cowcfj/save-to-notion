@@ -1,5 +1,15 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.59.0](https://github.com/cowcfj/save-to-notion/compare/v2.58.1...v2.59.0) (2026-04-25)
+
+
+### ✨ 新功能
+
+* implement Phase 2 account session silent refresh lifecycle ([#442](https://github.com/cowcfj/save-to-notion/issues/442)) ([0d4c848](https://github.com/cowcfj/save-to-notion/commit/0d4c8486d3ea3cdd79ee5545f6fe1d67c1397121))
+* 增加包裝擴展的本地測試功能 ([3176e73](https://github.com/cowcfj/save-to-notion/commit/3176e733169d61447a46f1693d80806361f10ea1))
+* 增加本地測試擴展的更新功能 ([fdc4e2f](https://github.com/cowcfj/save-to-notion/commit/fdc4e2f9f9630eace7e6300761f9734c1e319bb6))
+* 增加生產構建分析功能 ([b68fbdd](https://github.com/cowcfj/save-to-notion/commit/b68fbdd0f4637e6421a874a675984e29861b9e89))
+
 ## [2.58.1](https://github.com/cowcfj/save-to-notion/compare/v2.58.0...v2.58.1) (2026-04-24)
 
 
