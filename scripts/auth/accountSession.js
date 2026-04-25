@@ -262,7 +262,7 @@ export async function setAccountProfile(profile) {
 
 /**
  * 取得 account API 的 base URL。
- * 優先使用 `BUILD_ENV.OAUTH_SERVER_URL`，如果剪裁版未內建則 fallback 到 window origin。
+ * 直接回傳 `BUILD_ENV.OAUTH_SERVER_URL`；若未設定則回傳空字串，由呼叫方判斷並處理。
  *
  * @returns {string}
  */
