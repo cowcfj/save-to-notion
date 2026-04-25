@@ -135,12 +135,8 @@ jobs:
             if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
               cp scripts/config/env/build.example.js scripts/config/env/build.js
             fi
-            # TODO(legacy-env-cleanup): main 完成遷移後移除 legacy fallback
-            if [ ! -f "scripts/config/env.js" ] && [ -f "scripts/config/env.example.js" ]; then
-              cp scripts/config/env.example.js scripts/config/env.js
-            fi
-            if [ ! -f "scripts/config/env/build.js" ] && [ ! -f "scripts/config/env/build.example.js" ] && [ ! -f "scripts/config/env.js" ] && [ ! -f "scripts/config/env.example.js" ]; then
-              echo "::warning file=.github/workflows/ci.yml::Missing env config files: scripts/config/env/build.js, scripts/config/env/build.example.js, scripts/config/env.js, scripts/config/env.example.js" >&2
+            if [ ! -f "scripts/config/env/build.js" ] && [ ! -f "scripts/config/env/build.example.js" ]; then
+              echo "::warning file=.github/workflows/ci.yml::Missing env config files: scripts/config/env/build.js, scripts/config/env/build.example.js" >&2
             fi
           }
 
