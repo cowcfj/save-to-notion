@@ -289,14 +289,18 @@ function getRefreshLogError(error) {
   if (error instanceof Error) {
     return error.message || error.stack || error.name;
   }
-  if (typeof error === 'object' && error !== null) {
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return '[Unserializable Object]';
-    }
+  if (typeof error === 'string') {
+    return error;
   }
-  return String(error);
+  if (typeof error === 'number' || typeof error === 'boolean') {
+    return String(error);
+  }
+
+  try {
+    return JSON.stringify(error) ?? 'unknown error';
+  } catch {
+    return '[Unserializable Value]';
+  }
 }
 
 /**
