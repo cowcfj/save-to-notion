@@ -289,6 +289,13 @@ function getRefreshLogError(error) {
   if (error instanceof Error) {
     return error.message || error.stack || error.name;
   }
+  if (typeof error === 'object' && error !== null) {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return '[Unserializable Object]';
+    }
+  }
   return String(error);
 }
 
