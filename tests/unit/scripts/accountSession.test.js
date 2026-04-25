@@ -12,6 +12,20 @@
  * @see scripts/auth/accountSession.js
  */
 
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    log: jest.fn(),
+    info: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
 import {
   getAccountSession,
   setAccountSession,
@@ -24,6 +38,7 @@ import {
   refreshAccountSession,
   ACCOUNT_STORAGE_KEYS,
 } from '../../../scripts/auth/accountSession.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 // =============================================================================
 // chrome.storage.local mock
@@ -285,6 +300,19 @@ describe('getAccountAccessToken', () => {
     await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT, refreshToken: '' });
     expect(await getAccountAccessToken()).toBeNull();
   });
+
+  test('Session 已過期且 refresh 發生 transient failure 時應吞掉例外並回傳 null', async () => {
+    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ message: 'Internal Server Error' }),
+    });
+
+    await expect(getAccountAccessToken()).resolves.toBeNull();
+    expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
+  });
 });
 
 // =============================================================================
@@ -308,6 +336,18 @@ describe('buildAccountAuthHeaders', () => {
     await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT, refreshToken: '' });
     const headers = await buildAccountAuthHeaders();
     expect(headers).toEqual({});
+  });
+
+  test('過期 session 且 refresh 發生 transient failure 時應回傳空物件', async () => {
+    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ message: 'Internal Server Error' }),
+    });
+
+    await expect(buildAccountAuthHeaders()).resolves.toEqual({});
   });
 });
 
@@ -362,11 +402,10 @@ describe('setAccountProfile', () => {
 });
 
 // =============================================================================
-// Phase 0：失敗測試矩陣（Step 0.2 ~ 0.4）
-// 目的：在 Phase 1 實作前固定目前缺陷，這些測試預期全部 FAIL
+// Phase 2：refresh 驗證矩陣
 // =============================================================================
 
-describe('refreshAccountSession（Phase 0 失敗測試）', () => {
+describe('refreshAccountSession（Phase 2 驗證）', () => {
   const newAccessToken = 'refreshed_access_token';
   const newRefreshToken = 'rotated_refresh_token';
   const newExpiresAt = Math.floor(Date.now() / 1000) + 86_400;
@@ -379,8 +418,8 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
     delete globalThis.fetch;
   });
 
-  // ──── Phase 0 Step 0.2 ────
-  describe('[Phase0-0.2] refresh 成功時應更新三個 storage key', () => {
+  // ──── Phase 2 Step 2.1 ────
+  describe('[Phase2-2.1] refresh 成功時應更新三個 storage key', () => {
     test('refresh 成功後應覆寫 accountAccessToken', async () => {
       await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
 
@@ -398,6 +437,13 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
       await refreshAccountSession();
 
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(newAccessToken);
+      expect(Logger.success).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'success',
+        })
+      );
     });
 
     test('refresh 成功後應覆寫 accountRefreshToken', async () => {
@@ -456,10 +502,36 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
 
       expect(storageFake[ACCOUNT_STORAGE_KEYS.EMAIL]).toBe(VALID_SESSION.email);
     });
+
+    test('refresh success payload 缺少必要欄位時不應污染 storage，且應視為 transient failure', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: '',
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+        }),
+      });
+
+      await expect(refreshAccountSession()).rejects.toThrow();
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(VALID_SESSION.refreshToken);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(PAST_EXPIRES_AT);
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'failed',
+        })
+      );
+    });
   });
 
-  // ──── Phase 0 Step 0.3 ────
-  describe('[Phase0-0.3] refresh failure taxonomy', () => {
+  // ──── Phase 2 Step 2.2 ────
+  describe('[Phase2-2.2] refresh failure taxonomy', () => {
     test('refresh 回 401 INVALID_REFRESH_TOKEN 時應清 session（terminal failure）', async () => {
       await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
 
@@ -473,6 +545,15 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
 
       // session 應已清除
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'cleared',
+          reason: 'INVALID_REFRESH_TOKEN',
+          httpStatus: 401,
+        })
+      );
     });
 
     test('refresh 回 401 SESSION_REVOKED 時應清 session（terminal failure）', async () => {
@@ -512,10 +593,18 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
         json: async () => ({ message: 'Internal Server Error' }),
       });
 
-      await refreshAccountSession().catch(() => {});
+      await expect(refreshAccountSession()).rejects.toThrow();
 
       // session 應保留（不清除）
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'failed',
+          httpStatus: 500,
+        })
+      );
     });
 
     test('refresh 發生 network error 時不應清 session（transient failure）', async () => {
@@ -523,15 +612,63 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
 
       globalThis.fetch = jest.fn().mockRejectedValueOnce(new Error('Network Error'));
 
-      await refreshAccountSession().catch(() => {});
+      await expect(refreshAccountSession()).rejects.toThrow('Network Error');
 
       // session 應保留
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'failed',
+          error: 'Network Error',
+        })
+      );
+    });
+
+    test('refresh timeout 被 abort 時應 reject，且 getAccountAccessToken 應回傳 null', async () => {
+      jest.useFakeTimers();
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn((_url, options = {}) => {
+        return new Promise((resolve, reject) => {
+          options.signal?.addEventListener(
+            'abort',
+            () => {
+              const abortError = new Error('The operation was aborted.');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            },
+            { once: true }
+          );
+        });
+      });
+
+      const refreshPromise = refreshAccountSession();
+      await jest.advanceTimersByTimeAsync(10_000);
+      await expect(refreshPromise).rejects.toThrow('The operation was aborted.');
+
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+      const tokenPromise = getAccountAccessToken();
+      await jest.advanceTimersByTimeAsync(10_000);
+      await expect(tokenPromise).resolves.toBeNull();
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'failed',
+          reason: 'ABORTED',
+          error: 'The operation was aborted.',
+        })
+      );
+
+      jest.useRealTimers();
     });
   });
 
-  // ──── Phase 0 Step 0.4 ────
-  describe('[Phase0-0.4] single-flight：並發多次 refresh 只應送出一次 request', () => {
+  // ──── Phase 2 Step 2.3 ────
+  describe('[Phase2-2.3] single-flight：並發多次 refresh 只應送出一次 request', () => {
     test('並發兩次 getAccountAccessToken() 過期時，只應送出一次 fetch 請求', async () => {
       await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
 
@@ -557,8 +694,38 @@ describe('refreshAccountSession（Phase 0 失敗測試）', () => {
       // 兩次結果應一致
       expect(token1).toBe(newAccessToken);
       expect(token2).toBe(newAccessToken);
+    });
 
-      delete globalThis.fetch;
+    test('前一次 refresh 完成後再次呼叫 getAccountAccessToken()，應重新送出 fetch', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            accessToken: 'first_refresh_token',
+            refreshToken: 'first_refresh_token_rotated',
+            expiresAt: PAST_EXPIRES_AT,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            accessToken: 'second_refresh_token',
+            refreshToken: 'second_refresh_token_rotated',
+            expiresAt: newExpiresAt,
+          }),
+        });
+
+      const token1 = await getAccountAccessToken();
+      const token2 = await getAccountAccessToken();
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      expect(token1).toBe('first_refresh_token');
+      expect(token2).toBe('second_refresh_token');
     });
   });
 });

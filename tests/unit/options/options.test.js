@@ -1400,6 +1400,24 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
     });
 
+    it('token 取得發生 rejection 時，UI 應保守回退到未登入，且 Cloud Sync 不應卡在 loading', async () => {
+      getAccountAccessToken.mockRejectedValue(new Error('refresh transient failure'));
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+    });
+
     it('profile 存在且 token refresh 成功時，profile 資訊應正確顯示（不因 refresh 而消失）', async () => {
       getAccountAccessToken.mockResolvedValue('new_token_after_refresh');
       getAccountProfile.mockResolvedValue({

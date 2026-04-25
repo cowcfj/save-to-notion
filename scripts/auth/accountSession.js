@@ -26,6 +26,7 @@
 
 /* global chrome */
 import { BUILD_ENV } from '../config/env/index.js';
+import Logger from '../utils/Logger.js';
 
 // =============================================================================
 // Storage key 常量（Single Source of Truth）
@@ -59,6 +60,8 @@ const TERMINAL_REFRESH_ERROR_CODES = new Set([
   'SESSION_REVOKED',
   'REFRESH_REUSE_DETECTED',
 ]);
+
+const REFRESH_REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Single-flight in-flight promise。
@@ -151,7 +154,8 @@ export async function clearAccountSession() {
 
 /**
  * 取得目前有效的 account access token。
- * 若無 session 或 token 已過期，回傳 null。
+ * 若 access token 已過期且存在 refresh token，會先嘗試 silent refresh。
+ * refresh 發生 transient failure 時，對 caller 保守回傳 null。
  *
  * @returns {Promise<string | null>}
  */
@@ -171,9 +175,11 @@ export async function getAccountAccessToken() {
 
   // single-flight：若已有 refresh 在飛，共用同一個 Promise
   if (!refreshInFlightPromise) {
-    refreshInFlightPromise = refreshAccountSession().finally(() => {
-      refreshInFlightPromise = null;
-    });
+    refreshInFlightPromise = refreshAccountSession()
+      .catch(() => null)
+      .finally(() => {
+        refreshInFlightPromise = null;
+      });
   }
 
   return refreshInFlightPromise;
@@ -262,13 +268,77 @@ export async function setAccountProfile(profile) {
 
 /**
  * 取得 account API 的 base URL。
- * 直接回傳 `BUILD_ENV.OAUTH_SERVER_URL`；若未設定則回傳空字串，由呼叫方判斷並處理。
+ * `BUILD_ENV` 由 `../config/env/index.js` 載入；在生產建置時，
+ * webpack 會以實際建置值替換 `BUILD_ENV.OAUTH_SERVER_URL`。
+ * 此函式直接回傳 `BUILD_ENV.OAUTH_SERVER_URL`，若未設定則回傳空字串，
+ * 由呼叫方判斷並處理。
  *
  * @returns {string}
  */
 function resolveAccountApiBaseUrl() {
-  // BUILD_ENV 已由 '../config/env/index.js' import，在生產時略由 webpack 替換庭value
   return BUILD_ENV.OAUTH_SERVER_URL ?? '';
+}
+
+/**
+ * 從 refresh 流程的錯誤物件提取可安全寫入日誌的字串。
+ *
+ * @param {unknown} error
+ * @returns {string}
+ */
+function getRefreshLogError(error) {
+  if (error instanceof Error) {
+    return error.message || error.stack || error.name;
+  }
+  return String(error);
+}
+
+/**
+ * 驗證 refresh response payload 是否完整。
+ *
+ * @param {unknown} body
+ * @returns {{ accessToken: string; refreshToken: string; expiresAt: number }}
+ * @throws {Error}
+ */
+function validateRefreshSuccessPayload(body) {
+  if (typeof body !== 'object' || body === null) {
+    throw new Error('[accountSession] refresh response body must be an object');
+  }
+
+  const accessToken = typeof body.accessToken === 'string' ? body.accessToken.trim() : '';
+  const refreshToken = typeof body.refreshToken === 'string' ? body.refreshToken : null;
+  const expiresAt = body.expiresAt;
+
+  if (!accessToken) {
+    throw new Error('[accountSession] refresh response missing accessToken');
+  }
+  if (typeof refreshToken !== 'string') {
+    throw new TypeError('[accountSession] refresh response missing refreshToken');
+  }
+  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || expiresAt <= 0) {
+    throw new Error('[accountSession] refresh response missing expiresAt');
+  }
+
+  return { accessToken, refreshToken, expiresAt };
+}
+
+/**
+ * 記錄 refresh transient failure。
+ *
+ * @param {{
+ *   reason: string;
+ *   httpStatus?: number;
+ *   error: unknown;
+ * }} params
+ * @returns {void}
+ */
+function logRefreshFailure({ reason, httpStatus, error }) {
+  Logger.error('[accountSession] refresh failed', {
+    action: 'refreshAccountSession',
+    result: 'failed',
+    reason,
+    httpStatus,
+    error: getRefreshLogError(error),
+  });
 }
 
 /**
@@ -303,6 +373,7 @@ export function isTerminalRefreshFailure(httpStatus, errorCode) {
  * Transient failure（network error / 5xx / 非預期錯誤）：
  *   - 保留現有 session
  *   - re-throw error—由呼叫方決定 UI 處理
+ *   - 包含 timeout、JSON parse failure、success payload validation failure
  *
  * @returns {Promise<string | null>} 成功時回傳新的 access token，terminal failure 時回 null
  * @throws {Error} transient failure 時抋出錯誤
@@ -318,37 +389,93 @@ export async function refreshAccountSession() {
     throw new Error('[accountSession] OAUTH_SERVER_URL 未設定，無法執行 refresh');
   }
 
-  // Transient failure（network error）會自然往上拋出，不需要 try/catch
-  const response = await fetch(`${baseUrl}/v1/account/session/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: session.refreshToken }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, REFRESH_REQUEST_TIMEOUT_MS);
 
-  // JSON parse 失敗屬於 transient failure，讓例外自然往上拋出
-  const body = await response.json();
+  let response;
+  let body;
+
+  try {
+    response = await fetch(`${baseUrl}/v1/account/session/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+      signal: controller.signal,
+    });
+
+    body = await response.json();
+  } catch (error) {
+    let reason;
+    if (error instanceof Error && error.name === 'AbortError') {
+      reason = 'ABORTED';
+    } else if (response) {
+      reason = 'INVALID_RESPONSE_BODY';
+    } else {
+      reason = 'NETWORK_ERROR';
+    }
+
+    logRefreshFailure({
+      reason,
+      httpStatus: response?.status,
+      error,
+    });
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorCode = typeof body?.code === 'string' ? body.code : undefined;
 
     if (isTerminalRefreshFailure(response.status, errorCode)) {
       // Terminal failure：清 session，回 null
+      Logger.warn('[accountSession] refresh terminal failure, clearing session', {
+        action: 'refreshAccountSession',
+        result: 'cleared',
+        reason: errorCode,
+        httpStatus: response.status,
+      });
       await clearAccountSession();
       return null;
     }
 
     // Transient failure：5xx 等
-    throw new Error(`[accountSession] refresh transient failure, HTTP ${response.status}`);
+    const error = new Error(`[accountSession] refresh transient failure, HTTP ${response.status}`);
+    logRefreshFailure({
+      reason: errorCode ?? 'HTTP_ERROR',
+      httpStatus: response.status,
+      error,
+    });
+    throw error;
+  }
+
+  let payload;
+  try {
+    payload = validateRefreshSuccessPayload(body);
+  } catch (error) {
+    logRefreshFailure({
+      reason: 'INVALID_RESPONSE_PAYLOAD',
+      httpStatus: response.status,
+      error,
+    });
+    throw error;
   }
 
   // 成功：只覆寫 token 相關 key，MUST NOT 清 profile snapshot
   await chrome.storage.local.set({
-    [ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]: body.accessToken,
-    [ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]: body.refreshToken,
-    [ACCOUNT_STORAGE_KEYS.EXPIRES_AT]: body.expiresAt,
+    [ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]: payload.accessToken,
+    [ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]: payload.refreshToken,
+    [ACCOUNT_STORAGE_KEYS.EXPIRES_AT]: payload.expiresAt,
   });
 
-  return body.accessToken;
+  Logger.success('[accountSession] refresh succeeded', {
+    action: 'refreshAccountSession',
+    result: 'success',
+  });
+
+  return payload.accessToken;
 }
 
 // =============================================================================
