@@ -253,6 +253,9 @@ npm install
 # 產生本地測試用的最小 unpacked extension
 npm run package:local-unpacked
 
+# 或直接更新可載入的本地測試 extension
+npm run ext
+
 # 載入 Chrome Extension
 # Chrome → 擴展程式 → 開啟開發者模式 → 載入未封裝項目 → 選擇 .tmp/extension-unpacked
 ```
@@ -317,7 +320,9 @@ vim scripts/highlighter/core/Range.js
 
 - `MUST` 載入 `.tmp/extension-unpacked`
 - `MUST NOT` 直接載入 repo root
+- 建議日常使用 `npm run ext` 更新本地測試 extension
 - 原因：repo root 會把 `node_modules`、`docs`、`coverage`、`.git` 等大型目錄一併算進 Chrome 顯示的擴展大小，誤導本地體積與效能判讀
+- 若要固定本地測試 extension ID，可將 dev public key 放在 `$HOME/.config/notion-chrome/dev-extension-public-key.txt`
 
 ### 構建流程
 

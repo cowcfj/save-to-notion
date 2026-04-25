@@ -49,6 +49,7 @@ describe('tools/package-extension.sh regressions', () => {
   test('應支援輸出本地最小 unpacked 目錄並可選擇跳過 zip', () => {
     expect(packageScript).toContain('--unpacked-dir');
     expect(packageScript).toContain('--skip-zip');
+    expect(packageScript).toContain('--manifest-key-file');
     expect(packageScript).toContain('cp -a "$RM_DIR" "$UNPACKED_DIR"');
   });
 

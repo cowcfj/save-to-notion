@@ -5,6 +5,7 @@ set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 RAW_VERSION=""
 UNPACKED_DIR=""
 SKIP_ZIP=false
+MANIFEST_KEY_FILE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -23,6 +24,18 @@ while [ $# -gt 0 ]; do
         --skip-zip)
             SKIP_ZIP=true
             shift
+            ;;
+        --manifest-key-file=*)
+            MANIFEST_KEY_FILE="${1#*=}"
+            shift
+            ;;
+        --manifest-key-file)
+            MANIFEST_KEY_FILE="${2:-}"
+            if [ -z "$MANIFEST_KEY_FILE" ]; then
+                echo "❌ Error: --manifest-key-file requires a path."
+                exit 1
+            fi
+            shift 2
             ;;
         --*)
             echo "❌ Error: Unknown option $1"
@@ -76,7 +89,10 @@ mkdir -p "$RM_DIR"
 echo "📂 Copying files..."
 
 # Copy root files
-cp -a manifest.json "$RM_DIR/"
+node tools/inject-manifest-key.mjs \
+    --source="$PWD/manifest.json" \
+    --target="$PWD/$RM_DIR/manifest.json" \
+    --key-file="${MANIFEST_KEY_FILE:-$PWD/.non-existent-manifest-key}"
 cp -a auth.html "$RM_DIR/"          # 帳號登入 callback bridge
 
 
