@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 /* eslint-disable sonarjs/no-os-command-from-path */
+/* eslint-disable security/detect-non-literal-fs-filename */
 
 const fs = require('node:fs');
 const os = require('node:os');
