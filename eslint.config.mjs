@@ -196,6 +196,12 @@ export default [
       'regexp/no-useless-flag': 'warn',
       'regexp/prefer-regexp-exec': 'warn',
       'regexp/prefer-regexp-test': 'warn',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [],
+        },
+      ],
     },
     linterOptions: {
       reportUnusedDisableDirectives: true,
@@ -205,6 +211,42 @@ export default [
     files: ['**/*.js'],
     ignores: ['tests/**'],
     rules: {},
+  },
+  {
+    files: ['scripts/content/**/*.js', 'scripts/highlighter/**/*.js', 'scripts/performance/**/*.js'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '../config/index.js',
+              message: 'Content/highlighter/performance 路徑必須直接匯入精準 config 子模組。',
+            },
+            {
+              name: '../../config/index.js',
+              message: 'Content/highlighter/performance 路徑必須直接匯入精準 config 子模組。',
+            },
+            {
+              name: '../../../config/index.js',
+              message: 'Content/highlighter/performance 路徑必須直接匯入精準 config 子模組。',
+            },
+            {
+              name: '../config/shared/index.js',
+              message: 'Content/highlighter/performance 路徑不得匯入 shared aggregate barrel。',
+            },
+            {
+              name: '../../config/shared/index.js',
+              message: 'Content/highlighter/performance 路徑不得匯入 shared aggregate barrel。',
+            },
+            {
+              name: '../../../config/shared/index.js',
+              message: 'Content/highlighter/performance 路徑不得匯入 shared aggregate barrel。',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     ignores: [

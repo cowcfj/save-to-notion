@@ -31,6 +31,7 @@
     "build:all": "npm run build",
     "build:all:prod": "NODE_ENV=production npm run build:prod",
     "dev": "npm run build:watch",
+    "package:local-unpacked": "bash tools/package-extension.sh --unpacked-dir=.tmp/extension-unpacked --skip-zip",
     "prepare": "husky"
   },
   "keywords": [

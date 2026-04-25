@@ -45,4 +45,14 @@ describe('tools/package-extension.sh regressions', () => {
   test('每次打包前應先移除既有 zip，避免舊檔案殘留在 archive 內', () => {
     expect(packageScript).toContain('rm -f "releases/$ZIP_NAME"');
   });
+
+  test('應支援輸出本地最小 unpacked 目錄並可選擇跳過 zip', () => {
+    expect(packageScript).toContain('--unpacked-dir');
+    expect(packageScript).toContain('--skip-zip');
+    expect(packageScript).toContain('cp -a "$RM_DIR" "$UNPACKED_DIR"');
+  });
+
+  test('release package 不應攜帶殘留 sourcemap', () => {
+    expect(packageScript).toContain('find "$RM_DIR/dist" -name \'*.map\' -delete');
+  });
 });

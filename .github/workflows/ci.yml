@@ -124,44 +124,36 @@ jobs:
         env:
           EXTENSION_API_KEY: ${{ secrets.EXTENSION_API_KEY }}
           EVENT_NAME: ${{ github.event_name }}
-          BUNDLE_HARD_LIMIT_BYTES: '230400'
-          BUNDLE_GROWTH_LIMIT_BYTES: '8192'
           BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
         run: |
+          CURRENT_UNPACKED_DIR=".tmp/ci-extension-current"
+          CURRENT_REPORT_FILE=".tmp/size-report-current.json"
+          DELTA_REPORT_FILE=".tmp/size-report-delta.json"
+
+          prepare_build_env() {
+            # New structure: env/build.example.js -> env/build.js
+            if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
+              cp scripts/config/env/build.example.js scripts/config/env/build.js
+            fi
+            # TODO(legacy-env-cleanup): main 完成遷移後移除 legacy fallback
+            if [ ! -f "scripts/config/env.js" ] && [ -f "scripts/config/env.example.js" ]; then
+              cp scripts/config/env.example.js scripts/config/env.js
+            fi
+            if [ ! -f "scripts/config/env/build.js" ] && [ ! -f "scripts/config/env/build.example.js" ] && [ ! -f "scripts/config/env.js" ] && [ ! -f "scripts/config/env.example.js" ]; then
+              echo "::warning file=.github/workflows/ci.yml::Missing env config files: scripts/config/env/build.js, scripts/config/env/build.example.js, scripts/config/env.js, scripts/config/env.example.js" >&2
+            fi
+          }
+
           echo "Building production bundle..."
-          # New structure: env/build.example.js → env/build.js
-          if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
-            cp scripts/config/env/build.example.js scripts/config/env/build.js
-          fi
-          # TODO(legacy-env-cleanup): main 完成遷移後移除 legacy fallback
-          # 舊路徑：scripts/config/env.js、scripts/config/env.example.js
-          if [ ! -f "scripts/config/env.js" ] && [ -f "scripts/config/env.example.js" ]; then
-            cp scripts/config/env.example.js scripts/config/env.js
-          fi
-          if [ ! -f "scripts/config/env/build.js" ] && [ ! -f "scripts/config/env/build.example.js" ] && [ ! -f "scripts/config/env.js" ] && [ ! -f "scripts/config/env.example.js" ]; then
-            echo "::warning file=.github/workflows/ci.yml::Missing env config files: scripts/config/env/build.js, scripts/config/env/build.example.js, scripts/config/env.js, scripts/config/env.example.js" >&2
-          fi
+          prepare_build_env
           npm run build:prod
-
-          # Verify bundle existence (content + highlighter merged bundle)
-          if [ ! -f "dist/content.bundle.js" ]; then
-            echo "❌ Content bundle file not found!"
-            exit 1
-          fi
-
-          if [ ! -f "dist/scripts/background.js" ]; then
-            echo "❌ Background script not found!"
-            exit 1
-          fi
-
-          # 絕對上限：保護 content script 體積不持續失控（225KB）
-          CURRENT_SIZE=$(stat -f%z "dist/content.bundle.js" 2>/dev/null || stat -c%s "dist/content.bundle.js" 2>/dev/null)
-          echo "✅ Content bundle size: $CURRENT_SIZE bytes"
-
-          if [ "$CURRENT_SIZE" -gt "$BUNDLE_HARD_LIMIT_BYTES" ]; then
-            echo "❌ Bundle size ($CURRENT_SIZE bytes) exceeds hard limit ($BUNDLE_HARD_LIMIT_BYTES bytes)!"
-            exit 1
-          fi
+          bash tools/package-extension.sh "ci-current" --unpacked-dir="$CURRENT_UNPACKED_DIR"
+          node tools/check-size-gates.mjs \
+            --mode=hard \
+            --scope=all \
+            --root="$PWD" \
+            --unpacked-dir="$CURRENT_UNPACKED_DIR" \
+            --report-file="$CURRENT_REPORT_FILE"
 
           # 相對增量只在 PR 執行，避免每次 push 都重建 base bundle 影響效率
           if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$BASE_REF" ]; then
@@ -173,42 +165,33 @@ jobs:
               cd "$TMP_BASE"
               export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
               export EXTENSION_API_KEY="$EXTENSION_API_KEY"
-              # New structure: env/build.example.js → env/build.js
-              if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
-                cp scripts/config/env/build.example.js scripts/config/env/build.js
-              fi
-              # TODO(legacy-env-cleanup): main 完成遷移後移除 legacy fallback
-              # 舊路徑：scripts/config/env.js、scripts/config/env.example.js
-              if [ ! -f "scripts/config/env.js" ] && [ -f "scripts/config/env.example.js" ]; then
-                cp scripts/config/env.example.js scripts/config/env.js
-              fi
-              if [ ! -f "scripts/config/env/build.js" ] && [ ! -f "scripts/config/env/build.example.js" ] && [ ! -f "scripts/config/env.js" ] && [ ! -f "scripts/config/env.example.js" ]; then
-                echo "::warning file=.github/workflows/ci.yml::Missing env config files: scripts/config/env/build.js, scripts/config/env/build.example.js, scripts/config/env.js, scripts/config/env.example.js" >&2
-              fi
+              prepare_build_env
               npm ci --ignore-scripts --prefer-offline
               npm run build:prod >/tmp/base-bundle-build.log
+              bash tools/package-extension.sh "ci-base" --unpacked-dir=".tmp/ci-extension-base" >/tmp/base-package-build.log
             )
 
-            BASE_BUNDLE="$TMP_BASE/dist/content.bundle.js"
-            if [ ! -f "$BASE_BUNDLE" ]; then
-              echo "⚠️ Base bundle file not found, skipping growth check."
-              cat /tmp/base-bundle-build.log
-              exit 0
-            fi
-
-            BASE_SIZE=$(stat -f%z "$BASE_BUNDLE" 2>/dev/null || stat -c%s "$BASE_BUNDLE" 2>/dev/null)
-            GROWTH=$((CURRENT_SIZE - BASE_SIZE))
-
-            echo "📏 Base bundle size: $BASE_SIZE bytes"
-            echo "📈 Bundle growth: $GROWTH bytes"
-
-            if [ "$GROWTH" -gt "$BUNDLE_GROWTH_LIMIT_BYTES" ]; then
-              echo "❌ Bundle growth ($GROWTH bytes) exceeds relative limit ($BUNDLE_GROWTH_LIMIT_BYTES bytes)!"
-              exit 1
-            fi
+            node tools/check-size-gates.mjs \
+              --mode=delta \
+              --scope=all \
+              --root="$PWD" \
+              --base-root="$TMP_BASE" \
+              --unpacked-dir="$CURRENT_UNPACKED_DIR" \
+              --base-unpacked-dir="$TMP_BASE/.tmp/ci-extension-base" \
+              --report-file="$DELTA_REPORT_FILE"
           else
             echo "ℹ️ Skipping relative growth check for non-PR events."
           fi
+
+      - name: Upload Size Reports
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: size-reports
+          path: |
+            .tmp/size-report-current.json
+            .tmp/size-report-delta.json
+          if-no-files-found: ignore
 
       - name: Validate coverage file
         id: validate-coverage

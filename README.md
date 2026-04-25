@@ -250,8 +250,11 @@ npm install
 # → postinstall hook 會自動執行 npm run build
 # → dist/highlighter-v2.bundle.js 與 dist/content.bundle.js 自動生成
 
+# 產生本地測試用的最小 unpacked extension
+npm run package:local-unpacked
+
 # 載入 Chrome Extension
-# Chrome → 擴展程式 → 開啟開發者模式 → 載入未封裝項目 → 選擇此目錄
+# Chrome → 擴展程式 → 開啟開發者模式 → 載入未封裝項目 → 選擇 .tmp/extension-unpacked
 ```
 
 ### 開發模式
@@ -271,6 +274,9 @@ npm run build
 # 生產構建（Terser 壓縮）
 npm run build:prod
 
+# 產生本地測試用的最小 unpacked extension
+npm run package:local-unpacked
+
 # 運行測試
 npm test
 # 若要直接執行 npx jest，請先跑 npm install，確保 scripts/config/env/build.js 已由 postinstall 生成
@@ -284,7 +290,7 @@ npm run lint
 **自動構建機制**：
 
 - ✅ `npm install` 後自動執行 `npm run build`
-- ✅ 開發者無需手動構建即可載入 Extension
+- ✅ `npm run package:local-unpacked` 可生成本地測試用的最小載入目錄
 - ✅ `dist/` 目錄不被追蹤（在 `.gitignore` 中）
 
 **開發時的最佳實踐**：
@@ -303,6 +309,12 @@ vim scripts/highlighter/core/Range.js
 
 # 4. 重新載入 Extension（Chrome Extension 頁面點擊刷新圖標）
 ```
+
+**本地載入建議**：
+
+- `MUST` 載入 `.tmp/extension-unpacked`
+- `MUST NOT` 直接載入 repo root
+- 原因：repo root 會把 `node_modules`、`docs`、`coverage`、`.git` 等大型目錄一併算進 Chrome 顯示的擴展大小，誤導本地體積與效能判讀
 
 ### 構建流程
 

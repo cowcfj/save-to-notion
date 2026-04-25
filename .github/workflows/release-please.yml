@@ -207,7 +207,16 @@ jobs:
           TAG_NAME: ${{ needs.release-please.outputs.tag_name || inputs.tag_name }}
         run: |
           chmod +x tools/package-extension.sh
-          ./tools/package-extension.sh "$TAG_NAME"
+          ./tools/package-extension.sh "$TAG_NAME" --unpacked-dir=".tmp/release-extension"
+
+      - name: Verify Release Artifact Size
+        run: |
+          node tools/check-size-gates.mjs \
+            --mode=hard \
+            --scope=package \
+            --root="$PWD" \
+            --unpacked-dir=".tmp/release-extension" \
+            --report-file=".tmp/release-size-report.json"
 
       - name: Upload Release Artifact
         env:

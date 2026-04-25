@@ -16,7 +16,7 @@ export default {
     format: 'iife',
     name: 'MigrationExecutor',
     exports: 'named',
-    sourcemap: isDev ? 'inline' : true,
+    sourcemap: isDev ? 'inline' : false,
     banner: '/* eslint-disable */\n/* Save to Notion - Migration Executor */',
   },
   plugins: [

@@ -1,9 +1,51 @@
 #!/bin/bash
 set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
+# Optional flags for local/unpacked packaging.
+RAW_VERSION=""
+UNPACKED_DIR=""
+SKIP_ZIP=false
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --unpacked-dir=*)
+            UNPACKED_DIR="${1#*=}"
+            shift
+            ;;
+        --unpacked-dir)
+            UNPACKED_DIR="${2:-}"
+            if [ -z "$UNPACKED_DIR" ]; then
+                echo "❌ Error: --unpacked-dir requires a path."
+                exit 1
+            fi
+            shift 2
+            ;;
+        --skip-zip)
+            SKIP_ZIP=true
+            shift
+            ;;
+        --*)
+            echo "❌ Error: Unknown option $1"
+            exit 1
+            ;;
+        *)
+            if [ -n "$RAW_VERSION" ]; then
+                echo "❌ Error: Version provided more than once."
+                exit 1
+            fi
+            RAW_VERSION="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ "$SKIP_ZIP" = true ] && [ -z "$UNPACKED_DIR" ]; then
+    echo "❌ Error: --skip-zip requires --unpacked-dir."
+    exit 1
+fi
+
 # Default version from package.json if not provided
-# Default version from package.json if not provided
-RAW_VERSION=${1:-$(node -p "require('./package.json').version")}
+RAW_VERSION=${RAW_VERSION:-$(node -p "require('./package.json').version")}
 # Strip leading 'v' if present to avoid "vv" prefix (e.g. vv2.22.0)
 VERSION="${RAW_VERSION#v}"
 ZIP_NAME="notion-smart-clipper-v${VERSION}.zip"
@@ -92,6 +134,8 @@ cp -a scripts/highlighter/core/HighlightLookupResolver.js "$RM_DIR/scripts/highl
 
 # 清理 macOS metadata，避免從 cp -a 帶入 release package。
 find "$RM_DIR" -name '.DS_Store' -delete
+# production 不打包任何殘留 sourcemap。
+find "$RM_DIR/dist" -name '*.map' -delete
 
 echo "📂 Scripts folder content:"
 ls -R "$RM_DIR/scripts/"
@@ -174,19 +218,35 @@ if (missing.length > 0) {
 }
 "
 
-echo "🤐 Zipping..."
-rm -f "releases/$ZIP_NAME"
-cd "$RM_DIR"
-zip -r "../releases/$ZIP_NAME" .
-cd ..
+if [ -n "$UNPACKED_DIR" ]; then
+    mkdir -p "$(dirname "$UNPACKED_DIR")"
+    rm -rf "$UNPACKED_DIR"
+    cp -a "$RM_DIR" "$UNPACKED_DIR"
+    echo "📂 Unpacked package created: $UNPACKED_DIR"
+fi
+
+if [ "$SKIP_ZIP" = false ]; then
+    echo "🤐 Zipping..."
+    rm -f "releases/$ZIP_NAME"
+    cd "$RM_DIR"
+    zip -r "../releases/$ZIP_NAME" .
+    cd ..
+fi
 
 # Cleanup
 rm -rf "$RM_DIR"
 
-echo "✅ Package created: releases/$ZIP_NAME"
+if [ "$SKIP_ZIP" = false ]; then
+    echo "✅ Package created: releases/$ZIP_NAME"
+fi
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "zip_path=releases/$ZIP_NAME" >> "$GITHUB_OUTPUT"
-else
+    if [ "$SKIP_ZIP" = false ]; then
+        echo "zip_path=releases/$ZIP_NAME" >> "$GITHUB_OUTPUT"
+    fi
+    if [ -n "$UNPACKED_DIR" ]; then
+        echo "unpacked_dir=$UNPACKED_DIR" >> "$GITHUB_OUTPUT"
+    fi
+elif [ "$SKIP_ZIP" = false ]; then
     echo "::set-output name=zip_path::releases/$ZIP_NAME"
 fi

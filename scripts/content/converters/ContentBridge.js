@@ -25,7 +25,7 @@
 
 /* global Logger */
 
-import { TEXT_PROCESSING } from '../../config/index.js';
+import { TEXT_PROCESSING } from '../../config/shared/content.js';
 
 /**
  * 將 ContentExtractor 的提取結果轉換為 background.js 預期的格式
