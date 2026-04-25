@@ -20,6 +20,14 @@ if (globalThis.MessagePort === undefined) {
   globalThis.MessagePort = MessagePort;
 }
 
+// 提供全域 fetch stub（jsdom 環境可能缺少 fetch）
+// 各測試應自行 mock globalThis.fetch 來覆寫此行為
+if (globalThis.fetch === undefined) {
+  globalThis.fetch = async () => {
+    throw new Error('[presetup] 測試未提供 fetch mock，請在測試中設定 globalThis.fetch');
+  };
+}
+
 // Mock ImageUtils (用於依賴 window.ImageUtils 的模組)
 // 這個 mock 必須在任何模組載入前設定，否則解構會失敗
 globalThis.ImageUtils = {

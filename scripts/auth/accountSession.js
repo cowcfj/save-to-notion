@@ -7,22 +7,25 @@
  * 1. 本模組 MUST NOT 依賴或修改任何 Notion OAuth helper（notionAuth.js 等）。
  * 2. 所有 storage key 皆以 account 前綴命名，與 Notion OAuth keys 完整隔離。
  * 3. token 過期判斷使用 accountAccessTokenExpiresAt（秒），比較前須 × 1000。
- * 4. Phase 1：token 過期時視為需重新登入，MUST NOT 做 silent refresh。
+ * 4. Phase 2：token 過期且有 refresh token 時，自動呼叫 POST /v1/account/session/refresh。
+ *    只有 terminal failure（401 + INVALID_REFRESH_TOKEN / SESSION_REVOKED / REFRESH_REUSE_DETECTED）
+ *    才清除本地 session；transient failure（network error / 5xx）應保留 session。
  *
  * Storage keys（與 .agents/.shared/knowledge/storage_schema.json 一致）：
  *   accountAccessToken          — Bearer token
- *   accountRefreshToken         — Phase 2 reserved
+ *   accountRefreshToken         — 用於 silent refresh
  *   accountAccessTokenExpiresAt — Unix timestamp 秒
  *   accountUserId               — 帳號 user ID
  *   accountEmail                — 帳號 email
  *   accountDisplayName          — 顯示名稱（可能為 null）
  *   accountAvatarUrl            — 頭像 URL（可能為 null）
  *
- * @see docs/plans/2026-04-17-cloudflare-frontend-account-integration-plan.md §3.3
+ * @see docs/plans/2026-04-25-account-session-refresh-hardening-plan.md
  * @see .agents/.shared/knowledge/storage_schema.json §storageAreas.local.accountSession
  */
 
 /* global chrome */
+import { BUILD_ENV } from '../config/env/index.js';
 
 // =============================================================================
 // Storage key 常量（Single Source of Truth）
@@ -40,6 +43,30 @@ const ACCOUNT_STORAGE_KEYS = /** @type {const} */ ({
 
 /** 所有 account key 的陣列，用於批次讀取 / 清除 */
 const ALL_ACCOUNT_KEYS = Object.values(ACCOUNT_STORAGE_KEYS);
+
+// =============================================================================
+// Refresh 相關常量
+// =============================================================================
+
+/**
+ * Terminal refresh failure 的錯誤碼集合。
+ * 出現以下任一碼時，代表 session 已不可恢復， MUST 清除本地 session。
+ *
+ * @see docs/plans/2026-04-25-account-session-refresh-hardening-plan.md §9.2
+ */
+const TERMINAL_REFRESH_ERROR_CODES = new Set([
+  'INVALID_REFRESH_TOKEN',
+  'SESSION_REVOKED',
+  'REFRESH_REUSE_DETECTED',
+]);
+
+/**
+ * Single-flight in-flight promise。
+ * 管理正在進行中的 refresh 請求，避免多個呼叫送出重複 refresh。
+ *
+ * @type {Promise<string | null> | null}
+ */
+let refreshInFlightPromise = null;
 
 // =============================================================================
 // 型別定義
@@ -133,10 +160,23 @@ export async function getAccountAccessToken() {
   if (!session) {
     return null;
   }
-  if (isAccountSessionExpired(session)) {
+  if (!isAccountSessionExpired(session)) {
+    return session.accessToken;
+  }
+
+  // 過期且有 refresh token → 嘗試 silent refresh
+  if (!session.refreshToken) {
     return null;
   }
-  return session.accessToken;
+
+  // single-flight：若已有 refresh 在飛，共用同一個 Promise
+  if (!refreshInFlightPromise) {
+    refreshInFlightPromise = refreshAccountSession().finally(() => {
+      refreshInFlightPromise = null;
+    });
+  }
+
+  return refreshInFlightPromise;
 }
 
 /**
@@ -161,6 +201,7 @@ export function isAccountSessionExpired(session) {
  * 建構 account API 的 Bearer Authorization header。
  *
  * 若無有效 token，回傳空物件（呼叫方應自行決定是否繼續請求）。
+ * 經由 getAccountAccessToken() 路徑，必要時會自動觸發 refresh。
  *
  * @returns {Promise<{'Authorization': string} | Record<string, never>>}
  */
@@ -200,7 +241,7 @@ export async function getAccountProfile() {
 }
 
 /**
- * 將 GET /v1/account/me 回傳的 profile 資料合併寫入 storage。
+ * 將 GET /v1/account/me 回傳的 profile 資料合並寫入 storage。
  * 通常在 auth.html 成功呼叫 account/me 後呼叫。
  *
  * @param {{ userId: string; email: string; displayName?: string | null; avatarUrl?: string | null }} profile
@@ -213,6 +254,101 @@ export async function setAccountProfile(profile) {
     [ACCOUNT_STORAGE_KEYS.DISPLAY_NAME]: profile.displayName ?? null,
     [ACCOUNT_STORAGE_KEYS.AVATAR_URL]: profile.avatarUrl ?? null,
   });
+}
+
+// =============================================================================
+// Refresh Lifecycle
+// =============================================================================
+
+/**
+ * 取得 account API 的 base URL。
+ * 優先使用 `BUILD_ENV.OAUTH_SERVER_URL`，如果剪裁版未內建則 fallback 到 window origin。
+ *
+ * @returns {string}
+ */
+function resolveAccountApiBaseUrl() {
+  // BUILD_ENV 已由 '../config/env/index.js' import，在生產時略由 webpack 替換庭value
+  return BUILD_ENV.OAUTH_SERVER_URL ?? '';
+}
+
+/**
+ * 判斷 refresh 失敗碼是否屬於 terminal failure。
+ *
+ * Terminal failure 代表 session 已不可恢復，前端 MUST 清 session。
+ * Transient failure（network error / 5xx）則不應清 session。
+ *
+ * @param {number} httpStatus - HTTP 狀態碼
+ * @param {string | undefined} errorCode - 後端回傳的 code 字段
+ * @returns {boolean}
+ */
+export function isTerminalRefreshFailure(httpStatus, errorCode) {
+  if (httpStatus !== 401) {
+    return false;
+  }
+  return TERMINAL_REFRESH_ERROR_CODES.has(errorCode ?? '');
+}
+
+/**
+ * 呼叫後端 POST /v1/account/session/refresh，嘗試刷新 access token。
+ *
+ * 成功時：
+ *   - 覆寫 accountAccessToken、accountRefreshToken、accountAccessTokenExpiresAt
+ *   - MUST NOT 清 profile snapshot
+ *   - 回傳新的 access token
+ *
+ * Terminal failure（401 + 特定錯誤碼）：
+ *   - 清除 account session
+ *   - 回傳 null
+ *
+ * Transient failure（network error / 5xx / 非預期錯誤）：
+ *   - 保留現有 session
+ *   - re-throw error—由呼叫方決定 UI 處理
+ *
+ * @returns {Promise<string | null>} 成功時回傳新的 access token，terminal failure 時回 null
+ * @throws {Error} transient failure 時抋出錯誤
+ */
+export async function refreshAccountSession() {
+  const session = await getAccountSession();
+  if (!session?.refreshToken) {
+    return null;
+  }
+
+  const baseUrl = resolveAccountApiBaseUrl();
+  if (!baseUrl) {
+    throw new Error('[accountSession] OAUTH_SERVER_URL 未設定，無法執行 refresh');
+  }
+
+  // Transient failure（network error）會自然往上拋出，不需要 try/catch
+  const response = await fetch(`${baseUrl}/v1/account/session/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: session.refreshToken }),
+  });
+
+  // JSON parse 失敗屬於 transient failure，讓例外自然往上拋出
+  const body = await response.json();
+
+  if (!response.ok) {
+    const errorCode = typeof body?.code === 'string' ? body.code : undefined;
+
+    if (isTerminalRefreshFailure(response.status, errorCode)) {
+      // Terminal failure：清 session，回 null
+      await clearAccountSession();
+      return null;
+    }
+
+    // Transient failure：5xx 等
+    throw new Error(`[accountSession] refresh transient failure, HTTP ${response.status}`);
+  }
+
+  // 成功：只覆寫 token 相關 key，MUST NOT 清 profile snapshot
+  await chrome.storage.local.set({
+    [ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]: body.accessToken,
+    [ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]: body.refreshToken,
+    [ACCOUNT_STORAGE_KEYS.EXPIRES_AT]: body.expiresAt,
+  });
+
+  return body.accessToken;
 }
 
 // =============================================================================

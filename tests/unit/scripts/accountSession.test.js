@@ -21,6 +21,7 @@ import {
   buildAccountAuthHeaders,
   getAccountProfile,
   setAccountProfile,
+  refreshAccountSession,
   ACCOUNT_STORAGE_KEYS,
 } from '../../../scripts/auth/accountSession.js';
 
@@ -84,6 +85,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete globalThis.chrome;
+  delete globalThis.BUILD_ENV;
+  delete globalThis.fetch;
 });
 
 // =============================================================================
@@ -277,8 +280,9 @@ describe('getAccountAccessToken', () => {
     expect(await getAccountAccessToken()).toBe(VALID_SESSION.accessToken);
   });
 
-  test('Session 已過期時應回傳 null（Phase 1 保守策略：不 silent refresh）', async () => {
-    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+  test('Session 已過期且無 refresh token 時應回傳 null（无法刷新）', async () => {
+    // 確保 refreshToken 為空，避免觸發 refresh 流程
+    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT, refreshToken: '' });
     expect(await getAccountAccessToken()).toBeNull();
   });
 });
@@ -299,8 +303,9 @@ describe('buildAccountAuthHeaders', () => {
     expect(headers).toEqual({});
   });
 
-  test('過期 session 時應回傳空物件', async () => {
-    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+  test('過期 session（無 refresh token）時應回傳空物件', async () => {
+    // refreshToken 為空，不會觸發 refresh—應直接回空
+    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT, refreshToken: '' });
     const headers = await buildAccountAuthHeaders();
     expect(headers).toEqual({});
   });
@@ -353,5 +358,207 @@ describe('setAccountProfile', () => {
 
     expect(storageFake.accountDisplayName).toBeNull();
     expect(storageFake.accountAvatarUrl).toBeNull();
+  });
+});
+
+// =============================================================================
+// Phase 0：失敗測試矩陣（Step 0.2 ~ 0.4）
+// 目的：在 Phase 1 實作前固定目前缺陷，這些測試預期全部 FAIL
+// =============================================================================
+
+describe('refreshAccountSession（Phase 0 失敗測試）', () => {
+  const newAccessToken = 'refreshed_access_token';
+  const newRefreshToken = 'rotated_refresh_token';
+  const newExpiresAt = Math.floor(Date.now() / 1000) + 86_400;
+
+  beforeEach(() => {
+    delete globalThis.fetch;
+  });
+
+  afterEach(() => {
+    delete globalThis.fetch;
+  });
+
+  // ──── Phase 0 Step 0.2 ────
+  describe('[Phase0-0.2] refresh 成功時應更新三個 storage key', () => {
+    test('refresh 成功後應覆寫 accountAccessToken', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          rotated: true,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(newAccessToken);
+    });
+
+    test('refresh 成功後應覆寫 accountRefreshToken', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          rotated: true,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(newRefreshToken);
+    });
+
+    test('refresh 成功後應覆寫 accountAccessTokenExpiresAt', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          rotated: true,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(newExpiresAt);
+    });
+
+    test('refresh 成功後 MUST NOT 清空 profile snapshot（email 應保留）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          rotated: false,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.EMAIL]).toBe(VALID_SESSION.email);
+    });
+  });
+
+  // ──── Phase 0 Step 0.3 ────
+  describe('[Phase0-0.3] refresh failure taxonomy', () => {
+    test('refresh 回 401 INVALID_REFRESH_TOKEN 時應清 session（terminal failure）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: 'INVALID_REFRESH_TOKEN' }),
+      });
+
+      await refreshAccountSession();
+
+      // session 應已清除
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+    });
+
+    test('refresh 回 401 SESSION_REVOKED 時應清 session（terminal failure）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: 'SESSION_REVOKED' }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+    });
+
+    test('refresh 回 401 REFRESH_REUSE_DETECTED 時應清 session（terminal failure）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: 'REFRESH_REUSE_DETECTED' }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+    });
+
+    test('refresh 回 500 時不應清 session（transient failure）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ message: 'Internal Server Error' }),
+      });
+
+      await refreshAccountSession().catch(() => {});
+
+      // session 應保留（不清除）
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
+    });
+
+    test('refresh 發生 network error 時不應清 session（transient failure）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockRejectedValueOnce(new Error('Network Error'));
+
+      await refreshAccountSession().catch(() => {});
+
+      // session 應保留
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
+    });
+  });
+
+  // ──── Phase 0 Step 0.4 ────
+  describe('[Phase0-0.4] single-flight：並發多次 refresh 只應送出一次 request', () => {
+    test('並發兩次 getAccountAccessToken() 過期時，只應送出一次 fetch 請求', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          rotated: true,
+        }),
+      });
+
+      // 並發兩次呼叫
+      const [token1, token2] = await Promise.all([
+        getAccountAccessToken(),
+        getAccountAccessToken(),
+      ]);
+
+      // 期望：fetch 只被呼叫一次（single-flight）
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      // 兩次結果應一致
+      expect(token1).toBe(newAccessToken);
+      expect(token2).toBe(newAccessToken);
+
+      delete globalThis.fetch;
+    });
   });
 });
