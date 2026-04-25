@@ -247,7 +247,14 @@ function updateLockedFeatures(isLocked) {
  */
 async function renderAccountUI() {
   const profile = await getAccountProfile();
-  const accessToken = await getAccountAccessToken();
+  let accessToken = null;
+
+  try {
+    accessToken = await getAccountAccessToken();
+  } catch {
+    accessToken = null;
+  }
+
   const isLoggedIn = Boolean(profile && accessToken);
 
   const loggedOutEl = document.querySelector('#account-logged-out');

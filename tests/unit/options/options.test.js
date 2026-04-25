@@ -1359,4 +1359,84 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(syncSetSpy).not.toHaveBeenCalled();
     });
   });
+
+  // =============================================================================
+  // Phase 2 驗證：renderAccountUI 的 refresh 語意（依照計劃 §2.1）
+  // =============================================================================
+  describe('Phase 2 refresh 語意驗證', () => {
+    it('token 過期但 refresh 成功時，UI 應保持已登入（不切回未登入）', async () => {
+      // getAccountAccessToken() 現在自動內建 refresh，模擬它在 refresh 後回傳新 token
+      getAccountAccessToken.mockResolvedValue('refreshed_token_xyz');
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      // token 過期但 refresh 成功，應顯示已登入狀態
+      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+    });
+
+    it('token 過期且 getAccountAccessToken 回 null（terminal failure 或無 refresh token），UI 應切回未登入', async () => {
+      // 模擬 terminal failure 或無 refresh token：getAccountAccessToken() 回 null
+      getAccountAccessToken.mockResolvedValue(null);
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      // terminal failure / 無 refresh token，應回到未登入
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+    });
+
+    it('token 取得發生 rejection 時，UI 應保守回退到未登入，且 Cloud Sync 不應卡在 loading', async () => {
+      getAccountAccessToken.mockRejectedValue(new Error('refresh transient failure'));
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+    });
+
+    it('profile 存在且 token refresh 成功時，profile 資訊應正確顯示（不因 refresh 而消失）', async () => {
+      getAccountAccessToken.mockResolvedValue('new_token_after_refresh');
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'profile-preserved@example.com',
+        displayName: 'Profile Preserved User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      // profile snapshot 在 refresh 後不應被清除
+      expect(document.querySelector('#profile-display-name').textContent).toContain(
+        'Profile Preserved User'
+      );
+      expect(document.querySelector('#profile-email').textContent).toContain(
+        'profile-preserved@example.com'
+      );
+    });
+  });
 });
