@@ -6,6 +6,7 @@
 
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
+import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -34,6 +35,7 @@ export default {
           comments: false,
         },
       }),
+    createVisualizerPlugin('migration-bundle', 'Migration Bundle Analysis'),
   ].filter(Boolean),
   onwarn(warning, warn) {
     if (warning.code === 'THIS_IS_UNDEFINED') return;

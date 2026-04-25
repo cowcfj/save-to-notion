@@ -274,6 +274,9 @@ npm run build
 # 生產構建（Terser 壓縮）
 npm run build:prod
 
+# 生產構建 + bundle 分析報告
+npm run build:prod:analyze
+
 # 產生本地測試用的最小 unpacked extension
 npm run package:local-unpacked
 
@@ -327,9 +330,13 @@ vim scripts/highlighter/core/Range.js
 
 - **生產環境**：`npm run build:prod`
   - Terser 壓縮（-91% 體積）
-  - 外部 source map (`.map` 文件)
+  - Migration bundle 不產出 production sourcemap
   - 保留 console.log（除錯用）
   - 保留關鍵全局變數
+
+- **分析模式**：`npm run build:prod:analyze`
+  - 產出 `.tmp/bundle-analysis/*.html`
+  - 用於檢查 bundle 組成與體積來源
 
 **構建配置**：`rollup.config.mjs`
 

@@ -1,6 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
+import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -39,6 +40,7 @@ export default {
           comments: false, // 移除所有註釋
         },
       }),
+    createVisualizerPlugin('content-bundle', 'Content Bundle Analysis'),
   ].filter(Boolean), // 過濾掉 false 值（開發環境時 terser 為 false）
   onwarn(warning, warn) {
     // 忽略某些常見警告

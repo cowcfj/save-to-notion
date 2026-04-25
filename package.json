@@ -25,6 +25,7 @@
     "build": "rollup -c rollup.all.config.mjs",
     "build:watch": "rollup -c rollup.all.config.mjs -w",
     "build:prod": "NODE_ENV=production rollup -c rollup.all.config.mjs",
+    "build:prod:analyze": "ANALYZE_BUNDLE=true NODE_ENV=production rollup -c rollup.all.config.mjs",
     "build:content": "rollup -c rollup.content.config.mjs",
     "build:content:watch": "rollup -c rollup.content.config.mjs -w",
     "build:content:prod": "NODE_ENV=production rollup -c rollup.content.config.mjs",
@@ -84,6 +85,7 @@
     "lint-staged": "^16.3.0",
     "prettier": "^3.8.1",
     "rollup": "^4.59.0",
+    "rollup-plugin-visualizer": "^7.0.1",
     "v8-to-istanbul": "^9.3.0"
   },
   "dependencies": {

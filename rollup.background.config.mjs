@@ -2,6 +2,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
+import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -51,6 +52,7 @@ export default {
           comments: false,
         },
       }),
+    createVisualizerPlugin('background-bundle', 'Background Bundle Analysis'),
   ].filter(Boolean),
   onwarn(warning, warn) {
     if (warning.code === 'THIS_IS_UNDEFINED') return;

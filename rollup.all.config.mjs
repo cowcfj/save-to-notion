@@ -2,6 +2,7 @@ import contentConfig from './rollup.content.config.mjs';
 import backgroundConfig from './rollup.background.config.mjs';
 import migrationConfig from './rollup.migration.config.mjs';
 import terser from '@rollup/plugin-terser';
+import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -27,7 +28,10 @@ const preloaderConfig = {
     sourcemap: isDev ? 'inline' : false, // 生產環境不生成 sourcemap（保持極輕量）
     banner: '/* Save to Notion - Preloader */',
   },
-  plugins: [terserPlugin].filter(Boolean),
+  plugins: [
+    terserPlugin,
+    createVisualizerPlugin('preloader-bundle', 'Preloader Bundle Analysis'),
+  ].filter(Boolean),
   onwarn(warning, warn) {
     if (warning.code === 'THIS_IS_UNDEFINED') return;
     warn(warning);
