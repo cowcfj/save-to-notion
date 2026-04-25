@@ -133,7 +133,6 @@ rsync -a \
     --exclude='utils/imageUtils.js' \
     --exclude='utils/pageComplexityDetector.js' \
     --exclude='utils/README.md' \
-    --exclude='config/env.example.js' \
     --exclude='config/highlightConstants.js' \
     --exclude='config/index.js' \
     --exclude='config/notionCodeLanguages.js' \
