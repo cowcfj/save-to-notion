@@ -29,18 +29,8 @@ import {
   buildUnifiedPageStateFromLocalStorage,
   buildDriveSnapshot,
 } from '../../sync/driveSnapshot.js';
+import { computeDriveSnapshotHash } from '../../sync/driveSnapshotHash.js';
 import Logger from '../../utils/Logger.js';
-
-/**
- * 產生 Drive snapshot lightweight hash，供 dirty metadata 比對。
- *
- * @param {object} snapshot
- * @param {string | null | undefined} updatedAt
- * @returns {string}
- */
-export function computeDriveSnapshotHash(snapshot, updatedAt) {
-  return `${JSON.stringify(snapshot).length}:${updatedAt ?? ''}`;
-}
 
 // =============================================================================
 // 條件判斷

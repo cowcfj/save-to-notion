@@ -31,8 +31,8 @@ import {
   buildDriveSnapshot,
   applyDriveSnapshotToLocalStorage,
 } from '../../sync/driveSnapshot.js';
+import { computeDriveSnapshotHash } from '../../sync/driveSnapshotHash.js';
 import { setupDriveAlarm } from './driveAlarmScheduler.js';
-import { computeDriveSnapshotHash } from './driveAutoSync.js';
 import Logger from '../../utils/Logger.js';
 
 // =============================================================================
