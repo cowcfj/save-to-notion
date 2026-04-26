@@ -35,6 +35,11 @@ describe('setupDriveAlarm()', () => {
     };
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+    delete globalThis.chrome;
+  });
+
   it('frequency = off 時只清除 alarm，不建立', async () => {
     await setupDriveAlarm('off');
     expect(mockAlarmsClear).toHaveBeenCalledWith(DRIVE_AUTO_SYNC_ALARM);
@@ -95,6 +100,18 @@ describe('setupDriveAlarm()', () => {
       DRIVE_AUTO_SYNC_ALARM,
       expect.objectContaining({
         delayInMinutes: 0.5,
+        periodInMinutes: 1440,
+      })
+    );
+  });
+
+  it('initialDelayInMinutes = NaN 時，退回 periodInMinutes', async () => {
+    await setupDriveAlarm('daily', { initialDelayInMinutes: Number.NaN });
+
+    expect(mockAlarmsCreate).toHaveBeenCalledWith(
+      DRIVE_AUTO_SYNC_ALARM,
+      expect.objectContaining({
+        delayInMinutes: 1440,
         periodInMinutes: 1440,
       })
     );

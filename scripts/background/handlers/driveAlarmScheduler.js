@@ -51,10 +51,9 @@ export async function setupDriveAlarm(frequency, options = {}) {
     );
   }
 
-  const resolvedInitialDelay =
-    typeof options.initialDelayInMinutes === 'number'
-      ? Math.max(0.5, options.initialDelayInMinutes)
-      : periodInMinutes;
+  const resolvedInitialDelay = Number.isFinite(options.initialDelayInMinutes)
+    ? Math.max(0.5, options.initialDelayInMinutes)
+    : periodInMinutes;
 
   await chrome.alarms.create(DRIVE_AUTO_SYNC_ALARM, {
     delayInMinutes: resolvedInitialDelay,
