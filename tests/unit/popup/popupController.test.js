@@ -367,6 +367,67 @@ describe('popup.js Controller', () => {
       expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, saveResponse);
     });
 
+    it('保存成功但目前分頁缺少 tab id 時不應發送 toolbar 訊息', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      savePage.mockResolvedValue({
+        success: true,
+        statusKind: 'saved',
+        isSaved: true,
+        canSave: false,
+        canSyncHighlights: true,
+        url: 'https://notion.so/page',
+      });
+      globalThis.chrome.tabs.query.mockResolvedValueOnce([{ url: 'https://example.com' }]);
+
+      await triggerEvent(mockElements.saveButton);
+
+      expect(globalThis.chrome.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(updateUIForSavedPage).toHaveBeenCalledWith(
+        mockElements,
+        expect.objectContaining({ success: true })
+      );
+    });
+
+    it('保存成功但 toolbar 訊息發送失敗時應記錄警告且不中斷保存流程', async () => {
+      const { mockElements } = setup();
+      const toolbarError = new Error('receiving end does not exist');
+      await initPopup();
+      savePage.mockResolvedValue({
+        success: true,
+        statusKind: 'saved',
+        isSaved: true,
+        canSave: false,
+        canSyncHighlights: true,
+        url: 'https://notion.so/page',
+      });
+      globalThis.chrome.tabs.sendMessage.mockRejectedValueOnce(toolbarError);
+
+      await triggerEvent(mockElements.saveButton);
+
+      expect(Logger.warn).toHaveBeenCalledWith(ERROR_MESSAGES.TECHNICAL.TOOLBAR_SHOW_FAILED, {
+        action: 'showToolbar',
+        error: toolbarError,
+      });
+      expect(updateUIForSavedPage).toHaveBeenCalledWith(
+        mockElements,
+        expect.objectContaining({ success: true })
+      );
+    });
+
+    it('保存按鈕延遲結束後應重新啟用', async () => {
+      jest.useFakeTimers();
+      const { mockElements } = setup();
+      await initPopup();
+      savePage.mockResolvedValue({ success: false, error: 'Save failed' });
+
+      await triggerEvent(mockElements.saveButton);
+      jest.advanceTimersByTime(3000);
+
+      expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, false);
+      jest.useRealTimers();
+    });
+
     it('點擊 saveButton 失敗時應顯示錯誤', async () => {
       const { mockElements } = setup();
       await initPopup();
@@ -409,6 +470,39 @@ describe('popup.js Controller', () => {
       );
     });
 
+    it('highlight 啟動失敗時應顯示錯誤並記錄 structured context', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      startHighlight.mockResolvedValue({ success: false, error: 'Highlight failed' });
+
+      await triggerEvent(mockElements.highlightButton);
+
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining(UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX)
+      );
+      expect(Logger.error).toHaveBeenCalledWith('Failed to start highlight mode', {
+        action: 'startHighlight',
+        error: 'Highlight failed',
+      });
+    });
+
+    it('highlight 成功後應延遲關閉 popup 並重新啟用按鈕', async () => {
+      jest.useFakeTimers();
+      const { mockElements } = setup();
+      await initPopup();
+      startHighlight.mockResolvedValue({ success: true });
+
+      await triggerEvent(mockElements.highlightButton);
+      jest.advanceTimersByTime(1000);
+
+      expect(globalThis.window.close).toHaveBeenCalled();
+
+      jest.advanceTimersByTime(1000);
+      expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, false);
+      jest.useRealTimers();
+    });
+
     it('點擊 openNotionButton 時應開啟 notion 頁面', async () => {
       const { mockElements } = setup();
       await initPopup();
@@ -417,6 +511,20 @@ describe('popup.js Controller', () => {
       await triggerEvent(mockElements.openNotionButton);
 
       expect(openNotionPage).toHaveBeenCalledWith('https://notion.so/new');
+    });
+
+    it('點擊 openNotionButton 開啟失敗時應顯示錯誤並記錄', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      openNotionPage.mockResolvedValue({ success: false, error: 'Invalid Notion URL' });
+
+      await triggerEvent(mockElements.openNotionButton);
+
+      expect(setStatus).toHaveBeenCalledWith(mockElements, expect.stringContaining('資料驗證失敗'));
+      expect(Logger.error).toHaveBeenCalledWith('Failed to open Notion page', {
+        action: 'openNotionPage',
+        error: 'Invalid Notion URL',
+      });
     });
 
     it('當前分頁存在時，點擊 manageButton 應開啟側邊欄並關閉 popup', async () => {
@@ -428,6 +536,19 @@ describe('popup.js Controller', () => {
 
       expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 777 });
       expect(globalThis.window.close).toHaveBeenCalled();
+    });
+
+    it('tabs.onActivated 觸發後應使用最新 currentTab 開啟側邊欄', async () => {
+      const { mockElements } = setup();
+      getActiveTab.mockResolvedValue({ id: 777, url: 'https://example.com/old' });
+      globalThis.chrome.tabs.query.mockResolvedValue([{ id: 888, url: 'https://example.com/new' }]);
+      await initPopup();
+
+      const [onActivatedHandler] = globalThis.chrome.tabs.onActivated.addListener.mock.calls[0];
+      await onActivatedHandler();
+      await triggerEvent(mockElements.manageButton);
+
+      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 888 });
     });
 
     it('當前分頁不可用時，點擊 manageButton 應顯示錯誤', async () => {
@@ -455,6 +576,20 @@ describe('popup.js Controller', () => {
       expect(mockElements.modal).toBeNull();
       expect(mockElements.modalConfirm).toBeNull();
       expect(mockElements.modalCancel).toBeNull();
+    });
+
+    it('account feature 關閉時點擊 accountButton 應直接返回', async () => {
+      const { mockElements } = setup();
+      jest.replaceProperty(BUILD_ENV, 'ENABLE_ACCOUNT', false);
+      await initPopup();
+      getPopupAccountState.mockClear();
+
+      await triggerEvent(mockElements.accountButton);
+
+      expect(getPopupAccountState).not.toHaveBeenCalled();
+      expect(startAccountLogin).not.toHaveBeenCalled();
+      expect(openAccountManagement).not.toHaveBeenCalled();
+      expect(setAccountStatusError).not.toHaveBeenCalled();
     });
 
     it('未登入時點擊 accountButton 應啟動登入流程', async () => {
@@ -536,6 +671,22 @@ describe('popup.js Controller', () => {
         mockElements,
         UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
       );
+    });
+
+    it('帳號管理失敗時應顯示回傳的錯誤', async () => {
+      const { mockElements } = setup();
+      getPopupAccountState.mockResolvedValue({
+        enabled: true,
+        isLoggedIn: true,
+        profile: { email: 'user@example.com' },
+        transientRefreshError: false,
+      });
+      openAccountManagement.mockResolvedValue({ success: false, error: '無法開啟帳號管理頁' });
+      await initPopup();
+
+      await triggerEvent(mockElements.accountButton);
+
+      expect(setAccountStatusError).toHaveBeenCalledWith(mockElements, '無法開啟帳號管理頁');
     });
   });
 });
