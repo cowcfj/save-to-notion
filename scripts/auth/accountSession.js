@@ -9,7 +9,7 @@
  * 3. token 過期判斷使用 accountAccessTokenExpiresAt（秒），比較前須 × 1000。
  * 4. Phase 2：token 過期且有 refresh token 時，自動呼叫 POST /v1/account/session/refresh。
  *    只有 terminal failure（401 + INVALID_REFRESH_TOKEN / SESSION_REVOKED / REFRESH_REUSE_DETECTED）
- *    才清除本地 session；transient failure（network error / 5xx）應保留 session。
+ *    才清除本地 session；transient failure（network error / 5xx）會 re-throw，由 caller 決定 UI。
  *
  * Storage keys（與 .agents/.shared/knowledge/storage_schema.json 一致）：
  *   accountAccessToken          — Bearer token
@@ -155,9 +155,10 @@ export async function clearAccountSession() {
 /**
  * 取得目前有效的 account access token。
  * 若 access token 已過期且存在 refresh token，會先嘗試 silent refresh。
- * refresh 發生 transient failure 時，對 caller 保守回傳 null。
+ * transient failure（network error / 5xx）時會 re-throw，由 caller 決定處理方式。
  *
  * @returns {Promise<string | null>}
+ * @throws {Error} transient refresh failure 時拋出錯誤
  */
 export async function getAccountAccessToken() {
   const session = await getAccountSession();
@@ -175,11 +176,9 @@ export async function getAccountAccessToken() {
 
   // single-flight：若已有 refresh 在飛，共用同一個 Promise
   if (!refreshInFlightPromise) {
-    refreshInFlightPromise = refreshAccountSession()
-      .catch(() => null)
-      .finally(() => {
-        refreshInFlightPromise = null;
-      });
+    refreshInFlightPromise = refreshAccountSession().finally(() => {
+      refreshInFlightPromise = null;
+    });
   }
 
   return refreshInFlightPromise;
@@ -212,7 +211,12 @@ export function isAccountSessionExpired(session) {
  * @returns {Promise<{'Authorization': string} | Record<string, never>>}
  */
 export async function buildAccountAuthHeaders() {
-  const token = await getAccountAccessToken();
+  let token;
+  try {
+    token = await getAccountAccessToken();
+  } catch {
+    return {};
+  }
   if (!token) {
     return {};
   }
@@ -315,9 +319,26 @@ function validateRefreshSuccessPayload(body) {
     throw new Error('[accountSession] refresh response body must be an object');
   }
 
-  const accessToken = typeof body.accessToken === 'string' ? body.accessToken.trim() : '';
-  const refreshToken = typeof body.refreshToken === 'string' ? body.refreshToken : null;
-  const expiresAt = body.expiresAt;
+  let accessToken = '';
+  if (typeof body.access_token === 'string') {
+    accessToken = body.access_token.trim();
+  } else if (typeof body.accessToken === 'string') {
+    accessToken = body.accessToken.trim();
+  }
+
+  let refreshToken = null;
+  if (typeof body.refresh_token === 'string') {
+    refreshToken = body.refresh_token;
+  } else if (typeof body.refreshToken === 'string') {
+    refreshToken = body.refreshToken;
+  }
+
+  let expiresAt;
+  if (typeof body.expires_at === 'number') {
+    expiresAt = body.expires_at;
+  } else if (typeof body.expiresAt === 'number') {
+    expiresAt = body.expiresAt;
+  }
 
   if (!accessToken) {
     throw new Error('[accountSession] refresh response missing accessToken');
@@ -350,6 +371,40 @@ function logRefreshFailure({ reason, httpStatus, error }) {
     httpStatus,
     error: getRefreshLogError(error),
   });
+}
+
+/**
+ * 從 refresh 失敗的 response body 提取 error code。
+ * 優先讀取 snake_case（error_code），fallback 到 camelCase（code）。
+ *
+ * @param {object | undefined} body
+ * @returns {string | undefined}
+ */
+function extractRefreshErrorCode(body) {
+  if (typeof body?.error_code === 'string') {
+    return body.error_code;
+  }
+  if (typeof body?.code === 'string') {
+    return body.code;
+  }
+  return undefined;
+}
+
+/**
+ * 分類 fetch 過程中的錯誤原因。
+ *
+ * @param {unknown} error
+ * @param {Response | undefined} response
+ * @returns {string}
+ */
+function classifyFetchError(error, response) {
+  if (error instanceof Error && error.name === 'AbortError') {
+    return 'ABORTED';
+  }
+  if (response) {
+    return 'INVALID_RESPONSE_BODY';
+  }
+  return 'NETWORK_ERROR';
 }
 
 /**
@@ -412,20 +467,13 @@ export async function refreshAccountSession() {
     response = await fetch(`${baseUrl}/v1/account/session/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: session.refreshToken }),
+      body: JSON.stringify({ refresh_token: session.refreshToken }),
       signal: controller.signal,
     });
 
     body = await response.json();
   } catch (error) {
-    let reason;
-    if (error instanceof Error && error.name === 'AbortError') {
-      reason = 'ABORTED';
-    } else if (response) {
-      reason = 'INVALID_RESPONSE_BODY';
-    } else {
-      reason = 'NETWORK_ERROR';
-    }
+    const reason = classifyFetchError(error, response);
 
     logRefreshFailure({
       reason,
@@ -438,7 +486,7 @@ export async function refreshAccountSession() {
   }
 
   if (!response.ok) {
-    const errorCode = typeof body?.code === 'string' ? body.code : undefined;
+    const errorCode = extractRefreshErrorCode(body);
 
     if (isTerminalRefreshFailure(response.status, errorCode)) {
       // Terminal failure：清 session，回 null

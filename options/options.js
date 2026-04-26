@@ -248,11 +248,13 @@ function updateLockedFeatures(isLocked) {
 async function renderAccountUI() {
   const profile = await getAccountProfile();
   let accessToken = null;
+  let isTransientRefreshError = false;
 
   try {
     accessToken = await getAccountAccessToken();
   } catch {
-    accessToken = null;
+    // Transient refresh failure（network error / 5xx）— 有 profile 時保留 logged-in
+    isTransientRefreshError = Boolean(profile);
   }
 
   const isLoggedIn = Boolean(profile && accessToken);
@@ -260,8 +262,8 @@ async function renderAccountUI() {
   const loggedOutEl = document.querySelector('#account-logged-out');
   const loggedInEl = document.querySelector('#account-logged-in');
 
-  if (isLoggedIn) {
-    // 已登入狀態
+  if (isLoggedIn || isTransientRefreshError) {
+    // 已登入狀態（含 transient failure 保留 profile）
     if (loggedOutEl) {
       loggedOutEl.style.display = 'none';
     }
@@ -269,7 +271,9 @@ async function renderAccountUI() {
       loggedInEl.style.display = '';
     }
 
-    updateProfileDOM(profile);
+    if (profile) {
+      updateProfileDOM(profile);
+    }
     updateLockedFeatures(false);
   } else {
     // 未登入狀態
@@ -283,7 +287,7 @@ async function renderAccountUI() {
     updateLockedFeatures(true);
   }
 
-  await initCloudSyncController(isLoggedIn);
+  await initCloudSyncController(isLoggedIn || isTransientRefreshError);
 }
 
 /**

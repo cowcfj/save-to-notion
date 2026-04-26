@@ -301,7 +301,7 @@ describe('getAccountAccessToken', () => {
     expect(await getAccountAccessToken()).toBeNull();
   });
 
-  test('Session 已過期且 refresh 發生 transient failure 時應吞掉例外並回傳 null', async () => {
+  test('Session 已過期且 refresh 發生 transient failure 時應 re-throw 讓 caller 區分', async () => {
     await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
 
     globalThis.fetch = jest.fn().mockResolvedValueOnce({
@@ -310,7 +310,7 @@ describe('getAccountAccessToken', () => {
       json: async () => ({ message: 'Internal Server Error' }),
     });
 
-    await expect(getAccountAccessToken()).resolves.toBeNull();
+    await expect(getAccountAccessToken()).rejects.toThrow();
     expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
   });
 });
@@ -626,7 +626,7 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       );
     });
 
-    test('refresh timeout 被 abort 時應 reject，且 getAccountAccessToken 應回傳 null', async () => {
+    test('refresh timeout 被 abort 時應 reject，且 getAccountAccessToken 應 re-throw', async () => {
       jest.useFakeTimers();
       await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
 
@@ -650,8 +650,10 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
 
       await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
       const tokenPromise = getAccountAccessToken();
+      // 先 attach 空 catch 避免 timer advance 期間 unhandled rejection
+      tokenPromise.catch(() => {});
       await jest.advanceTimersByTimeAsync(10_000);
-      await expect(tokenPromise).resolves.toBeNull();
+      await expect(tokenPromise).rejects.toThrow('The operation was aborted.');
 
       expect(Logger.error).toHaveBeenCalledWith(
         expect.any(String),
@@ -726,6 +728,126 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       expect(globalThis.fetch).toHaveBeenCalledTimes(2);
       expect(token1).toBe('first_refresh_token');
       expect(token2).toBe('second_refresh_token');
+    });
+  });
+
+  // ──── Contract Alignment Tests ────
+  describe('Contract Alignment：refresh request/response/error 使用 snake_case', () => {
+    const snakeAccessToken = 'snake_access_token';
+    const snakeRefreshToken = 'snake_refresh_token';
+    const snakeExpiresAt = Math.floor(Date.now() / 1000) + 86_400;
+
+    beforeEach(() => {
+      delete globalThis.fetch;
+    });
+
+    afterEach(() => {
+      delete globalThis.fetch;
+    });
+
+    test('refresh request body 應使用 snake_case key: refresh_token', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: snakeAccessToken,
+          refresh_token: snakeRefreshToken,
+          expires_at: snakeExpiresAt,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      const fetchCall = globalThis.fetch.mock.calls[0];
+      const requestBody = JSON.parse(fetchCall[1].body);
+      expect(requestBody).toHaveProperty('refresh_token', VALID_SESSION.refreshToken);
+      expect(requestBody).not.toHaveProperty('refreshToken');
+    });
+
+    test('refresh success 應從 snake_case 欄位解析: access_token / refresh_token / expires_at', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: snakeAccessToken,
+          refresh_token: snakeRefreshToken,
+          expires_at: snakeExpiresAt,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(snakeAccessToken);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(snakeRefreshToken);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(snakeExpiresAt);
+    });
+
+    test('refresh terminal error 應從 error_code 解析（非 code）', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error_code: 'INVALID_REFRESH_TOKEN' }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'cleared',
+          reason: 'INVALID_REFRESH_TOKEN',
+          httpStatus: 401,
+        })
+      );
+    });
+
+    test('refresh terminal error 的 code 欄位應作為 fallback 相容', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: 'SESSION_REVOKED' }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          reason: 'SESSION_REVOKED',
+          httpStatus: 401,
+        })
+      );
+    });
+
+    test('refresh success 的 camelCase 欄位應作為 fallback 相容', async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          accessToken: 'camel_access',
+          refreshToken: 'camel_refresh',
+          expiresAt: snakeExpiresAt,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe('camel_access');
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe('camel_refresh');
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(snakeExpiresAt);
     });
   });
 });

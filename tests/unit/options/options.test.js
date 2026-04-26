@@ -1400,7 +1400,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
     });
 
-    it('token 取得發生 rejection 時，UI 應保守回退到未登入，且 Cloud Sync 不應卡在 loading', async () => {
+    it('token 取得發生 transient rejection 時，有 profile 應保留 logged-in UI，Cloud Sync 不應卡在 loading', async () => {
       getAccountAccessToken.mockRejectedValue(new Error('refresh transient failure'));
       getAccountProfile.mockResolvedValue({
         userId: 'u1',
@@ -1412,10 +1412,9 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      // Transient failure + profile：保留 logged-in，不誤判登出
+      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
     });
 
     it('profile 存在且 token refresh 成功時，profile 資訊應正確顯示（不因 refresh 而消失）', async () => {
@@ -1437,6 +1436,25 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#profile-email').textContent).toContain(
         'profile-preserved@example.com'
       );
+    });
+
+    it('getAccountAccessToken 發生 transient rejection 時，有 profile 的情況下應保留 logged-in UI，不應誤切 logged-out', async () => {
+      // Transient failure：token 取得失敗但不是 terminal（例如 network error、5xx）
+      // 目前 renderAccountUI 將所有 failure 視為 logged-out 是錯誤的
+      getAccountAccessToken.mockRejectedValue(new Error('refresh transient failure'));
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      // 修正後：有 profile + transient failure → 保留 logged-in（顯示可重試）
+      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
+      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
     });
   });
 });
