@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.61.0](https://github.com/cowcfj/save-to-notion/compare/v2.60.0...v2.61.0) (2026-04-26)
+
+
+### ✨ 新功能
+
+* Add Google account login functionality and UI updates ([#446](https://github.com/cowcfj/save-to-notion/issues/446)) ([74e7d5b](https://github.com/cowcfj/save-to-notion/commit/74e7d5b040443cd3b9a394b8d0c1b24020643e46))
+
 ## [2.60.0](https://github.com/cowcfj/save-to-notion/compare/v2.59.0...v2.60.0) (2026-04-26)
 
 
