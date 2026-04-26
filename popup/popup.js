@@ -13,6 +13,9 @@ import {
   getElements,
   setStatus,
   setButtonState,
+  setAccountSectionVisible,
+  updateUIForLoggedOutAccount,
+  updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
   formatSaveSuccessMessage,
@@ -26,8 +29,12 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
+  getPopupAccountState,
+  startAccountLogin,
+  openAccountManagement,
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
+import { BUILD_ENV } from '../scripts/config/env/index.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { isSavedStatusResponse } from '../scripts/config/saveStatus.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
@@ -35,6 +42,27 @@ import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.j
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 const DEFAULT_ERROR = 'Unknown Error';
+
+async function initAccountSection(elements) {
+  if (BUILD_ENV.ENABLE_ACCOUNT) {
+    const accountState = await getPopupAccountState();
+    setAccountSectionVisible(elements, accountState.enabled);
+
+    if (accountState.enabled) {
+      if (accountState.isLoggedIn) {
+        updateUIForLoggedInAccount(elements, accountState.profile, {
+          transientRefreshError: accountState.transientRefreshError,
+        });
+      } else {
+        updateUIForLoggedOutAccount(elements);
+      }
+    }
+
+    return;
+  }
+
+  setAccountSectionVisible(elements, false);
+}
 
 // Export initialization function for testing
 export async function initPopup() {
@@ -45,6 +73,7 @@ export async function initPopup() {
 
   // 獲取所有 DOM 元素
   const elements = getElements();
+  await initAccountSection(elements);
 
   // 檢查設置
   const settings = await checkSettings();
@@ -196,6 +225,33 @@ export async function initPopup() {
       } else {
         // currentTab 不可用（例如 chrome:// 頁面、PDF 檢視器）
         setStatus(elements, '側邊欄無法在此頁面開啟。', '#d63384');
+      }
+    });
+  }
+
+  if (elements.accountButton) {
+    elements.accountButton.addEventListener('click', async () => {
+      const accountState = BUILD_ENV.ENABLE_ACCOUNT
+        ? await getPopupAccountState()
+        : { enabled: false, isLoggedIn: false };
+
+      if (!accountState.enabled) {
+        return;
+      }
+
+      if (accountState.isLoggedIn) {
+        const result = await openAccountManagement();
+        if (!result?.success && elements.accountStatus) {
+          elements.accountStatus.textContent = result.error || '無法開啟帳號管理頁面';
+          elements.accountStatus.style.color = '#d63384';
+        }
+        return;
+      }
+
+      const result = await startAccountLogin();
+      if (!result?.success && elements.accountStatus) {
+        elements.accountStatus.textContent = result.error || '無法開啟登入頁面，請稍後再試';
+        elements.accountStatus.style.color = '#d63384';
       }
     });
   }

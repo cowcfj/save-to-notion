@@ -8,6 +8,9 @@ import {
   setStatus,
   setButtonState,
   setButtonText,
+  setAccountSectionVisible,
+  updateUIForLoggedOutAccount,
+  updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
   formatSaveSuccessMessage,
@@ -24,6 +27,11 @@ describe('popupUI.js', () => {
       manageButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
       status: { textContent: '', style: { color: '' } },
+      accountSection: { style: { display: 'none' } },
+      accountStatus: { textContent: '', style: { color: '' } },
+      accountButton: { querySelector: jest.fn(), style: {}, disabled: false },
+      accountSummary: { textContent: '' },
+      accountEmail: { textContent: '', style: { display: 'none' } },
     };
     jest.clearAllMocks();
   });
@@ -109,6 +117,75 @@ describe('popupUI.js', () => {
       const response = { wasDeleted: true };
       updateUIForUnsavedPage(mockElements, response);
       expect(mockElements.status.textContent).toContain('原頁面已刪除');
+    });
+  });
+
+  describe('account section helpers', () => {
+    it('應可切換 account 區塊顯示狀態', () => {
+      setAccountSectionVisible(mockElements, true);
+      expect(mockElements.accountSection.style.display).toBe('block');
+
+      setAccountSectionVisible(mockElements, false);
+      expect(mockElements.accountSection.style.display).toBe('none');
+    });
+
+    it('未登入時應顯示登入按鈕文案與說明', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedOutAccount(mockElements);
+
+      expect(mockTextSpan.textContent).toBe('使用 Google 登入');
+      expect(mockElements.accountSummary.textContent).toContain('同步與進階功能');
+      expect(mockElements.accountEmail.textContent).toBe('');
+      expect(mockElements.accountEmail.style.display).toBe('none');
+    });
+
+    it('已登入且有 displayName 時應顯示名稱與 email，按鈕切為帳號管理', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedInAccount(mockElements, {
+        email: 'user@example.com',
+        displayName: 'Test User',
+      });
+
+      expect(mockTextSpan.textContent).toBe('帳號管理');
+      expect(mockElements.accountSummary.textContent).toBe('Test User');
+      expect(mockElements.accountEmail.textContent).toBe('user@example.com');
+      expect(mockElements.accountEmail.style.display).toBe('block');
+    });
+
+    it('已登入且無 displayName 時應回退顯示 email，隱藏次要 email 行', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedInAccount(mockElements, {
+        email: 'user@example.com',
+        displayName: '   ',
+      });
+
+      expect(mockTextSpan.textContent).toBe('帳號管理');
+      expect(mockElements.accountSummary.textContent).toBe('user@example.com');
+      expect(mockElements.accountEmail.textContent).toBe('');
+      expect(mockElements.accountEmail.style.display).toBe('none');
+    });
+
+    it('transient refresh error 時應保留已登入摘要並顯示狀態提醒', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedInAccount(
+        mockElements,
+        {
+          email: 'user@example.com',
+          displayName: 'Test User',
+        },
+        { transientRefreshError: true }
+      );
+
+      expect(mockElements.accountStatus.textContent).toContain('無法更新登入狀態');
+      expect(mockElements.accountStatus.style.color).toBe('#d63384');
     });
   });
 

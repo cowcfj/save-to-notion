@@ -9,8 +9,11 @@
 import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
+import { BUILD_ENV } from '../scripts/config/env/index.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { ERROR_MESSAGES } from '../scripts/config/shared/messages.js';
+import { getAccountAccessToken, getAccountProfile } from '../scripts/auth/accountSession.js';
+import { buildAccountLoginStartUrl, getOptionsAdvancedUrl } from '../scripts/auth/accountLogin.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 
 /**
@@ -188,5 +191,88 @@ export async function getActiveTab() {
   } catch (error) {
     Logger.warn('getActiveTab failed:', error);
     return null;
+  }
+}
+
+/**
+ * 讀取 popup account 狀態。
+ *
+ * @returns {Promise<{
+ *   enabled: boolean,
+ *   isLoggedIn: boolean,
+ *   profile: object|null,
+ *   transientRefreshError: boolean
+ * }>}
+ */
+export async function getPopupAccountState() {
+  if (!BUILD_ENV.ENABLE_ACCOUNT) {
+    return {
+      enabled: false,
+      isLoggedIn: false,
+      profile: null,
+      transientRefreshError: false,
+    };
+  }
+
+  const profile = await getAccountProfile();
+  if (!profile) {
+    return {
+      enabled: true,
+      isLoggedIn: false,
+      profile: null,
+      transientRefreshError: false,
+    };
+  }
+
+  try {
+    const accessToken = await getAccountAccessToken();
+    return {
+      enabled: true,
+      isLoggedIn: Boolean(accessToken),
+      profile,
+      transientRefreshError: false,
+    };
+  } catch {
+    return {
+      enabled: true,
+      isLoggedIn: true,
+      profile,
+      transientRefreshError: true,
+    };
+  }
+}
+
+/**
+ * 啟動 account Google login flow。
+ *
+ * @returns {Promise<{ success: boolean, error?: string }>}
+ */
+export async function startAccountLogin() {
+  const startUrlResult = buildAccountLoginStartUrl();
+  if (!startUrlResult.success) {
+    return { success: false, error: startUrlResult.error };
+  }
+
+  try {
+    await chrome.tabs.create({ url: startUrlResult.url });
+    return { success: true };
+  } catch (error) {
+    Logger.warn('startAccountLogin failed:', error);
+    return { success: false, error: '無法開啟登入頁面，請稍後再試' };
+  }
+}
+
+/**
+ * 開啟 options advanced section 的 account 管理頁。
+ *
+ * @returns {Promise<{ success: boolean, error?: string }>}
+ */
+export async function openAccountManagement() {
+  try {
+    await chrome.tabs.create({ url: getOptionsAdvancedUrl() });
+    return { success: true };
+  } catch (error) {
+    Logger.warn('openAccountManagement failed:', error);
+    return { success: false, error: '無法開啟帳號管理頁面' };
   }
 }

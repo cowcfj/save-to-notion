@@ -15,6 +15,11 @@ import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
  * @property {HTMLButtonElement} highlightButton - 標記按鈕
  * @property {HTMLButtonElement} manageButton - 管理標註按鈕（開啟 Side Panel）
  * @property {HTMLButtonElement} openNotionButton - 打開 Notion 按鈕
+ * @property {HTMLElement} accountSection - Account 區塊容器
+ * @property {HTMLElement} accountSummary - Account 主摘要
+ * @property {HTMLElement} accountEmail - Account 次要 email 顯示
+ * @property {HTMLElement} accountStatus - Account 區塊狀態訊息
+ * @property {HTMLButtonElement} accountButton - Account 主操作按鈕
  * @property {HTMLElement} status - 狀態顯示元素
  */
 
@@ -29,6 +34,11 @@ export function getElements() {
     highlightButton: document.querySelector('#highlight-button'),
     manageButton: document.querySelector('#manage-button'),
     openNotionButton: document.querySelector('#open-notion-button'),
+    accountSection: document.querySelector('#account-section'),
+    accountSummary: document.querySelector('#account-summary'),
+    accountEmail: document.querySelector('#account-email'),
+    accountStatus: document.querySelector('#account-status'),
+    accountButton: document.querySelector('#account-button'),
     status: document.querySelector('#status'),
   };
 }
@@ -109,6 +119,77 @@ export function setButtonText(button, text) {
   } else {
     // 備用方案：直接設置按鈕文字
     button.textContent = text;
+  }
+}
+
+/**
+ * 切換 popup account 區塊顯示。
+ *
+ * @param {PopupElements} elements
+ * @param {boolean} visible
+ */
+export function setAccountSectionVisible(elements, visible) {
+  if (elements.accountSection) {
+    elements.accountSection.style.display = visible ? 'block' : 'none';
+  }
+}
+
+/**
+ * 更新 account 區塊為未登入狀態。
+ *
+ * @param {PopupElements} elements
+ */
+export function updateUIForLoggedOutAccount(elements) {
+  setButtonText(elements.accountButton, '使用 Google 登入');
+
+  if (elements.accountSummary) {
+    elements.accountSummary.textContent = '登入 Google 帳號以啟用同步與進階功能。';
+  }
+  if (elements.accountEmail) {
+    elements.accountEmail.textContent = '';
+    elements.accountEmail.style.display = 'none';
+  }
+  if (elements.accountStatus) {
+    elements.accountStatus.textContent = '';
+    elements.accountStatus.style.color = '';
+  }
+}
+
+/**
+ * 更新 account 區塊為已登入狀態。
+ *
+ * @param {PopupElements} elements
+ * @param {{ email?: string, displayName?: string|null }} profile
+ * @param {{ transientRefreshError?: boolean }} [options]
+ */
+export function updateUIForLoggedInAccount(elements, profile, options = {}) {
+  setButtonText(elements.accountButton, '帳號管理');
+
+  const normalizedDisplayName =
+    typeof profile?.displayName === 'string' ? profile.displayName.trim() : '';
+  const email = profile?.email || '';
+  const summary = normalizedDisplayName || email;
+
+  if (elements.accountSummary) {
+    elements.accountSummary.textContent = summary;
+  }
+  if (elements.accountEmail) {
+    if (normalizedDisplayName && email) {
+      elements.accountEmail.textContent = email;
+      elements.accountEmail.style.display = 'block';
+    } else {
+      elements.accountEmail.textContent = '';
+      elements.accountEmail.style.display = 'none';
+    }
+  }
+  if (elements.accountStatus) {
+    if (options.transientRefreshError) {
+      elements.accountStatus.textContent = UI_MESSAGES.ACCOUNT.TRANSIENT_REFRESH_ERROR;
+      elements.accountStatus.style.color = '#d63384';
+    } else {
+      elements.accountStatus.textContent = '';
+      elements.accountStatus.style.color = '';
+    }
   }
 }
 

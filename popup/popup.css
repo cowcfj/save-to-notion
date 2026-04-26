@@ -42,6 +42,47 @@ h2 {
   color: #1e293b;
 }
 
+.account-section {
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1px solid #dbe4ff;
+  box-sizing: border-box;
+}
+
+.account-label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.account-summary {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.account-email {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.account-status {
+  min-height: 16px;
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #475569;
+}
+
 button {
   color: white;
   border: none;
@@ -135,6 +176,17 @@ button {
   background-color: #1a1a1a;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#account-button {
+  margin-bottom: 0;
+  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+}
+
+#account-button:hover {
+  background: linear-gradient(135deg, #111827 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.25);
 }
 
 button:disabled {

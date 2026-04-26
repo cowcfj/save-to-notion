@@ -7,6 +7,9 @@
 import { initPopup } from '../../../popup/popup.js';
 import {
   getElements,
+  setAccountSectionVisible,
+  updateUIForLoggedOutAccount,
+  updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
   setStatus,
@@ -20,14 +23,52 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
+  getPopupAccountState,
+  startAccountLogin,
+  openAccountManagement,
 } from '../../../popup/popupActions.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
-jest.mock('../../../popup/popupUI.js');
-jest.mock('../../../popup/popupActions.js');
+jest.mock('../../../popup/popupUI.js', () => ({
+  getElements: jest.fn(),
+  setAccountSectionVisible: jest.fn(),
+  updateUIForLoggedOutAccount: jest.fn(),
+  updateUIForLoggedInAccount: jest.fn(),
+  updateUIForSavedPage: jest.fn(),
+  updateUIForUnsavedPage: jest.fn(),
+  setStatus: jest.fn(),
+  setButtonState: jest.fn(),
+  formatSaveSuccessMessage: jest.fn(),
+}));
+jest.mock('../../../popup/popupActions.js', () => ({
+  checkSettings: jest.fn(),
+  checkPageStatus: jest.fn(),
+  savePage: jest.fn(),
+  startHighlight: jest.fn(),
+  openNotionPage: jest.fn(),
+  getActiveTab: jest.fn(),
+  getPopupAccountState: jest.fn(),
+  startAccountLogin: jest.fn(),
+  openAccountManagement: jest.fn(),
+}));
 jest.mock('../../../scripts/utils/Logger.js');
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  BUILD_ENV: {
+    ENABLE_ACCOUNT: true,
+  },
+}));
+
+beforeEach(() => {
+  setAccountSectionVisible.mockReset();
+  updateUIForLoggedOutAccount.mockReset();
+  updateUIForLoggedInAccount.mockReset();
+  getPopupAccountState.mockReset();
+  startAccountLogin.mockReset();
+  openAccountManagement.mockReset();
+});
 
 // Helper to trigger event
 async function triggerEvent(element, eventType = 'click') {
@@ -47,6 +88,16 @@ describe('popup.js Controller', () => {
         style: {},
         dataset: { url: 'https://notion.so/new' },
       },
+      accountSection: { style: { display: 'none' } },
+      accountButton: {
+        addEventListener: jest.fn(),
+        style: {},
+        dataset: {},
+        querySelector: jest.fn(),
+      },
+      accountSummary: { textContent: '' },
+      accountEmail: { textContent: '', style: {} },
+      accountStatus: { textContent: '', style: {} },
       status: { textContent: '', style: {} },
       clearHighlightsButton: null,
       modal: null,
@@ -65,6 +116,12 @@ describe('popup.js Controller', () => {
       isSaved: true,
       canSave: false,
       canSyncHighlights: true,
+    });
+    getPopupAccountState.mockResolvedValue({
+      enabled: true,
+      isLoggedIn: false,
+      profile: null,
+      transientRefreshError: false,
     });
 
     // Mock global chrome
@@ -85,6 +142,7 @@ describe('popup.js Controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    BUILD_ENV.ENABLE_ACCOUNT = true;
   });
 
   it('當設定有效且頁面已儲存時，應成功初始化', async () => {
@@ -94,7 +152,50 @@ describe('popup.js Controller', () => {
     expect(getElements).toHaveBeenCalled();
     expect(checkSettings).toHaveBeenCalled();
     expect(checkPageStatus).toHaveBeenCalledWith();
+    expect(getPopupAccountState).toHaveBeenCalled();
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
+  });
+
+  it('account feature 開啟且未登入時，應顯示 popup account 入口', async () => {
+    const { mockElements } = setup();
+    await initPopup();
+
+    expect(setAccountSectionVisible).toHaveBeenCalledWith(mockElements, true);
+    expect(updateUIForLoggedOutAccount).toHaveBeenCalledWith(mockElements);
+  });
+
+  it('account 已登入時，應顯示已登入摘要', async () => {
+    const { mockElements } = setup();
+    const profile = {
+      userId: 'u1',
+      email: 'user@example.com',
+      displayName: 'Test User',
+      avatarUrl: null,
+    };
+    getPopupAccountState.mockResolvedValue({
+      enabled: true,
+      isLoggedIn: true,
+      profile,
+      transientRefreshError: false,
+    });
+
+    await initPopup();
+
+    expect(setAccountSectionVisible).toHaveBeenCalledWith(mockElements, true);
+    expect(updateUIForLoggedInAccount).toHaveBeenCalledWith(mockElements, profile, {
+      transientRefreshError: false,
+    });
+  });
+
+  it('account feature 關閉時，應隱藏 popup account 區塊', async () => {
+    const { mockElements } = setup();
+    BUILD_ENV.ENABLE_ACCOUNT = false;
+
+    await initPopup();
+
+    expect(setAccountSectionVisible).toHaveBeenCalledWith(mockElements, false);
+    expect(updateUIForLoggedOutAccount).not.toHaveBeenCalled();
+    expect(updateUIForLoggedInAccount).not.toHaveBeenCalled();
   });
 
   it('當頁面狀態為未儲存或已刪除時，應初始化未儲存的 UI', async () => {
@@ -218,6 +319,10 @@ describe('popup.js Controller', () => {
       'click',
       expect.any(Function)
     );
+    expect(mockElements.accountButton.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function)
+    );
   });
 
   describe('Event Handlers', () => {
@@ -329,6 +434,54 @@ describe('popup.js Controller', () => {
       expect(mockElements.modal).toBeNull();
       expect(mockElements.modalConfirm).toBeNull();
       expect(mockElements.modalCancel).toBeNull();
+    });
+
+    it('未登入時點擊 accountButton 應啟動登入流程', async () => {
+      const { mockElements } = setup();
+      startAccountLogin.mockResolvedValue({ success: true });
+      await initPopup();
+
+      await triggerEvent(mockElements.accountButton);
+
+      expect(startAccountLogin).toHaveBeenCalled();
+      expect(openAccountManagement).not.toHaveBeenCalled();
+    });
+
+    it('已登入時點擊 accountButton 應開啟帳號管理', async () => {
+      const { mockElements } = setup();
+      const profile = {
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      };
+      getPopupAccountState.mockResolvedValue({
+        enabled: true,
+        isLoggedIn: true,
+        profile,
+        transientRefreshError: false,
+      });
+      openAccountManagement.mockResolvedValue({ success: true });
+
+      await initPopup();
+      await triggerEvent(mockElements.accountButton);
+
+      expect(openAccountManagement).toHaveBeenCalled();
+      expect(startAccountLogin).not.toHaveBeenCalled();
+    });
+
+    it('登入流程失敗時應把錯誤顯示在 account 狀態區', async () => {
+      const { mockElements } = setup();
+      startAccountLogin.mockResolvedValue({ success: false, error: '登入設定異常，請稍後再試' });
+      await initPopup();
+
+      await triggerEvent(mockElements.accountButton);
+
+      expect(setStatus).not.toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining('登入設定異常，請稍後再試')
+      );
+      expect(updateUIForLoggedOutAccount).toHaveBeenCalledWith(mockElements);
     });
   });
 });

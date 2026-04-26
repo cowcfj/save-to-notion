@@ -4,12 +4,12 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
-import { ACCOUNT_API } from '../scripts/config/extension/accountApi.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../scripts/config/env/index.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/shared/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
+import { buildAccountLoginStartUrl } from '../scripts/auth/accountLogin.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
@@ -28,6 +28,35 @@ import {
 } from './DriveCloudSyncController.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
+
+function activateSidebarSection(sectionName, navItems, sections) {
+  const targetSectionId = `section-${sectionName}`;
+  const targetItem = Array.from(navItems).find(item => item.dataset.section === sectionName);
+  const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
+
+  if (!targetItem || !targetExists) {
+    return false;
+  }
+
+  navItems.forEach(nav => {
+    nav.classList.remove('active');
+    nav.setAttribute('aria-selected', 'false');
+  });
+  targetItem.classList.add('active');
+  targetItem.setAttribute('aria-selected', 'true');
+
+  sections.forEach(section => {
+    if (section.id === targetSectionId) {
+      section.classList.add('active');
+      section.setAttribute('aria-hidden', 'false');
+    } else {
+      section.classList.remove('active');
+      section.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  return true;
+}
 
 /**
  * Options Page Main Controller
@@ -362,38 +391,23 @@ function initAccountUI() {
   if (loginBtn) {
     loginBtn.addEventListener('click', () => {
       const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
-      const extId = chrome.runtime.id;
-      const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
-      if (!baseUrl) {
-        Logger.error('Account login failed: missing OAUTH_SERVER_URL', {
+      const startUrlResult = buildAccountLoginStartUrl();
+      if (!startUrlResult.success) {
+        const errorMessage =
+          startUrlResult.reason === 'missing_base_url'
+            ? 'Account login failed: missing OAUTH_SERVER_URL'
+            : 'Account login failed: invalid OAUTH_SERVER_URL';
+        Logger.error(errorMessage, {
           action: 'initAccountUI',
+          reason: startUrlResult.reason,
         });
         if (statusEl) {
-          statusEl.textContent = '登入設定異常，請稍後再試';
+          statusEl.textContent = startUrlResult.error;
           statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
         }
         return;
       }
-
-      let startUrl;
-
-      try {
-        startUrl = new URL(ACCOUNT_API.GOOGLE_START, baseUrl);
-      } catch (error) {
-        Logger.error('Account login failed: invalid OAUTH_SERVER_URL', {
-          action: 'initAccountUI',
-          error,
-        });
-        if (statusEl) {
-          statusEl.textContent = '登入設定異常，請稍後再試';
-          statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
-        }
-        return;
-      }
-
-      startUrl.searchParams.set('ext_id', extId);
-      startUrl.searchParams.set('callback_mode', 'bridge');
-      chrome.tabs.create({ url: startUrl.toString() });
+      chrome.tabs.create({ url: startUrlResult.url });
     });
   }
 
@@ -474,26 +488,14 @@ function setupSidebarNavigation() {
         return;
       }
 
-      // 1. 更新當前導航項目
-      navItems.forEach(nav => {
-        nav.classList.remove('active');
-        nav.setAttribute('aria-selected', 'false');
-      });
-      item.classList.add('active');
-      item.setAttribute('aria-selected', 'true');
-
-      // 2. 顯示目標區塊
-      sections.forEach(section => {
-        if (section.id === targetSectionId) {
-          section.classList.add('active');
-          section.setAttribute('aria-hidden', 'false');
-        } else {
-          section.classList.remove('active');
-          section.setAttribute('aria-hidden', 'true');
-        }
-      });
+      activateSidebarSection(sectionName, navItems, sections);
     });
   });
+
+  const initialSection = new URLSearchParams(globalThis.location.search).get('section');
+  if (initialSection) {
+    activateSidebarSection(initialSection, navItems, sections);
+  }
 }
 
 /**
