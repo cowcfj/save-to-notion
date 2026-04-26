@@ -371,6 +371,7 @@ describe('options.js', () => {
     let mockStorageInstance = null;
     let mockMigrationInstance = null;
     const originalEnableOauth = BUILD_ENV.ENABLE_OAUTH;
+    const originalHref = globalThis.location.href;
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -432,6 +433,7 @@ describe('options.js', () => {
 
     afterEach(() => {
       BUILD_ENV.ENABLE_OAUTH = originalEnableOauth;
+      globalThis.history.replaceState({}, '', originalHref);
     });
 
     it('should initialize all managers and check auth status', () => {
@@ -709,6 +711,13 @@ describe('options.js', () => {
       expect(document.querySelector('#tab-advanced').classList.contains('active')).toBe(false);
       expect(document.querySelector('#section-general').classList.contains('active')).toBe(true);
       expect(document.querySelector('#section-advanced').classList.contains('active')).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('找不到目標區塊'),
+        expect.objectContaining({
+          action: 'setupSidebarNavigation',
+          targetId: 'unknown',
+        })
+      );
     });
 
     it('點擊保存按鈕時應以 status 狀態區儲存設定', async () => {
@@ -1253,8 +1262,11 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalledWith(
-        'Account login failed: missing OAUTH_SERVER_URL',
-        expect.any(Object)
+        'Account login failed',
+        expect.objectContaining({
+          action: 'initAccountUI',
+          reason: 'missing_base_url',
+        })
       );
 
       const statusEl = document.querySelector('#account-status');

@@ -209,7 +209,7 @@ export function updateUIForLoggedOutAccount(elements) {
   if (elements.accountButton) {
     elements.accountButton.setAttribute(ARIA_LABEL_ATTR, UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
     elements.accountButton.setAttribute(TITLE_ATTR, UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
-    elements.accountButton.classList.toggle('is-signed-in', false);
+    elements.accountButton.classList?.toggle('is-signed-in', false);
   }
   clearAccountStatus(elements);
 }
@@ -232,7 +232,7 @@ export function updateUIForLoggedInAccount(elements, profile, options = {}) {
   if (elements.accountButton) {
     elements.accountButton.setAttribute(ARIA_LABEL_ATTR, buttonLabel);
     elements.accountButton.setAttribute(TITLE_ATTR, buttonLabel);
-    elements.accountButton.classList.toggle('is-signed-in', true);
+    elements.accountButton.classList?.toggle('is-signed-in', true);
   }
   if (options.transientRefreshError) {
     setAccountStatusError(elements, UI_MESSAGES.ACCOUNT.TRANSIENT_REFRESH_ERROR);

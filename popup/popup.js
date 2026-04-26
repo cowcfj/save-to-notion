@@ -50,14 +50,12 @@ async function initAccountSection(elements) {
     const accountState = await getPopupAccountState();
     setAccountSectionVisible(elements, accountState.enabled);
 
-    if (accountState.enabled) {
-      if (accountState.isLoggedIn) {
-        updateUIForLoggedInAccount(elements, accountState.profile, {
-          transientRefreshError: accountState.transientRefreshError,
-        });
-      } else {
-        updateUIForLoggedOutAccount(elements);
-      }
+    if (accountState.isLoggedIn) {
+      updateUIForLoggedInAccount(elements, accountState.profile, {
+        transientRefreshError: accountState.transientRefreshError,
+      });
+    } else {
+      updateUIForLoggedOutAccount(elements);
     }
 
     return;
@@ -247,7 +245,7 @@ export async function initPopup() {
         if (!result?.success) {
           setAccountStatusError(
             elements,
-            result.error || UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
+            result?.error || UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
           );
         }
         return;
@@ -255,7 +253,10 @@ export async function initPopup() {
 
       const result = await startAccountLogin();
       if (!result?.success) {
-        setAccountStatusError(elements, result.error || UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED);
+        setAccountStatusError(
+          elements,
+          result?.error || UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED
+        );
       }
     });
   }

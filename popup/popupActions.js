@@ -257,7 +257,10 @@ export async function startAccountLogin() {
     await chrome.tabs.create({ url: startUrlResult.url });
     return { success: true };
   } catch (error) {
-    Logger.warn('startAccountLogin failed:', error);
+    Logger.warn('startAccountLogin failed', {
+      action: 'startAccountLogin',
+      error,
+    });
     return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
   }
 }
@@ -272,7 +275,10 @@ export async function openAccountManagement() {
     await chrome.tabs.create({ url: getOptionsAdvancedUrl() });
     return { success: true };
   } catch (error) {
-    Logger.warn('openAccountManagement failed:', error);
+    Logger.warn('openAccountManagement failed', {
+      action: 'openAccountManagement',
+      error,
+    });
     return { success: false, error: UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED };
   }
 }

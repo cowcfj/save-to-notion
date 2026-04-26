@@ -202,11 +202,13 @@ describe('popupUI.js', () => {
     });
 
     it('應使用 CSS class 顯示 account 錯誤狀態', () => {
+      mockElements.accountStatus.style.color = 'red';
+
       setAccountStatusError(mockElements, '登入設定異常，請稍後再試');
 
       expect(mockElements.accountStatus.textContent).toBe('登入設定異常，請稍後再試');
       expect(mockElements.accountStatus.classList.add).toHaveBeenCalledWith('account-status-error');
-      expect(mockElements.accountStatus.style.color).toBe('');
+      expect(mockElements.accountStatus.style.color).toBe('red');
     });
 
     it('已登入且有 displayName 時應將角落按鈕標示為帳號管理', () => {
@@ -252,6 +254,7 @@ describe('popupUI.js', () => {
     it('transient refresh error 時應保留已登入摘要並顯示狀態提醒', () => {
       const mockTextSpan = { textContent: '' };
       mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+      mockElements.accountStatus.style.color = 'red';
 
       updateUIForLoggedInAccount(
         mockElements,
@@ -265,7 +268,7 @@ describe('popupUI.js', () => {
       expect(mockTextSpan.textContent).toBe('已登入');
       expect(mockElements.accountStatus.textContent).toContain('無法更新登入狀態');
       expect(mockElements.accountStatus.classList.add).toHaveBeenCalledWith('account-status-error');
-      expect(mockElements.accountStatus.style.color).toBe('');
+      expect(mockElements.accountStatus.style.color).toBe('red');
     });
   });
 

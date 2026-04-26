@@ -76,6 +76,10 @@ beforeEach(() => {
   openAccountManagement.mockReset();
 });
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 // Helper to trigger event
 async function triggerEvent(element, eventType = 'click') {
   const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
@@ -148,7 +152,7 @@ describe('popup.js Controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    BUILD_ENV.ENABLE_ACCOUNT = true;
+    jest.replaceProperty(BUILD_ENV, 'ENABLE_ACCOUNT', true);
   });
 
   it('當設定有效且頁面已儲存時，應成功初始化', async () => {
@@ -202,7 +206,7 @@ describe('popup.js Controller', () => {
 
   it('account feature 關閉時，應隱藏 popup account 區塊', async () => {
     const { mockElements } = setup();
-    BUILD_ENV.ENABLE_ACCOUNT = false;
+    jest.replaceProperty(BUILD_ENV, 'ENABLE_ACCOUNT', false);
 
     await initPopup();
 
@@ -500,6 +504,38 @@ describe('popup.js Controller', () => {
       );
       expect(setAccountStatusError).toHaveBeenCalledWith(mockElements, '登入設定異常，請稍後再試');
       expect(updateUIForLoggedOutAccount).toHaveBeenCalledWith(mockElements);
+    });
+
+    it('登入流程未回傳結果時應顯示預設登入錯誤且不拋出 TypeError', async () => {
+      const { mockElements } = setup();
+      startAccountLogin.mockResolvedValue(undefined);
+      await initPopup();
+
+      await expect(triggerEvent(mockElements.accountButton)).resolves.toBeUndefined();
+
+      expect(setAccountStatusError).toHaveBeenCalledWith(
+        mockElements,
+        UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED
+      );
+    });
+
+    it('帳號管理未回傳結果時應顯示預設管理錯誤且不拋出 TypeError', async () => {
+      const { mockElements } = setup();
+      getPopupAccountState.mockResolvedValue({
+        enabled: true,
+        isLoggedIn: true,
+        profile: { email: 'user@example.com' },
+        transientRefreshError: false,
+      });
+      openAccountManagement.mockResolvedValue(undefined);
+      await initPopup();
+
+      await expect(triggerEvent(mockElements.accountButton)).resolves.toBeUndefined();
+
+      expect(setAccountStatusError).toHaveBeenCalledWith(
+        mockElements,
+        UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
+      );
     });
   });
 });

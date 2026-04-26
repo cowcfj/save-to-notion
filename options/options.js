@@ -391,10 +391,7 @@ function initAccountUI() {
       const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
       const startUrlResult = buildAccountLoginStartUrl();
       if (!startUrlResult.success) {
-        const errorMessage =
-          startUrlResult.reason === 'missing_base_url'
-            ? 'Account login failed: missing OAUTH_SERVER_URL'
-            : 'Account login failed: invalid OAUTH_SERVER_URL';
+        const errorMessage = 'Account login failed';
         Logger.error(errorMessage, {
           action: 'initAccountUI',
           reason: startUrlResult.reason,
@@ -491,8 +488,11 @@ function setupSidebarNavigation() {
   });
 
   const initialSection = new URLSearchParams(globalThis.location.search).get('section');
-  if (initialSection) {
-    activateSidebarSection(initialSection, navItems, sections);
+  if (initialSection && !activateSidebarSection(initialSection, navItems, sections)) {
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_TARGET_NOT_FOUND, {
+      action: 'setupSidebarNavigation',
+      targetId: initialSection,
+    });
   }
 }
 

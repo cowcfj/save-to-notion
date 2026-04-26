@@ -33,10 +33,15 @@ describe('popupActions.js', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
     // 確保每次測試前 storage 是空的
     chrome._clearStorage();
     BUILD_ENV.ENABLE_ACCOUNT = true;
     BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('checkSettings', () => {
@@ -448,6 +453,15 @@ describe('popupActions.js', () => {
       expect(startUrl.searchParams.get('callback_mode')).toBe('bridge');
     });
 
+    it('startAccountLogin 應保留 OAUTH_SERVER_URL 的 path prefix', async () => {
+      BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test/proxy';
+
+      await startAccountLogin();
+
+      const [{ url }] = chrome.tabs.create.mock.calls[0];
+      expect(new URL(url).pathname).toBe('/proxy/v1/account/google/start');
+    });
+
     it('缺少 OAUTH_SERVER_URL 時不應開登入頁並返回錯誤', async () => {
       BUILD_ENV.OAUTH_SERVER_URL = '';
 
@@ -467,6 +481,32 @@ describe('popupActions.js', () => {
       expect(chrome.runtime.getURL).toHaveBeenCalledWith('options/options.html?section=advanced');
       expect(chrome.tabs.create).toHaveBeenCalledWith({
         url: 'chrome-extension://ext_id_123/options/options.html?section=advanced',
+      });
+    });
+
+    it('startAccountLogin 開啟 tab 失敗時應以 structured error context 記錄', async () => {
+      const error = new Error('tabs unavailable');
+      chrome.tabs.create.mockRejectedValue(error);
+
+      const result = await startAccountLogin();
+
+      expect(result.success).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith('startAccountLogin failed', {
+        action: 'startAccountLogin',
+        error,
+      });
+    });
+
+    it('openAccountManagement 開啟 tab 失敗時應以 structured error context 記錄', async () => {
+      const error = new Error('tabs unavailable');
+      chrome.tabs.create.mockRejectedValue(error);
+
+      const result = await openAccountManagement();
+
+      expect(result.success).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith('openAccountManagement failed', {
+        action: 'openAccountManagement',
+        error,
       });
     });
   });
