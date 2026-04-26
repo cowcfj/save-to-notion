@@ -5,6 +5,7 @@
  */
 
 import {
+  initializePopupStaticText,
   setStatus,
   setButtonState,
   setButtonText,
@@ -26,7 +27,12 @@ describe('popupUI.js', () => {
       saveButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       highlightButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       manageButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
-      openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
+      openNotionButton: {
+        style: { display: 'none' },
+        dataset: {},
+        querySelector: jest.fn(),
+        setAttribute: jest.fn(),
+      },
       status: { textContent: '', style: { color: '' } },
       accountSection: { style: { display: 'none' }, classList: { toggle: jest.fn() } },
       accountStatus: {
@@ -41,8 +47,41 @@ describe('popupUI.js', () => {
         style: {},
         disabled: false,
       },
+      settingsLinkText: { textContent: '' },
     };
     jest.clearAllMocks();
+  });
+
+  describe('initializePopupStaticText', () => {
+    it('應從集中化 UI_MESSAGES 套用 popup 初始文字', () => {
+      const buttonTextSpans = new Map([
+        [mockElements.highlightButton, { textContent: '' }],
+        [mockElements.saveButton, { textContent: '' }],
+        [mockElements.manageButton, { textContent: '' }],
+        [mockElements.openNotionButton, { textContent: '' }],
+      ]);
+
+      buttonTextSpans.forEach((textSpan, button) => {
+        button.querySelector.mockReturnValue(textSpan);
+      });
+
+      initializePopupStaticText(mockElements);
+
+      expect(mockElements.status.textContent).toBe('準備儲存');
+      expect(buttonTextSpans.get(mockElements.highlightButton).textContent).toBe('開始標註');
+      expect(buttonTextSpans.get(mockElements.saveButton).textContent).toBe('儲存頁面');
+      expect(buttonTextSpans.get(mockElements.manageButton).textContent).toBe('管理標註');
+      expect(buttonTextSpans.get(mockElements.openNotionButton).textContent).toBe('開啟 Notion');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '使用 Google 登入'
+      );
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'title',
+        '使用 Google 登入'
+      );
+      expect(mockElements.settingsLinkText.textContent).toBe('設定');
+    });
   });
 
   describe('setStatus', () => {

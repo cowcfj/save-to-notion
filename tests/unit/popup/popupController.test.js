@@ -7,6 +7,7 @@
 import { initPopup } from '../../../popup/popup.js';
 import {
   getElements,
+  initializePopupStaticText,
   setAccountSectionVisible,
   updateUIForLoggedOutAccount,
   updateUIForLoggedInAccount,
@@ -35,6 +36,7 @@ import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/mess
 // Mock dependencies
 jest.mock('../../../popup/popupUI.js', () => ({
   getElements: jest.fn(),
+  initializePopupStaticText: jest.fn(),
   setAccountSectionVisible: jest.fn(),
   updateUIForLoggedOutAccount: jest.fn(),
   updateUIForLoggedInAccount: jest.fn(),
@@ -64,6 +66,7 @@ jest.mock('../../../scripts/config/env/index.js', () => ({
 }));
 
 beforeEach(() => {
+  initializePopupStaticText.mockReset();
   setAccountSectionVisible.mockReset();
   updateUIForLoggedOutAccount.mockReset();
   updateUIForLoggedInAccount.mockReset();
@@ -157,6 +160,13 @@ describe('popup.js Controller', () => {
     expect(checkPageStatus).toHaveBeenCalledWith();
     expect(getPopupAccountState).toHaveBeenCalled();
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
+  });
+
+  it('初始化時應套用集中化管理的 popup 靜態文字', async () => {
+    const { mockElements } = setup();
+    await initPopup();
+
+    expect(initializePopupStaticText).toHaveBeenCalledWith(mockElements);
   });
 
   it('account feature 開啟且未登入時，應顯示 popup account 入口', async () => {
@@ -423,7 +433,11 @@ describe('popup.js Controller', () => {
 
       await triggerEvent(mockElements.manageButton);
 
-      expect(setStatus).toHaveBeenCalledWith(mockElements, '側邊欄無法在此頁面開啟。', '#d63384');
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        UI_MESSAGES.POPUP.SIDE_PANEL_UNAVAILABLE,
+        '#d63384'
+      );
       expect(globalThis.chrome.sidePanel.open).not.toHaveBeenCalled();
       expect(globalThis.window.close).not.toHaveBeenCalled();
     });

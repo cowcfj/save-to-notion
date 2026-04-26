@@ -9,6 +9,8 @@ import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { resolveAccountDisplayProfile } from '../scripts/utils/accountDisplayUtils.js';
 
 const ACCOUNT_STATUS_ERROR_CLASS = 'account-status-error';
+const ARIA_LABEL_ATTR = 'aria-label';
+const TITLE_ATTR = 'title';
 
 /**
  * DOM 元素集合類型定義
@@ -22,6 +24,8 @@ const ACCOUNT_STATUS_ERROR_CLASS = 'account-status-error';
  * @property {HTMLElement} accountStatus - Account screen-reader 狀態訊息
  * @property {HTMLButtonElement} accountButton - Account 主操作按鈕
  * @property {HTMLElement} status - 狀態顯示元素
+ * @property {HTMLElement} title - Popup 標題元素
+ * @property {HTMLElement} settingsLinkText - 設定頁連結文字
  */
 
 /**
@@ -39,6 +43,8 @@ export function getElements() {
     accountStatus: document.querySelector('#account-status'),
     accountButton: document.querySelector('#account-button'),
     status: document.querySelector('#status'),
+    title: document.querySelector('#popup-title'),
+    settingsLinkText: document.querySelector('#settings-link-text'),
   };
 }
 
@@ -122,6 +128,36 @@ export function setButtonText(button, text) {
 }
 
 /**
+ * 套用 popup 初始靜態文字。
+ *
+ * @param {PopupElements} elements - DOM 元素集合
+ */
+export function initializePopupStaticText(elements) {
+  if (typeof document !== 'undefined') {
+    document.title = UI_MESSAGES.POPUP.DOCUMENT_TITLE;
+  }
+
+  if (elements.title) {
+    elements.title.textContent = UI_MESSAGES.POPUP.HEADING;
+  }
+
+  setStatus(elements, UI_MESSAGES.POPUP.INITIAL_STATUS);
+  setButtonText(elements.highlightButton, UI_MESSAGES.POPUP.START_HIGHLIGHT);
+  setButtonText(elements.saveButton, UI_MESSAGES.POPUP.SAVE_PAGE);
+  setButtonText(elements.openNotionButton, UI_MESSAGES.POPUP.OPEN_NOTION);
+  setButtonText(elements.manageButton, UI_MESSAGES.POPUP.MANAGE_HIGHLIGHTS);
+
+  if (elements.accountButton) {
+    elements.accountButton.setAttribute(ARIA_LABEL_ATTR, UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
+    elements.accountButton.setAttribute(TITLE_ATTR, UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
+  }
+
+  if (elements.settingsLinkText) {
+    elements.settingsLinkText.textContent = UI_MESSAGES.POPUP.SETTINGS_LINK;
+  }
+}
+
+/**
  * 切換 popup account 區塊顯示。
  *
  * @param {PopupElements} elements
@@ -171,8 +207,8 @@ export function updateUIForLoggedOutAccount(elements) {
   setButtonText(elements.accountButton, UI_MESSAGES.ACCOUNT.LOGIN_BUTTON);
 
   if (elements.accountButton) {
-    elements.accountButton.setAttribute('aria-label', UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
-    elements.accountButton.setAttribute('title', UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
+    elements.accountButton.setAttribute(ARIA_LABEL_ATTR, UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
+    elements.accountButton.setAttribute(TITLE_ATTR, UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
     elements.accountButton.classList.toggle('is-signed-in', false);
   }
   clearAccountStatus(elements);
@@ -194,8 +230,8 @@ export function updateUIForLoggedInAccount(elements, profile, options = {}) {
     : UI_MESSAGES.ACCOUNT.MANAGEMENT_LABEL;
 
   if (elements.accountButton) {
-    elements.accountButton.setAttribute('aria-label', buttonLabel);
-    elements.accountButton.setAttribute('title', buttonLabel);
+    elements.accountButton.setAttribute(ARIA_LABEL_ATTR, buttonLabel);
+    elements.accountButton.setAttribute(TITLE_ATTR, buttonLabel);
     elements.accountButton.classList.toggle('is-signed-in', true);
   }
   if (options.transientRefreshError) {

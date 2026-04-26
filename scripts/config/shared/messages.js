@@ -111,6 +111,13 @@ const STORAGE = {
 };
 
 const POPUP = {
+  DOCUMENT_TITLE: 'Save to Notion',
+  HEADING: 'Save to Notion',
+  INITIAL_STATUS: '準備儲存',
+  SAVE_PAGE: '儲存頁面',
+  OPEN_NOTION: '開啟 Notion',
+  MANAGE_HIGHLIGHTS: '管理標註',
+  SETTINGS_LINK: '設定',
   SAVING: '儲存中...',
   SAVE_FAILED_PREFIX: '儲存失敗：',
   HIGHLIGHT_STARTING: '載入標註模式...',
@@ -131,6 +138,7 @@ const POPUP = {
   HIGHLIGHTS_UPDATED: '標註已更新',
   UPDATED: '更新成功',
   CREATED: '建立成功',
+  SIDE_PANEL_UNAVAILABLE: '側邊欄無法在此頁面開啟。',
 };
 
 const SIDEPANEL = {

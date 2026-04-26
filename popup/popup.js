@@ -11,6 +11,7 @@
 
 import {
   getElements,
+  initializePopupStaticText,
   setStatus,
   setButtonState,
   setAccountSectionVisible,
@@ -74,6 +75,7 @@ export async function initPopup() {
 
   // 獲取所有 DOM 元素
   const elements = getElements();
+  initializePopupStaticText(elements);
   await initAccountSection(elements);
 
   // 檢查設置
@@ -225,7 +227,7 @@ export async function initPopup() {
         window.close();
       } else {
         // currentTab 不可用（例如 chrome:// 頁面、PDF 檢視器）
-        setStatus(elements, '側邊欄無法在此頁面開啟。', '#d63384');
+        setStatus(elements, UI_MESSAGES.POPUP.SIDE_PANEL_UNAVAILABLE, '#d63384');
       }
     });
   }
