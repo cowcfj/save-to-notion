@@ -15,10 +15,8 @@ import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
  * @property {HTMLButtonElement} highlightButton - 標記按鈕
  * @property {HTMLButtonElement} manageButton - 管理標註按鈕（開啟 Side Panel）
  * @property {HTMLButtonElement} openNotionButton - 打開 Notion 按鈕
- * @property {HTMLElement} accountSection - Account 區塊容器
- * @property {HTMLElement} accountSummary - Account 主摘要
- * @property {HTMLElement} accountEmail - Account 次要 email 顯示
- * @property {HTMLElement} accountStatus - Account 區塊狀態訊息
+ * @property {HTMLElement} accountSection - Account 角落入口容器
+ * @property {HTMLElement} accountStatus - Account screen-reader 狀態訊息
  * @property {HTMLButtonElement} accountButton - Account 主操作按鈕
  * @property {HTMLElement} status - 狀態顯示元素
  */
@@ -35,8 +33,6 @@ export function getElements() {
     manageButton: document.querySelector('#manage-button'),
     openNotionButton: document.querySelector('#open-notion-button'),
     accountSection: document.querySelector('#account-section'),
-    accountSummary: document.querySelector('#account-summary'),
-    accountEmail: document.querySelector('#account-email'),
     accountStatus: document.querySelector('#account-status'),
     accountButton: document.querySelector('#account-button'),
     status: document.querySelector('#status'),
@@ -130,7 +126,7 @@ export function setButtonText(button, text) {
  */
 export function setAccountSectionVisible(elements, visible) {
   if (elements.accountSection) {
-    elements.accountSection.style.display = visible ? 'block' : 'none';
+    elements.accountSection.style.display = visible ? 'flex' : 'none';
   }
 }
 
@@ -140,14 +136,12 @@ export function setAccountSectionVisible(elements, visible) {
  * @param {PopupElements} elements
  */
 export function updateUIForLoggedOutAccount(elements) {
-  setButtonText(elements.accountButton, '使用 Google 登入');
+  setButtonText(elements.accountButton, '');
 
-  if (elements.accountSummary) {
-    elements.accountSummary.textContent = '登入 Google 帳號以啟用同步與進階功能。';
-  }
-  if (elements.accountEmail) {
-    elements.accountEmail.textContent = '';
-    elements.accountEmail.style.display = 'none';
+  if (elements.accountButton) {
+    elements.accountButton.setAttribute('aria-label', '使用 Google 登入');
+    elements.accountButton.setAttribute('title', '使用 Google 登入');
+    elements.accountButton.classList.toggle('is-signed-in', false);
   }
   if (elements.accountStatus) {
     elements.accountStatus.textContent = '';
@@ -163,24 +157,18 @@ export function updateUIForLoggedOutAccount(elements) {
  * @param {{ transientRefreshError?: boolean }} [options]
  */
 export function updateUIForLoggedInAccount(elements, profile, options = {}) {
-  setButtonText(elements.accountButton, '帳號管理');
+  setButtonText(elements.accountButton, '');
 
   const normalizedDisplayName =
     typeof profile?.displayName === 'string' ? profile.displayName.trim() : '';
   const email = profile?.email || '';
-  const summary = normalizedDisplayName || email;
+  const accountLabel = normalizedDisplayName || email;
+  const buttonLabel = accountLabel ? `帳號管理：${accountLabel}` : '帳號管理';
 
-  if (elements.accountSummary) {
-    elements.accountSummary.textContent = summary;
-  }
-  if (elements.accountEmail) {
-    if (normalizedDisplayName && email) {
-      elements.accountEmail.textContent = email;
-      elements.accountEmail.style.display = 'block';
-    } else {
-      elements.accountEmail.textContent = '';
-      elements.accountEmail.style.display = 'none';
-    }
+  if (elements.accountButton) {
+    elements.accountButton.setAttribute('aria-label', buttonLabel);
+    elements.accountButton.setAttribute('title', buttonLabel);
+    elements.accountButton.classList.toggle('is-signed-in', true);
   }
   if (elements.accountStatus) {
     if (options.transientRefreshError) {

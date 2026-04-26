@@ -36,51 +36,39 @@ h2 {
   font-size: 18px;
 }
 
+.popup-titlebar {
+  position: relative;
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-section {
+  position: absolute;
+  top: 0;
+  right: 0;
+  align-items: center;
+  justify-content: center;
+}
+
 #status {
   font-size: 14px;
   min-height: 20px;
   color: #1e293b;
 }
 
-.account-section {
-  width: 100%;
-  text-align: left;
-  padding: 12px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-  border: 1px solid #dbe4ff;
-  box-sizing: border-box;
-}
-
-.account-label {
-  margin: 0 0 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #475569;
-}
-
-.account-summary {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.4;
-}
-
-.account-email {
-  margin: 0 0 10px;
-  font-size: 12px;
-  color: #475569;
-  line-height: 1.4;
-}
-
-.account-status {
-  min-height: 16px;
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #475569;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 button {
@@ -178,15 +166,34 @@ button {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-#account-button {
-  margin-bottom: 0;
-  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+.account-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  margin: 0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  box-shadow: none;
 }
 
-#account-button:hover {
-  background: linear-gradient(135deg, #111827 0%, #1e40af 100%);
+.account-button:hover {
+  background: #eef2ff;
+  color: #1d4ed8;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.25);
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
+}
+
+.account-button.is-signed-in {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #86efac;
+}
+
+.account-icon {
+  flex-shrink: 0;
 }
 
 button:disabled {

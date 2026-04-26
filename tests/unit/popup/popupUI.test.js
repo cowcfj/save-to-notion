@@ -27,11 +27,15 @@ describe('popupUI.js', () => {
       manageButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
       status: { textContent: '', style: { color: '' } },
-      accountSection: { style: { display: 'none' } },
+      accountSection: { style: { display: 'none' }, classList: { toggle: jest.fn() } },
       accountStatus: { textContent: '', style: { color: '' } },
-      accountButton: { querySelector: jest.fn(), style: {}, disabled: false },
-      accountSummary: { textContent: '' },
-      accountEmail: { textContent: '', style: { display: 'none' } },
+      accountButton: {
+        querySelector: jest.fn(),
+        setAttribute: jest.fn(),
+        classList: { toggle: jest.fn() },
+        style: {},
+        disabled: false,
+      },
     };
     jest.clearAllMocks();
   });
@@ -121,27 +125,36 @@ describe('popupUI.js', () => {
   });
 
   describe('account section helpers', () => {
-    it('應可切換 account 區塊顯示狀態', () => {
+    it('應可切換角落 account 按鈕顯示狀態', () => {
       setAccountSectionVisible(mockElements, true);
-      expect(mockElements.accountSection.style.display).toBe('block');
+      expect(mockElements.accountSection.style.display).toBe('flex');
 
       setAccountSectionVisible(mockElements, false);
       expect(mockElements.accountSection.style.display).toBe('none');
     });
 
-    it('未登入時應顯示登入按鈕文案與說明', () => {
+    it('未登入時應將角落按鈕標示為登入入口', () => {
       const mockTextSpan = { textContent: '' };
       mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
 
       updateUIForLoggedOutAccount(mockElements);
 
-      expect(mockTextSpan.textContent).toBe('使用 Google 登入');
-      expect(mockElements.accountSummary.textContent).toContain('同步與進階功能');
-      expect(mockElements.accountEmail.textContent).toBe('');
-      expect(mockElements.accountEmail.style.display).toBe('none');
+      expect(mockTextSpan.textContent).toBe('');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '使用 Google 登入'
+      );
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'title',
+        '使用 Google 登入'
+      );
+      expect(mockElements.accountButton.classList.toggle).toHaveBeenCalledWith(
+        'is-signed-in',
+        false
+      );
     });
 
-    it('已登入且有 displayName 時應顯示名稱與 email，按鈕切為帳號管理', () => {
+    it('已登入且有 displayName 時應將角落按鈕標示為帳號管理', () => {
       const mockTextSpan = { textContent: '' };
       mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
 
@@ -150,13 +163,22 @@ describe('popupUI.js', () => {
         displayName: 'Test User',
       });
 
-      expect(mockTextSpan.textContent).toBe('帳號管理');
-      expect(mockElements.accountSummary.textContent).toBe('Test User');
-      expect(mockElements.accountEmail.textContent).toBe('user@example.com');
-      expect(mockElements.accountEmail.style.display).toBe('block');
+      expect(mockTextSpan.textContent).toBe('');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '帳號管理：Test User'
+      );
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'title',
+        '帳號管理：Test User'
+      );
+      expect(mockElements.accountButton.classList.toggle).toHaveBeenCalledWith(
+        'is-signed-in',
+        true
+      );
     });
 
-    it('已登入且無 displayName 時應回退顯示 email，隱藏次要 email 行', () => {
+    it('已登入且無 displayName 時應以 email 作為帳號管理標籤', () => {
       const mockTextSpan = { textContent: '' };
       mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
 
@@ -165,10 +187,11 @@ describe('popupUI.js', () => {
         displayName: '   ',
       });
 
-      expect(mockTextSpan.textContent).toBe('帳號管理');
-      expect(mockElements.accountSummary.textContent).toBe('user@example.com');
-      expect(mockElements.accountEmail.textContent).toBe('');
-      expect(mockElements.accountEmail.style.display).toBe('none');
+      expect(mockTextSpan.textContent).toBe('');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '帳號管理：user@example.com'
+      );
     });
 
     it('transient refresh error 時應保留已登入摘要並顯示狀態提醒', () => {
