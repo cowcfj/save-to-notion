@@ -11,7 +11,7 @@ import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../scripts/config/env/index.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { ERROR_MESSAGES } from '../scripts/config/shared/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { getAccountAccessToken, getAccountProfile } from '../scripts/auth/accountSession.js';
 import { buildAccountLoginStartUrl, getOptionsAdvancedUrl } from '../scripts/auth/accountLogin.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
@@ -258,7 +258,7 @@ export async function startAccountLogin() {
     return { success: true };
   } catch (error) {
     Logger.warn('startAccountLogin failed:', error);
-    return { success: false, error: '無法開啟登入頁面，請稍後再試' };
+    return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
   }
 }
 
@@ -273,6 +273,6 @@ export async function openAccountManagement() {
     return { success: true };
   } catch (error) {
     Logger.warn('openAccountManagement failed:', error);
-    return { success: false, error: '無法開啟帳號管理頁面' };
+    return { success: false, error: UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED };
   }
 }

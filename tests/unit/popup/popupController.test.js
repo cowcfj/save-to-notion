@@ -12,6 +12,7 @@ import {
   updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
+  setAccountStatusError,
   setStatus,
   setButtonState,
   formatSaveSuccessMessage,
@@ -39,6 +40,7 @@ jest.mock('../../../popup/popupUI.js', () => ({
   updateUIForLoggedInAccount: jest.fn(),
   updateUIForSavedPage: jest.fn(),
   updateUIForUnsavedPage: jest.fn(),
+  setAccountStatusError: jest.fn(),
   setStatus: jest.fn(),
   setButtonState: jest.fn(),
   formatSaveSuccessMessage: jest.fn(),
@@ -65,6 +67,7 @@ beforeEach(() => {
   setAccountSectionVisible.mockReset();
   updateUIForLoggedOutAccount.mockReset();
   updateUIForLoggedInAccount.mockReset();
+  setAccountStatusError.mockReset();
   getPopupAccountState.mockReset();
   startAccountLogin.mockReset();
   openAccountManagement.mockReset();
@@ -481,6 +484,7 @@ describe('popup.js Controller', () => {
         mockElements,
         expect.stringContaining('登入設定異常，請稍後再試')
       );
+      expect(setAccountStatusError).toHaveBeenCalledWith(mockElements, '登入設定異常，請稍後再試');
       expect(updateUIForLoggedOutAccount).toHaveBeenCalledWith(mockElements);
     });
   });

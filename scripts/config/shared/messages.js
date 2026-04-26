@@ -219,6 +219,13 @@ const LOGS = {
 
 const ACCOUNT = {
   AVATAR_ALT: '使用者頭像',
+  LOGIN_BUTTON: '登入',
+  LOGIN_ARIA_LABEL: '使用 Google 登入',
+  SIGNED_IN_BUTTON: '已登入',
+  MANAGEMENT_LABEL: '帳號管理',
+  MANAGEMENT_LABEL_WITH_NAME: accountLabel => `帳號管理：${accountLabel}`,
+  LOGIN_PAGE_OPEN_FAILED: '無法開啟登入頁面，請稍後再試',
+  ACCOUNT_MANAGEMENT_OPEN_FAILED: '無法開啟帳號管理頁面',
   LOCKED_LOGIN_REQUIRED: '需先登入 Google 帳號。',
   LOCKED_COMING_SOON: '功能即將推出。',
   TRANSIENT_REFRESH_ERROR: '無法更新登入狀態，將稍後自動重試。',

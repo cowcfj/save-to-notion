@@ -9,6 +9,7 @@ import {
   setButtonState,
   setButtonText,
   setAccountSectionVisible,
+  setAccountStatusError,
   updateUIForLoggedOutAccount,
   updateUIForLoggedInAccount,
   updateUIForSavedPage,
@@ -28,7 +29,11 @@ describe('popupUI.js', () => {
       openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
       status: { textContent: '', style: { color: '' } },
       accountSection: { style: { display: 'none' }, classList: { toggle: jest.fn() } },
-      accountStatus: { textContent: '', style: { color: '' } },
+      accountStatus: {
+        textContent: '',
+        style: { color: '' },
+        classList: { add: jest.fn(), remove: jest.fn() },
+      },
       accountButton: {
         querySelector: jest.fn(),
         setAttribute: jest.fn(),
@@ -152,6 +157,17 @@ describe('popupUI.js', () => {
         'is-signed-in',
         false
       );
+      expect(mockElements.accountStatus.classList.remove).toHaveBeenCalledWith(
+        'account-status-error'
+      );
+    });
+
+    it('應使用 CSS class 顯示 account 錯誤狀態', () => {
+      setAccountStatusError(mockElements, '登入設定異常，請稍後再試');
+
+      expect(mockElements.accountStatus.textContent).toBe('登入設定異常，請稍後再試');
+      expect(mockElements.accountStatus.classList.add).toHaveBeenCalledWith('account-status-error');
+      expect(mockElements.accountStatus.style.color).toBe('');
     });
 
     it('已登入且有 displayName 時應將角落按鈕標示為帳號管理', () => {
@@ -209,7 +225,8 @@ describe('popupUI.js', () => {
 
       expect(mockTextSpan.textContent).toBe('已登入');
       expect(mockElements.accountStatus.textContent).toContain('無法更新登入狀態');
-      expect(mockElements.accountStatus.style.color).toBe('#d63384');
+      expect(mockElements.accountStatus.classList.add).toHaveBeenCalledWith('account-status-error');
+      expect(mockElements.accountStatus.style.color).toBe('');
     });
   });
 

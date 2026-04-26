@@ -7,6 +7,8 @@
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
 
+const ACCOUNT_STATUS_ERROR_CLASS = 'account-status-error';
+
 /**
  * DOM 元素集合類型定義
  *
@@ -131,22 +133,48 @@ export function setAccountSectionVisible(elements, visible) {
 }
 
 /**
+ * 清除 account 狀態訊息。
+ *
+ * @param {PopupElements} elements
+ */
+export function clearAccountStatus(elements) {
+  if (!elements.accountStatus) {
+    return;
+  }
+
+  elements.accountStatus.textContent = '';
+  elements.accountStatus.classList?.remove(ACCOUNT_STATUS_ERROR_CLASS);
+}
+
+/**
+ * 顯示 account 錯誤狀態訊息。
+ *
+ * @param {PopupElements} elements
+ * @param {string} message
+ */
+export function setAccountStatusError(elements, message) {
+  if (!elements.accountStatus) {
+    return;
+  }
+
+  elements.accountStatus.textContent = message;
+  elements.accountStatus.classList?.add(ACCOUNT_STATUS_ERROR_CLASS);
+}
+
+/**
  * 更新 account 區塊為未登入狀態。
  *
  * @param {PopupElements} elements
  */
 export function updateUIForLoggedOutAccount(elements) {
-  setButtonText(elements.accountButton, '登入');
+  setButtonText(elements.accountButton, UI_MESSAGES.ACCOUNT.LOGIN_BUTTON);
 
   if (elements.accountButton) {
-    elements.accountButton.setAttribute('aria-label', '使用 Google 登入');
-    elements.accountButton.setAttribute('title', '使用 Google 登入');
+    elements.accountButton.setAttribute('aria-label', UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
+    elements.accountButton.setAttribute('title', UI_MESSAGES.ACCOUNT.LOGIN_ARIA_LABEL);
     elements.accountButton.classList.toggle('is-signed-in', false);
   }
-  if (elements.accountStatus) {
-    elements.accountStatus.textContent = '';
-    elements.accountStatus.style.color = '';
-  }
+  clearAccountStatus(elements);
 }
 
 /**
@@ -157,27 +185,25 @@ export function updateUIForLoggedOutAccount(elements) {
  * @param {{ transientRefreshError?: boolean }} [options]
  */
 export function updateUIForLoggedInAccount(elements, profile, options = {}) {
-  setButtonText(elements.accountButton, '已登入');
+  setButtonText(elements.accountButton, UI_MESSAGES.ACCOUNT.SIGNED_IN_BUTTON);
 
   const normalizedDisplayName =
     typeof profile?.displayName === 'string' ? profile.displayName.trim() : '';
   const email = profile?.email || '';
   const accountLabel = normalizedDisplayName || email;
-  const buttonLabel = accountLabel ? `帳號管理：${accountLabel}` : '帳號管理';
+  const buttonLabel = accountLabel
+    ? UI_MESSAGES.ACCOUNT.MANAGEMENT_LABEL_WITH_NAME(accountLabel)
+    : UI_MESSAGES.ACCOUNT.MANAGEMENT_LABEL;
 
   if (elements.accountButton) {
     elements.accountButton.setAttribute('aria-label', buttonLabel);
     elements.accountButton.setAttribute('title', buttonLabel);
     elements.accountButton.classList.toggle('is-signed-in', true);
   }
-  if (elements.accountStatus) {
-    if (options.transientRefreshError) {
-      elements.accountStatus.textContent = UI_MESSAGES.ACCOUNT.TRANSIENT_REFRESH_ERROR;
-      elements.accountStatus.style.color = '#d63384';
-    } else {
-      elements.accountStatus.textContent = '';
-      elements.accountStatus.style.color = '';
-    }
+  if (options.transientRefreshError) {
+    setAccountStatusError(elements, UI_MESSAGES.ACCOUNT.TRANSIENT_REFRESH_ERROR);
+  } else {
+    clearAccountStatus(elements);
   }
 }
 

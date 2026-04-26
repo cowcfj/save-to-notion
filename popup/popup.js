@@ -14,6 +14,7 @@ import {
   setStatus,
   setButtonState,
   setAccountSectionVisible,
+  setAccountStatusError,
   updateUIForLoggedOutAccount,
   updateUIForLoggedInAccount,
   updateUIForSavedPage,
@@ -241,17 +242,18 @@ export async function initPopup() {
 
       if (accountState.isLoggedIn) {
         const result = await openAccountManagement();
-        if (!result?.success && elements.accountStatus) {
-          elements.accountStatus.textContent = result.error || '無法開啟帳號管理頁面';
-          elements.accountStatus.style.color = '#d63384';
+        if (!result?.success) {
+          setAccountStatusError(
+            elements,
+            result.error || UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
+          );
         }
         return;
       }
 
       const result = await startAccountLogin();
-      if (!result?.success && elements.accountStatus) {
-        elements.accountStatus.textContent = result.error || '無法開啟登入頁面，請稍後再試';
-        elements.accountStatus.style.color = '#d63384';
+      if (!result?.success) {
+        setAccountStatusError(elements, result.error || UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED);
       }
     });
   }

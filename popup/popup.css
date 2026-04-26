@@ -196,6 +196,10 @@ button {
   border-color: #86efac;
 }
 
+.account-status-error {
+  color: #d63384;
+}
+
 .account-icon {
   flex-shrink: 0;
   margin-right: var(--spacing-xs);
