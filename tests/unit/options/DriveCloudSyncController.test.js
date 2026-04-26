@@ -210,6 +210,28 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
+    it('transientAuthError=true 時應優先顯示暫時登入失效並停用操作按鈕', () => {
+      renderCloudSyncCard(
+        {
+          connectionEmail: 'stale@notion.so',
+          needsManualReview: false,
+        },
+        {
+          transientAuthError: true,
+        }
+      );
+
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain('臨時登入失效');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain('重新登入');
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(document.querySelector('#drive-upload-button').disabled).toBe(true);
+      expect(document.querySelector('#drive-download-button').disabled).toBe(true);
+      expect(document.querySelector('#drive-disconnect-button').disabled).toBe(true);
+      expect(document.querySelector('#drive-connect-button').disabled).toBe(true);
+    });
+
     it('renders conflict state correctly', () => {
       // simulate conflict state
       renderCloudSyncCard({
@@ -829,6 +851,25 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
       expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
       expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
+    });
+
+    it('initCloudSyncController 傳入 transientAuthError=true 時不應誤顯示已連線狀態', async () => {
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'stale@notion.so',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'stale@notion.so',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+
+      await initCloudSyncController(true, { transientAuthError: true });
+
+      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+      expect(document.querySelector('#drive-sync-status').textContent).toContain('臨時登入失效');
+      expect(driveClient.fetchDriveConnectionStatus).not.toHaveBeenCalled();
     });
 
     it('refreshes remote drive connection when window regains focus', async () => {

@@ -36,6 +36,7 @@
 import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../config/extension/driveSyncErrorCodes.js';
+import { UI_MESSAGES } from '../config/shared/messages.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
 import Logger from '../utils/Logger.js';
 
@@ -129,7 +130,7 @@ const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
  * @returns {Promise<void>}
  */
 export async function startDriveOAuthFlow() {
-  const headers = await buildAccountAuthHeaders();
+  const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_START_URL}`;
 
   const res = await fetch(url, {
@@ -288,6 +289,20 @@ export async function setLastKnownRemoteUpdatedAt(updatedAt) {
 // =============================================================================
 
 /**
+ * 取得 account auth headers；若無 Bearer token，直接提示使用者重新登入。
+ *
+ * @returns {Promise<{ Authorization: string }>}
+ * @throws {Error}
+ */
+async function requireAccountAuthHeaders() {
+  const headers = await buildAccountAuthHeaders();
+  if (typeof headers.Authorization !== 'string' || headers.Authorization.trim() === '') {
+    throw new Error(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR);
+  }
+  return headers;
+}
+
+/**
  * 查詢 Drive 連線狀態。
  * 若 session token 無效，headers 會是空物件，後端應回傳 401。
  *
@@ -295,7 +310,7 @@ export async function setLastKnownRemoteUpdatedAt(updatedAt) {
  * @throws {Error} 網路錯誤或非 2xx / 404 回應
  */
 export async function fetchDriveConnectionStatus() {
-  const headers = await buildAccountAuthHeaders();
+  const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_CONNECTION}`;
 
   const res = await fetch(url, {
@@ -327,7 +342,7 @@ export async function fetchDriveConnectionStatus() {
  * @throws {Error} 網路錯誤或非 2xx / 404 回應
  */
 export async function fetchDriveSnapshotStatus() {
-  const headers = await buildAccountAuthHeaders();
+  const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_SNAPSHOT_STATUS}`;
 
   const res = await fetch(url, {
@@ -369,7 +384,7 @@ export async function fetchDriveSnapshotStatus() {
  * @returns {Promise<{ success: true; updatedAt: string | null } | { success: false; errorCode: string; message: string; remoteUpdatedAt: string | null }>}
  */
 export async function uploadDriveSnapshot(snapshotPayload, force = false) {
-  const headers = await buildAccountAuthHeaders();
+  const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_SNAPSHOT}`;
 
   const res = await fetch(url, {
@@ -415,7 +430,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
  * @throws {Error} 網路錯誤、404（無 snapshot）、或非 2xx 回應
  */
 export async function downloadDriveSnapshot() {
-  const headers = await buildAccountAuthHeaders();
+  const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_SNAPSHOT}`;
 
   const res = await fetch(url, {
@@ -444,7 +459,7 @@ export async function downloadDriveSnapshot() {
  * @throws {Error} 網路錯誤或非 2xx 回應
  */
 export async function disconnectDrive() {
-  const headers = await buildAccountAuthHeaders();
+  const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_CONNECTION}`;
 
   const res = await fetch(url, {
