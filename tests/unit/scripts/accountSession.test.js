@@ -338,6 +338,22 @@ describe('buildAccountAuthHeaders', () => {
     expect(headers).toEqual({});
   });
 
+  test('過期 session 且 refresh 發生 transient failure 時應記錄 debug 日誌後回傳空物件', async () => {
+    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+
+    const transientError = new Error('Transient network error');
+    globalThis.fetch = jest.fn().mockRejectedValueOnce(transientError);
+
+    await expect(buildAccountAuthHeaders()).resolves.toEqual({});
+    expect(Logger.debug).toHaveBeenCalledWith(
+      'Failed to get account access token; returning empty auth headers',
+      expect.objectContaining({
+        reason: 'get_account_access_token_failure',
+        err: transientError,
+      })
+    );
+  });
+
   test('過期 session 且 refresh 發生 transient failure 時應回傳空物件', async () => {
     await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
 
@@ -736,14 +752,6 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
     const snakeAccessToken = 'snake_access_token';
     const snakeRefreshToken = 'snake_refresh_token';
     const snakeExpiresAt = Math.floor(Date.now() / 1000) + 86_400;
-
-    beforeEach(() => {
-      delete globalThis.fetch;
-    });
-
-    afterEach(() => {
-      delete globalThis.fetch;
-    });
 
     test('refresh request body 應使用 snake_case key: refresh_token', async () => {
       await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });

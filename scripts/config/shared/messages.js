@@ -208,6 +208,7 @@ const CLOUD_SYNC = {
   SOURCE_WARNING: '⚠️ 目前雲端備份來自其他裝置或擴展安裝',
   CONFIRM_CROSS_INSTALL_UPLOAD:
     '目前雲端備份來自其他裝置或擴展安裝。\n\n若繼續上載，可能覆蓋該裝置最近的備份。確定要繼續嗎？',
+  TRANSIENT_AUTH_ERROR: '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。',
 };
 
 const LOGS = {
@@ -220,6 +221,7 @@ const ACCOUNT = {
   AVATAR_ALT: '使用者頭像',
   LOCKED_LOGIN_REQUIRED: '需先登入 Google 帳號。',
   LOCKED_COMING_SOON: '功能即將推出。',
+  TRANSIENT_REFRESH_ERROR: '無法更新登入狀態，將稍後自動重試。',
 };
 
 export const UI_MESSAGES = deepFreeze({

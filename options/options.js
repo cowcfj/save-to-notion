@@ -168,6 +168,8 @@ document.addEventListener('DOMContentLoaded', initOptions);
 // 與既有 Notion OAuth UI 完整分開，禁止共用 DOM 或 storage
 // =============================================================================
 
+const ACCOUNT_STATUS_SELECTOR = '#account-status';
+
 /**
  * 更新 Profile DOM 的顯示內容
  *
@@ -240,30 +242,16 @@ function updateLockedFeatures(isLocked) {
 }
 
 /**
- * 根據 storage 中的 account profile 更新 account card UI。
- * 可被 account_session_updated 、account_session_cleared 訊息以及 initAccountUI 呼叫。
+ * 根據登入狀態切換元件顯示
  *
- * @returns {Promise<void>}
+ * @param {boolean} isActive
+ * @param {object|null} profile
  */
-async function renderAccountUI() {
-  const profile = await getAccountProfile();
-  let accessToken = null;
-  let isTransientRefreshError = false;
-
-  try {
-    accessToken = await getAccountAccessToken();
-  } catch {
-    // Transient refresh failure（network error / 5xx）— 有 profile 時保留 logged-in
-    isTransientRefreshError = Boolean(profile);
-  }
-
-  const isLoggedIn = Boolean(profile && accessToken);
-
+function updateAccountLoginState(isActive, profile) {
   const loggedOutEl = document.querySelector('#account-logged-out');
   const loggedInEl = document.querySelector('#account-logged-in');
 
-  if (isLoggedIn || isTransientRefreshError) {
-    // 已登入狀態（含 transient failure 保留 profile）
+  if (isActive) {
     if (loggedOutEl) {
       loggedOutEl.style.display = 'none';
     }
@@ -286,8 +274,56 @@ async function renderAccountUI() {
 
     updateLockedFeatures(true);
   }
+}
 
-  await initCloudSyncController(isLoggedIn || isTransientRefreshError);
+/**
+ * 更新狀態訊息
+ *
+ * @param {boolean} isTransientRefreshError
+ */
+function updateAccountStatusMessage(isTransientRefreshError) {
+  const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
+
+  if (!statusEl) {
+    return;
+  }
+
+  if (isTransientRefreshError) {
+    statusEl.textContent = UI_MESSAGES.ACCOUNT.TRANSIENT_REFRESH_ERROR;
+    statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
+  } else if (statusEl.textContent === UI_MESSAGES.ACCOUNT.TRANSIENT_REFRESH_ERROR) {
+    statusEl.textContent = '';
+    statusEl.className = UI_CLASS_STATUS_MSG;
+  }
+}
+
+/**
+ * 根據 storage 中的 account profile 更新 account card UI。
+ * 可被 account_session_updated 、account_session_cleared 訊息以及 initAccountUI 呼叫。
+ *
+ * @returns {Promise<void>}
+ */
+async function renderAccountUI() {
+  const profile = await getAccountProfile();
+  let accessToken = null;
+  let isTransientRefreshError = false;
+
+  try {
+    accessToken = await getAccountAccessToken();
+  } catch {
+    // Transient refresh failure（network error / 5xx）— 有 profile 時保留 logged-in
+    isTransientRefreshError = Boolean(profile);
+  }
+
+  const isLoggedIn = Boolean(profile && accessToken);
+  const isActive = isLoggedIn || isTransientRefreshError;
+
+  updateAccountLoginState(isActive, profile);
+  updateAccountStatusMessage(isTransientRefreshError);
+
+  await initCloudSyncController(isActive, {
+    transientAuthError: isTransientRefreshError,
+  });
 }
 
 /**
@@ -325,7 +361,7 @@ function initAccountUI() {
   const loginBtn = document.querySelector('#account-login-button');
   if (loginBtn) {
     loginBtn.addEventListener('click', () => {
-      const statusEl = document.querySelector('#account-status');
+      const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
       const extId = chrome.runtime.id;
       const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
       if (!baseUrl) {
@@ -365,7 +401,7 @@ function initAccountUI() {
   const logoutBtn = document.querySelector('#account-logout-button');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
-      const statusEl = document.querySelector('#account-status');
+      const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
       try {
         await clearAccountSession();
         chrome.runtime

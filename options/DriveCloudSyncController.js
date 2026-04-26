@@ -132,9 +132,13 @@ function getUserFriendlyErrorMessage(error, context) {
 /**
  * 將 server 端 Drive connection 狀態同步到本地 metadata。
  *
+ * @param {{ transientAuthError?: boolean }} [options]
  * @returns {Promise<void>}
  */
-async function syncRemoteDriveConnection() {
+async function syncRemoteDriveConnection(options = {}) {
+  if (options.transientAuthError) {
+    return;
+  }
   const status = await fetchDriveConnectionStatus();
 
   if (status.connected && status.email) {
@@ -193,11 +197,12 @@ async function syncRemoteSnapshotStatus(options = {}) {
  * 嘗試同步 server 端 Drive connection；失敗時回退本地 metadata，
  * 避免整張卡片因 API 失敗而完全不渲染。
  *
+ * @param {{ transientAuthError?: boolean }} [options]
  * @returns {Promise<void>}
  */
-async function syncRemoteDriveConnectionSafely() {
+async function syncRemoteDriveConnectionSafely(options = {}) {
   try {
-    await syncRemoteDriveConnection();
+    await syncRemoteDriveConnection(options);
   } catch (error) {
     Logger.error('[CloudSync] Drive connection sync failed', {
       action: 'syncRemoteDriveConnection',
@@ -509,7 +514,8 @@ function _updateSourceWarning(snapshotStatus, localInstallationId) {
  * @param {{ snapshotStatus?: { sourceInstallationId?: string | null } | null }} [options]
  */
 export function renderCloudSyncCard(metadata, options = {}) {
-  const isConnected = Boolean(metadata?.connectionEmail);
+  const transientAuthError = options.transientAuthError === true;
+  const isConnected = !transientAuthError && Boolean(metadata?.connectionEmail);
   const needsReview = metadata?.needsManualReview ?? false;
   let panelState = 'disconnected';
 
@@ -530,6 +536,11 @@ export function renderCloudSyncCard(metadata, options = {}) {
   }
 
   _updateErrorBanner(metadata);
+
+  if (transientAuthError) {
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR, 'error');
+    _setActionButtonsDisabled(true);
+  }
 }
 
 function renderLoggedOutCloudSyncCard() {
@@ -893,8 +904,10 @@ async function handleFrequencyChange(frequency) {
  * 初始化 Cloud Sync Controller
  *
  * @param {boolean} isLoggedIn - 是否已登入帳號
+ * @param {{ transientAuthError?: boolean }} [options]
  */
-export async function initCloudSyncController(isLoggedIn) {
+export async function initCloudSyncController(isLoggedIn, options = {}) {
+  const transientAuthError = options.transientAuthError === true;
   // 更新 card 顯示與否
   setCloudSyncCardVisibility(true);
 
@@ -906,17 +919,20 @@ export async function initCloudSyncController(isLoggedIn) {
   showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC);
 
   try {
-    await syncRemoteDriveConnectionSafely();
+    await syncRemoteDriveConnectionSafely({ transientAuthError });
     installReturnSyncListeners();
 
     // 讀取 Drive metadata 並渲染
     const metadata = await getDriveSyncMetadata();
-    renderCloudSyncCard(metadata);
+    renderCloudSyncCard(metadata, { transientAuthError });
 
     // 綁定按鈕事件（冪等，重複呼叫會先 abort 先前的 listener）
     bindCloudSyncButtons();
   } finally {
     hideLoading();
+    if (transientAuthError) {
+      _setActionButtonsDisabled(true);
+    }
   }
 }
 
@@ -926,9 +942,10 @@ export async function initCloudSyncController(isLoggedIn) {
  * @param {{ syncRemote?: boolean }} [options]
  */
 export async function refreshCloudSyncCard(options = {}) {
+  const transientAuthError = options.transientAuthError === true;
   if (options.syncRemote) {
-    await syncRemoteDriveConnectionSafely();
+    await syncRemoteDriveConnectionSafely({ transientAuthError });
   }
   const metadata = await getDriveSyncMetadata();
-  renderCloudSyncCard(metadata);
+  renderCloudSyncCard(metadata, { transientAuthError });
 }

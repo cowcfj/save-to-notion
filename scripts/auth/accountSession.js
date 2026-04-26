@@ -214,7 +214,11 @@ export async function buildAccountAuthHeaders() {
   let token;
   try {
     token = await getAccountAccessToken();
-  } catch {
+  } catch (error) {
+    Logger.debug('Failed to get account access token; returning empty auth headers', {
+      reason: 'get_account_access_token_failure',
+      err: error,
+    });
     return {};
   }
   if (!token) {
@@ -319,12 +323,13 @@ function validateRefreshSuccessPayload(body) {
     throw new Error('[accountSession] refresh response body must be an object');
   }
 
-  let accessToken = '';
+  let accessTokenRaw = '';
   if (typeof body.access_token === 'string') {
-    accessToken = body.access_token.trim();
+    accessTokenRaw = body.access_token;
   } else if (typeof body.accessToken === 'string') {
-    accessToken = body.accessToken.trim();
+    accessTokenRaw = body.accessToken;
   }
+  const accessToken = accessTokenRaw.trim();
 
   let refreshToken = null;
   if (typeof body.refresh_token === 'string') {
@@ -392,6 +397,8 @@ function extractRefreshErrorCode(body) {
 
 /**
  * 分類 fetch 過程中的錯誤原因。
+ * classifyFetchError 只應在 fetch 已完成嘗試後呼叫，且 response 僅在 fetch 成功回傳時才會被賦值。
+ * 若未來把 fetch 與 response.json() 拆成不同 try block，MUST 同步更新 classifyFetchError 判斷邏輯。
  *
  * @param {unknown} error
  * @param {Response | undefined} response

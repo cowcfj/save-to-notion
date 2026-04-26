@@ -230,6 +230,14 @@ describe('Drive Client API', () => {
 
   describe('API Endpoints', () => {
     describe('fetchDriveConnectionStatus', () => {
+      it('buildAccountAuthHeaders 回傳空物件時應直接拒絕並提示重新登入，不應送出 request', async () => {
+        accountSession.buildAccountAuthHeaders.mockResolvedValueOnce({});
+        mockFetch.mockClear();
+
+        await expect(fetchDriveConnectionStatus()).rejects.toThrow('臨時登入失效');
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
       it('returns true on 200', async () => {
         mockFetch.mockResolvedValue({
           ok: true,
@@ -260,6 +268,14 @@ describe('Drive Client API', () => {
     });
 
     describe('fetchDriveSnapshotStatus', () => {
+      it('buildAccountAuthHeaders 回傳空物件時應直接拒絕並提示重新登入，不應送出 request', async () => {
+        accountSession.buildAccountAuthHeaders.mockResolvedValueOnce({});
+        mockFetch.mockClear();
+
+        await expect(fetchDriveSnapshotStatus()).rejects.toThrow('臨時登入失效');
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
       it('returns status on 200', async () => {
         mockFetch.mockResolvedValue({
           ok: true,
