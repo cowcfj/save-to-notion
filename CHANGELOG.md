@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.60.0](https://github.com/cowcfj/save-to-notion/compare/v2.59.0...v2.60.0) (2026-04-26)
+
+
+### ✨ 新功能
+
+* Add initial delay option for Drive auto-sync scheduling ([#445](https://github.com/cowcfj/save-to-notion/issues/445)) ([74880e8](https://github.com/cowcfj/save-to-notion/commit/74880e8db09e5727f076a1780bd30a44149123ea))
+* support transient failure to retain logged-in state ([#444](https://github.com/cowcfj/save-to-notion/issues/444)) ([8f2d04c](https://github.com/cowcfj/save-to-notion/commit/8f2d04c66bdd1d07682339c3c3590731a9fbe4b6))
+
+
+### ♻️ 代碼重構
+
+* 更新 README.md 以提供更清晰的配置目錄導覽 ([dc877a7](https://github.com/cowcfj/save-to-notion/commit/dc877a7930415b5573e7aaf5660b8233f22ae2a5))
+* 移除過時的 env.example.js 及其測試檔案並更新打包腳本排除設定 ([c5b11ee](https://github.com/cowcfj/save-to-notion/commit/c5b11ee10db6a3c401813bd771f07fc5b1cdb729))
+
 ## [2.59.0](https://github.com/cowcfj/save-to-notion/compare/v2.58.1...v2.59.0) (2026-04-25)
 
 
