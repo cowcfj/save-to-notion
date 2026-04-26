@@ -139,7 +139,7 @@ describe('popupUI.js', () => {
 
       updateUIForLoggedOutAccount(mockElements);
 
-      expect(mockTextSpan.textContent).toBe('');
+      expect(mockTextSpan.textContent).toBe('登入');
       expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
         'aria-label',
         '使用 Google 登入'
@@ -163,7 +163,7 @@ describe('popupUI.js', () => {
         displayName: 'Test User',
       });
 
-      expect(mockTextSpan.textContent).toBe('');
+      expect(mockTextSpan.textContent).toBe('已登入');
       expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
         'aria-label',
         '帳號管理：Test User'
@@ -187,7 +187,7 @@ describe('popupUI.js', () => {
         displayName: '   ',
       });
 
-      expect(mockTextSpan.textContent).toBe('');
+      expect(mockTextSpan.textContent).toBe('已登入');
       expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
         'aria-label',
         '帳號管理：user@example.com'
@@ -207,6 +207,7 @@ describe('popupUI.js', () => {
         { transientRefreshError: true }
       );
 
+      expect(mockTextSpan.textContent).toBe('已登入');
       expect(mockElements.accountStatus.textContent).toContain('無法更新登入狀態');
       expect(mockElements.accountStatus.style.color).toBe('#d63384');
     });

@@ -167,16 +167,20 @@ button {
 }
 
 .account-button {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  padding: 0;
+  width: auto;
+  min-width: 68px;
+  min-height: 32px;
+  padding: 0 var(--spacing-sm);
   margin: 0;
   border-radius: 999px;
   background: #f8fafc;
   color: #334155;
   border: 1px solid #cbd5e1;
   box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .account-button:hover {
@@ -194,6 +198,7 @@ button {
 
 .account-icon {
   flex-shrink: 0;
+  margin-right: var(--spacing-xs);
 }
 
 button:disabled {

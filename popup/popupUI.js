@@ -136,7 +136,7 @@ export function setAccountSectionVisible(elements, visible) {
  * @param {PopupElements} elements
  */
 export function updateUIForLoggedOutAccount(elements) {
-  setButtonText(elements.accountButton, '');
+  setButtonText(elements.accountButton, '登入');
 
   if (elements.accountButton) {
     elements.accountButton.setAttribute('aria-label', '使用 Google 登入');
@@ -157,7 +157,7 @@ export function updateUIForLoggedOutAccount(elements) {
  * @param {{ transientRefreshError?: boolean }} [options]
  */
 export function updateUIForLoggedInAccount(elements, profile, options = {}) {
-  setButtonText(elements.accountButton, '');
+  setButtonText(elements.accountButton, '已登入');
 
   const normalizedDisplayName =
     typeof profile?.displayName === 'string' ? profile.displayName.trim() : '';
