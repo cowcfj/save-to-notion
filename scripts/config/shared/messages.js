@@ -111,6 +111,13 @@ const STORAGE = {
 };
 
 const POPUP = {
+  DOCUMENT_TITLE: 'Save to Notion',
+  HEADING: 'Save to Notion',
+  INITIAL_STATUS: '準備儲存',
+  SAVE_PAGE: '儲存頁面',
+  OPEN_NOTION: '開啟 Notion',
+  MANAGE_HIGHLIGHTS: '管理標註',
+  SETTINGS_LINK: '設定',
   SAVING: '儲存中...',
   SAVE_FAILED_PREFIX: '儲存失敗：',
   HIGHLIGHT_STARTING: '載入標註模式...',
@@ -131,6 +138,7 @@ const POPUP = {
   HIGHLIGHTS_UPDATED: '標註已更新',
   UPDATED: '更新成功',
   CREATED: '建立成功',
+  SIDE_PANEL_UNAVAILABLE: '側邊欄無法在此頁面開啟。',
 };
 
 const SIDEPANEL = {
@@ -219,6 +227,13 @@ const LOGS = {
 
 const ACCOUNT = {
   AVATAR_ALT: '使用者頭像',
+  LOGIN_BUTTON: '登入',
+  LOGIN_ARIA_LABEL: '使用 Google 登入',
+  SIGNED_IN_BUTTON: '已登入',
+  MANAGEMENT_LABEL: '帳號管理',
+  MANAGEMENT_LABEL_WITH_NAME: accountLabel => `帳號管理：${accountLabel}`,
+  LOGIN_PAGE_OPEN_FAILED: '無法開啟登入頁面，請稍後再試',
+  ACCOUNT_MANAGEMENT_OPEN_FAILED: '無法開啟帳號管理頁面',
   LOCKED_LOGIN_REQUIRED: '需先登入 Google 帳號。',
   LOCKED_COMING_SOON: '功能即將推出。',
   TRANSIENT_REFRESH_ERROR: '無法更新登入狀態，將稍後自動重試。',

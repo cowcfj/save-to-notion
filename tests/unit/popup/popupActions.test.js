@@ -5,15 +5,43 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
+  getPopupAccountState,
+  startAccountLogin,
+  openAccountManagement,
 } from '../../../popup/popupActions.js';
 import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  BUILD_ENV: {
+    ENABLE_ACCOUNT: true,
+    OAUTH_SERVER_URL: 'https://worker.test',
+  },
+}));
+
+jest.mock('../../../scripts/auth/accountSession.js', () => ({
+  getAccountProfile: jest.fn(),
+  getAccountAccessToken: jest.fn(),
+}));
+
 describe('popupActions.js', () => {
+  const {
+    getAccountProfile,
+    getAccountAccessToken,
+  } = require('../../../scripts/auth/accountSession.js');
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
     // 確保每次測試前 storage 是空的
     chrome._clearStorage();
+    BUILD_ENV.ENABLE_ACCOUNT = true;
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('checkSettings', () => {
@@ -337,6 +365,149 @@ describe('popupActions.js', () => {
       chrome.tabs.query.mockRejectedValueOnce(new Error('Permissions error'));
       const result = await getActiveTab();
       expect(result).toBeNull();
+    });
+  });
+
+  describe('account actions', () => {
+    beforeEach(() => {
+      getAccountProfile.mockReset();
+      getAccountAccessToken.mockReset();
+      chrome.runtime.id = 'ext_id_123';
+    });
+
+    it('未登入時應回傳 logged out 狀態', async () => {
+      getAccountProfile.mockResolvedValue(null);
+
+      const result = await getPopupAccountState();
+
+      expect(result).toEqual({
+        enabled: true,
+        isLoggedIn: false,
+        profile: null,
+        transientRefreshError: false,
+      });
+    });
+
+    it('已登入時應回傳 profile 與 logged in 狀態', async () => {
+      const profile = {
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      };
+      getAccountProfile.mockResolvedValue(profile);
+      getAccountAccessToken.mockResolvedValue('token-123');
+
+      const result = await getPopupAccountState();
+
+      expect(result).toEqual({
+        enabled: true,
+        isLoggedIn: true,
+        profile,
+        transientRefreshError: false,
+      });
+    });
+
+    it('token 暫時刷新失敗時應保留 logged in 狀態並標記 transientRefreshError', async () => {
+      const profile = {
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      };
+      getAccountProfile.mockResolvedValue(profile);
+      getAccountAccessToken.mockRejectedValue(new Error('transient refresh failure'));
+
+      const result = await getPopupAccountState();
+
+      expect(result).toEqual({
+        enabled: true,
+        isLoggedIn: true,
+        profile,
+        transientRefreshError: true,
+      });
+    });
+
+    it('feature flag 關閉時應回傳 disabled account state', async () => {
+      BUILD_ENV.ENABLE_ACCOUNT = false;
+
+      const result = await getPopupAccountState();
+
+      expect(result).toEqual({
+        enabled: false,
+        isLoggedIn: false,
+        profile: null,
+        transientRefreshError: false,
+      });
+    });
+
+    it('startAccountLogin 應以正確 query 開啟 Google start URL', async () => {
+      await startAccountLogin();
+
+      const [{ url }] = chrome.tabs.create.mock.calls[0];
+      const startUrl = new URL(url);
+
+      expect(startUrl.origin).toBe('https://worker.test');
+      expect(startUrl.pathname).toBe('/v1/account/google/start');
+      expect(startUrl.searchParams.get('ext_id')).toBe('ext_id_123');
+      expect(startUrl.searchParams.get('callback_mode')).toBe('bridge');
+    });
+
+    it('startAccountLogin 應保留 OAUTH_SERVER_URL 的 path prefix', async () => {
+      BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test/proxy';
+
+      await startAccountLogin();
+
+      const [{ url }] = chrome.tabs.create.mock.calls[0];
+      expect(new URL(url).pathname).toBe('/proxy/v1/account/google/start');
+    });
+
+    it('缺少 OAUTH_SERVER_URL 時不應開登入頁並返回錯誤', async () => {
+      BUILD_ENV.OAUTH_SERVER_URL = '';
+
+      const result = await startAccountLogin();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('登入設定異常');
+      expect(chrome.tabs.create).not.toHaveBeenCalled();
+    });
+
+    it('openAccountManagement 應打開 options advanced deep link', async () => {
+      chrome.runtime.getURL = jest.fn(path => `chrome-extension://ext_id_123/${path}`);
+
+      const result = await openAccountManagement();
+
+      expect(result.success).toBe(true);
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith('options/options.html?section=advanced');
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'chrome-extension://ext_id_123/options/options.html?section=advanced',
+      });
+    });
+
+    it('startAccountLogin 開啟 tab 失敗時應以 structured error context 記錄', async () => {
+      const error = new Error('tabs unavailable');
+      chrome.tabs.create.mockRejectedValue(error);
+
+      const result = await startAccountLogin();
+
+      expect(result.success).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith('startAccountLogin failed', {
+        action: 'startAccountLogin',
+        error,
+      });
+    });
+
+    it('openAccountManagement 開啟 tab 失敗時應以 structured error context 記錄', async () => {
+      const error = new Error('tabs unavailable');
+      chrome.tabs.create.mockRejectedValue(error);
+
+      const result = await openAccountManagement();
+
+      expect(result.success).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith('openAccountManagement failed', {
+        action: 'openAccountManagement',
+        error,
+      });
     });
   });
 });

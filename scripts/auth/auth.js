@@ -22,6 +22,7 @@ import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
 import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { setAccountSession, setAccountProfile, clearAccountSession } from './accountSession.js';
+import { buildAccountApiUrl } from './accountLogin.js';
 import { showError, showLoading, showSuccess } from './callbackStatusView.js';
 
 // =============================================================================
@@ -46,12 +47,9 @@ function parseAccountTicket() {
  */
 function resolveAccountApiBaseUrl() {
   const baseUrl = BUILD_ENV.OAUTH_SERVER_URL;
-  if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
-    return null;
-  }
-
   try {
-    return new URL(baseUrl).toString();
+    buildAccountApiUrl(baseUrl, ACCOUNT_API.ME);
+    return baseUrl;
   } catch {
     return null;
   }
@@ -66,7 +64,7 @@ function resolveAccountApiBaseUrl() {
  * @throws {Error} 若 HTTP 非 2xx 或回應格式不符
  */
 async function exchangeTicket(ticket, baseUrl) {
-  const url = new URL(ACCOUNT_API.SESSION_EXCHANGE, baseUrl).toString();
+  const url = buildAccountApiUrl(baseUrl, ACCOUNT_API.SESSION_EXCHANGE);
 
   const res = await fetch(url, {
     method: 'POST',
@@ -109,7 +107,7 @@ async function exchangeTicket(ticket, baseUrl) {
  * @throws {Error} 若 HTTP 非 2xx 或回應格式不符
  */
 async function fetchAccountMe(accessToken, baseUrl) {
-  const url = new URL(ACCOUNT_API.ME, baseUrl).toString();
+  const url = buildAccountApiUrl(baseUrl, ACCOUNT_API.ME);
 
   const res = await fetch(url, {
     method: 'GET',

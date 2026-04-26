@@ -178,6 +178,45 @@ describe('auth.js', () => {
     expect(globalThis.close).toHaveBeenCalled();
   });
 
+  it('OAUTH_SERVER_URL 含 path prefix 時應保留 prefix 呼叫 account API', async () => {
+    const { BUILD_ENV } = await import('../../../scripts/config/env/index.js');
+    BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test/proxy';
+    globalThis.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'access_123',
+          refresh_token: 'refresh_123',
+          expires_at: 1_700_000_000,
+          user_id: 'user_123',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user_id: 'user_123',
+          email: 'user@example.com',
+          display_name: 'Test User',
+          avatar_url: null,
+        }),
+      });
+    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+
+    await loadAuthModule();
+    await dispatchDomReady();
+
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      1,
+      'https://worker.test/proxy/v1/account/session/exchange',
+      expect.any(Object)
+    );
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      2,
+      'https://worker.test/proxy/v1/account/me',
+      expect.any(Object)
+    );
+  });
+
   it('account/me 失敗時應清除 session 並顯示錯誤', async () => {
     globalThis.fetch
       .mockResolvedValueOnce({

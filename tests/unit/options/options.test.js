@@ -371,6 +371,7 @@ describe('options.js', () => {
     let mockStorageInstance = null;
     let mockMigrationInstance = null;
     const originalEnableOauth = BUILD_ENV.ENABLE_OAUTH;
+    const originalHref = globalThis.location.href;
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -432,6 +433,7 @@ describe('options.js', () => {
 
     afterEach(() => {
       BUILD_ENV.ENABLE_OAUTH = originalEnableOauth;
+      globalThis.history.replaceState({}, '', originalHref);
     });
 
     it('should initialize all managers and check auth status', () => {
@@ -664,6 +666,58 @@ describe('options.js', () => {
       expect(sections[0].getAttribute('aria-hidden')).toBe('true');
       expect(sections[1].classList.contains('active')).toBe(true);
       expect(sections[1].getAttribute('aria-hidden')).toBe('false');
+    });
+
+    it('網址帶 ?section=advanced 時應在初始化後切到 advanced 區塊', () => {
+      globalThis.history.replaceState({}, '', '/options/options.html?section=advanced');
+      document.body.innerHTML = `
+        <button id="save-button"></button>
+        <button id="save-templates-button"></button>
+        <div id="app-version"></div>
+        <button id="tab-general" class="nav-item active" data-section="general" aria-selected="true"></button>
+        <button id="tab-advanced" class="nav-item" data-section="advanced" aria-selected="false"></button>
+        <section id="section-general" class="settings-section active" aria-hidden="false"></section>
+        <section id="section-advanced" class="settings-section" aria-hidden="true"></section>
+      `;
+
+      initOptions();
+
+      expect(document.querySelector('#tab-general').classList.contains('active')).toBe(false);
+      expect(document.querySelector('#tab-general').getAttribute('aria-selected')).toBe('false');
+      expect(document.querySelector('#tab-advanced').classList.contains('active')).toBe(true);
+      expect(document.querySelector('#tab-advanced').getAttribute('aria-selected')).toBe('true');
+      expect(document.querySelector('#section-general').classList.contains('active')).toBe(false);
+      expect(document.querySelector('#section-general').getAttribute('aria-hidden')).toBe('true');
+      expect(document.querySelector('#section-advanced').classList.contains('active')).toBe(true);
+      expect(document.querySelector('#section-advanced').getAttribute('aria-hidden')).toBe('false');
+    });
+
+    it('網址帶不合法 section 時應維持預設 general 區塊', () => {
+      globalThis.history.replaceState({}, '', '/options/options.html?section=unknown');
+      document.body.innerHTML = `
+        <button id="save-button"></button>
+        <button id="save-templates-button"></button>
+        <div id="app-version"></div>
+        <button id="tab-general" class="nav-item active" data-section="general" aria-selected="true"></button>
+        <button id="tab-advanced" class="nav-item" data-section="advanced" aria-selected="false"></button>
+        <section id="section-general" class="settings-section active" aria-hidden="false"></section>
+        <section id="section-advanced" class="settings-section" aria-hidden="true"></section>
+      `;
+
+      initOptions();
+
+      expect(document.querySelector('#tab-general').classList.contains('active')).toBe(true);
+      expect(document.querySelector('#tab-general').getAttribute('aria-selected')).toBe('true');
+      expect(document.querySelector('#tab-advanced').classList.contains('active')).toBe(false);
+      expect(document.querySelector('#section-general').classList.contains('active')).toBe(true);
+      expect(document.querySelector('#section-advanced').classList.contains('active')).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('找不到目標區塊'),
+        expect.objectContaining({
+          action: 'setupSidebarNavigation',
+          targetId: 'unknown',
+        })
+      );
     });
 
     it('點擊保存按鈕時應以 status 狀態區儲存設定', async () => {
@@ -1208,8 +1262,11 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalledWith(
-        'Account login failed: missing OAUTH_SERVER_URL',
-        expect.any(Object)
+        'Account login failed',
+        expect.objectContaining({
+          action: 'initAccountUI',
+          reason: 'missing_base_url',
+        })
       );
 
       const statusEl = document.querySelector('#account-status');

@@ -161,6 +161,22 @@ describe('配置模組 - messages.js 動態函式', () => {
   });
 
   describe('靜態訊息匯出完整性', () => {
+    test('UI_MESSAGES.POPUP 應包含 popup 靜態 UI 字串', () => {
+      expect(UI_MESSAGES.POPUP).toEqual(
+        expect.objectContaining({
+          DOCUMENT_TITLE: 'Save to Notion',
+          HEADING: 'Save to Notion',
+          INITIAL_STATUS: '準備儲存',
+          START_HIGHLIGHT: '開始標註',
+          SAVE_PAGE: '儲存頁面',
+          OPEN_NOTION: '開啟 Notion',
+          MANAGE_HIGHLIGHTS: '管理標註',
+          SETTINGS_LINK: '設定',
+          SIDE_PANEL_UNAVAILABLE: '側邊欄無法在此頁面開啟。',
+        })
+      );
+    });
+
     test('ERROR_TYPES 應為凍結物件，避免 runtime mutation', () => {
       expect(Object.isFrozen(ERROR_TYPES)).toBe(true);
       expect(ERROR_TYPES).toEqual(

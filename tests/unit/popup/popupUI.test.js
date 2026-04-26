@@ -5,9 +5,14 @@
  */
 
 import {
+  initializePopupStaticText,
   setStatus,
   setButtonState,
   setButtonText,
+  setAccountSectionVisible,
+  setAccountStatusError,
+  updateUIForLoggedOutAccount,
+  updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
   formatSaveSuccessMessage,
@@ -22,10 +27,61 @@ describe('popupUI.js', () => {
       saveButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       highlightButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       manageButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
-      openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
+      openNotionButton: {
+        style: { display: 'none' },
+        dataset: {},
+        querySelector: jest.fn(),
+        setAttribute: jest.fn(),
+      },
       status: { textContent: '', style: { color: '' } },
+      accountSection: { style: { display: 'none' }, classList: { toggle: jest.fn() } },
+      accountStatus: {
+        textContent: '',
+        style: { color: '' },
+        classList: { add: jest.fn(), remove: jest.fn() },
+      },
+      accountButton: {
+        querySelector: jest.fn(),
+        setAttribute: jest.fn(),
+        classList: { toggle: jest.fn() },
+        style: {},
+        disabled: false,
+      },
+      settingsLinkText: { textContent: '' },
     };
     jest.clearAllMocks();
+  });
+
+  describe('initializePopupStaticText', () => {
+    it('應從集中化 UI_MESSAGES 套用 popup 初始文字', () => {
+      const buttonTextSpans = new Map([
+        [mockElements.highlightButton, { textContent: '' }],
+        [mockElements.saveButton, { textContent: '' }],
+        [mockElements.manageButton, { textContent: '' }],
+        [mockElements.openNotionButton, { textContent: '' }],
+      ]);
+
+      buttonTextSpans.forEach((textSpan, button) => {
+        button.querySelector.mockReturnValue(textSpan);
+      });
+
+      initializePopupStaticText(mockElements);
+
+      expect(mockElements.status.textContent).toBe('準備儲存');
+      expect(buttonTextSpans.get(mockElements.highlightButton).textContent).toBe('開始標註');
+      expect(buttonTextSpans.get(mockElements.saveButton).textContent).toBe('儲存頁面');
+      expect(buttonTextSpans.get(mockElements.manageButton).textContent).toBe('管理標註');
+      expect(buttonTextSpans.get(mockElements.openNotionButton).textContent).toBe('開啟 Notion');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '使用 Google 登入'
+      );
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'title',
+        '使用 Google 登入'
+      );
+      expect(mockElements.settingsLinkText.textContent).toBe('設定');
+    });
   });
 
   describe('setStatus', () => {
@@ -109,6 +165,110 @@ describe('popupUI.js', () => {
       const response = { wasDeleted: true };
       updateUIForUnsavedPage(mockElements, response);
       expect(mockElements.status.textContent).toContain('原頁面已刪除');
+    });
+  });
+
+  describe('account section helpers', () => {
+    it('應可切換角落 account 按鈕顯示狀態', () => {
+      setAccountSectionVisible(mockElements, true);
+      expect(mockElements.accountSection.style.display).toBe('flex');
+
+      setAccountSectionVisible(mockElements, false);
+      expect(mockElements.accountSection.style.display).toBe('none');
+    });
+
+    it('未登入時應將角落按鈕標示為登入入口', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedOutAccount(mockElements);
+
+      expect(mockTextSpan.textContent).toBe('登入');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '使用 Google 登入'
+      );
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'title',
+        '使用 Google 登入'
+      );
+      expect(mockElements.accountButton.classList.toggle).toHaveBeenCalledWith(
+        'is-signed-in',
+        false
+      );
+      expect(mockElements.accountStatus.classList.remove).toHaveBeenCalledWith(
+        'account-status-error'
+      );
+    });
+
+    it('應使用 CSS class 顯示 account 錯誤狀態', () => {
+      mockElements.accountStatus.style.color = 'red';
+
+      setAccountStatusError(mockElements, '登入設定異常，請稍後再試');
+
+      expect(mockElements.accountStatus.textContent).toBe('登入設定異常，請稍後再試');
+      expect(mockElements.accountStatus.classList.add).toHaveBeenCalledWith('account-status-error');
+      expect(mockElements.accountStatus.style.color).toBe('red');
+    });
+
+    it('已登入且有 displayName 時應將角落按鈕標示為帳號管理', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedInAccount(mockElements, {
+        email: 'user@example.com',
+        displayName: 'Test User',
+      });
+
+      expect(mockTextSpan.textContent).toBe('已登入');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '帳號管理：Test User'
+      );
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'title',
+        '帳號管理：Test User'
+      );
+      expect(mockElements.accountButton.classList.toggle).toHaveBeenCalledWith(
+        'is-signed-in',
+        true
+      );
+    });
+
+    it('已登入且無 displayName 時應以 email 作為帳號管理標籤', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+
+      updateUIForLoggedInAccount(mockElements, {
+        email: 'user@example.com',
+        displayName: '   ',
+      });
+
+      expect(mockTextSpan.textContent).toBe('已登入');
+      expect(mockElements.accountButton.setAttribute).toHaveBeenCalledWith(
+        'aria-label',
+        '帳號管理：user@example.com'
+      );
+    });
+
+    it('transient refresh error 時應保留已登入摘要並顯示狀態提醒', () => {
+      const mockTextSpan = { textContent: '' };
+      mockElements.accountButton.querySelector.mockReturnValue(mockTextSpan);
+      mockElements.accountStatus.style.color = 'red';
+
+      updateUIForLoggedInAccount(
+        mockElements,
+        {
+          email: 'user@example.com',
+          displayName: 'Test User',
+        },
+        { transientRefreshError: true }
+      );
+
+      expect(mockTextSpan.textContent).toBe('已登入');
+      expect(mockElements.accountStatus.textContent).toContain('無法更新登入狀態');
+      expect(mockElements.accountStatus.classList.add).toHaveBeenCalledWith('account-status-error');
+      expect(mockElements.accountStatus.style.color).toBe('red');
     });
   });
 
