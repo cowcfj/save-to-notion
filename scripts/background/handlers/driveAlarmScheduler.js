@@ -33,10 +33,11 @@ const FREQUENCY_PERIOD_MINUTES = {
  * `periodInMinutes: undefined` 導致排程失效。
  *
  * @param {'off' | 'daily' | 'weekly' | 'monthly'} frequency
+ * @param {{ initialDelayInMinutes?: number }} [options]
  * @returns {Promise<void>}
  * @throws {Error} 當 frequency 非 'off' 且不存在於 FREQUENCY_PERIOD_MINUTES 時
  */
-export async function setupDriveAlarm(frequency) {
+export async function setupDriveAlarm(frequency, options = {}) {
   await chrome.alarms.clear(DRIVE_AUTO_SYNC_ALARM);
 
   if (frequency === 'off') {
@@ -50,8 +51,13 @@ export async function setupDriveAlarm(frequency) {
     );
   }
 
+  const resolvedInitialDelay =
+    typeof options.initialDelayInMinutes === 'number'
+      ? Math.max(0.5, options.initialDelayInMinutes)
+      : periodInMinutes;
+
   await chrome.alarms.create(DRIVE_AUTO_SYNC_ALARM, {
-    delayInMinutes: periodInMinutes,
+    delayInMinutes: resolvedInitialDelay,
     periodInMinutes,
   });
 }

@@ -201,7 +201,7 @@ async function ensureDriveAutoSyncAlarm() {
       return;
     }
 
-    await setupDriveAlarm(frequency);
+    await setupDriveAlarm(frequency, { initialDelayInMinutes: 0.5 });
     Logger.info('[Background] Drive auto sync alarm restored on startup', { frequency });
   } catch (error) {
     Logger.warn('[Background] ensureDriveAutoSyncAlarm failed', {

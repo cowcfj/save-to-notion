@@ -75,4 +75,28 @@ describe('setupDriveAlarm()', () => {
     const call = mockAlarmsCreate.mock.calls[0][1];
     expect(call.delayInMinutes).toBe(call.periodInMinutes);
   });
+
+  it('提供 initialDelayInMinutes 時，delayInMinutes 使用指定值', async () => {
+    await setupDriveAlarm('daily', { initialDelayInMinutes: 5 });
+
+    expect(mockAlarmsCreate).toHaveBeenCalledWith(
+      DRIVE_AUTO_SYNC_ALARM,
+      expect.objectContaining({
+        delayInMinutes: 5,
+        periodInMinutes: 1440,
+      })
+    );
+  });
+
+  it('initialDelayInMinutes 小於 0.5 時，clamp 到 0.5', async () => {
+    await setupDriveAlarm('daily', { initialDelayInMinutes: 0.1 });
+
+    expect(mockAlarmsCreate).toHaveBeenCalledWith(
+      DRIVE_AUTO_SYNC_ALARM,
+      expect.objectContaining({
+        delayInMinutes: 0.5,
+        periodInMinutes: 1440,
+      })
+    );
+  });
 });

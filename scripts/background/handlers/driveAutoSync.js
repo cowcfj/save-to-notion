@@ -31,6 +31,17 @@ import {
 } from '../../sync/driveSnapshot.js';
 import Logger from '../../utils/Logger.js';
 
+/**
+ * 產生 Drive snapshot lightweight hash，供 dirty metadata 比對。
+ *
+ * @param {object} snapshot
+ * @param {string | null | undefined} updatedAt
+ * @returns {string}
+ */
+export function computeDriveSnapshotHash(snapshot, updatedAt) {
+  return `${JSON.stringify(snapshot).length}:${updatedAt ?? ''}`;
+}
+
 // =============================================================================
 // 條件判斷
 // =============================================================================
@@ -195,8 +206,7 @@ async function handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevi
     remoteUpdatedAt: result.updatedAt,
   });
 
-  // 計算 snapshot hash（簡單用 JSON 長度 + updated_at 作為 lightweight fingerprint）
-  const snapshotHash = `${JSON.stringify(snapshot).length}:${result.updatedAt ?? ''}`;
+  const snapshotHash = computeDriveSnapshotHash(snapshot, result.updatedAt);
 
   await clearDriveDirty({
     snapshotHash,
