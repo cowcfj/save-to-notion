@@ -29,6 +29,7 @@ import {
   buildUnifiedPageStateFromLocalStorage,
   buildDriveSnapshot,
 } from '../../sync/driveSnapshot.js';
+import { computeDriveSnapshotHash } from '../../sync/driveSnapshotHash.js';
 import Logger from '../../utils/Logger.js';
 
 // =============================================================================
@@ -195,8 +196,7 @@ async function handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevi
     remoteUpdatedAt: result.updatedAt,
   });
 
-  // 計算 snapshot hash（簡單用 JSON 長度 + updated_at 作為 lightweight fingerprint）
-  const snapshotHash = `${JSON.stringify(snapshot).length}:${result.updatedAt ?? ''}`;
+  const snapshotHash = computeDriveSnapshotHash(snapshot, result.updatedAt);
 
   await clearDriveDirty({
     snapshotHash,

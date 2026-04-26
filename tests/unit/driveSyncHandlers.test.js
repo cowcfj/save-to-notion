@@ -41,10 +41,13 @@ describe('Drive Sync Handlers', () => {
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({
       installationId: 'installation-123',
       profileId: 'profile-123',
+      frequency: 'daily',
+      dirtyRevision: 7,
       lastKnownRemoteUpdatedAt: null,
       lastSuccessfulUploadAt: null,
     });
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
+    jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
     jest.spyOn(driveClient, 'setDriveFrequency').mockResolvedValue();
     jest.spyOn(driveAlarmScheduler, 'setupDriveAlarm').mockResolvedValue();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
@@ -95,6 +98,11 @@ describe('Drive Sync Handlers', () => {
         type: 'upload',
         success: true,
         remoteUpdatedAt: 'x',
+      });
+      expect(driveClient.clearDriveDirty).toHaveBeenCalledWith({
+        snapshotHash: expect.any(String),
+        frequency: 'daily',
+        expectedDirtyRevision: 7,
       });
 
       expect(mockSendMessage).toHaveBeenCalledWith({

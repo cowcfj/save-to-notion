@@ -211,6 +211,90 @@ describe('Background Script Lifecycle', () => {
 
       expect(mockAccountAuthHandler.setupListeners).toHaveBeenCalledTimes(1);
     });
+
+    test('alarm 缺失且 frequency 啟用時，應以短首延遲恢復排程', async () => {
+      jest.resetModules();
+
+      const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
+      const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
+
+      globalThis.chrome = {
+        runtime: {
+          getManifest: jest.fn(),
+          getURL: jest.fn(path => `chrome-extension://id/${path}`),
+          onInstalled: { addListener: jest.fn() },
+          onMessage: { addListener: jest.fn() },
+        },
+        tabs: {
+          create: jest.fn(),
+          sendMessage: jest.fn(),
+          onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
+          onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
+          get: jest.fn(),
+        },
+        windows: { create: jest.fn() },
+        alarms: {
+          create: jest.fn().mockResolvedValue(undefined),
+          clear: jest.fn().mockResolvedValue(true),
+          get: jest.fn().mockResolvedValue(null),
+          onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
+        },
+        storage: {
+          local: {
+            get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' }),
+          },
+        },
+      };
+      globalThis.Logger = mockLogger;
+
+      require('../../scripts/background.js');
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily', {
+        initialDelayInMinutes: 0.5,
+      });
+    });
+
+    test('alarm 已存在時，不應重建排程', async () => {
+      jest.resetModules();
+
+      const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
+      const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
+
+      globalThis.chrome = {
+        runtime: {
+          getManifest: jest.fn(),
+          getURL: jest.fn(path => `chrome-extension://id/${path}`),
+          onInstalled: { addListener: jest.fn() },
+          onMessage: { addListener: jest.fn() },
+        },
+        tabs: {
+          create: jest.fn(),
+          sendMessage: jest.fn(),
+          onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
+          onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
+          get: jest.fn(),
+        },
+        windows: { create: jest.fn() },
+        alarms: {
+          create: jest.fn().mockResolvedValue(undefined),
+          clear: jest.fn().mockResolvedValue(true),
+          get: jest.fn().mockResolvedValue({ name: 'drive-auto-sync' }),
+          onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
+        },
+        storage: {
+          local: {
+            get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' }),
+          },
+        },
+      };
+      globalThis.Logger = mockLogger;
+
+      require('../../scripts/background.js');
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(driveAlarmScheduler.setupDriveAlarm).not.toHaveBeenCalled();
+    });
   });
 
   describe('handleExtensionUpdate', () => {

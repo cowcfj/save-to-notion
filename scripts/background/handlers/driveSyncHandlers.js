@@ -24,12 +24,14 @@ import {
   getDriveSyncMetadata,
   updateDriveSyncRunMetadata,
   setDriveFrequency,
+  clearDriveDirty,
 } from '../../auth/driveClient.js';
 import {
   buildUnifiedPageStateFromLocalStorage,
   buildDriveSnapshot,
   applyDriveSnapshotToLocalStorage,
 } from '../../sync/driveSnapshot.js';
+import { computeDriveSnapshotHash } from '../../sync/driveSnapshotHash.js';
 import { setupDriveAlarm } from './driveAlarmScheduler.js';
 import Logger from '../../utils/Logger.js';
 
@@ -132,6 +134,11 @@ async function handleManualUpload(request) {
       type: 'upload',
       success: true,
       remoteUpdatedAt: result.updatedAt,
+    });
+    await clearDriveDirty({
+      snapshotHash: computeDriveSnapshotHash(snapshot, result.updatedAt),
+      frequency: metadata.frequency,
+      expectedDirtyRevision: metadata.dirtyRevision,
     });
 
     Logger.success('[DriveSyncHandler] Upload succeeded', { updatedAt: result.updatedAt });
