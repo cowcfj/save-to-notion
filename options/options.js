@@ -10,6 +10,7 @@ import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/shared/messages.j
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { buildAccountLoginStartUrl } from '../scripts/auth/accountLogin.js';
+import { resolveAccountDisplayProfile } from '../scripts/utils/accountDisplayUtils.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
@@ -214,13 +215,10 @@ function updateProfileDOM(profile) {
     return;
   }
 
-  const normalizedDisplayName =
-    typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
-  const email = profile.email || '';
-  const displayName = normalizedDisplayName || email;
+  const { email, displayLabel, avatarFallbackInitial } = resolveAccountDisplayProfile(profile);
 
   if (nameEl) {
-    nameEl.textContent = displayName;
+    nameEl.textContent = displayLabel;
   }
   if (emailEl) {
     emailEl.textContent = email;
@@ -241,7 +239,7 @@ function updateProfileDOM(profile) {
       avatarImgEl.style.display = 'none';
     }
     if (avatarFallbackEl) {
-      avatarFallbackEl.textContent = (displayName || '?').charAt(0).toUpperCase();
+      avatarFallbackEl.textContent = avatarFallbackInitial;
       avatarFallbackEl.style.display = 'flex';
     }
   }

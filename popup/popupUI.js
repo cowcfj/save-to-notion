@@ -6,6 +6,7 @@
  */
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
+import { resolveAccountDisplayProfile } from '../scripts/utils/accountDisplayUtils.js';
 
 const ACCOUNT_STATUS_ERROR_CLASS = 'account-status-error';
 
@@ -187,12 +188,9 @@ export function updateUIForLoggedOutAccount(elements) {
 export function updateUIForLoggedInAccount(elements, profile, options = {}) {
   setButtonText(elements.accountButton, UI_MESSAGES.ACCOUNT.SIGNED_IN_BUTTON);
 
-  const normalizedDisplayName =
-    typeof profile?.displayName === 'string' ? profile.displayName.trim() : '';
-  const email = profile?.email || '';
-  const accountLabel = normalizedDisplayName || email;
-  const buttonLabel = accountLabel
-    ? UI_MESSAGES.ACCOUNT.MANAGEMENT_LABEL_WITH_NAME(accountLabel)
+  const { displayLabel } = resolveAccountDisplayProfile(profile);
+  const buttonLabel = displayLabel
+    ? UI_MESSAGES.ACCOUNT.MANAGEMENT_LABEL_WITH_NAME(displayLabel)
     : UI_MESSAGES.ACCOUNT.MANAGEMENT_LABEL;
 
   if (elements.accountButton) {
