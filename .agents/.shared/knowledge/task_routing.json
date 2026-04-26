@@ -1,0 +1,70 @@
+{
+  "description": "Canonical task routing map for choosing the right guide, knowledge file, and plan level.",
+  "source_of_truth": "docs/guides/TASK_ROUTING.md",
+  "task_types": {
+    "bug_fix": {
+      "guides": [
+        "docs/guides/DEBUGGING_GUIDE.md",
+        "docs/guides/TESTING_GUIDE.md",
+        "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
+      ],
+      "knowledge": [".agents/.shared/knowledge/debugging_rules.json"],
+      "default_plan_level": "lite_or_standard"
+    },
+    "feature": {
+      "guides": [
+        "docs/guides/ARCHITECTURE_DECISION_GUIDE.md",
+        "docs/guides/TESTING_GUIDE.md",
+        "docs/guides/DOCUMENTATION_STRATEGY.md",
+        "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
+      ],
+      "knowledge": [
+        ".agents/.shared/knowledge/message_bus.json",
+        ".agents/.shared/knowledge/storage_schema.json",
+        ".agents/.shared/knowledge/notion_constraints.json",
+        ".agents/.shared/knowledge/security_rules.json"
+      ],
+      "default_plan_level": "standard_or_deep"
+    },
+    "refactor": {
+      "guides": [
+        "docs/guides/REFACTORING_BEST_PRACTICES.md",
+        "docs/guides/ARCHITECTURE_DECISION_GUIDE.md",
+        "docs/guides/TESTING_GUIDE.md",
+        "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
+      ],
+      "knowledge": [
+        ".agents/.shared/knowledge/message_bus.json",
+        ".agents/.shared/knowledge/storage_schema.json",
+        ".agents/.shared/knowledge/security_rules.json"
+      ],
+      "default_plan_level": "standard_or_deep"
+    },
+    "review": {
+      "guides": ["docs/guides/CODE_REVIEW_GUIDE.md"],
+      "knowledge": [".agents/.shared/knowledge/review_red_lines.json"],
+      "default_plan_level": "lite"
+    },
+    "doc_report": {
+      "guides": ["docs/guides/DOCUMENTATION_STRATEGY.md"],
+      "knowledge": [
+        ".agents/.shared/knowledge/plan_policy.json",
+        ".agents/.shared/knowledge/doc_impact_matrix.json"
+      ],
+      "default_plan_level": "lite_or_standard"
+    },
+    "backend_boundary_investigation": {
+      "guides": [
+        "docs/guides/DEBUGGING_GUIDE.md",
+        "docs/guides/ARCHITECTURE_DECISION_GUIDE.md",
+        "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
+      ],
+      "knowledge": [
+        ".agents/.shared/knowledge/message_bus.json",
+        ".agents/.shared/knowledge/storage_schema.json",
+        ".agents/.shared/knowledge/security_rules.json"
+      ],
+      "default_plan_level": "deep"
+    }
+  }
+}

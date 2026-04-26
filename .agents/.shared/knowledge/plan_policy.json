@@ -1,0 +1,53 @@
+{
+  "description": "Canonical implementation plan policy for the repository. Generic skills or platform defaults must not override this file.",
+  "source_of_truth": "docs/guides/DOCUMENTATION_STRATEGY.md",
+  "path": {
+    "directory": "docs/plans",
+    "filename_pattern": "YYYY-MM-DD-<feature>.md"
+  },
+  "plan_levels": {
+    "lite": {
+      "use_for": [
+        "single-file bug fixes",
+        "low-risk local fixes",
+        "small text or config adjustments"
+      ],
+      "persistence": "optional",
+      "format": "3-6 line proposal or short checklist"
+    },
+    "standard": {
+      "use_for": ["general features", "multi-file bug fixes", "general refactors"],
+      "persistence": "required",
+      "format": "implementation plan document in docs/plans"
+    },
+    "deep": {
+      "use_for": [
+        "cross-module changes",
+        "contract changes",
+        "storage or message bus schema changes",
+        "backend-boundary investigations",
+        "major UX changes",
+        "dependency introduction"
+      ],
+      "persistence": "required",
+      "format": "implementation plan document in docs/plans with documentation impact and ADR evaluation"
+    }
+  },
+  "required_sections": [
+    "Summary",
+    "Scope or Non-Goals",
+    "Required Changes",
+    "Implementation Steps",
+    "Verification",
+    "Documentation Impact"
+  ],
+  "implementation_steps": {
+    "granularity": "task-level",
+    "required_fields": ["Goal", "Primary Changes", "Verification"],
+    "should_include": ["primary modules", "file paths", "system boundaries"]
+  },
+  "documentation_impact": {
+    "required_subsections": ["Must Check", "Expected Updates", "Notes"],
+    "notes_must_reference": "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
+  }
+}

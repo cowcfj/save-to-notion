@@ -1,0 +1,35 @@
+{
+  "description": "Canonical document impact matrix for completion-time checks.",
+  "source_of_truth": "docs/guides/CHANGE_COMPLETION_WORKFLOW.md",
+  "change_types": {
+    "feature": {
+      "must_check": ["docs/specs/*", "USER_GUIDE.md", "help.html", "relevant docs/guides/*"],
+      "notes": "Use when a change introduces new capability, new workflow, visible UI/state, new message action, storage key, or user-facing limitation."
+    },
+    "bug_fix": {
+      "must_check": [
+        "relevant docs/specs/*",
+        "relevant docs/guides/*",
+        "USER_GUIDE.md or help.html when user-visible behavior or wording changes"
+      ],
+      "notes": "Pure internal fixes may skip user-facing docs, but the final report must state why."
+    },
+    "refactor": {
+      "must_check": [
+        "relevant docs/specs/*",
+        "docs/guides/PROJECT_STRUCTURE.md when module boundaries or file organization change",
+        "relevant workflow guides"
+      ],
+      "notes": "Behavior-preserving local cleanups may skip doc edits, but the final report must state why."
+    },
+    "decision_change": {
+      "must_check": [
+        "ADR requirement",
+        "relevant docs/specs/*",
+        "relevant docs/guides/* when workflow expectations change"
+      ],
+      "notes": "Use for architecture, storage strategy, cross-environment protocol, dependency, or other review-visible tradeoff changes."
+    }
+  },
+  "final_report_sections": ["Verification Evidence", "Updated Docs", "Checked But No Change Needed"]
+}

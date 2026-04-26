@@ -1,0 +1,62 @@
+{
+  "description": "Project-specific code review red lines and enforcement guidance.",
+  "source_of_truth": "docs/guides/CODE_REVIEW_GUIDE.md",
+  "red_lines": [
+    {
+      "id": "log_security_leak",
+      "severity": "critical",
+      "title": "Log Security Leak",
+      "trigger": "Logging complete sender, tab, request objects, raw HTML, or unsanitized sensitive content.",
+      "enforcement": "Reject PR. Allow IDs only. Sanitize URLs and API errors."
+    },
+    {
+      "id": "storage_quota_violation",
+      "severity": "critical",
+      "title": "Storage Quota Violation",
+      "trigger": "Storing large HTML, Base64 images, or heavy payloads in chrome.storage.sync.",
+      "enforcement": "Reject PR. Store large payloads in chrome.storage.local or IndexedDB."
+    },
+    {
+      "id": "test_coverage_regression",
+      "severity": "critical",
+      "title": "Test Coverage Regression",
+      "trigger": "Adding core business logic without corresponding unit or E2E coverage.",
+      "enforcement": "Reject PR. Require tests and preserve coverage gates."
+    },
+    {
+      "id": "unverified_severity_claim",
+      "severity": "warning",
+      "title": "Unverified Severity Claim",
+      "trigger": "Marking an issue as CRITICAL or security-related without source lines and a concrete reproduction scenario.",
+      "enforcement": "Require re-verification and downgrade if evidence is insufficient."
+    },
+    {
+      "id": "leaked_internal_error",
+      "severity": "warning",
+      "title": "Leaked Internal Error",
+      "trigger": "Surfacing internal-only, non-actionable cleanup, reconciliation, or retry failures directly to users.",
+      "enforcement": "Keep canonical user-facing state. Handle retry or recovery internally."
+    },
+    {
+      "id": "complexity_inflating_non_issue",
+      "severity": "warning",
+      "title": "Complexity-Inflating Non-Issue",
+      "trigger": "Escalating low-risk, self-recovering state hygiene issues into must-fix findings that mainly add branching or coupling.",
+      "enforcement": "Re-evaluate user impact and downgrade to acceptable tech debt when appropriate."
+    },
+    {
+      "id": "registry_dead_code",
+      "severity": "warning",
+      "title": "Registry Dead Code",
+      "trigger": "Adding or keeping runtime action registry entries with no actual usage side in scripts/ or options/.",
+      "enforcement": "Require actual usage in the same PR or remove the entry. Run runtimeActions coverage tests."
+    },
+    {
+      "id": "missing_usage_side_for_new_action",
+      "severity": "warning",
+      "title": "Missing Usage Side for New Action",
+      "trigger": "Adding a runtime action without any matching sendMessage or handler registration in the same PR.",
+      "enforcement": "Require action definition and usage to land together."
+    }
+  ]
+}

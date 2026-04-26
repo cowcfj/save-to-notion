@@ -1,6 +1,6 @@
 {
   "project_context": "Notion Chrome Extension (MV3)",
-  "description": "Project-specific debugging environments, logging rules, storage targets, and test commands. AI agents must use these rules during root-cause analysis and code generation.",
+  "description": "Project-specific debugging constraints, logger contracts, and assertion requirements.",
   "logging_rules": {
     "description": "Unified Logger system rules. The Logger class auto-manages emoji icons — agents and developers MUST NOT manually insert emoji into log messages.",
     "methods": {
@@ -62,10 +62,6 @@
     }
   },
   "precise_test_fixing": {
-    "execution": {
-      "command": "npx jest <path/to/test.js> --no-coverage",
-      "rationale": "Do NOT run full suites. Use --no-coverage for faster feedback loops during logic fixes."
-    },
     "mocking": [
       {
         "issue": "TypeError: Cannot read property 'xxx' of undefined",
@@ -86,49 +82,5 @@
         "rule": "Avoid vague string matching. Use `expect.objectContaining` to assert exact expected metadata objects for Logger calls."
       }
     ]
-  },
-  "debugging_scenarios": {
-    "content_script": {
-      "symptom": "Highlighting functionality is broken.",
-      "tools": "Target Website DevTools Console",
-      "filters": ["初始化完成", "初始化失敗", "跳過恢復標註（頁面已刪除）"],
-      "checklist": [
-        "Check CSS.highlights support: `'highlights' in CSS` in console.",
-        "Verify initialization log contains `[INFO] ✅ 初始化完成` (from `Logger.success('初始化完成', { action: 'initialize' })`).",
-        "Inspect local storage: `chrome.storage.local.get(['highlights_${url}'])`.",
-        "Compare stored URL with current URL using `normalizeUrl(window.location.href)`."
-      ]
-    },
-    "background_service_worker": {
-      "symptom": "Failing to save content to Notion.",
-      "tools": "chrome://extensions/ → Inspect service worker",
-      "checklist": [
-        "Check for API 400/500 status codes.",
-        "Look for batch processing logs like `[INFO] [NotionService] 準備分批添加區塊`.",
-        "Verify Notion API rate limit delays between batches (350ms).",
-        "Check storage quota: `chrome.storage.local.getBytesInUse()`."
-      ]
-    },
-    "performance": {
-      "symptom": "Saving or syncing is slow.",
-      "diagnosis": [
-        "Check batch size logs for block counts.",
-        "Monitor Notion API response times in Network tab."
-      ],
-      "targets": {
-        "short_article_save": "< 2 seconds (< 100 blocks)",
-        "long_article_save": "< 10 seconds (300+ blocks)",
-        "highlight_sync": "< 500ms"
-      }
-    },
-    "highlight_recovery": {
-      "symptom": "Highlights fail to restore upon revisiting a page.",
-      "root_causes": [
-        "Migration not finished (`遷移完成` log missing).",
-        "URL mismatch.",
-        "Text content mutated on the source page.",
-        "Missing CSS Highlight API support."
-      ]
-    }
   }
 }
