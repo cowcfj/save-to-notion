@@ -505,7 +505,7 @@ export class StorageManager {
     const { corruptedData, migrationKeys, migrationDataSize, legacySavedKeys, cleanupPlan } =
       report;
 
-    this._renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize);
+    this._renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize, cleanupPlan);
     this._renderLegacySavedInfo(el, legacySavedKeys);
     this._renderCleanupSummary(el, cleanupPlan);
   }
@@ -513,13 +513,21 @@ export class StorageManager {
   /**
    * 渲染健康度主狀態（ok / warning / error）
    *
+   * 判定優先序（MUST NOT 違反）：
+   * 1. corruptedData > 0 → error
+   * 2. cleanupPlan.totalKeys > 0 || migrationKeys > 0 → warning（HEALTH_NEEDS_CLEANUP / HEALTH_MIGRATION_LEFTOVERS）
+   * 3. 否則 → HEALTH_OK
+   *
+   * 規則 2 確保「有可清理項目時 MUST NOT 顯示 HEALTH_OK」，消除 UI 語意衝突。
+   *
    * @private
    * @param {HTMLElement} el 容器元素
    * @param {Array} corruptedData 損壞數據清單
    * @param {number} migrationKeys 升級殘留數量
    * @param {number} migrationDataSize 升級殘留大小（bytes）
+   * @param {{ totalKeys: number }} cleanupPlan 清理計劃
    */
-  _renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize) {
+  _renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize, cleanupPlan) {
     const HEALTH_ITEM_CLASS = 'health-item';
     const item = document.createElement('div');
     item.className = HEALTH_ITEM_CLASS;
@@ -534,6 +542,10 @@ export class StorageManager {
         migrationKeys,
         migrationSizeKB
       );
+    } else if (cleanupPlan.totalKeys > 0) {
+      // 有孤兒 / 空記錄等可清理項目，但無損壞也無 migration leftover：顯示 warning 而非 HEALTH_OK
+      el.classList.add('health-warning');
+      item.textContent = UI_MESSAGES.STORAGE.HEALTH_NEEDS_CLEANUP;
     } else {
       el.classList.add('health-ok');
       item.textContent = UI_MESSAGES.STORAGE.HEALTH_OK;

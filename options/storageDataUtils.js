@@ -36,6 +36,21 @@ const REFERENCE_STORAGE_SIZE_BYTES = 100 * 1024 * 1024;
 const CONFIG_PREFIX = 'config_';
 const CONFIG_KEY_SUBSTR = 'notion';
 
+/**
+ * 舊版遷移殘留前綴白名單（受控 registry）。
+ *
+ * 只有以下列前綴開頭的 key 才視為「遷移殘留」，進入 cleanupPlan migrationLeftovers 類別。
+ * 使用明確前綴取代 String.includes() 啟發式，避免一般業務 key 含 migration/backup 等
+ * 字樣時被誤判（例如 page_my-backup-notes 或 highlights_v1-article）。
+ *
+ * ⚠️ 新增遷移策略時，若使用新前綴，MUST 同步更新此清單與對應測試。
+ */
+export const MIGRATION_LEFTOVER_PREFIXES = [
+  'migration_', // 明確標記為遷移用途的 key
+  '_v1_', // 舊版 v1 格式殘留（此前綴在歷史 schema 中以底線開頭）
+  '_backup_', // 手動備份殘留（此前綴在歷史 schema 中以底線開頭）
+];
+
 function _isCorruptedPageEntry(value) {
   return (
     !value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.highlights)
@@ -295,7 +310,8 @@ function _analyzeHealthEntry(key, value, report, pageUrls, data) {
     _analyzeAliasEntry(key, value, report, data);
   } else if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
     report.configs++;
-  } else if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+  } else if (MIGRATION_LEFTOVER_PREFIXES.some(prefix => key.startsWith(prefix))) {
+    // ⚠️ 使用明確前綴判定，避免一般業務 key 含 migration/_v1_/_backup_ 字樣時被誤判
     _analyzeMigrationEntry(key, value, report);
   }
 }

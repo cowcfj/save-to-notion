@@ -5,8 +5,13 @@
  */
 
 import { StorageManager } from '../../../options/StorageManager';
-import { sanitizeBackupData, getStorageHealthReport } from '../../../options/storageDataUtils';
+import {
+  sanitizeBackupData,
+  getStorageHealthReport,
+  MIGRATION_LEFTOVER_PREFIXES,
+} from '../../../options/storageDataUtils';
 import Logger from '../../../scripts/utils/Logger';
+import { URL_ALIAS_PREFIX } from '../../../scripts/config/shared/storage.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -858,6 +863,50 @@ describe('StorageManager — 使用量與健康狀態', () => {
       storageManager.elements.healthStatus = null;
       expect(() => storageManager.updateHealthDisplay(baseReport())).not.toThrow();
     });
+
+    // ── Health UI 真實性（Step 3：cleanupPlan.totalKeys > 0 不可顯示 HEALTH_OK）──
+
+    test('有孤兒 / 空記錄可清理時，主狀態 MUST NOT 為 health-ok（應為 health-warning）', () => {
+      const report = baseReport();
+      report.cleanupPlan = {
+        items: [{ key: `${URL_ALIAS_PREFIX}orphan`, size: 50, reason: '孤兒 URL 別名' }],
+        totalKeys: 1,
+        spaceFreed: 50,
+        summary: { emptyRecords: 0, orphanRecords: 1, migrationLeftovers: 0, corruptedRecords: 0 },
+      };
+
+      storageManager.updateHealthDisplay(report);
+
+      const el = storageManager.elements.healthStatus;
+      expect(el.classList.contains('health-ok')).toBe(false);
+      expect(el.classList.contains('health-warning')).toBe(true);
+      expect(el.textContent).toContain('可清理項目');
+    });
+
+    test('無 cleanup 項目且無 migration/corrupted 時才可顯示 HEALTH_OK', () => {
+      storageManager.updateHealthDisplay(baseReport());
+      const el = storageManager.elements.healthStatus;
+      expect(el.classList.contains('health-ok')).toBe(true);
+      expect(el.textContent).toContain('數據完整');
+    });
+
+    test('有 corrupted 優先顯示 health-error，不被 cleanupPlan.totalKeys 覆蓋', () => {
+      const report = baseReport();
+      report.corruptedData = ['page_broken.com'];
+      report.cleanupPlan = {
+        items: [{ key: 'page_broken.com', size: 100, reason: '損壞的頁面數據' }],
+        totalKeys: 1,
+        spaceFreed: 100,
+        summary: { emptyRecords: 0, orphanRecords: 0, migrationLeftovers: 0, corruptedRecords: 1 },
+      };
+
+      storageManager.updateHealthDisplay(report);
+
+      const el = storageManager.elements.healthStatus;
+      expect(el.classList.contains('health-error')).toBe(true);
+      expect(el.classList.contains('health-warning')).toBe(false);
+      expect(el.classList.contains('health-ok')).toBe(false);
+    });
   });
 
   // ── updateStorageUsage ───────────────────────────────────────────────
@@ -1471,5 +1520,40 @@ describe('options.html 結構', () => {
 
     expect(html).toContain('連接 Google Drive 後，可備份和同步你的本地資料到雲端。');
     expect(html).not.toContain('此登入用於 Google Drive 授權，用於備份和同步你的本地資料。');
+  });
+});
+
+// ─── Migration Leftover 判定精確性測試（Step 4）────────────────────────
+
+describe('MIGRATION_LEFTOVER_PREFIXES — registry 正確性與邊界', () => {
+  test('registry 應包含 migration_ / _v1_ / _backup_ 等核心前綴', () => {
+    expect(MIGRATION_LEFTOVER_PREFIXES).toContain('migration_');
+    expect(MIGRATION_LEFTOVER_PREFIXES).toContain('_v1_');
+    expect(MIGRATION_LEFTOVER_PREFIXES).toContain('_backup_');
+  });
+
+  test('真實遷移 key（migration_ 前綴）應命中 registry', () => {
+    const migrationKey = 'migration_page_v1_data';
+    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => migrationKey.startsWith(p));
+    expect(matched).toBe(true);
+  });
+
+  test('一般業務 key 含 backup 字樣但非前綴時，不應命中 registry（防誤刪）', () => {
+    // page_my-backup-notes：業務 key，backup 在中間不是前綴
+    const businessKey = 'page_my-backup-notes';
+    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
+    expect(matched).toBe(false);
+  });
+
+  test('一般業務 key 含 migration 字樣但非前綴時，不應命中 registry', () => {
+    // highlights_post-migration-guide：業務 key，migration 在中間
+    const businessKey = 'highlights_post-migration-guide';
+    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
+    expect(matched).toBe(false);
+  });
+
+  test('空字串不應命中任何前綴', () => {
+    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => ''.startsWith(p));
+    expect(matched).toBe(false);
   });
 });
