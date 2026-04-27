@@ -607,19 +607,10 @@ export function showCloudSyncLoadingState(message) {
  * @returns {Promise<boolean>} 若應繼續上傳回傳 true，如不應繼續回傳 false
  */
 async function _checkCrossInstallAndConfirm() {
-  let preflight;
-  try {
-    preflight = await syncRemoteSnapshotStatus({
-      warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
-      errorContext: 'drive_upload_preflight',
-    });
-  } catch (preflightError) {
-    // fail-open：preflight 失敗時只記錄 warn，不阻斷 upload
-    Logger.warn('[CloudSync] Upload preflight check failed, continuing upload', {
-      error: getSafeError(preflightError, 'drive_upload_preflight_metadata'),
-    });
-    return true;
-  }
+  const preflight = await syncRemoteSnapshotStatus({
+    warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
+    errorContext: 'drive_upload_preflight',
+  });
 
   if (!preflight) {
     return true;
