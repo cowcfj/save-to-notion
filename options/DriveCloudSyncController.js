@@ -711,8 +711,18 @@ async function handleUpload(force = false) {
  * 處理手動下載（含二次確認）
  */
 async function handleDownload() {
-  const confirmationMessage = await buildDownloadConfirmationMessage();
-  const confirmed = globalThis.confirm(confirmationMessage);
+  showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC);
+
+  let confirmed = false;
+  try {
+    const confirmationMessage = await buildDownloadConfirmationMessage();
+    confirmed = globalThis.confirm(confirmationMessage);
+  } finally {
+    if (!confirmed) {
+      hideLoading();
+    }
+  }
+
   if (!confirmed) {
     return;
   }

@@ -439,6 +439,39 @@ describe('DriveCloudSyncController', () => {
       });
     });
 
+    it('disables download actions while building the download confirmation summary', async () => {
+      let resolveSnapshotStatus;
+      const pendingSnapshotStatus = new Promise(resolve => {
+        resolveSnapshotStatus = resolve;
+      });
+      driveClient.fetchDriveSnapshotStatus.mockImplementationOnce(() => pendingSnapshotStatus);
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-text').textContent).toBe(
+        UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC
+      );
+      expect(document.querySelector('#drive-download-button').disabled).toBe(true);
+      expect(document.querySelector('#drive-conflict-download-button').disabled).toBe(true);
+
+      resolveSnapshotStatus({
+        exists: false,
+        updatedAt: null,
+        size: null,
+        sourceInstallationId: null,
+        sourceProfileId: null,
+      });
+      await flushAsyncWork();
+
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+      });
+    });
+
     it('shows an error when connect flow cannot start', async () => {
       driveClient.startDriveOAuthFlow.mockRejectedValue(new Error('popup blocked'));
 
@@ -615,6 +648,8 @@ describe('DriveCloudSyncController', () => {
       expect(mockSendMessage).not.toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
       });
+      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-download-button').disabled).toBe(false);
     });
 
     it('disconnect button should revoke remote connection, clear local metadata, and render disconnected state', async () => {
