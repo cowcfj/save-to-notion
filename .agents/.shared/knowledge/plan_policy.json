@@ -49,5 +49,27 @@
   "documentation_impact": {
     "required_subsections": ["Must Check", "Expected Updates", "Notes"],
     "notes_must_reference": "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
+  },
+  "status": {
+    "field_name": "狀態",
+    "field_name_alt": "文檔狀態",
+    "applies_to": ["standard", "deep"],
+    "values": [
+      { "key": "draft", "label": "📝 草稿", "description": "初始草稿，尚未獲准" },
+      { "key": "planned", "label": "📋 規劃中", "description": "已核准計畫，尚未開始實施" },
+      { "key": "in_progress", "label": "🔄 實施中", "description": "正在執行中" },
+      {
+        "key": "completed",
+        "label": "✅ 已完成",
+        "description": "實施完畢；MAY 附帶括號引用（PR、commit）"
+      }
+    ],
+    "transitions": [
+      ["draft", "planned"],
+      ["planned", "in_progress"],
+      ["in_progress", "completed"],
+      ["planned", "completed"]
+    ],
+    "completion_trigger": "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
   }
 }
