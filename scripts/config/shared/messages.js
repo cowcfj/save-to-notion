@@ -216,7 +216,7 @@ const CLOUD_SYNC = {
   CONFIRM_FORCE_UPLOAD: '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。',
 
   FREQUENCY_LABEL: '自動同步頻率',
-  FREQUENCY_BETA_LABEL: 'Beta',
+  FREQUENCY_BETA_LABEL: '測試版',
   FREQUENCY_OFF: '停用（僅手動）',
   FREQUENCY_DAILY: '每日',
   FREQUENCY_WEEKLY: '每週',

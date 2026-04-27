@@ -420,6 +420,28 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
+    it('download confirmation uses unknown source when local installation id is missing', async () => {
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'restore@test.dev',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValue({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00.000Z',
+        size: 10,
+        sourceInstallationId: 'remote-install',
+        sourceProfileId: 'profile-1',
+      });
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(globalThis.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('來源裝置：未知來源')
+      );
+    });
+
     it('download confirmation falls back to unknown summary when status preflight fails', async () => {
       driveClient.fetchDriveSnapshotStatus.mockRejectedValue(new Error('status failed'));
 

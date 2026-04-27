@@ -1535,11 +1535,11 @@ describe('options.html 結構', () => {
     expect(html).not.toContain('此登入用於 Google Drive 授權，用於備份和同步你的本地資料。');
   });
 
-  test('Google Drive 自動備份 UI 應標示 beta，避免暗示完整背景雙向同步', () => {
+  test('Google Drive 自動備份 UI 應標示測試版，避免暗示完整背景雙向同步', () => {
     const htmlPath = path.resolve(__dirname, '../../../options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
-    expect(html).toContain('Beta');
+    expect(html).toContain('測試版');
     expect(html).toContain('自動備份頻率');
     expect(html).not.toContain('自動還原');
   });

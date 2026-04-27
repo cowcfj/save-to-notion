@@ -792,11 +792,10 @@ function resolveSnapshotSourceLabel(remoteInstallationId, localInstallationId) {
   if (!remoteInstallationId) {
     return UI_MESSAGES.CLOUD_SYNC.SOURCE_UNKNOWN;
   }
-  if (
-    typeof localInstallationId === 'string' &&
-    localInstallationId.length > 0 &&
-    remoteInstallationId === localInstallationId
-  ) {
+  if (typeof localInstallationId !== 'string' || localInstallationId.length === 0) {
+    return UI_MESSAGES.CLOUD_SYNC.SOURCE_UNKNOWN;
+  }
+  if (remoteInstallationId === localInstallationId) {
     return UI_MESSAGES.CLOUD_SYNC.SOURCE_THIS_DEVICE;
   }
   return UI_MESSAGES.CLOUD_SYNC.SOURCE_OTHER_DEVICE;
