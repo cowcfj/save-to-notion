@@ -171,6 +171,10 @@ const TOOLBAR = {
   SYNC_FAILED_PREFIX: '同步失敗：',
 };
 
+const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
+  '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。';
+const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
+
 const CLOUD_SYNC = {
   LAST_UPLOAD_PREFIX: '上次上載：',
   LAST_REMOTE_PREFIX: '雲端備份：',
@@ -200,10 +204,9 @@ const CLOUD_SYNC = {
   UPLOAD_FAILED_GENERIC: '上載失敗',
   DOWNLOAD_FAILED_GENERIC: '下載失敗',
 
-  CONFIRM_DOWNLOAD:
-    '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。\n\n確定要繼續嗎？',
+  CONFIRM_DOWNLOAD: `${CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION}\n\n${CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING}`,
   CONFIRM_DOWNLOAD_WITH_SUMMARY: (remoteTime, sourceLabel) =>
-    `從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。\n\n雲端備份時間：${remoteTime}\n來源裝置：${sourceLabel}\n\n確定要繼續嗎？`,
+    `${CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION}\n\n雲端備份時間：${remoteTime}\n來源裝置：${sourceLabel}\n\n${CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING}`,
   UNKNOWN_TIME: '未知',
   SOURCE_THIS_DEVICE: '此裝置',
   SOURCE_OTHER_DEVICE: '其他裝置',
