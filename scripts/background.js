@@ -184,14 +184,14 @@ chrome.alarms.onAlarm.addListener(alarm => {
  * 啟動時檢查 DRIVE_AUTO_SYNC_ALARM 是否存在且配置健康，不存在或漂移則依存儲頻率重建。
  *
  * Chrome alarms 通常會跨 service worker 重啟保留，但 extension update、
- * reinstall 或 `chrome.alarms.clear` 後可能會遺失。此函數作為防穠性恢復，
+ * reinstall 或 `chrome.alarms.clear` 後可能會遺失。此函數作為防禦性恢復，
  * 確保使用者一旦啟用自動同步就不會因為這類邊界情境而失去排程。
  *
  * 健康判定邏輯：
  * 1. alarm 缺失 → 重建
  * 2. alarm 存在且 periodInMinutes 與當前 frequency 一致 → 保留
- * 3. alarm 存在但 periodInMinutes 不一致（漂移）→ 防穠性重建
- * 4. alarm 存在但缺少 periodInMinutes（異常）→ 防穠性重建
+ * 3. alarm 存在但 periodInMinutes 不一致（漂移）→ 防禦性重建
+ * 4. alarm 存在但缺少 periodInMinutes（異常）→ 防禦性重建
  *
  * @returns {Promise<void>}
  */
