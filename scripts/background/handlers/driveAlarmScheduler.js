@@ -20,7 +20,7 @@
 export const DRIVE_AUTO_SYNC_ALARM = 'DRIVE_AUTO_SYNC_ALARM';
 
 /** 各頻率對應的 alarm 間隔（分鐘） */
-const FREQUENCY_PERIOD_MINUTES = {
+export const FREQUENCY_PERIOD_MINUTES = {
   daily: 1440,
   weekly: 10_080,
   monthly: 43_200,

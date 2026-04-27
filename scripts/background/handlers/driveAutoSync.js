@@ -23,6 +23,7 @@ import {
   updateDriveSyncRunMetadata,
   clearDriveDirty,
   uploadDriveSnapshot,
+  writeDriveAutoSyncTelemetry,
 } from '../../auth/driveClient.js';
 import { getAccountAccessToken } from '../../auth/accountSession.js';
 import {
@@ -240,13 +241,35 @@ export async function runAutoUpload(context = {}) {
 
   const resolvedContext = await resolveLoginState(context);
   const { shouldRun, reason } = shouldRunAutoSync(metadata, resolvedContext);
+  const decisionAt = new Date().toISOString();
 
   if (!shouldRun) {
     Logger.info('[DriveAutoSync] 跳過自動同步', { reason });
+    // 記錄 skip telemetry；失敗不中斷主流程
+    await writeDriveAutoSyncTelemetry({
+      decision: 'skip',
+      skipReason: reason,
+      decisionAt,
+      alarmFiredAt: resolvedContext.alarmFiredAt,
+    }).catch(error => {
+      Logger.warn('[DriveAutoSync] 寫入 skip telemetry 失敗', {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    });
     return;
   }
 
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
+  // 記錄 run telemetry；失敗不中斷主流程
+  await writeDriveAutoSyncTelemetry({
+    decision: 'run',
+    decisionAt,
+    alarmFiredAt: resolvedContext.alarmFiredAt,
+  }).catch(error => {
+    Logger.warn('[DriveAutoSync] 寫入 run telemetry 失敗', {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  });
 
   // 在讀取 metadata 時同步捕獲當前 dirty revision。
   // upload 完成後，clearDriveDirty 會將此值寫入 LAST_UPLOADED_REVISION。

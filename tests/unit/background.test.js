@@ -109,6 +109,7 @@ jest.mock('../../scripts/background/handlers/driveAutoSync.js', () => ({
 
 jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
   DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
+  FREQUENCY_PERIOD_MINUTES: { daily: 1440, weekly: 10_080, monthly: 43_200 },
   setupDriveAlarm: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -279,7 +280,8 @@ describe('Background Script Lifecycle', () => {
         alarms: {
           create: jest.fn().mockResolvedValue(undefined),
           clear: jest.fn().mockResolvedValue(true),
-          get: jest.fn().mockResolvedValue({ name: 'drive-auto-sync' }),
+          // 有效 alarm：periodInMinutes 與 frequency=daily(1440) 一致
+          get: jest.fn().mockResolvedValue({ name: 'drive-auto-sync', periodInMinutes: 1440 }),
           onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
         },
         storage: {
@@ -294,6 +296,54 @@ describe('Background Script Lifecycle', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(driveAlarmScheduler.setupDriveAlarm).not.toHaveBeenCalled();
+    });
+
+    // Step 1 Failing Test：alarm 漂移場景（Step 3 實作前預期 FAIL）
+    test('alarm 存在但 periodInMinutes 與 frequency 不一致時，應重建排程', async () => {
+      jest.resetModules();
+
+      const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
+      const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
+
+      // frequency = 'daily' 期望 periodInMinutes = 1440
+      // 卻回傳 10080（weekly），代表 alarm 存在但配置漂移
+      globalThis.chrome = {
+        runtime: {
+          getManifest: jest.fn(),
+          getURL: jest.fn(path => `chrome-extension://id/${path}`),
+          onInstalled: { addListener: jest.fn() },
+          onMessage: { addListener: jest.fn() },
+        },
+        tabs: {
+          create: jest.fn(),
+          sendMessage: jest.fn(),
+          onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
+          onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
+          get: jest.fn(),
+        },
+        windows: { create: jest.fn() },
+        alarms: {
+          create: jest.fn().mockResolvedValue(undefined),
+          clear: jest.fn().mockResolvedValue(true),
+          // alarm 存在，但 periodInMinutes 是 10080（weekly），與 frequency=daily (1440) 不一致
+          get: jest.fn().mockResolvedValue({ name: 'drive-auto-sync', periodInMinutes: 10_080 }),
+          onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
+        },
+        storage: {
+          local: {
+            get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' }),
+          },
+        },
+      };
+      globalThis.Logger = mockLogger;
+
+      require('../../scripts/background.js');
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // 配置漂移：必須重建，且使用短首延遲
+      expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily', {
+        initialDelayInMinutes: 0.5,
+      });
     });
   });
 
