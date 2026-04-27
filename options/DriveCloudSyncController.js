@@ -97,7 +97,7 @@ function formatTimestamp(isoString) {
       minute: '2-digit',
     });
     const timezoneLabel = getLocalTimezoneLabel();
-    return `${formatted}（${timezoneLabel}）`;
+    return UI_MESSAGES.CLOUD_SYNC.TIMESTAMP_WITH_TIMEZONE(formatted, timezoneLabel);
   } catch {
     return isoString;
   }

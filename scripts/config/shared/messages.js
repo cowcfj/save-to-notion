@@ -175,6 +175,7 @@ const CLOUD_SYNC = {
   LAST_UPLOAD_PREFIX: '上次上載：',
   LAST_REMOTE_PREFIX: '雲端備份：',
   NEVER_UPLOADED: '尚未上載',
+  TIMESTAMP_WITH_TIMEZONE: (time, zone) => `${time}（${zone}）`,
 
   SYNC_FAILED_PREFIX: '同步失敗：',
   ERROR_TIME_PREFIX: '發生時間：',
