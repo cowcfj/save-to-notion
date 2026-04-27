@@ -133,6 +133,7 @@ describe('DriveCloudSyncController', () => {
     globalThis.confirm = jest.fn().mockReturnValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata');
+    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('local-install');
     jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
     jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
     jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
@@ -420,10 +421,11 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
-    it('download confirmation uses unknown source when local installation id is missing', async () => {
+    it('download confirmation ensures local identity before resolving same-device source', async () => {
       driveClient.getDriveSyncMetadata.mockResolvedValue({
         connectionEmail: 'restore@test.dev',
       });
+      driveClient.ensureDriveSyncIdentity.mockResolvedValue('remote-install');
       driveClient.fetchDriveSnapshotStatus.mockResolvedValue({
         exists: true,
         updatedAt: '2026-04-20T09:30:00.000Z',
@@ -437,9 +439,8 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
-      expect(globalThis.confirm).toHaveBeenCalledWith(
-        expect.stringContaining('來源裝置：未知來源')
-      );
+      expect(driveClient.ensureDriveSyncIdentity).toHaveBeenCalled();
+      expect(globalThis.confirm).toHaveBeenCalledWith(expect.stringContaining('來源裝置：此裝置'));
     });
 
     it('download confirmation falls back to unknown summary when status preflight fails', async () => {
@@ -1364,6 +1365,33 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
+    it('metadata 缺 installation id 時 preflight 會先建立 identity 再判斷跨安裝', async () => {
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'user@test.dev',
+        installationId: null,
+      });
+      driveClient.ensureDriveSyncIdentity.mockResolvedValue('local-id-001');
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
+        exists: true,
+        updatedAt: 'time',
+        size: null,
+        sourceInstallationId: 'remote-id-999',
+        sourceProfileId: null,
+      });
+      globalThis.confirm.mockReturnValueOnce(false);
+
+      document.querySelector('#drive-upload-button').click();
+      await flushAsyncWork();
+
+      expect(driveClient.ensureDriveSyncIdentity).toHaveBeenCalled();
+      expect(globalThis.confirm).toHaveBeenCalledWith(
+        UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD
+      );
+      expect(mockSendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })
+      );
+    });
+
     it('preflight 確認期間應先禁用按鈕，取消後恢復互動', async () => {
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
@@ -1436,7 +1464,7 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
-    it('metadata 讀取失敗時應使用獨立 preflight context 記錄 warn', async () => {
+    it('identity 初始化失敗時應阻止 upload 並顯示錯誤', async () => {
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
         updatedAt: 'time',
@@ -1444,27 +1472,22 @@ describe('DriveCloudSyncController', () => {
         sourceInstallationId: 'remote-id-999',
         sourceProfileId: null,
       });
-      driveClient.getDriveSyncMetadata.mockRejectedValueOnce(new Error('METADATA_ERROR'));
+      driveClient.ensureDriveSyncIdentity.mockRejectedValueOnce(new Error('IDENTITY_ERROR'));
       mockSendMessage.mockResolvedValueOnce({ success: true });
 
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
-      expect(loggerWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          '[Security] Unrecognized API error sanitized (context: drive_upload_preflight_metadata'
-        )
-      );
-      expect(loggerWarnSpy).toHaveBeenCalledWith(
-        '[CloudSync] Upload preflight check failed, continuing upload',
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        '[CloudSync] Drive Sync identity initialization failed',
         expect.objectContaining({
-          error: sanitizeApiError(new Error('METADATA_ERROR'), 'drive_upload_preflight_metadata'),
+          error: sanitizeApiError(new Error('IDENTITY_ERROR'), 'drive_sync_identity_init'),
         })
       );
-      expect(mockSendMessage).toHaveBeenCalledWith(
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(mockSendMessage).not.toHaveBeenCalledWith(
         expect.objectContaining({
           action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
-          force: false,
         })
       );
     });
@@ -1477,6 +1500,7 @@ describe('DriveCloudSyncController', () => {
         sourceInstallationId: 'local-id-001',
         sourceProfileId: null,
       });
+      driveClient.ensureDriveSyncIdentity.mockResolvedValueOnce('local-id-001');
       mockSendMessage.mockResolvedValueOnce({ success: true });
 
       document.querySelector('#drive-upload-button').click();

@@ -49,6 +49,7 @@ describe('Drive Sync Handlers', () => {
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
     jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
     jest.spyOn(driveClient, 'setDriveFrequency').mockResolvedValue();
+    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('installation-123');
     jest.spyOn(driveAlarmScheduler, 'setupDriveAlarm').mockResolvedValue();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
 
@@ -116,6 +117,39 @@ describe('Drive Sync Handlers', () => {
         lastSuccessfulUploadAt: null,
       });
 
+      expect(result.success).toBe(true);
+    });
+
+    it('metadata 缺 installation id 時仍會先建立穩定 identity 再上傳', async () => {
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        installationId: null,
+        profileId: 'profile-123',
+        frequency: 'daily',
+        dirtyRevision: 7,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+        lastSuccessfulUploadAt: null,
+      });
+      driveClient.ensureDriveSyncIdentity.mockResolvedValue('generated-installation-999');
+
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({ force: false });
+
+      expect(driveClient.ensureDriveSyncIdentity).toHaveBeenCalledTimes(1);
+      expect(driveSnapshot.buildDriveSnapshot).toHaveBeenCalledWith(
+        expect.any(Map),
+        expect.any(Map),
+        {
+          installationId: 'generated-installation-999',
+          profileId: 'profile-123',
+        }
+      );
+      expect(driveClient.uploadDriveSnapshot).toHaveBeenCalledWith(
+        expect.any(Object),
+        false,
+        expect.objectContaining({
+          sourceInstallationId: 'generated-installation-999',
+          sourceProfileId: 'profile-123',
+        })
+      );
       expect(result.success).toBe(true);
     });
 

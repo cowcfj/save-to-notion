@@ -22,6 +22,7 @@ import {
   uploadDriveSnapshot,
   downloadDriveSnapshot,
   getDriveSyncMetadata,
+  ensureDriveSyncIdentity,
   updateDriveSyncRunMetadata,
   setDriveFrequency,
   clearDriveDirty,
@@ -83,10 +84,11 @@ async function handleManualUpload(request) {
 
     Logger.info('[DriveSyncHandler] Manual upload requested', { force });
 
+    const installationId = await ensureDriveSyncIdentity();
     const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
 
     const snapshot = await buildDriveSnapshot(pages, urlAliases, {
-      installationId: metadata.installationId,
+      installationId,
       profileId: metadata.profileId,
     });
 
@@ -97,7 +99,7 @@ async function handleManualUpload(request) {
 
     const result = await uploadDriveSnapshot(snapshot, force, {
       lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt,
-      sourceInstallationId: metadata.installationId,
+      sourceInstallationId: installationId,
       sourceProfileId: metadata.profileId,
     });
 

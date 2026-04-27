@@ -24,6 +24,7 @@ import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/extension/driveSyncErr
 import {
   clearDriveSyncMetadata,
   disconnectDrive,
+  ensureDriveSyncIdentity,
   fetchDriveConnectionStatus,
   fetchDriveSnapshotStatus,
   getDriveSyncMetadata,
@@ -161,6 +162,7 @@ async function syncRemoteDriveConnection(options = {}) {
   const status = await fetchDriveConnectionStatus();
 
   if (status.connected && status.email) {
+    await ensureDriveSyncIdentity();
     const previousMetadata = await getDriveSyncMetadata();
     const connectedAt =
       status.connectedAt ??
@@ -605,26 +607,42 @@ export function showCloudSyncLoadingState(message) {
  * @returns {Promise<boolean>} 若應繼續上傳回傳 true，如不應繼續回傳 false
  */
 async function _checkCrossInstallAndConfirm() {
+  let preflight;
   try {
-    const preflight = await syncRemoteSnapshotStatus({
+    preflight = await syncRemoteSnapshotStatus({
       warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
       errorContext: 'drive_upload_preflight',
     });
-    if (!preflight) {
-      return true;
-    }
-    const metadata = await getDriveSyncMetadata();
-    const localId = metadata.installationId ?? null;
-    const remoteId = preflight.sourceInstallationId ?? null;
-    const isCrossInstall = _isCrossInstall(remoteId, localId);
-    if (isCrossInstall) {
-      return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
-    }
   } catch (preflightError) {
     // fail-open：preflight 失敗時只記錄 warn，不阻斷 upload
     Logger.warn('[CloudSync] Upload preflight check failed, continuing upload', {
       error: getSafeError(preflightError, 'drive_upload_preflight_metadata'),
     });
+    return true;
+  }
+
+  if (!preflight) {
+    return true;
+  }
+
+  let localId;
+  try {
+    localId = await ensureDriveSyncIdentity();
+  } catch (identityError) {
+    Logger.error('[CloudSync] Drive Sync identity initialization failed', {
+      error: getSafeError(identityError, 'drive_sync_identity_init'),
+    });
+    showSyncStatus(
+      `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(identityError, 'drive_sync_identity_init')}`,
+      'error'
+    );
+    return false;
+  }
+
+  const remoteId = preflight.sourceInstallationId ?? null;
+  const isCrossInstall = _isCrossInstall(remoteId, localId);
+  if (isCrossInstall) {
+    return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
   }
   return true;
 }
@@ -769,7 +787,6 @@ async function handleDownload() {
 }
 
 async function buildDownloadConfirmationMessage() {
-  const metadata = await getDriveSyncMetadata().catch(() => ({}));
   const status = await fetchDriveSnapshotStatus().catch(error => {
     Logger.warn('[CloudSync] Download preflight status failed, continuing with unknown summary', {
       error: getSafeError(error, 'drive_download_preflight'),
@@ -780,9 +797,10 @@ async function buildDownloadConfirmationMessage() {
   const remoteTime = status?.exists
     ? formatTimestamp(status.updatedAt)
     : UI_MESSAGES.CLOUD_SYNC.UNKNOWN_TIME;
+  const localInstallationId = status ? await ensureDriveSyncIdentity() : null;
   const sourceLabel = resolveSnapshotSourceLabel(
     status?.sourceInstallationId ?? null,
-    metadata?.installationId ?? null
+    localInstallationId
   );
 
   return UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_WITH_SUMMARY(remoteTime, sourceLabel);

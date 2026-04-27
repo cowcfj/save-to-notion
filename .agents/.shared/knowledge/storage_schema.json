@@ -125,7 +125,7 @@
         },
         "driveSyncInstallationId": {
           "type": "string | null",
-          "description": "此 extension 安裝的唯一識別碼；upload 時作為 source_installation_id hint 傳給後端，後端會做最小 sanity check 並 stamp 進 snapshot metadata"
+          "description": "此 extension 安裝的唯一識別碼；由 ensureDriveSyncIdentity() 在 Drive connected / upload / source preflight 路徑首次需要時建立並寫入 chrome.storage.local。upload 時作為 source_installation_id hint 傳給後端，後端會做最小 sanity check 並 stamp 進 snapshot metadata。disconnect/clearDriveSyncMetadata() MUST 保留此 key，因其代表 extension 安裝 identity，而非 Drive connection metadata。"
         },
         "driveSyncProfileId": {
           "type": "string | null",

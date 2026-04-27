@@ -20,6 +20,7 @@ import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../config/extension/driveSyncErrorCodes.js';
 import {
   getDriveSyncMetadata,
+  ensureDriveSyncIdentity,
   updateDriveSyncRunMetadata,
   clearDriveDirty,
   uploadDriveSnapshot,
@@ -278,15 +279,16 @@ export async function runAutoUpload(context = {}) {
   const expectedDirtyRevision = metadata.dirtyRevision;
 
   try {
+    const installationId = await ensureDriveSyncIdentity();
     const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
     const snapshot = await buildDriveSnapshot(pages, urlAliases, {
-      installationId: metadata.installationId,
+      installationId,
       profileId: metadata.profileId,
     });
 
     const result = await uploadDriveSnapshot(snapshot, false, {
       lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt,
-      sourceInstallationId: metadata.installationId,
+      sourceInstallationId: installationId,
       sourceProfileId: metadata.profileId,
     });
 
