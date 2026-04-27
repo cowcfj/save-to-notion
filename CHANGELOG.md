@@ -1,5 +1,14 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.63.0](https://github.com/cowcfj/save-to-notion/compare/v2.62.0...v2.63.0) (2026-04-27)
+
+
+### ✨ 新功能
+
+* **drive-sync:** Enhance auto-sync trigger observability and alarm health checks ([#450](https://github.com/cowcfj/save-to-notion/issues/450)) ([352e39c](https://github.com/cowcfj/save-to-notion/commit/352e39ce8968212a392dcf76db59cfae1d55864f))
+* Ensure stable Drive Sync identity and cleanup logic ([#453](https://github.com/cowcfj/save-to-notion/issues/453)) ([0a250a2](https://github.com/cowcfj/save-to-notion/commit/0a250a2008e8df212e77c118e7eedfa17906a874))
+* Improve Google Drive cloud sync functionality ([#452](https://github.com/cowcfj/save-to-notion/issues/452)) ([aacad52](https://github.com/cowcfj/save-to-notion/commit/aacad5246cbd799c082371eb75434d609a1714c7))
+
 ## [2.62.0](https://github.com/cowcfj/save-to-notion/compare/v2.61.0...v2.62.0) (2026-04-27)
 
 
