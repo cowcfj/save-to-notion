@@ -113,17 +113,19 @@ describe('Drive Client API', () => {
         },
       });
 
-      const installationId = await ensureDriveSyncIdentity();
+      try {
+        const installationId = await ensureDriveSyncIdentity();
 
-      expect(installationId).toBe('12345678-9abc-4def-8012-3456789abcde');
-      expect(mockStorageLocal.set).toHaveBeenCalledWith({
-        driveSyncInstallationId: '12345678-9abc-4def-8012-3456789abcde',
-      });
-
-      Object.defineProperty(globalThis, 'crypto', {
-        configurable: true,
-        value: originalCrypto,
-      });
+        expect(installationId).toBe('12345678-9abc-4def-8012-3456789abcde');
+        expect(mockStorageLocal.set).toHaveBeenCalledWith({
+          driveSyncInstallationId: '12345678-9abc-4def-8012-3456789abcde',
+        });
+      } finally {
+        Object.defineProperty(globalThis, 'crypto', {
+          configurable: true,
+          value: originalCrypto,
+        });
+      }
     });
 
     it('setDriveConnection should save initial connected state', async () => {

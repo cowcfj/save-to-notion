@@ -36,6 +36,8 @@ import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
+const DRIVE_SYNC_IDENTITY_INIT_FAILED = 'drive_sync_identity_init_failed';
+
 // =============================================================================
 // DOM ID 常量
 // =============================================================================
@@ -162,7 +164,14 @@ async function syncRemoteDriveConnection(options = {}) {
   const status = await fetchDriveConnectionStatus();
 
   if (status.connected && status.email) {
-    await ensureDriveSyncIdentity();
+    try {
+      await ensureDriveSyncIdentity();
+    } catch (error) {
+      const identityError = new Error('Drive Sync identity initialization failed');
+      identityError.code = DRIVE_SYNC_IDENTITY_INIT_FAILED;
+      identityError.cause = error;
+      throw identityError;
+    }
     const previousMetadata = await getDriveSyncMetadata();
     const connectedAt =
       status.connectedAt ??
@@ -219,16 +228,31 @@ async function syncRemoteSnapshotStatus(options = {}) {
  * 避免整張卡片因 API 失敗而完全不渲染。
  *
  * @param {{ transientAuthError?: boolean }} [options]
- * @returns {Promise<void>}
+ * @returns {Promise<{ ok: boolean; reason?: 'identity_init_failed' | 'connection_sync_failed' }>}
  */
 async function syncRemoteDriveConnectionSafely(options = {}) {
   try {
     await syncRemoteDriveConnection(options);
+    return { ok: true };
   } catch (error) {
+    if (error?.code === DRIVE_SYNC_IDENTITY_INIT_FAILED) {
+      const cause = error.cause ?? error;
+      Logger.error('[CloudSync] Drive Sync identity initialization failed during connection sync', {
+        action: 'syncRemoteDriveConnection',
+        error: getSafeError(cause, 'drive_connection_identity_init'),
+      });
+      showSyncStatus(
+        `${UI_MESSAGES.CLOUD_SYNC.SYNC_FAILED_PREFIX}${getUserFriendlyErrorMessage(cause, 'drive_connection_identity_init')}`,
+        'error'
+      );
+      return { ok: false, reason: 'identity_init_failed' };
+    }
+
     Logger.error('[CloudSync] Drive connection sync failed', {
       action: 'syncRemoteDriveConnection',
       error: getSafeError(error, 'drive_connection_sync'),
     });
+    return { ok: false, reason: 'connection_sync_failed' };
   }
 }
 
@@ -788,7 +812,19 @@ async function buildDownloadConfirmationMessage() {
   const remoteTime = status?.exists
     ? formatTimestamp(status.updatedAt)
     : UI_MESSAGES.CLOUD_SYNC.UNKNOWN_TIME;
-  const localInstallationId = status ? await ensureDriveSyncIdentity() : null;
+  let localInstallationId = null;
+  if (status) {
+    try {
+      localInstallationId = await ensureDriveSyncIdentity();
+    } catch (error) {
+      Logger.warn(
+        '[CloudSync] Download identity initialization failed, continuing with unknown source',
+        {
+          error: getSafeError(error, 'drive_download_identity_init'),
+        }
+      );
+    }
+  }
   const sourceLabel = resolveSnapshotSourceLabel(
     status?.sourceInstallationId ?? null,
     localInstallationId

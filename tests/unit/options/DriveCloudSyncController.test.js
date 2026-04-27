@@ -462,6 +462,36 @@ describe('DriveCloudSyncController', () => {
       });
     });
 
+    it('download confirmation falls back to unknown source when identity initialization fails', async () => {
+      const identityError = new Error('IDENTITY_ERROR');
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValue({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00.000Z',
+        size: 10,
+        sourceInstallationId: 'remote-install',
+        sourceProfileId: 'profile-1',
+      });
+      driveClient.ensureDriveSyncIdentity.mockRejectedValueOnce(identityError);
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        '[CloudSync] Download identity initialization failed, continuing with unknown source',
+        expect.objectContaining({
+          error: sanitizeApiError(identityError, 'drive_download_identity_init'),
+        })
+      );
+      expect(globalThis.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('來源裝置：未知來源')
+      );
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+      });
+    });
+
     it('disables download actions while building the download confirmation summary', async () => {
       let resolveSnapshotStatus;
       const pendingSnapshotStatus = new Promise(resolve => {
@@ -1188,6 +1218,32 @@ describe('DriveCloudSyncController', () => {
         expect.objectContaining({ resetConflicts: false })
       );
       expect(document.querySelector('#drive-connected-email').textContent).toBe('fresh@a.com');
+    });
+
+    it('surfaces identity initialization failure separately during remote connection sync', async () => {
+      const identityError = new Error('IDENTITY_ERROR');
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+        connected: true,
+        email: 'fresh@a.com',
+        connectedAt: '2026-04-20T00:00:00.000Z',
+      });
+      driveClient.ensureDriveSyncIdentity.mockRejectedValueOnce(identityError);
+      driveClient.getDriveSyncMetadata.mockResolvedValue({ connectionEmail: null });
+
+      await refreshCloudSyncCard({ syncRemote: true });
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        '[CloudSync] Drive Sync identity initialization failed during connection sync',
+        expect.objectContaining({
+          action: 'syncRemoteDriveConnection',
+          error: sanitizeApiError(identityError, 'drive_connection_identity_init'),
+        })
+      );
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.SYNC_FAILED_PREFIX
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
+      expect(driveClient.setDriveConnection).not.toHaveBeenCalled();
     });
 
     it('clears local metadata when remote state reports disconnected', async () => {
