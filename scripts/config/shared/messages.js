@@ -171,10 +171,15 @@ const TOOLBAR = {
   SYNC_FAILED_PREFIX: '同步失敗：',
 };
 
+const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
+  '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。';
+const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
+
 const CLOUD_SYNC = {
   LAST_UPLOAD_PREFIX: '上次上載：',
   LAST_REMOTE_PREFIX: '雲端備份：',
   NEVER_UPLOADED: '尚未上載',
+  TIMESTAMP_WITH_TIMEZONE: (time, zone) => `${time}（${zone}）`,
 
   SYNC_FAILED_PREFIX: '同步失敗：',
   ERROR_TIME_PREFIX: '發生時間：',
@@ -199,13 +204,19 @@ const CLOUD_SYNC = {
   UPLOAD_FAILED_GENERIC: '上載失敗',
   DOWNLOAD_FAILED_GENERIC: '下載失敗',
 
-  CONFIRM_DOWNLOAD:
-    '從 Google Drive 還原資料將覆蓋本地所有已儲存的標記與保存記錄。\n\n確定要繼續嗎？',
+  CONFIRM_DOWNLOAD: `${CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION}\n\n${CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING}`,
+  CONFIRM_DOWNLOAD_WITH_SUMMARY: (remoteTime, sourceLabel) =>
+    `${CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION}\n\n雲端備份時間：${remoteTime}\n來源裝置：${sourceLabel}\n\n${CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING}`,
+  UNKNOWN_TIME: '未知',
+  SOURCE_THIS_DEVICE: '此裝置',
+  SOURCE_OTHER_DEVICE: '其他裝置',
+  SOURCE_UNKNOWN: '未知來源',
   CONFIRM_DISCONNECT:
     '確定要中斷 Google Drive 連線嗎？\n\n本地資料不受影響，但雲端同步功能將停用。',
   CONFIRM_FORCE_UPLOAD: '確定要強制上載並覆蓋較新的雲端版本嗎？\n\n此操作無法還原。',
 
   FREQUENCY_LABEL: '自動同步頻率',
+  FREQUENCY_BETA_LABEL: '測試版',
   FREQUENCY_OFF: '停用（僅手動）',
   FREQUENCY_DAILY: '每日',
   FREQUENCY_WEEKLY: '每週',

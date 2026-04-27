@@ -85,16 +85,35 @@ function formatTimestamp(isoString) {
     return '—';
   }
   try {
-    return new Date(isoString).toLocaleString('zh-TW', {
+    const parsed = Date.parse(isoString);
+    if (!Number.isFinite(parsed)) {
+      return isoString;
+    }
+    const formatted = new Date(parsed).toLocaleString('zh-TW', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
     });
+    const timezoneLabel = getLocalTimezoneLabel();
+    return UI_MESSAGES.CLOUD_SYNC.TIMESTAMP_WITH_TIMEZONE(formatted, timezoneLabel);
   } catch {
     return isoString;
   }
+}
+
+function getLocalTimezoneLabel() {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (timezone) {
+    return timezone;
+  }
+  const offsetMinutes = -new Date().getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteMinutes = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absoluteMinutes / 60)).padStart(2, '0');
+  const minutes = String(absoluteMinutes % 60).padStart(2, '0');
+  return `GMT${sign}${hours}:${minutes}`;
 }
 
 /**
@@ -692,7 +711,18 @@ async function handleUpload(force = false) {
  * 處理手動下載（含二次確認）
  */
 async function handleDownload() {
-  const confirmed = globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD);
+  showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC);
+
+  let confirmed = false;
+  try {
+    const confirmationMessage = await buildDownloadConfirmationMessage();
+    confirmed = globalThis.confirm(confirmationMessage);
+  } finally {
+    if (!confirmed) {
+      hideLoading();
+    }
+  }
+
   if (!confirmed) {
     return;
   }
@@ -736,6 +766,39 @@ async function handleDownload() {
       error: getSafeError(error, 'drive_sync_download_ui_refresh'),
     });
   }
+}
+
+async function buildDownloadConfirmationMessage() {
+  const metadata = await getDriveSyncMetadata().catch(() => ({}));
+  const status = await fetchDriveSnapshotStatus().catch(error => {
+    Logger.warn('[CloudSync] Download preflight status failed, continuing with unknown summary', {
+      error: getSafeError(error, 'drive_download_preflight'),
+    });
+    return null;
+  });
+
+  const remoteTime = status?.exists
+    ? formatTimestamp(status.updatedAt)
+    : UI_MESSAGES.CLOUD_SYNC.UNKNOWN_TIME;
+  const sourceLabel = resolveSnapshotSourceLabel(
+    status?.sourceInstallationId ?? null,
+    metadata?.installationId ?? null
+  );
+
+  return UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_WITH_SUMMARY(remoteTime, sourceLabel);
+}
+
+function resolveSnapshotSourceLabel(remoteInstallationId, localInstallationId) {
+  if (!remoteInstallationId) {
+    return UI_MESSAGES.CLOUD_SYNC.SOURCE_UNKNOWN;
+  }
+  if (typeof localInstallationId !== 'string' || localInstallationId.length === 0) {
+    return UI_MESSAGES.CLOUD_SYNC.SOURCE_UNKNOWN;
+  }
+  if (remoteInstallationId === localInstallationId) {
+    return UI_MESSAGES.CLOUD_SYNC.SOURCE_THIS_DEVICE;
+  }
+  return UI_MESSAGES.CLOUD_SYNC.SOURCE_OTHER_DEVICE;
 }
 
 /**

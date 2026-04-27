@@ -36,6 +36,8 @@ describe('配置模組 - messages.js 動態函式', () => {
   const CLEANUP_SUMMARY_SIZE = 128;
   const HEALTH_MIGRATION_LEFTOVER_COUNT = 6;
   const HEALTH_MIGRATION_LEFTOVER_SIZE = 512;
+  const TIMESTAMP_VALUE = '2026/04/19 20:00';
+  const TIMEZONE_LABEL = 'Asia/Hong_Kong';
 
   const singleParamFunctions = [
     { path: 'DATA_SOURCE.SEARCHING', fn: UI_MESSAGES.DATA_SOURCE.SEARCHING, arg: SEARCH_TERM },
@@ -140,6 +142,15 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(typeof result).toBe('string');
       expect(result).toContain(String(HEALTH_MIGRATION_LEFTOVER_COUNT));
       expect(result).toContain(String(HEALTH_MIGRATION_LEFTOVER_SIZE));
+    });
+
+    test('CLOUD_SYNC.TIMESTAMP_WITH_TIMEZONE 應以本地化括號組合時間與時區', () => {
+      const result = UI_MESSAGES.CLOUD_SYNC.TIMESTAMP_WITH_TIMEZONE(
+        TIMESTAMP_VALUE,
+        TIMEZONE_LABEL
+      );
+
+      expect(result).toBe(`${TIMESTAMP_VALUE}（${TIMEZONE_LABEL}）`);
     });
   });
 

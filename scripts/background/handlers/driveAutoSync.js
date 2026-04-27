@@ -284,7 +284,11 @@ export async function runAutoUpload(context = {}) {
       profileId: metadata.profileId,
     });
 
-    const result = await uploadDriveSnapshot(snapshot, false);
+    const result = await uploadDriveSnapshot(snapshot, false, {
+      lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt,
+      sourceInstallationId: metadata.installationId,
+      sourceProfileId: metadata.profileId,
+    });
 
     if (!result.success) {
       await handleUploadFailure(result);

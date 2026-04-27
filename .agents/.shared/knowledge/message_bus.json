@@ -442,7 +442,7 @@
         }
       },
       "DRIVE_SYNC_MANUAL_DOWNLOAD": {
-        "description": "Options UI 要求 Background 執行手動下載並套用本地；套用前需二次確認",
+        "description": "Options UI 要求 Background 執行手動下載並以 merge-upsert 套用本地；套用前需二次確認。本地有、remote 無的 sync keys MUST 保留，不做 destructive restore。",
         "direction": "options → background",
         "payload": {},
         "response": {
