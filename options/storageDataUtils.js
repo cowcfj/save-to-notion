@@ -308,11 +308,11 @@ function _analyzeHealthEntry(key, value, report, pageUrls, data) {
     report.legacySavedKeys++;
   } else if (key.startsWith(URL_ALIAS_PREFIX)) {
     _analyzeAliasEntry(key, value, report, data);
-  } else if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
-    report.configs++;
   } else if (MIGRATION_LEFTOVER_PREFIXES.some(prefix => key.startsWith(prefix))) {
     // ⚠️ 使用明確前綴判定，避免一般業務 key 含 migration/_v1_/_backup_ 字樣時被誤判
     _analyzeMigrationEntry(key, value, report);
+  } else if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
+    report.configs++;
   }
 }
 

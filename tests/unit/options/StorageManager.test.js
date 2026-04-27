@@ -1331,6 +1331,19 @@ describe('getStorageHealthReport', () => {
     expect(report.cleanupPlan.summary.migrationLeftovers).toBe(1);
   });
 
+  test('migration_notion_* key 應優先視為 migration leftover 而非 config', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        migration_notion_old_data: { someField: 'x' },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+    expect(report.migrationKeys).toBe(1);
+    expect(report.configs).toBe(0);
+    expect(report.cleanupPlan.summary.migrationLeftovers).toBe(1);
+  });
+
   test('saved_* key 應計入 legacySavedKeys（不影響清理計劃）', async () => {
     mockGet.mockImplementation((k, cb) =>
       cb({
@@ -1548,6 +1561,12 @@ describe('MIGRATION_LEFTOVER_PREFIXES — registry 正確性與邊界', () => {
   test('一般業務 key 含 migration 字樣但非前綴時，不應命中 registry', () => {
     // highlights_post-migration-guide：業務 key，migration 在中間
     const businessKey = 'highlights_post-migration-guide';
+    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
+    expect(matched).toBe(false);
+  });
+
+  test('一般業務 key 以正常前綴開頭且尾端含 _v1_ 時，不應命中 registry', () => {
+    const businessKey = 'page_url_v1_';
     const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
     expect(matched).toBe(false);
   });

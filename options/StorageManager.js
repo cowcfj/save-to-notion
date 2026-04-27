@@ -515,10 +515,13 @@ export class StorageManager {
    *
    * 判定優先序（MUST NOT 違反）：
    * 1. corruptedData > 0 → error
-   * 2. cleanupPlan.totalKeys > 0 || migrationKeys > 0 → warning（HEALTH_NEEDS_CLEANUP / HEALTH_MIGRATION_LEFTOVERS）
-   * 3. 否則 → HEALTH_OK
+   * 2. migrationKeys > 0 → warning（HEALTH_MIGRATION_LEFTOVERS）
+   * 3. cleanupPlan.totalKeys > 0 → warning（HEALTH_NEEDS_CLEANUP）
+   * 否則 → HEALTH_OK
    *
-   * 規則 2 確保「有可清理項目時 MUST NOT 顯示 HEALTH_OK」，消除 UI 語意衝突。
+   * migrationKeys 必須先於 cleanupPlan.totalKeys / cleanupPlan.items 檢查，
+   * 確保 migration leftover 顯示 HEALTH_MIGRATION_LEFTOVERS，而不是一般 HEALTH_NEEDS_CLEANUP。
+   * 上述規則確保「有可清理項目時 MUST NOT 顯示 HEALTH_OK」，消除 UI 語意衝突。
    *
    * @private
    * @param {HTMLElement} el 容器元素
