@@ -24,6 +24,7 @@ import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/extension/driveSyncErr
 import {
   clearDriveSyncMetadata,
   disconnectDrive,
+  ensureDriveSyncIdentity,
   fetchDriveConnectionStatus,
   fetchDriveSnapshotStatus,
   getDriveSyncMetadata,
@@ -34,6 +35,8 @@ import {
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+
+const DRIVE_SYNC_IDENTITY_INIT_FAILED = 'drive_sync_identity_init_failed';
 
 // =============================================================================
 // DOM ID 常量
@@ -161,6 +164,14 @@ async function syncRemoteDriveConnection(options = {}) {
   const status = await fetchDriveConnectionStatus();
 
   if (status.connected && status.email) {
+    try {
+      await ensureDriveSyncIdentity();
+    } catch (error) {
+      const identityError = new Error('Drive Sync identity initialization failed');
+      identityError.code = DRIVE_SYNC_IDENTITY_INIT_FAILED;
+      identityError.cause = error;
+      throw identityError;
+    }
     const previousMetadata = await getDriveSyncMetadata();
     const connectedAt =
       status.connectedAt ??
@@ -217,16 +228,31 @@ async function syncRemoteSnapshotStatus(options = {}) {
  * 避免整張卡片因 API 失敗而完全不渲染。
  *
  * @param {{ transientAuthError?: boolean }} [options]
- * @returns {Promise<void>}
+ * @returns {Promise<{ ok: boolean; reason?: 'identity_init_failed' | 'connection_sync_failed' }>}
  */
 async function syncRemoteDriveConnectionSafely(options = {}) {
   try {
     await syncRemoteDriveConnection(options);
+    return { ok: true };
   } catch (error) {
+    if (error?.code === DRIVE_SYNC_IDENTITY_INIT_FAILED) {
+      const cause = error.cause ?? error;
+      Logger.error('[CloudSync] Drive Sync identity initialization failed during connection sync', {
+        action: 'syncRemoteDriveConnection',
+        error: getSafeError(cause, 'drive_connection_identity_init'),
+      });
+      showSyncStatus(
+        `${UI_MESSAGES.CLOUD_SYNC.SYNC_FAILED_PREFIX}${getUserFriendlyErrorMessage(cause, 'drive_connection_identity_init')}`,
+        'error'
+      );
+      return { ok: false, reason: 'identity_init_failed' };
+    }
+
     Logger.error('[CloudSync] Drive connection sync failed', {
       action: 'syncRemoteDriveConnection',
       error: getSafeError(error, 'drive_connection_sync'),
     });
+    return { ok: false, reason: 'connection_sync_failed' };
   }
 }
 
@@ -605,26 +631,33 @@ export function showCloudSyncLoadingState(message) {
  * @returns {Promise<boolean>} 若應繼續上傳回傳 true，如不應繼續回傳 false
  */
 async function _checkCrossInstallAndConfirm() {
+  const preflight = await syncRemoteSnapshotStatus({
+    warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
+    errorContext: 'drive_upload_preflight',
+  });
+
+  if (!preflight) {
+    return true;
+  }
+
+  let localId;
   try {
-    const preflight = await syncRemoteSnapshotStatus({
-      warnMessage: '[CloudSync] Upload preflight check failed, continuing upload',
-      errorContext: 'drive_upload_preflight',
+    localId = await ensureDriveSyncIdentity();
+  } catch (identityError) {
+    Logger.error('[CloudSync] Drive Sync identity initialization failed', {
+      error: getSafeError(identityError, 'drive_sync_identity_init'),
     });
-    if (!preflight) {
-      return true;
-    }
-    const metadata = await getDriveSyncMetadata();
-    const localId = metadata.installationId ?? null;
-    const remoteId = preflight.sourceInstallationId ?? null;
-    const isCrossInstall = _isCrossInstall(remoteId, localId);
-    if (isCrossInstall) {
-      return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
-    }
-  } catch (preflightError) {
-    // fail-open：preflight 失敗時只記錄 warn，不阻斷 upload
-    Logger.warn('[CloudSync] Upload preflight check failed, continuing upload', {
-      error: getSafeError(preflightError, 'drive_upload_preflight_metadata'),
-    });
+    showSyncStatus(
+      `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(identityError, 'drive_sync_identity_init')}`,
+      'error'
+    );
+    return false;
+  }
+
+  const remoteId = preflight.sourceInstallationId ?? null;
+  const isCrossInstall = _isCrossInstall(remoteId, localId);
+  if (isCrossInstall) {
+    return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
   }
   return true;
 }
@@ -769,7 +802,6 @@ async function handleDownload() {
 }
 
 async function buildDownloadConfirmationMessage() {
-  const metadata = await getDriveSyncMetadata().catch(() => ({}));
   const status = await fetchDriveSnapshotStatus().catch(error => {
     Logger.warn('[CloudSync] Download preflight status failed, continuing with unknown summary', {
       error: getSafeError(error, 'drive_download_preflight'),
@@ -780,9 +812,22 @@ async function buildDownloadConfirmationMessage() {
   const remoteTime = status?.exists
     ? formatTimestamp(status.updatedAt)
     : UI_MESSAGES.CLOUD_SYNC.UNKNOWN_TIME;
+  let localInstallationId = null;
+  if (status) {
+    try {
+      localInstallationId = await ensureDriveSyncIdentity();
+    } catch (error) {
+      Logger.warn(
+        '[CloudSync] Download identity initialization failed, continuing with unknown source',
+        {
+          error: getSafeError(error, 'drive_download_identity_init'),
+        }
+      );
+    }
+  }
   const sourceLabel = resolveSnapshotSourceLabel(
     status?.sourceInstallationId ?? null,
-    metadata?.installationId ?? null
+    localInstallationId
   );
 
   return UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_WITH_SUMMARY(remoteTime, sourceLabel);

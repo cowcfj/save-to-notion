@@ -12,6 +12,7 @@ import {
   ALL_DRIVE_SYNC_KEYS,
   startDriveOAuthFlow,
   getDriveSyncMetadata,
+  ensureDriveSyncIdentity,
   setDriveConnection,
   clearDriveSyncMetadata,
   updateDriveSyncRunMetadata,
@@ -72,6 +73,61 @@ describe('Drive Client API', () => {
       expect(mockStorageLocal.get).toHaveBeenCalledWith(ALL_DRIVE_SYNC_KEYS);
     });
 
+    it('ensureDriveSyncIdentity should create and persist a missing installation id', async () => {
+      mockStorageLocal.get.mockResolvedValue({});
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('generated-install-id');
+
+      const installationId = await ensureDriveSyncIdentity();
+
+      expect(installationId).toBe('generated-install-id');
+      expect(mockStorageLocal.get).toHaveBeenCalledWith('driveSyncInstallationId');
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({
+        driveSyncInstallationId: 'generated-install-id',
+      });
+    });
+
+    it('ensureDriveSyncIdentity should reuse an existing installation id', async () => {
+      mockStorageLocal.get.mockResolvedValue({
+        driveSyncInstallationId: 'existing-install-id',
+      });
+
+      const installationId = await ensureDriveSyncIdentity();
+
+      expect(installationId).toBe('existing-install-id');
+      expect(mockStorageLocal.set).not.toHaveBeenCalled();
+    });
+
+    it('ensureDriveSyncIdentity should use a high-entropy fallback when randomUUID is unavailable', async () => {
+      mockStorageLocal.get.mockResolvedValue({});
+      const originalCrypto = globalThis.crypto;
+      Object.defineProperty(globalThis, 'crypto', {
+        configurable: true,
+        value: {
+          getRandomValues: jest.fn(array => {
+            array.set([
+              0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0x4D, 0xEF, 0x80, 0x12, 0x34, 0x56, 0x78, 0x9A,
+              0xBC, 0xDE,
+            ]);
+            return array;
+          }),
+        },
+      });
+
+      try {
+        const installationId = await ensureDriveSyncIdentity();
+
+        expect(installationId).toBe('12345678-9abc-4def-8012-3456789abcde');
+        expect(mockStorageLocal.set).toHaveBeenCalledWith({
+          driveSyncInstallationId: '12345678-9abc-4def-8012-3456789abcde',
+        });
+      } finally {
+        Object.defineProperty(globalThis, 'crypto', {
+          configurable: true,
+          value: originalCrypto,
+        });
+      }
+    });
+
     it('setDriveConnection should save initial connected state', async () => {
       await setDriveConnection({ email: 'hello@a.com', connectedAt: '2023-01-01' });
       expect(mockStorageLocal.set).toHaveBeenCalledWith(
@@ -94,9 +150,11 @@ describe('Drive Client API', () => {
       });
     });
 
-    it('clearDriveSyncMetadata should remove all sync keys', async () => {
+    it('clearDriveSyncMetadata should keep the installation id while removing connection metadata', async () => {
       await clearDriveSyncMetadata();
-      expect(mockStorageLocal.remove).toHaveBeenCalledWith(ALL_DRIVE_SYNC_KEYS);
+      expect(mockStorageLocal.remove).toHaveBeenCalledWith(
+        ALL_DRIVE_SYNC_KEYS.filter(key => key !== 'driveSyncInstallationId')
+      );
     });
 
     it('updateDriveSyncRunMetadata should record success metrics', async () => {

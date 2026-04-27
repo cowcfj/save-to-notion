@@ -699,6 +699,9 @@ describe('Background Script Lifecycle', () => {
   });
 
   describe('Drive Auto Sync Alarm', () => {
+    const scheduledTime = Date.UTC(2026, 3, 28, 8, 30, 0);
+    const expectedAlarmFiredAt = new Date(scheduledTime).toISOString();
+
     it('listens to DRIVE_AUTO_SYNC_ALARM and calls runAutoUpload', async () => {
       jest.resetModules();
       const alarmsAddListener = jest.fn();
@@ -713,9 +716,11 @@ describe('Background Script Lifecycle', () => {
       require('../../scripts/background.js');
 
       const alarmCallback = alarmsAddListener.mock.calls[0][0];
-      await alarmCallback({ name: 'drive-auto-sync' });
+      await alarmCallback({ name: 'drive-auto-sync', scheduledTime });
 
-      expect(driveAutoSyncMock.runAutoUpload).toHaveBeenCalled();
+      expect(driveAutoSyncMock.runAutoUpload).toHaveBeenCalledWith({
+        alarmFiredAt: expectedAlarmFiredAt,
+      });
     });
 
     it('logs error when runAutoUpload fails', async () => {
@@ -734,7 +739,7 @@ describe('Background Script Lifecycle', () => {
       require('../../scripts/background.js');
 
       const alarmCallback = alarmsAddListener.mock.calls[0][0];
-      await alarmCallback({ name: 'drive-auto-sync' });
+      await alarmCallback({ name: 'drive-auto-sync', scheduledTime });
       // wait for promise rejection to propagate
       await new Promise(resolve => setTimeout(resolve, 0));
 

@@ -72,6 +72,9 @@ export const DRIVE_SYNC_STORAGE_KEYS = /** @type {const} */ ({
 
 /** Phase A + B 所有 driveSync keys */
 const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
+const DRIVE_SYNC_CLEAR_KEYS = ALL_DRIVE_SYNC_KEYS.filter(
+  key => key !== DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID
+);
 
 // =============================================================================
 // 型別定義
@@ -191,6 +194,42 @@ export async function getDriveSyncMetadata() {
   };
 }
 
+function generateDriveSyncInstallationId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  if (!globalThis.crypto || typeof globalThis.crypto.getRandomValues !== 'function') {
+    throw new Error('crypto.getRandomValues is unavailable');
+  }
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0F) | 0x40;
+  bytes[8] = (bytes[8] & 0x3F) | 0x80;
+
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * 確保此 extension 安裝有穩定 Drive Sync identity。
+ *
+ * @returns {Promise<string>}
+ */
+export async function ensureDriveSyncIdentity() {
+  const data = await chrome.storage.local.get(DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID);
+  const existing = data[DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID];
+  if (typeof existing === 'string' && existing.trim().length > 0) {
+    return existing;
+  }
+
+  const installationId = generateDriveSyncInstallationId();
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID]: installationId,
+  });
+  return installationId;
+}
+
 /**
  * 寫入 Drive 連線成功的 metadata。
  * 由 DriveCloudSyncController.syncRemoteDriveConnection() 呼叫。
@@ -213,13 +252,13 @@ export async function setDriveConnection(connection, options = {}) {
 }
 
 /**
- * 清除所有 Drive Sync metadata。
- * disconnect 時呼叫；不影響 account / Notion OAuth keys。
+ * 清除 Drive connection / sync metadata。
+ * disconnect 時呼叫；不影響 account / Notion OAuth keys，也保留 extension 安裝 identity。
  *
  * @returns {Promise<void>}
  */
 export async function clearDriveSyncMetadata() {
-  await chrome.storage.local.remove(ALL_DRIVE_SYNC_KEYS);
+  await chrome.storage.local.remove(DRIVE_SYNC_CLEAR_KEYS);
 }
 
 /**

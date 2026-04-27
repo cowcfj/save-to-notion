@@ -138,6 +138,7 @@ describe('runAutoUpload()', () => {
     jest.spyOn(accountSession, 'getAccountAccessToken').mockResolvedValue('fake-token');
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue(baseMetadata());
+    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('inst-1');
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
     jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
     jest
@@ -229,6 +230,31 @@ describe('runAutoUpload()', () => {
         sourceInstallationId: 'inst-1',
         sourceProfileId: 'profile-1',
       }
+    );
+  });
+
+  it('metadata 缺 installation id 時仍會先建立穩定 identity 再自動上傳', async () => {
+    driveClient.getDriveSyncMetadata.mockResolvedValue(baseMetadata({ installationId: null }));
+    driveClient.ensureDriveSyncIdentity.mockResolvedValue('generated-auto-install');
+
+    await runAutoUpload({ isAccountLoggedIn: true });
+
+    expect(driveClient.ensureDriveSyncIdentity).toHaveBeenCalledTimes(1);
+    expect(driveSnapshot.buildDriveSnapshot).toHaveBeenCalledWith(
+      expect.any(Map),
+      expect.any(Map),
+      {
+        installationId: 'generated-auto-install',
+        profileId: 'profile-1',
+      }
+    );
+    expect(driveClient.uploadDriveSnapshot).toHaveBeenCalledWith(
+      expect.any(Object),
+      false,
+      expect.objectContaining({
+        sourceInstallationId: 'generated-auto-install',
+        sourceProfileId: 'profile-1',
+      })
     );
   });
 
