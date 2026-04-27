@@ -353,6 +353,165 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
     });
   });
 
+  describe('Alias Referential Integrity', () => {
+    // ── Upload 路徑：buildDriveSnapshot ──────────────────────────────
+
+    describe('buildDriveSnapshot — upload alias filter', () => {
+      it('應排除 target 不存在於 pages 的孤兒 alias（不進 snapshot payload）', async () => {
+        const pages = new Map([
+          [
+            'url1',
+            {
+              notion: { pageId: 'p1', url: '', title: '', savedAt: 1 },
+              highlights: [],
+            },
+          ],
+        ]);
+        // norm1 → url1（有效）；normOrphan → url-orphan（沒有對應 page，孤兒）
+        const aliases = new Map([
+          ['norm1', 'url1'],
+          ['normOrphan', 'url-orphan'],
+        ]);
+
+        const snapshot = await buildDriveSnapshot(pages, aliases, {});
+
+        expect(snapshot.payload.url_aliases).toHaveProperty('norm1', 'url1');
+        expect(snapshot.payload.url_aliases).not.toHaveProperty('normOrphan');
+      });
+
+      it('合法 alias 應保留（防回歸）', async () => {
+        const pages = new Map([
+          ['url1', { notion: { pageId: 'p1', url: '', title: '', savedAt: 1 }, highlights: [] }],
+          ['url2', { notion: null, highlights: [{ id: 'hl1', text: 'hi' }] }],
+        ]);
+        const aliases = new Map([
+          ['norm1', 'url1'],
+          ['norm2', 'url2'],
+        ]);
+
+        const snapshot = await buildDriveSnapshot(pages, aliases, {});
+
+        expect(snapshot.payload.url_aliases).toEqual({ norm1: 'url1', norm2: 'url2' });
+      });
+
+      it('pages 為空時，所有 alias 均應被過濾', async () => {
+        const pages = new Map();
+        const aliases = new Map([['normAnything', 'url-anything']]);
+
+        const snapshot = await buildDriveSnapshot(pages, aliases, {});
+
+        expect(snapshot.payload.url_aliases).toEqual({});
+      });
+    });
+
+    // ── Download 路徑：applyDriveSnapshotToLocalStorage ─────────────
+
+    describe('applyDriveSnapshotToLocalStorage — download alias prune', () => {
+      it('snapshot 含孤兒 alias 時，不應寫入本地（toWrite 不含孤兒 alias）', async () => {
+        const snapshot = {
+          metadata: { updated_at: new Date().toISOString() },
+          payload: {
+            saved_states: [
+              {
+                page_key: 'url1',
+                notion_page_id: 'p1',
+                notion_url: '',
+                title: '',
+                saved_at: 1,
+              },
+            ],
+            highlights: [],
+            url_aliases: {
+              norm1: 'url1', // 有效：url1 在 saved_states 中
+              normOrphan: 'url-orphan', // 孤兒：url-orphan 不在 pageStates 中
+            },
+          },
+        };
+
+        mockStorageLocal.get.mockResolvedValue({});
+        await applyDriveSnapshotToLocalStorage(snapshot);
+
+        const toWrite = mockStorageLocal.set.mock.calls[0][0];
+        expect(toWrite).toHaveProperty(`${URL_ALIAS_PREFIX}norm1`, 'url1');
+        expect(toWrite).not.toHaveProperty(`${URL_ALIAS_PREFIX}normOrphan`);
+      });
+
+      it('本地已存在孤兒 alias 時，download 應將其加入 removedKeys（確保清除）', async () => {
+        const snapshot = {
+          metadata: { updated_at: new Date().toISOString() },
+          payload: {
+            saved_states: [
+              { page_key: 'url1', notion_page_id: 'p1', notion_url: '', title: '', saved_at: 1 },
+            ],
+            highlights: [],
+            url_aliases: {
+              normOrphan: 'url-orphan', // 孤兒：不寫入也不加進 snapshotStorageKeys
+            },
+          },
+        };
+
+        // 本地有一個舊孤兒 alias（應被 toRemove 清掉）
+        mockStorageLocal.get.mockResolvedValue({
+          [`${URL_ALIAS_PREFIX}normOrphan`]: 'url-orphan',
+        });
+
+        const result = await applyDriveSnapshotToLocalStorage(snapshot);
+
+        expect(result.removedKeys).toContain(`${URL_ALIAS_PREFIX}normOrphan`);
+        const toWrite = mockStorageLocal.set.mock.calls[0][0];
+        expect(toWrite).not.toHaveProperty(`${URL_ALIAS_PREFIX}normOrphan`);
+      });
+
+      it('合法 alias 在 download 時應保留（防回歸）', async () => {
+        const snapshot = {
+          metadata: { updated_at: new Date().toISOString() },
+          payload: {
+            saved_states: [
+              { page_key: 'url1', notion_page_id: 'p1', notion_url: '', title: '', saved_at: 1 },
+            ],
+            highlights: [
+              {
+                page_key: 'url2',
+                highlight_id: 'hl1',
+                text: 'hi',
+                color: '',
+                range_info: {},
+                created_at: 1,
+              },
+            ],
+            url_aliases: {
+              norm1: 'url1', // 有效：url1 在 saved_states 中
+              norm2: 'url2', // 有效：url2 在 highlights 中
+            },
+          },
+        };
+
+        mockStorageLocal.get.mockResolvedValue({});
+        await applyDriveSnapshotToLocalStorage(snapshot);
+
+        const toWrite = mockStorageLocal.set.mock.calls[0][0];
+        expect(toWrite).toHaveProperty(`${URL_ALIAS_PREFIX}norm1`, 'url1');
+        expect(toWrite).toHaveProperty(`${URL_ALIAS_PREFIX}norm2`, 'url2');
+      });
+
+      it('非同步白名單 key（accountToken 等）不受 alias prune 影響', async () => {
+        const snapshot = {
+          metadata: { updated_at: new Date().toISOString() },
+          payload: {
+            saved_states: [],
+            highlights: [],
+            url_aliases: { orphan: 'no-match' },
+          },
+        };
+
+        mockStorageLocal.get.mockResolvedValue({ accountToken: 'secret' });
+        const result = await applyDriveSnapshotToLocalStorage(snapshot);
+
+        expect(result.removedKeys).not.toContain('accountToken');
+      });
+    });
+  });
+
   describe('getDriveSnapshotSummary', () => {
     it('should calculate counts correctly', () => {
       const summary = getDriveSnapshotSummary({

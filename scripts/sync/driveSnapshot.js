@@ -337,6 +337,42 @@ export async function buildUnifiedPageStateFromLocalStorage() {
 // Step 3b：buildDriveSnapshot
 // =============================================================================
 
+// =============================================================================
+// Alias Referential Integrity 工具函數（upload + download 共用）
+// =============================================================================
+
+/**
+ * 判斷 alias 的 target（stableUrl）是否可被本地資料落地。
+ *
+ * 規則：alias 的 target 必須至少對應一個可落地資料來源。
+ * 僅做集合查詢，不讀取遠端或 chrome.storage。
+ *
+ * @param {string} stableUrl - alias 指向的穩定 URL
+ * @param {Set<string>} reachableUrls - 可落地 URL 集合
+ * @returns {boolean}
+ */
+function _isAliasTargetReachable(stableUrl, reachableUrls) {
+  return reachableUrls.has(stableUrl);
+}
+
+/**
+ * 從 urlAliases Map 過濾出 target 可達的 alias，回傳新 Map。
+ *
+ * @param {Map<string, string>} urlAliases - normalizedUrl → stableUrl
+ * @param {Set<string>} reachableUrls - 可落地 URL 集合
+ * @returns {Map<string, string>} 僅含有效 alias 的新 Map
+ */
+function _filterValidUrlAliases(urlAliases, reachableUrls) {
+  /** @type {Map<string, string>} */
+  const valid = new Map();
+  for (const [normalizedUrl, stableUrl] of urlAliases) {
+    if (_isAliasTargetReachable(stableUrl, reachableUrls)) {
+      valid.set(normalizedUrl, stableUrl);
+    }
+  }
+  return valid;
+}
+
 async function _sha256Hex(input) {
   const data = new TextEncoder().encode(input);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -397,7 +433,16 @@ export async function buildDriveSnapshot(pages, urlAliases, identity = {}) {
 
   /** @type {Record<string, string>} */
   const aliasRecord = {};
-  for (const [normalizedUrl, stableUrl] of urlAliases) {
+
+  // Upload 路徑 Alias Gate：僅允許 target 存在於本次 payload 的 alias 進入 snapshot。
+  // reachableUrls 基於實際落地頁面集合（saved_states + highlights 的 page_key），
+  // 而非全量 pages.keys()（後者含空頁面，不應被 alias 引用）。
+  const reachableUrls = new Set([
+    ...savedStates.map(state => state.page_key),
+    ...highlights.map(hl => hl.page_key),
+  ]);
+  const filteredAliases = _filterValidUrlAliases(urlAliases, reachableUrls);
+  for (const [normalizedUrl, stableUrl] of filteredAliases) {
     aliasRecord[normalizedUrl] = stableUrl;
   }
 
@@ -548,13 +593,24 @@ function _buildPageWriteEntries(pageStates, now, toWrite, snapshotStorageKeys) {
  * @param {Record<string, string>} urlAliases
  * @param {Record<string, unknown>} toWrite
  * @param {Set<string>} snapshotStorageKeys
+ * @param {Map<string, { notion: object | null; highlights: HighlightItem[] }>} pageStates
  */
-function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys) {
+function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys, pageStates) {
   if (!_isPlainObject(urlAliases)) {
     return;
   }
+
+  // Download 路徑 Alias Prune：二次驗證 alias target 是否存在於本次 pageStates。
+  // 僅寫入有效 alias；無效 alias 不加入 snapshotStorageKeys，
+  // 使其能被後續 toRemove 邏輯清除（若本地已存在舊孤兒 alias）。
+  const reachableUrls = new Set(pageStates.keys());
+
   for (const [normalizedUrl, stableUrl] of Object.entries(urlAliases)) {
     if (!normalizedUrl || typeof stableUrl !== 'string') {
+      continue;
+    }
+    if (!_isAliasTargetReachable(stableUrl, reachableUrls)) {
+      // 孤兒 alias：不寫入，不加入 snapshotStorageKeys，讓 toRemove 可清除本地舊 alias
       continue;
     }
     const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
@@ -597,7 +653,12 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
     pageStates
   );
   _buildPageWriteEntries(pageStates, now, toWrite, snapshotStorageKeys);
-  _buildAliasWriteEntries(snapshot.payload.url_aliases ?? {}, toWrite, snapshotStorageKeys);
+  _buildAliasWriteEntries(
+    snapshot.payload.url_aliases ?? {},
+    toWrite,
+    snapshotStorageKeys,
+    pageStates
+  );
 
   const toRemove = localSyncKeys.filter(key => !snapshotStorageKeys.has(key));
 

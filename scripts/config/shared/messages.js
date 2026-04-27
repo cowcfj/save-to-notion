@@ -105,6 +105,7 @@ const STORAGE = {
   HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
   HEALTH_LEGACY_SAVED: count => `${count} 個舊版網頁保存紀錄（重訪相關網頁時會自動升級）`,
   HEALTH_OK: '數據完整',
+  HEALTH_NEEDS_CLEANUP: '發現可清理項目，建議執行清理以維持最佳狀態',
 
   USAGE_TOO_LARGE: size => `數據量過大 (${size} MB)，可能影響擴展性能，建議立即清理`,
   USAGE_LARGE: size => `數據量較大 (${size} MB)，建議清理不需要的標記數據以維持最佳性能`,
