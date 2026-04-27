@@ -367,7 +367,11 @@ describe('Drive Client API', () => {
           }),
         });
         const snapshot = { payload: 1 };
-        const res = await uploadDriveSnapshot(snapshot);
+        const res = await uploadDriveSnapshot(snapshot, false, {
+          lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+          sourceInstallationId: 'install-1',
+          sourceProfileId: 'profile-1',
+        });
         expect(res.success).toBe(true);
         expect(res.updatedAt).toBe('x');
 
@@ -382,6 +386,9 @@ describe('Drive Client API', () => {
             body: JSON.stringify({
               snapshot,
               force: false,
+              last_known_remote_updated_at: '2026-04-20T00:00:00.000Z',
+              source_installation_id: 'install-1',
+              source_profile_id: 'profile-1',
             }),
           })
         );
@@ -398,6 +405,9 @@ describe('Drive Client API', () => {
             body: JSON.stringify({
               snapshot,
               force: true,
+              last_known_remote_updated_at: null,
+              source_installation_id: null,
+              source_profile_id: null,
             }),
           })
         );

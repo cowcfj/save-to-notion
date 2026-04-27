@@ -91,7 +91,7 @@
         },
         "driveSyncLastKnownRemoteUpdatedAt": {
           "type": "string | null",
-          "description": "上次查詢時後端回傳的 snapshot updatedAt（ISO 8601）；用於 conflict 偵測與 reconnect 後 UI fallback（顯示『雲端備份：{time}』）。由 setLastKnownRemoteUpdatedAt() 或 updateDriveSyncRunMetadata() 寫入。"
+          "description": "上次查詢時後端回傳的 snapshot updatedAt（ISO 8601 / RFC 3339 with timezone）；non-force upload 會作為 last_known_remote_updated_at 傳給後端做保守 conflict guard。Options UI 顯示時 MUST 轉成本機時間並標示時區。由 setLastKnownRemoteUpdatedAt() 或 updateDriveSyncRunMetadata() 寫入。"
         },
         "driveSyncLastSuccessfulUploadAt": {
           "type": "string | null",
@@ -125,11 +125,11 @@
         },
         "driveSyncInstallationId": {
           "type": "string | null",
-          "description": "此 extension 安裝的唯一識別碼，用於後端區分同一帳號的多個 extension 安裝"
+          "description": "此 extension 安裝的唯一識別碼；upload 時作為 source_installation_id hint 傳給後端，後端會做最小 sanity check 並 stamp 進 snapshot metadata"
         },
         "driveSyncProfileId": {
           "type": "string | null",
-          "description": "後端 Drive profile ID（若後端有提供），用於對應 snapshot 擁有者"
+          "description": "後端 Drive profile ID（若後端有提供）；upload 時作為 source_profile_id hint 傳給後端，後端會做最小 sanity check 並 stamp 進 snapshot metadata"
         }
       },
       "patterns": {

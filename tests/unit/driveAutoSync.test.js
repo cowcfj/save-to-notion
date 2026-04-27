@@ -29,7 +29,7 @@ function baseMetadata(overrides = {}) {
     nextEligibleAt: null,
     installationId: 'inst-1',
     profileId: 'profile-1',
-    lastKnownRemoteUpdatedAt: null,
+    lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
     lastSuccessfulUploadAt: null,
     ...overrides,
   };
@@ -215,6 +215,23 @@ describe('runAutoUpload()', () => {
     );
   });
 
+  it('passes last-known remote state and source identity to auto upload', async () => {
+    await runAutoUpload({ isAccountLoggedIn: true });
+
+    expect(driveClient.uploadDriveSnapshot).toHaveBeenCalledWith(
+      {
+        metadata: { updated_at: 'x', item_counts: {} },
+        payload: {},
+      },
+      false,
+      {
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+        sourceInstallationId: 'inst-1',
+        sourceProfileId: 'profile-1',
+      }
+    );
+  });
+
   it('skips DRIVE_SYNC_CONFLICT broadcast when remoteUpdatedAt is invalid', async () => {
     driveClient.uploadDriveSnapshot.mockResolvedValue({
       success: false,
@@ -256,7 +273,7 @@ describe('runAutoUpload()', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       })
     );
@@ -279,7 +296,7 @@ describe('runAutoUpload()', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       })
     );

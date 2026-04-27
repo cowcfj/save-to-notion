@@ -43,7 +43,7 @@ describe('Drive Sync Handlers', () => {
       profileId: 'profile-123',
       frequency: 'daily',
       dirtyRevision: 7,
-      lastKnownRemoteUpdatedAt: null,
+      lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
       lastSuccessfulUploadAt: null,
     });
     jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
@@ -91,7 +91,12 @@ describe('Drive Sync Handlers', () => {
           },
           payload: { highlights: [], saved_states: [], url_aliases: {} },
         },
-        false
+        false,
+        {
+          lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+          sourceInstallationId: 'installation-123',
+          sourceProfileId: 'profile-123',
+        }
       );
 
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
@@ -107,7 +112,7 @@ describe('Drive Sync Handlers', () => {
 
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       });
 
@@ -133,7 +138,7 @@ describe('Drive Sync Handlers', () => {
 
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
@@ -196,7 +201,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       });
       expect(result).toEqual({
@@ -224,7 +229,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       });
 
@@ -246,7 +251,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       });
 
@@ -269,7 +274,7 @@ describe('Drive Sync Handlers', () => {
       });
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: null,
+        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
         lastSuccessfulUploadAt: null,
       });
       expect(result).toEqual({

@@ -386,9 +386,10 @@ export async function fetchDriveSnapshotStatus() {
  *
  * @param {object} snapshotPayload - buildDriveSnapshot() 的輸出
  * @param {boolean} [force=false] - 強制覆蓋（需使用者二次確認後才傳 true）
+ * @param {{ lastKnownRemoteUpdatedAt?: string | null; sourceInstallationId?: string | null; sourceProfileId?: string | null }} [options]
  * @returns {Promise<{ success: true; updatedAt: string | null } | { success: false; errorCode: string; message: string; remoteUpdatedAt: string | null }>}
  */
-export async function uploadDriveSnapshot(snapshotPayload, force = false) {
+export async function uploadDriveSnapshot(snapshotPayload, force = false, options = {}) {
   const headers = await requireAccountAuthHeaders();
   const url = `${BUILD_ENV.OAUTH_SERVER_URL}${ACCOUNT_API.DRIVE_SNAPSHOT}`;
 
@@ -398,6 +399,9 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false) {
     body: JSON.stringify({
       snapshot: snapshotPayload,
       force,
+      last_known_remote_updated_at: options.lastKnownRemoteUpdatedAt ?? null,
+      source_installation_id: options.sourceInstallationId ?? null,
+      source_profile_id: options.sourceProfileId ?? null,
     }),
   });
 

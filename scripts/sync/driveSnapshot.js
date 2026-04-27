@@ -9,7 +9,7 @@
  * 設計原則（MUST NOT 違反，Phase A Compatibility Mirror 策略）：
  * - upload 前 MUST NOT 修改本地 storage
  * - download 套用時，同步寫入 page_* / saved_* / highlights_* / url_alias:*
- * - 再移除本地有但 snapshot 無的白名單 keys（避免 stale legacy keys 復活）
+ * - merge-upsert：寫入 remote keys，但保留本地有、remote 無的 sync keys
  * - MUST NOT 觸碰 account* / notion* / driveSync* keys
  *
  * 合併規則（buildUnifiedPageStateFromLocalStorage）：
@@ -30,13 +30,6 @@ import {
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
 } from '../config/shared/storage.js';
-
-// =============================================================================
-// 白名單前綴（與 storageDataUtils.js 的 BACKUP_ALLOWED_PREFIXES 一致）
-// =============================================================================
-
-/** Phase A sync 白名單前綴 */
-const SYNC_ALLOWED_PREFIXES = [PAGE_PREFIX, HIGHLIGHTS_PREFIX, SAVED_PREFIX, URL_ALIAS_PREFIX];
 
 // =============================================================================
 // 型別定義
@@ -634,11 +627,6 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
     throw new Error('INVALID_SNAPSHOT: snapshot 缺少 payload 欄位');
   }
 
-  const rawLocal = await chrome.storage.local.get(null);
-  const localSyncKeys = Object.keys(rawLocal).filter(key =>
-    SYNC_ALLOWED_PREFIXES.some(prefix => key.startsWith(prefix))
-  );
-
   /** @type {Record<string, unknown>} */
   const toWrite = {};
 
@@ -660,7 +648,7 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
     pageStates
   );
 
-  const toRemove = localSyncKeys.filter(key => !snapshotStorageKeys.has(key));
+  const toRemove = [];
 
   await _commitSnapshotWrite(toWrite, toRemove);
 

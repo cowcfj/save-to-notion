@@ -208,6 +208,8 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX
       );
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('（');
+      expect(document.querySelector('#drive-last-upload-text').textContent).toContain('）');
     });
 
     it('transientAuthError=true 時應優先顯示暫時登入失效並停用操作按鈕', () => {
@@ -284,6 +286,18 @@ describe('DriveCloudSyncController', () => {
       );
 
       toLocaleStringSpy.mockRestore();
+    });
+
+    it('valid timestamp display includes a local timezone label', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'timezone@test.dev',
+        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00.000Z',
+      });
+
+      const text = document.querySelector('#drive-last-upload-text').textContent;
+      expect(text).toContain('雲端備份：');
+      expect(text).toContain('（');
+      expect(text).toContain('）');
     });
 
     it('lastSuccessfulUploadAt 為 null 但 lastKnownRemoteUpdatedAt 有值 → 顯示「雲端備份」', () => {
@@ -380,6 +394,49 @@ describe('DriveCloudSyncController', () => {
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
       });
       expect(globalThis.confirm).toHaveBeenCalled();
+    });
+
+    it('download confirmation includes cloud snapshot time and source device summary', async () => {
+      driveClient.getDriveSyncMetadata.mockResolvedValue({
+        connectionEmail: 'restore@test.dev',
+        installationId: 'local-install',
+      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValue({
+        exists: true,
+        updatedAt: '2026-04-20T09:30:00.000Z',
+        size: 10,
+        sourceInstallationId: 'remote-install',
+        sourceProfileId: 'profile-1',
+      });
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(globalThis.confirm).toHaveBeenCalledWith(expect.stringContaining('雲端備份時間：'));
+      expect(globalThis.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('來源裝置：其他裝置')
+      );
+    });
+
+    it('download confirmation falls back to unknown summary when status preflight fails', async () => {
+      driveClient.fetchDriveSnapshotStatus.mockRejectedValue(new Error('status failed'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-download-button').click();
+      await flushAsyncWork();
+
+      expect(globalThis.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('雲端備份時間：未知')
+      );
+      expect(globalThis.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('來源裝置：未知來源')
+      );
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+      });
     });
 
     it('shows an error when connect flow cannot start', async () => {

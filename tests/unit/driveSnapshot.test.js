@@ -201,7 +201,7 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
   });
 
   describe('applyDriveSnapshotToLocalStorage', () => {
-    it('should apply valid snapshot, maintaining legacy keys and pruning stale ones', async () => {
+    it('should apply valid snapshot, maintaining legacy keys and preserving local-only keys', async () => {
       const snapshot = {
         metadata: {
           snapshot_version: 1,
@@ -242,8 +242,8 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
         },
       };
 
-      // Local storage has one valid extra key that should NOT be touched,
-      // and one valid sync key that should be pruned because it's not in snapshot.
+      // Local storage has one non-sync key and one sync key that is absent from the
+      // remote snapshot. Merge-upsert restore must preserve both.
       mockStorageLocal.get.mockResolvedValue({
         accountToken: 'secret',
         [`${PAGE_PREFIX}url_stale`]: { notion: {} },
@@ -252,12 +252,8 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
 
       const result = await applyDriveSnapshotToLocalStorage(snapshot);
 
-      // Verify pruning
-      expect(result.removedKeys).toEqual(
-        expect.arrayContaining([`${PAGE_PREFIX}url_stale`, `${HIGHLIGHTS_PREFIX}url_stale`])
-      );
-      expect(result.removedKeys).not.toContain('accountToken');
-      expect(mockStorageLocal.remove).toHaveBeenCalledWith(result.removedKeys);
+      expect(result.removedKeys).toEqual([]);
+      expect(mockStorageLocal.remove).not.toHaveBeenCalled();
 
       // Verify writing structure
       expect(mockStorageLocal.set).toHaveBeenCalledTimes(1);
@@ -320,7 +316,7 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
       }
     });
 
-    it('should remove stale sync keys before writing snapshot data', async () => {
+    it('should preserve local-only sync keys when remote snapshot is empty', async () => {
       const snapshot = {
         metadata: {
           updated_at: new Date().toISOString(),
@@ -338,10 +334,8 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
 
       await applyDriveSnapshotToLocalStorage(snapshot);
 
-      expect(mockStorageLocal.remove).toHaveBeenCalledWith([`${PAGE_PREFIX}legacy-url`]);
-      expect(mockStorageLocal.remove.mock.invocationCallOrder[0]).toBeLessThan(
-        mockStorageLocal.set.mock.invocationCallOrder[0]
-      );
+      expect(mockStorageLocal.remove).not.toHaveBeenCalled();
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({});
     });
 
     it('should throw error on invalid snapshot', async () => {
@@ -436,7 +430,7 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
         expect(toWrite).not.toHaveProperty(`${URL_ALIAS_PREFIX}normOrphan`);
       });
 
-      it('本地已存在孤兒 alias 時，download 應將其加入 removedKeys（確保清除）', async () => {
+      it('本地已存在孤兒 alias 時，download 不應刪除本地既有 alias', async () => {
         const snapshot = {
           metadata: { updated_at: new Date().toISOString() },
           payload: {
@@ -457,7 +451,8 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
 
         const result = await applyDriveSnapshotToLocalStorage(snapshot);
 
-        expect(result.removedKeys).toContain(`${URL_ALIAS_PREFIX}normOrphan`);
+        expect(result.removedKeys).toEqual([]);
+        expect(mockStorageLocal.remove).not.toHaveBeenCalled();
         const toWrite = mockStorageLocal.set.mock.calls[0][0];
         expect(toWrite).not.toHaveProperty(`${URL_ALIAS_PREFIX}normOrphan`);
       });

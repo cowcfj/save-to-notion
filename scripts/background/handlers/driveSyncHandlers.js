@@ -95,7 +95,11 @@ async function handleManualUpload(request) {
       force,
     });
 
-    const result = await uploadDriveSnapshot(snapshot, force);
+    const result = await uploadDriveSnapshot(snapshot, force, {
+      lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt,
+      sourceInstallationId: metadata.installationId,
+      sourceProfileId: metadata.profileId,
+    });
 
     if (!result.success) {
       await updateDriveSyncRunMetadata({
