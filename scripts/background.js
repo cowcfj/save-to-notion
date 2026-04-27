@@ -171,7 +171,7 @@ accountAuthHandler.setupListeners();
 
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === DRIVE_AUTO_SYNC_ALARM) {
-    runAutoUpload().catch(error => {
+    runAutoUpload({ alarmFiredAt: new Date(alarm.scheduledTime).toISOString() }).catch(error => {
       Logger.error('[Alarm] Drive 自動同步失敗', {
         action: 'auto_sync',
         reason: error instanceof Error ? error.message : String(error),

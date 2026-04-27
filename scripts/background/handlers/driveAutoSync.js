@@ -246,19 +246,26 @@ export async function runAutoUpload(context = {}) {
   if (!shouldRun) {
     Logger.info('[DriveAutoSync] 跳過自動同步', { reason });
     // 記錄 skip telemetry；失敗不中斷主流程
-    await writeDriveAutoSyncTelemetry({ decision: 'skip', skipReason: reason, decisionAt }).catch(
-      error => {
-        Logger.warn('[DriveAutoSync] 寫入 skip telemetry 失敗', {
-          reason: error instanceof Error ? error.message : String(error),
-        });
-      }
-    );
+    await writeDriveAutoSyncTelemetry({
+      decision: 'skip',
+      skipReason: reason,
+      decisionAt,
+      alarmFiredAt: resolvedContext.alarmFiredAt,
+    }).catch(error => {
+      Logger.warn('[DriveAutoSync] 寫入 skip telemetry 失敗', {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    });
     return;
   }
 
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
   // 記錄 run telemetry；失敗不中斷主流程
-  await writeDriveAutoSyncTelemetry({ decision: 'run', decisionAt }).catch(error => {
+  await writeDriveAutoSyncTelemetry({
+    decision: 'run',
+    decisionAt,
+    alarmFiredAt: resolvedContext.alarmFiredAt,
+  }).catch(error => {
     Logger.warn('[DriveAutoSync] 寫入 run telemetry 失敗', {
       reason: error instanceof Error ? error.message : String(error),
     });
