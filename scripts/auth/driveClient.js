@@ -63,6 +63,11 @@ export const DRIVE_SYNC_STORAGE_KEYS = /** @type {const} */ ({
   LAST_UPLOADED_REVISION: 'driveSyncLastUploadedRevision',
   LAST_SNAPSHOT_HASH: 'driveSyncLastSnapshotHash',
   NEXT_ELIGIBLE_AT: 'driveSyncNextEligibleAt',
+  // Phase B Telemetry（可觀測性）
+  LAST_ALARM_FIRED_AT: 'driveSyncLastAlarmFiredAt',
+  LAST_AUTO_SYNC_DECISION: 'driveSyncLastAutoSyncDecision',
+  LAST_AUTO_SYNC_SKIP_REASON: 'driveSyncLastAutoSyncSkipReason',
+  LAST_AUTO_SYNC_DECISION_AT: 'driveSyncLastAutoSyncDecisionAt',
 });
 
 /** Phase A + B 所有 driveSync keys */
@@ -572,6 +577,41 @@ export function computeNextEligibleAt(frequency) {
     now.setDate(now.getDate() + 30);
   }
   return now.toISOString();
+}
+
+/**
+ * 記錄一次 Auto Sync 觸發決策 telemetry。
+ *
+ * 無論 alarm 是否觸發實際上傳，每次 runAutoUpload() 執行時都應呼叫此函數，
+ * 讓 UI 與 QA 可明確區分「alarm 觸發但被略過」與「alarm 根本沒觸發」。
+ *
+ * @param {{
+ *   decision: 'run' | 'skip';
+ *   skipReason?: string;
+ *   decisionAt?: string;
+ *   alarmFiredAt?: string;
+ * }} options
+ * @returns {Promise<void>}
+ */
+export async function writeDriveAutoSyncTelemetry(options) {
+  const now = options.decisionAt ?? new Date().toISOString();
+  const patch = {
+    [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_DECISION]: options.decision,
+    [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_DECISION_AT]: now,
+  };
+
+  if (options.decision === 'skip') {
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_SKIP_REASON] = options.skipReason ?? null;
+  } else {
+    // decision=run 時清除殘留的 skipReason
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_SKIP_REASON] = null;
+  }
+
+  if (options.alarmFiredAt !== undefined) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ALARM_FIRED_AT] = options.alarmFiredAt;
+  }
+
+  await chrome.storage.local.set(patch);
 }
 
 // =============================================================================
