@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.62.0](https://github.com/cowcfj/save-to-notion/compare/v2.61.0...v2.62.0) (2026-04-27)
+
+
+### ✨ 新功能
+
+* **data-integrity:** enhance alias integrity and health reporting ([#448](https://github.com/cowcfj/save-to-notion/issues/448)) ([63a19c6](https://github.com/cowcfj/save-to-notion/commit/63a19c66d9c7708800c2466b15f45a059784eeaf))
+
 ## [2.61.0](https://github.com/cowcfj/save-to-notion/compare/v2.60.0...v2.61.0) (2026-04-26)
 
 
