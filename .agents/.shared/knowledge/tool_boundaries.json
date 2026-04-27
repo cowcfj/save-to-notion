@@ -1,0 +1,81 @@
+{
+  "project_context": "Notion Chrome Extension (MV3)",
+  "description": "Agent tool hierarchy and operational sandbox boundaries. All AI agents must follow these rules when selecting tools and accessing resources.",
+  "source_of_truth": "docs/guides/TOOL_AND_BOUNDARY_GUIDE.md",
+  "tool_hierarchy": {
+    "platform_tools": {
+      "description": "Layer 1: Platform built-in tools preferred over Bash equivalents.",
+      "file_read": {
+        "preferred": "Read tool",
+        "bash_equivalent": "cat / head / tail"
+      },
+      "file_edit": {
+        "preferred": "Edit tool",
+        "bash_equivalent": "sed / awk"
+      },
+      "file_write": {
+        "preferred": "Write tool",
+        "bash_equivalent": "echo / heredoc"
+      }
+    },
+    "cli_preferences": {
+      "description": "Layer 2: When Bash is required, prefer AI-friendly CLI tools for lower error rates.",
+      "text_search": {
+        "preferred": "rg",
+        "fallback": "grep",
+        "reason": "Default recursive, respects .gitignore, stable output format"
+      },
+      "file_search": {
+        "preferred": "fd",
+        "fallback": "find",
+        "reason": "Default respects .gitignore, intuitive syntax"
+      },
+      "json_processing": {
+        "preferred": "jq",
+        "fallback": "python -m json.tool",
+        "reason": "JSON-first standard tool"
+      },
+      "yaml_processing": {
+        "preferred": "yq",
+        "fallback": "python / manual parsing",
+        "reason": "MUST NOT use fragile regex on YAML structure"
+      },
+      "text_replacement": {
+        "preferred": "sd",
+        "fallback": "sed",
+        "reason": "Safer syntax when heavy escaping is needed"
+      },
+      "ast_search_rewrite": {
+        "preferred": "ast-grep (sg)",
+        "fallback": "rg + manual review",
+        "reason": "Structural refactoring prefers AST"
+      },
+      "http_json_request": {
+        "preferred": "xh or httpie",
+        "fallback": "curl",
+        "reason": "Native JSON syntax, fewer quoting errors"
+      }
+    }
+  },
+  "native_first_rule": "MUST use local tools (Read/Edit/Write/Bash, repo knowledge/guides/specs) before considering MCP or external tools.",
+  "mcp_unnecessary_conditions": [
+    "Repo-internal rules already exist",
+    "Knowledge JSON has the answer",
+    "Local shell or repo search can answer",
+    "Simple text replacement or local file edit"
+  ],
+  "mcp_acceptable_conditions": [
+    "Need real-time state outside repo",
+    "Need latest official docs for external packages",
+    "Need external system response for contract/auth verification",
+    "Need observable record of high-risk decision"
+  ],
+  "sandbox": {
+    "allowed_paths": ["/Volumes/WD1TMac/code/notion-chrome"],
+    "must_not": [
+      "Probe systems outside repo boundary",
+      "Read user global credentials (e.g., ~/.ssh)",
+      "Use MCP as sandbox bypass"
+    ]
+  }
+}

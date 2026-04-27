@@ -1,6 +1,11 @@
 {
   "description": "Canonical task routing map for choosing the right guide, knowledge file, and plan level.",
   "source_of_truth": "docs/guides/TASK_ROUTING.md",
+  "cross_cutting": {
+    "guides": ["docs/guides/TOOL_AND_BOUNDARY_GUIDE.md"],
+    "knowledge": [".agents/.shared/knowledge/tool_boundaries.json"],
+    "note": "適用於所有 task types，在進入特定 task type 前載入。"
+  },
   "task_types": {
     "bug_fix": {
       "guides": [
