@@ -560,7 +560,10 @@ describe('background error branches (integration)', () => {
     // 已保存頁面 → 走 updateNotionPage 分支
     const savedKey = `saved_${url}`;
     await new Promise(resolve =>
-      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-validation-image' } }, resolve)
+      chrome.storage.local.set(
+        { [savedKey]: { notionPageId: 'page-validation-image', destinationProfileId: 'default' } },
+        resolve
+      )
     );
 
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
@@ -645,7 +648,10 @@ describe('background error branches (integration)', () => {
 
     const savedKey = `saved_${url}`;
     await new Promise(resolve =>
-      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-400-gen' } }, resolve)
+      chrome.storage.local.set(
+        { [savedKey]: { notionPageId: 'page-400-gen', destinationProfileId: 'default' } },
+        resolve
+      )
     );
 
     const contentResult = {
@@ -716,7 +722,10 @@ describe('background error branches (integration)', () => {
       return Promise.resolve(res);
     });
     await new Promise(resolve =>
-      chrome.storage.local.set({ [`saved_${url}`]: { notionPageId: pageId } }, resolve)
+      chrome.storage.local.set(
+        { [`saved_${url}`]: { notionPageId: pageId, destinationProfileId: 'default' } },
+        resolve
+      )
     );
 
     const contentResult = {
