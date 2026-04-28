@@ -253,6 +253,34 @@ body {
   gap: var(--spacing-sm);
 }
 
+.destination-profile-form {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.destination-profile-name-row,
+.destination-target-select,
+.destination-target-manual {
+  min-width: 0;
+}
+
+.destination-target-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  gap: var(--spacing-sm);
+  align-items: end;
+}
+
+.destination-target-help {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .destination-target-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 input[type='text'],
 input[type='password'],
 select {
@@ -484,7 +512,7 @@ select:focus {
 
 /* Database Selector */
 .database-selector-container {
-  margin-top: var(--spacing-xs);
+  margin-top: 0;
 }
 
 .searchable-selector {

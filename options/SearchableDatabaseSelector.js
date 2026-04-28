@@ -162,14 +162,8 @@ export class SearchableDatabaseSelector {
       this.container.style.display = 'block';
     }
 
-    const pageCount = dataSources.filter(ds => ds.object === 'page').length;
-    // Consider both 'data_source' and 'database' as data sources for the count (consistent with DataSourceManager.filterAndSortResults)
-    const dsCount = dataSources.filter(
-      ds => ds.object === 'data_source' || ds.object === 'database'
-    ).length;
-
     if (this.searchInput) {
-      this.searchInput.placeholder = `搜索 ${dataSources.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
+      this.searchInput.placeholder = '搜尋保存目標...';
     }
 
     if (this.databaseIdInput?.value) {
@@ -592,11 +586,7 @@ export class SearchableDatabaseSelector {
     const total = this.dataSources.length;
     const filtered = this.filteredDataSources.length;
 
-    if (filtered === total) {
-      this.dataSourceCount.textContent = `${total} 個保存目標`;
-    } else {
-      this.dataSourceCount.textContent = `${filtered} / ${total} 個保存目標`;
-    }
+    this.dataSourceCount.textContent = filtered === total ? '保存目標' : '搜尋結果';
   }
 
   async refreshDataSources() {

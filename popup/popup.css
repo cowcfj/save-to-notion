@@ -160,7 +160,7 @@ button {
   margin-top: calc(var(--spacing-sm) * -1);
   margin-bottom: var(--spacing-xs);
   color: #334155;
-  font-size: 12px;
+  font-size: 14px;
   text-align: left;
 }
 
@@ -218,7 +218,7 @@ button {
   justify-content: flex-start;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .destination-menu-item:hover,

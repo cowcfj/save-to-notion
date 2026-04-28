@@ -135,7 +135,7 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.initialDataSources[0].id).toBe('1');
     });
 
-    it('should correctly count database objects in placeholder text', () => {
+    it('should use a concise placeholder without type counts', () => {
       const mixedDataSources = [
         { id: 'db1', object: 'database', title: [{ plain_text: 'DB 1' }] },
         {
@@ -147,8 +147,7 @@ describe('SearchableDatabaseSelector', () => {
       ];
       selector.populateDataSources(mixedDataSources);
 
-      // Total: 3, Pages: 1, DataSources: 2 (1 db + 1 ds)
-      expect(selector.searchInput.placeholder).toBe('搜索 3 個保存目標（2 個資料來源 + 1 個頁面）');
+      expect(selector.searchInput.placeholder).toBe('搜尋保存目標...');
     });
   });
 

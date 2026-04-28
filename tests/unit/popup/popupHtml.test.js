@@ -10,4 +10,11 @@ describe('popup.html accessibility fallbacks', () => {
     expect(heading).not.toBeNull();
     expect(heading.textContent.trim()).toBe('Save to Notion');
   });
+
+  it('保存目標文字應與 popup 按鈕文字使用一致字級', () => {
+    const css = readFileSync('popup/popup.css', 'utf8');
+
+    expect(css).toMatch(/\.destination-section\s*\{[^}]*font-size:\s*14px;/);
+    expect(css).toMatch(/\.destination-menu-item\s*\{[^}]*font-size:\s*14px;/);
+  });
 });

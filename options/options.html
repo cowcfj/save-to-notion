@@ -213,92 +213,101 @@
             <p class="section-desc text-sm gap-bottom-sm">
               預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。
             </p>
-            <div class="form-group">
-              <label for="destination-profile-name">保存目標名稱（選填）</label>
-              <div class="input-wrapper">
-                <input
-                  type="text"
-                  id="destination-profile-name"
-                  maxlength="40"
-                  placeholder="例如：Inbox、Research、讀書筆記"
-                />
+            <div class="form-group destination-profile-form">
+              <div class="destination-profile-name-row">
+                <label for="destination-profile-name">保存目標名稱（選填）</label>
+                <div class="input-wrapper">
+                  <input
+                    type="text"
+                    id="destination-profile-name"
+                    maxlength="40"
+                    placeholder="例如：Inbox、Research、讀書筆記"
+                  />
+                </div>
               </div>
-              <!-- 可搜索的數據庫選擇器組件 -->
-              <div class="database-selector-container hidden" id="database-selector-container">
-                <div class="searchable-selector">
-                  <div class="selector-input">
-                    <input
-                      type="text"
-                      id="database-search"
-                      placeholder="搜尋資料來源..."
-                      autocomplete="off"
-                    />
-                    <button
-                      type="button"
-                      id="selector-toggle"
-                      class="selector-toggle"
-                      aria-label="切換資料來源選單"
-                      aria-controls="data-source-list"
-                      aria-haspopup="listbox"
-                      aria-expanded="false"
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="icon-svg"
-                        aria-hidden="true"
-                        focusable="false"
-                      >
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="selector-dropdown hidden" id="database-dropdown">
-                    <div class="dropdown-header">
-                      <span id="data-source-count">0 個來源</span>
-                      <button
-                        type="button"
-                        id="refresh-databases"
-                        class="btn-icon"
-                        title="重新整理"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          class="icon-svg"
-                          aria-hidden="true"
-                          focusable="false"
+              <div class="destination-target-row">
+                <div class="destination-target-select">
+                  <label for="database-search">從 Notion 選擇</label>
+                  <!-- 可搜索的數據庫選擇器組件 -->
+                  <div class="database-selector-container hidden" id="database-selector-container">
+                    <div class="searchable-selector">
+                      <div class="selector-input">
+                        <input
+                          type="text"
+                          id="database-search"
+                          placeholder="搜尋保存目標..."
+                          autocomplete="off"
+                        />
+                        <button
+                          type="button"
+                          id="selector-toggle"
+                          class="selector-toggle"
+                          aria-label="切換資料來源選單"
+                          aria-controls="data-source-list"
+                          aria-haspopup="listbox"
+                          aria-expanded="false"
                         >
-                          <use href="#icon-refresh" />
-                        </svg>
-                      </button>
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="icon-svg"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="selector-dropdown hidden" id="database-dropdown">
+                        <div class="dropdown-header">
+                          <span id="data-source-count">保存目標</span>
+                          <button
+                            type="button"
+                            id="refresh-databases"
+                            class="btn-icon"
+                            title="重新整理"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              class="icon-svg"
+                              aria-hidden="true"
+                              focusable="false"
+                            >
+                              <use href="#icon-refresh" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div class="dropdown-list" id="data-source-list">
+                          <div class="loading-state">載入中...</div>
+                        </div>
+                      </div>
                     </div>
-                    <div class="dropdown-list" id="data-source-list">
-                      <div class="loading-state">載入中...</div>
-                    </div>
+                  </div>
+
+                  <!-- 回退選擇器 -->
+                  <select id="database-select" class="hidden">
+                    <option value="">選擇資料來源...</option>
+                  </select>
+                </div>
+
+                <div class="destination-target-manual">
+                  <label for="database-id">或貼上 ID</label>
+                  <div class="input-wrapper">
+                    <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
+                    <input type="hidden" id="database-type" />
                   </div>
                 </div>
               </div>
 
-              <!-- 回退選擇器 -->
-              <select id="database-select" class="hidden">
-                <option value="">選擇資料來源...</option>
-              </select>
-
-              <div class="input-wrapper">
-                <label for="database-id" class="sr-only">下方手動 ID 欄位</label>
-                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
-                <input type="hidden" id="database-type" />
-              </div>
-
-              <p class="help-text">
-                提示：若搜尋不到，可直接在上方欄位貼上 ID，或參考<a
+              <p class="help-text destination-target-help">
+                找不到目標時，可在「或貼上 ID」欄位輸入 Page ID 或 Database ID；需要協助可參考<a
                   href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-如何獲取-notion-id"
                   target="_blank"
                   rel="noopener noreferrer"

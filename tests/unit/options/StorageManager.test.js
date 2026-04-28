@@ -1571,6 +1571,30 @@ describe('options.html 結構', () => {
       selectorContainer.compareDocumentPosition(manualIdInput) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
+
+  test('保存目標新增表單應將名稱獨立成行，選擇器與 ID 欄位並列成行', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const nameRow = doc.querySelector('.destination-profile-name-row');
+    const targetRow = doc.querySelector('.destination-target-row');
+    const selectorColumn = doc.querySelector('.destination-target-select');
+    const manualColumn = doc.querySelector('.destination-target-manual');
+    const manualLabel = doc.querySelector('label[for="database-id"]');
+    const helpText = doc.querySelector('.destination-target-help');
+
+    expect(nameRow?.querySelector('#destination-profile-name')).not.toBeNull();
+    expect(targetRow).not.toBeNull();
+    expect(selectorColumn?.querySelector('#database-selector-container')).not.toBeNull();
+    expect(manualColumn?.querySelector('#database-id')).not.toBeNull();
+    expect(manualLabel?.classList.contains('sr-only')).toBe(false);
+    expect(manualLabel?.textContent.trim()).toBe('或貼上 ID');
+    expect(helpText?.textContent).toContain(
+      '找不到目標時，可在「或貼上 ID」欄位輸入 Page ID 或 Database ID'
+    );
+    expect(helpText?.textContent).not.toContain('上方欄位');
+  });
 });
 
 // ─── Migration Leftover 判定精確性測試（Step 4）────────────────────────
