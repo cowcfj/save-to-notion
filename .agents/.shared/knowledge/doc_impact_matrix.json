@@ -1,6 +1,8 @@
 {
-  "description": "Canonical document impact matrix for completion-time checks.",
+  "description": "Canonical document impact matrix for Plan-Driven completion-time checks.",
   "source_of_truth": "docs/guides/CHANGE_COMPLETION_WORKFLOW.md",
+  "applies_to": ["standard", "deep"],
+  "lite_plan_policy": "Lite plan tasks may skip document impact checks entirely when they do not affect user-visible behavior, API contracts, storage/message bus, auth/security, or workflow policy.",
   "change_types": {
     "feature": {
       "must_check": ["docs/specs/*", "USER_GUIDE.md", "help.html", "relevant docs/guides/*"],

@@ -8,13 +8,13 @@
   },
   "task_types": {
     "bug_fix": {
-      "guides": [
-        "docs/guides/DEBUGGING_GUIDE.md",
-        "docs/guides/TESTING_GUIDE.md",
-        "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
-      ],
+      "guides": ["docs/guides/DEBUGGING_GUIDE.md", "docs/guides/TESTING_GUIDE.md"],
       "knowledge": [".agents/.shared/knowledge/debugging_rules.json"],
-      "default_plan_level": "lite_or_standard"
+      "default_plan_level": "lite_or_standard",
+      "completion": {
+        "lite": "May use Lite Completion Path and skip doc_impact_matrix.json.",
+        "standard": "Read docs/guides/CHANGE_COMPLETION_WORKFLOW.md and check doc_impact_matrix.json bug_fix."
+      }
     },
     "feature": {
       "guides": [
@@ -29,7 +29,10 @@
         ".agents/.shared/knowledge/notion_constraints.json",
         ".agents/.shared/knowledge/security_rules.json"
       ],
-      "default_plan_level": "standard_or_deep"
+      "default_plan_level": "standard_or_deep",
+      "completion": {
+        "standard_or_deep": "Use Plan-Driven Completion Path and check doc_impact_matrix.json feature."
+      }
     },
     "refactor": {
       "guides": [
@@ -43,20 +46,27 @@
         ".agents/.shared/knowledge/storage_schema.json",
         ".agents/.shared/knowledge/security_rules.json"
       ],
-      "default_plan_level": "standard_or_deep"
+      "default_plan_level": "standard_or_deep",
+      "completion": {
+        "standard_or_deep": "Use Plan-Driven Completion Path and check doc_impact_matrix.json refactor."
+      }
     },
     "review": {
       "guides": ["docs/guides/CODE_REVIEW_GUIDE.md"],
       "knowledge": [".agents/.shared/knowledge/review_red_lines.json"],
-      "default_plan_level": "lite"
+      "default_plan_level": "lite",
+      "completion": {
+        "lite": "May use Lite Completion Path; doc checks are not required unless review policy docs are changed."
+      }
     },
     "doc_report": {
       "guides": ["docs/guides/DOCUMENTATION_STRATEGY.md"],
-      "knowledge": [
-        ".agents/.shared/knowledge/plan_policy.json",
-        ".agents/.shared/knowledge/doc_impact_matrix.json"
-      ],
-      "default_plan_level": "lite_or_standard"
+      "knowledge": [".agents/.shared/knowledge/plan_policy.json"],
+      "default_plan_level": "lite_or_standard",
+      "completion": {
+        "lite": "May use Lite Completion Path and skip doc_impact_matrix.json.",
+        "standard": "Read docs/guides/CHANGE_COMPLETION_WORKFLOW.md and use doc_impact_matrix.json when documentation synchronization is in scope."
+      }
     },
     "backend_boundary_investigation": {
       "guides": [
@@ -69,7 +79,10 @@
         ".agents/.shared/knowledge/storage_schema.json",
         ".agents/.shared/knowledge/security_rules.json"
       ],
-      "default_plan_level": "deep"
+      "default_plan_level": "deep",
+      "completion": {
+        "deep": "Use Plan-Driven Completion Path and check doc_impact_matrix.json decision_change or bug_fix."
+      }
     }
   }
 }

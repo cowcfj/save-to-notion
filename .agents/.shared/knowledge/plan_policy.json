@@ -10,10 +10,12 @@
       "use_for": [
         "single-file bug fixes",
         "low-risk local fixes",
-        "small text or config adjustments"
+        "small text or config adjustments",
+        "ESLint or formatter style-only fixes"
       ],
       "persistence": "optional",
-      "format": "3-6 line proposal or short checklist"
+      "format": "3-6 line proposal or short checklist",
+      "completion": "May use Lite Completion Path; doc_impact_matrix.json is not required."
     },
     "standard": {
       "use_for": ["general features", "multi-file bug fixes", "general refactors"],
