@@ -68,4 +68,16 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(/\.account-section\s*\{[^}]*justify-self:\s*end;/);
     expect(css).toMatch(/\.settings-button\s*\{[^}]*min-height:\s*32px;/);
   });
+
+  it('popup title 應使用品牌文字色與 icon 主色 accent', () => {
+    const css = readFileSync('popup/popup.css', 'utf8');
+
+    expect(css).toMatch(/--brand-title:\s*#172033;/);
+    expect(css).toMatch(/--brand-accent:\s*#ff8060;/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*color:\s*var\(--brand-title\);/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*font-weight:\s*700;/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*letter-spacing:\s*0;/);
+    expect(css).toMatch(/#popup-title::after\s*\{[^}]*background:\s*var\(--brand-accent\);/);
+    expect(css).toMatch(/#popup-title::after\s*\{[^}]*width:\s*32px;/);
+  });
 });
