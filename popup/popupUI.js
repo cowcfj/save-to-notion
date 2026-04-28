@@ -86,7 +86,7 @@ export function renderDestinationSelector(elements, state) {
   elements.destinationSection.style.display = 'block';
 
   if (elements.destinationCurrent) {
-    elements.destinationCurrent.textContent = `目的地：${formatDestinationLabel(selectedProfile)}`;
+    elements.destinationCurrent.textContent = `保存目標：${formatDestinationLabel(selectedProfile)}`;
     elements.destinationCurrent.dataset.profileId = selectedProfile.id;
     elements.destinationCurrent.style.borderColor = selectedProfile.color || '';
   }

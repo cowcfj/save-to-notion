@@ -58,8 +58,19 @@ jest.mock('../../../scripts/auth/accountSession.js', () => ({
 jest.mock('../../../scripts/background/services/DestinationProfileService.js', () => ({
   DestinationProfileService: jest.fn().mockImplementation(() => ({
     listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
+    getDestinationEntitlement: jest
+      .fn()
+      .mockResolvedValue({ maxProfiles: 2, accountSignedIn: true, source: 'test' }),
     ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+    createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
+    getProfile: jest.fn().mockResolvedValue({
+      id: 'default',
+      name: 'Default',
+      notionDataSourceId: 'source-1',
+      notionDataSourceType: 'database',
+    }),
     updateProfile: jest.fn().mockResolvedValue({ id: 'default' }),
+    deleteProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
   })),
   LocalDestinationProfileRepository: jest.fn(),
   AccountGatedDestinationEntitlementProvider: jest.fn(),
@@ -1063,6 +1074,187 @@ describe('Google Drive API constants', () => {
     expect(ACCOUNT_API.DRIVE_CONNECTION).toBe('/v1/account/drive/connection');
     expect(ACCOUNT_API.DRIVE_SNAPSHOT_STATUS).toBe('/v1/account/drive/snapshot/status');
     expect(ACCOUNT_API.DRIVE_SNAPSHOT).toBe('/v1/account/drive/snapshot');
+  });
+});
+
+describe('Destination profile options UI', () => {
+  const {
+    DestinationProfileService,
+  } = require('../../../scripts/background/services/DestinationProfileService.js');
+  const {
+    getAccountProfile,
+    getAccountAccessToken,
+  } = require('../../../scripts/auth/accountSession.js');
+  const { BUILD_ENV } = require('../../../scripts/config/env/index.js');
+  let mockUiInstance = null;
+
+  function buildDestinationProfileDOM() {
+    document.body.innerHTML = `
+      <button id="save-button"></button>
+      <button id="save-templates-button"></button>
+      <div id="app-version"></div>
+      <button class="nav-item" data-section="general"></button>
+      <div id="section-general" class="settings-section"></div>
+      <input id="database-id" value="a1b2c3d4e5f67890abcdef1234567890" />
+      <input id="database-type" value="page" />
+      <input id="destination-profile-name" value="" />
+      <div id="destination-profile-list"></div>
+      <button id="add-destination-profile" type="button"></button>
+      <p id="destination-profile-status" class="help-text"></p>
+    `;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    BUILD_ENV.ENABLE_ACCOUNT = false;
+    buildDestinationProfileDOM();
+    globalThis.chrome = buildChromeMock();
+    mockUiInstance = { init: jest.fn(), showStatus: jest.fn() };
+    UIManager.mockImplementation(() => mockUiInstance);
+    AuthManager.mockImplementation(() => ({ init: jest.fn(), checkAuthStatus: jest.fn() }));
+    DataSourceManager.mockImplementation(() => ({ init: jest.fn(), loadDataSources: jest.fn() }));
+    StorageManager.mockImplementation(() => ({ init: jest.fn(), updateStorageUsage: jest.fn() }));
+    MigrationTool.mockImplementation(() => ({ init: jest.fn() }));
+    getAccountProfile.mockReset();
+    getAccountAccessToken.mockReset();
+    getAccountProfile.mockResolvedValue(null);
+    getAccountAccessToken.mockResolvedValue(null);
+    DestinationProfileService.mockClear();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    delete globalThis.chrome;
+    BUILD_ENV.ENABLE_ACCOUNT = true;
+    jest.clearAllMocks();
+  });
+
+  it('未登入且已達上限時，新增保存目標按鈕應 disabled 並顯示原因', async () => {
+    DestinationProfileService.mockImplementationOnce(() => ({
+      ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+      listProfiles: jest.fn().mockResolvedValue([
+        {
+          id: 'default',
+          name: 'Default',
+          color: '#2563eb',
+          notionDataSourceId: 'source-1',
+          notionDataSourceType: 'database',
+        },
+      ]),
+      getDestinationEntitlement: jest.fn().mockResolvedValue({
+        maxProfiles: 1,
+        accountSignedIn: false,
+        source: 'test',
+      }),
+      getProfile: jest.fn().mockResolvedValue({
+        id: 'default',
+        name: 'Default',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      }),
+      updateProfile: jest.fn(),
+      createProfile: jest.fn(),
+      deleteProfile: jest.fn(),
+    }));
+
+    initOptions();
+    await flushAsyncClick();
+
+    const addButton = document.querySelector('#add-destination-profile');
+    const status = document.querySelector('#destination-profile-status');
+    expect(addButton.disabled).toBe(true);
+    expect(addButton.getAttribute('aria-describedby')).toBe('destination-profile-status');
+    expect(addButton.title).toContain('登入 account 後可建立第二個保存目標');
+    expect(status.textContent).toContain('登入 account 後可建立第二個保存目標');
+  });
+
+  it('重新命名保存目標時應 trim 名稱並呼叫 updateProfile', async () => {
+    const service = {
+      ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+      listProfiles: jest.fn().mockResolvedValue([
+        {
+          id: 'default',
+          name: 'Default',
+          color: '#2563eb',
+          notionDataSourceId: 'source-1',
+          notionDataSourceType: 'database',
+        },
+      ]),
+      getDestinationEntitlement: jest.fn().mockResolvedValue({
+        maxProfiles: 2,
+        accountSignedIn: true,
+        source: 'test',
+      }),
+      getProfile: jest.fn().mockResolvedValue({
+        id: 'default',
+        name: 'Default',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      }),
+      updateProfile: jest.fn().mockResolvedValue({ id: 'default', name: 'Inbox' }),
+      createProfile: jest.fn(),
+      deleteProfile: jest.fn(),
+    };
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('button[data-action="rename"]').click();
+    await flushAsyncClick();
+    const input = document.querySelector('input[data-role="destination-profile-name-edit"]');
+    input.value = '  Inbox  ';
+    document.querySelector('button[data-action="save-name"]').click();
+    await flushAsyncClick();
+
+    expect(service.updateProfile).toHaveBeenCalledWith('default', { name: 'Inbox' });
+  });
+
+  it('重新命名保存目標為空白時應顯示錯誤且不呼叫 updateProfile', async () => {
+    const service = {
+      ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+      listProfiles: jest.fn().mockResolvedValue([
+        {
+          id: 'default',
+          name: 'Default',
+          color: '#2563eb',
+          notionDataSourceId: 'source-1',
+          notionDataSourceType: 'database',
+        },
+      ]),
+      getDestinationEntitlement: jest.fn().mockResolvedValue({
+        maxProfiles: 2,
+        accountSignedIn: true,
+        source: 'test',
+      }),
+      getProfile: jest.fn().mockResolvedValue({
+        id: 'default',
+        name: 'Default',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      }),
+      updateProfile: jest.fn(),
+      createProfile: jest.fn(),
+      deleteProfile: jest.fn(),
+    };
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('button[data-action="rename"]').click();
+    await flushAsyncClick();
+    const input = document.querySelector('input[data-role="destination-profile-name-edit"]');
+    input.value = '   ';
+    document.querySelector('button[data-action="save-name"]').click();
+    await flushAsyncClick();
+
+    expect(service.updateProfile).not.toHaveBeenCalled();
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      expect.stringContaining('名稱'),
+      'error'
+    );
   });
 });
 

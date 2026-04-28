@@ -34,6 +34,26 @@ import {
 } from '../scripts/background/services/DestinationProfileService.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
+const DESTINATION_PROFILE_NAME_MAX_LENGTH = 40;
+const DESTINATION_PROFILE_NAME_EDIT_ROLE = 'destination-profile-name-edit';
+const DESTINATION_PROFILE_ACTIONS = {
+  RENAME: 'rename',
+  CANCEL_NAME: 'cancel-name',
+  SAVE_NAME: 'save-name',
+  EDIT: 'edit',
+  DELETE: 'delete',
+};
+const DESTINATION_TARGET_FIELD_SELECTORS = {
+  ID: '#database-id',
+  TYPE: '#database-type',
+};
+const BUTTON_SECONDARY_CLASS = 'btn-secondary';
+
+function normalizeDestinationProfileName(value) {
+  return typeof value === 'string'
+    ? value.trim().slice(0, DESTINATION_PROFILE_NAME_MAX_LENGTH)
+    : '';
+}
 
 function createDestinationProfileService() {
   return new DestinationProfileService({
@@ -115,7 +135,7 @@ export function initOptions() {
   storage.init();
   migration.init();
   initDestinationProfilesUI(ui).catch(error => {
-    Logger.warn('初始化保存目的地 UI 失敗', { action: 'initDestinationProfilesUI', error });
+    Logger.warn('初始化保存目標 UI 失敗', { action: 'initDestinationProfilesUI', error });
   });
 
   // 3. 初始狀態檢查
@@ -210,11 +230,21 @@ async function initDestinationProfilesUI(ui) {
   const list = document.querySelector('#destination-profile-list');
   const addButton = document.querySelector('#add-destination-profile');
   const status = document.querySelector('#destination-profile-status');
+  const nameInput = document.querySelector('#destination-profile-name');
   if (!list || !addButton) {
     return;
   }
 
   const service = createDestinationProfileService();
+  let editingProfileId = null;
+  let draftProfileName = '';
+
+  addButton.setAttribute('aria-describedby', 'destination-profile-status');
+
+  const showNameError = () => {
+    ui.showStatus('保存目標名稱不可為空白。', 'error');
+  };
+
   const render = async () => {
     const [profiles, entitlement] = await Promise.all([
       service.listProfiles(),
@@ -228,29 +258,69 @@ async function initDestinationProfilesUI(ui) {
       row.style.borderLeftColor = profile.color || '#2563eb';
 
       const content = document.createElement('div');
-      const title = document.createElement('p');
-      title.className = 'destination-profile-title';
-      title.textContent = profile.name || 'Default';
+      if (editingProfileId === profile.id) {
+        const titleEdit = document.createElement('div');
+        titleEdit.className = 'destination-profile-name-edit';
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.className = 'destination-profile-name-input';
+        titleInput.dataset.role = DESTINATION_PROFILE_NAME_EDIT_ROLE;
+        titleInput.value = draftProfileName || profile.name || 'Default';
+        titleInput.maxLength = DESTINATION_PROFILE_NAME_MAX_LENGTH;
+        titleInput.setAttribute('aria-label', '保存目標名稱');
+        titleEdit.append(titleInput);
+        content.append(titleEdit);
+      } else {
+        const title = document.createElement('p');
+        title.className = 'destination-profile-title';
+        title.textContent = profile.name || 'Default';
+        content.append(title);
+      }
       const meta = document.createElement('p');
       meta.className = 'destination-profile-meta';
       meta.textContent = `${profile.notionDataSourceType} · ${profile.notionDataSourceId}`;
-      content.append(title, meta);
+      content.append(meta);
 
       const actions = document.createElement('div');
       actions.className = 'destination-profile-actions';
+      if (editingProfileId === profile.id) {
+        const saveNameButton = document.createElement('button');
+        saveNameButton.type = 'button';
+        saveNameButton.className = BUTTON_SECONDARY_CLASS;
+        saveNameButton.dataset.action = DESTINATION_PROFILE_ACTIONS.SAVE_NAME;
+        saveNameButton.dataset.profileId = profile.id;
+        saveNameButton.textContent = '儲存';
+        const cancelNameButton = document.createElement('button');
+        cancelNameButton.type = 'button';
+        cancelNameButton.className = BUTTON_SECONDARY_CLASS;
+        cancelNameButton.dataset.action = DESTINATION_PROFILE_ACTIONS.CANCEL_NAME;
+        cancelNameButton.dataset.profileId = profile.id;
+        cancelNameButton.textContent = '取消';
+        actions.append(saveNameButton, cancelNameButton);
+      } else {
+        const renameButton = document.createElement('button');
+        renameButton.type = 'button';
+        renameButton.className = BUTTON_SECONDARY_CLASS;
+        renameButton.dataset.action = DESTINATION_PROFILE_ACTIONS.RENAME;
+        renameButton.dataset.profileId = profile.id;
+        renameButton.textContent = '重新命名';
+        actions.append(renameButton);
+      }
       const editButton = document.createElement('button');
       editButton.type = 'button';
-      editButton.className = 'btn-secondary';
-      editButton.dataset.action = 'edit';
+      editButton.className = BUTTON_SECONDARY_CLASS;
+      editButton.dataset.action = DESTINATION_PROFILE_ACTIONS.EDIT;
       editButton.dataset.profileId = profile.id;
       editButton.textContent = '套用';
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
       deleteButton.className = 'btn-danger';
-      deleteButton.dataset.action = 'delete';
+      deleteButton.dataset.action = DESTINATION_PROFILE_ACTIONS.DELETE;
       deleteButton.dataset.profileId = profile.id;
       deleteButton.textContent = '刪除';
-      actions.append(editButton, deleteButton);
+      if (editingProfileId !== profile.id) {
+        actions.append(editButton, deleteButton);
+      }
 
       row.append(content, actions);
       list.append(row);
@@ -261,11 +331,12 @@ async function initDestinationProfilesUI(ui) {
     if (status) {
       let limitMessage = '';
       if (limitReached && entitlement.maxProfiles <= 1) {
-        limitMessage = '登入 account 後可建立第二個目的地。';
+        limitMessage = '登入 account 後可建立第二個保存目標。';
       } else if (limitReached) {
-        limitMessage = '更多目的地會在付費方案開放。';
+        limitMessage = '更多保存目標會在付費方案開放。';
       }
       status.textContent = limitMessage;
+      addButton.title = limitMessage;
     }
   };
 
@@ -276,31 +347,66 @@ async function initDestinationProfilesUI(ui) {
     }
     const profileId = button.dataset.profileId;
     const action = button.dataset.action;
-    if (action === 'edit') {
+    if (action === DESTINATION_PROFILE_ACTIONS.RENAME) {
       const profile = await service.getProfile(profileId);
-      document.querySelector('#database-id').value = profile.notionDataSourceId;
-      document.querySelector('#database-type').value = profile.notionDataSourceType;
+      editingProfileId = profile.id;
+      draftProfileName = profile.name || 'Default';
+      await render();
+      list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
+      return;
+    }
+    if (action === DESTINATION_PROFILE_ACTIONS.CANCEL_NAME) {
+      editingProfileId = null;
+      draftProfileName = '';
+      await render();
+      return;
+    }
+    if (action === DESTINATION_PROFILE_ACTIONS.SAVE_NAME) {
+      const input = list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`);
+      const nextName = normalizeDestinationProfileName(input?.value || '');
+      if (!nextName) {
+        showNameError();
+        return;
+      }
+      await service.updateProfile(profileId, { name: nextName });
+      editingProfileId = null;
+      draftProfileName = '';
+      await render();
+      return;
+    }
+    if (action === DESTINATION_PROFILE_ACTIONS.EDIT) {
+      const profile = await service.getProfile(profileId);
+      document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
+        profile.notionDataSourceId;
+      document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
+        profile.notionDataSourceType;
       ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
       return;
     }
-    if (action === 'delete') {
+    if (action === DESTINATION_PROFILE_ACTIONS.DELETE) {
       await service.deleteProfile(profileId);
       await render();
     }
   });
 
   addButton.addEventListener('click', async () => {
-    const databaseId = cleanDatabaseId(document.querySelector('#database-id')?.value || '');
+    const databaseId = cleanDatabaseId(
+      document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID)?.value || ''
+    );
     if (!databaseId) {
       ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
       return;
     }
-    const rawType = document.querySelector('#database-type')?.value;
+    const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
+    const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
     await service.createProfile({
-      name: `目的地 ${Date.now().toString().slice(-4)}`,
+      name: explicitName || `保存目標 ${Date.now().toString().slice(-4)}`,
       notionDataSourceId: databaseId,
       notionDataSourceType: rawType === 'page' ? 'page' : 'database',
     });
+    if (nameInput) {
+      nameInput.value = '';
+    }
     await render();
   });
 

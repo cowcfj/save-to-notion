@@ -63,13 +63,14 @@ describe('popupUI.js', () => {
   });
 
   describe('renderDestinationSelector', () => {
-    it('只有一個 profile 時應顯示目前目的地並隱藏選單切換', () => {
+    it('只有一個 profile 時應顯示目前保存目標並隱藏選單切換', () => {
       renderDestinationSelector(mockElements, {
         profiles: [{ id: 'default', name: 'Default', color: '#2563eb', icon: 'bookmark' }],
         selectedProfileId: 'default',
       });
 
       expect(mockElements.destinationSection.style.display).toBe('block');
+      expect(mockElements.destinationCurrent.textContent).toBe('保存目標：Default');
       expect(mockElements.destinationCurrent.textContent).toContain('Default');
       expect(mockElements.destinationToggle.style.display).toBe('none');
       expect(mockElements.destinationCurrent.dataset.profileId).toBe('default');

@@ -207,13 +207,22 @@
             </div>
           </div>
 
-          <!-- 保存目的地模塊 -->
+          <!-- 保存目標模塊 -->
           <div class="card">
-            <h3>保存目的地</h3>
+            <h3>保存目標</h3>
             <p class="section-desc text-sm gap-bottom-sm">
-              Default 目的地會沿用下方 Notion target。登入 account 後可新增第二個本地目的地。
+              Default 保存目標會沿用下方 Notion target。登入 account 後可新增第二個本地保存目標。
             </p>
             <div class="form-group">
+              <label for="destination-profile-name">保存目標名稱（選填）</label>
+              <div class="input-wrapper">
+                <input
+                  type="text"
+                  id="destination-profile-name"
+                  maxlength="40"
+                  placeholder="例如：Inbox、Research、讀書筆記"
+                />
+              </div>
               <div class="input-wrapper">
                 <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
                 <input type="hidden" id="database-type" />
@@ -297,11 +306,16 @@
               </p>
               <div id="destination-profile-list" class="destination-profile-list"></div>
               <div class="button-group gap-top-sm">
-                <button type="button" id="add-destination-profile" class="btn-secondary">
-                  新增目的地
+                <button
+                  type="button"
+                  id="add-destination-profile"
+                  class="btn-secondary"
+                  aria-describedby="destination-profile-status"
+                >
+                  新增保存目標
                 </button>
               </div>
-              <p id="destination-profile-status" class="help-text"></p>
+              <p id="destination-profile-status" class="destination-profile-status help-text"></p>
             </div>
           </div>
 

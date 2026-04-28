@@ -787,10 +787,15 @@ select:focus {
   background: #ffffff;
 }
 
+.destination-profile-row > div:first-child {
+  min-width: 0;
+}
+
 .destination-profile-title {
   margin: 0;
   font-weight: 600;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .destination-profile-meta {
@@ -803,6 +808,24 @@ select:focus {
 .destination-profile-actions {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.destination-profile-name-edit {
+  min-width: 0;
+}
+
+.destination-profile-name-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.destination-profile-status {
+  min-height: 1.4em;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 /* Migration Item Styles */

@@ -135,7 +135,7 @@ export async function checkPageStatus(options = {}) {
 /**
  * 保存頁面到 Notion
  *
- * @param {string} [profileId] - 保存目的地 profile id
+ * @param {string} [profileId] - 保存目標 profile id
  * @returns {Promise<object>} 保存結果，成功時包含 canonical save status 欄位
  */
 export async function savePage(profileId) {
@@ -153,7 +153,7 @@ export async function savePage(profileId) {
 }
 
 /**
- * 讀取 popup 目的地狀態。
+ * 讀取 popup 保存目標狀態。
  *
  * @returns {Promise<{profiles: Array<object>, selectedProfileId: string|null, entitlement: object}>}
  */
