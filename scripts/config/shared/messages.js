@@ -119,6 +119,7 @@ const POPUP = {
   OPEN_NOTION: '開啟 Notion',
   MANAGE_HIGHLIGHTS: '管理標註',
   SETTINGS_LINK: '設定',
+  DESTINATION_LABEL_PREFIX: '保存目標：',
   SAVING: '儲存中...',
   SAVE_FAILED_PREFIX: '儲存失敗：',
   HIGHLIGHT_STARTING: '載入標註模式...',

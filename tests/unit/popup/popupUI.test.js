@@ -18,6 +18,7 @@ import {
   renderDestinationSelector,
   formatSaveSuccessMessage,
 } from '../../../popup/popupUI.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 describe('popupUI.js', () => {
   let mockElements = {};
@@ -70,7 +71,9 @@ describe('popupUI.js', () => {
       });
 
       expect(mockElements.destinationSection.style.display).toBe('block');
-      expect(mockElements.destinationCurrent.textContent).toBe('保存目標：Default');
+      expect(mockElements.destinationCurrent.textContent).toBe(
+        `${UI_MESSAGES.POPUP.DESTINATION_LABEL_PREFIX}Default`
+      );
       expect(mockElements.destinationCurrent.textContent).toContain('Default');
       expect(mockElements.destinationToggle.style.display).toBe('none');
       expect(mockElements.destinationCurrent.dataset.profileId).toBe('default');
