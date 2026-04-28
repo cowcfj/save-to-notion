@@ -209,6 +209,30 @@ describe('DestinationProfileService', () => {
     ).rejects.toThrow('保存目標 ID 已存在');
   });
 
+  it('createProfile 會將 caller-provided id trim 後檢查 duplicate', async () => {
+    storageData.destinationProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        icon: 'bookmark',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    await expect(
+      service.createProfile({
+        id: ' default ',
+        name: 'Duplicate',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+      })
+    ).rejects.toThrow('保存目標 ID 已存在');
+  });
+
   it('resolveProfileForSave 會拒絕超出 entitlement 上限的 profile', async () => {
     entitlementProvider.getDestinationEntitlement.mockResolvedValue({
       maxProfiles: 1,

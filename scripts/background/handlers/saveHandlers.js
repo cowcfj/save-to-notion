@@ -44,6 +44,35 @@ const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS))
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
 
+function getDestinationProfileErrorCode(error) {
+  if (typeof error?.code === 'string' && error.code.trim()) {
+    return error.code.trim();
+  }
+
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (message.includes('找不到目的地')) {
+    return 'destination_profile_not_found';
+  }
+  if (message.includes('尚未設定保存目標')) {
+    return 'destination_profile_not_configured';
+  }
+  if (message.includes('不可使用') || message.includes('數量上限')) {
+    return 'destination_profile_not_allowed';
+  }
+  return 'unknown_destination_profile_error';
+}
+
+function formatDestinationProfileResolveError(error) {
+  const code = getDestinationProfileErrorCode(error);
+  const messages = {
+    destination_profile_not_found: '找不到指定的保存目的地，請重新整理後再試。',
+    destination_profile_not_configured: '尚未設定保存目的地，請先到設定頁完成設定。',
+    destination_profile_not_allowed: '此保存目的地目前不可使用，請改用其他保存目標。',
+    unknown_destination_profile_error: '保存目的地無法使用，請重新整理後再試。',
+  };
+  return messages[code] || messages.unknown_destination_profile_error;
+}
+
 /**
  * 主動通知指定 tab 保存狀態已更新（混合式推播策略）
  * 使用保存時記錄的 activeTabId，避免儲存完成後重新查詢活動 tab 造成 race condition
@@ -241,6 +270,24 @@ export function createSaveHandlers(services) {
     return { config, dataSourceId, dataSourceType, apiKey };
   }
 
+  async function _loadNotionConfigForDestinationProfile(sendResponse) {
+    const config = await storageService.getConfig(NOTION_CONFIG_KEYS);
+    const { token: apiKey } = await getActiveNotionToken();
+
+    if (!apiKey) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+      });
+      return null;
+    }
+
+    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId || null;
+    const rawDataSourceType = config.notionDataSourceType;
+    const dataSourceType = rawDataSourceType === 'page' ? 'page' : 'database';
+    return { config, dataSourceId, dataSourceType, apiKey };
+  }
+
   async function resolveDestinationProfile(request, sendResponse, configData) {
     if (!destinationProfileService) {
       sendResponse({
@@ -262,9 +309,16 @@ export function createSaveHandlers(services) {
         };
       }
 
+      const errorCode = getDestinationProfileErrorCode(error);
+      const safeError = sanitizeApiError(error, 'resolveDestinationProfile');
+      Logger.warn('解析保存目的地失敗', {
+        action: 'resolveDestinationProfile',
+        errorCode,
+        error: safeError,
+      });
       sendResponse({
         success: false,
-        error: `保存目的地無法使用：${error?.message || 'unknown_destination_profile_error'}`,
+        error: formatDestinationProfileResolveError(error),
       });
       return null;
     }
@@ -292,9 +346,11 @@ export function createSaveHandlers(services) {
    *
    * @param {object} sender - 請求發送者
    * @param {Function} sendResponse - 回應函數
+   * @param {{requireDataSource?: boolean}} [options] - 是否要求 legacy data source 設定
    * @returns {Promise<object|null>} 配置對象或 null
    */
-  async function validateRequestAndGetConfig(sender, sendResponse) {
+  async function validateRequestAndGetConfig(sender, sendResponse, options = {}) {
+    const { requireDataSource = true } = options;
     const validationError = validateInternalRequest(sender);
     if (validationError) {
       Logger.warn('安全性阻擋', {
@@ -324,7 +380,9 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    const configData = requireDataSource
+      ? await _loadAndValidateNotionConfig(sendResponse)
+      : await _loadNotionConfigForDestinationProfile(sendResponse);
     if (!configData) {
       return null;
     }
@@ -339,9 +397,11 @@ export function createSaveHandlers(services) {
    *
    * @param {object} sender - 請求發送者
    * @param {Function} sendResponse - 回應函數
+   * @param {{requireDataSource?: boolean}} [options] - 是否要求 legacy data source 設定
    * @returns {Promise<object|null>} 配置對象或 null
    */
-  async function _validateToolbarRequestAndGetConfig(sender, sendResponse) {
+  async function _validateToolbarRequestAndGetConfig(sender, sendResponse, options = {}) {
+    const { requireDataSource = true } = options;
     // Content Script 安全性驗證
     const validationError = validateContentScriptRequest(sender);
     if (validationError) {
@@ -381,7 +441,9 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    const configData = requireDataSource
+      ? await _loadAndValidateNotionConfig(sendResponse)
+      : await _loadNotionConfigForDestinationProfile(sendResponse);
     if (!configData) {
       return null;
     }
@@ -766,11 +828,7 @@ export function createSaveHandlers(services) {
       return;
     }
 
-    if (
-      destinationProfile?.id &&
-      savedData.destinationProfileId &&
-      savedData.destinationProfileId !== destinationProfile.id
-    ) {
+    if (destinationProfile?.id && savedData.destinationProfileId !== destinationProfile.id) {
       await _handleNewPageCreation({ ...params, savedData: null });
       return;
     }
@@ -887,7 +945,9 @@ export function createSaveHandlers(services) {
      */
     [RUNTIME_ACTIONS.SAVE_PAGE]: async (request, sender, sendResponse) => {
       try {
-        const configData = await validateRequestAndGetConfig(sender, sendResponse);
+        const configData = await validateRequestAndGetConfig(sender, sendResponse, {
+          requireDataSource: false,
+        });
         if (!configData) {
           return;
         }
@@ -928,7 +988,9 @@ export function createSaveHandlers(services) {
      */
     [RUNTIME_ACTIONS.SAVE_PAGE_FROM_TOOLBAR]: async (request, sender, sendResponse) => {
       try {
-        const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse);
+        const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse, {
+          requireDataSource: false,
+        });
         if (!configData) {
           return;
         }

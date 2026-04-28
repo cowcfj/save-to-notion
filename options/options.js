@@ -48,6 +48,11 @@ const DESTINATION_TARGET_FIELD_SELECTORS = {
   TYPE: '#database-type',
 };
 const BUTTON_SECONDARY_CLASS = 'btn-secondary';
+const DEFAULT_DESTINATION_ENTITLEMENT = {
+  maxProfiles: 1,
+  accountSignedIn: false,
+  source: 'fallback',
+};
 let destinationProfilesUIController = null;
 
 function normalizeDestinationProfileName(value) {
@@ -258,6 +263,7 @@ async function initDestinationProfilesUI(ui) {
   const service = createDestinationProfileService();
   let editingProfileId = null;
   let draftProfileName = '';
+  let cachedProfiles = [];
 
   addButton.setAttribute('aria-describedby', 'destination-profile-status');
 
@@ -369,10 +375,30 @@ async function initDestinationProfilesUI(ui) {
   };
 
   const render = async () => {
-    const [profiles, entitlement] = await Promise.all([
-      service.listProfiles(),
-      service.getDestinationEntitlement(),
-    ]);
+    let profiles = cachedProfiles;
+    let entitlement = DEFAULT_DESTINATION_ENTITLEMENT;
+
+    try {
+      profiles = await service.listProfiles();
+      cachedProfiles = profiles;
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileList');
+      Logger.warn('讀取保存目標列表失敗', {
+        action: 'renderDestinationProfiles',
+        error: safeError,
+      });
+    }
+
+    try {
+      entitlement = await service.getDestinationEntitlement();
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileEntitlement');
+      Logger.warn('讀取保存目標權限失敗', {
+        action: 'renderDestinationProfiles',
+        error: safeError,
+      });
+    }
+
     list.innerHTML = '';
 
     for (const profile of profiles) {
@@ -392,79 +418,85 @@ async function initDestinationProfilesUI(ui) {
   };
 
   list.addEventListener('click', async event => {
-    const button = event.target?.closest?.('button[data-action]');
-    if (!button) {
-      return;
-    }
-    const profileId = button.dataset.profileId;
-    const action = button.dataset.action;
-    if (action === DESTINATION_PROFILE_ACTIONS.RENAME) {
-      const profile = await service.getProfile(profileId);
-      editingProfileId = profile.id;
-      draftProfileName = profile.name || '預設';
-      await render();
-      list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
-      return;
-    }
-    if (action === DESTINATION_PROFILE_ACTIONS.CANCEL_NAME) {
-      editingProfileId = null;
-      draftProfileName = '';
-      await render();
-      return;
-    }
-    if (action === DESTINATION_PROFILE_ACTIONS.SAVE_NAME) {
-      const input = list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`);
-      const nextName = normalizeDestinationProfileName(input?.value || '');
-      if (!nextName) {
-        showNameError();
+    try {
+      const button = event.target?.closest?.('button[data-action]');
+      if (!button) {
         return;
       }
-      await service.updateProfile(profileId, { name: nextName });
-      editingProfileId = null;
-      draftProfileName = '';
-      await render();
-      return;
-    }
-    if (action === DESTINATION_PROFILE_ACTIONS.EDIT) {
-      const profile = await service.getProfile(profileId);
-      document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
-        profile.notionDataSourceId;
-      document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
-        profile.notionDataSourceType;
-      ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
-      return;
-    }
-    if (action === DESTINATION_PROFILE_ACTIONS.DELETE) {
-      try {
+      const profileId = button.dataset.profileId;
+      const action = button.dataset.action;
+      if (action === DESTINATION_PROFILE_ACTIONS.RENAME) {
+        const profile = await service.getProfile(profileId);
+        editingProfileId = profile.id;
+        draftProfileName = profile.name || '預設';
+        await render();
+        list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.CANCEL_NAME) {
+        editingProfileId = null;
+        draftProfileName = '';
+        await render();
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.SAVE_NAME) {
+        const input = list.querySelector(
+          `input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`
+        );
+        const nextName = normalizeDestinationProfileName(input?.value || '');
+        if (!nextName) {
+          showNameError();
+          return;
+        }
+        await service.updateProfile(profileId, { name: nextName });
+        editingProfileId = null;
+        draftProfileName = '';
+        await render();
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.EDIT) {
+        const profile = await service.getProfile(profileId);
+        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
+          profile.notionDataSourceId;
+        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
+          profile.notionDataSourceType;
+        ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.DELETE) {
         await service.deleteProfile(profileId);
         await render();
-      } catch (error) {
-        const safeError = sanitizeApiError(error, 'deleteDestinationProfile');
-        Logger.warn('刪除保存目標失敗', {
-          action: 'deleteDestinationProfile',
-          error: safeError,
-        });
-        ui.showStatus('刪除保存目標失敗，請稍後再試。', 'error');
       }
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileAction');
+      Logger.warn('保存目標操作失敗', {
+        action: 'destinationProfileAction',
+        error: safeError,
+      });
+      ui.showStatus('保存目標操作失敗，請稍後再試。', 'error');
     }
   });
 
   addButton.addEventListener('click', async () => {
-    const databaseId = cleanDatabaseId(
-      document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID)?.value || ''
-    );
-    if (!databaseId) {
-      ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
-      return;
-    }
-    const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
-    const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
     try {
+      const databaseId = cleanDatabaseId(
+        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID)?.value || ''
+      );
+      if (!databaseId) {
+        ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
+        return;
+      }
+      const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
+      const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
       await service.createProfile({
         name: explicitName || `保存目標 ${Date.now().toString().slice(-4)}`,
         notionDataSourceId: databaseId,
         notionDataSourceType: rawType === 'page' ? 'page' : 'database',
       });
+      if (nameInput) {
+        nameInput.value = '';
+      }
+      await render();
     } catch (error) {
       const safeError = sanitizeApiError(error, 'createDestinationProfile');
       Logger.warn('新增保存目標失敗', {
@@ -476,12 +508,7 @@ async function initDestinationProfilesUI(ui) {
           ? '已達目的地數量上限。'
           : '新增保存目標失敗，請稍後再試。';
       ui.showStatus(message, 'error');
-      return;
     }
-    if (nameInput) {
-      nameInput.value = '';
-    }
-    await render();
   });
 
   destinationProfilesUIController = { list, addButton, render };
@@ -834,6 +861,31 @@ export function cleanDatabaseId(input) {
   return cleaned;
 }
 
+async function rollbackDefaultDestinationProfile({
+  destinationProfileService,
+  defaultProfileId,
+  originalDataSourceId,
+  originalDataSourceType,
+  hasOriginalProfileState,
+}) {
+  if (!destinationProfileService || !hasOriginalProfileState) {
+    return;
+  }
+
+  try {
+    await destinationProfileService.updateProfile(defaultProfileId, {
+      notionDataSourceId: originalDataSourceId,
+      notionDataSourceType: originalDataSourceType,
+    });
+  } catch (rollbackError) {
+    const safeRollbackError = sanitizeApiError(rollbackError, 'save_settings_profile_rollback');
+    Logger.warn('還原預設保存目標失敗', {
+      action: 'save_settings_profile_rollback',
+      error: safeRollbackError,
+    });
+  }
+}
+
 /**
  * 保存設置
  *
@@ -902,21 +954,32 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     syncSettings.highlightContentStyle = highlightContentStyle.value;
   }
 
+  let destinationProfileService = null;
+  let defaultProfileId = 'default';
+  let originalDataSourceId = null;
+  let originalDataSourceType = 'database';
+  let hasOriginalProfileState = false;
+
   // 分離儲存至 local 與 sync（同時清除 sync 中的舊資料來源 key，防止跨裝置同步汙染）
   try {
-    const destinationProfileService = createDestinationProfileService();
+    destinationProfileService = createDestinationProfileService();
     const profiles = await destinationProfileService.ensureMigratedDefaultProfile();
-    const defaultProfileId = profiles[0]?.id || 'default';
-    await destinationProfileService.updateProfile(defaultProfileId, {
-      notionDataSourceId: databaseId,
-      notionDataSourceType: localSettings[dataSourceTypeKey],
-    });
+    const originalProfile = profiles[0] || {};
+    defaultProfileId = originalProfile.id || 'default';
+    originalDataSourceId = originalProfile.notionDataSourceId ?? null;
+    originalDataSourceType = originalProfile.notionDataSourceType ?? 'database';
+    hasOriginalProfileState = true;
 
     await Promise.all([
       chrome.storage.local.set(localSettings),
       chrome.storage.sync.set(syncSettings),
       chrome.storage.sync.remove(DATA_SOURCE_KEYS),
     ]);
+
+    await destinationProfileService.updateProfile(defaultProfileId, {
+      notionDataSourceId: databaseId,
+      notionDataSourceType: localSettings[dataSourceTypeKey],
+    });
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 
@@ -931,6 +994,13 @@ export async function saveSettings(ui, auth, statusId = 'status') {
       type: ErrorTypes.STORAGE,
       context: 'save_settings',
       originalError: safeError,
+    });
+    await rollbackDefaultDestinationProfile({
+      destinationProfileService,
+      defaultProfileId,
+      originalDataSourceId,
+      originalDataSourceType,
+      hasOriginalProfileState,
     });
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);

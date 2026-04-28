@@ -272,7 +272,7 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
-    it('應先更新 default profile，成功後才寫入 chrome.storage', async () => {
+    it('應先寫入 chrome.storage，成功後才更新 default profile', async () => {
       const {
         DestinationProfileService,
       } = require('../../../scripts/background/services/DestinationProfileService.js');
@@ -301,27 +301,42 @@ describe('options.js', () => {
 
       expect(operationOrder).toEqual([
         'ensureMigratedDefaultProfile',
-        'updateProfile',
         'local.set',
         'sync.set',
         'sync.remove',
+        'updateProfile',
       ]);
     });
 
-    it('default profile 更新失敗時不應寫入 chrome.storage', async () => {
+    it('chrome.storage 寫入失敗時應 rollback default profile 且不保留新 target', async () => {
       const {
         DestinationProfileService,
       } = require('../../../scripts/background/services/DestinationProfileService.js');
+      const updateProfile = jest.fn().mockResolvedValue({ id: 'default' });
       DestinationProfileService.mockImplementationOnce(() => ({
-        ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-        updateProfile: jest.fn().mockRejectedValue(new Error('profile update failed')),
+        ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([
+          {
+            id: 'default',
+            notionDataSourceId: 'old-source',
+            notionDataSourceType: 'database',
+          },
+        ]),
+        updateProfile,
       }));
+      mockLocalSet.mockRejectedValueOnce(new Error('storage failed'));
 
       await saveSettings(mockUi, mockAuth);
 
-      expect(mockLocalSet).not.toHaveBeenCalled();
-      expect(mockSet).not.toHaveBeenCalled();
-      expect(mockSyncRemove).not.toHaveBeenCalled();
+      expect(updateProfile).toHaveBeenCalledWith('default', {
+        notionDataSourceId: 'old-source',
+        notionDataSourceType: 'database',
+      });
+      expect(updateProfile).not.toHaveBeenCalledWith(
+        'default',
+        expect.objectContaining({
+          notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+        })
+      );
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
         'error',
@@ -1331,6 +1346,40 @@ describe('Destination profile options UI', () => {
     expect(status.textContent).toContain('登入帳號後可建立第二個保存目標');
   });
 
+  it('render 應在 entitlement 讀取失敗時仍渲染 profiles 並記錄警告', async () => {
+    const entitlementError = new Error('entitlement failed');
+    const service = buildDestinationProfileServiceMock({
+      getDestinationEntitlement: jest.fn().mockRejectedValue(entitlementError),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    expect(document.querySelector('.destination-profile-title').textContent).toBe('Default');
+    expect(Logger.warn).toHaveBeenCalledWith('讀取保存目標權限失敗', {
+      action: 'renderDestinationProfiles',
+      error: sanitizeApiError(entitlementError, 'destinationProfileEntitlement'),
+    });
+  });
+
+  it('render 應在 profile list 讀取失敗時使用空列表並記錄警告', async () => {
+    const listError = new Error('list failed');
+    const service = buildDestinationProfileServiceMock({
+      listProfiles: jest.fn().mockRejectedValue(listError),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    expect(document.querySelector('.destination-profile-row')).toBeNull();
+    expect(Logger.warn).toHaveBeenCalledWith('讀取保存目標列表失敗', {
+      action: 'renderDestinationProfiles',
+      error: sanitizeApiError(listError, 'destinationProfileList'),
+    });
+  });
+
   it('已達付費方案上限時應顯示付費方案提示', async () => {
     const profiles = [
       {
@@ -1694,12 +1743,35 @@ describe('Destination profile options UI', () => {
     await flushAsyncClick();
 
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '刪除保存目標失敗，請稍後再試。',
+      '保存目標操作失敗，請稍後再試。',
       'error'
     );
-    expect(Logger.warn).toHaveBeenCalledWith('刪除保存目標失敗', {
-      action: 'deleteDestinationProfile',
-      error: sanitizeApiError(deleteError, 'deleteDestinationProfile'),
+    expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
+      action: 'destinationProfileAction',
+      error: sanitizeApiError(deleteError, 'destinationProfileAction'),
+    });
+  });
+
+  it('保存目標 action 失敗時應走 unified destinationProfileAction 錯誤路徑', async () => {
+    const renameError = new Error('get profile failed');
+    const service = buildDestinationProfileServiceMock({
+      getProfile: jest.fn().mockRejectedValue(renameError),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('button[data-action="rename"]').click();
+    await flushAsyncClick();
+
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      '保存目標操作失敗，請稍後再試。',
+      'error'
+    );
+    expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
+      action: 'destinationProfileAction',
+      error: sanitizeApiError(renameError, 'destinationProfileAction'),
     });
   });
 });

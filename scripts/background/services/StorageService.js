@@ -566,10 +566,12 @@ class StorageService {
     return this._withLock(normalizedUrl, async () => {
       try {
         const state = await this._getPageState(normalizedUrl);
-        const targetUrl =
-          state?.format === 'new' && typeof state.key === 'string'
-            ? state.key.slice(PAGE_PREFIX.length)
-            : normalizedUrl;
+        let targetUrl = normalizedUrl;
+        if (typeof state?.key === 'string') {
+          targetUrl = state.key.slice(PAGE_PREFIX.length);
+        } else if (typeof state?.resolvedUrl === 'string') {
+          targetUrl = state.resolvedUrl;
+        }
         const pageKey = `${PAGE_PREFIX}${targetUrl}`;
         const hlKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
         const existing = await this.storage.local.get([pageKey, hlKey]);
@@ -597,7 +599,7 @@ class StorageService {
           savedAt: data.savedAt ?? current.notion?.savedAt ?? Date.now(),
           lastVerifiedAt: data.lastVerifiedAt ?? current.notion?.lastVerifiedAt ?? null,
           destinationProfileId: Object.hasOwn(data, 'destinationProfileId')
-            ? data.destinationProfileId
+            ? (data.destinationProfileId ?? null)
             : (current.notion?.destinationProfileId ?? null),
         };
 

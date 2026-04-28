@@ -582,6 +582,65 @@ describe('StorageService', () => {
         }),
       });
     });
+
+    it('alias 命中 legacy stable saved_* 時，set 應寫入 canonical stable page_* key', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const storageData = {
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${SAVED_PREFIX}${stableUrl}`]: {
+          notionPageId: 'page-legacy',
+          notionUrl: 'https://www.notion.so/page-legacy',
+          title: 'Legacy Stable Page',
+          savedAt: 1,
+        },
+        [`${HIGHLIGHTS_PREFIX}${stableUrl}`]: [{ id: 'h1', text: 'highlight' }],
+      };
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+
+      await service.setSavedPageData(originalUrl, {
+        notionPageId: 'page-legacy',
+        destinationProfileId: 'pid',
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${PAGE_PREFIX}${stableUrl}`]: expect.objectContaining({
+          notion: expect.objectContaining({
+            pageId: 'page-legacy',
+            destinationProfileId: 'pid',
+          }),
+        }),
+      });
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          [`${PAGE_PREFIX}${originalUrl}`]: expect.anything(),
+        })
+      );
+    });
+
+    it('destinationProfileId 明確傳入 undefined 時應寫入 null', async () => {
+      const url = 'https://example.com/page';
+
+      await service.setSavedPageData(url, {
+        notionPageId: 'page-1',
+        destinationProfileId: undefined,
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${PAGE_PREFIX}${url}`]: expect.objectContaining({
+          notion: expect.objectContaining({
+            destinationProfileId: null,
+          }),
+        }),
+      });
+    });
   });
 
   describe('getHighlights', () => {

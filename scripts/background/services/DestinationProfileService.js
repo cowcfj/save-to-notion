@@ -296,7 +296,7 @@ export class DestinationProfileService {
     }
 
     const timestamp = nowTimestamp();
-    const profileId = input?.id || createProfileId();
+    const profileId = pickNonEmptyString(input?.id) || createProfileId();
     if (profiles.some(profile => profile.id === profileId)) {
       throw new Error(DESTINATION_PROFILE_DUPLICATE_ID_ERROR);
     }
