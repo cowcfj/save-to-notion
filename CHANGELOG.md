@@ -1,5 +1,14 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.64.0](https://github.com/cowcfj/save-to-notion/compare/v2.63.0...v2.64.0) (2026-04-28)
+
+
+### ✨ 新功能
+
+* Add destination profile configuration service and related features ([#454](https://github.com/cowcfj/save-to-notion/issues/454)) ([29c50cb](https://github.com/cowcfj/save-to-notion/commit/29c50cb673acdd5afdd65830f4982512de153630))
+* Improve UI for searchable data source selector and related components ([#456](https://github.com/cowcfj/save-to-notion/issues/456)) ([6e9de0a](https://github.com/cowcfj/save-to-notion/commit/6e9de0a468c56c05b8f765a24d8609befbc6c684))
+* 更新 ESLint 配置以忽略臨時檔案 ([a26fd36](https://github.com/cowcfj/save-to-notion/commit/a26fd36f80321d0538db015928cb6a5fe295635a))
+
 ## [2.63.0](https://github.com/cowcfj/save-to-notion/compare/v2.62.0...v2.63.0) (2026-04-27)
 
 
