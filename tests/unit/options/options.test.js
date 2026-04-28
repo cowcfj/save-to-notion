@@ -56,8 +56,8 @@ jest.mock('../../../scripts/auth/accountSession.js', () => ({
   clearAccountSession: jest.fn().mockResolvedValue(),
 }));
 
-jest.mock('../../../scripts/background/services/DestinationProfileService.js', () => ({
-  DestinationProfileService: jest.fn().mockImplementation(() => ({
+jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
+  ProfileManager: jest.fn().mockImplementation(() => ({
     listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
     getDestinationEntitlement: jest
       .fn()
@@ -73,6 +73,9 @@ jest.mock('../../../scripts/background/services/DestinationProfileService.js', (
     updateProfile: jest.fn().mockResolvedValue({ id: 'default' }),
     deleteProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
   })),
+}));
+
+jest.mock('../../../scripts/destinations/ProfileStore.js', () => ({
   LocalDestinationProfileRepository: jest.fn(),
   AccountGatedDestinationEntitlementProvider: jest.fn(),
 }));
@@ -230,11 +233,9 @@ describe('options.js', () => {
     });
 
     it('應儲存設定並更新狀態', async () => {
-      const {
-        DestinationProfileService,
-      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       await saveSettings(mockUi, mockAuth);
-      const serviceInstance = DestinationProfileService.mock.results.at(-1).value;
+      const serviceInstance = ProfileManager.mock.results.at(-1).value;
 
       expect(mockLocalSet).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -273,9 +274,7 @@ describe('options.js', () => {
     });
 
     it('應先寫入 chrome.storage，成功後才更新 default profile', async () => {
-      const {
-        DestinationProfileService,
-      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       const operationOrder = [];
       mockLocalSet.mockImplementation(async () => {
         operationOrder.push('local.set');
@@ -286,7 +285,7 @@ describe('options.js', () => {
       mockSyncRemove.mockImplementation(async () => {
         operationOrder.push('sync.remove');
       });
-      DestinationProfileService.mockImplementationOnce(() => ({
+      ProfileManager.mockImplementationOnce(() => ({
         ensureMigratedDefaultProfile: jest.fn(async () => {
           operationOrder.push('ensureMigratedDefaultProfile');
           return [{ id: 'default' }];
@@ -309,11 +308,9 @@ describe('options.js', () => {
     });
 
     it('chrome.storage 寫入失敗時應 rollback default profile 且不保留新 target', async () => {
-      const {
-        DestinationProfileService,
-      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       const updateProfile = jest.fn().mockResolvedValue({ id: 'default' });
-      DestinationProfileService.mockImplementationOnce(() => ({
+      ProfileManager.mockImplementationOnce(() => ({
         ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([
           {
             id: 'default',
@@ -570,9 +567,7 @@ describe('options.js', () => {
     });
 
     it('初始化保存目標 UI 失敗時應只記錄脫敏後錯誤', async () => {
-      const {
-        DestinationProfileService,
-      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       document.body.innerHTML += `
         <div id="destination-profile-list"></div>
         <button id="add-destination-profile"></button>
@@ -580,7 +575,7 @@ describe('options.js', () => {
         <input id="destination-profile-name" />
       `;
       const initError = new Error('Storage unavailable with token secret_12345');
-      DestinationProfileService.mockImplementationOnce(() => ({
+      ProfileManager.mockImplementationOnce(() => ({
         ensureMigratedDefaultProfile: jest.fn().mockRejectedValue(initError),
         listProfiles: jest.fn(),
         getDestinationEntitlement: jest.fn(),
@@ -607,11 +602,9 @@ describe('options.js', () => {
     });
 
     it('account session 更新後應重新初始化保存目標 UI', async () => {
-      const service = buildDestinationProfileServiceMock();
-      const {
-        DestinationProfileService,
-      } = require('../../../scripts/background/services/DestinationProfileService.js');
-      DestinationProfileService.mockImplementationOnce(() => service);
+      const service = buildProfileManagerMock();
+      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
+      ProfileManager.mockImplementationOnce(() => service);
       document.body.innerHTML += `
         <div id="destination-profile-list"></div>
         <button id="add-destination-profile"></button>
@@ -625,7 +618,7 @@ describe('options.js', () => {
       listener({ action: 'account_session_updated' });
       await flushAsyncClick();
 
-      expect(DestinationProfileService).toHaveBeenCalledTimes(1);
+      expect(ProfileManager).toHaveBeenCalledTimes(1);
       expect(service.listProfiles).toHaveBeenCalledTimes(2);
       expect(service.getDestinationEntitlement).toHaveBeenCalledTimes(2);
     });
@@ -1238,7 +1231,7 @@ function buildDestinationProfileDOM() {
   `;
 }
 
-function buildDestinationProfileServiceMock(overrides = {}) {
+function buildProfileManagerMock(overrides = {}) {
   const profiles = overrides.profiles || [
     {
       id: 'default',
@@ -1271,9 +1264,7 @@ function buildDestinationProfileServiceMock(overrides = {}) {
 }
 
 describe('Destination profile options UI', () => {
-  const {
-    DestinationProfileService,
-  } = require('../../../scripts/background/services/DestinationProfileService.js');
+  const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
   const {
     getAccountProfile,
     getAccountAccessToken,
@@ -1296,7 +1287,7 @@ describe('Destination profile options UI', () => {
     getAccountAccessToken.mockReset();
     getAccountProfile.mockResolvedValue(null);
     getAccountAccessToken.mockResolvedValue(null);
-    DestinationProfileService.mockClear();
+    ProfileManager.mockClear();
   });
 
   afterEach(() => {
@@ -1308,7 +1299,7 @@ describe('Destination profile options UI', () => {
   });
 
   it('未登入且已達上限時，新增保存目標按鈕應 disabled 並顯示原因', async () => {
-    DestinationProfileService.mockImplementationOnce(() => ({
+    ProfileManager.mockImplementationOnce(() => ({
       ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
       listProfiles: jest.fn().mockResolvedValue([
         {
@@ -1348,10 +1339,10 @@ describe('Destination profile options UI', () => {
 
   it('render 應在 entitlement 讀取失敗時仍渲染 profiles 並記錄警告', async () => {
     const entitlementError = new Error('entitlement failed');
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       getDestinationEntitlement: jest.fn().mockRejectedValue(entitlementError),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1365,10 +1356,10 @@ describe('Destination profile options UI', () => {
 
   it('render 應在 profile list 讀取失敗時使用空列表並記錄警告', async () => {
     const listError = new Error('list failed');
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       listProfiles: jest.fn().mockRejectedValue(listError),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1397,7 +1388,7 @@ describe('Destination profile options UI', () => {
         notionDataSourceType: 'page',
       },
     ];
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       profiles,
       getDestinationEntitlement: jest.fn().mockResolvedValue({
         maxProfiles: 2,
@@ -1405,7 +1396,7 @@ describe('Destination profile options UI', () => {
         source: 'test',
       }),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1418,8 +1409,8 @@ describe('Destination profile options UI', () => {
   });
 
   it('點擊保存目標列表非按鈕元素時不應呼叫 action service', async () => {
-    const service = buildDestinationProfileServiceMock();
-    DestinationProfileService.mockImplementationOnce(() => service);
+    const service = buildProfileManagerMock();
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1433,8 +1424,8 @@ describe('Destination profile options UI', () => {
   });
 
   it('只有一個保存目標時不應渲染刪除按鈕', async () => {
-    const service = buildDestinationProfileServiceMock();
-    DestinationProfileService.mockImplementationOnce(() => service);
+    const service = buildProfileManagerMock();
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1469,7 +1460,7 @@ describe('Destination profile options UI', () => {
       createProfile: jest.fn(),
       deleteProfile: jest.fn(),
     };
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1485,8 +1476,8 @@ describe('Destination profile options UI', () => {
   });
 
   it('取消重新命名保存目標時應回復顯示模式且不呼叫 updateProfile', async () => {
-    const service = buildDestinationProfileServiceMock();
-    DestinationProfileService.mockImplementationOnce(() => service);
+    const service = buildProfileManagerMock();
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1532,7 +1523,7 @@ describe('Destination profile options UI', () => {
       createProfile: jest.fn(),
       deleteProfile: jest.fn(),
     };
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1578,7 +1569,7 @@ describe('Destination profile options UI', () => {
       createProfile: jest.fn().mockRejectedValue(new Error('已達目的地數量上限')),
       deleteProfile: jest.fn(),
     };
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1599,10 +1590,10 @@ describe('Destination profile options UI', () => {
 
   it('新增保存目標遇到一般錯誤時應顯示通用錯誤且記錄警告', async () => {
     const createError = new Error('Storage unavailable');
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       createProfile: jest.fn().mockRejectedValue(createError),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1628,8 +1619,8 @@ describe('Destination profile options UI', () => {
   });
 
   it('新增保存目標時若 Notion ID 無效應顯示錯誤且不呼叫 createProfile', async () => {
-    const service = buildDestinationProfileServiceMock();
-    DestinationProfileService.mockImplementationOnce(() => service);
+    const service = buildProfileManagerMock();
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1646,8 +1637,8 @@ describe('Destination profile options UI', () => {
   });
 
   it('新增保存目標成功時應清空名稱輸入並重新渲染列表', async () => {
-    const service = buildDestinationProfileServiceMock();
-    DestinationProfileService.mockImplementationOnce(() => service);
+    const service = buildProfileManagerMock();
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1684,7 +1675,7 @@ describe('Destination profile options UI', () => {
         notionDataSourceType: 'page',
       },
     ];
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       profiles,
       getProfile: jest.fn().mockResolvedValue({
         id: 'profile-2',
@@ -1693,7 +1684,7 @@ describe('Destination profile options UI', () => {
         notionDataSourceType: 'page',
       }),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1730,11 +1721,11 @@ describe('Destination profile options UI', () => {
       },
     ];
     const deleteError = new Error('delete failed');
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       profiles,
       deleteProfile: jest.fn().mockRejectedValue(deleteError),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();
@@ -1754,10 +1745,10 @@ describe('Destination profile options UI', () => {
 
   it('保存目標 action 失敗時應走 unified destinationProfileAction 錯誤路徑', async () => {
     const renameError = new Error('get profile failed');
-    const service = buildDestinationProfileServiceMock({
+    const service = buildProfileManagerMock({
       getProfile: jest.fn().mockRejectedValue(renameError),
     });
-    DestinationProfileService.mockImplementationOnce(() => service);
+    ProfileManager.mockImplementationOnce(() => service);
 
     initOptions();
     await flushAsyncClick();

@@ -29,9 +29,9 @@ import {
 } from './DriveCloudSyncController.js';
 import {
   AccountGatedDestinationEntitlementProvider,
-  DestinationProfileService,
   LocalDestinationProfileRepository,
-} from '../scripts/background/services/DestinationProfileService.js';
+} from '../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../scripts/destinations/ProfileManager.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
 const DESTINATION_PROFILE_NAME_MAX_LENGTH = 40;
@@ -62,7 +62,7 @@ function normalizeDestinationProfileName(value) {
 }
 
 function createDestinationProfileService() {
-  return new DestinationProfileService({
+  return new ProfileManager({
     repository: new LocalDestinationProfileRepository(),
     entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
   });

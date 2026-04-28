@@ -17,9 +17,9 @@ import { buildAccountLoginStartUrl, getOptionsAdvancedUrl } from '../scripts/aut
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 import {
   AccountGatedDestinationEntitlementProvider,
-  DestinationProfileService,
   LocalDestinationProfileRepository,
-} from '../scripts/background/services/DestinationProfileService.js';
+} from '../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../scripts/destinations/ProfileManager.js';
 
 /**
  * 檢查設置是否完整
@@ -159,7 +159,7 @@ export async function savePage(profileId) {
  */
 export async function getDestinationState() {
   try {
-    const service = new DestinationProfileService({
+    const service = new ProfileManager({
       repository: new LocalDestinationProfileRepository(),
       entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
     });

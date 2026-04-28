@@ -133,7 +133,7 @@ describe('saveHandlers', () => {
         migrateStorageKey: jest.fn(),
         executeContentMigration: jest.fn(),
       },
-      destinationProfileService: {
+      destinationProfileResolver: {
         resolveProfileForSave: jest.fn().mockResolvedValue({
           id: 'default',
           name: 'Default',
@@ -294,14 +294,14 @@ describe('saveHandlers', () => {
         'https://example.com',
         expect.objectContaining({ destinationProfileId: 'default' })
       );
-      expect(mockServices.destinationProfileService.setLastUsedProfile).toHaveBeenCalledWith(
+      expect(mockServices.destinationProfileResolver.setLastUsedProfile).toHaveBeenCalledWith(
         'default'
       );
     });
 
     test('savePage: payload 帶 profileId 時應使用該 profile 的 Notion target', async () => {
       const sendResponse = jest.fn();
-      mockServices.destinationProfileService.resolveProfileForSave.mockResolvedValue({
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
         id: 'profile-2',
         name: 'Research',
         notionDataSourceId: 'research-target',
@@ -316,7 +316,7 @@ describe('saveHandlers', () => {
 
       await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
 
-      expect(mockServices.destinationProfileService.resolveProfileForSave).toHaveBeenCalledWith(
+      expect(mockServices.destinationProfileResolver.resolveProfileForSave).toHaveBeenCalledWith(
         'profile-2'
       );
       expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
@@ -340,7 +340,7 @@ describe('saveHandlers', () => {
 
     test('savePage: profile 不存在時應回傳目的地錯誤且不提取內容', async () => {
       const sendResponse = jest.fn();
-      mockServices.destinationProfileService.resolveProfileForSave.mockRejectedValue(
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
         new Error('Destination profile not found')
       );
 
@@ -356,11 +356,11 @@ describe('saveHandlers', () => {
       );
     });
 
-    test('savePage: destinationProfileService 缺失時應回傳明確錯誤', async () => {
+    test('savePage: destinationProfileResolver 缺失時應回傳明確錯誤', async () => {
       const sendResponse = jest.fn();
       handlers = createSaveHandlers({
         ...mockServices,
-        destinationProfileService: null,
+        destinationProfileResolver: null,
       });
 
       await handlers.savePage({}, validSender, sendResponse);
@@ -376,7 +376,7 @@ describe('saveHandlers', () => {
 
     test('savePage: 已保存頁改存到另一個 profile 時應建立新 Notion page', async () => {
       const sendResponse = jest.fn();
-      mockServices.destinationProfileService.resolveProfileForSave.mockResolvedValue({
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
         id: 'profile-2',
         name: 'Research',
         notionDataSourceId: 'research-target',
@@ -411,7 +411,7 @@ describe('saveHandlers', () => {
 
     test('savePage: legacy 已保存頁缺少 destinationProfileId 且改存 profile 時應建立新 Notion page', async () => {
       const sendResponse = jest.fn();
-      mockServices.destinationProfileService.resolveProfileForSave.mockResolvedValue({
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
         id: 'profile-2',
         name: 'Research',
         notionDataSourceId: 'research-target',
@@ -448,7 +448,7 @@ describe('saveHandlers', () => {
       mockServices.storageService.getConfig.mockResolvedValue({
         notionApiKey: 'valid-key',
       });
-      mockServices.destinationProfileService.resolveProfileForSave.mockResolvedValue({
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
         id: 'profile-2',
         name: 'Research',
         notionDataSourceId: 'research-target',
@@ -463,7 +463,7 @@ describe('saveHandlers', () => {
 
       await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
 
-      expect(mockServices.destinationProfileService.resolveProfileForSave).toHaveBeenCalledWith(
+      expect(mockServices.destinationProfileResolver.resolveProfileForSave).toHaveBeenCalledWith(
         'profile-2'
       );
       expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
@@ -480,7 +480,7 @@ describe('saveHandlers', () => {
 
     test('savePage: profile 解析失敗時不應暴露 raw error message', async () => {
       const sendResponse = jest.fn();
-      mockServices.destinationProfileService.resolveProfileForSave.mockRejectedValue(
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
         new Error('internal worker stack: token exchange failed')
       );
 
@@ -914,7 +914,7 @@ describe('saveHandlers', () => {
         sendResponse
       );
 
-      expect(mockServices.destinationProfileService.resolveProfileForSave).toHaveBeenCalledWith(
+      expect(mockServices.destinationProfileResolver.resolveProfileForSave).toHaveBeenCalledWith(
         undefined
       );
       expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(

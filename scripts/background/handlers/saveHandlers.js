@@ -31,9 +31,9 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { resolveSaveStatus } from '../services/SaveStatusCoordinator.js';
 import {
   AccountGatedDestinationEntitlementProvider,
-  DestinationProfileService,
   LocalDestinationProfileRepository,
-} from '../services/DestinationProfileService.js';
+} from '../../destinations/ProfileStore.js';
+import { ProfileResolver } from '../../destinations/ProfileResolver.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/shared/storage.js';
 import { getActiveTab } from './handlerUtils.js';
@@ -176,12 +176,21 @@ export function createSaveHandlers(services) {
     pageContentService,
     tabService,
     migrationService, // Added MigrationService
-    destinationProfileService: providedDestinationProfileService = new DestinationProfileService({
-      repository: new LocalDestinationProfileRepository(),
-      entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
-    }),
+    destinationProfileResolver: providedDestinationProfileResolver,
+    destinationProfileService: legacyDestinationProfileService,
   } = services;
-  const destinationProfileService = providedDestinationProfileService;
+  const hasProvidedDestinationProfileDependency =
+    Object.hasOwn(services, 'destinationProfileResolver') ||
+    Object.hasOwn(services, 'destinationProfileService');
+  const destinationProfileResolver =
+    providedDestinationProfileResolver ||
+    legacyDestinationProfileService ||
+    (hasProvidedDestinationProfileDependency
+      ? null
+      : new ProfileResolver({
+          repository: new LocalDestinationProfileRepository(),
+          entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+        }));
 
   if (
     typeof tabService?.confirmRemotePageMissing !== 'function' ||
@@ -289,7 +298,7 @@ export function createSaveHandlers(services) {
   }
 
   async function resolveDestinationProfile(request, sendResponse, configData) {
-    if (!destinationProfileService) {
+    if (!destinationProfileResolver) {
       sendResponse({
         success: false,
         error: '保存目的地服務無法使用，請重新整理後再試。',
@@ -298,7 +307,7 @@ export function createSaveHandlers(services) {
     }
 
     try {
-      return await destinationProfileService.resolveProfileForSave(request?.profileId);
+      return await destinationProfileResolver.resolveProfileForSave(request?.profileId);
     } catch (error) {
       if (!request?.profileId && configData?.dataSourceId) {
         return {
@@ -327,12 +336,12 @@ export function createSaveHandlers(services) {
   async function rememberLastUsedDestinationProfile(destinationProfile) {
     if (
       !destinationProfile?.id ||
-      typeof destinationProfileService?.setLastUsedProfile !== 'function'
+      typeof destinationProfileResolver?.setLastUsedProfile !== 'function'
     ) {
       return;
     }
 
-    await destinationProfileService.setLastUsedProfile(destinationProfile.id).catch(error => {
+    await destinationProfileResolver.setLastUsedProfile(destinationProfile.id).catch(error => {
       Logger.warn('更新最後使用保存目的地失敗（不影響保存流程）', {
         action: 'rememberLastUsedDestinationProfile',
         profileId: destinationProfile.id,

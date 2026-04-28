@@ -24,9 +24,9 @@ import { TabService } from './background/services/TabService.js';
 import { MigrationService } from './background/services/MigrationService.js';
 import {
   AccountGatedDestinationEntitlementProvider,
-  DestinationProfileService,
   LocalDestinationProfileRepository,
-} from './background/services/DestinationProfileService.js';
+} from './destinations/ProfileStore.js';
+import { ProfileResolver } from './destinations/ProfileResolver.js';
 
 // Import Handlers
 import { MessageHandler } from './background/handlers/MessageHandler.js';
@@ -64,7 +64,7 @@ const pageContentService = new PageContentService({
 });
 const storageService = new StorageService({ logger: Logger });
 const notionService = new NotionService({ logger: Logger });
-const destinationProfileService = new DestinationProfileService({
+const destinationProfileResolver = new ProfileResolver({
   repository: new LocalDestinationProfileRepository(),
   entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
 });
@@ -138,7 +138,7 @@ const actionHandlers = {
     pageContentService,
     tabService,
     migrationService,
-    destinationProfileService,
+    destinationProfileResolver,
   }),
   ...createHighlightHandlers({
     notionService,

@@ -2,21 +2,22 @@ import {
   ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
   AccountGatedDestinationEntitlementProvider,
   DESTINATION_PROFILE_STORAGE_KEYS,
-  DestinationProfileService,
   LocalDestinationProfileRepository,
-} from '../../../../scripts/background/services/DestinationProfileService.js';
+} from '../../../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../../../scripts/destinations/ProfileManager.js';
+import { ProfileResolver } from '../../../scripts/destinations/ProfileResolver.js';
 import {
   getAccountSession,
   isAccountSessionExpired,
-} from '../../../../scripts/auth/accountSession.js';
-import Logger from '../../../../scripts/utils/Logger.js';
+} from '../../../scripts/auth/accountSession.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
-jest.mock('../../../../scripts/auth/accountSession.js', () => ({
+jest.mock('../../../scripts/auth/accountSession.js', () => ({
   getAccountSession: jest.fn(),
   isAccountSessionExpired: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
     success: jest.fn(),
@@ -29,11 +30,12 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   },
 }));
 
-describe('DestinationProfileService', () => {
+describe('Destination profile domain services', () => {
   let storageData = null;
   let chromeStorage = null;
   let repository = null;
-  let service = null;
+  let manager = null;
+  let resolver = null;
   let entitlementProvider = null;
 
   beforeEach(() => {
@@ -63,7 +65,8 @@ describe('DestinationProfileService', () => {
     entitlementProvider = {
       getDestinationEntitlement: jest.fn(async () => ({ maxProfiles: 2, source: 'test' })),
     };
-    service = new DestinationProfileService({ repository, entitlementProvider });
+    manager = new ProfileManager({ repository, entitlementProvider });
+    resolver = new ProfileResolver({ repository, entitlementProvider });
     getAccountSession.mockResolvedValue(null);
     isAccountSessionExpired.mockReturnValue(true);
   });
@@ -76,7 +79,7 @@ describe('DestinationProfileService', () => {
     storageData.notionDataSourceId = 'legacy-source';
     storageData.notionDataSourceType = 'page';
 
-    const profiles = await service.ensureMigratedDefaultProfile();
+    const profiles = await resolver.ensureMigratedDefaultProfile();
 
     expect(profiles).toHaveLength(1);
     expect(profiles[0]).toEqual(
@@ -106,7 +109,7 @@ describe('DestinationProfileService', () => {
     ];
     storageData.notionDataSourceId = 'legacy-source';
 
-    const profiles = await service.ensureMigratedDefaultProfile();
+    const profiles = await resolver.ensureMigratedDefaultProfile();
 
     expect(profiles).toHaveLength(1);
     expect(profiles[0].id).toBe('existing');
@@ -117,7 +120,7 @@ describe('DestinationProfileService', () => {
     storageData.notionDatabaseId = 'legacy-database';
     storageData.notionDataSourceType = 'data_source';
 
-    const profiles = await service.ensureMigratedDefaultProfile();
+    const profiles = await resolver.ensureMigratedDefaultProfile();
 
     expect(profiles[0].notionDataSourceType).toBe('database');
   });
@@ -177,7 +180,7 @@ describe('DestinationProfileService', () => {
     ];
 
     await expect(
-      service.createProfile({
+      manager.createProfile({
         name: 'Second',
         notionDataSourceId: 'source-2',
         notionDataSourceType: 'page',
@@ -200,7 +203,7 @@ describe('DestinationProfileService', () => {
     ];
 
     await expect(
-      service.createProfile({
+      manager.createProfile({
         id: 'default',
         name: 'Duplicate',
         notionDataSourceId: 'source-2',
@@ -224,7 +227,7 @@ describe('DestinationProfileService', () => {
     ];
 
     await expect(
-      service.createProfile({
+      manager.createProfile({
         id: ' default ',
         name: 'Duplicate',
         notionDataSourceId: 'source-2',
@@ -261,7 +264,9 @@ describe('DestinationProfileService', () => {
       },
     ];
 
-    await expect(service.resolveProfileForSave('second')).rejects.toThrow('此保存目標目前不可使用');
+    await expect(resolver.resolveProfileForSave('second')).rejects.toThrow(
+      '此保存目標目前不可使用'
+    );
   });
 
   it('更新 Default profile 時會同步回寫舊保存目標 keys', async () => {
@@ -278,7 +283,7 @@ describe('DestinationProfileService', () => {
       },
     ];
 
-    await service.updateProfile('default', {
+    await manager.updateProfile('default', {
       notionDataSourceId: 'source-2',
       notionDataSourceType: 'page',
     });
@@ -302,7 +307,7 @@ describe('DestinationProfileService', () => {
       },
     ];
 
-    const updated = await service.updateProfile('default', {
+    const updated = await manager.updateProfile('default', {
       id: 'mutated-id',
       notionDataSourceId: 'source-2',
       notionDataSourceType: 'page',
@@ -338,7 +343,7 @@ describe('DestinationProfileService', () => {
       },
     ];
 
-    await service.deleteProfile('second');
+    await manager.deleteProfile('second');
 
     expect(storageData.destinationProfiles.map(profile => profile.id)).toEqual(['default']);
     expect(storageData.destinationLastUsedProfileId).toBe('default');
