@@ -24,4 +24,26 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(/\.destination-toggle\s*\{[^}]*height:\s*32px;/);
     expect(css).toMatch(/\.destination-menu-item\s*\{[^}]*font-size:\s*13px;/);
   });
+
+  it('標註主要動作應在同一列呈現並保留主次層級', () => {
+    const html = readFileSync('popup/popup.html', 'utf8');
+    const css = readFileSync('popup/popup.css', 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const actionRow = doc.querySelector('.annotation-actions');
+
+    expect(actionRow).not.toBeNull();
+    expect(actionRow.children).toHaveLength(2);
+    expect(actionRow.children[0].id).toBe('highlight-button');
+    expect(actionRow.children[1].id).toBe('manage-button');
+    expect(doc.querySelector('#manage-button').classList.contains('secondary-action')).toBe(true);
+    expect(css).toMatch(/\.annotation-actions\s*\{[^}]*display:\s*grid;/);
+    expect(css).toMatch(
+      /\.annotation-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/
+    );
+    expect(css).toMatch(/\.annotation-actions\s*\{[^}]*gap:\s*var\(--spacing-sm\);/);
+    expect(css).toMatch(
+      /\.annotation-actions\s*>\s*button\s*\{[^}]*margin-bottom:\s*var\(--spacing-sm\);/
+    );
+    expect(css).toMatch(/#manage-button\.secondary-action\s*\{[^}]*background-color:\s*#f8fafc;/);
+  });
 });

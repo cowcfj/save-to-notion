@@ -108,6 +108,20 @@ button {
   background-color: #48bb78;
 }
 
+.annotation-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.annotation-actions > button {
+  margin-bottom: var(--spacing-sm);
+  min-width: 0;
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+}
+
 /* SVG 圖標樣式 */
 .btn-icon,
 .link-icon {
@@ -139,14 +153,18 @@ button {
   background-color: #2563eb;
 }
 
-#manage-button {
-  background-color: #5b21b6;
+#manage-button.secondary-action {
+  background-color: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
 }
 
-#manage-button:hover {
-  background-color: #4c1d95;
+#manage-button.secondary-action:hover {
+  background-color: #eef2ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
 }
 
 #save-button:hover {
