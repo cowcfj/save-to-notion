@@ -11,12 +11,17 @@ describe('popup.html accessibility fallbacks', () => {
     expect(heading.textContent.trim()).toBe('Save to Notion');
   });
 
-  it('保存目標文字應與 popup 按鈕文字使用一致字級與穩定間距', () => {
+  it('保存目標列應作為 32px 輔助狀態列並避免撐高 popup', () => {
     const css = readFileSync('popup/popup.css', 'utf8');
 
     expect(css).toMatch(/\.destination-section\s*\{[^}]*font-size:\s*13px;/);
     expect(css).toMatch(/\.destination-section\s*\{[^}]*margin-top:\s*0;/);
-    expect(css).toMatch(/\.destination-current\s*\{[^}]*line-height:\s*1\.35;/);
+    expect(css).toMatch(/\.destination-current\s*\{[^}]*height:\s*32px;/);
+    expect(css).toMatch(/\.destination-current\s*\{[^}]*display:\s*flex;/);
+    expect(css).toMatch(/\.destination-current\s*\{[^}]*align-items:\s*center;/);
+    expect(css).toMatch(/\.destination-current\s*\{[^}]*white-space:\s*nowrap;/);
+    expect(css).toMatch(/\.destination-current\s*\{[^}]*text-overflow:\s*ellipsis;/);
+    expect(css).toMatch(/\.destination-toggle\s*\{[^}]*height:\s*32px;/);
     expect(css).toMatch(/\.destination-menu-item\s*\{[^}]*font-size:\s*13px;/);
   });
 });
