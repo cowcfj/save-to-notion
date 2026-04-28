@@ -768,6 +768,43 @@ select:focus {
   margin-top: 8px;
 }
 
+.destination-profile-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.destination-profile-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #2563eb;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.destination-profile-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.destination-profile-meta {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.destination-profile-actions {
+  display: flex;
+  gap: 6px;
+}
+
 /* Migration Item Styles */
 .migration-item {
   display: flex;

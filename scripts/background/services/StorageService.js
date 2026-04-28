@@ -417,6 +417,7 @@ class StorageService {
           title: notion.title || null,
           savedAt: notion.savedAt ?? null,
           lastVerifiedAt: notion.lastVerifiedAt ?? null,
+          destinationProfileId: notion.destinationProfileId ?? null,
         };
       }
 
@@ -590,6 +591,8 @@ class StorageService {
           title: data.title || current.notion?.title || null,
           savedAt: data.savedAt ?? current.notion?.savedAt ?? Date.now(),
           lastVerifiedAt: data.lastVerifiedAt ?? current.notion?.lastVerifiedAt ?? null,
+          destinationProfileId:
+            data.destinationProfileId ?? current.notion?.destinationProfileId ?? null,
         };
 
         const newData = {

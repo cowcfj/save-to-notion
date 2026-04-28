@@ -198,6 +198,7 @@ describe('StorageService', () => {
         title: 'Test Page',
         savedAt: 12_345,
         lastVerifiedAt: null,
+        destinationProfileId: null,
       });
     });
 
@@ -249,6 +250,7 @@ describe('StorageService', () => {
         title: 'Test Page',
         savedAt: null,
         lastVerifiedAt: null,
+        destinationProfileId: null,
       });
     });
 

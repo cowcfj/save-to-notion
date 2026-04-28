@@ -5,6 +5,7 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
+  getDestinationState,
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
@@ -262,6 +263,18 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(true);
     });
 
+    it('有 profileId 時應帶入 savePage payload', async () => {
+      chrome.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+
+      const result = await savePage('profile-2');
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: 'savePage',
+        profileId: 'profile-2',
+      });
+      expect(result.success).toBe(true);
+    });
+
     it.each([null, ''])('當 sendMessage 回傳 %p 時應該提供 fallback 回傳值', async response => {
       chrome.runtime.sendMessage.mockResolvedValueOnce(response);
       const result = await savePage();
@@ -274,6 +287,42 @@ describe('popupActions.js', () => {
       const result = await savePage();
       expect(result.success).toBe(false);
       expect(result.error).toBe('無法儲存頁面，請稍後再試');
+    });
+  });
+
+  describe('getDestinationState', () => {
+    it('應從 destination profile service 讀取 profiles 與 last-used', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            icon: 'bookmark',
+            color: '#2563eb',
+            notionDataSourceId: 'db-1',
+            notionDataSourceType: 'database',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          {
+            id: 'profile-2',
+            name: 'Research',
+            icon: 'book-open',
+            color: '#16a34a',
+            notionDataSourceId: 'page-1',
+            notionDataSourceType: 'page',
+            createdAt: 2,
+            updatedAt: 2,
+          },
+        ],
+        destinationLastUsedProfileId: 'profile-2',
+      });
+
+      const result = await getDestinationState();
+
+      expect(result.profiles).toHaveLength(2);
+      expect(result.selectedProfileId).toBe('profile-2');
+      expect(result.entitlement.maxProfiles).toBeGreaterThanOrEqual(1);
     });
   });
 

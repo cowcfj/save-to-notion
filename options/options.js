@@ -27,8 +27,20 @@ import {
   refreshCloudSyncCard,
   showCloudSyncLoadingState,
 } from './DriveCloudSyncController.js';
+import {
+  AccountGatedDestinationEntitlementProvider,
+  DestinationProfileService,
+  LocalDestinationProfileRepository,
+} from '../scripts/background/services/DestinationProfileService.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
+
+function createDestinationProfileService() {
+  return new DestinationProfileService({
+    repository: new LocalDestinationProfileRepository(),
+    entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+  });
+}
 
 function activateSidebarSection(sectionName, navItems, sections) {
   const targetSectionId = `section-${sectionName}`;
@@ -102,6 +114,9 @@ export function initOptions() {
   dataSource.init();
   storage.init();
   migration.init();
+  initDestinationProfilesUI(ui).catch(error => {
+    Logger.warn('初始化保存目的地 UI 失敗', { action: 'initDestinationProfilesUI', error });
+  });
 
   // 3. 初始狀態檢查
   auth.checkAuthStatus();
@@ -189,6 +204,108 @@ export function initOptions() {
       highlightContentStyleSelect.value = result.highlightContentStyle;
     });
   }
+}
+
+async function initDestinationProfilesUI(ui) {
+  const list = document.querySelector('#destination-profile-list');
+  const addButton = document.querySelector('#add-destination-profile');
+  const status = document.querySelector('#destination-profile-status');
+  if (!list || !addButton) {
+    return;
+  }
+
+  const service = createDestinationProfileService();
+  const render = async () => {
+    const [profiles, entitlement] = await Promise.all([
+      service.listProfiles(),
+      service.getDestinationEntitlement(),
+    ]);
+    list.innerHTML = '';
+
+    for (const profile of profiles) {
+      const row = document.createElement('div');
+      row.className = 'destination-profile-row';
+      row.style.borderLeftColor = profile.color || '#2563eb';
+
+      const content = document.createElement('div');
+      const title = document.createElement('p');
+      title.className = 'destination-profile-title';
+      title.textContent = profile.name || 'Default';
+      const meta = document.createElement('p');
+      meta.className = 'destination-profile-meta';
+      meta.textContent = `${profile.notionDataSourceType} · ${profile.notionDataSourceId}`;
+      content.append(title, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'destination-profile-actions';
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'btn-secondary';
+      editButton.dataset.action = 'edit';
+      editButton.dataset.profileId = profile.id;
+      editButton.textContent = '套用';
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'btn-danger';
+      deleteButton.dataset.action = 'delete';
+      deleteButton.dataset.profileId = profile.id;
+      deleteButton.textContent = '刪除';
+      actions.append(editButton, deleteButton);
+
+      row.append(content, actions);
+      list.append(row);
+    }
+
+    const limitReached = profiles.length >= entitlement.maxProfiles;
+    addButton.disabled = limitReached;
+    if (status) {
+      let limitMessage = '';
+      if (limitReached && entitlement.maxProfiles <= 1) {
+        limitMessage = '登入 account 後可建立第二個目的地。';
+      } else if (limitReached) {
+        limitMessage = '更多目的地會在付費方案開放。';
+      }
+      status.textContent = limitMessage;
+    }
+  };
+
+  list.addEventListener('click', async event => {
+    const button = event.target?.closest?.('button[data-action]');
+    if (!button) {
+      return;
+    }
+    const profileId = button.dataset.profileId;
+    const action = button.dataset.action;
+    if (action === 'edit') {
+      const profile = await service.getProfile(profileId);
+      document.querySelector('#database-id').value = profile.notionDataSourceId;
+      document.querySelector('#database-type').value = profile.notionDataSourceType;
+      ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
+      return;
+    }
+    if (action === 'delete') {
+      await service.deleteProfile(profileId);
+      await render();
+    }
+  });
+
+  addButton.addEventListener('click', async () => {
+    const databaseId = cleanDatabaseId(document.querySelector('#database-id')?.value || '');
+    if (!databaseId) {
+      ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
+      return;
+    }
+    const rawType = document.querySelector('#database-type')?.value;
+    await service.createProfile({
+      name: `目的地 ${Date.now().toString().slice(-4)}`,
+      notionDataSourceId: databaseId,
+      notionDataSourceType: rawType === 'page' ? 'page' : 'database',
+    });
+    await render();
+  });
+
+  await service.ensureMigratedDefaultProfile();
+  await render();
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -611,6 +728,14 @@ export async function saveSettings(ui, auth, statusId = 'status') {
       chrome.storage.sync.set(syncSettings),
       chrome.storage.sync.remove(DATA_SOURCE_KEYS),
     ]);
+
+    const destinationProfileService = createDestinationProfileService();
+    const profiles = await destinationProfileService.ensureMigratedDefaultProfile();
+    const defaultProfileId = profiles[0]?.id || 'default';
+    await destinationProfileService.updateProfile(defaultProfileId, {
+      notionDataSourceId: databaseId,
+      notionDataSourceType: localSettings[dataSourceTypeKey],
+    });
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 

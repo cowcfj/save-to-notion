@@ -155,6 +155,80 @@ button {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.destination-section {
+  width: 100%;
+  margin-top: calc(var(--spacing-sm) * -1);
+  margin-bottom: var(--spacing-xs);
+  color: #334155;
+  font-size: 12px;
+  text-align: left;
+}
+
+.destination-selector-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.destination-current {
+  flex: 1;
+  min-height: 28px;
+  padding: 7px var(--spacing-sm);
+  border-left: 3px solid #2563eb;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.destination-toggle {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.destination-toggle:hover {
+  background: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.destination-toggle .btn-icon {
+  margin-right: 0;
+}
+
+.destination-menu {
+  margin-top: var(--spacing-xs);
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.destination-menu-item {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  margin: 0;
+  border-radius: 0;
+  background: #ffffff;
+  color: #1e293b;
+  text-align: left;
+  justify-content: flex-start;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+}
+
+.destination-menu-item:hover,
+.destination-menu-item[aria-pressed='true'] {
+  background: #eff6ff;
+  color: #1d4ed8;
+  transform: none;
+  box-shadow: none;
+}
+
 /* v2.7.0: Open in Notion 按鈕樣式 */
 #open-notion-button {
   background-color: #000000;

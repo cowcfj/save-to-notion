@@ -15,6 +15,7 @@ import {
   updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
+  renderDestinationSelector,
   formatSaveSuccessMessage,
 } from '../../../popup/popupUI.js';
 
@@ -48,8 +49,65 @@ describe('popupUI.js', () => {
         disabled: false,
       },
       settingsLinkText: { textContent: '' },
+      destinationSection: { style: { display: 'none' } },
+      destinationCurrent: { textContent: '', style: {}, dataset: {} },
+      destinationMenu: { innerHTML: '', append: jest.fn(), style: { display: 'none' } },
+      destinationToggle: {
+        style: { display: 'none' },
+        disabled: false,
+        setAttribute: jest.fn(),
+        dataset: {},
+      },
     };
     jest.clearAllMocks();
+  });
+
+  describe('renderDestinationSelector', () => {
+    it('只有一個 profile 時應顯示目前目的地並隱藏選單切換', () => {
+      renderDestinationSelector(mockElements, {
+        profiles: [{ id: 'default', name: 'Default', color: '#2563eb', icon: 'bookmark' }],
+        selectedProfileId: 'default',
+      });
+
+      expect(mockElements.destinationSection.style.display).toBe('block');
+      expect(mockElements.destinationCurrent.textContent).toContain('Default');
+      expect(mockElements.destinationToggle.style.display).toBe('none');
+      expect(mockElements.destinationCurrent.dataset.profileId).toBe('default');
+    });
+
+    it('兩個 profiles 時應渲染 selector 選項', () => {
+      const menuItems = [];
+      jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        const element = {
+          tagName,
+          textContent: '',
+          className: '',
+          type: '',
+          dataset: {},
+          style: {},
+          setAttribute: jest.fn(),
+          addEventListener: jest.fn(),
+          append: jest.fn(),
+        };
+        if (tagName === 'button') {
+          menuItems.push(element);
+        }
+        return element;
+      });
+
+      renderDestinationSelector(mockElements, {
+        profiles: [
+          { id: 'default', name: 'Default', color: '#2563eb', icon: 'bookmark' },
+          { id: 'profile-2', name: 'Research', color: '#16a34a', icon: 'book-open' },
+        ],
+        selectedProfileId: 'profile-2',
+      });
+
+      expect(mockElements.destinationToggle.style.display).toBe('inline-flex');
+      expect(mockElements.destinationCurrent.textContent).toContain('Research');
+      expect(menuItems).toHaveLength(2);
+      expect(menuItems[1].dataset.profileId).toBe('profile-2');
+    });
   });
 
   describe('initializePopupStaticText', () => {

@@ -147,6 +147,10 @@ rsync -a \
 mkdir -p "$RM_DIR/scripts/highlighter/core"
 cp -a scripts/highlighter/core/HighlightLookupResolver.js "$RM_DIR/scripts/highlighter/core/"
 
+# Popup / Options 直接依賴 destination profile service，需顯式補回 package。
+mkdir -p "$RM_DIR/scripts/background/services"
+cp -a scripts/background/services/DestinationProfileService.js "$RM_DIR/scripts/background/services/"
+
 # 清理 macOS metadata，避免從 cp -a 帶入 release package。
 find "$RM_DIR" -name '.DS_Store' -delete
 # production 不打包任何殘留 sourcemap。

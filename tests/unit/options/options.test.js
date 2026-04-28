@@ -55,6 +55,16 @@ jest.mock('../../../scripts/auth/accountSession.js', () => ({
   clearAccountSession: jest.fn().mockResolvedValue(),
 }));
 
+jest.mock('../../../scripts/background/services/DestinationProfileService.js', () => ({
+  DestinationProfileService: jest.fn().mockImplementation(() => ({
+    listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
+    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+    updateProfile: jest.fn().mockResolvedValue({ id: 'default' }),
+  })),
+  LocalDestinationProfileRepository: jest.fn(),
+  AccountGatedDestinationEntitlementProvider: jest.fn(),
+}));
+
 function appendSaveFormFields() {
   document.body.innerHTML += `
     <input id="api-key" value="key_123" />
@@ -197,11 +207,22 @@ describe('options.js', () => {
     });
 
     it('應儲存設定並更新狀態', async () => {
+      const {
+        DestinationProfileService,
+      } = require('../../../scripts/background/services/DestinationProfileService.js');
       await saveSettings(mockUi, mockAuth);
+      const serviceInstance = DestinationProfileService.mock.results.at(-1).value;
 
       expect(mockLocalSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionDatabaseId: 'a1b2c3d4e5f67890abcdef1234567890',
+          notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+          notionDataSourceType: 'page',
+        })
+      );
+      expect(serviceInstance.updateProfile).toHaveBeenCalledWith(
+        'default',
+        expect.objectContaining({
           notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
           notionDataSourceType: 'page',
         })

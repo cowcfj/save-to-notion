@@ -29,6 +29,11 @@ import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { SAVE_STATUS_KINDS, createSaveStatusResponse } from '../../config/saveStatus.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { resolveSaveStatus } from '../services/SaveStatusCoordinator.js';
+import {
+  AccountGatedDestinationEntitlementProvider,
+  DestinationProfileService,
+  LocalDestinationProfileRepository,
+} from '../services/DestinationProfileService.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/shared/storage.js';
 import { getActiveTab } from './handlerUtils.js';
@@ -142,7 +147,12 @@ export function createSaveHandlers(services) {
     pageContentService,
     tabService,
     migrationService, // Added MigrationService
+    destinationProfileService: providedDestinationProfileService = new DestinationProfileService({
+      repository: new LocalDestinationProfileRepository(),
+      entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+    }),
   } = services;
+  const destinationProfileService = providedDestinationProfileService;
 
   if (
     typeof tabService?.confirmRemotePageMissing !== 'function' ||
@@ -229,6 +239,48 @@ export function createSaveHandlers(services) {
     const rawDataSourceType = config.notionDataSourceType;
     const dataSourceType = rawDataSourceType === 'page' ? 'page' : 'database';
     return { config, dataSourceId, dataSourceType, apiKey };
+  }
+
+  async function resolveDestinationProfile(request, sendResponse, configData) {
+    if (!destinationProfileService) {
+      return null;
+    }
+
+    try {
+      return await destinationProfileService.resolveProfileForSave(request?.profileId);
+    } catch (error) {
+      if (!request?.profileId && configData?.dataSourceId) {
+        return {
+          id: 'default',
+          name: 'Default',
+          notionDataSourceId: configData.dataSourceId,
+          notionDataSourceType: configData.dataSourceType,
+        };
+      }
+
+      sendResponse({
+        success: false,
+        error: `保存目的地無法使用：${error?.message || 'unknown_destination_profile_error'}`,
+      });
+      return null;
+    }
+  }
+
+  async function rememberLastUsedDestinationProfile(destinationProfile) {
+    if (
+      !destinationProfile?.id ||
+      typeof destinationProfileService?.setLastUsedProfile !== 'function'
+    ) {
+      return;
+    }
+
+    await destinationProfileService.setLastUsedProfile(destinationProfile.id).catch(error => {
+      Logger.warn('更新最後使用保存目的地失敗（不影響保存流程）', {
+        action: 'rememberLastUsedDestinationProfile',
+        profileId: destinationProfile.id,
+        error,
+      });
+    });
   }
 
   /**
@@ -437,6 +489,7 @@ export function createSaveHandlers(services) {
       contentResult,
       apiKey,
       activeTabId,
+      destinationProfile,
     } = params;
 
     // 第一次嘗試
@@ -466,7 +519,9 @@ export function createSaveHandlers(services) {
         title: contentResult.title,
         savedAt: Date.now(),
         lastVerifiedAt: Date.now(),
+        destinationProfileId: destinationProfile?.id ?? null,
       });
+      await rememberLastUsedDestinationProfile(destinationProfile);
 
       // 建立 URL alias 映射，讓後續在 preloader PING 失敗時
       // 也能透過 originalUrl 找到以 stableUrl（normUrl）存儲的 savedData
@@ -509,6 +564,8 @@ export function createSaveHandlers(services) {
             pageId: result.pageId,
             notionPageId: result.pageId,
             stableUrl: normUrl,
+            destinationProfileId: destinationProfile?.id,
+            destinationProfileName: destinationProfile?.name,
           }
         )
       );
@@ -528,8 +585,16 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handleExistingPageUpdate(params) {
-    const { savedData, highlights, contentResult, normUrl, sendResponse, apiKey, activeTabId } =
-      params;
+    const {
+      savedData,
+      highlights,
+      contentResult,
+      normUrl,
+      sendResponse,
+      apiKey,
+      activeTabId,
+      destinationProfile,
+    } = params;
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     if (highlights.length > 0) {
@@ -547,6 +612,7 @@ export function createSaveHandlers(services) {
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
           lastUpdated: Date.now(),
+          destinationProfileId: destinationProfile?.id ?? savedData.destinationProfileId ?? null,
         });
         Object.assign(
           result,
@@ -555,8 +621,11 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId,
             notionPageId: savedData.notionPageId,
             stableUrl: normUrl,
+            destinationProfileId: destinationProfile?.id,
+            destinationProfileName: destinationProfile?.name,
           })
         );
+        await rememberLastUsedDestinationProfile(destinationProfile);
 
         // 混合式推播
         sendPageSaveHint(activeTabId, true);
@@ -580,6 +649,7 @@ export function createSaveHandlers(services) {
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
           lastUpdated: Date.now(),
+          destinationProfileId: destinationProfile?.id ?? savedData.destinationProfileId ?? null,
         });
         Object.assign(
           result,
@@ -593,9 +663,12 @@ export function createSaveHandlers(services) {
               pageId: savedData.notionPageId,
               notionPageId: savedData.notionPageId,
               stableUrl: normUrl,
+              destinationProfileId: destinationProfile?.id,
+              destinationProfileName: destinationProfile?.name,
             }
           )
         );
+        await rememberLastUsedDestinationProfile(destinationProfile);
 
         // 混合式推播
         sendPageSaveHint(activeTabId, true);
@@ -681,11 +754,20 @@ export function createSaveHandlers(services) {
    */
   async function determineAndExecuteSaveAction(params) {
     // 注意：params 還包含 highlights 和 apiKey，透過 _handleExistingPageUpdate(params) 傳遞
-    const { savedData, apiKey, sendResponse } = params;
+    const { savedData, apiKey, sendResponse, destinationProfile } = params;
 
     // 1. 新頁面路徑
     if (!savedData?.notionPageId) {
       await _handleNewPageCreation(params);
+      return;
+    }
+
+    if (
+      destinationProfile?.id &&
+      savedData.destinationProfileId &&
+      savedData.destinationProfileId !== destinationProfile.id
+    ) {
+      await _handleNewPageCreation({ ...params, savedData: null });
       return;
     }
 
@@ -749,7 +831,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<void>}
    */
   async function _runSaveFlow(activeTab, configData, sendResponse) {
-    const { dataSourceId, dataSourceType, apiKey } = configData;
+    const { dataSourceId, dataSourceType, apiKey, destinationProfile } = configData;
 
     const { savedData, normUrl, originalUrl, resolvedUrl } = await resolvePageData(activeTab);
 
@@ -786,6 +868,7 @@ export function createSaveHandlers(services) {
       highlights,
       apiKey,
       activeTabId: activeTab.id,
+      destinationProfile,
       sendResponse,
     });
   }
@@ -805,7 +888,25 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        await _runSaveFlow(configData.activeTab, configData, sendResponse);
+        const destinationProfile = await resolveDestinationProfile(
+          request,
+          sendResponse,
+          configData
+        );
+        if (!destinationProfile) {
+          return;
+        }
+
+        await _runSaveFlow(
+          configData.activeTab,
+          {
+            ...configData,
+            destinationProfile,
+            dataSourceId: destinationProfile.notionDataSourceId,
+            dataSourceType: destinationProfile.notionDataSourceType,
+          },
+          sendResponse
+        );
       } catch (error) {
         Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
         const safeMessage = sanitizeApiError(error, 'save_page_unknown');
@@ -828,8 +929,26 @@ export function createSaveHandlers(services) {
           return;
         }
 
+        const destinationProfile = await resolveDestinationProfile(
+          request,
+          sendResponse,
+          configData
+        );
+        if (!destinationProfile) {
+          return;
+        }
+
         // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        await _runSaveFlow(configData.activeTab, configData, sendResponse);
+        await _runSaveFlow(
+          configData.activeTab,
+          {
+            ...configData,
+            destinationProfile,
+            dataSourceId: destinationProfile.notionDataSourceId,
+            dataSourceType: destinationProfile.notionDataSourceType,
+          },
+          sendResponse
+        );
       } catch (error) {
         Logger.error('從 Toolbar 保存頁面時發生錯誤', {
           action: 'SAVE_PAGE_FROM_TOOLBAR',
