@@ -1,3 +1,4 @@
+import { globalIgnores } from 'eslint/config';
 import regexp from 'eslint-plugin-regexp';
 import sonarjs from 'eslint-plugin-sonarjs';
 import security from 'eslint-plugin-security';
@@ -8,6 +9,7 @@ import compat from 'eslint-plugin-compat';
 import jsdoc from 'eslint-plugin-jsdoc';
 
 export default [
+  globalIgnores(['.tmp/**']),
   {
     files: ['**/*.js'],
     languageOptions: {
