@@ -1527,6 +1527,19 @@ describe('options.html 結構', () => {
     expect(html).toContain('aria-atomic="true"');
   });
 
+  test('destination-profile-status 應使用 output 標籤而非 status role', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const status = doc.querySelector('#destination-profile-status');
+
+    expect(status).not.toBeNull();
+    expect(status.tagName).toBe('OUTPUT');
+    expect(status.getAttribute('role')).toBeNull();
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.getAttribute('aria-atomic')).toBe('true');
+  });
+
   test('Google Drive 雲端同步卡片應僅保留單一說明文案，描述備份與同步本地資料到雲端', () => {
     const htmlPath = path.resolve(__dirname, '../../../options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
