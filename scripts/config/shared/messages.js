@@ -70,6 +70,16 @@ const DATA_SOURCE = {
     '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料庫',
   LOAD_FAILED: error => `載入保存目標失敗: ${error}`,
   DEFAULT_OPTION: '選擇保存目標...',
+  SEARCH_PLACEHOLDER: '搜尋保存目標...',
+  SEARCHING_PREFIX: '正在搜尋「',
+  SEARCHING_SUFFIX: '」...',
+  NO_MATCH_FOUND: '未找到匹配的資料來源',
+  TRY_DIFFERENT_KEYWORD: '嘗試使用不同的關鍵字搜索',
+  LABEL_DATA_SOURCE: '保存目標',
+  LABEL_SEARCH_RESULT: '搜尋結果',
+  UNTITLED_PAGE: '未命名頁面',
+  UNTITLED_DATA_SOURCE: '未命名資料來源',
+  UNKNOWN_ERROR_LOG: '未知錯誤',
 };
 
 const STORAGE = {
