@@ -1093,6 +1093,38 @@ function buildDestinationProfileDOM() {
   `;
 }
 
+function buildDestinationProfileServiceMock(overrides = {}) {
+  const profiles = overrides.profiles || [
+    {
+      id: 'default',
+      name: 'Default',
+      color: '#2563eb',
+      notionDataSourceId: 'source-1',
+      notionDataSourceType: 'database',
+    },
+  ];
+
+  return {
+    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue(profiles),
+    listProfiles: jest.fn().mockResolvedValue(profiles),
+    getDestinationEntitlement: jest.fn().mockResolvedValue({
+      maxProfiles: 2,
+      accountSignedIn: true,
+      source: 'test',
+    }),
+    getProfile: jest.fn().mockResolvedValue({
+      id: 'default',
+      name: 'Default',
+      notionDataSourceId: 'source-1',
+      notionDataSourceType: 'database',
+    }),
+    updateProfile: jest.fn(),
+    createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
+    deleteProfile: jest.fn().mockResolvedValue(profiles),
+    ...overrides,
+  };
+}
+
 describe('Destination profile options UI', () => {
   const {
     DestinationProfileService,
@@ -1169,6 +1201,58 @@ describe('Destination profile options UI', () => {
     expect(status.textContent).toContain('登入 account 後可建立第二個保存目標');
   });
 
+  it('已達付費方案上限時應顯示付費方案提示', async () => {
+    const profiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      },
+      {
+        id: 'profile-2',
+        name: 'Second',
+        color: '#7c3aed',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+      },
+    ];
+    const service = buildDestinationProfileServiceMock({
+      profiles,
+      getDestinationEntitlement: jest.fn().mockResolvedValue({
+        maxProfiles: 2,
+        accountSignedIn: true,
+        source: 'test',
+      }),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    const addButton = document.querySelector('#add-destination-profile');
+    const status = document.querySelector('#destination-profile-status');
+    expect(addButton.disabled).toBe(true);
+    expect(addButton.title).toContain('更多保存目標會在付費方案開放');
+    expect(status.textContent).toContain('更多保存目標會在付費方案開放');
+  });
+
+  it('點擊保存目標列表非按鈕元素時不應呼叫 action service', async () => {
+    const service = buildDestinationProfileServiceMock();
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('.destination-profile-title').click();
+    await flushAsyncClick();
+
+    expect(service.getProfile).not.toHaveBeenCalled();
+    expect(service.updateProfile).not.toHaveBeenCalled();
+    expect(service.deleteProfile).not.toHaveBeenCalled();
+  });
+
   it('重新命名保存目標時應 trim 名稱並呼叫 updateProfile', async () => {
     const service = {
       ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
@@ -1209,6 +1293,27 @@ describe('Destination profile options UI', () => {
     await flushAsyncClick();
 
     expect(service.updateProfile).toHaveBeenCalledWith('default', { name: 'Inbox' });
+  });
+
+  it('取消重新命名保存目標時應回復顯示模式且不呼叫 updateProfile', async () => {
+    const service = buildDestinationProfileServiceMock();
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('button[data-action="rename"]').click();
+    await flushAsyncClick();
+    expect(
+      document.querySelector('input[data-role="destination-profile-name-edit"]')
+    ).not.toBeNull();
+
+    document.querySelector('button[data-action="cancel-name"]').click();
+    await flushAsyncClick();
+
+    expect(service.updateProfile).not.toHaveBeenCalled();
+    expect(document.querySelector('input[data-role="destination-profile-name-edit"]')).toBeNull();
+    expect(document.querySelector('.destination-profile-title').textContent).toBe('Default');
   });
 
   it('重新命名保存目標為空白時應顯示錯誤且不呼叫 updateProfile', async () => {
@@ -1301,6 +1406,100 @@ describe('Destination profile options UI', () => {
     });
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已達目的地數量上限。', 'error');
     expect(nameInput.value).toBe('  Team Inbox  ');
+  });
+
+  it('新增保存目標遇到一般錯誤時應顯示通用錯誤且記錄警告', async () => {
+    const createError = new Error('Storage unavailable');
+    const service = buildDestinationProfileServiceMock({
+      createProfile: jest.fn().mockRejectedValue(createError),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    const nameInput = document.querySelector('#destination-profile-name');
+    nameInput.value = '  Team Inbox  ';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(Logger.warn).toHaveBeenCalledWith('新增保存目標失敗', {
+      action: 'createDestinationProfile',
+      error: createError,
+    });
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      '新增保存目標失敗，請稍後再試。',
+      'error'
+    );
+    expect(nameInput.value).toBe('  Team Inbox  ');
+  });
+
+  it('新增保存目標時若 Notion ID 無效應顯示錯誤且不呼叫 createProfile', async () => {
+    const service = buildDestinationProfileServiceMock();
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('#database-id').value = 'invalid';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(service.createProfile).not.toHaveBeenCalled();
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      expect.stringContaining('ID 格式無效'),
+      'error'
+    );
+  });
+
+  it('新增保存目標成功時應清空名稱輸入並重新渲染列表', async () => {
+    const service = buildDestinationProfileServiceMock();
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    const nameInput = document.querySelector('#destination-profile-name');
+    nameInput.value = '  Database Inbox  ';
+    document.querySelector('#database-type').value = 'database';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(service.createProfile).toHaveBeenCalledWith({
+      name: 'Database Inbox',
+      notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+      notionDataSourceType: 'database',
+    });
+    expect(nameInput.value).toBe('');
+    expect(service.listProfiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('保存目標套用與刪除按鈕應呼叫對應 service flow', async () => {
+    const service = buildDestinationProfileServiceMock({
+      getProfile: jest.fn().mockResolvedValue({
+        id: 'default',
+        name: 'Default',
+        notionDataSourceId: 'target-page-id',
+        notionDataSourceType: 'page',
+      }),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('button[data-action="edit"]').click();
+    await flushAsyncClick();
+
+    expect(document.querySelector('#database-id').value).toBe('target-page-id');
+    expect(document.querySelector('#database-type').value).toBe('page');
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已套用 Default 到編輯欄位', 'info');
+
+    document.querySelector('button[data-action="delete"]').click();
+    await flushAsyncClick();
+
+    expect(service.deleteProfile).toHaveBeenCalledWith('default');
+    expect(service.listProfiles).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -1733,6 +1932,29 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#account-logged-out').style.display).toBe('none');
       expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
       expect(document.querySelector('#account-status').textContent).toContain('無法更新登入狀態');
+    });
+
+    it('transient refresh error 後收到 session 更新且 token 成功時應清除提示', async () => {
+      getAccountAccessToken.mockRejectedValueOnce(new Error('refresh transient failure'));
+      getAccountProfile.mockResolvedValue({
+        userId: 'u1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        avatarUrl: null,
+      });
+
+      initOptions();
+      await flushAsyncClick();
+      expect(document.querySelector('#account-status').textContent).toContain('無法更新登入狀態');
+
+      getAccountAccessToken.mockResolvedValueOnce('token-after-retry');
+      const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      listener({ action: 'account_session_updated' });
+      await flushAsyncClick();
+
+      const statusEl = document.querySelector('#account-status');
+      expect(statusEl.textContent).toBe('');
+      expect(statusEl.className).toBe('status-message');
     });
 
     it('profile 存在且 token refresh 成功時，profile 資訊應正確顯示（不因 refresh 而消失）', async () => {
