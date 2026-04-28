@@ -253,6 +253,34 @@ body {
   gap: var(--spacing-sm);
 }
 
+.destination-profile-form {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.destination-profile-name-row,
+.destination-target-select,
+.destination-target-manual {
+  min-width: 0;
+}
+
+.destination-target-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--spacing-sm);
+  align-items: end;
+}
+
+.destination-target-help {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .destination-target-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 input[type='text'],
 input[type='password'],
 select {
@@ -455,6 +483,21 @@ select:focus {
   font-size: 14px;
 }
 
+.connection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.connection-row .auth-status {
+  margin-bottom: 0;
+}
+
+.connection-actions {
+  justify-content: flex-end;
+}
+
 .auth-status.success {
   display: block;
   background-color: #dcfce7;
@@ -482,9 +525,19 @@ select:focus {
   gap: var(--spacing-sm);
 }
 
+@media (max-width: 720px) {
+  .connection-row {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-actions {
+    justify-content: flex-start;
+  }
+}
+
 /* Database Selector */
 .database-selector-container {
-  margin-top: var(--spacing-xs);
+  margin-top: 0;
 }
 
 .searchable-selector {

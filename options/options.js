@@ -55,6 +55,51 @@ const DEFAULT_DESTINATION_ENTITLEMENT = {
 };
 let destinationProfilesUIController = null;
 
+function resolveUiMessage(path) {
+  if (typeof path !== 'string' || !path) {
+    return '';
+  }
+
+  let value = UI_MESSAGES;
+  for (const key of path.split('.')) {
+    if (!value || typeof value !== 'object') {
+      return '';
+    }
+    value = value[key];
+  }
+
+  return typeof value === 'string' ? value : '';
+}
+
+export function applyStaticOptionMessages(root = document) {
+  root.querySelectorAll('[data-ui-message]').forEach(element => {
+    element.textContent = resolveUiMessage(element.dataset.uiMessage);
+  });
+
+  root.querySelectorAll('[data-ui-placeholder]').forEach(element => {
+    element.setAttribute('placeholder', resolveUiMessage(element.dataset.uiPlaceholder));
+  });
+
+  root.querySelectorAll('[data-ui-title]').forEach(element => {
+    element.setAttribute('title', resolveUiMessage(element.dataset.uiTitle));
+  });
+
+  root.querySelectorAll('[data-ui-aria-label]').forEach(element => {
+    element.setAttribute('aria-label', resolveUiMessage(element.dataset.uiAriaLabel));
+  });
+
+  const destinationHelp = root.querySelector('[data-ui-composite="destination-target-help"]');
+  const destinationHelpLink = destinationHelp?.querySelector('a');
+  if (destinationHelp && destinationHelpLink) {
+    destinationHelp.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
+      destinationHelpLink,
+      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
+    );
+    destinationHelpLink.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
+  }
+}
+
 function normalizeDestinationProfileName(value) {
   return typeof value === 'string'
     ? value.trim().slice(0, DESTINATION_PROFILE_NAME_MAX_LENGTH)
@@ -102,6 +147,8 @@ function activateSidebarSection(sectionName, navItems, sections) {
  * 負責協調各个模組，處理全域事件與設置保存
  */
 export function initOptions() {
+  applyStaticOptionMessages();
+
   // 1. 初始化各管理器
   injectIcons(UI_ICONS); // Inject SVG sprites (Shared System)
   const ui = new UIManager();

@@ -11,6 +11,9 @@ import {
 } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
+import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
+
+const { DATA_SOURCE } = UI_MESSAGES;
 
 /**
  * 可搜索的資料來源選擇器組件
@@ -162,14 +165,8 @@ export class SearchableDatabaseSelector {
       this.container.style.display = 'block';
     }
 
-    const pageCount = dataSources.filter(ds => ds.object === 'page').length;
-    // Consider both 'data_source' and 'database' as data sources for the count (consistent with DataSourceManager.filterAndSortResults)
-    const dsCount = dataSources.filter(
-      ds => ds.object === 'data_source' || ds.object === 'database'
-    ).length;
-
     if (this.searchInput) {
-      this.searchInput.placeholder = `搜索 ${dataSources.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
+      this.searchInput.placeholder = DATA_SOURCE.SEARCH_PLACEHOLDER;
     }
 
     if (this.databaseIdInput?.value) {
@@ -270,11 +267,11 @@ export class SearchableDatabaseSelector {
       container.append(spinner);
 
       const textSpan = document.createElement('span');
-      textSpan.textContent = '正在搜尋「';
+      textSpan.textContent = DATA_SOURCE.SEARCHING_PREFIX;
       const querySpan = document.createElement('span');
       querySpan.textContent = query;
       textSpan.append(querySpan);
-      textSpan.append(document.createTextNode('」...'));
+      textSpan.append(document.createTextNode(DATA_SOURCE.SEARCHING_SUFFIX));
       container.append(textSpan);
 
       this.dataSourceList.append(container);
@@ -298,11 +295,11 @@ export class SearchableDatabaseSelector {
       noResultsDiv.append(iconSpan);
 
       const msgDiv = document.createElement('div');
-      msgDiv.textContent = '未找到匹配的資料來源';
+      msgDiv.textContent = DATA_SOURCE.NO_MATCH_FOUND;
       noResultsDiv.append(msgDiv);
 
       const small = document.createElement('small');
-      small.textContent = '嘗試使用不同的關鍵字搜索';
+      small.textContent = DATA_SOURCE.TRY_DIFFERENT_KEYWORD;
       noResultsDiv.append(small);
 
       this.dataSourceList.append(noResultsDiv);
@@ -592,11 +589,8 @@ export class SearchableDatabaseSelector {
     const total = this.dataSources.length;
     const filtered = this.filteredDataSources.length;
 
-    if (filtered === total) {
-      this.dataSourceCount.textContent = `${total} 個保存目標`;
-    } else {
-      this.dataSourceCount.textContent = `${filtered} / ${total} 個保存目標`;
-    }
+    this.dataSourceCount.textContent =
+      filtered === total ? DATA_SOURCE.LABEL_DATA_SOURCE : DATA_SOURCE.LABEL_SEARCH_RESULT;
   }
 
   async refreshDataSources() {
@@ -680,14 +674,14 @@ export class SearchableDatabaseSelector {
       if (typeof safeError.url === 'string') {
         context.url = sanitizeUrlForLogging(safeError.url);
       }
-      return Object.keys(context).length > 0 ? context : { message: '未知錯誤' };
+      return Object.keys(context).length > 0 ? context : { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
     }
 
-    return { message: '未知錯誤' };
+    return { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
   }
 
   static extractDataSourceTitle(ds) {
-    let title = ds.object === 'page' ? '未命名頁面' : '未命名資料來源';
+    let title = ds.object === 'page' ? DATA_SOURCE.UNTITLED_PAGE : DATA_SOURCE.UNTITLED_DATA_SOURCE;
     if (ds.object === 'page' && ds.properties?.title?.title) {
       const titleContent = ds.properties.title.title;
       if (titleContent.length > 0) {

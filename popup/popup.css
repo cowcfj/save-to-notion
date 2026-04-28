@@ -13,6 +13,10 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Brand tokens — from extension icon primary color */
+  --brand-title: #172033;
+  --brand-accent: #ff8060;
 }
 
 body {
@@ -36,19 +40,42 @@ h2 {
   font-size: 18px;
 }
 
-.popup-titlebar {
+#popup-title {
   position: relative;
+  color: var(--brand-title);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.15;
+  padding-bottom: 5px;
+}
+
+#popup-title::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 32px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--brand-accent);
+  transform: translateX(-50%);
+}
+
+.popup-titlebar {
   width: 100%;
   min-height: 32px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr);
   align-items: center;
-  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.titlebar-left {
+  justify-self: start;
 }
 
 .account-section {
-  position: absolute;
-  top: 0;
-  right: 0;
+  justify-self: end;
   align-items: center;
   justify-content: center;
 }
@@ -108,6 +135,20 @@ button {
   background-color: #48bb78;
 }
 
+.annotation-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.annotation-actions > button {
+  margin-bottom: var(--spacing-sm);
+  min-width: 0;
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+}
+
 /* SVG 圖標樣式 */
 .btn-icon,
 .link-icon {
@@ -139,14 +180,18 @@ button {
   background-color: #2563eb;
 }
 
-#manage-button {
-  background-color: #5b21b6;
+#manage-button.secondary-action {
+  background-color: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
 }
 
-#manage-button:hover {
-  background-color: #4c1d95;
+#manage-button.secondary-action:hover {
+  background-color: #eef2ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
 }
 
 #save-button:hover {
@@ -157,10 +202,10 @@ button {
 
 .destination-section {
   width: 100%;
-  margin-top: calc(var(--spacing-sm) * -1);
+  margin-top: 0;
   margin-bottom: var(--spacing-xs);
   color: #334155;
-  font-size: 12px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -172,18 +217,23 @@ button {
 
 .destination-current {
   flex: 1;
-  min-height: 28px;
-  padding: 7px var(--spacing-sm);
+  height: 32px;
+  padding: 0 var(--spacing-sm);
   border-left: 3px solid #2563eb;
   background: #f8fafc;
   border-radius: var(--radius-sm);
-  overflow-wrap: anywhere;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .destination-toggle {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
   padding: 0;
   margin: 0;
   background: #e2e8f0;
@@ -271,6 +321,28 @@ button {
   border-color: #86efac;
 }
 
+.settings-button {
+  min-height: 32px;
+  padding: 0 var(--spacing-sm);
+  border-radius: 999px;
+  color: #334155;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.settings-button:hover {
+  background: #f8fafc;
+  color: #1d4ed8;
+  border-color: #cbd5e1;
+  text-decoration: none;
+}
+
 .account-status-error {
   color: #d63384;
 }
@@ -291,25 +363,4 @@ a:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
-}
-
-.links {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.links a {
-  color: #005ecb;
-  text-decoration: none;
-  font-size: 12px;
-  padding: 5px 8px;
-  border-radius: 3px;
-  transition: background-color 0.2s;
-}
-
-.links a:hover {
-  background-color: #f0f0f0;
-  text-decoration: none;
 }
