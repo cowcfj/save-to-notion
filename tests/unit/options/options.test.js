@@ -273,41 +273,32 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
-    it('應先寫入 chrome.storage，成功後才更新 default profile', async () => {
+    it('應在 storage 寫入前更新 default profile，避免 storage/profile split-brain', async () => {
       const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
-      const operationOrder = [];
+      let profileUpdated = false;
       mockLocalSet.mockImplementation(async () => {
-        operationOrder.push('local.set');
+        expect(profileUpdated).toBe(true);
       });
       mockSet.mockImplementation(async () => {
-        operationOrder.push('sync.set');
+        expect(profileUpdated).toBe(true);
       });
       mockSyncRemove.mockImplementation(async () => {
-        operationOrder.push('sync.remove');
+        expect(profileUpdated).toBe(true);
       });
       ProfileManager.mockImplementationOnce(() => ({
-        ensureMigratedDefaultProfile: jest.fn(async () => {
-          operationOrder.push('ensureMigratedDefaultProfile');
-          return [{ id: 'default' }];
-        }),
+        ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
         updateProfile: jest.fn(async () => {
-          operationOrder.push('updateProfile');
+          profileUpdated = true;
           return { id: 'default' };
         }),
       }));
 
       await saveSettings(mockUi, mockAuth);
 
-      expect(operationOrder).toEqual([
-        'ensureMigratedDefaultProfile',
-        'local.set',
-        'sync.set',
-        'sync.remove',
-        'updateProfile',
-      ]);
+      expect(profileUpdated).toBe(true);
     });
 
-    it('chrome.storage 寫入失敗時應 rollback default profile 且不保留新 target', async () => {
+    it('chrome.storage 寫入失敗時應 rollback default profile 且 UI 顯示錯誤', async () => {
       const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       const updateProfile = jest.fn().mockResolvedValue({ id: 'default' });
       ProfileManager.mockImplementationOnce(() => ({
@@ -328,12 +319,36 @@ describe('options.js', () => {
         notionDataSourceId: 'old-source',
         notionDataSourceType: 'database',
       });
-      expect(updateProfile).not.toHaveBeenCalledWith(
-        'default',
-        expect.objectContaining({
-          notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
-        })
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('失敗'),
+        'error',
+        'status'
       );
+    });
+
+    it('default profile 更新失敗時不應寫入 storage 且 UI 顯示錯誤', async () => {
+      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
+      const updateProfile = jest.fn().mockRejectedValue(new Error('profile failed'));
+      ProfileManager.mockImplementationOnce(() => ({
+        ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([
+          {
+            id: 'default',
+            notionDataSourceId: 'old-source',
+            notionDataSourceType: 'database',
+          },
+        ]),
+        updateProfile,
+      }));
+
+      await saveSettings(mockUi, mockAuth);
+
+      expect(updateProfile).toHaveBeenCalledWith('default', {
+        notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+        notionDataSourceType: 'page',
+      });
+      expect(mockLocalSet).not.toHaveBeenCalled();
+      expect(mockSet).not.toHaveBeenCalled();
+      expect(mockSyncRemove).not.toHaveBeenCalled();
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
         'error',

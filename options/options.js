@@ -970,16 +970,16 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     originalDataSourceType = originalProfile.notionDataSourceType ?? 'database';
     hasOriginalProfileState = true;
 
+    await destinationProfileService.updateProfile(defaultProfileId, {
+      notionDataSourceId: databaseId,
+      notionDataSourceType: localSettings[dataSourceTypeKey],
+    });
+
     await Promise.all([
       chrome.storage.local.set(localSettings),
       chrome.storage.sync.set(syncSettings),
       chrome.storage.sync.remove(DATA_SOURCE_KEYS),
     ]);
-
-    await destinationProfileService.updateProfile(defaultProfileId, {
-      notionDataSourceId: databaseId,
-      notionDataSourceType: localSettings[dataSourceTypeKey],
-    });
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 

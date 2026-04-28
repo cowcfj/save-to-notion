@@ -269,6 +269,74 @@ describe('Destination profile domain services', () => {
     );
   });
 
+  it('getLastUsedProfile 會忽略超出 entitlement 上限的 last-used profile', async () => {
+    entitlementProvider.getDestinationEntitlement.mockResolvedValue({
+      maxProfiles: 1,
+      source: 'test',
+    });
+    storageData.destinationProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        icon: 'bookmark',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'second',
+        name: 'Second',
+        icon: 'bookmark',
+        color: '#16a34a',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+        createdAt: 2,
+        updatedAt: 2,
+      },
+    ];
+    storageData.destinationLastUsedProfileId = 'second';
+
+    await expect(manager.getLastUsedProfile()).resolves.toEqual(
+      expect.objectContaining({ id: 'default' })
+    );
+  });
+
+  it('resolveProfileForSave 未明確指定 profile 時會忽略超出 entitlement 的 last-used profile', async () => {
+    entitlementProvider.getDestinationEntitlement.mockResolvedValue({
+      maxProfiles: 1,
+      source: 'test',
+    });
+    storageData.destinationProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        icon: 'bookmark',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'second',
+        name: 'Second',
+        icon: 'bookmark',
+        color: '#16a34a',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+        createdAt: 2,
+        updatedAt: 2,
+      },
+    ];
+    storageData.destinationLastUsedProfileId = 'second';
+
+    await expect(resolver.resolveProfileForSave()).resolves.toEqual(
+      expect.objectContaining({ id: 'default' })
+    );
+  });
+
   it('更新 Default profile 時會同步回寫舊保存目標 keys', async () => {
     storageData.destinationProfiles = [
       {

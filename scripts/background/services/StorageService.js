@@ -167,6 +167,16 @@ class StorageService {
     return null;
   }
 
+  _resolvePageStateTargetUrl(state, fallbackUrl) {
+    if (typeof state?.key === 'string' && state.key.startsWith(PAGE_PREFIX)) {
+      return state.key.slice(PAGE_PREFIX.length);
+    }
+    if (typeof state?.resolvedUrl === 'string' && state.resolvedUrl) {
+      return state.resolvedUrl;
+    }
+    return fallbackUrl;
+  }
+
   /**
    * 將舊格式資料轉換為 page_* 物件結構
    *
@@ -562,16 +572,13 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    const initialState = await this._getPageState(normalizedUrl);
+    const lockUrl = this._resolvePageStateTargetUrl(initialState, normalizedUrl);
 
-    return this._withLock(normalizedUrl, async () => {
+    return this._withLock(lockUrl, async () => {
       try {
         const state = await this._getPageState(normalizedUrl);
-        let targetUrl = normalizedUrl;
-        if (typeof state?.key === 'string') {
-          targetUrl = state.key.slice(PAGE_PREFIX.length);
-        } else if (typeof state?.resolvedUrl === 'string') {
-          targetUrl = state.resolvedUrl;
-        }
+        const targetUrl = this._resolvePageStateTargetUrl(state, lockUrl);
         const pageKey = `${PAGE_PREFIX}${targetUrl}`;
         const hlKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
         const existing = await this.storage.local.get([pageKey, hlKey]);
@@ -616,8 +623,17 @@ class StorageService {
         await this.storage.local.set({ [pageKey]: newData });
 
         // 過渡期：刪除舊 saved_* key；若 highlights_* 已遷移到 page_*，一併清理
-        const oldKey = `${SAVED_PREFIX}${normalizedUrl}`;
-        const keysToRemove = [oldKey];
+        const keysToRemove = [`${SAVED_PREFIX}${targetUrl}`];
+        if (targetUrl !== normalizedUrl) {
+          keysToRemove.push(`${SAVED_PREFIX}${normalizedUrl}`);
+        }
+        if (
+          state?.format === 'legacy' &&
+          state.savedKey &&
+          !keysToRemove.includes(state.savedKey)
+        ) {
+          keysToRemove.push(state.savedKey);
+        }
         if (existing[hlKey]) {
           keysToRemove.push(hlKey);
         }

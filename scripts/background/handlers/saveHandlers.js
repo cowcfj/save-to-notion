@@ -31,6 +31,7 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { resolveSaveStatus } from '../services/SaveStatusCoordinator.js';
 import {
   AccountGatedDestinationEntitlementProvider,
+  DEFAULT_PROFILE_ID,
   LocalDestinationProfileRepository,
 } from '../../destinations/ProfileStore.js';
 import { ProfileResolver } from '../../destinations/ProfileResolver.js';
@@ -837,7 +838,8 @@ export function createSaveHandlers(services) {
       return;
     }
 
-    if (destinationProfile?.id && savedData.destinationProfileId !== destinationProfile.id) {
+    const effectiveSavedDestinationId = savedData.destinationProfileId ?? DEFAULT_PROFILE_ID;
+    if (destinationProfile?.id && effectiveSavedDestinationId !== destinationProfile.id) {
       await _handleNewPageCreation({ ...params, savedData: null });
       return;
     }

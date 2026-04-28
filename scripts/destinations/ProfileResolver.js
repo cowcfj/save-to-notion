@@ -42,18 +42,29 @@ export class ProfileResolver {
       throw new Error(DESTINATION_PROFILE_ERRORS.NOT_CONFIGURED);
     }
 
-    const requestedProfileId =
-      profileId || (await this.repository.getLastUsedProfileId()) || profiles[0].id;
-    const profileIndex = profiles.findIndex(profile => profile.id === requestedProfileId);
-    if (profileIndex === -1) {
-      throw new Error(DESTINATION_PROFILE_ERRORS.NOT_FOUND);
-    }
-
     const entitlement = await this.getDestinationEntitlement();
-    if (profileIndex >= entitlement.maxProfiles) {
+    const allowedProfiles = profiles.slice(0, entitlement.maxProfiles);
+    if (allowedProfiles.length === 0) {
       throw new Error(DESTINATION_PROFILE_ERRORS.NOT_ALLOWED);
     }
 
-    return profiles[profileIndex];
+    if (profileId) {
+      const profileIndex = profiles.findIndex(profile => profile.id === profileId);
+      if (profileIndex === -1) {
+        throw new Error(DESTINATION_PROFILE_ERRORS.NOT_FOUND);
+      }
+      if (profileIndex >= entitlement.maxProfiles) {
+        throw new Error(DESTINATION_PROFILE_ERRORS.NOT_ALLOWED);
+      }
+      return profiles[profileIndex];
+    }
+
+    const lastUsedProfileId = await this.repository.getLastUsedProfileId();
+    const lastUsedProfile = allowedProfiles.find(profile => profile.id === lastUsedProfileId);
+    if (lastUsedProfile) {
+      return lastUsedProfile;
+    }
+
+    return allowedProfiles[0];
   }
 }

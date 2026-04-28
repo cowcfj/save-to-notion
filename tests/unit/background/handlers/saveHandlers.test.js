@@ -443,6 +443,37 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('savePage: legacy 已保存頁缺少 destinationProfileId 且使用 default profile 時應更新既有頁面', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(true);
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: true,
+        pageId: 'existing-id',
+      });
+      mockServices.notionService.refreshPageContent.mockResolvedValue({
+        success: true,
+        pageId: 'existing-id',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+      expect(mockServices.notionService.checkPageExists).toHaveBeenCalledWith('existing-id', {
+        apiKey: 'valid-key',
+      });
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          updated: true,
+          destinationProfileId: 'default',
+        })
+      );
+    });
+
     test('savePage: legacy data source key 缺失時仍應使用 destination profile target 保存', async () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getConfig.mockResolvedValue({

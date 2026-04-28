@@ -39,12 +39,14 @@ export class ProfileManager {
 
   async getLastUsedProfile() {
     const profiles = await this.listProfiles();
-    if (profiles.length === 0) {
+    const entitlement = await this.getDestinationEntitlement();
+    const allowedProfiles = profiles.slice(0, entitlement.maxProfiles);
+    if (allowedProfiles.length === 0) {
       return null;
     }
 
     const lastUsedProfileId = await this.repository.getLastUsedProfileId();
-    return profiles.find(profile => profile.id === lastUsedProfileId) || profiles[0];
+    return allowedProfiles.find(profile => profile.id === lastUsedProfileId) || allowedProfiles[0];
   }
 
   async setLastUsedProfile(profileId) {

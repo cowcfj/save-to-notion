@@ -6,7 +6,11 @@
 
 /* global chrome */
 
-import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
+import {
+  isValidNotionUrl,
+  sanitizeApiError,
+  sanitizeUrlForLogging,
+} from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../scripts/config/env/index.js';
@@ -164,25 +168,44 @@ export async function getDestinationState() {
       entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
     });
     const profiles = await service.listProfiles().catch(error => {
-      Logger.warn('getDestinationState listProfiles failed:', error);
+      Logger.warn({
+        action: 'getDestinationState',
+        operation: 'listProfiles',
+        error: sanitizeApiError(error, 'getDestinationState.listProfiles'),
+      });
       return [];
     });
     const selectedProfile = await service.getLastUsedProfile().catch(error => {
-      Logger.warn('getDestinationState getLastUsedProfile failed:', error);
+      Logger.warn({
+        action: 'getDestinationState',
+        operation: 'getLastUsedProfile',
+        error: sanitizeApiError(error, 'getDestinationState.getLastUsedProfile'),
+      });
       return null;
     });
     const entitlement = await service.getDestinationEntitlement().catch(error => {
-      Logger.warn('getDestinationState getDestinationEntitlement failed:', error);
+      Logger.warn({
+        action: 'getDestinationState',
+        operation: 'getDestinationEntitlement',
+        error: sanitizeApiError(error, 'getDestinationState.getDestinationEntitlement'),
+      });
       return { maxProfiles: 1 };
     });
+    const selectedProfileId = profiles.some(profile => profile.id === selectedProfile?.id)
+      ? selectedProfile.id
+      : (profiles[0]?.id ?? null);
 
     return {
       profiles,
-      selectedProfileId: selectedProfile?.id ?? profiles[0]?.id ?? null,
+      selectedProfileId,
       entitlement,
     };
   } catch (error) {
-    Logger.warn('getDestinationState failed:', error);
+    Logger.warn({
+      action: 'getDestinationState',
+      operation: 'getDestinationState',
+      error: sanitizeApiError(error, 'getDestinationState'),
+    });
     return { profiles: [], selectedProfileId: null, entitlement: { maxProfiles: 1 } };
   }
 }

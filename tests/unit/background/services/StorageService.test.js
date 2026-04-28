@@ -623,6 +623,9 @@ describe('StorageService', () => {
           [`${PAGE_PREFIX}${originalUrl}`]: expect.anything(),
         })
       );
+      expect(mockStorage.local.remove).toHaveBeenCalledWith(
+        expect.arrayContaining([`${SAVED_PREFIX}${stableUrl}`])
+      );
     });
 
     it('destinationProfileId 明確傳入 undefined 時應寫入 null', async () => {

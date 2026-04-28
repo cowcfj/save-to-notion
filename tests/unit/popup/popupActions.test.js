@@ -291,7 +291,7 @@ describe('popupActions.js', () => {
   });
 
   describe('getDestinationState', () => {
-    it('應從 destination profile service 讀取 profiles 與 last-used', async () => {
+    it('應從 destination profile service 讀取 profiles 並以 entitlement 內的 profile 作為選取值', async () => {
       await chrome.storage.local.set({
         destinationProfiles: [
           {
@@ -321,7 +321,7 @@ describe('popupActions.js', () => {
       const result = await getDestinationState();
 
       expect(result.profiles).toHaveLength(2);
-      expect(result.selectedProfileId).toBe('profile-2');
+      expect(result.selectedProfileId).toBe('default');
       expect(result.entitlement.maxProfiles).toBeGreaterThanOrEqual(1);
     });
 
@@ -352,15 +352,45 @@ describe('popupActions.js', () => {
         return originalGet.call(chrome.storage.local, keys);
       });
 
+      try {
+        const result = await getDestinationState();
+
+        expect(result.profiles).toHaveLength(1);
+        expect(result.selectedProfileId).toBe('default');
+        expect(result.entitlement).toEqual(expect.objectContaining({ maxProfiles: 1 }));
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'getDestinationState',
+            operation: 'getLastUsedProfile',
+            error: expect.any(String),
+          })
+        );
+      } finally {
+        chrome.storage.local.get = originalGet;
+      }
+    });
+
+    it('last-used 指向 profiles snapshot 外的 id 時應回退選第一個 profile', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            icon: 'bookmark',
+            color: '#2563eb',
+            notionDataSourceId: 'db-1',
+            notionDataSourceType: 'database',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        destinationLastUsedProfileId: 'stale-profile',
+      });
+
       const result = await getDestinationState();
 
-      expect(result.profiles).toHaveLength(1);
+      expect(result.profiles.map(profile => profile.id)).toEqual(['default']);
       expect(result.selectedProfileId).toBe('default');
-      expect(result.entitlement).toEqual(expect.objectContaining({ maxProfiles: 1 }));
-      expect(Logger.warn).toHaveBeenCalledWith(
-        'getDestinationState getLastUsedProfile failed:',
-        expect.any(Error)
-      );
     });
   });
 
