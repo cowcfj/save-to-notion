@@ -21,6 +21,7 @@ import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
+import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env/index.js', () => ({
@@ -90,6 +91,17 @@ function appendSaveFormFields() {
 async function flushAsyncClick() {
   await Promise.resolve();
   await Promise.resolve();
+}
+
+async function waitForLoggerWarn(message) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await Promise.resolve();
+    const call = Logger.warn.mock.calls.find(([loggedMessage]) => loggedMessage === message);
+    if (call) {
+      return call;
+    }
+  }
+  return null;
 }
 
 describe('options.js', () => {
@@ -483,6 +495,43 @@ describe('options.js', () => {
       expect(mockStorageInstance.init).toHaveBeenCalled();
       expect(mockMigrationInstance.init).toHaveBeenCalled();
       expect(mockAuthInstance.checkAuthStatus).toHaveBeenCalled();
+    });
+
+    it('初始化保存目標 UI 失敗時應只記錄脫敏後錯誤', async () => {
+      const {
+        DestinationProfileService,
+      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      document.body.innerHTML += `
+        <div id="destination-profile-list"></div>
+        <button id="add-destination-profile"></button>
+        <div id="destination-profile-status"></div>
+        <input id="destination-profile-name" />
+      `;
+      const initError = new Error('Storage unavailable with token secret_12345');
+      DestinationProfileService.mockImplementationOnce(() => ({
+        ensureMigratedDefaultProfile: jest.fn().mockRejectedValue(initError),
+        listProfiles: jest.fn(),
+        getDestinationEntitlement: jest.fn(),
+        createProfile: jest.fn(),
+        getProfile: jest.fn(),
+        updateProfile: jest.fn(),
+        deleteProfile: jest.fn(),
+      }));
+
+      initOptions();
+      const logCall = await waitForLoggerWarn('初始化保存目標 UI 失敗');
+
+      expect(logCall).toEqual([
+        '初始化保存目標 UI 失敗',
+        {
+          action: 'initDestinationProfilesUI',
+          error: sanitizeApiError(initError, 'initDestinationProfilesUI'),
+        },
+      ]);
+      expect(Logger.warn).not.toHaveBeenCalledWith(
+        '初始化保存目標 UI 失敗',
+        expect.objectContaining({ error: initError })
+      );
     });
 
     describe('DataSourceManager getApiKey callback', () => {
@@ -1425,8 +1474,12 @@ describe('Destination profile options UI', () => {
 
     expect(Logger.warn).toHaveBeenCalledWith('新增保存目標失敗', {
       action: 'createDestinationProfile',
-      error: createError,
+      error: sanitizeApiError(createError, 'createDestinationProfile'),
     });
+    expect(Logger.warn).not.toHaveBeenCalledWith(
+      '新增保存目標失敗',
+      expect.objectContaining({ error: createError })
+    );
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
       '新增保存目標失敗，請稍後再試。',
       'error'

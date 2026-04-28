@@ -135,7 +135,11 @@ export function initOptions() {
   storage.init();
   migration.init();
   initDestinationProfilesUI(ui).catch(error => {
-    Logger.warn('初始化保存目標 UI 失敗', { action: 'initDestinationProfilesUI', error });
+    const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
+    Logger.warn('初始化保存目標 UI 失敗', {
+      action: 'initDestinationProfilesUI',
+      error: safeError,
+    });
   });
 
   // 3. 初始狀態檢查
@@ -406,7 +410,11 @@ async function initDestinationProfilesUI(ui) {
         notionDataSourceType: rawType === 'page' ? 'page' : 'database',
       });
     } catch (error) {
-      Logger.warn('新增保存目標失敗', { action: 'createDestinationProfile', error });
+      const safeError = sanitizeApiError(error, 'createDestinationProfile');
+      Logger.warn('新增保存目標失敗', {
+        action: 'createDestinationProfile',
+        error: safeError,
+      });
       const message =
         error?.message === 'Destination profile limit reached'
           ? '已達目的地數量上限。'
