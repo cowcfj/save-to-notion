@@ -209,6 +209,10 @@ describe('配置模組 - messages.js 動態函式', () => {
       );
     });
 
+    test('UI_MESSAGES.DATA_SOURCE 應使用台灣慣用搜尋文案', () => {
+      expect(UI_MESSAGES.DATA_SOURCE.TRY_DIFFERENT_KEYWORD).toBe('嘗試使用不同的關鍵字搜尋');
+    });
+
     test('ERROR_TYPES 應為凍結物件，避免 runtime mutation', () => {
       expect(Object.isFrozen(ERROR_TYPES)).toBe(true);
       expect(ERROR_TYPES).toEqual(

@@ -74,7 +74,7 @@ const DATA_SOURCE = {
   SEARCHING_PREFIX: '正在搜尋「',
   SEARCHING_SUFFIX: '」...',
   NO_MATCH_FOUND: '未找到匹配的資料來源',
-  TRY_DIFFERENT_KEYWORD: '嘗試使用不同的關鍵字搜索',
+  TRY_DIFFERENT_KEYWORD: '嘗試使用不同的關鍵字搜尋',
   LABEL_DATA_SOURCE: '保存目標',
   LABEL_SEARCH_RESULT: '搜尋結果',
   UNTITLED_PAGE: '未命名頁面',

@@ -35,6 +35,8 @@ describe('popup.html accessibility fallbacks', () => {
     expect(actionRow.children).toHaveLength(2);
     expect(actionRow.children[0].id).toBe('highlight-button');
     expect(actionRow.children[1].id).toBe('manage-button');
+    expect(actionRow.children[0].textContent.trim()).toBe('開始標註');
+    expect(actionRow.children[1].textContent.trim()).toBe('管理標註');
     expect(doc.querySelector('#manage-button').classList.contains('secondary-action')).toBe(true);
     expect(css).toMatch(/\.annotation-actions\s*\{[^}]*display:\s*grid;/);
     expect(css).toMatch(
@@ -61,7 +63,9 @@ describe('popup.html accessibility fallbacks', () => {
     expect(titlebar.children[1].id).toBe('popup-title');
     expect(titlebar.children[2]).toBe(accountSection);
     expect(settingsLink.classList.contains('settings-button')).toBe(true);
-    expect(settingsLink.querySelector('#settings-link-text')).not.toBeNull();
+    expect(settingsLink.target).toBe('_blank');
+    expect(settingsLink.rel).toBe('noopener noreferrer');
+    expect(settingsLink.querySelector('#settings-link-text').textContent.trim()).toBe('設定');
     expect(doc.querySelector('.links')).toBeNull();
     expect(css).toMatch(/\.popup-titlebar\s*\{[^}]*display:\s*grid;/);
     expect(css).toMatch(/\.titlebar-left\s*\{[^}]*justify-self:\s*start;/);
@@ -79,5 +83,15 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(/#popup-title\s*\{[^}]*letter-spacing:\s*0;/);
     expect(css).toMatch(/#popup-title::after\s*\{[^}]*background:\s*var\(--brand-accent\);/);
     expect(css).toMatch(/#popup-title::after\s*\{[^}]*width:\s*32px;/);
+  });
+
+  it('主要互動元素應提供靜態繁中 fallback 文字', () => {
+    const html = readFileSync('popup/popup.html', 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    expect(doc.querySelector('#settings-link-text').textContent.trim()).toBe('設定');
+    expect(doc.querySelector('#highlight-button .btn-text').textContent.trim()).toBe('開始標註');
+    expect(doc.querySelector('#manage-button .btn-text').textContent.trim()).toBe('管理標註');
+    expect(doc.querySelector('#save-button .btn-text').textContent.trim()).toBe('儲存頁面');
   });
 });
