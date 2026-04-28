@@ -1077,6 +1077,22 @@ describe('Google Drive API constants', () => {
   });
 });
 
+function buildDestinationProfileDOM() {
+  document.body.innerHTML = `
+    <button id="save-button"></button>
+    <button id="save-templates-button"></button>
+    <div id="app-version"></div>
+    <button class="nav-item" data-section="general"></button>
+    <div id="section-general" class="settings-section"></div>
+    <input id="database-id" value="a1b2c3d4e5f67890abcdef1234567890" />
+    <input id="database-type" value="page" />
+    <input id="destination-profile-name" value="" />
+    <div id="destination-profile-list"></div>
+    <button id="add-destination-profile" type="button"></button>
+    <p id="destination-profile-status" class="help-text"></p>
+  `;
+}
+
 describe('Destination profile options UI', () => {
   const {
     DestinationProfileService,
@@ -1087,22 +1103,6 @@ describe('Destination profile options UI', () => {
   } = require('../../../scripts/auth/accountSession.js');
   const { BUILD_ENV } = require('../../../scripts/config/env/index.js');
   let mockUiInstance = null;
-
-  function buildDestinationProfileDOM() {
-    document.body.innerHTML = `
-      <button id="save-button"></button>
-      <button id="save-templates-button"></button>
-      <div id="app-version"></div>
-      <button class="nav-item" data-section="general"></button>
-      <div id="section-general" class="settings-section"></div>
-      <input id="database-id" value="a1b2c3d4e5f67890abcdef1234567890" />
-      <input id="database-type" value="page" />
-      <input id="destination-profile-name" value="" />
-      <div id="destination-profile-list"></div>
-      <button id="add-destination-profile" type="button"></button>
-      <p id="destination-profile-status" class="help-text"></p>
-    `;
-  }
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -1255,6 +1255,52 @@ describe('Destination profile options UI', () => {
       expect.stringContaining('名稱'),
       'error'
     );
+  });
+
+  it('新增保存目標超過上限時應顯示錯誤且保留輸入', async () => {
+    const service = {
+      ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+      listProfiles: jest.fn().mockResolvedValue([
+        {
+          id: 'default',
+          name: 'Default',
+          color: '#2563eb',
+          notionDataSourceId: 'source-1',
+          notionDataSourceType: 'database',
+        },
+      ]),
+      getDestinationEntitlement: jest.fn().mockResolvedValue({
+        maxProfiles: 2,
+        accountSignedIn: true,
+        source: 'test',
+      }),
+      getProfile: jest.fn().mockResolvedValue({
+        id: 'default',
+        name: 'Default',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      }),
+      updateProfile: jest.fn(),
+      createProfile: jest.fn().mockRejectedValue(new Error('Destination profile limit reached')),
+      deleteProfile: jest.fn(),
+    };
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    const nameInput = document.querySelector('#destination-profile-name');
+    nameInput.value = '  Team Inbox  ';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(service.createProfile).toHaveBeenCalledWith({
+      name: 'Team Inbox',
+      notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+      notionDataSourceType: 'page',
+    });
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已達目的地數量上限。', 'error');
+    expect(nameInput.value).toBe('  Team Inbox  ');
   });
 });
 

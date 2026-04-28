@@ -399,11 +399,21 @@ async function initDestinationProfilesUI(ui) {
     }
     const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
     const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
-    await service.createProfile({
-      name: explicitName || `保存目標 ${Date.now().toString().slice(-4)}`,
-      notionDataSourceId: databaseId,
-      notionDataSourceType: rawType === 'page' ? 'page' : 'database',
-    });
+    try {
+      await service.createProfile({
+        name: explicitName || `保存目標 ${Date.now().toString().slice(-4)}`,
+        notionDataSourceId: databaseId,
+        notionDataSourceType: rawType === 'page' ? 'page' : 'database',
+      });
+    } catch (error) {
+      Logger.warn('新增保存目標失敗', { action: 'createDestinationProfile', error });
+      const message =
+        error?.message === 'Destination profile limit reached'
+          ? '已達目的地數量上限。'
+          : '新增保存目標失敗，請稍後再試。';
+      ui.showStatus(message, 'error');
+      return;
+    }
     if (nameInput) {
       nameInput.value = '';
     }
