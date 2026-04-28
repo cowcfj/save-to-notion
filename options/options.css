@@ -266,7 +266,7 @@ body {
 
 .destination-target-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--spacing-sm);
   align-items: end;
 }
@@ -483,6 +483,21 @@ select:focus {
   font-size: 14px;
 }
 
+.connection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.connection-row .auth-status {
+  margin-bottom: 0;
+}
+
+.connection-actions {
+  justify-content: flex-end;
+}
+
 .auth-status.success {
   display: block;
   background-color: #dcfce7;
@@ -508,6 +523,16 @@ select:focus {
 .auth-actions {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+@media (max-width: 720px) {
+  .connection-row {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-actions {
+    justify-content: flex-start;
+  }
 }
 
 /* Database Selector */

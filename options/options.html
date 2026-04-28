@@ -133,34 +133,36 @@
 
           <div class="card">
             <h3>Notion 連接</h3>
-            <div id="oauth-status" class="auth-status"></div>
-            <div class="auth-actions">
-              <button id="oauth-connect-button" class="btn-primary">
-                <span class="icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    class="icon-svg"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <use href="#icon-link" /></svg
-                ></span>
-                <span>以 OAuth 連接 Notion</span>
-              </button>
-              <button id="oauth-disconnect-button" class="btn-danger hidden">
-                <span class="icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    class="icon-svg"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <use href="#icon-unlink" /></svg
-                ></span>
-                <span>斷開 OAuth</span>
-              </button>
+            <div class="connection-row">
+              <div id="oauth-status" class="auth-status"></div>
+              <div class="auth-actions connection-actions">
+                <button id="oauth-connect-button" class="btn-primary">
+                  <span class="icon"
+                    ><svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <use href="#icon-link" /></svg
+                  ></span>
+                  <span>以 OAuth 連接 Notion</span>
+                </button>
+                <button id="oauth-disconnect-button" class="btn-danger hidden">
+                  <span class="icon"
+                    ><svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <use href="#icon-unlink" /></svg
+                  ></span>
+                  <span>斷開 OAuth</span>
+                </button>
+              </div>
             </div>
             <p class="section-desc text-sm gap-top-sm">
               一鍵連接您的 Notion 帳戶（推薦），無需手動建立 Integration。
@@ -169,34 +171,36 @@
 
           <div class="card manual-section">
             <h3>手動配置（進階）</h3>
-            <div id="auth-status" class="auth-status"></div>
-            <div class="auth-actions">
-              <button id="oauth-button" class="btn-secondary">
-                <span class="icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    class="icon-svg"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <use href="#icon-link" /></svg
-                ></span>
-                <span>建立 Integration</span>
-              </button>
-              <button id="disconnect-button" class="btn-danger hidden">
-                <span class="icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    class="icon-svg"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <use href="#icon-unlink" /></svg
-                ></span>
-                <span>斷開連接</span>
-              </button>
+            <div class="connection-row">
+              <div id="auth-status" class="auth-status"></div>
+              <div class="auth-actions connection-actions">
+                <button id="oauth-button" class="btn-secondary">
+                  <span class="icon"
+                    ><svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <use href="#icon-link" /></svg
+                  ></span>
+                  <span>建立 Integration</span>
+                </button>
+                <button id="disconnect-button" class="btn-danger hidden">
+                  <span class="icon"
+                    ><svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <use href="#icon-unlink" /></svg
+                  ></span>
+                  <span>斷開連接</span>
+                </button>
+              </div>
             </div>
             <div class="form-group gap-top-sm">
               <label for="api-key">Notion API Key</label>
@@ -210,9 +214,6 @@
           <!-- 保存目標模塊 -->
           <div class="card">
             <h3>保存目標</h3>
-            <p class="section-desc text-sm gap-bottom-sm">
-              預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。
-            </p>
             <div class="form-group destination-profile-form">
               <div class="destination-profile-name-row">
                 <label for="destination-profile-name">保存目標名稱（選填）</label>
@@ -338,7 +339,7 @@
           <div class="card">
             <h3>介面設定</h3>
             <div class="form-group">
-              <label for="ui-zoom-level">介面縮放 (Interface Zoom)</label>
+              <label for="ui-zoom-level">介面縮放</label>
               <div class="input-wrapper">
                 <select id="ui-zoom-level" class="form-select-enhanced">
                   <option value="1">中 (100%) - 預設</option>

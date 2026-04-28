@@ -1595,6 +1595,33 @@ describe('options.html 結構', () => {
     );
     expect(helpText?.textContent).not.toContain('上方欄位');
   });
+
+  test('一般設定 UI 應保留精簡文案與連接操作列', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const cssPath = path.resolve(__dirname, '../../../options/options.css');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const css = fs.readFileSync(cssPath, 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const oauthRow = doc.querySelector('.connection-row #oauth-status')?.closest('.connection-row');
+    const manualRow = doc.querySelector('.connection-row #auth-status')?.closest('.connection-row');
+    const zoomLabel = doc.querySelector('label[for="ui-zoom-level"]');
+
+    expect(html).not.toContain(
+      '預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。'
+    );
+    expect(zoomLabel?.textContent.trim()).toBe('介面縮放');
+    expect(oauthRow?.querySelector('#oauth-connect-button')).not.toBeNull();
+    expect(oauthRow?.querySelector('#oauth-disconnect-button')).not.toBeNull();
+    expect(manualRow?.querySelector('#oauth-button')).not.toBeNull();
+    expect(manualRow?.querySelector('#disconnect-button')).not.toBeNull();
+    expect(css).toMatch(
+      /\.destination-target-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\);/
+    );
+    expect(css).toMatch(
+      /\.connection-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/
+    );
+  });
 });
 
 // ─── Migration Leftover 判定精確性測試（Step 4）────────────────────────

@@ -11,10 +11,12 @@ describe('popup.html accessibility fallbacks', () => {
     expect(heading.textContent.trim()).toBe('Save to Notion');
   });
 
-  it('保存目標文字應與 popup 按鈕文字使用一致字級', () => {
+  it('保存目標文字應與 popup 按鈕文字使用一致字級與穩定間距', () => {
     const css = readFileSync('popup/popup.css', 'utf8');
 
-    expect(css).toMatch(/\.destination-section\s*\{[^}]*font-size:\s*14px;/);
-    expect(css).toMatch(/\.destination-menu-item\s*\{[^}]*font-size:\s*14px;/);
+    expect(css).toMatch(/\.destination-section\s*\{[^}]*font-size:\s*13px;/);
+    expect(css).toMatch(/\.destination-section\s*\{[^}]*margin-top:\s*0;/);
+    expect(css).toMatch(/\.destination-current\s*\{[^}]*line-height:\s*1\.35;/);
+    expect(css).toMatch(/\.destination-menu-item\s*\{[^}]*font-size:\s*13px;/);
   });
 });

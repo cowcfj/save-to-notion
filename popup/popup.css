@@ -157,10 +157,10 @@ button {
 
 .destination-section {
   width: 100%;
-  margin-top: calc(var(--spacing-sm) * -1);
+  margin-top: 0;
   margin-bottom: var(--spacing-xs);
   color: #334155;
-  font-size: 14px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -173,10 +173,11 @@ button {
 .destination-current {
   flex: 1;
   min-height: 28px;
-  padding: 7px var(--spacing-sm);
+  padding: var(--spacing-sm);
   border-left: 3px solid #2563eb;
   background: #f8fafc;
   border-radius: var(--radius-sm);
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -218,7 +219,7 @@ button {
   justify-content: flex-start;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .destination-menu-item:hover,
