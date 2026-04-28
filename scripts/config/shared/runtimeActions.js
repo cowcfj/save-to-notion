@@ -107,6 +107,8 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [notionPageId]
  * @property {string} [notionUrl]
  * @property {string} [title]
+ * @property {string} [destinationProfileId]
+ * @property {string} [destinationProfileName]
  */
 
 /**

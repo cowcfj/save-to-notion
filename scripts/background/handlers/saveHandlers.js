@@ -243,6 +243,10 @@ export function createSaveHandlers(services) {
 
   async function resolveDestinationProfile(request, sendResponse, configData) {
     if (!destinationProfileService) {
+      sendResponse({
+        success: false,
+        error: '保存目的地服務無法使用，請重新整理後再試。',
+      });
       return null;
     }
 
@@ -252,7 +256,7 @@ export function createSaveHandlers(services) {
       if (!request?.profileId && configData?.dataSourceId) {
         return {
           id: 'default',
-          name: 'Default',
+          name: '預設',
           notionDataSourceId: configData.dataSourceId,
           notionDataSourceType: configData.dataSourceType,
         };
@@ -929,11 +933,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const destinationProfile = await resolveDestinationProfile(
-          request,
-          sendResponse,
-          configData
-        );
+        const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
         if (!destinationProfile) {
           return;
         }

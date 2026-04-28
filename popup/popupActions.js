@@ -163,11 +163,18 @@ export async function getDestinationState() {
       repository: new LocalDestinationProfileRepository(),
       entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
     });
-    const [profiles, selectedProfile, entitlement] = await Promise.all([
-      service.listProfiles(),
-      service.getLastUsedProfile(),
-      service.getDestinationEntitlement(),
-    ]);
+    const profiles = await service.listProfiles().catch(error => {
+      Logger.warn('getDestinationState listProfiles failed:', error);
+      return [];
+    });
+    const selectedProfile = await service.getLastUsedProfile().catch(error => {
+      Logger.warn('getDestinationState getLastUsedProfile failed:', error);
+      return null;
+    });
+    const entitlement = await service.getDestinationEntitlement().catch(error => {
+      Logger.warn('getDestinationState getDestinationEntitlement failed:', error);
+      return { maxProfiles: 1 };
+    });
 
     return {
       profiles,

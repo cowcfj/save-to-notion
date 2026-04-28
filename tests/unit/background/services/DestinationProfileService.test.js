@@ -19,7 +19,13 @@ jest.mock('../../../../scripts/auth/accountSession.js', () => ({
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
     warn: jest.fn(),
+    error: jest.fn(),
   },
 }));
 
@@ -76,7 +82,7 @@ describe('DestinationProfileService', () => {
     expect(profiles[0]).toEqual(
       expect.objectContaining({
         id: 'default',
-        name: 'Default',
+        name: '預設',
         notionDataSourceId: 'legacy-source',
         notionDataSourceType: 'page',
       })
@@ -140,10 +146,15 @@ describe('DestinationProfileService', () => {
     });
     expect(Logger.warn).toHaveBeenCalledWith(
       '[DestinationProfileService] Failed to get account session for entitlement',
-      {
+      expect.objectContaining({
+        action: 'getAccountSession',
+        operation: 'entitlementCheck',
+        phase: 'fetch',
+        result: 'failure',
         reason: 'storage unavailable',
         errorName: 'Error',
-      }
+        error,
+      })
     );
   });
 
@@ -171,7 +182,31 @@ describe('DestinationProfileService', () => {
         notionDataSourceId: 'source-2',
         notionDataSourceType: 'page',
       })
-    ).rejects.toThrow('Destination profile limit reached');
+    ).rejects.toThrow('已達目的地數量上限');
+  });
+
+  it('createProfile 會拒絕 caller-provided duplicate id', async () => {
+    storageData.destinationProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        icon: 'bookmark',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    await expect(
+      service.createProfile({
+        id: 'default',
+        name: 'Duplicate',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+      })
+    ).rejects.toThrow('保存目標 ID 已存在');
   });
 
   it('resolveProfileForSave 會拒絕超出 entitlement 上限的 profile', async () => {
@@ -202,9 +237,7 @@ describe('DestinationProfileService', () => {
       },
     ];
 
-    await expect(service.resolveProfileForSave('second')).rejects.toThrow(
-      'Destination profile is not allowed'
-    );
+    await expect(service.resolveProfileForSave('second')).rejects.toThrow('此保存目標目前不可使用');
   });
 
   it('更新 Default profile 時會同步回寫舊保存目標 keys', async () => {
@@ -229,6 +262,31 @@ describe('DestinationProfileService', () => {
     expect(storageData.notionDataSourceId).toBe('source-2');
     expect(storageData.notionDatabaseId).toBe('source-2');
     expect(storageData.notionDataSourceType).toBe('page');
+  });
+
+  it('updateProfile 會忽略 updates.id 並保留原始 profile id', async () => {
+    storageData.destinationProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        icon: 'bookmark',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    const updated = await service.updateProfile('default', {
+      id: 'mutated-id',
+      notionDataSourceId: 'source-2',
+      notionDataSourceType: 'page',
+    });
+
+    expect(updated.id).toBe('default');
+    expect(storageData.destinationProfiles[0].id).toBe('default');
+    expect(storageData.notionDataSourceId).toBe('source-2');
   });
 
   it('刪除 last-used profile 時會把 last-used 指向剩餘第一個 profile', async () => {

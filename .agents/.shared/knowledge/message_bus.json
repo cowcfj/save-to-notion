@@ -44,6 +44,8 @@
           "notionPageId": "string (optional)",
           "notionUrl": "string (optional)",
           "title": "string (optional)",
+          "destinationProfileId": "string (optional)",
+          "destinationProfileName": "string (optional)",
           "error": "string (optional)"
         }
       },

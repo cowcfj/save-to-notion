@@ -272,6 +272,63 @@ describe('options.js', () => {
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
+    it('應先更新 default profile，成功後才寫入 chrome.storage', async () => {
+      const {
+        DestinationProfileService,
+      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      const operationOrder = [];
+      mockLocalSet.mockImplementation(async () => {
+        operationOrder.push('local.set');
+      });
+      mockSet.mockImplementation(async () => {
+        operationOrder.push('sync.set');
+      });
+      mockSyncRemove.mockImplementation(async () => {
+        operationOrder.push('sync.remove');
+      });
+      DestinationProfileService.mockImplementationOnce(() => ({
+        ensureMigratedDefaultProfile: jest.fn(async () => {
+          operationOrder.push('ensureMigratedDefaultProfile');
+          return [{ id: 'default' }];
+        }),
+        updateProfile: jest.fn(async () => {
+          operationOrder.push('updateProfile');
+          return { id: 'default' };
+        }),
+      }));
+
+      await saveSettings(mockUi, mockAuth);
+
+      expect(operationOrder).toEqual([
+        'ensureMigratedDefaultProfile',
+        'updateProfile',
+        'local.set',
+        'sync.set',
+        'sync.remove',
+      ]);
+    });
+
+    it('default profile 更新失敗時不應寫入 chrome.storage', async () => {
+      const {
+        DestinationProfileService,
+      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      DestinationProfileService.mockImplementationOnce(() => ({
+        ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
+        updateProfile: jest.fn().mockRejectedValue(new Error('profile update failed')),
+      }));
+
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockLocalSet).not.toHaveBeenCalled();
+      expect(mockSet).not.toHaveBeenCalled();
+      expect(mockSyncRemove).not.toHaveBeenCalled();
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('失敗'),
+        'error',
+        'status'
+      );
+    });
+
     it('should validate empty API key if not in OAuth mode', async () => {
       document.querySelector('#api-key').value = '';
       mockAuth.currentAuthMode = 'manual';
@@ -532,6 +589,30 @@ describe('options.js', () => {
         '初始化保存目標 UI 失敗',
         expect.objectContaining({ error: initError })
       );
+    });
+
+    it('account session 更新後應重新初始化保存目標 UI', async () => {
+      const service = buildDestinationProfileServiceMock();
+      const {
+        DestinationProfileService,
+      } = require('../../../scripts/background/services/DestinationProfileService.js');
+      DestinationProfileService.mockImplementationOnce(() => service);
+      document.body.innerHTML += `
+        <div id="destination-profile-list"></div>
+        <button id="add-destination-profile"></button>
+        <div id="destination-profile-status"></div>
+        <input id="destination-profile-name" />
+      `;
+
+      initOptions();
+      await flushAsyncClick();
+      const listener = chrome.runtime.onMessage.addListener.mock.calls.at(-1)[0];
+      listener({ action: 'account_session_updated' });
+      await flushAsyncClick();
+
+      expect(DestinationProfileService).toHaveBeenCalledTimes(1);
+      expect(service.listProfiles).toHaveBeenCalledTimes(2);
+      expect(service.getDestinationEntitlement).toHaveBeenCalledTimes(2);
     });
 
     describe('DataSourceManager getApiKey callback', () => {
@@ -1246,8 +1327,8 @@ describe('Destination profile options UI', () => {
     const status = document.querySelector('#destination-profile-status');
     expect(addButton.disabled).toBe(true);
     expect(addButton.getAttribute('aria-describedby')).toBe('destination-profile-status');
-    expect(addButton.title).toContain('登入 account 後可建立第二個保存目標');
-    expect(status.textContent).toContain('登入 account 後可建立第二個保存目標');
+    expect(addButton.title).toContain('登入帳號後可建立第二個保存目標');
+    expect(status.textContent).toContain('登入帳號後可建立第二個保存目標');
   });
 
   it('已達付費方案上限時應顯示付費方案提示', async () => {
@@ -1300,6 +1381,16 @@ describe('Destination profile options UI', () => {
     expect(service.getProfile).not.toHaveBeenCalled();
     expect(service.updateProfile).not.toHaveBeenCalled();
     expect(service.deleteProfile).not.toHaveBeenCalled();
+  });
+
+  it('只有一個保存目標時不應渲染刪除按鈕', async () => {
+    const service = buildDestinationProfileServiceMock();
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    expect(document.querySelector('button[data-action="delete"]')).toBeNull();
   });
 
   it('重新命名保存目標時應 trim 名稱並呼叫 updateProfile', async () => {
@@ -1435,7 +1526,7 @@ describe('Destination profile options UI', () => {
         notionDataSourceType: 'database',
       }),
       updateProfile: jest.fn(),
-      createProfile: jest.fn().mockRejectedValue(new Error('Destination profile limit reached')),
+      createProfile: jest.fn().mockRejectedValue(new Error('已達目的地數量上限')),
       deleteProfile: jest.fn(),
     };
     DestinationProfileService.mockImplementationOnce(() => service);
@@ -1528,10 +1619,27 @@ describe('Destination profile options UI', () => {
   });
 
   it('保存目標套用與刪除按鈕應呼叫對應 service flow', async () => {
-    const service = buildDestinationProfileServiceMock({
-      getProfile: jest.fn().mockResolvedValue({
+    const profiles = [
+      {
         id: 'default',
         name: 'Default',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      },
+      {
+        id: 'profile-2',
+        name: 'Second',
+        color: '#7c3aed',
+        notionDataSourceId: 'target-page-id',
+        notionDataSourceType: 'page',
+      },
+    ];
+    const service = buildDestinationProfileServiceMock({
+      profiles,
+      getProfile: jest.fn().mockResolvedValue({
+        id: 'profile-2',
+        name: 'Second',
         notionDataSourceId: 'target-page-id',
         notionDataSourceType: 'page',
       }),
@@ -1546,13 +1654,53 @@ describe('Destination profile options UI', () => {
 
     expect(document.querySelector('#database-id').value).toBe('target-page-id');
     expect(document.querySelector('#database-type').value).toBe('page');
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已套用 Default 到編輯欄位', 'info');
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已套用 Second 到編輯欄位', 'info');
 
-    document.querySelector('button[data-action="delete"]').click();
+    document.querySelector('button[data-action="delete"][data-profile-id="profile-2"]').click();
     await flushAsyncClick();
 
-    expect(service.deleteProfile).toHaveBeenCalledWith('default');
+    expect(service.deleteProfile).toHaveBeenCalledWith('profile-2');
     expect(service.listProfiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('刪除保存目標失敗時應顯示錯誤而不是留下 unhandled rejection', async () => {
+    const profiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+      },
+      {
+        id: 'profile-2',
+        name: 'Second',
+        color: '#7c3aed',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+      },
+    ];
+    const deleteError = new Error('delete failed');
+    const service = buildDestinationProfileServiceMock({
+      profiles,
+      deleteProfile: jest.fn().mockRejectedValue(deleteError),
+    });
+    DestinationProfileService.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('button[data-action="delete"][data-profile-id="profile-2"]').click();
+    await flushAsyncClick();
+
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      '刪除保存目標失敗，請稍後再試。',
+      'error'
+    );
+    expect(Logger.warn).toHaveBeenCalledWith('刪除保存目標失敗', {
+      action: 'deleteDestinationProfile',
+      error: sanitizeApiError(deleteError, 'deleteDestinationProfile'),
+    });
   });
 });
 

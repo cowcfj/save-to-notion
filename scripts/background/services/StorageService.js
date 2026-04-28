@@ -565,10 +565,15 @@ class StorageService {
 
     return this._withLock(normalizedUrl, async () => {
       try {
-        const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+        const state = await this._getPageState(normalizedUrl);
+        const targetUrl =
+          state?.format === 'new' && typeof state.key === 'string'
+            ? state.key.slice(PAGE_PREFIX.length)
+            : normalizedUrl;
+        const pageKey = `${PAGE_PREFIX}${targetUrl}`;
+        const hlKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
         const existing = await this.storage.local.get([pageKey, hlKey]);
-        const current = existing[pageKey] || {};
+        const current = state?.format === 'new' ? state.data : existing[pageKey] || {};
 
         // 保留現有 highlights；若 page_* 不存在，從舊格式 highlights_* 取回
         // 支援舊格式：純陣列 [...] 和物件格式 { highlights: [...] }
@@ -591,8 +596,9 @@ class StorageService {
           title: data.title || current.notion?.title || null,
           savedAt: data.savedAt ?? current.notion?.savedAt ?? Date.now(),
           lastVerifiedAt: data.lastVerifiedAt ?? current.notion?.lastVerifiedAt ?? null,
-          destinationProfileId:
-            data.destinationProfileId ?? current.notion?.destinationProfileId ?? null,
+          destinationProfileId: Object.hasOwn(data, 'destinationProfileId')
+            ? data.destinationProfileId
+            : (current.notion?.destinationProfileId ?? null),
         };
 
         const newData = {

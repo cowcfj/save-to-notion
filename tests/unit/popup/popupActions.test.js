@@ -324,6 +324,44 @@ describe('popupActions.js', () => {
       expect(result.selectedProfileId).toBe('profile-2');
       expect(result.entitlement.maxProfiles).toBeGreaterThanOrEqual(1);
     });
+
+    it('last-used 讀取失敗時仍應保留 profiles 並回退選第一個 profile', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            icon: 'bookmark',
+            color: '#2563eb',
+            notionDataSourceId: 'db-1',
+            notionDataSourceType: 'database',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        destinationLastUsedProfileId: 'default',
+      });
+      const originalGet = chrome.storage.local.get;
+      let getCallCount = 0;
+      chrome.storage.local.get = jest.fn(keys => {
+        getCallCount += 1;
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        if (getCallCount >= 3 && keyList.includes('destinationLastUsedProfileId')) {
+          return Promise.reject(new Error('last-used failed'));
+        }
+        return originalGet.call(chrome.storage.local, keys);
+      });
+
+      const result = await getDestinationState();
+
+      expect(result.profiles).toHaveLength(1);
+      expect(result.selectedProfileId).toBe('default');
+      expect(result.entitlement).toEqual(expect.objectContaining({ maxProfiles: 1 }));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        'getDestinationState getLastUsedProfile failed:',
+        expect.any(Error)
+      );
+    });
   });
 
   describe('startHighlight', () => {

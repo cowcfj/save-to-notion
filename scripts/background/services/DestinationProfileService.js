@@ -20,13 +20,19 @@ const LEGACY_DATA_SOURCE_KEYS = ['notionDataSourceId', 'notionDatabaseId', 'noti
 
 const CURRENT_DESTINATION_PROFILE_VERSION = 1;
 const DEFAULT_PROFILE_ID = 'default';
-const DEFAULT_PROFILE_NAME = 'Default';
+const DEFAULT_PROFILE_NAME = '預設';
 const DEFAULT_PROFILE_ICON = 'bookmark';
 const DEFAULT_PROFILE_COLOR = '#2563eb';
 
 const CREATE_PROFILE_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed'];
 export const ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE = 'account_gated_foundation';
-const DESTINATION_PROFILE_NOT_FOUND_ERROR = 'Destination profile not found';
+const DESTINATION_PROFILE_NOT_FOUND_ERROR = '找不到目的地設定檔';
+const DESTINATION_PROFILE_LIMIT_REACHED_ERROR = '已達目的地數量上限';
+const DESTINATION_PROFILE_TARGET_REQUIRED_ERROR = '保存目標需要有效的 Notion 目標';
+const DESTINATION_PROFILE_LAST_DELETE_ERROR = '無法刪除最後一個保存目標';
+const DESTINATION_PROFILE_NOT_CONFIGURED_ERROR = '尚未設定保存目標';
+const DESTINATION_PROFILE_NOT_ALLOWED_ERROR = '此保存目標目前不可使用';
+const DESTINATION_PROFILE_DUPLICATE_ID_ERROR = '保存目標 ID 已存在';
 
 function normalizeDataSourceType(type) {
   return type === 'page' ? 'page' : 'database';
@@ -76,7 +82,7 @@ function normalizeProfile(profile, index = 0) {
   const timestamp = Number.isFinite(profile.createdAt) ? profile.createdAt : nowTimestamp();
   return {
     id: pickNonEmptyString(profile.id) || (index === 0 ? DEFAULT_PROFILE_ID : createProfileId()),
-    name: pickNonEmptyString(profile.name) || (index === 0 ? DEFAULT_PROFILE_NAME : 'Destination'),
+    name: pickNonEmptyString(profile.name) || (index === 0 ? DEFAULT_PROFILE_NAME : '保存目標'),
     icon: pickNonEmptyString(profile.icon) || DEFAULT_PROFILE_ICON,
     color:
       pickNonEmptyString(profile.color) ||
@@ -196,8 +202,13 @@ export class AccountGatedDestinationEntitlementProvider {
       };
     } catch (error) {
       Logger.warn('[DestinationProfileService] Failed to get account session for entitlement', {
+        action: 'getAccountSession',
+        operation: 'entitlementCheck',
+        phase: 'fetch',
+        result: 'failure',
         reason: error instanceof Error ? error.message : String(error),
         errorName: error instanceof Error ? error.name : typeof error,
+        error,
       });
       return {
         maxProfiles: 1,
@@ -281,13 +292,17 @@ export class DestinationProfileService {
     const profiles = await this.listProfiles();
     const entitlement = await this.getDestinationEntitlement();
     if (profiles.length >= entitlement.maxProfiles) {
-      throw new Error('Destination profile limit reached');
+      throw new Error(DESTINATION_PROFILE_LIMIT_REACHED_ERROR);
     }
 
     const timestamp = nowTimestamp();
+    const profileId = input?.id || createProfileId();
+    if (profiles.some(profile => profile.id === profileId)) {
+      throw new Error(DESTINATION_PROFILE_DUPLICATE_ID_ERROR);
+    }
     const profile = normalizeProfile(
       {
-        id: input?.id || createProfileId(),
+        id: profileId,
         name: input?.name,
         icon: input?.icon || DEFAULT_PROFILE_ICON,
         color:
@@ -301,7 +316,7 @@ export class DestinationProfileService {
     );
 
     if (!profile) {
-      throw new Error('Destination profile target is required');
+      throw new Error(DESTINATION_PROFILE_TARGET_REQUIRED_ERROR);
     }
 
     const nextProfiles = [...profiles, profile];
@@ -320,13 +335,14 @@ export class DestinationProfileService {
       {
         ...profiles[profileIndex],
         ...updates,
+        id: profiles[profileIndex].id,
         updatedAt: nowTimestamp(),
       },
       profileIndex
     );
 
     if (!updatedProfile) {
-      throw new Error('Destination profile target is required');
+      throw new Error(DESTINATION_PROFILE_TARGET_REQUIRED_ERROR);
     }
 
     const nextProfiles = [...profiles];
@@ -343,7 +359,7 @@ export class DestinationProfileService {
   async deleteProfile(profileId) {
     const profiles = await this.listProfiles();
     if (profiles.length <= 1) {
-      throw new Error('Cannot delete the last destination profile');
+      throw new Error(DESTINATION_PROFILE_LAST_DELETE_ERROR);
     }
 
     const nextProfiles = profiles.filter(profile => profile.id !== profileId);
@@ -363,7 +379,7 @@ export class DestinationProfileService {
   async resolveProfileForSave(profileId) {
     const profiles = await this.listProfiles();
     if (profiles.length === 0) {
-      throw new Error('Destination profile not configured');
+      throw new Error(DESTINATION_PROFILE_NOT_CONFIGURED_ERROR);
     }
 
     const requestedProfileId =
@@ -375,7 +391,7 @@ export class DestinationProfileService {
 
     const entitlement = await this.getDestinationEntitlement();
     if (profileIndex >= entitlement.maxProfiles) {
-      throw new Error('Destination profile is not allowed');
+      throw new Error(DESTINATION_PROFILE_NOT_ALLOWED_ERROR);
     }
 
     return profiles[profileIndex];

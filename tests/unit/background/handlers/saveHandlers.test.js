@@ -356,6 +356,24 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('savePage: destinationProfileService 缺失時應回傳明確錯誤', async () => {
+      const sendResponse = jest.fn();
+      handlers = createSaveHandlers({
+        ...mockServices,
+        destinationProfileService: null,
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+      expect(mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
+    });
+
     test('savePage: 已保存頁改存到另一個 profile 時應建立新 Notion page', async () => {
       const sendResponse = jest.fn();
       mockServices.destinationProfileService.resolveProfileForSave.mockResolvedValue({
@@ -780,6 +798,34 @@ describe('saveHandlers', () => {
           success: false,
           error: expect.any(String),
         })
+      );
+    });
+
+    test('SAVE_PAGE_FROM_TOOLBAR: 不應讀取 request.profileId 覆寫保存目標', async () => {
+      const sendResponse = jest.fn();
+      const toolbarSender = {
+        ...validContentScriptSender,
+        tab: { id: 1, url: 'https://example.com' },
+      };
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.SAVE_PAGE_FROM_TOOLBAR(
+        { profileId: 'malicious-profile' },
+        toolbarSender,
+        sendResponse
+      );
+
+      expect(mockServices.destinationProfileService.resolveProfileForSave).toHaveBeenCalledWith(
+        undefined
+      );
+      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({ destinationProfileId: 'default' })
       );
     });
 

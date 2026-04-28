@@ -493,6 +493,97 @@ describe('StorageService', () => {
     });
   });
 
+  describe('setSavedPageData destination profile metadata', () => {
+    it('應寫入 page_* 的 notion.destinationProfileId', async () => {
+      const url = 'https://example.com/page';
+
+      await service.setSavedPageData(url, {
+        notionPageId: 'page-1',
+        notionUrl: 'https://www.notion.so/page-1',
+        title: 'Saved Page',
+        destinationProfileId: 'pid',
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${PAGE_PREFIX}${url}`]: expect.objectContaining({
+          notion: expect.objectContaining({
+            pageId: 'page-1',
+            destinationProfileId: 'pid',
+          }),
+        }),
+      });
+    });
+
+    it('destinationProfileId 傳入 null 時應清除既有目的地欄位', async () => {
+      const url = 'https://example.com/page';
+      makeStorageMock({
+        [`${PAGE_PREFIX}${url}`]: {
+          notion: {
+            pageId: 'page-1',
+            title: 'Saved Page',
+            destinationProfileId: 'pid',
+          },
+          highlights: [],
+          metadata: {},
+        },
+      });
+
+      await service.setSavedPageData(url, {
+        notionPageId: 'page-1',
+        destinationProfileId: null,
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${PAGE_PREFIX}${url}`]: expect.objectContaining({
+          notion: expect.objectContaining({
+            destinationProfileId: null,
+          }),
+        }),
+      });
+    });
+
+    it('直接 page_* 查找失敗但 alias 存在時，set/get 應使用 alias stable URL', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const storageData = {
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${PAGE_PREFIX}${stableUrl}`]: {
+          notion: {
+            pageId: 'page-1',
+            title: 'Stable Page',
+            destinationProfileId: null,
+          },
+          highlights: [{ id: 'h1', text: 'highlight' }],
+          metadata: {},
+        },
+      };
+      mockStorage.local.get.mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(
+            keyList.filter(key => key in storageData).map(key => [key, storageData[key]])
+          )
+        );
+      });
+
+      await expect(service.getSavedPageData(originalUrl)).resolves.toEqual(
+        expect.objectContaining({ notionPageId: 'page-1' })
+      );
+      await service.setSavedPageData(originalUrl, {
+        notionPageId: 'page-1',
+        destinationProfileId: 'pid',
+      });
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${PAGE_PREFIX}${stableUrl}`]: expect.objectContaining({
+          notion: expect.objectContaining({
+            destinationProfileId: 'pid',
+          }),
+        }),
+      });
+    });
+  });
+
   describe('getHighlights', () => {
     const NORM_URL = 'https://example.com/posts/hello';
     const RAW_URL = 'https://example.com/posts/hello?utm_source=twitter#frag';

@@ -81,7 +81,7 @@ describe('popupUI.js', () => {
 
     it('兩個 profiles 時應渲染 selector 選項', () => {
       const menuItems = [];
-      jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+      const createElementSpy = jest.spyOn(document, 'createElement').mockImplementation(tagName => {
         const element = {
           tagName,
           textContent: '',
@@ -111,6 +111,7 @@ describe('popupUI.js', () => {
       expect(mockElements.destinationCurrent.textContent).toContain('Research');
       expect(menuItems).toHaveLength(2);
       expect(menuItems[1].dataset.profileId).toBe('profile-2');
+      createElementSpy.mockRestore();
     });
   });
 
