@@ -37,18 +37,20 @@ h2 {
 }
 
 .popup-titlebar {
-  position: relative;
   width: 100%;
   min-height: 32px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr);
   align-items: center;
-  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.titlebar-left {
+  justify-self: start;
 }
 
 .account-section {
-  position: absolute;
-  top: 0;
-  right: 0;
+  justify-self: end;
   align-items: center;
   justify-content: center;
 }
@@ -294,6 +296,28 @@ button {
   border-color: #86efac;
 }
 
+.settings-button {
+  min-height: 32px;
+  padding: 0 var(--spacing-sm);
+  border-radius: 999px;
+  color: #334155;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.settings-button:hover {
+  background: #f8fafc;
+  color: #1d4ed8;
+  border-color: #cbd5e1;
+  text-decoration: none;
+}
+
 .account-status-error {
   color: #d63384;
 }
@@ -314,25 +338,4 @@ a:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
-}
-
-.links {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.links a {
-  color: #005ecb;
-  text-decoration: none;
-  font-size: 12px;
-  padding: 5px 8px;
-  border-radius: 3px;
-  transition: background-color 0.2s;
-}
-
-.links a:hover {
-  background-color: #f0f0f0;
-  text-decoration: none;
 }

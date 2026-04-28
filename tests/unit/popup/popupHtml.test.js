@@ -46,4 +46,26 @@ describe('popup.html accessibility fallbacks', () => {
     );
     expect(css).toMatch(/#manage-button\.secondary-action\s*\{[^}]*background-color:\s*#f8fafc;/);
   });
+
+  it('設定入口應移到 titlebar 左側並保留可見文字', () => {
+    const html = readFileSync('popup/popup.html', 'utf8');
+    const css = readFileSync('popup/popup.css', 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const titlebar = doc.querySelector('.popup-titlebar');
+    const settingsLink = doc.querySelector('#settings-link');
+    const accountSection = doc.querySelector('#account-section');
+
+    expect(titlebar).not.toBeNull();
+    expect(titlebar.children[0].classList.contains('titlebar-left')).toBe(true);
+    expect(titlebar.children[0].contains(settingsLink)).toBe(true);
+    expect(titlebar.children[1].id).toBe('popup-title');
+    expect(titlebar.children[2]).toBe(accountSection);
+    expect(settingsLink.classList.contains('settings-button')).toBe(true);
+    expect(settingsLink.querySelector('#settings-link-text')).not.toBeNull();
+    expect(doc.querySelector('.links')).toBeNull();
+    expect(css).toMatch(/\.popup-titlebar\s*\{[^}]*display:\s*grid;/);
+    expect(css).toMatch(/\.titlebar-left\s*\{[^}]*justify-self:\s*start;/);
+    expect(css).toMatch(/\.account-section\s*\{[^}]*justify-self:\s*end;/);
+    expect(css).toMatch(/\.settings-button\s*\{[^}]*min-height:\s*32px;/);
+  });
 });
