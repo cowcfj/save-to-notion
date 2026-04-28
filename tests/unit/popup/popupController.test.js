@@ -13,6 +13,7 @@ import {
   updateUIForLoggedInAccount,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
+  renderDestinationSelector,
   setAccountStatusError,
   setStatus,
   setButtonState,
@@ -22,6 +23,7 @@ import {
   checkSettings,
   checkPageStatus,
   savePage,
+  getDestinationState,
   startHighlight,
   openNotionPage,
   getActiveTab,
@@ -42,6 +44,7 @@ jest.mock('../../../popup/popupUI.js', () => ({
   updateUIForLoggedInAccount: jest.fn(),
   updateUIForSavedPage: jest.fn(),
   updateUIForUnsavedPage: jest.fn(),
+  renderDestinationSelector: jest.fn(),
   setAccountStatusError: jest.fn(),
   setStatus: jest.fn(),
   setButtonState: jest.fn(),
@@ -51,6 +54,7 @@ jest.mock('../../../popup/popupActions.js', () => ({
   checkSettings: jest.fn(),
   checkPageStatus: jest.fn(),
   savePage: jest.fn(),
+  getDestinationState: jest.fn(),
   startHighlight: jest.fn(),
   openNotionPage: jest.fn(),
   getActiveTab: jest.fn(),
@@ -108,6 +112,10 @@ describe('popup.js Controller', () => {
       accountSummary: { textContent: '' },
       accountEmail: { textContent: '', style: {} },
       accountStatus: { textContent: '', style: {} },
+      destinationSection: { style: {} },
+      destinationCurrent: { textContent: '', dataset: {}, style: {} },
+      destinationToggle: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      destinationMenu: { addEventListener: jest.fn(), style: {} },
       status: { textContent: '', style: {} },
       clearHighlightsButton: null,
       modal: null,
@@ -132,6 +140,11 @@ describe('popup.js Controller', () => {
       isLoggedIn: false,
       profile: null,
       transientRefreshError: false,
+    });
+    getDestinationState.mockResolvedValue({
+      profiles: [{ id: 'default', name: 'Default' }],
+      selectedProfileId: 'default',
+      entitlement: { maxProfiles: 1 },
     });
 
     // Mock global chrome
@@ -163,6 +176,11 @@ describe('popup.js Controller', () => {
     expect(checkSettings).toHaveBeenCalled();
     expect(checkPageStatus).toHaveBeenCalledWith();
     expect(getPopupAccountState).toHaveBeenCalled();
+    expect(getDestinationState).toHaveBeenCalled();
+    expect(renderDestinationSelector).toHaveBeenCalledWith(
+      mockElements,
+      expect.objectContaining({ selectedProfileId: 'default' })
+    );
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
   });
 
@@ -362,7 +380,7 @@ describe('popup.js Controller', () => {
       await triggerEvent(mockElements.saveButton);
 
       expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.SAVING);
-      expect(savePage).toHaveBeenCalled();
+      expect(savePage).toHaveBeenCalledWith('default');
       expect(formatSaveSuccessMessage).toHaveBeenCalled();
       expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, saveResponse);
     });

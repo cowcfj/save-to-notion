@@ -47,6 +47,30 @@
           "enum": ["database", "page"],
           "default": "database"
         },
+        "$comment_destinationProfiles": "=== Destination Profile Keys (Multi Destination Frontend Foundation) ===\n來源：scripts/background/services/DestinationProfileService.js",
+        "destinationProfiles": {
+          "type": "array",
+          "description": "Local destination profiles for Notion save targets. UI/background MUST access through DestinationProfileService.",
+          "items": {
+            "id": "string",
+            "name": "string",
+            "icon": "string",
+            "color": "string",
+            "notionDataSourceId": "string",
+            "notionDataSourceType": "database | page",
+            "createdAt": "number (timestamp ms)",
+            "updatedAt": "number (timestamp ms)"
+          }
+        },
+        "destinationLastUsedProfileId": {
+          "type": "string | null",
+          "description": "Last destination profile used by popup/background save flow"
+        },
+        "destinationProfilesVersion": {
+          "type": "number",
+          "description": "Destination profile schema version",
+          "default": 1
+        },
         "$comment_account": "=== Account Session Keys (Cloudflare-native, Phase 1) ===\n以下 key 全部以 account 前綴命名，與 Notion OAuth keys 完整隔離。\n來源：scripts/auth/accountSession.js",
         "accountAccessToken": {
           "type": "string",
@@ -144,7 +168,8 @@
                 "url": "string (https://www.notion.so/...)",
                 "title": "string",
                 "savedAt": "number (timestamp ms)",
-                "lastVerifiedAt": "number (timestamp ms)"
+                "lastVerifiedAt": "number (timestamp ms)",
+                "destinationProfileId": "string | null"
               }
             },
             "highlights": {

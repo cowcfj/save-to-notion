@@ -724,6 +724,24 @@ describe('NotionService', () => {
       expect(result.pageData.parent.page_id).toBe('page-456');
     });
 
+    it('page parent 應使用 Notion page title property，不應送出 data source schema properties', () => {
+      const result = service.buildPageData({
+        title: 'Child Page',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'page-456',
+        dataSourceType: 'page',
+        blocks: [],
+      });
+
+      expect(result.pageData.properties).toEqual({
+        title: {
+          title: [{ text: { content: 'Child Page' } }],
+        },
+      });
+      expect(result.pageData.properties.Title).toBeUndefined();
+      expect(result.pageData.properties.URL).toBeUndefined();
+    });
+
     it('當提供時應該加入網站圖示', () => {
       const result = service.buildPageData({
         title: 'With Icon',

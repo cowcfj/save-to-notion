@@ -42,10 +42,80 @@ export function getElements() {
     accountSection: document.querySelector('#account-section'),
     accountStatus: document.querySelector('#account-status'),
     accountButton: document.querySelector('#account-button'),
+    destinationSection: document.querySelector('#destination-section'),
+    destinationCurrent: document.querySelector('#destination-current'),
+    destinationToggle: document.querySelector('#destination-toggle'),
+    destinationMenu: document.querySelector('#destination-menu'),
     status: document.querySelector('#status'),
     title: document.querySelector('#popup-title'),
     settingsLinkText: document.querySelector('#settings-link-text'),
   };
+}
+
+function getSelectedDestinationProfile(profiles, selectedProfileId) {
+  if (!Array.isArray(profiles) || profiles.length === 0) {
+    return null;
+  }
+  return profiles.find(profile => profile.id === selectedProfileId) || profiles[0];
+}
+
+function formatDestinationLabel(profile) {
+  if (!profile) {
+    return 'Default';
+  }
+  return profile.name || 'Default';
+}
+
+/**
+ * Render popup destination selector.
+ *
+ * @param {PopupElements} elements
+ * @param {{profiles: Array<object>, selectedProfileId?: string|null}} state
+ */
+export function renderDestinationSelector(elements, state) {
+  const profiles = Array.isArray(state?.profiles) ? state.profiles : [];
+  const selectedProfile = getSelectedDestinationProfile(profiles, state?.selectedProfileId);
+
+  if (!elements.destinationSection || profiles.length === 0 || !selectedProfile) {
+    if (elements.destinationSection) {
+      elements.destinationSection.style.display = 'none';
+    }
+    return;
+  }
+
+  elements.destinationSection.style.display = 'block';
+
+  if (elements.destinationCurrent) {
+    elements.destinationCurrent.textContent = `${
+      UI_MESSAGES.POPUP.DESTINATION_LABEL_PREFIX
+    }${formatDestinationLabel(selectedProfile)}`;
+    elements.destinationCurrent.dataset.profileId = selectedProfile.id;
+    elements.destinationCurrent.style.borderColor = selectedProfile.color || '';
+  }
+
+  if (elements.destinationToggle) {
+    elements.destinationToggle.style.display = profiles.length > 1 ? 'inline-flex' : 'none';
+    elements.destinationToggle.disabled = profiles.length <= 1;
+    elements.destinationToggle.dataset.profileId = selectedProfile.id;
+    elements.destinationToggle.setAttribute?.('aria-expanded', 'false');
+  }
+
+  if (!elements.destinationMenu) {
+    return;
+  }
+
+  elements.destinationMenu.innerHTML = '';
+  elements.destinationMenu.style.display = 'none';
+
+  for (const profile of profiles) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'destination-menu-item';
+    item.dataset.profileId = profile.id;
+    item.textContent = formatDestinationLabel(profile);
+    item.setAttribute('aria-pressed', profile.id === selectedProfile.id ? 'true' : 'false');
+    elements.destinationMenu.append(item);
+  }
 }
 
 /**

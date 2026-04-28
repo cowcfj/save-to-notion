@@ -22,6 +22,11 @@ import {
 import { PageContentService } from './background/services/PageContentService.js';
 import { TabService } from './background/services/TabService.js';
 import { MigrationService } from './background/services/MigrationService.js';
+import {
+  AccountGatedDestinationEntitlementProvider,
+  LocalDestinationProfileRepository,
+} from './destinations/ProfileStore.js';
+import { ProfileResolver } from './destinations/ProfileResolver.js';
 
 // Import Handlers
 import { MessageHandler } from './background/handlers/MessageHandler.js';
@@ -59,6 +64,10 @@ const pageContentService = new PageContentService({
 });
 const storageService = new StorageService({ logger: Logger });
 const notionService = new NotionService({ logger: Logger });
+const destinationProfileResolver = new ProfileResolver({
+  repository: new LocalDestinationProfileRepository(),
+  entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+});
 const accountAuthHandler = createAccountAuthHandler({ logger: Logger });
 
 // Phase B Dirty Tracking：在 highlights / saved_state 的 canonical write path 後標記 dirty
@@ -129,6 +138,7 @@ const actionHandlers = {
     pageContentService,
     tabService,
     migrationService,
+    destinationProfileResolver,
   }),
   ...createHighlightHandlers({
     notionService,

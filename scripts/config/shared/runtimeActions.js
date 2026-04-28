@@ -67,6 +67,7 @@ const PAGE_STATUS_ACTIONS = {
 /**
  * @typedef {object} SavePageRequest
  * @property {'savePage'} action
+ * @property {string} [profileId] destination profile id to save into
  */
 
 /**
@@ -82,6 +83,8 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [notionPageId]
  * @property {string} [notionUrl]
  * @property {string} [title]
+ * @property {string} [destinationProfileId]
+ * @property {string} [destinationProfileName]
  * @property {string} [error]
  */
 
@@ -104,6 +107,8 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [notionPageId]
  * @property {string} [notionUrl]
  * @property {string} [title]
+ * @property {string} [destinationProfileId]
+ * @property {string} [destinationProfileName]
  */
 
 /**

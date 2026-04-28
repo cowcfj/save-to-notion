@@ -27,8 +27,46 @@ import {
   refreshCloudSyncCard,
   showCloudSyncLoadingState,
 } from './DriveCloudSyncController.js';
+import {
+  AccountGatedDestinationEntitlementProvider,
+  LocalDestinationProfileRepository,
+} from '../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../scripts/destinations/ProfileManager.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
+const DESTINATION_PROFILE_NAME_MAX_LENGTH = 40;
+const DESTINATION_PROFILE_NAME_EDIT_ROLE = 'destination-profile-name-edit';
+const DESTINATION_PROFILE_ACTIONS = {
+  RENAME: 'rename',
+  CANCEL_NAME: 'cancel-name',
+  SAVE_NAME: 'save-name',
+  EDIT: 'edit',
+  DELETE: 'delete',
+};
+const DESTINATION_TARGET_FIELD_SELECTORS = {
+  ID: '#database-id',
+  TYPE: '#database-type',
+};
+const BUTTON_SECONDARY_CLASS = 'btn-secondary';
+const DEFAULT_DESTINATION_ENTITLEMENT = {
+  maxProfiles: 1,
+  accountSignedIn: false,
+  source: 'fallback',
+};
+let destinationProfilesUIController = null;
+
+function normalizeDestinationProfileName(value) {
+  return typeof value === 'string'
+    ? value.trim().slice(0, DESTINATION_PROFILE_NAME_MAX_LENGTH)
+    : '';
+}
+
+function createDestinationProfileService() {
+  return new ProfileManager({
+    repository: new LocalDestinationProfileRepository(),
+    entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+  });
+}
 
 function activateSidebarSection(sectionName, navItems, sections) {
   const targetSectionId = `section-${sectionName}`;
@@ -102,6 +140,13 @@ export function initOptions() {
   dataSource.init();
   storage.init();
   migration.init();
+  initDestinationProfilesUI(ui).catch(error => {
+    const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
+    Logger.warn('初始化保存目標 UI 失敗', {
+      action: 'initDestinationProfilesUI',
+      error: safeError,
+    });
+  });
 
   // 3. 初始狀態檢查
   auth.checkAuthStatus();
@@ -122,6 +167,13 @@ export function initOptions() {
       case RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED: {
         // account session 已更新或清除，重新讀取 profile 刷新 UI
         renderAccountUI().catch(() => {});
+        initDestinationProfilesUI(ui).catch(error => {
+          const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
+          Logger.warn('初始化保存目標 UI 失敗', {
+            action: 'initDestinationProfilesUI',
+            error: safeError,
+          });
+        });
         break;
       }
       case RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED: {
@@ -189,6 +241,279 @@ export function initOptions() {
       highlightContentStyleSelect.value = result.highlightContentStyle;
     });
   }
+}
+
+async function initDestinationProfilesUI(ui) {
+  const list = document.querySelector('#destination-profile-list');
+  const addButton = document.querySelector('#add-destination-profile');
+  const status = document.querySelector('#destination-profile-status');
+  const nameInput = document.querySelector('#destination-profile-name');
+  if (!list || !addButton) {
+    return;
+  }
+
+  if (
+    destinationProfilesUIController?.list === list &&
+    destinationProfilesUIController?.addButton === addButton
+  ) {
+    await destinationProfilesUIController.render();
+    return;
+  }
+
+  const service = createDestinationProfileService();
+  let editingProfileId = null;
+  let draftProfileName = '';
+  let cachedProfiles = [];
+
+  addButton.setAttribute('aria-describedby', 'destination-profile-status');
+
+  const showNameError = () => {
+    ui.showStatus('保存目標名稱不可為空白。', 'error');
+  };
+
+  const createDestinationActionButton = ({
+    action,
+    profileId,
+    text,
+    className = BUTTON_SECONDARY_CLASS,
+  }) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.dataset.action = action;
+    button.dataset.profileId = profileId;
+    button.textContent = text;
+    return button;
+  };
+
+  const renderProfileContent = profile => {
+    const content = document.createElement('div');
+    if (editingProfileId === profile.id) {
+      const titleEdit = document.createElement('div');
+      titleEdit.className = 'destination-profile-name-edit';
+      const titleInput = document.createElement('input');
+      titleInput.type = 'text';
+      titleInput.className = 'destination-profile-name-input';
+      titleInput.dataset.role = DESTINATION_PROFILE_NAME_EDIT_ROLE;
+      titleInput.value = draftProfileName || profile.name || '預設';
+      titleInput.maxLength = DESTINATION_PROFILE_NAME_MAX_LENGTH;
+      titleInput.setAttribute('aria-label', '保存目標名稱');
+      titleEdit.append(titleInput);
+      content.append(titleEdit);
+    } else {
+      const title = document.createElement('p');
+      title.className = 'destination-profile-title';
+      title.textContent = profile.name || '預設';
+      content.append(title);
+    }
+    const meta = document.createElement('p');
+    meta.className = 'destination-profile-meta';
+    meta.textContent = `${profile.notionDataSourceType} · ${profile.notionDataSourceId}`;
+    content.append(meta);
+    return content;
+  };
+
+  const renderProfileActions = (profile, canDeleteProfile) => {
+    const actions = document.createElement('div');
+    actions.className = 'destination-profile-actions';
+    if (editingProfileId === profile.id) {
+      actions.append(
+        createDestinationActionButton({
+          action: DESTINATION_PROFILE_ACTIONS.SAVE_NAME,
+          profileId: profile.id,
+          text: '儲存',
+        }),
+        createDestinationActionButton({
+          action: DESTINATION_PROFILE_ACTIONS.CANCEL_NAME,
+          profileId: profile.id,
+          text: '取消',
+        })
+      );
+      return actions;
+    }
+
+    actions.append(
+      createDestinationActionButton({
+        action: DESTINATION_PROFILE_ACTIONS.RENAME,
+        profileId: profile.id,
+        text: '重新命名',
+      }),
+      createDestinationActionButton({
+        action: DESTINATION_PROFILE_ACTIONS.EDIT,
+        profileId: profile.id,
+        text: '套用',
+      })
+    );
+
+    if (canDeleteProfile) {
+      actions.append(
+        createDestinationActionButton({
+          action: DESTINATION_PROFILE_ACTIONS.DELETE,
+          profileId: profile.id,
+          text: '刪除',
+          className: 'btn-danger',
+        })
+      );
+    }
+    return actions;
+  };
+
+  const updateDestinationLimitState = (profiles, entitlement) => {
+    const limitReached = profiles.length >= entitlement.maxProfiles;
+    addButton.disabled = limitReached;
+    if (!status) {
+      return;
+    }
+    let limitMessage = '';
+    if (limitReached && entitlement.maxProfiles <= 1) {
+      limitMessage = '登入帳號後可建立第二個保存目標。';
+    } else if (limitReached) {
+      limitMessage = '更多保存目標會在付費方案開放。';
+    }
+    status.textContent = limitMessage;
+    addButton.title = limitMessage;
+  };
+
+  const render = async () => {
+    let profiles = cachedProfiles;
+    let entitlement = DEFAULT_DESTINATION_ENTITLEMENT;
+
+    try {
+      profiles = await service.listProfiles();
+      cachedProfiles = profiles;
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileList');
+      Logger.warn('讀取保存目標列表失敗', {
+        action: 'renderDestinationProfiles',
+        error: safeError,
+      });
+    }
+
+    try {
+      entitlement = await service.getDestinationEntitlement();
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileEntitlement');
+      Logger.warn('讀取保存目標權限失敗', {
+        action: 'renderDestinationProfiles',
+        error: safeError,
+      });
+    }
+
+    list.innerHTML = '';
+
+    for (const profile of profiles) {
+      const row = document.createElement('div');
+      row.className = 'destination-profile-row';
+      row.style.borderLeftColor = profile.color || '#2563eb';
+
+      const canDeleteProfile = profiles.length > 1;
+      const content = renderProfileContent(profile);
+      const actions = renderProfileActions(profile, canDeleteProfile);
+
+      row.append(content, actions);
+      list.append(row);
+    }
+
+    updateDestinationLimitState(profiles, entitlement);
+  };
+
+  list.addEventListener('click', async event => {
+    try {
+      const button = event.target?.closest?.('button[data-action]');
+      if (!button) {
+        return;
+      }
+      const profileId = button.dataset.profileId;
+      const action = button.dataset.action;
+      if (action === DESTINATION_PROFILE_ACTIONS.RENAME) {
+        const profile = await service.getProfile(profileId);
+        editingProfileId = profile.id;
+        draftProfileName = profile.name || '預設';
+        await render();
+        list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.CANCEL_NAME) {
+        editingProfileId = null;
+        draftProfileName = '';
+        await render();
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.SAVE_NAME) {
+        const input = list.querySelector(
+          `input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`
+        );
+        const nextName = normalizeDestinationProfileName(input?.value || '');
+        if (!nextName) {
+          showNameError();
+          return;
+        }
+        await service.updateProfile(profileId, { name: nextName });
+        editingProfileId = null;
+        draftProfileName = '';
+        await render();
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.EDIT) {
+        const profile = await service.getProfile(profileId);
+        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
+          profile.notionDataSourceId;
+        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
+          profile.notionDataSourceType;
+        ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
+        return;
+      }
+      if (action === DESTINATION_PROFILE_ACTIONS.DELETE) {
+        await service.deleteProfile(profileId);
+        await render();
+      }
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileAction');
+      Logger.warn('保存目標操作失敗', {
+        action: 'destinationProfileAction',
+        error: safeError,
+      });
+      ui.showStatus('保存目標操作失敗，請稍後再試。', 'error');
+    }
+  });
+
+  addButton.addEventListener('click', async () => {
+    try {
+      const databaseId = cleanDatabaseId(
+        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID)?.value || ''
+      );
+      if (!databaseId) {
+        ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
+        return;
+      }
+      const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
+      const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
+      await service.createProfile({
+        name: explicitName || `保存目標 ${Date.now().toString().slice(-4)}`,
+        notionDataSourceId: databaseId,
+        notionDataSourceType: rawType === 'page' ? 'page' : 'database',
+      });
+      if (nameInput) {
+        nameInput.value = '';
+      }
+      await render();
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'createDestinationProfile');
+      Logger.warn('新增保存目標失敗', {
+        action: 'createDestinationProfile',
+        error: safeError,
+      });
+      const message =
+        error?.message === '已達目的地數量上限'
+          ? '已達目的地數量上限。'
+          : '新增保存目標失敗，請稍後再試。';
+      ui.showStatus(message, 'error');
+    }
+  });
+
+  destinationProfilesUIController = { list, addButton, render };
+  await service.ensureMigratedDefaultProfile();
+  await render();
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -536,6 +861,31 @@ export function cleanDatabaseId(input) {
   return cleaned;
 }
 
+async function rollbackDefaultDestinationProfile({
+  destinationProfileService,
+  defaultProfileId,
+  originalDataSourceId,
+  originalDataSourceType,
+  hasOriginalProfileState,
+}) {
+  if (!destinationProfileService || !hasOriginalProfileState) {
+    return;
+  }
+
+  try {
+    await destinationProfileService.updateProfile(defaultProfileId, {
+      notionDataSourceId: originalDataSourceId,
+      notionDataSourceType: originalDataSourceType,
+    });
+  } catch (rollbackError) {
+    const safeRollbackError = sanitizeApiError(rollbackError, 'save_settings_profile_rollback');
+    Logger.warn('還原預設保存目標失敗', {
+      action: 'save_settings_profile_rollback',
+      error: safeRollbackError,
+    });
+  }
+}
+
 /**
  * 保存設置
  *
@@ -604,8 +954,27 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     syncSettings.highlightContentStyle = highlightContentStyle.value;
   }
 
+  let destinationProfileService = null;
+  let defaultProfileId = 'default';
+  let originalDataSourceId = null;
+  let originalDataSourceType = 'database';
+  let hasOriginalProfileState = false;
+
   // 分離儲存至 local 與 sync（同時清除 sync 中的舊資料來源 key，防止跨裝置同步汙染）
   try {
+    destinationProfileService = createDestinationProfileService();
+    const profiles = await destinationProfileService.ensureMigratedDefaultProfile();
+    const originalProfile = profiles[0] || {};
+    defaultProfileId = originalProfile.id || 'default';
+    originalDataSourceId = originalProfile.notionDataSourceId ?? null;
+    originalDataSourceType = originalProfile.notionDataSourceType ?? 'database';
+    hasOriginalProfileState = true;
+
+    await destinationProfileService.updateProfile(defaultProfileId, {
+      notionDataSourceId: databaseId,
+      notionDataSourceType: localSettings[dataSourceTypeKey],
+    });
+
     await Promise.all([
       chrome.storage.local.set(localSettings),
       chrome.storage.sync.set(syncSettings),
@@ -625,6 +994,13 @@ export async function saveSettings(ui, auth, statusId = 'status') {
       type: ErrorTypes.STORAGE,
       context: 'save_settings',
       originalError: safeError,
+    });
+    await rollbackDefaultDestinationProfile({
+      destinationProfileService,
+      defaultProfileId,
+      originalDataSourceId,
+      originalDataSourceType,
+      hasOriginalProfileState,
     });
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);

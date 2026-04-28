@@ -5,6 +5,7 @@ import {
   startHighlight,
   openNotionPage,
   getActiveTab,
+  getDestinationState,
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
@@ -262,6 +263,18 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(true);
     });
 
+    it('有 profileId 時應帶入 savePage payload', async () => {
+      chrome.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+
+      const result = await savePage('profile-2');
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: 'savePage',
+        profileId: 'profile-2',
+      });
+      expect(result.success).toBe(true);
+    });
+
     it.each([null, ''])('當 sendMessage 回傳 %p 時應該提供 fallback 回傳值', async response => {
       chrome.runtime.sendMessage.mockResolvedValueOnce(response);
       const result = await savePage();
@@ -274,6 +287,110 @@ describe('popupActions.js', () => {
       const result = await savePage();
       expect(result.success).toBe(false);
       expect(result.error).toBe('無法儲存頁面，請稍後再試');
+    });
+  });
+
+  describe('getDestinationState', () => {
+    it('應從 destination profile service 讀取 profiles 並以 entitlement 內的 profile 作為選取值', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            icon: 'bookmark',
+            color: '#2563eb',
+            notionDataSourceId: 'db-1',
+            notionDataSourceType: 'database',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          {
+            id: 'profile-2',
+            name: 'Research',
+            icon: 'book-open',
+            color: '#16a34a',
+            notionDataSourceId: 'page-1',
+            notionDataSourceType: 'page',
+            createdAt: 2,
+            updatedAt: 2,
+          },
+        ],
+        destinationLastUsedProfileId: 'profile-2',
+      });
+
+      const result = await getDestinationState();
+
+      expect(result.profiles).toHaveLength(2);
+      expect(result.selectedProfileId).toBe('default');
+      expect(result.entitlement.maxProfiles).toBeGreaterThanOrEqual(1);
+    });
+
+    it('last-used 讀取失敗時仍應保留 profiles 並回退選第一個 profile', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            icon: 'bookmark',
+            color: '#2563eb',
+            notionDataSourceId: 'db-1',
+            notionDataSourceType: 'database',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        destinationLastUsedProfileId: 'default',
+      });
+      const originalGet = chrome.storage.local.get;
+      let getCallCount = 0;
+      chrome.storage.local.get = jest.fn(keys => {
+        getCallCount += 1;
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        if (getCallCount >= 3 && keyList.includes('destinationLastUsedProfileId')) {
+          return Promise.reject(new Error('last-used failed'));
+        }
+        return originalGet.call(chrome.storage.local, keys);
+      });
+
+      try {
+        const result = await getDestinationState();
+
+        expect(result.profiles).toHaveLength(1);
+        expect(result.selectedProfileId).toBe('default');
+        expect(result.entitlement).toEqual(expect.objectContaining({ maxProfiles: 1 }));
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'getDestinationState',
+            operation: 'getLastUsedProfile',
+            error: expect.any(String),
+          })
+        );
+      } finally {
+        chrome.storage.local.get = originalGet;
+      }
+    });
+
+    it('last-used 指向 profiles snapshot 外的 id 時應回退選第一個 profile', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          {
+            id: 'default',
+            name: 'Default',
+            icon: 'bookmark',
+            color: '#2563eb',
+            notionDataSourceId: 'db-1',
+            notionDataSourceType: 'database',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        destinationLastUsedProfileId: 'stale-profile',
+      });
+
+      const result = await getDestinationState();
+
+      expect(result.profiles.map(profile => profile.id)).toEqual(['default']);
+      expect(result.selectedProfileId).toBe('default');
     });
   });
 

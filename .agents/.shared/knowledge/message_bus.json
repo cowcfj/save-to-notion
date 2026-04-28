@@ -9,7 +9,9 @@
     "save": {
       "savePage": {
         "description": "從 Popup 或 Side Panel 觸發頁面保存流程",
-        "payload": {},
+        "payload": {
+          "profileId": "string (optional)"
+        },
         "response": {
           "success": "boolean",
           "statusKind": "\"saved\" | \"unsaved\" | \"deletion_pending\" | \"deleted_remote\" | \"unverified_saved\" | \"error\" (optional)",
@@ -22,6 +24,8 @@
           "notionPageId": "string (optional)",
           "notionUrl": "string (optional)",
           "title": "string (optional)",
+          "destinationProfileId": "string (optional)",
+          "destinationProfileName": "string (optional)",
           "error": "string (optional)"
         }
       },
@@ -40,6 +44,8 @@
           "notionPageId": "string (optional)",
           "notionUrl": "string (optional)",
           "title": "string (optional)",
+          "destinationProfileId": "string (optional)",
+          "destinationProfileName": "string (optional)",
           "error": "string (optional)"
         }
       },

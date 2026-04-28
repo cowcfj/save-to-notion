@@ -68,6 +68,35 @@
           <polyline points="7 3 7 8 15 8" /></svg
         ><span class="btn-text"></span>
       </button>
+      <div id="destination-section" class="destination-section" style="display: none">
+        <div class="destination-selector-row">
+          <span id="destination-current" class="destination-current"></span>
+          <button
+            id="destination-toggle"
+            class="destination-toggle"
+            type="button"
+            aria-label="切換保存目標"
+            aria-expanded="false"
+          >
+            <svg
+              class="btn-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+        <div id="destination-menu" class="destination-menu" role="menu"></div>
+      </div>
       <button id="open-notion-button" style="display: none">
         <svg
           class="btn-icon"

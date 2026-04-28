@@ -210,12 +210,19 @@
           <!-- 保存目標模塊 -->
           <div class="card">
             <h3>保存目標</h3>
+            <p class="section-desc text-sm gap-bottom-sm">
+              預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。
+            </p>
             <div class="form-group">
+              <label for="destination-profile-name">保存目標名稱（選填）</label>
               <div class="input-wrapper">
-                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
-                <input type="hidden" id="database-type" />
+                <input
+                  type="text"
+                  id="destination-profile-name"
+                  maxlength="40"
+                  placeholder="例如：Inbox、Research、讀書筆記"
+                />
               </div>
-
               <!-- 可搜索的數據庫選擇器組件 -->
               <div class="database-selector-container hidden" id="database-selector-container">
                 <div class="searchable-selector">
@@ -284,6 +291,12 @@
                 <option value="">選擇資料來源...</option>
               </select>
 
+              <div class="input-wrapper">
+                <label for="database-id" class="sr-only">下方手動 ID 欄位</label>
+                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
+                <input type="hidden" id="database-type" />
+              </div>
+
               <p class="help-text">
                 提示：若搜尋不到，可直接在上方欄位貼上 ID，或參考<a
                   href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-如何獲取-notion-id"
@@ -292,6 +305,23 @@
                   >手動輸入 ID</a
                 >。
               </p>
+              <div id="destination-profile-list" class="destination-profile-list"></div>
+              <div class="button-group gap-top-sm">
+                <button
+                  type="button"
+                  id="add-destination-profile"
+                  class="btn-secondary"
+                  aria-describedby="destination-profile-status"
+                >
+                  新增保存目標
+                </button>
+              </div>
+              <output
+                id="destination-profile-status"
+                class="destination-profile-status help-text"
+                aria-live="polite"
+                aria-atomic="true"
+              ></output>
             </div>
           </div>
 
@@ -339,10 +369,24 @@
               <div class="auth-actions">
                 <button id="account-login-button" type="button" class="btn-primary">
                   <span class="icon">
-                    <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <circle cx="12" cy="12" r="10"></circle>
                       <line x1="2" y1="12" x2="22" y2="12"></line>
-                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                      <path
+                        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                      ></path>
                     </svg>
                   </span>
                   <span>使用 Google 登入</span>
@@ -354,14 +398,26 @@
             <div id="account-logged-in" style="display: none">
               <div class="profile-layout">
                 <div class="profile-avatar">
-                  <img id="profile-avatar-img" alt="使用者頭像" style="display: none;" />
-                  <div id="profile-avatar-fallback" style="display: none;"></div>
+                  <img id="profile-avatar-img" alt="使用者頭像" style="display: none" />
+                  <div id="profile-avatar-fallback" style="display: none"></div>
                 </div>
                 <div class="profile-details">
                   <div class="profile-name-row">
                     <span id="profile-display-name"></span>
                     <span class="verified-badge" title="已驗證">
-                      <svg width="14" height="14" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg
+                        width="14"
+                        height="14"
+                        class="icon-svg"
+                        aria-hidden="true"
+                        focusable="false"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                       </svg>
@@ -370,10 +426,22 @@
                   <div id="profile-email" class="profile-email text-sm"></div>
                 </div>
               </div>
-              <div class="auth-actions" style="margin-top: 16px;">
+              <div class="auth-actions" style="margin-top: 16px">
                 <button id="account-logout-button" type="button" class="btn-danger">
                   <span class="icon">
-                    <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                       <polyline points="16 17 21 12 16 7"></polyline>
                       <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -384,16 +452,29 @@
               </div>
             </div>
 
-            <p id="account-status" class="status-message" aria-live="polite" aria-atomic="true" style="margin-top: 8px"></p>
+            <p
+              id="account-status"
+              class="status-message"
+              aria-live="polite"
+              aria-atomic="true"
+              style="margin-top: 8px"
+            ></p>
           </div>
 
           <!-- Cloud Sync Card — Phase A 正式 UI -->
           <div id="cloud-sync-card" class="card" style="display: none">
-            <h3 style="display: flex; align-items: center; gap: 8px;">
-              <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true" focusable="false" style="flex-shrink: 0;">
-                <polygon points="16,40 0,12 16,12" fill="#4285F4"/>
-                <polygon points="16,40 32,40 48,12 32,12" fill="#34A853"/>
-                <polygon points="0,12 16,40 32,40 16,12" fill="#FBBC05"/>
+            <h3 style="display: flex; align-items: center; gap: 8px">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 48 48"
+                aria-hidden="true"
+                focusable="false"
+                style="flex-shrink: 0"
+              >
+                <polygon points="16,40 0,12 16,12" fill="#4285F4" />
+                <polygon points="16,40 32,40 48,12 32,12" fill="#34A853" />
+                <polygon points="0,12 16,40 32,40 16,12" fill="#FBBC05" />
               </svg>
               Google Drive 雲端同步
             </h3>
@@ -418,9 +499,21 @@
               <div class="auth-actions">
                 <button id="drive-connect-button" type="button" class="btn-primary">
                   <span class="icon">
-                    <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    <svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                     </svg>
                   </span>
                   <span>連接 Google Drive</span>
@@ -430,23 +523,48 @@
 
             <!-- 狀態二：已連接，可正常操作 -->
             <div id="drive-state-connected" style="display: none">
-              <div class="drive-account-info" style="margin-bottom: 16px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+              <div
+                class="drive-account-info"
+                style="
+                  margin-bottom: 16px;
+                  padding: 10px 12px;
+                  background: rgba(255, 255, 255, 0.04);
+                  border-radius: 8px;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                "
+              >
                 <div>
                   <div class="text-sm" style="color: var(--text-secondary)">已連接帳號</div>
-                  <div id="drive-connected-email" class="text-sm" style="font-weight: 500;"></div>
+                  <div id="drive-connected-email" class="text-sm" style="font-weight: 500"></div>
                 </div>
               </div>
               <!-- 帳號隔離警示 -->
               <p id="drive-source-warning" class="drive-source-warning" hidden></p>
               <!-- 同步狀態摘要 -->
 
-              <div id="drive-sync-summary" style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted);">
+              <div
+                id="drive-sync-summary"
+                style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted)"
+              >
                 <span id="drive-last-upload-text">尚未上載</span>
               </div>
               <!-- Phase B: 自動同步頻率選擇器 -->
-              <div id="drive-frequency-row" style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px;">
-                <label for="drive-frequency-select" style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">自動備份頻率 <span class="badge-beta">測試版</span></label>
-                <select id="drive-frequency-select" class="form-select-enhanced" style="flex: 1; max-width: 140px; font-size: 0.8rem;">
+              <div
+                id="drive-frequency-row"
+                style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px"
+              >
+                <label
+                  for="drive-frequency-select"
+                  style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap"
+                  >自動備份頻率 <span class="badge-beta">測試版</span></label
+                >
+                <select
+                  id="drive-frequency-select"
+                  class="form-select-enhanced"
+                  style="flex: 1; max-width: 140px; font-size: 0.8rem"
+                >
                   <option value="off">關閉（僅手動）</option>
                   <option value="daily">每日</option>
                   <option value="weekly">每週</option>
@@ -454,11 +572,20 @@
                 </select>
               </div>
               <!-- Phase B: 自動同步狀態 -->
-              <output id="drive-auto-sync-status" aria-live="polite" style="margin-bottom: 12px; font-size: 0.75rem; color: var(--text-muted); display: none;">
+              <output
+                id="drive-auto-sync-status"
+                aria-live="polite"
+                style="
+                  margin-bottom: 12px;
+                  font-size: 0.75rem;
+                  color: var(--text-muted);
+                  display: none;
+                "
+              >
                 <span id="drive-auto-sync-status-text"></span>
               </output>
               <!-- 操作按鈕 -->
-              <div class="button-group" style="gap: 8px; flex-wrap: wrap;">
+              <div class="button-group" style="gap: 8px; flex-wrap: wrap">
                 <button id="drive-upload-button" type="button" class="btn-secondary">
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-upload" />
@@ -471,7 +598,12 @@
                   </svg>
                   <span class="button-text">從雲端還原</span>
                 </button>
-                <button id="drive-disconnect-button" type="button" class="btn-danger" style="margin-left: auto;">
+                <button
+                  id="drive-disconnect-button"
+                  type="button"
+                  class="btn-danger"
+                  style="margin-left: auto"
+                >
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-unlink" />
                   </svg>
@@ -482,28 +614,67 @@
 
             <!-- 狀態三：衝突 — 遠端較新，需人工處理 -->
             <div id="drive-state-conflict" style="display: none">
-              <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+              <div
+                style="
+                  background: rgba(234, 179, 8, 0.12);
+                  border: 1px solid rgba(234, 179, 8, 0.3);
+                  border-radius: 8px;
+                  padding: 12px 14px;
+                  margin-bottom: 14px;
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+                  <svg
+                    width="16"
+                    height="16"
+                    class="icon-svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#eab308"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                    />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
-                  <strong style="color: #eab308; font-size: 0.875rem;">雲端資料較新</strong>
+                  <strong style="color: #eab308; font-size: 0.875rem">雲端資料較新</strong>
                 </div>
-                <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 10px;">
-                  雲端 snapshot 比本地資料新，上載可能覆蓋較新的雲端資料。建議先下載雲端版本，或確認後強制上載。
+                <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 10px">
+                  雲端快照
+                  比本地資料新，上載可能覆蓋較新的雲端資料。建議先下載雲端版本，或確認後強制上載。
                 </p>
-                <p id="drive-conflict-remote-time" class="text-sm" style="color: var(--text-muted); margin-bottom: 12px;"></p>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <p
+                  id="drive-conflict-remote-time"
+                  class="text-sm"
+                  style="color: var(--text-muted); margin-bottom: 12px"
+                ></p>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
                   <button id="drive-conflict-download-button" type="button" class="btn-primary">
-                    <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
+                    <svg
+                      aria-hidden="true"
+                      focusable="false"
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                    >
                       <use href="#icon-download" />
                     </svg>
                     <span>下載雲端版本</span>
                   </button>
                   <button id="drive-conflict-force-upload-button" type="button" class="btn-danger">
-                    <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
+                    <svg
+                      aria-hidden="true"
+                      focusable="false"
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                    >
                       <use href="#icon-upload" />
                     </svg>
                     <span>強制上載覆蓋</span>
@@ -513,41 +684,109 @@
             </div>
 
             <!-- 錯誤提示（顯示在各狀態下方） -->
-            <div id="drive-error-banner" style="display: none; margin-top: 10px;">
-              <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 8px;">
-                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            <div id="drive-error-banner" style="display: none; margin-top: 10px">
+              <div
+                style="
+                  background: rgba(239, 68, 68, 0.1);
+                  border: 1px solid rgba(239, 68, 68, 0.3);
+                  border-radius: 8px;
+                  padding: 10px 14px;
+                  display: flex;
+                  align-items: flex-start;
+                  gap: 8px;
+                "
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  class="icon-svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ef4444"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="flex-shrink: 0; margin-top: 1px"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <div>
-                  <div class="text-sm" style="color: #fca5a5; font-weight: 500;" id="drive-error-code"></div>
-                  <div class="text-sm" style="color: var(--text-muted); margin-top: 2px;" id="drive-error-time"></div>
+                  <div
+                    class="text-sm"
+                    style="color: #fca5a5; font-weight: 500"
+                    id="drive-error-code"
+                  ></div>
+                  <div
+                    class="text-sm"
+                    style="color: var(--text-muted); margin-top: 2px"
+                    id="drive-error-time"
+                  ></div>
                 </div>
               </div>
             </div>
 
             <!-- 操作進行中（spinner） -->
-            <div id="drive-loading-overlay" style="display: none; margin-top: 12px; text-align: center;">
-              <div style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.875rem;">
-                <div style="width: 16px; height: 16px; border: 2px solid var(--border-color, #334155); border-top-color: #4ade80; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <div
+              id="drive-loading-overlay"
+              style="display: none; margin-top: 12px; text-align: center"
+            >
+              <div
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  color: var(--text-muted);
+                  font-size: 0.875rem;
+                "
+              >
+                <div
+                  style="
+                    width: 16px;
+                    height: 16px;
+                    border: 2px solid var(--border-color, #334155);
+                    border-top-color: #4ade80;
+                    border-radius: 50%;
+                    animation: spin 0.8s linear infinite;
+                  "
+                ></div>
                 <span id="drive-loading-text">處理中...</span>
               </div>
             </div>
 
             <!-- 通用狀態訊息 -->
-            <p id="drive-sync-status" class="status-message" aria-live="polite" aria-atomic="true" style="margin-top: 10px;"></p>
+            <p
+              id="drive-sync-status"
+              class="status-message"
+              aria-live="polite"
+              aria-atomic="true"
+              style="margin-top: 10px"
+            ></p>
           </div>
 
           <!-- AI Assistance Card -->
           <div id="ai-assistant-card" class="card locked-feature">
             <h3>
-              <svg width="20" height="20" class="icon-svg" aria-hidden="true" focusable="false" style="vertical-align: middle; margin-right: 4px;">
+              <svg
+                width="20"
+                height="20"
+                class="icon-svg"
+                aria-hidden="true"
+                focusable="false"
+                style="vertical-align: middle; margin-right: 4px"
+              >
                 <use href="#icon-star" />
               </svg>
               AI 智能摘要與助手
             </h3>
             <p class="section-desc" style="margin-bottom: 12px">
-              透過先進 AI 幫助您快速整理網頁重點。<br/>
-              <span class="locked-message" style="color: var(--text-muted);">需先登入 Google 帳號。</span>
+              透過先進 AI 幫助您快速整理網頁重點。<br />
+              <span class="locked-message" style="color: var(--text-muted)"
+                >需先登入 Google 帳號。</span
+              >
             </p>
             <div class="auth-actions">
               <button type="button" class="btn-secondary" disabled>
@@ -555,7 +794,6 @@
               </button>
             </div>
           </div>
-
         </section>
 
         <!-- 模板設定區塊 -->
@@ -622,7 +860,9 @@
                   <option value="NONE">關閉</option>
                 </select>
               </div>
-              <p class="help-text">選擇標註文字在 Notion 頁面原文中的標示方式（首次保存時生效）。</p>
+              <p class="help-text"
+                >選擇標註文字在 Notion 頁面原文中的標示方式（首次保存時生效）。</p
+              >
             </div>
           </div>
 

@@ -141,6 +141,7 @@ describe('actionHandlers 覆蓋率補強', () => {
   let mockPageContentService = null;
   let mockTabService = null;
   let mockMigrationService = null;
+  let mockDestinationProfileResolver = null;
   let handlers = null;
   const internalSender = { id: 'mock-ext-id' };
   const csSender = {
@@ -210,6 +211,16 @@ describe('actionHandlers 覆蓋率補強', () => {
       migrateStorageKey: jest.fn().mockResolvedValue(false),
     };
 
+    mockDestinationProfileResolver = {
+      resolveProfileForSave: jest.fn().mockResolvedValue({
+        id: 'default',
+        name: 'Default',
+        notionDataSourceId: 'db-123',
+        notionDataSourceType: 'database',
+      }),
+      setLastUsedProfile: jest.fn().mockResolvedValue(),
+    };
+
     handlers = {
       ...createSaveHandlers({
         notionService: mockNotionService,
@@ -218,6 +229,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         pageContentService: mockPageContentService,
         tabService: mockTabService,
         migrationService: mockMigrationService,
+        destinationProfileResolver: mockDestinationProfileResolver,
       }),
       ...createHighlightHandlers({
         notionService: mockNotionService,
@@ -353,12 +365,15 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在有 API Key 但缺少 Data Source ID 時失敗', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'valid-key' });
+      mockDestinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('尚未設定保存目標')
+      );
 
       await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+          error: '尚未設定保存目的地，請先到設定頁完成設定。',
         })
       );
     });
@@ -477,7 +492,10 @@ describe('actionHandlers 覆蓋率補強', () => {
     // 測試 determineAndExecuteSaveAction：已有頁面流程 - 更新標註
     test('已有頁面：有新標註時應該調用 updateHighlightsSection', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        destinationProfileId: 'default',
+      });
       mockNotionService.checkPageExists.mockResolvedValue(true);
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'new highlight' }]);
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
@@ -496,7 +514,10 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('已有頁面：標註更新失敗時應走統一錯誤回應', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        destinationProfileId: 'default',
+      });
       mockNotionService.checkPageExists.mockResolvedValue(true);
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'new highlight' }]);
       mockNotionService.updateHighlightsSection.mockResolvedValue({
@@ -518,7 +539,10 @@ describe('actionHandlers 覆蓋率補強', () => {
     // 測試 determineAndExecuteSaveAction：已有頁面流程 - 刷新內容
     test('已有頁面：無新標註時應該調用 refreshPageContent', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'existing-id' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        destinationProfileId: 'default',
+      });
       mockNotionService.checkPageExists.mockResolvedValue(true);
       mockInjectionService.collectHighlights.mockResolvedValue([]); // No highlights
       mockNotionService.refreshPageContent.mockResolvedValue({ success: true });
@@ -532,7 +556,10 @@ describe('actionHandlers 覆蓋率補強', () => {
     // 測試 determineAndExecuteSaveAction：頁面已刪除
     test('已有頁面但 Notion 中已刪除：應該重新創建頁面', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'deleted-id',
+        destinationProfileId: 'default',
+      });
       mockNotionService.checkPageExists.mockResolvedValue(false); // Page deleted
       mockTabService.confirmRemotePageMissing.mockReturnValue({
         shouldDelete: true,
@@ -551,7 +578,10 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('檢查頁面存在性失敗時應報錯', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'id',
+        destinationProfileId: 'default',
+      });
       mockNotionService.checkPageExists.mockResolvedValue(null); // Network error
 
       await handlers.savePage({}, internalSender, sendResponse);
@@ -569,7 +599,10 @@ describe('actionHandlers 覆蓋率補強', () => {
      */
     test('頁面已刪除時應清理狀態並重新創建', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'deleted-id',
+        destinationProfileId: 'default',
+      });
       mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
       mockTabService.confirmRemotePageMissing.mockReturnValue({
         shouldDelete: true,
@@ -675,11 +708,14 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在有 API Key 但缺少 Data Source ID 時失敗', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'valid-key' });
+      mockDestinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('尚未設定保存目標')
+      );
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+          error: '尚未設定保存目的地，請先到設定頁完成設定。',
         })
       );
     });

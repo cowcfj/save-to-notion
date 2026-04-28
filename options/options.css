@@ -768,6 +768,66 @@ select:focus {
   margin-top: 8px;
 }
 
+.destination-profile-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.destination-profile-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #2563eb;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.destination-profile-row > div:first-child {
+  min-width: 0;
+}
+
+.destination-profile-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.destination-profile-meta {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.destination-profile-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.destination-profile-name-edit {
+  min-width: 0;
+}
+
+.destination-profile-name-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.destination-profile-status {
+  min-height: 1.4em;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 /* Migration Item Styles */
 .migration-item {
   display: flex;
@@ -1256,6 +1316,18 @@ h4 .icon-svg {
 /* Utility Classes for Refactoring Inline Styles */
 .hidden {
   display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .w-full {

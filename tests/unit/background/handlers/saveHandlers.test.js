@@ -133,6 +133,15 @@ describe('saveHandlers', () => {
         migrateStorageKey: jest.fn(),
         executeContentMigration: jest.fn(),
       },
+      destinationProfileResolver: {
+        resolveProfileForSave: jest.fn().mockResolvedValue({
+          id: 'default',
+          name: 'Default',
+          notionDataSourceId: 'db-123',
+          notionDataSourceType: 'database',
+        }),
+        setLastUsedProfile: jest.fn().mockResolvedValue(),
+      },
     };
     handlers = createSaveHandlers(mockServices);
   });
@@ -274,8 +283,250 @@ describe('saveHandlers', () => {
       expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
+        expect.objectContaining({
+          success: true,
+          created: true,
+          destinationProfileId: 'default',
+          destinationProfileName: 'Default',
+        })
       );
+      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({ destinationProfileId: 'default' })
+      );
+      expect(mockServices.destinationProfileResolver.setLastUsedProfile).toHaveBeenCalledWith(
+        'default'
+      );
+    });
+
+    test('savePage: payload 帶 profileId 時應使用該 profile 的 Notion target', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
+        id: 'profile-2',
+        name: 'Research',
+        notionDataSourceId: 'research-target',
+        notionDataSourceType: 'page',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
+
+      expect(mockServices.destinationProfileResolver.resolveProfileForSave).toHaveBeenCalledWith(
+        'profile-2'
+      );
+      expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dataSourceId: 'research-target',
+          dataSourceType: 'page',
+        })
+      );
+      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({ destinationProfileId: 'profile-2' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          destinationProfileId: 'profile-2',
+          destinationProfileName: 'Research',
+        })
+      );
+    });
+
+    test('savePage: profile 不存在時應回傳目的地錯誤且不提取內容', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('Destination profile not found')
+      );
+
+      await handlers.savePage({ profileId: 'missing' }, validSender, sendResponse);
+
+      expect(mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
+      expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('保存目的地'),
+        })
+      );
+    });
+
+    test('savePage: destinationProfileResolver 缺失時應回傳明確錯誤', async () => {
+      const sendResponse = jest.fn();
+      handlers = createSaveHandlers({
+        ...mockServices,
+        destinationProfileResolver: null,
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+      expect(mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
+    });
+
+    test('savePage: 已保存頁改存到另一個 profile 時應建立新 Notion page', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
+        id: 'profile-2',
+        name: 'Research',
+        notionDataSourceId: 'research-target',
+        notionDataSourceType: 'page',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+        destinationProfileId: 'default',
+      });
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
+
+      expect(mockServices.notionService.checkPageExists).not.toHaveBeenCalled();
+      expect(mockServices.notionService.createPage).toHaveBeenCalled();
+      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({
+          notionPageId: 'new-page-id',
+          destinationProfileId: 'profile-2',
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true, destinationProfileId: 'profile-2' })
+      );
+    });
+
+    test('savePage: legacy 已保存頁缺少 destinationProfileId 且改存 profile 時應建立新 Notion page', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
+        id: 'profile-2',
+        name: 'Research',
+        notionDataSourceId: 'research-target',
+        notionDataSourceType: 'page',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
+
+      expect(mockServices.notionService.checkPageExists).not.toHaveBeenCalled();
+      expect(mockServices.notionService.createPage).toHaveBeenCalled();
+      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({
+          notionPageId: 'new-page-id',
+          destinationProfileId: 'profile-2',
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true, destinationProfileId: 'profile-2' })
+      );
+    });
+
+    test('savePage: legacy 已保存頁缺少 destinationProfileId 且使用 default profile 時應更新既有頁面', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+        notionUrl: 'https://notion.so/existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(true);
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: true,
+        pageId: 'existing-id',
+      });
+      mockServices.notionService.refreshPageContent.mockResolvedValue({
+        success: true,
+        pageId: 'existing-id',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+      expect(mockServices.notionService.checkPageExists).toHaveBeenCalledWith('existing-id', {
+        apiKey: 'valid-key',
+      });
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          updated: true,
+          destinationProfileId: 'default',
+        })
+      );
+    });
+
+    test('savePage: legacy data source key 缺失時仍應使用 destination profile target 保存', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+      });
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue({
+        id: 'profile-2',
+        name: 'Research',
+        notionDataSourceId: 'research-target',
+        notionDataSourceType: 'page',
+      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
+
+      expect(mockServices.destinationProfileResolver.resolveProfileForSave).toHaveBeenCalledWith(
+        'profile-2'
+      );
+      expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
+      expect(mockServices.notionService.buildPageData).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dataSourceId: 'research-target',
+          dataSourceType: 'page',
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true, destinationProfileId: 'profile-2' })
+      );
+    });
+
+    test('savePage: profile 解析失敗時不應暴露 raw error message', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('internal worker stack: token exchange failed')
+      );
+
+      await handlers.savePage({ profileId: 'missing' }, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.error).toContain('保存目的地');
+      expect(response.error).not.toContain('internal worker stack');
+      expect(response.error).not.toContain('token exchange failed');
     });
 
     test('savePage: 提取結果為 failed 時不應建立 Notion 頁面', async () => {
@@ -391,6 +642,7 @@ describe('saveHandlers', () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'existing-id',
+        destinationProfileId: 'default',
       });
       mockServices.notionService.checkPageExists.mockResolvedValue(true);
       mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'highlight' }]);
@@ -408,6 +660,7 @@ describe('saveHandlers', () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'existing-id',
+        destinationProfileId: 'default',
       });
       mockServices.notionService.checkPageExists.mockResolvedValue(true);
       mockServices.injectionService.collectHighlights.mockResolvedValue([]); // No highlights
@@ -424,6 +677,7 @@ describe('saveHandlers', () => {
       mockServices.storageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'existing-id',
         notionUrl: 'https://notion.so/existing-id',
+        destinationProfileId: 'default',
       });
       mockServices.notionService.checkPageExists.mockResolvedValue(false);
       mockServices.notionService.createPage.mockResolvedValue({
@@ -454,6 +708,7 @@ describe('saveHandlers', () => {
         mockServices.storageService.getSavedPageData.mockResolvedValue({
           notionPageId: 'existing-id',
           notionUrl: 'https://notion.so/existing-id',
+          destinationProfileId: 'default',
         });
         mockServices.notionService.checkPageExists.mockResolvedValue(false);
         mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
@@ -546,6 +801,7 @@ describe('saveHandlers', () => {
         mockServices.storageService.getSavedPageData.mockResolvedValue({
           notionPageId: 'existing-id',
           notionUrl: 'https://notion.so/existing-id',
+          destinationProfileId: 'default',
         });
         mockServices.notionService.checkPageExists.mockResolvedValue(false);
         mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
@@ -667,6 +923,34 @@ describe('saveHandlers', () => {
           success: false,
           error: expect.any(String),
         })
+      );
+    });
+
+    test('SAVE_PAGE_FROM_TOOLBAR: 不應讀取 request.profileId 覆寫保存目標', async () => {
+      const sendResponse = jest.fn();
+      const toolbarSender = {
+        ...validContentScriptSender,
+        tab: { id: 1, url: 'https://example.com' },
+      };
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.SAVE_PAGE_FROM_TOOLBAR(
+        { profileId: 'malicious-profile' },
+        toolbarSender,
+        sendResponse
+      );
+
+      expect(mockServices.destinationProfileResolver.resolveProfileForSave).toHaveBeenCalledWith(
+        undefined
+      );
+      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.objectContaining({ destinationProfileId: 'default' })
       );
     });
 
@@ -910,6 +1194,7 @@ describe('saveHandlers', () => {
             notionPageId: 'legacy-id-123',
             title: 'Legacy Title',
             lastVerifiedAt: Date.now(),
+            destinationProfileId: 'default',
           });
         }
         return Promise.resolve(null);

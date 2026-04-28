@@ -18,6 +18,7 @@ import {
   setAccountStatusError,
   updateUIForLoggedOutAccount,
   updateUIForLoggedInAccount,
+  renderDestinationSelector,
   updateUIForSavedPage,
   updateUIForUnsavedPage,
   formatSaveSuccessMessage,
@@ -28,6 +29,7 @@ import {
   checkSettings,
   checkPageStatus,
   savePage,
+  getDestinationState,
   startHighlight,
   openNotionPage,
   getActiveTab,
@@ -95,6 +97,17 @@ export async function initPopup() {
   }
 
   // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
+  let selectedDestinationProfileId = null;
+  let destinationProfiles = [];
+  try {
+    const destinationState = await getDestinationState();
+    selectedDestinationProfileId = destinationState.selectedProfileId;
+    destinationProfiles = destinationState.profiles || [];
+    renderDestinationSelector(elements, destinationState);
+  } catch (error) {
+    Logger.warn('[Popup] Failed to initialize destination selector', { error });
+  }
+
   try {
     const pageStatus = await checkPageStatus();
 
@@ -132,7 +145,7 @@ export async function initPopup() {
     setStatus(elements, UI_MESSAGES.POPUP.SAVING);
     setButtonState(elements.saveButton, true);
 
-    const response = await savePage();
+    const response = await savePage(selectedDestinationProfileId);
 
     if (response?.success) {
       const message = formatSaveSuccessMessage(response);
@@ -166,6 +179,25 @@ export async function initPopup() {
       setButtonState(elements.saveButton, false);
     }, 3000);
   });
+
+  if (elements.destinationToggle && elements.destinationMenu) {
+    elements.destinationToggle.addEventListener('click', () => {
+      const isOpen = elements.destinationMenu.style.display === 'block';
+      elements.destinationMenu.style.display = isOpen ? 'none' : 'block';
+      elements.destinationToggle.setAttribute?.('aria-expanded', isOpen ? 'false' : 'true');
+    });
+    elements.destinationMenu.addEventListener('click', event => {
+      const profileId = event.target?.dataset?.profileId;
+      if (!profileId) {
+        return;
+      }
+      selectedDestinationProfileId = profileId;
+      renderDestinationSelector(elements, {
+        profiles: destinationProfiles,
+        selectedProfileId: profileId,
+      });
+    });
+  }
 
   // 標記按鈕
   elements.highlightButton.addEventListener('click', async () => {

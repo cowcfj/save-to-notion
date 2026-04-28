@@ -117,6 +117,7 @@ rsync -a \
     --exclude='config/ui-selectors.js' \
     --exclude='config/README.md' \
     --exclude='content' \
+    --exclude='destinations/ProfileResolver.js' \
     --exclude='config/env/build.example.js' \
     --exclude='config/env.js' \
     --exclude='config/extension/index.js' \

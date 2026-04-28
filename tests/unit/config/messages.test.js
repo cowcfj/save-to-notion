@@ -183,6 +183,7 @@ describe('配置模組 - messages.js 動態函式', () => {
           OPEN_NOTION: '開啟 Notion',
           MANAGE_HIGHLIGHTS: '管理標註',
           SETTINGS_LINK: '設定',
+          DESTINATION_LABEL_PREFIX: '保存目標：',
           SIDE_PANEL_UNAVAILABLE: '側邊欄無法在此頁面開啟。',
         })
       );

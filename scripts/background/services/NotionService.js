@@ -828,6 +828,22 @@ class NotionService {
       dataSourceType === 'page'
         ? { type: 'page_id', page_id: dataSourceId }
         : { type: 'data_source_id', data_source_id: dataSourceId };
+    const pageTitle = title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE;
+    const properties =
+      dataSourceType === 'page'
+        ? {
+            title: {
+              title: [{ text: { content: pageTitle } }],
+            },
+          }
+        : {
+            Title: {
+              title: [{ text: { content: pageTitle } }],
+            },
+            URL: {
+              url: pageUrl || '', // 符合現有測試預期
+            },
+          };
 
     // 清理區塊：移除內部使用的 _meta 欄位，確保只有 Notion API 認可的欄位被發送
     // Note: 雖然 appendBlocksInBatches 也會執行清理，但此處清理是為了滿足 createPage
@@ -840,14 +856,7 @@ class NotionService {
     // 構建頁面數據
     const pageData = {
       parent: parentConfig,
-      properties: {
-        Title: {
-          title: [{ text: { content: title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE } }],
-        },
-        URL: {
-          url: pageUrl || '', // 符合現有測試預期
-        },
-      },
+      properties,
       children: sanitizedBlocks,
     };
 

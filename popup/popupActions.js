@@ -6,7 +6,11 @@
 
 /* global chrome */
 
-import { isValidNotionUrl, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
+import {
+  isValidNotionUrl,
+  sanitizeApiError,
+  sanitizeUrlForLogging,
+} from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../scripts/config/env/index.js';
@@ -15,6 +19,11 @@ import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.j
 import { getAccountAccessToken, getAccountProfile } from '../scripts/auth/accountSession.js';
 import { buildAccountLoginStartUrl, getOptionsAdvancedUrl } from '../scripts/auth/accountLogin.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
+import {
+  AccountGatedDestinationEntitlementProvider,
+  LocalDestinationProfileRepository,
+} from '../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../scripts/destinations/ProfileManager.js';
 
 /**
  * 檢查設置是否完整
@@ -130,15 +139,74 @@ export async function checkPageStatus(options = {}) {
 /**
  * 保存頁面到 Notion
  *
+ * @param {string} [profileId] - 保存目標 profile id
  * @returns {Promise<object>} 保存結果，成功時包含 canonical save status 欄位
  */
-export async function savePage() {
+export async function savePage(profileId) {
   try {
-    const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
+    const payload = { action: RUNTIME_ACTIONS.SAVE_PAGE };
+    if (typeof profileId === 'string' && profileId.trim()) {
+      payload.profileId = profileId;
+    }
+    const response = await chrome.runtime.sendMessage(payload);
     return response || { success: false, error: ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE };
   } catch (error) {
     Logger.warn('savePage failed:', error);
     return { success: false, error: '無法儲存頁面，請稍後再試' };
+  }
+}
+
+/**
+ * 讀取 popup 保存目標狀態。
+ *
+ * @returns {Promise<{profiles: Array<object>, selectedProfileId: string|null, entitlement: object}>}
+ */
+export async function getDestinationState() {
+  try {
+    const service = new ProfileManager({
+      repository: new LocalDestinationProfileRepository(),
+      entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+    });
+    const profiles = await service.listProfiles().catch(error => {
+      Logger.warn({
+        action: 'getDestinationState',
+        operation: 'listProfiles',
+        error: sanitizeApiError(error, 'getDestinationState.listProfiles'),
+      });
+      return [];
+    });
+    const selectedProfile = await service.getLastUsedProfile().catch(error => {
+      Logger.warn({
+        action: 'getDestinationState',
+        operation: 'getLastUsedProfile',
+        error: sanitizeApiError(error, 'getDestinationState.getLastUsedProfile'),
+      });
+      return null;
+    });
+    const entitlement = await service.getDestinationEntitlement().catch(error => {
+      Logger.warn({
+        action: 'getDestinationState',
+        operation: 'getDestinationEntitlement',
+        error: sanitizeApiError(error, 'getDestinationState.getDestinationEntitlement'),
+      });
+      return { maxProfiles: 1 };
+    });
+    const selectedProfileId = profiles.some(profile => profile.id === selectedProfile?.id)
+      ? selectedProfile.id
+      : (profiles[0]?.id ?? null);
+
+    return {
+      profiles,
+      selectedProfileId,
+      entitlement,
+    };
+  } catch (error) {
+    Logger.warn({
+      action: 'getDestinationState',
+      operation: 'getDestinationState',
+      error: sanitizeApiError(error, 'getDestinationState'),
+    });
+    return { profiles: [], selectedProfileId: null, entitlement: { maxProfiles: 1 } };
   }
 }
 

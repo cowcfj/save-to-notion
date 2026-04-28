@@ -29,6 +29,12 @@ import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { SAVE_STATUS_KINDS, createSaveStatusResponse } from '../../config/saveStatus.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { resolveSaveStatus } from '../services/SaveStatusCoordinator.js';
+import {
+  AccountGatedDestinationEntitlementProvider,
+  DEFAULT_PROFILE_ID,
+  LocalDestinationProfileRepository,
+} from '../../destinations/ProfileStore.js';
+import { ProfileResolver } from '../../destinations/ProfileResolver.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/shared/storage.js';
 import { getActiveTab } from './handlerUtils.js';
@@ -38,6 +44,35 @@ const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS))
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
+
+function getDestinationProfileErrorCode(error) {
+  if (typeof error?.code === 'string' && error.code.trim()) {
+    return error.code.trim();
+  }
+
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (message.includes('找不到目的地')) {
+    return 'destination_profile_not_found';
+  }
+  if (message.includes('尚未設定保存目標')) {
+    return 'destination_profile_not_configured';
+  }
+  if (message.includes('不可使用') || message.includes('數量上限')) {
+    return 'destination_profile_not_allowed';
+  }
+  return 'unknown_destination_profile_error';
+}
+
+function formatDestinationProfileResolveError(error) {
+  const code = getDestinationProfileErrorCode(error);
+  const messages = {
+    destination_profile_not_found: '找不到指定的保存目的地，請重新整理後再試。',
+    destination_profile_not_configured: '尚未設定保存目的地，請先到設定頁完成設定。',
+    destination_profile_not_allowed: '此保存目的地目前不可使用，請改用其他保存目標。',
+    unknown_destination_profile_error: '保存目的地無法使用，請重新整理後再試。',
+  };
+  return messages[code] || messages.unknown_destination_profile_error;
+}
 
 /**
  * 主動通知指定 tab 保存狀態已更新（混合式推播策略）
@@ -142,7 +177,21 @@ export function createSaveHandlers(services) {
     pageContentService,
     tabService,
     migrationService, // Added MigrationService
+    destinationProfileResolver: providedDestinationProfileResolver,
+    destinationProfileService: legacyDestinationProfileService,
   } = services;
+  const hasProvidedDestinationProfileDependency =
+    Object.hasOwn(services, 'destinationProfileResolver') ||
+    Object.hasOwn(services, 'destinationProfileService');
+  const destinationProfileResolver =
+    providedDestinationProfileResolver ||
+    legacyDestinationProfileService ||
+    (hasProvidedDestinationProfileDependency
+      ? null
+      : new ProfileResolver({
+          repository: new LocalDestinationProfileRepository(),
+          entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+        }));
 
   if (
     typeof tabService?.confirmRemotePageMissing !== 'function' ||
@@ -231,14 +280,87 @@ export function createSaveHandlers(services) {
     return { config, dataSourceId, dataSourceType, apiKey };
   }
 
+  async function _loadNotionConfigForDestinationProfile(sendResponse) {
+    const config = await storageService.getConfig(NOTION_CONFIG_KEYS);
+    const { token: apiKey } = await getActiveNotionToken();
+
+    if (!apiKey) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+      });
+      return null;
+    }
+
+    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId || null;
+    const rawDataSourceType = config.notionDataSourceType;
+    const dataSourceType = rawDataSourceType === 'page' ? 'page' : 'database';
+    return { config, dataSourceId, dataSourceType, apiKey };
+  }
+
+  async function resolveDestinationProfile(request, sendResponse, configData) {
+    if (!destinationProfileResolver) {
+      sendResponse({
+        success: false,
+        error: '保存目的地服務無法使用，請重新整理後再試。',
+      });
+      return null;
+    }
+
+    try {
+      return await destinationProfileResolver.resolveProfileForSave(request?.profileId);
+    } catch (error) {
+      if (!request?.profileId && configData?.dataSourceId) {
+        return {
+          id: 'default',
+          name: '預設',
+          notionDataSourceId: configData.dataSourceId,
+          notionDataSourceType: configData.dataSourceType,
+        };
+      }
+
+      const errorCode = getDestinationProfileErrorCode(error);
+      const safeError = sanitizeApiError(error, 'resolveDestinationProfile');
+      Logger.warn('解析保存目的地失敗', {
+        action: 'resolveDestinationProfile',
+        errorCode,
+        error: safeError,
+      });
+      sendResponse({
+        success: false,
+        error: formatDestinationProfileResolveError(error),
+      });
+      return null;
+    }
+  }
+
+  async function rememberLastUsedDestinationProfile(destinationProfile) {
+    if (
+      !destinationProfile?.id ||
+      typeof destinationProfileResolver?.setLastUsedProfile !== 'function'
+    ) {
+      return;
+    }
+
+    await destinationProfileResolver.setLastUsedProfile(destinationProfile.id).catch(error => {
+      Logger.warn('更新最後使用保存目的地失敗（不影響保存流程）', {
+        action: 'rememberLastUsedDestinationProfile',
+        profileId: destinationProfile.id,
+        error,
+      });
+    });
+  }
+
   /**
    * 驗證請求並獲取配置
    *
    * @param {object} sender - 請求發送者
    * @param {Function} sendResponse - 回應函數
+   * @param {{requireDataSource?: boolean}} [options] - 是否要求 legacy data source 設定
    * @returns {Promise<object|null>} 配置對象或 null
    */
-  async function validateRequestAndGetConfig(sender, sendResponse) {
+  async function validateRequestAndGetConfig(sender, sendResponse, options = {}) {
+    const { requireDataSource = true } = options;
     const validationError = validateInternalRequest(sender);
     if (validationError) {
       Logger.warn('安全性阻擋', {
@@ -268,7 +390,9 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    const configData = requireDataSource
+      ? await _loadAndValidateNotionConfig(sendResponse)
+      : await _loadNotionConfigForDestinationProfile(sendResponse);
     if (!configData) {
       return null;
     }
@@ -283,9 +407,11 @@ export function createSaveHandlers(services) {
    *
    * @param {object} sender - 請求發送者
    * @param {Function} sendResponse - 回應函數
+   * @param {{requireDataSource?: boolean}} [options] - 是否要求 legacy data source 設定
    * @returns {Promise<object|null>} 配置對象或 null
    */
-  async function _validateToolbarRequestAndGetConfig(sender, sendResponse) {
+  async function _validateToolbarRequestAndGetConfig(sender, sendResponse, options = {}) {
+    const { requireDataSource = true } = options;
     // Content Script 安全性驗證
     const validationError = validateContentScriptRequest(sender);
     if (validationError) {
@@ -325,7 +451,9 @@ export function createSaveHandlers(services) {
       return null;
     }
 
-    const configData = await _loadAndValidateNotionConfig(sendResponse);
+    const configData = requireDataSource
+      ? await _loadAndValidateNotionConfig(sendResponse)
+      : await _loadNotionConfigForDestinationProfile(sendResponse);
     if (!configData) {
       return null;
     }
@@ -437,6 +565,7 @@ export function createSaveHandlers(services) {
       contentResult,
       apiKey,
       activeTabId,
+      destinationProfile,
     } = params;
 
     // 第一次嘗試
@@ -466,7 +595,9 @@ export function createSaveHandlers(services) {
         title: contentResult.title,
         savedAt: Date.now(),
         lastVerifiedAt: Date.now(),
+        destinationProfileId: destinationProfile?.id ?? null,
       });
+      await rememberLastUsedDestinationProfile(destinationProfile);
 
       // 建立 URL alias 映射，讓後續在 preloader PING 失敗時
       // 也能透過 originalUrl 找到以 stableUrl（normUrl）存儲的 savedData
@@ -509,6 +640,8 @@ export function createSaveHandlers(services) {
             pageId: result.pageId,
             notionPageId: result.pageId,
             stableUrl: normUrl,
+            destinationProfileId: destinationProfile?.id,
+            destinationProfileName: destinationProfile?.name,
           }
         )
       );
@@ -528,8 +661,16 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handleExistingPageUpdate(params) {
-    const { savedData, highlights, contentResult, normUrl, sendResponse, apiKey, activeTabId } =
-      params;
+    const {
+      savedData,
+      highlights,
+      contentResult,
+      normUrl,
+      sendResponse,
+      apiKey,
+      activeTabId,
+      destinationProfile,
+    } = params;
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     if (highlights.length > 0) {
@@ -547,6 +688,7 @@ export function createSaveHandlers(services) {
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
           lastUpdated: Date.now(),
+          destinationProfileId: destinationProfile?.id ?? savedData.destinationProfileId ?? null,
         });
         Object.assign(
           result,
@@ -555,8 +697,11 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId,
             notionPageId: savedData.notionPageId,
             stableUrl: normUrl,
+            destinationProfileId: destinationProfile?.id,
+            destinationProfileName: destinationProfile?.name,
           })
         );
+        await rememberLastUsedDestinationProfile(destinationProfile);
 
         // 混合式推播
         sendPageSaveHint(activeTabId, true);
@@ -580,6 +725,7 @@ export function createSaveHandlers(services) {
         await storageService.setSavedPageData(normUrl, {
           ...savedData,
           lastUpdated: Date.now(),
+          destinationProfileId: destinationProfile?.id ?? savedData.destinationProfileId ?? null,
         });
         Object.assign(
           result,
@@ -593,9 +739,12 @@ export function createSaveHandlers(services) {
               pageId: savedData.notionPageId,
               notionPageId: savedData.notionPageId,
               stableUrl: normUrl,
+              destinationProfileId: destinationProfile?.id,
+              destinationProfileName: destinationProfile?.name,
             }
           )
         );
+        await rememberLastUsedDestinationProfile(destinationProfile);
 
         // 混合式推播
         sendPageSaveHint(activeTabId, true);
@@ -681,11 +830,17 @@ export function createSaveHandlers(services) {
    */
   async function determineAndExecuteSaveAction(params) {
     // 注意：params 還包含 highlights 和 apiKey，透過 _handleExistingPageUpdate(params) 傳遞
-    const { savedData, apiKey, sendResponse } = params;
+    const { savedData, apiKey, sendResponse, destinationProfile } = params;
 
     // 1. 新頁面路徑
     if (!savedData?.notionPageId) {
       await _handleNewPageCreation(params);
+      return;
+    }
+
+    const effectiveSavedDestinationId = savedData.destinationProfileId ?? DEFAULT_PROFILE_ID;
+    if (destinationProfile?.id && effectiveSavedDestinationId !== destinationProfile.id) {
+      await _handleNewPageCreation({ ...params, savedData: null });
       return;
     }
 
@@ -749,7 +904,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<void>}
    */
   async function _runSaveFlow(activeTab, configData, sendResponse) {
-    const { dataSourceId, dataSourceType, apiKey } = configData;
+    const { dataSourceId, dataSourceType, apiKey, destinationProfile } = configData;
 
     const { savedData, normUrl, originalUrl, resolvedUrl } = await resolvePageData(activeTab);
 
@@ -786,6 +941,7 @@ export function createSaveHandlers(services) {
       highlights,
       apiKey,
       activeTabId: activeTab.id,
+      destinationProfile,
       sendResponse,
     });
   }
@@ -800,12 +956,32 @@ export function createSaveHandlers(services) {
      */
     [RUNTIME_ACTIONS.SAVE_PAGE]: async (request, sender, sendResponse) => {
       try {
-        const configData = await validateRequestAndGetConfig(sender, sendResponse);
+        const configData = await validateRequestAndGetConfig(sender, sendResponse, {
+          requireDataSource: false,
+        });
         if (!configData) {
           return;
         }
 
-        await _runSaveFlow(configData.activeTab, configData, sendResponse);
+        const destinationProfile = await resolveDestinationProfile(
+          request,
+          sendResponse,
+          configData
+        );
+        if (!destinationProfile) {
+          return;
+        }
+
+        await _runSaveFlow(
+          configData.activeTab,
+          {
+            ...configData,
+            destinationProfile,
+            dataSourceId: destinationProfile.notionDataSourceId,
+            dataSourceType: destinationProfile.notionDataSourceType,
+          },
+          sendResponse
+        );
       } catch (error) {
         Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
         const safeMessage = sanitizeApiError(error, 'save_page_unknown');
@@ -823,13 +999,29 @@ export function createSaveHandlers(services) {
      */
     [RUNTIME_ACTIONS.SAVE_PAGE_FROM_TOOLBAR]: async (request, sender, sendResponse) => {
       try {
-        const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse);
+        const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse, {
+          requireDataSource: false,
+        });
         if (!configData) {
           return;
         }
 
+        const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
+        if (!destinationProfile) {
+          return;
+        }
+
         // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        await _runSaveFlow(configData.activeTab, configData, sendResponse);
+        await _runSaveFlow(
+          configData.activeTab,
+          {
+            ...configData,
+            destinationProfile,
+            dataSourceId: destinationProfile.notionDataSourceId,
+            dataSourceType: destinationProfile.notionDataSourceType,
+          },
+          sendResponse
+        );
       } catch (error) {
         Logger.error('從 Toolbar 保存頁面時發生錯誤', {
           action: 'SAVE_PAGE_FROM_TOOLBAR',
