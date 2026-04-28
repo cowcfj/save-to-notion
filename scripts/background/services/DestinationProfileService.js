@@ -8,6 +8,7 @@
 /* global chrome */
 
 import { getAccountSession, isAccountSessionExpired } from '../../auth/accountSession.js';
+import Logger from '../../utils/Logger.js';
 
 export const DESTINATION_PROFILE_STORAGE_KEYS = {
   PROFILES: 'destinationProfiles',
@@ -24,6 +25,8 @@ const DEFAULT_PROFILE_ICON = 'bookmark';
 const DEFAULT_PROFILE_COLOR = '#2563eb';
 
 const CREATE_PROFILE_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed'];
+export const ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE = 'account_gated_foundation';
+const DESTINATION_PROFILE_NOT_FOUND_ERROR = 'Destination profile not found';
 
 function normalizeDataSourceType(type) {
   return type === 'page' ? 'page' : 'database';
@@ -180,11 +183,27 @@ export class AccountGatedDestinationEntitlementProvider {
     try {
       const session = await getAccountSession();
       if (!session || isAccountSessionExpired(session)) {
-        return { maxProfiles: 1, source: 'account_gated_foundation', accountSignedIn: false };
+        return {
+          maxProfiles: 1,
+          source: ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
+          accountSignedIn: false,
+        };
       }
-      return { maxProfiles: 2, source: 'account_gated_foundation', accountSignedIn: true };
-    } catch {
-      return { maxProfiles: 1, source: 'account_gated_foundation', accountSignedIn: false };
+      return {
+        maxProfiles: 2,
+        source: ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
+        accountSignedIn: true,
+      };
+    } catch (error) {
+      Logger.warn('[DestinationProfileService] Failed to get account session for entitlement', {
+        reason: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : typeof error,
+      });
+      return {
+        maxProfiles: 1,
+        source: ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
+        accountSignedIn: false,
+      };
     }
   }
 }
@@ -253,7 +272,7 @@ export class DestinationProfileService {
     const profiles = await this.listProfiles();
     const profile = profiles.find(item => item.id === profileId);
     if (!profile) {
-      throw new Error('Destination profile not found');
+      throw new Error(DESTINATION_PROFILE_NOT_FOUND_ERROR);
     }
     return profile;
   }
@@ -294,7 +313,7 @@ export class DestinationProfileService {
     const profiles = await this.listProfiles();
     const profileIndex = profiles.findIndex(profile => profile.id === profileId);
     if (profileIndex === -1) {
-      throw new Error('Destination profile not found');
+      throw new Error(DESTINATION_PROFILE_NOT_FOUND_ERROR);
     }
 
     const updatedProfile = normalizeProfile(
@@ -329,7 +348,7 @@ export class DestinationProfileService {
 
     const nextProfiles = profiles.filter(profile => profile.id !== profileId);
     if (nextProfiles.length === profiles.length) {
-      throw new Error('Destination profile not found');
+      throw new Error(DESTINATION_PROFILE_NOT_FOUND_ERROR);
     }
 
     const lastUsedProfileId = await this.repository.getLastUsedProfileId();
@@ -351,7 +370,7 @@ export class DestinationProfileService {
       profileId || (await this.repository.getLastUsedProfileId()) || profiles[0].id;
     const profileIndex = profiles.findIndex(profile => profile.id === requestedProfileId);
     if (profileIndex === -1) {
-      throw new Error('Destination profile not found');
+      throw new Error(DESTINATION_PROFILE_NOT_FOUND_ERROR);
     }
 
     const entitlement = await this.getDestinationEntitlement();

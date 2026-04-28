@@ -1,4 +1,5 @@
 import {
+  ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
   AccountGatedDestinationEntitlementProvider,
   DESTINATION_PROFILE_STORAGE_KEYS,
   DestinationProfileService,
@@ -8,10 +9,18 @@ import {
   getAccountSession,
   isAccountSessionExpired,
 } from '../../../../scripts/auth/accountSession.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 jest.mock('../../../../scripts/auth/accountSession.js', () => ({
   getAccountSession: jest.fn(),
   isAccountSessionExpired: jest.fn(),
+}));
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    warn: jest.fn(),
+  },
 }));
 
 describe('DestinationProfileService', () => {
@@ -116,6 +125,26 @@ describe('DestinationProfileService', () => {
     getAccountSession.mockResolvedValueOnce({ accessToken: 'token', expiresAt: 9_999_999_999 });
     isAccountSessionExpired.mockReturnValueOnce(false);
     await expect(provider.getDestinationEntitlement()).resolves.toMatchObject({ maxProfiles: 2 });
+  });
+
+  it('讀取 account session 失敗時會記錄警告並保守回退為未登入 entitlement', async () => {
+    const provider = new AccountGatedDestinationEntitlementProvider();
+    const error = new Error('storage unavailable');
+
+    getAccountSession.mockRejectedValueOnce(error);
+
+    await expect(provider.getDestinationEntitlement()).resolves.toEqual({
+      maxProfiles: 1,
+      source: ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
+      accountSignedIn: false,
+    });
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '[DestinationProfileService] Failed to get account session for entitlement',
+      {
+        reason: 'storage unavailable',
+        errorName: 'Error',
+      }
+    );
   });
 
   it('createProfile 會依 entitlement 拒絕超額目的地', async () => {
