@@ -1543,6 +1543,21 @@ describe('options.html 結構', () => {
     expect(html).toContain('自動備份頻率');
     expect(html).not.toContain('自動還原');
   });
+
+  test('保存目標選擇器應位於手動 ID 輸入框之前', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const selectorContainer = doc.querySelector('#database-selector-container');
+    const manualIdInput = doc.querySelector('#database-id');
+
+    expect(selectorContainer).not.toBeNull();
+    expect(manualIdInput).not.toBeNull();
+    expect(
+      selectorContainer.compareDocumentPosition(manualIdInput) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
 });
 
 // ─── Migration Leftover 判定精確性測試（Step 4）────────────────────────

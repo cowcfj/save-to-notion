@@ -223,11 +223,6 @@
                   placeholder="例如：Inbox、Research、讀書筆記"
                 />
               </div>
-              <div class="input-wrapper">
-                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
-                <input type="hidden" id="database-type" />
-              </div>
-
               <!-- 可搜索的數據庫選擇器組件 -->
               <div class="database-selector-container hidden" id="database-selector-container">
                 <div class="searchable-selector">
@@ -295,6 +290,11 @@
               <select id="database-select" class="hidden">
                 <option value="">選擇資料來源...</option>
               </select>
+
+              <div class="input-wrapper">
+                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
+                <input type="hidden" id="database-type" />
+              </div>
 
               <p class="help-text">
                 提示：若搜尋不到，可直接在上方欄位貼上 ID，或參考<a
