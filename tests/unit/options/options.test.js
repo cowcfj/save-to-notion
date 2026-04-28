@@ -10,6 +10,7 @@ import {
   setupTemplatePreview,
   cleanDatabaseId,
   initOptions,
+  applyStaticOptionMessages,
 } from '../../../options/options.js';
 
 import { UIManager } from '../../../options/UIManager.js';
@@ -21,6 +22,7 @@ import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
 
 // Mocks for dependencies
@@ -184,6 +186,49 @@ describe('options.js', () => {
     it('應拒絕非十六進制字符', () => {
       expect(cleanDatabaseId('g1b2c3d4e5f67890abcdef1234567890')).toBe('');
       expect(cleanDatabaseId('a1b2c3d4-e5f6-7890-abcd-zzzzzzzzzzzz')).toBe('');
+    });
+  });
+
+  describe('applyStaticOptionMessages', () => {
+    it('應從 UI_MESSAGES 套用 options 靜態 UI 文案', () => {
+      document.body.innerHTML = `
+        <input id="database-search" data-ui-placeholder="OPTIONS.DESTINATION.SEARCH_PLACEHOLDER" />
+        <button id="selector-toggle" data-ui-aria-label="OPTIONS.DESTINATION.SELECTOR_TOGGLE_ARIA_LABEL"></button>
+        <span id="data-source-count" data-ui-message="DATA_SOURCE.LABEL_DATA_SOURCE"></span>
+        <button id="refresh-databases" data-ui-title="OPTIONS.DESTINATION.REFRESH_TITLE"></button>
+        <label for="database-id" data-ui-message="OPTIONS.DESTINATION.MANUAL_ID_LABEL"></label>
+        <button id="save-button" data-ui-message="OPTIONS.SETTINGS.SAVE_BUTTON"></button>
+        <p class="help-text destination-target-help" data-ui-composite="destination-target-help">
+          <a href="https://example.test" target="_blank" rel="noopener noreferrer"></a>
+        </p>
+      `;
+
+      applyStaticOptionMessages();
+
+      expect(document.querySelector('#database-search').placeholder).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.SEARCH_PLACEHOLDER
+      );
+      expect(document.querySelector('#selector-toggle').getAttribute('aria-label')).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.SELECTOR_TOGGLE_ARIA_LABEL
+      );
+      expect(document.querySelector('#data-source-count').textContent).toBe(
+        UI_MESSAGES.DATA_SOURCE.LABEL_DATA_SOURCE
+      );
+      expect(document.querySelector('#refresh-databases').title).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.REFRESH_TITLE
+      );
+      expect(document.querySelector('label[for="database-id"]').textContent).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.MANUAL_ID_LABEL
+      );
+      expect(document.querySelector('#save-button').textContent).toBe(
+        UI_MESSAGES.OPTIONS.SETTINGS.SAVE_BUTTON
+      );
+
+      const helpText = document.querySelector('.destination-target-help');
+      const helpLink = helpText.querySelector('a');
+      expect(helpText.textContent).toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX);
+      expect(helpLink.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT);
+      expect(helpLink.getAttribute('href')).toBe('https://example.test');
     });
   });
 

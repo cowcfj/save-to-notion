@@ -12,6 +12,7 @@ import {
 } from '../../../options/storageDataUtils';
 import Logger from '../../../scripts/utils/Logger';
 import { URL_ALIAS_PREFIX } from '../../../scripts/config/shared/storage.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -1589,11 +1590,60 @@ describe('options.html 結構', () => {
     expect(selectorColumn?.querySelector('#database-selector-container')).not.toBeNull();
     expect(manualColumn?.querySelector('#database-id')).not.toBeNull();
     expect(manualLabel?.classList.contains('sr-only')).toBe(false);
-    expect(manualLabel?.textContent.trim()).toBe('或貼上 ID');
-    expect(helpText?.textContent).toContain(
-      '找不到目標時，可在「或貼上 ID」欄位輸入 Page ID 或 Database ID'
-    );
+    expect(manualLabel?.dataset.uiMessage).toBe('OPTIONS.DESTINATION.MANUAL_ID_LABEL');
+    expect(manualLabel?.textContent.trim()).toBe(UI_MESSAGES.OPTIONS.DESTINATION.MANUAL_ID_LABEL);
+    expect(helpText?.dataset.uiComposite).toBe('destination-target-help');
+    expect(html).not.toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX);
     expect(helpText?.textContent).not.toContain('上方欄位');
+  });
+
+  test('表單 label 在初始 HTML 中應關聯控制項並提供可讀文字', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    [
+      ['destination-profile-name', 'OPTIONS.DESTINATION.PROFILE_NAME_LABEL'],
+      ['database-search', 'OPTIONS.DESTINATION.SELECT_FROM_NOTION_LABEL'],
+      ['database-id', 'OPTIONS.DESTINATION.MANUAL_ID_LABEL'],
+      ['ui-zoom-level', 'OPTIONS.INTERFACE.ZOOM_LABEL'],
+    ].forEach(([controlId, messageKey]) => {
+      const control = doc.querySelector(`#${controlId}`);
+      const label = doc.querySelector(`label[for="${controlId}"]`);
+
+      expect(control).not.toBeNull();
+      expect(label).not.toBeNull();
+      expect(label?.dataset.uiMessage).toBe(messageKey);
+      expect(label?.textContent.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  test('保存目標靜態文案應以 UI_MESSAGES key 掛載，避免 HTML 重複硬編碼', () => {
+    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    expect(doc.querySelector('#database-search')?.dataset.uiPlaceholder).toBe(
+      'OPTIONS.DESTINATION.SEARCH_PLACEHOLDER'
+    );
+    expect(doc.querySelector('#data-source-count')?.dataset.uiMessage).toBe(
+      'DATA_SOURCE.LABEL_DATA_SOURCE'
+    );
+    expect(doc.querySelector('#refresh-databases')?.dataset.uiTitle).toBe(
+      'OPTIONS.DESTINATION.REFRESH_TITLE'
+    );
+    expect(doc.querySelector('#add-destination-profile')?.dataset.uiMessage).toBe(
+      'OPTIONS.DESTINATION.ADD_BUTTON'
+    );
+    expect(doc.querySelector('#save-button')?.dataset.uiMessage).toBe(
+      'OPTIONS.SETTINGS.SAVE_BUTTON'
+    );
+
+    expect(doc.querySelector('#data-source-count')?.textContent.trim()).toBe('');
+    expect(doc.querySelector('#add-destination-profile')?.textContent.trim()).toBe('');
+    expect(doc.querySelector('#save-button')?.textContent.trim()).toBe('');
+    expect(doc.querySelector('#database-search')?.getAttribute('placeholder')).toBeNull();
+    expect(doc.querySelector('#refresh-databases')?.getAttribute('title')).toBeNull();
   });
 
   test('一般設定 UI 應保留精簡文案與連接操作列', () => {
@@ -1610,7 +1660,8 @@ describe('options.html 結構', () => {
     expect(html).not.toContain(
       '預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。'
     );
-    expect(zoomLabel?.textContent.trim()).toBe('介面縮放');
+    expect(zoomLabel?.dataset.uiMessage).toBe('OPTIONS.INTERFACE.ZOOM_LABEL');
+    expect(zoomLabel?.textContent.trim()).toBe(UI_MESSAGES.OPTIONS.INTERFACE.ZOOM_LABEL);
     expect(oauthRow?.querySelector('#oauth-connect-button')).not.toBeNull();
     expect(oauthRow?.querySelector('#oauth-disconnect-button')).not.toBeNull();
     expect(manualRow?.querySelector('#oauth-button')).not.toBeNull();

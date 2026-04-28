@@ -82,6 +82,36 @@ const DATA_SOURCE = {
   UNKNOWN_ERROR_LOG: '未知錯誤',
 };
 
+const OPTIONS = {
+  DESTINATION: {
+    SECTION_TITLE: '保存目標',
+    PROFILE_NAME_LABEL: '保存目標名稱（選填）',
+    PROFILE_NAME_PLACEHOLDER: '例如：Inbox、Research、讀書筆記',
+    SELECT_FROM_NOTION_LABEL: '從 Notion 選擇',
+    SEARCH_PLACEHOLDER: DATA_SOURCE.SEARCH_PLACEHOLDER,
+    SELECTOR_TOGGLE_ARIA_LABEL: '切換資料來源選單',
+    REFRESH_TITLE: '重新整理',
+    LOADING_INLINE: '載入中...',
+    FALLBACK_OPTION: '選擇資料來源...',
+    MANUAL_ID_LABEL: '或貼上 ID',
+    MANUAL_ID_PLACEHOLDER: '輸入 Page ID 或 Database ID',
+    HELP_PREFIX: '找不到目標時，可在「或貼上 ID」欄位輸入 Page ID 或 Database ID；需要協助可參考',
+    HELP_LINK_TEXT: '手動輸入 ID',
+    HELP_SUFFIX: '。',
+    ADD_BUTTON: '新增保存目標',
+  },
+  INTERFACE: {
+    SECTION_TITLE: '介面設定',
+    ZOOM_LABEL: '介面縮放',
+    ZOOM_MEDIUM_OPTION: '中 (100%) - 預設',
+    ZOOM_LARGE_OPTION: '大 (110%)',
+    ZOOM_HELP: '調整擴充功能設定頁面的顯示比例。',
+  },
+  SETTINGS: {
+    SAVE_BUTTON: '儲存設定',
+  },
+};
+
 const STORAGE = {
   BACKUP_START: '正在備份數據...',
   BACKUP_SUCCESS: '數據備份成功！備份文件已下載。',
@@ -263,6 +293,7 @@ const ACCOUNT = {
 };
 
 export const UI_MESSAGES = deepFreeze({
+  OPTIONS,
   DATA_SOURCE,
   LOGS,
   SETTINGS,

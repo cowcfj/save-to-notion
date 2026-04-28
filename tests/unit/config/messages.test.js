@@ -189,6 +189,26 @@ describe('配置模組 - messages.js 動態函式', () => {
       );
     });
 
+    test('UI_MESSAGES.OPTIONS 應包含 options 靜態 UI 字串', () => {
+      expect(UI_MESSAGES.OPTIONS).toEqual(
+        expect.objectContaining({
+          DESTINATION: expect.objectContaining({
+            SEARCH_PLACEHOLDER: '搜尋保存目標...',
+            MANUAL_ID_LABEL: '或貼上 ID',
+            HELP_LINK_TEXT: '手動輸入 ID',
+            ADD_BUTTON: '新增保存目標',
+          }),
+          INTERFACE: expect.objectContaining({
+            ZOOM_LABEL: '介面縮放',
+            ZOOM_HELP: '調整擴充功能設定頁面的顯示比例。',
+          }),
+          SETTINGS: expect.objectContaining({
+            SAVE_BUTTON: '儲存設定',
+          }),
+        })
+      );
+    });
+
     test('ERROR_TYPES 應為凍結物件，避免 runtime mutation', () => {
       expect(Object.isFrozen(ERROR_TYPES)).toBe(true);
       expect(ERROR_TYPES).toEqual(
