@@ -53,9 +53,9 @@ export function createToolbarContainer() {
         </div>
 
         <!-- 狀態顯示 (僅同步時顯示) -->
-        <div id="${TOOLBAR_SELECTORS.STATUS_CONTAINER.slice(
+        <output id="${TOOLBAR_SELECTORS.STATUS_CONTAINER.slice(
           1
-        )}" class="nh-status" role="status" aria-live="polite" aria-atomic="true" style="display: none;"></div>
+        )}" class="nh-status" aria-live="polite" aria-atomic="true" style="display: none;"></output>
     `;
 
   return toolbar;

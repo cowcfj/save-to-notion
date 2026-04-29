@@ -34,27 +34,21 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
     throw new TypeError('onColorChange must be a function');
   }
 
-  // 生成顏色按鈕的 HTML
-  const colorButtons = Object.keys(colors)
-    .map(color => {
-      const isActive = color === currentColor;
-      const activeClass = isActive ? 'active' : '';
+  container.replaceChildren();
 
-      return `
-            <button 
-                type="button"
-                class="nh-color-btn ${activeClass}" 
-                data-color="${color}"
-                style="background: ${colors[color]};"
-                title="${UI_MESSAGES.TOOLBAR.COLOR_PICKER_TITLE(getColorName(color))}"
-                aria-label="${UI_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(getColorName(color))}"
-            ></button>
-        `;
-    })
-    .join('');
+  Object.keys(colors).forEach(color => {
+    const colorName = getColorName(color);
+    const button = document.createElement('button');
 
-  // 設置容器內容
-  container.innerHTML = colorButtons;
+    button.type = 'button';
+    button.className = color === currentColor ? 'nh-color-btn active' : 'nh-color-btn';
+    button.dataset.color = color;
+    button.style.background = colors[color];
+    button.title = UI_MESSAGES.TOOLBAR.COLOR_PICKER_TITLE(colorName);
+    button.setAttribute('aria-label', UI_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(colorName));
+
+    container.append(button);
+  });
 
   // 綁定點擊事件
   container.querySelectorAll('.nh-color-btn').forEach(btn => {
