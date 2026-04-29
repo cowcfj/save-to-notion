@@ -1,5 +1,13 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.65.0](https://github.com/cowcfj/save-to-notion/compare/v2.64.0...v2.65.0) (2026-04-29)
+
+
+### ✨ 新功能
+
+* Improve UI accessibility and interaction ([#458](https://github.com/cowcfj/save-to-notion/issues/458)) ([18e8758](https://github.com/cowcfj/save-to-notion/commit/18e8758172f47fad96e75a9397c87733a507e76b))
+* 調整使用手冊中的目錄順序與內容 ([1127e3e](https://github.com/cowcfj/save-to-notion/commit/1127e3e2b2ff5a96d204d041a7dad1b7c8e65680))
+
 ## [2.64.0](https://github.com/cowcfj/save-to-notion/compare/v2.63.0...v2.64.0) (2026-04-28)
 
 
