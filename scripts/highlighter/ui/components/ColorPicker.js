@@ -46,10 +46,12 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
 
       return `
             <button 
+                type="button"
                 class="nh-color-btn ${activeClass}" 
                 data-color="${color}"
                 style="background: ${colors[color]};"
                 title="${getColorName(color)}色標註"
+                aria-label="選擇${getColorName(color)}色標註"
             ></button>
         `;
     })

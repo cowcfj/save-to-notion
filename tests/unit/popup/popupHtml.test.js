@@ -73,16 +73,18 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(/\.settings-button\s*\{[^}]*min-height:\s*32px;/);
   });
 
-  it('popup title 應使用品牌文字色與 icon 主色 accent', () => {
+  it('popup title 應使用品牌文字色並讓 accent underline 對齊 title 寬度', () => {
     const css = readFileSync('popup/popup.css', 'utf8');
 
     expect(css).toMatch(/--brand-title:\s*#172033;/);
     expect(css).toMatch(/--brand-accent:\s*#ff8060;/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*display:\s*inline-block;/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*justify-self:\s*center;/);
     expect(css).toMatch(/#popup-title\s*\{[^}]*color:\s*var\(--brand-title\);/);
     expect(css).toMatch(/#popup-title\s*\{[^}]*font-weight:\s*700;/);
     expect(css).toMatch(/#popup-title\s*\{[^}]*letter-spacing:\s*0;/);
     expect(css).toMatch(/#popup-title::after\s*\{[^}]*background:\s*var\(--brand-accent\);/);
-    expect(css).toMatch(/#popup-title::after\s*\{[^}]*width:\s*32px;/);
+    expect(css).toMatch(/#popup-title::after\s*\{[^}]*width:\s*100%;/);
   });
 
   it('主要互動元素應提供靜態繁中 fallback 文字', () => {

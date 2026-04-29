@@ -332,7 +332,9 @@ export function switchView(elements, viewName) {
 
   // 更新 tab 的 active 樣式
   elements.viewTabs.forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.view === viewName);
+    const isActive = tab.dataset.view === viewName;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
   });
 }
 
