@@ -96,4 +96,16 @@ describe('popup.html accessibility fallbacks', () => {
     expect(doc.querySelector('#manage-button .btn-text').textContent.trim()).toBe('管理標註');
     expect(doc.querySelector('#save-button .btn-text').textContent.trim()).toBe('儲存頁面');
   });
+
+  it('主要狀態訊息應使用 output 元素提供跨裝置 accessibility fallback', () => {
+    const html = readFileSync('popup/popup.html', 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const status = doc.querySelector('#status');
+
+    expect(status).not.toBeNull();
+    expect(status.tagName).toBe('OUTPUT');
+    expect(status.getAttribute('role')).toBeNull();
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.getAttribute('aria-atomic')).toBe('true');
+  });
 });
