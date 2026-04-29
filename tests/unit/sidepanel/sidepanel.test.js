@@ -157,6 +157,19 @@ describe('Sidepanel JS Logic', () => {
       expect(startHighlightButton).not.toBeNull();
       expect(startHighlightButton?.getAttribute('type')).toBe('button');
     });
+
+    it('狀態訊息應使用 output live region 而非 status role', () => {
+      const sidepanelHtmlPath = path.resolve(process.cwd(), 'sidepanel/sidepanel.html');
+      const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, 'utf8');
+      const doc = new DOMParser().parseFromString(sidepanelHtml, 'text/html');
+      const statusMessage = doc.querySelector('#status-message');
+
+      expect(statusMessage).not.toBeNull();
+      expect(statusMessage?.tagName).toBe('OUTPUT');
+      expect(statusMessage?.getAttribute('role')).toBeNull();
+      expect(statusMessage?.getAttribute('aria-live')).toBe('polite');
+      expect(statusMessage?.getAttribute('aria-atomic')).toBe('true');
+    });
   });
 
   describe('Tab Changes', () => {

@@ -3,6 +3,7 @@
  */
 
 import { renderColorPicker } from '../../../../../scripts/highlighter/ui/components/ColorPicker.js';
+import { UI_MESSAGES } from '../../../../../scripts/config/shared/messages.js';
 
 describe('ColorPicker', () => {
   let container = null;
@@ -91,6 +92,27 @@ describe('ColorPicker', () => {
 
       const yellowBtn = container.querySelector('[data-color="yellow"]');
       expect(yellowBtn.getAttribute('title')).toBe('黃色標註');
+    });
+
+    test('應該使用集中管理的 UI 訊息設置 aria-label', () => {
+      const onColorChange = jest.fn();
+      renderColorPicker(container, mockColors, 'yellow', onColorChange);
+
+      const yellowBtn = container.querySelector('[data-color="yellow"]');
+      expect(yellowBtn.getAttribute('aria-label')).toBe(
+        UI_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL('黃')
+      );
+    });
+
+    test('應該以 DOM API 保留 color key 原值並避免 attribute 注入', () => {
+      const onColorChange = jest.fn();
+      const unsafeColor = 'custom" data-injected="true';
+
+      renderColorPicker(container, { [unsafeColor]: '#ffffff' }, unsafeColor, onColorChange);
+
+      const [button] = container.querySelectorAll('.nh-color-btn');
+      expect(button.dataset.color).toBe(unsafeColor);
+      expect(button.dataset.injected).toBeUndefined();
     });
   });
 

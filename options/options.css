@@ -10,6 +10,15 @@
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
+  --status-success-bg: #dcfce7;
+  --status-success-text: #166534;
+  --status-success-border: #bbf7d0;
+  --status-error-bg: #fee2e2;
+  --status-error-text: #991b1b;
+  --status-error-border: #fecaca;
+  --status-warning-bg: #fef3c7;
+  --status-warning-text: #92400e;
+  --status-warning-border: #fcd34d;
   --sidebar-bg: #ffffff;
   --sidebar-active: #eff6ff;
   --sidebar-text: #475569;
@@ -500,17 +509,17 @@ select:focus {
 
 .auth-status.success {
   display: block;
-  background-color: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+  background-color: var(--status-success-bg);
+  color: var(--status-success-text);
+  border: 1px solid var(--status-success-border);
 }
 
 .auth-status.error {
   display: flex;
   align-items: center;
-  background-color: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  background-color: var(--status-error-bg);
+  color: var(--status-error-text);
+  border: 1px solid var(--status-error-border);
 }
 
 .auth-status svg,
@@ -778,13 +787,13 @@ select:focus {
 }
 
 .status-message.success {
-  background-color: #dcfce7;
-  color: #166534;
+  background-color: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .status-message.error {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--status-error-bg);
+  color: var(--status-error-text);
 }
 
 .migration-controls {
@@ -938,21 +947,21 @@ select:focus {
 }
 
 .warning-box {
-  background-color: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background-color: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+  color: var(--status-warning-text);
 }
 
 .success-box {
-  background-color: #dcfce7;
-  border: 1px solid #86efac;
-  color: #166534;
+  background-color: var(--status-success-bg);
+  border: 1px solid var(--status-success-border);
+  color: var(--status-success-text);
 }
 
 .error-box {
-  background-color: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
+  background-color: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
+  color: var(--status-error-text);
 }
 
 .warning-box strong,
@@ -1694,4 +1703,23 @@ h4 .icon-svg {
   background: rgba(245, 158, 11, 0.12);
   border-radius: 6px;
   margin: 8px 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .card:hover,
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-danger:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }

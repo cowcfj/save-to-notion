@@ -3,6 +3,8 @@
  * 負責渲染顏色選擇按鈕並處理選擇事件
  */
 
+import { UI_MESSAGES } from '../../../config/shared/messages.js';
+
 /**
  * 獲取顏色的中文名稱
  *
@@ -10,13 +12,7 @@
  * @returns {string} 顏色的中文名稱
  */
 function getColorName(color) {
-  const names = {
-    yellow: '黃',
-    green: '綠',
-    blue: '藍',
-    red: '紅',
-  };
-  return names[color] || color;
+  return UI_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES[color] || color;
 }
 
 /**
@@ -38,25 +34,21 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
     throw new TypeError('onColorChange must be a function');
   }
 
-  // 生成顏色按鈕的 HTML
-  const colorButtons = Object.keys(colors)
-    .map(color => {
-      const isActive = color === currentColor;
-      const activeClass = isActive ? 'active' : '';
+  container.replaceChildren();
 
-      return `
-            <button 
-                class="nh-color-btn ${activeClass}" 
-                data-color="${color}"
-                style="background: ${colors[color]};"
-                title="${getColorName(color)}色標註"
-            ></button>
-        `;
-    })
-    .join('');
+  Object.keys(colors).forEach(color => {
+    const colorName = getColorName(color);
+    const button = document.createElement('button');
 
-  // 設置容器內容
-  container.innerHTML = colorButtons;
+    button.type = 'button';
+    button.className = color === currentColor ? 'nh-color-btn active' : 'nh-color-btn';
+    button.dataset.color = color;
+    button.style.background = colors[color];
+    button.title = UI_MESSAGES.TOOLBAR.COLOR_PICKER_TITLE(colorName);
+    button.setAttribute('aria-label', UI_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(colorName));
+
+    container.append(button);
+  });
 
   // 綁定點擊事件
   container.querySelectorAll('.nh-color-btn').forEach(btn => {

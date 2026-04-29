@@ -73,16 +73,18 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(/\.settings-button\s*\{[^}]*min-height:\s*32px;/);
   });
 
-  it('popup title 應使用品牌文字色與 icon 主色 accent', () => {
+  it('popup title 應使用品牌文字色並讓 accent underline 對齊 title 寬度', () => {
     const css = readFileSync('popup/popup.css', 'utf8');
 
     expect(css).toMatch(/--brand-title:\s*#172033;/);
     expect(css).toMatch(/--brand-accent:\s*#ff8060;/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*display:\s*inline-block;/);
+    expect(css).toMatch(/#popup-title\s*\{[^}]*justify-self:\s*center;/);
     expect(css).toMatch(/#popup-title\s*\{[^}]*color:\s*var\(--brand-title\);/);
     expect(css).toMatch(/#popup-title\s*\{[^}]*font-weight:\s*700;/);
     expect(css).toMatch(/#popup-title\s*\{[^}]*letter-spacing:\s*0;/);
     expect(css).toMatch(/#popup-title::after\s*\{[^}]*background:\s*var\(--brand-accent\);/);
-    expect(css).toMatch(/#popup-title::after\s*\{[^}]*width:\s*32px;/);
+    expect(css).toMatch(/#popup-title::after\s*\{[^}]*width:\s*100%;/);
   });
 
   it('主要互動元素應提供靜態繁中 fallback 文字', () => {
@@ -93,5 +95,17 @@ describe('popup.html accessibility fallbacks', () => {
     expect(doc.querySelector('#highlight-button .btn-text').textContent.trim()).toBe('開始標註');
     expect(doc.querySelector('#manage-button .btn-text').textContent.trim()).toBe('管理標註');
     expect(doc.querySelector('#save-button .btn-text').textContent.trim()).toBe('儲存頁面');
+  });
+
+  it('主要狀態訊息應使用 output 元素提供跨裝置 accessibility fallback', () => {
+    const html = readFileSync('popup/popup.html', 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const status = doc.querySelector('#status');
+
+    expect(status).not.toBeNull();
+    expect(status.tagName).toBe('OUTPUT');
+    expect(status.getAttribute('role')).toBeNull();
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.getAttribute('aria-atomic')).toBe('true');
   });
 });

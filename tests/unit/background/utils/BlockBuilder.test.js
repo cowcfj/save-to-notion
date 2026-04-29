@@ -58,8 +58,7 @@ function loadBlockBuilderInVm() {
     __dirname: dirname,
   });
 
-  // Intentional VM-based execution for isolated NaN parameter testing (SonarQube: sonarjs/code-eval)
-   
+  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of transformed local module code for isolated NaN parameter testing.
   const wrapper = new vm.Script(
     `(function (exports, require, module, __filename, __dirname) { ${transformed.code}\n})`,
     {
@@ -277,7 +276,7 @@ describe('BlockBuilder', () => {
       context.__splitTextForHighlight = exports.splitTextForHighlight;
 
       // Intentional VM-based execution for isolated NaN parameter testing (SonarQube: sonarjs/code-eval)
-       
+
       new vm.Script(
         "globalThis.__result = __splitTextForHighlight('需要保留的文字', Number.NaN);"
       ).runInContext(context, {

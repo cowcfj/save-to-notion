@@ -257,6 +257,29 @@ export function getToolbarCSS() {
             transform: scale(1.1) rotate(15deg);
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            :host *,
+            :host *::before,
+            :host *::after {
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+
+            ${TOOLBAR_SELECTORS.CONTAINER} {
+                opacity: 1;
+                transform: none;
+                animation: none;
+            }
+
+            .nh-btn:active,
+            .nh-color-btn:hover,
+            .nh-color-btn.active,
+            ${TOOLBAR_SELECTORS.MINI_ICON}:hover {
+                transform: none;
+            }
+        }
     `;
 }
 

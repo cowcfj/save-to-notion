@@ -52,7 +52,14 @@
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
           </button>
-          <button id="sync-button" class="icon-button" title="同步" aria-label="同步" disabled>
+          <button
+            id="sync-button"
+            type="button"
+            class="icon-button"
+            title="同步"
+            aria-label="同步"
+            disabled
+          >
             <svg
               width="16"
               height="16"
@@ -68,6 +75,7 @@
           </button>
           <button
             id="open-notion-button"
+            type="button"
             class="icon-button"
             title="開啟"
             aria-label="開啟"
@@ -91,9 +99,23 @@
       </div>
 
       <!-- View Tabs -->
-      <div class="view-tabs" id="view-tabs">
-        <button class="view-tab active" data-view="current">本頁標註</button>
-        <button class="view-tab" data-view="unsynced">
+      <div class="view-tabs" id="view-tabs" role="tablist" aria-label="標註檢視">
+        <button
+          class="view-tab active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          data-view="current"
+        >
+          本頁標註
+        </button>
+        <button
+          class="view-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          data-view="unsynced"
+        >
           <span class="status-dot"></span>
           待同步
           <span id="unsynced-badge" class="badge"></span>
@@ -134,7 +156,7 @@
       <!-- Unsynced Pages View -->
       <div id="unsynced-toolbar" style="display: none">
         <span id="unsynced-count-label" class="unsynced-count-label"></span>
-        <button id="clear-all-btn" class="clear-all-btn" title="清除全部">
+        <button id="clear-all-btn" type="button" class="clear-all-btn" title="清除全部">
           <svg
             aria-hidden="true"
             width="13"
@@ -159,10 +181,18 @@
       </div>
 
       <!-- Load More Button -->
-      <button id="load-more-btn" class="load-more-btn" style="display: none"> 載入更多 </button>
+      <button id="load-more-btn" type="button" class="load-more-btn" style="display: none">
+        載入更多
+      </button>
 
       <!-- Status Message Area -->
-      <div id="status-message" class="status-message" style="display: none"></div>
+      <output
+        id="status-message"
+        class="status-message"
+        aria-live="polite"
+        aria-atomic="true"
+        style="display: none"
+      ></output>
     </div>
 
     <!-- Template for a single highlight card -->
@@ -172,7 +202,7 @@
         <div class="highlight-content">
           <p class="highlight-text"></p>
         </div>
-        <button class="delete-button" title="刪除">
+        <button class="delete-button" type="button" title="刪除" aria-label="刪除標註">
           <svg
             width="14"
             height="14"
@@ -205,7 +235,7 @@
           <div class="page-info">
             <span class="page-meta"></span>
           </div>
-          <button class="page-open-button" title="開啟網頁" aria-label="開啟網頁">
+          <button class="page-open-button" type="button" title="開啟網頁" aria-label="開啟網頁">
             <svg
               viewBox="0 0 24 24"
               width="16"
@@ -219,7 +249,12 @@
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
-          <button class="page-delete-button" title="刪除本頁標註" aria-label="刪除本頁標註">
+          <button
+            class="page-delete-button"
+            type="button"
+            title="刪除本頁標註"
+            aria-label="刪除本頁標註"
+          >
             <svg
               width="14"
               height="14"

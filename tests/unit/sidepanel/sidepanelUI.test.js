@@ -332,9 +332,11 @@ describe('sidepanelUI', () => {
 
       const unsyncedTab = document.querySelector('.view-tab[data-view="unsynced"]');
       expect(unsyncedTab.classList.contains('active')).toBe(true);
+      expect(unsyncedTab.getAttribute('aria-selected')).toBe('true');
 
       const currentTab = document.querySelector('.view-tab[data-view="current"]');
       expect(currentTab.classList.contains('active')).toBe(false);
+      expect(currentTab.getAttribute('aria-selected')).toBe('false');
     });
 
     it('切換到 current 時應隱藏 unsyncedView', () => {
@@ -347,6 +349,7 @@ describe('sidepanelUI', () => {
       expect(elements.unsyncedView.style.display).toBe('none');
       const currentTab = document.querySelector('.view-tab[data-view="current"]');
       expect(currentTab.classList.contains('active')).toBe(true);
+      expect(currentTab.getAttribute('aria-selected')).toBe('true');
     });
 
     it('switchView 不應觸發 loadCurrentTab 或 renderUnsyncedView', () => {

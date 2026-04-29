@@ -63,9 +63,9 @@
           <p id="account-status" class="sr-only" aria-live="polite" aria-atomic="true"></p>
         </div>
       </div>
-      <p id="status"></p>
+      <output id="status" aria-live="polite" aria-atomic="true"></output>
       <div class="annotation-actions">
-        <button id="highlight-button">
+        <button id="highlight-button" type="button">
           <svg
             class="btn-icon"
             width="16"
@@ -83,7 +83,7 @@
         </button>
 
         <!-- 管理標註按鈕 (Side Panel) -->
-        <button id="manage-button" class="secondary-action">
+        <button id="manage-button" class="secondary-action" type="button">
           <svg
             class="btn-icon"
             width="16"
@@ -104,7 +104,7 @@
           <span class="btn-text">管理標註</span>
         </button>
       </div>
-      <button id="save-button">
+      <button id="save-button" type="button">
         <svg
           class="btn-icon"
           width="16"
@@ -150,7 +150,7 @@
         </div>
         <div id="destination-menu" class="destination-menu" role="menu"></div>
       </div>
-      <button id="open-notion-button" style="display: none">
+      <button id="open-notion-button" type="button" style="display: none">
         <svg
           class="btn-icon"
           width="16"

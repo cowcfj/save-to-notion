@@ -210,6 +210,14 @@ const TOOLBAR = {
   SYNC_SUCCESS: '同步成功',
   SYNC_FAILED: '同步失敗',
   SYNC_FAILED_PREFIX: '同步失敗：',
+  COLOR_PICKER_NAMES: {
+    yellow: '黃',
+    green: '綠',
+    blue: '藍',
+    red: '紅',
+  },
+  COLOR_PICKER_TITLE: colorName => `${colorName}色標註`,
+  COLOR_PICKER_ARIA_LABEL: colorName => `選擇${colorName}色標註`,
 };
 
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
