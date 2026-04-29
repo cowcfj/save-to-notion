@@ -238,6 +238,7 @@ describe('內容腳本整合測試', () => {
         imageUtilsMock
       );
 
+      // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of local bundled content script in an isolated test context.
       vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
 
       const result = await waitForExtractionResult(executionContext, browserWindow);
