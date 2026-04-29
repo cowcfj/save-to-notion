@@ -3,6 +3,8 @@
  * 負責渲染顏色選擇按鈕並處理選擇事件
  */
 
+import { UI_MESSAGES } from '../../../config/shared/messages.js';
+
 /**
  * 獲取顏色的中文名稱
  *
@@ -10,13 +12,7 @@
  * @returns {string} 顏色的中文名稱
  */
 function getColorName(color) {
-  const names = {
-    yellow: '黃',
-    green: '綠',
-    blue: '藍',
-    red: '紅',
-  };
-  return names[color] || color;
+  return UI_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES[color] || color;
 }
 
 /**
@@ -50,8 +46,8 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
                 class="nh-color-btn ${activeClass}" 
                 data-color="${color}"
                 style="background: ${colors[color]};"
-                title="${getColorName(color)}色標註"
-                aria-label="選擇${getColorName(color)}色標註"
+                title="${UI_MESSAGES.TOOLBAR.COLOR_PICKER_TITLE(getColorName(color))}"
+                aria-label="${UI_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(getColorName(color))}"
             ></button>
         `;
     })
