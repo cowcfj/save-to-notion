@@ -70,7 +70,18 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(/\.popup-titlebar\s*\{[^}]*display:\s*grid;/);
     expect(css).toMatch(/\.titlebar-left\s*\{[^}]*justify-self:\s*start;/);
     expect(css).toMatch(/\.account-section\s*\{[^}]*justify-self:\s*end;/);
-    expect(css).toMatch(/\.settings-button\s*\{[^}]*min-height:\s*32px;/);
+    expect(css).toMatch(/\.settings-button\s*\{[^}]*height:\s*32px;/);
+  });
+
+  it('設定入口應固定 32px 高度並讓 icon 與文字同軸置中', () => {
+    const css = readFileSync('popup/popup.css', 'utf8');
+
+    expect(css).toMatch(/\.settings-button\s*\{[^}]*height:\s*32px;/);
+    expect(css).toMatch(/\.settings-button\s*\{[^}]*box-sizing:\s*border-box;/);
+    expect(css).toMatch(/\.settings-button\s+\.link-icon\s*\{[^}]*transform:\s*none;/);
+    expect(css).toMatch(
+      /\.settings-button\s+\.link-icon\s*\{[^}]*margin-right:\s*var\(--spacing-xs\);/
+    );
   });
 
   it('popup title 應使用品牌文字色並讓 accent underline 對齊 title 寬度', () => {
