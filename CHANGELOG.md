@@ -1,5 +1,21 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.66.0](https://github.com/cowcfj/save-to-notion/compare/v2.65.0...v2.66.0) (2026-05-01)
+
+
+### ✨ 新功能
+
+* update user profile fields to match API specifications ([#465](https://github.com/cowcfj/save-to-notion/issues/465)) ([a30ba23](https://github.com/cowcfj/save-to-notion/commit/a30ba23b69ba5fa8997abfbe77513a1d58f7032a))
+* 調整設定按鈕樣式以改善佈局 ([3274a73](https://github.com/cowcfj/save-to-notion/commit/3274a73872edd41ee98ee39250e3fb66ba849278))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump @babel/preset-env from 7.29.0 to 7.29.2 in the babel group ([#461](https://github.com/cowcfj/save-to-notion/issues/461)) ([e2f64d4](https://github.com/cowcfj/save-to-notion/commit/e2f64d47649c3468240b278d3edceced98da646f))
+* **deps-dev:** bump @babel/preset-env in the babel group ([e2f64d4](https://github.com/cowcfj/save-to-notion/commit/e2f64d47649c3468240b278d3edceced98da646f))
+* **deps-dev:** bump the linters group across 1 directory with 6 updates ([#460](https://github.com/cowcfj/save-to-notion/issues/460)) ([37f4ed3](https://github.com/cowcfj/save-to-notion/commit/37f4ed3ba97b47dac6ff7b3aa4663f7f2d862a06))
+* **deps-dev:** bump the rollup group with 2 updates ([#462](https://github.com/cowcfj/save-to-notion/issues/462)) ([1a0f420](https://github.com/cowcfj/save-to-notion/commit/1a0f4204dc5649db18bc2f95faea1e9dcc8d25e0))
+
 ## [2.65.0](https://github.com/cowcfj/save-to-notion/compare/v2.64.0...v2.65.0) (2026-04-29)
 
 
