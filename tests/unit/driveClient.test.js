@@ -311,6 +311,54 @@ describe('Drive Client API', () => {
         expect(res.connectedAt).toBe('2023-01-01T00:00:00.000Z');
       });
 
+      it('應將 snake_case 的 provider_account_email 與 connected_at 對應到 email / connectedAt', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider_account_email: 'snake@example.com',
+            connected_at: '2023-02-02T00:00:00.000Z',
+          }),
+        });
+        const res = await fetchDriveConnectionStatus();
+        expect(res.connected).toBe(true);
+        expect(res.email).toBe('snake@example.com');
+        expect(res.connectedAt).toBe('2023-02-02T00:00:00.000Z');
+      });
+
+      it('provider_account_email 應優先於 providerAccountEmail 與 email', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider_account_email: 'snake@example.com',
+            providerAccountEmail: 'camel@example.com',
+            email: 'plain@example.com',
+            connected_at: '2023-03-03T00:00:00.000Z',
+            connectedAt: '2023-03-04T00:00:00.000Z',
+          }),
+        });
+        const res = await fetchDriveConnectionStatus();
+        expect(res.connected).toBe(true);
+        expect(res.email).toBe('snake@example.com');
+        // connected_at 也應優先於 connectedAt
+        expect(res.connectedAt).toBe('2023-03-03T00:00:00.000Z');
+      });
+
+      it('當僅存在 json.email 時應退回到第三層 fallback，且 connectedAt 缺席時為 null', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            email: 'plain@example.com',
+          }),
+        });
+        const res = await fetchDriveConnectionStatus();
+        expect(res.connected).toBe(true);
+        expect(res.email).toBe('plain@example.com');
+        expect(res.connectedAt).toBeNull();
+      });
+
       it('returns false on 404', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 404 });
         const res = await fetchDriveConnectionStatus();
