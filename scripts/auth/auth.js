@@ -127,10 +127,10 @@ async function fetchAccountMe(accessToken, baseUrl) {
   }
 
   return {
-    userId: data.userId ?? data.user_id ?? '',
+    userId: data.user_id ?? data.userId ?? '',
     email: data.email,
-    displayName: data.displayName ?? data.display_name ?? null,
-    avatarUrl: data.avatarUrl ?? data.avatar_url ?? null,
+    displayName: data.display_name ?? data.displayName ?? null,
+    avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
   };
 }
 

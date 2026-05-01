@@ -374,8 +374,8 @@ export async function fetchDriveConnectionStatus() {
   const json = await res.json();
   return {
     connected: true,
-    email: json.providerAccountEmail ?? json.email ?? null,
-    connectedAt: json.connectedAt ?? null,
+    email: json.provider_account_email ?? json.providerAccountEmail ?? json.email ?? null,
+    connectedAt: json.connected_at ?? json.connectedAt ?? null,
   };
 }
 
