@@ -243,4 +243,37 @@ describe('auth.js', () => {
     expect(document.querySelector('#status-area').textContent).toContain('無法取得帳號資訊');
     expect(globalThis.close).not.toHaveBeenCalled();
   });
+
+  it('account/me 回 200 但缺 user_id 時應清除 session 並顯示錯誤', async () => {
+    globalThis.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'access_123',
+          refresh_token: 'refresh_123',
+          expires_at: 1_700_000_000,
+          user_id: 'user_from_exchange',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          email: 'user@example.com',
+          display_name: 'Test User',
+        }),
+      });
+
+    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+
+    await loadAuthModule();
+    await dispatchDomReady();
+
+    expect(mockClearAccountSession).toHaveBeenCalled();
+    expect(mockSetAccountSession).not.toHaveBeenCalled();
+    expect(mockSetAccountProfile).not.toHaveBeenCalled();
+    expect(document.querySelector('#status-area').className).toContain('status-error');
+    expect(document.querySelector('#status-area').textContent).toContain('無法取得帳號資訊');
+    expect(document.querySelector('#status-area').textContent).toContain('user_id');
+    expect(globalThis.close).not.toHaveBeenCalled();
+  });
 });
