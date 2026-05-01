@@ -20,6 +20,7 @@
 
 import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
+import { UI_MESSAGES } from '../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { setAccountSession, setAccountProfile, clearAccountSession } from './accountSession.js';
 import { buildAccountApiUrl } from './accountLogin.js';
@@ -126,11 +127,16 @@ async function fetchAccountMe(accessToken, baseUrl) {
     throw new Error('Account/me response missing required field (email)');
   }
 
+  const userId = data.user_id ?? data.userId;
+  if (!userId) {
+    throw new Error('Account/me response missing required field (user_id)');
+  }
+
   return {
-    userId: data.userId ?? data.user_id ?? '',
+    userId,
     email: data.email,
-    displayName: data.displayName ?? data.display_name ?? null,
-    avatarUrl: data.avatarUrl ?? data.avatar_url ?? null,
+    displayName: data.display_name ?? data.displayName ?? null,
+    avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
   };
 }
 
@@ -156,20 +162,22 @@ function broadcastSessionUpdated(userId, email) {
  * 主邏輯：執行完整的 account callback bridge 流程。
  */
 async function runAuthFlow() {
+  const messages = UI_MESSAGES.AUTH_BRIDGE;
+
   // 步驟 1：解析 account_ticket
   const ticket = parseAccountTicket();
   if (!ticket) {
-    showError('登入失敗：缺少驗證票據', '未在 URL 中找到 account_ticket，請重新登入。');
+    showError(messages.TITLE_MISSING_TICKET, messages.DETAIL_MISSING_TICKET);
     return;
   }
 
   const baseUrl = resolveAccountApiBaseUrl();
   if (!baseUrl) {
-    showError('登入設定異常，請稍後再試', 'OAUTH_SERVER_URL 未設定或格式無效。');
+    showError(messages.TITLE_MISCONFIGURED, messages.DETAIL_MISCONFIGURED);
     return;
   }
 
-  showLoading('正在驗證登入資訊...');
+  showLoading(messages.STATUS_VERIFYING);
 
   let tokens;
 
@@ -178,13 +186,13 @@ async function runAuthFlow() {
     tokens = await exchangeTicket(ticket, baseUrl);
   } catch (error) {
     showError(
-      '登入失敗：無法完成 Session 交換',
+      messages.TITLE_EXCHANGE_FAILED,
       error instanceof Error ? error.message : String(error)
     );
     return; // 無 token，無需清理
   }
 
-  showLoading('正在取得帳號資訊...');
+  showLoading(messages.STATUS_FETCHING_PROFILE);
 
   let profile;
 
@@ -195,7 +203,10 @@ async function runAuthFlow() {
     // Phase 1 保守策略：account/me 失敗 → 清除已取得的 token，回退未登入狀態
     // （token 尚未寫入 storage，此處僅做防禦性清除）
     await clearAccountSession().catch(() => {});
-    showError('登入失敗：無法取得帳號資訊', error instanceof Error ? error.message : String(error));
+    showError(
+      messages.TITLE_PROFILE_FAILED,
+      error instanceof Error ? error.message : String(error)
+    );
     return;
   }
 
@@ -226,12 +237,15 @@ async function runAuthFlow() {
   } catch (error) {
     // 寫入 storage 失敗：清除確保不留下半登入狀態
     await clearAccountSession().catch(() => {});
-    showError('登入失敗：無法儲存 Session', error instanceof Error ? error.message : String(error));
+    showError(
+      messages.TITLE_STORAGE_FAILED,
+      error instanceof Error ? error.message : String(error)
+    );
     return;
   }
 
   // 步驟 6：顯示成功，自動關閉
-  showSuccess('登入成功！');
+  showSuccess(messages.STATUS_SUCCESS);
 
   // 延遲 1.5s 後自動關閉（讓使用者看到成功訊息）
   setTimeout(() => {
@@ -246,6 +260,9 @@ async function runAuthFlow() {
 // DOM ready 後啟動 auth flow
 document.addEventListener('DOMContentLoaded', () => {
   runAuthFlow().catch(error => {
-    showError('發生未預期錯誤', error instanceof Error ? error.message : String(error));
+    showError(
+      UI_MESSAGES.AUTH_BRIDGE.TITLE_UNEXPECTED,
+      error instanceof Error ? error.message : String(error)
+    );
   });
 });

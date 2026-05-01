@@ -300,6 +300,20 @@ const ACCOUNT = {
   TRANSIENT_REFRESH_ERROR: '無法更新登入狀態，將稍後自動重試。',
 };
 
+const AUTH_BRIDGE = {
+  TITLE_MISSING_TICKET: '登入失敗：缺少驗證票據',
+  DETAIL_MISSING_TICKET: '未在 URL 中找到 account_ticket，請重新登入。',
+  TITLE_MISCONFIGURED: '登入設定異常，請稍後再試',
+  DETAIL_MISCONFIGURED: 'OAUTH_SERVER_URL 未設定或格式無效。',
+  STATUS_VERIFYING: '正在驗證登入資訊...',
+  TITLE_EXCHANGE_FAILED: '登入失敗：無法完成 Session 交換',
+  STATUS_FETCHING_PROFILE: '正在取得帳號資訊...',
+  TITLE_PROFILE_FAILED: '登入失敗：無法取得帳號資訊',
+  TITLE_STORAGE_FAILED: '登入失敗：無法儲存 Session',
+  STATUS_SUCCESS: '登入成功！',
+  TITLE_UNEXPECTED: '發生未預期錯誤',
+};
+
 export const UI_MESSAGES = deepFreeze({
   OPTIONS,
   DATA_SOURCE,
@@ -307,6 +321,7 @@ export const UI_MESSAGES = deepFreeze({
   SETTINGS,
   AUTH,
   ACCOUNT,
+  AUTH_BRIDGE,
   SETUP,
   POPUP,
   SIDEPANEL,
