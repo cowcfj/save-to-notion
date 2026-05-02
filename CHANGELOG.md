@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.66.1](https://github.com/cowcfj/save-to-notion/compare/v2.66.0...v2.66.1) (2026-05-02)
+
+
+### 🐛 Bug 修復
+
+* support camelCase for sourceInstallationId and sourceProfileId ([#466](https://github.com/cowcfj/save-to-notion/issues/466)) ([6a3d3dd](https://github.com/cowcfj/save-to-notion/commit/6a3d3dd304556d93d224b89612c11c005ab81e47))
+
 ## [2.66.0](https://github.com/cowcfj/save-to-notion/compare/v2.65.0...v2.66.0) (2026-05-01)
 
 
