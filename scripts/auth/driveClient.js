@@ -412,11 +412,15 @@ export async function fetchDriveSnapshotStatus() {
   const json = await res.json();
   return {
     exists:
-      json.has_snapshot === true || Boolean(json.remote_updated_at) || Boolean(json.updatedAt),
-    updatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
+      json.has_snapshot === true ||
+      json.hasSnapshot === true ||
+      Boolean(json.remote_updated_at) ||
+      Boolean(json.remoteUpdatedAt) ||
+      Boolean(json.updatedAt),
+    updatedAt: json.remote_updated_at ?? json.remoteUpdatedAt ?? json.updatedAt ?? null,
     size: json.size ?? null,
-    sourceInstallationId: json.source_installation_id ?? null,
-    sourceProfileId: json.source_profile_id ?? null,
+    sourceInstallationId: json.source_installation_id ?? json.sourceInstallationId ?? null,
+    sourceProfileId: json.source_profile_id ?? json.sourceProfileId ?? null,
   };
 }
 

@@ -440,6 +440,40 @@ describe('Drive Client API', () => {
         expect(res.sourceProfileId).toBe('profile-xyz');
       });
 
+      it('可解析 camelCase 的 sourceInstallationId / sourceProfileId', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            hasSnapshot: true,
+            updatedAt: 'time-camel',
+            sourceInstallationId: 'install-camel',
+            sourceProfileId: 'profile-camel',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time-camel');
+        expect(res.sourceInstallationId).toBe('install-camel');
+        expect(res.sourceProfileId).toBe('profile-camel');
+      });
+
+      it('可解析 camelCase 的 hasSnapshot / remoteUpdatedAt', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            hasSnapshot: true,
+            remoteUpdatedAt: 'time-remote-camel',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time-remote-camel');
+      });
+
       it('缺少 source_installation_id 欄位時回傳 sourceInstallationId: null', async () => {
         mockFetch.mockResolvedValue({
           ok: true,
