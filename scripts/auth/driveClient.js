@@ -333,6 +333,34 @@ export async function setLastKnownRemoteUpdatedAt(updatedAt) {
 // =============================================================================
 
 /**
+ * 在 backend API 改名遷移期間，依 priority 從 JSON response 取出第一個非 nullish 的欄位。
+ *
+ * 用途：後端正將部分欄位從 snake_case 過渡到 camelCase（例如
+ * `remote_updated_at` → `remoteUpdatedAt`），過渡期 extension 必須同時相容
+ * 兩種命名。集中於 helper 後，未來新增/移除欄位只需修改一處；遷移完成後 grep
+ * `coalesce(` 即可定位所有待清理的 callsite。
+ *
+ * 使用範例：`coalesce(json, 'remote_updated_at', 'remoteUpdatedAt', 'updatedAt')`
+ *
+ * @template T
+ * @param {Record<string, T>} source - 原始 JSON 物件
+ * @param {...string} keys - 由舊到新（或由 snake_case 到 camelCase）的欄位優先順序
+ * @returns {T | null} 第一個非 nullish 的值；全部缺席時回傳 null
+ */
+function coalesce(source, ...keys) {
+  if (source == null) {
+    return null;
+  }
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
  * 取得 account auth headers；若無 Bearer token，直接提示使用者重新登入。
  *
  * @returns {Promise<{ Authorization: string }>}
@@ -374,8 +402,8 @@ export async function fetchDriveConnectionStatus() {
   const json = await res.json();
   return {
     connected: true,
-    email: json.provider_account_email ?? json.providerAccountEmail ?? json.email ?? null,
-    connectedAt: json.connected_at ?? json.connectedAt ?? null,
+    email: coalesce(json, 'provider_account_email', 'providerAccountEmail', 'email'),
+    connectedAt: coalesce(json, 'connected_at', 'connectedAt'),
   };
 }
 
@@ -410,17 +438,16 @@ export async function fetchDriveSnapshotStatus() {
   }
 
   const json = await res.json();
+  // 集中解析 timestamp 與 hasSnapshot，避免 fallback chain 散落兩處。
+  const updatedAt = coalesce(json, 'remote_updated_at', 'remoteUpdatedAt', 'updatedAt');
+  const hasSnapshot = json.has_snapshot === true || json.hasSnapshot === true || Boolean(updatedAt);
+
   return {
-    exists:
-      json.has_snapshot === true ||
-      json.hasSnapshot === true ||
-      Boolean(json.remote_updated_at) ||
-      Boolean(json.remoteUpdatedAt) ||
-      Boolean(json.updatedAt),
-    updatedAt: json.remote_updated_at ?? json.remoteUpdatedAt ?? json.updatedAt ?? null,
+    exists: hasSnapshot,
+    updatedAt,
     size: json.size ?? null,
-    sourceInstallationId: json.source_installation_id ?? json.sourceInstallationId ?? null,
-    sourceProfileId: json.source_profile_id ?? json.sourceProfileId ?? null,
+    sourceInstallationId: coalesce(json, 'source_installation_id', 'sourceInstallationId'),
+    sourceProfileId: coalesce(json, 'source_profile_id', 'sourceProfileId'),
   };
 }
 
@@ -460,7 +487,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false, option
       success: false,
       errorCode: json.code ?? DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       message: json.message ?? 'Remote snapshot is newer',
-      remoteUpdatedAt: json.remote_updated_at ?? json.updatedAt ?? null,
+      remoteUpdatedAt: coalesce(json, 'remote_updated_at', 'updatedAt'),
     };
   }
 
