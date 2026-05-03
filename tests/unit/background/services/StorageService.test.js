@@ -628,6 +628,51 @@ describe('StorageService', () => {
       );
     });
 
+    it('[CANONICAL] alias 命中且僅 page_<original> 有殘留時 MUST 寫入 page_<stableUrl> 並清掉 page_<original>', async () => {
+      const originalUrl = 'https://example.com/article?utm=abc';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+
+      const storageData = {
+        [aliasNormKey]: stableUrl,
+        [originalPageKey]: {
+          notion: { pageId: 'old', destinationProfileId: null },
+          highlights: [{ id: 'h-stale', text: 'stale' }],
+          metadata: { lastUpdated: 100 },
+        },
+      };
+      mockStorage.local.get.mockImplementation(keys => {
+        const list = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(list.filter(k => k in storageData).map(k => [k, storageData[k]]))
+        );
+      });
+
+      await service.setSavedPageData(originalUrl, {
+        notionPageId: 'page-canonical',
+        destinationProfileId: 'pid-1',
+      });
+
+      // 寫入應落在 canonical stable page key
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.objectContaining({
+          notion: expect.objectContaining({
+            pageId: 'page-canonical',
+            destinationProfileId: 'pid-1',
+          }),
+        }),
+      });
+      // MUST NOT 寫回 page_<original>
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ [originalPageKey]: expect.anything() })
+      );
+      // legacy 殘留 page_<original> MUST 被清掉
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey]));
+    });
+
     it('destinationProfileId 明確傳入 undefined 時應寫入 null', async () => {
       const url = 'https://example.com/page';
 
