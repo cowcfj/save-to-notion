@@ -1,4 +1,4 @@
-import { isTemporaryImageUrl } from '../../../scripts/utils/imageUtils.js';
+import { isTemporaryImageUrl } from '../../../scripts/utils/temporaryImageUrl.js';
 
 describe('isTemporaryImageUrl', () => {
   describe('Patreon signed CDN URL', () => {

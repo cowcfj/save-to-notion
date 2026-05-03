@@ -14,9 +14,11 @@ import {
   isValidImageUrl,
   isValidCleanedImageUrl,
   cleanImageUrl,
-  isTemporaryImageUrl,
-  buildTemporaryImagePlaceholderBlock,
 } from '../../utils/imageUtils.js';
+// Temporary image URL 偵測：拆獨立模組以避免 rollup 把整個 ImageUtils 物件鎖進 background bundle
+import { isTemporaryImageUrl } from '../../utils/temporaryImageUrl.js';
+// Content-only helper: 隔離大型中文 placeholder 字串避免被打包進 background bundle
+import { buildTemporaryImagePlaceholderBlock } from './temporaryImagePlaceholder.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import Logger from '../../utils/Logger.js';
 

@@ -105,7 +105,24 @@ jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
   cleanImageUrl: jest.fn(url => url),
   isValidImageUrl: jest.fn(() => true),
   isValidCleanedImageUrl: jest.fn(() => true),
+  default: {
+    // Keep default for potential legacy access elsewhere (if any)
+    extractImageSrc: jest.fn(),
+    cleanImageUrl: jest.fn(url => url),
+    isValidImageUrl: jest.fn(() => true),
+    isValidCleanedImageUrl: jest.fn(() => true),
+  },
+}));
+
+// Mock standalone temporary image URL detector
+jest.mock('../../../../scripts/utils/temporaryImageUrl.js', () => ({
+  __esModule: true,
   isTemporaryImageUrl: jest.fn(() => false),
+}));
+
+// Mock content-only temporary image placeholder helper
+jest.mock('../../../../scripts/content/extractors/temporaryImagePlaceholder.js', () => ({
+  __esModule: true,
   buildTemporaryImagePlaceholderBlock: jest.fn((url, opts = {}) => ({
     object: 'block',
     type: 'paragraph',
@@ -122,15 +139,6 @@ jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
       alt: opts.alt || '',
     },
   })),
-  default: {
-    // Keep default for potential legacy access elsewhere (if any)
-    extractImageSrc: jest.fn(),
-    cleanImageUrl: jest.fn(url => url),
-    isValidImageUrl: jest.fn(() => true),
-    isValidCleanedImageUrl: jest.fn(() => true),
-    isTemporaryImageUrl: jest.fn(() => false),
-    buildTemporaryImagePlaceholderBlock: jest.fn(() => null),
-  },
 }));
 
 import {
@@ -138,9 +146,9 @@ import {
   cleanImageUrl,
   isValidImageUrl,
   isValidCleanedImageUrl,
-  isTemporaryImageUrl,
-  buildTemporaryImagePlaceholderBlock,
 } from '../../../../scripts/utils/imageUtils.js';
+import { isTemporaryImageUrl } from '../../../../scripts/utils/temporaryImageUrl.js';
+import { buildTemporaryImagePlaceholderBlock } from '../../../../scripts/content/extractors/temporaryImagePlaceholder.js';
 
 // Global mock not needed for ImageCollector but might be used by other parts if they fallback
 globalThis.ImageUtils = {
@@ -148,8 +156,6 @@ globalThis.ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
   isValidCleanedImageUrl,
-  isTemporaryImageUrl,
-  buildTemporaryImagePlaceholderBlock,
 };
 
 // Import ErrorHandler to use in tests

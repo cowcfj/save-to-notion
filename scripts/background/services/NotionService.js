@@ -18,7 +18,8 @@ import { AuthMode } from '../../config/extension/authMode.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入暫存圖片 URL 偵測（用於 page cover 防護）
-import { isTemporaryImageUrl } from '../../utils/imageUtils.js';
+// 從獨立模組 import，避免 rollup 被迫保留 imageUtils 整個物件含所有函數
+import { isTemporaryImageUrl } from '../../utils/temporaryImageUrl.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 // 導入重試管理器
