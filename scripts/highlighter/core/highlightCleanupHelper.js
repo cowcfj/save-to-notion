@@ -20,7 +20,7 @@
  * @module core/highlightCleanupHelper
  */
 
-import { compareKeysAlphabetically } from './keyOrdering.js';
+import { compareKeysAlphabetically } from '../../utils/keyOrdering.js';
 
 /**
  * @typedef {object} HighlightCleanupPlan

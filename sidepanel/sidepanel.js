@@ -29,7 +29,7 @@ import {
   pickAliasCandidate,
   pickHighlightsFromStorage,
 } from '../scripts/highlighter/core/HighlightLookupResolver.js';
-import { compareKeysAlphabetically } from '../scripts/highlighter/core/keyOrdering.js';
+import { compareKeysAlphabetically } from '../scripts/utils/keyOrdering.js';
 
 // === 共享狀態（保留於入口，UI 模組不直接存取） ===
 

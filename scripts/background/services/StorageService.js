@@ -21,6 +21,7 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { compareKeysAlphabetically } from '../../utils/keyOrdering.js';
 import {
   LOCAL_STORAGE_KEYS,
   URL_ALIAS_PREFIX,
@@ -1277,7 +1278,7 @@ class StorageService {
         // 避免 stable / original 並發 ABA。只清理「實際存在」的 legacy key。
         const cleanupKeys = contract.legacyCleanupKeys
           .filter(k => k !== targetKey && existing[k])
-          .toSorted((keyA, keyB) => keyA.localeCompare(keyB));
+          .toSorted(compareKeysAlphabetically);
         if (cleanupKeys.length > 0) {
           // 非阻塞 remove（沿用既有作法）：失敗只記 debug log，不影響 caller
           this.storage.local.remove(cleanupKeys).catch(error => {
