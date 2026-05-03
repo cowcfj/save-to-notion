@@ -144,9 +144,10 @@ rsync -a \
     --exclude='utils/RetryManager.js' \
     scripts/ "$RM_DIR/scripts/"
 
-# Sidepanel 直接依賴 HighlightLookupResolver，需顯式補回 package。
+# Sidepanel 直接依賴 HighlightLookupResolver 與 highlightCleanupHelper，需顯式補回 package。
 mkdir -p "$RM_DIR/scripts/highlighter/core"
 cp -a scripts/highlighter/core/HighlightLookupResolver.js "$RM_DIR/scripts/highlighter/core/"
+cp -a scripts/highlighter/core/highlightCleanupHelper.js "$RM_DIR/scripts/highlighter/core/"
 
 # 清理 macOS metadata，避免從 cp -a 帶入 release package。
 find "$RM_DIR" -name '.DS_Store' -delete

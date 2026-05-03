@@ -21,6 +21,7 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { compareKeysAlphabetically } from '../../utils/keyOrdering.js';
 import {
   LOCAL_STORAGE_KEYS,
   URL_ALIAS_PREFIX,
@@ -42,6 +43,9 @@ import {
 // URL_ALIAS_PREFIX/PAGE_PREFIX/SAVED_PREFIX/HIGHLIGHTS_PREFIX 在底部統一從 config/shared/storage.js 重新導出
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
+
+// Shared debug log prefix（多個 page-state writers 共用同一條 cleanup 失敗訊息）
+const FAILED_REMOVE_LEGACY_KEYS_LOG = '[StorageService] Failed to remove legacy keys';
 
 const UPGRADE_RETRY_MAX_ATTEMPTS = 5;
 const UPGRADE_RETRY_BASE_DELAY_MS = 1000;
@@ -115,6 +119,27 @@ class StorageService {
         this._locks.delete(url);
       }
     }
+  }
+
+  /**
+   * 解析 canonical lock key（所有 page-state writers 共用的 lock 推導規則）。
+   *
+   * Phase 4 follow-up（2026-05-03 plan §1）：
+   * 為避免 stable / original 兩個 URL 在不同 _withLock namespace 下互不互斥，
+   * 所有 page-state writers MUST 透過此 helper 取得 lock key —
+   * 即 `contract.mutationTargetKey`（= `page_<canonicalUrl>`）。
+   *
+   * @param {string} normalizedUrl - normalizeUrl(pageUrl) 結果
+   * @param {string|null} [rawUrl] - 原始 pageUrl（與 normalizedUrl 不同時用以 alias preload）
+   * @returns {Promise<{lockKey: string, aliasCandidate: string|null, contract: import('../../highlighter/core/HighlightLookupResolver.js').HighlightLookupContract}>}
+   * @private
+   */
+  async _resolveCanonicalLockKey(normalizedUrl, rawUrl = null) {
+    const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
+    const aliasResult = aliasKeys.length > 0 ? await this.storage.local.get(aliasKeys) : {};
+    const aliasCandidate = pickAliasCandidate(aliasResult, normalizedUrl, rawUrl);
+    const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+    return { lockKey: contract.mutationTargetKey, aliasCandidate, contract };
   }
 
   /**
@@ -334,9 +359,10 @@ class StorageService {
    * @param {string} targetUrl - 目標 URL (可能是 normalizedUrl 或是 alias resolve 之後的 resolvedUrl)
    * @param {object|null} savedData - 舊 saved_* 資料
    * @param {string} savedKey - 舊 saved_* key
+   * @returns {Promise<void>} fire-and-forget;呼叫端 MAY 忽略回傳的 Promise
    * @private
    */
-  _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
+  async _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
     const now = Date.now();
     if (!this._canRetryUpgrade(targetUrl, now)) {
       return;
@@ -345,8 +371,20 @@ class StorageService {
     const pageKey = `${PAGE_PREFIX}${targetUrl}`;
     const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
 
+    // Phase 4 follow-up（Lite plan 2026-05-04）：lock key 改採 canonical helper,
+    // 與其他 page-state writers 共用同一條 lock namespace。
+    // 注意:此 function 對 caller 仍為 fire-and-forget;_withLock 內的工作 MAY 在 caller 已返回後才完成。
+    // alias 預解析的失敗也須吞掉,避免 unhandled rejection 漏出（caller 不 await）。
+    let lockKey;
+    try {
+      ({ lockKey } = await this._resolveCanonicalLockKey(targetUrl));
+    } catch (error) {
+      this.logger.warn?.('[StorageService] 讀時升級 alias 預解析失敗', { error });
+      return;
+    }
+
     // 在鎖的保護下進行升級，避免併發覆蓋
-    this._withLock(targetUrl, async () => {
+    this._withLock(lockKey, async () => {
       const lockNow = Date.now();
       if (!this._canRetryUpgrade(targetUrl, lockNow)) {
         return;
@@ -545,13 +583,35 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    return this._withLock(normalizedUrl, async () => {
+    // Phase 5 follow-up（2026-05-04）：mutation target、lock、cleanup 統一由 contract 推導,
+    // 避免 alias 命中時寫入 non-canonical page_<original> 造成 split-brain。
+    const { lockKey, contract } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+    const targetKey = contract.mutationTargetKey;
+
+    return this._withLock(lockKey, async () => {
       try {
-        // Phase 3：一次寫入統一 page_* 物件（鎖內序列化，避免並發覆寫）
-        const pageObj = this._buildPageObject(pageData, highlights || [], normalizedUrl);
-        await this.storage.local.set({ [pageKey]: pageObj });
+        // 鎖內讀取 lookupOrder 與 legacyCleanupKeys 一次,作為 cleanup 計算依據。
+        const readKeys = Array.from(
+          new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
+        );
+        const existing = await this.storage.local.get(readKeys);
+
+        const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
+        await this.storage.local.set({ [targetKey]: pageObj });
+
+        // Cleanup legacy keys（與 updateHighlights 同 pattern）：實際存在 + 字典序
+        const cleanupKeys = contract.legacyCleanupKeys
+          .filter(k => k !== targetKey && existing[k])
+          .toSorted(compareKeysAlphabetically);
+        if (cleanupKeys.length > 0) {
+          await this.storage.local.remove(cleanupKeys).catch(error => {
+            this.logger.debug?.(FAILED_REMOVE_LEGACY_KEYS_LOG, {
+              keys: cleanupKeys,
+              error: error?.message ?? error,
+            });
+          });
+        }
       } catch (error) {
         this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
         throw error;
@@ -572,21 +632,44 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const initialState = await this._getPageState(normalizedUrl);
-    const lockUrl = this._resolvePageStateTargetUrl(initialState, normalizedUrl);
+    // Phase 5 follow-up（2026-05-04）：mutation target 改採 contract.mutationTargetKey,
+    // 避免當 page_<original> 殘留資料時將寫入退回 non-canonical key。
+    const { lockKey, contract } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+    const targetKey = contract.mutationTargetKey;
 
-    return this._withLock(lockUrl, async () => {
+    return this._withLock(lockKey, async () => {
       try {
         const state = await this._getPageState(normalizedUrl);
-        const targetUrl = this._resolvePageStateTargetUrl(state, lockUrl);
-        const pageKey = `${PAGE_PREFIX}${targetUrl}`;
-        const hlKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
-        const existing = await this.storage.local.get([pageKey, hlKey]);
-        const current = state?.format === 'new' ? state.data : existing[pageKey] || {};
+        const fallbackTargetUrl = this._resolvePageStateTargetUrl(state, normalizedUrl);
+        const fallbackPageKey = `${PAGE_PREFIX}${fallbackTargetUrl}`;
+        const fallbackHlKey = `${HIGHLIGHTS_PREFIX}${fallbackTargetUrl}`;
+        const normalizedHlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
-        // 保留現有 highlights；若 page_* 不存在，從舊格式 highlights_* 取回
+        // 一次讀取所有可能來源:canonical target、fallback page、相關 highlights_*。
+        const readKeys = Array.from(
+          new Set([
+            targetKey,
+            fallbackPageKey,
+            fallbackHlKey,
+            normalizedHlKey,
+            ...contract.legacyCleanupKeys,
+          ])
+        );
+        const existing = await this.storage.local.get(readKeys);
+
+        // current 優先取 canonical;若 canonical 尚不存在,fallback 至 _getPageState 命中的 page_*。
+        let current = existing[targetKey];
+        if (!current) {
+          if (state?.format === 'new') {
+            current = state.data;
+          } else {
+            current = existing[fallbackPageKey] || {};
+          }
+        }
+
+        // 保留現有 highlights;若 page_* 不存在,從舊格式 highlights_* 取回
         // 支援舊格式：純陣列 [...] 和物件格式 { highlights: [...] }
-        const legacyHighlights = existing[hlKey];
+        const legacyHighlights = existing[fallbackHlKey] ?? existing[normalizedHlKey];
         let legacyArray = [];
         if (Array.isArray(legacyHighlights)) {
           legacyArray = legacyHighlights;
@@ -620,29 +703,40 @@ class StorageService {
           },
         };
 
-        await this.storage.local.set({ [pageKey]: newData });
+        await this.storage.local.set({ [targetKey]: newData });
 
-        // 過渡期：刪除舊 saved_* key；若 highlights_* 已遷移到 page_*，一併清理
-        const keysToRemove = [`${SAVED_PREFIX}${targetUrl}`];
-        if (targetUrl !== normalizedUrl) {
-          keysToRemove.push(`${SAVED_PREFIX}${normalizedUrl}`);
+        // Cleanup:saved_<targetUrl>、saved_<normalizedUrl>(過渡期殘留)、
+        // contract.legacyCleanupKeys(含 page_<other> 與 highlights_*)、_getPageState 返回的 legacy savedKey。
+        const targetUrl = targetKey.slice(PAGE_PREFIX.length);
+        const cleanupSet = new Set([
+          `${SAVED_PREFIX}${targetUrl}`,
+          `${SAVED_PREFIX}${normalizedUrl}`,
+        ]);
+        if (state?.format === 'legacy' && state.savedKey) {
+          cleanupSet.add(state.savedKey);
         }
-        if (
-          state?.format === 'legacy' &&
-          state.savedKey &&
-          !keysToRemove.includes(state.savedKey)
-        ) {
-          keysToRemove.push(state.savedKey);
+        for (const key of contract.legacyCleanupKeys) {
+          if (key !== targetKey) {
+            cleanupSet.add(key);
+          }
         }
-        if (existing[hlKey]) {
-          keysToRemove.push(hlKey);
-        }
-        this.storage.local.remove(keysToRemove).catch(error => {
-          this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
-            keys: keysToRemove,
-            error: error?.message ?? error,
+        // SAVED_PREFIX 沿用「不論存不存在皆送 remove」舊行為(remove 對不存在 key 為 no-op);
+        // PAGE_PREFIX / HIGHLIGHTS_PREFIX 則嚴格依 existing 是否有值決定。
+        const cleanupKeys = Array.from(cleanupSet)
+          .filter(
+            key =>
+              key !== targetKey && (key.startsWith(SAVED_PREFIX) || existing[key] !== undefined)
+          )
+          .toSorted(compareKeysAlphabetically);
+
+        if (cleanupKeys.length > 0) {
+          await this.storage.local.remove(cleanupKeys).catch(error => {
+            this.logger.debug?.(FAILED_REMOVE_LEGACY_KEYS_LOG, {
+              keys: cleanupKeys,
+              error: error?.message ?? error,
+            });
           });
-        });
+        }
       } catch (error) {
         this.logger.error?.('[StorageService] setSavedPageData failed', { error });
         throw error;
@@ -663,8 +757,10 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    // Phase 4 follow-up（Lite plan 2026-05-04）：與其他 page-state writers 對齊到 canonical lock namespace
+    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
 
-    return this._withLock(normalizedUrl, async () => {
+    return this._withLock(lockKey, async () => {
       try {
         const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
         const existing = await this.storage.local.get([pageKey]);
@@ -761,7 +857,10 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
 
-    return this._withLock(normalizedUrl, async () => {
+    // Phase 4 follow-up：以 canonical lock key 序列化,與其他 page-state writers 對齊
+    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+
+    return this._withLock(lockKey, async () => {
       // 使用與 getSavedPageData 相同的 URL 別名解析路徑，確保清除的 key 與讀取的 key 一致
       const state = await this._getPageState(normalizedUrl);
 
@@ -1139,7 +1238,18 @@ class StorageService {
   }
 
   /**
-   * 更新指定 URL 的標註陣列（Phase 3：partial update page_*.highlights，含互斥鎖）
+   * 更新指定 URL 的標註陣列（Phase 4：contract-driven mutation + canonical-lock）
+   *
+   * 流程：
+   * 1. Pre-resolve（不在 lock 內）：
+   *    - 批量讀取 alias keys + page_* + highlights_*
+   *    - 透過 HighlightLookupResolver 取得 contract（含 mutationTargetKey、legacyCleanupKeys）
+   * 2. 以 contract.mutationTargetKey 為 lock key（取代原本的 normalizedUrl），
+   *    確保 stable / original 兩個 pageUrl 同時進入時鎖到同一個 canonical key。
+   * 3. Lock 內重讀 lookupOrder 上的 keys（避免 TOCTOU），
+   *    若 canonical key 已有資料則 partial update；否則從第一個有資料的 legacy key 遷移。
+   * 4. 寫入 mutationTargetKey。
+   * 5. 在同一 lock 範圍內，依字典序執行 legacyCleanupKeys 清理（Phase 0 決策：固定 ordering，避免 ABA）。
    *
    * 若更新後陣列為空且 notion 為 null，**不**自動刪除 key（由呼叫端決定是否刪除）。
    *
@@ -1153,51 +1263,91 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    const rawUrl = typeof pageUrl === 'string' ? pageUrl : null;
 
-    return this._withLock(normalizedUrl, async () => {
-      try {
-        const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+    try {
+      // Phase 4 follow-up：lock key 由 canonical helper 統一推導,與其他 page-state writers 共用 namespace
+      const { lockKey, contract } = await this._resolveCanonicalLockKey(normalizedUrl, rawUrl);
 
-        // 讀取現有資料（優先 page_*，回退 highlights_*）
-        const existing = await this.storage.local.get([pageKey, hlKey]);
-        const current = existing[pageKey];
+      return await this._withLock(lockKey, async () => {
+        const targetKey = contract.mutationTargetKey;
+        // Lock 內重讀（避免 lock 等待期間有其他 writer 已寫入新資料）。
+        const readKeys = Array.from(
+          new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
+        );
+        const existing = await this.storage.local.get(readKeys);
+        const canonicalCurrent = existing[targetKey];
 
         let newData;
-        if (current) {
-          // 新格式：partial update highlights 欄位
+        if (canonicalCurrent) {
+          // canonical 已存在 → partial update highlights 欄位
           newData = {
-            ...current,
+            ...canonicalCurrent,
             highlights,
-            metadata: { ...current.metadata, lastUpdated: Date.now() },
+            metadata: { ...canonicalCurrent.metadata, lastUpdated: Date.now() },
           };
         } else {
-          // 尚無 page_* → 建立新物件（notion 為 null，表示未保存到 Notion）
-          const oldHl = existing[hlKey];
-          newData = this._buildPageObject(
-            null,
-            highlights,
-            normalizedUrl,
-            oldHl ? hlKey : undefined
-          );
+          // canonical 不存在 → 嘗試從 lookupOrder 找出第一個有資料的 key 作為遷移來源
+          let migrationSourceKey = null;
+          let migrationSourceValue = null;
+          for (const key of contract.lookupOrder) {
+            if (key === targetKey) {
+              continue;
+            }
+            if (existing[key]) {
+              migrationSourceKey = key;
+              migrationSourceValue = existing[key];
+              break;
+            }
+          }
+
+          if (migrationSourceKey?.startsWith(PAGE_PREFIX)) {
+            // 從 page_<other> 遷移：保留 notion / metadata，只覆寫 highlights
+            newData = {
+              ...migrationSourceValue,
+              highlights,
+              metadata: {
+                ...migrationSourceValue.metadata,
+                lastUpdated: Date.now(),
+                migratedFrom: migrationSourceKey,
+              },
+            };
+          } else {
+            // 無 page_* 來源（可能來自 highlights_*，或完全無歷史資料）
+            // → 建立新 page_* 物件，optional 紀錄 legacy 來源 key
+            newData = this._buildPageObject(
+              null,
+              highlights,
+              normalizedUrl,
+              migrationSourceKey || undefined
+            );
+          }
         }
 
-        await this.storage.local.set({ [pageKey]: newData });
+        await this.storage.local.set({ [targetKey]: newData });
 
-        // 過渡期：若讀到舊 highlights_* key，非阻塞刪除
-        if (existing[hlKey]) {
-          this.storage.local.remove([hlKey]).catch(error => {
-            this.logger.debug?.('[StorageService] Failed to remove legacy highlights key', {
-              hlKey,
+        // === Cleanup legacy keys ===
+        // Phase 0 決策：在持有 canonical lock 的同一 lock 範圍內、依字典序執行 cleanup，
+        // 避免 stable / original 並發 ABA。只清理「實際存在」的 legacy key。
+        const cleanupKeys = contract.legacyCleanupKeys
+          .filter(k => k !== targetKey && existing[k])
+          .toSorted(compareKeysAlphabetically);
+        if (cleanupKeys.length > 0) {
+          // Phase 0 決策：cleanup MUST 與寫入同處 canonical lock 範圍。
+          // await 確保 _withLock 在 remove 完成後才釋放，避免 stable / original 並發 ABA。
+          // 錯誤仍以 debug log 記錄，不向 caller 拋出。
+          await this.storage.local.remove(cleanupKeys).catch(error => {
+            this.logger.debug?.(FAILED_REMOVE_LEGACY_KEYS_LOG, {
+              keys: cleanupKeys,
               error: error?.message ?? error,
             });
           });
         }
-      } catch (error) {
-        this.logger.error?.('[StorageService] updateHighlights failed', { error });
-        throw error;
-      }
-    });
+      });
+    } catch (error) {
+      this.logger.error?.('[StorageService] updateHighlights failed', { error });
+      throw error;
+    }
   }
 
   /**

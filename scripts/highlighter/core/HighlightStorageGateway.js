@@ -30,6 +30,7 @@ import {
   pickAliasCandidate,
   pickHighlightsFromStorage,
 } from './HighlightLookupResolver.js';
+import { planClearCleanup } from './highlightCleanupHelper.js';
 
 const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 export const STORAGE_GATEWAY_RETRY = Object.freeze({
@@ -463,7 +464,12 @@ const HighlightStorageGateway = {
   },
 
   /**
-   * Background 不可用時，直接清除 storage
+   * Background 不可用時，直接清除 storage（contract-driven cleanup）
+   *
+   * Phase 4：使用 HighlightLookupResolver contract + planClearCleanup 共享 helper，
+   * 確保 fallback path 與 read / Background 主路徑採同一套 canonical cleanup 規則：
+   * - canonical page_*：保留 notion / metadata，僅清空 highlights
+   * - 殘留的 page_<other> / highlights_*：依 contract 一併 remove
    *
    * @param {string} pageUrl
    * @returns {Promise<void>}
@@ -471,30 +477,45 @@ const HighlightStorageGateway = {
    */
   async _fallbackDirectClear(pageUrl) {
     const normalizedUrl = normalizeUrl(pageUrl);
-    const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+    const legacyKeyForLocalStorage = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
     Logger.info('開始清除標註', {
       action: 'clearHighlights',
       pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
     });
 
-    // 對 page_* entry 進行讀→改→寫，只清空 highlights 欄位，保留 notion 等其他狀態
-    const clearPageHighlights = async () => {
-      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
-        const pageKey = `${PAGE_PREFIX}${stableUrl}`;
-        const existing = await chrome.storage.local.get([pageKey]);
-        const current = existing[pageKey];
-        if (current) {
-          await chrome.storage.local.set({ [pageKey]: { ...current, highlights: [] } });
-        }
+    const clearChromeStorageViaContract = async () => {
+      if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+        throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
       }
+
+      // 解析 alias → 透過 resolver 取得 contract（mutationTargetKey + legacyCleanupKeys）
+      const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
+      const aliasCandidate = stableUrl === normalizedUrl ? null : stableUrl;
+      const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+
+      // Snapshot 涵蓋 canonical + 所有 legacy cleanup 候選 key（一次 get）
+      const snapshotKeys = Array.from(
+        new Set([contract.mutationTargetKey, ...contract.legacyCleanupKeys])
+      );
+      const snapshot = await chrome.storage.local.get(snapshotKeys);
+
+      // 共享 cleanup helper：純函數產出 set / remove 計劃
+      const plan = planClearCleanup(contract, snapshot);
+
+      const ops = [];
+      if (Object.keys(plan.set).length > 0) {
+        ops.push(chrome.storage.local.set(plan.set));
+      }
+      if (plan.remove.length > 0) {
+        ops.push(chrome.storage.local.remove(plan.remove));
+      }
+      await Promise.all(ops);
     };
 
     const results = await Promise.allSettled([
-      clearPageHighlights(),
-      this._clearFromChromeStorage(legacyKey),
-      this._clearFromLocalStorage(legacyKey),
+      clearChromeStorageViaContract(),
+      this._clearFromLocalStorage(legacyKeyForLocalStorage),
     ]);
 
     const failures = results.filter(result => result.status === 'rejected');

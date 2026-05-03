@@ -17,6 +17,7 @@ import {
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
 } from '../scripts/config/shared/storage.js';
+import { compareKeysAlphabetically } from '../scripts/utils/keyOrdering.js';
 
 // ─── 備份 ──────────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ function _sortKeys(value) {
   return Object.fromEntries(
     Object.entries(value)
       // eslint-disable-next-line unicorn/no-array-sort -- Object.entries() 會回傳新陣列，這裡改用 sort() 以相容較舊的 Chrome 版本。
-      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      .sort(([keyA], [keyB]) => compareKeysAlphabetically(keyA, keyB))
       .map(([key, val]) => [key, _sortKeys(val)])
   );
 }

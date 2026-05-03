@@ -916,6 +916,14 @@ describe('Highlighter HighlightStorageGateway', () => {
         mockChrome.runtime.sendMessage = jest.fn().mockResolvedValue({ success: false });
         warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
+        // Phase 4：fallback 採 contract-driven cleanup，只清實際存在 key。
+        // 透過 mock get 提供 legacy key 資料（注意 normalizeUrl 會補 trailing slash）
+        // 讓 plan.remove 非空，便於驗證 fallback 觸發。
+        const norm = normalizeUrl('https://example.com');
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+          [`${HIGHLIGHTS_PREFIX}${norm}`]: ['seeded'],
+        });
+
         const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
         await jest.runAllTimersAsync();
         await clearPromise;
@@ -940,6 +948,12 @@ describe('Highlighter HighlightStorageGateway', () => {
           return { success: true };
         });
         warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        // Phase 4：fallback 採 contract-driven cleanup，提供 seed 資料才能驗證 remove 觸發
+        const norm = normalizeUrl('https://example.com');
+        mockChrome.storage.local.get = jest.fn().mockResolvedValue({
+          [`${HIGHLIGHTS_PREFIX}${norm}`]: ['seeded'],
+        });
 
         const clearPromise = HighlightStorageGateway.clearHighlights('https://example.com');
         await jest.runAllTimersAsync();
@@ -1010,26 +1024,25 @@ describe('Highlighter HighlightStorageGateway', () => {
         const stableUrl = 'https://example.com/stable';
         const aliasKey = `${URL_ALIAS_PREFIX}${pageUrl}`;
         const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
-        const legacyKey = `${HIGHLIGHTS_PREFIX}${pageUrl}`;
 
+        // Phase 4：fallback 改為 contract-driven，會以批次 get 一次取得多個 key。
+        // 改用 keyList 比對，支援單 key 與多 key 兩種呼叫風格。
         mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
           const keyList = Array.isArray(keys) ? keys : [keys];
-
-          if (keyList.length === 1 && keyList[0] === aliasKey) {
-            return Promise.resolve({ [aliasKey]: stableUrl });
-          }
-
-          if (keyList.length === 1 && keyList[0] === stablePageKey) {
-            return Promise.resolve({
-              [stablePageKey]: {
+          const result = {};
+          for (const k of keyList) {
+            if (k === aliasKey) {
+              result[k] = stableUrl;
+            } else if (k === stablePageKey) {
+              result[k] = {
                 notion: { pageId: 'page-123' },
                 highlights: [{ text: 'keep structure' }],
                 metadata: { lastUpdated: 1 },
-              },
-            });
+              };
+            }
+            // 其他 key（page_<original>、highlights_<original>、highlights_<stable>）→ 不在 storage
           }
-
-          return Promise.resolve({});
+          return Promise.resolve(result);
         });
 
         const clearPromise = HighlightStorageGateway.clearHighlights(pageUrl);
@@ -1037,14 +1050,18 @@ describe('Highlighter HighlightStorageGateway', () => {
         await jest.advanceTimersByTimeAsync(1000);
         await clearPromise;
 
+        // canonical key 應被 setHighlights:[]，保留 notion / metadata
         expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
-          [stablePageKey]: {
+          [stablePageKey]: expect.objectContaining({
             notion: { pageId: 'page-123' },
             highlights: [],
-            metadata: { lastUpdated: 1 },
-          },
+            metadata: expect.objectContaining({ lastUpdated: expect.any(Number) }),
+          }),
         });
-        expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
+        // legacy key（highlights_<original>）不在 snapshot → contract-driven 不需 remove；
+        // 但 contract.legacyCleanupKeys 會涵蓋它。實際 plan.remove 只清存在的 key，因此不會呼叫 remove。
+        // 改驗證：sendMessage 確實被呼叫（fallback 觸發），且 set 命中 stable canonical。
+        expect(mockChrome.runtime.sendMessage).toHaveBeenCalled();
       } finally {
         jest.runOnlyPendingTimers();
         jest.useRealTimers();
@@ -1062,36 +1079,39 @@ describe('Highlighter HighlightStorageGateway', () => {
         const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
         const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
         const poisonedPageKey = `${PAGE_PREFIX}${poisonedStableUrl}`;
-        const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
         mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
           const keyList = Array.isArray(keys) ? keys : [keys];
-
-          if (keyList.length === 1 && keyList[0] === aliasKey) {
-            return Promise.resolve({ [aliasKey]: poisonedStableUrl });
+          const result = {};
+          for (const k of keyList) {
+            switch (k) {
+              case aliasKey: {
+                result[k] = poisonedStableUrl;
+                break;
+              }
+              case normalizedPageKey: {
+                result[k] = {
+                  notion: { pageId: 'page-safe' },
+                  highlights: [{ text: 'keep me safe' }],
+                  metadata: { lastUpdated: 99 },
+                };
+                break;
+              }
+              case poisonedPageKey: {
+                // 防禦：即使 poisoned key 有資料，contract 仍應忽略它
+                result[k] = {
+                  notion: { pageId: 'page-poisoned' },
+                  highlights: [{ text: 'poison' }],
+                  metadata: { lastUpdated: 1 },
+                };
+                break;
+              }
+              default: {
+                break;
+              }
+            }
           }
-
-          if (keyList.length === 1 && keyList[0] === normalizedPageKey) {
-            return Promise.resolve({
-              [normalizedPageKey]: {
-                notion: { pageId: 'page-safe' },
-                highlights: [{ text: 'keep me safe' }],
-                metadata: { lastUpdated: 99 },
-              },
-            });
-          }
-
-          if (keyList.length === 1 && keyList[0] === poisonedPageKey) {
-            return Promise.resolve({
-              [poisonedPageKey]: {
-                notion: { pageId: 'page-poisoned' },
-                highlights: [{ text: 'poison' }],
-                metadata: { lastUpdated: 1 },
-              },
-            });
-          }
-
-          return Promise.resolve({});
+          return Promise.resolve(result);
         });
 
         const clearPromise = HighlightStorageGateway.clearHighlights(pageUrl);
@@ -1099,17 +1119,19 @@ describe('Highlighter HighlightStorageGateway', () => {
         await jest.advanceTimersByTimeAsync(1000);
         await clearPromise;
 
+        // poisoned alias 被 isSafeStableAliasUrl 拒絕 → resolver fallback 到 normalizedUrl
+        // canonical key 應為 normalizedPageKey，set highlights:[] 保留 notion
         expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
-          [normalizedPageKey]: {
+          [normalizedPageKey]: expect.objectContaining({
             notion: { pageId: 'page-safe' },
             highlights: [],
-            metadata: { lastUpdated: 99 },
-          },
+            metadata: expect.objectContaining({ lastUpdated: expect.any(Number) }),
+          }),
         });
+        // MUST NOT 寫入 poisoned key
         expect(mockChrome.storage.local.set).not.toHaveBeenCalledWith({
           [poisonedPageKey]: expect.anything(),
         });
-        expect(mockChrome.storage.local.remove).toHaveBeenCalledWith([legacyKey]);
       } finally {
         jest.runOnlyPendingTimers();
         jest.useRealTimers();

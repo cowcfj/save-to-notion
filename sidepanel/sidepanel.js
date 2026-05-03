@@ -29,6 +29,7 @@ import {
   pickAliasCandidate,
   pickHighlightsFromStorage,
 } from '../scripts/highlighter/core/HighlightLookupResolver.js';
+import { compareKeysAlphabetically } from '../scripts/utils/keyOrdering.js';
 
 // === 共享狀態（保留於入口，UI 模組不直接存取） ===
 
@@ -289,54 +290,213 @@ function buildLegacyPageEntry(key, url, value, all, aliasMap) {
 }
 
 /**
+ * 為 unsynced enumeration 解析 canonical ownership。
+ *
+ * Phase 4：sidepanel 的 unsynced 枚舉不能僅以 raw URL 當作識別維度，
+ * 否則 `page_<stableUrl>` 與 `page_<originalUrl>` 會被當成兩張卡片顯示。
+ *
+ * 此 helper 將 storage 中所有 highlight 相關 key 歸併到單一 canonical identity：
+ * - canonical URL = url_alias:<url> 解析結果（與 HighlightLookupResolver 採同一規則）
+ * - 對每一組同 canonical 的 keys，依優先順序選出 owner：
+ *     1. page_<canonical>（alias 命中時最可靠的 canonical key）
+ *     2. 任意其他 page_*（alias 指向空 stable key 時的回退）
+ *     3. 任意 highlights_*（舊格式回退）
+ *
+ * @param {Record<string, any>} allStorageData - chrome.storage.local.get(null) 的結果
+ * @returns {Map<string, {ownerKey: string, ownerUrl: string, ownerValue: any, format: 'page'|'legacy'}>}
+ *          canonicalUrl → owner descriptor
+ */
+/**
+ * 從 allStorageData 建立 url → canonicalUrl 的 alias map。
+ *
+ * @param {Record<string, any>} allStorageData
+ * @returns {Map<string, string>}
+ * @private
+ */
+function _buildAliasMap(allStorageData) {
+  const aliasMap = new Map();
+  for (const [key, value] of Object.entries(allStorageData)) {
+    if (key.startsWith(URL_ALIAS_PREFIX)) {
+      aliasMap.set(key.slice(URL_ALIAS_PREFIX.length), value);
+    }
+  }
+  return aliasMap;
+}
+
+/**
+ * Pure helper：根據 contract + reverse alias scan 計算同 canonical group 應刪除的 keys。
+ *
+ * Phase 4 follow-up（2026-05-03 plan §2、§3）：
+ * - Forward alias：用 pickAliasCandidate + resolveHighlightLookupKeys 取得 contract（含 mutationTargetKey、legacyCleanupKeys）
+ * - Reverse alias：掃 aliasMap，把所有 value === canonicalUrl 的 entry 對應的
+ *   page_<other> / highlights_<other> 一併納入候選集
+ * - 最後以 snapshot 過濾，僅保留實際存在的 keys，並沿用 planDeleteCleanup 的字典序輸出邏輯
+ *
+ * 此 helper 純函數,無 chrome.storage IO；deleteUnsyncedPage / deleteAllUnsyncedPages 共用同一條路徑。
+ *
+ * @param {string} pageUrl - 由 storage key 抽出的 raw URL（owner.ownerUrl 或 _extractUrlFromStorageKey 結果）
+ * @param {string} fallbackKey - 呼叫端傳入的 owner storageKey,即使 contract 沒涵蓋也會嘗試刪除
+ * @param {Record<string, any>} allStorageData - chrome.storage.local.get(null) 結果
+ * @param {Map<string, string>} aliasMap - URL_ALIAS_PREFIX 解析結果（forward 與 reverse 都用得到）
+ * @returns {string[]} 應呼叫 chrome.storage.local.remove 的 key 清單（已字典序）
+ */
+function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
+  // Forward alias：用 pickAliasCandidate 走相同的 alias validation 規則
+  const synthAliasData = {
+    [`${URL_ALIAS_PREFIX}${pageUrl}`]: aliasMap.get(pageUrl) ?? null,
+  };
+  const aliasCandidate = pickAliasCandidate(synthAliasData, pageUrl);
+  const contract = resolveHighlightLookupKeys(pageUrl, aliasCandidate);
+
+  // Reverse alias：找 aliasMap 中所有 value === contract.canonicalUrl 的 from-URL,
+  // 收集對應的 page_<other> / highlights_<other>（不在 contract 內,但屬同 canonical group）
+  const reverseMembers = [];
+  for (const [aliasFromUrl, aliasToUrl] of aliasMap) {
+    if (typeof aliasToUrl !== 'string' || aliasToUrl !== contract.canonicalUrl) {
+      continue;
+    }
+    if (aliasFromUrl === contract.canonicalUrl || aliasFromUrl === pageUrl) {
+      // 已涵蓋於 contract（forward path 與 normalizedUrl）
+      continue;
+    }
+    reverseMembers.push(`${PAGE_PREFIX}${aliasFromUrl}`, `${HIGHLIGHTS_PREFIX}${aliasFromUrl}`);
+  }
+
+  // 候選集 = contract.mutationTargetKey + contract.legacyCleanupKeys + reverseMembers + fallbackKey
+  const candidateSet = new Set([
+    contract.mutationTargetKey,
+    ...contract.legacyCleanupKeys,
+    ...reverseMembers,
+    fallbackKey,
+  ]);
+
+  // 僅保留 snapshot 中實際存在的 key（避免無謂 remove）
+  const result = [...candidateSet].filter(
+    k => typeof k === 'string' && allStorageData[k] !== undefined && allStorageData[k] !== null
+  );
+
+  return result.toSorted(compareKeysAlphabetically);
+}
+
+/**
+ * 將 allStorageData 中的 page_* / highlights_* 按 canonical URL 分群。
+ *
+ * @param {Record<string, any>} allStorageData
+ * @param {Map<string, string>} aliasMap
+ * @returns {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>}
+ * @private
+ */
+function _groupStorageEntries(allStorageData, aliasMap) {
+  /** @type {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>} */
+  const groups = new Map();
+  for (const [key, value] of Object.entries(allStorageData)) {
+    let url;
+    let format;
+    if (key.startsWith(PAGE_PREFIX)) {
+      url = key.slice(PAGE_PREFIX.length);
+      format = 'page';
+    } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+      url = key.slice(HIGHLIGHTS_PREFIX.length);
+      format = 'legacy';
+    } else {
+      continue;
+    }
+
+    const canonical = aliasMap.get(url) || url;
+    if (!groups.has(canonical)) {
+      groups.set(canonical, { pages: [], legacies: [] });
+    }
+    const group = groups.get(canonical);
+    if (format === 'page') {
+      group.pages.push({ key, url, value });
+    } else {
+      group.legacies.push({ key, url, value });
+    }
+  }
+  return groups;
+}
+
+/**
+ * 從同一 canonical URL 的 group 中選出最優先的 owner descriptor。
+ *
+ * @param {string} canonicalUrl
+ * @param {{pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}} group
+ * @returns {{ownerKey: string, ownerUrl: string, ownerValue: any, format: 'page'|'legacy'} | null}
+ * @private
+ */
+function _pickGroupOwner(canonicalUrl, group) {
+  // Priority 1: page_<canonical>
+  let chosen = group.pages.find(page => page.url === canonicalUrl) || null;
+
+  // Priority 2: 任意其他 page_*（例如 alias 指向空 stable key 時的 page_<original>）
+  if (!chosen && group.pages.length > 0) {
+    chosen = group.pages[0];
+  }
+
+  if (chosen) {
+    return { ownerKey: chosen.key, ownerUrl: chosen.url, ownerValue: chosen.value, format: 'page' };
+  }
+
+  // Priority 3: highlights_*（舊格式）
+  if (group.legacies.length > 0) {
+    const legacy = group.legacies[0];
+    return {
+      ownerKey: legacy.key,
+      ownerUrl: legacy.url,
+      ownerValue: legacy.value,
+      format: 'legacy',
+    };
+  }
+
+  return null;
+}
+
+function resolveUnsyncedOwnership(allStorageData) {
+  if (!allStorageData || typeof allStorageData !== 'object') {
+    return new Map();
+  }
+
+  const aliasMap = _buildAliasMap(allStorageData);
+  const groups = _groupStorageEntries(allStorageData, aliasMap);
+
+  const owners = new Map();
+  for (const [canonicalUrl, group] of groups) {
+    const owner = _pickGroupOwner(canonicalUrl, group);
+    if (owner) {
+      owners.set(canonicalUrl, owner);
+    }
+  }
+
+  return owners;
+}
+
+/**
  * 從 chrome.storage.local 取出所有未同步頁面的標註資料。
  *
- * Phase 3：同時掃描 page_* 新格式和 highlights_* 舊格式，去重。
+ * Phase 4：透過 resolveUnsyncedOwnership 將 page_* / highlights_* / url_alias:* 歸併到
+ * 單一 canonical identity，避免 stable / original 雙 canonical 同時顯示為兩張卡片。
  *
  * @returns {Promise<Array<{url, storageKey, title, highlightCount, lastUpdated, previewHighlights, remainingCount}>>}
  */
 async function getUnsyncedPages() {
   const all = await chrome.storage.local.get(null);
+  const owners = resolveUnsyncedOwnership(all);
+
+  // alias map：buildLegacyPageEntry 仍需用以查詢 saved_<canonical>，避免重複建構
+  const aliasMap = _buildAliasMap(all);
+
   const pages = [];
-  const seenUrls = new Set();
-
-  // 第一輪：處理 page_* 新格式
-  for (const [key, value] of Object.entries(all)) {
-    if (!key.startsWith(PAGE_PREFIX)) {
-      continue;
+  for (const [, owner] of owners) {
+    let entry;
+    if (owner.format === 'page') {
+      entry = buildPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue);
+    } else {
+      entry = buildLegacyPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue, all, aliasMap);
     }
-    const url = key.slice(PAGE_PREFIX.length);
-    seenUrls.add(url); // 記錄 page_* 的 url，避免舊格式重複
-    const entry = buildPageEntry(key, url, value);
     if (entry) {
-      pages.push(entry);
-    }
-  }
-
-  // 第二輪：處理尚未升級的 highlights_* 舊格式
-  const aliasMap = new Map();
-  for (const [key, value] of Object.entries(all)) {
-    if (key.startsWith(URL_ALIAS_PREFIX)) {
-      aliasMap.set(key.slice(URL_ALIAS_PREFIX.length), value);
-    }
-  }
-
-  for (const [key, value] of Object.entries(all)) {
-    if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
-      continue;
-    }
-    const url = key.slice(HIGHLIGHTS_PREFIX.length);
-    const canonicalUrl = aliasMap.get(url) || url;
-
-    // 若 url 或 canonical 已經在 page_* 掃描過，跳過
-    if (seenUrls.has(url) || seenUrls.has(canonicalUrl)) {
-      continue;
-    }
-    seenUrls.add(url);
-    seenUrls.add(canonicalUrl);
-
-    const entry = buildLegacyPageEntry(key, url, value, all, aliasMap);
-    if (entry) {
+      // Phase 4 follow-up（2026-05-03 plan §3）：每筆 entry 預先計算 canonical-aware deletionKeys,
+      // 讓 deleteAllUnsyncedPages 與 deleteUnsyncedPage 共用同一條規則。
+      entry.deletionKeys = _collectDeletionKeys(owner.ownerUrl, owner.ownerKey, all, aliasMap);
       pages.push(entry);
     }
   }
@@ -703,9 +863,53 @@ function _computeDeleteResult(data, highlightId, storageKey) {
 }
 
 /**
+ * 從 storage key 抽出 raw URL（去除前綴）。
+ *
+ * @param {string} storageKey - 預期為 page_<url> 或 highlights_<url>
+ * @returns {string|null}
+ * @private
+ */
+function _extractUrlFromStorageKey(storageKey) {
+  if (typeof storageKey !== 'string') {
+    return null;
+  }
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    return storageKey.slice(PAGE_PREFIX.length);
+  }
+  if (storageKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return storageKey.slice(HIGHLIGHTS_PREFIX.length);
+  }
+  return null;
+}
+
+/**
+ * 透過共享 cleanup helper 計算「整頁刪除」要移除的 key 集合。
+ *
+ * Phase 4：sidepanel 不得自行決定 legacy key 範圍；此 helper 包裝
+ * resolver contract + planDeleteCleanup，產出實際應 remove 的 key 清單。
+ *
+ * Phase 4 follow-up（2026-05-03 plan §2）：
+ * 改為走 `chrome.storage.local.get(null)` + `_collectDeletionKeys` 純函數,
+ * 同時涵蓋 forward alias（contract）與 reverse alias（aliasMap value-side scan），
+ * 避免 owner = canonical 時遺漏 page_<original> / highlights_<original>。
+ *
+ * @param {string} pageUrl - 由 storage key 抽出的 raw URL
+ * @param {string} fallbackKey - 呼叫端傳入的 storageKey（防禦：確保即使 contract 沒涵蓋也會被刪）
+ * @returns {Promise<string[]>} 應呼叫 chrome.storage.local.remove() 的 key 清單
+ * @private
+ */
+async function _resolvePageDeletionKeys(pageUrl, fallbackKey) {
+  const all = await chrome.storage.local.get(null);
+  const aliasMap = _buildAliasMap(all);
+  return _collectDeletionKeys(pageUrl, fallbackKey, all, aliasMap);
+}
+
+/**
  * 刪除單個標註
  *
- * Phase 3：如果 storageKey 為 page_*，執行 partial 刪除（保留 notion）。
+ * Phase 4：當刪除導致整個 storageKey 不再有意義（無 highlights 且無 notion），
+ * 透過共享 cleanup helper（planDeleteCleanup）取得相關 legacy key 一併清除，
+ * 不在 sidepanel 端自行決定 legacy key 範圍。
  *
  * @param {string} highlightId
  * @param {string} storageKey
@@ -724,7 +928,19 @@ async function handleDelete(highlightId, storageKey) {
     );
 
     if (shouldRemove) {
-      await chrome.storage.local.remove(storageKey);
+      // Phase 4：透過 helper 找出所有相關 legacy key 一併移除
+      const pageUrl = _extractUrlFromStorageKey(storageKey);
+      if (pageUrl) {
+        const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
+        if (keysToRemove.length > 0) {
+          await chrome.storage.local.remove(keysToRemove);
+        } else {
+          // 防禦回退：snapshot 全空時，仍移除呼叫端傳入的 key
+          await chrome.storage.local.remove(storageKey);
+        }
+      } else {
+        await chrome.storage.local.remove(storageKey);
+      }
     } else {
       await chrome.storage.local.set({ [storageKey]: newData });
     }
@@ -992,12 +1208,27 @@ function loadMoreCards() {
 /**
  * 刪除單一頁面的所有標注
  *
- * @param {string} storageKey  storage 中的 highlights_ key
+ * Phase 4：透過共享 cleanup helper（planDeleteCleanup）取得 canonical-aware
+ * 的 cleanup key 集合，避免只刪呼叫端傳入的 storageKey 卻遺留 page_<other> 或
+ * highlights_*。
+ *
+ * @param {string} storageKey  storage 中的 page_* 或 highlights_* key
  * @param {HTMLElement} cardEl 對應的卡片 DOM 節點（用於移除）
  */
 async function deleteUnsyncedPage(storageKey, cardEl) {
   try {
-    await chrome.storage.local.remove(storageKey);
+    const pageUrl = _extractUrlFromStorageKey(storageKey);
+    if (pageUrl) {
+      const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
+      if (keysToRemove.length > 0) {
+        await chrome.storage.local.remove(keysToRemove);
+      } else {
+        // 防禦回退：snapshot 全空時仍嘗試刪除呼叫端傳入的 key
+        await chrome.storage.local.remove(storageKey);
+      }
+    } else {
+      await chrome.storage.local.remove(storageKey);
+    }
   } catch (error) {
     Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', { error });
     return; // bail out — don't mutate UI if storage failed
@@ -1033,15 +1264,31 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
 
 /**
  * 刪除所有未同步頁面的標注
+ *
+ * Phase 4 follow-up（2026-05-03 plan §3）：使用每筆 entry 預先計算的 deletionKeys，
+ * 確保整批清除涵蓋同 canonical group 的全部 member（page_<other> / highlights_<other>），
+ * 與 deleteUnsyncedPage 共用同一條 cleanup 規則。
  */
 async function deleteAllUnsyncedPages() {
   if (!cachedUnsyncedPages || cachedUnsyncedPages.length === 0) {
     return;
   }
 
-  const keys = cachedUnsyncedPages.map(page => page.storageKey);
+  const aggregatedKeys = new Set();
+  for (const page of cachedUnsyncedPages) {
+    const perEntryKeys =
+      Array.isArray(page.deletionKeys) && page.deletionKeys.length > 0
+        ? page.deletionKeys
+        : [page.storageKey];
+    for (const key of perEntryKeys) {
+      if (typeof key === 'string' && key.length > 0) {
+        aggregatedKeys.add(key);
+      }
+    }
+  }
+
   try {
-    await chrome.storage.local.remove(keys);
+    await chrome.storage.local.remove([...aggregatedKeys]);
   } catch (error) {
     Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', { error });
     return; // bail out — don't mutate UI if storage failed
