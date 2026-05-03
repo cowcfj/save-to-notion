@@ -1338,6 +1338,49 @@ describe('StorageService', () => {
       await service.savePageDataAndHighlights('https://example.com/page', null, null);
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
+
+    it('[CANONICAL] alias 命中時應該寫入 page_<stableUrl> 並清理 page_<original> 與 highlights_<original>', async () => {
+      const originalUrl = 'https://example.com/article?ref=xyz';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+      const originalLegacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [originalPageKey]: { notion: { pageId: 'old' }, highlights: ['stale'], metadata: {} },
+        [originalLegacyKey]: ['legacy-h'],
+      });
+
+      const pageData = { title: 'Article', pageId: 'page-new' };
+      const highlights = [
+        {
+          id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          text: 'fresh highlight',
+          color: 'yellow',
+          timestamp: 1_700_000_000_000,
+          domPath: 'body > p',
+        },
+      ];
+
+      await service.savePageDataAndHighlights(originalUrl, pageData, highlights);
+
+      // 寫入應落在 canonical stable page key
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.objectContaining({
+          notion: expect.objectContaining({ pageId: 'page-new' }),
+          highlights: expect.arrayContaining([expect.objectContaining({ id: highlights[0].id })]),
+        }),
+      });
+      // MUST NOT 寫入 page_<original>
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ [originalPageKey]: expect.anything() })
+      );
+      // legacy keys 必須被清理
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
+    });
   });
 
   describe('setUrlAlias', () => {

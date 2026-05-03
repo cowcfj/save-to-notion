@@ -44,6 +44,9 @@ import {
 
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
+// Shared debug log prefix（多個 page-state writers 共用同一條 cleanup 失敗訊息）
+const FAILED_REMOVE_LEGACY_KEYS_LOG = '[StorageService] Failed to remove legacy keys';
+
 const UPGRADE_RETRY_MAX_ATTEMPTS = 5;
 const UPGRADE_RETRY_BASE_DELAY_MS = 1000;
 const UPGRADE_RETRY_MAX_DELAY_MS = 60_000;
@@ -580,16 +583,35 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    // Phase 4 follow-up：以 canonical lock key 序列化，與 updateHighlights / setSavedPageData / clearNotionState 對齊
-    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+    // Phase 5 follow-up（2026-05-04）：mutation target、lock、cleanup 統一由 contract 推導,
+    // 避免 alias 命中時寫入 non-canonical page_<original> 造成 split-brain。
+    const { lockKey, contract } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+    const targetKey = contract.mutationTargetKey;
 
     return this._withLock(lockKey, async () => {
       try {
-        // Phase 3：一次寫入統一 page_* 物件（鎖內序列化，避免並發覆寫）
-        const pageObj = this._buildPageObject(pageData, highlights || [], normalizedUrl);
-        await this.storage.local.set({ [pageKey]: pageObj });
+        // 鎖內讀取 lookupOrder 與 legacyCleanupKeys 一次,作為 cleanup 計算依據。
+        const readKeys = Array.from(
+          new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
+        );
+        const existing = await this.storage.local.get(readKeys);
+
+        const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
+        await this.storage.local.set({ [targetKey]: pageObj });
+
+        // Cleanup legacy keys（與 updateHighlights 同 pattern）：實際存在 + 字典序
+        const cleanupKeys = contract.legacyCleanupKeys
+          .filter(k => k !== targetKey && existing[k])
+          .toSorted(compareKeysAlphabetically);
+        if (cleanupKeys.length > 0) {
+          await this.storage.local.remove(cleanupKeys).catch(error => {
+            this.logger.debug?.(FAILED_REMOVE_LEGACY_KEYS_LOG, {
+              keys: cleanupKeys,
+              error: error?.message ?? error,
+            });
+          });
+        }
       } catch (error) {
         this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
         throw error;
@@ -679,7 +701,7 @@ class StorageService {
           keysToRemove.push(hlKey);
         }
         this.storage.local.remove(keysToRemove).catch(error => {
-          this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
+          this.logger.debug?.(FAILED_REMOVE_LEGACY_KEYS_LOG, {
             keys: keysToRemove,
             error: error?.message ?? error,
           });
@@ -1284,7 +1306,7 @@ class StorageService {
           // await 確保 _withLock 在 remove 完成後才釋放，避免 stable / original 並發 ABA。
           // 錯誤仍以 debug log 記錄，不向 caller 拋出。
           await this.storage.local.remove(cleanupKeys).catch(error => {
-            this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
+            this.logger.debug?.(FAILED_REMOVE_LEGACY_KEYS_LOG, {
               keys: cleanupKeys,
               error: error?.message ?? error,
             });
