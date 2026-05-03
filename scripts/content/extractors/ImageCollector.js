@@ -15,6 +15,10 @@ import {
   isValidCleanedImageUrl,
   cleanImageUrl,
 } from '../../utils/imageUtils.js';
+// Temporary image URL 偵測：拆獨立模組以避免 rollup 把整個 ImageUtils 物件鎖進 background bundle
+import { isTemporaryImageUrl } from '../../utils/temporaryImageUrl.js';
+// Content-only helper: 隔離大型中文 placeholder 字串避免被打包進 background bundle
+import { buildTemporaryImagePlaceholderBlock } from './temporaryImagePlaceholder.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import Logger from '../../utils/Logger.js';
 
@@ -88,6 +92,15 @@ const ImageCollector = {
         // 標準化 URL，確保與後續圖片的去重比較一致
         const absoluteUrl = new URL(src, document.baseURI).href;
         const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+        // 阻擋 temporary / signed URL 進入 Notion page cover
+        if (isTemporaryImageUrl?.(cleanedUrl)) {
+          Logger.log('跳過 temporary 圖片 URL (DOM 封面)', {
+            action: 'collectFeaturedImage',
+            selector,
+            url: sanitizeUrlForLogging(cleanedUrl),
+          });
+          continue;
+        }
         Logger.log('找到特色圖片 (DOM)', {
           action: 'collectFeaturedImage',
           selector,
@@ -134,6 +147,15 @@ const ImageCollector = {
         if (content && isValidImageUrl?.(content)) {
           const absoluteUrl = new URL(content, document.baseURI).href;
           const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+          // 阻擋 temporary / signed URL 進入 Notion page cover
+          if (isTemporaryImageUrl?.(cleanedUrl)) {
+            Logger.log('跳過 temporary 圖片 URL (Meta 封面)', {
+              action: 'collectFeaturedImage',
+              source: selector,
+              url: sanitizeUrlForLogging(cleanedUrl),
+            });
+            continue;
+          }
           Logger.log('找到特色圖片 (Meta)', {
             action: 'collectFeaturedImage',
             source: selector,
@@ -218,7 +240,10 @@ const ImageCollector = {
     if (options.detailed) {
       return outcome;
     }
-    return outcome.status === 'accepted' ? outcome.image : null;
+    if (outcome.status === 'accepted' || outcome.status === 'temporary_replaced') {
+      return outcome.image;
+    }
+    return null;
   },
 
   _evaluateImageForCollection(img, index, featuredImage) {
@@ -249,6 +274,18 @@ const ImageCollector = {
           url: sanitizeUrlForLogging(cleanedImageUrl),
         });
         return { status: 'invalid_url' };
+      }
+
+      // 3b. 偵測 temporary / signed URL，改以 paragraph block 取代以避免 broken image
+      if (isTemporaryImageUrl?.(cleanedImageUrl)) {
+        Logger.log('偵測到 temporary 圖片 URL，改以提示區塊取代', {
+          action: 'processImageForCollection',
+          url: sanitizeUrlForLogging(cleanedImageUrl),
+        });
+        return {
+          status: 'temporary_replaced',
+          image: buildTemporaryImagePlaceholderBlock(cleanedImageUrl, { alt: img.alt || '' }),
+        };
       }
 
       // 4. 檢查尺寸過濾小圖
@@ -354,12 +391,35 @@ const ImageCollector = {
       return;
     }
 
-    if (outcome.status === 'accepted' || outcome.status === 'filtered_by_size') {
+    if (
+      outcome.status === 'accepted' ||
+      outcome.status === 'filtered_by_size' ||
+      outcome.status === 'temporary_replaced'
+    ) {
       stats.urlValidCount++;
     }
 
     if (outcome.status === 'filtered_by_size') {
       stats.filteredBySize++;
+    }
+
+    // 處理 temporary URL 的降級 paragraph block：
+    // 不依賴 image.external.url 進行 URL 去重，改以 _meta.originalSrc 避免同一張暫存圖
+    // 重複輸出多個提示區塊。
+    if (outcome.status === 'temporary_replaced') {
+      const originalSrc = outcome.image?._meta?.originalSrc;
+      if (originalSrc && processedUrls.has(originalSrc)) {
+        Logger.log('跳過重複的 temporary 圖片 URL', {
+          action: logAction,
+          url: sanitizeUrlForLogging(originalSrc),
+        });
+        return;
+      }
+      if (originalSrc) {
+        processedUrls.add(originalSrc);
+      }
+      additionalImages.push(outcome.image);
+      return;
     }
 
     if (outcome.status !== 'accepted') {
@@ -475,7 +535,10 @@ const ImageCollector = {
       Logger.log('合併圖集圖片', { count: galleryImages.length });
 
       // 構建現有圖片 URL 的 Set 以優化查找
-      const existingUrls = new Set(additionalImages.map(img => img.image.external.url));
+      // additionalImages 可能包含 temporary URL 降級產生的 paragraph block,需先過濾
+      const existingUrls = new Set(
+        additionalImages.filter(block => block.type === 'image').map(img => img.image.external.url)
+      );
 
       galleryImages.forEach(img => {
         const url = img.image.external.url;
