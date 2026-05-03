@@ -1038,6 +1038,7 @@ function buildTemporaryImagePlaceholderBlock(url, options = {}) {
       placeholder: true,
       placeholderReason: 'temporary_image_url',
       originalSrc: url,
+      alt: typeof alt === 'string' ? alt : '',
     },
   };
 }
