@@ -1362,6 +1362,51 @@ describe('ImageCollector', () => {
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
     });
+
+    test('collectAdditionalImages 同時存在 temporary URL 與 gallery 圖時應安全合併兩種 block 不拋錯', async () => {
+      const patreonImg = document.createElement('img');
+      patreonImg.src = PATREON_URL;
+      patreonImg.alt = 'Patreon image';
+      Object.defineProperty(patreonImg, 'naturalWidth', { value: 800 });
+      Object.defineProperty(patreonImg, 'naturalHeight', { value: 600 });
+
+      const galleryImg = document.createElement('img');
+      galleryImg.src = 'https://example.com/gallery1.jpg';
+      Object.defineProperty(galleryImg, 'naturalWidth', { value: 1024 });
+      Object.defineProperty(galleryImg, 'naturalHeight', { value: 768 });
+
+      extractImageSrc.mockImplementation(img => img?.src ?? null);
+      isTemporaryImageUrl.mockImplementation(
+        url => typeof url === 'string' && url.includes('patreonusercontent.com')
+      );
+
+      cachedQuery.mockImplementation((selector, _context, options) => {
+        if (options?.all) {
+          if (selector === '.gallery img') {
+            return [galleryImg];
+          }
+          if (selector === 'img') {
+            return [patreonImg];
+          }
+        }
+        return null;
+      });
+
+      const contentElement = document.createElement('div');
+
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
+
+      // 兩種 block 應同時保留:Patreon 降級為 paragraph,gallery 維持 image block
+      expect(result.images).toHaveLength(2);
+
+      const placeholderBlock = result.images.find(b => b.type === 'paragraph');
+      expect(placeholderBlock).toBeDefined();
+      expect(placeholderBlock._meta?.originalSrc).toBe(PATREON_URL);
+
+      const galleryBlock = result.images.find(b => b.type === 'image');
+      expect(galleryBlock).toBeDefined();
+      expect(galleryBlock.image?.external?.url).toBe('https://example.com/gallery1.jpg');
+    });
   });
 
   describe('_resolveImageSize', () => {

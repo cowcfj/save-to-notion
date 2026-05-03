@@ -533,7 +533,10 @@ const ImageCollector = {
       Logger.log('合併圖集圖片', { count: galleryImages.length });
 
       // 構建現有圖片 URL 的 Set 以優化查找
-      const existingUrls = new Set(additionalImages.map(img => img.image.external.url));
+      // additionalImages 可能包含 temporary URL 降級產生的 paragraph block,需先過濾
+      const existingUrls = new Set(
+        additionalImages.filter(block => block.type === 'image').map(img => img.image.external.url)
+      );
 
       galleryImages.forEach(img => {
         const url = img.image.external.url;
