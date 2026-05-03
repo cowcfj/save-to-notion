@@ -1762,6 +1762,49 @@ describe('StorageService', () => {
       const setKeys = mockStorage.local.set.mock.calls.map(c => Object.keys(c[0])[0]);
       expect(setKeys.every(k => k === stablePageKey)).toBe(true);
     });
+
+    it('[CANONICAL] legacy cleanup MUST 在 updateHighlights 回傳前完成（不依賴 process.nextTick）', async () => {
+      const originalUrl = 'https://example.com/article?ref=abc';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+      const originalLegacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [stablePageKey]: { notion: { pageId: 'p1' }, highlights: [], metadata: {} },
+        [originalPageKey]: { notion: null, highlights: ['old'], metadata: {} },
+        [originalLegacyKey]: ['legacy-h'],
+      });
+
+      // 阻塞 mockStorage.local.remove 直到外部解 promise；用以驗證 lock-scope 同步性。
+      // 修復前（fire-and-forget）：updateHighlights 已 resolve，updateResolved === true。
+      // 修復後（await + try/catch）：updateHighlights 仍 pending 直到 cleanup 結束。
+      let resolveRemove;
+      const removePending = new Promise(resolve => {
+        resolveRemove = resolve;
+      });
+      mockStorage.local.remove.mockImplementation(() => removePending);
+
+      let updateResolved = false;
+      const updatePromise = service.updateHighlights(originalUrl, ['h1']).then(() => {
+        updateResolved = true;
+      });
+
+      // 給 microtask queue 足夠時間執行所有 await（set / get），但 cleanup 仍被阻塞。
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(updateResolved).toBe(false);
+
+      // 解開 remove → cleanup 完成 → lock 釋放 → updateHighlights resolve
+      resolveRemove();
+      await updatePromise;
+      expect(updateResolved).toBe(true);
+
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
+    });
   });
 
   describe('Canonical lock alignment across writers', () => {

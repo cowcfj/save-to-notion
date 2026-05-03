@@ -1280,8 +1280,10 @@ class StorageService {
           .filter(k => k !== targetKey && existing[k])
           .toSorted(compareKeysAlphabetically);
         if (cleanupKeys.length > 0) {
-          // 非阻塞 remove（沿用既有作法）：失敗只記 debug log，不影響 caller
-          this.storage.local.remove(cleanupKeys).catch(error => {
+          // Phase 0 決策：cleanup MUST 與寫入同處 canonical lock 範圍。
+          // await 確保 _withLock 在 remove 完成後才釋放，避免 stable / original 並發 ABA。
+          // 錯誤仍以 debug log 記錄，不向 caller 拋出。
+          await this.storage.local.remove(cleanupKeys).catch(error => {
             this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
               keys: cleanupKeys,
               error: error?.message ?? error,
