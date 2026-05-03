@@ -105,12 +105,31 @@ jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
   cleanImageUrl: jest.fn(url => url),
   isValidImageUrl: jest.fn(() => true),
   isValidCleanedImageUrl: jest.fn(() => true),
+  isTemporaryImageUrl: jest.fn(() => false),
+  buildTemporaryImagePlaceholderBlock: jest.fn((url, opts = {}) => ({
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [
+        { type: 'text', text: { content: 'Patreon temp:' } },
+        { type: 'text', text: { content: 'link', link: { url } } },
+      ],
+    },
+    _meta: {
+      placeholder: true,
+      placeholderReason: 'temporary_image_url',
+      originalSrc: url,
+      alt: opts.alt || '',
+    },
+  })),
   default: {
     // Keep default for potential legacy access elsewhere (if any)
     extractImageSrc: jest.fn(),
     cleanImageUrl: jest.fn(url => url),
     isValidImageUrl: jest.fn(() => true),
     isValidCleanedImageUrl: jest.fn(() => true),
+    isTemporaryImageUrl: jest.fn(() => false),
+    buildTemporaryImagePlaceholderBlock: jest.fn(() => null),
   },
 }));
 
@@ -119,6 +138,8 @@ import {
   cleanImageUrl,
   isValidImageUrl,
   isValidCleanedImageUrl,
+  isTemporaryImageUrl,
+  buildTemporaryImagePlaceholderBlock,
 } from '../../../../scripts/utils/imageUtils.js';
 
 // Global mock not needed for ImageCollector but might be used by other parts if they fallback
@@ -127,6 +148,8 @@ globalThis.ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
   isValidCleanedImageUrl,
+  isTemporaryImageUrl,
+  buildTemporaryImagePlaceholderBlock,
 };
 
 // Import ErrorHandler to use in tests
@@ -159,6 +182,23 @@ describe('ImageCollector', () => {
     cleanImageUrl.mockImplementation(url => url);
     isValidImageUrl.mockReturnValue(true);
     isValidCleanedImageUrl.mockReturnValue(true);
+    isTemporaryImageUrl.mockReturnValue(false);
+    buildTemporaryImagePlaceholderBlock.mockImplementation((url, opts = {}) => ({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          { type: 'text', text: { content: 'Patreon temp:' } },
+          { type: 'text', text: { content: 'link', link: { url } } },
+        ],
+      },
+      _meta: {
+        placeholder: true,
+        placeholderReason: 'temporary_image_url',
+        originalSrc: url,
+        alt: opts.alt || '',
+      },
+    }));
 
     // Default cachedQuery mock
     cachedQuery.mockImplementation((selector, context, options) => {
@@ -1240,6 +1280,87 @@ describe('ImageCollector', () => {
       expect(firstImg.dataset.resolvedHeight).toBe('600');
       expect(secondImg.dataset.resolvedWidth).toBe('640');
       expect(secondImg.dataset.resolvedHeight).toBe('480');
+    });
+  });
+
+  describe('Patreon temporary image URL handling', () => {
+    const PATREON_URL =
+      'https://c10.patreonusercontent.com/4/patreon-media/p/post/157239355/abc/eyJ3IjoxMDgwfQ==/1.png?token-hash=ABC123&token-time=1700000000';
+
+    test('processImageForCollection 應為 Patreon signed URL 回傳 paragraph block 而非 external image block', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = PATREON_URL;
+      mockImg.alt = 'Patreon image';
+      Object.defineProperty(mockImg, 'naturalWidth', { value: 800 });
+      Object.defineProperty(mockImg, 'naturalHeight', { value: 600 });
+
+      extractImageSrc.mockReturnValue(PATREON_URL);
+      isTemporaryImageUrl.mockImplementation(
+        url => url.includes('patreonusercontent.com') && url.includes('token-hash')
+      );
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+
+      expect(result).toBeDefined();
+      // 不應為 external image block
+      expect(result.image?.external).toBeUndefined();
+      // 應為 paragraph block
+      expect(result.type).toBe('paragraph');
+      expect(Array.isArray(result.paragraph?.rich_text)).toBe(true);
+      // rich_text 應包含指向原始 URL 的 link
+      const hasLink = result.paragraph.rich_text.some(rt => rt.text?.link?.url === PATREON_URL);
+      expect(hasLink).toBe(true);
+    });
+
+    test('processImageForCollection 對非 temporary URL 應維持原有 external image block 行為', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = 'https://example.com/normal.jpg';
+      Object.defineProperty(mockImg, 'naturalWidth', { value: 800 });
+      Object.defineProperty(mockImg, 'naturalHeight', { value: 600 });
+
+      extractImageSrc.mockReturnValue('https://example.com/normal.jpg');
+      isTemporaryImageUrl.mockReturnValue(false);
+
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
+
+      expect(result?.type).toBe('image');
+      expect(result?.image?.external?.url).toBe('https://example.com/normal.jpg');
+    });
+
+    test('collectFeaturedImage 應對 Patreon signed URL (Meta source) 回傳 null', () => {
+      const mockMeta = document.createElement('meta');
+      mockMeta.content = PATREON_URL;
+
+      trackSpy(document, 'querySelector').mockImplementation(selector => {
+        if (selector === 'meta[property="og:image"]') {
+          return mockMeta;
+        }
+        return null;
+      });
+      isTemporaryImageUrl.mockImplementation(url => url.includes('patreonusercontent.com'));
+
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBeNull();
+    });
+
+    test('collectFeaturedImage 應對 Patreon signed URL (DOM fallback) 回傳 null', () => {
+      const mockImg = document.createElement('img');
+      mockImg.src = PATREON_URL;
+      extractImageSrc.mockReturnValue(PATREON_URL);
+      isTemporaryImageUrl.mockImplementation(url => url.includes('patreonusercontent.com'));
+
+      cachedQuery.mockImplementation((selector, context, options) => {
+        if (selector.includes('meta')) {
+          return null;
+        }
+        if (options?.single) {
+          return mockImg;
+        }
+        return null;
+      });
+
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBeNull();
     });
   });
 

@@ -757,6 +757,51 @@ describe('NotionService', () => {
       });
     });
 
+    it('應該為一般 https URL 設定 page cover', () => {
+      const result = service.buildPageData({
+        title: 'With Cover',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks: [],
+        coverImage: 'https://example.com/cover.jpg',
+      });
+
+      expect(result.pageData.cover).toEqual({
+        type: 'external',
+        external: { url: 'https://example.com/cover.jpg' },
+      });
+    });
+
+    it('應該對 Patreon signed URL 跳過 page cover (defense in depth)', () => {
+      const tempUrl =
+        'https://c10.patreonusercontent.com/4/patreon-media/p/post/157239355/abc/eyJ3IjoxMDgwfQ==/1.png?token-hash=ABC123&token-time=1700000000';
+
+      const result = service.buildPageData({
+        title: 'Patreon Page',
+        pageUrl: 'https://www.patreon.com/posts/test',
+        dataSourceId: 'db-123',
+        blocks: [],
+        coverImage: tempUrl,
+      });
+
+      expect(result.pageData.cover).toBeUndefined();
+    });
+
+    it('應該對 patreonusercontent.com 帶 token-time 的 URL 跳過 page cover', () => {
+      const tempUrl =
+        'https://c8.patreonusercontent.com/4/patreon-media/foo.png?token-time=1700000000';
+
+      const result = service.buildPageData({
+        title: 'Patreon Page',
+        pageUrl: 'https://www.patreon.com/posts/test',
+        dataSourceId: 'db-123',
+        blocks: [],
+        coverImage: tempUrl,
+      });
+
+      expect(result.pageData.cover).toBeUndefined();
+    });
+
     it('應該包含所有圖片區塊並回傳有效的頁面資料', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },

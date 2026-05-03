@@ -974,10 +974,79 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
   });
 }
 
+// ==========================================
+// Temporary / signed image URL handling
+// ==========================================
+
+/**
+ * 偵測高風險的 temporary / signed image URL
+ *
+ * 目前僅針對 Patreon CDN：hostname 為 *.patreonusercontent.com 且帶有
+ * token-time / token-hash 參數的 URL。這類 URL 在 Notion 伺服器端拉取時
+ * 容易因 token 過期或缺失 referer 而 404，導致 broken image。
+ *
+ * @param {string} url - 待檢查的 URL
+ * @returns {boolean} 是否為已知的 temporary / signed URL
+ */
+const PATREON_TEMP_HOSTNAME_REGEX = /(?:^|\.)patreonusercontent\.com$/i;
+
+function isTemporaryImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (PATREON_TEMP_HOSTNAME_REGEX.test(parsed.hostname)) {
+    return parsed.searchParams.has('token-time') || parsed.searchParams.has('token-hash');
+  }
+
+  return false;
+}
+
+/**
+ * 為 temporary image URL 建立降級的 paragraph block
+ *
+ * 取代 external image block，避免 Notion 伺服器端拉取失敗造成 broken image，
+ * 同時保留使用者可理解的提示與原始連結。
+ *
+ * @param {string} url - 原始 temporary image URL
+ * @param {object} [options] - 選項
+ * @param {string} [options.alt] - 圖片 alt 描述（若有）
+ * @returns {object} Notion paragraph block
+ */
+function buildTemporaryImagePlaceholderBlock(url, options = {}) {
+  const { alt = '' } = options;
+  const altPart = typeof alt === 'string' && alt.trim() ? `「${alt.trim()}」` : '';
+  const prefix = `🖼️ Patreon 圖片${altPart}（暫存連結，可能無法在 Notion 中顯示）：`;
+
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [
+        { type: 'text', text: { content: prefix } },
+        { type: 'text', text: { content: '原始連結', link: { url } } },
+      ],
+    },
+    _meta: {
+      placeholder: true,
+      placeholderReason: 'temporary_image_url',
+      originalSrc: url,
+    },
+  };
+}
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
   isValidCleanedImageUrl,
+  isTemporaryImageUrl,
+  buildTemporaryImagePlaceholderBlock,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
@@ -1000,6 +1069,8 @@ export {
   cleanImageUrl,
   isValidImageUrl,
   isValidCleanedImageUrl,
+  isTemporaryImageUrl,
+  buildTemporaryImagePlaceholderBlock,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
