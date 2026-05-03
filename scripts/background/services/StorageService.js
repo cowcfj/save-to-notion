@@ -118,6 +118,27 @@ class StorageService {
   }
 
   /**
+   * 解析 canonical lock key（所有 page-state writers 共用的 lock 推導規則）。
+   *
+   * Phase 4 follow-up（2026-05-03 plan §1）：
+   * 為避免 stable / original 兩個 URL 在不同 _withLock namespace 下互不互斥，
+   * 所有 page-state writers MUST 透過此 helper 取得 lock key —
+   * 即 `contract.mutationTargetKey`（= `page_<canonicalUrl>`）。
+   *
+   * @param {string} normalizedUrl - normalizeUrl(pageUrl) 結果
+   * @param {string|null} [rawUrl] - 原始 pageUrl（與 normalizedUrl 不同時用以 alias preload）
+   * @returns {Promise<{lockKey: string, aliasCandidate: string|null, contract: import('../../highlighter/core/HighlightLookupResolver.js').HighlightLookupContract}>}
+   * @private
+   */
+  async _resolveCanonicalLockKey(normalizedUrl, rawUrl = null) {
+    const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
+    const aliasResult = aliasKeys.length > 0 ? await this.storage.local.get(aliasKeys) : {};
+    const aliasCandidate = pickAliasCandidate(aliasResult, normalizedUrl, rawUrl);
+    const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+    return { lockKey: contract.mutationTargetKey, aliasCandidate, contract };
+  }
+
+  /**
    * 批量讀取頁面狀態（新舊格式統一入口）
    *
    * 一次讀取同時嘗試 page_* / saved_* / url_alias_*，
@@ -547,7 +568,10 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
 
-    return this._withLock(normalizedUrl, async () => {
+    // Phase 4 follow-up：以 canonical lock key 序列化，與 updateHighlights / setSavedPageData / clearNotionState 對齊
+    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+
+    return this._withLock(lockKey, async () => {
       try {
         // Phase 3：一次寫入統一 page_* 物件（鎖內序列化，避免並發覆寫）
         const pageObj = this._buildPageObject(pageData, highlights || [], normalizedUrl);
@@ -572,13 +596,16 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    // Phase 4 follow-up：lock key 改採 canonical helper,與其他 page-state writers 共用
+    // 鎖 namespace；innerLockUrl 仍由 _resolvePageStateTargetUrl 推導,作為 lock 內部 targetUrl 的起點。
+    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
     const initialState = await this._getPageState(normalizedUrl);
-    const lockUrl = this._resolvePageStateTargetUrl(initialState, normalizedUrl);
+    const innerStartUrl = this._resolvePageStateTargetUrl(initialState, normalizedUrl);
 
-    return this._withLock(lockUrl, async () => {
+    return this._withLock(lockKey, async () => {
       try {
         const state = await this._getPageState(normalizedUrl);
-        const targetUrl = this._resolvePageStateTargetUrl(state, lockUrl);
+        const targetUrl = this._resolvePageStateTargetUrl(state, innerStartUrl);
         const pageKey = `${PAGE_PREFIX}${targetUrl}`;
         const hlKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
         const existing = await this.storage.local.get([pageKey, hlKey]);
@@ -761,7 +788,10 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
 
-    return this._withLock(normalizedUrl, async () => {
+    // Phase 4 follow-up：以 canonical lock key 序列化,與其他 page-state writers 對齊
+    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
+
+    return this._withLock(lockKey, async () => {
       // 使用與 getSavedPageData 相同的 URL 別名解析路徑，確保清除的 key 與讀取的 key 一致
       const state = await this._getPageState(normalizedUrl);
 
@@ -1167,22 +1197,8 @@ class StorageService {
     const rawUrl = typeof pageUrl === 'string' ? pageUrl : null;
 
     try {
-      // === Pre-resolve（lock 之外）===
-      // 解析 alias，決定 canonical mutation target，再以該 key 鎖定 read-modify-write。
-      const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
-      const preloadKeys = new Set([
-        ...aliasKeys,
-        `${PAGE_PREFIX}${normalizedUrl}`,
-        `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
-      ]);
-      if (rawUrl && rawUrl !== normalizedUrl) {
-        preloadKeys.add(`${PAGE_PREFIX}${rawUrl}`);
-        preloadKeys.add(`${HIGHLIGHTS_PREFIX}${rawUrl}`);
-      }
-      const preloadResult = await this.storage.local.get([...preloadKeys]);
-      const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
-      const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
-      const lockKey = contract.mutationTargetKey;
+      // Phase 4 follow-up：lock key 由 canonical helper 統一推導,與其他 page-state writers 共用 namespace
+      const { lockKey, contract } = await this._resolveCanonicalLockKey(normalizedUrl, rawUrl);
 
       return await this._withLock(lockKey, async () => {
         const targetKey = contract.mutationTargetKey;

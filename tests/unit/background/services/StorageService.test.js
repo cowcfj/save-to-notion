@@ -981,11 +981,15 @@ describe('StorageService', () => {
 
       mockStorage.local.get
         .mockResolvedValueOnce({
-          // 第一次 get：[page_{short}, saved_{short}, url_alias_{short}]
+          // 第 1 次 get（Phase 4 follow-up: _resolveCanonicalLockKey）：[url_alias:<short>]
           [aliasKey]: stableUrl,
         })
         .mockResolvedValueOnce({
-          // 第二次 get：[page_{stable}, saved_{stable}]
+          // 第 2 次 get（_getPageState）：[page_{short}, saved_{short}, url_alias_{short}]
+          [aliasKey]: stableUrl,
+        })
+        .mockResolvedValueOnce({
+          // 第 3 次 get（_getPageState alias 解析後）：[page_{stable}, saved_{stable}]
           [stablePageKey]: {
             highlights: [{ id: '2', text: 'alias test' }],
             notion: { pageId: 'xyz', url: 'https://notion.so/xyz' },
@@ -1757,6 +1761,90 @@ describe('StorageService', () => {
       expect(setOrder).toHaveLength(2);
       const setKeys = mockStorage.local.set.mock.calls.map(c => Object.keys(c[0])[0]);
       expect(setKeys.every(k => k === stablePageKey)).toBe(true);
+    });
+  });
+
+  describe('Canonical lock alignment across writers', () => {
+    // Follow-up plan 2026-05-03-highlight-canonical-lock-and-delete-all-cleanup-followup §1：
+    // 所有 page-state writers 在 alias 命中時 MUST 與 updateHighlights 共用同一條
+    // canonical lock 推導規則（contract.mutationTargetKey），不再各自實作。
+    it('updateHighlights 與 setSavedPageData 在 alias 命中時 MUST 鎖在同一個 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/post?utm=x';
+      const stableUrl = 'https://example.com/post';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: null,
+          highlights: [{ id: 'seed', text: 'seed', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await Promise.all([
+        service.updateHighlights(originalUrl, [{ id: 'h-update', text: 'u', color: 'yellow' }]),
+        service.setSavedPageData(originalUrl, {
+          notionPageId: 'page-1',
+          notionUrl: 'https://notion.so/page-1',
+          title: 'T',
+        }),
+      ]);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys).toHaveLength(2);
+      expect(lockKeys.every(k => k === stablePageKey)).toBe(true);
+    });
+
+    it('savePageDataAndHighlights 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/blog?ref=x';
+      const stableUrl = 'https://example.com/blog';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: null,
+          highlights: [],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await service.savePageDataAndHighlights(originalUrl, { title: 'T' }, [
+        { id: 'h', text: 't', color: 'yellow' },
+      ]);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys[0]).toBe(stablePageKey);
+    });
+
+    it('clearNotionState 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/article?utm=ig';
+      const stableUrl = 'https://example.com/article';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: { pageId: 'pid', url: 'https://notion.so/pid' },
+          highlights: [{ id: 'h', text: 't', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await service.clearNotionState(originalUrl);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys[0]).toBe(stablePageKey);
     });
   });
 

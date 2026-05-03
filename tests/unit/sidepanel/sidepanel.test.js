@@ -1646,6 +1646,48 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
       expect(document.querySelector('.page-card')).toBeNull();
       expect(document.querySelector('.unsynced-empty')).toBeTruthy();
     });
+
+    it('[CANONICAL] 從 canonical owner 刪除時 MUST 清除 reverse alias 對應的 page_<original> 與 highlights_<original>', async () => {
+      // Follow-up plan 2026-05-03-highlight-canonical-lock-and-delete-all-cleanup-followup §2：
+      // 當 owner 為 page_<stable> 但 storage 中仍存在 page_<original> / highlights_<original>
+      // （aliasMap 紀錄 <original> → <stable>），刪除應透過 reverse alias 收集並清掉同 canonical group 全體。
+      const stableUrl = 'https://example.com/canonical-target';
+      const originalUrl = 'https://example.com/canonical-target?ref=x';
+      const stablePageKey = `page_${stableUrl}`;
+      const originalPageKey = `page_${originalUrl}`;
+      const originalLegacyKey = `highlights_${originalUrl}`;
+
+      await initModule({
+        [`url_alias:${originalUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: null,
+          highlights: [{ id: 'h-stable', text: 'canonical', color: 'yellow' }],
+          metadata: { lastUpdated: 5000, title: 'Canonical Target' },
+        },
+        [originalPageKey]: {
+          notion: null,
+          highlights: [{ id: 'h-orphan', text: 'orphan', color: 'blue' }],
+          metadata: { lastUpdated: 4000, title: 'Orphan Page' },
+        },
+        [originalLegacyKey]: [{ id: 'h-legacy', text: 'legacy', color: 'green' }],
+      });
+
+      await clickUnsyncedTab();
+
+      const card = document.querySelector('.page-card');
+      expect(card).toBeTruthy();
+      expect(card.querySelector('.page-title').textContent).toContain('Canonical Target');
+
+      const deleteBtn = card.querySelector('.page-delete-button');
+      deleteBtn.click();
+      await jest.runAllTimersAsync();
+
+      // chrome.storage.local.remove MUST 被呼叫至少一次,且 keys 涵蓋同 canonical group 全部 member
+      // （listener 可能因 jest.isolateModules 多次重綁,但每次參數應一致;只需任一 call 滿足即可）
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        expect.arrayContaining([stablePageKey, originalPageKey, originalLegacyKey])
+      );
+    });
   });
 
   describe('deleteAllUnsyncedPages', () => {
@@ -1692,6 +1734,51 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
         clearBtn.click();
       }
       expect(chrome.storage.local.remove).not.toHaveBeenCalled();
+    });
+
+    it('[CANONICAL] deleteAllUnsyncedPages MUST 清除每張卡片同 canonical group 的全部 keys', async () => {
+      // Follow-up plan 2026-05-03-highlight-canonical-lock-and-delete-all-cleanup-followup §3：
+      // clear-all 路徑必須與 single-delete 一致,使用 canonical-aware 的 cleanup helper,
+      // 不能只刪 entry.storageKey 而漏掉同 canonical group 的其他 member。
+      const stable1 = 'https://example.com/article-one';
+      const original1 = 'https://example.com/article-one?utm=fb';
+      const stable2 = 'https://example.com/article-two';
+
+      await initModule({
+        // Page 1: alias 命中,canonical owner 為 page_<stable1>,但 page_<original1> 殘留
+        [`url_alias:${original1}`]: stable1,
+        [`page_${stable1}`]: {
+          notion: null,
+          highlights: [{ id: 'a-1', text: 'a', color: 'yellow' }],
+          metadata: { lastUpdated: 1000, title: 'Article One' },
+        },
+        [`page_${original1}`]: {
+          notion: null,
+          highlights: [{ id: 'a-orphan', text: 'orphan', color: 'blue' }],
+          metadata: { lastUpdated: 900, title: 'Orphan One' },
+        },
+        // Page 2: 無 alias,canonical owner 直接是 page_<stable2>
+        [`page_${stable2}`]: {
+          notion: null,
+          highlights: [{ id: 'b-1', text: 'b', color: 'yellow' }],
+          metadata: { lastUpdated: 2000, title: 'Article Two' },
+        },
+      });
+
+      await clickUnsyncedTab();
+      expect(document.querySelectorAll('.page-card')).toHaveLength(2);
+
+      // 隔離本次 click 觸發的 remove 呼叫,排除 init / render 階段的雜訊
+      chrome.storage.local.remove.mockClear();
+
+      const clearBtn = document.querySelector('#clear-all-btn');
+      clearBtn.click();
+      await jest.runAllTimersAsync();
+
+      // 至少要有一次 remove call 涵蓋所有 canonical group keys（含 page 1 的 alias original 殘留）
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        expect.arrayContaining([`page_${stable1}`, `page_${original1}`, `page_${stable2}`])
+      );
     });
   });
 });

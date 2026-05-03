@@ -360,6 +360,18 @@ describe('TabService', () => {
       service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
       jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
 
+      // Phase 4 follow-up（2026-05-03 plan §4）：顯式 mock chrome.storage.local.get,
+      // 提供 stableUrl 的 page_* evidence,讓 _persistUrlAliasIfNeeded 真的走到 set 寫入路徑。
+      // 不再依賴前一 test 的 mockResolvedValue 殘留（jest.clearAllMocks 不清 implementation,
+      // 順序變動會讓本 test 偷偷走到 throw catch 路徑而非真的等 set 完成）。
+      chrome.storage.local.get.mockResolvedValue({
+        'page_https://example.com/?p=2928': {
+          notion: null,
+          highlights: [{ id: 'evidence-h', text: 'evidence', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
       let resolveStorageSet;
       chrome.storage.local.set.mockReturnValue(
         new Promise(resolve => {
