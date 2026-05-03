@@ -374,7 +374,7 @@ function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
     k => typeof k === 'string' && allStorageData[k] !== undefined && allStorageData[k] !== null
   );
 
-  return result.toSorted();
+  return result.toSorted((keyA, keyB) => keyA.localeCompare(keyB));
 }
 
 /**
