@@ -440,6 +440,73 @@ describe('Drive Client API', () => {
         expect(res.sourceProfileId).toBe('profile-xyz');
       });
 
+      it('可解析 camelCase 的 sourceInstallationId / sourceProfileId', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            hasSnapshot: true,
+            updatedAt: 'time-camel',
+            sourceInstallationId: 'install-camel',
+            sourceProfileId: 'profile-camel',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time-camel');
+        expect(res.sourceInstallationId).toBe('install-camel');
+        expect(res.sourceProfileId).toBe('profile-camel');
+      });
+
+      it('source_installation_id / source_profile_id 應優先於 camelCase 對應欄位', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            has_snapshot: true,
+            remote_updated_at: 'time',
+            source_installation_id: 'install-snake',
+            sourceInstallationId: 'install-camel',
+            source_profile_id: 'profile-snake',
+            sourceProfileId: 'profile-camel',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.sourceInstallationId).toBe('install-snake');
+        expect(res.sourceProfileId).toBe('profile-snake');
+      });
+
+      it('可解析 camelCase 的 hasSnapshot / remoteUpdatedAt', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            hasSnapshot: true,
+            remoteUpdatedAt: 'time-remote-camel',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time-remote-camel');
+      });
+
+      it('exists 應在僅有 camelCase remoteUpdatedAt 時為 true', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            remoteUpdatedAt: 'time-remote-camel',
+          }),
+        });
+
+        const res = await fetchDriveSnapshotStatus();
+        expect(res.exists).toBe(true);
+        expect(res.updatedAt).toBe('time-remote-camel');
+      });
+
       it('缺少 source_installation_id 欄位時回傳 sourceInstallationId: null', async () => {
         mockFetch.mockResolvedValue({
           ok: true,

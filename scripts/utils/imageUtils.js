@@ -974,6 +974,15 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
   });
 }
 
+// 註：isTemporaryImageUrl 已搬到 scripts/utils/temporaryImageUrl.js
+// 註：buildTemporaryImagePlaceholderBlock 已搬到 scripts/content/extractors/temporaryImagePlaceholder.js
+// 原因：imageUtils.js 結尾有 `globalThis.ImageUtils = ImageUtils` side-effect，
+// 一旦 ImageUtils 物件包含的函數從 background-side 被 named import，
+// rollup 會被迫保留整個 ImageUtils 物件（含所有 image 處理函數），
+// 導致 background bundle 大幅膨脹超過 size gate。
+// 把 background 端唯一需要的 isTemporaryImageUrl 拆到獨立模組，
+// 即可讓原本被 tree-shake 的函數繼續被 tree-shake。
+
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,

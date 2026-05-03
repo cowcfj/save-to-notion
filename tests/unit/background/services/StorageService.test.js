@@ -628,6 +628,51 @@ describe('StorageService', () => {
       );
     });
 
+    it('[CANONICAL] alias 命中且僅 page_<original> 有殘留時 MUST 寫入 page_<stableUrl> 並清掉 page_<original>', async () => {
+      const originalUrl = 'https://example.com/article?utm=abc';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+
+      const storageData = {
+        [aliasNormKey]: stableUrl,
+        [originalPageKey]: {
+          notion: { pageId: 'old', destinationProfileId: null },
+          highlights: [{ id: 'h-stale', text: 'stale' }],
+          metadata: { lastUpdated: 100 },
+        },
+      };
+      mockStorage.local.get.mockImplementation(keys => {
+        const list = Array.isArray(keys) ? keys : [keys];
+        return Promise.resolve(
+          Object.fromEntries(list.filter(k => k in storageData).map(k => [k, storageData[k]]))
+        );
+      });
+
+      await service.setSavedPageData(originalUrl, {
+        notionPageId: 'page-canonical',
+        destinationProfileId: 'pid-1',
+      });
+
+      // 寫入應落在 canonical stable page key
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.objectContaining({
+          notion: expect.objectContaining({
+            pageId: 'page-canonical',
+            destinationProfileId: 'pid-1',
+          }),
+        }),
+      });
+      // MUST NOT 寫回 page_<original>
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ [originalPageKey]: expect.anything() })
+      );
+      // legacy 殘留 page_<original> MUST 被清掉
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey]));
+    });
+
     it('destinationProfileId 明確傳入 undefined 時應寫入 null', async () => {
       const url = 'https://example.com/page';
 
@@ -981,11 +1026,15 @@ describe('StorageService', () => {
 
       mockStorage.local.get
         .mockResolvedValueOnce({
-          // 第一次 get：[page_{short}, saved_{short}, url_alias_{short}]
+          // 第 1 次 get（Phase 4 follow-up: _resolveCanonicalLockKey）：[url_alias:<short>]
           [aliasKey]: stableUrl,
         })
         .mockResolvedValueOnce({
-          // 第二次 get：[page_{stable}, saved_{stable}]
+          // 第 2 次 get（_getPageState）：[page_{short}, saved_{short}, url_alias_{short}]
+          [aliasKey]: stableUrl,
+        })
+        .mockResolvedValueOnce({
+          // 第 3 次 get（_getPageState alias 解析後）：[page_{stable}, saved_{stable}]
           [stablePageKey]: {
             highlights: [{ id: '2', text: 'alias test' }],
             notion: { pageId: 'xyz', url: 'https://notion.so/xyz' },
@@ -1334,6 +1383,49 @@ describe('StorageService', () => {
       await service.savePageDataAndHighlights('https://example.com/page', null, null);
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
+
+    it('[CANONICAL] alias 命中時應該寫入 page_<stableUrl> 並清理 page_<original> 與 highlights_<original>', async () => {
+      const originalUrl = 'https://example.com/article?ref=xyz';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+      const originalLegacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [originalPageKey]: { notion: { pageId: 'old' }, highlights: ['stale'], metadata: {} },
+        [originalLegacyKey]: ['legacy-h'],
+      });
+
+      const pageData = { title: 'Article', pageId: 'page-new' };
+      const highlights = [
+        {
+          id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          text: 'fresh highlight',
+          color: 'yellow',
+          timestamp: 1_700_000_000_000,
+          domPath: 'body > p',
+        },
+      ];
+
+      await service.savePageDataAndHighlights(originalUrl, pageData, highlights);
+
+      // 寫入應落在 canonical stable page key
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.objectContaining({
+          notion: expect.objectContaining({ pageId: 'page-new' }),
+          highlights: expect.arrayContaining([expect.objectContaining({ id: highlights[0].id })]),
+        }),
+      });
+      // MUST NOT 寫入 page_<original>
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ [originalPageKey]: expect.anything() })
+      );
+      // legacy keys 必須被清理
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
+    });
   });
 
   describe('setUrlAlias', () => {
@@ -1607,8 +1699,11 @@ describe('StorageService', () => {
       await new Promise(process.nextTick);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        '[StorageService] Failed to remove legacy highlights key',
-        expect.objectContaining({ error: 'Remove highlights failed' })
+        '[StorageService] Failed to remove legacy keys',
+        expect.objectContaining({
+          error: 'Remove highlights failed',
+          keys: expect.arrayContaining([`${HIGHLIGHTS_PREFIX}https://example.com/page`]),
+        })
       );
     });
 
@@ -1631,6 +1726,305 @@ describe('StorageService', () => {
         '[StorageService] updateHighlights failed',
         expect.objectContaining({ error: expect.any(Error) })
       );
+    });
+
+    // === Step 1: Contract-driven mutation tests（2026-05-03 completion plan） ===
+
+    it('alias 命中時應該寫入 page_<stableUrl> 並 cleanup legacy keys', async () => {
+      const originalUrl = 'https://example.com/article?ref=abc';
+      const stableUrl = 'https://example.com/article';
+
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+      const originalLegacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+      const stableLegacyKey = `${HIGHLIGHTS_PREFIX}${stableUrl}`;
+
+      // Storage 內容：
+      // - alias: original → stable
+      // - page_<stable> 已存在（之前 alias 命中過）
+      // - 殘留 page_<original> 與 highlights_<original>（過去未清乾淨）
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [stablePageKey]: {
+          notion: { pageId: 'stable-pid' },
+          highlights: ['old-stable-h1'],
+          metadata: { createdAt: 1000, lastUpdated: 1500 },
+        },
+        [originalPageKey]: {
+          notion: null,
+          highlights: ['old-original-h1'],
+          metadata: { createdAt: 800, lastUpdated: 900 },
+        },
+        [originalLegacyKey]: ['old-legacy-h1'],
+      });
+
+      const newHighlights = ['h1', 'h2'];
+      await service.updateHighlights(originalUrl, newHighlights);
+
+      // 寫入應該落在 page_<stable> canonical key，且保留 stable 的 notion 欄位
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.objectContaining({
+          notion: { pageId: 'stable-pid' },
+          highlights: newHighlights,
+          metadata: expect.objectContaining({ lastUpdated: expect.any(Number) }),
+        }),
+      });
+      // MUST NOT 寫入 page_<original>
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ [originalPageKey]: expect.anything() })
+      );
+
+      // 等待非同步 cleanup
+      await new Promise(process.nextTick);
+
+      // legacy keys 應被清除（含 page_<original> 與 highlights_<original>）
+      const removeCalls = mockStorage.local.remove.mock.calls.map(args => args[0]);
+      const removedKeys = removeCalls.flat();
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
+      // MUST NOT remove canonical key 自身
+      expect(removedKeys).not.toContain(stablePageKey);
+      // 不存在的 stableLegacyKey 不應出現在 remove 名單（contract 過濾掉）
+      expect(removedKeys).not.toContain(stableLegacyKey);
+    });
+
+    it('並發 update：以 stable / original 兩個 pageUrl 同時呼叫應序列化於同一 canonical lock', async () => {
+      const originalUrl = 'https://example.com/post?utm=x';
+      const stableUrl = 'https://example.com/post';
+
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      // 模擬 alias 命中、且 page_<stable> 初始為空（兩次呼叫都會建立/覆寫 page_<stable>）
+      // 為驗證互鎖：mockStorage.local.set 被 instrumented 為記錄 set 順序與 in-flight count。
+      let setInFlight = 0;
+      let maxConcurrent = 0;
+      const setOrder = [];
+
+      mockStorage.local.get.mockImplementation(async keys => {
+        // 模擬非零延遲，放大 race window
+        await new Promise(resolve => setTimeout(resolve, 5));
+        const all = {
+          [aliasNormKey]: stableUrl,
+          [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        };
+        // 動態回傳 set 後的 stable page state（用 closure 模擬）
+        if (setOrder.length > 0) {
+          // 上一次寫入的 highlights
+          all[stablePageKey] = {
+            notion: null,
+            highlights: setOrder.at(-1),
+            metadata: { createdAt: 1, lastUpdated: 2 },
+          };
+        }
+        const requested = Array.isArray(keys) ? keys : [keys];
+        const acc = {};
+        for (const k of requested) {
+          if (k in all) {
+            acc[k] = all[k];
+          }
+        }
+        return acc;
+      });
+
+      mockStorage.local.set.mockImplementation(async payload => {
+        setInFlight++;
+        maxConcurrent = Math.max(maxConcurrent, setInFlight);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        // 紀錄寫入的 highlights
+        const value = payload[stablePageKey];
+        setOrder.push(value.highlights);
+        setInFlight--;
+      });
+
+      // 同時以 stable 與 original 兩個 URL 啟動 update
+      await Promise.all([
+        service.updateHighlights(stableUrl, ['from-stable']),
+        service.updateHighlights(originalUrl, ['from-original']),
+      ]);
+
+      // 互鎖驗證：兩次 set 不應同時 in-flight（max concurrent === 1）
+      expect(maxConcurrent).toBe(1);
+      // 兩次呼叫都寫入 canonical key（page_<stable>），不會落到 page_<original>
+      expect(setOrder).toHaveLength(2);
+      const setKeys = mockStorage.local.set.mock.calls.map(c => Object.keys(c[0])[0]);
+      expect(setKeys.every(k => k === stablePageKey)).toBe(true);
+    });
+
+    it('[CANONICAL] legacy cleanup MUST 在 updateHighlights 回傳前完成（不依賴 process.nextTick）', async () => {
+      const originalUrl = 'https://example.com/article?ref=abc';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+      const originalLegacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [stablePageKey]: { notion: { pageId: 'p1' }, highlights: [], metadata: {} },
+        [originalPageKey]: { notion: null, highlights: ['old'], metadata: {} },
+        [originalLegacyKey]: ['legacy-h'],
+      });
+
+      // 阻塞 mockStorage.local.remove 直到外部解 promise；用以驗證 lock-scope 同步性。
+      // 修復前（fire-and-forget）：updateHighlights 已 resolve，updateResolved === true。
+      // 修復後（await + try/catch）：updateHighlights 仍 pending 直到 cleanup 結束。
+      let resolveRemove;
+      const removePending = new Promise(resolve => {
+        resolveRemove = resolve;
+      });
+      mockStorage.local.remove.mockImplementation(() => removePending);
+
+      let updateResolved = false;
+      const updatePromise = service.updateHighlights(originalUrl, ['h1']).then(() => {
+        updateResolved = true;
+      });
+
+      // 給 microtask queue 足夠時間執行所有 await（set / get），但 cleanup 仍被阻塞。
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(updateResolved).toBe(false);
+
+      // 解開 remove → cleanup 完成 → lock 釋放 → updateHighlights resolve
+      resolveRemove();
+      await updatePromise;
+      expect(updateResolved).toBe(true);
+
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
+    });
+  });
+
+  describe('Canonical lock alignment across writers', () => {
+    // Follow-up plan 2026-05-03-highlight-canonical-lock-and-delete-all-cleanup-followup §1：
+    // 所有 page-state writers 在 alias 命中時 MUST 與 updateHighlights 共用同一條
+    // canonical lock 推導規則（contract.mutationTargetKey），不再各自實作。
+    it('updateHighlights 與 setSavedPageData 在 alias 命中時 MUST 鎖在同一個 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/post?utm=x';
+      const stableUrl = 'https://example.com/post';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: null,
+          highlights: [{ id: 'seed', text: 'seed', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await Promise.all([
+        service.updateHighlights(originalUrl, [{ id: 'h-update', text: 'u', color: 'yellow' }]),
+        service.setSavedPageData(originalUrl, {
+          notionPageId: 'page-1',
+          notionUrl: 'https://notion.so/page-1',
+          title: 'T',
+        }),
+      ]);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys).toHaveLength(2);
+      expect(lockKeys.every(k => k === stablePageKey)).toBe(true);
+    });
+
+    it('savePageDataAndHighlights 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/blog?ref=x';
+      const stableUrl = 'https://example.com/blog';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: null,
+          highlights: [],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await service.savePageDataAndHighlights(originalUrl, { title: 'T' }, [
+        { id: 'h', text: 't', color: 'yellow' },
+      ]);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys[0]).toBe(stablePageKey);
+    });
+
+    it('clearNotionState 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/article?utm=ig';
+      const stableUrl = 'https://example.com/article';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: { pageId: 'pid', url: 'https://notion.so/pid' },
+          highlights: [{ id: 'h', text: 't', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await service.clearNotionState(originalUrl);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys[0]).toBe(stablePageKey);
+    });
+
+    // Lite follow-up（2026-05-04）：剩餘兩個 _withLock writers 也對齊到 canonical helper
+    it('removeSavedPageData 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/news?ref=fb';
+      const stableUrl = 'https://example.com/news';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: { pageId: 'pid', url: 'https://notion.so/pid' },
+          highlights: [{ id: 'h', text: 'k', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await service.removeSavedPageData(originalUrl);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys[0]).toBe(stablePageKey);
+    });
+
+    it('_triggerReadTimeUpgrade 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/recipe?utm=tw';
+      const stableUrl = 'https://example.com/recipe';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const savedKey = `${SAVED_PREFIX}${originalUrl}`;
+      const savedData = { notionPageId: 'pid', title: 'Recipe' };
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      // _triggerReadTimeUpgrade 為 fire-and-forget,await 確保 lock pre-resolve 完成
+      await service._triggerReadTimeUpgrade(originalUrl, savedData, savedKey);
+      // 等待 fire-and-forget _withLock 微任務排隊完成
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys.length).toBeGreaterThan(0);
+      expect(lockKeys[0]).toBe(stablePageKey);
     });
   });
 

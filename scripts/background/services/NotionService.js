@@ -17,6 +17,9 @@ import { NOTION_API } from '../../config/extension/notionApi.js';
 import { AuthMode } from '../../config/extension/authMode.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
+// 導入暫存圖片 URL 偵測（用於 page cover 防護）
+// 從獨立模組 import，避免 rollup 被迫保留 imageUtils 整個物件含所有函數
+import { isTemporaryImageUrl } from '../../utils/temporaryImageUrl.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 // 導入重試管理器
@@ -869,12 +872,23 @@ class NotionService {
     }
 
     // 添加封面圖片（如果有且有效）
-    // 確保協議正確以避免 API 錯誤
-    if (coverImage && (coverImage.startsWith('http://') || coverImage.startsWith('https://'))) {
+    // 確保協議正確以避免 API 錯誤；
+    // 額外阻擋 temporary / signed URL（如 Patreon CDN），避免 Notion 伺服器端拉取 404
+    // 而導致 broken cover image。前端 ImageCollector 已先行擋下，此處為 defense in depth。
+    if (
+      coverImage &&
+      (coverImage.startsWith('http://') || coverImage.startsWith('https://')) &&
+      !isTemporaryImageUrl(coverImage)
+    ) {
       pageData.cover = {
         type: 'external',
         external: { url: coverImage },
       };
+    } else if (coverImage && isTemporaryImageUrl(coverImage)) {
+      Logger.warn('[NotionService] 跳過 temporary cover URL', {
+        action: 'buildPageData',
+        reason: 'temporary_image_url',
+      });
     }
 
     return { pageData };

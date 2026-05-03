@@ -324,16 +324,60 @@ class TabService {
     }
   }
 
+  /**
+   * 視需要寫入 url_alias，將 originalUrl → stableUrl 的對映持久化。
+   *
+   * Phase 4 (tighten — Phase 0 決策)：
+   * 不再僅以 `hasStableUrl=true` 為充分條件；MUST 在 stableUrl 已有有效
+   * `page_<stableUrl>` 或 `highlights_<stableUrl>` evidence 時才寫入 alias。
+   * 動機：避免 alias 早寫入造成 canonical 漂移（其他 consumer 透過 alias 解析到尚未實際
+   * 寫入資料的 stableUrl，導致 read 命中空 key）。
+   *
+   * 「有效 evidence」定義：
+   * - `page_<stableUrl>` 存在且 (highlights 非空 或 notion 非 null)
+   * - 或 `highlights_<stableUrl>` 存在（不論內容，視為舊格式 evidence）
+   *
+   * @param {boolean} hasStableUrl
+   * @param {string} originalUrl
+   * @param {string} normUrl - stableUrl（已 normalize）
+   * @returns {Promise<void>}
+   * @private
+   */
   async _persistUrlAliasIfNeeded(hasStableUrl, originalUrl, normUrl) {
     if (!hasStableUrl) {
       return;
     }
 
     try {
+      // Phase 4 (tighten)：先檢查 stableUrl 是否已有有效 evidence
+      const stablePageKey = `${HIGHLIGHT_KEY_PREFIX.PAGE}${normUrl}`;
+      const stableLegacyKey = `${HIGHLIGHT_KEY_PREFIX.HIGHLIGHTS}${normUrl}`;
+      const evidence = await chrome.storage.local.get([stablePageKey, stableLegacyKey]);
+
+      const stablePage = evidence[stablePageKey];
+      const hasPageEvidence =
+        stablePage &&
+        ((Array.isArray(stablePage.highlights) && stablePage.highlights.length > 0) ||
+          stablePage.notion);
+      const hasLegacyEvidence =
+        evidence[stableLegacyKey] !== undefined && evidence[stableLegacyKey] !== null;
+
+      if (!hasPageEvidence && !hasLegacyEvidence) {
+        // 無有效 evidence → 不寫 alias，避免漂移
+        this.logger.debug?.(
+          '[TabService] Skipping url_alias write: no evidence at stableUrl yet (tighten)',
+          {
+            originalUrl: sanitizeUrlForLogging(originalUrl),
+            stableUrl: sanitizeUrlForLogging(normUrl),
+          }
+        );
+        return;
+      }
+
       const aliasKey = `${URL_ALIAS_PREFIX}${this.normalizeUrl(originalUrl)}`;
       await chrome.storage.local.set({ [aliasKey]: normUrl });
     } catch (error) {
-      this.logger.warn?.('[TabService] url_alias 寫入失敗，將繼續後續狀態更新', {
+      this.logger.warn?.('[TabService] url_alias 寫入或檢查失敗，將繼續後續狀態更新', {
         action: 'updateTabStatus',
         originalUrl: sanitizeUrlForLogging(originalUrl),
         stableUrl: sanitizeUrlForLogging(normUrl),

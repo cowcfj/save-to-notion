@@ -75,7 +75,8 @@
     "must_not": [
       "Probe systems outside repo boundary",
       "Read user global credentials (e.g., ~/.ssh)",
-      "Use MCP as sandbox bypass"
+      "Use MCP as sandbox bypass",
+      "Create, switch to, or use git worktree"
     ]
   }
 }
