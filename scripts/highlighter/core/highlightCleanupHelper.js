@@ -38,8 +38,8 @@
 function _existingLegacyKeysSorted(contract, snapshot) {
   const target = contract.mutationTargetKey;
   return contract.legacyCleanupKeys
-    .filter(k => k !== target && snapshot && snapshot[k] !== undefined && snapshot[k] !== null)
-    .toSorted();
+    .filter(k => k !== target && snapshot?.[k] !== undefined && snapshot?.[k] !== null)
+    .toSorted((keyA, keyB) => keyA.localeCompare(keyB));
 }
 
 /**
@@ -93,7 +93,7 @@ export function planClearCleanup(contract, snapshot) {
     } else {
       // 無 notion 也無有意義內容 → 直接 remove
       remove.push(target);
-      remove.sort(); // 就地排序：此時陣列已是 planClearCleanup 本地變數，安全
+      remove.sort((keyA, keyB) => keyA.localeCompare(keyB)); // 就地排序：此時陣列已是 planClearCleanup 本地變數，安全
     }
   }
 
@@ -128,7 +128,7 @@ export function planDeleteCleanup(contract, snapshot) {
     !remove.includes(target)
   ) {
     remove.push(target);
-    remove.sort();
+    remove.sort((keyA, keyB) => keyA.localeCompare(keyB));
   }
 
   return { remove, set: {} };
