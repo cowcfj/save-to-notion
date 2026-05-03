@@ -1846,6 +1846,55 @@ describe('StorageService', () => {
       const lockKeys = lockSpy.mock.calls.map(call => call[0]);
       expect(lockKeys[0]).toBe(stablePageKey);
     });
+
+    // Lite follow-up（2026-05-04）：剩餘兩個 _withLock writers 也對齊到 canonical helper
+    it('removeSavedPageData 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/news?ref=fb';
+      const stableUrl = 'https://example.com/news';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        [stablePageKey]: {
+          notion: { pageId: 'pid', url: 'https://notion.so/pid' },
+          highlights: [{ id: 'h', text: 'k', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      await service.removeSavedPageData(originalUrl);
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys[0]).toBe(stablePageKey);
+    });
+
+    it('_triggerReadTimeUpgrade 在 alias 命中時 MUST 鎖在 page_<stable>', async () => {
+      const originalUrl = 'https://example.com/recipe?utm=tw';
+      const stableUrl = 'https://example.com/recipe';
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const savedKey = `${SAVED_PREFIX}${originalUrl}`;
+      const savedData = { notionPageId: 'pid', title: 'Recipe' };
+
+      makeStorageMock({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+        [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+      });
+
+      const lockSpy = jest.spyOn(service, '_withLock');
+
+      // _triggerReadTimeUpgrade 為 fire-and-forget,await 確保 lock pre-resolve 完成
+      await service._triggerReadTimeUpgrade(originalUrl, savedData, savedKey);
+      // 等待 fire-and-forget _withLock 微任務排隊完成
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const lockKeys = lockSpy.mock.calls.map(call => call[0]);
+      expect(lockKeys.length).toBeGreaterThan(0);
+      expect(lockKeys[0]).toBe(stablePageKey);
+    });
   });
 
   describe('error handling', () => {

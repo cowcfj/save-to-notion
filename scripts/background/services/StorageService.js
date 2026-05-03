@@ -355,9 +355,10 @@ class StorageService {
    * @param {string} targetUrl - 目標 URL (可能是 normalizedUrl 或是 alias resolve 之後的 resolvedUrl)
    * @param {object|null} savedData - 舊 saved_* 資料
    * @param {string} savedKey - 舊 saved_* key
+   * @returns {Promise<void>} fire-and-forget;呼叫端 MAY 忽略回傳的 Promise
    * @private
    */
-  _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
+  async _triggerReadTimeUpgrade(targetUrl, savedData, savedKey) {
     const now = Date.now();
     if (!this._canRetryUpgrade(targetUrl, now)) {
       return;
@@ -366,8 +367,20 @@ class StorageService {
     const pageKey = `${PAGE_PREFIX}${targetUrl}`;
     const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
 
+    // Phase 4 follow-up（Lite plan 2026-05-04）：lock key 改採 canonical helper,
+    // 與其他 page-state writers 共用同一條 lock namespace。
+    // 注意:此 function 對 caller 仍為 fire-and-forget;_withLock 內的工作 MAY 在 caller 已返回後才完成。
+    // alias 預解析的失敗也須吞掉,避免 unhandled rejection 漏出（caller 不 await）。
+    let lockKey;
+    try {
+      ({ lockKey } = await this._resolveCanonicalLockKey(targetUrl));
+    } catch (error) {
+      this.logger.warn?.('[StorageService] 讀時升級 alias 預解析失敗', { error });
+      return;
+    }
+
     // 在鎖的保護下進行升級，避免併發覆蓋
-    this._withLock(targetUrl, async () => {
+    this._withLock(lockKey, async () => {
       const lockNow = Date.now();
       if (!this._canRetryUpgrade(targetUrl, lockNow)) {
         return;
@@ -690,8 +703,10 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    // Phase 4 follow-up（Lite plan 2026-05-04）：與其他 page-state writers 對齊到 canonical lock namespace
+    const { lockKey } = await this._resolveCanonicalLockKey(normalizedUrl, pageUrl);
 
-    return this._withLock(normalizedUrl, async () => {
+    return this._withLock(lockKey, async () => {
       try {
         const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
         const existing = await this.storage.local.get([pageKey]);
