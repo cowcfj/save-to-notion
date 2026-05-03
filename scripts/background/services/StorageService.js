@@ -1246,15 +1246,7 @@ class StorageService {
         // 避免 stable / original 並發 ABA。只清理「實際存在」的 legacy key。
         const cleanupKeys = contract.legacyCleanupKeys
           .filter(k => k !== targetKey && existing[k])
-          .toSorted((keyA, keyB) => {
-            if (keyA < keyB) {
-              return -1;
-            }
-            if (keyA > keyB) {
-              return 1;
-            }
-            return 0;
-          });
+          .toSorted((keyA, keyB) => keyA.localeCompare(keyB));
         if (cleanupKeys.length > 0) {
           // 非阻塞 remove（沿用既有作法）：失敗只記 debug log，不影響 caller
           this.storage.local.remove(cleanupKeys).catch(error => {
