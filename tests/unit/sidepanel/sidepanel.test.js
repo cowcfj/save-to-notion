@@ -582,13 +582,17 @@ describe('Sidepanel JS Logic', () => {
 
       const delBtn = document.querySelector('.delete-button');
       delBtn.click();
-      for (let i = 0; i < 5; i++) {
+      // Phase 4：handleDelete shouldRemove 路徑 + helper-driven cleanup 增加多個 await，
+      // 需要更多 microtask 循環才能 drain remove + tabs.query + sendMessage。
+      for (let i = 0; i < 10; i++) {
         await Promise.resolve();
       }
 
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
-        'highlights_https://example.js/stable'
+      expect(chrome.storage.local.remove).toHaveBeenCalled();
+      const removedKeys = chrome.storage.local.remove.mock.calls.flatMap(call =>
+        Array.isArray(call[0]) ? call[0] : [call[0]]
       );
+      expect(removedKeys).toContain('highlights_https://example.js/stable');
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(101, {
         action: 'REMOVE_HIGHLIGHT_DOM',
         highlightId: '1',
@@ -652,9 +656,15 @@ describe('Sidepanel JS Logic', () => {
       if (delBtn) {
         delBtn.click();
       }
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith('page_https://example.js/stable');
+      // Phase 4：handleDelete 的 shouldRemove 路徑增加 _resolvePageDeletionKeys 內部的多次 await，
+      // 需要更多 microtask 循環才能 drain 所有 storage operation。
+      for (let i = 0; i < 6; i++) {
+        await Promise.resolve();
+      }
+      const removedKeys1 = chrome.storage.local.remove.mock.calls.flatMap(call =>
+        Array.isArray(call[0]) ? call[0] : [call[0]]
+      );
+      expect(removedKeys1).toContain('page_https://example.js/stable');
 
       // test partial
       chrome.storage.local.remove.mockClear();
@@ -713,11 +723,13 @@ describe('Sidepanel JS Logic', () => {
       if (delBtn) {
         delBtn.click();
       }
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
-        'highlights_https://example.js/stable'
+      for (let i = 0; i < 6; i++) {
+        await Promise.resolve();
+      }
+      const removedKeysLegacy = chrome.storage.local.remove.mock.calls.flatMap(call =>
+        Array.isArray(call[0]) ? call[0] : [call[0]]
       );
+      expect(removedKeysLegacy).toContain('highlights_https://example.js/stable');
 
       // test partial
       chrome.storage.local.remove.mockClear();
@@ -793,11 +805,13 @@ describe('Sidepanel JS Logic', () => {
       if (delBtn) {
         delBtn.click();
       }
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
-        'highlights_https://example.js/stable'
+      for (let i = 0; i < 6; i++) {
+        await Promise.resolve();
+      }
+      const removedKeysGarbage = chrome.storage.local.remove.mock.calls.flatMap(call =>
+        Array.isArray(call[0]) ? call[0] : [call[0]]
       );
+      expect(removedKeysGarbage).toContain('highlights_https://example.js/stable');
     });
 
     it('should trigger sync click successfully', async () => {
@@ -1528,6 +1542,72 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     const cards = document.querySelectorAll('#unsynced-view .page-card');
     expect(cards).toHaveLength(0);
   });
+
+  // === Step 3: Canonical ownership tests（2026-05-03 completion plan） ===
+
+  it('[CANONICAL] page_<stable> 與 page_<original> 並存時應只顯示一張卡片', async () => {
+    await initModule({
+      // alias: original → stable
+      'url_alias:https://example.com/article?ref=x': 'https://example.com/article',
+      // canonical（stable）entry：應被選為 owner
+      'page_https://example.com/article': {
+        notion: null,
+        highlights: [{ id: 'h-stable', text: 'stable text', color: 'yellow' }],
+        metadata: { lastUpdated: 2000, title: 'Stable Title' },
+      },
+      // 殘留的 original entry：alias 命中後應併入同一 canonical group
+      'page_https://example.com/article?ref=x': {
+        notion: null,
+        highlights: [{ id: 'h-orphan', text: 'orphan', color: 'blue' }],
+        metadata: { lastUpdated: 1000, title: 'Orphan Title' },
+      },
+    });
+
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(1);
+    // owner 應為 page_<stable>，title 對應 stable entry
+    expect(cards[0].querySelector('.page-title').textContent).toContain('Stable Title');
+  });
+
+  it('[CANONICAL] alias 指向空 stable key 時應回退顯示 original page', async () => {
+    await initModule({
+      // alias 存在但 page_<stable> 不存在
+      'url_alias:https://example.com/post?utm=x': 'https://example.com/post',
+      // 只剩 page_<original>
+      'page_https://example.com/post?utm=x': {
+        notion: null,
+        highlights: [{ id: 'h-orig', text: 'original content', color: 'yellow' }],
+        metadata: { lastUpdated: 5000, title: 'Original Page' },
+      },
+    });
+
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    // 不應因為 alias 指向空 stable 而消失；canonical group 仍有 page_<original> 作為 fallback owner
+    expect(cards).toHaveLength(1);
+    expect(cards[0].querySelector('.page-title').textContent).toContain('Original Page');
+  });
+
+  it('[CANONICAL] page_<stable> + highlights_<original> 並存時應依 owner 優先序選 page_<stable>', async () => {
+    await initModule({
+      'url_alias:https://example.com/news?from=fb': 'https://example.com/news',
+      'page_https://example.com/news': {
+        notion: null,
+        highlights: [{ id: 'h1', text: 'canonical', color: 'yellow' }],
+        metadata: { lastUpdated: 9000, title: 'Canonical News' },
+      },
+      'highlights_https://example.com/news?from=fb': [
+        { id: 'h2', text: 'legacy orphan', color: 'blue' },
+      ],
+    });
+
+    await clickUnsyncedTab();
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(1);
+    expect(cards[0].querySelector('.page-title').textContent).toContain('Canonical News');
+  });
+
   describe('deleteUnsyncedPage', () => {
     it('should remove the page from storage, cache, and DOM', async () => {
       const mockKey = 'highlights_https://example.com/delete-test';

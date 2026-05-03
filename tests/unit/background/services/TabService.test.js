@@ -277,6 +277,15 @@ describe('TabService', () => {
         .mockResolvedValue({ id: 1, status: 'complete', url: 'https://example.com/stable' });
       service._sendStableUrl = jest.fn();
       service.normalizeUrl = jest.fn(url => url.replace('/?utm_source=fb#frag', ''));
+
+      // Phase 4 (tighten)：alias 寫入需 stableUrl 已有有效 evidence；seed page_<stable> 含 highlights
+      chrome.storage.local.get.mockResolvedValue({
+        'page_https://example.com/stable': {
+          notion: null,
+          highlights: [{ id: 'evidence-h', text: 'evidence', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
       chrome.storage.local.set.mockResolvedValue(undefined);
 
       await service._updateTabStatusInternal(1, 'https://example.com/original/?utm_source=fb#frag');
@@ -288,22 +297,54 @@ describe('TabService', () => {
       );
     });
 
-    it('hasStableUrl=true 時應無條件建立 url_alias（即使無 highlights）', async () => {
-      // 情境：Preloader 成功解析出 stableUrl，但頁面無 highlights 也無 savedData
-      // 預期：alias 仍被建立，確保 Popup 下次透過 fallback URL 也能找到 savedData
+    it('Phase 4 (tighten)：hasStableUrl=true 但 stableUrl 無 evidence 時，MUST NOT 寫入 url_alias', async () => {
+      // 情境：Preloader 解析出 stableUrl，但 page_<stable> 與 highlights_<stable> 都無資料
+      // 預期：tighten 模式下 alias 寫入應被跳過，避免 canonical 漂移
       service.resolveTabUrl = jest.fn().mockResolvedValue({
         stableUrl: 'https://example.com/?p=2928',
         originalUrl: 'https://example.com/long-path',
         hasStableUrl: true,
       });
       service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null); // 無 highlights
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
       jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      // 無 evidence：所有 key 都返回空
+      chrome.storage.local.get.mockResolvedValue({});
       chrome.storage.local.set.mockResolvedValue(undefined);
 
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
 
-      // alias 應在 step-0 被建立，不依賴 highlights 是否存在
+      // alias key MUST NOT 被寫入
+      const aliasSets = chrome.storage.local.set.mock.calls.filter(call =>
+        Object.keys(call[0]).some(k => k.startsWith(URL_ALIAS_PREFIX))
+      );
+      expect(aliasSets).toHaveLength(0);
+    });
+
+    it('Phase 4 (tighten)：hasStableUrl=true 且 stableUrl 已有 page_* evidence 時，建立 url_alias', async () => {
+      // 情境：stableUrl 對應的 page_* 已有 highlights → 滿足 tighten 條件
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      chrome.storage.local.get.mockResolvedValue({
+        'page_https://example.com/?p=2928': {
+          notion: null,
+          highlights: [{ id: 'h', text: 'evidence', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+      chrome.storage.local.set.mockResolvedValue(undefined);
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      // alias 應該在 evidence 滿足時建立
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
       });
@@ -350,6 +391,15 @@ describe('TabService', () => {
       service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
       service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
       jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      // Phase 4 (tighten)：先 seed evidence 才會走到 alias 寫入路徑，從而觸發 set 失敗
+      chrome.storage.local.get.mockResolvedValue({
+        'page_https://example.com/?p=2928': {
+          notion: null,
+          highlights: [{ id: 'h', text: 'evidence', color: 'yellow' }],
+          metadata: { lastUpdated: 1 },
+        },
+      });
       chrome.storage.local.set.mockRejectedValue(new Error('alias write failed'));
 
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
@@ -360,7 +410,7 @@ describe('TabService', () => {
         'https://example.com/long-path'
       );
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        '[TabService] url_alias 寫入失敗，將繼續後續狀態更新',
+        '[TabService] url_alias 寫入或檢查失敗，將繼續後續狀態更新',
         expect.objectContaining({
           action: 'updateTabStatus',
           originalUrl: expect.any(String),
@@ -1270,17 +1320,24 @@ describe('TabService', () => {
         // 5. 執行測試
         await service._updateTabStatusInternal(mockTabId, mockRawUrl);
 
-        // 6. 驗證：resolver 優先查詢 page_* 新格式，再查 highlights_* 舊格式
+        // 6. 驗證：Phase 4 (tighten) 在 _persistUrlAliasIfNeeded 加入 evidence check 為第 1 個 get；
+        //         resolver 隨後對 stable / original 各做一次 get（第 2、3 個）。
         expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
           1,
+          expect.arrayContaining([`page_${mockStableUrl}`, `highlights_${mockStableUrl}`])
+        );
+        // 第 2 個 get：resolver 優先查 stable URL 的所有 keys
+        expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
+          2,
           expect.arrayContaining([
             `${URL_ALIAS_PREFIX}${mockStableUrl}`,
             `page_${mockStableUrl}`,
             `highlights_${mockStableUrl}`,
           ])
         );
+        // 第 3 個 get：stable miss 後回退到 original URL 的所有 keys
         expect(chrome.storage.local.get).toHaveBeenNthCalledWith(
-          2,
+          3,
           expect.arrayContaining([
             `${URL_ALIAS_PREFIX}${mockOriginalUrl}`,
             `page_${mockOriginalUrl}`,

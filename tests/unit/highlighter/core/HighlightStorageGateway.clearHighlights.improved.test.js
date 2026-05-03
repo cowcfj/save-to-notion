@@ -246,7 +246,11 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
         const testUrl = 'https://example.com/test';
         const legacyKey = 'highlights_https://example.com/test';
 
-        // MV3 原生 Promise：直接以 rejected Promise 表示失敗
+        // Phase 4：cleanup 採 contract-driven 「只清實際存在 key」策略，
+        // 因此先 seed storage 讓 plan.remove 非空，否則 storage.remove 不會被呼叫。
+        await chrome.storage.local.set({ [legacyKey]: ['seeded'] });
+
+        // 設定 remove 拒絕（模擬 Chrome Storage 寫入失敗）
         chrome.storage.local.remove.mockRejectedValue(new Error('Storage error'));
 
         globalThis.localStorage.setItem(legacyKey, JSON.stringify([{ text: 'test' }]));
@@ -355,8 +359,13 @@ describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
       jest.useFakeTimers();
       try {
         const testUrl = 'https://example.com/page?utm_source=test#anchor';
+        const legacyKey = 'highlights_https://example.com/page';
+
+        // Phase 4：cleanup 只清實際存在 key — 預先 seed legacy key 才能驗證 contract 命中
+        await chrome.storage.local.set({ [legacyKey]: ['seeded'] });
+
         // sendMessage 已在 beforeEach 設為失敗，測試 Fallback 路徑
-        // Fallback 會嘗試對 page_https://example.com/page 和 highlights_https://example.com/page 兩種 keys
+        // Fallback 透過 contract resolver 取得 legacyCleanupKeys，遍歷 remove
         const clearPromise = HighlightStorageGateway.clearHighlights(testUrl);
         await jest.runAllTimersAsync();
         await clearPromise;

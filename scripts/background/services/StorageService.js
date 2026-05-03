@@ -1139,7 +1139,18 @@ class StorageService {
   }
 
   /**
-   * 更新指定 URL 的標註陣列（Phase 3：partial update page_*.highlights，含互斥鎖）
+   * 更新指定 URL 的標註陣列（Phase 4：contract-driven mutation + canonical-lock）
+   *
+   * 流程：
+   * 1. Pre-resolve（不在 lock 內）：
+   *    - 批量讀取 alias keys + page_* + highlights_*
+   *    - 透過 HighlightLookupResolver 取得 contract（含 mutationTargetKey、legacyCleanupKeys）
+   * 2. 以 contract.mutationTargetKey 為 lock key（取代原本的 normalizedUrl），
+   *    確保 stable / original 兩個 pageUrl 同時進入時鎖到同一個 canonical key。
+   * 3. Lock 內重讀 lookupOrder 上的 keys（避免 TOCTOU），
+   *    若 canonical key 已有資料則 partial update；否則從第一個有資料的 legacy key 遷移。
+   * 4. 寫入 mutationTargetKey。
+   * 5. 在同一 lock 範圍內，依字典序執行 legacyCleanupKeys 清理（Phase 0 決策：固定 ordering，避免 ABA）。
    *
    * 若更新後陣列為空且 notion 為 null，**不**自動刪除 key（由呼叫端決定是否刪除）。
    *
@@ -1153,51 +1164,111 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
+    const rawUrl = typeof pageUrl === 'string' ? pageUrl : null;
 
-    return this._withLock(normalizedUrl, async () => {
-      try {
-        const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const hlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+    try {
+      // === Pre-resolve（lock 之外）===
+      // 解析 alias，決定 canonical mutation target，再以該 key 鎖定 read-modify-write。
+      const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
+      const preloadKeys = new Set([
+        ...aliasKeys,
+        `${PAGE_PREFIX}${normalizedUrl}`,
+        `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+      ]);
+      if (rawUrl && rawUrl !== normalizedUrl) {
+        preloadKeys.add(`${PAGE_PREFIX}${rawUrl}`);
+        preloadKeys.add(`${HIGHLIGHTS_PREFIX}${rawUrl}`);
+      }
+      const preloadResult = await this.storage.local.get([...preloadKeys]);
+      const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
+      const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+      const lockKey = contract.mutationTargetKey;
 
-        // 讀取現有資料（優先 page_*，回退 highlights_*）
-        const existing = await this.storage.local.get([pageKey, hlKey]);
-        const current = existing[pageKey];
+      return await this._withLock(lockKey, async () => {
+        const targetKey = contract.mutationTargetKey;
+        // Lock 內重讀（避免 lock 等待期間有其他 writer 已寫入新資料）。
+        const readKeys = Array.from(
+          new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
+        );
+        const existing = await this.storage.local.get(readKeys);
+        const canonicalCurrent = existing[targetKey];
 
         let newData;
-        if (current) {
-          // 新格式：partial update highlights 欄位
+        if (canonicalCurrent) {
+          // canonical 已存在 → partial update highlights 欄位
           newData = {
-            ...current,
+            ...canonicalCurrent,
             highlights,
-            metadata: { ...current.metadata, lastUpdated: Date.now() },
+            metadata: { ...canonicalCurrent.metadata, lastUpdated: Date.now() },
           };
         } else {
-          // 尚無 page_* → 建立新物件（notion 為 null，表示未保存到 Notion）
-          const oldHl = existing[hlKey];
-          newData = this._buildPageObject(
-            null,
-            highlights,
-            normalizedUrl,
-            oldHl ? hlKey : undefined
-          );
+          // canonical 不存在 → 嘗試從 lookupOrder 找出第一個有資料的 key 作為遷移來源
+          let migrationSourceKey = null;
+          let migrationSourceValue = null;
+          for (const key of contract.lookupOrder) {
+            if (key === targetKey) {
+              continue;
+            }
+            if (existing[key]) {
+              migrationSourceKey = key;
+              migrationSourceValue = existing[key];
+              break;
+            }
+          }
+
+          if (migrationSourceKey?.startsWith(PAGE_PREFIX)) {
+            // 從 page_<other> 遷移：保留 notion / metadata，只覆寫 highlights
+            newData = {
+              ...migrationSourceValue,
+              highlights,
+              metadata: {
+                ...migrationSourceValue.metadata,
+                lastUpdated: Date.now(),
+                migratedFrom: migrationSourceKey,
+              },
+            };
+          } else {
+            // 無 page_* 來源（可能來自 highlights_*，或完全無歷史資料）
+            // → 建立新 page_* 物件，optional 紀錄 legacy 來源 key
+            newData = this._buildPageObject(
+              null,
+              highlights,
+              normalizedUrl,
+              migrationSourceKey || undefined
+            );
+          }
         }
 
-        await this.storage.local.set({ [pageKey]: newData });
+        await this.storage.local.set({ [targetKey]: newData });
 
-        // 過渡期：若讀到舊 highlights_* key，非阻塞刪除
-        if (existing[hlKey]) {
-          this.storage.local.remove([hlKey]).catch(error => {
-            this.logger.debug?.('[StorageService] Failed to remove legacy highlights key', {
-              hlKey,
+        // === Cleanup legacy keys ===
+        // Phase 0 決策：在持有 canonical lock 的同一 lock 範圍內、依字典序執行 cleanup，
+        // 避免 stable / original 並發 ABA。只清理「實際存在」的 legacy key。
+        const cleanupKeys = contract.legacyCleanupKeys
+          .filter(k => k !== targetKey && existing[k])
+          .toSorted((keyA, keyB) => {
+            if (keyA < keyB) {
+              return -1;
+            }
+            if (keyA > keyB) {
+              return 1;
+            }
+            return 0;
+          });
+        if (cleanupKeys.length > 0) {
+          // 非阻塞 remove（沿用既有作法）：失敗只記 debug log，不影響 caller
+          this.storage.local.remove(cleanupKeys).catch(error => {
+            this.logger.debug?.('[StorageService] Failed to remove legacy keys', {
+              keys: cleanupKeys,
               error: error?.message ?? error,
             });
           });
         }
-      } catch (error) {
-        this.logger.error?.('[StorageService] updateHighlights failed', { error });
-        throw error;
-      }
-    });
+      });
+    } catch (error) {
+      this.logger.error?.('[StorageService] updateHighlights failed', { error });
+      throw error;
+    }
   }
 
   /**

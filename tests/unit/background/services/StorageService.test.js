@@ -1607,8 +1607,11 @@ describe('StorageService', () => {
       await new Promise(process.nextTick);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        '[StorageService] Failed to remove legacy highlights key',
-        expect.objectContaining({ error: 'Remove highlights failed' })
+        '[StorageService] Failed to remove legacy keys',
+        expect.objectContaining({
+          error: 'Remove highlights failed',
+          keys: expect.arrayContaining([`${HIGHLIGHTS_PREFIX}https://example.com/page`]),
+        })
       );
     });
 
@@ -1631,6 +1634,129 @@ describe('StorageService', () => {
         '[StorageService] updateHighlights failed',
         expect.objectContaining({ error: expect.any(Error) })
       );
+    });
+
+    // === Step 1: Contract-driven mutation tests（2026-05-03 completion plan） ===
+
+    it('alias 命中時應該寫入 page_<stableUrl> 並 cleanup legacy keys', async () => {
+      const originalUrl = 'https://example.com/article?ref=abc';
+      const stableUrl = 'https://example.com/article';
+
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+      const originalLegacyKey = `${HIGHLIGHTS_PREFIX}${originalUrl}`;
+      const stableLegacyKey = `${HIGHLIGHTS_PREFIX}${stableUrl}`;
+
+      // Storage 內容：
+      // - alias: original → stable
+      // - page_<stable> 已存在（之前 alias 命中過）
+      // - 殘留 page_<original> 與 highlights_<original>（過去未清乾淨）
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [stablePageKey]: {
+          notion: { pageId: 'stable-pid' },
+          highlights: ['old-stable-h1'],
+          metadata: { createdAt: 1000, lastUpdated: 1500 },
+        },
+        [originalPageKey]: {
+          notion: null,
+          highlights: ['old-original-h1'],
+          metadata: { createdAt: 800, lastUpdated: 900 },
+        },
+        [originalLegacyKey]: ['old-legacy-h1'],
+      });
+
+      const newHighlights = ['h1', 'h2'];
+      await service.updateHighlights(originalUrl, newHighlights);
+
+      // 寫入應該落在 page_<stable> canonical key，且保留 stable 的 notion 欄位
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.objectContaining({
+          notion: { pageId: 'stable-pid' },
+          highlights: newHighlights,
+          metadata: expect.objectContaining({ lastUpdated: expect.any(Number) }),
+        }),
+      });
+      // MUST NOT 寫入 page_<original>
+      expect(mockStorage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ [originalPageKey]: expect.anything() })
+      );
+
+      // 等待非同步 cleanup
+      await new Promise(process.nextTick);
+
+      // legacy keys 應被清除（含 page_<original> 與 highlights_<original>）
+      const removeCalls = mockStorage.local.remove.mock.calls.map(args => args[0]);
+      const removedKeys = removeCalls.flat();
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
+      // MUST NOT remove canonical key 自身
+      expect(removedKeys).not.toContain(stablePageKey);
+      // 不存在的 stableLegacyKey 不應出現在 remove 名單（contract 過濾掉）
+      expect(removedKeys).not.toContain(stableLegacyKey);
+    });
+
+    it('並發 update：以 stable / original 兩個 pageUrl 同時呼叫應序列化於同一 canonical lock', async () => {
+      const originalUrl = 'https://example.com/post?utm=x';
+      const stableUrl = 'https://example.com/post';
+
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+
+      // 模擬 alias 命中、且 page_<stable> 初始為空（兩次呼叫都會建立/覆寫 page_<stable>）
+      // 為驗證互鎖：mockStorage.local.set 被 instrumented 為記錄 set 順序與 in-flight count。
+      let setInFlight = 0;
+      let maxConcurrent = 0;
+      const setOrder = [];
+
+      mockStorage.local.get.mockImplementation(async keys => {
+        // 模擬非零延遲，放大 race window
+        await new Promise(resolve => setTimeout(resolve, 5));
+        const all = {
+          [aliasNormKey]: stableUrl,
+          [`${URL_ALIAS_PREFIX}${stableUrl}`]: stableUrl,
+        };
+        // 動態回傳 set 後的 stable page state（用 closure 模擬）
+        if (setOrder.length > 0) {
+          // 上一次寫入的 highlights
+          all[stablePageKey] = {
+            notion: null,
+            highlights: setOrder.at(-1),
+            metadata: { createdAt: 1, lastUpdated: 2 },
+          };
+        }
+        const requested = Array.isArray(keys) ? keys : [keys];
+        const acc = {};
+        for (const k of requested) {
+          if (k in all) {
+            acc[k] = all[k];
+          }
+        }
+        return acc;
+      });
+
+      mockStorage.local.set.mockImplementation(async payload => {
+        setInFlight++;
+        maxConcurrent = Math.max(maxConcurrent, setInFlight);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        // 紀錄寫入的 highlights
+        const value = payload[stablePageKey];
+        setOrder.push(value.highlights);
+        setInFlight--;
+      });
+
+      // 同時以 stable 與 original 兩個 URL 啟動 update
+      await Promise.all([
+        service.updateHighlights(stableUrl, ['from-stable']),
+        service.updateHighlights(originalUrl, ['from-original']),
+      ]);
+
+      // 互鎖驗證：兩次 set 不應同時 in-flight（max concurrent === 1）
+      expect(maxConcurrent).toBe(1);
+      // 兩次呼叫都寫入 canonical key（page_<stable>），不會落到 page_<original>
+      expect(setOrder).toHaveLength(2);
+      const setKeys = mockStorage.local.set.mock.calls.map(c => Object.keys(c[0])[0]);
+      expect(setKeys.every(k => k === stablePageKey)).toBe(true);
     });
   });
 
