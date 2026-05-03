@@ -29,6 +29,7 @@ import {
   pickAliasCandidate,
   pickHighlightsFromStorage,
 } from '../scripts/highlighter/core/HighlightLookupResolver.js';
+import { compareKeysAlphabetically } from '../scripts/highlighter/core/keyOrdering.js';
 
 // === 共享狀態（保留於入口，UI 模組不直接存取） ===
 
@@ -374,7 +375,7 @@ function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
     k => typeof k === 'string' && allStorageData[k] !== undefined && allStorageData[k] !== null
   );
 
-  return result.toSorted((keyA, keyB) => keyA.localeCompare(keyB));
+  return result.toSorted(compareKeysAlphabetically);
 }
 
 /**

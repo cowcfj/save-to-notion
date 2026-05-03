@@ -20,36 +20,13 @@
  * @module core/highlightCleanupHelper
  */
 
+import { compareKeysAlphabetically } from './keyOrdering.js';
+
 /**
  * @typedef {object} HighlightCleanupPlan
  * @property {string[]} remove - 應呼叫 `storage.remove()` 的 key 清單（已字典序）
  * @property {Record<string, any>} set - 應呼叫 `storage.set()` 的 key→value 對映（保留 page state 時用）
  */
-
-/**
- * 穩定的字母排序 comparator，基於 String.prototype.localeCompare。
- *
- * 設計考量：
- * - 鎖定 'en' locale，避免使用者 runtime locale 影響排序結果
- *   （例如土耳其語的 dotted/dotless i、瑞典語的 å/ä/ö）。
- * - sensitivity: 'variant' 顯式宣告區分大小寫與重音，語意明確。
- * - numeric: true 讓 'item_2' < 'item_10'，對純 hash/URL key 無副作用。
- *
- * 此函式僅供本模組內部使用，呼叫端（contract.legacyCleanupKeys、
- * mutationTargetKey）已保證輸入為 string，因此不在此再做型別防呆，
- * 以免 mask 上游錯誤。
- *
- * @param {string} keyA
- * @param {string} keyB
- * @returns {number}
- * @private
- */
-function _compareKeysAlphabetically(keyA, keyB) {
-  return keyA.localeCompare(keyB, 'en', {
-    sensitivity: 'variant',
-    numeric: true,
-  });
-}
 
 /**
  * 取得 contract 中應納入 cleanup 範圍的 legacy keys（不含 mutationTargetKey 自身），
@@ -64,7 +41,7 @@ function _existingLegacyKeysSorted(contract, snapshot) {
   const target = contract.mutationTargetKey;
   return contract.legacyCleanupKeys
     .filter(k => k !== target && snapshot?.[k] !== undefined && snapshot?.[k] !== null)
-    .toSorted(_compareKeysAlphabetically);
+    .toSorted(compareKeysAlphabetically);
 }
 
 /**
@@ -118,7 +95,7 @@ export function planClearCleanup(contract, snapshot) {
     } else {
       // 無 notion 也無有意義內容 → 直接 remove
       remove.push(target);
-      remove.sort(_compareKeysAlphabetically); // 就地排序：此時陣列已是 planClearCleanup 本地變數，安全
+      remove.sort(compareKeysAlphabetically); // 就地排序：此時陣列已是 planClearCleanup 本地變數，安全
     }
   }
 
@@ -153,7 +130,7 @@ export function planDeleteCleanup(contract, snapshot) {
     !remove.includes(target)
   ) {
     remove.push(target);
-    remove.sort(_compareKeysAlphabetically);
+    remove.sort(compareKeysAlphabetically);
   }
 
   return { remove, set: {} };
