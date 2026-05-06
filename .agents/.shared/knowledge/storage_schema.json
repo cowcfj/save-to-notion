@@ -194,7 +194,7 @@
           }
         },
         "url_alias_{normalizedUrl}": {
-          "description": "Mapping from original URL to stable URL to handle async race conditions",
+          "description": "Mapping from original URL to stable URL to handle async race conditions. Referential integrity MUST hold: the stableUrl target must resolve to at least one sync-whitelisted data source in the same canonical snapshot/application pass (page state, saved state, or highlights). Orphan aliases MUST NOT be uploaded to Drive snapshots and MUST NOT be restored back into local storage.",
           "schema": "string (stableUrl)"
         }
       }
