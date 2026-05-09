@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.66.2](https://github.com/cowcfj/save-to-notion/compare/v2.66.1...v2.66.2) (2026-05-03)
+
+
+### 🐛 Bug 修復
+
+* avoid Notion broken image from Patreon temporary URLs ([#470](https://github.com/cowcfj/save-to-notion/issues/470)) ([fe074db](https://github.com/cowcfj/save-to-notion/commit/fe074dbbc784562aa905c4002449097c7768130e))
+
+
+### ♻️ 代碼重構
+
+* align highlight key mutation/cleanup contracts and tighten alias write ([#468](https://github.com/cowcfj/save-to-notion/issues/468)) ([6180b67](https://github.com/cowcfj/save-to-notion/commit/6180b67ebb7e5e97a7fab1b9afd7ba1684bcb2e2))
+
 ## [2.66.1](https://github.com/cowcfj/save-to-notion/compare/v2.66.0...v2.66.1) (2026-05-02)
 
 

@@ -89,7 +89,9 @@ describe('highlightCleanupHelper', () => {
       // 應 remove: page_<normalized>, highlights_<normalized>（字典序）
       // MUST NOT remove: page_<stable>（會 setNull/highlights=[])
       expect(plan.remove).toEqual(
-        [...new Set([normalizedPageKey, normalizedLegacyKey])].toSorted()
+        [...new Set([normalizedPageKey, normalizedLegacyKey])].toSorted((a, b) =>
+          a.localeCompare(b)
+        )
       );
       expect(plan.remove).not.toContain(stablePageKey);
       expect(plan.set[stablePageKey]).toBeDefined();
@@ -126,7 +128,9 @@ describe('highlightCleanupHelper', () => {
       const plan = planDeleteCleanup(contract, snapshot);
 
       expect(plan.remove).toEqual(
-        [normalizedLegacyKey, normalizedPageKey, stablePageKey].toSorted()
+        [normalizedLegacyKey, normalizedPageKey, stablePageKey].toSorted((a, b) =>
+          a.localeCompare(b)
+        )
       );
       expect(plan.set).toEqual({});
     });
@@ -157,7 +161,9 @@ describe('highlightCleanupHelper', () => {
         [stablePageKey]: { notion: null, highlights: ['stable-orphan'] },
       };
       const plan = planDeleteCleanup(contract, snapshot);
-      expect(plan.remove).toEqual([normalizedLegacyKey, normalizedPageKey].toSorted());
+      expect(plan.remove).toEqual(
+        [normalizedLegacyKey, normalizedPageKey].toSorted((a, b) => a.localeCompare(b))
+      );
       expect(plan.remove).not.toContain(stablePageKey);
     });
 
@@ -181,7 +187,7 @@ describe('highlightCleanupHelper', () => {
         normalizedPageKey,
         stableLegacyKey,
         normalizedLegacyKey,
-      ].toSorted();
+      ].toSorted((a, b) => a.localeCompare(b));
       expect(plan.remove).toEqual(expected);
     });
   });

@@ -103,7 +103,7 @@
           "type": "string | null",
           "description": "帳號頭像 URL（可能為 null）"
         },
-        "$comment_driveSync": "=== Google Drive Sync Metadata Keys (Phase A) ===\n所有 key 以 driveSync 前綴命名，與 account / notion keys 完整隔離。\n不包含任何 token 或 credential。\n來源：docs/plans/2026-04-20-google-drive-sync-frontend-phase-a-manual-sync-plan.md §5.3",
+        "$comment_driveSync": "=== Google Drive Sync Metadata Keys (Phase A + Phase B) ===\n所有 key 以 driveSync 前綴命名，與 account / notion keys 完整隔離。\n不包含任何 token 或 credential。\n來源：docs/plans/2026-04-20-google-drive-sync-frontend-phase-a-manual-sync-plan.md §5.3；docs/plans/2026-04-20-google-drive-sync-frontend-phase-b-auto-sync-plan.md §5.2",
         "driveSyncConnectionEmail": {
           "type": "string | null",
           "description": "已連接的 Google Drive 帳號 email。⚠️ PII：MUST NOT 直接寫入日誌",
@@ -154,6 +154,47 @@
         "driveSyncProfileId": {
           "type": "string | null",
           "description": "後端 Drive profile ID（若後端有提供）；upload 時作為 source_profile_id hint 傳給後端，後端會做最小 sanity check 並 stamp 進 snapshot metadata"
+        },
+        "driveSyncFrequency": {
+          "type": "string",
+          "enum": ["off", "daily", "weekly", "monthly"],
+          "description": "自動同步頻率設定；由 setDriveFrequency() 寫入，driveAlarmScheduler 依此建立/更新 chrome.alarms",
+          "default": "off"
+        },
+        "driveSyncDirtyRevision": {
+          "type": "number",
+          "description": "單調遞增的本地 dirty 修訂號；每次 markDriveDirty() 在同步白名單資料寫入後遞增。自動同步以 dirtyRevision > lastUploadedRevision 判斷是否仍有未同步變更。",
+          "default": 0
+        },
+        "driveSyncLastUploadedRevision": {
+          "type": "number",
+          "description": "上次成功 upload 時捕獲並寫入的 dirtyRevision；與 driveSyncDirtyRevision 比較，用於避免 snapshot build/upload/clear 之間的 race condition 造成漏同步。",
+          "default": 0
+        },
+        "driveSyncLastSnapshotHash": {
+          "type": "string | null",
+          "description": "上次成功 upload 的 canonical snapshot hash；由 clearDriveDirty() 在 upload 成功後寫入，用於 UI / debug 與後續一致性檢查。"
+        },
+        "driveSyncNextEligibleAt": {
+          "type": "string | null",
+          "description": "下次允許自動 upload 的最早時間（ISO 8601）；由 setDriveFrequency() 或 clearDriveDirty() 根據 frequency 推算。frequency=off 時為 null。"
+        },
+        "driveSyncLastAlarmFiredAt": {
+          "type": "string | null",
+          "description": "最近一次 DRIVE_AUTO_SYNC_ALARM 的 scheduledTime（ISO 8601）；僅供可觀測性與 QA 區分 alarm 未觸發 vs. 觸發後被略過。"
+        },
+        "driveSyncLastAutoSyncDecision": {
+          "type": "string | null",
+          "enum": ["run", "skip"],
+          "description": "最近一次 auto sync 決策結果；run 表示進入 upload 流程，skip 表示 alarm 有觸發但前置條件未滿足。"
+        },
+        "driveSyncLastAutoSyncSkipReason": {
+          "type": "string | null",
+          "description": "最近一次 auto sync 被略過的原因碼；僅當 driveSyncLastAutoSyncDecision = 'skip' 時有值，run 時會清為 null。"
+        },
+        "driveSyncLastAutoSyncDecisionAt": {
+          "type": "string | null",
+          "description": "最近一次 auto sync 決策時間（ISO 8601）；由 writeDriveAutoSyncTelemetry() 寫入。"
         }
       },
       "patterns": {
@@ -194,7 +235,7 @@
           }
         },
         "url_alias_{normalizedUrl}": {
-          "description": "Mapping from original URL to stable URL to handle async race conditions",
+          "description": "Mapping from original URL to stable URL to handle async race conditions. Referential integrity MUST hold: the stableUrl target must resolve to at least one sync-whitelisted data source in the same canonical snapshot/application pass (page state, saved state, or highlights). Orphan aliases MUST NOT be uploaded to Drive snapshots and MUST NOT be restored back into local storage.",
           "schema": "string (stableUrl)"
         }
       }
