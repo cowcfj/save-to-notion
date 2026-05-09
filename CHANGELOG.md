@@ -1,5 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.66.3](https://github.com/cowcfj/save-to-notion/compare/v2.66.2...v2.66.3) (2026-05-09)
+
+
+### 🐛 Bug 修復
+
+* Improve OAuth error handling and messages ([#472](https://github.com/cowcfj/save-to-notion/issues/472)) ([1cc8a68](https://github.com/cowcfj/save-to-notion/commit/1cc8a684dcc52b9ca109b072c331bd2335cd9cee))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump @babel/plugin-transform-modules-systemjs ([a8986a7](https://github.com/cowcfj/save-to-notion/commit/a8986a7fe61ce8e66399d90ede48dfd801608d86))
+* **deps-dev:** bump @babel/plugin-transform-modules-systemjs from 7.29.0 to 7.29.4 ([#474](https://github.com/cowcfj/save-to-notion/issues/474)) ([a8986a7](https://github.com/cowcfj/save-to-notion/commit/a8986a7fe61ce8e66399d90ede48dfd801608d86))
+
 ## [2.66.2](https://github.com/cowcfj/save-to-notion/compare/v2.66.1...v2.66.2) (2026-05-03)
 
 
