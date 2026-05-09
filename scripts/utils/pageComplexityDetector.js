@@ -126,6 +126,11 @@ const TECHNICAL_TERMS = [
   'version',
 ];
 
+/** 預編譯正則表達式，提升效能 */
+const escapedTerms = TECHNICAL_TERMS.map(term => term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`));
+/* eslint-disable-next-line security/detect-non-literal-regexp */
+const TECHNICAL_TERMS_REGEX = new RegExp(String.raw`\b(${escapedTerms.join('|')})\b`, 'gi');
+
 /**
  * 頁面複雜度檢測器
  *
@@ -231,16 +236,9 @@ function countElements(container, selector) {
 function hasTechnicalFeatures(document) {
   const textContent = (document.body?.textContent || '').toLowerCase();
 
-  // 技術關鍵詞計數 (使用統一配置)
-  let technicalTermCount = 0;
-  for (const term of TECHNICAL_TERMS) {
-    // Escape special characters in the term to support terms like 'c++'
-    const escapedTerm = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-    /* eslint-disable-next-line security/detect-non-literal-regexp */
-    const regex = new RegExp(String.raw`\b${escapedTerm}\b`, 'gi');
-    const termMatches = textContent.match(regex);
-    technicalTermCount += termMatches ? termMatches.length : 0;
-  }
+  // 技術關鍵詞計數 (使用預編譯正則表達式提升效能)
+  const termMatches = textContent.match(TECHNICAL_TERMS_REGEX);
+  const technicalTermCount = termMatches ? termMatches.length : 0;
 
   // 如果技術詞彙出現頻率高，認為是技術文檔
   const wordCount = textContent.split(/\s+/).length;
