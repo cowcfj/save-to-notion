@@ -795,7 +795,7 @@ describe('AuthManager Extended', () => {
       await authManager.startOAuthFlow();
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        'OAuth 連接失敗：OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定',
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI}`,
         'error'
       );
     });
@@ -820,7 +820,7 @@ describe('AuthManager Extended', () => {
       await authManager.startOAuthFlow();
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        'OAuth 連接失敗：OAuth 伺服器設定異常，請稍後再試或聯絡開發者',
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION}`,
         'error'
       );
     });

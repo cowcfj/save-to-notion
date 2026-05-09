@@ -548,9 +548,9 @@ export class AuthManager {
         errorMsg = `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`;
       }
     } else if (errorCode === 'SERVER_MISCONFIGURATION') {
-      errorMsg = 'OAuth 伺服器設定異常，請稍後再試或聯絡開發者';
+      errorMsg = UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION;
     } else if (errorCode === 'INVALID_REDIRECT_URI' || isRedirectError) {
-      errorMsg = 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定';
+      errorMsg = UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
     } else if (error?.code === 'oauth_identity_unavailable') {
       errorMsg = UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
     } else {
