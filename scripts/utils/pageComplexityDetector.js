@@ -56,23 +56,34 @@ const TECHNICAL_DOC_TITLE_PATTERNS = [
   /api/,
 ];
 
-/** 預編譯 aggregate regex：依 rule type 分組，各合併為單一正則 */
+/** 預編譯 aggregate regex：依 rule type 與 caseSensitive 分組，各合併為單一正則 */
 const WORD_TERMS = [];
+const CASE_SENSITIVE_WORD_TERMS = [];
 const SPECIAL_TERMS = [];
 for (const rule of TECHNICAL_TERM_RULES) {
   const escaped = rule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
   if (rule.type === 'word') {
-    WORD_TERMS.push(escaped);
+    if (rule.caseSensitive) {
+      CASE_SENSITIVE_WORD_TERMS.push(escaped);
+    } else {
+      WORD_TERMS.push(escaped);
+    }
   } else {
     SPECIAL_TERMS.push(escaped);
   }
 }
 WORD_TERMS.sort((termA, termB) => termB.length - termA.length);
+CASE_SENSITIVE_WORD_TERMS.sort((termA, termB) => termB.length - termA.length);
 SPECIAL_TERMS.sort((termA, termB) => termB.length - termA.length);
 
 const WORD_TERMS_REGEX =
   // eslint-disable-next-line security/detect-non-literal-regexp
   WORD_TERMS.length > 0 ? new RegExp(String.raw`\b(?:${WORD_TERMS.join('|')})\b`, 'gi') : null;
+const CASE_SENSITIVE_WORD_REGEX =
+  CASE_SENSITIVE_WORD_TERMS.length > 0
+    ? // eslint-disable-next-line security/detect-non-literal-regexp
+      new RegExp(String.raw`\b(?:${CASE_SENSITIVE_WORD_TERMS.join('|')})\b`, 'g')
+    : null;
 const SPECIAL_TERMS_REGEX =
   SPECIAL_TERMS.length > 0
     ? // eslint-disable-next-line security/detect-non-literal-regexp
@@ -182,12 +193,19 @@ function countElements(container, selector) {
  * @returns {{technicalTermCount: number, technicalRatio: number, isTechnical: boolean}} 技術特徵分析結果
  */
 function hasTechnicalFeatures(document) {
-  const textContent = (document.body?.textContent || '').toLowerCase();
+  const rawText = document.body?.textContent || '';
+  const textContent = rawText.toLowerCase();
 
   let technicalTermCount = 0;
   if (WORD_TERMS_REGEX) {
     WORD_TERMS_REGEX.lastIndex = 0;
     while (WORD_TERMS_REGEX.test(textContent)) {
+      technicalTermCount++;
+    }
+  }
+  if (CASE_SENSITIVE_WORD_REGEX) {
+    CASE_SENSITIVE_WORD_REGEX.lastIndex = 0;
+    while (CASE_SENSITIVE_WORD_REGEX.test(rawText)) {
       technicalTermCount++;
     }
   }

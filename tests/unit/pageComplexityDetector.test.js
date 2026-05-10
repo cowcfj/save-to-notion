@@ -736,4 +736,27 @@ describe('Technical Terms Governance', () => {
       expect('abc++def').not.toMatch(regex);
     });
   });
+
+  describe('caseSensitive field contract', () => {
+    test('caseSensitive rules should have word type', () => {
+      const csRules = TECHNICAL_TERM_RULES.filter(rule => rule.caseSensitive);
+      for (const rule of csRules) {
+        expect(rule.type).toBe('word');
+      }
+    });
+
+    test('Go term should be case-sensitive and match only capitalized form', () => {
+      const goRule = TECHNICAL_TERM_RULES.find(rule => rule.term === 'Go');
+      expect(goRule).toBeDefined();
+      expect(goRule.caseSensitive).toBe(true);
+
+      const escaped = goRule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+      const regex = new RegExp(String.raw`\b(?:${escaped})\b`, 'g');
+
+      expect('Go programming').toMatch(regex);
+      expect('written in Go').toMatch(regex);
+      expect('let us go home').not.toMatch(regex);
+      expect('go ahead').not.toMatch(regex);
+    });
+  });
 });

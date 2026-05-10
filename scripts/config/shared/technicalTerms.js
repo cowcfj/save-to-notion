@@ -18,6 +18,7 @@ export const GROUP_DOCUMENTATION = 'documentation';
  * @property {string} term
  * @property {'word' | 'special-char'} type
  * @property {string} group - 語義分組標識
+ * @property {boolean} [caseSensitive] - true 時使用精確大小寫匹配
  * @property {string} [note] - 僅在用途不明顯時填寫
  */
 
@@ -76,7 +77,13 @@ export const TECHNICAL_TERM_RULES = [
   { term: 'javascript', type: TYPE_WORD, group: GROUP_LANGUAGES_FRAMEWORKS },
   { term: 'python', type: TYPE_WORD, group: GROUP_LANGUAGES_FRAMEWORKS },
   { term: 'java', type: TYPE_WORD, group: GROUP_LANGUAGES_FRAMEWORKS },
-  { term: 'go', type: TYPE_WORD, group: GROUP_LANGUAGES_FRAMEWORKS },
+  {
+    term: 'Go',
+    type: TYPE_WORD,
+    group: GROUP_LANGUAGES_FRAMEWORKS,
+    caseSensitive: true,
+    note: '英文高頻動詞，僅匹配大寫以區分程式語言',
+  },
   { term: 'rust', type: TYPE_WORD, group: GROUP_LANGUAGES_FRAMEWORKS },
   {
     term: 'c++',
