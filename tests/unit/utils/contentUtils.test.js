@@ -21,6 +21,16 @@ describe('contentUtils', () => {
         expect(isTitleConsistent('Some Title', null)).toBe(true);
         expect(isTitleConsistent('Some Title', undefined)).toBe(true);
       });
+
+      it('內部空白差異會影響匹配結果（trim 不處理內部空白）', () => {
+        const candidate = '標題  測試額外文字用來超過十五個字';
+        const doc = '標題 測試額外文字用來超過十五個字';
+        expect(isTitleConsistent(candidate, doc)).toBe(false);
+
+        const candidateWithNewline = '標題\n測試額外文字用來超過十五個字';
+        const docNormal = '標題 測試額外文字用來超過十五個字';
+        expect(isTitleConsistent(candidateWithNewline, docNormal)).toBe(false);
+      });
     });
 
     describe('短標題豁免', () => {
