@@ -312,14 +312,3 @@ export function injectStylesIntoShadowRoot(shadowRoot) {
   style.textContent = css;
   shadowRoot.prepend(style);
 }
-
-/**
- * 向後相容的空函式（舊版 API，已不再注入到 document.head）。
- *
- * @deprecated 請改用 injectStylesIntoShadowRoot(shadowRoot)
- *
- * 樣式已改為在 Shadow DOM 中注入，這個函式僅保留為 no-op 相容入口。
- */
-export function injectGlobalStyles() {
-  // No-op：樣式現由 Toolbar.js 透過 Shadow DOM 注入
-}

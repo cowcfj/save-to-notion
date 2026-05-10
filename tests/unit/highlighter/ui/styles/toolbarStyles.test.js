@@ -111,13 +111,4 @@ describe('toolbarStyles', () => {
     expect(styleElement).toBeTruthy();
     expect(styleElement.textContent).toContain(':host');
   });
-
-  test('injectGlobalStyles 應保持 no-op 且不拋錯', () => {
-    const headChildrenCount = document.head.children.length;
-    // 透過 any 取得 legacy API，避免 IDE 對 @deprecated 簽名噪音
-    const legacyInjectGlobalStyles = /** @type {any} */ (toolbarStylesModule).injectGlobalStyles;
-
-    expect(() => legacyInjectGlobalStyles()).not.toThrow();
-    expect(document.head.children).toHaveLength(headChildrenCount);
-  });
 });
