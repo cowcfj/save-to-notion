@@ -545,10 +545,10 @@ function _updateSourceWarning(snapshotStatus, localInstallationId) {
 
   if (shouldShow) {
     warningEl.textContent = UI_MESSAGES.CLOUD_SYNC.SOURCE_WARNING;
-    warningEl.classList.remove('hidden');
+    warningEl.hidden = false;
   } else {
     warningEl.textContent = '';
-    warningEl.classList.add('hidden');
+    warningEl.hidden = true;
   }
 }
 
