@@ -15,6 +15,10 @@ const {
   logAnalysis,
   isDocumentation,
 } = require('../../scripts/utils/pageComplexityDetector.js');
+const {
+  TECHNICAL_TERM_RULES,
+  TECHNICAL_TERM_GROUPS,
+} = require('../../scripts/config/shared/technicalTerms.js');
 
 describe('頁面複雜度檢測器', () => {
   describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
@@ -647,6 +651,111 @@ describe('頁面複雜度檢測器', () => {
 
       expect(selection.extractor).toBe('readability');
       expect(selection.confidence).toBe(85);
+    });
+  });
+});
+
+// ==========================================
+// Technical Terms Governance Invariants
+// ==========================================
+
+describe('Technical Terms Governance', () => {
+  describe('duplicate detection', () => {
+    test('should have no duplicate terms', () => {
+      const terms = TECHNICAL_TERM_RULES.map(rule => rule.term);
+      const duplicates = terms.filter((term, index) => terms.indexOf(term) !== index);
+      expect(duplicates).toEqual([]);
+    });
+  });
+
+  describe('group structure invariant', () => {
+    test('terms within the same group should be contiguous', () => {
+      let lastGroup = null;
+      const seenGroups = new Set();
+
+      for (const rule of TECHNICAL_TERM_RULES) {
+        if (rule.group !== lastGroup) {
+          expect(seenGroups.has(rule.group)).toBe(false);
+          seenGroups.add(rule.group);
+          lastGroup = rule.group;
+        }
+      }
+    });
+
+    test('all groups in TECHNICAL_TERM_GROUPS should appear in rules', () => {
+      const rulesGroups = new Set(TECHNICAL_TERM_RULES.map(rule => rule.group));
+      for (const group of TECHNICAL_TERM_GROUPS) {
+        expect(rulesGroups.has(group)).toBe(true);
+      }
+    });
+
+    test('all rule groups should be declared in TECHNICAL_TERM_GROUPS', () => {
+      const declaredGroups = new Set(TECHNICAL_TERM_GROUPS);
+      for (const rule of TECHNICAL_TERM_RULES) {
+        expect(declaredGroups.has(rule.group)).toBe(true);
+      }
+    });
+  });
+
+  describe('type field and matcher alignment', () => {
+    test('every rule must have a valid type', () => {
+      for (const rule of TECHNICAL_TERM_RULES) {
+        expect(['word', 'special-char']).toContain(rule.type);
+      }
+    });
+
+    test('word-type terms should contain only word characters', () => {
+      const wordCharOnly = /^\w+$/;
+      const wordRules = TECHNICAL_TERM_RULES.filter(rule => rule.type === 'word');
+      for (const rule of wordRules) {
+        expect(wordCharOnly.test(rule.term)).toBe(true);
+      }
+    });
+
+    test('special-char terms should contain at least one non-word character', () => {
+      const wordCharOnly = /^\w+$/;
+      const specialRules = TECHNICAL_TERM_RULES.filter(rule => rule.type === 'special-char');
+      for (const rule of specialRules) {
+        expect(wordCharOnly.test(rule.term)).toBe(false);
+      }
+    });
+  });
+
+  describe('special-char boundary contract', () => {
+    test('c++ should match with non-word boundary, not word boundary', () => {
+      const cppRule = TECHNICAL_TERM_RULES.find(rule => rule.term === 'c++');
+      expect(cppRule).toBeDefined();
+      expect(cppRule.type).toBe('special-char');
+
+      const escaped = cppRule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+      const regex = new RegExp(`(?<![A-Za-z0-9_])(?:${escaped})(?![A-Za-z0-9_])`, 'gi');
+
+      expect('learn c++ today').toMatch(regex);
+      expect('c++ programming').toMatch(regex);
+      expect('abc++def').not.toMatch(regex);
+    });
+  });
+
+  describe('caseSensitive field contract', () => {
+    test('caseSensitive rules should have word type', () => {
+      const csRules = TECHNICAL_TERM_RULES.filter(rule => rule.caseSensitive);
+      for (const rule of csRules) {
+        expect(rule.type).toBe('word');
+      }
+    });
+
+    test('Go term should be case-sensitive and match only capitalized form', () => {
+      const goRule = TECHNICAL_TERM_RULES.find(rule => rule.term === 'Go');
+      expect(goRule).toBeDefined();
+      expect(goRule.caseSensitive).toBe(true);
+
+      const escaped = goRule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+      const regex = new RegExp(String.raw`\b(?:${escaped})\b`, 'g');
+
+      expect('Go programming').toMatch(regex);
+      expect('written in Go').toMatch(regex);
+      expect('let us go home').not.toMatch(regex);
+      expect('go ahead').not.toMatch(regex);
     });
   });
 });
