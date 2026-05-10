@@ -3,10 +3,10 @@
  */
 
 /**
- * env/index.js 配置測試
+ * env.js 配置測試
  */
 
-const envModule = require('../../../scripts/config/env/index.js');
+const envModule = require('../../../scripts/config/env.js');
 
 const {
   isExtensionContext,
@@ -30,7 +30,7 @@ function setWindow(value) {
   globalThis.window = value;
 }
 
-describe('配置模組 - env/index.js', () => {
+describe('配置模組 - env.js', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();

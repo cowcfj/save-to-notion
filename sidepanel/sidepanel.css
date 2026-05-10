@@ -1,17 +1,36 @@
 :root {
-  /* Legacy aliases — map old names to canonical shared tokens */
-  --primary-color: var(--color-primary);
-  --primary-hover: var(--color-primary-hover);
-  --danger-color: var(--color-danger);
-  --danger-hover: var(--color-danger-hover);
-  --text-main: var(--color-text);
-  --text-muted: var(--color-text-muted);
-  --border-color: var(--color-border);
-  --bg-color: var(--color-bg);
-  --bg-hover: var(--color-bg-hover);
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+  --status-success-bg: #dcfce7;
+  --status-success-text: #166534;
+  --status-success-border: #bbf7d0;
+  --status-error-bg: #fee2e2;
+  --status-error-text: #991b1b;
+  --status-error-border: #fecaca;
+  --status-warning-bg: #fef3c7;
+  --status-warning-text: #92400e;
+  --status-warning-border: #fcd34d;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --bg-color: #ffffff;
+  --bg-hover: #f1f5f9;
   --panel-padding: 16px;
 
-  /* Highlight Colors — sidepanel-specific */
+  /* Spacing tokens — 與 options.css 對齊 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* Border radius tokens */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Highlight Colors — purple/pink 已確認為殘留，由 audit 後移除 */
   --hl-yellow: #fde047;
   --hl-green: #86efac;
   --hl-blue: #93c5fd;

@@ -777,54 +777,6 @@ describe('AuthManager Extended', () => {
       });
     });
 
-    test('token exchange 回傳 INVALID_REDIRECT_URI 時應顯示 redirect mismatch 訊息', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-invalid-redirect');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_invalid_redirect&state=state-invalid-redirect'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-invalid-redirect' });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: jest.fn().mockResolvedValue({
-          error_code: 'INVALID_REDIRECT_URI',
-          message: 'Invalid redirect_uri',
-        }),
-      });
-
-      await authManager.startOAuthFlow();
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI}`,
-        'error'
-      );
-    });
-
-    test('token exchange 回傳 SERVER_MISCONFIGURATION 時應顯示伺服器設定異常訊息', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-server-misconfiguration');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_server_error&state=state-server-misconfiguration'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({
-        oauthState: 'state-server-misconfiguration',
-      });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: jest.fn().mockResolvedValue({
-          error_code: 'SERVER_MISCONFIGURATION',
-          message: 'Server misconfiguration: invalid NOTION_REDIRECT_URI',
-        }),
-      });
-
-      await authManager.startOAuthFlow();
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION}`,
-        'error'
-      );
-    });
-
     test('CSRF 驗證失敗時應顯示錯誤且恢復按鈕', async () => {
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-abc');
       chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(

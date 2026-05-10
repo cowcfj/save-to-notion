@@ -119,6 +119,7 @@ rsync -a \
     --exclude='content' \
     --exclude='destinations/ProfileResolver.js' \
     --exclude='config/env/build.example.js' \
+    --exclude='config/env.js' \
     --exclude='config/extension/index.js' \
     --exclude='highlighter' \
     --exclude='legacy' \
