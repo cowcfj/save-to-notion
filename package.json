@@ -81,7 +81,7 @@
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
     "jest": "^30.2.0",
-    "jest-environment-jsdom": "^30.2.0",
+    "jest-environment-jsdom": "^30.4.1",
     "jsdom": "^28.1.0",
     "lint-staged": "^16.3.0",
     "prettier": "^3.8.3",
