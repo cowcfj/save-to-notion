@@ -5,6 +5,20 @@
  * Toolbar consumes these directly as JS constants (Shadow DOM isolation).
  */
 
+/**
+ * 將 hex 色碼轉為 rgba 字串。用於從 token 動態產生帶透明度的色彩值。
+ *
+ * @param {string} hex - 6 碼 hex 色碼（含 # 前綴）
+ * @param {number} alpha - 透明度 0~1
+ * @returns {string} rgba(...) 字串
+ */
+export function hexToRgba(hex, alpha) {
+  const red = Number.parseInt(hex.slice(1, 3), 16);
+  const green = Number.parseInt(hex.slice(3, 5), 16);
+  const blue = Number.parseInt(hex.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 export const UI_TOKENS = {
   color: {
     primary: '#2563eb',
@@ -41,6 +55,13 @@ export const UI_TOKENS = {
     sm: '4px',
     md: '8px',
     lg: '12px',
+  },
+  shadow: {
+    xs: '0 1px 2px rgba(0, 0, 0, 0.1)',
+    sm: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    md: '0 4px 16px rgba(0, 0, 0, 0.15)',
+    lg: '0 8px 32px rgba(0, 0, 0, 0.12)',
+    xl: '0 8px 24px rgba(0, 0, 0, 0.2)',
   },
   toolbar: {
     primary: '#2eaadc',
