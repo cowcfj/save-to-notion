@@ -98,9 +98,10 @@ function isContentGood(article) {
     return false;
   }
 
-  // 創建臨時 DOM 容器以分析內容
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = article.content;
+  // 創建臨時 DOM 容器以分析內容，使用 DOMParser 避免 XSS
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(article.content, 'text/html');
+  const tempDiv = doc.body;
 
   // 計算鏈接密度
   let linkTextLength = 0;
