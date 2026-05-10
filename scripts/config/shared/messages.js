@@ -35,6 +35,8 @@ const AUTH = {
   NOTIFY_SUCCESS: 'Notion 連接成功！',
   NOTIFY_ERROR: 'Notion 連接失敗，請重試。',
   OAUTH_TARGET_REQUIRED: '已連接 Notion，下一步請選擇保存目標並按儲存。',
+  OAUTH_SERVER_MISCONFIGURATION: 'OAuth 伺服器設定異常，請稍後再試或聯絡開發者',
+  OAUTH_INVALID_REDIRECT_URI: 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定',
 
   OPENING_NOTION: '正在打開 Notion...',
   OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,
