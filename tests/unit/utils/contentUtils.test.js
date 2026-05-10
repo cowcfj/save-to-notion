@@ -4,6 +4,9 @@
 
 import { isTitleConsistent } from '../../../scripts/utils/contentUtils.js';
 
+/**
+ * Tests for content verification utilities.
+ */
 describe('contentUtils', () => {
   describe('isTitleConsistent', () => {
     describe('邊界情況', () => {
