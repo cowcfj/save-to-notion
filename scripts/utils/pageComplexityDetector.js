@@ -128,14 +128,28 @@ const TECHNICAL_TERMS = [
 
 const WORD_CHAR_ONLY = /^\w+$/;
 
-/** 預編譯 technical term regex：純 word term 用 \b，含非 word char 的 term 用 lookaround */
-const TECHNICAL_TERM_REGEXES = TECHNICAL_TERMS.map(term => {
+/** 預編譯 aggregate regex：將所有 terms 分為 word-only 與 special-char 兩組，各合併為單一正則 */
+const WORD_TERMS = [];
+const SPECIAL_TERMS = [];
+for (const term of TECHNICAL_TERMS) {
   const escaped = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
   if (WORD_CHAR_ONLY.test(term)) {
-    return new RegExp(String.raw`\b${escaped}\b`, 'gi');
+    WORD_TERMS.push(escaped);
+  } else {
+    SPECIAL_TERMS.push(escaped);
   }
-  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`, 'gi');
-});
+}
+WORD_TERMS.sort((termA, termB) => termB.length - termA.length);
+SPECIAL_TERMS.sort((termA, termB) => termB.length - termA.length);
+
+const WORD_TERMS_REGEX =
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  WORD_TERMS.length > 0 ? new RegExp(String.raw`\b(?:${WORD_TERMS.join('|')})\b`, 'gi') : null;
+const SPECIAL_TERMS_REGEX =
+  SPECIAL_TERMS.length > 0
+    ? // eslint-disable-next-line security/detect-non-literal-regexp
+      new RegExp(`(?<![A-Za-z0-9_])(?:${SPECIAL_TERMS.join('|')})(?![A-Za-z0-9_])`, 'gi')
+    : null;
 
 /**
  * 頁面複雜度檢測器
@@ -243,13 +257,19 @@ function hasTechnicalFeatures(document) {
   const textContent = (document.body?.textContent || '').toLowerCase();
 
   let technicalTermCount = 0;
-  for (const regex of TECHNICAL_TERM_REGEXES) {
-    regex.lastIndex = 0;
-    const termMatches = textContent.match(regex);
-    technicalTermCount += termMatches ? termMatches.length : 0;
+  if (WORD_TERMS_REGEX) {
+    WORD_TERMS_REGEX.lastIndex = 0;
+    while (WORD_TERMS_REGEX.test(textContent)) {
+      technicalTermCount++;
+    }
+  }
+  if (SPECIAL_TERMS_REGEX) {
+    SPECIAL_TERMS_REGEX.lastIndex = 0;
+    while (SPECIAL_TERMS_REGEX.test(textContent)) {
+      technicalTermCount++;
+    }
   }
 
-  // 如果技術詞彙出現頻率高，認為是技術文檔
   const wordCount = textContent.split(/\s+/).length;
   const technicalRatio = technicalTermCount / Math.max(wordCount, 1);
 

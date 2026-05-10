@@ -508,6 +508,82 @@ describe('頁面複雜度檢測器', () => {
     });
   });
 
+  describe('Technical term matching baseline (performance refactor guard)', () => {
+    test('word-only terms should be counted correctly', () => {
+      document.documentElement.innerHTML =
+        '<body><p>function class method function async await syntax parameter function</p></body>';
+      const result = detectPageComplexity(document);
+      // function x3, class x1, method x1, async x1, await x1, syntax x1, parameter x1 = 9
+      expect(result.technicalFeatures.technicalTermCount).toBe(9);
+    });
+
+    test('special-char term (c++) should be counted correctly', () => {
+      document.documentElement.innerHTML =
+        '<body><p>learn c++ programming with c++ templates and c++ features</p></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBe(3);
+    });
+
+    test('mixed word and special-char terms should sum correctly', () => {
+      document.documentElement.innerHTML =
+        '<body><p>c++ function class c++ method async c++</p></body>';
+      const result = detectPageComplexity(document);
+      // c++ x3, function x1, class x1, method x1, async x1 = 7
+      expect(result.technicalFeatures.technicalTermCount).toBe(7);
+    });
+
+    test('technicalRatio should reflect term density', () => {
+      const padding = 'word '.repeat(100);
+      document.documentElement.innerHTML = `<body><p>function class method ${padding}</p></body>`;
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalRatio).toBeGreaterThan(0);
+      expect(result.technicalFeatures.technicalRatio).toBeLessThan(0.1);
+    });
+
+    test('isTechnical threshold: ratio > 0.02 triggers true', () => {
+      // 10 words total, 1 technical term → ratio = 0.1 > 0.02
+      document.documentElement.innerHTML =
+        '<body><p>function one two three four five six seven eight nine</p></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.isTechnical).toBe(true);
+    });
+
+    test('isTechnical threshold: count > 10 triggers true', () => {
+      const padding = 'word '.repeat(1000);
+      const terms =
+        'function class method variable constant interface callback async await syntax parameter';
+      document.documentElement.innerHTML = `<body><p>${terms} ${padding}</p></body>`;
+      const result = detectPageComplexity(document);
+      // 11 terms, ratio will be low due to padding, but count > 10
+      expect(result.technicalFeatures.technicalTermCount).toBe(11);
+      expect(result.technicalFeatures.isTechnical).toBe(true);
+    });
+
+    test('extractor selection stability: technical content selects markdown', () => {
+      const terms =
+        'function class method variable constant interface callback async await syntax parameter argument';
+      document.documentElement.innerHTML = `<body><article><h1>API Docs</h1><p>${terms} ${terms}</p></article></body>`;
+      const result = detectPageComplexity(document);
+      const selection = selectExtractor(result);
+      expect(result.hasTechnicalContent).toBe(true);
+      expect(selection.extractor).toBe('markdown');
+    });
+
+    test('extractor selection stability: non-technical content without clean layout selects readability', () => {
+      const padding = 'news article content about politics and economy '.repeat(50);
+      document.documentElement.innerHTML = `
+        <body>
+          <nav>nav1</nav><nav>nav2</nav><nav>nav3</nav>
+          <nav>nav4</nav><nav>nav5</nav><nav>nav6</nav>
+          <article><p>${padding}</p></article>
+        </body>`;
+      const result = detectPageComplexity(document);
+      const selection = selectExtractor(result);
+      expect(result.hasTechnicalContent).toBe(false);
+      expect(selection.extractor).toBe('readability');
+    });
+  });
+
   describe('Coverage 補強', () => {
     test('detectPageComplexity 應該在例外時回退到安全預設值', () => {
       const badDoc = {
