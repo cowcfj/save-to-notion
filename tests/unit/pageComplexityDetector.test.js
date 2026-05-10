@@ -15,6 +15,10 @@ const {
   logAnalysis,
   isDocumentation,
 } = require('../../scripts/utils/pageComplexityDetector.js');
+const {
+  TECHNICAL_TERM_RULES,
+  TECHNICAL_TERM_GROUPS,
+} = require('../../scripts/config/shared/technicalTerms.js');
 
 describe('頁面複雜度檢測器', () => {
   describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
@@ -470,6 +474,120 @@ describe('頁面複雜度檢測器', () => {
     });
   });
 
+  describe('Technical term boundary regression (c++)', () => {
+    test('standalone "c++" token should be detected as technical term', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>Learn c++ programming with modern c++ features and c++ templates</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(3);
+    });
+
+    test('"c++" at end of text should be detected', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>This guide covers c++</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(1);
+    });
+
+    test('"c++" followed by space should be detected', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>c++ is a powerful language</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(1);
+    });
+
+    test('"objective-c++ish" should NOT match as standalone c++', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>objective-c++ish is not a real language</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBe(0);
+    });
+
+    test('c++ technical term should contribute to hasTechnicalContent', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>c++ c++ c++ c++ c++ c++ c++ c++ c++ c++ c++ short text</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.isTechnical).toBe(true);
+      expect(result.hasTechnicalContent).toBe(true);
+    });
+  });
+
+  describe('Technical term matching baseline (performance refactor guard)', () => {
+    test('word-only terms should be counted correctly', () => {
+      document.documentElement.innerHTML =
+        '<body><p>function class method function async await syntax parameter function</p></body>';
+      const result = detectPageComplexity(document);
+      // function x3, class x1, method x1, async x1, await x1, syntax x1, parameter x1 = 9
+      expect(result.technicalFeatures.technicalTermCount).toBe(9);
+    });
+
+    test('special-char term (c++) should be counted correctly', () => {
+      document.documentElement.innerHTML =
+        '<body><p>learn c++ programming with c++ templates and c++ features</p></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBe(3);
+    });
+
+    test('mixed word and special-char terms should sum correctly', () => {
+      document.documentElement.innerHTML =
+        '<body><p>c++ function class c++ method async c++</p></body>';
+      const result = detectPageComplexity(document);
+      // c++ x3, function x1, class x1, method x1, async x1 = 7
+      expect(result.technicalFeatures.technicalTermCount).toBe(7);
+    });
+
+    test('technicalRatio should reflect term density', () => {
+      const padding = 'word '.repeat(100);
+      document.documentElement.innerHTML = `<body><p>function class method ${padding}</p></body>`;
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalRatio).toBeGreaterThan(0);
+      expect(result.technicalFeatures.technicalRatio).toBeLessThan(0.1);
+    });
+
+    test('isTechnical threshold: ratio > 0.02 triggers true', () => {
+      // 10 words total, 1 technical term → ratio = 0.1 > 0.02
+      document.documentElement.innerHTML =
+        '<body><p>function one two three four five six seven eight nine</p></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.isTechnical).toBe(true);
+    });
+
+    test('isTechnical threshold: count > 10 triggers true', () => {
+      const padding = 'word '.repeat(1000);
+      const terms =
+        'function class method variable constant interface callback async await syntax parameter';
+      document.documentElement.innerHTML = `<body><p>${terms} ${padding}</p></body>`;
+      const result = detectPageComplexity(document);
+      // 11 terms, ratio will be low due to padding, but count > 10
+      expect(result.technicalFeatures.technicalTermCount).toBe(11);
+      expect(result.technicalFeatures.isTechnical).toBe(true);
+    });
+
+    test('extractor selection stability: technical content selects markdown', () => {
+      const terms =
+        'function class method variable constant interface callback async await syntax parameter argument';
+      document.documentElement.innerHTML = `<body><article><h1>API Docs</h1><p>${terms} ${terms}</p></article></body>`;
+      const result = detectPageComplexity(document);
+      const selection = selectExtractor(result);
+      expect(result.hasTechnicalContent).toBe(true);
+      expect(selection.extractor).toBe('markdown');
+    });
+
+    test('extractor selection stability: non-technical content without clean layout selects readability', () => {
+      const padding = 'news article content about politics and economy '.repeat(50);
+      document.documentElement.innerHTML = `
+        <body>
+          <nav>nav1</nav><nav>nav2</nav><nav>nav3</nav>
+          <nav>nav4</nav><nav>nav5</nav><nav>nav6</nav>
+          <article><p>${padding}</p></article>
+        </body>`;
+      const result = detectPageComplexity(document);
+      const selection = selectExtractor(result);
+      expect(result.hasTechnicalContent).toBe(false);
+      expect(selection.extractor).toBe('readability');
+    });
+  });
+
   describe('Coverage 補強', () => {
     test('detectPageComplexity 應該在例外時回退到安全預設值', () => {
       const badDoc = {
@@ -533,6 +651,111 @@ describe('頁面複雜度檢測器', () => {
 
       expect(selection.extractor).toBe('readability');
       expect(selection.confidence).toBe(85);
+    });
+  });
+});
+
+// ==========================================
+// Technical Terms Governance Invariants
+// ==========================================
+
+describe('Technical Terms Governance', () => {
+  describe('duplicate detection', () => {
+    test('should have no duplicate terms', () => {
+      const terms = TECHNICAL_TERM_RULES.map(rule => rule.term);
+      const duplicates = terms.filter((term, index) => terms.indexOf(term) !== index);
+      expect(duplicates).toEqual([]);
+    });
+  });
+
+  describe('group structure invariant', () => {
+    test('terms within the same group should be contiguous', () => {
+      let lastGroup = null;
+      const seenGroups = new Set();
+
+      for (const rule of TECHNICAL_TERM_RULES) {
+        if (rule.group !== lastGroup) {
+          expect(seenGroups.has(rule.group)).toBe(false);
+          seenGroups.add(rule.group);
+          lastGroup = rule.group;
+        }
+      }
+    });
+
+    test('all groups in TECHNICAL_TERM_GROUPS should appear in rules', () => {
+      const rulesGroups = new Set(TECHNICAL_TERM_RULES.map(rule => rule.group));
+      for (const group of TECHNICAL_TERM_GROUPS) {
+        expect(rulesGroups.has(group)).toBe(true);
+      }
+    });
+
+    test('all rule groups should be declared in TECHNICAL_TERM_GROUPS', () => {
+      const declaredGroups = new Set(TECHNICAL_TERM_GROUPS);
+      for (const rule of TECHNICAL_TERM_RULES) {
+        expect(declaredGroups.has(rule.group)).toBe(true);
+      }
+    });
+  });
+
+  describe('type field and matcher alignment', () => {
+    test('every rule must have a valid type', () => {
+      for (const rule of TECHNICAL_TERM_RULES) {
+        expect(['word', 'special-char']).toContain(rule.type);
+      }
+    });
+
+    test('word-type terms should contain only word characters', () => {
+      const wordCharOnly = /^\w+$/;
+      const wordRules = TECHNICAL_TERM_RULES.filter(rule => rule.type === 'word');
+      for (const rule of wordRules) {
+        expect(wordCharOnly.test(rule.term)).toBe(true);
+      }
+    });
+
+    test('special-char terms should contain at least one non-word character', () => {
+      const wordCharOnly = /^\w+$/;
+      const specialRules = TECHNICAL_TERM_RULES.filter(rule => rule.type === 'special-char');
+      for (const rule of specialRules) {
+        expect(wordCharOnly.test(rule.term)).toBe(false);
+      }
+    });
+  });
+
+  describe('special-char boundary contract', () => {
+    test('c++ should match with non-word boundary, not word boundary', () => {
+      const cppRule = TECHNICAL_TERM_RULES.find(rule => rule.term === 'c++');
+      expect(cppRule).toBeDefined();
+      expect(cppRule.type).toBe('special-char');
+
+      const escaped = cppRule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+      const regex = new RegExp(`(?<![A-Za-z0-9_])(?:${escaped})(?![A-Za-z0-9_])`, 'gi');
+
+      expect('learn c++ today').toMatch(regex);
+      expect('c++ programming').toMatch(regex);
+      expect('abc++def').not.toMatch(regex);
+    });
+  });
+
+  describe('caseSensitive field contract', () => {
+    test('caseSensitive rules should have word type', () => {
+      const csRules = TECHNICAL_TERM_RULES.filter(rule => rule.caseSensitive);
+      for (const rule of csRules) {
+        expect(rule.type).toBe('word');
+      }
+    });
+
+    test('Go term should be case-sensitive and match only capitalized form', () => {
+      const goRule = TECHNICAL_TERM_RULES.find(rule => rule.term === 'Go');
+      expect(goRule).toBeDefined();
+      expect(goRule.caseSensitive).toBe(true);
+
+      const escaped = goRule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+      const regex = new RegExp(String.raw`\b(?:${escaped})\b`, 'g');
+
+      expect('Go programming').toMatch(regex);
+      expect('written in Go').toMatch(regex);
+      expect('let us go home').not.toMatch(regex);
+      expect('go ahead').not.toMatch(regex);
     });
   });
 });

@@ -9,6 +9,10 @@ describe('Logger', () => {
   let consoleSpy = null;
   /** @type {Console} 原始 console 對象,在 beforeEach 中保存 */
   let originalConsole = null;
+  /** @type {jest.Mock} chrome.runtime.getManifest mock */
+  let mockGetManifest;
+  /** @type {object} chrome.runtime mock 物件 */
+  let mockRuntime;
 
   beforeEach(() => {
     // 保存原始 console
@@ -23,26 +27,19 @@ describe('Logger', () => {
       error: jest.fn(),
     };
     globalThis.console = consoleSpy;
-    globalThis.chrome = {
-      runtime: {
-        id: 'test-runtime-id',
-        lastError: null,
-        getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
-      },
+
+    // 建立集中式 chrome.runtime mock
+    mockGetManifest = jest.fn();
+    mockRuntime = {
+      id: 'test-runtime-id',
+      lastError: null,
+      getManifest: mockGetManifest,
     };
+    mockGetManifest.mockReturnValue({ version_name: '1.0.0-dev' });
+    globalThis.chrome = { runtime: mockRuntime };
 
-    // 若存在，清除 chrome mock 的 lastError
-    if (globalThis.chrome?.runtime) {
-      globalThis.chrome.runtime.lastError = null;
-    }
-
-    // 確保 Logger 被重新評估
+    // 確保 Logger 被重新評估（在 mock 掛載後）
     jest.resetModules();
-
-    // 確保 Logger 的 debug 已啟用
-    if (globalThis.chrome?.runtime?.getManifest) {
-      globalThis.chrome.runtime.getManifest.mockReturnValue({ version_name: '1.0.0-dev' });
-    }
 
     Logger = require('../../scripts/utils/Logger.js').default;
   });

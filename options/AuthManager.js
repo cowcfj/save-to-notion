@@ -467,9 +467,13 @@ export class AuthManager {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json().catch(() => ({}));
-      throw new Error(
+      const error = new Error(
         errorData.message || errorData.error || `Token 交換失敗 (${tokenResponse.status})`
       );
+      if (typeof errorData.error_code === 'string' && errorData.error_code.trim()) {
+        error.code = errorData.error_code;
+      }
+      throw error;
     }
 
     const tokenData = await tokenResponse.json();
@@ -527,6 +531,7 @@ export class AuthManager {
       error: sanitizeApiError(error, 'oauth_flow'),
     });
     const msg = error?.message ?? '';
+    const errorCode = typeof error?.code === 'string' ? error.code : '';
     const msgLower = msg.toLowerCase();
     const isOAuthCallbackError = msg.startsWith('Notion 授權失敗:');
     const isRedirectError =
@@ -542,8 +547,10 @@ export class AuthManager {
       } else {
         errorMsg = `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`;
       }
-    } else if (isRedirectError) {
-      errorMsg = 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定';
+    } else if (errorCode === 'SERVER_MISCONFIGURATION') {
+      errorMsg = UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION;
+    } else if (errorCode === 'INVALID_REDIRECT_URI' || isRedirectError) {
+      errorMsg = UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
     } else if (error?.code === 'oauth_identity_unavailable') {
       errorMsg = UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
     } else {
