@@ -99,8 +99,9 @@ function isContentGood(article) {
   }
 
   // 創建臨時 DOM 容器以分析內容
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = article.content;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(article.content, 'text/html');
+  const tempDiv = doc.body;
 
   // 計算鏈接密度
   let linkTextLength = 0;
