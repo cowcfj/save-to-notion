@@ -1,5 +1,5 @@
 import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/shared/content.js';
-import { TECHNICAL_TERM_RULES } from '../config/shared/technicalTerms.js';
+import { TECHNICAL_TERM_RULES, TYPE_WORD } from '../config/shared/technicalTerms.js';
 import Logger from './Logger.js';
 
 // ==========================================
@@ -62,7 +62,7 @@ const CASE_SENSITIVE_WORD_TERMS = [];
 const SPECIAL_TERMS = [];
 for (const rule of TECHNICAL_TERM_RULES) {
   const escaped = rule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-  if (rule.type === 'word') {
+  if (rule.type === TYPE_WORD) {
     if (rule.caseSensitive) {
       CASE_SENSITIVE_WORD_TERMS.push(escaped);
     } else {

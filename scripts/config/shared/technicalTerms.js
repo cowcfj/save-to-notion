@@ -3,6 +3,17 @@
  * Config 模組只 export pure data；regex 建構邏輯由 consumer 負責。
  */
 
+/**
+ * @typedef {object} TechnicalTermRule
+ * @property {string} term
+ * @property {string} type
+ * @property {string} group
+ * @property {boolean} [caseSensitive]
+ * @property {string} [scope]
+ * @property {string} [note]
+ * @property {string[]} [synonyms]
+ */
+
 export const TYPE_WORD = 'word';
 export const TYPE_SPECIAL_CHAR = 'special-char';
 
@@ -91,7 +102,7 @@ const SPECIAL_RULES = [
   { term: 'c++', type: TYPE_SPECIAL_CHAR, group: GROUP_LANGUAGES_FRAMEWORKS },
 ];
 
-/** @type {import('./technicalTerms.js').TechnicalTermRule[]} */
+/** @type {TechnicalTermRule[]} */
 export const TECHNICAL_TERM_RULES = Object.entries(GROUPED_TERMS).flatMap(([group, terms]) => [
   ...terms.map(term => ({ term, type: TYPE_WORD, group })),
   ...SPECIAL_RULES.filter(rule => rule.group === group).map(({ type = TYPE_WORD, ...rest }) => ({

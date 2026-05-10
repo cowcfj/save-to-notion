@@ -15,6 +15,10 @@ const {
   logAnalysis,
   isDocumentation,
 } = require('../../scripts/utils/pageComplexityDetector.js');
+const {
+  TECHNICAL_TERM_RULES,
+  TECHNICAL_TERM_GROUPS,
+} = require('../../scripts/config/shared/technicalTerms.js');
 
 describe('頁面複雜度檢測器', () => {
   describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
@@ -654,11 +658,6 @@ describe('頁面複雜度檢測器', () => {
 // ==========================================
 // Technical Terms Governance Invariants
 // ==========================================
-
-const {
-  TECHNICAL_TERM_RULES,
-  TECHNICAL_TERM_GROUPS,
-} = require('../../scripts/config/shared/technicalTerms.js');
 
 describe('Technical Terms Governance', () => {
   describe('duplicate detection', () => {
