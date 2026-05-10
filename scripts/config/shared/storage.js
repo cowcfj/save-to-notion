@@ -56,9 +56,11 @@ export const LOCAL_STORAGE_KEYS = new Set(DATA_SOURCE_KEYS);
  * 合併後的 data source 設定。
  */
 export function mergeDataSourceConfig(localData = {}, syncData = {}) {
+  const safeLocal = localData || {};
+  const safeSync = syncData || {};
   return {
-    notionDataSourceId: localData.notionDataSourceId || syncData.notionDataSourceId,
-    notionDatabaseId: localData.notionDatabaseId || syncData.notionDatabaseId,
-    notionDataSourceType: localData.notionDataSourceType || syncData.notionDataSourceType,
+    notionDataSourceId: safeLocal.notionDataSourceId || safeSync.notionDataSourceId,
+    notionDatabaseId: safeLocal.notionDatabaseId || safeSync.notionDatabaseId,
+    notionDataSourceType: safeLocal.notionDataSourceType || safeSync.notionDataSourceType,
   };
 }
