@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.67.0](https://github.com/cowcfj/save-to-notion/compare/v2.66.3...v2.67.0) (2026-05-10)
+
+
+### ✨ 新功能
+
+* Add technical terms governance rules and unit tests ([#480](https://github.com/cowcfj/save-to-notion/issues/480)) ([5d2f45d](https://github.com/cowcfj/save-to-notion/commit/5d2f45d7b7fe60509cb7ce3c97faef733061abab))
+* Integrate UI system and styles ([#476](https://github.com/cowcfj/save-to-notion/issues/476)) ([63ba58f](https://github.com/cowcfj/save-to-notion/commit/63ba58fcfb90d2e86acb8a078c28fa40de6dc62a))
+* Optimize technical term matching logic ([#479](https://github.com/cowcfj/save-to-notion/issues/479)) ([1231e40](https://github.com/cowcfj/save-to-notion/commit/1231e40083719d6b452b83bb1fcc89b1e313af39))
+
+
+### 🐛 Bug 修復
+
+* Improve C++ term detection in page complexity analysis ([#478](https://github.com/cowcfj/save-to-notion/issues/478)) ([f60fbeb](https://github.com/cowcfj/save-to-notion/commit/f60fbebcd1b7d79a081372e7d7a101f01981e341))
+
 ## [2.66.3](https://github.com/cowcfj/save-to-notion/compare/v2.66.2...v2.66.3) (2026-05-09)
 
 
