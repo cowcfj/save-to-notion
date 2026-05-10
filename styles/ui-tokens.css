@@ -1,0 +1,48 @@
+:root {
+  /* === Color: Primary === */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+
+  /* === Color: Danger === */
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+
+  /* === Color: Status === */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+
+  /* === Color: Text === */
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
+
+  /* === Color: Surface === */
+  --color-bg: #ffffff;
+  --color-bg-page: #f8fafc;
+  --color-bg-hover: #f1f5f9;
+  --color-border: #e2e8f0;
+
+  /* === Color: Status Feedback === */
+  --status-success-bg: #dcfce7;
+  --status-success-text: #166534;
+  --status-success-border: #bbf7d0;
+  --status-error-bg: #fee2e2;
+  --status-error-text: #991b1b;
+  --status-error-border: #fecaca;
+  --status-warning-bg: #fef3c7;
+  --status-warning-text: #92400e;
+  --status-warning-border: #fcd34d;
+
+  /* === Spacing === */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* === Border Radius === */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* === Misc === */
+  --icon-baseline-offset: 2px;
+}

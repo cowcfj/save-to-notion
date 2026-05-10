@@ -1,42 +1,23 @@
 :root {
-  /* Colors */
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
-  --bg-color: #f8fafc;
-  --card-bg: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --border-color: #e2e8f0;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
-  --status-success-bg: #dcfce7;
-  --status-success-text: #166534;
-  --status-success-border: #bbf7d0;
-  --status-error-bg: #fee2e2;
-  --status-error-text: #991b1b;
-  --status-error-border: #fecaca;
-  --status-warning-bg: #fef3c7;
-  --status-warning-text: #92400e;
-  --status-warning-border: #fcd34d;
+  /* Surface-specific tokens (options page only) */
   --sidebar-bg: #ffffff;
   --sidebar-active: #eff6ff;
   --sidebar-text: #475569;
 
-  /* Spacing */
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-
-  /* BorderRadius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
-  /* Icon Alignment - 圖標對齊偏移量 */
-  /* 用於將 SVG 圖標向下微調，使其視覺中心與文字基線對齊 */
-  --icon-baseline-offset: 2px;
+  /* Legacy aliases — map old names to canonical shared tokens */
+  --primary-color: var(--color-primary);
+  --primary-hover: var(--color-primary-hover);
+  --bg-color: var(--color-bg-page);
+  --card-bg: var(--color-bg);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --border-color: var(--color-border);
+  --success-color: var(--color-success);
+  --warning-color: var(--color-warning);
+  --danger-color: var(--color-danger);
+  --bg-secondary: var(--color-bg-page);
+  --surface-hover: var(--color-bg-hover);
+  --error-color: var(--color-danger);
 }
 
 body {
@@ -206,25 +187,7 @@ body {
   margin: 0;
 }
 
-/* Cards */
-.card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
+/* Cards — base .card rules provided by shared/ui-primitives.css */
 
 .card h3 {
   font-size: 16px;
@@ -341,102 +304,8 @@ select:focus {
   color: var(--text-secondary);
 }
 
-/* Buttons */
-.btn-primary,
-.btn-secondary,
-.btn-danger,
-.btn-icon {
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-xs);
-}
-
-/* 按鈕內圖標對齊 */
-.btn-primary .icon,
-.btn-secondary .icon,
-.btn-danger .icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-primary .icon svg,
-.btn-secondary .icon svg,
-.btn-danger .icon svg {
-  display: block;
-}
-
-.btn-primary {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--primary-hover);
-}
-
-.btn-primary:disabled {
-  background-color: #94a3b8;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background-color: white;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #f1f5f9;
-}
-
-.btn-danger {
-  background-color: #fee2e2;
-  color: var(--danger-color);
-}
-
-.btn-danger:hover:not(:disabled) {
-  background-color: #fecaca;
-}
-
-.btn-icon {
-  background: transparent;
-  padding: 4px 8px;
-  font-size: 16px;
-}
-
-.btn-icon:hover {
-  background-color: #f1f5f9;
-}
-
-.full-width {
-  width: 100%;
-  padding: 12px;
-  margin-top: var(--spacing-md);
-}
-
-/* Focus States */
-.btn-primary:focus-visible,
-.btn-secondary:focus-visible,
-.btn-icon:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
-}
-
-.btn-danger:focus-visible {
-  outline: 2px solid var(--danger-color);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
-}
+/* Buttons — base rules provided by shared/ui-primitives.css */
+/* Surface-specific button overrides only */
 
 /* Import Mode Panel (還原備份：匯入模式選擇器) */
 .import-mode-panel {
@@ -773,28 +642,7 @@ select:focus {
   margin: var(--spacing-lg) 0;
 }
 
-.status-message {
-  display: none;
-  font-size: 13px;
-  text-align: center;
-}
-
-.status-message:not(:empty) {
-  display: block;
-  padding: 8px;
-  margin-top: 10px;
-  border-radius: 4px;
-}
-
-.status-message.success {
-  background-color: var(--status-success-bg);
-  color: var(--status-success-text);
-}
-
-.status-message.error {
-  background-color: var(--status-error-bg);
-  color: var(--status-error-text);
-}
+/* Status message — base rules provided by shared/ui-primitives.css */
 
 .migration-controls {
   display: flex;

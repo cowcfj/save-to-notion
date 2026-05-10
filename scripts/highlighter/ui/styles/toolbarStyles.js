@@ -1,4 +1,7 @@
 import { TOOLBAR_SELECTORS } from '../../../config/contentSafe/toolbarSelectors.js';
+import { UI_TOKENS } from '../../../../styles/ui-token-constants.js';
+
+const { color, spacing, radius, toolbar } = UI_TOKENS;
 
 /**
  * 取得 Toolbar 的完整 CSS 字串，供 Shadow DOM 使用。
@@ -53,8 +56,8 @@ export function getToolbarCSS() {
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(0, 0, 0, 0.08);
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: ${radius.lg};
+            padding: ${spacing.md};
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
             z-index: 2147483647;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -76,21 +79,21 @@ export function getToolbarCSS() {
 
         /* 標題區域 */
         .nh-header {
-            margin-bottom: 16px;
+            margin-bottom: ${spacing.md};
             font-weight: 600;
             text-align: center;
             color: #1a1a1a;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: ${spacing.sm};
             font-size: 15px;
         }
 
         /* 按鈕基礎樣式 */
         .nh-btn {
             border: none;
-            border-radius: 8px;
+            border-radius: ${radius.md};
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
@@ -106,27 +109,27 @@ export function getToolbarCSS() {
             transform: scale(0.96);
         }
 
-        /* 主按鈕（Highlighter mode 專用色，刻意不與全域 Primary CTA 共用 #2563eb） */
+        /* 主按鈕（Highlighter mode 專用色，刻意不與全域 Primary CTA 共用） */
         .nh-btn-primary {
-            background: #2eaadc;
+            background: ${toolbar.primary};
             color: white;
-            padding: 8px 16px;
+            padding: ${spacing.sm} ${spacing.md};
             width: 100%;
             box-shadow: 0 2px 8px rgba(46, 170, 220, 0.25);
         }
 
         .nh-btn-primary:hover {
-            background: #2590ba;
+            background: ${toolbar.primaryHover};
             box-shadow: 0 4px 12px rgba(46, 170, 220, 0.35);
         }
 
         .nh-btn-primary.active {
-            background: #ef4444;
+            background: ${color.danger};
             box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
         }
 
         .nh-btn-primary.active:hover {
-            background: #dc2626;
+            background: ${color.dangerHover};
             box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
         }
 
@@ -148,9 +151,9 @@ export function getToolbarCSS() {
         /* 操作按鈕 */
         .nh-btn-action {
             flex: 1;
-            padding: 8px 12px;
+            padding: ${spacing.sm} 12px;
             background: white;
-            border: 1px solid #e5e7eb;
+            border: 1px solid ${color.border};
             color: #4b5563;
         }
 
@@ -163,12 +166,12 @@ export function getToolbarCSS() {
         /* 顏色選擇器容器 */
         .nh-color-picker {
             display: flex;
-            gap: 8px;
+            gap: ${spacing.sm};
             justify-content: center;
             padding: 12px;
             background: #f3f4f6;
             border-radius: 10px;
-            margin-bottom: 16px;
+            margin-bottom: ${spacing.md};
         }
 
         .nh-sync-badge {
@@ -186,17 +189,17 @@ export function getToolbarCSS() {
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
-        /* 保存網頁按鈕 — 與 Popup Save button 同語意，對齊 #2563eb */
+        /* 保存網頁按鈕 — 與 Popup Save button 同語意 */
         .nh-btn-save {
             flex: 1;
-            background: #2563eb;
+            background: ${color.primary};
             color: white;
-            border-color: #2563eb;
+            border-color: ${color.primary};
             font-weight: 600;
         }
         .nh-btn-save:hover {
-            background: #1d4ed8;
-            border-color: #1d4ed8;
+            background: ${color.primaryHover};
+            border-color: ${color.primaryHover};
         }
 
         /* 顏色按鈕 */
@@ -218,19 +221,19 @@ export function getToolbarCSS() {
 
         .nh-color-btn.active {
             transform: scale(1.15);
-            box-shadow: 0 0 0 2px #2eaadc, 0 4px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 0 0 2px ${toolbar.primary}, 0 4px 8px rgba(0,0,0,0.15);
         }
 
         /* 狀態欄 */
         .nh-status {
             margin-top: 12px;
-            padding: 8px;
-            background: #f8fafc;
+            padding: ${spacing.sm};
+            background: ${color.bgPage};
             border-radius: 6px;
             font-size: 12px;
-            color: #64748b;
+            color: ${color.textMuted};
             text-align: center;
-            border: 1px solid #f1f5f9;
+            border: 1px solid ${color.bgHover};
         }
 
         /* 最小化圖標 */
