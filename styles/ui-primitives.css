@@ -2,7 +2,7 @@
 .btn-primary,
 .btn-secondary,
 .btn-danger,
-.btn-icon {
+button.btn-icon {
   border: none;
   border-radius: var(--radius-md);
   padding: 8px 16px;
@@ -67,13 +67,13 @@
 }
 
 /* === Button: Icon === */
-.btn-icon {
+button.btn-icon {
   background: transparent;
   padding: 4px 8px;
   font-size: 16px;
 }
 
-.btn-icon:hover {
+button.btn-icon:hover {
   background-color: var(--color-bg-hover);
 }
 
@@ -87,7 +87,7 @@
 /* === Focus States === */
 .btn-primary:focus-visible,
 .btn-secondary:focus-visible,
-.btn-icon:focus-visible {
+button.btn-icon:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
