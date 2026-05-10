@@ -1,4 +1,5 @@
 import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/shared/content.js';
+import { TECHNICAL_TERM_RULES } from '../config/shared/technicalTerms.js';
 import Logger from './Logger.js';
 
 // ==========================================
@@ -55,85 +56,12 @@ const TECHNICAL_DOC_TITLE_PATTERNS = [
   /api/,
 ];
 
-/** 技術內容關鍵詞 */
-const TECHNICAL_TERMS = [
-  // 編程概念
-  'function',
-  'class',
-  'method',
-  'variable',
-  'constant',
-  'interface',
-  'callback',
-  'async',
-  'await',
-  'syntax',
-  'parameter',
-  'argument',
-  'return',
-  'exception',
-  'error',
-  // API & Web
-  'api',
-  'endpoint',
-  'request',
-  'response',
-  'header',
-  'json',
-  'xml',
-  'yaml',
-  'http',
-  'https',
-  'rest',
-  'graphql',
-  // 工具 & CLI
-  'cli',
-  'command',
-  'option',
-  'flag',
-  'usage',
-  'install',
-  'configure',
-  'build',
-  'deploy',
-  'npm',
-  'git',
-  'docker',
-  'kubernetes',
-  'sdk',
-  // 語言 & 框架
-  'javascript',
-  'python',
-  'java',
-  'go',
-  'rust',
-  'c++',
-  'typescript',
-  'react',
-  'vue',
-  'angular',
-  'node',
-  'express',
-  'django',
-  'flask',
-  'spring',
-  // 文檔特定
-  'example',
-  'tutorial',
-  'guide',
-  'reference',
-  'deprecated',
-  'version',
-];
-
-const WORD_CHAR_ONLY = /^\w+$/;
-
-/** 預編譯 aggregate regex：將所有 terms 分為 word-only 與 special-char 兩組，各合併為單一正則 */
+/** 預編譯 aggregate regex：依 rule type 分組，各合併為單一正則 */
 const WORD_TERMS = [];
 const SPECIAL_TERMS = [];
-for (const term of TECHNICAL_TERMS) {
-  const escaped = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-  if (WORD_CHAR_ONLY.test(term)) {
+for (const rule of TECHNICAL_TERM_RULES) {
+  const escaped = rule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+  if (rule.type === 'word') {
     WORD_TERMS.push(escaped);
   } else {
     SPECIAL_TERMS.push(escaped);
