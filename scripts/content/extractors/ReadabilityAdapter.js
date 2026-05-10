@@ -98,7 +98,7 @@ function isContentGood(article) {
     return false;
   }
 
-  // 創建臨時 DOM 容器以分析內容，使用 DOMParser 避免 XSS
+  // 創建臨時 DOM 容器以分析內容
   const parser = new DOMParser();
   const doc = parser.parseFromString(article.content, 'text/html');
   const tempDiv = doc.body;

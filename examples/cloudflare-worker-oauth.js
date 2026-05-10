@@ -11,8 +11,8 @@
  *    - OAUTH_CLIENT_ID: 您的 Notion Public Integration Client ID
  *    - OAUTH_CLIENT_SECRET: 您的 Notion Public Integration Client Secret (⚠️ 設定為 Encrypt)
  *    - EXTENSION_API_KEY: 您自訂的安全金鑰，用於防止他人濫用這個代理伺服器 (⚠️ 設定為 Encrypt)
- * 4. 將 Worker 的網址（例如 https://notion-proxy.your-name.workers.dev）填入本地 scripts/config/env/build.js 的 OAUTH_SERVER_URL 中
- * 5. 將上述的 EXTENSION_API_KEY 填入本地 scripts/config/env/build.js 的 EXTENSION_API_KEY 中
+ * 4. 將 Worker 的網址（例如 https://notion-proxy.your-name.workers.dev）填入本地 env.js 的 OAUTH_SERVER_URL 中
+ * 5. 將上述的 EXTENSION_API_KEY 填入本地 env.js 的 EXTENSION_API_KEY 中
  */
 
 export default {
