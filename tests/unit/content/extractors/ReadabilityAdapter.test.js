@@ -359,8 +359,17 @@ describe('ReadabilityAdapter - isContentGood', () => {
   });
 
   describe('XSS 安全性', () => {
+    beforeEach(() => {
+      delete globalThis.__xss_fired;
+      delete globalThis.__xss_script_fired;
+    });
+
+    afterEach(() => {
+      delete globalThis.__xss_fired;
+      delete globalThis.__xss_script_fired;
+    });
+
     test('不應執行內容中的 inline event handlers', () => {
-      globalThis.__xss_fired = undefined;
       const xssPayload =
         '<img src=x onerror="window.__xss_fired=true">' + `<p>${'a'.repeat(500)}</p>`;
 
@@ -369,7 +378,6 @@ describe('ReadabilityAdapter - isContentGood', () => {
     });
 
     test('不應執行內容中的 script 標籤', () => {
-      globalThis.__xss_script_fired = undefined;
       const xssPayload =
         '<script>window.__xss_script_fired=true</script>' + `<p>${'a'.repeat(500)}</p>`;
 
