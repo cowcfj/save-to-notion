@@ -470,6 +470,45 @@ describe('頁面複雜度檢測器', () => {
     });
   });
 
+  describe('Technical term boundary regression (c++)', () => {
+    test('standalone "c++" token should be detected as technical term', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>Learn c++ programming with modern c++ features and c++ templates</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(3);
+    });
+
+    test('"c++" at end of text should be detected', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>This guide covers c++</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(1);
+    });
+
+    test('"c++" followed by space should be detected', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>c++ is a powerful language</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(1);
+    });
+
+    test('"objective-c++ish" should NOT match as standalone c++', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>objective-c++ish is not a real language</p></article></body>';
+      const text = document.body.textContent.toLowerCase();
+      const cppMatches = (text.match(/(?<![a-z0-9_])c\+\+(?![a-z0-9_])/gi) || []).length;
+      expect(cppMatches).toBe(0);
+    });
+
+    test('c++ technical term should contribute to hasTechnicalContent', () => {
+      document.documentElement.innerHTML =
+        '<body><article><p>c++ c++ c++ c++ c++ c++ c++ c++ c++ c++ c++ short text</p></article></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.isTechnical).toBe(true);
+      expect(result.hasTechnicalContent).toBe(true);
+    });
+  });
+
   describe('Coverage 補強', () => {
     test('detectPageComplexity 應該在例外時回退到安全預設值', () => {
       const badDoc = {
