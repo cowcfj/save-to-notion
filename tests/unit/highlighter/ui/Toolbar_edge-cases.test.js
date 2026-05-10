@@ -46,7 +46,6 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
 jest.mock('../../../../scripts/highlighter/ui/styles/toolbarStyles.js', () => ({
   injectStylesIntoShadowRoot: jest.fn(),
   getToolbarCSS: jest.fn(() => ''),
-  injectGlobalStyles: jest.fn(), // 向後相容
 }));
 
 // Mock ToolbarRuntime - 避免在測試中觸發真實 Chrome API

@@ -227,9 +227,9 @@ function createTextBlocks(content) {
   }
 
   // 嘗試移除 HTML 標籤
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = content;
-  const text = tempDiv.textContent || '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(content, 'text/html');
+  const text = doc.body.textContent || '';
 
   if (!text.trim()) {
     return [];

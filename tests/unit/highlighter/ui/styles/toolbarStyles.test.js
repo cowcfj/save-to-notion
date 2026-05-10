@@ -52,7 +52,7 @@ describe('toolbarStyles', () => {
     expect(css).toContain(TOOLBAR_SELECTORS.MINI_ICON);
     expect(css).toContain(`${TOOLBAR_SELECTORS.MINI_ICON}:hover`);
     expect(css).toContain('transform: scale(1.1) rotate(15deg);');
-    expect(css).toContain('box-shadow: 0 8px 24px rgba(0,0,0,0.2);');
+    expect(css).toContain('box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);');
   });
 
   test('injectStylesIntoShadowRoot 應在 adoptedStyleSheets 可用時寫入樣式表', () => {
@@ -110,14 +110,5 @@ describe('toolbarStyles', () => {
     const styleElement = shadowRoot.querySelector('style');
     expect(styleElement).toBeTruthy();
     expect(styleElement.textContent).toContain(':host');
-  });
-
-  test('injectGlobalStyles 應保持 no-op 且不拋錯', () => {
-    const headChildrenCount = document.head.children.length;
-    // 透過 any 取得 legacy API，避免 IDE 對 @deprecated 簽名噪音
-    const legacyInjectGlobalStyles = /** @type {any} */ (toolbarStylesModule).injectGlobalStyles;
-
-    expect(() => legacyInjectGlobalStyles()).not.toThrow();
-    expect(document.head.children).toHaveLength(headChildrenCount);
   });
 });
