@@ -126,6 +126,17 @@ const TECHNICAL_TERMS = [
   'version',
 ];
 
+const WORD_CHAR_ONLY = /^\w+$/;
+
+/** 預編譯 technical term regex：純 word term 用 \b，含非 word char 的 term 用 lookaround */
+const TECHNICAL_TERM_REGEXES = TECHNICAL_TERMS.map(term => {
+  const escaped = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+  if (WORD_CHAR_ONLY.test(term)) {
+    return new RegExp(String.raw`\b${escaped}\b`, 'gi');
+  }
+  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`, 'gi');
+});
+
 /**
  * 頁面複雜度檢測器
  *
@@ -231,13 +242,9 @@ function countElements(container, selector) {
 function hasTechnicalFeatures(document) {
   const textContent = (document.body?.textContent || '').toLowerCase();
 
-  // 技術關鍵詞計數 (使用統一配置)
   let technicalTermCount = 0;
-  for (const term of TECHNICAL_TERMS) {
-    // Escape special characters in the term to support terms like 'c++'
-    const escapedTerm = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-    /* eslint-disable-next-line security/detect-non-literal-regexp */
-    const regex = new RegExp(String.raw`\b${escapedTerm}\b`, 'gi');
+  for (const regex of TECHNICAL_TERM_REGEXES) {
+    regex.lastIndex = 0;
     const termMatches = textContent.match(regex);
     technicalTermCount += termMatches ? termMatches.length : 0;
   }
