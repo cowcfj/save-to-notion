@@ -472,43 +472,6 @@ describe('ContentBridge', () => {
   });
 
   describe('createTextBlocks', () => {
-    beforeEach(() => {
-      // Mock document.createElement 返回可設置 innerHTML 的對象
-      globalThis.document.createElement = jest.fn(() => {
-        const elem = {
-          _innerHTML: '',
-          _textContent: '',
-          get innerHTML() {
-            return this._innerHTML;
-          },
-          set innerHTML(val) {
-            this._innerHTML = val;
-            // 模擬瀏覽器行為：設置 innerHTML 後更新 textContent
-            // 使用安全的字串處理方法來移除 HTML 標籤，避免 ReDoS 風險
-            let result = '';
-            let inTag = false;
-            for (const char of val) {
-              if (char === '<') {
-                inTag = true;
-              } else if (char === '>') {
-                inTag = false;
-              } else if (!inTag) {
-                result += char;
-              }
-            }
-            this._textContent = result;
-          },
-          get textContent() {
-            return this._textContent;
-          },
-          get innerText() {
-            return this._textContent;
-          },
-        };
-        return elem;
-      });
-    });
-
     test('應處理空輸入', () => {
       const result = createTextBlocks(null);
       expect(result).toEqual([]);
@@ -557,6 +520,22 @@ describe('ContentBridge', () => {
       const result = createTextBlocks(longText);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0].paragraph.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
+    });
+
+    test('應安全處理含 script 標籤的惡意 HTML（XSS 防護）', () => {
+      const malicious = '<script>alert("xss")</script><p>Safe text</p>';
+      const result = createTextBlocks(malicious);
+      const output = result.map(b => b.paragraph.rich_text[0].text.content).join('');
+      expect(output).not.toContain('<script>');
+      expect(output).toContain('Safe text');
+    });
+
+    test('應安全處理含 event handler 的惡意 HTML（XSS 防護）', () => {
+      const malicious = '<img src=x onerror="alert(1)"><p>Content</p>';
+      const result = createTextBlocks(malicious);
+      const output = result.map(b => b.paragraph.rich_text[0].text.content).join('');
+      expect(output).not.toContain('onerror');
+      expect(output).toContain('Content');
     });
   });
 
