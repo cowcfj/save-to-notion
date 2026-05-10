@@ -12,6 +12,13 @@
  * @see scripts/auth/accountSession.js
  */
 
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  __esModule: true,
+  BUILD_ENV: {
+    OAUTH_SERVER_URL: 'https://test-server.example.com',
+  },
+}));
+
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {

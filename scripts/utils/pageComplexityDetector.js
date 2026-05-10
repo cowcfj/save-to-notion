@@ -1,4 +1,5 @@
 import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/shared/content.js';
+import { TECHNICAL_TERM_RULES, TYPE_WORD } from '../config/shared/technicalTerms.js';
 import Logger from './Logger.js';
 
 // ==========================================
@@ -55,76 +56,39 @@ const TECHNICAL_DOC_TITLE_PATTERNS = [
   /api/,
 ];
 
-/** 技術內容關鍵詞 */
-const TECHNICAL_TERMS = [
-  // 編程概念
-  'function',
-  'class',
-  'method',
-  'variable',
-  'constant',
-  'interface',
-  'callback',
-  'async',
-  'await',
-  'syntax',
-  'parameter',
-  'argument',
-  'return',
-  'exception',
-  'error',
-  // API & Web
-  'api',
-  'endpoint',
-  'request',
-  'response',
-  'header',
-  'json',
-  'xml',
-  'yaml',
-  'http',
-  'https',
-  'rest',
-  'graphql',
-  // 工具 & CLI
-  'cli',
-  'command',
-  'option',
-  'flag',
-  'usage',
-  'install',
-  'configure',
-  'build',
-  'deploy',
-  'npm',
-  'git',
-  'docker',
-  'kubernetes',
-  'sdk',
-  // 語言 & 框架
-  'javascript',
-  'python',
-  'java',
-  'go',
-  'rust',
-  'c++',
-  'typescript',
-  'react',
-  'vue',
-  'angular',
-  'node',
-  'express',
-  'django',
-  'flask',
-  'spring',
-  // 文檔特定
-  'example',
-  'tutorial',
-  'guide',
-  'reference',
-  'deprecated',
-  'version',
-];
+/** 預編譯 aggregate regex：依 rule type 與 caseSensitive 分組，各合併為單一正則 */
+const WORD_TERMS = [];
+const CASE_SENSITIVE_WORD_TERMS = [];
+const SPECIAL_TERMS = [];
+for (const rule of TECHNICAL_TERM_RULES) {
+  const escaped = rule.term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+  if (rule.type === TYPE_WORD) {
+    if (rule.caseSensitive) {
+      CASE_SENSITIVE_WORD_TERMS.push(escaped);
+    } else {
+      WORD_TERMS.push(escaped);
+    }
+  } else {
+    SPECIAL_TERMS.push(escaped);
+  }
+}
+WORD_TERMS.sort((termA, termB) => termB.length - termA.length);
+CASE_SENSITIVE_WORD_TERMS.sort((termA, termB) => termB.length - termA.length);
+SPECIAL_TERMS.sort((termA, termB) => termB.length - termA.length);
+
+const WORD_TERMS_REGEX =
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  WORD_TERMS.length > 0 ? new RegExp(String.raw`\b(?:${WORD_TERMS.join('|')})\b`, 'gi') : null;
+const CASE_SENSITIVE_WORD_REGEX =
+  CASE_SENSITIVE_WORD_TERMS.length > 0
+    ? // eslint-disable-next-line security/detect-non-literal-regexp
+      new RegExp(String.raw`\b(?:${CASE_SENSITIVE_WORD_TERMS.join('|')})\b`, 'g')
+    : null;
+const SPECIAL_TERMS_REGEX =
+  SPECIAL_TERMS.length > 0
+    ? // eslint-disable-next-line security/detect-non-literal-regexp
+      new RegExp(`(?<![A-Za-z0-9_])(?:${SPECIAL_TERMS.join('|')})(?![A-Za-z0-9_])`, 'gi')
+    : null;
 
 /**
  * 頁面複雜度檢測器
@@ -229,20 +193,29 @@ function countElements(container, selector) {
  * @returns {{technicalTermCount: number, technicalRatio: number, isTechnical: boolean}} 技術特徵分析結果
  */
 function hasTechnicalFeatures(document) {
-  const textContent = (document.body?.textContent || '').toLowerCase();
+  const rawText = document.body?.textContent || '';
+  const textContent = rawText.toLowerCase();
 
-  // 技術關鍵詞計數 (使用統一配置)
   let technicalTermCount = 0;
-  for (const term of TECHNICAL_TERMS) {
-    // Escape special characters in the term to support terms like 'c++'
-    const escapedTerm = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-    /* eslint-disable-next-line security/detect-non-literal-regexp */
-    const regex = new RegExp(String.raw`\b${escapedTerm}\b`, 'gi');
-    const termMatches = textContent.match(regex);
-    technicalTermCount += termMatches ? termMatches.length : 0;
+  if (WORD_TERMS_REGEX) {
+    WORD_TERMS_REGEX.lastIndex = 0;
+    while (WORD_TERMS_REGEX.test(textContent)) {
+      technicalTermCount++;
+    }
+  }
+  if (CASE_SENSITIVE_WORD_REGEX) {
+    CASE_SENSITIVE_WORD_REGEX.lastIndex = 0;
+    while (CASE_SENSITIVE_WORD_REGEX.test(rawText)) {
+      technicalTermCount++;
+    }
+  }
+  if (SPECIAL_TERMS_REGEX) {
+    SPECIAL_TERMS_REGEX.lastIndex = 0;
+    while (SPECIAL_TERMS_REGEX.test(textContent)) {
+      technicalTermCount++;
+    }
   }
 
-  // 如果技術詞彙出現頻率高，認為是技術文檔
   const wordCount = textContent.split(/\s+/).length;
   const technicalRatio = technicalTermCount / Math.max(wordCount, 1);
 
