@@ -495,9 +495,8 @@ describe('頁面複雜度檢測器', () => {
     test('"objective-c++ish" should NOT match as standalone c++', () => {
       document.documentElement.innerHTML =
         '<body><article><p>objective-c++ish is not a real language</p></article></body>';
-      const text = document.body.textContent.toLowerCase();
-      const cppMatches = (text.match(/(?<![a-z0-9_])c\+\+(?![a-z0-9_])/gi) || []).length;
-      expect(cppMatches).toBe(0);
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBe(0);
     });
 
     test('c++ technical term should contribute to hasTechnicalContent', () => {
