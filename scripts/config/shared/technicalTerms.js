@@ -94,5 +94,5 @@ const SPECIAL_RULES = [
 /** @type {import('./technicalTerms.js').TechnicalTermRule[]} */
 export const TECHNICAL_TERM_RULES = Object.entries(GROUPED_TERMS).flatMap(([group, terms]) => [
   ...terms.map(term => ({ term, type: TYPE_WORD, group })),
-  ...SPECIAL_RULES.filter(r => r.group === group).map(r => ({ type: TYPE_WORD, ...r })),
+  ...SPECIAL_RULES.filter(rule => rule.group === group).map(rule => ({ type: TYPE_WORD, ...rule })),
 ]);
