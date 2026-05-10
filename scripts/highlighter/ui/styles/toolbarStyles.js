@@ -52,10 +52,10 @@ export function getToolbarCSS() {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${hexToRgba('#ffffff', 0.95)};
+            background: ${hexToRgba(color.white, 0.95)};
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            border: 1px solid ${hexToRgba('#000000', 0.08)};
+            border: 1px solid ${hexToRgba(color.black, 0.08)};
             border-radius: ${radius.lg};
             padding: ${spacing.md};
             box-shadow: ${shadow.lg};
@@ -144,7 +144,7 @@ export function getToolbarCSS() {
         }
 
         .nh-btn-icon:hover {
-            background: ${hexToRgba('#000000', 0.05)};
+            background: ${hexToRgba(color.black, 0.05)};
             color: #333;
         }
 
@@ -221,7 +221,7 @@ export function getToolbarCSS() {
 
         .nh-color-btn.active {
             transform: scale(1.15);
-            box-shadow: 0 0 0 2px ${toolbar.primary}, 0 4px 8px ${hexToRgba('#000000', 0.15)};
+            box-shadow: 0 0 0 2px ${toolbar.primary}, 0 4px 8px ${hexToRgba(color.black, 0.15)};
         }
 
         /* 狀態欄 */
@@ -253,7 +253,7 @@ export function getToolbarCSS() {
             justify-content: center;
             font-size: 20px;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            border: 1px solid ${hexToRgba('#000000', 0.05)};
+            border: 1px solid ${hexToRgba(color.black, 0.05)};
         }
 
         ${TOOLBAR_SELECTORS.MINI_ICON}:hover {

@@ -57,6 +57,7 @@ button.btn-icon {
 }
 
 /* === Button: Danger === */
+/* Intentional cross-family mix: soft bg (status) + bold text (color) for non-destructive danger actions */
 .btn-danger {
   background-color: var(--status-error-bg);
   color: var(--color-danger);

@@ -13,10 +13,14 @@
  * @returns {string} rgba(...) 字串
  */
 export function hexToRgba(hex, alpha) {
+  if (typeof hex !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    return 'rgba(0, 0, 0, 0)';
+  }
+  const clampedAlpha = typeof alpha === 'number' ? Math.max(0, Math.min(1, alpha)) : 1;
   const red = Number.parseInt(hex.slice(1, 3), 16);
   const green = Number.parseInt(hex.slice(3, 5), 16);
   const blue = Number.parseInt(hex.slice(5, 7), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  return `rgba(${red}, ${green}, ${blue}, ${clampedAlpha})`;
 }
 
 export const UI_TOKENS = {
@@ -27,6 +31,8 @@ export const UI_TOKENS = {
     dangerHover: '#dc2626',
     success: '#10b981',
     warning: '#f59e0b',
+    white: '#ffffff',
+    black: '#000000',
     text: '#1e293b',
     textMuted: '#64748b',
     bg: '#ffffff',

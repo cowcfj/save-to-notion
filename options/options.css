@@ -18,6 +18,7 @@
   --bg-secondary: var(--color-bg-page);
   --surface-hover: var(--color-bg-hover);
   --error-color: var(--color-danger);
+  --text-muted: var(--color-text-muted);
 }
 
 body {
@@ -106,7 +107,7 @@ body {
 .nav-item:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
-  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.1);
+  box-shadow: inset 0 0 0 2px var(--focus-ring-primary);
 }
 
 .nav-item .icon {
@@ -187,7 +188,7 @@ body {
   margin: 0;
 }
 
-/* Cards — base .card rules provided by shared/ui-primitives.css */
+/* Cards — base .card rules provided by ../styles/ui-primitives.css */
 
 .card h3 {
   font-size: 16px;
@@ -304,7 +305,7 @@ select:focus {
   color: var(--text-secondary);
 }
 
-/* Buttons — base rules provided by shared/ui-primitives.css */
+/* Buttons — base rules provided by ../styles/ui-primitives.css */
 /* Surface-specific button overrides only */
 
 /* Import Mode Panel (還原備份：匯入模式選擇器) */
@@ -642,7 +643,7 @@ select:focus {
   margin: var(--spacing-lg) 0;
 }
 
-/* Status message — base rules provided by shared/ui-primitives.css */
+/* Status message — base rules provided by ../styles/ui-primitives.css */
 
 .migration-controls {
   display: flex;
@@ -692,9 +693,9 @@ select:focus {
   min-height: 48px;
   padding: 10px 12px;
   border: 1px solid var(--border-color);
-  border-left: 4px solid #2563eb;
+  border-left: 4px solid var(--primary-color);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--card-bg);
 }
 
 .destination-profile-row > div:first-child {
