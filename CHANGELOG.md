@@ -1,5 +1,27 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.68.0](https://github.com/cowcfj/save-to-notion/compare/v2.67.0...v2.68.0) (2026-05-10)
+
+
+### ✨ 新功能
+
+* 新增 Jules 指令文件 ([f6ffaa7](https://github.com/cowcfj/save-to-notion/commit/f6ffaa7398831e17815ec71af4d7c2b65840461b))
+
+
+### 🐛 Bug 修復
+
+* improve HTML tag removal logic in createTextBlocks function ([#490](https://github.com/cowcfj/save-to-notion/issues/490)) ([7e62dbf](https://github.com/cowcfj/save-to-notion/commit/7e62dbfdcaecfea87e70a5abd200df174beb0994))
+
+
+### ♻️ 代碼重構
+
+* Improve tests and stability for `mergeDataSourceConfig` ([#481](https://github.com/cowcfj/save-to-notion/issues/481)) ([6f9740b](https://github.com/cowcfj/save-to-notion/commit/6f9740bdf751605d9d4346d131407bb5c59a74ac))
+
+
+### 🧹 其他變更
+
+* Remove deprecated injectGlobalStyles no-op function ([#483](https://github.com/cowcfj/save-to-notion/issues/483)) ([3ec6305](https://github.com/cowcfj/save-to-notion/commit/3ec63050e4f5a900bf7c194481859bf4e7348cf4))
+
 ## [2.67.0](https://github.com/cowcfj/save-to-notion/compare/v2.66.3...v2.67.0) (2026-05-10)
 
 
