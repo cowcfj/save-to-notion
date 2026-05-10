@@ -5,7 +5,7 @@
 button.btn-icon {
   border: none;
   border-radius: var(--radius-md);
-  padding: 8px 16px;
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -33,7 +33,7 @@ button.btn-icon {
 /* === Button: Primary === */
 .btn-primary {
   background-color: var(--color-primary);
-  color: white;
+  color: var(--color-bg);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -41,13 +41,13 @@ button.btn-icon {
 }
 
 .btn-primary:disabled {
-  background-color: #94a3b8;
+  background-color: var(--color-disabled);
   cursor: not-allowed;
 }
 
 /* === Button: Secondary === */
 .btn-secondary {
-  background-color: white;
+  background-color: var(--color-bg);
   border: 1px solid var(--color-border);
   color: var(--color-text);
 }
@@ -58,18 +58,18 @@ button.btn-icon {
 
 /* === Button: Danger === */
 .btn-danger {
-  background-color: #fee2e2;
+  background-color: var(--status-error-bg);
   color: var(--color-danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #fecaca;
+  background-color: var(--status-error-border);
 }
 
 /* === Button: Icon === */
 button.btn-icon {
   background: transparent;
-  padding: 4px 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   font-size: 16px;
 }
 
@@ -80,7 +80,7 @@ button.btn-icon:hover {
 /* === Button: Full Width Modifier === */
 .full-width {
   width: 100%;
-  padding: 12px;
+  padding: var(--spacing-md);
   margin-top: var(--spacing-md);
 }
 
@@ -90,13 +90,13 @@ button.btn-icon:hover {
 button.btn-icon:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 0 0 4px var(--focus-ring-primary);
 }
 
 .btn-danger:focus-visible {
   outline: 2px solid var(--color-danger);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 0 4px var(--focus-ring-danger);
 }
 
 /* === Card === */
@@ -128,8 +128,8 @@ button.btn-icon:focus-visible {
 
 .status-message:not(:empty) {
   display: block;
-  padding: 8px;
-  margin-top: 10px;
+  padding: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
   border-radius: var(--radius-sm);
 }
 

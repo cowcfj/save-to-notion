@@ -20,6 +20,7 @@
   --color-bg-page: #f8fafc;
   --color-bg-hover: #f1f5f9;
   --color-border: #e2e8f0;
+  --color-disabled: #94a3b8;
 
   /* === Color: Status Feedback === */
   --status-success-bg: #dcfce7;
@@ -42,6 +43,10 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* === Focus Ring === */
+  --focus-ring-primary: rgba(37, 99, 235, 0.2);
+  --focus-ring-danger: rgba(239, 68, 68, 0.2);
 
   /* === Misc === */
   --icon-baseline-offset: 2px;
