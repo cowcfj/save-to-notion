@@ -634,6 +634,17 @@ const DRIVE_SYNC_ACTIONS = {
  */
 
 /**
+ * @typedef {object} ContentBridgeShowFloatingRailRequest
+ * @property {'CONTENT_BRIDGE_SHOW_FLOATING_RAIL'} action
+ */
+
+/**
+ * @typedef {object} ContentBridgeShowFloatingRailResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
  * @typedef {object} PingRequest
  * @property {'PING'} action
  */
@@ -676,6 +687,7 @@ const BRIDGE_ACTIONS = {
   PING: 'PING',
   INIT_BUNDLE: 'INIT_BUNDLE',
   REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
+  CONTENT_BRIDGE_SHOW_FLOATING_RAIL: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
 };
 
 const DIAGNOSTICS_ACTIONS = {
@@ -730,6 +742,7 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {PingRequest['action']} PING - Request: {@link PingRequest}; Response: {@link PingResponse}
  * @property {InitBundleRequest['action']} INIT_BUNDLE - Request: {@link InitBundleRequest}; Response: {@link InitBundleResponse}
  * @property {ReplayBufferedEventsRequest['action']} REPLAY_BUFFERED_EVENTS - Request: {@link ReplayBufferedEventsRequest}; Response: {@link ReplayBufferedEventsResponse}
+ * @property {ContentBridgeShowFloatingRailRequest['action']} CONTENT_BRIDGE_SHOW_FLOATING_RAIL - Request: {@link ContentBridgeShowFloatingRailRequest}; Response: {@link ContentBridgeShowFloatingRailResponse}
  */
 
 /** @type {Readonly<RuntimeActionsRegistry>} */

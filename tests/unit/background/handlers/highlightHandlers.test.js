@@ -1,6 +1,7 @@
 import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
+import { CONTENT_BRIDGE_ACTIONS } from '../../../../scripts/config/runtimeActions/contentBridgeActions.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,
@@ -432,7 +433,7 @@ describe('highlightHandlers', () => {
   });
 
   describe('SHOW_FLOATING_RAIL', () => {
-    it('[REGRESSION] preloader 觸發時應注入 bundle 並轉發 SHOW_FLOATING_RAIL 到目前 tab', async () => {
+    it('[REGRESSION] preloader 觸發時應注入 bundle 並轉發 content bridge action 到目前 tab', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
@@ -454,7 +455,7 @@ describe('highlightHandlers', () => {
       expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
-        { action: RUNTIME_ACTIONS.SHOW_FLOATING_RAIL },
+        { action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL },
         expect.any(Function)
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });

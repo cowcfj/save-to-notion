@@ -19,6 +19,7 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/shared/core.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
+import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridgeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { getActiveTab } from './handlerUtils.js';
@@ -259,13 +260,17 @@ export function createHighlightHandlers(services) {
         }
 
         const response = await new Promise((resolve, reject) => {
-          chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.SHOW_FLOATING_RAIL }, result => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
+          chrome.tabs.sendMessage(
+            tabId,
+            { action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL },
+            result => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
             }
-          });
+          );
         });
 
         sendResponse(response?.success ? { success: true } : response);

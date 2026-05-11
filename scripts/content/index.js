@@ -248,7 +248,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return true;
     }
 
-    case HIGHLIGHTER_ACTIONS.SHOW_FLOATING_RAIL: {
+    case CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL: {
       handleShowFloatingRail(sendResponse);
       return true;
     }

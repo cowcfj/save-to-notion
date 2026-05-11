@@ -157,13 +157,17 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.notionHighlighter;
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
+    test('[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
       const railReady = createDeferred();
       const showMock = jest.fn();
       globalThis.__NOTION_RAIL_READY__ = railReady.promise;
       const sendResponse = jest.fn();
 
-      const result = messageHandler({ action: 'SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      const result = messageHandler(
+        { action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' },
+        {},
+        sendResponse
+      );
 
       expect(result).toBe(true);
       expect(showMock).not.toHaveBeenCalled();
