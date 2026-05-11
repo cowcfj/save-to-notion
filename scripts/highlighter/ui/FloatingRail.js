@@ -156,7 +156,8 @@ export class FloatingRail {
       return;
     }
 
-    const { trigger, saveBtn, highlightBtn, manageBtn, colorPalette } = this.elements;
+    const { trigger, saveBtn, highlightBtn, highlightToggle, manageBtn, colorPalette } =
+      this.elements;
 
     // Trigger: expand/collapse
     if (trigger) {
@@ -196,15 +197,17 @@ export class FloatingRail {
     }
 
     // Highlight toggle
-    if (highlightBtn) {
-      highlightBtn.addEventListener('click', () => {
+    if (highlightToggle) {
+      highlightToggle.addEventListener('click', () => {
         if (this.stateManager.isHighlighting) {
           this.deactivateHighlighting();
         } else {
           this.activateHighlighting();
         }
       });
+    }
 
+    if (highlightBtn) {
       highlightBtn.addEventListener('mouseenter', () => showColorPalette(colorPalette));
       highlightBtn.addEventListener('focusin', () => showColorPalette(colorPalette));
     }

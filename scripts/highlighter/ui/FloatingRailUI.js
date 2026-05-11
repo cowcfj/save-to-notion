@@ -5,13 +5,16 @@
  * 負責 Rail container 的 DOM 查詢與狀態渲染。
  */
 
+import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { COLORS } from '../utils/color.js';
 
 export function getRailElements(container) {
+  const highlightBtn = container.querySelector('[data-action="highlight"]');
   return {
     trigger: container.querySelector('.rail-trigger'),
     saveBtn: container.querySelector('[data-action="save"]'),
-    highlightBtn: container.querySelector('[data-action="highlight"]'),
+    highlightBtn,
+    highlightToggle: highlightBtn?.querySelector('.rail-highlight-toggle') ?? null,
     manageBtn: container.querySelector('[data-action="manage"]'),
     colorIndicator: container.querySelector('.color-indicator'),
     colorPalette: container.querySelector('.color-palette'),
@@ -38,7 +41,10 @@ export function applySaveActionVisibility(saveBtn, pageStatus) {
       ? pageStatus.canSave === false
       : Boolean(pageStatus);
 
-  saveBtn.setAttribute('aria-label', isSaved ? '同步標註' : '保存網頁');
+  saveBtn.setAttribute(
+    'aria-label',
+    isSaved ? UI_MESSAGES.FLOATING_RAIL.SYNC_LABEL : UI_MESSAGES.FLOATING_RAIL.SAVE_LABEL
+  );
   saveBtn.dataset.action = isSaved ? 'sync' : 'save';
 }
 
@@ -61,7 +67,15 @@ export function applyHighlightActive(highlightBtn, isActive) {
     return;
   }
   highlightBtn.classList.toggle('active', isActive);
-  highlightBtn.setAttribute('aria-label', isActive ? '停止標註' : '開始標註');
+  const toggle = highlightBtn.querySelector('.rail-highlight-toggle');
+  if (toggle) {
+    toggle.setAttribute(
+      'aria-label',
+      isActive
+        ? UI_MESSAGES.FLOATING_RAIL.STOP_HIGHLIGHT_LABEL
+        : UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL
+    );
+  }
 }
 
 export function showColorPalette(palette) {

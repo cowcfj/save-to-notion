@@ -227,7 +227,9 @@ const FLOATING_RAIL = {
   CONTAINER_LABEL: 'Save to Notion 工具列',
   TRIGGER_LABEL: '展開工具列',
   SAVE_LABEL: '保存網頁',
+  SYNC_LABEL: '同步標註',
   HIGHLIGHT_LABEL: '開始標註',
+  STOP_HIGHLIGHT_LABEL: '停止標註',
   COLOR_PALETTE_LABEL: '標註顏色',
   MANAGE_LABEL: '管理標註',
 };

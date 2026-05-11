@@ -57,19 +57,20 @@ export function createFloatingRailContainer(options = {}) {
   saveBtn.append(saveIcon);
   actions.append(saveBtn);
 
-  // Highlight button with color indicator
-  // Uses div[role=button] because it contains interactive children (color swatches)
-  const highlightBtn = document.createElement('div');
-  highlightBtn.className = ACTION_BTN_CLASS;
-  highlightBtn.setAttribute('role', 'button');
-  highlightBtn.setAttribute('tabindex', '0');
-  highlightBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
-  highlightBtn.dataset.action = 'highlight';
+  // Highlight group: plain container with a toggle button + color palette
+  const highlightGroup = document.createElement('div');
+  highlightGroup.className = ACTION_BTN_CLASS;
+  highlightGroup.dataset.action = 'highlight';
+
+  const highlightToggle = document.createElement('button');
+  highlightToggle.className = 'rail-highlight-toggle';
+  highlightToggle.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
 
   const colorIndicator = document.createElement('span');
   colorIndicator.className = 'color-indicator';
   colorIndicator.style.backgroundColor = COLORS[selectedColor] || COLORS.yellow;
-  highlightBtn.append(colorIndicator);
+  highlightToggle.append(colorIndicator);
+  highlightGroup.append(highlightToggle);
 
   // Color palette (hidden by default)
   const palette = document.createElement('div');
@@ -88,8 +89,8 @@ export function createFloatingRailContainer(options = {}) {
     palette.append(swatch);
   }
 
-  highlightBtn.append(palette);
-  actions.append(highlightBtn);
+  highlightGroup.append(palette);
+  actions.append(highlightGroup);
 
   // Manage button
   const manageBtn = document.createElement('button');
