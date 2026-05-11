@@ -245,6 +245,27 @@ describe('FloatingRail', () => {
       expect(rail._eventsBound).toBe(true);
       expect(rail._pageStatus).toEqual({ isSaved: true, canSave: false });
     });
+
+    test('[REGRESSION] destroy 後 pending initialize completion 不應重新啟用 instance', async () => {
+      let resolveStatus;
+      const pageStatusPromise = new Promise(resolve => {
+        resolveStatus = resolve;
+      });
+      checkPageStatus.mockReturnValue(pageStatusPromise);
+
+      const rail = new FloatingRail(manager);
+      const initPromise = rail.initialize();
+
+      rail.destroy();
+      resolveStatus({ isSaved: false, canSave: true });
+      await initPromise;
+
+      document.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+
+      expect(rail._initialized).toBe(false);
+      expect(rail._eventsBound).toBe(false);
+      expect(manager.handleDocumentClick).not.toHaveBeenCalled();
+    });
   });
 
   describe('show / hide', () => {

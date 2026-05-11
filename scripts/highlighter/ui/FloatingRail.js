@@ -92,7 +92,7 @@ export class FloatingRail {
   }
 
   async initialize() {
-    if (this._initialized) {
+    if (this._destroyed || this._initialized) {
       return;
     }
 
@@ -112,6 +112,9 @@ export class FloatingRail {
     }
 
     await this._refreshPageStatus();
+    if (this._destroyed) {
+      return;
+    }
     this._bindEvents();
     this._initialized = true;
   }
@@ -169,7 +172,11 @@ export class FloatingRail {
 
   async _refreshPageStatus() {
     try {
-      this._pageStatus = await checkPageStatus();
+      const pageStatus = await checkPageStatus();
+      if (this._destroyed) {
+        return;
+      }
+      this._pageStatus = pageStatus;
       if (this._pageStatus) {
         applySaveActionVisibility(this.elements.saveBtn, this._pageStatus);
       }
