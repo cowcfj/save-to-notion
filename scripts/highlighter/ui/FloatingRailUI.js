@@ -14,7 +14,7 @@ export function getRailElements(container) {
     trigger: container.querySelector('.rail-trigger'),
     saveBtn: container.querySelector('[data-action="save"]'),
     highlightBtn,
-    highlightToggle: highlightBtn?.querySelector('.rail-highlight-toggle') ?? null,
+    highlightToggle: highlightBtn,
     manageBtn: container.querySelector('[data-action="manage"]'),
     colorIndicator: container.querySelector('.color-indicator'),
     colorPalette: container.querySelector('.color-palette'),
@@ -67,15 +67,12 @@ export function applyHighlightActive(highlightBtn, isActive) {
     return;
   }
   highlightBtn.classList.toggle('active', isActive);
-  const toggle = highlightBtn.querySelector('.rail-highlight-toggle');
-  if (toggle) {
-    toggle.setAttribute(
-      'aria-label',
-      isActive
-        ? UI_MESSAGES.FLOATING_RAIL.STOP_HIGHLIGHT_LABEL
-        : UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL
-    );
-  }
+  highlightBtn.setAttribute(
+    'aria-label',
+    isActive
+      ? UI_MESSAGES.FLOATING_RAIL.STOP_HIGHLIGHT_LABEL
+      : UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL
+  );
 }
 
 export function showColorPalette(palette) {

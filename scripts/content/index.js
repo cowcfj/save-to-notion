@@ -83,11 +83,8 @@ function handleShowHighlighter(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     globalThis.HighlighterV2.rail.show();
     sendResponse({ success: true });
-  } else if (globalThis.notionHighlighter) {
-    globalThis.notionHighlighter.show();
-    sendResponse({ success: true });
   } else {
-    sendResponse({ success: false, error: '高亮器尚未初始化' });
+    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
   }
 }
 
@@ -276,10 +273,11 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
 
     events.forEach(event => {
       if (event.type === 'shortcut') {
-        // 觸發快捷鍵處理：顯示 highlighter toolbar
-        if (globalThis.notionHighlighter) {
-          Logger.log('重放快捷鍵事件，顯示工具欄', { action: 'replayEvents' });
-          globalThis.notionHighlighter.show();
+        // 觸發快捷鍵處理：啟動 rail 標註模式
+        if (globalThis.HighlighterV2?.rail) {
+          Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
+          globalThis.HighlighterV2.rail.show();
+          globalThis.HighlighterV2.rail.activateHighlighting(true);
         } else {
           Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
         }

@@ -46,19 +46,19 @@ function createMockContainerElement() {
   saveBtn.setAttribute('aria-label', '保存網頁');
   actions.append(saveBtn);
 
-  const highlightBtn = document.createElement('div');
-  highlightBtn.className = 'rail-action-btn';
-  highlightBtn.dataset.action = 'highlight';
+  const highlightGroup = document.createElement('div');
+  highlightGroup.className = 'rail-highlight-group';
 
   const highlightToggle = document.createElement('button');
-  highlightToggle.className = 'rail-highlight-toggle';
+  highlightToggle.className = 'rail-action-btn rail-highlight-toggle';
+  highlightToggle.dataset.action = 'highlight';
   highlightToggle.setAttribute('aria-label', '開始標註');
 
   const colorIndicator = document.createElement('span');
   colorIndicator.className = 'color-indicator';
   colorIndicator.style.backgroundColor = '#fff3cd';
   highlightToggle.append(colorIndicator);
-  highlightBtn.append(highlightToggle);
+  highlightGroup.append(highlightToggle);
 
   const palette = document.createElement('div');
   palette.className = 'color-palette';
@@ -77,8 +77,8 @@ function createMockContainerElement() {
   greenSwatch.setAttribute('aria-checked', 'false');
   palette.append(greenSwatch);
 
-  highlightBtn.append(palette);
-  actions.append(highlightBtn);
+  highlightGroup.append(palette);
+  actions.append(highlightGroup);
 
   const manageBtn = document.createElement('button');
   manageBtn.className = 'rail-action-btn';
@@ -95,6 +95,7 @@ function createMockManager() {
     startHighlighting: jest.fn(),
     stopHighlighting: jest.fn(),
     setHighlightColor: jest.fn(),
+    handleDocumentClick: jest.fn().mockReturnValue(false),
     collectHighlightsForNotion: jest.fn(() => []),
   };
 }
@@ -379,6 +380,16 @@ describe('FloatingRail', () => {
       greenSwatch.click();
 
       expect(rail.stateManager.selectedColor).toBe('green');
+    });
+
+    test('[REGRESSION] rail 模式應綁定 Ctrl/Cmd click delete shortcut', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      const event = new MouseEvent('click', { bubbles: true, ctrlKey: true });
+      document.dispatchEvent(event);
+
+      expect(manager.handleDocumentClick).toHaveBeenCalledWith(event);
     });
 
     test('focusin 應展開 COLLAPSED 狀態的工具列', async () => {

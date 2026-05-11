@@ -57,13 +57,13 @@ export function createFloatingRailContainer(options = {}) {
   saveBtn.append(saveIcon);
   actions.append(saveBtn);
 
-  // Highlight group: plain container with a toggle button + color palette
+  // Highlight group: same button model as other actions, palette as sibling popover
   const highlightGroup = document.createElement('div');
-  highlightGroup.className = ACTION_BTN_CLASS;
-  highlightGroup.dataset.action = 'highlight';
+  highlightGroup.className = 'rail-highlight-group';
 
   const highlightToggle = document.createElement('button');
-  highlightToggle.className = 'rail-highlight-toggle';
+  highlightToggle.className = `${ACTION_BTN_CLASS} rail-highlight-toggle`;
+  highlightToggle.dataset.action = 'highlight';
   highlightToggle.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
 
   const colorIndicator = document.createElement('span');

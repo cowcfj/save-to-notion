@@ -478,7 +478,7 @@ describe('highlightHandlers', () => {
           } else {
             cb({ status: 'bundle_ready' });
           }
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
           cb({ success: true });
         }
       });
@@ -618,14 +618,14 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
-    it('should handle showHighlighter message failure in USER_ACTIVATE_SHORTCUT', async () => {
+    it('should handle ACTIVATE_FLOATING_RAIL_HIGHLIGHT message failure in USER_ACTIVATE_SHORTCUT', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
           globalThis.chrome.runtime.lastError = { message: 'Communication error' };
           cb(null);
           globalThis.chrome.runtime.lastError = null;
@@ -639,14 +639,14 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
-    it('應該傳遞 content script 回報的 showHighlighter 失敗結果', async () => {
+    it('應該傳遞 content script 回報的 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 失敗結果', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
           cb({ success: false, error: 'Highlighter not initialized' });
         }
       });

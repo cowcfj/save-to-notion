@@ -111,16 +111,8 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         Logger.error('顯示 Rail 失敗', { action: 'showToolbar', error });
         sendResponse({ success: false, error: error.message });
       }
-    } else if (globalThis.notionHighlighter?.createAndShowToolbar) {
-      try {
-        globalThis.notionHighlighter.createAndShowToolbar();
-        sendResponse({ success: true });
-      } catch (error) {
-        Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
-        sendResponse({ success: false, error: error.message });
-      }
     } else {
-      sendResponse({ success: false, error: 'notionHighlighter 尚未初始化' });
+      sendResponse({ success: false, error: '浮動側欄尚未初始化' });
     }
   }
 
@@ -289,33 +281,41 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   }
 
-  // 🔑 異步初始化：先等待穩定 URL，再決定是否恢復標註和建立 Rail
-  // 並行加載：穩定 URL、頁面狀態、樣式配置
+  // 🔑 異步初始化：runtime stable URL 與 pageStatus/settings 並行收集。
+  // 若 pageStatus 已提供 stableUrl，不等待 waitForStableUrl timeout。
   /* eslint-disable unicorn/prefer-top-level-await -- content bundle outputs UMD; top-level await breaks Rollup */
-  Promise.all([
-    waitForStableUrl().catch(error => {
-      Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
-        action: 'waitForStableUrl',
-        error,
-        errorMessage: error?.message ?? String(error),
-      });
-      return null;
-    }),
-    fetchPageStatus(),
-    fetchSettings(),
-  ])
-    .then(async ([stableUrl, pageStatus, settings]) => {
+  const runtimeStableUrlPromise = waitForStableUrl().catch(error => {
+    Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
+      action: 'waitForStableUrl',
+      error,
+      errorMessage: error?.message ?? String(error),
+    });
+    return null;
+  });
+
+  Promise.all([fetchPageStatus(), fetchSettings()])
+    .then(async ([pageStatus, settings]) => {
+      const pendingRuntimeStableUrl = Symbol('pending_runtime_stable_url');
+      const runtimeStableUrlResult = await Promise.race([
+        runtimeStableUrlPromise,
+        Promise.resolve(pendingRuntimeStableUrl),
+      ]);
+      const runtimeStableUrl =
+        runtimeStableUrlResult === pendingRuntimeStableUrl ? null : runtimeStableUrlResult;
       // 設置穩定 URL 優先權（Phase 3 regression fix）：
       // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
       // 代表最新且最權威的 canonical source。
       // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
-      const resolvedStableUrl = stableUrl || pageStatus?.stableUrl || null;
+      const resolvedStableUrl =
+        globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl || pageStatus?.stableUrl || null;
+      const stableUrlSource =
+        globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl ? 'SET_STABLE_URL' : 'checkPageStatus';
       if (resolvedStableUrl) {
         globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
         Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
           action: 'initializeExtension',
           stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-          source: stableUrl ? 'SET_STABLE_URL' : 'checkPageStatus',
+          source: stableUrlSource,
         });
       }
 

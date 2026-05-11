@@ -113,6 +113,13 @@ export function getFloatingRailCSS() {
       padding: ${spacing.xs} 0;
     }
 
+    .rail-highlight-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .rail-action-btn {
       width: 32px;
       height: 32px;

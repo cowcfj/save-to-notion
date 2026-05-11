@@ -212,7 +212,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
-    jest.runAllTimers(); // clear timeout
+    await jest.runAllTimersAsync(); // clear timeout and promise chain
     await flushAsyncSetup();
 
     // 應該調用兩次: 一次正常，一次 fallback
@@ -468,20 +468,24 @@ describe('entryAutoInit', () => {
 
     // Test showToolbar
     const sendResponseMock2 = jest.fn();
-    globalThis.notionHighlighter = {
-      createAndShowToolbar: jest.fn(),
+    globalThis.HighlighterV2 = {
+      rail: {
+        show: jest.fn(),
+      },
     };
     const result2 = messageHandler({ action: 'showToolbar' }, {}, sendResponseMock2);
     expect(result2).toBe(true);
-    expect(globalThis.notionHighlighter.createAndShowToolbar).toHaveBeenCalled();
+    expect(globalThis.HighlighterV2.rail.show).toHaveBeenCalled();
     expect(sendResponseMock2).toHaveBeenCalledWith({ success: true });
 
-    // showToolbar fail
-    globalThis.notionHighlighter.createAndShowToolbar.mockImplementation(() => {
-      throw new Error('boom');
-    });
+    delete globalThis.HighlighterV2;
+
+    // showToolbar without rail should no longer fallback to toolbar
     messageHandler({ action: 'showToolbar' }, {}, sendResponseMock);
-    expect(sendResponseMock).toHaveBeenCalledWith({ success: false, error: 'boom' });
+    expect(sendResponseMock).toHaveBeenCalledWith({
+      success: false,
+      error: '浮動側欄尚未初始化',
+    });
   });
 
   test('chrome.storage.onChanged 更新標籤樣式', async () => {

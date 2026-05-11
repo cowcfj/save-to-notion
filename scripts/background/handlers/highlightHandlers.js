@@ -357,35 +357,39 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 發送訊息顯示 highlighter
+        // 發送訊息啟動 Floating Rail 標註模式
         try {
           const response = await new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER }, result => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve(result);
+            chrome.tabs.sendMessage(
+              tabId,
+              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
+              result => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(result);
+                }
               }
-            });
+            );
           });
           if (response?.success === true) {
-            Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
+            Logger.success('成功啟動浮動側欄標註', { action: 'USER_ACTIVATE_SHORTCUT' });
             sendResponse({ success: true, response });
             return;
           }
 
-          Logger.warn('顯示高亮工具失敗', {
+          Logger.warn('啟動浮動側欄標註失敗', {
             action: 'USER_ACTIVATE_SHORTCUT',
             responseSuccess: response?.success,
             responseError: response?.error,
           });
           sendResponse({ success: false, response });
         } catch (error) {
-          Logger.warn('顯示高亮工具失敗', {
+          Logger.warn('啟動浮動側欄標註失敗', {
             action: 'USER_ACTIVATE_SHORTCUT',
             error: error.message,
           });
-          const safeMessage = sanitizeApiError(error, 'show_highlighter');
+          const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
           sendResponse({
             success: false,
             error: ErrorHandler.formatUserMessage(safeMessage),

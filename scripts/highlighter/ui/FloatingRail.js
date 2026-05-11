@@ -46,6 +46,7 @@ export class FloatingRail {
     this._eventsBound = false;
     this._pageStatus = null;
     this._dragState = null;
+    this._deleteShortcutHandler = null;
 
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
     if (existingHost) {
@@ -251,6 +252,13 @@ export class FloatingRail {
       manageBtn.addEventListener('click', () => this._handleManage());
     }
 
+    if (!this._deleteShortcutHandler && this.manager.handleDocumentClick) {
+      this._deleteShortcutHandler = event => {
+        this.manager.handleDocumentClick(event);
+      };
+      document.addEventListener('click', this._deleteShortcutHandler);
+    }
+
     this._eventsBound = true;
   }
 
@@ -401,6 +409,10 @@ export class FloatingRail {
   }
 
   destroy() {
+    if (this._deleteShortcutHandler) {
+      document.removeEventListener('click', this._deleteShortcutHandler);
+      this._deleteShortcutHandler = null;
+    }
     // 所有 listeners 綁定在 shadow DOM 內部元素，host 移除後隨 GC 回收
     if (this.host?.parentNode) {
       this.host.remove();
