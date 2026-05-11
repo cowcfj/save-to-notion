@@ -285,17 +285,18 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   // 🔑 異步初始化：runtime stable URL 與 pageStatus/settings 並行收集。
   // 若 pageStatus 已提供 stableUrl，不等待 waitForStableUrl timeout。
   /* eslint-disable unicorn/prefer-top-level-await -- content bundle outputs UMD; top-level await breaks Rollup */
-  const runtimeStableUrlPromise = waitForStableUrl().catch(error => {
-    Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
-      action: 'waitForStableUrl',
-      error,
-      errorMessage: error?.message ?? String(error),
-    });
-    return null;
-  });
+  void (async () => {
+    try {
+      const runtimeStableUrlPromise = waitForStableUrl().catch(error => {
+        Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
+          action: 'waitForStableUrl',
+          error,
+          errorMessage: error?.message ?? String(error),
+        });
+        return null;
+      });
 
-  Promise.all([fetchPageStatus(), fetchSettings()])
-    .then(async ([pageStatus, settings]) => {
+      const [pageStatus, settings] = await Promise.all([fetchPageStatus(), fetchSettings()]);
       const pendingRuntimeStableUrl = Symbol('pending_runtime_stable_url');
       const runtimeStableUrlResult = await Promise.race([
         runtimeStableUrlPromise,
@@ -348,11 +349,11 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       }
 
       registerPersistentListeners();
-    })
-    .catch(error => {
+    } catch (error) {
       unregisterPersistentListeners();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
       fallbackInitialize(error);
-    });
+    }
+  })();
   /* eslint-enable unicorn/prefer-top-level-await */
 }

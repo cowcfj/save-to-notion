@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 jest.mock('../../../scripts/highlighter/index.js', () => ({
   setupHighlighter: jest.fn(),
 }));
@@ -20,6 +23,22 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
 }));
 
+const ENTRY_AUTO_INIT_PATH = path.resolve(
+  __dirname,
+  '../../../scripts/highlighter/entryAutoInit.js'
+);
+const ASYNC_AUTO_INIT_IIFE_PATTERN = /\bvoid[ \t]*\([ \t]*async[ \t]*\([ \t]*\)[ \t]*=>[ \t]*\{/;
+
+const readEntryAutoInitSource = () => fs.readFileSync(ENTRY_AUTO_INIT_PATH, 'utf8');
+
+const sourceLines = source => source.split(/\r?\n/);
+
+const hasAsyncAutoInitIife = source =>
+  sourceLines(source).some(line => ASYNC_AUTO_INIT_IIFE_PATTERN.test(line));
+
+const hasTopLevelInitializeAwait = source =>
+  sourceLines(source).some(line => line.trim() === 'await initializeExtension();');
+
 describe('entryAutoInit', () => {
   let mockSetupHighlighter;
   let mockLogger;
@@ -33,6 +52,27 @@ describe('entryAutoInit', () => {
     await Promise.resolve();
     await Promise.resolve();
   };
+
+  test('[REGRESSION] content-script entry should avoid top-level await during auto-init', () => {
+    const source = readEntryAutoInitSource();
+
+    expect(hasAsyncAutoInitIife(source)).toBe(true);
+    expect(hasTopLevelInitializeAwait(source)).toBe(false);
+  });
+
+  test('[REGRESSION] async auto-init check should not match across lines', () => {
+    const source = 'void (\n  async () => {';
+
+    expect(hasAsyncAutoInitIife(source)).toBe(false);
+    expect(hasAsyncAutoInitIife('void (async () => {')).toBe(true);
+  });
+
+  test('[REGRESSION] top-level await check should stay line-based', () => {
+    const source = 'const marker = true;\n  await initializeExtension();';
+
+    expect(hasTopLevelInitializeAwait(source)).toBe(true);
+    expect(hasTopLevelInitializeAwait('await initializeExtension();')).toBe(true);
+  });
 
   beforeEach(() => {
     jest.resetModules();
