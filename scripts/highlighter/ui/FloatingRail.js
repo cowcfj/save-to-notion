@@ -77,6 +77,13 @@ export class FloatingRail {
     applyRailState(this.container, this.stateManager.currentState);
     applySelectedColor(this.container, this.stateManager.selectedColor);
 
+    if (this.stateManager.currentState === RailStates.HIGHLIGHTING) {
+      applyHighlightActive(this.elements.highlightBtn, true);
+      if (this.manager.startHighlighting) {
+        this.manager.startHighlighting(this.stateManager.selectedColor);
+      }
+    }
+
     this._bindEvents();
     this._refreshPageStatus();
     this._initialized = true;

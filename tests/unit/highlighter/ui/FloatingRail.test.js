@@ -164,6 +164,32 @@ describe('FloatingRail', () => {
 
       expect(rail._initialized).toBe(true);
     });
+
+    test('從 sessionStorage 恢復 HIGHLIGHTING 狀態時應啟動標註功能', () => {
+      sessionStorage.setItem(
+        'notion-floating-rail-state',
+        JSON.stringify({ state: 'highlighting', color: 'green' })
+      );
+
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
+      expect(manager.startHighlighting).toHaveBeenCalledWith('green');
+    });
+
+    test('從 sessionStorage 恢復非 HIGHLIGHTING 狀態時不應啟動標註', () => {
+      sessionStorage.setItem(
+        'notion-floating-rail-state',
+        JSON.stringify({ state: 'expanded', color: 'yellow' })
+      );
+
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+      expect(manager.startHighlighting).not.toHaveBeenCalled();
+    });
   });
 
   describe('show / hide', () => {
