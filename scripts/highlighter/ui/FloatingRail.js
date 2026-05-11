@@ -64,9 +64,11 @@ export class FloatingRail {
       this.host.setAttribute(RAIL_HOST_OWNER_ATTR, RAIL_HOST_OWNER_VALUE);
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
       const appendHost = () => {
-        if (!this._destroyed) {
-          document.body.append(this.host);
+        this._appendHostListener = null;
+        if (this._destroyed || !document.body) {
+          return;
         }
+        document.body.append(this.host);
       };
       if (document.body) {
         appendHost();

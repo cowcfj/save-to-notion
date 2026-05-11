@@ -149,6 +149,35 @@ describe('FloatingRail', () => {
       const rail = new FloatingRail(manager);
       expect(rail.host).not.toBe(fakeHost);
     });
+
+    test('[REGRESSION] destroy 後不應由 pending DOMContentLoaded callback 重新插入 host', () => {
+      const originalBodyDescriptor = Object.getOwnPropertyDescriptor(document, 'body');
+
+      try {
+        Object.defineProperty(document, 'body', {
+          configurable: true,
+          get: () => null,
+        });
+
+        const rail = new FloatingRail(manager);
+        rail.destroy();
+
+        Object.defineProperty(document, 'body', {
+          configurable: true,
+          get: () => document.documentElement.querySelector('body'),
+        });
+
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+
+        expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
+      } finally {
+        if (originalBodyDescriptor) {
+          Object.defineProperty(document, 'body', originalBodyDescriptor);
+        } else {
+          delete document.body;
+        }
+      }
+    });
   });
 
   describe('initialize', () => {
