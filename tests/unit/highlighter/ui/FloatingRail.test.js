@@ -48,15 +48,17 @@ function createMockContainerElement() {
 
   const highlightBtn = document.createElement('div');
   highlightBtn.className = 'rail-action-btn';
-  highlightBtn.setAttribute('role', 'button');
-  highlightBtn.setAttribute('tabindex', '0');
-  highlightBtn.setAttribute('aria-label', '開始標註');
   highlightBtn.dataset.action = 'highlight';
+
+  const highlightToggle = document.createElement('button');
+  highlightToggle.className = 'rail-highlight-toggle';
+  highlightToggle.setAttribute('aria-label', '開始標註');
 
   const colorIndicator = document.createElement('span');
   colorIndicator.className = 'color-indicator';
   colorIndicator.style.backgroundColor = '#fff3cd';
-  highlightBtn.append(colorIndicator);
+  highlightToggle.append(colorIndicator);
+  highlightBtn.append(highlightToggle);
 
   const palette = document.createElement('div');
   palette.className = 'color-palette';
@@ -339,11 +341,11 @@ describe('FloatingRail', () => {
       rail.initialize();
       rail.expand();
 
-      const highlightBtn = rail.container.querySelector('[data-action="highlight"]');
-      highlightBtn.click();
+      const highlightToggle = rail.container.querySelector('.rail-highlight-toggle');
+      highlightToggle.click();
       expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
 
-      highlightBtn.click();
+      highlightToggle.click();
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
@@ -355,6 +357,55 @@ describe('FloatingRail', () => {
       greenSwatch.click();
 
       expect(rail.stateManager.selectedColor).toBe('green');
+    });
+
+    test('focusin 應展開 COLLAPSED 狀態的工具列', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.collapse();
+
+      rail.container.dispatchEvent(new FocusEvent('focusin'));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('focusout 應收起 EXPANDED 狀態的工具列（焦點離開 container）', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.expand();
+
+      const externalEl = document.createElement('button');
+      document.body.append(externalEl);
+
+      rail.container.dispatchEvent(new FocusEvent('focusout', { relatedTarget: externalEl }));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
+      externalEl.remove();
+    });
+
+    test('focusout 不應收起工具列（焦點仍在 container 內）', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.expand();
+
+      const internalBtn = rail.container.querySelector('.rail-trigger');
+      rail.container.dispatchEvent(new FocusEvent('focusout', { relatedTarget: internalBtn }));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('focusout 不應收起 HIGHLIGHTING 狀態的工具列', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.activateHighlighting();
+
+      const externalEl = document.createElement('button');
+      document.body.append(externalEl);
+
+      rail.container.dispatchEvent(new FocusEvent('focusout', { relatedTarget: externalEl }));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
+      externalEl.remove();
     });
   });
 });

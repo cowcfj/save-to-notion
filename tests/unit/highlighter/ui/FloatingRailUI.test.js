@@ -32,15 +32,17 @@ function createMockContainer() {
 
   const highlightBtn = document.createElement('div');
   highlightBtn.className = 'rail-action-btn';
-  highlightBtn.setAttribute('role', 'button');
-  highlightBtn.setAttribute('tabindex', '0');
-  highlightBtn.setAttribute('aria-label', '開始標註');
   highlightBtn.dataset.action = 'highlight';
+
+  const highlightToggle = document.createElement('button');
+  highlightToggle.className = 'rail-highlight-toggle';
+  highlightToggle.setAttribute('aria-label', '開始標註');
 
   const colorIndicator = document.createElement('span');
   colorIndicator.className = 'color-indicator';
   colorIndicator.style.backgroundColor = '#fff3cd';
-  highlightBtn.append(colorIndicator);
+  highlightToggle.append(colorIndicator);
+  highlightBtn.append(highlightToggle);
 
   const palette = document.createElement('div');
   palette.className = 'color-palette';
@@ -175,7 +177,8 @@ describe('applyHighlightActive', () => {
     applyHighlightActive(btn, true);
 
     expect(btn.classList.contains('active')).toBe(true);
-    expect(btn.getAttribute('aria-label')).toBe('停止標註');
+    const toggle = btn.querySelector('.rail-highlight-toggle');
+    expect(toggle.getAttribute('aria-label')).toBe('停止標註');
   });
 
   test('inactive 時應移除 active class 並更新 label', () => {
@@ -186,7 +189,8 @@ describe('applyHighlightActive', () => {
     applyHighlightActive(btn, false);
 
     expect(btn.classList.contains('active')).toBe(false);
-    expect(btn.getAttribute('aria-label')).toBe('開始標註');
+    const toggle = btn.querySelector('.rail-highlight-toggle');
+    expect(toggle.getAttribute('aria-label')).toBe('開始標註');
   });
 
   test('null btn 不應拋錯', () => {

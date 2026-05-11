@@ -184,10 +184,19 @@ export class FloatingRail {
       hideColorPalette(colorPalette);
     });
 
-    // Focus expand
+    // Focus expand/collapse
     this.container.addEventListener('focusin', () => {
       if (this.stateManager.currentState === RailStates.COLLAPSED) {
         this.expand();
+      }
+    });
+
+    this.container.addEventListener('focusout', event => {
+      if (
+        !this.container.contains(event.relatedTarget) &&
+        this.stateManager.currentState === RailStates.EXPANDED
+      ) {
+        this.collapse();
       }
     });
 
