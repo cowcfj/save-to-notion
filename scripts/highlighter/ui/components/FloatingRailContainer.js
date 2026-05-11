@@ -5,7 +5,7 @@
  */
 
 import { COLORS } from '../../utils/color.js';
-
+import { UI_MESSAGES } from '../../../config/shared/messages.js';
 import { createSafeIcon } from '../../../utils/securityUtils.js';
 
 const ARIA_LABEL = 'aria-label';
@@ -28,12 +28,12 @@ export function createFloatingRailContainer(options = {}) {
   const container = document.createElement('div');
   container.className = 'rail-container collapsed';
   container.setAttribute('role', 'toolbar');
-  container.setAttribute(ARIA_LABEL, 'Save to Notion 工具列');
+  container.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CONTAINER_LABEL);
 
   // Trigger button (always visible)
   const trigger = document.createElement('button');
   trigger.className = 'rail-trigger';
-  trigger.setAttribute(ARIA_LABEL, '展開工具列');
+  trigger.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.TRIGGER_LABEL);
   trigger.setAttribute('aria-expanded', 'false');
   trigger.innerHTML = '';
   const logoIcon = createSafeIcon(RAIL_ICONS.LOGO);
@@ -49,7 +49,7 @@ export function createFloatingRailContainer(options = {}) {
   // Save/Sync button
   const saveBtn = document.createElement('button');
   saveBtn.className = ACTION_BTN_CLASS;
-  saveBtn.setAttribute(ARIA_LABEL, '保存網頁');
+  saveBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.SAVE_LABEL);
   saveBtn.dataset.action = 'save';
   const saveIcon = createSafeIcon(RAIL_ICONS.NOTION);
   saveIcon.style.width = ICON_SIZE_SM;
@@ -63,7 +63,7 @@ export function createFloatingRailContainer(options = {}) {
   highlightBtn.className = ACTION_BTN_CLASS;
   highlightBtn.setAttribute('role', 'button');
   highlightBtn.setAttribute('tabindex', '0');
-  highlightBtn.setAttribute(ARIA_LABEL, '開始標註');
+  highlightBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
   highlightBtn.dataset.action = 'highlight';
 
   const colorIndicator = document.createElement('span');
@@ -75,7 +75,7 @@ export function createFloatingRailContainer(options = {}) {
   const palette = document.createElement('div');
   palette.className = 'color-palette';
   palette.setAttribute('role', 'radiogroup');
-  palette.setAttribute(ARIA_LABEL, '標註顏色');
+  palette.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.COLOR_PALETTE_LABEL);
 
   for (const [name, hex] of Object.entries(COLORS)) {
     const swatch = document.createElement('button');
@@ -94,7 +94,7 @@ export function createFloatingRailContainer(options = {}) {
   // Manage button
   const manageBtn = document.createElement('button');
   manageBtn.className = ACTION_BTN_CLASS;
-  manageBtn.setAttribute(ARIA_LABEL, '管理標註');
+  manageBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.MANAGE_LABEL);
   manageBtn.dataset.action = 'manage';
   const manageIcon = createSafeIcon(RAIL_ICONS.MANAGE);
   manageIcon.style.width = ICON_SIZE_SM;

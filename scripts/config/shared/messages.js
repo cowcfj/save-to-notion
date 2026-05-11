@@ -223,6 +223,15 @@ const TOOLBAR = {
   COLOR_PICKER_ARIA_LABEL: colorName => `選擇${colorName}色標註`,
 };
 
+const FLOATING_RAIL = {
+  CONTAINER_LABEL: 'Save to Notion 工具列',
+  TRIGGER_LABEL: '展開工具列',
+  SAVE_LABEL: '保存網頁',
+  HIGHLIGHT_LABEL: '開始標註',
+  COLOR_PALETTE_LABEL: '標註顏色',
+  MANAGE_LABEL: '管理標註',
+};
+
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
   '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。';
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
@@ -330,6 +339,7 @@ export const UI_MESSAGES = deepFreeze({
   SIDEPANEL,
   HIGHLIGHTS,
   TOOLBAR,
+  FLOATING_RAIL,
   STORAGE,
   CLOUD_SYNC,
 });
