@@ -38,7 +38,7 @@ export class FloatingRailStateManager {
           if (Object.values(RailStates).includes(parsed.state)) {
             this._currentState = parsed.state;
           }
-          if (parsed.color) {
+          if (typeof parsed.color === 'string' && VALID_COLORS.has(parsed.color)) {
             this._selectedColor = parsed.color;
           }
         }

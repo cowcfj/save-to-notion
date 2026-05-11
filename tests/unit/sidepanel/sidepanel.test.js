@@ -839,10 +839,72 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toBe('status-message success');
 
       jest.runAllTimers();
-      expect(syncBtn.disabled).toBe(false);
+      expect(syncBtn.disabled).toBe(true);
     });
 
-    it('should use named debounce constants when re-enabling action buttons', async () => {
+    it('[REGRESSION] sync button 不應在 storage 已改回 unsaved 後被 finally 無條件重新啟用', async () => {
+      const savedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: { pageId: 'page-123' },
+        },
+      };
+      const unsavedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: null,
+        },
+      };
+      let currentStore = savedStore;
+
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string') {
+          return { [key]: currentStore[key] };
+        }
+        if (Array.isArray(key)) {
+          const result = {};
+          for (const item of key) {
+            if (item in currentStore) {
+              result[item] = currentStore[item];
+            }
+          }
+          return result;
+        }
+        return currentStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await flushMicrotasks();
+
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+
+      const syncBtn = document.querySelector('#sync-button');
+      expect(syncBtn.disabled).toBe(false);
+
+      syncBtn.click();
+      await flushMicrotasks();
+
+      currentStore = unsavedStore;
+      onStorageChanged(
+        {
+          'page_https://example.js/stable': {
+            oldValue: savedStore['page_https://example.js/stable'],
+            newValue: unsavedStore['page_https://example.js/stable'],
+          },
+        },
+        'local'
+      );
+      await flushMicrotasks();
+
+      jest.runAllTimers();
+      await flushMicrotasks();
+
+      expect(syncBtn.disabled).toBe(true);
+    });
+
+    it('should use named debounce constants when re-enabling open notion button', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
@@ -864,15 +926,10 @@ describe('Sidepanel JS Logic', () => {
 
       const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
 
-      document.querySelector('#sync-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
-
       document.querySelector('#open-notion-button').click();
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
       expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), OPEN_BUTTON_DEBOUNCE_MS);
 
       timeoutSpy.mockRestore();

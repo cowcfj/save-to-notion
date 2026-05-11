@@ -151,53 +151,76 @@ describe('FloatingRail', () => {
   });
 
   describe('initialize', () => {
-    test('應該初始化 state manager 並綁定事件', () => {
+    test('應該初始化 state manager 並綁定事件', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
 
       expect(rail._initialized).toBe(true);
       expect(rail._eventsBound).toBe(true);
     });
 
-    test('重複 initialize 不應重複綁定', () => {
+    test('重複 initialize 不應重複綁定', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
-      rail.initialize();
+      await rail.initialize();
+      await rail.initialize();
 
       expect(rail._initialized).toBe(true);
     });
 
-    test('從 sessionStorage 恢復 HIGHLIGHTING 狀態時應啟動標註功能', () => {
+    test('從 sessionStorage 恢復 HIGHLIGHTING 狀態時應啟動標註功能', async () => {
       sessionStorage.setItem(
         'notion-floating-rail-state',
         JSON.stringify({ state: 'highlighting', color: 'green' })
       );
 
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
 
       expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
       expect(manager.startHighlighting).toHaveBeenCalledWith('green');
     });
 
-    test('從 sessionStorage 恢復非 HIGHLIGHTING 狀態時不應啟動標註', () => {
+    test('從 sessionStorage 恢復非 HIGHLIGHTING 狀態時不應啟動標註', async () => {
       sessionStorage.setItem(
         'notion-floating-rail-state',
         JSON.stringify({ state: 'expanded', color: 'yellow' })
       );
 
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
 
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
       expect(manager.startHighlighting).not.toHaveBeenCalled();
     });
+
+    test('[REGRESSION] initialize 應等待頁面狀態刷新完成後才綁定事件', async () => {
+      let resolveStatus;
+      const pageStatusPromise = new Promise(resolve => {
+        resolveStatus = resolve;
+      });
+      checkPageStatus.mockReturnValue(pageStatusPromise);
+      savePageFromRail.mockResolvedValue({ success: true });
+
+      const rail = new FloatingRail(manager);
+      const initPromise = rail.initialize();
+      const saveBtn = rail.container.querySelector('[data-action="save"]');
+
+      saveBtn.click();
+      expect(savePageFromRail).not.toHaveBeenCalled();
+      expect(rail._eventsBound).toBe(false);
+
+      resolveStatus({ isSaved: true, canSave: false });
+      await initPromise;
+
+      expect(rail._eventsBound).toBe(true);
+      expect(rail._pageStatus).toEqual({ isSaved: true, canSave: false });
+    });
   });
 
   describe('show / hide', () => {
-    test('show 應顯示 host 並展開', () => {
+    test('show 應顯示 host 並展開', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.hide();
       rail.show();
 
@@ -205,9 +228,9 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
-    test('hide 應隱藏 host', () => {
+    test('hide 應隱藏 host', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.hide();
 
       expect(rail.host.style.display).toBe('none');
@@ -215,17 +238,17 @@ describe('FloatingRail', () => {
   });
 
   describe('expand / collapse', () => {
-    test('expand 應設置 EXPANDED 狀態', () => {
+    test('expand 應設置 EXPANDED 狀態', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.expand();
 
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
-    test('collapse 應設置 COLLAPSED 狀態', () => {
+    test('collapse 應設置 COLLAPSED 狀態', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.expand();
       rail.collapse();
 
@@ -234,9 +257,9 @@ describe('FloatingRail', () => {
   });
 
   describe('highlighting', () => {
-    test('activateHighlighting 應進入 HIGHLIGHTING 狀態', () => {
+    test('activateHighlighting 應進入 HIGHLIGHTING 狀態', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.activateHighlighting();
 
       expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
@@ -245,9 +268,9 @@ describe('FloatingRail', () => {
       });
     });
 
-    test('deactivateHighlighting 應回到 EXPANDED 狀態', () => {
+    test('deactivateHighlighting 應回到 EXPANDED 狀態', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.activateHighlighting();
       rail.deactivateHighlighting();
 
@@ -257,17 +280,17 @@ describe('FloatingRail', () => {
   });
 
   describe('setColor', () => {
-    test('應該更新 state manager 的顏色', () => {
+    test('應該更新 state manager 的顏色', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.setColor('blue');
 
       expect(rail.stateManager.selectedColor).toBe('blue');
     });
 
-    test('highlighting 時應通知 manager 換色', () => {
+    test('highlighting 時應通知 manager 換色', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.activateHighlighting();
       rail.setColor('green');
 
@@ -281,7 +304,7 @@ describe('FloatingRail', () => {
       checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
 
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       await rail._handleSaveSync();
 
       expect(savePageFromRail).toHaveBeenCalled();
@@ -292,10 +315,7 @@ describe('FloatingRail', () => {
       syncHighlights.mockResolvedValue({ success: true });
 
       const rail = new FloatingRail(manager);
-      rail.initialize();
-      // 等待 _refreshPageStatus 完成
-      await new Promise(resolve => setTimeout(resolve, 0));
-
+      await rail.initialize();
       await rail._handleSaveSync();
 
       expect(syncHighlights).toHaveBeenCalled();
@@ -307,7 +327,7 @@ describe('FloatingRail', () => {
       openSidePanel.mockResolvedValue({ success: true });
 
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       await rail._handleManage();
 
       expect(openSidePanel).toHaveBeenCalled();
@@ -315,9 +335,9 @@ describe('FloatingRail', () => {
   });
 
   describe('destroy', () => {
-    test('應移除 host 並重置狀態', () => {
+    test('應移除 host 並重置狀態', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.destroy();
 
       expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
@@ -326,9 +346,9 @@ describe('FloatingRail', () => {
   });
 
   describe('event binding', () => {
-    test('trigger click 應切換 expand/collapse', () => {
+    test('trigger click 應切換 expand/collapse', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
 
       const trigger = rail.container.querySelector('.rail-trigger');
       trigger.click();
@@ -338,9 +358,9 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
     });
 
-    test('highlight button click 應切換 highlighting', () => {
+    test('highlight button click 應切換 highlighting', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.expand();
 
       const highlightToggle = rail.container.querySelector('.rail-highlight-toggle');
@@ -351,9 +371,9 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
-    test('color swatch click 應更新顏色', () => {
+    test('color swatch click 應更新顏色', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
 
       const greenSwatch = rail.container.querySelector('[data-color="green"]');
       greenSwatch.click();
@@ -361,9 +381,9 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.selectedColor).toBe('green');
     });
 
-    test('focusin 應展開 COLLAPSED 狀態的工具列', () => {
+    test('focusin 應展開 COLLAPSED 狀態的工具列', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.collapse();
 
       rail.container.dispatchEvent(new FocusEvent('focusin'));
@@ -371,9 +391,9 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
-    test('focusout 應收起 EXPANDED 狀態的工具列（焦點離開 container）', () => {
+    test('focusout 應收起 EXPANDED 狀態的工具列（焦點離開 container）', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.expand();
 
       const externalEl = document.createElement('button');
@@ -385,9 +405,9 @@ describe('FloatingRail', () => {
       externalEl.remove();
     });
 
-    test('focusout 不應收起工具列（焦點仍在 container 內）', () => {
+    test('focusout 不應收起工具列（焦點仍在 container 內）', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.expand();
 
       const internalBtn = rail.container.querySelector('.rail-trigger');
@@ -396,9 +416,9 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
-    test('focusout 不應收起 HIGHLIGHTING 狀態的工具列', () => {
+    test('focusout 不應收起 HIGHLIGHTING 狀態的工具列', async () => {
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       rail.activateHighlighting();
 
       const externalEl = document.createElement('button');

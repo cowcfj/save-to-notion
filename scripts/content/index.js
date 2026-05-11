@@ -105,9 +105,16 @@ async function handleShowFloatingRail(sendResponse) {
 
   if (globalThis.__NOTION_RAIL_READY__) {
     try {
-      const rail = await globalThis.__NOTION_RAIL_READY__;
-      rail.show();
-      sendResponse({ success: true });
+      const readyResult = await globalThis.__NOTION_RAIL_READY__;
+      if (readyResult?.success && readyResult.rail) {
+        readyResult.rail.show();
+        sendResponse({ success: true });
+        return;
+      }
+      sendResponse({
+        success: false,
+        error: readyResult?.error || '浮動側欄初始化失敗',
+      });
     } catch {
       sendResponse({ success: false, error: '浮動側欄初始化失敗' });
     }
@@ -133,10 +140,17 @@ async function handleActivateFloatingRailHighlight(request, sendResponse) {
 
   if (globalThis.__NOTION_RAIL_READY__) {
     try {
-      const rail = await globalThis.__NOTION_RAIL_READY__;
-      rail.show();
-      rail.activateHighlighting(request.sessionOverride);
-      sendResponse({ success: true });
+      const readyResult = await globalThis.__NOTION_RAIL_READY__;
+      if (readyResult?.success && readyResult.rail) {
+        readyResult.rail.show();
+        readyResult.rail.activateHighlighting(request.sessionOverride);
+        sendResponse({ success: true });
+        return;
+      }
+      sendResponse({
+        success: false,
+        error: readyResult?.error || '浮動側欄初始化失敗',
+      });
     } catch {
       sendResponse({ success: false, error: '浮動側欄初始化失敗' });
     }

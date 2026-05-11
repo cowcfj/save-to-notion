@@ -62,6 +62,19 @@ describe('FloatingRailStateManager', () => {
       expect(manager.selectedColor).toBe('blue');
     });
 
+    test('[REGRESSION] initialize() 應忽略無效的 persisted color', () => {
+      sessionStorage.setItem(
+        'notion-floating-rail-state',
+        JSON.stringify({ state: 'expanded', color: 'injected-invalid-color' })
+      );
+
+      const manager = new FloatingRailStateManager();
+      manager.initialize();
+
+      expect(manager.currentState).toBe(RailStates.EXPANDED);
+      expect(manager.selectedColor).toBe('yellow');
+    });
+
     test('initialize() 只執行一次', () => {
       stateManager.initialize();
       stateManager.currentState = RailStates.EXPANDED;

@@ -1039,10 +1039,6 @@ async function handleSyncClick() {
       error: sanitizeApiError(error, 'save_page'),
     });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
-  } finally {
-    setTimeout(() => {
-      els.syncButton.disabled = false;
-    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
   }
 }
 

@@ -30,6 +30,8 @@ describe('entryAutoInit', () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   };
 
   beforeEach(() => {
@@ -39,6 +41,7 @@ describe('entryAutoInit', () => {
 
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_STABLE_URL__;
+    delete globalThis.__NOTION_RAIL_READY__;
     runtimeMessageHandlers = [];
     storageChangeHandlers = [];
 
@@ -85,6 +88,7 @@ describe('entryAutoInit', () => {
     delete globalThis.notionHighlighter;
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_STABLE_URL__;
+    delete globalThis.__NOTION_RAIL_READY__;
   });
 
   test('正常初始化 (無 stableUrl, chrome API 返回正確值)', async () => {
@@ -116,13 +120,54 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({}); // default
 
     require('../../../scripts/highlighter/entryAutoInit.js');
-    jest.runAllTimers(); // clear timeout
+    await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: true,
       skipToolbar: true,
       styleMode: 'background',
+    });
+  });
+
+  test('[REGRESSION] skipRestore 時 rail-ready promise 應回傳失敗 contract 而非 pending', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: false,
+      wasDeleted: true,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const result = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__,
+      Promise.resolve({ success: 'pending' }),
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: '浮動側欄初始化已略過',
+    });
+  });
+
+  test('[REGRESSION] setup 後沒有 manager 時 rail-ready promise 應回傳失敗 contract', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ isSaved: true });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const result = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__,
+      Promise.resolve({ success: 'pending' }),
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: '浮動側欄初始化缺少 manager',
     });
   });
 
@@ -180,6 +225,43 @@ describe('entryAutoInit', () => {
       '初始化失敗',
       expect.objectContaining({ action: 'initializeExtension' })
     );
+
+    const result = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__,
+      Promise.resolve({ success: 'pending' }),
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Initial fail',
+    });
+  });
+
+  test('[REGRESSION] fallbackInitialize 成功時 rail-ready promise 應回傳失敗 contract', async () => {
+    mockSetupHighlighter.mockImplementationOnce(() => {
+      throw new Error('Initial fail');
+    });
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    expect(mockSetupHighlighter).toHaveBeenNthCalledWith(2, {
+      skipRestore: true,
+      skipToolbar: true,
+    });
+
+    const result = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__,
+      Promise.resolve({ success: 'pending' }),
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Initial fail',
+    });
   });
 
   test('如果 fallback setupHighlighter 也拋錯應記錄 setupHighlighter action', async () => {
@@ -194,13 +276,23 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
-    jest.runAllTimers();
+    await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
     expect(mockLogger.error).toHaveBeenCalledWith(
       '回退初始化失敗',
       expect.objectContaining({ action: 'setupHighlighter' })
     );
+
+    const result = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__,
+      Promise.resolve({ success: 'pending' }),
+    ]);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Fallback fail',
+    });
   });
 
   test('初始化完成前只註冊 waitForStableUrl 臨時監聽器', () => {
@@ -295,6 +387,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
     const restore = jest.fn().mockResolvedValue(undefined);
@@ -331,6 +424,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({

@@ -73,7 +73,7 @@ export class FloatingRail {
     this.elements = getRailElements(this.container);
   }
 
-  initialize() {
+  async initialize() {
     if (this._initialized) {
       return;
     }
@@ -89,8 +89,8 @@ export class FloatingRail {
       }
     }
 
+    await this._refreshPageStatus();
     this._bindEvents();
-    this._refreshPageStatus();
     this._initialized = true;
   }
 

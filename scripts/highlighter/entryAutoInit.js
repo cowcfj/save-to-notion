@@ -44,35 +44,49 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   }
 
   let railReadyResolve;
-  let railReadyReject;
-  const railReadyPromise = new Promise((resolve, reject) => {
+  let isRailReadySettled = false;
+  const railReadyPromise = new Promise(resolve => {
     railReadyResolve = resolve;
-    railReadyReject = reject;
   });
   // eslint-disable-next-line unicorn/prefer-top-level-await -- deferred promise; no value to await here
   railReadyPromise.catch(() => {});
   globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
 
+  function settleRailReady(result) {
+    if (isRailReadySettled) {
+      return;
+    }
+    isRailReadySettled = true;
+    railReadyResolve(result);
+  }
+
+  function failRailReady(error, fallbackMessage) {
+    settleRailReady({
+      success: false,
+      error: error?.message || fallbackMessage,
+    });
+  }
+
   async function initializeFloatingRail(manager, autoShowRail) {
     try {
       const { FloatingRail } = await import('./ui/FloatingRail.js');
       const rail = new FloatingRail(manager);
-      rail.initialize();
+      await rail.initialize();
       globalThis.HighlighterV2.rail = rail;
       if (!autoShowRail) {
         rail.hide();
       }
-      railReadyResolve(rail);
+      settleRailReady({ success: true, rail });
     } catch (railError) {
       Logger.warn('[Highlighter] Floating Rail 初始化失敗', {
         action: 'initializeExtension',
         error: railError?.message,
       });
-      railReadyReject(railError);
+      failRailReady(railError, '浮動側欄初始化失敗');
     }
   }
 
-  function fallbackInitialize() {
+  function fallbackInitialize(cause) {
     try {
       shouldSkipLateRestore = true;
       setupHighlighter({ skipRestore: true, skipToolbar: true });
@@ -80,9 +94,11 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = true;
       }
       registerPersistentListeners();
+      failRailReady(cause, '浮動側欄初始化失敗');
     } catch (fallbackError) {
       unregisterPersistentListeners();
       Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
+      failRailReady(fallbackError, '浮動側欄回退初始化失敗');
     }
   }
 
@@ -322,8 +338,12 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         globalThis.HighlighterV2.wasDeleted = skipRestore;
       }
 
-      if (!skipRestore && globalThis.HighlighterV2?.manager) {
+      if (skipRestore) {
+        settleRailReady({ success: false, error: '浮動側欄初始化已略過' });
+      } else if (globalThis.HighlighterV2?.manager) {
         await initializeFloatingRail(globalThis.HighlighterV2.manager, autoShowRail);
+      } else {
+        settleRailReady({ success: false, error: '浮動側欄初始化缺少 manager' });
       }
 
       registerPersistentListeners();
@@ -331,7 +351,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     .catch(error => {
       unregisterPersistentListeners();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
-      fallbackInitialize();
+      fallbackInitialize(error);
     });
   /* eslint-enable unicorn/prefer-top-level-await */
 }

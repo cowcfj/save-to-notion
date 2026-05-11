@@ -133,6 +133,55 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.notionHighlighter;
     });
 
+    test('[REGRESSION] SHOW_FLOATING_RAIL 應接受 rail-ready success contract', async () => {
+      const showMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: { show: showMock },
+      });
+      const sendResponse = jest.fn();
+
+      const result = messageHandler({ action: 'SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      expect(result).toBe(true);
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(showMock).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      delete globalThis.__NOTION_RAIL_READY__;
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應接受 rail-ready success contract', async () => {
+      const showMock = jest.fn();
+      const activateHighlightingMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: {
+          show: showMock,
+          activateHighlighting: activateHighlightingMock,
+        },
+      });
+      const sendResponse = jest.fn();
+
+      const result = messageHandler(
+        { action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT', sessionOverride: true },
+        {},
+        sendResponse
+      );
+      expect(result).toBe(true);
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(showMock).toHaveBeenCalled();
+      expect(activateHighlightingMock).toHaveBeenCalledWith(true);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      delete globalThis.__NOTION_RAIL_READY__;
+    });
+
     test('REMOVE_HIGHLIGHT_DOM 應呼叫 manager.removeHighlight', () => {
       const removeHighlight = jest.fn().mockReturnValue(true);
       globalThis.HighlighterV2 = {
