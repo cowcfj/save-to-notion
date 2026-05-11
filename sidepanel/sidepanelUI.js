@@ -263,8 +263,9 @@ export function hideMessage(elements) {
  * @param {(highlightId: string, storageKey: string) => void} onDelete - 刪除回調
  */
 export function renderList(elements, highlights, storageKey, onDelete) {
-  elements.highlightsList.textContent = '';
+  elements.highlightsList.replaceChildren();
   const highlightColorCache = buildHighlightColorCache();
+  const fragment = document.createDocumentFragment();
 
   highlights.forEach(hl => {
     const clone = elements.template.content.cloneNode(true);
@@ -281,8 +282,10 @@ export function renderList(elements, highlights, storageKey, onDelete) {
     // 綁定刪除事件（回調由呼叫端 sidepanel.js 的 handleDelete 提供）
     delBtn.addEventListener('click', () => onDelete(hl.id, storageKey));
 
-    elements.highlightsList.append(card);
+    fragment.append(card);
   });
+
+  elements.highlightsList.append(fragment);
 
   elements.loadingState.style.display = 'none';
   elements.emptyState.style.display = 'none';
@@ -349,7 +352,7 @@ export function renderUnsyncedEmptyState(elements) {
     return;
   }
 
-  container.textContent = '';
+  container.replaceChildren();
   const emptyMessage = document.createElement('p');
   emptyMessage.className = 'unsynced-empty';
   emptyMessage.textContent = UI_MESSAGES.SIDEPANEL.ALL_SYNCED;
@@ -388,6 +391,7 @@ export function appendCards(elements, pages, startIndex, count, callbacks) {
     return 0;
   }
   const batch = pages.slice(startIndex, startIndex + count);
+  const fragment = document.createDocumentFragment();
 
   batch.forEach(page => {
     const cardNode = template.content.cloneNode(true);
@@ -440,8 +444,10 @@ export function appendCards(elements, pages, startIndex, count, callbacks) {
       });
     }
 
-    container.append(card);
+    fragment.append(card);
   });
+
+  container.append(fragment);
 
   const renderedCount = batch.length;
   const hasMore = startIndex + renderedCount < pages.length;

@@ -35,7 +35,12 @@ describe('popupUI.js', () => {
         querySelector: jest.fn(),
         setAttribute: jest.fn(),
       },
-      status: { textContent: '', style: { color: '' } },
+      status: {
+        textContent: '',
+        style: { color: '' },
+        replaceChildren: jest.fn(),
+        append: jest.fn(),
+      },
       accountSection: { style: { display: 'none' }, classList: { toggle: jest.fn() } },
       accountStatus: {
         textContent: '',
@@ -52,7 +57,12 @@ describe('popupUI.js', () => {
       settingsLinkText: { textContent: '' },
       destinationSection: { style: { display: 'none' } },
       destinationCurrent: { textContent: '', style: {}, dataset: {} },
-      destinationMenu: { innerHTML: '', append: jest.fn(), style: { display: 'none' } },
+      destinationMenu: {
+        innerHTML: '',
+        append: jest.fn(),
+        replaceChildren: jest.fn(),
+        style: { display: 'none' },
+      },
       destinationToggle: {
         style: { display: 'none' },
         disabled: false,
