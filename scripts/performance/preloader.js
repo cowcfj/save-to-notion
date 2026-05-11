@@ -19,6 +19,7 @@
 'use strict';
 
 import { PRELOADER_ACTIONS } from '../config/runtimeActions/preloaderActions.js';
+import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 
 (function () {
   // 防止重複初始化
@@ -104,8 +105,32 @@ import { PRELOADER_ACTIONS } from '../config/runtimeActions/preloaderActions.js'
    */
   const eventBuffer = [];
   const runtime = globalThis.chrome?.runtime;
+  const syncStorage = globalThis.chrome?.storage?.sync;
   const canSendRuntimeMessage = typeof runtime?.sendMessage === 'function';
   const canListenRuntimeMessage = typeof runtime?.onMessage?.addListener === 'function';
+
+  async function requestFloatingRailIfEnabled() {
+    if (!canSendRuntimeMessage || typeof syncStorage?.get !== 'function') {
+      return;
+    }
+
+    try {
+      const settings = (await syncStorage.get(['floatingRailEnabled'])) || {};
+      if (settings.floatingRailEnabled === false) {
+        return;
+      }
+
+      runtime.sendMessage({ action: HIGHLIGHTER_ACTIONS.SHOW_FLOATING_RAIL }, () => {
+        if (runtime.lastError) {
+          // 自動 rail 顯示是 best-effort；目標頁可能在載入或權限狀態變化中。
+        }
+      });
+    } catch {
+      // 設定讀取失敗時保持 preloader 輕量且靜默，不阻斷頁面。
+    }
+  }
+
+  requestFloatingRailIfEnabled();
 
   /**
    * 監聽快捷鍵 Ctrl+S / Cmd+S

@@ -188,6 +188,39 @@ describe('InjectionService', () => {
         expect.any(Function)
       );
     });
+
+    it('[REGRESSION] 注入後應啟動 Floating Rail 而不是 legacy toolbar', async () => {
+      const railShow = jest.fn();
+      const activateHighlighting = jest.fn();
+      const toolbarShow = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: railShow,
+          activateHighlighting,
+        },
+      };
+      globalThis.notionHighlighter = { show: toolbarShow };
+
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+
+        const result = await opts.func();
+        verifyResult([{ result }]);
+      });
+
+      const result = await service.injectHighlighter(1);
+
+      expect(result).toEqual({ initialized: true, highlightCount: 0 });
+      expect(railShow).toHaveBeenCalled();
+      expect(activateHighlighting).toHaveBeenCalledWith(true);
+      expect(toolbarShow).not.toHaveBeenCalled();
+
+      delete globalThis.HighlighterV2;
+      delete globalThis.notionHighlighter;
+    });
   });
 
   describe('ensureBundleInjected', () => {

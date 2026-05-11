@@ -431,6 +431,36 @@ describe('highlightHandlers', () => {
     });
   });
 
+  describe('SHOW_FLOATING_RAIL', () => {
+    it('[REGRESSION] preloader 觸發時應注入 bundle 並轉發 SHOW_FLOATING_RAIL 到目前 tab', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+      globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        if (msg.action === RUNTIME_ACTIONS.PING) {
+          cb({ status: 'bundle_ready' });
+          return;
+        }
+        cb({ success: true });
+      });
+
+      await handlers.SHOW_FLOATING_RAIL(
+        { action: RUNTIME_ACTIONS.SHOW_FLOATING_RAIL },
+        sender,
+        sendResponse
+      );
+
+      expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+      expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.SHOW_FLOATING_RAIL },
+        expect.any(Function)
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
   describe('Coverage Improvements (Extended)', () => {
     it('should retry in ensureBundleReady and eventually succeed', async () => {
       const sendResponse = jest.fn();

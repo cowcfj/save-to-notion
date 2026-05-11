@@ -67,7 +67,7 @@ globalThis.__NOTION_BUNDLE_READY__ = true;
  */
 function handlePing(sendResponse) {
   sendResponse({
-    status: globalThis.notionHighlighter ? 'bundle_ready' : 'initializing',
+    status: globalThis.__NOTION_BUNDLE_READY__ ? 'bundle_ready' : 'initializing',
     hasPreloaderCache: Boolean(preloaderCache),
     nextRouteInfo: preloaderCache?.nextRouteInfo || null,
     shortlink: preloaderCache?.shortlink || null,

@@ -25,6 +25,44 @@ const INJECTION_CONFIG = {
   CONTENT_BUNDLE_PATH: 'dist/content.bundle.js',
 };
 
+function waitForPageDelay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function activateRailInPageContext(rail) {
+  rail.show?.();
+  rail.activateHighlighting?.(true);
+  const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
+  return { initialized: true, highlightCount: count };
+}
+
+async function activateFloatingRailInPage() {
+  const timeout = 2000;
+  const interval = 100;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime <= timeout) {
+    if (globalThis.HighlighterV2?.rail) {
+      return activateRailInPageContext(globalThis.HighlighterV2.rail);
+    }
+
+    if (globalThis.__NOTION_RAIL_READY__) {
+      const readyResult = await Promise.race([
+        globalThis.__NOTION_RAIL_READY__,
+        waitForPageDelay(Math.max(0, timeout - (Date.now() - startTime))).then(() => null),
+      ]);
+      if (readyResult?.success && readyResult.rail) {
+        return activateRailInPageContext(readyResult.rail);
+      }
+      return { initialized: false, highlightCount: 0 };
+    }
+
+    await waitForPageDelay(interval);
+  }
+
+  return { initialized: false, highlightCount: 0 };
+}
+
 /**
  * 檢查 URL 是否限制注入腳本
  *
@@ -442,49 +480,11 @@ class InjectionService {
    */
   async injectHighlighter(tabId) {
     const bundlePath = await this._resolveHighlighterPath();
-    return this.injectAndExecute(
-      tabId,
-      [bundlePath],
-      () => {
-        // content bundle 會匯入 highlighter/entryAutoInit.js 以完成 runtime 初始化
-        // 我們只需要確保工具欄顯示即可
-        // 使用輪詢等待初始化完成
-        return new Promise(resolve => {
-          const startTime = Date.now();
-          const timeout = 2000; // Max wait 2 seconds (increased robustness)
-          const interval = 100; // Check every 100ms for responsiveness
-
-          const checkInitialization = () => {
-            if (globalThis.notionHighlighter) {
-              globalThis.notionHighlighter.show();
-              const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
-              // skipcq: JS-0002 - Running in page context
-              // eslint-disable-next-line no-console
-              console.info(`[Notion Highlighter] 標註工具已準備，共 ${count} 個標註`);
-              resolve({ initialized: true, highlightCount: count });
-              return;
-            }
-
-            if (Date.now() - startTime > timeout) {
-              // skipcq: JS-0002 - Running in page context
-              // eslint-disable-next-line no-console
-              console.warn('[Notion Highlighter] 初始化超時');
-              resolve({ initialized: false, highlightCount: 0 });
-              return;
-            }
-
-            setTimeout(checkInitialization, interval);
-          };
-
-          checkInitialization();
-        });
-      },
-      {
-        errorMessage: 'Failed to inject highlighter',
-        successMessage: 'Highlighter v2 injected successfully',
-        returnResult: true,
-      }
-    );
+    return this.injectAndExecute(tabId, [bundlePath], activateFloatingRailInPage, {
+      errorMessage: 'Failed to inject highlighter',
+      successMessage: 'Highlighter v2 injected successfully',
+      returnResult: true,
+    });
   }
 
   /**

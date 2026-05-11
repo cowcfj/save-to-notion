@@ -209,6 +209,77 @@ export function createHighlightHandlers(services) {
 
   return {
     /**
+     * 顯示 Floating Rail（來自 Preloader 的自動顯示請求）。
+     *
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
+     */
+    [RUNTIME_ACTIONS.SHOW_FLOATING_RAIL]: async (request, sender, sendResponse) => {
+      try {
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'SHOW_FLOATING_RAIL',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
+        if (!sender.tab?.id) {
+          Logger.warn('缺少標籤頁上下文', { action: 'SHOW_FLOATING_RAIL' });
+          sendResponse({ success: false, error: 'No tab context' });
+          return;
+        }
+
+        const tabId = sender.tab.id;
+        const tabUrl = sender.tab.url;
+        if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
+          });
+          return;
+        }
+
+        const injected = await injectionService.ensureBundleInjected(tabId);
+        if (!injected) {
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+          return;
+        }
+
+        const bundleReady = await ensureBundleReady(tabId);
+        if (!bundleReady) {
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+          return;
+        }
+
+        const response = await new Promise((resolve, reject) => {
+          chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.SHOW_FLOATING_RAIL }, result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        });
+
+        sendResponse(response?.success ? { success: true } : response);
+      } catch (error) {
+        Logger.warn('顯示 Floating Rail 失敗', {
+          action: 'SHOW_FLOATING_RAIL',
+          error: error?.message ?? String(error),
+        });
+        const safeMessage = sanitizeApiError(error, 'show_floating_rail');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+      }
+    },
+
+    /**
      * 處理用戶快捷鍵激活（來自 Preloader）
      *
      * @param {object} request

@@ -31,6 +31,8 @@ const RAIL_HOST_ID = 'notion-floating-rail-host';
 const RAIL_HOST_OWNER_ATTR = 'data-rail-owner';
 const RAIL_HOST_OWNER_VALUE = 'true';
 const RAIL_OWNED_HOST_SELECTOR = `#${RAIL_HOST_ID}[${RAIL_HOST_OWNER_ATTR}="${RAIL_HOST_OWNER_VALUE}"]`;
+const RAIL_POSITION_STORAGE_KEY = 'notion-floating-rail-position';
+const RAIL_EDGE_MARGIN_PX = 8;
 
 export class FloatingRail {
   constructor(manager) {
@@ -43,6 +45,7 @@ export class FloatingRail {
     this._initialized = false;
     this._eventsBound = false;
     this._pageStatus = null;
+    this._dragState = null;
 
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
     if (existingHost) {
@@ -71,6 +74,7 @@ export class FloatingRail {
     });
     this.shadowRoot.append(this.container);
     this.elements = getRailElements(this.container);
+    this._restorePosition();
   }
 
   async initialize() {
@@ -166,7 +170,12 @@ export class FloatingRail {
 
     // Trigger: expand/collapse
     if (trigger) {
+      this._bindDragEvents(trigger);
       trigger.addEventListener('click', () => {
+        if (this._suppressNextTriggerClick) {
+          this._suppressNextTriggerClick = false;
+          return;
+        }
         if (this.stateManager.currentState === RailStates.COLLAPSED) {
           this.expand();
         } else {
@@ -243,6 +252,127 @@ export class FloatingRail {
     }
 
     this._eventsBound = true;
+  }
+
+  _bindDragEvents(trigger) {
+    trigger.addEventListener('pointerdown', event => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+
+      const currentPosition = this._readCurrentPosition(event);
+      this._dragState = {
+        startX: event.clientX,
+        startY: event.clientY,
+        top: currentPosition.top,
+        right: currentPosition.right,
+        moved: false,
+      };
+
+      event.preventDefault();
+
+      const onMove = moveEvent => {
+        if (!this._dragState) {
+          return;
+        }
+
+        const deltaX = moveEvent.clientX - this._dragState.startX;
+        const deltaY = moveEvent.clientY - this._dragState.startY;
+        if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+          this._dragState.moved = true;
+        }
+
+        this._applyPosition({
+          top: this._dragState.top + deltaY,
+          right: this._dragState.right - deltaX,
+        });
+      };
+
+      const onEnd = () => {
+        if (this._dragState?.moved) {
+          this._suppressNextTriggerClick = true;
+          this._persistPosition();
+        }
+        this._dragState = null;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onEnd);
+        document.removeEventListener('pointercancel', onEnd);
+      };
+
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onEnd);
+      document.addEventListener('pointercancel', onEnd);
+    });
+  }
+
+  _readCurrentPosition(event) {
+    const storedTop = Number.parseFloat(this.host.style.top);
+    const storedRight = Number.parseFloat(this.host.style.right);
+    if (Number.isFinite(storedTop) && Number.isFinite(storedRight)) {
+      return { top: storedTop, right: storedRight };
+    }
+
+    const rect = this.host.getBoundingClientRect?.();
+    const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || 0;
+    if (rect && (rect.width > 0 || rect.height > 0)) {
+      return {
+        top: rect.top,
+        right: Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - rect.right),
+      };
+    }
+
+    return {
+      top: event.clientY,
+      right: Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - event.clientX),
+    };
+  }
+
+  _restorePosition() {
+    try {
+      const rawPosition = globalThis.sessionStorage?.getItem(RAIL_POSITION_STORAGE_KEY);
+      if (!rawPosition) {
+        return;
+      }
+      const position = JSON.parse(rawPosition);
+      this._applyPosition(position);
+    } catch (error) {
+      Logger.warn('[FloatingRail] 無法讀取位置狀態', { error });
+    }
+  }
+
+  _applyPosition(position) {
+    const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || 0;
+    const maxTop = Math.max(RAIL_EDGE_MARGIN_PX, viewportHeight - RAIL_EDGE_MARGIN_PX);
+    const maxRight = Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - RAIL_EDGE_MARGIN_PX);
+    const top = FloatingRail._clampNumber(position?.top, RAIL_EDGE_MARGIN_PX, maxTop);
+    const right = FloatingRail._clampNumber(position?.right, RAIL_EDGE_MARGIN_PX, maxRight);
+
+    this.host.style.top = `${top}px`;
+    this.host.style.right = `${right}px`;
+    this.host.style.transform = 'none';
+  }
+
+  _persistPosition() {
+    try {
+      globalThis.sessionStorage?.setItem(
+        RAIL_POSITION_STORAGE_KEY,
+        JSON.stringify({
+          top: Number.parseFloat(this.host.style.top),
+          right: Number.parseFloat(this.host.style.right),
+        })
+      );
+    } catch (error) {
+      Logger.warn('[FloatingRail] 無法保存位置狀態', { error });
+    }
+  }
+
+  static _clampNumber(value, min, max) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return min;
+    }
+    return Math.min(Math.max(number, min), max);
   }
 
   async _handleSaveSync() {
