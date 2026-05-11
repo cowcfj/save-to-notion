@@ -23,6 +23,22 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
 }));
 
+function createDeferred() {
+  let resolveDeferred;
+  let rejectDeferred;
+  const promise = new Promise((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+
+  return { promise, resolve: resolveDeferred, reject: rejectDeferred };
+}
+
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('Content Script Entry (index.js)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -141,19 +157,23 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.notionHighlighter;
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 應接受 rail-ready success contract', async () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
+      const railReady = createDeferred();
       const showMock = jest.fn();
-      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
-        success: true,
-        rail: { show: showMock },
-      });
+      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
       const sendResponse = jest.fn();
 
       const result = messageHandler({ action: 'SHOW_FLOATING_RAIL' }, {}, sendResponse);
-      expect(result).toBe(true);
 
-      await Promise.resolve();
-      await Promise.resolve();
+      expect(result).toBe(true);
+      expect(showMock).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      railReady.resolve({
+        success: true,
+        rail: { show: showMock },
+      });
+      await flushPromises();
 
       expect(showMock).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -161,16 +181,11 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應接受 rail-ready success contract', async () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應等待 rail-ready 完成後才回應', async () => {
+      const railReady = createDeferred();
       const showMock = jest.fn();
       const activateHighlightingMock = jest.fn();
-      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
-        success: true,
-        rail: {
-          show: showMock,
-          activateHighlighting: activateHighlightingMock,
-        },
-      });
+      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
       const sendResponse = jest.fn();
 
       const result = messageHandler(
@@ -178,10 +193,20 @@ describe('Content Script Entry (index.js)', () => {
         {},
         sendResponse
       );
-      expect(result).toBe(true);
 
-      await Promise.resolve();
-      await Promise.resolve();
+      expect(result).toBe(true);
+      expect(showMock).not.toHaveBeenCalled();
+      expect(activateHighlightingMock).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      railReady.resolve({
+        success: true,
+        rail: {
+          show: showMock,
+          activateHighlighting: activateHighlightingMock,
+        },
+      });
+      await flushPromises();
 
       expect(showMock).toHaveBeenCalled();
       expect(activateHighlightingMock).toHaveBeenCalledWith(true);
