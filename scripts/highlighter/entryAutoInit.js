@@ -274,22 +274,21 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   }
 
   // 🔑 異步初始化：先等待穩定 URL，再決定是否恢復標註和建立 Rail
-  const initializeExtension = async () => {
-    try {
-      // 並行加載：穩定 URL、頁面狀態、樣式配置
-      const [stableUrl, pageStatus, settings] = await Promise.all([
-        waitForStableUrl().catch(error => {
-          Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
-            action: 'waitForStableUrl',
-            error,
-            errorMessage: error?.message ?? String(error),
-          });
-          return null;
-        }),
-        fetchPageStatus(),
-        fetchSettings(),
-      ]);
-
+  // 並行加載：穩定 URL、頁面狀態、樣式配置
+  /* eslint-disable unicorn/prefer-top-level-await -- content bundle outputs UMD; top-level await breaks Rollup */
+  Promise.all([
+    waitForStableUrl().catch(error => {
+      Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
+        action: 'waitForStableUrl',
+        error,
+        errorMessage: error?.message ?? String(error),
+      });
+      return null;
+    }),
+    fetchPageStatus(),
+    fetchSettings(),
+  ])
+    .then(async ([stableUrl, pageStatus, settings]) => {
       // 設置穩定 URL 優先權（Phase 3 regression fix）：
       // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
       // 代表最新且最權威的 canonical source。
@@ -328,12 +327,11 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       }
 
       registerPersistentListeners();
-    } catch (error) {
+    })
+    .catch(error => {
       unregisterPersistentListeners();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
       fallbackInitialize();
-    }
-  };
-
-  await initializeExtension();
+    });
+  /* eslint-enable unicorn/prefer-top-level-await */
 }
