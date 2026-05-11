@@ -51,7 +51,7 @@ async function activateFloatingRailInPage() {
 
     if (globalThis.__NOTION_RAIL_READY__) {
       const readyResult = await Promise.race([
-        globalThis.__NOTION_RAIL_READY__,
+        globalThis.__NOTION_RAIL_READY__.catch(() => null),
         delay(Math.max(0, timeout - (Date.now() - startTime))).then(() => null),
       ]);
       if (readyResult?.success && readyResult.rail) {

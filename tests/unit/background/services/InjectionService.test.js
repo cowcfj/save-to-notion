@@ -56,6 +56,13 @@ describe('InjectionService', () => {
     chrome.runtime.lastError = null;
   });
 
+  afterEach(() => {
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    delete globalThis.__NOTION_RAIL_READY__;
+    chrome.runtime.lastError = null;
+  });
+
   describe('isRestrictedInjectionUrl', () => {
     it('should return true for chrome:// urls', () => {
       expect(isRestrictedInjectionUrl('chrome://extensions')).toBe(true);
@@ -217,9 +224,30 @@ describe('InjectionService', () => {
       expect(railShow).toHaveBeenCalled();
       expect(activateHighlighting).toHaveBeenCalledWith(true);
       expect(toolbarShow).not.toHaveBeenCalled();
+    });
 
-      delete globalThis.HighlighterV2;
-      delete globalThis.notionHighlighter;
+    it('[REGRESSION] rail readiness promise reject 時應回退為未初始化狀態', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.reject(new Error('Rail init failed'));
+
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+
+        try {
+          const result = await opts.func();
+          verifyResult([{ result }]);
+        } catch (error) {
+          chrome.runtime.lastError = error;
+          verifyResult([]);
+        }
+      });
+
+      await expect(service.injectHighlighter(1)).resolves.toEqual({
+        initialized: false,
+        highlightCount: 0,
+      });
     });
   });
 
@@ -506,8 +534,6 @@ describe('InjectionService', () => {
       expect(result).toEqual({ initialized: true, highlightCount: 3 });
       expect(railShow).toHaveBeenCalled();
       expect(activateHighlighting).toHaveBeenCalledWith(true);
-
-      delete globalThis.HighlighterV2;
     });
 
     it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {
