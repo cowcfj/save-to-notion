@@ -442,19 +442,25 @@ describe('FloatingRail', () => {
     });
 
     test('[REGRESSION] trigger 拖曳應更新 rail host 位置並保存到 sessionStorage', async () => {
+      jest.useFakeTimers();
       const rail = new FloatingRail(manager);
       await rail.initialize();
 
-      const trigger = rail.container.querySelector('.rail-trigger');
-      trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
-      document.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 180 }));
-      document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
+        jest.advanceTimersByTime(300);
+        document.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 180 }));
+        document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
 
-      expect(rail.host.style.top).toBe('180px');
-      expect(rail.host.style.right).not.toBe('0px');
-      expect(sessionStorage.getItem('notion-floating-rail-position')).toEqual(
-        expect.stringContaining('"top":180')
-      );
+        expect(rail.host.style.top).toBe('180px');
+        expect(rail.host.style.right).not.toBe('0px');
+        expect(sessionStorage.getItem('notion-floating-rail-position')).toEqual(
+          expect.stringContaining('"top":180')
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     test('[REGRESSION] 新 rail instance 應恢復先前拖曳位置', async () => {
@@ -468,6 +474,25 @@ describe('FloatingRail', () => {
 
       expect(rail.host.style.top).toBe('144px');
       expect(rail.host.style.right).toBe('24px');
+    });
+
+    test('[REGRESSION] trigger 未長按達門檻前不應開始拖曳', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
+        jest.advanceTimersByTime(120);
+        document.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 180 }));
+        document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
+
+        expect(rail.host.style.top).not.toBe('180px');
+        expect(sessionStorage.getItem('notion-floating-rail-position')).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });

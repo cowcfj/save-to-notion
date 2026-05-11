@@ -7,6 +7,7 @@
 
 import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { COLORS } from '../utils/color.js';
+import { hexToRgba } from '../../../styles/ui-token-constants.js';
 
 export function getRailElements(container) {
   const highlightBtn = container.querySelector('[data-action="highlight"]');
@@ -54,6 +55,13 @@ export function applySelectedColor(container, colorName) {
     indicator.style.backgroundColor = COLORS[colorName] || COLORS.yellow;
   }
 
+  const highlightBtn = container.querySelector('[data-action="highlight"]');
+  if (highlightBtn) {
+    const highlightColor = COLORS[colorName] || COLORS.yellow;
+    highlightBtn.style.setProperty('--rail-highlight-color', highlightColor);
+    highlightBtn.style.setProperty('--rail-highlight-tint', hexToRgba(highlightColor, 0.18));
+  }
+
   const swatches = container.querySelectorAll('.color-swatch');
   for (const swatch of swatches) {
     const isSelected = swatch.dataset.color === colorName;
@@ -67,6 +75,8 @@ export function applyHighlightActive(highlightBtn, isActive) {
     return;
   }
   highlightBtn.classList.toggle('active', isActive);
+  highlightBtn.dataset.highlightState = isActive ? 'active' : 'inactive';
+  highlightBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
   highlightBtn.setAttribute(
     'aria-label',
     isActive

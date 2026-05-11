@@ -93,6 +93,7 @@ export function getFloatingRailCSS() {
       display: flex;
       align-items: center;
       justify-content: center;
+      cursor: grab;
     }
 
     .rail-trigger:hover,
@@ -100,10 +101,16 @@ export function getFloatingRailCSS() {
       background: ${color.bgHover};
     }
 
+    :host([data-dragging="true"]) .rail-trigger {
+      cursor: grabbing;
+      background: ${color.bgHover};
+    }
+
     .rail-trigger svg {
       width: 18px;
       height: 18px;
-      fill: ${color.text};
+      color: ${color.text};
+      fill: none;
     }
 
     .rail-actions {
@@ -125,6 +132,11 @@ export function getFloatingRailCSS() {
       height: 32px;
       border-radius: ${radius.md};
       position: relative;
+      transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        transform 0.16s ease;
     }
 
     .rail-action-btn:hover,
@@ -144,6 +156,29 @@ export function getFloatingRailCSS() {
 
     .rail-action-btn.active svg {
       fill: ${color.primary};
+    }
+
+    .rail-highlight-toggle {
+      border: 1px solid transparent;
+      background: ${color.white};
+    }
+
+    .rail-highlight-toggle[data-highlight-state="inactive"] {
+      background: var(--rail-highlight-tint, ${hexToRgba(color.primary, 0.12)});
+      border-color: ${hexToRgba(color.text, 0.08)};
+      box-shadow: inset 0 0 0 1px ${hexToRgba(color.white, 0.55)};
+    }
+
+    .rail-highlight-toggle[data-highlight-state="active"] {
+      background: var(--rail-highlight-color, ${color.primary});
+      border-color: var(--rail-highlight-color, ${color.primary});
+      box-shadow: 0 0 0 1px ${hexToRgba(color.white, 0.2)} inset;
+    }
+
+    .rail-highlight-toggle[data-highlight-state="active"]:hover,
+    .rail-highlight-toggle[data-highlight-state="active"]:focus-visible {
+      background: var(--rail-highlight-color, ${color.primary});
+      transform: translateY(-1px);
     }
 
     .rail-action-btn[aria-label]::after {
@@ -173,6 +208,15 @@ export function getFloatingRailCSS() {
       height: 14px;
       border-radius: 50%;
       border: 2px solid ${color.border};
+      transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        transform 0.16s ease;
+    }
+
+    .rail-highlight-toggle[data-highlight-state="active"] .color-indicator {
+      border-color: ${hexToRgba(color.white, 0.88)};
+      transform: scale(0.86);
     }
 
     .color-palette {

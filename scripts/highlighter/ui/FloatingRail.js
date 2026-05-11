@@ -33,6 +33,8 @@ const RAIL_HOST_OWNER_VALUE = 'true';
 const RAIL_OWNED_HOST_SELECTOR = `#${RAIL_HOST_ID}[${RAIL_HOST_OWNER_ATTR}="${RAIL_HOST_OWNER_VALUE}"]`;
 const RAIL_POSITION_STORAGE_KEY = 'notion-floating-rail-position';
 const RAIL_EDGE_MARGIN_PX = 8;
+const RAIL_DRAG_LONG_PRESS_MS = 280;
+const RAIL_DRAG_MOVE_THRESHOLD_PX = 2;
 
 export class FloatingRail {
   constructor(manager) {
@@ -47,6 +49,8 @@ export class FloatingRail {
     this._pageStatus = null;
     this._dragState = null;
     this._deleteShortcutHandler = null;
+    this._dragActivationTimer = null;
+    this._dragCleanup = null;
 
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
     if (existingHost) {
@@ -86,12 +90,16 @@ export class FloatingRail {
     this.stateManager.initialize();
     applyRailState(this.container, this.stateManager.currentState);
     applySelectedColor(this.container, this.stateManager.selectedColor);
+    applyHighlightActive(
+      this.elements.highlightBtn,
+      this.stateManager.currentState === RailStates.HIGHLIGHTING
+    );
 
-    if (this.stateManager.currentState === RailStates.HIGHLIGHTING) {
-      applyHighlightActive(this.elements.highlightBtn, true);
-      if (this.manager.startHighlighting) {
-        this.manager.startHighlighting(this.stateManager.selectedColor);
-      }
+    if (
+      this.stateManager.currentState === RailStates.HIGHLIGHTING &&
+      this.manager.startHighlighting
+    ) {
+      this.manager.startHighlighting(this.stateManager.selectedColor);
     }
 
     await this._refreshPageStatus();
@@ -193,6 +201,9 @@ export class FloatingRail {
     });
 
     this.container.addEventListener('mouseleave', () => {
+      if (this._dragState) {
+        return;
+      }
       if (this.stateManager.currentState === RailStates.EXPANDED) {
         this.collapse();
       }
@@ -268,6 +279,8 @@ export class FloatingRail {
         return;
       }
 
+      this._clearDragArtifacts();
+
       const currentPosition = this._readCurrentPosition(event);
       this._dragState = {
         startX: event.clientX,
@@ -275,19 +288,33 @@ export class FloatingRail {
         top: currentPosition.top,
         right: currentPosition.right,
         moved: false,
+        active: false,
       };
-
-      event.preventDefault();
+      this._dragActivationTimer = globalThis.setTimeout(() => {
+        if (!this._dragState) {
+          return;
+        }
+        this._dragState.active = true;
+        this.host.dataset.dragging = 'true';
+        trigger.setAttribute('aria-pressed', 'true');
+      }, RAIL_DRAG_LONG_PRESS_MS);
 
       const onMove = moveEvent => {
-        if (!this._dragState) {
+        if (!this._dragState?.active) {
           return;
         }
 
         const deltaX = moveEvent.clientX - this._dragState.startX;
         const deltaY = moveEvent.clientY - this._dragState.startY;
-        if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+        if (
+          Math.abs(deltaX) > RAIL_DRAG_MOVE_THRESHOLD_PX ||
+          Math.abs(deltaY) > RAIL_DRAG_MOVE_THRESHOLD_PX
+        ) {
           this._dragState.moved = true;
+        }
+
+        if (moveEvent.cancelable) {
+          moveEvent.preventDefault();
         }
 
         this._applyPosition({
@@ -297,20 +324,45 @@ export class FloatingRail {
       };
 
       const onEnd = () => {
-        if (this._dragState?.moved) {
+        const wasDragging = this._dragState?.active;
+        const moved = this._dragState?.moved;
+        if (wasDragging) {
           this._suppressNextTriggerClick = true;
+        }
+        if (moved) {
           this._persistPosition();
         }
-        this._dragState = null;
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onEnd);
-        document.removeEventListener('pointercancel', onEnd);
+        this._clearDragArtifacts();
       };
 
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onEnd);
       document.addEventListener('pointercancel', onEnd);
+      this._dragCleanup = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onEnd);
+        document.removeEventListener('pointercancel', onEnd);
+      };
     });
+  }
+
+  _clearDragArtifacts() {
+    if (this._dragActivationTimer !== null) {
+      globalThis.clearTimeout(this._dragActivationTimer);
+      this._dragActivationTimer = null;
+    }
+    if (this._dragCleanup) {
+      this._dragCleanup();
+      this._dragCleanup = null;
+    }
+    const trigger = this.elements?.trigger;
+    if (trigger) {
+      trigger.setAttribute('aria-pressed', 'false');
+    }
+    if (this.host) {
+      delete this.host.dataset.dragging;
+    }
+    this._dragState = null;
   }
 
   _readCurrentPosition(event) {
@@ -409,6 +461,7 @@ export class FloatingRail {
   }
 
   destroy() {
+    this._clearDragArtifacts();
     if (this._deleteShortcutHandler) {
       document.removeEventListener('click', this._deleteShortcutHandler);
       this._deleteShortcutHandler = null;

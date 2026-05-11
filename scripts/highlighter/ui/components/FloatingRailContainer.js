@@ -7,6 +7,7 @@
 import { COLORS } from '../../utils/color.js';
 import { UI_MESSAGES } from '../../../config/shared/messages.js';
 import { createSafeIcon } from '../../../utils/securityUtils.js';
+import { hexToRgba } from '../../../../styles/ui-token-constants.js';
 
 const ARIA_LABEL = 'aria-label';
 const ACTION_BTN_CLASS = 'rail-action-btn';
@@ -19,7 +20,7 @@ const RAIL_ICONS = {
     '<svg viewBox="0 0 24 24"><path d="M15.2 3.8l5 5L8.5 20.5 3 21l.5-5.5L15.2 3.8z"/></svg>',
   MANAGE:
     '<svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-  LOGO: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  LOGO: '<svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v11a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" fill="currentColor" opacity="0.16"/><path d="M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.25 11.5h7.5M8.25 15.25h4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.5 18.25h8.5" fill="none" stroke="#f4b63f" stroke-width="2.2" stroke-linecap="round"/></svg>',
 };
 
 export function createFloatingRailContainer(options = {}) {
@@ -35,6 +36,7 @@ export function createFloatingRailContainer(options = {}) {
   trigger.className = 'rail-trigger';
   trigger.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.TRIGGER_LABEL);
   trigger.setAttribute('aria-expanded', 'false');
+  trigger.setAttribute('aria-pressed', 'false');
   trigger.innerHTML = '';
   const logoIcon = createSafeIcon(RAIL_ICONS.LOGO);
   logoIcon.style.width = '18px';
@@ -65,6 +67,16 @@ export function createFloatingRailContainer(options = {}) {
   highlightToggle.className = `${ACTION_BTN_CLASS} rail-highlight-toggle`;
   highlightToggle.dataset.action = 'highlight';
   highlightToggle.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
+  highlightToggle.setAttribute('aria-pressed', 'false');
+  highlightToggle.dataset.highlightState = 'inactive';
+  highlightToggle.style.setProperty(
+    '--rail-highlight-color',
+    COLORS[selectedColor] || COLORS.yellow
+  );
+  highlightToggle.style.setProperty(
+    '--rail-highlight-tint',
+    hexToRgba(COLORS[selectedColor] || COLORS.yellow, 0.18)
+  );
 
   const colorIndicator = document.createElement('span');
   colorIndicator.className = 'color-indicator';

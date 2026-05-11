@@ -187,6 +187,17 @@ describe('applyHighlightActive', () => {
     expect(btn.getAttribute('aria-label')).toBe('停止標註');
   });
 
+  test('[REGRESSION] active / inactive 應同步更新可供樣式辨識的 data state', () => {
+    const container = createMockContainer();
+    const btn = container.querySelector('[data-action="highlight"]');
+
+    applyHighlightActive(btn, true);
+    expect(btn.dataset.highlightState).toBe('active');
+
+    applyHighlightActive(btn, false);
+    expect(btn.dataset.highlightState).toBe('inactive');
+  });
+
   test('inactive 時應移除 active class 並更新 label', () => {
     const container = createMockContainer();
     const btn = container.querySelector('[data-action="highlight"]');

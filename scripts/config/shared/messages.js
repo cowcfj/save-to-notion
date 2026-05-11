@@ -225,7 +225,7 @@ const TOOLBAR = {
 
 const FLOATING_RAIL = {
   CONTAINER_LABEL: 'Save to Notion 工具列',
-  TRIGGER_LABEL: '展開工具列',
+  TRIGGER_LABEL: '展開工具列，長按可拖曳',
   SAVE_LABEL: '保存網頁',
   SYNC_LABEL: '同步標註',
   HIGHLIGHT_LABEL: '開始標註',
