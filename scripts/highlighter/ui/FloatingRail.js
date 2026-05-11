@@ -46,11 +46,13 @@ export class FloatingRail {
     this.stateManager = new FloatingRailStateManager();
     this._initialized = false;
     this._eventsBound = false;
+    this._destroyed = false;
     this._pageStatus = null;
     this._dragState = null;
     this._deleteShortcutHandler = null;
     this._dragActivationTimer = null;
     this._dragCleanup = null;
+    this._appendHostListener = null;
 
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
     if (existingHost) {
@@ -61,11 +63,16 @@ export class FloatingRail {
       this.host.id = RAIL_HOST_ID;
       this.host.setAttribute(RAIL_HOST_OWNER_ATTR, RAIL_HOST_OWNER_VALUE);
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
-      const appendHost = () => document.body.append(this.host);
+      const appendHost = () => {
+        if (!this._destroyed) {
+          document.body.append(this.host);
+        }
+      };
       if (document.body) {
         appendHost();
       } else {
-        document.addEventListener('DOMContentLoaded', appendHost, { once: true });
+        this._appendHostListener = appendHost;
+        document.addEventListener('DOMContentLoaded', this._appendHostListener, { once: true });
       }
     }
 
@@ -461,7 +468,12 @@ export class FloatingRail {
   }
 
   destroy() {
+    this._destroyed = true;
     this._clearDragArtifacts();
+    if (this._appendHostListener) {
+      document.removeEventListener('DOMContentLoaded', this._appendHostListener);
+      this._appendHostListener = null;
+    }
     if (this._deleteShortcutHandler) {
       document.removeEventListener('click', this._deleteShortcutHandler);
       this._deleteShortcutHandler = null;

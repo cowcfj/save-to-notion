@@ -67,7 +67,7 @@ globalThis.__NOTION_BUNDLE_READY__ = true;
  */
 function handlePing(sendResponse) {
   sendResponse({
-    status: globalThis.__NOTION_BUNDLE_READY__ ? 'bundle_ready' : 'initializing',
+    status: globalThis.__NOTION_BUNDLE_READY__ ? 'bundle_ready' : 'preloader_only',
     hasPreloaderCache: Boolean(preloaderCache),
     nextRouteInfo: preloaderCache?.nextRouteInfo || null,
     shortlink: preloaderCache?.shortlink || null,
@@ -81,8 +81,12 @@ function handlePing(sendResponse) {
  */
 function handleShowHighlighter(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
-    globalThis.HighlighterV2.rail.show();
-    sendResponse({ success: true });
+    try {
+      globalThis.HighlighterV2.rail.show();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
   } else {
     sendResponse({ success: false, error: '浮動側欄尚未初始化' });
   }
@@ -95,8 +99,12 @@ function handleShowHighlighter(sendResponse) {
  */
 async function handleShowFloatingRail(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
-    globalThis.HighlighterV2.rail.show();
-    sendResponse({ success: true });
+    try {
+      globalThis.HighlighterV2.rail.show();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
     return;
   }
 
@@ -108,11 +116,13 @@ async function handleShowFloatingRail(sendResponse) {
         sendResponse({ success: true });
         return;
       }
+      globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({
         success: false,
         error: readyResult?.error || '浮動側欄初始化失敗',
       });
     } catch {
+      globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({ success: false, error: '浮動側欄初始化失敗' });
     }
   } else {
@@ -129,9 +139,13 @@ async function handleShowFloatingRail(sendResponse) {
  */
 async function handleActivateFloatingRailHighlight(request, sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
-    globalThis.HighlighterV2.rail.show();
-    globalThis.HighlighterV2.rail.activateHighlighting(request.sessionOverride);
-    sendResponse({ success: true });
+    try {
+      globalThis.HighlighterV2.rail.show();
+      globalThis.HighlighterV2.rail.activateHighlighting(request.sessionOverride);
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
     return;
   }
 
@@ -144,11 +158,13 @@ async function handleActivateFloatingRailHighlight(request, sendResponse) {
         sendResponse({ success: true });
         return;
       }
+      globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({
         success: false,
         error: readyResult?.error || '浮動側欄初始化失敗',
       });
     } catch {
+      globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({ success: false, error: '浮動側欄初始化失敗' });
     }
   } else {

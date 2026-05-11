@@ -25,39 +25,42 @@ const INJECTION_CONFIG = {
   CONTENT_BUNDLE_PATH: 'dist/content.bundle.js',
 };
 
-function waitForPageDelay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function activateRailInPageContext(rail) {
-  rail.show?.();
-  rail.activateHighlighting?.(true);
-  const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
-  return { initialized: true, highlightCount: count };
-}
-
 async function activateFloatingRailInPage() {
   const timeout = 2000;
   const interval = 100;
   const startTime = Date.now();
 
+  /* eslint-disable unicorn/consistent-function-scoping -- chrome.scripting.executeScript 序列化限制：func 無法捕獲外部閉包，必須內聯定義 */
+  function activateRail(rail) {
+    rail.show?.();
+    rail.activateHighlighting?.(true);
+    const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
+    return { initialized: true, highlightCount: count };
+  }
+
+  function delay(ms) {
+    // NOSONAR — must be inlined for chrome.scripting serialization
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  /* eslint-enable unicorn/consistent-function-scoping */
+
   while (Date.now() - startTime <= timeout) {
     if (globalThis.HighlighterV2?.rail) {
-      return activateRailInPageContext(globalThis.HighlighterV2.rail);
+      return activateRail(globalThis.HighlighterV2.rail);
     }
 
     if (globalThis.__NOTION_RAIL_READY__) {
       const readyResult = await Promise.race([
         globalThis.__NOTION_RAIL_READY__,
-        waitForPageDelay(Math.max(0, timeout - (Date.now() - startTime))).then(() => null),
+        delay(Math.max(0, timeout - (Date.now() - startTime))).then(() => null),
       ]);
       if (readyResult?.success && readyResult.rail) {
-        return activateRailInPageContext(readyResult.rail);
+        return activateRail(readyResult.rail);
       }
       return { initialized: false, highlightCount: 0 };
     }
 
-    await waitForPageDelay(interval);
+    await delay(interval);
   }
 
   return { initialized: false, highlightCount: 0 };

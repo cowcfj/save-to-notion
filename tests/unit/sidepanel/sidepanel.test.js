@@ -256,7 +256,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#sync-button').disabled).toBe(false);
     });
 
-    it('sync button 不論頁面是否已保存皆應可用（savePage 可自動建立）', async () => {
+    it('sync button 在頁面未保存時應禁用並顯示提示', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return {};
@@ -273,6 +273,9 @@ describe('Sidepanel JS Logic', () => {
 
       // Phase 1: 未保存頁面 sync 按鈕禁用
       expect(document.querySelector('#sync-button').disabled).toBe(true);
+      expect(document.querySelector('#sync-button').title).toBe(
+        UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED
+      );
     });
 
     it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {

@@ -640,7 +640,7 @@ const DRIVE_SYNC_ACTIONS = {
 
 /**
  * @typedef {object} PingResponse
- * @property {'preloader_only'|'bundle_ready'|'initializing'} [status]
+ * @property {'preloader_only'|'bundle_ready'} [status]
  * @property {boolean} [hasCache]
  * @property {boolean} [hasPreloaderCache]
  * @property {object|null} [nextRouteInfo]

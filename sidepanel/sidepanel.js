@@ -1033,12 +1033,14 @@ async function handleSyncClick() {
         error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page'),
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+      els.syncButton.disabled = false;
     }
   } catch (error) {
     Logger.error('[SidePanel] savePage failed', {
       error: sanitizeApiError(error, 'save_page'),
     });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+    els.syncButton.disabled = false;
   }
 }
 

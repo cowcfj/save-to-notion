@@ -273,14 +273,19 @@ export class HighlightManager {
    * 啟動由 Floating Rail 使用的標註模式。
    *
    * @param {string} [color] - 啟動時套用的標註顏色
+   * @returns {false|void} 若 `document` 不存在則提前返回 `false`；否則返回 `void`
    */
   startHighlighting(color = this.currentColor) {
-    this.setHighlightColor(color);
-    if (this.isHighlighting || globalThis.document === undefined) {
-      this.isHighlighting = true;
+    if (this.isHighlighting) {
+      this.setHighlightColor(color);
       return;
     }
 
+    if (globalThis.document === undefined) {
+      return false;
+    }
+
+    this.setHighlightColor(color);
     this.isHighlighting = true;
     this.selectionHandler = event => {
       if (!this.isHighlighting || HighlightManager._isExtensionUiEvent(event)) {

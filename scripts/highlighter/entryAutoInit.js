@@ -48,8 +48,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   const railReadyPromise = new Promise(resolve => {
     railReadyResolve = resolve;
   });
-  // eslint-disable-next-line unicorn/prefer-top-level-await -- deferred promise; no value to await here
-  railReadyPromise.catch(() => {});
   globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
 
   function settleRailReady(result) {

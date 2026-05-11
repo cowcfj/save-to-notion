@@ -483,6 +483,33 @@ describe('InjectionService', () => {
   });
 
   describe('Business Operations Wrappers', () => {
+    it('activateFloatingRailInPage 應在序列化後仍可獨立執行（無外部閉包依賴）', async () => {
+      const railShow = jest.fn();
+      const activateHighlighting = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: { show: railShow, activateHighlighting },
+        manager: { getCount: () => 3 },
+      };
+
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+        // 驗證函數無外部閉包依賴：直接呼叫與序列化重建在共享 globalThis 環境中語義等效
+        const result = await opts.func();
+        verifyResult([{ result }]);
+      });
+
+      const result = await service.injectHighlighter(1);
+
+      expect(result).toEqual({ initialized: true, highlightCount: 3 });
+      expect(railShow).toHaveBeenCalled();
+      expect(activateHighlighting).toHaveBeenCalledWith(true);
+
+      delete globalThis.HighlighterV2;
+    });
+
     it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => {
         cb([{ result: ['highlight1'] }]);

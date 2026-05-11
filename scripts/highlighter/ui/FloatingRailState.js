@@ -106,7 +106,6 @@ export class FloatingRailStateManager {
     }
   }
 
-  // skipcq: JS-0105
   _persist() {
     try {
       if (globalThis.sessionStorage) {
