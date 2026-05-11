@@ -55,6 +55,9 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       return;
     }
     isRailReadySettled = true;
+    if (!result?.success) {
+      globalThis.__NOTION_RAIL_READY__ = undefined;
+    }
     railReadyResolve(result);
   }
 

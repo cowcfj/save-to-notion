@@ -138,18 +138,17 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
-    const result = await Promise.race([
-      globalThis.__NOTION_RAIL_READY__,
-      Promise.resolve({ success: 'pending' }),
-    ]);
+    const result = await capturedPromise;
 
     expect(result).toEqual({
       success: false,
       error: '浮動側欄初始化已略過',
     });
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
 
   test('[REGRESSION] setup 後沒有 manager 時 rail-ready promise 應回傳失敗 contract', async () => {
@@ -157,18 +156,17 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
-    const result = await Promise.race([
-      globalThis.__NOTION_RAIL_READY__,
-      Promise.resolve({ success: 'pending' }),
-    ]);
+    const result = await capturedPromise;
 
     expect(result).toEqual({
       success: false,
       error: '浮動側欄初始化缺少 manager',
     });
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
 
   test('不應等待 waitForStableUrl 超時才完成初始化', async () => {
@@ -212,6 +210,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
     await jest.runAllTimersAsync(); // clear timeout and promise chain
     await flushAsyncSetup();
 
@@ -226,15 +225,13 @@ describe('entryAutoInit', () => {
       expect.objectContaining({ action: 'initializeExtension' })
     );
 
-    const result = await Promise.race([
-      globalThis.__NOTION_RAIL_READY__,
-      Promise.resolve({ success: 'pending' }),
-    ]);
+    const result = await capturedPromise;
 
     expect(result).toEqual({
       success: false,
       error: 'Initial fail',
     });
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
 
   test('[REGRESSION] fallbackInitialize 成功時 rail-ready promise 應回傳失敗 contract', async () => {
@@ -245,6 +242,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -253,15 +251,13 @@ describe('entryAutoInit', () => {
       skipToolbar: true,
     });
 
-    const result = await Promise.race([
-      globalThis.__NOTION_RAIL_READY__,
-      Promise.resolve({ success: 'pending' }),
-    ]);
+    const result = await capturedPromise;
 
     expect(result).toEqual({
       success: false,
       error: 'Initial fail',
     });
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
 
   test('如果 fallback setupHighlighter 也拋錯應記錄 setupHighlighter action', async () => {
@@ -276,6 +272,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
     require('../../../scripts/highlighter/entryAutoInit.js');
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -284,15 +281,13 @@ describe('entryAutoInit', () => {
       expect.objectContaining({ action: 'setupHighlighter' })
     );
 
-    const result = await Promise.race([
-      globalThis.__NOTION_RAIL_READY__,
-      Promise.resolve({ success: 'pending' }),
-    ]);
+    const result = await capturedPromise;
 
     expect(result).toEqual({
       success: false,
       error: 'Fallback fail',
     });
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
 
   test('初始化完成前只註冊 waitForStableUrl 臨時監聽器', () => {
