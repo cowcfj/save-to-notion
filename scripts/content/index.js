@@ -87,7 +87,7 @@ function handleShowHighlighter(sendResponse) {
     globalThis.notionHighlighter.show();
     sendResponse({ success: true });
   } else {
-    sendResponse({ success: false, error: 'Highlighter not initialized' });
+    sendResponse({ success: false, error: '高亮器尚未初始化' });
   }
 }
 
@@ -96,27 +96,52 @@ function handleShowHighlighter(sendResponse) {
  *
  * @param {Function} sendResponse - 回應函數
  */
-function handleShowFloatingRail(sendResponse) {
+async function handleShowFloatingRail(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     globalThis.HighlighterV2.rail.show();
     sendResponse({ success: true });
+    return;
+  }
+
+  if (globalThis.__NOTION_RAIL_READY__) {
+    try {
+      const rail = await globalThis.__NOTION_RAIL_READY__;
+      rail.show();
+      sendResponse({ success: true });
+    } catch {
+      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
+    }
   } else {
-    sendResponse({ success: false, error: 'Floating Rail not initialized' });
+    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
   }
 }
 
 /**
  * 處理啟動 Floating Rail 標註模式請求
  *
+ * @param {object} request - 訊息請求物件
+ * @param {boolean} [request.sessionOverride] - 是否覆蓋 session 狀態
  * @param {Function} sendResponse - 回應函數
  */
-function handleActivateFloatingRailHighlight(sendResponse) {
+async function handleActivateFloatingRailHighlight(request, sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     globalThis.HighlighterV2.rail.show();
-    globalThis.HighlighterV2.rail.activateHighlighting();
+    globalThis.HighlighterV2.rail.activateHighlighting(request.sessionOverride);
     sendResponse({ success: true });
+    return;
+  }
+
+  if (globalThis.__NOTION_RAIL_READY__) {
+    try {
+      const rail = await globalThis.__NOTION_RAIL_READY__;
+      rail.show();
+      rail.activateHighlighting(request.sessionOverride);
+      sendResponse({ success: true });
+    } catch {
+      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
+    }
   } else {
-    sendResponse({ success: false, error: 'Floating Rail not initialized' });
+    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
   }
 }
 
@@ -202,7 +227,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
 
     case HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT: {
-      handleActivateFloatingRailHighlight(sendResponse);
+      handleActivateFloatingRailHighlight(request, sendResponse);
       return true;
     }
 

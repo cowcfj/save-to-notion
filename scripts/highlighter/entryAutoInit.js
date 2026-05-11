@@ -43,6 +43,16 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     return 'background';
   }
 
+  let railReadyResolve;
+  let railReadyReject;
+  const railReadyPromise = new Promise((resolve, reject) => {
+    railReadyResolve = resolve;
+    railReadyReject = reject;
+  });
+  // eslint-disable-next-line unicorn/prefer-top-level-await -- deferred promise; no value to await here
+  railReadyPromise.catch(() => {});
+  globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
+
   async function initializeFloatingRail(manager, autoShowRail) {
     try {
       const { FloatingRail } = await import('./ui/FloatingRail.js');
@@ -52,11 +62,13 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       if (!autoShowRail) {
         rail.hide();
       }
+      railReadyResolve(rail);
     } catch (railError) {
       Logger.warn('[Highlighter] Floating Rail 初始化失敗', {
         action: 'initializeExtension',
         error: railError?.message,
       });
+      railReadyReject(railError);
     }
   }
 
@@ -264,35 +276,31 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   // 🔑 異步初始化：先等待穩定 URL，再決定是否恢復標註和建立 Rail
   const initializeExtension = async () => {
     try {
-      const stableUrlState = { resolved: false, value: null };
-      waitForStableUrl()
-        .then(stableUrl => {
-          stableUrlState.resolved = true;
-          stableUrlState.value = stableUrl;
-          return stableUrl;
-        })
-        .catch(error => {
+      // 並行加載：穩定 URL、頁面狀態、樣式配置
+      const [stableUrl, pageStatus, settings] = await Promise.all([
+        waitForStableUrl().catch(error => {
           Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
             action: 'waitForStableUrl',
             error,
             errorMessage: error?.message ?? String(error),
           });
-        });
-
-      // 並行加載：頁面狀態、樣式配置；穩定 URL 另外等待，不阻塞初始化
-      const [pageStatus, settings] = await Promise.all([fetchPageStatus(), fetchSettings()]);
+          return null;
+        }),
+        fetchPageStatus(),
+        fetchSettings(),
+      ]);
 
       // 設置穩定 URL 優先權（Phase 3 regression fix）：
       // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
       // 代表最新且最權威的 canonical source。
       // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
-      const resolvedStableUrl = stableUrlState.value || pageStatus?.stableUrl || null;
+      const resolvedStableUrl = stableUrl || pageStatus?.stableUrl || null;
       if (resolvedStableUrl) {
         globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
         Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
           action: 'initializeExtension',
           stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-          source: stableUrlState.value ? 'SET_STABLE_URL' : 'checkPageStatus',
+          source: stableUrl ? 'SET_STABLE_URL' : 'checkPageStatus',
         });
       }
 
@@ -327,8 +335,5 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   };
 
-  // eslint-disable-next-line unicorn/prefer-top-level-await
-  (async () => {
-    await initializeExtension();
-  })();
+  await initializeExtension();
 }

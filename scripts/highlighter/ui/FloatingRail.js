@@ -53,7 +53,12 @@ export class FloatingRail {
       this.host.id = RAIL_HOST_ID;
       this.host.setAttribute(RAIL_HOST_OWNER_ATTR, RAIL_HOST_OWNER_VALUE);
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
-      document.body.append(this.host);
+      const appendHost = () => document.body.append(this.host);
+      if (document.body) {
+        appendHost();
+      } else {
+        document.addEventListener('DOMContentLoaded', appendHost, { once: true });
+      }
     }
 
     if (this.host.dataset.railStylesInjected !== 'true') {
@@ -111,13 +116,13 @@ export class FloatingRail {
     applyRailState(this.container, RailStates.EXPANDED);
   }
 
-  activateHighlighting() {
+  activateHighlighting(sessionOverride) {
     this.stateManager.currentState = RailStates.HIGHLIGHTING;
     applyRailState(this.container, RailStates.HIGHLIGHTING);
     applyHighlightActive(this.elements.highlightBtn, true);
 
     if (this.manager.startHighlighting) {
-      this.manager.startHighlighting(this.stateManager.selectedColor);
+      this.manager.startHighlighting(this.stateManager.selectedColor, { sessionOverride });
     }
   }
 
@@ -266,6 +271,7 @@ export class FloatingRail {
   }
 
   destroy() {
+    // 所有 listeners 綁定在 shadow DOM 內部元素，host 移除後隨 GC 回收
     if (this.host?.parentNode) {
       this.host.remove();
     }

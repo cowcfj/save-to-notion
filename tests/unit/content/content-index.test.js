@@ -60,12 +60,8 @@ describe('Content Script Entry (index.js)', () => {
     let preloaderHandler;
 
     beforeEach(() => {
-      // Capture the message handlers by isolating the module
       sendMessageMock = jest.fn();
-      const handlers = [];
-      globalThis.chrome.runtime.onMessage.addListener = jest.fn(handler => {
-        handlers.push(handler);
-      });
+      globalThis.chrome.runtime.onMessage.addListener = jest.fn();
       globalThis.chrome.runtime.onMessage.removeListener = jest.fn();
       globalThis.chrome.runtime.sendMessage = sendMessageMock;
 
@@ -112,25 +108,29 @@ describe('Content Script Entry (index.js)', () => {
       );
     });
 
-    test('showHighlighter 應該調用 rail 或全局 highlighter', () => {
+    test('showHighlighter 應優先調用 rail.show', () => {
+      const showMock = jest.fn();
+      globalThis.HighlighterV2 = { rail: { show: showMock } };
       const sendResponse = jest.fn();
 
-      if (globalThis.HighlighterV2?.rail) {
-        // Phase 1: rail 存在時優先使用 rail
-        const showSpy = jest.spyOn(globalThis.HighlighterV2.rail, 'show');
-        messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
-        expect(showSpy).toHaveBeenCalled();
-        showSpy.mockRestore();
-      } else {
-        // Fallback: 使用 notionHighlighter
-        const mockHighlighter = { show: jest.fn() };
-        globalThis.notionHighlighter = mockHighlighter;
-        messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
-        expect(mockHighlighter.show).toHaveBeenCalled();
-        delete globalThis.notionHighlighter;
-      }
+      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
 
+      expect(showMock).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      delete globalThis.HighlighterV2;
+    });
+
+    test('showHighlighter 應在無 rail 時使用 notionHighlighter', () => {
+      delete globalThis.HighlighterV2;
+      const showMock = jest.fn();
+      globalThis.notionHighlighter = { show: showMock };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+
+      expect(showMock).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      delete globalThis.notionHighlighter;
     });
 
     test('REMOVE_HIGHLIGHT_DOM 應呼叫 manager.removeHighlight', () => {

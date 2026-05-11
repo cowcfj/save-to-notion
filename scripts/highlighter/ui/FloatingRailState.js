@@ -6,8 +6,10 @@
  */
 
 import Logger from '../../utils/Logger.js';
+import { COLORS } from '../utils/color.js';
 
 const STORAGE_KEY = 'notion-floating-rail-state';
+const VALID_COLORS = new Set(Object.keys(COLORS));
 
 export const RailStates = Object.freeze({
   COLLAPSED: 'collapsed',
@@ -29,7 +31,7 @@ export class FloatingRailStateManager {
     }
 
     try {
-      if (globalThis.window !== undefined && globalThis.sessionStorage) {
+      if (globalThis.sessionStorage) {
         const saved = globalThis.sessionStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -70,6 +72,10 @@ export class FloatingRailStateManager {
   }
 
   set selectedColor(color) {
+    if (!VALID_COLORS.has(color)) {
+      Logger.warn('[FloatingRailState] 無效的顏色值', { color });
+      return;
+    }
     if (this._selectedColor !== color) {
       this._selectedColor = color;
       this._persist();
@@ -103,7 +109,7 @@ export class FloatingRailStateManager {
   // skipcq: JS-0105
   _persist() {
     try {
-      if (globalThis.window !== undefined && globalThis.sessionStorage) {
+      if (globalThis.sessionStorage) {
         globalThis.sessionStorage.setItem(
           STORAGE_KEY,
           JSON.stringify({ state: this._currentState, color: this._selectedColor })

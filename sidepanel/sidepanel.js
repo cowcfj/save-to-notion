@@ -809,7 +809,6 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
   }
 
   UI.renderList(els, highlights, targetKey, handleDelete);
-  // Sync 按鈕始終可用（savePage 可自動建立新頁面）
   els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
 }
 
