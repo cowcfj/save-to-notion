@@ -366,14 +366,12 @@ export function createHighlightHandlers(services) {
         }
 
         // 嘗試先發送訊息顯示（如果腳本已加載）
-        // 注意：使用 SHOW_HIGHLIGHTER 而非 TOGGLE_HIGHLIGHTER，
-        // 確保「開始標注」永遠是「顯示」語意，
-        // 避免 sessionStorage 殘留 'expanded' 狀態導致第一次 toggle 反向隱藏 toolbar。
+        // Phase 1: 使用 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動 rail 標註模式
         try {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               activeTab.id,
-              { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER },
+              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題

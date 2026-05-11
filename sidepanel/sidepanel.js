@@ -788,9 +788,17 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
     ? targetKey.slice(PAGE_PREFIX.length)
     : (targetKey?.replace(HIGHLIGHTS_PREFIX, '') ?? '');
 
-  els.syncButton.disabled = false;
   els.syncButton.dataset.targetUrl = targetUrl;
   els.openNotionButton.dataset.targetUrl = originalTabUrl;
+
+  // 根據保存狀態設定同步按鈕
+  if (hasSavedData) {
+    els.syncButton.disabled = false;
+    els.syncButton.title = '';
+  } else {
+    els.syncButton.disabled = true;
+    els.syncButton.title = UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
+  }
 
   if (highlights.length === 0) {
     if (isCurrentViewRequestActive(requestId)) {

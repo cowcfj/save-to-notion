@@ -399,7 +399,7 @@ describe('highlightHandlers', () => {
 
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
-        { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER },
+        { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
         expect.any(Function)
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });

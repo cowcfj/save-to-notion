@@ -271,8 +271,8 @@ describe('Sidepanel JS Logic', () => {
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
 
-      // Sync 按鈕始終可用（savePage 可自動建立新頁面）
-      expect(document.querySelector('#sync-button').disabled).toBe(false);
+      // Phase 1: 未保存頁面 sync 按鈕禁用
+      expect(document.querySelector('#sync-button').disabled).toBe(true);
     });
 
     it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {
@@ -335,8 +335,8 @@ describe('Sidepanel JS Logic', () => {
       await flushMicrotasks();
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(1);
-      // Sync 按鈕始終可用（不論是否有 notion pageId）
-      expect(document.querySelector('#sync-button').disabled).toBe(false);
+      // Phase 1: 未保存頁面 sync 按鈕禁用
+      expect(document.querySelector('#sync-button').disabled).toBe(true);
     });
 
     it('若 alias 解析未命中任何資料，應顯示 empty state', async () => {

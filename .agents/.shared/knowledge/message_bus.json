@@ -137,8 +137,26 @@
         }
       },
       "showToolbar": {
-        "description": "要求已初始化的 Highlighter 顯示 Toolbar",
+        "description": "（Phase 1 legacy alias）要求已初始化的 Highlighter 顯示 UI；優先 redirect 到 Floating Rail",
         "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "SHOW_FLOATING_RAIL": {
+        "description": "建立或顯示 Floating Rail，刷新 page status",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "ACTIVATE_FLOATING_RAIL_HIGHLIGHT": {
+        "description": "建立或顯示 Floating Rail 並進入標註模式",
+        "payload": {
+          "sessionOverride": "boolean (optional, true 表示 popup user action 喚出的 tab-session rail)"
+        },
         "response": {
           "success": "boolean",
           "error": "string (optional)"

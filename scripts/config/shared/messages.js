@@ -197,6 +197,7 @@ const SIDEPANEL = {
   ALL_SYNCED: '已全部同步',
   NO_HIGHLIGHTS: '此網頁尚無標註',
   NO_HIGHLIGHTS_SUBTITLE: '選取文字即可開始標註',
+  PAGE_NOT_SAVED: '此頁尚未保存至 Notion',
   REMAINING_COUNT: count => `還有 ${count} 筆`,
   PAGE_COUNT: count => `${count} 個頁面`,
   HIGHLIGHT_COUNT: count => `${count} 個標註`,

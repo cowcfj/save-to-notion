@@ -381,7 +381,7 @@ describe('initPopup integration', () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     // 驗證是否調用了 tabs.sendMessage
-    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, { action: 'showToolbar' });
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, { action: 'SHOW_FLOATING_RAIL' });
   });
 
   test('Content Script 未注入時應忽略錯誤', async () => {

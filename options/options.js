@@ -1001,6 +1001,12 @@ export async function saveSettings(ui, auth, statusId = 'status') {
     syncSettings.highlightContentStyle = highlightContentStyle.value;
   }
 
+  // 保存 Floating Rail 設定
+  const floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
+  if (floatingRailCheckbox) {
+    syncSettings.floatingRailEnabled = floatingRailCheckbox.checked;
+  }
+
   let destinationProfileService = null;
   let defaultProfileId = 'default';
   let originalDataSourceId = null;

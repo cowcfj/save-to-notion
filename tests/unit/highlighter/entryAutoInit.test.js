@@ -102,7 +102,7 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: false,
+      skipToolbar: true,
       styleMode: 'underline',
     });
     expect(globalThis.__NOTION_STABLE_URL__).toBe('https://test.com');
@@ -138,7 +138,7 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: false,
+      skipToolbar: true,
       styleMode: 'underline',
     });
     expect(globalThis.__NOTION_STABLE_URL__).toBe('https://fast-page-status.com');
