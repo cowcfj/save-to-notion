@@ -75,16 +75,48 @@ function handlePing(sendResponse) {
 }
 
 /**
- * 處理顯示 Highlighter 請求
+ * 處理顯示 Highlighter 請求（legacy alias → rail）
  *
  * @param {Function} sendResponse - 回應函數
  */
 function handleShowHighlighter(sendResponse) {
-  if (globalThis.notionHighlighter) {
+  if (globalThis.HighlighterV2?.rail) {
+    globalThis.HighlighterV2.rail.show();
+    sendResponse({ success: true });
+  } else if (globalThis.notionHighlighter) {
     globalThis.notionHighlighter.show();
     sendResponse({ success: true });
   } else {
     sendResponse({ success: false, error: 'Highlighter not initialized' });
+  }
+}
+
+/**
+ * 處理顯示 Floating Rail 請求
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleShowFloatingRail(sendResponse) {
+  if (globalThis.HighlighterV2?.rail) {
+    globalThis.HighlighterV2.rail.show();
+    sendResponse({ success: true });
+  } else {
+    sendResponse({ success: false, error: 'Floating Rail not initialized' });
+  }
+}
+
+/**
+ * 處理啟動 Floating Rail 標註模式請求
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleActivateFloatingRailHighlight(sendResponse) {
+  if (globalThis.HighlighterV2?.rail) {
+    globalThis.HighlighterV2.rail.show();
+    globalThis.HighlighterV2.rail.activateHighlighting();
+    sendResponse({ success: true });
+  } else {
+    sendResponse({ success: false, error: 'Floating Rail not initialized' });
   }
 }
 
@@ -161,6 +193,16 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
     case HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER: {
       handleShowHighlighter(sendResponse);
+      return true;
+    }
+
+    case HIGHLIGHTER_ACTIONS.SHOW_FLOATING_RAIL: {
+      handleShowFloatingRail(sendResponse);
+      return true;
+    }
+
+    case HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT: {
+      handleActivateFloatingRailHighlight(sendResponse);
       return true;
     }
 

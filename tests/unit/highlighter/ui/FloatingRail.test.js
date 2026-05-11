@@ -1,0 +1,334 @@
+/**
+ * FloatingRail.js 主控制器單元測試
+ */
+
+jest.mock('../../../../scripts/highlighter/ui/FloatingRailRuntime.js', () => ({
+  checkPageStatus: jest.fn(),
+  savePageFromRail: jest.fn(),
+  syncHighlights: jest.fn(),
+  openSidePanel: jest.fn(),
+}));
+
+jest.mock('../../../../scripts/highlighter/ui/styles/floatingRailStyles.js', () => ({
+  injectRailStylesIntoShadowRoot: jest.fn(),
+}));
+
+jest.mock('../../../../scripts/highlighter/ui/components/FloatingRailContainer.js', () => ({
+  createFloatingRailContainer: jest.fn(),
+}));
+
+import { FloatingRail } from '../../../../scripts/highlighter/ui/FloatingRail.js';
+import { RailStates } from '../../../../scripts/highlighter/ui/FloatingRailState.js';
+import {
+  checkPageStatus,
+  savePageFromRail,
+  syncHighlights,
+  openSidePanel,
+} from '../../../../scripts/highlighter/ui/FloatingRailRuntime.js';
+import { createFloatingRailContainer } from '../../../../scripts/highlighter/ui/components/FloatingRailContainer.js';
+import { injectRailStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/floatingRailStyles.js';
+
+function createMockContainerElement() {
+  const container = document.createElement('div');
+  container.className = 'rail-container collapsed';
+
+  const trigger = document.createElement('button');
+  trigger.className = 'rail-trigger';
+  trigger.setAttribute('aria-expanded', 'false');
+  container.append(trigger);
+
+  const actions = document.createElement('div');
+  actions.className = 'rail-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'rail-action-btn';
+  saveBtn.dataset.action = 'save';
+  saveBtn.setAttribute('aria-label', '保存網頁');
+  actions.append(saveBtn);
+
+  const highlightBtn = document.createElement('div');
+  highlightBtn.className = 'rail-action-btn';
+  highlightBtn.setAttribute('role', 'button');
+  highlightBtn.setAttribute('tabindex', '0');
+  highlightBtn.setAttribute('aria-label', '開始標註');
+  highlightBtn.dataset.action = 'highlight';
+
+  const colorIndicator = document.createElement('span');
+  colorIndicator.className = 'color-indicator';
+  colorIndicator.style.backgroundColor = '#fff3cd';
+  highlightBtn.append(colorIndicator);
+
+  const palette = document.createElement('div');
+  palette.className = 'color-palette';
+  palette.setAttribute('role', 'radiogroup');
+  palette.setAttribute('aria-label', '標註顏色');
+
+  const yellowSwatch = document.createElement('button');
+  yellowSwatch.className = 'color-swatch selected';
+  yellowSwatch.dataset.color = 'yellow';
+  yellowSwatch.setAttribute('aria-checked', 'true');
+  palette.append(yellowSwatch);
+
+  const greenSwatch = document.createElement('button');
+  greenSwatch.className = 'color-swatch';
+  greenSwatch.dataset.color = 'green';
+  greenSwatch.setAttribute('aria-checked', 'false');
+  palette.append(greenSwatch);
+
+  highlightBtn.append(palette);
+  actions.append(highlightBtn);
+
+  const manageBtn = document.createElement('button');
+  manageBtn.className = 'rail-action-btn';
+  manageBtn.dataset.action = 'manage';
+  manageBtn.setAttribute('aria-label', '管理標註');
+  actions.append(manageBtn);
+
+  container.append(actions);
+  return container;
+}
+
+function createMockManager() {
+  return {
+    startHighlighting: jest.fn(),
+    stopHighlighting: jest.fn(),
+    setHighlightColor: jest.fn(),
+    collectHighlightsForNotion: jest.fn(() => []),
+  };
+}
+
+describe('FloatingRail', () => {
+  let manager;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    sessionStorage.clear();
+    manager = createMockManager();
+    createFloatingRailContainer.mockReturnValue(createMockContainerElement());
+    checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
+    injectRailStylesIntoShadowRoot.mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('constructor', () => {
+    test('應該要求 HighlightManager', () => {
+      expect(() => new FloatingRail(null)).toThrow('HighlightManager is required');
+    });
+
+    test('應該建立 Shadow DOM host', () => {
+      const rail = new FloatingRail(manager);
+      const host = document.querySelector('#notion-floating-rail-host');
+
+      expect(host).not.toBeNull();
+      expect(host.dataset.railOwner).toBe('true');
+      expect(rail.shadowRoot).toBeDefined();
+    });
+
+    test('應該重用既有 host', () => {
+      const existingHost = document.createElement('div');
+      existingHost.id = 'notion-floating-rail-host';
+      existingHost.dataset.railOwner = 'true';
+      existingHost.attachShadow({ mode: 'open' });
+      document.body.append(existingHost);
+
+      const rail = new FloatingRail(manager);
+      expect(rail.host).toBe(existingHost);
+    });
+
+    test('不應重用無 owner 標記的同 ID 元素', () => {
+      const fakeHost = document.createElement('div');
+      fakeHost.id = 'notion-floating-rail-host';
+      document.body.append(fakeHost);
+
+      const rail = new FloatingRail(manager);
+      expect(rail.host).not.toBe(fakeHost);
+    });
+  });
+
+  describe('initialize', () => {
+    test('應該初始化 state manager 並綁定事件', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+
+      expect(rail._initialized).toBe(true);
+      expect(rail._eventsBound).toBe(true);
+    });
+
+    test('重複 initialize 不應重複綁定', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.initialize();
+
+      expect(rail._initialized).toBe(true);
+    });
+  });
+
+  describe('show / hide', () => {
+    test('show 應顯示 host 並展開', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.hide();
+      rail.show();
+
+      expect(rail.host.style.display).toBe('block');
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('hide 應隱藏 host', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.hide();
+
+      expect(rail.host.style.display).toBe('none');
+    });
+  });
+
+  describe('expand / collapse', () => {
+    test('expand 應設置 EXPANDED 狀態', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.expand();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('collapse 應設置 COLLAPSED 狀態', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.expand();
+      rail.collapse();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
+    });
+  });
+
+  describe('highlighting', () => {
+    test('activateHighlighting 應進入 HIGHLIGHTING 狀態', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.activateHighlighting();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
+      expect(manager.startHighlighting).toHaveBeenCalledWith('yellow');
+    });
+
+    test('deactivateHighlighting 應回到 EXPANDED 狀態', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.activateHighlighting();
+      rail.deactivateHighlighting();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+      expect(manager.stopHighlighting).toHaveBeenCalled();
+    });
+  });
+
+  describe('setColor', () => {
+    test('應該更新 state manager 的顏色', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.setColor('blue');
+
+      expect(rail.stateManager.selectedColor).toBe('blue');
+    });
+
+    test('highlighting 時應通知 manager 換色', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.activateHighlighting();
+      rail.setColor('green');
+
+      expect(manager.setHighlightColor).toHaveBeenCalledWith('green');
+    });
+  });
+
+  describe('save/sync action', () => {
+    test('未保存頁面應呼叫 savePageFromRail', async () => {
+      savePageFromRail.mockResolvedValue({ success: true });
+      checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
+
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(savePageFromRail).toHaveBeenCalled();
+    });
+
+    test('已保存頁面應呼叫 syncHighlights', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: true });
+
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      // 等待 _refreshPageStatus 完成
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      await rail._handleSaveSync();
+
+      expect(syncHighlights).toHaveBeenCalled();
+    });
+  });
+
+  describe('manage action', () => {
+    test('應呼叫 openSidePanel', async () => {
+      openSidePanel.mockResolvedValue({ success: true });
+
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      await rail._handleManage();
+
+      expect(openSidePanel).toHaveBeenCalled();
+    });
+  });
+
+  describe('destroy', () => {
+    test('應移除 host 並重置狀態', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.destroy();
+
+      expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
+      expect(rail._initialized).toBe(false);
+    });
+  });
+
+  describe('event binding', () => {
+    test('trigger click 應切換 expand/collapse', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+
+      const trigger = rail.container.querySelector('.rail-trigger');
+      trigger.click();
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+
+      trigger.click();
+      expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
+    });
+
+    test('highlight button click 應切換 highlighting', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+      rail.expand();
+
+      const highlightBtn = rail.container.querySelector('[data-action="highlight"]');
+      highlightBtn.click();
+      expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
+
+      highlightBtn.click();
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('color swatch click 應更新顏色', () => {
+      const rail = new FloatingRail(manager);
+      rail.initialize();
+
+      const greenSwatch = rail.container.querySelector('[data-color="green"]');
+      greenSwatch.click();
+
+      expect(rail.stateManager.selectedColor).toBe('green');
+    });
+  });
+});

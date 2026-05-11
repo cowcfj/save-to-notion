@@ -30,6 +30,28 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   let persistentMessageHandler = null;
   let persistentStorageHandler = null;
 
+  function handleShowToolbarMessage(sendResponse) {
+    if (globalThis.HighlighterV2?.rail) {
+      try {
+        globalThis.HighlighterV2.rail.show();
+        sendResponse({ success: true });
+      } catch (error) {
+        Logger.error('顯示 Rail 失敗', { action: 'showToolbar', error });
+        sendResponse({ success: false, error: error.message });
+      }
+    } else if (globalThis.notionHighlighter?.createAndShowToolbar) {
+      try {
+        globalThis.notionHighlighter.createAndShowToolbar();
+        sendResponse({ success: true });
+      } catch (error) {
+        Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
+        sendResponse({ success: false, error: error.message });
+      }
+    } else {
+      sendResponse({ success: false, error: 'notionHighlighter 尚未初始化' });
+    }
+  }
+
   const registerPersistentListeners = () => {
     if (!persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.addListener) {
       persistentMessageHandler = (request, _sender, sendResponse) => {
@@ -73,17 +95,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         }
 
         if (request.action === HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR) {
-          if (globalThis.notionHighlighter?.createAndShowToolbar) {
-            try {
-              globalThis.notionHighlighter.createAndShowToolbar();
-              sendResponse({ success: true });
-            } catch (error) {
-              Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
-              sendResponse({ success: false, error: error.message });
-            }
-          } else {
-            sendResponse({ success: false, error: 'notionHighlighter 尚未初始化' });
-          }
+          handleShowToolbarMessage(sendResponse);
           return true;
         }
 

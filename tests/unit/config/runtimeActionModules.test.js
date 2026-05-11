@@ -25,6 +25,8 @@ describe('runtime action 模組拆分', () => {
         'UPDATE_HIGHLIGHTS',
         'CLEAR_HIGHLIGHTS',
         'REMOVE_HIGHLIGHT_DOM',
+        'SHOW_FLOATING_RAIL',
+        'ACTIVATE_FLOATING_RAIL_HIGHLIGHT',
       ],
     },
     {

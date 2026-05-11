@@ -293,6 +293,29 @@ const SAVE_ACTIONS = {
  * @property {string} [error]
  */
 
+/**
+ * @typedef {object} ShowFloatingRailRequest
+ * @property {'SHOW_FLOATING_RAIL'} action
+ */
+
+/**
+ * @typedef {object} ShowFloatingRailResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} ActivateFloatingRailHighlightRequest
+ * @property {'ACTIVATE_FLOATING_RAIL_HIGHLIGHT'} action
+ * @property {boolean} [sessionOverride]
+ */
+
+/**
+ * @typedef {object} ActivateFloatingRailHighlightResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
 const HIGHLIGHT_ACTIONS = {
   START_HIGHLIGHT: 'startHighlight',
   SYNC_HIGHLIGHTS: 'syncHighlights',
@@ -304,6 +327,8 @@ const HIGHLIGHT_ACTIONS = {
   SHOW_HIGHLIGHTER: 'showHighlighter',
   REMOVE_HIGHLIGHT_DOM: 'REMOVE_HIGHLIGHT_DOM',
   USER_ACTIVATE_SHORTCUT: 'USER_ACTIVATE_SHORTCUT',
+  SHOW_FLOATING_RAIL: 'SHOW_FLOATING_RAIL',
+  ACTIVATE_FLOATING_RAIL_HIGHLIGHT: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT',
 };
 
 /**
@@ -680,6 +705,8 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {ShowHighlighterRequest['action']} SHOW_HIGHLIGHTER - Request: {@link ShowHighlighterRequest}; Response: {@link ShowHighlighterResponse}
  * @property {RemoveHighlightDomRequest['action']} REMOVE_HIGHLIGHT_DOM - Request: {@link RemoveHighlightDomRequest}; Response: {@link RemoveHighlightDomResponse}
  * @property {UserActivateShortcutRequest['action']} USER_ACTIVATE_SHORTCUT - Request: {@link UserActivateShortcutRequest}; Response: {@link UserActivateShortcutResponse}
+ * @property {ShowFloatingRailRequest['action']} SHOW_FLOATING_RAIL - Request: {@link ShowFloatingRailRequest}; Response: {@link ShowFloatingRailResponse}
+ * @property {ActivateFloatingRailHighlightRequest['action']} ACTIVATE_FLOATING_RAIL_HIGHLIGHT - Request: {@link ActivateFloatingRailHighlightRequest}; Response: {@link ActivateFloatingRailHighlightResponse}
  * @property {MigrationExecuteRequest['action']} MIGRATION_EXECUTE - Request: {@link MigrationExecuteRequest}; Response: {@link MigrationExecuteResponse}
  * @property {MigrationDeleteRequest['action']} MIGRATION_DELETE - Request: {@link MigrationDeleteRequest}; Response: {@link MigrationDeleteResponse}
  * @property {MigrationBatchRequest['action']} MIGRATION_BATCH - Request: {@link MigrationBatchRequest}; Response: {@link MigrationBatchResponse}
