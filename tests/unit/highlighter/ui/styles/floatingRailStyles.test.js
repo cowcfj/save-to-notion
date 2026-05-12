@@ -31,15 +31,9 @@ describe('floatingRailStyles', () => {
       );
     });
 
-    test('manage tile 應套用 actionManage 色，避免 dark mode 三橫線消失', () => {
+    test('manage tile 應套用 actionManage violet 色，避免與 light/dark 容器底色混同', () => {
       expect(css).toMatch(
-        /\.rail-action-btn\[data-action="manage"\]\s*\{[\s\S]*?background:\s*#3F3F46/
-      );
-    });
-
-    test('dark mode 下 manage tile 應加亮至 zinc-500 維持與 dark surface 的邊界', () => {
-      expect(css).toMatch(
-        /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*?\.rail-action-btn\[data-action="manage"\]\s*\{[\s\S]*?background:\s*#71717a/
+        /\.rail-action-btn\[data-action="manage"\]\s*\{[\s\S]*?background:\s*#8B5CF6/
       );
     });
 

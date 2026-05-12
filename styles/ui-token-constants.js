@@ -43,8 +43,8 @@ export const UI_TOKENS = {
     brandHover: '#E66651',
     actionSave: '#0A84FF',
     actionSaveHover: '#0070E5',
-    actionManage: '#3F3F46',
-    actionManageHover: '#52525B',
+    actionManage: '#8B5CF6',
+    actionManageHover: '#7C3AED',
     iconOnAccent: '#FFFFFF',
   },
   theme: {
