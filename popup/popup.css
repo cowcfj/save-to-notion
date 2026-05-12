@@ -168,17 +168,17 @@ button {
 }
 
 #manage-button.secondary-action {
-  background-color: #f8fafc;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background-color: var(--color-action-manage);
+  color: #ffffff;
+  border: 1px solid var(--color-action-manage);
 }
 
 #manage-button.secondary-action:hover {
-  background-color: #eef2ff;
-  color: var(--color-action-save);
-  border-color: #bfdbfe;
+  background-color: var(--color-action-manage-hover);
+  color: #ffffff;
+  border-color: var(--color-action-manage-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 5px rgba(139, 92, 246, 0.32);
 }
 
 #save-button:hover {
@@ -391,15 +391,15 @@ a:focus-visible {
   }
 
   #manage-button.secondary-action {
-    background-color: #21232b;
-    color: #e8eaef;
-    border-color: #2c2f38;
+    background-color: var(--color-action-manage);
+    color: #ffffff;
+    border-color: var(--color-action-manage);
   }
 
   #manage-button.secondary-action:hover {
-    background-color: #1d2c40;
-    color: #4aa3ff;
-    border-color: #2a4f7a;
+    background-color: var(--color-action-manage-hover);
+    color: #ffffff;
+    border-color: var(--color-action-manage-hover);
   }
 
   .destination-section {
