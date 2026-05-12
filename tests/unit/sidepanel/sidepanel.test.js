@@ -962,6 +962,73 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toBe('status-message error');
     });
 
+    it('should restore unsaved sync button state when save rejects after storage changes', async () => {
+      const sendMessage = createDeferred();
+      const savedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: { pageId: 'page-123' },
+        },
+      };
+      const unsavedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: null,
+        },
+      };
+      let currentStore = savedStore;
+
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string') {
+          return { [key]: currentStore[key] };
+        }
+        if (Array.isArray(key)) {
+          const result = {};
+          for (const item of key) {
+            if (item in currentStore) {
+              result[item] = currentStore[item];
+            }
+          }
+          return result;
+        }
+        return currentStore;
+      });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await flushMicrotasks();
+
+      chrome.runtime.sendMessage.mockReturnValue(sendMessage.promise);
+
+      const syncBtn = document.querySelector('#sync-button');
+      expect(syncBtn.disabled).toBe(false);
+      expect(syncBtn.title).toBe('');
+
+      syncBtn.click();
+      await flushMicrotasks();
+
+      currentStore = unsavedStore;
+      onStorageChanged(
+        {
+          'page_https://example.js/stable': {
+            oldValue: savedStore['page_https://example.js/stable'],
+            newValue: unsavedStore['page_https://example.js/stable'],
+          },
+        },
+        'local'
+      );
+      await flushMicrotasks();
+
+      expect(syncBtn.disabled).toBe(true);
+      expect(syncBtn.title).toBe(UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED);
+
+      sendMessage.reject(new Error('Extension error message!'));
+      await flushMicrotasks();
+
+      expect(syncBtn.disabled).toBe(true);
+      expect(syncBtn.title).toBe(UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED);
+    });
+
     it('should not display raw savePage error returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
@@ -975,6 +1042,7 @@ describe('Sidepanel JS Logic', () => {
       });
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 600 });
+      await flushMicrotasks();
 
       chrome.runtime.sendMessage.mockResolvedValue({ success: false, error: 'Custom API Error' });
 

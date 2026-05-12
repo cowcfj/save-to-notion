@@ -40,6 +40,7 @@ let statusMessageTimeoutId;
 // 快取：避免每次 storage 變化都重新解析 URL
 let cachedStableUrl = null;
 let cachedTabUrl = null;
+let currentPageHasSavedData = false;
 let currentActiveView = 'current';
 let currentViewRequestId = 0;
 let unsyncedViewRequestId = 0;
@@ -135,6 +136,11 @@ function beginUnsyncedViewRequest() {
  */
 function isCurrentViewRequestActive(requestId) {
   return currentActiveView === 'current' && currentViewRequestId === requestId;
+}
+
+function applySyncButtonSavedState(hasSavedData) {
+  els.syncButton.disabled = !hasSavedData;
+  els.syncButton.title = hasSavedData ? '' : UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
 }
 
 /**
@@ -792,13 +798,8 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
   els.openNotionButton.dataset.targetUrl = originalTabUrl;
 
   // 根據保存狀態設定同步按鈕
-  if (hasSavedData) {
-    els.syncButton.disabled = false;
-    els.syncButton.title = '';
-  } else {
-    els.syncButton.disabled = true;
-    els.syncButton.title = UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
-  }
+  currentPageHasSavedData = hasSavedData;
+  applySyncButtonSavedState(hasSavedData);
 
   if (highlights.length === 0) {
     if (isCurrentViewRequestActive(requestId)) {
@@ -1033,14 +1034,14 @@ async function handleSyncClick() {
         error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page'),
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
-      els.syncButton.disabled = false;
+      applySyncButtonSavedState(currentPageHasSavedData);
     }
   } catch (error) {
     Logger.error('[SidePanel] savePage failed', {
       error: sanitizeApiError(error, 'save_page'),
     });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
-    els.syncButton.disabled = false;
+    applySyncButtonSavedState(currentPageHasSavedData);
   }
 }
 

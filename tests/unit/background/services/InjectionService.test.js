@@ -20,6 +20,11 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 
 import Logger from '../../../../scripts/utils/Logger.js';
 
+function recreateInjectedFunction(func) {
+  // eslint-disable-next-line sonarjs/code-eval -- test-only Chrome executeScript serialization boundary simulation
+  return new Function(`return (${func.toString()});`)();
+}
+
 // NOTE: We have two mocks for Logger here:
 // 1. Module-level mock (jest.mock above): Intercepts direct imports of Logger in other files (e.g., helpers).
 // 2. mockLogger (const below): Injected into InjectionService constructor for direct verification of service logic.
@@ -214,7 +219,8 @@ describe('InjectionService', () => {
           return;
         }
 
-        const result = await opts.func();
+        const injectedFunc = recreateInjectedFunction(opts.func);
+        const result = await injectedFunc();
         verifyResult([{ result }]);
       });
 
@@ -236,7 +242,8 @@ describe('InjectionService', () => {
         }
 
         try {
-          const result = await opts.func();
+          const injectedFunc = recreateInjectedFunction(opts.func);
+          const result = await injectedFunc();
           verifyResult([{ result }]);
         } catch (error) {
           chrome.runtime.lastError = error;
