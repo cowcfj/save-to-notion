@@ -133,15 +133,13 @@ async function handleShowFloatingRail(sendResponse) {
 /**
  * 處理啟動 Floating Rail 標註模式請求
  *
- * @param {object} request - 訊息請求物件
- * @param {boolean} [request.sessionOverride] - 是否覆蓋 session 狀態
  * @param {Function} sendResponse - 回應函數
  */
-async function handleActivateFloatingRailHighlight(request, sendResponse) {
+async function handleActivateFloatingRailHighlight(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     try {
       globalThis.HighlighterV2.rail.show();
-      globalThis.HighlighterV2.rail.activateHighlighting(request.sessionOverride);
+      globalThis.HighlighterV2.rail.activateHighlighting();
       sendResponse({ success: true });
     } catch (error) {
       sendResponse({ success: false, error: error?.message || String(error) });
@@ -154,7 +152,7 @@ async function handleActivateFloatingRailHighlight(request, sendResponse) {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
         readyResult.rail.show();
-        readyResult.rail.activateHighlighting(request.sessionOverride);
+        readyResult.rail.activateHighlighting();
         sendResponse({ success: true });
         return;
       }
@@ -254,7 +252,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
 
     case HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT: {
-      handleActivateFloatingRailHighlight(request, sendResponse);
+      handleActivateFloatingRailHighlight(sendResponse);
       return true;
     }
 
@@ -293,7 +291,7 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
         if (globalThis.HighlighterV2?.rail) {
           Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
           globalThis.HighlighterV2.rail.show();
-          globalThis.HighlighterV2.rail.activateHighlighting(true);
+          globalThis.HighlighterV2.rail.activateHighlighting();
         } else {
           Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
         }

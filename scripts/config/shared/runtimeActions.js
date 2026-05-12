@@ -307,7 +307,6 @@ const SAVE_ACTIONS = {
 /**
  * @typedef {object} ActivateFloatingRailHighlightRequest
  * @property {'ACTIVATE_FLOATING_RAIL_HIGHLIGHT'} action
- * @property {boolean} [sessionOverride]
  */
 
 /**

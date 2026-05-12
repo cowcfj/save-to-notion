@@ -142,13 +142,13 @@ export class FloatingRail {
     applyRailState(this.container, RailStates.EXPANDED);
   }
 
-  activateHighlighting(sessionOverride) {
+  activateHighlighting() {
     this.stateManager.currentState = RailStates.HIGHLIGHTING;
     applyRailState(this.container, RailStates.HIGHLIGHTING);
     applyHighlightActive(this.elements.highlightBtn, true);
 
     if (this.manager.startHighlighting) {
-      this.manager.startHighlighting(this.stateManager.selectedColor, { sessionOverride });
+      this.manager.startHighlighting(this.stateManager.selectedColor);
     }
   }
 

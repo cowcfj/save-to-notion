@@ -228,7 +228,7 @@ describe('InjectionService', () => {
 
       expect(result).toEqual({ initialized: true, highlightCount: 0 });
       expect(railShow).toHaveBeenCalled();
-      expect(activateHighlighting).toHaveBeenCalledWith(true);
+      expect(activateHighlighting).toHaveBeenCalledWith();
       expect(toolbarShow).not.toHaveBeenCalled();
     });
 
@@ -540,7 +540,7 @@ describe('InjectionService', () => {
 
       expect(result).toEqual({ initialized: true, highlightCount: 3 });
       expect(railShow).toHaveBeenCalled();
-      expect(activateHighlighting).toHaveBeenCalledWith(true);
+      expect(activateHighlighting).toHaveBeenCalledWith();
     });
 
     it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {

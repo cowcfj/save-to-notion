@@ -373,9 +373,7 @@ describe('Preloader Performance Script', () => {
       expect(mockChrome.storage.sync.get).not.toHaveBeenCalled();
     });
 
-    test('[REGRESSION] 初始化時不應要求 background 顯示 rail', async () => {
-      mockChrome.storage.sync.get.mockResolvedValue({ floatingRailEnabled: false });
-
+    test('[REGRESSION] 初始化時不應發送 SHOW_FLOATING_RAIL action（獨立於設定）', async () => {
       runPreloader();
       await Promise.resolve();
 

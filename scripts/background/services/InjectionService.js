@@ -33,7 +33,7 @@ async function activateFloatingRailInPage() {
   /* eslint-disable unicorn/consistent-function-scoping -- chrome.scripting.executeScript 序列化限制：func 無法捕獲外部閉包，必須內聯定義 */
   function activateRail(rail) {
     rail.show?.();
-    rail.activateHighlighting?.(true);
+    rail.activateHighlighting?.();
     const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
     return { initialized: true, highlightCount: count };
   }

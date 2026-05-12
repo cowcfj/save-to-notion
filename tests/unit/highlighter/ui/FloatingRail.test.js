@@ -325,9 +325,7 @@ describe('FloatingRail', () => {
       rail.activateHighlighting();
 
       expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
-      expect(manager.startHighlighting).toHaveBeenCalledWith('yellow', {
-        sessionOverride: undefined,
-      });
+      expect(manager.startHighlighting).toHaveBeenCalledWith('yellow');
     });
 
     test('deactivateHighlighting 應回到 EXPANDED 狀態', async () => {

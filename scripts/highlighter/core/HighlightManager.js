@@ -313,23 +313,17 @@ export class HighlightManager {
         return;
       }
 
-      setTimeout(() => {
-        if (!this.isHighlighting) {
-          return;
+      try {
+        const id = this.addHighlight(rangeSnapshot, this.currentColor);
+        if (id) {
+          selection.removeAllRanges?.();
         }
-
-        try {
-          const id = this.addHighlight(rangeSnapshot, this.currentColor);
-          if (id) {
-            selection.removeAllRanges?.();
-          }
-        } catch (error) {
-          Logger.error('添加標註失敗', {
-            action: 'railSelectionHandler',
-            error,
-          });
-        }
-      }, 10);
+      } catch (error) {
+        Logger.error('添加標註失敗', {
+          action: 'railSelectionHandler',
+          error,
+        });
+      }
     };
 
     document.addEventListener('mouseup', this.selectionHandler);

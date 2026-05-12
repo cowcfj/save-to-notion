@@ -367,7 +367,7 @@ export function createHighlightHandlers(services) {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               tabId,
-              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
+              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
               result => {
                 if (chrome.runtime.lastError) {
                   reject(new Error(chrome.runtime.lastError.message));
@@ -451,7 +451,7 @@ export function createHighlightHandlers(services) {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               activeTab.id,
-              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
+              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題

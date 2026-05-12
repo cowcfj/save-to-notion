@@ -193,7 +193,7 @@ describe('Content Script Entry (index.js)', () => {
       const sendResponse = jest.fn();
 
       const result = messageHandler(
-        { action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT', sessionOverride: true },
+        { action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' },
         {},
         sendResponse
       );
@@ -213,7 +213,7 @@ describe('Content Script Entry (index.js)', () => {
       await flushPromises();
 
       expect(showMock).toHaveBeenCalled();
-      expect(activateHighlightingMock).toHaveBeenCalledWith(true);
+      expect(activateHighlightingMock).toHaveBeenCalledWith();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       delete globalThis.__NOTION_RAIL_READY__;
@@ -265,7 +265,7 @@ describe('Content Script Entry (index.js)', () => {
       replayCallback({ events: [{ type: 'shortcut' }] });
 
       expect(rail.show).toHaveBeenCalled();
-      expect(rail.activateHighlighting).toHaveBeenCalledWith(true);
+      expect(rail.activateHighlighting).toHaveBeenCalledWith();
 
       delete globalThis.HighlighterV2;
     });
