@@ -7,20 +7,20 @@
 import { COLORS } from '../../utils/color.js';
 import { UI_MESSAGES } from '../../../config/shared/messages.js';
 import { createSafeIcon } from '../../../utils/securityUtils.js';
-import { hexToRgba } from '../../../../styles/ui-token-constants.js';
 
 const ARIA_LABEL = 'aria-label';
 const ACTION_BTN_CLASS = 'rail-action-btn';
-const ICON_SIZE_SM = '16px';
+const ICON_SIZE_SM = '18px';
+const TRIGGER_ICON_SIZE = '22px';
 
 const RAIL_ICONS = {
   NOTION:
-    '<svg viewBox="0 0 24 24"><path d="M4 4h10l6 6v10H4V4z"/><path d="M14 4v6h6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5a1.5 1.5 0 0 1 1.5-1.5h8L19 7.5V19.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5Z" fill="currentColor" fill-opacity="0.18"/><path d="M14.5 3v4.5H19"/><path d="M9 13h6M9 16h4"/></svg>',
   HIGHLIGHT:
-    '<svg viewBox="0 0 24 24"><path d="M15.2 3.8l5 5L8.5 20.5 3 21l.5-5.5L15.2 3.8z"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M15.2 3.8l5 5L8.5 20.5 3 21l.5-5.5L15.2 3.8z"/></svg>',
   MANAGE:
-    '<svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-  LOGO: '<svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v11a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" fill="currentColor" opacity="0.16"/><path d="M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.25 11.5h7.5M8.25 15.25h4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.5 18.25h8.5" fill="none" stroke="#f4b63f" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  LOGO: '<svg viewBox="0 0 32 32" fill="none"><path d="M9 4 L23 4 Q24 4 24 5 L24 27 Q24 28 23 27.4 L16 22.5 L9 27.4 Q8 28 8 27 L8 5 Q8 4 9 4 Z" fill="currentColor"/><circle cx="16" cy="13" r="5.2" fill="var(--rail-brand-fill)" stroke="currentColor" stroke-width="1.3"/><path d="M16 10.4 V15.6 M13.4 13 H18.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 
 export function createFloatingRailContainer(options = {}) {
@@ -39,8 +39,8 @@ export function createFloatingRailContainer(options = {}) {
   trigger.setAttribute('aria-pressed', 'false');
   trigger.innerHTML = '';
   const logoIcon = createSafeIcon(RAIL_ICONS.LOGO);
-  logoIcon.style.width = '18px';
-  logoIcon.style.height = '18px';
+  logoIcon.style.width = TRIGGER_ICON_SIZE;
+  logoIcon.style.height = TRIGGER_ICON_SIZE;
   trigger.append(logoIcon);
   container.append(trigger);
 
@@ -72,10 +72,6 @@ export function createFloatingRailContainer(options = {}) {
   highlightToggle.style.setProperty(
     '--rail-highlight-color',
     COLORS[selectedColor] || COLORS.yellow
-  );
-  highlightToggle.style.setProperty(
-    '--rail-highlight-tint',
-    hexToRgba(COLORS[selectedColor] || COLORS.yellow, 0.18)
   );
 
   const colorIndicator = document.createElement('span');

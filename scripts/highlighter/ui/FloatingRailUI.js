@@ -59,7 +59,7 @@ export function applySelectedColor(container, colorName) {
   if (highlightBtn) {
     const highlightColor = COLORS[colorName] || COLORS.yellow;
     highlightBtn.style.setProperty('--rail-highlight-color', highlightColor);
-    highlightBtn.style.setProperty('--rail-highlight-tint', hexToRgba(highlightColor, 0.18));
+    highlightBtn.style.setProperty('--rail-highlight-tint', hexToRgba(highlightColor, 0.4));
   }
 
   const swatches = container.querySelectorAll('.color-swatch');

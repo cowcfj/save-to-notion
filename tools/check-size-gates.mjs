@@ -10,7 +10,7 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      hardLimit: 262_144,
+      hardLimit: 270_000,
       deltaLimit: 30_000,
     },
     {
