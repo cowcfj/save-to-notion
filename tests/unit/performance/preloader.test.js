@@ -23,6 +23,11 @@ describe('Preloader Performance Script', () => {
         },
         lastError: null,
       },
+      storage: {
+        sync: {
+          get: jest.fn().mockResolvedValue({}),
+        },
+      },
     };
     globalThis.chrome = mockChrome;
 
@@ -255,7 +260,10 @@ describe('Preloader Performance Script', () => {
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
       document.dispatchEvent(event);
 
-      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      const shortcutCall = mockChrome.runtime.sendMessage.mock.calls.find(
+        ([message]) => message.action === 'USER_ACTIVATE_SHORTCUT'
+      );
+      const callback = shortcutCall[1];
 
       // 模擬回調運作：Bundle 尚未準備好，應該緩衝
       callback({ success: true });
@@ -279,7 +287,10 @@ describe('Preloader Performance Script', () => {
       document.dispatchEvent(event);
 
       mockChrome.runtime.lastError = { message: 'Connection error' };
-      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      const shortcutCall = mockChrome.runtime.sendMessage.mock.calls.find(
+        ([message]) => message.action === 'USER_ACTIVATE_SHORTCUT'
+      );
+      const callback = shortcutCall[1];
       callback();
 
       expect(errorSpy).toHaveBeenCalledWith(
@@ -296,7 +307,10 @@ describe('Preloader Performance Script', () => {
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
       document.dispatchEvent(event);
 
-      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      const shortcutCall = mockChrome.runtime.sendMessage.mock.calls.find(
+        ([message]) => message.action === 'USER_ACTIVATE_SHORTCUT'
+      );
+      const callback = shortcutCall[1];
       callback({ success: true });
 
       const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
@@ -347,6 +361,26 @@ describe('Preloader Performance Script', () => {
       const handled = onMessage({ action: 'PING' }, {}, sendResponse);
       expect(handled).toBe(false);
       expect(sendResponse).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Floating Rail auto-show performance boundary', () => {
+    test('[REGRESSION] 初始化時不應讀取 chrome.storage.sync 設定', async () => {
+      runPreloader();
+
+      await Promise.resolve();
+
+      expect(mockChrome.storage.sync.get).not.toHaveBeenCalled();
+    });
+
+    test('[REGRESSION] 初始化時不應發送 SHOW_FLOATING_RAIL action（獨立於設定）', async () => {
+      runPreloader();
+      await Promise.resolve();
+
+      expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith(
+        { action: 'SHOW_FLOATING_RAIL' },
+        expect.any(Function)
+      );
     });
   });
 });

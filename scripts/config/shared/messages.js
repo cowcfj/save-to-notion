@@ -197,6 +197,7 @@ const SIDEPANEL = {
   ALL_SYNCED: '已全部同步',
   NO_HIGHLIGHTS: '此網頁尚無標註',
   NO_HIGHLIGHTS_SUBTITLE: '選取文字即可開始標註',
+  PAGE_NOT_SAVED: '此頁尚未保存至 Notion',
   REMAINING_COUNT: count => `還有 ${count} 筆`,
   PAGE_COUNT: count => `${count} 個頁面`,
   HIGHLIGHT_COUNT: count => `${count} 個標註`,
@@ -220,6 +221,17 @@ const TOOLBAR = {
   },
   COLOR_PICKER_TITLE: colorName => `${colorName}色標註`,
   COLOR_PICKER_ARIA_LABEL: colorName => `選擇${colorName}色標註`,
+};
+
+const FLOATING_RAIL = {
+  CONTAINER_LABEL: 'Save to Notion 工具列',
+  TRIGGER_LABEL: '展開工具列，長按可拖曳',
+  SAVE_LABEL: '保存網頁',
+  SYNC_LABEL: '同步標註',
+  HIGHLIGHT_LABEL: '開始標註',
+  STOP_HIGHLIGHT_LABEL: '停止標註',
+  COLOR_PALETTE_LABEL: '標註顏色',
+  MANAGE_LABEL: '管理標註',
 };
 
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
@@ -329,6 +341,7 @@ export const UI_MESSAGES = deepFreeze({
   SIDEPANEL,
   HIGHLIGHTS,
   TOOLBAR,
+  FLOATING_RAIL,
   STORAGE,
   CLOUD_SYNC,
 });

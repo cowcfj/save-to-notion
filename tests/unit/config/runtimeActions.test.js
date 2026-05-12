@@ -42,6 +42,7 @@ describe('runtimeActions', () => {
         PING: 'PING',
         INIT_BUNDLE: 'INIT_BUNDLE',
         REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
+        CONTENT_BRIDGE_SHOW_FLOATING_RAIL: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
         OAUTH_SUCCESS: 'oauth_success',
         OAUTH_FAILED: 'oauth_failed',
         // Account session actions（Cloudflare-native，與 Notion OAuth 完整隔離）
@@ -156,6 +157,11 @@ describe('runtimeActions', () => {
       ['PING', 'PingRequest', 'PingResponse'],
       ['INIT_BUNDLE', 'InitBundleRequest', 'InitBundleResponse'],
       ['REPLAY_BUFFERED_EVENTS', 'ReplayBufferedEventsRequest', 'ReplayBufferedEventsResponse'],
+      [
+        'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
+        'ContentBridgeShowFloatingRailRequest',
+        'ContentBridgeShowFloatingRailResponse',
+      ],
     ];
 
     expect(source).toContain('@typedef {object} RuntimeActionsRegistry');
@@ -217,12 +223,19 @@ describe('runtimeActions', () => {
 
     const escapeRegex = value => value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
-    const unused = Object.keys(RUNTIME_ACTIONS).filter(
-      key =>
-        !registryIdentifiers.some(identifier =>
-          new RegExp(String.raw`\b${escapeRegex(identifier)}\.${escapeRegex(key)}\b`).test(codebase)
-        )
-    );
+    const runtimeActionUsageAliases = {
+      CONTENT_BRIDGE_SHOW_FLOATING_RAIL: ['CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL'],
+    };
+
+    const unused = Object.keys(RUNTIME_ACTIONS).filter(key => {
+      const directUsage = registryIdentifiers.some(identifier =>
+        new RegExp(String.raw`\b${escapeRegex(identifier)}\.${escapeRegex(key)}\b`).test(codebase)
+      );
+      const aliasUsage = (runtimeActionUsageAliases[key] ?? []).some(alias =>
+        new RegExp(String.raw`\b${escapeRegex(alias)}\b`).test(codebase)
+      );
+      return !directUsage && !aliasUsage;
+    });
 
     expect(unused).toEqual([]);
   });

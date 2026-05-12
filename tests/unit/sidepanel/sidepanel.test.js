@@ -256,7 +256,7 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#sync-button').disabled).toBe(false);
     });
 
-    it('sync button 不論頁面是否已保存皆應可用（savePage 可自動建立）', async () => {
+    it('sync button 在頁面未保存時應禁用並顯示提示', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return {};
@@ -271,8 +271,11 @@ describe('Sidepanel JS Logic', () => {
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 500 });
 
-      // Sync 按鈕始終可用（savePage 可自動建立新頁面）
-      expect(document.querySelector('#sync-button').disabled).toBe(false);
+      // Phase 1: 未保存頁面 sync 按鈕禁用
+      expect(document.querySelector('#sync-button').disabled).toBe(true);
+      expect(document.querySelector('#sync-button').title).toBe(
+        UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED
+      );
     });
 
     it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {
@@ -335,8 +338,8 @@ describe('Sidepanel JS Logic', () => {
       await flushMicrotasks();
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(1);
-      // Sync 按鈕始終可用（不論是否有 notion pageId）
-      expect(document.querySelector('#sync-button').disabled).toBe(false);
+      // Phase 1: 未保存頁面 sync 按鈕禁用
+      expect(document.querySelector('#sync-button').disabled).toBe(true);
     });
 
     it('若 alias 解析未命中任何資料，應顯示 empty state', async () => {
@@ -839,10 +842,72 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toBe('status-message success');
 
       jest.runAllTimers();
-      expect(syncBtn.disabled).toBe(false);
+      expect(syncBtn.disabled).toBe(true);
     });
 
-    it('should use named debounce constants when re-enabling action buttons', async () => {
+    it('[REGRESSION] sync button 不應在 storage 已改回 unsaved 後被 finally 無條件重新啟用', async () => {
+      const savedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: { pageId: 'page-123' },
+        },
+      };
+      const unsavedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: null,
+        },
+      };
+      let currentStore = savedStore;
+
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string') {
+          return { [key]: currentStore[key] };
+        }
+        if (Array.isArray(key)) {
+          const result = {};
+          for (const item of key) {
+            if (item in currentStore) {
+              result[item] = currentStore[item];
+            }
+          }
+          return result;
+        }
+        return currentStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await flushMicrotasks();
+
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+
+      const syncBtn = document.querySelector('#sync-button');
+      expect(syncBtn.disabled).toBe(false);
+
+      syncBtn.click();
+      await flushMicrotasks();
+
+      currentStore = unsavedStore;
+      onStorageChanged(
+        {
+          'page_https://example.js/stable': {
+            oldValue: savedStore['page_https://example.js/stable'],
+            newValue: unsavedStore['page_https://example.js/stable'],
+          },
+        },
+        'local'
+      );
+      await flushMicrotasks();
+
+      jest.runAllTimers();
+      await flushMicrotasks();
+
+      expect(syncBtn.disabled).toBe(true);
+    });
+
+    it('should use named debounce constants when re-enabling open notion button', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
@@ -864,15 +929,10 @@ describe('Sidepanel JS Logic', () => {
 
       const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
 
-      document.querySelector('#sync-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
-
       document.querySelector('#open-notion-button').click();
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
       expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), OPEN_BUTTON_DEBOUNCE_MS);
 
       timeoutSpy.mockRestore();
@@ -902,6 +962,73 @@ describe('Sidepanel JS Logic', () => {
       expect(document.querySelector('#status-message').className).toBe('status-message error');
     });
 
+    it('should restore unsaved sync button state when save rejects after storage changes', async () => {
+      const sendMessage = createDeferred();
+      const savedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: { pageId: 'page-123' },
+        },
+      };
+      const unsavedStore = {
+        'page_https://example.js/stable': {
+          highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
+          notion: null,
+        },
+      };
+      let currentStore = savedStore;
+
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (typeof key === 'string') {
+          return { [key]: currentStore[key] };
+        }
+        if (Array.isArray(key)) {
+          const result = {};
+          for (const item of key) {
+            if (item in currentStore) {
+              result[item] = currentStore[item];
+            }
+          }
+          return result;
+        }
+        return currentStore;
+      });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 600 });
+      await flushMicrotasks();
+
+      chrome.runtime.sendMessage.mockReturnValue(sendMessage.promise);
+
+      const syncBtn = document.querySelector('#sync-button');
+      expect(syncBtn.disabled).toBe(false);
+      expect(syncBtn.title).toBe('');
+
+      syncBtn.click();
+      await flushMicrotasks();
+
+      currentStore = unsavedStore;
+      onStorageChanged(
+        {
+          'page_https://example.js/stable': {
+            oldValue: savedStore['page_https://example.js/stable'],
+            newValue: unsavedStore['page_https://example.js/stable'],
+          },
+        },
+        'local'
+      );
+      await flushMicrotasks();
+
+      expect(syncBtn.disabled).toBe(true);
+      expect(syncBtn.title).toBe(UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED);
+
+      sendMessage.reject(new Error('Extension error message!'));
+      await flushMicrotasks();
+
+      expect(syncBtn.disabled).toBe(true);
+      expect(syncBtn.title).toBe(UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED);
+    });
+
     it('should not display raw savePage error returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
@@ -915,6 +1042,7 @@ describe('Sidepanel JS Logic', () => {
       });
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 600 });
+      await flushMicrotasks();
 
       chrome.runtime.sendMessage.mockResolvedValue({ success: false, error: 'Custom API Error' });
 

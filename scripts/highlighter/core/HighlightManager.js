@@ -38,6 +38,8 @@ export class HighlightManager {
     this.interaction = null;
     this.storage = null;
     this.migration = null;
+    this.isHighlighting = false;
+    this.selectionHandler = null;
   }
 
   /**
@@ -259,11 +261,109 @@ export class HighlightManager {
    * 清理資源
    */
   cleanup() {
+    this.stopHighlighting();
     this.highlights.clear();
 
     if (this.styleManager) {
       this.styleManager.cleanup();
     }
+  }
+
+  /**
+   * 啟動由 Floating Rail 使用的標註模式。
+   *
+   * @param {string} [color] - 啟動時套用的標註顏色
+   * @returns {false|void} 若 `document` 不存在則提前返回 `false`；否則返回 `void`
+   */
+  startHighlighting(color = this.currentColor) {
+    if (this.isHighlighting) {
+      this.setHighlightColor(color);
+      return;
+    }
+
+    if (globalThis.document === undefined) {
+      return false;
+    }
+
+    this.setHighlightColor(color);
+    this.isHighlighting = true;
+    this.selectionHandler = event => {
+      if (!this.isHighlighting || HighlightManager._isExtensionUiEvent(event)) {
+        return;
+      }
+
+      const selection = globalThis.getSelection?.();
+      if (!selection || selection.isCollapsed) {
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (!text) {
+        return;
+      }
+
+      let rangeSnapshot = null;
+      try {
+        rangeSnapshot = selection.getRangeAt(0).cloneRange();
+      } catch (error) {
+        Logger.error('添加標註失敗', {
+          action: 'railSelectionHandler',
+          error,
+        });
+        return;
+      }
+
+      try {
+        const id = this.addHighlight(rangeSnapshot, this.currentColor);
+        if (id) {
+          selection.removeAllRanges?.();
+        }
+      } catch (error) {
+        Logger.error('添加標註失敗', {
+          action: 'railSelectionHandler',
+          error,
+        });
+      }
+    };
+
+    document.addEventListener('mouseup', this.selectionHandler);
+  }
+
+  /**
+   * 停止 Floating Rail 標註模式。
+   */
+  stopHighlighting() {
+    this.isHighlighting = false;
+    if (this.selectionHandler && globalThis.document !== undefined) {
+      document.removeEventListener('mouseup', this.selectionHandler);
+    }
+    this.selectionHandler = null;
+  }
+
+  /**
+   * 設置 Floating Rail 使用的目前標註顏色。
+   *
+   * @param {string} color
+   */
+  setHighlightColor(color) {
+    this.setColor(color);
+  }
+
+  /**
+   * 判斷 mouseup 是否來自 extension UI，避免點擊 rail/toolbar 時建立標註。
+   *
+   * @param {Event} event
+   * @returns {boolean}
+   * @private
+   */
+  static _isExtensionUiEvent(event) {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    return path.some(
+      el =>
+        el?.id === 'notion-floating-rail-host' ||
+        el?.id === 'notion-highlighter-host' ||
+        el?.closest?.('#notion-floating-rail-host, #notion-highlighter-host')
+    );
   }
 
   // ========== 委託方法 (Delegation) ==========
