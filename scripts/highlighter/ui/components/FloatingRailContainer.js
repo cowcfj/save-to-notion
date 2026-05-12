@@ -14,12 +14,14 @@ const ICON_SIZE_SM = '18px';
 const TRIGGER_ICON_SIZE = '22px';
 
 const RAIL_ICONS = {
+  // Save action — Feather `save` (磁碟)，與 popup #save-button 同款
   NOTION:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5a1.5 1.5 0 0 1 1.5-1.5h8L19 7.5V19.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5Z" fill="currentColor" fill-opacity="0.18"/><path d="M14.5 3v4.5H19"/><path d="M9 13h6M9 16h4"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
   HIGHLIGHT:
     '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M15.2 3.8l5 5L8.5 20.5 3 21l.5-5.5L15.2 3.8z"/></svg>',
+  // Manage action — Feather `file-text`（文件含文字行），與 popup #manage-button 同款
   MANAGE:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
   LOGO: '<svg viewBox="0 0 32 32" fill="none"><path d="M9 4 L23 4 Q24 4 24 5 L24 27 Q24 28 23 27.4 L16 22.5 L9 27.4 Q8 28 8 27 L8 5 Q8 4 9 4 Z" fill="currentColor"/><circle cx="16" cy="13" r="5.2" fill="var(--rail-brand-fill)" stroke="currentColor" stroke-width="1.3"/><path d="M16 10.4 V15.6 M13.4 13 H18.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 

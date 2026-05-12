@@ -68,6 +68,17 @@ export function getFloatingRailCSS() {
         border-color: ${theme.dark.border};
         --rail-icon-muted: ${theme.dark.iconMuted};
       }
+
+      /* Dark surface 已接近 manage tile actionManage (#3F3F46)，提升 tile 至 zinc-500 維持邊界可辨識 */
+      .rail-action-btn[data-action="manage"] {
+        background: #71717a;
+      }
+
+      .rail-action-btn[data-action="manage"]:hover,
+      .rail-action-btn[data-action="manage"]:focus-visible {
+        background: #8a8a93;
+        box-shadow: 0 2px 6px ${hexToRgba(color.black, 0.4)};
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {

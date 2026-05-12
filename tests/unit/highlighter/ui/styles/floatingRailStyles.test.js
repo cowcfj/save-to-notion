@@ -37,6 +37,12 @@ describe('floatingRailStyles', () => {
       );
     });
 
+    test('dark mode 下 manage tile 應加亮至 zinc-500 維持與 dark surface 的邊界', () => {
+      expect(css).toMatch(
+        /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*?\.rail-action-btn\[data-action="manage"\]\s*\{[\s\S]*?background:\s*#71717a/
+      );
+    });
+
     test('rail-action-btn svg 應顯式宣告 color/fill/stroke 為 currentColor 以修正 stroke 染色 bug', () => {
       expect(css).toMatch(
         /\.rail-action-btn\s+svg\s*\{[\s\S]*?color:\s*currentColor;[\s\S]*?fill:\s*currentColor;[\s\S]*?stroke:\s*currentColor;/
