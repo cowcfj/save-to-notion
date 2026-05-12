@@ -289,9 +289,16 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
       if (event.type === 'shortcut') {
         // 觸發快捷鍵處理：啟動 rail 標註模式
         if (globalThis.HighlighterV2?.rail) {
-          Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
-          globalThis.HighlighterV2.rail.show();
-          globalThis.HighlighterV2.rail.activateHighlighting();
+          try {
+            Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
+            globalThis.HighlighterV2.rail.show();
+            globalThis.HighlighterV2.rail.activateHighlighting();
+          } catch (error) {
+            Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
+              action: 'replayEvents',
+              error: error?.message ?? String(error),
+            });
+          }
         } else {
           Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
         }

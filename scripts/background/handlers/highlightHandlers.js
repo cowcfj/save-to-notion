@@ -233,7 +233,7 @@ export function createHighlightHandlers(services) {
 
         if (!sender.tab?.id) {
           Logger.warn('缺少標籤頁上下文', { action: 'SHOW_FLOATING_RAIL' });
-          sendResponse({ success: false, error: 'No tab context' });
+          sendResponse({ success: false, error: '缺少標籤頁上下文' });
           return;
         }
 
@@ -273,7 +273,11 @@ export function createHighlightHandlers(services) {
           );
         });
 
-        sendResponse(response?.success ? { success: true } : response);
+        const normalizedResponse =
+          response && typeof response === 'object'
+            ? response
+            : { success: false, error: 'no payload from content' };
+        sendResponse(normalizedResponse.success ? { success: true } : normalizedResponse);
       } catch (error) {
         Logger.warn('顯示 Floating Rail 失敗', {
           action: 'SHOW_FLOATING_RAIL',
@@ -310,7 +314,7 @@ export function createHighlightHandlers(services) {
 
         if (!sender.tab?.id) {
           Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
-          sendResponse({ success: false, error: 'No tab context' });
+          sendResponse({ success: false, error: '缺少標籤頁上下文' });
           return;
         }
 

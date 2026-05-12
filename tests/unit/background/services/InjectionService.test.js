@@ -531,8 +531,10 @@ describe('InjectionService', () => {
           verifyResult([]);
           return;
         }
-        // 驗證函數無外部閉包依賴：直接呼叫與序列化重建在共享 globalThis 環境中語義等效
-        const result = await opts.func();
+        // 透過 recreateInjectedFunction 模擬 Chrome executeScript 的序列化邊界，
+        // 確認 opts.func 真的可獨立執行而不依賴外部閉包。
+        const recreated = recreateInjectedFunction(opts.func);
+        const result = await recreated();
         verifyResult([{ result }]);
       });
 

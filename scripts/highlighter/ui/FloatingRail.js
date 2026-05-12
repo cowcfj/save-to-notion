@@ -54,8 +54,10 @@ export class FloatingRail {
     this._dragActivationTimer = null;
     this._dragCleanup = null;
     this._appendHostListener = null;
+    this._isSaving = false;
 
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
+    const reusingHost = Boolean(existingHost);
     if (existingHost) {
       this.host = existingHost;
       this.shadowRoot = this.host.shadowRoot || this.host.attachShadow({ mode: 'open' });
@@ -84,10 +86,15 @@ export class FloatingRail {
       this.host.dataset.railStylesInjected = 'true';
     }
 
-    this.container = createFloatingRailContainer({
-      selectedColor: this.stateManager.selectedColor,
-    });
-    this.shadowRoot.append(this.container);
+    const existingContainer = reusingHost ? this.shadowRoot.querySelector('.rail-container') : null;
+    if (existingContainer) {
+      this.container = existingContainer;
+    } else {
+      this.container = createFloatingRailContainer({
+        selectedColor: this.stateManager.selectedColor,
+      });
+      this.shadowRoot.append(this.container);
+    }
     this.elements = getRailElements(this.container);
     this._restorePosition();
   }
@@ -182,7 +189,12 @@ export class FloatingRail {
         applySaveActionVisibility(this.elements.saveBtn, this._pageStatus);
       }
     } catch (error) {
-      Logger.warn('[FloatingRail] 無法取得頁面狀態', { error });
+      const sanitizedError = sanitizeApiError(error, 'rail_check_page_status');
+      Logger.warn('[FloatingRail] 無法取得頁面狀態', {
+        action: '_refreshPageStatus',
+        operation: 'checkPageStatus',
+        sanitizedError,
+      });
     }
   }
 
@@ -449,7 +461,12 @@ export class FloatingRail {
       const position = JSON.parse(rawPosition);
       this._applyPosition(position);
     } catch (error) {
-      Logger.warn('[FloatingRail] 無法讀取位置狀態', { error });
+      const sanitizedError = sanitizeApiError(error, 'rail_restore_position');
+      Logger.warn('[FloatingRail] 無法讀取位置狀態', {
+        action: '_restorePosition',
+        operation: 'parseStoredPosition',
+        sanitizedError,
+      });
     }
   }
 
@@ -476,7 +493,12 @@ export class FloatingRail {
         })
       );
     } catch (error) {
-      Logger.warn('[FloatingRail] 無法保存位置狀態', { error });
+      const sanitizedError = sanitizeApiError(error, 'rail_persist_position');
+      Logger.warn('[FloatingRail] 無法保存位置狀態', {
+        action: '_persistPosition',
+        operation: 'writeStoredPosition',
+        sanitizedError,
+      });
     }
   }
 
@@ -489,8 +511,18 @@ export class FloatingRail {
   }
 
   async _handleSaveSync() {
+    if (this._isSaving) {
+      return;
+    }
+    this._isSaving = true;
+    const { saveBtn } = this.elements;
+    if (saveBtn) {
+      saveBtn.disabled = true;
+    }
+    let operation = 'savePageFromRail';
     try {
       if (this._pageStatus?.isSaved) {
+        operation = 'syncHighlights';
         const highlights = this.manager.collectHighlightsForNotion?.() || [];
         await syncHighlights(highlights);
       } else {
@@ -498,10 +530,17 @@ export class FloatingRail {
       }
       await this._refreshPageStatus();
     } catch (error) {
-      const safeMessage = sanitizeApiError(error, 'rail_save_sync');
+      const sanitizedError = sanitizeApiError(error, 'rail_save_sync');
       Logger.warn('[FloatingRail] 保存/同步失敗', {
-        error: ErrorHandler.formatUserMessage(safeMessage),
+        action: '_handleSaveSync',
+        operation,
+        sanitizedError: ErrorHandler.formatUserMessage(sanitizedError),
       });
+    } finally {
+      this._isSaving = false;
+      if (saveBtn) {
+        saveBtn.disabled = false;
+      }
     }
   }
 
@@ -509,7 +548,12 @@ export class FloatingRail {
     try {
       await openSidePanel();
     } catch (error) {
-      Logger.warn('[FloatingRail] 開啟 Side Panel 失敗', { error });
+      const sanitizedError = sanitizeApiError(error, 'rail_open_side_panel');
+      Logger.warn('[FloatingRail] 開啟 Side Panel 失敗', {
+        action: '_handleManage',
+        operation: 'openSidePanel',
+        sanitizedError,
+      });
     }
   }
 
