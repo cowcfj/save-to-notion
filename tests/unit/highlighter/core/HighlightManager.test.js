@@ -262,6 +262,53 @@ describe('core/HighlightManager', () => {
       }
     });
 
+    test('[REGRESSION] startHighlighting 應使用 mouseup 當下的 range snapshot', () => {
+      jest.useFakeTimers();
+      try {
+        const div = document.createElement('div');
+        div.textContent = 'Hello World';
+        document.body.append(div);
+
+        const range = document.createRange();
+        range.setStart(div.firstChild, 0);
+        range.setEnd(div.firstChild, 5);
+
+        const removeAllRanges = jest.fn();
+        const activeSelection = {
+          isCollapsed: false,
+          toString: () => 'Hello',
+          getRangeAt: () => range,
+          removeAllRanges,
+        };
+        const collapsedSelection = {
+          isCollapsed: true,
+          toString: () => '',
+          getRangeAt: jest.fn(() => {
+            throw new Error('Selection was cleared');
+          }),
+          removeAllRanges: jest.fn(),
+        };
+        let currentSelection = activeSelection;
+        jest.spyOn(globalThis, 'getSelection').mockImplementation(() => currentSelection);
+
+        manager.startHighlighting('green');
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+        currentSelection = collapsedSelection;
+        jest.advanceTimersByTime(20);
+
+        expect(manager.highlights.size).toBe(1);
+        const highlight = [...manager.highlights.values()][0];
+        expect(highlight.text).toBe('Hello');
+        expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('green');
+        expect(mockStorage.save).toHaveBeenCalled();
+        expect(removeAllRanges).toHaveBeenCalled();
+        expect(collapsedSelection.getRangeAt).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     test('[REGRESSION] stopHighlighting 後不再處理 selection mouseup', () => {
       jest.useFakeTimers();
       try {

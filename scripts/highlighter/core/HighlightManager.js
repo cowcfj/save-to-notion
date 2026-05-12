@@ -292,24 +292,34 @@ export class HighlightManager {
         return;
       }
 
+      const selection = globalThis.getSelection?.();
+      if (!selection || selection.isCollapsed) {
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (!text) {
+        return;
+      }
+
+      let rangeSnapshot = null;
+      try {
+        rangeSnapshot = selection.getRangeAt(0).cloneRange();
+      } catch (error) {
+        Logger.error('添加標註失敗', {
+          action: 'railSelectionHandler',
+          error,
+        });
+        return;
+      }
+
       setTimeout(() => {
         if (!this.isHighlighting) {
           return;
         }
 
-        const selection = globalThis.getSelection?.();
-        if (!selection || selection.isCollapsed) {
-          return;
-        }
-
-        const text = selection.toString().trim();
-        if (!text) {
-          return;
-        }
-
         try {
-          const range = selection.getRangeAt(0);
-          const id = this.addHighlight(range, this.currentColor);
+          const id = this.addHighlight(rangeSnapshot, this.currentColor);
           if (id) {
             selection.removeAllRanges?.();
           }
