@@ -364,20 +364,16 @@ describe('Preloader Performance Script', () => {
     });
   });
 
-  describe('Floating Rail auto-show', () => {
-    test('[REGRESSION] floatingRailEnabled 預設啟用時應要求 background 顯示 rail', async () => {
+  describe('Floating Rail auto-show performance boundary', () => {
+    test('[REGRESSION] 初始化時不應讀取 chrome.storage.sync 設定', async () => {
       runPreloader();
 
       await Promise.resolve();
 
-      expect(mockChrome.storage.sync.get).toHaveBeenCalledWith(['floatingRailEnabled']);
-      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
-        { action: 'SHOW_FLOATING_RAIL' },
-        expect.any(Function)
-      );
+      expect(mockChrome.storage.sync.get).not.toHaveBeenCalled();
     });
 
-    test('floatingRailEnabled=false 時不應自動顯示 rail', async () => {
+    test('[REGRESSION] 初始化時不應要求 background 顯示 rail', async () => {
       mockChrome.storage.sync.get.mockResolvedValue({ floatingRailEnabled: false });
 
       runPreloader();
