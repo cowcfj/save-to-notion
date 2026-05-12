@@ -49,6 +49,7 @@ export class FloatingRail {
     this._destroyed = false;
     this._pageStatus = null;
     this._dragState = null;
+    this._dragPointerCapture = null;
     this._deleteShortcutHandler = null;
     this._dragActivationTimer = null;
     this._dragCleanup = null;
@@ -306,6 +307,7 @@ export class FloatingRail {
         moved: false,
         active: false,
       };
+      this._setDragPointerCapture(trigger, event);
       this._dragActivationTimer = globalThis.setTimeout(() => {
         if (!this._dragState) {
           return;
@@ -362,11 +364,46 @@ export class FloatingRail {
     });
   }
 
+  _setDragPointerCapture(trigger, event) {
+    const pointerId = event.pointerId;
+    if (!Number.isInteger(pointerId) || typeof trigger.setPointerCapture !== 'function') {
+      return;
+    }
+
+    try {
+      trigger.setPointerCapture(pointerId);
+      this._dragPointerCapture = { trigger, pointerId };
+    } catch {
+      this._dragPointerCapture = null;
+    }
+  }
+
+  _releaseDragPointerCapture() {
+    const capture = this._dragPointerCapture;
+    this._dragPointerCapture = null;
+    if (!capture || typeof capture.trigger.releasePointerCapture !== 'function') {
+      return;
+    }
+
+    try {
+      if (
+        typeof capture.trigger.hasPointerCapture === 'function' &&
+        !capture.trigger.hasPointerCapture(capture.pointerId)
+      ) {
+        return;
+      }
+      capture.trigger.releasePointerCapture(capture.pointerId);
+    } catch {
+      // Pointer capture can already be gone after browser-level cancellation.
+    }
+  }
+
   _clearDragArtifacts() {
     if (this._dragActivationTimer !== null) {
       globalThis.clearTimeout(this._dragActivationTimer);
       this._dragActivationTimer = null;
     }
+    this._releaseDragPointerCapture();
     if (this._dragCleanup) {
       this._dragCleanup();
       this._dragCleanup = null;

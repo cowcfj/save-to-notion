@@ -100,6 +100,17 @@ function createMockManager() {
   };
 }
 
+function createPointerMouseEvent(type, options = {}) {
+  const event = new MouseEvent(type, options);
+  if (options.pointerId !== undefined) {
+    Object.defineProperty(event, 'pointerId', {
+      configurable: true,
+      value: options.pointerId,
+    });
+  }
+  return event;
+}
+
 describe('FloatingRail', () => {
   let manager;
 
@@ -508,6 +519,33 @@ describe('FloatingRail', () => {
         expect(sessionStorage.getItem('notion-floating-rail-position')).toEqual(
           expect.stringContaining('"top":180')
         );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('[REGRESSION] trigger 拖曳應 capture pointer 並在結束時釋放', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.setPointerCapture = jest.fn();
+        trigger.hasPointerCapture = jest.fn(() => true);
+        trigger.releasePointerCapture = jest.fn();
+
+        trigger.dispatchEvent(
+          createPointerMouseEvent('pointerdown', { clientX: 790, clientY: 300, pointerId: 42 })
+        );
+        jest.advanceTimersByTime(300);
+        document.dispatchEvent(
+          createPointerMouseEvent('pointerup', { clientX: 790, clientY: 300, pointerId: 42 })
+        );
+
+        expect(trigger.setPointerCapture).toHaveBeenCalledWith(42);
+        expect(trigger.hasPointerCapture).toHaveBeenCalledWith(42);
+        expect(trigger.releasePointerCapture).toHaveBeenCalledWith(42);
       } finally {
         jest.useRealTimers();
       }
