@@ -39,7 +39,7 @@ import {
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
 import { BUILD_ENV } from '../scripts/config/env/index.js';
-import { CONTENT_BRIDGE_ACTIONS } from '../scripts/config/runtimeActions/contentBridgeActions.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { isSavedStatusResponse } from '../scripts/config/saveStatus.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.js';
@@ -160,7 +160,7 @@ export async function initPopup() {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
           await chrome.tabs.sendMessage(tab.id, {
-            action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL,
+            action: RUNTIME_ACTIONS.CONTENT_BRIDGE_SHOW_FLOATING_RAIL,
           });
         }
       } catch (error) {

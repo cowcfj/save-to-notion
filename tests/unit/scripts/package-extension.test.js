@@ -7,6 +7,7 @@ const path = require('node:path');
 
 describe('tools/package-extension.sh regressions', () => {
   let packageScript;
+  let popupEntry;
   let sidepanelEntry;
 
   beforeAll(() => {
@@ -14,10 +15,25 @@ describe('tools/package-extension.sh regressions', () => {
       path.resolve(__dirname, '../../../tools/package-extension.sh'),
       'utf8'
     );
+    popupEntry = fs.readFileSync(path.resolve(__dirname, '../../../popup/popup.js'), 'utf8');
     sidepanelEntry = fs.readFileSync(
       path.resolve(__dirname, '../../../sidepanel/sidepanel.js'),
       'utf8'
     );
+  });
+
+  test('popup 不應直接依賴 release package 排除的 runtimeActions 子模組', () => {
+    const excludedRuntimeActionModules = [
+      'contentBridgeActions',
+      'highlighterActions',
+      'pageSaveActions',
+      'preloaderActions',
+    ];
+
+    for (const moduleName of excludedRuntimeActionModules) {
+      expect(packageScript).toContain(`--exclude='config/runtimeActions/${moduleName}.js'`);
+      expect(popupEntry).not.toContain(`../scripts/config/runtimeActions/${moduleName}.js`);
+    }
   });
 
   test('sidepanel 直接依賴的 HighlightLookupResolver 不應在 release package 中遺失', () => {
