@@ -21,8 +21,28 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 import Logger from '../../../../scripts/utils/Logger.js';
 
 function recreateInjectedFunction(func) {
+  const source = func.toString();
+  // npm run test:coverage 時 Istanbul 會在 source 注入 module-scope 的 cov_xxx
+  // counter 變數；透過 new Function 重新 eval（模擬 chrome.scripting.executeScript
+  // 序列化邊界）時這些變數不在 scope 內，會 throw ReferenceError。偵測 source
+  // 中的 cov_xxx identifier 並注入 no-op Proxy stub，counter 呼叫變成無作用。
+  // stub 需支援 function call、任意 property access、`++` 之類的 primitive coercion。
+  const covVars = [...new Set(source.match(/cov_[a-zA-Z0-9_$]+/g) || [])];
+  const covStubAssignments = covVars.map(name => `${name} = __covStub`).join(', ');
+  const stubPrelude =
+    covVars.length > 0
+      ? `const __covStub = new Proxy(function () { return __covStub; }, {
+         get: (_t, prop) => {
+           if (prop === Symbol.toPrimitive || prop === 'valueOf') return () => 0;
+           if (prop === 'toString') return () => '0';
+           return __covStub;
+         },
+         set: () => true,
+       });
+       var ${covStubAssignments};\n`
+      : '';
   // eslint-disable-next-line sonarjs/code-eval -- test-only Chrome executeScript serialization boundary simulation
-  return new Function(`return (${func.toString()});`)();
+  return new Function(`${stubPrelude}return (${source});`)();
 }
 
 // NOTE: We have two mocks for Logger here:
