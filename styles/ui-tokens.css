@@ -64,6 +64,7 @@
   /* === Focus Ring === */
   --focus-ring-primary: rgba(37, 99, 235, 0.2);
   --focus-ring-danger: rgba(239, 68, 68, 0.2);
+  --focus-ring-action-save: color-mix(in srgb, var(--color-action-save) 20%, transparent);
 
   /* === Misc === */
   --icon-baseline-offset: 2px;

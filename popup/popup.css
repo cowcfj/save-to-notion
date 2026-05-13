@@ -355,7 +355,7 @@ button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--color-action-save);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2);
+  box-shadow: 0 0 0 4px var(--focus-ring-action-save);
 }
 
 @media (prefers-reduced-motion: reduce) {
