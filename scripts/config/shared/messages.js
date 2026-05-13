@@ -108,6 +108,8 @@ const OPTIONS = {
     ZOOM_MEDIUM_OPTION: '中 (100%) - 預設',
     ZOOM_LARGE_OPTION: '大 (110%)',
     ZOOM_HELP: '調整擴充功能設定頁面的顯示比例。',
+    FLOATING_RAIL_LABEL: '顯示快捷工具列',
+    FLOATING_RAIL_HELP: '關閉後不會自動顯示右側小按鈕，但仍可透過彈出視窗開始標註。',
   },
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
