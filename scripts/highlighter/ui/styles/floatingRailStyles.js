@@ -50,11 +50,11 @@ export function getFloatingRailCSS() {
       flex-direction: column;
       align-items: center;
       gap: ${spacing.xs};
-      padding: 5px;
+      padding: ${spacing.xs};
       background: ${theme.light.surface};
       border: 1px solid ${theme.light.border};
       border-right: none;
-      border-radius: 12px 0 0 12px;
+      border-radius: ${radius.lg} 0 0 ${radius.lg};
       box-shadow: ${shadow.md};
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -310,7 +310,7 @@ export function getFloatingRailCSS() {
     .color-swatch {
       width: 20px;
       height: 20px;
-      border-radius: 8px;
+      border-radius: ${radius.md};
       border: 2px solid transparent;
       cursor: pointer;
     }
