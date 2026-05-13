@@ -18,6 +18,7 @@ import { setupHighlighter } from './index.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { PAGE_SAVE_ACTIONS } from '../config/runtimeActions/pageSaveActions.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { VALID_STYLES } from './utils/color.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
@@ -83,7 +84,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         action: 'initializeExtension',
         error: railError?.message,
       });
-      failRailReady(railError, '浮動側欄初始化失敗');
+      failRailReady(railError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
     }
   }
 
@@ -95,7 +96,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = true;
       }
       registerPersistentListeners();
-      failRailReady(cause, '浮動側欄初始化失敗');
+      failRailReady(cause, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
     } catch (fallbackError) {
       unregisterPersistentListeners();
       Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
@@ -113,7 +114,10 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         sendResponse({ success: false, error: error.message });
       }
     } else {
-      sendResponse({ success: false, error: '浮動側欄尚未初始化' });
+      sendResponse({
+        success: false,
+        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
+      });
     }
   }
 

@@ -21,6 +21,7 @@ import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。
@@ -28,12 +29,6 @@ import { isRootUrl } from '../utils/urlUtils.js';
 import '../highlighter/entryAutoInit.js';
 
 const { DEFAULT_PAGE_TITLE } = CONTENT_QUALITY;
-const FLOATING_RAIL_ERRORS = {
-  notInitialized: '浮動側欄尚未初始化',
-  initFailed: '浮動側欄初始化失敗',
-  missingActivateHighlighting: '浮動側欄缺少 activateHighlighting() 方法',
-  actionFailed: '浮動側欄操作失敗',
-};
 
 // ============================================================
 // Preloader 快取接管
@@ -93,11 +88,11 @@ function handleShowHighlighter(sendResponse) {
     } catch (error) {
       sendResponse({
         success: false,
-        error: formatRuntimeErrorMessage(error, FLOATING_RAIL_ERRORS.actionFailed),
+        error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED),
       });
     }
   } else {
-    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
+    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
   }
 }
 
@@ -113,7 +108,7 @@ function revealFloatingRail(rail) {
   }
 
   if (typeof rail?.show !== 'function') {
-    throw new TypeError('浮動側欄缺少 show() 方法');
+    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_SHOW_METHOD_MISSING);
   }
 
   rail.show();
@@ -155,7 +150,7 @@ function formatRuntimeErrorMessage(error, fallbackMessage) {
 function sendFloatingRailError(sendResponse, error) {
   sendResponse({
     success: false,
-    error: formatRuntimeErrorMessage(error, FLOATING_RAIL_ERRORS.actionFailed),
+    error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED),
   });
 }
 
@@ -186,7 +181,7 @@ async function withAvailableFloatingRail(sendResponse, onRailReady) {
 
   const railReadyPromise = globalThis.__NOTION_RAIL_READY__;
   if (!railReadyPromise) {
-    sendResponse({ success: false, error: FLOATING_RAIL_ERRORS.notInitialized });
+    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
     return;
   }
 
@@ -196,7 +191,7 @@ async function withAvailableFloatingRail(sendResponse, onRailReady) {
       resetFloatingRailReady();
       sendResponse({
         success: false,
-        error: readyResult?.error || FLOATING_RAIL_ERRORS.initFailed,
+        error: readyResult?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
       });
       return;
     }
@@ -210,7 +205,7 @@ async function withAvailableFloatingRail(sendResponse, onRailReady) {
     }
   } catch {
     resetFloatingRailReady();
-    sendResponse({ success: false, error: FLOATING_RAIL_ERRORS.initFailed });
+    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
   }
 }
 
@@ -223,7 +218,7 @@ function activateFloatingRailHighlighting(rail) {
   revealFloatingRail(rail);
 
   if (typeof rail?.activateHighlighting !== 'function') {
-    throw new TypeError(FLOATING_RAIL_ERRORS.missingActivateHighlighting);
+    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
   }
 
   rail.activateHighlighting();
