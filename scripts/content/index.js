@@ -100,7 +100,7 @@ function handleShowHighlighter(sendResponse) {
 async function handleShowFloatingRail(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     try {
-      globalThis.HighlighterV2.rail.show();
+      globalThis.HighlighterV2.rail.undismiss();
       sendResponse({ success: true });
     } catch (error) {
       sendResponse({ success: false, error: error?.message || String(error) });
@@ -112,7 +112,7 @@ async function handleShowFloatingRail(sendResponse) {
     try {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
-        readyResult.rail.show();
+        readyResult.rail.undismiss();
         sendResponse({ success: true });
         return;
       }

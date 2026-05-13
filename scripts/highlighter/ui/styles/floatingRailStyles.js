@@ -46,6 +46,7 @@ export function getFloatingRailCSS() {
     }
 
     .rail-container {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -60,6 +61,41 @@ export function getFloatingRailCSS() {
       -webkit-backdrop-filter: blur(12px);
       transition: opacity 0.2s ease, transform 0.2s ease;
       --rail-icon-muted: ${theme.light.iconMuted};
+    }
+
+    .rail-close-btn {
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: ${color.text};
+      color: ${color.white};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.12s ease;
+      z-index: 1;
+    }
+
+    .rail-container:hover .rail-close-btn {
+      opacity: 0.7;
+      pointer-events: auto;
+    }
+
+    .rail-close-btn:hover {
+      opacity: 1 !important;
+      transform: scale(1.15);
+    }
+
+    .rail-close-btn:focus-visible {
+      opacity: 1 !important;
+      pointer-events: auto;
+      outline: 2px solid ${color.brand};
+      outline-offset: 1px;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -78,6 +114,9 @@ export function getFloatingRailCSS() {
         transition: none;
       }
       .color-palette {
+        transition: none;
+      }
+      .rail-close-btn {
         transition: none;
       }
     }
