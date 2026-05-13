@@ -103,17 +103,11 @@ function revealFloatingRail(rail) {
     return;
   }
 
-  if (typeof rail?.show === 'function') {
-    rail.show();
-    return;
+  if (typeof rail?.show !== 'function') {
+    throw new TypeError('浮動側欄缺少 show() 方法');
   }
 
-  if (typeof rail?.undismiss === 'function') {
-    rail.undismiss();
-    return;
-  }
-
-  throw new Error('浮動側欄顯示方法不可用');
+  rail.show();
 }
 
 /**
@@ -136,9 +130,15 @@ async function handleShowFloatingRail(sendResponse) {
     try {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
-        revealFloatingRail(readyResult.rail);
-        sendResponse({ success: true });
-        return;
+        try {
+          revealFloatingRail(readyResult.rail);
+          sendResponse({ success: true });
+          return;
+        } catch (error) {
+          globalThis.__NOTION_RAIL_READY__ = undefined;
+          sendResponse({ success: false, error: error?.message || String(error) });
+          return;
+        }
       }
       globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({
@@ -162,7 +162,7 @@ async function handleShowFloatingRail(sendResponse) {
 async function handleActivateFloatingRailHighlight(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     try {
-      globalThis.HighlighterV2.rail.show();
+      revealFloatingRail(globalThis.HighlighterV2.rail);
       globalThis.HighlighterV2.rail.activateHighlighting();
       sendResponse({ success: true });
     } catch (error) {
@@ -175,10 +175,16 @@ async function handleActivateFloatingRailHighlight(sendResponse) {
     try {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
-        readyResult.rail.show();
-        readyResult.rail.activateHighlighting();
-        sendResponse({ success: true });
-        return;
+        try {
+          revealFloatingRail(readyResult.rail);
+          readyResult.rail.activateHighlighting();
+          sendResponse({ success: true });
+          return;
+        } catch (error) {
+          globalThis.__NOTION_RAIL_READY__ = undefined;
+          sendResponse({ success: false, error: error?.message || String(error) });
+          return;
+        }
       }
       globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({

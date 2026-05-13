@@ -227,7 +227,7 @@ describe('Content Script Entry (index.js)', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 僅提供 undismiss 時應 fallback', async () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 缺少 show 時應返回初始化失敗', async () => {
       const undismissMock = jest.fn();
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: true,
@@ -238,8 +238,12 @@ describe('Content Script Entry (index.js)', () => {
       messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
       await flushPromises();
 
-      expect(undismissMock).toHaveBeenCalledWith();
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      expect(undismissMock).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄缺少 show() 方法',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
@@ -261,7 +265,7 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 缺少顯示方法時應返回初始化失敗', async () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 缺少顯示方法時應返回明確錯誤', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: true,
         rail: {},
@@ -273,7 +277,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: '浮動側欄初始化失敗',
+        error: '浮動側欄缺少 show() 方法',
       });
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
@@ -305,9 +309,10 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應等待 rail-ready 完成後才回應', async () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應先喚回 dismissed 的 ready rail 再啟動標註', async () => {
       const railReady = createDeferred();
       const showMock = jest.fn();
+      const undismissMock = jest.fn();
       const activateHighlightingMock = jest.fn();
       globalThis.__NOTION_RAIL_READY__ = railReady.promise;
       const sendResponse = jest.fn();
@@ -326,24 +331,30 @@ describe('Content Script Entry (index.js)', () => {
       railReady.resolve({
         success: true,
         rail: {
+          stateManager: { isDismissed: true },
+          undismiss: undismissMock,
           show: showMock,
           activateHighlighting: activateHighlightingMock,
         },
       });
       await flushPromises();
 
-      expect(showMock).toHaveBeenCalled();
+      expect(undismissMock).toHaveBeenCalledWith();
+      expect(showMock).not.toHaveBeenCalled();
       expect(activateHighlightingMock).toHaveBeenCalledWith();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
-    test('ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 可用時應立即啟動標註', () => {
+    test('ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 dismissed rail 可用時應先喚回再啟動標註', () => {
       const showMock = jest.fn();
+      const undismissMock = jest.fn();
       const activateHighlightingMock = jest.fn();
       globalThis.HighlighterV2 = {
         rail: {
+          stateManager: { isDismissed: true },
+          undismiss: undismissMock,
           show: showMock,
           activateHighlighting: activateHighlightingMock,
         },
@@ -352,7 +363,8 @@ describe('Content Script Entry (index.js)', () => {
 
       messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
 
-      expect(showMock).toHaveBeenCalledWith();
+      expect(undismissMock).toHaveBeenCalledWith();
+      expect(showMock).not.toHaveBeenCalled();
       expect(activateHighlightingMock).toHaveBeenCalledWith();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
