@@ -574,15 +574,17 @@ describe('頁面複雜度檢測器', () => {
     });
 
     test('Unicode whitespace characters should split words correctly', () => {
-      // 　 = fullwidth space (CJK),   = em space,   = thin space
-      document.documentElement.innerHTML = '<body><p>function　class method variable</p></body>';
+      // \u3000 = fullwidth space (CJK), \u2003 = em space, \u2009 = thin space
+      document.documentElement.innerHTML =
+        '<body><p>function\u3000class\u2003method\u2009variable</p></body>';
       const result = detectPageComplexity(document);
       expect(result.technicalFeatures.technicalTermCount).toBe(4);
     });
 
     test('mixed ASCII and Unicode whitespace should count words consistently', () => {
-      //   = narrow no-break space,   = medium mathematical space, ﻿ = BOM
-      document.documentElement.innerHTML = '<body><p>one two three﻿four five</p></body>';
+      // \u202F = narrow no-break space, \u205F = medium mathematical space, \uFEFF = BOM
+      document.documentElement.innerHTML =
+        '<body><p>one\u202Ftwo\u205Fthree\uFEFFfour five</p></body>';
       const result = detectPageComplexity(document);
       // 5 words total, 0 technical terms
       expect(result.technicalFeatures.technicalTermCount).toBe(0);
