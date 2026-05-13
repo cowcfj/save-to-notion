@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.69.0](https://github.com/cowcfj/save-to-notion/compare/v2.68.0...v2.69.0) (2026-05-13)
+
+
+### ✨ 新功能
+
+* Add Floating Rail feature and state management ([#492](https://github.com/cowcfj/save-to-notion/issues/492)) ([adb4d5e](https://github.com/cowcfj/save-to-notion/commit/adb4d5e3544bbc5f2c2e68579c35db7ecc38fa14))
+* Optimize DOM operations for performance ([#497](https://github.com/cowcfj/save-to-notion/issues/497)) ([a37ac50](https://github.com/cowcfj/save-to-notion/commit/a37ac509b639ac680e12b34142dbbb0355950242))
+* Update floating toolbar styles and functionality ([#496](https://github.com/cowcfj/save-to-notion/issues/496)) ([76e7d94](https://github.com/cowcfj/save-to-notion/commit/76e7d9454675c0525b70c67aaa6a9420f06417a8))
+
+
+### ⚡ 效能優化
+
+* ⚡ Bolt: Optimize word counting in complexity detection ([#491](https://github.com/cowcfj/save-to-notion/issues/491)) ([84da66f](https://github.com/cowcfj/save-to-notion/commit/84da66ff1d70d66b563de1e2e0c196243783a511))
+
 ## [2.68.0](https://github.com/cowcfj/save-to-notion/compare/v2.67.0...v2.68.0) (2026-05-10)
 
 
