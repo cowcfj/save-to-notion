@@ -152,6 +152,9 @@ export class FloatingRail {
   }
 
   dismiss() {
+    if (this.stateManager.isHighlighting) {
+      this.deactivateHighlighting();
+    }
     this.stateManager.dismiss();
     this.hide();
   }

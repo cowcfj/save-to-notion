@@ -370,6 +370,18 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
       expect(manager.stopHighlighting).toHaveBeenCalled();
     });
+
+    test('[REGRESSION] highlighting 狀態 dismiss 應同步停用標註模式', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.activateHighlighting();
+
+      rail.dismiss();
+
+      expect(rail.host.style.display).toBe('none');
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+      expect(manager.stopHighlighting).toHaveBeenCalled();
+    });
   });
 
   describe('setColor', () => {
