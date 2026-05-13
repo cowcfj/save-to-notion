@@ -98,23 +98,23 @@ describe('FloatingRailAnimations', () => {
       tooltip.remove();
     });
 
-    test('應回傳 Promise', async () => {
+    test('應在 shake 結束後立即 resolve（不等待 tooltip 隱藏）', async () => {
       const promise = playFailAnimation(button, tooltip);
-      await jest.advanceTimersByTimeAsync(4000);
       await promise;
+      expect(tooltip.classList.contains('visible')).toBe(true);
     });
 
     test('應設定 tooltip 文字為「保存失敗」', async () => {
       const promise = playFailAnimation(button, tooltip);
       expect(tooltip.textContent).toBe('保存失敗');
-      await jest.advanceTimersByTimeAsync(4000);
       await promise;
     });
 
-    test('動畫結束後 tooltip 應移除 visible class', async () => {
+    test('tooltip 應在背景延遲後移除 visible class', async () => {
       const promise = playFailAnimation(button, tooltip);
-      await jest.advanceTimersByTimeAsync(4000);
       await promise;
+      expect(tooltip.classList.contains('visible')).toBe(true);
+      await jest.advanceTimersByTimeAsync(3000);
       expect(tooltip.classList.contains('visible')).toBe(false);
     });
   });

@@ -168,10 +168,7 @@ export async function playFailAnimation(button, tooltip) {
 
   await shake.finished;
 
-  await new Promise(resolve => {
-    setTimeout(() => {
-      tooltip.classList.remove('visible');
-      resolve();
-    }, FAIL_TOOLTIP_DURATION_MS);
-  });
+  setTimeout(() => {
+    tooltip.classList.remove('visible');
+  }, FAIL_TOOLTIP_DURATION_MS);
 }
