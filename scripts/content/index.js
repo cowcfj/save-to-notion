@@ -100,18 +100,18 @@ function handleShowHighlighter(sendResponse) {
  * 顯示或喚回 Floating Rail
  *
  * @param {object} rail - Floating Rail instance
+ * @returns {void|Promise<void>}
  */
 function revealFloatingRail(rail) {
   if (rail?.stateManager?.isDismissed && typeof rail.undismiss === 'function') {
-    rail.undismiss();
-    return;
+    return rail.undismiss();
   }
 
   if (typeof rail?.show !== 'function') {
     throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_SHOW_METHOD_MISSING);
   }
 
-  rail.show();
+  return rail.show();
 }
 
 /**
@@ -155,6 +155,16 @@ function sendFloatingRailError(sendResponse, error) {
 }
 
 /**
+ * 判斷值是否為 promise-like
+ *
+ * @param {unknown} value - 待檢查的值
+ * @returns {value is Promise<unknown>}
+ */
+function isPromiseLike(value) {
+  return Boolean(value) && typeof value.then === 'function';
+}
+
+/**
  * 清理待完成的 Floating Rail ready promise
  */
 function resetFloatingRailReady() {
@@ -165,13 +175,16 @@ function resetFloatingRailReady() {
  * 執行依賴 Floating Rail 可用性的 action
  *
  * @param {Function} sendResponse - 回應函數
- * @param {(rail: object) => void} onRailReady - rail action callback
+ * @param {(rail: object) => (void|Promise<void>)} onRailReady - rail action callback
  */
 async function withAvailableFloatingRail(sendResponse, onRailReady) {
   const activeRail = globalThis.HighlighterV2?.rail;
   if (activeRail) {
     try {
-      onRailReady(activeRail);
+      const activeResult = onRailReady(activeRail);
+      if (isPromiseLike(activeResult)) {
+        await activeResult;
+      }
       sendResponse({ success: true });
     } catch (error) {
       sendFloatingRailError(sendResponse, error);
@@ -197,7 +210,10 @@ async function withAvailableFloatingRail(sendResponse, onRailReady) {
     }
 
     try {
-      onRailReady(readyResult.rail);
+      const readyActionResult = onRailReady(readyResult.rail);
+      if (isPromiseLike(readyActionResult)) {
+        await readyActionResult;
+      }
       sendResponse({ success: true });
     } catch (error) {
       resetFloatingRailReady();
@@ -213,15 +229,25 @@ async function withAvailableFloatingRail(sendResponse, onRailReady) {
  * 啟動 Floating Rail 標註模式
  *
  * @param {object} rail - Floating Rail instance
+ * @returns {void|Promise<void>}
  */
 function activateFloatingRailHighlighting(rail) {
-  revealFloatingRail(rail);
+  const revealResult = revealFloatingRail(rail);
+  if (isPromiseLike(revealResult)) {
+    return revealResult.then(() => {
+      if (typeof rail?.activateHighlighting !== 'function') {
+        throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
+      }
+
+      return rail.activateHighlighting();
+    });
+  }
 
   if (typeof rail?.activateHighlighting !== 'function') {
     throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
   }
 
-  rail.activateHighlighting();
+  return rail.activateHighlighting();
 }
 
 /**

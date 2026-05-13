@@ -265,6 +265,23 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 的 async show reject 時應返回錯誤訊息', async () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn().mockRejectedValue(new Error('async rail show failed')),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'async rail show failed',
+      });
+    });
+
     test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時不應回傳 [object Object]', () => {
       const railError = new Error('unused');
       delete railError.message;
@@ -460,6 +477,26 @@ describe('Content Script Entry (index.js)', () => {
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
         error: '浮動側欄缺少 activateHighlighting() 方法',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 的 async activateHighlighting reject 時應回傳錯誤訊息', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: {
+          show: jest.fn(),
+          activateHighlighting: jest.fn().mockRejectedValue(new Error('async activate failed')),
+        },
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'async activate failed',
       });
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
