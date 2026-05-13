@@ -39,3 +39,103 @@ export function playLaunchAnimation(button) {
     }
   );
 }
+
+const PARTICLE_COLORS = [
+  '#ff6b6b',
+  '#ffd93d',
+  '#6bcb77',
+  '#4d96ff',
+  '#ff8fd8',
+  '#a78bfa',
+  '#f97316',
+  '#06b6d4',
+];
+
+/**
+ * @param {HTMLElement} button
+ * @returns {Promise<void>}
+ */
+export async function playFireworkAnimation(button) {
+  const reducedMotion = prefersReducedMotion();
+
+  const bounce = button.animate(
+    [
+      { transform: 'scale(1)' },
+      { transform: 'scale(1.3)' },
+      { transform: 'scale(0.85)' },
+      { transform: 'scale(1.15)' },
+      { transform: 'scale(1)' },
+    ],
+    { duration: 500, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
+  );
+
+  await bounce.finished;
+
+  if (reducedMotion) {
+    return;
+  }
+
+  const container = button.parentElement || button;
+  const promises = [];
+
+  const ring = document.createElement('span');
+  ring.style.cssText = `
+    position: absolute; top: 50%; left: 50%;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 2px solid currentColor; pointer-events: none;
+    transform: translate(-50%, -50%) scale(1);
+  `;
+  container.append(ring);
+  const ringAnim = ring.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(1)', opacity: 0.7 },
+      { transform: 'translate(-50%, -50%) scale(3)', opacity: 0 },
+    ],
+    { duration: 600, easing: 'ease-out' }
+  );
+  promises.push(
+    ringAnim.finished.then(() => ring.remove()),
+    emitParticles(container, 8, 30, 500),
+    (async () => {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      return emitParticles(container, 6, 45, 700);
+    })()
+  );
+
+  await Promise.all(promises);
+}
+
+function emitParticles(container, count, spread, duration) {
+  const promises = [];
+  for (let i = 0; i < count; i++) {
+    const particle = document.createElement('span');
+    particle.className = 'rail-particle';
+    // eslint-disable-next-line sonarjs/pseudo-random -- visual-only animation jitter
+    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    // eslint-disable-next-line sonarjs/pseudo-random -- visual-only animation jitter
+    const dist = spread * (0.7 + Math.random() * 0.6);
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist;
+    // eslint-disable-next-line sonarjs/pseudo-random -- visual-only particle sizing
+    const size = 4 + Math.random() * 3;
+    particle.style.cssText = `
+      position: absolute; top: 50%; left: 50%;
+      width: ${size}px; height: ${size}px; border-radius: 50%;
+      background: ${PARTICLE_COLORS[i % PARTICLE_COLORS.length]};
+      pointer-events: none; transform: translate(-50%, -50%);
+    `;
+    container.append(particle);
+    const anim = particle.animate(
+      [
+        { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+        {
+          transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0.2)`,
+          opacity: 0,
+        },
+      ],
+      { duration, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
+    );
+    promises.push(anim.finished.then(() => particle.remove()));
+  }
+  return Promise.all(promises);
+}
