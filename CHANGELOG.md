@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.70.0](https://github.com/cowcfj/save-to-notion/compare/v2.69.0...v2.70.0) (2026-05-13)
+
+
+### ✨ 新功能
+
+* add save feedback animations with error handling ([#499](https://github.com/cowcfj/save-to-notion/issues/499)) ([0ee4f50](https://github.com/cowcfj/save-to-notion/commit/0ee4f50e39652b5de278783391a80378b0f1c52a))
+
+
+### 🧹 其他變更
+
+* 更新 .gitignore 以排除 .superpowers 目錄 ([65c1783](https://github.com/cowcfj/save-to-notion/commit/65c1783d3d73204dc2c5c1d586e0f271c97f1fd9))
+
 ## [2.69.0](https://github.com/cowcfj/save-to-notion/compare/v2.68.0...v2.69.0) (2026-05-13)
 
 
