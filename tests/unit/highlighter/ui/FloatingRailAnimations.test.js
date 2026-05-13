@@ -5,6 +5,7 @@
 import {
   playLaunchAnimation,
   playFireworkAnimation,
+  playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
 
 beforeAll(() => {
@@ -75,6 +76,46 @@ describe('FloatingRailAnimations', () => {
       await resultPromise;
       const particles = container.querySelectorAll('.rail-particle');
       expect(particles).toHaveLength(0);
+    });
+  });
+
+  describe('playFailAnimation', () => {
+    let button;
+    let tooltip;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      button = document.createElement('button');
+      tooltip = document.createElement('span');
+      tooltip.className = 'rail-error-tooltip';
+      document.body.append(button);
+      document.body.append(tooltip);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      button.remove();
+      tooltip.remove();
+    });
+
+    test('應回傳 Promise', async () => {
+      const promise = playFailAnimation(button, tooltip);
+      await jest.advanceTimersByTimeAsync(4000);
+      await promise;
+    });
+
+    test('應設定 tooltip 文字為「保存失敗」', async () => {
+      const promise = playFailAnimation(button, tooltip);
+      expect(tooltip.textContent).toBe('保存失敗');
+      await jest.advanceTimersByTimeAsync(4000);
+      await promise;
+    });
+
+    test('動畫結束後 tooltip 應移除 visible class', async () => {
+      const promise = playFailAnimation(button, tooltip);
+      await jest.advanceTimersByTimeAsync(4000);
+      await promise;
+      expect(tooltip.classList.contains('visible')).toBe(false);
     });
   });
 });

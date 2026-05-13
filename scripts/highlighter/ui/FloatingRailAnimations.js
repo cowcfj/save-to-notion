@@ -139,3 +139,37 @@ function emitParticles(container, count, spread, duration) {
   }
   return Promise.all(promises);
 }
+
+const FAIL_TOOLTIP_DURATION_MS = 3000;
+
+/**
+ * @param {HTMLElement} button
+ * @param {HTMLElement} tooltip - .rail-error-tooltip 元素
+ * @returns {Promise<void>}
+ */
+export async function playFailAnimation(button, tooltip) {
+  const shake = button.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-4px)' },
+      { transform: 'translateX(4px)' },
+      { transform: 'translateX(-4px)' },
+      { transform: 'translateX(4px)' },
+      { transform: 'translateX(-4px)' },
+      { transform: 'translateX(0)' },
+    ],
+    { duration: 400, easing: 'ease-in-out' }
+  );
+
+  tooltip.textContent = '保存失敗';
+  tooltip.classList.add('visible');
+
+  await shake.finished;
+
+  await new Promise(resolve => {
+    setTimeout(() => {
+      tooltip.classList.remove('visible');
+      resolve();
+    }, FAIL_TOOLTIP_DURATION_MS);
+  });
+}
