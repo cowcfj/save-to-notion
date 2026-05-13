@@ -93,6 +93,30 @@ function handleShowHighlighter(sendResponse) {
 }
 
 /**
+ * 顯示或喚回 Floating Rail
+ *
+ * @param {object} rail - Floating Rail instance
+ */
+function revealFloatingRail(rail) {
+  if (rail?.stateManager?.isDismissed && typeof rail.undismiss === 'function') {
+    rail.undismiss();
+    return;
+  }
+
+  if (typeof rail?.show === 'function') {
+    rail.show();
+    return;
+  }
+
+  if (typeof rail?.undismiss === 'function') {
+    rail.undismiss();
+    return;
+  }
+
+  throw new Error('浮動側欄顯示方法不可用');
+}
+
+/**
  * 處理顯示 Floating Rail 請求
  *
  * @param {Function} sendResponse - 回應函數
@@ -100,7 +124,7 @@ function handleShowHighlighter(sendResponse) {
 async function handleShowFloatingRail(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     try {
-      globalThis.HighlighterV2.rail.undismiss();
+      revealFloatingRail(globalThis.HighlighterV2.rail);
       sendResponse({ success: true });
     } catch (error) {
       sendResponse({ success: false, error: error?.message || String(error) });
@@ -112,7 +136,7 @@ async function handleShowFloatingRail(sendResponse) {
     try {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
-        readyResult.rail.undismiss();
+        revealFloatingRail(readyResult.rail);
         sendResponse({ success: true });
         return;
       }
