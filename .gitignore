@@ -242,6 +242,7 @@ docs/specs/
 .serenaignore
 skills-lock.json
 .agents/.shared/staging/
+.superpowers/
 *_report.json
 AGENTS.md
 .antigravityignore
