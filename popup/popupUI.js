@@ -104,8 +104,10 @@ export function renderDestinationSelector(elements, state) {
     return;
   }
 
-  elements.destinationMenu.innerHTML = '';
+  elements.destinationMenu.replaceChildren();
   elements.destinationMenu.style.display = 'none';
+
+  const fragment = document.createDocumentFragment();
 
   for (const profile of profiles) {
     const item = document.createElement('button');
@@ -114,8 +116,10 @@ export function renderDestinationSelector(elements, state) {
     item.dataset.profileId = profile.id;
     item.textContent = formatDestinationLabel(profile);
     item.setAttribute('aria-pressed', profile.id === selectedProfile.id ? 'true' : 'false');
-    elements.destinationMenu.append(item);
+    fragment.append(item);
   }
+
+  elements.destinationMenu.append(fragment);
 }
 
 /**
@@ -127,7 +131,7 @@ export function renderDestinationSelector(elements, state) {
  */
 export function setStatus(elements, content, color = '') {
   if (elements.status) {
-    elements.status.innerHTML = '';
+    elements.status.replaceChildren();
     elements.status.style.color = color;
 
     // Support simple string
