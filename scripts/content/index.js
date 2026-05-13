@@ -67,7 +67,7 @@ globalThis.__NOTION_BUNDLE_READY__ = true;
  */
 function handlePing(sendResponse) {
   sendResponse({
-    status: globalThis.notionHighlighter ? 'bundle_ready' : 'initializing',
+    status: globalThis.__NOTION_BUNDLE_READY__ ? 'bundle_ready' : 'preloader_only',
     hasPreloaderCache: Boolean(preloaderCache),
     nextRouteInfo: preloaderCache?.nextRouteInfo || null,
     shortlink: preloaderCache?.shortlink || null,
@@ -75,16 +75,98 @@ function handlePing(sendResponse) {
 }
 
 /**
- * 處理顯示 Highlighter 請求
+ * 處理顯示 Highlighter 請求（legacy alias → rail）
  *
  * @param {Function} sendResponse - 回應函數
  */
 function handleShowHighlighter(sendResponse) {
-  if (globalThis.notionHighlighter) {
-    globalThis.notionHighlighter.show();
-    sendResponse({ success: true });
+  if (globalThis.HighlighterV2?.rail) {
+    try {
+      globalThis.HighlighterV2.rail.show();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
   } else {
-    sendResponse({ success: false, error: 'Highlighter not initialized' });
+    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
+  }
+}
+
+/**
+ * 處理顯示 Floating Rail 請求
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+async function handleShowFloatingRail(sendResponse) {
+  if (globalThis.HighlighterV2?.rail) {
+    try {
+      globalThis.HighlighterV2.rail.show();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
+    return;
+  }
+
+  if (globalThis.__NOTION_RAIL_READY__) {
+    try {
+      const readyResult = await globalThis.__NOTION_RAIL_READY__;
+      if (readyResult?.success && readyResult.rail) {
+        readyResult.rail.show();
+        sendResponse({ success: true });
+        return;
+      }
+      globalThis.__NOTION_RAIL_READY__ = undefined;
+      sendResponse({
+        success: false,
+        error: readyResult?.error || '浮動側欄初始化失敗',
+      });
+    } catch {
+      globalThis.__NOTION_RAIL_READY__ = undefined;
+      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
+    }
+  } else {
+    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
+  }
+}
+
+/**
+ * 處理啟動 Floating Rail 標註模式請求
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+async function handleActivateFloatingRailHighlight(sendResponse) {
+  if (globalThis.HighlighterV2?.rail) {
+    try {
+      globalThis.HighlighterV2.rail.show();
+      globalThis.HighlighterV2.rail.activateHighlighting();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
+    return;
+  }
+
+  if (globalThis.__NOTION_RAIL_READY__) {
+    try {
+      const readyResult = await globalThis.__NOTION_RAIL_READY__;
+      if (readyResult?.success && readyResult.rail) {
+        readyResult.rail.show();
+        readyResult.rail.activateHighlighting();
+        sendResponse({ success: true });
+        return;
+      }
+      globalThis.__NOTION_RAIL_READY__ = undefined;
+      sendResponse({
+        success: false,
+        error: readyResult?.error || '浮動側欄初始化失敗',
+      });
+    } catch {
+      globalThis.__NOTION_RAIL_READY__ = undefined;
+      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
+    }
+  } else {
+    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
   }
 }
 
@@ -164,6 +246,16 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return true;
     }
 
+    case CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL: {
+      handleShowFloatingRail(sendResponse);
+      return true;
+    }
+
+    case HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT: {
+      handleActivateFloatingRailHighlight(sendResponse);
+      return true;
+    }
+
     case HIGHLIGHTER_ACTIONS.REMOVE_HIGHLIGHT_DOM: {
       handleRemoveHighlightDom(request.highlightId, sendResponse);
       return true;
@@ -195,10 +287,18 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
 
     events.forEach(event => {
       if (event.type === 'shortcut') {
-        // 觸發快捷鍵處理：顯示 highlighter toolbar
-        if (globalThis.notionHighlighter) {
-          Logger.log('重放快捷鍵事件，顯示工具欄', { action: 'replayEvents' });
-          globalThis.notionHighlighter.show();
+        // 觸發快捷鍵處理：啟動 rail 標註模式
+        if (globalThis.HighlighterV2?.rail) {
+          try {
+            Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
+            globalThis.HighlighterV2.rail.show();
+            globalThis.HighlighterV2.rail.activateHighlighting();
+          } catch (error) {
+            Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
+              action: 'replayEvents',
+              error: error?.message ?? String(error),
+            });
+          }
         } else {
           Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
         }

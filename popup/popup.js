@@ -159,7 +159,9 @@ export async function initPopup() {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
-          await chrome.tabs.sendMessage(tab.id, { action: RUNTIME_ACTIONS.SHOW_TOOLBAR });
+          await chrome.tabs.sendMessage(tab.id, {
+            action: RUNTIME_ACTIONS.CONTENT_BRIDGE_SHOW_FLOATING_RAIL,
+          });
         }
       } catch (error) {
         // 如果 Content Script 尚未注入，忽略錯誤

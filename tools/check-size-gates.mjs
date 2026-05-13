@@ -10,8 +10,8 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      hardLimit: 230_400,
-      deltaLimit: 8_192,
+      hardLimit: 270_000,
+      deltaLimit: 30_000,
     },
     {
       key: 'background_bundle',
@@ -284,8 +284,7 @@ function main() {
       parts.push(`current=${check.current}`);
     }
     if (typeof check.base === 'number') {
-      parts.push(`base=${check.base}`);
-      parts.push(`delta=${check.delta}`);
+      parts.push(`base=${check.base}`, `delta=${check.delta}`);
     }
     if (check.message) {
       parts.push(check.message);

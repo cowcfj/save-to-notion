@@ -23,9 +23,28 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
 }));
 
+function createDeferred() {
+  let resolveDeferred;
+  let rejectDeferred;
+  const promise = new Promise((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+
+  return { promise, resolve: resolveDeferred, reject: rejectDeferred };
+}
+
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('Content Script Entry (index.js)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete globalThis.HighlighterV2;
+    delete globalThis.__NOTION_RAIL_READY__;
+    delete globalThis.notionHighlighter;
 
     // Mock chrome (which might be used by index.js on load)
     globalThis.chrome = {
@@ -60,11 +79,9 @@ describe('Content Script Entry (index.js)', () => {
     let preloaderHandler;
 
     beforeEach(() => {
-      // Capture the message handler by isolating the module
       sendMessageMock = jest.fn();
-      globalThis.chrome.runtime.onMessage.addListener = jest.fn(handler => {
-        messageHandler = handler;
-      });
+      globalThis.chrome.runtime.onMessage.addListener = jest.fn();
+      globalThis.chrome.runtime.onMessage.removeListener = jest.fn();
       globalThis.chrome.runtime.sendMessage = sendMessageMock;
 
       // Setup event responder to simulate preloader cache
@@ -82,6 +99,14 @@ describe('Content Script Entry (index.js)', () => {
 
       jest.isolateModules(() => {
         require('../../../scripts/content/index.js');
+      });
+
+      // content/index.js 的 handler 是能回應 PING 的那個
+      const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+      messageHandler = allHandlers.find(h => {
+        const mockSend = jest.fn();
+        const result = h({ action: 'PING' }, {}, mockSend);
+        return result === true && mockSend.mock.calls.length > 0;
       });
     });
 
@@ -102,17 +127,96 @@ describe('Content Script Entry (index.js)', () => {
       );
     });
 
-    test('showHighlighter 應該調用全局 highlighter', () => {
-      const mockHighlighter = { show: jest.fn() };
-      globalThis.notionHighlighter = mockHighlighter;
-
+    test('showHighlighter 應優先調用 rail.show', () => {
+      const showMock = jest.fn();
+      globalThis.HighlighterV2 = { rail: { show: showMock } };
       const sendResponse = jest.fn();
+
       messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
 
-      expect(mockHighlighter.show).toHaveBeenCalled();
+      expect(showMock).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      delete globalThis.HighlighterV2;
+    });
+
+    test('[REGRESSION] showHighlighter 不應在無 rail 時 fallback 到 notionHighlighter toolbar', async () => {
+      delete globalThis.HighlighterV2;
+      const showMock = jest.fn();
+      globalThis.notionHighlighter = { show: showMock };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(showMock).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄尚未初始化',
+      });
+      delete globalThis.notionHighlighter;
+    });
+
+    test('[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
+      const railReady = createDeferred();
+      const showMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
+      const sendResponse = jest.fn();
+
+      const result = messageHandler(
+        { action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' },
+        {},
+        sendResponse
+      );
+
+      expect(result).toBe(true);
+      expect(showMock).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      railReady.resolve({
+        success: true,
+        rail: { show: showMock },
+      });
+      await flushPromises();
+
+      expect(showMock).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
-      delete globalThis.notionHighlighter;
+      delete globalThis.__NOTION_RAIL_READY__;
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應等待 rail-ready 完成後才回應', async () => {
+      const railReady = createDeferred();
+      const showMock = jest.fn();
+      const activateHighlightingMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
+      const sendResponse = jest.fn();
+
+      const result = messageHandler(
+        { action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' },
+        {},
+        sendResponse
+      );
+
+      expect(result).toBe(true);
+      expect(showMock).not.toHaveBeenCalled();
+      expect(activateHighlightingMock).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      railReady.resolve({
+        success: true,
+        rail: {
+          show: showMock,
+          activateHighlighting: activateHighlightingMock,
+        },
+      });
+      await flushPromises();
+
+      expect(showMock).toHaveBeenCalled();
+      expect(activateHighlightingMock).toHaveBeenCalledWith();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      delete globalThis.__NOTION_RAIL_READY__;
     });
 
     test('REMOVE_HIGHLIGHT_DOM 應呼叫 manager.removeHighlight', () => {
@@ -145,8 +249,11 @@ describe('Content Script Entry (index.js)', () => {
     });
 
     test('應該處理重放事件', () => {
-      const mockHighlighter = { show: jest.fn() };
-      globalThis.notionHighlighter = mockHighlighter;
+      const rail = {
+        show: jest.fn(),
+        activateHighlighting: jest.fn(),
+      };
+      globalThis.HighlighterV2 = { rail };
 
       // Simulate response to REPLAY_BUFFERED_EVENTS
       const replayCall = sendMessageMock.mock.calls.find(
@@ -157,9 +264,10 @@ describe('Content Script Entry (index.js)', () => {
 
       replayCallback({ events: [{ type: 'shortcut' }] });
 
-      expect(mockHighlighter.show).toHaveBeenCalled();
+      expect(rail.show).toHaveBeenCalled();
+      expect(rail.activateHighlighting).toHaveBeenCalledWith();
 
-      delete globalThis.notionHighlighter;
+      delete globalThis.HighlighterV2;
     });
 
     describe('SET_STABLE_URL', () => {

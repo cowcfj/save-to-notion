@@ -39,6 +39,25 @@ export const UI_TOKENS = {
     bgPage: '#f8fafc',
     bgHover: '#f1f5f9',
     border: '#e2e8f0',
+    brand: '#F47565',
+    brandHover: '#E66651',
+    actionSave: '#0A84FF',
+    actionSaveHover: '#0070E5',
+    actionManage: '#8B5CF6',
+    actionManageHover: '#7C3AED',
+    iconOnAccent: '#FFFFFF',
+  },
+  theme: {
+    light: {
+      surface: 'rgba(244, 244, 247, 0.82)',
+      border: 'rgba(0, 0, 0, 0.06)',
+      iconMuted: 'rgba(31, 33, 38, 0.78)',
+    },
+    dark: {
+      surface: 'rgba(22, 24, 30, 0.78)',
+      border: 'rgba(255, 255, 255, 0.10)',
+      iconMuted: 'rgba(240, 243, 247, 0.88)',
+    },
   },
   status: {
     successBg: '#dcfce7',

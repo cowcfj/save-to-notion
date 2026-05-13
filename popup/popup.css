@@ -119,7 +119,7 @@ button {
 }
 
 #highlight-button {
-  background-color: #48bb78;
+  background-color: #34c759;
 }
 
 .annotation-actions {
@@ -158,31 +158,31 @@ button {
 }
 
 #highlight-button:hover {
-  background-color: #38a169;
+  background-color: #2ba84a;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(52, 199, 89, 0.32);
 }
 
 #save-button {
-  background-color: #2563eb;
+  background-color: var(--color-action-save);
 }
 
 #manage-button.secondary-action {
-  background-color: #f8fafc;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background-color: var(--color-action-manage);
+  color: #ffffff;
+  border: 1px solid var(--color-action-manage);
 }
 
 #manage-button.secondary-action:hover {
-  background-color: #eef2ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background-color: var(--color-action-manage-hover);
+  color: #ffffff;
+  border-color: var(--color-action-manage-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 5px rgba(139, 92, 246, 0.32);
 }
 
 #save-button:hover {
-  background-color: #1d4ed8;
+  background-color: var(--color-action-save-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -206,7 +206,7 @@ button {
   flex: 1;
   height: 32px;
   padding: 0 var(--spacing-sm);
-  border-left: 3px solid #2563eb;
+  border-left: 3px solid var(--color-action-save);
   background: #f8fafc;
   border-radius: var(--radius-sm);
   line-height: 1.2;
@@ -261,7 +261,7 @@ button {
 .destination-menu-item:hover,
 .destination-menu-item[aria-pressed='true'] {
   background: #eff6ff;
-  color: #1d4ed8;
+  color: var(--color-action-save);
   transform: none;
   box-shadow: none;
 }
@@ -297,7 +297,7 @@ button {
 
 .account-button:hover {
   background: #eef2ff;
-  color: #1d4ed8;
+  color: var(--color-action-save);
   transform: translateY(-1px);
   box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
 }
@@ -331,7 +331,7 @@ button {
 
 .settings-button:hover {
   background: #f8fafc;
-  color: #1d4ed8;
+  color: var(--color-action-save);
   border-color: #cbd5e1;
   text-decoration: none;
 }
@@ -353,9 +353,9 @@ button:disabled {
 /* Focus Accessibility */
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--color-action-save);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 0 0 4px var(--focus-ring-action-save);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -373,5 +373,102 @@ a:focus-visible {
   .destination-toggle:hover,
   #open-notion-button:hover {
     transform: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #161820;
+    color: #e8eaef;
+  }
+
+  #status {
+    color: #e8eaef;
+  }
+
+  #popup-title {
+    color: #f4f5f7;
+  }
+
+  #manage-button.secondary-action {
+    background-color: var(--color-action-manage);
+    color: #ffffff;
+    border-color: var(--color-action-manage);
+  }
+
+  #manage-button.secondary-action:hover {
+    background-color: var(--color-action-manage-hover);
+    color: #ffffff;
+    border-color: var(--color-action-manage-hover);
+  }
+
+  .destination-section {
+    color: #c9ccd4;
+  }
+
+  .destination-current {
+    background: #1f2128;
+    color: #e8eaef;
+    border-left-color: var(--color-action-save);
+  }
+
+  .destination-toggle {
+    background: #23262e;
+    color: #e8eaef;
+  }
+
+  .destination-toggle:hover {
+    background: #2c2f38;
+  }
+
+  .destination-menu {
+    border-color: #2c2f38;
+  }
+
+  .destination-menu-item {
+    background: #1c1f28;
+    color: #e8eaef;
+  }
+
+  .destination-menu-item:hover,
+  .destination-menu-item[aria-pressed='true'] {
+    background: #1d2c40;
+    color: #4aa3ff;
+  }
+
+  #open-notion-button {
+    background-color: #1a1a1a;
+    color: #f4f5f7;
+  }
+
+  #open-notion-button:hover {
+    background-color: #2a2a2a;
+  }
+
+  .account-button {
+    background: #21232b;
+    color: #e8eaef;
+    border-color: #2c2f38;
+  }
+
+  .account-button:hover {
+    background: #1d2c40;
+    color: #4aa3ff;
+  }
+
+  .account-button.is-signed-in {
+    background: #1f3a32;
+    color: #a7f3d0;
+    border-color: #2f6a55;
+  }
+
+  .settings-button {
+    color: #c9ccd4;
+  }
+
+  .settings-button:hover {
+    background: #21232b;
+    color: #4aa3ff;
+    border-color: #2c2f38;
   }
 }

@@ -20,6 +20,31 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 
 import Logger from '../../../../scripts/utils/Logger.js';
 
+function recreateInjectedFunction(func) {
+  const source = func.toString();
+  // npm run test:coverage 時 Istanbul 會在 source 注入 module-scope 的 cov_xxx
+  // counter 變數；透過 new Function 重新 eval（模擬 chrome.scripting.executeScript
+  // 序列化邊界）時這些變數不在 scope 內，會 throw ReferenceError。偵測 source
+  // 中的 cov_xxx identifier 並注入 no-op Proxy stub，counter 呼叫變成無作用。
+  // stub 需支援 function call、任意 property access、`++` 之類的 primitive coercion。
+  const covVars = [...new Set(source.match(/cov_[a-zA-Z0-9_$]+/g) || [])];
+  const covStubAssignments = covVars.map(name => `${name} = __covStub`).join(', ');
+  const stubPrelude =
+    covVars.length > 0
+      ? `const __covStub = new Proxy(function () { return __covStub; }, {
+         get: (_t, prop) => {
+           if (prop === Symbol.toPrimitive || prop === 'valueOf') return () => 0;
+           if (prop === 'toString') return () => '0';
+           return __covStub;
+         },
+         set: () => true,
+       });
+       var ${covStubAssignments};\n`
+      : '';
+  // eslint-disable-next-line sonarjs/code-eval -- test-only Chrome executeScript serialization boundary simulation
+  return new Function(`${stubPrelude}return (${source});`)();
+}
+
 // NOTE: We have two mocks for Logger here:
 // 1. Module-level mock (jest.mock above): Intercepts direct imports of Logger in other files (e.g., helpers).
 // 2. mockLogger (const below): Injected into InjectionService constructor for direct verification of service logic.
@@ -53,6 +78,13 @@ describe('InjectionService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new InjectionService({ logger: mockLogger });
+    chrome.runtime.lastError = null;
+  });
+
+  afterEach(() => {
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    delete globalThis.__NOTION_RAIL_READY__;
     chrome.runtime.lastError = null;
   });
 
@@ -187,6 +219,62 @@ describe('InjectionService', () => {
         }),
         expect.any(Function)
       );
+    });
+
+    it('[REGRESSION] 注入後應啟動 Floating Rail 而不是 legacy toolbar', async () => {
+      const railShow = jest.fn();
+      const activateHighlighting = jest.fn();
+      const toolbarShow = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: railShow,
+          activateHighlighting,
+        },
+      };
+      globalThis.notionHighlighter = { show: toolbarShow };
+
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+
+        const injectedFunc = recreateInjectedFunction(opts.func);
+        const result = await injectedFunc();
+        verifyResult([{ result }]);
+      });
+
+      const result = await service.injectHighlighter(1);
+
+      expect(result).toEqual({ initialized: true, highlightCount: 0 });
+      expect(railShow).toHaveBeenCalled();
+      expect(activateHighlighting).toHaveBeenCalledWith();
+      expect(toolbarShow).not.toHaveBeenCalled();
+    });
+
+    it('[REGRESSION] rail readiness promise reject 時應回退為未初始化狀態', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.reject(new Error('Rail init failed'));
+
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+
+        try {
+          const injectedFunc = recreateInjectedFunction(opts.func);
+          const result = await injectedFunc();
+          verifyResult([{ result }]);
+        } catch (error) {
+          chrome.runtime.lastError = error;
+          verifyResult([]);
+        }
+      });
+
+      await expect(service.injectHighlighter(1)).resolves.toEqual({
+        initialized: false,
+        highlightCount: 0,
+      });
     });
   });
 
@@ -450,6 +538,33 @@ describe('InjectionService', () => {
   });
 
   describe('Business Operations Wrappers', () => {
+    it('activateFloatingRailInPage 應在序列化後仍可獨立執行（無外部閉包依賴）', async () => {
+      const railShow = jest.fn();
+      const activateHighlighting = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: { show: railShow, activateHighlighting },
+        manager: { getCount: () => 3 },
+      };
+
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+        // 透過 recreateInjectedFunction 模擬 Chrome executeScript 的序列化邊界，
+        // 確認 opts.func 真的可獨立執行而不依賴外部閉包。
+        const recreated = recreateInjectedFunction(opts.func);
+        const result = await recreated();
+        verifyResult([{ result }]);
+      });
+
+      const result = await service.injectHighlighter(1);
+
+      expect(result).toEqual({ initialized: true, highlightCount: 3 });
+      expect(railShow).toHaveBeenCalled();
+      expect(activateHighlighting).toHaveBeenCalledWith();
+    });
+
     it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => {
         cb([{ result: ['highlight1'] }]);

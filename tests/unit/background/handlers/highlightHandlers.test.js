@@ -1,6 +1,7 @@
 import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
+import { CONTENT_BRIDGE_ACTIONS } from '../../../../scripts/config/runtimeActions/contentBridgeActions.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,
@@ -399,7 +400,7 @@ describe('highlightHandlers', () => {
 
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
-        { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER },
+        { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
         expect.any(Function)
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -431,6 +432,36 @@ describe('highlightHandlers', () => {
     });
   });
 
+  describe('SHOW_FLOATING_RAIL', () => {
+    it('[REGRESSION] preloader 觸發時應注入 bundle 並轉發 content bridge action 到目前 tab', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+      globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        if (msg.action === RUNTIME_ACTIONS.PING) {
+          cb({ status: 'bundle_ready' });
+          return;
+        }
+        cb({ success: true });
+      });
+
+      await handlers.SHOW_FLOATING_RAIL(
+        { action: RUNTIME_ACTIONS.SHOW_FLOATING_RAIL },
+        sender,
+        sendResponse
+      );
+
+      expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+      expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL },
+        expect.any(Function)
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
   describe('Coverage Improvements (Extended)', () => {
     it('should retry in ensureBundleReady and eventually succeed', async () => {
       const sendResponse = jest.fn();
@@ -448,7 +479,7 @@ describe('highlightHandlers', () => {
           } else {
             cb({ status: 'bundle_ready' });
           }
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
           cb({ success: true });
         }
       });
@@ -588,14 +619,14 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
-    it('should handle showHighlighter message failure in USER_ACTIVATE_SHORTCUT', async () => {
+    it('should handle ACTIVATE_FLOATING_RAIL_HIGHLIGHT message failure in USER_ACTIVATE_SHORTCUT', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
           globalThis.chrome.runtime.lastError = { message: 'Communication error' };
           cb(null);
           globalThis.chrome.runtime.lastError = null;
@@ -609,14 +640,14 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
-    it('應該傳遞 content script 回報的 showHighlighter 失敗結果', async () => {
+    it('應該傳遞 content script 回報的 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 失敗結果', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
           cb({ success: false, error: 'Highlighter not initialized' });
         }
       });

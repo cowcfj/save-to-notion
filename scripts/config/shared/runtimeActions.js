@@ -293,6 +293,28 @@ const SAVE_ACTIONS = {
  * @property {string} [error]
  */
 
+/**
+ * @typedef {object} ShowFloatingRailRequest
+ * @property {'SHOW_FLOATING_RAIL'} action
+ */
+
+/**
+ * @typedef {object} ShowFloatingRailResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} ActivateFloatingRailHighlightRequest
+ * @property {'ACTIVATE_FLOATING_RAIL_HIGHLIGHT'} action
+ */
+
+/**
+ * @typedef {object} ActivateFloatingRailHighlightResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
 const HIGHLIGHT_ACTIONS = {
   START_HIGHLIGHT: 'startHighlight',
   SYNC_HIGHLIGHTS: 'syncHighlights',
@@ -304,6 +326,8 @@ const HIGHLIGHT_ACTIONS = {
   SHOW_HIGHLIGHTER: 'showHighlighter',
   REMOVE_HIGHLIGHT_DOM: 'REMOVE_HIGHLIGHT_DOM',
   USER_ACTIVATE_SHORTCUT: 'USER_ACTIVATE_SHORTCUT',
+  SHOW_FLOATING_RAIL: 'SHOW_FLOATING_RAIL',
+  ACTIVATE_FLOATING_RAIL_HIGHLIGHT: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT',
 };
 
 /**
@@ -609,13 +633,24 @@ const DRIVE_SYNC_ACTIONS = {
  */
 
 /**
+ * @typedef {object} ContentBridgeShowFloatingRailRequest
+ * @property {'CONTENT_BRIDGE_SHOW_FLOATING_RAIL'} action
+ */
+
+/**
+ * @typedef {object} ContentBridgeShowFloatingRailResponse
+ * @property {boolean} success
+ * @property {string} [error]
+ */
+
+/**
  * @typedef {object} PingRequest
  * @property {'PING'} action
  */
 
 /**
  * @typedef {object} PingResponse
- * @property {'preloader_only'|'bundle_ready'|'initializing'} [status]
+ * @property {'preloader_only'|'bundle_ready'} [status]
  * @property {boolean} [hasCache]
  * @property {boolean} [hasPreloaderCache]
  * @property {object|null} [nextRouteInfo]
@@ -651,6 +686,7 @@ const BRIDGE_ACTIONS = {
   PING: 'PING',
   INIT_BUNDLE: 'INIT_BUNDLE',
   REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
+  CONTENT_BRIDGE_SHOW_FLOATING_RAIL: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
 };
 
 const DIAGNOSTICS_ACTIONS = {
@@ -680,6 +716,8 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {ShowHighlighterRequest['action']} SHOW_HIGHLIGHTER - Request: {@link ShowHighlighterRequest}; Response: {@link ShowHighlighterResponse}
  * @property {RemoveHighlightDomRequest['action']} REMOVE_HIGHLIGHT_DOM - Request: {@link RemoveHighlightDomRequest}; Response: {@link RemoveHighlightDomResponse}
  * @property {UserActivateShortcutRequest['action']} USER_ACTIVATE_SHORTCUT - Request: {@link UserActivateShortcutRequest}; Response: {@link UserActivateShortcutResponse}
+ * @property {ShowFloatingRailRequest['action']} SHOW_FLOATING_RAIL - Request: {@link ShowFloatingRailRequest}; Response: {@link ShowFloatingRailResponse}
+ * @property {ActivateFloatingRailHighlightRequest['action']} ACTIVATE_FLOATING_RAIL_HIGHLIGHT - Request: {@link ActivateFloatingRailHighlightRequest}; Response: {@link ActivateFloatingRailHighlightResponse}
  * @property {MigrationExecuteRequest['action']} MIGRATION_EXECUTE - Request: {@link MigrationExecuteRequest}; Response: {@link MigrationExecuteResponse}
  * @property {MigrationDeleteRequest['action']} MIGRATION_DELETE - Request: {@link MigrationDeleteRequest}; Response: {@link MigrationDeleteResponse}
  * @property {MigrationBatchRequest['action']} MIGRATION_BATCH - Request: {@link MigrationBatchRequest}; Response: {@link MigrationBatchResponse}
@@ -703,6 +741,7 @@ const DIAGNOSTICS_ACTIONS = {
  * @property {PingRequest['action']} PING - Request: {@link PingRequest}; Response: {@link PingResponse}
  * @property {InitBundleRequest['action']} INIT_BUNDLE - Request: {@link InitBundleRequest}; Response: {@link InitBundleResponse}
  * @property {ReplayBufferedEventsRequest['action']} REPLAY_BUFFERED_EVENTS - Request: {@link ReplayBufferedEventsRequest}; Response: {@link ReplayBufferedEventsResponse}
+ * @property {ContentBridgeShowFloatingRailRequest['action']} CONTENT_BRIDGE_SHOW_FLOATING_RAIL - Request: {@link ContentBridgeShowFloatingRailRequest}; Response: {@link ContentBridgeShowFloatingRailResponse}
  */
 
 /** @type {Readonly<RuntimeActionsRegistry>} */

@@ -30,6 +30,93 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   let persistentMessageHandler = null;
   let persistentStorageHandler = null;
 
+  function resolveStyleMode(settings) {
+    if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
+      return settings.highlightStyle;
+    }
+    if (settings?.highlightStyle) {
+      Logger.warn('[Highlighter] highlightStyle 設定值無效', {
+        value: settings.highlightStyle,
+        action: 'initializeExtension',
+      });
+    }
+    return 'background';
+  }
+
+  let railReadyResolve;
+  let isRailReadySettled = false;
+  const railReadyPromise = new Promise(resolve => {
+    railReadyResolve = resolve;
+  });
+  globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
+
+  function settleRailReady(result) {
+    if (isRailReadySettled) {
+      return;
+    }
+    isRailReadySettled = true;
+    if (!result?.success) {
+      globalThis.__NOTION_RAIL_READY__ = undefined;
+    }
+    railReadyResolve(result);
+  }
+
+  function failRailReady(error, fallbackMessage) {
+    settleRailReady({
+      success: false,
+      error: error?.message || fallbackMessage,
+    });
+  }
+
+  async function initializeFloatingRail(manager, autoShowRail) {
+    try {
+      const { FloatingRail } = await import('./ui/FloatingRail.js');
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      globalThis.HighlighterV2.rail = rail;
+      if (!autoShowRail) {
+        rail.hide();
+      }
+      settleRailReady({ success: true, rail });
+    } catch (railError) {
+      Logger.warn('[Highlighter] Floating Rail 初始化失敗', {
+        action: 'initializeExtension',
+        error: railError?.message,
+      });
+      failRailReady(railError, '浮動側欄初始化失敗');
+    }
+  }
+
+  function fallbackInitialize(cause) {
+    try {
+      shouldSkipLateRestore = true;
+      setupHighlighter({ skipRestore: true, skipToolbar: true });
+      if (globalThis.HighlighterV2) {
+        globalThis.HighlighterV2.skipRestore = true;
+      }
+      registerPersistentListeners();
+      failRailReady(cause, '浮動側欄初始化失敗');
+    } catch (fallbackError) {
+      unregisterPersistentListeners();
+      Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
+      failRailReady(fallbackError, '浮動側欄回退初始化失敗');
+    }
+  }
+
+  function handleShowToolbarMessage(sendResponse) {
+    if (globalThis.HighlighterV2?.rail) {
+      try {
+        globalThis.HighlighterV2.rail.show();
+        sendResponse({ success: true });
+      } catch (error) {
+        Logger.error('顯示 Rail 失敗', { action: 'showToolbar', error });
+        sendResponse({ success: false, error: error.message });
+      }
+    } else {
+      sendResponse({ success: false, error: '浮動側欄尚未初始化' });
+    }
+  }
+
   const registerPersistentListeners = () => {
     if (!persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.addListener) {
       persistentMessageHandler = (request, _sender, sendResponse) => {
@@ -73,17 +160,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         }
 
         if (request.action === HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR) {
-          if (globalThis.notionHighlighter?.createAndShowToolbar) {
-            try {
-              globalThis.notionHighlighter.createAndShowToolbar();
-              sendResponse({ success: true });
-            } catch (error) {
-              Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
-              sendResponse({ success: false, error: error.message });
-            }
-          } else {
-            sendResponse({ success: false, error: 'notionHighlighter 尚未初始化' });
-          }
+          handleShowToolbarMessage(sendResponse);
           return true;
         }
 
@@ -171,129 +248,112 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     });
   };
 
-  // 🔑 異步初始化：先等待穩定 URL，再決定是否恢復標註和創建 Toolbar
-  const initializeExtension = async () => {
+  async function fetchPageStatus() {
+    if (!globalThis.chrome?.runtime?.sendMessage) {
+      return null;
+    }
     try {
-      let skipRestore = false;
-      let skipToolbar = true; // 默認不創建 Toolbar（頁面未保存或已刪除）
-      let styleMode = 'background';
+      return await globalThis.chrome.runtime.sendMessage({
+        action: PAGE_SAVE_ACTIONS.CHECK_PAGE_STATUS,
+      });
+    } catch (error) {
+      Logger.warn('[Highlighter] checkPageStatus 失敗', {
+        error: error?.message,
+        action: 'checkPageStatus',
+      });
+      return null;
+    }
+  }
 
-      const stableUrlState = {
-        resolved: false,
-        value: null,
-      };
-      waitForStableUrl()
-        .then(stableUrl => {
-          stableUrlState.resolved = true;
-          stableUrlState.value = stableUrl;
-          return stableUrl;
-        })
-        .catch(error => {
-          Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
-            action: 'waitForStableUrl',
-            error,
-            errorMessage: error?.message ?? String(error),
-          });
+  async function fetchSettings() {
+    if (!globalThis.chrome?.storage?.sync) {
+      return {};
+    }
+    try {
+      return (
+        (await globalThis.chrome.storage.sync.get(['highlightStyle', 'floatingRailEnabled'])) || {}
+      );
+    } catch (error) {
+      Logger.warn('[Highlighter] 載入設定失敗', {
+        error: error?.message,
+        action: 'initializeExtension',
+      });
+      return {};
+    }
+  }
+
+  // 🔑 異步初始化：runtime stable URL 與 pageStatus/settings 並行收集。
+  // 若 pageStatus 已提供 stableUrl，不等待 waitForStableUrl timeout。
+  /* eslint-disable unicorn/prefer-top-level-await -- content bundle outputs UMD; top-level await breaks Rollup */
+  void (async () => {
+    try {
+      const runtimeStableUrlPromise = waitForStableUrl().catch(error => {
+        Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
+          action: 'waitForStableUrl',
+          error,
+          errorMessage: error?.message ?? String(error),
         });
+        return null;
+      });
 
-      // 並行加載：頁面狀態、樣式配置；穩定 URL 另外等待，不阻塞初始化
-      const [pageStatus, settings] = await Promise.all([
-        // 1. 檢查頁面狀態（注意：Content Script 調用可能被 validateInternalRequest 拒絕）
-        (async () => {
-          if (!globalThis.chrome?.runtime?.sendMessage) {
-            return null;
-          }
-          try {
-            return await globalThis.chrome.runtime.sendMessage({
-              action: PAGE_SAVE_ACTIONS.CHECK_PAGE_STATUS,
-            });
-          } catch (error) {
-            Logger.warn('[Highlighter] checkPageStatus 失敗', {
-              error: error?.message,
-              action: 'checkPageStatus',
-            });
-            return null;
-          }
-        })(),
-        // 2. 加載標註樣式配置
-        (async () => {
-          if (!globalThis.chrome?.storage?.sync) {
-            return {};
-          }
-          try {
-            return (await globalThis.chrome.storage.sync.get(['highlightStyle'])) || {};
-          } catch (error) {
-            Logger.warn('[Highlighter] 載入設定失敗', {
-              error: error?.message,
-              action: 'initializeExtension',
-            });
-            return {};
-          }
-        })(),
+      const [pageStatus, settings] = await Promise.all([fetchPageStatus(), fetchSettings()]);
+      const pendingRuntimeStableUrl = Symbol('pending_runtime_stable_url');
+      const runtimeStableUrlResult = await Promise.race([
+        runtimeStableUrlPromise,
+        Promise.resolve(pendingRuntimeStableUrl),
       ]);
-
+      const runtimeStableUrl =
+        runtimeStableUrlResult === pendingRuntimeStableUrl ? null : runtimeStableUrlResult;
       // 設置穩定 URL 優先權（Phase 3 regression fix）：
       // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
       // 代表最新且最權威的 canonical source。
       // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
-      // 因此：已收到 SET_STABLE_URL 時，優先使用它；否則才回退到 pageStatus.stableUrl。
-      const resolvedStableUrl = stableUrlState.value || pageStatus?.stableUrl || null;
+      const resolvedStableUrl =
+        globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl || pageStatus?.stableUrl || null;
+      const stableUrlSource =
+        globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl ? 'SET_STABLE_URL' : 'checkPageStatus';
       if (resolvedStableUrl) {
         globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
         Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
           action: 'initializeExtension',
           stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-          source: stableUrlState.value ? 'SET_STABLE_URL' : 'checkPageStatus',
+          source: stableUrlSource,
         });
       }
 
-      // 處理樣式配置，驗證值是否在允許的集合中
-      if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
-        styleMode = settings.highlightStyle;
-      } else if (settings?.highlightStyle) {
-        Logger.warn('[Highlighter] highlightStyle 設定值無效', {
-          value: settings.highlightStyle,
-          action: 'initializeExtension',
-        });
-      }
+      const styleMode = resolveStyleMode(settings);
+      const skipRestore = pageStatus?.wasDeleted === true;
 
-      // 處理頁面狀態（pageStatus 可能在 Content Script 中被拒絕，此時為 null 或 error）
-      if (pageStatus?.wasDeleted) {
-        skipRestore = true;
+      if (skipRestore) {
         Logger.info('[Highlighter] 頁面已刪除，略過工具列與標註恢復', {
           action: 'initializeExtension',
         });
-      } else if (pageStatus?.isSaved) {
-        skipToolbar = false;
       }
 
-      // 初始化 Highlighter
+      const autoShowRail = settings?.floatingRailEnabled !== false;
+
+      // 初始化 Highlighter（Phase 1: 始終 skipToolbar）
       shouldSkipLateRestore = skipRestore;
-      setupHighlighter({ skipRestore, skipToolbar, styleMode });
+      setupHighlighter({ skipRestore, skipToolbar: true, styleMode });
       if (globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = skipRestore;
-        globalThis.HighlighterV2.wasDeleted = pageStatus?.wasDeleted === true;
+        globalThis.HighlighterV2.wasDeleted = skipRestore;
       }
+
+      if (skipRestore) {
+        settleRailReady({ success: false, error: '浮動側欄初始化已略過' });
+      } else if (globalThis.HighlighterV2?.manager) {
+        await initializeFloatingRail(globalThis.HighlighterV2.manager, autoShowRail);
+      } else {
+        settleRailReady({ success: false, error: '浮動側欄初始化缺少 manager' });
+      }
+
       registerPersistentListeners();
     } catch (error) {
       unregisterPersistentListeners();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
-      try {
-        shouldSkipLateRestore = true;
-        setupHighlighter({ skipRestore: true, skipToolbar: true });
-        if (globalThis.HighlighterV2) {
-          globalThis.HighlighterV2.skipRestore = true;
-        }
-        registerPersistentListeners();
-      } catch (fallbackError) {
-        unregisterPersistentListeners();
-        Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
-      }
+      fallbackInitialize(error);
     }
-  };
-
-  // eslint-disable-next-line unicorn/prefer-top-level-await
-  (async () => {
-    await initializeExtension();
   })();
+  /* eslint-enable unicorn/prefer-top-level-await */
 }

@@ -68,6 +68,7 @@ export class AuthManager {
     this.elements.addTimestampCheckbox = document.querySelector('#add-timestamp');
     this.elements.highlightStyleSelect = document.querySelector('#highlight-style');
     this.elements.debugToggle = document.querySelector('#enable-debug-logs');
+    this.elements.floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
 
     // 綁定事件
     this.setupEventListeners();
@@ -372,6 +373,9 @@ export class AuthManager {
     }
     if (this.elements.highlightStyleSelect) {
       this.elements.highlightStyleSelect.value = syncData.highlightStyle || 'background';
+    }
+    if (this.elements.floatingRailCheckbox) {
+      this.elements.floatingRailCheckbox.checked = syncData.floatingRailEnabled !== false;
     }
     if (this.elements.debugToggle) {
       this.elements.debugToggle.checked = Boolean(syncData.enableDebugLogs);

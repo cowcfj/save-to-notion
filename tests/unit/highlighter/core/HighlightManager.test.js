@@ -228,6 +228,123 @@ describe('core/HighlightManager', () => {
     });
   });
 
+  describe('rail highlight interaction', () => {
+    test('[REGRESSION] startHighlighting 應從目前 selection 建立標註並清除選取', () => {
+      jest.useFakeTimers();
+      try {
+        const div = document.createElement('div');
+        div.textContent = 'Hello World';
+        document.body.append(div);
+
+        const range = document.createRange();
+        range.setStart(div.firstChild, 0);
+        range.setEnd(div.firstChild, 5);
+
+        const removeAllRanges = jest.fn();
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue({
+          isCollapsed: false,
+          toString: () => 'Hello',
+          getRangeAt: () => range,
+          removeAllRanges,
+        });
+
+        manager.startHighlighting('green');
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        jest.advanceTimersByTime(20);
+
+        expect(manager.currentColor).toBe('green');
+        expect(manager.highlights.size).toBe(1);
+        expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('green');
+        expect(mockStorage.save).toHaveBeenCalled();
+        expect(removeAllRanges).toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('[REGRESSION] startHighlighting 應使用 mouseup 當下的 range snapshot', () => {
+      jest.useFakeTimers();
+      try {
+        const div = document.createElement('div');
+        div.textContent = 'Hello World';
+        document.body.append(div);
+
+        const range = document.createRange();
+        range.setStart(div.firstChild, 0);
+        range.setEnd(div.firstChild, 5);
+
+        const removeAllRanges = jest.fn();
+        const activeSelection = {
+          isCollapsed: false,
+          toString: () => 'Hello',
+          getRangeAt: () => range,
+          removeAllRanges,
+        };
+        const collapsedSelection = {
+          isCollapsed: true,
+          toString: () => '',
+          getRangeAt: jest.fn(() => {
+            throw new Error('Selection was cleared');
+          }),
+          removeAllRanges: jest.fn(),
+        };
+        let currentSelection = activeSelection;
+        jest.spyOn(globalThis, 'getSelection').mockImplementation(() => currentSelection);
+
+        manager.startHighlighting('green');
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+        currentSelection = collapsedSelection;
+        jest.advanceTimersByTime(20);
+
+        expect(manager.highlights.size).toBe(1);
+        const highlight = [...manager.highlights.values()][0];
+        expect(highlight.text).toBe('Hello');
+        expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('green');
+        expect(mockStorage.save).toHaveBeenCalled();
+        expect(removeAllRanges).toHaveBeenCalled();
+        expect(collapsedSelection.getRangeAt).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('[REGRESSION] stopHighlighting 後不再處理 selection mouseup', () => {
+      jest.useFakeTimers();
+      try {
+        const div = document.createElement('div');
+        div.textContent = 'Hello World';
+        document.body.append(div);
+
+        const range = document.createRange();
+        range.setStart(div.firstChild, 0);
+        range.setEnd(div.firstChild, 5);
+
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue({
+          isCollapsed: false,
+          toString: () => 'Hello',
+          getRangeAt: () => range,
+          removeAllRanges: jest.fn(),
+        });
+
+        manager.startHighlighting('yellow');
+        manager.stopHighlighting();
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        jest.advanceTimersByTime(20);
+
+        expect(manager.highlights.size).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('setHighlightColor 應更新目前標註顏色', () => {
+      manager.setHighlightColor('blue');
+
+      expect(manager.currentColor).toBe('blue');
+    });
+  });
+
   describe('removeHighlight', () => {
     test('should remove existing highlight', () => {
       const div = document.createElement('div');
@@ -379,16 +496,16 @@ describe('core/HighlightManager', () => {
 
       const textNode = div.firstChild;
 
-      const range1 = document.createRange();
-      range1.setStart(textNode, 2);
-      range1.setEnd(textNode, 9);
+      const firstRange = document.createRange();
+      firstRange.setStart(textNode, 2);
+      firstRange.setEnd(textNode, 9);
 
-      const range2 = document.createRange();
-      range2.setStart(textNode, 6);
-      range2.setEnd(textNode, 12);
+      const secondRange = document.createRange();
+      secondRange.setStart(textNode, 6);
+      secondRange.setEnd(textNode, 12);
 
-      const forward = HighlightManager.rangesOverlap(range1, range2);
-      const reverse = HighlightManager.rangesOverlap(range2, range1);
+      const forward = HighlightManager.rangesOverlap(firstRange, secondRange);
+      const reverse = HighlightManager.rangesOverlap(secondRange, firstRange);
 
       expect(forward).toBe(true);
       expect(reverse).toBe(true);

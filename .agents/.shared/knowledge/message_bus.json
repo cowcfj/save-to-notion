@@ -137,8 +137,26 @@
         }
       },
       "showToolbar": {
-        "description": "要求已初始化的 Highlighter 顯示 Toolbar",
+        "description": "（Phase 1 legacy alias）要求已初始化的 Highlighter 顯示 UI；優先 redirect 到 Floating Rail",
         "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "SHOW_FLOATING_RAIL": {
+        "description": "Preloader/content script 上送 Background 的自動 Floating Rail 顯示請求；Background 注入 bundle 後 MUST 以 CONTENT_BRIDGE_SHOW_FLOATING_RAIL 轉發到 tab，避免 action namespace 混用",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
+        }
+      },
+      "ACTIVATE_FLOATING_RAIL_HIGHLIGHT": {
+        "description": "建立或顯示 Floating Rail 並進入標註模式",
+        "payload": {
+          "sessionOverride": "boolean (optional, true 表示 popup user action 喚出的 tab-session rail)"
+        },
         "response": {
           "success": "boolean",
           "error": "string (optional)"
@@ -417,6 +435,14 @@
         "payload": {},
         "response": {
           "events": "array"
+        }
+      },
+      "CONTENT_BRIDGE_SHOW_FLOATING_RAIL": {
+        "description": "Background 或 Popup 對 content bundle 的明確 bridge action，用於要求 page-side UI 顯示 Floating Rail；MUST NOT 由 content script 端回送 Background",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "error": "string (optional)"
         }
       }
     },

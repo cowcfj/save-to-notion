@@ -1120,7 +1120,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
-        } else if (msg.action === 'showHighlighter') {
+        } else if (msg.action === 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT') {
           chrome.runtime.lastError = { message: 'Internal error' };
           cb(); // 當有 lastError 時，callback 不應傳遞參數
         }

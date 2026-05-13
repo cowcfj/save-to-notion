@@ -46,7 +46,9 @@ describe('popup.html accessibility fallbacks', () => {
     expect(css).toMatch(
       /\.annotation-actions\s*>\s*button\s*\{[^}]*margin-bottom:\s*var\(--spacing-sm\);/
     );
-    expect(css).toMatch(/#manage-button\.secondary-action\s*\{[^}]*background-color:\s*#f8fafc;/);
+    expect(css).toMatch(
+      /#manage-button\.secondary-action\s*\{[^}]*background-color:\s*var\(--color-action-manage\);/
+    );
   });
 
   it('設定入口應移到 titlebar 左側並保留可見文字', () => {
