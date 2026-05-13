@@ -113,8 +113,6 @@ export class FloatingRail {
 
     if (this.stateManager.isDismissed) {
       this.hide();
-      this._initialized = true;
-      return;
     }
 
     applyRailState(this.container, this.stateManager.currentState);

@@ -292,6 +292,24 @@ describe('FloatingRail', () => {
       expect(rail._eventsBound).toBe(false);
       expect(manager.handleDocumentClick).not.toHaveBeenCalled();
     });
+
+    test('[REGRESSION] dismissed 狀態初始化後，undismiss 仍應保有事件綁定', async () => {
+      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      expect(rail.host.style.display).toBe('none');
+
+      rail.undismiss();
+      expect(rail.host.style.display).toBe('block');
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+
+      const trigger = rail.container.querySelector('.rail-trigger');
+      trigger.click();
+
+      expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
+    });
   });
 
   describe('show / hide', () => {
