@@ -77,7 +77,7 @@ export async function playFireworkAnimation(button) {
     return;
   }
 
-  const container = button.parentElement || button;
+  const container = button;
   const promises = [];
 
   const ring = document.createElement('span');

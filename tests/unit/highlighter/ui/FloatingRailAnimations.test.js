@@ -94,7 +94,7 @@ describe('FloatingRailAnimations', () => {
     });
 
     test('應建立粒子元素並在動畫後清除', async () => {
-      const appendSpy = jest.spyOn(container, 'append');
+      const appendSpy = jest.spyOn(button, 'append');
       const resultPromise = playFireworkAnimation(button);
       await jest.advanceTimersByTimeAsync(1000);
       await resultPromise;
@@ -102,7 +102,7 @@ describe('FloatingRailAnimations', () => {
         ([el]) => el instanceof HTMLElement && el.classList.contains('rail-particle')
       );
       expect(particleAppends.length).toBeGreaterThan(0);
-      const particlesAfter = container.querySelectorAll('.rail-particle');
+      const particlesAfter = button.querySelectorAll('.rail-particle');
       expect(particlesAfter).toHaveLength(0);
       appendSpy.mockRestore();
     });
@@ -112,9 +112,9 @@ describe('FloatingRailAnimations', () => {
       const resultPromise = playFireworkAnimation(button);
       await jest.advanceTimersByTimeAsync(1000);
       await resultPromise;
-      const particles = container.querySelectorAll('.rail-particle');
+      const particles = button.querySelectorAll('.rail-particle');
       expect(particles).toHaveLength(0);
-      const rings = container.querySelectorAll('.rail-ring');
+      const rings = button.querySelectorAll('.rail-ring');
       expect(rings).toHaveLength(0);
       delete globalThis.matchMedia;
     });
