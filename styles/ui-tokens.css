@@ -3,6 +3,23 @@
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
 
+  /* === Color: Brand & Action === */
+  --color-brand: #f47565;
+  --color-brand-hover: #e66651;
+  --color-action-save: #0a84ff;
+  --color-action-save-hover: #0070e5;
+  --color-action-manage: #8b5cf6;
+  --color-action-manage-hover: #7c3aed;
+  --color-icon-on-accent: #ffffff;
+
+  /* === Theme surfaces (light/dark) === */
+  --theme-surface-light: rgba(244, 244, 247, 0.82);
+  --theme-border-light: rgba(0, 0, 0, 0.06);
+  --theme-icon-muted-light: rgba(31, 33, 38, 0.78);
+  --theme-surface-dark: rgba(22, 24, 30, 0.78);
+  --theme-border-dark: rgba(255, 255, 255, 0.1);
+  --theme-icon-muted-dark: rgba(240, 243, 247, 0.88);
+
   /* === Color: Danger === */
   --color-danger: #ef4444;
   --color-danger-hover: #dc2626;
@@ -47,6 +64,7 @@
   /* === Focus Ring === */
   --focus-ring-primary: rgba(37, 99, 235, 0.2);
   --focus-ring-danger: rgba(239, 68, 68, 0.2);
+  --focus-ring-action-save: color-mix(in srgb, var(--color-action-save) 20%, transparent);
 
   /* === Misc === */
   --icon-baseline-offset: 2px;

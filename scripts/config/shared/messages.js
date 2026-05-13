@@ -108,9 +108,35 @@ const OPTIONS = {
     ZOOM_MEDIUM_OPTION: '中 (100%) - 預設',
     ZOOM_LARGE_OPTION: '大 (110%)',
     ZOOM_HELP: '調整擴充功能設定頁面的顯示比例。',
+    FLOATING_RAIL_LABEL: '顯示快捷工具列',
+    FLOATING_RAIL_HELP: '關閉後不會自動顯示右側小按鈕，但仍可透過彈出視窗開始標註。',
   },
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
+  },
+  TEMPLATES: {
+    SECTION_TITLE: '外觀樣式',
+    SECTION_DESC: '自定義頁面外觀與標註樣式',
+    PAGE_PROPERTIES_TITLE: '頁面屬性',
+    TITLE_TEMPLATE_LABEL: '標題格式',
+    TITLE_TEMPLATE_PLACEHOLDER: '{title} - {date}',
+    TITLE_TEMPLATE_HELP: '可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}',
+    PREVIEW_BUTTON: '預覽效果',
+    ADD_SOURCE_LABEL: '在內容末尾添加來源連結',
+    ADD_TIMESTAMP_LABEL: '在內容開頭添加保存時間',
+    APPEARANCE_TITLE: '外觀設定',
+    HIGHLIGHT_STYLE_LABEL: '標註樣式',
+    HIGHLIGHT_STYLE_BACKGROUND: '背景顏色',
+    HIGHLIGHT_STYLE_TEXT: '文字顏色',
+    HIGHLIGHT_STYLE_UNDERLINE: '底線',
+    HIGHLIGHT_STYLE_HELP: '選擇標註在網頁上的顯示方式。',
+    HIGHLIGHT_CONTENT_STYLE_LABEL: 'Notion 同步樣式',
+    HIGHLIGHT_CONTENT_STYLE_COLOR_SYNC: '對應顏色背景（預設）',
+    HIGHLIGHT_CONTENT_STYLE_COLOR_TEXT: '對應顏色文字',
+    HIGHLIGHT_CONTENT_STYLE_BOLD: '粗體',
+    HIGHLIGHT_CONTENT_STYLE_NONE: '關閉',
+    HIGHLIGHT_CONTENT_STYLE_HELP: '選擇標註文字在 Notion 頁面原文中的標示方式（首次保存時生效）。',
+    SAVE_BUTTON: '儲存外觀樣式',
   },
 };
 
@@ -197,6 +223,7 @@ const SIDEPANEL = {
   ALL_SYNCED: '已全部同步',
   NO_HIGHLIGHTS: '此網頁尚無標註',
   NO_HIGHLIGHTS_SUBTITLE: '選取文字即可開始標註',
+  PAGE_NOT_SAVED: '此頁尚未保存至 Notion',
   REMAINING_COUNT: count => `還有 ${count} 筆`,
   PAGE_COUNT: count => `${count} 個頁面`,
   HIGHLIGHT_COUNT: count => `${count} 個標註`,
@@ -220,6 +247,17 @@ const TOOLBAR = {
   },
   COLOR_PICKER_TITLE: colorName => `${colorName}色標註`,
   COLOR_PICKER_ARIA_LABEL: colorName => `選擇${colorName}色標註`,
+};
+
+const FLOATING_RAIL = {
+  CONTAINER_LABEL: 'Save to Notion 工具列',
+  TRIGGER_LABEL: '展開工具列，長按可拖曳',
+  SAVE_LABEL: '保存網頁',
+  SYNC_LABEL: '同步標註',
+  HIGHLIGHT_LABEL: '開始標註',
+  STOP_HIGHLIGHT_LABEL: '停止標註',
+  COLOR_PALETTE_LABEL: '標註顏色',
+  MANAGE_LABEL: '管理標註',
 };
 
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
@@ -329,6 +367,7 @@ export const UI_MESSAGES = deepFreeze({
   SIDEPANEL,
   HIGHLIGHTS,
   TOOLBAR,
+  FLOATING_RAIL,
   STORAGE,
   CLOUD_SYNC,
 });

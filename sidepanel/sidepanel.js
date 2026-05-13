@@ -40,6 +40,7 @@ let statusMessageTimeoutId;
 // 快取：避免每次 storage 變化都重新解析 URL
 let cachedStableUrl = null;
 let cachedTabUrl = null;
+let currentPageHasSavedData = false;
 let currentActiveView = 'current';
 let currentViewRequestId = 0;
 let unsyncedViewRequestId = 0;
@@ -135,6 +136,11 @@ function beginUnsyncedViewRequest() {
  */
 function isCurrentViewRequestActive(requestId) {
   return currentActiveView === 'current' && currentViewRequestId === requestId;
+}
+
+function applySyncButtonSavedState(hasSavedData) {
+  els.syncButton.disabled = !hasSavedData;
+  els.syncButton.title = hasSavedData ? '' : UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
 }
 
 /**
@@ -788,9 +794,12 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
     ? targetKey.slice(PAGE_PREFIX.length)
     : (targetKey?.replace(HIGHLIGHTS_PREFIX, '') ?? '');
 
-  els.syncButton.disabled = false;
   els.syncButton.dataset.targetUrl = targetUrl;
   els.openNotionButton.dataset.targetUrl = originalTabUrl;
+
+  // 根據保存狀態設定同步按鈕
+  currentPageHasSavedData = hasSavedData;
+  applySyncButtonSavedState(hasSavedData);
 
   if (highlights.length === 0) {
     if (isCurrentViewRequestActive(requestId)) {
@@ -801,7 +810,6 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
   }
 
   UI.renderList(els, highlights, targetKey, handleDelete);
-  // Sync 按鈕始終可用（savePage 可自動建立新頁面）
   els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
 }
 
@@ -1026,16 +1034,14 @@ async function handleSyncClick() {
         error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page'),
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+      applySyncButtonSavedState(currentPageHasSavedData);
     }
   } catch (error) {
     Logger.error('[SidePanel] savePage failed', {
       error: sanitizeApiError(error, 'save_page'),
     });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
-  } finally {
-    setTimeout(() => {
-      els.syncButton.disabled = false;
-    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
+    applySyncButtonSavedState(currentPageHasSavedData);
   }
 }
 

@@ -230,6 +230,55 @@ describe('options.js', () => {
       expect(helpLink.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT);
       expect(helpLink.getAttribute('href')).toBe('https://example.test');
     });
+
+    it('options.html 內所有 data-ui-* 綁定 key 皆能解析為非空字串', () => {
+      // 合約測試：取代 Sonar Web:S6850/S6853 在 runtime-bound 模式下失去的訊號。
+      // 確保任何新增 data-ui-* 屬性的 HTML 元素，其 key 都對應到 UI_MESSAGES 內非空文案。
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const html = fs.readFileSync(path.join(__dirname, '../../../options/options.html'), 'utf8');
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      expect(bodyMatch).not.toBeNull();
+      document.body.innerHTML = bodyMatch[1];
+
+      applyStaticOptionMessages();
+
+      const bindings = [
+        { selector: '[data-ui-message]', attr: 'data-ui-message', check: el => el.textContent },
+        {
+          selector: '[data-ui-placeholder]',
+          attr: 'data-ui-placeholder',
+          check: el => el.getAttribute('placeholder'),
+        },
+        {
+          selector: '[data-ui-title]',
+          attr: 'data-ui-title',
+          check: el => el.getAttribute('title'),
+        },
+        {
+          selector: '[data-ui-aria-label]',
+          attr: 'data-ui-aria-label',
+          check: el => el.getAttribute('aria-label'),
+        },
+      ];
+
+      let totalBindings = 0;
+      bindings.forEach(({ selector, attr, check }) => {
+        document.querySelectorAll(selector).forEach(el => {
+          totalBindings += 1;
+          const key = el.getAttribute(attr);
+          const resolved = check(el);
+          expect(typeof resolved).toBe('string');
+          expect(resolved.length).toBeGreaterThan(0);
+          // key 拼錯時 resolveUiMessage 會回空字串，上面 length>0 即可捕捉。
+          // 附加路徑斷言便於失敗時定位是哪個 key。
+          expect({ key, resolved }).toEqual({ key, resolved: expect.any(String) });
+        });
+      });
+
+      // 防呆：若有人意外把 binding 全部刪掉，這個下限會立刻失敗。
+      expect(totalBindings).toBeGreaterThan(20);
+    });
   });
 
   describe('saveSettings', () => {

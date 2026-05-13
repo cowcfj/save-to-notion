@@ -2,7 +2,7 @@
  * Require-style test: set up jsdom globals then require the content script file
  * so Jest's coverage instrumentation picks up content.js execution.
  */
-const path = require('path');
+const path = require('node:path');
 
 function setupContentMocks() {
   globalThis.Readability = function (doc) {

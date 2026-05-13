@@ -19,6 +19,7 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/shared/core.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
+import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridgeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { getActiveTab } from './handlerUtils.js';
@@ -209,6 +210,85 @@ export function createHighlightHandlers(services) {
 
   return {
     /**
+     * 顯示 Floating Rail（來自 Preloader 的自動顯示請求）。
+     *
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
+     */
+    [RUNTIME_ACTIONS.SHOW_FLOATING_RAIL]: async (request, sender, sendResponse) => {
+      try {
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'SHOW_FLOATING_RAIL',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
+        if (!sender.tab?.id) {
+          Logger.warn('缺少標籤頁上下文', { action: 'SHOW_FLOATING_RAIL' });
+          sendResponse({ success: false, error: '缺少標籤頁上下文' });
+          return;
+        }
+
+        const tabId = sender.tab.id;
+        const tabUrl = sender.tab.url;
+        if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
+          });
+          return;
+        }
+
+        const injected = await injectionService.ensureBundleInjected(tabId);
+        if (!injected) {
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+          return;
+        }
+
+        const bundleReady = await ensureBundleReady(tabId);
+        if (!bundleReady) {
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+          return;
+        }
+
+        const response = await new Promise((resolve, reject) => {
+          chrome.tabs.sendMessage(
+            tabId,
+            { action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL },
+            result => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
+            }
+          );
+        });
+
+        const normalizedResponse =
+          response && typeof response === 'object'
+            ? response
+            : { success: false, error: 'no payload from content' };
+        sendResponse(normalizedResponse.success ? { success: true } : normalizedResponse);
+      } catch (error) {
+        Logger.warn('顯示 Floating Rail 失敗', {
+          action: 'SHOW_FLOATING_RAIL',
+          error: error?.message ?? String(error),
+        });
+        const safeMessage = sanitizeApiError(error, 'show_floating_rail');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+      }
+    },
+
+    /**
      * 處理用戶快捷鍵激活（來自 Preloader）
      *
      * @param {object} request
@@ -234,7 +314,7 @@ export function createHighlightHandlers(services) {
 
         if (!sender.tab?.id) {
           Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
-          sendResponse({ success: false, error: 'No tab context' });
+          sendResponse({ success: false, error: '缺少標籤頁上下文' });
           return;
         }
 
@@ -286,35 +366,39 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 發送訊息顯示 highlighter
+        // 發送訊息啟動 Floating Rail 標註模式
         try {
           const response = await new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER }, result => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve(result);
+            chrome.tabs.sendMessage(
+              tabId,
+              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
+              result => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(result);
+                }
               }
-            });
+            );
           });
           if (response?.success === true) {
-            Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
+            Logger.success('成功啟動浮動側欄標註', { action: 'USER_ACTIVATE_SHORTCUT' });
             sendResponse({ success: true, response });
             return;
           }
 
-          Logger.warn('顯示高亮工具失敗', {
+          Logger.warn('啟動浮動側欄標註失敗', {
             action: 'USER_ACTIVATE_SHORTCUT',
             responseSuccess: response?.success,
             responseError: response?.error,
           });
           sendResponse({ success: false, response });
         } catch (error) {
-          Logger.warn('顯示高亮工具失敗', {
+          Logger.warn('啟動浮動側欄標註失敗', {
             action: 'USER_ACTIVATE_SHORTCUT',
             error: error.message,
           });
-          const safeMessage = sanitizeApiError(error, 'show_highlighter');
+          const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
           sendResponse({
             success: false,
             error: ErrorHandler.formatUserMessage(safeMessage),
@@ -366,14 +450,12 @@ export function createHighlightHandlers(services) {
         }
 
         // 嘗試先發送訊息顯示（如果腳本已加載）
-        // 注意：使用 SHOW_HIGHLIGHTER 而非 TOGGLE_HIGHLIGHTER，
-        // 確保「開始標注」永遠是「顯示」語意，
-        // 避免 sessionStorage 殘留 'expanded' 狀態導致第一次 toggle 反向隱藏 toolbar。
+        // Phase 1: 使用 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動 rail 標註模式
         try {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               activeTab.id,
-              { action: RUNTIME_ACTIONS.SHOW_HIGHLIGHTER },
+              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題

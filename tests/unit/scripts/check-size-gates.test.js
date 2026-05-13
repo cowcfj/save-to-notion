@@ -13,11 +13,14 @@ describe('tools/check-size-gates.mjs', () => {
   let tempRoot;
 
   const writeSizedFile = (filePath, size) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(filePath, Buffer.alloc(size, 65));
   };
 
   const createZipFromDir = (sourceDir, zipPath) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.mkdirSync(path.dirname(zipPath), { recursive: true });
     execFileSync('zip', ['-rq', zipPath, '.'], { cwd: sourceDir });
   };
@@ -81,6 +84,7 @@ describe('tools/check-size-gates.mjs', () => {
       `--report-file=${reportPath}`,
     ]);
 
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     expect(report.mode).toBe('hard');
     expect(report.scope).toBe('all');
@@ -92,7 +96,7 @@ describe('tools/check-size-gates.mjs', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir } = createBundleRoot({
       rootDir,
-      contentSize: 230_401,
+      contentSize: 270_001,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -126,7 +130,7 @@ describe('tools/check-size-gates.mjs', () => {
     });
     const { unpackedDir: currentUnpackedDir } = createBundleRoot({
       rootDir: currentRoot,
-      contentSize: 10_500,
+      contentSize: 31_001,
       backgroundSize: 1000,
       migrationSize: 1000,
       unpackedSize: 1000,
@@ -150,6 +154,50 @@ describe('tools/check-size-gates.mjs', () => {
     expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/delta limit/i);
   });
 
+  test('[REGRESSION] delta mode 應允許 Floating Rail 已核准的 content bundle 增量', () => {
+    const baseRoot = path.join(tempRoot, 'base');
+    const currentRoot = path.join(tempRoot, 'current');
+    const { unpackedDir: baseUnpackedDir } = createBundleRoot({
+      rootDir: baseRoot,
+      contentSize: 229_687,
+      backgroundSize: 1000,
+      migrationSize: 1000,
+      unpackedSize: 1000,
+    });
+    const { unpackedDir: currentUnpackedDir, reportPath } = createBundleRoot({
+      rootDir: currentRoot,
+      contentSize: 255_986,
+      backgroundSize: 1000,
+      migrationSize: 1000,
+      unpackedSize: 1000,
+    });
+
+    runCli([
+      '--mode=delta',
+      '--scope=bundle',
+      `--root=${currentRoot}`,
+      `--base-root=${baseRoot}`,
+      `--unpacked-dir=${currentUnpackedDir}`,
+      `--base-unpacked-dir=${baseUnpackedDir}`,
+      `--report-file=${reportPath}`,
+    ]);
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    const contentCheck = report.checks.find(check => check.key === 'content_bundle');
+
+    expect(report.failed).toBe(false);
+    expect(contentCheck).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        current: 255_986,
+        base: 229_687,
+        delta: 26_299,
+        deltaLimit: 30_000,
+      })
+    );
+  });
+
   test('delta mode 在 base 目標缺失時應標記 skipped 而不是失敗', () => {
     const baseRoot = path.join(tempRoot, 'base');
     const currentRoot = path.join(tempRoot, 'current');
@@ -160,6 +208,7 @@ describe('tools/check-size-gates.mjs', () => {
       migrationSize: 1000,
       unpackedSize: 1000,
     });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.mkdirSync(baseRoot, { recursive: true });
 
     runCli([
@@ -171,6 +220,7 @@ describe('tools/check-size-gates.mjs', () => {
       `--report-file=${reportPath}`,
     ]);
 
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     expect(report.failed).toBe(false);
     expect(report.checks.some(check => check.status === 'skipped')).toBe(true);

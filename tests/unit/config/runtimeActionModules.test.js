@@ -12,7 +12,14 @@ describe('runtime action 模組拆分', () => {
     },
     {
       registry: CONTENT_BRIDGE_ACTIONS,
-      keys: ['PING', 'SET_STABLE_URL', 'GET_STABLE_URL', 'INIT_BUNDLE', 'REPLAY_BUFFERED_EVENTS'],
+      keys: [
+        'PING',
+        'SET_STABLE_URL',
+        'GET_STABLE_URL',
+        'INIT_BUNDLE',
+        'REPLAY_BUFFERED_EVENTS',
+        'SHOW_FLOATING_RAIL',
+      ],
     },
     {
       registry: HIGHLIGHTER_ACTIONS,
@@ -25,6 +32,8 @@ describe('runtime action 模組拆分', () => {
         'UPDATE_HIGHLIGHTS',
         'CLEAR_HIGHLIGHTS',
         'REMOVE_HIGHLIGHT_DOM',
+        'SHOW_FLOATING_RAIL',
+        'ACTIVATE_FLOATING_RAIL_HIGHLIGHT',
       ],
     },
     {
@@ -49,7 +58,11 @@ describe('runtime action 模組拆分', () => {
       );
 
       for (const key of keys) {
-        expect(actionRegistry[key]).toBe(RUNTIME_ACTIONS[key]);
+        const aggregateKey =
+          actionRegistry === CONTENT_BRIDGE_ACTIONS && key === 'SHOW_FLOATING_RAIL'
+            ? 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL'
+            : key;
+        expect(actionRegistry[key]).toBe(RUNTIME_ACTIONS[aggregateKey]);
       }
     }
   });
