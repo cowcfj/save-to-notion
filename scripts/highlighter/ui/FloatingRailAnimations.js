@@ -81,6 +81,7 @@ export async function playFireworkAnimation(button) {
   const promises = [];
 
   const ring = document.createElement('span');
+  ring.className = 'rail-ring';
   ring.style.cssText = `
     position: absolute; top: 50%; left: 50%;
     width: 34px; height: 34px; border-radius: 50%;
@@ -143,6 +144,7 @@ function emitParticles(container, count, spread, duration) {
 }
 
 const FAIL_TOOLTIP_DURATION_MS = 3000;
+const _failHideTimers = new WeakMap();
 
 /**
  * @param {HTMLElement} button
@@ -166,9 +168,20 @@ export async function playFailAnimation(button, tooltip) {
   tooltip.textContent = UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED;
   tooltip.classList.add('visible');
 
-  await shake.finished;
+  try {
+    await shake.finished;
+  } catch {
+    // Animation was cancelled (e.g. rapid re-trigger) — proceed to schedule hide
+  }
 
-  setTimeout(() => {
+  const existingTimer = _failHideTimers.get(tooltip);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  const timer = setTimeout(() => {
     tooltip.classList.remove('visible');
+    _failHideTimers.delete(tooltip);
   }, FAIL_TOOLTIP_DURATION_MS);
+  _failHideTimers.set(tooltip, timer);
 }

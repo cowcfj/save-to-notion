@@ -139,6 +139,8 @@ export function getFloatingRailCSS() {
     }
 
     .rail-actions {
+      position: relative;
+      overflow: visible;
       display: flex;
       flex-direction: column;
       gap: ${spacing.xs};

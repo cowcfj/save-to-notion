@@ -420,7 +420,8 @@ describe('FloatingRail', () => {
       await rail._handleSaveSync();
 
       expect(playLaunchAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
-      expect(playFailAnimation).toHaveBeenCalled();
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
   });
