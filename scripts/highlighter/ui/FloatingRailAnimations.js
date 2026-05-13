@@ -5,6 +5,8 @@
  * 所有動畫綁定在傳入的 DOM 元素上，不持有外部狀態。
  */
 
+import { UI_MESSAGES } from '../../config/shared/messages.js';
+
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 function prefersReducedMotion() {
@@ -161,7 +163,7 @@ export async function playFailAnimation(button, tooltip) {
     { duration: 400, easing: 'ease-in-out' }
   );
 
-  tooltip.textContent = '保存失敗';
+  tooltip.textContent = UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED;
   tooltip.classList.add('visible');
 
   await shake.finished;
