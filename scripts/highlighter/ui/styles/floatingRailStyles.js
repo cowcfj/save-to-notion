@@ -7,7 +7,7 @@
 
 import { UI_TOKENS, hexToRgba } from '../../../../styles/ui-token-constants.js';
 
-const { color, spacing, radius, shadow } = UI_TOKENS;
+const { color, spacing, radius, shadow, theme } = UI_TOKENS;
 
 export function getFloatingRailCSS() {
   return `
@@ -22,6 +22,7 @@ export function getFloatingRailCSS() {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       font-size: 14px;
       line-height: 1.5;
+      color: ${color.text};
     }
 
     :host *,
@@ -50,12 +51,23 @@ export function getFloatingRailCSS() {
       align-items: center;
       gap: ${spacing.xs};
       padding: ${spacing.xs};
-      background: ${color.white};
-      border: 1px solid ${color.border};
+      background: ${theme.light.surface};
+      border: 1px solid ${theme.light.border};
       border-right: none;
       border-radius: ${radius.lg} 0 0 ${radius.lg};
       box-shadow: ${shadow.md};
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       transition: opacity 0.2s ease, transform 0.2s ease;
+      --rail-icon-muted: ${theme.light.iconMuted};
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .rail-container {
+        background: ${theme.dark.surface};
+        border-color: ${theme.dark.border};
+        --rail-icon-muted: ${theme.dark.iconMuted};
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -86,31 +98,44 @@ export function getFloatingRailCSS() {
     }
 
     .rail-trigger {
-      width: 32px;
-      height: 32px;
-      border-radius: ${radius.md};
-      background: ${color.white};
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: ${color.brand};
+      color: ${color.iconOnAccent};
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: grab;
+      transition:
+        background 0.16s ease,
+        transform 0.16s ease,
+        box-shadow 0.16s ease;
+      --rail-brand-fill: ${color.brand};
     }
 
     .rail-trigger:hover,
     .rail-trigger:focus-visible {
-      background: ${color.bgHover};
+      background: ${color.brandHover};
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px ${hexToRgba(color.brand, 0.35)};
     }
 
     :host([data-dragging="true"]) .rail-trigger {
       cursor: grabbing;
-      background: ${color.bgHover};
+      background: ${color.brandHover};
+    }
+
+    .rail-trigger:hover {
+      --rail-brand-fill: ${color.brandHover};
     }
 
     .rail-trigger svg {
-      width: 18px;
-      height: 18px;
-      color: ${color.text};
-      fill: none;
+      width: 22px;
+      height: 22px;
+      color: currentColor;
+      fill: currentColor;
+      stroke: currentColor;
     }
 
     .rail-actions {
@@ -128,10 +153,11 @@ export function getFloatingRailCSS() {
     }
 
     .rail-action-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: ${radius.md};
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
       position: relative;
+      color: ${color.iconOnAccent};
       transition:
         background 0.16s ease,
         border-color 0.16s ease,
@@ -139,46 +165,77 @@ export function getFloatingRailCSS() {
         transform 0.16s ease;
     }
 
-    .rail-action-btn:hover,
-    .rail-action-btn:focus-visible {
-      background: ${color.bgHover};
+    .rail-action-btn[data-action="save"],
+    .rail-action-btn[data-action="sync"] {
+      background: ${color.actionSave};
     }
 
-    .rail-action-btn:active {
-      background: ${hexToRgba(color.primary, 0.1)};
+    .rail-action-btn[data-action="save"]:hover,
+    .rail-action-btn[data-action="save"]:focus-visible,
+    .rail-action-btn[data-action="sync"]:hover,
+    .rail-action-btn[data-action="sync"]:focus-visible {
+      background: ${color.actionSaveHover};
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px ${hexToRgba(color.actionSave, 0.35)};
+    }
+
+    .rail-action-btn[data-action="manage"] {
+      background: ${color.actionManage};
+    }
+
+    .rail-action-btn[data-action="manage"]:hover,
+    .rail-action-btn[data-action="manage"]:focus-visible {
+      background: ${color.actionManageHover};
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px ${hexToRgba(color.actionManage, 0.35)};
     }
 
     .rail-action-btn svg {
-      width: 16px;
-      height: 16px;
-      fill: ${color.text};
-    }
-
-    .rail-action-btn.active svg {
-      fill: ${color.primary};
+      width: 18px;
+      height: 18px;
+      color: currentColor;
+      fill: currentColor;
+      stroke: currentColor;
     }
 
     .rail-highlight-toggle {
       border: 1px solid transparent;
-      background: ${color.white};
     }
 
     .rail-highlight-toggle[data-highlight-state="inactive"] {
-      background: var(--rail-highlight-tint, ${hexToRgba(color.primary, 0.12)});
-      border-color: ${hexToRgba(color.text, 0.08)};
-      box-shadow: inset 0 0 0 1px ${hexToRgba(color.white, 0.55)};
+      background: var(--rail-highlight-tint, ${hexToRgba(color.primary, 0.4)});
+      background: color-mix(in srgb, var(--rail-highlight-color, ${color.primary}) 40%, transparent);
+      color: var(--rail-icon-muted, ${theme.light.iconMuted});
+      box-shadow: inset 0 0 0 1px ${hexToRgba(color.white, 0.45)};
+    }
+
+    .rail-highlight-toggle[data-highlight-state="inactive"]:hover,
+    .rail-highlight-toggle[data-highlight-state="inactive"]:focus-visible {
+      background: var(--rail-highlight-tint, ${hexToRgba(color.primary, 0.55)});
+      background: color-mix(in srgb, var(--rail-highlight-color, ${color.primary}) 55%, transparent);
+      transform: translateY(-1px);
     }
 
     .rail-highlight-toggle[data-highlight-state="active"] {
       background: var(--rail-highlight-color, ${color.primary});
       border-color: var(--rail-highlight-color, ${color.primary});
-      box-shadow: 0 0 0 1px ${hexToRgba(color.white, 0.2)} inset;
+      color: rgba(0, 0, 0, 0.78);
+      box-shadow: inset 0 0 0 1px ${hexToRgba(color.white, 0.25)};
+      transform: translateY(-1px);
     }
 
     .rail-highlight-toggle[data-highlight-state="active"]:hover,
     .rail-highlight-toggle[data-highlight-state="active"]:focus-visible {
       background: var(--rail-highlight-color, ${color.primary});
-      transform: translateY(-1px);
+      box-shadow:
+        inset 0 0 0 1px ${hexToRgba(color.white, 0.25)},
+        0 2px 6px ${hexToRgba(color.black, 0.18)};
+    }
+
+    .rail-highlight-toggle svg {
+      color: currentColor;
+      fill: currentColor;
+      stroke: currentColor;
     }
 
     .rail-action-btn[aria-label]::after {
@@ -207,7 +264,7 @@ export function getFloatingRailCSS() {
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      border: 2px solid ${color.border};
+      border: 2px solid ${hexToRgba(color.white, 0.6)};
       transition:
         background 0.16s ease,
         border-color 0.16s ease,
@@ -227,13 +284,22 @@ export function getFloatingRailCSS() {
       display: flex;
       gap: ${spacing.xs};
       padding: ${spacing.xs};
-      background: ${color.white};
-      border: 1px solid ${color.border};
+      background: ${theme.light.surface};
+      border: 1px solid ${theme.light.border};
       border-radius: ${radius.md};
       box-shadow: ${shadow.sm};
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.15s ease;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .color-palette {
+        background: ${theme.dark.surface};
+        border-color: ${theme.dark.border};
+      }
     }
 
     .color-palette.visible {
@@ -244,25 +310,25 @@ export function getFloatingRailCSS() {
     .color-swatch {
       width: 20px;
       height: 20px;
-      border-radius: 50%;
+      border-radius: ${radius.md};
       border: 2px solid transparent;
       cursor: pointer;
     }
 
     .color-swatch:hover,
     .color-swatch:focus-visible {
-      border-color: ${color.primary};
+      border-color: ${color.brand};
     }
 
     .color-swatch.selected {
-      border-color: ${color.text};
+      border-color: ${color.brand};
     }
 
     .rail-status {
       font-size: 11px;
       color: ${color.textMuted};
       text-align: center;
-      max-width: 32px;
+      max-width: 34px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

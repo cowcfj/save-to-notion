@@ -295,6 +295,20 @@ class TabService {
         // 沒有找到現有標註，執行回調或預設遷移
         const handler = this.onNoHighlightsFound ?? this.migrateLegacyHighlights.bind(this);
         await handler(tabId, normUrl, `highlights_${normUrl}`);
+
+        // v2.68.0+: 即使沒有歷史標註，若 Floating Rail 啟用（預設啟用），
+        // 仍需注入 content bundle 讓 rail 在頁面上自動載入。
+        // entryAutoInit.js 會自行讀 floatingRailEnabled 決定 show/hide。
+        if (await this._shouldAutoInjectForRail()) {
+          const tab = await this._waitForTabCompilation(tabId);
+          if (tab) {
+            this.logger.debug(
+              `[TabService] No highlights, but Floating Rail enabled — injecting bundle for tab ${tabId}`
+            );
+            await this.injectionService.ensureBundleInjected(tabId);
+            this._sendStableUrl(tabId, normUrl);
+          }
+        }
         return;
       }
 
@@ -401,6 +415,30 @@ class TabService {
     // 避免在 fallback helper 內再做一次與讀取無關的狀態寫入。
 
     return fallbackHighlights;
+  }
+
+  /**
+   * 判斷是否應該為「無歷史標註」的頁面自動注入 content bundle，以支援 Floating Rail 自動載入。
+   *
+   * 預設啟用（fail-open）：未設定、讀取失敗、或 storage API 不可用時都回傳 true，
+   * 對應 entryAutoInit.js 的 `settings?.floatingRailEnabled !== false` 判斷邏輯。
+   *
+   * @returns {Promise<boolean>}
+   * @private
+   */
+  async _shouldAutoInjectForRail() {
+    if (!chrome?.storage?.sync) {
+      return true;
+    }
+    try {
+      const result = await chrome.storage.sync.get(['floatingRailEnabled']);
+      return result?.floatingRailEnabled !== false;
+    } catch (error) {
+      this.logger.warn?.('[TabService] 讀取 floatingRailEnabled 失敗，預設啟用 rail 注入', {
+        error: error?.message,
+      });
+      return true;
+    }
   }
 
   /**

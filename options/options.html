@@ -66,7 +66,7 @@
               ><svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
                 <use href="#icon-templates" /></svg
             ></span>
-            <span class="label">模板設定</span>
+            <span class="label">外觀樣式</span>
           </button>
           <button
             id="tab-data"
@@ -358,6 +358,13 @@
                 </select>
               </div>
               <p class="help-text" data-ui-message="OPTIONS.INTERFACE.ZOOM_HELP"></p>
+            </div>
+            <div class="form-group">
+              <label class="toggle-label" for="floating-rail-enabled">
+                <input type="checkbox" id="floating-rail-enabled" checked />
+                <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_LABEL"></span>
+              </label>
+              <p class="help-text" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_HELP"></p>
             </div>
           </div>
 
@@ -822,7 +829,7 @@
           </div>
         </section>
 
-        <!-- 模板設定區塊 -->
+        <!-- 外觀樣式區塊 -->
         <section
           id="section-templates"
           class="settings-section"
@@ -830,76 +837,121 @@
           aria-labelledby="tab-templates"
         >
           <header class="section-header">
-            <h2>模板設定</h2>
-            <p class="section-desc">自定義儲存到 Notion 時的頁面格式</p>
+            <h2 data-ui-message="OPTIONS.TEMPLATES.SECTION_TITLE"></h2>
+            <p class="section-desc" data-ui-message="OPTIONS.TEMPLATES.SECTION_DESC"></p>
           </header>
 
           <div class="card">
-            <h3>頁面屬性</h3>
+            <h3 data-ui-message="OPTIONS.TEMPLATES.PAGE_PROPERTIES_TITLE"></h3>
             <div class="form-group">
-              <label for="title-template">標題格式</label>
-              <input type="text" id="title-template" placeholder="{title} - {date}" />
-              <p class="help-text">
-                可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}
-              </p>
+              <label
+                for="title-template"
+                data-ui-message="OPTIONS.TEMPLATES.TITLE_TEMPLATE_LABEL"
+              ></label>
+              <input
+                type="text"
+                id="title-template"
+                data-ui-placeholder="OPTIONS.TEMPLATES.TITLE_TEMPLATE_PLACEHOLDER"
+              />
+              <p
+                class="help-text"
+                data-ui-message="OPTIONS.TEMPLATES.TITLE_TEMPLATE_HELP"
+              ></p>
 
-              <button type="button" id="preview-template" class="btn-secondary">預覽效果</button>
+              <button
+                type="button"
+                id="preview-template"
+                class="btn-secondary"
+                data-ui-message="OPTIONS.TEMPLATES.PREVIEW_BUTTON"
+              ></button>
               <div id="template-preview" class="preview-box hidden"></div>
             </div>
 
             <div class="form-item-row">
               <div class="checkbox-wrapper">
                 <input type="checkbox" id="add-source" checked />
-                <label for="add-source">在內容末尾添加來源連結</label>
+                <label
+                  for="add-source"
+                  data-ui-message="OPTIONS.TEMPLATES.ADD_SOURCE_LABEL"
+                ></label>
               </div>
             </div>
 
             <div class="form-item-row">
               <div class="checkbox-wrapper">
                 <input type="checkbox" id="add-timestamp" checked />
-                <label for="add-timestamp">在內容開頭添加保存時間</label>
+                <label
+                  for="add-timestamp"
+                  data-ui-message="OPTIONS.TEMPLATES.ADD_TIMESTAMP_LABEL"
+                ></label>
               </div>
             </div>
           </div>
 
           <!-- 外觀設定卡片 -->
           <div class="card">
-            <h3>外觀設定</h3>
+            <h3 data-ui-message="OPTIONS.TEMPLATES.APPEARANCE_TITLE"></h3>
             <div class="form-group">
-              <label for="highlight-style">標註樣式</label>
+              <label
+                for="highlight-style"
+                data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_LABEL"
+              ></label>
               <div class="input-wrapper">
                 <select id="highlight-style" class="form-select form-select-enhanced">
-                  <option value="background">背景顏色</option>
-                  <option value="text">文字顏色</option>
-                  <option value="underline">底線</option>
+                  <option
+                    value="background"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_BACKGROUND"
+                  ></option>
+                  <option
+                    value="text"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_TEXT"
+                  ></option>
+                  <option
+                    value="underline"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_UNDERLINE"
+                  ></option>
                 </select>
               </div>
-              <p class="help-text">選擇標註在網頁上的顯示方式。</p>
+              <p class="help-text" data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_HELP"></p>
             </div>
             <div class="form-group">
-              <label for="highlight-content-style">Notion 同步樣式</label>
+              <label
+                for="highlight-content-style"
+                data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_LABEL"
+              ></label>
               <div class="input-wrapper">
                 <select id="highlight-content-style" class="form-select form-select-enhanced">
-                  <option value="COLOR_SYNC">對應顏色背景（預設）</option>
-                  <option value="COLOR_TEXT">對應顏色文字</option>
-                  <option value="BOLD">粗體</option>
-                  <option value="NONE">關閉</option>
+                  <option
+                    value="COLOR_SYNC"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_COLOR_SYNC"
+                  ></option>
+                  <option
+                    value="COLOR_TEXT"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_COLOR_TEXT"
+                  ></option>
+                  <option
+                    value="BOLD"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_BOLD"
+                  ></option>
+                  <option
+                    value="NONE"
+                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_NONE"
+                  ></option>
                 </select>
               </div>
-              <p class="help-text"
-                >選擇標註文字在 Notion 頁面原文中的標示方式（首次保存時生效）。</p
-              >
-            </div>
-            <div class="form-group">
-              <label class="toggle-label" for="floating-rail-enabled">
-                <input type="checkbox" id="floating-rail-enabled" checked />
-                <span>在網頁右側顯示快捷工具列</span>
-              </label>
-              <p class="help-text">關閉後不會自動顯示右側小按鈕，但仍可透過 Popup 開始標註。</p>
+              <p
+                class="help-text"
+                data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_HELP"
+              ></p>
             </div>
           </div>
 
-          <button id="save-templates-button" class="btn-primary full-width">儲存模板設定</button>
+          <button
+            id="save-templates-button"
+            type="button"
+            class="btn-primary full-width"
+            data-ui-message="OPTIONS.TEMPLATES.SAVE_BUTTON"
+          ></button>
           <p id="template-status" class="status-message"></p>
         </section>
 

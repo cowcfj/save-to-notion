@@ -644,11 +644,14 @@ describe('TabService', () => {
         return Promise.resolve({});
       });
 
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete', url: stableUrl });
+
       await service.updateTabStatus(1, originalUrl);
       await service.updateTabStatus(1, originalUrl);
 
       expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '', tabId: 1 });
-      expect(mockInjectionService.ensureBundleInjected).not.toHaveBeenCalled();
+      // v2.68.0+: Floating Rail 預設啟用，無歷史標註頁面也應注入 bundle 讓 rail 自動載入
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
     });
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {
@@ -664,6 +667,36 @@ describe('TabService', () => {
         'https://example.com',
         'highlights_https://example.com'
       );
+    });
+
+    it('[REGRESSION] Floating Rail 預設啟用時，無歷史標註的頁面也應注入 content bundle', async () => {
+      // Bug：v2.68.0 加入 Floating Rail 後，TabService 在 `if (!highlights)` 分支
+      // 直接 return，導致全新網頁從未注入 content.bundle.js，rail 永遠不出現。
+      // 修復：在無 highlights 分支內仍判斷 floatingRailEnabled，預設啟用即注入 bundle。
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+      chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({}); // 未設定 = 預設啟用
+      chrome.tabs.get.mockResolvedValue({
+        id: 1,
+        status: 'complete',
+        url: 'https://example.com',
+      });
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      await service.updateTabStatus(1, 'https://example.com');
+
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+    });
+
+    it('[REGRESSION] floatingRailEnabled=false 時，無歷史標註頁面不應注入 bundle', async () => {
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+      chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({ floatingRailEnabled: false });
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      await service.updateTabStatus(1, 'https://example.com');
+
+      expect(mockInjectionService.ensureBundleInjected).not.toHaveBeenCalled();
     });
 
     it('should handle ensureBundleInjected rejection gracefully', async () => {

@@ -96,7 +96,7 @@ describe('tools/check-size-gates.mjs', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir } = createBundleRoot({
       rootDir,
-      contentSize: 256_001,
+      contentSize: 270_001,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
