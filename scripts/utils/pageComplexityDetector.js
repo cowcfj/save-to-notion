@@ -221,11 +221,19 @@ function hasTechnicalFeatures(document) {
   let wordCount = 0;
   let inWord = false;
   for (let i = 0; i < textContent.length; i++) {
-    // 32 is space, lower are control chars including \n, \t, \r
     const code = textContent.codePointAt(i);
-    // 32 is space, lower are control chars (\n, \t, \r). 160 is NBSP.
-    // Also consider high/surrogate pairs as word characters (code > 32 and !== 160)
-    if (code <= 32 || code === 160) {
+    if (
+      code <= 32 ||
+      code === 160 ||
+      code === 0x16_80 ||
+      (code >= 0x20_00 && code <= 0x20_0A) ||
+      code === 0x20_28 ||
+      code === 0x20_29 ||
+      code === 0x20_2F ||
+      code === 0x20_5F ||
+      code === 0x30_00 ||
+      code === 0xFE_FF
+    ) {
       inWord = false;
     } else if (!inWord) {
       inWord = true;
