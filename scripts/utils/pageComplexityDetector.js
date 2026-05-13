@@ -216,7 +216,31 @@ function hasTechnicalFeatures(document) {
     }
   }
 
-  const wordCount = textContent.split(/\s+/).length;
+  // Optimize word counting: avoid expensive .split(/\s+/) which creates huge arrays
+  // by using a fast ASCII-based character loop over the string
+  let wordCount = 0;
+  let inWord = false;
+  for (let i = 0; i < textContent.length; i++) {
+    const code = textContent.codePointAt(i);
+    if (
+      code <= 32 ||
+      code === 160 ||
+      code === 0x16_80 ||
+      (code >= 0x20_00 && code <= 0x20_0A) ||
+      code === 0x20_28 ||
+      code === 0x20_29 ||
+      code === 0x20_2F ||
+      code === 0x20_5F ||
+      code === 0x30_00 ||
+      code === 0xFE_FF
+    ) {
+      inWord = false;
+    } else if (!inWord) {
+      inWord = true;
+      wordCount++;
+    }
+  }
+
   const technicalRatio = technicalTermCount / Math.max(wordCount, 1);
 
   return {

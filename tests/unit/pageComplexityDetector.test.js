@@ -573,6 +573,24 @@ describe('頁面複雜度檢測器', () => {
       expect(selection.extractor).toBe('markdown');
     });
 
+    test('Unicode whitespace characters should split words correctly', () => {
+      // \u3000 = fullwidth space (CJK), \u2003 = em space, \u2009 = thin space
+      document.documentElement.innerHTML =
+        '<body><p>function\u3000class\u2003method\u2009variable</p></body>';
+      const result = detectPageComplexity(document);
+      expect(result.technicalFeatures.technicalTermCount).toBe(4);
+    });
+
+    test('mixed ASCII and Unicode whitespace should count words consistently', () => {
+      // \u202F = narrow no-break space, \u205F = medium mathematical space, \uFEFF = BOM
+      document.documentElement.innerHTML =
+        '<body><p>one\u202Ftwo\u205Fthree\uFEFFfour five</p></body>';
+      const result = detectPageComplexity(document);
+      // 5 words total, 0 technical terms
+      expect(result.technicalFeatures.technicalTermCount).toBe(0);
+      expect(result.technicalFeatures.technicalRatio).toBe(0);
+    });
+
     test('extractor selection stability: non-technical content without clean layout selects readability', () => {
       const padding = 'news article content about politics and economy '.repeat(50);
       document.documentElement.innerHTML = `
