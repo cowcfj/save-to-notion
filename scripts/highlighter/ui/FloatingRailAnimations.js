@@ -154,26 +154,30 @@ const _failHideTimers = new WeakMap();
  * @returns {Promise<void>}
  */
 export async function playFailAnimation(button, tooltip) {
-  const shake = button.animate(
-    [
-      { transform: 'translateX(0)' },
-      { transform: 'translateX(-4px)' },
-      { transform: 'translateX(4px)' },
-      { transform: 'translateX(-4px)' },
-      { transform: 'translateX(4px)' },
-      { transform: 'translateX(-4px)' },
-      { transform: 'translateX(0)' },
-    ],
-    { duration: 400, easing: 'ease-in-out' }
-  );
+  const shake = prefersReducedMotion()
+    ? null
+    : button.animate(
+        [
+          { transform: 'translateX(0)' },
+          { transform: 'translateX(-4px)' },
+          { transform: 'translateX(4px)' },
+          { transform: 'translateX(-4px)' },
+          { transform: 'translateX(4px)' },
+          { transform: 'translateX(-4px)' },
+          { transform: 'translateX(0)' },
+        ],
+        { duration: 400, easing: 'ease-in-out' }
+      );
 
   tooltip.textContent = UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED;
   tooltip.classList.add('visible');
 
-  try {
-    await shake.finished;
-  } catch {
-    // Animation was cancelled (e.g. rapid re-trigger) — proceed to schedule hide
+  if (shake) {
+    try {
+      await shake.finished;
+    } catch {
+      // Animation was cancelled (e.g. rapid re-trigger) — proceed to schedule hide
+    }
   }
 
   const existingTimer = _failHideTimers.get(tooltip);
