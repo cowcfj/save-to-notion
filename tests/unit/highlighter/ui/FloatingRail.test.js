@@ -38,6 +38,7 @@ import {
   playFireworkAnimation,
   playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 function createMockContainerElement() {
   const container = document.createElement('div');
@@ -50,6 +51,11 @@ function createMockContainerElement() {
 
   const actions = document.createElement('div');
   actions.className = 'rail-actions';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'rail-close-btn';
+  closeBtn.setAttribute('aria-label', '關閉工具列');
+  actions.append(closeBtn);
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'rail-action-btn';
@@ -139,6 +145,7 @@ describe('FloatingRail', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
 
@@ -167,6 +174,21 @@ describe('FloatingRail', () => {
       expect(rail.host).toBe(existingHost);
     });
 
+    test('應該重用既有 host 內的 rail container', () => {
+      const existingHost = document.createElement('div');
+      existingHost.id = 'notion-floating-rail-host';
+      existingHost.dataset.railOwner = 'true';
+      const shadowRoot = existingHost.attachShadow({ mode: 'open' });
+      const existingContainer = createMockContainerElement();
+      shadowRoot.append(existingContainer);
+      document.body.append(existingHost);
+
+      const rail = new FloatingRail(manager);
+
+      expect(rail.container).toBe(existingContainer);
+      expect(createFloatingRailContainer).not.toHaveBeenCalled();
+    });
+
     test('不應重用無 owner 標記的同 ID 元素', () => {
       const fakeHost = document.createElement('div');
       fakeHost.id = 'notion-floating-rail-host';
@@ -193,6 +215,28 @@ describe('FloatingRail', () => {
           get: () => document.documentElement.querySelector('body'),
         });
 
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+
+        expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
+      } finally {
+        if (originalBodyDescriptor) {
+          Object.defineProperty(document, 'body', originalBodyDescriptor);
+        } else {
+          delete document.body;
+        }
+      }
+    });
+
+    test('DOMContentLoaded 時若 body 仍不可用不應插入 host', () => {
+      const originalBodyDescriptor = Object.getOwnPropertyDescriptor(document, 'body');
+
+      try {
+        Object.defineProperty(document, 'body', {
+          configurable: true,
+          get: () => null,
+        });
+
+        new FloatingRail(manager);
         document.dispatchEvent(new Event('DOMContentLoaded'));
 
         expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
@@ -330,6 +374,28 @@ describe('FloatingRail', () => {
 
       expect(rail.host.style.display).toBe('none');
     });
+
+    test('dismissed 狀態下 show 不應重新顯示 host', async () => {
+      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.show();
+
+      expect(rail.host.style.display).toBe('none');
+    });
+
+    test('show 在 COLLAPSED 狀態下應自動展開', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.collapse();
+      rail.hide();
+
+      rail.show();
+
+      expect(rail.host.style.display).toBe('block');
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
   });
 
   describe('expand / collapse', () => {
@@ -466,6 +532,23 @@ describe('FloatingRail', () => {
 
       expect(openSidePanel).toHaveBeenCalled();
     });
+
+    test('openSidePanel 失敗時應記錄警告', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      openSidePanel.mockRejectedValue(new Error('panel failed'));
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleManage();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 開啟 Side Panel 失敗',
+        expect.objectContaining({
+          action: '_handleManage',
+          operation: 'openSidePanel',
+        })
+      );
+    });
   });
 
   describe('destroy', () => {
@@ -505,6 +588,28 @@ describe('FloatingRail', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
     });
 
+    test('save button click 應透過事件綁定呼叫 _handleSaveSync', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const handleSaveSyncSpy = jest.spyOn(rail, '_handleSaveSync').mockResolvedValue();
+
+      const saveBtn = rail.container.querySelector('[data-action="save"]');
+      saveBtn.click();
+
+      expect(handleSaveSyncSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test('manage button click 應透過事件綁定呼叫 _handleManage', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const handleManageSpy = jest.spyOn(rail, '_handleManage').mockResolvedValue();
+
+      const manageBtn = rail.container.querySelector('[data-action="manage"]');
+      manageBtn.click();
+
+      expect(handleManageSpy).toHaveBeenCalledTimes(1);
+    });
+
     test('color swatch click 應更新顏色', async () => {
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -513,6 +618,21 @@ describe('FloatingRail', () => {
       greenSwatch.click();
 
       expect(rail.stateManager.selectedColor).toBe('green');
+    });
+
+    test('highlight button hover 與 focusin 應顯示 color palette', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      const highlightBtn = rail.container.querySelector('[data-action="highlight"]');
+      const colorPalette = rail.container.querySelector('.color-palette');
+
+      highlightBtn.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      expect(colorPalette.classList.contains('visible')).toBe(true);
+
+      colorPalette.classList.remove('visible');
+      highlightBtn.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      expect(colorPalette.classList.contains('visible')).toBe(true);
     });
 
     test('[REGRESSION] rail 模式應綁定 Ctrl/Cmd click delete shortcut', async () => {
@@ -533,6 +653,18 @@ describe('FloatingRail', () => {
       rail.container.dispatchEvent(new FocusEvent('focusin'));
 
       expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('close button click 應 dismiss rail', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.expand();
+
+      const closeBtn = rail.container.querySelector('.rail-close-btn');
+      closeBtn.click();
+
+      expect(rail.host.style.display).toBe('none');
+      expect(rail.stateManager.isDismissed).toBe(true);
     });
 
     test('focusout 應收起 EXPANDED 狀態的工具列（焦點離開 container）', async () => {
@@ -574,6 +706,37 @@ describe('FloatingRail', () => {
       externalEl.remove();
     });
 
+    test('mouseenter 應展開 COLLAPSED 狀態的工具列', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.collapse();
+
+      rail.container.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('mouseleave 在拖曳中不應收起工具列', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.expand();
+      rail._dragState = { active: true };
+
+      rail.container.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+    });
+
+    test('mouseleave 應收起 EXPANDED 狀態的工具列', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.expand();
+
+      rail.container.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+
+      expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
+    });
+
     test('[REGRESSION] trigger 拖曳應更新 rail host 位置並保存到 sessionStorage', async () => {
       jest.useFakeTimers();
       const rail = new FloatingRail(manager);
@@ -591,6 +754,26 @@ describe('FloatingRail', () => {
         expect(sessionStorage.getItem('notion-floating-rail-position')).toEqual(
           expect.stringContaining('"top":180')
         );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('[REGRESSION] trigger 拖曳結束後的下一次 click 應被抑制', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
+        jest.advanceTimersByTime(300);
+        document.dispatchEvent(new MouseEvent('pointerup', { clientX: 790, clientY: 300 }));
+
+        trigger.click();
+
+        expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
       } finally {
         jest.useRealTimers();
       }
@@ -623,6 +806,75 @@ describe('FloatingRail', () => {
       }
     });
 
+    test('trigger pointerdown 非主按鍵時不應進入拖曳準備', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.dispatchEvent(
+          new MouseEvent('pointerdown', { button: 1, clientX: 790, clientY: 300 })
+        );
+        jest.advanceTimersByTime(300);
+
+        expect(rail._dragState).toBeNull();
+        expect(rail.host.dataset.dragging).toBeUndefined();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('[REGRESSION] drag activation timer 在拖曳被提前清除後不應重新標記 dragging', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
+
+        rail._clearDragArtifacts();
+        jest.advanceTimersByTime(300);
+
+        expect(rail._dragState).toBeNull();
+        expect(rail.host.dataset.dragging).toBeUndefined();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('setPointerCapture 失敗時不應保留 pointer capture 狀態', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      const trigger = rail.container.querySelector('.rail-trigger');
+      trigger.setPointerCapture = jest.fn(() => {
+        throw new Error('capture failed');
+      });
+
+      trigger.dispatchEvent(
+        createPointerMouseEvent('pointerdown', { clientX: 790, clientY: 300, pointerId: 9 })
+      );
+
+      expect(rail._dragPointerCapture).toBeNull();
+    });
+
+    test('releasePointerCapture 前若已無 capture 應直接返回', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      const trigger = rail.container.querySelector('.rail-trigger');
+      trigger.hasPointerCapture = jest.fn(() => false);
+      trigger.releasePointerCapture = jest.fn();
+      rail._dragPointerCapture = { trigger, pointerId: 5 };
+
+      rail._releaseDragPointerCapture();
+
+      expect(trigger.hasPointerCapture).toHaveBeenCalledWith(5);
+      expect(trigger.releasePointerCapture).not.toHaveBeenCalled();
+    });
+
     test('[REGRESSION] 新 rail instance 應恢復先前拖曳位置', async () => {
       sessionStorage.setItem(
         'notion-floating-rail-position',
@@ -650,6 +902,160 @@ describe('FloatingRail', () => {
 
         expect(rail.host.style.top).not.toBe('180px');
         expect(sessionStorage.getItem('notion-floating-rail-position')).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('從 host style 讀取位置時應直接使用已保存的 top/right', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.host.style.top = '140px';
+      rail.host.style.right = '36px';
+
+      const position = rail._readCurrentPosition({ clientX: 20, clientY: 30 });
+
+      expect(position).toEqual({ top: 140, right: 36 });
+    });
+
+    test('從 bounding rect 讀取位置時應使用 viewport 與 rect 計算 right', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.host.getBoundingClientRect = jest.fn(() => ({
+        top: 120,
+        right: 984,
+        width: 48,
+        height: 48,
+      }));
+
+      const position = rail._readCurrentPosition({ clientX: 20, clientY: 30 });
+
+      expect(position).toEqual({ top: 120, right: 40 });
+    });
+  });
+
+  describe('error and guard branches', () => {
+    test('頁面狀態刷新失敗時應記錄警告並繼續初始化', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      checkPageStatus.mockRejectedValueOnce(new Error('status failed'));
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法取得頁面狀態',
+        expect.objectContaining({
+          action: '_refreshPageStatus',
+          operation: 'checkPageStatus',
+        })
+      );
+      expect(rail._initialized).toBe(true);
+      expect(rail._eventsBound).toBe(true);
+    });
+
+    test('_bindEvents 在已綁定後不應重複註冊事件', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      rail._bindEvents();
+      document.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+
+      expect(manager.handleDocumentClick).toHaveBeenCalledTimes(1);
+    });
+
+    test('restorePosition 遇到損壞的 sessionStorage 資料時應記錄警告', () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      sessionStorage.setItem('notion-floating-rail-position', '{invalid-json');
+
+      const rail = new FloatingRail(manager);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法讀取位置狀態',
+        expect.objectContaining({
+          action: '_restorePosition',
+          operation: 'parseStoredPosition',
+        })
+      );
+      expect(rail.host.style.top).toBe('');
+      expect(rail.host.style.right).toBe('');
+    });
+
+    test('persistPosition 寫入失敗時應記錄警告', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      const setItemSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('quota exceeded');
+      });
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.host.style.top = '120px';
+      rail.host.style.right = '40px';
+
+      rail._persistPosition();
+
+      expect(setItemSpy).toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法保存位置狀態',
+        expect.objectContaining({
+          action: '_persistPosition',
+          operation: 'writeStoredPosition',
+        })
+      );
+    });
+
+    test('clampNumber 遇到無效數值時應返回 min', () => {
+      expect(FloatingRail._clampNumber('not-a-number', 8, 100)).toBe(8);
+    });
+
+    test('handleSaveSync 在 saving 中應直接返回', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail._isSaving = true;
+
+      await rail._handleSaveSync();
+
+      expect(savePageFromRail).not.toHaveBeenCalled();
+      expect(syncHighlights).not.toHaveBeenCalled();
+    });
+
+    test('drag activation timer 執行時若 dragState 已消失應直接返回', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
+
+        rail._dragState = null;
+        jest.advanceTimersByTime(300);
+
+        expect(rail.host.dataset.dragging).toBeUndefined();
+        expect(trigger.getAttribute('aria-pressed')).not.toBe('true');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('拖曳中的 pointermove 若事件可取消應呼叫 preventDefault', async () => {
+      jest.useFakeTimers();
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      try {
+        const trigger = rail.container.querySelector('.rail-trigger');
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { clientX: 790, clientY: 300 }));
+        jest.advanceTimersByTime(300);
+
+        const moveEvent = createPointerMouseEvent('pointermove', {
+          clientX: 700,
+          clientY: 180,
+          cancelable: true,
+        });
+        const preventDefaultSpy = jest.spyOn(moveEvent, 'preventDefault');
+
+        document.dispatchEvent(moveEvent);
+
+        expect(preventDefaultSpy).toHaveBeenCalled();
       } finally {
         jest.useRealTimers();
       }

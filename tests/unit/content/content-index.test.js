@@ -139,6 +139,24 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.HighlighterV2;
     });
 
+    test('showHighlighter 在 rail.show 拋錯時應返回錯誤', () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(() => {
+            throw new Error('showHighlighter failed');
+          }),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'showHighlighter failed',
+      });
+    });
+
     test('[REGRESSION] showHighlighter 不應在無 rail 時 fallback 到 notionHighlighter toolbar', async () => {
       delete globalThis.HighlighterV2;
       const showMock = jest.fn();
@@ -185,6 +203,108 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
+    test('SHOW_FLOATING_RAIL 應優先使用 undismiss 喚回 dismissed rail', () => {
+      const undismissMock = jest.fn();
+      const showMock = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: {
+          stateManager: { isDismissed: true },
+          undismiss: undismissMock,
+          show: showMock,
+        },
+      };
+      const sendResponse = jest.fn();
+
+      const result = messageHandler(
+        { action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' },
+        {},
+        sendResponse
+      );
+
+      expect(result).toBe(true);
+      expect(undismissMock).toHaveBeenCalledWith();
+      expect(showMock).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 僅提供 undismiss 時應 fallback', async () => {
+      const undismissMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: { undismiss: undismissMock },
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(undismissMock).toHaveBeenCalledWith();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      delete globalThis.__NOTION_RAIL_READY__;
+    });
+
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回錯誤訊息', () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(() => {
+            throw new Error('rail show failed');
+          }),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'rail show failed',
+      });
+    });
+
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 缺少顯示方法時應返回初始化失敗', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: {},
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化失敗',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('SHOW_FLOATING_RAIL 在 readyResult 未帶 error 時應返回通用初始化錯誤', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({ success: false });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化失敗',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('SHOW_FLOATING_RAIL 在未初始化時應直接返回錯誤', () => {
+      delete globalThis.HighlighterV2;
+      delete globalThis.__NOTION_RAIL_READY__;
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄尚未初始化',
+      });
+    });
+
     test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應等待 rail-ready 完成後才回應', async () => {
       const railReady = createDeferred();
       const showMock = jest.fn();
@@ -219,6 +339,89 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
+    test('ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 可用時應立即啟動標註', () => {
+      const showMock = jest.fn();
+      const activateHighlightingMock = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: showMock,
+          activateHighlighting: activateHighlightingMock,
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+
+      expect(showMock).toHaveBeenCalledWith();
+      expect(activateHighlightingMock).toHaveBeenCalledWith();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 啟動失敗時應返回錯誤訊息', () => {
+      const activateHighlightingMock = jest.fn(() => {
+        throw new Error('activate failed');
+      });
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(),
+          activateHighlighting: activateHighlightingMock,
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+
+      expect(activateHighlightingMock).toHaveBeenCalledWith();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'activate failed',
+      });
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳 ready error', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: false,
+        error: 'ready failed',
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'ready failed',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready promise reject 時應回傳通用錯誤', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.reject(new Error('boom'));
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化失敗',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在未初始化時應直接返回錯誤', () => {
+      delete globalThis.HighlighterV2;
+      delete globalThis.__NOTION_RAIL_READY__;
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄尚未初始化',
+      });
+    });
+
     test('REMOVE_HIGHLIGHT_DOM 應呼叫 manager.removeHighlight', () => {
       const removeHighlight = jest.fn().mockReturnValue(true);
       globalThis.HighlighterV2 = {
@@ -241,11 +444,72 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.HighlighterV2;
     });
 
+    test('REMOVE_HIGHLIGHT_DOM 在 Highlighter 尚未初始化時應回傳錯誤', () => {
+      delete globalThis.HighlighterV2;
+      const sendResponse = jest.fn();
+
+      messageHandler(
+        { action: 'REMOVE_HIGHLIGHT_DOM', highlightId: 'hl-undefined' },
+        {},
+        sendResponse
+      );
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        'Highlighter 尚未初始化，略過移除標註 DOM',
+        expect.objectContaining({
+          action: 'REMOVE_HIGHLIGHT_DOM',
+          highlightId: 'hl-undefined',
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'Highlighter 尚未初始化',
+      });
+    });
+
+    test('REMOVE_HIGHLIGHT_DOM 在 removeHighlight 拋錯時應回傳錯誤', () => {
+      globalThis.HighlighterV2 = {
+        manager: {
+          removeHighlight: jest.fn(() => {
+            throw new Error('remove failed');
+          }),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'REMOVE_HIGHLIGHT_DOM', highlightId: 'hl-error' }, {}, sendResponse);
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        '移除標註 DOM 失敗',
+        expect.objectContaining({ action: 'REMOVE_HIGHLIGHT_DOM', error: expect.any(Error) })
+      );
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: 'remove failed',
+      });
+    });
+
     test('應該在載入時發送 REPLAY_BUFFERED_EVENTS 訊息', () => {
       expect(sendMessageMock).toHaveBeenCalledWith(
         { action: 'REPLAY_BUFFERED_EVENTS' },
         expect.any(Function)
       );
+    });
+
+    test('REPLAY_BUFFERED_EVENTS callback 遇到 runtime.lastError 時應靜默忽略', () => {
+      const replayCall = sendMessageMock.mock.calls.find(
+        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
+      );
+      const replayCallback = replayCall[1];
+      globalThis.chrome.runtime.lastError = { message: 'preloader missing' };
+
+      replayCallback({ events: [{ type: 'shortcut' }] });
+
+      expect(Logger.warn).not.toHaveBeenCalledWith(
+        'Highlighter 不可用，無法重放',
+        expect.any(Object)
+      );
+      globalThis.chrome.runtime.lastError = null;
     });
 
     test('應該處理重放事件', () => {
@@ -268,6 +532,47 @@ describe('Content Script Entry (index.js)', () => {
       expect(rail.activateHighlighting).toHaveBeenCalledWith();
 
       delete globalThis.HighlighterV2;
+    });
+
+    test('重放 shortcut 事件時若 Highlighter 不可用應記錄警告', () => {
+      delete globalThis.HighlighterV2;
+      const replayCall = sendMessageMock.mock.calls.find(
+        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
+      );
+      const replayCallback = replayCall[1];
+
+      replayCallback({ events: [{ type: 'shortcut' }] });
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        'Highlighter 不可用，無法重放',
+        expect.objectContaining({ action: 'replayEvents' })
+      );
+    });
+
+    test('重放 shortcut 事件失敗時應記錄警告並繼續', () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(() => {
+            throw new Error('shortcut failed');
+          }),
+          activateHighlighting: jest.fn(),
+        },
+      };
+
+      const replayCall = sendMessageMock.mock.calls.find(
+        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
+      );
+      const replayCallback = replayCall[1];
+
+      replayCallback({ events: [{ type: 'shortcut' }] });
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '重放快捷鍵事件失敗，繼續處理後續事件',
+        expect.objectContaining({
+          action: 'replayEvents',
+          error: 'shortcut failed',
+        })
+      );
     });
 
     describe('SET_STABLE_URL', () => {
@@ -336,6 +641,15 @@ describe('Content Script Entry (index.js)', () => {
           expect.any(Object)
         );
       });
+    });
+
+    test('未知 action 應返回 false', () => {
+      const sendResponse = jest.fn();
+
+      const result = messageHandler({ action: 'UNKNOWN_ACTION' }, {}, sendResponse);
+
+      expect(result).toBe(false);
+      expect(sendResponse).not.toHaveBeenCalled();
     });
   });
 
@@ -463,6 +777,42 @@ describe('Content Script Entry (index.js)', () => {
       expect(result.blocks[0]).toEqual(leadImg);
     });
 
+    test('應優先使用預提取 blocks，並將 nextjs blocks 傳給 ImageCollector', async () => {
+      const preExtractedBlocks = [
+        { object: 'block', type: 'image' },
+        { object: 'block', type: 'paragraph' },
+      ];
+      ContentExtractor.extractAsync.mockResolvedValue({
+        content: '',
+        type: 'nextjs',
+        metadata: { title: 'Next.js Title' },
+        blocks: preExtractedBlocks,
+        debug: { complexity: 'low' },
+      });
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [],
+        coverImage: null,
+        metrics: { candidateCount: 0, finalCount: 0 },
+      });
+      mergeUniqueImages.mockReturnValue([]);
+
+      const result = await extractPageContent();
+
+      expect(ConverterFactory.getConverter).not.toHaveBeenCalled();
+      expect(ImageCollector.collectAdditionalImages).toHaveBeenCalledWith(null, {
+        nextJsBlocks: preExtractedBlocks,
+        mainContentImageCount: 1,
+      });
+      expect(result.blocks).toEqual(preExtractedBlocks);
+      expect(result.debug).toEqual(
+        expect.objectContaining({
+          contentType: 'nextjs',
+          complexity: 'low',
+          imageMetrics: { candidateCount: 0, finalCount: 0 },
+        })
+      );
+    });
+
     test('應該在提取不到內容時返回後備區塊', async () => {
       ContentExtractor.extractAsync.mockResolvedValue({
         content: '',
@@ -482,6 +832,42 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(result.error).toBe('Unexpected crash');
       expect(result.extractionStatus).toBe('failed');
+    });
+
+    test('[REGRESSION] __UNIT_TESTING__ 模式載入時應自動暴露提取結果', async () => {
+      globalThis.__UNIT_TESTING__ = true;
+      delete globalThis.__notion_extraction_result;
+
+      ContentExtractor.extractAsync.mockResolvedValue({
+        content: '<div>Auto extract</div>',
+        type: 'readability',
+        metadata: { title: 'Auto Title' },
+        blocks: [],
+      });
+      ConverterFactory.getConverter.mockReturnValue({
+        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
+        imageCount: 0,
+      });
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [],
+        coverImage: null,
+      });
+      mergeUniqueImages.mockReturnValue([]);
+
+      jest.isolateModules(() => {
+        require('../../../scripts/content/index.js');
+      });
+      await flushPromises();
+
+      expect(globalThis.__notion_extraction_result).toEqual(
+        expect.objectContaining({
+          extractionStatus: 'success',
+          title: 'Auto Title',
+        })
+      );
+
+      delete globalThis.__UNIT_TESTING__;
+      delete globalThis.__notion_extraction_result;
     });
   });
 });
