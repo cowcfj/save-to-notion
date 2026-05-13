@@ -42,6 +42,29 @@ describe('FloatingRailAnimations', () => {
       animation.cancel();
       expect(animation.playState).toBe('idle');
     });
+
+    describe('prefers-reduced-motion', () => {
+      beforeEach(() => {
+        globalThis.matchMedia = jest.fn().mockReturnValue({ matches: true });
+      });
+
+      afterEach(() => {
+        delete globalThis.matchMedia;
+      });
+
+      test('應設定 opacity 並回傳 fake animation', () => {
+        const animation = playLaunchAnimation(button);
+        expect(button.style.opacity).toBe('0.7');
+        expect(animation.playState).toBe('running');
+      });
+
+      test('cancel 應清除 opacity 並回報 idle', () => {
+        const animation = playLaunchAnimation(button);
+        animation.cancel();
+        expect(button.style.opacity).toBe('');
+        expect(animation.playState).toBe('idle');
+      });
+    });
   });
 
   describe('playFireworkAnimation', () => {
@@ -76,6 +99,18 @@ describe('FloatingRailAnimations', () => {
       await resultPromise;
       const particles = container.querySelectorAll('.rail-particle');
       expect(particles).toHaveLength(0);
+    });
+
+    test('prefers-reduced-motion 時應跳過粒子動畫', async () => {
+      globalThis.matchMedia = jest.fn().mockReturnValue({ matches: true });
+      const resultPromise = playFireworkAnimation(button);
+      await jest.advanceTimersByTimeAsync(1000);
+      await resultPromise;
+      const particles = container.querySelectorAll('.rail-particle');
+      expect(particles).toHaveLength(0);
+      const rings = container.querySelectorAll('span:not(button)');
+      expect(rings).toHaveLength(0);
+      delete globalThis.matchMedia;
     });
   });
 
