@@ -9,6 +9,7 @@ import Logger from '../../utils/Logger.js';
 import { COLORS } from '../utils/color.js';
 
 const STORAGE_KEY = 'notion-floating-rail-state';
+const DISMISSED_KEY = 'notion-floating-rail-dismissed';
 const VALID_COLORS = new Set(Object.keys(COLORS));
 
 export const RailStates = Object.freeze({
@@ -22,6 +23,7 @@ export class FloatingRailStateManager {
     this.listeners = new Set();
     this._currentState = RailStates.COLLAPSED;
     this._selectedColor = 'yellow';
+    this._dismissed = false;
     this._initialized = false;
   }
 
@@ -42,6 +44,7 @@ export class FloatingRailStateManager {
             this._selectedColor = parsed.color;
           }
         }
+        this._dismissed = globalThis.sessionStorage.getItem(DISMISSED_KEY) === 'true';
       }
     } catch (error) {
       Logger.warn('[FloatingRailState] 無法從 storage 讀取狀態', { error });
@@ -85,6 +88,28 @@ export class FloatingRailStateManager {
 
   get isHighlighting() {
     return this._currentState === RailStates.HIGHLIGHTING;
+  }
+
+  get isDismissed() {
+    return this._dismissed;
+  }
+
+  dismiss() {
+    this._dismissed = true;
+    try {
+      globalThis.sessionStorage?.setItem(DISMISSED_KEY, 'true');
+    } catch (error) {
+      Logger.warn('[FloatingRailState] 無法保存 dismissed 狀態', { error });
+    }
+  }
+
+  undismiss() {
+    this._dismissed = false;
+    try {
+      globalThis.sessionStorage?.removeItem(DISMISSED_KEY);
+    } catch (error) {
+      Logger.warn('[FloatingRailState] 無法清除 dismissed 狀態', { error });
+    }
   }
 
   addListener(listener) {

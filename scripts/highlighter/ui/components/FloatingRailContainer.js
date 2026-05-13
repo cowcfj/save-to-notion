@@ -14,6 +14,8 @@ const ICON_SIZE_SM = '18px';
 const TRIGGER_ICON_SIZE = '22px';
 
 const RAIL_ICONS = {
+  CLOSE:
+    '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>',
   // Save action — Heroicons solid `arrow-down-tray`，與 popup #save-button 同款
   NOTION:
     '<svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd"/></svg>',
@@ -32,6 +34,17 @@ export function createFloatingRailContainer(options = {}) {
   container.className = 'rail-container collapsed';
   container.setAttribute('role', 'toolbar');
   container.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CONTAINER_LABEL);
+
+  // Close button (visible on hover, top-right corner)
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'rail-close-btn';
+  closeBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CLOSE_LABEL);
+  closeBtn.dataset.action = 'close';
+  const closeIcon = createSafeIcon(RAIL_ICONS.CLOSE);
+  closeIcon.style.width = '12px';
+  closeIcon.style.height = '12px';
+  closeBtn.append(closeIcon);
+  container.append(closeBtn);
 
   // Trigger button (always visible)
   const trigger = document.createElement('button');

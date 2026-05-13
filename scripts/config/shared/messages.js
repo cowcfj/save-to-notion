@@ -259,6 +259,7 @@ const FLOATING_RAIL = {
   COLOR_PALETTE_LABEL: '標註顏色',
   MANAGE_LABEL: '管理標註',
   SAVE_FAILED: '保存失敗',
+  CLOSE_LABEL: '關閉本頁工具列',
 };
 
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =

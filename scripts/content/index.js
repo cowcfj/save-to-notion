@@ -93,6 +93,24 @@ function handleShowHighlighter(sendResponse) {
 }
 
 /**
+ * 顯示或喚回 Floating Rail
+ *
+ * @param {object} rail - Floating Rail instance
+ */
+function revealFloatingRail(rail) {
+  if (rail?.stateManager?.isDismissed && typeof rail.undismiss === 'function') {
+    rail.undismiss();
+    return;
+  }
+
+  if (typeof rail?.show !== 'function') {
+    throw new TypeError('浮動側欄缺少 show() 方法');
+  }
+
+  rail.show();
+}
+
+/**
  * 處理顯示 Floating Rail 請求
  *
  * @param {Function} sendResponse - 回應函數
@@ -100,7 +118,7 @@ function handleShowHighlighter(sendResponse) {
 async function handleShowFloatingRail(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     try {
-      globalThis.HighlighterV2.rail.show();
+      revealFloatingRail(globalThis.HighlighterV2.rail);
       sendResponse({ success: true });
     } catch (error) {
       sendResponse({ success: false, error: error?.message || String(error) });
@@ -112,9 +130,15 @@ async function handleShowFloatingRail(sendResponse) {
     try {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
-        readyResult.rail.show();
-        sendResponse({ success: true });
-        return;
+        try {
+          revealFloatingRail(readyResult.rail);
+          sendResponse({ success: true });
+          return;
+        } catch (error) {
+          globalThis.__NOTION_RAIL_READY__ = undefined;
+          sendResponse({ success: false, error: error?.message || String(error) });
+          return;
+        }
       }
       globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({
@@ -138,7 +162,7 @@ async function handleShowFloatingRail(sendResponse) {
 async function handleActivateFloatingRailHighlight(sendResponse) {
   if (globalThis.HighlighterV2?.rail) {
     try {
-      globalThis.HighlighterV2.rail.show();
+      revealFloatingRail(globalThis.HighlighterV2.rail);
       globalThis.HighlighterV2.rail.activateHighlighting();
       sendResponse({ success: true });
     } catch (error) {
@@ -151,10 +175,16 @@ async function handleActivateFloatingRailHighlight(sendResponse) {
     try {
       const readyResult = await globalThis.__NOTION_RAIL_READY__;
       if (readyResult?.success && readyResult.rail) {
-        readyResult.rail.show();
-        readyResult.rail.activateHighlighting();
-        sendResponse({ success: true });
-        return;
+        try {
+          revealFloatingRail(readyResult.rail);
+          readyResult.rail.activateHighlighting();
+          sendResponse({ success: true });
+          return;
+        } catch (error) {
+          globalThis.__NOTION_RAIL_READY__ = undefined;
+          sendResponse({ success: false, error: error?.message || String(error) });
+          return;
+        }
       }
       globalThis.__NOTION_RAIL_READY__ = undefined;
       sendResponse({

@@ -110,6 +110,11 @@ export class FloatingRail {
     }
 
     this.stateManager.initialize();
+
+    if (this.stateManager.isDismissed) {
+      this.hide();
+    }
+
     applyRailState(this.container, this.stateManager.currentState);
     applySelectedColor(this.container, this.stateManager.selectedColor);
     applyHighlightActive(
@@ -133,6 +138,9 @@ export class FloatingRail {
   }
 
   show() {
+    if (this.stateManager.isDismissed) {
+      return;
+    }
     this.host.style.display = 'block';
     if (this.stateManager.currentState === RailStates.COLLAPSED) {
       this.expand();
@@ -141,6 +149,19 @@ export class FloatingRail {
 
   hide() {
     this.host.style.display = 'none';
+  }
+
+  dismiss() {
+    if (this.stateManager.isHighlighting) {
+      this.deactivateHighlighting();
+    }
+    this.stateManager.dismiss();
+    this.hide();
+  }
+
+  undismiss() {
+    this.stateManager.undismiss();
+    this.show();
   }
 
   collapse() {
@@ -208,8 +229,16 @@ export class FloatingRail {
       return;
     }
 
-    const { trigger, saveBtn, highlightBtn, highlightToggle, manageBtn, colorPalette } =
+    const { trigger, closeBtn, saveBtn, highlightBtn, highlightToggle, manageBtn, colorPalette } =
       this.elements;
+
+    // Close button: dismiss rail for this page session
+    if (closeBtn) {
+      closeBtn.addEventListener('click', event => {
+        event.stopPropagation();
+        this.dismiss();
+      });
+    }
 
     // Trigger: expand/collapse
     if (trigger) {

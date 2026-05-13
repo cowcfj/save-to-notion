@@ -13,6 +13,7 @@ export function getRailElements(container) {
   const highlightBtn = container.querySelector('[data-action="highlight"]');
   return {
     trigger: container.querySelector('.rail-trigger'),
+    closeBtn: container.querySelector('.rail-close-btn'),
     saveBtn: container.querySelector('[data-action="save"]'),
     highlightBtn,
     highlightToggle: highlightBtn,
