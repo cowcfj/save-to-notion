@@ -62,6 +62,13 @@ describe('floatingRailStyles', () => {
     test('color-swatch selected 應使用 brand 色而非 text 色', () => {
       expect(css).toMatch(/\.color-swatch\.selected\s*\{[\s\S]*?border-color:\s*#F47565/);
     });
+
+    test('應包含 .rail-error-tooltip 樣式', () => {
+      expect(css).toContain('.rail-error-tooltip');
+      expect(css).toContain('position: absolute');
+      expect(css).toContain('opacity: 0');
+      expect(css).toContain('pointer-events: none');
+    });
   });
 
   describe('injectRailStylesIntoShadowRoot', () => {
