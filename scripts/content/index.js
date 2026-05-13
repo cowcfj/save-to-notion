@@ -28,6 +28,12 @@ import { isRootUrl } from '../utils/urlUtils.js';
 import '../highlighter/entryAutoInit.js';
 
 const { DEFAULT_PAGE_TITLE } = CONTENT_QUALITY;
+const FLOATING_RAIL_ERRORS = {
+  notInitialized: '浮動側欄尚未初始化',
+  initFailed: '浮動側欄初始化失敗',
+  missingActivateHighlighting: '浮動側欄缺少 activateHighlighting() 方法',
+  actionFailed: '浮動側欄操作失敗',
+};
 
 // ============================================================
 // Preloader 快取接管
@@ -85,7 +91,10 @@ function handleShowHighlighter(sendResponse) {
       globalThis.HighlighterV2.rail.show();
       sendResponse({ success: true });
     } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
+      sendResponse({
+        success: false,
+        error: formatRuntimeErrorMessage(error, FLOATING_RAIL_ERRORS.actionFailed),
+      });
     }
   } else {
     sendResponse({ success: false, error: '浮動側欄尚未初始化' });
@@ -111,47 +120,122 @@ function revealFloatingRail(rail) {
 }
 
 /**
+ * 將 runtime error 正規化為可顯示字串
+ *
+ * @param {unknown} error - 錯誤物件
+ * @param {string} fallbackMessage - 後備錯誤訊息
+ * @returns {string}
+ */
+function formatRuntimeErrorMessage(error, fallbackMessage) {
+  if (typeof error === 'string' && error.length > 0) {
+    return error;
+  }
+
+  if (typeof error?.message === 'string' && error.message.length > 0) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object') {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return fallbackMessage;
+    }
+  }
+
+  return fallbackMessage;
+}
+
+/**
+ * 回傳 Floating Rail 錯誤
+ *
+ * @param {Function} sendResponse - 回應函數
+ * @param {unknown} error - 錯誤物件
+ */
+function sendFloatingRailError(sendResponse, error) {
+  sendResponse({
+    success: false,
+    error: formatRuntimeErrorMessage(error, FLOATING_RAIL_ERRORS.actionFailed),
+  });
+}
+
+/**
+ * 清理待完成的 Floating Rail ready promise
+ */
+function resetFloatingRailReady() {
+  globalThis.__NOTION_RAIL_READY__ = undefined;
+}
+
+/**
+ * 執行依賴 Floating Rail 可用性的 action
+ *
+ * @param {Function} sendResponse - 回應函數
+ * @param {(rail: object) => void} onRailReady - rail action callback
+ */
+async function withAvailableFloatingRail(sendResponse, onRailReady) {
+  const activeRail = globalThis.HighlighterV2?.rail;
+  if (activeRail) {
+    try {
+      onRailReady(activeRail);
+      sendResponse({ success: true });
+    } catch (error) {
+      sendFloatingRailError(sendResponse, error);
+    }
+    return;
+  }
+
+  const railReadyPromise = globalThis.__NOTION_RAIL_READY__;
+  if (!railReadyPromise) {
+    sendResponse({ success: false, error: FLOATING_RAIL_ERRORS.notInitialized });
+    return;
+  }
+
+  try {
+    const readyResult = await railReadyPromise;
+    if (!readyResult?.success || !readyResult.rail) {
+      resetFloatingRailReady();
+      sendResponse({
+        success: false,
+        error: readyResult?.error || FLOATING_RAIL_ERRORS.initFailed,
+      });
+      return;
+    }
+
+    try {
+      onRailReady(readyResult.rail);
+      sendResponse({ success: true });
+    } catch (error) {
+      resetFloatingRailReady();
+      sendFloatingRailError(sendResponse, error);
+    }
+  } catch {
+    resetFloatingRailReady();
+    sendResponse({ success: false, error: FLOATING_RAIL_ERRORS.initFailed });
+  }
+}
+
+/**
+ * 啟動 Floating Rail 標註模式
+ *
+ * @param {object} rail - Floating Rail instance
+ */
+function activateFloatingRailHighlighting(rail) {
+  revealFloatingRail(rail);
+
+  if (typeof rail?.activateHighlighting !== 'function') {
+    throw new TypeError(FLOATING_RAIL_ERRORS.missingActivateHighlighting);
+  }
+
+  rail.activateHighlighting();
+}
+
+/**
  * 處理顯示 Floating Rail 請求
  *
  * @param {Function} sendResponse - 回應函數
  */
 async function handleShowFloatingRail(sendResponse) {
-  if (globalThis.HighlighterV2?.rail) {
-    try {
-      revealFloatingRail(globalThis.HighlighterV2.rail);
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
-    }
-    return;
-  }
-
-  if (globalThis.__NOTION_RAIL_READY__) {
-    try {
-      const readyResult = await globalThis.__NOTION_RAIL_READY__;
-      if (readyResult?.success && readyResult.rail) {
-        try {
-          revealFloatingRail(readyResult.rail);
-          sendResponse({ success: true });
-          return;
-        } catch (error) {
-          globalThis.__NOTION_RAIL_READY__ = undefined;
-          sendResponse({ success: false, error: error?.message || String(error) });
-          return;
-        }
-      }
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({
-        success: false,
-        error: readyResult?.error || '浮動側欄初始化失敗',
-      });
-    } catch {
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
-    }
-  } else {
-    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
-  }
+  await withAvailableFloatingRail(sendResponse, revealFloatingRail);
 }
 
 /**
@@ -160,44 +244,7 @@ async function handleShowFloatingRail(sendResponse) {
  * @param {Function} sendResponse - 回應函數
  */
 async function handleActivateFloatingRailHighlight(sendResponse) {
-  if (globalThis.HighlighterV2?.rail) {
-    try {
-      revealFloatingRail(globalThis.HighlighterV2.rail);
-      globalThis.HighlighterV2.rail.activateHighlighting();
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
-    }
-    return;
-  }
-
-  if (globalThis.__NOTION_RAIL_READY__) {
-    try {
-      const readyResult = await globalThis.__NOTION_RAIL_READY__;
-      if (readyResult?.success && readyResult.rail) {
-        try {
-          revealFloatingRail(readyResult.rail);
-          readyResult.rail.activateHighlighting();
-          sendResponse({ success: true });
-          return;
-        } catch (error) {
-          globalThis.__NOTION_RAIL_READY__ = undefined;
-          sendResponse({ success: false, error: error?.message || String(error) });
-          return;
-        }
-      }
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({
-        success: false,
-        error: readyResult?.error || '浮動側欄初始化失敗',
-      });
-    } catch {
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
-    }
-  } else {
-    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
-  }
+  await withAvailableFloatingRail(sendResponse, activateFloatingRailHighlighting);
 }
 
 /**
@@ -326,7 +373,7 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
           } catch (error) {
             Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
               action: 'replayEvents',
-              error: error?.message ?? String(error),
+              error: formatRuntimeErrorMessage(error, '重放快捷鍵事件失敗'),
             });
           }
         } else {

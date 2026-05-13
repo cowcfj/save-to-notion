@@ -265,6 +265,28 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時不應回傳 [object Object]', () => {
+      const railError = new Error('unused');
+      delete railError.message;
+      railError.reason = 'rail show failed';
+
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(() => {
+            throw railError;
+          }),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '{"reason":"rail show failed"}',
+      });
+    });
+
     test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 缺少顯示方法時應返回明確錯誤', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: true,
@@ -390,6 +412,22 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 缺少 activateHighlighting 時應回傳明確錯誤', () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄缺少 activateHighlighting() 方法',
+      });
+    });
+
     test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳 ready error', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: false,
@@ -403,6 +441,25 @@ describe('Content Script Entry (index.js)', () => {
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
         error: 'ready failed',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 缺少 activateHighlighting 時應回傳明確錯誤', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: {
+          show: jest.fn(),
+        },
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄缺少 activateHighlighting() 方法',
       });
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
