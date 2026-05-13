@@ -234,8 +234,8 @@ describe('options.js', () => {
     it('options.html 內所有 data-ui-* 綁定 key 皆能解析為非空字串', () => {
       // 合約測試：取代 Sonar Web:S6850/S6853 在 runtime-bound 模式下失去的訊號。
       // 確保任何新增 data-ui-* 屬性的 HTML 元素，其 key 都對應到 UI_MESSAGES 內非空文案。
-      const fs = require('fs');
-      const path = require('path');
+      const fs = require('node:fs');
+      const path = require('node:path');
       const html = fs.readFileSync(path.join(__dirname, '../../../options/options.html'), 'utf8');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
