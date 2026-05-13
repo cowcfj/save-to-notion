@@ -42,6 +42,10 @@ export function playLaunchAnimation(button) {
   );
 }
 
+function safeFinished(animation) {
+  return animation.finished.catch(() => undefined);
+}
+
 const PARTICLE_COLORS = [
   '#ff6b6b',
   '#ffd93d',
@@ -58,7 +62,9 @@ const PARTICLE_COLORS = [
  * @returns {Promise<void>}
  */
 export async function playFireworkAnimation(button) {
-  const reducedMotion = prefersReducedMotion();
+  if (prefersReducedMotion()) {
+    return;
+  }
 
   const bounce = button.animate(
     [
@@ -71,11 +77,7 @@ export async function playFireworkAnimation(button) {
     { duration: 500, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
   );
 
-  await bounce.finished;
-
-  if (reducedMotion) {
-    return;
-  }
+  await safeFinished(bounce);
 
   const container = button;
   const promises = [];
@@ -97,7 +99,7 @@ export async function playFireworkAnimation(button) {
     { duration: 600, easing: 'ease-out' }
   );
   promises.push(
-    ringAnim.finished.then(() => ring.remove()),
+    safeFinished(ringAnim).then(() => ring.remove()),
     emitParticles(container, 8, 30, 500),
     (async () => {
       await new Promise(resolve => setTimeout(resolve, 150));
@@ -138,7 +140,7 @@ function emitParticles(container, count, spread, duration) {
       ],
       { duration, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
     );
-    promises.push(anim.finished.then(() => particle.remove()));
+    promises.push(safeFinished(anim).then(() => particle.remove()));
   }
   return Promise.all(promises);
 }
