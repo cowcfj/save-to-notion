@@ -139,6 +139,8 @@ export function getFloatingRailCSS() {
     }
 
     .rail-actions {
+      position: relative;
+      overflow: visible;
       display: flex;
       flex-direction: column;
       gap: ${spacing.xs};
@@ -333,6 +335,35 @@ export function getFloatingRailCSS() {
       text-overflow: ellipsis;
       white-space: nowrap;
       padding: 0 2px;
+    }
+
+    .rail-error-tooltip {
+      position: absolute;
+      right: calc(100% + ${spacing.sm});
+      top: 50%;
+      transform: translateY(-50%) translateX(4px);
+      background: ${color.danger};
+      color: ${color.white};
+      padding: 4px ${spacing.sm};
+      border-radius: ${radius.sm};
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .rail-error-tooltip.visible {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+      pointer-events: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .rail-error-tooltip {
+        transition: none;
+        transform: translateY(-50%) translateX(0);
+      }
     }
   `;
 }

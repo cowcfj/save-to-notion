@@ -26,6 +26,11 @@ import {
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
+import {
+  playLaunchAnimation,
+  playFireworkAnimation,
+  playFailAnimation,
+} from './FloatingRailAnimations.js';
 
 const RAIL_HOST_ID = 'notion-floating-rail-host';
 const RAIL_HOST_OWNER_ATTR = 'data-rail-owner';
@@ -516,9 +521,12 @@ export class FloatingRail {
     }
     this._isSaving = true;
     const { saveBtn } = this.elements;
+    const errorTooltip = this.container.querySelector('.rail-error-tooltip');
     if (saveBtn) {
       saveBtn.disabled = true;
     }
+
+    const launchAnim = saveBtn ? playLaunchAnimation(saveBtn) : null;
     let operation = 'savePageFromRail';
     try {
       if (this._pageStatus?.isSaved) {
@@ -528,8 +536,21 @@ export class FloatingRail {
       } else {
         await savePageFromRail();
       }
+
+      if (launchAnim) {
+        launchAnim.cancel();
+      }
+      if (saveBtn) {
+        await playFireworkAnimation(saveBtn);
+      }
       await this._refreshPageStatus();
     } catch (error) {
+      if (launchAnim) {
+        launchAnim.cancel();
+      }
+      if (saveBtn && errorTooltip) {
+        await playFailAnimation(saveBtn, errorTooltip);
+      }
       const sanitizedError = sanitizeApiError(error, 'rail_save_sync');
       Logger.warn('[FloatingRail] 保存/同步失敗', {
         action: '_handleSaveSync',

@@ -17,6 +17,12 @@ jest.mock('../../../../scripts/highlighter/ui/components/FloatingRailContainer.j
   createFloatingRailContainer: jest.fn(),
 }));
 
+jest.mock('../../../../scripts/highlighter/ui/FloatingRailAnimations.js', () => ({
+  playLaunchAnimation: jest.fn(() => ({ cancel: jest.fn(), playState: 'running' })),
+  playFireworkAnimation: jest.fn(() => Promise.resolve()),
+  playFailAnimation: jest.fn(() => Promise.resolve()),
+}));
+
 import { FloatingRail } from '../../../../scripts/highlighter/ui/FloatingRail.js';
 import { RailStates } from '../../../../scripts/highlighter/ui/FloatingRailState.js';
 import {
@@ -27,6 +33,11 @@ import {
 } from '../../../../scripts/highlighter/ui/FloatingRailRuntime.js';
 import { createFloatingRailContainer } from '../../../../scripts/highlighter/ui/components/FloatingRailContainer.js';
 import { injectRailStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/floatingRailStyles.js';
+import {
+  playLaunchAnimation,
+  playFireworkAnimation,
+  playFailAnimation,
+} from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
 
 function createMockContainerElement() {
   const container = document.createElement('div');
@@ -45,6 +56,10 @@ function createMockContainerElement() {
   saveBtn.dataset.action = 'save';
   saveBtn.setAttribute('aria-label', '保存網頁');
   actions.append(saveBtn);
+
+  const errorTooltip = document.createElement('span');
+  errorTooltip.className = 'rail-error-tooltip';
+  actions.append(errorTooltip);
 
   const highlightGroup = document.createElement('div');
   highlightGroup.className = 'rail-highlight-group';
@@ -379,6 +394,35 @@ describe('FloatingRail', () => {
       await rail._handleSaveSync();
 
       expect(syncHighlights).toHaveBeenCalled();
+    });
+
+    test('保存成功應播放 launch → firework 動畫', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
+      savePageFromRail.mockResolvedValue({ success: true });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      await rail._handleSaveSync();
+
+      expect(playLaunchAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      expect(playFireworkAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      expect(playFailAnimation).not.toHaveBeenCalled();
+    });
+
+    test('保存失敗應播放 launch → fail 動畫', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
+      savePageFromRail.mockRejectedValue(new Error('network error'));
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+
+      await rail._handleSaveSync();
+
+      expect(playLaunchAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
+      expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
   });
 

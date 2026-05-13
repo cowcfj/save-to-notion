@@ -59,6 +59,13 @@ export function createFloatingRailContainer(options = {}) {
   saveIcon.style.width = ICON_SIZE_SM;
   saveIcon.style.height = ICON_SIZE_SM;
   saveBtn.append(saveIcon);
+
+  const errorTooltip = document.createElement('span');
+  errorTooltip.className = 'rail-error-tooltip';
+  errorTooltip.setAttribute('role', 'alert');
+  errorTooltip.setAttribute('aria-live', 'assertive');
+  errorTooltip.textContent = '';
+  saveBtn.append(errorTooltip);
   actions.append(saveBtn);
 
   // Highlight group: same button model as other actions, palette as sibling popover
