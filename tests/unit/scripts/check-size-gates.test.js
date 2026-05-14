@@ -96,7 +96,7 @@ describe('tools/check-size-gates.mjs', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir } = createBundleRoot({
       rootDir,
-      contentSize: 270_001,
+      contentSize: 256_001,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -116,6 +116,38 @@ describe('tools/check-size-gates.mjs', () => {
 
     expect(thrownError).toBeDefined();
     expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/content\.bundle\.js/);
+  });
+
+  test('[REGRESSION] hard mode 應允許 255_000 bytes 的 content bundle 通過', () => {
+    const rootDir = path.join(tempRoot, 'current');
+    const { unpackedDir, reportPath } = createBundleRoot({
+      rootDir,
+      contentSize: 255_000,
+      backgroundSize: 1024,
+      migrationSize: 1024,
+      unpackedSize: 2048,
+    });
+
+    runCli([
+      '--mode=hard',
+      '--scope=bundle',
+      `--root=${rootDir}`,
+      `--unpacked-dir=${unpackedDir}`,
+      `--report-file=${reportPath}`,
+    ]);
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    const contentCheck = report.checks.find(check => check.key === 'content_bundle');
+
+    expect(report.failed).toBe(false);
+    expect(contentCheck).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        current: 255_000,
+        hardLimit: 256_000,
+      })
+    );
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {

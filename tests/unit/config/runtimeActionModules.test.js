@@ -1,4 +1,5 @@
 import { CONTENT_BRIDGE_ACTIONS } from '../../../scripts/config/runtimeActions/contentBridgeActions.js';
+import { DIAGNOSTICS_ACTIONS } from '../../../scripts/config/runtimeActions/diagnosticsActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../../../scripts/config/runtimeActions/highlighterActions.js';
 import { PAGE_SAVE_ACTIONS } from '../../../scripts/config/runtimeActions/pageSaveActions.js';
 import { PRELOADER_ACTIONS } from '../../../scripts/config/runtimeActions/preloaderActions.js';
@@ -20,6 +21,10 @@ describe('runtime action 模組拆分', () => {
         'REPLAY_BUFFERED_EVENTS',
         'SHOW_FLOATING_RAIL',
       ],
+    },
+    {
+      registry: DIAGNOSTICS_ACTIONS,
+      keys: ['DEV_LOG_SINK', 'DEV_LOG_SINK_BATCH'],
     },
     {
       registry: HIGHLIGHTER_ACTIONS,

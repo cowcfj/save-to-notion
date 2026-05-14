@@ -3,28 +3,9 @@ import terser from '@rollup/plugin-terser';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
+import { stripTestConfig } from './rollup/plugins/stripTestConfig.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
-
-// Custom plugin to strip test exposure code in production
-const stripTestConfig = () => ({
-  name: 'strip-test-config',
-  transform(code, id) {
-    if (!isDev) {
-      const regex = /\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g;
-      const matches = code.match(regex);
-      if (matches) {
-        console.log(`[strip-test-config] Stripping ${matches.length} blocks from ${id}`);
-      }
-      // 返回對象包含 map: null 以消除 sourcemap 警告
-      return {
-        code: code.replaceAll(regex, ''),
-        map: null,
-      };
-    }
-    return null;
-  },
-});
 
 export default {
   input: 'scripts/background.js',
@@ -35,7 +16,7 @@ export default {
     banner: '/* eslint-disable */\n/* Save to Notion - Background Script */',
   },
   plugins: [
-    stripTestConfig(),
+    !isDev && stripTestConfig(),
     resolve({
       browser: true,
       preferBuiltins: false,
