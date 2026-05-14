@@ -18,6 +18,22 @@ import {
   waitForDOMStability,
 } from '../../scripts/highlighter/index.js';
 
+const createMockHighlightClass = () =>
+  class MockHighlight {
+    size = 0;
+    add(_range) {
+      this.size++;
+    }
+    delete(_range) {
+      if (this.size > 0) {
+        this.size--;
+      }
+    }
+    clear() {
+      this.size = 0;
+    }
+  };
+
 describe('Highlighter Integration Tests', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -75,21 +91,7 @@ describe('Highlighter Integration Tests', () => {
       highlights: new Map(),
     };
 
-    globalThis.Highlight = class MockHighlight {
-      add(_range) {
-        this.size++;
-      }
-      delete(_range) {
-        if (this.size > 0) {
-          this.size--;
-        }
-      }
-      clear() {
-        this.size = 0;
-      }
-
-      size = 0;
-    };
+    globalThis.Highlight = createMockHighlightClass();
 
     // Mock requestIdleCallback (not available in jsdom)
     globalThis.requestIdleCallback =
@@ -519,21 +521,7 @@ describe('Highlighter Production-Path Integration (entryAutoInit + toggle handle
     };
 
     globalThis.CSS = { highlights: new Map() };
-    globalThis.Highlight = class MockHighlight {
-      add(_range) {
-        this.size++;
-      }
-      delete(_range) {
-        if (this.size > 0) {
-          this.size--;
-        }
-      }
-      clear() {
-        this.size = 0;
-      }
-
-      size = 0;
-    };
+    globalThis.Highlight = createMockHighlightClass();
     globalThis.normalizeUrl = jest.fn(url => url);
   });
 
