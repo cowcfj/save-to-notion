@@ -22,6 +22,11 @@ import { ImageCollector } from './extractors/ImageCollector.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
+import {
+  formatRuntimeErrorMessage,
+  revealFloatingRail,
+  withAvailableFloatingRail,
+} from '../highlighter/utils/floatingRailAvailability.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。
@@ -80,141 +85,8 @@ function handlePing(sendResponse) {
  *
  * @param {Function} sendResponse - 回應函數
  */
-function handleShowHighlighter(sendResponse) {
-  if (globalThis.HighlighterV2?.rail) {
-    try {
-      globalThis.HighlighterV2.rail.show();
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({
-        success: false,
-        error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED),
-      });
-    }
-  } else {
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
-  }
-}
-
-/**
- * 顯示或喚回 Floating Rail
- *
- * @param {object} rail - Floating Rail instance
- * @returns {void|Promise<void>}
- */
-function revealFloatingRail(rail) {
-  if (rail?.stateManager?.isDismissed && typeof rail.undismiss === 'function') {
-    return rail.undismiss();
-  }
-
-  if (typeof rail?.show !== 'function') {
-    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_SHOW_METHOD_MISSING);
-  }
-
-  return rail.show();
-}
-
-/**
- * 將 runtime error 正規化為可顯示字串
- *
- * @param {unknown} error - 錯誤物件
- * @param {string} fallbackMessage - 後備錯誤訊息
- * @returns {string}
- */
-function formatRuntimeErrorMessage(error, fallbackMessage) {
-  if (typeof error === 'string' && error.length > 0) {
-    return error;
-  }
-
-  if (typeof error?.message === 'string' && error.message.length > 0) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
-
-/**
- * 回傳 Floating Rail 錯誤
- *
- * @param {Function} sendResponse - 回應函數
- * @param {unknown} error - 錯誤物件
- */
-function sendFloatingRailError(sendResponse, error) {
-  sendResponse({
-    success: false,
-    error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED),
-  });
-}
-
-/**
- * 判斷值是否為 promise-like
- *
- * @param {unknown} value - 待檢查的值
- * @returns {value is Promise<unknown>}
- */
-function isPromiseLike(value) {
-  return Boolean(value) && typeof value.then === 'function';
-}
-
-/**
- * 清理待完成的 Floating Rail ready promise
- */
-function resetFloatingRailReady() {
-  globalThis.__NOTION_RAIL_READY__ = undefined;
-}
-
-/**
- * 執行依賴 Floating Rail 可用性的 action
- *
- * @param {Function} sendResponse - 回應函數
- * @param {(rail: object) => (void|Promise<void>)} onRailReady - rail action callback
- */
-async function withAvailableFloatingRail(sendResponse, onRailReady) {
-  const activeRail = globalThis.HighlighterV2?.rail;
-  if (activeRail) {
-    try {
-      const activeResult = onRailReady(activeRail);
-      if (isPromiseLike(activeResult)) {
-        await activeResult;
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      sendFloatingRailError(sendResponse, error);
-    }
-    return;
-  }
-
-  const railReadyPromise = globalThis.__NOTION_RAIL_READY__;
-  if (!railReadyPromise) {
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
-    return;
-  }
-
-  try {
-    const readyResult = await railReadyPromise;
-    if (!readyResult?.success || !readyResult.rail) {
-      resetFloatingRailReady();
-      sendResponse({
-        success: false,
-        error: readyResult?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
-      });
-      return;
-    }
-
-    try {
-      const readyActionResult = onRailReady(readyResult.rail);
-      if (isPromiseLike(readyActionResult)) {
-        await readyActionResult;
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      resetFloatingRailReady();
-      sendFloatingRailError(sendResponse, error);
-    }
-  } catch {
-    resetFloatingRailReady();
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
-  }
+async function handleShowHighlighter(sendResponse) {
+  await withAvailableFloatingRail(sendResponse, revealFloatingRail);
 }
 
 /**
@@ -225,7 +97,7 @@ async function withAvailableFloatingRail(sendResponse, onRailReady) {
  */
 function activateFloatingRailHighlighting(rail) {
   const revealResult = revealFloatingRail(rail);
-  if (isPromiseLike(revealResult)) {
+  if (Boolean(revealResult) && typeof revealResult.then === 'function') {
     return revealResult.then(() => {
       if (typeof rail?.activateHighlighting !== 'function') {
         throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);

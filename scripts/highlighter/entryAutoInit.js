@@ -20,6 +20,7 @@ import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions
 import { PAGE_SAVE_ACTIONS } from '../config/runtimeActions/pageSaveActions.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { VALID_STYLES } from './utils/color.js';
+import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingRailAvailability.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
 
@@ -104,21 +105,8 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   }
 
-  function handleShowToolbarMessage(sendResponse) {
-    if (globalThis.HighlighterV2?.rail) {
-      try {
-        globalThis.HighlighterV2.rail.show();
-        sendResponse({ success: true });
-      } catch (error) {
-        Logger.error('顯示 Rail 失敗', { action: 'showToolbar', error });
-        sendResponse({ success: false, error: error.message });
-      }
-    } else {
-      sendResponse({
-        success: false,
-        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
-      });
-    }
+  async function handleShowToolbarMessage(sendResponse) {
+    await withAvailableFloatingRail(sendResponse, revealFloatingRail);
   }
 
   const registerPersistentListeners = () => {

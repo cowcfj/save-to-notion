@@ -175,6 +175,31 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.notionHighlighter;
     });
 
+    test('[REGRESSION] showHighlighter 應等待 rail-ready 完成後才回應', async () => {
+      delete globalThis.HighlighterV2;
+      const railReady = createDeferred();
+      const showMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
+      const sendResponse = jest.fn();
+
+      const result = messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+
+      expect(result).toBe(true);
+      expect(showMock).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      railReady.resolve({
+        success: true,
+        rail: { show: showMock },
+      });
+      await flushPromises();
+
+      expect(showMock).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      delete globalThis.__NOTION_RAIL_READY__;
+    });
+
     test('[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
       const railReady = createDeferred();
       const showMock = jest.fn();
