@@ -8,6 +8,10 @@
 import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { COLORS } from '../utils/color.js';
 import { hexToRgba } from '../../../styles/ui-token-constants.js';
+import { createSafeIcon } from '../../utils/securityUtils.js';
+import { RAIL_ICONS } from './components/FloatingRailContainer.js';
+
+const SAVE_ICON_SIZE = '18px';
 
 export function getRailElements(container) {
   const highlightBtn = container.querySelector('[data-action="highlight"]');
@@ -48,6 +52,30 @@ export function applySaveActionVisibility(saveBtn, pageStatus) {
     isSaved ? UI_MESSAGES.FLOATING_RAIL.SYNC_LABEL : UI_MESSAGES.FLOATING_RAIL.SAVE_LABEL
   );
   saveBtn.dataset.action = isSaved ? 'sync' : 'save';
+
+  swapSaveActionIcon(saveBtn, isSaved);
+}
+
+function swapSaveActionIcon(saveBtn, isSaved) {
+  const targetIconKey = isSaved ? 'sync' : 'save';
+  const currentSvg = saveBtn.querySelector('svg');
+  if (currentSvg?.dataset.railIcon === targetIconKey) {
+    return;
+  }
+
+  const nextIconWrapper = createSafeIcon(isSaved ? RAIL_ICONS.SYNC : RAIL_ICONS.NOTION);
+  const nextSvg = nextIconWrapper.querySelector('svg');
+  if (!nextSvg) {
+    return;
+  }
+  nextSvg.style.width = SAVE_ICON_SIZE;
+  nextSvg.style.height = SAVE_ICON_SIZE;
+
+  if (currentSvg) {
+    currentSvg.replaceWith(nextSvg);
+  } else {
+    saveBtn.prepend(nextSvg);
+  }
 }
 
 export function applySelectedColor(container, colorName) {
