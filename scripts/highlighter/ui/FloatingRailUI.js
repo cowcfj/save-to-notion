@@ -58,23 +58,22 @@ export function applySaveActionVisibility(saveBtn, pageStatus) {
 
 function swapSaveActionIcon(saveBtn, isSaved) {
   const targetIconKey = isSaved ? 'sync' : 'save';
-  const currentSvg = saveBtn.querySelector('svg');
-  if (currentSvg?.dataset.railIcon === targetIconKey) {
+  const currentWrapper = saveBtn.querySelector('.icon');
+  if (currentWrapper?.querySelector('svg')?.dataset.railIcon === targetIconKey) {
     return;
   }
 
-  const nextIconWrapper = createSafeIcon(isSaved ? RAIL_ICONS.SYNC : RAIL_ICONS.NOTION);
-  const nextSvg = nextIconWrapper.querySelector('svg');
-  if (!nextSvg) {
+  const nextWrapper = createSafeIcon(isSaved ? RAIL_ICONS.SYNC : RAIL_ICONS.NOTION);
+  if (!nextWrapper.querySelector('svg')) {
     return;
   }
-  nextSvg.style.width = SAVE_ICON_SIZE;
-  nextSvg.style.height = SAVE_ICON_SIZE;
+  nextWrapper.style.width = SAVE_ICON_SIZE;
+  nextWrapper.style.height = SAVE_ICON_SIZE;
 
-  if (currentSvg) {
-    currentSvg.replaceWith(nextSvg);
+  if (currentWrapper) {
+    currentWrapper.replaceWith(nextWrapper);
   } else {
-    saveBtn.prepend(nextSvg);
+    saveBtn.prepend(nextWrapper);
   }
 }
 
