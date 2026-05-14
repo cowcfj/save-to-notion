@@ -593,9 +593,8 @@ describe('Highlighter Production-Path Integration (entryAutoInit + toggle handle
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
-    const readyResult = await globalThis.__NOTION_RAIL_READY__?.catch(() => null);
     // settleRailReady 失敗時會把 __NOTION_RAIL_READY__ 清為 undefined（contract）
-    expect(readyResult ?? undefined).toBeUndefined();
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
 
     const sendResponse = await dispatchToggleHighlighter();
 
