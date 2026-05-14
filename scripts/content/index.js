@@ -21,6 +21,12 @@ import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
+import {
+  formatRuntimeErrorMessage,
+  revealFloatingRail,
+  withAvailableFloatingRail,
+} from '../highlighter/utils/floatingRailAvailability.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。
@@ -79,35 +85,33 @@ function handlePing(sendResponse) {
  *
  * @param {Function} sendResponse - 回應函數
  */
-function handleShowHighlighter(sendResponse) {
-  if (globalThis.HighlighterV2?.rail) {
-    try {
-      globalThis.HighlighterV2.rail.show();
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
-    }
-  } else {
-    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
-  }
+async function handleShowHighlighter(sendResponse) {
+  await withAvailableFloatingRail(sendResponse, revealFloatingRail);
 }
 
 /**
- * 顯示或喚回 Floating Rail
+ * 啟動 Floating Rail 標註模式
  *
  * @param {object} rail - Floating Rail instance
+ * @returns {void|Promise<void>}
  */
-function revealFloatingRail(rail) {
-  if (rail?.stateManager?.isDismissed && typeof rail.undismiss === 'function') {
-    rail.undismiss();
-    return;
+function activateFloatingRailHighlighting(rail) {
+  const revealResult = revealFloatingRail(rail);
+  if (Boolean(revealResult) && typeof revealResult.then === 'function') {
+    return revealResult.then(() => {
+      if (typeof rail?.activateHighlighting !== 'function') {
+        throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
+      }
+
+      return rail.activateHighlighting();
+    });
   }
 
-  if (typeof rail?.show !== 'function') {
-    throw new TypeError('浮動側欄缺少 show() 方法');
+  if (typeof rail?.activateHighlighting !== 'function') {
+    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
   }
 
-  rail.show();
+  return rail.activateHighlighting();
 }
 
 /**
@@ -116,42 +120,7 @@ function revealFloatingRail(rail) {
  * @param {Function} sendResponse - 回應函數
  */
 async function handleShowFloatingRail(sendResponse) {
-  if (globalThis.HighlighterV2?.rail) {
-    try {
-      revealFloatingRail(globalThis.HighlighterV2.rail);
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
-    }
-    return;
-  }
-
-  if (globalThis.__NOTION_RAIL_READY__) {
-    try {
-      const readyResult = await globalThis.__NOTION_RAIL_READY__;
-      if (readyResult?.success && readyResult.rail) {
-        try {
-          revealFloatingRail(readyResult.rail);
-          sendResponse({ success: true });
-          return;
-        } catch (error) {
-          globalThis.__NOTION_RAIL_READY__ = undefined;
-          sendResponse({ success: false, error: error?.message || String(error) });
-          return;
-        }
-      }
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({
-        success: false,
-        error: readyResult?.error || '浮動側欄初始化失敗',
-      });
-    } catch {
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
-    }
-  } else {
-    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
-  }
+  await withAvailableFloatingRail(sendResponse, revealFloatingRail);
 }
 
 /**
@@ -160,44 +129,7 @@ async function handleShowFloatingRail(sendResponse) {
  * @param {Function} sendResponse - 回應函數
  */
 async function handleActivateFloatingRailHighlight(sendResponse) {
-  if (globalThis.HighlighterV2?.rail) {
-    try {
-      revealFloatingRail(globalThis.HighlighterV2.rail);
-      globalThis.HighlighterV2.rail.activateHighlighting();
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
-    }
-    return;
-  }
-
-  if (globalThis.__NOTION_RAIL_READY__) {
-    try {
-      const readyResult = await globalThis.__NOTION_RAIL_READY__;
-      if (readyResult?.success && readyResult.rail) {
-        try {
-          revealFloatingRail(readyResult.rail);
-          readyResult.rail.activateHighlighting();
-          sendResponse({ success: true });
-          return;
-        } catch (error) {
-          globalThis.__NOTION_RAIL_READY__ = undefined;
-          sendResponse({ success: false, error: error?.message || String(error) });
-          return;
-        }
-      }
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({
-        success: false,
-        error: readyResult?.error || '浮動側欄初始化失敗',
-      });
-    } catch {
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-      sendResponse({ success: false, error: '浮動側欄初始化失敗' });
-    }
-  } else {
-    sendResponse({ success: false, error: '浮動側欄尚未初始化' });
-  }
+  await withAvailableFloatingRail(sendResponse, activateFloatingRailHighlighting);
 }
 
 /**
@@ -326,7 +258,11 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
           } catch (error) {
             Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
               action: 'replayEvents',
-              error: error?.message ?? String(error),
+              error,
+              errorMessage: formatRuntimeErrorMessage(
+                error,
+                RUNTIME_ERROR_MESSAGES.SHORTCUT_REPLAY_FAILED
+              ),
             });
           }
         } else {

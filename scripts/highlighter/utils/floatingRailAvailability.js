@@ -1,0 +1,124 @@
+import { RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions/errorMessages.js';
+
+const ALLOWED_RUNTIME_ERROR_MESSAGES = new Set([
+  RUNTIME_ERROR_MESSAGES.EXTENSION_UNAVAILABLE,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_SHOW_METHOD_MISSING,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED,
+  RUNTIME_ERROR_MESSAGES.SHORTCUT_REPLAY_FAILED,
+]);
+
+function isAllowedRuntimeErrorMessage(message) {
+  return typeof message === 'string' && ALLOWED_RUNTIME_ERROR_MESSAGES.has(message);
+}
+
+/**
+ * 顯示或喚回 Floating Rail
+ *
+ * @param {object} rail - Floating Rail instance
+ * @returns {void|Promise<void>}
+ */
+export function revealFloatingRail(rail) {
+  if (rail?.stateManager?.isDismissed && typeof rail.undismiss === 'function') {
+    return rail.undismiss();
+  }
+
+  if (typeof rail?.show !== 'function') {
+    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_SHOW_METHOD_MISSING);
+  }
+
+  return rail.show();
+}
+
+/**
+ * 將 runtime error 正規化為可顯示字串
+ *
+ * @param {unknown} error - 錯誤物件
+ * @param {string} fallbackMessage - 後備錯誤訊息
+ * @returns {string}
+ */
+export function formatRuntimeErrorMessage(error, fallbackMessage) {
+  if (isAllowedRuntimeErrorMessage(error)) {
+    return error;
+  }
+
+  if (isAllowedRuntimeErrorMessage(error?.message)) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+function sendFloatingRailError(sendResponse, error) {
+  sendResponse({
+    success: false,
+    error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED),
+  });
+}
+
+function isPromiseLike(value) {
+  return Boolean(value) && typeof value.then === 'function';
+}
+
+function resetFloatingRailReady() {
+  globalThis.__NOTION_RAIL_READY__ = undefined;
+}
+
+/**
+ * 執行依賴 Floating Rail 可用性的 action
+ *
+ * @param {Function} sendResponse - 回應函數
+ * @param {(rail: object) => (void|Promise<void>)} onRailReady - rail action callback
+ */
+export async function withAvailableFloatingRail(sendResponse, onRailReady) {
+  const activeRail = globalThis.HighlighterV2?.rail;
+  if (activeRail) {
+    try {
+      const activeResult = onRailReady(activeRail);
+      if (isPromiseLike(activeResult)) {
+        await activeResult;
+      }
+      sendResponse({ success: true });
+    } catch (error) {
+      sendFloatingRailError(sendResponse, error);
+    }
+    return;
+  }
+
+  const railReadyPromise = globalThis.__NOTION_RAIL_READY__;
+  if (!railReadyPromise) {
+    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
+    return;
+  }
+
+  try {
+    const readyResult = await railReadyPromise;
+    if (!readyResult?.success || !readyResult.rail) {
+      resetFloatingRailReady();
+      sendResponse({
+        success: false,
+        error: formatRuntimeErrorMessage(
+          readyResult?.error,
+          RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED
+        ),
+      });
+      return;
+    }
+
+    try {
+      const readyActionResult = onRailReady(readyResult.rail);
+      if (isPromiseLike(readyActionResult)) {
+        await readyActionResult;
+      }
+      sendResponse({ success: true });
+    } catch (error) {
+      resetFloatingRailReady();
+      sendFloatingRailError(sendResponse, error);
+    }
+  } catch {
+    resetFloatingRailReady();
+    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
+  }
+}

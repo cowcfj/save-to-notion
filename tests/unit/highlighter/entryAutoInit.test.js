@@ -269,7 +269,7 @@ describe('entryAutoInit', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Initial fail',
+      error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
@@ -295,7 +295,7 @@ describe('entryAutoInit', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Initial fail',
+      error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
@@ -325,7 +325,7 @@ describe('entryAutoInit', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Fallback fail',
+      error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
@@ -521,6 +521,42 @@ describe('entryAutoInit', () => {
       success: false,
       error: '浮動側欄尚未初始化',
     });
+  });
+
+  test('[REGRESSION] showToolbar 應等待 rail-ready 完成後才回應', async () => {
+    globalThis.__NOTION_STABLE_URL__ = 'https://existing.com';
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    jest.runAllTimers();
+    await flushAsyncSetup();
+
+    const messageHandler = runtimeMessageHandlers.at(-1);
+    const railReady = {};
+    railReady.promise = new Promise(resolve => {
+      railReady.resolve = resolve;
+    });
+
+    delete globalThis.HighlighterV2;
+    globalThis.__NOTION_RAIL_READY__ = railReady.promise;
+
+    const sendResponseMock = jest.fn();
+    const showMock = jest.fn();
+    const result = messageHandler({ action: 'showToolbar' }, {}, sendResponseMock);
+
+    expect(result).toBe(true);
+    expect(showMock).not.toHaveBeenCalled();
+    expect(sendResponseMock).not.toHaveBeenCalled();
+
+    railReady.resolve({
+      success: true,
+      rail: { show: showMock },
+    });
+    await flushAsyncSetup();
+
+    expect(showMock).toHaveBeenCalled();
+    expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
   });
 
   test('chrome.storage.onChanged 更新標籤樣式', async () => {

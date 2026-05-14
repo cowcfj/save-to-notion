@@ -18,7 +18,9 @@ import { setupHighlighter } from './index.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { PAGE_SAVE_ACTIONS } from '../config/runtimeActions/pageSaveActions.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { VALID_STYLES } from './utils/color.js';
+import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingRailAvailability.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
 
@@ -64,7 +66,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   function failRailReady(error, fallbackMessage) {
     settleRailReady({
       success: false,
-      error: error?.message || fallbackMessage,
+      error: fallbackMessage || error?.message,
     });
   }
 
@@ -83,7 +85,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         action: 'initializeExtension',
         error: railError?.message,
       });
-      failRailReady(railError, '浮動側欄初始化失敗');
+      failRailReady(railError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
     }
   }
 
@@ -95,26 +97,16 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = true;
       }
       registerPersistentListeners();
-      failRailReady(cause, '浮動側欄初始化失敗');
+      failRailReady(cause, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
     } catch (fallbackError) {
       unregisterPersistentListeners();
       Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
-      failRailReady(fallbackError, '浮動側欄回退初始化失敗');
+      failRailReady(fallbackError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
     }
   }
 
-  function handleShowToolbarMessage(sendResponse) {
-    if (globalThis.HighlighterV2?.rail) {
-      try {
-        globalThis.HighlighterV2.rail.show();
-        sendResponse({ success: true });
-      } catch (error) {
-        Logger.error('顯示 Rail 失敗', { action: 'showToolbar', error });
-        sendResponse({ success: false, error: error.message });
-      }
-    } else {
-      sendResponse({ success: false, error: '浮動側欄尚未初始化' });
-    }
+  async function handleShowToolbarMessage(sendResponse) {
+    await withAvailableFloatingRail(sendResponse, revealFloatingRail);
   }
 
   const registerPersistentListeners = () => {

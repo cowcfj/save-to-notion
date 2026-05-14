@@ -139,7 +139,7 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.HighlighterV2;
     });
 
-    test('showHighlighter 在 rail.show 拋錯時應返回錯誤', () => {
+    test('showHighlighter 在 rail.show 拋錯時應返回安全 fallback 訊息', () => {
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn(() => {
@@ -153,7 +153,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'showHighlighter failed',
+        error: '浮動側欄操作失敗',
       });
     });
 
@@ -173,6 +173,31 @@ describe('Content Script Entry (index.js)', () => {
         error: '浮動側欄尚未初始化',
       });
       delete globalThis.notionHighlighter;
+    });
+
+    test('[REGRESSION] showHighlighter 應等待 rail-ready 完成後才回應', async () => {
+      delete globalThis.HighlighterV2;
+      const railReady = createDeferred();
+      const showMock = jest.fn();
+      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
+      const sendResponse = jest.fn();
+
+      const result = messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+
+      expect(result).toBe(true);
+      expect(showMock).not.toHaveBeenCalled();
+      expect(sendResponse).not.toHaveBeenCalled();
+
+      railReady.resolve({
+        success: true,
+        rail: { show: showMock },
+      });
+      await flushPromises();
+
+      expect(showMock).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      delete globalThis.__NOTION_RAIL_READY__;
     });
 
     test('[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
@@ -247,7 +272,7 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回錯誤訊息', () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回安全 fallback 訊息', () => {
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn(() => {
@@ -261,7 +286,46 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'rail show failed',
+        error: '浮動側欄操作失敗',
+      });
+    });
+
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 的 async show reject 時應返回安全 fallback 訊息', async () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn().mockRejectedValue(new Error('async rail show failed')),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄操作失敗',
+      });
+    });
+
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時應回傳安全 fallback 訊息', () => {
+      const railError = new Error('unused');
+      delete railError.message;
+      railError.reason = 'rail show failed';
+
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(() => {
+            throw railError;
+          }),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄操作失敗',
       });
     });
 
@@ -369,7 +433,7 @@ describe('Content Script Entry (index.js)', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 啟動失敗時應返回錯誤訊息', () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 啟動失敗時應返回安全 fallback 訊息', () => {
       const activateHighlightingMock = jest.fn(() => {
         throw new Error('activate failed');
       });
@@ -386,11 +450,27 @@ describe('Content Script Entry (index.js)', () => {
       expect(activateHighlightingMock).toHaveBeenCalledWith();
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'activate failed',
+        error: '浮動側欄操作失敗',
       });
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳 ready error', async () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 缺少 activateHighlighting 時應回傳明確錯誤', () => {
+      globalThis.HighlighterV2 = {
+        rail: {
+          show: jest.fn(),
+        },
+      };
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄缺少 activateHighlighting() 方法',
+      });
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳標準化初始化錯誤', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: false,
         error: 'ready failed',
@@ -402,7 +482,46 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'ready failed',
+        error: '浮動側欄初始化失敗',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 缺少 activateHighlighting 時應回傳明確錯誤', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: {
+          show: jest.fn(),
+        },
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄缺少 activateHighlighting() 方法',
+      });
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 的 async activateHighlighting reject 時應回傳安全 fallback 訊息', async () => {
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: true,
+        rail: {
+          show: jest.fn(),
+          activateHighlighting: jest.fn().mockRejectedValue(new Error('async activate failed')),
+        },
+      });
+      const sendResponse = jest.fn();
+
+      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      await flushPromises();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄操作失敗',
       });
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
@@ -582,7 +701,8 @@ describe('Content Script Entry (index.js)', () => {
         '重放快捷鍵事件失敗，繼續處理後續事件',
         expect.objectContaining({
           action: 'replayEvents',
-          error: 'shortcut failed',
+          error: expect.objectContaining({ message: 'shortcut failed' }),
+          errorMessage: '重放快捷鍵事件失敗',
         })
       );
     });
