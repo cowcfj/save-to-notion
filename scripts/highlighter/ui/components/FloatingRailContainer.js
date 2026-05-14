@@ -10,7 +10,7 @@ import { createSafeIcon } from '../../../utils/securityUtils.js';
 
 const ARIA_LABEL = 'aria-label';
 const ACTION_BTN_CLASS = 'rail-action-btn';
-const ICON_SIZE_SM = '18px';
+export const ICON_SIZE_SM = '18px';
 const TRIGGER_ICON_SIZE = '22px';
 
 export const RAIL_ICONS = {
