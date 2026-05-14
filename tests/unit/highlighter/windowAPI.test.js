@@ -60,8 +60,8 @@ describe('windowAPI', () => {
     globalThis.notionHighlighter.toggle();
     expect(tbInstance.hide).toHaveBeenCalled();
 
-    expect(() => globalThis.notionHighlighter.minimize()).not.toThrow();
-    expect(tbInstance.minimize).not.toHaveBeenCalled();
+    globalThis.notionHighlighter.minimize();
+    expect(tbInstance.minimize).toHaveBeenCalled();
   });
 
   test('ensureToolbar 防止並行創建', () => {

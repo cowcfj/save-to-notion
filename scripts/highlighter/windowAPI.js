@@ -142,7 +142,9 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     },
     hide: () => getLegacyUiController(state)?.hide?.(),
     minimize: () => {
-      getLegacyUiController(state)?.collapse?.();
+      const legacyUi = getLegacyUiController(state);
+      legacyUi?.minimize?.();
+      legacyUi?.collapse?.();
     },
     isActive: () => {
       const toolbarState = state.currentToolbar?.stateManager?.currentState;
