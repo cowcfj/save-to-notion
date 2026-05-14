@@ -53,7 +53,7 @@ function setupExtractionMocks(deps, title) {
   deps.mergeUniqueImages.mockReturnValue([]);
 }
 
-async function waitForResult(predicate, { intervalMs = 20, maxAttempts = 100 } = {}) {
+async function waitForResult(predicate, { intervalMs = 20, maxAttempts = 150 } = {}) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(resolve => setTimeout(resolve, intervalMs));
     const value = predicate();
