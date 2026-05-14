@@ -150,6 +150,38 @@ describe('tools/check-size-gates.mjs', () => {
     );
   });
 
+  test('[REGRESSION] hard mode 應允許正好等於 hard cap (256_000 bytes) 的 content bundle 通過', () => {
+    const rootDir = path.join(tempRoot, 'current');
+    const { unpackedDir, reportPath } = createBundleRoot({
+      rootDir,
+      contentSize: 256_000,
+      backgroundSize: 1024,
+      migrationSize: 1024,
+      unpackedSize: 2048,
+    });
+
+    runCli([
+      '--mode=hard',
+      '--scope=bundle',
+      `--root=${rootDir}`,
+      `--unpacked-dir=${unpackedDir}`,
+      `--report-file=${reportPath}`,
+    ]);
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    const contentCheck = report.checks.find(check => check.key === 'content_bundle');
+
+    expect(report.failed).toBe(false);
+    expect(contentCheck).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        current: 256_000,
+        hardLimit: 256_000,
+      })
+    );
+  });
+
   test('delta mode 應在增量超過門檻時失敗', () => {
     const baseRoot = path.join(tempRoot, 'base');
     const currentRoot = path.join(tempRoot, 'current');

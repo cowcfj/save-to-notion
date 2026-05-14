@@ -120,7 +120,8 @@ export function initHighlighter(options = {}) {
  *
  * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
- * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
+ * @param {boolean} [options.skipToolbar] - 已棄用/相容性參數 — 現為 no-op；
+ *   toolbar 目前固定為 null，由 windowAPI 在需要時延遲建立。保留是為了維持舊 caller 的呼叫簽名相容。
  * @returns {{manager: HighlightManager, toolbar: import('./ui/Toolbar.js').Toolbar|null, storage: HighlightStorage}}
  *   返回值包含：
  *   - manager: HighlightManager 實例

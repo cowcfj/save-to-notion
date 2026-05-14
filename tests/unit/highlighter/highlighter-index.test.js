@@ -163,10 +163,13 @@ describe('Highlighter Index', () => {
 
   describe('initHighlighterWithToolbar', () => {
     test('Phase 1 應保留 toolbar 欄位但固定回傳 null', async () => {
+      const { Toolbar } = require('../../../scripts/highlighter/ui/Toolbar.js');
+
       const result = await initHighlighterWithToolbar();
 
       expect(result.manager).toBeDefined();
       expect(result.toolbar).toBeNull();
+      expect(Toolbar).not.toHaveBeenCalled();
     });
 
     test('應該初始化 Manager', async () => {

@@ -146,7 +146,12 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
 
       const railState = rail.stateManager?.currentState;
       const isHidden = rail.host?.style?.display === 'none';
-      return !isHidden && typeof railState === 'string' && railState !== 'collapsed';
+      return (
+        !isHidden &&
+        typeof railState === 'string' &&
+        railState !== 'collapsed' &&
+        railState !== 'hidden'
+      );
     },
     toggle: () => {
       const legacyUi = getLegacyUiController(state);
