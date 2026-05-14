@@ -23,6 +23,7 @@ if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
 // globalThis 掛載層（新版 HighlighterV2 + 向後兼容 notionHighlighter）
 import { mountWindowAPI } from './windowAPI.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
+import Logger from '../utils/Logger.js';
 
 let toggleHighlighterMessageListener = null;
 // entryAutoInit 在 settleRailReady 失敗時會把 globalThis.__NOTION_RAIL_READY__ 清為 undefined。
@@ -59,7 +60,12 @@ async function resolveToggleResponse() {
         error: result?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
       };
     }
-  } catch {
+  } catch (error) {
+    Logger.error('[Highlighter] Floating Rail 初始化失敗', {
+      action: 'resolveToggleResponse',
+      operation: 'floating_rail_init',
+      error,
+    });
     return {
       success: false,
       error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,

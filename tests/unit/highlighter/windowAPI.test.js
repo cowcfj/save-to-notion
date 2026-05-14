@@ -200,9 +200,10 @@ describe('windowAPI', () => {
       globalThis.notionHighlighter.show();
 
       const matched = warnSpy.mock.calls.find(
-        args => typeof args[1] === 'string' && args[1].includes('legacy UI controller unavailable')
+        args => typeof args[2] === 'object' && args[2]?.action === 'getLegacyUiController'
       );
       expect(matched).toBeDefined();
+      expect(matched[1]).toContain('舊版 UI 控制器不可用');
       expect(matched[2]).toEqual(
         expect.objectContaining({
           action: 'getLegacyUiController',
@@ -220,9 +221,10 @@ describe('windowAPI', () => {
 
       expect(result).toBe(false);
       const matched = warnSpy.mock.calls.find(
-        args => typeof args[1] === 'string' && args[1].includes('isActive called with no UI')
+        args => typeof args[2] === 'object' && args[2]?.action === 'isActive'
       );
       expect(matched).toBeDefined();
+      expect(matched[1]).toContain('isActive 在無 UI 時被調用');
       expect(matched[2]).toEqual(
         expect.objectContaining({
           action: 'isActive',
@@ -242,7 +244,7 @@ describe('windowAPI', () => {
 
       expect(result).toBe(true);
       const matched = warnSpy.mock.calls.find(
-        args => typeof args[1] === 'string' && args[1].includes('isActive called with no UI')
+        args => typeof args[2] === 'object' && args[2]?.action === 'isActive'
       );
       expect(matched).toBeUndefined();
     });

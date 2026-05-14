@@ -77,7 +77,7 @@ function getLegacyUiController(state) {
   if (rail) {
     return rail;
   }
-  Logger.warn('[Highlighter] legacy UI controller unavailable', {
+  Logger.warn('[Highlighter] 舊版 UI 控制器不可用', {
     action: 'getLegacyUiController',
     reason: 'toolbar_disabled_and_rail_missing',
     toolbarCompatEnabled: TOOLBAR_COMPAT_ENABLED,
@@ -155,7 +155,7 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
 
       const rail = globalThis.HighlighterV2?.rail;
       if (!rail) {
-        Logger.warn('[Highlighter] isActive called with no UI', {
+        Logger.warn('[Highlighter] isActive 在無 UI 時被調用', {
           action: 'isActive',
           reason: 'toolbar_disabled_and_rail_missing',
         });
