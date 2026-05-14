@@ -48,6 +48,3 @@ ignore_patterns:
   - '.claude/**'
   - '.venv/**'
 
-  # MCP 專屬指南 (需要時手動查閱)
-  - 'docs/guides/*_MCP_GUIDE.md'
-  - 'docs/guides/CONTEXT7_MCP_GUIDE.md'
