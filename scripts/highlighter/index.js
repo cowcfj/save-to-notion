@@ -88,8 +88,20 @@ function handleToggleHighlighterMessage(request, _sender, sendResponse) {
   }
 
   void (async () => {
-    const response = await resolveToggleResponse();
-    sendResponse(response);
+    try {
+      const response = await resolveToggleResponse();
+      sendResponse(response);
+    } catch (error) {
+      Logger.error('[Highlighter] Toggle handler 未預期錯誤', {
+        action: 'handleToggleHighlighterMessage',
+        operation: 'resolve_toggle',
+        error,
+      });
+      sendResponse({
+        success: false,
+        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED,
+      });
+    }
   })();
 
   return true;

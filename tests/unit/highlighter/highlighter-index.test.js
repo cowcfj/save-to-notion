@@ -284,6 +284,30 @@ describe('Highlighter Index', () => {
       expect(globalThis.notionHighlighter.toggle).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true, isActive: false });
     });
+
+    test('Case E: rail 立即可用但 toggle() 拋異常時仍回 FLOATING_RAIL_ACTION_FAILED', async () => {
+      globalThis.HighlighterV2 = {
+        rail: { stateManager: { currentState: 'visible' } },
+      };
+      globalThis.notionHighlighter = {
+        toggle: jest.fn(() => {
+          throw new Error('unexpected toggle failure');
+        }),
+        isActive: jest.fn().mockReturnValue(false),
+      };
+
+      const sendResponse = jest.fn();
+      const isHandled = messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+
+      expect(isHandled).toBe(true);
+      await flushMicrotasks();
+
+      expect(sendResponse).toHaveBeenCalledTimes(1);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄操作失敗',
+      });
+    });
   });
 
   describe('initHighlighterWithToolbar', () => {
