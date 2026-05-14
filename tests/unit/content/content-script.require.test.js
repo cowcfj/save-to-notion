@@ -21,6 +21,8 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   error: jest.fn(),
   debug: jest.fn(),
   success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 }));
 
 function requireFreshDeps() {
