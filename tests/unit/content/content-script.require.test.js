@@ -1,101 +1,121 @@
 /**
- * Require-style test: set up jsdom globals then require the content script file
- * so Jest's coverage instrumentation picks up content.js execution.
+ * @jest-environment jsdom
+ *
+ * 驗證 scripts/content/index.js 在 __UNIT_TESTING__ 模式下的 IIFE 自動執行行為：
+ * - 載入時應透過 IIFE 將 extractPageContent() 的結果寫入 globalThis.__notion_extraction_result
+ * - 即使預先存在過期的擷取結果，也應被新結果覆寫
+ *
+ * 註：原本載入 dist/content.bundle.js（commit e32fc8b1 引入），但 production build
+ * 會把 globalThis.__UNIT_TESTING__ 替換成字面量 false，導致 IIFE 被消除、測試靜默 timeout。
+ * 還原為直接 require source，bundle 層的整合驗證交由 tests/integration/content/ 處理。
  */
-const path = require('node:path');
 
-function setupContentMocks() {
-  globalThis.Readability = function (doc) {
-    return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
-  };
+jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
+jest.mock('../../../scripts/content/converters/ConverterFactory.js');
+jest.mock('../../../scripts/content/extractors/ImageCollector.js');
+jest.mock('../../../scripts/utils/imageUtils.js');
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  log: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+}));
 
-  globalThis.ImageUtils = {
-    cleanImageUrl: url => url,
-    isValidImageUrl: (..._args) => true,
-    extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-    generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-  };
+function requireFreshDeps() {
+  const { ContentExtractor } = require('../../../scripts/content/extractors/ContentExtractor.js');
+  const { ConverterFactory } = require('../../../scripts/content/converters/ConverterFactory.js');
+  const { ImageCollector } = require('../../../scripts/content/extractors/ImageCollector.js');
+  const { mergeUniqueImages } = require('../../../scripts/utils/imageUtils.js');
+  return { ContentExtractor, ConverterFactory, ImageCollector, mergeUniqueImages };
 }
 
-describe('content script require test', () => {
+function setupExtractionMocks(deps, title) {
+  deps.ContentExtractor.extractAsync.mockResolvedValue({
+    content: '<div>Test content</div>',
+    type: 'readability',
+    metadata: { title },
+    blocks: [],
+  });
+
+  deps.ConverterFactory.getConverter.mockReturnValue({
+    convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
+    imageCount: 0,
+  });
+
+  deps.ImageCollector.collectAdditionalImages.mockResolvedValue({
+    images: [],
+    coverImage: null,
+    metrics: null,
+  });
+
+  deps.mergeUniqueImages.mockReturnValue([]);
+}
+
+async function waitForResult(predicate, { intervalMs = 20, maxAttempts = 150 } = {}) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+    const value = predicate();
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+describe('content script source IIFE auto-execution', () => {
   beforeEach(() => {
     jest.resetModules();
+
+    globalThis.chrome = {
+      runtime: {
+        onMessage: { addListener: jest.fn(), removeListener: jest.fn() },
+        sendMessage: jest.fn(),
+        lastError: null,
+        getManifest: () => ({ version_name: 'dev' }),
+      },
+    };
+
+    globalThis.__UNIT_TESTING__ = true;
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
-    delete globalThis.Readability;
-    delete globalThis.ImageUtils;
     delete globalThis.chrome;
-    if ('__UNIT_TESTING__' in globalThis) {
-      delete globalThis.__UNIT_TESTING__;
-    }
-    if ('__notion_extraction_result' in globalThis) {
-      delete globalThis.__notion_extraction_result;
-    }
+    delete globalThis.__UNIT_TESTING__;
+    delete globalThis.__notion_extraction_result;
+    delete globalThis.__NOTION_BUNDLE_READY__;
+    delete globalThis.HighlighterV2;
   });
 
-  test('require scripts/content.js with jsdom globals', async () => {
-    const html =
-      '<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
-    document.documentElement.innerHTML = html;
+  test('載入 source 後 IIFE 應寫入 __notion_extraction_result', async () => {
+    const deps = requireFreshDeps();
+    setupExtractionMocks(deps, 'Source Require Test');
 
-    setupContentMocks();
+    require('../../../scripts/content/index.js');
 
-    // mark unit testing mode
-    globalThis.__UNIT_TESTING__ = true;
-
-    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
-
-    // Ensure it's not cached
-    delete require.cache[require.resolve(scriptPath)];
-
-    // 載入此腳本 — 會立即執行並應設定 globalThis.__notion_extraction_result
-    require(scriptPath);
-
-    // allow async operations to complete
-    // Wait for the script to complete with polling
-    let result = null;
-    for (let i = 0; i < 30; i++) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      if (globalThis.__notion_extraction_result) {
-        result = globalThis.__notion_extraction_result;
-        break;
-      }
-    }
+    const result = await waitForResult(() => globalThis.__notion_extraction_result);
 
     expect(result).toBeDefined();
-    expect(typeof result.title).toBe('string');
-    expect(result.title.length).toBeGreaterThan(0);
-  }, 10_000);
+    expect(result.title).toBe('Source Require Test');
+  }, 5000);
 
   test('應該在存在過期的擷取結果時覆寫並啟動', async () => {
-    const html =
-      '<!doctype html><html><head><title>Stale Result Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
-    document.documentElement.innerHTML = html;
-
-    setupContentMocks();
-
-    globalThis.__UNIT_TESTING__ = true;
+    const deps = requireFreshDeps();
+    setupExtractionMocks(deps, 'Fresh Result');
     globalThis.__notion_extraction_result = { title: 'stale-result' };
-    globalThis.chrome = require('../../mocks/chrome.js');
 
-    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
-    delete require.cache[require.resolve(scriptPath)];
-    require(scriptPath);
+    require('../../../scripts/content/index.js');
 
-    let result = null;
-    for (let i = 0; i < 30; i++) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      if (globalThis.__notion_extraction_result?.title !== 'stale-result') {
-        result = globalThis.__notion_extraction_result;
-        break;
-      }
-    }
+    const result = await waitForResult(() =>
+      globalThis.__notion_extraction_result?.title === 'stale-result'
+        ? undefined
+        : globalThis.__notion_extraction_result
+    );
 
     expect(result).toBeDefined();
-    expect(result.title).not.toBe('stale-result');
-    expect(typeof result.title).toBe('string');
-  }, 10_000);
+    expect(result.title).toBe('Fresh Result');
+  }, 5000);
 });
