@@ -48,24 +48,20 @@ describe('windowAPI', () => {
   test('ensureToolbar 和 notionHighlighter 方法應能正確運作 (toggle/hide/minimize)', () => {
     mountWindowAPI(mockManager, null, mockStorage);
 
-    // Uncovered: 122 minimize
-    globalThis.notionHighlighter.minimize(); // Should be safe since toolbar is null
+    expect(() => globalThis.notionHighlighter.minimize()).not.toThrow();
 
-    // Create toolbar via toggle
     globalThis.notionHighlighter.toggle();
     expect(Toolbar).toHaveBeenCalled();
     const tbInstance = globalThis.HighlighterV2.getToolbar();
     expect(tbInstance).toBeDefined();
     expect(tbInstance.show).toHaveBeenCalled();
 
-    // Change state and toggle again (Uncovered: 133 tb.hide)
     tbInstance.stateManager.currentState = 'visible';
     globalThis.notionHighlighter.toggle();
     expect(tbInstance.hide).toHaveBeenCalled();
 
-    // Call minimize when toolbar exists (Uncovered: 122)
-    globalThis.notionHighlighter.minimize();
-    expect(tbInstance.minimize).toHaveBeenCalled();
+    expect(() => globalThis.notionHighlighter.minimize()).not.toThrow();
+    expect(tbInstance.minimize).not.toHaveBeenCalled();
   });
 
   test('ensureToolbar 防止並行創建', () => {
@@ -146,7 +142,7 @@ describe('windowAPI', () => {
     globalThis.notionHighlighter = notionHL;
   });
 
-  describe('Production-path observability (TOOLBAR_COMPAT_ENABLED=false)', () => {
+  describe('Production-path observability (TOOLBAR_TEST_FIXTURE_ENABLED=false)', () => {
     let warnSpy;
     let prodMountWindowAPI;
     let prodManager;
@@ -170,7 +166,7 @@ describe('windowAPI', () => {
           })),
         }));
 
-        // 重新載入 windowAPI，使其在 production gate 下凍結 TOOLBAR_COMPAT_ENABLED=false
+        // 重新載入 windowAPI，使其在 production gate 下凍結 TOOLBAR_TEST_FIXTURE_ENABLED=false
         ({
           mountWindowAPI: prodMountWindowAPI,
         } = require('../../../scripts/highlighter/windowAPI.js'));
@@ -208,7 +204,7 @@ describe('windowAPI', () => {
         expect.objectContaining({
           action: 'getLegacyUiController',
           reason: 'toolbar_disabled_and_rail_missing',
-          toolbarCompatEnabled: false,
+          toolbarTestFixtureEnabled: false,
         })
       );
     });
@@ -247,6 +243,20 @@ describe('windowAPI', () => {
         args => typeof args[2] === 'object' && args[2]?.action === 'isActive'
       );
       expect(matched).toBeUndefined();
+    });
+
+    test('minimize() 在 rail-only 環境下應呼叫 rail.collapse()', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      const railCollapse = jest.fn();
+      globalThis.HighlighterV2.rail = {
+        collapse: railCollapse,
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'block' } },
+      };
+
+      globalThis.notionHighlighter.minimize();
+
+      expect(railCollapse).toHaveBeenCalledTimes(1);
     });
   });
 });

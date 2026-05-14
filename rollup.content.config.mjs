@@ -4,6 +4,7 @@ import replace from '@rollup/plugin-replace';
 import terser from '@rollup/plugin-terser';
 import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
 import { stripTestConfig } from './rollup/plugins/stripTestConfig.mjs';
+import { assertTestFixtureDce } from './rollup/plugins/assertTestFixtureDce.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -57,6 +58,7 @@ export default {
         },
       }),
     createVisualizerPlugin('content-bundle', 'Content Bundle Analysis'),
+    !isDev && assertTestFixtureDce(),
   ].filter(Boolean), // 過濾掉 false 值（開發環境時 terser 為 false）
   onwarn(warning, warn) {
     // 忽略某些常見警告

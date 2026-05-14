@@ -22,16 +22,15 @@ import { findTextInPage } from './utils/textSearch.js';
 import { waitForDOMStability } from './utils/domStability.js';
 import Logger from '../utils/Logger.js';
 
-const TOOLBAR_COMPAT_ENABLED = globalThis.__UNIT_TESTING__ !== false;
+// Test-only build-time gate. `globalThis.__UNIT_TESTING__` is replaced with
+// the literal `false` in production by [rollup.content.config.mjs](../../rollup.content.config.mjs),
+// so the entire toolbar branch below is dead-code-eliminated by terser. The
+// `Toolbar` import + `ensureToolbar` body only ship in test bundles. See
+// [docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md](../../docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md).
+const TOOLBAR_TEST_FIXTURE_ENABLED = globalThis.__UNIT_TESTING__ !== false;
 
-/**
- * 動態創建 Toolbar（如果尚未創建）
- *
- * @param {object} state - 閉包狀態 { currentToolbar, isCreatingToolbar, manager, storage }
- * @returns {Toolbar|null}
- */
 function ensureToolbar(state) {
-  if (!TOOLBAR_COMPAT_ENABLED) {
+  if (!TOOLBAR_TEST_FIXTURE_ENABLED) {
     return null;
   }
 
@@ -80,7 +79,7 @@ function getLegacyUiController(state) {
   Logger.warn('[Highlighter] 舊版 UI 控制器不可用', {
     action: 'getLegacyUiController',
     reason: 'toolbar_disabled_and_rail_missing',
-    toolbarCompatEnabled: TOOLBAR_COMPAT_ENABLED,
+    toolbarTestFixtureEnabled: TOOLBAR_TEST_FIXTURE_ENABLED,
   });
   return null;
 }
@@ -143,9 +142,7 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     },
     hide: () => getLegacyUiController(state)?.hide?.(),
     minimize: () => {
-      const legacyUi = getLegacyUiController(state);
-      legacyUi?.minimize?.();
-      legacyUi?.collapse?.();
+      getLegacyUiController(state)?.collapse?.();
     },
     isActive: () => {
       const toolbarState = state.currentToolbar?.stateManager?.currentState;
