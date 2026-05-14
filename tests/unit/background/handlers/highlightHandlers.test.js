@@ -390,7 +390,7 @@ describe('highlightHandlers', () => {
   });
 
   describe('startHighlight', () => {
-    it('應該成功顯示已注入的高亮工具（使用 showHighlighter 而非 toggleHighlighter）', async () => {
+    it('應該透過 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動已注入的高亮工具', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id' };
 

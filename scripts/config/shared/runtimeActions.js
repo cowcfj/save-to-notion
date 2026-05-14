@@ -236,18 +236,6 @@ const SAVE_ACTIONS = {
  */
 
 /**
- * @typedef {object} ToggleHighlighterRequest
- * @property {'toggleHighlighter'} action
- */
-
-/**
- * @typedef {object} ToggleHighlighterResponse
- * @property {boolean} success
- * @property {boolean} [isActive]
- * @property {string} [error]
- */
-
-/**
  * @typedef {object} UserActivateShortcutRequest
  * @property {'USER_ACTIVATE_SHORTCUT'} action
  */
@@ -322,7 +310,6 @@ const HIGHLIGHT_ACTIONS = {
   UPDATE_HIGHLIGHTS: 'UPDATE_HIGHLIGHTS',
   CLEAR_HIGHLIGHTS: 'CLEAR_HIGHLIGHTS',
   SHOW_TOOLBAR: 'showToolbar',
-  TOGGLE_HIGHLIGHTER: 'toggleHighlighter',
   SHOW_HIGHLIGHTER: 'showHighlighter',
   REMOVE_HIGHLIGHT_DOM: 'REMOVE_HIGHLIGHT_DOM',
   USER_ACTIVATE_SHORTCUT: 'USER_ACTIVATE_SHORTCUT',
@@ -715,7 +702,6 @@ export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
  * @property {UpdateHighlightsRequest['action']} UPDATE_HIGHLIGHTS - Request: {@link UpdateHighlightsRequest}; Response: {@link UpdateHighlightsResponse}
  * @property {ClearHighlightsRequest['action']} CLEAR_HIGHLIGHTS - Request: {@link ClearHighlightsRequest}; Response: {@link ClearHighlightsResponse}
  * @property {ShowToolbarRequest['action']} SHOW_TOOLBAR - Request: {@link ShowToolbarRequest}; Response: {@link ShowToolbarResponse}
- * @property {ToggleHighlighterRequest['action']} TOGGLE_HIGHLIGHTER - Request: {@link ToggleHighlighterRequest}; Response: {@link ToggleHighlighterResponse}
  * @property {ShowHighlighterRequest['action']} SHOW_HIGHLIGHTER - Request: {@link ShowHighlighterRequest}; Response: {@link ShowHighlighterResponse}
  * @property {RemoveHighlightDomRequest['action']} REMOVE_HIGHLIGHT_DOM - Request: {@link RemoveHighlightDomRequest}; Response: {@link RemoveHighlightDomResponse}
  * @property {UserActivateShortcutRequest['action']} USER_ACTIVATE_SHORTCUT - Request: {@link UserActivateShortcutRequest}; Response: {@link UserActivateShortcutResponse}
