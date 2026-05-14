@@ -54,12 +54,12 @@ describe('FloatingRailRuntime', () => {
       });
     });
 
-    it('savePageFromRail 送出 SAVE_PAGE_FROM_TOOLBAR', async () => {
-      const sendMessage = jest.fn().mockResolvedValue({ ok: true });
+    it('savePageFromRail 送出 SAVE_PAGE_FROM_TOOLBAR 並透傳 sendMessage 回應', async () => {
+      const response = { ok: true };
+      const sendMessage = jest.fn().mockResolvedValue(response);
       globalThis.chrome.runtime.sendMessage = sendMessage;
 
-      await savePageFromRail();
-
+      await expect(savePageFromRail()).resolves.toBe(response);
       expect(sendMessage).toHaveBeenCalledWith({
         action: PAGE_SAVE_ACTIONS.SAVE_PAGE_FROM_TOOLBAR,
       });

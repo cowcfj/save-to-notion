@@ -510,6 +510,7 @@ describe('Destination profile domain services', () => {
       );
       expect(storageData.destinationProfiles).toHaveLength(2);
       expect(storageData.destinationProfiles[1].id).toBe(created.id);
+      expect(created.color).toBe('#16a34a');
     });
 
     it('updateProfile 對不存在 id 拋 NOT_FOUND', async () => {
