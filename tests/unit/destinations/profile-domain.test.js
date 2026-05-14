@@ -1,6 +1,7 @@
 import {
   ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
   AccountGatedDestinationEntitlementProvider,
+  DESTINATION_PROFILE_ERRORS,
   DESTINATION_PROFILE_STORAGE_KEYS,
   LocalDestinationProfileRepository,
 } from '../../../scripts/destinations/ProfileStore.js';
@@ -422,6 +423,151 @@ describe('Destination profile domain services', () => {
       PROFILES: 'destinationProfiles',
       LAST_USED_PROFILE_ID: 'destinationLastUsedProfileId',
       VERSION: 'destinationProfilesVersion',
+    });
+  });
+
+  describe('ProfileManager error branches', () => {
+    const buildProfile = overrides => ({
+      id: 'default',
+      name: 'Default',
+      icon: 'bookmark',
+      color: '#2563eb',
+      notionDataSourceId: 'source-1',
+      notionDataSourceType: 'database',
+      createdAt: 1,
+      updatedAt: 1,
+      ...overrides,
+    });
+
+    it('getProfile 找不到 id 時拋 NOT_FOUND', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(manager.getProfile('missing')).rejects.toThrow(
+        DESTINATION_PROFILE_ERRORS.NOT_FOUND
+      );
+    });
+
+    it('getLastUsedProfile 在 entitlement.maxProfiles 為 0 時回 null', async () => {
+      entitlementProvider.getDestinationEntitlement.mockResolvedValue({
+        maxProfiles: 0,
+        source: 'test',
+      });
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(manager.getLastUsedProfile()).resolves.toBeNull();
+    });
+
+    it('setLastUsedProfile happy path 會寫入 lastUsedProfileId 並回傳 profile', async () => {
+      storageData.destinationProfiles = [
+        buildProfile(),
+        buildProfile({
+          id: 'second',
+          name: 'Second',
+          notionDataSourceId: 'source-2',
+          notionDataSourceType: 'page',
+          createdAt: 2,
+          updatedAt: 2,
+        }),
+      ];
+
+      const result = await manager.setLastUsedProfile('second');
+
+      expect(result.id).toBe('second');
+      expect(storageData.destinationLastUsedProfileId).toBe('second');
+    });
+
+    it('setLastUsedProfile 對不存在 id 拋 NOT_FOUND', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(manager.setLastUsedProfile('missing')).rejects.toThrow(
+        DESTINATION_PROFILE_ERRORS.NOT_FOUND
+      );
+    });
+
+    it('createProfile 完全空的 input 觸發 TARGET_REQUIRED', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(manager.createProfile({})).rejects.toThrow(
+        DESTINATION_PROFILE_ERRORS.TARGET_REQUIRED
+      );
+    });
+
+    it('createProfile happy path 會寫入新 profile 並沿用 entitlement 配色', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      const created = await manager.createProfile({
+        name: 'Second',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+      });
+
+      expect(created).toEqual(
+        expect.objectContaining({
+          name: 'Second',
+          notionDataSourceId: 'source-2',
+          notionDataSourceType: 'page',
+        })
+      );
+      expect(storageData.destinationProfiles).toHaveLength(2);
+      expect(storageData.destinationProfiles[1].id).toBe(created.id);
+    });
+
+    it('updateProfile 對不存在 id 拋 NOT_FOUND', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(
+        manager.updateProfile('missing', { notionDataSourceId: 'source-2' })
+      ).rejects.toThrow(DESTINATION_PROFILE_ERRORS.NOT_FOUND);
+    });
+
+    it('updateProfile 將 notionDataSourceId 更新為空字串時拋 TARGET_REQUIRED', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(manager.updateProfile('default', { notionDataSourceId: '' })).rejects.toThrow(
+        DESTINATION_PROFILE_ERRORS.TARGET_REQUIRED
+      );
+    });
+
+    it('deleteProfile 在僅剩一個 profile 時拋 LAST_DELETE', async () => {
+      storageData.destinationProfiles = [buildProfile()];
+
+      await expect(manager.deleteProfile('default')).rejects.toThrow(
+        DESTINATION_PROFILE_ERRORS.LAST_DELETE
+      );
+    });
+
+    it('deleteProfile 對不存在 id 拋 NOT_FOUND', async () => {
+      storageData.destinationProfiles = [
+        buildProfile(),
+        buildProfile({
+          id: 'second',
+          notionDataSourceId: 'source-2',
+          createdAt: 2,
+          updatedAt: 2,
+        }),
+      ];
+
+      await expect(manager.deleteProfile('missing')).rejects.toThrow(
+        DESTINATION_PROFILE_ERRORS.NOT_FOUND
+      );
+    });
+
+    it('deleteProfile 刪除非 last-used profile 時保留原 lastUsedProfileId', async () => {
+      storageData.destinationLastUsedProfileId = 'default';
+      storageData.destinationProfiles = [
+        buildProfile(),
+        buildProfile({
+          id: 'second',
+          notionDataSourceId: 'source-2',
+          createdAt: 2,
+          updatedAt: 2,
+        }),
+      ];
+
+      const remaining = await manager.deleteProfile('second');
+
+      expect(remaining.map(profile => profile.id)).toEqual(['default']);
+      expect(storageData.destinationLastUsedProfileId).toBe('default');
     });
   });
 });
