@@ -31,7 +31,6 @@ describe('runtime action 模組拆分', () => {
       keys: [
         'SHOW_TOOLBAR',
         'SHOW_HIGHLIGHTER',
-        'TOGGLE_HIGHLIGHTER',
         'START_HIGHLIGHT',
         'SYNC_HIGHLIGHTS',
         'UPDATE_HIGHLIGHTS',

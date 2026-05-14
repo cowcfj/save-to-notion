@@ -6,7 +6,6 @@
 export const HIGHLIGHTER_ACTIONS = Object.freeze({
   SHOW_TOOLBAR: 'showToolbar',
   SHOW_HIGHLIGHTER: 'showHighlighter',
-  TOGGLE_HIGHLIGHTER: 'toggleHighlighter',
   START_HIGHLIGHT: 'startHighlight',
   SYNC_HIGHLIGHTS: 'syncHighlights',
   UPDATE_HIGHLIGHTS: 'UPDATE_HIGHLIGHTS',

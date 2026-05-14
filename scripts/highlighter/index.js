@@ -15,113 +15,12 @@ import { HighlightStorage } from './core/HighlightStorage.js';
 
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
-import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
   globalThis.normalizeUrl = normalizeUrl;
 }
 
 // globalThis 掛載層（新版 HighlighterV2 + 向後兼容 notionHighlighter）
 import { mountWindowAPI } from './windowAPI.js';
-import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
-import Logger from '../utils/Logger.js';
-
-let toggleHighlighterMessageListener = null;
-// entryAutoInit 在 settleRailReady 失敗時會把 globalThis.__NOTION_RAIL_READY__ 清為 undefined。
-// 為了讓 toggle handler 能在 settle 後仍取得原始 typed error，bind 時即捕捉 promise 引用。
-let capturedRailReadyPromise = null;
-
-function isRailImmediatelyAvailable() {
-  return Boolean(globalThis.HighlighterV2?.rail || globalThis.HighlighterV2?.toolbar);
-}
-
-function performToggle() {
-  globalThis.notionHighlighter.toggle();
-  return { success: true, isActive: globalThis.notionHighlighter.isActive() };
-}
-
-async function resolveToggleResponse() {
-  if (isRailImmediatelyAvailable() && globalThis.notionHighlighter) {
-    return performToggle();
-  }
-
-  const readyPromise = globalThis.__NOTION_RAIL_READY__ || capturedRailReadyPromise;
-  if (!readyPromise) {
-    return {
-      success: false,
-      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
-    };
-  }
-
-  try {
-    const result = await readyPromise;
-    if (!result?.success) {
-      return {
-        success: false,
-        error: result?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
-      };
-    }
-  } catch (error) {
-    Logger.error('[Highlighter] Floating Rail 初始化失敗', {
-      action: 'resolveToggleResponse',
-      operation: 'floating_rail_init',
-      error,
-    });
-    return {
-      success: false,
-      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
-    };
-  }
-
-  if (!globalThis.notionHighlighter) {
-    return {
-      success: false,
-      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
-    };
-  }
-
-  return performToggle();
-}
-
-function handleToggleHighlighterMessage(request, _sender, sendResponse) {
-  if (request.action !== HIGHLIGHTER_ACTIONS.TOGGLE_HIGHLIGHTER) {
-    return false;
-  }
-
-  void (async () => {
-    try {
-      const response = await resolveToggleResponse();
-      sendResponse(response);
-    } catch (error) {
-      Logger.error('[Highlighter] Toggle handler 未預期錯誤', {
-        action: 'handleToggleHighlighterMessage',
-        operation: 'resolve_toggle',
-        error,
-      });
-      sendResponse({
-        success: false,
-        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED,
-      });
-    }
-  })();
-
-  return true;
-}
-
-function bindToggleHighlighterListener() {
-  const onMessage = globalThis.chrome?.runtime?.onMessage;
-  if (!onMessage?.addListener) {
-    return;
-  }
-
-  if (toggleHighlighterMessageListener && onMessage.removeListener) {
-    onMessage.removeListener(toggleHighlighterMessageListener);
-  }
-
-  capturedRailReadyPromise = globalThis.__NOTION_RAIL_READY__ || capturedRailReadyPromise;
-
-  toggleHighlighterMessageListener = handleToggleHighlighterMessage;
-  onMessage.addListener(toggleHighlighterMessageListener);
-}
 
 function remountWindowAPI(manager, toolbar, storage) {
   mountWindowAPI(manager, toolbar, storage, {
@@ -179,8 +78,6 @@ export function initHighlighter(options = {}) {
   // 自動執行初始化
   manager.initializationComplete = manager.initialize();
 
-  bindToggleHighlighterListener();
-
   return manager;
 }
 
@@ -217,8 +114,6 @@ export function initHighlighterWithToolbar(options = {}) {
       toolbar.updateHighlightCount();
     }
   })();
-
-  bindToggleHighlighterListener();
 
   // 附加 storage 到返回值，方便 setupHighlighter 使用
   return { manager, toolbar, storage };
