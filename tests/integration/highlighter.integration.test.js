@@ -18,6 +18,22 @@ import {
   waitForDOMStability,
 } from '../../scripts/highlighter/index.js';
 
+const createMockHighlightClass = () =>
+  class MockHighlight {
+    size = 0;
+    add(_range) {
+      this.size++;
+    }
+    delete(_range) {
+      if (this.size > 0) {
+        this.size--;
+      }
+    }
+    clear() {
+      this.size = 0;
+    }
+  };
+
 describe('Highlighter Integration Tests', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -75,21 +91,7 @@ describe('Highlighter Integration Tests', () => {
       highlights: new Map(),
     };
 
-    globalThis.Highlight = class MockHighlight {
-      add(_range) {
-        this.size++;
-      }
-      delete(_range) {
-        if (this.size > 0) {
-          this.size--;
-        }
-      }
-      clear() {
-        this.size = 0;
-      }
-
-      size = 0;
-    };
+    globalThis.Highlight = createMockHighlightClass();
 
     // Mock requestIdleCallback (not available in jsdom)
     globalThis.requestIdleCallback =
@@ -450,6 +452,155 @@ describe('Highlighter Integration Tests', () => {
       // 注意：在 jsdom 環境中，由於 DOM 限制，addHighlight 可能返回 null
       // 因此這裡只驗證操作不會拋錯且性能在可接受範圍內
       expect(duration).toBeLessThan(1000); // Should complete in less than 1 second
+    });
+  });
+});
+
+describe('Highlighter Production-Path Integration (entryAutoInit + toggle handler)', () => {
+  let runtimeMessageHandlers;
+
+  const flushAsyncSetup = async () => {
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+  };
+
+  beforeEach(() => {
+    jest.resetModules();
+    jest.useFakeTimers();
+    runtimeMessageHandlers = [];
+
+    globalThis.__UNIT_TESTING__ = false;
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    delete globalThis.__NOTION_RAIL_READY__;
+    delete globalThis.__NOTION_STABLE_URL__;
+    document.body.innerHTML = '';
+
+    globalThis.Logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      log: jest.fn(),
+    };
+
+    globalThis.chrome = {
+      runtime: {
+        id: 'test-extension-id',
+        sendMessage: jest.fn(),
+        onMessage: {
+          addListener: jest.fn(handler => {
+            runtimeMessageHandlers.push(handler);
+          }),
+          removeListener: jest.fn(handler => {
+            runtimeMessageHandlers = runtimeMessageHandlers.filter(
+              registered => registered !== handler
+            );
+          }),
+        },
+        lastError: null,
+      },
+      storage: {
+        sync: {
+          get: jest.fn(),
+        },
+        local: {
+          get: jest.fn((_keys, callback) => callback?.({})),
+          set: jest.fn((_data, callback) => callback?.()),
+          remove: jest.fn((_keys, callback) => callback?.()),
+        },
+        onChanged: {
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+        },
+      },
+    };
+
+    globalThis.CSS = { highlights: new Map() };
+    globalThis.Highlight = createMockHighlightClass();
+    globalThis.normalizeUrl = jest.fn(url => url);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+    delete globalThis.__UNIT_TESTING__;
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    delete globalThis.__NOTION_RAIL_READY__;
+    delete globalThis.__NOTION_STABLE_URL__;
+  });
+
+  const dispatchToggleHighlighter = async () => {
+    // toggle handler 由 setupHighlighter() 內部的 bindToggleHighlighterListener 註冊
+    // 它是 runtimeMessageHandlers 中第一個會回傳 true 的 handler
+    const sendResponse = jest.fn();
+    let handled = false;
+    for (const handler of runtimeMessageHandlers) {
+      const result = handler({ action: 'toggleHighlighter' }, {}, sendResponse);
+      if (result === true) {
+        handled = true;
+        break;
+      }
+    }
+    expect(handled).toBe(true);
+    await flushAsyncSetup();
+    return sendResponse;
+  };
+
+  test('wasDeleted 路徑：toggle handler 應回傳 entryAutoInit 帶來的字面 error', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: false,
+      wasDeleted: true,
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const sendResponse = await dispatchToggleHighlighter();
+
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: false,
+      error: '浮動側欄初始化已略過',
+    });
+  });
+
+  test('init failure 路徑：fallbackInitialize 走完後 toggle handler 應回 FLOATING_RAIL_INIT_FAILED', async () => {
+    // 第一次 setupHighlighter 在 entryAutoInit 內部正常進行；
+    // 由於沒有 FloatingRail.js 真實依賴可用，initializeFloatingRail 會 throw 且
+    // 走進 entryAutoInit 的 catch → fallbackInitialize 路徑（重跑 setupHighlighter({skipRestore:true,...})）。
+    // 這即重現 issue #506 的「rail 初始化失敗」分支。
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://example.notion.site/page',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({
+      floatingRailEnabled: true,
+    });
+
+    // 攔截 FloatingRail dynamic import：強制 throw → 觸發 fallbackInitialize 路徑
+    jest.doMock('../../scripts/highlighter/ui/FloatingRail.js', () => {
+      throw new Error('mock FloatingRail load failure');
+    });
+
+    require('../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    // settleRailReady 失敗時會把 __NOTION_RAIL_READY__ 清為 undefined（contract）
+    expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+
+    const sendResponse = await dispatchToggleHighlighter();
+
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: false,
+      error: '浮動側欄初始化失敗',
     });
   });
 });

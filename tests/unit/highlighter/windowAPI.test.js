@@ -145,4 +145,108 @@ describe('windowAPI', () => {
     // Restore for any other tests
     globalThis.notionHighlighter = notionHL;
   });
+
+  describe('Production-path observability (TOOLBAR_COMPAT_ENABLED=false)', () => {
+    let warnSpy;
+    let prodMountWindowAPI;
+    let prodManager;
+    let prodStorage;
+
+    beforeEach(() => {
+      jest.resetModules();
+      globalThis.__UNIT_TESTING__ = false;
+      delete globalThis.HighlighterV2;
+      delete globalThis.notionHighlighter;
+
+      jest.isolateModules(() => {
+        jest.doMock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
+          Toolbar: jest.fn().mockImplementation(() => ({
+            initialize: jest.fn(),
+            updateHighlightCount: jest.fn(),
+            show: jest.fn(),
+            hide: jest.fn(),
+            minimize: jest.fn(),
+            stateManager: { currentState: 'hidden' },
+          })),
+        }));
+
+        // 重新載入 windowAPI，使其在 production gate 下凍結 TOOLBAR_COMPAT_ENABLED=false
+        ({
+          mountWindowAPI: prodMountWindowAPI,
+        } = require('../../../scripts/highlighter/windowAPI.js'));
+      });
+
+      prodManager = {
+        collectHighlightsForNotion: jest.fn().mockReturnValue([]),
+        clearAll: jest.fn(),
+        getCount: jest.fn().mockReturnValue(0),
+      };
+      prodStorage = { restore: jest.fn() };
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      warnSpy.mockRestore();
+      delete globalThis.__UNIT_TESTING__;
+      delete globalThis.HighlighterV2;
+      delete globalThis.notionHighlighter;
+    });
+
+    test('show() 在 toolbar 與 rail 皆缺席時應 Logger.warn 一次並帶 metadata', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      // 確保 rail 不存在
+      delete globalThis.HighlighterV2.rail;
+
+      globalThis.notionHighlighter.show();
+
+      const matched = warnSpy.mock.calls.find(
+        args => typeof args[2] === 'object' && args[2]?.action === 'getLegacyUiController'
+      );
+      expect(matched).toBeDefined();
+      expect(matched[1]).toContain('舊版 UI 控制器不可用');
+      expect(matched[2]).toEqual(
+        expect.objectContaining({
+          action: 'getLegacyUiController',
+          reason: 'toolbar_disabled_and_rail_missing',
+          toolbarCompatEnabled: false,
+        })
+      );
+    });
+
+    test('isActive() 在 toolbar state 與 rail 皆缺席時應 Logger.warn 一次並回 false', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      delete globalThis.HighlighterV2.rail;
+
+      const result = globalThis.notionHighlighter.isActive();
+
+      expect(result).toBe(false);
+      const matched = warnSpy.mock.calls.find(
+        args => typeof args[2] === 'object' && args[2]?.action === 'isActive'
+      );
+      expect(matched).toBeDefined();
+      expect(matched[1]).toContain('isActive 在無 UI 時被調用');
+      expect(matched[2]).toEqual(
+        expect.objectContaining({
+          action: 'isActive',
+          reason: 'toolbar_disabled_and_rail_missing',
+        })
+      );
+    });
+
+    test('isActive() 在 rail 存在時不應觸發 warn', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      globalThis.HighlighterV2.rail = {
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'block' } },
+      };
+
+      const result = globalThis.notionHighlighter.isActive();
+
+      expect(result).toBe(true);
+      const matched = warnSpy.mock.calls.find(
+        args => typeof args[2] === 'object' && args[2]?.action === 'isActive'
+      );
+      expect(matched).toBeUndefined();
+    });
+  });
 });
