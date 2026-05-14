@@ -20,6 +20,7 @@ import { isValidColor, isValidRange, isValidHighlightData } from './utils/valida
 import { getNodePath, getNodeByPath } from './utils/path.js';
 import { findTextInPage } from './utils/textSearch.js';
 import { waitForDOMStability } from './utils/domStability.js';
+import Logger from '../utils/Logger.js';
 
 const TOOLBAR_COMPAT_ENABLED = globalThis.__UNIT_TESTING__ !== false;
 
@@ -68,7 +69,20 @@ function ensureToolbar(state) {
 }
 
 function getLegacyUiController(state) {
-  return ensureToolbar(state) || globalThis.HighlighterV2?.rail || null;
+  const toolbar = ensureToolbar(state);
+  if (toolbar) {
+    return toolbar;
+  }
+  const rail = globalThis.HighlighterV2?.rail;
+  if (rail) {
+    return rail;
+  }
+  Logger.warn('[Highlighter] legacy UI controller unavailable', {
+    action: 'getLegacyUiController',
+    reason: 'toolbar_disabled_and_rail_missing',
+    toolbarCompatEnabled: TOOLBAR_COMPAT_ENABLED,
+  });
+  return null;
 }
 
 /**
@@ -141,6 +155,10 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
 
       const rail = globalThis.HighlighterV2?.rail;
       if (!rail) {
+        Logger.warn('[Highlighter] isActive called with no UI', {
+          action: 'isActive',
+          reason: 'toolbar_disabled_and_rail_missing',
+        });
         return false;
       }
 

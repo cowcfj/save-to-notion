@@ -22,22 +22,71 @@ if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
 
 // globalThis 掛載層（新版 HighlighterV2 + 向後兼容 notionHighlighter）
 import { mountWindowAPI } from './windowAPI.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 
 let toggleHighlighterMessageListener = null;
+// entryAutoInit 在 settleRailReady 失敗時會把 globalThis.__NOTION_RAIL_READY__ 清為 undefined。
+// 為了讓 toggle handler 能在 settle 後仍取得原始 typed error，bind 時即捕捉 promise 引用。
+let capturedRailReadyPromise = null;
 
-function handleToggleHighlighterMessage(request, _sender, sendResponse) {
-  if (request.action === HIGHLIGHTER_ACTIONS.TOGGLE_HIGHLIGHTER) {
-    if (globalThis.notionHighlighter) {
-      globalThis.notionHighlighter.toggle();
-      sendResponse({ success: true, isActive: globalThis.notionHighlighter.isActive() });
-      return true;
-    }
+function isRailImmediatelyAvailable() {
+  return Boolean(globalThis.HighlighterV2?.rail || globalThis.HighlighterV2?.toolbar);
+}
 
-    sendResponse({ success: false, error: 'notionHighlighter not initialized' });
-    return true;
+function performToggle() {
+  globalThis.notionHighlighter.toggle();
+  return { success: true, isActive: globalThis.notionHighlighter.isActive() };
+}
+
+async function resolveToggleResponse() {
+  if (isRailImmediatelyAvailable() && globalThis.notionHighlighter) {
+    return performToggle();
   }
 
-  return false;
+  const readyPromise = globalThis.__NOTION_RAIL_READY__ || capturedRailReadyPromise;
+  if (!readyPromise) {
+    return {
+      success: false,
+      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
+    };
+  }
+
+  try {
+    const result = await readyPromise;
+    if (!result?.success) {
+      return {
+        success: false,
+        error: result?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+      };
+    }
+  } catch {
+    return {
+      success: false,
+      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+    };
+  }
+
+  if (!globalThis.notionHighlighter) {
+    return {
+      success: false,
+      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
+    };
+  }
+
+  return performToggle();
+}
+
+function handleToggleHighlighterMessage(request, _sender, sendResponse) {
+  if (request.action !== HIGHLIGHTER_ACTIONS.TOGGLE_HIGHLIGHTER) {
+    return false;
+  }
+
+  void (async () => {
+    const response = await resolveToggleResponse();
+    sendResponse(response);
+  })();
+
+  return true;
 }
 
 function bindToggleHighlighterListener() {
@@ -49,6 +98,8 @@ function bindToggleHighlighterListener() {
   if (toggleHighlighterMessageListener && onMessage.removeListener) {
     onMessage.removeListener(toggleHighlighterMessageListener);
   }
+
+  capturedRailReadyPromise = globalThis.__NOTION_RAIL_READY__ || capturedRailReadyPromise;
 
   toggleHighlighterMessageListener = handleToggleHighlighterMessage;
   onMessage.addListener(toggleHighlighterMessageListener);

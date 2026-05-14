@@ -124,7 +124,7 @@ describe('Highlighter Index', () => {
       expect(mockManager.initialize).toHaveBeenCalled();
     });
 
-    test('應該註冊 chrome.runtime.onMessage 監聽器並能處理 toggleHighlighter', async () => {
+    test('應該註冊 chrome.runtime.onMessage 監聽器並忽略未知 action', async () => {
       let messageHandler;
       mockChrome.runtime.onMessage.addListener = jest.fn(handler => {
         messageHandler = handler;
@@ -133,31 +133,156 @@ describe('Highlighter Index', () => {
       await initHighlighter();
       expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalled();
 
-      // 當 globalThis.notionHighlighter 初始化後，能響應 toggleHighlighter
+      // 不處理其他 action
+      const isHandled = messageHandler({ action: 'someOtherAction' }, {}, jest.fn());
+      expect(isHandled).toBe(false);
+    });
+  });
+
+  describe('Production-path toggle handler', () => {
+    let messageHandler;
+
+    const flushMicrotasks = async () => {
+      for (let index = 0; index < 10; index += 1) {
+        await Promise.resolve();
+      }
+    };
+
+    beforeEach(async () => {
+      // 模擬 production bundle：production-path 觀測訊號才會觸發
+      globalThis.__UNIT_TESTING__ = false;
+
+      mockChrome.runtime.onMessage.addListener = jest.fn(handler => {
+        messageHandler = handler;
+      });
+
+      await initHighlighter();
+    });
+
+    afterEach(() => {
+      delete globalThis.__UNIT_TESTING__;
+      delete globalThis.__NOTION_RAIL_READY__;
+    });
+
+    test('Case A: __NOTION_RAIL_READY__ 不存在時回 FLOATING_RAIL_NOT_INITIALIZED', async () => {
+      delete globalThis.HighlighterV2;
+      delete globalThis.notionHighlighter;
+      delete globalThis.__NOTION_RAIL_READY__;
+
+      const sendResponse = jest.fn();
+      const isHandled = messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+
+      expect(isHandled).toBe(true);
+      await flushMicrotasks();
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄尚未初始化',
+      });
+    });
+
+    test('Case B: __NOTION_RAIL_READY__ resolve 失敗時回 typed error 並不呼叫 toggle', async () => {
+      globalThis.HighlighterV2 = {};
+      globalThis.notionHighlighter = {
+        toggle: jest.fn(),
+        isActive: jest.fn().mockReturnValue(false),
+      };
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
+        success: false,
+        error: '浮動側欄初始化已略過',
+      });
+
+      const sendResponse = jest.fn();
+      const isHandled = messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+
+      expect(isHandled).toBe(true);
+      await flushMicrotasks();
+
+      expect(globalThis.notionHighlighter.toggle).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化已略過',
+      });
+    });
+
+    test('Case B 補強: ready Promise resolve {success:false} 但無 error 字面值時退回 FLOATING_RAIL_INIT_FAILED', async () => {
+      globalThis.HighlighterV2 = {};
+      globalThis.notionHighlighter = {
+        toggle: jest.fn(),
+        isActive: jest.fn().mockReturnValue(false),
+      };
+      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({ success: false });
+
+      const sendResponse = jest.fn();
+      messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+      await flushMicrotasks();
+
+      expect(globalThis.notionHighlighter.toggle).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化失敗',
+      });
+    });
+
+    test('Case C: __NOTION_RAIL_READY__ reject 時回 FLOATING_RAIL_INIT_FAILED', async () => {
+      globalThis.HighlighterV2 = {};
+      globalThis.notionHighlighter = {
+        toggle: jest.fn(),
+        isActive: jest.fn().mockReturnValue(false),
+      };
+      const rejectedReady = Promise.reject(new Error('boom'));
+      // 在 microtask boundary 之前掛 noop catch，避免被 Node 視為 unhandled rejection
+      rejectedReady.catch(() => {});
+      globalThis.__NOTION_RAIL_READY__ = rejectedReady;
+
+      const sendResponse = jest.fn();
+      const isHandled = messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+
+      expect(isHandled).toBe(true);
+      await flushMicrotasks();
+
+      expect(globalThis.notionHighlighter.toggle).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化失敗',
+      });
+    });
+
+    test('Case D: rail 立即可用時不等待 ready Promise，執行 toggle 並回 success', async () => {
+      // rail 立即可用 → 不應 await __NOTION_RAIL_READY__
+      const railNeverResolves = new Promise(() => {});
+      globalThis.__NOTION_RAIL_READY__ = railNeverResolves;
+      globalThis.HighlighterV2 = {
+        rail: { stateManager: { currentState: 'visible' } },
+      };
       globalThis.notionHighlighter = {
         toggle: jest.fn(),
         isActive: jest.fn().mockReturnValue(true),
       };
-      const res1 = jest.fn();
-      const isHandled1 = messageHandler({ action: 'toggleHighlighter' }, {}, res1);
 
-      expect(isHandled1).toBe(true);
+      const sendResponse = jest.fn();
+      const isHandled = messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+
+      expect(isHandled).toBe(true);
+      await flushMicrotasks();
+
       expect(globalThis.notionHighlighter.toggle).toHaveBeenCalled();
-      expect(res1).toHaveBeenCalledWith({ success: true, isActive: true });
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, isActive: true });
+    });
 
-      // 當 notionHighlighter 未初始化時，返回錯誤
-      delete globalThis.notionHighlighter;
-      const res2 = jest.fn();
-      const isHandled2 = messageHandler({ action: 'toggleHighlighter' }, {}, res2);
-      expect(isHandled2).toBe(true);
-      expect(res2).toHaveBeenCalledWith({
-        success: false,
-        error: 'notionHighlighter not initialized',
-      });
+    test('Case D 補強: toolbar 立即可用 + ready Promise resolve success → 執行 toggle 並回 success', async () => {
+      globalThis.HighlighterV2 = { toolbar: {} };
+      globalThis.notionHighlighter = {
+        toggle: jest.fn(),
+        isActive: jest.fn().mockReturnValue(false),
+      };
 
-      // 不處理其他 action
-      const isHandled3 = messageHandler({ action: 'someOtherAction' }, {}, jest.fn());
-      expect(isHandled3).toBe(false);
+      const sendResponse = jest.fn();
+      messageHandler({ action: 'toggleHighlighter' }, {}, sendResponse);
+      await flushMicrotasks();
+
+      expect(globalThis.notionHighlighter.toggle).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, isActive: false });
     });
   });
 
