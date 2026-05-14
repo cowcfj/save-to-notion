@@ -1,5 +1,19 @@
 import { RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions/errorMessages.js';
 
+const ALLOWED_RUNTIME_ERROR_MESSAGES = new Set([
+  RUNTIME_ERROR_MESSAGES.EXTENSION_UNAVAILABLE,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_SHOW_METHOD_MISSING,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING,
+  RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED,
+  RUNTIME_ERROR_MESSAGES.SHORTCUT_REPLAY_FAILED,
+]);
+
+function isAllowedRuntimeErrorMessage(message) {
+  return typeof message === 'string' && ALLOWED_RUNTIME_ERROR_MESSAGES.has(message);
+}
+
 /**
  * 顯示或喚回 Floating Rail
  *
@@ -26,11 +40,11 @@ export function revealFloatingRail(rail) {
  * @returns {string}
  */
 export function formatRuntimeErrorMessage(error, fallbackMessage) {
-  if (typeof error === 'string' && error.length > 0) {
+  if (isAllowedRuntimeErrorMessage(error)) {
     return error;
   }
 
-  if (typeof error?.message === 'string' && error.message.length > 0) {
+  if (isAllowedRuntimeErrorMessage(error?.message)) {
     return error.message;
   }
 
@@ -85,7 +99,10 @@ export async function withAvailableFloatingRail(sendResponse, onRailReady) {
       resetFloatingRailReady();
       sendResponse({
         success: false,
-        error: readyResult?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+        error: formatRuntimeErrorMessage(
+          readyResult?.error,
+          RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED
+        ),
       });
       return;
     }

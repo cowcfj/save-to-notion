@@ -66,7 +66,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   function failRailReady(error, fallbackMessage) {
     settleRailReady({
       success: false,
-      error: error?.message || fallbackMessage,
+      error: fallbackMessage || error?.message,
     });
   }
 
@@ -101,7 +101,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     } catch (fallbackError) {
       unregisterPersistentListeners();
       Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
-      failRailReady(fallbackError, '浮動側欄回退初始化失敗');
+      failRailReady(fallbackError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
     }
   }
 

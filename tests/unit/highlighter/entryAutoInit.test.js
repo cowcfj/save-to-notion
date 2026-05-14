@@ -269,7 +269,7 @@ describe('entryAutoInit', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Initial fail',
+      error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
@@ -295,7 +295,7 @@ describe('entryAutoInit', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Initial fail',
+      error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
@@ -325,7 +325,7 @@ describe('entryAutoInit', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Fallback fail',
+      error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });

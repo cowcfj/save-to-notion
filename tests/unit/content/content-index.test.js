@@ -139,7 +139,7 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.HighlighterV2;
     });
 
-    test('showHighlighter 在 rail.show 拋錯時應返回錯誤', () => {
+    test('showHighlighter 在 rail.show 拋錯時應返回安全 fallback 訊息', () => {
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn(() => {
@@ -153,7 +153,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'showHighlighter failed',
+        error: '浮動側欄操作失敗',
       });
     });
 
@@ -272,7 +272,7 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回錯誤訊息', () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回安全 fallback 訊息', () => {
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn(() => {
@@ -286,11 +286,11 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'rail show failed',
+        error: '浮動側欄操作失敗',
       });
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 的 async show reject 時應返回錯誤訊息', async () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 的 async show reject 時應返回安全 fallback 訊息', async () => {
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn().mockRejectedValue(new Error('async rail show failed')),
@@ -303,7 +303,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'async rail show failed',
+        error: '浮動側欄操作失敗',
       });
     });
 
@@ -433,7 +433,7 @@ describe('Content Script Entry (index.js)', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 啟動失敗時應返回錯誤訊息', () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 啟動失敗時應返回安全 fallback 訊息', () => {
       const activateHighlightingMock = jest.fn(() => {
         throw new Error('activate failed');
       });
@@ -450,7 +450,7 @@ describe('Content Script Entry (index.js)', () => {
       expect(activateHighlightingMock).toHaveBeenCalledWith();
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'activate failed',
+        error: '浮動側欄操作失敗',
       });
     });
 
@@ -470,7 +470,7 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳 ready error', async () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳標準化初始化錯誤', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: false,
         error: 'ready failed',
@@ -482,7 +482,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'ready failed',
+        error: '浮動側欄初始化失敗',
       });
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
@@ -506,7 +506,7 @@ describe('Content Script Entry (index.js)', () => {
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 的 async activateHighlighting reject 時應回傳錯誤訊息', async () => {
+    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 的 async activateHighlighting reject 時應回傳安全 fallback 訊息', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
         success: true,
         rail: {
@@ -521,7 +521,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'async activate failed',
+        error: '浮動側欄操作失敗',
       });
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
@@ -701,7 +701,8 @@ describe('Content Script Entry (index.js)', () => {
         '重放快捷鍵事件失敗，繼續處理後續事件',
         expect.objectContaining({
           action: 'replayEvents',
-          error: 'shortcut failed',
+          error: expect.objectContaining({ message: 'shortcut failed' }),
+          errorMessage: '重放快捷鍵事件失敗',
         })
       );
     });
