@@ -130,14 +130,6 @@ function formatRuntimeErrorMessage(error, fallbackMessage) {
     return error.message;
   }
 
-  if (error && typeof error === 'object') {
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return fallbackMessage;
-    }
-  }
-
   return fallbackMessage;
 }
 

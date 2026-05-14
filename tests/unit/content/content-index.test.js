@@ -282,7 +282,7 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時不應回傳 [object Object]', () => {
+    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時應回傳安全 fallback 訊息', () => {
       const railError = new Error('unused');
       delete railError.message;
       railError.reason = 'rail show failed';
@@ -300,7 +300,7 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: '{"reason":"rail show failed"}',
+        error: '浮動側欄操作失敗',
       });
     });
 
