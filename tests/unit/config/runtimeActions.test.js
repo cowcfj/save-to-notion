@@ -95,6 +95,7 @@ describe('runtimeActions', () => {
         FLOATING_RAIL_SHOW_METHOD_MISSING: '浮動側欄缺少 show() 方法',
         FLOATING_RAIL_ACTIVATE_METHOD_MISSING: '浮動側欄缺少 activateHighlighting() 方法',
         FLOATING_RAIL_ACTION_FAILED: '浮動側欄操作失敗',
+        SHORTCUT_REPLAY_FAILED: '重放快捷鍵事件失敗',
       })
     );
   });

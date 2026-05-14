@@ -394,7 +394,10 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
           } catch (error) {
             Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
               action: 'replayEvents',
-              error: formatRuntimeErrorMessage(error, '重放快捷鍵事件失敗'),
+              error: formatRuntimeErrorMessage(
+                error,
+                RUNTIME_ERROR_MESSAGES.SHORTCUT_REPLAY_FAILED
+              ),
             });
           }
         } else {
