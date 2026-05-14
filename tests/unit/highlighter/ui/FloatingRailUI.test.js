@@ -28,6 +28,22 @@ function createMockContainer() {
   saveBtn.className = 'rail-action-btn';
   saveBtn.dataset.action = 'save';
   saveBtn.setAttribute('aria-label', '保存網頁');
+  // 模擬 FloatingRailContainer 透過 createSafeIcon 建構出的初始 wrapper + SVG
+  const initialIconWrapper = document.createElement('span');
+  initialIconWrapper.className = 'icon';
+  initialIconWrapper.style.width = '18px';
+  initialIconWrapper.style.height = '18px';
+  const initialSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  initialSvg.setAttribute('viewBox', '0 0 24 24');
+  initialSvg.classList.add('icon-svg');
+  initialSvg.dataset.railIcon = 'save';
+  initialIconWrapper.append(initialSvg);
+  saveBtn.append(initialIconWrapper);
+  // 模擬 .rail-error-tooltip sibling，確保 swap 時不會被誤刪
+  const errorTooltip = document.createElement('span');
+  errorTooltip.className = 'rail-error-tooltip';
+  errorTooltip.setAttribute('role', 'alert');
+  saveBtn.append(errorTooltip);
   actions.append(saveBtn);
 
   const highlightGroup = document.createElement('div');
@@ -146,6 +162,68 @@ describe('applySaveActionVisibility', () => {
 
     expect(saveBtn.getAttribute('aria-label')).toBe('同步標註');
     expect(saveBtn.dataset.action).toBe('sync');
+  });
+
+  test('已保存頁面應將按鈕內 SVG 切換為 sync icon', () => {
+    const container = createMockContainer();
+    const saveBtn = container.querySelector('[data-action="save"]');
+
+    applySaveActionVisibility(saveBtn, { canSave: false, isSaved: true });
+
+    const svg = saveBtn.querySelector('svg');
+    expect(svg).not.toBeNull();
+    expect(svg.dataset.railIcon).toBe('sync');
+  });
+
+  test('未保存頁面應將按鈕內 SVG 切換回 save icon', () => {
+    const container = createMockContainer();
+    const saveBtn = container.querySelector('[data-action="save"]');
+
+    applySaveActionVisibility(saveBtn, { canSave: false, isSaved: true });
+    applySaveActionVisibility(saveBtn, { canSave: true, isSaved: false });
+
+    const svg = saveBtn.querySelector('svg');
+    expect(svg).not.toBeNull();
+    expect(svg.dataset.railIcon).toBe('save');
+  });
+
+  test('[REGRESSION] icon 切換不應移除 .rail-error-tooltip sibling', () => {
+    const container = createMockContainer();
+    const saveBtn = container.querySelector('[data-action="save"]');
+
+    applySaveActionVisibility(saveBtn, { canSave: false, isSaved: true });
+    applySaveActionVisibility(saveBtn, { canSave: true, isSaved: false });
+
+    expect(saveBtn.querySelector('.rail-error-tooltip')).not.toBeNull();
+  });
+
+  test('連續呼叫相同狀態時不應重新建立 SVG 節點', () => {
+    const container = createMockContainer();
+    const saveBtn = container.querySelector('[data-action="save"]');
+
+    applySaveActionVisibility(saveBtn, { canSave: false, isSaved: true });
+    const firstWrapper = saveBtn.querySelector('.icon');
+    const firstSvg = saveBtn.querySelector('svg');
+    applySaveActionVisibility(saveBtn, { canSave: false, isSaved: true });
+    const secondWrapper = saveBtn.querySelector('.icon');
+    const secondSvg = saveBtn.querySelector('svg');
+
+    expect(secondWrapper).toBe(firstWrapper);
+    expect(secondSvg).toBe(firstSvg);
+  });
+
+  test('[REGRESSION] icon 切換應保留 .icon wrapper 結構並套用尺寸樣式', () => {
+    const container = createMockContainer();
+    const saveBtn = container.querySelector('[data-action="save"]');
+
+    applySaveActionVisibility(saveBtn, { canSave: false, isSaved: true });
+
+    const wrappers = saveBtn.querySelectorAll('.icon');
+    expect(wrappers).toHaveLength(1);
+    const [wrapper] = wrappers;
+    expect(wrapper.style.width).toBe('18px');
+    expect(wrapper.style.height).toBe('18px');
+    expect(wrapper.querySelector('svg')?.dataset.railIcon).toBe('sync');
   });
 
   test('null saveBtn 不應拋錯', () => {
