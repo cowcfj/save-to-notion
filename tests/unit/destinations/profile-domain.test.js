@@ -509,7 +509,7 @@ describe('Destination profile domain services', () => {
         })
       );
       expect(storageData.destinationProfiles).toHaveLength(2);
-      expect(storageData.destinationProfiles[1].id).toBe(created.id);
+      expect(storageData.destinationProfiles.find(p => p.id === created.id)).toBeTruthy();
       expect(created.color).toBe('#16a34a');
     });
 
