@@ -23,7 +23,9 @@ describe('FloatingRailRuntime', () => {
   let originalSendMessage;
 
   beforeEach(() => {
-    originalSendMessage = globalThis.chrome?.runtime?.sendMessage;
+    globalThis.chrome ??= {};
+    globalThis.chrome.runtime ??= {};
+    originalSendMessage = globalThis.chrome.runtime.sendMessage;
   });
 
   afterEach(() => {
