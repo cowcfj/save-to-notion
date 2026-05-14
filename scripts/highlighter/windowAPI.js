@@ -21,13 +21,19 @@ import { getNodePath, getNodeByPath } from './utils/path.js';
 import { findTextInPage } from './utils/textSearch.js';
 import { waitForDOMStability } from './utils/domStability.js';
 
+const TOOLBAR_COMPAT_ENABLED = globalThis.__UNIT_TESTING__ !== false;
+
 /**
  * 動態創建 Toolbar（如果尚未創建）
  *
  * @param {object} state - 閉包狀態 { currentToolbar, isCreatingToolbar, manager, storage }
- * @returns {Toolbar}
+ * @returns {Toolbar|null}
  */
 function ensureToolbar(state) {
+  if (!TOOLBAR_COMPAT_ENABLED) {
+    return null;
+  }
+
   if (state.currentToolbar) {
     return state.currentToolbar;
   }
@@ -59,6 +65,10 @@ function ensureToolbar(state) {
   } finally {
     state.isCreatingToolbar = false;
   }
+}
+
+function getLegacyUiController(state) {
+  return ensureToolbar(state) || globalThis.HighlighterV2?.rail || null;
 }
 
 /**
@@ -115,22 +125,47 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     manager,
     restoreManager,
     show: () => {
-      const tb = ensureToolbar(state);
-      tb.show();
+      getLegacyUiController(state)?.show?.();
     },
-    hide: () => state.currentToolbar?.hide(),
-    minimize: () => state.currentToolbar?.minimize(),
+    hide: () => getLegacyUiController(state)?.hide?.(),
+    minimize: () => {
+      const legacyUi = getLegacyUiController(state);
+      legacyUi?.minimize?.();
+      legacyUi?.collapse?.();
+    },
     isActive: () => {
       const toolbarState = state.currentToolbar?.stateManager?.currentState;
-      return typeof toolbarState === 'string' && toolbarState !== 'hidden';
+      if (typeof toolbarState === 'string') {
+        return toolbarState !== 'hidden';
+      }
+
+      const rail = globalThis.HighlighterV2?.rail;
+      if (!rail) {
+        return false;
+      }
+
+      const railState = rail.stateManager?.currentState;
+      const isHidden = rail.host?.style?.display === 'none';
+      return (
+        !isHidden &&
+        typeof railState === 'string' &&
+        railState !== 'collapsed' &&
+        railState !== 'hidden'
+      );
     },
     toggle: () => {
-      const tb = ensureToolbar(state);
-      const toolbarState = tb.stateManager.currentState;
-      if (toolbarState === 'hidden') {
-        tb.show();
+      const legacyUi = getLegacyUiController(state);
+      if (!legacyUi) {
+        return;
+      }
+
+      const toolbarState = legacyUi.stateManager?.currentState;
+      const isRailHidden = legacyUi.host?.style?.display === 'none';
+
+      if (toolbarState === 'hidden' || toolbarState === 'collapsed' || isRailHidden) {
+        legacyUi.show?.();
       } else {
-        tb.hide();
+        legacyUi.hide?.();
       }
     },
     collectHighlights: () => manager.collectHighlightsForNotion(),
@@ -138,9 +173,9 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     getCount: () => manager.getCount(),
     forceRestoreHighlights: () => restoreManager.restore(),
     createAndShowToolbar: () => {
-      const tb = ensureToolbar(state);
-      tb.show();
-      return tb;
+      const legacyUi = getLegacyUiController(state);
+      legacyUi?.show?.();
+      return legacyUi;
     },
   };
 

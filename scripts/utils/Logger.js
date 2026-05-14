@@ -10,7 +10,7 @@
 import { LogBuffer } from './LogBuffer.js';
 import { LogSanitizer } from './LogSanitizer.js';
 import { LOG_ICONS } from '../config/shared/ui.js';
-import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
+import { DEV_LOG_SINK, DEV_LOG_SINK_BATCH } from '../config/runtimeActions/diagnosticsActions.js';
 
 // 內部狀態
 let _debugEnabled = false;
@@ -37,8 +37,9 @@ const GLOBAL_ERROR_PREFIXES = {
 
 // 檢查是否在 Chrome 擴展環境中
 const isExtensionContext = Boolean(chrome?.runtime?.id);
+const isContentScriptBuild = globalThis.__CONTENT_SCRIPT_BUILD__ === true;
 
-const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
+const isBackground = !isContentScriptBuild && isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
 
 // ---- 批量轉發狀態（僅 Content Script 環境生效）----
 const FLUSH_INTERVAL_MS = 500; // 最多 500ms 發送一次
@@ -161,7 +162,7 @@ function _flushToBackground() {
   const batch = _pendingLogs.splice(0); // 取出所有待發送項目
 
   try {
-    chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.DEV_LOG_SINK_BATCH, logs: batch }, () => {
+    chrome.runtime.sendMessage({ action: DEV_LOG_SINK_BATCH, logs: batch }, () => {
       // 忽略 lastError
       if (chrome.runtime.lastError) {
         /* empty */
@@ -190,7 +191,7 @@ function sendToBackground(level, message, args) {
 
     chrome.runtime.sendMessage(
       {
-        action: RUNTIME_ACTIONS.DEV_LOG_SINK,
+        action: DEV_LOG_SINK,
         level,
         message: String(message),
         args: safeArgs,
@@ -258,25 +259,27 @@ function parseArgsToContext(args) {
  * @param {Array} args
  */
 function writeToBuffer(level, message, args) {
-  if (_logBuffer) {
-    try {
-      const context = parseArgsToContext(args);
+  if (!isBackground || !_logBuffer) {
+    return;
+  }
 
-      // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
-      // 根據調試模式決定是否保留堆疊追蹤細節
-      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
-        isDev: _debugEnabled,
-      });
+  try {
+    const context = parseArgsToContext(args);
 
-      _logBuffer.push({
-        level,
-        source: 'background', // 暫時假設都在 background 寫入，content script 透過 sendToBackground 過來
-        message: safeEntry.message,
-        context: safeEntry.context,
-      });
-    } catch (error) {
-      console.error('寫入緩衝區失敗', { action: 'writeToBuffer', error });
-    }
+    // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
+    // 根據調試模式決定是否保留堆疊追蹤細節
+    const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
+      isDev: _debugEnabled,
+    });
+
+    _logBuffer.push({
+      level,
+      source: 'background', // 暫時假設都在 background 寫入，content script 透過 sendToBackground 過來
+      message: safeEntry.message,
+      context: safeEntry.context,
+    });
+  } catch (error) {
+    console.error('寫入緩衝區失敗', { action: 'writeToBuffer', error });
   }
 }
 
@@ -333,6 +336,11 @@ function initGlobalErrorHandlers() {
  */
 function initDebugState() {
   if (_isInitialized) {
+    return;
+  }
+
+  if (isContentScriptBuild) {
+    _isInitialized = true;
     return;
   }
 
@@ -405,7 +413,7 @@ const Logger = {
   },
 
   debug(message, ...args) {
-    if (!this.debugEnabled) {
+    if (isContentScriptBuild || !this.debugEnabled) {
       return;
     }
 
@@ -415,7 +423,7 @@ const Logger = {
   },
 
   log(message, ...args) {
-    if (!this.debugEnabled) {
+    if (isContentScriptBuild || !this.debugEnabled) {
       return;
     }
 
@@ -425,7 +433,7 @@ const Logger = {
   },
 
   info(message, ...args) {
-    if (!this.debugEnabled) {
+    if (isContentScriptBuild || !this.debugEnabled) {
       return;
     }
 
@@ -441,6 +449,9 @@ const Logger = {
    * @param {...any} args - 額外參數
    */
   success(message, ...args) {
+    if (isContentScriptBuild) {
+      return;
+    }
     this.info(`${LOG_ICONS.SUCCESS} ${message}`, ...args);
   },
 
@@ -451,6 +462,9 @@ const Logger = {
    * @param {...any} args - 額外參數
    */
   start(message, ...args) {
+    if (isContentScriptBuild) {
+      return;
+    }
     this.info(`${LOG_ICONS.START} ${message}`, ...args);
   },
 
@@ -461,6 +475,9 @@ const Logger = {
    * @param {...any} args - 額外參數
    */
   ready(message, ...args) {
+    if (isContentScriptBuild) {
+      return;
+    }
     this.info(`${LOG_ICONS.READY} ${message}`, ...args);
   },
 
@@ -497,6 +514,9 @@ const Logger = {
    * @returns {LogBuffer|null}
    */
   getBuffer() {
+    if (isContentScriptBuild) {
+      return null;
+    }
     return _logBuffer;
   },
 
@@ -510,22 +530,24 @@ const Logger = {
    * @param {string} [logEntry.source] - 來源標識
    */
   addLogToBuffer({ level, message, context, source }) {
-    if (_logBuffer) {
-      try {
-        // 即時脫敏
-        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
-          isDev: _debugEnabled,
-        });
+    if (isContentScriptBuild || !_logBuffer) {
+      return;
+    }
 
-        _logBuffer.push({
-          level,
-          source: source || 'unknown',
-          message: safeEntry.message,
-          context: safeEntry.context,
-        });
-      } catch (error) {
-        console.error('添加外部日誌到緩衝區失敗', { action: 'addLogToBuffer', error });
-      }
+    try {
+      // 即時脫敏
+      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
+        isDev: _debugEnabled,
+      });
+
+      _logBuffer.push({
+        level,
+        source: source || 'unknown',
+        message: safeEntry.message,
+        context: safeEntry.context,
+      });
+    } catch (error) {
+      console.error('添加外部日誌到緩衝區失敗', { action: 'addLogToBuffer', error });
     }
   },
 };
@@ -539,7 +561,7 @@ initDebugState();
 
 // ---- 頁面卸載時沖刷待發送日誌（僅 Content Script 環境）----
 // Background Service Worker 沒有 document，因此需要環境檢查
-if (!isBackground && typeof document !== 'undefined') {
+if (!isContentScriptBuild && !isBackground && typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       _flushToBackground();

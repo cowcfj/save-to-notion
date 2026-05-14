@@ -1,7 +1,9 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import replace from '@rollup/plugin-replace';
 import terser from '@rollup/plugin-terser';
 import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
+import { stripTestConfig } from './rollup/plugins/stripTestConfig.mjs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -16,17 +18,30 @@ export default {
     inlineDynamicImports: true,
   },
   plugins: [
+    !isDev && stripTestConfig(),
     resolve(),
     commonjs(),
+    !isDev &&
+      replace({
+        preventAssignment: true,
+        values: {
+          'globalThis.__UNIT_TESTING__': 'false',
+          'globalThis.__CONTENT_SCRIPT_BUILD__': 'true',
+        },
+      }),
     !isDev &&
       terser({
         compress: {
           drop_debugger: true, // 移除 debugger
           passes: 2,
           pure_funcs: [
-            // 移除特定除錯與日誌函式，保留 warn/error/info
+            // 移除特定除錯與低優先級日誌函式，保留 warn/error
             'console.log',
             'console.debug',
+            'console.info',
+            'Logger.debug',
+            'Logger.log',
+            'Logger.info',
           ],
         },
         mangle: {

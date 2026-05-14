@@ -695,6 +695,9 @@ const DIAGNOSTICS_ACTIONS = {
   DEV_LOG_SINK_BATCH: 'devLogSinkBatch',
 };
 
+export const DEV_LOG_SINK = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK;
+export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
+
 /**
  * @typedef {object} RuntimeActionsRegistry
  * @property {CheckPageStatusRequest['action']} CHECK_PAGE_STATUS - Request: {@link CheckPageStatusRequest}; Response: {@link CheckPageStatusResponse}

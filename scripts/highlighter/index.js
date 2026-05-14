@@ -13,9 +13,6 @@ import { HighlightInteraction } from './core/HighlightInteraction.js';
 import { HighlightMigration } from './core/HighlightMigration.js';
 import { HighlightStorage } from './core/HighlightStorage.js';
 
-// UI modules
-import { Toolbar } from './ui/Toolbar.js';
-
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
@@ -77,7 +74,7 @@ function remountWindowAPI(manager, toolbar, storage) {
  *
  * @param {HighlightManager} manager - HighlightManager 實例
  * @param {object} options - 配置選項
- * @param {Toolbar} [toolbar=null] - 工具欄實例（可選）。
+ * @param {import('./ui/Toolbar.js').Toolbar|null} [toolbar=null] - 工具欄實例（可選）。
  *   僅由 HighlightStorage 使用，用於在恢復標註後自動隱藏工具欄。
  *   如果不需要此功能，可傳入 null 或省略此參數。
  * @returns {object} 包含所有創建的模組實例
@@ -123,18 +120,19 @@ export function initHighlighter(options = {}) {
  *
  * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
- * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
- * @returns {{manager: HighlightManager, toolbar: Toolbar|null, storage: HighlightStorage}}
+ * @param {boolean} [options.skipToolbar] - 已棄用/相容性參數 — 現為 no-op；
+ *   toolbar 目前固定為 null，由 windowAPI 在需要時延遲建立。保留是為了維持舊 caller 的呼叫簽名相容。
+ * @returns {{manager: HighlightManager, toolbar: import('./ui/Toolbar.js').Toolbar|null, storage: HighlightStorage}}
  *   返回值包含：
  *   - manager: HighlightManager 實例
- *   - toolbar: Toolbar 實例，如果 skipToolbar 為 true 則為 null
+ *   - toolbar: Phase 1 固定為 null；若未來恢復 toolbar，需改由動態載入路徑處理
  *   - storage: HighlightStorage 實例（v2.19+ 新增，用於 setupHighlighter 訪問恢復功能）
  */
 export function initHighlighterWithToolbar(options = {}) {
   const manager = new HighlightManager(options);
 
-  // 如果 skipToolbar 為 true，不創建 Toolbar
-  const toolbar = options.skipToolbar ? null : new Toolbar(manager);
+  // Phase 1: Toolbar 改由 windowAPI 需要時延遲建立，content entry 不再靜態實例化。
+  const toolbar = null;
 
   // 注入依賴 (注意：HighlightStorage 需要 toolbar)
   const { storage } = createAndInjectDependencies(manager, options, toolbar);
@@ -206,7 +204,6 @@ export { convertBgColorToName, COLORS } from './utils/color.js';
 export { isValidElement, getVisibleText, supportsHighlightAPI } from './utils/dom.js';
 export { findTextWithTreeWalker, findTextFuzzy, findTextInPage } from './utils/textSearch.js';
 export { HighlightManager } from './core/HighlightManager.js';
-export { Toolbar } from './ui/Toolbar.js';
 export { StyleManager } from './core/StyleManager.js';
 export { HighlightInteraction } from './core/HighlightInteraction.js';
 export { HighlightMigration } from './core/HighlightMigration.js';

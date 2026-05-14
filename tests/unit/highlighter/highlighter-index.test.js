@@ -162,17 +162,24 @@ describe('Highlighter Index', () => {
   });
 
   describe('initHighlighterWithToolbar', () => {
-    test('應該創建 HighlightManager 和 Toolbar', async () => {
+    test('Phase 1 應保留 toolbar 欄位但固定回傳 null', async () => {
+      const { Toolbar } = require('../../../scripts/highlighter/ui/Toolbar.js');
+
       const result = await initHighlighterWithToolbar();
 
       expect(result.manager).toBeDefined();
-      expect(result.toolbar).toBeDefined();
+      expect(result.toolbar).toBeNull();
+      expect(Toolbar).not.toHaveBeenCalled();
     });
 
     test('應該初始化 Manager', async () => {
       await initHighlighterWithToolbar();
 
       expect(mockManager.initialize).toHaveBeenCalled();
+    });
+
+    test('不應從 highlighter entry re-export Toolbar', () => {
+      expect(highlighterModule.Toolbar).toBeUndefined();
     });
   });
 
@@ -288,6 +295,8 @@ describe('Highlighter Index', () => {
     });
 
     test('isActive() 應該根據 toolbar state 回傳布林值', () => {
+      globalThis.notionHighlighter.createAndShowToolbar();
+
       mockToolbar.stateManager.currentState = 'hidden';
       expect(globalThis.notionHighlighter.isActive()).toBe(false);
 
