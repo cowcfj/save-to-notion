@@ -613,18 +613,13 @@ function _manualParseSrcset(srcsetEntries) {
     }
   }
 
-  // 回退邏輯：如果沒找到度量值最高的，取最後一個有效條目
+  // 回退邏輯：取最後一個有效條目；與 _parseSrcsetEntry 過濾邏輯一致，跳過 data: URL
   if (!bestUrl) {
     for (let i = srcsetEntries.length - 1; i >= 0; i--) {
-      const entry = srcsetEntries[i];
-      if (entry) {
-        // entries 已由 extractBestUrlFromSrcset 調用 map(entry => entry.trim()) 預先處理過
-        const url = entry.split(/\s+/)[0];
-        // 與 _parseSrcsetEntry 過濾邏輯一致：跳過 data: URL，避免在最後一項是 base64 placeholder 時誤選
-        if (url && !url.startsWith('data:')) {
-          bestUrl = url;
-          break;
-        }
+      const url = srcsetEntries[i].split(/\s+/)[0];
+      if (url && !url.startsWith('data:')) {
+        bestUrl = url;
+        break;
       }
     }
   }
