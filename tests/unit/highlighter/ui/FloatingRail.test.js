@@ -1129,4 +1129,66 @@ describe('FloatingRail', () => {
       expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
     });
   });
+
+  describe('storage onChanged listener', () => {
+    let addedListener;
+
+    beforeEach(() => {
+      addedListener = null;
+      chrome.storage.onChanged.addListener = jest.fn(fn => {
+        addedListener = fn;
+      });
+      chrome.storage.onChanged.removeListener = jest.fn();
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({});
+    });
+
+    test('initialize() registers a chrome.storage.onChanged listener', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      expect(chrome.storage.onChanged.addListener).toHaveBeenCalledTimes(1);
+      expect(typeof addedListener).toBe('function');
+    });
+
+    test('listener re-applies CSS variables when sync changes include rail keys', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({
+        floatingRailPosition: 'top',
+        floatingRailSize: 'small',
+      });
+      await addedListener(
+        {
+          floatingRailPosition: { newValue: 'top' },
+          floatingRailSize: { newValue: 'small' },
+        },
+        'sync'
+      );
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('25%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+    });
+
+    test('listener ignores changes from non-sync areas', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const before = rail.host.style.getPropertyValue('--rail-top');
+      await addedListener({ floatingRailPosition: { newValue: 'top' } }, 'local');
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe(before);
+    });
+
+    test('listener ignores irrelevant sync key changes', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const before = rail.host.style.getPropertyValue('--rail-top');
+      await addedListener({ unrelatedKey: { newValue: 'foo' } }, 'sync');
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe(before);
+    });
+
+    test('destroy() removes the onChanged listener', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.destroy();
+      expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledTimes(1);
+      expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledWith(addedListener);
+    });
+  });
 });

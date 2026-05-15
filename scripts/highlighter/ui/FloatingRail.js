@@ -139,6 +139,8 @@ export class FloatingRail {
       this._applyDisplaySettings({});
     }
 
+    this._listenToDisplaySettingsChanges();
+
     this.stateManager.initialize();
 
     if (this.stateManager.isDismissed) {
@@ -543,6 +545,30 @@ export class FloatingRail {
     this.host.style.setProperty('--rail-action-icon-size', dims.actionIcon);
   }
 
+  _listenToDisplaySettingsChanges() {
+    this._displaySettingsChangeListener = async (changes, areaName) => {
+      if (areaName !== 'sync') {return;}
+      if (!('floatingRailPosition' in changes) && !('floatingRailSize' in changes)) {
+        return;
+      }
+      try {
+        const stored = await chrome.storage.sync.get(['floatingRailPosition', 'floatingRailSize']);
+        this._applyDisplaySettings({
+          position: stored.floatingRailPosition,
+          size: stored.floatingRailSize,
+        });
+      } catch (error) {
+        const sanitizedError = sanitizeApiError(error, 'rail_reload_display_settings');
+        Logger.warn('[FloatingRail] 無法重新載入顯示設定', {
+          action: '_listenToDisplaySettingsChanges',
+          operation: 'reloadDisplaySettings',
+          sanitizedError,
+        });
+      }
+    };
+    chrome.storage.onChanged.addListener(this._displaySettingsChangeListener);
+  }
+
   _applyPosition(position) {
     const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || 0;
     const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || 0;
@@ -656,6 +682,10 @@ export class FloatingRail {
     if (this._deleteShortcutHandler) {
       document.removeEventListener('click', this._deleteShortcutHandler);
       this._deleteShortcutHandler = null;
+    }
+    if (this._displaySettingsChangeListener) {
+      chrome.storage.onChanged.removeListener(this._displaySettingsChangeListener);
+      this._displaySettingsChangeListener = null;
     }
     // 所有 listeners 綁定在 shadow DOM 內部元素，host 移除後隨 GC 回收
     if (this.host?.parentNode) {
