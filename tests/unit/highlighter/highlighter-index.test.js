@@ -189,11 +189,11 @@ describe('Highlighter Index', () => {
       expect(globalThis.HighlighterV2.getToolbar()).toBeNull();
       expect(globalThis.HighlighterV2.toolbar).toBeNull();
 
-      const toolbar = globalThis.notionHighlighter.createAndShowToolbar();
+      globalThis.notionHighlighter.show();
 
-      expect(toolbar).toBe(mockToolbar);
       expect(globalThis.HighlighterV2.getToolbar()).toBe(mockToolbar);
       expect(globalThis.HighlighterV2.toolbar).toBe(mockToolbar);
+      expect(mockToolbar.show).toHaveBeenCalled();
     });
   });
 
@@ -259,7 +259,7 @@ describe('Highlighter Index', () => {
     });
 
     test('isActive() 應該根據 toolbar state 回傳布林值', () => {
-      globalThis.notionHighlighter.createAndShowToolbar();
+      globalThis.notionHighlighter.show();
 
       mockToolbar.stateManager.currentState = 'hidden';
       expect(globalThis.notionHighlighter.isActive()).toBe(false);

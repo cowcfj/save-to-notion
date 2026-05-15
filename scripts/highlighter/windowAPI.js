@@ -189,11 +189,6 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     clearAll: () => manager.clearAll(),
     getCount: () => manager.getCount(),
     forceRestoreHighlights: () => restoreManager.restore(),
-    createAndShowToolbar: () => {
-      const legacyUi = getLegacyUiController(state);
-      legacyUi?.show?.();
-      return legacyUi;
-    },
   };
 
   // 🔑 全域函數別名（向後兼容）
