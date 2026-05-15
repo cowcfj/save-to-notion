@@ -258,5 +258,41 @@ describe('windowAPI', () => {
 
       expect(railCollapse).toHaveBeenCalledTimes(1);
     });
+
+    test('Branch A indirect alive: notionHighlighter.collectHighlights() 應委派到 manager', () => {
+      prodManager.collectHighlightsForNotion.mockReturnValue([{ id: 'mock' }]);
+      prodMountWindowAPI(prodManager, null, prodStorage);
+
+      const result = globalThis.notionHighlighter.collectHighlights();
+
+      expect(prodManager.collectHighlightsForNotion).toHaveBeenCalledTimes(1);
+      expect(result).toEqual([{ id: 'mock' }]);
+    });
+
+    test('Branch A indirect alive: notionHighlighter.clearAll() 應委派到 manager', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+
+      globalThis.notionHighlighter.clearAll();
+
+      expect(prodManager.clearAll).toHaveBeenCalledTimes(1);
+    });
+
+    test('Branch A direct alive: globalThis.collectHighlights() 應透過 alias 委派到 manager (executeScript page-context contract)', () => {
+      prodManager.collectHighlightsForNotion.mockReturnValue([{ id: 'via-alias' }]);
+      prodMountWindowAPI(prodManager, null, prodStorage);
+
+      const result = globalThis.collectHighlights();
+
+      expect(prodManager.collectHighlightsForNotion).toHaveBeenCalledTimes(1);
+      expect(result).toEqual([{ id: 'via-alias' }]);
+    });
+
+    test('Branch A direct alive: globalThis.clearPageHighlights() 應透過 alias 委派到 manager (executeScript page-context contract)', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+
+      globalThis.clearPageHighlights();
+
+      expect(prodManager.clearAll).toHaveBeenCalledTimes(1);
+    });
   });
 });
