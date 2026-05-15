@@ -24,6 +24,8 @@ import { getToolbarElements, applySaveSyncVisibility, renderStatusIcon } from '.
 
 const STYLE_BLOCK = 'block';
 const STYLE_NONE = 'none';
+const STYLE_FLEX = 'flex';
+const STYLE_INLINE_BLOCK = 'inline-block';
 const TOOLBAR_HOST_ID = 'notion-highlighter-host';
 const TOOLBAR_HOST_SELECTOR = `#${TOOLBAR_HOST_ID}`;
 const TOOLBAR_HOST_OWNER_ATTR = 'data-highlighter-owner';
@@ -78,8 +80,8 @@ export class Toolbar {
     this.miniIcon = createMiniIcon();
 
     // 插入到 Shadow Root（默認隱藏）
-    this.container.style.display = 'none';
-    this.miniIcon.style.display = 'none';
+    this.container.style.display = STYLE_NONE;
+    this.miniIcon.style.display = STYLE_NONE;
 
     // 重用 host 時，先移除 shadowRoot 內既有的 TOOLBAR_SELECTORS.CONTAINER / MINI_ICON，
     // 再 append 新 instance 的 this.container / this.miniIcon。
@@ -408,8 +410,8 @@ export class Toolbar {
    */
   show() {
     this.stateManager.currentState = ToolbarStates.EXPANDED;
-    this.container.style.display = 'block';
-    this.miniIcon.style.display = 'none';
+    this.container.style.display = STYLE_BLOCK;
+    this.miniIcon.style.display = STYLE_NONE;
 
     // 更新計數
     this.updateHighlightCount();
@@ -423,8 +425,8 @@ export class Toolbar {
    */
   hide() {
     this.stateManager.currentState = ToolbarStates.HIDDEN;
-    this.container.style.display = 'none';
-    this.miniIcon.style.display = 'none';
+    this.container.style.display = STYLE_NONE;
+    this.miniIcon.style.display = STYLE_NONE;
 
     // 如果標註模式開啟，關閉它
     if (this.isHighlightModeActive) {
@@ -437,8 +439,8 @@ export class Toolbar {
    */
   minimize() {
     this.stateManager.currentState = ToolbarStates.MINIMIZED;
-    this.container.style.display = 'none';
-    this.miniIcon.style.display = 'flex';
+    this.container.style.display = STYLE_NONE;
+    this.miniIcon.style.display = STYLE_FLEX;
   }
 
   /**
@@ -480,7 +482,7 @@ export class Toolbar {
     if (countSpan) {
       const count = this.manager.getCount();
       countSpan.textContent = count.toString();
-      countSpan.style.display = count > 0 ? 'inline-block' : 'none';
+      countSpan.style.display = count > 0 ? STYLE_INLINE_BLOCK : STYLE_NONE;
     }
   }
 
@@ -569,7 +571,7 @@ export class Toolbar {
     const { statusDiv } = getToolbarElements(this.container);
 
     if (statusDiv) {
-      statusDiv.style.display = 'block'; // Ensure it's visible during sync
+      statusDiv.style.display = STYLE_BLOCK; // Ensure it's visible during sync
 
       // Update UI to Loading State
       renderStatusIcon(statusDiv, 'SYNC', 'SYNCING');
@@ -632,7 +634,7 @@ export class Toolbar {
 
       setTimeout(() => {
         statusDiv.replaceChildren();
-        statusDiv.style.display = 'none';
+        statusDiv.style.display = STYLE_NONE;
       }, 2000);
     }
   }
