@@ -253,7 +253,7 @@ export function clearAccountStatus(elements) {
     return;
   }
 
-  elements.accountStatus.textContent = '';
+  elements.accountStatus.replaceChildren();
   elements.accountStatus.classList?.remove(ACCOUNT_STATUS_ERROR_CLASS);
 }
 

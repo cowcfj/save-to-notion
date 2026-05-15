@@ -555,7 +555,7 @@ export class Toolbar {
       // updateSaveButtonVisibility 已 await 完成，setTimeout 排程在其後
       if (statusDiv) {
         setTimeout(() => {
-          statusDiv.textContent = '';
+          statusDiv.replaceChildren();
           statusDiv.style.display = STYLE_NONE;
         }, 2000);
       }
@@ -631,7 +631,7 @@ export class Toolbar {
       }
 
       setTimeout(() => {
-        statusDiv.textContent = '';
+        statusDiv.replaceChildren();
         statusDiv.style.display = 'none';
       }, 2000);
     }
