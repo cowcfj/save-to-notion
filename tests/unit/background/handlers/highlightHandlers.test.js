@@ -157,7 +157,7 @@ describe('highlightHandlers', () => {
       await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: 'Sync failed' })
+        expect.objectContaining({ success: false, error: ERROR_MESSAGES.DEFAULT })
       );
     });
 
@@ -358,7 +358,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
         })
       );
       expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
@@ -376,7 +376,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
         })
       );
       expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
@@ -526,7 +526,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED],
         })
       );
     });
@@ -549,7 +549,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Collection failed'),
+          error: ERROR_MESSAGES.DEFAULT,
         })
       );
     });
