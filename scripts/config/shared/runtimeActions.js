@@ -21,6 +21,7 @@
  * @property {string} [stableUrl]
  * @property {boolean} [deletionPending]
  * @property {boolean} [wasDeleted]
+ * @property {string} [errorCode]
  * @property {string} [error]
  */
 
@@ -85,6 +86,7 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [title]
  * @property {string} [destinationProfileId]
  * @property {string} [destinationProfileName]
+ * @property {string} [errorCode]
  * @property {string} [error]
  */
 
@@ -96,7 +98,6 @@ const PAGE_STATUS_ACTIONS = {
 /**
  * @typedef {object} SavePageFromToolbarResponse
  * @property {boolean} success
- * @property {string} [error]
  * @property {'saved'|'unsaved'|'deletion_pending'|'deleted_remote'|'unverified_saved'|'error'} [statusKind]
  * @property {boolean} [isSaved]
  * @property {boolean} [canSave]
@@ -109,6 +110,8 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [title]
  * @property {string} [destinationProfileId]
  * @property {string} [destinationProfileName]
+ * @property {string} [errorCode]
+ * @property {string} [error]
  */
 
 /**
