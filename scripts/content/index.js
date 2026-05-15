@@ -448,16 +448,21 @@ export { extractPageContent };
 if (globalThis.window !== undefined) {
   globalThis.extractPageContent = extractPageContent;
 
-  // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果
+  // 單元測試支持：如果檢測到測試環境，暴露 extraction promise 以便測試端 await
   if (globalThis.__UNIT_TESTING__) {
     // eslint-disable-next-line unicorn/prefer-top-level-await
-    (async () => {
+    globalThis.__notion_extraction_promise = (async () => {
+      globalThis.__notion_extraction_result = undefined;
       try {
         globalThis.__notion_extraction_result = await extractPageContent();
       } catch (error) {
-        // 僅在測試環境下記錄
+        globalThis.__notion_extraction_result = {
+          extractionStatus: 'failed',
+          error: error?.message ?? String(error),
+        };
         console.error('[Test] Failed to extract page content:', error);
       }
+      return globalThis.__notion_extraction_result;
     })();
   }
 }
