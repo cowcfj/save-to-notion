@@ -227,7 +227,7 @@ class AppError extends Error {
   toResponse() {
     const response = {
       success: false,
-      error: this.message,
+      error: ErrorHandler.formatUserMessage(this),
       errorType: this.type,
       details: this.details,
     };
