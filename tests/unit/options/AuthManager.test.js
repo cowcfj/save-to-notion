@@ -180,6 +180,17 @@ describe('AuthManager Extended', () => {
         <option value="background">background</option>
         <option value="underline">underline</option>
       </select>
+      <input id="floating-rail-enabled" type="checkbox" />
+      <select id="floating-rail-position">
+        <option value="top">top</option>
+        <option value="middle">middle</option>
+        <option value="bottom">bottom</option>
+      </select>
+      <select id="floating-rail-size">
+        <option value="small">small</option>
+        <option value="medium">medium</option>
+        <option value="large">large</option>
+      </select>
       <input id="enable-debug-logs" type="checkbox" />
       <button id="test-api-button"></button>
       <div id="connect-status"></div>
@@ -579,6 +590,32 @@ describe('AuthManager Extended', () => {
         action: 'loadDataSourcesManual',
         error: expect.any(String),
       });
+    });
+
+    test('應從 sync storage 載入 floatingRailPosition 與 floatingRailSize', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+        floatingRailPosition: 'top',
+        floatingRailSize: 'small',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#floating-rail-position').value).toBe('top');
+      expect(document.querySelector('#floating-rail-size').value).toBe('small');
+    });
+
+    test('floatingRailPosition 與 floatingRailSize 缺值時應使用 middle/large 預設', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#floating-rail-position').value).toBe('middle');
+      expect(document.querySelector('#floating-rail-size').value).toBe('large');
     });
   });
 

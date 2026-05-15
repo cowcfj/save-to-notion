@@ -16,6 +16,8 @@ export const SYNC_CONFIG_KEYS = [
   'enableDebugLogs',
   'uiZoomLevel',
   'floatingRailEnabled',
+  'floatingRailPosition',
+  'floatingRailSize',
 ];
 
 /**
