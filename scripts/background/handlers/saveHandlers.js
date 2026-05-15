@@ -131,6 +131,12 @@ export function processContentResult(rawResult, highlights, highlightContentStyl
 function sendErrorResponse(result, sendResponse) {
   const errorCode = typeof result.errorCode === 'string' ? result.errorCode : undefined;
   const patternMessage = errorCode ? ERROR_MESSAGES.PATTERNS[errorCode] : undefined;
+  if (errorCode && patternMessage === undefined) {
+    Logger.warn('Missing error pattern for errorCode', {
+      action: 'sendErrorResponse',
+      errorCode,
+    });
+  }
   const userMessage = patternMessage ?? ErrorHandler.formatUserMessage(result.error);
   const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
   sendResponse({

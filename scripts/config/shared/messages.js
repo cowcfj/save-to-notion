@@ -510,6 +510,11 @@ const PATTERNS = {
 
   'Internal Server Error': NOTION_SERVICE_UNAVAILABLE_MESSAGE,
   'Unknown Error': '發生未知錯誤，請稍後再試',
+
+  destination_profile_not_found: '找不到指定的保存目的地，請重新整理後再試。',
+  destination_profile_not_configured: '尚未設定保存目的地，請先到設定頁完成設定。',
+  destination_profile_not_allowed: '此保存目的地目前不可使用，請改用其他保存目標。',
+  unknown_destination_profile_error: '保存目的地無法使用，請重新整理後再試。',
 };
 
 const DEFAULT = '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
