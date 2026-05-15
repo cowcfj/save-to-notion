@@ -1100,4 +1100,33 @@ describe('FloatingRail', () => {
       expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
     });
   });
+
+  describe('initialize() reads display settings from storage', () => {
+    test('reads floatingRailPosition and floatingRailSize then applies them', async () => {
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({
+        floatingRailPosition: 'bottom',
+        floatingRailSize: 'small',
+      });
+      const rail = new FloatingRail(manager);
+
+      await rail.initialize();
+
+      expect(chrome.storage.sync.get).toHaveBeenCalledWith([
+        'floatingRailPosition',
+        'floatingRailSize',
+      ]);
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('75%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+    });
+
+    test('initialize falls back to defaults when storage is empty', async () => {
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({});
+      const rail = new FloatingRail(manager);
+
+      await rail.initialize();
+
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+  });
 });

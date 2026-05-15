@@ -123,6 +123,22 @@ export class FloatingRail {
       return;
     }
 
+    try {
+      const stored = await chrome.storage.sync.get(['floatingRailPosition', 'floatingRailSize']);
+      this._applyDisplaySettings({
+        position: stored.floatingRailPosition,
+        size: stored.floatingRailSize,
+      });
+    } catch (error) {
+      const sanitizedError = sanitizeApiError(error, 'rail_load_display_settings');
+      Logger.warn('[FloatingRail] 無法讀取顯示設定', {
+        action: 'initialize',
+        operation: 'loadDisplaySettings',
+        sanitizedError,
+      });
+      this._applyDisplaySettings({});
+    }
+
     this.stateManager.initialize();
 
     if (this.stateManager.isDismissed) {
