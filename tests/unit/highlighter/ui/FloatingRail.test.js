@@ -1128,6 +1128,24 @@ describe('FloatingRail', () => {
       expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
       expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
     });
+
+    test('storage 讀取失敗時應記錄警告並套用預設顯示設定', async () => {
+      chrome.storage.sync.get = jest.fn().mockRejectedValueOnce(new Error('storage unavailable'));
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      const rail = new FloatingRail(manager);
+
+      await rail.initialize();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法讀取顯示設定',
+        expect.objectContaining({
+          action: 'initialize',
+          operation: 'loadDisplaySettings',
+        })
+      );
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
   });
 
   describe('storage onChanged listener', () => {
@@ -1189,6 +1207,23 @@ describe('FloatingRail', () => {
       rail.destroy();
       expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledTimes(1);
       expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledWith(addedListener);
+    });
+
+    test('listener storage 重新讀取失敗時應記錄警告', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      chrome.storage.sync.get = jest.fn().mockRejectedValueOnce(new Error('reload failed'));
+
+      await addedListener({ floatingRailPosition: { newValue: 'top' } }, 'sync');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法重新載入顯示設定',
+        expect.objectContaining({
+          action: '_listenToDisplaySettingsChanges',
+          operation: 'reloadDisplaySettings',
+        })
+      );
     });
   });
 });
