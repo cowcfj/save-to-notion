@@ -534,7 +534,11 @@ export function createHighlightHandlers(services) {
       } catch (error) {
         Logger.error('更新標註時出錯', { action: 'updateHighlights', error: error.message });
         const safeMessage = sanitizeApiError(error, 'update_highlights');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        sendResponse({
+          success: false,
+          error: ErrorHandler.formatUserMessage(safeMessage),
+          errorCode: 'INTERNAL_ERROR',
+        });
       }
     },
 

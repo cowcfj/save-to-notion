@@ -144,8 +144,47 @@ describe('MessageHandler', () => {
         success: false,
         error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
         errorType: 'internal',
+        errorCode: 'INTERNAL_ERROR',
         action: 'errorAction',
       });
+    });
+
+    it('非 AppError fallback 應帶 errorCode: INTERNAL_ERROR (ADR 0007)', async () => {
+      const errorHandler = jest.fn(() => {
+        throw new Error('boom');
+      });
+      handler.register('fallbackCodeAction', errorHandler);
+
+      const sendResponse = jest.fn();
+      handler.handle({ action: 'fallbackCodeAction' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'INTERNAL_ERROR',
+          errorType: 'internal',
+        })
+      );
+    });
+
+    it('AppError 帶 code 時 envelope 應透傳 errorCode (ADR 0007)', async () => {
+      const { Errors } = jest.requireActual('../../../../scripts/utils/ErrorHandler.js');
+      const errorHandler = jest.fn(() => {
+        throw Errors.notionApi('Page not saved', { phase: 'createPage' }, 'PAGE_NOT_SAVED');
+      });
+      handler.register('appErrorWithCode', errorHandler);
+
+      const sendResponse = jest.fn();
+      handler.handle({ action: 'appErrorWithCode' }, {}, sendResponse);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'PAGE_NOT_SAVED',
+        })
+      );
     });
 
     it('應該避免雙重回應 (safeSendResponse): handler 直接呼叫 sendResponse 且同時返回值時，實際只回應一次', async () => {

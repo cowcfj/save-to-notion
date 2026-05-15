@@ -26,7 +26,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "error": "string (optional)"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "SAVE_PAGE_FROM_TOOLBAR": {
@@ -46,7 +47,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "error": "string (optional)"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "openNotionPage": {
@@ -89,7 +91,8 @@
           "stableUrl": "string (optional)",
           "wasDeleted": "boolean (optional)",
           "deletionPending": "boolean (optional)",
-          "error": "string (optional)"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "PAGE_SAVE_HINT": {

@@ -256,6 +256,122 @@ describe('ErrorHandler - 測試', () => {
       expect(Errors.domError('msg').type).toBe(ErrorTypes.DOM_ERROR);
     });
   });
+
+  describe('AppError errorCode 透傳 (ADR 0007)', () => {
+    test('AppError 接收 code 參數時應設置 this.code', () => {
+      const error = new AppError(
+        ErrorTypes.NOTION_API,
+        'Page not saved',
+        { phase: 'createPage' },
+        'PAGE_NOT_SAVED'
+      );
+      expect(error.code).toBe('PAGE_NOT_SAVED');
+    });
+
+    test('AppError 未提供 code 時 this.code 應為 undefined', () => {
+      const error = new AppError(ErrorTypes.STORAGE, '存儲錯誤');
+      expect(error.code).toBeUndefined();
+    });
+
+    test('AppError.toResponse 在 code 存在時應輸出 errorCode 並翻譯 error 欄位', () => {
+      const error = new AppError(ErrorTypes.NOTION_API, 'Page not saved', {}, 'PAGE_NOT_SAVED');
+      const response = error.toResponse();
+
+      expect(response).toEqual({
+        success: false,
+        error: ERROR_MESSAGES.PATTERNS['Page not saved'],
+        errorType: ErrorTypes.NOTION_API,
+        details: {},
+        errorCode: 'PAGE_NOT_SAVED',
+      });
+    });
+
+    test('AppError.toResponse 在 code 缺席時不應輸出 errorCode 鍵', () => {
+      const error = new AppError(ErrorTypes.STORAGE, '存儲錯誤');
+      const response = error.toResponse();
+
+      expect(response).not.toHaveProperty('errorCode');
+      expect(response).toEqual({
+        success: false,
+        error: '存儲錯誤',
+        errorType: ErrorTypes.STORAGE,
+        details: {},
+      });
+    });
+
+    test('AppError.toResponse 當 message 命中 PATTERNS 且無 code 時應翻譯 error 欄位', () => {
+      const error = new AppError(ErrorTypes.NETWORK_ERROR, 'Network error');
+      const response = error.toResponse();
+
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS['Network error']);
+      expect(response).not.toHaveProperty('errorCode');
+    });
+
+    test('AppError.toResponse 當 message 不在 PATTERNS、code 為 SDK key 時應 fallback 到 PATTERNS[code]', () => {
+      const error = new AppError(
+        ErrorTypes.NOTION_API,
+        'sdk threw something opaque',
+        {},
+        'object_not_found'
+      );
+      const response = error.toResponse();
+
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS.object_not_found);
+      expect(response.errorCode).toBe('object_not_found');
+    });
+
+    test('AppError.toResponse 當 message 與 code 皆不在 PATTERNS 時應 fallback 到 DEFAULT', () => {
+      const error = new AppError(
+        ErrorTypes.INTERNAL,
+        'totally unknown failure token',
+        {},
+        'totally_unknown_code'
+      );
+      const response = error.toResponse();
+
+      expect(response.error).toBe(ERROR_MESSAGES.DEFAULT);
+      expect(response.errorCode).toBe('totally_unknown_code');
+    });
+
+    test('AppError.toResponse 對 SCREAMING_SNAKE message 應 fallback 到 DEFAULT (#519 命名混雜回歸保護)', () => {
+      const error = new AppError(ErrorTypes.NOTION_API, 'PAGE_NOT_SAVED');
+      const response = error.toResponse();
+
+      expect(response.error).toBe(ERROR_MESSAGES.DEFAULT);
+    });
+
+    test('AppError.toJSON 在 code 存在時應輸出 errorCode', () => {
+      const error = new AppError(
+        ErrorTypes.NOTION_API,
+        'Page not saved',
+        { phase: 'createPage' },
+        'PAGE_NOT_SAVED'
+      );
+      expect(error.toJSON()).toEqual({
+        type: ErrorTypes.NOTION_API,
+        message: 'Page not saved',
+        details: { phase: 'createPage' },
+        errorCode: 'PAGE_NOT_SAVED',
+      });
+    });
+
+    test('AppError.toJSON 在 code 缺席時不應輸出 errorCode 鍵', () => {
+      const error = new AppError(ErrorTypes.STORAGE, '存儲錯誤');
+      expect(error.toJSON()).not.toHaveProperty('errorCode');
+    });
+
+    test('Errors 工廠函數應透傳 code 至 AppError', () => {
+      expect(Errors.notionApi('msg', {}, 'PAGE_NOT_SAVED').code).toBe('PAGE_NOT_SAVED');
+      expect(Errors.injection('msg', {}, 'No tab with id').code).toBe('No tab with id');
+      expect(Errors.network('msg', {}, 'Network error').code).toBe('Network error');
+      expect(Errors.validation('msg', {}, 'validation_error').code).toBe('validation_error');
+    });
+
+    test('Errors 工廠函數未提供 code 時應 backward-compatible (code undefined)', () => {
+      expect(Errors.network('msg').code).toBeUndefined();
+      expect(Errors.storage('msg', { key: 'k' }).code).toBeUndefined();
+    });
+  });
 });
 
 // ===== MERGED FORMAT MESSAGE TESTS =====

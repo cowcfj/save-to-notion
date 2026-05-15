@@ -529,6 +529,54 @@ describe('saveHandlers', () => {
       expect(response.error).not.toContain('token exchange failed');
     });
 
+    test('savePage: profile 解析失敗時 envelope 應帶 errorCode (ADR 0007)', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('找不到目的地：xyz')
+      );
+
+      await handlers.savePage({ profileId: 'missing' }, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'destination_profile_not_found',
+        })
+      );
+    });
+
+    test('savePage: 下游 result 帶 errorCode 時 sendErrorResponse 應透傳並用 PATTERNS 直查 (ADR 0007)', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'No tab with id: 1573595936',
+        errorCode: 'No tab with id',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.success).toBe(false);
+      expect(response.errorCode).toBe('No tab with id');
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS['No tab with id']);
+    });
+
+    test('savePage: 下游 result 無 errorCode 時 envelope 不應出現 errorCode 鍵 (ADR 0007 向後相容)', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'Network error',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.success).toBe(false);
+      expect(response).not.toHaveProperty('errorCode');
+    });
+
     test('savePage: 提取結果為 failed 時不應建立 Notion 頁面', async () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getSavedPageData.mockResolvedValue(null);
