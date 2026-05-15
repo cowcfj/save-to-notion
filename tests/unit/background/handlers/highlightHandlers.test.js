@@ -9,6 +9,9 @@ import {
   validateInternalRequest,
 } from '../../../../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
+  '../../../../scripts/utils/ErrorHandler.js'
+);
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
@@ -36,7 +39,7 @@ describe('highlightHandlers', () => {
     normalizeUrl.mockImplementation(url => url);
 
     // Fix ErrorHandler mock
-    ErrorHandler.formatUserMessage.mockImplementation(msg => msg);
+    ErrorHandler.formatUserMessage.mockImplementation(ActualErrorHandler.formatUserMessage);
 
     // Fix sanitizeApiError mock
     sanitizeApiError.mockImplementation(err =>
@@ -162,13 +165,6 @@ describe('highlightHandlers', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { highlights: [{ text: 'test' }] };
-      const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
-        '../../../../scripts/utils/ErrorHandler.js'
-      );
-
-      ErrorHandler.formatUserMessage.mockImplementation(error =>
-        ActualErrorHandler.formatUserMessage(error)
-      );
 
       mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
