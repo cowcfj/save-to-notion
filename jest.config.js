@@ -63,9 +63,12 @@ module.exports = {
     '!<rootDir>/scripts/config/extraction.js',         // 純選擇器與數值常量
     '!<rootDir>/scripts/config/highlightConstants.js', // 純數值常量
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
-    // Toolbar 鏈：__UNIT_TESTING__ gate 已在 prod build 將整條鏈 DCE
-    // (見 rollup.content.config.mjs + rollup/plugins/assertTestFixtureDce.mjs)
-    // 僅供 legacy unit test 載入，覆蓋率不代表 production 行為
+    // Toolbar 鏈：DCE guard 位於 scripts/highlighter/windowAPI.js
+    // (TOOLBAR_TEST_FIXTURE_ENABLED 與 ensureToolbar(state))，而非 Toolbar files 本身。
+    // rollup.content.config.mjs 將 globalThis.__UNIT_TESTING__ 替換為 false，
+    // Terser 隨後移除 ensureToolbar 內部死碼 (assertTestFixtureDce.mjs 把關)。
+    // 因此這八個檔案在 prod bundle 完全 unreachable，僅供 legacy unit test 載入，
+    // 覆蓋率不代表 production 行為，從覆蓋率排除是恰當的。
     '!<rootDir>/scripts/highlighter/ui/Toolbar.js',
     '!<rootDir>/scripts/highlighter/ui/ToolbarRuntime.js',
     '!<rootDir>/scripts/highlighter/ui/ToolbarState.js',
