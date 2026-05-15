@@ -452,9 +452,14 @@ if (globalThis.window !== undefined) {
   if (globalThis.__UNIT_TESTING__) {
     // eslint-disable-next-line unicorn/prefer-top-level-await
     globalThis.__notion_extraction_promise = (async () => {
+      globalThis.__notion_extraction_result = undefined;
       try {
         globalThis.__notion_extraction_result = await extractPageContent();
       } catch (error) {
+        globalThis.__notion_extraction_result = {
+          extractionStatus: 'failed',
+          error: error?.message ?? String(error),
+        };
         console.error('[Test] Failed to extract page content:', error);
       }
       return globalThis.__notion_extraction_result;
