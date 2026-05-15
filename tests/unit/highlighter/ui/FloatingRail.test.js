@@ -1061,4 +1061,43 @@ describe('FloatingRail', () => {
       }
     });
   });
+
+  describe('_applyDisplaySettings', () => {
+    test('applies position=top size=small to host CSS variables', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'top', size: 'small' });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('25%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+      expect(rail.host.style.getPropertyValue('--rail-trigger-icon-size')).toBe('18px');
+      expect(rail.host.style.getPropertyValue('--rail-action-icon-size')).toBe('14px');
+    });
+
+    test('applies position=bottom size=large', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'bottom', size: 'large' });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('75%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+      expect(rail.host.style.getPropertyValue('--rail-trigger-icon-size')).toBe('22px');
+      expect(rail.host.style.getPropertyValue('--rail-action-icon-size')).toBe('18px');
+    });
+
+    test('unknown position falls back to middle (50%)', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'invalid', size: 'large' });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+    });
+
+    test('unknown size falls back to large (34px main button)', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'middle', size: 'invalid' });
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+
+    test('undefined position/size falls back to middle/large', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: undefined, size: undefined });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+  });
 });

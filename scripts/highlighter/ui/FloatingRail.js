@@ -41,6 +41,20 @@ const RAIL_EDGE_MARGIN_PX = 8;
 const RAIL_DRAG_LONG_PRESS_MS = 280;
 const RAIL_DRAG_MOVE_THRESHOLD_PX = 2;
 
+const RAIL_POSITION_TO_TOP = {
+  top: '25%',
+  middle: '50%',
+  bottom: '75%',
+};
+
+const RAIL_SIZE_TO_DIMENSIONS = {
+  large: { btn: '34px', triggerIcon: '22px', actionIcon: '18px' },
+  small: { btn: '28px', triggerIcon: '18px', actionIcon: '14px' },
+};
+
+const RAIL_POSITION_DEFAULT = 'middle';
+const RAIL_SIZE_DEFAULT = 'large';
+
 export class FloatingRail {
   constructor(manager) {
     if (!manager) {
@@ -502,6 +516,15 @@ export class FloatingRail {
         sanitizedError,
       });
     }
+  }
+
+  _applyDisplaySettings({ position, size } = {}) {
+    const top = RAIL_POSITION_TO_TOP[position] ?? RAIL_POSITION_TO_TOP[RAIL_POSITION_DEFAULT];
+    const dims = RAIL_SIZE_TO_DIMENSIONS[size] ?? RAIL_SIZE_TO_DIMENSIONS[RAIL_SIZE_DEFAULT];
+    this.host.style.setProperty('--rail-top', top);
+    this.host.style.setProperty('--rail-btn-size', dims.btn);
+    this.host.style.setProperty('--rail-trigger-icon-size', dims.triggerIcon);
+    this.host.style.setProperty('--rail-action-icon-size', dims.actionIcon);
   }
 
   _applyPosition(position) {
