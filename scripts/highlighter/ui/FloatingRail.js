@@ -41,6 +41,20 @@ const RAIL_EDGE_MARGIN_PX = 8;
 const RAIL_DRAG_LONG_PRESS_MS = 280;
 const RAIL_DRAG_MOVE_THRESHOLD_PX = 2;
 
+const RAIL_POSITION_TO_TOP = {
+  top: '25%',
+  middle: '50%',
+  bottom: '75%',
+};
+
+const RAIL_SIZE_TO_DIMENSIONS = {
+  large: { btn: '34px', triggerIcon: '22px', actionIcon: '18px' },
+  small: { btn: '28px', triggerIcon: '18px', actionIcon: '14px' },
+};
+
+const RAIL_POSITION_DEFAULT = 'middle';
+const RAIL_SIZE_DEFAULT = 'large';
+
 export class FloatingRail {
   constructor(manager) {
     if (!manager) {
@@ -108,6 +122,24 @@ export class FloatingRail {
     if (this._destroyed || this._initialized) {
       return;
     }
+
+    try {
+      const stored = await chrome.storage.sync.get(['floatingRailPosition', 'floatingRailSize']);
+      this._applyDisplaySettings({
+        position: stored.floatingRailPosition,
+        size: stored.floatingRailSize,
+      });
+    } catch (error) {
+      const sanitizedError = sanitizeApiError(error, 'rail_load_display_settings');
+      Logger.warn('[FloatingRail] 無法讀取顯示設定', {
+        action: 'initialize',
+        operation: 'loadDisplaySettings',
+        sanitizedError,
+      });
+      this._applyDisplaySettings({});
+    }
+
+    this._listenToDisplaySettingsChanges();
 
     this.stateManager.initialize();
 
@@ -504,6 +536,41 @@ export class FloatingRail {
     }
   }
 
+  _applyDisplaySettings({ position, size } = {}) {
+    const top = RAIL_POSITION_TO_TOP[position] ?? RAIL_POSITION_TO_TOP[RAIL_POSITION_DEFAULT];
+    const dims = RAIL_SIZE_TO_DIMENSIONS[size] ?? RAIL_SIZE_TO_DIMENSIONS[RAIL_SIZE_DEFAULT];
+    this.host.style.setProperty('--rail-top', top);
+    this.host.style.setProperty('--rail-btn-size', dims.btn);
+    this.host.style.setProperty('--rail-trigger-icon-size', dims.triggerIcon);
+    this.host.style.setProperty('--rail-action-icon-size', dims.actionIcon);
+  }
+
+  _listenToDisplaySettingsChanges() {
+    this._displaySettingsChangeListener = async (changes, areaName) => {
+      if (areaName !== 'sync') {
+        return;
+      }
+      if (!('floatingRailPosition' in changes) && !('floatingRailSize' in changes)) {
+        return;
+      }
+      try {
+        const stored = await chrome.storage.sync.get(['floatingRailPosition', 'floatingRailSize']);
+        this._applyDisplaySettings({
+          position: stored.floatingRailPosition,
+          size: stored.floatingRailSize,
+        });
+      } catch (error) {
+        const sanitizedError = sanitizeApiError(error, 'rail_reload_display_settings');
+        Logger.warn('[FloatingRail] 無法重新載入顯示設定', {
+          action: '_listenToDisplaySettingsChanges',
+          operation: 'reloadDisplaySettings',
+          sanitizedError,
+        });
+      }
+    };
+    chrome.storage.onChanged.addListener(this._displaySettingsChangeListener);
+  }
+
   _applyPosition(position) {
     const viewportHeight = globalThis.innerHeight || document.documentElement.clientHeight || 0;
     const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || 0;
@@ -617,6 +684,10 @@ export class FloatingRail {
     if (this._deleteShortcutHandler) {
       document.removeEventListener('click', this._deleteShortcutHandler);
       this._deleteShortcutHandler = null;
+    }
+    if (this._displaySettingsChangeListener) {
+      chrome.storage.onChanged.removeListener(this._displaySettingsChangeListener);
+      this._displaySettingsChangeListener = null;
     }
     // 所有 listeners 綁定在 shadow DOM 內部元素，host 移除後隨 GC 回收
     if (this.host?.parentNode) {

@@ -69,6 +69,8 @@ export class AuthManager {
     this.elements.highlightStyleSelect = document.querySelector('#highlight-style');
     this.elements.debugToggle = document.querySelector('#enable-debug-logs');
     this.elements.floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
+    this.elements.floatingRailPositionSelect = document.querySelector('#floating-rail-position');
+    this.elements.floatingRailSizeSelect = document.querySelector('#floating-rail-size');
 
     // 綁定事件
     this.setupEventListeners();
@@ -376,6 +378,12 @@ export class AuthManager {
     }
     if (this.elements.floatingRailCheckbox) {
       this.elements.floatingRailCheckbox.checked = syncData.floatingRailEnabled !== false;
+    }
+    if (this.elements.floatingRailPositionSelect) {
+      this.elements.floatingRailPositionSelect.value = syncData.floatingRailPosition || 'middle';
+    }
+    if (this.elements.floatingRailSizeSelect) {
+      this.elements.floatingRailSizeSelect.value = syncData.floatingRailSize || 'large';
     }
     if (this.elements.debugToggle) {
       this.elements.debugToggle.checked = Boolean(syncData.enableDebugLogs);

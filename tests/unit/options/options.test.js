@@ -584,6 +584,47 @@ describe('options.js', () => {
         })
       );
     });
+
+    it('當元素存在時應儲存 floatingRailPosition 與 floatingRailSize', async () => {
+      const positionSelect = document.createElement('select');
+      positionSelect.id = 'floating-rail-position';
+      ['top', 'middle', 'bottom'].forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        positionSelect.append(option);
+      });
+      positionSelect.value = 'top';
+
+      const sizeSelect = document.createElement('select');
+      sizeSelect.id = 'floating-rail-size';
+      ['small', 'medium', 'large'].forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        sizeSelect.append(option);
+      });
+      sizeSelect.value = 'small';
+
+      document.body.append(positionSelect, sizeSelect);
+
+      await saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          floatingRailPosition: 'top',
+          floatingRailSize: 'small',
+        })
+      );
+    });
+
+    it('元素缺失時不應寫入 floatingRailPosition / floatingRailSize 欄位', async () => {
+      await saveSettings(mockUi, mockAuth);
+
+      const syncPayload = mockSet.mock.calls.at(-1)[0];
+      expect(syncPayload).not.toHaveProperty('floatingRailPosition');
+      expect(syncPayload).not.toHaveProperty('floatingRailSize');
+    });
   });
 
   describe('Initialization (initOptions)', () => {

@@ -362,9 +362,28 @@
             <div class="form-group">
               <label class="toggle-label" for="floating-rail-enabled">
                 <input type="checkbox" id="floating-rail-enabled" checked />
-                <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_LABEL"></span>
+                <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_LABEL">顯示快捷工具列</span>
               </label>
               <p class="help-text" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_HELP"></p>
+            </div>
+            <div class="form-group">
+              <label for="floating-rail-position" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_LABEL">懸浮按鈕位置</label>
+              <div class="input-wrapper">
+                <select id="floating-rail-position" class="form-select-enhanced">
+                  <option value="top" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_TOP_OPTION"></option>
+                  <option value="middle" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_MIDDLE_OPTION"></option>
+                  <option value="bottom" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_BOTTOM_OPTION"></option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="floating-rail-size" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_LABEL">懸浮按鈕大小</label>
+              <div class="input-wrapper">
+                <select id="floating-rail-size" class="form-select-enhanced">
+                  <option value="large" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_LARGE_OPTION"></option>
+                  <option value="small" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_SMALL_OPTION"></option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -837,12 +856,12 @@
           aria-labelledby="tab-templates"
         >
           <header class="section-header">
-            <h2 data-ui-message="OPTIONS.TEMPLATES.SECTION_TITLE"></h2>
+            <h2 data-ui-message="OPTIONS.TEMPLATES.SECTION_TITLE">外觀樣式</h2>
             <p class="section-desc" data-ui-message="OPTIONS.TEMPLATES.SECTION_DESC"></p>
           </header>
 
           <div class="card">
-            <h3 data-ui-message="OPTIONS.TEMPLATES.PAGE_PROPERTIES_TITLE"></h3>
+            <h3 data-ui-message="OPTIONS.TEMPLATES.PAGE_PROPERTIES_TITLE">頁面屬性</h3>
             <div class="form-group">
               <label
                 for="title-template"
@@ -873,7 +892,7 @@
                 <label
                   for="add-source"
                   data-ui-message="OPTIONS.TEMPLATES.ADD_SOURCE_LABEL"
-                ></label>
+                >在內容末尾添加來源連結</label>
               </div>
             </div>
 
@@ -883,19 +902,19 @@
                 <label
                   for="add-timestamp"
                   data-ui-message="OPTIONS.TEMPLATES.ADD_TIMESTAMP_LABEL"
-                ></label>
+                >在內容開頭添加保存時間</label>
               </div>
             </div>
           </div>
 
           <!-- 外觀設定卡片 -->
           <div class="card">
-            <h3 data-ui-message="OPTIONS.TEMPLATES.APPEARANCE_TITLE"></h3>
+            <h3 data-ui-message="OPTIONS.TEMPLATES.APPEARANCE_TITLE">外觀設定</h3>
             <div class="form-group">
               <label
                 for="highlight-style"
                 data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_LABEL"
-              ></label>
+              >標註樣式</label>
               <div class="input-wrapper">
                 <select id="highlight-style" class="form-select form-select-enhanced">
                   <option
@@ -918,7 +937,7 @@
               <label
                 for="highlight-content-style"
                 data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_LABEL"
-              ></label>
+              >Notion 同步樣式</label>
               <div class="input-wrapper">
                 <select id="highlight-content-style" class="form-select form-select-enhanced">
                   <option
