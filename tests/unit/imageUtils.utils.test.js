@@ -313,6 +313,22 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('second.jpg');
   });
 
+  test('全部條目皆無描述符時，回退邏輯應取最後一個有效條目', () => {
+    // 鎖定 PR #517 主迴圈加上 `metric > 0` 後的行為：
+    // 所有條目 metric === 0 時主迴圈不會選出贏家，掉入 fallback；
+    // fallback 反向迴圈取最後一個有效條目。
+    const srcset = 'first.jpg, second.jpg, third.jpg';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('third.jpg');
+  });
+
+  test('回退邏輯應該跳過 data: URL', () => {
+    // 全部無 descriptor → 走 fallback；最後一項是 data: URL（注意：base64 內的逗號會被
+    // split 切斷，這裡使用 placeholder 形式避免逗號問題），fallback 應跳過 data: 條目，
+    // 與 _parseSrcsetEntry 的過濾邏輯保持一致。
+    const srcset = 'real.jpg, data:image/png;base64==';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
+  });
+
   test('應該處理空或無效輸入', () => {
     expect(extractBestUrlFromSrcset(null)).toBeNull();
     expect(extractBestUrlFromSrcset('')).toBeNull();

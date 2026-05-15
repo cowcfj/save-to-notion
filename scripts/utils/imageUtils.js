@@ -619,8 +619,12 @@ function _manualParseSrcset(srcsetEntries) {
       const entry = srcsetEntries[i];
       if (entry) {
         // entries 已由 extractBestUrlFromSrcset 調用 map(entry => entry.trim()) 預先處理過
-        bestUrl = entry.split(/\s+/)[0] || null;
-        if (bestUrl) break;
+        const url = entry.split(/\s+/)[0];
+        // 與 _parseSrcsetEntry 過濾邏輯一致：跳過 data: URL，避免在最後一項是 base64 placeholder 時誤選
+        if (url && !url.startsWith('data:')) {
+          bestUrl = url;
+          break;
+        }
       }
     }
   }
