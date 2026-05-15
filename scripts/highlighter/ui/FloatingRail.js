@@ -547,7 +547,9 @@ export class FloatingRail {
 
   _listenToDisplaySettingsChanges() {
     this._displaySettingsChangeListener = async (changes, areaName) => {
-      if (areaName !== 'sync') {return;}
+      if (areaName !== 'sync') {
+        return;
+      }
       if (!('floatingRailPosition' in changes) && !('floatingRailSize' in changes)) {
         return;
       }
