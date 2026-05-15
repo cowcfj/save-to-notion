@@ -18,7 +18,9 @@ test('changing settings updates rail CSS variables on host', async ({
   await page.goto('https://example.com');
 
   const railHost = page.locator('#notion-floating-rail-host');
-  await expect(railHost).toBeVisible({ timeout: 5000 });
+  // 在 fullyParallel 模式下資源競爭使 content script 注入較慢；
+  // 給予寬裕的 timeout 與 playwright CI `expect.timeout: 10000ms` 對齊。
+  await expect(railHost).toBeVisible({ timeout: 15_000 });
 
   // 取得 background service worker（先檢查既存，否則等候事件）
   let serviceWorker = context.serviceWorkers()[0];
