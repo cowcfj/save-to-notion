@@ -63,6 +63,17 @@ module.exports = {
     '!<rootDir>/scripts/config/extraction.js',         // 純選擇器與數值常量
     '!<rootDir>/scripts/config/highlightConstants.js', // 純數值常量
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
+    // Toolbar 鏈：__UNIT_TESTING__ gate 已在 prod build 將整條鏈 DCE
+    // (見 rollup.content.config.mjs + rollup/plugins/assertTestFixtureDce.mjs)
+    // 僅供 legacy unit test 載入，覆蓋率不代表 production 行為
+    '!<rootDir>/scripts/highlighter/ui/Toolbar.js',
+    '!<rootDir>/scripts/highlighter/ui/ToolbarRuntime.js',
+    '!<rootDir>/scripts/highlighter/ui/ToolbarState.js',
+    '!<rootDir>/scripts/highlighter/ui/ToolbarUI.js',
+    '!<rootDir>/scripts/highlighter/ui/styles/toolbarStyles.js',
+    '!<rootDir>/scripts/highlighter/ui/components/ColorPicker.js',
+    '!<rootDir>/scripts/highlighter/ui/components/MiniIcon.js',
+    '!<rootDir>/scripts/highlighter/ui/components/ToolbarContainer.js',
     '!<rootDir>/scripts/**/*.test.js',
     '!<rootDir>/scripts/**/*.spec.js',
     '!**/node_modules/**'
