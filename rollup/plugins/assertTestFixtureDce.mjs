@@ -1,6 +1,7 @@
 const FORBIDDEN_TOKENS = [
   '__UNIT_TESTING__',
   '__notion_extraction_promise',
+  '__notion_extraction_result',
   'TOOLBAR_TEST_FIXTURE_ENABLED',
   'ensureToolbar',
 ];
