@@ -607,17 +607,21 @@ function _manualParseSrcset(srcsetEntries) {
 
   for (const entry of srcsetEntries) {
     const result = _parseSrcsetEntry(entry);
-    if (result && result.metric > bestMetric) {
+    if (result && result.metric > 0 && result.metric > bestMetric) {
       bestMetric = result.metric;
       bestUrl = result.url;
     }
   }
 
   // 回退邏輯：如果沒找到度量值最高的，取最後一個有效條目
-  if (!bestUrl && srcsetEntries.length > 0) {
-    const valid = srcsetEntries.map(item => item.trim()).filter(Boolean);
-    if (valid.length > 0) {
-      bestUrl = valid.at(-1).split(/\s+/)[0] || null;
+  if (!bestUrl) {
+    for (let i = srcsetEntries.length - 1; i >= 0; i--) {
+      const entry = srcsetEntries[i];
+      if (entry) {
+        // entries 已由 extractBestUrlFromSrcset 調用 map(entry => entry.trim()) 預先處理過
+        bestUrl = entry.split(/\s+/)[0] || null;
+        if (bestUrl) break;
+      }
     }
   }
 
