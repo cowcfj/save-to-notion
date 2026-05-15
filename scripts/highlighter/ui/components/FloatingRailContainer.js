@@ -54,7 +54,6 @@ export function createFloatingRailContainer(options = {}) {
   trigger.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.TRIGGER_LABEL);
   trigger.setAttribute('aria-expanded', 'false');
   trigger.setAttribute('aria-pressed', 'false');
-  trigger.innerHTML = '';
   const logoIcon = createSafeIcon(RAIL_ICONS.LOGO);
   logoIcon.style.width = TRIGGER_ICON_SIZE;
   logoIcon.style.height = TRIGGER_ICON_SIZE;
@@ -79,7 +78,6 @@ export function createFloatingRailContainer(options = {}) {
   errorTooltip.className = 'rail-error-tooltip';
   errorTooltip.setAttribute('role', 'alert');
   errorTooltip.setAttribute('aria-live', 'assertive');
-  errorTooltip.textContent = '';
   saveBtn.append(errorTooltip);
   actions.append(saveBtn);
 

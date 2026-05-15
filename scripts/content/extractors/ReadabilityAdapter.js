@@ -876,7 +876,7 @@ function parseArticleWithReadability(doc) {
       });
       // 清空 body 並將容器內容設為唯一子節點
       const clonedBody = clonedDocument.body;
-      clonedBody.innerHTML = '';
+      clonedBody.replaceChildren();
       clonedBody.append(containerEl);
     } else {
       Logger.info('網域容器未找到，使用完整文檔', {

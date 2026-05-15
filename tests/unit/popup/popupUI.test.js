@@ -46,6 +46,7 @@ describe('popupUI.js', () => {
         textContent: '',
         style: { color: '' },
         classList: { add: jest.fn(), remove: jest.fn() },
+        replaceChildren: jest.fn(),
       },
       accountButton: {
         querySelector: jest.fn(),

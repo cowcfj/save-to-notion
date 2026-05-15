@@ -202,7 +202,7 @@ export function injectIcons(icons) {
         safeFragment.append(cloned);
       });
 
-      symbol.innerHTML = '';
+      symbol.replaceChildren();
       symbol.append(safeFragment);
       defs.append(symbol);
     } catch (error) {
