@@ -55,17 +55,6 @@ function setupExtractionMocks(deps, title) {
   deps.mergeUniqueImages.mockReturnValue([]);
 }
 
-async function waitForResult(predicate, { intervalMs = 20, maxAttempts = 150 } = {}) {
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
-    const value = predicate();
-    if (value !== undefined) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
 describe('content script source IIFE auto-execution', () => {
   beforeEach(() => {
     jest.resetModules();
@@ -86,21 +75,23 @@ describe('content script source IIFE auto-execution', () => {
     delete globalThis.chrome;
     delete globalThis.__UNIT_TESTING__;
     delete globalThis.__notion_extraction_result;
+    delete globalThis.__notion_extraction_promise;
     delete globalThis.__NOTION_BUNDLE_READY__;
     delete globalThis.HighlighterV2;
   });
 
-  test('載入 source 後 IIFE 應寫入 __notion_extraction_result', async () => {
+  test('載入 source 後 IIFE 應透過 promise 暴露擷取結果', async () => {
     const deps = requireFreshDeps();
     setupExtractionMocks(deps, 'Source Require Test');
 
     require('../../../scripts/content/index.js');
 
-    const result = await waitForResult(() => globalThis.__notion_extraction_result);
+    const result = await globalThis.__notion_extraction_promise;
 
     expect(result).toBeDefined();
     expect(result.title).toBe('Source Require Test');
-  }, 5000);
+    expect(globalThis.__notion_extraction_result).toBe(result);
+  });
 
   test('應該在存在過期的擷取結果時覆寫並啟動', async () => {
     const deps = requireFreshDeps();
@@ -109,13 +100,10 @@ describe('content script source IIFE auto-execution', () => {
 
     require('../../../scripts/content/index.js');
 
-    const result = await waitForResult(() =>
-      globalThis.__notion_extraction_result?.title === 'stale-result'
-        ? undefined
-        : globalThis.__notion_extraction_result
-    );
+    const result = await globalThis.__notion_extraction_promise;
 
     expect(result).toBeDefined();
     expect(result.title).toBe('Fresh Result');
-  }, 5000);
+    expect(globalThis.__notion_extraction_result).toBe(result);
+  });
 });

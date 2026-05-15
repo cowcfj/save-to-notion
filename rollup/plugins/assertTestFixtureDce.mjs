@@ -1,4 +1,9 @@
-const FORBIDDEN_TOKENS = ['__UNIT_TESTING__', 'TOOLBAR_TEST_FIXTURE_ENABLED', 'ensureToolbar'];
+const FORBIDDEN_TOKENS = [
+  '__UNIT_TESTING__',
+  '__notion_extraction_promise',
+  'TOOLBAR_TEST_FIXTURE_ENABLED',
+  'ensureToolbar',
+];
 
 export function assertTestFixtureDce() {
   return {
