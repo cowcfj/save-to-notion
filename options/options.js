@@ -1006,6 +1006,14 @@ export async function saveSettings(ui, auth, statusId = 'status') {
   if (floatingRailCheckbox) {
     syncSettings.floatingRailEnabled = floatingRailCheckbox.checked;
   }
+  const floatingRailPositionSelect = document.querySelector('#floating-rail-position');
+  if (floatingRailPositionSelect) {
+    syncSettings.floatingRailPosition = floatingRailPositionSelect.value;
+  }
+  const floatingRailSizeSelect = document.querySelector('#floating-rail-size');
+  if (floatingRailSizeSelect) {
+    syncSettings.floatingRailSize = floatingRailSizeSelect.value;
+  }
 
   let destinationProfileService = null;
   let defaultProfileId = 'default';
