@@ -129,7 +129,9 @@ export function processContentResult(rawResult, highlights, highlightContentStyl
  * @param {Function} sendResponse - 回應函數
  */
 function sendErrorResponse(result, sendResponse) {
-  const userMessage = ErrorHandler.formatUserMessage(result.error);
+  const errorCode = typeof result.errorCode === 'string' ? result.errorCode : undefined;
+  const patternMessage = errorCode ? ERROR_MESSAGES.PATTERNS[errorCode] : undefined;
+  const userMessage = patternMessage ?? ErrorHandler.formatUserMessage(result.error);
   const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
   sendResponse({
     ...result,
@@ -329,6 +331,7 @@ export function createSaveHandlers(services) {
       sendResponse({
         success: false,
         error: formatDestinationProfileResolveError(error),
+        errorCode,
       });
       return null;
     }

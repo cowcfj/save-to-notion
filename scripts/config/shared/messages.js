@@ -246,6 +246,7 @@ const TOOLBAR = {
   SYNC_SUCCESS: '同步成功',
   SYNC_FAILED: '同步失敗',
   SYNC_FAILED_PREFIX: '同步失敗：',
+  PAGE_NOT_SAVED_HINT: '請先保存頁面到 Notion',
   COLOR_PICKER_NAMES: {
     yellow: '黃',
     green: '綠',

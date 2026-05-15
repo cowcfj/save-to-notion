@@ -142,7 +142,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
-    it('應該處理 syncHighlights 失敗 (API 錯誤)', async () => {
+    it('應該處理 syncHighlights 失敗 (API 錯誤) 並透傳下游 errorCode (ADR 0007)', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { highlights: [{ text: 'test' }] };
@@ -152,12 +152,16 @@ describe('highlightHandlers', () => {
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
         error: 'Sync failed',
+        errorCode: 'highlight_sync_failed',
       });
 
       await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: ERROR_MESSAGES.DEFAULT })
+        expect.objectContaining({
+          success: false,
+          errorCode: 'highlight_sync_failed',
+        })
       );
     });
 
@@ -348,6 +352,24 @@ describe('highlightHandlers', () => {
       );
     });
 
+    it('savedData 缺 notionPageId 時 envelope 應帶 errorCode: PAGE_NOT_SAVED (ADR 0007)', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'PAGE_NOT_SAVED',
+        })
+      );
+      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
+    });
+
     it('應該處理缺少 sender.tab 的情況', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: null };
@@ -531,7 +553,7 @@ describe('highlightHandlers', () => {
       );
     });
 
-    it('should handle collection failure in updateHighlights', async () => {
+    it('UPDATE_REMOTE_HIGHLIGHTS catch fallback 應帶 errorCode: INTERNAL_ERROR (ADR 0007)', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
@@ -549,7 +571,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.DEFAULT,
+          errorCode: 'INTERNAL_ERROR',
         })
       );
     });

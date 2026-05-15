@@ -80,6 +80,7 @@ class MessageHandler {
       success: false,
       error: ErrorHandler.formatUserMessage(error),
       errorType: ErrorTypes.INTERNAL,
+      errorCode: 'INTERNAL_ERROR',
       action,
     };
   }
