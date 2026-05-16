@@ -312,14 +312,21 @@ describe('securityUtils', () => {
     });
 
     describe('資料庫權限不足', () => {
-      test.each([
-        ['database forbidden'],
-        ['database permission denied'],
-        ['database access denied'],
-      ])('"%s" 應返回資料庫權限不足訊息', input => {
-        const result = sanitizeApiError(input);
-        // 根據實際程式碼行為，包含 'database' 會匹配 DATA_SOURCE 模式
-        expect(result).toBe('MISSING_DATA_SOURCE');
+      // AUTH_FORBIDDEN 優先於 DATA_SOURCE：'forbidden' / 'permission denied'
+      // 是更精確的權限訊號，會被歸為 INTEGRATION_FORBIDDEN。
+      test.each([['database forbidden'], ['database permission denied']])(
+        '"%s" 應返回 INTEGRATION_FORBIDDEN（AUTH_FORBIDDEN 優先）',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('INTEGRATION_FORBIDDEN');
+        }
+      );
+
+      // 'access denied' 不屬於 AUTH_FORBIDDEN，但含 'database'：
+      // PERMISSION + PERMISSION_DB → DATABASE_ACCESS_DENIED。
+      test('"database access denied" 應返回 DATABASE_ACCESS_DENIED', () => {
+        const result = sanitizeApiError('database access denied');
+        expect(result).toBe('DATABASE_ACCESS_DENIED');
       });
     });
 
@@ -346,9 +353,9 @@ describe('securityUtils', () => {
         expect(result).toBe('API_KEY_NOT_CONFIGURED');
       });
 
-      test('"database permission denied" 應返回 Data Source ID（因為包含 database）', () => {
+      test('"database permission denied" 應返回 INTEGRATION_FORBIDDEN（AUTH_FORBIDDEN 優先於 DATA_SOURCE）', () => {
         const result = sanitizeApiError('database permission denied');
-        expect(result).toBe('MISSING_DATA_SOURCE');
+        expect(result).toBe('INTEGRATION_FORBIDDEN');
       });
 
       test('"unauthorized" 純粹無其他關鍵字應返回 API Key', () => {

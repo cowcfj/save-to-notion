@@ -1172,7 +1172,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/API_KEY_NOT_CONFIGURED|API Key|配置/i),
+          error: expect.stringContaining('API_KEY_NOT_CONFIGURED'),
         })
       );
     });

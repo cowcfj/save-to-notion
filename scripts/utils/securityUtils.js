@@ -159,7 +159,6 @@ function _classifyApiError(lowerMessage) {
     RATE_LIMITED: RATE_LIMIT,
     MISSING_PAGE_ID: NOT_FOUND,
     NO_ACTIVE_TAB: ACTIVE_TAB,
-    MISSING_DATA_SOURCE: DATA_SOURCE,
     TIMEOUT,
     NETWORK_ERROR: NETWORK,
   });
@@ -186,10 +185,17 @@ function _classifyApiError(lowerMessage) {
   }
 
   // 3. 權限檢查 (Permission)
+  // 必須早於 DATA_SOURCE 檢查：DATA_SOURCE 含 'database' 關鍵字，
+  // 否則 'database permission denied' 會被誤判為 MISSING_DATA_SOURCE。
   if (PERMISSION.some(k => lowerMessage.includes(k))) {
     return PERMISSION_DB.some(k => lowerMessage.includes(k))
       ? 'DATABASE_ACCESS_DENIED'
       : 'TAB_RESTRICTED_PAGE';
+  }
+
+  // 3.5 資料源錯誤 (Data Source) - 必須在 PERMISSION 之後
+  if (DATA_SOURCE.some(k => lowerMessage.includes(k))) {
+    return 'MISSING_DATA_SOURCE';
   }
 
   // 4. 服務器錯誤 (Server Error)
