@@ -130,6 +130,14 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      - name: Prepare build env for tests
+        if: steps.changes.outputs.source-changed == 'true'
+        run: |
+          if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
+            cp scripts/config/env/build.example.js scripts/config/env/build.js
+            echo "Created scripts/config/env/build.js from template for tests"
+          fi
+
       - name: Cache jest transform output
         if: steps.changes.outputs.source-changed == 'true'
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
