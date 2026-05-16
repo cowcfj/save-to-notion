@@ -316,6 +316,59 @@ describe('Highlighter Integration Tests', () => {
     });
   });
 
+  describe('deserializeRange external text parameter (v2.8.0)', () => {
+    let range;
+    let rangeInfo;
+    const expectedText = 'Test';
+
+    beforeEach(() => {
+      document.body.innerHTML = '<p>Test content for highlighting</p>';
+      const textNode = document.body.firstChild.firstChild;
+      range = document.createRange();
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, 4);
+      rangeInfo = serializeRange(range);
+    });
+
+    test('serializeRange output omits text field (new format schema)', () => {
+      expect(Object.keys(rangeInfo)).not.toContain('text');
+    });
+
+    test('returns Range when external text matches actual range content', () => {
+      const restored = deserializeRange(rangeInfo, expectedText);
+
+      expect(restored).not.toBeNull();
+      expect(restored.toString()).toBe(expectedText);
+    });
+
+    test('returns null when external text mismatches actual range content', () => {
+      const restored = deserializeRange(rangeInfo, 'Wrong text');
+
+      expect(restored).toBeNull();
+    });
+
+    test('ignores stale rangeInfo.text from legacy data — external param wins', () => {
+      // Simulate legacy v2.7 data where rangeInfo.text disagrees with reality.
+      // Validation reads from the external param, so restoration still succeeds.
+      const legacyRangeInfo = { ...rangeInfo, text: 'Outdated legacy text' };
+
+      const restored = deserializeRange(legacyRangeInfo, expectedText);
+
+      expect(restored).not.toBeNull();
+      expect(restored.toString()).toBe(expectedText);
+    });
+
+    test('rejects when external param disagrees, even if rangeInfo.text would match', () => {
+      // Inverse scenario: legacy text matches actual content but external param is wrong.
+      // Confirms external param is the sole source of truth for text validation.
+      const legacyRangeInfo = { ...rangeInfo, text: expectedText };
+
+      const restored = deserializeRange(legacyRangeInfo, 'Different external');
+
+      expect(restored).toBeNull();
+    });
+  });
+
   describe('Integration with Utilities', () => {
     test('should integrate text search with highlighting', async () => {
       document.body.innerHTML = '<div><p>Find this text in the page</p></div>';
