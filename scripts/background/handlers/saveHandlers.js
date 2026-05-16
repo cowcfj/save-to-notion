@@ -52,26 +52,26 @@ function getDestinationProfileErrorCode(error) {
 
   const message = typeof error?.message === 'string' ? error.message : '';
   if (message.includes('找不到目的地')) {
-    return 'destination_profile_not_found';
+    return 'DESTINATION_PROFILE_NOT_FOUND';
   }
   if (message.includes('尚未設定保存目標')) {
-    return 'destination_profile_not_configured';
+    return 'DESTINATION_PROFILE_NOT_CONFIGURED';
   }
   if (message.includes('不可使用') || message.includes('數量上限')) {
-    return 'destination_profile_not_allowed';
+    return 'DESTINATION_PROFILE_NOT_ALLOWED';
   }
-  return 'unknown_destination_profile_error';
+  return 'UNKNOWN_DESTINATION_PROFILE_ERROR';
 }
 
 function formatDestinationProfileResolveError(error) {
   const code = getDestinationProfileErrorCode(error);
   const messages = {
-    destination_profile_not_found: '找不到指定的保存目的地，請重新整理後再試。',
-    destination_profile_not_configured: '尚未設定保存目的地，請先到設定頁完成設定。',
-    destination_profile_not_allowed: '此保存目的地目前不可使用，請改用其他保存目標。',
-    unknown_destination_profile_error: '保存目的地無法使用，請重新整理後再試。',
+    DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
+    DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
+    DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
+    UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
   };
-  return messages[code] || messages.unknown_destination_profile_error;
+  return messages[code] || messages.UNKNOWN_DESTINATION_PROFILE_ERROR;
 }
 
 /**

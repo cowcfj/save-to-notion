@@ -162,7 +162,7 @@ describe('accountAuthHandler', () => {
     expect(logger.warn).toHaveBeenCalledWith('Account callback bridge 導向失敗', {
       action: 'handleAccountCallbackBridge',
       tabId: 12,
-      error: 'Unknown Error',
+      error: 'UNKNOWN_ERROR',
     });
   });
 });

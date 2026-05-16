@@ -174,7 +174,7 @@ describe('highlightHandlers', () => {
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'highlight_section_delete_incomplete',
+        error: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
         details: { phase: 'delete_highlight_section', retryable: true },
       });
 
@@ -196,7 +196,7 @@ describe('highlightHandlers', () => {
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -229,7 +229,7 @@ describe('highlightHandlers', () => {
       });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -268,7 +268,7 @@ describe('highlightHandlers', () => {
       });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -310,7 +310,7 @@ describe('highlightHandlers', () => {
       });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 

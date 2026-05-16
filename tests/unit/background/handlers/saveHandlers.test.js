@@ -540,7 +540,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          errorCode: 'destination_profile_not_found',
+          errorCode: 'DESTINATION_PROFILE_NOT_FOUND',
         })
       );
     });
@@ -551,15 +551,15 @@ describe('saveHandlers', () => {
       mockServices.notionService.createPage.mockResolvedValue({
         success: false,
         error: 'No tab with id: 1573595936',
-        errorCode: 'No tab with id',
+        errorCode: 'NO_TAB_WITH_ID',
       });
 
       await handlers.savePage({}, validSender, sendResponse);
 
       const response = sendResponse.mock.calls.at(-1)[0];
       expect(response.success).toBe(false);
-      expect(response.errorCode).toBe('No tab with id');
-      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS['No tab with id']);
+      expect(response.errorCode).toBe('NO_TAB_WITH_ID');
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS.NO_TAB_WITH_ID);
     });
 
     test('savePage: 下游 result 無 errorCode 時 envelope 不應出現 errorCode 鍵 (ADR 0007 向後相容)', async () => {
@@ -1155,7 +1155,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/API Key|配置/i),
+          error: expect.stringMatching(/API_KEY_NOT_CONFIGURED|API Key|配置/i),
         })
       );
     });
