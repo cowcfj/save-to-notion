@@ -41,8 +41,6 @@ export function createFloatingRailContainer(options = {}) {
   closeBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CLOSE_LABEL);
   closeBtn.dataset.action = 'close';
   const closeIcon = createSafeIcon(RAIL_ICONS.CLOSE);
-  closeIcon.style.width = '12px';
-  closeIcon.style.height = '12px';
   closeBtn.append(closeIcon);
   container.append(closeBtn);
 

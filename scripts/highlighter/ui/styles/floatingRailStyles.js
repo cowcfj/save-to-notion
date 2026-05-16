@@ -98,6 +98,22 @@ export function getFloatingRailCSS() {
       outline-offset: 1px;
     }
 
+    .rail-close-btn > .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--rail-close-icon-size, 12px);
+      height: var(--rail-close-icon-size, 12px);
+    }
+
+    .rail-close-btn svg {
+      width: 100%;
+      height: 100%;
+      color: currentColor;
+      fill: currentColor;
+      stroke: currentColor;
+    }
+
     @media (prefers-color-scheme: dark) {
       .rail-container {
         background: ${theme.dark.surface};
@@ -178,8 +194,8 @@ export function getFloatingRailCSS() {
     }
 
     .rail-trigger svg {
-      width: var(--rail-trigger-icon-size, 22px);
-      height: var(--rail-trigger-icon-size, 22px);
+      width: 100%;
+      height: 100%;
       color: currentColor;
       fill: currentColor;
       stroke: currentColor;
@@ -248,8 +264,8 @@ export function getFloatingRailCSS() {
     }
 
     .rail-action-btn svg {
-      width: var(--rail-action-icon-size, 18px);
-      height: var(--rail-action-icon-size, 18px);
+      width: 100%;
+      height: 100%;
       color: currentColor;
       fill: currentColor;
       stroke: currentColor;
