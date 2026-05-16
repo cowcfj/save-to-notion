@@ -545,6 +545,23 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('savePage: profile resolver 拋出帶小寫 error.code 時應 normalize 為 SCREAMING_SNAKE_CASE', async () => {
+      const sendResponse = jest.fn();
+      const lowerCaseCodeError = Object.assign(new Error('downstream failure'), {
+        code: 'destination_profile_not_allowed',
+      });
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        lowerCaseCodeError
+      );
+
+      await handlers.savePage({ profileId: 'gated' }, validSender, sendResponse);
+
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.success).toBe(false);
+      expect(response.errorCode).toBe('DESTINATION_PROFILE_NOT_ALLOWED');
+      expect(response.error).toBe('此保存目的地目前不可使用，請改用其他保存目標。');
+    });
+
     test('savePage: 下游 result 帶 errorCode 時 sendErrorResponse 應透傳並用 PATTERNS 直查 (ADR 0007)', async () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getSavedPageData.mockResolvedValue(null);

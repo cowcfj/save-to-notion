@@ -47,7 +47,7 @@ const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS))
 
 function getDestinationProfileErrorCode(error) {
   if (typeof error?.code === 'string' && error.code.trim()) {
-    return error.code.trim();
+    return error.code.trim().toUpperCase();
   }
 
   const message = typeof error?.message === 'string' ? error.message : '';
