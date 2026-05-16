@@ -31,8 +31,6 @@ function createMockContainer() {
   // 模擬 FloatingRailContainer 透過 createSafeIcon 建構出的初始 wrapper + SVG
   const initialIconWrapper = document.createElement('span');
   initialIconWrapper.className = 'icon';
-  initialIconWrapper.style.width = '18px';
-  initialIconWrapper.style.height = '18px';
   const initialSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   initialSvg.setAttribute('viewBox', '0 0 24 24');
   initialSvg.classList.add('icon-svg');
@@ -212,7 +210,7 @@ describe('applySaveActionVisibility', () => {
     expect(secondSvg).toBe(firstSvg);
   });
 
-  test('[REGRESSION] icon 切換應保留 .icon wrapper 結構並套用尺寸樣式', () => {
+  test('[REGRESSION] icon 切換應保留 .icon wrapper 結構，尺寸由 CSS variable 控制', () => {
     const container = createMockContainer();
     const saveBtn = container.querySelector('[data-action="save"]');
 
@@ -221,8 +219,9 @@ describe('applySaveActionVisibility', () => {
     const wrappers = saveBtn.querySelectorAll('.icon');
     expect(wrappers).toHaveLength(1);
     const [wrapper] = wrappers;
-    expect(wrapper.style.width).toBe('18px');
-    expect(wrapper.style.height).toBe('18px');
+    expect(wrapper.style.width).toBe('');
+    expect(wrapper.style.height).toBe('');
+    expect(wrapper.classList.contains('icon')).toBe(true);
     expect(wrapper.querySelector('svg')?.dataset.railIcon).toBe('sync');
   });
 

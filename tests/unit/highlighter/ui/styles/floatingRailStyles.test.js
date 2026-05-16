@@ -111,5 +111,19 @@ describe('floatingRailStyles', () => {
       expect(matches).not.toBeNull();
       expect(matches.length).toBeGreaterThanOrEqual(2);
     });
+
+    test('[REGRESSION] rail-trigger > .icon wrapper 應跟著 trigger icon size CSS variable，避免 small 模式錯位', () => {
+      const css = getFloatingRailCSS();
+      expect(css).toMatch(
+        /\.rail-trigger\s*>\s*\.icon\s*\{[\s\S]*?width:\s*var\(--rail-trigger-icon-size,\s*22px\)[\s\S]*?height:\s*var\(--rail-trigger-icon-size,\s*22px\)/
+      );
+    });
+
+    test('[REGRESSION] rail-action-btn > .icon wrapper 應跟著 action icon size CSS variable，避免 small 模式錯位', () => {
+      const css = getFloatingRailCSS();
+      expect(css).toMatch(
+        /\.rail-action-btn\s*>\s*\.icon\s*\{[\s\S]*?width:\s*var\(--rail-action-icon-size,\s*18px\)[\s\S]*?height:\s*var\(--rail-action-icon-size,\s*18px\)/
+      );
+    });
   });
 });

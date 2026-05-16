@@ -169,6 +169,14 @@ export function getFloatingRailCSS() {
       --rail-brand-fill: ${color.brandHover};
     }
 
+    .rail-trigger > .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--rail-trigger-icon-size, 22px);
+      height: var(--rail-trigger-icon-size, 22px);
+    }
+
     .rail-trigger svg {
       width: var(--rail-trigger-icon-size, 22px);
       height: var(--rail-trigger-icon-size, 22px);
@@ -229,6 +237,14 @@ export function getFloatingRailCSS() {
       background: ${color.actionManageHover};
       transform: translateY(-1px);
       box-shadow: 0 2px 6px ${hexToRgba(color.actionManage, 0.35)};
+    }
+
+    .rail-action-btn > .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--rail-action-icon-size, 18px);
+      height: var(--rail-action-icon-size, 18px);
     }
 
     .rail-action-btn svg {
