@@ -20,15 +20,8 @@ test-results/
 # 內部文檔目錄（所有內部開發文檔）
 internal/
 archive/*
-# 覆蓋率報告 - 追蹤 lcov.info 用於 CI 上傳
-coverage/*
-!coverage/lcov.info
-!coverage/jest/
-coverage/jest/*
-!coverage/jest/lcov.info
-!coverage/merged/
-coverage/merged/*
-!coverage/merged/lcov.info
+# 覆蓋率報告 - 由 CI 自動產生,不進 git (見 docs/adr/0009-ci-generated-coverage-trust-model.md)
+coverage/
 
 # 測試和開發文件
 tests/manual/

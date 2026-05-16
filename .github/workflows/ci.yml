@@ -29,6 +29,22 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Detect source changes
+        id: changes
+        uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050 # v3
+        with:
+          filters: |
+            source-changed:
+              - 'scripts/**'
+              - 'options/**'
+              - 'popup/**'
+              - 'sidepanel/**'
+              - 'tests/**'
+              - 'jest.config.js'
+              - 'jest.config.*.js'
+              - 'package.json'
+              - 'package-lock.json'
+
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
@@ -112,13 +128,29 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-      # 注意：Jest 測試已從 CI 移除，改為本地執行
-      # 原因：配合 E2E 測試的 headed 模式要求，統一在本地運行完整測試
-      # 開發者需在提交前運行 npm run test:all 生成覆蓋率報告
+      - name: Cache jest transform output
+        if: steps.changes.outputs.source-changed == 'true'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .jest-cache
+          key: ${{ runner.os }}-jest-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'package-lock.json') }}
+          restore-keys: ${{ runner.os }}-jest-
 
-      # 注意：E2E 測試已從 CI 移除
-      # 原因：Chrome headless 模式不支持 Extension Service Worker（Chromium Issue #41309918）
-      # E2E 測試可在本地使用 npm run test:e2e 運行（需要 headed 模式）
+      - name: Jest unit tests with coverage
+        if: steps.changes.outputs.source-changed == 'true'
+        run: npm run test:ci
+
+      - name: Upload jest coverage artifact
+        if: steps.changes.outputs.source-changed == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: jest-coverage-${{ github.event.pull_request.head.sha || github.sha }}
+          path: coverage/jest/lcov.info
+          retention-days: 7
+          if-no-files-found: error
+
+      # E2E 測試從 CI 移除：Chrome headless 模式不支持 Extension Service Worker
+      # （Chromium Issue #41309918）。E2E 可在本地用 npm run test:e2e 跑（headed 模式）。
 
       - name: Verify Production Build
         env:
@@ -191,16 +223,11 @@ jobs:
 
       - name: Validate coverage file
         id: validate-coverage
+        if: steps.changes.outputs.source-changed == 'true'
         run: |
-          LCOV_FILE=""
-          if [ -f "coverage/merged/lcov.info" ]; then
-            LCOV_FILE="coverage/merged/lcov.info"
-            echo "Found merged coverage file."
-          elif [ -f "coverage/jest/lcov.info" ]; then
-            LCOV_FILE="coverage/jest/lcov.info"
-            echo "Found jest coverage file."
-          else
-            echo "⚠️ Coverage file not found in merged or jest directories."
+          LCOV_FILE="coverage/jest/lcov.info"
+          if [ ! -f "$LCOV_FILE" ]; then
+            echo "⚠️ Coverage file not found at $LCOV_FILE."
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -217,11 +244,11 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        if: steps.validate-coverage.outputs.valid == 'true'
+        if: steps.changes.outputs.source-changed == 'true' && steps.validate-coverage.outputs.valid == 'true'
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
         with:
           files: ${{ steps.validate-coverage.outputs.file }}
-          flags: combined
+          flags: unit
           fail_ci_if_error: false
           use_oidc: true
 
