@@ -279,7 +279,7 @@ describe('ErrorHandler - 測試', () => {
 
       expect(response).toEqual({
         success: false,
-        error: ERROR_MESSAGES.PATTERNS['Page not saved'],
+        error: ERROR_MESSAGES.PATTERNS.PAGE_NOT_SAVED,
         errorType: ErrorTypes.NOTION_API,
         details: {},
         errorCode: 'PAGE_NOT_SAVED',
@@ -300,24 +300,24 @@ describe('ErrorHandler - 測試', () => {
     });
 
     test('AppError.toResponse 當 message 命中 PATTERNS 且無 code 時應翻譯 error 欄位', () => {
-      const error = new AppError(ErrorTypes.NETWORK_ERROR, 'Network error');
+      const error = new AppError(ErrorTypes.NETWORK_ERROR, 'NETWORK_ERROR');
       const response = error.toResponse();
 
-      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS['Network error']);
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS.NETWORK_ERROR);
       expect(response).not.toHaveProperty('errorCode');
     });
 
-    test('AppError.toResponse 當 message 不在 PATTERNS、code 為 SDK key 時應 fallback 到 PATTERNS[code]', () => {
+    test('AppError.toResponse 當 message 不在 PATTERNS、code 命中 PATTERNS 時應 fallback 到 PATTERNS[code]', () => {
       const error = new AppError(
         ErrorTypes.NOTION_API,
         'sdk threw something opaque',
         {},
-        'object_not_found'
+        'OBJECT_NOT_FOUND'
       );
       const response = error.toResponse();
 
-      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS.object_not_found);
-      expect(response.errorCode).toBe('object_not_found');
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS.OBJECT_NOT_FOUND);
+      expect(response.errorCode).toBe('OBJECT_NOT_FOUND');
     });
 
     test('AppError.toResponse 當 message 與 code 皆不在 PATTERNS 時應 fallback 到 DEFAULT', () => {
@@ -325,16 +325,16 @@ describe('ErrorHandler - 測試', () => {
         ErrorTypes.INTERNAL,
         'totally unknown failure token',
         {},
-        'totally_unknown_code'
+        'TOTALLY_UNKNOWN_CODE'
       );
       const response = error.toResponse();
 
       expect(response.error).toBe(ERROR_MESSAGES.DEFAULT);
-      expect(response.errorCode).toBe('totally_unknown_code');
+      expect(response.errorCode).toBe('TOTALLY_UNKNOWN_CODE');
     });
 
-    test('AppError.toResponse 對 SCREAMING_SNAKE message 應 fallback 到 DEFAULT (#519 命名混雜回歸保護)', () => {
-      const error = new AppError(ErrorTypes.NOTION_API, 'PAGE_NOT_SAVED');
+    test('AppError.toResponse 對舊 Title Case message 應 fallback 到 DEFAULT (#519 命名統一回歸保護)', () => {
+      const error = new AppError(ErrorTypes.NOTION_API, 'Page not saved');
       const response = error.toResponse();
 
       expect(response.error).toBe(ERROR_MESSAGES.DEFAULT);
@@ -362,9 +362,9 @@ describe('ErrorHandler - 測試', () => {
 
     test('Errors 工廠函數應透傳 code 至 AppError', () => {
       expect(Errors.notionApi('msg', {}, 'PAGE_NOT_SAVED').code).toBe('PAGE_NOT_SAVED');
-      expect(Errors.injection('msg', {}, 'No tab with id').code).toBe('No tab with id');
-      expect(Errors.network('msg', {}, 'Network error').code).toBe('Network error');
-      expect(Errors.validation('msg', {}, 'validation_error').code).toBe('validation_error');
+      expect(Errors.injection('msg', {}, 'NO_TAB_WITH_ID').code).toBe('NO_TAB_WITH_ID');
+      expect(Errors.network('msg', {}, 'NETWORK_ERROR').code).toBe('NETWORK_ERROR');
+      expect(Errors.validation('msg', {}, 'VALIDATION_ERROR').code).toBe('VALIDATION_ERROR');
     });
 
     test('Errors 工廠函數未提供 code 時應 backward-compatible (code undefined)', () => {
@@ -405,8 +405,8 @@ describe('ErrorHandler.formatUserMessage', () => {
   test('精確匹配標準化的 Error Code 應返回友善訊息', () => {
     mockLogger.debugEnabled = true;
     // 現在只進行精確匹配，錯誤應先經過 sanitizeApiError 標準化
-    expect(ErrorHandler.formatUserMessage('No tab with id')).toBe(
-      ERROR_MESSAGES.PATTERNS['No tab with id']
+    expect(ErrorHandler.formatUserMessage('NO_TAB_WITH_ID')).toBe(
+      ERROR_MESSAGES.PATTERNS.NO_TAB_WITH_ID
     );
   });
 
@@ -419,25 +419,27 @@ describe('ErrorHandler.formatUserMessage', () => {
   test('多個標準化 Error Code 應正確匹配', () => {
     mockLogger.debugEnabled = false;
 
-    // 測試精確匹配 "No tab with id"（完全等於 PATTERNS 的 key）
-    expect(ErrorHandler.formatUserMessage('No tab with id')).toBe(
-      ERROR_MESSAGES.PATTERNS['No tab with id']
+    // 測試精確匹配 "NO_TAB_WITH_ID"（完全等於 PATTERNS 的 key）
+    expect(ErrorHandler.formatUserMessage('NO_TAB_WITH_ID')).toBe(
+      ERROR_MESSAGES.PATTERNS.NO_TAB_WITH_ID
     );
 
-    // 測試精確匹配 "API Key"
-    expect(ErrorHandler.formatUserMessage('API Key')).toBe(ERROR_MESSAGES.PATTERNS['API Key']);
+    // 測試精確匹配 "API_KEY_NOT_CONFIGURED"
+    expect(ErrorHandler.formatUserMessage('API_KEY_NOT_CONFIGURED')).toBe(
+      ERROR_MESSAGES.PATTERNS.API_KEY_NOT_CONFIGURED
+    );
 
-    // 測試精確匹配 "rate limit"
-    expect(ErrorHandler.formatUserMessage('rate limit')).toBe(
-      ERROR_MESSAGES.PATTERNS['rate limit']
+    // 測試精確匹配 "RATE_LIMITED"
+    expect(ErrorHandler.formatUserMessage('RATE_LIMITED')).toBe(
+      ERROR_MESSAGES.PATTERNS.RATE_LIMITED
     );
   });
 
-  test('highlight_section_delete_incomplete 應返回可重試的友善訊息', () => {
+  test('HIGHLIGHT_SECTION_DELETE_INCOMPLETE 應返回可重試的友善訊息', () => {
     mockLogger.debugEnabled = false;
 
-    expect(ErrorHandler.formatUserMessage('highlight_section_delete_incomplete')).toBe(
-      ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete
+    expect(ErrorHandler.formatUserMessage('HIGHLIGHT_SECTION_DELETE_INCOMPLETE')).toBe(
+      ERROR_MESSAGES.PATTERNS.HIGHLIGHT_SECTION_DELETE_INCOMPLETE
     );
   });
 
@@ -452,17 +454,17 @@ describe('ErrorHandler.formatUserMessage', () => {
     mockLogger.debugEnabled = false;
     // 測試 formatUserMessage 對原始 Error 物件的防禦性處理
     // 注意：正規流程應先經過 sanitizeApiError 標準化，此測試驗證直接傳入 Error 物件時的容錯機制
-    const error = new Error('Network error');
-    expect(ErrorHandler.formatUserMessage(error)).toBe(ERROR_MESSAGES.PATTERNS['Network error']);
+    const error = new Error('NETWORK_ERROR');
+    expect(ErrorHandler.formatUserMessage(error)).toBe(ERROR_MESSAGES.PATTERNS.NETWORK_ERROR);
   });
 
-  test('包含 .code 的 SDK 錯誤應正確查表轉換', () => {
+  test('包含 .code 的標準化錯誤應正確查表轉換', () => {
     mockLogger.debugEnabled = false;
-    // 模擬 Notion SDK APIResponseError 的格式
-    const sdkError = { code: 'object_not_found' };
-    const expectedMessage = ERROR_MESSAGES.PATTERNS.object_not_found;
+    // 模擬經過 sanitizeApiError boundary 後的內部 envelope（code 已轉為 SCREAMING_SNAKE_CASE）
+    const sanitizedError = { code: 'OBJECT_NOT_FOUND' };
+    const expectedMessage = ERROR_MESSAGES.PATTERNS.OBJECT_NOT_FOUND;
     expect(expectedMessage).toBe('找不到目標頁面或資料庫，請確認資源存在且已授權');
-    expect(ErrorHandler.formatUserMessage(sdkError)).toBe(expectedMessage);
+    expect(ErrorHandler.formatUserMessage(sanitizedError)).toBe(expectedMessage);
   });
 
   test('傳入空物件（{}）、null 或 undefined 應返回預設友善訊息', () => {

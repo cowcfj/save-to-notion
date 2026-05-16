@@ -118,7 +118,7 @@ async function performHighlightUpdate(services, activeTab, highlights) {
 
   if (
     !result.success &&
-    result.error === 'object_not_found' &&
+    result.error === 'OBJECT_NOT_FOUND' &&
     result.details?.phase === 'fetch_blocks'
   ) {
     const deletionCheck = tabService.confirmRemotePageMissing(savedData.notionPageId);

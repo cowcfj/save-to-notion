@@ -386,7 +386,7 @@ describe('NotionService', () => {
 
     it('應該在沒有 API Key 時拋出錯誤', async () => {
       service.setApiKey(null);
-      await expect(service.checkPageExists('page-123')).rejects.toThrow('API Key');
+      await expect(service.checkPageExists('page-123')).rejects.toThrow('API_KEY_NOT_CONFIGURED');
     });
 
     it('應該處理非 JSON 錯誤響應', async () => {
@@ -464,7 +464,7 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(false);
       expect(result.addedCount).toBe(100);
-      expect(result.error).toBe('validation_error');
+      expect(result.error).toBe('VALIDATION_ERROR');
     });
 
     it('應該從指定索引開始處理', async () => {
@@ -554,7 +554,7 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
       expect(result.success).toBe(false);
-      expect(result.error).toBe('validation_error');
+      expect(result.error).toBe('VALIDATION_ERROR');
     });
 
     it('createPage 失敗時應只記錄脫敏後的錯誤字串', async () => {
@@ -566,12 +566,12 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
 
-      expect(result).toEqual({ success: false, error: 'object_not_found' });
+      expect(result).toEqual({ success: false, error: 'OBJECT_NOT_FOUND' });
       expect(Logger.error).toHaveBeenCalledWith(
         '[NotionService] 創建頁面失敗',
         expect.objectContaining({
           action: 'createPage',
-          error: 'object_not_found',
+          error: 'OBJECT_NOT_FOUND',
         })
       );
       expect(Logger.error.mock.calls.at(-1)?.[1]?.error).not.toBe(rawError);
@@ -946,7 +946,7 @@ describe('NotionService', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Network error');
+      expect(result.error).toContain('NETWORK_ERROR');
       expect(result.errorType).toBe('internal');
       expect(result.details.phase).toBe('catch_all');
     });

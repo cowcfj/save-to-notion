@@ -383,13 +383,12 @@ export const UI_MESSAGES = deepFreeze({
 });
 
 const TECHNICAL = {
-  NO_ACTIVE_TAB: 'active tab',
-  MISSING_API_KEY: 'API Key',
-  MISSING_DATA_SOURCE: 'Data Source ID',
-  MISSING_PAGE_ID: 'Page ID is missing',
-  PAGE_NOT_SAVED: 'Page not saved',
-  NO_NOTION_URL: 'No URL provided',
-  API_KEY_NOT_CONFIGURED: 'API Key',
+  NO_ACTIVE_TAB: 'NO_ACTIVE_TAB',
+  MISSING_API_KEY: 'API_KEY_NOT_CONFIGURED',
+  MISSING_DATA_SOURCE: 'MISSING_DATA_SOURCE',
+  MISSING_PAGE_ID: 'MISSING_PAGE_ID',
+  PAGE_NOT_SAVED: 'PAGE_NOT_SAVED',
+  API_KEY_NOT_CONFIGURED: 'API_KEY_NOT_CONFIGURED',
   GET_VERSION_FAILED: '無法獲取應用程式版本號',
   NAV_MISSING_ITEMS: '設定頁面：找不到導航項目或設定區塊',
   NAV_MISSING_ATTR: '設定頁面：導航項目缺少 data-section 屬性',
@@ -473,48 +472,45 @@ export const SECURITY_ERROR_MESSAGES = deepFreeze({
 const NOTION_SERVICE_UNAVAILABLE_MESSAGE = 'Notion 服務暫時不可用，請稍後再試';
 
 const PATTERNS = {
-  'No tab with id': '頁面狀態已變更，請重新整理頁面後再試',
-  'active tab': '無法獲取當前分頁，請確保擴展有權限存取此頁面',
-  'Cannot access contents': '無法存取此頁面內容，可能是受保護的系統頁面',
-  'Receiving end does not exist': '頁面載入中，請稍候再試',
-  'Could not establish connection': '頁面通訊失敗，請重新整理頁面',
-  oauth_identity_unavailable: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
-  'OAuth Identity API unavailable': UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
+  NO_TAB_WITH_ID: '頁面狀態已變更，請重新整理頁面後再試',
+  NO_ACTIVE_TAB: '無法獲取當前分頁，請確保擴展有權限存取此頁面',
+  TAB_RESTRICTED_PAGE: '無法存取此頁面內容，可能是受保護的系統頁面',
+  CONTENT_SCRIPT_NOT_READY: '頁面載入中，請稍候再試',
+  TAB_COMMUNICATION_FAILED: '頁面通訊失敗，請重新整理頁面',
+  OAUTH_IDENTITY_UNAVAILABLE: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
 
-  'API Key': USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
-  'Invalid API Key format': USER_MESSAGES.INVALID_API_KEY_FORMAT,
-  'Data Source ID': USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
-  'Database access denied': USER_MESSAGES.DATABASE_ACCESS_DENIED,
-  'Integration disconnected': USER_MESSAGES.INTEGRATION_DISCONNECTED,
-  'Integration forbidden (403)': USER_MESSAGES.DATABASE_ACCESS_DENIED,
-  'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
-  'Page not saved': '頁面尚未保存，請先保存頁面',
-  'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
-  validation_error: USER_MESSAGES.API_VALIDATION_FAILED,
-  image_validation_error: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
-  highlight_section_delete_incomplete: '標註同步未完成，請稍後再試',
-  notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
+  API_KEY_NOT_CONFIGURED: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+  INVALID_API_KEY_FORMAT: USER_MESSAGES.INVALID_API_KEY_FORMAT,
+  MISSING_DATA_SOURCE: USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
+  DATABASE_ACCESS_DENIED: USER_MESSAGES.DATABASE_ACCESS_DENIED,
+  INTEGRATION_DISCONNECTED: USER_MESSAGES.INTEGRATION_DISCONNECTED,
+  INTEGRATION_FORBIDDEN: USER_MESSAGES.DATABASE_ACCESS_DENIED,
+  MISSING_PAGE_ID: '無法識別頁面，請重回 Notion 頁面再試',
+  PAGE_NOT_SAVED: '頁面尚未保存，請先保存頁面',
+  INVALID_REQUEST: USER_MESSAGES.CONTENT_PARSE_FAILED,
+  VALIDATION_ERROR: USER_MESSAGES.API_VALIDATION_FAILED,
+  IMAGE_VALIDATION_ERROR: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
+  HIGHLIGHT_SECTION_DELETE_INCOMPLETE: '標註同步未完成，請稍後再試',
+  NOTIONHQ_CLIENT_RESPONSE_ERROR: 'Notion API 請求失敗，請稍後再試',
 
-  rate_limited: '請求過於頻繁，請稍後再試',
-  conflict_error: '發生資料衝突，請稍後重試',
-  object_not_found: '找不到目標頁面或資料庫，請確認資源存在且已授權',
-  unauthorized: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
-  invalid_request_url: '請求的 URL 無效，請確認頁面網址正確',
-  invalid_json: '資料格式錯誤，請稍後再試',
-  service_unavailable: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
-  internal_server_error: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
+  RATE_LIMITED: '請求過於頻繁，請稍後再試',
+  CONFLICT_ERROR: '發生資料衝突，請稍後重試',
+  OBJECT_NOT_FOUND: '找不到目標頁面或資料庫，請確認資源存在且已授權',
+  UNAUTHORIZED: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+  INVALID_REQUEST_URL: '請求的 URL 無效，請確認頁面網址正確',
+  INVALID_JSON: '資料格式錯誤，請稍後再試',
+  SERVICE_UNAVAILABLE: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
+  INTERNAL_SERVER_ERROR: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
 
-  'Network error': '網路連線異常，請檢查網路後重試',
-  'rate limit': '請求過於頻繁，請稍後再試',
-  timeout: '請求超時，請檢查網路連線',
+  NETWORK_ERROR: '網路連線異常，請檢查網路後重試',
+  TIMEOUT: '請求超時，請檢查網路連線',
 
-  'Internal Server Error': NOTION_SERVICE_UNAVAILABLE_MESSAGE,
-  'Unknown Error': '發生未知錯誤，請稍後再試',
+  UNKNOWN_ERROR: '發生未知錯誤，請稍後再試',
 
-  destination_profile_not_found: '找不到指定的保存目的地，請重新整理後再試。',
-  destination_profile_not_configured: '尚未設定保存目的地，請先到設定頁完成設定。',
-  destination_profile_not_allowed: '此保存目的地目前不可使用，請改用其他保存目標。',
-  unknown_destination_profile_error: '保存目的地無法使用，請重新整理後再試。',
+  DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
+  DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
+  DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
+  UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
 };
 
 const DEFAULT = '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
@@ -542,13 +538,14 @@ export const API_ERROR_PATTERNS = deepFreeze({
   DATA_SOURCE: ['database', 'object_not_found'],
 
   VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
-  NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
+  TIMEOUT: ['timeout', 'timed out'],
+  NETWORK: ['network', 'fetch', 'enotfound'],
 
   SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
 });
 
 export const HIGHLIGHT_ERROR_CODES = deepFreeze({
-  DELETE_INCOMPLETE: 'highlight_section_delete_incomplete',
+  DELETE_INCOMPLETE: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
   PHASE_DELETE: 'delete_highlight_section',
 });
 

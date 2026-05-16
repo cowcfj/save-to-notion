@@ -431,7 +431,7 @@ describe('Toolbar 覆蓋率補強', () => {
           error: expect.any(Error),
         })
       );
-      expect(errorContext.error.message).toBe('Unknown Error');
+      expect(errorContext.error.message).toBe('UNKNOWN_ERROR');
     });
 
     test('管理按鈕在 openSidePanel rejection 時應記錄 context object', async () => {

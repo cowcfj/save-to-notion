@@ -431,7 +431,7 @@ class NotionService {
       if (error.status === 404 || error.code === 'object_not_found') {
         return false;
       }
-      if (error.message?.includes('API Key') || error.message?.includes('config')) {
+      if (error.message?.includes('API_KEY_NOT_CONFIGURED') || error.message?.includes('config')) {
         throw error;
       }
       Logger.error('[NotionService] 無法確定頁面存續狀態', {

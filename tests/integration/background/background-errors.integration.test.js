@@ -126,8 +126,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 'Injection failed' 經過 sanitizeApiError 會返回 'Unknown Error'
-        error: ErrorHandler.formatUserMessage('Unknown Error'),
+        // 'Injection failed' 經過 sanitizeApiError 會返回 'UNKNOWN_ERROR' token
+        error: ErrorHandler.formatUserMessage('UNKNOWN_ERROR'),
       })
     );
     // 清理 lastError
@@ -256,12 +256,12 @@ describe('background error branches (integration)', () => {
       sendResponse
     );
     await sendResponse.waitForCall();
-    // 'Create failed' 經過 sanitizeApiError 清洗後會返回 'Unknown Error'，
-    // ErrorHandler.formatUserMessage('Unknown Error') 返回預設錯誤訊息
+    // 'Create failed' 經過 sanitizeApiError 清洗後會返回 'UNKNOWN_ERROR' token，
+    // ErrorHandler.formatUserMessage('UNKNOWN_ERROR') 返回對應的 PATTERNS 翻譯
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage('Unknown Error'),
+        error: ErrorHandler.formatUserMessage('UNKNOWN_ERROR'),
       })
     );
     chrome.runtime.lastError = null;
@@ -455,7 +455,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage('notionhq_client_response_error'),
+        error: ErrorHandler.formatUserMessage('NOTIONHQ_CLIENT_RESPONSE_ERROR'),
       })
     );
   });
@@ -541,7 +541,7 @@ describe('background error branches (integration)', () => {
     await sendResponse.waitForCall();
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(false);
-    expect(resp.error).toBe(ErrorHandler.formatUserMessage('image_validation_error'));
+    expect(resp.error).toBe(ErrorHandler.formatUserMessage('IMAGE_VALIDATION_ERROR'));
     expect(fetchCall).toBe(1);
 
     jest.useRealTimers();
@@ -632,7 +632,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage('image_validation_error'),
+        error: ErrorHandler.formatUserMessage('IMAGE_VALIDATION_ERROR'),
       })
     );
   });
@@ -706,7 +706,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage('notionhq_client_response_error'),
+        error: ErrorHandler.formatUserMessage('NOTIONHQ_CLIENT_RESPONSE_ERROR'),
       })
     );
   });
@@ -783,6 +783,6 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalled();
     expect(resp).toBeDefined();
     expect(resp.success).toBe(false);
-    expect(resp.error).toBe(ErrorHandler.formatUserMessage('notionhq_client_response_error'));
+    expect(resp.error).toBe(ErrorHandler.formatUserMessage('NOTIONHQ_CLIENT_RESPONSE_ERROR'));
   });
 });
