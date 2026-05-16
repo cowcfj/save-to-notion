@@ -398,14 +398,28 @@ describe('securityUtils', () => {
     });
 
     describe('網絡錯誤', () => {
-      test.each([
-        ['network error'],
-        ['fetch failed'],
-        ['timeout waiting for response'],
-        ['ENOTFOUND api.notion.com'],
-      ])('"%s" 應返回網絡錯誤訊息', input => {
-        const result = sanitizeApiError(input);
-        expect(result).toBe('NETWORK_ERROR');
+      test.each([['network error'], ['fetch failed'], ['ENOTFOUND api.notion.com']])(
+        '"%s" 應返回網絡錯誤訊息',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('NETWORK_ERROR');
+        }
+      );
+    });
+
+    describe('超時錯誤', () => {
+      // 超時錯誤必須先於 NETWORK_ERROR 識別，否則會被「網路連線異常」訊息覆蓋
+      // 喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
+      test.each([['timeout waiting for response'], ['Request timeout'], ['connection timed out']])(
+        '"%s" 應返回 TIMEOUT 分類',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('TIMEOUT');
+        }
+      );
+
+      test('內部 TIMEOUT token 應 fast-path 原樣回傳', () => {
+        expect(sanitizeApiError('TIMEOUT')).toBe('TIMEOUT');
       });
     });
 

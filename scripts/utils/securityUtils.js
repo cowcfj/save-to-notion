@@ -147,16 +147,20 @@ function _classifyApiError(lowerMessage) {
     ACTIVE_TAB,
     DATA_SOURCE,
     VALIDATION,
+    TIMEOUT,
     NETWORK,
     SERVER_ERROR,
   } = API_ERROR_PATTERNS;
 
   // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
+  // 注意：TIMEOUT 必須早於 NETWORK_ERROR 檢查，否則 'timeout' 等關鍵字會被歸類為
+  // NETWORK_ERROR 而喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
   const directMatch = _checkSimpleMappings(lowerMessage, {
     RATE_LIMITED: RATE_LIMIT,
     MISSING_PAGE_ID: NOT_FOUND,
     NO_ACTIVE_TAB: ACTIVE_TAB,
     MISSING_DATA_SOURCE: DATA_SOURCE,
+    TIMEOUT,
     NETWORK_ERROR: NETWORK,
   });
   if (directMatch) {

@@ -111,7 +111,7 @@ describe('DataSourceManager', () => {
 
       expect(result).toEqual([]);
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('網路連線異常'),
+        expect.stringContaining('請求超時'),
         'error'
       );
     });

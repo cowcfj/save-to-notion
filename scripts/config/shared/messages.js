@@ -539,7 +539,8 @@ export const API_ERROR_PATTERNS = deepFreeze({
   DATA_SOURCE: ['database', 'object_not_found'],
 
   VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
-  NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
+  TIMEOUT: ['timeout', 'timed out'],
+  NETWORK: ['network', 'fetch', 'enotfound'],
 
   SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
 });
