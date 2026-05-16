@@ -321,6 +321,14 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('third.jpg');
   });
 
+  test('應跳過 metric === 0 的條目，選出唯一具正向描述符者', () => {
+    // 鎖定 `metric > 0` 守衛：明確包含 0w 與 0x 兩種無效描述符，
+    // 主迴圈必須略過它們，最終選出 metric === 100000（100w）的條目，
+    // 而不是因為比較 0 > 0 為 false 而掉入 fallback。
+    const srcset = 'zero-w.jpg 0w, real.jpg 100w, zero-x.jpg 0x';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
+  });
+
   test('回退邏輯應該跳過 data: URL', () => {
     // 全部無 descriptor → 走 fallback；最後一項是 data: URL（注意：base64 內的逗號會被
     // split 切斷，這裡使用 placeholder 形式避免逗號問題），fallback 應跳過 data: 條目，
@@ -333,6 +341,13 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(null)).toBeNull();
     expect(extractBestUrlFromSrcset('')).toBeNull();
     expect(extractBestUrlFromSrcset()).toBeNull();
+  });
+
+  test('應該對非字串輸入安全返回 null', () => {
+    // 守衛 typeof 檢查：覆蓋實際呼叫端可能傳入的非預期型別
+    expect(extractBestUrlFromSrcset(123)).toBeNull();
+    expect(extractBestUrlFromSrcset(true)).toBeNull();
+    expect(extractBestUrlFromSrcset({})).toBeNull();
   });
 });
 
@@ -547,6 +562,25 @@ describe('ImageUtils - coverage 補強', () => {
       const result = extractBestUrlFromSrcset(srcset);
 
       expect(result).toBe(expectedUrl);
+    } finally {
+      globalThis.SrcsetParser = originalParser;
+    }
+  });
+
+  test('extractBestUrlFromSrcset 應在 SrcsetParser 回傳 null 時 fallback 到手動解析', () => {
+    // 鎖定「parse 回傳 null（非 throw）」分支：與 throw 路徑不同，
+    // 此分支不會記 Logger.error，但仍須掉入 _manualParseSrcset 以取得結果。
+    const originalParser = globalThis.SrcsetParser;
+    try {
+      globalThis.SrcsetParser = {
+        parse: jest.fn(() => null),
+      };
+
+      const srcset = 'fallback.jpg 100w';
+      const result = extractBestUrlFromSrcset(srcset);
+
+      expect(result).toBe('fallback.jpg');
+      expect(Logger.error).not.toHaveBeenCalled();
     } finally {
       globalThis.SrcsetParser = originalParser;
     }
