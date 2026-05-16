@@ -61,12 +61,10 @@ describe('標註存儲優化 (v2.8.0)', () => {
         // 不包含 text 字段
       };
 
-      const expectedText = '測試文本';
-
-      // 這個測試需要實際的 DOM 環境
-      // 這裡只驗證參數傳遞
-      expect(rangeInfo.text).toBeUndefined();
-      expect(expectedText).toBe('測試文本');
+      // 完整的 deserializeRange 行為驗證需要實際 DOM 環境
+      // 此處只驗證新格式的 schema：rangeInfo 不再內嵌 text，
+      // text 必須由呼叫端從外部傳入
+      expect(Object.keys(rangeInfo)).not.toContain('text');
     });
 
     test('應向後兼容舊格式（包含 text 字段）', () => {
