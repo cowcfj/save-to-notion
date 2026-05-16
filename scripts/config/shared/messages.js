@@ -535,6 +535,9 @@ export const API_ERROR_PATTERNS = deepFreeze({
   RATE_LIMIT: ['rate limit', 'too many requests'],
   NOT_FOUND: ['not found', 'does not exist'],
   ACTIVE_TAB: ['active tab'],
+  TAB_NOT_FOUND: ['no tab with id'],
+  RUNTIME_DISCONNECTED: ['receiving end does not exist'],
+  CONNECTION_NOT_ESTABLISHED: ['could not establish connection'],
   DATA_SOURCE: ['database', 'object_not_found'],
 
   VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],

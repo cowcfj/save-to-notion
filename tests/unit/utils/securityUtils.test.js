@@ -440,6 +440,47 @@ describe('securityUtils', () => {
       );
     });
 
+    describe('chrome.tabs 錯誤', () => {
+      test.each([
+        ['No tab with id: 1234'],
+        ['no tab with id: 5678'],
+        ['Error: No tab with id: 999'],
+      ])('"%s" 應返回 NO_TAB_WITH_ID', input => {
+        expect(sanitizeApiError(input)).toBe('NO_TAB_WITH_ID');
+      });
+    });
+
+    describe('chrome.runtime content-script 未就緒', () => {
+      test.each([['Receiving end does not exist'], ['Error: Receiving end does not exist.']])(
+        '"%s" 應返回 CONTENT_SCRIPT_NOT_READY',
+        input => {
+          expect(sanitizeApiError(input)).toBe('CONTENT_SCRIPT_NOT_READY');
+        }
+      );
+
+      // chrome 實際拋出的複合訊息：'Could not establish connection. Receiving end does not exist.'
+      // 兩條 mapping 同時命中時，priority 必須給更具體的 receiving-end axis（content script 已 unmount）。
+      test('chrome 複合訊息應命中 CONTENT_SCRIPT_NOT_READY（更具體 axis 勝出）', () => {
+        const composite = 'Could not establish connection. Receiving end does not exist.';
+        expect(sanitizeApiError(composite)).toBe('CONTENT_SCRIPT_NOT_READY');
+      });
+
+      // Priority guard：NOT_FOUND keyword 含 'does not exist'，是 'receiving end does not exist'
+      // 的子串。若 _checkSimpleMappings priority 被未來 PR 倒置，此測試會失敗並明確報告誤分類。
+      test('priority guard：receiving-end 訊息 MUST NOT 落到 MISSING_PAGE_ID', () => {
+        expect(sanitizeApiError('Receiving end does not exist')).not.toBe('MISSING_PAGE_ID');
+      });
+    });
+
+    describe('chrome.runtime 連線失敗', () => {
+      test.each([
+        ['Could not establish connection'],
+        ['could not establish connection. unknown extension.'],
+      ])('"%s" 應返回 TAB_COMMUNICATION_FAILED', input => {
+        expect(sanitizeApiError(input)).toBe('TAB_COMMUNICATION_FAILED');
+      });
+    });
+
     describe('數據庫錯誤', () => {
       test('數據庫相關錯誤（帶頁面上下文）應返回權限提示', () => {
         const result = sanitizeApiError('database not accessible', 'create_page');

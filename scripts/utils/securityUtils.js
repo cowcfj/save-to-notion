@@ -145,6 +145,9 @@ function _classifyApiError(lowerMessage) {
     RATE_LIMIT,
     NOT_FOUND,
     ACTIVE_TAB,
+    TAB_NOT_FOUND,
+    RUNTIME_DISCONNECTED,
+    CONNECTION_NOT_ESTABLISHED,
     DATA_SOURCE,
     VALIDATION,
     TIMEOUT,
@@ -155,8 +158,16 @@ function _classifyApiError(lowerMessage) {
   // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
   // 注意：TIMEOUT 必須早於 NETWORK_ERROR 檢查，否則 'timeout' 等關鍵字會被歸類為
   // NETWORK_ERROR 而喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
+  // 注意：chrome.tabs / runtime 三條 mapping 必須早於 MISSING_PAGE_ID：
+  // NOT_FOUND 含 'does not exist'，會搶吃 'Receiving end does not exist'。
+  // RUNTIME_DISCONNECTED 早於 CONNECTION_NOT_ESTABLISHED：chrome 複合訊息
+  // 'Could not establish connection. Receiving end does not exist.' 兩段都命中時，
+  // 更具體的「content script 已 unmount」axis 應勝出。
   const directMatch = _checkSimpleMappings(lowerMessage, {
     RATE_LIMITED: RATE_LIMIT,
+    NO_TAB_WITH_ID: TAB_NOT_FOUND,
+    CONTENT_SCRIPT_NOT_READY: RUNTIME_DISCONNECTED,
+    TAB_COMMUNICATION_FAILED: CONNECTION_NOT_ESTABLISHED,
     MISSING_PAGE_ID: NOT_FOUND,
     NO_ACTIVE_TAB: ACTIVE_TAB,
     TIMEOUT,
