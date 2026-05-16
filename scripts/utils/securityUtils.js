@@ -156,6 +156,9 @@ function _classifyApiError(lowerMessage) {
   } = API_ERROR_PATTERNS;
 
   // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
+  // 使用 Array of Tuples 而非 Object literal，將「順序 = 優先級」這個合約從
+  // 隱性（依賴 Object key insertion order）提升為顯性（list 結構本身即代表 ordered priority），
+  // 避免 IDE 排序、ESLint sort-keys、Prettier plugin 等工具自動打亂優先級。
   // 注意：TIMEOUT 必須早於 NETWORK_ERROR 檢查，否則 'timeout' 等關鍵字會被歸類為
   // NETWORK_ERROR 而喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
   // 注意：chrome.tabs / runtime 三條 mapping 必須早於 MISSING_PAGE_ID：
@@ -163,16 +166,16 @@ function _classifyApiError(lowerMessage) {
   // RUNTIME_DISCONNECTED 早於 CONNECTION_NOT_ESTABLISHED：chrome 複合訊息
   // 'Could not establish connection. Receiving end does not exist.' 兩段都命中時，
   // 更具體的「content script 已 unmount」axis 應勝出。
-  const directMatch = _checkSimpleMappings(lowerMessage, {
-    RATE_LIMITED: RATE_LIMIT,
-    NO_TAB_WITH_ID: TAB_NOT_FOUND,
-    CONTENT_SCRIPT_NOT_READY: RUNTIME_DISCONNECTED,
-    TAB_COMMUNICATION_FAILED: CONNECTION_NOT_ESTABLISHED,
-    MISSING_PAGE_ID: NOT_FOUND,
-    NO_ACTIVE_TAB: ACTIVE_TAB,
-    TIMEOUT,
-    NETWORK_ERROR: NETWORK,
-  });
+  const directMatch = _checkSimpleMappings(lowerMessage, [
+    ['RATE_LIMITED', RATE_LIMIT],
+    ['NO_TAB_WITH_ID', TAB_NOT_FOUND],
+    ['CONTENT_SCRIPT_NOT_READY', RUNTIME_DISCONNECTED],
+    ['TAB_COMMUNICATION_FAILED', CONNECTION_NOT_ESTABLISHED],
+    ['MISSING_PAGE_ID', NOT_FOUND],
+    ['NO_ACTIVE_TAB', ACTIVE_TAB],
+    ['TIMEOUT', TIMEOUT],
+    ['NETWORK_ERROR', NETWORK],
+  ]);
   if (directMatch) {
     return directMatch;
   }
@@ -243,8 +246,8 @@ function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidd
   return 'API_KEY_NOT_CONFIGURED';
 }
 
-function _checkSimpleMappings(lowerMessage, mapping) {
-  for (const [result, patterns] of Object.entries(mapping)) {
+function _checkSimpleMappings(lowerMessage, mappings) {
+  for (const [result, patterns] of mappings) {
     if (patterns.some(k => lowerMessage.includes(k))) {
       return result;
     }
