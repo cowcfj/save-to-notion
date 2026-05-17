@@ -14,6 +14,7 @@
 
 import { StyleManager } from '../../../../scripts/highlighter/core/StyleManager.js';
 import { COLORS } from '../../../../scripts/highlighter/utils/color.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
@@ -151,6 +152,40 @@ describe('core/StyleManager — chrome.runtime.id namespace', () => {
       expect(styleEl.textContent).not.toMatch(
         new RegExp(String.raw`::highlight\(notion-${color}\)`)
       );
+    });
+  });
+
+  describe('chrome.runtime.id fallback warning', () => {
+    let originalChrome;
+
+    beforeEach(() => {
+      Logger.warn.mockClear();
+      originalChrome = globalThis.chrome;
+    });
+
+    afterEach(() => {
+      globalThis.chrome = originalChrome;
+    });
+
+    test('chrome.runtime.id 缺失時 MUST 透過 Logger.warn 提示 fallback，避免 namespace collision 被靜默吞掉', () => {
+      delete globalThis.chrome;
+
+      const manager = new StyleManager();
+
+      expect(manager.instanceId).toBe('unknown');
+      expect(Logger.warn).toHaveBeenCalledTimes(1);
+      const [warnMessage] = Logger.warn.mock.calls[0];
+      expect(warnMessage).toEqual(expect.stringContaining('chrome.runtime.id'));
+      expect(warnMessage).toEqual(expect.stringContaining('unknown'));
+    });
+
+    test('chrome.runtime.id 存在時 MUST NOT 觸發 fallback warning', () => {
+      setRuntimeId('ext-aaa');
+
+      const manager = new StyleManager();
+
+      expect(manager.instanceId).toBe('ext-aaa');
+      expect(Logger.warn).not.toHaveBeenCalled();
     });
   });
 });

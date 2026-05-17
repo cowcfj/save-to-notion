@@ -30,7 +30,13 @@ export class StyleManager {
     this.colors = COLORS;
     this.textColors = TEXT_COLORS;
     this.highlightObjects = {}; // 顏色 -> Highlight 對象
-    this.instanceId = globalThis.chrome?.runtime?.id ?? 'unknown';
+    const runtimeId = globalThis.chrome?.runtime?.id;
+    if (runtimeId == null) {
+      Logger.warn(
+        "[StyleManager] chrome.runtime.id missing, using 'unknown' instanceId — risk of namespace collisions across extension instances"
+      );
+    }
+    this.instanceId = runtimeId ?? 'unknown';
     this.styleElementId = `${STYLE_ELEMENT_ID_PREFIX}-${this.instanceId}`;
     this.styleSelector = `#${this.styleElementId}`;
   }
