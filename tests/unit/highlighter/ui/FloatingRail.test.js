@@ -42,6 +42,8 @@ import Logger from '../../../../scripts/utils/Logger.js';
 
 const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${chrome.runtime.id}`;
 const TEST_RAIL_POSITION_KEY = `notion-floating-rail-position-${chrome.runtime.id}`;
+const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${chrome.runtime.id}`;
+const TEST_RAIL_DISMISSED_KEY = `notion-floating-rail-dismissed-${chrome.runtime.id}`;
 
 function createMockContainerElement() {
   const container = document.createElement('div');
@@ -272,7 +274,7 @@ describe('FloatingRail', () => {
 
     test('從 sessionStorage 恢復 HIGHLIGHTING 狀態時應啟動標註功能', async () => {
       sessionStorage.setItem(
-        'notion-floating-rail-state',
+        TEST_RAIL_STATE_KEY,
         JSON.stringify({ state: 'highlighting', color: 'green' })
       );
 
@@ -285,7 +287,7 @@ describe('FloatingRail', () => {
 
     test('從 sessionStorage 恢復非 HIGHLIGHTING 狀態時不應啟動標註', async () => {
       sessionStorage.setItem(
-        'notion-floating-rail-state',
+        TEST_RAIL_STATE_KEY,
         JSON.stringify({ state: 'expanded', color: 'yellow' })
       );
 
@@ -341,7 +343,7 @@ describe('FloatingRail', () => {
     });
 
     test('[REGRESSION] dismissed 狀態初始化後，undismiss 仍應保有事件綁定', async () => {
-      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
+      sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -379,7 +381,7 @@ describe('FloatingRail', () => {
     });
 
     test('dismissed 狀態下 show 不應重新顯示 host', async () => {
-      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
+      sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
 
       const rail = new FloatingRail(manager);
       await rail.initialize();

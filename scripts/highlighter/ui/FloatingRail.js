@@ -31,8 +31,8 @@ import {
   playFireworkAnimation,
   playFailAnimation,
 } from './FloatingRailAnimations.js';
+import { RAIL_INSTANCE_ID } from './floatingRailInstance.js';
 
-const RAIL_INSTANCE_ID = globalThis.chrome?.runtime?.id ?? 'unknown';
 const RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
 const RAIL_HOST_OWNER_ATTR = 'data-rail-owner';
 const RAIL_HOST_OWNER_VALUE = 'true';
