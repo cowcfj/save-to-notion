@@ -351,6 +351,47 @@ describe('LogBuffer', () => {
           final.filter(l => l.message === 'msg-A' && l.context?.action === 'action-A')
         ).toHaveLength(10);
       });
+
+      // Memory safety: anomaly entry must respect MAX_ENTRY_SIZE even when the
+      // triggering message is large. _emitAnomaly bypasses push()'s size check
+      // via _writeRawEntry, so repeatedMessage MUST be truncated at the source.
+      test('caps anomaly entry size when triggering message is large', () => {
+        // MAX_ENTRY_SIZE in LogBuffer.js is 25_000.
+        // Pick a length that keeps original entry under the limit (so suppression
+        // path engages normally) but pushes the anomaly entry over the limit if
+        // repeatedMessage is echoed verbatim.
+        const MAX_ENTRY_SIZE = 25_000;
+        const bigMsg = 'a'.repeat(24_800);
+
+        for (let i = 0; i < 30; i++) {
+          satBuf.push({
+            level: 'info',
+            source: 'background',
+            message: bigMsg,
+            context: { action: 'spam' },
+          });
+        }
+
+        const anomalies = getAnomalies(satBuf.getAll());
+        expect(anomalies).toHaveLength(1);
+
+        const anomaly = anomalies[0];
+
+        // Memory safety invariant: serialized anomaly entry must fit MAX_ENTRY_SIZE.
+        expect(JSON.stringify(anomaly).length).toBeLessThanOrEqual(MAX_ENTRY_SIZE);
+
+        // Structural anomaly markers must survive (not lost to a generic
+        // fallback path that overwrites context).
+        expect(anomaly.level).toBe('warn');
+        expect(anomaly.message).toMatch(/^\[ANOMALY\] message looped 30× in buffer:/);
+        expect(anomaly.context.anomaly).toBe(true);
+        expect(anomaly.context.repeatCount).toBe(30);
+        expect(anomaly.context.repeatedAction).toBe('spam');
+
+        // repeatedMessage must be bounded; ANOMALY_MESSAGE_TRUNCATE = 200,
+        // truncateMessage may append "... [截斷]" so allow a small buffer.
+        expect(anomaly.context.repeatedMessage.length).toBeLessThanOrEqual(210);
+      });
     });
 
     describe('Issue #533 end-to-end scenario', () => {

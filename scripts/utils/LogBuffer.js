@@ -231,6 +231,10 @@ export class LogBuffer {
    * Emit 一條 [ANOMALY] warn 條目記錄迴圈訊息。透過 _writeRawEntry 寫入，
    * 不經 push() 的 fingerprint 抑制路徑（anomaly 自身的 fp 與被觀察 fp 不同）。
    *
+   * [Memory Safety] _writeRawEntry 不做 size check，因此這裡 MUST 使用已截斷的
+   * `truncated` 作為 context.repeatedMessage，避免大 message 透過 anomaly entry
+   * 繞過 MAX_ENTRY_SIZE 邊界。不可改回 originalEntry?.message。
+   *
    * @param {object} originalEntry - 觸發 anomaly 的原始條目
    * @param {number} count - 已累計的 repeatCount
    * @private
@@ -246,7 +250,7 @@ export class LogBuffer {
       message: `[ANOMALY] message looped ${count}× in buffer: "${truncated}"`,
       context: {
         anomaly: true,
-        repeatedMessage: originalEntry?.message,
+        repeatedMessage: truncated,
         repeatedAction: originalEntry?.context?.action,
         repeatCount: count,
       },
