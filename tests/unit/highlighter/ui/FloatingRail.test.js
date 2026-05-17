@@ -38,12 +38,13 @@ import {
   playFireworkAnimation,
   playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
+import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
-const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${chrome.runtime.id}`;
-const TEST_RAIL_POSITION_KEY = `notion-floating-rail-position-${chrome.runtime.id}`;
-const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${chrome.runtime.id}`;
-const TEST_RAIL_DISMISSED_KEY = `notion-floating-rail-dismissed-${chrome.runtime.id}`;
+const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
+const TEST_RAIL_POSITION_KEY = `notion-floating-rail-position-${RAIL_INSTANCE_ID}`;
+const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
+const TEST_RAIL_DISMISSED_KEY = `notion-floating-rail-dismissed-${RAIL_INSTANCE_ID}`;
 
 function createMockContainerElement() {
   const container = document.createElement('div');

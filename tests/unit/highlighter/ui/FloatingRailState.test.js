@@ -6,8 +6,9 @@ import {
   RailStates,
   FloatingRailStateManager,
 } from '../../../../scripts/highlighter/ui/FloatingRailState.js';
+import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
 
-const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${chrome.runtime.id}`;
+const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
 
 describe('RailStates', () => {
   test('應該定義三種狀態', () => {
