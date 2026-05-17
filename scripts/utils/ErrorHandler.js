@@ -144,9 +144,9 @@ const ErrorHandler = {
    * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
    * @returns {string} 格式化後的用戶友善錯誤訊息
    * @example
-   * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key）：
-   * // 'API Key', 'rate limit', 'Network error', 'Page not saved'
-   * formatUserMessage('API Key'); // 返回「請先在設定頁面配置 Notion API Key」
+   * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key，SCREAMING_SNAKE_CASE）：
+   * // 'API_KEY_NOT_CONFIGURED', 'RATE_LIMITED', 'NETWORK_ERROR', 'PAGE_NOT_SAVED'
+   * formatUserMessage('API_KEY_NOT_CONFIGURED'); // 返回「請先在設定頁面配置 Notion API Key」
    */
   formatUserMessage(error) {
     if (!error) {
@@ -170,8 +170,8 @@ const ErrorHandler = {
     }
 
     // [SDK Error Support]
-    // 處理 Notion SDK 的 APIResponseError
-    // error.code (例如 'object_not_found', 'validation_error')
+    // 處理已經過 sanitizeApiError 轉換的 error.code（SCREAMING_SNAKE_CASE）
+    // 例如 'OBJECT_NOT_FOUND'、'VALIDATION_ERROR'。SDK 原始 snake_case code 在 boundary 已轉換
     if (error?.code && ERROR_MESSAGES.PATTERNS[error.code]) {
       return ERROR_MESSAGES.PATTERNS[error.code];
     }

@@ -1,5 +1,41 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.71.0](https://github.com/cowcfj/save-to-notion/compare/v2.70.0...v2.71.0) (2026-05-16)
+
+
+### ✨ 新功能
+
+* Add close button functionality to floating toolbar ([#500](https://github.com/cowcfj/save-to-notion/issues/500)) ([76d994f](https://github.com/cowcfj/save-to-notion/commit/76d994f82e6fc59c3b3b67fa055dc910bdbc99af))
+* Add dead code elimination check for test fixtures ([#511](https://github.com/cowcfj/save-to-notion/issues/511)) ([6d7b6c1](https://github.com/cowcfj/save-to-notion/commit/6d7b6c1c01b50e2d0a25d7e48d70525cb7f18407))
+* add floating rail position and size customization ([#515](https://github.com/cowcfj/save-to-notion/issues/515)) ([833a57a](https://github.com/cowcfj/save-to-notion/commit/833a57aa9dcd46e9baf5cc8f897d8ce32ca4a73a))
+* Add new API error types and tests ([#524](https://github.com/cowcfj/save-to-notion/issues/524)) ([b37b609](https://github.com/cowcfj/save-to-notion/commit/b37b6095a7123a1b819ec45a51f845caa4f0b812))
+* add save button icon toggle functionality ([#503](https://github.com/cowcfj/save-to-notion/issues/503)) ([a6e8f90](https://github.com/cowcfj/save-to-notion/commit/a6e8f9008640f686daef1b4c7b8ad19060f4aaaa))
+* Enhance user experience and CI workflow improvements ([#526](https://github.com/cowcfj/save-to-notion/issues/526)) ([6a48b76](https://github.com/cowcfj/save-to-notion/commit/6a48b76f9bd712882fb5b3ed9105ecfd2de3df06))
+* Improve error handling for floating sidebar ([#502](https://github.com/cowcfj/save-to-notion/issues/502)) ([d83f8d7](https://github.com/cowcfj/save-to-notion/commit/d83f8d787044976ba1c7d0bcb7acb2477756256b))
+* Improve error handling structure and user feedback ([#521](https://github.com/cowcfj/save-to-notion/issues/521)) ([1fc8363](https://github.com/cowcfj/save-to-notion/commit/1fc83632ff7b6d0c04c66a35387321b184b45215))
+* Improve highlighter toggle handling logic ([#507](https://github.com/cowcfj/save-to-notion/issues/507)) ([cb12a29](https://github.com/cowcfj/save-to-notion/commit/cb12a29c5ae4919e59c1d96a6332dedc605734c5))
+* Remove toggle highlighter functionality ([#510](https://github.com/cowcfj/save-to-notion/issues/510)) ([159c637](https://github.com/cowcfj/save-to-notion/commit/159c637399bdbb8980648571886ee418c8a642ac))
+* Replace polling logic with promise for result retrieval ([#514](https://github.com/cowcfj/save-to-notion/issues/514)) ([5b647c4](https://github.com/cowcfj/save-to-notion/commit/5b647c4941e02210bbe97ca946ba257a24a34199))
+* Simplify content package and optimize logging ([#505](https://github.com/cowcfj/save-to-notion/issues/505)) ([d510062](https://github.com/cowcfj/save-to-notion/commit/d510062555e9b163e2f8c02857dde76082a2fb19))
+* Simplify toolbar creation and enhance testing ([#513](https://github.com/cowcfj/save-to-notion/issues/513)) ([36e92d3](https://github.com/cowcfj/save-to-notion/commit/36e92d3deda3755ff028e52e33aef7947deade18))
+
+
+### 🐛 Bug 修復
+
+* Adjust alignment of floating toolbar icons ([#528](https://github.com/cowcfj/save-to-notion/issues/528)) ([ac5eef2](https://github.com/cowcfj/save-to-notion/commit/ac5eef24a40d3407e17e83206f35db769a58e131))
+* Update error handling to use SCREAMING_SNAKE_CASE error codes ([#523](https://github.com/cowcfj/save-to-notion/issues/523)) ([70b826e](https://github.com/cowcfj/save-to-notion/commit/70b826e7195d811091bda45cb6bfd1297b589d26))
+
+
+### ⚡ 效能優化
+
+* ⚡ Bolt: Optimize srcset fallback logic in imageUtils ([#517](https://github.com/cowcfj/save-to-notion/issues/517)) ([7615349](https://github.com/cowcfj/save-to-notion/commit/76153490b650bab515eede17de333233116bc392))
+* ⚡ Bolt: replace innerHTML/textContent with replaceChildren for DOM updates ([#512](https://github.com/cowcfj/save-to-notion/issues/512)) ([bf39372](https://github.com/cowcfj/save-to-notion/commit/bf39372049c6e17e1478a7303638c263a56cd2f0))
+
+
+### 🧪 測試
+
+* cover srcset extraction edge cases ([#527](https://github.com/cowcfj/save-to-notion/issues/527)) ([0e0bd11](https://github.com/cowcfj/save-to-notion/commit/0e0bd11d3b4108d79163bc01e1314d37c0095963))
+
 ## [2.70.0](https://github.com/cowcfj/save-to-notion/compare/v2.69.0...v2.70.0) (2026-05-13)
 
 

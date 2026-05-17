@@ -9,7 +9,7 @@ import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { COLORS } from '../utils/color.js';
 import { hexToRgba } from '../../../styles/ui-token-constants.js';
 import { createSafeIcon } from '../../utils/securityUtils.js';
-import { RAIL_ICONS, ICON_SIZE_SM } from './components/FloatingRailContainer.js';
+import { RAIL_ICONS } from './components/FloatingRailContainer.js';
 
 export function getRailElements(container) {
   const highlightBtn = container.querySelector('[data-action="highlight"]');
@@ -65,8 +65,6 @@ function swapSaveActionIcon(saveBtn, isSaved) {
   if (!nextWrapper.querySelector('svg')) {
     return;
   }
-  nextWrapper.style.width = ICON_SIZE_SM;
-  nextWrapper.style.height = ICON_SIZE_SM;
 
   if (currentWrapper) {
     currentWrapper.replaceWith(nextWrapper);

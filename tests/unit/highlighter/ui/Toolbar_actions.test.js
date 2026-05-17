@@ -182,14 +182,14 @@ describe('Toolbar Actions', () => {
 
       toolbarRuntimeMock.syncHighlights.mockResolvedValue({
         success: false,
-        error: ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete,
+        error: ERROR_MESSAGES.PATTERNS.HIGHLIGHT_SECTION_DELETE_INCOMPLETE,
       });
 
       await toolbar.syncToNotion();
 
       expect(updateSpy).not.toHaveBeenCalled();
       expect(statusDiv.textContent).toContain(
-        ERROR_MESSAGES.PATTERNS.highlight_section_delete_incomplete
+        ERROR_MESSAGES.PATTERNS.HIGHLIGHT_SECTION_DELETE_INCOMPLETE
       );
       expect(statusDiv.innerHTML).toContain('<svg');
     });

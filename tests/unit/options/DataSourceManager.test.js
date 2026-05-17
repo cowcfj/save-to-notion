@@ -77,7 +77,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDataSources('invalid_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS['API Key']),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS.API_KEY_NOT_CONFIGURED),
         'error'
       );
     });
@@ -111,7 +111,7 @@ describe('DataSourceManager', () => {
 
       expect(result).toEqual([]);
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('網路連線異常'),
+        expect.stringContaining('請求超時'),
         'error'
       );
     });
@@ -125,7 +125,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDataSources('test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        // 'Message port closed' 會被 sanitizeApiError 歸類為 'Unknown Error'
+        // 'Message port closed' 會被 sanitizeApiError 歸類為 'UNKNOWN_ERROR'
         expect.stringContaining('發生未知錯誤'),
         'error'
       );
@@ -388,7 +388,7 @@ describe('DataSourceManager', () => {
 
       // sanitizeApiError 會正確識別 Internal Server Error 為服務不可用錯誤
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS['Internal Server Error']),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS.INTERNAL_SERVER_ERROR),
         'error'
       );
     });
@@ -402,7 +402,7 @@ describe('DataSourceManager', () => {
 
       // sanitizeApiError 將 503 Service Unavailable 歸類為 Internal Server Error 群組
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS['Internal Server Error']),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS.INTERNAL_SERVER_ERROR),
         'error'
       );
     });
