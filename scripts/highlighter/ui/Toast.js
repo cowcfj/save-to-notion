@@ -85,7 +85,7 @@ export class Toast {
   hide() {
     this._cancelTimers();
     if (this.container) {
-      this.container.classList.remove('toast--visible');
+      this.container.classList.remove(VISIBLE_CLASS);
     }
   }
 
