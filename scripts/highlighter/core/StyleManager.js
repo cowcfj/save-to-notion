@@ -9,12 +9,16 @@ import { COLORS, TEXT_COLORS, VALID_STYLES } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import Logger from '../../utils/Logger.js';
 
-const STYLE_ELEMENT_ID = 'notion-highlight-styles';
-const STYLE_SELECTOR = `#${STYLE_ELEMENT_ID}`;
+const STYLE_ELEMENT_ID_PREFIX = 'notion-highlight-styles';
+const HIGHLIGHT_KEY_PREFIX = 'notion';
 
 /**
  * StyleManager
  * 管理 CSS Highlight API 樣式的初始化和更新
+ *
+ * 同一 page 內 `CSS.highlights` 與 `<style>` 元素是 page-global 共享，
+ * 多個 extension instance 共存時必須以 chrome.runtime.id 作 namespace 邊界，
+ * 避免互相覆蓋彼此的 highlight 物件與 stylesheet。
  */
 export class StyleManager {
   /**
@@ -26,6 +30,19 @@ export class StyleManager {
     this.colors = COLORS;
     this.textColors = TEXT_COLORS;
     this.highlightObjects = {}; // 顏色 -> Highlight 對象
+    this.instanceId = globalThis.chrome?.runtime?.id ?? 'unknown';
+    this.styleElementId = `${STYLE_ELEMENT_ID_PREFIX}-${this.instanceId}`;
+    this.styleSelector = `#${this.styleElementId}`;
+  }
+
+  /**
+   * 取得指定顏色在 CSS.highlights registry 的 namespaced key
+   *
+   * @param {string} colorName - 顏色名稱（如 'yellow'）
+   * @returns {string} `notion-${instanceId}-${color}`
+   */
+  getHighlightKey(colorName) {
+    return `${HIGHLIGHT_KEY_PREFIX}-${this.instanceId}-${colorName}`;
   }
 
   /**
@@ -57,8 +74,8 @@ export class StyleManager {
         // 創建 Highlight 對象
         this.highlightObjects[colorName] = new HighlightConstructor();
 
-        // 註冊到 CSS.highlights
-        CSS.highlights.set(`notion-${colorName}`, this.highlightObjects[colorName]);
+        // 註冊到 CSS.highlights（帶 chrome.runtime.id namespace）
+        CSS.highlights.set(this.getHighlightKey(colorName), this.highlightObjects[colorName]);
       } catch (error) {
         Logger.error(`[StyleManager] 初始化 ${colorName} 顏色樣式失敗:`, error);
       }
@@ -76,7 +93,7 @@ export class StyleManager {
       return;
     }
 
-    const existingStyle = document.querySelector(STYLE_SELECTOR);
+    const existingStyle = document.querySelector(this.styleSelector);
     if (existingStyle) {
       // 如果樣式已存在，檢查是否需要更新（例如樣式模式改變）
       if (existingStyle.dataset.styleMode === this.styleMode) {
@@ -86,7 +103,7 @@ export class StyleManager {
     }
 
     const style = document.createElement('style');
-    style.id = STYLE_ELEMENT_ID;
+    style.id = this.styleElementId;
     style.dataset.styleMode = this.styleMode;
 
     style.textContent = Object.entries(this.colors)
@@ -129,7 +146,7 @@ export class StyleManager {
         }
 
         return `
-            ::highlight(notion-${colorName}) {
+            ::highlight(${this.getHighlightKey(colorName)}) {
                 ${cssRules}
                 cursor: pointer;
             }
@@ -191,13 +208,13 @@ export class StyleManager {
   cleanup() {
     if (typeof CSS !== 'undefined' && CSS?.highlights) {
       Object.keys(this.highlightObjects).forEach(color => {
-        CSS.highlights.delete(`notion-${color}`);
+        CSS.highlights.delete(this.getHighlightKey(color));
       });
     }
 
     // 移除樣式元素
     if (typeof document !== 'undefined') {
-      const styleEl = document.querySelector(STYLE_SELECTOR);
+      const styleEl = document.querySelector(this.styleSelector);
       if (styleEl) {
         styleEl.remove();
       }
