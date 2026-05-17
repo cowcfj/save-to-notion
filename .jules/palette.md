@@ -1,0 +1,3 @@
+## 2024-05-16 - [Add ARIA label to refresh-databases button]
+**Learning:** Found that an icon-only button (`refresh-databases`) was missing an `aria-label`, making it less accessible for screen readers. Using `data-ui-aria-label` is the correct approach to ensure it integrates seamlessly with the localization/UI messages system (`applyStaticOptionMessages`).
+**Action:** Next time, remember to always ensure `aria-label` or equivalent is provided on all icon-only buttons, especially leveraging the existing `data-ui-aria-label` infrastructure for localized applications.
