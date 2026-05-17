@@ -668,6 +668,19 @@ const DRIVE_SYNC_ACTIONS = {
  * @property {Array<{type: string, timestamp: number}>} events
  */
 
+/**
+ * @typedef {object} ShowToastRequest
+ * @property {'SHOW_TOAST'} action
+ * @property {string} messageKey
+ * @property {string} [level]
+ */
+
+/**
+ * @typedef {object} ShowToastResponse
+ * @property {boolean} [success]
+ * @property {string} [error]
+ */
+
 const SIDEPANEL_ACTIONS = {
   OPEN_SIDE_PANEL: 'OPEN_SIDE_PANEL',
 };

@@ -637,15 +637,11 @@ export class FloatingRail {
         response = await savePageFromRail();
       }
 
-      if (!response) {
-        throw new Error('sync_failed');
-      }
-
       if (
-        response.success === false &&
-        response.errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE
+        response?.success !== true &&
+        response?.errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE
       ) {
-        throw new Error(response.error || 'sync_failed');
+        throw new Error(response?.error || 'sync_failed');
       }
 
       launchAnim?.cancel();
