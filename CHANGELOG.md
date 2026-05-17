@@ -1,5 +1,13 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.71.1](https://github.com/cowcfj/save-to-notion/compare/v2.71.0...v2.71.1) (2026-05-17)
+
+
+### 🐛 Bug 修復
+
+* **a11y:** add aria-label to refresh databases icon-only button ([#532](https://github.com/cowcfj/save-to-notion/issues/532)) ([6f8700c](https://github.com/cowcfj/save-to-notion/commit/6f8700c41bcdfb20e0eb0a84a8d9e45dc7b13a53))
+* namespace floating rail for extension co-existence ([#529](https://github.com/cowcfj/save-to-notion/issues/529)) ([c0c6240](https://github.com/cowcfj/save-to-notion/commit/c0c62408b231324e16212049f2a037a4626f887e))
+
 ## [2.71.0](https://github.com/cowcfj/save-to-notion/compare/v2.70.0...v2.71.0) (2026-05-16)
 
 
