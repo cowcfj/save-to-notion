@@ -195,7 +195,7 @@ describe('options.js', () => {
         <input id="database-search" data-ui-placeholder="OPTIONS.DESTINATION.SEARCH_PLACEHOLDER" />
         <button id="selector-toggle" data-ui-aria-label="OPTIONS.DESTINATION.SELECTOR_TOGGLE_ARIA_LABEL"></button>
         <span id="data-source-count" data-ui-message="DATA_SOURCE.LABEL_DATA_SOURCE"></span>
-        <button id="refresh-databases" data-ui-title="OPTIONS.DESTINATION.REFRESH_TITLE"></button>
+        <button id="refresh-databases" data-ui-title="OPTIONS.DESTINATION.REFRESH_TITLE" data-ui-aria-label="OPTIONS.DESTINATION.REFRESH_TITLE"></button>
         <label for="database-id" data-ui-message="OPTIONS.DESTINATION.MANUAL_ID_LABEL"></label>
         <button id="save-button" data-ui-message="OPTIONS.SETTINGS.SAVE_BUTTON"></button>
         <p class="help-text destination-target-help" data-ui-composite="destination-target-help">
@@ -215,6 +215,9 @@ describe('options.js', () => {
         UI_MESSAGES.DATA_SOURCE.LABEL_DATA_SOURCE
       );
       expect(document.querySelector('#refresh-databases').title).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.REFRESH_TITLE
+      );
+      expect(document.querySelector('#refresh-databases').getAttribute('aria-label')).toBe(
         UI_MESSAGES.OPTIONS.DESTINATION.REFRESH_TITLE
       );
       expect(document.querySelector('label[for="database-id"]').textContent).toBe(
