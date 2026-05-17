@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.72.0](https://github.com/cowcfj/save-to-notion/compare/v2.71.1...v2.72.0) (2026-05-17)
+
+
+### ✨ 新功能
+
+* add saturation protection mechanism for log buffer ([#537](https://github.com/cowcfj/save-to-notion/issues/537)) ([b6eefe4](https://github.com/cowcfj/save-to-notion/commit/b6eefe49dec164bc174e765377de7a29e08a11e4))
+* Add Toast manager for improved user feedback ([#539](https://github.com/cowcfj/save-to-notion/issues/539)) ([1356f4a](https://github.com/cowcfj/save-to-notion/commit/1356f4a0a7f462e4e86e9be2b97453e4be923b34))
+* user-facing toast for sync-to-Notion failures ([#540](https://github.com/cowcfj/save-to-notion/issues/540)) ([f8382db](https://github.com/cowcfj/save-to-notion/commit/f8382db492d8cdd9ef04364b712e5546b76098d8))
+
+
+### 🐛 Bug 修復
+
+* 修正高亮清除邏輯與命名空間問題 ([#535](https://github.com/cowcfj/save-to-notion/issues/535)) ([892263d](https://github.com/cowcfj/save-to-notion/commit/892263dc4bdeb11a6e7f0605ec399557e1620524))
+
 ## [2.71.1](https://github.com/cowcfj/save-to-notion/compare/v2.71.0...v2.71.1) (2026-05-17)
 
 ### 🐛 Bug 修復
