@@ -13,6 +13,8 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
     log: jest.fn(),
     debug: jest.fn(),
     success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
   };
   return {
     __esModule: true,

@@ -107,6 +107,21 @@ export class Toast {
       return;
     }
 
+    // 復用既有的 toast host（content script 重複注入或 hot-reload 時可能殘留），
+    // 避免 document.body 累積重複 host 節點。
+    const existingHost = document.querySelector(`#${HOST_ID}`);
+    if (existingHost?.isConnected) {
+      const shadowRoot = existingHost.shadowRoot || existingHost.attachShadow({ mode: 'open' });
+      if (!existingHost.shadowRoot) {
+        injectToastStylesIntoShadowRoot(shadowRoot);
+      }
+      existingHost.dataset.toastOwner = 'true';
+      this.host = existingHost;
+      this.shadowRoot = shadowRoot;
+      this.container = null;
+      return;
+    }
+
     const host = document.createElement('div');
     host.id = HOST_ID;
     host.dataset.toastOwner = 'true';
@@ -125,7 +140,11 @@ export class Toast {
     if (typeof message === 'string') {
       return message;
     }
-    Logger.warn(`[Toast] Unknown messageKey: ${messageKey}`);
+    Logger.warn('[Toast] Unknown messageKey', {
+      action: 'show',
+      result: 'unknown_message_key',
+      messageKey,
+    });
     return messageKey;
   }
 

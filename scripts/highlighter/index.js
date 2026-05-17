@@ -23,7 +23,9 @@ if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
 // globalThis 掛載層（新版 HighlighterV2 + 向後兼容 notionHighlighter）
 import { mountWindowAPI } from './windowAPI.js';
 
-function remountWindowAPI(manager, toolbar, storage, toast) {
+function remountWindowAPI(manager, toolbar, storage) {
+  // toast 由 manager.setDependencies 注入，這裡統一從 manager 讀取，
+  // 避免每個 call site 各自把 toast 拼進 state object。
   mountWindowAPI(
     manager,
     toolbar,
@@ -31,16 +33,16 @@ function remountWindowAPI(manager, toolbar, storage, toast) {
     {
       init: opts => {
         const nextManager = initHighlighter(opts);
-        remountWindowAPI(nextManager, null, nextManager.storage, nextManager.toast);
+        remountWindowAPI(nextManager, null, nextManager.storage);
         return nextManager;
       },
       initWithToolbar: opts => {
         const nextState = initHighlighterWithToolbar(opts);
-        remountWindowAPI(nextState.manager, nextState.toolbar, nextState.storage, nextState.toast);
+        remountWindowAPI(nextState.manager, nextState.toolbar, nextState.storage);
         return nextState;
       },
     },
-    toast
+    manager.toast
   );
 }
 
