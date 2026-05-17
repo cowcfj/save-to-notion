@@ -91,8 +91,11 @@ function getLegacyUiController(state) {
  * @param {import('./ui/Toolbar.js').Toolbar|null} toolbar
  * @param {import('./core/HighlightStorage.js').HighlightStorage} storage
  * @param {{ init?: Function, initWithToolbar?: Function }} [fns={}] - 可選函數導入層，避免循環依賴
+ * @param {import('./ui/Toast.js').Toast|null} [toast=null] - 可選的 Toast 實例；
+ *   若提供，會暴露在 `HighlighterV2.toast` 供 dev tools / cleanup 使用，
+ *   業務邏輯（addHighlight / removeHighlight）已透過 manager 注入直接觸發。
  */
-export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
+export function mountWindowAPI(manager, toolbar, storage, fns = {}, toast = null) {
   const restoreManager = storage;
   const state = {
     currentToolbar: toolbar,
@@ -106,6 +109,7 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
     manager,
     toolbar,
     restoreManager,
+    toast,
 
     // Core functions
     serializeRange,

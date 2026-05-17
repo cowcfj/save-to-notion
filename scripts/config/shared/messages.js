@@ -270,6 +270,12 @@ const FLOATING_RAIL = {
   CLOSE_LABEL: '關閉本頁工具列',
 };
 
+const TOAST = {
+  HIGHLIGHT_DELETED: '標註已刪除',
+  HIGHLIGHT_DUPLICATE: '此文字已標註',
+  HIGHLIGHT_FAILED: '標註失敗，請重試',
+};
+
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
   '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。';
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
@@ -378,6 +384,7 @@ export const UI_MESSAGES = deepFreeze({
   HIGHLIGHTS,
   TOOLBAR,
   FLOATING_RAIL,
+  TOAST,
   STORAGE,
   CLOUD_SYNC,
 });
