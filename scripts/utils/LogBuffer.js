@@ -28,13 +28,17 @@ const ANOMALY_THRESHOLD = 30;
 const ANOMALY_MESSAGE_TRUNCATE = 200;
 
 /**
- * 計算 entry 指紋：`${message}::${context.action}`
+ * 計算 entry 指紋。
+ *
+ * 使用 JSON.stringify([message, action]) 序列化 message 與 context.action 組成的 tuple,
+ * 利用 JSON 的字串逸出語法消除分隔字元歧義 — 例如 message="a::" + action="b" 與
+ * message="a" + action="::b" 在拼接式 fingerprint 下會碰撞,改成 JSON tuple 後可清楚區分。
  *
  * @param {object} entry - 日誌條目
  * @returns {string} fingerprint
  */
 function generateFingerprint(entry) {
-  return `${entry.message ?? ''}::${entry.context?.action ?? ''}`;
+  return JSON.stringify([entry.message ?? '', entry.context?.action ?? '']);
 }
 
 /**
@@ -150,17 +154,12 @@ export class LogBuffer {
    * 添加一條日誌記錄。當同一 fingerprint 在 buffer 中累計達 SUPPRESS_THRESHOLD 後，
    * 後續同 fingerprint 條目改為遞增既有條目的 context.repeatCount，不再消耗新 slot。
    *
+   * 註：fingerprint 必須由最終 entryToStore（經 needsSizeCheck / _processOversizedEntry 處理後）
+   * 衍生，以避免「SUPPRESS 檢查用原始 fp、計數累積在截斷後 fp」造成的 key split。
+   *
    * @param {object} entry - 日誌對象
    */
   push(entry) {
-    const fp = generateFingerprint(entry);
-    const slotCount = this._fingerprintCounts.get(fp) ?? 0;
-
-    if (slotCount >= SUPPRESS_THRESHOLD) {
-      this._handleSuppressedPush(fp, entry);
-      return;
-    }
-
     let entryToStore = { ...entry };
 
     // [Performance Optimization] 僅在需要時執行完整序列化檢查
@@ -168,7 +167,15 @@ export class LogBuffer {
       entryToStore = this._processOversizedEntry(entry, entryToStore);
     }
 
-    this._writeRawEntry(entryToStore);
+    const fp = generateFingerprint(entryToStore);
+    const slotCount = this._fingerprintCounts.get(fp) ?? 0;
+
+    if (slotCount >= SUPPRESS_THRESHOLD) {
+      this._handleSuppressedPush(fp, entry);
+      return;
+    }
+
+    this._writeRawEntry(entryToStore, fp);
   }
 
   /**
@@ -176,9 +183,11 @@ export class LogBuffer {
    * 不執行 fingerprint 抑制檢查，供 push() happy path 與 _emitAnomaly 共用。
    *
    * @param {object} entryToStore - 已完成大小檢查的條目
+   * @param {string} [fp] - 已預算好的 fingerprint；省略時由 entryToStore 重新計算
+   *   （anomaly 路徑沒有預算 fp）
    * @private
    */
-  _writeRawEntry(entryToStore) {
+  _writeRawEntry(entryToStore, fp) {
     const writeIndex = (this.head + this.size) % this.capacity;
     const isFull = this.size === this.capacity;
 
@@ -196,7 +205,7 @@ export class LogBuffer {
       this.head = (this.head + 1) % this.capacity;
     }
 
-    const newFp = generateFingerprint(entryToStore);
+    const newFp = fp ?? generateFingerprint(entryToStore);
     this._fingerprintCounts.set(newFp, (this._fingerprintCounts.get(newFp) ?? 0) + 1);
     this._lastIndexByFingerprint.set(newFp, writeIndex);
   }

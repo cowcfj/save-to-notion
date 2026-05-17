@@ -281,6 +281,60 @@ describe('LogBuffer', () => {
         expect(matches).toHaveLength(10);
         expect(matches.at(-1).context.repeatCount).toBe(11);
       });
+
+      // Regression: oversized entries trigger _processOversizedEntry which rewrites
+      // message/context. The pre-fix code computed the suppression fingerprint from
+      // the original entry but accumulated _fingerprintCounts under the truncated
+      // entry's fingerprint, so suppression never engaged for the oversized path.
+      test('suppresses oversized entries past SUPPRESS_THRESHOLD using a consistent fingerprint', () => {
+        const huge = 'x'.repeat(30_000);
+        for (let i = 0; i < 11; i++) {
+          satBuf.push({
+            level: 'info',
+            source: 'background',
+            message: 'oversized-spam',
+            data: huge,
+            context: { action: 'big-spam' },
+          });
+        }
+
+        const truncatedMatches = satBuf.getAll().filter(l => l.context?.truncated === true);
+
+        expect(truncatedMatches).toHaveLength(10);
+        expect(truncatedMatches.at(-1).context.repeatCount).toBe(11);
+      });
+
+      // Regression: the pre-fix fingerprint joined message and action with a
+      // literal "::" delimiter, so values containing "::" caused collisions.
+      // Pair A: message="hello::", action="world"  → "hello::::world"
+      // Pair B: message="hello",   action="::world" → "hello::::world"
+      test('does not collide fingerprints when message or action contain the "::" delimiter', () => {
+        /* eslint-disable unicorn/prefer-single-call -- LogBuffer.push is not Array.push */
+        for (let i = 0; i < 11; i++) {
+          satBuf.push({
+            level: 'log',
+            source: 'background',
+            message: 'hello::',
+            context: { action: 'world' },
+          });
+          satBuf.push({
+            level: 'log',
+            source: 'background',
+            message: 'hello',
+            context: { action: '::world' },
+          });
+        }
+        /* eslint-enable unicorn/prefer-single-call */
+
+        const logs = satBuf.getAll();
+        const aMatches = logs.filter(l => l.message === 'hello::' && l.context?.action === 'world');
+        const bMatches = logs.filter(l => l.message === 'hello' && l.context?.action === '::world');
+
+        expect(aMatches).toHaveLength(10);
+        expect(bMatches).toHaveLength(10);
+        expect(aMatches.at(-1).context.repeatCount).toBe(11);
+        expect(bMatches.at(-1).context.repeatCount).toBe(11);
+      });
     });
 
     describe('Anomaly emission', () => {
