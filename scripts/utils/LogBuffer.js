@@ -20,6 +20,27 @@ const FALLBACK_STRUCTURE_OVERHEAD = 350;
 // 標準欄位列表
 const STANDARD_FIELDS = new Set(['level', 'message', 'source', 'context']);
 
+// [Saturation Protection - issue #533]
+// 同 fingerprint 的 buffer-resident 條目達 SUPPRESS_THRESHOLD 後改為更新既有條目 repeatCount。
+// 達 ANOMALY_THRESHOLD 時 emit 一次 [ANOMALY] warn 條目；FIFO 驅逐到無同 fingerprint 條目時重置。
+const SUPPRESS_THRESHOLD = 10;
+const ANOMALY_THRESHOLD = 30;
+const ANOMALY_MESSAGE_TRUNCATE = 200;
+
+/**
+ * 計算 entry 指紋。
+ *
+ * 使用 JSON.stringify([message, action]) 序列化 message 與 context.action 組成的 tuple,
+ * 利用 JSON 的字串逸出語法消除分隔字元歧義 — 例如 message="a::" + action="b" 與
+ * message="a" + action="::b" 在拼接式 fingerprint 下會碰撞,改成 JSON tuple 後可清楚區分。
+ *
+ * @param {object} entry - 日誌條目
+ * @returns {string} fingerprint
+ */
+function generateFingerprint(entry) {
+  return JSON.stringify([entry.message ?? '', entry.context?.action ?? '']);
+}
+
 /**
  * 截斷訊息至指定長度
  *
@@ -122,10 +143,19 @@ export class LogBuffer {
     this.buffer = Array.from({ length: this.capacity });
     this.head = 0; // 指向最舊記錄的索引
     this.size = 0; // 當前記錄數量
+
+    // [Saturation Protection] fingerprint 追蹤狀態（issue #533）
+    this._fingerprintCounts = new Map(); // fp -> 當前實際 slot 數
+    this._lastIndexByFingerprint = new Map(); // fp -> 最後寫入該 fp 的 buffer index
+    this._anomalyEmitted = new Set(); // 已 emit 過 anomaly 的 fp
   }
 
   /**
-   * 添加一條日誌記錄
+   * 添加一條日誌記錄。當同一 fingerprint 在 buffer 中累計達 SUPPRESS_THRESHOLD 後，
+   * 後續同 fingerprint 條目改為遞增既有條目的 context.repeatCount，不再消耗新 slot。
+   *
+   * 註：fingerprint 必須由最終 entryToStore（經 needsSizeCheck / _processOversizedEntry 處理後）
+   * 衍生，以避免「SUPPRESS 檢查用原始 fp、計數累積在截斷後 fp」造成的 key split。
    *
    * @param {object} entry - 日誌對象
    */
@@ -137,8 +167,35 @@ export class LogBuffer {
       entryToStore = this._processOversizedEntry(entry, entryToStore);
     }
 
-    // 計算寫入位置：(head + size) % capacity
+    const fp = generateFingerprint(entryToStore);
+    const slotCount = this._fingerprintCounts.get(fp) ?? 0;
+
+    if (slotCount >= SUPPRESS_THRESHOLD) {
+      this._handleSuppressedPush(fp, entry);
+      return;
+    }
+
+    this._writeRawEntry(entryToStore, fp);
+  }
+
+  /**
+   * 將 entry 寫入 buffer slot 並維護 FIFO + fingerprint 計數。
+   * 不執行 fingerprint 抑制檢查，供 push() happy path 與 _emitAnomaly 共用。
+   *
+   * @param {object} entryToStore - 已完成大小檢查的條目
+   * @param {string} [fp] - 已預算好的 fingerprint；省略時由 entryToStore 重新計算
+   *   （anomaly 路徑沒有預算 fp）
+   * @private
+   */
+  _writeRawEntry(entryToStore, fp) {
     const writeIndex = (this.head + this.size) % this.capacity;
+    const isFull = this.size === this.capacity;
+
+    if (isFull) {
+      const evictedFp = generateFingerprint(this.buffer[writeIndex]);
+      this._handleEviction(evictedFp);
+    }
+
     this.buffer[writeIndex] = entryToStore;
 
     if (this.size < this.capacity) {
@@ -147,6 +204,88 @@ export class LogBuffer {
       // 緩衝區已滿，覆蓋了最舊的，head 往前移
       this.head = (this.head + 1) % this.capacity;
     }
+
+    const newFp = fp ?? generateFingerprint(entryToStore);
+    this._fingerprintCounts.set(newFp, (this._fingerprintCounts.get(newFp) ?? 0) + 1);
+    this._lastIndexByFingerprint.set(newFp, writeIndex);
+  }
+
+  /**
+   * 抑制路徑：fingerprint 已達 SUPPRESS_THRESHOLD 時，更新最後一條同 fp 條目的 repeatCount，
+   * 不寫入新 slot。當 repeatCount 首次達 ANOMALY_THRESHOLD 時 emit 一條 [ANOMALY] warn。
+   *
+   * @param {string} fp - 指紋
+   * @param {object} originalEntry - 原始日誌對象（用於 anomaly 引用）
+   * @private
+   */
+  _handleSuppressedPush(fp, originalEntry) {
+    const lastIdx = this._lastIndexByFingerprint.get(fp);
+    const lastEntry = this.buffer[lastIdx];
+    const slotCount = this._fingerprintCounts.get(fp);
+    const currentRepeat = lastEntry.context?.repeatCount ?? slotCount;
+    const newRepeat = currentRepeat + 1;
+
+    lastEntry.context = {
+      ...lastEntry.context,
+      repeatCount: newRepeat,
+    };
+
+    if (newRepeat === ANOMALY_THRESHOLD && !this._anomalyEmitted.has(fp)) {
+      this._anomalyEmitted.add(fp);
+      this._emitAnomaly(originalEntry, newRepeat);
+    }
+  }
+
+  /**
+   * Emit 一條 [ANOMALY] warn 條目記錄迴圈訊息。透過 _writeRawEntry 寫入，
+   * 不經 push() 的 fingerprint 抑制路徑（anomaly 自身的 fp 與被觀察 fp 不同）。
+   *
+   * [Memory Safety] _writeRawEntry 不做 size check，因此這裡 MUST 使用已截斷的
+   * `truncated` 作為 context.repeatedMessage，避免大 message 透過 anomaly entry
+   * 繞過 MAX_ENTRY_SIZE 邊界。不可改回 originalEntry?.message。
+   *
+   * @param {object} originalEntry - 觸發 anomaly 的原始條目
+   * @param {number} count - 已累計的 repeatCount
+   * @private
+   */
+  _emitAnomaly(originalEntry, count) {
+    const truncated = truncateMessage(
+      String(originalEntry?.message ?? ''),
+      ANOMALY_MESSAGE_TRUNCATE
+    );
+    this._writeRawEntry({
+      level: 'warn',
+      source: originalEntry?.source ?? 'unknown',
+      message: `[ANOMALY] message looped ${count}× in buffer: "${truncated}"`,
+      context: {
+        anomaly: true,
+        repeatedMessage: truncated,
+        repeatedAction: originalEntry?.context?.action,
+        repeatCount: count,
+      },
+    });
+  }
+
+  /**
+   * 處理 FIFO 驅逐：遞減 evictedFp 的計數。
+   * 若 evictedFp 在 buffer 中已無任何 slot，清理對應 anomaly state，允許未來重新觸發 anomaly。
+   *
+   * 不變式：lastIndexByFingerprint 永遠指向最新 slot，FIFO eviction 永遠發生在最舊 slot
+   * （= head）。同 fp 的最後一個 slot 必為最舊一個，因此 lastIndex 被驅逐時 count 必同時降為 0
+   * 走 early-cleanup 分支；不需要修補 lastIndex。
+   *
+   * @param {string} evictedFp - 被驅逐條目的指紋
+   * @private
+   */
+  _handleEviction(evictedFp) {
+    const newCount = this._fingerprintCounts.get(evictedFp) - 1;
+    if (newCount <= 0) {
+      this._fingerprintCounts.delete(evictedFp);
+      this._lastIndexByFingerprint.delete(evictedFp);
+      this._anomalyEmitted.delete(evictedFp);
+      return;
+    }
+    this._fingerprintCounts.set(evictedFp, newCount);
   }
 
   /**
@@ -193,6 +332,9 @@ export class LogBuffer {
     this.buffer = Array.from({ length: this.capacity });
     this.head = 0;
     this.size = 0;
+    this._fingerprintCounts.clear();
+    this._lastIndexByFingerprint.clear();
+    this._anomalyEmitted.clear();
   }
 
   /**
