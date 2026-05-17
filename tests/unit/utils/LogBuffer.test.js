@@ -1,5 +1,20 @@
 import { LogBuffer } from '../../../scripts/utils/LogBuffer.js';
 
+function pushSame(buffer, message, action, times) {
+  for (let i = 0; i < times; i++) {
+    buffer.push({
+      level: 'log',
+      source: 'background',
+      message,
+      context: { action },
+    });
+  }
+}
+
+function getAnomalies(logs) {
+  return logs.filter(log => log.context?.anomaly === true);
+}
+
 describe('LogBuffer', () => {
   let logBuffer = null;
   const DEFAULT_CAPACITY = 5; // A small capacity for easier testing
@@ -130,6 +145,257 @@ describe('LogBuffer', () => {
       const stats = logBuffer.getStats();
       expect(stats.count).toBe(0);
       expect(stats.capacity).toBe(DEFAULT_CAPACITY);
+    });
+  });
+
+  // Saturation protection (issue #533)
+  // Plan thresholds: SUPPRESS_THRESHOLD = 10, ANOMALY_THRESHOLD = 30
+  // Fingerprint = `${message}::${context?.action ?? ''}`
+  describe('Saturation protection', () => {
+    const SAT_CAPACITY = 100;
+    let satBuf;
+
+    beforeEach(() => {
+      satBuf = new LogBuffer(SAT_CAPACITY);
+    });
+
+    describe('Suppression', () => {
+      test('suppresses pushes past SUPPRESS_THRESHOLD by mutating last entry repeatCount', () => {
+        pushSame(satBuf, 'phase-3', 'CLEAR_HIGHLIGHTS', 11);
+
+        const logs = satBuf.getAll();
+        const matches = logs.filter(
+          l => l.message === 'phase-3' && l.context?.action === 'CLEAR_HIGHLIGHTS'
+        );
+
+        expect(matches).toHaveLength(10);
+
+        for (let i = 0; i < 9; i++) {
+          expect(matches[i].context.repeatCount).toBeUndefined();
+        }
+
+        expect(matches[9].context.repeatCount).toBe(11);
+      });
+
+      test('caps both A and B at 10 normal entries under A/B alternating loop', () => {
+        const aMsg = '[Injection] Script executed successfully';
+        const bMsg = 'Phase 3: CLEAR_HIGHLIGHTS 成功';
+
+        /* eslint-disable unicorn/prefer-single-call -- LogBuffer.push is not Array.push */
+        for (let i = 0; i < 25; i++) {
+          satBuf.push({ level: 'info', source: 'background', message: aMsg, context: {} });
+          satBuf.push({
+            level: 'info',
+            source: 'background',
+            message: bMsg,
+            context: { action: 'CLEAR_HIGHLIGHTS' },
+          });
+        }
+        /* eslint-enable unicorn/prefer-single-call */
+
+        const logs = satBuf.getAll();
+        const aMatches = logs.filter(l => l.message === aMsg);
+        const bMatches = logs.filter(l => l.message === bMsg);
+
+        expect(aMatches).toHaveLength(10);
+        expect(bMatches).toHaveLength(10);
+
+        expect(aMatches.at(-1).context.repeatCount).toBe(25);
+        expect(bMatches.at(-1).context.repeatCount).toBe(25);
+      });
+
+      test('non-repeating entry between suppressed pushes does not reset fingerprint count', () => {
+        pushSame(satBuf, 'msg-A', 'action-A', 11);
+
+        /* eslint-disable unicorn/prefer-single-call -- LogBuffer.push is not Array.push */
+        satBuf.push({
+          level: 'log',
+          source: 'background',
+          message: 'msg-C',
+          context: { action: 'action-C' },
+        });
+        satBuf.push({
+          level: 'log',
+          source: 'background',
+          message: 'msg-A',
+          context: { action: 'action-A' },
+        });
+        /* eslint-enable unicorn/prefer-single-call */
+
+        const logs = satBuf.getAll();
+        const aMatches = logs.filter(
+          l => l.message === 'msg-A' && l.context?.action === 'action-A'
+        );
+        const cMatches = logs.filter(
+          l => l.message === 'msg-C' && l.context?.action === 'action-C'
+        );
+
+        expect(aMatches).toHaveLength(10);
+        expect(cMatches).toHaveLength(1);
+        expect(aMatches.at(-1).context.repeatCount).toBe(12);
+      });
+
+      test('different actions for the same message are tracked as separate fingerprints', () => {
+        /* eslint-disable unicorn/prefer-single-call -- LogBuffer.push is not Array.push */
+        for (let i = 0; i < 11; i++) {
+          satBuf.push({
+            level: 'log',
+            source: 'background',
+            message: 'shared-msg',
+            context: { action: 'action-A' },
+          });
+          satBuf.push({
+            level: 'log',
+            source: 'background',
+            message: 'shared-msg',
+            context: { action: 'action-B' },
+          });
+        }
+        /* eslint-enable unicorn/prefer-single-call */
+
+        const logs = satBuf.getAll();
+        const aMatches = logs.filter(
+          l => l.message === 'shared-msg' && l.context?.action === 'action-A'
+        );
+        const bMatches = logs.filter(
+          l => l.message === 'shared-msg' && l.context?.action === 'action-B'
+        );
+
+        expect(aMatches).toHaveLength(10);
+        expect(bMatches).toHaveLength(10);
+      });
+
+      test('same action with different unrelated context fields shares fingerprint', () => {
+        for (let i = 0; i < 11; i++) {
+          satBuf.push({
+            level: 'log',
+            source: 'background',
+            message: 'msg',
+            context: { action: 'do-thing', url: `https://example.com/${i}` },
+          });
+        }
+
+        const logs = satBuf.getAll();
+        const matches = logs.filter(l => l.message === 'msg' && l.context?.action === 'do-thing');
+
+        expect(matches).toHaveLength(10);
+        expect(matches.at(-1).context.repeatCount).toBe(11);
+      });
+    });
+
+    describe('Anomaly emission', () => {
+      test('emits exactly one [ANOMALY] entry when count first hits ANOMALY_THRESHOLD', () => {
+        pushSame(satBuf, 'msg-A', 'action-A', 30);
+
+        const logs = satBuf.getAll();
+        const anomalies = getAnomalies(logs);
+
+        expect(anomalies).toHaveLength(1);
+
+        const anomaly = anomalies[0];
+        expect(anomaly.level).toBe('warn');
+        expect(anomaly.context.anomaly).toBe(true);
+        expect(anomaly.context.repeatCount).toBe(30);
+        expect(anomaly.context.repeatedMessage).toBe('msg-A');
+        expect(anomaly.context.repeatedAction).toBe('action-A');
+        expect(anomaly.message).toMatch(/^\[ANOMALY\] message looped 30× in buffer:/);
+      });
+
+      test('does not re-emit anomaly within the same episode (60 pushes -> 1 ANOMALY)', () => {
+        pushSame(satBuf, 'msg-A', 'action-A', 60);
+
+        const anomalies = getAnomalies(satBuf.getAll());
+        expect(anomalies).toHaveLength(1);
+      });
+
+      test('does not emit anomaly below threshold (29 pushes -> 0 ANOMALY)', () => {
+        pushSame(satBuf, 'msg-A', 'action-A', 29);
+
+        const logs = satBuf.getAll();
+        const anomalies = getAnomalies(logs);
+
+        expect(anomalies).toHaveLength(0);
+
+        const aMatches = logs.filter(
+          l => l.message === 'msg-A' && l.context?.action === 'action-A'
+        );
+        expect(aMatches).toHaveLength(10);
+        expect(aMatches.at(-1).context.repeatCount).toBe(29);
+      });
+
+      test('re-emits anomaly after fingerprint state is reset via FIFO eviction', () => {
+        const smallBuf = new LogBuffer(40);
+
+        pushSame(smallBuf, 'msg-A', 'action-A', 30);
+        expect(getAnomalies(smallBuf.getAll())).toHaveLength(1);
+
+        // Push 40 unique entries to evict all A entries AND the ANOMALY entry
+        for (let i = 0; i < 40; i++) {
+          smallBuf.push({
+            level: 'log',
+            source: 'background',
+            message: `unique-${i}`,
+            context: { action: `unique-${i}` },
+          });
+        }
+
+        const afterEviction = smallBuf.getAll();
+        expect(afterEviction.filter(l => l.message === 'msg-A')).toHaveLength(0);
+        expect(getAnomalies(afterEviction)).toHaveLength(0);
+
+        pushSame(smallBuf, 'msg-A', 'action-A', 30);
+
+        const final = smallBuf.getAll();
+        expect(getAnomalies(final)).toHaveLength(1);
+        expect(
+          final.filter(l => l.message === 'msg-A' && l.context?.action === 'action-A')
+        ).toHaveLength(10);
+      });
+    });
+
+    describe('Issue #533 end-to-end scenario', () => {
+      test('preserves real user events when A/B loop runs 250 alternating pairs', () => {
+        for (let i = 0; i < 30; i++) {
+          satBuf.push({
+            level: 'info',
+            source: 'background',
+            message: `user-event-${i}`,
+            context: { action: `event-${i}` },
+          });
+        }
+
+        const aMsg = '[Injection] Script executed successfully';
+        const bMsg = 'Phase 3: CLEAR_HIGHLIGHTS 成功';
+
+        /* eslint-disable unicorn/prefer-single-call -- LogBuffer.push is not Array.push */
+        for (let i = 0; i < 250; i++) {
+          satBuf.push({ level: 'info', source: 'background', message: aMsg, context: {} });
+          satBuf.push({
+            level: 'info',
+            source: 'background',
+            message: bMsg,
+            context: { action: 'CLEAR_HIGHLIGHTS' },
+          });
+        }
+        /* eslint-enable unicorn/prefer-single-call */
+
+        const logs = satBuf.getAll();
+
+        const userEvents = logs.filter(l => l.message?.startsWith('user-event-'));
+        expect(userEvents.length).toBeGreaterThanOrEqual(25);
+
+        const aMatches = logs.filter(l => l.message === aMsg);
+        const bMatches = logs.filter(l => l.message === bMsg);
+
+        expect(aMatches).toHaveLength(10);
+        expect(bMatches).toHaveLength(10);
+
+        expect(aMatches.at(-1).context.repeatCount).toBe(250);
+        expect(bMatches.at(-1).context.repeatCount).toBe(250);
+
+        const anomalies = getAnomalies(logs);
+        expect(anomalies).toHaveLength(2);
+      });
     });
   });
 });
