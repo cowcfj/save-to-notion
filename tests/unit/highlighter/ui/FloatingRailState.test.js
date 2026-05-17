@@ -6,9 +6,6 @@ import {
   RailStates,
   FloatingRailStateManager,
 } from '../../../../scripts/highlighter/ui/FloatingRailState.js';
-import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
-
-const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
 
 describe('RailStates', () => {
   test('應該定義三種狀態', () => {
@@ -41,7 +38,7 @@ describe('FloatingRailStateManager', () => {
 
     test('initialize() 應從 sessionStorage 讀取狀態', () => {
       sessionStorage.setItem(
-        TEST_RAIL_STATE_KEY,
+        'notion-floating-rail-state',
         JSON.stringify({ state: 'expanded', color: 'blue' })
       );
 
@@ -54,7 +51,7 @@ describe('FloatingRailStateManager', () => {
 
     test('initialize() 應忽略無效的 sessionStorage 狀態', () => {
       sessionStorage.setItem(
-        TEST_RAIL_STATE_KEY,
+        'notion-floating-rail-state',
         JSON.stringify({ state: 'invalid_state', color: 'blue' })
       );
 
@@ -67,7 +64,7 @@ describe('FloatingRailStateManager', () => {
 
     test('[REGRESSION] initialize() 應忽略無效的 persisted color', () => {
       sessionStorage.setItem(
-        TEST_RAIL_STATE_KEY,
+        'notion-floating-rail-state',
         JSON.stringify({ state: 'expanded', color: 'injected-invalid-color' })
       );
 
@@ -83,7 +80,7 @@ describe('FloatingRailStateManager', () => {
       stateManager.currentState = RailStates.EXPANDED;
 
       sessionStorage.setItem(
-        TEST_RAIL_STATE_KEY,
+        'notion-floating-rail-state',
         JSON.stringify({ state: 'collapsed', color: 'red' })
       );
 
@@ -126,7 +123,7 @@ describe('FloatingRailStateManager', () => {
     test('應該持久化到 sessionStorage', () => {
       stateManager.currentState = RailStates.HIGHLIGHTING;
 
-      const stored = JSON.parse(sessionStorage.getItem(TEST_RAIL_STATE_KEY));
+      const stored = JSON.parse(sessionStorage.getItem('notion-floating-rail-state'));
       expect(stored.state).toBe('highlighting');
     });
   });
@@ -160,7 +157,7 @@ describe('FloatingRailStateManager', () => {
     test('應該持久化到 sessionStorage', () => {
       stateManager.selectedColor = 'blue';
 
-      const stored = JSON.parse(sessionStorage.getItem(TEST_RAIL_STATE_KEY));
+      const stored = JSON.parse(sessionStorage.getItem('notion-floating-rail-state'));
       expect(stored.color).toBe('blue');
     });
   });

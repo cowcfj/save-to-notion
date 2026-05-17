@@ -7,10 +7,9 @@
 
 import Logger from '../../utils/Logger.js';
 import { COLORS } from '../utils/color.js';
-import { RAIL_INSTANCE_ID } from './floatingRailInstance.js';
 
-const STORAGE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
-const DISMISSED_KEY = `notion-floating-rail-dismissed-${RAIL_INSTANCE_ID}`;
+const STORAGE_KEY = 'notion-floating-rail-state';
+const DISMISSED_KEY = 'notion-floating-rail-dismissed';
 const VALID_COLORS = new Set(Object.keys(COLORS));
 
 export const RailStates = Object.freeze({

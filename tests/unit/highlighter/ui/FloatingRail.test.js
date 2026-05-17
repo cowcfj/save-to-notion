@@ -38,13 +38,7 @@ import {
   playFireworkAnimation,
   playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
-import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
 import Logger from '../../../../scripts/utils/Logger.js';
-
-const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
-const TEST_RAIL_POSITION_KEY = `notion-floating-rail-position-${RAIL_INSTANCE_ID}`;
-const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
-const TEST_RAIL_DISMISSED_KEY = `notion-floating-rail-dismissed-${RAIL_INSTANCE_ID}`;
 
 function createMockContainerElement() {
   const container = document.createElement('div');
@@ -162,7 +156,7 @@ describe('FloatingRail', () => {
 
     test('應該建立 Shadow DOM host', () => {
       const rail = new FloatingRail(manager);
-      const host = document.querySelector(`#${TEST_RAIL_HOST_ID}`);
+      const host = document.querySelector('#notion-floating-rail-host');
 
       expect(host).not.toBeNull();
       expect(host.dataset.railOwner).toBe('true');
@@ -171,7 +165,7 @@ describe('FloatingRail', () => {
 
     test('應該重用既有 host', () => {
       const existingHost = document.createElement('div');
-      existingHost.id = TEST_RAIL_HOST_ID;
+      existingHost.id = 'notion-floating-rail-host';
       existingHost.dataset.railOwner = 'true';
       existingHost.attachShadow({ mode: 'open' });
       document.body.append(existingHost);
@@ -182,7 +176,7 @@ describe('FloatingRail', () => {
 
     test('應該重用既有 host 內的 rail container', () => {
       const existingHost = document.createElement('div');
-      existingHost.id = TEST_RAIL_HOST_ID;
+      existingHost.id = 'notion-floating-rail-host';
       existingHost.dataset.railOwner = 'true';
       const shadowRoot = existingHost.attachShadow({ mode: 'open' });
       const existingContainer = createMockContainerElement();
@@ -197,7 +191,7 @@ describe('FloatingRail', () => {
 
     test('不應重用無 owner 標記的同 ID 元素', () => {
       const fakeHost = document.createElement('div');
-      fakeHost.id = TEST_RAIL_HOST_ID;
+      fakeHost.id = 'notion-floating-rail-host';
       document.body.append(fakeHost);
 
       const rail = new FloatingRail(manager);
@@ -223,7 +217,7 @@ describe('FloatingRail', () => {
 
         document.dispatchEvent(new Event('DOMContentLoaded'));
 
-        expect(document.querySelector(`#${TEST_RAIL_HOST_ID}`)).toBeNull();
+        expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
       } finally {
         if (originalBodyDescriptor) {
           Object.defineProperty(document, 'body', originalBodyDescriptor);
@@ -245,7 +239,7 @@ describe('FloatingRail', () => {
         new FloatingRail(manager);
         document.dispatchEvent(new Event('DOMContentLoaded'));
 
-        expect(document.querySelector(`#${TEST_RAIL_HOST_ID}`)).toBeNull();
+        expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
       } finally {
         if (originalBodyDescriptor) {
           Object.defineProperty(document, 'body', originalBodyDescriptor);
@@ -275,7 +269,7 @@ describe('FloatingRail', () => {
 
     test('從 sessionStorage 恢復 HIGHLIGHTING 狀態時應啟動標註功能', async () => {
       sessionStorage.setItem(
-        TEST_RAIL_STATE_KEY,
+        'notion-floating-rail-state',
         JSON.stringify({ state: 'highlighting', color: 'green' })
       );
 
@@ -288,7 +282,7 @@ describe('FloatingRail', () => {
 
     test('從 sessionStorage 恢復非 HIGHLIGHTING 狀態時不應啟動標註', async () => {
       sessionStorage.setItem(
-        TEST_RAIL_STATE_KEY,
+        'notion-floating-rail-state',
         JSON.stringify({ state: 'expanded', color: 'yellow' })
       );
 
@@ -344,7 +338,7 @@ describe('FloatingRail', () => {
     });
 
     test('[REGRESSION] dismissed 狀態初始化後，undismiss 仍應保有事件綁定', async () => {
-      sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
+      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -382,7 +376,7 @@ describe('FloatingRail', () => {
     });
 
     test('dismissed 狀態下 show 不應重新顯示 host', async () => {
-      sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
+      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -563,7 +557,7 @@ describe('FloatingRail', () => {
       await rail.initialize();
       rail.destroy();
 
-      expect(document.querySelector(`#${TEST_RAIL_HOST_ID}`)).toBeNull();
+      expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
       expect(rail._initialized).toBe(false);
     });
   });
@@ -757,7 +751,7 @@ describe('FloatingRail', () => {
 
         expect(rail.host.style.top).toBe('180px');
         expect(rail.host.style.right).not.toBe('0px');
-        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toEqual(
+        expect(sessionStorage.getItem('notion-floating-rail-position')).toEqual(
           expect.stringContaining('"top":180')
         );
       } finally {
@@ -882,7 +876,10 @@ describe('FloatingRail', () => {
     });
 
     test('[REGRESSION] 新 rail instance 應恢復先前拖曳位置', async () => {
-      sessionStorage.setItem(TEST_RAIL_POSITION_KEY, JSON.stringify({ top: 144, right: 24 }));
+      sessionStorage.setItem(
+        'notion-floating-rail-position',
+        JSON.stringify({ top: 144, right: 24 })
+      );
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -904,7 +901,7 @@ describe('FloatingRail', () => {
         document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
 
         expect(rail.host.style.top).not.toBe('180px');
-        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toBeNull();
+        expect(sessionStorage.getItem('notion-floating-rail-position')).toBeNull();
       } finally {
         jest.useRealTimers();
       }
@@ -968,7 +965,7 @@ describe('FloatingRail', () => {
 
     test('restorePosition 遇到損壞的 sessionStorage 資料時應記錄警告', () => {
       const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
-      sessionStorage.setItem(TEST_RAIL_POSITION_KEY, '{invalid-json');
+      sessionStorage.setItem('notion-floating-rail-position', '{invalid-json');
 
       const rail = new FloatingRail(manager);
 
