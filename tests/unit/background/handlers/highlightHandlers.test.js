@@ -952,4 +952,69 @@ describe('highlightHandlers', () => {
       );
     });
   });
+
+  describe('toast 推送（sync failure → SHOW_TOAST）', () => {
+    it('SYNC_HIGHLIGHTS auth 失敗 → 應推送 SYNC_FAILED_AUTH toast', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_AUTH',
+          level: 'error',
+        })
+      );
+    });
+
+    it('SYNC_HIGHLIGHTS HIGHLIGHT_SECTION_DELETE_INCOMPLETE → 不推送 toast', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'partial',
+        errorCode: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ action: 'SHOW_TOAST' })
+      );
+    });
+
+    it('performHighlightUpdate 應透傳 errorCode 欄位至 response', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'rate limited',
+        errorCode: 'RATE_LIMITED',
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ errorCode: 'RATE_LIMITED' })
+      );
+    });
+  });
 });

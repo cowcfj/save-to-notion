@@ -20,6 +20,7 @@ describe('runtime action 模組拆分', () => {
         'INIT_BUNDLE',
         'REPLAY_BUFFERED_EVENTS',
         'SHOW_FLOATING_RAIL',
+        'SHOW_TOAST',
       ],
     },
     {

@@ -526,6 +526,47 @@ describe('FloatingRail', () => {
       expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
+
+    test('syncHighlights 回 success:false + errorCode UNAUTHORIZED → playFailAnimation', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: false, errorCode: 'UNAUTHORIZED', error: 'err' });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
+      expect(playFireworkAnimation).not.toHaveBeenCalled();
+    });
+
+    test('syncHighlights 回 success:false + HIGHLIGHT_SECTION_DELETE_INCOMPLETE → 當成功（playFireworkAnimation）', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({
+        success: false,
+        errorCode: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
+        error: 'partial',
+      });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(playFireworkAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      expect(playFailAnimation).not.toHaveBeenCalled();
+    });
+
+    test('syncHighlights 回 success:true → playFireworkAnimation（既有行為）', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: true });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(playFireworkAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      expect(playFailAnimation).not.toHaveBeenCalled();
+    });
   });
 
   describe('manage action', () => {

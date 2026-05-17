@@ -1002,4 +1002,54 @@ describe('Content Script Entry (index.js)', () => {
       delete globalThis.__notion_extraction_result;
     });
   });
+
+  describe('SHOW_TOAST handler', () => {
+    let messageHandler;
+
+    beforeEach(() => {
+      globalThis.chrome.runtime.onMessage.addListener = jest.fn();
+      globalThis.chrome.runtime.sendMessage = jest.fn();
+
+      jest.isolateModules(() => {
+        require('../../../scripts/content/index.js');
+      });
+
+      const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+      messageHandler = allHandlers.find(h => {
+        const mockSend = jest.fn();
+        const result = h({ action: 'PING' }, {}, mockSend);
+        return result === true && mockSend.mock.calls.length > 0;
+      });
+    });
+
+    test('SHOW_TOAST 應呼叫 HighlighterV2.toast.show 並傳入 messageKey 與 level', () => {
+      const showMock = jest.fn();
+      globalThis.HighlighterV2 = { toast: { show: showMock } };
+      const sendResponse = jest.fn();
+
+      messageHandler(
+        { action: 'SHOW_TOAST', messageKey: 'SYNC_FAILED_AUTH', level: 'error' },
+        {},
+        sendResponse
+      );
+
+      expect(showMock).toHaveBeenCalledWith('SYNC_FAILED_AUTH', { level: 'error' });
+      delete globalThis.HighlighterV2;
+    });
+
+    test('SHOW_TOAST 在 toast 實例為 null 時 silent（不拋錯）', () => {
+      globalThis.HighlighterV2 = { toast: null };
+      const sendResponse = jest.fn();
+
+      expect(() => {
+        messageHandler(
+          { action: 'SHOW_TOAST', messageKey: 'SYNC_FAILED_AUTH', level: 'error' },
+          {},
+          sendResponse
+        );
+      }).not.toThrow();
+
+      delete globalThis.HighlighterV2;
+    });
+  });
 });
