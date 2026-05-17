@@ -31,12 +31,14 @@ import {
   playFireworkAnimation,
   playFailAnimation,
 } from './FloatingRailAnimations.js';
+import { RAIL_INSTANCE_ID } from './floatingRailInstance.js';
 
-const RAIL_HOST_ID = 'notion-floating-rail-host';
+const RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
 const RAIL_HOST_OWNER_ATTR = 'data-rail-owner';
 const RAIL_HOST_OWNER_VALUE = 'true';
-const RAIL_OWNED_HOST_SELECTOR = `#${RAIL_HOST_ID}[${RAIL_HOST_OWNER_ATTR}="${RAIL_HOST_OWNER_VALUE}"]`;
-const RAIL_POSITION_STORAGE_KEY = 'notion-floating-rail-position';
+const escapeCssIdent = globalThis.CSS?.escape ?? (value => value);
+const RAIL_OWNED_HOST_SELECTOR = `#${escapeCssIdent(RAIL_HOST_ID)}[${RAIL_HOST_OWNER_ATTR}="${RAIL_HOST_OWNER_VALUE}"]`;
+const RAIL_POSITION_STORAGE_KEY = `notion-floating-rail-position-${RAIL_INSTANCE_ID}`;
 const RAIL_EDGE_MARGIN_PX = 8;
 const RAIL_DRAG_LONG_PRESS_MS = 280;
 const RAIL_DRAG_MOVE_THRESHOLD_PX = 2;
