@@ -644,17 +644,13 @@ export class FloatingRail {
         throw new Error(response.error || 'sync_failed');
       }
 
-      if (launchAnim) {
-        launchAnim.cancel();
-      }
+      launchAnim?.cancel();
       if (saveBtn) {
         await playFireworkAnimation(saveBtn);
       }
       await this._refreshPageStatus();
     } catch (error) {
-      if (launchAnim) {
-        launchAnim.cancel();
-      }
+      launchAnim?.cancel();
       if (saveBtn && errorTooltip) {
         await playFailAnimation(saveBtn, errorTooltip);
       }
