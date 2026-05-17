@@ -566,7 +566,11 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
 
-      expect(result).toEqual({ success: false, error: 'OBJECT_NOT_FOUND' });
+      expect(result).toEqual({
+        success: false,
+        error: 'OBJECT_NOT_FOUND',
+        errorCode: 'OBJECT_NOT_FOUND',
+      });
       expect(Logger.error).toHaveBeenCalledWith(
         '[NotionService] 創建頁面失敗',
         expect.objectContaining({
@@ -1113,6 +1117,7 @@ describe('NotionService', () => {
       expect(result).toEqual({
         success: false,
         error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
         errorType: 'notion_api',
         details: {
           phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
@@ -1148,6 +1153,7 @@ describe('NotionService', () => {
       expect(result).toEqual({
         success: false,
         error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
         errorType: 'notion_api',
         details: {
           phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,

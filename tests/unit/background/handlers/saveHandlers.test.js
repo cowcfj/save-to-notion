@@ -1860,4 +1860,116 @@ describe('saveHandlers', () => {
       expect(mockServices.notionService.checkPageExists).toHaveBeenCalled();
     });
   });
+
+  describe('toast 推送（save failure → SHOW_TOAST）', () => {
+    const toolbarSender = { id: 'mock-extension-id', tab: { id: 5, url: 'https://example.com' } };
+
+    beforeEach(() => {
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+      mockServices.notionService.buildPageData.mockReturnValue({ pageData: {} });
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
+        title: 'Test',
+        blocks: [],
+      });
+    });
+
+    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_AUTH',
+          level: 'error',
+        })
+      );
+    });
+
+    test('rate-limit 失敗（RATE_LIMITED）→ 推送 SYNC_FAILED_RATE_LIMIT toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'rate limited',
+        errorCode: 'RATE_LIMITED',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_RATE_LIMIT',
+          level: 'error',
+        })
+      );
+    });
+
+    test('network 失敗（NETWORK_ERROR）→ 推送 SYNC_FAILED_NETWORK toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'network error',
+        errorCode: 'NETWORK_ERROR',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_NETWORK',
+          level: 'error',
+        })
+      );
+    });
+
+    test('page-level 失敗（OBJECT_NOT_FOUND）→ 推送 SYNC_FAILED_PAGE toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'not found',
+        errorCode: 'OBJECT_NOT_FOUND',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_PAGE',
+          level: 'error',
+        })
+      );
+    });
+
+    test('不在映射表的 errorCode → 不推送 toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'some unknown error',
+        errorCode: 'SOME_UNKNOWN_CODE',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ action: 'SHOW_TOAST' })
+      );
+    });
+  });
 });

@@ -359,9 +359,11 @@ class NotionService {
 
       return { success: true, blocks: allBlocks };
     } catch (error) {
+      const errorCode = sanitizeApiError(error, 'fetch_blocks');
       return {
         success: false,
-        error: sanitizeApiError(error, 'fetch_blocks'),
+        error: errorCode,
+        errorCode,
       };
     }
   }
@@ -701,7 +703,7 @@ class NotionService {
         action: 'createPage',
         error: safeError,
       });
-      return { success: false, error: safeError };
+      return { success: false, error: safeError, errorCode: safeError };
     }
   }
 
@@ -1008,6 +1010,7 @@ class NotionService {
         return {
           success: false,
           error: fetchResult.error,
+          errorCode: fetchResult.errorCode,
           errorType: 'notion_api',
           details: { phase: 'fetch_blocks' },
         };
@@ -1034,6 +1037,7 @@ class NotionService {
         return {
           success: false,
           error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+          errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
           errorType: 'notion_api',
           details: {
             phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
@@ -1086,9 +1090,11 @@ class NotionService {
         action: 'updateHighlightsSection',
         error,
       });
+      const errorCode = sanitizeApiError(error, 'update_highlights');
       return {
         success: false,
-        error: sanitizeApiError(error, 'update_highlights'),
+        error: errorCode,
+        errorCode,
         errorType: 'internal',
         details: { phase: 'catch_all' },
       };

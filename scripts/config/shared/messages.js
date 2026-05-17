@@ -274,6 +274,10 @@ const TOAST = {
   HIGHLIGHT_DELETED: '標註已刪除',
   HIGHLIGHT_DUPLICATE: '此文字已標註',
   HIGHLIGHT_FAILED: '標註失敗，請重試',
+  SYNC_FAILED_AUTH: '同步失敗：Notion 授權已失效，請重新連接',
+  SYNC_FAILED_RATE_LIMIT: '同步失敗：請求過於頻繁，請稍後再試',
+  SYNC_FAILED_NETWORK: '同步失敗：網路連線異常，請檢查網路',
+  SYNC_FAILED_PAGE: '同步失敗：找不到目標頁面，請確認頁面存在',
 };
 
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =

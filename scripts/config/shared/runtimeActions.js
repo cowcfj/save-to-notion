@@ -668,6 +668,19 @@ const DRIVE_SYNC_ACTIONS = {
  * @property {Array<{type: string, timestamp: number}>} events
  */
 
+/**
+ * @typedef {object} ShowToastRequest
+ * @property {'SHOW_TOAST'} action
+ * @property {string} messageKey
+ * @property {string} [level]
+ */
+
+/**
+ * @typedef {object} ShowToastResponse
+ * @property {boolean} [success]
+ * @property {string} [error]
+ */
+
 const SIDEPANEL_ACTIONS = {
   OPEN_SIDE_PANEL: 'OPEN_SIDE_PANEL',
 };
@@ -677,6 +690,7 @@ const BRIDGE_ACTIONS = {
   INIT_BUNDLE: 'INIT_BUNDLE',
   REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
   CONTENT_BRIDGE_SHOW_FLOATING_RAIL: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
+  SHOW_TOAST: 'SHOW_TOAST',
 };
 
 const DIAGNOSTICS_ACTIONS = {
@@ -734,6 +748,7 @@ export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
  * @property {InitBundleRequest['action']} INIT_BUNDLE - Request: {@link InitBundleRequest}; Response: {@link InitBundleResponse}
  * @property {ReplayBufferedEventsRequest['action']} REPLAY_BUFFERED_EVENTS - Request: {@link ReplayBufferedEventsRequest}; Response: {@link ReplayBufferedEventsResponse}
  * @property {ContentBridgeShowFloatingRailRequest['action']} CONTENT_BRIDGE_SHOW_FLOATING_RAIL - Request: {@link ContentBridgeShowFloatingRailRequest}; Response: {@link ContentBridgeShowFloatingRailResponse}
+ * @property {ShowToastRequest['action']} SHOW_TOAST - Request: {@link ShowToastRequest}; Response: {@link ShowToastResponse}
  */
 
 /** @type {Readonly<RuntimeActionsRegistry>} */

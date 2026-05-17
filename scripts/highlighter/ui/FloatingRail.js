@@ -26,6 +26,7 @@ import {
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
+import { HIGHLIGHT_ERROR_CODES } from '../../config/shared/messages.js';
 import {
   playLaunchAnimation,
   playFireworkAnimation,
@@ -627,25 +628,29 @@ export class FloatingRail {
     const launchAnim = saveBtn ? playLaunchAnimation(saveBtn) : null;
     let operation = 'savePageFromRail';
     try {
+      let response;
       if (this._pageStatus?.isSaved) {
         operation = 'syncHighlights';
         const highlights = this.manager.collectHighlightsForNotion?.() || [];
-        await syncHighlights(highlights);
+        response = await syncHighlights(highlights);
       } else {
-        await savePageFromRail();
+        response = await savePageFromRail();
       }
 
-      if (launchAnim) {
-        launchAnim.cancel();
+      if (
+        response?.success !== true &&
+        response?.errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE
+      ) {
+        throw new Error(response?.error || 'sync_failed');
       }
+
+      launchAnim?.cancel();
       if (saveBtn) {
         await playFireworkAnimation(saveBtn);
       }
       await this._refreshPageStatus();
     } catch (error) {
-      if (launchAnim) {
-        launchAnim.cancel();
-      }
+      launchAnim?.cancel();
       if (saveBtn && errorTooltip) {
         await playFailAnimation(saveBtn, errorTooltip);
       }

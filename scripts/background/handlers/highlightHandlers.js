@@ -23,6 +23,7 @@ import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridg
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { getActiveTab } from './handlerUtils.js';
+import { sendToastToTab, classifyErrorForToast } from './toastUtils.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -598,8 +599,11 @@ export function createHighlightHandlers(services) {
           result.highlightCount = highlights.length;
           result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
         } else {
-          // 注意：performHighlightUpdate 已格式化 result.error 為用戶友善訊息
           Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
+          const toastKey = classifyErrorForToast(result.errorCode);
+          if (toastKey) {
+            sendToastToTab(sender.tab.id, toastKey, 'error');
+          }
         }
         sendResponse(result);
       } catch (error) {
