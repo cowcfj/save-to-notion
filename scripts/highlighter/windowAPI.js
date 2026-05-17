@@ -186,7 +186,7 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
       }
     },
     collectHighlights: () => manager.collectHighlightsForNotion(),
-    clearAll: () => manager.clearAll(),
+    clearAll: (options = {}) => manager.clearAll(options),
     getCount: () => manager.getCount(),
     forceRestoreHighlights: () => restoreManager.restore(),
   };
@@ -208,7 +208,7 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}) {
 
   globalThis.clearPageHighlights = () => {
     if (globalThis.notionHighlighter) {
-      globalThis.notionHighlighter.clearAll();
+      globalThis.notionHighlighter.clearAll({ skipStorage: true });
     }
   };
 }
