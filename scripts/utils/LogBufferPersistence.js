@@ -6,13 +6,17 @@ const ALARM_PERIOD_MINUTES = 0.5; // 30 秒（chrome.alarms 最小間隔）
 
 let _buffer = null;
 
-function flush() {
+async function flush() {
   if (!_buffer || !_buffer.isDirty()) {
     return;
   }
   const entries = _buffer.getAll();
-  chrome.storage.session.set({ [STORAGE_KEY]: entries });
-  _buffer.markClean();
+  try {
+    await chrome.storage.session.set({ [STORAGE_KEY]: entries });
+    _buffer.markClean();
+  } catch {
+    // quota exceeded 或 session storage 不可用時保留 dirty 狀態，下次重試
+  }
 }
 
 async function restore() {

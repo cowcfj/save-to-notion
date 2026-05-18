@@ -66,7 +66,7 @@ describe('LogBufferPersistence', () => {
     buffer.push({ level: 'info', source: 'bg', message: 'new-entry', context: {} });
     expect(buffer.isDirty()).toBe(true);
 
-    LogBufferPersistence.flush();
+    await LogBufferPersistence.flush();
 
     expect(chrome.storage.session.set).toHaveBeenCalled();
     const stored = chrome.storage.session.set.mock.calls.at(-1)[0]._logBuffer;
@@ -80,9 +80,21 @@ describe('LogBufferPersistence', () => {
     await LogBufferPersistence.init(buffer);
 
     chrome.storage.session.set.mockClear();
-    LogBufferPersistence.flush();
+    await LogBufferPersistence.flush();
 
     expect(chrome.storage.session.set).not.toHaveBeenCalled();
+  });
+
+  test('flush keeps buffer dirty when storage write fails', async () => {
+    const buffer = new LogBuffer(10);
+    await LogBufferPersistence.init(buffer);
+
+    buffer.push({ level: 'error', source: 'bg', message: 'quota-test', context: {} });
+    chrome.storage.session.set.mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'));
+
+    await LogBufferPersistence.flush();
+
+    expect(buffer.isDirty()).toBe(true);
   });
 
   test('alarm triggers flush', async () => {
