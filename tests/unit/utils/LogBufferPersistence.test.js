@@ -53,7 +53,7 @@ describe('LogBufferPersistence', () => {
     const buffer = new LogBuffer(10);
     await LogBufferPersistence.init(buffer);
 
-    expect(chrome.alarms.create).toHaveBeenCalledWith('log-buffer-flush', { periodInMinutes: 0.5 });
+    expect(chrome.alarms.create).toHaveBeenCalledWith('log-buffer-flush', { periodInMinutes: 1 });
     expect(chrome.alarms.onAlarm.addListener).toHaveBeenCalled();
     expect(buffer.getAll()).toHaveLength(1);
     expect(buffer.getAll()[0].message).toBe('restored');

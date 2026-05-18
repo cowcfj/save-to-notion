@@ -2,7 +2,7 @@
 
 const STORAGE_KEY = '_logBuffer';
 const ALARM_NAME = 'log-buffer-flush';
-const ALARM_PERIOD_MINUTES = 0.5; // 30 秒（chrome.alarms 最小間隔）
+const ALARM_PERIOD_MINUTES = 1;
 
 let _buffer = null;
 
