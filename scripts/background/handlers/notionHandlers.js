@@ -9,7 +9,11 @@
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { sanitizeApiError, validateInternalRequest } from '../../utils/securityUtils.js';
-import { refreshOAuthToken as refreshOAuthTokenCoordinator } from '../../utils/notionAuth.js';
+import {
+  getActiveNotionToken,
+  refreshOAuthToken as refreshOAuthTokenCoordinator,
+} from '../../utils/notionAuth.js';
+import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 
 export function createNotionHandlers({ notionService }) {
   return {
@@ -46,8 +50,24 @@ export function createNotionHandlers({ notionService }) {
             return fallback;
           })();
 
-        // 以無狀態方式執行搜索，如果提供了 apiKey 則覆蓋全域配置
-        const result = await notionService.search(params, { apiKey });
+        // caller（如 onboarding）未帶 apiKey 時，從 storage 取目前有效的 token；
+        // OAuth 完成後 token 已落地 chrome.storage.local，但 NotionService 的全域 client
+        // 並未自動 hydrate，故在此邊界補上以避免出現 API_KEY_NOT_CONFIGURED。
+        let resolvedApiKey = apiKey;
+        if (!resolvedApiKey) {
+          const active = await getActiveNotionToken();
+          resolvedApiKey = active?.token ?? null;
+        }
+        if (!resolvedApiKey) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED),
+          });
+          return;
+        }
+
+        // 以無狀態方式執行搜索，apiKey 由 caller 或 storage hydration 提供
+        const result = await notionService.search(params, { apiKey: resolvedApiKey });
         sendResponse({ success: true, data: result });
       } catch (error) {
         const safeMessage = sanitizeApiError(error, 'search_notion');
