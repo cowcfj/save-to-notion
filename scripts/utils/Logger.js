@@ -8,6 +8,7 @@
  */
 
 import { LogBuffer } from './LogBuffer.js';
+import { LogBufferPersistence } from './LogBufferPersistence.js';
 import { LogSanitizer } from './LogSanitizer.js';
 import { LOG_ICONS } from '../config/shared/ui.js';
 import { DEV_LOG_SINK, DEV_LOG_SINK_BATCH } from '../config/runtimeActions/diagnosticsActions.js';
@@ -388,6 +389,7 @@ function initDebugState() {
   // 初始化 LogBuffer (僅 Background)
   if (isBackground && !_logBuffer) {
     _logBuffer = new LogBuffer(DEFAULT_BUFFER_CAPACITY);
+    LogBufferPersistence.init(_logBuffer);
   }
 
   _isInitialized = true;
