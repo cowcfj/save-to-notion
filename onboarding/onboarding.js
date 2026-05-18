@@ -18,10 +18,17 @@ import {
   markCompleted,
   isNotionConnected,
   runNotionOAuthFlow,
+  fetchNotionDatabases,
+  selectDataSource,
 } from './onboardingController.js';
 
 const root = document.querySelector('#onboarding-root');
 const ERROR_SCOPE_CONNECT_NOTION = 'connect-notion';
+const ERROR_SCOPE_FETCH_DATABASES = 'fetch-databases';
+const STEP3_CONFIRM_SELECTOR = '[data-step3-confirm]';
+const ARIA_CHECKED = 'aria-checked';
+
+let selectedDatabaseId = null;
 
 function setError(scope, message) {
   const errorEl = root.querySelector(`[data-error="${scope}"]`);
@@ -34,6 +41,97 @@ function setError(scope, message) {
   } else {
     errorEl.textContent = '';
     errorEl.hidden = true;
+  }
+}
+
+function setStep3State(state) {
+  const containers = root.querySelectorAll('[data-step3-state]');
+  containers.forEach(container => {
+    container.hidden = container.dataset.step3State !== state;
+  });
+  const confirmButton = root.querySelector(STEP3_CONFIRM_SELECTOR);
+  if (confirmButton) {
+    // needs-auth 時隱藏「下一步」，僅留 skip
+    confirmButton.hidden = state === 'needs-auth';
+  }
+}
+
+function renderDatabaseList(databases) {
+  const listEl = root.querySelector('[data-database-list]');
+  if (!listEl) {
+    return;
+  }
+  listEl.replaceChildren();
+  databases.forEach(db => {
+    const item = document.createElement('li');
+    item.className = 'database-item';
+    item.dataset.databaseId = db.id;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'radio');
+    item.setAttribute(ARIA_CHECKED, 'false');
+    item.textContent = db.title;
+    listEl.append(item);
+  });
+}
+
+function selectDatabaseItem(item) {
+  const previous = root.querySelector('.database-item.selected');
+  if (previous) {
+    previous.classList.remove('selected');
+    previous.setAttribute(ARIA_CHECKED, 'false');
+  }
+  item.classList.add('selected');
+  item.setAttribute(ARIA_CHECKED, 'true');
+  selectedDatabaseId = item.dataset.databaseId;
+  const confirmButton = root.querySelector(STEP3_CONFIRM_SELECTOR);
+  if (confirmButton) {
+    confirmButton.disabled = false;
+  }
+}
+
+function sendRuntimeMessage(message) {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendMessage(message, response => {
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          reject(new Error(lastError.message || 'runtime_lasterror'));
+          return;
+        }
+        resolve(response);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function loadDatabasesForStep3() {
+  setStep3State('loading');
+  setError(ERROR_SCOPE_FETCH_DATABASES, '');
+  selectedDatabaseId = null;
+  const confirmButton = root.querySelector(STEP3_CONFIRM_SELECTOR);
+  if (confirmButton) {
+    confirmButton.disabled = true;
+  }
+  try {
+    const databases = await fetchNotionDatabases({ sendMessage: sendRuntimeMessage });
+    if (databases.length === 0) {
+      setStep3State('empty');
+      return;
+    }
+    renderDatabaseList(databases);
+    setStep3State('list');
+  } catch (error) {
+    Logger.warn('[Onboarding] 拉取 database 列表失敗', {
+      action: 'fetchNotionDatabases',
+      error: error?.message ?? String(error),
+    });
+    setError(
+      ERROR_SCOPE_FETCH_DATABASES,
+      `載入失敗：${error?.message ?? '未知錯誤'}，請重試或稍後再說`
+    );
+    setStep3State('error');
   }
 }
 
@@ -51,6 +149,23 @@ async function handleStepEntered(step) {
         error: error?.message ?? String(error),
       });
     }
+    return;
+  }
+  if (step === 3) {
+    let connected = false;
+    try {
+      connected = await isNotionConnected(chrome.storage.local);
+    } catch (error) {
+      Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
+        action: 'isNotionConnected',
+        error: error?.message ?? String(error),
+      });
+    }
+    if (!connected) {
+      setStep3State('needs-auth');
+      return;
+    }
+    await loadDatabasesForStep3();
     return;
   }
   if (step === TOTAL_STEPS) {
@@ -88,8 +203,37 @@ async function handleConnectNotion(button) {
   }
 }
 
+async function handleConfirmDatabase(button) {
+  if (!selectedDatabaseId) {
+    return;
+  }
+  const originalDisabled = button.disabled;
+  button.disabled = true;
+  try {
+    await selectDataSource({
+      storage: chrome.storage.local,
+      dataSourceId: selectedDatabaseId,
+    });
+    const step = nextStep(root);
+    await handleStepEntered(step);
+  } catch (error) {
+    Logger.warn('[Onboarding] 寫入 notionDataSourceId 失敗', {
+      action: 'selectDataSource',
+      error: error?.message ?? String(error),
+    });
+    setError(ERROR_SCOPE_FETCH_DATABASES, `儲存失敗：${error?.message ?? '未知錯誤'}，請重試`);
+    setStep3State('error');
+    button.disabled = originalDisabled;
+  }
+}
+
 function bindActions() {
   root.addEventListener('click', async event => {
+    const databaseItem = event.target.closest('.database-item[data-database-id]');
+    if (databaseItem) {
+      selectDatabaseItem(databaseItem);
+      return;
+    }
     const trigger = event.target.closest('[data-action]');
     if (!trigger) {
       return;
@@ -108,6 +252,14 @@ function bindActions() {
       }
       case 'connect-notion': {
         await handleConnectNotion(trigger);
+        break;
+      }
+      case 'confirm-database': {
+        await handleConfirmDatabase(trigger);
+        break;
+      }
+      case 'retry-databases': {
+        await loadDatabasesForStep3();
         break;
       }
       case 'finish': {

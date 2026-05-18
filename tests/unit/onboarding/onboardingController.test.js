@@ -21,6 +21,9 @@ import {
   markCompleted,
   isNotionConnected,
   runNotionOAuthFlow,
+  fetchNotionDatabases,
+  selectDataSource,
+  extractDatabaseTitle,
 } from '../../../onboarding/onboardingController.js';
 import { initiateNotionOAuth } from '../../../scripts/auth/notionOAuthInitiator.js';
 import {
@@ -233,6 +236,101 @@ describe('onboardingController', () => {
       saveNotionOAuthToken.mockRejectedValueOnce(new Error('storage_quota'));
 
       await expect(runNotionOAuthFlow()).rejects.toThrow('storage_quota');
+    });
+  });
+
+  describe('extractDatabaseTitle', () => {
+    it('應從 title[0].plain_text 取出純文字', () => {
+      const db = { title: [{ plain_text: 'My DB', text: { content: '其他' } }] };
+      expect(extractDatabaseTitle(db)).toBe('My DB');
+    });
+
+    it('plain_text 缺失時 fallback 到 text.content', () => {
+      const db = { title: [{ text: { content: 'Fallback DB' } }] };
+      expect(extractDatabaseTitle(db)).toBe('Fallback DB');
+    });
+
+    it('title 空陣列時應回傳「（未命名）」', () => {
+      expect(extractDatabaseTitle({ title: [] })).toBe('（未命名）');
+    });
+
+    it('title 缺欄位時應回傳「（未命名）」', () => {
+      expect(extractDatabaseTitle({})).toBe('（未命名）');
+    });
+  });
+
+  describe('fetchNotionDatabases', () => {
+    it('成功應發送 SEARCH_NOTION 並回傳已過濾的 database 列表', async () => {
+      const sendMessage = jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          results: [
+            { id: 'db-1', object: 'database', title: [{ plain_text: 'Database 1' }] },
+            { id: 'page-1', object: 'page', title: [{ plain_text: 'Page (skip)' }] },
+            { id: 'db-2', object: 'database', title: [{ plain_text: 'Database 2' }] },
+          ],
+        },
+      });
+
+      const result = await fetchNotionDatabases({ sendMessage });
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        action: 'searchNotion',
+        searchParams: { filter: { property: 'object', value: 'database' } },
+      });
+      expect(result).toEqual([
+        { id: 'db-1', title: 'Database 1' },
+        { id: 'db-2', title: 'Database 2' },
+      ]);
+    });
+
+    it('回傳 success: false 時應拋出含 error 訊息', async () => {
+      const sendMessage = jest.fn().mockResolvedValue({
+        success: false,
+        error: 'unauthorized',
+      });
+
+      await expect(fetchNotionDatabases({ sendMessage })).rejects.toThrow('unauthorized');
+    });
+
+    it('沒 results 時應回傳空陣列', async () => {
+      const sendMessage = jest.fn().mockResolvedValue({
+        success: true,
+        data: { results: [] },
+      });
+
+      await expect(fetchNotionDatabases({ sendMessage })).resolves.toEqual([]);
+    });
+
+    it('sendMessage 拋錯時應 reject', async () => {
+      const sendMessage = jest.fn().mockRejectedValue(new Error('messaging_failed'));
+
+      await expect(fetchNotionDatabases({ sendMessage })).rejects.toThrow('messaging_failed');
+    });
+
+    it('未提供 response 時應拋 no_response 錯誤', async () => {
+      const sendMessage = jest.fn().mockResolvedValue(undefined);
+
+      await expect(fetchNotionDatabases({ sendMessage })).rejects.toThrow();
+    });
+  });
+
+  describe('selectDataSource', () => {
+    it('應寫入 notionDataSourceId 到 storage', async () => {
+      const setMock = jest.fn().mockResolvedValue(undefined);
+      const storage = { set: setMock };
+
+      await selectDataSource({ storage, dataSourceId: 'db-xyz' });
+
+      expect(setMock).toHaveBeenCalledWith({ notionDataSourceId: 'db-xyz' });
+    });
+
+    it('未提供 dataSourceId 時應拋錯不寫 storage', async () => {
+      const setMock = jest.fn();
+      const storage = { set: setMock };
+
+      await expect(selectDataSource({ storage, dataSourceId: '' })).rejects.toThrow();
+      expect(setMock).not.toHaveBeenCalled();
     });
   });
 });

@@ -13,6 +13,7 @@ import {
   exchangeNotionOAuthCode,
   saveNotionOAuthToken,
 } from '../scripts/auth/notionOAuthCompleter.js';
+import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 
 export const TOTAL_STEPS = 6;
 export { ONBOARDING_COMPLETED_KEY } from '../scripts/config/shared/storage.js';
@@ -106,4 +107,60 @@ export async function runNotionOAuthFlow() {
   const tokenData = await exchangeNotionOAuthCode({ code, redirectUri });
   await saveNotionOAuthToken(tokenData);
   return tokenData;
+}
+
+/**
+ * 從 Notion search 回傳的 database 物件取出純文字標題；缺欄位時回傳「（未命名）」。
+ *
+ * @param {object} db - Notion search result item with object === 'database'
+ * @returns {string}
+ */
+export function extractDatabaseTitle(db) {
+  const titleParts = db?.title;
+  if (Array.isArray(titleParts) && titleParts.length > 0) {
+    const first = titleParts[0];
+    return first?.plain_text || first?.text?.content || '（未命名）';
+  }
+  return '（未命名）';
+}
+
+/**
+ * 透過 chrome.runtime.sendMessage 呼叫 SEARCH_NOTION，回傳已過濾為 database 的列表。
+ *
+ * @param {{ sendMessage: (message: object) => Promise<object> }} deps
+ *   sendMessage 由 caller 注入；可 wrap chrome.runtime.sendMessage 並轉成 Promise。
+ * @returns {Promise<Array<{ id: string, title: string }>>}
+ * @throws {Error} 後端回 success: false、無 response、或 sendMessage 拋錯時
+ */
+export async function fetchNotionDatabases({ sendMessage }) {
+  const response = await sendMessage({
+    action: RUNTIME_ACTIONS.SEARCH_NOTION,
+    searchParams: { filter: { property: 'object', value: 'database' } },
+  });
+  if (!response) {
+    throw new Error('SEARCH_NOTION 沒有回傳 response');
+  }
+  if (!response.success) {
+    throw new Error(response.error || 'SEARCH_NOTION 失敗');
+  }
+  const results = response.data?.results;
+  if (!Array.isArray(results)) {
+    return [];
+  }
+  return results
+    .filter(item => item?.object === 'database')
+    .map(db => ({ id: db.id, title: extractDatabaseTitle(db) }));
+}
+
+/**
+ * 將選中的 database id 寫入 chrome.storage.local 的 notionDataSourceId。
+ *
+ * @param {{ storage: { set: (items: object) => Promise<void> }, dataSourceId: string }} params
+ * @returns {Promise<void>}
+ */
+export async function selectDataSource({ storage, dataSourceId }) {
+  if (typeof dataSourceId !== 'string' || !dataSourceId.trim()) {
+    throw new Error('dataSourceId 不可為空');
+  }
+  await storage.set({ notionDataSourceId: dataSourceId });
 }

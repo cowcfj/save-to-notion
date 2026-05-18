@@ -51,10 +51,46 @@
 
       <section data-step="3" class="onboarding-step" hidden>
         <h2>選擇預設儲存目標</h2>
-        <p class="onboarding-placeholder">（Step 7 補上實作）</p>
+        <p class="onboarding-lead">
+          設定一個預設的 database，未來儲存頁面時會自動使用；之後可以隨時在設定頁中更換。
+        </p>
+
+        <div data-step3-state="needs-auth" hidden>
+          <p class="onboarding-error">先連接 Notion 才能選擇 database，請回到上一步授權後再試。</p>
+        </div>
+
+        <div data-step3-state="loading" hidden>
+          <p class="onboarding-placeholder">正在載入 database 列表...</p>
+        </div>
+
+        <div data-step3-state="list" hidden>
+          <ul class="database-list" data-database-list></ul>
+        </div>
+
+        <div data-step3-state="empty" hidden>
+          <p class="onboarding-placeholder">
+            還沒有任何 database 連接到此 integration；到 Notion 把目標 database
+            分享給擴展後，按下方「重試」即可。
+          </p>
+          <button type="button" class="btn-link" data-action="retry-databases">重試</button>
+        </div>
+
+        <div data-step3-state="error" hidden>
+          <p class="onboarding-error" data-error="fetch-databases"></p>
+          <button type="button" class="btn-link" data-action="retry-databases">重試</button>
+        </div>
+
         <div class="onboarding-actions">
-          <button type="button" class="btn-link" data-action="skip">跳過設定</button>
-          <button type="button" class="btn-primary" data-action="next">下一步</button>
+          <button type="button" class="btn-link" data-action="skip">稍後再說</button>
+          <button
+            type="button"
+            class="btn-primary"
+            data-action="confirm-database"
+            data-step3-confirm
+            disabled
+          >
+            下一步
+          </button>
         </div>
       </section>
 
