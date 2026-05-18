@@ -20,11 +20,15 @@ import {
   runNotionOAuthFlow,
   fetchNotionDatabases,
   selectDataSource,
+  isAccountFeatureEnabled,
+  isAccountLoggedIn,
 } from './onboardingController.js';
+import { startAccountLogin } from '../scripts/auth/accountLoginInitiator.js';
 
 const root = document.querySelector('#onboarding-root');
 const ERROR_SCOPE_CONNECT_NOTION = 'connect-notion';
 const ERROR_SCOPE_FETCH_DATABASES = 'fetch-databases';
+const ERROR_SCOPE_LOGIN_ACCOUNT = 'login-account';
 const STEP3_CONFIRM_SELECTOR = '[data-step3-confirm]';
 const ARIA_CHECKED = 'aria-checked';
 
@@ -135,48 +139,89 @@ async function loadDatabasesForStep3() {
   }
 }
 
-async function handleStepEntered(step) {
-  if (step === 2) {
-    setError(ERROR_SCOPE_CONNECT_NOTION, '');
-    try {
-      if (await isNotionConnected(chrome.storage.local)) {
-        const advanced = nextStep(root);
-        await handleStepEntered(advanced);
-      }
-    } catch (error) {
-      Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
-        action: 'isNotionConnected',
-        error: error?.message ?? String(error),
-      });
+async function handleStep2Entered() {
+  setError(ERROR_SCOPE_CONNECT_NOTION, '');
+  try {
+    if (await isNotionConnected(chrome.storage.local)) {
+      const advanced = nextStep(root);
+      await handleStepEntered(advanced);
     }
+  } catch (error) {
+    Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
+      action: 'isNotionConnected',
+      error: error?.message ?? String(error),
+    });
+  }
+}
+
+async function handleStep3Entered() {
+  let connected = false;
+  try {
+    connected = await isNotionConnected(chrome.storage.local);
+  } catch (error) {
+    Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
+      action: 'isNotionConnected',
+      error: error?.message ?? String(error),
+    });
+  }
+  if (!connected) {
+    setStep3State('needs-auth');
     return;
   }
-  if (step === 3) {
-    let connected = false;
-    try {
-      connected = await isNotionConnected(chrome.storage.local);
-    } catch (error) {
-      Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
-        action: 'isNotionConnected',
-        error: error?.message ?? String(error),
-      });
+  await loadDatabasesForStep3();
+}
+
+async function handleStep4Entered() {
+  setError(ERROR_SCOPE_LOGIN_ACCOUNT, '');
+  setStep4WaitingVisible(false);
+  if (!isAccountFeatureEnabled()) {
+    const advanced = nextStep(root);
+    await handleStepEntered(advanced);
+    return;
+  }
+  try {
+    if (await isAccountLoggedIn(chrome.storage.local)) {
+      const advanced = nextStep(root);
+      await handleStepEntered(advanced);
     }
-    if (!connected) {
-      setStep3State('needs-auth');
+  } catch (error) {
+    Logger.warn('[Onboarding] 偵測 account 登入狀態失敗', {
+      action: 'isAccountLoggedIn',
+      error: error?.message ?? String(error),
+    });
+  }
+}
+
+async function handleStepCompleted() {
+  try {
+    await markCompleted(chrome.storage.local);
+  } catch (error) {
+    Logger.warn('[Onboarding] 寫入完成旗標失敗', {
+      action: 'markCompleted',
+      error: error?.message ?? String(error),
+    });
+  }
+}
+
+async function handleStepEntered(step) {
+  switch (step) {
+    case 2: {
+      await handleStep2Entered();
       return;
     }
-    await loadDatabasesForStep3();
-    return;
-  }
-  if (step === TOTAL_STEPS) {
-    try {
-      await markCompleted(chrome.storage.local);
-    } catch (error) {
-      Logger.warn('[Onboarding] 寫入完成旗標失敗', {
-        action: 'markCompleted',
-        error: error?.message ?? String(error),
-      });
+    case 3: {
+      await handleStep3Entered();
+      return;
     }
+    case 4: {
+      await handleStep4Entered();
+      return;
+    }
+    case TOTAL_STEPS: {
+      await handleStepCompleted();
+      return;
+    }
+    // default: step 1, 5 不需 side effect
   }
 }
 
@@ -227,6 +272,56 @@ async function handleConfirmDatabase(button) {
   }
 }
 
+function setStep4WaitingVisible(visible) {
+  const waitingEl = root.querySelector('[data-step4-state="waiting"]');
+  if (waitingEl) {
+    waitingEl.hidden = !visible;
+  }
+}
+
+async function handleLoginAccount(button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = '登入中...';
+  setError(ERROR_SCOPE_LOGIN_ACCOUNT, '');
+
+  // 設置 storage listener 偵測登入完成（accountEmail 寫入）
+  const restoreButton = () => {
+    button.disabled = false;
+    button.textContent = originalText;
+    setStep4WaitingVisible(false);
+  };
+  const onChanged = async (changes, areaName) => {
+    if (areaName !== 'local' || !changes.accountEmail?.newValue) {
+      return;
+    }
+    chrome.storage.onChanged.removeListener(onChanged);
+    setStep4WaitingVisible(false);
+    const step = nextStep(root);
+    await handleStepEntered(step);
+  };
+  chrome.storage.onChanged.addListener(onChanged);
+
+  try {
+    const result = await startAccountLogin();
+    if (!result?.success) {
+      throw new Error(result?.error || 'login_failed');
+    }
+    setStep4WaitingVisible(true);
+  } catch (error) {
+    chrome.storage.onChanged.removeListener(onChanged);
+    Logger.warn('[Onboarding] account 登入觸發失敗', {
+      action: 'startAccountLogin',
+      error: error?.message ?? String(error),
+    });
+    setError(
+      ERROR_SCOPE_LOGIN_ACCOUNT,
+      `登入失敗：${error?.message ?? '未知錯誤'}，請重試或稍後再說`
+    );
+    restoreButton();
+  }
+}
+
 function bindActions() {
   root.addEventListener('click', async event => {
     const databaseItem = event.target.closest('.database-item[data-database-id]');
@@ -252,6 +347,10 @@ function bindActions() {
       }
       case 'connect-notion': {
         await handleConnectNotion(trigger);
+        break;
+      }
+      case 'login-account': {
+        await handleLoginAccount(trigger);
         break;
       }
       case 'confirm-database': {

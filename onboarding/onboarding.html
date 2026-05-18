@@ -96,10 +96,23 @@
 
       <section data-step="4" class="onboarding-step" hidden>
         <h2>登入 Save to Notion 帳號</h2>
-        <p class="onboarding-placeholder">（Step 8 補上實作）</p>
+        <p class="onboarding-lead">
+          可選步驟。登入後可享有跨裝置同步、雲端備份標註、以及多 Notion 工作區管理。
+        </p>
+        <ul class="onboarding-bullets">
+          <li>跨裝置同步保存記錄與標註</li>
+          <li>雲端備份你的設定，重灌後一鍵還原</li>
+          <li>未來進階功能優先開放</li>
+        </ul>
+        <p class="onboarding-error" data-error="login-account" hidden></p>
+        <p class="onboarding-placeholder" data-step4-state="waiting" hidden>
+          已開啟登入頁面，完成 Google 授權後會自動繼續。
+        </p>
         <div class="onboarding-actions">
-          <button type="button" class="btn-link" data-action="skip">跳過設定</button>
-          <button type="button" class="btn-primary" data-action="next">下一步</button>
+          <button type="button" class="btn-link" data-action="skip">稍後再說</button>
+          <button type="button" class="btn-primary" data-action="login-account">
+            使用 Google 登入
+          </button>
         </div>
       </section>
 

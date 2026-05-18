@@ -14,6 +14,7 @@ import {
   saveNotionOAuthToken,
 } from '../scripts/auth/notionOAuthCompleter.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
+import { BUILD_ENV } from '../scripts/config/env/index.js';
 
 export const TOTAL_STEPS = 6;
 export { ONBOARDING_COMPLETED_KEY } from '../scripts/config/shared/storage.js';
@@ -163,4 +164,25 @@ export async function selectDataSource({ storage, dataSourceId }) {
     throw new Error('dataSourceId 不可為空');
   }
   await storage.set({ notionDataSourceId: dataSourceId });
+}
+
+/**
+ * 檢查 Save to Notion 帳號功能是否啟用（feature flag）。
+ *
+ * @returns {boolean}
+ */
+export function isAccountFeatureEnabled() {
+  return Boolean(BUILD_ENV.ENABLE_ACCOUNT);
+}
+
+/**
+ * 檢查 chrome.storage.local 是否已有 account session（透過 accountEmail 判斷）。
+ * 與 scripts/auth/accountSession.js 的 getAccountProfile() 同一語意。
+ *
+ * @param {{ get: (key: string) => Promise<object> }} storage
+ * @returns {Promise<boolean>}
+ */
+export async function isAccountLoggedIn(storage) {
+  const result = await storage.get('accountEmail');
+  return Boolean(result?.accountEmail);
 }

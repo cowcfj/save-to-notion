@@ -11,6 +11,12 @@ jest.mock('../../../scripts/auth/notionOAuthCompleter.js', () => ({
   saveNotionOAuthToken: jest.fn(),
 }));
 
+jest.mock('../../../scripts/config/env/index.js', () => ({
+  BUILD_ENV: {
+    ENABLE_ACCOUNT: true,
+  },
+}));
+
 import {
   TOTAL_STEPS,
   ONBOARDING_COMPLETED_KEY,
@@ -24,12 +30,15 @@ import {
   fetchNotionDatabases,
   selectDataSource,
   extractDatabaseTitle,
+  isAccountFeatureEnabled,
+  isAccountLoggedIn,
 } from '../../../onboarding/onboardingController.js';
 import { initiateNotionOAuth } from '../../../scripts/auth/notionOAuthInitiator.js';
 import {
   exchangeNotionOAuthCode,
   saveNotionOAuthToken,
 } from '../../../scripts/auth/notionOAuthCompleter.js';
+import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 
 function buildRoot() {
   const root = document.createElement('div');
@@ -331,6 +340,51 @@ describe('onboardingController', () => {
 
       await expect(selectDataSource({ storage, dataSourceId: '' })).rejects.toThrow();
       expect(setMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isAccountFeatureEnabled', () => {
+    afterEach(() => {
+      BUILD_ENV.ENABLE_ACCOUNT = true;
+    });
+
+    it('BUILD_ENV.ENABLE_ACCOUNT === true 應回傳 true', () => {
+      BUILD_ENV.ENABLE_ACCOUNT = true;
+      expect(isAccountFeatureEnabled()).toBe(true);
+    });
+
+    it('BUILD_ENV.ENABLE_ACCOUNT === false 應回傳 false', () => {
+      BUILD_ENV.ENABLE_ACCOUNT = false;
+      expect(isAccountFeatureEnabled()).toBe(false);
+    });
+
+    it('BUILD_ENV.ENABLE_ACCOUNT 缺值應回傳 false', () => {
+      BUILD_ENV.ENABLE_ACCOUNT = undefined;
+      expect(isAccountFeatureEnabled()).toBe(false);
+    });
+  });
+
+  describe('isAccountLoggedIn', () => {
+    it('storage 含 accountEmail 應回傳 true', async () => {
+      const storage = {
+        get: jest.fn().mockResolvedValue({ accountEmail: 'user@example.com' }),
+      };
+      await expect(isAccountLoggedIn(storage)).resolves.toBe(true);
+      expect(storage.get).toHaveBeenCalledWith('accountEmail');
+    });
+
+    it('storage 無 accountEmail 應回傳 false', async () => {
+      const storage = {
+        get: jest.fn().mockResolvedValue({}),
+      };
+      await expect(isAccountLoggedIn(storage)).resolves.toBe(false);
+    });
+
+    it('accountEmail 為空字串應回傳 false', async () => {
+      const storage = {
+        get: jest.fn().mockResolvedValue({ accountEmail: '' }),
+      };
+      await expect(isAccountLoggedIn(storage)).resolves.toBe(false);
     });
   });
 });
