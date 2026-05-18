@@ -148,6 +148,9 @@ export class LogBuffer {
     this._fingerprintCounts = new Map(); // fp -> 當前實際 slot 數
     this._lastIndexByFingerprint = new Map(); // fp -> 最後寫入該 fp 的 buffer index
     this._anomalyEmitted = new Set(); // 已 emit 過 anomaly 的 fp
+
+    // [Session Persistence] flush 判斷用
+    this._dirty = false;
   }
 
   /**
@@ -176,6 +179,7 @@ export class LogBuffer {
     }
 
     this._writeRawEntry(entryToStore, fp);
+    this._dirty = true;
   }
 
   /**
@@ -229,6 +233,7 @@ export class LogBuffer {
       ...lastEntry.context,
       repeatCount: newRepeat,
     };
+    this._dirty = true;
 
     if (newRepeat === ANOMALY_THRESHOLD && !this._anomalyEmitted.has(fp)) {
       this._anomalyEmitted.add(fp);
@@ -347,5 +352,29 @@ export class LogBuffer {
       count: this.size,
       capacity: this.capacity,
     };
+  }
+
+  isDirty() {
+    return this._dirty;
+  }
+
+  markClean() {
+    this._dirty = false;
+  }
+
+  /**
+   * 從外部資料恢復 buffer 狀態（用於 session persistence restore）。
+   * 復用 push() 以保留 saturation protection 與 size check。
+   *
+   * @param {Array<object>} entries - 先前 getAll() 的快照
+   */
+  restoreFrom(entries) {
+    if (!Array.isArray(entries)) {
+      return;
+    }
+    for (const entry of entries) {
+      this.push(entry);
+    }
+    this._dirty = false;
   }
 }
