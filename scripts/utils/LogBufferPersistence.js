@@ -26,11 +26,9 @@ async function restore() {
   try {
     const result = await chrome.storage.session.get(STORAGE_KEY);
     const entries = result[STORAGE_KEY];
-    if (Array.isArray(entries) && entries.length > 0) {
-      _buffer.restoreFrom(entries);
-    }
+    _buffer.restoreFrom(Array.isArray(entries) ? entries : []);
   } catch {
-    // session storage 不可用時靜默失敗
+    _buffer.restoreFrom([]);
   }
 }
 
@@ -43,6 +41,7 @@ function handleAlarm(alarm) {
 export const LogBufferPersistence = {
   async init(logBuffer) {
     _buffer = logBuffer;
+    _buffer.prepareRestore();
     await restore();
     if (!chrome.alarms) {
       return;

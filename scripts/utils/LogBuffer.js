@@ -151,6 +151,10 @@ export class LogBuffer {
 
     // [Session Persistence] flush 判斷用
     this._dirty = false;
+
+    // [Session Persistence] restore gate：restore 期間暫存 push 呼叫
+    this._restoring = false;
+    this._pendingWrites = [];
   }
 
   /**
@@ -163,6 +167,11 @@ export class LogBuffer {
    * @param {object} entry - 日誌對象
    */
   push(entry) {
+    if (this._restoring) {
+      this._pendingWrites.push(entry);
+      return;
+    }
+
     let entryToStore = { ...entry };
 
     // [Performance Optimization] 僅在需要時執行完整序列化檢查
@@ -340,6 +349,7 @@ export class LogBuffer {
     this._fingerprintCounts.clear();
     this._lastIndexByFingerprint.clear();
     this._anomalyEmitted.clear();
+    this._dirty = true;
   }
 
   /**
@@ -363,18 +373,39 @@ export class LogBuffer {
   }
 
   /**
+   * 標記即將進行 restore，期間 push() 暫存到 pending queue。
+   */
+  prepareRestore() {
+    this._restoring = true;
+  }
+
+  /**
    * 從外部資料恢復 buffer 狀態（用於 session persistence restore）。
-   * 復用 push() 以保留 saturation protection 與 size check。
+   * 先重置 buffer，再寫入快照，最後 flush 任何 restore 期間暫存的 pending writes。
    *
    * @param {Array<object>} entries - 先前 getAll() 的快照
    */
   restoreFrom(entries) {
     if (!Array.isArray(entries)) {
+      this._restoring = false;
+      this._drainPendingWrites();
       return;
     }
+    this.clear();
     for (const entry of entries) {
       this.push(entry);
     }
     this._dirty = false;
+    this._restoring = false;
+    this._drainPendingWrites();
+  }
+
+  /** @private */
+  _drainPendingWrites() {
+    const pending = this._pendingWrites;
+    this._pendingWrites = [];
+    for (const entry of pending) {
+      this.push(entry);
+    }
   }
 }
