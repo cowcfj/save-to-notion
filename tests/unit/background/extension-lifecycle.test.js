@@ -154,6 +154,27 @@ describe('Background Extension Lifecycle', () => {
       background.handleExtensionInstall();
       expect(Logger.success).toHaveBeenCalledWith('[Lifecycle] 擴展首次安裝', expect.anything());
     });
+
+    test('應該開啟 onboarding tab', () => {
+      chrome.runtime.getURL.mockReturnValue('chrome-extension://id/onboarding/onboarding.html');
+      background.handleExtensionInstall();
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith('onboarding/onboarding.html');
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'chrome-extension://id/onboarding/onboarding.html',
+      });
+    });
+
+    test('開啟 onboarding tab 失敗時應記錄錯誤但不中斷安裝流程', async () => {
+      chrome.runtime.getURL.mockReturnValue('chrome-extension://id/onboarding/onboarding.html');
+      chrome.tabs.create.mockRejectedValueOnce(new Error('tab_create_failed'));
+      expect(() => background.handleExtensionInstall()).not.toThrow();
+      // 等待 unhandled rejection 進到 catch
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('開啟 onboarding tab 失敗'),
+        expect.anything()
+      );
+    });
   });
 
   describe('showUpdateNotification', () => {
