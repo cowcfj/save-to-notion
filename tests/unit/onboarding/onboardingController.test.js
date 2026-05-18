@@ -2,6 +2,15 @@
  * @jest-environment jsdom
  */
 
+jest.mock('../../../scripts/auth/notionOAuthInitiator.js', () => ({
+  initiateNotionOAuth: jest.fn(),
+}));
+
+jest.mock('../../../scripts/auth/notionOAuthCompleter.js', () => ({
+  exchangeNotionOAuthCode: jest.fn(),
+  saveNotionOAuthToken: jest.fn(),
+}));
+
 import {
   TOTAL_STEPS,
   ONBOARDING_COMPLETED_KEY,
@@ -10,7 +19,14 @@ import {
   nextStep,
   skipToEnd,
   markCompleted,
+  isNotionConnected,
+  runNotionOAuthFlow,
 } from '../../../onboarding/onboardingController.js';
+import { initiateNotionOAuth } from '../../../scripts/auth/notionOAuthInitiator.js';
+import {
+  exchangeNotionOAuthCode,
+  saveNotionOAuthToken,
+} from '../../../scripts/auth/notionOAuthCompleter.js';
 
 function buildRoot() {
   const root = document.createElement('div');
@@ -124,6 +140,99 @@ describe('onboardingController', () => {
   describe('ONBOARDING_COMPLETED_KEY', () => {
     it('應為 onboardingCompleted', () => {
       expect(ONBOARDING_COMPLETED_KEY).toBe('onboardingCompleted');
+    });
+  });
+
+  describe('isNotionConnected', () => {
+    it('storage 中有 notionOAuthToken 時應回傳 true', async () => {
+      const storage = {
+        get: jest.fn().mockResolvedValue({ notionOAuthToken: 'token-abc' }),
+      };
+      await expect(isNotionConnected(storage)).resolves.toBe(true);
+      expect(storage.get).toHaveBeenCalledWith('notionOAuthToken');
+    });
+
+    it('storage 中無 notionOAuthToken 時應回傳 false', async () => {
+      const storage = {
+        get: jest.fn().mockResolvedValue({}),
+      };
+      await expect(isNotionConnected(storage)).resolves.toBe(false);
+    });
+
+    it('notionOAuthToken 為空字串時應回傳 false', async () => {
+      const storage = {
+        get: jest.fn().mockResolvedValue({ notionOAuthToken: '' }),
+      };
+      await expect(isNotionConnected(storage)).resolves.toBe(false);
+    });
+  });
+
+  describe('runNotionOAuthFlow', () => {
+    beforeEach(() => {
+      initiateNotionOAuth.mockReset();
+      exchangeNotionOAuthCode.mockReset();
+      saveNotionOAuthToken.mockReset();
+    });
+
+    it('成功路徑應依序呼叫 initiator → exchange → save 並回傳 tokenData', async () => {
+      initiateNotionOAuth.mockResolvedValueOnce({
+        code: 'auth-code-1',
+        redirectUri: 'https://ext.test/callback',
+        csrfState: 'state-1',
+      });
+      exchangeNotionOAuthCode.mockResolvedValueOnce({
+        access_token: 'token-1',
+        refresh_token: 'refresh-1',
+        workspace_name: 'WS',
+      });
+      saveNotionOAuthToken.mockResolvedValueOnce(undefined);
+
+      const result = await runNotionOAuthFlow();
+
+      expect(initiateNotionOAuth).toHaveBeenCalledTimes(1);
+      expect(exchangeNotionOAuthCode).toHaveBeenCalledWith({
+        code: 'auth-code-1',
+        redirectUri: 'https://ext.test/callback',
+      });
+      expect(saveNotionOAuthToken).toHaveBeenCalledWith(
+        expect.objectContaining({ access_token: 'token-1' })
+      );
+      expect(result.workspace_name).toBe('WS');
+    });
+
+    it('initiator 拋錯時應 reject，且不應呼叫 exchange / save', async () => {
+      initiateNotionOAuth.mockRejectedValueOnce(new Error('user_cancel'));
+
+      await expect(runNotionOAuthFlow()).rejects.toThrow('user_cancel');
+      expect(exchangeNotionOAuthCode).not.toHaveBeenCalled();
+      expect(saveNotionOAuthToken).not.toHaveBeenCalled();
+    });
+
+    it('exchange 拋錯時應 reject，且不應呼叫 save', async () => {
+      initiateNotionOAuth.mockResolvedValueOnce({
+        code: 'c',
+        redirectUri: 'r',
+        csrfState: 's',
+      });
+      exchangeNotionOAuthCode.mockRejectedValueOnce(new Error('server_500'));
+
+      await expect(runNotionOAuthFlow()).rejects.toThrow('server_500');
+      expect(saveNotionOAuthToken).not.toHaveBeenCalled();
+    });
+
+    it('save 拋錯時應 reject', async () => {
+      initiateNotionOAuth.mockResolvedValueOnce({
+        code: 'c',
+        redirectUri: 'r',
+        csrfState: 's',
+      });
+      exchangeNotionOAuthCode.mockResolvedValueOnce({
+        access_token: 'a',
+        refresh_token: 'r',
+      });
+      saveNotionOAuthToken.mockRejectedValueOnce(new Error('storage_quota'));
+
+      await expect(runNotionOAuthFlow()).rejects.toThrow('storage_quota');
     });
   });
 });

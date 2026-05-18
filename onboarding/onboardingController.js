@@ -8,6 +8,11 @@
  */
 
 import { ONBOARDING_COMPLETED_KEY } from '../scripts/config/shared/storage.js';
+import { initiateNotionOAuth } from '../scripts/auth/notionOAuthInitiator.js';
+import {
+  exchangeNotionOAuthCode,
+  saveNotionOAuthToken,
+} from '../scripts/auth/notionOAuthCompleter.js';
 
 export const TOTAL_STEPS = 6;
 export { ONBOARDING_COMPLETED_KEY } from '../scripts/config/shared/storage.js';
@@ -75,4 +80,30 @@ export function skipToEnd(root) {
  */
 export async function markCompleted(storage) {
   await storage.set({ [ONBOARDING_COMPLETED_KEY]: true });
+}
+
+/**
+ * 檢查 chrome.storage.local 是否已存在有效的 Notion OAuth token。
+ *
+ * @param {{ get: (key: string) => Promise<object> }} storage
+ * @returns {Promise<boolean>}
+ */
+export async function isNotionConnected(storage) {
+  const result = await storage.get('notionOAuthToken');
+  return Boolean(result?.notionOAuthToken);
+}
+
+/**
+ * 串起 OAuth 三步：launchWebAuthFlow → 後端交換 token → 落地 storage。
+ *
+ * caller 持有 UI 狀態（按鈕 loading、錯誤訊息），這裡只負責流程編排。
+ * 任一步驟拋錯都會直接 reject，由 caller 處理 retry / skip。
+ *
+ * @returns {Promise<import('../scripts/auth/notionOAuthCompleter.js').NotionOAuthTokenData>}
+ */
+export async function runNotionOAuthFlow() {
+  const { code, redirectUri } = await initiateNotionOAuth();
+  const tokenData = await exchangeNotionOAuthCode({ code, redirectUri });
+  await saveNotionOAuthToken(tokenData);
+  return tokenData;
 }

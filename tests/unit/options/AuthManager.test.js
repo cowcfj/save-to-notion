@@ -762,7 +762,7 @@ describe('AuthManager Extended', () => {
         })
       );
       expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
-        action: '_saveOAuthTokenData',
+        action: 'saveNotionOAuthToken',
         error: expect.any(String),
       });
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(

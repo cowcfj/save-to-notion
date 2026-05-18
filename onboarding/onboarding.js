@@ -16,11 +16,43 @@ import {
   nextStep,
   skipToEnd,
   markCompleted,
+  isNotionConnected,
+  runNotionOAuthFlow,
 } from './onboardingController.js';
 
 const root = document.querySelector('#onboarding-root');
+const ERROR_SCOPE_CONNECT_NOTION = 'connect-notion';
+
+function setError(scope, message) {
+  const errorEl = root.querySelector(`[data-error="${scope}"]`);
+  if (!errorEl) {
+    return;
+  }
+  if (message) {
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+  } else {
+    errorEl.textContent = '';
+    errorEl.hidden = true;
+  }
+}
 
 async function handleStepEntered(step) {
+  if (step === 2) {
+    setError(ERROR_SCOPE_CONNECT_NOTION, '');
+    try {
+      if (await isNotionConnected(chrome.storage.local)) {
+        const advanced = nextStep(root);
+        await handleStepEntered(advanced);
+      }
+    } catch (error) {
+      Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
+        action: 'isNotionConnected',
+        error: error?.message ?? String(error),
+      });
+    }
+    return;
+  }
   if (step === TOTAL_STEPS) {
     try {
       await markCompleted(chrome.storage.local);
@@ -30,6 +62,29 @@ async function handleStepEntered(step) {
         error: error?.message ?? String(error),
       });
     }
+  }
+}
+
+async function handleConnectNotion(button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = '連接中...';
+  setError(ERROR_SCOPE_CONNECT_NOTION, '');
+  try {
+    await runNotionOAuthFlow();
+    const step = nextStep(root);
+    await handleStepEntered(step);
+  } catch (error) {
+    Logger.warn('[Onboarding] Notion OAuth 連接失敗', {
+      action: 'runNotionOAuthFlow',
+      error: error?.message ?? String(error),
+    });
+    setError(
+      ERROR_SCOPE_CONNECT_NOTION,
+      `連接失敗：${error?.message ?? '未知錯誤'}，請重試或稍後再說`
+    );
+    button.disabled = false;
+    button.textContent = originalText;
   }
 }
 
@@ -49,6 +104,10 @@ function bindActions() {
       case 'skip': {
         const step = skipToEnd(root);
         await handleStepEntered(step);
+        break;
+      }
+      case 'connect-notion': {
+        await handleConnectNotion(trigger);
         break;
       }
       case 'finish': {

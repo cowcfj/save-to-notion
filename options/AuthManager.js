@@ -5,13 +5,10 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { AuthMode } from '../scripts/config/extension/authMode.js';
-import { NOTION_OAUTH } from '../scripts/config/extension/notionAuth.js';
-import { BUILD_ENV } from '../scripts/config/env/index.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
   getNextAuthEpoch,
-  isNonEmptyString,
   migrateDataSourceKeys,
 } from '../scripts/utils/notionAuth.js';
 import {
@@ -21,6 +18,10 @@ import {
   mergeDataSourceConfig,
 } from '../scripts/config/shared/storage.js';
 import { initiateNotionOAuth } from '../scripts/auth/notionOAuthInitiator.js';
+import {
+  exchangeNotionOAuthCode,
+  saveNotionOAuthToken,
+} from '../scripts/auth/notionOAuthCompleter.js';
 
 /**
  * AuthManager.js
@@ -437,44 +438,6 @@ export class AuthManager {
   // ==========================================
 
   /**
-   * 拿 Auth Code 去向後端伺服器交換 Token
-   *
-   * @private
-   * @param {string} code - OAuth code
-   * @param {string} redirectUri - Redirect URI
-   * @returns {Promise<object>} Token data
-   */
-  async _exchangeOAuthToken(code, redirectUri) {
-    const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
-    const tokenResponse = await fetch(serverUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, redirect_uri: redirectUri }),
-    });
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json().catch(() => ({}));
-      const error = new Error(
-        errorData.message || errorData.error || `Token 交換失敗 (${tokenResponse.status})`
-      );
-      if (typeof errorData.error_code === 'string' && errorData.error_code.trim()) {
-        error.code = errorData.error_code;
-      }
-      throw error;
-    }
-
-    const tokenData = await tokenResponse.json();
-    const hasAccessToken = isNonEmptyString(tokenData.access_token);
-    const hasRefreshToken = isNonEmptyString(tokenData.refresh_token);
-
-    if (!hasAccessToken || !hasRefreshToken) {
-      throw new Error('OAuth token 回應缺少必要欄位');
-    }
-
-    return tokenData;
-  }
-
-  /**
    * 清理 OAuth 流程產生的暫存 State 與還原 UI 按鈕
    *
    * @private
@@ -552,38 +515,6 @@ export class AuthManager {
   }
 
   /**
-   * 存儲 Token 及相關資料到 chrome.storage.local
-   *
-   * @private
-   * @param {object} tokenData - 交換回來的 Token 資料
-   */
-  async _saveOAuthTokenData(tokenData) {
-    const hasRefreshProof = isNonEmptyString(tokenData.refresh_proof);
-    const nextAuthEpoch = await getNextAuthEpoch();
-
-    await chrome.storage.local.set({
-      notionAuthMode: AuthMode.OAUTH,
-      notionOAuthToken: tokenData.access_token,
-      notionRefreshToken: tokenData.refresh_token,
-      notionRefreshProof: hasRefreshProof ? tokenData.refresh_proof : null,
-      notionWorkspaceId: tokenData.workspace_id,
-      notionWorkspaceName: tokenData.workspace_name,
-      notionBotId: tokenData.bot_id,
-      notionAuthEpoch: nextAuthEpoch,
-    });
-    if (!hasRefreshProof) {
-      try {
-        await chrome.storage.local.remove(['notionRefreshProof']);
-      } catch (error) {
-        Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
-          action: '_saveOAuthTokenData',
-          error: sanitizeApiError(error, '_saveOAuthTokenData'),
-        });
-      }
-    }
-  }
-
-  /**
    * 啟動 Notion OAuth 授權流程
    * 使用 chrome.identity.launchWebAuthFlow
    */
@@ -600,11 +531,9 @@ export class AuthManager {
       // 取得 authorization code（CSRF state、authUrl、launchWebAuthFlow、callback 解析、state 驗證皆在共用 initiator 中）
       const { code, redirectUri } = await initiateNotionOAuth();
 
-      // 將 code 送到後端交換 Token
-      const tokenData = await this._exchangeOAuthToken(code, redirectUri);
-
-      // 存儲 Token 及相關資料到 chrome.storage.local
-      await this._saveOAuthTokenData(tokenData);
+      // 將 code 送到後端交換 Token，並落地 chrome.storage.local
+      const tokenData = await exchangeNotionOAuthCode({ code, redirectUri });
+      await saveNotionOAuthToken(tokenData);
 
       Logger.success('Notion OAuth 連接成功', {
         action: 'startOAuthFlow',
