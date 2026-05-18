@@ -48,6 +48,12 @@ export const AUTH_LOCAL_KEYS = [
  */
 export const DATA_SOURCE_KEYS = ['notionDataSourceId', 'notionDatabaseId', 'notionDataSourceType'];
 
+/**
+ * Onboarding tutorial 完成旗標
+ * 由 onboarding 頁面自身讀寫，其他模組不依賴此 flag。
+ */
+export const ONBOARDING_COMPLETED_KEY = 'onboardingCompleted';
+
 export const LOCAL_STORAGE_KEYS = new Set(DATA_SOURCE_KEYS);
 
 /**

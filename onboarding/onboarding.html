@@ -10,8 +10,76 @@
   </head>
 
   <body>
-    <main class="onboarding">
-      <h1>歡迎使用 Save to Notion</h1>
+    <main class="onboarding" id="onboarding-root">
+      <div class="onboarding-progress" aria-label="設定步驟">
+        <span class="progress-dot" data-dot="1"></span>
+        <span class="progress-dot" data-dot="2"></span>
+        <span class="progress-dot" data-dot="3"></span>
+        <span class="progress-dot" data-dot="4"></span>
+        <span class="progress-dot" data-dot="5"></span>
+        <span class="progress-dot" data-dot="6"></span>
+      </div>
+
+      <section data-step="1" class="onboarding-step" hidden>
+        <h1>歡迎使用 Save to Notion</h1>
+        <p class="onboarding-lead">
+          只需幾個步驟，即可將任何網頁、文章片段與標註，一鍵保存到 Notion。
+        </p>
+        <ul class="onboarding-bullets">
+          <li>連接你的 Notion 工作區</li>
+          <li>選擇預設的儲存目標</li>
+          <li>了解 Save Page、Highlight 與 Side Panel 三大功能</li>
+        </ul>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-primary" data-action="next">開始設定</button>
+        </div>
+      </section>
+
+      <section data-step="2" class="onboarding-step" hidden>
+        <h2>連接 Notion 帳號</h2>
+        <p class="onboarding-placeholder">（Step 6 補上實作）</p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">跳過設定</button>
+          <button type="button" class="btn-primary" data-action="next">下一步</button>
+        </div>
+      </section>
+
+      <section data-step="3" class="onboarding-step" hidden>
+        <h2>選擇預設儲存目標</h2>
+        <p class="onboarding-placeholder">（Step 7 補上實作）</p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">跳過設定</button>
+          <button type="button" class="btn-primary" data-action="next">下一步</button>
+        </div>
+      </section>
+
+      <section data-step="4" class="onboarding-step" hidden>
+        <h2>登入 Save to Notion 帳號</h2>
+        <p class="onboarding-placeholder">（Step 8 補上實作）</p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">跳過設定</button>
+          <button type="button" class="btn-primary" data-action="next">下一步</button>
+        </div>
+      </section>
+
+      <section data-step="5" class="onboarding-step" hidden>
+        <h2>功能快覽</h2>
+        <p class="onboarding-placeholder">（Step 9 補上實作）</p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">跳過設定</button>
+          <button type="button" class="btn-primary" data-action="next">下一步</button>
+        </div>
+      </section>
+
+      <section data-step="6" class="onboarding-step" hidden>
+        <h1>設定完成</h1>
+        <p class="onboarding-lead">
+          一切就緒！打開任何網頁，點擊瀏覽器右上角的擴展圖示，即可開始保存。
+        </p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-primary" data-action="finish">完成</button>
+        </div>
+      </section>
     </main>
     <script type="module" src="onboarding.js"></script>
   </body>
