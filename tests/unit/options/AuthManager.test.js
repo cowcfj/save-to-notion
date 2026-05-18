@@ -892,7 +892,7 @@ describe('AuthManager Extended', () => {
       await authManager.startOAuthFlow();
 
       expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Identity API 不可用', {
-        action: 'startOAuthFlow',
+        action: 'initiateNotionOAuth',
         missingIdentityApi: expect.arrayContaining(['getRedirectURL', 'launchWebAuthFlow']),
       });
       expect(chrome.storage.session.set).not.toHaveBeenCalled();
@@ -915,7 +915,7 @@ describe('AuthManager Extended', () => {
         await authManager.startOAuthFlow();
 
         expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
-          action: 'startOAuthFlow',
+          action: 'initiateNotionOAuth',
           missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
         });
         expect(mockUiManager.showStatus).toHaveBeenCalledWith(

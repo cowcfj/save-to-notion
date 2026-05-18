@@ -20,6 +20,7 @@ import {
   SYNC_CONFIG_KEYS,
   mergeDataSourceConfig,
 } from '../scripts/config/shared/storage.js';
+import { initiateNotionOAuth } from '../scripts/auth/notionOAuthInitiator.js';
 
 /**
  * AuthManager.js
@@ -436,32 +437,6 @@ export class AuthManager {
   // ==========================================
 
   /**
-   * 前置檢查 chrome.identity API 是否可用
-   *
-   * @private
-   */
-  _checkIdentityApi() {
-    const missingIdentityApi = [];
-    if (typeof chrome?.identity?.getRedirectURL !== 'function') {
-      missingIdentityApi.push('getRedirectURL');
-    }
-    if (typeof chrome?.identity?.launchWebAuthFlow !== 'function') {
-      missingIdentityApi.push('launchWebAuthFlow');
-    }
-    if (missingIdentityApi.length > 0) {
-      Logger.error('[Auth] OAuth Identity API 不可用', {
-        action: 'startOAuthFlow',
-        missingIdentityApi,
-      });
-      const unavailableError = new Error(
-        `OAuth Identity API unavailable: ${missingIdentityApi.join(', ')}`
-      );
-      unavailableError.code = 'oauth_identity_unavailable';
-      throw unavailableError;
-    }
-  }
-
-  /**
    * 拿 Auth Code 去向後端伺服器交換 Token
    *
    * @private
@@ -542,6 +517,11 @@ export class AuthManager {
       action: 'startOAuthFlow',
       error: sanitizeApiError(error, 'oauth_flow'),
     });
+    // 缺 OAUTH_CLIENT_ID 為環境設定錯誤，沿用獨立 MISSING_ENV_CONFIG 文案（不加 prefix）
+    if (error?.code === 'oauth_missing_client_id') {
+      this.ui.showStatus(UI_MESSAGES.AUTH.MISSING_ENV_CONFIG, 'error');
+      return;
+    }
     const msg = error?.message ?? '';
     const errorCode = typeof error?.code === 'string' ? error.code : '';
     const msgLower = msg.toLowerCase();
@@ -608,22 +588,8 @@ export class AuthManager {
    * 使用 chrome.identity.launchWebAuthFlow
    */
   async startOAuthFlow() {
-    let csrfState = null;
     try {
       Logger.start('開始 Notion OAuth 流程', { action: 'startOAuthFlow' });
-
-      // 前置檢查
-      this._checkIdentityApi();
-
-      if (!isNonEmptyString(BUILD_ENV.OAUTH_CLIENT_ID)) {
-        Logger.error('[Auth] OAuth Client ID 未設定', {
-          action: 'startOAuthFlow',
-          missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
-        });
-        this.ui.showStatus(UI_MESSAGES.AUTH.MISSING_ENV_CONFIG, 'error');
-        await this._cleanupOAuthState(true);
-        return;
-      }
 
       // 更新按鈕為載入狀態
       if (this.elements.oauthConnectButton) {
@@ -631,55 +597,13 @@ export class AuthManager {
         this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_CONNECTING;
       }
 
-      // 1. 產生 CSRF state 並暫存
-      csrfState = crypto.randomUUID();
-      await chrome.storage.session.set({ oauthState: csrfState });
+      // 取得 authorization code（CSRF state、authUrl、launchWebAuthFlow、callback 解析、state 驗證皆在共用 initiator 中）
+      const { code, redirectUri } = await initiateNotionOAuth();
 
-      // 2. 取得 redirect URI（Chrome 自動綁定 extension ID）
-      const redirectUri = chrome.identity.getRedirectURL();
-
-      // 3. 組成 Notion 授權 URL
-      const authUrl =
-        `https://api.notion.com/v1/oauth/authorize?` +
-        `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}&` +
-        `response_type=code&owner=user&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `state=${encodeURIComponent(csrfState)}`;
-
-      // 4. 啟動 OAuth 流程
-      const callbackUrl = await chrome.identity.launchWebAuthFlow({
-        url: authUrl,
-        interactive: true,
-      });
-
-      if (!callbackUrl) {
-        throw new Error('OAuth 流程被取消或未回傳 URL');
-      }
-
-      // 5. 解析 callback URL
-      const url = new URL(callbackUrl);
-      const code = url.searchParams.get('code');
-      const returnedState = url.searchParams.get('state');
-
-      // 6. 驗證 CSRF state
-      const storedState = await chrome.storage.session.get('oauthState');
-      if (returnedState !== storedState.oauthState) {
-        throw new Error('CSRF state 驗證失敗，請重試');
-      }
-
-      if (!code) {
-        const errorParam = url.searchParams.get('error');
-        Logger.error('[Auth] Notion OAuth callback 錯誤', {
-          action: 'startOAuthFlow',
-          oauthError: errorParam || 'no_error_param',
-        });
-        throw new Error(`Notion 授權失敗: ${errorParam || '未知錯誤'}`);
-      }
-
-      // 7. 將 code 送到後端交換 Token
+      // 將 code 送到後端交換 Token
       const tokenData = await this._exchangeOAuthToken(code, redirectUri);
 
-      // 8. 存儲 Token 及相關資料到 chrome.storage.local
+      // 存儲 Token 及相關資料到 chrome.storage.local
       await this._saveOAuthTokenData(tokenData);
 
       Logger.success('Notion OAuth 連接成功', {
@@ -689,12 +613,13 @@ export class AuthManager {
 
       this.ui.showStatus(`✅ 已成功連接 Notion — ${tokenData.workspace_name}`, 'success');
 
-      // 10. 更新 UI
+      // 更新 UI
       await this.checkAuthStatus();
     } catch (error) {
       this._handleOAuthError(error);
     } finally {
-      await this._cleanupOAuthState(Boolean(csrfState));
+      // initiator 可能在拋錯前已寫入 CSRF state，總是清理；若無則為 idempotent no-op
+      await this._cleanupOAuthState(true);
     }
   }
 
