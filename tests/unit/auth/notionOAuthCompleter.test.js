@@ -23,7 +23,13 @@ jest.mock('../../../scripts/utils/notionAuth.js', () => ({
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
     warn: jest.fn(),
+    error: jest.fn(),
   },
 }));
 
@@ -61,11 +67,15 @@ describe('exchangeNotionOAuthCode', () => {
       redirectUri: 'https://ext.test/callback',
     });
 
-    expect(fetchMock).toHaveBeenCalledWith('https://worker.test/v1/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: 'auth-code', redirect_uri: 'https://ext.test/callback' }),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://worker.test/v1/oauth/token',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: 'auth-code', redirect_uri: 'https://ext.test/callback' }),
+        signal: expect.any(AbortSignal),
+      })
+    );
     expect(result.access_token).toBe('access-1');
     expect(result.workspace_name).toBe('My Workspace');
   });
@@ -128,6 +138,39 @@ describe('exchangeNotionOAuthCode', () => {
 
     await expect(exchangeNotionOAuthCode({ code: 'c', redirectUri: 'r' })).rejects.toThrow(
       'Token 交換失敗 (502)'
+    );
+  });
+
+  it('fetch 觸發 AbortError 時應拋 OAUTH_TOKEN_EXCHANGE_TIMEOUT 並 warn', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    fetchMock.mockRejectedValueOnce(abortError);
+
+    await expect(exchangeNotionOAuthCode({ code: 'c', redirectUri: 'r' })).rejects.toMatchObject({
+      code: 'OAUTH_TOKEN_EXCHANGE_TIMEOUT',
+    });
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '[Auth] Notion OAuth token 交換請求失敗',
+      expect.objectContaining({
+        action: 'exchangeNotionOAuthCode',
+        result: 'blocked',
+      })
+    );
+  });
+
+  it('fetch 拋一般錯誤時應 warn 並原樣拋出', async () => {
+    const networkError = new Error('network down');
+    fetchMock.mockRejectedValueOnce(networkError);
+
+    await expect(exchangeNotionOAuthCode({ code: 'c', redirectUri: 'r' })).rejects.toThrow(
+      'network down'
+    );
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '[Auth] Notion OAuth token 交換請求失敗',
+      expect.objectContaining({
+        action: 'exchangeNotionOAuthCode',
+        result: 'failed',
+      })
     );
   });
 });

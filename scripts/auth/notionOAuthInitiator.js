@@ -37,6 +37,7 @@ function checkIdentityApi() {
   if (missingIdentityApi.length > 0) {
     Logger.error('[Auth] OAuth Identity API 不可用', {
       action: 'initiateNotionOAuth',
+      result: 'failed',
       missingIdentityApi,
     });
     const unavailableError = new Error(
@@ -74,6 +75,7 @@ export async function initiateNotionOAuth() {
   if (!isNonEmptyString(BUILD_ENV.OAUTH_CLIENT_ID)) {
     Logger.error('[Auth] OAuth Client ID 未設定', {
       action: 'initiateNotionOAuth',
+      result: 'failed',
       missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
     });
     const configError = new Error('OAUTH_CLIENT_ID is not configured');
@@ -125,6 +127,7 @@ export async function initiateNotionOAuth() {
     const errorParam = url.searchParams.get('error');
     Logger.error('[Auth] Notion OAuth callback 錯誤', {
       action: 'initiateNotionOAuth',
+      result: 'failed',
       oauthError: errorParam || 'no_error_param',
     });
     const callbackError = new Error(`Notion OAuth callback error: ${errorParam || 'unknown'}`);

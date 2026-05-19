@@ -21,6 +21,8 @@ import { AuthMode } from '../config/extension/authMode.js';
 import { NOTION_OAUTH } from '../config/extension/notionAuth.js';
 import { BUILD_ENV } from '../config/env/index.js';
 
+const TOKEN_EXCHANGE_TIMEOUT_MS = 10_000;
+
 /**
  * @typedef {object} NotionOAuthTokenData
  * @property {string} access_token
@@ -36,15 +38,37 @@ import { BUILD_ENV } from '../config/env/index.js';
  *
  * @param {{ code: string, redirectUri: string }} params
  * @returns {Promise<NotionOAuthTokenData>}
- * @throws {Error} 後端非 2xx 或 token 缺必要欄位時拋錯；若後端回傳 error_code 會掛在 error.code
+ * @throws {Error} 後端非 2xx 或 token 缺必要欄位時拋錯；若後端回傳 error_code 會掛在 error.code；逾時會拋 code='OAUTH_TOKEN_EXCHANGE_TIMEOUT'
  */
 export async function exchangeNotionOAuthCode({ code, redirectUri }) {
   const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.TOKEN_ENDPOINT}`;
-  const tokenResponse = await fetch(serverUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, redirect_uri: redirectUri }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TOKEN_EXCHANGE_TIMEOUT_MS);
+
+  let tokenResponse;
+  try {
+    tokenResponse = await fetch(serverUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirect_uri: redirectUri }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    const isAbort = error?.name === 'AbortError';
+    Logger.warn('[Auth] Notion OAuth token 交換請求失敗', {
+      action: 'exchangeNotionOAuthCode',
+      result: isAbort ? 'blocked' : 'failed',
+      error: sanitizeApiError(error, 'exchangeNotionOAuthCode'),
+    });
+    if (isAbort) {
+      const timeoutError = new Error('Token exchange request timed out');
+      timeoutError.code = 'OAUTH_TOKEN_EXCHANGE_TIMEOUT';
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!tokenResponse.ok) {
     const errorData = await tokenResponse.json().catch(() => ({}));
@@ -97,6 +121,7 @@ export async function saveNotionOAuthToken(tokenData) {
     } catch (error) {
       Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
         action: 'saveNotionOAuthToken',
+        result: 'ignored',
         error: sanitizeApiError(error, 'saveNotionOAuthToken'),
       });
     }

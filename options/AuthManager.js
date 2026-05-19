@@ -478,6 +478,7 @@ export class AuthManager {
   _handleOAuthError(error) {
     Logger.error('[錯誤] [Auth] Notion OAuth 流程失敗', {
       action: 'startOAuthFlow',
+      result: 'failed',
       error: sanitizeApiError(error, 'oauth_flow'),
     });
 
@@ -506,6 +507,9 @@ export class AuthManager {
     switch (errorCode) {
       case 'OAUTH_IDENTITY_UNAVAILABLE': {
         return UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
+      }
+      case 'OAUTH_FLOW_CANCELLED': {
+        return UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED;
       }
       case 'SERVER_MISCONFIGURATION': {
         return UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION;
