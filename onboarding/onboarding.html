@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>歡迎使用 Save to Notion</title>
+    <link rel="stylesheet" href="../styles/ui-tokens.css" />
+    <link rel="stylesheet" href="../styles/ui-primitives.css" />
+    <link rel="stylesheet" href="onboarding.css" />
+  </head>
+
+  <body>
+    <main class="onboarding" id="onboarding-root">
+      <div class="onboarding-progress" aria-label="設定步驟">
+        <span class="progress-dot" data-dot="1"></span>
+        <span class="progress-dot" data-dot="2"></span>
+        <span class="progress-dot" data-dot="3"></span>
+        <span class="progress-dot" data-dot="4"></span>
+        <span class="progress-dot" data-dot="5"></span>
+        <span class="progress-dot" data-dot="6"></span>
+      </div>
+
+      <section data-step="1" class="onboarding-step" hidden>
+        <h1>歡迎使用 Save to Notion</h1>
+        <p class="onboarding-lead">
+          只需幾個步驟，即可將任何網頁、文章片段與標註，一鍵保存到 Notion。
+        </p>
+        <ul class="onboarding-bullets">
+          <li>連接你的 Notion 工作區</li>
+          <li>選擇預設的儲存目標</li>
+          <li>了解儲存頁面、標註與側邊面板三大功能</li>
+        </ul>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-primary" data-action="next">開始設定</button>
+        </div>
+      </section>
+
+      <section data-step="2" class="onboarding-step" hidden>
+        <h2>連接 Notion 帳號</h2>
+        <p class="onboarding-lead">
+          授權後，擴展才能將你儲存的內容寫入 Notion 工作區。授權只需一次，可以隨時撤銷。
+        </p>
+        <p class="onboarding-error" data-error="connect-notion" hidden></p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">稍後再說</button>
+          <button type="button" class="btn-primary" data-action="connect-notion">
+            連接 Notion 帳號
+          </button>
+        </div>
+      </section>
+
+      <section data-step="3" class="onboarding-step" hidden>
+        <h2>選擇預設儲存目標</h2>
+        <p class="onboarding-lead">
+          設定一個預設的 database，未來儲存頁面時會自動使用；之後可以隨時在設定頁中更換。
+        </p>
+
+        <div data-step3-state="needs-auth" hidden>
+          <p class="onboarding-error">先連接 Notion 才能選擇 database，請回到上一步授權後再試。</p>
+        </div>
+
+        <div data-step3-state="loading" hidden>
+          <p class="onboarding-placeholder">正在載入 database 列表...</p>
+        </div>
+
+        <div data-step3-state="list" hidden>
+          <ul class="database-list" data-database-list></ul>
+        </div>
+
+        <div data-step3-state="empty" hidden>
+          <p class="onboarding-placeholder">
+            還沒有任何 database 連接到此 integration；到 Notion 把目標 database
+            分享給擴展後，按下方「重試」即可。
+          </p>
+          <button type="button" class="btn-link" data-action="retry-databases">重試</button>
+        </div>
+
+        <div data-step3-state="error" hidden>
+          <p class="onboarding-error" data-error="fetch-databases"></p>
+          <button type="button" class="btn-link" data-action="retry-databases">重試</button>
+        </div>
+
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">稍後再說</button>
+          <button
+            type="button"
+            class="btn-primary"
+            data-action="confirm-database"
+            data-step3-confirm
+            disabled
+          >
+            下一步
+          </button>
+        </div>
+      </section>
+
+      <section data-step="4" class="onboarding-step" hidden>
+        <h2>登入 Save to Notion 帳號</h2>
+        <p class="onboarding-lead">
+          可選步驟。登入後可享有跨裝置同步、雲端備份標註、以及多 Notion 工作區管理。
+        </p>
+        <ul class="onboarding-bullets">
+          <li>跨裝置同步保存記錄與標註</li>
+          <li>雲端備份你的設定，重灌後一鍵還原</li>
+          <li>未來進階功能優先開放</li>
+        </ul>
+        <p class="onboarding-error" data-error="login-account" hidden></p>
+        <p class="onboarding-placeholder" data-step4-state="waiting" hidden>
+          已開啟登入頁面，完成 Google 授權後會自動繼續。
+        </p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-link" data-action="skip">稍後再說</button>
+          <button type="button" class="btn-primary" data-action="login-account">
+            使用 Google 登入
+          </button>
+        </div>
+      </section>
+
+      <section data-step="5" class="onboarding-step" hidden>
+        <h2>三大核心功能</h2>
+        <p class="onboarding-lead">
+          設定完成了，先快速看看 Save to Notion 怎麼幫你蒐集網頁內容。
+        </p>
+        <div class="feature-cards">
+          <article class="feature-card">
+            <svg
+              class="feature-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <h3>儲存頁面</h3>
+            <p>一鍵將目前頁面儲存到 Notion，自動擷取標題、封面圖與內文。</p>
+          </article>
+          <article class="feature-card">
+            <svg
+              class="feature-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            <h3>標註</h3>
+            <p>在頁面上標註重點與筆記，標記會同步到 Notion 對應的儲存頁面。</p>
+          </article>
+          <article class="feature-card">
+            <svg
+              class="feature-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M15 3v18" />
+              <path d="M6 8h6" />
+              <path d="M6 12h6" />
+              <path d="M6 16h4" />
+            </svg>
+            <h3>側邊面板</h3>
+            <p>在側邊欄即時管理儲存記錄與標註，不必離開當前頁面就能查找與整理。</p>
+          </article>
+        </div>
+        <div class="onboarding-actions">
+          <button type="button" class="btn-primary" data-action="next">下一步</button>
+        </div>
+      </section>
+
+      <section data-step="6" class="onboarding-step" hidden>
+        <h1>設定完成</h1>
+        <p class="onboarding-lead">
+          一切就緒！打開任何網頁，點擊瀏覽器右上角的擴展圖示，即可開始保存。
+        </p>
+
+        <div class="author-card">
+          <h3 class="author-title">關於作者</h3>
+          <p class="author-bio">寫 code 不是我強項，寫文字是。</p>
+          <ul class="author-links" aria-label="作者社群連結">
+            <li>
+              <a
+                href="https://www.patreon.com/rapbull"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="author-link"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M14.82 2.41c3.96 0 7.18 3.24 7.18 7.21 0 3.96-3.22 7.18-7.18 7.18-3.97 0-7.21-3.22-7.21-7.18 0-3.97 3.24-7.21 7.21-7.21M2 21.6h3.5V2.41H2V21.6Z"
+                  />
+                </svg>
+                <span>Patreon</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://x.com/cowcfj"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="author-link"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                  />
+                </svg>
+                <span>X (Twitter)</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://www.threads.com/@cowcfj"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="author-link"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.781 3.631 2.695 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.747-1.757-.508-.586-1.293-.883-2.328-.89h-.029c-.836 0-1.971.227-2.696 1.301L8.93 8.799c.969-1.434 2.547-2.222 4.444-2.222h.04c3.172.019 5.054 1.949 5.243 5.337.108.045.216.094.32.143 1.49.7 2.58 1.76 3.154 3.066.797 1.82.871 4.79-1.548 7.158C18.8 23.107 17.084 24 12.186 24"
+                  />
+                </svg>
+                <span>Threads</span>
+              </a>
+            </li>
+          </ul>
+
+          <p class="author-opensource">
+            <span>本擴充功能已開源</span>
+            <a
+              href="https://github.com/cowcfj/save-to-notion"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="author-link author-link--github"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path
+                  d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+                />
+              </svg>
+              <span>GitHub</span>
+            </a>
+          </p>
+        </div>
+
+        <div class="onboarding-actions">
+          <button type="button" class="btn-primary" data-action="finish">完成</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="onboarding.js"></script>
+  </body>
+</html>

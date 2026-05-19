@@ -17,7 +17,8 @@ import { BUILD_ENV } from '../scripts/config/env/index.js';
 import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.js';
 import { getAccountAccessToken, getAccountProfile } from '../scripts/auth/accountSession.js';
-import { buildAccountLoginStartUrl, getOptionsAdvancedUrl } from '../scripts/auth/accountLogin.js';
+import { getOptionsAdvancedUrl } from '../scripts/auth/accountLogin.js';
+export { startAccountLogin } from '../scripts/auth/accountLoginInitiator.js';
 import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
 import {
   AccountGatedDestinationEntitlementProvider,
@@ -307,29 +308,6 @@ export async function getPopupAccountState() {
       profile,
       transientRefreshError: true,
     };
-  }
-}
-
-/**
- * 啟動 account Google login flow。
- *
- * @returns {Promise<{ success: boolean, error?: string }>}
- */
-export async function startAccountLogin() {
-  const startUrlResult = buildAccountLoginStartUrl();
-  if (!startUrlResult.success) {
-    return { success: false, error: startUrlResult.error };
-  }
-
-  try {
-    await chrome.tabs.create({ url: startUrlResult.url });
-    return { success: true };
-  } catch (error) {
-    Logger.warn('startAccountLogin failed', {
-      action: 'startAccountLogin',
-      error,
-    });
-    return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
   }
 }
 

@@ -37,6 +37,11 @@ const AUTH = {
   OAUTH_TARGET_REQUIRED: '已連接 Notion，下一步請選擇保存目標並按儲存。',
   OAUTH_SERVER_MISCONFIGURATION: 'OAuth 伺服器設定異常，請稍後再試或聯絡開發者',
   OAUTH_INVALID_REDIRECT_URI: 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定',
+  OAUTH_USER_CANCELLED: '您取消了 Notion 授權，請重試',
+  OAUTH_REDIRECT_URI_FORMAT_MISMATCH:
+    'Notion 授權碼生成失敗，可能是 redirect_uri 格式不符。請確認 Notion Integration 中登記的 URI 與擴充功能 URL 完全一致（注意尾部斜線）',
+  OAUTH_CALLBACK_ERROR_GENERIC: oauthError =>
+    `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`,
 
   OPENING_NOTION: '正在打開 Notion...',
   OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,

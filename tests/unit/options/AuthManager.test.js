@@ -762,7 +762,7 @@ describe('AuthManager Extended', () => {
         })
       );
       expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
-        action: '_saveOAuthTokenData',
+        action: 'saveNotionOAuthToken',
         error: expect.any(String),
       });
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -892,7 +892,7 @@ describe('AuthManager Extended', () => {
       await authManager.startOAuthFlow();
 
       expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Identity API 不可用', {
-        action: 'startOAuthFlow',
+        action: 'initiateNotionOAuth',
         missingIdentityApi: expect.arrayContaining(['getRedirectURL', 'launchWebAuthFlow']),
       });
       expect(chrome.storage.session.set).not.toHaveBeenCalled();
@@ -915,7 +915,7 @@ describe('AuthManager Extended', () => {
         await authManager.startOAuthFlow();
 
         expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
-          action: 'startOAuthFlow',
+          action: 'initiateNotionOAuth',
           missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
         });
         expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -932,6 +932,52 @@ describe('AuthManager Extended', () => {
       } finally {
         BUILD_ENV.OAUTH_CLIENT_ID = originalOAuthClientId;
       }
+    });
+
+    test('callback 帶 error=access_denied 時應顯示用戶取消文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-access-denied');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=access_denied&state=state-access-denied'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-access-denied' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED}`,
+        'error'
+      );
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    test('callback 帶 error=canceled 時應顯示 redirect_uri 格式不符文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-canceled');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=canceled&state=state-canceled'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-canceled' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_REDIRECT_URI_FORMAT_MISMATCH}`,
+        'error'
+      );
+    });
+
+    test('callback 帶其他 error 參數時應顯示通用 callback 失敗文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-misc');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=temporarily_unavailable&state=state-misc'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-misc' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_CALLBACK_ERROR_GENERIC('temporarily_unavailable')}`,
+        'error'
+      );
     });
   });
 

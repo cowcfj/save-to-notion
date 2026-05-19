@@ -1,0 +1,291 @@
+/* Onboarding tutorial styles
+ * 設計 token 由 ../styles/ui-tokens.css 提供。
+ * Wizard 採用置中卡片 + 頂部進度圓點 + 步驟切換的版型。
+ */
+
+body {
+  margin: 0;
+  background: var(--color-bg-page);
+  color: var(--color-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  min-height: 100vh;
+}
+
+.onboarding {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--spacing-lg) var(--spacing-md);
+}
+
+.onboarding-progress {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background-color 0.2s ease;
+}
+
+.progress-dot.active {
+  background: var(--color-primary);
+}
+
+.onboarding-step {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.onboarding-step h1,
+.onboarding-step h2 {
+  margin: 0 0 var(--spacing-md);
+  font-weight: 600;
+}
+
+.onboarding-step h1 {
+  font-size: 24px;
+}
+
+.onboarding-step h2 {
+  font-size: 20px;
+}
+
+.onboarding-lead {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0 0 var(--spacing-md);
+}
+
+.onboarding-bullets {
+  margin: 0 0 var(--spacing-lg);
+  padding-left: var(--spacing-md);
+  color: var(--color-text-muted);
+  line-height: 1.8;
+}
+
+.onboarding-placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0 0 var(--spacing-lg);
+}
+
+.onboarding-error {
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
+  border: 1px solid var(--status-error-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: 0 0 var(--spacing-md);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.database-list {
+  list-style: none;
+  margin: 0 0 var(--spacing-md);
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.database-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  font-size: 14px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.database-item:last-child {
+  border-bottom: none;
+}
+
+.database-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.database-item:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.database-item.selected {
+  background: var(--color-primary);
+  color: var(--color-icon-on-accent);
+  font-weight: 500;
+}
+
+.feature-cards {
+  display: grid;
+  gap: var(--spacing-md);
+  grid-template-columns: 1fr;
+  margin-bottom: var(--spacing-lg);
+}
+
+@media (min-width: 640px) {
+  .feature-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.feature-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  background: var(--color-bg);
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--color-primary);
+}
+
+.feature-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.feature-card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--color-disabled);
+  cursor: not-allowed;
+}
+
+.btn-link {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--color-text);
+}
+
+.author-card {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.author-title {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.author-bio {
+  margin: 0 0 var(--spacing-md);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.author-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  list-style: none;
+  margin: 0 0 var(--spacing-md);
+  padding: 0;
+}
+
+.author-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.author-link:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.author-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.author-link svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.author-opensource {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.author-link--github {
+  color: var(--color-text);
+}
