@@ -126,6 +126,15 @@ const OPTIONS = {
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
   },
+  ABOUT: {
+    SECTION_TITLE: '關於作者',
+    PROFILE_TITLE: '個人介紹',
+    LINKS_TITLE: '連結',
+    OPEN_SOURCE_LABEL: '開源專案',
+    SOCIAL_LABEL: '個人社群',
+    SUPPORT_TITLE: '支持作者',
+    SUPPORT_DESC: '如果這個擴展對你有幫助，歡迎透過以下方式支持持續開發：',
+  },
   TEMPLATES: {
     SECTION_TITLE: '外觀樣式',
     SECTION_DESC: '自定義頁面外觀與標註樣式',
