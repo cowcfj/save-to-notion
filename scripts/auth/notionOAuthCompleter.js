@@ -121,7 +121,6 @@ export async function saveNotionOAuthToken(tokenData) {
     } catch (error) {
       Logger.warn('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
         action: 'saveNotionOAuthToken',
-        result: 'ignored',
         error: sanitizeApiError(error, 'saveNotionOAuthToken'),
       });
     }

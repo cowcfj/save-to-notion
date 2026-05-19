@@ -8,7 +8,6 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
 import { UI_MESSAGES } from '../config/shared/messages.js';
 import { buildAccountLoginStartUrl } from './accountLogin.js';
 
@@ -32,8 +31,7 @@ export async function startAccountLogin() {
   } catch (error) {
     Logger.warn('startAccountLogin failed', {
       action: 'startAccountLogin',
-      result: 'failed',
-      error: sanitizeApiError(error, 'startAccountLogin'),
+      error,
     });
     return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
   }

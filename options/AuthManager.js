@@ -478,7 +478,6 @@ export class AuthManager {
   _handleOAuthError(error) {
     Logger.error('[錯誤] [Auth] Notion OAuth 流程失敗', {
       action: 'startOAuthFlow',
-      result: 'failed',
       error: sanitizeApiError(error, 'oauth_flow'),
     });
 
