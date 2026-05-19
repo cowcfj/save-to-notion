@@ -244,3 +244,4 @@ scripts/config/env/build.js
 # Release package（純構建產物，所有檔案皆不追蹤）
 # 替換歷史逐檔規則為目錄級 ignore,確保新增構建產物不會漏 ignore。
 release-package/
+.antigravitycli/5c437353-ee07-48da-939d-8ad77dc27875.json
