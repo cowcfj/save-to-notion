@@ -133,7 +133,7 @@ const OPTIONS = {
     OPEN_SOURCE_LABEL: '開源專案',
     SOCIAL_LABEL: '個人社群',
     SUPPORT_TITLE: '支持作者',
-    SUPPORT_DESC: '如果這個擴展對你有幫助，歡迎透過以下方式支持持續開發：',
+    SUPPORT_DESC: '如果這個擴充功能對你有幫助，歡迎透過以下方式支持持續開發：',
   },
   TEMPLATES: {
     SECTION_TITLE: '外觀樣式',
