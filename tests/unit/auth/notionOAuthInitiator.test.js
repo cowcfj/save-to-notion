@@ -72,54 +72,64 @@ describe('initiateNotionOAuth', () => {
     );
   });
 
-  it('OAUTH_CLIENT_ID 為空時應拋 oauth_missing_client_id', async () => {
+  it('OAUTH_CLIENT_ID 為空時應拋 OAUTH_MISSING_CLIENT_ID', async () => {
     BUILD_ENV.OAUTH_CLIENT_ID = '   ';
 
     await expect(initiateNotionOAuth()).rejects.toMatchObject({
-      code: 'oauth_missing_client_id',
+      code: 'OAUTH_MISSING_CLIENT_ID',
     });
     expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
     expect(chrome.storage.session.set).not.toHaveBeenCalled();
   });
 
-  it('chrome.identity API 不可用時應拋 oauth_identity_unavailable', async () => {
+  it('chrome.identity API 不可用時應拋 OAUTH_IDENTITY_UNAVAILABLE', async () => {
     delete chrome.identity.launchWebAuthFlow;
 
     await expect(initiateNotionOAuth()).rejects.toMatchObject({
-      code: 'oauth_identity_unavailable',
+      code: 'OAUTH_IDENTITY_UNAVAILABLE',
     });
     expect(chrome.storage.session.set).not.toHaveBeenCalled();
   });
 
-  it('用戶取消（callback URL 為空）應拋出取消錯誤', async () => {
+  it('用戶取消（callback URL 為空）應拋 OAUTH_FLOW_CANCELLED', async () => {
     chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(undefined);
 
-    await expect(initiateNotionOAuth()).rejects.toThrow('OAuth 流程被取消或未回傳 URL');
+    await expect(initiateNotionOAuth()).rejects.toMatchObject({
+      code: 'OAUTH_FLOW_CANCELLED',
+    });
   });
 
-  it('CSRF state 不符時應拋出驗證失敗錯誤', async () => {
+  it('CSRF state 不符時應拋 OAUTH_CSRF_MISMATCH', async () => {
     chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
       'https://ext.test/callback?code=auth-code-2&state=tampered-state'
     );
 
-    await expect(initiateNotionOAuth()).rejects.toThrow('CSRF state 驗證失敗，請重試');
+    await expect(initiateNotionOAuth()).rejects.toMatchObject({
+      code: 'OAUTH_CSRF_MISMATCH',
+    });
     // CSRF state 已被寫入 session（在驗證失敗前）
     expect(chrome.storage.session.set).toHaveBeenCalledWith({ oauthState: 'uuid-fixed' });
   });
 
-  it('callback URL 含 error 參數時應拋出 Notion 授權失敗錯誤', async () => {
+  it('callback URL 含 error 參數時應拋 OAUTH_CALLBACK_ERROR 且 cause 帶該參數', async () => {
     chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
       'https://ext.test/callback?error=access_denied&state=uuid-fixed'
     );
 
-    await expect(initiateNotionOAuth()).rejects.toThrow('Notion 授權失敗: access_denied');
+    await expect(initiateNotionOAuth()).rejects.toMatchObject({
+      code: 'OAUTH_CALLBACK_ERROR',
+      cause: 'access_denied',
+    });
   });
 
-  it('callback URL 缺 code 且無 error 參數時應拋出未知錯誤訊息', async () => {
+  it('callback URL 缺 code 且無 error 參數時應拋 OAUTH_CALLBACK_ERROR 且 cause 為 unknown', async () => {
     chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
       'https://ext.test/callback?state=uuid-fixed'
     );
 
-    await expect(initiateNotionOAuth()).rejects.toThrow('Notion 授權失敗: 未知錯誤');
+    await expect(initiateNotionOAuth()).rejects.toMatchObject({
+      code: 'OAUTH_CALLBACK_ERROR',
+      cause: 'unknown',
+    });
   });
 });

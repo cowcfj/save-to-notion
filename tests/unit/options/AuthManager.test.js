@@ -933,6 +933,52 @@ describe('AuthManager Extended', () => {
         BUILD_ENV.OAUTH_CLIENT_ID = originalOAuthClientId;
       }
     });
+
+    test('callback 帶 error=access_denied 時應顯示用戶取消文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-access-denied');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=access_denied&state=state-access-denied'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-access-denied' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED}`,
+        'error'
+      );
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    test('callback 帶 error=canceled 時應顯示 redirect_uri 格式不符文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-canceled');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=canceled&state=state-canceled'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-canceled' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_REDIRECT_URI_FORMAT_MISMATCH}`,
+        'error'
+      );
+    });
+
+    test('callback 帶其他 error 參數時應顯示通用 callback 失敗文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-misc');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=temporarily_unavailable&state=state-misc'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-misc' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_CALLBACK_ERROR_GENERIC('temporarily_unavailable')}`,
+        'error'
+      );
+    });
   });
 
   describe('disconnectOAuth', () => {

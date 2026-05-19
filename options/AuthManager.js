@@ -480,38 +480,58 @@ export class AuthManager {
       action: 'startOAuthFlow',
       error: sanitizeApiError(error, 'oauth_flow'),
     });
+
+    const errorCode = typeof error?.code === 'string' ? error.code : '';
+    const errorMsg = this._resolveOAuthErrorMessage(error, errorCode);
+
     // 缺 OAUTH_CLIENT_ID 為環境設定錯誤，沿用獨立 MISSING_ENV_CONFIG 文案（不加 prefix）
-    if (error?.code === 'oauth_missing_client_id') {
+    if (errorCode === 'OAUTH_MISSING_CLIENT_ID') {
       this.ui.showStatus(UI_MESSAGES.AUTH.MISSING_ENV_CONFIG, 'error');
       return;
     }
-    const msg = error?.message ?? '';
-    const errorCode = typeof error?.code === 'string' ? error.code : '';
-    const msgLower = msg.toLowerCase();
-    const isOAuthCallbackError = msg.startsWith('Notion 授權失敗:');
-    const isRedirectError =
-      msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect');
-    let errorMsg;
-    if (isOAuthCallbackError) {
-      const oauthError = msg.replace('Notion 授權失敗: ', '').trim();
-      if (oauthError === 'access_denied') {
-        errorMsg = '您取消了 Notion 授權，請重試';
-      } else if (oauthError === 'canceled' || oauthError === 'cancelled') {
-        errorMsg =
-          'Notion 授權碼生成失敗，可能是 redirect_uri 格式不符。請確認 Notion Integration 中登記的 URI 與擴充功能 URL 完全一致（注意尾部斜線）';
-      } else {
-        errorMsg = `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`;
-      }
-    } else if (errorCode === 'SERVER_MISCONFIGURATION') {
-      errorMsg = UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION;
-    } else if (errorCode === 'INVALID_REDIRECT_URI' || isRedirectError) {
-      errorMsg = UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
-    } else if (error?.code === 'oauth_identity_unavailable') {
-      errorMsg = UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
-    } else {
-      errorMsg = ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
-    }
+
     this.ui.showStatus(`OAuth 連接失敗：${errorMsg}`, 'error');
+  }
+
+  /**
+   * 將 OAuth 錯誤映射為使用者可見的文案。主分派走 `error.code`；
+   * 對於沒有 code 但 message 仍透露 redirect 線索的舊路徑保留 fallback heuristic。
+   *
+   * @private
+   * @param {Error} error
+   * @param {string} errorCode
+   * @returns {string}
+   */
+  _resolveOAuthErrorMessage(error, errorCode) {
+    switch (errorCode) {
+      case 'OAUTH_IDENTITY_UNAVAILABLE': {
+        return UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
+      }
+      case 'SERVER_MISCONFIGURATION': {
+        return UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION;
+      }
+      case 'INVALID_REDIRECT_URI': {
+        return UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
+      }
+      case 'OAUTH_CALLBACK_ERROR': {
+        const oauthError = typeof error?.cause === 'string' ? error.cause : '';
+        if (oauthError === 'access_denied') {
+          return UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED;
+        }
+        if (oauthError === 'canceled' || oauthError === 'cancelled') {
+          return UI_MESSAGES.AUTH.OAUTH_REDIRECT_URI_FORMAT_MISMATCH;
+        }
+        return UI_MESSAGES.AUTH.OAUTH_CALLBACK_ERROR_GENERIC(oauthError || 'unknown');
+      }
+      default: {
+        const msg = error?.message ?? '';
+        const msgLower = msg.toLowerCase();
+        if (msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect')) {
+          return UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
+        }
+        return ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
+      }
+    }
   }
 
   /**

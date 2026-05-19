@@ -24,7 +24,7 @@ const OAUTH_STATE_STORAGE_KEY = 'oauthState';
 /**
  * 檢查 chrome.identity API 是否可用。
  *
- * @throws {Error & { code: 'oauth_identity_unavailable' }}
+ * @throws {Error & { code: 'OAUTH_IDENTITY_UNAVAILABLE' }}
  */
 function checkIdentityApi() {
   const missingIdentityApi = [];
@@ -42,7 +42,7 @@ function checkIdentityApi() {
     const unavailableError = new Error(
       `OAuth Identity API unavailable: ${missingIdentityApi.join(', ')}`
     );
-    unavailableError.code = 'oauth_identity_unavailable';
+    unavailableError.code = 'OAUTH_IDENTITY_UNAVAILABLE';
     throw unavailableError;
   }
 }
@@ -65,7 +65,8 @@ function checkIdentityApi() {
  * - 清理 oauthState（chrome.storage.session）
  *
  * @returns {Promise<NotionOAuthAuthorizeResult>}
- * @throws {Error} 缺 OAUTH_CLIENT_ID、Identity API 不可用、用戶取消、CSRF 驗證失敗等
+ * @throws {Error & { code: 'OAUTH_IDENTITY_UNAVAILABLE' | 'OAUTH_MISSING_CLIENT_ID' | 'OAUTH_FLOW_CANCELLED' | 'OAUTH_CSRF_MISMATCH' | 'OAUTH_CALLBACK_ERROR' }}
+ *   `OAUTH_CALLBACK_ERROR` 會在 `error.cause` 帶上 callback URL 的 `error` 參數值（如 `'access_denied'`、`'canceled'`）。
  */
 export async function initiateNotionOAuth() {
   checkIdentityApi();
@@ -76,7 +77,7 @@ export async function initiateNotionOAuth() {
       missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
     });
     const configError = new Error('OAUTH_CLIENT_ID is not configured');
-    configError.code = 'oauth_missing_client_id';
+    configError.code = 'OAUTH_MISSING_CLIENT_ID';
     throw configError;
   }
 
@@ -102,7 +103,9 @@ export async function initiateNotionOAuth() {
   });
 
   if (!callbackUrl) {
-    throw new Error('OAuth 流程被取消或未回傳 URL');
+    const cancelledError = new Error('OAuth flow cancelled or no callback URL returned');
+    cancelledError.code = 'OAUTH_FLOW_CANCELLED';
+    throw cancelledError;
   }
 
   // 5. 解析 callback URL
@@ -113,7 +116,9 @@ export async function initiateNotionOAuth() {
   // 6. 驗證 CSRF state
   const storedState = await chrome.storage.session.get(OAUTH_STATE_STORAGE_KEY);
   if (returnedState !== storedState[OAUTH_STATE_STORAGE_KEY]) {
-    throw new Error('CSRF state 驗證失敗，請重試');
+    const csrfError = new Error('CSRF state mismatch');
+    csrfError.code = 'OAUTH_CSRF_MISMATCH';
+    throw csrfError;
   }
 
   if (!code) {
@@ -122,7 +127,10 @@ export async function initiateNotionOAuth() {
       action: 'initiateNotionOAuth',
       oauthError: errorParam || 'no_error_param',
     });
-    throw new Error(`Notion 授權失敗: ${errorParam || '未知錯誤'}`);
+    const callbackError = new Error(`Notion OAuth callback error: ${errorParam || 'unknown'}`);
+    callbackError.code = 'OAUTH_CALLBACK_ERROR';
+    callbackError.cause = errorParam || 'unknown';
+    throw callbackError;
   }
 
   return { code, redirectUri, csrfState };
