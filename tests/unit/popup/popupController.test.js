@@ -4,7 +4,7 @@
  * 測試 popup/popup.js 的初始化和事件協調邏輯
  */
 
-import { initPopup } from '../../../popup/popup.js';
+import { initPopup } from '../../../pages/popup/popup.js';
 import {
   getElements,
   initializePopupStaticText,
@@ -18,7 +18,7 @@ import {
   setStatus,
   setButtonState,
   formatSaveSuccessMessage,
-} from '../../../popup/popupUI.js';
+} from '../../../pages/popup/popupUI.js';
 import {
   checkSettings,
   checkPageStatus,
@@ -30,13 +30,13 @@ import {
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
-} from '../../../popup/popupActions.js';
+} from '../../../pages/popup/popupActions.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
-jest.mock('../../../popup/popupUI.js', () => ({
+jest.mock('../../../pages/popup/popupUI.js', () => ({
   getElements: jest.fn(),
   initializePopupStaticText: jest.fn(),
   setAccountSectionVisible: jest.fn(),
@@ -50,7 +50,7 @@ jest.mock('../../../popup/popupUI.js', () => ({
   setButtonState: jest.fn(),
   formatSaveSuccessMessage: jest.fn(),
 }));
-jest.mock('../../../popup/popupActions.js', () => ({
+jest.mock('../../../pages/popup/popupActions.js', () => ({
   checkSettings: jest.fn(),
   checkPageStatus: jest.fn(),
   savePage: jest.fn(),

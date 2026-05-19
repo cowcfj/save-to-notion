@@ -9,7 +9,7 @@
 
 /* global chrome */
 
-import Logger from '../scripts/utils/Logger.js';
+import Logger from '../../scripts/utils/Logger.js';
 import {
   TOTAL_STEPS,
   showStep,
@@ -23,7 +23,7 @@ import {
   isAccountFeatureEnabled,
   isAccountLoggedIn,
 } from './onboardingController.js';
-import { startAccountLogin } from '../scripts/auth/accountLoginInitiator.js';
+import { startAccountLogin } from '../../scripts/auth/accountLoginInitiator.js';
 
 const root = document.querySelector('#onboarding-root');
 const ERROR_SCOPE_CONNECT_NOTION = 'connect-notion';

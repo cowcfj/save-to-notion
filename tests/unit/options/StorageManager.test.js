@@ -4,12 +4,12 @@
  * 對存儲管理模組的 UI 層（StorageManager.js）和數據邏輯層（storageDataUtils.js）進行測試
  */
 
-import { StorageManager } from '../../../options/StorageManager';
+import { StorageManager } from '../../../pages/options/StorageManager';
 import {
   sanitizeBackupData,
   getStorageHealthReport,
   MIGRATION_LEFTOVER_PREFIXES,
-} from '../../../options/storageDataUtils';
+} from '../../../pages/options/storageDataUtils';
 import Logger from '../../../scripts/utils/Logger';
 import { URL_ALIAS_PREFIX } from '../../../scripts/config/shared/storage.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
@@ -1510,7 +1510,7 @@ describe('storageDataUtils — Legacy / 輔助函數', () => {
 
 describe('options.html 結構', () => {
   test('health-status 應為 polite live region 的 output 標籤', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toMatch(/<output[^>]*id="health-status"/);
@@ -1519,7 +1519,7 @@ describe('options.html 結構', () => {
   });
 
   test('cleanup-status 應保留既有 class 並提供 polite status live region', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toMatch(/<output[^>]*id="cleanup-status"/);
@@ -1529,7 +1529,7 @@ describe('options.html 結構', () => {
   });
 
   test('destination-profile-status 應使用 output 標籤而非 status role', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const status = doc.querySelector('#destination-profile-status');
@@ -1542,7 +1542,7 @@ describe('options.html 結構', () => {
   });
 
   test('Google Drive 雲端同步卡片應僅保留單一說明文案，描述備份與同步本地資料到雲端', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toContain('連接 Google Drive 後，可備份和同步你的本地資料到雲端。');
@@ -1550,7 +1550,7 @@ describe('options.html 結構', () => {
   });
 
   test('Google Drive 自動備份 UI 應標示測試版，避免暗示完整背景雙向同步', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toContain('測試版');
@@ -1559,7 +1559,7 @@ describe('options.html 結構', () => {
   });
 
   test('保存目標選擇器應位於手動 ID 輸入框之前', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
@@ -1574,7 +1574,7 @@ describe('options.html 結構', () => {
   });
 
   test('保存目標新增表單應將名稱獨立成行，選擇器與 ID 欄位並列成行', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
@@ -1598,7 +1598,7 @@ describe('options.html 結構', () => {
   });
 
   test('表單 label 在初始 HTML 中應關聯控制項並提供可讀文字', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
@@ -1619,7 +1619,7 @@ describe('options.html 結構', () => {
   });
 
   test('保存目標靜態文案應以 UI_MESSAGES key 掛載，避免 HTML 重複硬編碼', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
@@ -1647,8 +1647,8 @@ describe('options.html 結構', () => {
   });
 
   test('一般設定 UI 應保留精簡文案與連接操作列', () => {
-    const htmlPath = path.resolve(__dirname, '../../../options/options.html');
-    const cssPath = path.resolve(__dirname, '../../../options/options.css');
+    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
+    const cssPath = path.resolve(__dirname, '../../../pages/options/options.css');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const css = fs.readFileSync(cssPath, 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');

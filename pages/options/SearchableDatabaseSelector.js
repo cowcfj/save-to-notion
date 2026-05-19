@@ -3,15 +3,15 @@
  * 可搜索的資料來源選擇器 UI 組件
  */
 
-import Logger from '../scripts/utils/Logger.js';
+import Logger from '../../scripts/utils/Logger.js';
 import {
   createSafeIcon,
   sanitizeApiError,
   sanitizeUrlForLogging,
-} from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { UI_ICONS } from '../scripts/config/icons.js';
-import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
+} from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
+import { UI_ICONS } from '../../scripts/config/icons.js';
+import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 
 const { DATA_SOURCE } = UI_MESSAGES;
 

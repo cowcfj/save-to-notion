@@ -89,5 +89,5 @@ export function buildAccountLoginStartUrl() {
  * @returns {string}
  */
 export function getOptionsAdvancedUrl() {
-  return chrome.runtime.getURL('options/options.html?section=advanced');
+  return chrome.runtime.getURL('pages/options/options.html?section=advanced');
 }

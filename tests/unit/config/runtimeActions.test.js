@@ -184,9 +184,9 @@ describe('runtimeActions', () => {
     expect(runtimeActionsRegistryKeys).toEqual(new Set(Object.keys(RUNTIME_ACTIONS)));
   });
 
-  // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
+  // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 pages/ 中透過
   // aggregate registry 或拆分後的小型 action registry 實際被引用。
-  test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 options/ 中實際被引用', () => {
+  test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 pages/ 中實際被引用', () => {
     const projectRoot = path.resolve(__dirname, '../../..');
     const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
 
@@ -212,7 +212,7 @@ describe('runtimeActions', () => {
 
     const sourceFiles = [
       ...collectJsFiles(path.join(projectRoot, 'scripts')),
-      ...collectJsFiles(path.join(projectRoot, 'options')),
+      ...collectJsFiles(path.join(projectRoot, 'pages')),
     ];
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     const codebase = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');

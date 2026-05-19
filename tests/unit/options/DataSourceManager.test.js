@@ -2,13 +2,13 @@
  * @jest-environment jsdom
  */
 /* global document */
-import { DataSourceManager } from '../../../options/DataSourceManager.js';
-import { UIManager } from '../../../options/UIManager.js';
+import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
+import { UIManager } from '../../../pages/options/UIManager.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
-jest.mock('../../../options/UIManager.js');
-jest.mock('../../../options/SearchableDatabaseSelector.js');
+jest.mock('../../../pages/options/UIManager.js');
+jest.mock('../../../pages/options/SearchableDatabaseSelector.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {

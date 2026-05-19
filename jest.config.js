@@ -54,9 +54,7 @@ module.exports = {
   // 覆蓋率收集
   collectCoverageFrom: [
     '<rootDir>/scripts/**/*.js',
-    '<rootDir>/options/**/*.js',
-    '<rootDir>/popup/**/*.js', // 新增 popup 目錄
-    '<rootDir>/sidepanel/**/*.js', // 新增 sidepanel 目錄
+    '<rootDir>/pages/**/*.js',
     '!<rootDir>/scripts/config/app.js',                // 純常量配置
     '!<rootDir>/scripts/config/icons.js',              // 純 SVG 字串常量
     '!<rootDir>/scripts/config/ui.js',                 // 純 CSS 選擇器與類名常量

@@ -28,10 +28,10 @@
  * @param {string} status - 狀態描述
  */
 
-import Logger from '../scripts/utils/Logger.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import Logger from '../../scripts/utils/Logger.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 
 /**
  * 舊版數據遷移掃描器

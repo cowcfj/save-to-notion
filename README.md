@@ -201,9 +201,12 @@ notion-chrome/
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── rollup.all.config.mjs  # 統一構建配置
 ├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
-├── popup/                 # 彈出窗口 UI（處理 API 調用與 DOM 更新）
-├── sidepanel/             # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
-├── options/               # 設置頁面 UI（模塊化設置邏輯：Auth, DataSource, Storage 等）
+├── pages/                 # 擴展頁面集合（popup / sidepanel / options / onboarding / update-notification）
+│   ├── popup/             # 彈出窗口 UI（處理 API 調用與 DOM 更新）
+│   ├── sidepanel/         # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
+│   ├── options/           # 設置頁面 UI（模塊化設置邏輯：Auth, DataSource, Storage 等）
+│   ├── onboarding/        # 首次安裝引導頁
+│   └── update-notification/  # 更新通知頁面與邏輯
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js      # 處理擴展邏輯、API 調用、模板處理與更新通知
 │   ├── background/        # 模塊化背景服務
@@ -226,7 +229,6 @@ notion-chrome/
 ├── dist/                  # 構建產物
 │   ├── content.bundle.js         # Content Script 統一打包版
 │   └── *.js.map           # Source maps
-├── update-notification/   # 更新通知頁面與邏輯
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
 ├── tests/                 # 測試文件（2500+ tests）

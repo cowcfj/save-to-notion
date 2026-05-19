@@ -1,27 +1,27 @@
 /* global chrome */
-import Logger from '../scripts/utils/Logger.js';
-import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
-import { UI_ICONS } from '../scripts/config/icons.js';
-import { AuthMode } from '../scripts/config/extension/authMode.js';
+import Logger from '../../scripts/utils/Logger.js';
+import { sanitizeApiError, createSafeIcon } from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
+import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
+import { UI_ICONS } from '../../scripts/config/icons.js';
+import { AuthMode } from '../../scripts/config/extension/authMode.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken,
   getNextAuthEpoch,
   migrateDataSourceKeys,
-} from '../scripts/utils/notionAuth.js';
+} from '../../scripts/utils/notionAuth.js';
 import {
   AUTH_LOCAL_KEYS,
   DATA_SOURCE_KEYS,
   SYNC_CONFIG_KEYS,
   mergeDataSourceConfig,
-} from '../scripts/config/shared/storage.js';
-import { initiateNotionOAuth } from '../scripts/auth/notionOAuthInitiator.js';
+} from '../../scripts/config/shared/storage.js';
+import { initiateNotionOAuth } from '../../scripts/auth/notionOAuthInitiator.js';
 import {
   exchangeNotionOAuthCode,
   saveNotionOAuthToken,
-} from '../scripts/auth/notionOAuthCompleter.js';
+} from '../../scripts/auth/notionOAuthCompleter.js';
 
 /**
  * AuthManager.js

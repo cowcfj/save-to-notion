@@ -295,7 +295,7 @@ async function handleExtensionUpdate(previousVersion) {
  */
 function handleExtensionInstall() {
   Logger.success('[Lifecycle] 擴展首次安裝', { action: 'handleExtensionInstall' });
-  const onboardingUrl = chrome.runtime.getURL('onboarding/onboarding.html');
+  const onboardingUrl = chrome.runtime.getURL('pages/onboarding/onboarding.html');
   chrome.tabs.create({ url: onboardingUrl }).catch(error => {
     Logger.warn('[Lifecycle] 開啟 onboarding tab 失敗', {
       action: 'handleExtensionInstall',
@@ -348,7 +348,9 @@ function shouldShowUpdateNotification(previousVersion, currentVersion) {
  */
 async function showUpdateNotification(previousVersion, currentVersion) {
   try {
-    const url = new URL(chrome.runtime.getURL('update-notification/update-notification.html'));
+    const url = new URL(
+      chrome.runtime.getURL('pages/update-notification/update-notification.html')
+    );
     url.searchParams.set('prev', previousVersion);
     url.searchParams.set('curr', currentVersion);
 
