@@ -1,5 +1,14 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.73.0](https://github.com/cowcfj/save-to-notion/compare/v2.72.0...v2.73.0) (2026-05-19)
+
+
+### ✨ 新功能
+
+* Add session persistence for log buffer ([#541](https://github.com/cowcfj/save-to-notion/issues/541)) ([ad01a34](https://github.com/cowcfj/save-to-notion/commit/ad01a3419faee521328ebf0377a3724612d5f2e6))
+* Add update notification page and sidebar UI state management ([#544](https://github.com/cowcfj/save-to-notion/issues/544)) ([deff2da](https://github.com/cowcfj/save-to-notion/commit/deff2da74f200f7a910aa78ecbaa998530f82f8a))
+* Refactor authentication and add onboarding process ([#543](https://github.com/cowcfj/save-to-notion/issues/543)) ([157eacd](https://github.com/cowcfj/save-to-notion/commit/157eacdb84a51eb0deed07e5a341e40626ab3f18))
+
 ## [2.72.0](https://github.com/cowcfj/save-to-notion/compare/v2.71.1...v2.72.0) (2026-05-17)
 
 
