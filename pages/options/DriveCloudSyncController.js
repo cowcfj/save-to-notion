@@ -201,7 +201,7 @@ async function syncRemoteDriveConnection(options = {}) {
  *   warnMessage?: string;
  *   errorContext?: string;
  * }} [options]
- * @returns {Promise<import('../scripts/auth/driveClient.js').DriveSnapshotStatus | null>}
+ * @returns {Promise<import('../../scripts/auth/driveClient.js').DriveSnapshotStatus | null>}
  */
 async function syncRemoteSnapshotStatus(options = {}) {
   const warnMessage = options.warnMessage ?? '[CloudSync] Snapshot status sync skipped';

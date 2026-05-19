@@ -101,7 +101,7 @@ export async function isNotionConnected(storage) {
  * caller 持有 UI 狀態（按鈕 loading、錯誤訊息），這裡只負責流程編排。
  * 任一步驟拋錯都會直接 reject，由 caller 處理 retry / skip。
  *
- * @returns {Promise<import('../scripts/auth/notionOAuthCompleter.js').NotionOAuthTokenData>}
+ * @returns {Promise<import('../../scripts/auth/notionOAuthCompleter.js').NotionOAuthTokenData>}
  */
 export async function runNotionOAuthFlow() {
   const { code, redirectUri } = await initiateNotionOAuth();
