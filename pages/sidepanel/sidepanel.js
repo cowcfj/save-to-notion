@@ -672,7 +672,7 @@ async function checkSavedData(notionData, targetKey) {
  *
  * @param {string} normalizedUrl
  * @param {string} normalizedOriginal
- * @returns {Promise<{contract: import('../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract, storageData: object}>}
+ * @returns {Promise<{contract: import('../../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract, storageData: object}>}
  * @private
  */
 async function _resolveStorageForUrl(normalizedUrl, normalizedOriginal) {
@@ -729,7 +729,7 @@ async function _resolveStorageForUrl(normalizedUrl, normalizedOriginal) {
 /**
  * 依 lookupOrder 尋找第一個存在的 page_* 物件，供 page-only 狀態使用。
  *
- * @param {import('../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract} contract
+ * @param {import('../../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract} contract
  * @param {object} storageData
  * @returns {{ pageKey: string | null, pageData: object | null, notionData: object | null }}
  */
