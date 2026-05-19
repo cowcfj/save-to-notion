@@ -7,17 +7,17 @@
  * Entry script (onboarding.js) 將 document 作為 root 傳入並接線 click handler。
  */
 
-import { ONBOARDING_COMPLETED_KEY } from '../scripts/config/shared/storage.js';
-import { initiateNotionOAuth } from '../scripts/auth/notionOAuthInitiator.js';
+import { ONBOARDING_COMPLETED_KEY } from '../../scripts/config/shared/storage.js';
+import { initiateNotionOAuth } from '../../scripts/auth/notionOAuthInitiator.js';
 import {
   exchangeNotionOAuthCode,
   saveNotionOAuthToken,
-} from '../scripts/auth/notionOAuthCompleter.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { BUILD_ENV } from '../scripts/config/env/index.js';
+} from '../../scripts/auth/notionOAuthCompleter.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { BUILD_ENV } from '../../scripts/config/env/index.js';
 
 export const TOTAL_STEPS = 6;
-export { ONBOARDING_COMPLETED_KEY } from '../scripts/config/shared/storage.js';
+export { ONBOARDING_COMPLETED_KEY } from '../../scripts/config/shared/storage.js';
 
 /**
  * 顯示指定步驟，隱藏其他 section，並更新進度圓點的 active 狀態。

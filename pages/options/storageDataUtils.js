@@ -16,8 +16,8 @@ import {
   HIGHLIGHTS_PREFIX,
   SAVED_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../scripts/config/shared/storage.js';
-import { compareKeysAlphabetically } from '../scripts/utils/keyOrdering.js';
+} from '../../scripts/config/shared/storage.js';
+import { compareKeysAlphabetically } from '../../scripts/utils/keyOrdering.js';
 
 // ─── 備份 ──────────────────────────────────────────────────────────────
 

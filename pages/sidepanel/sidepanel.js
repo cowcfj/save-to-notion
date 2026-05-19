@@ -9,27 +9,27 @@
 
 /* global chrome */
 
-import { normalizeUrl, computeStableUrl, isRootUrl } from '../scripts/utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl, isRootUrl } from '../../scripts/utils/urlUtils.js';
 import {
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
   PAGE_PREFIX,
   URL_ALIAS_PREFIX,
-} from '../scripts/config/shared/storage.js';
-import { RESTRICTED_PROTOCOLS } from '../scripts/config/shared/core.js';
-import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { sanitizeApiError, sanitizeUrlForLogging } from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import Logger from '../scripts/utils/Logger.js';
+} from '../../scripts/config/shared/storage.js';
+import { RESTRICTED_PROTOCOLS } from '../../scripts/config/shared/core.js';
+import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
+import Logger from '../../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
 import {
   resolveKeys as resolveHighlightLookupKeys,
   getAliasLookupKeys,
   pickAliasCandidate,
   pickHighlightsFromStorage,
-} from '../scripts/highlighter/core/HighlightLookupResolver.js';
-import { compareKeysAlphabetically } from '../scripts/utils/keyOrdering.js';
+} from '../../scripts/highlighter/core/HighlightLookupResolver.js';
+import { compareKeysAlphabetically } from '../../scripts/utils/keyOrdering.js';
 
 // === 共享狀態（保留於入口，UI 模組不直接存取） ===
 

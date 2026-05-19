@@ -4,24 +4,24 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
-import { AuthMode } from '../scripts/config/extension/authMode.js';
-import { BUILD_ENV } from '../scripts/config/env/index.js';
-import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/shared/messages.js';
-import { UI_ICONS } from '../scripts/config/icons.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { buildAccountLoginStartUrl } from '../scripts/auth/accountLogin.js';
-import { resolveAccountDisplayProfile } from '../scripts/utils/accountDisplayUtils.js';
-import { injectIcons } from '../scripts/utils/uiUtils.js';
-import Logger from '../scripts/utils/Logger.js';
+import { AuthMode } from '../../scripts/config/extension/authMode.js';
+import { BUILD_ENV } from '../../scripts/config/env/index.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../../scripts/config/shared/messages.js';
+import { UI_ICONS } from '../../scripts/config/icons.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { buildAccountLoginStartUrl } from '../../scripts/auth/accountLogin.js';
+import { resolveAccountDisplayProfile } from '../../scripts/utils/accountDisplayUtils.js';
+import { injectIcons } from '../../scripts/utils/uiUtils.js';
+import Logger from '../../scripts/utils/Logger.js';
 
-import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
-import { ErrorHandler, ErrorTypes } from '../scripts/utils/ErrorHandler.js';
-import { DATA_SOURCE_KEYS } from '../scripts/config/shared/storage.js';
+import { sanitizeApiError, validateLogExportData } from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler, ErrorTypes } from '../../scripts/utils/ErrorHandler.js';
+import { DATA_SOURCE_KEYS } from '../../scripts/config/shared/storage.js';
 import {
   getAccountAccessToken,
   getAccountProfile,
   clearAccountSession,
-} from '../scripts/auth/accountSession.js';
+} from '../../scripts/auth/accountSession.js';
 import {
   initCloudSyncController,
   refreshCloudSyncCard,
@@ -30,8 +30,8 @@ import {
 import {
   AccountGatedDestinationEntitlementProvider,
   LocalDestinationProfileRepository,
-} from '../scripts/destinations/ProfileStore.js';
-import { ProfileManager } from '../scripts/destinations/ProfileManager.js';
+} from '../../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../../scripts/destinations/ProfileManager.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
 const DESTINATION_PROFILE_NAME_MAX_LENGTH = 40;

@@ -39,7 +39,9 @@
 
   // 直接開啟更新通知小視窗（驗證 UI）
   function openUpdateNotification(prev = '2.47.0', curr = '2.48.0') {
-    const url = new URL(chrome.runtime.getURL('update-notification/update-notification.html'));
+    const url = new URL(
+      chrome.runtime.getURL('pages/update-notification/update-notification.html')
+    );
     url.searchParams.set('prev', prev);
     url.searchParams.set('curr', curr);
     chrome.windows.create({ url: url.toString(), type: 'popup', width: 480, height: 560 });

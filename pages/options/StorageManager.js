@@ -6,16 +6,16 @@
 
 /* global chrome */
 
-import Logger from '../scripts/utils/Logger.js';
+import Logger from '../../scripts/utils/Logger.js';
 import {
   sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
   createSafeIcon,
-} from '../scripts/utils/securityUtils.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { UI_ICONS } from '../scripts/config/icons.js';
-import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
+} from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
+import { UI_ICONS } from '../../scripts/config/icons.js';
+import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import {
   sanitizeBackupData,
   getStorageHealthReport,

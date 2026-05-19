@@ -1,7 +1,7 @@
 // @jest-environment jsdom
 /* global document, chrome */
-import { AuthManager } from '../../../options/AuthManager.js';
-import { UIManager } from '../../../options/UIManager.js';
+import { AuthManager } from '../../../pages/options/AuthManager.js';
+import { UIManager } from '../../../pages/options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
@@ -18,7 +18,7 @@ jest.mock('../../../scripts/config/env/index.js', () => ({
     EXTENSION_API_KEY: 'test-api-key',
   },
 }));
-jest.mock('../../../options/UIManager.js');
+jest.mock('../../../pages/options/UIManager.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {

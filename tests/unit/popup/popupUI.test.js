@@ -17,7 +17,7 @@ import {
   updateUIForUnsavedPage,
   renderDestinationSelector,
   formatSaveSuccessMessage,
-} from '../../../popup/popupUI.js';
+} from '../../../pages/popup/popupUI.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 describe('popupUI.js', () => {

@@ -10,21 +10,21 @@ import {
   isValidNotionUrl,
   sanitizeApiError,
   sanitizeUrlForLogging,
-} from '../scripts/utils/securityUtils.js';
-import Logger from '../scripts/utils/Logger.js';
-import { AuthMode } from '../scripts/config/extension/authMode.js';
-import { BUILD_ENV } from '../scripts/config/env/index.js';
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/shared/messages.js';
-import { getAccountAccessToken, getAccountProfile } from '../scripts/auth/accountSession.js';
-import { getOptionsAdvancedUrl } from '../scripts/auth/accountLogin.js';
-export { startAccountLogin } from '../scripts/auth/accountLoginInitiator.js';
-import { migrateDataSourceKeys } from '../scripts/utils/notionAuth.js';
+} from '../../scripts/utils/securityUtils.js';
+import Logger from '../../scripts/utils/Logger.js';
+import { AuthMode } from '../../scripts/config/extension/authMode.js';
+import { BUILD_ENV } from '../../scripts/config/env/index.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../scripts/config/shared/messages.js';
+import { getAccountAccessToken, getAccountProfile } from '../../scripts/auth/accountSession.js';
+import { getOptionsAdvancedUrl } from '../../scripts/auth/accountLogin.js';
+export { startAccountLogin } from '../../scripts/auth/accountLoginInitiator.js';
+import { migrateDataSourceKeys } from '../../scripts/utils/notionAuth.js';
 import {
   AccountGatedDestinationEntitlementProvider,
   LocalDestinationProfileRepository,
-} from '../scripts/destinations/ProfileStore.js';
-import { ProfileManager } from '../scripts/destinations/ProfileManager.js';
+} from '../../scripts/destinations/ProfileStore.js';
+import { ProfileManager } from '../../scripts/destinations/ProfileManager.js';
 
 /**
  * 檢查設置是否完整

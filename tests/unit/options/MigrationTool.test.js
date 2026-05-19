@@ -1,11 +1,11 @@
 // @jest-environment jsdom
 /* global document */
-import { MigrationTool } from '../../../options/MigrationTool.js';
-import { UIManager } from '../../../options/UIManager.js';
-import { MigrationScanner } from '../../../options/MigrationScanner.js';
+import { MigrationTool } from '../../../pages/options/MigrationTool.js';
+import { UIManager } from '../../../pages/options/UIManager.js';
+import { MigrationScanner } from '../../../pages/options/MigrationScanner.js';
 
-jest.mock('../../../options/MigrationScanner.js', () => {
-  const actualObj = jest.requireActual('../../../options/MigrationScanner.js');
+jest.mock('../../../pages/options/MigrationScanner.js', () => {
+  const actualObj = jest.requireActual('../../../pages/options/MigrationScanner.js');
 
   const mockScannerInstance = {
     scanStorage: jest.fn(),
@@ -62,7 +62,7 @@ describe('MigrationTool', () => {
     mockUiManager.showStatus = jest.fn();
 
     // 從 mock 中取得我們剛剛建立的實例
-    const { mockScannerInstance } = require('../../../options/MigrationScanner.js');
+    const { mockScannerInstance } = require('../../../pages/options/MigrationScanner.js');
     mockScanner = mockScannerInstance;
 
     MigrationScanner.requestBatchMigration = jest.fn();
@@ -209,7 +209,7 @@ describe('MigrationTool Extended', () => {
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
 
-    const { mockScannerInstance } = require('../../../options/MigrationScanner.js');
+    const { mockScannerInstance } = require('../../../pages/options/MigrationScanner.js');
     mockScanner = mockScannerInstance;
     MigrationScanner.requestBatchMigration = jest.fn();
 

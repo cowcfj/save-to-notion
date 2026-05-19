@@ -156,16 +156,20 @@ describe('Background Extension Lifecycle', () => {
     });
 
     test('應該開啟 onboarding tab', () => {
-      chrome.runtime.getURL.mockReturnValue('chrome-extension://id/onboarding/onboarding.html');
+      chrome.runtime.getURL.mockReturnValue(
+        'chrome-extension://id/pages/onboarding/onboarding.html'
+      );
       background.handleExtensionInstall();
-      expect(chrome.runtime.getURL).toHaveBeenCalledWith('onboarding/onboarding.html');
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith('pages/onboarding/onboarding.html');
       expect(chrome.tabs.create).toHaveBeenCalledWith({
-        url: 'chrome-extension://id/onboarding/onboarding.html',
+        url: 'chrome-extension://id/pages/onboarding/onboarding.html',
       });
     });
 
     test('開啟 onboarding tab 失敗時應記錄錯誤但不中斷安裝流程', async () => {
-      chrome.runtime.getURL.mockReturnValue('chrome-extension://id/onboarding/onboarding.html');
+      chrome.runtime.getURL.mockReturnValue(
+        'chrome-extension://id/pages/onboarding/onboarding.html'
+      );
       chrome.tabs.create.mockRejectedValueOnce(new Error('tab_create_failed'));
       expect(() => background.handleExtensionInstall()).not.toThrow();
       // 等待 unhandled rejection 進到 catch
@@ -180,7 +184,7 @@ describe('Background Extension Lifecycle', () => {
   describe('showUpdateNotification', () => {
     test('應該創建更新通知視窗', async () => {
       chrome.runtime.getURL.mockReturnValue(
-        'chrome-extension://id/update-notification/update-notification.html'
+        'chrome-extension://id/pages/update-notification/update-notification.html'
       );
 
       await background.showUpdateNotification('2.7.3', '2.8.1');

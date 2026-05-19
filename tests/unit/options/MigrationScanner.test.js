@@ -4,7 +4,7 @@
  * Tests for options page storage scanning and migration coordination
  */
 
-import { MigrationScanner } from '../../../options/MigrationScanner';
+import { MigrationScanner } from '../../../pages/options/MigrationScanner';
 
 // Mock Chrome API (reset in beforeEach)
 

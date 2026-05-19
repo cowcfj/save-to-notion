@@ -98,11 +98,7 @@ cp -a auth.html "$RM_DIR/"          # 帳號登入 callback bridge
 
 # Copy directories
 cp -a icons "$RM_DIR/"
-cp -a options "$RM_DIR/"
-cp -a popup "$RM_DIR/"
-cp -a sidepanel "$RM_DIR/"
-cp -a onboarding "$RM_DIR/"        # 首次安裝引導頁
-cp -a update-notification "$RM_DIR/"
+cp -a pages "$RM_DIR/"             # extension page bundle（popup / options / sidepanel / onboarding / update-notification）
 cp -a styles "$RM_DIR/"            # callback bridge 共用 CSS
 cp -a dist "$RM_DIR/"
 
@@ -192,7 +188,10 @@ function resolveImports(filePath) {
 }
 
 // 找出所有 HTML 檔案中的 <script type=\"module\" src=\"...\"> 入口（屬性順序不固定）
-const htmlDirs = ['popup', 'options', 'sidepanel', 'onboarding', 'update-notification'];
+const htmlDirs = fs
+  .readdirSync(path.join(pkgDir, 'pages'), { withFileTypes: true })
+  .filter(entry => entry.isDirectory())
+  .map(entry => path.join('pages', entry.name));
 for (const dir of htmlDirs) {
   const dirPath = path.join(pkgDir, dir);
   if (!fs.existsSync(dirPath)) continue;

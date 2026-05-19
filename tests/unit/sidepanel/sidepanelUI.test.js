@@ -20,7 +20,7 @@ import {
   updateUnsyncedBadge,
   PREVIEW_HIGHLIGHT_COUNT,
   PREVIEW_TEXT_MAX_LENGTH,
-} from '../../../sidepanel/sidepanelUI.js';
+} from '../../../pages/sidepanel/sidepanelUI.js';
 
 // ---- DOM 設置 ----
 

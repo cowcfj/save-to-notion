@@ -11,13 +11,13 @@ import {
   cleanDatabaseId,
   initOptions,
   applyStaticOptionMessages,
-} from '../../../options/options.js';
+} from '../../../pages/options/options.js';
 
-import { UIManager } from '../../../options/UIManager.js';
-import { AuthManager } from '../../../options/AuthManager.js';
-import { DataSourceManager } from '../../../options/DataSourceManager.js';
-import { StorageManager } from '../../../options/StorageManager.js';
-import { MigrationTool } from '../../../options/MigrationTool.js';
+import { UIManager } from '../../../pages/options/UIManager.js';
+import { AuthManager } from '../../../pages/options/AuthManager.js';
+import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
+import { StorageManager } from '../../../pages/options/StorageManager.js';
+import { MigrationTool } from '../../../pages/options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
@@ -35,11 +35,11 @@ jest.mock('../../../scripts/config/env/index.js', () => ({
     EXTENSION_API_KEY: '',
   },
 }));
-jest.mock('../../../options/UIManager.js');
-jest.mock('../../../options/AuthManager.js');
-jest.mock('../../../options/DataSourceManager.js');
-jest.mock('../../../options/StorageManager.js');
-jest.mock('../../../options/MigrationTool.js');
+jest.mock('../../../pages/options/UIManager.js');
+jest.mock('../../../pages/options/AuthManager.js');
+jest.mock('../../../pages/options/DataSourceManager.js');
+jest.mock('../../../pages/options/StorageManager.js');
+jest.mock('../../../pages/options/MigrationTool.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
@@ -239,7 +239,10 @@ describe('options.js', () => {
       // 確保任何新增 data-ui-* 屬性的 HTML 元素，其 key 都對應到 UI_MESSAGES 內非空文案。
       const fs = require('node:fs');
       const path = require('node:path');
-      const html = fs.readFileSync(path.join(__dirname, '../../../options/options.html'), 'utf8');
+      const html = fs.readFileSync(
+        path.join(__dirname, '../../../pages/options/options.html'),
+        'utf8'
+      );
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
       document.body.innerHTML = bodyMatch[1];
@@ -992,7 +995,7 @@ describe('options.js', () => {
     });
 
     it('網址帶 ?section=advanced 時應在初始化後切到 advanced 區塊', () => {
-      globalThis.history.replaceState({}, '', '/options/options.html?section=advanced');
+      globalThis.history.replaceState({}, '', '/pages/options/options.html?section=advanced');
       document.body.innerHTML = `
         <button id="save-button"></button>
         <button id="save-templates-button"></button>
@@ -1016,7 +1019,7 @@ describe('options.js', () => {
     });
 
     it('網址帶不合法 section 時應維持預設 general 區塊', () => {
-      globalThis.history.replaceState({}, '', '/options/options.html?section=unknown');
+      globalThis.history.replaceState({}, '', '/pages/options/options.html?section=unknown');
       document.body.innerHTML = `
         <button id="save-button"></button>
         <button id="save-templates-button"></button>

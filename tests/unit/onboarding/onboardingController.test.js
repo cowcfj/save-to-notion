@@ -32,7 +32,7 @@ import {
   extractDatabaseTitle,
   isAccountFeatureEnabled,
   isAccountLoggedIn,
-} from '../../../onboarding/onboardingController.js';
+} from '../../../pages/onboarding/onboardingController.js';
 import { initiateNotionOAuth } from '../../../scripts/auth/notionOAuthInitiator.js';
 import {
   exchangeNotionOAuthCode,

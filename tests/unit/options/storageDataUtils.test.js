@@ -10,7 +10,7 @@ import {
   buildImportExecutionPlan,
   diffBackupData,
   getAllLocalStorage,
-} from '../../../options/storageDataUtils';
+} from '../../../pages/options/storageDataUtils';
 
 function buildChromeMock(mockGet) {
   return {

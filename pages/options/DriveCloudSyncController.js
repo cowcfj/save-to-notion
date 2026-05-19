@@ -18,9 +18,9 @@
 
 /* global chrome */
 
-import { RUNTIME_ACTIONS } from '../scripts/config/shared/runtimeActions.js';
-import { UI_MESSAGES } from '../scripts/config/shared/messages.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../scripts/config/extension/driveSyncErrorCodes.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
 import {
   clearDriveSyncMetadata,
   disconnectDrive,
@@ -31,10 +31,10 @@ import {
   setLastKnownRemoteUpdatedAt,
   setDriveConnection,
   startDriveOAuthFlow,
-} from '../scripts/auth/driveClient.js';
-import Logger from '../scripts/utils/Logger.js';
-import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+} from '../../scripts/auth/driveClient.js';
+import Logger from '../../scripts/utils/Logger.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
 
 const DRIVE_SYNC_IDENTITY_INIT_FAILED = 'drive_sync_identity_init_failed';
 

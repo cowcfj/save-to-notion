@@ -7,7 +7,7 @@ import {
   setCloudSyncCardVisibility,
   renderCloudSyncCard,
   refreshCloudSyncCard,
-} from '../../../options/DriveCloudSyncController.js';
+} from '../../../pages/options/DriveCloudSyncController.js';
 import * as driveClient from '../../../scripts/auth/driveClient.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
