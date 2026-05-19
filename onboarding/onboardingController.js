@@ -126,7 +126,10 @@ export function extractDatabaseTitle(db) {
 }
 
 /**
- * 透過 chrome.runtime.sendMessage 呼叫 SEARCH_NOTION，回傳已過濾為 database 的列表。
+ * 透過 chrome.runtime.sendMessage 呼叫 SEARCH_NOTION，回傳已過濾為 data source 的列表。
+ *
+ * Notion API 2025-09-03 起 search filter 僅接受 `page` 或 `data_source`，
+ * 對應 multi-source database 模型；舊值 `database` 會觸發 validation_error。
  *
  * @param {{ sendMessage: (message: object) => Promise<object> }} deps
  *   sendMessage 由 caller 注入；可 wrap chrome.runtime.sendMessage 並轉成 Promise。
@@ -136,7 +139,7 @@ export function extractDatabaseTitle(db) {
 export async function fetchNotionDatabases({ sendMessage }) {
   const response = await sendMessage({
     action: RUNTIME_ACTIONS.SEARCH_NOTION,
-    searchParams: { filter: { property: 'object', value: 'database' } },
+    searchParams: { filter: { property: 'object', value: 'data_source' } },
   });
   if (!response) {
     throw new Error('SEARCH_NOTION 沒有回傳 response');
@@ -149,7 +152,7 @@ export async function fetchNotionDatabases({ sendMessage }) {
     return [];
   }
   return results
-    .filter(item => item?.object === 'database')
+    .filter(item => item?.object === 'data_source')
     .map(db => ({ id: db.id, title: extractDatabaseTitle(db) }));
 }
 

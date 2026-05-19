@@ -269,14 +269,14 @@ describe('onboardingController', () => {
   });
 
   describe('fetchNotionDatabases', () => {
-    it('成功應發送 SEARCH_NOTION 並回傳已過濾的 database 列表', async () => {
+    it('成功應發送 SEARCH_NOTION 並回傳已過濾的 data source 列表', async () => {
       const sendMessage = jest.fn().mockResolvedValue({
         success: true,
         data: {
           results: [
-            { id: 'db-1', object: 'database', title: [{ plain_text: 'Database 1' }] },
+            { id: 'ds-1', object: 'data_source', title: [{ plain_text: 'Database 1' }] },
             { id: 'page-1', object: 'page', title: [{ plain_text: 'Page (skip)' }] },
-            { id: 'db-2', object: 'database', title: [{ plain_text: 'Database 2' }] },
+            { id: 'ds-2', object: 'data_source', title: [{ plain_text: 'Database 2' }] },
           ],
         },
       });
@@ -285,11 +285,11 @@ describe('onboardingController', () => {
 
       expect(sendMessage).toHaveBeenCalledWith({
         action: 'searchNotion',
-        searchParams: { filter: { property: 'object', value: 'database' } },
+        searchParams: { filter: { property: 'object', value: 'data_source' } },
       });
       expect(result).toEqual([
-        { id: 'db-1', title: 'Database 1' },
-        { id: 'db-2', title: 'Database 2' },
+        { id: 'ds-1', title: 'Database 1' },
+        { id: 'ds-2', title: 'Database 2' },
       ]);
     });
 
