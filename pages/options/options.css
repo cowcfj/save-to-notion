@@ -1464,6 +1464,30 @@ h4 .icon-svg {
   margin-top: 12px;
 }
 
+.fw-medium {
+  font-weight: 500;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+.mb-14 {
+  margin-bottom: 14px;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
+
+.mt-10 {
+  margin-top: 10px;
+}
+
 /* --- Advanced Features Profile --- */
 .profile-layout {
   display: flex;
