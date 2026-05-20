@@ -1,5 +1,29 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.74.0](https://github.com/cowcfj/save-to-notion/compare/v2.73.0...v2.74.0) (2026-05-20)
+
+
+### ✨ 新功能
+
+* add about author page and related icons ([#547](https://github.com/cowcfj/save-to-notion/issues/547)) ([21f4bfc](https://github.com/cowcfj/save-to-notion/commit/21f4bfc942daa0097ec582a3c2b6c16ec8ff3b5a))
+* refactor inline styles and add CSS variables for options page ([#550](https://github.com/cowcfj/save-to-notion/issues/550)) ([d234fff](https://github.com/cowcfj/save-to-notion/commit/d234fffa2cf07601a7d26efc24fd521cd109e8c3))
+* 更新 .gitignore 以排除特定構建產物 ([6746a43](https://github.com/cowcfj/save-to-notion/commit/6746a4316528a3bc87a00b49da33bef1845f3c40))
+
+
+### ♻️ 代碼重構
+
+* add guide messages and integrate i18n support ([#553](https://github.com/cowcfj/save-to-notion/issues/553)) ([5879327](https://github.com/cowcfj/save-to-notion/commit/58793279d751ef768e8ab7e345a20fdee82b6027))
+* align margin and gap utilities with canonical spacing tokens ([#561](https://github.com/cowcfj/save-to-notion/issues/561)) ([05d42ca](https://github.com/cowcfj/save-to-notion/commit/05d42ca6b3a779404386f026a0647814cd031cd7))
+* migrate visibility toggles to .hidden class ([#557](https://github.com/cowcfj/save-to-notion/issues/557)) ([22695de](https://github.com/cowcfj/save-to-notion/commit/22695de06a4b0c08e5c8661b47fc316721732a75))
+* **options-css:** 整體對齊設計變數 ([#551](https://github.com/cowcfj/save-to-notion/issues/551)) ([#555](https://github.com/cowcfj/save-to-notion/issues/555)) ([78a1b6d](https://github.com/cowcfj/save-to-notion/commit/78a1b6daf009fd81a668594373a16b4cae94d6c5))
+* restructure composite handlers into a registry mapping table ([#558](https://github.com/cowcfj/save-to-notion/issues/558)) ([c054948](https://github.com/cowcfj/save-to-notion/commit/c05494872abd4164a10447130a5f73c339e80814))
+* unify margin styles for auth actions ([#560](https://github.com/cowcfj/save-to-notion/issues/560)) ([df6e2ae](https://github.com/cowcfj/save-to-notion/commit/df6e2ae87908749e12c963497f1ed4d18a0385ab))
+
+
+### ⚡ 效能優化
+
+* ⚡ Bolt: replace .map().filter() with for-loop in ImageCollector ([#546](https://github.com/cowcfj/save-to-notion/issues/546)) ([23e4a2c](https://github.com/cowcfj/save-to-notion/commit/23e4a2cfd203c0b0bb22d14b84797ced3b60caf0))
+
 ## [2.73.0](https://github.com/cowcfj/save-to-notion/compare/v2.72.0...v2.73.0) (2026-05-19)
 
 
