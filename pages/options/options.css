@@ -1460,6 +1460,14 @@ h4 .icon-svg {
 }
 
 /* Margin Utilities */
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
 .mt-12 {
   margin-top: 12px;
 }

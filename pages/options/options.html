@@ -675,16 +675,8 @@
 
             <!-- 狀態三：衝突 — 遠端較新，需人工處理 -->
             <div id="drive-state-conflict" style="display: none">
-              <div
-                style="
-                  background: rgba(234, 179, 8, 0.12);
-                  border: 1px solid rgba(234, 179, 8, 0.3);
-                  border-radius: 8px;
-                  padding: 12px 14px;
-                  margin-bottom: 14px;
-                "
-              >
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+              <div class="drive-conflict-banner">
+                <div class="drive-conflict-header">
                   <svg
                     width="16"
                     height="16"
@@ -693,7 +685,7 @@
                     focusable="false"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#eab308"
+                    stroke="currentColor"
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
@@ -704,18 +696,16 @@
                     <line x1="12" y1="9" x2="12" y2="13" />
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
-                  <strong style="color: #eab308; font-size: 0.875rem">雲端資料較新</strong>
+                  <strong class="drive-conflict-title">雲端資料較新</strong>
                 </div>
-                <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 10px">
+                <p class="text-sm text-secondary mb-10">
                   雲端快照
                   比本地資料新，上載可能覆蓋較新的雲端資料。建議先下載雲端版本，或確認後強制上載。
                 </p>
                 <p
-                  id="drive-conflict-remote-time"
-                  class="text-sm"
-                  style="color: var(--text-muted); margin-bottom: 12px"
+                  class="text-sm text-muted mb-12"
                 ></p>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <div class="button-group">
                   <button id="drive-conflict-download-button" type="button" class="btn-primary">
                     <svg
                       aria-hidden="true"
