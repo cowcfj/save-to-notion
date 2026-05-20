@@ -34,6 +34,7 @@ button.btn-icon {
 .btn-primary {
   background-color: var(--color-primary);
   color: var(--color-bg);
+  border: 1px solid transparent;
 }
 
 .btn-primary:hover:not(:disabled) {
