@@ -477,9 +477,7 @@
 
             <!-- 未登入狀態 -->
             <div id="account-logged-out">
-              <p class="section-desc mb-12">
-                使用 Google 帳號登入，享受同步與進階功能。
-              </p>
+              <p class="section-desc mb-12"> 使用 Google 帳號登入，享受同步與進階功能。 </p>
               <div class="auth-actions">
                 <button id="account-login-button" type="button" class="btn-primary">
                   <span class="icon">
@@ -519,7 +517,13 @@
                   <div class="profile-name-row">
                     <span id="profile-display-name"></span>
                     <span class="verified-badge" title="已驗證">
-                      <svg width="14" height="14" class="icon-svg" aria-hidden="true" focusable="false">
+                      <svg
+                        width="14"
+                        height="14"
+                        class="icon-svg"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
                         <use href="#icon-success" />
                       </svg>
                     </span>
@@ -599,7 +603,13 @@
               <div class="auth-actions">
                 <button id="drive-connect-button" type="button" class="btn-primary">
                   <span class="icon">
-                    <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                    <svg
+                      width="16"
+                      height="16"
+                      class="icon-svg"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
                       <use href="#icon-link" />
                     </svg>
                   </span>
@@ -639,10 +649,7 @@
                 </select>
               </div>
               <!-- Phase B: 自動同步狀態 -->
-              <output
-                class="drive-auto-sync-status"
-                style="display: none"
-              >
+              <output class="drive-auto-sync-status" style="display: none">
                 <span id="drive-auto-sync-status-text"></span>
               </output>
               <!-- 操作按鈕 -->
@@ -659,11 +666,7 @@
                   </svg>
                   <span class="button-text">從雲端還原</span>
                 </button>
-                <button
-                  id="drive-disconnect-button"
-                  type="button"
-                  class="btn-danger ml-auto"
-                >
+                <button id="drive-disconnect-button" type="button" class="btn-danger ml-auto">
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-unlink" />
                   </svg>
@@ -701,9 +704,7 @@
                   雲端快照
                   比本地資料新，上載可能覆蓋較新的雲端資料。建議先下載雲端版本，或確認後強制上載。
                 </p>
-                <p
-                  class="text-sm text-muted mb-12"
-                ></p>
+                <p class="text-sm text-muted mb-12"></p>
                 <div class="button-group">
                   <button id="drive-conflict-download-button" type="button" class="btn-primary">
                     <svg
@@ -755,10 +756,7 @@
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <div>
-                  <div
-                    class="text-sm drive-error-code"
-                    id="drive-error-code"
-                  ></div>
+                  <div class="text-sm drive-error-code" id="drive-error-code"></div>
                   <div
                     class="text-sm text-muted"
                     style="margin-top: 2px"
@@ -769,11 +767,7 @@
             </div>
 
             <!-- 操作進行中（spinner） -->
-            <div
-              id="drive-loading-overlay"
-              class="drive-loading-overlay"
-              style="display: none"
-            >
+            <div id="drive-loading-overlay" class="drive-loading-overlay" style="display: none">
               <div class="drive-loading-wrapper">
                 <div class="drive-spinner"></div>
                 <span id="drive-loading-text">處理中...</span>
@@ -805,9 +799,7 @@
             </h3>
             <p class="section-desc mb-12">
               透過先進 AI 幫助您快速整理網頁重點。<br />
-              <span class="locked-message"
-                >需先登入 Google 帳號。</span
-              >
+              <span class="locked-message">需先登入 Google 帳號。</span>
             </p>
             <div class="auth-actions">
               <button type="button" class="btn-secondary" disabled>
@@ -1253,8 +1245,10 @@
           aria-labelledby="tab-guide"
         >
           <header class="section-header">
-            <h2>使用指南</h2>
-            <p class="section-desc">了解如何最有效地使用 Notion Smart Clipper</p>
+            <h2 data-ui-message="OPTIONS.GUIDE.SECTION_TITLE">使用指南</h2>
+            <p class="section-desc" data-ui-message="OPTIONS.GUIDE.SECTION_DESC"
+              >了解如何最有效地使用 Notion Smart Clipper</p
+            >
           </header>
 
           <!-- 快速開始 -->
@@ -1263,20 +1257,32 @@
               <svg aria-hidden="true" focusable="false" width="20" height="20" class="icon-svg">
                 <use href="#icon-rocket" />
               </svg>
-              快速開始
+              <span data-ui-message="OPTIONS.GUIDE.QUICK_START_TITLE">快速開始</span>
             </h3>
             <div class="quick-start-grid">
               <div class="step-card">
-                <strong>1. 連接到 Notion</strong>
-                <p>在「一般設定」點擊「以 OAuth 連接 Notion」授權，或選擇手動配置輸入 API Key。</p>
+                <strong data-ui-message="OPTIONS.GUIDE.QUICK_START_STEP_1_TITLE"
+                  >1. 連接到 Notion</strong
+                >
+                <p data-ui-message="OPTIONS.GUIDE.QUICK_START_STEP_1_DESC"
+                  >在「一般設定」點擊「以 OAuth 連接 Notion」授權，或選擇手動配置輸入 API Key。</p
+                >
               </div>
               <div class="step-card">
-                <strong>2. 預備資料庫</strong>
-                <p>確保您的 Notion 中已有資料庫，且該資料庫已授權給本擴展存取。</p>
+                <strong data-ui-message="OPTIONS.GUIDE.QUICK_START_STEP_2_TITLE"
+                  >2. 預備資料庫</strong
+                >
+                <p data-ui-message="OPTIONS.GUIDE.QUICK_START_STEP_2_DESC"
+                  >確保您的 Notion 中已有資料庫，且該資料庫已授權給本擴展存取。</p
+                >
               </div>
               <div class="step-card">
-                <strong>3. 開始剪藏</strong>
-                <p>在任意網頁點擊擴展圖標，選擇目標資料庫後即可一鍵保存！</p>
+                <strong data-ui-message="OPTIONS.GUIDE.QUICK_START_STEP_3_TITLE"
+                  >3. 開始剪藏</strong
+                >
+                <p data-ui-message="OPTIONS.GUIDE.QUICK_START_STEP_3_DESC"
+                  >在任意網頁點擊擴展圖標，選擇目標資料庫後即可一鍵保存！</p
+                >
               </div>
             </div>
           </div>
@@ -1287,7 +1293,7 @@
               <svg aria-hidden="true" focusable="false" width="20" height="20" class="icon-svg">
                 <use href="#icon-hexagon" />
               </svg>
-              核心功能
+              <span data-ui-message="OPTIONS.GUIDE.FEATURES_TITLE">核心功能</span>
             </h3>
             <div class="feature-grid">
               <div class="feature-card">
@@ -1297,8 +1303,10 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <strong>一鍵保存</strong>
-                  <div>智能提取文章內容、圖片與 icon</div>
+                  <strong data-ui-message="OPTIONS.GUIDE.FEATURES_ONE_CLICK_TITLE">一鍵保存</strong>
+                  <div data-ui-message="OPTIONS.GUIDE.FEATURES_ONE_CLICK_DESC"
+                    >智能提取文章內容、圖片與 icon</div
+                  >
                 </div>
               </div>
 
@@ -1309,8 +1317,12 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <strong>多色標註</strong>
-                  <div>支持 4 種顏色與 3 種樣式（背景/文字/底線）</div>
+                  <strong data-ui-message="OPTIONS.GUIDE.FEATURES_MULTI_COLOR_TITLE"
+                    >多色標註</strong
+                  >
+                  <div data-ui-message="OPTIONS.GUIDE.FEATURES_MULTI_COLOR_DESC"
+                    >支持 4 種顏色與 3 種樣式（背景/文字/底線）</div
+                  >
                 </div>
               </div>
 
@@ -1321,7 +1333,9 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <strong>快捷鍵支援</strong>
+                  <strong data-ui-message="OPTIONS.GUIDE.FEATURES_SHORTCUT_TITLE"
+                    >快捷鍵支援</strong
+                  >
                   <div>
                     按 <code class="kbd">Ctrl+S</code> (Mac: <code class="kbd">Cmd+S</code>)
                     快速開啟標註工具
@@ -1336,8 +1350,12 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <strong>自定義模板</strong>
-                  <div>支持 {title}, {date} 等變數</div>
+                  <strong data-ui-message="OPTIONS.GUIDE.FEATURES_TEMPLATE_TITLE"
+                    >自定義模板</strong
+                  >
+                  <div data-ui-message="OPTIONS.GUIDE.FEATURES_TEMPLATE_DESC"
+                    >支持 {title}, {date} 等變數</div
+                  >
                 </div>
               </div>
 
@@ -1348,8 +1366,10 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <strong>狀態同步</strong>
-                  <div>圖標徽章即時顯示保存狀態</div>
+                  <strong data-ui-message="OPTIONS.GUIDE.FEATURES_SYNC_TITLE">狀態同步</strong>
+                  <div data-ui-message="OPTIONS.GUIDE.FEATURES_SYNC_DESC"
+                    >圖標徽章即時顯示保存狀態</div
+                  >
                 </div>
               </div>
 
@@ -1360,8 +1380,12 @@
                   </svg>
                 </div>
                 <div class="feature-content">
-                  <strong>側邊欄管理標註</strong>
-                  <div>在右側邊欄集中查看、管理與刪除所有標註</div>
+                  <strong data-ui-message="OPTIONS.GUIDE.FEATURES_SIDEBAR_TITLE"
+                    >側邊欄管理標註</strong
+                  >
+                  <div data-ui-message="OPTIONS.GUIDE.FEATURES_SIDEBAR_DESC"
+                    >在右側邊欄集中查看、管理與刪除所有標註</div
+                  >
                 </div>
               </div>
             </div>
@@ -1374,13 +1398,14 @@
                 <svg aria-hidden="true" focusable="false" width="20" height="20" class="icon-svg">
                   <use href="#icon-help" />
                 </svg>
-                常見問題
+                <span data-ui-message="OPTIONS.GUIDE.FAQ_TITLE">常見問題</span>
               </h3>
               <a
                 href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="btn-secondary btn-small"
+                data-ui-message="OPTIONS.GUIDE.FAQ_VIEW_FULL_GUIDE"
               >
                 查看完整指南
               </a>
@@ -1388,21 +1413,29 @@
 
             <ul class="faq-list">
               <li class="faq-item">
-                <div class="faq-question">API Key 無法連接？</div>
+                <div class="faq-question" data-ui-message="OPTIONS.GUIDE.FAQ_TOKEN_QUESTION"
+                  >API Key 無法連接？</div
+                >
                 <div class="faq-answer">
                   請確認 Token 格式正確（以
                   <code class="inline-code">secret_</code> 開頭），並確保網路連接正常。
                 </div>
               </li>
               <li class="faq-item">
-                <div class="faq-question">數據庫列表為空？</div>
-                <div class="faq-answer">
+                <div class="faq-question" data-ui-message="OPTIONS.GUIDE.FAQ_DATABASE_QUESTION"
+                  >數據庫列表為空？</div
+                >
+                <div class="faq-answer" data-ui-message="OPTIONS.GUIDE.FAQ_DATABASE_ANSWER">
                   請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
                 </div>
               </li>
               <li class="faq-item">
-                <div class="faq-question">標註沒有顯示？</div>
-                <div class="faq-answer">請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div>
+                <div class="faq-question" data-ui-message="OPTIONS.GUIDE.FAQ_HIGHLIGHT_QUESTION"
+                  >標註沒有顯示？</div
+                >
+                <div class="faq-answer" data-ui-message="OPTIONS.GUIDE.FAQ_HIGHLIGHT_ANSWER"
+                  >請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div
+                >
               </li>
             </ul>
 
@@ -1416,11 +1449,13 @@
                 <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                   <use href="#icon-book" />
                 </svg>
-                閱讀完整用戶指南與 FAQ
+                <span data-ui-message="OPTIONS.GUIDE.CTA_READ_FULL_GUIDE"
+                  >閱讀完整用戶指南與 FAQ</span
+                >
               </a>
             </div>
-          </div>
-        </section><!-- section-guide -->
+          </div> </section
+        ><!-- section-guide -->
 
         <!-- 關於作者區塊 -->
         <section
@@ -1448,9 +1483,7 @@
                 class="about-avatar"
               />
               <div>
-                <div class="about-name">
-                  陳牛 <span class="about-name-sub">Cow Chan</span>
-                </div>
+                <div class="about-name"> 陳牛 <span class="about-name-sub">Cow Chan</span> </div>
                 <div class="about-bio">寫code不是我專長，寫文字才是。</div>
               </div>
             </div>
@@ -1467,7 +1500,9 @@
 
             <!-- 開源專案 -->
             <div class="about-group">
-              <div class="about-group-label" data-ui-message="OPTIONS.ABOUT.OPEN_SOURCE_LABEL">開源專案</div>
+              <div class="about-group-label" data-ui-message="OPTIONS.ABOUT.OPEN_SOURCE_LABEL"
+                >開源專案</div
+              >
               <div class="about-links-row">
                 <a
                   href="https://github.com/cowcfj/save-to-notion"
@@ -1485,7 +1520,9 @@
 
             <!-- 個人社群 -->
             <div class="about-group">
-              <div class="about-group-label" data-ui-message="OPTIONS.ABOUT.SOCIAL_LABEL">個人社群</div>
+              <div class="about-group-label" data-ui-message="OPTIONS.ABOUT.SOCIAL_LABEL"
+                >個人社群</div
+              >
               <div class="about-links-row">
                 <a
                   href="https://x.com/cowcfj"
