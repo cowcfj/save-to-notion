@@ -60,7 +60,6 @@ body {
   padding: 0;
   height: 100vh;
   display: flex;
-
 }
 
 /* Layout */
@@ -412,10 +411,6 @@ select:focus {
 .connection-row .auth-status {
   margin-bottom: 0;
   min-width: 0;
-}
-
-.connection-row .auth-actions {
-  margin-top: 0;
 }
 
 .connection-actions {
@@ -1506,10 +1501,6 @@ h4 .icon-svg {
 }
 
 /* Margin Utilities */
-.auth-actions {
-  margin-top: 16px;
-}
-
 .locked-message {
   color: var(--text-muted);
 }
@@ -1524,6 +1515,10 @@ h4 .icon-svg {
 
 .mt-12 {
   margin-top: 12px;
+}
+
+.mt-16 {
+  margin-top: var(--spacing-md);
 }
 
 .fw-medium {
@@ -1763,12 +1758,6 @@ h4 .icon-svg {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 
 /* ============================================
    關於作者
