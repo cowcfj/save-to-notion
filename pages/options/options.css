@@ -957,24 +957,24 @@ select:focus {
 .failed-migration-section {
   margin-top: var(--spacing-lg);
   padding: var(--spacing-md);
-  background: #fff5f5;
+  background: var(--status-error-bg);
   border-radius: var(--radius-md);
-  border: 1px solid #fecaca;
+  border: 1px solid var(--status-error-border);
 }
 
 .failed-migration-section h4 {
   margin: 0 0 var(--spacing-sm) 0;
   font-size: 14px;
   font-weight: 600;
-  color: #dc2626;
+  color: var(--color-danger-hover);
 }
 
 .failed-item {
-  background: #fef2f2;
+  background: var(--status-error-bg);
 }
 
 .count-badge.failed {
-  background: #dc2626;
+  background: var(--color-danger-hover);
   color: white;
 }
 
