@@ -783,7 +783,7 @@ select:focus {
 }
 
 .migration-item:hover {
-  background-color: var(--color-bg-page);
+  background-color: var(--color-bg-hover);
 }
 
 .migration-item .item-checkbox {
