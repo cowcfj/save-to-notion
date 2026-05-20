@@ -1030,7 +1030,7 @@ select:focus {
 
 .step-card {
   padding: var(--spacing-md);
-  background: #f8f9fc;
+  background: var(--color-bg-page);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--primary-color);
 }
@@ -1059,7 +1059,7 @@ select:focus {
   display: flex;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
-  background: #f8f9fc;
+  background: var(--color-bg-page);
   border-radius: var(--radius-md);
   align-items: flex-start;
 }
@@ -1112,7 +1112,7 @@ select:focus {
 
 .faq-item {
   padding: var(--spacing-md) 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .faq-item:last-child {
