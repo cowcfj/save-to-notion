@@ -4,6 +4,35 @@
   --sidebar-active: #eff6ff;
   --sidebar-text: #475569;
 
+  /* Badge tokens (options page only) */
+  --badge-workspace-bg: #f3e8ff;
+  --badge-workspace-text: #7e22ce;
+  --badge-container-bg: #fef3c7;
+  --badge-container-text: #b45309;
+  --badge-category-bg: #d1fae5;
+  --badge-category-text: #047857;
+  --badge-search-bg: #fffbeb;
+  --badge-search-text: #b45309;
+  --badge-search-border: #fcd34d;
+
+  /* Inline highlight (options page only) */
+  --inline-highlight-bg: #fff1f2;
+  --inline-highlight-text: #be123c;
+
+  /* Database list selected state (options page only) */
+  --database-selected-bg: #eff6ff;
+
+  /* Meta separator (options page only) */
+  --meta-separator-color: #cbd5e1;
+
+  /* Setup guide teal palette (options page only) */
+  --setup-guide-bg: #e6fffa;
+  --setup-guide-border: #38b2ac;
+  --setup-guide-title: #2c7a7b;
+
+  /* Feature icon decorative tint (options page only) */
+  --feature-icon-bg: #ecfdf5;
+
   /* Legacy aliases — map old names to canonical shared tokens */
   --primary-color: var(--color-primary);
   --primary-hover: var(--color-primary-hover);
@@ -226,6 +255,17 @@ body {
   gap: var(--spacing-sm);
 }
 
+.input-wrapper > input,
+.input-wrapper > select {
+  flex: 1;
+  min-width: 0;
+}
+
+.input-wrapper > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .destination-profile-form {
   display: grid;
   gap: var(--spacing-sm);
@@ -371,6 +411,11 @@ select:focus {
 
 .connection-row .auth-status {
   margin-bottom: 0;
+  min-width: 0;
+}
+
+.connection-row .auth-actions {
+  margin-top: 0;
 }
 
 .connection-actions {
@@ -468,7 +513,7 @@ select:focus {
   align-items: center;
   font-size: 12px;
   color: var(--text-secondary);
-  background: #f8fafc;
+  background: var(--color-bg-page);
 }
 
 .dropdown-list .item {
@@ -478,7 +523,7 @@ select:focus {
 }
 
 .dropdown-list .item:hover {
-  background-color: #f1f5f9;
+  background-color: var(--color-bg-hover);
 }
 
 .loading-state {
@@ -490,7 +535,7 @@ select:focus {
 
 /* Template Preview */
 .preview-box {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
@@ -511,15 +556,15 @@ select:focus {
 }
 
 .health-ok {
-  color: var(--success-color, #16a34a);
+  color: var(--success-color);
 }
 
 .health-warning {
-  color: var(--warning-color, #d97706);
+  color: var(--warning-color);
 }
 
 .health-error {
-  color: var(--error-color, #dc2626);
+  color: var(--error-color);
 }
 
 .health-legacy-info {
@@ -533,9 +578,9 @@ select:focus {
   font-size: 12px;
   margin-top: 4px;
   padding: 4px 8px;
-  background: var(--surface-hover, #f8fafc);
+  background: var(--surface-hover);
   border-radius: var(--radius-sm);
-  border-left: 2px solid var(--primary-color, #6366f1);
+  border-left: 2px solid var(--primary-color);
 }
 
 #execute-cleanup-button {
@@ -549,7 +594,7 @@ select:focus {
 
 .progress-bar {
   height: 8px;
-  background-color: #e2e8f0;
+  background-color: var(--color-border);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -576,7 +621,7 @@ select:focus {
 }
 
 .stat-box {
-  background: #f8fafc;
+  background: var(--color-bg-page);
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
   text-align: center;
@@ -604,7 +649,7 @@ select:focus {
 }
 
 .list-header {
-  background: #f8fafc;
+  background: var(--color-bg-page);
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -633,7 +678,7 @@ select:focus {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  background: #f8fafc;
+  background: var(--color-bg-page);
   border-top: 1px solid var(--border-color);
 }
 
@@ -754,7 +799,7 @@ select:focus {
 }
 
 .migration-item:hover {
-  background-color: #f8fafc;
+  background-color: var(--color-bg-hover);
 }
 
 .migration-item .item-checkbox {
@@ -957,24 +1002,24 @@ select:focus {
 .failed-migration-section {
   margin-top: var(--spacing-lg);
   padding: var(--spacing-md);
-  background: #fff5f5;
+  background: var(--status-error-bg);
   border-radius: var(--radius-md);
-  border: 1px solid #fecaca;
+  border: 1px solid var(--status-error-border);
 }
 
 .failed-migration-section h4 {
   margin: 0 0 var(--spacing-sm) 0;
   font-size: 14px;
   font-weight: 600;
-  color: #dc2626;
+  color: var(--color-danger-hover);
 }
 
 .failed-item {
-  background: #fef2f2;
+  background: var(--status-error-bg);
 }
 
 .count-badge.failed {
-  background: #dc2626;
+  background: var(--color-danger-hover);
   color: white;
 }
 
@@ -985,7 +1030,7 @@ select:focus {
 
 /* Backup Info Styles */
 .backup-info {
-  background: #f8fafc;
+  background: var(--color-bg-page);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
@@ -1030,7 +1075,7 @@ select:focus {
 
 .step-card {
   padding: var(--spacing-md);
-  background: #f8f9fc;
+  background: var(--color-bg-page);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--primary-color);
 }
@@ -1059,7 +1104,7 @@ select:focus {
   display: flex;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
-  background: #f8f9fc;
+  background: var(--color-bg-page);
   border-radius: var(--radius-md);
   align-items: flex-start;
 }
@@ -1071,7 +1116,7 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ecfdf5;
+  background: var(--feature-icon-bg);
   border-radius: var(--radius-md);
   font-size: 1.25rem;
   color: var(--text-primary);
@@ -1112,7 +1157,7 @@ select:focus {
 
 .faq-item {
   padding: var(--spacing-md) 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .faq-item:last-child {
@@ -1133,7 +1178,7 @@ select:focus {
 
 /* 代碼與快捷鍵 */
 .inline-code {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.875em;
@@ -1142,19 +1187,19 @@ select:focus {
 }
 
 .inline-code.highlight {
-  color: #be123c;
+  color: var(--inline-highlight-text);
   /* Rose-700: 提升對比度至 5.8:1，符合 WCAG AA 標準 */
-  background: #fff1f2;
+  background: var(--inline-highlight-bg);
 }
 
 .kbd {
-  background: #e2e8f0;
+  background: var(--color-border);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.875em;
   font-family: monospace;
   color: var(--text-primary);
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--meta-separator-color);
 }
 
 .faq-actions {
@@ -1276,7 +1321,7 @@ h4 .icon-svg {
 }
 
 .icon-workspace {
-  color: #8b5cf6;
+  color: var(--color-action-manage);
   /* Violet-500 */
 }
 
@@ -1285,12 +1330,12 @@ h4 .icon-svg {
 }
 
 .icon-folder {
-  color: #f59e0b;
+  color: var(--color-warning);
   /* Amber-500 */
 }
 
 .icon-category {
-  color: #10b981;
+  color: var(--color-success);
   /* Emerald-500 */
 }
 
@@ -1310,16 +1355,16 @@ h4 .icon-svg {
 }
 
 .database-item:hover {
-  background-color: #f8fafc;
+  background-color: var(--color-bg-page);
 }
 
 .database-item.selected {
-  background-color: #eff6ff;
+  background-color: var(--database-selected-bg);
   /* blue-50 */
 }
 
 .database-item.keyboard-focus {
-  background-color: #f1f5f9;
+  background-color: var(--color-bg-hover);
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
 }
@@ -1353,7 +1398,7 @@ h4 .icon-svg {
 }
 
 .meta-separator {
-  color: #cbd5e1;
+  color: var(--meta-separator-color);
   /* slate-300 */
 }
 
@@ -1369,32 +1414,32 @@ h4 .icon-svg {
 }
 
 .workspace-badge {
-  background-color: #f3e8ff;
+  background-color: var(--badge-workspace-bg);
   /* purple-100 */
-  color: #7e22ce;
+  color: var(--badge-workspace-text);
   /* purple-700 */
 }
 
 .container-badge {
-  background-color: #fef3c7;
+  background-color: var(--badge-container-bg);
   /* amber-100 */
-  color: #b45309;
+  color: var(--badge-container-text);
   /* amber-700 */
 }
 
 .category-badge {
-  background-color: #d1fae5;
+  background-color: var(--badge-category-bg);
   /* emerald-100 */
-  color: #047857;
+  color: var(--badge-category-text);
   /* emerald-700 */
 }
 
 .search-highlight {
-  background-color: #fffbeb;
+  background-color: var(--badge-search-bg);
   /* yellow-50 */
-  color: #b45309;
+  color: var(--badge-search-text);
   /* yellow-700 */
-  border-bottom: 2px solid #fcd34d;
+  border-bottom: 2px solid var(--badge-search-border);
 }
 
 /* 突顯文字樣式 - 用於重要數據展示 */
@@ -1431,8 +1476,8 @@ h4 .icon-svg {
    ========================================= */
 
 .setup-guide {
-  background: #e6fffa;
-  border: 1px solid #38b2ac;
+  background: var(--setup-guide-bg);
+  border: 1px solid var(--setup-guide-border);
   border-radius: 6px;
   padding: 15px;
   margin: 15px 0;
@@ -1440,7 +1485,7 @@ h4 .icon-svg {
 
 .setup-guide__title {
   margin: 0 0 10px 0;
-  color: #2c7a7b;
+  color: var(--setup-guide-title);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1590,7 +1635,7 @@ h4 .icon-svg {
 
 /* --- Drive Source Warning (帳號隔離警示) --- */
 .drive-source-warning {
-  color: var(--warning-color, #f59e0b);
+  color: var(--warning-color);
   font-size: 0.85rem;
   padding: 6px 10px;
   background: rgba(245, 158, 11, 0.12);
@@ -1705,7 +1750,7 @@ h4 .icon-svg {
 .drive-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--border-color, #334155);
+  border: 2px solid var(--border-color);
   border-top-color: var(--color-success);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1779,7 +1824,7 @@ h4 .icon-svg {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: var(--surface-hover, #f1f5f9);
+  background: var(--surface-hover);
   border-radius: 8px;
   text-decoration: none;
   color: var(--text-primary);
@@ -1789,7 +1834,7 @@ h4 .icon-svg {
 }
 
 .about-link-pill:hover {
-  background: var(--border-color, #e2e8f0);
+  background: var(--border-color);
 }
 
 .about-link-pill .icon-svg {
