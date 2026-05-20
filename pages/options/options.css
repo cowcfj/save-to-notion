@@ -1492,6 +1492,10 @@ h4 .icon-svg {
   margin-left: auto;
 }
 
+.mb-10 {
+  margin-bottom: 10px;
+}
+
 .mb-14 {
   margin-bottom: 14px;
 }
@@ -1702,7 +1706,7 @@ h4 .icon-svg {
   width: 16px;
   height: 16px;
   border: 2px solid var(--border-color, #334155);
-  border-top-color: #4ade80;
+  border-top-color: var(--color-success);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
