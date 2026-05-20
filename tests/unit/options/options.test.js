@@ -1981,8 +1981,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
       expect(
         document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
       ).toBe(true);
@@ -1994,8 +1996,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       initOptions();
 
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2095,8 +2099,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2268,8 +2274,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2350,7 +2358,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       // regression guard：有 profile + transient rejection 時保留 logged-in，讓使用者可重試
       expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
       expect(document.querySelector('#account-logged-out').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
       expect(document.querySelector('#account-status').textContent).toContain('無法更新登入狀態');
     });
 

@@ -566,7 +566,7 @@
           </div>
 
           <!-- Cloud Sync Card — Phase A 正式 UI -->
-          <div id="cloud-sync-card" class="card" style="display: none">
+          <div id="cloud-sync-card" class="card hidden">
             <h3 class="cloud-sync-header">
               <svg
                 width="20"
@@ -584,7 +584,7 @@
             </h3>
 
             <!-- 狀態零：未登入帳號 -->
-            <div id="drive-state-logged-out" style="display: none">
+            <div id="drive-state-logged-out" class="hidden">
               <p class="section-desc mb-12">
                 登入帳號後，可連接 Google Drive 以備份和同步你的本地資料到雲端。
               </p>
@@ -596,7 +596,7 @@
             </div>
 
             <!-- 狀態一：已登入但未連接 Google Drive -->
-            <div id="drive-state-disconnected" style="display: none">
+            <div id="drive-state-disconnected" class="hidden">
               <p class="section-desc mb-12">
                 連接 Google Drive 後，可備份和同步你的本地資料到雲端。
               </p>
@@ -619,7 +619,7 @@
             </div>
 
             <!-- 狀態二：已連接，可正常操作 -->
-            <div id="drive-state-connected" style="display: none">
+            <div id="drive-state-connected" class="hidden">
               <div class="drive-account-info">
                 <div>
                   <div class="text-sm text-secondary">已連接帳號</div>
@@ -649,7 +649,7 @@
                 </select>
               </div>
               <!-- Phase B: 自動同步狀態 -->
-              <output class="drive-auto-sync-status" style="display: none">
+              <output class="drive-auto-sync-status hidden">
                 <span id="drive-auto-sync-status-text"></span>
               </output>
               <!-- 操作按鈕 -->
@@ -676,7 +676,7 @@
             </div>
 
             <!-- 狀態三：衝突 — 遠端較新，需人工處理 -->
-            <div id="drive-state-conflict" style="display: none">
+            <div id="drive-state-conflict" class="hidden">
               <div class="drive-conflict-banner">
                 <div class="drive-conflict-header">
                   <svg
@@ -735,7 +735,7 @@
             </div>
 
             <!-- 錯誤提示（顯示在各狀態下方） -->
-            <div id="drive-error-banner" class="mt-10" style="display: none">
+            <div id="drive-error-banner" class="mt-10 hidden">
               <div class="drive-error-content">
                 <svg
                   width="16"
@@ -767,7 +767,7 @@
             </div>
 
             <!-- 操作進行中（spinner） -->
-            <div id="drive-loading-overlay" class="drive-loading-overlay" style="display: none">
+            <div id="drive-loading-overlay" class="drive-loading-overlay hidden">
               <div class="drive-loading-wrapper">
                 <div class="drive-spinner"></div>
                 <span id="drive-loading-text">處理中...</span>

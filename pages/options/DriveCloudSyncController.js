@@ -309,7 +309,7 @@ function installReturnSyncListeners() {
 export function setCloudSyncCardVisibility(isLoggedIn) {
   const card = el(DOM.CARD);
   if (card) {
-    card.style.display = isLoggedIn ? '' : 'none';
+    card.classList.toggle('hidden', !isLoggedIn);
   }
 }
 
@@ -340,7 +340,7 @@ function showLoading(message) {
   const overlay = el(DOM.LOADING_OVERLAY);
   const text = el(DOM.LOADING_TEXT);
   if (overlay) {
-    overlay.style.display = '';
+    overlay.classList.remove('hidden');
   }
   if (text) {
     text.textContent = message;
@@ -354,7 +354,7 @@ function showLoading(message) {
 function hideLoading() {
   const overlay = el(DOM.LOADING_OVERLAY);
   if (overlay) {
-    overlay.style.display = 'none';
+    overlay.classList.add('hidden');
   }
   _setActionButtonsDisabled(false);
 }
@@ -399,16 +399,16 @@ function _updateStatePanels(state) {
   const stateConflict = el(DOM.STATE_CONFLICT);
 
   if (stateLoggedOut) {
-    stateLoggedOut.style.display = state === 'logged_out' ? '' : 'none';
+    stateLoggedOut.classList.toggle('hidden', state !== 'logged_out');
   }
   if (stateDisconnected) {
-    stateDisconnected.style.display = state === 'disconnected' ? '' : 'none';
+    stateDisconnected.classList.toggle('hidden', state !== 'disconnected');
   }
   if (stateConnected) {
-    stateConnected.style.display = state === 'connected' ? '' : 'none';
+    stateConnected.classList.toggle('hidden', state !== 'connected');
   }
   if (stateConflict) {
-    stateConflict.style.display = state === 'conflict' ? '' : 'none';
+    stateConflict.classList.toggle('hidden', state !== 'conflict');
   }
 }
 
@@ -454,7 +454,7 @@ function _updateErrorBanner(metadata) {
   const errorBanner = el(DOM.ERROR_BANNER);
 
   if (errorBanner) {
-    errorBanner.style.display = hasError ? '' : 'none';
+    errorBanner.classList.toggle('hidden', !hasError);
   }
   if (!hasError) {
     return;
@@ -494,16 +494,16 @@ function _updateAutoSyncStatus(metadata) {
   }
 
   if (metadata.frequency === 'off' || !metadata.frequency) {
-    statusDiv.style.display = 'none';
+    statusDiv.classList.add('hidden');
     statusText.textContent = '';
     return;
   }
 
   if (metadata.needsManualReview) {
-    statusDiv.style.display = '';
+    statusDiv.classList.remove('hidden');
     statusText.textContent = UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW;
   } else {
-    statusDiv.style.display = 'none';
+    statusDiv.classList.add('hidden');
     statusText.textContent = '';
   }
 }
@@ -597,7 +597,7 @@ function renderLoggedOutCloudSyncCard() {
 
   const errorBanner = el(DOM.ERROR_BANNER);
   if (errorBanner) {
-    errorBanner.style.display = 'none';
+    errorBanner.classList.add('hidden');
   }
 
   const errorCodeEl = el(DOM.ERROR_CODE);
