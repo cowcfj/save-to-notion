@@ -186,7 +186,7 @@
                 </button>
               </div>
             </div>
-            <p class="section-desc text-sm gap-top-sm">
+            <p class="section-desc text-sm mt-sm">
               一鍵連接您的 Notion 帳戶（推薦），無需手動建立 Integration。
             </p>
           </div>
@@ -224,7 +224,7 @@
                 </button>
               </div>
             </div>
-            <div class="form-group gap-top-sm">
+            <div class="form-group mt-sm">
               <label for="api-key">Notion API Key</label>
               <div class="input-wrapper">
                 <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
@@ -361,7 +361,7 @@
                 ></a>
               </p>
               <div id="destination-profile-list" class="destination-profile-list"></div>
-              <div class="button-group gap-top-sm">
+              <div class="button-group mt-sm">
                 <button
                   type="button"
                   id="add-destination-profile"
@@ -477,8 +477,8 @@
 
             <!-- 未登入狀態 -->
             <div id="account-logged-out">
-              <p class="section-desc mb-12"> 使用 Google 帳號登入，享受同步與進階功能。 </p>
-              <div class="auth-actions mt-16">
+              <p class="section-desc mb-md"> 使用 Google 帳號登入，享受同步與進階功能。 </p>
+              <div class="auth-actions mt-md">
                 <button id="account-login-button" type="button" class="btn-primary">
                   <span class="icon">
                     <svg
@@ -531,7 +531,7 @@
                   <div id="profile-email" class="profile-email text-sm"></div>
                 </div>
               </div>
-              <div class="auth-actions mt-16">
+              <div class="auth-actions mt-md">
                 <button id="account-logout-button" type="button" class="btn-danger">
                   <span class="icon">
                     <svg
@@ -559,7 +559,7 @@
 
             <p
               id="account-status"
-              class="status-message mt-8"
+              class="status-message mt-sm"
               aria-live="polite"
               aria-atomic="true"
             ></p>
@@ -585,10 +585,10 @@
 
             <!-- 狀態零：未登入帳號 -->
             <div id="drive-state-logged-out" class="hidden">
-              <p class="section-desc mb-12">
+              <p class="section-desc mb-md">
                 登入帳號後，可連接 Google Drive 以備份和同步你的本地資料到雲端。
               </p>
-              <div class="auth-actions mt-16">
+              <div class="auth-actions mt-md">
                 <button id="drive-login-prompt-button" type="button" class="btn-secondary" disabled>
                   <span>登入以啟用</span>
                 </button>
@@ -597,10 +597,10 @@
 
             <!-- 狀態一：已登入但未連接 Google Drive -->
             <div id="drive-state-disconnected" class="hidden">
-              <p class="section-desc mb-12">
+              <p class="section-desc mb-md">
                 連接 Google Drive 後，可備份和同步你的本地資料到雲端。
               </p>
-              <div class="auth-actions mt-16">
+              <div class="auth-actions mt-md">
                 <button id="drive-connect-button" type="button" class="btn-primary">
                   <span class="icon">
                     <svg
@@ -700,11 +700,11 @@
                   </svg>
                   <strong class="drive-conflict-title">雲端資料較新</strong>
                 </div>
-                <p class="text-sm text-secondary mb-10">
+                <p class="text-sm text-secondary mb-sm">
                   雲端快照
                   比本地資料新，上載可能覆蓋較新的雲端資料。建議先下載雲端版本，或確認後強制上載。
                 </p>
-                <p class="text-sm text-muted mb-12"></p>
+                <p class="text-sm text-muted mb-md"></p>
                 <div class="button-group">
                   <button id="drive-conflict-download-button" type="button" class="btn-primary">
                     <svg
@@ -735,7 +735,7 @@
             </div>
 
             <!-- 錯誤提示（顯示在各狀態下方） -->
-            <div id="drive-error-banner" class="mt-10 hidden">
+            <div id="drive-error-banner" class="mt-sm hidden">
               <div class="drive-error-content">
                 <svg
                   width="16"
@@ -777,7 +777,7 @@
             <!-- 通用狀態訊息 -->
             <p
               id="drive-sync-status"
-              class="status-message mt-10"
+              class="status-message mt-sm"
               aria-live="polite"
               aria-atomic="true"
             ></p>
@@ -797,11 +797,11 @@
               </svg>
               AI 智能摘要與助手
             </h3>
-            <p class="section-desc mb-12">
+            <p class="section-desc mb-md">
               透過先進 AI 幫助您快速整理網頁重點。<br />
               <span class="locked-message">需先登入 Google 帳號。</span>
             </p>
-            <div class="auth-actions mt-16">
+            <div class="auth-actions mt-md">
               <button type="button" class="btn-secondary" disabled>
                 <span>開啟 AI 助手</span>
               </button>
@@ -994,7 +994,7 @@
             </button>
             <output
               id="cleanup-status"
-              class="status-message mt-8"
+              class="status-message mt-sm"
               aria-live="polite"
               aria-atomic="true"
             ></output>
@@ -1003,7 +1003,7 @@
           <div class="card">
             <h3>備份與還原</h3>
             <div class="backup-info">
-              <p class="help-text mb-12">
+              <p class="help-text mb-md">
                 <strong
                   ><svg
                     width="16"
@@ -1055,7 +1055,7 @@
                   <strong>遷移數據</strong>：舊版本資料的暫存記錄
                 </li>
               </ul>
-              <p class="help-text text-warning mt-8">
+              <p class="help-text text-warning mt-sm">
                 <svg
                   aria-hidden="true"
                   focusable="false"
@@ -1084,7 +1084,7 @@
                 <span class="button-text">還原備份</span>
               </button>
             </div>
-            <p class="help-text text-warning mt-8">
+            <p class="help-text text-warning mt-sm">
               <svg
                 aria-hidden="true"
                 focusable="false"
@@ -1224,7 +1224,7 @@
                   所有日誌皆已自動脫敏，隱藏Token、頁面標題與內容，確保隱私安全。</span
                 >
               </p>
-              <div class="mt-12">
+              <div class="mt-md">
                 <button id="export-logs-button" class="btn-secondary">
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-download" />

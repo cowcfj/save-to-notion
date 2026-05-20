@@ -74,7 +74,7 @@ function buildTestDom() {
     <div id="config-count"></div>
     <output id="health-status"></output>
     <button id="execute-cleanup-button" class="hidden"></button>
-    <div id="cleanup-status" class="status-message mt-8"></div>
+    <div id="cleanup-status" class="status-message mt-sm"></div>
   `;
 }
 
@@ -1192,7 +1192,7 @@ describe('StorageManager — showDataStatus', () => {
 
     expect(storageManager.elements.cleanupStatus.textContent).toBe('針對清理');
     expect(storageManager.elements.cleanupStatus.classList.contains('status-message')).toBe(true);
-    expect(storageManager.elements.cleanupStatus.classList.contains('mt-8')).toBe(true);
+    expect(storageManager.elements.cleanupStatus.classList.contains('mt-sm')).toBe(true);
     expect(storageManager.elements.cleanupStatus.classList.contains('success')).toBe(true);
     expect(storageManager.elements.cleanupStatus.classList.contains('warning')).toBe(false);
     expect(storageManager.elements.dataStatus.textContent).toBe('');
@@ -1523,7 +1523,7 @@ describe('options.html 結構', () => {
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toMatch(/<output[^>]*id="cleanup-status"/);
-    expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-8"/);
+    expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-sm"/);
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });

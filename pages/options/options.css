@@ -1286,18 +1286,6 @@ h4 .icon-svg {
   width: 100%;
 }
 
-.gap-top-sm {
-  margin-top: 10px;
-}
-
-.mb-12 {
-  margin-bottom: 12px;
-}
-
-.mt-8 {
-  margin-top: 8px;
-}
-
 .text-warning-color {
   color: var(--warning-color);
 }
@@ -1513,14 +1501,6 @@ h4 .icon-svg {
   color: var(--text-muted);
 }
 
-.mt-12 {
-  margin-top: 12px;
-}
-
-.mt-16 {
-  margin-top: var(--spacing-md);
-}
-
 .fw-medium {
   font-weight: 500;
 }
@@ -1533,21 +1513,15 @@ h4 .icon-svg {
   margin-left: auto;
 }
 
-.mb-10 {
-  margin-bottom: 10px;
-}
-
-.mb-14 {
-  margin-bottom: 14px;
-}
-
-.mb-16 {
-  margin-bottom: 16px;
-}
-
-.mt-10 {
-  margin-top: 10px;
-}
+/* === Margin Utilities ===
+ * 語意化命名，對齊 styles/ui-tokens.css 的 --spacing-* canonical scale。
+ * sm = 8px (component-internal gaps)，md = 16px (component-level gaps，例如 form group / card section)。
+ * 詳見 DESIGN.md「Spacing」章節。
+ */
+.mt-sm { margin-top: var(--spacing-sm); }
+.mt-md { margin-top: var(--spacing-md); }
+.mb-sm { margin-bottom: var(--spacing-sm); }
+.mb-md { margin-bottom: var(--spacing-md); }
 
 /* --- Advanced Features Profile --- */
 .profile-layout {
