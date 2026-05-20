@@ -1581,8 +1581,10 @@ h4 .icon-svg {
   object-fit: cover;
 }
 
-/* Fallback display for class-toggled avatar fallback (was JS-set 'flex') */
-#profile-avatar-fallback {
+/* Fallback display for class-toggled avatar fallback (was JS-set 'flex').
+   Scoped with :not(.hidden) so the .hidden utility (specificity 0,0,1,0)
+   isn't overridden by the ID selector (0,1,0,0). */
+#profile-avatar-fallback:not(.hidden) {
   display: flex;
 }
 
