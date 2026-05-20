@@ -16,6 +16,7 @@ Follow these formatting rules for EVERY actionable comment:
 2. Clearly state the **file name**, **line number(s)**, the problem found, and the proposed solution inside the prompt.
 3. Use a designated fenced code block (e.g., ` ```markdown ` or ` ```text `) to encapsulate the actual prompt that the user should copy. **DO NOT** use markdown blockquotes (`>`) as they often display poorly in GitHub PR comments.
 4. **MUST** insert at least one blank line to separate your preceding review text from the suggested prompt block, so they are not joined.
+5. **MUST** 在 fenced block 內以**真實換行字元**輸出多行內容；**MUST NOT** 使用字面跳脫序列（如字串裡的 `\n`、`\r`、`\t`）作為換行/縮排表達。GitHub 不會把字面 `\n` 渲染成換行，輸出後會變成可見的 `\n` 文字串影響閱讀。
 
 **Schema:**
 
@@ -34,28 +35,32 @@ Follow these formatting rules for EVERY actionable comment:
 
 ## Final Aggregated Prompt (聚合提示詞)
 
-**CRITICAL RULE:** 每次 code review 結尾，**MUST** 額外輸出一個 fenced markdown block，將本輪 **MEDIUM / HIGH / CRITICAL** 嚴重度的建議彙整為單一可複製提示詞；**不包含** LOW 嚴重度的建議。
+**CRITICAL RULE:** 每次 code review **MUST** 產出一個聚合提示詞區塊，將本輪 **MEDIUM / HIGH / CRITICAL** 嚴重度的建議彙整為單一可複製提示詞；**不包含** LOW 嚴重度的建議。
 
-格式要求：
+位置與時機：
 
-1. 標題為 `### 聚合提示詞 (Aggregated Prompt)`，**MUST** 為整輪 review 的最後一個元素。
-2. 開頭指引：要求 AI agent **先逐條評估合理性與副作用**再決定是否實作；不合理者請直接駁回並說明原因。
-3. 主體每條 finding 為一編號小節，結構為「檔名:行號 → 問題 → 建議」；**MUST** 通用於 Claude Code 與 Codex，**MUST NOT** 引用 IDE 專屬指令或快捷鍵。
-4. 若該輪無 MEDIUM 以上建議，block 內明寫「本輪無 MEDIUM 以上需聚合的建議」，而非省略整個 block。
+- **MUST** 將聚合提示詞區塊附加於 Gemini 在本輪生成的**最後一條 inline review comment** 的末尾（Gemini Code Assist 沒有 PR-level review-end hook，最後一條 inline 是唯一可控的終局位置）。
+- **MUST** 在聚合區塊**之前**插入一條 `---` 水平分隔線與一個空白行，使其與前面的逐條建議在視覺上明確分離。
+- **MUST** 使用次標題 `### 聚合提示詞 (Aggregated Prompt)`。
 
-**Example Schema:**
+內容與結構：
 
-```markdown
-請先逐條審核以下 code review 建議。對每一條，評估合理性與副作用後再決定是否實作；若有不合理或會引入新問題者，請直接回覆原因並駁回該條。
+- 整個聚合內容 **MUST** 包在單一 ` ```markdown ` fenced code block 內，便於使用者一鍵複製。
+- block 內第一段為指引語：要求接收提示詞的 AI agent **先逐條評估合理性與副作用**再決定是否實作，並對不合理者直接駁回並說明原因。
+- 緊接指引語為編號清單，每條 finding 一項。每項分兩行：
+  - 第一行：``序號. `<檔案路徑>:<行號或範圍>` — <問題摘要>``
+  - 第二行（縮排 3 個空白）：`建議：<具體修改方向>`
+- 各條 finding 之間 **MUST** 以一個空白行分隔。
+- **MUST** 通用於 Claude Code 與 Codex；**MUST NOT** 引用任何 IDE 專屬指令、快捷鍵或產品名稱。
 
-1. `<file_path>:<line>` — <問題摘要>
-   建議：<修改方向>
+退化情境：
 
-2. `<file_path>:<line>` — <問題摘要>
-   建議：<修改方向>
+- 若該輪沒有 MEDIUM 以上建議，**MUST** 仍輸出聚合區塊，但 fenced block 內僅包含一行說明「本輪無 MEDIUM 以上需聚合的建議」，**MUST NOT** 整段省略，便於使用者辨別「規則生效但無聚合」與「規則失效」。
 
-（僅含 MEDIUM / HIGH / CRITICAL；LOW 已於上方逐條呈現）
-```
+格式紀律：
+
+- **MUST** 在 fenced block 內以**真實換行字元**呈現所有換行與縮排；**MUST NOT** 出現字面 `\n`、`\r`、`\t` 等跳脫序列字串。
+- **MUST NOT** 把本聚合區塊重複輸出在多個 inline comments；只附加在最後一條。
 
 ## General Guidelines
 
