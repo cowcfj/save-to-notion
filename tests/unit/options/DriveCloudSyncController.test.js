@@ -73,7 +73,9 @@ describe('DriveCloudSyncController', () => {
         <div id="drive-state-logged-out"></div>
         <div id="drive-state-disconnected"></div>
         <div id="drive-state-connected"></div>
-        <div id="drive-state-conflict"></div>
+        <div id="drive-state-conflict">
+          <p id="drive-conflict-remote-time"></p>
+        </div>
         <div id="drive-error-banner">
           <div id="drive-error-code"></div>
           <div id="drive-error-time"></div>
@@ -280,6 +282,47 @@ describe('DriveCloudSyncController', () => {
 
       // Error banner is hidden because REMOTE_SNAPSHOT_NEWER is considered conflict, not generic error
       expect(document.querySelector('#drive-error-banner').classList.contains('hidden')).toBe(true);
+    });
+
+    it('conflict state 應在 #drive-conflict-remote-time 顯示帶 prefix 的格式化遠端時間', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        needsManualReview: true,
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+        lastKnownRemoteUpdatedAt: '2026-05-20T08:00:00Z',
+      });
+
+      const remoteTimeText = document.querySelector('#drive-conflict-remote-time').textContent;
+      expect(remoteTimeText).toContain(UI_MESSAGES.CLOUD_SYNC.CONFLICT_REMOTE_PREFIX);
+      expect(remoteTimeText).toContain('（');
+      expect(remoteTimeText).toContain('）');
+    });
+
+    it('conflict state 缺 lastKnownRemoteUpdatedAt 時 #drive-conflict-remote-time 應為空字串', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        needsManualReview: true,
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+      });
+
+      expect(document.querySelector('#drive-conflict-remote-time').textContent).toBe('');
+    });
+
+    it('從 conflict 切回 connected 時 #drive-conflict-remote-time 應被清空避免 stale 文字殘留', () => {
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        needsManualReview: true,
+        lastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+        lastKnownRemoteUpdatedAt: '2026-05-20T08:00:00Z',
+      });
+      expect(document.querySelector('#drive-conflict-remote-time').textContent).not.toBe('');
+
+      renderCloudSyncCard({
+        connectionEmail: 'test@notion.so',
+        needsManualReview: false,
+        lastSuccessfulUploadAt: '2026-05-21T09:00:00Z',
+      });
+      expect(document.querySelector('#drive-conflict-remote-time').textContent).toBe('');
     });
 
     it('renders other generic errors correctly', () => {

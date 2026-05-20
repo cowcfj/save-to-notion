@@ -342,6 +342,7 @@ const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
 const CLOUD_SYNC = {
   LAST_UPLOAD_PREFIX: '上次上載：',
   LAST_REMOTE_PREFIX: '雲端備份：',
+  CONFLICT_REMOTE_PREFIX: '雲端最後更新：',
   NEVER_UPLOADED: '尚未上載',
   TIMESTAMP_WITH_TIMEZONE: (time, zone) => `${time}（${zone}）`,
 
