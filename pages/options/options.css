@@ -255,6 +255,17 @@ body {
   gap: var(--spacing-sm);
 }
 
+.input-wrapper > input,
+.input-wrapper > select {
+  flex: 1;
+  min-width: 0;
+}
+
+.input-wrapper > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .destination-profile-form {
   display: grid;
   gap: var(--spacing-sm);
@@ -392,18 +403,24 @@ select:focus {
 }
 
 .connection-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--spacing-sm);
+  display: flex;
   align-items: center;
+  gap: var(--spacing-sm);
+  justify-content: space-between;
 }
 
 .connection-row .auth-status {
   margin-bottom: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.connection-row .auth-actions {
+  margin-top: 0;
 }
 
 .connection-actions {
-  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .auth-status.success {
@@ -435,7 +452,8 @@ select:focus {
 
 @media (max-width: 720px) {
   .connection-row {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .connection-actions {

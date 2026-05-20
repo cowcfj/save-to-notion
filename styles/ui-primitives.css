@@ -61,6 +61,7 @@ button.btn-icon {
 .btn-danger {
   background-color: var(--status-error-bg);
   color: var(--color-danger);
+  border: 1px solid transparent;
 }
 
 .btn-danger:hover:not(:disabled) {
