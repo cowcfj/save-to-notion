@@ -1127,7 +1127,7 @@ select:focus {
 
 .faq-answer {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
