@@ -230,6 +230,7 @@ describe('options.js', () => {
       const helpText = document.querySelector('.destination-target-help');
       const helpLink = helpText.querySelector('a');
       expect(helpText.textContent).toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX);
+      expect(helpText.textContent).toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX);
       expect(helpLink.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT);
       expect(helpLink.getAttribute('href')).toBe('https://example.test');
     });
@@ -349,6 +350,41 @@ describe('options.js', () => {
       expect(document.querySelector('[data-ui-composite="never-registered-key"]').textContent).toBe(
         '原始內容'
       );
+    });
+
+    // Composite handler 直接用 identifier access UI_MESSAGES（不走 resolveUiMessage），
+    // 若 messages.js 改名而 handler 漏改，DOM 會印出字串 "undefined"。
+    // per-handler 測試會 catch（textContent 比對失敗），但失敗訊息指向 textContent 不符，
+    // 不會直接點出哪個 path 失效。這個 reflective test 把 path 契約攤開：
+    // 失敗時直接告訴你是哪個 key 不見了。
+    // 注意：path 列表 hand-maintained；新增 handler 時需同步更新此列表。
+    it('composite handler 引用的 UI_MESSAGES path 皆為非空字串', () => {
+      const compositePaths = [
+        'OPTIONS.DESTINATION.HELP_PREFIX',
+        'OPTIONS.DESTINATION.HELP_SUFFIX',
+        'OPTIONS.DESTINATION.HELP_LINK_TEXT',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX',
+        'OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE',
+        'OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX',
+        'OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX',
+      ];
+
+      compositePaths.forEach(path => {
+        let value = UI_MESSAGES;
+        for (const key of path.split('.')) {
+          value = value?.[key];
+        }
+        // 把 path 包進 actual object，失敗訊息會直接點名是哪個 key 失效。
+        expect({
+          path,
+          type: typeof value,
+          nonEmpty: typeof value === 'string' && value.length > 0,
+        }).toEqual({ path, type: 'string', nonEmpty: true });
+      });
     });
   });
 
