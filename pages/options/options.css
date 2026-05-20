@@ -468,7 +468,7 @@ select:focus {
   align-items: center;
   font-size: 12px;
   color: var(--text-secondary);
-  background: #f8fafc;
+  background: var(--color-bg-page);
 }
 
 .dropdown-list .item {
@@ -478,7 +478,7 @@ select:focus {
 }
 
 .dropdown-list .item:hover {
-  background-color: #f1f5f9;
+  background-color: var(--color-bg-hover);
 }
 
 .loading-state {
@@ -490,7 +490,7 @@ select:focus {
 
 /* Template Preview */
 .preview-box {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
@@ -549,7 +549,7 @@ select:focus {
 
 .progress-bar {
   height: 8px;
-  background-color: #e2e8f0;
+  background-color: var(--color-border);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -576,7 +576,7 @@ select:focus {
 }
 
 .stat-box {
-  background: #f8fafc;
+  background: var(--color-bg-page);
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
   text-align: center;
@@ -604,7 +604,7 @@ select:focus {
 }
 
 .list-header {
-  background: #f8fafc;
+  background: var(--color-bg-page);
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -633,7 +633,7 @@ select:focus {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  background: #f8fafc;
+  background: var(--color-bg-page);
   border-top: 1px solid var(--border-color);
 }
 
@@ -754,7 +754,7 @@ select:focus {
 }
 
 .migration-item:hover {
-  background-color: #f8fafc;
+  background-color: var(--color-bg-page);
 }
 
 .migration-item .item-checkbox {
@@ -985,7 +985,7 @@ select:focus {
 
 /* Backup Info Styles */
 .backup-info {
-  background: #f8fafc;
+  background: var(--color-bg-page);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
@@ -1133,7 +1133,7 @@ select:focus {
 
 /* 代碼與快捷鍵 */
 .inline-code {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.875em;
@@ -1148,7 +1148,7 @@ select:focus {
 }
 
 .kbd {
-  background: #e2e8f0;
+  background: var(--color-border);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.875em;
@@ -1310,7 +1310,7 @@ h4 .icon-svg {
 }
 
 .database-item:hover {
-  background-color: #f8fafc;
+  background-color: var(--color-bg-page);
 }
 
 .database-item.selected {
@@ -1319,7 +1319,7 @@ h4 .icon-svg {
 }
 
 .database-item.keyboard-focus {
-  background-color: #f1f5f9;
+  background-color: var(--color-bg-hover);
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
 }
