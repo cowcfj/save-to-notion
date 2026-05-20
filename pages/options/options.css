@@ -511,15 +511,15 @@ select:focus {
 }
 
 .health-ok {
-  color: var(--success-color, #16a34a);
+  color: var(--success-color);
 }
 
 .health-warning {
-  color: var(--warning-color, #d97706);
+  color: var(--warning-color);
 }
 
 .health-error {
-  color: var(--error-color, #dc2626);
+  color: var(--error-color);
 }
 
 .health-legacy-info {
@@ -533,9 +533,9 @@ select:focus {
   font-size: 12px;
   margin-top: 4px;
   padding: 4px 8px;
-  background: var(--surface-hover, #f8fafc);
+  background: var(--surface-hover);
   border-radius: var(--radius-sm);
-  border-left: 2px solid var(--primary-color, #6366f1);
+  border-left: 2px solid var(--primary-color);
 }
 
 #execute-cleanup-button {
@@ -1590,7 +1590,7 @@ h4 .icon-svg {
 
 /* --- Drive Source Warning (帳號隔離警示) --- */
 .drive-source-warning {
-  color: var(--warning-color, #f59e0b);
+  color: var(--warning-color);
   font-size: 0.85rem;
   padding: 6px 10px;
   background: rgba(245, 158, 11, 0.12);
@@ -1705,7 +1705,7 @@ h4 .icon-svg {
 .drive-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--border-color, #334155);
+  border: 2px solid var(--border-color);
   border-top-color: var(--color-success);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1779,7 +1779,7 @@ h4 .icon-svg {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: var(--surface-hover, #f1f5f9);
+  background: var(--surface-hover);
   border-radius: 8px;
   text-decoration: none;
   color: var(--text-primary);
@@ -1789,7 +1789,7 @@ h4 .icon-svg {
 }
 
 .about-link-pill:hover {
-  background: var(--border-color, #e2e8f0);
+  background: var(--border-color);
 }
 
 .about-link-pill .icon-svg {
