@@ -27,6 +27,8 @@
   /* === Color: Status === */
   --color-success: #10b981;
   --color-warning: #f59e0b;
+  --color-warning-strong: #eab308;
+  --color-danger-light: #fca5a5;
 
   /* === Color: Text === */
   --color-text: #1e293b;

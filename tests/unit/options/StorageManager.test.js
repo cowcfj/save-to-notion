@@ -73,8 +73,8 @@ function buildTestDom() {
     <div id="highlights-count"></div>
     <div id="config-count"></div>
     <output id="health-status"></output>
-    <button id="execute-cleanup-button" style="display:none"></button>
-    <div id="cleanup-status" class="status-message mt-8"></div>
+    <button id="execute-cleanup-button" class="hidden"></button>
+    <div id="cleanup-status" class="status-message mt-sm"></div>
   `;
 }
 
@@ -850,14 +850,14 @@ describe('StorageManager — 使用量與健康狀態', () => {
       storageManager.updateHealthDisplay(report);
 
       const btn = storageManager.elements.executeCleanupButton;
-      expect(btn.style.display).toBe('inline-block');
+      expect(btn.classList.contains('hidden')).toBe(false);
       expect(storageManager.elements.healthStatus.textContent).toContain('可清理：1 個空記錄');
     });
 
     test('無可清理項目時應隱藏「執行清理」按鈕', () => {
       storageManager.updateHealthDisplay(baseReport());
       const btn = storageManager.elements.executeCleanupButton;
-      expect(btn.style.display).toBe('none');
+      expect(btn.classList.contains('hidden')).toBe(true);
     });
 
     test('healthStatus 元素不存在時應安全返回', () => {
@@ -1192,7 +1192,7 @@ describe('StorageManager — showDataStatus', () => {
 
     expect(storageManager.elements.cleanupStatus.textContent).toBe('針對清理');
     expect(storageManager.elements.cleanupStatus.classList.contains('status-message')).toBe(true);
-    expect(storageManager.elements.cleanupStatus.classList.contains('mt-8')).toBe(true);
+    expect(storageManager.elements.cleanupStatus.classList.contains('mt-sm')).toBe(true);
     expect(storageManager.elements.cleanupStatus.classList.contains('success')).toBe(true);
     expect(storageManager.elements.cleanupStatus.classList.contains('warning')).toBe(false);
     expect(storageManager.elements.dataStatus.textContent).toBe('');
@@ -1523,7 +1523,7 @@ describe('options.html 結構', () => {
     const html = fs.readFileSync(htmlPath, 'utf8');
 
     expect(html).toMatch(/<output[^>]*id="cleanup-status"/);
-    expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-8"/);
+    expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-sm"/);
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
   });

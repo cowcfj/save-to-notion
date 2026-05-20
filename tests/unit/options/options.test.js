@@ -230,6 +230,7 @@ describe('options.js', () => {
       const helpText = document.querySelector('.destination-target-help');
       const helpLink = helpText.querySelector('a');
       expect(helpText.textContent).toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX);
+      expect(helpText.textContent).toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX);
       expect(helpLink.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT);
       expect(helpLink.getAttribute('href')).toBe('https://example.test');
     });
@@ -284,6 +285,106 @@ describe('options.js', () => {
 
       // 防呆：若有人意外把 binding 全部刪掉，這個下限會立刻失敗。
       expect(totalBindings).toBeGreaterThan(20);
+    });
+
+    it('應重組 guide-shortcut-desc 的 Ctrl/Cmd 快捷鍵描述', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="guide-shortcut-desc">
+          舊文字 <code class="kbd">OLD-CTRL</code> 中間舊文字 <code class="kbd">OLD-CMD</code> 舊尾
+        </div>
+      `;
+
+      applyStaticOptionMessages();
+
+      const container = document.querySelector('[data-ui-composite="guide-shortcut-desc"]');
+      const codes = container.querySelectorAll('code.kbd');
+      expect(codes).toHaveLength(2);
+      expect(codes[0].textContent).toBe(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY);
+      expect(codes[1].textContent).toBe(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY);
+      expect(container.textContent).toContain(
+        UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX
+      );
+      expect(container.textContent).toContain(
+        UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE
+      );
+      expect(container.textContent).toContain(
+        UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX
+      );
+    });
+
+    it('當 guide-shortcut-desc 缺少預期的 code 元素時應安靜跳過', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="guide-shortcut-desc">只有一個 <code class="kbd">X</code></div>
+      `;
+
+      expect(() => applyStaticOptionMessages()).not.toThrow();
+
+      // 既有 code 文字應保留（handler 偵測到 length !== 2 直接跳過）
+      const code = document.querySelector('[data-ui-composite="guide-shortcut-desc"] code.kbd');
+      expect(code.textContent).toBe('X');
+    });
+
+    it('應重組 guide-faq-token-answer 的 token 格式說明', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="guide-faq-token-answer">
+          舊文字 <code class="inline-code">old_</code> 舊尾
+        </div>
+      `;
+
+      applyStaticOptionMessages();
+
+      const container = document.querySelector('[data-ui-composite="guide-faq-token-answer"]');
+      const code = container.querySelector('code.inline-code');
+      expect(code).not.toBeNull();
+      expect(code.textContent).toBe(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE);
+      expect(container.textContent).toContain(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX);
+      expect(container.textContent).toContain(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX);
+    });
+
+    it('未知的 data-ui-composite key 不應拋錯', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="never-registered-key">原始內容</div>
+      `;
+
+      expect(() => applyStaticOptionMessages()).not.toThrow();
+      expect(document.querySelector('[data-ui-composite="never-registered-key"]').textContent).toBe(
+        '原始內容'
+      );
+    });
+
+    // Composite handler 直接用 identifier access UI_MESSAGES（不走 resolveUiMessage），
+    // 若 messages.js 改名而 handler 漏改，DOM 會印出字串 "undefined"。
+    // per-handler 測試會 catch（textContent 比對失敗），但失敗訊息指向 textContent 不符，
+    // 不會直接點出哪個 path 失效。這個 reflective test 把 path 契約攤開：
+    // 失敗時直接告訴你是哪個 key 不見了。
+    // 注意：path 列表 hand-maintained；新增 handler 時需同步更新此列表。
+    it('composite handler 引用的 UI_MESSAGES path 皆為非空字串', () => {
+      const compositePaths = [
+        'OPTIONS.DESTINATION.HELP_PREFIX',
+        'OPTIONS.DESTINATION.HELP_SUFFIX',
+        'OPTIONS.DESTINATION.HELP_LINK_TEXT',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE',
+        'OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX',
+        'OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE',
+        'OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX',
+        'OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX',
+      ];
+
+      compositePaths.forEach(path => {
+        let value = UI_MESSAGES;
+        for (const key of path.split('.')) {
+          value = value?.[key];
+        }
+        // 把 path 包進 actual object，失敗訊息會直接點名是哪個 key 失效。
+        expect({
+          path,
+          type: typeof value,
+          nonEmpty: typeof value === 'string' && value.length > 0,
+        }).toEqual({ path, type: 'string', nonEmpty: true });
+      });
     });
   });
 
@@ -876,8 +977,12 @@ describe('options.js', () => {
 
       initOptions();
 
-      expect(document.querySelector('#oauth-connect-button').style.display).toBe('none');
-      expect(document.querySelector('#oauth-disconnect-button').style.display).toBe('none');
+      expect(document.querySelector('#oauth-connect-button').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#oauth-disconnect-button').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('應監聽 storageUsageUpdate 事件並更新儲存使用量', () => {
@@ -1959,9 +2064,9 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       BUILD_ENV.ENABLE_ACCOUNT = false;
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      expect(document.querySelector('#account-card').style.display).toBe('none');
-      expect(document.querySelector('#tab-advanced').style.display).toBe('none');
-      expect(document.querySelector('#section-advanced').style.display).toBe('none');
+      expect(document.querySelector('#account-card').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#tab-advanced').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#section-advanced').classList.contains('hidden')).toBe(true);
     });
 
     it('ENABLE_ACCOUNT=true 時應顯示 account card', async () => {
@@ -1969,7 +2074,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       // renderAccountUI 是 async，等待 microtask
       await Promise.resolve();
-      expect(document.querySelector('#account-card').style.display).not.toBe('none');
+      expect(document.querySelector('#account-card').classList.contains('hidden')).toBe(false);
     });
   });
 
@@ -1979,10 +2084,14 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
       expect(
         document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
       ).toBe(true);
@@ -1994,8 +2103,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       initOptions();
 
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2011,12 +2122,12 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
       expect(document.querySelector('#profile-display-name').textContent).toBe('Test User');
 
       const avatarImg = document.querySelector('#profile-avatar-img');
-      expect(avatarImg.style.display).not.toBe('none');
+      expect(avatarImg.classList.contains('hidden')).toBe(false);
       expect(avatarImg.src).toContain('avatar.png');
 
       expect(
@@ -2039,7 +2150,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         'user@example.com'
       );
       const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.classList.contains('hidden')).toBe(false);
       expect(fallback.textContent).toBe('U');
     });
 
@@ -2057,7 +2168,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#profile-display-name').textContent).toBe('user@example.com');
 
       const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.classList.contains('hidden')).toBe(false);
       expect(fallback.textContent).toBe('U');
     });
 
@@ -2077,7 +2188,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#profile-email').textContent).toBe('');
 
       const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.style.display).toBe('flex');
+      expect(fallback.classList.contains('hidden')).toBe(false);
       expect(fallback.textContent).toBe('?');
     });
 
@@ -2093,10 +2204,14 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2242,8 +2357,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       listener({ action: 'account_session_updated' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
       expect(document.querySelector('#profile-display-name').textContent).toBe('New');
       expect(document.querySelector('#profile-email').textContent).toBe('new@example.com');
     });
@@ -2266,10 +2381,14 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       listener({ action: 'account_session_cleared' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2313,8 +2432,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       // token 過期但 refresh 成功，應顯示已登入狀態
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
     });
 
     it('token 過期且 getAccountAccessToken 回 null（terminal failure 或無 refresh token），UI 應切回未登入', async () => {
@@ -2331,8 +2450,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       // terminal failure / 無 refresh token，應回到未登入
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
     });
 
     it('token 取得發生 transient rejection 時，有 profile 應保留 logged-in UI、顯示可重試提示，且 Cloud Sync 不應卡在 loading', async () => {
@@ -2348,9 +2469,9 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       // regression guard：有 profile + transient rejection 時保留 logged-in，讓使用者可重試
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
       expect(document.querySelector('#account-status').textContent).toContain('無法更新登入狀態');
     });
 

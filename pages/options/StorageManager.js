@@ -586,7 +586,7 @@ export class StorageManager {
 
     if (totalKeys <= 0) {
       if (btn) {
-        btn.style.display = 'none';
+        btn.classList.add('hidden');
       }
       return;
     }
@@ -613,7 +613,7 @@ export class StorageManager {
     el.append(summaryEl);
 
     if (btn) {
-      btn.style.display = 'inline-block';
+      btn.classList.remove('hidden');
     }
   }
 

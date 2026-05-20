@@ -71,6 +71,51 @@ function resolveUiMessage(path) {
   return typeof value === 'string' ? value : '';
 }
 
+const COMPOSITE_HANDLERS = {
+  'destination-target-help': element => {
+    const link = element.querySelector('a');
+    if (!link) {
+      return;
+    }
+    element.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
+      link,
+      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
+    );
+    link.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
+  },
+
+  'guide-shortcut-desc': element => {
+    const codes = element.querySelectorAll('code.kbd');
+    if (codes.length !== 2) {
+      return;
+    }
+    const [ctrlCode, cmdCode] = codes;
+    ctrlCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY;
+    cmdCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY;
+    element.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX),
+      ctrlCode,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE),
+      cmdCode,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX)
+    );
+  },
+
+  'guide-faq-token-answer': element => {
+    const code = element.querySelector('code.inline-code');
+    if (!code) {
+      return;
+    }
+    code.textContent = UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE;
+    element.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX),
+      code,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX)
+    );
+  },
+};
+
 export function applyStaticOptionMessages(root = document) {
   root.querySelectorAll('[data-ui-message]').forEach(element => {
     element.textContent = resolveUiMessage(element.dataset.uiMessage);
@@ -88,16 +133,12 @@ export function applyStaticOptionMessages(root = document) {
     element.setAttribute('aria-label', resolveUiMessage(element.dataset.uiAriaLabel));
   });
 
-  const destinationHelp = root.querySelector('[data-ui-composite="destination-target-help"]');
-  const destinationHelpLink = destinationHelp?.querySelector('a');
-  if (destinationHelp && destinationHelpLink) {
-    destinationHelp.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
-      destinationHelpLink,
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
-    );
-    destinationHelpLink.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
-  }
+  root.querySelectorAll('[data-ui-composite]').forEach(element => {
+    const handler = COMPOSITE_HANDLERS[element.dataset.uiComposite];
+    if (handler) {
+      handler(element);
+    }
+  });
 }
 
 function normalizeDestinationProfileName(value) {
@@ -172,10 +213,10 @@ export function initOptions() {
     const oauthConnectBtn = document.querySelector('#oauth-connect-button');
     const oauthDisconnectBtn = document.querySelector('#oauth-disconnect-button');
     if (oauthConnectBtn) {
-      oauthConnectBtn.style.display = 'none';
+      oauthConnectBtn.classList.add('hidden');
     }
     if (oauthDisconnectBtn) {
-      oauthDisconnectBtn.style.display = 'none';
+      oauthDisconnectBtn.classList.add('hidden');
     }
   }
 
@@ -600,19 +641,19 @@ function updateProfileDOM(profile) {
     if (avatarImgEl) {
       avatarImgEl.src = profile.avatarUrl;
       avatarImgEl.alt = UI_MESSAGES.ACCOUNT.AVATAR_ALT;
-      avatarImgEl.style.display = '';
+      avatarImgEl.classList.remove('hidden');
     }
     if (avatarFallbackEl) {
-      avatarFallbackEl.style.display = 'none';
+      avatarFallbackEl.classList.add('hidden');
     }
   } else {
     if (avatarImgEl) {
       avatarImgEl.removeAttribute('src');
-      avatarImgEl.style.display = 'none';
+      avatarImgEl.classList.add('hidden');
     }
     if (avatarFallbackEl) {
       avatarFallbackEl.textContent = avatarFallbackInitial;
-      avatarFallbackEl.style.display = 'flex';
+      avatarFallbackEl.classList.remove('hidden');
     }
   }
 }
@@ -652,10 +693,10 @@ function updateAccountLoginState(isActive, profile) {
 
   if (isActive) {
     if (loggedOutEl) {
-      loggedOutEl.style.display = 'none';
+      loggedOutEl.classList.add('hidden');
     }
     if (loggedInEl) {
-      loggedInEl.style.display = '';
+      loggedInEl.classList.remove('hidden');
     }
 
     if (profile) {
@@ -665,10 +706,10 @@ function updateAccountLoginState(isActive, profile) {
   } else {
     // 未登入狀態
     if (loggedOutEl) {
-      loggedOutEl.style.display = '';
+      loggedOutEl.classList.remove('hidden');
     }
     if (loggedInEl) {
-      loggedInEl.style.display = 'none';
+      loggedInEl.classList.add('hidden');
     }
 
     updateLockedFeatures(true);
@@ -743,18 +784,18 @@ function initAccountUI() {
 
   // feature flag 檢查
   if (!BUILD_ENV.ENABLE_ACCOUNT) {
-    accountCard.style.display = 'none';
+    accountCard.classList.add('hidden');
     if (advancedTab) {
-      advancedTab.style.display = 'none';
+      advancedTab.classList.add('hidden');
     }
     if (advancedSection) {
-      advancedSection.style.display = 'none';
+      advancedSection.classList.add('hidden');
     }
     return;
   }
 
   // 顯示 account card
-  accountCard.style.display = '';
+  accountCard.classList.remove('hidden');
 
   // 登入按鈕：開新 tab 到 /v1/account/google/start?ext_id=<chrome.runtime.id>
   const loginBtn = document.querySelector('#account-login-button');

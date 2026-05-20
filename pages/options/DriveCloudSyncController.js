@@ -309,7 +309,7 @@ function installReturnSyncListeners() {
 export function setCloudSyncCardVisibility(isLoggedIn) {
   const card = el(DOM.CARD);
   if (card) {
-    card.style.display = isLoggedIn ? '' : 'none';
+    card.classList.toggle('hidden', !isLoggedIn);
   }
 }
 
@@ -340,7 +340,7 @@ function showLoading(message) {
   const overlay = el(DOM.LOADING_OVERLAY);
   const text = el(DOM.LOADING_TEXT);
   if (overlay) {
-    overlay.style.display = '';
+    overlay.classList.remove('hidden');
   }
   if (text) {
     text.textContent = message;
@@ -354,7 +354,7 @@ function showLoading(message) {
 function hideLoading() {
   const overlay = el(DOM.LOADING_OVERLAY);
   if (overlay) {
-    overlay.style.display = 'none';
+    overlay.classList.add('hidden');
   }
   _setActionButtonsDisabled(false);
 }
@@ -399,16 +399,16 @@ function _updateStatePanels(state) {
   const stateConflict = el(DOM.STATE_CONFLICT);
 
   if (stateLoggedOut) {
-    stateLoggedOut.style.display = state === 'logged_out' ? '' : 'none';
+    stateLoggedOut.classList.toggle('hidden', state !== 'logged_out');
   }
   if (stateDisconnected) {
-    stateDisconnected.style.display = state === 'disconnected' ? '' : 'none';
+    stateDisconnected.classList.toggle('hidden', state !== 'disconnected');
   }
   if (stateConnected) {
-    stateConnected.style.display = state === 'connected' ? '' : 'none';
+    stateConnected.classList.toggle('hidden', state !== 'connected');
   }
   if (stateConflict) {
-    stateConflict.style.display = state === 'conflict' ? '' : 'none';
+    stateConflict.classList.toggle('hidden', state !== 'conflict');
   }
 }
 
@@ -454,7 +454,7 @@ function _updateErrorBanner(metadata) {
   const errorBanner = el(DOM.ERROR_BANNER);
 
   if (errorBanner) {
-    errorBanner.style.display = hasError ? '' : 'none';
+    errorBanner.classList.toggle('hidden', !hasError);
   }
   if (!hasError) {
     return;
@@ -470,6 +470,24 @@ function _updateErrorBanner(metadata) {
       ? `${UI_MESSAGES.CLOUD_SYNC.ERROR_TIME_PREFIX}${formatTimestamp(metadata.lastErrorAt)}`
       : '';
   }
+}
+
+/**
+ * 更新衝突 banner 內的遠端時間（REMOTE_SNAPSHOT_NEWER 路徑可見）
+ *
+ * 傳入 null 代表非 conflict state，element 會被清空避免 stale 文字殘留。
+ *
+ * @param {{ lastKnownRemoteUpdatedAt?: string | number | Date | null | undefined } | null} metadata
+ */
+function _updateConflictRemoteTime(metadata) {
+  const remoteTimeEl = el(DOM.CONFLICT_REMOTE_TIME);
+  if (!remoteTimeEl) {
+    return;
+  }
+  const remoteTimestamp = metadata?.lastKnownRemoteUpdatedAt;
+  remoteTimeEl.textContent = remoteTimestamp
+    ? `${UI_MESSAGES.CLOUD_SYNC.CONFLICT_REMOTE_PREFIX}${formatTimestamp(remoteTimestamp)}`
+    : '';
 }
 
 /**
@@ -493,19 +511,11 @@ function _updateAutoSyncStatus(metadata) {
     return;
   }
 
-  if (metadata.frequency === 'off' || !metadata.frequency) {
-    statusDiv.style.display = 'none';
-    statusText.textContent = '';
-    return;
-  }
+  const isFrequencyActive = Boolean(metadata.frequency) && metadata.frequency !== 'off';
+  const shouldShowReview = isFrequencyActive && Boolean(metadata.needsManualReview);
 
-  if (metadata.needsManualReview) {
-    statusDiv.style.display = '';
-    statusText.textContent = UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW;
-  } else {
-    statusDiv.style.display = 'none';
-    statusText.textContent = '';
-  }
+  statusDiv.classList.toggle('hidden', !shouldShowReview);
+  statusText.textContent = shouldShowReview ? UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW : '';
 }
 
 /**
@@ -576,8 +586,10 @@ export function renderCloudSyncCard(metadata, options = {}) {
     const snapshotStatus =
       options.snapshotStatus === undefined ? lastSnapshotStatus : options.snapshotStatus;
     _updateSourceWarning(snapshotStatus, metadata.installationId ?? null);
+    _updateConflictRemoteTime(panelState === 'conflict' ? metadata : null);
   } else {
     _updateSourceWarning(null, null);
+    _updateConflictRemoteTime(null);
   }
 
   _updateErrorBanner(metadata);
@@ -597,7 +609,7 @@ function renderLoggedOutCloudSyncCard() {
 
   const errorBanner = el(DOM.ERROR_BANNER);
   if (errorBanner) {
-    errorBanner.style.display = 'none';
+    errorBanner.classList.add('hidden');
   }
 
   const errorCodeEl = el(DOM.ERROR_CODE);

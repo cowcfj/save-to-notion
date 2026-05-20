@@ -11,7 +11,7 @@ function buildDom() {
         <div class="spinner" id="spinner" aria-hidden="true"></div>
         <p class="status-text" id="status-text">初始訊息</p>
       </output>
-      <p id="close-hint" style="display: none">此頁面將自動關閉</p>
+      <p id="close-hint" class="hidden">此頁面將自動關閉</p>
     </main>
   `;
 }
@@ -35,7 +35,7 @@ describe('callbackStatusView', () => {
     expect(spinner.className).toBe('spinner');
     expect(statusText).not.toBeNull();
     expect(statusText.textContent).toBe('重新載入中');
-    expect(closeHint.style.display).toBe('none');
+    expect(closeHint.classList.contains('hidden')).toBe(true);
   });
 
   it('showLoading 在 error 後應重建 loading UI', () => {
@@ -57,7 +57,7 @@ describe('callbackStatusView', () => {
     expect(successIcon).not.toBeNull();
 
     const closeHint = document.querySelector('#close-hint');
-    expect(closeHint.style.display).toBe('');
+    expect(closeHint.classList.contains('hidden')).toBe(false);
   });
 
   it('showError 應標記 status-error className、插入 error-detail 並隱藏關閉提示', () => {
@@ -71,6 +71,6 @@ describe('callbackStatusView', () => {
     expect(errorDetail.textContent).toBe('詳細錯誤訊息');
 
     const closeHint = document.querySelector('#close-hint');
-    expect(closeHint.style.display).toBe('none');
+    expect(closeHint.classList.contains('hidden')).toBe(true);
   });
 });

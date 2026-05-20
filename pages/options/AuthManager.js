@@ -32,7 +32,6 @@ export class AuthManager {
   // 將常數綁定到類別上供實例使用
   static CLASS_AUTH_SUCCESS = 'auth-status success';
   static CLASS_AUTH_STATUS = 'auth-status';
-  static STYLE_INLINE_FLEX = 'inline-flex';
 
   /**
    * @param {import('./UIManager.js').UIManager} uiManager
@@ -248,10 +247,10 @@ export class AuthManager {
 
     // OAuth 按鈕切換為已連接狀態
     if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.style.display = 'none';
+      this.elements.oauthConnectButton.classList.add('hidden');
     }
     if (this.elements.oauthDisconnectButton) {
-      this.elements.oauthDisconnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+      this.elements.oauthDisconnectButton.classList.remove('hidden');
     }
 
     // 手動模式區域顯示提示（OAuth 已連接）
@@ -317,7 +316,7 @@ export class AuthManager {
       UI_MESSAGES.AUTH.ACTION_RECONNECT
     );
     if (this.elements.disconnectButton) {
-      this.elements.disconnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+      this.elements.disconnectButton.classList.remove('hidden');
     }
 
     if (this.elements.apiKeyInput) {
@@ -344,10 +343,10 @@ export class AuthManager {
       this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
     }
     if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+      this.elements.oauthConnectButton.classList.remove('hidden');
     }
     if (this.elements.oauthDisconnectButton) {
-      this.elements.oauthDisconnectButton.style.display = 'none';
+      this.elements.oauthDisconnectButton.classList.add('hidden');
     }
 
     // 載入資料來源列表
@@ -415,7 +414,7 @@ export class AuthManager {
       UI_MESSAGES.AUTH.ACTION_CONNECT
     );
     if (this.elements.disconnectButton) {
-      this.elements.disconnectButton.style.display = 'none';
+      this.elements.disconnectButton.classList.add('hidden');
     }
 
     // OAuth 區域也顯示未連接
@@ -424,10 +423,10 @@ export class AuthManager {
       this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
     }
     if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.style.display = AuthManager.STYLE_INLINE_FLEX;
+      this.elements.oauthConnectButton.classList.remove('hidden');
     }
     if (this.elements.oauthDisconnectButton) {
-      this.elements.oauthDisconnectButton.style.display = 'none';
+      this.elements.oauthDisconnectButton.classList.add('hidden');
     }
 
     this.ui.hideDataSourceUpgradeNotice();
