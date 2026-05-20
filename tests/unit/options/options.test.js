@@ -876,8 +876,12 @@ describe('options.js', () => {
 
       initOptions();
 
-      expect(document.querySelector('#oauth-connect-button').style.display).toBe('none');
-      expect(document.querySelector('#oauth-disconnect-button').style.display).toBe('none');
+      expect(document.querySelector('#oauth-connect-button').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#oauth-disconnect-button').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('應監聽 storageUsageUpdate 事件並更新儲存使用量', () => {
@@ -1959,9 +1963,9 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       BUILD_ENV.ENABLE_ACCOUNT = false;
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      expect(document.querySelector('#account-card').style.display).toBe('none');
-      expect(document.querySelector('#tab-advanced').style.display).toBe('none');
-      expect(document.querySelector('#section-advanced').style.display).toBe('none');
+      expect(document.querySelector('#account-card').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#tab-advanced').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#section-advanced').classList.contains('hidden')).toBe(true);
     });
 
     it('ENABLE_ACCOUNT=true 時應顯示 account card', async () => {
@@ -1969,7 +1973,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       // renderAccountUI 是 async，等待 microtask
       await Promise.resolve();
-      expect(document.querySelector('#account-card').style.display).not.toBe('none');
+      expect(document.querySelector('#account-card').classList.contains('hidden')).toBe(false);
     });
   });
 
@@ -1979,10 +1983,14 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
       expect(
         document.querySelector('#ai-assistant-card').classList.contains('locked-feature')
       ).toBe(true);
@@ -1994,8 +2002,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       initOptions();
 
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2011,12 +2021,12 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
       expect(document.querySelector('#profile-display-name').textContent).toBe('Test User');
 
       const avatarImg = document.querySelector('#profile-avatar-img');
-      expect(avatarImg.style.display).not.toBe('none');
+      expect(avatarImg.classList.contains('hidden')).toBe(false);
       expect(avatarImg.src).toContain('avatar.png');
 
       expect(
@@ -2039,7 +2049,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         'user@example.com'
       );
       const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.classList.contains('hidden')).toBe(false);
       expect(fallback.textContent).toBe('U');
     });
 
@@ -2057,7 +2067,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#profile-display-name').textContent).toBe('user@example.com');
 
       const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.style.display).not.toBe('none');
+      expect(fallback.classList.contains('hidden')).toBe(false);
       expect(fallback.textContent).toBe('U');
     });
 
@@ -2077,7 +2087,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#profile-email').textContent).toBe('');
 
       const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.style.display).toBe('flex');
+      expect(fallback.classList.contains('hidden')).toBe(false);
       expect(fallback.textContent).toBe('?');
     });
 
@@ -2093,10 +2103,14 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2242,8 +2256,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       listener({ action: 'account_session_updated' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
       expect(document.querySelector('#profile-display-name').textContent).toBe('New');
       expect(document.querySelector('#profile-email').textContent).toBe('new@example.com');
     });
@@ -2266,10 +2280,14 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       listener({ action: 'account_session_cleared' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
     });
   });
 
@@ -2313,8 +2331,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       // token 過期但 refresh 成功，應顯示已登入狀態
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
     });
 
     it('token 過期且 getAccountAccessToken 回 null（terminal failure 或無 refresh token），UI 應切回未登入', async () => {
@@ -2331,8 +2349,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       // terminal failure / 無 refresh token，應回到未登入
-      expect(document.querySelector('#account-logged-out').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-in').style.display).toBe('none');
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
     });
 
     it('token 取得發生 transient rejection 時，有 profile 應保留 logged-in UI、顯示可重試提示，且 Cloud Sync 不應卡在 loading', async () => {
@@ -2348,9 +2368,9 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       // regression guard：有 profile + transient rejection 時保留 logged-in，讓使用者可重試
-      expect(document.querySelector('#account-logged-in').style.display).not.toBe('none');
-      expect(document.querySelector('#account-logged-out').style.display).toBe('none');
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
       expect(document.querySelector('#account-status').textContent).toContain('無法更新登入狀態');
     });
 

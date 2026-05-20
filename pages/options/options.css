@@ -1270,8 +1270,9 @@ h4 .icon-svg {
 }
 
 /* Utility Classes for Refactoring Inline Styles */
+/* `!important` 對齊 Tailwind/Bootstrap utility 慣例，確保 .hidden 為無條件隱藏 */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .sr-only {
@@ -1579,6 +1580,13 @@ h4 .icon-svg {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Fallback display for class-toggled avatar fallback (was JS-set 'flex').
+   Scoped with :not(.hidden) so the .hidden utility (specificity 0,0,1,0)
+   isn't overridden by the ID selector (0,1,0,0). */
+#profile-avatar-fallback:not(.hidden) {
+  display: flex;
 }
 
 .profile-details {

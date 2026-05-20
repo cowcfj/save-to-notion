@@ -163,12 +163,12 @@ describe('DriveCloudSyncController', () => {
   describe('setCloudSyncCardVisibility', () => {
     it('shows card if logged in', () => {
       setCloudSyncCardVisibility(true);
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
     });
 
     it('hides card if logged out', () => {
       setCloudSyncCardVisibility(false);
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(true);
     });
   });
 
@@ -176,12 +176,22 @@ describe('DriveCloudSyncController', () => {
     it('未登入時應顯示提示狀態而不是隱藏整張卡片', async () => {
       await initCloudSyncController(false);
 
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-conflict').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
       expect(document.querySelector('#drive-login-prompt-button').disabled).toBe(true);
     });
   });
@@ -189,10 +199,16 @@ describe('DriveCloudSyncController', () => {
   describe('renderCloudSyncCard', () => {
     it('renders disconnected state correctly', () => {
       renderCloudSyncCard({ connectionEmail: null });
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
-      expect(document.querySelector('#drive-error-banner').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-conflict').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-error-banner').classList.contains('hidden')).toBe(true);
     });
 
     it('renders connected state correctly without conflict', () => {
@@ -201,9 +217,15 @@ describe('DriveCloudSyncController', () => {
         lastSuccessfulUploadAt: '2023-01-01T00:00:00Z',
         needsManualReview: false,
       });
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('');
-      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-conflict').classList.contains('hidden')).toBe(
+        true
+      );
 
       expect(document.querySelector('#drive-connected-email').textContent).toBe('test@notion.so');
       expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
@@ -224,8 +246,12 @@ describe('DriveCloudSyncController', () => {
         }
       );
 
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
       expect(document.querySelector('#drive-sync-status').textContent).toContain('臨時登入失效');
       expect(document.querySelector('#drive-sync-status').textContent).toContain('重新登入');
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
@@ -242,12 +268,18 @@ describe('DriveCloudSyncController', () => {
         needsManualReview: true,
         lastErrorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
       });
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-conflict').style.display).toBe('');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-conflict').classList.contains('hidden')).toBe(
+        false
+      );
 
       // Error banner is hidden because REMOTE_SNAPSHOT_NEWER is considered conflict, not generic error
-      expect(document.querySelector('#drive-error-banner').style.display).toBe('none');
+      expect(document.querySelector('#drive-error-banner').classList.contains('hidden')).toBe(true);
     });
 
     it('renders other generic errors correctly', () => {
@@ -256,7 +288,9 @@ describe('DriveCloudSyncController', () => {
         lastErrorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
         lastErrorAt: '2023-01-02T00:00:00Z',
       });
-      expect(document.querySelector('#drive-error-banner').style.display).toBe('');
+      expect(document.querySelector('#drive-error-banner').classList.contains('hidden')).toBe(
+        false
+      );
       expect(document.querySelector('#drive-error-code').textContent).toContain(
         DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED
       );
@@ -338,7 +372,9 @@ describe('DriveCloudSyncController', () => {
         needsManualReview: true,
       });
       expect(document.querySelector('#drive-frequency-select').value).toBe('daily');
-      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('');
+      expect(document.querySelector('#drive-auto-sync-status').classList.contains('hidden')).toBe(
+        false
+      );
       expect(document.querySelector('#drive-auto-sync-status-text').textContent).toBe(
         UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW
       );
@@ -348,7 +384,9 @@ describe('DriveCloudSyncController', () => {
         connectionEmail: 'test@notion.so',
         frequency: 'off',
       });
-      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('none');
+      expect(document.querySelector('#drive-auto-sync-status').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('hides auto sync status container when frequency is active but no review is needed', () => {
@@ -358,7 +396,9 @@ describe('DriveCloudSyncController', () => {
         frequency: 'weekly',
         needsManualReview: true,
       });
-      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('');
+      expect(document.querySelector('#drive-auto-sync-status').classList.contains('hidden')).toBe(
+        false
+      );
 
       // 再切換到 needsManualReview=false：container 必須被隱藏，避免 margin-bottom 佔用空白
       renderCloudSyncCard({
@@ -366,7 +406,9 @@ describe('DriveCloudSyncController', () => {
         frequency: 'weekly',
         needsManualReview: false,
       });
-      expect(document.querySelector('#drive-auto-sync-status').style.display).toBe('none');
+      expect(document.querySelector('#drive-auto-sync-status').classList.contains('hidden')).toBe(
+        true
+      );
       expect(document.querySelector('#drive-auto-sync-status-text').textContent).toBe('');
     });
   });
@@ -504,7 +546,9 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        false
+      );
       expect(document.querySelector('#drive-loading-text').textContent).toBe(
         UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC
       );
@@ -611,7 +655,7 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
-      expect(document.querySelector('#drive-error-banner').style.display).toBe('none');
+      expect(document.querySelector('#drive-error-banner').classList.contains('hidden')).toBe(true);
       expect(document.querySelector('#drive-sync-status').textContent).toBe('');
       expect(document.querySelector('#drive-sync-status').className).toBe('status-message');
     });
@@ -632,7 +676,9 @@ describe('DriveCloudSyncController', () => {
         `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('sanitizes upload errors before logging', async () => {
@@ -671,7 +717,9 @@ describe('DriveCloudSyncController', () => {
         `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}發生未知錯誤，請稍後再試`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('sanitizes download errors before logging', async () => {
@@ -701,7 +749,9 @@ describe('DriveCloudSyncController', () => {
       expect(mockSendMessage).not.toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
       });
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
       expect(document.querySelector('#drive-download-button').disabled).toBe(false);
     });
 
@@ -723,8 +773,12 @@ describe('DriveCloudSyncController', () => {
       expect(driveClient.disconnectDrive).toHaveBeenCalled();
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
       expect(mockSendMessage).not.toHaveBeenCalled();
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('disconnect 成功後應顯示成功狀態並收起 loading overlay', async () => {
@@ -743,7 +797,9 @@ describe('DriveCloudSyncController', () => {
         UI_MESSAGES.CLOUD_SYNC.DISCONNECT_SUCCESS
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('success');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('shows an error when disconnect fails', async () => {
@@ -761,7 +817,9 @@ describe('DriveCloudSyncController', () => {
         UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('skips disconnect when user cancels confirmation', async () => {
@@ -777,8 +835,10 @@ describe('DriveCloudSyncController', () => {
 
     it('bypasses interaction if not logged in', async () => {
       await initCloudSyncController(false);
-      expect(document.querySelector('#cloud-sync-card').style.display).toBe('');
-      expect(document.querySelector('#drive-state-logged-out').style.display).toBe('');
+      expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
+      expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
+        false
+      );
       // Handlers not attached if not logged in initially (in actual implementation)
     });
 
@@ -793,7 +853,9 @@ describe('DriveCloudSyncController', () => {
       const initPromise = initCloudSyncController(true);
 
       // Loading overlay should be displayed immediately
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        false
+      );
       expect(document.querySelector('#drive-loading-text').textContent).toBe(
         UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC
       );
@@ -812,7 +874,9 @@ describe('DriveCloudSyncController', () => {
       await initPromise;
 
       // Loading overlay should be hidden after initialization completes
-      expect(document.querySelector('#drive-loading-overlay').style.display).toBe('none');
+      expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
+        true
+      );
       expect(document.querySelector('#drive-connect-button').disabled).toBe(false);
       expect(document.querySelector('#drive-upload-button').disabled).toBe(false);
     });
@@ -980,7 +1044,9 @@ describe('DriveCloudSyncController', () => {
         'warn-path@test.dev'
       );
       // 未 throw
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('');
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        false
+      );
     });
 
     it('falls back to disconnected state when remote sync fails', async () => {
@@ -993,9 +1059,15 @@ describe('DriveCloudSyncController', () => {
         action: 'syncRemoteDriveConnection',
         error: sanitizeApiError(new Error('TOKEN_EXPIRED'), 'drive_connection_sync'),
       });
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-conflict').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-conflict').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('initCloudSyncController 傳入 transientAuthError=true 時不應誤顯示已連線狀態', async () => {
@@ -1011,8 +1083,12 @@ describe('DriveCloudSyncController', () => {
 
       await initCloudSyncController(true, { transientAuthError: true });
 
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        false
+      );
       expect(document.querySelector('#drive-sync-status').textContent).toContain('臨時登入失效');
       expect(driveClient.fetchDriveConnectionStatus).not.toHaveBeenCalled();
     });
@@ -1123,8 +1199,12 @@ describe('DriveCloudSyncController', () => {
       expect(storedMetadata.lastErrorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
       expect(storedMetadata.connectedAt).toBe('2026-04-19T11:00:00Z');
 
-      expect(document.querySelector('#drive-state-conflict').style.display).toBe('');
-      expect(document.querySelector('#drive-state-connected').style.display).toBe('none');
+      expect(document.querySelector('#drive-state-conflict').classList.contains('hidden')).toBe(
+        false
+      );
+      expect(document.querySelector('#drive-state-connected').classList.contains('hidden')).toBe(
+        true
+      );
     });
 
     it('focus 首次連線且本地缺少 connectedAt 時才 fallback 為目前時間', async () => {
@@ -1257,7 +1337,9 @@ describe('DriveCloudSyncController', () => {
       await refreshCloudSyncCard({ syncRemote: true });
 
       expect(driveClient.clearDriveSyncMetadata).toHaveBeenCalled();
-      expect(document.querySelector('#drive-state-disconnected').style.display).toBe('');
+      expect(document.querySelector('#drive-state-disconnected').classList.contains('hidden')).toBe(
+        false
+      );
     });
 
     it('syncRemote:true 時同時查詢 snapshot status 並恢復雲端備份顯示', async () => {
@@ -1463,7 +1545,7 @@ describe('DriveCloudSyncController', () => {
       let isOverlayVisibleDuringConfirm = null;
       globalThis.confirm.mockImplementationOnce(() => {
         isDisabledDuringConfirm = uploadBtn.disabled;
-        isOverlayVisibleDuringConfirm = overlay.style.display === '';
+        isOverlayVisibleDuringConfirm = !overlay.classList.contains('hidden');
         return false;
       });
 
@@ -1476,7 +1558,7 @@ describe('DriveCloudSyncController', () => {
       expect(isDisabledDuringConfirm).toBe(true);
       expect(isOverlayVisibleDuringConfirm).toBe(true);
       expect(uploadBtn.disabled).toBe(false);
-      expect(overlay.style.display).toBe('none');
+      expect(overlay.classList.contains('hidden')).toBe(true);
     });
 
     it('偵測跨安裝且使用者確認時，應送出 DRIVE_SYNC_MANUAL_UPLOAD', async () => {
