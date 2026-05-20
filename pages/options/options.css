@@ -1127,7 +1127,7 @@ select:focus {
 
 .faq-answer {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
@@ -1460,8 +1460,52 @@ h4 .icon-svg {
 }
 
 /* Margin Utilities */
+.auth-actions {
+  margin-top: 16px;
+}
+
+.locked-message {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
 .mt-12 {
   margin-top: 12px;
+}
+
+.fw-medium {
+  font-weight: 500;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
+}
+
+.mb-14 {
+  margin-bottom: 14px;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
+
+.mt-10 {
+  margin-top: 10px;
 }
 
 /* --- Advanced Features Profile --- */
@@ -1552,6 +1596,124 @@ h4 .icon-svg {
   background: rgba(245, 158, 11, 0.12);
   border-radius: 6px;
   margin: 8px 0 0;
+}
+
+/* Cloud Sync Card — header */
+.cloud-sync-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Cloud Sync Card — connected account info */
+.drive-account-info {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Cloud Sync Card — sync summary text */
+.drive-sync-summary {
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Cloud Sync Card — frequency selector row */
+.drive-frequency-row {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drive-frequency-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.drive-frequency-select {
+  flex: 1;
+  max-width: 140px;
+  font-size: 0.8rem;
+}
+
+/* Cloud Sync Card — auto-sync status output */
+.drive-auto-sync-status {
+  margin-bottom: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Cloud Sync Card — conflict banner */
+.drive-conflict-banner {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.drive-conflict-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--color-warning-strong);
+}
+
+.drive-conflict-title {
+  color: var(--color-warning-strong);
+  font-size: 0.875rem;
+}
+
+/* Cloud Sync Card — error banner content */
+.drive-error-content {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--color-danger);
+}
+
+.drive-error-code {
+  color: var(--color-danger-light);
+  font-weight: 500;
+}
+
+/* Cloud Sync Card — loading state */
+.drive-loading-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.drive-loading-overlay {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.drive-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color, #334155);
+  border-top-color: var(--color-success);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 

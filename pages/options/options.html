@@ -477,7 +477,7 @@
 
             <!-- 未登入狀態 -->
             <div id="account-logged-out">
-              <p class="section-desc" style="margin-bottom: 12px">
+              <p class="section-desc mb-12">
                 使用 Google 帳號登入，享受同步與進階功能。
               </p>
               <div class="auth-actions">
@@ -527,7 +527,7 @@
                   <div id="profile-email" class="profile-email text-sm"></div>
                 </div>
               </div>
-              <div class="auth-actions" style="margin-top: 16px">
+              <div class="auth-actions">
                 <button id="account-logout-button" type="button" class="btn-danger">
                   <span class="icon">
                     <svg
@@ -555,23 +555,22 @@
 
             <p
               id="account-status"
-              class="status-message"
+              class="status-message mt-8"
               aria-live="polite"
               aria-atomic="true"
-              style="margin-top: 8px"
             ></p>
           </div>
 
           <!-- Cloud Sync Card — Phase A 正式 UI -->
           <div id="cloud-sync-card" class="card" style="display: none">
-            <h3 style="display: flex; align-items: center; gap: 8px">
+            <h3 class="cloud-sync-header">
               <svg
                 width="20"
                 height="20"
                 viewBox="0 0 48 48"
                 aria-hidden="true"
                 focusable="false"
-                style="flex-shrink: 0"
+                class="shrink-0"
               >
                 <polygon points="16,40 0,12 16,12" fill="#4285F4" />
                 <polygon points="16,40 32,40 48,12 32,12" fill="#34A853" />
@@ -582,7 +581,7 @@
 
             <!-- 狀態零：未登入帳號 -->
             <div id="drive-state-logged-out" style="display: none">
-              <p class="section-desc" style="margin-bottom: 12px">
+              <p class="section-desc mb-12">
                 登入帳號後，可連接 Google Drive 以備份和同步你的本地資料到雲端。
               </p>
               <div class="auth-actions">
@@ -594,7 +593,7 @@
 
             <!-- 狀態一：已登入但未連接 Google Drive -->
             <div id="drive-state-disconnected" style="display: none">
-              <p class="section-desc" style="margin-bottom: 12px">
+              <p class="section-desc mb-12">
                 連接 Google Drive 後，可備份和同步你的本地資料到雲端。
               </p>
               <div class="auth-actions">
@@ -611,47 +610,27 @@
 
             <!-- 狀態二：已連接，可正常操作 -->
             <div id="drive-state-connected" style="display: none">
-              <div
-                class="drive-account-info"
-                style="
-                  margin-bottom: 16px;
-                  padding: 10px 12px;
-                  background: rgba(255, 255, 255, 0.04);
-                  border-radius: 8px;
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                "
-              >
+              <div class="drive-account-info">
                 <div>
-                  <div class="text-sm" style="color: var(--text-secondary)">已連接帳號</div>
-                  <div id="drive-connected-email" class="text-sm" style="font-weight: 500"></div>
+                  <div class="text-sm text-secondary">已連接帳號</div>
+                  <div id="drive-connected-email" class="text-sm fw-medium"></div>
                 </div>
               </div>
               <!-- 帳號隔離警示 -->
               <p id="drive-source-warning" class="drive-source-warning hidden"></p>
               <!-- 同步狀態摘要 -->
 
-              <div
-                id="drive-sync-summary"
-                style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted)"
-              >
+              <div id="drive-sync-summary" class="drive-sync-summary">
                 <span id="drive-last-upload-text">尚未上載</span>
               </div>
               <!-- Phase B: 自動同步頻率選擇器 -->
-              <div
-                id="drive-frequency-row"
-                style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px"
-              >
-                <label
-                  for="drive-frequency-select"
-                  style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap"
+              <div id="drive-frequency-row" class="drive-frequency-row">
+                <label for="drive-frequency-select" class="drive-frequency-label"
                   >自動備份頻率 <span class="badge-beta">測試版</span></label
                 >
                 <select
                   id="drive-frequency-select"
-                  class="form-select-enhanced"
-                  style="flex: 1; max-width: 140px; font-size: 0.8rem"
+                  class="form-select-enhanced drive-frequency-select"
                 >
                   <option value="off">關閉（僅手動）</option>
                   <option value="daily">每日</option>
@@ -661,19 +640,13 @@
               </div>
               <!-- Phase B: 自動同步狀態 -->
               <output
-                id="drive-auto-sync-status"
-                aria-live="polite"
-                style="
-                  margin-bottom: 12px;
-                  font-size: 0.75rem;
-                  color: var(--text-muted);
-                  display: none;
-                "
+                class="drive-auto-sync-status"
+                style="display: none"
               >
                 <span id="drive-auto-sync-status-text"></span>
               </output>
               <!-- 操作按鈕 -->
-              <div class="button-group" style="gap: 8px; flex-wrap: wrap">
+              <div class="button-group">
                 <button id="drive-upload-button" type="button" class="btn-secondary">
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-upload" />
@@ -689,8 +662,7 @@
                 <button
                   id="drive-disconnect-button"
                   type="button"
-                  class="btn-danger"
-                  style="margin-left: auto"
+                  class="btn-danger ml-auto"
                 >
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-unlink" />
@@ -702,16 +674,8 @@
 
             <!-- 狀態三：衝突 — 遠端較新，需人工處理 -->
             <div id="drive-state-conflict" style="display: none">
-              <div
-                style="
-                  background: rgba(234, 179, 8, 0.12);
-                  border: 1px solid rgba(234, 179, 8, 0.3);
-                  border-radius: 8px;
-                  padding: 12px 14px;
-                  margin-bottom: 14px;
-                "
-              >
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+              <div class="drive-conflict-banner">
+                <div class="drive-conflict-header">
                   <svg
                     width="16"
                     height="16"
@@ -720,7 +684,7 @@
                     focusable="false"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="#eab308"
+                    stroke="currentColor"
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
@@ -731,18 +695,16 @@
                     <line x1="12" y1="9" x2="12" y2="13" />
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
-                  <strong style="color: #eab308; font-size: 0.875rem">雲端資料較新</strong>
+                  <strong class="drive-conflict-title">雲端資料較新</strong>
                 </div>
-                <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 10px">
+                <p class="text-sm text-secondary mb-10">
                   雲端快照
                   比本地資料新，上載可能覆蓋較新的雲端資料。建議先下載雲端版本，或確認後強制上載。
                 </p>
                 <p
-                  id="drive-conflict-remote-time"
-                  class="text-sm"
-                  style="color: var(--text-muted); margin-bottom: 12px"
+                  class="text-sm text-muted mb-12"
                 ></p>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <div class="button-group">
                   <button id="drive-conflict-download-button" type="button" class="btn-primary">
                     <svg
                       aria-hidden="true"
@@ -772,22 +734,12 @@
             </div>
 
             <!-- 錯誤提示（顯示在各狀態下方） -->
-            <div id="drive-error-banner" style="display: none; margin-top: 10px">
-              <div
-                style="
-                  background: rgba(239, 68, 68, 0.1);
-                  border: 1px solid rgba(239, 68, 68, 0.3);
-                  border-radius: 8px;
-                  padding: 10px 14px;
-                  display: flex;
-                  align-items: flex-start;
-                  gap: 8px;
-                "
-              >
+            <div id="drive-error-banner" class="mt-10" style="display: none">
+              <div class="drive-error-content">
                 <svg
                   width="16"
                   height="16"
-                  class="icon-svg"
+                  class="icon-svg shrink-0"
                   aria-hidden="true"
                   focusable="false"
                   viewBox="0 0 24 24"
@@ -796,7 +748,7 @@
                   stroke-width="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  style="flex-shrink: 0; margin-top: 1px"
+                  style="margin-top: 1px"
                 >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
@@ -804,13 +756,12 @@
                 </svg>
                 <div>
                   <div
-                    class="text-sm"
-                    style="color: #fca5a5; font-weight: 500"
+                    class="text-sm drive-error-code"
                     id="drive-error-code"
                   ></div>
                   <div
-                    class="text-sm"
-                    style="color: var(--text-muted); margin-top: 2px"
+                    class="text-sm text-muted"
+                    style="margin-top: 2px"
                     id="drive-error-time"
                   ></div>
                 </div>
@@ -820,27 +771,11 @@
             <!-- 操作進行中（spinner） -->
             <div
               id="drive-loading-overlay"
-              style="display: none; margin-top: 12px; text-align: center"
+              class="drive-loading-overlay"
+              style="display: none"
             >
-              <div
-                style="
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 8px;
-                  color: var(--text-muted);
-                  font-size: 0.875rem;
-                "
-              >
-                <div
-                  style="
-                    width: 16px;
-                    height: 16px;
-                    border: 2px solid var(--border-color, #334155);
-                    border-top-color: #4ade80;
-                    border-radius: 50%;
-                    animation: spin 0.8s linear infinite;
-                  "
-                ></div>
+              <div class="drive-loading-wrapper">
+                <div class="drive-spinner"></div>
                 <span id="drive-loading-text">處理中...</span>
               </div>
             </div>
@@ -848,10 +783,9 @@
             <!-- 通用狀態訊息 -->
             <p
               id="drive-sync-status"
-              class="status-message"
+              class="status-message mt-10"
               aria-live="polite"
               aria-atomic="true"
-              style="margin-top: 10px"
             ></p>
           </div>
 
@@ -861,18 +795,17 @@
               <svg
                 width="20"
                 height="20"
-                class="icon-svg"
+                class="icon-svg icon-inline-hint"
                 aria-hidden="true"
                 focusable="false"
-                style="vertical-align: middle; margin-right: 4px"
               >
                 <use href="#icon-star" />
               </svg>
               AI 智能摘要與助手
             </h3>
-            <p class="section-desc" style="margin-bottom: 12px">
+            <p class="section-desc mb-12">
               透過先進 AI 幫助您快速整理網頁重點。<br />
-              <span class="locked-message" style="color: var(--text-muted)"
+              <span class="locked-message"
                 >需先登入 Google 帳號。</span
               >
             </p>
