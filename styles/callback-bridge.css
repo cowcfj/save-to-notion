@@ -15,8 +15,9 @@
 }
 
 /* === Visibility Utility === */
+/* `!important` 對齊 Tailwind/Bootstrap utility 慣例，確保 .hidden 為無條件隱藏 */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .status-area {
