@@ -71,6 +71,51 @@ function resolveUiMessage(path) {
   return typeof value === 'string' ? value : '';
 }
 
+const COMPOSITE_HANDLERS = {
+  'destination-target-help': element => {
+    const link = element.querySelector('a');
+    if (!link) {
+      return;
+    }
+    element.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
+      link,
+      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
+    );
+    link.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
+  },
+
+  'guide-shortcut-desc': element => {
+    const codes = element.querySelectorAll('code.kbd');
+    if (codes.length !== 2) {
+      return;
+    }
+    const [ctrlCode, cmdCode] = codes;
+    ctrlCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY;
+    cmdCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY;
+    element.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX),
+      ctrlCode,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE),
+      cmdCode,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX)
+    );
+  },
+
+  'guide-faq-token-answer': element => {
+    const code = element.querySelector('code.inline-code');
+    if (!code) {
+      return;
+    }
+    code.textContent = UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE;
+    element.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX),
+      code,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX)
+    );
+  },
+};
+
 export function applyStaticOptionMessages(root = document) {
   root.querySelectorAll('[data-ui-message]').forEach(element => {
     element.textContent = resolveUiMessage(element.dataset.uiMessage);
@@ -88,44 +133,12 @@ export function applyStaticOptionMessages(root = document) {
     element.setAttribute('aria-label', resolveUiMessage(element.dataset.uiAriaLabel));
   });
 
-  const destinationHelp = root.querySelector('[data-ui-composite="destination-target-help"]');
-  const destinationHelpLink = destinationHelp?.querySelector('a');
-  if (destinationHelp && destinationHelpLink) {
-    destinationHelp.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
-      destinationHelpLink,
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
-    );
-    destinationHelpLink.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
-  }
-
-  const shortcutDesc = root.querySelector('[data-ui-composite="guide-shortcut-desc"]');
-  if (shortcutDesc) {
-    const codes = shortcutDesc.querySelectorAll('code.kbd');
-    if (codes.length === 2) {
-      const [ctrlCode, cmdCode] = codes;
-      ctrlCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY;
-      cmdCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY;
-      shortcutDesc.replaceChildren(
-        document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX),
-        ctrlCode,
-        document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE),
-        cmdCode,
-        document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX)
-      );
+  root.querySelectorAll('[data-ui-composite]').forEach(element => {
+    const handler = COMPOSITE_HANDLERS[element.dataset.uiComposite];
+    if (handler) {
+      handler(element);
     }
-  }
-
-  const tokenAnswer = root.querySelector('[data-ui-composite="guide-faq-token-answer"]');
-  const tokenAnswerCode = tokenAnswer?.querySelector('code.inline-code');
-  if (tokenAnswer && tokenAnswerCode) {
-    tokenAnswerCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE;
-    tokenAnswer.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX),
-      tokenAnswerCode,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX)
-    );
-  }
+  });
 }
 
 function normalizeDestinationProfileName(value) {

@@ -285,6 +285,71 @@ describe('options.js', () => {
       // 防呆：若有人意外把 binding 全部刪掉，這個下限會立刻失敗。
       expect(totalBindings).toBeGreaterThan(20);
     });
+
+    it('應重組 guide-shortcut-desc 的 Ctrl/Cmd 快捷鍵描述', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="guide-shortcut-desc">
+          舊文字 <code class="kbd">OLD-CTRL</code> 中間舊文字 <code class="kbd">OLD-CMD</code> 舊尾
+        </div>
+      `;
+
+      applyStaticOptionMessages();
+
+      const container = document.querySelector('[data-ui-composite="guide-shortcut-desc"]');
+      const codes = container.querySelectorAll('code.kbd');
+      expect(codes).toHaveLength(2);
+      expect(codes[0].textContent).toBe(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY);
+      expect(codes[1].textContent).toBe(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY);
+      expect(container.textContent).toContain(
+        UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX
+      );
+      expect(container.textContent).toContain(
+        UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE
+      );
+      expect(container.textContent).toContain(
+        UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX
+      );
+    });
+
+    it('當 guide-shortcut-desc 缺少預期的 code 元素時應安靜跳過', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="guide-shortcut-desc">只有一個 <code class="kbd">X</code></div>
+      `;
+
+      expect(() => applyStaticOptionMessages()).not.toThrow();
+
+      // 既有 code 文字應保留（handler 偵測到 length !== 2 直接跳過）
+      const code = document.querySelector('[data-ui-composite="guide-shortcut-desc"] code.kbd');
+      expect(code.textContent).toBe('X');
+    });
+
+    it('應重組 guide-faq-token-answer 的 token 格式說明', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="guide-faq-token-answer">
+          舊文字 <code class="inline-code">old_</code> 舊尾
+        </div>
+      `;
+
+      applyStaticOptionMessages();
+
+      const container = document.querySelector('[data-ui-composite="guide-faq-token-answer"]');
+      const code = container.querySelector('code.inline-code');
+      expect(code).not.toBeNull();
+      expect(code.textContent).toBe(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE);
+      expect(container.textContent).toContain(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX);
+      expect(container.textContent).toContain(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX);
+    });
+
+    it('未知的 data-ui-composite key 不應拋錯', () => {
+      document.body.innerHTML = `
+        <div data-ui-composite="never-registered-key">原始內容</div>
+      `;
+
+      expect(() => applyStaticOptionMessages()).not.toThrow();
+      expect(document.querySelector('[data-ui-composite="never-registered-key"]').textContent).toBe(
+        '原始內容'
+      );
+    });
   });
 
   describe('saveSettings', () => {
