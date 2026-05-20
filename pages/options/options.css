@@ -1276,7 +1276,7 @@ h4 .icon-svg {
 }
 
 .icon-workspace {
-  color: #8b5cf6;
+  color: var(--color-action-manage);
   /* Violet-500 */
 }
 
@@ -1285,12 +1285,12 @@ h4 .icon-svg {
 }
 
 .icon-folder {
-  color: #f59e0b;
+  color: var(--color-warning);
   /* Amber-500 */
 }
 
 .icon-category {
-  color: #10b981;
+  color: var(--color-success);
   /* Emerald-500 */
 }
 
