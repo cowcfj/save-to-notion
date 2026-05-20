@@ -403,15 +403,14 @@ select:focus {
 }
 
 .connection-row {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--spacing-sm);
-  justify-content: space-between;
+  align-items: center;
 }
 
 .connection-row .auth-status {
   margin-bottom: 0;
-  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -420,7 +419,7 @@ select:focus {
 }
 
 .connection-actions {
-  flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 .auth-status.success {
@@ -452,8 +451,7 @@ select:focus {
 
 @media (max-width: 720px) {
   .connection-row {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
   .connection-actions {
