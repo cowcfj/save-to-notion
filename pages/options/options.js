@@ -98,6 +98,34 @@ export function applyStaticOptionMessages(root = document) {
     );
     destinationHelpLink.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
   }
+
+  const shortcutDesc = root.querySelector('[data-ui-composite="guide-shortcut-desc"]');
+  if (shortcutDesc) {
+    const codes = shortcutDesc.querySelectorAll('code.kbd');
+    if (codes.length === 2) {
+      const [ctrlCode, cmdCode] = codes;
+      ctrlCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY;
+      cmdCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY;
+      shortcutDesc.replaceChildren(
+        document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX),
+        ctrlCode,
+        document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE),
+        cmdCode,
+        document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX)
+      );
+    }
+  }
+
+  const tokenAnswer = root.querySelector('[data-ui-composite="guide-faq-token-answer"]');
+  const tokenAnswerCode = tokenAnswer?.querySelector('code.inline-code');
+  if (tokenAnswer && tokenAnswerCode) {
+    tokenAnswerCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE;
+    tokenAnswer.replaceChildren(
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX),
+      tokenAnswerCode,
+      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX)
+    );
+  }
 }
 
 function normalizeDestinationProfileName(value) {
