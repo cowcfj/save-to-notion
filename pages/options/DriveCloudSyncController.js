@@ -493,19 +493,11 @@ function _updateAutoSyncStatus(metadata) {
     return;
   }
 
-  if (metadata.frequency === 'off' || !metadata.frequency) {
-    statusDiv.classList.add('hidden');
-    statusText.textContent = '';
-    return;
-  }
+  const isFrequencyActive = Boolean(metadata.frequency) && metadata.frequency !== 'off';
+  const shouldShowReview = isFrequencyActive && Boolean(metadata.needsManualReview);
 
-  if (metadata.needsManualReview) {
-    statusDiv.classList.remove('hidden');
-    statusText.textContent = UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW;
-  } else {
-    statusDiv.classList.add('hidden');
-    statusText.textContent = '';
-  }
+  statusDiv.classList.toggle('hidden', !shouldShowReview);
+  statusText.textContent = shouldShowReview ? UI_MESSAGES.CLOUD_SYNC.AUTO_SYNC_NEEDS_REVIEW : '';
 }
 
 /**
