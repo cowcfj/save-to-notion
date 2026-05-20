@@ -425,8 +425,12 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#oauth-status').textContent).toContain(
         '已連接 — My Workspace'
       );
-      expect(document.querySelector('#oauth-connect-button').style.display).toBe('none');
-      expect(document.querySelector('#oauth-disconnect-button').style.display).toBe('inline-flex');
+      expect(document.querySelector('#oauth-connect-button').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#oauth-disconnect-button').classList.contains('hidden')).toBe(
+        false
+      );
       expect(mockLoadDatabases).toHaveBeenCalledWith('oauth_token_123');
       expect(document.querySelector('#database-id').value).toBe('ds_local_123');
       expect(document.querySelector('#title-template').value).toBe('{title} - custom');
