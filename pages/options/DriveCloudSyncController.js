@@ -473,6 +473,24 @@ function _updateErrorBanner(metadata) {
 }
 
 /**
+ * 更新衝突 banner 內的遠端時間（REMOTE_SNAPSHOT_NEWER 路徑可見）
+ *
+ * 傳入 null 代表非 conflict state，element 會被清空避免 stale 文字殘留。
+ *
+ * @param {{ lastKnownRemoteUpdatedAt?: string | number | Date | null | undefined } | null} metadata
+ */
+function _updateConflictRemoteTime(metadata) {
+  const remoteTimeEl = el(DOM.CONFLICT_REMOTE_TIME);
+  if (!remoteTimeEl) {
+    return;
+  }
+  const remoteTimestamp = metadata?.lastKnownRemoteUpdatedAt;
+  remoteTimeEl.textContent = remoteTimestamp
+    ? `${UI_MESSAGES.CLOUD_SYNC.CONFLICT_REMOTE_PREFIX}${formatTimestamp(remoteTimestamp)}`
+    : '';
+}
+
+/**
  * 更新自動同步狀態顯示
  *
  * @param {{
@@ -568,8 +586,10 @@ export function renderCloudSyncCard(metadata, options = {}) {
     const snapshotStatus =
       options.snapshotStatus === undefined ? lastSnapshotStatus : options.snapshotStatus;
     _updateSourceWarning(snapshotStatus, metadata.installationId ?? null);
+    _updateConflictRemoteTime(panelState === 'conflict' ? metadata : null);
   } else {
     _updateSourceWarning(null, null);
+    _updateConflictRemoteTime(null);
   }
 
   _updateErrorBanner(metadata);
