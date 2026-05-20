@@ -14,6 +14,11 @@
   --callback-hint-text: #475569;
 }
 
+/* === Visibility Utility === */
+.hidden {
+  display: none;
+}
+
 .status-area {
   min-height: 64px;
   display: flex;

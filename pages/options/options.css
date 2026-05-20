@@ -1581,6 +1581,11 @@ h4 .icon-svg {
   object-fit: cover;
 }
 
+/* Fallback display for class-toggled avatar fallback (was JS-set 'flex') */
+#profile-avatar-fallback {
+  display: flex;
+}
+
 .profile-details {
   display: flex;
   flex-direction: column;
