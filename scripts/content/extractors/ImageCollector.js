@@ -536,10 +536,9 @@ const ImageCollector = {
 
       // 構建現有圖片 URL 的 Set 以優化查找
       // additionalImages 可能包含 temporary URL 降級產生的 paragraph block,需先過濾
-      // WHY: 用 for-of 迴圈取代 .filter().map() 以避免建立不必要的中間陣列 (Bolt)
       const existingUrls = new Set();
       for (const block of additionalImages) {
-        if (block.type === 'image' && block.image?.external?.url) {
+        if (block.type === 'image') {
           existingUrls.add(block.image.external.url);
         }
       }
@@ -701,7 +700,6 @@ const ImageCollector = {
     }
 
     let addedCount = 0;
-    // WHY: 用 for-of 迴圈取代 .map().filter() 以避免建立不必要的中間陣列 (Bolt)
     const seenUrls = new Set();
     for (const img of allImages) {
       if (img.src) {
