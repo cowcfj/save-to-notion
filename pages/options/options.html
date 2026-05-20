@@ -558,20 +558,20 @@
               class="status-message"
               aria-live="polite"
               aria-atomic="true"
-              style="margin-top: 8px"
+              class="mt-8"
             ></p>
           </div>
 
           <!-- Cloud Sync Card — Phase A 正式 UI -->
           <div id="cloud-sync-card" class="card" style="display: none">
-            <h3 style="display: flex; align-items: center; gap: 8px">
+            <h3 class="cloud-sync-header">
               <svg
                 width="20"
                 height="20"
                 viewBox="0 0 48 48"
                 aria-hidden="true"
                 focusable="false"
-                style="flex-shrink: 0"
+                class="shrink-0"
               >
                 <polygon points="16,40 0,12 16,12" fill="#4285F4" />
                 <polygon points="16,40 32,40 48,12 32,12" fill="#34A853" />
@@ -582,7 +582,7 @@
 
             <!-- 狀態零：未登入帳號 -->
             <div id="drive-state-logged-out" style="display: none">
-              <p class="section-desc" style="margin-bottom: 12px">
+              <p class="section-desc mb-12">
                 登入帳號後，可連接 Google Drive 以備份和同步你的本地資料到雲端。
               </p>
               <div class="auth-actions">
@@ -594,7 +594,7 @@
 
             <!-- 狀態一：已登入但未連接 Google Drive -->
             <div id="drive-state-disconnected" style="display: none">
-              <p class="section-desc" style="margin-bottom: 12px">
+              <p class="section-desc mb-12">
                 連接 Google Drive 後，可備份和同步你的本地資料到雲端。
               </p>
               <div class="auth-actions">
@@ -611,47 +611,27 @@
 
             <!-- 狀態二：已連接，可正常操作 -->
             <div id="drive-state-connected" style="display: none">
-              <div
-                class="drive-account-info"
-                style="
-                  margin-bottom: 16px;
-                  padding: 10px 12px;
-                  background: rgba(255, 255, 255, 0.04);
-                  border-radius: 8px;
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                "
-              >
+              <div class="drive-account-info">
                 <div>
                   <div class="text-sm" style="color: var(--text-secondary)">已連接帳號</div>
-                  <div id="drive-connected-email" class="text-sm" style="font-weight: 500"></div>
+                  <div id="drive-connected-email" class="text-sm fw-medium"></div>
                 </div>
               </div>
               <!-- 帳號隔離警示 -->
               <p id="drive-source-warning" class="drive-source-warning hidden"></p>
               <!-- 同步狀態摘要 -->
 
-              <div
-                id="drive-sync-summary"
-                style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-muted)"
-              >
+              <div id="drive-sync-summary" class="drive-sync-summary">
                 <span id="drive-last-upload-text">尚未上載</span>
               </div>
               <!-- Phase B: 自動同步頻率選擇器 -->
-              <div
-                id="drive-frequency-row"
-                style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px"
-              >
-                <label
-                  for="drive-frequency-select"
-                  style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap"
+              <div id="drive-frequency-row" class="drive-frequency-row">
+                <label for="drive-frequency-select" class="drive-frequency-label"
                   >自動備份頻率 <span class="badge-beta">測試版</span></label
                 >
                 <select
                   id="drive-frequency-select"
-                  class="form-select-enhanced"
-                  style="flex: 1; max-width: 140px; font-size: 0.8rem"
+                  class="form-select-enhanced drive-frequency-select"
                 >
                   <option value="off">關閉（僅手動）</option>
                   <option value="daily">每日</option>
@@ -661,19 +641,13 @@
               </div>
               <!-- Phase B: 自動同步狀態 -->
               <output
-                id="drive-auto-sync-status"
-                aria-live="polite"
-                style="
-                  margin-bottom: 12px;
-                  font-size: 0.75rem;
-                  color: var(--text-muted);
-                  display: none;
-                "
+                class="drive-auto-sync-status"
+                style="display: none"
               >
                 <span id="drive-auto-sync-status-text"></span>
               </output>
               <!-- 操作按鈕 -->
-              <div class="button-group" style="gap: 8px; flex-wrap: wrap">
+              <div class="button-group">
                 <button id="drive-upload-button" type="button" class="btn-secondary">
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-upload" />
@@ -689,8 +663,7 @@
                 <button
                   id="drive-disconnect-button"
                   type="button"
-                  class="btn-danger"
-                  style="margin-left: auto"
+                  class="btn-danger ml-auto"
                 >
                   <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
                     <use href="#icon-unlink" />
