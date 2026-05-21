@@ -146,6 +146,9 @@ function emitParticles(container, count, spread, duration) {
 }
 
 const FAIL_TOOLTIP_DURATION_MS = 3000;
+const FAIL_SHAKE_CENTER_TRANSFORM = 'translateX(0)';
+const FAIL_SHAKE_LEFT_TRANSFORM = 'translateX(-4px)';
+const FAIL_SHAKE_RIGHT_TRANSFORM = 'translateX(4px)';
 const _failHideTimers = new WeakMap();
 
 /**
@@ -158,13 +161,13 @@ export async function playFailAnimation(button, tooltip) {
     ? null
     : button.animate(
         [
-          { transform: 'translateX(0)' },
-          { transform: 'translateX(-4px)' },
-          { transform: 'translateX(4px)' },
-          { transform: 'translateX(-4px)' },
-          { transform: 'translateX(4px)' },
-          { transform: 'translateX(-4px)' },
-          { transform: 'translateX(0)' },
+          { transform: FAIL_SHAKE_CENTER_TRANSFORM },
+          { transform: FAIL_SHAKE_LEFT_TRANSFORM },
+          { transform: FAIL_SHAKE_RIGHT_TRANSFORM },
+          { transform: FAIL_SHAKE_LEFT_TRANSFORM },
+          { transform: FAIL_SHAKE_RIGHT_TRANSFORM },
+          { transform: FAIL_SHAKE_LEFT_TRANSFORM },
+          { transform: FAIL_SHAKE_CENTER_TRANSFORM },
         ],
         { duration: 400, easing: 'ease-in-out' }
       );
