@@ -287,6 +287,35 @@ describe('options.js', () => {
       expect(totalBindings).toBeGreaterThan(20);
     });
 
+    it('destination help link 應提供靜態 accessible name 並保留 runtime i18n 綁定', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const html = fs.readFileSync(
+        path.join(__dirname, '../../../pages/options/options.html'),
+        'utf8'
+      );
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      expect(bodyMatch).not.toBeNull();
+      document.body.innerHTML = bodyMatch[1];
+
+      const helpLink = document.querySelector(
+        '.destination-target-help a[href*="USER_GUIDE.md#-如何獲取-notion-id"]'
+      );
+
+      expect(helpLink).not.toBeNull();
+      expect(helpLink.getAttribute('aria-label')).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT
+      );
+      expect(helpLink.dataset.uiAriaLabel).toBe('OPTIONS.DESTINATION.HELP_LINK_TEXT');
+
+      applyStaticOptionMessages();
+
+      expect(helpLink.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT);
+      expect(helpLink.getAttribute('aria-label')).toBe(
+        UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT
+      );
+    });
+
     it('應重組 guide-shortcut-desc 的 Ctrl/Cmd 快捷鍵描述', () => {
       document.body.innerHTML = `
         <div data-ui-composite="guide-shortcut-desc">
