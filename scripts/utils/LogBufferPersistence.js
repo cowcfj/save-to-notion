@@ -7,7 +7,7 @@ const ALARM_PERIOD_MINUTES = 1;
 let _buffer = null;
 
 async function flush() {
-  if (!_buffer || !_buffer.isDirty()) {
+  if (!_buffer?.isDirty()) {
     return;
   }
   const entries = _buffer.getAll();
