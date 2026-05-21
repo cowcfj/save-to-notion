@@ -36,9 +36,7 @@ jobs:
           filters: |
             source-changed:
               - 'scripts/**'
-              - 'options/**'
-              - 'popup/**'
-              - 'sidepanel/**'
+              - 'pages/**'
               - 'styles/**'
               - 'tests/**'
               - 'babel.config.js'
