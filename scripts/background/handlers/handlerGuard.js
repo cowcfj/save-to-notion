@@ -41,6 +41,7 @@ export function buildMigrationGuardMeta({ action, sender, validationError, url }
     action,
     senderId: sender?.id,
     error: validationError.error,
+    result: 'blocked',
   };
 
   if (url) {
@@ -57,6 +58,7 @@ export function buildContentScriptGuardMeta({ action, sender, validationError })
     error: validationError.error,
     senderId: sender?.id,
     tabId: sender?.tab?.id,
+    result: 'blocked',
   };
 }
 
@@ -67,6 +69,7 @@ export function buildInternalGuardMeta({ action, sender, validationError }) {
     error: validationError.error,
     senderId: sender?.id,
     tabId: sender?.tab?.id,
+    result: 'blocked',
   };
 }
 
@@ -75,6 +78,7 @@ export function buildSimpleGuardMeta({ action, reason, validationError }) {
     action,
     reason,
     error: validationError.error,
+    result: 'blocked',
   };
 }
 
@@ -85,9 +89,8 @@ export function sendStandardHandlerError({
   sanitizeContext,
   sendResponse,
 }) {
-  const errorMsg = error?.message ?? String(error);
-  Logger.error(logMessage, { action, error: errorMsg });
   const safeMessage = sanitizeApiError(error, sanitizeContext);
+  Logger.error(logMessage, { action, error: safeMessage, result: 'failed' });
   sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
 }
 
