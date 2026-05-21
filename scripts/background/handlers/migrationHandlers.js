@@ -9,31 +9,18 @@
 
 /* global Logger */
 
-import {
-  validateInternalRequest,
-  isValidUrl,
-  sanitizeApiError,
-  sanitizeUrlForLogging,
-} from '../../utils/securityUtils.js';
-import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
-
-const validatePrivilegedRequest = (sender, url = null) => {
-  // 1. 來源驗證：使用共享函數
-  const senderError = validateInternalRequest(sender);
-  if (senderError) {
-    return senderError;
-  }
-
-  // 2. URL 驗證：如果提供了 URL，必須是有效的 http 或 https URL
-  if (url && !isValidUrl(url)) {
-    return { success: false, error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URL_PROTOCOL };
-  }
-
-  return null; // 驗證通過
-};
+import {
+  buildMigrationGuardMeta,
+  clearLegacyKeysWithStable,
+  sendGuardFailure,
+  sendStandardHandlerError,
+  validateBatchUrls,
+  validatePrivilegedRequest,
+} from './handlerGuard.js';
 
 /**
  * 創建遷移處理函數
@@ -63,13 +50,16 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'migration_execute',
-            senderId: sender?.id,
-            url: sanitizeUrlForLogging(url),
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildMigrationGuardMeta({
+              action: 'migration_execute',
+              sender,
+              validationError,
+              url,
+            })
+          );
           return;
         }
 
@@ -77,10 +67,13 @@ export function createMigrationHandlers(services) {
         const result = await migrationService.executeContentMigration(request, sender);
         sendResponse(result);
       } catch (error) {
-        const errorMsg = error?.message ?? String(error);
-        Logger.error('遷移失敗', { action: 'migration_execute', error: errorMsg });
-        const safeMessage = sanitizeApiError(error, 'migration_execute');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        sendStandardHandlerError({
+          error,
+          logMessage: '遷移失敗',
+          action: 'migration_execute',
+          sanitizeContext: 'migration_execute',
+          sendResponse,
+        });
       }
     },
 
@@ -100,13 +93,16 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'migration_delete',
-            senderId: sender?.id,
-            url: sanitizeUrlForLogging(url),
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildMigrationGuardMeta({
+              action: 'migration_delete',
+              sender,
+              validationError,
+              url,
+            })
+          );
           return;
         }
 
@@ -152,10 +148,13 @@ export function createMigrationHandlers(services) {
           message: '成功刪除標註數據',
         });
       } catch (error) {
-        const errorMsg = error?.message ?? String(error);
-        Logger.error('刪除失敗', { action: 'migration_delete', error: errorMsg });
-        const safeMessage = sanitizeApiError(error, 'migration_delete');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        sendStandardHandlerError({
+          error,
+          logMessage: '刪除失敗',
+          action: 'migration_delete',
+          sanitizeContext: 'migration_delete',
+          sendResponse,
+        });
       }
     },
 
@@ -176,27 +175,21 @@ export function createMigrationHandlers(services) {
         // 安全性驗證 (僅驗證來源，URL 在內部檢查)
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'migration_batch',
-            senderId: sender?.id,
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildMigrationGuardMeta({
+              action: 'migration_batch',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
-        if (!urls || !Array.isArray(urls) || urls.length === 0) {
-          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
-          return;
-        }
-
-        // 驗證 URLs 安全性
-        const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
-        if (invalidUrls.length > 0) {
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URLS_IN_BATCH,
-          });
+        const batchValidationError = validateBatchUrls(urls);
+        if (batchValidationError) {
+          sendResponse(batchValidationError);
           return;
         }
 
@@ -243,10 +236,13 @@ export function createMigrationHandlers(services) {
         });
         sendResponse({ success: true, results });
       } catch (error) {
-        const errorMsg = error?.message ?? String(error);
-        Logger.error('批量遷移失敗', { action: 'migration_batch', error: errorMsg });
-        const safeMessage = sanitizeApiError(error, 'migration_batch');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        sendStandardHandlerError({
+          error,
+          logMessage: '批量遷移失敗',
+          action: 'migration_batch',
+          sanitizeContext: 'migration_batch',
+          sendResponse,
+        });
       }
     },
 
@@ -266,42 +262,28 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'migration_batch_delete',
-            senderId: sender?.id,
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildMigrationGuardMeta({
+              action: 'migration_batch_delete',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
-        if (!urls || !Array.isArray(urls) || urls.length === 0) {
-          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
-          return;
-        }
-
-        // 驗證 URLs 安全性
-        const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
-        if (invalidUrls.length > 0) {
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URLS_IN_BATCH,
-          });
+        const batchValidationError = validateBatchUrls(urls);
+        if (batchValidationError) {
+          sendResponse(batchValidationError);
           return;
         }
 
         Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
 
         // 使用 StorageService.clearLegacyKeys 安全刪除（同時清理 highlights_ + saved_）
-        await Promise.all(
-          urls.map(async urlItem => {
-            const resolvedUrl = computeStableUrl(urlItem);
-            await storageService.clearLegacyKeys(urlItem);
-            if (resolvedUrl && resolvedUrl !== urlItem) {
-              await storageService.clearLegacyKeys(resolvedUrl);
-            }
-          })
-        );
+        await Promise.all(urls.map(urlItem => clearLegacyKeysWithStable(storageService, urlItem)));
 
         Logger.log('批量刪除完成', { action: 'migration_batch_delete', pageCount: urls.length });
         sendResponse({
@@ -310,10 +292,13 @@ export function createMigrationHandlers(services) {
           message: `成功刪除 ${urls.length} 個頁面的標註數據`,
         });
       } catch (error) {
-        const errorMsg = error?.message ?? String(error);
-        Logger.error('批量刪除失敗', { action: 'migration_batch_delete', error: errorMsg });
-        const safeMessage = sanitizeApiError(error, 'migration_batch_delete');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        sendStandardHandlerError({
+          error,
+          logMessage: '批量刪除失敗',
+          action: 'migration_batch_delete',
+          sanitizeContext: 'migration_batch_delete',
+          sendResponse,
+        });
       }
     },
 
@@ -330,12 +315,15 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'migration_get_pending',
-            senderId: sender?.id,
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildMigrationGuardMeta({
+              action: 'migration_get_pending',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
@@ -380,13 +368,13 @@ export function createMigrationHandlers(services) {
           totalFailed: failedItems.reduce((sum, item) => sum + item.failedCount, 0),
         });
       } catch (error) {
-        const errorMsg = error?.message ?? String(error);
-        Logger.error('獲取待完成項目失敗', {
+        sendStandardHandlerError({
+          error,
+          logMessage: '獲取待完成項目失敗',
           action: 'migration_get_pending',
-          error: errorMsg,
+          sanitizeContext: 'migration_get_pending',
+          sendResponse,
         });
-        const safeMessage = sanitizeApiError(error, 'migration_get_pending');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -405,13 +393,16 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'migration_delete_failed',
-            senderId: sender?.id,
-            url: sanitizeUrlForLogging(url),
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildMigrationGuardMeta({
+              action: 'migration_delete_failed',
+              sender,
+              validationError,
+              url,
+            })
+          );
           return;
         }
 
@@ -450,13 +441,13 @@ export function createMigrationHandlers(services) {
         });
         sendResponse({ success: true, deletedCount });
       } catch (error) {
-        const errorMsg = error?.message ?? String(error);
-        Logger.error('刪除失敗標註失敗', {
+        sendStandardHandlerError({
+          error,
+          logMessage: '刪除失敗標註失敗',
           action: 'migration_delete_failed',
-          error: errorMsg,
+          sanitizeContext: 'migration_delete_failed',
+          sendResponse,
         });
-        const safeMessage = sanitizeApiError(error, 'migration_delete_failed');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
   };

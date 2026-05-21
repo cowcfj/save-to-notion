@@ -2,50 +2,44 @@
 
 ## [2.74.0](https://github.com/cowcfj/save-to-notion/compare/v2.73.0...v2.74.0) (2026-05-20)
 
-
 ### ✨ 新功能
 
-* add about author page and related icons ([#547](https://github.com/cowcfj/save-to-notion/issues/547)) ([21f4bfc](https://github.com/cowcfj/save-to-notion/commit/21f4bfc942daa0097ec582a3c2b6c16ec8ff3b5a))
-* refactor inline styles and add CSS variables for options page ([#550](https://github.com/cowcfj/save-to-notion/issues/550)) ([d234fff](https://github.com/cowcfj/save-to-notion/commit/d234fffa2cf07601a7d26efc24fd521cd109e8c3))
-* 更新 .gitignore 以排除特定構建產物 ([6746a43](https://github.com/cowcfj/save-to-notion/commit/6746a4316528a3bc87a00b49da33bef1845f3c40))
-
+- add about author page and related icons ([#547](https://github.com/cowcfj/save-to-notion/issues/547)) ([21f4bfc](https://github.com/cowcfj/save-to-notion/commit/21f4bfc942daa0097ec582a3c2b6c16ec8ff3b5a))
+- refactor inline styles and add CSS variables for options page ([#550](https://github.com/cowcfj/save-to-notion/issues/550)) ([d234fff](https://github.com/cowcfj/save-to-notion/commit/d234fffa2cf07601a7d26efc24fd521cd109e8c3))
+- 更新 .gitignore 以排除特定構建產物 ([6746a43](https://github.com/cowcfj/save-to-notion/commit/6746a4316528a3bc87a00b49da33bef1845f3c40))
 
 ### ♻️ 代碼重構
 
-* add guide messages and integrate i18n support ([#553](https://github.com/cowcfj/save-to-notion/issues/553)) ([5879327](https://github.com/cowcfj/save-to-notion/commit/58793279d751ef768e8ab7e345a20fdee82b6027))
-* align margin and gap utilities with canonical spacing tokens ([#561](https://github.com/cowcfj/save-to-notion/issues/561)) ([05d42ca](https://github.com/cowcfj/save-to-notion/commit/05d42ca6b3a779404386f026a0647814cd031cd7))
-* migrate visibility toggles to .hidden class ([#557](https://github.com/cowcfj/save-to-notion/issues/557)) ([22695de](https://github.com/cowcfj/save-to-notion/commit/22695de06a4b0c08e5c8661b47fc316721732a75))
-* **options-css:** 整體對齊設計變數 ([#551](https://github.com/cowcfj/save-to-notion/issues/551)) ([#555](https://github.com/cowcfj/save-to-notion/issues/555)) ([78a1b6d](https://github.com/cowcfj/save-to-notion/commit/78a1b6daf009fd81a668594373a16b4cae94d6c5))
-* restructure composite handlers into a registry mapping table ([#558](https://github.com/cowcfj/save-to-notion/issues/558)) ([c054948](https://github.com/cowcfj/save-to-notion/commit/c05494872abd4164a10447130a5f73c339e80814))
-* unify margin styles for auth actions ([#560](https://github.com/cowcfj/save-to-notion/issues/560)) ([df6e2ae](https://github.com/cowcfj/save-to-notion/commit/df6e2ae87908749e12c963497f1ed4d18a0385ab))
-
+- add guide messages and integrate i18n support ([#553](https://github.com/cowcfj/save-to-notion/issues/553)) ([5879327](https://github.com/cowcfj/save-to-notion/commit/58793279d751ef768e8ab7e345a20fdee82b6027))
+- align margin and gap utilities with canonical spacing tokens ([#561](https://github.com/cowcfj/save-to-notion/issues/561)) ([05d42ca](https://github.com/cowcfj/save-to-notion/commit/05d42ca6b3a779404386f026a0647814cd031cd7))
+- migrate visibility toggles to .hidden class ([#557](https://github.com/cowcfj/save-to-notion/issues/557)) ([22695de](https://github.com/cowcfj/save-to-notion/commit/22695de06a4b0c08e5c8661b47fc316721732a75))
+- **options-css:** 整體對齊設計變數 ([#551](https://github.com/cowcfj/save-to-notion/issues/551)) ([#555](https://github.com/cowcfj/save-to-notion/issues/555)) ([78a1b6d](https://github.com/cowcfj/save-to-notion/commit/78a1b6daf009fd81a668594373a16b4cae94d6c5))
+- restructure composite handlers into a registry mapping table ([#558](https://github.com/cowcfj/save-to-notion/issues/558)) ([c054948](https://github.com/cowcfj/save-to-notion/commit/c05494872abd4164a10447130a5f73c339e80814))
+- unify margin styles for auth actions ([#560](https://github.com/cowcfj/save-to-notion/issues/560)) ([df6e2ae](https://github.com/cowcfj/save-to-notion/commit/df6e2ae87908749e12c963497f1ed4d18a0385ab))
 
 ### ⚡ 效能優化
 
-* ⚡ Bolt: replace .map().filter() with for-loop in ImageCollector ([#546](https://github.com/cowcfj/save-to-notion/issues/546)) ([23e4a2c](https://github.com/cowcfj/save-to-notion/commit/23e4a2cfd203c0b0bb22d14b84797ced3b60caf0))
+- ⚡ Bolt: replace .map().filter() with for-loop in ImageCollector ([#546](https://github.com/cowcfj/save-to-notion/issues/546)) ([23e4a2c](https://github.com/cowcfj/save-to-notion/commit/23e4a2cfd203c0b0bb22d14b84797ced3b60caf0))
 
 ## [2.73.0](https://github.com/cowcfj/save-to-notion/compare/v2.72.0...v2.73.0) (2026-05-19)
 
-
 ### ✨ 新功能
 
-* Add session persistence for log buffer ([#541](https://github.com/cowcfj/save-to-notion/issues/541)) ([ad01a34](https://github.com/cowcfj/save-to-notion/commit/ad01a3419faee521328ebf0377a3724612d5f2e6))
-* Add update notification page and sidebar UI state management ([#544](https://github.com/cowcfj/save-to-notion/issues/544)) ([deff2da](https://github.com/cowcfj/save-to-notion/commit/deff2da74f200f7a910aa78ecbaa998530f82f8a))
-* Refactor authentication and add onboarding process ([#543](https://github.com/cowcfj/save-to-notion/issues/543)) ([157eacd](https://github.com/cowcfj/save-to-notion/commit/157eacdb84a51eb0deed07e5a341e40626ab3f18))
+- Add session persistence for log buffer ([#541](https://github.com/cowcfj/save-to-notion/issues/541)) ([ad01a34](https://github.com/cowcfj/save-to-notion/commit/ad01a3419faee521328ebf0377a3724612d5f2e6))
+- Add update notification page and sidebar UI state management ([#544](https://github.com/cowcfj/save-to-notion/issues/544)) ([deff2da](https://github.com/cowcfj/save-to-notion/commit/deff2da74f200f7a910aa78ecbaa998530f82f8a))
+- Refactor authentication and add onboarding process ([#543](https://github.com/cowcfj/save-to-notion/issues/543)) ([157eacd](https://github.com/cowcfj/save-to-notion/commit/157eacdb84a51eb0deed07e5a341e40626ab3f18))
 
 ## [2.72.0](https://github.com/cowcfj/save-to-notion/compare/v2.71.1...v2.72.0) (2026-05-17)
 
-
 ### ✨ 新功能
 
-* add saturation protection mechanism for log buffer ([#537](https://github.com/cowcfj/save-to-notion/issues/537)) ([b6eefe4](https://github.com/cowcfj/save-to-notion/commit/b6eefe49dec164bc174e765377de7a29e08a11e4))
-* Add Toast manager for improved user feedback ([#539](https://github.com/cowcfj/save-to-notion/issues/539)) ([1356f4a](https://github.com/cowcfj/save-to-notion/commit/1356f4a0a7f462e4e86e9be2b97453e4be923b34))
-* user-facing toast for sync-to-Notion failures ([#540](https://github.com/cowcfj/save-to-notion/issues/540)) ([f8382db](https://github.com/cowcfj/save-to-notion/commit/f8382db492d8cdd9ef04364b712e5546b76098d8))
-
+- add saturation protection mechanism for log buffer ([#537](https://github.com/cowcfj/save-to-notion/issues/537)) ([b6eefe4](https://github.com/cowcfj/save-to-notion/commit/b6eefe49dec164bc174e765377de7a29e08a11e4))
+- Add Toast manager for improved user feedback ([#539](https://github.com/cowcfj/save-to-notion/issues/539)) ([1356f4a](https://github.com/cowcfj/save-to-notion/commit/1356f4a0a7f462e4e86e9be2b97453e4be923b34))
+- user-facing toast for sync-to-Notion failures ([#540](https://github.com/cowcfj/save-to-notion/issues/540)) ([f8382db](https://github.com/cowcfj/save-to-notion/commit/f8382db492d8cdd9ef04364b712e5546b76098d8))
 
 ### 🐛 Bug 修復
 
-* 修正高亮清除邏輯與命名空間問題 ([#535](https://github.com/cowcfj/save-to-notion/issues/535)) ([892263d](https://github.com/cowcfj/save-to-notion/commit/892263dc4bdeb11a6e7f0605ec399557e1620524))
+- 修正高亮清除邏輯與命名空間問題 ([#535](https://github.com/cowcfj/save-to-notion/issues/535)) ([892263d](https://github.com/cowcfj/save-to-notion/commit/892263dc4bdeb11a6e7f0605ec399557e1620524))
 
 ## [2.71.1](https://github.com/cowcfj/save-to-notion/compare/v2.71.0...v2.71.1) (2026-05-17)
 

@@ -14,6 +14,7 @@
 
 **Learning:** Chained array operations like `.map().filter()` create intermediate arrays, which can be inefficient in performance-critical paths. Iterating backwards with a `for` loop to find the last valid element is significantly faster (over 60% improvement in isolated benchmarks) and avoids unnecessary allocations.
 **Action:** Prefer single-pass loops or specialized array methods over chaining when performance is a concern, especially for utility functions used frequently.
+
 ## 2025-05-19 - Replace chained array allocation with single-pass iteration
 
 **Learning:** When iterating over user content to find or extract metadata (like URLs), chained array operations like `.filter().map()` allocate unnecessary intermediate arrays. This overhead becomes measurable in critical hot paths like `ImageCollector.js`, where hundreds of image nodes might be processed.

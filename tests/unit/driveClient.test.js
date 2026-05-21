@@ -104,10 +104,7 @@ describe('Drive Client API', () => {
         configurable: true,
         value: {
           getRandomValues: jest.fn(array => {
-            array.set([
-              0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0x4D, 0xEF, 0x80, 0x12, 0x34, 0x56, 0x78, 0x9A,
-              0xBC, 0xDE,
-            ]);
+            array.set([18, 52, 86, 120, 154, 188, 77, 239, 128, 18, 52, 86, 120, 154, 188, 222]);
             return array;
           }),
         },
