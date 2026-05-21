@@ -225,14 +225,14 @@ function hasTechnicalFeatures(document) {
     if (
       code <= 32 ||
       code === 160 ||
-      code === 5760 ||
-      (code >= 8192 && code <= 8202) ||
-      code === 8232 ||
-      code === 8233 ||
-      code === 8239 ||
-      code === 8287 ||
-      code === 12_288 ||
-      code === 65_279
+      code === 0x16_80 ||
+      (code >= 0x20_00 && code <= 0x20_0A) ||
+      code === 0x20_28 ||
+      code === 0x20_29 ||
+      code === 0x20_2F ||
+      code === 0x20_5F ||
+      code === 0x30_00 ||
+      code === 0xFE_FF
     ) {
       inWord = false;
     } else if (!inWord) {
