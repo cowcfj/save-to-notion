@@ -106,7 +106,9 @@ describe('HighlightManager delete recursion guard', () => {
     delete globalThis.notionHighlighter;
     delete globalThis.clearPageHighlights;
     delete globalThis.chrome;
-    delete globalThis.location;
+    try {
+      delete globalThis.location;
+    } catch {}
   });
 
   function countClearHighlights() {
