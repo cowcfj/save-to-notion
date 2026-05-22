@@ -94,13 +94,13 @@ describe('配置模組 - env/index.js', () => {
       globalThis.chrome = {
         runtime: {
           id: 'extension-id',
-          getURL: () => 'http://extension-id/',
+          getURL: () => 'https://extension-id/',
         },
       };
       setWindow({});
       globalThis.location = {
         protocol: 'https:',
-        origin: 'http://extension-id',
+        origin: 'https://extension-id',
       };
 
       expect(isContentContext()).toBe(false);
@@ -110,7 +110,7 @@ describe('配置模組 - env/index.js', () => {
       globalThis.chrome = {
         runtime: {
           id: 'extension-id',
-          getURL: () => 'http://extension-id/',
+          getURL: () => 'https://extension-id/',
         },
       };
       setWindow({});
