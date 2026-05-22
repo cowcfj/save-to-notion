@@ -11,6 +11,7 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
@@ -294,7 +295,7 @@ describe('migrationHandlers', () => {
 
       // If validation fails, there won't be results. Check for error.
       if (!response.results) {
-        throw new Error(`No results in response: ${  JSON.stringify(response)}`);
+        throw new Error(`No results in response: ${JSON.stringify(response)}`);
       }
 
       const details = response.results.details;
@@ -628,6 +629,78 @@ describe('migrationHandlers', () => {
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, count: 1 })
+      );
+    });
+
+    test('單一 URL 清理失敗時仍應嘗試其他 URL 並回傳失敗', async () => {
+      const urls = [
+        'https://cleanup.example.com/one',
+        'https://cleanup.example.com/two',
+        'https://cleanup.example.com/three',
+      ];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
+        if (url === urls[1]) {
+          throw new Error('cleanup failed');
+        }
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(urls[0]);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(urls[1]);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(urls[2]);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(3);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
+
+    test('單一 URL 清理失敗時應回傳 centralized migration batch delete 錯誤訊息', async () => {
+      const urls = ['https://cleanup.example.com/one', 'https://cleanup.example.com/two'];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
+        if (url === urls[1]) {
+          throw new Error('cleanup failed');
+        }
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE,
+        })
+      );
+    });
+
+    test('批量刪除時同時執行的 cleanup 不應超過 5 個', async () => {
+      const urls = Array.from(
+        { length: 6 },
+        (_, index) => `https://cleanup.example.com/page-${index}`
+      );
+      const sendResponse = jest.fn();
+      let inFlight = 0;
+      let maxInFlight = 0;
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await Promise.resolve();
+        inFlight -= 1;
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(maxInFlight).toBeLessThanOrEqual(5);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, count: urls.length })
       );
     });
   });

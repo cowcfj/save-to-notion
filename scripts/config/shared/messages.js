@@ -468,6 +468,7 @@ const TECHNICAL = {
   INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
   LOG_INVALID_URL: '無效的 URL 參數',
   CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
+  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: 'MIGRATION_BATCH_DELETE_PARTIAL_FAILURE',
 };
 
 export const LOG_LEVELS = deepFreeze({
@@ -558,6 +559,7 @@ const PATTERNS = {
   VALIDATION_ERROR: USER_MESSAGES.API_VALIDATION_FAILED,
   IMAGE_VALIDATION_ERROR: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
   HIGHLIGHT_SECTION_DELETE_INCOMPLETE: '標註同步未完成，請稍後再試',
+  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: '部分標註數據刪除失敗，請稍後再試',
   NOTIONHQ_CLIENT_RESPONSE_ERROR: 'Notion API 請求失敗，請稍後再試',
 
   RATE_LIMITED: '請求過於頻繁，請稍後再試',
