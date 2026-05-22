@@ -199,8 +199,8 @@ function generateDriveSyncInstallationId() {
     return globalThis.crypto.randomUUID();
   }
 
-  const uuidVersionClearMask = 15;
-  const uuidVariantClearMask = 63;
+  const uuidVersionClearMask = 0x0f;
+  const uuidVariantClearMask = 0x3f;
   const bytes = new Uint8Array(16);
   if (!globalThis.crypto || typeof globalThis.crypto.getRandomValues !== 'function') {
     throw new Error('crypto.getRandomValues is unavailable');
