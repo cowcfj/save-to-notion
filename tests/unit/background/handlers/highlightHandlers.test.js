@@ -39,9 +39,10 @@ describe('highlightHandlers', () => {
     ErrorHandler.formatUserMessage.mockImplementation(msg => msg);
 
     // Fix sanitizeApiError mock
-    sanitizeApiError.mockImplementation(err =>
-      typeof err === 'string' ? err : err.message || 'unknown_error'
+    const { sanitizeApiError: actualSanitizeApiError } = jest.requireActual(
+      '../../../../scripts/utils/securityUtils.js'
     );
+    sanitizeApiError.mockImplementation(actualSanitizeApiError);
 
     mockServices = {
       notionService: {
@@ -162,13 +163,11 @@ describe('highlightHandlers', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { highlights: [{ text: 'test' }] };
-      const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
+
+      const { ErrorHandler: ActualErrorHandlerLocal } = jest.requireActual(
         '../../../../scripts/utils/ErrorHandler.js'
       );
-
-      ErrorHandler.formatUserMessage.mockImplementation(error =>
-        ActualErrorHandler.formatUserMessage(error)
-      );
+      ErrorHandler.formatUserMessage.mockImplementation(ActualErrorHandlerLocal.formatUserMessage);
 
       mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
@@ -553,7 +552,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Collection failed'),
+          error: 'Unknown Error',
         })
       );
     });
