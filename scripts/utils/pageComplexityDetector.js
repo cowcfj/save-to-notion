@@ -226,13 +226,13 @@ function hasTechnicalFeatures(document) {
       code <= 32 ||
       code === 160 ||
       code === 0x16_80 ||
-      (code >= 0x20_00 && code <= 0x20_0A) ||
+      (code >= 0x20_00 && code <= 0x20_0a) ||
       code === 0x20_28 ||
       code === 0x20_29 ||
-      code === 0x20_2F ||
-      code === 0x20_5F ||
+      code === 0x20_2f ||
+      code === 0x20_5f ||
       code === 0x30_00 ||
-      code === 0xFE_FF
+      code === 0xfe_ff
     ) {
       inWord = false;
     } else if (!inWord) {

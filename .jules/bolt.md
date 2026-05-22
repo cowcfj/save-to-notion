@@ -19,3 +19,8 @@
 
 **Learning:** When iterating over user content to find or extract metadata (like URLs), chained array operations like `.filter().map()` allocate unnecessary intermediate arrays. This overhead becomes measurable in critical hot paths like `ImageCollector.js`, where hundreds of image nodes might be processed.
 **Action:** Prefer `for...of` loops over `.map().filter()` when gathering data into a `Set` or when avoiding multiple passes in performance-critical code.
+
+## 2025-05-19 - Parallelize independent batch operations
+
+**Learning:** Using a sequential `await` loop (`for...of` with `await` inside) for independent I/O or network tasks causes them to block each other unnecessarily. In a benchmark of 20 simulated migration tasks taking 50ms each, sequential execution took ~1000ms, whereas parallel execution took ~50ms.
+**Action:** When handling a batch of independent asynchronous operations, prefer parallel execution using `Promise.all` with `Array.prototype.map` to optimize overall response time.

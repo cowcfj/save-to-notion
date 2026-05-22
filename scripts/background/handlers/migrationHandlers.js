@@ -201,33 +201,35 @@ export function createMigrationHandlers(services) {
           details: [],
         };
 
-        for (const url of urls) {
-          try {
-            const itemResult = await migrationService.migrateBatchUrl(url);
-            results.details.push(itemResult);
+        await Promise.all(
+          urls.map(async url => {
+            try {
+              const itemResult = await migrationService.migrateBatchUrl(url);
+              results.details.push(itemResult);
 
-            if (itemResult.status === 'success') {
-              results.success++;
-              Logger.log('批量遷移成功', {
+              if (itemResult.status === 'success') {
+                results.success++;
+                Logger.log('批量遷移成功', {
+                  action: 'migration_batch',
+                  url: itemResult.url,
+                  highlightCount: itemResult.count,
+                });
+              }
+            } catch (itemError) {
+              results.failed++;
+              results.details.push({
+                url: sanitizeUrlForLogging(url),
+                status: 'failed',
+                reason: itemError?.message ?? String(itemError),
+              });
+              Logger.error('批量遷移失敗', {
                 action: 'migration_batch',
-                url: itemResult.url,
-                highlightCount: itemResult.count,
+                url: sanitizeUrlForLogging(url),
+                error: itemError?.message ?? String(itemError),
               });
             }
-          } catch (itemError) {
-            results.failed++;
-            results.details.push({
-              url: sanitizeUrlForLogging(url),
-              status: 'failed',
-              reason: itemError?.message ?? String(itemError),
-            });
-            Logger.error('批量遷移失敗', {
-              action: 'migration_batch',
-              url: sanitizeUrlForLogging(url),
-              error: itemError?.message ?? String(itemError),
-            });
-          }
-        }
+          })
+        );
 
         Logger.log('批量遷移完成', {
           action: 'migration_batch',
