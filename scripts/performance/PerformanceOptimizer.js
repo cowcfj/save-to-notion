@@ -190,8 +190,7 @@ class PerformanceOptimizer {
     const result = PerformanceOptimizer._performQuery(selector, context, options);
 
     // 緩存結果：空集合不應進入快取
-    const hasResult = result && (result.length === undefined || result.length > 0);
-    if (hasResult) {
+    if (PerformanceOptimizer._hasValidResult(result)) {
       // 維護緩存大小限制
       this._maintainCacheSizeLimit(cacheKey);
 
@@ -502,6 +501,18 @@ class PerformanceOptimizer {
   }
 
   /**
+   * 檢查查詢結果是否有效（非空）
+   *
+   * @param {NodeList|Array|Element|null} result - 查詢結果
+   * @returns {boolean} 是否包含有效結果
+   * @private
+   * @static
+   */
+  static _hasValidResult(result) {
+    return Boolean(result && (result.length === undefined || result.length > 0));
+  }
+
+  /**
    * 檢查單個 DOM 元素是否仍連接到文檔
    * 優先使用標準的 isConnected 屬性，不支援時退回 document.contains。
    *
@@ -573,8 +584,7 @@ class PerformanceOptimizer {
       const result = this.cachedQuery(selector, context);
 
       if (result) {
-        // Fix: Empty NodeList/Array is truthy but represents "no hits"
-        if (result.length !== undefined && result.length === 0) {
+        if (!PerformanceOptimizer._hasValidResult(result)) {
           Logger.debug('預熱跳過：結果為空', { action: 'preloadSelectors', selector });
           return null;
         }
@@ -772,11 +782,7 @@ class PerformanceOptimizer {
         const result = PerformanceOptimizer._performQuery(selector, context, options);
 
         // 判斷是否為「有結果」
-        // 非 NodeList 的 Element 沒有 length，必為 truthy
-        // NodeList 或 Array 則必須 length > 0
-        const hasResult = result && (result.length === undefined || result.length > 0);
-
-        if (hasResult) {
+        if (PerformanceOptimizer._hasValidResult(result)) {
           this.queryCache.set(cacheKey, {
             result,
             timestamp: Date.now(),
