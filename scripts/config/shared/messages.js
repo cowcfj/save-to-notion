@@ -231,6 +231,14 @@ const STORAGE = {
   NO_CLEANUP_NEEDED: '無可清理項目',
   CLEANUP_FAILED: errorMsg => `清理失敗：${errorMsg}`,
 
+  MIGRATION_DELETE_PARTIAL_COMPLETE: '部分刪除完成',
+  MIGRATION_DELETE_FAILED: '刪除失敗',
+  MIGRATION_BATCH_DELETE_SUCCESS: success => `成功刪除 ${success} 個頁面的標註數據`,
+  MIGRATION_BATCH_DELETE_PARTIAL: (success, failed) =>
+    `成功刪除 ${success} 個頁面，${failed} 個失敗`,
+  MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
+    `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
+
   HEALTH_CORRUPTED: count => `發現 ${count} 個損壞的數據項`,
   HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
   HEALTH_LEGACY_SAVED: count => `${count} 個舊版網頁保存紀錄（重訪相關網頁時會自動升級）`,
@@ -468,7 +476,6 @@ const TECHNICAL = {
   INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
   LOG_INVALID_URL: '無效的 URL 參數',
   CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
-  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: 'MIGRATION_BATCH_DELETE_PARTIAL_FAILURE',
 };
 
 export const LOG_LEVELS = deepFreeze({

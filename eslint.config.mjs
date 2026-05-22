@@ -145,6 +145,7 @@ export default [
       'unicorn/no-useless-undefined': 'off',
       'unicorn/prefer-spread': 'off',
       'unicorn/no-zero-fractions': 'off',
+      'unicorn/number-literal-case': ['error', { hexadecimalValue: 'lowercase' }],
 
       // 4. Promise
       ...promise.configs.recommended.rules,

@@ -11,7 +11,8 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
@@ -609,8 +610,14 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del1.com');
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del2.com');
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: 2 })
+        expect.objectContaining({
+          success: true,
+          message: UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(2),
+          results: expect.objectContaining({ success: 2, failed: 0, total: 2 }),
+        })
       );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('count');
     });
 
     test('應該同時清理原始 URL 和穩定 URL 的數據', async () => {
@@ -628,11 +635,16 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(2);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: 1 })
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({ success: 1, failed: 0, total: 1 }),
+        })
       );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('count');
     });
 
-    test('單一 URL 清理失敗時仍應嘗試其他 URL 並回傳失敗', async () => {
+    test('單一 URL 清理失敗時仍應嘗試其他 URL 並回傳 partial results', async () => {
       const urls = [
         'https://cleanup.example.com/one',
         'https://cleanup.example.com/two',
@@ -654,14 +666,25 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(3);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false,
-          error: expect.any(String),
+          success: true,
+          message: UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(2, 1),
+          results: expect.objectContaining({
+            success: 2,
+            failed: 1,
+            total: 3,
+          }),
         })
       );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('count');
     });
 
-    test('單一 URL 清理失敗時應回傳 centralized migration batch delete 錯誤訊息', async () => {
-      const urls = ['https://cleanup.example.com/one', 'https://cleanup.example.com/two'];
+    test('partial failure 應回傳結構化 results 並保留成功項目狀態', async () => {
+      const urls = [
+        'https://cleanup.example.com/one',
+        'https://cleanup.example.com/two',
+        'https://cleanup.example.com/three',
+      ];
       const sendResponse = jest.fn();
 
       mockStorageService.clearLegacyKeys.mockImplementation(async url => {
@@ -674,10 +697,72 @@ describe('migrationHandlers', () => {
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE,
+          success: true,
+          results: {
+            success: 2,
+            failed: 1,
+            total: 3,
+            details: [
+              { url: sanitizeUrlForLogging(urls[0]), status: 'success' },
+              {
+                url: sanitizeUrlForLogging(urls[1]),
+                status: 'failed',
+                reason: 'cleanup failed',
+              },
+              { url: sanitizeUrlForLogging(urls[2]), status: 'success' },
+            ],
+          },
         })
       );
+      expect(Logger.log).toHaveBeenCalledWith(
+        '批量刪除完成',
+        expect.objectContaining({
+          action: 'migration_batch_delete',
+          result: 'partial',
+          successCount: 2,
+          failedCount: 1,
+          pageCount: 3,
+        })
+      );
+    });
+
+    test('全失敗應回傳 failed 等於 total 且 handler success 為 true', async () => {
+      const urls = ['https://cleanup.example.com/one', 'https://cleanup.example.com/two'];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockRejectedValue(new Error('cleanup failed'));
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            success: 0,
+            failed: 2,
+            total: 2,
+          }),
+        })
+      );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload.results.details).toHaveLength(2);
+      expect(payload.results.details).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: 'failed', reason: 'cleanup failed' }),
+        ])
+      );
+    });
+
+    test('details url 應使用 sanitizeUrlForLogging 而不是 raw URL', async () => {
+      const rawUrl =
+        'https://cleanup.example.com/page?private_token=secret-token&keep=visible#section';
+      const sendResponse = jest.fn();
+
+      await handlers.migration_batch_delete({ urls: [rawUrl] }, defaultSender, sendResponse);
+
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload.results.details[0].url).toBe(sanitizeUrlForLogging(rawUrl));
+      expect(payload.results.details[0].url).not.toBe(rawUrl);
     });
 
     test('批量刪除時同時執行的 cleanup 不應超過 5 個', async () => {
@@ -700,7 +785,10 @@ describe('migrationHandlers', () => {
 
       expect(maxInFlight).toBeLessThanOrEqual(5);
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: urls.length })
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({ success: urls.length, failed: 0, total: urls.length }),
+        })
       );
     });
   });

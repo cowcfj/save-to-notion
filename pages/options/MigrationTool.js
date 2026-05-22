@@ -6,6 +6,7 @@
 import { UI_ICONS } from '../../scripts/config/icons.js';
 import { COMMON_CSS_CLASSES } from '../../scripts/config/shared/ui.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError, createSafeIcon } from '../../scripts/utils/securityUtils.js';
@@ -500,8 +501,17 @@ export class MigrationTool {
         progressText.textContent = '100%';
       }
 
-      if (response?.success) {
-        this.showDeleteResult(response.count);
+      const results = response?.results;
+      if (response?.success && results) {
+        if ((results.failed ?? 0) > 0) {
+          this.showPartialDeleteResult(
+            results.success ?? 0,
+            results.failed,
+            results.total ?? urls.length
+          );
+        } else {
+          this.showDeleteResult(results.success ?? 0);
+        }
         this.selectedUrls.clear();
         // 延遲後重新掃描
         setTimeout(() => this.scanForLegacyHighlights(), 1500);
@@ -745,6 +755,49 @@ export class MigrationTool {
     const paragraph = document.createElement('p');
     paragraph.textContent = `已刪除 ${count} 個頁面的舊版標註數據。`;
     box.append(paragraph);
+
+    migrationResult.append(box);
+  }
+
+  /**
+   * 顯示批量刪除部分失敗結果
+   *
+   * @param {number} success - 成功刪除的頁面數量
+   * @param {number} failed - 刪除失敗的頁面數量
+   * @param {number} total - 嘗試刪除的頁面總數
+   */
+  showPartialDeleteResult(success, failed, total) {
+    const { migrationResult } = this.elements;
+
+    if (!migrationResult) {
+      return;
+    }
+
+    migrationResult.textContent = '';
+    const box = document.createElement('div');
+    box.className = COMMON_CSS_CLASSES.WARNING_BOX;
+
+    const strong = document.createElement('strong');
+    const iconSpan = createSafeIcon(UI_ICONS.WARNING);
+    strong.append(iconSpan);
+    const title =
+      success > 0
+        ? ` ${UI_MESSAGES.STORAGE.MIGRATION_DELETE_PARTIAL_COMPLETE}`
+        : ` ${UI_MESSAGES.STORAGE.MIGRATION_DELETE_FAILED}`;
+    strong.append(document.createTextNode(title));
+    box.append(strong);
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE;
+    box.append(paragraph);
+
+    const summary = document.createElement('p');
+    summary.textContent = UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(
+      success,
+      failed,
+      total
+    );
+    box.append(summary);
 
     migrationResult.append(box);
   }

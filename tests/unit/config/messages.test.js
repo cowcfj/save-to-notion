@@ -169,6 +169,21 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(result).toContain('覆蓋');
       expect(result).toContain('跳過');
     });
+
+    test('STORAGE.MIGRATION_DELETE_RESULT_SUMMARY 應包含成功/失敗/總計三個數字', () => {
+      const success = 2;
+      const failed = 1;
+      const total = 3;
+      const result = UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(success, failed, total);
+
+      expect(typeof result).toBe('string');
+      expect(result).toContain(String(success));
+      expect(result).toContain(String(failed));
+      expect(result).toContain(String(total));
+      expect(result).toContain('成功');
+      expect(result).toContain('失敗');
+      expect(result).toContain('總計');
+    });
   });
 
   describe('靜態訊息匯出完整性', () => {
