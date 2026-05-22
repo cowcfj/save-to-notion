@@ -347,9 +347,16 @@ export function createMigrationHandlers(services) {
           failedCount === 0
             ? UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(successCount)
             : UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(successCount, failedCount);
+        let result = 'partial';
+        if (failedCount === 0) {
+          result = 'success';
+        } else if (successCount === 0) {
+          result = 'failed';
+        }
 
         Logger.log('批量刪除完成', {
           action: 'migration_batch_delete',
+          result,
           successCount,
           failedCount,
           pageCount: urls.length,

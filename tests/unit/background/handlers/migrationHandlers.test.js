@@ -714,6 +714,16 @@ describe('migrationHandlers', () => {
           },
         })
       );
+      expect(Logger.log).toHaveBeenCalledWith(
+        '批量刪除完成',
+        expect.objectContaining({
+          action: 'migration_batch_delete',
+          result: 'partial',
+          successCount: 2,
+          failedCount: 1,
+          pageCount: 3,
+        })
+      );
     });
 
     test('全失敗應回傳 failed 等於 total 且 handler success 為 true', async () => {

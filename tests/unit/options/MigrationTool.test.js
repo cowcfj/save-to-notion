@@ -279,6 +279,12 @@ describe('MigrationTool Extended', () => {
   });
 
   describe('performSelectedDeletion', () => {
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
     test('full success response 應顯示 success box 與刪除數量', async () => {
       jest.useFakeTimers();
       jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
