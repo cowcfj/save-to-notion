@@ -10,6 +10,7 @@
 /* global Logger */
 
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { pMap } from '../../utils/concurrencyUtils.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
@@ -233,7 +234,6 @@ export function createMigrationHandlers(services) {
 
         const groupEntriesList = [...groups.values()];
         const MAX_CONCURRENCY = 5;
-        const activePromises = [];
         const processGroup = async groupEntries => {
           const out = [];
           for (const { url, originalIndex } of groupEntries) {
@@ -243,20 +243,16 @@ export function createMigrationHandlers(services) {
           return out;
         };
 
+        const groupOutputs = await pMap(groupEntriesList, processGroup, {
+          concurrency: MAX_CONCURRENCY,
+        });
+
         const allResultsMap = new Map();
-        for (const groupEntries of groupEntriesList) {
-          const p = processGroup(groupEntries).then(out => {
-            for (const { originalIndex, result } of out) {
-              allResultsMap.set(originalIndex, result);
-            }
-            activePromises.splice(activePromises.indexOf(p), 1);
-          });
-          activePromises.push(p);
-          if (activePromises.length >= MAX_CONCURRENCY) {
-            await Promise.race(activePromises);
+        for (const groupOut of groupOutputs) {
+          for (const { originalIndex, result } of groupOut) {
+            allResultsMap.set(originalIndex, result);
           }
         }
-        await Promise.all(activePromises);
 
         const details = urls.map((_, i) => allResultsMap.get(i));
         const successCount = details.filter(d => d.status === 'success').length;
