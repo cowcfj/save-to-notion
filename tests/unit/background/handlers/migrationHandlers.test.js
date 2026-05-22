@@ -11,6 +11,7 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
@@ -611,6 +612,7 @@ describe('migrationHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          message: UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(2),
           results: expect.objectContaining({ success: 2, failed: 0, total: 2 }),
         })
       );
@@ -665,6 +667,7 @@ describe('migrationHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          message: UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(2, 1),
           results: expect.objectContaining({
             success: 2,
             failed: 1,

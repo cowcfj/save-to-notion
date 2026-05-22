@@ -233,6 +233,9 @@ const STORAGE = {
 
   MIGRATION_DELETE_PARTIAL_COMPLETE: '部分刪除完成',
   MIGRATION_DELETE_FAILED: '刪除失敗',
+  MIGRATION_BATCH_DELETE_SUCCESS: success => `成功刪除 ${success} 個頁面的標註數據`,
+  MIGRATION_BATCH_DELETE_PARTIAL: (success, failed) =>
+    `成功刪除 ${success} 個頁面，${failed} 個失敗`,
   MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
     `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
 
