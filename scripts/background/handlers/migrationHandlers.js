@@ -255,7 +255,7 @@ export function createMigrationHandlers(services) {
         }
 
         const details = urls.map((_, i) => allResultsMap.get(i));
-        const successCount = details.filter(d => d.status === 'success').length;
+        const successCount = details.filter(detail => detail.status === 'success').length;
 
         const results = {
           success: successCount,
@@ -317,7 +317,28 @@ export function createMigrationHandlers(services) {
         Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
 
         // 使用 StorageService.clearLegacyKeys 安全刪除（同時清理 highlights_ + saved_）
-        await Promise.all(urls.map(urlItem => clearLegacyKeysWithStable(storageService, urlItem)));
+        const MAX_CONCURRENCY = 5;
+        const cleanupResults = await pMap(
+          urls,
+          async urlItem => {
+            try {
+              await clearLegacyKeysWithStable(storageService, urlItem);
+              return { status: 'fulfilled' };
+            } catch (error) {
+              return { status: 'rejected', reason: error };
+            }
+          },
+          { concurrency: MAX_CONCURRENCY }
+        );
+
+        const failures = cleanupResults.filter(result => result.status === 'rejected');
+        if (failures.length > 0) {
+          const error = new Error(
+            `Failed to delete ${failures.length} of ${urls.length} migration items`
+          );
+          error.cause = failures[0].reason;
+          throw error;
+        }
 
         Logger.log('批量刪除完成', { action: 'migration_batch_delete', pageCount: urls.length });
         sendResponse({
