@@ -231,6 +231,11 @@ const STORAGE = {
   NO_CLEANUP_NEEDED: '無可清理項目',
   CLEANUP_FAILED: errorMsg => `清理失敗：${errorMsg}`,
 
+  MIGRATION_DELETE_PARTIAL_COMPLETE: '部分刪除完成',
+  MIGRATION_DELETE_FAILED: '刪除失敗',
+  MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
+    `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
+
   HEALTH_CORRUPTED: count => `發現 ${count} 個損壞的數據項`,
   HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
   HEALTH_LEGACY_SAVED: count => `${count} 個舊版網頁保存紀錄（重訪相關網頁時會自動升級）`,

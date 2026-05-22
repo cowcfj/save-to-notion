@@ -4,7 +4,7 @@ import { MigrationTool } from '../../../pages/options/MigrationTool.js';
 import { UIManager } from '../../../pages/options/UIManager.js';
 import { MigrationScanner } from '../../../pages/options/MigrationScanner.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
-import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 jest.mock('../../../pages/options/MigrationScanner.js', () => {
   const actualObj = jest.requireActual('../../../pages/options/MigrationScanner.js');
@@ -341,11 +341,14 @@ describe('MigrationTool Extended', () => {
       const migrationResult = document.querySelector('#migration-result');
       expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
       expect(migrationResult.textContent).toContain(
+        UI_MESSAGES.STORAGE.MIGRATION_DELETE_PARTIAL_COMPLETE
+      );
+      expect(migrationResult.textContent).toContain(
         ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
       );
-      expect(migrationResult.textContent).toContain('成功: 2');
-      expect(migrationResult.textContent).toContain('失敗: 1');
-      expect(migrationResult.textContent).toContain('總計: 3');
+      expect(migrationResult.textContent).toContain(
+        UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(2, 1, 3)
+      );
 
       jest.runOnlyPendingTimers();
       expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
@@ -372,13 +375,13 @@ describe('MigrationTool Extended', () => {
 
       const migrationResult = document.querySelector('#migration-result');
       expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
-      expect(migrationResult.textContent).toContain('刪除失敗');
+      expect(migrationResult.textContent).toContain(UI_MESSAGES.STORAGE.MIGRATION_DELETE_FAILED);
       expect(migrationResult.textContent).toContain(
         ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
       );
-      expect(migrationResult.textContent).toContain('成功: 0');
-      expect(migrationResult.textContent).toContain('失敗: 2');
-      expect(migrationResult.textContent).toContain('總計: 2');
+      expect(migrationResult.textContent).toContain(
+        UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(0, 2, 2)
+      );
       expect(migrationTool.selectedUrls.size).toBe(0);
 
       jest.runOnlyPendingTimers();
