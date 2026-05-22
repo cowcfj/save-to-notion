@@ -468,7 +468,6 @@ const TECHNICAL = {
   INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
   LOG_INVALID_URL: '無效的 URL 參數',
   CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
-  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: 'MIGRATION_BATCH_DELETE_PARTIAL_FAILURE',
 };
 
 export const LOG_LEVELS = deepFreeze({

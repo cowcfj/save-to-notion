@@ -380,9 +380,25 @@ const HIGHLIGHT_ACTIONS = {
  */
 
 /**
+ * @typedef {object} MigrationBatchDeleteItemResult
+ * @property {string} url
+ * @property {'success'|'failed'} status
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} MigrationBatchDeleteSummary
+ * @property {number} success
+ * @property {number} failed
+ * @property {number} total
+ * @property {Array<MigrationBatchDeleteItemResult>} details
+ */
+
+/**
  * @typedef {object} MigrationBatchDeleteResponse
  * @property {boolean} success
- * @property {number} [count]
+ * @property {MigrationBatchDeleteSummary} [results]
+ * @property {string} [message]
  * @property {string} [error]
  */
 

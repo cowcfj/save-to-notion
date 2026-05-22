@@ -3,6 +3,8 @@
 import { MigrationTool } from '../../../pages/options/MigrationTool.js';
 import { UIManager } from '../../../pages/options/UIManager.js';
 import { MigrationScanner } from '../../../pages/options/MigrationScanner.js';
+import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 jest.mock('../../../pages/options/MigrationScanner.js', () => {
   const actualObj = jest.requireActual('../../../pages/options/MigrationScanner.js');
@@ -73,6 +75,7 @@ describe('MigrationTool', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
@@ -272,6 +275,114 @@ describe('MigrationTool Extended', () => {
       const migrationItems = document.querySelector('#migration-items');
       expect(migrationItems.innerHTML).toContain('example0.com');
       expect(migrationItems.innerHTML).toContain('example19.com');
+    });
+  });
+
+  describe('performSelectedDeletion', () => {
+    test('full success response 應顯示 success box 與刪除數量', async () => {
+      jest.useFakeTimers();
+      jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: true,
+        results: {
+          success: 2,
+          failed: 0,
+          total: 2,
+          details: [],
+        },
+      });
+
+      migrationTool.selectedUrls = new Set(['https://example.com/one', 'https://example.com/two']);
+
+      await migrationTool.performSelectedDeletion();
+
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.querySelector('.success-box')).toBeTruthy();
+      expect(migrationResult.querySelector('.warning-box')).toBeNull();
+      expect(migrationResult.textContent).toContain('刪除成功');
+      expect(migrationResult.textContent).toContain('已刪除 2 個頁面的舊版標註數據');
+      expect(migrationTool.selectedUrls.size).toBe(0);
+
+      jest.runOnlyPendingTimers();
+      expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
+    });
+
+    test('partial response 應顯示 warning 文案與成功失敗計數', async () => {
+      jest.useFakeTimers();
+      jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: true,
+        results: {
+          success: 2,
+          failed: 1,
+          total: 3,
+          details: [],
+        },
+      });
+
+      migrationTool.selectedUrls = new Set([
+        'https://example.com/one',
+        'https://example.com/two',
+        'https://example.com/three',
+      ]);
+
+      await migrationTool.performSelectedDeletion();
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE,
+        urls: ['https://example.com/one', 'https://example.com/two', 'https://example.com/three'],
+      });
+      expect(migrationTool.selectedUrls.size).toBe(0);
+
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
+      expect(migrationResult.textContent).toContain(
+        ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
+      );
+      expect(migrationResult.textContent).toContain('成功: 2');
+      expect(migrationResult.textContent).toContain('失敗: 1');
+      expect(migrationResult.textContent).toContain('總計: 3');
+
+      jest.runOnlyPendingTimers();
+      expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
+    });
+
+    test('full failure response 應顯示刪除失敗標題與失敗計數', async () => {
+      jest.useFakeTimers();
+      jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: true,
+        results: {
+          success: 0,
+          failed: 2,
+          total: 2,
+          details: [],
+        },
+      });
+
+      migrationTool.selectedUrls = new Set(['https://example.com/one', 'https://example.com/two']);
+
+      await migrationTool.performSelectedDeletion();
+
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
+      expect(migrationResult.textContent).toContain('刪除失敗');
+      expect(migrationResult.textContent).toContain(
+        ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
+      );
+      expect(migrationResult.textContent).toContain('成功: 0');
+      expect(migrationResult.textContent).toContain('失敗: 2');
+      expect(migrationResult.textContent).toContain('總計: 2');
+      expect(migrationTool.selectedUrls.size).toBe(0);
+
+      jest.runOnlyPendingTimers();
+      expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
     });
   });
 

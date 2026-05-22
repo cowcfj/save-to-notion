@@ -388,7 +388,8 @@
         },
         "response": {
           "success": "boolean",
-          "count": "number (optional)",
+          "results": "object (optional)",
+          "message": "string (optional)",
           "error": "string (optional)"
         }
       },

@@ -89,6 +89,15 @@ const SPECIAL_TERMS_REGEX =
     ? // eslint-disable-next-line security/detect-non-literal-regexp
       new RegExp(`(?<![A-Za-z0-9_])(?:${SPECIAL_TERMS.join('|')})(?![A-Za-z0-9_])`, 'gi')
     : null;
+const OGHAM_SPACE_MARK_CODE_POINT = 5760;
+const EN_QUAD_CODE_POINT = 8192;
+const HAIR_SPACE_CODE_POINT = 8202;
+const LINE_SEPARATOR_CODE_POINT = 8232;
+const PARAGRAPH_SEPARATOR_CODE_POINT = 8233;
+const NARROW_NO_BREAK_SPACE_CODE_POINT = 8239;
+const MEDIUM_MATHEMATICAL_SPACE_CODE_POINT = 8287;
+const IDEOGRAPHIC_SPACE_CODE_POINT = 12_288;
+const ZERO_WIDTH_NO_BREAK_SPACE_CODE_POINT = 65_279;
 
 /**
  * 頁面複雜度檢測器
@@ -225,14 +234,14 @@ function hasTechnicalFeatures(document) {
     if (
       code <= 32 ||
       code === 160 ||
-      code === 0x16_80 ||
-      (code >= 0x20_00 && code <= 0x20_0A) ||
-      code === 0x20_28 ||
-      code === 0x20_29 ||
-      code === 0x20_2F ||
-      code === 0x20_5F ||
-      code === 0x30_00 ||
-      code === 0xFE_FF
+      code === OGHAM_SPACE_MARK_CODE_POINT ||
+      (code >= EN_QUAD_CODE_POINT && code <= HAIR_SPACE_CODE_POINT) ||
+      code === LINE_SEPARATOR_CODE_POINT ||
+      code === PARAGRAPH_SEPARATOR_CODE_POINT ||
+      code === NARROW_NO_BREAK_SPACE_CODE_POINT ||
+      code === MEDIUM_MATHEMATICAL_SPACE_CODE_POINT ||
+      code === IDEOGRAPHIC_SPACE_CODE_POINT ||
+      code === ZERO_WIDTH_NO_BREAK_SPACE_CODE_POINT
     ) {
       inWord = false;
     } else if (!inWord) {
