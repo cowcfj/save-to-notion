@@ -72,8 +72,18 @@ export const MarkdownExtractor = {
   cleanDOM(element) {
     const clone = element.cloneNode(true);
 
-    // 定義需要移除的雜訊選擇器
+    // 定義需要移除的雜訊選擇器與潛在的 XSS 風險標籤
     const noiseSelectors = [
+      // XSS & Security Risks
+      'script',
+      'iframe',
+      'object',
+      'embed',
+      'noscript',
+      'style',
+      'meta',
+      'link',
+
       // Copy Buttons & Toolbars
       '.clipboard-button',
       '.copy-button',
@@ -118,6 +128,30 @@ export const MarkdownExtractor = {
     const labelSelectors = ['.language-label', '.lang-label', 'span[data-code-text]'];
     labelSelectors.forEach(selector => {
       clone.querySelectorAll(selector).forEach(el => el.remove());
+    });
+
+    // 縱深防禦 (Defense-in-Depth)：移除潛在的 XSS 屬性 (如 on* 事件與 javascript: 協議)
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach(el => {
+      const attributes = Array.from(el.attributes);
+      attributes.forEach(attr => {
+        if (attr.name.toLowerCase().startsWith('on')) {
+          el.removeAttribute(attr.name);
+        }
+      });
+
+      // 清理 javascript: URLs
+      if (el.tagName === 'A') {
+        const href = el.getAttribute('href');
+        if (href && href.trim().toLowerCase().startsWith('javascript:')) {
+          el.removeAttribute('href');
+        }
+      }
+
+      const src = el.getAttribute('src');
+      if (src && src.trim().toLowerCase().startsWith('javascript:')) {
+        el.removeAttribute('src');
+      }
     });
 
     // 清洗完成
