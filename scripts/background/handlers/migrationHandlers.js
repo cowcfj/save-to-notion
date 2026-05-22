@@ -195,39 +195,77 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始批量遷移', { action: 'migration_batch', pageCount: urls.length });
 
-        const results = {
-          success: 0,
-          failed: 0,
-          details: [],
-        };
+        const groups = new Map();
+        for (const [originalIndex, url] of urls.entries()) {
+          const key = computeStableUrl(url) || url;
+          if (!groups.has(key)) {
+            groups.set(key, []);
+          }
+          groups.get(key).push({ url, originalIndex });
+        }
 
-        for (const url of urls) {
+        const processOne = async url => {
           try {
             const itemResult = await migrationService.migrateBatchUrl(url);
-            results.details.push(itemResult);
-
             if (itemResult.status === 'success') {
-              results.success++;
               Logger.log('批量遷移成功', {
                 action: 'migration_batch',
+                result: 'success',
                 url: itemResult.url,
                 highlightCount: itemResult.count,
               });
             }
+            return itemResult;
           } catch (itemError) {
-            results.failed++;
-            results.details.push({
-              url: sanitizeUrlForLogging(url),
-              status: 'failed',
-              reason: itemError?.message ?? String(itemError),
-            });
             Logger.error('批量遷移失敗', {
               action: 'migration_batch',
+              result: 'failed',
               url: sanitizeUrlForLogging(url),
               error: itemError?.message ?? String(itemError),
             });
+            return {
+              url: sanitizeUrlForLogging(url),
+              status: 'failed',
+              reason: itemError?.message ?? String(itemError),
+            };
+          }
+        };
+
+        const groupEntriesList = [...groups.values()];
+        const MAX_CONCURRENCY = 5;
+        const activePromises = [];
+        const processGroup = async groupEntries => {
+          const out = [];
+          for (const { url, originalIndex } of groupEntries) {
+            const result = await processOne(url);
+            out.push({ originalIndex, result });
+          }
+          return out;
+        };
+
+        const allResultsMap = new Map();
+        for (const groupEntries of groupEntriesList) {
+          const p = processGroup(groupEntries).then(out => {
+            for (const { originalIndex, result } of out) {
+              allResultsMap.set(originalIndex, result);
+            }
+            activePromises.splice(activePromises.indexOf(p), 1);
+          });
+          activePromises.push(p);
+          if (activePromises.length >= MAX_CONCURRENCY) {
+            await Promise.race(activePromises);
           }
         }
+        await Promise.all(activePromises);
+
+        const details = urls.map((_, i) => allResultsMap.get(i));
+        const successCount = details.filter(d => d.status === 'success').length;
+
+        const results = {
+          success: successCount,
+          failed: details.length - successCount,
+          details,
+        };
 
         Logger.log('批量遷移完成', {
           action: 'migration_batch',
