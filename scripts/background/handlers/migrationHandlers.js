@@ -333,9 +333,7 @@ export function createMigrationHandlers(services) {
 
         const failures = cleanupResults.filter(result => result.status === 'rejected');
         if (failures.length > 0) {
-          const error = new Error(
-            `Failed to delete ${failures.length} of ${urls.length} migration items`
-          );
+          const error = new Error(ERROR_MESSAGES.TECHNICAL.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE);
           error.cause = failures[0].reason;
           throw error;
         }

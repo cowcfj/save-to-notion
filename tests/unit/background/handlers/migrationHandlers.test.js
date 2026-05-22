@@ -11,6 +11,7 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
@@ -655,6 +656,26 @@ describe('migrationHandlers', () => {
         expect.objectContaining({
           success: false,
           error: expect.any(String),
+        })
+      );
+    });
+
+    test('單一 URL 清理失敗時應回傳 centralized migration batch delete 錯誤訊息', async () => {
+      const urls = ['https://cleanup.example.com/one', 'https://cleanup.example.com/two'];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
+        if (url === urls[1]) {
+          throw new Error('cleanup failed');
+        }
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE,
         })
       );
     });
