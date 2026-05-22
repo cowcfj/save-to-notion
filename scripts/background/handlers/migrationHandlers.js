@@ -196,10 +196,12 @@ export function createMigrationHandlers(services) {
         Logger.log('開始批量遷移', { action: 'migration_batch', pageCount: urls.length });
 
         const groups = new Map();
-        for (const url of urls) {
+        for (const [originalIndex, url] of urls.entries()) {
           const key = computeStableUrl(url) || url;
-          if (!groups.has(key)) {groups.set(key, []);}
-          groups.get(key).push(url);
+          if (!groups.has(key)) {
+            groups.set(key, []);
+          }
+          groups.get(key).push({ url, originalIndex });
         }
 
         const processOne = async url => {
@@ -208,6 +210,7 @@ export function createMigrationHandlers(services) {
             if (itemResult.status === 'success') {
               Logger.log('批量遷移成功', {
                 action: 'migration_batch',
+                result: 'success',
                 url: itemResult.url,
                 highlightCount: itemResult.count,
               });
@@ -216,6 +219,7 @@ export function createMigrationHandlers(services) {
           } catch (itemError) {
             Logger.error('批量遷移失敗', {
               action: 'migration_batch',
+              result: 'failed',
               url: sanitizeUrlForLogging(url),
               error: itemError?.message ?? String(itemError),
             });
@@ -227,22 +231,23 @@ export function createMigrationHandlers(services) {
           }
         };
 
-        const groupUrlsList = [...groups.values()];
+        const groupEntriesList = [...groups.values()];
         const MAX_CONCURRENCY = 5;
         const activePromises = [];
-        const processGroup = async groupUrls => {
+        const processGroup = async groupEntries => {
           const out = [];
-          for (const url of groupUrls) {
-            out.push(await processOne(url));
+          for (const { url, originalIndex } of groupEntries) {
+            const result = await processOne(url);
+            out.push({ originalIndex, result });
           }
           return out;
         };
 
         const allResultsMap = new Map();
-        for (const groupUrls of groupUrlsList) {
-          const p = processGroup(groupUrls).then(out => {
-            for (const [i, groupUrl] of groupUrls.entries()) {
-              allResultsMap.set(groupUrl, out[i]);
+        for (const groupEntries of groupEntriesList) {
+          const p = processGroup(groupEntries).then(out => {
+            for (const { originalIndex, result } of out) {
+              allResultsMap.set(originalIndex, result);
             }
             activePromises.splice(activePromises.indexOf(p), 1);
           });
@@ -253,7 +258,7 @@ export function createMigrationHandlers(services) {
         }
         await Promise.all(activePromises);
 
-        const details = urls.map(url => allResultsMap.get(url));
+        const details = urls.map((_, i) => allResultsMap.get(i));
         const successCount = details.filter(d => d.status === 'success').length;
 
         const results = {

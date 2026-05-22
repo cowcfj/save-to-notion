@@ -249,7 +249,7 @@ describe('migrationHandlers', () => {
       let concurrentCalls = 0;
       let maxConcurrentCalls = 0;
 
-      mockServices.migrationService.migrateBatchUrl.mockImplementation(async (url) => {
+      mockServices.migrationService.migrateBatchUrl.mockImplementation(async url => {
         concurrentCalls++;
         maxConcurrentCalls = Math.max(maxConcurrentCalls, concurrentCalls);
         await new Promise(resolve => setTimeout(resolve, 10)); // simulate async work
@@ -273,12 +273,12 @@ describe('migrationHandlers', () => {
         'https://example.com/u2',
         'https://example.com/u3',
         'https://example.com/u4',
-        'https://example.com/u5'
+        'https://example.com/u5',
       ];
       const sendResponse = jest.fn();
 
       // Reset mock just for this test
-      mockServices.migrationService.migrateBatchUrl = jest.fn().mockImplementation(async (url) => {
+      mockServices.migrationService.migrateBatchUrl = jest.fn().mockImplementation(async url => {
         if (url === 'https://example.com/u3') {
           throw new Error('u3 failed');
         }
@@ -294,7 +294,7 @@ describe('migrationHandlers', () => {
 
       // If validation fails, there won't be results. Check for error.
       if (!response.results) {
-        throw new Error('No results in response: ' + JSON.stringify(response));
+        throw new Error(`No results in response: ${  JSON.stringify(response)}`);
       }
 
       const details = response.results.details;
@@ -305,8 +305,55 @@ describe('migrationHandlers', () => {
       expect(details[3].status).toBe('success');
       expect(details[4].status).toBe('success');
 
-      // Error handling pushes sanitizeUrlForLogging(url), but we mocked it out or it's same
-      expect(details.map(d => d.url || d.reason)).toEqual(urls);
+      // 對 success index 直接驗證 url；對 failing index 直接驗證 reason，
+      // 避免讓 details[i].url 在失敗條目存在時掩蓋 reason 缺失。
+      expect(details[0].url).toBe(urls[0]);
+      expect(details[1].url).toBe(urls[1]);
+      expect(details[3].url).toBe(urls[3]);
+      expect(details[4].url).toBe(urls[4]);
+      expect(details[2].reason).toBe('u3 failed');
+    });
+
+    test('Duplicate URL inputs：details 必須 1:1 對應輸入順序，不得被同 URL 覆蓋', async () => {
+      const dupUrl = 'https://dup.com/article';
+      const urls = [dupUrl, 'https://other.com/page', dupUrl];
+      const sendResponse = jest.fn();
+
+      // 同 URL → 同 stable URL，會落到同一 group（重現 race / 覆蓋條件）
+      computeStableUrl.mockImplementation(url => url);
+
+      // 第一次 dup 成功、第二次 dup 失敗、中間 other 成功，三個結果各自獨立
+      mockServices.migrationService.migrateBatchUrl
+        .mockResolvedValueOnce({ status: 'success', url: dupUrl, count: 1, pending: 0 })
+        .mockResolvedValueOnce({
+          status: 'success',
+          url: 'https://other.com/page',
+          count: 2,
+          pending: 0,
+        })
+        .mockRejectedValueOnce(new Error('second dup failed'));
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+
+      const details = response.results.details;
+      expect(details).toHaveLength(urls.length);
+
+      // index 0：第一次 dup → success
+      expect(details[0].status).toBe('success');
+      expect(details[0].url).toBe(dupUrl);
+      // index 1：other → success
+      expect(details[1].status).toBe('success');
+      expect(details[1].url).toBe('https://other.com/page');
+      // index 2：第二次 dup → failed，且 reason 必須保留（不被 success 覆蓋）
+      expect(details[2].status).toBe('failed');
+      expect(details[2].reason).toBe('second dup failed');
+
+      // 整體 counts 反映每筆輸入而非去重
+      expect(response.results.success).toBe(2);
+      expect(response.results.failed).toBe(1);
     });
 
     test('委託路徑：migrateBatchUrl 回傳 stable URL 時應上報 stable URL', async () => {
