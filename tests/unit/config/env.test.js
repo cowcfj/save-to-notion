@@ -121,7 +121,7 @@ describe('配置模組 - env/index.js', () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       globalThis.chrome = {
         runtime: {
-          id: 'extension-id',
+          id: 'extension-id-error-test',
           getManifest: jest.fn(() => {
             throw new Error('manifest unavailable');
           }),
