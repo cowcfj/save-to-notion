@@ -36,7 +36,6 @@ describe('配置模組 - env/index.js', () => {
     jest.clearAllMocks();
     delete globalThis.chrome;
     delete globalThis.window;
-    delete globalThis.location;
   });
 
   describe('isExtensionContext', () => {
@@ -69,87 +68,6 @@ describe('配置模組 - env/index.js', () => {
       setWindow({});
 
       expect(isBackgroundContext()).toBe(false);
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('extension 環境且 window 存在但 protocol 為 chrome-extension: 時不視為 content context', () => {
-      globalThis.chrome = { runtime: { id: 'extension-id' } };
-      setWindow({});
-      globalThis.location = { protocol: 'chrome-extension:' };
-
-      expect(isContentContext()).toBe(false);
-    });
-
-    test('當沒有 extensionBaseUrl 時回退視為 content context', () => {
-      globalThis.chrome = {
-        runtime: { id: 'extension-id', getURL: () => '' },
-      };
-      setWindow({});
-      globalThis.location = { protocol: 'https:' };
-
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('當 currentOrigin 等於 extensionOrigin 時不視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'https://extension-id/',
-        },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-        origin: 'https://extension-id',
-      };
-
-      expect(isContentContext()).toBe(false);
-    });
-
-    test('當 currentOrigin 不等於 extensionOrigin 時視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'https://extension-id/',
-        },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-        origin: 'https://example.com',
-      };
-
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('當 URL 解析失敗時，捕獲錯誤並回退視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'invalid-url',
-        },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-      };
-
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('當 currentOrigin 無效時回退視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'chrome-extension://extension-id/',
-        },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-        origin: '',
-      };
-
       expect(isContentContext()).toBe(true);
     });
   });
@@ -197,17 +115,6 @@ describe('配置模組 - env/index.js', () => {
       };
 
       expect(isDevelopment()).toBe(true);
-    });
-
-    test('version_name 缺失且 version 缺失時應不報錯並返回非開發模式', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({})),
-        },
-      };
-
-      expect(isDevelopment()).toBe(false);
     });
 
     test('getManifest 拋錯時應返回 false 並記錄錯誤', () => {

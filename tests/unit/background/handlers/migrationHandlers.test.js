@@ -239,6 +239,76 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('Same-stable-URL race test：同 stable URL 應循序執行不漏接', async () => {
+      const urls = ['https://x.com?utm=a', 'https://x.com?utm=b'];
+      const sendResponse = jest.fn();
+
+      // setup computeStableUrl mock to return the same stable URL
+      computeStableUrl.mockReturnValue('https://x.com');
+
+      let concurrentCalls = 0;
+      let maxConcurrentCalls = 0;
+
+      mockServices.migrationService.migrateBatchUrl.mockImplementation(async (url) => {
+        concurrentCalls++;
+        maxConcurrentCalls = Math.max(maxConcurrentCalls, concurrentCalls);
+        await new Promise(resolve => setTimeout(resolve, 10)); // simulate async work
+        concurrentCalls--;
+        return { status: 'success', url, count: 1, pending: 1 };
+      });
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      expect(maxConcurrentCalls).toBe(1); // They should have run sequentially!
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+      expect(response.results.success).toBe(2);
+      expect(response.results.failed).toBe(0);
+    });
+
+    test('Details ordering test：回傳 details 順序必須等於輸入順序', async () => {
+      const urls = [
+        'https://example.com/u1',
+        'https://example.com/u2',
+        'https://example.com/u3',
+        'https://example.com/u4',
+        'https://example.com/u5'
+      ];
+      const sendResponse = jest.fn();
+
+      // Reset mock just for this test
+      mockServices.migrationService.migrateBatchUrl = jest.fn().mockImplementation(async (url) => {
+        if (url === 'https://example.com/u3') {
+          throw new Error('u3 failed');
+        }
+        return { status: 'success', url, count: 1 };
+      });
+
+      // 確保 computeStableUrl 可以正常工作
+      computeStableUrl.mockImplementation(url => url);
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+
+      // If validation fails, there won't be results. Check for error.
+      if (!response.results) {
+        throw new Error('No results in response: ' + JSON.stringify(response));
+      }
+
+      const details = response.results.details;
+
+      expect(details[0].status).toBe('success');
+      expect(details[1].status).toBe('success');
+      expect(details[2].status).toBe('failed');
+      expect(details[3].status).toBe('success');
+      expect(details[4].status).toBe('success');
+
+      // Error handling pushes sanitizeUrlForLogging(url), but we mocked it out or it's same
+      expect(details.map(d => d.url || d.reason)).toEqual(urls);
+    });
+
     test('委託路徑：migrateBatchUrl 回傳 stable URL 時應上報 stable URL', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
