@@ -1,10 +1,10 @@
 /**
- * Run async tasks with bounded concurrency, preserving input order in output.
+ * 以受限併發數執行 async 任務,輸出順序與輸入一致。
  *
- * Short-circuit semantics: if any worker rejects, the returned promise rejects with
- * that error. Already-started workers continue to run in background; not-yet-dispatched
- * items are not started. Callers needing settle-all semantics should wrap the worker
- * with try/catch and return a result envelope.
+ * Short-circuit 語義:任一 worker reject 時,回傳的 promise 立即以該錯誤 reject。
+ * 已啟動的 worker 會繼續跑完(無法外部中止 in-flight 工作),但尚未派發的 item
+ * 不會再被啟動。需要 settle-all 語義的呼叫端應在 worker 內自行 try/catch 並回傳
+ * result envelope。
  *
  * @template TIn, TOut
  * @param {TIn[]} items
