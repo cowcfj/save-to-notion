@@ -107,6 +107,27 @@ describe('concurrencyUtils', () => {
       await expect(pMap(items, worker, { concurrency: 2 })).rejects.toThrow('同步錯誤');
     });
 
+    test('Fail-fast 不再派發：worker reject 後,尚未派發的 item 不應再被啟動', async () => {
+      const items = Array.from({ length: 10 }, (_, i) => i);
+      const started = [];
+      const worker = async item => {
+        started.push(item);
+        if (item === 0) {
+          throw new Error('first-fails');
+        }
+        await delay(20);
+        return item;
+      };
+
+      await expect(pMap(items, worker, { concurrency: 2 })).rejects.toThrow('first-fails');
+      await delay(50);
+
+      // concurrency = 2:第一輪派發 item 0、1;item 0 立即 reject。
+      // 期望:item 1 已 in-flight 跑完,但 item 2~9 不應被啟動。
+      // 容忍上限為 concurrency(若兩個 runner 都已從 cursor 取了下一個 item)。
+      expect(started.length).toBeLessThanOrEqual(2);
+    });
+
     test('參數驗證：若 items 不是陣列，應拋出 TypeError', async () => {
       const worker = async () => {};
       await expect(pMap(null, worker, { concurrency: 2 })).rejects.toThrow(TypeError);

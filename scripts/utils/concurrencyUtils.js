@@ -21,11 +21,17 @@ export async function pMap(items, worker, { concurrency }) {
   }
   const results = Array.from({ length: items.length });
   let cursor = 0;
+  let failed = false;
   const runnerCount = Math.min(concurrency, items.length);
   const runners = Array.from({ length: runnerCount }, async () => {
-    while (cursor < items.length) {
+    while (!failed && cursor < items.length) {
       const i = cursor++;
-      results[i] = await worker(items[i], i);
+      try {
+        results[i] = await worker(items[i], i);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   });
   await Promise.all(runners);
