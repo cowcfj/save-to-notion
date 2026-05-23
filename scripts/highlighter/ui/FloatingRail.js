@@ -626,35 +626,15 @@ export class FloatingRail {
     }
 
     const launchAnim = saveBtn ? playLaunchAnimation(saveBtn) : null;
+    const uiContext = { saveBtn, errorTooltip, launchAnim };
     let operation = 'savePageFromRail';
     try {
-      let response;
-      if (this._pageStatus?.isSaved) {
-        operation = 'syncHighlights';
-        const highlights = this.manager.collectHighlightsForNotion?.() || [];
-        response = await syncHighlights(highlights);
-      } else {
-        response = await savePageFromRail();
-      }
+      const result = await this._executeSaveOrSync();
+      operation = result.operation;
 
-      if (response?.success !== true) {
-        const errorCode = response?.errorCode;
-        if (errorCode === 'PAGE_DELETED') {
-          launchAnim?.cancel();
-          if (saveBtn && errorTooltip) {
-            await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETED_PAGE);
-          }
-          await this._refreshPageStatus();
-          return;
-        } else if (errorCode === 'PAGE_DELETION_PENDING') {
-          launchAnim?.cancel();
-          if (saveBtn && errorTooltip) {
-            await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETION_PENDING);
-          }
-          return;
-        } else if (errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE) {
-          throw new Error(response?.error || 'sync_failed');
-        }
+      const handled = await this._handleSaveErrorResponse(result.response, uiContext);
+      if (handled) {
+        return;
       }
 
       launchAnim?.cancel();
@@ -679,6 +659,48 @@ export class FloatingRail {
         saveBtn.disabled = false;
       }
     }
+  }
+
+  async _executeSaveOrSync() {
+    if (this._pageStatus?.isSaved) {
+      const highlights = this.manager.collectHighlightsForNotion?.() || [];
+      const response = await syncHighlights(highlights);
+      return { response, operation: 'syncHighlights' };
+    }
+    const response = await savePageFromRail();
+    return { response, operation: 'savePageFromRail' };
+  }
+
+  async _handleSaveErrorResponse(response, uiContext) {
+    if (response?.success === true) {
+      return false;
+    }
+
+    const errorCode = response?.errorCode;
+    const { saveBtn, errorTooltip, launchAnim } = uiContext;
+
+    if (errorCode === 'PAGE_DELETED') {
+      launchAnim?.cancel();
+      if (saveBtn && errorTooltip) {
+        await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETED_PAGE);
+      }
+      await this._refreshPageStatus();
+      return true;
+    }
+
+    if (errorCode === 'PAGE_DELETION_PENDING') {
+      launchAnim?.cancel();
+      if (saveBtn && errorTooltip) {
+        await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETION_PENDING);
+      }
+      return true;
+    }
+
+    if (errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE) {
+      throw new Error(response?.error || 'sync_failed');
+    }
+
+    return false;
   }
 
   async _handleManage() {
