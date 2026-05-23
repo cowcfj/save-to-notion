@@ -72,8 +72,19 @@ export const MarkdownExtractor = {
   cleanDOM(element) {
     const clone = element.cloneNode(true);
 
-    // 定義需要移除的雜訊選擇器
+    // 定義需要移除的雜訊選擇器與潛在的 XSS 風險標籤
     const noiseSelectors = [
+      // XSS & Security Risks
+      'script',
+      'iframe',
+      'object',
+      'embed',
+      'noscript',
+      'style',
+      'meta',
+      'link',
+      'base',
+
       // Copy Buttons & Toolbars
       '.clipboard-button',
       '.copy-button',
@@ -118,6 +129,44 @@ export const MarkdownExtractor = {
     const labelSelectors = ['.language-label', '.lang-label', 'span[data-code-text]'];
     labelSelectors.forEach(selector => {
       clone.querySelectorAll(selector).forEach(el => el.remove());
+    });
+
+    // 縱深防禦 (Defense-in-Depth)：移除潛在的 XSS 屬性 (如 on* 事件、危險 URL 協議、formaction、form action)
+    const DANGEROUS_URL_RE = /^\s*(?:javascript:|data:text\/html)/i;
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach(el => {
+      const attributes = Array.from(el.attributes);
+      attributes.forEach(attr => {
+        if (attr.name.toLowerCase().startsWith('on')) {
+          el.removeAttribute(attr.name);
+        }
+      });
+
+      // 清理 <a> 的 href 危險 URL（javascript: / data:text/html）
+      if (el.tagName?.toUpperCase() === 'A') {
+        const href = el.getAttribute('href');
+        if (href && DANGEROUS_URL_RE.test(href)) {
+          el.removeAttribute('href');
+        }
+      }
+
+      // 清理任意元素的 src 危險 URL
+      const src = el.getAttribute('src');
+      if (src && DANGEROUS_URL_RE.test(src)) {
+        el.removeAttribute('src');
+      }
+
+      // 清理 <button> / <input> 的 formaction 危險 URL
+      const formaction = el.getAttribute('formaction');
+      if (formaction && DANGEROUS_URL_RE.test(formaction)) {
+        el.removeAttribute('formaction');
+      }
+
+      // 清理 <form> 的 action 危險 URL（與 formaction 同質的提交目標攻擊向量）
+      const action = el.getAttribute('action');
+      if (action && DANGEROUS_URL_RE.test(action)) {
+        el.removeAttribute('action');
+      }
     });
 
     // 清洗完成
