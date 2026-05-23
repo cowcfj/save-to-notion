@@ -377,7 +377,31 @@
         },
         "response": {
           "success": "boolean",
-          "results": "object (optional)",
+          "results": {
+            "type": "object (optional)",
+            "fields": {
+              "success": "number",
+              "failed": "number",
+              "details": "array<MigrationBatchItemResult>"
+            },
+            "example": {
+              "success": 1,
+              "failed": 1,
+              "details": [
+                {
+                  "url": "https://example.com/a",
+                  "status": "success",
+                  "count": 1
+                },
+                {
+                  "url": "https://example.com/b",
+                  "status": "failed",
+                  "reason": "migration failed"
+                }
+              ]
+            },
+            "notes": "success is the successful item count. The top-level response.success remains the boolean handler envelope."
+          },
           "error": "string (optional)"
         }
       },
@@ -388,7 +412,33 @@
         },
         "response": {
           "success": "boolean",
-          "count": "number (optional)",
+          "results": {
+            "type": "object (optional)",
+            "fields": {
+              "success": "number",
+              "failed": "number",
+              "total": "number",
+              "details": "array<MigrationBatchDeleteItemResult>"
+            },
+            "example": {
+              "success": 1,
+              "failed": 1,
+              "total": 2,
+              "details": [
+                {
+                  "url": "https://example.com/a",
+                  "status": "success"
+                },
+                {
+                  "url": "https://example.com/b",
+                  "status": "failed",
+                  "reason": "cleanup failed"
+                }
+              ]
+            },
+            "notes": "success is the successful item count. The top-level response.success remains the boolean handler envelope."
+          },
+          "message": "string (optional)",
           "error": "string (optional)"
         }
       },

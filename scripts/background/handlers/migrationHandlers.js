@@ -11,7 +11,7 @@
 
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { pMap } from '../../utils/concurrencyUtils.js';
-import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 import {
@@ -22,6 +22,11 @@ import {
   validateBatchUrls,
   validatePrivilegedRequest,
 } from './handlerGuard.js';
+
+function sanitizeBatchDeleteFailureReason(error) {
+  const rawReason = error?.message ?? String(error);
+  return String(rawReason).replaceAll(/https?:\/\/[^\s"',)]+/g, url => sanitizeUrlForLogging(url));
+}
 
 /**
  * 創建遷移處理函數
@@ -255,7 +260,7 @@ export function createMigrationHandlers(services) {
         }
 
         const details = urls.map((_, i) => allResultsMap.get(i));
-        const successCount = details.filter(d => d.status === 'success').length;
+        const successCount = details.filter(detail => detail.status === 'success').length;
 
         const results = {
           success: successCount,
@@ -317,13 +322,54 @@ export function createMigrationHandlers(services) {
         Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
 
         // 使用 StorageService.clearLegacyKeys 安全刪除（同時清理 highlights_ + saved_）
-        await Promise.all(urls.map(urlItem => clearLegacyKeysWithStable(storageService, urlItem)));
+        const MAX_CONCURRENCY = 5;
+        const cleanupResults = await pMap(
+          urls,
+          async urlItem => {
+            const safeUrl = sanitizeUrlForLogging(urlItem);
+            try {
+              await clearLegacyKeysWithStable(storageService, urlItem);
+              return { status: 'success', url: safeUrl };
+            } catch (error) {
+              return {
+                status: 'failed',
+                url: safeUrl,
+                reason: sanitizeBatchDeleteFailureReason(error),
+              };
+            }
+          },
+          { concurrency: MAX_CONCURRENCY }
+        );
 
-        Logger.log('批量刪除完成', { action: 'migration_batch_delete', pageCount: urls.length });
+        const successCount = cleanupResults.filter(result => result.status === 'success').length;
+        const failedCount = cleanupResults.length - successCount;
+        const message =
+          failedCount === 0
+            ? UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(successCount)
+            : UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(successCount, failedCount);
+        let result = 'partial';
+        if (failedCount === 0) {
+          result = 'success';
+        } else if (successCount === 0) {
+          result = 'failed';
+        }
+
+        Logger.log('批量刪除完成', {
+          action: 'migration_batch_delete',
+          result,
+          successCount,
+          failedCount,
+          pageCount: urls.length,
+        });
         sendResponse({
           success: true,
-          count: urls.length,
-          message: `成功刪除 ${urls.length} 個頁面的標註數據`,
+          results: {
+            success: successCount,
+            failed: failedCount,
+            total: cleanupResults.length,
+            details: cleanupResults,
+          },
+          message,
         });
       } catch (error) {
         sendStandardHandlerError({

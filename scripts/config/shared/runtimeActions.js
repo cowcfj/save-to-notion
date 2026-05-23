@@ -371,6 +371,10 @@ const HIGHLIGHT_ACTIONS = {
  * @property {boolean} success
  * @property {MigrationBatchSummary} [results]
  * @property {string} [error]
+ * @example
+ * // Payload: { action: 'migration_batch', urls: ['https://example.com/a'] }
+ * // results.success is the successful item count; response.success is the boolean envelope.
+ * { success: true, results: { success: 1, failed: 0, details: [] } }
  */
 
 /**
@@ -380,10 +384,30 @@ const HIGHLIGHT_ACTIONS = {
  */
 
 /**
+ * @typedef {object} MigrationBatchDeleteItemResult
+ * @property {string} url
+ * @property {'success'|'failed'} status
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} MigrationBatchDeleteSummary
+ * @property {number} success
+ * @property {number} failed
+ * @property {number} total
+ * @property {Array<MigrationBatchDeleteItemResult>} details
+ */
+
+/**
  * @typedef {object} MigrationBatchDeleteResponse
  * @property {boolean} success
- * @property {number} [count]
+ * @property {MigrationBatchDeleteSummary} [results]
+ * @property {string} [message]
  * @property {string} [error]
+ * @example
+ * // Payload: { action: 'migration_batch_delete', urls: ['https://example.com/a'] }
+ * // results.success is the successful item count; response.success is the boolean envelope.
+ * { success: true, results: { success: 1, failed: 0, total: 1, details: [] } }
  */
 
 /**

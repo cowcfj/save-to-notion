@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures';
 test.describe('Migration Handlers E2E Tests', () => {
   test.beforeEach(async ({ context, extensionId }) => {
     // 設置必要的 API Key 和資料庫 ID 以通過驗證
-    const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
+    const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
     const optionsPage = await context.newPage();
     await optionsPage.goto(optionsUrl);
     await optionsPage.evaluate(async () => {
@@ -16,7 +16,7 @@ test.describe('Migration Handlers E2E Tests', () => {
   });
 
   test('should handle migration_get_pending correctly', async ({ context, extensionId }) => {
-    const popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+    const popupUrl = `chrome-extension://${extensionId}/pages/popup/popup.html`;
     const page = await context.newPage();
     await page.goto(popupUrl);
 
@@ -47,7 +47,7 @@ test.describe('Migration Handlers E2E Tests', () => {
   });
 
   test('should handle migration_delete correctly', async ({ context, extensionId }) => {
-    const popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+    const popupUrl = `chrome-extension://${extensionId}/pages/popup/popup.html`;
     const page = await context.newPage();
     await page.goto(popupUrl);
 
@@ -77,7 +77,7 @@ test.describe('Migration Handlers E2E Tests', () => {
   });
 
   test('should handle migration_batch correctly', async ({ context, extensionId }) => {
-    const popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+    const popupUrl = `chrome-extension://${extensionId}/pages/popup/popup.html`;
     const page = await context.newPage();
     await page.goto(popupUrl);
 
@@ -122,7 +122,7 @@ test.describe('Migration Handlers E2E Tests', () => {
   });
 
   test('should handle migration_batch_delete correctly', async ({ context, extensionId }) => {
-    const popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+    const popupUrl = `chrome-extension://${extensionId}/pages/popup/popup.html`;
     const page = await context.newPage();
     await page.goto(popupUrl);
 
@@ -140,7 +140,10 @@ test.describe('Migration Handlers E2E Tests', () => {
     }, urls);
 
     expect(response.success).toBe(true);
-    expect(response.count).toBe(2);
+    expect(response.results.success).toBe(2);
+    expect(response.results.failed).toBe(0);
+    expect(response.results.total).toBe(2);
+    expect(response.count).toBeUndefined();
 
     const storageData = await page.evaluate(testUrls => {
       const keys = testUrls.flatMap(url => [`highlights_${url}`, `page_${url}`]);
@@ -151,7 +154,7 @@ test.describe('Migration Handlers E2E Tests', () => {
   });
 
   test('should handle migration_delete_failed correctly', async ({ context, extensionId }) => {
-    const popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+    const popupUrl = `chrome-extension://${extensionId}/pages/popup/popup.html`;
     const page = await context.newPage();
     await page.goto(popupUrl);
 
