@@ -154,9 +154,14 @@ const _failHideTimers = new WeakMap();
 /**
  * @param {HTMLElement} button
  * @param {HTMLElement} tooltip - .rail-error-tooltip 元素
+ * @param {string} [message] - 自訂錯誤提示文字，預設為 UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED
  * @returns {Promise<void>}
  */
-export async function playFailAnimation(button, tooltip) {
+export async function playFailAnimation(
+  button,
+  tooltip,
+  message = UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED
+) {
   const shake = prefersReducedMotion()
     ? null
     : button.animate(
@@ -172,7 +177,7 @@ export async function playFailAnimation(button, tooltip) {
         { duration: 400, easing: 'ease-in-out' }
       );
 
-  tooltip.textContent = UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED;
+  tooltip.textContent = message;
   tooltip.classList.add('visible');
 
   if (shake) {

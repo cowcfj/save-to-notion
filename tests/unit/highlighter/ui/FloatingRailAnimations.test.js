@@ -151,6 +151,13 @@ describe('FloatingRailAnimations', () => {
       await promise;
     });
 
+    test('應可自訂 tooltip 顯示的錯誤訊息', async () => {
+      const customMessage = '自訂錯誤訊息';
+      const promise = playFailAnimation(button, tooltip, customMessage);
+      expect(tooltip.textContent).toBe(customMessage);
+      await promise;
+    });
+
     test('tooltip 應在背景延遲後移除 visible class', async () => {
       const promise = playFailAnimation(button, tooltip);
       await promise;

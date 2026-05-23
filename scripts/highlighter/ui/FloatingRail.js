@@ -26,7 +26,7 @@ import {
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
-import { HIGHLIGHT_ERROR_CODES } from '../../config/shared/messages.js';
+import { HIGHLIGHT_ERROR_CODES, UI_MESSAGES } from '../../config/shared/messages.js';
 import {
   playLaunchAnimation,
   playFireworkAnimation,
@@ -637,11 +637,24 @@ export class FloatingRail {
         response = await savePageFromRail();
       }
 
-      if (
-        response?.success !== true &&
-        response?.errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE
-      ) {
-        throw new Error(response?.error || 'sync_failed');
+      if (response?.success !== true) {
+        const errorCode = response?.errorCode;
+        if (errorCode === 'PAGE_DELETED') {
+          launchAnim?.cancel();
+          if (saveBtn && errorTooltip) {
+            await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETED_PAGE);
+          }
+          await this._refreshPageStatus();
+          return;
+        } else if (errorCode === 'PAGE_DELETION_PENDING') {
+          launchAnim?.cancel();
+          if (saveBtn && errorTooltip) {
+            await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETION_PENDING);
+          }
+          return;
+        } else if (errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE) {
+          throw new Error(response?.error || 'sync_failed');
+        }
       }
 
       launchAnim?.cancel();

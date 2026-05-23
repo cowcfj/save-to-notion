@@ -141,6 +141,7 @@ function isCurrentViewRequestActive(requestId) {
 function applySyncButtonSavedState(hasSavedData) {
   els.syncButton.disabled = !hasSavedData;
   els.syncButton.title = hasSavedData ? '' : UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
+  UI.applyUnsavedPageNotice(els, hasSavedData);
 }
 
 /**

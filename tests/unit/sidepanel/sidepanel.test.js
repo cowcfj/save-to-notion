@@ -92,6 +92,7 @@ describe('Sidepanel JS Logic', () => {
         <div class="subtitle">Subtitle</div>
       </div>
       <div id="highlights-list" style="display:none"></div>
+      <aside id="unsaved-page-notice" class="unsaved-page-notice" role="status" hidden></aside>
       <button id="start-highlight-button"></button>
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
@@ -169,6 +170,50 @@ describe('Sidepanel JS Logic', () => {
       expect(statusMessage?.getAttribute('role')).toBeNull();
       expect(statusMessage?.getAttribute('aria-live')).toBe('polite');
       expect(statusMessage?.getAttribute('aria-atomic')).toBe('true');
+    });
+  });
+
+  describe('Unsaved Page Notice Banner', () => {
+    it('在頁面未保存時（預設初始狀態），提示 banner 應為可見，且文字正確', async () => {
+      const notice = document.querySelector('#unsaved-page-notice');
+      expect(notice.hidden).toBe(false);
+      expect(notice.textContent).toBe('此頁尚未保存至 Notion');
+    });
+
+    it('在頁面已保存時，提示 banner 應為隱藏', async () => {
+      // 模擬已保存頁面的載入與 storage 回傳
+      const stableUrl = 'https://example.com/stable';
+      const originalTabUrl = 'https://example.com/original';
+
+      normalizeUrl.mockImplementation(url => url);
+      chrome.tabs.get.mockResolvedValueOnce({ id: 201, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+
+      const fakeStore = {
+        [`page_${originalTabUrl}`]: {
+          notion: { pageId: 'page-123' },
+        },
+      };
+
+      chrome.storage.local.get.mockImplementation(k => {
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (key in fakeStore) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 201 });
+      await flushMicrotasks();
+
+      const notice = document.querySelector('#unsaved-page-notice');
+      expect(notice.hidden).toBe(true);
     });
   });
 
