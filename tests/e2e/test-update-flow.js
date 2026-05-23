@@ -89,7 +89,7 @@ console.log('\n🎉 測試完成！');
 console.log('\n📋 手動驗證步驟:');
 console.log('1. 在 Background Service Worker DevTools 執行:');
 console.log(
-  '   const u = new URL(chrome.runtime.getURL("update-notification/update-notification.html"));'
+  '   const u = new URL(chrome.runtime.getURL("pages/update-notification/update-notification.html"));'
 );
 console.log('   u.searchParams.set("prev","2.47.0"); u.searchParams.set("curr","2.48.0");');
 console.log(

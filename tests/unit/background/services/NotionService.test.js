@@ -386,7 +386,7 @@ describe('NotionService', () => {
 
     it('應該在沒有 API Key 時拋出錯誤', async () => {
       service.setApiKey(null);
-      await expect(service.checkPageExists('page-123')).rejects.toThrow('API Key');
+      await expect(service.checkPageExists('page-123')).rejects.toThrow('API_KEY_NOT_CONFIGURED');
     });
 
     it('應該處理非 JSON 錯誤響應', async () => {
@@ -464,7 +464,7 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(false);
       expect(result.addedCount).toBe(100);
-      expect(result.error).toBe('validation_error');
+      expect(result.error).toBe('VALIDATION_ERROR');
     });
 
     it('應該從指定索引開始處理', async () => {
@@ -554,7 +554,7 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
       expect(result.success).toBe(false);
-      expect(result.error).toBe('validation_error');
+      expect(result.error).toBe('VALIDATION_ERROR');
     });
 
     it('createPage 失敗時應只記錄脫敏後的錯誤字串', async () => {
@@ -566,12 +566,16 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
 
-      expect(result).toEqual({ success: false, error: 'object_not_found' });
+      expect(result).toEqual({
+        success: false,
+        error: 'OBJECT_NOT_FOUND',
+        errorCode: 'OBJECT_NOT_FOUND',
+      });
       expect(Logger.error).toHaveBeenCalledWith(
         '[NotionService] 創建頁面失敗',
         expect.objectContaining({
           action: 'createPage',
-          error: 'object_not_found',
+          error: 'OBJECT_NOT_FOUND',
         })
       );
       expect(Logger.error.mock.calls.at(-1)?.[1]?.error).not.toBe(rawError);
@@ -946,7 +950,7 @@ describe('NotionService', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Network error');
+      expect(result.error).toContain('NETWORK_ERROR');
       expect(result.errorType).toBe('internal');
       expect(result.details.phase).toBe('catch_all');
     });
@@ -1113,6 +1117,7 @@ describe('NotionService', () => {
       expect(result).toEqual({
         success: false,
         error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
         errorType: 'notion_api',
         details: {
           phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
@@ -1148,6 +1153,7 @@ describe('NotionService', () => {
       expect(result).toEqual({
         success: false,
         error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+        errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
         errorType: 'notion_api',
         details: {
           phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
@@ -1444,6 +1450,50 @@ describe('NotionService', () => {
             error: expect.any(Error),
           })
         );
+      });
+
+      it('應該彙整單一 worker unexpected reject 而不中斷整批刪除', async () => {
+        service.config.DELETE_CONCURRENCY = 3;
+        service._deleteBlockById = jest.fn(blockId => {
+          if (blockId === 'b2') {
+            return Promise.reject(new Error('worker crashed'));
+          }
+          return Promise.resolve({ success: true, id: blockId });
+        });
+
+        const result = await service._deleteBlocksByIds(['b1', 'b2', 'b3']);
+
+        expect(service._deleteBlockById).toHaveBeenCalledTimes(3);
+        expect(result).toEqual({
+          successCount: 2,
+          failureCount: 1,
+          errors: [{ id: 'b2', error: 'worker crashed' }],
+        });
+      });
+
+      it('應該保留非 Error rejection 的原始訊息（字串、plain object）', async () => {
+        service.config.DELETE_CONCURRENCY = 3;
+        service._deleteBlockById = jest.fn(blockId => {
+          if (blockId === 'b1') {
+            return Promise.reject('string reason token');
+          }
+          if (blockId === 'b2') {
+            return Promise.reject({ message: 'plain object reason' });
+          }
+          return Promise.reject(null);
+        });
+
+        const result = await service._deleteBlocksByIds(['b1', 'b2', 'b3']);
+
+        expect(result).toEqual({
+          successCount: 0,
+          failureCount: 3,
+          errors: [
+            { id: 'b1', error: 'string reason token' },
+            { id: 'b2', error: 'plain object reason' },
+            { id: 'b3', error: 'Unknown error' },
+          ],
+        });
       });
 
       it('應該在批次間執行延遲', async () => {

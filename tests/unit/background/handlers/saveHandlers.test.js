@@ -529,6 +529,71 @@ describe('saveHandlers', () => {
       expect(response.error).not.toContain('token exchange failed');
     });
 
+    test('savePage: profile 解析失敗時 envelope 應帶 errorCode (ADR 0007)', async () => {
+      const sendResponse = jest.fn();
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('找不到目的地：xyz')
+      );
+
+      await handlers.savePage({ profileId: 'missing' }, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'DESTINATION_PROFILE_NOT_FOUND',
+        })
+      );
+    });
+
+    test('savePage: profile resolver 拋出帶小寫 error.code 時應 normalize 為 SCREAMING_SNAKE_CASE', async () => {
+      const sendResponse = jest.fn();
+      const lowerCaseCodeError = Object.assign(new Error('downstream failure'), {
+        code: 'destination_profile_not_allowed',
+      });
+      mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        lowerCaseCodeError
+      );
+
+      await handlers.savePage({ profileId: 'gated' }, validSender, sendResponse);
+
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.success).toBe(false);
+      expect(response.errorCode).toBe('DESTINATION_PROFILE_NOT_ALLOWED');
+      expect(response.error).toBe('此保存目的地目前不可使用，請改用其他保存目標。');
+    });
+
+    test('savePage: 下游 result 帶 errorCode 時 sendErrorResponse 應透傳並用 PATTERNS 直查 (ADR 0007)', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'No tab with id: 1573595936',
+        errorCode: 'NO_TAB_WITH_ID',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.success).toBe(false);
+      expect(response.errorCode).toBe('NO_TAB_WITH_ID');
+      expect(response.error).toBe(ERROR_MESSAGES.PATTERNS.NO_TAB_WITH_ID);
+    });
+
+    test('savePage: 下游 result 無 errorCode 時 envelope 不應出現 errorCode 鍵 (ADR 0007 向後相容)', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'Network error',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      const response = sendResponse.mock.calls.at(-1)[0];
+      expect(response.success).toBe(false);
+      expect(response).not.toHaveProperty('errorCode');
+    });
+
     test('savePage: 提取結果為 failed 時不應建立 Notion 頁面', async () => {
       const sendResponse = jest.fn();
       mockServices.storageService.getSavedPageData.mockResolvedValue(null);
@@ -1107,7 +1172,7 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/API Key|配置/i),
+          error: expect.stringContaining('API_KEY_NOT_CONFIGURED'),
         })
       );
     });
@@ -1793,6 +1858,118 @@ describe('saveHandlers', () => {
       );
 
       expect(mockServices.notionService.checkPageExists).toHaveBeenCalled();
+    });
+  });
+
+  describe('toast 推送（save failure → SHOW_TOAST）', () => {
+    const toolbarSender = { id: 'mock-extension-id', tab: { id: 5, url: 'https://example.com' } };
+
+    beforeEach(() => {
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+      mockServices.notionService.buildPageData.mockReturnValue({ pageData: {} });
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
+        title: 'Test',
+        blocks: [],
+      });
+    });
+
+    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_AUTH',
+          level: 'error',
+        })
+      );
+    });
+
+    test('rate-limit 失敗（RATE_LIMITED）→ 推送 SYNC_FAILED_RATE_LIMIT toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'rate limited',
+        errorCode: 'RATE_LIMITED',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_RATE_LIMIT',
+          level: 'error',
+        })
+      );
+    });
+
+    test('network 失敗（NETWORK_ERROR）→ 推送 SYNC_FAILED_NETWORK toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'network error',
+        errorCode: 'NETWORK_ERROR',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_NETWORK',
+          level: 'error',
+        })
+      );
+    });
+
+    test('page-level 失敗（OBJECT_NOT_FOUND）→ 推送 SYNC_FAILED_PAGE toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'not found',
+        errorCode: 'OBJECT_NOT_FOUND',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_PAGE',
+          level: 'error',
+        })
+      );
+    });
+
+    test('不在映射表的 errorCode → 不推送 toast', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'some unknown error',
+        errorCode: 'SOME_UNKNOWN_CODE',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ action: 'SHOW_TOAST' })
+      );
     });
   });
 });

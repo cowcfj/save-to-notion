@@ -9,7 +9,7 @@ import Logger from '../../../scripts/utils/Logger.js';
 import {
   SYNC_BUTTON_DEBOUNCE_MS,
   OPEN_BUTTON_DEBOUNCE_MS,
-} from '../../../sidepanel/sidepanelUI.js';
+} from '../../../pages/sidepanel/sidepanelUI.js';
 
 // ---- Mocks ----
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
@@ -129,7 +129,7 @@ describe('Sidepanel JS Logic', () => {
     chrome.storage.local.get.mockResolvedValue({});
 
     jest.isolateModules(() => {
-      require('../../../sidepanel/sidepanel.js');
+      require('../../../pages/sidepanel/sidepanel.js');
     });
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -149,7 +149,7 @@ describe('Sidepanel JS Logic', () => {
     });
 
     it('應該為開始標註按鈕顯式設定 type="button"', () => {
-      const sidepanelHtmlPath = path.resolve(process.cwd(), 'sidepanel/sidepanel.html');
+      const sidepanelHtmlPath = path.resolve(process.cwd(), 'pages/sidepanel/sidepanel.html');
       const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, 'utf8');
       const doc = new DOMParser().parseFromString(sidepanelHtml, 'text/html');
       const startHighlightButton = doc.querySelector('#start-highlight-button');
@@ -159,7 +159,7 @@ describe('Sidepanel JS Logic', () => {
     });
 
     it('狀態訊息應使用 output live region 而非 status role', () => {
-      const sidepanelHtmlPath = path.resolve(process.cwd(), 'sidepanel/sidepanel.html');
+      const sidepanelHtmlPath = path.resolve(process.cwd(), 'pages/sidepanel/sidepanel.html');
       const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, 'utf8');
       const doc = new DOMParser().parseFromString(sidepanelHtml, 'text/html');
       const statusMessage = doc.querySelector('#status-message');
@@ -1354,7 +1354,7 @@ async function initModule(storageMock) {
     chrome.storage.local.get.mockResolvedValue(storageMock);
   }
   jest.isolateModules(() => {
-    require('../../../sidepanel/sidepanel.js');
+    require('../../../pages/sidepanel/sidepanel.js');
   });
   document.dispatchEvent(new Event('DOMContentLoaded'));
   // 讓所有 async 完成（init 會平行跑 loadCurrentTab + updateUnsyncedBadge）
@@ -1982,7 +1982,7 @@ describe('Required DOM contract', () => {
 
     try {
       jest.isolateModules(() => {
-        require('../../../sidepanel/sidepanel.js');
+        require('../../../pages/sidepanel/sidepanel.js');
       });
 
       expect(typeof domContentLoadedHandler).toBe('function');

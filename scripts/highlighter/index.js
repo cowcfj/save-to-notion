@@ -12,6 +12,7 @@ import { StyleManager } from './core/StyleManager.js';
 import { HighlightInteraction } from './core/HighlightInteraction.js';
 import { HighlightMigration } from './core/HighlightMigration.js';
 import { HighlightStorage } from './core/HighlightStorage.js';
+import { Toast } from './ui/Toast.js';
 
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
@@ -23,18 +24,26 @@ if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
 import { mountWindowAPI } from './windowAPI.js';
 
 function remountWindowAPI(manager, toolbar, storage) {
-  mountWindowAPI(manager, toolbar, storage, {
-    init: opts => {
-      const nextManager = initHighlighter(opts);
-      remountWindowAPI(nextManager, null, nextManager.storage);
-      return nextManager;
+  // toast 由 manager.setDependencies 注入，這裡統一從 manager 讀取，
+  // 避免每個 call site 各自把 toast 拼進 state object。
+  mountWindowAPI(
+    manager,
+    toolbar,
+    storage,
+    {
+      init: opts => {
+        const nextManager = initHighlighter(opts);
+        remountWindowAPI(nextManager, null, nextManager.storage);
+        return nextManager;
+      },
+      initWithToolbar: opts => {
+        const nextState = initHighlighterWithToolbar(opts);
+        remountWindowAPI(nextState.manager, nextState.toolbar, nextState.storage);
+        return nextState;
+      },
     },
-    initWithToolbar: opts => {
-      const nextState = initHighlighterWithToolbar(opts);
-      remountWindowAPI(nextState.manager, nextState.toolbar, nextState.storage);
-      return nextState;
-    },
-  });
+    manager.toast
+  );
 }
 
 /**
@@ -52,15 +61,17 @@ function createAndInjectDependencies(manager, options, toolbar = null) {
   const interaction = new HighlightInteraction(manager);
   const migration = new HighlightMigration(manager);
   const storage = new HighlightStorage(manager, toolbar);
+  const toast = new Toast();
 
   manager.setDependencies({
     styleManager,
     interaction,
     migration,
     storage,
+    toast,
   });
 
-  return { styleManager, interaction, migration, storage };
+  return { styleManager, interaction, migration, storage, toast };
 }
 
 /**

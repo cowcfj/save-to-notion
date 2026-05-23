@@ -221,7 +221,6 @@ class PerformanceOptimizer {
 
     return new Promise((resolve, reject) => {
       const batchItem = {
-        type: 'images',
         images,
         processor,
         resolve,
@@ -232,65 +231,6 @@ class PerformanceOptimizer {
 
       this.batchQueue.push(batchItem);
       this._scheduleBatchProcessing();
-    });
-  }
-
-  /**
-   * 批處理 DOM 操作
-   *
-   * @param {Array} operations - 操作數組
-   * @param {object} options - 批處理選項
-   * @returns {Promise<Array>} 操作結果
-   */
-  batchDomOperations(operations, options = {}) {
-    if (!this.options.enableBatching) {
-      return Promise.resolve(operations.map(op => op()));
-    }
-
-    return new Promise((resolve, reject) => {
-      const batchItem = {
-        operations,
-        resolve,
-        reject,
-        options,
-        timestamp: Date.now(),
-        type: 'dom',
-      };
-
-      this.batchQueue.push(batchItem);
-      this._scheduleBatchProcessing();
-    });
-  }
-
-  /**
-   * 預加載圖片
-   *
-   * @param {Array} urls - 圖片 URL 數組
-   * @param {object} options - 預加載選項
-   * @returns {Promise<Array>} 預加載結果
-   */
-  preloadImages(urls, options = {}) {
-    const { timeout = 5000, concurrent = 3 } = options;
-
-    return this._processInBatches(urls, concurrent, url => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const timer = setTimeout(() => {
-          reject(new Error(`Image preload timeout: ${url}`));
-        }, timeout);
-
-        img.addEventListener('load', () => {
-          clearTimeout(timer);
-          resolve({ url, success: true, image: img });
-        });
-
-        img.addEventListener('error', () => {
-          clearTimeout(timer);
-          resolve({ url, success: false, error: 'Load failed' });
-        });
-
-        img.src = url;
-      });
     });
   }
 
@@ -1002,19 +942,11 @@ class PerformanceOptimizer {
    */
   _processSingleBatchItem(item, results) {
     try {
-      if (item.type === 'dom') {
-        // DOM 操作批處理
-        const result = item.operations.map(op => op());
-        item.resolve(result);
-        results.push(result);
-      } else {
-        // 圖片處理批處理或其他處理
-        const result = Array.isArray(item.images)
-          ? item.images.map(img => item.processor(img))
-          : [item.processor()]; // 處理單個項目
-        item.resolve(result);
-        results.push(result);
-      }
+      const result = Array.isArray(item.images)
+        ? item.images.map(img => item.processor(img))
+        : [item.processor()];
+      item.resolve(result);
+      results.push(result);
     } catch (error) {
       if (ErrorHandler !== undefined) {
         ErrorHandler.logError({
@@ -1027,54 +959,6 @@ class PerformanceOptimizer {
       // Return empty array on error so Promise.all (or map) doesn't fail entire batch
       item.resolve([]);
     }
-  }
-
-  /**
-   * 分批處理數組
-   *
-   * @param {Array} items - 要處理的項目
-   * @param {number} batchSize - 批處理大小
-   * @param {Function} processor - 處理函數
-   * @returns {Promise<Array>} 處理結果
-   * @private
-   */
-  async _processInBatches(items, batchSize, processor) {
-    const results = [];
-
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
-
-      // 使用動態批處理大小調整
-      const dynamicBatchSize = this._adjustBatchSizeForPerformance(batch.length);
-      if (dynamicBatchSize < batch.length) {
-        // 如果動態大小小於當前批次，進行細分
-        for (let j = 0; j < batch.length; j += dynamicBatchSize) {
-          const subBatch = batch.slice(j, j + dynamicBatchSize);
-          const subBatchPromises = subBatch.map(item => processor(item));
-          const subBatchResults = await Promise.allSettled(subBatchPromises);
-
-          results.push(
-            ...subBatchResults.map(result =>
-              result.status === 'fulfilled' ? result.value : { error: result.reason }
-            )
-          );
-
-          // 在批次之間提供短暫延遲以保持 UI 響應
-          await PerformanceOptimizer._yieldToMain();
-        }
-      } else {
-        const batchPromises = batch.map(item => processor(item));
-        const batchResults = await Promise.allSettled(batchPromises);
-
-        results.push(
-          ...batchResults.map(result =>
-            result.status === 'fulfilled' ? result.value : { error: result.reason }
-          )
-        );
-      }
-    }
-
-    return results;
   }
 
   /**

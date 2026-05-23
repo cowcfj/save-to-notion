@@ -37,6 +37,8 @@
 
 ### 2. 連接 Notion 帳號 (提供兩種方式)
 
+> 💡 **首次安裝**會自動開啟引導頁，依序協助你完成 Notion 授權、選擇預設儲存資料庫；中途任何一步都可以跳過。已熟悉設定流程的用戶也能直接照下方手動步驟操作。
+
 **👉 方式 A：快捷授權 (推薦，支援 OAuth 一鍵登入)**
 
 > ⚠️ **注意**：此一鍵登入功能僅支援官方發布的版本（包含 Chrome 商店與 GitHub Releases 載點）。若您使用的是自行編譯的 Fork 或二次開發版本，請使用下方的「方式 B」，或查閱文末的「自訂 Notion OAuth」開發說明。
@@ -199,9 +201,12 @@ notion-chrome/
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── rollup.all.config.mjs  # 統一構建配置
 ├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
-├── popup/                 # 彈出窗口 UI（處理 API 調用與 DOM 更新）
-├── sidepanel/             # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
-├── options/               # 設置頁面 UI（模塊化設置邏輯：Auth, DataSource, Storage 等）
+├── pages/                 # 擴展頁面集合（popup / sidepanel / options / onboarding / update-notification）
+│   ├── popup/             # 彈出窗口 UI（處理 API 調用與 DOM 更新）
+│   ├── sidepanel/         # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
+│   ├── options/           # 設置頁面 UI（模塊化設置邏輯：Auth, DataSource, Storage 等）
+│   ├── onboarding/        # 首次安裝引導頁
+│   └── update-notification/  # 更新通知頁面與邏輯
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js      # 處理擴展邏輯、API 調用、模板處理與更新通知
 │   ├── background/        # 模塊化背景服務
@@ -224,7 +229,6 @@ notion-chrome/
 ├── dist/                  # 構建產物
 │   ├── content.bundle.js         # Content Script 統一打包版
 │   └── *.js.map           # Source maps
-├── update-notification/   # 更新通知頁面與邏輯
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
 ├── tests/                 # 測試文件（2500+ tests）

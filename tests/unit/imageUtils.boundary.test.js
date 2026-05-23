@@ -96,8 +96,9 @@ describe('imageUtils - 邊界條件測試', () => {
     test('應處理沒有描述符的 srcset', () => {
       const srcset = 'https://example.com/img1.jpg, https://example.com/img2.jpg';
       const result = extractBestUrlFromSrcset(srcset);
-      // 當所有 metric 相同（都是 0）時，返回第一個找到的 URL
-      expect(result).toBe('https://example.com/img1.jpg');
+      // 全部條目皆無描述符（metric === 0）時，主迴圈不選任何贏家，掉入 fallback；
+      // fallback 反向迴圈取最後一個有效條目，與 _manualParseSrcset 上方註解一致。
+      expect(result).toBe('https://example.com/img2.jpg');
     });
 
     test('應正確比較 w 和 x 描述符', () => {

@@ -38,6 +38,7 @@ export class HighlightManager {
     this.interaction = null;
     this.storage = null;
     this.migration = null;
+    this.toast = null;
     this.isHighlighting = false;
     this.selectionHandler = null;
   }
@@ -50,12 +51,14 @@ export class HighlightManager {
    * @param {HighlightInteraction} dependencies.interaction
    * @param {HighlightStorage} dependencies.storage
    * @param {HighlightMigration} dependencies.migration
+   * @param {Toast} [dependencies.toast] - 選擇性注入；若提供，標註成功/失敗會觸發使用者可見的 toast。
    */
-  setDependencies({ styleManager, interaction, storage, migration }) {
+  setDependencies({ styleManager, interaction, storage, migration, toast }) {
     this.styleManager = styleManager;
     this.interaction = interaction;
     this.storage = storage;
     this.migration = migration;
+    this.toast = toast || null;
   }
 
   /**
@@ -145,6 +148,9 @@ export class HighlightManager {
 
         // 不回收 ID (this.nextId--) 以保持 ID 單調遞增，避免並發問題
         Logger.warn('無法應用視覺效果，標註已取消', { action: 'addHighlight' });
+        // 失敗路徑統一回報 HIGHLIGHT_FAILED；HIGHLIGHT_DUPLICATE 預留給未來
+        // 重複偵測能力（需要先定義 duplicate 判定規則），目前 addHighlight 不做去重。
+        this.toast?.show('HIGHLIGHT_FAILED', { level: 'error' });
         return null;
       }
 
@@ -191,6 +197,7 @@ export class HighlightManager {
       this.storage.save();
     }
 
+    this.toast?.show('HIGHLIGHT_DELETED', { level: 'success' });
     return true;
   }
 
@@ -362,7 +369,8 @@ export class HighlightManager {
       el =>
         el?.id === 'notion-floating-rail-host' ||
         el?.id === 'notion-highlighter-host' ||
-        el?.closest?.('#notion-floating-rail-host, #notion-highlighter-host')
+        el?.id === 'notion-toast-host' ||
+        el?.closest?.('#notion-floating-rail-host, #notion-highlighter-host, #notion-toast-host')
     );
   }
 

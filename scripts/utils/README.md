@@ -35,3 +35,4 @@
 - `LogBuffer.js`: 僅 Background 的日誌緩衝區
 - `LogExporter.js`: 僅 Background 的日誌匯出器
 - `LogSanitizer.js`: 僅 Background 的日誌清理與脫敏工具
+- `concurrencyUtils.js`: 僅 Background 的並行控制工具 (pMap)

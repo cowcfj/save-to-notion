@@ -34,6 +34,33 @@ import { getActiveNotionToken, refreshOAuthToken } from '../../utils/notionAuth.
  */
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const UNKNOWN_ERROR_FALLBACK = 'Unknown error';
+
+/**
+ * 從任意 rejection / thrown value 中萃取人類可讀訊息。
+ * 涵蓋三種來源：Error、字串、含 message 欄位的 plain object；其餘退回 fallback token。
+ *
+ * @param {unknown} reason
+ * @returns {string}
+ */
+function extractRejectionMessage(reason) {
+  if (reason instanceof Error) {
+    return reason.message || UNKNOWN_ERROR_FALLBACK;
+  }
+  if (typeof reason === 'string' && reason) {
+    return reason;
+  }
+  if (
+    reason &&
+    typeof reason === 'object' &&
+    typeof reason.message === 'string' &&
+    reason.message
+  ) {
+    return reason.message;
+  }
+  return UNKNOWN_ERROR_FALLBACK;
+}
+
 /**
  * NotionService 類
  * 封裝 Notion API 操作，使用官方 SDK
@@ -359,9 +386,11 @@ class NotionService {
 
       return { success: true, blocks: allBlocks };
     } catch (error) {
+      const errorCode = sanitizeApiError(error, 'fetch_blocks');
       return {
         success: false,
-        error: sanitizeApiError(error, 'fetch_blocks'),
+        error: errorCode,
+        errorCode,
       };
     }
   }
@@ -389,9 +418,20 @@ class NotionService {
 
     // 分批並發處理（每批 CONCURRENCY 個）
     for (const [batchIndex, batch] of batches.entries()) {
-      const results = await Promise.all(
+      const settledResults = await Promise.allSettled(
         batch.map(blockId => this._deleteBlockById(blockId, options, retryPolicy))
       );
+      const results = settledResults.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        }
+
+        return {
+          success: false,
+          id: batch[index],
+          error: extractRejectionMessage(result.reason),
+        };
+      });
 
       successCount += this._collectDeleteBatchResults(results, errors);
 
@@ -431,7 +471,7 @@ class NotionService {
       if (error.status === 404 || error.code === 'object_not_found') {
         return false;
       }
-      if (error.message?.includes('API Key') || error.message?.includes('config')) {
+      if (error.message?.includes('API_KEY_NOT_CONFIGURED') || error.message?.includes('config')) {
         throw error;
       }
       Logger.error('[NotionService] 無法確定頁面存續狀態', {
@@ -521,7 +561,7 @@ class NotionService {
 
       return { success: true, id: blockId };
     } catch (deleteError) {
-      const errorText = deleteError.message || 'Unknown error';
+      const errorText = extractRejectionMessage(deleteError);
       Logger.warn('[NotionService] 刪除區塊異常', {
         action: 'deleteBlocksByIds',
         phase: 'deleteBlock',
@@ -701,7 +741,7 @@ class NotionService {
         action: 'createPage',
         error: safeError,
       });
-      return { success: false, error: safeError };
+      return { success: false, error: safeError, errorCode: safeError };
     }
   }
 
@@ -1008,6 +1048,7 @@ class NotionService {
         return {
           success: false,
           error: fetchResult.error,
+          errorCode: fetchResult.errorCode,
           errorType: 'notion_api',
           details: { phase: 'fetch_blocks' },
         };
@@ -1034,6 +1075,7 @@ class NotionService {
         return {
           success: false,
           error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+          errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
           errorType: 'notion_api',
           details: {
             phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
@@ -1086,9 +1128,11 @@ class NotionService {
         action: 'updateHighlightsSection',
         error,
       });
+      const errorCode = sanitizeApiError(error, 'update_highlights');
       return {
         success: false,
-        error: sanitizeApiError(error, 'update_highlights'),
+        error: errorCode,
+        errorCode,
         errorType: 'internal',
         details: { phase: 'catch_all' },
       };

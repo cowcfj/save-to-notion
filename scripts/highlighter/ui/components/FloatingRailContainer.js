@@ -10,8 +10,6 @@ import { createSafeIcon } from '../../../utils/securityUtils.js';
 
 const ARIA_LABEL = 'aria-label';
 const ACTION_BTN_CLASS = 'rail-action-btn';
-export const ICON_SIZE_SM = '18px';
-const TRIGGER_ICON_SIZE = '22px';
 
 export const RAIL_ICONS = {
   CLOSE:
@@ -43,8 +41,6 @@ export function createFloatingRailContainer(options = {}) {
   closeBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CLOSE_LABEL);
   closeBtn.dataset.action = 'close';
   const closeIcon = createSafeIcon(RAIL_ICONS.CLOSE);
-  closeIcon.style.width = '12px';
-  closeIcon.style.height = '12px';
   closeBtn.append(closeIcon);
   container.append(closeBtn);
 
@@ -55,8 +51,6 @@ export function createFloatingRailContainer(options = {}) {
   trigger.setAttribute('aria-expanded', 'false');
   trigger.setAttribute('aria-pressed', 'false');
   const logoIcon = createSafeIcon(RAIL_ICONS.LOGO);
-  logoIcon.style.width = TRIGGER_ICON_SIZE;
-  logoIcon.style.height = TRIGGER_ICON_SIZE;
   trigger.append(logoIcon);
   container.append(trigger);
 
@@ -70,8 +64,6 @@ export function createFloatingRailContainer(options = {}) {
   saveBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.SAVE_LABEL);
   saveBtn.dataset.action = 'save';
   const saveIcon = createSafeIcon(RAIL_ICONS.NOTION);
-  saveIcon.style.width = ICON_SIZE_SM;
-  saveIcon.style.height = ICON_SIZE_SM;
   saveBtn.append(saveIcon);
 
   const errorTooltip = document.createElement('span');
@@ -128,8 +120,6 @@ export function createFloatingRailContainer(options = {}) {
   manageBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.MANAGE_LABEL);
   manageBtn.dataset.action = 'manage';
   const manageIcon = createSafeIcon(RAIL_ICONS.MANAGE);
-  manageIcon.style.width = ICON_SIZE_SM;
-  manageIcon.style.height = ICON_SIZE_SM;
   manageBtn.append(manageIcon);
   actions.append(manageBtn);
 

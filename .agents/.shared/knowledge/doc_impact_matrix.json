@@ -5,14 +5,14 @@
   "lite_plan_policy": "Lite plan tasks may skip document impact checks entirely when they do not affect user-visible behavior, API contracts, storage/message bus, auth/security, or workflow policy.",
   "change_types": {
     "feature": {
-      "must_check": ["docs/specs/*", "USER_GUIDE.md", "help.html", "relevant docs/guides/*"],
+      "must_check": ["docs/specs/*", "USER_GUIDE.md", "relevant docs/guides/*"],
       "notes": "Use when a change introduces new capability, new workflow, visible UI/state, new message action, storage key, or user-facing limitation."
     },
     "bug_fix": {
       "must_check": [
         "relevant docs/specs/*",
         "relevant docs/guides/*",
-        "USER_GUIDE.md or help.html when user-visible behavior or wording changes"
+        "USER_GUIDE.md when user-visible behavior or wording changes"
       ],
       "notes": "Pure internal fixes may skip user-facing docs, but the final report must state why."
     },

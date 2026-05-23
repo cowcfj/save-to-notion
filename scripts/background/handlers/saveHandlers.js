@@ -38,6 +38,7 @@ import { ProfileResolver } from '../../destinations/ProfileResolver.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { DATA_SOURCE_KEYS } from '../../config/shared/storage.js';
 import { getActiveTab } from './handlerUtils.js';
+import { sendToastToTab, classifyErrorForToast } from './toastUtils.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
 
@@ -47,31 +48,31 @@ const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS))
 
 function getDestinationProfileErrorCode(error) {
   if (typeof error?.code === 'string' && error.code.trim()) {
-    return error.code.trim();
+    return error.code.trim().toUpperCase();
   }
 
   const message = typeof error?.message === 'string' ? error.message : '';
   if (message.includes('找不到目的地')) {
-    return 'destination_profile_not_found';
+    return 'DESTINATION_PROFILE_NOT_FOUND';
   }
   if (message.includes('尚未設定保存目標')) {
-    return 'destination_profile_not_configured';
+    return 'DESTINATION_PROFILE_NOT_CONFIGURED';
   }
   if (message.includes('不可使用') || message.includes('數量上限')) {
-    return 'destination_profile_not_allowed';
+    return 'DESTINATION_PROFILE_NOT_ALLOWED';
   }
-  return 'unknown_destination_profile_error';
+  return 'UNKNOWN_DESTINATION_PROFILE_ERROR';
 }
 
 function formatDestinationProfileResolveError(error) {
   const code = getDestinationProfileErrorCode(error);
   const messages = {
-    destination_profile_not_found: '找不到指定的保存目的地，請重新整理後再試。',
-    destination_profile_not_configured: '尚未設定保存目的地，請先到設定頁完成設定。',
-    destination_profile_not_allowed: '此保存目的地目前不可使用，請改用其他保存目標。',
-    unknown_destination_profile_error: '保存目的地無法使用，請重新整理後再試。',
+    DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
+    DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
+    DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
+    UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
   };
-  return messages[code] || messages.unknown_destination_profile_error;
+  return messages[code] || messages.UNKNOWN_DESTINATION_PROFILE_ERROR;
 }
 
 /**
@@ -127,14 +128,28 @@ export function processContentResult(rawResult, highlights, highlightContentStyl
  *
  * @param {object} result - 操作結果
  * @param {Function} sendResponse - 回應函數
+ * @param {number} [activeTabId] - 發起操作的 tab ID（用於推送 toast）
  */
-function sendErrorResponse(result, sendResponse) {
-  const userMessage = ErrorHandler.formatUserMessage(result.error);
+function sendErrorResponse(result, sendResponse, activeTabId) {
+  const errorCode = typeof result.errorCode === 'string' ? result.errorCode : undefined;
+  const patternMessage = errorCode ? ERROR_MESSAGES.PATTERNS[errorCode] : undefined;
+  if (errorCode && patternMessage === undefined) {
+    Logger.warn('Missing error pattern for errorCode', {
+      action: 'sendErrorResponse',
+      errorCode,
+    });
+  }
+  const userMessage = patternMessage ?? ErrorHandler.formatUserMessage(result.error);
   const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
   sendResponse({
     ...result,
     error: `${userMessage}${phaseInfo}`,
   });
+
+  const toastKey = classifyErrorForToast(errorCode);
+  if (toastKey) {
+    sendToastToTab(activeTabId, toastKey, 'error');
+  }
 }
 
 function _validateCheckPageStatusSender(sender) {
@@ -329,6 +344,7 @@ export function createSaveHandlers(services) {
       sendResponse({
         success: false,
         error: formatDestinationProfileResolveError(error),
+        errorCode,
       });
       return null;
     }
@@ -708,7 +724,7 @@ export function createSaveHandlers(services) {
 
         sendResponse(result);
       } else {
-        sendErrorResponse(result, sendResponse);
+        sendErrorResponse(result, sendResponse, activeTabId);
       }
     } else {
       const result = await notionService.refreshPageContent(
@@ -751,7 +767,7 @@ export function createSaveHandlers(services) {
 
         sendResponse(result);
       } else {
-        sendErrorResponse(result, sendResponse);
+        sendErrorResponse(result, sendResponse, activeTabId);
       }
     }
   }
@@ -813,13 +829,13 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handleNewPageCreation(params) {
-    const { sendResponse } = params;
+    const { sendResponse, activeTabId } = params;
     const result = await performCreatePage(params);
 
     if (result.success) {
       sendResponse(result);
     } else {
-      sendErrorResponse(result, sendResponse);
+      sendErrorResponse(result, sendResponse, activeTabId);
     }
   }
 
@@ -830,7 +846,7 @@ export function createSaveHandlers(services) {
    */
   async function determineAndExecuteSaveAction(params) {
     // 注意：params 還包含 highlights 和 apiKey，透過 _handleExistingPageUpdate(params) 傳遞
-    const { savedData, apiKey, sendResponse, destinationProfile } = params;
+    const { savedData, apiKey, sendResponse, destinationProfile, activeTabId } = params;
 
     // 1. 新頁面路徑
     if (!savedData?.notionPageId) {
@@ -873,7 +889,7 @@ export function createSaveHandlers(services) {
         result.recreated = true;
         sendResponse(result);
       } else {
-        sendErrorResponse(result, sendResponse);
+        sendErrorResponse(result, sendResponse, activeTabId);
       }
     } else {
       Logger.warn('首次檢測頁面不存在，暫不清理本地狀態', {

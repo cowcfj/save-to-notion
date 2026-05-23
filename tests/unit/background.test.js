@@ -138,7 +138,7 @@ describe('Background Script Lifecycle', () => {
         },
       },
       tabs: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue(undefined),
         sendMessage: jest.fn(),
         onUpdated: {
           addListener: jest.fn(),
@@ -227,7 +227,7 @@ describe('Background Script Lifecycle', () => {
           onMessage: { addListener: jest.fn() },
         },
         tabs: {
-          create: jest.fn(),
+          create: jest.fn().mockResolvedValue(undefined),
           sendMessage: jest.fn(),
           onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
           onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
@@ -270,7 +270,7 @@ describe('Background Script Lifecycle', () => {
           onMessage: { addListener: jest.fn() },
         },
         tabs: {
-          create: jest.fn(),
+          create: jest.fn().mockResolvedValue(undefined),
           sendMessage: jest.fn(),
           onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
           onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
@@ -315,7 +315,7 @@ describe('Background Script Lifecycle', () => {
           onMessage: { addListener: jest.fn() },
         },
         tabs: {
-          create: jest.fn(),
+          create: jest.fn().mockResolvedValue(undefined),
           sendMessage: jest.fn(),
           onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
           onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },

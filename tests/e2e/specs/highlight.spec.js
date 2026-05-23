@@ -112,5 +112,24 @@ test.describe('Highlighting Feature', () => {
       timeout: 5000,
       state: 'attached',
     });
+
+    // 5. 驗證 Toast 已 wire 進 HighlighterV2 與 manager（issue #534）。
+    //    刻意不真的呼叫 toast.show()——那會在 example.com 留下 DOM 影響後續斷言；
+    //    僅做鴨子型別與 instance identity 檢查，補 unit test 涵蓋不到的整合風險：
+    //    「toast 暴露給 windowAPI 卻沒注入 manager」這種 wire 斷裂只能在真實 Chrome 抓到。
+    const toastWireResult = await page.evaluate(() => {
+      const v2 = globalThis.HighlighterV2;
+      return {
+        hasV2: Boolean(v2),
+        hasToast: Boolean(v2?.toast),
+        toastShowIsFn: typeof v2?.toast?.show === 'function',
+        managerToastIsSameInstance: v2?.manager?.toast === v2?.toast,
+      };
+    });
+
+    expect(toastWireResult.hasV2).toBe(true);
+    expect(toastWireResult.hasToast).toBe(true);
+    expect(toastWireResult.toastShowIsFn).toBe(true);
+    expect(toastWireResult.managerToastIsSameInstance).toBe(true);
   });
 });

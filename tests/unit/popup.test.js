@@ -14,7 +14,7 @@ import {
   updateUIForSavedPage,
   updateUIForUnsavedPage,
   formatSaveSuccessMessage,
-} from '../../popup/popupUI.js';
+} from '../../pages/popup/popupUI.js';
 import {
   checkSettings,
   checkPageStatus,
@@ -22,7 +22,7 @@ import {
   openNotionPage,
   startHighlight,
   getActiveTab,
-} from '../../popup/popupActions.js';
+} from '../../pages/popup/popupActions.js';
 import { ERROR_MESSAGES } from '../../scripts/config/shared/messages.js';
 
 describe('popupUI', () => {
@@ -333,7 +333,7 @@ describe('initPopup integration', () => {
 
   test('保存成功後應發送 showToolbar 訊息給 content script', async () => {
     // 動態 import initPopup
-    const { initPopup } = await import('../../popup/popup.js');
+    const { initPopup } = await import('../../pages/popup/popup.js');
 
     // Mock 設置完整
     const mockSyncSettings = {
@@ -388,7 +388,7 @@ describe('initPopup integration', () => {
 
   test('Content Script 未注入時應忽略錯誤', async () => {
     // 動態 import initPopup
-    const { initPopup } = await import('../../popup/popup.js');
+    const { initPopup } = await import('../../pages/popup/popup.js');
 
     // Mock 設置完整
     const mockSyncSettings = {

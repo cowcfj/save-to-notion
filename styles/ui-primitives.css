@@ -34,6 +34,7 @@ button.btn-icon {
 .btn-primary {
   background-color: var(--color-primary);
   color: var(--color-bg);
+  border: 1px solid transparent;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -61,6 +62,7 @@ button.btn-icon {
 .btn-danger {
   background-color: var(--status-error-bg);
   color: var(--color-danger);
+  border: 1px solid transparent;
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -84,6 +86,16 @@ button.btn-icon:hover {
   padding: var(--spacing-md);
   margin-top: var(--spacing-md);
 }
+
+/* === Margin Utilities ===
+ * 語意化命名，對齊 styles/ui-tokens.css 的 --spacing-* canonical scale。
+ * sm = 8px (component-internal gaps)，md = 16px (component-level gaps，例如 form group / card section)。
+ * 詳見 DESIGN.md「Spacing」章節。
+ */
+.mt-sm { margin-top: var(--spacing-sm); }
+.mt-md { margin-top: var(--spacing-md); }
+.mb-sm { margin-bottom: var(--spacing-sm); }
+.mb-md { margin-bottom: var(--spacing-md); }
 
 /* === Focus States === */
 .btn-primary:focus-visible,

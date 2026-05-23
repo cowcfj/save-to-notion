@@ -9,6 +9,9 @@ import {
   validateInternalRequest,
 } from '../../../../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
+  '../../../../scripts/utils/ErrorHandler.js'
+);
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
@@ -36,7 +39,7 @@ describe('highlightHandlers', () => {
     normalizeUrl.mockImplementation(url => url);
 
     // Fix ErrorHandler mock
-    ErrorHandler.formatUserMessage.mockImplementation(msg => msg);
+    ErrorHandler.formatUserMessage.mockImplementation(ActualErrorHandler.formatUserMessage);
 
     // Fix sanitizeApiError mock
     sanitizeApiError.mockImplementation(err =>
@@ -139,7 +142,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
-    it('應該處理 syncHighlights 失敗 (API 錯誤)', async () => {
+    it('應該處理 syncHighlights 失敗 (API 錯誤) 並透傳下游 errorCode (ADR 0007)', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { highlights: [{ text: 'test' }] };
@@ -149,12 +152,16 @@ describe('highlightHandlers', () => {
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
         error: 'Sync failed',
+        errorCode: 'highlight_sync_failed',
       });
 
       await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: 'Sync failed' })
+        expect.objectContaining({
+          success: false,
+          errorCode: 'highlight_sync_failed',
+        })
       );
     });
 
@@ -162,19 +169,12 @@ describe('highlightHandlers', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
       const request = { highlights: [{ text: 'test' }] };
-      const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
-        '../../../../scripts/utils/ErrorHandler.js'
-      );
-
-      ErrorHandler.formatUserMessage.mockImplementation(error =>
-        ActualErrorHandler.formatUserMessage(error)
-      );
 
       mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'highlight_section_delete_incomplete',
+        error: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
         details: { phase: 'delete_highlight_section', retryable: true },
       });
 
@@ -196,7 +196,7 @@ describe('highlightHandlers', () => {
       mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -229,7 +229,7 @@ describe('highlightHandlers', () => {
       });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -268,7 +268,7 @@ describe('highlightHandlers', () => {
       });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -310,7 +310,7 @@ describe('highlightHandlers', () => {
       });
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({
         success: false,
-        error: 'object_not_found',
+        error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
       });
 
@@ -352,6 +352,24 @@ describe('highlightHandlers', () => {
       );
     });
 
+    it('savedData 缺 notionPageId 時 envelope 應帶 errorCode: PAGE_NOT_SAVED (ADR 0007)', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'PAGE_NOT_SAVED',
+        })
+      );
+      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
+    });
+
     it('應該處理缺少 sender.tab 的情況', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: null };
@@ -362,7 +380,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
         })
       );
       expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
@@ -380,7 +398,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
         })
       );
       expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
@@ -530,12 +548,12 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED],
         })
       );
     });
 
-    it('should handle collection failure in updateHighlights', async () => {
+    it('UPDATE_REMOTE_HIGHLIGHTS catch fallback 應帶 errorCode: INTERNAL_ERROR (ADR 0007)', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
 
@@ -553,7 +571,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Collection failed'),
+          errorCode: 'INTERNAL_ERROR',
         })
       );
     });
@@ -931,6 +949,71 @@ describe('highlightHandlers', () => {
           success: false,
           error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
         })
+      );
+    });
+  });
+
+  describe('toast 推送（sync failure → SHOW_TOAST）', () => {
+    it('SYNC_HIGHLIGHTS auth 失敗 → 應推送 SYNC_FAILED_AUTH toast', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_AUTH',
+          level: 'error',
+        })
+      );
+    });
+
+    it('SYNC_HIGHLIGHTS HIGHLIGHT_SECTION_DELETE_INCOMPLETE → 不推送 toast', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'partial',
+        errorCode: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ action: 'SHOW_TOAST' })
+      );
+    });
+
+    it('performHighlightUpdate 應透傳 errorCode 欄位至 response', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+        success: false,
+        error: 'rate limited',
+        errorCode: 'RATE_LIMITED',
+      });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ errorCode: 'RATE_LIMITED' })
       );
     });
   });

@@ -58,7 +58,16 @@
     },
     "design_decisions": {
       "no_timestamp": "單用戶場景 + Chrome DevTools 內建時間戳，FIFO LogBuffer 隱含時間順序",
-      "console_dx": "持久化層結構化，展示層人性化（控制台保留多參數展開行為，不強制 JSON.stringify）"
+      "console_dx": "持久化層結構化，展示層人性化（控制台保留多參數展開行為，不強制 JSON.stringify）",
+      "saturation_protection": {
+        "strategy": "per-fingerprint count quota over buffer-resident entries",
+        "fingerprint": "message + context.action",
+        "suppress_threshold": 10,
+        "anomaly_threshold": 30,
+        "anomaly_marker": "[ANOMALY] message looped N× in buffer: \"...\"",
+        "context_fields_added": ["repeatCount", "anomaly", "repeatedMessage", "repeatedAction"],
+        "rationale": "buffer 是 FIFO + 有界容量；以 buffer-resident count 作配額避免迴圈訊息壓垮真實使用者事件，無需引入 timestamp。閾值 10/30 對應本 extension 的圖片批次 / highlight restore 等合法批次場景，避免 false-positive ANOMALY 稀釋警告信號可信度。"
+      }
     }
   },
   "precise_test_fixing": {

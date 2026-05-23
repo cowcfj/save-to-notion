@@ -37,6 +37,11 @@ const AUTH = {
   OAUTH_TARGET_REQUIRED: '已連接 Notion，下一步請選擇保存目標並按儲存。',
   OAUTH_SERVER_MISCONFIGURATION: 'OAuth 伺服器設定異常，請稍後再試或聯絡開發者',
   OAUTH_INVALID_REDIRECT_URI: 'OAuth redirect URI 設定不符，請確認伺服器與 Notion 整合設定',
+  OAUTH_USER_CANCELLED: '您取消了 Notion 授權，請重試',
+  OAUTH_REDIRECT_URI_FORMAT_MISMATCH:
+    'Notion 授權碼生成失敗，可能是 redirect_uri 格式不符。請確認 Notion Integration 中登記的 URI 與擴充功能 URL 完全一致（注意尾部斜線）',
+  OAUTH_CALLBACK_ERROR_GENERIC: oauthError =>
+    `Notion 授權失敗 (${oauthError})，請確認 Integration 設定正確`,
 
   OPENING_NOTION: '正在打開 Notion...',
   OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,
@@ -110,9 +115,25 @@ const OPTIONS = {
     ZOOM_HELP: '調整擴充功能設定頁面的顯示比例。',
     FLOATING_RAIL_LABEL: '顯示快捷工具列',
     FLOATING_RAIL_HELP: '關閉後不會自動顯示右側小按鈕，但仍可透過彈出視窗開始標註。',
+    FLOATING_RAIL_POSITION_LABEL: '懸浮按鈕位置',
+    FLOATING_RAIL_POSITION_TOP_OPTION: '右偏上',
+    FLOATING_RAIL_POSITION_MIDDLE_OPTION: '右中',
+    FLOATING_RAIL_POSITION_BOTTOM_OPTION: '右偏下',
+    FLOATING_RAIL_SIZE_LABEL: '懸浮按鈕大小',
+    FLOATING_RAIL_SIZE_LARGE_OPTION: '大',
+    FLOATING_RAIL_SIZE_SMALL_OPTION: '小',
   },
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
+  },
+  ABOUT: {
+    SECTION_TITLE: '關於作者',
+    PROFILE_TITLE: '個人介紹',
+    LINKS_TITLE: '連結',
+    OPEN_SOURCE_LABEL: '開源專案',
+    SOCIAL_LABEL: '個人社群',
+    SUPPORT_TITLE: '支持作者',
+    SUPPORT_DESC: '如果這個擴充功能對你有幫助，歡迎透過以下方式支持持續開發：',
   },
   TEMPLATES: {
     SECTION_TITLE: '外觀樣式',
@@ -137,6 +158,47 @@ const OPTIONS = {
     HIGHLIGHT_CONTENT_STYLE_NONE: '關閉',
     HIGHLIGHT_CONTENT_STYLE_HELP: '選擇標註文字在 Notion 頁面原文中的標示方式（首次保存時生效）。',
     SAVE_BUTTON: '儲存外觀樣式',
+  },
+  GUIDE: {
+    SECTION_TITLE: '使用指南',
+    SECTION_DESC: '了解如何最有效地使用 Notion Smart Clipper',
+    QUICK_START_TITLE: '快速開始',
+    QUICK_START_STEP_1_TITLE: '1. 連接到 Notion',
+    QUICK_START_STEP_1_DESC:
+      '在「一般設定」點擊「以 OAuth 連接 Notion」授權，或選擇手動配置輸入 API Key。',
+    QUICK_START_STEP_2_TITLE: '2. 預備資料庫',
+    QUICK_START_STEP_2_DESC: '確保您的 Notion 中已有資料庫，且該資料庫已授權給本擴展存取。',
+    QUICK_START_STEP_3_TITLE: '3. 開始剪藏',
+    QUICK_START_STEP_3_DESC: '在任意網頁點擊擴展圖標，選擇目標資料庫後即可一鍵保存！',
+    FEATURES_TITLE: '核心功能',
+    FEATURES_ONE_CLICK_TITLE: '一鍵保存',
+    FEATURES_ONE_CLICK_DESC: '智能提取文章內容、圖片與 icon',
+    FEATURES_MULTI_COLOR_TITLE: '多色標註',
+    FEATURES_MULTI_COLOR_DESC: '支持 4 種顏色與 3 種樣式(背景/文字/底線)',
+    FEATURES_SHORTCUT_TITLE: '快捷鍵支援',
+    FEATURES_SHORTCUT_DESC_PREFIX: '按 ',
+    FEATURES_SHORTCUT_CTRL_KEY: 'Ctrl+S',
+    FEATURES_SHORTCUT_DESC_MIDDLE: ' (Mac: ',
+    FEATURES_SHORTCUT_CMD_KEY: 'Cmd+S',
+    FEATURES_SHORTCUT_DESC_SUFFIX: ') 快速開啟標註工具',
+    FEATURES_TEMPLATE_TITLE: '自定義模板',
+    FEATURES_TEMPLATE_DESC: '支持 {title}, {date} 等變數',
+    FEATURES_SYNC_TITLE: '狀態同步',
+    FEATURES_SYNC_DESC: '圖標徽章即時顯示保存狀態',
+    FEATURES_SIDEBAR_TITLE: '側邊欄管理標註',
+    FEATURES_SIDEBAR_DESC: '在右側邊欄集中查看、管理與刪除所有標註',
+    FAQ_TITLE: '常見問題',
+    FAQ_VIEW_FULL_GUIDE: '查看完整指南',
+    FAQ_TOKEN_QUESTION: 'API Key 無法連接?',
+    FAQ_TOKEN_ANSWER_PREFIX: '請確認 Token 格式正確(以 ',
+    FAQ_TOKEN_ANSWER_CODE: 'secret_',
+    FAQ_TOKEN_ANSWER_SUFFIX: ' 開頭),並確保網路連接正常。',
+    FAQ_DATABASE_QUESTION: '數據庫列表為空?',
+    FAQ_DATABASE_ANSWER:
+      '請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。',
+    FAQ_HIGHLIGHT_QUESTION: '標註沒有顯示?',
+    FAQ_HIGHLIGHT_ANSWER: '請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。',
+    CTA_READ_FULL_GUIDE: '閱讀完整用戶指南與 FAQ',
   },
 };
 
@@ -168,6 +230,14 @@ const STORAGE = {
   CLEANUP_SUMMARY: (parts, spaceKB) => `可清理：${parts.join('、')}，預計釋放 ${spaceKB} KB`,
   NO_CLEANUP_NEEDED: '無可清理項目',
   CLEANUP_FAILED: errorMsg => `清理失敗：${errorMsg}`,
+
+  MIGRATION_DELETE_PARTIAL_COMPLETE: '部分刪除完成',
+  MIGRATION_DELETE_FAILED: '刪除失敗',
+  MIGRATION_BATCH_DELETE_SUCCESS: success => `成功刪除 ${success} 個頁面的標註數據`,
+  MIGRATION_BATCH_DELETE_PARTIAL: (success, failed) =>
+    `成功刪除 ${success} 個頁面，${failed} 個失敗`,
+  MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
+    `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
 
   HEALTH_CORRUPTED: count => `發現 ${count} 個損壞的數據項`,
   HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
@@ -239,6 +309,7 @@ const TOOLBAR = {
   SYNC_SUCCESS: '同步成功',
   SYNC_FAILED: '同步失敗',
   SYNC_FAILED_PREFIX: '同步失敗：',
+  PAGE_NOT_SAVED_HINT: '請先保存頁面到 Notion',
   COLOR_PICKER_NAMES: {
     yellow: '黃',
     green: '綠',
@@ -262,6 +333,16 @@ const FLOATING_RAIL = {
   CLOSE_LABEL: '關閉本頁工具列',
 };
 
+const TOAST = {
+  HIGHLIGHT_DELETED: '標註已刪除',
+  HIGHLIGHT_DUPLICATE: '此文字已標註',
+  HIGHLIGHT_FAILED: '標註失敗，請重試',
+  SYNC_FAILED_AUTH: '同步失敗：Notion 授權已失效，請重新連接',
+  SYNC_FAILED_RATE_LIMIT: '同步失敗：請求過於頻繁，請稍後再試',
+  SYNC_FAILED_NETWORK: '同步失敗：網路連線異常，請檢查網路',
+  SYNC_FAILED_PAGE: '同步失敗：找不到目標頁面，請確認頁面存在',
+};
+
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
   '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。';
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
@@ -269,6 +350,7 @@ const CLOUD_SYNC_DOWNLOAD_CONFIRM_ENDING = '確定要繼續嗎？';
 const CLOUD_SYNC = {
   LAST_UPLOAD_PREFIX: '上次上載：',
   LAST_REMOTE_PREFIX: '雲端備份：',
+  CONFLICT_REMOTE_PREFIX: '雲端最後更新：',
   NEVER_UPLOADED: '尚未上載',
   TIMESTAMP_WITH_TIMEZONE: (time, zone) => `${time}（${zone}）`,
 
@@ -370,18 +452,18 @@ export const UI_MESSAGES = deepFreeze({
   HIGHLIGHTS,
   TOOLBAR,
   FLOATING_RAIL,
+  TOAST,
   STORAGE,
   CLOUD_SYNC,
 });
 
 const TECHNICAL = {
-  NO_ACTIVE_TAB: 'active tab',
-  MISSING_API_KEY: 'API Key',
-  MISSING_DATA_SOURCE: 'Data Source ID',
-  MISSING_PAGE_ID: 'Page ID is missing',
-  PAGE_NOT_SAVED: 'Page not saved',
-  NO_NOTION_URL: 'No URL provided',
-  API_KEY_NOT_CONFIGURED: 'API Key',
+  NO_ACTIVE_TAB: 'NO_ACTIVE_TAB',
+  MISSING_API_KEY: 'API_KEY_NOT_CONFIGURED',
+  MISSING_DATA_SOURCE: 'MISSING_DATA_SOURCE',
+  MISSING_PAGE_ID: 'MISSING_PAGE_ID',
+  PAGE_NOT_SAVED: 'PAGE_NOT_SAVED',
+  API_KEY_NOT_CONFIGURED: 'API_KEY_NOT_CONFIGURED',
   GET_VERSION_FAILED: '無法獲取應用程式版本號',
   NAV_MISSING_ITEMS: '設定頁面：找不到導航項目或設定區塊',
   NAV_MISSING_ATTR: '設定頁面：導航項目缺少 data-section 屬性',
@@ -465,43 +547,46 @@ export const SECURITY_ERROR_MESSAGES = deepFreeze({
 const NOTION_SERVICE_UNAVAILABLE_MESSAGE = 'Notion 服務暫時不可用，請稍後再試';
 
 const PATTERNS = {
-  'No tab with id': '頁面狀態已變更，請重新整理頁面後再試',
-  'active tab': '無法獲取當前分頁，請確保擴展有權限存取此頁面',
-  'Cannot access contents': '無法存取此頁面內容，可能是受保護的系統頁面',
-  'Receiving end does not exist': '頁面載入中，請稍候再試',
-  'Could not establish connection': '頁面通訊失敗，請重新整理頁面',
-  oauth_identity_unavailable: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
-  'OAuth Identity API unavailable': UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
+  NO_TAB_WITH_ID: '頁面狀態已變更，請重新整理頁面後再試',
+  NO_ACTIVE_TAB: '無法獲取當前分頁，請確保擴展有權限存取此頁面',
+  TAB_RESTRICTED_PAGE: '無法存取此頁面內容，可能是受保護的系統頁面',
+  CONTENT_SCRIPT_NOT_READY: '頁面載入中，請稍候再試',
+  TAB_COMMUNICATION_FAILED: '頁面通訊失敗，請重新整理頁面',
+  OAUTH_IDENTITY_UNAVAILABLE: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
 
-  'API Key': USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
-  'Invalid API Key format': USER_MESSAGES.INVALID_API_KEY_FORMAT,
-  'Data Source ID': USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
-  'Database access denied': USER_MESSAGES.DATABASE_ACCESS_DENIED,
-  'Integration disconnected': USER_MESSAGES.INTEGRATION_DISCONNECTED,
-  'Integration forbidden (403)': USER_MESSAGES.DATABASE_ACCESS_DENIED,
-  'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
-  'Page not saved': '頁面尚未保存，請先保存頁面',
-  'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
-  validation_error: USER_MESSAGES.API_VALIDATION_FAILED,
-  image_validation_error: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
-  highlight_section_delete_incomplete: '標註同步未完成，請稍後再試',
-  notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
+  API_KEY_NOT_CONFIGURED: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+  INVALID_API_KEY_FORMAT: USER_MESSAGES.INVALID_API_KEY_FORMAT,
+  MISSING_DATA_SOURCE: USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
+  DATABASE_ACCESS_DENIED: USER_MESSAGES.DATABASE_ACCESS_DENIED,
+  INTEGRATION_DISCONNECTED: USER_MESSAGES.INTEGRATION_DISCONNECTED,
+  INTEGRATION_FORBIDDEN: USER_MESSAGES.DATABASE_ACCESS_DENIED,
+  MISSING_PAGE_ID: '無法識別頁面，請重回 Notion 頁面再試',
+  PAGE_NOT_SAVED: '頁面尚未保存，請先保存頁面',
+  INVALID_REQUEST: USER_MESSAGES.CONTENT_PARSE_FAILED,
+  VALIDATION_ERROR: USER_MESSAGES.API_VALIDATION_FAILED,
+  IMAGE_VALIDATION_ERROR: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
+  HIGHLIGHT_SECTION_DELETE_INCOMPLETE: '標註同步未完成，請稍後再試',
+  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: '部分標註數據刪除失敗，請稍後再試',
+  NOTIONHQ_CLIENT_RESPONSE_ERROR: 'Notion API 請求失敗，請稍後再試',
 
-  rate_limited: '請求過於頻繁，請稍後再試',
-  conflict_error: '發生資料衝突，請稍後重試',
-  object_not_found: '找不到目標頁面或資料庫，請確認資源存在且已授權',
-  unauthorized: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
-  invalid_request_url: '請求的 URL 無效，請確認頁面網址正確',
-  invalid_json: '資料格式錯誤，請稍後再試',
-  service_unavailable: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
-  internal_server_error: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
+  RATE_LIMITED: '請求過於頻繁，請稍後再試',
+  CONFLICT_ERROR: '發生資料衝突，請稍後重試',
+  OBJECT_NOT_FOUND: '找不到目標頁面或資料庫，請確認資源存在且已授權',
+  UNAUTHORIZED: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+  INVALID_REQUEST_URL: '請求的 URL 無效，請確認頁面網址正確',
+  INVALID_JSON: '資料格式錯誤，請稍後再試',
+  SERVICE_UNAVAILABLE: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
+  INTERNAL_SERVER_ERROR: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
 
-  'Network error': '網路連線異常，請檢查網路後重試',
-  'rate limit': '請求過於頻繁，請稍後再試',
-  timeout: '請求超時，請檢查網路連線',
+  NETWORK_ERROR: '網路連線異常，請檢查網路後重試',
+  TIMEOUT: '請求超時，請檢查網路連線',
 
-  'Internal Server Error': NOTION_SERVICE_UNAVAILABLE_MESSAGE,
-  'Unknown Error': '發生未知錯誤，請稍後再試',
+  UNKNOWN_ERROR: '發生未知錯誤，請稍後再試',
+
+  DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
+  DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
+  DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
+  UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
 };
 
 const DEFAULT = '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
@@ -526,16 +611,20 @@ export const API_ERROR_PATTERNS = deepFreeze({
   RATE_LIMIT: ['rate limit', 'too many requests'],
   NOT_FOUND: ['not found', 'does not exist'],
   ACTIVE_TAB: ['active tab'],
+  TAB_NOT_FOUND: ['no tab with id'],
+  RUNTIME_DISCONNECTED: ['receiving end does not exist'],
+  CONNECTION_NOT_ESTABLISHED: ['could not establish connection'],
   DATA_SOURCE: ['database', 'object_not_found'],
 
   VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
-  NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
+  TIMEOUT: ['timeout', 'timed out'],
+  NETWORK: ['network', 'fetch', 'enotfound'],
 
   SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
 });
 
 export const HIGHLIGHT_ERROR_CODES = deepFreeze({
-  DELETE_INCOMPLETE: 'highlight_section_delete_incomplete',
+  DELETE_INCOMPLETE: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
   PHASE_DELETE: 'delete_highlight_section',
 });
 

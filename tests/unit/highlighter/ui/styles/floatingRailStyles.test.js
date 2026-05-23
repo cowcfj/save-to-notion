@@ -84,4 +84,46 @@ describe('floatingRailStyles', () => {
       expect(styleEl.textContent).toContain('.rail-container');
     });
   });
+
+  describe('CSS variable fallbacks', () => {
+    test('host top uses var(--rail-top, 50%)', () => {
+      const css = getFloatingRailCSS();
+      expect(css).toMatch(/top:\s*var\(--rail-top,\s*50%\)/);
+    });
+
+    test('rail-trigger and rail-action-btn use var(--rail-btn-size, 34px)', () => {
+      const css = getFloatingRailCSS();
+      const matches = css.match(/var\(--rail-btn-size,\s*34px\)/g);
+      expect(matches).not.toBeNull();
+      expect(matches.length).toBeGreaterThanOrEqual(4);
+    });
+
+    test('rail-trigger svg uses var(--rail-trigger-icon-size, 22px)', () => {
+      const css = getFloatingRailCSS();
+      const matches = css.match(/var\(--rail-trigger-icon-size,\s*22px\)/g);
+      expect(matches).not.toBeNull();
+      expect(matches.length).toBeGreaterThanOrEqual(2);
+    });
+
+    test('rail-action-btn svg uses var(--rail-action-icon-size, 18px)', () => {
+      const css = getFloatingRailCSS();
+      const matches = css.match(/var\(--rail-action-icon-size,\s*18px\)/g);
+      expect(matches).not.toBeNull();
+      expect(matches.length).toBeGreaterThanOrEqual(2);
+    });
+
+    test('[REGRESSION] rail-trigger > .icon wrapper 應跟著 trigger icon size CSS variable，避免 small 模式錯位', () => {
+      const css = getFloatingRailCSS();
+      expect(css).toMatch(
+        /\.rail-trigger\s*>\s*\.icon\s*\{[\s\S]*?width:\s*var\(--rail-trigger-icon-size,\s*22px\)[\s\S]*?height:\s*var\(--rail-trigger-icon-size,\s*22px\)/
+      );
+    });
+
+    test('[REGRESSION] rail-action-btn > .icon wrapper 應跟著 action icon size CSS variable，避免 small 模式錯位', () => {
+      const css = getFloatingRailCSS();
+      expect(css).toMatch(
+        /\.rail-action-btn\s*>\s*\.icon\s*\{[\s\S]*?width:\s*var\(--rail-action-icon-size,\s*18px\)[\s\S]*?height:\s*var\(--rail-action-icon-size,\s*18px\)/
+      );
+    });
+  });
 });

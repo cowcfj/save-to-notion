@@ -1,7 +1,7 @@
 // @jest-environment jsdom
 /* global document, chrome */
-import { AuthManager } from '../../../options/AuthManager.js';
-import { UIManager } from '../../../options/UIManager.js';
+import { AuthManager } from '../../../pages/options/AuthManager.js';
+import { UIManager } from '../../../pages/options/UIManager.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
@@ -18,7 +18,7 @@ jest.mock('../../../scripts/config/env/index.js', () => ({
     EXTENSION_API_KEY: 'test-api-key',
   },
 }));
-jest.mock('../../../options/UIManager.js');
+jest.mock('../../../pages/options/UIManager.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
@@ -179,6 +179,17 @@ describe('AuthManager Extended', () => {
       <select id="highlight-style">
         <option value="background">background</option>
         <option value="underline">underline</option>
+      </select>
+      <input id="floating-rail-enabled" type="checkbox" />
+      <select id="floating-rail-position">
+        <option value="top">top</option>
+        <option value="middle">middle</option>
+        <option value="bottom">bottom</option>
+      </select>
+      <select id="floating-rail-size">
+        <option value="small">small</option>
+        <option value="medium">medium</option>
+        <option value="large">large</option>
       </select>
       <input id="enable-debug-logs" type="checkbox" />
       <button id="test-api-button"></button>
@@ -414,8 +425,12 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#oauth-status').textContent).toContain(
         '已連接 — My Workspace'
       );
-      expect(document.querySelector('#oauth-connect-button').style.display).toBe('none');
-      expect(document.querySelector('#oauth-disconnect-button').style.display).toBe('inline-flex');
+      expect(document.querySelector('#oauth-connect-button').classList.contains('hidden')).toBe(
+        true
+      );
+      expect(document.querySelector('#oauth-disconnect-button').classList.contains('hidden')).toBe(
+        false
+      );
       expect(mockLoadDatabases).toHaveBeenCalledWith('oauth_token_123');
       expect(document.querySelector('#database-id').value).toBe('ds_local_123');
       expect(document.querySelector('#title-template').value).toBe('{title} - custom');
@@ -580,6 +595,32 @@ describe('AuthManager Extended', () => {
         error: expect.any(String),
       });
     });
+
+    test('應從 sync storage 載入 floatingRailPosition 與 floatingRailSize', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+        floatingRailPosition: 'top',
+        floatingRailSize: 'small',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#floating-rail-position').value).toBe('top');
+      expect(document.querySelector('#floating-rail-size').value).toBe('small');
+    });
+
+    test('floatingRailPosition 與 floatingRailSize 缺值時應使用 middle/large 預設', async () => {
+      chrome.storage.local.get.mockResolvedValue({});
+      chrome.storage.sync.get.mockResolvedValue({
+        notionApiKey: 'secret_manual_key',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(document.querySelector('#floating-rail-position').value).toBe('middle');
+      expect(document.querySelector('#floating-rail-size').value).toBe('large');
+    });
   });
 
   describe('startOAuthFlow', () => {
@@ -725,7 +766,7 @@ describe('AuthManager Extended', () => {
         })
       );
       expect(Logger.warn).toHaveBeenCalledWith('[存儲] 清理舊的 refresh_proof 失敗，將忽略並繼續', {
-        action: '_saveOAuthTokenData',
+        action: 'saveNotionOAuthToken',
         error: expect.any(String),
       });
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -855,7 +896,7 @@ describe('AuthManager Extended', () => {
       await authManager.startOAuthFlow();
 
       expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Identity API 不可用', {
-        action: 'startOAuthFlow',
+        action: 'initiateNotionOAuth',
         missingIdentityApi: expect.arrayContaining(['getRedirectURL', 'launchWebAuthFlow']),
       });
       expect(chrome.storage.session.set).not.toHaveBeenCalled();
@@ -878,7 +919,7 @@ describe('AuthManager Extended', () => {
         await authManager.startOAuthFlow();
 
         expect(Logger.error).toHaveBeenCalledWith('[Auth] OAuth Client ID 未設定', {
-          action: 'startOAuthFlow',
+          action: 'initiateNotionOAuth',
           missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
         });
         expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -895,6 +936,52 @@ describe('AuthManager Extended', () => {
       } finally {
         BUILD_ENV.OAUTH_CLIENT_ID = originalOAuthClientId;
       }
+    });
+
+    test('callback 帶 error=access_denied 時應顯示用戶取消文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-access-denied');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=access_denied&state=state-access-denied'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-access-denied' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED}`,
+        'error'
+      );
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    test('callback 帶 error=canceled 時應顯示 redirect_uri 格式不符文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-canceled');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=canceled&state=state-canceled'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-canceled' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_REDIRECT_URI_FORMAT_MISMATCH}`,
+        'error'
+      );
+    });
+
+    test('callback 帶其他 error 參數時應顯示通用 callback 失敗文案', async () => {
+      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-misc');
+      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+        'https://mocked.chromiumapp.org/?error=temporarily_unavailable&state=state-misc'
+      );
+      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-misc' });
+
+      await authManager.startOAuthFlow();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_CALLBACK_ERROR_GENERIC('temporarily_unavailable')}`,
+        'error'
+      );
     });
   });
 
