@@ -149,7 +149,7 @@ export function getElements() {
 /**
  * 更新未保存頁面提示 banner 狀態
  *
- * @param {object} elements - Side Panel DOM 元素
+ * @param {SidePanelElements} elements - Side Panel DOM 元素
  * @param {boolean} hasSavedData - 頁面是否已保存至 Notion
  */
 export function applyUnsavedPageNotice(elements, hasSavedData) {
