@@ -222,40 +222,12 @@ class PerformanceOptimizer {
 
     return new Promise((resolve, reject) => {
       const batchItem = {
-        type: 'images',
         images,
         processor,
         resolve,
         reject,
         options,
         timestamp: Date.now(),
-      };
-
-      this.batchQueue.push(batchItem);
-      this._scheduleBatchProcessing();
-    });
-  }
-
-  /**
-   * 批處理 DOM 操作
-   *
-   * @param {Array} operations - 操作數組
-   * @param {object} options - 批處理選項
-   * @returns {Promise<Array>} 操作結果
-   */
-  batchDomOperations(operations, options = {}) {
-    if (!this.options.enableBatching) {
-      return Promise.resolve(operations.map(op => op()));
-    }
-
-    return new Promise((resolve, reject) => {
-      const batchItem = {
-        operations,
-        resolve,
-        reject,
-        options,
-        timestamp: Date.now(),
-        type: 'dom',
       };
 
       this.batchQueue.push(batchItem);
@@ -964,19 +936,11 @@ class PerformanceOptimizer {
    */
   _processSingleBatchItem(item, results) {
     try {
-      if (item.type === 'dom') {
-        // DOM 操作批處理
-        const result = item.operations.map(op => op());
-        item.resolve(result);
-        results.push(result);
-      } else {
-        // 圖片處理批處理或其他處理
-        const result = Array.isArray(item.images)
-          ? item.images.map(img => item.processor(img))
-          : [item.processor()]; // 處理單個項目
-        item.resolve(result);
-        results.push(result);
-      }
+      const result = Array.isArray(item.images)
+        ? item.images.map(img => item.processor(img))
+        : [item.processor()];
+      item.resolve(result);
+      results.push(result);
     } catch (error) {
       if (ErrorHandler !== undefined) {
         ErrorHandler.logError({

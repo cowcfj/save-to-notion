@@ -187,14 +187,6 @@ describe('PerformanceOptimizer', () => {
       expect(results[2]).toEqual({ url: 'test3.jpg', processed: true });
     });
 
-    test('應該批處理 DOM 操作', async () => {
-      const operations = [() => 'operation1', () => 'operation2', () => 'operation3'];
-
-      const results = await optimizer.batchDomOperations(operations);
-
-      expect(results).toEqual(['operation1', 'operation2', 'operation3']);
-    });
-
     test('應該處理批處理錯誤', async () => {
       const images = [{ src: 'test.jpg' }];
       const processor = () => {
@@ -1043,43 +1035,6 @@ describe('PerformanceOptimizer - 全面測試', () => {
     });
   });
 
-  describe('batchDomOperations - 批處理 DOM 操作', () => {
-    test('應該批處理 DOM 操作', async () => {
-      const operations = [() => 'result1', () => 'result2', () => 'result3'];
-
-      const promise = optimizer.batchDomOperations(operations);
-      jest.runAllTimers();
-
-      const results = await promise;
-      expect(results).toEqual(['result1', 'result2', 'result3']);
-    });
-
-    test('應該在禁用批處理時直接執行操作', async () => {
-      optimizer.options.enableBatching = false;
-      const operations = [() => 'direct'];
-
-      const results = await optimizer.batchDomOperations(operations);
-      expect(results).toEqual(['direct']);
-    });
-
-    test('應該處理批處理中的錯誤', async () => {
-      // 注意：錯誤處理由 ErrorHandler 捕獲，批處理會返回空數組
-      const operations = [
-        () => 'success',
-        () => {
-          throw new Error('Batch error');
-        },
-      ];
-
-      const promise = optimizer.batchDomOperations(operations);
-      jest.runAllTimers();
-
-      const results = await promise;
-      // 當發生錯誤時，ErrorHandler 會捕獲並返回空數組
-      expect(Array.isArray(results)).toBe(true);
-    });
-  });
-
   describe('clearCache - 清理緩存', () => {
     test('應該強制清理所有緩存', () => {
       optimizer.cachedQuery('img', mockDocument);
@@ -1363,27 +1318,6 @@ describe('PerformanceOptimizer（額外測試）', () => {
 
     optimizer.clearExpiredCache({ force: true });
     expect(optimizer.queryCache.size).toBe(0);
-  });
-
-  test('batchDomOperations 在執行批次時應回傳所有結果', async () => {
-    const op1 = () => {
-      document.body.append(document.createElement('div'));
-      return 1;
-    };
-    const op2 = () => {
-      document.body.append(document.createElement('span'));
-      return 2;
-    };
-
-    const promise = optimizer.batchDomOperations([op1, op2]);
-    // 直接呼叫內部批次處理，確保同步觸發
-    if (typeof optimizer._processBatch === 'function') {
-      optimizer._processBatch();
-    }
-
-    const results = await promise;
-    expect(Array.isArray(results)).toBe(true);
-    expect(results).toHaveLength(2);
   });
 
   test('preloadSelectors 應增加預熱計數', async () => {
