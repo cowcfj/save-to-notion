@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 describe('popup.html accessibility fallbacks', () => {
   it('應提供可被 screen reader 讀取的靜態 popup heading 與 document title', () => {
-    const html = readFileSync('popup/popup.html', 'utf8');
+    const html = readFileSync('pages/popup/popup.html', 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const heading = doc.querySelector('#popup-title');
 
@@ -12,7 +12,7 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('保存目標列應作為 32px 輔助狀態列並避免撐高 popup', () => {
-    const css = readFileSync('popup/popup.css', 'utf8');
+    const css = readFileSync('pages/popup/popup.css', 'utf8');
 
     expect(css).toMatch(/\.destination-section\s*\{[^}]*font-size:\s*13px;/);
     expect(css).toMatch(/\.destination-section\s*\{[^}]*margin-top:\s*0;/);
@@ -26,8 +26,8 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('標註主要動作應在同一列呈現並保留主次層級', () => {
-    const html = readFileSync('popup/popup.html', 'utf8');
-    const css = readFileSync('popup/popup.css', 'utf8');
+    const html = readFileSync('pages/popup/popup.html', 'utf8');
+    const css = readFileSync('pages/popup/popup.css', 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const actionRow = doc.querySelector('.annotation-actions');
 
@@ -52,8 +52,8 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('設定入口應移到 titlebar 左側並保留可見文字', () => {
-    const html = readFileSync('popup/popup.html', 'utf8');
-    const css = readFileSync('popup/popup.css', 'utf8');
+    const html = readFileSync('pages/popup/popup.html', 'utf8');
+    const css = readFileSync('pages/popup/popup.css', 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const titlebar = doc.querySelector('.popup-titlebar');
     const settingsLink = doc.querySelector('#settings-link');
@@ -76,7 +76,7 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('設定入口應固定 32px 高度並讓 icon 與文字同軸置中', () => {
-    const css = readFileSync('popup/popup.css', 'utf8');
+    const css = readFileSync('pages/popup/popup.css', 'utf8');
 
     expect(css).toMatch(/\.settings-button\s*\{[^}]*height:\s*32px;/);
     expect(css).toMatch(/\.settings-button\s*\{[^}]*box-sizing:\s*border-box;/);
@@ -87,7 +87,7 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('popup title 應使用品牌文字色並讓 accent underline 對齊 title 寬度', () => {
-    const css = readFileSync('popup/popup.css', 'utf8');
+    const css = readFileSync('pages/popup/popup.css', 'utf8');
 
     expect(css).toMatch(/--brand-title:\s*#172033;/);
     expect(css).toMatch(/--brand-accent:\s*#ff8060;/);
@@ -101,7 +101,7 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('主要互動元素應提供靜態繁中 fallback 文字', () => {
-    const html = readFileSync('popup/popup.html', 'utf8');
+    const html = readFileSync('pages/popup/popup.html', 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     expect(doc.querySelector('#settings-link-text').textContent.trim()).toBe('設定');
@@ -111,7 +111,7 @@ describe('popup.html accessibility fallbacks', () => {
   });
 
   it('主要狀態訊息應使用 output 元素提供跨裝置 accessibility fallback', () => {
-    const html = readFileSync('popup/popup.html', 'utf8');
+    const html = readFileSync('pages/popup/popup.html', 'utf8');
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const status = doc.querySelector('#status');
 

@@ -213,6 +213,11 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       return true;
     }
 
+    case CONTENT_BRIDGE_ACTIONS.SHOW_TOAST: {
+      globalThis.HighlighterV2?.toast?.show(request.messageKey, { level: request.level });
+      return false;
+    }
+
     case HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT: {
       handleActivateFloatingRailHighlight(sendResponse);
       return true;

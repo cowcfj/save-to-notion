@@ -38,7 +38,13 @@ import {
   playFireworkAnimation,
   playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
+import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
 import Logger from '../../../../scripts/utils/Logger.js';
+
+const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
+const TEST_RAIL_POSITION_KEY = `notion-floating-rail-position-${RAIL_INSTANCE_ID}`;
+const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
+const TEST_RAIL_DISMISSED_KEY = `notion-floating-rail-dismissed-${RAIL_INSTANCE_ID}`;
 
 function createMockContainerElement() {
   const container = document.createElement('div');
@@ -156,7 +162,7 @@ describe('FloatingRail', () => {
 
     test('應該建立 Shadow DOM host', () => {
       const rail = new FloatingRail(manager);
-      const host = document.querySelector('#notion-floating-rail-host');
+      const host = document.querySelector(`#${TEST_RAIL_HOST_ID}`);
 
       expect(host).not.toBeNull();
       expect(host.dataset.railOwner).toBe('true');
@@ -165,7 +171,7 @@ describe('FloatingRail', () => {
 
     test('應該重用既有 host', () => {
       const existingHost = document.createElement('div');
-      existingHost.id = 'notion-floating-rail-host';
+      existingHost.id = TEST_RAIL_HOST_ID;
       existingHost.dataset.railOwner = 'true';
       existingHost.attachShadow({ mode: 'open' });
       document.body.append(existingHost);
@@ -176,7 +182,7 @@ describe('FloatingRail', () => {
 
     test('應該重用既有 host 內的 rail container', () => {
       const existingHost = document.createElement('div');
-      existingHost.id = 'notion-floating-rail-host';
+      existingHost.id = TEST_RAIL_HOST_ID;
       existingHost.dataset.railOwner = 'true';
       const shadowRoot = existingHost.attachShadow({ mode: 'open' });
       const existingContainer = createMockContainerElement();
@@ -191,7 +197,7 @@ describe('FloatingRail', () => {
 
     test('不應重用無 owner 標記的同 ID 元素', () => {
       const fakeHost = document.createElement('div');
-      fakeHost.id = 'notion-floating-rail-host';
+      fakeHost.id = TEST_RAIL_HOST_ID;
       document.body.append(fakeHost);
 
       const rail = new FloatingRail(manager);
@@ -217,7 +223,7 @@ describe('FloatingRail', () => {
 
         document.dispatchEvent(new Event('DOMContentLoaded'));
 
-        expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
+        expect(document.querySelector(`#${TEST_RAIL_HOST_ID}`)).toBeNull();
       } finally {
         if (originalBodyDescriptor) {
           Object.defineProperty(document, 'body', originalBodyDescriptor);
@@ -239,7 +245,7 @@ describe('FloatingRail', () => {
         new FloatingRail(manager);
         document.dispatchEvent(new Event('DOMContentLoaded'));
 
-        expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
+        expect(document.querySelector(`#${TEST_RAIL_HOST_ID}`)).toBeNull();
       } finally {
         if (originalBodyDescriptor) {
           Object.defineProperty(document, 'body', originalBodyDescriptor);
@@ -269,7 +275,7 @@ describe('FloatingRail', () => {
 
     test('從 sessionStorage 恢復 HIGHLIGHTING 狀態時應啟動標註功能', async () => {
       sessionStorage.setItem(
-        'notion-floating-rail-state',
+        TEST_RAIL_STATE_KEY,
         JSON.stringify({ state: 'highlighting', color: 'green' })
       );
 
@@ -282,7 +288,7 @@ describe('FloatingRail', () => {
 
     test('從 sessionStorage 恢復非 HIGHLIGHTING 狀態時不應啟動標註', async () => {
       sessionStorage.setItem(
-        'notion-floating-rail-state',
+        TEST_RAIL_STATE_KEY,
         JSON.stringify({ state: 'expanded', color: 'yellow' })
       );
 
@@ -338,7 +344,7 @@ describe('FloatingRail', () => {
     });
 
     test('[REGRESSION] dismissed 狀態初始化後，undismiss 仍應保有事件綁定', async () => {
-      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
+      sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -376,7 +382,7 @@ describe('FloatingRail', () => {
     });
 
     test('dismissed 狀態下 show 不應重新顯示 host', async () => {
-      sessionStorage.setItem('notion-floating-rail-dismissed', 'true');
+      sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -520,6 +526,47 @@ describe('FloatingRail', () => {
       expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
+
+    test('syncHighlights 回 success:false + errorCode UNAUTHORIZED → playFailAnimation', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: false, errorCode: 'UNAUTHORIZED', error: 'err' });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
+      expect(playFireworkAnimation).not.toHaveBeenCalled();
+    });
+
+    test('syncHighlights 回 success:false + HIGHLIGHT_SECTION_DELETE_INCOMPLETE → 當成功（playFireworkAnimation）', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({
+        success: false,
+        errorCode: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
+        error: 'partial',
+      });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(playFireworkAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      expect(playFailAnimation).not.toHaveBeenCalled();
+    });
+
+    test('syncHighlights 回 success:true → playFireworkAnimation（既有行為）', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: true });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(playFireworkAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
+      expect(playFailAnimation).not.toHaveBeenCalled();
+    });
   });
 
   describe('manage action', () => {
@@ -557,7 +604,7 @@ describe('FloatingRail', () => {
       await rail.initialize();
       rail.destroy();
 
-      expect(document.querySelector('#notion-floating-rail-host')).toBeNull();
+      expect(document.querySelector(`#${TEST_RAIL_HOST_ID}`)).toBeNull();
       expect(rail._initialized).toBe(false);
     });
   });
@@ -751,7 +798,7 @@ describe('FloatingRail', () => {
 
         expect(rail.host.style.top).toBe('180px');
         expect(rail.host.style.right).not.toBe('0px');
-        expect(sessionStorage.getItem('notion-floating-rail-position')).toEqual(
+        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toEqual(
           expect.stringContaining('"top":180')
         );
       } finally {
@@ -876,10 +923,7 @@ describe('FloatingRail', () => {
     });
 
     test('[REGRESSION] 新 rail instance 應恢復先前拖曳位置', async () => {
-      sessionStorage.setItem(
-        'notion-floating-rail-position',
-        JSON.stringify({ top: 144, right: 24 })
-      );
+      sessionStorage.setItem(TEST_RAIL_POSITION_KEY, JSON.stringify({ top: 144, right: 24 }));
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
@@ -901,7 +945,7 @@ describe('FloatingRail', () => {
         document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
 
         expect(rail.host.style.top).not.toBe('180px');
-        expect(sessionStorage.getItem('notion-floating-rail-position')).toBeNull();
+        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toBeNull();
       } finally {
         jest.useRealTimers();
       }
@@ -965,7 +1009,7 @@ describe('FloatingRail', () => {
 
     test('restorePosition 遇到損壞的 sessionStorage 資料時應記錄警告', () => {
       const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
-      sessionStorage.setItem('notion-floating-rail-position', '{invalid-json');
+      sessionStorage.setItem(TEST_RAIL_POSITION_KEY, '{invalid-json');
 
       const rail = new FloatingRail(manager);
 
@@ -1059,6 +1103,171 @@ describe('FloatingRail', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+  });
+
+  describe('_applyDisplaySettings', () => {
+    test('applies position=top size=small to host CSS variables', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'top', size: 'small' });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('25%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+      expect(rail.host.style.getPropertyValue('--rail-trigger-icon-size')).toBe('18px');
+      expect(rail.host.style.getPropertyValue('--rail-action-icon-size')).toBe('14px');
+    });
+
+    test('applies position=bottom size=large', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'bottom', size: 'large' });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('75%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+      expect(rail.host.style.getPropertyValue('--rail-trigger-icon-size')).toBe('22px');
+      expect(rail.host.style.getPropertyValue('--rail-action-icon-size')).toBe('18px');
+    });
+
+    test('unknown position falls back to middle (50%)', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'invalid', size: 'large' });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+    });
+
+    test('unknown size falls back to large (34px main button)', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: 'middle', size: 'invalid' });
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+
+    test('undefined position/size falls back to middle/large', () => {
+      const rail = new FloatingRail(manager);
+      rail._applyDisplaySettings({ position: undefined, size: undefined });
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+  });
+
+  describe('initialize() reads display settings from storage', () => {
+    test('reads floatingRailPosition and floatingRailSize then applies them', async () => {
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({
+        floatingRailPosition: 'bottom',
+        floatingRailSize: 'small',
+      });
+      const rail = new FloatingRail(manager);
+
+      await rail.initialize();
+
+      expect(chrome.storage.sync.get).toHaveBeenCalledWith([
+        'floatingRailPosition',
+        'floatingRailSize',
+      ]);
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('75%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+    });
+
+    test('initialize falls back to defaults when storage is empty', async () => {
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({});
+      const rail = new FloatingRail(manager);
+
+      await rail.initialize();
+
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+
+    test('storage 讀取失敗時應記錄警告並套用預設顯示設定', async () => {
+      chrome.storage.sync.get = jest.fn().mockRejectedValueOnce(new Error('storage unavailable'));
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      const rail = new FloatingRail(manager);
+
+      await rail.initialize();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法讀取顯示設定',
+        expect.objectContaining({
+          action: 'initialize',
+          operation: 'loadDisplaySettings',
+        })
+      );
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('50%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('34px');
+    });
+  });
+
+  describe('storage onChanged listener', () => {
+    let addedListener;
+
+    beforeEach(() => {
+      addedListener = null;
+      chrome.storage.onChanged.addListener = jest.fn(fn => {
+        addedListener = fn;
+      });
+      chrome.storage.onChanged.removeListener = jest.fn();
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({});
+    });
+
+    test('initialize() registers a chrome.storage.onChanged listener', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      expect(chrome.storage.onChanged.addListener).toHaveBeenCalledTimes(1);
+      expect(typeof addedListener).toBe('function');
+    });
+
+    test('listener re-applies CSS variables when sync changes include rail keys', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({
+        floatingRailPosition: 'top',
+        floatingRailSize: 'small',
+      });
+      await addedListener(
+        {
+          floatingRailPosition: { newValue: 'top' },
+          floatingRailSize: { newValue: 'small' },
+        },
+        'sync'
+      );
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe('25%');
+      expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+    });
+
+    test('listener ignores changes from non-sync areas', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const before = rail.host.style.getPropertyValue('--rail-top');
+      await addedListener({ floatingRailPosition: { newValue: 'top' } }, 'local');
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe(before);
+    });
+
+    test('listener ignores irrelevant sync key changes', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const before = rail.host.style.getPropertyValue('--rail-top');
+      await addedListener({ unrelatedKey: { newValue: 'foo' } }, 'sync');
+      expect(rail.host.style.getPropertyValue('--rail-top')).toBe(before);
+    });
+
+    test('destroy() removes the onChanged listener', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      rail.destroy();
+      expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledTimes(1);
+      expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledWith(addedListener);
+    });
+
+    test('listener storage 重新讀取失敗時應記錄警告', async () => {
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      chrome.storage.sync.get = jest.fn().mockRejectedValueOnce(new Error('reload failed'));
+
+      await addedListener({ floatingRailPosition: { newValue: 'top' } }, 'sync');
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 無法重新載入顯示設定',
+        expect.objectContaining({
+          action: '_listenToDisplaySettingsChanges',
+          operation: 'reloadDisplaySettings',
+        })
+      );
     });
   });
 });

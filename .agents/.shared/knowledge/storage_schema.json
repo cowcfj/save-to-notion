@@ -281,6 +281,18 @@
           "description": "Whether to auto-show Floating Rail on pages (default: true)",
           "default": true
         },
+        "floatingRailPosition": {
+          "type": "string",
+          "enum": ["top", "middle", "bottom"],
+          "description": "Floating Rail vertical position preset; maps to CSS top: 25%/50%/75% via --rail-top inline CSS variable on host. Optional; reader falls back to 'middle' when unset.",
+          "default": "middle"
+        },
+        "floatingRailSize": {
+          "type": "string",
+          "enum": ["small", "large"],
+          "description": "Floating Rail size preset; maps to button/icon CSS variables (--rail-btn-size, --rail-trigger-icon-size, --rail-action-icon-size) on host. Optional; reader falls back to 'large' (current visual baseline) when unset.",
+          "default": "large"
+        },
         "notionDatabaseId": {
           "type": "string",
           "description": "Legacy database ID (compat fallback)"

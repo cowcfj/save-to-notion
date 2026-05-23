@@ -1,12 +1,14 @@
 name: SonarCloud Scan
 
+# Trigger 設計：依賴 CI workflow 跑完後上傳 jest coverage artifact，本 workflow 透過
+# workflow_run 取用該 artifact，避免重複跑 jest。
+# - 若 CI 因 paths-filter 沒跑 jest，就沒有 coverage artifact，本 workflow 跳過 scan
+#   （sonar-project.properties 等 config 變更由 push to main/develop 時補抓）。
+# - 詳見 docs/adr/0009-ci-generated-coverage-trust-model.md
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -15,20 +17,31 @@ jobs:
   sonarcloud:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    if: ${{ !startsWith(github.head_ref, 'release-please--') && github.actor != 'dependabot[bot]' }}
+    # 安全守門：
+    # 1. head_repository.full_name == github.repository 拒絕 fork PR，避免 workflow_run +
+    #    untrusted code checkout 的 pwn-request 攻擊面（SONAR_TOKEN 不可外洩）。
+    # 2. dependabot/release-please 用 branch name pattern 過濾，避免依賴 forgeable 的
+    #    github.actor（SonarLint S8232）。
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      !startsWith(github.event.workflow_run.head_branch, 'release-please--') &&
+      !startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     env:
       DEBUG_SONAR_GIT_REFS: 'false'
     permissions:
       pull-requests: write
       contents: read
       checks: write
+      actions: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
       - name: Diagnostic git refs
         if: ${{ env.DEBUG_SONAR_GIT_REFS == 'true' }}
@@ -43,14 +56,43 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
+      - name: Download jest coverage artifact
+        id: download-coverage
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: jest-coverage-${{ github.event.workflow_run.head_sha }}
+          path: coverage/jest/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Resolve PR metadata
+        id: pr
+        if: steps.download-coverage.outcome == 'success'
+        run: |
+          PR_COUNT=$(jq -r '.workflow_run.pull_requests | length' "$GITHUB_EVENT_PATH")
+          if [ "$PR_COUNT" -gt 0 ]; then
+            echo "is_pr=true" >> "$GITHUB_OUTPUT"
+            echo "number=$(jq -r '.workflow_run.pull_requests[0].number' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
+            echo "head=$(jq -r '.workflow_run.pull_requests[0].head.ref' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
+            echo "base=$(jq -r '.workflow_run.pull_requests[0].base.ref' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v7
+        if: steps.download-coverage.outcome == 'success'
+        uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v8.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.head_ref }}
-            -Dsonar.pullrequest.base=${{ github.base_ref }}
-            ${{ github.ref_name == 'main' && '-Dsonar.coverage.exclusions=**/*' || '' }}
+            ${{ steps.pr.outputs.is_pr == 'true' && format('-Dsonar.pullrequest.key={0} -Dsonar.pullrequest.branch={1} -Dsonar.pullrequest.base={2}', steps.pr.outputs.number, steps.pr.outputs.head, steps.pr.outputs.base) || '' }}
+            ${{ github.event.workflow_run.head_branch == 'main' && '-Dsonar.coverage.exclusions=**/*' || '' }}
+
+      - name: Report skipped scan
+        if: steps.download-coverage.outcome != 'success'
+        run: |
+          echo "::notice::Skipped SonarCloud scan: jest coverage artifact not found for SHA ${{ github.event.workflow_run.head_sha }}."
+          echo "This is expected when CI's paths-filter detected no source/test changes."

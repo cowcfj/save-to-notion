@@ -15,9 +15,9 @@ describe('tools/package-extension.sh regressions', () => {
       path.resolve(__dirname, '../../../tools/package-extension.sh'),
       'utf8'
     );
-    popupEntry = fs.readFileSync(path.resolve(__dirname, '../../../popup/popup.js'), 'utf8');
+    popupEntry = fs.readFileSync(path.resolve(__dirname, '../../../pages/popup/popup.js'), 'utf8');
     sidepanelEntry = fs.readFileSync(
-      path.resolve(__dirname, '../../../sidepanel/sidepanel.js'),
+      path.resolve(__dirname, '../../../pages/sidepanel/sidepanel.js'),
       'utf8'
     );
   });
@@ -32,12 +32,12 @@ describe('tools/package-extension.sh regressions', () => {
 
     for (const moduleName of excludedRuntimeActionModules) {
       expect(packageScript).toContain(`--exclude='config/runtimeActions/${moduleName}.js'`);
-      expect(popupEntry).not.toContain(`../scripts/config/runtimeActions/${moduleName}.js`);
+      expect(popupEntry).not.toContain(`../../scripts/config/runtimeActions/${moduleName}.js`);
     }
   });
 
   test('sidepanel 直接依賴的 HighlightLookupResolver 不應在 release package 中遺失', () => {
-    expect(sidepanelEntry).toContain('../scripts/highlighter/core/HighlightLookupResolver.js');
+    expect(sidepanelEntry).toContain('../../scripts/highlighter/core/HighlightLookupResolver.js');
 
     const excludesWholeHighlighterDir = packageScript.includes("--exclude='highlighter'");
     const copiesResolverExplicitly = packageScript.includes(
@@ -48,7 +48,7 @@ describe('tools/package-extension.sh regressions', () => {
   });
 
   test('release package 的 ES module 驗證應覆蓋 auth.html callback bridge', () => {
-    const verificationBlock = packageScript.slice(packageScript.indexOf('const htmlDirs = ['));
+    const verificationBlock = packageScript.slice(packageScript.indexOf('const htmlDirs = fs'));
 
     expect(verificationBlock).toContain('auth.html');
   });

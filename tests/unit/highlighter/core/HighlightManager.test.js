@@ -757,4 +757,140 @@ describe('core/HighlightManager', () => {
       manager.applyHighlightAPI.mockRestore();
     });
   });
+
+  describe('toast integration', () => {
+    let mockToast;
+
+    beforeEach(() => {
+      mockToast = {
+        show: jest.fn(),
+        hide: jest.fn(),
+        cleanup: jest.fn(),
+      };
+      manager.setDependencies({
+        styleManager: mockStyleManager,
+        storage: mockStorage,
+        interaction: mockInteraction,
+        migration: mockMigration,
+        toast: mockToast,
+      });
+    });
+
+    test('removeHighlight 成功應觸發 success toast', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Toast remove test';
+      document.body.append(div);
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 5);
+
+      const id = manager.addHighlight(range);
+      mockToast.show.mockClear();
+
+      const removed = manager.removeHighlight(id);
+
+      expect(removed).toBe(true);
+      expect(mockToast.show).toHaveBeenCalledWith('HIGHLIGHT_DELETED', { level: 'success' });
+    });
+
+    test('removeHighlight 失敗（不存在的 id）不應觸發 toast', () => {
+      manager.removeHighlight('non-existent');
+      expect(mockToast.show).not.toHaveBeenCalled();
+    });
+
+    test('addHighlight 視覺回滾時應觸發 error toast', () => {
+      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
+
+      const div = document.createElement('div');
+      div.textContent = 'Rollback test';
+      document.body.append(div);
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 8);
+
+      const id = manager.addHighlight(range);
+
+      expect(id).toBeNull();
+      expect(mockToast.show).toHaveBeenCalledWith('HIGHLIGHT_FAILED', { level: 'error' });
+
+      manager.applyHighlightAPI.mockRestore();
+    });
+
+    test('addHighlight 成功時不應觸發 toast', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Success path';
+      document.body.append(div);
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 7);
+
+      manager.addHighlight(range);
+      expect(mockToast.show).not.toHaveBeenCalled();
+    });
+
+    test('未注入 toast 時 remove/add 路徑應 silent，不報錯', () => {
+      manager.setDependencies({
+        styleManager: mockStyleManager,
+        storage: mockStorage,
+        interaction: mockInteraction,
+        migration: mockMigration,
+      });
+
+      const div = document.createElement('div');
+      div.textContent = 'No toast';
+      document.body.append(div);
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 4);
+
+      const id = manager.addHighlight(range);
+      expect(() => manager.removeHighlight(id)).not.toThrow();
+    });
+  });
+
+  describe('_isExtensionUiEvent allowlist', () => {
+    test('應認可 #notion-toast-host', () => {
+      const host = document.createElement('div');
+      host.id = 'notion-toast-host';
+      document.body.append(host);
+
+      const event = { composedPath: () => [host] };
+
+      expect(HighlightManager._isExtensionUiEvent(event)).toBe(true);
+    });
+
+    test('應認可 #notion-toast-host 後代元素（closest 路徑）', () => {
+      const host = document.createElement('div');
+      host.id = 'notion-toast-host';
+      const child = document.createElement('span');
+      host.append(child);
+      document.body.append(host);
+
+      const event = { composedPath: () => [child] };
+
+      expect(HighlightManager._isExtensionUiEvent(event)).toBe(true);
+    });
+
+    test('應認可既有 #notion-floating-rail-host 與 #notion-highlighter-host（regression）', () => {
+      const railHost = document.createElement('div');
+      railHost.id = 'notion-floating-rail-host';
+      document.body.append(railHost);
+      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [railHost] })).toBe(true);
+
+      const toolbarHost = document.createElement('div');
+      toolbarHost.id = 'notion-highlighter-host';
+      document.body.append(toolbarHost);
+      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [toolbarHost] })).toBe(
+        true
+      );
+    });
+
+    test('應拒絕非 extension UI 元素', () => {
+      const div = document.createElement('div');
+      div.id = 'random-page-element';
+      document.body.append(div);
+
+      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [div] })).toBe(false);
+    });
+  });
 });

@@ -289,10 +289,19 @@ async function handleExtensionUpdate(previousVersion) {
 
 /**
  * 處理擴展安裝
+ *
+ * 首次安裝時開啟 onboarding tab，協助用戶完成初始設定。
+ * 開啟失敗（如 chrome.tabs API 暫時不可用）時僅記錄 warn，不中斷安裝流程。
  */
 function handleExtensionInstall() {
   Logger.success('[Lifecycle] 擴展首次安裝', { action: 'handleExtensionInstall' });
-  // 可以在這裡添加歡迎頁面或設置引導
+  const onboardingUrl = chrome.runtime.getURL('pages/onboarding/onboarding.html');
+  chrome.tabs.create({ url: onboardingUrl }).catch(error => {
+    Logger.warn('[Lifecycle] 開啟 onboarding tab 失敗', {
+      action: 'handleExtensionInstall',
+      error: error?.message ?? String(error),
+    });
+  });
 }
 
 /**
@@ -339,7 +348,9 @@ function shouldShowUpdateNotification(previousVersion, currentVersion) {
  */
 async function showUpdateNotification(previousVersion, currentVersion) {
   try {
-    const url = new URL(chrome.runtime.getURL('update-notification/update-notification.html'));
+    const url = new URL(
+      chrome.runtime.getURL('pages/update-notification/update-notification.html')
+    );
     url.searchParams.set('prev', previousVersion);
     url.searchParams.set('curr', currentVersion);
 

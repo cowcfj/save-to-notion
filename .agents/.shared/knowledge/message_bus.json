@@ -26,7 +26,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "error": "string (optional)"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "SAVE_PAGE_FROM_TOOLBAR": {
@@ -46,7 +47,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "error": "string (optional)"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "openNotionPage": {
@@ -89,7 +91,8 @@
           "stableUrl": "string (optional)",
           "wasDeleted": "boolean (optional)",
           "deletionPending": "boolean (optional)",
-          "error": "string (optional)"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "PAGE_SAVE_HINT": {
@@ -374,7 +377,31 @@
         },
         "response": {
           "success": "boolean",
-          "results": "object (optional)",
+          "results": {
+            "type": "object (optional)",
+            "fields": {
+              "success": "number",
+              "failed": "number",
+              "details": "array<MigrationBatchItemResult>"
+            },
+            "example": {
+              "success": 1,
+              "failed": 1,
+              "details": [
+                {
+                  "url": "https://example.com/a",
+                  "status": "success",
+                  "count": 1
+                },
+                {
+                  "url": "https://example.com/b",
+                  "status": "failed",
+                  "reason": "migration failed"
+                }
+              ]
+            },
+            "notes": "success is the successful item count. The top-level response.success remains the boolean handler envelope."
+          },
           "error": "string (optional)"
         }
       },
@@ -385,7 +412,33 @@
         },
         "response": {
           "success": "boolean",
-          "count": "number (optional)",
+          "results": {
+            "type": "object (optional)",
+            "fields": {
+              "success": "number",
+              "failed": "number",
+              "total": "number",
+              "details": "array<MigrationBatchDeleteItemResult>"
+            },
+            "example": {
+              "success": 1,
+              "failed": 1,
+              "total": 2,
+              "details": [
+                {
+                  "url": "https://example.com/a",
+                  "status": "success"
+                },
+                {
+                  "url": "https://example.com/b",
+                  "status": "failed",
+                  "reason": "cleanup failed"
+                }
+              ]
+            },
+            "notes": "success is the successful item count. The top-level response.success remains the boolean handler envelope."
+          },
+          "message": "string (optional)",
           "error": "string (optional)"
         }
       },

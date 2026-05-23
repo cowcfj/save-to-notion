@@ -1,0 +1,1315 @@
+/**
+ * Side Panel 入口文件
+ *
+ * 職責：
+ * - 監聽分頁切換，獲取當前分頁的穩定 URL
+ * - 從 Storage 讀取標註並渲染 UI
+ * - 監聽 Storage 變化自動更新
+ */
+
+/* global chrome */
+
+import { normalizeUrl, computeStableUrl, isRootUrl } from '../../scripts/utils/urlUtils.js';
+import {
+  SAVED_PREFIX,
+  HIGHLIGHTS_PREFIX,
+  PAGE_PREFIX,
+  URL_ALIAS_PREFIX,
+} from '../../scripts/config/shared/storage.js';
+import { RESTRICTED_PROTOCOLS } from '../../scripts/config/shared/core.js';
+import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
+import Logger from '../../scripts/utils/Logger.js';
+import * as UI from './sidepanelUI.js';
+import {
+  resolveKeys as resolveHighlightLookupKeys,
+  getAliasLookupKeys,
+  pickAliasCandidate,
+  pickHighlightsFromStorage,
+} from '../../scripts/highlighter/core/HighlightLookupResolver.js';
+import { compareKeysAlphabetically } from '../../scripts/utils/keyOrdering.js';
+
+// === 共享狀態（保留於入口，UI 模組不直接存取） ===
+
+let els = {};
+
+let statusMessageTimeoutId;
+
+// 快取：避免每次 storage 變化都重新解析 URL
+let cachedStableUrl = null;
+let cachedTabUrl = null;
+let currentPageHasSavedData = false;
+let currentActiveView = 'current';
+let currentViewRequestId = 0;
+let unsyncedViewRequestId = 0;
+const START_HIGHLIGHT_ERROR_CONTEXT = 'sidepanel_start_highlight';
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
+
+/** @type {Array<object> | null} 快取的未同步頁面資料 */
+let cachedUnsyncedPages = null;
+/** @type {number} 目前已渲染的卡片數量 */
+let displayedCardCount = 0;
+/** @type {ReturnType<typeof setTimeout> | null} 未同步 badge 更新的 debounce timer */
+let unsyncedBadgeTimer = null;
+
+// === UI 協調層 ===
+
+/**
+ * 將 storage key 壓縮為非敏感類型標識，避免日誌洩漏完整 URL。
+ *
+ * @param {string} storageKey
+ * @returns {'page' | 'highlights' | 'unknown'}
+ */
+function getStorageKeyType(storageKey) {
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    return 'page';
+  }
+  if (storageKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return 'highlights';
+  }
+  return 'unknown';
+}
+
+/**
+ * 待同步視圖讀取失敗時，退回到安全且可預期的 UI 狀態。
+ *
+ * @param {string} message
+ */
+function renderUnsyncedFallbackState(message = UI_MESSAGES.SIDEPANEL.LOAD_FAILED) {
+  cachedUnsyncedPages = [];
+  displayedCardCount = 0;
+
+  if (els.unsyncedView) {
+    els.unsyncedView.textContent = '';
+    const fallbackMessage = document.createElement('p');
+    fallbackMessage.className = 'unsynced-empty';
+    fallbackMessage.textContent = message;
+    els.unsyncedView.append(fallbackMessage);
+  }
+
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  if (els.loadMoreBtn) {
+    els.loadMoreBtn.style.display = 'none';
+  }
+
+  UI.updateUnsyncedBadge(els, []);
+}
+
+/**
+ * 記錄目前啟用中的視圖名稱。
+ *
+ * @param {'current' | 'unsynced'} viewName
+ */
+function setActiveView(viewName) {
+  currentActiveView = viewName;
+}
+
+/**
+ * 建立 current view 的最新請求序號。
+ *
+ * @returns {number}
+ */
+function beginCurrentViewRequest() {
+  currentViewRequestId += 1;
+  return currentViewRequestId;
+}
+
+/**
+ * 建立 unsynced view 的最新請求序號。
+ *
+ * @returns {number}
+ */
+function beginUnsyncedViewRequest() {
+  unsyncedViewRequestId += 1;
+  return unsyncedViewRequestId;
+}
+
+/**
+ * 檢查 current view 的非同步請求是否仍可安全套用 UI。
+ *
+ * @param {number} requestId
+ * @returns {boolean}
+ */
+function isCurrentViewRequestActive(requestId) {
+  return currentActiveView === 'current' && currentViewRequestId === requestId;
+}
+
+function applySyncButtonSavedState(hasSavedData) {
+  els.syncButton.disabled = !hasSavedData;
+  els.syncButton.title = hasSavedData ? '' : UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
+}
+
+/**
+ * 檢查 unsynced view 的非同步請求是否仍可安全套用 UI。
+ *
+ * @param {number} requestId
+ * @returns {boolean}
+ */
+function isUnsyncedViewRequestActive(requestId) {
+  return currentActiveView === 'unsynced' && unsyncedViewRequestId === requestId;
+}
+
+/**
+ * 顯示計時狀態訊息，timer 到期後自動隱藏
+ * 統一管理 statusMessageTimeoutId，避免 timer 狀態分散
+ *
+ * @param {string} text
+ * @param {string} type - 'info' | 'success' | 'error'
+ */
+function showTimedMessage(text, type) {
+  clearTimeout(statusMessageTimeoutId);
+  UI.showMessage(els, text, type);
+  statusMessageTimeoutId = setTimeout(() => {
+    UI.hideMessage(els);
+  }, UI.MESSAGE_DISPLAY_DURATION_MS);
+}
+
+/**
+ * 從 storage 抓取未同步頁面後更新 badge
+ * 統一 badge 資料流，確保 storage 變更與初始化路徑一致
+ *
+ * @param {string} [logMessage] - 失敗時使用的日誌訊息
+ * @returns {Promise<void>}
+ */
+async function refreshUnsyncedBadge(logMessage = '[SidePanel] refreshUnsyncedBadge failed') {
+  try {
+    const pages = await getUnsyncedPages();
+    UI.updateUnsyncedBadge(els, pages);
+  } catch (error) {
+    Logger.error(logMessage, { error });
+    UI.updateUnsyncedBadge(els, []);
+  }
+}
+
+/**
+ * 取出下一批卡片並插入 unsyncedView，統一 displayedCardCount / hasMore / 補位邏輯
+ *
+ * @param {number} count - 本次渲染數量
+ */
+function appendNextUnsyncedBatch(count) {
+  const renderedCount = UI.appendCards(els, cachedUnsyncedPages, displayedCardCount, count, {
+    onOpen: url => {
+      chrome.tabs.create({ url }).catch(error => {
+        Logger.warn('[SidePanel] Failed to open unsynced page tab', {
+          error,
+          url: sanitizeUrlForLogging(url),
+        });
+      });
+    },
+    onDelete: (storageKey, card) => {
+      const page = cachedUnsyncedPages?.find(item => item.storageKey === storageKey);
+      deleteUnsyncedPage(storageKey, card).catch(error => {
+        Logger.warn('[SidePanel] Failed to delete unsynced page card', {
+          error,
+          storageKeyType: getStorageKeyType(storageKey),
+          url: sanitizeUrlForLogging(page?.url),
+        });
+      });
+    },
+  });
+
+  displayedCardCount += renderedCount;
+}
+
+/**
+ * 取得必要 DOM 元素，缺失時立即失敗以暴露模板退化。
+ *
+ * @template {Element} T
+ * @param {T | null | undefined} element
+ * @param {string} elementName
+ * @returns {T}
+ */
+function requireElement(element, elementName) {
+  if (!element) {
+    throw new Error(`[SidePanel] 缺少必要的 DOM 元素：${elementName}`);
+  }
+  return element;
+}
+
+// === 業務邏輯 ===
+
+/**
+ * 從 page_* 對象建立頁面條目（新格式）
+ *
+ * @param {string} key - storage key
+ * @param {string} url - normalized url
+ * @param {object} value - page_* 物件
+ * @returns {object|null} 頁面條目，若應跳過則返回 null
+ */
+function buildPageEntry(key, url, value) {
+  if (value.notion?.pageId || isRootUrl(url)) {
+    return null; // 已同步或根路徑，跳過
+  }
+  const highlights = Array.isArray(value.highlights) ? value.highlights : [];
+  if (highlights.length === 0) {
+    return null; // 無標註不顯示
+  }
+  return {
+    url,
+    storageKey: key,
+    title: value.notion?.title || value.metadata?.title || UI.extractDomain(url),
+    highlightCount: highlights.length,
+    lastUpdated: value.metadata?.lastUpdated || 0,
+    previewHighlights: UI.buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
+  };
+}
+
+/**
+ * 從 highlights_* 對象建立頁面條目（舊格式）
+ *
+ * @param {string} key - storage key
+ * @param {string} url - normalized url
+ * @param {*} value - highlights_* 值
+ * @param {object} all - 完整 storage 資料
+ * @param {Map} aliasMap - alias 映射
+ * @returns {object|null}
+ */
+function buildLegacyPageEntry(key, url, value, all, aliasMap) {
+  if (isRootUrl(url)) {
+    return null;
+  }
+  const canonicalUrl = aliasMap.get(url) || url;
+  const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
+  const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
+  if (savedDataOriginal?.notionPageId || savedDataCanonical?.notionPageId) {
+    return null; // 已同步
+  }
+  const savedData = savedDataOriginal || savedDataCanonical;
+  const highlights = Array.isArray(value) ? value : value?.highlights || [];
+  if (highlights.length === 0) {
+    return null;
+  }
+  return {
+    url,
+    storageKey: key,
+    title: savedData?.title || value?.title || UI.extractDomain(url),
+    highlightCount: highlights.length,
+    lastUpdated: value?.updatedAt || 0,
+    previewHighlights: UI.buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
+  };
+}
+
+/**
+ * 為 unsynced enumeration 解析 canonical ownership。
+ *
+ * Phase 4：sidepanel 的 unsynced 枚舉不能僅以 raw URL 當作識別維度，
+ * 否則 `page_<stableUrl>` 與 `page_<originalUrl>` 會被當成兩張卡片顯示。
+ *
+ * 此 helper 將 storage 中所有 highlight 相關 key 歸併到單一 canonical identity：
+ * - canonical URL = url_alias:<url> 解析結果（與 HighlightLookupResolver 採同一規則）
+ * - 對每一組同 canonical 的 keys，依優先順序選出 owner：
+ *     1. page_<canonical>（alias 命中時最可靠的 canonical key）
+ *     2. 任意其他 page_*（alias 指向空 stable key 時的回退）
+ *     3. 任意 highlights_*（舊格式回退）
+ *
+ * @param {Record<string, any>} allStorageData - chrome.storage.local.get(null) 的結果
+ * @returns {Map<string, {ownerKey: string, ownerUrl: string, ownerValue: any, format: 'page'|'legacy'}>}
+ *          canonicalUrl → owner descriptor
+ */
+/**
+ * 從 allStorageData 建立 url → canonicalUrl 的 alias map。
+ *
+ * @param {Record<string, any>} allStorageData
+ * @returns {Map<string, string>}
+ * @private
+ */
+function _buildAliasMap(allStorageData) {
+  const aliasMap = new Map();
+  for (const [key, value] of Object.entries(allStorageData)) {
+    if (key.startsWith(URL_ALIAS_PREFIX)) {
+      aliasMap.set(key.slice(URL_ALIAS_PREFIX.length), value);
+    }
+  }
+  return aliasMap;
+}
+
+/**
+ * Pure helper：根據 contract + reverse alias scan 計算同 canonical group 應刪除的 keys。
+ *
+ * Phase 4 follow-up（2026-05-03 plan §2、§3）：
+ * - Forward alias：用 pickAliasCandidate + resolveHighlightLookupKeys 取得 contract（含 mutationTargetKey、legacyCleanupKeys）
+ * - Reverse alias：掃 aliasMap，把所有 value === canonicalUrl 的 entry 對應的
+ *   page_<other> / highlights_<other> 一併納入候選集
+ * - 最後以 snapshot 過濾，僅保留實際存在的 keys，並沿用 planDeleteCleanup 的字典序輸出邏輯
+ *
+ * 此 helper 純函數,無 chrome.storage IO；deleteUnsyncedPage / deleteAllUnsyncedPages 共用同一條路徑。
+ *
+ * @param {string} pageUrl - 由 storage key 抽出的 raw URL（owner.ownerUrl 或 _extractUrlFromStorageKey 結果）
+ * @param {string} fallbackKey - 呼叫端傳入的 owner storageKey,即使 contract 沒涵蓋也會嘗試刪除
+ * @param {Record<string, any>} allStorageData - chrome.storage.local.get(null) 結果
+ * @param {Map<string, string>} aliasMap - URL_ALIAS_PREFIX 解析結果（forward 與 reverse 都用得到）
+ * @returns {string[]} 應呼叫 chrome.storage.local.remove 的 key 清單（已字典序）
+ */
+function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
+  // Forward alias：用 pickAliasCandidate 走相同的 alias validation 規則
+  const synthAliasData = {
+    [`${URL_ALIAS_PREFIX}${pageUrl}`]: aliasMap.get(pageUrl) ?? null,
+  };
+  const aliasCandidate = pickAliasCandidate(synthAliasData, pageUrl);
+  const contract = resolveHighlightLookupKeys(pageUrl, aliasCandidate);
+
+  // Reverse alias：找 aliasMap 中所有 value === contract.canonicalUrl 的 from-URL,
+  // 收集對應的 page_<other> / highlights_<other>（不在 contract 內,但屬同 canonical group）
+  const reverseMembers = [];
+  for (const [aliasFromUrl, aliasToUrl] of aliasMap) {
+    if (typeof aliasToUrl !== 'string' || aliasToUrl !== contract.canonicalUrl) {
+      continue;
+    }
+    if (aliasFromUrl === contract.canonicalUrl || aliasFromUrl === pageUrl) {
+      // 已涵蓋於 contract（forward path 與 normalizedUrl）
+      continue;
+    }
+    reverseMembers.push(`${PAGE_PREFIX}${aliasFromUrl}`, `${HIGHLIGHTS_PREFIX}${aliasFromUrl}`);
+  }
+
+  // 候選集 = contract.mutationTargetKey + contract.legacyCleanupKeys + reverseMembers + fallbackKey
+  const candidateSet = new Set([
+    contract.mutationTargetKey,
+    ...contract.legacyCleanupKeys,
+    ...reverseMembers,
+    fallbackKey,
+  ]);
+
+  // 僅保留 snapshot 中實際存在的 key（避免無謂 remove）
+  const result = [...candidateSet].filter(
+    k => typeof k === 'string' && allStorageData[k] !== undefined && allStorageData[k] !== null
+  );
+
+  return result.toSorted(compareKeysAlphabetically);
+}
+
+/**
+ * 將 allStorageData 中的 page_* / highlights_* 按 canonical URL 分群。
+ *
+ * @param {Record<string, any>} allStorageData
+ * @param {Map<string, string>} aliasMap
+ * @returns {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>}
+ * @private
+ */
+function _groupStorageEntries(allStorageData, aliasMap) {
+  /** @type {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>} */
+  const groups = new Map();
+  for (const [key, value] of Object.entries(allStorageData)) {
+    let url;
+    let format;
+    if (key.startsWith(PAGE_PREFIX)) {
+      url = key.slice(PAGE_PREFIX.length);
+      format = 'page';
+    } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+      url = key.slice(HIGHLIGHTS_PREFIX.length);
+      format = 'legacy';
+    } else {
+      continue;
+    }
+
+    const canonical = aliasMap.get(url) || url;
+    if (!groups.has(canonical)) {
+      groups.set(canonical, { pages: [], legacies: [] });
+    }
+    const group = groups.get(canonical);
+    if (format === 'page') {
+      group.pages.push({ key, url, value });
+    } else {
+      group.legacies.push({ key, url, value });
+    }
+  }
+  return groups;
+}
+
+/**
+ * 從同一 canonical URL 的 group 中選出最優先的 owner descriptor。
+ *
+ * @param {string} canonicalUrl
+ * @param {{pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}} group
+ * @returns {{ownerKey: string, ownerUrl: string, ownerValue: any, format: 'page'|'legacy'} | null}
+ * @private
+ */
+function _pickGroupOwner(canonicalUrl, group) {
+  // Priority 1: page_<canonical>
+  let chosen = group.pages.find(page => page.url === canonicalUrl) || null;
+
+  // Priority 2: 任意其他 page_*（例如 alias 指向空 stable key 時的 page_<original>）
+  if (!chosen && group.pages.length > 0) {
+    chosen = group.pages[0];
+  }
+
+  if (chosen) {
+    return { ownerKey: chosen.key, ownerUrl: chosen.url, ownerValue: chosen.value, format: 'page' };
+  }
+
+  // Priority 3: highlights_*（舊格式）
+  if (group.legacies.length > 0) {
+    const legacy = group.legacies[0];
+    return {
+      ownerKey: legacy.key,
+      ownerUrl: legacy.url,
+      ownerValue: legacy.value,
+      format: 'legacy',
+    };
+  }
+
+  return null;
+}
+
+function resolveUnsyncedOwnership(allStorageData) {
+  if (!allStorageData || typeof allStorageData !== 'object') {
+    return new Map();
+  }
+
+  const aliasMap = _buildAliasMap(allStorageData);
+  const groups = _groupStorageEntries(allStorageData, aliasMap);
+
+  const owners = new Map();
+  for (const [canonicalUrl, group] of groups) {
+    const owner = _pickGroupOwner(canonicalUrl, group);
+    if (owner) {
+      owners.set(canonicalUrl, owner);
+    }
+  }
+
+  return owners;
+}
+
+/**
+ * 從 chrome.storage.local 取出所有未同步頁面的標註資料。
+ *
+ * Phase 4：透過 resolveUnsyncedOwnership 將 page_* / highlights_* / url_alias:* 歸併到
+ * 單一 canonical identity，避免 stable / original 雙 canonical 同時顯示為兩張卡片。
+ *
+ * @returns {Promise<Array<{url, storageKey, title, highlightCount, lastUpdated, previewHighlights, remainingCount}>>}
+ */
+async function getUnsyncedPages() {
+  const all = await chrome.storage.local.get(null);
+  const owners = resolveUnsyncedOwnership(all);
+
+  // alias map：buildLegacyPageEntry 仍需用以查詢 saved_<canonical>，避免重複建構
+  const aliasMap = _buildAliasMap(all);
+
+  const pages = [];
+  for (const [, owner] of owners) {
+    let entry;
+    if (owner.format === 'page') {
+      entry = buildPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue);
+    } else {
+      entry = buildLegacyPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue, all, aliasMap);
+    }
+    if (entry) {
+      // Phase 4 follow-up（2026-05-03 plan §3）：每筆 entry 預先計算 canonical-aware deletionKeys,
+      // 讓 deleteAllUnsyncedPages 與 deleteUnsyncedPage 共用同一條規則。
+      entry.deletionKeys = _collectDeletionKeys(owner.ownerUrl, owner.ownerKey, all, aliasMap);
+      pages.push(entry);
+    }
+  }
+
+  return pages.toSorted((pa, pb) => pb.lastUpdated - pa.lastUpdated);
+}
+
+async function init() {
+  els = UI.getElements();
+  els.startHighlightButton = requireElement(els.startHighlightButton, 'startHighlightButton');
+  setActiveView('current');
+
+  // 1. 綁定按鈕事件
+  els.startHighlightButton.addEventListener('click', handleStartHighlightClick);
+  els.syncButton.addEventListener('click', handleSyncClick);
+  els.openNotionButton.addEventListener('click', handleOpenNotionClick);
+  els.clearAllBtn?.addEventListener('click', deleteAllUnsyncedPages);
+
+  // 2. 監聽當前分頁變化
+  chrome.tabs.onActivated.addListener(handleTabChange);
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.active) {
+      handleTabChange({ tabId });
+    }
+  });
+
+  // 3. 監聽 Storage 變化 (即時更新)
+  chrome.storage.onChanged.addListener(handleStorageChange);
+
+  // 4. Tab bar 切換
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', handleViewTabClick);
+  });
+
+  // 5. 載入更多
+  const loadMoreBtn = els.loadMoreBtn;
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', loadMoreCards);
+  }
+
+  // 6. 初始化載入當前分頁，並更新 badge
+  await loadCurrentTab(null, beginCurrentViewRequest());
+  await refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed during init');
+}
+
+/**
+ * 處理分頁切換
+ *
+ * @param {chrome.tabs.TabActiveInfo} activeInfo
+ */
+async function handleTabChange(activeInfo) {
+  await loadCurrentTab(activeInfo.tabId, beginCurrentViewRequest());
+}
+
+/**
+ * 主要載入流程
+ *
+ * @param {number|null} specificTabId
+ * @param {number} [requestId]
+ */
+async function loadCurrentTab(specificTabId = null, requestId = beginCurrentViewRequest()) {
+  cachedStableUrl = null;
+  cachedTabUrl = null;
+  if (isCurrentViewRequestActive(requestId)) {
+    UI.showLoading(els);
+  }
+
+  try {
+    let tab;
+    if (specificTabId) {
+      tab = await chrome.tabs.get(specificTabId);
+    } else {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      tab = tabs[0];
+    }
+
+    if (!tab?.url || RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol)) {
+      if (isCurrentViewRequestActive(requestId)) {
+        UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
+      }
+      return;
+    }
+
+    // 核心: 解析穩定 URL (3層 Fallback)
+    const stableUrl = await getStableUrlForTab(tab.id, tab.url);
+
+    if (!isCurrentViewRequestActive(requestId)) {
+      return;
+    }
+
+    // 快取 URL 供 handleStorageChange 快速路徑使用
+    cachedStableUrl = stableUrl;
+    cachedTabUrl = tab.url;
+
+    // 獲取資料
+    await renderHighlightsForUrl(stableUrl, tab.url, requestId);
+  } catch (error) {
+    Logger.error('[SidePanel] Failed to load tab', { error });
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
+    }
+  }
+}
+
+/**
+ * 獲取穩定 URL (3層 Fallback)
+ *
+ * @param {number} tabId
+ * @param {string} url
+ * @returns {Promise<string>}
+ */
+async function getStableUrlForTab(tabId, url) {
+  // 1. 向 Content Script 請求已解析的 __NOTION_STABLE_URL__
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, {
+      action: RUNTIME_ACTIONS.GET_STABLE_URL,
+    });
+    if (response?.stableUrl) {
+      return response.stableUrl;
+    }
+  } catch {
+    // Content script 還沒準備好或不存在，默默允許進入 Fallback
+  }
+
+  // 2. Fallback: 使用純字串規則 computeStableUrl
+  const computed = computeStableUrl(url);
+  if (computed) {
+    return computed;
+  }
+
+  // 3. 最終 Fallback: 直接 normalizeUrl
+  return normalizeUrl(url);
+}
+
+/**
+ * 判斷頁面是否已儲存到 Notion
+ *
+ * @param {*} notionData - page_*.notion（或 null 疋於未升級）
+ * @param {string|null} targetKey - 目標 storage key
+ * @returns {Promise<boolean>}
+ */
+async function checkSavedData(notionData, targetKey) {
+  if (notionData !== null && notionData !== undefined) {
+    return Boolean(notionData?.pageId);
+  }
+  if (!targetKey) {
+    return false;
+  }
+
+  // Phase 3 新格式：若剛新增標註但尚未同步，notionData 為 null，但稍後同步時 storage 會更新
+  if (targetKey.startsWith(PAGE_PREFIX)) {
+    const result = await chrome.storage.local.get(targetKey);
+    return Boolean(result[targetKey]?.notion?.pageId);
+  }
+
+  // 舊格式：僅當 targetKey 以 HIGHLIGHTS_PREFIX 開頭才對應查詢 saved_* key
+  if (!targetKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return false;
+  }
+  const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
+  const savedResult = await chrome.storage.local.get(savedKey);
+  return Boolean(savedResult[savedKey]);
+}
+
+/**
+ * 批量讀取 storage 並回傳 contract 與 storageData（内部 helper）
+ *
+ * @param {string} normalizedUrl
+ * @param {string} normalizedOriginal
+ * @returns {Promise<{contract: import('../../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract, storageData: object}>}
+ * @private
+ */
+async function _resolveStorageForUrl(normalizedUrl, normalizedOriginal) {
+  // 批量讀取 alias + 所有可能 keys
+  const aliasKeys = getAliasLookupKeys(normalizedUrl, normalizedOriginal);
+  const preloadKeys = [
+    ...aliasKeys,
+    `${PAGE_PREFIX}${normalizedUrl}`,
+    `${PAGE_PREFIX}${normalizedOriginal}`,
+    `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    `${HIGHLIGHTS_PREFIX}${normalizedOriginal}`,
+  ];
+
+  const preloadResult = await chrome.storage.local.get([...new Set(preloadKeys)]);
+  // 同時為兩個 URL 選 alias
+  const aliasFromUrl = pickAliasCandidate(preloadResult, normalizedUrl);
+  const aliasFromOriginal = pickAliasCandidate(preloadResult, normalizedOriginal);
+
+  // 補取尚未預先讀取的 alias-resolved keys（page_* 和 highlights_*）
+  const extraKeys = [];
+  const addExtraIfMissing = key => {
+    if (!(key in preloadResult) && !extraKeys.includes(key)) {
+      extraKeys.push(key);
+    }
+  };
+
+  if (aliasFromUrl && aliasFromUrl !== normalizedUrl) {
+    addExtraIfMissing(`${PAGE_PREFIX}${aliasFromUrl}`);
+    addExtraIfMissing(`${HIGHLIGHTS_PREFIX}${aliasFromUrl}`);
+  }
+  if (aliasFromOriginal && aliasFromOriginal !== normalizedOriginal) {
+    addExtraIfMissing(`${PAGE_PREFIX}${aliasFromOriginal}`);
+    addExtraIfMissing(`${HIGHLIGHTS_PREFIX}${aliasFromOriginal}`);
+  }
+
+  let storageData = preloadResult;
+  if (extraKeys.length > 0) {
+    const extra = await chrome.storage.local.get(extraKeys);
+    storageData = { ...preloadResult, ...extra };
+  }
+
+  // 各自建立 contract，合併 lookupOrder（去重）
+  const contractA = resolveHighlightLookupKeys(normalizedUrl, aliasFromUrl);
+  const contractB = resolveHighlightLookupKeys(normalizedOriginal, aliasFromOriginal);
+
+  const mergedPageKeys = [...new Set([...contractA.pageKeys, ...contractB.pageKeys])];
+  const mergedLegacyKeys = [...new Set([...contractA.legacyKeys, ...contractB.legacyKeys])];
+  const mergedLookupOrder = [...mergedPageKeys, ...mergedLegacyKeys];
+  const mergedContract = { ...contractA, lookupOrder: mergedLookupOrder };
+
+  return { contract: mergedContract, storageData };
+}
+
+/**
+ * 依 lookupOrder 尋找第一個存在的 page_* 物件，供 page-only 狀態使用。
+ *
+ * @param {import('../../scripts/highlighter/core/HighlightLookupResolver.js').HighlightLookupContract} contract
+ * @param {object} storageData
+ * @returns {{ pageKey: string | null, pageData: object | null, notionData: object | null }}
+ */
+function findPageStateFromStorage(contract, storageData) {
+  if (!storageData || typeof storageData !== 'object') {
+    return { pageKey: null, pageData: null, notionData: null };
+  }
+
+  for (const key of contract.lookupOrder) {
+    if (!key.startsWith(PAGE_PREFIX)) {
+      continue;
+    }
+
+    const value = storageData[key];
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+
+    return {
+      pageKey: key,
+      pageData: value,
+      notionData: value.notion ?? null,
+    };
+  }
+
+  return { pageKey: null, pageData: null, notionData: null };
+}
+
+/**
+ * 根據 URL 渲染標註列表
+ * Phase 3：優先讀取 page_* 新格式，再回退 highlights_*。
+ *
+ * @param {string} url
+ * @param {string} originalTabUrl
+ * @param {number} requestId
+ */
+async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
+  const normalizedUrl = normalizeUrl(url);
+  const normalizedOriginal = normalizeUrl(originalTabUrl);
+
+  const { contract, storageData } = await _resolveStorageForUrl(normalizedUrl, normalizedOriginal);
+  const { highlights: rawHighlights, resolvedKey } = pickHighlightsFromStorage(
+    contract,
+    storageData
+  );
+  const { pageKey, notionData } = findPageStateFromStorage(contract, storageData);
+
+  const targetKey = resolvedKey ?? pageKey;
+
+  if (!isCurrentViewRequestActive(requestId)) {
+    return;
+  }
+
+  const highlights = Array.isArray(rawHighlights) ? rawHighlights : rawHighlights?.highlights || [];
+  const hasSavedData = await checkSavedData(notionData, targetKey);
+
+  if (!isCurrentViewRequestActive(requestId)) {
+    return;
+  }
+
+  const targetUrl = targetKey?.startsWith(PAGE_PREFIX)
+    ? targetKey.slice(PAGE_PREFIX.length)
+    : (targetKey?.replace(HIGHLIGHTS_PREFIX, '') ?? '');
+
+  els.syncButton.dataset.targetUrl = targetUrl;
+  els.openNotionButton.dataset.targetUrl = originalTabUrl;
+
+  // 根據保存狀態設定同步按鈕
+  currentPageHasSavedData = hasSavedData;
+  applySyncButtonSavedState(hasSavedData);
+
+  if (highlights.length === 0) {
+    if (isCurrentViewRequestActive(requestId)) {
+      UI.showEmpty(els);
+      els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
+    }
+    return;
+  }
+
+  UI.renderList(els, highlights, targetKey, handleDelete);
+  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
+}
+
+/**
+ * 更新物件的 metadata.lastUpdated 時間戳
+ *
+ * @param {object} data
+ */
+function _touchMetadata(data) {
+  if (!data.metadata) {
+    data.metadata = {};
+  }
+  data.metadata.lastUpdated = Date.now();
+}
+
+/**
+ * 根據資料格式計算刪除後的結果
+ *
+ * @param {object|Array} data - 目前 storage 中的資料
+ * @param {string} highlightId - 要刪除的標註 ID
+ * @param {string} storageKey - storage key
+ * @returns {{ newData: any, shouldRemove: boolean }}
+ */
+function _computeDeleteResult(data, highlightId, storageKey) {
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    // Phase 3：page_* 新格式的 partial 刪除
+    if (!Array.isArray(data.highlights)) {
+      data.highlights = [];
+    }
+    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
+    const shouldRemove = data.highlights.length === 0 && !data.notion;
+    if (!shouldRemove) {
+      _touchMetadata(data);
+    }
+    return { newData: data, shouldRemove };
+  }
+
+  if (data.highlights) {
+    // 舊格式：有 highlights 物件結構
+    if (!Array.isArray(data.highlights)) {
+      data.highlights = [];
+    }
+    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
+    const shouldRemove = data.highlights.length === 0;
+    if (!shouldRemove) {
+      _touchMetadata(data);
+    }
+    return { newData: data, shouldRemove };
+  }
+
+  if (Array.isArray(data)) {
+    // 舊版 array 格式
+    const newData = data.filter(hl => hl.id !== highlightId);
+    return { newData, shouldRemove: newData.length === 0 };
+  }
+
+  // 無法識別的格式，安全地移除
+  return { newData: undefined, shouldRemove: true };
+}
+
+/**
+ * 從 storage key 抽出 raw URL（去除前綴）。
+ *
+ * @param {string} storageKey - 預期為 page_<url> 或 highlights_<url>
+ * @returns {string|null}
+ * @private
+ */
+function _extractUrlFromStorageKey(storageKey) {
+  if (typeof storageKey !== 'string') {
+    return null;
+  }
+  if (storageKey.startsWith(PAGE_PREFIX)) {
+    return storageKey.slice(PAGE_PREFIX.length);
+  }
+  if (storageKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return storageKey.slice(HIGHLIGHTS_PREFIX.length);
+  }
+  return null;
+}
+
+/**
+ * 透過共享 cleanup helper 計算「整頁刪除」要移除的 key 集合。
+ *
+ * Phase 4：sidepanel 不得自行決定 legacy key 範圍；此 helper 包裝
+ * resolver contract + planDeleteCleanup，產出實際應 remove 的 key 清單。
+ *
+ * Phase 4 follow-up（2026-05-03 plan §2）：
+ * 改為走 `chrome.storage.local.get(null)` + `_collectDeletionKeys` 純函數,
+ * 同時涵蓋 forward alias（contract）與 reverse alias（aliasMap value-side scan），
+ * 避免 owner = canonical 時遺漏 page_<original> / highlights_<original>。
+ *
+ * @param {string} pageUrl - 由 storage key 抽出的 raw URL
+ * @param {string} fallbackKey - 呼叫端傳入的 storageKey（防禦：確保即使 contract 沒涵蓋也會被刪）
+ * @returns {Promise<string[]>} 應呼叫 chrome.storage.local.remove() 的 key 清單
+ * @private
+ */
+async function _resolvePageDeletionKeys(pageUrl, fallbackKey) {
+  const all = await chrome.storage.local.get(null);
+  const aliasMap = _buildAliasMap(all);
+  return _collectDeletionKeys(pageUrl, fallbackKey, all, aliasMap);
+}
+
+/**
+ * 刪除單個標註
+ *
+ * Phase 4：當刪除導致整個 storageKey 不再有意義（無 highlights 且無 notion），
+ * 透過共享 cleanup helper（planDeleteCleanup）取得相關 legacy key 一併清除，
+ * 不在 sidepanel 端自行決定 legacy key 範圍。
+ *
+ * @param {string} highlightId
+ * @param {string} storageKey
+ */
+async function handleDelete(highlightId, storageKey) {
+  try {
+    const result = await chrome.storage.local.get(storageKey);
+    if (!result[storageKey]) {
+      return;
+    }
+
+    const { newData, shouldRemove } = _computeDeleteResult(
+      result[storageKey],
+      highlightId,
+      storageKey
+    );
+
+    if (shouldRemove) {
+      // Phase 4：透過 helper 找出所有相關 legacy key 一併移除
+      const pageUrl = _extractUrlFromStorageKey(storageKey);
+      if (pageUrl) {
+        const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
+        if (keysToRemove.length > 0) {
+          await chrome.storage.local.remove(keysToRemove);
+        } else {
+          // 防禦回退：snapshot 全空時，仍移除呼叫端傳入的 key
+          await chrome.storage.local.remove(storageKey);
+        }
+      } else {
+        await chrome.storage.local.remove(storageKey);
+      }
+    } else {
+      await chrome.storage.local.set({ [storageKey]: newData });
+    }
+
+    // 通知 Content script 清除 DOM 高亮
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs?.[0]?.id) {
+      await chrome.tabs
+        .sendMessage(tabs[0].id, {
+          action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+          highlightId,
+        })
+        .catch(error => {
+          Logger.error('Failed to send remove highlight DOM message', { error });
+        });
+    }
+  } catch (error) {
+    Logger.error('Failed to delete highlight', { error });
+  }
+}
+
+/**
+ * 點擊開始標註按鈕
+ */
+async function handleStartHighlightClick() {
+  els.startHighlightButton.disabled = true;
+  showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_STARTING, 'info');
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.START_HIGHLIGHT,
+    });
+
+    if (response?.success) {
+      showTimedMessage(UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED, 'success');
+    } else {
+      const safe = sanitizeApiError(
+        response?.error || UNKNOWN_ERROR_MESSAGE,
+        START_HIGHLIGHT_ERROR_CONTEXT
+      );
+      const msg = ErrorHandler.formatUserMessage(safe);
+
+      Logger.error('[SidePanel] startHighlight failed', {
+        action: 'startHighlight',
+        operation: 'highlight-init',
+        result: 'failure',
+        error: safe,
+      });
+      showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
+    }
+  } catch (error) {
+    const safe = sanitizeApiError(error, START_HIGHLIGHT_ERROR_CONTEXT);
+    const msg = ErrorHandler.formatUserMessage(safe);
+
+    Logger.error('[SidePanel] startHighlight failed', {
+      action: 'startHighlight',
+      operation: 'runtime-sendMessage',
+      result: 'failure',
+      error,
+      reason: safe,
+    });
+    showTimedMessage(`${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`, 'error');
+  } finally {
+    setTimeout(() => {
+      els.startHighlightButton.disabled = false;
+    }, UI.SYNC_BUTTON_DEBOUNCE_MS);
+  }
+}
+
+/**
+ * 點擊同步按鈕
+ */
+async function handleSyncClick() {
+  els.syncButton.disabled = true;
+  showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNCING, 'info');
+
+  try {
+    const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
+    if (response?.success) {
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
+    } else {
+      Logger.error('[SidePanel] savePage failed', {
+        error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page'),
+      });
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+      applySyncButtonSavedState(currentPageHasSavedData);
+    }
+  } catch (error) {
+    Logger.error('[SidePanel] savePage failed', {
+      error: sanitizeApiError(error, 'save_page'),
+    });
+    showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+    applySyncButtonSavedState(currentPageHasSavedData);
+  }
+}
+
+/**
+ * 點擊在 Notion 打開按鈕
+ */
+async function handleOpenNotionClick() {
+  els.openNotionButton.disabled = true;
+  showTimedMessage(UI_MESSAGES.SIDEPANEL.OPENING, 'info');
+
+  try {
+    const url = els.openNotionButton.dataset.targetUrl;
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.OPEN_NOTION_PAGE,
+      url,
+    });
+    if (response?.success) {
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_SUCCESS, 'success');
+    } else {
+      Logger.error('[SidePanel] openNotionPage failed', {
+        error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'open_page'),
+      });
+      showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
+    }
+  } catch (error) {
+    Logger.error('[SidePanel] openNotionPage failed', {
+      error: sanitizeApiError(error, 'open_page'),
+    });
+    showTimedMessage(UI_MESSAGES.SIDEPANEL.OPEN_FAILED, 'error');
+  } finally {
+    setTimeout(() => {
+      els.openNotionButton.disabled = false;
+    }, UI.OPEN_BUTTON_DEBOUNCE_MS);
+  }
+}
+
+/**
+ * 處理 Storage 變化
+ * 使用快取 URL 避免重新查詢 tab 和 sendMessage，大幅降低延遲
+ *
+ * @param {object} changes
+ * @param {string} namespace
+ */
+function handleStorageChange(changes, namespace) {
+  if (namespace !== 'local') {
+    return;
+  }
+  // Phase 3：只要 page_*、highlights_* 或 saved_* 有變，就重整當前頁面資料
+  const hasRelevantChanges = Object.keys(changes).some(
+    key =>
+      key.startsWith(PAGE_PREFIX) ||
+      key.startsWith(HIGHLIGHTS_PREFIX) ||
+      key.startsWith(SAVED_PREFIX)
+  );
+
+  if (!hasRelevantChanges) {
+    return;
+  }
+
+  // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
+  clearTimeout(unsyncedBadgeTimer);
+  unsyncedBadgeTimer = setTimeout(() => {
+    refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed after storage change');
+  }, 300);
+
+  // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
+  if (cachedStableUrl && cachedTabUrl) {
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl, beginCurrentViewRequest()).catch(error =>
+      Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
+    );
+    return;
+  }
+
+  // 初始狀態尚無快取，走完整路徑
+  loadCurrentTab(null, beginCurrentViewRequest());
+}
+
+// 啟動
+document.addEventListener('DOMContentLoaded', init);
+
+// === 待同步視圖切換邏輯 ===
+
+/**
+ * Tab bar 點擊事件處理
+ *
+ * @param {Event} event
+ */
+function handleViewTabClick(event) {
+  const viewName = event.currentTarget.dataset.view;
+  if (!viewName) {
+    return;
+  }
+  setActiveView(viewName);
+  // UI 層只做 DOM 切換，業務回調在此協調
+  UI.switchView(els, viewName);
+  if (viewName === 'unsynced') {
+    renderUnsyncedView(
+      '[SidePanel] renderUnsyncedView failed after tab switch',
+      beginUnsyncedViewRequest()
+    );
+  } else {
+    loadCurrentTab(null, beginCurrentViewRequest());
+  }
+}
+
+/**
+ * 渲染「待同步」視圖（含分頁）
+ *
+ * @param {string} [logMessage] - 失敗時使用的日誌訊息
+ * @param {number} [requestId] - 本次 unsynced view 請求序號
+ */
+async function renderUnsyncedView(
+  logMessage = '[SidePanel] renderUnsyncedView failed',
+  requestId = beginUnsyncedViewRequest()
+) {
+  const loadMoreBtn = els.loadMoreBtn;
+
+  try {
+    // 每次進入時重新抓取資料
+    const nextUnsyncedPages = await getUnsyncedPages();
+    if (!isUnsyncedViewRequestActive(requestId)) {
+      return;
+    }
+    cachedUnsyncedPages = nextUnsyncedPages;
+    displayedCardCount = 0;
+    els.unsyncedView.textContent = '';
+
+    if (cachedUnsyncedPages.length === 0) {
+      UI.renderUnsyncedEmptyState(els);
+      if (loadMoreBtn) {
+        loadMoreBtn.style.display = 'none';
+      }
+      if (els.unsyncedToolbar) {
+        els.unsyncedToolbar.style.display = 'none';
+      }
+      UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+      return;
+    }
+
+    // 顯示工具列並更新計數
+    if (els.unsyncedToolbar) {
+      els.unsyncedToolbar.style.display = 'flex';
+    }
+    if (els.unsyncedCountLabel) {
+      const count = cachedUnsyncedPages.length;
+      els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
+    }
+
+    appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
+    UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+  } catch (error) {
+    if (!isUnsyncedViewRequestActive(requestId)) {
+      return;
+    }
+    Logger.error(logMessage, { error });
+    renderUnsyncedFallbackState();
+  }
+}
+
+/**
+ * 「載入更多」按鈕的 handler
+ */
+function loadMoreCards() {
+  if (!cachedUnsyncedPages) {
+    return;
+  }
+  appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
+}
+
+/**
+ * 刪除單一頁面的所有標注
+ *
+ * Phase 4：透過共享 cleanup helper（planDeleteCleanup）取得 canonical-aware
+ * 的 cleanup key 集合，避免只刪呼叫端傳入的 storageKey 卻遺留 page_<other> 或
+ * highlights_*。
+ *
+ * @param {string} storageKey  storage 中的 page_* 或 highlights_* key
+ * @param {HTMLElement} cardEl 對應的卡片 DOM 節點（用於移除）
+ */
+async function deleteUnsyncedPage(storageKey, cardEl) {
+  try {
+    const pageUrl = _extractUrlFromStorageKey(storageKey);
+    if (pageUrl) {
+      const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
+      if (keysToRemove.length > 0) {
+        await chrome.storage.local.remove(keysToRemove);
+      } else {
+        // 防禦回退：snapshot 全空時仍嘗試刪除呼叫端傳入的 key
+        await chrome.storage.local.remove(storageKey);
+      }
+    } else {
+      await chrome.storage.local.remove(storageKey);
+    }
+  } catch (error) {
+    Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', { error });
+    return; // bail out — don't mutate UI if storage failed
+  }
+
+  // 從快取移除
+  cachedUnsyncedPages = cachedUnsyncedPages.filter(page => page.storageKey !== storageKey);
+  displayedCardCount = Math.max(0, Math.min(displayedCardCount - 1, cachedUnsyncedPages.length));
+
+  // 移除 DOM 卡片（fade out）
+  cardEl.classList.add('card-removing');
+  cardEl.addEventListener('animationend', () => cardEl.remove(), { once: true });
+
+  // 更新工具列計數和 badge
+  const count = cachedUnsyncedPages.length;
+  if (els.unsyncedCountLabel) {
+    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
+  }
+  if (count === 0) {
+    if (els.unsyncedToolbar) {
+      els.unsyncedToolbar.style.display = 'none';
+    }
+    if (els.loadMoreBtn) {
+      els.loadMoreBtn.style.display = 'none';
+    }
+    UI.renderUnsyncedEmptyState(els);
+  }
+  if (count > 0 && displayedCardCount < cachedUnsyncedPages.length) {
+    appendNextUnsyncedBatch(1);
+  }
+  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+}
+
+/**
+ * 刪除所有未同步頁面的標注
+ *
+ * Phase 4 follow-up（2026-05-03 plan §3）：使用每筆 entry 預先計算的 deletionKeys，
+ * 確保整批清除涵蓋同 canonical group 的全部 member（page_<other> / highlights_<other>），
+ * 與 deleteUnsyncedPage 共用同一條 cleanup 規則。
+ */
+async function deleteAllUnsyncedPages() {
+  if (!cachedUnsyncedPages || cachedUnsyncedPages.length === 0) {
+    return;
+  }
+
+  const aggregatedKeys = new Set();
+  for (const page of cachedUnsyncedPages) {
+    const perEntryKeys =
+      Array.isArray(page.deletionKeys) && page.deletionKeys.length > 0
+        ? page.deletionKeys
+        : [page.storageKey];
+    for (const key of perEntryKeys) {
+      if (typeof key === 'string' && key.length > 0) {
+        aggregatedKeys.add(key);
+      }
+    }
+  }
+
+  try {
+    await chrome.storage.local.remove([...aggregatedKeys]);
+  } catch (error) {
+    Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', { error });
+    return; // bail out — don't mutate UI if storage failed
+  }
+
+  cachedUnsyncedPages = [];
+  displayedCardCount = 0;
+
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  if (els.loadMoreBtn) {
+    els.loadMoreBtn.style.display = 'none';
+  }
+  UI.renderUnsyncedEmptyState(els);
+
+  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+}

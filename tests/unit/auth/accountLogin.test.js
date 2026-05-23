@@ -101,10 +101,10 @@ describe('accountLogin.js', () => {
   describe('getOptionsAdvancedUrl', () => {
     it('應回傳 options advanced section deep link', () => {
       expect(getOptionsAdvancedUrl()).toBe(
-        'chrome-extension://ext_id_123/options/options.html?section=advanced'
+        'chrome-extension://ext_id_123/pages/options/options.html?section=advanced'
       );
       expect(globalThis.chrome.runtime.getURL).toHaveBeenCalledWith(
-        'options/options.html?section=advanced'
+        'pages/options/options.html?section=advanced'
       );
     });
   });

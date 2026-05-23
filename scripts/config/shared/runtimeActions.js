@@ -21,6 +21,7 @@
  * @property {string} [stableUrl]
  * @property {boolean} [deletionPending]
  * @property {boolean} [wasDeleted]
+ * @property {string} [errorCode]
  * @property {string} [error]
  */
 
@@ -85,6 +86,7 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [title]
  * @property {string} [destinationProfileId]
  * @property {string} [destinationProfileName]
+ * @property {string} [errorCode]
  * @property {string} [error]
  */
 
@@ -96,7 +98,6 @@ const PAGE_STATUS_ACTIONS = {
 /**
  * @typedef {object} SavePageFromToolbarResponse
  * @property {boolean} success
- * @property {string} [error]
  * @property {'saved'|'unsaved'|'deletion_pending'|'deleted_remote'|'unverified_saved'|'error'} [statusKind]
  * @property {boolean} [isSaved]
  * @property {boolean} [canSave]
@@ -109,6 +110,8 @@ const PAGE_STATUS_ACTIONS = {
  * @property {string} [title]
  * @property {string} [destinationProfileId]
  * @property {string} [destinationProfileName]
+ * @property {string} [errorCode]
+ * @property {string} [error]
  */
 
 /**
@@ -368,6 +371,10 @@ const HIGHLIGHT_ACTIONS = {
  * @property {boolean} success
  * @property {MigrationBatchSummary} [results]
  * @property {string} [error]
+ * @example
+ * // Payload: { action: 'migration_batch', urls: ['https://example.com/a'] }
+ * // results.success is the successful item count; response.success is the boolean envelope.
+ * { success: true, results: { success: 1, failed: 0, details: [] } }
  */
 
 /**
@@ -377,10 +384,30 @@ const HIGHLIGHT_ACTIONS = {
  */
 
 /**
+ * @typedef {object} MigrationBatchDeleteItemResult
+ * @property {string} url
+ * @property {'success'|'failed'} status
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} MigrationBatchDeleteSummary
+ * @property {number} success
+ * @property {number} failed
+ * @property {number} total
+ * @property {Array<MigrationBatchDeleteItemResult>} details
+ */
+
+/**
  * @typedef {object} MigrationBatchDeleteResponse
  * @property {boolean} success
- * @property {number} [count]
+ * @property {MigrationBatchDeleteSummary} [results]
+ * @property {string} [message]
  * @property {string} [error]
+ * @example
+ * // Payload: { action: 'migration_batch_delete', urls: ['https://example.com/a'] }
+ * // results.success is the successful item count; response.success is the boolean envelope.
+ * { success: true, results: { success: 1, failed: 0, total: 1, details: [] } }
  */
 
 /**
@@ -665,6 +692,19 @@ const DRIVE_SYNC_ACTIONS = {
  * @property {Array<{type: string, timestamp: number}>} events
  */
 
+/**
+ * @typedef {object} ShowToastRequest
+ * @property {'SHOW_TOAST'} action
+ * @property {string} messageKey
+ * @property {string} [level]
+ */
+
+/**
+ * @typedef {object} ShowToastResponse
+ * @property {boolean} [success]
+ * @property {string} [error]
+ */
+
 const SIDEPANEL_ACTIONS = {
   OPEN_SIDE_PANEL: 'OPEN_SIDE_PANEL',
 };
@@ -674,6 +714,7 @@ const BRIDGE_ACTIONS = {
   INIT_BUNDLE: 'INIT_BUNDLE',
   REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
   CONTENT_BRIDGE_SHOW_FLOATING_RAIL: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
+  SHOW_TOAST: 'SHOW_TOAST',
 };
 
 const DIAGNOSTICS_ACTIONS = {
@@ -731,6 +772,7 @@ export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
  * @property {InitBundleRequest['action']} INIT_BUNDLE - Request: {@link InitBundleRequest}; Response: {@link InitBundleResponse}
  * @property {ReplayBufferedEventsRequest['action']} REPLAY_BUFFERED_EVENTS - Request: {@link ReplayBufferedEventsRequest}; Response: {@link ReplayBufferedEventsResponse}
  * @property {ContentBridgeShowFloatingRailRequest['action']} CONTENT_BRIDGE_SHOW_FLOATING_RAIL - Request: {@link ContentBridgeShowFloatingRailRequest}; Response: {@link ContentBridgeShowFloatingRailResponse}
+ * @property {ShowToastRequest['action']} SHOW_TOAST - Request: {@link ShowToastRequest}; Response: {@link ShowToastResponse}
  */
 
 /** @type {Readonly<RuntimeActionsRegistry>} */

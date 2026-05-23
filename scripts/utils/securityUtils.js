@@ -145,20 +145,37 @@ function _classifyApiError(lowerMessage) {
     RATE_LIMIT,
     NOT_FOUND,
     ACTIVE_TAB,
+    TAB_NOT_FOUND,
+    RUNTIME_DISCONNECTED,
+    CONNECTION_NOT_ESTABLISHED,
     DATA_SOURCE,
     VALIDATION,
+    TIMEOUT,
     NETWORK,
     SERVER_ERROR,
   } = API_ERROR_PATTERNS;
 
   // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
-  const directMatch = _checkSimpleMappings(lowerMessage, {
-    'rate limit': RATE_LIMIT,
-    'Page ID is missing': NOT_FOUND,
-    'active tab': ACTIVE_TAB,
-    'Data Source ID': DATA_SOURCE,
-    'Network error': NETWORK,
-  });
+  // 使用 Array of Tuples 而非 Object literal，將「順序 = 優先級」這個合約從
+  // 隱性（依賴 Object key insertion order）提升為顯性（list 結構本身即代表 ordered priority），
+  // 避免 IDE 排序、ESLint sort-keys、Prettier plugin 等工具自動打亂優先級。
+  // 注意：TIMEOUT 必須早於 NETWORK_ERROR 檢查，否則 'timeout' 等關鍵字會被歸類為
+  // NETWORK_ERROR 而喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
+  // 注意：chrome.tabs / runtime 三條 mapping 必須早於 MISSING_PAGE_ID：
+  // NOT_FOUND 含 'does not exist'，會搶吃 'Receiving end does not exist'。
+  // RUNTIME_DISCONNECTED 早於 CONNECTION_NOT_ESTABLISHED：chrome 複合訊息
+  // 'Could not establish connection. Receiving end does not exist.' 兩段都命中時，
+  // 更具體的「content script 已 unmount」axis 應勝出。
+  const directMatch = _checkSimpleMappings(lowerMessage, [
+    ['RATE_LIMITED', RATE_LIMIT],
+    ['NO_TAB_WITH_ID', TAB_NOT_FOUND],
+    ['CONTENT_SCRIPT_NOT_READY', RUNTIME_DISCONNECTED],
+    ['TAB_COMMUNICATION_FAILED', CONNECTION_NOT_ESTABLISHED],
+    ['MISSING_PAGE_ID', NOT_FOUND],
+    ['NO_ACTIVE_TAB', ACTIVE_TAB],
+    ['TIMEOUT', TIMEOUT],
+    ['NETWORK_ERROR', NETWORK],
+  ]);
   if (directMatch) {
     return directMatch;
   }
@@ -176,16 +193,23 @@ function _classifyApiError(lowerMessage) {
   }
 
   // 2.5 驗證錯誤 (Validation) - 降級檢查順序
-  // 防止 'api key is invalid' 等認證錯誤被誤判為 validation_error
+  // 防止 'api key is invalid' 等認證錯誤被誤判為 VALIDATION_ERROR
   if (VALIDATION.some(k => lowerMessage.includes(k))) {
-    return 'validation_error';
+    return 'VALIDATION_ERROR';
   }
 
   // 3. 權限檢查 (Permission)
+  // 必須早於 DATA_SOURCE 檢查：DATA_SOURCE 含 'database' 關鍵字，
+  // 否則 'database permission denied' 會被誤判為 MISSING_DATA_SOURCE。
   if (PERMISSION.some(k => lowerMessage.includes(k))) {
     return PERMISSION_DB.some(k => lowerMessage.includes(k))
-      ? 'Database access denied'
-      : 'Cannot access contents';
+      ? 'DATABASE_ACCESS_DENIED'
+      : 'TAB_RESTRICTED_PAGE';
+  }
+
+  // 3.5 資料源錯誤 (Data Source) - 必須在 PERMISSION 之後
+  if (DATA_SOURCE.some(k => lowerMessage.includes(k))) {
+    return 'MISSING_DATA_SOURCE';
   }
 
   // 4. 服務器錯誤 (Server Error)
@@ -209,21 +233,21 @@ function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidd
   }
 
   if (isDisconnected) {
-    return 'Integration disconnected';
+    return 'INTEGRATION_DISCONNECTED';
   }
   if (isInvalid) {
-    return 'Invalid API Key format';
+    return 'INVALID_API_KEY_FORMAT';
   }
   if (isForbidden) {
-    return 'Integration forbidden (403)';
+    return 'INTEGRATION_FORBIDDEN';
   }
 
   // Default to generic API Key error if matched main AUTH pattern
-  return 'API Key';
+  return 'API_KEY_NOT_CONFIGURED';
 }
 
-function _checkSimpleMappings(lowerMessage, mapping) {
-  for (const [result, patterns] of Object.entries(mapping)) {
+function _checkSimpleMappings(lowerMessage, mappings) {
+  for (const [result, patterns] of mappings) {
     if (patterns.some(k => lowerMessage.includes(k))) {
       return result;
     }
@@ -235,7 +259,7 @@ function _checkServerError(lowerMessage) {
   const isInternal = lowerMessage.includes('internal') && lowerMessage.includes('error');
   const isUnavailable = lowerMessage.includes('service') && lowerMessage.includes('unavailable');
   if (isInternal || isUnavailable) {
-    return 'Internal Server Error';
+    return 'INTERNAL_SERVER_ERROR';
   }
   return null;
 }
@@ -246,7 +270,9 @@ function _checkServerError(lowerMessage) {
  * 安全與架構考量：
  * 1. 職責分離：此函數僅負責「分類」與「清洗」，不包含 UI 文案。
  * 2. 縱深防禦：防止內部實現細節、Stack Traces 等洩露。
- * 3. 翻譯橋接：返回的關鍵字（如 'API Key'）由 ErrorHandler 轉換為友善語句。
+ * 3. 翻譯橋接：返回的關鍵字（如 'API_KEY_NOT_CONFIGURED'）由 ErrorHandler 轉換為友善語句。
+ * 4. Boundary 約定：SDK 原始 code（snake_case）在此函數入口統一轉為內部 SCREAMING_SNAKE_CASE
+ *    vocabulary，輸出後所有消費端皆與 PATTERNS key 對齊。
  *
  * @param {string | object} apiError - API 錯誤訊息或錯誤對象
  * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
@@ -259,15 +285,21 @@ export function sanitizeApiError(apiError, context = 'operation') {
     if (apiError.code === 'validation_error') {
       const msg = (apiError.message || '').toLowerCase();
       if (msg.includes('image') || msg.includes('media')) {
-        return 'image_validation_error';
+        return 'IMAGE_VALIDATION_ERROR';
       }
-      return 'validation_error';
+      return 'VALIDATION_ERROR';
     }
-    // 直接返回 code，交由 ErrorHandler.formatUserMessage 匹配
-    return apiError.code;
+    // Boundary 轉換：SDK 原始 snake_case code → 內部 SCREAMING_SNAKE_CASE vocabulary
+    return typeof apiError.code === 'string' ? apiError.code.toUpperCase() : apiError.code;
   }
 
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
+
+  // Fast-path: 內部 token 已是 PATTERNS key 時直接回傳，避免再走 keyword 比對而誤判為 UNKNOWN_ERROR。
+  if (errorMessage && Object.hasOwn(ERROR_MESSAGES.PATTERNS, errorMessage)) {
+    return errorMessage;
+  }
+
   const lowerMessage = errorMessage.toLowerCase();
 
   // 1. 使用內部解析器進行分類 (引用配置)
@@ -287,7 +319,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
   );
 
-  return 'Unknown Error';
+  return 'UNKNOWN_ERROR';
 }
 
 // ============================================================================

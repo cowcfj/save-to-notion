@@ -144,9 +144,9 @@ const ErrorHandler = {
    * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
    * @returns {string} 格式化後的用戶友善錯誤訊息
    * @example
-   * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key）：
-   * // 'API Key', 'rate limit', 'Network error', 'Page not saved'
-   * formatUserMessage('API Key'); // 返回「請先在設定頁面配置 Notion API Key」
+   * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key，SCREAMING_SNAKE_CASE）：
+   * // 'API_KEY_NOT_CONFIGURED', 'RATE_LIMITED', 'NETWORK_ERROR', 'PAGE_NOT_SAVED'
+   * formatUserMessage('API_KEY_NOT_CONFIGURED'); // 返回「請先在設定頁面配置 Notion API Key」
    */
   formatUserMessage(error) {
     if (!error) {
@@ -170,8 +170,8 @@ const ErrorHandler = {
     }
 
     // [SDK Error Support]
-    // 處理 Notion SDK 的 APIResponseError
-    // error.code (例如 'object_not_found', 'validation_error')
+    // 處理已經過 sanitizeApiError 轉換的 error.code（SCREAMING_SNAKE_CASE）
+    // 例如 'OBJECT_NOT_FOUND'、'VALIDATION_ERROR'。SDK 原始 snake_case code 在 boundary 已轉換
     if (error?.code && ERROR_MESSAGES.PATTERNS[error.code]) {
       return ERROR_MESSAGES.PATTERNS[error.code];
     }
@@ -191,12 +191,14 @@ class AppError extends Error {
    * @param {string} type - 錯誤類型（使用 ErrorTypes）
    * @param {string} message - 錯誤訊息
    * @param {object} details - 額外詳情
+   * @param {string} [code] - 程式化錯誤代碼，對齊 ERROR_MESSAGES.PATTERNS key 命名空間（見 docs/adr/0007-error-code-envelope.md）
    */
-  constructor(type, message, details = {}) {
+  constructor(type, message, details = {}, code = undefined) {
     super(message);
     this.name = 'AppError';
     this.type = type;
     this.details = details;
+    this.code = code;
     this.timestamp = Date.now();
   }
 
@@ -206,11 +208,15 @@ class AppError extends Error {
    * @returns {object}
    */
   toJSON() {
-    return {
+    const json = {
       type: this.type,
       message: this.message,
       details: this.details,
     };
+    if (this.code !== undefined) {
+      json.errorCode = this.code;
+    }
+    return json;
   }
 
   /**
@@ -219,12 +225,16 @@ class AppError extends Error {
    * @returns {object}
    */
   toResponse() {
-    return {
+    const response = {
       success: false,
-      error: this.message,
+      error: ErrorHandler.formatUserMessage(this),
       errorType: this.type,
       details: this.details,
     };
+    if (this.code !== undefined) {
+      response.errorCode = this.code;
+    }
+    return response;
   }
 }
 
@@ -233,19 +243,21 @@ class AppError extends Error {
  * 用於快速創建特定類型的 AppError
  */
 const Errors = {
-  network: (msg, details) => new AppError(ErrorTypes.NETWORK_ERROR, msg, details),
-  storage: (msg, details) => new AppError(ErrorTypes.STORAGE, msg, details),
-  validation: (msg, details) => new AppError(ErrorTypes.VALIDATION_ERROR, msg, details),
-  notionApi: (msg, details) => new AppError(ErrorTypes.NOTION_API, msg, details),
-  injection: (msg, details) => new AppError(ErrorTypes.INJECTION, msg, details),
-  permission: (msg, details) => new AppError(ErrorTypes.PERMISSION, msg, details),
-  internal: (msg, details) => new AppError(ErrorTypes.INTERNAL, msg, details),
-  timeout: (msg, details) => new AppError(ErrorTypes.TIMEOUT_ERROR, msg, details),
-  extractionFailed: (msg, details) => new AppError(ErrorTypes.EXTRACTION_FAILED, msg, details),
-  invalidUrl: (msg, details) => new AppError(ErrorTypes.INVALID_URL, msg, details),
-  parsingError: (msg, details) => new AppError(ErrorTypes.PARSING_ERROR, msg, details),
-  performanceWarning: (msg, details) => new AppError(ErrorTypes.PERFORMANCE_WARNING, msg, details),
-  domError: (msg, details) => new AppError(ErrorTypes.DOM_ERROR, msg, details),
+  network: (msg, details, code) => new AppError(ErrorTypes.NETWORK_ERROR, msg, details, code),
+  storage: (msg, details, code) => new AppError(ErrorTypes.STORAGE, msg, details, code),
+  validation: (msg, details, code) => new AppError(ErrorTypes.VALIDATION_ERROR, msg, details, code),
+  notionApi: (msg, details, code) => new AppError(ErrorTypes.NOTION_API, msg, details, code),
+  injection: (msg, details, code) => new AppError(ErrorTypes.INJECTION, msg, details, code),
+  permission: (msg, details, code) => new AppError(ErrorTypes.PERMISSION, msg, details, code),
+  internal: (msg, details, code) => new AppError(ErrorTypes.INTERNAL, msg, details, code),
+  timeout: (msg, details, code) => new AppError(ErrorTypes.TIMEOUT_ERROR, msg, details, code),
+  extractionFailed: (msg, details, code) =>
+    new AppError(ErrorTypes.EXTRACTION_FAILED, msg, details, code),
+  invalidUrl: (msg, details, code) => new AppError(ErrorTypes.INVALID_URL, msg, details, code),
+  parsingError: (msg, details, code) => new AppError(ErrorTypes.PARSING_ERROR, msg, details, code),
+  performanceWarning: (msg, details, code) =>
+    new AppError(ErrorTypes.PERFORMANCE_WARNING, msg, details, code),
+  domError: (msg, details, code) => new AppError(ErrorTypes.DOM_ERROR, msg, details, code),
 };
 
 // 導出類和常量

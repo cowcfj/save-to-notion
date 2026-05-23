@@ -15,7 +15,7 @@ export function getFloatingRailCSS() {
       all: initial;
       display: block;
       position: fixed;
-      top: 50%;
+      top: var(--rail-top, 50%);
       right: 0;
       transform: translateY(-50%);
       z-index: 2147483646;
@@ -98,6 +98,22 @@ export function getFloatingRailCSS() {
       outline-offset: 1px;
     }
 
+    .rail-close-btn > .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--rail-close-icon-size, 12px);
+      height: var(--rail-close-icon-size, 12px);
+    }
+
+    .rail-close-btn svg {
+      width: 100%;
+      height: 100%;
+      color: currentColor;
+      fill: currentColor;
+      stroke: currentColor;
+    }
+
     @media (prefers-color-scheme: dark) {
       .rail-container {
         background: ${theme.dark.surface};
@@ -137,8 +153,8 @@ export function getFloatingRailCSS() {
     }
 
     .rail-trigger {
-      width: 34px;
-      height: 34px;
+      width: var(--rail-btn-size, 34px);
+      height: var(--rail-btn-size, 34px);
       border-radius: 9px;
       background: ${color.brand};
       color: ${color.iconOnAccent};
@@ -169,9 +185,17 @@ export function getFloatingRailCSS() {
       --rail-brand-fill: ${color.brandHover};
     }
 
+    .rail-trigger > .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--rail-trigger-icon-size, 22px);
+      height: var(--rail-trigger-icon-size, 22px);
+    }
+
     .rail-trigger svg {
-      width: 22px;
-      height: 22px;
+      width: 100%;
+      height: 100%;
       color: currentColor;
       fill: currentColor;
       stroke: currentColor;
@@ -194,8 +218,8 @@ export function getFloatingRailCSS() {
     }
 
     .rail-action-btn {
-      width: 34px;
-      height: 34px;
+      width: var(--rail-btn-size, 34px);
+      height: var(--rail-btn-size, 34px);
       border-radius: 9px;
       position: relative;
       color: ${color.iconOnAccent};
@@ -231,9 +255,17 @@ export function getFloatingRailCSS() {
       box-shadow: 0 2px 6px ${hexToRgba(color.actionManage, 0.35)};
     }
 
+    .rail-action-btn > .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--rail-action-icon-size, 18px);
+      height: var(--rail-action-icon-size, 18px);
+    }
+
     .rail-action-btn svg {
-      width: 18px;
-      height: 18px;
+      width: 100%;
+      height: 100%;
       color: currentColor;
       fill: currentColor;
       stroke: currentColor;

@@ -16,6 +16,8 @@ export const SYNC_CONFIG_KEYS = [
   'enableDebugLogs',
   'uiZoomLevel',
   'floatingRailEnabled',
+  'floatingRailPosition',
+  'floatingRailSize',
 ];
 
 /**
@@ -45,6 +47,12 @@ export const AUTH_LOCAL_KEYS = [
  * 資料來源 key 保留在 local，避免跨裝置同步造成工作區不一致
  */
 export const DATA_SOURCE_KEYS = ['notionDataSourceId', 'notionDatabaseId', 'notionDataSourceType'];
+
+/**
+ * Onboarding tutorial 完成旗標
+ * 由 onboarding 頁面自身讀寫，其他模組不依賴此 flag。
+ */
+export const ONBOARDING_COMPLETED_KEY = 'onboardingCompleted';
 
 export const LOCAL_STORAGE_KEYS = new Set(DATA_SOURCE_KEYS);
 

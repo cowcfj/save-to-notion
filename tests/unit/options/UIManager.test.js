@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 /* global document */
-import { UIManager } from '../../../options/UIManager.js';
+import { UIManager } from '../../../pages/options/UIManager.js';
 
 describe('UIManager', () => {
   let uiManager = null;

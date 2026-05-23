@@ -29,7 +29,6 @@ export function showLoading(message) {
     spinner.id = DOM_IDS.SPINNER.slice(1);
     spinner.className = 'spinner';
     spinner.setAttribute(ATTR_ARIA_HIDDEN, 'true');
-    spinner.style.display = '';
 
     const statusText = document.createElement('p');
     statusText.id = DOM_IDS.STATUS_TEXT.slice(1);
@@ -40,7 +39,7 @@ export function showLoading(message) {
     statusArea.replaceChildren(spinner, statusText);
   }
   if (closeHint) {
-    closeHint.style.display = 'none';
+    closeHint.classList.add('hidden');
   }
 }
 
@@ -76,7 +75,7 @@ export function showSuccess(message) {
     statusArea.replaceChildren(iconCircle, statusText);
   }
   if (closeHint) {
-    closeHint.style.display = '';
+    closeHint.classList.remove('hidden');
   }
 }
 
@@ -131,6 +130,6 @@ export function showError(message, detail) {
     statusArea.replaceChildren(...children);
   }
   if (closeHint) {
-    closeHint.style.display = 'none';
+    closeHint.classList.add('hidden');
   }
 }

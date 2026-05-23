@@ -9,7 +9,7 @@ import {
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
-} from '../../../popup/popupActions.js';
+} from '../../../pages/popup/popupActions.js';
 import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
@@ -595,9 +595,11 @@ describe('popupActions.js', () => {
       const result = await openAccountManagement();
 
       expect(result.success).toBe(true);
-      expect(chrome.runtime.getURL).toHaveBeenCalledWith('options/options.html?section=advanced');
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith(
+        'pages/options/options.html?section=advanced'
+      );
       expect(chrome.tabs.create).toHaveBeenCalledWith({
-        url: 'chrome-extension://ext_id_123/options/options.html?section=advanced',
+        url: 'chrome-extension://ext_id_123/pages/options/options.html?section=advanced',
       });
     });
 

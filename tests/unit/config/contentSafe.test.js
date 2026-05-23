@@ -16,6 +16,8 @@ describe('contentSafe config', () => {
 
     const missingFiles = expectedFiles
       .map(file => path.join(contentSafeDir, file))
+      // Test-owned static filenames are resolved under the repo-local contentSafe config dir.
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       .filter(filePath => !fs.existsSync(filePath))
       .map(filePath => path.relative(projectRoot, filePath));
 
@@ -59,6 +61,7 @@ describe('contentSafe config', () => {
       SYNC_FAILED: UI_MESSAGES.TOOLBAR.SYNC_FAILED,
       DELETED_PAGE: UI_MESSAGES.POPUP.DELETED_PAGE,
       DELETION_PENDING: UI_MESSAGES.POPUP.DELETION_PENDING,
+      PAGE_NOT_SAVED_HINT: UI_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT,
     });
     expect(TOOLBAR_MESSAGES).not.toHaveProperty('LOADING');
     expect(TOOLBAR_MESSAGES).not.toHaveProperty('OAUTH_ACTION_CONNECT');

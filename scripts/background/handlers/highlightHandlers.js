@@ -23,6 +23,13 @@ import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridg
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ensureNotionApiKey } from '../../utils/notionAuth.js';
 import { getActiveTab } from './handlerUtils.js';
+import {
+  buildContentScriptGuardMeta,
+  buildInternalGuardMeta,
+  buildSimpleGuardMeta,
+  sendGuardFailure,
+} from './handlerGuard.js';
+import { sendToastToTab, classifyErrorForToast } from './toastUtils.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -118,7 +125,7 @@ async function performHighlightUpdate(services, activeTab, highlights) {
 
   if (
     !result.success &&
-    result.error === 'object_not_found' &&
+    result.error === 'OBJECT_NOT_FOUND' &&
     result.details?.phase === 'fetch_blocks'
   ) {
     const deletionCheck = tabService.confirmRemotePageMissing(savedData.notionPageId);
@@ -220,14 +227,15 @@ export function createHighlightHandlers(services) {
       try {
         const validationError = validateContentScriptRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'SHOW_FLOATING_RAIL',
-            reason: 'invalid_content_script_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            tabId: sender?.tab?.id,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildContentScriptGuardMeta({
+              action: 'SHOW_FLOATING_RAIL',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
@@ -301,14 +309,15 @@ export function createHighlightHandlers(services) {
         // 這個處理器會執行腳本注入，必須確保僅限我們的 preloader.js 調用
         const validationError = validateContentScriptRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'USER_ACTIVATE_SHORTCUT',
-            reason: 'invalid_content_script_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            tabId: sender?.tab?.id,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildContentScriptGuardMeta({
+              action: 'USER_ACTIVATE_SHORTCUT',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
@@ -427,14 +436,15 @@ export function createHighlightHandlers(services) {
         // startHighlight 會執行腳本注入，必須確保僅限內部調用
         const validationError = validateInternalRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'startHighlight',
-            reason: 'invalid_internal_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            tabId: sender?.tab?.id,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildInternalGuardMeta({
+              action: 'startHighlight',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
@@ -504,14 +514,15 @@ export function createHighlightHandlers(services) {
         // 安全性驗證：確保請求來自擴充功能內部 (Popup)
         const validationError = validateInternalRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'updateHighlights',
-            reason: 'invalid_internal_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            tabId: sender?.tab?.id,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildInternalGuardMeta({
+              action: 'updateHighlights',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
@@ -534,7 +545,11 @@ export function createHighlightHandlers(services) {
       } catch (error) {
         Logger.error('更新標註時出錯', { action: 'updateHighlights', error: error.message });
         const safeMessage = sanitizeApiError(error, 'update_highlights');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        sendResponse({
+          success: false,
+          error: ErrorHandler.formatUserMessage(safeMessage),
+          errorCode: 'INTERNAL_ERROR',
+        });
       }
     },
 
@@ -550,14 +565,15 @@ export function createHighlightHandlers(services) {
         // 安全性驗證：確保請求來自我們自己的 content script
         const validationError = validateContentScriptRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'syncHighlights',
-            reason: 'invalid_content_script_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            tabId: sender?.tab?.id,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildContentScriptGuardMeta({
+              action: 'syncHighlights',
+              sender,
+              validationError,
+            })
+          );
           return;
         }
 
@@ -594,8 +610,11 @@ export function createHighlightHandlers(services) {
           result.highlightCount = highlights.length;
           result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
         } else {
-          // 注意：performHighlightUpdate 已格式化 result.error 為用戶友善訊息
           Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
+          const toastKey = classifyErrorForToast(result.errorCode);
+          if (toastKey) {
+            sendToastToTab(sender.tab.id, toastKey, 'error');
+          }
         }
         sendResponse(result);
       } catch (error) {
@@ -623,12 +642,15 @@ export function createHighlightHandlers(services) {
         // 安全性驗證：只允許來自我們自己的 content script
         const validationError = validateContentScriptRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'UPDATE_HIGHLIGHTS',
-            reason: 'invalid_content_script_request',
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildSimpleGuardMeta({
+              action: 'UPDATE_HIGHLIGHTS',
+              reason: 'invalid_content_script_request',
+              validationError,
+            })
+          );
           return;
         }
 
@@ -682,12 +704,17 @@ export function createHighlightHandlers(services) {
           ? validateContentScriptRequest(sender)
           : validateInternalRequest(sender);
         if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'CLEAR_HIGHLIGHTS',
-            reason: isContentScript ? 'invalid_content_script_request' : 'invalid_internal_request',
-            error: validationError.error,
-          });
-          sendResponse(validationError);
+          sendGuardFailure(
+            validationError,
+            sendResponse,
+            buildSimpleGuardMeta({
+              action: 'CLEAR_HIGHLIGHTS',
+              reason: isContentScript
+                ? 'invalid_content_script_request'
+                : 'invalid_internal_request',
+              validationError,
+            })
+          );
           return;
         }
 

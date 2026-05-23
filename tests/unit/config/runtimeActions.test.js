@@ -184,9 +184,55 @@ describe('runtimeActions', () => {
     expect(runtimeActionsRegistryKeys).toEqual(new Set(Object.keys(RUNTIME_ACTIONS)));
   });
 
-  // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 options/ 中透過
+  test('message bus migration batch results schema 應與 runtimeActions typedef 對齊', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const messageBusFile = path.join(projectRoot, '.agents/.shared/knowledge/message_bus.json');
+    const messageBus = JSON.parse(fs.readFileSync(messageBusFile, 'utf8'));
+    const migrationActions = messageBus.actions.migration;
+
+    expect(migrationActions.migration_batch.response.results).toEqual({
+      type: 'object (optional)',
+      fields: {
+        success: 'number',
+        failed: 'number',
+        details: 'array<MigrationBatchItemResult>',
+      },
+      example: {
+        success: 1,
+        failed: 1,
+        details: [
+          { url: 'https://example.com/a', status: 'success', count: 1 },
+          { url: 'https://example.com/b', status: 'failed', reason: 'migration failed' },
+        ],
+      },
+      notes:
+        'success is the successful item count. The top-level response.success remains the boolean handler envelope.',
+    });
+    expect(migrationActions.migration_batch_delete.response.results).toEqual({
+      type: 'object (optional)',
+      fields: {
+        success: 'number',
+        failed: 'number',
+        total: 'number',
+        details: 'array<MigrationBatchDeleteItemResult>',
+      },
+      example: {
+        success: 1,
+        failed: 1,
+        total: 2,
+        details: [
+          { url: 'https://example.com/a', status: 'success' },
+          { url: 'https://example.com/b', status: 'failed', reason: 'cleanup failed' },
+        ],
+      },
+      notes:
+        'success is the successful item count. The top-level response.success remains the boolean handler envelope.',
+    });
+  });
+
+  // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 pages/ 中透過
   // aggregate registry 或拆分後的小型 action registry 實際被引用。
-  test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 options/ 中實際被引用', () => {
+  test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 pages/ 中實際被引用', () => {
     const projectRoot = path.resolve(__dirname, '../../..');
     const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
 
@@ -212,7 +258,7 @@ describe('runtimeActions', () => {
 
     const sourceFiles = [
       ...collectJsFiles(path.join(projectRoot, 'scripts')),
-      ...collectJsFiles(path.join(projectRoot, 'options')),
+      ...collectJsFiles(path.join(projectRoot, 'pages')),
     ];
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     const codebase = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');

@@ -47,12 +47,12 @@ describe('Background 通知處理器', () => {
       mockChrome.tabs.create.mockResolvedValue(mockTab);
 
       // Act - 測試基本的標籤頁創建邏輯
-      const url = mockChrome.runtime.getURL('update-notification/update-notification.html');
+      const url = mockChrome.runtime.getURL('pages/update-notification/update-notification.html');
       const tab = await mockChrome.tabs.create({ url, active: true });
 
       // Assert
       expect(mockChrome.runtime.getURL).toHaveBeenCalledWith(
-        'update-notification/update-notification.html'
+        'pages/update-notification/update-notification.html'
       );
       expect(mockChrome.tabs.create).toHaveBeenCalledWith({
         url: 'chrome-extension://test/update.html',
@@ -298,7 +298,7 @@ describe('Background 通知處理器', () => {
 
       const showUpdateNotification = async (previousVersion, currentVersion) => {
         const tab = await chrome.tabs.create({
-          url: chrome.runtime.getURL('update-notification/update-notification.html'),
+          url: chrome.runtime.getURL('pages/update-notification/update-notification.html'),
           active: true,
         });
         // 模擬真實實現：記錄版本信息（真實實現會通過 sendMessage 傳送）

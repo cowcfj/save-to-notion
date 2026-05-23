@@ -9,4 +9,5 @@ export const TOOLBAR_MESSAGES = Object.freeze({
   SYNC_FAILED: '同步失敗',
   DELETED_PAGE: '原頁面已刪除，請重新儲存。',
   DELETION_PENDING: '正在確認原頁面是否已刪除，請稍後再試。',
+  PAGE_NOT_SAVED_HINT: '請先保存頁面到 Notion',
 });

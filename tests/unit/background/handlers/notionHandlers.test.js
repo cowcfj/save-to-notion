@@ -4,10 +4,11 @@
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
   refreshOAuthToken: jest.fn(),
+  getActiveNotionToken: jest.fn(),
 }));
 
 import { createNotionHandlers } from '../../../../scripts/background/handlers/notionHandlers.js';
-import { refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
+import { refreshOAuthToken, getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
 
 // Mock Logger
 globalThis.Logger = {
@@ -109,12 +110,72 @@ describe('notionHandlers', () => {
         id: 'mock-extension-id',
       };
       const sendResponse = jest.fn();
-      const request = { query: 'test' };
+      const request = { query: 'test', apiKey: 'secret' };
 
       mockNotionService.search.mockRejectedValue(new Error('API Error'));
 
       await handlers.searchNotion(request, sender, sendResponse);
 
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.any(String) })
+      );
+    });
+
+    test('caller 未帶 apiKey 時應從 storage hydrate active token', async () => {
+      const sender = { id: 'mock-extension-id' };
+      const sendResponse = jest.fn();
+      const request = {
+        searchParams: { filter: { property: 'object', value: 'database' } },
+      };
+      const mockResult = { results: [] };
+
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth-token-from-storage',
+        mode: 'oauth',
+      });
+      mockNotionService.search.mockResolvedValue(mockResult);
+
+      await handlers.searchNotion(request, sender, sendResponse);
+
+      expect(getActiveNotionToken).toHaveBeenCalledTimes(1);
+      expect(mockNotionService.search).toHaveBeenCalledWith(
+        expect.objectContaining({ filter: { property: 'object', value: 'database' } }),
+        expect.objectContaining({ apiKey: 'oauth-token-from-storage' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, data: mockResult });
+    });
+
+    test('caller 帶了 apiKey 時不應再呼叫 getActiveNotionToken', async () => {
+      const sender = { id: 'mock-extension-id' };
+      const sendResponse = jest.fn();
+      const request = {
+        apiKey: 'caller-supplied-key',
+        searchParams: { query: 'foo' },
+      };
+
+      mockNotionService.search.mockResolvedValue({ results: [] });
+
+      await handlers.searchNotion(request, sender, sendResponse);
+
+      expect(getActiveNotionToken).not.toHaveBeenCalled();
+      expect(mockNotionService.search).toHaveBeenCalledWith(
+        expect.objectContaining({ query: 'foo' }),
+        expect.objectContaining({ apiKey: 'caller-supplied-key' })
+      );
+    });
+
+    test('caller 未帶 apiKey 且 storage 也沒 token 時應回傳友善錯誤', async () => {
+      const sender = { id: 'mock-extension-id' };
+      const sendResponse = jest.fn();
+      const request = {
+        searchParams: { filter: { property: 'object', value: 'database' } },
+      };
+
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+
+      await handlers.searchNotion(request, sender, sendResponse);
+
+      expect(mockNotionService.search).not.toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false, error: expect.any(String) })
       );

@@ -11,6 +11,8 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
@@ -237,6 +239,123 @@ describe('migrationHandlers', () => {
           results: expect.objectContaining({ success: 2 }),
         })
       );
+    });
+
+    test('Same-stable-URL race test：同 stable URL 應循序執行不漏接', async () => {
+      const urls = ['https://x.com?utm=a', 'https://x.com?utm=b'];
+      const sendResponse = jest.fn();
+
+      // setup computeStableUrl mock to return the same stable URL
+      computeStableUrl.mockReturnValue('https://x.com');
+
+      let concurrentCalls = 0;
+      let maxConcurrentCalls = 0;
+
+      mockServices.migrationService.migrateBatchUrl.mockImplementation(async url => {
+        concurrentCalls++;
+        maxConcurrentCalls = Math.max(maxConcurrentCalls, concurrentCalls);
+        await new Promise(resolve => setTimeout(resolve, 10)); // simulate async work
+        concurrentCalls--;
+        return { status: 'success', url, count: 1, pending: 1 };
+      });
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      expect(maxConcurrentCalls).toBe(1); // They should have run sequentially!
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+      expect(response.results.success).toBe(2);
+      expect(response.results.failed).toBe(0);
+    });
+
+    test('Details ordering test：回傳 details 順序必須等於輸入順序', async () => {
+      const urls = [
+        'https://example.com/u1',
+        'https://example.com/u2',
+        'https://example.com/u3',
+        'https://example.com/u4',
+        'https://example.com/u5',
+      ];
+      const sendResponse = jest.fn();
+
+      // Reset mock just for this test
+      mockServices.migrationService.migrateBatchUrl = jest.fn().mockImplementation(async url => {
+        if (url === 'https://example.com/u3') {
+          throw new Error('u3 failed');
+        }
+        return { status: 'success', url, count: 1 };
+      });
+
+      // 確保 computeStableUrl 可以正常工作
+      computeStableUrl.mockImplementation(url => url);
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+
+      // If validation fails, there won't be results. Check for error.
+      if (!response.results) {
+        throw new Error(`No results in response: ${JSON.stringify(response)}`);
+      }
+
+      const details = response.results.details;
+
+      expect(details[0].status).toBe('success');
+      expect(details[1].status).toBe('success');
+      expect(details[2].status).toBe('failed');
+      expect(details[3].status).toBe('success');
+      expect(details[4].status).toBe('success');
+
+      // 對 success index 直接驗證 url；對 failing index 直接驗證 reason，
+      // 避免讓 details[i].url 在失敗條目存在時掩蓋 reason 缺失。
+      expect(details[0].url).toBe(urls[0]);
+      expect(details[1].url).toBe(urls[1]);
+      expect(details[3].url).toBe(urls[3]);
+      expect(details[4].url).toBe(urls[4]);
+      expect(details[2].reason).toBe('u3 failed');
+    });
+
+    test('Duplicate URL inputs：details 必須 1:1 對應輸入順序，不得被同 URL 覆蓋', async () => {
+      const dupUrl = 'https://dup.com/article';
+      const urls = [dupUrl, 'https://other.com/page', dupUrl];
+      const sendResponse = jest.fn();
+
+      // 同 URL → 同 stable URL，會落到同一 group（重現 race / 覆蓋條件）
+      computeStableUrl.mockImplementation(url => url);
+
+      // 第一次 dup 成功、第二次 dup 失敗、中間 other 成功，三個結果各自獨立
+      mockServices.migrationService.migrateBatchUrl
+        .mockResolvedValueOnce({ status: 'success', url: dupUrl, count: 1, pending: 0 })
+        .mockResolvedValueOnce({
+          status: 'success',
+          url: 'https://other.com/page',
+          count: 2,
+          pending: 0,
+        })
+        .mockRejectedValueOnce(new Error('second dup failed'));
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+
+      const details = response.results.details;
+      expect(details).toHaveLength(urls.length);
+
+      // index 0：第一次 dup → success
+      expect(details[0].status).toBe('success');
+      expect(details[0].url).toBe(dupUrl);
+      // index 1：other → success
+      expect(details[1].status).toBe('success');
+      expect(details[1].url).toBe('https://other.com/page');
+      // index 2：第二次 dup → failed，且 reason 必須保留（不被 success 覆蓋）
+      expect(details[2].status).toBe('failed');
+      expect(details[2].reason).toBe('second dup failed');
+
+      // 整體 counts 反映每筆輸入而非去重
+      expect(response.results.success).toBe(2);
+      expect(response.results.failed).toBe(1);
     });
 
     test('委託路徑：migrateBatchUrl 回傳 stable URL 時應上報 stable URL', async () => {
@@ -491,8 +610,14 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del1.com');
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith('https://del2.com');
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: 2 })
+        expect.objectContaining({
+          success: true,
+          message: UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(2),
+          results: expect.objectContaining({ success: 2, failed: 0, total: 2 }),
+        })
       );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('count');
     });
 
     test('應該同時清理原始 URL 和穩定 URL 的數據', async () => {
@@ -510,7 +635,160 @@ describe('migrationHandlers', () => {
       expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(2);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: 1 })
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({ success: 1, failed: 0, total: 1 }),
+        })
+      );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('count');
+    });
+
+    test('單一 URL 清理失敗時仍應嘗試其他 URL 並回傳 partial results', async () => {
+      const urls = [
+        'https://cleanup.example.com/one',
+        'https://cleanup.example.com/two',
+        'https://cleanup.example.com/three',
+      ];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
+        if (url === urls[1]) {
+          throw new Error('cleanup failed');
+        }
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(urls[0]);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(urls[1]);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(urls[2]);
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledTimes(3);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(2, 1),
+          results: expect.objectContaining({
+            success: 2,
+            failed: 1,
+            total: 3,
+          }),
+        })
+      );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('count');
+    });
+
+    test('partial failure 應回傳結構化 results 並保留成功項目狀態', async () => {
+      const urls = [
+        'https://cleanup.example.com/one',
+        'https://cleanup.example.com/two',
+        'https://cleanup.example.com/three',
+      ];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
+        if (url === urls[1]) {
+          throw new Error('cleanup failed');
+        }
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: {
+            success: 2,
+            failed: 1,
+            total: 3,
+            details: [
+              { url: sanitizeUrlForLogging(urls[0]), status: 'success' },
+              {
+                url: sanitizeUrlForLogging(urls[1]),
+                status: 'failed',
+                reason: 'cleanup failed',
+              },
+              { url: sanitizeUrlForLogging(urls[2]), status: 'success' },
+            ],
+          },
+        })
+      );
+      expect(Logger.log).toHaveBeenCalledWith(
+        '批量刪除完成',
+        expect.objectContaining({
+          action: 'migration_batch_delete',
+          result: 'partial',
+          successCount: 2,
+          failedCount: 1,
+          pageCount: 3,
+        })
+      );
+    });
+
+    test('全失敗應回傳 failed 等於 total 且 handler success 為 true', async () => {
+      const urls = ['https://cleanup.example.com/one', 'https://cleanup.example.com/two'];
+      const sendResponse = jest.fn();
+
+      mockStorageService.clearLegacyKeys.mockRejectedValue(new Error('cleanup failed'));
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            success: 0,
+            failed: 2,
+            total: 2,
+          }),
+        })
+      );
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload.results.details).toHaveLength(2);
+      expect(payload.results.details).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: 'failed', reason: 'cleanup failed' }),
+        ])
+      );
+    });
+
+    test('details url 應使用 sanitizeUrlForLogging 而不是 raw URL', async () => {
+      const rawUrl =
+        'https://cleanup.example.com/page?private_token=secret-token&keep=visible#section';
+      const sendResponse = jest.fn();
+
+      await handlers.migration_batch_delete({ urls: [rawUrl] }, defaultSender, sendResponse);
+
+      const payload = sendResponse.mock.calls[0][0];
+      expect(payload.results.details[0].url).toBe(sanitizeUrlForLogging(rawUrl));
+      expect(payload.results.details[0].url).not.toBe(rawUrl);
+    });
+
+    test('批量刪除時同時執行的 cleanup 不應超過 5 個', async () => {
+      const urls = Array.from(
+        { length: 6 },
+        (_, index) => `https://cleanup.example.com/page-${index}`
+      );
+      const sendResponse = jest.fn();
+      let inFlight = 0;
+      let maxInFlight = 0;
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await Promise.resolve();
+        inFlight -= 1;
+      });
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(maxInFlight).toBeLessThanOrEqual(5);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({ success: urls.length, failed: 0, total: urls.length }),
+        })
       );
     });
   });

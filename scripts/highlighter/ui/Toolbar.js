@@ -588,27 +588,16 @@ export class Toolbar {
         } else {
           switch (response?.errorCode) {
             case 'PAGE_DELETED': {
-              renderStatusIcon(
-                statusDiv,
-                'X',
-                null,
-                response?.error || TOOLBAR_MESSAGES.DELETED_PAGE
-              );
+              renderStatusIcon(statusDiv, 'X', null, TOOLBAR_MESSAGES.DELETED_PAGE);
               await this.updateSaveButtonVisibility();
               break;
             }
             case 'PAGE_DELETION_PENDING': {
-              renderStatusIcon(
-                statusDiv,
-                'X',
-                null,
-                response?.error || TOOLBAR_MESSAGES.DELETION_PENDING
-              );
+              renderStatusIcon(statusDiv, 'X', null, TOOLBAR_MESSAGES.DELETION_PENDING);
               break;
             }
             case 'PAGE_NOT_SAVED': {
-              // 頁面尚未保存到 Notion，提供引導性訊息
-              renderStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
+              renderStatusIcon(statusDiv, 'X', null, TOOLBAR_MESSAGES.PAGE_NOT_SAVED_HINT);
               break;
             }
             default: {
