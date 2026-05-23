@@ -627,12 +627,11 @@ export class FloatingRail {
 
     const launchAnim = saveBtn ? playLaunchAnimation(saveBtn) : null;
     const uiContext = { saveBtn, errorTooltip, launchAnim };
-    let operation = 'savePageFromRail';
+    const operation = this._pageStatus?.isSaved ? 'syncHighlights' : 'savePageFromRail';
     try {
-      const result = await this._executeSaveOrSync();
-      operation = result.operation;
+      const response = await this._executeSaveOrSync(operation);
 
-      const handled = await this._handleSaveErrorResponse(result.response, uiContext);
+      const handled = await this._handleSaveErrorResponse(response, uiContext);
       if (handled) {
         return;
       }
@@ -661,14 +660,12 @@ export class FloatingRail {
     }
   }
 
-  async _executeSaveOrSync() {
-    if (this._pageStatus?.isSaved) {
+  async _executeSaveOrSync(operation) {
+    if (operation === 'syncHighlights') {
       const highlights = this.manager.collectHighlightsForNotion?.() || [];
-      const response = await syncHighlights(highlights);
-      return { response, operation: 'syncHighlights' };
+      return syncHighlights(highlights);
     }
-    const response = await savePageFromRail();
-    return { response, operation: 'savePageFromRail' };
+    return savePageFromRail();
   }
 
   async _handleSaveErrorResponse(response, uiContext) {
