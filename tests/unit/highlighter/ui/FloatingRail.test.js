@@ -528,6 +528,42 @@ describe('FloatingRail', () => {
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
 
+    test('syncHighlights 拋錯時警告 log 的 operation 必須是 syncHighlights', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockRejectedValue(new Error('sync network error'));
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 保存/同步失敗',
+        expect.objectContaining({
+          action: '_handleSaveSync',
+          operation: 'syncHighlights',
+        })
+      );
+    });
+
+    test('savePageFromRail 拋錯時警告 log 的 operation 必須是 savePageFromRail', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
+      savePageFromRail.mockRejectedValue(new Error('save network error'));
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 保存/同步失敗',
+        expect.objectContaining({
+          action: '_handleSaveSync',
+          operation: 'savePageFromRail',
+        })
+      );
+    });
+
     test('syncHighlights 回 success:false + errorCode UNAUTHORIZED → playFailAnimation', async () => {
       checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
       syncHighlights.mockResolvedValue({ success: false, errorCode: 'UNAUTHORIZED', error: 'err' });
