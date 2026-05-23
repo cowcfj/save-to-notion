@@ -34,6 +34,33 @@ import { getActiveNotionToken, refreshOAuthToken } from '../../utils/notionAuth.
  */
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const UNKNOWN_ERROR_FALLBACK = 'Unknown error';
+
+/**
+ * 從任意 rejection / thrown value 中萃取人類可讀訊息。
+ * 涵蓋三種來源：Error、字串、含 message 欄位的 plain object；其餘退回 fallback token。
+ *
+ * @param {unknown} reason
+ * @returns {string}
+ */
+function extractRejectionMessage(reason) {
+  if (reason instanceof Error) {
+    return reason.message || UNKNOWN_ERROR_FALLBACK;
+  }
+  if (typeof reason === 'string' && reason) {
+    return reason;
+  }
+  if (
+    reason &&
+    typeof reason === 'object' &&
+    typeof reason.message === 'string' &&
+    reason.message
+  ) {
+    return reason.message;
+  }
+  return UNKNOWN_ERROR_FALLBACK;
+}
+
 /**
  * NotionService 類
  * 封裝 Notion API 操作，使用官方 SDK
@@ -391,9 +418,20 @@ class NotionService {
 
     // 分批並發處理（每批 CONCURRENCY 個）
     for (const [batchIndex, batch] of batches.entries()) {
-      const results = await Promise.all(
+      const settledResults = await Promise.allSettled(
         batch.map(blockId => this._deleteBlockById(blockId, options, retryPolicy))
       );
+      const results = settledResults.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        }
+
+        return {
+          success: false,
+          id: batch[index],
+          error: extractRejectionMessage(result.reason),
+        };
+      });
 
       successCount += this._collectDeleteBatchResults(results, errors);
 
@@ -523,7 +561,7 @@ class NotionService {
 
       return { success: true, id: blockId };
     } catch (deleteError) {
-      const errorText = deleteError.message || 'Unknown error';
+      const errorText = extractRejectionMessage(deleteError);
       Logger.warn('[NotionService] 刪除區塊異常', {
         action: 'deleteBlocksByIds',
         phase: 'deleteBlock',
