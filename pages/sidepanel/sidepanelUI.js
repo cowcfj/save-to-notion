@@ -115,6 +115,7 @@ function resolveHighlightColor(color, colorCache) {
  * @property {HTMLElement} unsyncedCountLabel - 待同步頁面計數標籤
  * @property {HTMLButtonElement} clearAllBtn - 清除全部按鈕
  * @property {HTMLButtonElement} startHighlightButton - 開始標註按鈕
+ * @property {HTMLElement | null} unsavedPageNotice - 未保存頁面提示 banner，模板缺失時為 null
  */
 
 // === 元素獲取 ===
@@ -142,7 +143,27 @@ export function getElements() {
     unsyncedCountLabel: document.querySelector('#unsynced-count-label'),
     clearAllBtn: document.querySelector('#clear-all-btn'),
     startHighlightButton: document.querySelector('#start-highlight-button'),
+    unsavedPageNotice: document.querySelector('#unsaved-page-notice'),
   };
+}
+
+/**
+ * 更新未保存頁面提示 banner 狀態
+ *
+ * @param {SidePanelElements} elements - Side Panel DOM 元素
+ * @param {boolean} hasSavedData - 頁面是否已保存至 Notion
+ */
+export function applyUnsavedPageNotice(elements, hasSavedData) {
+  if (!elements.unsavedPageNotice) {
+    return;
+  }
+  if (hasSavedData === false) {
+    elements.unsavedPageNotice.textContent = UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED;
+    elements.unsavedPageNotice.removeAttribute('hidden');
+  } else {
+    elements.unsavedPageNotice.setAttribute('hidden', '');
+    elements.unsavedPageNotice.textContent = '';
+  }
 }
 
 // === 工具函數 ===

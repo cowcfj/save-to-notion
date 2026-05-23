@@ -18,6 +18,7 @@ import {
   appendCards,
   renderUnsyncedEmptyState,
   updateUnsyncedBadge,
+  applyUnsavedPageNotice,
   PREVIEW_HIGHLIGHT_COUNT,
   PREVIEW_TEXT_MAX_LENGTH,
 } from '../../../pages/sidepanel/sidepanelUI.js';
@@ -32,6 +33,7 @@ function buildDOM() {
       <div class="subtitle">選取網頁文字即可標註</div>
     </div>
     <div id="highlights-list" style="display:none"></div>
+    <aside id="unsaved-page-notice" class="unsaved-page-notice" role="status" hidden></aside>
     <button id="start-highlight-button"></button>
     <button id="sync-button"></button>
     <button id="open-notion-button" style="display:none"></button>
@@ -158,7 +160,28 @@ describe('sidepanelUI', () => {
       expect(elements.startHighlightButton).toBeTruthy();
       expect(elements.statusMessage).toBeTruthy();
       expect(elements.unsyncedView).toBeTruthy();
+      expect(elements.unsavedPageNotice).toBeTruthy();
       expect(elements.viewTabs.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('applyUnsavedPageNotice', () => {
+    it('hasSavedData 為 false 時應顯示 banner 且設定提示文字', () => {
+      const elements = getElements();
+      applyUnsavedPageNotice(elements, false);
+      expect(elements.unsavedPageNotice.hidden).toBe(false);
+      expect(elements.unsavedPageNotice.textContent).toBe('此頁尚未保存至 Notion');
+    });
+
+    it('hasSavedData 為 true 時應隱藏 banner 且清空文字', () => {
+      const elements = getElements();
+      // 先設為顯示
+      elements.unsavedPageNotice.hidden = false;
+      elements.unsavedPageNotice.textContent = 'test';
+
+      applyUnsavedPageNotice(elements, true);
+      expect(elements.unsavedPageNotice.hidden).toBe(true);
+      expect(elements.unsavedPageNotice.textContent).toBe('');
     });
   });
 

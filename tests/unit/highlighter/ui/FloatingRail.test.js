@@ -39,6 +39,7 @@ import {
   playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
 import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
+import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
 const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
@@ -566,6 +567,62 @@ describe('FloatingRail', () => {
 
       expect(playFireworkAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
       expect(playFailAnimation).not.toHaveBeenCalled();
+    });
+
+    test('PAGE_DELETED 錯誤應播放 fail 動畫並觸發 _refreshPageStatus', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: false, errorCode: 'PAGE_DELETED' });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const refreshSpy = jest.spyOn(rail, '_refreshPageStatus');
+
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(
+        rail.elements.saveBtn,
+        errorTooltip,
+        UI_MESSAGES.POPUP.DELETED_PAGE
+      );
+      expect(refreshSpy).toHaveBeenCalledTimes(1);
+      expect(playFireworkAnimation).not.toHaveBeenCalled();
+    });
+
+    test('PAGE_DELETION_PENDING 錯誤應播放 fail 動畫且不觸發 _refreshPageStatus', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: false, errorCode: 'PAGE_DELETION_PENDING' });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const refreshSpy = jest.spyOn(rail, '_refreshPageStatus');
+
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(
+        rail.elements.saveBtn,
+        errorTooltip,
+        UI_MESSAGES.POPUP.DELETION_PENDING
+      );
+      expect(refreshSpy).not.toHaveBeenCalled();
+      expect(playFireworkAnimation).not.toHaveBeenCalled();
+    });
+
+    test('一般錯誤應播放預設 fail 動畫且不觸發 _refreshPageStatus', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockResolvedValue({ success: false, errorCode: 'SOME_UNKNOWN_ERROR' });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      const refreshSpy = jest.spyOn(rail, '_refreshPageStatus');
+
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
+      expect(refreshSpy).not.toHaveBeenCalled();
+      expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
   });
 

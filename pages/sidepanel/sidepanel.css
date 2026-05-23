@@ -68,6 +68,19 @@ body {
   gap: 8px;
 }
 
+/* Unsaved Page Notice */
+.unsaved-page-notice {
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border-bottom: 1px solid var(--status-warning-border);
+  padding: 8px var(--panel-padding);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 /* Icon Buttons */
 .icon-button {
   display: flex;
