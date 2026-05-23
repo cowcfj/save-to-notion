@@ -391,9 +391,20 @@ class NotionService {
 
     // 分批並發處理（每批 CONCURRENCY 個）
     for (const [batchIndex, batch] of batches.entries()) {
-      const results = await Promise.all(
+      const settledResults = await Promise.allSettled(
         batch.map(blockId => this._deleteBlockById(blockId, options, retryPolicy))
       );
+      const results = settledResults.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        }
+
+        return {
+          success: false,
+          id: batch[index],
+          error: result.reason?.message || 'Unknown error',
+        };
+      });
 
       successCount += this._collectDeleteBatchResults(results, errors);
 

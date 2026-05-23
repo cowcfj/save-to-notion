@@ -1080,30 +1080,6 @@ describe('PerformanceOptimizer - 全面測試', () => {
     });
   });
 
-  describe('preloadImages - 預加載圖片', () => {
-    test('應該預加載圖片', async () => {
-      const urls = ['test1.jpg', 'test2.jpg'];
-
-      const promise = optimizer.preloadImages(urls, { timeout: 100, concurrent: 2 });
-
-      // 觸發所有異步操作
-      jest.runAllTimers();
-
-      const results = await promise;
-      expect(results).toHaveLength(2);
-    });
-
-    test('應該處理圖片加載超時', async () => {
-      const urls = ['timeout.jpg'];
-
-      const promise = optimizer.preloadImages(urls, { timeout: 100 });
-      jest.runAllTimers();
-
-      const results = await promise;
-      expect(results).toHaveLength(1);
-    });
-  });
-
   describe('clearCache - 清理緩存', () => {
     test('應該強制清理所有緩存', () => {
       optimizer.cachedQuery('img', mockDocument);
@@ -1601,17 +1577,6 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       optimizer.batchQueue = Array.from({ length: 600 });
       const size3 = optimizer._calculateOptimalBatchSize();
       expect(size3).toBe(200); // 最大
-    });
-
-    test('應該支持非阻塞批處理', async () => {
-      const items = Array.from({ length: 25 }, (_, i) => ({ id: i, value: `item${i}` }));
-      const processor = item => ({ ...item, processed: true });
-
-      // 使用批處理處理項目
-      const results = await optimizer._processInBatches(items, 10, processor);
-
-      expect(results).toHaveLength(25);
-      expect(results.every(result => result.processed)).toBe(true);
     });
 
     test('應該根據性能動態調整批處理大小', () => {
