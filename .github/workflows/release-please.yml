@@ -40,8 +40,10 @@ jobs:
     permissions:
       contents: write
     needs: release-please
-    # Run if release was just created OR if manually triggered
-    if: ${{ needs.release-please.outputs.release_created || github.event_name == 'workflow_dispatch' }}
+    # Run if release was just created OR if manually triggered.
+    # `always()` is required so this job can run when the upstream `release-please`
+    # job is skipped on workflow_dispatch (its `if:` excludes non-push events).
+    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
