@@ -92,6 +92,7 @@ describe('Sidepanel JS Logic', () => {
         <div class="subtitle">Subtitle</div>
       </div>
       <div id="highlights-list" style="display:none"></div>
+      <aside id="unsaved-page-notice" class="unsaved-page-notice" role="status" hidden></aside>
       <button id="start-highlight-button"></button>
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
@@ -172,6 +173,50 @@ describe('Sidepanel JS Logic', () => {
     });
   });
 
+  describe('Unsaved Page Notice Banner', () => {
+    it('在頁面未保存時（預設初始狀態），提示 banner 應為可見，且文字正確', async () => {
+      const notice = document.querySelector('#unsaved-page-notice');
+      expect(notice.hidden).toBe(false);
+      expect(notice.textContent).toBe('此頁尚未保存至 Notion');
+    });
+
+    it('在頁面已保存時，提示 banner 應為隱藏', async () => {
+      // 模擬已保存頁面的載入與 storage 回傳
+      const stableUrl = 'https://example.com/stable';
+      const originalTabUrl = 'https://example.com/original';
+
+      normalizeUrl.mockImplementation(url => url);
+      chrome.tabs.get.mockResolvedValueOnce({ id: 201, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+
+      const fakeStore = {
+        [`page_${originalTabUrl}`]: {
+          notion: { pageId: 'page-123' },
+        },
+      };
+
+      chrome.storage.local.get.mockImplementation(k => {
+        if (Array.isArray(k)) {
+          const result = {};
+          for (const key of k) {
+            if (key in fakeStore) {
+              result[key] = fakeStore[key];
+            }
+          }
+          return result;
+        }
+        return fakeStore;
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 201 });
+      await flushMicrotasks();
+
+      const notice = document.querySelector('#unsaved-page-notice');
+      expect(notice.hidden).toBe(true);
+    });
+  });
+
   describe('Tab Changes', () => {
     it('should handle tabs.onActivated', async () => {
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
@@ -201,6 +246,36 @@ describe('Sidepanel JS Logic', () => {
 
       const emptyP = document.querySelector('#empty-state p');
       expect(emptyP.textContent).toBe('不支援此頁面');
+    });
+
+    it('[REGRESSION] 切換到不支援的分頁時應隱藏未保存 banner 並停用 sync 按鈕', async () => {
+      // 預設初始狀態 banner 為可見（未保存）
+      expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
+
+      chrome.tabs.get.mockResolvedValue({ id: 301, url: 'chrome://extensions' });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 301 });
+      await flushMicrotasks();
+
+      const notice = document.querySelector('#unsaved-page-notice');
+      const syncButton = document.querySelector('#sync-button');
+      expect(notice.hidden).toBe(true);
+      expect(notice.textContent).toBe('');
+      expect(syncButton.disabled).toBe(true);
+    });
+
+    it('[REGRESSION] loadCurrentTab 失敗時應隱藏 banner 而非殘留先前狀態', async () => {
+      expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
+
+      chrome.tabs.get.mockRejectedValueOnce(new Error('boom'));
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 302 });
+      await flushMicrotasks();
+
+      const notice = document.querySelector('#unsaved-page-notice');
+      const syncButton = document.querySelector('#sync-button');
+      expect(notice.hidden).toBe(true);
+      expect(syncButton.disabled).toBe(true);
     });
 
     it('should resolve tab url via computeStableUrl fallback if content script rejects', async () => {
