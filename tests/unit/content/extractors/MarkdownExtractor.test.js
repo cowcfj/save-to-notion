@@ -83,5 +83,81 @@ describe('MarkdownExtractor', () => {
       expect(imgs[0].hasAttribute('src')).toBe(false);
       expect(imgs[1].getAttribute('src')).toBe('image.jpg');
     });
+
+    it('should remove <base> tag to prevent relative URL hijacking', () => {
+      const container = doc.createElement('div');
+      container.innerHTML = `
+        <base href="https://evil.example.com/" />
+        <p>Article body</p>
+        <a href="/login">Sign in</a>
+      `;
+      doc.body.append(container);
+
+      const cleaned = MarkdownExtractor.cleanDOM(container);
+
+      expect(cleaned.querySelector('base')).toBeNull();
+      expect(cleaned.innerHTML).toContain('Article body');
+      expect(cleaned.querySelector('a[href="/login"]')).not.toBeNull();
+    });
+
+    it('should remove formaction attribute when it carries a dangerous URL', () => {
+      const container = doc.createElement('div');
+      container.innerHTML = `
+        <form>
+          <button type="submit" formaction="javascript:alert(1)">Bad</button>
+          <input type="submit" formaction=" JavaScript: alert(2) " value="Bad input" />
+          <button type="submit" formaction="https://safe.example.com/submit">Safe</button>
+        </form>
+      `;
+      doc.body.append(container);
+
+      const cleaned = MarkdownExtractor.cleanDOM(container);
+
+      const buttons = cleaned.querySelectorAll('button');
+      expect(buttons[0].hasAttribute('formaction')).toBe(false);
+      expect(buttons[1].getAttribute('formaction')).toBe('https://safe.example.com/submit');
+
+      const inputs = cleaned.querySelectorAll('input');
+      expect(inputs[0].hasAttribute('formaction')).toBe(false);
+    });
+
+    it('should remove data:text/html URLs from href and src', () => {
+      const container = doc.createElement('div');
+      container.innerHTML = `
+        <a href="data:text/html,<script>alert(1)</script>">Click</a>
+        <a href=" Data:Text/HTML;base64,PHNjcmlwdD4=">Click 2</a>
+        <a href="https://safe.com">Safe Link</a>
+        <img src="data:text/html,<svg/onload=alert(2)>" />
+      `;
+      doc.body.append(container);
+
+      const cleaned = MarkdownExtractor.cleanDOM(container);
+
+      const links = cleaned.querySelectorAll('a');
+      expect(links[0].hasAttribute('href')).toBe(false);
+      expect(links[1].hasAttribute('href')).toBe(false);
+      expect(links[2].getAttribute('href')).toBe('https://safe.com');
+
+      const img = cleaned.querySelector('img');
+      expect(img.hasAttribute('src')).toBe(false);
+    });
+
+    it('should preserve safe data: URIs (e.g., data:image/png) — regression guard', () => {
+      const container = doc.createElement('div');
+      const safeSrc =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+      container.innerHTML = `
+        <img src="${safeSrc}" alt="dot" />
+        <a href="data:application/pdf;base64,JVBERi0=">Download</a>
+      `;
+      doc.body.append(container);
+
+      const cleaned = MarkdownExtractor.cleanDOM(container);
+
+      expect(cleaned.querySelector('img').getAttribute('src')).toBe(safeSrc);
+      expect(cleaned.querySelector('a').getAttribute('href')).toBe(
+        'data:application/pdf;base64,JVBERi0='
+      );
+    });
   });
 });

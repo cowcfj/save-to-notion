@@ -83,6 +83,7 @@ export const MarkdownExtractor = {
       'style',
       'meta',
       'link',
+      'base',
 
       // Copy Buttons & Toolbars
       '.clipboard-button',
@@ -130,7 +131,8 @@ export const MarkdownExtractor = {
       clone.querySelectorAll(selector).forEach(el => el.remove());
     });
 
-    // 縱深防禦 (Defense-in-Depth)：移除潛在的 XSS 屬性 (如 on* 事件與 javascript: 協議)
+    // 縱深防禦 (Defense-in-Depth)：移除潛在的 XSS 屬性 (如 on* 事件、危險 URL 協議與 formaction)
+    const DANGEROUS_URL_RE = /^\s*(?:javascript:|data:text\/html)/i;
     const allElements = clone.querySelectorAll('*');
     allElements.forEach(el => {
       const attributes = Array.from(el.attributes);
@@ -140,17 +142,24 @@ export const MarkdownExtractor = {
         }
       });
 
-      // 清理 javascript: URLs
-      if (el.tagName === 'A') {
+      // 清理 <a> 的 href 危險 URL（javascript: / data:text/html）
+      if (el.tagName?.toUpperCase() === 'A') {
         const href = el.getAttribute('href');
-        if (href && href.trim().toLowerCase().startsWith('javascript:')) {
+        if (href && DANGEROUS_URL_RE.test(href)) {
           el.removeAttribute('href');
         }
       }
 
+      // 清理任意元素的 src 危險 URL
       const src = el.getAttribute('src');
-      if (src && src.trim().toLowerCase().startsWith('javascript:')) {
+      if (src && DANGEROUS_URL_RE.test(src)) {
         el.removeAttribute('src');
+      }
+
+      // 清理 <button> / <input> 的 formaction 危險 URL
+      const formaction = el.getAttribute('formaction');
+      if (formaction && DANGEROUS_URL_RE.test(formaction)) {
+        el.removeAttribute('formaction');
       }
     });
 
