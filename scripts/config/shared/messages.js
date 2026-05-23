@@ -231,6 +231,14 @@ const STORAGE = {
   NO_CLEANUP_NEEDED: '無可清理項目',
   CLEANUP_FAILED: errorMsg => `清理失敗：${errorMsg}`,
 
+  MIGRATION_DELETE_PARTIAL_COMPLETE: '部分刪除完成',
+  MIGRATION_DELETE_FAILED: '刪除失敗',
+  MIGRATION_BATCH_DELETE_SUCCESS: success => `成功刪除 ${success} 個頁面的標註數據`,
+  MIGRATION_BATCH_DELETE_PARTIAL: (success, failed) =>
+    `成功刪除 ${success} 個頁面，${failed} 個失敗`,
+  MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
+    `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
+
   HEALTH_CORRUPTED: count => `發現 ${count} 個損壞的數據項`,
   HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
   HEALTH_LEGACY_SAVED: count => `${count} 個舊版網頁保存紀錄（重訪相關網頁時會自動升級）`,
@@ -558,6 +566,7 @@ const PATTERNS = {
   VALIDATION_ERROR: USER_MESSAGES.API_VALIDATION_FAILED,
   IMAGE_VALIDATION_ERROR: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
   HIGHLIGHT_SECTION_DELETE_INCOMPLETE: '標註同步未完成，請稍後再試',
+  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: '部分標註數據刪除失敗，請稍後再試',
   NOTIONHQ_CLIENT_RESPONSE_ERROR: 'Notion API 請求失敗，請稍後再試',
 
   RATE_LIMITED: '請求過於頻繁，請稍後再試',

@@ -1452,6 +1452,50 @@ describe('NotionService', () => {
         );
       });
 
+      it('應該彙整單一 worker unexpected reject 而不中斷整批刪除', async () => {
+        service.config.DELETE_CONCURRENCY = 3;
+        service._deleteBlockById = jest.fn(blockId => {
+          if (blockId === 'b2') {
+            return Promise.reject(new Error('worker crashed'));
+          }
+          return Promise.resolve({ success: true, id: blockId });
+        });
+
+        const result = await service._deleteBlocksByIds(['b1', 'b2', 'b3']);
+
+        expect(service._deleteBlockById).toHaveBeenCalledTimes(3);
+        expect(result).toEqual({
+          successCount: 2,
+          failureCount: 1,
+          errors: [{ id: 'b2', error: 'worker crashed' }],
+        });
+      });
+
+      it('應該保留非 Error rejection 的原始訊息（字串、plain object）', async () => {
+        service.config.DELETE_CONCURRENCY = 3;
+        service._deleteBlockById = jest.fn(blockId => {
+          if (blockId === 'b1') {
+            return Promise.reject('string reason token');
+          }
+          if (blockId === 'b2') {
+            return Promise.reject({ message: 'plain object reason' });
+          }
+          return Promise.reject(null);
+        });
+
+        const result = await service._deleteBlocksByIds(['b1', 'b2', 'b3']);
+
+        expect(result).toEqual({
+          successCount: 0,
+          failureCount: 3,
+          errors: [
+            { id: 'b1', error: 'string reason token' },
+            { id: 'b2', error: 'plain object reason' },
+            { id: 'b3', error: 'Unknown error' },
+          ],
+        });
+      });
+
       it('應該在批次間執行延遲', async () => {
         // 使用真實時間或非常小的延遲以避免超時，並確保與 beforeEach 的 timers 狀態一致
         jest.useRealTimers();

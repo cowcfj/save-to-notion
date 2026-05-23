@@ -71,7 +71,7 @@ export class HighlightStorage {
   async restore() {
     // 確保必要的依賴已準備就緒
     if (!this.manager) {
-      Logger.warn('⚠️ [HighlightStorage] HighlightManager 未提供，無法恢復標註');
+      Logger.warn('[HighlightStorage] HighlightManager 未提供，無法恢復標註');
       return false;
     }
 
@@ -106,7 +106,7 @@ export class HighlightStorage {
       this.hideToolbarAfterRestore();
       return true;
     } catch (error) {
-      Logger.error('❌ [HighlightStorage] 標註恢復過程中出錯:', error);
+      Logger.error('[HighlightStorage] 標註恢復過程中出錯:', error);
       return false;
     }
   }
@@ -150,7 +150,7 @@ export class HighlightStorage {
         Logger.info('🎨 [HighlightStorage] 工具欄已隱藏');
       } catch (error) {
         // 隱藏失敗不應阻斷流程，只記錄錯誤
-        Logger.error('❌ [HighlightStorage] 隱藏工具欄時出錯:', error);
+        Logger.error('[HighlightStorage] 隱藏工具欄時出錯:', error);
       }
     }, this.HIDE_TOOLBAR_DELAY_MS);
   }
