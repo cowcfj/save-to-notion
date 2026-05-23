@@ -145,6 +145,21 @@ function applySyncButtonSavedState(hasSavedData) {
 }
 
 /**
+ * 將同步按鈕與未保存提示 banner 重置為「無載入頁面」狀態。
+ *
+ * 用於 loadCurrentTab 的早期退出與錯誤分支：當頁面不支援、stale request 或抓取失敗時，
+ * 上一個分頁殘留的 banner 不應繼續顯示在 NOT_SUPPORTED / LOAD_FAILED 文案之上。
+ */
+function resetSyncButtonForNoPage() {
+  if (els.syncButton) {
+    els.syncButton.disabled = true;
+    els.syncButton.title = '';
+  }
+  UI.applyUnsavedPageNotice(els, true);
+  currentPageHasSavedData = false;
+}
+
+/**
  * 檢查 unsynced view 的非同步請求是否仍可安全套用 UI。
  *
  * @param {number} requestId
@@ -567,6 +582,8 @@ async function handleTabChange(activeInfo) {
 async function loadCurrentTab(specificTabId = null, requestId = beginCurrentViewRequest()) {
   cachedStableUrl = null;
   cachedTabUrl = null;
+  // 重置 banner 與 sync 按鈕，避免上一個分頁的「未保存」提示殘留到 NOT_SUPPORTED / LOAD_FAILED 等狀態
+  resetSyncButtonForNoPage();
   if (isCurrentViewRequestActive(requestId)) {
     UI.showLoading(els);
   }

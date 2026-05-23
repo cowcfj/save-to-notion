@@ -248,6 +248,36 @@ describe('Sidepanel JS Logic', () => {
       expect(emptyP.textContent).toBe('不支援此頁面');
     });
 
+    it('[REGRESSION] 切換到不支援的分頁時應隱藏未保存 banner 並停用 sync 按鈕', async () => {
+      // 預設初始狀態 banner 為可見（未保存）
+      expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
+
+      chrome.tabs.get.mockResolvedValue({ id: 301, url: 'chrome://extensions' });
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 301 });
+      await flushMicrotasks();
+
+      const notice = document.querySelector('#unsaved-page-notice');
+      const syncButton = document.querySelector('#sync-button');
+      expect(notice.hidden).toBe(true);
+      expect(notice.textContent).toBe('');
+      expect(syncButton.disabled).toBe(true);
+    });
+
+    it('[REGRESSION] loadCurrentTab 失敗時應隱藏 banner 而非殘留先前狀態', async () => {
+      expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
+
+      chrome.tabs.get.mockRejectedValueOnce(new Error('boom'));
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 302 });
+      await flushMicrotasks();
+
+      const notice = document.querySelector('#unsaved-page-notice');
+      const syncButton = document.querySelector('#sync-button');
+      expect(notice.hidden).toBe(true);
+      expect(syncButton.disabled).toBe(true);
+    });
+
     it('should resolve tab url via computeStableUrl fallback if content script rejects', async () => {
       chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
       computeStableUrl.mockReturnValueOnce('https://example.com/computed');

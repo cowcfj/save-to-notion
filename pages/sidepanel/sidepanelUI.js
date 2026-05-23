@@ -115,6 +115,7 @@ function resolveHighlightColor(color, colorCache) {
  * @property {HTMLElement} unsyncedCountLabel - 待同步頁面計數標籤
  * @property {HTMLButtonElement} clearAllBtn - 清除全部按鈕
  * @property {HTMLButtonElement} startHighlightButton - 開始標註按鈕
+ * @property {HTMLElement | null} unsavedPageNotice - 未保存頁面提示 banner，模板缺失時為 null
  */
 
 // === 元素獲取 ===
