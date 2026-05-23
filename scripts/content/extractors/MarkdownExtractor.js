@@ -131,7 +131,7 @@ export const MarkdownExtractor = {
       clone.querySelectorAll(selector).forEach(el => el.remove());
     });
 
-    // 縱深防禦 (Defense-in-Depth)：移除潛在的 XSS 屬性 (如 on* 事件、危險 URL 協議與 formaction)
+    // 縱深防禦 (Defense-in-Depth)：移除潛在的 XSS 屬性 (如 on* 事件、危險 URL 協議、formaction、form action)
     const DANGEROUS_URL_RE = /^\s*(?:javascript:|data:text\/html)/i;
     const allElements = clone.querySelectorAll('*');
     allElements.forEach(el => {
@@ -160,6 +160,12 @@ export const MarkdownExtractor = {
       const formaction = el.getAttribute('formaction');
       if (formaction && DANGEROUS_URL_RE.test(formaction)) {
         el.removeAttribute('formaction');
+      }
+
+      // 清理 <form> 的 action 危險 URL（與 formaction 同質的提交目標攻擊向量）
+      const action = el.getAttribute('action');
+      if (action && DANGEROUS_URL_RE.test(action)) {
+        el.removeAttribute('action');
       }
     });
 

@@ -121,6 +121,23 @@ describe('MarkdownExtractor', () => {
       expect(inputs[0].hasAttribute('formaction')).toBe(false);
     });
 
+    it('should remove form action attribute when it carries a dangerous URL', () => {
+      const container = doc.createElement('div');
+      container.innerHTML = `
+        <form action="javascript:alert(1)"><button type="submit">Bad</button></form>
+        <form action=" Data:Text/HTML,<script>alert(2)</script>"><button type="submit">Bad data</button></form>
+        <form action="https://safe.example.com/submit"><button type="submit">Safe</button></form>
+      `;
+      doc.body.append(container);
+
+      const cleaned = MarkdownExtractor.cleanDOM(container);
+
+      const forms = cleaned.querySelectorAll('form');
+      expect(forms[0].hasAttribute('action')).toBe(false);
+      expect(forms[1].hasAttribute('action')).toBe(false);
+      expect(forms[2].getAttribute('action')).toBe('https://safe.example.com/submit');
+    });
+
     it('should remove data:text/html URLs from href and src', () => {
       const container = doc.createElement('div');
       container.innerHTML = `
