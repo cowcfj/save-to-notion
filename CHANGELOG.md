@@ -1,5 +1,36 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.75.0](https://github.com/cowcfj/save-to-notion/compare/v2.74.0...v2.75.0) (2026-05-23)
+
+
+### ✨ 新功能
+
+* add pMap utility and refactor migration handler ([#573](https://github.com/cowcfj/save-to-notion/issues/573)) ([e828a63](https://github.com/cowcfj/save-to-notion/commit/e828a63d417857cd78762f329fcf97e86f3cf185))
+* Enhance security validation and error handling for background processes ([#562](https://github.com/cowcfj/save-to-notion/issues/562)) ([9ead40c](https://github.com/cowcfj/save-to-notion/commit/9ead40cc414ba658e25a2bd5a0393a657f054b04))
+* Improve batch deletion logic to handle exceptions ([#577](https://github.com/cowcfj/save-to-notion/issues/577)) ([7451295](https://github.com/cowcfj/save-to-notion/commit/74512956ddb15eca6f3a53990883050a368f17d3))
+* Refactor batch delete logic and improve test coverage ([#574](https://github.com/cowcfj/save-to-notion/issues/574)) ([2379a0b](https://github.com/cowcfj/save-to-notion/commit/2379a0bf78b0e11450a80ffe61b8b4307a92637c))
+* Update batch delete response structure for partial success ([#576](https://github.com/cowcfj/save-to-notion/issues/576)) ([d4e38f8](https://github.com/cowcfj/save-to-notion/commit/d4e38f8ab6e85abe7a7778e1c216c34852384c40))
+* 更新失敗動畫的變換邏輯 ([218a576](https://github.com/cowcfj/save-to-notion/commit/218a5764361f1c24cd8db303f611f56df1757ba6))
+* 為目的地幫助連結添加可存取名稱和 i18n 綁定 ([4d55c92](https://github.com/cowcfj/save-to-notion/commit/4d55c9267f45d9382c0853e1b045fd0041a58e39))
+
+
+### 🐛 Bug 修復
+
+* 🔒 sanitize MarkdownExtractor cleanDOM to prevent XSS via innerHTML ([#566](https://github.com/cowcfj/save-to-notion/issues/566)) ([3ba4a92](https://github.com/cowcfj/save-to-notion/commit/3ba4a92de2b77141f05b71b8e697280093b5954a))
+* 修正 flush 函數中的邏輯判斷 ([567574c](https://github.com/cowcfj/save-to-notion/commit/567574cbd12436ec4252e39fdfa03cdbcb68ab1e))
+
+
+### ♻️ 代碼重構
+
+* 🧹 Replace console.error with Logger.error in saveHandlers ([#569](https://github.com/cowcfj/save-to-notion/issues/569)) ([0324381](https://github.com/cowcfj/save-to-notion/commit/0324381802a88e16519564b68ab767b2edc84f24))
+* **performance:** 🧹 extract validity logic for DOM results ([#568](https://github.com/cowcfj/save-to-notion/issues/568)) ([2838580](https://github.com/cowcfj/save-to-notion/commit/2838580479421a6292d748148fb5d2021b5677bf))
+* **performance:** abstract truthy logic for valid DOM results ([2838580](https://github.com/cowcfj/save-to-notion/commit/2838580479421a6292d748148fb5d2021b5677bf))
+
+
+### ⚡ 效能優化
+
+* ⚡ Bolt: 平行化標註數據批量遷移以提升效能 ([#565](https://github.com/cowcfj/save-to-notion/issues/565)) ([826ea74](https://github.com/cowcfj/save-to-notion/commit/826ea74a85d7dc0de5a75a7454fb40f8cd3fb6af))
+
 ## [2.74.0](https://github.com/cowcfj/save-to-notion/compare/v2.73.0...v2.74.0) (2026-05-20)
 
 ### ✨ 新功能
