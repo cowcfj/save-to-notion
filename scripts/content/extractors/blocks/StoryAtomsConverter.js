@@ -133,6 +133,8 @@ function extractImageAtomUrl(atom) {
 
 function logMissingImageUrl(atom) {
   Logger.debug('StoryAtomsConverter.createBlockFromImageAtom: 無法找到圖片 URL', {
+    action: 'StoryAtomsConverter.createBlockFromImageAtom',
+    result: 'missing_image_url',
     atomKeys: Object.keys(atom),
     // eslint-disable-next-line unicorn/explicit-length-check
     hasSize: Boolean(atom.size && Object.keys(atom.size).length > 0),
