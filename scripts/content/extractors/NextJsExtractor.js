@@ -389,14 +389,7 @@ export const NextJsExtractor = {
    * @returns {{ isValid: boolean, reason: 'valid' | 'stale' | 'unknown' }}
    */
   _validatePagesRouterDataDetailed(rawData, doc) {
-    const currentPath = doc.defaultView?.location?.pathname;
-    const currentOrigin = doc.defaultView?.location?.origin;
-    const logContext = {
-      action: '_validatePagesRouterData',
-      page: sanitizeUrlForLogging(rawData?.page, currentOrigin),
-      asPath: sanitizeUrlForLogging(rawData?.asPath, currentOrigin),
-      currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
-    };
+    const { currentPath, logContext } = this._buildValidationLogContext(rawData, doc);
 
     if (this._isSpaNavigationFromHome(rawData, currentPath)) {
       Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', logContext);
@@ -409,6 +402,27 @@ export const NextJsExtractor = {
     }
 
     return { isValid: true, reason: 'valid' };
+  },
+
+  /**
+   * 建構 Pages Router 驗證所需的 log context
+   *
+   * @param {object} rawData - __NEXT_DATA__ 原始數據
+   * @param {Document} doc - 當前文檔對象
+   * @returns {{ currentPath: string | undefined, logContext: object }}
+   */
+  _buildValidationLogContext(rawData, doc) {
+    const currentPath = doc.defaultView?.location?.pathname;
+    const currentOrigin = doc.defaultView?.location?.origin;
+    return {
+      currentPath,
+      logContext: {
+        action: '_validatePagesRouterData',
+        page: sanitizeUrlForLogging(rawData?.page, currentOrigin),
+        asPath: sanitizeUrlForLogging(rawData?.asPath, currentOrigin),
+        currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
+      },
+    };
   },
 
   /**
