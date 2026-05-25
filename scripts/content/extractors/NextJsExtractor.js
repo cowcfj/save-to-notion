@@ -373,20 +373,41 @@ export const NextJsExtractor = {
       currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
     };
 
-    // [診斷] 當 __NEXT_DATA__.page 為首頁 "/" 但當前路徑是文章頁時，
-    // 代表使用者是從首頁透過 SPA 導航進入的，__NEXT_DATA__ 僅含首頁資料。
-    // 這不是錯誤，只需記錄日誌讓回退機制接手即可。
-    if (rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/') {
+    if (this._isSpaNavigationFromHome(rawData, currentPath)) {
       Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', logContext);
       return { isValid: false, reason: 'stale' };
     }
 
-    // 1. asPath 檢查 (如果有的話)
-    if (rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
+    if (this._isAsPathStale(rawData, currentPath)) {
       Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', logContext);
       return { isValid: false, reason: 'stale' };
     }
+
     return { isValid: true, reason: 'valid' };
+  },
+
+  /**
+   * SPA stale 偵測：__NEXT_DATA__ 為首頁但當前路徑是其他頁
+   *
+   * @param {object} rawData
+   * @param {string} currentPath
+   * @returns {boolean}
+   */
+  _isSpaNavigationFromHome(rawData, currentPath) {
+    return Boolean(rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/');
+  },
+
+  /**
+   * SPA stale 偵測：__NEXT_DATA__.asPath 與當前路徑不匹配
+   *
+   * @param {object} rawData
+   * @param {string} currentPath
+   * @returns {boolean}
+   */
+  _isAsPathStale(rawData, currentPath) {
+    return Boolean(
+      rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)
+    );
   },
 
   /**
