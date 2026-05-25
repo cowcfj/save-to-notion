@@ -1412,9 +1412,9 @@ describe('NextJsExtractor', () => {
         expect(NextJsExtractor._extractRscDataObject('not an array')).toBeNull();
       });
 
-      it('should fallback to search loop when array length is less than 4', () => {
-        const input = [1, 2, 3];
-        expect(NextJsExtractor._extractRscDataObject(input)).toBeNull();
+      it('should fallback to search loop and find object when array length is less than 4', () => {
+        const input = [{ target: 'found' }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
       });
 
       it('should return index 3 item when length >= 4 and index 3 is a plain object', () => {
@@ -1457,7 +1457,7 @@ describe('NextJsExtractor', () => {
         expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ pageData: { atoms: [] } });
       });
 
-      it('should return null or try fallback search when array is not a classic RSC wrapper', () => {
+      it('should return the parsed object or array when it is not a classic RSC wrapper', () => {
         const line = '4:[1, 2, 3]';
         expect(NextJsExtractor._tryParseRscLine(line)).toEqual([1, 2, 3]);
 
