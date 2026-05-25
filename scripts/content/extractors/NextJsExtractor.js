@@ -484,17 +484,12 @@ export const NextJsExtractor = {
    * @returns {{ origin: string, pathname: string }}
    */
   _resolvePageOriginAndPath(doc) {
-    const origin =
-      doc?.defaultView?.location?.origin ||
-      doc?.location?.origin ||
-      globalThis.location?.origin ||
-      '';
-    const pathname =
-      doc?.defaultView?.location?.pathname ||
-      doc?.location?.pathname ||
-      globalThis.location?.pathname ||
-      '';
-    return { origin, pathname };
+    const locations = [doc?.defaultView?.location, doc?.location, globalThis.location];
+    const pickField = field => locations.map(loc => loc?.[field]).find(Boolean) ?? '';
+    return {
+      origin: pickField('origin'),
+      pathname: pickField('pathname'),
+    };
   },
 
   /**
