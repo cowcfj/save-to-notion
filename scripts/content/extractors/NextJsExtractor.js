@@ -18,6 +18,14 @@ import * as StoryAtomsConverter from './blocks/StoryAtomsConverter.js';
 const PAGES_ROUTER = 'pages-router';
 const APP_ROUTER = 'app-router';
 
+const PAYLOAD_PAGEPROPS_PATHS = [
+  'pageProps',
+  'props.pageProps',
+  'props.initialProps.pageProps',
+  'initialProps.pageProps',
+  'props',
+];
+
 const getComponentPageProps = comp =>
   comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
 
@@ -543,17 +551,14 @@ export const NextJsExtractor = {
     }
 
     const pageProps =
-      payload?.pageProps ||
-      payload?.props?.pageProps ||
-      payload?.props?.initialProps?.pageProps ||
-      payload?.initialProps?.pageProps ||
-      payload?.props ||
-      payload;
+      PAYLOAD_PAGEPROPS_PATHS.map(path => this._getValueByPath(payload, path)).find(
+        value => value !== undefined && value !== null
+      ) ?? payload;
 
     return {
-      page: fallbackRawData?.page || payload?.page || '',
-      query: fallbackRawData?.query || payload?.query || {},
-      buildId: fallbackRawData?.buildId || payload?.buildId,
+      page: fallbackRawData?.page ?? payload?.page ?? '',
+      query: fallbackRawData?.query ?? payload?.query ?? {},
+      buildId: fallbackRawData?.buildId ?? payload?.buildId,
       props: {
         pageProps,
         initialProps: { pageProps },
