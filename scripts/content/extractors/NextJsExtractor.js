@@ -533,10 +533,24 @@ export const NextJsExtractor = {
    * @returns {boolean}
    */
   _isStructuredTitleStale(articleData, docTitle, extractionSource) {
-    if (extractionSource === APP_ROUTER || !articleData?.title || !docTitle) {
+    if (extractionSource === APP_ROUTER) {
+      return false;
+    }
+    if (!this._hasTitleMaterialToCompare(articleData, docTitle)) {
       return false;
     }
     return !isTitleConsistent(articleData.title, docTitle);
+  },
+
+  /**
+   * 判斷是否有足夠的 title 資訊可進行 stale 比對
+   *
+   * @param {object} articleData
+   * @param {string} docTitle
+   * @returns {boolean}
+   */
+  _hasTitleMaterialToCompare(articleData, docTitle) {
+    return Boolean(articleData?.title) && Boolean(docTitle);
   },
 
   /**
