@@ -6,6 +6,8 @@ import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
 import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
+import yahooNewsRscFixture from '../../../fixtures/json/nextjs-rsc-yahoo-news.json';
+import bbcNewsBlocksFixture from '../../../fixtures/json/bbc-news-blocks.json';
 
 // Mock Logger to avoid cluttering test output
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -510,7 +512,7 @@ describe('NextJsExtractor', () => {
     });
 
     it('should extract Yahoo News from RSC fixture (multi-line + wrapper)', () => {
-      const fixture = require('../../../fixtures/json/nextjs-rsc-yahoo-news.json');
+      const fixture = yahooNewsRscFixture;
 
       mockDoc.querySelector.mockReturnValue(null);
       mockDoc.querySelectorAll.mockReturnValue([{ textContent: fixture.scriptContent }]);
@@ -1046,7 +1048,7 @@ describe('NextJsExtractor', () => {
     });
 
     it('應從 BBC 結構提取 heading + paragraph + image', () => {
-      const fixture = require('../../../fixtures/json/bbc-news-blocks.json');
+      const fixture = bbcNewsBlocksFixture;
       const mockJson = buildBbcNextData(fixture.blocks);
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       mockDoc.querySelectorAll.mockReturnValue([]);
