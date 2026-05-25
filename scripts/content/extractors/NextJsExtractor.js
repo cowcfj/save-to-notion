@@ -50,6 +50,10 @@ const CONVERT_BLOCK_DISPATCH = {
 const getComponentPageProps = comp =>
   comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
 
+const pickFirstDefinedField = (sources, field, defaultValue) =>
+  sources.map(source => source?.[field]).find(value => value !== undefined && value !== null) ??
+  defaultValue;
+
 const isSafeHttpOrigin = origin => {
   if (typeof origin !== 'string' || !origin) {
     return false;
@@ -624,19 +628,30 @@ export const NextJsExtractor = {
       return null;
     }
 
+    const sources = [fallbackRawData, payload];
+    return {
+      page: pickFirstDefinedField(sources, 'page', ''),
+      query: pickFirstDefinedField(sources, 'query', {}),
+      buildId: pickFirstDefinedField(sources, 'buildId', undefined),
+      props: this._buildNormalizedProps(payload),
+    };
+  },
+
+  /**
+   * 從 payload 多條候選 path 解析 pageProps，並包成 __NEXT_DATA__ 形狀的 props 物件
+   *
+   * @param {object} payload
+   * @returns {{ pageProps: object, initialProps: { pageProps: object } }}
+   */
+  _buildNormalizedProps(payload) {
     const pageProps =
       PAYLOAD_PAGEPROPS_PATHS.map(path => this._getValueByPath(payload, path)).find(
         value => value !== undefined && value !== null
       ) ?? payload;
 
     return {
-      page: fallbackRawData?.page ?? payload?.page ?? '',
-      query: fallbackRawData?.query ?? payload?.query ?? {},
-      buildId: fallbackRawData?.buildId ?? payload?.buildId,
-      props: {
-        pageProps,
-        initialProps: { pageProps },
-      },
+      pageProps,
+      initialProps: { pageProps },
     };
   },
 
