@@ -639,33 +639,42 @@ export const NextJsExtractor = {
     if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
       return this._convertBbcBlocks(rawBlocks);
     }
-    let blocks = [];
 
-    // [NEW] 優先處理 Yahoo storyAtoms (直接轉換為 Notion Blocks)
-    if (
-      rawBlocks.length === 0 &&
-      Array.isArray(articleData.storyAtoms) &&
-      articleData.storyAtoms.length > 0
-    ) {
-      blocks = this._convertStoryAtoms(articleData.storyAtoms);
-    } else if (rawBlocks.length === 0) {
+    if (rawBlocks.length === 0) {
+      if (this._hasStoryAtoms(articleData)) {
+        return this._convertStoryAtoms(articleData.storyAtoms);
+      }
       this._appendYahooBodyOrMarkupBlock(articleData, rawBlocks);
     }
 
-    // 如果 blocks 尚未生成（即不是 storyAtoms），則處理 rawBlocks
-    if (blocks.length === 0) {
-      // Generic teaser handling
-      if (Array.isArray(articleData.teaser) && articleData.teaser.length > 0) {
-        rawBlocks.unshift({
-          blockType: 'summary',
-          summary: articleData.teaser,
-        });
-      }
-
-      blocks = this.convertBlocks(rawBlocks);
+    if (this._hasTeaser(articleData)) {
+      rawBlocks.unshift({
+        blockType: 'summary',
+        summary: articleData.teaser,
+      });
     }
 
-    return blocks;
+    return this.convertBlocks(rawBlocks);
+  },
+
+  /**
+   * 檢查 articleData 是否含有 Yahoo storyAtoms 結構化內容
+   *
+   * @param {object} articleData
+   * @returns {boolean}
+   */
+  _hasStoryAtoms(articleData) {
+    return Array.isArray(articleData.storyAtoms) && articleData.storyAtoms.length > 0;
+  },
+
+  /**
+   * 檢查 articleData 是否含有可作 summary 的 teaser 內容
+   *
+   * @param {object} articleData
+   * @returns {boolean}
+   */
+  _hasTeaser(articleData) {
+    return Array.isArray(articleData.teaser) && articleData.teaser.length > 0;
   },
 
   /**
