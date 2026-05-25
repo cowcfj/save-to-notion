@@ -304,7 +304,7 @@ export const NextJsExtractor = {
         return null;
       }
 
-      const currentPath = doc.defaultView?.location?.pathname || win?.location?.pathname;
+      const currentPath = this._resolveCurrentPathname(doc);
       const preferredKeys = buildRouterComponentKeys(router, currentPath);
 
       return this._findFirstComponentWithProps(router.components, preferredKeys);
@@ -315,6 +315,16 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  /**
+   * 取得當前頁面 pathname，doc.defaultView 優先，fallback 至 globalThis
+   *
+   * @param {Document} doc
+   * @returns {string|undefined}
+   */
+  _resolveCurrentPathname(doc) {
+    return doc.defaultView?.location?.pathname || globalThis.location?.pathname;
   },
 
   /**
