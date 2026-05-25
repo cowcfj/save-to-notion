@@ -746,13 +746,17 @@ export const NextJsExtractor = {
     if (!result) {
       return false;
     }
-    const hasBlocks = Array.isArray(result.blocks) || Array.isArray(result.content?.model?.blocks);
-    const hasContent = typeof result.content === 'string';
-    const hasBody = typeof result.body === 'string';
-    const hasMarkup = typeof result.markup === 'string';
-    const hasStoryAtoms = Array.isArray(result.storyAtoms);
 
-    return hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms;
+    const detectors = [
+      () => Array.isArray(result.blocks),
+      () => Array.isArray(result.content?.model?.blocks),
+      () => typeof result.content === 'string',
+      () => typeof result.body === 'string',
+      () => typeof result.markup === 'string',
+      () => Array.isArray(result.storyAtoms),
+    ];
+
+    return detectors.some(detect => detect());
   },
 
   /**
