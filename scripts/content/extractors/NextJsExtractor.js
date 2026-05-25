@@ -67,6 +67,22 @@ const cleanPath = path => {
   return path.split('#')[0].split('?')[0];
 };
 
+const appendPathVariants = (rawPath, keys) => {
+  if (!rawPath) {
+    return;
+  }
+  const cleaned = cleanPath(rawPath);
+  keys.push(cleaned);
+  try {
+    const decoded = decodeURIComponent(cleaned);
+    if (decoded !== cleaned) {
+      keys.push(decoded);
+    }
+  } catch {
+    // 忽略解碼錯誤
+  }
+};
+
 /**
  * 建立候選鍵列表，包含原始路徑、清理後路徑、以及解碼後的變體
  *
@@ -84,32 +100,9 @@ const buildRouterComponentKeys = (router, currentPath) => {
   if (router?.route) {
     keys.push(router.route);
   }
-  if (router?.asPath) {
-    const cleaned = cleanPath(router.asPath);
-    keys.push(cleaned);
-    // 嘗試解碼變體（例如：中文路徑）
-    try {
-      const decoded = decodeURIComponent(cleaned);
-      if (decoded !== cleaned) {
-        keys.push(decoded);
-      }
-    } catch {
-      // 忽略解碼錯誤
-    }
-  }
-  if (currentPath) {
-    const cleaned = cleanPath(currentPath);
-    keys.push(cleaned);
-    // 嘗試解碼變體
-    try {
-      const decoded = decodeURIComponent(cleaned);
-      if (decoded !== cleaned) {
-        keys.push(decoded);
-      }
-    } catch {
-      // 忽略解碼錯誤
-    }
-  }
+
+  appendPathVariants(router?.asPath, keys);
+  appendPathVariants(currentPath, keys);
 
   // 去重並過濾空值
   return [...new Set(keys.filter(Boolean))];
@@ -186,13 +179,11 @@ export const NextJsExtractor = {
       if (extractionSource === PAGES_ROUTER) {
         const validation = this._validatePagesRouterDataDetailed(rawData, doc);
         if (!validation.isValid) {
-          if (validation.reason === 'stale') {
-            const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
-            if (fallbackResult) {
-              return fallbackResult;
-            }
+          if (validation.reason !== 'stale') {
+            return null;
           }
-          return null;
+          const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
+          return fallbackResult || null;
         }
       }
 
@@ -259,6 +250,31 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 遍歷 router.components 找到第一個有 pageProps 的組件
+   *
+   * @param {object} components
+   * @param {Array<string>} preferredKeys
+   * @returns {object|null}
+   */
+  _findFirstComponentWithProps(components, preferredKeys) {
+    for (const key of preferredKeys) {
+      const pageProps = getComponentPageProps(components[key]);
+      if (pageProps && Object.keys(pageProps).length > 0) {
+        return { props: { pageProps } };
+      }
+    }
+
+    for (const [, comp] of Object.entries(components)) {
+      const pageProps = getComponentPageProps(comp);
+      if (pageProps && Object.keys(pageProps).length > 0) {
+        return { props: { pageProps } };
+      }
+    }
+
+    return null;
+  },
+
+  /**
    * 從 Next.js router.components 讀取 SPA 導航後的最新 pageProps
    *
    * Next.js Pages Router 在 SPA 導航後會將最新的 pageProps 存於
@@ -279,22 +295,7 @@ export const NextJsExtractor = {
       const currentPath = doc.defaultView?.location?.pathname || win?.location?.pathname;
       const preferredKeys = buildRouterComponentKeys(router, currentPath);
 
-      for (const key of preferredKeys) {
-        const pageProps = getComponentPageProps(router.components[key]);
-        if (pageProps && Object.keys(pageProps).length > 0) {
-          return { props: { pageProps } };
-        }
-      }
-
-      // 回退：遍歷所有已載入的 router 組件，找到第一個有 pageProps 的項目
-      // HK01 通常是 '/article'，其他網站可能用 '/[...path]' 等不同 key
-      for (const [, comp] of Object.entries(router.components)) {
-        const pageProps = getComponentPageProps(comp);
-        if (pageProps && Object.keys(pageProps).length > 0) {
-          return { props: { pageProps } };
-        }
-      }
-      return null;
+      return this._findFirstComponentWithProps(router.components, preferredKeys);
     } catch (error) {
       Logger.debug('NextJsExtractor._getRouterComponentData 讀取失敗', {
         action,
@@ -471,6 +472,26 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 從 Document 對象中解析網頁的 Origin 與 Pathname
+   *
+   * @param {Document} doc
+   * @returns {{ origin: string, pathname: string }}
+   */
+  _resolvePageOriginAndPath(doc) {
+    const origin =
+      doc?.defaultView?.location?.origin ||
+      doc?.location?.origin ||
+      globalThis.location?.origin ||
+      '';
+    const pathname =
+      doc?.defaultView?.location?.pathname ||
+      doc?.location?.pathname ||
+      globalThis.location?.pathname ||
+      '';
+    return { origin, pathname };
+  },
+
+  /**
    * 取得 Next.js _next/data JSON
    *
    * @param {Document} doc
@@ -479,17 +500,8 @@ export const NextJsExtractor = {
    */
   async _fetchNextData(doc, buildId) {
     const action = '_fetchNextData';
-    const pageOrigin =
-      doc?.defaultView?.location?.origin ||
-      doc?.location?.origin ||
-      globalThis.location?.origin ||
-      '';
-    const pagePathname =
-      doc?.defaultView?.location?.pathname ||
-      doc?.location?.pathname ||
-      globalThis.location?.pathname ||
-      '';
-    const dataUrl = this._buildNextDataUrl(pageOrigin, pagePathname, buildId);
+    const { origin, pathname } = this._resolvePageOriginAndPath(doc);
+    const dataUrl = this._buildNextDataUrl(origin, pathname, buildId);
 
     if (!dataUrl) {
       Logger.warn('無法構建 Next.js data URL', {
@@ -662,6 +674,25 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 檢查提取到的結果是否含有可用的文章內容結構
+   *
+   * @param {object} result
+   * @returns {boolean}
+   */
+  _resultHasUsableContent(result) {
+    if (!result) {
+      return false;
+    }
+    const hasBlocks = Array.isArray(result.blocks) || Array.isArray(result.content?.model?.blocks);
+    const hasContent = typeof result.content === 'string';
+    const hasBody = typeof result.body === 'string';
+    const hasMarkup = typeof result.markup === 'string';
+    const hasStoryAtoms = Array.isArray(result.storyAtoms);
+
+    return hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms;
+  },
+
+  /**
    * 在目標對象列表中使用已知路徑搜索數據
    *
    * @param {Array<object>} targets
@@ -676,18 +707,9 @@ export const NextJsExtractor = {
       for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
         const result = this._getValueByPath(target, path);
 
-        if (result) {
-          const hasBlocks =
-            Array.isArray(result.blocks) || Array.isArray(result.content?.model?.blocks);
-          const hasContent = typeof result.content === 'string';
-          const hasBody = typeof result.body === 'string';
-          const hasMarkup = typeof result.markup === 'string';
-          const hasStoryAtoms = Array.isArray(result.storyAtoms);
-
-          if (hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms) {
-            Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
-            return result;
-          }
+        if (result && this._resultHasUsableContent(result)) {
+          Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
+          return result;
         }
       }
     }
@@ -1017,6 +1039,54 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 計算鍵名（標題、作者）維度的特徵分數
+   *
+   * @param {object} node
+   * @returns {number}
+   */
+  _scoreKeysDimension(node) {
+    let score = 0;
+    if (node.title && typeof node.title === 'string') {
+      score += 10;
+    }
+    if (node.author) {
+      score += 5;
+    }
+    return score;
+  },
+
+  /**
+   * 計算文章結構維度（如段落陣列）的特徵分數
+   *
+   * @param {object} node
+   * @returns {number}
+   */
+  _scoreStructuralDimension(node) {
+    let score = 0;
+    if (Array.isArray(node.paragraphs) && node.paragraphs.length > 0) {
+      score += 40;
+    }
+    return score;
+  },
+
+  /**
+   * 計算文本與內文維度（如 text 或 content 長度）的特徵分數
+   *
+   * @param {object} node
+   * @returns {number}
+   */
+  _scoreContentDimension(node) {
+    let score = 0;
+    if (node.text && typeof node.text === 'string' && node.id) {
+      score += 15;
+    }
+    if (node.content && typeof node.content === 'string' && node.content.length > 100) {
+      score += 20;
+    }
+    return score;
+  },
+
+  /**
    * 計算結構和文本特徵分數
    *
    * @param {object} node
@@ -1024,24 +1094,9 @@ export const NextJsExtractor = {
    */
   _scoreStructureAndText(node) {
     let score = 0;
-    // 規則 4: 鍵名特徵
-    if (node.title && typeof node.title === 'string') {
-      score += 10;
-    }
-    if (node.author) {
-      score += 5;
-    }
-    // 規則 5: HK01 或其他內容結構特徵
-    if (Array.isArray(node.paragraphs) && node.paragraphs.length > 0) {
-      score += 40;
-    }
-    if (node.text && typeof node.text === 'string' && node.id) {
-      score += 15;
-    }
-    // 檢查是否包含必要的 Blocks 結構 (如果沒有顯式的 blocks 欄位)
-    if (node.content && typeof node.content === 'string' && node.content.length > 100) {
-      score += 20;
-    }
+    score += this._scoreKeysDimension(node);
+    score += this._scoreStructuralDimension(node);
+    score += this._scoreContentDimension(node);
     return score;
   },
 
@@ -1088,6 +1143,90 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 轉換 image 類型區塊
+   *
+   * @param {object} block
+   * @returns {Array<object>}
+   */
+  _convertImageBlock(block) {
+    return [
+      {
+        object: 'block',
+        type: 'image',
+        image: {
+          type: 'external',
+          external: {
+            url: block.image?.cdnUrl || block.image?.url || '',
+          },
+          caption: this._createRichTextChunks(block.image?.caption),
+        },
+      },
+    ];
+  },
+
+  /**
+   * 轉換 heading 類型區塊
+   *
+   * @param {object} block
+   * @param {string} type
+   * @returns {Array<object>}
+   */
+  _convertHeadingBlock(block, type) {
+    return [
+      {
+        object: 'block',
+        type,
+        [type]: {
+          rich_text: this._createRichTextChunks(block.text ? this._stripHtml(block.text) : ''),
+        },
+      },
+    ];
+  },
+
+  /**
+   * 轉換 quote 類型區塊
+   *
+   * @param {object} block
+   * @returns {Array<object>}
+   */
+  _convertQuoteBlock(block) {
+    return [
+      {
+        object: 'block',
+        type: 'quote',
+        quote: {
+          rich_text: this._createRichTextChunks(block.text ? this._stripHtml(block.text) : ''),
+        },
+      },
+    ];
+  },
+
+  /**
+   * 轉換 paragraph 類型區塊
+   *
+   * @param {object} block
+   * @returns {Array<object>}
+   */
+  _convertParagraphBlock(block) {
+    const content = block.text ? this._stripHtml(block.text) : '';
+    // 如果默認處理產生空內容，且不是已處理的特殊類型，則嘗試返回空
+    // 但為了保持一致性，如果確實沒有 text 字段，可能是一個未知類型的塊
+    if (!content) {
+      return [];
+    }
+
+    return [
+      {
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: this._createRichTextChunks(content),
+        },
+      },
+    ];
+  },
+
+  /**
    * 將 JSON blocks 轉換為 Notion blocks
    *
    * @param {Array} jsonBlocks
@@ -1122,68 +1261,18 @@ export const NextJsExtractor = {
 
         switch (type) {
           case 'image': {
-            return [
-              {
-                object: 'block',
-                type: 'image',
-                image: {
-                  type: 'external',
-                  external: {
-                    url: block.image?.cdnUrl || block.image?.url || '',
-                  },
-                  caption: this._createRichTextChunks(block.image?.caption),
-                },
-              },
-            ];
+            return this._convertImageBlock(block);
           }
-
           case 'heading_1':
           case 'heading_2':
           case 'heading_3': {
-            return [
-              {
-                object: 'block',
-                type,
-                [type]: {
-                  rich_text: this._createRichTextChunks(
-                    block.text ? this._stripHtml(block.text) : ''
-                  ),
-                },
-              },
-            ];
+            return this._convertHeadingBlock(block, type);
           }
-
           case 'quote': {
-            return [
-              {
-                object: 'block',
-                type: 'quote',
-                quote: {
-                  rich_text: this._createRichTextChunks(
-                    block.text ? this._stripHtml(block.text) : ''
-                  ),
-                },
-              },
-            ];
+            return this._convertQuoteBlock(block);
           }
-
           default: {
-            const content = block.text ? this._stripHtml(block.text) : '';
-            // 如果默認處理產生空內容，且不是已處理的特殊類型，則嘗試返回空
-            // 但為了保持一致性，如果確實沒有 text 字段，可能是一個未知類型的塊
-            if (!content) {
-              return [];
-            }
-
-            return [
-              {
-                object: 'block',
-                type: 'paragraph',
-                paragraph: {
-                  rich_text: this._createRichTextChunks(content),
-                },
-              },
-            ];
+            return this._convertParagraphBlock(block);
           }
         }
       })
