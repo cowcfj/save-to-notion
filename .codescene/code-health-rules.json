@@ -8,6 +8,10 @@
         {
           "name": "Complex Conditional",
           "weight": 0.5
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 0.5
         }
       ],
       "thresholds": [],
