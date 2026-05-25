@@ -26,6 +26,12 @@ const PAYLOAD_PAGEPROPS_PATHS = [
   'props',
 ];
 
+const ARTICLE_METADATA_PATHS = {
+  title: ['title', 'promo.headlines.seoHeadline'],
+  excerpt: ['excerpt', 'description', 'summary'],
+  byline: ['byline', 'author.name', 'author'],
+};
+
 const getComponentPageProps = comp =>
   comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
 
@@ -403,22 +409,18 @@ export const NextJsExtractor = {
       return null;
     }
 
-    // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
-    // 適用於 pages-router、next-data 及 router-component 來源，僅排除 App Router
-    if (extractionSource !== APP_ROUTER && articleData?.title) {
-      const docTitle = doc.title;
-      if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
-        Logger.warn('SPA 導航偵測：結構化數據標題與 document.title 不符，放棄結構化提取', {
-          action,
-          source: extractionSource,
-          reason: 'title_mismatch',
-          result: 'skip_structured',
-          hasTitle: Boolean(articleData?.title),
-          hasDocTitle: Boolean(docTitle),
-          isTitleConsistent: false,
-        });
-        return null;
-      }
+    const docTitle = doc.title;
+    if (this._isStructuredTitleStale(articleData, docTitle, extractionSource)) {
+      Logger.warn('SPA 導航偵測：結構化數據標題與 document.title 不符，放棄結構化提取', {
+        action,
+        source: extractionSource,
+        reason: 'title_mismatch',
+        result: 'skip_structured',
+        hasTitle: Boolean(articleData?.title),
+        hasDocTitle: Boolean(docTitle),
+        isTitleConsistent: false,
+      });
+      return null;
     }
 
     Logger.log('成功提取 Next.js 文章數據', {
@@ -439,13 +441,12 @@ export const NextJsExtractor = {
       return null;
     }
 
-    // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
-    // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
-    const metadata = {
-      title: articleData.title || articleData.promo?.headlines?.seoHeadline,
-      excerpt: articleData.excerpt || articleData.description || articleData.summary,
-      byline: articleData.byline || articleData.author?.name || articleData.author,
-    };
+    const metadata = Object.fromEntries(
+      Object.entries(ARTICLE_METADATA_PATHS).map(([field, paths]) => [
+        field,
+        paths.map(path => this._getValueByPath(articleData, path)).find(Boolean),
+      ])
+    );
 
     return {
       content: '', // Next.js 提取器不生成 HTML content
@@ -454,6 +455,24 @@ export const NextJsExtractor = {
       type: 'nextjs',
       rawArticle: articleData,
     };
+  },
+
+  /**
+   * 判定結構化提取是否應因 SPA 導航標題不一致而放棄
+   *
+   * App Router 不適用（其數據總對應當前 URL）；
+   * Pages Router / next-data / router-component 在 SPA 導航後可能殘留舊頁 title。
+   *
+   * @param {object} articleData
+   * @param {string} docTitle
+   * @param {string} extractionSource
+   * @returns {boolean}
+   */
+  _isStructuredTitleStale(articleData, docTitle, extractionSource) {
+    if (extractionSource === APP_ROUTER || !articleData?.title || !docTitle) {
+      return false;
+    }
+    return !isTitleConsistent(articleData.title, docTitle);
   },
 
   /**
