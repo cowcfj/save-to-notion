@@ -5,6 +5,29 @@
 
 import { BBC_DEFAULT_IMAGE_WIDTH, BBC_IMAGE_BASE_URL } from '../../../config/shared/content.js';
 
+const SKIPPED_BBC_BLOCK_TYPES = new Set([
+  'byline',
+  'relatedContent',
+  'wsoj',
+  'include',
+  'social-embed',
+]);
+
+function wrapSingleBlock(block) {
+  return block ? [block] : [];
+}
+
+const BBC_BLOCK_HANDLERS = {
+  headline: (model, deps) => wrapSingleBlock(buildBbcHeadingBlock(model, false, deps)),
+  subheadline: (model, deps) => wrapSingleBlock(buildBbcHeadingBlock(model, true, deps)),
+  text: (model, deps) => buildBbcTextBlocks(model, deps),
+  image: (model, deps) => wrapSingleBlock(buildBbcImageBlock(model, deps)),
+};
+
+function defaultBbcHandler(model, deps) {
+  return wrapSingleBlock(buildBbcFallbackBlock(model, deps));
+}
+
 /**
  * 偵測是否為 BBC {type, model} 格式
  * BBC blocks 使用 `type` + `model`，而非 `blockType` + `text`
@@ -59,59 +82,16 @@ export function processSingleBbcBlock(block, result, deps) {
   }
 
   const { type, model } = block;
-
   if (!type || !model) {
     return;
   }
 
-  switch (type) {
-    case 'headline': {
-      const h1Block = buildBbcHeadingBlock(model, false, deps);
-      if (h1Block) {
-        result.push(h1Block);
-      }
-      break;
-    }
-
-    case 'subheadline': {
-      const h2Block = buildBbcHeadingBlock(model, true, deps);
-      if (h2Block) {
-        result.push(h2Block);
-      }
-      break;
-    }
-
-    case 'text': {
-      result.push(...buildBbcTextBlocks(model, deps));
-      break;
-    }
-
-    case 'image': {
-      const imgBlock = buildBbcImageBlock(model, deps);
-      if (imgBlock) {
-        result.push(imgBlock);
-      }
-      break;
-    }
-
-    // 跳過頁面雜訊 block 類型
-    case 'byline':
-    case 'relatedContent':
-    case 'wsoj':
-    case 'include':
-    case 'social-embed': {
-      break;
-    }
-
-    default: {
-      // 嘗試通用文字提取（作為安全網）
-      const fallbackBlock = buildBbcFallbackBlock(model, deps);
-      if (fallbackBlock) {
-        result.push(fallbackBlock);
-      }
-      break;
-    }
+  if (SKIPPED_BBC_BLOCK_TYPES.has(type)) {
+    return;
   }
+
+  const handler = BBC_BLOCK_HANDLERS[type] || defaultBbcHandler;
+  result.push(...handler(model, deps));
 }
 
 /**
@@ -125,22 +105,30 @@ export function extractBbcText(model) {
     return '';
   }
 
-  // 直接有 text 屬性（fragment 層級）
-  if (typeof model.text === 'string' && model.text.trim()) {
-    return model.text.trim();
+  const direct = getDirectBbcText(model);
+  if (direct) {
+    return direct;
   }
 
-  // 遞歸遍歷子 blocks
   if (Array.isArray(model.blocks)) {
-    return model.blocks
-      .map(child =>
-        child && typeof child === 'object' ? extractBbcText(child.model || child) : ''
-      )
-      .filter(Boolean)
-      .join('');
+    return joinBbcChildText(model.blocks);
   }
 
   return '';
+}
+
+function getDirectBbcText(model) {
+  if (typeof model.text !== 'string') {
+    return '';
+  }
+  return model.text.trim();
+}
+
+function joinBbcChildText(blocks) {
+  return blocks
+    .map(child => (child && typeof child === 'object' ? extractBbcText(child.model || child) : ''))
+    .filter(Boolean)
+    .join('');
 }
 
 /**
@@ -172,24 +160,32 @@ export function buildBbcHeadingBlock(model, isSubheading, deps) {
  * @returns {Array}
  */
 export function buildBbcTextBlocks(model, deps) {
-  const result = [];
   const paragraphs = Array.isArray(model.blocks) ? model.blocks : [];
-  for (const para of paragraphs) {
-    if (!para || typeof para !== 'object') {
-      continue;
-    }
-    if (para.type === 'paragraph' || para.type === 'introduction') {
-      const paraText = extractBbcText(para.model || {});
-      if (paraText) {
-        result.push({
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: deps.richTextChunkBuilder(paraText) },
-        });
-      }
-    }
+  return paragraphs.map(para => buildBbcParagraphBlock(para, deps)).filter(Boolean);
+}
+
+const BBC_PARAGRAPH_TYPES = new Set(['paragraph', 'introduction']);
+
+function buildBbcParagraphBlock(para, deps) {
+  if (!isBbcParagraphLike(para)) {
+    return null;
   }
-  return result;
+  const paraText = extractBbcText(para.model || {});
+  if (!paraText) {
+    return null;
+  }
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: { rich_text: deps.richTextChunkBuilder(paraText) },
+  };
+}
+
+function isBbcParagraphLike(para) {
+  if (!para || typeof para !== 'object') {
+    return false;
+  }
+  return BBC_PARAGRAPH_TYPES.has(para.type);
 }
 
 /**
@@ -201,25 +197,35 @@ export function buildBbcTextBlocks(model, deps) {
  */
 export function buildBbcImageBlock(model, deps) {
   const subBlocks = Array.isArray(model.blocks) ? model.blocks : [];
-  const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
-  const captionBlock = subBlocks.find(blk => blk.type === 'caption');
-
-  if (rawImage?.model?.locator && rawImage?.model?.originCode) {
-    const { locator, originCode } = rawImage.model;
-    const imageUrl = `${BBC_IMAGE_BASE_URL}/${BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
-    const captionText = captionBlock ? extractBbcText(captionBlock.model || {}) : '';
-
-    return {
-      object: 'block',
-      type: 'image',
-      image: {
-        type: 'external',
-        external: { url: imageUrl },
-        caption: captionText ? deps.richTextChunkBuilder(captionText) : [],
-      },
-    };
+  const imageUrl = extractBbcImageUrl(subBlocks);
+  if (!imageUrl) {
+    return null;
   }
-  return null;
+  const captionText = extractBbcImageCaption(subBlocks);
+  return {
+    object: 'block',
+    type: 'image',
+    image: {
+      type: 'external',
+      external: { url: imageUrl },
+      caption: captionText ? deps.richTextChunkBuilder(captionText) : [],
+    },
+  };
+}
+
+function extractBbcImageUrl(subBlocks) {
+  const rawImage = subBlocks.find(blk => blk.type === 'rawImage');
+  const locator = rawImage?.model?.locator;
+  const originCode = rawImage?.model?.originCode;
+  if (!locator || !originCode) {
+    return null;
+  }
+  return `${BBC_IMAGE_BASE_URL}/${BBC_DEFAULT_IMAGE_WIDTH}/${originCode}/${locator}.webp`;
+}
+
+function extractBbcImageCaption(subBlocks) {
+  const captionBlock = subBlocks.find(blk => blk.type === 'caption');
+  return captionBlock ? extractBbcText(captionBlock.model || {}) : '';
 }
 
 /**
