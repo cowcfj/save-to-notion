@@ -1,0 +1,7 @@
+{
+  "_meta": {
+    "source": "synthesized",
+    "description": "Sanitized and synthesized Next.js App Router RSC payload containing a Yahoo-style article storyAtoms data structure for NextJsExtractor testing"
+  },
+  "scriptContent": "self.__next_f.push([1, \"1:I[\\\"noise_module\\\", [], \\\"default\\\"]\\n2:HL[\\\"/styles.css\\\", \\\"stylesheet\\\"]\\n\"])\nself.__next_f.push([1, \"3:{\\\"someNoise\\\":true}\\n4:[\\\"$\\\", \\\"$L2a\\\", null, {\\\"title\\\":\\\"Yahoo RSC Article\\\",\\\"storyAtoms\\\":[{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>This is paragraph 1.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"image\\\",\\\"url\\\":\\\"https://example.com/test.jpg\\\",\\\"caption\\\":\\\"Test Image\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>This is paragraph 2.</p>\\\",\\\"tagName\\\":\\\"p\\\"}]}]\\n\"])\nself.__next_f.push([1, \"5:malformed_json_here\\n\"])"
+}

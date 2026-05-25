@@ -510,6 +510,33 @@ describe('NextJsExtractor', () => {
       expect(result.blocks[1].type).toBe('image');
       expect(result.blocks[2].type).toBe('heading_2');
     });
+
+    it('should extract Yahoo News from RSC fixture (multi-line + wrapper)', () => {
+      const fixture = require('../../../fixtures/json/nextjs-rsc-yahoo-news.json');
+
+      mockDoc.querySelector.mockReturnValue(null);
+      mockDoc.querySelectorAll.mockReturnValue([{ textContent: fixture.scriptContent }]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].type).toBe('paragraph');
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('This is paragraph 1.');
+      expect(result.blocks[1].type).toBe('image');
+      expect(result.blocks[1].image.external.url).toBe('https://example.com/test.jpg');
+    });
+
+    it('should ignore malformed RSC chunks but extract from valid ones in same script', () => {
+      const scriptWithMixed =
+        'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n2:{\\\"malformed\\\"\\n3:{\\\"someNoise\\\":true}\\n4:[\\\"$\\\", \\\"$L2a\\\", null, {\\\"storyAtoms\\\":[{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 1.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 2.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 3.</p>\\\",\\\"tagName\\\":\\\"p\\\"}]}]\\n"])';
+      mockDoc.querySelector.mockReturnValue(null);
+      mockDoc.querySelectorAll.mockReturnValue([{ textContent: scriptWithMixed }]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('Recovered paragraph 1.');
+    });
   });
 
   describe('extractAsync', () => {
@@ -1523,6 +1550,160 @@ describe('NextJsExtractor', () => {
     it('should remove script tags entirely', () => {
       const html = '<div>Content<script>console.log("bad")</script></div>';
       expect(NextJsExtractor._stripHtml(html)).toBe('Content');
+    });
+  });
+
+  describe('RSC payload parsing helpers', () => {
+    describe('_extractRscDataObject', () => {
+      it('should return null for non-array input', () => {
+        expect(NextJsExtractor._extractRscDataObject(null)).toBeNull();
+        expect(NextJsExtractor._extractRscDataObject({})).toBeNull();
+        expect(NextJsExtractor._extractRscDataObject('not an array')).toBeNull();
+      });
+
+      it('should fallback to search loop when array length is less than 4', () => {
+        const input = [1, 2, 3];
+        expect(NextJsExtractor._extractRscDataObject(input)).toBeNull();
+      });
+
+      it('should return index 3 item when length >= 4 and index 3 is a plain object', () => {
+        const input = ['$', '$L2a', null, { pageData: { atoms: [] } }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ pageData: { atoms: [] } });
+      });
+
+      it('should fallback to search loop when index 3 is null', () => {
+        const input = ['$', '$L2a', null, null, { pageData: { atoms: [] } }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ pageData: { atoms: [] } });
+      });
+
+      it('should return the first non-null plain object found in the array', () => {
+        const input = [null, 'string', { target: 'found' }, null, { second: 'ignored' }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+      });
+
+      it('should return null if no plain object is found', () => {
+        const input = [null, 'string', 123, true];
+        expect(NextJsExtractor._extractRscDataObject(input)).toBeNull();
+      });
+
+      it('should skip nested arrays during fallback search', () => {
+        const input = [null, ['nested-array'], { target: 'found' }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+      });
+    });
+
+    describe('_tryParseRscLine', () => {
+      it('should return null when no colon is present', () => {
+        expect(NextJsExtractor._tryParseRscLine('no colon here')).toBeNull();
+      });
+
+      it('should return null when payload does not start with { or [', () => {
+        expect(NextJsExtractor._tryParseRscLine('1:invalid')).toBeNull();
+      });
+
+      it('should return inner object when payload is a valid RSC wrapper', () => {
+        const line = '4:["$", "$L2a", null, {"pageData": {"atoms": []}}]';
+        expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ pageData: { atoms: [] } });
+      });
+
+      it('should return null or try fallback search when array is not a classic RSC wrapper', () => {
+        const line = '4:[1, 2, 3]';
+        expect(NextJsExtractor._tryParseRscLine(line)).toEqual([1, 2, 3]);
+
+        const lineWithObj = '4:[1, 2, {"target":"found"}]';
+        expect(NextJsExtractor._tryParseRscLine(lineWithObj)).toEqual({ target: 'found' });
+      });
+
+      it('should return the parsed object when payload is a simple plain object JSON', () => {
+        const line = '3:{"someNoise": true}';
+        expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ someNoise: true });
+      });
+
+      it('should return null on malformed JSON instead of throwing error', () => {
+        const line = '3:{"malformed"';
+        expect(NextJsExtractor._tryParseRscLine(line)).toBeNull();
+      });
+    });
+
+    describe('_fallbackParseRsc', () => {
+      it('should return null when chunk has no colon', () => {
+        expect(NextJsExtractor._fallbackParseRsc('no colon')).toBeNull();
+      });
+
+      it('should return null on JSON parse failure', () => {
+        expect(NextJsExtractor._fallbackParseRsc('1:{"bad"')).toBeNull();
+      });
+
+      it('should return inner object of a single-line RSC wrapper', () => {
+        const chunk = '4:["$", "$L2a", null, {"key": "val"}]';
+        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ key: 'val' });
+      });
+
+      it('should return parsed object when chunk is plain object', () => {
+        const chunk = '3:{"key": "val"}';
+        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ key: 'val' });
+      });
+
+      it('should return parsed object if _extractRscDataObject returns null but parsed is an object', () => {
+        const chunk = '1:{"foo": "bar"}';
+        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ foo: 'bar' });
+      });
+    });
+
+    describe('_parseMultiLineRsc', () => {
+      it('should return empty array for empty string', () => {
+        expect(NextJsExtractor._parseMultiLineRsc('')).toEqual([]);
+      });
+
+      it('should parse single line rsc', () => {
+        const input = '3:{"someNoise":true}';
+        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([{ someNoise: true }]);
+      });
+
+      it('should filter out unparsable lines', () => {
+        const input = '3:{"someNoise":true}\n5:bad-line\n4:{"valid":true}';
+        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([
+          { someNoise: true },
+          { valid: true },
+        ]);
+      });
+
+      it('should return empty array when all lines are unparsable', () => {
+        const input = 'bad-line\nanother-bad';
+        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([]);
+      });
+    });
+
+    describe('_parseAppRouterScript', () => {
+      it('should return empty array for script content without push calls', () => {
+        expect(NextJsExtractor._parseAppRouterScript('')).toEqual([]);
+        expect(NextJsExtractor._parseAppRouterScript('console.log("hello")')).toEqual([]);
+      });
+
+      it('should parse script with single push call', () => {
+        const script = 'self.__next_f.push([1, "3:{\\\"someNoise\\\":true}\\n"])';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([{ someNoise: true }]);
+      });
+
+      it('should parse script with multiple push calls', () => {
+        const script =
+          'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n"])\nself.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([
+          '1:I["noise"]\n',
+          { valid: true },
+        ]);
+      });
+
+      it('should skip malformed JSON inside push calls', () => {
+        const script =
+          'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])\nself.__next_f.push(invalid_json_here)';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([{ valid: true }]);
+      });
+
+      it('should skip pushing when closing parenthesis is missing', () => {
+        const script = 'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([]);
+      });
     });
   });
 });
