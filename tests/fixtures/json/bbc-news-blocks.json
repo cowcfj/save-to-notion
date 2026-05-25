@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "source": "synthesized",
+    "description": "Synthesized BBC News __NEXT_DATA__.props.pageProps.pageData.content.model.blocks structure (headline + 2x text + 1x image with caption) for NextJsExtractor BBC-format conversion testing"
+  },
+  "blocks": [
+    {
+      "type": "headline",
+      "model": { "blocks": [{ "model": { "text": "文章標題" } }] }
+    },
+    {
+      "type": "text",
+      "model": {
+        "blocks": [
+          {
+            "type": "paragraph",
+            "model": {
+              "text": "第一段文字",
+              "blocks": [
+                { "type": "fragment", "model": { "text": "第一段文字", "attributes": [] } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "text",
+      "model": {
+        "blocks": [
+          {
+            "type": "paragraph",
+            "model": { "text": "第二段文字", "blocks": [{ "model": { "text": "第二段文字" } }] }
+          }
+        ]
+      }
+    },
+    {
+      "type": "image",
+      "model": {
+        "blocks": [
+          {
+            "type": "rawImage",
+            "model": {
+              "locator": "a985/live/test-image.jpg",
+              "originCode": "cpsprodpb",
+              "width": 1024,
+              "height": 576
+            }
+          },
+          {
+            "type": "caption",
+            "model": { "blocks": [{ "model": { "text": "圖片說明" } }] }
+          }
+        ]
+      }
+    }
+  ]
+}
