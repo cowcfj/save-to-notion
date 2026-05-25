@@ -6,6 +6,8 @@ import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
 import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
+import yahooNewsRscFixture from '../../../fixtures/json/nextjs-rsc-yahoo-news.json';
+import bbcNewsBlocksFixture from '../../../fixtures/json/bbc-news-blocks.json';
 
 // Mock Logger to avoid cluttering test output
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -42,6 +44,31 @@ jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
 
 describe('NextJsExtractor', () => {
   let mockDoc;
+
+  // 建立 Pages Router __NEXT_DATA__ payload；callers 可選擇性疊加 asPath / page / 額外欄位
+  const buildPagesRouterData = (article, extra = {}) => ({
+    props: { initialProps: { pageProps: { article } } },
+    ...extra,
+  });
+
+  // 建立首頁 stale __NEXT_DATA__ (用於 _fetchNextData fallback / router-component 測試)
+  const buildStaleNextData = (overrides = {}) => ({
+    page: '/',
+    asPath: '/',
+    buildId: 'build123',
+    props: { initialProps: { pageProps: {} } },
+    ...overrides,
+  });
+
+  // 建立 doc.defaultView.next.router.components map；route 預設 '/article'
+  const buildRouterComponents = componentsMap => ({
+    router: { components: componentsMap },
+  });
+
+  // pageProps wrapper：用於 components map 內的 component value
+  const buildRouterComponentValue = pageProps => ({
+    props: { initialProps: { pageProps } },
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -88,11 +115,13 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname =
         '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60321104/new-article';
 
-      const mockJson = {
-        props: { initialProps: { pageProps: { article: { title: 'Old Article', blocks: [] } } } },
-        asPath: '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801/old-article',
-        page: '/article',
-      };
+      const mockJson = buildPagesRouterData(
+        { title: 'Old Article', blocks: [] },
+        {
+          asPath: '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801/old-article',
+          page: '/article',
+        }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
@@ -101,11 +130,10 @@ describe('NextJsExtractor', () => {
     it('should sanitize SPA navigation warning log context keys', () => {
       mockDoc.defaultView.location.pathname = '/new-article';
 
-      const mockJson = {
-        props: { initialProps: { pageProps: { article: { title: 'Old Article', blocks: [] } } } },
-        asPath: '/old-article',
-        page: '/article',
-      };
+      const mockJson = buildPagesRouterData(
+        { title: 'Old Article', blocks: [] },
+        { asPath: '/old-article', page: '/article' }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
@@ -124,11 +152,10 @@ describe('NextJsExtractor', () => {
     it('should sanitize SPA home-page log context keys with the same shape', () => {
       mockDoc.defaultView.location.pathname = '/news/article';
 
-      const mockJson = {
-        props: { initialProps: { pageProps: { article: { title: 'Home payload', blocks: [] } } } },
-        asPath: '/',
-        page: '/',
-      };
+      const mockJson = buildPagesRouterData(
+        { title: 'Home payload', blocks: [] },
+        { asPath: '/', page: '/' }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
@@ -151,24 +178,17 @@ describe('NextJsExtractor', () => {
       const path = '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801/article-slug';
       mockDoc.defaultView.location.pathname = path;
 
-      const mockJson = {
-        props: {
-          initialProps: {
-            pageProps: {
-              article: {
-                title: 'Same Article',
-                blocks: [
-                  { blockType: 'paragraph', text: 'Para 1' },
-                  { blockType: 'paragraph', text: 'Para 2' },
-                  { blockType: 'paragraph', text: 'Para 3' },
-                ],
-              },
-            },
-          },
+      const mockJson = buildPagesRouterData(
+        {
+          title: 'Same Article',
+          blocks: [
+            { blockType: 'paragraph', text: 'Para 1' },
+            { blockType: 'paragraph', text: 'Para 2' },
+            { blockType: 'paragraph', text: 'Para 3' },
+          ],
         },
-        asPath: path,
-        page: '/article',
-      };
+        { asPath: path, page: '/article' }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       const result = NextJsExtractor.extract(mockDoc);
@@ -181,13 +201,11 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/new-article';
       mockDoc.title = 'New Article Title | HK01';
 
-      const mockJson = {
-        props: {
-          initialProps: { pageProps: { article: { title: 'Old Stale Article', blocks: [] } } },
-        },
-        page: '/article',
+      const mockJson = buildPagesRouterData(
+        { title: 'Old Stale Article', blocks: [] },
+        { page: '/article' }
         // asPath missing
-      };
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
@@ -197,23 +215,17 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/current-article';
       mockDoc.title = 'Current Article Title | HK01';
 
-      const mockJson = {
-        props: {
-          initialProps: {
-            pageProps: {
-              article: {
-                title: 'Current Article Title',
-                blocks: [
-                  { blockType: 'paragraph', text: 'Para 1' },
-                  { blockType: 'paragraph', text: 'Para 2' },
-                  { blockType: 'paragraph', text: 'Para 3' },
-                ],
-              },
-            },
-          },
+      const mockJson = buildPagesRouterData(
+        {
+          title: 'Current Article Title',
+          blocks: [
+            { blockType: 'paragraph', text: 'Para 1' },
+            { blockType: 'paragraph', text: 'Para 2' },
+            { blockType: 'paragraph', text: 'Para 3' },
+          ],
         },
-        page: '/article',
-      };
+        { page: '/article' }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       const result = NextJsExtractor.extract(mockDoc);
@@ -226,23 +238,17 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/brief';
       mockDoc.title = 'Different Title'; // 即使不匹配
 
-      const mockJson = {
-        props: {
-          initialProps: {
-            pageProps: {
-              article: {
-                title: 'HK01',
-                blocks: [
-                  { blockType: 'paragraph', text: 'Para 1' },
-                  { blockType: 'paragraph', text: 'Para 2' },
-                  { blockType: 'paragraph', text: 'Para 3' },
-                ],
-              },
-            },
-          },
+      const mockJson = buildPagesRouterData(
+        {
+          title: 'HK01',
+          blocks: [
+            { blockType: 'paragraph', text: 'Para 1' },
+            { blockType: 'paragraph', text: 'Para 2' },
+            { blockType: 'paragraph', text: 'Para 3' },
+          ],
         },
-        page: '/article',
-      };
+        { page: '/article' }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).not.toBeNull();
@@ -252,23 +258,17 @@ describe('NextJsExtractor', () => {
       delete mockDoc.defaultView;
       mockDoc.title = 'Same Title';
 
-      const mockJson = {
-        props: {
-          initialProps: {
-            pageProps: {
-              article: {
-                title: 'Same Title',
-                blocks: [
-                  { blockType: 'paragraph', text: 'Para 1' },
-                  { blockType: 'paragraph', text: 'Para 2' },
-                  { blockType: 'paragraph', text: 'Para 3' },
-                ],
-              },
-            },
-          },
+      const mockJson = buildPagesRouterData(
+        {
+          title: 'Same Title',
+          blocks: [
+            { blockType: 'paragraph', text: 'Para 1' },
+            { blockType: 'paragraph', text: 'Para 2' },
+            { blockType: 'paragraph', text: 'Para 3' },
+          ],
         },
-        page: '/article',
-      };
+        { page: '/article' }
+      );
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).not.toBeNull();
@@ -510,6 +510,33 @@ describe('NextJsExtractor', () => {
       expect(result.blocks[1].type).toBe('image');
       expect(result.blocks[2].type).toBe('heading_2');
     });
+
+    it('should extract Yahoo News from RSC fixture (multi-line + wrapper)', () => {
+      const fixture = yahooNewsRscFixture;
+
+      mockDoc.querySelector.mockReturnValue(null);
+      mockDoc.querySelectorAll.mockReturnValue([{ textContent: fixture.scriptContent }]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].type).toBe('paragraph');
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('This is paragraph 1.');
+      expect(result.blocks[1].type).toBe('image');
+      expect(result.blocks[1].image.external.url).toBe('https://example.com/test.jpg');
+    });
+
+    it('should ignore malformed RSC chunks but extract from valid ones in same script', () => {
+      const scriptWithMixed =
+        'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n2:{\\\"malformed\\\"\\n3:{\\\"someNoise\\\":true}\\n4:[\\\"$\\\", \\\"$L2a\\\", null, {\\\"storyAtoms\\\":[{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 1.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 2.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 3.</p>\\\",\\\"tagName\\\":\\\"p\\\"}]}]\\n"])';
+      mockDoc.querySelector.mockReturnValue(null);
+      mockDoc.querySelectorAll.mockReturnValue([{ textContent: scriptWithMixed }]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('Recovered paragraph 1.');
+    });
   });
 
   describe('extractAsync', () => {
@@ -527,37 +554,22 @@ describe('NextJsExtractor', () => {
       mockDoc.title = 'Router Article | HK01';
 
       // __NEXT_DATA__ 為首頁 (stale)
-      const staleJson = {
-        page: '/',
-        asPath: '/',
-        buildId: 'build123',
-        props: { initialProps: { pageProps: {} } },
-      };
+      const staleJson = buildStaleNextData();
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(staleJson) });
 
       // 模擬 window.next.router.components 含有最新文章數據
-      mockDoc.defaultView.next = {
-        router: {
-          components: {
-            '/article': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: {
-                      title: 'Router Article',
-                      blocks: [
-                        { blockType: 'paragraph', text: 'Para 1 from router' },
-                        { blockType: 'paragraph', text: 'Para 2 from router' },
-                        { blockType: 'paragraph', text: 'Para 3 from router' },
-                      ],
-                    },
-                  },
-                },
-              },
-            },
+      mockDoc.defaultView.next = buildRouterComponents({
+        '/article': buildRouterComponentValue({
+          article: {
+            title: 'Router Article',
+            blocks: [
+              { blockType: 'paragraph', text: 'Para 1 from router' },
+              { blockType: 'paragraph', text: 'Para 2 from router' },
+              { blockType: 'paragraph', text: 'Para 3 from router' },
+            ],
           },
-        },
-      };
+        }),
+      });
 
       globalThis.fetch = jest.fn(); // 不應被呼叫
 
@@ -585,28 +597,18 @@ describe('NextJsExtractor', () => {
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(staleJson) });
 
       // router 含有舊文章的數據（標題與 document.title 不符）
-      mockDoc.defaultView.next = {
-        router: {
-          components: {
-            '/article': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: {
-                      title: 'Old Stale Router Article',
-                      blocks: [
-                        { blockType: 'paragraph', text: 'Old 1' },
-                        { blockType: 'paragraph', text: 'Old 2' },
-                        { blockType: 'paragraph', text: 'Old 3' },
-                      ],
-                    },
-                  },
-                },
-              },
-            },
+      mockDoc.defaultView.next = buildRouterComponents({
+        '/article': buildRouterComponentValue({
+          article: {
+            title: 'Old Stale Router Article',
+            blocks: [
+              { blockType: 'paragraph', text: 'Old 1' },
+              { blockType: 'paragraph', text: 'Old 2' },
+              { blockType: 'paragraph', text: 'Old 3' },
+            ],
           },
-        },
-      };
+        }),
+      });
 
       // fetch 回傳正確的新文章數據
       globalThis.fetch = jest.fn().mockResolvedValue({
@@ -638,12 +640,7 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
 
-      const mockJson = {
-        page: '/',
-        asPath: '/',
-        buildId: 'build123',
-        props: { initialProps: { pageProps: {} } },
-      };
+      const mockJson = buildStaleNextData();
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
 
@@ -680,12 +677,7 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.href =
         'https://www.hk01.com/news/60330394/abc?token=attacker-controlled#section-1';
 
-      const mockJson = {
-        page: '/',
-        asPath: '/',
-        buildId: 'build123',
-        props: { initialProps: { pageProps: {} } },
-      };
+      const mockJson = buildStaleNextData();
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
 
@@ -721,12 +713,7 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/news/60330394/abc';
       mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
 
-      const mockJson = {
-        page: '/',
-        asPath: '/',
-        buildId: 'build123',
-        props: { initialProps: { pageProps: {} } },
-      };
+      const mockJson = buildStaleNextData();
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
 
@@ -755,24 +742,12 @@ describe('NextJsExtractor', () => {
           pathname: '/news/[slug]',
           asPath: '/news/current-article',
           components: {
-            '/': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: { title: 'Home Payload', blocks: [{ blockType: 'paragraph' }] },
-                  },
-                },
-              },
-            },
-            '/news/[slug]': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: { title: 'Current Article', blocks: [{ blockType: 'paragraph' }] },
-                  },
-                },
-              },
-            },
+            '/': buildRouterComponentValue({
+              article: { title: 'Home Payload', blocks: [{ blockType: 'paragraph' }] },
+            }),
+            '/news/[slug]': buildRouterComponentValue({
+              article: { title: 'Current Article', blocks: [{ blockType: 'paragraph' }] },
+            }),
           },
         },
       };
@@ -785,21 +760,11 @@ describe('NextJsExtractor', () => {
 
     it('找不到匹配 route key 時回退到第一個非空 component', () => {
       mockDoc.defaultView.location.pathname = '/unknown/path';
-      mockDoc.defaultView.next = {
-        router: {
-          components: {
-            '/article': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: { title: 'Fallback OK', blocks: [] },
-                  },
-                },
-              },
-            },
-          },
-        },
-      };
+      mockDoc.defaultView.next = buildRouterComponents({
+        '/article': buildRouterComponentValue({
+          article: { title: 'Fallback OK', blocks: [] },
+        }),
+      });
 
       const result = NextJsExtractor._getRouterComponentData(mockDoc);
 
@@ -813,24 +778,10 @@ describe('NextJsExtractor', () => {
         router: {
           route: '/news/[slug]',
           components: {
-            '/': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    home: true,
-                  },
-                },
-              },
-            },
-            '/news/[slug]': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: { title: 'Route Match', blocks: [] },
-                  },
-                },
-              },
-            },
+            '/': buildRouterComponentValue({ home: true }),
+            '/news/[slug]': buildRouterComponentValue({
+              article: { title: 'Route Match', blocks: [] },
+            }),
           },
         },
       };
@@ -843,21 +794,11 @@ describe('NextJsExtractor', () => {
 
     it('應從 router.components 成功提取 pageProps', () => {
       // 設定 doc.defaultView.next.router.components 含有正確 pageProps
-      mockDoc.defaultView.next = {
-        router: {
-          components: {
-            '/article': {
-              props: {
-                initialProps: {
-                  pageProps: {
-                    article: { title: 'Router Test', blocks: [] },
-                  },
-                },
-              },
-            },
-          },
-        },
-      };
+      mockDoc.defaultView.next = buildRouterComponents({
+        '/article': buildRouterComponentValue({
+          article: { title: 'Router Test', blocks: [] },
+        }),
+      });
 
       const result = NextJsExtractor._getRouterComponentData(mockDoc);
 
@@ -872,26 +813,16 @@ describe('NextJsExtractor', () => {
     });
 
     it('router.components 為空物件時應返回 null', () => {
-      mockDoc.defaultView.next = {
-        router: { components: {} },
-      };
+      mockDoc.defaultView.next = buildRouterComponents({});
 
       const result = NextJsExtractor._getRouterComponentData(mockDoc);
       expect(result).toBeNull();
     });
 
     it('pageProps 為空物件時應跳過並返回 null', () => {
-      mockDoc.defaultView.next = {
-        router: {
-          components: {
-            '/article': {
-              props: {
-                initialProps: { pageProps: {} }, // 空的 pageProps
-              },
-            },
-          },
-        },
-      };
+      mockDoc.defaultView.next = buildRouterComponents({
+        '/article': buildRouterComponentValue({}), // 空的 pageProps
+      });
 
       const result = NextJsExtractor._getRouterComponentData(mockDoc);
       expect(result).toBeNull();
@@ -1117,59 +1048,8 @@ describe('NextJsExtractor', () => {
     });
 
     it('應從 BBC 結構提取 heading + paragraph + image', () => {
-      const bbcBlocks = [
-        {
-          type: 'headline',
-          model: { blocks: [{ model: { text: '文章標題' } }] },
-        },
-        {
-          type: 'text',
-          model: {
-            blocks: [
-              {
-                type: 'paragraph',
-                model: {
-                  text: '第一段文字',
-                  blocks: [{ type: 'fragment', model: { text: '第一段文字', attributes: [] } }],
-                },
-              },
-            ],
-          },
-        },
-        {
-          type: 'text',
-          model: {
-            blocks: [
-              {
-                type: 'paragraph',
-                model: { text: '第二段文字', blocks: [{ model: { text: '第二段文字' } }] },
-              },
-            ],
-          },
-        },
-        {
-          type: 'image',
-          model: {
-            blocks: [
-              {
-                type: 'rawImage',
-                model: {
-                  locator: 'a985/live/test-image.jpg',
-                  originCode: 'cpsprodpb',
-                  width: 1024,
-                  height: 576,
-                },
-              },
-              {
-                type: 'caption',
-                model: { blocks: [{ model: { text: '圖片說明' } }] },
-              },
-            ],
-          },
-        },
-      ];
-
-      const mockJson = buildBbcNextData(bbcBlocks);
+      const fixture = bbcNewsBlocksFixture;
+      const mockJson = buildBbcNextData(fixture.blocks);
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       mockDoc.querySelectorAll.mockReturnValue([]);
 
@@ -1523,6 +1403,160 @@ describe('NextJsExtractor', () => {
     it('should remove script tags entirely', () => {
       const html = '<div>Content<script>console.log("bad")</script></div>';
       expect(NextJsExtractor._stripHtml(html)).toBe('Content');
+    });
+  });
+
+  describe('RSC payload parsing helpers', () => {
+    describe('_extractRscDataObject', () => {
+      it('should return null for non-array input', () => {
+        expect(NextJsExtractor._extractRscDataObject(null)).toBeNull();
+        expect(NextJsExtractor._extractRscDataObject({})).toBeNull();
+        expect(NextJsExtractor._extractRscDataObject('not an array')).toBeNull();
+      });
+
+      it('should fallback to search loop and find object when array length is less than 4', () => {
+        const input = [{ target: 'found' }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+      });
+
+      it('should return index 3 item when length >= 4 and index 3 is a plain object', () => {
+        const input = ['$', '$L2a', null, { pageData: { atoms: [] } }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ pageData: { atoms: [] } });
+      });
+
+      it('should fallback to search loop when index 3 is null', () => {
+        const input = ['$', '$L2a', null, null, { pageData: { atoms: [] } }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ pageData: { atoms: [] } });
+      });
+
+      it('should return the first non-null plain object found in the array', () => {
+        const input = [null, 'string', { target: 'found' }, null, { second: 'ignored' }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+      });
+
+      it('should return null if no plain object is found', () => {
+        const input = [null, 'string', 123, true];
+        expect(NextJsExtractor._extractRscDataObject(input)).toBeNull();
+      });
+
+      it('should skip nested arrays during fallback search', () => {
+        const input = [null, ['nested-array'], { target: 'found' }];
+        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+      });
+    });
+
+    describe('_tryParseRscLine', () => {
+      it('should return null when no colon is present', () => {
+        expect(NextJsExtractor._tryParseRscLine('no colon here')).toBeNull();
+      });
+
+      it('should return null when payload does not start with { or [', () => {
+        expect(NextJsExtractor._tryParseRscLine('1:invalid')).toBeNull();
+      });
+
+      it('should return inner object when payload is a valid RSC wrapper', () => {
+        const line = '4:["$", "$L2a", null, {"pageData": {"atoms": []}}]';
+        expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ pageData: { atoms: [] } });
+      });
+
+      it('should return the parsed object or array when it is not a classic RSC wrapper', () => {
+        const line = '4:[1, 2, 3]';
+        expect(NextJsExtractor._tryParseRscLine(line)).toEqual([1, 2, 3]);
+
+        const lineWithObj = '4:[1, 2, {"target":"found"}]';
+        expect(NextJsExtractor._tryParseRscLine(lineWithObj)).toEqual({ target: 'found' });
+      });
+
+      it('should return the parsed object when payload is a simple plain object JSON', () => {
+        const line = '3:{"someNoise": true}';
+        expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ someNoise: true });
+      });
+
+      it('should return null on malformed JSON instead of throwing error', () => {
+        const line = '3:{"malformed"';
+        expect(NextJsExtractor._tryParseRscLine(line)).toBeNull();
+      });
+    });
+
+    describe('_fallbackParseRsc', () => {
+      it('should return null when chunk has no colon', () => {
+        expect(NextJsExtractor._fallbackParseRsc('no colon')).toBeNull();
+      });
+
+      it('should return null on JSON parse failure', () => {
+        expect(NextJsExtractor._fallbackParseRsc('1:{"bad"')).toBeNull();
+      });
+
+      it('should return inner object of a single-line RSC wrapper', () => {
+        const chunk = '4:["$", "$L2a", null, {"key": "val"}]';
+        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ key: 'val' });
+      });
+
+      it('should return parsed object when chunk is plain object', () => {
+        const chunk = '3:{"key": "val"}';
+        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ key: 'val' });
+      });
+
+      it('should return parsed object if _extractRscDataObject returns null but parsed is an object', () => {
+        const chunk = '1:{"foo": "bar"}';
+        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ foo: 'bar' });
+      });
+    });
+
+    describe('_parseMultiLineRsc', () => {
+      it('should return empty array for empty string', () => {
+        expect(NextJsExtractor._parseMultiLineRsc('')).toEqual([]);
+      });
+
+      it('should parse single line rsc', () => {
+        const input = '3:{"someNoise":true}';
+        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([{ someNoise: true }]);
+      });
+
+      it('should filter out unparsable lines', () => {
+        const input = '3:{"someNoise":true}\n5:bad-line\n4:{"valid":true}';
+        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([
+          { someNoise: true },
+          { valid: true },
+        ]);
+      });
+
+      it('should return empty array when all lines are unparsable', () => {
+        const input = 'bad-line\nanother-bad';
+        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([]);
+      });
+    });
+
+    describe('_parseAppRouterScript', () => {
+      it('should return empty array for script content without push calls', () => {
+        expect(NextJsExtractor._parseAppRouterScript('')).toEqual([]);
+        expect(NextJsExtractor._parseAppRouterScript('console.log("hello")')).toEqual([]);
+      });
+
+      it('should parse script with single push call', () => {
+        const script = 'self.__next_f.push([1, "3:{\\\"someNoise\\\":true}\\n"])';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([{ someNoise: true }]);
+      });
+
+      it('should parse script with multiple push calls', () => {
+        const script =
+          'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n"])\nself.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([
+          '1:I["noise"]\n',
+          { valid: true },
+        ]);
+      });
+
+      it('should skip malformed JSON inside push calls', () => {
+        const script =
+          'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])\nself.__next_f.push(invalid_json_here)';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([{ valid: true }]);
+      });
+
+      it('should skip pushing when closing parenthesis is missing', () => {
+        const script = 'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"';
+        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([]);
+      });
     });
   });
 });
