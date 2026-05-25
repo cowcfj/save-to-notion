@@ -1,0 +1,17 @@
+{
+  "usage": "Persist this file inside your repository as .codescene/code-health-rules.json. Keep only the rules and thresholds you want to override. See docs/adr/0010-codescene-complex-conditional-weight.md for the rationale behind each entry.",
+  "rule_sets": [
+    {
+      "matching_content_path": "scripts/content/extractors/NextJsExtractor.js",
+      "matching_content_path_doc": "Specify a glob pattern relative to the repository root.",
+      "rules": [
+        {
+          "name": "Complex Conditional",
+          "weight": 0.5
+        }
+      ],
+      "thresholds": [],
+      "thresholds_doc": "The thresholds let you redefine the details of selected code health issues."
+    }
+  ]
+}
