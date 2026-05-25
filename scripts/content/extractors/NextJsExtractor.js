@@ -54,6 +54,8 @@ const pickFirstDefinedField = (sources, field, defaultValue) =>
   sources.map(source => source?.[field]).find(value => value !== undefined && value !== null) ??
   defaultValue;
 
+const isUsableBuildId = buildId => typeof buildId === 'string' && buildId.length > 0;
+
 const isSafeHttpOrigin = origin => {
   if (typeof origin !== 'string' || !origin) {
     return false;
@@ -562,7 +564,10 @@ export const NextJsExtractor = {
    * @returns {string|null}
    */
   _buildNextDataUrl(origin, pathname, buildId) {
-    if (!isSafeHttpOrigin(origin) || typeof buildId !== 'string' || !buildId) {
+    if (!isSafeHttpOrigin(origin)) {
+      return null;
+    }
+    if (!isUsableBuildId(buildId)) {
       return null;
     }
 
