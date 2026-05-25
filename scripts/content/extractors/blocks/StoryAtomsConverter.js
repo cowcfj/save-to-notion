@@ -5,6 +5,11 @@
 
 import Logger from '../../../utils/Logger.js';
 
+const STORY_ATOM_BUILDERS = {
+  text: (atom, deps) => createBlockFromTextAtom(atom, deps),
+  image: (atom, deps) => createBlockFromImageAtom(atom, deps),
+};
+
 /**
  * 轉換 Yahoo storyAtoms 為 Notion Blocks
  *
@@ -18,23 +23,15 @@ export function convertStoryAtoms(atoms, deps) {
   if (!Array.isArray(atoms)) {
     return [];
   }
+  return atoms.map(atom => buildStoryAtomBlock(atom, deps)).filter(Boolean);
+}
 
-  const blocks = [];
-
-  for (const atom of atoms) {
-    if (atom.type === 'text') {
-      const block = createBlockFromTextAtom(atom, deps);
-      if (block) {
-        blocks.push(block);
-      }
-    } else if (atom.type === 'image') {
-      const block = createBlockFromImageAtom(atom, deps);
-      if (block) {
-        blocks.push(block);
-      }
-    }
+function buildStoryAtomBlock(atom, deps) {
+  if (!atom || typeof atom !== 'object') {
+    return null;
   }
-  return blocks;
+  const builder = STORY_ATOM_BUILDERS[atom.type];
+  return builder ? builder(atom, deps) : null;
 }
 
 /**
@@ -93,17 +90,9 @@ export function createBlockFromTextAtom(atom, deps) {
  * @returns {object|null}
  */
 export function createBlockFromImageAtom(atom, deps) {
-  // Yahoo 格式: atom.size.resized.url 或 atom.size.original.url
-  // 通用格式: atom.url
-  const imageUrl =
-    atom.url || atom.size?.resized?.url || atom.size?.original?.url || atom.size?.lightbox?.url;
-
+  const imageUrl = extractImageAtomUrl(atom);
   if (!imageUrl) {
-    Logger.debug('StoryAtomsConverter.createBlockFromImageAtom: 無法找到圖片 URL', {
-      atomKeys: Object.keys(atom),
-      // eslint-disable-next-line unicorn/explicit-length-check
-      hasSize: Boolean(atom.size && Object.keys(atom.size).length > 0),
-    });
+    logMissingImageUrl(atom);
     return null;
   }
 
@@ -118,4 +107,34 @@ export function createBlockFromImageAtom(atom, deps) {
       caption: deps.richTextChunkBuilder(atom.caption),
     },
   };
+}
+
+const IMAGE_SIZE_KEYS = ['resized', 'original', 'lightbox'];
+
+function extractImageAtomUrl(atom) {
+  // 通用格式: atom.url
+  if (atom.url) {
+    return atom.url;
+  }
+  // Yahoo 格式: atom.size.<resized|original|lightbox>.url
+  // atom.size 是物件而非 length-like 數值；停用 unicorn/explicit-length-check 的誤判
+  // eslint-disable-next-line unicorn/explicit-length-check
+  if (!atom.size || typeof atom.size !== 'object') {
+    return null;
+  }
+  for (const key of IMAGE_SIZE_KEYS) {
+    const url = atom.size[key]?.url;
+    if (url) {
+      return url;
+    }
+  }
+  return null;
+}
+
+function logMissingImageUrl(atom) {
+  Logger.debug('StoryAtomsConverter.createBlockFromImageAtom: 無法找到圖片 URL', {
+    atomKeys: Object.keys(atom),
+    // eslint-disable-next-line unicorn/explicit-length-check
+    hasSize: Boolean(atom.size && Object.keys(atom.size).length > 0),
+  });
 }
