@@ -991,17 +991,22 @@ export const NextJsExtractor = {
       return parsed[3];
     }
     // 有時數據在其他索引位置，搜索第一個有意義的對象
-    for (const item of parsed) {
-      if (
-        typeof item === 'object' &&
-        item !== null &&
-        !Array.isArray(item) && // 確保這是一個有內容的對象，不只是空對象
-        Object.keys(item).length > 0
-      ) {
-        return item;
-      }
-    }
-    return null;
+    return parsed.find(item => this._isMeaningfulObject(item)) ?? null;
+  },
+
+  /**
+   * 判定是否為有意義的非空、非 array 物件（RSC payload 候選）
+   *
+   * @param {any} value
+   * @returns {boolean}
+   */
+  _isMeaningfulObject(value) {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      Object.keys(value).length > 0
+    );
   },
 
   /**
