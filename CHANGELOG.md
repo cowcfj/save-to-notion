@@ -1,5 +1,21 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.75.1](https://github.com/cowcfj/save-to-notion/compare/v2.75.0...v2.75.1) (2026-05-26)
+
+
+### ♻️ 代碼重構
+
+* abstract BBC and StoryAtoms conversion logic into modules ([#590](https://github.com/cowcfj/save-to-notion/issues/590)) ([6c915f4](https://github.com/cowcfj/save-to-notion/commit/6c915f40f61ad674139965d71177ad0db690da46))
+* Improve readability and maintainability of NextJsExtractor ([#587](https://github.com/cowcfj/save-to-notion/issues/587)) ([3c49bc8](https://github.com/cowcfj/save-to-notion/commit/3c49bc84863b8335ac60bd4d031e53573e424aca))
+* reduce complexity in FloatingRail._handleSaveSync ([#581](https://github.com/cowcfj/save-to-notion/issues/581)) ([193e99c](https://github.com/cowcfj/save-to-notion/commit/193e99c6675517280a85a5daa48a42765c1cc011))
+* Simplify NextJsExtractor logic and improve maintainability ([#592](https://github.com/cowcfj/save-to-notion/issues/592)) ([80a87f4](https://github.com/cowcfj/save-to-notion/commit/80a87f42068caa52741140fa3eb6f09a66b74852))
+
+
+### 🧹 其他變更
+
+* reduce Complex Conditional weight for NextJsExtractor.js ([#589](https://github.com/cowcfj/save-to-notion/issues/589)) ([df95ea9](https://github.com/cowcfj/save-to-notion/commit/df95ea92eeb973052c5f1f413751804dd48052f8))
+* 更新代碼健康規則以包含整體代碼複雜度權重 ([b24f392](https://github.com/cowcfj/save-to-notion/commit/b24f39279a9627dd7e65a65193299416645cb101))
+
 ## [2.75.0](https://github.com/cowcfj/save-to-notion/compare/v2.74.0...v2.75.0) (2026-05-23)
 
 
