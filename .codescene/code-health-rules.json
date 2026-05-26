@@ -12,6 +12,10 @@
         {
           "name": "Overall Code Complexity",
           "weight": 0.5
+        },
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 0.5
         }
       ],
       "thresholds": [],

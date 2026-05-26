@@ -18,8 +18,36 @@ import * as StoryAtomsConverter from './blocks/StoryAtomsConverter.js';
 const PAGES_ROUTER = 'pages-router';
 const APP_ROUTER = 'app-router';
 
+const PAYLOAD_PAGEPROPS_PATHS = [
+  'pageProps',
+  'props.pageProps',
+  'props.initialProps.pageProps',
+  'initialProps.pageProps',
+  'props',
+];
+
+const ARTICLE_METADATA_PATHS = {
+  title: ['title', 'promo.headlines.seoHeadline'],
+  excerpt: ['excerpt', 'description', 'summary'],
+  byline: ['byline', 'author.name', 'author'],
+};
+
+const CONVERT_BLOCK_DISPATCH = {
+  image: (self, block) => self._convertImageBlock(block),
+  heading_1: (self, block, type) => self._convertHeadingBlock(block, type),
+  heading_2: (self, block, type) => self._convertHeadingBlock(block, type),
+  heading_3: (self, block, type) => self._convertHeadingBlock(block, type),
+  quote: (self, block) => self._convertQuoteBlock(block),
+};
+
 const getComponentPageProps = comp =>
   comp?.props?.initialProps?.pageProps || comp?.props?.pageProps || null;
+
+const pickFirstDefinedField = (sources, field, defaultValue) =>
+  sources.map(source => source?.[field]).find(value => value !== undefined && value !== null) ??
+  defaultValue;
+
+const isUsableBuildId = buildId => typeof buildId === 'string' && buildId.length > 0;
 
 const isSafeHttpOrigin = origin => {
   if (typeof origin !== 'string' || !origin) {
@@ -290,7 +318,7 @@ export const NextJsExtractor = {
         return null;
       }
 
-      const currentPath = doc.defaultView?.location?.pathname || win?.location?.pathname;
+      const currentPath = this._resolveCurrentPathname(doc);
       const preferredKeys = buildRouterComponentKeys(router, currentPath);
 
       return this._findFirstComponentWithProps(router.components, preferredKeys);
@@ -301,6 +329,16 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  /**
+   * 取得當前頁面 pathname，doc.defaultView 優先，fallback 至 globalThis
+   *
+   * @param {Document} doc
+   * @returns {string|undefined}
+   */
+  _resolveCurrentPathname(doc) {
+    return doc.defaultView?.location?.pathname || globalThis.location?.pathname;
   },
 
   /**
@@ -350,29 +388,64 @@ export const NextJsExtractor = {
    * @returns {{ isValid: boolean, reason: 'valid' | 'stale' | 'unknown' }}
    */
   _validatePagesRouterDataDetailed(rawData, doc) {
-    const currentPath = doc.defaultView?.location?.pathname;
-    const currentOrigin = doc.defaultView?.location?.origin;
-    const logContext = {
-      action: '_validatePagesRouterData',
-      page: sanitizeUrlForLogging(rawData?.page, currentOrigin),
-      asPath: sanitizeUrlForLogging(rawData?.asPath, currentOrigin),
-      currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
-    };
+    const { currentPath, logContext } = this._buildValidationLogContext(rawData, doc);
 
-    // [診斷] 當 __NEXT_DATA__.page 為首頁 "/" 但當前路徑是文章頁時，
-    // 代表使用者是從首頁透過 SPA 導航進入的，__NEXT_DATA__ 僅含首頁資料。
-    // 這不是錯誤，只需記錄日誌讓回退機制接手即可。
-    if (rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/') {
+    if (this._isSpaNavigationFromHome(rawData, currentPath)) {
       Logger.info('SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取', logContext);
       return { isValid: false, reason: 'stale' };
     }
 
-    // 1. asPath 檢查 (如果有的話)
-    if (rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
+    if (this._isAsPathStale(rawData, currentPath)) {
       Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', logContext);
       return { isValid: false, reason: 'stale' };
     }
+
     return { isValid: true, reason: 'valid' };
+  },
+
+  /**
+   * 建構 Pages Router 驗證所需的 log context
+   *
+   * @param {object} rawData - __NEXT_DATA__ 原始數據
+   * @param {Document} doc - 當前文檔對象
+   * @returns {{ currentPath: string | undefined, logContext: object }}
+   */
+  _buildValidationLogContext(rawData, doc) {
+    const currentPath = doc.defaultView?.location?.pathname;
+    const currentOrigin = doc.defaultView?.location?.origin;
+    return {
+      currentPath,
+      logContext: {
+        action: '_validatePagesRouterData',
+        page: sanitizeUrlForLogging(rawData?.page, currentOrigin),
+        asPath: sanitizeUrlForLogging(rawData?.asPath, currentOrigin),
+        currentPath: sanitizeUrlForLogging(currentPath, currentOrigin),
+      },
+    };
+  },
+
+  /**
+   * SPA stale 偵測：__NEXT_DATA__ 為首頁但當前路徑是其他頁
+   *
+   * @param {object} rawData
+   * @param {string} currentPath
+   * @returns {boolean}
+   */
+  _isSpaNavigationFromHome(rawData, currentPath) {
+    return Boolean(rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/');
+  },
+
+  /**
+   * SPA stale 偵測：__NEXT_DATA__.asPath 與當前路徑不匹配
+   *
+   * @param {object} rawData
+   * @param {string} currentPath
+   * @returns {boolean}
+   */
+  _isAsPathStale(rawData, currentPath) {
+    return Boolean(
+      rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)
+    );
   },
 
   /**
@@ -395,22 +468,18 @@ export const NextJsExtractor = {
       return null;
     }
 
-    // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
-    // 適用於 pages-router、next-data 及 router-component 來源，僅排除 App Router
-    if (extractionSource !== APP_ROUTER && articleData?.title) {
-      const docTitle = doc.title;
-      if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
-        Logger.warn('SPA 導航偵測：結構化數據標題與 document.title 不符，放棄結構化提取', {
-          action,
-          source: extractionSource,
-          reason: 'title_mismatch',
-          result: 'skip_structured',
-          hasTitle: Boolean(articleData?.title),
-          hasDocTitle: Boolean(docTitle),
-          isTitleConsistent: false,
-        });
-        return null;
-      }
+    const docTitle = doc.title;
+    if (this._isStructuredTitleStale(articleData, docTitle, extractionSource)) {
+      Logger.warn('SPA 導航偵測：結構化數據標題與 document.title 不符，放棄結構化提取', {
+        action,
+        source: extractionSource,
+        reason: 'title_mismatch',
+        result: 'skip_structured',
+        hasTitle: Boolean(articleData?.title),
+        hasDocTitle: Boolean(docTitle),
+        isTitleConsistent: false,
+      });
+      return null;
     }
 
     Logger.log('成功提取 Next.js 文章數據', {
@@ -431,13 +500,12 @@ export const NextJsExtractor = {
       return null;
     }
 
-    // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
-    // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
-    const metadata = {
-      title: articleData.title || articleData.promo?.headlines?.seoHeadline,
-      excerpt: articleData.excerpt || articleData.description || articleData.summary,
-      byline: articleData.byline || articleData.author?.name || articleData.author,
-    };
+    const metadata = Object.fromEntries(
+      Object.entries(ARTICLE_METADATA_PATHS).map(([field, paths]) => [
+        field,
+        paths.map(path => this._getValueByPath(articleData, path)).find(Boolean),
+      ])
+    );
 
     return {
       content: '', // Next.js 提取器不生成 HTML content
@@ -449,6 +517,38 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 判定結構化提取是否應因 SPA 導航標題不一致而放棄
+   *
+   * App Router 不適用（其數據總對應當前 URL）；
+   * Pages Router / next-data / router-component 在 SPA 導航後可能殘留舊頁 title。
+   *
+   * @param {object} articleData
+   * @param {string} docTitle
+   * @param {string} extractionSource
+   * @returns {boolean}
+   */
+  _isStructuredTitleStale(articleData, docTitle, extractionSource) {
+    if (extractionSource === APP_ROUTER) {
+      return false;
+    }
+    if (!this._hasTitleMaterialToCompare(articleData, docTitle)) {
+      return false;
+    }
+    return !isTitleConsistent(articleData.title, docTitle);
+  },
+
+  /**
+   * 判斷是否有足夠的 title 資訊可進行 stale 比對
+   *
+   * @param {object} articleData
+   * @param {string} docTitle
+   * @returns {boolean}
+   */
+  _hasTitleMaterialToCompare(articleData, docTitle) {
+    return Boolean(articleData?.title) && Boolean(docTitle);
+  },
+
+  /**
    * 建立 Next.js _next/data URL
    *
    * @param {string} origin
@@ -457,7 +557,10 @@ export const NextJsExtractor = {
    * @returns {string|null}
    */
   _buildNextDataUrl(origin, pathname, buildId) {
-    if (!isSafeHttpOrigin(origin) || typeof buildId !== 'string' || !buildId) {
+    if (!isSafeHttpOrigin(origin)) {
+      return null;
+    }
+    if (!isUsableBuildId(buildId)) {
       return null;
     }
 
@@ -476,17 +579,12 @@ export const NextJsExtractor = {
    * @returns {{ origin: string, pathname: string }}
    */
   _resolvePageOriginAndPath(doc) {
-    const origin =
-      doc?.defaultView?.location?.origin ||
-      doc?.location?.origin ||
-      globalThis.location?.origin ||
-      '';
-    const pathname =
-      doc?.defaultView?.location?.pathname ||
-      doc?.location?.pathname ||
-      globalThis.location?.pathname ||
-      '';
-    return { origin, pathname };
+    const locations = [doc?.defaultView?.location, doc?.location, globalThis.location];
+    const pickField = field => locations.map(loc => loc?.[field]).find(Boolean) ?? '';
+    return {
+      origin: pickField('origin'),
+      pathname: pickField('pathname'),
+    };
   },
 
   /**
@@ -542,22 +640,30 @@ export const NextJsExtractor = {
       return null;
     }
 
+    const sources = [fallbackRawData, payload];
+    return {
+      page: pickFirstDefinedField(sources, 'page', ''),
+      query: pickFirstDefinedField(sources, 'query', {}),
+      buildId: pickFirstDefinedField(sources, 'buildId', undefined),
+      props: this._buildNormalizedProps(payload),
+    };
+  },
+
+  /**
+   * 從 payload 多條候選 path 解析 pageProps，並包成 __NEXT_DATA__ 形狀的 props 物件
+   *
+   * @param {object} payload
+   * @returns {{ pageProps: object, initialProps: { pageProps: object } }}
+   */
+  _buildNormalizedProps(payload) {
     const pageProps =
-      payload?.pageProps ||
-      payload?.props?.pageProps ||
-      payload?.props?.initialProps?.pageProps ||
-      payload?.initialProps?.pageProps ||
-      payload?.props ||
-      payload;
+      PAYLOAD_PAGEPROPS_PATHS.map(path => this._getValueByPath(payload, path)).find(
+        value => value !== undefined && value !== null
+      ) ?? payload;
 
     return {
-      page: fallbackRawData?.page || payload?.page || '',
-      query: fallbackRawData?.query || payload?.query || {},
-      buildId: fallbackRawData?.buildId || payload?.buildId,
-      props: {
-        pageProps,
-        initialProps: { pageProps },
-      },
+      pageProps,
+      initialProps: { pageProps },
     };
   },
 
@@ -574,33 +680,42 @@ export const NextJsExtractor = {
     if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
       return this._convertBbcBlocks(rawBlocks);
     }
-    let blocks = [];
 
-    // [NEW] 優先處理 Yahoo storyAtoms (直接轉換為 Notion Blocks)
-    if (
-      rawBlocks.length === 0 &&
-      Array.isArray(articleData.storyAtoms) &&
-      articleData.storyAtoms.length > 0
-    ) {
-      blocks = this._convertStoryAtoms(articleData.storyAtoms);
-    } else if (rawBlocks.length === 0) {
+    if (rawBlocks.length === 0) {
+      if (this._hasStoryAtoms(articleData)) {
+        return this._convertStoryAtoms(articleData.storyAtoms);
+      }
       this._appendYahooBodyOrMarkupBlock(articleData, rawBlocks);
     }
 
-    // 如果 blocks 尚未生成（即不是 storyAtoms），則處理 rawBlocks
-    if (blocks.length === 0) {
-      // Generic teaser handling
-      if (Array.isArray(articleData.teaser) && articleData.teaser.length > 0) {
-        rawBlocks.unshift({
-          blockType: 'summary',
-          summary: articleData.teaser,
-        });
-      }
-
-      blocks = this.convertBlocks(rawBlocks);
+    if (this._hasTeaser(articleData)) {
+      rawBlocks.unshift({
+        blockType: 'summary',
+        summary: articleData.teaser,
+      });
     }
 
-    return blocks;
+    return this.convertBlocks(rawBlocks);
+  },
+
+  /**
+   * 檢查 articleData 是否含有 Yahoo storyAtoms 結構化內容
+   *
+   * @param {object} articleData
+   * @returns {boolean}
+   */
+  _hasStoryAtoms(articleData) {
+    return Array.isArray(articleData.storyAtoms) && articleData.storyAtoms.length > 0;
+  },
+
+  /**
+   * 檢查 articleData 是否含有可作 summary 的 teaser 內容
+   *
+   * @param {object} articleData
+   * @returns {boolean}
+   */
+  _hasTeaser(articleData) {
+    return Array.isArray(articleData.teaser) && articleData.teaser.length > 0;
   },
 
   /**
@@ -681,13 +796,17 @@ export const NextJsExtractor = {
     if (!result) {
       return false;
     }
-    const hasBlocks = Array.isArray(result.blocks) || Array.isArray(result.content?.model?.blocks);
-    const hasContent = typeof result.content === 'string';
-    const hasBody = typeof result.body === 'string';
-    const hasMarkup = typeof result.markup === 'string';
-    const hasStoryAtoms = Array.isArray(result.storyAtoms);
 
-    return hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms;
+    const detectors = [
+      () => Array.isArray(result.blocks),
+      () => Array.isArray(result.content?.model?.blocks),
+      () => typeof result.content === 'string',
+      () => typeof result.body === 'string',
+      () => typeof result.markup === 'string',
+      () => Array.isArray(result.storyAtoms),
+    ];
+
+    return detectors.some(detect => detect());
   },
 
   /**
@@ -913,17 +1032,22 @@ export const NextJsExtractor = {
       return parsed[3];
     }
     // 有時數據在其他索引位置，搜索第一個有意義的對象
-    for (const item of parsed) {
-      if (
-        typeof item === 'object' &&
-        item !== null &&
-        !Array.isArray(item) && // 確保這是一個有內容的對象，不只是空對象
-        Object.keys(item).length > 0
-      ) {
-        return item;
-      }
-    }
-    return null;
+    return parsed.find(item => this._isMeaningfulObject(item)) ?? null;
+  },
+
+  /**
+   * 判定是否為有意義的非空、非 array 物件（RSC payload 候選）
+   *
+   * @param {any} value
+   * @returns {boolean}
+   */
+  _isMeaningfulObject(value) {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      Object.keys(value).length > 0
+    );
   },
 
   /**
@@ -1236,50 +1360,39 @@ export const NextJsExtractor = {
     }
 
     return jsonBlocks
-      .flatMap(block => {
-        // 1. 處理 HK01 'summary' 區塊
-        const summaryBlock = this._convertSummaryBlock(block);
-        if (summaryBlock) {
-          return summaryBlock;
-        }
-
-        // 2. 處理 HK01 'text' 區塊 (htmlTokens)
-        const htmlTokensBlock = this._convertHtmlTokensBlock(block);
-        if (htmlTokensBlock) {
-          return htmlTokensBlock;
-        }
-
-        // 3. 處理 'list' 區塊
-        const listBlock = this._convertListBlock(block);
-        if (listBlock) {
-          return listBlock;
-        }
-
-        const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
-
-        switch (type) {
-          case 'image': {
-            return this._convertImageBlock(block);
-          }
-          case 'heading_1':
-          case 'heading_2':
-          case 'heading_3': {
-            return this._convertHeadingBlock(block, type);
-          }
-          case 'quote': {
-            return this._convertQuoteBlock(block);
-          }
-          default: {
-            return this._convertParagraphBlock(block);
-          }
-        }
-      })
+      .flatMap(block => this._convertSingleBlock(block))
       .filter(block => {
         if (block.type === 'image') {
           return Boolean(block.image.external.url);
         }
         return true;
       });
+  },
+
+  /**
+   * 將單一 JSON block 轉換為 Notion block(s)
+   *
+   * 先按順序試 summary / htmlTokens / list 三個 pre-handler，
+   * 任一返回非 null 即用其結果；否則依 BLOCK_TYPE_MAP 查表 dispatch。
+   *
+   * @param {object} block
+   * @returns {Array<object>|object}
+   */
+  _convertSingleBlock(block) {
+    const preConverted =
+      this._convertSummaryBlock(block) ||
+      this._convertHtmlTokensBlock(block) ||
+      this._convertListBlock(block);
+    if (preConverted) {
+      return preConverted;
+    }
+
+    const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
+    const dispatch = CONVERT_BLOCK_DISPATCH[type];
+    if (dispatch) {
+      return dispatch(this, block, type);
+    }
+    return this._convertParagraphBlock(block);
   },
 
   _stripHtml(html) {
