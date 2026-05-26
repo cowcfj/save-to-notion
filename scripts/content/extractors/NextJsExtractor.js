@@ -32,13 +32,6 @@ const ARTICLE_METADATA_PATHS = {
   byline: ['byline', 'author.name', 'author'],
 };
 
-// 預先處理 handlers，按順序試，第一個非 null 即返回
-const PRE_CONVERT_BLOCK_HANDLERS = [
-  '_convertSummaryBlock',
-  '_convertHtmlTokensBlock',
-  '_convertListBlock',
-];
-
 const CONVERT_BLOCK_DISPATCH = {
   image: (self, block) => self._convertImageBlock(block),
   heading_1: (self, block, type) => self._convertHeadingBlock(block, type),
@@ -1379,18 +1372,19 @@ export const NextJsExtractor = {
   /**
    * 將單一 JSON block 轉換為 Notion block(s)
    *
-   * 先按順序試 PRE_CONVERT_BLOCK_HANDLERS（HK01summary / htmlTokens / list），
+   * 先按順序試 summary / htmlTokens / list 三個 pre-handler，
    * 任一返回非 null 即用其結果；否則依 BLOCK_TYPE_MAP 查表 dispatch。
    *
    * @param {object} block
    * @returns {Array<object>|object}
    */
   _convertSingleBlock(block) {
-    for (const handlerName of PRE_CONVERT_BLOCK_HANDLERS) {
-      const result = this[handlerName](block);
-      if (result) {
-        return result;
-      }
+    const preConverted =
+      this._convertSummaryBlock(block) ||
+      this._convertHtmlTokensBlock(block) ||
+      this._convertListBlock(block);
+    if (preConverted) {
+      return preConverted;
     }
 
     const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
