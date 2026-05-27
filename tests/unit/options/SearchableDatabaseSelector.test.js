@@ -525,11 +525,17 @@ describe('SearchableDatabaseSelector', () => {
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
     });
 
-    it('_runServerSearchPipeline: 主函式 finally 應在 stale check 通過時清 isSearching (regression: C10 lifecycle separation)', async () => {
+    it('performServerSearch: 主函式 finally 應在 stale check 通過時清 isSearching 並還原列表 (regression: C10 lifecycle separation)', async () => {
       mockGetApiKey.mockResolvedValue('k');
       selector.searchInput.value = 'fresh';
-      // 直接呼叫 pipeline 確認執行成功不丟錯（lifecycle 由主函式管理）
-      await expect(selector._runServerSearchPipeline(1, 'fresh')).resolves.toBeUndefined();
+
+      const restoreSpy = jest.spyOn(selector, 'restoreListAfterLoading');
+      await selector.performServerSearch('fresh');
+
+      expect(selector.isSearching).toBe(false);
+      expect(restoreSpy).toHaveBeenCalledTimes(1);
+
+      restoreSpy.mockRestore();
     });
   });
 
@@ -696,7 +702,14 @@ describe('SearchableDatabaseSelector', () => {
       mockGetApiKey.mockResolvedValue(null);
       selector.searchInput.value = 'query';
       await selector.performServerSearch('query');
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 API Key'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('缺少 API Key'),
+        expect.objectContaining({
+          action: 'server_search',
+          result: 'aborted',
+          reason: 'missing_api_key',
+        })
+      );
     });
 
     it('_createHighlightedText 應該處理 regex 拋出的錯誤 (Line 410)', () => {

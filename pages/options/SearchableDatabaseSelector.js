@@ -320,7 +320,11 @@ export class SearchableDatabaseSelector {
     }
 
     if (!apiKey) {
-      Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
+      Logger.warn('無法執行伺服器端搜尋：缺少 API Key', {
+        action: 'server_search',
+        result: 'aborted',
+        reason: 'missing_api_key',
+      });
       return;
     }
 
@@ -335,16 +339,20 @@ export class SearchableDatabaseSelector {
       return;
     }
 
-    Logger.info('伺服器端搜尋完成', { queryLength: query.length });
+    Logger.info('伺服器端搜尋完成', {
+      action: 'server_search',
+      result: 'completed',
+      queryLength: query.length,
+    });
   }
 
   _reportServerSearchError(error) {
-    // 安全地處理錯誤訊息
     const safeError = sanitizeApiError(error, 'server_search');
-    Logger.error(
-      '❌ [錯誤] 伺服器端搜尋失敗',
-      SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
-    );
+    Logger.error('伺服器端搜尋失敗', {
+      action: 'server_search',
+      result: 'failed',
+      ...SearchableDatabaseSelector.createSafeErrorLogContext(safeError),
+    });
     const errorMsg = ErrorHandler.formatUserMessage(safeError);
     this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
   }
@@ -701,7 +709,11 @@ export class SearchableDatabaseSelector {
     try {
       const apiKey = await this.getApiKey();
       if (!apiKey) {
-        Logger.warn('無法重新載入資料來源：缺少 API Key');
+        Logger.warn('無法重新載入資料來源：缺少 API Key', {
+          action: 'refresh_data_sources',
+          result: 'aborted',
+          reason: 'missing_api_key',
+        });
         return;
       }
 
@@ -709,10 +721,11 @@ export class SearchableDatabaseSelector {
       await this.loadDataSources(apiKey);
     } catch (error) {
       const safeError = sanitizeApiError(error, 'refresh_data_sources');
-      Logger.error(
-        '❌ [錯誤] 重新載入資料來源失敗',
-        SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
-      );
+      Logger.error('重新載入資料來源失敗', {
+        action: 'refresh_data_sources',
+        result: 'failed',
+        ...SearchableDatabaseSelector.createSafeErrorLogContext(safeError),
+      });
       const errorMsg = ErrorHandler.formatUserMessage(safeError);
       this.showStatus(`重新載入失敗: ${errorMsg}`, 'error');
     } finally {
