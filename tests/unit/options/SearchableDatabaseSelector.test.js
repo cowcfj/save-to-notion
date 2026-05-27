@@ -25,12 +25,15 @@ describe('SearchableDatabaseSelector', () => {
     // Mock scrollIntoView (jsdom 不支援此方法)
     Element.prototype.scrollIntoView = jest.fn();
 
-    // DOM Setup
+    // DOM Setup — 對齊 production HTML：用 .hidden class 而非 inline display
+    // .hidden 在 options.css 裡是 `display: none !important`，
+    // 任何 inline style.display 都會被 !important 壓掉，
+    // 因此 fixture 必須與 production 一致才能擋住 hidden-class regression。
     document.body.innerHTML = `
-      <div id="database-selector-container" style="display: none;">
+      <div id="database-selector-container" class="hidden">
         <input type="text" id="database-search" />
         <button id="selector-toggle"></button>
-        <div id="database-dropdown" style="display: none;"></div>
+        <div id="database-dropdown" class="hidden"></div>
         <div id="data-source-list"></div>
         <div id="data-source-count"></div>
         <button id="refresh-databases"></button>
@@ -84,7 +87,7 @@ describe('SearchableDatabaseSelector', () => {
 
       expect(selector.dataSources).toHaveLength(2);
       expect(selector.dataSourceList.children).toHaveLength(2);
-      expect(selector.container.style.display).toBe('block');
+      expect(selector.container.classList.contains('hidden')).toBe(false);
 
       // Check formatting of items
       const firstItem = selector.dataSourceList.children[0];
@@ -207,12 +210,12 @@ describe('SearchableDatabaseSelector', () => {
       selector.populateDataSources([{ id: '1', object: 'database', title: [] }]);
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(true);
-      expect(selector.dropdown.style.display).toBe('block');
+      expect(selector.dropdown.classList.contains('hidden')).toBe(false);
       expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('true');
 
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false);
-      expect(selector.dropdown.style.display).toBe('none');
+      expect(selector.dropdown.classList.contains('hidden')).toBe(true);
       expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
     });
 
@@ -235,6 +238,39 @@ describe('SearchableDatabaseSelector', () => {
 
       expect(selector.dataSourceList.querySelector('.loading-state')).toBeNull();
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('重新載入失敗'), 'error');
+    });
+  });
+
+  // Regression: production HTML 預設 #database-selector-container 與
+  // #database-dropdown 帶 `class="hidden"`（CSS：display: none !important），
+  // 早期實作用 inline style.display 試圖顯示，被 !important 壓住，
+  // 60 個項目 render 進 DOM 卻永不可見。本區塊鎖住 .hidden class 的整段 lifecycle。
+  describe('hidden class lifecycle (regression)', () => {
+    it('should remove .hidden from container on populate', () => {
+      expect(selector.container.classList.contains('hidden')).toBe(true);
+
+      selector.populateDataSources([
+        { id: 'db1', object: 'database', title: [{ plain_text: 'DB One' }] },
+      ]);
+
+      expect(selector.container.classList.contains('hidden')).toBe(false);
+    });
+
+    it('should remove .hidden from dropdown on showDropdown', () => {
+      expect(selector.dropdown.classList.contains('hidden')).toBe(true);
+
+      selector.showDropdown();
+
+      expect(selector.dropdown.classList.contains('hidden')).toBe(false);
+    });
+
+    it('should add .hidden back to dropdown on hideDropdown', () => {
+      selector.showDropdown();
+      expect(selector.dropdown.classList.contains('hidden')).toBe(false);
+
+      selector.hideDropdown();
+
+      expect(selector.dropdown.classList.contains('hidden')).toBe(true);
     });
   });
 

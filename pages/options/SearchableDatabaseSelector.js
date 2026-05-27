@@ -162,7 +162,7 @@ export class SearchableDatabaseSelector {
     this.renderDataSourceList();
 
     if (this.container) {
-      this.container.style.display = 'block';
+      this.container.classList.remove('hidden');
     }
 
     if (this.searchInput) {
@@ -484,7 +484,7 @@ export class SearchableDatabaseSelector {
 
   showDropdown() {
     if (this.dropdown) {
-      this.dropdown.style.display = 'block';
+      this.dropdown.classList.remove('hidden');
     }
     this.isOpen = true;
     this.toggleButton?.classList.add('open');
@@ -493,7 +493,7 @@ export class SearchableDatabaseSelector {
 
   hideDropdown() {
     if (this.dropdown) {
-      this.dropdown.style.display = 'none';
+      this.dropdown.classList.add('hidden');
     }
     this.isOpen = false;
     this.focusedIndex = -1;
