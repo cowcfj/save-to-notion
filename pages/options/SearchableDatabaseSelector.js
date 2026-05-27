@@ -641,22 +641,22 @@ export class SearchableDatabaseSelector {
     if (!this.dataSourceList) {
       return;
     }
+    this._clearFocusFrom(prevIndex);
+    this._applyFocusTo(this.focusedIndex);
+  }
 
-    // 移除之前的焦點
-    if (prevIndex >= 0) {
-      const prevItem = this.dataSourceList.children[prevIndex];
-      if (prevItem) {
-        prevItem.classList.remove(KEYBOARD_FOCUS_CLASS);
-      }
+  _clearFocusFrom(index) {
+    if (index < 0) {
+      return;
     }
+    this.dataSourceList.children[index]?.classList.remove(KEYBOARD_FOCUS_CLASS);
+  }
 
-    // 設置新的焦點
-    if (this.focusedIndex >= 0) {
-      const currentItem = this.dataSourceList.children[this.focusedIndex];
-      if (currentItem) {
-        currentItem.classList.add(KEYBOARD_FOCUS_CLASS);
-      }
+  _applyFocusTo(index) {
+    if (index < 0) {
+      return;
     }
+    this.dataSourceList.children[index]?.classList.add(KEYBOARD_FOCUS_CLASS);
   }
 
   scrollToFocused() {

@@ -702,4 +702,45 @@ describe('SearchableDatabaseSelector', () => {
       expect(localSelector._boundEventBindings).toBeNull();
     });
   });
+
+  describe('updateFocusedItem (C8 helper extraction regression)', () => {
+    beforeEach(() => {
+      // 建立 3 個假 list item 以便測試 focus class 操作
+      selector.dataSourceList.replaceChildren();
+      for (let i = 0; i < 3; i++) {
+        const div = document.createElement('div');
+        div.className = 'database-item';
+        selector.dataSourceList.append(div);
+      }
+    });
+
+    it('updateFocusedItem 應在指定 index 上套用 keyboard-focus，並清掉前一個 index 的 focus', () => {
+      selector.focusedIndex = 1;
+      selector.updateFocusedItem(-1);
+      expect(selector.dataSourceList.children[1].classList.contains('keyboard-focus')).toBe(true);
+
+      selector.focusedIndex = 2;
+      selector.updateFocusedItem(1);
+      expect(selector.dataSourceList.children[1].classList.contains('keyboard-focus')).toBe(false);
+      expect(selector.dataSourceList.children[2].classList.contains('keyboard-focus')).toBe(true);
+    });
+
+    it('當 prevIndex < 0 時 _clearFocusFrom 應為 no-op，不應丟錯', () => {
+      selector.focusedIndex = 0;
+      expect(() => selector.updateFocusedItem(-1)).not.toThrow();
+      expect(selector.dataSourceList.children[0].classList.contains('keyboard-focus')).toBe(true);
+    });
+
+    it('當 focusedIndex < 0 時 _applyFocusTo 應為 no-op，僅執行 clear', () => {
+      selector.dataSourceList.children[1].classList.add('keyboard-focus');
+      selector.focusedIndex = -1;
+      selector.updateFocusedItem(1);
+      expect(selector.dataSourceList.children[1].classList.contains('keyboard-focus')).toBe(false);
+    });
+
+    it('當 dataSourceList 不存在時 updateFocusedItem 應為 no-op', () => {
+      selector.dataSourceList = null;
+      expect(() => selector.updateFocusedItem(0)).not.toThrow();
+    });
+  });
 });
