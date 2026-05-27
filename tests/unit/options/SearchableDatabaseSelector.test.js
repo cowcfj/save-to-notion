@@ -204,6 +204,44 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
+  describe('createSafeErrorLogContext', () => {
+    it('應該正確轉換字串錯誤格式', () => {
+      const result = SearchableDatabaseSelector.createSafeErrorLogContext('simple error');
+      expect(result).toEqual({ message: 'simple error' });
+    });
+
+    it('當輸入欄位 { message, details, code, url } 完整存在時應正確提取與轉換', () => {
+      const errorObj = {
+        message: 'API error',
+        details: 'Failed to fetch database list',
+        code: 'notion_api',
+        url: 'https://api.notion.com/v1/search?query=test',
+      };
+      const result = SearchableDatabaseSelector.createSafeErrorLogContext(errorObj);
+      expect(result.message).toBe('API error');
+      expect(result.details).toBe('Failed to fetch database list');
+      expect(result.code).toBe('notion_api');
+      expect(result.url).toContain('https://api.notion.com/');
+    });
+
+    it('當輸入空物件時應回傳預設未知錯誤訊息', () => {
+      const result = SearchableDatabaseSelector.createSafeErrorLogContext({});
+      expect(result).toEqual({ message: '未知錯誤' });
+    });
+
+    it('當輸入無效或為空值時應回傳預設未知錯誤訊息', () => {
+      expect(SearchableDatabaseSelector.createSafeErrorLogContext(null)).toEqual({
+        message: '未知錯誤',
+      });
+      expect(SearchableDatabaseSelector.createSafeErrorLogContext(undefined)).toEqual({
+        message: '未知錯誤',
+      });
+      expect(SearchableDatabaseSelector.createSafeErrorLogContext(123)).toEqual({
+        message: '未知錯誤',
+      });
+    });
+  });
+
   describe('filterDataSourcesLocally', () => {
     const mockDatabases = [
       { id: '1', object: 'database', title: [{ plain_text: 'Apple' }] },

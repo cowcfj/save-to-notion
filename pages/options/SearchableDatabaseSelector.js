@@ -21,6 +21,23 @@ const { DATA_SOURCE } = UI_MESSAGES;
  */
 const KEYBOARD_FOCUS_CLASS = 'keyboard-focus';
 
+const SAFE_ERROR_FIELD_TRANSFORMS = {
+  message: val => val,
+  details: val => val,
+  code: val => val,
+  url: val => sanitizeUrlForLogging(val),
+};
+
+function pickStringFieldsWithTransforms(source, transforms) {
+  const result = {};
+  for (const [field, transform] of Object.entries(transforms)) {
+    if (source && typeof source[field] === 'string') {
+      result[field] = transform(source[field]);
+    }
+  }
+  return result;
+}
+
 const extractTitleFromPageProperties = ds => {
   if (ds.object === 'page' && ds.properties?.title?.title) {
     const titleContent = ds.properties.title.title;
@@ -686,25 +703,11 @@ export class SearchableDatabaseSelector {
     if (typeof safeError === 'string') {
       return { message: safeError };
     }
-
-    if (safeError && typeof safeError === 'object') {
-      const context = {};
-      if (typeof safeError.message === 'string') {
-        context.message = safeError.message;
-      }
-      if (typeof safeError.details === 'string') {
-        context.details = safeError.details;
-      }
-      if (typeof safeError.code === 'string') {
-        context.code = safeError.code;
-      }
-      if (typeof safeError.url === 'string') {
-        context.url = sanitizeUrlForLogging(safeError.url);
-      }
-      return Object.keys(context).length > 0 ? context : { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
+    if (!safeError || typeof safeError !== 'object') {
+      return { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
     }
-
-    return { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
+    const context = pickStringFieldsWithTransforms(safeError, SAFE_ERROR_FIELD_TRANSFORMS);
+    return Object.keys(context).length > 0 ? context : { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
   }
 
   static extractDataSourceTitle(ds) {
