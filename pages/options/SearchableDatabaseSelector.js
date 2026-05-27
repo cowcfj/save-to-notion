@@ -82,6 +82,19 @@ const extractTitleFromAnyTitleProp = ds => {
   return null;
 };
 
+function mapToInternalDataSource(ds) {
+  return {
+    id: ds.id,
+    title: SearchableDatabaseSelector.extractDataSourceTitle(ds),
+    type: ds.object, // 'page', 'database' 或 'data_source'
+    isWorkspace: ds.parent?.type === 'workspace',
+    parent: ds.parent,
+    raw: ds,
+    created: ds.created_time,
+    lastEdited: ds.last_edited_time,
+  };
+}
+
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
     const { showStatus, loadDataSources, getApiKey } = dependencies;
@@ -212,21 +225,10 @@ export class SearchableDatabaseSelector {
   }
 
   populateDataSources(dataSources, isSearchResult = false) {
-    const mappedDataSources = dataSources.map(ds => ({
-      id: ds.id,
-      title: SearchableDatabaseSelector.extractDataSourceTitle(ds),
-      type: ds.object, // 'page', 'database' 或 'data_source'
-      isWorkspace: ds.parent?.type === 'workspace',
-      parent: ds.parent,
-      raw: ds,
-      created: ds.created_time,
-      lastEdited: ds.last_edited_time,
-    }));
-
-    this.dataSources = mappedDataSources;
+    this.dataSources = dataSources.map(ds => mapToInternalDataSource(ds));
 
     if (!isSearchResult) {
-      this.initialDataSources = [...mappedDataSources];
+      this.initialDataSources = [...this.dataSources];
       Logger.info('已保存初始資料來源列表:', this.initialDataSources.length);
     }
 
@@ -237,23 +239,28 @@ export class SearchableDatabaseSelector {
     this.updateDataSourceCount();
     this.renderDataSourceList();
 
-    if (this.container) {
-      this.container.classList.remove('hidden');
-    }
+    this.container?.classList.remove('hidden');
 
     if (this.searchInput) {
       this.searchInput.placeholder = DATA_SOURCE.SEARCH_PLACEHOLDER;
     }
 
-    if (this.databaseIdInput?.value) {
-      const selectedDs = this.dataSources.find(ds => ds.id === this.databaseIdInput.value);
-      if (selectedDs) {
-        if (this.searchInput) {
-          this.searchInput.value = selectedDs.title;
-        }
-        this.selectedDataSource = selectedDs;
-      }
+    this._applyPreSelectedDataSource();
+  }
+
+  _applyPreSelectedDataSource() {
+    const preSelectedId = this.databaseIdInput?.value;
+    if (!preSelectedId) {
+      return;
     }
+    const selectedDs = this.dataSources.find(ds => ds.id === preSelectedId);
+    if (!selectedDs) {
+      return;
+    }
+    if (this.searchInput) {
+      this.searchInput.value = selectedDs.title;
+    }
+    this.selectedDataSource = selectedDs;
   }
 
   filterDataSourcesLocally(query) {

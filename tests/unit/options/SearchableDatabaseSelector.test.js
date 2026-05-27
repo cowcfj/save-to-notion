@@ -152,6 +152,21 @@ describe('SearchableDatabaseSelector', () => {
 
       expect(selector.searchInput.placeholder).toBe('搜尋保存目標...');
     });
+
+    // Regression: C9 抽 _applyPreSelectedDataSource instance helper 後，
+    // pre-selected 行為應與重構前 inline 版本完全等價
+    it('_applyPreSelectedDataSource: 當 #database-id 對應 ds 不存在時應 no-op，不丟錯也不寫 selectedDataSource (regression: C9)', () => {
+      document.querySelector('#database-id').value = 'nonexistent_id';
+      expect(() => selector.populateDataSources(mockDatabases)).not.toThrow();
+      expect(selector.selectedDataSource).toBeNull();
+      expect(selector.searchInput.value).toBe(''); // 沒有副作用寫到 searchInput
+    });
+
+    it('_applyPreSelectedDataSource: 當 #database-id 為空時應直接 return，不掃描 dataSources (regression: C9)', () => {
+      document.querySelector('#database-id').value = '';
+      selector.populateDataSources(mockDatabases);
+      expect(selector.selectedDataSource).toBeNull();
+    });
   });
 
   describe('extractDataSourceTitle', () => {
