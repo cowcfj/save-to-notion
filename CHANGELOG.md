@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.75.2](https://github.com/cowcfj/save-to-notion/compare/v2.75.1...v2.75.2) (2026-05-27)
+
+
+### 🐛 Bug 修復
+
+* 修正可搜索資料來源選擇器的顯示邏輯 ([#593](https://github.com/cowcfj/save-to-notion/issues/593)) ([20c7b5f](https://github.com/cowcfj/save-to-notion/commit/20c7b5f19651c1d1892333a07adaebab4111e8b6))
+
 ## [2.75.1](https://github.com/cowcfj/save-to-notion/compare/v2.75.0...v2.75.1) (2026-05-26)
 
 
