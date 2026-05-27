@@ -242,6 +242,49 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
+  describe('createDataSourceItem', () => {
+    it('應該正確套用 selected 與 keyboard-focus 樣式類別', () => {
+      const ds = { id: 'ds-test', title: 'Test Target', type: 'page' };
+      selector.selectedDataSource = ds;
+      selector.focusedIndex = 2;
+
+      const itemElementSelected = selector.createDataSourceItem(ds, 2);
+      expect(itemElementSelected.classList.contains('selected')).toBe(true);
+      expect(itemElementSelected.classList.contains('keyboard-focus')).toBe(true);
+
+      const itemElementUnselected = selector.createDataSourceItem(
+        { id: 'other', title: 'Other', type: 'page' },
+        0
+      );
+      expect(itemElementUnselected.classList.contains('selected')).toBe(false);
+      expect(itemElementUnselected.classList.contains('keyboard-focus')).toBe(false);
+    });
+
+    it('應該為各種 parent.type 建立正確的圖示與文字標記', () => {
+      const types = [
+        { type: 'workspace', text: '工作區' },
+        { type: 'page_id', text: '子頁面' },
+        { type: 'database_id', text: '資料庫項目' },
+        { type: 'data_source_id', text: '資料庫項目' },
+        { type: 'block_id', text: '區塊項目' },
+        { type: 'unknown_type', text: '其他 (unknown_type)' },
+      ];
+
+      types.forEach(({ type, text }) => {
+        const ds = {
+          id: `ds-${type}`,
+          title: `Item of ${type}`,
+          type: 'database',
+          parent: { type },
+        };
+        const itemElement = selector.createDataSourceItem(ds, 0);
+        const metaCompact = itemElement.querySelector('.database-meta-compact');
+        expect(metaCompact).toBeTruthy();
+        expect(metaCompact.textContent).toContain(text);
+      });
+    });
+  });
+
   describe('filterDataSourcesLocally', () => {
     const mockDatabases = [
       { id: '1', object: 'database', title: [{ plain_text: 'Apple' }] },

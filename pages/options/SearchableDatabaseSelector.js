@@ -38,6 +38,23 @@ function pickStringFieldsWithTransforms(source, transforms) {
   return result;
 }
 
+const PARENT_META_DISPATCH = {
+  workspace: { icon: UI_ICONS.WORKSPACE, text: ' 工作區' },
+  page_id: { icon: UI_ICONS.PAGE, text: ' 子頁面' },
+  data_source_id: { icon: UI_ICONS.DATABASE, text: ' 資料庫項目' },
+  database_id: { icon: UI_ICONS.DATABASE, text: ' 資料庫項目' },
+  block_id: { icon: UI_ICONS.BLOCK, text: ' 區塊項目' },
+};
+
+function resolveParentMeta(parentType) {
+  return (
+    PARENT_META_DISPATCH[parentType] || {
+      icon: UI_ICONS.HELP,
+      text: ` 其他 (${parentType})`,
+    }
+  );
+}
+
 const extractTitleFromPageProperties = ds => {
   if (ds.object === 'page' && ds.properties?.title?.title) {
     const titleContent = ds.properties.title.title;
@@ -363,7 +380,7 @@ export class SearchableDatabaseSelector {
     this.dataSourceList.append(fragment);
   }
 
-  createDataSourceItem(ds, index) {
+  _buildDataSourceItemRoot(ds, index) {
     const isSelected = this.selectedDataSource && this.selectedDataSource.id === ds.id;
     const isFocused = index === this.focusedIndex;
 
@@ -379,6 +396,10 @@ export class SearchableDatabaseSelector {
     itemDiv.dataset.index = index;
     itemDiv.dataset.type = ds.type;
 
+    return { itemDiv, isSelected, isFocused };
+  }
+
+  _buildTitleRow(ds) {
     const titleRow = document.createElement('div');
     titleRow.className = 'database-title';
 
@@ -397,55 +418,27 @@ export class SearchableDatabaseSelector {
       titleRow.append(badge);
     }
 
-    itemDiv.append(titleRow);
+    return titleRow;
+  }
 
-    const metaRow = document.createElement('div');
-    metaRow.className = 'database-meta-compact';
+  _buildParentMetaGroup(parent) {
+    const { icon, text } = resolveParentMeta(parent.type);
+    const parentGroup = document.createElement('span');
+    parentGroup.className = 'meta-group';
+    parentGroup.append(createSafeIcon(icon));
+    parentGroup.append(document.createTextNode(text));
 
-    if (ds.parent) {
-      let parentIcon = '';
-      let parentText = '';
+    const separator = document.createElement('span');
+    separator.className = 'meta-separator';
+    separator.textContent = '|';
 
-      switch (ds.parent.type) {
-        case 'workspace': {
-          parentIcon = UI_ICONS.WORKSPACE;
-          parentText = ' 工作區';
-          break;
-        }
-        case 'page_id': {
-          parentIcon = UI_ICONS.PAGE;
-          parentText = ' 子頁面';
-          break;
-        }
-        case 'data_source_id':
-        case 'database_id': {
-          parentIcon = UI_ICONS.DATABASE;
-          parentText = ' 資料庫項目';
-          break;
-        }
-        case 'block_id': {
-          parentIcon = UI_ICONS.BLOCK;
-          parentText = ' 區塊項目';
-          break;
-        }
-        default: {
-          parentIcon = UI_ICONS.HELP;
-          parentText = ` 其他 (${ds.parent.type})`;
-        }
-      }
+    const fragment = document.createDocumentFragment();
+    fragment.append(parentGroup);
+    fragment.append(separator);
+    return fragment;
+  }
 
-      const parentGroup = document.createElement('span');
-      parentGroup.className = 'meta-group';
-      parentGroup.append(createSafeIcon(parentIcon));
-      parentGroup.append(document.createTextNode(parentText));
-      metaRow.append(parentGroup);
-
-      const separator = document.createElement('span');
-      separator.className = 'meta-separator';
-      separator.textContent = '|';
-      metaRow.append(separator);
-    }
-
+  _buildTypeMetaGroup(ds) {
     const typeGroup = document.createElement('span');
     typeGroup.className = 'meta-group';
     const typeIconSpan = document.createElement('span');
@@ -455,7 +448,20 @@ export class SearchableDatabaseSelector {
     const typeLabelSpan = document.createElement('span');
     typeLabelSpan.textContent = ds.type === 'page' ? '頁面' : '資料來源';
     typeGroup.append(typeLabelSpan);
-    metaRow.append(typeGroup);
+    return typeGroup;
+  }
+
+  createDataSourceItem(ds, index) {
+    const { itemDiv } = this._buildDataSourceItemRoot(ds, index);
+    itemDiv.append(this._buildTitleRow(ds));
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'database-meta-compact';
+
+    if (ds.parent) {
+      metaRow.append(this._buildParentMetaGroup(ds.parent));
+    }
+    metaRow.append(this._buildTypeMetaGroup(ds));
 
     itemDiv.append(metaRow);
     return itemDiv;
