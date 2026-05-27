@@ -21,6 +21,80 @@ const { DATA_SOURCE } = UI_MESSAGES;
  */
 const KEYBOARD_FOCUS_CLASS = 'keyboard-focus';
 
+const SAFE_ERROR_FIELD_TRANSFORMS = {
+  message: val => val,
+  details: val => val,
+  code: val => val,
+  url: val => sanitizeUrlForLogging(val),
+};
+
+function pickStringFieldsWithTransforms(source, transforms) {
+  const result = {};
+  for (const [field, transform] of Object.entries(transforms)) {
+    if (source && typeof source[field] === 'string') {
+      result[field] = transform(source[field]);
+    }
+  }
+  return result;
+}
+
+const PARENT_META_DISPATCH = {
+  workspace: { icon: UI_ICONS.WORKSPACE, text: ' 工作區' },
+  page_id: { icon: UI_ICONS.PAGE, text: ' 子頁面' },
+  data_source_id: { icon: UI_ICONS.DATABASE, text: ' 資料庫項目' },
+  database_id: { icon: UI_ICONS.DATABASE, text: ' 資料庫項目' },
+  block_id: { icon: UI_ICONS.BLOCK, text: ' 區塊項目' },
+};
+
+function resolveParentMeta(parentType) {
+  return (
+    PARENT_META_DISPATCH[parentType] || {
+      icon: UI_ICONS.HELP,
+      text: ` 其他 (${parentType})`,
+    }
+  );
+}
+
+const extractTitleFromPageProperties = ds => {
+  if (ds.object === 'page' && ds.properties?.title?.title) {
+    const titleContent = ds.properties.title.title;
+    if (titleContent.length > 0) {
+      return titleContent[0].plain_text || titleContent[0].text?.content;
+    }
+  }
+  return null;
+};
+
+const extractTitleFromTopLevelTitle = ds => {
+  if (ds.title && ds.title.length > 0) {
+    return ds.title[0].plain_text || ds.title[0].text?.content;
+  }
+  return null;
+};
+
+const extractTitleFromAnyTitleProp = ds => {
+  if (ds.properties) {
+    const titleProp = Object.values(ds.properties).find(prop => prop.type === 'title');
+    if (titleProp?.title && titleProp.title.length > 0) {
+      return titleProp.title[0].plain_text || titleProp.title[0].text?.content;
+    }
+  }
+  return null;
+};
+
+function mapToInternalDataSource(ds) {
+  return {
+    id: ds.id,
+    title: SearchableDatabaseSelector.extractDataSourceTitle(ds),
+    type: ds.object, // 'page', 'database' 或 'data_source'
+    isWorkspace: ds.parent?.type === 'workspace',
+    parent: ds.parent,
+    raw: ds,
+    created: ds.created_time,
+    lastEdited: ds.last_edited_time,
+  };
+}
+
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
     const { showStatus, loadDataSources, getApiKey } = dependencies;
@@ -79,78 +153,82 @@ export class SearchableDatabaseSelector {
   }
 
   setupEventListeners() {
-    this._handleSearchInput = event => {
-      const query = event.target.value.trim();
-      this.currentSearchQuery = query;
+    const bindings = this._buildEventBindings();
+    this._boundEventBindings = bindings.map(({ target, type, methodName }) => ({
+      target,
+      type,
+      handler: this[methodName].bind(this),
+    }));
 
-      if (this.searchTimeout) {
-        clearTimeout(this.searchTimeout);
-      }
+    for (const { target, type, handler } of this._boundEventBindings) {
+      target?.addEventListener(type, handler);
+    }
+  }
 
-      if (!query) {
-        this.restoreInitialDataSources();
-        this.showDropdown();
-        return;
-      }
+  _buildEventBindings() {
+    return [
+      { target: this.searchInput, type: 'input', methodName: '_handleSearchInput' },
+      { target: this.searchInput, type: 'focus', methodName: '_handleSearchFocus' },
+      { target: this.searchInput, type: 'keydown', methodName: '_handleKeydown' },
+      { target: this.toggleButton, type: 'click', methodName: '_handleToggleClick' },
+      { target: this.refreshButton, type: 'click', methodName: '_handleRefreshClick' },
+      { target: document, type: 'click', methodName: '_handleDocumentClick' },
+    ];
+  }
 
-      this.filterDataSourcesLocally(query);
+  _handleSearchInput(event) {
+    const query = event.target.value.trim();
+    this.currentSearchQuery = query;
+
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+
+    if (!query) {
+      this.restoreInitialDataSources();
       this.showDropdown();
+      return;
+    }
 
-      this.searchTimeout = setTimeout(() => {
-        this.performServerSearch(query);
-      }, 500);
-    };
+    this.filterDataSourcesLocally(query);
+    this.showDropdown();
 
-    this._handleSearchFocus = () => {
-      if (this.dataSources.length > 0) {
-        this.showDropdown();
-      }
-    };
+    this.searchTimeout = setTimeout(() => {
+      this.performServerSearch(query);
+    }, 500);
+  }
 
-    this._handleToggleClick = event => {
-      event.preventDefault();
-      this.toggleDropdown();
-    };
+  _handleSearchFocus() {
+    if (this.dataSources.length > 0) {
+      this.showDropdown();
+    }
+  }
 
-    this._handleRefreshClick = event => {
-      event.preventDefault();
-      this.refreshDataSources();
-    };
+  _handleToggleClick(event) {
+    event.preventDefault();
+    this.toggleDropdown();
+  }
 
-    this._handleDocumentClick = event => {
-      if (this.container && !this.container.contains(event.target)) {
-        this.hideDropdown();
-      }
-    };
+  _handleRefreshClick(event) {
+    event.preventDefault();
+    this.refreshDataSources();
+  }
 
-    this._handleKeydown = event => {
-      this.handleKeyNavigation(event);
-    };
+  _handleDocumentClick(event) {
+    if (this.container && !this.container.contains(event.target)) {
+      this.hideDropdown();
+    }
+  }
 
-    this.searchInput?.addEventListener('input', this._handleSearchInput);
-    this.searchInput?.addEventListener('focus', this._handleSearchFocus);
-    this.toggleButton?.addEventListener('click', this._handleToggleClick);
-    this.refreshButton?.addEventListener('click', this._handleRefreshClick);
-    document.addEventListener('click', this._handleDocumentClick);
-    this.searchInput?.addEventListener('keydown', this._handleKeydown);
+  _handleKeydown(event) {
+    this.handleKeyNavigation(event);
   }
 
   populateDataSources(dataSources, isSearchResult = false) {
-    const mappedDataSources = dataSources.map(ds => ({
-      id: ds.id,
-      title: SearchableDatabaseSelector.extractDataSourceTitle(ds),
-      type: ds.object, // 'page', 'database' 或 'data_source'
-      isWorkspace: ds.parent?.type === 'workspace',
-      parent: ds.parent,
-      raw: ds,
-      created: ds.created_time,
-      lastEdited: ds.last_edited_time,
-    }));
-
-    this.dataSources = mappedDataSources;
+    this.dataSources = dataSources.map(ds => mapToInternalDataSource(ds));
 
     if (!isSearchResult) {
-      this.initialDataSources = [...mappedDataSources];
+      this.initialDataSources = [...this.dataSources];
       Logger.info('已保存初始資料來源列表:', this.initialDataSources.length);
     }
 
@@ -161,23 +239,28 @@ export class SearchableDatabaseSelector {
     this.updateDataSourceCount();
     this.renderDataSourceList();
 
-    if (this.container) {
-      this.container.style.display = 'block';
-    }
+    this.container?.classList.remove('hidden');
 
     if (this.searchInput) {
       this.searchInput.placeholder = DATA_SOURCE.SEARCH_PLACEHOLDER;
     }
 
-    if (this.databaseIdInput?.value) {
-      const selectedDs = this.dataSources.find(ds => ds.id === this.databaseIdInput.value);
-      if (selectedDs) {
-        if (this.searchInput) {
-          this.searchInput.value = selectedDs.title;
-        }
-        this.selectedDataSource = selectedDs;
-      }
+    this._applyPreSelectedDataSource();
+  }
+
+  _applyPreSelectedDataSource() {
+    const preSelectedId = this.databaseIdInput?.value;
+    if (!preSelectedId) {
+      return;
     }
+    const selectedDs = this.dataSources.find(ds => ds.id === preSelectedId);
+    if (!selectedDs) {
+      return;
+    }
+    if (this.searchInput) {
+      this.searchInput.value = selectedDs.title;
+    }
+    this.selectedDataSource = selectedDs;
   }
 
   filterDataSourcesLocally(query) {
@@ -208,51 +291,70 @@ export class SearchableDatabaseSelector {
   }
 
   async performServerSearch(query) {
-    if (!query || query.length < 2) {
+    if (SearchableDatabaseSelector._isQueryTooShort(query)) {
       return;
     }
     this.currentSearchQuery = query;
     const requestId = ++this.searchRequestId;
 
     try {
-      const apiKey = await this.getApiKey();
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
-
-      if (!apiKey) {
-        Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
-        return;
-      }
-
-      this.isSearching = true;
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
-      this.showSearchingState(query);
-
-      await this.loadDataSources(apiKey, query);
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
-
-      Logger.info('伺服器端搜尋完成', { queryLength: query.length });
+      await this._runServerSearchPipeline(requestId, query);
     } catch (error) {
-      // 安全地處理錯誤訊息
-      const safeError = sanitizeApiError(error, 'server_search');
-      Logger.error(
-        '❌ [錯誤] 伺服器端搜尋失敗',
-        SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
-      );
-      const errorMsg = ErrorHandler.formatUserMessage(safeError);
-
-      this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
+      this._reportServerSearchError(error);
     } finally {
       if (!this.isStaleSearchRequest(requestId, query)) {
         this.isSearching = false;
         this.restoreListAfterLoading();
       }
     }
+  }
+
+  static _isQueryTooShort(query) {
+    return !query || query.length < 2;
+  }
+
+  async _runServerSearchPipeline(requestId, query) {
+    const apiKey = await this.getApiKey();
+    if (this.isStaleSearchRequest(requestId, query)) {
+      return;
+    }
+
+    if (!apiKey) {
+      Logger.warn('無法執行伺服器端搜尋：缺少 API Key', {
+        action: 'server_search',
+        result: 'aborted',
+        reason: 'missing_api_key',
+      });
+      return;
+    }
+
+    this.isSearching = true;
+    if (this.isStaleSearchRequest(requestId, query)) {
+      return;
+    }
+    this.showSearchingState(query);
+
+    await this.loadDataSources(apiKey, query);
+    if (this.isStaleSearchRequest(requestId, query)) {
+      return;
+    }
+
+    Logger.info('伺服器端搜尋完成', {
+      action: 'server_search',
+      result: 'completed',
+      queryLength: query.length,
+    });
+  }
+
+  _reportServerSearchError(error) {
+    const safeError = sanitizeApiError(error, 'server_search');
+    Logger.error('伺服器端搜尋失敗', {
+      action: 'server_search',
+      result: 'failed',
+      ...SearchableDatabaseSelector.createSafeErrorLogContext(safeError),
+    });
+    const errorMsg = ErrorHandler.formatUserMessage(safeError);
+    this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
   }
 
   showSearchingState(query) {
@@ -319,7 +421,7 @@ export class SearchableDatabaseSelector {
     this.dataSourceList.append(fragment);
   }
 
-  createDataSourceItem(ds, index) {
+  _buildDataSourceItemRoot(ds, index) {
     const isSelected = this.selectedDataSource && this.selectedDataSource.id === ds.id;
     const isFocused = index === this.focusedIndex;
 
@@ -335,6 +437,10 @@ export class SearchableDatabaseSelector {
     itemDiv.dataset.index = index;
     itemDiv.dataset.type = ds.type;
 
+    return { itemDiv, isSelected, isFocused };
+  }
+
+  _buildTitleRow(ds) {
     const titleRow = document.createElement('div');
     titleRow.className = 'database-title';
 
@@ -353,55 +459,27 @@ export class SearchableDatabaseSelector {
       titleRow.append(badge);
     }
 
-    itemDiv.append(titleRow);
+    return titleRow;
+  }
 
-    const metaRow = document.createElement('div');
-    metaRow.className = 'database-meta-compact';
+  _buildParentMetaGroup(parent) {
+    const { icon, text } = resolveParentMeta(parent.type);
+    const parentGroup = document.createElement('span');
+    parentGroup.className = 'meta-group';
+    parentGroup.append(createSafeIcon(icon));
+    parentGroup.append(document.createTextNode(text));
 
-    if (ds.parent) {
-      let parentIcon = '';
-      let parentText = '';
+    const separator = document.createElement('span');
+    separator.className = 'meta-separator';
+    separator.textContent = '|';
 
-      switch (ds.parent.type) {
-        case 'workspace': {
-          parentIcon = UI_ICONS.WORKSPACE;
-          parentText = ' 工作區';
-          break;
-        }
-        case 'page_id': {
-          parentIcon = UI_ICONS.PAGE;
-          parentText = ' 子頁面';
-          break;
-        }
-        case 'data_source_id':
-        case 'database_id': {
-          parentIcon = UI_ICONS.DATABASE;
-          parentText = ' 資料庫項目';
-          break;
-        }
-        case 'block_id': {
-          parentIcon = UI_ICONS.BLOCK;
-          parentText = ' 區塊項目';
-          break;
-        }
-        default: {
-          parentIcon = UI_ICONS.HELP;
-          parentText = ` 其他 (${ds.parent.type})`;
-        }
-      }
+    const fragment = document.createDocumentFragment();
+    fragment.append(parentGroup);
+    fragment.append(separator);
+    return fragment;
+  }
 
-      const parentGroup = document.createElement('span');
-      parentGroup.className = 'meta-group';
-      parentGroup.append(createSafeIcon(parentIcon));
-      parentGroup.append(document.createTextNode(parentText));
-      metaRow.append(parentGroup);
-
-      const separator = document.createElement('span');
-      separator.className = 'meta-separator';
-      separator.textContent = '|';
-      metaRow.append(separator);
-    }
-
+  _buildTypeMetaGroup(ds) {
     const typeGroup = document.createElement('span');
     typeGroup.className = 'meta-group';
     const typeIconSpan = document.createElement('span');
@@ -411,7 +489,20 @@ export class SearchableDatabaseSelector {
     const typeLabelSpan = document.createElement('span');
     typeLabelSpan.textContent = ds.type === 'page' ? '頁面' : '資料來源';
     typeGroup.append(typeLabelSpan);
-    metaRow.append(typeGroup);
+    return typeGroup;
+  }
+
+  createDataSourceItem(ds, index) {
+    const { itemDiv } = this._buildDataSourceItemRoot(ds, index);
+    itemDiv.append(this._buildTitleRow(ds));
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'database-meta-compact';
+
+    if (ds.parent) {
+      metaRow.append(this._buildParentMetaGroup(ds.parent));
+    }
+    metaRow.append(this._buildTypeMetaGroup(ds));
 
     itemDiv.append(metaRow);
     return itemDiv;
@@ -484,7 +575,7 @@ export class SearchableDatabaseSelector {
 
   showDropdown() {
     if (this.dropdown) {
-      this.dropdown.style.display = 'block';
+      this.dropdown.classList.remove('hidden');
     }
     this.isOpen = true;
     this.toggleButton?.classList.add('open');
@@ -493,7 +584,7 @@ export class SearchableDatabaseSelector {
 
   hideDropdown() {
     if (this.dropdown) {
-      this.dropdown.style.display = 'none';
+      this.dropdown.classList.add('hidden');
     }
     this.isOpen = false;
     this.focusedIndex = -1;
@@ -510,44 +601,65 @@ export class SearchableDatabaseSelector {
     }
   }
 
+  _handleClosedDropdownKeyNav(event) {
+    if (event.key === 'ArrowDown' || event.key === 'Enter') {
+      event.preventDefault();
+      this.showDropdown();
+    }
+  }
+
+  _handleArrowDownKey(event) {
+    event.preventDefault();
+    const prevIndex = this.focusedIndex;
+    this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDataSources.length - 1);
+    this.updateFocusedItem(prevIndex);
+    this.scrollToFocused();
+  }
+
+  _handleArrowUpKey(event) {
+    event.preventDefault();
+    const prevIndex = this.focusedIndex;
+    this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
+    this.updateFocusedItem(prevIndex);
+    this.scrollToFocused();
+  }
+
+  _handleEnterKey(event) {
+    event.preventDefault();
+    if (this.focusedIndex >= 0 && this.filteredDataSources[this.focusedIndex]) {
+      this.selectDataSource(this.filteredDataSources[this.focusedIndex]);
+    }
+  }
+
+  _handleEscapeKey(event) {
+    event.preventDefault();
+    this.hideDropdown();
+  }
+
   handleKeyNavigation(event) {
     if (!this.isOpen) {
-      if (event.key === 'ArrowDown' || event.key === 'Enter') {
-        event.preventDefault();
-        this.showDropdown();
-      }
+      this._handleClosedDropdownKeyNav(event);
       return;
     }
 
-    switch (event.key) {
-      case 'ArrowDown': {
-        event.preventDefault();
-        const prevIndex = this.focusedIndex;
-        this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDataSources.length - 1);
-        this.updateFocusedItem(prevIndex);
-        this.scrollToFocused();
-        break;
-      }
-      case 'ArrowUp': {
-        event.preventDefault();
-        const prevIndex = this.focusedIndex;
-        this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
-        this.updateFocusedItem(prevIndex);
-        this.scrollToFocused();
-        break;
-      }
-      case 'Enter': {
-        event.preventDefault();
-        if (this.focusedIndex >= 0 && this.filteredDataSources[this.focusedIndex]) {
-          this.selectDataSource(this.filteredDataSources[this.focusedIndex]);
-        }
-        break;
-      }
-      case 'Escape': {
-        event.preventDefault();
-        this.hideDropdown();
-        break;
-      }
+    const handlers = {
+      ArrowDown: evt => {
+        this._handleArrowDownKey(evt);
+      },
+      ArrowUp: evt => {
+        this._handleArrowUpKey(evt);
+      },
+      Enter: evt => {
+        this._handleEnterKey(evt);
+      },
+      Escape: evt => {
+        this._handleEscapeKey(evt);
+      },
+    };
+
+    const handler = handlers[event.key];
+    if (handler) {
+      handler(event);
     }
   }
 
@@ -555,22 +667,22 @@ export class SearchableDatabaseSelector {
     if (!this.dataSourceList) {
       return;
     }
+    this._clearFocusFrom(prevIndex);
+    this._applyFocusTo(this.focusedIndex);
+  }
 
-    // 移除之前的焦點
-    if (prevIndex >= 0) {
-      const prevItem = this.dataSourceList.children[prevIndex];
-      if (prevItem) {
-        prevItem.classList.remove(KEYBOARD_FOCUS_CLASS);
-      }
+  _clearFocusFrom(index) {
+    if (index < 0) {
+      return;
     }
+    this.dataSourceList.children[index]?.classList.remove(KEYBOARD_FOCUS_CLASS);
+  }
 
-    // 設置新的焦點
-    if (this.focusedIndex >= 0) {
-      const currentItem = this.dataSourceList.children[this.focusedIndex];
-      if (currentItem) {
-        currentItem.classList.add(KEYBOARD_FOCUS_CLASS);
-      }
+  _applyFocusTo(index) {
+    if (index < 0) {
+      return;
     }
+    this.dataSourceList.children[index]?.classList.add(KEYBOARD_FOCUS_CLASS);
   }
 
   scrollToFocused() {
@@ -597,7 +709,11 @@ export class SearchableDatabaseSelector {
     try {
       const apiKey = await this.getApiKey();
       if (!apiKey) {
-        Logger.warn('無法重新載入資料來源：缺少 API Key');
+        Logger.warn('無法重新載入資料來源：缺少 API Key', {
+          action: 'refresh_data_sources',
+          result: 'aborted',
+          reason: 'missing_api_key',
+        });
         return;
       }
 
@@ -605,10 +721,11 @@ export class SearchableDatabaseSelector {
       await this.loadDataSources(apiKey);
     } catch (error) {
       const safeError = sanitizeApiError(error, 'refresh_data_sources');
-      Logger.error(
-        '❌ [錯誤] 重新載入資料來源失敗',
-        SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
-      );
+      Logger.error('重新載入資料來源失敗', {
+        action: 'refresh_data_sources',
+        result: 'failed',
+        ...SearchableDatabaseSelector.createSafeErrorLogContext(safeError),
+      });
       const errorMsg = ErrorHandler.formatUserMessage(safeError);
       this.showStatus(`重新載入失敗: ${errorMsg}`, 'error');
     } finally {
@@ -659,43 +776,22 @@ export class SearchableDatabaseSelector {
     if (typeof safeError === 'string') {
       return { message: safeError };
     }
-
-    if (safeError && typeof safeError === 'object') {
-      const context = {};
-      if (typeof safeError.message === 'string') {
-        context.message = safeError.message;
-      }
-      if (typeof safeError.details === 'string') {
-        context.details = safeError.details;
-      }
-      if (typeof safeError.code === 'string') {
-        context.code = safeError.code;
-      }
-      if (typeof safeError.url === 'string') {
-        context.url = sanitizeUrlForLogging(safeError.url);
-      }
-      return Object.keys(context).length > 0 ? context : { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
+    if (!safeError || typeof safeError !== 'object') {
+      return { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
     }
-
-    return { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
+    const context = pickStringFieldsWithTransforms(safeError, SAFE_ERROR_FIELD_TRANSFORMS);
+    return Object.keys(context).length > 0 ? context : { message: DATA_SOURCE.UNKNOWN_ERROR_LOG };
   }
 
   static extractDataSourceTitle(ds) {
-    let title = ds.object === 'page' ? DATA_SOURCE.UNTITLED_PAGE : DATA_SOURCE.UNTITLED_DATA_SOURCE;
-    if (ds.object === 'page' && ds.properties?.title?.title) {
-      const titleContent = ds.properties.title.title;
-      if (titleContent.length > 0) {
-        title = titleContent[0].plain_text || titleContent[0].text?.content || title;
-      }
-    } else if (ds.title && ds.title.length > 0) {
-      title = ds.title[0].plain_text || ds.title[0].text?.content || title;
-    } else if (ds.properties) {
-      const titleProp = Object.values(ds.properties).find(prop => prop.type === 'title');
-      if (titleProp?.title && titleProp.title.length > 0) {
-        title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || title;
-      }
-    }
-    return title;
+    const defaultTitle =
+      ds.object === 'page' ? DATA_SOURCE.UNTITLED_PAGE : DATA_SOURCE.UNTITLED_DATA_SOURCE;
+    const extractors = [
+      extractTitleFromPageProperties,
+      extractTitleFromTopLevelTitle,
+      extractTitleFromAnyTitleProp,
+    ];
+    return extractors.map(extract => extract(ds)).find(Boolean) ?? defaultTitle;
   }
 
   destroy() {
@@ -703,19 +799,11 @@ export class SearchableDatabaseSelector {
       clearTimeout(this.searchTimeout);
       this.searchTimeout = null;
     }
-    if (this._handleSearchInput) {
-      this.searchInput?.removeEventListener('input', this._handleSearchInput);
-      this.searchInput?.removeEventListener('focus', this._handleSearchFocus);
-      this.searchInput?.removeEventListener('keydown', this._handleKeydown);
-      this.toggleButton?.removeEventListener('click', this._handleToggleClick);
-      this.refreshButton?.removeEventListener('click', this._handleRefreshClick);
-      document.removeEventListener('click', this._handleDocumentClick);
-      this._handleSearchInput = null;
-      this._handleSearchFocus = null;
-      this._handleToggleClick = null;
-      this._handleRefreshClick = null;
-      this._handleDocumentClick = null;
-      this._handleKeydown = null;
+    if (this._boundEventBindings) {
+      for (const { target, type, handler } of this._boundEventBindings) {
+        target?.removeEventListener(type, handler);
+      }
+      this._boundEventBindings = null;
     }
 
     // 防禦性清空：清除陣列與物件引用，防止銷毀後誤用

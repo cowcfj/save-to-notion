@@ -25,12 +25,15 @@ describe('SearchableDatabaseSelector', () => {
     // Mock scrollIntoView (jsdom 不支援此方法)
     Element.prototype.scrollIntoView = jest.fn();
 
-    // DOM Setup
+    // DOM Setup — 對齊 production HTML：用 .hidden class 而非 inline display
+    // .hidden 在 options.css 裡是 `display: none !important`，
+    // 任何 inline style.display 都會被 !important 壓掉，
+    // 因此 fixture 必須與 production 一致才能擋住 hidden-class regression。
     document.body.innerHTML = `
-      <div id="database-selector-container" style="display: none;">
+      <div id="database-selector-container" class="hidden">
         <input type="text" id="database-search" />
         <button id="selector-toggle"></button>
-        <div id="database-dropdown" style="display: none;"></div>
+        <div id="database-dropdown" class="hidden"></div>
         <div id="data-source-list"></div>
         <div id="data-source-count"></div>
         <button id="refresh-databases"></button>
@@ -84,7 +87,7 @@ describe('SearchableDatabaseSelector', () => {
 
       expect(selector.dataSources).toHaveLength(2);
       expect(selector.dataSourceList.children).toHaveLength(2);
-      expect(selector.container.style.display).toBe('block');
+      expect(selector.container.classList.contains('hidden')).toBe(false);
 
       // Check formatting of items
       const firstItem = selector.dataSourceList.children[0];
@@ -149,6 +152,152 @@ describe('SearchableDatabaseSelector', () => {
 
       expect(selector.searchInput.placeholder).toBe('搜尋保存目標...');
     });
+
+    // Regression: C9 抽 _applyPreSelectedDataSource instance helper 後，
+    // pre-selected 行為應與重構前 inline 版本完全等價
+    it('_applyPreSelectedDataSource: 當 #database-id 對應 ds 不存在時應 no-op，不丟錯也不寫 selectedDataSource (regression: C9)', () => {
+      document.querySelector('#database-id').value = 'nonexistent_id';
+      expect(() => selector.populateDataSources(mockDatabases)).not.toThrow();
+      expect(selector.selectedDataSource).toBeNull();
+      expect(selector.searchInput.value).toBe(''); // 沒有副作用寫到 searchInput
+    });
+
+    it('_applyPreSelectedDataSource: 當 #database-id 為空時應直接 return，不掃描 dataSources (regression: C9)', () => {
+      document.querySelector('#database-id').value = '';
+      selector.populateDataSources(mockDatabases);
+      expect(selector.selectedDataSource).toBeNull();
+    });
+  });
+
+  describe('extractDataSourceTitle', () => {
+    it('應該自 page properties 中提取標題 (extractTitleFromPageProperties)', () => {
+      const ds = {
+        object: 'page',
+        properties: {
+          title: {
+            title: [{ plain_text: 'Page Prop Title' }],
+          },
+        },
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('Page Prop Title');
+    });
+
+    it('應該自 top-level title 中提取標題 (extractTitleFromTopLevelTitle)', () => {
+      const ds = {
+        object: 'database',
+        title: [{ plain_text: 'Top Level Title' }],
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('Top Level Title');
+    });
+
+    it('應該自 properties 內類型為 title 的任意屬性中提取標題 (extractTitleFromAnyTitleProp)', () => {
+      const ds = {
+        object: 'database',
+        properties: {
+          CustomName: {
+            type: 'title',
+            title: [{ plain_text: 'Any Title Prop' }],
+          },
+        },
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('Any Title Prop');
+    });
+
+    it('當無任何標題且為 page 時應回傳預設的無標題頁面標題', () => {
+      const ds = {
+        object: 'page',
+        properties: {},
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('未命名頁面');
+    });
+
+    it('當無任何標題且為 database 時應回傳預設的無標題資料來源標題', () => {
+      const ds = {
+        object: 'database',
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('未命名資料來源');
+    });
+  });
+
+  describe('createSafeErrorLogContext', () => {
+    it('應該正確轉換字串錯誤格式', () => {
+      const result = SearchableDatabaseSelector.createSafeErrorLogContext('simple error');
+      expect(result).toEqual({ message: 'simple error' });
+    });
+
+    it('當輸入欄位 { message, details, code, url } 完整存在時應正確提取與轉換', () => {
+      const errorObj = {
+        message: 'API error',
+        details: 'Failed to fetch database list',
+        code: 'notion_api',
+        url: 'https://api.notion.com/v1/search?query=test',
+      };
+      const result = SearchableDatabaseSelector.createSafeErrorLogContext(errorObj);
+      expect(result.message).toBe('API error');
+      expect(result.details).toBe('Failed to fetch database list');
+      expect(result.code).toBe('notion_api');
+      expect(result.url).toContain('https://api.notion.com/');
+    });
+
+    it('當輸入空物件時應回傳預設未知錯誤訊息', () => {
+      const result = SearchableDatabaseSelector.createSafeErrorLogContext({});
+      expect(result).toEqual({ message: '未知錯誤' });
+    });
+
+    it('當輸入無效或為空值時應回傳預設未知錯誤訊息', () => {
+      expect(SearchableDatabaseSelector.createSafeErrorLogContext(null)).toEqual({
+        message: '未知錯誤',
+      });
+      expect(SearchableDatabaseSelector.createSafeErrorLogContext(undefined)).toEqual({
+        message: '未知錯誤',
+      });
+      expect(SearchableDatabaseSelector.createSafeErrorLogContext(123)).toEqual({
+        message: '未知錯誤',
+      });
+    });
+  });
+
+  describe('createDataSourceItem', () => {
+    it('應該正確套用 selected 與 keyboard-focus 樣式類別', () => {
+      const ds = { id: 'ds-test', title: 'Test Target', type: 'page' };
+      selector.selectedDataSource = ds;
+      selector.focusedIndex = 2;
+
+      const itemElementSelected = selector.createDataSourceItem(ds, 2);
+      expect(itemElementSelected.classList.contains('selected')).toBe(true);
+      expect(itemElementSelected.classList.contains('keyboard-focus')).toBe(true);
+
+      const itemElementUnselected = selector.createDataSourceItem(
+        { id: 'other', title: 'Other', type: 'page' },
+        0
+      );
+      expect(itemElementUnselected.classList.contains('selected')).toBe(false);
+      expect(itemElementUnselected.classList.contains('keyboard-focus')).toBe(false);
+    });
+
+    it('應該為各種 parent.type 建立正確的圖示與文字標記', () => {
+      const types = [
+        { type: 'workspace', text: '工作區' },
+        { type: 'page_id', text: '子頁面' },
+        { type: 'database_id', text: '資料庫項目' },
+        { type: 'data_source_id', text: '資料庫項目' },
+        { type: 'block_id', text: '區塊項目' },
+        { type: 'unknown_type', text: '其他 (unknown_type)' },
+      ];
+
+      types.forEach(({ type, text }) => {
+        const ds = {
+          id: `ds-${type}`,
+          title: `Item of ${type}`,
+          type: 'database',
+          parent: { type },
+        };
+        const itemElement = selector.createDataSourceItem(ds, 0);
+        const metaCompact = itemElement.querySelector('.database-meta-compact');
+        expect(metaCompact).toBeTruthy();
+        expect(metaCompact.textContent).toContain(text);
+      });
+    });
   });
 
   describe('filterDataSourcesLocally', () => {
@@ -207,12 +356,12 @@ describe('SearchableDatabaseSelector', () => {
       selector.populateDataSources([{ id: '1', object: 'database', title: [] }]);
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(true);
-      expect(selector.dropdown.style.display).toBe('block');
+      expect(selector.dropdown.classList.contains('hidden')).toBe(false);
       expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('true');
 
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false);
-      expect(selector.dropdown.style.display).toBe('none');
+      expect(selector.dropdown.classList.contains('hidden')).toBe(true);
       expect(selector.toggleButton.getAttribute('aria-expanded')).toBe('false');
     });
 
@@ -235,6 +384,39 @@ describe('SearchableDatabaseSelector', () => {
 
       expect(selector.dataSourceList.querySelector('.loading-state')).toBeNull();
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('重新載入失敗'), 'error');
+    });
+  });
+
+  // Regression: production HTML 預設 #database-selector-container 與
+  // #database-dropdown 帶 `class="hidden"`（CSS：display: none !important），
+  // 早期實作用 inline style.display 試圖顯示，被 !important 壓住，
+  // 60 個項目 render 進 DOM 卻永不可見。本區塊鎖住 .hidden class 的整段 lifecycle。
+  describe('hidden class lifecycle (regression)', () => {
+    it('should remove .hidden from container on populate', () => {
+      expect(selector.container.classList.contains('hidden')).toBe(true);
+
+      selector.populateDataSources([
+        { id: 'db1', object: 'database', title: [{ plain_text: 'DB One' }] },
+      ]);
+
+      expect(selector.container.classList.contains('hidden')).toBe(false);
+    });
+
+    it('should remove .hidden from dropdown on showDropdown', () => {
+      expect(selector.dropdown.classList.contains('hidden')).toBe(true);
+
+      selector.showDropdown();
+
+      expect(selector.dropdown.classList.contains('hidden')).toBe(false);
+    });
+
+    it('should add .hidden back to dropdown on hideDropdown', () => {
+      selector.showDropdown();
+      expect(selector.dropdown.classList.contains('hidden')).toBe(false);
+
+      selector.hideDropdown();
+
+      expect(selector.dropdown.classList.contains('hidden')).toBe(true);
     });
   });
 
@@ -321,6 +503,40 @@ describe('SearchableDatabaseSelector', () => {
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 發生未知錯誤，請稍後再試', 'error');
     });
+
+    // Regression: C10 拆出 _isQueryTooShort / _runServerSearchPipeline / _reportServerSearchError
+    // 三個 helper 後，主函式契約 (lifecycle setup + try/catch/finally) 與 helper 行為應分別可驗證
+    it('_isQueryTooShort: 對 empty / length<2 / valid 輸入分類正確 (regression: C10 static helper)', () => {
+      expect(SearchableDatabaseSelector._isQueryTooShort('')).toBe(true);
+      expect(SearchableDatabaseSelector._isQueryTooShort(null)).toBe(true);
+      expect(SearchableDatabaseSelector._isQueryTooShort('a')).toBe(true);
+      expect(SearchableDatabaseSelector._isQueryTooShort('ab')).toBe(false);
+      expect(SearchableDatabaseSelector._isQueryTooShort('long query')).toBe(false);
+    });
+
+    it('_reportServerSearchError: 應依序呼叫 sanitizeApiError → Logger.error → showStatus (regression: C10)', () => {
+      const error = new Error('boom');
+      selector._reportServerSearchError(error);
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('伺服器端搜尋失敗'),
+        expect.any(Object)
+      );
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
+    });
+
+    it('performServerSearch: 主函式 finally 應在 stale check 通過時清 isSearching 並還原列表 (regression: C10 lifecycle separation)', async () => {
+      mockGetApiKey.mockResolvedValue('k');
+      selector.searchInput.value = 'fresh';
+
+      const restoreSpy = jest.spyOn(selector, 'restoreListAfterLoading');
+      await selector.performServerSearch('fresh');
+
+      expect(selector.isSearching).toBe(false);
+      expect(restoreSpy).toHaveBeenCalledTimes(1);
+
+      restoreSpy.mockRestore();
+    });
   });
 
   describe('showSearchingState', () => {
@@ -384,6 +600,30 @@ describe('SearchableDatabaseSelector', () => {
       event.preventDefault = jest.fn();
       selector.handleKeyNavigation(event);
       expect(selector.isOpen).toBe(true);
+    });
+
+    it('should call preventDefault and showDropdown on ArrowDown or Enter when closed', () => {
+      selector.hideDropdown();
+      selector.showDropdown = jest.fn();
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(selector.showDropdown).toHaveBeenCalled();
+    });
+
+    it('should not call preventDefault or showDropdown on other keys when closed', () => {
+      selector.hideDropdown();
+      selector.showDropdown = jest.fn();
+
+      const event = new KeyboardEvent('keydown', { key: 'KeyA' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(selector.showDropdown).not.toHaveBeenCalled();
     });
 
     it('should navigate down with ArrowDown when open', () => {
@@ -462,7 +702,14 @@ describe('SearchableDatabaseSelector', () => {
       mockGetApiKey.mockResolvedValue(null);
       selector.searchInput.value = 'query';
       await selector.performServerSearch('query');
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 API Key'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('缺少 API Key'),
+        expect.objectContaining({
+          action: 'server_search',
+          result: 'aborted',
+          reason: 'missing_api_key',
+        })
+      );
     });
 
     it('_createHighlightedText 應該處理 regex 拋出的錯誤 (Line 410)', () => {
@@ -480,6 +727,76 @@ describe('SearchableDatabaseSelector', () => {
       expect(removeEventListenerSpy).toHaveBeenCalled();
       expect(documentRemoveSpy).toHaveBeenCalledWith('click', expect.any(Function));
       expect(selector.searchTimeout).toBeNull();
+    });
+
+    it('setupEventListeners 應綁定 6 條 event 並支援後續 destroy 對稱解綁 (regression: C7 dispatch table)', () => {
+      // 重建 selector 以乾淨計數 add/remove
+      const localSelector = new SearchableDatabaseSelector({
+        showStatus: jest.fn(),
+        loadDataSources: jest.fn(),
+        getApiKey: jest.fn().mockResolvedValue('k'),
+      });
+
+      expect(Array.isArray(localSelector._boundEventBindings)).toBe(true);
+      expect(localSelector._boundEventBindings).toHaveLength(6);
+
+      // 解綁時必須使用同一份 bound reference 才能成功移除
+      const removeSpies = localSelector._boundEventBindings.map(({ target, type, handler }) => ({
+        target,
+        type,
+        handler,
+        spy: target ? jest.spyOn(target, 'removeEventListener') : null,
+      }));
+
+      localSelector.destroy();
+
+      for (const { spy, type, handler } of removeSpies) {
+        if (spy) {
+          expect(spy).toHaveBeenCalledWith(type, handler);
+        }
+      }
+      expect(localSelector._boundEventBindings).toBeNull();
+    });
+  });
+
+  describe('updateFocusedItem (C8 helper extraction regression)', () => {
+    beforeEach(() => {
+      // 建立 3 個假 list item 以便測試 focus class 操作
+      selector.dataSourceList.replaceChildren();
+      for (let i = 0; i < 3; i++) {
+        const div = document.createElement('div');
+        div.className = 'database-item';
+        selector.dataSourceList.append(div);
+      }
+    });
+
+    it('updateFocusedItem 應在指定 index 上套用 keyboard-focus，並清掉前一個 index 的 focus', () => {
+      selector.focusedIndex = 1;
+      selector.updateFocusedItem(-1);
+      expect(selector.dataSourceList.children[1].classList.contains('keyboard-focus')).toBe(true);
+
+      selector.focusedIndex = 2;
+      selector.updateFocusedItem(1);
+      expect(selector.dataSourceList.children[1].classList.contains('keyboard-focus')).toBe(false);
+      expect(selector.dataSourceList.children[2].classList.contains('keyboard-focus')).toBe(true);
+    });
+
+    it('當 prevIndex < 0 時 _clearFocusFrom 應為 no-op，不應丟錯', () => {
+      selector.focusedIndex = 0;
+      expect(() => selector.updateFocusedItem(-1)).not.toThrow();
+      expect(selector.dataSourceList.children[0].classList.contains('keyboard-focus')).toBe(true);
+    });
+
+    it('當 focusedIndex < 0 時 _applyFocusTo 應為 no-op，僅執行 clear', () => {
+      selector.dataSourceList.children[1].classList.add('keyboard-focus');
+      selector.focusedIndex = -1;
+      selector.updateFocusedItem(1);
+      expect(selector.dataSourceList.children[1].classList.contains('keyboard-focus')).toBe(false);
+    });
+
+    it('當 dataSourceList 不存在時 updateFocusedItem 應為 no-op', () => {
+      selector.dataSourceList = null;
+      expect(() => selector.updateFocusedItem(0)).not.toThrow();
     });
   });
 });
