@@ -560,44 +560,65 @@ export class SearchableDatabaseSelector {
     }
   }
 
+  _handleClosedDropdownKeyNav(event) {
+    if (event.key === 'ArrowDown' || event.key === 'Enter') {
+      event.preventDefault();
+      this.showDropdown();
+    }
+  }
+
+  _handleArrowDownKey(event) {
+    event.preventDefault();
+    const prevIndex = this.focusedIndex;
+    this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDataSources.length - 1);
+    this.updateFocusedItem(prevIndex);
+    this.scrollToFocused();
+  }
+
+  _handleArrowUpKey(event) {
+    event.preventDefault();
+    const prevIndex = this.focusedIndex;
+    this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
+    this.updateFocusedItem(prevIndex);
+    this.scrollToFocused();
+  }
+
+  _handleEnterKey(event) {
+    event.preventDefault();
+    if (this.focusedIndex >= 0 && this.filteredDataSources[this.focusedIndex]) {
+      this.selectDataSource(this.filteredDataSources[this.focusedIndex]);
+    }
+  }
+
+  _handleEscapeKey(event) {
+    event.preventDefault();
+    this.hideDropdown();
+  }
+
   handleKeyNavigation(event) {
     if (!this.isOpen) {
-      if (event.key === 'ArrowDown' || event.key === 'Enter') {
-        event.preventDefault();
-        this.showDropdown();
-      }
+      this._handleClosedDropdownKeyNav(event);
       return;
     }
 
-    switch (event.key) {
-      case 'ArrowDown': {
-        event.preventDefault();
-        const prevIndex = this.focusedIndex;
-        this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDataSources.length - 1);
-        this.updateFocusedItem(prevIndex);
-        this.scrollToFocused();
-        break;
-      }
-      case 'ArrowUp': {
-        event.preventDefault();
-        const prevIndex = this.focusedIndex;
-        this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
-        this.updateFocusedItem(prevIndex);
-        this.scrollToFocused();
-        break;
-      }
-      case 'Enter': {
-        event.preventDefault();
-        if (this.focusedIndex >= 0 && this.filteredDataSources[this.focusedIndex]) {
-          this.selectDataSource(this.filteredDataSources[this.focusedIndex]);
-        }
-        break;
-      }
-      case 'Escape': {
-        event.preventDefault();
-        this.hideDropdown();
-        break;
-      }
+    const handlers = {
+      ArrowDown: evt => {
+        this._handleArrowDownKey(evt);
+      },
+      ArrowUp: evt => {
+        this._handleArrowUpKey(evt);
+      },
+      Enter: evt => {
+        this._handleEnterKey(evt);
+      },
+      Escape: evt => {
+        this._handleEscapeKey(evt);
+      },
+    };
+
+    const handler = handlers[event.key];
+    if (handler) {
+      handler(event);
     }
   }
 

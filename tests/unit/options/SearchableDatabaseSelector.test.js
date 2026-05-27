@@ -553,6 +553,30 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.isOpen).toBe(true);
     });
 
+    it('should call preventDefault and showDropdown on ArrowDown or Enter when closed', () => {
+      selector.hideDropdown();
+      selector.showDropdown = jest.fn();
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(selector.showDropdown).toHaveBeenCalled();
+    });
+
+    it('should not call preventDefault or showDropdown on other keys when closed', () => {
+      selector.hideDropdown();
+      selector.showDropdown = jest.fn();
+
+      const event = new KeyboardEvent('keydown', { key: 'KeyA' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(selector.showDropdown).not.toHaveBeenCalled();
+    });
+
     it('should navigate down with ArrowDown when open', () => {
       selector.showDropdown();
       selector.focusedIndex = 0;
