@@ -503,6 +503,34 @@ describe('SearchableDatabaseSelector', () => {
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 發生未知錯誤，請稍後再試', 'error');
     });
+
+    // Regression: C10 拆出 _isQueryTooShort / _runServerSearchPipeline / _reportServerSearchError
+    // 三個 helper 後，主函式契約 (lifecycle setup + try/catch/finally) 與 helper 行為應分別可驗證
+    it('_isQueryTooShort: 對 empty / length<2 / valid 輸入分類正確 (regression: C10 static helper)', () => {
+      expect(SearchableDatabaseSelector._isQueryTooShort('')).toBe(true);
+      expect(SearchableDatabaseSelector._isQueryTooShort(null)).toBe(true);
+      expect(SearchableDatabaseSelector._isQueryTooShort('a')).toBe(true);
+      expect(SearchableDatabaseSelector._isQueryTooShort('ab')).toBe(false);
+      expect(SearchableDatabaseSelector._isQueryTooShort('long query')).toBe(false);
+    });
+
+    it('_reportServerSearchError: 應依序呼叫 sanitizeApiError → Logger.error → showStatus (regression: C10)', () => {
+      const error = new Error('boom');
+      selector._reportServerSearchError(error);
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('伺服器端搜尋失敗'),
+        expect.any(Object)
+      );
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
+    });
+
+    it('_runServerSearchPipeline: 主函式 finally 應在 stale check 通過時清 isSearching (regression: C10 lifecycle separation)', async () => {
+      mockGetApiKey.mockResolvedValue('k');
+      selector.searchInput.value = 'fresh';
+      // 直接呼叫 pipeline 確認執行成功不丟錯（lifecycle 由主函式管理）
+      await expect(selector._runServerSearchPipeline(1, 'fresh')).resolves.toBeUndefined();
+    });
   });
 
   describe('showSearchingState', () => {

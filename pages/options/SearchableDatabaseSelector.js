@@ -291,51 +291,62 @@ export class SearchableDatabaseSelector {
   }
 
   async performServerSearch(query) {
-    if (!query || query.length < 2) {
+    if (SearchableDatabaseSelector._isQueryTooShort(query)) {
       return;
     }
     this.currentSearchQuery = query;
     const requestId = ++this.searchRequestId;
 
     try {
-      const apiKey = await this.getApiKey();
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
-
-      if (!apiKey) {
-        Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
-        return;
-      }
-
-      this.isSearching = true;
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
-      this.showSearchingState(query);
-
-      await this.loadDataSources(apiKey, query);
-      if (this.isStaleSearchRequest(requestId, query)) {
-        return;
-      }
-
-      Logger.info('伺服器端搜尋完成', { queryLength: query.length });
+      await this._runServerSearchPipeline(requestId, query);
     } catch (error) {
-      // 安全地處理錯誤訊息
-      const safeError = sanitizeApiError(error, 'server_search');
-      Logger.error(
-        '❌ [錯誤] 伺服器端搜尋失敗',
-        SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
-      );
-      const errorMsg = ErrorHandler.formatUserMessage(safeError);
-
-      this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
+      this._reportServerSearchError(error);
     } finally {
       if (!this.isStaleSearchRequest(requestId, query)) {
         this.isSearching = false;
         this.restoreListAfterLoading();
       }
     }
+  }
+
+  static _isQueryTooShort(query) {
+    return !query || query.length < 2;
+  }
+
+  async _runServerSearchPipeline(requestId, query) {
+    const apiKey = await this.getApiKey();
+    if (this.isStaleSearchRequest(requestId, query)) {
+      return;
+    }
+
+    if (!apiKey) {
+      Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
+      return;
+    }
+
+    this.isSearching = true;
+    if (this.isStaleSearchRequest(requestId, query)) {
+      return;
+    }
+    this.showSearchingState(query);
+
+    await this.loadDataSources(apiKey, query);
+    if (this.isStaleSearchRequest(requestId, query)) {
+      return;
+    }
+
+    Logger.info('伺服器端搜尋完成', { queryLength: query.length });
+  }
+
+  _reportServerSearchError(error) {
+    // 安全地處理錯誤訊息
+    const safeError = sanitizeApiError(error, 'server_search');
+    Logger.error(
+      '❌ [錯誤] 伺服器端搜尋失敗',
+      SearchableDatabaseSelector.createSafeErrorLogContext(safeError)
+    );
+    const errorMsg = ErrorHandler.formatUserMessage(safeError);
+    this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
   }
 
   showSearchingState(query) {
