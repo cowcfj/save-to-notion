@@ -140,60 +140,75 @@ export class SearchableDatabaseSelector {
   }
 
   setupEventListeners() {
-    this._handleSearchInput = event => {
-      const query = event.target.value.trim();
-      this.currentSearchQuery = query;
+    const bindings = this._buildEventBindings();
+    this._boundEventBindings = bindings.map(({ target, type, methodName }) => ({
+      target,
+      type,
+      handler: this[methodName].bind(this),
+    }));
 
-      if (this.searchTimeout) {
-        clearTimeout(this.searchTimeout);
-      }
+    for (const { target, type, handler } of this._boundEventBindings) {
+      target?.addEventListener(type, handler);
+    }
+  }
 
-      if (!query) {
-        this.restoreInitialDataSources();
-        this.showDropdown();
-        return;
-      }
+  _buildEventBindings() {
+    return [
+      { target: this.searchInput, type: 'input', methodName: '_handleSearchInput' },
+      { target: this.searchInput, type: 'focus', methodName: '_handleSearchFocus' },
+      { target: this.searchInput, type: 'keydown', methodName: '_handleKeydown' },
+      { target: this.toggleButton, type: 'click', methodName: '_handleToggleClick' },
+      { target: this.refreshButton, type: 'click', methodName: '_handleRefreshClick' },
+      { target: document, type: 'click', methodName: '_handleDocumentClick' },
+    ];
+  }
 
-      this.filterDataSourcesLocally(query);
+  _handleSearchInput(event) {
+    const query = event.target.value.trim();
+    this.currentSearchQuery = query;
+
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+
+    if (!query) {
+      this.restoreInitialDataSources();
       this.showDropdown();
+      return;
+    }
 
-      this.searchTimeout = setTimeout(() => {
-        this.performServerSearch(query);
-      }, 500);
-    };
+    this.filterDataSourcesLocally(query);
+    this.showDropdown();
 
-    this._handleSearchFocus = () => {
-      if (this.dataSources.length > 0) {
-        this.showDropdown();
-      }
-    };
+    this.searchTimeout = setTimeout(() => {
+      this.performServerSearch(query);
+    }, 500);
+  }
 
-    this._handleToggleClick = event => {
-      event.preventDefault();
-      this.toggleDropdown();
-    };
+  _handleSearchFocus() {
+    if (this.dataSources.length > 0) {
+      this.showDropdown();
+    }
+  }
 
-    this._handleRefreshClick = event => {
-      event.preventDefault();
-      this.refreshDataSources();
-    };
+  _handleToggleClick(event) {
+    event.preventDefault();
+    this.toggleDropdown();
+  }
 
-    this._handleDocumentClick = event => {
-      if (this.container && !this.container.contains(event.target)) {
-        this.hideDropdown();
-      }
-    };
+  _handleRefreshClick(event) {
+    event.preventDefault();
+    this.refreshDataSources();
+  }
 
-    this._handleKeydown = event => {
-      this.handleKeyNavigation(event);
-    };
+  _handleDocumentClick(event) {
+    if (this.container && !this.container.contains(event.target)) {
+      this.hideDropdown();
+    }
+  }
 
-    this.searchInput?.addEventListener('input', this._handleSearchInput);
-    this.searchInput?.addEventListener('focus', this._handleSearchFocus);
-    this.toggleButton?.addEventListener('click', this._handleToggleClick);
-    this.refreshButton?.addEventListener('click', this._handleRefreshClick);
-    document.addEventListener('click', this._handleDocumentClick);
-    this.searchInput?.addEventListener('keydown', this._handleKeydown);
+  _handleKeydown(event) {
+    this.handleKeyNavigation(event);
   }
 
   populateDataSources(dataSources, isSearchResult = false) {
@@ -753,19 +768,11 @@ export class SearchableDatabaseSelector {
       clearTimeout(this.searchTimeout);
       this.searchTimeout = null;
     }
-    if (this._handleSearchInput) {
-      this.searchInput?.removeEventListener('input', this._handleSearchInput);
-      this.searchInput?.removeEventListener('focus', this._handleSearchFocus);
-      this.searchInput?.removeEventListener('keydown', this._handleKeydown);
-      this.toggleButton?.removeEventListener('click', this._handleToggleClick);
-      this.refreshButton?.removeEventListener('click', this._handleRefreshClick);
-      document.removeEventListener('click', this._handleDocumentClick);
-      this._handleSearchInput = null;
-      this._handleSearchFocus = null;
-      this._handleToggleClick = null;
-      this._handleRefreshClick = null;
-      this._handleDocumentClick = null;
-      this._handleKeydown = null;
+    if (this._boundEventBindings) {
+      for (const { target, type, handler } of this._boundEventBindings) {
+        target?.removeEventListener(type, handler);
+      }
+      this._boundEventBindings = null;
     }
 
     // 防禦性清空：清除陣列與物件引用，防止銷毀後誤用

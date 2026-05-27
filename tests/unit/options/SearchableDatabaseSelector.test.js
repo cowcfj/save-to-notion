@@ -672,5 +672,34 @@ describe('SearchableDatabaseSelector', () => {
       expect(documentRemoveSpy).toHaveBeenCalledWith('click', expect.any(Function));
       expect(selector.searchTimeout).toBeNull();
     });
+
+    it('setupEventListeners 應綁定 6 條 event 並支援後續 destroy 對稱解綁 (regression: C7 dispatch table)', () => {
+      // 重建 selector 以乾淨計數 add/remove
+      const localSelector = new SearchableDatabaseSelector({
+        showStatus: jest.fn(),
+        loadDataSources: jest.fn(),
+        getApiKey: jest.fn().mockResolvedValue('k'),
+      });
+
+      expect(Array.isArray(localSelector._boundEventBindings)).toBe(true);
+      expect(localSelector._boundEventBindings).toHaveLength(6);
+
+      // 解綁時必須使用同一份 bound reference 才能成功移除
+      const removeSpies = localSelector._boundEventBindings.map(({ target, type, handler }) => ({
+        target,
+        type,
+        handler,
+        spy: target ? jest.spyOn(target, 'removeEventListener') : null,
+      }));
+
+      localSelector.destroy();
+
+      for (const { spy, type, handler } of removeSpies) {
+        if (spy) {
+          expect(spy).toHaveBeenCalledWith(type, handler);
+        }
+      }
+      expect(localSelector._boundEventBindings).toBeNull();
+    });
   });
 });
