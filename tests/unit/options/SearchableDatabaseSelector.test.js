@@ -154,6 +154,56 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
+  describe('extractDataSourceTitle', () => {
+    it('應該自 page properties 中提取標題 (extractTitleFromPageProperties)', () => {
+      const ds = {
+        object: 'page',
+        properties: {
+          title: {
+            title: [{ plain_text: 'Page Prop Title' }],
+          },
+        },
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('Page Prop Title');
+    });
+
+    it('應該自 top-level title 中提取標題 (extractTitleFromTopLevelTitle)', () => {
+      const ds = {
+        object: 'database',
+        title: [{ plain_text: 'Top Level Title' }],
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('Top Level Title');
+    });
+
+    it('應該自 properties 內類型為 title 的任意屬性中提取標題 (extractTitleFromAnyTitleProp)', () => {
+      const ds = {
+        object: 'database',
+        properties: {
+          CustomName: {
+            type: 'title',
+            title: [{ plain_text: 'Any Title Prop' }],
+          },
+        },
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('Any Title Prop');
+    });
+
+    it('當無任何標題且為 page 時應回傳預設的無標題頁面標題', () => {
+      const ds = {
+        object: 'page',
+        properties: {},
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('未命名頁面');
+    });
+
+    it('當無任何標題且為 database 時應回傳預設的無標題資料來源標題', () => {
+      const ds = {
+        object: 'database',
+      };
+      expect(SearchableDatabaseSelector.extractDataSourceTitle(ds)).toBe('未命名資料來源');
+    });
+  });
+
   describe('filterDataSourcesLocally', () => {
     const mockDatabases = [
       { id: '1', object: 'database', title: [{ plain_text: 'Apple' }] },

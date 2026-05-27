@@ -21,6 +21,33 @@ const { DATA_SOURCE } = UI_MESSAGES;
  */
 const KEYBOARD_FOCUS_CLASS = 'keyboard-focus';
 
+const extractTitleFromPageProperties = ds => {
+  if (ds.object === 'page' && ds.properties?.title?.title) {
+    const titleContent = ds.properties.title.title;
+    if (titleContent.length > 0) {
+      return titleContent[0].plain_text || titleContent[0].text?.content;
+    }
+  }
+  return null;
+};
+
+const extractTitleFromTopLevelTitle = ds => {
+  if (ds.title && ds.title.length > 0) {
+    return ds.title[0].plain_text || ds.title[0].text?.content;
+  }
+  return null;
+};
+
+const extractTitleFromAnyTitleProp = ds => {
+  if (ds.properties) {
+    const titleProp = Object.values(ds.properties).find(prop => prop.type === 'title');
+    if (titleProp?.title && titleProp.title.length > 0) {
+      return titleProp.title[0].plain_text || titleProp.title[0].text?.content;
+    }
+  }
+  return null;
+};
+
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
     const { showStatus, loadDataSources, getApiKey } = dependencies;
@@ -681,21 +708,14 @@ export class SearchableDatabaseSelector {
   }
 
   static extractDataSourceTitle(ds) {
-    let title = ds.object === 'page' ? DATA_SOURCE.UNTITLED_PAGE : DATA_SOURCE.UNTITLED_DATA_SOURCE;
-    if (ds.object === 'page' && ds.properties?.title?.title) {
-      const titleContent = ds.properties.title.title;
-      if (titleContent.length > 0) {
-        title = titleContent[0].plain_text || titleContent[0].text?.content || title;
-      }
-    } else if (ds.title && ds.title.length > 0) {
-      title = ds.title[0].plain_text || ds.title[0].text?.content || title;
-    } else if (ds.properties) {
-      const titleProp = Object.values(ds.properties).find(prop => prop.type === 'title');
-      if (titleProp?.title && titleProp.title.length > 0) {
-        title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || title;
-      }
-    }
-    return title;
+    const defaultTitle =
+      ds.object === 'page' ? DATA_SOURCE.UNTITLED_PAGE : DATA_SOURCE.UNTITLED_DATA_SOURCE;
+    const extractors = [
+      extractTitleFromPageProperties,
+      extractTitleFromTopLevelTitle,
+      extractTitleFromAnyTitleProp,
+    ];
+    return extractors.map(extract => extract(ds)).find(Boolean) ?? defaultTitle;
   }
 
   destroy() {
