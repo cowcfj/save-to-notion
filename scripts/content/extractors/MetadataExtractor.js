@@ -458,6 +458,4 @@ const MetadataExtractor = {
   },
 };
 
-const metadataExtractor = MetadataExtractor;
-
-export { MetadataExtractor, metadataExtractor };
+export { MetadataExtractor };

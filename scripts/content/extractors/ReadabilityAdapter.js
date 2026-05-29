@@ -950,23 +950,7 @@ function parseArticleWithReadability(doc) {
   });
   return parsedArticle;
 }
-
-// 導出函數供其他模組使用
-const readabilityAdapter = {
-  safeQueryElements,
-  isContentGood,
-  expandCollapsibleElements,
-  cachedQuery,
-  findContentCmsFallback,
-  extractLargestListFallback,
-  parseArticleWithReadability,
-  detectCMS,
-  performSmartCleaning,
-  prepareLazyImages,
-};
-
 export {
-  readabilityAdapter,
   safeQueryElements,
   isContentGood,
   expandCollapsibleElements,

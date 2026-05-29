@@ -25,7 +25,4 @@ const ConverterFactory = {
   },
 };
 
-// 改為直接使用對象
-const converterFactory = ConverterFactory;
-
-export { ConverterFactory, converterFactory };
+export { ConverterFactory };
