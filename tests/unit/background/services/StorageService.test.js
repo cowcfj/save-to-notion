@@ -1426,6 +1426,42 @@ describe('StorageService', () => {
       const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
       expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
     });
+
+    it('legacy cleanup MUST 清理 value 為 null 的歷史毀損 key（key 存在性而非 truthiness）', async () => {
+      const originalUrl = 'https://example.com/article?ref=xyz';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+
+      // 模擬歷史毀損:page_<original> 在 storage 中存在,但 value 是 null
+      // (例如舊版 bug 寫過 null、或半途失敗的 set)
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [originalPageKey]: null,
+      });
+
+      const pageData = { title: 'Article', pageId: 'page-new' };
+      const highlights = [
+        {
+          id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          text: 'fresh highlight',
+          color: 'yellow',
+          timestamp: 1_700_000_000_000,
+          domPath: 'body > p',
+        },
+      ];
+
+      await service.savePageDataAndHighlights(originalUrl, pageData, highlights);
+
+      // 寫入應落在 canonical stable page key
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.any(Object),
+      });
+      // 即使 value 為 null,毀損 key 仍 MUST 被 remove(語義是「key 存在於 storage」)
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey]));
+    });
   });
 
   describe('setUrlAlias', () => {
@@ -1626,6 +1662,38 @@ describe('StorageService', () => {
         url: 'https://example.com/all-data-page2',
         highlights: ['legacy-h2'],
       });
+    });
+
+    it('遇到毀損的 page_* entry(value 非物件)應跳過並警告,不應拋錯也不應偽造空 highlights', async () => {
+      const allData = {
+        [`${PAGE_PREFIX}https://example.com/good`]: {
+          notion: { pageId: 'p1' },
+          highlights: ['h1'],
+          metadata: {},
+        },
+        [`${PAGE_PREFIX}https://example.com/corrupt-null`]: null,
+        [`${PAGE_PREFIX}https://example.com/corrupt-string`]: 'unexpected-string',
+      };
+
+      const result = await service.getAllHighlights(allData);
+
+      // 健康 entry 正常返回
+      expect(result['https://example.com/good']).toEqual({
+        url: 'https://example.com/good',
+        highlights: ['h1'],
+      });
+      // 毀損 entry MUST NOT 出現在結果中(避免偽造「URL 存在但 highlights 為空」的假狀態)
+      expect(result).not.toHaveProperty('https://example.com/corrupt-null');
+      expect(result).not.toHaveProperty('https://example.com/corrupt-string');
+      // 毀損 entry MUST 留下 warn 足跡以利後續排查
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('page_* entry has invalid shape'),
+        expect.objectContaining({ key: `${PAGE_PREFIX}https://example.com/corrupt-null` })
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('page_* entry has invalid shape'),
+        expect.objectContaining({ key: `${PAGE_PREFIX}https://example.com/corrupt-string` })
+      );
     });
   });
 

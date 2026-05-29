@@ -10,7 +10,7 @@ test.describe('Migration Execute', () => {
   const TEST_URL = `https://www.example.com/migration-run-${Date.now()}`;
 
   test.beforeEach(async ({ context, extensionId }) => {
-    popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
+    popupUrl = `chrome-extension://${extensionId}/pages/popup/popup.html`;
 
     await context.addInitScript(() => {
       globalThis.HighlighterV2 = {
@@ -32,7 +32,7 @@ test.describe('Migration Execute', () => {
       });
     });
 
-    const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
+    const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
     const optionsPage = await context.newPage();
     await optionsPage.goto(optionsUrl);
     await optionsPage.evaluate(async () => {

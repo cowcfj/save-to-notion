@@ -10,7 +10,7 @@ test.describe('Highlighting Feature', () => {
 
     // 0. 初始化 Extension Storage State & 獲取 Target Tab ID
     const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
+    await optionsPage.goto(`chrome-extension://${extensionId}/pages/options/options.html`);
 
     const targetTabId = await optionsPage.evaluate(async () => {
       const mockUrl = 'https://example.com/';
