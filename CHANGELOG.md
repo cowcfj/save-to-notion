@@ -1,5 +1,28 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.75.3](https://github.com/cowcfj/save-to-notion/compare/v2.75.2...v2.75.3) (2026-05-29)
+
+
+### 🐛 Bug 修復
+
+* Enhance highlight position logic to handle context disambiguation ([#605](https://github.com/cowcfj/save-to-notion/issues/605)) ([bae4306](https://github.com/cowcfj/save-to-notion/commit/bae43068192a04d084b2b95ea49d7b02d399c1cf))
+
+
+### ♻️ 代碼重構
+
+* clean up E2E test scenarios ([#606](https://github.com/cowcfj/save-to-notion/issues/606)) ([5ef617c](https://github.com/cowcfj/save-to-notion/commit/5ef617c467ccbb1e897e962fa0a9d3a52fccf34b))
+* migrate rollup configurations to shared factories ([#607](https://github.com/cowcfj/save-to-notion/issues/607)) ([dea217f](https://github.com/cowcfj/save-to-notion/commit/dea217f4681d06f9a232b060b9c11ca57f8c5bba))
+* Remove named exports from imageUtils.js and add internal comments ([#603](https://github.com/cowcfj/save-to-notion/issues/603)) ([ef254cb](https://github.com/cowcfj/save-to-notion/commit/ef254cb232d31ca1a535ca856916d9251de22c7a))
+* 移除不必要的測試常數和環境輔助工具 ([260ac7b](https://github.com/cowcfj/save-to-notion/commit/260ac7bbba1f872e9fff6fd04a0325ccb07cdda3))
+* 降低 StorageService 圈複雜度並修復 E2E 測試路徑 ([#595](https://github.com/cowcfj/save-to-notion/issues/595)) ([959e361](https://github.com/cowcfj/save-to-notion/commit/959e36163407c190946d5ae7f1737f7235a351fb))
+
+
+### 🧹 其他變更
+
+* declare eslint as direct devDependency ([#602](https://github.com/cowcfj/save-to-notion/issues/602)) ([58c8833](https://github.com/cowcfj/save-to-notion/commit/58c88331f557c539f6a805ed7e665ad15f9f3129))
+* **knip:** introduce knip static analysis tool and clean unused exports ([#598](https://github.com/cowcfj/save-to-notion/issues/598)) ([ac30b34](https://github.com/cowcfj/save-to-notion/commit/ac30b3451fa99b6deb2ccb99c42a7e384aa8ede8))
+* update devDependencies and remove unused default exports ([#597](https://github.com/cowcfj/save-to-notion/issues/597)) ([c142418](https://github.com/cowcfj/save-to-notion/commit/c14241802b5fb32d0349adb5fb6fa2e328b3f246))
+
 ## [2.75.2](https://github.com/cowcfj/save-to-notion/compare/v2.75.1...v2.75.2) (2026-05-27)
 
 
