@@ -19,6 +19,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:report": "eslint . --format json --output-file docs/reports/eslint_report.json",
+    "lint:knip": "knip",
     "format": "prettier --write \"**/*.{js,json,md,html}\"",
     "format:check": "prettier --check \"**/*.{js,json,md,html}\"",
     "postinstall": "node scripts/postinstall.js && npm run build",
