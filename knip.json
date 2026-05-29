@@ -45,9 +45,9 @@
     "examples/**",
     "scripts/config/env/build.example.js",
     "scripts/config/extension/index.js",
-    "tests/e2e/**",
     "tests/helpers/test-constants.js",
-    "tests/helpers/test-environment-helper.js"
+    "tests/helpers/test-environment-helper.js",
+    "tests/e2e/{automated-test-suite,mcp-test-suite,test-open-notion-button,test-update-flow,test-update-notification,verify-smart-icon-selection}.js"
   ],
   "ignoreIssues": {
     "scripts/background/utils/highlightStyleMerger.js": ["exports"],
