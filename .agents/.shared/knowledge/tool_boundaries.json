@@ -46,9 +46,9 @@
         "reason": "Safer syntax when heavy escaping is needed"
       },
       "ast_search_rewrite": {
-        "preferred": "ast-grep (sg)",
-        "fallback": "rg + manual review",
-        "reason": "Structural refactoring prefers AST"
+        "preferred": "rg + manual review",
+        "fallback": "npx ast-grep (on-demand)",
+        "reason": "Structural codemod 在本 repo 三個月命中 1 次（PR #557 visibility toggle 遷移），不值得常駐安裝；真遇到跨 10+ 檔的 AST pattern 替換時用 npx 拉一次即可"
       },
       "http_json_request": {
         "preferred": "xh or httpie",
