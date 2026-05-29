@@ -60,16 +60,5 @@
     "scripts/utils/uiUtils.js": ["exports"],
     "tests/helpers/status-fixtures.js": ["exports"]
   },
-  "ignoreBinaries": ["eslint"],
-  "ignoreDependencies": [
-    "baseline-browser-mapping",
-    "eslint-plugin-compat",
-    "eslint-plugin-jest",
-    "eslint-plugin-jsdoc",
-    "eslint-plugin-promise",
-    "eslint-plugin-regexp",
-    "eslint-plugin-security",
-    "eslint-plugin-sonarjs",
-    "eslint-plugin-unicorn"
-  ]
+  "ignoreDependencies": ["baseline-browser-mapping"]
 }
