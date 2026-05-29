@@ -86,13 +86,26 @@ test('perf: highlight render time', async ({ context, extensionId }) => {
     serviceWorker = await context.waitForEvent('serviceworker');
   }
 
-  // Inject the content bundle and drive `showToolbar` (with retry) so the
-  // HighlighterV2 manager is fully wired before we start measuring.
+  // Ensure the content bundle exists and drive `showToolbar` (with retry) so
+  // the HighlighterV2 manager is fully wired before we start measuring.
   const injection = await serviceWorker.evaluate(async tabId => {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['dist/content.bundle.js'],
-    });
+    let bundleReady = false;
+    try {
+      const ping = await chrome.tabs.sendMessage(tabId, { action: 'PING' });
+      bundleReady = ping?.status === 'bundle_ready';
+    } catch (error) {
+      const msg = error?.message ?? '';
+      if (!msg.includes('Could not establish connection')) {
+        throw error;
+      }
+    }
+    if (!bundleReady) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['dist/content.bundle.js'],
+      });
+    }
+
     let result = null;
     for (let attempt = 0; attempt < 15; attempt++) {
       if (attempt > 0) {
