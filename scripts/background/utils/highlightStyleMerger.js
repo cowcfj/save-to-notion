@@ -160,6 +160,73 @@ function findCandidatePositions(fullText, text) {
   return candidates;
 }
 
+/**
+ * 從 highlight.rangeInfo 抽取 prefix / suffix 與 hasContext 旗標
+ *
+ * 把零散的 optional chaining 與 short-circuit 集中,讓主函數無需自行處理
+ * rangeInfo 缺失時的 fallback。
+ *
+ * @param {object|undefined} rangeInfo - 標註的 rangeInfo 子物件
+ * @returns {{ prefix: string, suffix: string, hasContext: boolean }}
+ */
+function extractContextFromRangeInfo(rangeInfo) {
+  const prefix = rangeInfo?.prefix || '';
+  const suffix = rangeInfo?.suffix || '';
+  return { prefix, suffix, hasContext: Boolean(prefix || suffix) };
+}
+
+/**
+ * 從唯一候選位置決定最終回傳值
+ *
+ * 無上下文資訊時直接接受;有上下文資訊時要求 prefix/suffix 至少部分重合,
+ * 否則視為跨段落殘留誤命中而拒絕。
+ *
+ * @param {string} fullText - 拼接後的純文本
+ * @param {number} idx - 唯一候選的位置索引
+ * @param {string} text - 標註文字
+ * @param {string} prefix - 消歧義前綴
+ * @param {string} suffix - 消歧義後綴
+ * @param {boolean} hasContext - 是否提供任一上下文
+ * @returns {number} 接受時為 idx,拒絕時為 -1
+ */
+function resolveSingleCandidate(fullText, idx, text, prefix, suffix, hasContext) {
+  if (!hasContext) {
+    return idx;
+  }
+  return scoreCandidate(fullText, idx, text, prefix, suffix) > 0 ? idx : -1;
+}
+
+/**
+ * 從多個候選位置中以 prefix/suffix 計分挑出最佳匹配
+ *
+ * 相同分數回退到第一個候選;有上下文資訊但全部候選評分為 0 時拒絕匹配。
+ *
+ * @param {string} fullText - 拼接後的純文本
+ * @param {Array<number>} candidates - 候選位置索引陣列(MUST length > 0)
+ * @param {string} text - 標註文字
+ * @param {string} prefix - 消歧義前綴
+ * @param {string} suffix - 消歧義後綴
+ * @param {boolean} hasContext - 是否提供任一上下文
+ * @returns {number} 最佳候選位置;若有上下文但無任何候選分數 > 0 則回 -1
+ */
+function resolveBestScoringCandidate(fullText, candidates, text, prefix, suffix, hasContext) {
+  let bestIdx = candidates[0];
+  let bestScore = -1;
+
+  for (const idx of candidates) {
+    const score = scoreCandidate(fullText, idx, text, prefix, suffix);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+
+  if (hasContext && bestScore === 0) {
+    return -1;
+  }
+  return bestIdx;
+}
+
 // ============================================================================
 // 核心算法
 // ============================================================================
@@ -188,9 +255,7 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
     return -1;
   }
 
-  const prefix = rangeInfo?.prefix || '';
-  const suffix = rangeInfo?.suffix || '';
-  const hasContext = Boolean(prefix || suffix);
+  const { prefix, suffix, hasContext } = extractContextFromRangeInfo(rangeInfo);
 
   // 2. 找出所有匹配位置
   const candidates = findCandidatePositions(fullText, text);
@@ -199,30 +264,11 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
     return -1;
   }
   if (candidates.length === 1) {
-    if (!hasContext) {
-      return candidates[0]; // 唯一匹配且無上下文消歧義資訊，直接接受
-    }
-    // 雖為唯一匹配但有上下文消歧義資訊，評分必須大於 0（有部分 prefix/suffix 重合）才接受
-    return scoreCandidate(fullText, candidates[0], text, prefix, suffix) > 0 ? candidates[0] : -1;
+    return resolveSingleCandidate(fullText, candidates[0], text, prefix, suffix, hasContext);
   }
 
   // 3. prefix/suffix 計分消歧義：取最高分的候選
-  let bestIdx = candidates[0]; // 回退：第一個
-  let bestScore = -1;
-
-  for (const idx of candidates) {
-    const score = scoreCandidate(fullText, idx, text, prefix, suffix);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIdx = idx;
-    }
-  }
-
-  if (hasContext && bestScore === 0) {
-    return -1;
-  }
-
-  return bestIdx;
+  return resolveBestScoringCandidate(fullText, candidates, text, prefix, suffix, hasContext);
 }
 
 /**
