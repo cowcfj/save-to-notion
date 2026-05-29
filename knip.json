@@ -50,7 +50,6 @@
     "tests/helpers/test-environment-helper.js"
   ],
   "ignoreIssues": {
-    "scripts/utils/imageUtils.js": ["exports"],
     "scripts/background/utils/highlightStyleMerger.js": ["exports"],
     "scripts/background.js": ["exports"],
     "scripts/highlighter/index.js": ["exports"],
