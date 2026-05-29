@@ -31,7 +31,11 @@ export const HANDLER_CONSTANTS = {
 
 export const TAB_SERVICE = {
   LOADING_TIMEOUT_MS: 10_000,
-  STATUS_UPDATE_DELAY_MS: 1000,
+  // 100ms buffer between tabs.onUpdated 'complete' and updateTabStatus.
+  // _waitForTabCompilation already gates on tab.status === 'complete'; this
+  // buffer only smooths microscopic IPC ordering. Was 1000ms historically
+  // (undocumented); rail save/sync availability is delayed by this value.
+  STATUS_UPDATE_DELAY_MS: 100,
   PRELOADER_PING_TIMEOUT_MS: 500,
 };
 
