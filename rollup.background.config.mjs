@@ -1,11 +1,11 @@
 import resolve from '@rollup/plugin-node-resolve';
-import terser from '@rollup/plugin-terser';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
+import { isDev } from './rollup/shared/env.mjs';
+import { createTerserPlugin } from './rollup/shared/terser.mjs';
+import { createOnWarn } from './rollup/shared/onwarn.mjs';
 import { stripTestConfig } from './rollup/plugins/stripTestConfig.mjs';
-
-const isDev = process.env.NODE_ENV !== 'production';
 
 export default {
   input: 'scripts/background.js',
@@ -24,19 +24,10 @@ export default {
     commonjs(),
     json(),
     !isDev &&
-      terser({
-        compress: {
-          drop_debugger: true,
-          pure_funcs: ['console.log', 'console.debug', 'console.info'],
-        },
-        format: {
-          comments: false,
-        },
+      createTerserPlugin({
+        pureFuncs: ['console.log', 'console.debug', 'console.info'],
       }),
     createVisualizerPlugin('background-bundle', 'Background Bundle Analysis'),
   ].filter(Boolean),
-  onwarn(warning, warn) {
-    if (warning.code === 'THIS_IS_UNDEFINED') return;
-    warn(warning);
-  },
+  onwarn: createOnWarn(),
 };
