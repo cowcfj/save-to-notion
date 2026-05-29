@@ -277,11 +277,11 @@ describe('core/HighlightStorage', () => {
         text: 't',
         color: 'c',
         timestamp: 123,
-        rangeInfo: undefined,
       });
       // Verify 'other' and 'range' property is not included
       expect(result[0]).not.toHaveProperty('other');
       expect(result[0]).not.toHaveProperty('range');
+      expect(result[0]).not.toHaveProperty('rangeInfo');
     });
   });
 

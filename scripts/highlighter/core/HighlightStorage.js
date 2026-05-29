@@ -131,7 +131,7 @@ export class HighlightStorage {
       text: highlight.text,
       color: highlight.color,
       timestamp: highlight.timestamp,
-      rangeInfo: highlight.rangeInfo,
+      ...(highlight.rangeInfo === undefined ? {} : { rangeInfo: highlight.rangeInfo }),
     }));
   }
 

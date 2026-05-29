@@ -146,6 +146,20 @@ function scoreCandidate(fullText, idx, text, prefix, suffix) {
   return score;
 }
 
+function findCandidatePositions(fullText, text) {
+  const candidates = [];
+  let searchStart = 0;
+  while (searchStart < fullText.length) {
+    const idx = fullText.indexOf(text, searchStart);
+    if (idx === -1) {
+      break;
+    }
+    candidates.push(idx);
+    searchStart = idx + 1;
+  }
+  return candidates;
+}
+
 // ============================================================================
 // 核心算法
 // ============================================================================
@@ -176,24 +190,15 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
 
   const prefix = rangeInfo?.prefix || '';
   const suffix = rangeInfo?.suffix || '';
+  const hasContext = Boolean(prefix || suffix);
 
   // 2. 找出所有匹配位置
-  const candidates = [];
-  let searchStart = 0;
-  while (searchStart < fullText.length) {
-    const idx = fullText.indexOf(text, searchStart);
-    if (idx === -1) {
-      break;
-    }
-    candidates.push(idx);
-    searchStart = idx + 1;
-  }
+  const candidates = findCandidatePositions(fullText, text);
 
   if (candidates.length === 0) {
     return -1;
   }
   if (candidates.length === 1) {
-    const hasContext = Boolean(prefix || suffix);
     if (!hasContext) {
       return candidates[0]; // 唯一匹配且無上下文消歧義資訊，直接接受
     }
@@ -211,6 +216,10 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
       bestScore = score;
       bestIdx = idx;
     }
+  }
+
+  if (hasContext && bestScore === 0) {
+    return -1;
   }
 
   return bestIdx;

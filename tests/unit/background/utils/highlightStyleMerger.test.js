@@ -210,6 +210,17 @@ describe('findHighlightPosition', () => {
     expect(pos).toBe(13);
   });
 
+  test('有 context 時，多個候選若全部不匹配 prefix/suffix 應返回 -1', () => {
+    const richTextArray = [makeRT('Markdown appears here. Markdown appears again.')];
+    const hl = {
+      text: 'Markdown',
+      rangeInfo: { prefix: 'a reason ', suffix: ' is being' },
+    };
+    const fullText = buildFullText(richTextArray);
+
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(-1);
+  });
+
   test('多個匹配且無 prefix/suffix：回退到第一個匹配', () => {
     const richTextArray = [makeRT('概念是概念')];
     const hl = { text: '概念', rangeInfo: {} };
