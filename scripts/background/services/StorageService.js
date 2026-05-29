@@ -365,12 +365,12 @@ class StorageService {
    * （cc 來源屬於 [[refactor-cc-source-taxonomy]] 的「N 次重複 rule + optional chaining」混合）。
    *
    * @param {object} data - 傳入的更新數據
-   * @param {object} [currentNotion=null] - 既有 notion 數據
    * @param {number} now - 當前時間戳
+   * @param {object} [currentNotion=null] - 既有 notion 數據
    * @returns {object} notion 欄位對象
    * @private
    */
-  _buildNotionField(data, currentNotion = null, now) {
+  _buildNotionField(data, now, currentNotion = null) {
     const fallback = currentNotion ?? {};
     const destinationProfileId = Object.hasOwn(data, 'destinationProfileId')
       ? (data.destinationProfileId ?? null)
@@ -1080,7 +1080,7 @@ class StorageService {
         );
 
         // 將傳入的 data 轉換為 notion 子欄位格式
-        const notionData = this._buildNotionField(data, current.notion, Date.now());
+        const notionData = this._buildNotionField(data, Date.now(), current.notion);
 
         const newData = {
           ...current,
