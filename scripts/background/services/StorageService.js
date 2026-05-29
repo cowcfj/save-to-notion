@@ -678,15 +678,18 @@ class StorageService {
   /**
    * 構造 highlights 更新/遷移後的 page 物件
    *
+   * `metadata.lastUpdated` 由 helper 內部以 `Date.now()` 蓋章，避免 caller 多傳一個
+   * 衍生參數而觸發 CodeScene `Number of Arguments` 上限。
+   *
    * @param {object|null} canonicalCurrent - 既有 canonical page 資料
    * @param {{key: string, value: any}|null} migrationSource - 遷移來源
    * @param {Array<object>} highlights - 更新的 highlights 陣列
    * @param {string} normalizedUrl - 正規化 URL
-   * @param {number} now - 當前時間戳
    * @returns {object} 新的 page 資料物件
    * @private
    */
-  _buildHighlightsUpdate(canonicalCurrent, migrationSource, highlights, normalizedUrl, now) {
+  _buildHighlightsUpdate(canonicalCurrent, migrationSource, highlights, normalizedUrl) {
+    const now = Date.now();
     if (canonicalCurrent) {
       return {
         ...canonicalCurrent,
@@ -1641,8 +1644,7 @@ class StorageService {
           canonicalCurrent,
           migrationSource,
           highlights,
-          normalizedUrl,
-          Date.now()
+          normalizedUrl
         );
 
         await this.storage.local.set({ [targetKey]: newData });
