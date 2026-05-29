@@ -58,8 +58,10 @@
   },
   "homepage": "https://github.com/cowcfj/save-to-notion",
   "devDependencies": {
+    "@asamuzakjp/css-color": "^5.0.1",
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.2",
+    "@jest/globals": "^30.2.0",
     "@playwright/test": "^1.58.2",
     "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-json": "^6.1.0",
