@@ -1,11 +1,11 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
-import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
-import { isDev } from './rollup/shared/env.mjs';
-import { createTerserPlugin } from './rollup/shared/terser.mjs';
-import { createOnWarn } from './rollup/shared/onwarn.mjs';
-import { stripTestConfig } from './rollup/plugins/stripTestConfig.mjs';
+import { createVisualizerPlugin } from './visualizer.config.mjs';
+import { isDev } from './shared/env.mjs';
+import { createTerserPlugin } from './shared/terser.mjs';
+import { createOnWarn } from './shared/onwarn.mjs';
+import { stripTestConfig } from './plugins/stripTestConfig.mjs';
 
 export default {
   input: 'scripts/background.js',

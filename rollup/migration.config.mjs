@@ -5,10 +5,10 @@
  */
 
 import resolve from '@rollup/plugin-node-resolve';
-import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
-import { isDev } from './rollup/shared/env.mjs';
-import { createTerserPlugin } from './rollup/shared/terser.mjs';
-import { createOnWarn } from './rollup/shared/onwarn.mjs';
+import { createVisualizerPlugin } from './visualizer.config.mjs';
+import { isDev } from './shared/env.mjs';
+import { createTerserPlugin } from './shared/terser.mjs';
+import { createOnWarn } from './shared/onwarn.mjs';
 
 export default {
   input: 'scripts/legacy/MigrationExecutor.js',

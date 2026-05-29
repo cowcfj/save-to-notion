@@ -1,10 +1,10 @@
-import contentConfig from './rollup.content.config.mjs';
-import backgroundConfig from './rollup.background.config.mjs';
-import migrationConfig from './rollup.migration.config.mjs';
-import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
-import { isDev } from './rollup/shared/env.mjs';
-import { createTerserPlugin } from './rollup/shared/terser.mjs';
-import { createOnWarn } from './rollup/shared/onwarn.mjs';
+import contentConfig from './content.config.mjs';
+import backgroundConfig from './background.config.mjs';
+import migrationConfig from './migration.config.mjs';
+import { createVisualizerPlugin } from './visualizer.config.mjs';
+import { isDev } from './shared/env.mjs';
+import { createTerserPlugin } from './shared/terser.mjs';
+import { createOnWarn } from './shared/onwarn.mjs';
 
 const preloaderConfig = {
   input: 'scripts/performance/preloader.js',
