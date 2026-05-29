@@ -631,6 +631,9 @@ function _manualParseSrcset(srcsetEntries) {
  * 從 srcset 字符串中提取最佳圖片 URL
  * 優先使用 SrcsetParser 進行精確解析，回退到簡單實現
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {string} srcset - srcset 屬性值
  * @returns {string|null} 最佳圖片 URL 或 null
  */
@@ -661,6 +664,9 @@ function extractBestUrlFromSrcset(srcset) {
 /**
  * 從 srcset 屬性提取 URL
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -680,6 +686,9 @@ function extractFromSrcset(imgNode) {
 /**
  * 從圖片屬性提取 URL
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -696,6 +705,9 @@ function extractFromAttributes(imgNode) {
 /**
  * 從 picture 元素提取 URL
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -721,6 +733,9 @@ function extractFromPicture(imgNode) {
 /**
  * 從背景圖片 CSS 屬性提取 URL
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -798,6 +813,9 @@ function _extractWithRegex(html) {
  * 從 noscript 標籤提取 URL
  * 使用正則表達式掃描 src 屬性（避免不必要的 DOM 解析以縮小攻擊面）
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -921,6 +939,9 @@ function extractImageSrc(imgNode) {
 /**
  * 生成圖片緩存鍵
  *
+ * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
+ *
+ * @internal
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string} 緩存鍵
  */
@@ -985,6 +1006,10 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
 // 導致 background bundle 大幅膨脹超過 size gate。
 // 把 background 端唯一需要的 isTemporaryImageUrl 拆到獨立模組，
 // 即可讓原本被 tree-shake 的函數繼續被 tree-shake。
+//
+// 註：7 個 helper 函數（extractBestUrlFromSrcset, generateImageCacheKey, extractFromSrcset,
+// extractFromAttributes, extractFromPicture, extractFromBackgroundImage, extractFromNoscript）
+// 僅保留於 global/runtime ImageUtils 物件中作為相容層，不再作為 module named exports 導出。
 
 const ImageUtils = {
   cleanImageUrl,
@@ -1013,12 +1038,5 @@ export {
   isValidImageUrl,
   isValidCleanedImageUrl,
   extractImageSrc,
-  extractBestUrlFromSrcset,
-  generateImageCacheKey,
-  extractFromSrcset,
-  extractFromAttributes,
-  extractFromPicture,
-  extractFromBackgroundImage,
-  extractFromNoscript,
   mergeUniqueImages,
 };
