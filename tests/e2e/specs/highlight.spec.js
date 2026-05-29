@@ -107,8 +107,8 @@ test.describe('Highlighting Feature', () => {
       throw new Error(`Injection failed: ${injectionResult.error}`);
     }
 
-    // 4. 驗證工具列存在
-    await page.waitForSelector('#notion-highlighter-v2', {
+    // 4. 驗證 Floating Rail 存在
+    await page.waitForSelector('[id^="notion-floating-rail-host-"][data-rail-owner="true"]', {
       timeout: 5000,
       state: 'attached',
     });
@@ -117,15 +117,21 @@ test.describe('Highlighting Feature', () => {
     //    刻意不真的呼叫 toast.show()——那會在 example.com 留下 DOM 影響後續斷言；
     //    僅做鴨子型別與 instance identity 檢查，補 unit test 涵蓋不到的整合風險：
     //    「toast 暴露給 windowAPI 卻沒注入 manager」這種 wire 斷裂只能在真實 Chrome 抓到。
-    const toastWireResult = await page.evaluate(() => {
-      const v2 = globalThis.HighlighterV2;
-      return {
-        hasV2: Boolean(v2),
-        hasToast: Boolean(v2?.toast),
-        toastShowIsFn: typeof v2?.toast?.show === 'function',
-        managerToastIsSameInstance: v2?.manager?.toast === v2?.toast,
-      };
-    });
+    const toastWireResult = await serviceWorker.evaluate(async tabId => {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          const v2 = globalThis.HighlighterV2;
+          return {
+            hasV2: Boolean(v2),
+            hasToast: Boolean(v2?.toast),
+            toastShowIsFn: typeof v2?.toast?.show === 'function',
+            managerToastIsSameInstance: v2?.manager?.toast === v2?.toast,
+          };
+        },
+      });
+      return result.result;
+    }, targetTabId);
 
     expect(toastWireResult.hasV2).toBe(true);
     expect(toastWireResult.hasToast).toBe(true);

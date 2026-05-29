@@ -42,7 +42,7 @@ test('changing settings updates rail CSS variables on host', async ({
     });
   }, targetTabId);
 
-  const railHost = page.locator('#notion-floating-rail-host');
+  const railHost = page.locator('[id^="notion-floating-rail-host-"][data-rail-owner="true"]');
   await expect(railHost).toBeVisible({ timeout: 15_000 });
 
   const readVar = async name =>
