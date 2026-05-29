@@ -341,7 +341,7 @@ class StorageService {
         if (k === targetKey) {
           return false;
         }
-        if (existing[k]) {
+        if (Object.hasOwn(existing, k)) {
           return true;
         }
         return forceIncludePrefixes.some(prefix => k.startsWith(prefix));

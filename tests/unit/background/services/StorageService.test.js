@@ -1426,6 +1426,42 @@ describe('StorageService', () => {
       const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
       expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey, originalLegacyKey]));
     });
+
+    it('legacy cleanup MUST 清理 value 為 null 的歷史毀損 key（key 存在性而非 truthiness）', async () => {
+      const originalUrl = 'https://example.com/article?ref=xyz';
+      const stableUrl = 'https://example.com/article';
+      const aliasNormKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+      const originalPageKey = `${PAGE_PREFIX}${originalUrl}`;
+
+      // 模擬歷史毀損:page_<original> 在 storage 中存在,但 value 是 null
+      // (例如舊版 bug 寫過 null、或半途失敗的 set)
+      mockStorage.local.get.mockResolvedValue({
+        [aliasNormKey]: stableUrl,
+        [originalPageKey]: null,
+      });
+
+      const pageData = { title: 'Article', pageId: 'page-new' };
+      const highlights = [
+        {
+          id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          text: 'fresh highlight',
+          color: 'yellow',
+          timestamp: 1_700_000_000_000,
+          domPath: 'body > p',
+        },
+      ];
+
+      await service.savePageDataAndHighlights(originalUrl, pageData, highlights);
+
+      // 寫入應落在 canonical stable page key
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [stablePageKey]: expect.any(Object),
+      });
+      // 即使 value 為 null,毀損 key 仍 MUST 被 remove(語義是「key 存在於 storage」)
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toEqual(expect.arrayContaining([originalPageKey]));
+    });
   });
 
   describe('setUrlAlias', () => {
