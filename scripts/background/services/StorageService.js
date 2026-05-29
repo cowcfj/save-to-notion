@@ -361,6 +361,9 @@ class StorageService {
   /**
    * 構造 notion 結構化欄位
    *
+   * 內部先把 `currentNotion` 預設化為空物件，避免每個欄位重複 `?.` 短路
+   * （cc 來源屬於 [[refactor-cc-source-taxonomy]] 的「N 次重複 rule + optional chaining」混合）。
+   *
    * @param {object} data - 傳入的更新數據
    * @param {object} [currentNotion=null] - 既有 notion 數據
    * @param {number} now - 當前時間戳
@@ -368,15 +371,17 @@ class StorageService {
    * @private
    */
   _buildNotionField(data, currentNotion = null, now) {
+    const fallback = currentNotion ?? {};
+    const destinationProfileId = Object.hasOwn(data, 'destinationProfileId')
+      ? (data.destinationProfileId ?? null)
+      : (fallback.destinationProfileId ?? null);
     return {
-      pageId: pickFirstNonEmptyString(data.notionPageId, data.pageId, currentNotion?.pageId),
-      url: pickFirstNonEmptyString(data.notionUrl, data.url, currentNotion?.url),
-      title: data.title || currentNotion?.title || null,
-      savedAt: pickFirstNonNullish(data.savedAt, currentNotion?.savedAt, now),
-      lastVerifiedAt: pickFirstNonNullish(data.lastVerifiedAt, currentNotion?.lastVerifiedAt, null),
-      destinationProfileId: Object.hasOwn(data, 'destinationProfileId')
-        ? (data.destinationProfileId ?? null)
-        : (currentNotion?.destinationProfileId ?? null),
+      pageId: pickFirstNonEmptyString(data.notionPageId, data.pageId, fallback.pageId),
+      url: pickFirstNonEmptyString(data.notionUrl, data.url, fallback.url),
+      title: data.title || fallback.title || null,
+      savedAt: pickFirstNonNullish(data.savedAt, fallback.savedAt, now),
+      lastVerifiedAt: pickFirstNonNullish(data.lastVerifiedAt, fallback.lastVerifiedAt, null),
+      destinationProfileId,
     };
   }
 
