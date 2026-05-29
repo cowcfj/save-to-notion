@@ -159,5 +159,3 @@ export class Toast {
     }
   }
 }
-
-export default Toast;

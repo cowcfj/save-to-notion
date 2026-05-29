@@ -490,5 +490,3 @@ if (globalThis.window !== undefined) {
   globalThis.MigrationExecutor = MigrationExecutor;
   globalThis.MigrationPhase = MigrationPhase;
 }
-
-export default MigrationExecutor;
