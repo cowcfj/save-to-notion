@@ -34,6 +34,20 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
+            testIgnore: ['**/perf/**'],
+            use: { ...devices['Desktop Chrome'] },
+        },
+        {
+            // Local-only timing baseline project.
+            // Excluded from the default e2e run and from CI; invoke explicitly
+            // with `npm run perf:e2e` (see package.json). Sequential + zero
+            // retries to avoid contaminating timing samples.
+            name: 'perf',
+            testMatch: ['**/perf/**/*.spec.js'],
+            timeout: 5 * 60_000,
+            retries: 0,
+            fullyParallel: false,
+            workers: 1,
             use: { ...devices['Desktop Chrome'] },
         },
     ],
