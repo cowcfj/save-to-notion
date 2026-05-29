@@ -135,25 +135,28 @@ describe('scoreCandidate', () => {
 
   test('prefix 完全匹配得 2 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '探討一些', '');
+    const score = scoreCandidate(fullText, idx, '重要概念', { prefix: '探討一些', suffix: '' });
     expect(score).toBe(2);
   });
 
   test('suffix 完全匹配得 2 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '', '和應用場景');
+    const score = scoreCandidate(fullText, idx, '重要概念', { prefix: '', suffix: '和應用場景' });
     expect(score).toBe(2);
   });
 
   test('prefix + suffix 都完全匹配得 4 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '探討一些', '和應用場景');
+    const score = scoreCandidate(fullText, idx, '重要概念', {
+      prefix: '探討一些',
+      suffix: '和應用場景',
+    });
     expect(score).toBe(4);
   });
 
   test('無 prefix 且無 suffix 時得 0 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '', '');
+    const score = scoreCandidate(fullText, idx, '重要概念', { prefix: '', suffix: '' });
     expect(score).toBe(0);
   });
 });

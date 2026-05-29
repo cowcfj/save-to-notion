@@ -114,11 +114,11 @@ function resolveStyle(styleKey, highlight) {
  * @param {string} fullText - 拼接後的純文本
  * @param {number} idx - 候選位置索引
  * @param {string} text - 標註文字
- * @param {string} prefix - 消歧義前綴
- * @param {string} suffix - 消歧義後綴
+ * @param {{ prefix: string, suffix: string }} context - 消歧義上下文
  * @returns {number} 比對分數
  */
-function scoreCandidate(fullText, idx, text, prefix, suffix) {
+function scoreCandidate(fullText, idx, text, context) {
+  const { prefix, suffix } = context;
   let score = 0;
 
   if (prefix) {
@@ -184,16 +184,14 @@ function extractContextFromRangeInfo(rangeInfo) {
  * @param {string} fullText - 拼接後的純文本
  * @param {number} idx - 唯一候選的位置索引
  * @param {string} text - 標註文字
- * @param {string} prefix - 消歧義前綴
- * @param {string} suffix - 消歧義後綴
- * @param {boolean} hasContext - 是否提供任一上下文
+ * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
  * @returns {number} 接受時為 idx,拒絕時為 -1
  */
-function resolveSingleCandidate(fullText, idx, text, prefix, suffix, hasContext) {
-  if (!hasContext) {
+function resolveSingleCandidate(fullText, idx, text, context) {
+  if (!context.hasContext) {
     return idx;
   }
-  return scoreCandidate(fullText, idx, text, prefix, suffix) > 0 ? idx : -1;
+  return scoreCandidate(fullText, idx, text, context) > 0 ? idx : -1;
 }
 
 /**
@@ -204,24 +202,22 @@ function resolveSingleCandidate(fullText, idx, text, prefix, suffix, hasContext)
  * @param {string} fullText - 拼接後的純文本
  * @param {Array<number>} candidates - 候選位置索引陣列(MUST length > 0)
  * @param {string} text - 標註文字
- * @param {string} prefix - 消歧義前綴
- * @param {string} suffix - 消歧義後綴
- * @param {boolean} hasContext - 是否提供任一上下文
+ * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
  * @returns {number} 最佳候選位置;若有上下文但無任何候選分數 > 0 則回 -1
  */
-function resolveBestScoringCandidate(fullText, candidates, text, prefix, suffix, hasContext) {
+function resolveBestScoringCandidate(fullText, candidates, text, context) {
   let bestIdx = candidates[0];
   let bestScore = -1;
 
   for (const idx of candidates) {
-    const score = scoreCandidate(fullText, idx, text, prefix, suffix);
+    const score = scoreCandidate(fullText, idx, text, context);
     if (score > bestScore) {
       bestScore = score;
       bestIdx = idx;
     }
   }
 
-  if (hasContext && bestScore === 0) {
+  if (context.hasContext && bestScore === 0) {
     return -1;
   }
   return bestIdx;
@@ -255,7 +251,7 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
     return -1;
   }
 
-  const { prefix, suffix, hasContext } = extractContextFromRangeInfo(rangeInfo);
+  const context = extractContextFromRangeInfo(rangeInfo);
 
   // 2. 找出所有匹配位置
   const candidates = findCandidatePositions(fullText, text);
@@ -264,11 +260,11 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
     return -1;
   }
   if (candidates.length === 1) {
-    return resolveSingleCandidate(fullText, candidates[0], text, prefix, suffix, hasContext);
+    return resolveSingleCandidate(fullText, candidates[0], text, context);
   }
 
   // 3. prefix/suffix 計分消歧義：取最高分的候選
-  return resolveBestScoringCandidate(fullText, candidates, text, prefix, suffix, hasContext);
+  return resolveBestScoringCandidate(fullText, candidates, text, context);
 }
 
 /**
