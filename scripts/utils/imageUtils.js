@@ -1022,5 +1022,3 @@ export {
   extractFromNoscript,
   mergeUniqueImages,
 };
-
-export default ImageUtils;

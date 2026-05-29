@@ -979,6 +979,4 @@ const ImageCollector = {
   },
 };
 
-const imageCollector = ImageCollector;
-
-export { ImageCollector, imageCollector };
+export { ImageCollector };

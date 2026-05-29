@@ -66,7 +66,7 @@ function getHighlightKey(highlight) {
  * @param {object} annotations - Notion annotation 物件
  * @returns {object} rich_text 物件
  */
-function createRichText(content, annotations) {
+function _createRichText(content, annotations) {
   return {
     type: 'text',
     text: { content },
@@ -229,13 +229,13 @@ function processMatchInSegment(text, baseAnnotations, match, segStart, localCurs
 
   // 前段（未標註部分）
   if (overlapStart > localCursor) {
-    parts.push(createRichText(text.slice(localCursor, overlapStart), baseAnnotations));
+    parts.push(_createRichText(text.slice(localCursor, overlapStart), baseAnnotations));
   }
 
   // 標註段（帶樣式）
   const style = resolveStyle(styleKey, match.highlight);
   parts.push(
-    createRichText(text.slice(overlapStart, overlapEnd), { ...baseAnnotations, ...style })
+    _createRichText(text.slice(overlapStart, overlapEnd), { ...baseAnnotations, ...style })
   );
 
   return { parts, newCursor: overlapEnd };
@@ -292,7 +292,7 @@ function processSegment(text, baseAnnotations, segStart, matches, state, styleKe
 
   // 片段尾段（未被任何 match 覆蓋的部分）
   if (localCursor < text.length) {
-    parts.push(createRichText(text.slice(localCursor), baseAnnotations));
+    parts.push(_createRichText(text.slice(localCursor), baseAnnotations));
   }
 
   return parts;
@@ -435,7 +435,6 @@ export {
   findHighlightPosition,
   splitRichTextByMatches,
   resolveStyle,
-  createRichText,
   scoreCandidate,
 
   // 常量
