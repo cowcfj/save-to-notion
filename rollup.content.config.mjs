@@ -1,12 +1,12 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import replace from '@rollup/plugin-replace';
-import terser from '@rollup/plugin-terser';
 import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
+import { isDev } from './rollup/shared/env.mjs';
+import { createTerserPlugin } from './rollup/shared/terser.mjs';
+import { createOnWarn } from './rollup/shared/onwarn.mjs';
 import { stripTestConfig } from './rollup/plugins/stripTestConfig.mjs';
 import { assertTestFixtureDce } from './rollup/plugins/assertTestFixtureDce.mjs';
-
-const isDev = process.env.NODE_ENV !== 'production';
 
 export default {
   input: 'scripts/content/index.js',
@@ -31,43 +31,20 @@ export default {
         },
       }),
     !isDev &&
-      terser({
-        compress: {
-          drop_debugger: true, // 移除 debugger
-          passes: 2,
-          pure_funcs: [
-            // 移除特定除錯與低優先級日誌函式，保留 warn/error
-            'console.log',
-            'console.debug',
-            'console.info',
-            'Logger.debug',
-            'Logger.log',
-            'Logger.info',
-          ],
-        },
-        mangle: {
-          reserved: [
-            // 保留這些全局名稱
-            'ContentScript',
-            'extractPageContent',
-            'Logger',
-          ],
-        },
-        format: {
-          comments: false, // 移除所有註釋
-        },
+      createTerserPlugin({
+        passes: 2,
+        pureFuncs: [
+          'console.log',
+          'console.debug',
+          'console.info',
+          'Logger.debug',
+          'Logger.log',
+          'Logger.info',
+        ],
+        mangleReserved: ['ContentScript', 'extractPageContent', 'Logger'],
       }),
     createVisualizerPlugin('content-bundle', 'Content Bundle Analysis'),
     !isDev && assertTestFixtureDce(),
-  ].filter(Boolean), // 過濾掉 false 值（開發環境時 terser 為 false）
-  onwarn(warning, warn) {
-    // 忽略某些常見警告
-    if (warning.code === 'THIS_IS_UNDEFINED') return;
-    if (warning.code === 'CIRCULAR_DEPENDENCY') {
-      // 僅記錄警告，不中斷構建
-      console.warn(`[WARN] Circular dependency detected: ${warning.message}`);
-      return;
-    }
-    warn(warning);
-  },
+  ].filter(Boolean),
+  onwarn: createOnWarn({ circular: 'log' }),
 };
