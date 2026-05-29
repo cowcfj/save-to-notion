@@ -8,7 +8,7 @@ const { test, expect } = require('../fixtures');
 async function setupStorage(context, extensionId) {
   const optionsPage = await context.newPage();
   try {
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
+    await optionsPage.goto(`chrome-extension://${extensionId}/pages/options/options.html`);
     await optionsPage.evaluate(async () => {
       await chrome.storage.sync.set({
         notionApiKey: 'test-key',
@@ -30,7 +30,7 @@ async function setupStorage(context, extensionId) {
 test.describe('Popup UI', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     // 每個測試前導航到 Popup 頁面
-    await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+    await page.goto(`chrome-extension://${extensionId}/pages/popup/popup.html`);
   });
 
   test('應該顯示初始狀態（提示設置）', async ({ page }) => {

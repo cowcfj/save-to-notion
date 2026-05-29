@@ -24,7 +24,7 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
   });
 
   // 2. Seed Storage - 設置 API 密鑰和資料庫 ID
-  const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
+  const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
   const optionsPage = await context.newPage();
   await optionsPage.goto(optionsUrl);
   await optionsPage.evaluate(async () => {
@@ -103,7 +103,7 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
   // 6. 透過 Popup 頁面發送 savePage 消息（公開介面）
   // 這模擬了真實用戶點擊「Save」按鈕的流程
   const popup = await context.newPage();
-  await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  await popup.goto(`chrome-extension://${extensionId}/pages/popup/popup.html`);
   await popup.waitForLoadState('networkidle');
 
   // 使用 chrome.runtime.sendMessage 發送保存請求
