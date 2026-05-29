@@ -20,7 +20,10 @@
   "project": [
     "scripts/**/*.{js,mjs}",
     "pages/**/*.{js,html}",
-    "tests/**/*.js",
+    "tests/{unit,integration,helpers,e2e/specs}/**/*.js",
+    "tests/{setup,presetup}.js",
+    "tests/e2e/fixtures.js",
+    "tests/e2e/coverage-{config,merger}.js",
     "tools/**/*.{js,mjs}",
     "rollup/**/*.{js,mjs}"
   ],
@@ -45,7 +48,6 @@
     "examples/**",
     "scripts/config/env/build.example.js",
     "scripts/config/extension/index.js",
-    "tests/e2e/**",
     "tests/helpers/test-constants.js",
     "tests/helpers/test-environment-helper.js"
   ],
