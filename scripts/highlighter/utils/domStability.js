@@ -11,6 +11,9 @@
  * @param {string} [options.containerSelector] - 要監視的容器選擇器
  * @param {number} [options.stabilityThresholdMs=150] - 穩定閾值（毫秒）
  * @param {number} [options.maxWaitMs=5000] - 最大等待時間（毫秒）
+ * @param {number} [options.initialGracePeriodMs] - 首次 stability check 之前的等待時間;
+ *   預設等於 `stabilityThresholdMs`(維持向後相容);傳 0 則 caller opt-in zero-grace 模式,
+ *   只有實際發生 mutation 才會延後返回。
  * @returns {Promise<boolean>} true=成功穩定, false=超時或找不到容器
  * @example
  * const isStable = await waitForDOMStability();
@@ -20,9 +23,21 @@
  *   stabilityThresholdMs: 200,
  *   maxWaitMs: 3000
  * });
+ * @example
+ * // zero-grace: 沒 mutation 就立即返回 true
+ * const isStable = await waitForDOMStability({
+ *   stabilityThresholdMs: 150,
+ *   maxWaitMs: 500,
+ *   initialGracePeriodMs: 0,
+ * });
  */
 export function waitForDOMStability(options = {}) {
-  const { containerSelector = null, stabilityThresholdMs = 150, maxWaitMs = 5000 } = options;
+  const {
+    containerSelector = null,
+    stabilityThresholdMs = 150,
+    maxWaitMs = 5000,
+    initialGracePeriodMs = stabilityThresholdMs,
+  } = options;
 
   return new Promise(resolve => {
     // 確保 document.body 存在
@@ -47,7 +62,11 @@ export function waitForDOMStability(options = {}) {
     let stabilityTimerId = null;
     let maxWaitTimerId = null;
     let idleCallbackId = null;
-    let lastMutationTime = Date.now();
+    // 將 lastMutationTime 退回 stabilityThresholdMs,如此首次 stability check
+    // 在 caller 傳 initialGracePeriodMs=0 時即可立即判定穩定;一旦 MutationObserver
+    // 觀察到實際 mutation,lastMutationTime 會被更新成現在,演算法退回原行為。
+    let lastMutationTime = Date.now() - stabilityThresholdMs;
+    let isFirstCheck = true;
 
     // 清理所有資源
     const cleanup = () => {
@@ -93,13 +112,16 @@ export function waitForDOMStability(options = {}) {
         idleCallbackId = null;
       }
 
+      const delay = isFirstCheck ? initialGracePeriodMs : stabilityThresholdMs;
+      isFirstCheck = false;
+
       // 優先使用 requestIdleCallback
       if (typeof requestIdleCallback === 'undefined') {
         stabilityTimerId = setTimeout(() => {
           if (!checkStability()) {
             scheduleStabilityCheck();
           }
-        }, stabilityThresholdMs);
+        }, delay);
       } else {
         idleCallbackId = requestIdleCallback(
           () => {
@@ -107,7 +129,7 @@ export function waitForDOMStability(options = {}) {
               stabilityTimerId = setTimeout(scheduleStabilityCheck, stabilityThresholdMs);
             }
           },
-          { timeout: stabilityThresholdMs }
+          { timeout: delay }
         );
       }
     };
