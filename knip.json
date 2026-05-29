@@ -20,10 +20,7 @@
   "project": [
     "scripts/**/*.{js,mjs}",
     "pages/**/*.{js,html}",
-    "tests/{unit,integration,helpers,e2e/specs}/**/*.js",
-    "tests/{setup,presetup}.js",
-    "tests/e2e/fixtures.js",
-    "tests/e2e/coverage-{config,merger}.js",
+    "tests/**/*.js",
     "tools/**/*.{js,mjs}",
     "rollup/**/*.{js,mjs}"
   ],
@@ -49,7 +46,8 @@
     "scripts/config/env/build.example.js",
     "scripts/config/extension/index.js",
     "tests/helpers/test-constants.js",
-    "tests/helpers/test-environment-helper.js"
+    "tests/helpers/test-environment-helper.js",
+    "tests/e2e/{automated-test-suite,mcp-test-suite,test-open-notion-button,test-update-flow,test-update-notification,verify-smart-icon-selection}.js"
   ],
   "ignoreIssues": {
     "scripts/background/utils/highlightStyleMerger.js": ["exports"],
