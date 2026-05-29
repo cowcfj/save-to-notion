@@ -199,12 +199,13 @@ describe('core/HighlightStorage', () => {
   });
 
   describe('collectForNotion', () => {
-    test('should collect highlight data for Notion', () => {
+    test('should collect highlight data with anchoring context for Notion', () => {
       mockManager.highlights.set('h1', {
         id: 'h1',
         text: 'Test text',
         color: 'yellow',
         timestamp: 12_345,
+        rangeInfo: { prefix: 'before ', suffix: ' after' },
         range: {},
       });
       mockManager.highlights.set('h2', {
@@ -212,6 +213,7 @@ describe('core/HighlightStorage', () => {
         text: 'Another',
         color: 'green',
         timestamp: 12_346,
+        rangeInfo: { prefix: 'prev ', suffix: ' next' },
         range: {},
       });
 
@@ -219,15 +221,21 @@ describe('core/HighlightStorage', () => {
 
       expect(collected).toHaveLength(2);
       expect(collected[0]).toEqual({
+        id: 'h1',
         text: 'Test text',
         color: 'yellow',
         timestamp: 12_345,
+        rangeInfo: { prefix: 'before ', suffix: ' after' },
       });
       expect(collected[1]).toEqual({
+        id: 'h2',
         text: 'Another',
         color: 'green',
         timestamp: 12_346,
+        rangeInfo: { prefix: 'prev ', suffix: ' next' },
       });
+      expect(collected[0]).not.toHaveProperty('range');
+      expect(collected[1]).not.toHaveProperty('range');
     });
 
     test('should return empty array when no highlights', () => {
@@ -251,19 +259,29 @@ describe('core/HighlightStorage', () => {
     });
 
     test('should map highlights correctly and exclude extra properties', () => {
-      const mockHighlight = { text: 't', color: 'c', timestamp: 123, other: 'ignored' };
+      const mockHighlight = {
+        id: 'h1',
+        text: 't',
+        color: 'c',
+        timestamp: 123,
+        other: 'ignored',
+        range: {},
+      };
       mockManager.highlights.set('h1', mockHighlight);
 
       const result = storage.collectForNotion();
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
+        id: 'h1',
         text: 't',
         color: 'c',
         timestamp: 123,
+        rangeInfo: undefined,
       });
-      // Verify 'other' property is not included
+      // Verify 'other' and 'range' property is not included
       expect(result[0]).not.toHaveProperty('other');
+      expect(result[0]).not.toHaveProperty('range');
     });
   });
 

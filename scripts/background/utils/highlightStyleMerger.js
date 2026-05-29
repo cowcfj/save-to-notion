@@ -193,7 +193,12 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
     return -1;
   }
   if (candidates.length === 1) {
-    return candidates[0]; // 唯一匹配，無需消歧義
+    const hasContext = Boolean(prefix || suffix);
+    if (!hasContext) {
+      return candidates[0]; // 唯一匹配且無上下文消歧義資訊，直接接受
+    }
+    // 雖為唯一匹配但有上下文消歧義資訊，評分必須大於 0（有部分 prefix/suffix 重合）才接受
+    return scoreCandidate(fullText, candidates[0], text, prefix, suffix) > 0 ? candidates[0] : -1;
   }
 
   // 3. prefix/suffix 計分消歧義：取最高分的候選
