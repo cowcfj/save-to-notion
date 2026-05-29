@@ -26,6 +26,8 @@ npm run perf:e2e
 
 第一次跑會在 `.tmp/perf-baseline.json` 建立 baseline。後續每次跑會在 console 印目前數字 vs baseline 的 delta。`.tmp/` 已被 `.gitignore`，baseline 只綁定本機。
 
+要更新 baseline，先刪除既有的 `.tmp/perf-baseline.json`，再重新執行 `npm run perf:e2e`，讓新跑出的結果成為 baseline。
+
 ## 量測對象
 
 | Spec                       | 量什麼                                                                                          |

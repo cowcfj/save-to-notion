@@ -60,6 +60,10 @@ function getGitSha() {
  * @returns {Promise<{name: string, n: number, median_ms: number, p95_ms: number, samples: number[]}>}
  */
 export async function measureN(name, asyncFn, n = 10) {
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error('measureN requires n to be greater than 0');
+  }
+
   // Warm-up: discard timing, but still execute side effects.
   await asyncFn();
 
@@ -82,6 +86,16 @@ export async function measureN(name, asyncFn, n = 10) {
  * @returns {{name: string, n: number, median_ms: number, p95_ms: number, samples: number[]}}
  */
 export function summarize(name, samples) {
+  if (samples.length === 0) {
+    return {
+      name,
+      n: 0,
+      median_ms: 0,
+      p95_ms: 0,
+      samples: [],
+    };
+  }
+
   return {
     name,
     n: samples.length,
