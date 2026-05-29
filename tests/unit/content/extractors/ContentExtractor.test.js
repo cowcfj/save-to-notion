@@ -245,6 +245,7 @@ describe('ContentExtractor', () => {
       expect(domStability.waitForDOMStability).toHaveBeenCalledWith({
         stabilityThresholdMs: DOM_STABILITY.THRESHOLD_MS,
         maxWaitMs: DOM_STABILITY.MAX_WAIT_MS,
+        initialGracePeriodMs: 0,
       });
       expect(result.content).toBe('<div>Async Readability</div>');
     });
