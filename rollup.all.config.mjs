@@ -1,23 +1,10 @@
 import contentConfig from './rollup.content.config.mjs';
 import backgroundConfig from './rollup.background.config.mjs';
 import migrationConfig from './rollup.migration.config.mjs';
-import terser from '@rollup/plugin-terser';
 import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
-
-const isDev = process.env.NODE_ENV !== 'production';
-
-const terserPlugin =
-  !isDev &&
-  terser({
-    compress: {
-      drop_console: true,
-      drop_debugger: true,
-    },
-    mangle: true,
-    format: {
-      comments: false,
-    },
-  });
+import { isDev } from './rollup/shared/env.mjs';
+import { createTerserPlugin } from './rollup/shared/terser.mjs';
+import { createOnWarn } from './rollup/shared/onwarn.mjs';
 
 const preloaderConfig = {
   input: 'scripts/performance/preloader.js',
@@ -29,13 +16,10 @@ const preloaderConfig = {
     banner: '/* Save to Notion - Preloader */',
   },
   plugins: [
-    terserPlugin,
+    !isDev && createTerserPlugin({ dropConsole: true, mangleAll: true }),
     createVisualizerPlugin('preloader-bundle', 'Preloader Bundle Analysis'),
   ].filter(Boolean),
-  onwarn(warning, warn) {
-    if (warning.code === 'THIS_IS_UNDEFINED') return;
-    warn(warning);
-  },
+  onwarn: createOnWarn(),
 };
 
 export default [contentConfig, backgroundConfig, migrationConfig, preloaderConfig];
