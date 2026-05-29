@@ -114,11 +114,11 @@ function resolveStyle(styleKey, highlight) {
  * @param {string} fullText - 拼接後的純文本
  * @param {number} idx - 候選位置索引
  * @param {string} text - 標註文字
- * @param {string} prefix - 消歧義前綴
- * @param {string} suffix - 消歧義後綴
+ * @param {{ prefix: string, suffix: string }} context - 消歧義上下文
  * @returns {number} 比對分數
  */
-function scoreCandidate(fullText, idx, text, prefix, suffix) {
+function scoreCandidate(fullText, idx, text, context) {
+  const { prefix, suffix } = context;
   let score = 0;
 
   if (prefix) {
@@ -144,6 +144,83 @@ function scoreCandidate(fullText, idx, text, prefix, suffix) {
   }
 
   return score;
+}
+
+function findCandidatePositions(fullText, text) {
+  const candidates = [];
+  let searchStart = 0;
+  while (searchStart < fullText.length) {
+    const idx = fullText.indexOf(text, searchStart);
+    if (idx === -1) {
+      break;
+    }
+    candidates.push(idx);
+    searchStart = idx + 1;
+  }
+  return candidates;
+}
+
+/**
+ * 從 highlight.rangeInfo 抽取 prefix / suffix 與 hasContext 旗標
+ *
+ * 把零散的 optional chaining 與 short-circuit 集中,讓主函數無需自行處理
+ * rangeInfo 缺失時的 fallback。
+ *
+ * @param {object|undefined} rangeInfo - 標註的 rangeInfo 子物件
+ * @returns {{ prefix: string, suffix: string, hasContext: boolean }}
+ */
+function extractContextFromRangeInfo(rangeInfo) {
+  const prefix = rangeInfo?.prefix || '';
+  const suffix = rangeInfo?.suffix || '';
+  return { prefix, suffix, hasContext: Boolean(prefix || suffix) };
+}
+
+/**
+ * 從唯一候選位置決定最終回傳值
+ *
+ * 無上下文資訊時直接接受;有上下文資訊時要求 prefix/suffix 至少部分重合,
+ * 否則視為跨段落殘留誤命中而拒絕。
+ *
+ * @param {string} fullText - 拼接後的純文本
+ * @param {number} idx - 唯一候選的位置索引
+ * @param {string} text - 標註文字
+ * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
+ * @returns {number} 接受時為 idx,拒絕時為 -1
+ */
+function resolveSingleCandidate(fullText, idx, text, context) {
+  if (!context.hasContext) {
+    return idx;
+  }
+  return scoreCandidate(fullText, idx, text, context) > 0 ? idx : -1;
+}
+
+/**
+ * 從多個候選位置中以 prefix/suffix 計分挑出最佳匹配
+ *
+ * 相同分數回退到第一個候選;有上下文資訊但全部候選評分為 0 時拒絕匹配。
+ *
+ * @param {string} fullText - 拼接後的純文本
+ * @param {Array<number>} candidates - 候選位置索引陣列(MUST length > 0)
+ * @param {string} text - 標註文字
+ * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
+ * @returns {number} 最佳候選位置;若有上下文但無任何候選分數 > 0 則回 -1
+ */
+function resolveBestScoringCandidate(fullText, candidates, text, context) {
+  let bestIdx = candidates[0];
+  let bestScore = -1;
+
+  for (const idx of candidates) {
+    const score = scoreCandidate(fullText, idx, text, context);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+
+  if (context.hasContext && bestScore === 0) {
+    return -1;
+  }
+  return bestIdx;
 }
 
 // ============================================================================
@@ -174,41 +251,20 @@ function findHighlightPosition(richTextArray, highlight, fullText) {
     return -1;
   }
 
-  const prefix = rangeInfo?.prefix || '';
-  const suffix = rangeInfo?.suffix || '';
+  const context = extractContextFromRangeInfo(rangeInfo);
 
   // 2. 找出所有匹配位置
-  const candidates = [];
-  let searchStart = 0;
-  while (searchStart < fullText.length) {
-    const idx = fullText.indexOf(text, searchStart);
-    if (idx === -1) {
-      break;
-    }
-    candidates.push(idx);
-    searchStart = idx + 1;
-  }
+  const candidates = findCandidatePositions(fullText, text);
 
   if (candidates.length === 0) {
     return -1;
   }
   if (candidates.length === 1) {
-    return candidates[0]; // 唯一匹配，無需消歧義
+    return resolveSingleCandidate(fullText, candidates[0], text, context);
   }
 
   // 3. prefix/suffix 計分消歧義：取最高分的候選
-  let bestIdx = candidates[0]; // 回退：第一個
-  let bestScore = -1;
-
-  for (const idx of candidates) {
-    const score = scoreCandidate(fullText, idx, text, prefix, suffix);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIdx = idx;
-    }
-  }
-
-  return bestIdx;
+  return resolveBestScoringCandidate(fullText, candidates, text, context);
 }
 
 /**

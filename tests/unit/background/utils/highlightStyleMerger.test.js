@@ -135,25 +135,28 @@ describe('scoreCandidate', () => {
 
   test('prefix 完全匹配得 2 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '探討一些', '');
+    const score = scoreCandidate(fullText, idx, '重要概念', { prefix: '探討一些', suffix: '' });
     expect(score).toBe(2);
   });
 
   test('suffix 完全匹配得 2 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '', '和應用場景');
+    const score = scoreCandidate(fullText, idx, '重要概念', { prefix: '', suffix: '和應用場景' });
     expect(score).toBe(2);
   });
 
   test('prefix + suffix 都完全匹配得 4 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '探討一些', '和應用場景');
+    const score = scoreCandidate(fullText, idx, '重要概念', {
+      prefix: '探討一些',
+      suffix: '和應用場景',
+    });
     expect(score).toBe(4);
   });
 
   test('無 prefix 且無 suffix 時得 0 分', () => {
     const idx = fullText.indexOf('重要概念');
-    const score = scoreCandidate(fullText, idx, '重要概念', '', '');
+    const score = scoreCandidate(fullText, idx, '重要概念', { prefix: '', suffix: '' });
     expect(score).toBe(0);
   });
 });
@@ -168,6 +171,26 @@ describe('findHighlightPosition', () => {
     const hl = { text: '重要概念', rangeInfo: {} };
     const fullText = buildFullText(richTextArray);
     expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(6);
+  });
+
+  test('有 context 時，單一候選若 prefix/suffix 都不匹配應返回 -1', () => {
+    const richTextArray = [makeRT('Markdown is not good enough as a tool.')];
+    const hl = {
+      text: 'Markdown',
+      rangeInfo: { prefix: 'a reason ', suffix: ' is being' },
+    };
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(-1);
+  });
+
+  test('有 context 且單一候選，雖然 prefix/suffix 只是部分匹配（但評分 > 0）應返回正確位置', () => {
+    const richTextArray = [makeRT('a reason Markdown is being discussed.')];
+    const hl = {
+      text: 'Markdown',
+      rangeInfo: { prefix: 'reason ', suffix: ' is being' },
+    };
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(9);
   });
 
   test('文字不存在時返回 -1', () => {
@@ -188,6 +211,17 @@ describe('findHighlightPosition', () => {
     const pos = findHighlightPosition(richTextArray, hl, fullText);
     // 因第二個有 prefix '一個' 匹配，分數更高
     expect(pos).toBe(13);
+  });
+
+  test('有 context 時，多個候選若全部不匹配 prefix/suffix 應返回 -1', () => {
+    const richTextArray = [makeRT('Markdown appears here. Markdown appears again.')];
+    const hl = {
+      text: 'Markdown',
+      rangeInfo: { prefix: 'a reason ', suffix: ' is being' },
+    };
+    const fullText = buildFullText(richTextArray);
+
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(-1);
   });
 
   test('多個匹配且無 prefix/suffix：回退到第一個匹配', () => {
@@ -370,6 +404,36 @@ describe('mergeHighlightsWithStyle — 核心功能', () => {
     const richText = result[0].paragraph.rich_text;
     expect(richText.find(rt => rt.annotations?.color === 'red')?.text.content).toBe('紅色');
     expect(richText.find(rt => rt.annotations?.color === 'blue')?.text.content).toBe('藍色');
+  });
+
+  test('英文短詞在前段重複時應依 rangeInfo context 套用到正確 block', () => {
+    const blocks = [
+      makeParagraphBlock([makeRT('Markdown is not good enough as a tool.')]),
+      makeParagraphBlock([
+        makeRT('Of course, there’s a reason Markdown is being discussed again.'),
+      ]),
+    ];
+    const highlights = [
+      {
+        id: 'hl-markdown-context',
+        text: 'Markdown',
+        color: 'yellow',
+        rangeInfo: { prefix: 'a reason ', suffix: ' is being' },
+      },
+    ];
+
+    const result = mergeHighlightsWithStyle(blocks, highlights, 'COLOR_SYNC');
+
+    // 確保第一個 block 維持原樣，沒有被錯誤套用或分割
+    expect(result[0].paragraph.rich_text).toHaveLength(1);
+    expect(result[0].paragraph.rich_text[0].annotations?.color).toBeUndefined();
+
+    // 確保第二個 block 中的 Markdown 被正確套用黃色高亮背景
+    const highlighted = result[1].paragraph.rich_text.find(
+      rt => rt.annotations?.color === 'yellow_background'
+    );
+    expect(highlighted).toBeDefined();
+    expect(highlighted?.text.content).toBe('Markdown');
   });
 });
 

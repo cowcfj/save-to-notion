@@ -127,9 +127,11 @@ export class HighlightStorage {
       return [];
     }
     return Array.from(this.manager.highlights.values()).map(highlight => ({
+      id: highlight.id,
       text: highlight.text,
       color: highlight.color,
       timestamp: highlight.timestamp,
+      ...(highlight.rangeInfo === undefined ? {} : { rangeInfo: highlight.rangeInfo }),
     }));
   }
 

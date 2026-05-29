@@ -9,6 +9,85 @@ import { waitForDOMStability } from '../utils/domStability.js';
 
 const { CONTEXT_LENGTH } = HIGHLIGHT_ANCHORING;
 
+const BLOCK_BOUNDARY_TAGS = new Set([
+  'ADDRESS',
+  'ARTICLE',
+  'ASIDE',
+  'BLOCKQUOTE',
+  'DD',
+  'DETAILS',
+  'DIALOG',
+  'DIV',
+  'DL',
+  'DT',
+  'FIELDSET',
+  'FIGCAPTION',
+  'FIGURE',
+  'FOOTER',
+  'FORM',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'HEADER',
+  'HR',
+  'LI',
+  'MAIN',
+  'NAV',
+  'OL',
+  'P',
+  'PRE',
+  'SECTION',
+  'TABLE',
+  'UL',
+]);
+
+function isBlockBoundaryNode(node) {
+  return node?.nodeType === Node.ELEMENT_NODE && BLOCK_BOUNDARY_TAGS.has(node.tagName);
+}
+
+function createBoundaryRange(container, startOffset, endOffset) {
+  const boundaryRange = document.createRange();
+  boundaryRange.selectNodeContents(container);
+  boundaryRange.setStart(container, startOffset);
+  boundaryRange.setEnd(container, endOffset);
+  return boundaryRange;
+}
+
+function extractElementPrefix(container, offset) {
+  let startOffset = 0;
+  for (let i = offset - 1; i >= 0; i--) {
+    if (isBlockBoundaryNode(container.childNodes[i])) {
+      startOffset = i + 1;
+      break;
+    }
+  }
+
+  const text = createBoundaryRange(container, startOffset, offset).toString();
+  if (text.trim().length === 0) {
+    return '';
+  }
+  return text.slice(Math.max(0, text.length - CONTEXT_LENGTH));
+}
+
+function extractElementSuffix(container, offset) {
+  let endOffset = container.childNodes.length;
+  for (let i = offset; i < container.childNodes.length; i++) {
+    if (isBlockBoundaryNode(container.childNodes[i])) {
+      endOffset = i;
+      break;
+    }
+  }
+
+  const text = createBoundaryRange(container, offset, endOffset).toString();
+  if (text.trim().length === 0) {
+    return '';
+  }
+  return text.slice(0, CONTEXT_LENGTH);
+}
+
 /**
  * 序列化 Range 對象
  *
@@ -21,14 +100,10 @@ export function serializeRange(range) {
     const text = range.startContainer.textContent;
     prefix = text.slice(Math.max(0, range.startOffset - CONTEXT_LENGTH), range.startOffset);
   } else {
-    // 當 startContainer 為元素節點時，startOffset 代表子節點索引。
-    // 創建一個從容器開頭到 startOffset 的 Range 來提取之前的文本。
+    // Element-node offsets are child indexes; clip context to the current text run
+    // so adjacent block text does not become a misleading prefix.
     try {
-      const prefixRange = document.createRange();
-      prefixRange.selectNodeContents(range.startContainer);
-      prefixRange.setEnd(range.startContainer, range.startOffset);
-      const text = prefixRange.toString();
-      prefix = text.slice(Math.max(0, text.length - CONTEXT_LENGTH));
+      prefix = extractElementPrefix(range.startContainer, range.startOffset);
     } catch {
       prefix = '';
     }
@@ -40,14 +115,10 @@ export function serializeRange(range) {
     const text = range.endContainer.textContent;
     suffix = text.slice(range.endOffset, Math.min(text.length, range.endOffset + CONTEXT_LENGTH));
   } else {
-    // 當 endContainer 為元素節點時，endOffset 代表子節點索引。
-    // 創建一個從 endOffset 到容器結尾的 Range 來提取之後的文本。
+    // Element-node offsets are child indexes; clip context to the current text run
+    // so adjacent block text does not become a misleading suffix.
     try {
-      const suffixRange = document.createRange();
-      suffixRange.selectNodeContents(range.endContainer);
-      suffixRange.setStart(range.endContainer, range.endOffset);
-      const text = suffixRange.toString();
-      suffix = text.slice(0, CONTEXT_LENGTH);
+      suffix = extractElementSuffix(range.endContainer, range.endOffset);
     } catch {
       suffix = '';
     }

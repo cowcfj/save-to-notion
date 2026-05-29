@@ -68,6 +68,26 @@ describe('core/Range', () => {
       expect(serialized.suffix).toHaveLength(32);
       expect(serialized.suffix).toBe('...and a very long suffix string');
     });
+
+    test('should not use adjacent block text as context for element-node ranges', () => {
+      const article = document.createElement('article');
+      article.innerHTML = [
+        '<p>Previous block should not become prefix.</p>',
+        '<p>First selected block.</p>',
+        '<p>Second selected block.</p>',
+        '<p>Next block should not become suffix.</p>',
+      ].join('');
+      document.body.append(article);
+
+      const range = document.createRange();
+      range.setStart(article, 1);
+      range.setEnd(article, 3);
+
+      const serialized = serializeRange(range);
+
+      expect(serialized.prefix).toBe('');
+      expect(serialized.suffix).toBe('');
+    });
   });
 
   describe('deserializeRange', () => {
