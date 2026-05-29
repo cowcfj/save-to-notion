@@ -31,10 +31,10 @@ export const HANDLER_CONSTANTS = {
 
 export const TAB_SERVICE = {
   LOADING_TIMEOUT_MS: 10_000,
-  // 100ms buffer between tabs.onUpdated 'complete' and updateTabStatus.
-  // _waitForTabCompilation already gates on tab.status === 'complete'; this
-  // buffer only smooths microscopic IPC ordering. Was 1000ms historically
-  // (undocumented); rail save/sync availability is delayed by this value.
+  // tabs.onUpdated 'complete' 與 updateTabStatus 之間的 100ms 緩衝。
+  // _waitForTabCompilation 已守備 tab.status === 'complete';此緩衝僅
+  // 平滑微觀 IPC 排序。歷史值為 1000ms（無文件化原因）;此值決定
+  // floating rail 上 save/sync 按鈕的可用延遲。
   STATUS_UPDATE_DELAY_MS: 100,
   PRELOADER_PING_TIMEOUT_MS: 500,
 };
