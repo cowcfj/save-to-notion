@@ -43,6 +43,7 @@ npm run perf:e2e
 - **跨 commit 比較**：先跑 baseline → 改 code → 再跑 → 看 console 的 `Δ`。**目前的 baseline 不會自動更新**，重新覆寫會把這次成為新 baseline；要保留比較窗口就先別覆寫。
 - **絕對值不可跨機器比較**：你的電腦 vs 同事的電腦 vs CI 完全是不同的數字曲線。
 - **不要寫絕對 ms 的 `expect()`**：時序測試永遠只記錄 + 觀察，由人決策。
+- **絕對值包含測試 harness 開銷，不等於 user-perceived latency**：`save_round_trip_*` 的每次取樣都包含 `popup = await context.newPage(); popup.goto(popup.html); waitForLoadState('networkidle'); ... popup.close()` 的成本。實測 `chrome.runtime.sendMessage→callback` 的真實 round-trip 中位數約 **51ms**，但 `save_round_trip_example_com` baseline 中位數約 **685ms**，差 ~640ms 全是 harness navigation 開銷。**Δ 仍是真實 extension 變化的可信訊號**（jitter 不增加），但**絕對值不要直接拿來代表「user 點按鈕到完成」的延遲**。要量真實 user-perceived latency 的話，spec 必須在迴圈外開一次 popup、迴圈內只做 `sendMessage`。
 
 ## 維護注意
 
