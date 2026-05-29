@@ -32,11 +32,7 @@
         "LICENSE",
         "CHANGELOG.md",
         "tools/",
-        "rollup.all.config.mjs",
-        "rollup.background.config.mjs",
-        "rollup.content.config.mjs",
-        "rollup.migration.config.mjs",
-        "rollup.preloader.config.mjs",
+        "rollup/",
         "package-lock.json"
       ],
       "changelog-sections": [

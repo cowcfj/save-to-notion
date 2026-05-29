@@ -5,10 +5,10 @@
  */
 
 import resolve from '@rollup/plugin-node-resolve';
-import terser from '@rollup/plugin-terser';
-import { createVisualizerPlugin } from './rollup.visualizer.config.mjs';
-
-const isDev = process.env.NODE_ENV !== 'production';
+import { createVisualizerPlugin } from './visualizer.config.mjs';
+import { isDev } from './shared/env.mjs';
+import { createTerserPlugin } from './shared/terser.mjs';
+import { createOnWarn } from './shared/onwarn.mjs';
 
 export default {
   input: 'scripts/legacy/MigrationExecutor.js',
@@ -23,23 +23,11 @@ export default {
   plugins: [
     resolve(),
     !isDev &&
-      terser({
-        compress: {
-          drop_console: false, // 保留日誌以便調試遷移過程
-          drop_debugger: true,
-        },
-        mangle: {
-          reserved: ['MigrationExecutor', 'MigrationPhase', 'Logger'],
-        },
-        format: {
-          comments: false,
-        },
+      createTerserPlugin({
+        // dropConsole omitted: keep logs for migration debugging
+        mangleReserved: ['MigrationExecutor', 'MigrationPhase', 'Logger'],
       }),
     createVisualizerPlugin('migration-bundle', 'Migration Bundle Analysis'),
   ].filter(Boolean),
-  onwarn(warning, warn) {
-    if (warning.code === 'THIS_IS_UNDEFINED') return;
-    if (warning.code === 'CIRCULAR_DEPENDENCY') return;
-    warn(warning);
-  },
+  onwarn: createOnWarn({ circular: 'silent' }),
 };

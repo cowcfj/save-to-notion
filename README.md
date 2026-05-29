@@ -199,7 +199,7 @@
 notion-chrome/
 ├── .github/               # CI 與 workflow（ci.yml、release-please.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
-├── rollup.all.config.mjs  # 統一構建配置
+├── rollup/                # Rollup 構建配置（all/content/background/migration + shared factories）
 ├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
 ├── pages/                 # 擴展頁面集合（popup / sidepanel / options / onboarding / update-notification）
 │   ├── popup/             # 彈出窗口 UI（處理 API 調用與 DOM 更新）
