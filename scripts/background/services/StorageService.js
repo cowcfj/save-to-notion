@@ -592,10 +592,15 @@ class StorageService {
   _collectPageHighlights(allData) {
     const result = {};
     for (const [key, value] of Object.entries(allData)) {
-      if (key.startsWith(PAGE_PREFIX)) {
-        const url = key.slice(PAGE_PREFIX.length);
-        result[url] = { url, highlights: value.highlights || [] };
+      if (!key.startsWith(PAGE_PREFIX)) {
+        continue;
       }
+      if (!value || typeof value !== 'object') {
+        this.logger.warn?.('[StorageService] page_* entry has invalid shape, skipped', { key });
+        continue;
+      }
+      const url = key.slice(PAGE_PREFIX.length);
+      result[url] = { url, highlights: Array.isArray(value.highlights) ? value.highlights : [] };
     }
     return result;
   }

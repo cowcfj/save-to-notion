@@ -1663,6 +1663,38 @@ describe('StorageService', () => {
         highlights: ['legacy-h2'],
       });
     });
+
+    it('遇到毀損的 page_* entry(value 非物件)應跳過並警告,不應拋錯也不應偽造空 highlights', async () => {
+      const allData = {
+        [`${PAGE_PREFIX}https://example.com/good`]: {
+          notion: { pageId: 'p1' },
+          highlights: ['h1'],
+          metadata: {},
+        },
+        [`${PAGE_PREFIX}https://example.com/corrupt-null`]: null,
+        [`${PAGE_PREFIX}https://example.com/corrupt-string`]: 'unexpected-string',
+      };
+
+      const result = await service.getAllHighlights(allData);
+
+      // 健康 entry 正常返回
+      expect(result['https://example.com/good']).toEqual({
+        url: 'https://example.com/good',
+        highlights: ['h1'],
+      });
+      // 毀損 entry MUST NOT 出現在結果中(避免偽造「URL 存在但 highlights 為空」的假狀態)
+      expect(result).not.toHaveProperty('https://example.com/corrupt-null');
+      expect(result).not.toHaveProperty('https://example.com/corrupt-string');
+      // 毀損 entry MUST 留下 warn 足跡以利後續排查
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('page_* entry has invalid shape'),
+        expect.objectContaining({ key: `${PAGE_PREFIX}https://example.com/corrupt-null` })
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('page_* entry has invalid shape'),
+        expect.objectContaining({ key: `${PAGE_PREFIX}https://example.com/corrupt-string` })
+      );
+    });
   });
 
   describe('updateHighlights', () => {
