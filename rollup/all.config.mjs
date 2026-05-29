@@ -16,7 +16,7 @@ const preloaderConfig = {
     banner: '/* Save to Notion - Preloader */',
   },
   plugins: [
-    !isDev && createTerserPlugin({ dropConsole: true, mangleAll: true }),
+    !isDev && createTerserPlugin({ dropConsole: true }),
     createVisualizerPlugin('preloader-bundle', 'Preloader Bundle Analysis'),
   ].filter(Boolean),
   onwarn: createOnWarn(),
