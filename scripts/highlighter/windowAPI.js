@@ -23,7 +23,7 @@ import { waitForDOMStability } from './utils/domStability.js';
 import Logger from '../utils/Logger.js';
 
 // Test-only build-time gate. `globalThis.__UNIT_TESTING__` is replaced with
-// the literal `false` in production by [rollup.content.config.mjs](../../rollup.content.config.mjs),
+// the literal `false` in production by [rollup/content.config.mjs](../../rollup/content.config.mjs),
 // so the entire toolbar branch below is dead-code-eliminated by terser. The
 // `Toolbar` import + `ensureToolbar` body only ship in test bundles. See
 // [docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md](../../docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md).

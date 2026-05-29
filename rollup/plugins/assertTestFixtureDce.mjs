@@ -29,7 +29,7 @@ export function assertTestFixtureDce() {
             'The following tokens MUST be eliminated by replace + terser DCE:',
             detail,
             '',
-            'Likely cause: source token name and rollup.content.config.mjs `replace` mapping disagree.',
+            'Likely cause: source token name and rollup/content.config.mjs `replace` mapping disagree.',
             'See docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md.',
           ].join('\n')
         );
