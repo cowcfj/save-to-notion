@@ -42,15 +42,27 @@ describe('mergeUniqueImages', () => {
     expect(result[0].image.external.url).toBe('https://dup.com');
   });
 
-  test('應該排除 additionalImages 中非 image 類型的 block', () => {
+  test('應該保留 additionalImages 中的 temporary image placeholder paragraph', () => {
     const contentBlocks = [];
+    const placeholderBlock = {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: { rich_text: [] },
+      _meta: {
+        placeholder: true,
+        placeholderReason: 'temporary_image_url',
+        originalSrc: 'https://temporary.example.com/image.jpg',
+      },
+    };
     const additionalImages = [
-      { type: 'paragraph', image: { external: { url: 'https://not-image.com' } } },
+      placeholderBlock,
       { type: 'image', image: { external: { url: 'https://valid-image.com' } } },
     ];
 
     const result = mergeUniqueImages(contentBlocks, additionalImages);
-    expect(result).toHaveLength(1);
-    expect(result[0].image.external.url).toBe('https://valid-image.com');
+    expect(result).toEqual([
+      placeholderBlock,
+      { type: 'image', image: { external: { url: 'https://valid-image.com' } } },
+    ]);
   });
 });

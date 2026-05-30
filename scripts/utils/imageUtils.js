@@ -1002,6 +1002,13 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
   }
 
   return additionalImages.filter(imgBlock => {
+    if (!imgBlock || typeof imgBlock !== 'object') {
+      return false;
+    }
+    if (imgBlock.type !== 'image') {
+      return true;
+    }
+
     const url = _extractImageBlockUrl(imgBlock);
     if (!url || existingUrls.has(url)) {
       return false;
