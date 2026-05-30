@@ -1020,6 +1020,42 @@ function _isPlausibleImageUrl(url) {
 }
 
 /**
+ * 對 `<a>` 元素優先嘗試 href 作為圖片來源。
+ *
+ * 用於明報畫廊類情況：`<a>` 的 href 帶高解析度圖片，內層 `<img>` 的 src 只是 loading 佔位符。
+ * 非 anchor 元素或 href 無效（javascript: / 空）時回傳 null，由呼叫端走標準 fallback。
+ *
+ * @param {HTMLElement} imgNode - 圖片元素或容器
+ * @returns {string|null} anchor href 或 null
+ * @private
+ */
+function _tryAnchorHref(imgNode) {
+  if (imgNode.tagName !== 'A') {
+    return null;
+  }
+  return _extractFromAnchorHref(imgNode);
+}
+
+/**
+ * 取 srcset 結果並驗證是否為未截斷的合理 URL。
+ *
+ * Substack/Cloudinary CDN 的 transform 參數含逗號（如 `w_424,c_limit,f_auto`），
+ * 與 srcset 的逗號分隔符衝突導致 URL 被切碎成 `fl_progressive:steep/https%3A...` 之類片段。
+ * 此 gate 過濾掉這類截斷結果，讓呼叫端 fallback 到標準屬性鏈。
+ *
+ * @param {HTMLElement} imgNode - 圖片元素
+ * @returns {string|null} 驗證通過的 srcset URL 或 null
+ * @private
+ */
+function _extractValidatedSrcsetUrl(imgNode) {
+  const srcsetUrl = extractFromSrcset(imgNode);
+  if (srcsetUrl && _isPlausibleImageUrl(srcsetUrl)) {
+    return srcsetUrl;
+  }
+  return null;
+}
+
+/**
  * 從圖片元素中提取最佳的 src URL
  * 使用多層回退策略：
  * - 對於 Anchor 元素：優先使用 href（用於畫廊圖片）
@@ -1032,27 +1068,14 @@ function extractImageSrc(imgNode) {
   if (!imgNode) {
     return null;
   }
-
-  // [IMPORTANT] 對於 Anchor 元素，優先使用 href
-  // 這解決了像明報畫廊這樣的情況，<a> 的 href 包含高解析度圖片，
-  // 而其子 <img> 的 src 只是加載佔位符 (loading.gif)
-  if (imgNode.tagName === 'A') {
-    const hrefResult = _extractFromAnchorHref(imgNode);
-    if (hrefResult) {
-      return hrefResult;
-    }
-    // 如果 href 無效（如 javascript: 或空），則回退到子元素提取
+  const anchorHref = _tryAnchorHref(imgNode);
+  if (anchorHref) {
+    return anchorHref;
   }
-
-  // srcset 優先，但需驗證結果有效性
-  // Substack/Cloudinary CDN URL 的 transform 參數含逗號（如 w_424,c_limit,f_auto,...）
-  // 與 srcset 的逗號分隔符衝突，導致 URL 被截斷為無效片段。
-  // 必須驗證 srcset 結果是否為合理的圖片 URL，否則回退到 src 屬性。
-  const srcsetUrl = extractFromSrcset(imgNode);
-  if (srcsetUrl && _isPlausibleImageUrl(srcsetUrl)) {
-    return srcsetUrl;
+  const validatedSrcset = _extractValidatedSrcsetUrl(imgNode);
+  if (validatedSrcset) {
+    return validatedSrcset;
   }
-
   return (
     extractFromAttributes(imgNode) ||
     extractFromPicture(imgNode) ||
