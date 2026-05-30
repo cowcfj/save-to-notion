@@ -459,41 +459,77 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 嘗試先發送訊息顯示（如果腳本已加載）
-        // Phase 1: 使用 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動 rail 標註模式
+        // 確保 Bundle 已注入（捕獲可能的注入錯誤）
+        try {
+          await injectionService.ensureBundleInjected(activeTab.id);
+        } catch (injectionError) {
+          Logger.error('Bundle 注入失敗', {
+            action: 'startHighlight',
+            error: injectionError.message,
+            stack: injectionError.stack,
+          });
+          const safeMessage = sanitizeApiError(injectionError, 'bundle_injection');
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(safeMessage),
+          });
+          return;
+        }
+
+        // 等待 Bundle 完全就緒
+        const bundleReady = await ensureBundleReady(activeTab.id);
+
+        if (!bundleReady) {
+          Logger.warn('Bundle 初始化超時', { action: 'startHighlight', tabId: activeTab.id });
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+          });
+          return;
+        }
+
+        // 發送訊息啟動 Floating Rail 標註模式
         try {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
               activeTab.id,
               { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
-              messageResponse => {
+              result => {
                 if (chrome.runtime.lastError) {
-                  // 如果最後一個錯誤存在，說明沒有監聽器或其他問題
                   reject(new Error(chrome.runtime.lastError.message));
                 } else {
-                  resolve(messageResponse);
+                  resolve(result);
                 }
               }
             );
           });
 
-          if (response?.success) {
+          if (response?.success === true) {
+            Logger.success('成功啟動浮動側欄標註', { action: 'startHighlight' });
             sendResponse({ success: true });
             return;
           }
-        } catch (error) {
-          // 訊息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.warn('發送顯示訊息失敗，嘗試注入腳本', {
-            action: 'startHighlight',
-            error,
-          });
-        }
 
-        const result = await injectionService.injectHighlighter(activeTab.id);
-        if (result?.initialized) {
-          sendResponse({ success: true });
-        } else {
-          sendResponse({ success: false, error: 'Highlighter initialization failed' });
+          Logger.warn('啟動浮動側欄標註失敗', {
+            action: 'startHighlight',
+            responseSuccess: response?.success,
+            responseError: response?.error,
+          });
+          sendResponse(
+            response && typeof response === 'object'
+              ? response
+              : { success: false, error: 'no payload from content' }
+          );
+        } catch (error) {
+          Logger.warn('啟動浮動側欄標註失敗', {
+            action: 'startHighlight',
+            error: error.message,
+          });
+          const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(safeMessage),
+          });
         }
       } catch (error) {
         Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });

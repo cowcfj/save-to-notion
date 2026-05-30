@@ -66,6 +66,70 @@ function resetFloatingRailReady() {
   globalThis.__NOTION_RAIL_READY__ = undefined;
 }
 
+async function runActiveRailAction(activeRail, onRailReady, sendResponse) {
+  try {
+    const activeResult = onRailReady(activeRail);
+    if (isPromiseLike(activeResult)) {
+      await activeResult;
+    }
+    sendResponse({ success: true });
+  } catch (error) {
+    sendFloatingRailError(sendResponse, error);
+  }
+}
+
+async function createDynamicRailInitPromise(manager) {
+  try {
+    const { FloatingRail } = await import('../ui/FloatingRail.js');
+    const rail = new FloatingRail(manager);
+    const initResult = await rail.initialize();
+    if (initResult?.success) {
+      globalThis.HighlighterV2.rail = rail;
+      return { success: true, rail };
+    }
+    return {
+      success: false,
+      error: initResult?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+    };
+  } catch (error) {
+    return { success: false, error };
+  }
+}
+
+async function awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse) {
+  let readyResult;
+  try {
+    readyResult = await railReadyPromise;
+  } catch {
+    resetFloatingRailReady();
+    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
+    return;
+  }
+
+  if (!readyResult?.success || !readyResult.rail) {
+    resetFloatingRailReady();
+    sendResponse({
+      success: false,
+      error: formatRuntimeErrorMessage(
+        readyResult?.error,
+        RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED
+      ),
+    });
+    return;
+  }
+
+  try {
+    const readyActionResult = onRailReady(readyResult.rail);
+    if (isPromiseLike(readyActionResult)) {
+      await readyActionResult;
+    }
+    sendResponse({ success: true });
+  } catch (error) {
+    resetFloatingRailReady();
+    sendFloatingRailError(sendResponse, error);
+  }
+}
+
 /**
  * 執行依賴 Floating Rail 可用性的 action
  *
@@ -75,50 +139,20 @@ function resetFloatingRailReady() {
 export async function withAvailableFloatingRail(sendResponse, onRailReady) {
   const activeRail = globalThis.HighlighterV2?.rail;
   if (activeRail) {
-    try {
-      const activeResult = onRailReady(activeRail);
-      if (isPromiseLike(activeResult)) {
-        await activeResult;
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      sendFloatingRailError(sendResponse, error);
-    }
+    await runActiveRailAction(activeRail, onRailReady, sendResponse);
     return;
   }
 
-  const railReadyPromise = globalThis.__NOTION_RAIL_READY__;
+  let railReadyPromise = globalThis.__NOTION_RAIL_READY__;
   if (!railReadyPromise) {
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
-    return;
-  }
-
-  try {
-    const readyResult = await railReadyPromise;
-    if (!readyResult?.success || !readyResult.rail) {
-      resetFloatingRailReady();
-      sendResponse({
-        success: false,
-        error: formatRuntimeErrorMessage(
-          readyResult?.error,
-          RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED
-        ),
-      });
+    const manager = globalThis.HighlighterV2?.manager;
+    if (!manager) {
+      sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED });
       return;
     }
-
-    try {
-      const readyActionResult = onRailReady(readyResult.rail);
-      if (isPromiseLike(readyActionResult)) {
-        await readyActionResult;
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      resetFloatingRailReady();
-      sendFloatingRailError(sendResponse, error);
-    }
-  } catch {
-    resetFloatingRailReady();
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
+    railReadyPromise = createDynamicRailInitPromise(manager);
+    globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
   }
+
+  await awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse);
 }
