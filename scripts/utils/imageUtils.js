@@ -232,6 +232,76 @@ function _unwrapNextJsUrl(urlObj, depth) {
 }
 
 /**
+ * 將 raw URL 字串標準化並解析為 URL 物件
+ *
+ * 涵蓋 cleanImageUrl 入口的 input-side validation pipeline：
+ * normalize → protocol allowlist/denylist → URL parsing。
+ *
+ * @param {string} url - 已通過型別 / depth guard 的原始 URL
+ * @returns {{urlObj: URL, isRelative: boolean, normalized: string}|null}
+ *   解析結果或 null（任何驗證階段失敗）
+ * @private
+ */
+function _normalizeAndResolveImageUrl(url) {
+  const normalized = _normalizeUrlInternal(url);
+
+  // Notion 僅支援 HTTP/HTTPS 協議
+  if (_hasRejectedImageProtocol(normalized)) {
+    return null;
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
+    return null;
+  }
+
+  const resolved = _resolveUrl(normalized);
+  if (!resolved) {
+    Logger.error('URL 轉換失敗', {
+      action: 'cleanImageUrl',
+      url: sanitizeUrlForLogging(normalized),
+    });
+    return null;
+  }
+
+  return { urlObj: resolved.urlObj, isRelative: resolved.isRelative, normalized };
+}
+
+/**
+ * 對已解析的 URL 物件執行 output-side transformation pipeline
+ *
+ * 依序嘗試：Next.js 拆包 → 特殊域名規則 → 查詢參數標準化 →
+ * 相對路徑回傳 → Notion 兼容性編碼。
+ *
+ * @param {{urlObj: URL, isRelative: boolean}} resolved - `_normalizeAndResolveImageUrl` 結果
+ * @param {number} depth - 當前遞迴深度
+ * @returns {string|null} 清理後的 URL，或 null（解析過程拋例外）
+ * @private
+ */
+function _processResolvedImageUrl(resolved, depth) {
+  const { urlObj, isRelative } = resolved;
+  try {
+    const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
+    if (unwrappedNextUrl) {
+      return unwrappedNextUrl;
+    }
+
+    const specialResult = _handleSpecialDomainRules(urlObj, depth);
+    if (specialResult) {
+      return specialResult;
+    }
+
+    _standardizeSearchParams(urlObj);
+
+    if (isRelative) {
+      return urlObj.pathname + urlObj.search + urlObj.hash;
+    }
+
+    return _applyNotionCompatibilityEncoding(urlObj.href);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 清理和標準化圖片 URL (整合 normalizeImageUrl)
  *
  * @param {string} url - 原始圖片 URL
@@ -252,53 +322,12 @@ function cleanImageUrl(url, depth = 0) {
     return url;
   }
 
-  // 1. 標準化 (Normalization)
-  const normalized = _normalizeUrlInternal(url);
-
-  // 基本格式驗證：Notion 僅支援 HTTP/HTTPS 協議
-  if (_hasRejectedImageProtocol(normalized)) {
-    return null;
-  }
-  if (!/^https?:\/\//i.test(normalized)) {
-    return null;
-  }
-
-  const resolved = _resolveUrl(normalized);
+  const resolved = _normalizeAndResolveImageUrl(url);
   if (!resolved) {
-    Logger.error('URL 轉換失敗', {
-      action: 'cleanImageUrl',
-      url: sanitizeUrlForLogging(normalized),
-    });
     return null;
   }
 
-  const { urlObj, isRelative } = resolved;
-
-  try {
-    // 優先處理 Next.js 拆包
-    const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
-    if (unwrappedNextUrl) {
-      return unwrappedNextUrl;
-    }
-
-    // 處理特定域名規則 (代理 URL、itok 等)
-    const specialResult = _handleSpecialDomainRules(urlObj, depth);
-    if (specialResult) {
-      return specialResult;
-    }
-
-    // 標準化查詢參數
-    _standardizeSearchParams(urlObj);
-
-    if (isRelative) {
-      return urlObj.pathname + urlObj.search + urlObj.hash;
-    }
-
-    // Notion 兼容性編碼修復
-    return _applyNotionCompatibilityEncoding(urlObj.href);
-  } catch {
-    return null;
-  }
+  return _processResolvedImageUrl(resolved, depth);
 }
 
 /**
