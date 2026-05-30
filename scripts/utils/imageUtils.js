@@ -987,10 +987,16 @@ function _extractFromAnchorHref(node) {
     return null;
   }
   const href = node.getAttribute('href');
-  if (href && !/^javascript:/i.test(href) && !href.startsWith('#')) {
-    return href;
+  if (!href) {
+    return null;
   }
-  return null;
+  if (/^javascript:/i.test(href)) {
+    return null;
+  }
+  if (href.startsWith('#')) {
+    return null;
+  }
+  return href;
 }
 
 /**
