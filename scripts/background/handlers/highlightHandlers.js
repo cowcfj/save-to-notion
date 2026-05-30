@@ -264,13 +264,18 @@ async function ensureBundleInjectedAndReady(injectionService, tabId, action) {
   return { ok: true };
 }
 
-async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
-  let cleanupMethod = null;
+function pickBundleCleanupMethod(injectionService) {
   if (typeof injectionService?.removeBundle === 'function') {
-    cleanupMethod = 'removeBundle';
-  } else if (typeof injectionService?.cleanupInjectedBundle === 'function') {
-    cleanupMethod = 'cleanupInjectedBundle';
+    return 'removeBundle';
   }
+  if (typeof injectionService?.cleanupInjectedBundle === 'function') {
+    return 'cleanupInjectedBundle';
+  }
+  return null;
+}
+
+async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
+  const cleanupMethod = pickBundleCleanupMethod(injectionService);
 
   if (!cleanupMethod) {
     Logger.warn('Bundle 初始化超時且無可用 cleanup API，可能留下半初始化 bundle', {
