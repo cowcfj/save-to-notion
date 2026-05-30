@@ -179,6 +179,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     mockInjectionService = {
       injectHighlighter: jest.fn(),
+      ensureBundleInjected: jest.fn().mockResolvedValue(true),
       inject: jest.fn(),
       collectHighlights: jest.fn().mockResolvedValue([]),
     };
@@ -870,28 +871,40 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該成功注入並啟動', async () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
-      chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => cb({ success: true }));
+      chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          cb({ status: 'bundle_ready' });
+          return;
+        }
+        cb({ success: true });
+      });
 
       await handlers.startHighlight({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    test('當 sendMessage 失敗時應該回退到 injectHighlighter', async () => {
+    test('當啟動訊息失敗時應該回傳錯誤且不回退到 legacy injectHighlighter', async () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
 
-      // Mock sendMessage 失敗 (例如腳本未加載)
-      chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => {
+      chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          cb({ status: 'bundle_ready' });
+          return;
+        }
         chrome.runtime.lastError = { message: 'Receiving end does not exist' };
-        cb(); // 當有 lastError 時，callback 不應傳遞參數
+        cb();
+        chrome.runtime.lastError = null;
       });
 
       mockInjectionService.injectHighlighter.mockResolvedValue({ initialized: true });
 
       await handlers.startHighlight({}, internalSender, sendResponse);
 
-      expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      expect(mockInjectionService.injectHighlighter).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.any(String) })
+      );
     });
   });
 

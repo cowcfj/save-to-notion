@@ -408,14 +408,45 @@ describe('highlightHandlers', () => {
   });
 
   describe('startHighlight', () => {
+    it('沒有 active tab 時應回傳 NO_ACTIVE_TAB 且不記錄 generic error', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
+          errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+        })
+      );
+      expect(mockServices.injectionService.ensureBundleInjected).not.toHaveBeenCalled();
+      expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
+        '啟動高亮工具時出錯',
+        expect.any(Object)
+      );
+    });
+
     it('應該透過 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動已注入的高亮工具', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id' };
 
-      globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => cb({ success: true }));
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        if (msg.action === 'PING') {
+          cb({ status: 'bundle_ready' });
+        } else {
+          cb({ success: true });
+        }
+      });
 
       await handlers.startHighlight({}, sender, sendResponse);
 
+      expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
         { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
@@ -424,29 +455,161 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('如果切換失敗應該注入高亮工具', async () => {
+    it('如果 Bundle 初始化超時，應回傳 BUNDLE_INIT_TIMEOUT 錯誤且不發送啟動訊息', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id' };
 
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+
+      // 模擬 PING 永遠回傳 error 導致超時
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
-        globalThis.chrome.runtime.lastError = { message: 'No listener' };
-        cb(null);
-        globalThis.chrome.runtime.lastError = null;
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        } else {
+          cb({ success: true });
+        }
       });
 
-      mockServices.injectionService.injectHighlighter.mockResolvedValue({ initialized: true });
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+      expect(globalThis.chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
+        expect.any(Function)
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
+    it('如果 Bundle 初始化超時且 injection service 支援 cleanup，應先清理半初始化 bundle', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+      mockServices.injectionService.removeBundle = jest.fn().mockResolvedValue();
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        }
+      });
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(mockServices.injectionService.removeBundle).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
+    it('如果 Bundle 初始化超時且 cleanup 失敗，應記錄 cleanup error 並維持 timeout 回應', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+      const cleanupError = new Error('cleanup failed');
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+      mockServices.injectionService.cleanupInjectedBundle = jest
+        .fn()
+        .mockRejectedValue(cleanupError);
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        }
+      });
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(mockServices.injectionService.cleanupInjectedBundle).toHaveBeenCalledWith(1);
+      expect(globalThis.Logger.error).toHaveBeenCalledWith(
+        'Bundle 初始化超時後清理失敗',
+        expect.objectContaining({
+          action: 'startHighlight',
+          tabId: 1,
+          error: cleanupError.message,
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
+    it('如果 Bundle 初始化超時且沒有 cleanup API，應記錄半初始化狀態警告', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        }
+      });
 
       await handlers.startHighlight({}, sender, sendResponse);
 
       expect(globalThis.Logger.warn).toHaveBeenCalledWith(
-        '發送顯示訊息失敗，嘗試注入腳本',
+        'Bundle 初始化超時且無可用 cleanup API，可能留下半初始化 bundle',
         expect.objectContaining({
           action: 'startHighlight',
-          error: expect.any(Error),
+          tabId: 1,
+          state: 'half_initialized_bundle',
         })
       );
-      expect(mockServices.injectionService.injectHighlighter).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
+    it('[REGRESSION] 當 content script 初始化 Floating Rail 失敗時，應直接回傳 content script 的中文錯誤資訊，不應呼叫 injectHighlighter()', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      // Mock ensureBundleInjected 成功
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+
+      // Mock PING 為 bundle_ready，但 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 回傳失敗與中文錯誤
+      globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        if (msg.action === 'PING') {
+          cb({ status: 'bundle_ready' });
+        } else if (msg.action === RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT) {
+          cb({ success: false, error: '浮動側欄初始化失敗' });
+        }
+      });
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      // 應呼叫 ensureBundleInjected，但不應呼叫 injectHighlighter
+      expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+      expect(mockServices.injectionService.injectHighlighter).not.toHaveBeenCalled();
+
+      // 應直接轉發 content script 回傳的錯誤
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: '浮動側欄初始化失敗',
+      });
     });
   });
 
@@ -573,6 +736,28 @@ describe('highlightHandlers', () => {
           success: false,
           errorCode: 'INTERNAL_ERROR',
         })
+      );
+    });
+
+    it('UPDATE_REMOTE_HIGHLIGHTS 沒有 active tab 時應回傳 NO_ACTIVE_TAB errorCode', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
+
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
+          errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+        })
+      );
+      expect(mockServices.injectionService.collectHighlights).not.toHaveBeenCalled();
+      expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
+        '更新標註時出錯',
+        expect.any(Object)
       );
     });
 
