@@ -255,13 +255,11 @@ function cleanImageUrl(url, depth = 0) {
   // 1. 標準化 (Normalization)
   const normalized = _normalizeUrlInternal(url);
 
-  // 基本格式驗證
   // 基本格式驗證：Notion 僅支援 HTTP/HTTPS 協議
-  if (
-    normalized.startsWith('data:') ||
-    normalized.startsWith('blob:') ||
-    !/^https?:\/\//i.test(normalized)
-  ) {
+  if (_hasRejectedImageProtocol(normalized)) {
+    return null;
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
     return null;
   }
 
@@ -752,9 +750,14 @@ function extractFromSrcset(imgNode) {
 function extractFromAttributes(imgNode) {
   for (const attr of IMAGE_ATTRIBUTES) {
     const value = imgNode.getAttribute(attr);
-    if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
-      return value.trim();
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      continue;
     }
+    if (_hasRejectedImageProtocol(trimmed)) {
+      continue;
+    }
+    return trimmed;
   }
   return null;
 }
@@ -893,10 +896,13 @@ function _extractWithRegex(html) {
   const imgPattern = /<img[^>]+src=["']([^"']+)["']/i;
   const match = imgPattern.exec(html);
   const src = match?.[1];
-  if (src && src.length <= IMAGE_VALIDATION.MAX_URL_LENGTH && !src.startsWith('data:')) {
-    return src;
+  if (!src || src.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
+    return null;
   }
-  return null;
+  if (_hasRejectedImageProtocol(src)) {
+    return null;
+  }
+  return src;
 }
 
 /**
