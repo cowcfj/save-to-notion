@@ -202,6 +202,488 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   return result;
 }
 
+async function sendActionMessageToTab(tabId, action) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, { action }, result => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(result);
+      }
+    });
+  });
+}
+
+function normalizeContentResponse(response) {
+  return response && typeof response === 'object'
+    ? response
+    : { success: false, error: 'no payload from content' };
+}
+
+async function ensureBundleInjectedAndReady(injectionService, tabId, action) {
+  try {
+    await injectionService.ensureBundleInjected(tabId);
+  } catch (injectionError) {
+    Logger.error('Bundle 注入失敗', {
+      action,
+      error: injectionError.message,
+      stack: injectionError.stack,
+    });
+    return { ok: false, reason: 'inject_failed', error: injectionError };
+  }
+
+  const bundleReady = await ensureBundleReady(tabId);
+  if (!bundleReady) {
+    return { ok: false, reason: 'timeout' };
+  }
+
+  return { ok: true };
+}
+
+// ============================================================================
+// Handler 實作（module-level，由 factory 透過 services 綁定）
+// ============================================================================
+
+async function handleShowFloatingRail(services, request, sender, sendResponse) {
+  const { injectionService } = services;
+  try {
+    const validationError = validateContentScriptRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildContentScriptGuardMeta({
+          action: 'SHOW_FLOATING_RAIL',
+          sender,
+          validationError,
+        })
+      );
+      return;
+    }
+
+    if (!sender.tab?.id) {
+      Logger.warn('缺少標籤頁上下文', { action: 'SHOW_FLOATING_RAIL' });
+      sendResponse({ success: false, error: '缺少標籤頁上下文' });
+      return;
+    }
+
+    const tabId = sender.tab.id;
+    const tabUrl = sender.tab.url;
+    if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
+      sendResponse({
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
+      });
+      return;
+    }
+
+    const injected = await injectionService.ensureBundleInjected(tabId);
+    if (!injected) {
+      sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+      return;
+    }
+
+    const bundleReady = await ensureBundleReady(tabId);
+    if (!bundleReady) {
+      sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+      return;
+    }
+
+    const response = await sendActionMessageToTab(tabId, CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL);
+    const normalized = normalizeContentResponse(response);
+    sendResponse(normalized.success ? { success: true } : normalized);
+  } catch (error) {
+    Logger.warn('顯示 Floating Rail 失敗', {
+      action: 'SHOW_FLOATING_RAIL',
+      error: error?.message ?? String(error),
+    });
+    const safeMessage = sanitizeApiError(error, 'show_floating_rail');
+    sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+  }
+}
+
+async function handleUserActivateShortcut(services, request, sender, sendResponse) {
+  const { injectionService } = services;
+  try {
+    const validationError = validateContentScriptRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildContentScriptGuardMeta({
+          action: 'USER_ACTIVATE_SHORTCUT',
+          sender,
+          validationError,
+        })
+      );
+      return;
+    }
+
+    if (!sender.tab?.id) {
+      Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
+      sendResponse({ success: false, error: '缺少標籤頁上下文' });
+      return;
+    }
+
+    const tabId = sender.tab.id;
+    const tabUrl = sender.tab.url;
+    Logger.start('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
+
+    if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
+      Logger.warn('受限頁面無法使用標註', {
+        action: 'USER_ACTIVATE_SHORTCUT',
+        url: sanitizeUrlForLogging(tabUrl),
+        result: 'blocked',
+        reason: 'restricted_url',
+      });
+      sendResponse({
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
+      });
+      return;
+    }
+
+    const prep = await ensureBundleInjectedAndReady(
+      injectionService,
+      tabId,
+      'USER_ACTIVATE_SHORTCUT'
+    );
+    if (!prep.ok) {
+      if (prep.reason === 'inject_failed') {
+        const safeMessage = sanitizeApiError(prep.error, 'bundle_injection');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        return;
+      }
+      Logger.warn('Bundle 初始化超時', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
+      sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+      return;
+    }
+
+    try {
+      const response = await sendActionMessageToTab(
+        tabId,
+        RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT
+      );
+      if (response?.success === true) {
+        Logger.success('成功啟動浮動側欄標註', { action: 'USER_ACTIVATE_SHORTCUT' });
+        sendResponse({ success: true, response });
+        return;
+      }
+      Logger.warn('啟動浮動側欄標註失敗', {
+        action: 'USER_ACTIVATE_SHORTCUT',
+        responseSuccess: response?.success,
+        responseError: response?.error,
+      });
+      sendResponse({ success: false, response });
+    } catch (error) {
+      Logger.warn('啟動浮動側欄標註失敗', {
+        action: 'USER_ACTIVATE_SHORTCUT',
+        error: error.message,
+      });
+      const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
+      sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+    }
+  } catch (error) {
+    Logger.error('執行快捷鍵激活時發生意外錯誤', {
+      action: 'USER_ACTIVATE_SHORTCUT',
+      error: error.message,
+    });
+    const safeMessage = sanitizeApiError(error, 'user_activate_shortcut');
+    sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+  }
+}
+
+async function handleStartHighlight(services, request, sender, sendResponse) {
+  const { injectionService } = services;
+  try {
+    const validationError = validateInternalRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildInternalGuardMeta({
+          action: 'startHighlight',
+          sender,
+          validationError,
+        })
+      );
+      return;
+    }
+
+    const activeTab = await getActiveTab();
+    if (isRestrictedInjectionUrl(activeTab.url)) {
+      sendResponse({
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
+      });
+      return;
+    }
+
+    const prep = await ensureBundleInjectedAndReady(
+      injectionService,
+      activeTab.id,
+      'startHighlight'
+    );
+    if (!prep.ok) {
+      if (prep.reason === 'inject_failed') {
+        const safeMessage = sanitizeApiError(prep.error, 'bundle_injection');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+        return;
+      }
+      Logger.warn('Bundle 初始化超時', { action: 'startHighlight', tabId: activeTab.id });
+      sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
+      return;
+    }
+
+    try {
+      const response = await sendActionMessageToTab(
+        activeTab.id,
+        RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT
+      );
+      if (response?.success === true) {
+        Logger.success('成功啟動浮動側欄標註', { action: 'startHighlight' });
+        sendResponse({ success: true });
+        return;
+      }
+      Logger.warn('啟動浮動側欄標註失敗', {
+        action: 'startHighlight',
+        responseSuccess: response?.success,
+        responseError: response?.error,
+      });
+      sendResponse(normalizeContentResponse(response));
+    } catch (error) {
+      Logger.warn('啟動浮動側欄標註失敗', {
+        action: 'startHighlight',
+        error: error.message,
+      });
+      const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
+      sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+    }
+  } catch (error) {
+    Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });
+    const safeMessage = sanitizeApiError(error, 'start_highlight');
+    sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+  }
+}
+
+async function handleUpdateRemoteHighlights(services, request, sender, sendResponse) {
+  const { injectionService } = services;
+  try {
+    const validationError = validateInternalRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildInternalGuardMeta({
+          action: 'updateHighlights',
+          sender,
+          validationError,
+        })
+      );
+      return;
+    }
+
+    const activeTab = await getActiveTab();
+    const highlights = await injectionService.collectHighlights(activeTab.id);
+    const result = await performHighlightUpdate(services, activeTab, highlights);
+
+    if (result.success) {
+      result.highlightsUpdated = true;
+      result.highlightCount = highlights.length;
+      Logger.success('成功更新標註', {
+        action: 'updateHighlights',
+        count: highlights.length,
+      });
+    }
+    sendResponse(result);
+  } catch (error) {
+    Logger.error('更新標註時出錯', { action: 'updateHighlights', error: error.message });
+    const safeMessage = sanitizeApiError(error, 'update_highlights');
+    sendResponse({
+      success: false,
+      error: ErrorHandler.formatUserMessage(safeMessage),
+      errorCode: 'INTERNAL_ERROR',
+    });
+  }
+}
+
+async function handleSyncHighlights(services, request, sender, sendResponse) {
+  try {
+    const validationError = validateContentScriptRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildContentScriptGuardMeta({
+          action: 'syncHighlights',
+          sender,
+          validationError,
+        })
+      );
+      return;
+    }
+
+    const activeTab = sender.tab;
+    if (!activeTab?.id || !activeTab?.url) {
+      Logger.warn('syncHighlights: 缺少標籤頁上下文', {
+        action: 'syncHighlights',
+        senderId: sender?.id,
+      });
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+      });
+      return;
+    }
+
+    const highlights = request.highlights || [];
+    if (highlights.length === 0) {
+      sendResponse({
+        success: true,
+        message: UI_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
+        highlightCount: 0,
+      });
+      return;
+    }
+
+    const result = await performHighlightUpdate(services, activeTab, highlights);
+
+    if (result.success) {
+      Logger.success('成功同步標註', { action: 'syncHighlights', count: highlights.length });
+      result.highlightCount = highlights.length;
+      result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
+    } else {
+      Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
+      const toastKey = classifyErrorForToast(result.errorCode);
+      if (toastKey) {
+        sendToastToTab(sender.tab.id, toastKey, 'error');
+      }
+    }
+    sendResponse(result);
+  } catch (error) {
+    Logger.error('執行 syncHighlights 時出錯', {
+      action: 'syncHighlights',
+      error: error.message,
+    });
+    const safeMessage = sanitizeApiError(error, 'sync_highlights');
+    sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+  }
+}
+async function handleUpdateHighlights(services, request, sender, sendResponse) {
+  const { storageService } = services;
+  try {
+    const validationError = validateContentScriptRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildSimpleGuardMeta({
+          action: 'UPDATE_HIGHLIGHTS',
+          reason: 'invalid_content_script_request',
+          validationError,
+        })
+      );
+      return;
+    }
+
+    const { url, highlights } = request;
+    if (!url || !Array.isArray(highlights)) {
+      sendResponse({
+        success: false,
+        error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url 或 highlights' },
+      });
+      return;
+    }
+
+    await storageService.updateHighlights(url, highlights);
+
+    Logger.log('Phase 3: UPDATE_HIGHLIGHTS 成功', {
+      action: 'UPDATE_HIGHLIGHTS',
+      count: highlights.length,
+    });
+    sendResponse({ success: true });
+  } catch (error) {
+    Logger.error('Phase 3: UPDATE_HIGHLIGHTS 失敗', {
+      action: 'UPDATE_HIGHLIGHTS',
+      error: error.message,
+    });
+    sendResponse({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
+    });
+  }
+}
+
+async function clearTabVisualHighlights(injectionService, targetTabId) {
+  if (!targetTabId || typeof injectionService?.clearPageHighlights !== 'function') {
+    return false;
+  }
+  try {
+    await injectionService.clearPageHighlights(targetTabId);
+    return true;
+  } catch (error) {
+    Logger.warn('Phase 3: CLEAR_HIGHLIGHTS 視覺清除失敗，但 storage 已更新', {
+      action: 'CLEAR_HIGHLIGHTS',
+      tabId: targetTabId,
+      error,
+    });
+    return false;
+  }
+}
+
+async function handleClearHighlights(services, request, sender, sendResponse) {
+  const { storageService, injectionService } = services;
+  try {
+    const isContentScript = Boolean(sender?.tab);
+    const validationError = isContentScript
+      ? validateContentScriptRequest(sender)
+      : validateInternalRequest(sender);
+    if (validationError) {
+      sendGuardFailure(
+        validationError,
+        sendResponse,
+        buildSimpleGuardMeta({
+          action: 'CLEAR_HIGHLIGHTS',
+          reason: isContentScript ? 'invalid_content_script_request' : 'invalid_internal_request',
+          validationError,
+        })
+      );
+      return;
+    }
+
+    const { url } = request;
+    if (!url) {
+      sendResponse({
+        success: false,
+        error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url' },
+      });
+      return;
+    }
+
+    const currentHighlights = (await storageService.getHighlights(url)) || [];
+    const clearedCount = Array.isArray(currentHighlights) ? currentHighlights.length : 0;
+    await storageService.updateHighlights(url, []);
+
+    const targetTabId = sender?.tab?.id || request.tabId;
+    const visualCleared = await clearTabVisualHighlights(injectionService, targetTabId);
+
+    Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', {
+      action: 'CLEAR_HIGHLIGHTS',
+      url: sanitizeUrlForLogging(url),
+    });
+    sendResponse({ success: true, clearedCount, visualCleared });
+  } catch (error) {
+    Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {
+      action: 'CLEAR_HIGHLIGHTS',
+      error: error.message,
+    });
+    sendResponse({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
+    });
+  }
+}
+
 // ============================================================================
 // 工廠函數
 // ============================================================================
@@ -213,592 +695,20 @@ async function performHighlightUpdate(services, activeTab, highlights) {
  * @returns {object} 處理函數映射
  */
 export function createHighlightHandlers(services) {
-  const { injectionService } = services;
-
   return {
-    /**
-     * 顯示 Floating Rail（來自 Preloader 的自動顯示請求）。
-     *
-     * @param {object} request
-     * @param {chrome.runtime.MessageSender} sender
-     * @param {Function} sendResponse
-     */
-    [RUNTIME_ACTIONS.SHOW_FLOATING_RAIL]: async (request, sender, sendResponse) => {
-      try {
-        const validationError = validateContentScriptRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildContentScriptGuardMeta({
-              action: 'SHOW_FLOATING_RAIL',
-              sender,
-              validationError,
-            })
-          );
-          return;
-        }
-
-        if (!sender.tab?.id) {
-          Logger.warn('缺少標籤頁上下文', { action: 'SHOW_FLOATING_RAIL' });
-          sendResponse({ success: false, error: '缺少標籤頁上下文' });
-          return;
-        }
-
-        const tabId = sender.tab.id;
-        const tabUrl = sender.tab.url;
-        if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
-          });
-          return;
-        }
-
-        const injected = await injectionService.ensureBundleInjected(tabId);
-        if (!injected) {
-          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
-          return;
-        }
-
-        const bundleReady = await ensureBundleReady(tabId);
-        if (!bundleReady) {
-          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
-          return;
-        }
-
-        const response = await new Promise((resolve, reject) => {
-          chrome.tabs.sendMessage(
-            tabId,
-            { action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL },
-            result => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve(result);
-              }
-            }
-          );
-        });
-
-        const normalizedResponse =
-          response && typeof response === 'object'
-            ? response
-            : { success: false, error: 'no payload from content' };
-        sendResponse(normalizedResponse.success ? { success: true } : normalizedResponse);
-      } catch (error) {
-        Logger.warn('顯示 Floating Rail 失敗', {
-          action: 'SHOW_FLOATING_RAIL',
-          error: error?.message ?? String(error),
-        });
-        const safeMessage = sanitizeApiError(error, 'show_floating_rail');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
-    },
-
-    /**
-     * 處理用戶快捷鍵激活（來自 Preloader）
-     *
-     * @param {object} request
-     * @param {chrome.runtime.MessageSender} sender
-     * @param {Function} sendResponse
-     */
-    [RUNTIME_ACTIONS.USER_ACTIVATE_SHORTCUT]: async (request, sender, sendResponse) => {
-      try {
-        // 安全性驗證：確保請求來自我們自己的 content script
-        // 這個處理器會執行腳本注入，必須確保僅限我們的 preloader.js 調用
-        const validationError = validateContentScriptRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildContentScriptGuardMeta({
-              action: 'USER_ACTIVATE_SHORTCUT',
-              sender,
-              validationError,
-            })
-          );
-          return;
-        }
-
-        if (!sender.tab?.id) {
-          Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
-          sendResponse({ success: false, error: '缺少標籤頁上下文' });
-          return;
-        }
-
-        const tabId = sender.tab.id;
-        const tabUrl = sender.tab.url;
-        Logger.start('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
-
-        // 檢查是否為受限頁面
-        if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
-          Logger.warn('受限頁面無法使用標註', {
-            action: 'USER_ACTIVATE_SHORTCUT',
-            url: sanitizeUrlForLogging(tabUrl),
-            result: 'blocked',
-            reason: 'restricted_url',
-          });
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
-          });
-          return;
-        }
-
-        // 確保 Bundle 已注入（捕獲可能的注入錯誤）
-        try {
-          await injectionService.ensureBundleInjected(tabId);
-        } catch (injectionError) {
-          Logger.error('Bundle 注入失敗', {
-            action: 'USER_ACTIVATE_SHORTCUT',
-            error: injectionError.message,
-            stack: injectionError.stack,
-          });
-          const safeMessage = sanitizeApiError(injectionError, 'bundle_injection');
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(safeMessage),
-          });
-          return;
-        }
-
-        // 等待 Bundle 完全就緒
-        const bundleReady = await ensureBundleReady(tabId);
-
-        if (!bundleReady) {
-          Logger.warn('Bundle 初始化超時', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
-          });
-          return;
-        }
-
-        // 發送訊息啟動 Floating Rail 標註模式
-        try {
-          const response = await new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(
-              tabId,
-              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
-              result => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(result);
-                }
-              }
-            );
-          });
-          if (response?.success === true) {
-            Logger.success('成功啟動浮動側欄標註', { action: 'USER_ACTIVATE_SHORTCUT' });
-            sendResponse({ success: true, response });
-            return;
-          }
-
-          Logger.warn('啟動浮動側欄標註失敗', {
-            action: 'USER_ACTIVATE_SHORTCUT',
-            responseSuccess: response?.success,
-            responseError: response?.error,
-          });
-          sendResponse({ success: false, response });
-        } catch (error) {
-          Logger.warn('啟動浮動側欄標註失敗', {
-            action: 'USER_ACTIVATE_SHORTCUT',
-            error: error.message,
-          });
-          const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(safeMessage),
-          });
-        }
-      } catch (error) {
-        Logger.error('執行快捷鍵激活時發生意外錯誤', {
-          action: 'USER_ACTIVATE_SHORTCUT',
-          error: error.message,
-        });
-        const safeMessage = sanitizeApiError(error, 'user_activate_shortcut');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
-    },
-
-    /**
-     * 啟動/切換高亮工具
-     *
-     * @param {object} request
-     * @param {chrome.runtime.MessageSender} sender
-     * @param {Function} sendResponse
-     */
-    [RUNTIME_ACTIONS.START_HIGHLIGHT]: async (request, sender, sendResponse) => {
-      try {
-        // 安全性驗證：檢查請求來源
-        // startHighlight 會執行腳本注入，必須確保僅限內部調用
-        const validationError = validateInternalRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildInternalGuardMeta({
-              action: 'startHighlight',
-              sender,
-              validationError,
-            })
-          );
-          return;
-        }
-
-        const activeTab = await getActiveTab();
-
-        // 檢查是否為受限頁面（chrome://、chrome-extension:// 等）
-        if (isRestrictedInjectionUrl(activeTab.url)) {
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
-          });
-          return;
-        }
-
-        // 確保 Bundle 已注入（捕獲可能的注入錯誤）
-        try {
-          await injectionService.ensureBundleInjected(activeTab.id);
-        } catch (injectionError) {
-          Logger.error('Bundle 注入失敗', {
-            action: 'startHighlight',
-            error: injectionError.message,
-            stack: injectionError.stack,
-          });
-          const safeMessage = sanitizeApiError(injectionError, 'bundle_injection');
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(safeMessage),
-          });
-          return;
-        }
-
-        // 等待 Bundle 完全就緒
-        const bundleReady = await ensureBundleReady(activeTab.id);
-
-        if (!bundleReady) {
-          Logger.warn('Bundle 初始化超時', { action: 'startHighlight', tabId: activeTab.id });
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
-          });
-          return;
-        }
-
-        // 發送訊息啟動 Floating Rail 標註模式
-        try {
-          const response = await new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(
-              activeTab.id,
-              { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
-              result => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(result);
-                }
-              }
-            );
-          });
-
-          if (response?.success === true) {
-            Logger.success('成功啟動浮動側欄標註', { action: 'startHighlight' });
-            sendResponse({ success: true });
-            return;
-          }
-
-          Logger.warn('啟動浮動側欄標註失敗', {
-            action: 'startHighlight',
-            responseSuccess: response?.success,
-            responseError: response?.error,
-          });
-          sendResponse(
-            response && typeof response === 'object'
-              ? response
-              : { success: false, error: 'no payload from content' }
-          );
-        } catch (error) {
-          Logger.warn('啟動浮動側欄標註失敗', {
-            action: 'startHighlight',
-            error: error.message,
-          });
-          const safeMessage = sanitizeApiError(error, 'activate_floating_rail_highlight');
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(safeMessage),
-          });
-        }
-      } catch (error) {
-        Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });
-        const safeMessage = sanitizeApiError(error, 'start_highlight');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
-    },
-
-    /**
-     * 更新現有頁面的標註
-     *
-     * @param {object} request
-     * @param {chrome.runtime.MessageSender} sender
-     * @param {Function} sendResponse
-     */
-    [RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]: async (request, sender, sendResponse) => {
-      try {
-        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
-        const validationError = validateInternalRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildInternalGuardMeta({
-              action: 'updateHighlights',
-              sender,
-              validationError,
-            })
-          );
-          return;
-        }
-
-        const activeTab = await getActiveTab();
-
-        const highlights = await injectionService.collectHighlights(activeTab.id);
-
-        // 使用共用邏輯執行更新
-        const result = await performHighlightUpdate(services, activeTab, highlights);
-
-        if (result.success) {
-          result.highlightsUpdated = true;
-          result.highlightCount = highlights.length;
-          Logger.success('成功更新標註', {
-            action: 'updateHighlights',
-            count: highlights.length,
-          });
-        }
-        sendResponse(result);
-      } catch (error) {
-        Logger.error('更新標註時出錯', { action: 'updateHighlights', error: error.message });
-        const safeMessage = sanitizeApiError(error, 'update_highlights');
-        sendResponse({
-          success: false,
-          error: ErrorHandler.formatUserMessage(safeMessage),
-          errorCode: 'INTERNAL_ERROR',
-        });
-      }
-    },
-
-    /**
-     * 同步標註 (從請求 payload 中獲取)
-     *
-     * @param {object} request - 請求對象
-     * @param {chrome.runtime.MessageSender} sender - 發送者信息
-     * @param {Function} sendResponse - 回應函數
-     */
-    [RUNTIME_ACTIONS.SYNC_HIGHLIGHTS]: async (request, sender, sendResponse) => {
-      try {
-        // 安全性驗證：確保請求來自我們自己的 content script
-        const validationError = validateContentScriptRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildContentScriptGuardMeta({
-              action: 'syncHighlights',
-              sender,
-              validationError,
-            })
-          );
-          return;
-        }
-
-        const activeTab = sender.tab;
-
-        // sender.tab 在某些情況下可能為 null（例如 service worker 注入的 content script）
-        if (!activeTab?.id || !activeTab?.url) {
-          Logger.warn('syncHighlights: 缺少標籤頁上下文', {
-            action: 'syncHighlights',
-            senderId: sender?.id,
-          });
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
-          });
-          return;
-        }
-
-        const highlights = request.highlights || [];
-        if (highlights.length === 0) {
-          sendResponse({
-            success: true,
-            message: UI_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
-            highlightCount: 0,
-          });
-          return;
-        }
-
-        // 使用共用邏輯執行更新
-        const result = await performHighlightUpdate(services, activeTab, highlights);
-
-        if (result.success) {
-          Logger.success('成功同步標註', { action: 'syncHighlights', count: highlights.length });
-          result.highlightCount = highlights.length;
-          result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
-        } else {
-          Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
-          const toastKey = classifyErrorForToast(result.errorCode);
-          if (toastKey) {
-            sendToastToTab(sender.tab.id, toastKey, 'error');
-          }
-        }
-        sendResponse(result);
-      } catch (error) {
-        Logger.error('執行 syncHighlights 時出錯', {
-          action: 'syncHighlights',
-          error: error.message,
-        });
-        const safeMessage = sanitizeApiError(error, 'sync_highlights');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
-    },
-    /**
-     * Phase 3: 儲存標註至 Storage（Content Script 透過 sendMessage 路由）
-     *
-     * HighlightStorageGateway 的 saveHighlights 轉發至此，利用 Background 的
-     * StorageService._withLock
-     * 確保所有寫入序列化，避免跨 context 並發覆蓋。
-     *
-     * @param {object} request - { url: string, highlights: Array }
-     * @param {chrome.runtime.MessageSender} sender
-     * @param {Function} sendResponse
-     */
-    UPDATE_HIGHLIGHTS: async (request, sender, sendResponse) => {
-      try {
-        // 安全性驗證：只允許來自我們自己的 content script
-        const validationError = validateContentScriptRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildSimpleGuardMeta({
-              action: 'UPDATE_HIGHLIGHTS',
-              reason: 'invalid_content_script_request',
-              validationError,
-            })
-          );
-          return;
-        }
-
-        const { url, highlights } = request;
-        if (!url || !Array.isArray(highlights)) {
-          sendResponse({
-            success: false,
-            error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url 或 highlights' },
-          });
-          return;
-        }
-
-        const { storageService } = services;
-        await storageService.updateHighlights(url, highlights);
-
-        Logger.log('Phase 3: UPDATE_HIGHLIGHTS 成功', {
-          action: 'UPDATE_HIGHLIGHTS',
-          count: highlights.length,
-        });
-        sendResponse({ success: true });
-      } catch (error) {
-        Logger.error('Phase 3: UPDATE_HIGHLIGHTS 失敗', {
-          action: 'UPDATE_HIGHLIGHTS',
-          error: error.message,
-        });
-        sendResponse({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
-        });
-      }
-    },
-
-    /**
-     * Phase 3: 清除標註（Content Script 透過 sendMessage 路由）
-     *
-     * HighlightStorageGateway 的 clearHighlights 轉發至此，利用 Background 的
-     * StorageService._withLock
-     * 確保清除操作序列化，並保留 notion 欄位（若存在）。
-     *
-     * @param {object} request - { url: string }
-     * @param {chrome.runtime.MessageSender} sender
-     * @param {Function} sendResponse
-     */
-    [RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS]: async (request, sender, sendResponse) => {
-      try {
-        // 允許兩種來源：
-        // 1. Content Script（sender.tab 存在）
-        // 2. Popup / Options 等內部頁面（sender.tab 不存在）
-        const isContentScript = Boolean(sender?.tab);
-        const validationError = isContentScript
-          ? validateContentScriptRequest(sender)
-          : validateInternalRequest(sender);
-        if (validationError) {
-          sendGuardFailure(
-            validationError,
-            sendResponse,
-            buildSimpleGuardMeta({
-              action: 'CLEAR_HIGHLIGHTS',
-              reason: isContentScript
-                ? 'invalid_content_script_request'
-                : 'invalid_internal_request',
-              validationError,
-            })
-          );
-          return;
-        }
-
-        const { url } = request;
-        if (!url) {
-          sendResponse({
-            success: false,
-            error: { code: 'INVALID_REQUEST', message: '請求格式錯誤：缺少 url' },
-          });
-          return;
-        }
-
-        // 清除 highlights，保留 notion（透過 updateHighlights 寫入空陣列）
-        const { storageService } = services;
-        const currentHighlights = (await storageService.getHighlights(url)) || [];
-        const clearedCount = Array.isArray(currentHighlights) ? currentHighlights.length : 0;
-        await storageService.updateHighlights(url, []);
-
-        const targetTabId = sender?.tab?.id || request.tabId;
-        let visualCleared = false;
-        if (targetTabId && typeof injectionService?.clearPageHighlights === 'function') {
-          try {
-            await injectionService.clearPageHighlights(targetTabId);
-            visualCleared = true;
-          } catch (error) {
-            Logger.warn('Phase 3: CLEAR_HIGHLIGHTS 視覺清除失敗，但 storage 已更新', {
-              action: 'CLEAR_HIGHLIGHTS',
-              tabId: targetTabId,
-              error,
-            });
-          }
-        }
-
-        Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', {
-          action: 'CLEAR_HIGHLIGHTS',
-          url: sanitizeUrlForLogging(url),
-        });
-        sendResponse({ success: true, clearedCount, visualCleared });
-      } catch (error) {
-        Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {
-          action: 'CLEAR_HIGHLIGHTS',
-          error: error.message,
-        });
-        sendResponse({
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message: '伺服器內部錯誤' },
-        });
-      }
-    },
+    [RUNTIME_ACTIONS.SHOW_FLOATING_RAIL]: (req, sender, sendResponse) =>
+      handleShowFloatingRail(services, req, sender, sendResponse),
+    [RUNTIME_ACTIONS.USER_ACTIVATE_SHORTCUT]: (req, sender, sendResponse) =>
+      handleUserActivateShortcut(services, req, sender, sendResponse),
+    [RUNTIME_ACTIONS.START_HIGHLIGHT]: (req, sender, sendResponse) =>
+      handleStartHighlight(services, req, sender, sendResponse),
+    [RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]: (req, sender, sendResponse) =>
+      handleUpdateRemoteHighlights(services, req, sender, sendResponse),
+    [RUNTIME_ACTIONS.SYNC_HIGHLIGHTS]: (req, sender, sendResponse) =>
+      handleSyncHighlights(services, req, sender, sendResponse),
+    UPDATE_HIGHLIGHTS: (req, sender, sendResponse) =>
+      handleUpdateHighlights(services, req, sender, sendResponse),
+    [RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS]: (req, sender, sendResponse) =>
+      handleClearHighlights(services, req, sender, sendResponse),
   };
 }
