@@ -408,6 +408,28 @@ describe('highlightHandlers', () => {
   });
 
   describe('startHighlight', () => {
+    it('沒有 active tab 時應回傳 NO_ACTIVE_TAB 且不記錄 generic error', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
+          errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+        })
+      );
+      expect(mockServices.injectionService.ensureBundleInjected).not.toHaveBeenCalled();
+      expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
+        '啟動高亮工具時出錯',
+        expect.any(Object)
+      );
+    });
+
     it('應該透過 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動已注入的高亮工具', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id' };
@@ -619,6 +641,28 @@ describe('highlightHandlers', () => {
           success: false,
           errorCode: 'INTERNAL_ERROR',
         })
+      );
+    });
+
+    it('UPDATE_REMOTE_HIGHLIGHTS 沒有 active tab 時應回傳 NO_ACTIVE_TAB errorCode', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
+
+      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
+          errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+        })
+      );
+      expect(mockServices.injectionService.collectHighlights).not.toHaveBeenCalled();
+      expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
+        '更新標註時出錯',
+        expect.any(Object)
       );
     });
 

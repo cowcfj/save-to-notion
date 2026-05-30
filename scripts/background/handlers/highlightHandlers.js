@@ -220,6 +220,29 @@ function normalizeContentResponse(response) {
     : { success: false, error: 'no payload from content' };
 }
 
+function isNoActiveTabError(error) {
+  return error?.message === ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB;
+}
+
+function sendNoActiveTabResponse(sendResponse) {
+  sendResponse({
+    success: false,
+    error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+    errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+  });
+}
+
+async function resolveActiveTabContext() {
+  try {
+    return { ok: true, activeTab: await getActiveTab() };
+  } catch (error) {
+    if (isNoActiveTabError(error)) {
+      return { ok: false, kind: 'no_tab' };
+    }
+    throw error;
+  }
+}
+
 async function ensureBundleInjectedAndReady(injectionService, tabId, action) {
   try {
     await injectionService.ensureBundleInjected(tabId);
@@ -279,7 +302,11 @@ async function acceptInternalInjectionContext(sender, action) {
       guardMeta: buildInternalGuardMeta({ action, sender, validationError }),
     };
   }
-  const activeTab = await getActiveTab();
+  const tabContext = await resolveActiveTabContext();
+  if (!tabContext.ok) {
+    return tabContext;
+  }
+  const { activeTab } = tabContext;
   if (isRestrictedInjectionUrl(activeTab.url)) {
     return { ok: false, kind: 'restricted' };
   }
@@ -499,6 +526,10 @@ async function handleStartHighlight(services, request, sender, sendResponse) {
         sendGuardFailure(ctx.validationError, sendResponse, ctx.guardMeta);
         return;
       }
+      if (ctx.kind === 'no_tab') {
+        sendNoActiveTabResponse(sendResponse);
+        return;
+      }
       sendResponse({
         success: false,
         error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
@@ -543,7 +574,12 @@ async function handleUpdateRemoteHighlights(services, request, sender, sendRespo
       return;
     }
 
-    const activeTab = await getActiveTab();
+    const tabContext = await resolveActiveTabContext();
+    if (!tabContext.ok) {
+      sendNoActiveTabResponse(sendResponse);
+      return;
+    }
+    const { activeTab } = tabContext;
     const highlights = await injectionService.collectHighlights(activeTab.id);
     const result = await performHighlightUpdate(services, activeTab, highlights);
 
