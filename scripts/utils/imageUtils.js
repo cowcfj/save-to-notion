@@ -702,10 +702,14 @@ function _manualParseSrcset(srcsetEntries) {
 
   for (const entry of srcsetEntries) {
     const result = _parseSrcsetEntry(entry);
-    if (result && result.metric > 0 && result.metric > bestMetric) {
-      bestMetric = result.metric;
-      bestUrl = result.url;
+    if (!result || result.metric <= 0) {
+      continue;
     }
+    if (result.metric <= bestMetric) {
+      continue;
+    }
+    bestMetric = result.metric;
+    bestUrl = result.url;
   }
 
   return bestUrl ?? _findFallbackSrcsetUrl(srcsetEntries);
