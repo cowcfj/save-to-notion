@@ -232,6 +232,78 @@ function _unwrapNextJsUrl(urlObj, depth) {
 }
 
 /**
+ * 將 raw URL 字串標準化並解析為 URL 物件
+ *
+ * 涵蓋 cleanImageUrl 入口的 input-side validation pipeline：
+ * normalize → protocol allowlist/denylist → URL parsing。
+ *
+ * @param {string} url - 已通過型別 / depth guard 的原始 URL
+ * @returns {{urlObj: URL, isRelative: boolean, normalized: string}|null}
+ *   解析結果或 null（任何驗證階段失敗）
+ * @private
+ */
+function _normalizeAndResolveImageUrl(url) {
+  const normalized = _normalizeUrlInternal(url);
+
+  const resolved = _resolveUrl(normalized);
+  if (!resolved) {
+    Logger.error('URL 轉換失敗', {
+      action: 'cleanImageUrl',
+      result: 'failed',
+      url: sanitizeUrlForLogging(normalized),
+    });
+    return null;
+  }
+
+  // Notion 僅支援 HTTP/HTTPS 協議；相對路徑由後續 isRelative 分支保留。
+  const protocol = resolved.urlObj.protocol;
+  if (_hasRejectedImageProtocol(protocol)) {
+    return null;
+  }
+  if (!resolved.isRelative && !['http:', 'https:'].includes(protocol)) {
+    return null;
+  }
+
+  return { urlObj: resolved.urlObj, isRelative: resolved.isRelative, normalized };
+}
+
+/**
+ * 對已解析的 URL 物件執行 output-side transformation pipeline
+ *
+ * 依序嘗試：Next.js 拆包 → 特殊域名規則 → 查詢參數標準化 →
+ * 相對路徑回傳 → Notion 兼容性編碼。
+ *
+ * @param {{urlObj: URL, isRelative: boolean}} resolved - `_normalizeAndResolveImageUrl` 結果
+ * @param {number} depth - 當前遞迴深度
+ * @returns {string|null} 清理後的 URL，或 null（解析過程拋例外）
+ * @private
+ */
+function _processResolvedImageUrl(resolved, depth) {
+  const { urlObj, isRelative } = resolved;
+  try {
+    const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
+    if (unwrappedNextUrl) {
+      return unwrappedNextUrl;
+    }
+
+    const specialResult = _handleSpecialDomainRules(urlObj, depth);
+    if (specialResult) {
+      return specialResult;
+    }
+
+    _standardizeSearchParams(urlObj);
+
+    if (isRelative) {
+      return urlObj.pathname + urlObj.search + urlObj.hash;
+    }
+
+    return _applyNotionCompatibilityEncoding(urlObj.href);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 清理和標準化圖片 URL (整合 normalizeImageUrl)
  *
  * @param {string} url - 原始圖片 URL
@@ -246,61 +318,19 @@ function cleanImageUrl(url, depth = 0) {
   if (depth >= IMAGE_VALIDATION.MAX_RECURSION_DEPTH) {
     Logger.warn('達到最大遞迴深度', {
       action: 'cleanImageUrl',
+      result: 'max_depth',
       depth,
       url: sanitizeUrlForLogging(url),
     });
     return url;
   }
 
-  // 1. 標準化 (Normalization)
-  const normalized = _normalizeUrlInternal(url);
-
-  // 基本格式驗證
-  // 基本格式驗證：Notion 僅支援 HTTP/HTTPS 協議
-  if (
-    normalized.startsWith('data:') ||
-    normalized.startsWith('blob:') ||
-    !/^https?:\/\//i.test(normalized)
-  ) {
-    return null;
-  }
-
-  const resolved = _resolveUrl(normalized);
+  const resolved = _normalizeAndResolveImageUrl(url);
   if (!resolved) {
-    Logger.error('URL 轉換失敗', {
-      action: 'cleanImageUrl',
-      url: sanitizeUrlForLogging(normalized),
-    });
     return null;
   }
 
-  const { urlObj, isRelative } = resolved;
-
-  try {
-    // 優先處理 Next.js 拆包
-    const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
-    if (unwrappedNextUrl) {
-      return unwrappedNextUrl;
-    }
-
-    // 處理特定域名規則 (代理 URL、itok 等)
-    const specialResult = _handleSpecialDomainRules(urlObj, depth);
-    if (specialResult) {
-      return specialResult;
-    }
-
-    // 標準化查詢參數
-    _standardizeSearchParams(urlObj);
-
-    if (isRelative) {
-      return urlObj.pathname + urlObj.search + urlObj.hash;
-    }
-
-    // Notion 兼容性編碼修復
-    return _applyNotionCompatibilityEncoding(urlObj.href);
-  } catch {
-    return null;
-  }
+  return _processResolvedImageUrl(resolved, depth);
 }
 
 /**
@@ -675,10 +705,14 @@ function _manualParseSrcset(srcsetEntries) {
 
   for (const entry of srcsetEntries) {
     const result = _parseSrcsetEntry(entry);
-    if (result && result.metric > 0 && result.metric > bestMetric) {
-      bestMetric = result.metric;
-      bestUrl = result.url;
+    if (!result || result.metric <= 0) {
+      continue;
     }
+    if (result.metric <= bestMetric) {
+      continue;
+    }
+    bestMetric = result.metric;
+    bestUrl = result.url;
   }
 
   return bestUrl ?? _findFallbackSrcsetUrl(srcsetEntries);
@@ -752,9 +786,14 @@ function extractFromSrcset(imgNode) {
 function extractFromAttributes(imgNode) {
   for (const attr of IMAGE_ATTRIBUTES) {
     const value = imgNode.getAttribute(attr);
-    if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
-      return value.trim();
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      continue;
     }
+    if (_hasRejectedImageProtocol(trimmed)) {
+      continue;
+    }
+    return trimmed;
   }
   return null;
 }
@@ -893,10 +932,13 @@ function _extractWithRegex(html) {
   const imgPattern = /<img[^>]+src=["']([^"']+)["']/i;
   const match = imgPattern.exec(html);
   const src = match?.[1];
-  if (src && src.length <= IMAGE_VALIDATION.MAX_URL_LENGTH && !src.startsWith('data:')) {
-    return src;
+  if (!src || src.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
+    return null;
   }
-  return null;
+  if (_hasRejectedImageProtocol(src)) {
+    return null;
+  }
+  return src;
 }
 
 /**
@@ -948,10 +990,16 @@ function _extractFromAnchorHref(node) {
     return null;
   }
   const href = node.getAttribute('href');
-  if (href && !/^javascript:/i.test(href) && !href.startsWith('#')) {
-    return href;
+  if (!href) {
+    return null;
   }
-  return null;
+  if (/^javascript:/i.test(href)) {
+    return null;
+  }
+  if (href.startsWith('#')) {
+    return null;
+  }
+  return href;
 }
 
 /**
@@ -985,6 +1033,52 @@ function _isPlausibleImageUrl(url) {
 }
 
 /**
+ * 對 `<a>` 元素優先嘗試 href 作為圖片來源。
+ *
+ * 用於明報畫廊類情況：`<a>` 的 href 帶高解析度圖片，內層 `<img>` 的 src 只是 loading 佔位符。
+ * 非 anchor 元素或 href 無效（javascript: / 空）時回傳 null，由呼叫端走標準 fallback。
+ *
+ * @param {HTMLElement} imgNode - 圖片元素或容器
+ * @returns {string|null} anchor href 或 null
+ * @private
+ */
+function _tryAnchorHref(imgNode) {
+  if (imgNode.tagName !== 'A') {
+    const anchor = imgNode.closest?.('a');
+    return anchor ? _extractFromAnchorHref(anchor) : null;
+  }
+  return _extractFromAnchorHref(imgNode);
+}
+
+/**
+ * 取 srcset 結果並驗證是否為未截斷的合理 URL。
+ *
+ * Substack/Cloudinary CDN 的 transform 參數含逗號（如 `w_424,c_limit,f_auto`），
+ * 與 srcset 的逗號分隔符衝突導致 URL 被切碎成 `fl_progressive:steep/https%3A...` 之類片段。
+ * 此 gate 過濾掉這類截斷結果，讓呼叫端 fallback 到標準屬性鏈。
+ *
+ * @param {HTMLElement} imgNode - 圖片元素
+ * @returns {string|null} 驗證通過的 srcset URL 或 null
+ * @private
+ */
+function _extractValidatedSrcsetUrl(imgNode) {
+  const srcsetUrl = extractFromSrcset(imgNode);
+  if (!srcsetUrl || !_isPlausibleImageUrl(srcsetUrl)) {
+    return null;
+  }
+
+  const resolved = _resolveUrl(srcsetUrl);
+  if (!resolved || _hasRejectedImageProtocol(resolved.urlObj.protocol)) {
+    return null;
+  }
+  if (!resolved.isRelative && !['http:', 'https:'].includes(resolved.urlObj.protocol)) {
+    return null;
+  }
+
+  return srcsetUrl;
+}
+
+/**
  * 從圖片元素中提取最佳的 src URL
  * 使用多層回退策略：
  * - 對於 Anchor 元素：優先使用 href（用於畫廊圖片）
@@ -997,27 +1091,14 @@ function extractImageSrc(imgNode) {
   if (!imgNode) {
     return null;
   }
-
-  // [IMPORTANT] 對於 Anchor 元素，優先使用 href
-  // 這解決了像明報畫廊這樣的情況，<a> 的 href 包含高解析度圖片，
-  // 而其子 <img> 的 src 只是加載佔位符 (loading.gif)
-  if (imgNode.tagName === 'A') {
-    const hrefResult = _extractFromAnchorHref(imgNode);
-    if (hrefResult) {
-      return hrefResult;
-    }
-    // 如果 href 無效（如 javascript: 或空），則回退到子元素提取
+  const anchorHref = _tryAnchorHref(imgNode);
+  if (anchorHref) {
+    return anchorHref;
   }
-
-  // srcset 優先，但需驗證結果有效性
-  // Substack/Cloudinary CDN URL 的 transform 參數含逗號（如 w_424,c_limit,f_auto,...）
-  // 與 srcset 的逗號分隔符衝突，導致 URL 被截斷為無效片段。
-  // 必須驗證 srcset 結果是否為合理的圖片 URL，否則回退到 src 屬性。
-  const srcsetUrl = extractFromSrcset(imgNode);
-  if (srcsetUrl && _isPlausibleImageUrl(srcsetUrl)) {
-    return srcsetUrl;
+  const validatedSrcset = _extractValidatedSrcsetUrl(imgNode);
+  if (validatedSrcset) {
+    return validatedSrcset;
   }
-
   return (
     extractFromAttributes(imgNode) ||
     extractFromPicture(imgNode) ||
@@ -1062,6 +1143,23 @@ function _extractImageBlockUrl(block) {
   return block.image?.external?.url ?? null;
 }
 
+// 非 image 類型（如 temporary URL 降級產生的 paragraph 提示區塊）原樣保留，
+// 不參與 URL 去重；image 類型則依 external.url 去重並更新 existingUrls。
+function _shouldKeepAdditionalImage(imgBlock, existingUrls) {
+  if (!imgBlock || typeof imgBlock !== 'object') {
+    return false;
+  }
+  if (imgBlock.type !== 'image') {
+    return true;
+  }
+  const url = _extractImageBlockUrl(imgBlock);
+  if (!url || existingUrls.has(url)) {
+    return false;
+  }
+  existingUrls.add(url);
+  return true;
+}
+
 /**
  * 合併圖片區塊，過濾掉已存在於主區塊列表中的重複圖片
  *
@@ -1085,21 +1183,7 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
     }
   }
 
-  return additionalImages.filter(imgBlock => {
-    if (!imgBlock || typeof imgBlock !== 'object') {
-      return false;
-    }
-    if (imgBlock.type !== 'image') {
-      return true;
-    }
-
-    const url = _extractImageBlockUrl(imgBlock);
-    if (!url || existingUrls.has(url)) {
-      return false;
-    }
-    existingUrls.add(url);
-    return true;
-  });
+  return additionalImages.filter(imgBlock => _shouldKeepAdditionalImage(imgBlock, existingUrls));
 }
 
 // 註：isTemporaryImageUrl 已搬到 scripts/utils/temporaryImageUrl.js

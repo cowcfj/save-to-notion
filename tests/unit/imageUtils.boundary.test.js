@@ -370,6 +370,15 @@ describe('imageUtils - 邊界條件測試', () => {
       expect(extractFromNoscript(img)).toBeNull();
     });
 
+    test('應跳過 noscript 中的 blob: URL', () => {
+      const img = document.createElement('img');
+      const noscript = document.createElement('noscript');
+      noscript.textContent = '<img src="blob:https://example.com/123-456">';
+      img.append(noscript);
+      document.body.append(img);
+      expect(extractFromNoscript(img)).toBeNull();
+    });
+
     test('應從父元素的 noscript 中提取', () => {
       const parent = document.createElement('div');
       const noscript = document.createElement('noscript');
