@@ -1062,6 +1062,23 @@ function _extractImageBlockUrl(block) {
   return block.image?.external?.url ?? null;
 }
 
+// 非 image 類型（如 temporary URL 降級產生的 paragraph 提示區塊）原樣保留，
+// 不參與 URL 去重；image 類型則依 external.url 去重並更新 existingUrls。
+function _shouldKeepAdditionalImage(imgBlock, existingUrls) {
+  if (!imgBlock || typeof imgBlock !== 'object') {
+    return false;
+  }
+  if (imgBlock.type !== 'image') {
+    return true;
+  }
+  const url = _extractImageBlockUrl(imgBlock);
+  if (!url || existingUrls.has(url)) {
+    return false;
+  }
+  existingUrls.add(url);
+  return true;
+}
+
 /**
  * 合併圖片區塊，過濾掉已存在於主區塊列表中的重複圖片
  *
@@ -1085,21 +1102,7 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
     }
   }
 
-  return additionalImages.filter(imgBlock => {
-    if (!imgBlock || typeof imgBlock !== 'object') {
-      return false;
-    }
-    if (imgBlock.type !== 'image') {
-      return true;
-    }
-
-    const url = _extractImageBlockUrl(imgBlock);
-    if (!url || existingUrls.has(url)) {
-      return false;
-    }
-    existingUrls.add(url);
-    return true;
-  });
+  return additionalImages.filter(imgBlock => _shouldKeepAdditionalImage(imgBlock, existingUrls));
 }
 
 // 註：isTemporaryImageUrl 已搬到 scripts/utils/temporaryImageUrl.js
