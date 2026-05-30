@@ -1,5 +1,26 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.76.0](https://github.com/cowcfj/save-to-notion/compare/v2.75.3...v2.76.0) (2026-05-30)
+
+
+### ✨ 新功能
+
+* add performance testing framework and helpers ([#608](https://github.com/cowcfj/save-to-notion/issues/608)) ([fbcfa82](https://github.com/cowcfj/save-to-notion/commit/fbcfa824c59a4444848bf5f8404450b8c0ad3aec))
+* Enhance highlight tool initialization and error handling ([#613](https://github.com/cowcfj/save-to-notion/issues/613)) ([1ce5e69](https://github.com/cowcfj/save-to-notion/commit/1ce5e696677cfa7704030dbe0e4930a5034f6d8b))
+
+
+### ♻️ 代碼重構
+
+* Adjust TabService status update delay to improve IPC ordering ([#610](https://github.com/cowcfj/save-to-notion/issues/610)) ([3a30be4](https://github.com/cowcfj/save-to-notion/commit/3a30be4b9401247a8a9bd61eb547d576f6f2ec2d))
+* Consolidate image URL processing logic ([#614](https://github.com/cowcfj/save-to-notion/issues/614)) ([ecc5171](https://github.com/cowcfj/save-to-notion/commit/ecc5171cdf172286903f804a850ed8dc5a33dff2))
+* 重構 imageUtils.js 降低 CodeScene 圈複雜度 ([#612](https://github.com/cowcfj/save-to-notion/issues/612)) ([d551b71](https://github.com/cowcfj/save-to-notion/commit/d551b71c515066abfa59bf8b793aa541954e4ffe))
+
+
+### ⚡ 效能優化
+
+* **content:** zero-grace stability check for NextJs fallback (P1) ([1aad29e](https://github.com/cowcfj/save-to-notion/commit/1aad29e306e8bc1eef5a9ca050a15ea264ed6819))
+* optimize DOM stability check for NextJs fallback ([#611](https://github.com/cowcfj/save-to-notion/issues/611)) ([1aad29e](https://github.com/cowcfj/save-to-notion/commit/1aad29e306e8bc1eef5a9ca050a15ea264ed6819))
+
 ## [2.75.3](https://github.com/cowcfj/save-to-notion/compare/v2.75.2...v2.75.3) (2026-05-29)
 
 
