@@ -385,6 +385,112 @@ function _applyNotionCompatibilityEncoding(url) {
   });
 }
 
+function _createRejectedImageUrlGuard(fallbackResult = false) {
+  return { rejected: true, fallbackResult };
+}
+
+function _areImageValidationPatternsLoaded() {
+  return [IMAGE_EXTENSIONS, EXCLUDE_PATTERNS, IMAGE_PATH_PATTERNS, PLACEHOLDER_KEYWORDS].every(
+    Boolean
+  );
+}
+
+function _runPatternLoadGuard(url) {
+  if (_areImageValidationPatternsLoaded()) {
+    return null;
+  }
+
+  Logger.warn?.('Pattern 常量未載入，回退到基本驗證', {
+    action: '_runEarlyRejectGuards',
+  });
+  return _createRejectedImageUrlGuard(/^https:\/\//i.test(url));
+}
+
+function _shouldRejectImageUrlInput(url) {
+  if (typeof url !== 'string') {
+    return true;
+  }
+
+  return url.length === 0;
+}
+
+function _hasRejectedImageProtocol(url) {
+  return ['data:', 'blob:'].some(prefix => url.startsWith(prefix));
+}
+
+function _shouldRejectRelativeImageUrl(url, allowRelative) {
+  if (allowRelative) {
+    return false;
+  }
+
+  return ['http', '/'].every(prefix => !url.startsWith(prefix));
+}
+
+function _shouldRejectGifImageUrl(url, useGifRegex) {
+  if (!useGifRegex) {
+    return false;
+  }
+
+  return /\.gif(?:\?|$)/i.test(url);
+}
+
+function _hasPlaceholderKeyword(url, useGifRegex) {
+  const lowerUrl = url.toLowerCase();
+  let placeholderKeywords = PLACEHOLDER_KEYWORDS;
+
+  if (useGifRegex) {
+    placeholderKeywords = PLACEHOLDER_KEYWORDS.filter(keyword => keyword !== '.gif');
+  }
+
+  return placeholderKeywords.some(keyword => lowerUrl.includes(keyword));
+}
+
+function _shouldRejectDecorativeImageUrl(url, useGifRegex) {
+  if (_shouldRejectGifImageUrl(url, useGifRegex)) {
+    return true;
+  }
+
+  return _hasPlaceholderKeyword(url, useGifRegex);
+}
+
+/**
+ * 共用的圖片 URL early-reject guard pipeline
+ *
+ * 服務 isValidImageUrl 與 isValidCleanedImageUrl 兩個入口；
+ * 兩者共用「patternsLoaded / data:/blob: / 佔位符」邏輯，差異只在於是否允許相對路徑與 .gif 細節。
+ *
+ * @param {string} url - 待驗證的 URL（可為原始或已 cleaned）
+ * @param {{allowRelative: boolean, useGifRegex: boolean}} options
+ * @returns {{rejected: boolean, fallbackResult?: boolean}}
+ *   - rejected=false：通過 guard，caller 應繼續後續驗證
+ *   - rejected=true + fallbackResult：caller 直接 return fallbackResult
+ * @private
+ */
+function _runEarlyRejectGuards(url, { allowRelative, useGifRegex }) {
+  if (_shouldRejectImageUrlInput(url)) {
+    return _createRejectedImageUrlGuard();
+  }
+
+  const patternLoadGuard = _runPatternLoadGuard(url);
+  if (patternLoadGuard) {
+    return patternLoadGuard;
+  }
+
+  if (_hasRejectedImageProtocol(url)) {
+    return _createRejectedImageUrlGuard();
+  }
+
+  if (_shouldRejectRelativeImageUrl(url, allowRelative)) {
+    return _createRejectedImageUrlGuard();
+  }
+
+  if (_shouldRejectDecorativeImageUrl(url, useGifRegex)) {
+    return _createRejectedImageUrlGuard();
+  }
+
+  return { rejected: false };
+}
+
 /**
  * 檢查已清理的圖片 URL 是否有效 (Notion 兼容性驗證)
  *
@@ -395,30 +501,14 @@ function _applyNotionCompatibilityEncoding(url) {
  * @returns {boolean} 是否為有效的圖片 URL
  */
 function isValidCleanedImageUrl(cleanedUrl) {
-  if (!cleanedUrl || typeof cleanedUrl !== 'string') {
-    return false;
+  const guard = _runEarlyRejectGuards(cleanedUrl, {
+    allowRelative: true,
+    useGifRegex: false,
+  });
+  if (guard.rejected) {
+    return guard.fallbackResult;
   }
 
-  // 統一驗證：確保 patterns.js 常量已正確載入
-  const patternsLoaded =
-    IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
-  if (!patternsLoaded) {
-    Logger.warn?.('Pattern 常量未載入，回退到基本驗證', { action: 'isValidCleanedImageUrl' });
-    return /^https:\/\//i.test(cleanedUrl); // Notion 要求 HTTPS
-  }
-
-  // 1. 攔截非 HTTP/HTTPS (已清理的 URL 不應包含 data: 或 blob:)
-  if (cleanedUrl.startsWith('data:') || cleanedUrl.startsWith('blob:')) {
-    return false;
-  }
-
-  // 2. 排除明顯的佔位符
-  const lowerUrl = cleanedUrl.toLowerCase();
-  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
-    return false;
-  }
-
-  // 3. 檢查基本 URL 結構
   const isAbsolute = /^https:\/\//i.test(cleanedUrl);
   const isRelative = cleanedUrl.startsWith('/');
 
@@ -426,12 +516,10 @@ function isValidCleanedImageUrl(cleanedUrl) {
     return false;
   }
 
-  // 4. 檢查 URL 長度 (Notion 限制 2000)
   if (cleanedUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
     return false;
   }
 
-  // 5. 檢查非法字符 (URL 規範)
   if (/[<>[\]^|{}]/.test(cleanedUrl)) {
     return false;
   }
@@ -445,61 +533,23 @@ function isValidCleanedImageUrl(cleanedUrl) {
  * 注意：此函數會調用 cleanImageUrl 來進行標準化（如 http→https 升級與編碼修復）。
  * 因此其驗證結果是基於清理後的 URL。
  *
- * @param {string} url - 要檢查的 URL
+ * @param {string} url - 要檢查 the URL
  * @returns {boolean} 是否為有效的圖片 URL
  */
 function isValidImageUrl(url) {
-  if (!url || typeof url !== 'string') {
-    return false;
+  const guard = _runEarlyRejectGuards(url, {
+    allowRelative: true,
+    useGifRegex: true,
+  });
+  if (guard.rejected) {
+    return guard.fallbackResult;
   }
 
-  // 統一驗證：確保 patterns.js 常量已正確載入
-  const patternsLoaded =
-    IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
-  if (!patternsLoaded) {
-    Logger.warn?.('Pattern 常量未載入，回退到基本驗證', { action: 'isValidImageUrl' });
-    return /^https:\/\//i.test(url); // Notion 要求 HTTPS
-  }
-
-  // 1. 攔截非 HTTP/HTTPS (Notion 要求 HTTPS，但我們會嘗試自動升級)
-  // [Optimization] 下列檢查（data:/blob:、非 http 開頭、佔位符）與 isValidCleanedImageUrl 內的邏輯重疊。
-  // 這是有意為之的 Early Exit 優化，旨在避免對明顯無效的 URL 執行昂貴的 cleanImageUrl 操作。
-
-  // 如果是 data: 或 blob: 則直接拒絕
-  if (url.startsWith('data:') || url.startsWith('blob:')) {
-    return false;
-  }
-
-  // 允許相對路徑（因為後續會補全域名）
-  if (!url.startsWith('http') && !url.startsWith('/')) {
-    // 這裡可能過濾掉了其他協議如 ftp, file 等，這正是我們想要的
-    return false;
-  }
-
-  // 排除明顯的佔位符
-  const lowerUrl = url.toLowerCase();
-
-  // 優化：針對 .gif 使用正則表達式進行精確匹配（避免誤殺包含 gif 的非擴展名路徑）
-  if (/\.gif(?:\?|$)/i.test(url)) {
-    return false;
-  }
-
-  // 其他簡單關鍵字匹配
-  if (
-    PLACEHOLDER_KEYWORDS.some(
-      placeholder => placeholder !== '.gif' && lowerUrl.includes(placeholder)
-    )
-  ) {
-    return false;
-  }
-
-  // 2. 清理與標準化
   const cleanedUrl = cleanImageUrl(url);
   if (!cleanedUrl) {
     return false;
   }
 
-  // 3. 使用清理後的 URL 進行驗證
   return isValidCleanedImageUrl(cleanedUrl);
 }
 
@@ -595,6 +645,24 @@ function _parseSrcsetEntry(entry) {
 }
 
 /**
+ * srcset fallback：當主迴圈未找到任何具有 width/density descriptor 的條目時，
+ * 從尾部往回掃，回傳第一個非 data: URL 的條目作為保底
+ *
+ * @param {string[]} srcsetEntries - 已 trim 的 srcset 條目陣列
+ * @returns {string|null} 保底 URL 或 null
+ * @private
+ */
+function _findFallbackSrcsetUrl(srcsetEntries) {
+  for (let i = srcsetEntries.length - 1; i >= 0; i--) {
+    const url = srcsetEntries[i].split(/\s+/)[0];
+    if (url && !url.startsWith('data:')) {
+      return url;
+    }
+  }
+  return null;
+}
+
+/**
  * 手動解析 srcset
  *
  * @param {string[]} srcsetEntries - 分割後的條目數組
@@ -613,18 +681,7 @@ function _manualParseSrcset(srcsetEntries) {
     }
   }
 
-  // 回退邏輯：取最後一個有效條目；與 _parseSrcsetEntry 過濾邏輯一致，跳過 data: URL
-  if (!bestUrl) {
-    for (let i = srcsetEntries.length - 1; i >= 0; i--) {
-      const url = srcsetEntries[i].split(/\s+/)[0];
-      if (url && !url.startsWith('data:')) {
-        bestUrl = url;
-        break;
-      }
-    }
-  }
-
-  return bestUrl;
+  return bestUrl ?? _findFallbackSrcsetUrl(srcsetEntries);
 }
 
 /**
@@ -731,6 +788,70 @@ function extractFromPicture(imgNode) {
 }
 
 /**
+ * 從給定節點的 computedStyle 中解析 background-image url() 並做 4-條件 guard 校驗
+ *
+ * @param {HTMLElement} node - 要讀 computedStyle 的元素（self 或 parent）
+ * @returns {string|null} 通過 length/data:/MAX_BACKGROUND_URL_LENGTH 校驗的 URL 或 null
+ * @private
+ */
+function _extractValidUrlFromComputedStyle(node) {
+  const backgroundImage = _getBackgroundImageValue(node);
+  const rawUrl = _extractBackgroundImageUrl(backgroundImage);
+
+  if (_shouldRejectBackgroundImageUrl(rawUrl)) {
+    return null;
+  }
+
+  return rawUrl;
+}
+
+function _getBackgroundImageValue(node) {
+  const style = globalThis.getComputedStyle(node);
+  if (style.backgroundImage) {
+    return style.backgroundImage;
+  }
+
+  if (typeof style.getPropertyValue === 'function') {
+    return style.getPropertyValue('background-image');
+  }
+
+  return undefined;
+}
+
+function _extractBackgroundImageUrl(backgroundImage) {
+  if (_shouldSkipBackgroundImageValue(backgroundImage)) {
+    return null;
+  }
+
+  const bgPattern = /url\(["']?([^"']+)["']?\)/i;
+  return bgPattern.exec(backgroundImage)?.[1] ?? null;
+}
+
+function _shouldSkipBackgroundImageValue(backgroundImage) {
+  if (!backgroundImage) {
+    return true;
+  }
+
+  return backgroundImage === 'none';
+}
+
+function _shouldRejectBackgroundImageUrl(rawUrl) {
+  if (!rawUrl) {
+    return true;
+  }
+
+  if (rawUrl.startsWith('data:')) {
+    return true;
+  }
+
+  if (rawUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
+    return true;
+  }
+
+  return rawUrl.length >= IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH;
+}
+
+/**
  * 從背景圖片 CSS 屬性提取 URL
  *
  * 僅作為 runtime global 相容層，不應作為 ES module named import 使用。
@@ -745,45 +866,14 @@ function extractFromBackgroundImage(imgNode) {
       return null;
     }
 
-    const computedStyle = globalThis.getComputedStyle(imgNode);
-    const backgroundImage =
-      computedStyle.backgroundImage || computedStyle.getPropertyValue?.('background-image');
-
-    if (backgroundImage && backgroundImage !== 'none') {
-      // 使用 RegExp.exec() 取代 .match() 以符合 Lint 規範，優化 Regex 模式
-      const bgPattern = /url\(["']?([^"']+)["']?\)/i;
-      const match = bgPattern.exec(backgroundImage);
-      const rawUrl = match?.[1];
-      if (
-        rawUrl &&
-        rawUrl.length <= IMAGE_VALIDATION.MAX_URL_LENGTH &&
-        !rawUrl.startsWith('data:') &&
-        rawUrl.length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
-      ) {
-        return rawUrl;
-      }
+    const selfUrl = _extractValidUrlFromComputedStyle(imgNode);
+    if (selfUrl) {
+      return selfUrl;
     }
 
-    // 檢查父節點的背景圖片
     const parent = imgNode.parentElement;
     if (parent) {
-      const parentStyle = globalThis.getComputedStyle(parent);
-      const parentBg =
-        parentStyle.backgroundImage || parentStyle.getPropertyValue?.('background-image');
-
-      if (parentBg && parentBg !== 'none') {
-        const parentPattern = /url\(["']?([^"']+)["']?\)/i;
-        const parentMatch = parentPattern.exec(parentBg);
-        const parentUrl = parentMatch?.[1];
-        if (
-          parentUrl &&
-          parentUrl.length <= IMAGE_VALIDATION.MAX_URL_LENGTH &&
-          !parentUrl.startsWith('data:') &&
-          parentUrl.length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
-        ) {
-          return parentUrl;
-        }
-      }
+      return _extractValidUrlFromComputedStyle(parent);
     }
   } catch {
     // 忽略樣式計算錯誤
@@ -959,6 +1049,20 @@ function generateImageCacheKey(imgNode) {
 }
 
 /**
+ * 從圖片 block 物件中讀取 external URL
+ *
+ * @param {object} block - Notion image block 結構
+ * @returns {string|null} URL 或 null（type 不對 / 結構不符 / URL 缺失）
+ * @private
+ */
+function _extractImageBlockUrl(block) {
+  if (!block || block.type !== 'image') {
+    return null;
+  }
+  return block.image?.external?.url ?? null;
+}
+
+/**
  * 合併圖片區塊，過濾掉已存在於主區塊列表中的重複圖片
  *
  * @param {Array} contentBlocks - 主內容區塊列表
@@ -973,26 +1077,26 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
   const existingUrls = new Set();
 
   if (Array.isArray(contentBlocks)) {
-    // 收集 contentBlocks 中的圖片 URL
-    contentBlocks.forEach(block => {
-      if (block.type === 'image' && block.image?.external?.url) {
-        existingUrls.add(block.image.external.url);
+    for (const block of contentBlocks) {
+      const url = _extractImageBlockUrl(block);
+      if (url) {
+        existingUrls.add(url);
       }
-    });
+    }
   }
 
-  // 過濾 additionalImages
   return additionalImages.filter(imgBlock => {
-    const url = imgBlock.image?.external?.url;
-    if (!url) {
+    if (!imgBlock || typeof imgBlock !== 'object') {
       return false;
     }
-
-    if (existingUrls.has(url)) {
-      return false;
+    if (imgBlock.type !== 'image') {
+      return true;
     }
 
-    // 防止 additionalImages 內部自我重複
+    const url = _extractImageBlockUrl(imgBlock);
+    if (!url || existingUrls.has(url)) {
+      return false;
+    }
     existingUrls.add(url);
     return true;
   });

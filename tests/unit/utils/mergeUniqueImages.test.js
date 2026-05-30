@@ -41,4 +41,28 @@ describe('mergeUniqueImages', () => {
     expect(result).toHaveLength(1);
     expect(result[0].image.external.url).toBe('https://dup.com');
   });
+
+  test('應該保留 additionalImages 中的 temporary image placeholder paragraph', () => {
+    const contentBlocks = [];
+    const placeholderBlock = {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: { rich_text: [] },
+      _meta: {
+        placeholder: true,
+        placeholderReason: 'temporary_image_url',
+        originalSrc: 'https://temporary.example.com/image.jpg',
+      },
+    };
+    const additionalImages = [
+      placeholderBlock,
+      { type: 'image', image: { external: { url: 'https://valid-image.com' } } },
+    ];
+
+    const result = mergeUniqueImages(contentBlocks, additionalImages);
+    expect(result).toEqual([
+      placeholderBlock,
+      { type: 'image', image: { external: { url: 'https://valid-image.com' } } },
+    ]);
+  });
 });
