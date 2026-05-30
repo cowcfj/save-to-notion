@@ -1002,7 +1002,7 @@ function mergeUniqueImages(contentBlocks, additionalImages) {
   }
 
   return additionalImages.filter(imgBlock => {
-    const url = imgBlock.image?.external?.url;
+    const url = _extractImageBlockUrl(imgBlock);
     if (!url || existingUrls.has(url)) {
       return false;
     }

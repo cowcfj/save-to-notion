@@ -41,4 +41,16 @@ describe('mergeUniqueImages', () => {
     expect(result).toHaveLength(1);
     expect(result[0].image.external.url).toBe('https://dup.com');
   });
+
+  test('應該排除 additionalImages 中非 image 類型的 block', () => {
+    const contentBlocks = [];
+    const additionalImages = [
+      { type: 'paragraph', image: { external: { url: 'https://not-image.com' } } },
+      { type: 'image', image: { external: { url: 'https://valid-image.com' } } },
+    ];
+
+    const result = mergeUniqueImages(contentBlocks, additionalImages);
+    expect(result).toHaveLength(1);
+    expect(result[0].image.external.url).toBe('https://valid-image.com');
+  });
 });
