@@ -382,6 +382,36 @@ describe('ImageUtils - extractImageSrc', () => {
     expect(extractImageSrc(img)).toBe('large.jpg');
   });
 
+  test('當 img 被 anchor 包住時應優先使用 anchor href', () => {
+    const anchor = {
+      tagName: 'A',
+      getAttribute: jest.fn(name => (name === 'href' ? 'https://example.com/full-size.jpg' : null)),
+    };
+    const img = createMockImg({ src: 'https://example.com/thumb.jpg' });
+    img.tagName = 'IMG';
+    img.closest.mockImplementation(selector => (selector === 'a' ? anchor : null));
+
+    expect(extractImageSrc(img)).toBe('https://example.com/full-size.jpg');
+  });
+
+  test('當 srcset 是 blob URL 時應回退到 src 屬性', () => {
+    const img = createMockImg({
+      srcset: 'blob:https://example.com/transient 2x',
+      src: 'https://example.com/fallback.jpg',
+    });
+
+    expect(extractImageSrc(img)).toBe('https://example.com/fallback.jpg');
+  });
+
+  test('當 srcset 是非 HTTP URL 時應回退到 src 屬性', () => {
+    const img = createMockImg({
+      srcset: 'ftp://example.com/transient.jpg 2x',
+      src: 'https://example.com/fallback.jpg',
+    });
+
+    expect(extractImageSrc(img)).toBe('https://example.com/fallback.jpg');
+  });
+
   test('當 srcset URL 含逗號導致截斷時，應回退到 src 屬性（Substack CDN 場景）', () => {
     // Substack CDN URL 的 transform 參數含逗號，會破壞 srcset 的逗號分割
     // 解析器會把 URL 截斷為 "fl_progressive:steep/https%3A%2F%2F..." 這類無效片段
@@ -599,11 +629,20 @@ describe('ImageUtils - coverage 補強', () => {
       expect(result).toBeNull();
       expect(Logger.error).toHaveBeenCalledWith(
         'URL 轉換失敗',
-        expect.objectContaining({ action: 'cleanImageUrl', url: expect.any(String) })
+        expect.objectContaining({
+          action: 'cleanImageUrl',
+          result: 'failed',
+          url: expect.any(String),
+        })
       );
     } finally {
       globalThis.URL = originalURL;
     }
+  });
+
+  test('cleanImageUrl 應保留可解析的相對圖片路徑', () => {
+    expect(cleanImageUrl('/img/a.jpg')).toBe('/img/a.jpg');
+    expect(cleanImageUrl('./a.webp')).toBe('/a.webp');
   });
 
   test('cleanImageUrl 應該處理遞迴深度限制', () => {
@@ -613,7 +652,10 @@ describe('ImageUtils - coverage 補強', () => {
     expect(result).toBe(url);
     expect(Logger.warn).toHaveBeenCalledWith(
       '達到最大遞迴深度',
-      expect.objectContaining({ depth: IMAGE_VALIDATION.MAX_RECURSION_DEPTH })
+      expect.objectContaining({
+        depth: IMAGE_VALIDATION.MAX_RECURSION_DEPTH,
+        result: 'max_depth',
+      })
     );
   });
 

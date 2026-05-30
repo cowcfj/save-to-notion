@@ -245,20 +245,22 @@ function _unwrapNextJsUrl(urlObj, depth) {
 function _normalizeAndResolveImageUrl(url) {
   const normalized = _normalizeUrlInternal(url);
 
-  // Notion 僅支援 HTTP/HTTPS 協議
-  if (_hasRejectedImageProtocol(normalized)) {
-    return null;
-  }
-  if (!/^https?:\/\//i.test(normalized)) {
-    return null;
-  }
-
   const resolved = _resolveUrl(normalized);
   if (!resolved) {
     Logger.error('URL 轉換失敗', {
       action: 'cleanImageUrl',
+      result: 'failed',
       url: sanitizeUrlForLogging(normalized),
     });
+    return null;
+  }
+
+  // Notion 僅支援 HTTP/HTTPS 協議；相對路徑由後續 isRelative 分支保留。
+  const protocol = resolved.urlObj.protocol;
+  if (_hasRejectedImageProtocol(protocol)) {
+    return null;
+  }
+  if (!resolved.isRelative && !['http:', 'https:'].includes(protocol)) {
     return null;
   }
 
@@ -316,6 +318,7 @@ function cleanImageUrl(url, depth = 0) {
   if (depth >= IMAGE_VALIDATION.MAX_RECURSION_DEPTH) {
     Logger.warn('達到最大遞迴深度', {
       action: 'cleanImageUrl',
+      result: 'max_depth',
       depth,
       url: sanitizeUrlForLogging(url),
     });
@@ -1041,7 +1044,8 @@ function _isPlausibleImageUrl(url) {
  */
 function _tryAnchorHref(imgNode) {
   if (imgNode.tagName !== 'A') {
-    return null;
+    const anchor = imgNode.closest?.('a');
+    return anchor ? _extractFromAnchorHref(anchor) : null;
   }
   return _extractFromAnchorHref(imgNode);
 }
@@ -1059,10 +1063,19 @@ function _tryAnchorHref(imgNode) {
  */
 function _extractValidatedSrcsetUrl(imgNode) {
   const srcsetUrl = extractFromSrcset(imgNode);
-  if (srcsetUrl && _isPlausibleImageUrl(srcsetUrl)) {
-    return srcsetUrl;
+  if (!srcsetUrl || !_isPlausibleImageUrl(srcsetUrl)) {
+    return null;
   }
-  return null;
+
+  const resolved = _resolveUrl(srcsetUrl);
+  if (!resolved || _hasRejectedImageProtocol(resolved.urlObj.protocol)) {
+    return null;
+  }
+  if (!resolved.isRelative && !['http:', 'https:'].includes(resolved.urlObj.protocol)) {
+    return null;
+  }
+
+  return srcsetUrl;
 }
 
 /**
