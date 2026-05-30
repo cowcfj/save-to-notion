@@ -385,6 +385,74 @@ function _applyNotionCompatibilityEncoding(url) {
   });
 }
 
+function _createRejectedImageUrlGuard(fallbackResult = false) {
+  return { rejected: true, fallbackResult };
+}
+
+function _areImageValidationPatternsLoaded() {
+  return [IMAGE_EXTENSIONS, EXCLUDE_PATTERNS, IMAGE_PATH_PATTERNS, PLACEHOLDER_KEYWORDS].every(
+    Boolean
+  );
+}
+
+function _runPatternLoadGuard(url) {
+  if (_areImageValidationPatternsLoaded()) {
+    return null;
+  }
+
+  Logger.warn?.('Pattern 常量未載入，回退到基本驗證', {
+    action: '_runEarlyRejectGuards',
+  });
+  return _createRejectedImageUrlGuard(/^https:\/\//i.test(url));
+}
+
+function _shouldRejectImageUrlInput(url) {
+  if (typeof url !== 'string') {
+    return true;
+  }
+
+  return url.length === 0;
+}
+
+function _hasRejectedImageProtocol(url) {
+  return ['data:', 'blob:'].some(prefix => url.startsWith(prefix));
+}
+
+function _shouldRejectRelativeImageUrl(url, allowRelative) {
+  if (allowRelative) {
+    return false;
+  }
+
+  return ['http', '/'].every(prefix => !url.startsWith(prefix));
+}
+
+function _shouldRejectGifImageUrl(url, useGifRegex) {
+  if (!useGifRegex) {
+    return false;
+  }
+
+  return /\.gif(?:\?|$)/i.test(url);
+}
+
+function _hasPlaceholderKeyword(url, useGifRegex) {
+  const lowerUrl = url.toLowerCase();
+  let placeholderKeywords = PLACEHOLDER_KEYWORDS;
+
+  if (useGifRegex) {
+    placeholderKeywords = PLACEHOLDER_KEYWORDS.filter(keyword => keyword !== '.gif');
+  }
+
+  return placeholderKeywords.some(keyword => lowerUrl.includes(keyword));
+}
+
+function _shouldRejectDecorativeImageUrl(url, useGifRegex) {
+  if (_shouldRejectGifImageUrl(url, useGifRegex)) {
+    return true;
+  }
+
+  return _hasPlaceholderKeyword(url, useGifRegex);
+}
+
 /**
  * 共用的圖片 URL early-reject guard pipeline
  *
@@ -399,39 +467,25 @@ function _applyNotionCompatibilityEncoding(url) {
  * @private
  */
 function _runEarlyRejectGuards(url, { allowRelative, useGifRegex }) {
-  if (!url || typeof url !== 'string') {
-    return { rejected: true, fallbackResult: false };
+  if (_shouldRejectImageUrlInput(url)) {
+    return _createRejectedImageUrlGuard();
   }
 
-  const patternsLoaded =
-    IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
-  if (!patternsLoaded) {
-    Logger.warn?.('Pattern 常量未載入，回退到基本驗證', {
-      action: '_runEarlyRejectGuards',
-    });
-    return { rejected: true, fallbackResult: /^https:\/\//i.test(url) };
+  const patternLoadGuard = _runPatternLoadGuard(url);
+  if (patternLoadGuard) {
+    return patternLoadGuard;
   }
 
-  if (url.startsWith('data:') || url.startsWith('blob:')) {
-    return { rejected: true, fallbackResult: false };
+  if (_hasRejectedImageProtocol(url)) {
+    return _createRejectedImageUrlGuard();
   }
 
-  if (!allowRelative && !url.startsWith('http') && !url.startsWith('/')) {
-    return { rejected: true, fallbackResult: false };
+  if (_shouldRejectRelativeImageUrl(url, allowRelative)) {
+    return _createRejectedImageUrlGuard();
   }
 
-  const lowerUrl = url.toLowerCase();
-
-  if (useGifRegex && /\.gif(?:\?|$)/i.test(url)) {
-    return { rejected: true, fallbackResult: false };
-  }
-
-  const placeholderHit = useGifRegex
-    ? PLACEHOLDER_KEYWORDS.some(keyword => keyword !== '.gif' && lowerUrl.includes(keyword))
-    : PLACEHOLDER_KEYWORDS.some(keyword => lowerUrl.includes(keyword));
-
-  if (placeholderHit) {
-    return { rejected: true, fallbackResult: false };
+  if (_shouldRejectDecorativeImageUrl(url, useGifRegex)) {
+    return _createRejectedImageUrlGuard();
   }
 
   return { rejected: false };
@@ -741,30 +795,60 @@ function extractFromPicture(imgNode) {
  * @private
  */
 function _extractValidUrlFromComputedStyle(node) {
-  const style = globalThis.getComputedStyle(node);
-  const backgroundImage = style.backgroundImage || style.getPropertyValue?.('background-image');
+  const backgroundImage = _getBackgroundImageValue(node);
+  const rawUrl = _extractBackgroundImageUrl(backgroundImage);
 
-  if (!backgroundImage || backgroundImage === 'none') {
-    return null;
-  }
-
-  const bgPattern = /url\(["']?([^"']+)["']?\)/i;
-  const rawUrl = bgPattern.exec(backgroundImage)?.[1];
-
-  if (!rawUrl) {
-    return null;
-  }
-  if (rawUrl.startsWith('data:')) {
-    return null;
-  }
-  if (rawUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
-    return null;
-  }
-  if (rawUrl.length >= IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH) {
+  if (_shouldRejectBackgroundImageUrl(rawUrl)) {
     return null;
   }
 
   return rawUrl;
+}
+
+function _getBackgroundImageValue(node) {
+  const style = globalThis.getComputedStyle(node);
+  if (style.backgroundImage) {
+    return style.backgroundImage;
+  }
+
+  if (typeof style.getPropertyValue === 'function') {
+    return style.getPropertyValue('background-image');
+  }
+
+  return undefined;
+}
+
+function _extractBackgroundImageUrl(backgroundImage) {
+  if (_shouldSkipBackgroundImageValue(backgroundImage)) {
+    return null;
+  }
+
+  const bgPattern = /url\(["']?([^"']+)["']?\)/i;
+  return bgPattern.exec(backgroundImage)?.[1] ?? null;
+}
+
+function _shouldSkipBackgroundImageValue(backgroundImage) {
+  if (!backgroundImage) {
+    return true;
+  }
+
+  return backgroundImage === 'none';
+}
+
+function _shouldRejectBackgroundImageUrl(rawUrl) {
+  if (!rawUrl) {
+    return true;
+  }
+
+  if (rawUrl.startsWith('data:')) {
+    return true;
+  }
+
+  if (rawUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
+    return true;
+  }
+
+  return rawUrl.length >= IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH;
 }
 
 /**
