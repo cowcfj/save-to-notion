@@ -391,6 +391,29 @@ function respondWithSanitizedError(sendResponse, error, sanitizeContext) {
   sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
 }
 
+async function dispatchActivationToTab(tabId, action, sendResponse, { onSuccess, onUnsuccessful }) {
+  try {
+    const response = await sendActionMessageToTab(
+      tabId,
+      RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT
+    );
+    if (response?.success === true) {
+      Logger.success('成功啟動浮動側欄標註', { action });
+      sendResponse(onSuccess(response));
+      return;
+    }
+    Logger.warn('啟動浮動側欄標註失敗', {
+      action,
+      responseSuccess: response?.success,
+      responseError: response?.error,
+    });
+    sendResponse(onUnsuccessful(response));
+  } catch (error) {
+    Logger.warn('啟動浮動側欄標註失敗', { action, error: error.message });
+    respondWithSanitizedError(sendResponse, error, 'activate_floating_rail_highlight');
+  }
+}
+
 // ============================================================================
 // Handler 實作（module-level，由 factory 透過 services 綁定）
 // ============================================================================
@@ -454,29 +477,10 @@ async function handleUserActivateShortcut(services, request, sender, sendRespons
       return;
     }
 
-    try {
-      const response = await sendActionMessageToTab(
-        ctx.tabId,
-        RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT
-      );
-      if (response?.success === true) {
-        Logger.success('成功啟動浮動側欄標註', { action: 'USER_ACTIVATE_SHORTCUT' });
-        sendResponse({ success: true, response });
-        return;
-      }
-      Logger.warn('啟動浮動側欄標註失敗', {
-        action: 'USER_ACTIVATE_SHORTCUT',
-        responseSuccess: response?.success,
-        responseError: response?.error,
-      });
-      sendResponse({ success: false, response });
-    } catch (error) {
-      Logger.warn('啟動浮動側欄標註失敗', {
-        action: 'USER_ACTIVATE_SHORTCUT',
-        error: error.message,
-      });
-      respondWithSanitizedError(sendResponse, error, 'activate_floating_rail_highlight');
-    }
+    await dispatchActivationToTab(ctx.tabId, 'USER_ACTIVATE_SHORTCUT', sendResponse, {
+      onSuccess: response => ({ success: true, response }),
+      onUnsuccessful: response => ({ success: false, response }),
+    });
   } catch (error) {
     Logger.error('執行快捷鍵激活時發生意外錯誤', {
       action: 'USER_ACTIVATE_SHORTCUT',
@@ -512,29 +516,10 @@ async function handleStartHighlight(services, request, sender, sendResponse) {
       return;
     }
 
-    try {
-      const response = await sendActionMessageToTab(
-        ctx.activeTab.id,
-        RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT
-      );
-      if (response?.success === true) {
-        Logger.success('成功啟動浮動側欄標註', { action: 'startHighlight' });
-        sendResponse({ success: true });
-        return;
-      }
-      Logger.warn('啟動浮動側欄標註失敗', {
-        action: 'startHighlight',
-        responseSuccess: response?.success,
-        responseError: response?.error,
-      });
-      sendResponse(normalizeContentResponse(response));
-    } catch (error) {
-      Logger.warn('啟動浮動側欄標註失敗', {
-        action: 'startHighlight',
-        error: error.message,
-      });
-      respondWithSanitizedError(sendResponse, error, 'activate_floating_rail_highlight');
-    }
+    await dispatchActivationToTab(ctx.activeTab.id, 'startHighlight', sendResponse, {
+      onSuccess: () => ({ success: true }),
+      onUnsuccessful: response => normalizeContentResponse(response),
+    });
   } catch (error) {
     Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });
     respondWithSanitizedError(sendResponse, error, 'start_highlight');
