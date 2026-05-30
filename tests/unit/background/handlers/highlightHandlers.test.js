@@ -488,6 +488,101 @@ describe('highlightHandlers', () => {
       );
     });
 
+    it('如果 Bundle 初始化超時且 injection service 支援 cleanup，應先清理半初始化 bundle', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+      mockServices.injectionService.removeBundle = jest.fn().mockResolvedValue();
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        }
+      });
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(mockServices.injectionService.removeBundle).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
+    it('如果 Bundle 初始化超時且 cleanup 失敗，應記錄 cleanup error 並維持 timeout 回應', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+      const cleanupError = new Error('cleanup failed');
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+      mockServices.injectionService.cleanupInjectedBundle = jest
+        .fn()
+        .mockRejectedValue(cleanupError);
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        }
+      });
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(mockServices.injectionService.cleanupInjectedBundle).toHaveBeenCalledWith(1);
+      expect(globalThis.Logger.error).toHaveBeenCalledWith(
+        'Bundle 初始化超時後清理失敗',
+        expect.objectContaining({
+          action: 'startHighlight',
+          tabId: 1,
+          error: cleanupError.message,
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
+    it('如果 Bundle 初始化超時且沒有 cleanup API，應記錄半初始化狀態警告', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id' };
+
+      mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
+
+      globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
+        if (msg.action === 'PING') {
+          globalThis.chrome.runtime.lastError = { message: 'Timeout' };
+          cb(null);
+          globalThis.chrome.runtime.lastError = null;
+        }
+      });
+
+      await handlers.startHighlight({}, sender, sendResponse);
+
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        'Bundle 初始化超時且無可用 cleanup API，可能留下半初始化 bundle',
+        expect.objectContaining({
+          action: 'startHighlight',
+          tabId: 1,
+          state: 'half_initialized_bundle',
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
+        })
+      );
+    });
+
     it('[REGRESSION] 當 content script 初始化 Floating Rail 失敗時，應直接回傳 content script 的中文錯誤資訊，不應呼叫 injectHighlighter()', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id' };

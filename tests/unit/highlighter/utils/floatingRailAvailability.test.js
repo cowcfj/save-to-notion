@@ -108,6 +108,83 @@ describe('floatingRailAvailability', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
+    test('當 activeRail 已存在時，應立即呼叫 onRailReady 且不重新 initialize', async () => {
+      const sendResponse = jest.fn();
+      const activeRail = { show: jest.fn() };
+      const onRailReady = jest.fn().mockResolvedValue();
+
+      globalThis.HighlighterV2 = {
+        manager: { some: 'manager_state' },
+        rail: activeRail,
+      };
+
+      await withAvailableFloatingRail(sendResponse, onRailReady);
+
+      expect(onRailReady).toHaveBeenCalledWith(activeRail);
+      expect(mockInitialize).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('當 __NOTION_RAIL_READY__ 已存在時，應等待既有 promise 後呼叫 onRailReady', async () => {
+      const sendResponse = jest.fn();
+      const readyRail = { show: jest.fn() };
+      const onRailReady = jest.fn().mockResolvedValue();
+      const existingReadyPromise = Promise.resolve({ success: true, rail: readyRail });
+
+      globalThis.HighlighterV2 = {
+        manager: { some: 'manager_state' },
+        rail: undefined,
+      };
+      globalThis.__NOTION_RAIL_READY__ = existingReadyPromise;
+
+      await withAvailableFloatingRail(sendResponse, onRailReady);
+
+      expect(onRailReady).toHaveBeenCalledWith(readyRail);
+      expect(mockInitialize).not.toHaveBeenCalled();
+      expect(globalThis.__NOTION_RAIL_READY__).toBe(existingReadyPromise);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('當 HighlighterV2.manager 不存在時，應回傳 FLOATING_RAIL_NOT_INITIALIZED', async () => {
+      const sendResponse = jest.fn();
+      const onRailReady = jest.fn();
+
+      globalThis.HighlighterV2 = {
+        manager: undefined,
+        rail: undefined,
+      };
+
+      await withAvailableFloatingRail(sendResponse, onRailReady);
+
+      expect(onRailReady).not.toHaveBeenCalled();
+      expect(mockInitialize).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_NOT_INITIALIZED,
+      });
+    });
+
+    test('當 onRailReady 拋錯時，應回傳 FLOATING_RAIL_ACTION_FAILED', async () => {
+      const sendResponse = jest.fn();
+      const activeRail = { show: jest.fn() };
+      const onRailReady = jest.fn(() => {
+        throw new Error('internal failure details');
+      });
+
+      globalThis.HighlighterV2 = {
+        manager: { some: 'manager_state' },
+        rail: activeRail,
+      };
+
+      await withAvailableFloatingRail(sendResponse, onRailReady);
+
+      expect(onRailReady).toHaveBeenCalledWith(activeRail);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTION_FAILED,
+      });
+    });
+
     test('當建立 FloatingRail 失敗時，應清除 ready promise 且回傳 FLOATING_RAIL_INIT_FAILED 錯誤', async () => {
       const sendResponse = jest.fn();
       const onRailReady = jest.fn();
@@ -132,6 +209,29 @@ describe('floatingRailAvailability', () => {
       });
       // 確保 ready promise 被清除了
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+    });
+
+    test('當 initialize 拋錯時，應清除 __NOTION_RAIL_READY__ 且回傳 FLOATING_RAIL_INIT_FAILED', async () => {
+      const sendResponse = jest.fn();
+      const onRailReady = jest.fn();
+
+      globalThis.HighlighterV2 = {
+        manager: { some: 'manager_state' },
+        rail: undefined,
+      };
+
+      mockInitialize.mockRejectedValue(new Error('initialize crashed'));
+
+      await withAvailableFloatingRail(sendResponse, onRailReady);
+
+      expect(mockInitialize).toHaveBeenCalled();
+      expect(globalThis.HighlighterV2.rail).toBeUndefined();
+      expect(onRailReady).not.toHaveBeenCalled();
+      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+      });
     });
   });
 });

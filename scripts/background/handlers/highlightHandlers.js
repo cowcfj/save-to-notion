@@ -257,10 +257,41 @@ async function ensureBundleInjectedAndReady(injectionService, tabId, action) {
 
   const bundleReady = await ensureBundleReady(tabId);
   if (!bundleReady) {
+    await cleanupBundleAfterReadyTimeout(injectionService, tabId, action);
     return { ok: false, reason: 'timeout' };
   }
 
   return { ok: true };
+}
+
+async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
+  let cleanupMethod = null;
+  if (typeof injectionService?.removeBundle === 'function') {
+    cleanupMethod = 'removeBundle';
+  } else if (typeof injectionService?.cleanupInjectedBundle === 'function') {
+    cleanupMethod = 'cleanupInjectedBundle';
+  }
+
+  if (!cleanupMethod) {
+    Logger.warn('Bundle 初始化超時且無可用 cleanup API，可能留下半初始化 bundle', {
+      action,
+      tabId,
+      state: 'half_initialized_bundle',
+    });
+    return;
+  }
+
+  try {
+    await injectionService[cleanupMethod](tabId);
+  } catch (cleanupError) {
+    Logger.error('Bundle 初始化超時後清理失敗', {
+      action,
+      tabId,
+      cleanupMethod,
+      error: cleanupError?.message,
+      stack: cleanupError?.stack,
+    });
+  }
 }
 
 function acceptContentScriptInjectionContext(sender, action, { logRestricted = false } = {}) {
@@ -418,7 +449,12 @@ function respondWithSanitizedError(sendResponse, error, sanitizeContext) {
   sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
 }
 
-async function dispatchActivationToTab(tabId, action, sendResponse, { onSuccess, onUnsuccessful }) {
+async function dispatchFloatingRailActivation(
+  tabId,
+  action,
+  sendResponse,
+  { onSuccess, onUnsuccessful }
+) {
   try {
     const response = await sendActionMessageToTab(
       tabId,
@@ -504,7 +540,7 @@ async function handleUserActivateShortcut(services, request, sender, sendRespons
       return;
     }
 
-    await dispatchActivationToTab(ctx.tabId, 'USER_ACTIVATE_SHORTCUT', sendResponse, {
+    await dispatchFloatingRailActivation(ctx.tabId, 'USER_ACTIVATE_SHORTCUT', sendResponse, {
       onSuccess: response => ({ success: true, response }),
       onUnsuccessful: response => ({ success: false, response }),
     });
@@ -547,7 +583,7 @@ async function handleStartHighlight(services, request, sender, sendResponse) {
       return;
     }
 
-    await dispatchActivationToTab(ctx.activeTab.id, 'startHighlight', sendResponse, {
+    await dispatchFloatingRailActivation(ctx.activeTab.id, 'startHighlight', sendResponse, {
       onSuccess: () => ({ success: true }),
       onUnsuccessful: response => normalizeContentResponse(response),
     });
