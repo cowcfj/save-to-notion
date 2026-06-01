@@ -776,6 +776,18 @@ describe('NotionService', () => {
       });
     });
 
+    it('應該忽略非字串 coverImage 而不拋出錯誤', () => {
+      const result = service.buildPageData({
+        title: 'With Invalid Cover',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks: [],
+        coverImage: { url: 'https://example.com/cover.jpg' },
+      });
+
+      expect(result.pageData.cover).toBeUndefined();
+    });
+
     it('應該對 Patreon signed URL 跳過 page cover (defense in depth)', () => {
       const tempUrl =
         'https://c10.patreonusercontent.com/4/patreon-media/p/post/157239355/abc/eyJ3IjoxMDgwfQ==/1.png?token-hash=ABC123&token-time=1700000000';
@@ -1368,6 +1380,22 @@ describe('NotionService', () => {
         ];
         const result = NotionService._findHighlightSectionBlocks(blocks);
         expect(result).toEqual(['2', '3']);
+      });
+
+      it('應該將 nullish 區塊視為標記區域邊界以避免擴大刪除範圍', () => {
+        const blocks = [
+          {
+            id: '1',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { id: '2', type: 'paragraph' },
+          null,
+          { id: '3', type: 'paragraph' },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '2']);
       });
 
       it('應該處理標記區域在頁面末尾的情況', () => {

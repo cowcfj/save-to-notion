@@ -73,7 +73,7 @@ function hasRetriableNotionMessage(error) {
 }
 
 function isHttpUrl(url) {
-  return url.startsWith('http://') || url.startsWith('https://');
+  return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
 }
 
 /**
@@ -1324,13 +1324,13 @@ class NotionService {
     }
 
     return NotionService._sliceHighlightSectionBlocks(blocks, sectionStartIndex)
-      .map(block => block.id)
+      .map(block => block?.id)
       .filter(Boolean);
   }
 
   static _isHighlightSectionHeader(block, headerText) {
     return (
-      block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText
+      block?.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText
     );
   }
 
@@ -1338,7 +1338,7 @@ class NotionService {
     // 當前邏輯假設標記區域內不包含子標題。遇到任何 heading_* 代表區域結束。
     const nextHeadingOffset = blocks
       .slice(sectionStartIndex + 1)
-      .findIndex(block => NotionService._isHeadingBlock(block));
+      .findIndex(block => !block || NotionService._isHeadingBlock(block));
     const sectionEndIndex =
       nextHeadingOffset === -1 ? blocks.length : sectionStartIndex + 1 + nextHeadingOffset;
 
@@ -1346,7 +1346,7 @@ class NotionService {
   }
 
   static _isHeadingBlock(block) {
-    return block.type?.startsWith('heading_');
+    return block?.type?.startsWith('heading_') === true;
   }
 }
 
