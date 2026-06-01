@@ -277,6 +277,27 @@ describe('NotionService', () => {
       expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
     });
 
+    it('401 + OAuth + refresh reject 時應保留原始 401 錯誤', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+      const refreshError = new Error('Refresh failed');
+
+      jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth_old_token',
+        mode: 'oauth',
+      });
+      refreshOAuthToken.mockRejectedValueOnce(refreshError);
+
+      await expect(
+        service._callNotionApiWithRetry(jest.fn(), {
+          apiKey: 'oauth_old_token',
+          label: 'TestOperation',
+        })
+      ).rejects.toBe(unauthorizedError);
+      expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
+    });
+
     it('401 + 非 OAuth 模式時不應刷新 token', async () => {
       const unauthorizedError = new Error('Unauthorized');
       unauthorizedError.status = 401;
@@ -683,6 +704,7 @@ describe('NotionService', () => {
       );
       expect(warnContext).toEqual(
         expect.objectContaining({
+          result: 'partial_failure',
           failedBlockIds: ['block-2'],
           sanitizedError: expect.any(Array),
         })
@@ -1229,6 +1251,7 @@ describe('NotionService', () => {
       );
       expect(warnContext).toEqual(
         expect.objectContaining({
+          result: 'partial_failure',
           failedBlockIds: ['content-1'],
           sanitizedError: expect.any(Array),
         })

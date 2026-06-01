@@ -364,7 +364,7 @@ class NotionService {
       return null;
     }
 
-    const refreshedToken = await refreshOAuthToken();
+    const refreshedToken = await refreshOAuthToken().catch(() => null);
     if (!refreshedToken) {
       return null;
     }
@@ -1004,6 +1004,7 @@ class NotionService {
 
     Logger.warn('[NotionService] 部分區塊刪除失敗', {
       action: 'deleteAllBlocks',
+      result: 'partial_failure',
       failureCount: deleteResult.failureCount,
       totalBlocks,
       failedBlockIds: getFailedBlockIds(deleteResult),
@@ -1340,6 +1341,7 @@ class NotionService {
   _buildHighlightDeleteFailure(deleteResult) {
     Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
       action: 'updateHighlightsSection',
+      result: 'partial_failure',
       phase: 'delete',
       failureCount: deleteResult.failureCount,
       failedBlockIds: getFailedBlockIds(deleteResult),
