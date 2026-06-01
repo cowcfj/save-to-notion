@@ -512,6 +512,81 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
     expect(article.content).toContain('Content');
   });
 
+  test('當 Readability 返回空結果時應該拋出錯誤', () => {
+    mockParse.mockReturnValue(null);
+
+    expect(() => parseArticleWithReadability()).toThrow('Readability parsing returned no result');
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 返回空結果', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('當 Readability 返回無效內容時應該拋出錯誤', () => {
+    mockParse.mockReturnValue({ title: 'Test', content: '' });
+
+    expect(() => parseArticleWithReadability()).toThrow('Parsed article has no valid content');
+    expect(Logger.info).toHaveBeenCalledWith('Readability 結果缺少內容屬性', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('當 Readability 返回無效標題時應該使用文檔標題', () => {
+    document.title = 'Fallback Title';
+    mockParse.mockReturnValue({ title: '', content: '<div>Content</div>' });
+
+    const article = parseArticleWithReadability();
+
+    expect(article.title).toBe('Fallback Title');
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 結果缺少標題，已使用備用標題', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('當 Readability 返回空白標題且文檔沒有標題時應該使用 zh-TW 備用標題', () => {
+    document.title = '';
+    mockParse.mockReturnValue({ title: '   ', content: '<div>Content</div>' });
+
+    const article = parseArticleWithReadability();
+
+    expect(article.title).toBe('未命名頁面');
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 結果缺少標題，已使用備用標題', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('解析完成統計不應記錄文章標題', () => {
+    mockParse.mockReturnValue({
+      title: 'Sensitive User Title',
+      content: '<div>Content</div>',
+    });
+
+    parseArticleWithReadability();
+
+    expect(Logger.log).toHaveBeenCalledWith('解析完成統計', {
+      action: 'parseArticleWithReadability',
+      length: '<div>Content</div>'.length,
+    });
+  });
+
+  test('傳入文檔時應使用該文檔偵測 CMS 而非全域 document', () => {
+    document.head.innerHTML = '';
+    const targetDoc = document.implementation.createHTMLDocument();
+    targetDoc.head.innerHTML = '<meta name="generator" content="WordPress 6.0">';
+    targetDoc.body.innerHTML = '<article><p>Content</p></article>';
+    mockParse.mockReturnValue({
+      title: 'Target Doc Article',
+      content: '<div>Content</div>',
+    });
+
+    parseArticleWithReadability(targetDoc);
+
+    expect(Logger.log).toHaveBeenCalledWith('檢測到 CMS', {
+      action: 'detectCMS',
+      type: 'wordpress',
+      signal: 'meta',
+    });
+  });
+
   test('parseArticleWithReadability 應該自動處理懶加載圖片且不需要參數', () => {
     // 1. 設置全局 document (模擬真實環境)
     document.body.innerHTML = `
@@ -780,40 +855,35 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
 });
 
 describe('ReadabilityAdapter - detectCMS Coverage', () => {
-  test('should detect CMS by class signal', () => {
-    // Mock document.querySelector to return an element with specific class
-    const mockEl = document.createElement('div');
-    mockEl.className = 'wp-block-group'; // example WordPress class pattern
+  beforeEach(() => {
+    jest.clearAllMocks();
+    document.head.innerHTML = '';
+    document.body.className = '';
+  });
 
-    // We need to mock how checkCmsSignal works or mock the DOM.
-    // checkCmsSignal uses document.querySelector.
-    // CMS_CLEANING_RULES has 'wordpress' with signals type: 'class', target: 'body', pattern: /wp-/
-    // Let's simulate a body class.
-    document.body.className = 'wp-admin';
+  test('should detect CMS by meta signal', () => {
+    document.head.innerHTML = '<meta name="generator" content="WordPress 6.0">';
 
-    // However, we rely on the actual config rules imported by ReadabilityAdapter.
-    // If we can't easily mock the config, we rely on the real patterns.
-    // Assuming 'wordpress' checks body class for /wp-/ or similar.
-
-    // Let's create a more specific test data if possible, or just mock querySelector
-    // to match what checkCmsSignal looks for.
-
-    const qSpy = jest.spyOn(document, 'querySelector').mockImplementation(selector => {
-      // If selector matches a known signal target
-      if (selector === 'body') {
-        return { className: 'post-template-default' }; // wordpress pattern often
-      }
-      return null;
+    expect(detectCMS()).toBe('wordpress');
+    expect(Logger.log).toHaveBeenCalledWith('檢測到 CMS', {
+      action: 'detectCMS',
+      type: 'wordpress',
+      signal: 'meta',
     });
+  });
 
-    // Actually, let's look at the implementation of detectCMS in ReadabilityAdapter.js
-    // It iterates CMS_CLEANING_RULES.
-    // We know 'wordpress' is a likely key.
-    // Let's just try to trigger one.
+  test('should detect CMS by class signal', () => {
+    document.body.className = 'wordpress-theme';
 
-    // To be safe and independent of external config, we might want to just verify it returns null when nothing matches
+    expect(detectCMS()).toBe('wordpress');
+    expect(Logger.log).toHaveBeenCalledWith('檢測到 CMS', {
+      action: 'detectCMS',
+      type: 'wordpress',
+      signal: 'class',
+    });
+  });
+
+  test('should return null when no CMS signal matches', () => {
     expect(detectCMS()).toBeNull();
-
-    qSpy.mockRestore();
   });
 });
