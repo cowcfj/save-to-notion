@@ -42,6 +42,12 @@ const RETRIABLE_NOTION_ERROR_CODES = new Set([
   'conflict_error',
 ]);
 const RETRIABLE_NOTION_ERROR_MESSAGE_PATTERN = /unsaved transactions|datastoreinfraerror/i;
+const BLOCK_DELETE_ENTRY_ID_FIELDS = ['id', 'blockId'];
+const BLOCK_DELETE_ERROR_SOURCE_RESOLVERS = [
+  deleteResult => deleteResult?.errors,
+  deleteResult => deleteResult?.deleteErrors,
+  deleteResult => getFailedDeleteItems(deleteResult?.items),
+];
 
 function getMessageOrFallback(message) {
   return message || UNKNOWN_ERROR_FALLBACK;
@@ -97,27 +103,39 @@ function extractRejectionMessage(reason) {
 }
 
 function getBlockDeleteErrorEntries(deleteResult) {
-  const deleteErrors = deleteResult?.errors || deleteResult?.deleteErrors;
-  if (Array.isArray(deleteErrors)) {
-    return deleteErrors;
+  const deleteErrors = BLOCK_DELETE_ERROR_SOURCE_RESOLVERS.map(resolveSource =>
+    resolveSource(deleteResult)
+  ).find(source => hasBlockDeleteErrorSource(source));
+
+  return normalizeBlockDeleteErrorEntries(deleteErrors);
+}
+
+function getFailedDeleteItems(items) {
+  return Array.isArray(items) ? items.filter(item => isFailedDeleteItem(item)) : null;
+}
+
+function isFailedDeleteItem(item) {
+  return item?.success === false || Boolean(item?.error);
+}
+
+function hasBlockDeleteErrorSource(deleteErrors) {
+  return deleteErrors !== undefined && deleteErrors !== null;
+}
+
+function normalizeBlockDeleteErrorEntries(deleteErrors) {
+  if (!deleteErrors) {
+    return [];
   }
-  if (deleteErrors) {
-    return [deleteErrors];
-  }
-  if (Array.isArray(deleteResult?.items)) {
-    return deleteResult.items.filter(item => item?.success === false || item?.error);
-  }
-  return [];
+
+  return Array.isArray(deleteErrors) ? deleteErrors : [deleteErrors];
 }
 
 function getBlockDeleteEntryId(errorEntry) {
-  if (typeof errorEntry?.id === 'string') {
-    return errorEntry.id;
-  }
-  if (typeof errorEntry?.blockId === 'string') {
-    return errorEntry.blockId;
-  }
-  return null;
+  const idField = BLOCK_DELETE_ENTRY_ID_FIELDS.find(
+    fieldName => typeof errorEntry?.[fieldName] === 'string'
+  );
+
+  return idField ? errorEntry[idField] : null;
 }
 
 function sanitizeBlockDeleteErrors(deleteResult) {
@@ -319,27 +337,42 @@ class NotionService {
   }
 
   async _retryOAuthRequestAfterUnauthorized(operation, options, originalError) {
-    if (this._isClientOnlyScopedRequest(options)) {
+    const retryContext = await this._resolveOAuthRetryContext(options);
+
+    if (!retryContext) {
       throw originalError;
+    }
+
+    if (retryContext.shouldSyncGlobalClient) {
+      this.setApiKey(retryContext.refreshedToken);
+    }
+
+    return this._executeWithRetry(
+      operation,
+      this._buildOAuthRetryOptions(options, retryContext.refreshedToken)
+    );
+  }
+
+  async _resolveOAuthRetryContext(options) {
+    if (this._isClientOnlyScopedRequest(options)) {
+      return null;
     }
 
     const currentApiKey = options.apiKey || this.apiKey;
     const activeToken = await getActiveNotionToken();
-
     if (!this._isActiveOAuthTokenRequest(activeToken, currentApiKey)) {
-      throw originalError;
+      return null;
     }
 
     const refreshedToken = await refreshOAuthToken();
     if (!refreshedToken) {
-      throw originalError;
+      return null;
     }
 
-    if (this._shouldSyncGlobalOAuthClient(options, activeToken)) {
-      this.setApiKey(refreshedToken);
-    }
-
-    return this._executeWithRetry(operation, this._buildOAuthRetryOptions(options, refreshedToken));
+    return {
+      refreshedToken,
+      shouldSyncGlobalClient: this._shouldSyncGlobalOAuthClient(options, activeToken),
+    };
   }
 
   _isClientOnlyScopedRequest(options) {
@@ -578,13 +611,19 @@ class NotionService {
 
   _isConfigurationError(error) {
     const configurationError = ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED;
-    if (error === configurationError || error?.message === configurationError) {
-      return true;
+    return [
+      error === configurationError,
+      error?.message === configurationError,
+      this._isSanitizedConfigurationError(error, configurationError),
+    ].includes(true);
+  }
+
+  _isSanitizedConfigurationError(error, configurationError) {
+    if (!error?.code) {
+      return false;
     }
-    if (error?.code) {
-      return sanitizeApiError(error, 'check_page_exists') === configurationError;
-    }
-    return false;
+
+    return sanitizeApiError(error, 'check_page_exists') === configurationError;
   }
 
   /**
@@ -1382,9 +1421,20 @@ class NotionService {
   }
 
   static _isHighlightSectionHeader(block, headerText) {
-    return (
-      block?.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText
-    );
+    return NotionService._getHeading3Text(block) === headerText;
+  }
+
+  static _getHeading3Text(block) {
+    const heading = NotionService._getTypedBlockPayload(block, 'heading_3');
+    return NotionService._getFirstRichTextContent(heading?.rich_text);
+  }
+
+  static _getTypedBlockPayload(block, blockType) {
+    return block?.type === blockType ? block[blockType] : null;
+  }
+
+  static _getFirstRichTextContent(richText) {
+    return richText?.[0]?.text?.content || null;
   }
 
   static _sliceHighlightSectionBlocks(blocks, sectionStartIndex) {
