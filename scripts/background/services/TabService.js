@@ -28,6 +28,13 @@ import {
 } from '../../highlighter/core/HighlightLookupResolver.js';
 
 const DELETION_CONFIRMATION_WINDOW_MS = 5 * 60 * 1000;
+const NOTION_HOST_SUFFIXES = ['notion.so', 'notion.com', 'notion.site'];
+const CLOSED_OR_MISSING_TAB_ERROR_FRAGMENTS = ['The tab was closed', 'No tab with id'];
+
+const identityUrl = url => url;
+const resolveNull = () => Promise.resolve(null);
+const resolveVoid = () => Promise.resolve();
+const returnFalse = () => false;
 
 function sanitizeHighlightStorageKeyForLogging(key) {
   if (typeof key !== 'string') {
@@ -54,6 +61,155 @@ function sanitizeHighlightStorageKeyForLogging(key) {
 }
 
 /**
+ * 檢查 hostname 是否為 Notion 主機
+ *
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+function isNotionHost(hostname) {
+  if (!hostname) {
+    return false;
+  }
+  if (NOTION_HOST_SUFFIXES.includes(hostname)) {
+    return true;
+  }
+  return NOTION_HOST_SUFFIXES.some(suffix => hostname.endsWith(`.${suffix}`));
+}
+
+/**
+ * 檢查 URL 是否為 Notion 頁面 URL
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isNotionPageUrl(url) {
+  if (!url) {
+    return false;
+  }
+  try {
+    const { hostname } = new URL(url);
+    return isNotionHost(hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 根據 Preloader 數據獲取解析階段
+ *
+ * @param {object|null} preloaderData
+ * @returns {string}
+ */
+function getPreloaderResolutionPhase(preloaderData) {
+  if (!preloaderData) {
+    return 'fallback';
+  }
+  if (preloaderData.nextRouteInfo) {
+    return '2a(nextjs)';
+  }
+  if (preloaderData.shortlink) {
+    return '2a+(shortlink)';
+  }
+  return 'fallback';
+}
+
+/**
+ * 檢查錯誤是否為標籤頁關閉或找不到的常見錯誤
+ *
+ * @param {Error} error
+ * @returns {boolean}
+ */
+function isClosedOrMissingTabError(error) {
+  const message = error?.message;
+  if (!message) {
+    return false;
+  }
+  return CLOSED_OR_MISSING_TAB_ERROR_FRAGMENTS.some(fragment => message.includes(fragment));
+}
+
+/**
+ * 檢查是否有穩定的頁面證據
+ *
+ * @param {object|null|undefined} stablePage
+ * @returns {boolean}
+ */
+function hasStablePageEvidence(stablePage) {
+  if (!stablePage) {
+    return false;
+  }
+  const hasHighlights = Array.isArray(stablePage.highlights) && stablePage.highlights.length > 0;
+  return hasHighlights ? true : Boolean(stablePage.notion);
+}
+
+/**
+ * 檢查是否有穩定的舊版證據
+ *
+ * @param {object} evidence
+ * @param {string} stableLegacyKey
+ * @returns {boolean}
+ */
+function hasStableLegacyEvidence(evidence, stableLegacyKey) {
+  if (!evidence) {
+    return false;
+  }
+  return evidence[stableLegacyKey] !== undefined && evidence[stableLegacyKey] !== null;
+}
+
+function isProcessableTabUrl(url, isRestrictedUrl) {
+  if (!url) {
+    return false;
+  }
+  if (!/^https?:/i.test(url)) {
+    return false;
+  }
+  return !isRestrictedUrl(url);
+}
+
+function shouldRejectStableRootUrl(hasStableUrl, stableUrl) {
+  if (!hasStableUrl) {
+    return false;
+  }
+  return isRootUrl(stableUrl);
+}
+
+function shouldMigrateStableUrl(hasStableUrl, migrationService) {
+  if (!hasStableUrl) {
+    return false;
+  }
+  return Boolean(migrationService);
+}
+
+function createDefaultClearNotionStateWithRetry(clearNotionState) {
+  return async (url, retryOptions) => {
+    try {
+      const clearResult = await clearNotionState(url, retryOptions);
+      if (clearResult?.skipped) {
+        return {
+          cleared: false,
+          skipped: true,
+          reason: clearResult.reason,
+          attempts: 1,
+          recovered: false,
+        };
+      }
+      return { cleared: true, attempts: 1, recovered: false };
+    } catch (error) {
+      return { cleared: false, attempts: 1, error };
+    }
+  };
+}
+
+function hasMigratedHighlightData(result) {
+  if (!result?.migrated) {
+    return false;
+  }
+  if (!Array.isArray(result.data)) {
+    return false;
+  }
+  return result.data.length > 0;
+}
+
+/**
  * TabService 類
  */
 class TabService {
@@ -74,53 +230,37 @@ class TabService {
    */
   constructor(options = {}) {
     // === 核心依賴 ===
-    this.logger = options.logger || Logger;
+    this.logger = options.logger ?? Logger;
     this.injectionService = options.injectionService;
 
     // === URL 處理 ===
-    this.normalizeUrl = options.normalizeUrl || (url => url);
-    this.computeStableUrl = options.computeStableUrl || null;
+    this.normalizeUrl = options.normalizeUrl ?? identityUrl;
+    this.computeStableUrl = options.computeStableUrl ?? null;
 
     // === 存儲查詢 ===
-    this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
+    this.getSavedPageData = options.getSavedPageData ?? resolveNull;
 
     // === 安全檢查 ===
-    this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
-    this.isRecoverableError = options.isRecoverableError || (() => false);
+    this.isRestrictedUrl = options.isRestrictedUrl ?? returnFalse;
+    this.isRecoverableError = options.isRecoverableError ?? returnFalse;
 
     // === 回調與狀態 ===
     // 無標註時觸發（可用於遷移或其他邏輯）
-    this.onNoHighlightsFound = options.onNoHighlightsFound || null;
+    this.onNoHighlightsFound = options.onNoHighlightsFound ?? null;
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
     this.processingTabs = new Map();
 
     // === 頁面驗證邏輯 (_verifyAndUpdateStatus 使用) ===
-    this.checkPageExists = options.checkPageExists || (() => Promise.resolve(null));
-    this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
-    this.clearPageState = options.clearPageState || (() => Promise.resolve());
-    this.clearNotionState = options.clearNotionState || (() => Promise.resolve());
+    this.checkPageExists = options.checkPageExists ?? resolveNull;
+    this.getApiKey = options.getApiKey ?? resolveNull;
+    this.clearPageState = options.clearPageState ?? resolveVoid;
+    this.clearNotionState = options.clearNotionState ?? resolveVoid;
     this.clearNotionStateWithRetry =
-      options.clearNotionStateWithRetry ||
-      (async (url, retryOptions) => {
-        try {
-          const clearResult = await this.clearNotionState(url, retryOptions);
-          if (clearResult?.skipped) {
-            return {
-              cleared: false,
-              skipped: true,
-              reason: clearResult.reason,
-              attempts: 1,
-              recovered: false,
-            };
-          }
-          return { cleared: true, attempts: 1, recovered: false };
-        } catch (error) {
-          return { cleared: false, attempts: 1, error };
-        }
-      });
-    this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
+      options.clearNotionStateWithRetry ??
+      createDefaultClearNotionStateWithRetry(this.clearNotionState);
+    this.setSavedPageData = options.setSavedPageData ?? resolveVoid;
 
     // 連續不存在保護：短時間窗內連續兩次 false 才清理。
     // Map metadata 讓暫時性 false negative 過期後重新視為第一次失敗。
@@ -134,7 +274,7 @@ class TabService {
    * @param {string} url - 標籤頁 URL
    */
   async updateTabStatus(tabId, url) {
-    if (!url || !/^https?:/i.test(url) || this.isRestrictedUrl(url)) {
+    if (!isProcessableTabUrl(url, this.isRestrictedUrl)) {
       return;
     }
 
@@ -167,39 +307,14 @@ class TabService {
    * @returns {Promise<{stableUrl: string, originalUrl: string, hasStableUrl: boolean, migrated: boolean}>}
    */
   async resolveTabUrl(tabId, url, migrationService = null) {
-    // Notion 自身頁面不需要 Preloader 數據
-    let isNotionPage = false;
-    try {
-      if (url) {
-        const { hostname } = new URL(url);
-        isNotionPage =
-          hostname === 'notion.so' ||
-          hostname.endsWith('.notion.so') ||
-          hostname === 'notion.com' ||
-          hostname.endsWith('.notion.com') ||
-          hostname === 'notion.site' ||
-          hostname.endsWith('.notion.site');
-      }
-    } catch {
-      // Ignore invalid URLs
-    }
-
+    const isNotionPage = isNotionPageUrl(url);
     const preloaderData = isNotionPage ? null : await this.getPreloaderData(tabId);
     const stableUrl = resolveStorageUrl(url, preloaderData);
     const originalUrl = this.normalizeUrl(url);
     const hasStableUrl = stableUrl !== originalUrl;
 
     // 記錄 URL 解析決策，便於日後分析重複標注等問題
-    let phase;
-    if (!preloaderData) {
-      phase = 'fallback';
-    } else if (preloaderData.nextRouteInfo) {
-      phase = '2a(nextjs)';
-    } else if (preloaderData.shortlink) {
-      phase = '2a+(shortlink)';
-    } else {
-      phase = 'fallback';
-    }
+    const phase = getPreloaderResolutionPhase(preloaderData);
     this.logger.debug('[TabService] resolveTabUrl decision', {
       rawUrl: sanitizeUrlForLogging(url),
       stableUrl: sanitizeUrlForLogging(stableUrl),
@@ -216,7 +331,7 @@ class TabService {
     // 防禦：拒絕使用根路徑 URL（首頁）作為 stableUrl
     // 成因：某些 WordPress 站點在首頁上設置 <link rel="shortlink"> 指向首頁，
     // 若不加防護，不同文章的資料將被遷移到同一個首頁 key 下互相覆寫。
-    if (hasStableUrl && isRootUrl(stableUrl)) {
+    if (shouldRejectStableRootUrl(hasStableUrl, stableUrl)) {
       this.logger.warn('[TabService] Blocked root URL as stableUrl, falling back to originalUrl', {
         rejected: sanitizeUrlForLogging(stableUrl),
         fallback: sanitizeUrlForLogging(originalUrl),
@@ -224,7 +339,7 @@ class TabService {
       return { stableUrl: originalUrl, originalUrl, hasStableUrl: false, migrated: false };
     }
 
-    if (hasStableUrl && migrationService) {
+    if (shouldMigrateStableUrl(hasStableUrl, migrationService)) {
       migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);
     }
 
@@ -271,13 +386,6 @@ class TabService {
     return chrome.tabs.remove(tabId);
   }
 
-  /**
-   * 內部方法：實際的狀態更新邏輯
-   *
-   * @param {number} tabId - 標籤頁 ID
-   * @param {string} url - 標籤頁 URL
-   * @private
-   */
   async _updateTabStatusInternal(tabId, url) {
     // 按優先級計算穩定 URL（包含 Phase 1, Phase 2a/2a+, fallback）
     const { stableUrl: normUrl, originalUrl, hasStableUrl } = await this.resolveTabUrl(tabId, url);
@@ -292,44 +400,21 @@ class TabService {
       const highlights = await this._getHighlightsWithFallback(normUrl, hasStableUrl, originalUrl);
 
       if (!highlights) {
-        // 沒有找到現有標註，執行回調或預設遷移
-        const handler = this.onNoHighlightsFound ?? this.migrateLegacyHighlights.bind(this);
-        await handler(tabId, normUrl, `highlights_${normUrl}`);
-
-        // v2.68.0+: 即使沒有歷史標註，若 Floating Rail 啟用（預設啟用），
-        // 仍需注入 content bundle 讓 rail 在頁面上自動載入。
-        // entryAutoInit.js 會自行讀 floatingRailEnabled 決定 show/hide。
-        if (await this._shouldAutoInjectForRail()) {
-          const tab = await this._waitForTabCompilation(tabId);
-          if (tab) {
-            this.logger.debug(
-              `[TabService] No highlights, but Floating Rail enabled — injecting bundle for tab ${tabId}`
-            );
-            await this.injectionService.ensureBundleInjected(tabId);
-            this._sendStableUrl(tabId, normUrl);
-          }
-        }
+        await this._handleNoHighlights(tabId, normUrl);
         return;
       }
 
-      this.logger.debug(
+      await this._injectBundleWhenTabReady(
+        tabId,
+        normUrl,
         `[TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
       );
-      const tab = await this._waitForTabCompilation(tabId);
-      if (tab) {
-        this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
-        await this.injectionService.ensureBundleInjected(tabId);
-        this._sendStableUrl(tabId, normUrl);
-      }
     } catch (error) {
       if (!this.logger.error) {
         return;
       }
       // Avoid logging recoverable errors as true errors to reduce noise
-      if (
-        error.message?.includes('The tab was closed') ||
-        error.message?.includes('No tab with id')
-      ) {
+      if (isClosedOrMissingTabError(error)) {
         this.logger.debug(`[TabService] Tab closed/missing during update: ${error.message}`);
       } else {
         const errorMsg = error.message || String(error);
@@ -368,13 +453,8 @@ class TabService {
       const stableLegacyKey = `${HIGHLIGHT_KEY_PREFIX.HIGHLIGHTS}${normUrl}`;
       const evidence = await chrome.storage.local.get([stablePageKey, stableLegacyKey]);
 
-      const stablePage = evidence[stablePageKey];
-      const hasPageEvidence =
-        stablePage &&
-        ((Array.isArray(stablePage.highlights) && stablePage.highlights.length > 0) ||
-          stablePage.notion);
-      const hasLegacyEvidence =
-        evidence[stableLegacyKey] !== undefined && evidence[stableLegacyKey] !== null;
+      const hasPageEvidence = hasStablePageEvidence(evidence[stablePageKey]);
+      const hasLegacyEvidence = hasStableLegacyEvidence(evidence, stableLegacyKey);
 
       if (!hasPageEvidence && !hasLegacyEvidence) {
         // 無有效 evidence → 不寫 alias，避免漂移
@@ -438,6 +518,47 @@ class TabService {
         error: error?.message,
       });
       return true;
+    }
+  }
+
+  /**
+   * 當標籤頁編譯/載入完成後注入 bundle 並發送穩定 URL
+   *
+   * @param {number} tabId
+   * @param {string} normUrl
+   * @param {string|null} logMessage
+   * @private
+   */
+  async _injectBundleWhenTabReady(tabId, normUrl, logMessage = null) {
+    if (logMessage) {
+      this.logger.debug(logMessage);
+    }
+    const tab = await this._waitForTabCompilation(tabId);
+    if (!tab) {
+      return;
+    }
+    this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
+    await this.injectionService.ensureBundleInjected(tabId);
+    this._sendStableUrl(tabId, normUrl);
+  }
+
+  /**
+   * 處理沒有歷史標註時的邏輯（觸發回調/遷移，並在啟用 Floating Rail 時注入 bundle）
+   *
+   * @param {number} tabId
+   * @param {string} normUrl
+   * @private
+   */
+  async _handleNoHighlights(tabId, normUrl) {
+    const handler = this.onNoHighlightsFound ?? this.migrateLegacyHighlights.bind(this);
+    await handler(tabId, normUrl, `highlights_${normUrl}`);
+
+    if (await this._shouldAutoInjectForRail()) {
+      await this._injectBundleWhenTabReady(
+        tabId,
+        normUrl,
+        `[TabService] No highlights, but Floating Rail enabled — injecting bundle for tab ${tabId}`
+      );
     }
   }
 
@@ -515,6 +636,51 @@ class TabService {
   }
 
   /**
+   * 獲取已保存的頁面數據，如果穩定的 URL 沒查到，則回退到 fallback URL 進行雙查
+   *
+   * @param {string} normUrl
+   * @param {string|null} fallbackUrl
+   * @returns {Promise<{savedData: object|null, resolvedUrl: string}>}
+   * @private
+   */
+  async _getSavedDataWithFallback(normUrl, fallbackUrl) {
+    const savedData = await this.getSavedPageData(normUrl);
+
+    if (savedData) {
+      return { savedData, resolvedUrl: normUrl };
+    }
+
+    if (!fallbackUrl) {
+      return { savedData: null, resolvedUrl: normUrl };
+    }
+
+    if (fallbackUrl === normUrl) {
+      return { savedData: null, resolvedUrl: normUrl };
+    }
+
+    const fallbackSavedData = await this.getSavedPageData(fallbackUrl);
+    if (fallbackSavedData) {
+      return { savedData: fallbackSavedData, resolvedUrl: fallbackUrl };
+    }
+
+    return { savedData: null, resolvedUrl: normUrl };
+  }
+
+  /**
+   * 檢查頁面驗證快取是否仍屬新鮮 (未過期)
+   *
+   * @param {object} savedData
+   * @param {number} now
+   * @returns {boolean}
+   * @private
+   */
+  _isStatusCacheFresh(savedData, now) {
+    const lastVerifiedAt = savedData?.lastVerifiedAt || 0;
+    const ttl = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL || 60_000;
+    return now - lastVerifiedAt < ttl;
+  }
+
+  /**
    * 驗證並更新頁面狀態（含自動聯網檢查）
    *
    * @param {number} tabId - 標籤頁 ID
@@ -523,28 +689,15 @@ class TabService {
    * @private
    */
   async _verifyAndUpdateStatus(tabId, normUrl, fallbackUrl = null) {
-    let savedData = await this.getSavedPageData(normUrl);
-    let resolvedUrl = normUrl;
-
-    // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
-    if (!savedData && fallbackUrl && fallbackUrl !== normUrl) {
-      savedData = await this.getSavedPageData(fallbackUrl);
-      if (savedData) {
-        resolvedUrl = fallbackUrl;
-      }
-    }
+    const { savedData, resolvedUrl } = await this._getSavedDataWithFallback(normUrl, fallbackUrl);
 
     if (!savedData) {
       await this._updateBadgeStatus(tabId, null);
       return;
     }
 
-    // 檢查快取是否過期 (TTL)
     const now = Date.now();
-    const lastVerifiedAt = savedData.lastVerifiedAt || 0;
-    const ttl = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL || 60_000;
-
-    if (now - lastVerifiedAt < ttl) {
+    if (this._isStatusCacheFresh(savedData, now)) {
       this.logger.debug(`[TabService] Using cached status for ${sanitizeUrlForLogging(normUrl)}`);
       await this._updateBadgeStatus(tabId, savedData);
       return;
@@ -570,14 +723,14 @@ class TabService {
         return;
       }
 
-      await this._handleNotionVerificationResult(
+      await this._handleNotionVerificationResult({
         tabId,
         normUrl,
         resolvedUrl,
         savedData,
         apiKey,
-        now
-      );
+        now,
+      });
     } catch (error) {
       this.logger.warn('[TabService] 自動驗證失敗，跳過並保留當前狀態', { error });
       await this._updateBadgeStatus(tabId, savedData);
@@ -585,62 +738,111 @@ class TabService {
   }
 
   /**
-   * 處理聯網檢查結果並更新狀態
+   * 處理 Notion 頁面已被遠端刪除的情況（執行本地狀態清理）
    *
-   * @param {number} tabId - 標籤頁 ID
-   * @param {string} normUrl - 標準化後的 URL
-   * @param {string} resolvedUrl - 實際查到 savedData 的 URL
-   * @param {object} savedData - 已保存數據
-   * @param {string} apiKey - Notion API Key
-   * @param {number} now - 當前時間戳
+   * @param {number} tabId
+   * @param {string} resolvedUrl
+   * @param {object} savedData
    * @private
    */
-  async _handleNotionVerificationResult(tabId, normUrl, resolvedUrl, savedData, apiKey, now) {
+  async _handleDeletedNotionPage(tabId, resolvedUrl, savedData) {
+    this.logger.info('頁面已在 Notion 中刪除，自動清理本地狀態', {
+      action: 'autoSyncLocalState',
+      pageId: savedData.notionPageId?.slice(0, 4),
+    });
+    // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
+    const clearResult = await this.clearNotionStateWithRetry(resolvedUrl, {
+      source: 'TabService._handleNotionVerificationResult',
+      expectedPageId: savedData.notionPageId,
+    });
+    if (clearResult.skipped) {
+      this.logger.warn('[TabService] 清理已略過：本機 Notion 綁定已變更', {
+        action: 'autoSyncLocalState',
+        pageId: savedData.notionPageId?.slice(0, 4),
+        reason: clearResult.reason,
+        result: 'cleanup_skipped',
+      });
+      await this._updateBadgeStatus(tabId, savedData);
+      return;
+    }
+    if (!clearResult.cleared) {
+      // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
+      this.confirmRemotePageMissing(savedData.notionPageId);
+      throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
+    }
+    await this._updateBadgeStatus(tabId, null);
+  }
+
+  /**
+   * 處理第一次 Notion 遠端刪除檢查失敗（標記為 pending 狀態）
+   *
+   * @param {number} tabId
+   * @param {object} savedData
+   * @private
+   */
+  async _handlePendingNotionDeletion(tabId, savedData) {
+    this.logger.warn('[TabService] First deletion check failed, mark as pending', {
+      pageId: savedData.notionPageId?.slice(0, 4),
+      action: 'autoSyncLocalState',
+    });
+    await this._updateBadgeStatus(tabId, savedData);
+  }
+
+  /**
+   * 處理 Notion 頁面確認存在的情況（更新本地 cache 時戳與徽章）
+   *
+   * @param {number} tabId
+   * @param {string} normUrl
+   * @param {object} savedData
+   * @param {number} now
+   * @private
+   */
+  async _handleExistingNotionPage(tabId, normUrl, savedData, now) {
+    const updatedData = { ...savedData, lastVerifiedAt: now };
+    await this.setSavedPageData(normUrl, updatedData);
+    await this._updateBadgeStatus(tabId, updatedData);
+  }
+
+  /**
+   * 處理聯網檢查結果並更新狀態
+   *
+   * @param {object} context
+   * @param {number} context.tabId - 標籤頁 ID
+   * @param {string} context.normUrl - 標準化後的 URL
+   * @param {string} context.resolvedUrl - 實際查到 savedData 的 URL
+   * @param {object} context.savedData - 已保存數據
+   * @param {string} context.apiKey - Notion API Key
+   * @param {number} context.now - 當前時間戳
+   * @private
+   */
+  async _handleNotionVerificationResult({ tabId, normUrl, resolvedUrl, savedData, apiKey, now }) {
     const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
     const deletionCheck =
       exists === false
         ? this.confirmRemotePageMissing(savedData.notionPageId)
         : this.resetRemotePageMissingState(savedData.notionPageId);
 
-    if (exists === false && deletionCheck.shouldDelete) {
-      this.logger.info('頁面已在 Notion 中刪除，自動清理本地狀態', {
-        action: 'autoSyncLocalState',
-        pageId: savedData.notionPageId?.slice(0, 4),
-      });
-      // 使用實際查到 savedData 的 URL 來清除，確保讀寫一致
-      const clearResult = await this.clearNotionStateWithRetry(resolvedUrl, {
-        source: 'TabService._handleNotionVerificationResult',
-        expectedPageId: savedData.notionPageId,
-      });
-      if (clearResult.skipped) {
-        this.logger.warn('[TabService] 清理已略過：本機 Notion 綁定已變更', {
-          action: 'autoSyncLocalState',
-          pageId: savedData.notionPageId?.slice(0, 4),
-          reason: clearResult.reason,
-          result: 'cleanup_skipped',
-        });
-        await this._updateBadgeStatus(tabId, savedData);
-        return;
-      }
-      if (!clearResult.cleared) {
-        // Re-arm: 清除失敗，恢復 pending token 供下次驗證立即重試
-        this.confirmRemotePageMissing(savedData.notionPageId);
-        throw clearResult.error || new Error(ERROR_MESSAGES.TECHNICAL.CLEAR_NOTION_STATE_FAILED);
-      }
-      await this._updateBadgeStatus(tabId, null);
-    } else if (exists === false && deletionCheck.deletionPending) {
-      this.logger.warn('[TabService] First deletion check failed, mark as pending', {
-        pageId: savedData.notionPageId?.slice(0, 4),
-        action: 'autoSyncLocalState',
-      });
-      await this._updateBadgeStatus(tabId, savedData);
-    } else if (exists === true) {
-      const updatedData = { ...savedData, lastVerifiedAt: now };
-      await this.setSavedPageData(normUrl, updatedData);
-      await this._updateBadgeStatus(tabId, updatedData);
-    } else {
-      await this._updateBadgeStatus(tabId, savedData);
+    if (exists === true) {
+      await this._handleExistingNotionPage(tabId, normUrl, savedData, now);
+      return;
     }
+
+    if (exists !== false) {
+      await this._updateBadgeStatus(tabId, savedData);
+      return;
+    }
+
+    if (deletionCheck.shouldDelete) {
+      await this._handleDeletedNotionPage(tabId, resolvedUrl, savedData);
+      return;
+    }
+
+    if (deletionCheck.deletionPending) {
+      await this._handlePendingNotionDeletion(tabId, savedData);
+      return;
+    }
+
+    await this._updateBadgeStatus(tabId, savedData);
   }
 
   /**
@@ -730,6 +932,28 @@ class TabService {
     }
   }
 
+  /**
+   * 如有需要 (如別名候選與原本的標準化 URL 不同，且合約中的 lookupOrder 包含 preloadData 缺少的鍵)，則讀取額外的 highlights 存儲鍵。
+   *
+   * @param {object} contract
+   * @param {object} preloadData
+   * @param {string|null} aliasCandidate
+   * @param {string} normUrl
+   * @returns {Promise<object>}
+   * @private
+   */
+  async _loadExtraHighlightKeysIfNeeded(contract, preloadData, aliasCandidate, normUrl) {
+    if (!aliasCandidate || aliasCandidate === normUrl) {
+      return preloadData;
+    }
+    const extraKeys = contract.lookupOrder.filter(key => !(key in preloadData));
+    if (extraKeys.length === 0) {
+      return preloadData;
+    }
+    const extraData = await chrome.storage.local.get(extraKeys);
+    return { ...preloadData, ...extraData };
+  }
+
   async _getHighlightsFromStorage(normUrl) {
     const preloadContract = resolveHighlightLookupKeys(normUrl, null);
     const preloadKeys = [...getAliasLookupKeys(normUrl), ...preloadContract.lookupOrder];
@@ -737,14 +961,12 @@ class TabService {
     const aliasCandidate = pickAliasCandidate(preloadData, normUrl);
     const contract = resolveHighlightLookupKeys(normUrl, aliasCandidate);
 
-    let data = preloadData;
-    if (aliasCandidate && aliasCandidate !== normUrl) {
-      const extraKeys = contract.lookupOrder.filter(key => !(key in preloadData));
-      if (extraKeys.length > 0) {
-        const extraData = await chrome.storage.local.get(extraKeys);
-        data = { ...preloadData, ...extraData };
-      }
-    }
+    const data = await this._loadExtraHighlightKeysIfNeeded(
+      contract,
+      preloadData,
+      aliasCandidate,
+      normUrl
+    );
 
     const { highlights, resolvedKey } = pickHighlightsFromStorage(contract, data);
 
@@ -761,32 +983,13 @@ class TabService {
   }
 
   /**
-   * 內部方法：等待標籤頁編譯/載入完成
+   * 建立 Promise 等待標籤頁載入完成，並管理監聽器生命週期
    *
    * @param {number} tabId
    * @returns {Promise<object|null>}
    * @private
    */
-  async _waitForTabCompilation(tabId) {
-    const tab = await chrome.tabs.get(tabId).catch(() => null);
-    if (!tab) {
-      return null;
-    }
-
-    if (tab.discarded) {
-      this.logger.debug(`[TabService] Tab ${tabId} is discarded, skipping injection`);
-      return null;
-    }
-
-    if (tab.status === 'complete') {
-      return tab;
-    }
-
-    if (this.pendingListeners.has(tabId)) {
-      this.logger.debug(`[TabService] Tab ${tabId} already has pending listener, skipping`);
-      return null;
-    }
-
+  _createTabCompletionWaiter(tabId) {
     return new Promise(resolve => {
       // 定義回調函數
       const onUpdated = (tid, changeInfo) => {
@@ -828,6 +1031,36 @@ class TabService {
   }
 
   /**
+   * 內部方法：等待標籤頁編譯/載入完成
+   *
+   * @param {number} tabId
+   * @returns {Promise<object|null>}
+   * @private
+   */
+  async _waitForTabCompilation(tabId) {
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab) {
+      return null;
+    }
+
+    if (tab.discarded) {
+      this.logger.debug(`[TabService] Tab ${tabId} is discarded, skipping injection`);
+      return null;
+    }
+
+    if (tab.status === 'complete') {
+      return tab;
+    }
+
+    if (this.pendingListeners.has(tabId)) {
+      this.logger.debug(`[TabService] Tab ${tabId} already has pending listener, skipping`);
+      return null;
+    }
+
+    return this._createTabCompletionWaiter(tabId);
+  }
+
+  /**
    * 設置標籤事件監聽器
    */
   setupListeners() {
@@ -856,6 +1089,63 @@ class TabService {
   }
 
   /**
+   * 檢查標籤頁是否為有效的遷移目標
+   *
+   * @param {object|null} tab
+   * @returns {boolean}
+   * @private
+   */
+  _isValidMigrationTarget(tab) {
+    return Boolean(tab?.url && !tab.url.startsWith('chrome-error://'));
+  }
+
+  /**
+   * 持久化已遷移的舊版標註數據，並在標籤頁中注入恢復指令
+   *
+   * @param {number} tabId
+   * @param {string} storageKey
+   * @param {any[]} data
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _persistMigratedHighlights(tabId, storageKey, data) {
+    this.logger.info('[TabService] Migrating legacy highlights', {
+      action: 'migrateLegacyHighlights',
+      count: data.length,
+    });
+
+    await chrome.storage.local.set({ [storageKey]: data });
+
+    this.logger.success('[TabService] Legacy highlights migrated successfully', {
+      action: 'injectRestoreScript',
+    });
+    await this.injectionService.injectHighlightRestore(tabId);
+  }
+
+  _logMigrationError(error) {
+    const isRecoverable = this.isRecoverableError(error);
+    if (isRecoverable) {
+      this.logger.warn('[TabService] Migration skipped due to recoverable error:', {
+        error: error.message || error,
+      });
+      return;
+    }
+
+    this.logger.error('[TabService] Fatal migration error', { error });
+  }
+
+  async _handleMigrationResponse(tabId, storageKey, res) {
+    if (hasMigratedHighlightData(res)) {
+      await this._persistMigratedHighlights(tabId, storageKey, res.data);
+      return;
+    }
+
+    if (res?.error) {
+      this.logger.warn('[TabService] Migration script reported error:', { error: res.error });
+    }
+  }
+
+  /**
    * 遷移舊版 localStorage 中的標記到 chrome.storage.local
    *
    * @param {number} tabId - 標籤頁 ID
@@ -878,7 +1168,7 @@ class TabService {
     try {
       // 檢查標籤頁是否仍然有效且不是錯誤頁面
       const tab = await chrome.tabs.get(tabId).catch(() => null);
-      if (!tab?.url || tab.url.startsWith('chrome-error://')) {
+      if (!this._isValidMigrationTarget(tab)) {
         this.logger.info('[TabService] Skipping migration: tab is invalid or showing error page');
         return;
       }
@@ -891,32 +1181,9 @@ class TabService {
       );
 
       // injectWithResponse 已經解包回傳值，直接使用 res
-      if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
-        // 不記錄 foundKey 以保護用戶 URL 隱私
-        this.logger.info('[TabService] Migrating legacy highlights', {
-          action: 'migrateLegacyHighlights',
-          count: res.data.length,
-        });
-
-        await chrome.storage.local.set({ [storageKey]: res.data });
-
-        this.logger.success('[TabService] Legacy highlights migrated successfully', {
-          action: 'injectRestoreScript',
-        });
-        await this.injectionService.injectHighlightRestore(tabId);
-      } else if (res?.error) {
-        // 記錄注入端的結構化錯誤
-        this.logger.warn('[TabService] Migration script reported error:', { error: res.error });
-      }
+      await this._handleMigrationResponse(tabId, storageKey, res);
     } catch (error) {
-      const isRecoverable = this.isRecoverableError(error);
-      if (isRecoverable) {
-        this.logger.warn('[TabService] Migration skipped due to recoverable error:', {
-          error: error.message || error,
-        });
-      } else {
-        this.logger.error('[TabService] Fatal migration error', { error });
-      }
+      this._logMigrationError(error);
     }
   }
 }
@@ -929,6 +1196,7 @@ class TabService {
  * @returns {{migrated: boolean, data?: any[], foundKey?: string, error?: string}}
  */
 function _migrationScript(trackingParams) {
+  /* eslint-disable unicorn/consistent-function-scoping */
   // 檢測開發環境
   const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
 
@@ -944,7 +1212,6 @@ function _migrationScript(trackingParams) {
   };
 
   // 內部輔助函數：URL 標準化
-
   const normalize = raw => {
     try {
       const urlObj = new URL(raw);
@@ -961,7 +1228,6 @@ function _migrationScript(trackingParams) {
   };
 
   // 內部輔助函數：獲取當前頁面的 origin
-  // eslint-disable-next-line unicorn/consistent-function-scoping
   const getCurrentOrigin = () => {
     try {
       return new URL(globalThis.location.href).origin;
@@ -971,8 +1237,7 @@ function _migrationScript(trackingParams) {
   };
 
   // 內部輔助函數：遍歷 localStorage 尋找後備的 key
-  // eslint-disable-next-line unicorn/consistent-function-scoping
-  const findFallbackKey = currentOrigin => {
+  const findLegacyHighlightFallbackKey = currentOrigin => {
     let legacyCandidate = null;
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -986,9 +1251,7 @@ function _migrationScript(trackingParams) {
         if (currentOrigin && parsedUrlOrigin === currentOrigin) {
           return k;
         }
-        // 若 origin 不匹配或當前 origin 不存在，繼續找下一個
       } catch {
-        // URL 解析失敗（舊版非 URL 格式的 key），記錄第一個作為後備候選
         if (!legacyCandidate) {
           legacyCandidate = k;
         }
@@ -997,29 +1260,37 @@ function _migrationScript(trackingParams) {
     return legacyCandidate;
   };
 
-  // 內部輔助函數：查找存儲鍵
-  const findKey = () => {
-    const currentUrl = globalThis.location.href;
-    const norm = normalize(currentUrl);
-
-    // 優先檢查標準化 URL 和原始 URL 對應的鍵
+  // 內部輔助函數：檢查直接匹配的 key
+  const getDirectHighlightKey = (currentUrl, norm) => {
     const directKeys = [`highlights_${norm}`, `highlights_${currentUrl}`];
     for (const k of directKeys) {
       if (localStorage.getItem(k)) {
         return k;
       }
     }
+    return null;
+  };
 
-    // 後備方案：遍歷查找 highlights_ 開頭的鍵（僅當前者未找到時）
-    // 優先序：
-    //   1) 同 origin 且可解析的 key（避免跨頁面誤遷移）
-    //   2) 首個不可解析的 legacy key（向後兼容）
-    //   3) 無可用 key 時返回 null
-    return findFallbackKey(getCurrentOrigin());
+  // 內部輔助函數：解析遷移的 highlights 數據
+  const parseMigratedHighlights = (raw, key, logFn) => {
+    try {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data) && data.length > 0) {
+        localStorage.removeItem(key);
+        return { migrated: true, data, foundKey: key };
+      }
+    } catch (parseError) {
+      logFn('error', 'Parse error', { message: parseError.message });
+    }
+    return { migrated: false };
   };
 
   try {
-    const key = findKey();
+    const currentUrl = globalThis.location.href;
+    const norm = normalize(currentUrl);
+
+    const key =
+      getDirectHighlightKey(currentUrl, norm) || findLegacyHighlightFallbackKey(getCurrentOrigin());
     if (!key) {
       return { migrated: false };
     }
@@ -1029,17 +1300,7 @@ function _migrationScript(trackingParams) {
       return { migrated: false };
     }
 
-    try {
-      const data = JSON.parse(raw);
-      if (Array.isArray(data) && data.length > 0) {
-        localStorage.removeItem(key);
-        return { migrated: true, data, foundKey: key };
-      }
-    } catch (parseError) {
-      log('error', 'Parse error', { message: parseError.message });
-    }
-
-    return { migrated: false };
+    return parseMigratedHighlights(raw, key, log);
   } catch (error) {
     const errorInfo = { message: error.message, stack: isDev ? error.stack : undefined };
     log('error', 'Migration error', errorInfo);
