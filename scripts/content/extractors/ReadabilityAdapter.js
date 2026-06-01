@@ -680,23 +680,50 @@ function extractLargestListFallback() {
 }
 
 /**
+ * 檢查 meta CMS 信號是否匹配
+ *
+ * @param {object} signal - 信號配置對象
+ * @returns {boolean} meta 信號匹配時返回 true
+ */
+function matchesCmsMetaSignal(signal) {
+  if (signal.type !== 'meta') {
+    return false;
+  }
+
+  const meta = document.querySelector(`meta[name="${CSS.escape(signal.name)}"]`);
+  return Boolean(meta && signal.pattern.test(meta.content));
+}
+
+/**
+ * 檢查 class CMS 信號是否匹配
+ *
+ * @param {object} signal - 信號配置對象
+ * @returns {boolean} class 信號匹配時返回 true
+ */
+function matchesCmsClassSignal(signal) {
+  if (signal.type !== 'class') {
+    return false;
+  }
+
+  const element = document.querySelector(signal.target);
+  return Boolean(element && signal.pattern.test(element.className));
+}
+
+/**
  * 檢查單個 CMS 信號是否匹配
  *
  * @param {object} signal - 信號配置對象
  * @returns {string|null} 匹配的信號類型 ('meta' | 'class') 或 null
  */
 function checkCmsSignal(signal) {
-  if (signal.type === 'meta') {
-    const meta = document.querySelector(`meta[name="${CSS.escape(signal.name)}"]`);
-    if (meta && signal.pattern.test(meta.content)) {
-      return 'meta';
-    }
-  } else if (signal.type === 'class') {
-    const element = document.querySelector(signal.target);
-    if (element && signal.pattern.test(element.className)) {
-      return 'class';
-    }
+  if (matchesCmsMetaSignal(signal)) {
+    return 'meta';
   }
+
+  if (matchesCmsClassSignal(signal)) {
+    return 'class';
+  }
+
   return null;
 }
 
