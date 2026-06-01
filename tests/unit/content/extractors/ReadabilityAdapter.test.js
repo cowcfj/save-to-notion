@@ -512,6 +512,36 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
     expect(article.content).toContain('Content');
   });
 
+  test('當 Readability 返回空結果時應該拋出錯誤', () => {
+    mockParse.mockReturnValue(null);
+
+    expect(() => parseArticleWithReadability()).toThrow('Readability parsing returned no result');
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 返回空結果', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('當 Readability 返回無效內容時應該拋出錯誤', () => {
+    mockParse.mockReturnValue({ title: 'Test', content: '' });
+
+    expect(() => parseArticleWithReadability()).toThrow('Parsed article has no valid content');
+    expect(Logger.info).toHaveBeenCalledWith('Readability 結果缺少內容屬性', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('當 Readability 返回無效標題時應該使用文檔標題', () => {
+    document.title = 'Fallback Title';
+    mockParse.mockReturnValue({ title: '', content: '<div>Content</div>' });
+
+    const article = parseArticleWithReadability();
+
+    expect(article.title).toBe('Fallback Title');
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 結果缺少標題，使用備用標題', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
   test('parseArticleWithReadability 應該自動處理懶加載圖片且不需要參數', () => {
     // 1. 設置全局 document (模擬真實環境)
     document.body.innerHTML = `

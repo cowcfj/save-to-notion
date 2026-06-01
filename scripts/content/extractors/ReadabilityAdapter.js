@@ -1144,6 +1144,78 @@ function cleanParsedArticleSafely(parsedArticle, cmsType, domainRules) {
 }
 
 /**
+ * 確認 Readability 回傳了文章物件
+ *
+ * @param {object|null} parsedArticle - 文章物件
+ * @throws {Error} 當文章物件不存在時拋出錯誤
+ */
+function assertParsedArticleExists(parsedArticle) {
+  if (parsedArticle) {
+    return;
+  }
+
+  Logger.warn('Readability 返回空結果', { action: 'parseArticleWithReadability' });
+  throw new Error('Readability parsing returned no result');
+}
+
+/**
+ * 拋出內容缺失錯誤並記錄對應日誌
+ *
+ * @throws {Error} 永遠拋出內容缺失錯誤
+ */
+function throwInvalidParsedArticleContent() {
+  Logger.info('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
+  throw new Error('Parsed article has no valid content');
+}
+
+/**
+ * 確認文章物件包含有效內容
+ *
+ * @param {object} parsedArticle - 文章物件
+ * @throws {Error} 當內容不存在或不是字串時拋出錯誤
+ */
+function assertParsedArticleHasContent(parsedArticle) {
+  if (typeof parsedArticle.content !== 'string') {
+    throwInvalidParsedArticleContent();
+  }
+
+  if (!parsedArticle.content) {
+    throwInvalidParsedArticleContent();
+  }
+}
+
+/**
+ * 判斷文章標題是否為有效字串
+ *
+ * @param {object} parsedArticle - 文章物件
+ * @returns {boolean} 標題有效時返回 true
+ */
+function hasValidParsedArticleTitle(parsedArticle) {
+  if (typeof parsedArticle.title !== 'string') {
+    return false;
+  }
+
+  return Boolean(parsedArticle.title);
+}
+
+/**
+ * 在標題缺失時使用文檔標題補救
+ *
+ * @param {object} parsedArticle - 文章物件
+ * @param {Document} targetDoc - 原始文檔對象
+ */
+function ensureParsedArticleTitle(parsedArticle, targetDoc) {
+  if (hasValidParsedArticleTitle(parsedArticle)) {
+    return;
+  }
+
+  Logger.warn('Readability 結果缺少標題，使用備用標題', {
+    action: 'parseArticleWithReadability',
+  });
+  parsedArticle.title = targetDoc.title || 'Untitled Page';
+}
+
+/**
  * 驗證解析完成的文章物件與基本屬性，並在標題缺失時進行補救
  *
  * @param {object|null} parsedArticle - 文章物件
@@ -1152,22 +1224,9 @@ function cleanParsedArticleSafely(parsedArticle, cmsType, domainRules) {
  * @throws {Error} 當缺少文章、缺少有效內容時拋出錯誤
  */
 function validateParsedArticle(parsedArticle, targetDoc) {
-  if (!parsedArticle) {
-    Logger.warn('Readability 返回空結果', { action: 'parseArticleWithReadability' });
-    throw new Error('Readability parsing returned no result');
-  }
-
-  if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
-    Logger.info('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
-    throw new Error('Parsed article has no valid content');
-  }
-
-  if (!parsedArticle.title || typeof parsedArticle.title !== 'string') {
-    Logger.warn('Readability 結果缺少標題，使用備用標題', {
-      action: 'parseArticleWithReadability',
-    });
-    parsedArticle.title = targetDoc.title || 'Untitled Page';
-  }
+  assertParsedArticleExists(parsedArticle);
+  assertParsedArticleHasContent(parsedArticle);
+  ensureParsedArticleTitle(parsedArticle, targetDoc);
 
   return parsedArticle;
 }
