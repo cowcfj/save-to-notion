@@ -381,6 +381,69 @@ function scoreGenericContentCandidate(el, text) {
 }
 
 /**
+ * 讀取候選元素的純文字內容
+ *
+ * @param {Element} el - 候選元素
+ * @returns {string} 去除前後空白的文字
+ */
+function getGenericContentCandidateText(el) {
+  return el.textContent?.trim() || '';
+}
+
+/**
+ * 從通用內容候選元素中選出評分最高的主要內容元素
+ *
+ * @param {NodeList|Array} candidates - 通用內容候選元素
+ * @returns {Element|null} 最佳候選元素
+ */
+function selectBestGenericContentCandidate(candidates) {
+  let bestElement = null;
+  let maxScore = 0;
+
+  for (const el of candidates) {
+    const text = getGenericContentCandidateText(el);
+
+    if (text.length < MIN_CONTENT_LENGTH) {
+      continue;
+    }
+
+    const score = scoreGenericContentCandidate(el, text);
+
+    if (score <= maxScore) {
+      continue;
+    }
+
+    // 避免選擇嵌套的父元素
+    if (bestElement && el.contains(bestElement)) {
+      continue;
+    }
+
+    maxScore = score;
+    bestElement = el;
+  }
+
+  return bestElement;
+}
+
+/**
+ * 在沒有最佳候選元素時，使用較低內容長度門檻尋找緊急備案內容
+ *
+ * @param {NodeList|Array} candidates - 通用內容候選元素
+ * @returns {Element|null} 緊急備案候選元素
+ */
+function findEmergencyGenericContentCandidate(candidates) {
+  for (const el of candidates) {
+    const text = getGenericContentCandidateText(el);
+    if (text.length >= MIN_CONTENT_LENGTH / 2) {
+      Logger.log('緊急備案：找到內容', { action: 'findContentCmsFallback', length: text.length });
+      return el;
+    }
+  }
+
+  return null;
+}
+
+/**
  * 策略 4: 通用內容尋找
  *
  * @returns {string|null} HTML 內容或 null
@@ -394,26 +457,7 @@ function findGenericContent() {
   const candidates = cachedQuery('article, section, main, div', document);
   Logger.log('找到潛在內容候選者', { action: 'findContentCmsFallback', count: candidates.length });
 
-  let bestElement = null;
-  let maxScore = 0;
-  for (const el of candidates) {
-    const text = el.textContent?.trim() || '';
-
-    if (text.length < MIN_CONTENT_LENGTH) {
-      continue;
-    }
-
-    const score = scoreGenericContentCandidate(el, text);
-
-    if (score > maxScore) {
-      // 避免選擇嵌套的父元素
-      if (bestElement && el.contains(bestElement)) {
-        continue;
-      }
-      maxScore = score;
-      bestElement = el;
-    }
-  }
+  const bestElement = selectBestGenericContentCandidate(candidates);
 
   if (bestElement) {
     Logger.log('找到最佳內容', {
@@ -424,15 +468,7 @@ function findGenericContent() {
   }
 
   // 最後的嘗試：降低標準
-  for (const el of candidates) {
-    const text = el.textContent?.trim() || '';
-    if (text.length >= MIN_CONTENT_LENGTH / 2) {
-      Logger.log('緊急備案：找到內容', { action: 'findContentCmsFallback', length: text.length });
-      return el.innerHTML;
-    }
-  }
-
-  return null;
+  return findEmergencyGenericContentCandidate(candidates)?.innerHTML || null;
 }
 
 /**
