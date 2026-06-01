@@ -43,20 +43,27 @@ import { sendToastToTab, classifyErrorForToast } from './toastUtils.js';
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
 const DEFAULT_HIGHLIGHT_CONTENT_STYLE = 'COLOR_SYNC';
 
-const DESTINATION_PROFILE_MESSAGE_MATCHERS = [
-  {
-    code: 'DESTINATION_PROFILE_NOT_FOUND',
+const UNKNOWN_DESTINATION_PROFILE_ERROR_CODE = 'UNKNOWN_DESTINATION_PROFILE_ERROR';
+
+// 保存目的地錯誤碼 → { fragments: 用於從錯誤訊息回推錯誤碼, message: 對應的使用者提示 }
+const DESTINATION_PROFILE_ERRORS = {
+  DESTINATION_PROFILE_NOT_FOUND: {
     fragments: ['找不到目的地'],
+    message: '找不到指定的保存目的地，請重新整理後再試。',
   },
-  {
-    code: 'DESTINATION_PROFILE_NOT_CONFIGURED',
+  DESTINATION_PROFILE_NOT_CONFIGURED: {
     fragments: ['尚未設定保存目標'],
+    message: '尚未設定保存目的地，請先到設定頁完成設定。',
   },
-  {
-    code: 'DESTINATION_PROFILE_NOT_ALLOWED',
+  DESTINATION_PROFILE_NOT_ALLOWED: {
     fragments: ['不可使用', '數量上限'],
+    message: '此保存目的地目前不可使用，請改用其他保存目標。',
   },
-];
+  [UNKNOWN_DESTINATION_PROFILE_ERROR_CODE]: {
+    fragments: [],
+    message: '保存目的地無法使用，請重新整理後再試。',
+  },
+};
 
 const CLIENT_LOG_LEVELS = new Set(['log', 'info', 'warn', 'error', 'debug']);
 
@@ -64,53 +71,25 @@ const CLIENT_LOG_LEVELS = new Set(['log', 'info', 'warn', 'error', 'debug']);
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
 
-function normalizeDestinationProfileErrorCode(code) {
-  const trimmedCode = typeof code === 'string' ? code.trim() : '';
-  return trimmedCode ? trimmedCode.toUpperCase() : null;
-}
-
-function messageContainsAnyFragment(message, fragments) {
-  return fragments.some(fragment => message.includes(fragment));
-}
-
-function getDestinationProfileErrorCodeFromMessage(rawMessage) {
-  const message = typeof rawMessage === 'string' ? rawMessage : '';
-  const matched = DESTINATION_PROFILE_MESSAGE_MATCHERS.find(({ fragments }) =>
-    messageContainsAnyFragment(message, fragments)
-  );
-
-  return matched?.code ?? 'UNKNOWN_DESTINATION_PROFILE_ERROR';
-}
-
 function getDestinationProfileErrorCode(error) {
-  const explicitCode = normalizeDestinationProfileErrorCode(error?.code);
+  const explicitCode = typeof error?.code === 'string' ? error.code.trim().toUpperCase() : '';
   if (explicitCode) {
     return explicitCode;
   }
 
-  return getDestinationProfileErrorCodeFromMessage(error?.message);
-}
-
-function getDestinationProfileResolveMessages() {
-  return {
-    DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
-    DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
-    DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
-    UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
-  };
-}
-
-function resolveDestinationProfileMessage(code) {
-  const messages = getDestinationProfileResolveMessages();
-  if (Object.hasOwn(messages, code)) {
-    return messages[code];
-  }
-  return messages.UNKNOWN_DESTINATION_PROFILE_ERROR;
+  const message = typeof error?.message === 'string' ? error.message : '';
+  const matchedEntry = Object.entries(DESTINATION_PROFILE_ERRORS).find(([, { fragments }]) =>
+    fragments.some(fragment => message.includes(fragment))
+  );
+  return matchedEntry?.[0] ?? UNKNOWN_DESTINATION_PROFILE_ERROR_CODE;
 }
 
 function formatDestinationProfileResolveError(error) {
   const code = getDestinationProfileErrorCode(error);
-  return resolveDestinationProfileMessage(code);
+  const entry =
+    DESTINATION_PROFILE_ERRORS[code] ??
+    DESTINATION_PROFILE_ERRORS[UNKNOWN_DESTINATION_PROFILE_ERROR_CODE];
+  return entry.message;
 }
 
 /**
