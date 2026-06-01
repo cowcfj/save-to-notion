@@ -41,38 +41,76 @@ import { getActiveTab } from './handlerUtils.js';
 import { sendToastToTab, classifyErrorForToast } from './toastUtils.js';
 
 const VALID_HIGHLIGHT_STYLE_KEYS = new Set(Object.keys(HIGHLIGHT_STYLE_OPTIONS));
+const DEFAULT_HIGHLIGHT_CONTENT_STYLE = 'COLOR_SYNC';
+
+const DESTINATION_PROFILE_MESSAGE_MATCHERS = [
+  {
+    code: 'DESTINATION_PROFILE_NOT_FOUND',
+    fragments: ['找不到目的地'],
+  },
+  {
+    code: 'DESTINATION_PROFILE_NOT_CONFIGURED',
+    fragments: ['尚未設定保存目標'],
+  },
+  {
+    code: 'DESTINATION_PROFILE_NOT_ALLOWED',
+    fragments: ['不可使用', '數量上限'],
+  },
+];
+
+const CLIENT_LOG_LEVELS = new Set(['log', 'info', 'warn', 'error', 'debug']);
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
 
-function getDestinationProfileErrorCode(error) {
-  if (typeof error?.code === 'string' && error.code.trim()) {
-    return error.code.trim().toUpperCase();
-  }
-
-  const message = typeof error?.message === 'string' ? error.message : '';
-  if (message.includes('找不到目的地')) {
-    return 'DESTINATION_PROFILE_NOT_FOUND';
-  }
-  if (message.includes('尚未設定保存目標')) {
-    return 'DESTINATION_PROFILE_NOT_CONFIGURED';
-  }
-  if (message.includes('不可使用') || message.includes('數量上限')) {
-    return 'DESTINATION_PROFILE_NOT_ALLOWED';
-  }
-  return 'UNKNOWN_DESTINATION_PROFILE_ERROR';
+function normalizeDestinationProfileErrorCode(code) {
+  const trimmedCode = typeof code === 'string' ? code.trim() : '';
+  return trimmedCode ? trimmedCode.toUpperCase() : null;
 }
 
-function formatDestinationProfileResolveError(error) {
-  const code = getDestinationProfileErrorCode(error);
-  const messages = {
+function messageContainsAnyFragment(message, fragments) {
+  return fragments.some(fragment => message.includes(fragment));
+}
+
+function getDestinationProfileErrorCodeFromMessage(rawMessage) {
+  const message = typeof rawMessage === 'string' ? rawMessage : '';
+  const matched = DESTINATION_PROFILE_MESSAGE_MATCHERS.find(({ fragments }) =>
+    messageContainsAnyFragment(message, fragments)
+  );
+
+  return matched?.code ?? 'UNKNOWN_DESTINATION_PROFILE_ERROR';
+}
+
+function getDestinationProfileErrorCode(error) {
+  const explicitCode = normalizeDestinationProfileErrorCode(error?.code);
+  if (explicitCode) {
+    return explicitCode;
+  }
+
+  return getDestinationProfileErrorCodeFromMessage(error?.message);
+}
+
+function getDestinationProfileResolveMessages() {
+  return {
     DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
     DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
     DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
     UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
   };
-  return messages[code] || messages.UNKNOWN_DESTINATION_PROFILE_ERROR;
+}
+
+function resolveDestinationProfileMessage(code) {
+  const messages = getDestinationProfileResolveMessages();
+  if (Object.hasOwn(messages, code)) {
+    return messages[code];
+  }
+  return messages.UNKNOWN_DESTINATION_PROFILE_ERROR;
+}
+
+function formatDestinationProfileResolveError(error) {
+  const code = getDestinationProfileErrorCode(error);
+  return resolveDestinationProfileMessage(code);
 }
 
 /**
@@ -106,21 +144,38 @@ function sendPageSaveHint(activeTabId, isSaved) {
  */
 export function processContentResult(rawResult, highlights, highlightContentStyle = 'COLOR_SYNC') {
   // 正規化所有欄位，確保不修改原始輸入
-  const title = rawResult?.title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE;
-  const siteIcon = rawResult?.siteIcon ?? null;
-  const coverImage = rawResult?.coverImage ?? null; // 封面圖片 URL
-  const blocks = Array.isArray(rawResult?.blocks) ? [...rawResult.blocks] : [];
+  const title = getContentResultTitle(rawResult);
+  const siteIcon = getNullableContentField(rawResult, 'siteIcon');
+  const coverImage = getNullableContentField(rawResult, 'coverImage');
+  const blocks = cloneContentBlocks(rawResult);
 
   // 將標註樣式合併到原文 blocks（首次保存時生效）
   const mergedBlocks = mergeHighlightsWithStyle(blocks, highlights, highlightContentStyle);
 
   // 添加標註區塊
-  if (highlights && highlights.length > 0) {
-    const highlightBlocks = buildHighlightBlocks(highlights);
-    mergedBlocks.push(...highlightBlocks);
-  }
+  appendHighlightBlocks(mergedBlocks, highlights);
 
   return { title, blocks: mergedBlocks, siteIcon, coverImage, highlightContentStyle };
+}
+
+function getContentResultTitle(rawResult) {
+  return rawResult?.title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE;
+}
+
+function getNullableContentField(rawResult, fieldName) {
+  return rawResult?.[fieldName] ?? null;
+}
+
+function cloneContentBlocks(rawResult) {
+  return Array.isArray(rawResult?.blocks) ? [...rawResult.blocks] : [];
+}
+
+function appendHighlightBlocks(blocks, highlights) {
+  if (!Array.isArray(highlights) || highlights.length === 0) {
+    return;
+  }
+
+  blocks.push(...buildHighlightBlocks(highlights));
 }
 
 /**
@@ -133,23 +188,43 @@ export function processContentResult(rawResult, highlights, highlightContentStyl
 function sendErrorResponse(result, sendResponse, activeTabId) {
   const errorCode = typeof result.errorCode === 'string' ? result.errorCode : undefined;
   const patternMessage = errorCode ? ERROR_MESSAGES.PATTERNS[errorCode] : undefined;
-  if (errorCode && patternMessage === undefined) {
-    Logger.warn('Missing error pattern for errorCode', {
-      action: 'sendErrorResponse',
-      errorCode,
-    });
-  }
-  const userMessage = patternMessage ?? ErrorHandler.formatUserMessage(result.error);
-  const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
+  warnMissingErrorPattern(errorCode, patternMessage);
+
   sendResponse({
     ...result,
-    error: `${userMessage}${phaseInfo}`,
+    error: buildErrorResponseMessage(result, patternMessage),
   });
 
-  const toastKey = classifyErrorForToast(errorCode);
-  if (toastKey) {
-    sendToastToTab(activeTabId, toastKey, 'error');
+  sendErrorToast(errorCode, activeTabId);
+}
+
+function warnMissingErrorPattern(errorCode, patternMessage) {
+  if (!errorCode || patternMessage !== undefined) {
+    return;
   }
+
+  Logger.warn('Missing error pattern for errorCode', {
+    action: 'sendErrorResponse',
+    errorCode,
+  });
+}
+
+function buildErrorResponseMessage(result, patternMessage) {
+  const userMessage = patternMessage ?? ErrorHandler.formatUserMessage(result.error);
+  return `${userMessage}${formatErrorPhaseInfo(result.details)}`;
+}
+
+function formatErrorPhaseInfo(details) {
+  return details?.phase ? ` (在 ${details.phase} 階段)` : '';
+}
+
+function sendErrorToast(errorCode, activeTabId) {
+  const toastKey = classifyErrorForToast(errorCode);
+  if (!toastKey) {
+    return;
+  }
+
+  sendToastToTab(activeTabId, toastKey, 'error');
 }
 
 function _validateCheckPageStatusSender(sender) {
@@ -200,11 +275,13 @@ function shouldCreatePageForDestination(savedData, destinationProfile) {
   if (!savedData?.notionPageId) {
     return true;
   }
+
+  return !isSavedDestinationProfile(savedData, destinationProfile);
+}
+
+function isSavedDestinationProfile(savedData, destinationProfile) {
   const effectiveSavedDestinationId = savedData.destinationProfileId ?? DEFAULT_PROFILE_ID;
-  if (destinationProfile?.id && effectiveSavedDestinationId !== destinationProfile.id) {
-    return true;
-  }
-  return false;
+  return !destinationProfile?.id || effectiveSavedDestinationId === destinationProfile.id;
 }
 
 function validateOpenNotionPageRequest(sender, request, sendResponse) {
@@ -271,6 +348,218 @@ async function openResolvedNotionPage(notionUrl, sendResponse) {
   sendResponse({ success: true, tabId: tab.id, notionUrl });
 }
 
+function createDefaultDestinationProfileResolver() {
+  return new ProfileResolver({
+    repository: new LocalDestinationProfileRepository(),
+    entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+  });
+}
+
+function getProvidedDestinationProfileResolver(services) {
+  return services.destinationProfileResolver || services.destinationProfileService || null;
+}
+
+function hasExplicitDestinationProfileDependency(services) {
+  return (
+    Object.hasOwn(services, 'destinationProfileResolver') ||
+    Object.hasOwn(services, 'destinationProfileService')
+  );
+}
+
+function resolveDestinationProfileResolver(services) {
+  const providedResolver = getProvidedDestinationProfileResolver(services);
+  if (providedResolver) {
+    return providedResolver;
+  }
+
+  return hasExplicitDestinationProfileDependency(services)
+    ? null
+    : createDefaultDestinationProfileResolver();
+}
+
+function logDeletionCleanupUrlFallback(fallbackUrl, error) {
+  Logger.warn('重新解析刪除清理 URL 失敗，回退至既有路徑', {
+    action: 'checkPageStatus',
+    operation: 'resolveDeletionCleanupUrl',
+    url: sanitizeUrlForLogging(fallbackUrl),
+    error,
+  });
+}
+
+function logInvalidSavePageRequest(sender, validationError) {
+  Logger.warn('安全性阻擋', {
+    action: 'savePage',
+    reason: 'invalid_internal_request',
+    error: validationError.error,
+    senderId: sender?.id,
+    origin: sender?.origin,
+  });
+}
+
+function sendRestrictedPageResponse(pageUrl, sendResponse, options = {}) {
+  if (options.log) {
+    Logger.warn('受限頁面無法保存', {
+      action: 'savePage',
+      url: sanitizeUrlForLogging(pageUrl),
+      result: 'blocked',
+      reason: 'restricted_url',
+    });
+  }
+
+  sendResponse({
+    success: false,
+    error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+  });
+}
+
+function logInvalidToolbarRequest(sender, validationError) {
+  Logger.warn('安全性阻擋', {
+    action: 'SAVE_PAGE_FROM_TOOLBAR',
+    reason: 'invalid_content_script_request',
+    error: validationError.error,
+    senderId: sender?.id,
+    tabId: sender?.tab?.id,
+  });
+}
+
+function validateToolbarActiveTab(activeTab, sendResponse) {
+  if (isToolbarActiveTabUsable(activeTab)) {
+    return activeTab;
+  }
+
+  sendNoActiveTabResponse(sendResponse);
+  return null;
+}
+
+function isToolbarActiveTabUsable(activeTab) {
+  return Boolean(activeTab && typeof activeTab.url === 'string' && activeTab.url.trim().length > 0);
+}
+
+function sendNoActiveTabResponse(sendResponse) {
+  sendResponse({
+    success: false,
+    error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+  });
+}
+
+function getContentExtractionValidation(result) {
+  const normalizedResult = result ?? {};
+  const blocks = normalizedResult.blocks;
+
+  return {
+    result,
+    hasResult: Boolean(result),
+    extractionStatus: normalizedResult.extractionStatus ?? 'missing',
+    hasTitle: Boolean(normalizedResult.title),
+    hasBlocks: Array.isArray(blocks),
+    blocksCount: Array.isArray(blocks) ? blocks.length : 0,
+    extractionError: normalizedResult.error ?? null,
+  };
+}
+
+function isSuccessfulContentExtraction(validation) {
+  return [
+    validation.extractionStatus === 'success',
+    validation.hasTitle,
+    validation.hasBlocks,
+  ].every(Boolean);
+}
+
+function logInvalidContentExtraction(activeTab, validation) {
+  Logger.error('內容提取結果驗證失敗', {
+    action: 'validateContent',
+    hasResult: validation.hasResult,
+    extractionStatus: validation.extractionStatus,
+    hasTitle: validation.hasTitle,
+    hasBlocks: validation.hasBlocks,
+    blocksCount: validation.blocksCount,
+    extractionError: validation.extractionError,
+    url: sanitizeUrlForLogging(activeTab.url),
+  });
+}
+
+function normalizeHighlightContentStyle(storedStyle) {
+  if (typeof storedStyle !== 'string') {
+    return DEFAULT_HIGHLIGHT_CONTENT_STYLE;
+  }
+
+  return VALID_HIGHLIGHT_STYLE_KEYS.has(storedStyle)
+    ? storedStyle
+    : DEFAULT_HIGHLIGHT_CONTENT_STYLE;
+}
+
+function applyCreatedPageSuccessStatus(result, params) {
+  const { normUrl, contentResult, destinationProfile } = params;
+  result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
+  result.blockCount = contentResult.blocks.length;
+  result.created = true;
+  result.title = contentResult.title;
+  Object.assign(
+    result,
+    buildSaveSuccessStatus(
+      {
+        notionPageId: result.pageId,
+        notionUrl: result.url,
+        title: contentResult.title,
+      },
+      {
+        url: result.url,
+        pageId: result.pageId,
+        notionPageId: result.pageId,
+        stableUrl: normUrl,
+        destinationProfileId: destinationProfile?.id,
+        destinationProfileName: destinationProfile?.name,
+      }
+    )
+  );
+}
+
+function applyExistingPageSuccessStatus(result, savedData, extra) {
+  const { stableUrl, destinationProfile, title, type, highlights, contentResult } = extra;
+  if (type === 'highlight') {
+    result.highlightCount = highlights.length;
+    result.highlightsUpdated = true;
+    result.title = title;
+  } else {
+    result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
+    result.blockCount = contentResult.blocks.length;
+    result.updated = true;
+    result.title = title;
+  }
+  Object.assign(
+    result,
+    buildSaveSuccessStatus(
+      {
+        ...savedData,
+        title,
+      },
+      {
+        url: savedData.notionUrl,
+        pageId: savedData.notionPageId,
+        notionPageId: savedData.notionPageId,
+        stableUrl,
+        destinationProfileId: destinationProfile?.id,
+        destinationProfileName: destinationProfile?.name,
+      }
+    )
+  );
+}
+
+async function loadHighlightContentStyle() {
+  try {
+    const syncConfig = await chrome.storage.sync.get({
+      highlightContentStyle: DEFAULT_HIGHLIGHT_CONTENT_STYLE,
+    });
+    return normalizeHighlightContentStyle(syncConfig?.highlightContentStyle);
+  } catch (error) {
+    Logger.warn('讀取同步樣式失敗，使用預設值', {
+      action: 'getHighlightContentStyle',
+      error: error?.message,
+    });
+    return DEFAULT_HIGHLIGHT_CONTENT_STYLE;
+  }
+}
+
 // ============================================================================
 // 工廠函數
 // ============================================================================
@@ -289,21 +578,8 @@ export function createSaveHandlers(services) {
     pageContentService,
     tabService,
     migrationService, // Added MigrationService
-    destinationProfileResolver: providedDestinationProfileResolver,
-    destinationProfileService: legacyDestinationProfileService,
   } = services;
-  const hasProvidedDestinationProfileDependency =
-    Object.hasOwn(services, 'destinationProfileResolver') ||
-    Object.hasOwn(services, 'destinationProfileService');
-  const destinationProfileResolver =
-    providedDestinationProfileResolver ||
-    legacyDestinationProfileService ||
-    (hasProvidedDestinationProfileDependency
-      ? null
-      : new ProfileResolver({
-          repository: new LocalDestinationProfileRepository(),
-          entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
-        }));
+  const destinationProfileResolver = resolveDestinationProfileResolver(services);
 
   if (
     typeof tabService?.confirmRemotePageMissing !== 'function' ||
@@ -340,7 +616,7 @@ export function createSaveHandlers(services) {
     const tabId = activeTab?.id;
     const tabUrl = activeTab?.url || fallbackUrl;
 
-    if (!tabId || !tabUrl || typeof tabService.resolveTabUrl !== 'function') {
+    if (!canResolveDeletionCleanupUrl(tabId, tabUrl)) {
       return fallbackUrl;
     }
 
@@ -348,14 +624,13 @@ export function createSaveHandlers(services) {
       const refreshed = await tabService.resolveTabUrl(tabId, tabUrl);
       return refreshed?.stableUrl || fallbackUrl;
     } catch (error) {
-      Logger.warn('重新解析刪除清理 URL 失敗，回退至既有路徑', {
-        action: 'checkPageStatus',
-        operation: 'resolveDeletionCleanupUrl',
-        url: sanitizeUrlForLogging(fallbackUrl),
-        error,
-      });
+      logDeletionCleanupUrlFallback(fallbackUrl, error);
       return fallbackUrl;
     }
+  }
+
+  function canResolveDeletionCleanupUrl(tabId, tabUrl) {
+    return Boolean(tabId && tabUrl && typeof tabService.resolveTabUrl === 'function');
   }
 
   /**
@@ -476,13 +751,7 @@ export function createSaveHandlers(services) {
     const { requireDataSource = true } = options;
     const validationError = validateInternalRequest(sender);
     if (validationError) {
-      Logger.warn('安全性阻擋', {
-        action: 'savePage',
-        reason: 'invalid_internal_request',
-        error: validationError.error,
-        senderId: sender?.id,
-        origin: sender?.origin,
-      });
+      logInvalidSavePageRequest(sender, validationError);
       sendResponse(validationError);
       return null;
     }
@@ -490,27 +759,22 @@ export function createSaveHandlers(services) {
     const activeTab = await getActiveTab();
 
     if (isRestrictedInjectionUrl(activeTab.url)) {
-      Logger.warn('受限頁面無法保存', {
-        action: 'savePage',
-        url: sanitizeUrlForLogging(activeTab.url),
-        result: 'blocked',
-        reason: 'restricted_url',
-      });
-      sendResponse({
-        success: false,
-        error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
-      });
+      sendRestrictedPageResponse(activeTab.url, sendResponse, { log: true });
       return null;
     }
 
-    const configData = requireDataSource
-      ? await _loadAndValidateNotionConfig(sendResponse)
-      : await _loadNotionConfigForDestinationProfile(sendResponse);
+    const configData = await loadSaveConfig(sendResponse, requireDataSource);
     if (!configData) {
       return null;
     }
 
     return { ...configData, activeTab };
+  }
+
+  async function loadSaveConfig(sendResponse, requireDataSource) {
+    return requireDataSource
+      ? await _loadAndValidateNotionConfig(sendResponse)
+      : await _loadNotionConfigForDestinationProfile(sendResponse);
   }
 
   /**
@@ -528,45 +792,22 @@ export function createSaveHandlers(services) {
     // Content Script 安全性驗證
     const validationError = validateContentScriptRequest(sender);
     if (validationError) {
-      Logger.warn('安全性阻擋', {
-        action: 'SAVE_PAGE_FROM_TOOLBAR',
-        reason: 'invalid_content_script_request',
-        error: validationError.error,
-        senderId: sender?.id,
-        tabId: sender?.tab?.id,
-      });
+      logInvalidToolbarRequest(sender, validationError);
       sendResponse(validationError);
       return null;
     }
 
-    const activeTab = sender.tab;
+    const activeTab = validateToolbarActiveTab(sender.tab, sendResponse);
     if (!activeTab) {
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
-      });
-      return null;
-    }
-
-    if (typeof activeTab.url !== 'string' || activeTab.url.trim().length === 0) {
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
-      });
       return null;
     }
 
     if (isRestrictedInjectionUrl(activeTab.url)) {
-      sendResponse({
-        success: false,
-        error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
-      });
+      sendRestrictedPageResponse(activeTab.url, sendResponse);
       return null;
     }
 
-    const configData = requireDataSource
-      ? await _loadAndValidateNotionConfig(sendResponse)
-      : await _loadNotionConfigForDestinationProfile(sendResponse);
+    const configData = await loadSaveConfig(sendResponse, requireDataSource);
     if (!configData) {
       return null;
     }
@@ -615,43 +856,31 @@ export function createSaveHandlers(services) {
 
     Logger.log('收集到的標註數據', { action: 'collectHighlights', count: highlights.length });
 
-    let result = null;
+    const result = await extractContentSafely(activeTab.id);
+    const validation = getContentExtractionValidation(result);
 
+    if (isSuccessfulContentExtraction(validation)) {
+      return { result, highlights };
+    }
+
+    logInvalidContentExtraction(activeTab, validation);
+    sendResponse({ success: false, error: getExtractionErrorMessage(result) });
+    return null;
+  }
+
+  async function extractContentSafely(tabId) {
     try {
-      result = await pageContentService.extractContent(activeTab.id);
+      const result = await pageContentService.extractContent(tabId);
       Logger.log('內容提取成功', { action: 'extractContent' });
+      return result;
     } catch (error) {
       Logger.error('內容提取發生異常', {
         action: 'extractContent',
         error: error.message,
         stack: error.stack,
       });
-    }
-
-    const hasSuccessfulExtraction =
-      result?.extractionStatus === 'success' &&
-      Boolean(result?.title) &&
-      Array.isArray(result?.blocks);
-
-    if (!hasSuccessfulExtraction) {
-      Logger.error('內容提取結果驗證失敗', {
-        action: 'validateContent',
-        hasResult: Boolean(result),
-        extractionStatus: result?.extractionStatus ?? 'missing',
-        hasTitle: Boolean(result?.title),
-        hasBlocks: Array.isArray(result?.blocks),
-        blocksCount: result?.blocks?.length ?? 0,
-        extractionError: result?.error ?? null,
-        url: sanitizeUrlForLogging(activeTab.url),
-      });
-
-      const error = getExtractionErrorMessage(result);
-
-      sendResponse({ success: false, error });
       return null;
     }
-
-    return { result, highlights };
   }
 
   async function persistCreatedPage({ normUrl, contentResult, result, destinationProfile }) {
@@ -691,32 +920,6 @@ export function createSaveHandlers(services) {
         });
       });
     }
-  }
-
-  function applyCreatedPageSuccessStatus(result, params) {
-    const { normUrl, contentResult, destinationProfile } = params;
-    result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
-    result.blockCount = contentResult.blocks.length;
-    result.created = true;
-    result.title = contentResult.title;
-    Object.assign(
-      result,
-      buildSaveSuccessStatus(
-        {
-          notionPageId: result.pageId,
-          notionUrl: result.url,
-          title: contentResult.title,
-        },
-        {
-          url: result.url,
-          pageId: result.pageId,
-          notionPageId: result.pageId,
-          stableUrl: normUrl,
-          destinationProfileId: destinationProfile?.id,
-          destinationProfileName: destinationProfile?.name,
-        }
-      )
-    );
   }
 
   /**
@@ -762,37 +965,6 @@ export function createSaveHandlers(services) {
       destinationProfileId: destinationProfile?.id ?? savedData.destinationProfileId ?? null,
     });
     await rememberLastUsedDestinationProfile(destinationProfile);
-  }
-
-  function applyExistingPageSuccessStatus(result, savedData, extra) {
-    const { stableUrl, destinationProfile, title, type, highlights, contentResult } = extra;
-    if (type === 'highlight') {
-      result.highlightCount = highlights.length;
-      result.highlightsUpdated = true;
-      result.title = title;
-    } else {
-      result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
-      result.blockCount = contentResult.blocks.length;
-      result.updated = true;
-      result.title = title;
-    }
-    Object.assign(
-      result,
-      buildSaveSuccessStatus(
-        {
-          ...savedData,
-          title,
-        },
-        {
-          url: savedData.notionUrl,
-          pageId: savedData.notionPageId,
-          notionPageId: savedData.notionPageId,
-          stableUrl,
-          destinationProfileId: destinationProfile?.id,
-          destinationProfileName: destinationProfile?.name,
-        }
-      )
-    );
   }
 
   async function handleHighlightOnlyUpdate(params) {
@@ -1058,20 +1230,7 @@ export function createSaveHandlers(services) {
     }
     const { result, highlights } = extractionData;
 
-    // 讀取用戶的 Notion 同步樣式設定（預設為 COLOR_SYNC）
-    let highlightContentStyle = 'COLOR_SYNC';
-    try {
-      const syncConfig = await chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' });
-      const storedStyle = syncConfig?.highlightContentStyle;
-      if (typeof storedStyle === 'string' && VALID_HIGHLIGHT_STYLE_KEYS.has(storedStyle)) {
-        highlightContentStyle = storedStyle;
-      }
-    } catch (error) {
-      Logger.warn('讀取同步樣式失敗，使用預設值', {
-        action: 'getHighlightContentStyle',
-        error: error?.message,
-      });
-    }
+    const highlightContentStyle = await loadHighlightContentStyle();
     const contentResult = processContentResult(result, highlights, highlightContentStyle);
 
     await determineAndExecuteSaveAction({
@@ -1338,32 +1497,11 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        // 驗證並標準化日誌層級
-        const allowedLevels = ['log', 'info', 'warn', 'error', 'debug'];
-        let level = request.level;
-
-        if (!allowedLevels.includes(level) || typeof Logger[level] !== 'function') {
-          level = 'log';
-        }
-
+        const level = normalizeClientLogLevel(request.level);
         const message = request.message || '';
         const args = Array.isArray(request.args) ? request.args : [];
 
-        // 1. 輸出到日誌系統 (Logger 會處理緩衝與層級)
-        const logMethod = Logger[level];
-        logMethod(`[ClientLog] ${message}`, ...args);
-
-        // 2. 寫入 LogBuffer (保留原始時間戳與來源)
-        // 使用統一的 parseArgsToContext 解析 args，避免邏輯重複
-        const context = parseArgsToContext(args);
-
-        // 顯式調用 addLogToBuffer
-        Logger.addLogToBuffer({
-          level,
-          message: `[ClientLog] ${message}`,
-          context,
-          source: 'content_script', // 明確標記來源
-        });
+        forwardClientLog(level, message, args);
 
         sendResponse({ success: true });
       } catch (error) {
@@ -1374,4 +1512,23 @@ export function createSaveHandlers(services) {
       }
     },
   };
+}
+
+function normalizeClientLogLevel(level) {
+  if (CLIENT_LOG_LEVELS.has(level) && typeof Logger[level] === 'function') {
+    return level;
+  }
+
+  return 'log';
+}
+
+function forwardClientLog(level, message, args) {
+  const logMessage = `[ClientLog] ${message}`;
+  Logger[level](logMessage, ...args);
+  Logger.addLogToBuffer({
+    level,
+    message: logMessage,
+    context: parseArgsToContext(args),
+    source: 'content_script',
+  });
 }
