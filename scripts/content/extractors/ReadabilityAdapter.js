@@ -36,6 +36,7 @@ const LIST_PREFIX_PATTERNS = {
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
 const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;
+const DISPLAY_NONE_STYLE_PATTERN = /\bdisplay\s*:\s*none\b/i;
 
 /**
  * 安全地查詢 DOM 元素,避免拋出異常
@@ -230,7 +231,12 @@ function expandCollapsedClassElements(expanded) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function revealHiddenContentElements(expanded) {
-  const hiddenByStyle = Array.from(document.querySelectorAll('[style*="display:none"], [hidden]'));
+  const hiddenByStyle = Array.from(
+    document.querySelectorAll('[style*="display" i], [hidden]')
+  ).filter(el => {
+    const style = el.getAttribute('style') || '';
+    return el.hasAttribute('hidden') || DISPLAY_NONE_STYLE_PATTERN.test(style);
+  });
   hiddenByStyle.forEach(el => {
     try {
       const textLen = (el.textContent || '').trim().length;
@@ -819,7 +825,7 @@ function removeDisplayNoneElements(root) {
   const styleElements = safeQueryElements(root, '[style*="display" i]');
   styleElements.forEach(el => {
     const style = el.getAttribute('style');
-    if (style && /\bdisplay\s*:\s*none\b/i.test(style)) {
+    if (style && DISPLAY_NONE_STYLE_PATTERN.test(style)) {
       if (shouldPreserveCleanedElement(el)) {
         return;
       }
@@ -1125,11 +1131,19 @@ function applyDomainContainerNarrowing(clonedDocument, domainRules) {
   if (domainRules?.container) {
     const containerEl = clonedDocument.querySelector(domainRules.container);
     if (containerEl) {
+      const clonedBody = clonedDocument.body;
+      if (!clonedBody) {
+        Logger.warn('克隆文檔缺少 body，跳過網域容器聚焦', {
+          action: 'parseArticleWithReadability',
+          container: domainRules.container,
+        });
+        return;
+      }
+
       Logger.log('套用網域容器聚焦', {
         action: 'parseArticleWithReadability',
         container: domainRules.container,
       });
-      const clonedBody = clonedDocument.body;
       clonedBody.replaceChildren();
       clonedBody.append(containerEl);
     } else {

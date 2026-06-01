@@ -381,5 +381,38 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       expect(bodyHtml).toContain('footer');
       expect(result.content).toBe('<div class="main-article">正文內容</div>'); // Mock 寫死的返回值
     });
+
+    test('當克隆文檔缺少 body 時，應跳過容器聚焦並繼續解析', () => {
+      const container = document.createElement('div');
+      container.className = 'main-article';
+      container.textContent = '正文內容';
+      const clonedDocWithoutBody = {
+        body: null,
+        querySelector: jest.fn(selector => (selector === '.main-article' ? container : null)),
+        querySelectorAll: jest.fn(() => []),
+      };
+      const fakeDoc = {
+        title: 'Bodyless Doc',
+        location: { hostname: 'example.com' },
+        defaultView: { location: { hostname: 'example.com' } },
+        cloneNode: jest.fn(() => clonedDocWithoutBody),
+      };
+
+      const { __getMockCapture } = require('@mozilla/readability');
+      const mockCapture = __getMockCapture();
+      mockCapture.doc = null;
+
+      const result = parseArticleWithReadability(fakeDoc);
+
+      expect(result.content).toBe('<div class="main-article">正文內容</div>');
+      expect(mockCapture.doc).toBe(clonedDocWithoutBody);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '克隆文檔缺少 body，跳過網域容器聚焦',
+        expect.objectContaining({
+          action: 'parseArticleWithReadability',
+          container: '.main-article',
+        })
+      );
+    });
   });
 });

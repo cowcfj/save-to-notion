@@ -163,6 +163,16 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
       expect(div.hasAttribute('hidden')).toBe(false);
     });
 
+    test('應該展開帶有空格變體 display none inline style 的元素', async () => {
+      document.body.innerHTML =
+        '<div style="display: none;">This is a lot of content that should be shown</div>';
+
+      await expandCollapsibleElements(50);
+
+      const div = document.querySelector('div');
+      expect(div.style.display).toBe('');
+    });
+
     test('當發生錯誤時應該返回空數組', async () => {
       // Mock 一個會拋出錯誤的 querySelectorAll
       const originalQuerySelectorAll = document.querySelectorAll;
