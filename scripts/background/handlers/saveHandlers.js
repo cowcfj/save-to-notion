@@ -558,7 +558,7 @@ async function loadHighlightContentStyle() {
   } catch (error) {
     Logger.warn('讀取同步樣式失敗，使用預設值', {
       action: 'getHighlightContentStyle',
-      error: error?.message,
+      error: error?.message ?? error,
     });
     return DEFAULT_HIGHLIGHT_CONTENT_STYLE;
   }
@@ -880,8 +880,8 @@ export function createSaveHandlers(services) {
     } catch (error) {
       Logger.error('內容提取發生異常', {
         action: 'extractContent',
-        error: error.message,
-        stack: error.stack,
+        error: error?.message ?? error,
+        stack: error?.stack,
       });
       return null;
     }
@@ -906,7 +906,7 @@ export function createSaveHandlers(services) {
     await storageService.setUrlAlias(originalUrl, normUrl).catch(error => {
       Logger.warn('設定 URL alias 失敗（不影響主流程）', {
         action: 'setUrlAlias',
-        error: error.message,
+        error: error?.message ?? error,
       });
     });
   }
@@ -920,7 +920,7 @@ export function createSaveHandlers(services) {
       await storageService.removeSavedPageData(originalUrl).catch(error => {
         Logger.warn('清除 originalUrl 舊 savedData 失敗（不影響主流程）', {
           action: 'cleanStaleOriginalUrl',
-          error: error.message,
+          error: error?.message ?? error,
         });
       });
     }
@@ -1290,7 +1290,10 @@ export function createSaveHandlers(services) {
           sendResponse
         );
       } catch (error) {
-        Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
+        Logger.error('保存頁面時發生未預期錯誤', {
+          action: 'savePage',
+          error: error?.message ?? error,
+        });
         const safeMessage = sanitizeApiError(error, 'save_page_unknown');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -1332,7 +1335,7 @@ export function createSaveHandlers(services) {
       } catch (error) {
         Logger.error('從 Toolbar 保存頁面時發生錯誤', {
           action: 'SAVE_PAGE_FROM_TOOLBAR',
-          error: error.message,
+          error: error?.message ?? error,
         });
         const safeMessage = sanitizeApiError(error, 'save_page_toolbar');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
@@ -1372,7 +1375,7 @@ export function createSaveHandlers(services) {
       } catch (error) {
         Logger.error('打開 Notion 頁面失敗', {
           action: 'openNotionPage',
-          error: error.message,
+          error: error?.message ?? error,
         });
         const safeMessage = sanitizeApiError(error, 'open_page');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
@@ -1478,7 +1481,10 @@ export function createSaveHandlers(services) {
 
         sendResponse(statusResult);
       } catch (error) {
-        Logger.error('檢查頁面狀態時出錯', { action: 'checkPageStatus', error: error.message });
+        Logger.error('檢查頁面狀態時出錯', {
+          action: 'checkPageStatus',
+          error: error?.message ?? error,
+        });
         const safeMessage = sanitizeApiError(error, 'check_page_status');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }

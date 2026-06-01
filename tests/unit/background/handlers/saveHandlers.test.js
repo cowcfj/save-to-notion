@@ -2031,4 +2031,112 @@ describe('saveHandlers', () => {
       );
     });
   });
+
+  describe('error 物件為 null/undefined 時的日誌容錯', () => {
+    const validSender = {
+      id: 'mock-extension-id',
+      origin: 'chrome-extension://mock-extension-id',
+    };
+
+    beforeEach(() => {
+      isRestrictedInjectionUrl.mockReturnValue(false);
+      validateInternalRequest.mockReturnValue(null);
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'db-123',
+      });
+      mockServices.injectionService.injectHighlighter.mockResolvedValue(true);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+      mockServices.notionService.buildPageData.mockReturnValue({ pageData: {}, validBlocks: [] });
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
+        title: 'Test Page',
+        blocks: [],
+      });
+    });
+
+    test('extractContentSafely: extractContent 以 undefined reject 時不應拋 TypeError，仍應記錄提取異常並交回提取失敗', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      // 以 undefined 拒絕，重現非標準 error 物件
+      mockServices.pageContentService.extractContent.mockRejectedValue(undefined);
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      // 提取異常應在 extractContentSafely 內被吞掉並記錄，而非二次崩潰
+      expect(Logger.error).toHaveBeenCalledWith(
+        '內容提取發生異常',
+        expect.objectContaining({ action: 'extractContent' })
+      );
+      // 不應冒泡到外層「未預期錯誤」catch
+      expect(Logger.error).not.toHaveBeenCalledWith('保存頁面時發生未預期錯誤', expect.anything());
+    });
+
+    test('recordUrlAlias: setUrlAlias 以 undefined reject 時不應讓已成功的保存被回報為失敗', async () => {
+      const sendResponse = jest.fn();
+      const stableUrl = 'https://example.com/stable';
+      const originalUrl = 'https://example.com/original';
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl,
+        originalUrl,
+        migrated: false,
+        hasStableUrl: false,
+      });
+      mockServices.storageService.setUrlAlias.mockRejectedValue(undefined);
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '設定 URL alias 失敗（不影響主流程）',
+        expect.objectContaining({ action: 'setUrlAlias' })
+      );
+    });
+
+    test('removeStaleOriginalSavedData: removeSavedPageData 以 undefined reject 時不應讓已成功的保存被回報為失敗', async () => {
+      const sendResponse = jest.fn();
+      const stableUrl = 'https://example.com/stable';
+      const originalUrl = 'https://example.com/original';
+
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl,
+        originalUrl,
+        migrated: false,
+        hasStableUrl: false,
+      });
+      // normUrl(stableUrl) 為新頁；originalUrl 存在 pageId 不同的舊資料，觸發清除
+      mockServices.storageService.getSavedPageData.mockImplementation(url => {
+        if (url === originalUrl) {
+          return Promise.resolve({ notionPageId: 'stale-id' });
+        }
+        return Promise.resolve(null);
+      });
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+      mockServices.storageService.removeSavedPageData = jest.fn().mockRejectedValue(undefined);
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '清除 originalUrl 舊 savedData 失敗（不影響主流程）',
+        expect.objectContaining({ action: 'cleanStaleOriginalUrl' })
+      );
+    });
+  });
 });
