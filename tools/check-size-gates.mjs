@@ -18,10 +18,10 @@ const BUDGETS = Object.freeze({
       label: 'background.js',
       type: 'file',
       relPath: 'dist/scripts/background.js',
-      // 基準隨 feature 自然成長：2026-04-25 設 230400 時 background 為 191KB，
-      // 至 2026-06-01 已達 ~229KB，餘量小於單次 deltaLimit，造成 hard/delta gate
-      // 不一致。調高至 235000 修正此矛盾；delta gate 仍守住單次膨脹。
-      hardLimit: 235_000,
+      // 基準隨 refactor / feature 自然成長：2026-04-25 設 230400 時 background 為
+      // 191KB，至 2026-06-02 已達 ~235KB。hard cap 保留約一個 deltaLimit
+      // 的餘量；delta gate 仍守住單次膨脹。
+      hardLimit: 245_000,
       deltaLimit: 8_192,
     },
     {

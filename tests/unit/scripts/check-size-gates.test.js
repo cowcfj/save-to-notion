@@ -182,6 +182,38 @@ describe('tools/check-size-gates.mjs', () => {
     );
   });
 
+  test('[REGRESSION] hard mode 應允許 background bundle 在 delta gate 內自然成長', () => {
+    const rootDir = path.join(tempRoot, 'current');
+    const { unpackedDir, reportPath } = createBundleRoot({
+      rootDir,
+      contentSize: 1024,
+      backgroundSize: 243_500,
+      migrationSize: 1024,
+      unpackedSize: 2048,
+    });
+
+    runCli([
+      '--mode=hard',
+      '--scope=bundle',
+      `--root=${rootDir}`,
+      `--unpacked-dir=${unpackedDir}`,
+      `--report-file=${reportPath}`,
+    ]);
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    const backgroundCheck = report.checks.find(check => check.key === 'background_bundle');
+
+    expect(report.failed).toBe(false);
+    expect(backgroundCheck).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        current: 243_500,
+        hardLimit: 245_000,
+      })
+    );
+  });
+
   test('delta mode 應在增量超過門檻時失敗', () => {
     const baseRoot = path.join(tempRoot, 'base');
     const currentRoot = path.join(tempRoot, 'current');
