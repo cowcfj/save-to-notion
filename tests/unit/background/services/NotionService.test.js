@@ -277,6 +277,27 @@ describe('NotionService', () => {
       expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
     });
 
+    it('401 + OAuth + refresh reject 時應保留原始 401 錯誤', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+      const refreshError = new Error('Refresh failed');
+
+      jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'oauth_old_token',
+        mode: 'oauth',
+      });
+      refreshOAuthToken.mockRejectedValueOnce(refreshError);
+
+      await expect(
+        service._callNotionApiWithRetry(jest.fn(), {
+          apiKey: 'oauth_old_token',
+          label: 'TestOperation',
+        })
+      ).rejects.toBe(unauthorizedError);
+      expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
+    });
+
     it('401 + 非 OAuth 模式時不應刷新 token', async () => {
       const unauthorizedError = new Error('Unauthorized');
       unauthorizedError.status = 401;
@@ -342,6 +363,30 @@ describe('NotionService', () => {
 
       expect(service.apiKey).toBe('global_manual_token');
     });
+
+    it('client-only scoped request 401 時不應用全域 token 自動 refresh', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+
+      const executeWithRetrySpy = jest
+        .spyOn(service, '_executeWithRetry')
+        .mockRejectedValueOnce(unauthorizedError);
+
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'test-api-key',
+        mode: 'oauth',
+      });
+
+      await expect(
+        service._callNotionApiWithRetry(jest.fn(), {
+          client: { request: jest.fn() },
+          label: 'ClientOnlyOperation',
+        })
+      ).rejects.toBe(unauthorizedError);
+
+      expect(refreshOAuthToken).not.toHaveBeenCalled();
+      expect(executeWithRetrySpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('checkPageExists', () => {
@@ -387,6 +432,21 @@ describe('NotionService', () => {
     it('應該在沒有 API Key 時拋出錯誤', async () => {
       service.setApiKey(null);
       await expect(service.checkPageExists('page-123')).rejects.toThrow('API_KEY_NOT_CONFIGURED');
+    });
+
+    it('非 API key 設定錯誤不應只因包含 config 字樣就重新拋出', () => {
+      const error = new Error('remote config fetch failed');
+
+      const result = service._resolvePageExistsFailure(error);
+
+      expect(result).toBeNull();
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[NotionService] 無法確定頁面存續狀態',
+        expect.objectContaining({
+          action: 'checkPageExists',
+          error,
+        })
+      );
     });
 
     it('應該處理非 JSON 錯誤響應', async () => {
@@ -639,6 +699,17 @@ describe('NotionService', () => {
           totalBlocks: 2,
         })
       );
+      const [, warnContext] = Logger.warn.mock.calls.find(([message]) =>
+        message.includes('部分區塊刪除失敗')
+      );
+      expect(warnContext).toEqual(
+        expect.objectContaining({
+          result: 'partial_failure',
+          failedBlockIds: ['block-2'],
+          sanitizedError: expect.any(Array),
+        })
+      );
+      expect(warnContext).not.toHaveProperty('errors');
     });
 
     it('應該處理沒有區塊的情況', async () => {
@@ -774,6 +845,18 @@ describe('NotionService', () => {
         type: 'external',
         external: { url: 'https://example.com/cover.jpg' },
       });
+    });
+
+    it('應該忽略非字串 coverImage 而不拋出錯誤', () => {
+      const result = service.buildPageData({
+        title: 'With Invalid Cover',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks: [],
+        coverImage: { url: 'https://example.com/cover.jpg' },
+      });
+
+      expect(result.pageData.cover).toBeUndefined();
     });
 
     it('應該對 Patreon signed URL 跳過 page cover (defense in depth)', () => {
@@ -1163,6 +1246,17 @@ describe('NotionService', () => {
           failedBlockIds: ['content-1'],
         },
       });
+      const [, warnContext] = Logger.warn.mock.calls.find(([message]) =>
+        message.includes('部分標記區塊刪除失敗')
+      );
+      expect(warnContext).toEqual(
+        expect.objectContaining({
+          result: 'partial_failure',
+          failedBlockIds: ['content-1'],
+          sanitizedError: expect.any(Array),
+        })
+      );
+      expect(warnContext).not.toHaveProperty('errors');
     });
   });
 
@@ -1368,6 +1462,22 @@ describe('NotionService', () => {
         ];
         const result = NotionService._findHighlightSectionBlocks(blocks);
         expect(result).toEqual(['2', '3']);
+      });
+
+      it('應該將 nullish 區塊視為標記區域邊界以避免擴大刪除範圍', () => {
+        const blocks = [
+          {
+            id: '1',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { id: '2', type: 'paragraph' },
+          null,
+          { id: '3', type: 'paragraph' },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '2']);
       });
 
       it('應該處理標記區域在頁面末尾的情況', () => {
