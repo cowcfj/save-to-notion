@@ -96,6 +96,42 @@ function extractRejectionMessage(reason) {
   return UNKNOWN_ERROR_FALLBACK;
 }
 
+function getBlockDeleteErrorEntries(deleteResult) {
+  const deleteErrors = deleteResult?.errors || deleteResult?.deleteErrors;
+  if (Array.isArray(deleteErrors)) {
+    return deleteErrors;
+  }
+  if (deleteErrors) {
+    return [deleteErrors];
+  }
+  if (Array.isArray(deleteResult?.items)) {
+    return deleteResult.items.filter(item => item?.success === false || item?.error);
+  }
+  return [];
+}
+
+function getBlockDeleteEntryId(errorEntry) {
+  if (typeof errorEntry?.id === 'string') {
+    return errorEntry.id;
+  }
+  if (typeof errorEntry?.blockId === 'string') {
+    return errorEntry.blockId;
+  }
+  return null;
+}
+
+function sanitizeBlockDeleteErrors(deleteResult) {
+  return getBlockDeleteErrorEntries(deleteResult).map(errorEntry =>
+    sanitizeApiError(errorEntry?.error || errorEntry, 'delete_blocks')
+  );
+}
+
+function getFailedBlockIds(deleteResult) {
+  return getBlockDeleteErrorEntries(deleteResult)
+    .map(errorEntry => getBlockDeleteEntryId(errorEntry))
+    .filter(Boolean);
+}
+
 /**
  * NotionService 類
  * 封裝 Notion API 操作，使用官方 SDK
@@ -283,6 +319,10 @@ class NotionService {
   }
 
   async _retryOAuthRequestAfterUnauthorized(operation, options, originalError) {
+    if (this._isClientOnlyScopedRequest(options)) {
+      throw originalError;
+    }
+
     const currentApiKey = options.apiKey || this.apiKey;
     const activeToken = await getActiveNotionToken();
 
@@ -300,6 +340,10 @@ class NotionService {
     }
 
     return this._executeWithRetry(operation, this._buildOAuthRetryOptions(options, refreshedToken));
+  }
+
+  _isClientOnlyScopedRequest(options) {
+    return Boolean(options.client && !options.apiKey);
   }
 
   _isActiveOAuthTokenRequest(activeToken, currentApiKey) {
@@ -533,7 +577,14 @@ class NotionService {
   }
 
   _isConfigurationError(error) {
-    return error.message?.includes('API_KEY_NOT_CONFIGURED') || error.message?.includes('config');
+    const configurationError = ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED;
+    if (error === configurationError || error?.message === configurationError) {
+      return true;
+    }
+    if (error?.code) {
+      return sanitizeApiError(error, 'check_page_exists') === configurationError;
+    }
+    return false;
   }
 
   /**
@@ -916,7 +967,8 @@ class NotionService {
       action: 'deleteAllBlocks',
       failureCount: deleteResult.failureCount,
       totalBlocks,
-      errors: deleteResult.errors,
+      failedBlockIds: getFailedBlockIds(deleteResult),
+      sanitizedError: sanitizeBlockDeleteErrors(deleteResult),
     });
   }
 
@@ -1251,7 +1303,8 @@ class NotionService {
       action: 'updateHighlightsSection',
       phase: 'delete',
       failureCount: deleteResult.failureCount,
-      errors: deleteResult.deleteErrors,
+      failedBlockIds: getFailedBlockIds(deleteResult),
+      sanitizedError: sanitizeBlockDeleteErrors(deleteResult),
     });
 
     return {

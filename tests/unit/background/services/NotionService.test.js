@@ -342,6 +342,30 @@ describe('NotionService', () => {
 
       expect(service.apiKey).toBe('global_manual_token');
     });
+
+    it('client-only scoped request 401 時不應用全域 token 自動 refresh', async () => {
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.status = 401;
+
+      const executeWithRetrySpy = jest
+        .spyOn(service, '_executeWithRetry')
+        .mockRejectedValueOnce(unauthorizedError);
+
+      getActiveNotionToken.mockResolvedValueOnce({
+        token: 'test-api-key',
+        mode: 'oauth',
+      });
+
+      await expect(
+        service._callNotionApiWithRetry(jest.fn(), {
+          client: { request: jest.fn() },
+          label: 'ClientOnlyOperation',
+        })
+      ).rejects.toBe(unauthorizedError);
+
+      expect(refreshOAuthToken).not.toHaveBeenCalled();
+      expect(executeWithRetrySpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('checkPageExists', () => {
@@ -387,6 +411,21 @@ describe('NotionService', () => {
     it('應該在沒有 API Key 時拋出錯誤', async () => {
       service.setApiKey(null);
       await expect(service.checkPageExists('page-123')).rejects.toThrow('API_KEY_NOT_CONFIGURED');
+    });
+
+    it('非 API key 設定錯誤不應只因包含 config 字樣就重新拋出', () => {
+      const error = new Error('remote config fetch failed');
+
+      const result = service._resolvePageExistsFailure(error);
+
+      expect(result).toBeNull();
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[NotionService] 無法確定頁面存續狀態',
+        expect.objectContaining({
+          action: 'checkPageExists',
+          error,
+        })
+      );
     });
 
     it('應該處理非 JSON 錯誤響應', async () => {
@@ -639,6 +678,16 @@ describe('NotionService', () => {
           totalBlocks: 2,
         })
       );
+      const [, warnContext] = Logger.warn.mock.calls.find(([message]) =>
+        message.includes('部分區塊刪除失敗')
+      );
+      expect(warnContext).toEqual(
+        expect.objectContaining({
+          failedBlockIds: ['block-2'],
+          sanitizedError: expect.any(Array),
+        })
+      );
+      expect(warnContext).not.toHaveProperty('errors');
     });
 
     it('應該處理沒有區塊的情況', async () => {
@@ -1175,6 +1224,16 @@ describe('NotionService', () => {
           failedBlockIds: ['content-1'],
         },
       });
+      const [, warnContext] = Logger.warn.mock.calls.find(([message]) =>
+        message.includes('部分標記區塊刪除失敗')
+      );
+      expect(warnContext).toEqual(
+        expect.objectContaining({
+          failedBlockIds: ['content-1'],
+          sanitizedError: expect.any(Array),
+        })
+      );
+      expect(warnContext).not.toHaveProperty('errors');
     });
   });
 
