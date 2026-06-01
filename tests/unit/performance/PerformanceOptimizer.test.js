@@ -2,7 +2,6 @@
  * PerformanceOptimizer 單元測試
  * 測試性能優化器的核心功能
  */
-/* eslint-env jest */
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,

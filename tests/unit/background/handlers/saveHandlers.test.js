@@ -895,6 +895,27 @@ describe('saveHandlers', () => {
           })
         );
       });
+
+      test('page existence unknown 時不清理本地狀態', async () => {
+        const sendResponse = jest.fn();
+        mockServices.storageService.getSavedPageData.mockResolvedValue({
+          notionPageId: 'existing-id',
+          notionUrl: 'https://notion.so/existing-id',
+          destinationProfileId: 'default',
+        });
+        mockServices.notionService.checkPageExists.mockResolvedValue(null);
+
+        await handlers.savePage({}, validSender, sendResponse);
+
+        expect(mockServices.storageService.clearNotionStateWithRetry).not.toHaveBeenCalled();
+        expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith(
+          expect.objectContaining({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+          })
+        );
+      });
     });
 
     // ===== openNotionPage Tests =====
@@ -974,6 +995,44 @@ describe('saveHandlers', () => {
           error: expect.any(String),
         })
       );
+    });
+
+    test('openNotionPage: stable URL 查無資料時 fallback original URL', async () => {
+      const sendResponse = jest.fn();
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com/stable',
+        originalUrl: 'https://example.com/original',
+        migrated: false,
+      });
+
+      mockServices.storageService.getSavedPageData
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          notionPageId: 'page-123',
+          notionUrl: 'https://notion.so/page-123',
+        });
+
+      chrome.tabs.create.mockResolvedValue({ id: 99 });
+
+      await handlers.openNotionPage(
+        { url: 'https://example.com/stable' },
+        validSender,
+        sendResponse
+      );
+
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenNthCalledWith(
+        1,
+        'https://example.com/stable'
+      );
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenNthCalledWith(
+        2,
+        'https://example.com/original'
+      );
+      expect(chrome.tabs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'https://notion.so/page-123' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
     test('SAVE_PAGE_FROM_TOOLBAR: 內部錯誤時應返回錯誤', async () => {
@@ -1969,6 +2028,114 @@ describe('saveHandlers', () => {
       expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
         5,
         expect.objectContaining({ action: 'SHOW_TOAST' })
+      );
+    });
+  });
+
+  describe('error 物件為 null/undefined 時的日誌容錯', () => {
+    const validSender = {
+      id: 'mock-extension-id',
+      origin: 'chrome-extension://mock-extension-id',
+    };
+
+    beforeEach(() => {
+      isRestrictedInjectionUrl.mockReturnValue(false);
+      validateInternalRequest.mockReturnValue(null);
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'db-123',
+      });
+      mockServices.injectionService.injectHighlighter.mockResolvedValue(true);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+      mockServices.notionService.buildPageData.mockReturnValue({ pageData: {}, validBlocks: [] });
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        extractionStatus: 'success',
+        title: 'Test Page',
+        blocks: [],
+      });
+    });
+
+    test('extractContentSafely: extractContent 以 undefined reject 時不應拋 TypeError，仍應記錄提取異常並交回提取失敗', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      // 以 undefined 拒絕，重現非標準 error 物件
+      mockServices.pageContentService.extractContent.mockRejectedValue(undefined);
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      // 提取異常應在 extractContentSafely 內被吞掉並記錄，而非二次崩潰
+      expect(Logger.error).toHaveBeenCalledWith(
+        '內容提取發生異常',
+        expect.objectContaining({ action: 'extractContent' })
+      );
+      // 不應冒泡到外層「未預期錯誤」catch
+      expect(Logger.error).not.toHaveBeenCalledWith('保存頁面時發生未預期錯誤', expect.anything());
+    });
+
+    test('recordUrlAlias: setUrlAlias 以 undefined reject 時不應讓已成功的保存被回報為失敗', async () => {
+      const sendResponse = jest.fn();
+      const stableUrl = 'https://example.com/stable';
+      const originalUrl = 'https://example.com/original';
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl,
+        originalUrl,
+        migrated: false,
+        hasStableUrl: false,
+      });
+      mockServices.storageService.setUrlAlias.mockRejectedValue(undefined);
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '設定 URL alias 失敗（不影響主流程）',
+        expect.objectContaining({ action: 'setUrlAlias' })
+      );
+    });
+
+    test('removeStaleOriginalSavedData: removeSavedPageData 以 undefined reject 時不應讓已成功的保存被回報為失敗', async () => {
+      const sendResponse = jest.fn();
+      const stableUrl = 'https://example.com/stable';
+      const originalUrl = 'https://example.com/original';
+
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl,
+        originalUrl,
+        migrated: false,
+        hasStableUrl: false,
+      });
+      // normUrl(stableUrl) 為新頁；originalUrl 存在 pageId 不同的舊資料，觸發清除
+      mockServices.storageService.getSavedPageData.mockImplementation(url => {
+        if (url === originalUrl) {
+          return Promise.resolve({ notionPageId: 'stale-id' });
+        }
+        return Promise.resolve(null);
+      });
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+      mockServices.storageService.removeSavedPageData = jest.fn().mockRejectedValue(undefined);
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '清除 originalUrl 舊 savedData 失敗（不影響主流程）',
+        expect.objectContaining({ action: 'cleanStaleOriginalUrl' })
       );
     });
   });

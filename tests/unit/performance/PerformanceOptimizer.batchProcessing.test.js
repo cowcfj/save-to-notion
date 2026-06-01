@@ -2,7 +2,6 @@
  * PerformanceOptimizer 批次處理邏輯測試
  * 測試批次處理的正確性和 destroy() 方法
  */
-/* eslint-env jest */
 
 globalThis.performance = { now: () => Date.now() };
 globalThis.requestIdleCallback = cb => setTimeout(cb, 0);
