@@ -156,7 +156,7 @@ jobs:
 
       - name: Upload jest coverage artifact
         if: steps.changes.outputs.source-changed == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jest-coverage-${{ github.event.pull_request.head.sha || github.sha }}
           path: coverage/jest/lcov.info
@@ -228,7 +228,7 @@ jobs:
 
       - name: Upload Size Reports
         if: always() && steps.changes.outputs.source-changed == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: size-reports
           path: |
@@ -269,7 +269,7 @@ jobs:
 
       - name: Upload Test Artifacts (Action Report)
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: junit-report
           path: junit.xml
