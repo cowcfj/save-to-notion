@@ -39,11 +39,17 @@ jobs:
               - 'pages/**'
               - 'styles/**'
               - 'tests/**'
+              - 'tools/**'
+              - 'rollup/**'
+              - 'icons/**'
+              - 'auth.html'
+              - 'manifest.json'
               - 'babel.config.js'
               - 'jest.config.js'
               - 'jest.config.*.js'
               - 'package.json'
               - 'package-lock.json'
+              - '.github/workflows/ci.yml'
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
@@ -161,6 +167,7 @@ jobs:
       # （Chromium Issue #41309918）。E2E 可在本地用 npm run test:e2e 跑（headed 模式）。
 
       - name: Verify Production Build
+        if: steps.changes.outputs.source-changed == 'true'
         env:
           EXTENSION_API_KEY: ${{ secrets.EXTENSION_API_KEY }}
           EVENT_NAME: ${{ github.event_name }}
@@ -220,7 +227,7 @@ jobs:
           fi
 
       - name: Upload Size Reports
-        if: always()
+        if: always() && steps.changes.outputs.source-changed == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: size-reports
