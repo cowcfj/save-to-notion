@@ -689,14 +689,15 @@ function extractLargestListFallback() {
  * 檢查 meta CMS 信號是否匹配
  *
  * @param {object} signal - 信號配置對象
+ * @param {Document} sourceDoc - 用於查詢 CMS 信號的文檔
  * @returns {boolean} meta 信號匹配時返回 true
  */
-function matchesCmsMetaSignal(signal) {
+function matchesCmsMetaSignal(signal, sourceDoc = document) {
   if (signal.type !== 'meta') {
     return false;
   }
 
-  const meta = document.querySelector(`meta[name="${CSS.escape(signal.name)}"]`);
+  const meta = sourceDoc.querySelector(`meta[name="${CSS.escape(signal.name)}"]`);
   return Boolean(meta && signal.pattern.test(meta.content));
 }
 
@@ -704,14 +705,15 @@ function matchesCmsMetaSignal(signal) {
  * 檢查 class CMS 信號是否匹配
  *
  * @param {object} signal - 信號配置對象
+ * @param {Document} sourceDoc - 用於查詢 CMS 信號的文檔
  * @returns {boolean} class 信號匹配時返回 true
  */
-function matchesCmsClassSignal(signal) {
+function matchesCmsClassSignal(signal, sourceDoc = document) {
   if (signal.type !== 'class') {
     return false;
   }
 
-  const element = document.querySelector(signal.target);
+  const element = sourceDoc.querySelector(signal.target);
   return Boolean(element && signal.pattern.test(element.className));
 }
 
@@ -719,14 +721,15 @@ function matchesCmsClassSignal(signal) {
  * 檢查單個 CMS 信號是否匹配
  *
  * @param {object} signal - 信號配置對象
+ * @param {Document} sourceDoc - 用於查詢 CMS 信號的文檔
  * @returns {string|null} 匹配的信號類型 ('meta' | 'class') 或 null
  */
-function checkCmsSignal(signal) {
-  if (matchesCmsMetaSignal(signal)) {
+function checkCmsSignal(signal, sourceDoc = document) {
+  if (matchesCmsMetaSignal(signal, sourceDoc)) {
     return 'meta';
   }
 
-  if (matchesCmsClassSignal(signal)) {
+  if (matchesCmsClassSignal(signal, sourceDoc)) {
     return 'class';
   }
 
@@ -736,13 +739,14 @@ function checkCmsSignal(signal) {
 /**
  * 檢測網站使用的 CMS 類型
  *
+ * @param {Document} sourceDoc - 用於查詢 CMS 信號的文檔
  * @returns {string|null} CMS 類型 (e.g., 'wordpress') 或 null
  */
-function detectCMS() {
+function detectCMS(sourceDoc = document) {
   for (const [type, config] of Object.entries(CMS_CLEANING_RULES)) {
     // 檢查所有信號
     for (const signal of config.signals) {
-      const matchType = checkCmsSignal(signal);
+      const matchType = checkCmsSignal(signal, sourceDoc);
       if (matchType) {
         Logger.log('檢測到 CMS', { action: 'detectCMS', type, signal: matchType });
         return type;
@@ -1272,7 +1276,7 @@ function hasValidParsedArticleTitle(parsedArticle) {
     return false;
   }
 
-  return Boolean(parsedArticle.title);
+  return parsedArticle.title.trim().length > 0;
 }
 
 /**
@@ -1286,10 +1290,10 @@ function ensureParsedArticleTitle(parsedArticle, targetDoc) {
     return;
   }
 
-  Logger.warn('Readability 結果缺少標題，使用備用標題', {
+  Logger.warn('Readability 結果缺少標題，已使用備用標題', {
     action: 'parseArticleWithReadability',
   });
-  parsedArticle.title = targetDoc.title || 'Untitled Page';
+  parsedArticle.title = targetDoc.title || '未命名頁面';
 }
 
 /**
@@ -1321,7 +1325,7 @@ function parseArticleWithReadability(doc) {
 
   Logger.log('開始 Readability 內容解析', { action: 'parseArticleWithReadability' });
 
-  const cmsType = detectCMS();
+  const cmsType = detectCMS(targetDoc);
   const hostname = resolveDocumentHostname(targetDoc);
   const domainRules = getDomainRules(hostname);
 
@@ -1335,7 +1339,6 @@ function parseArticleWithReadability(doc) {
   Logger.log('解析完成統計', {
     action: 'parseArticleWithReadability',
     length: validatedArticle.content.length,
-    title: validatedArticle.title,
   });
 
   return validatedArticle;

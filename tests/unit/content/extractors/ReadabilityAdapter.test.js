@@ -537,8 +537,53 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
     const article = parseArticleWithReadability();
 
     expect(article.title).toBe('Fallback Title');
-    expect(Logger.warn).toHaveBeenCalledWith('Readability 結果缺少標題，使用備用標題', {
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 結果缺少標題，已使用備用標題', {
       action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('當 Readability 返回空白標題且文檔沒有標題時應該使用 zh-TW 備用標題', () => {
+    document.title = '';
+    mockParse.mockReturnValue({ title: '   ', content: '<div>Content</div>' });
+
+    const article = parseArticleWithReadability();
+
+    expect(article.title).toBe('未命名頁面');
+    expect(Logger.warn).toHaveBeenCalledWith('Readability 結果缺少標題，已使用備用標題', {
+      action: 'parseArticleWithReadability',
+    });
+  });
+
+  test('解析完成統計不應記錄文章標題', () => {
+    mockParse.mockReturnValue({
+      title: 'Sensitive User Title',
+      content: '<div>Content</div>',
+    });
+
+    parseArticleWithReadability();
+
+    expect(Logger.log).toHaveBeenCalledWith('解析完成統計', {
+      action: 'parseArticleWithReadability',
+      length: '<div>Content</div>'.length,
+    });
+  });
+
+  test('傳入文檔時應使用該文檔偵測 CMS 而非全域 document', () => {
+    document.head.innerHTML = '';
+    const targetDoc = document.implementation.createHTMLDocument();
+    targetDoc.head.innerHTML = '<meta name="generator" content="WordPress 6.0">';
+    targetDoc.body.innerHTML = '<article><p>Content</p></article>';
+    mockParse.mockReturnValue({
+      title: 'Target Doc Article',
+      content: '<div>Content</div>',
+    });
+
+    parseArticleWithReadability(targetDoc);
+
+    expect(Logger.log).toHaveBeenCalledWith('檢測到 CMS', {
+      action: 'detectCMS',
+      type: 'wordpress',
+      signal: 'meta',
     });
   });
 
