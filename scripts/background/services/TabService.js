@@ -138,7 +138,7 @@ function hasStablePageEvidence(stablePage) {
     return false;
   }
   const hasHighlights = Array.isArray(stablePage.highlights) && stablePage.highlights.length > 0;
-  return hasHighlights ? true : Boolean(stablePage.notion);
+  return hasHighlights || Boolean(stablePage.notion);
 }
 
 /**
