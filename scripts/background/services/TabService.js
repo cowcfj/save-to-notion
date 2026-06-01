@@ -155,14 +155,14 @@ function hasStableLegacyEvidence(evidence, stableLegacyKey) {
   return evidence[stableLegacyKey] !== undefined && evidence[stableLegacyKey] !== null;
 }
 
-function isProcessableTabUrl(url, isRestrictedUrl) {
+function isProcessableTabUrl(url) {
   if (!url) {
     return false;
   }
   if (!/^https?:/i.test(url)) {
     return false;
   }
-  return !isRestrictedUrl(url);
+  return true;
 }
 
 function shouldRejectStableRootUrl(hasStableUrl, stableUrl) {
@@ -179,10 +179,10 @@ function shouldMigrateStableUrl(hasStableUrl, migrationService) {
   return Boolean(migrationService);
 }
 
-function createDefaultClearNotionStateWithRetry(clearNotionState) {
+function createDefaultClearNotionStateWithRetry(service) {
   return async (url, retryOptions) => {
     try {
-      const clearResult = await clearNotionState(url, retryOptions);
+      const clearResult = await service.clearNotionState(url, retryOptions);
       if (clearResult?.skipped) {
         return {
           cleared: false,
@@ -258,8 +258,7 @@ class TabService {
     this.clearPageState = options.clearPageState ?? resolveVoid;
     this.clearNotionState = options.clearNotionState ?? resolveVoid;
     this.clearNotionStateWithRetry =
-      options.clearNotionStateWithRetry ??
-      createDefaultClearNotionStateWithRetry(this.clearNotionState);
+      options.clearNotionStateWithRetry ?? createDefaultClearNotionStateWithRetry(this);
     this.setSavedPageData = options.setSavedPageData ?? resolveVoid;
 
     // 連續不存在保護：短時間窗內連續兩次 false 才清理。
@@ -274,7 +273,7 @@ class TabService {
    * @param {string} url - 標籤頁 URL
    */
   async updateTabStatus(tabId, url) {
-    if (!isProcessableTabUrl(url, this.isRestrictedUrl)) {
+    if (!isProcessableTabUrl(url) || this.isRestrictedUrl(url)) {
       return;
     }
 
