@@ -895,6 +895,27 @@ describe('saveHandlers', () => {
           })
         );
       });
+
+      test('page existence unknown 時不清理本地狀態', async () => {
+        const sendResponse = jest.fn();
+        mockServices.storageService.getSavedPageData.mockResolvedValue({
+          notionPageId: 'existing-id',
+          notionUrl: 'https://notion.so/existing-id',
+          destinationProfileId: 'default',
+        });
+        mockServices.notionService.checkPageExists.mockResolvedValue(null);
+
+        await handlers.savePage({}, validSender, sendResponse);
+
+        expect(mockServices.storageService.clearNotionStateWithRetry).not.toHaveBeenCalled();
+        expect(mockServices.notionService.createPage).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith(
+          expect.objectContaining({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+          })
+        );
+      });
     });
 
     // ===== openNotionPage Tests =====
@@ -974,6 +995,44 @@ describe('saveHandlers', () => {
           error: expect.any(String),
         })
       );
+    });
+
+    test('openNotionPage: stable URL 查無資料時 fallback original URL', async () => {
+      const sendResponse = jest.fn();
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com/stable',
+        originalUrl: 'https://example.com/original',
+        migrated: false,
+      });
+
+      mockServices.storageService.getSavedPageData
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          notionPageId: 'page-123',
+          notionUrl: 'https://notion.so/page-123',
+        });
+
+      chrome.tabs.create.mockResolvedValue({ id: 99 });
+
+      await handlers.openNotionPage(
+        { url: 'https://example.com/stable' },
+        validSender,
+        sendResponse
+      );
+
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenNthCalledWith(
+        1,
+        'https://example.com/stable'
+      );
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenNthCalledWith(
+        2,
+        'https://example.com/original'
+      );
+      expect(chrome.tabs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'https://notion.so/page-123' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
     test('SAVE_PAGE_FROM_TOOLBAR: 內部錯誤時應返回錯誤', async () => {
