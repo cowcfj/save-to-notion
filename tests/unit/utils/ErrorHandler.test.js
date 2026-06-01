@@ -2,7 +2,6 @@
  * ErrorHandler 測試套件
  * 測試簡化後的錯誤處理系統
  */
-/* eslint-env jest */
 
 import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import {
@@ -378,7 +377,6 @@ describe('ErrorHandler - 測試', () => {
 /**
  * ErrorHandler.formatUserMessage 測試套件
  */
-/* eslint-env jest */
 
 describe('ErrorHandler.formatUserMessage', () => {
   let mockLogger = null;
