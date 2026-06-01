@@ -35,6 +35,46 @@ import { getActiveNotionToken, refreshOAuthToken } from '../../utils/notionAuth.
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const UNKNOWN_ERROR_FALLBACK = 'Unknown error';
+const RETRIABLE_NOTION_ERROR_CODES = new Set([
+  'rate_limited',
+  'internal_server_error',
+  'service_unavailable',
+  'conflict_error',
+]);
+const RETRIABLE_NOTION_ERROR_MESSAGE_PATTERN = /unsaved transactions|datastoreinfraerror/i;
+
+function getMessageOrFallback(message) {
+  return message || UNKNOWN_ERROR_FALLBACK;
+}
+
+function hasStringMessage(value) {
+  return Boolean(
+    value && typeof value === 'object' && typeof value.message === 'string' && value.message
+  );
+}
+
+function isNotionRateLimitError(error) {
+  return error.status === 429 || error.code === 'rate_limited';
+}
+
+function isNotionServerError(error) {
+  return (
+    (error.status >= 500 && error.status < 600) ||
+    ['internal_server_error', 'service_unavailable'].includes(error.code)
+  );
+}
+
+function isNotionConflictError(error) {
+  return error.status === 409 || error.code === 'conflict_error';
+}
+
+function hasRetriableNotionMessage(error) {
+  return RETRIABLE_NOTION_ERROR_MESSAGE_PATTERN.test(error.message);
+}
+
+function isHttpUrl(url) {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
 
 /**
  * 從任意 rejection / thrown value 中萃取人類可讀訊息。
@@ -45,17 +85,12 @@ const UNKNOWN_ERROR_FALLBACK = 'Unknown error';
  */
 function extractRejectionMessage(reason) {
   if (reason instanceof Error) {
-    return reason.message || UNKNOWN_ERROR_FALLBACK;
+    return getMessageOrFallback(reason.message);
   }
-  if (typeof reason === 'string' && reason) {
-    return reason;
+  if (typeof reason === 'string') {
+    return getMessageOrFallback(reason);
   }
-  if (
-    reason &&
-    typeof reason === 'object' &&
-    typeof reason.message === 'string' &&
-    reason.message
-  ) {
+  if (hasStringMessage(reason)) {
     return reason.message;
   }
   return UNKNOWN_ERROR_FALLBACK;
@@ -182,17 +217,13 @@ class NotionService {
       return false;
     }
 
-    // SDK 錯誤代碼: rate_limited (429), internal_server_error (500), service_unavailable (503)
-    const isRateLimit = error.status === 429 || error.code === 'rate_limited';
-    const isServerErr =
-      (error.status >= 500 && error.status < 600) ||
-      ['internal_server_error', 'service_unavailable'].includes(error.code);
-    // 處理 409 conflict
-    const isConflict = error.status === 409 || error.code === 'conflict_error';
-    // 處理特定錯誤訊息
-    const isRetriableMessage = /unsaved transactions|datastoreinfraerror/i.test(error.message);
-
-    return isRateLimit || isServerErr || isConflict || isRetriableMessage;
+    return (
+      RETRIABLE_NOTION_ERROR_CODES.has(error.code) ||
+      isNotionRateLimitError(error) ||
+      isNotionServerError(error) ||
+      isNotionConflictError(error) ||
+      hasRetriableNotionMessage(error)
+    );
   }
 
   /**
@@ -247,35 +278,46 @@ class NotionService {
         throw error;
       }
 
-      const currentApiKey = options.apiKey || this.apiKey;
-      const activeToken = await getActiveNotionToken();
-      const isOAuthRequest =
-        activeToken.mode === AuthMode.OAUTH &&
-        Boolean(activeToken.token) &&
-        currentApiKey === activeToken.token;
-
-      if (!isOAuthRequest) {
-        throw error;
-      }
-
-      const refreshedToken = await refreshOAuthToken();
-      if (!refreshedToken) {
-        throw error;
-      }
-
-      const shouldSyncGlobalClient = !options.apiKey || this.apiKey === activeToken.token;
-
-      if (shouldSyncGlobalClient) {
-        this.setApiKey(refreshedToken);
-      }
-
-      const retryOptions = { ...options, apiKey: refreshedToken };
-      delete retryOptions.client;
-
-      return this._executeWithRetry(operation, {
-        ...retryOptions,
-      });
+      return this._retryOAuthRequestAfterUnauthorized(operation, options, error);
     }
+  }
+
+  async _retryOAuthRequestAfterUnauthorized(operation, options, originalError) {
+    const currentApiKey = options.apiKey || this.apiKey;
+    const activeToken = await getActiveNotionToken();
+
+    if (!this._isActiveOAuthTokenRequest(activeToken, currentApiKey)) {
+      throw originalError;
+    }
+
+    const refreshedToken = await refreshOAuthToken();
+    if (!refreshedToken) {
+      throw originalError;
+    }
+
+    if (this._shouldSyncGlobalOAuthClient(options, activeToken)) {
+      this.setApiKey(refreshedToken);
+    }
+
+    return this._executeWithRetry(operation, this._buildOAuthRetryOptions(options, refreshedToken));
+  }
+
+  _isActiveOAuthTokenRequest(activeToken, currentApiKey) {
+    return (
+      activeToken.mode === AuthMode.OAUTH &&
+      Boolean(activeToken.token) &&
+      currentApiKey === activeToken.token
+    );
+  }
+
+  _shouldSyncGlobalOAuthClient(options, activeToken) {
+    return !options.apiKey || this.apiKey === activeToken.token;
+  }
+
+  _buildOAuthRetryOptions(options, refreshedToken) {
+    const retryOptions = { ...options, apiKey: refreshedToken };
+    delete retryOptions.client;
+    return retryOptions;
   }
 
   /**
@@ -468,18 +510,30 @@ class NotionService {
 
       return !response.archived;
     } catch (error) {
-      if (error.status === 404 || error.code === 'object_not_found') {
-        return false;
-      }
-      if (error.message?.includes('API_KEY_NOT_CONFIGURED') || error.message?.includes('config')) {
-        throw error;
-      }
-      Logger.error('[NotionService] 無法確定頁面存續狀態', {
-        action: 'checkPageExists',
-        error,
-      });
-      return null;
+      return this._resolvePageExistsFailure(error);
     }
+  }
+
+  _resolvePageExistsFailure(error) {
+    if (this._isPageNotFoundError(error)) {
+      return false;
+    }
+    if (this._isConfigurationError(error)) {
+      throw error;
+    }
+    Logger.error('[NotionService] 無法確定頁面存續狀態', {
+      action: 'checkPageExists',
+      error,
+    });
+    return null;
+  }
+
+  _isPageNotFoundError(error) {
+    return error.status === 404 || error.code === 'object_not_found';
+  }
+
+  _isConfigurationError(error) {
+    return error.message?.includes('API_KEY_NOT_CONFIGURED') || error.message?.includes('config');
   }
 
   /**
@@ -694,8 +748,6 @@ class NotionService {
    * @returns {Promise<{success: boolean, pageId?: string, url?: string, appendResult?: object, error?: string}>}
    */
   async createPage(pageData, options = {}) {
-    const { autoBatch = false, allBlocks = [] } = options;
-
     try {
       const response = await this._callNotionApiWithRetry(client => client.pages.create(pageData), {
         ...options,
@@ -703,37 +755,8 @@ class NotionService {
         label: 'CreatePage',
       });
 
-      const result = {
-        success: true,
-        pageId: response.id,
-        url: response.url,
-      };
-
-      // 自動批次添加超過配置限制的區塊
-      if (autoBatch && allBlocks.length > this.config.BLOCKS_PER_BATCH) {
-        Logger.info('[NotionService] 超長文章批次添加', {
-          action: 'createPage',
-          phase: 'autoBatch',
-          totalBlocks: allBlocks.length,
-        });
-        const appendResult = await this.appendBlocksInBatches(
-          response.id,
-          allBlocks,
-          this.config.BLOCKS_PER_BATCH,
-          options
-        );
-        result.appendResult = appendResult;
-
-        if (!appendResult.success) {
-          Logger.warn('[NotionService] 部分區塊添加失敗', {
-            action: 'createPage',
-            phase: 'autoBatch',
-            addedCount: appendResult.addedCount,
-            totalCount: appendResult.totalCount,
-          });
-        }
-      }
-
+      const result = this._buildCreatePageResult(response);
+      await this._appendRemainingBlocksAfterCreate(result, response.id, options);
       return result;
     } catch (error) {
       const safeError = sanitizeApiError(error, 'create_page');
@@ -743,6 +766,54 @@ class NotionService {
       });
       return { success: false, error: safeError, errorCode: safeError };
     }
+  }
+
+  _buildCreatePageResult(response) {
+    return {
+      success: true,
+      pageId: response.id,
+      url: response.url,
+    };
+  }
+
+  async _appendRemainingBlocksAfterCreate(result, pageId, options) {
+    if (!this._shouldAutoBatchAfterCreate(options)) {
+      return;
+    }
+
+    const { allBlocks } = options;
+    Logger.info('[NotionService] 超長文章批次添加', {
+      action: 'createPage',
+      phase: 'autoBatch',
+      totalBlocks: allBlocks.length,
+    });
+
+    const appendResult = await this.appendBlocksInBatches(
+      pageId,
+      allBlocks,
+      this.config.BLOCKS_PER_BATCH,
+      options
+    );
+    result.appendResult = appendResult;
+    this._logCreatePageAppendFailure(appendResult);
+  }
+
+  _shouldAutoBatchAfterCreate(options) {
+    const { autoBatch = false, allBlocks = [] } = options;
+    return autoBatch && allBlocks.length > this.config.BLOCKS_PER_BATCH;
+  }
+
+  _logCreatePageAppendFailure(appendResult) {
+    if (appendResult.success) {
+      return;
+    }
+
+    Logger.warn('[NotionService] 部分區塊添加失敗', {
+      action: 'createPage',
+      phase: 'autoBatch',
+      addedCount: appendResult.addedCount,
+      totalCount: appendResult.totalCount,
+    });
   }
 
   /**
@@ -809,27 +880,7 @@ class NotionService {
         return { success: false, deletedCount: 0, error: error || 'Failed to list blocks' };
       }
 
-      if (!blocks || blocks.length === 0) {
-        return { success: true, deletedCount: 0 };
-      }
-
-      // 提取區塊 ID 並委託給 _deleteBlocksByIds
-      const blockIds = blocks.map(block => block.id);
-      const { successCount, failureCount, errors } = await this._deleteBlocksByIds(
-        blockIds,
-        options
-      );
-
-      if (failureCount > 0) {
-        Logger.warn('[NotionService] 部分區塊刪除失敗', {
-          action: 'deleteAllBlocks',
-          failureCount,
-          totalBlocks: blocks.length,
-          errors,
-        });
-      }
-
-      return { success: true, deletedCount: successCount, failureCount, errors };
+      return await this._deleteFetchedBlocks(blocks, options);
     } catch (error) {
       Logger.error('[NotionService] 刪除區塊失敗', {
         action: 'deleteAllBlocks',
@@ -837,6 +888,36 @@ class NotionService {
       });
       return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
     }
+  }
+
+  async _deleteFetchedBlocks(blocks, options) {
+    if (!blocks || blocks.length === 0) {
+      return { success: true, deletedCount: 0 };
+    }
+
+    const blockIds = blocks.map(block => block.id);
+    const deleteResult = await this._deleteBlocksByIds(blockIds, options);
+    this._logPartialBlockDeleteFailure(deleteResult, blocks.length);
+
+    return {
+      success: true,
+      deletedCount: deleteResult.successCount,
+      failureCount: deleteResult.failureCount,
+      errors: deleteResult.errors,
+    };
+  }
+
+  _logPartialBlockDeleteFailure(deleteResult, totalBlocks) {
+    if (deleteResult.failureCount === 0) {
+      return;
+    }
+
+    Logger.warn('[NotionService] 部分區塊刪除失敗', {
+      action: 'deleteAllBlocks',
+      failureCount: deleteResult.failureCount,
+      totalBlocks,
+      errors: deleteResult.errors,
+    });
   }
 
   /**
@@ -866,28 +947,7 @@ class NotionService {
 
     // 前端已驗證圖片，此處直接使用
 
-    // 構建 parent 配置：僅 'page' 走 page_id，其餘（'database'）走 data_source_id
-    const parentConfig =
-      dataSourceType === 'page'
-        ? { type: 'page_id', page_id: dataSourceId }
-        : { type: 'data_source_id', data_source_id: dataSourceId };
     const pageTitle = title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE;
-    const properties =
-      dataSourceType === 'page'
-        ? {
-            title: {
-              title: [{ text: { content: pageTitle } }],
-            },
-          }
-        : {
-            Title: {
-              title: [{ text: { content: pageTitle } }],
-            },
-            URL: {
-              url: pageUrl || '', // 符合現有測試預期
-            },
-          };
-
     // 清理區塊：移除內部使用的 _meta 欄位，確保只有 Notion API 認可的欄位被發送
     // Note: 雖然 appendBlocksInBatches 也會執行清理，但此處清理是為了滿足 createPage
     // 直接使用這些區塊時的 API 格式要求。雙重清理是安全的（冪等操作）。
@@ -898,40 +958,90 @@ class NotionService {
 
     // 構建頁面數據
     const pageData = {
-      parent: parentConfig,
-      properties,
+      parent: this._buildParentConfig(dataSourceId, dataSourceType),
+      properties: this._buildPageProperties({ dataSourceType, pageTitle, pageUrl }),
       children: sanitizedBlocks,
     };
 
-    // 添加網站 Icon（如果有）
-    if (siteIcon) {
-      pageData.icon = {
-        type: 'external',
-        external: { url: siteIcon },
+    this._applyPageIcon(pageData, siteIcon);
+    this._applyPageCover(pageData, coverImage);
+
+    return { pageData };
+  }
+
+  _buildParentConfig(dataSourceId, dataSourceType) {
+    if (dataSourceType === 'page') {
+      return { type: 'page_id', page_id: dataSourceId };
+    }
+    return { type: 'data_source_id', data_source_id: dataSourceId };
+  }
+
+  _buildPageProperties({ dataSourceType, pageTitle, pageUrl }) {
+    if (dataSourceType === 'page') {
+      return {
+        title: {
+          title: [{ text: { content: pageTitle } }],
+        },
       };
     }
 
-    // 添加封面圖片（如果有且有效）
-    // 確保協議正確以避免 API 錯誤；
-    // 額外阻擋 temporary / signed URL（如 Patreon CDN），避免 Notion 伺服器端拉取 404
-    // 而導致 broken cover image。前端 ImageCollector 已先行擋下，此處為 defense in depth。
-    if (
-      coverImage &&
-      (coverImage.startsWith('http://') || coverImage.startsWith('https://')) &&
-      !isTemporaryImageUrl(coverImage)
-    ) {
-      pageData.cover = {
-        type: 'external',
-        external: { url: coverImage },
-      };
-    } else if (coverImage && isTemporaryImageUrl(coverImage)) {
+    return {
+      Title: {
+        title: [{ text: { content: pageTitle } }],
+      },
+      URL: {
+        url: pageUrl || '', // 符合現有測試預期
+      },
+    };
+  }
+
+  _applyPageIcon(pageData, siteIcon) {
+    if (!siteIcon) {
+      return;
+    }
+
+    pageData.icon = {
+      type: 'external',
+      external: { url: siteIcon },
+    };
+  }
+
+  _applyPageCover(pageData, coverImage) {
+    const { cover, skippedTemporary } = this._resolveExternalCover(coverImage);
+
+    if (cover) {
+      pageData.cover = cover;
+      return;
+    }
+
+    if (skippedTemporary) {
       Logger.warn('[NotionService] 跳過 temporary cover URL', {
         action: 'buildPageData',
         reason: 'temporary_image_url',
       });
     }
+  }
 
-    return { pageData };
+  _resolveExternalCover(coverImage) {
+    if (!coverImage) {
+      return { cover: null, skippedTemporary: false };
+    }
+
+    if (isTemporaryImageUrl(coverImage)) {
+      return { cover: null, skippedTemporary: true };
+    }
+
+    if (!isHttpUrl(coverImage)) {
+      return { cover: null, skippedTemporary: false };
+    }
+
+    return {
+      cover: {
+        type: 'external',
+        external: { url: coverImage },
+      },
+      skippedTemporary: false,
+    };
   }
 
   /**
@@ -968,43 +1078,16 @@ class NotionService {
    * 避免把底層逐筆錯誤明細直接暴露給呼叫端。
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
-    const { updateTitle = false, title = '' } = options;
-
     try {
       // 前端已驗證圖片，此處直接使用
 
       // 步驟 1: 更新標題（如果需要）
-      if (updateTitle && title) {
-        const titleResult = await this.updatePageTitle(pageId, title, options);
-        if (!titleResult.success) {
-          Logger.warn('[NotionService] 標題更新失敗', {
-            action: 'refreshPageContent',
-            phase: 'updateTitle',
-            error: titleResult.error,
-          });
-        }
-      }
+      await this._updateTitleForRefresh(pageId, options);
 
       // 步驟 2: 刪除現有區塊
       const deleteResult = await this.deleteAllBlocks(pageId, options);
-      if (!deleteResult.success || deleteResult.failureCount > 0) {
-        const failedBlockIds = deleteResult.errors?.map(errorEntry => errorEntry.id) || [];
-        const firstErrorMessage = deleteResult.errors?.[0]?.error
-          ? sanitizeApiError(deleteResult.errors[0].error, 'delete_blocks')
-          : undefined;
-
-        return {
-          success: false,
-          error: deleteResult.error || '部分區塊刪除失敗',
-          errorType: 'notion_api',
-          details: {
-            phase: 'delete_existing',
-            deletedCount: deleteResult.deletedCount,
-            totalFailures: deleteResult.failureCount,
-            failedBlockIds,
-            firstErrorMessage,
-          },
-        };
+      if (this._hasDeleteExistingFailure(deleteResult)) {
+        return this._buildDeleteExistingFailure(deleteResult);
       }
 
       // 步驟 3: 添加新區塊
@@ -1030,6 +1113,60 @@ class NotionService {
     }
   }
 
+  async _updateTitleForRefresh(pageId, options) {
+    if (!this._shouldUpdateTitleForRefresh(options)) {
+      return;
+    }
+
+    const titleResult = await this.updatePageTitle(pageId, options.title, options);
+    this._logRefreshTitleUpdateFailure(titleResult);
+  }
+
+  _shouldUpdateTitleForRefresh(options) {
+    return options.updateTitle && options.title;
+  }
+
+  _logRefreshTitleUpdateFailure(titleResult) {
+    if (titleResult.success) {
+      return;
+    }
+
+    Logger.warn('[NotionService] 標題更新失敗', {
+      action: 'refreshPageContent',
+      phase: 'updateTitle',
+      error: titleResult.error,
+    });
+  }
+
+  _hasDeleteExistingFailure(deleteResult) {
+    return !deleteResult.success || deleteResult.failureCount > 0;
+  }
+
+  _buildDeleteExistingFailure(deleteResult) {
+    const errors = deleteResult.errors || [];
+
+    return {
+      success: false,
+      error: deleteResult.error || '部分區塊刪除失敗',
+      errorType: 'notion_api',
+      details: {
+        phase: 'delete_existing',
+        deletedCount: deleteResult.deletedCount,
+        totalFailures: deleteResult.failureCount,
+        failedBlockIds: errors.map(errorEntry => errorEntry.id),
+        firstErrorMessage: this._sanitizeFirstDeleteError(errors[0]),
+      },
+    };
+  }
+
+  _sanitizeFirstDeleteError(errorEntry) {
+    if (!errorEntry?.error) {
+      return undefined;
+    }
+
+    return sanitizeApiError(errorEntry.error, 'delete_blocks');
+  }
+
   /**
    * 更新頁面的標記區域（僅更新 "📝 頁面標記" 部分）
    *
@@ -1045,84 +1182,23 @@ class NotionService {
       // 步驟 1: 獲取現有區塊
       const fetchResult = await this._fetchPageBlocks(pageId, options);
       if (!fetchResult.success) {
-        return {
-          success: false,
-          error: fetchResult.error,
-          errorCode: fetchResult.errorCode,
-          errorType: 'notion_api',
-          details: { phase: 'fetch_blocks' },
-        };
+        return this._buildFetchBlocksFailure(fetchResult);
       }
 
       // 步驟 2: 找出需要刪除的標記區塊
-      const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
-
-      // 步驟 3: 刪除舊的標記區塊
-      const {
-        successCount: deletedCount,
-        failureCount,
-        errors: deleteErrors,
-      } = await this._deleteBlocksByIds(blocksToDelete, options);
-
-      if (failureCount > 0) {
-        Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
-          action: 'updateHighlightsSection',
-          phase: 'delete',
-          failureCount,
-          errors: deleteErrors,
-        });
-
-        return {
-          success: false,
-          error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
-          errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
-          errorType: 'notion_api',
-          details: {
-            phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
-            retryable: true,
-            deletedCount,
-            failureCount,
-            failedBlockIds: deleteErrors.map(errorEntry => errorEntry.id),
-          },
-        };
+      const deleteResult = await this._deleteHighlightSectionBlocks(fetchResult.blocks, options);
+      if (deleteResult.failureCount > 0) {
+        return this._buildHighlightDeleteFailure(deleteResult);
       }
-      Logger.info('[NotionService] 刪除舊標記區塊', {
-        action: 'updateHighlightsSection',
-        phase: 'delete',
-        deletedCount,
-        totalCount: blocksToDelete.length,
-      });
+      this._logHighlightDeleteSuccess(deleteResult.deletedCount, deleteResult.totalCount);
 
       // 步驟 4: 添加新的標記區塊
-      if (highlightBlocks.length > 0) {
-        const response = await this._callNotionApiWithRetry(
-          client =>
-            client.blocks.children.append({
-              block_id: pageId,
-              children: highlightBlocks,
-            }),
-          {
-            ...options,
-            ...this._getRetryPolicy('create'),
-            label: 'AppendHighlights',
-          }
-        );
-
-        const addedCount = response.results?.length || 0;
-        Logger.success('[NotionService] 添加新標記區塊成功', {
-          action: 'updateHighlightsSection',
-          phase: 'append',
-          addedCount,
-        });
-
-        return {
-          success: true,
-          deletedCount,
-          addedCount,
-        };
-      }
-
-      return { success: true, deletedCount, addedCount: 0 };
+      return await this._appendHighlightBlocks(
+        pageId,
+        highlightBlocks,
+        deleteResult.deletedCount,
+        options
+      );
     } catch (error) {
       Logger.error('[NotionService] 更新標記區域失敗', {
         action: 'updateHighlightsSection',
@@ -1139,6 +1215,92 @@ class NotionService {
     }
   }
 
+  _buildFetchBlocksFailure(fetchResult) {
+    return {
+      success: false,
+      error: fetchResult.error,
+      errorCode: fetchResult.errorCode,
+      errorType: 'notion_api',
+      details: { phase: 'fetch_blocks' },
+    };
+  }
+
+  async _deleteHighlightSectionBlocks(blocks, options) {
+    const blocksToDelete = NotionService._findHighlightSectionBlocks(blocks);
+    const deleteResult = await this._deleteBlocksByIds(blocksToDelete, options);
+
+    return {
+      deletedCount: deleteResult.successCount,
+      failureCount: deleteResult.failureCount,
+      deleteErrors: deleteResult.errors,
+      totalCount: blocksToDelete.length,
+    };
+  }
+
+  _logHighlightDeleteSuccess(deletedCount, totalCount) {
+    Logger.info('[NotionService] 刪除舊標記區塊', {
+      action: 'updateHighlightsSection',
+      phase: 'delete',
+      deletedCount,
+      totalCount,
+    });
+  }
+
+  _buildHighlightDeleteFailure(deleteResult) {
+    Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
+      action: 'updateHighlightsSection',
+      phase: 'delete',
+      failureCount: deleteResult.failureCount,
+      errors: deleteResult.deleteErrors,
+    });
+
+    return {
+      success: false,
+      error: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+      errorCode: HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE,
+      errorType: 'notion_api',
+      details: {
+        phase: HIGHLIGHT_ERROR_CODES.PHASE_DELETE,
+        retryable: true,
+        deletedCount: deleteResult.deletedCount,
+        failureCount: deleteResult.failureCount,
+        failedBlockIds: deleteResult.deleteErrors.map(errorEntry => errorEntry.id),
+      },
+    };
+  }
+
+  async _appendHighlightBlocks(pageId, highlightBlocks, deletedCount, options) {
+    if (highlightBlocks.length === 0) {
+      return { success: true, deletedCount, addedCount: 0 };
+    }
+
+    const response = await this._callNotionApiWithRetry(
+      client =>
+        client.blocks.children.append({
+          block_id: pageId,
+          children: highlightBlocks,
+        }),
+      {
+        ...options,
+        ...this._getRetryPolicy('create'),
+        label: 'AppendHighlights',
+      }
+    );
+
+    const addedCount = response.results?.length || 0;
+    Logger.success('[NotionService] 添加新標記區塊成功', {
+      action: 'updateHighlightsSection',
+      phase: 'append',
+      addedCount,
+    });
+
+    return {
+      success: true,
+      deletedCount,
+      addedCount,
+    };
+  }
+
   /**
    * 找出標記區域的區塊 ID（靜態方法）
    *
@@ -1149,38 +1311,42 @@ class NotionService {
    * @private
    */
   static _findHighlightSectionBlocks(blocks, headerText = NOTION_API.HIGHLIGHT_SECTION_HEADER) {
-    const blocksToDelete = [];
-    let foundHighlightSection = false;
-
     if (!blocks || !Array.isArray(blocks)) {
       return [];
     }
 
-    for (const block of blocks) {
-      const isHighlightHeader =
-        block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText;
+    const sectionStartIndex = blocks.findIndex(block =>
+      NotionService._isHighlightSectionHeader(block, headerText)
+    );
 
-      if (foundHighlightSection) {
-        // 如果已經在標記區域中，遇到任何標題（包括重複的目標標題）都停止收集
-        // Note: 當前邏輯假設標記區域內不包含子標題 (heading_2, heading_3 等)。
-        // 如果未來允許標記區域內包含子結構，需調整此終止條件。
-        if (block.type?.startsWith('heading_')) {
-          break;
-        }
-        // 收集區域內的內容區塊
-        if (block.id) {
-          blocksToDelete.push(block.id);
-        }
-      } else if (isHighlightHeader) {
-        // 找到標記區域的開始
-        foundHighlightSection = true;
-        if (block.id) {
-          blocksToDelete.push(block.id);
-        }
-      }
+    if (sectionStartIndex === -1) {
+      return [];
     }
 
-    return blocksToDelete;
+    return NotionService._sliceHighlightSectionBlocks(blocks, sectionStartIndex)
+      .map(block => block.id)
+      .filter(Boolean);
+  }
+
+  static _isHighlightSectionHeader(block, headerText) {
+    return (
+      block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText
+    );
+  }
+
+  static _sliceHighlightSectionBlocks(blocks, sectionStartIndex) {
+    // 當前邏輯假設標記區域內不包含子標題。遇到任何 heading_* 代表區域結束。
+    const nextHeadingOffset = blocks
+      .slice(sectionStartIndex + 1)
+      .findIndex(block => NotionService._isHeadingBlock(block));
+    const sectionEndIndex =
+      nextHeadingOffset === -1 ? blocks.length : sectionStartIndex + 1 + nextHeadingOffset;
+
+    return blocks.slice(sectionStartIndex, sectionEndIndex);
+  }
+
+  static _isHeadingBlock(block) {
+    return block.type?.startsWith('heading_');
   }
 }
 
