@@ -488,6 +488,10 @@ function normalizeHighlightContentStyle(storedStyle) {
     : DEFAULT_HIGHLIGHT_CONTENT_STYLE;
 }
 
+function shouldLookupOriginalSavedData({ savedData, migrated, hasStableUrl }) {
+  return [!savedData, !migrated, hasStableUrl].every(Boolean);
+}
+
 function applyCreatedPageSuccessStatus(result, params) {
   const { normUrl, contentResult, destinationProfile } = params;
   result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
@@ -832,7 +836,7 @@ export function createSaveHandlers(services) {
     let savedData = await storageService.getSavedPageData(normUrl);
     let resolvedUrl = normUrl;
 
-    if (!savedData && !migrated && hasStableUrl) {
+    if (shouldLookupOriginalSavedData({ savedData, migrated, hasStableUrl })) {
       const originalData = await storageService.getSavedPageData(originalUrl);
       if (originalData) {
         savedData = originalData;
