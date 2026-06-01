@@ -839,6 +839,62 @@ function performSmartCleaning(articleContent, cmsType, domainRules = null) {
 }
 
 /**
+ * 從 srcset 屬性中提取第一個候選 URL
+ *
+ * @param {string} srcset - srcset 屬性值
+ * @returns {string} 第一個候選 URL
+ */
+function extractFirstSrcsetUrl(srcset) {
+  const firstEntry = srcset.split(',')[0].trim();
+  return firstEntry.split(/\s+/)[0];
+}
+
+/**
+ * 正規化 lazy image 候選網址，並排除 transient URL
+ *
+ * @param {string|null} value - 原始候選值
+ * @returns {string|null} 可用候選網址
+ */
+function normalizeLazyImageCandidateSrc(value) {
+  const candidateSrc = value?.trim();
+
+  if (!candidateSrc) {
+    return null;
+  }
+
+  if (candidateSrc.startsWith('data:')) {
+    return null;
+  }
+
+  if (candidateSrc.startsWith('blob:')) {
+    return null;
+  }
+
+  return candidateSrc;
+}
+
+/**
+ * 讀取單一圖片屬性的 lazy image 候選網址
+ *
+ * @param {Element} img - 圖片元素
+ * @param {string} attr - IMAGE_ATTRIBUTES 中的屬性名稱
+ * @returns {string|null} 可用候選網址
+ */
+function resolveLazyImageAttributeCandidateSrc(img, attr) {
+  const attrValue = img.getAttribute(attr);
+
+  if (!attrValue) {
+    return null;
+  }
+
+  if (attr.includes('srcset')) {
+    return normalizeLazyImageCandidateSrc(extractFirstSrcsetUrl(attrValue));
+  }
+
+  return normalizeLazyImageCandidateSrc(attrValue);
+}
+
+/**
  * 依據 IMAGE_ATTRIBUTES 尋找第一個有效且與當前不同的懶加載候選網址
  *
  * @param {Element} img - 圖片元素
@@ -851,22 +907,15 @@ function resolveLazyImageCandidateSrc(img, currentSrc) {
       continue;
     }
 
-    let value = img.getAttribute(attr);
+    const candidateSrc = resolveLazyImageAttributeCandidateSrc(img, attr);
 
-    // 如果屬性名包含 'srcset'，則解析並提取第一個 URL
-    if (value && attr.includes('srcset')) {
-      const firstEntry = value.split(',')[0].trim();
-      value = firstEntry.split(/\s+/)[0];
+    if (!candidateSrc) {
+      continue;
     }
 
-    if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
-      const candidateSrc = value.trim();
-      if (candidateSrc !== currentSrc) {
-        return candidateSrc;
-      }
-      break; // 找到第一個有效 lazy-load 屬性即停止，優先級由 IMAGE_ATTRIBUTES 順序決定
-    }
+    return candidateSrc === currentSrc ? null : candidateSrc;
   }
+
   return null;
 }
 
