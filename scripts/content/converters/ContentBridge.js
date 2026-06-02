@@ -55,13 +55,7 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
   });
 
   // 2. 轉換內容為 Notion Blocks
-  let blocks = _convertContent(content, type, options);
-
-  // 確保 blocks 是有效的陣列
-  if (!Array.isArray(blocks) || blocks.length === 0) {
-    Logger.warn('轉換結果為空，創建回退區塊', { action: 'bridgeContentToBlocks' });
-    blocks = _createFallbackBlocks();
-  }
+  const blocks = _ensureBlocks(_convertContent(content, type, options));
 
   Logger.success('[ContentBridge] 區塊生成完成', {
     action: 'bridgeContentToBlocks',
@@ -71,14 +65,32 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
   // 3. 插入元數據 (封面圖等)
   _insertMetaBlocks(blocks, metadata, { includeFeaturedImage, includeTitle });
 
-  // 4. 提取 siteIcon
-  const siteIcon = metadata.siteIcon || metadata.favicon || null;
-
   return {
     title,
     blocks,
-    siteIcon,
+    siteIcon: _extractSiteIcon(metadata),
   };
+}
+
+function _ensureBlocks(blocks) {
+  if (Array.isArray(blocks) && blocks.length > 0) {
+    return blocks;
+  }
+
+  Logger.warn('轉換結果為空，創建回退區塊', { action: 'bridgeContentToBlocks' });
+  return _createFallbackBlocks();
+}
+
+function _extractSiteIcon(metadata) {
+  if (metadata.siteIcon) {
+    return metadata.siteIcon;
+  }
+
+  if (metadata.favicon) {
+    return metadata.favicon;
+  }
+
+  return null;
 }
 
 function _extractTitle(metadata, rawArticle) {
@@ -95,101 +107,132 @@ function _convertContent(content, type, options) {
     return [];
   }
 
+  if (!_isConvertibleContentType(type)) {
+    Logger.warn('未知內容類型，使用回退處理', { action: 'bridgeContentToBlocks', type });
+    return createTextBlocks(content);
+  }
+
   try {
-    if (type === 'html' || type === 'markdown') {
-      Logger.info('[ContentBridge] 準備轉換內容', { action: 'bridgeContentToBlocks', type });
-      const converter =
-        options.htmlConverter ||
-        globalThis.domConverter ||
-        (globalThis.ConverterFactory ? globalThis.ConverterFactory.getConverter(type) : null);
+    Logger.info('[ContentBridge] 準備轉換內容', { action: 'bridgeContentToBlocks', type });
+    const converter = _resolveConverter(type, options);
 
-      if (converter) {
-        return converter.convert(content);
-      }
-
+    if (!converter) {
       Logger.warn('轉換器不可用', { action: 'bridgeContentToBlocks', type });
       return createTextBlocks(content);
     }
 
-    Logger.warn('未知內容類型，使用回退處理', { action: 'bridgeContentToBlocks', type });
-    return createTextBlocks(content);
+    return converter.convert(content);
   } catch (error) {
     Logger.error('內容轉換失敗', { action: 'bridgeContentToBlocks', error: error.message });
     return createTextBlocks(content);
   }
 }
 
+function _isConvertibleContentType(type) {
+  return type === 'html' || type === 'markdown';
+}
+
+function _resolveConverter(type, options) {
+  if (options.htmlConverter) {
+    return options.htmlConverter;
+  }
+
+  if (globalThis.domConverter) {
+    return globalThis.domConverter;
+  }
+
+  if (!globalThis.ConverterFactory) {
+    return null;
+  }
+
+  return globalThis.ConverterFactory.getConverter(type);
+}
+
 function _createFallbackBlocks() {
-  return [
-    {
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: { content: 'Content extraction completed but no blocks were generated.' },
-          },
-        ],
-      },
-    },
-  ];
+  return [_createParagraphBlock('Content extraction completed but no blocks were generated.')];
 }
 
 function _insertMetaBlocks(blocks, metadata, options = {}) {
   const { includeFeaturedImage = true, includeTitle = false } = options;
 
-  // 1. 插入標題 (如果 metadata 有 title 且顯式要求)
-  if (includeTitle && metadata.title) {
-    const truncatedTitle = (metadata.title || '').slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH);
-    const hasTitle = blocks.some(
-      block =>
-        block.type === 'heading_1' &&
-        block.heading_1?.rich_text?.[0]?.text?.content === truncatedTitle
-    );
+  _insertTitleBlock(blocks, metadata, includeTitle);
+  _insertFeaturedImageBlock(blocks, metadata, includeFeaturedImage);
+}
 
-    if (!hasTitle) {
-      const titleBlock = {
-        object: 'block',
-        type: 'heading_1',
-        heading_1: {
-          rich_text: [
-            {
-              type: 'text',
-              text: {
-                content: truncatedTitle,
-              },
-            },
-          ],
-        },
-      };
-      blocks.splice(0, 0, titleBlock);
-    }
+function _insertTitleBlock(blocks, metadata, includeTitle) {
+  if (!includeTitle) {
+    return;
   }
 
-  // 2. 插入封面圖
-  if (includeFeaturedImage && metadata.featuredImage) {
-    const featuredImageUrl = metadata.featuredImage;
-
-    // 檢查是否已存在於 blocks 中
-    const isDuplicate = blocks.some(
-      block => block.type === 'image' && block.image?.external?.url === featuredImageUrl
-    );
-
-    if (isDuplicate) {
-      Logger.debug('[ContentBridge] 封面圖已存在，跳過插入', { action: 'bridgeContentToBlocks' });
-    } else {
-      blocks.unshift({
-        object: 'block',
-        type: 'image',
-        image: {
-          type: 'external',
-          external: { url: featuredImageUrl },
-        },
-      });
-      Logger.debug('[ContentBridge] 封面圖已插入到區塊開頭', { action: 'bridgeContentToBlocks' });
-    }
+  if (!metadata.title) {
+    return;
   }
+
+  const truncatedTitle = _truncateRichText(metadata.title);
+  if (_hasHeadingTitle(blocks, truncatedTitle)) {
+    return;
+  }
+
+  blocks.splice(0, 0, _createHeadingBlock(truncatedTitle));
+}
+
+function _truncateRichText(text) {
+  return text.slice(0, TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH);
+}
+
+function _hasHeadingTitle(blocks, title) {
+  return blocks.some(
+    block => block.type === 'heading_1' && block.heading_1?.rich_text?.[0]?.text?.content === title
+  );
+}
+
+function _createHeadingBlock(content) {
+  return {
+    object: 'block',
+    type: 'heading_1',
+    heading_1: {
+      rich_text: [
+        {
+          type: 'text',
+          text: { content },
+        },
+      ],
+    },
+  };
+}
+
+function _insertFeaturedImageBlock(blocks, metadata, includeFeaturedImage) {
+  if (!includeFeaturedImage) {
+    return;
+  }
+
+  const featuredImageUrl = metadata.featuredImage;
+  if (!featuredImageUrl) {
+    return;
+  }
+
+  if (_hasImageBlock(blocks, featuredImageUrl)) {
+    Logger.debug('[ContentBridge] 封面圖已存在，跳過插入', { action: 'bridgeContentToBlocks' });
+    return;
+  }
+
+  blocks.unshift(_createImageBlock(featuredImageUrl));
+  Logger.debug('[ContentBridge] 封面圖已插入到區塊開頭', { action: 'bridgeContentToBlocks' });
+}
+
+function _hasImageBlock(blocks, url) {
+  return blocks.some(block => block.type === 'image' && block.image?.external?.url === url);
+}
+
+function _createImageBlock(url) {
+  return {
+    object: 'block',
+    type: 'image',
+    image: {
+      type: 'external',
+      external: { url },
+    },
+  };
 }
 
 /**
@@ -202,15 +245,7 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
 function createFallbackResult(title, message) {
   return {
     title,
-    blocks: [
-      {
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [{ type: 'text', text: { content: message } }],
-        },
-      },
-    ],
+    blocks: [_createParagraphBlock(message)],
     siteIcon: null,
   };
 }
@@ -235,41 +270,36 @@ function createTextBlocks(content) {
     return [];
   }
 
-  // 按段落分割
-  const paragraphs = text.split('\n\n').filter(para => para.trim());
-  const maxLength = 2000;
+  return _splitTextIntoParagraphs(text).flatMap(paragraph =>
+    _createChunkedParagraphBlocks(paragraph)
+  );
+}
 
+function _splitTextIntoParagraphs(text) {
+  return text
+    .split('\n\n')
+    .map(para => para.trim())
+    .filter(Boolean);
+}
+
+function _createChunkedParagraphBlocks(text) {
   const blocks = [];
-  for (const para of paragraphs) {
-    const trimmed = para.trim();
-    if (!trimmed) {
-      continue;
-    }
 
-    // 處理長段落
-    if (trimmed.length <= maxLength) {
-      blocks.push({
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [{ type: 'text', text: { content: trimmed } }],
-        },
-      });
-    } else {
-      // 分割長段落
-      for (let pos = 0; pos < trimmed.length; pos += maxLength) {
-        blocks.push({
-          object: 'block',
-          type: 'paragraph',
-          paragraph: {
-            rich_text: [{ type: 'text', text: { content: trimmed.slice(pos, pos + maxLength) } }],
-          },
-        });
-      }
-    }
+  for (let pos = 0; pos < text.length; pos += TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH) {
+    blocks.push(_createParagraphBlock(text.slice(pos, pos + TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH)));
   }
 
   return blocks;
+}
+
+function _createParagraphBlock(content) {
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [{ type: 'text', text: { content } }],
+    },
+  };
 }
 
 /**
