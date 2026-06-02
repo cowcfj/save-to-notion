@@ -1,5 +1,29 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.76.1](https://github.com/cowcfj/save-to-notion/compare/v2.76.0...v2.76.1) (2026-06-02)
+
+
+### ♻️ 代碼重構
+
+* reduce complexity in ReadabilityAdapter ([#622](https://github.com/cowcfj/save-to-notion/issues/622)) ([a27001b](https://github.com/cowcfj/save-to-notion/commit/a27001b7b2e95725a99987964c4ccf9df34b5f64))
+* reduce content bridge complexity ([#629](https://github.com/cowcfj/save-to-notion/issues/629)) ([739a01c](https://github.com/cowcfj/save-to-notion/commit/739a01cd468acac360e761b343df72cbe05a24e1))
+* reduce DomConverter complexity ([#628](https://github.com/cowcfj/save-to-notion/issues/628)) ([e401a06](https://github.com/cowcfj/save-to-notion/commit/e401a06eaf7d2f5e0d76d7012ece32a4a68f11af))
+* reduce notion service complexity ([#624](https://github.com/cowcfj/save-to-notion/issues/624)) ([47ac223](https://github.com/cowcfj/save-to-notion/commit/47ac22348f99b3689d303d30e3eb4ec666a5d282))
+* reduce tab service complexity ([#625](https://github.com/cowcfj/save-to-notion/issues/625)) ([4ae9b4e](https://github.com/cowcfj/save-to-notion/commit/4ae9b4e41e08010a2143dbf7b8d54bb8b3a734fd))
+* simplify content index and floating rail activation ([#631](https://github.com/cowcfj/save-to-notion/issues/631)) ([7ff40cf](https://github.com/cowcfj/save-to-notion/commit/7ff40cfedf38bfccb6ebe1a753cbea9757055865))
+* simplify image collector logic ([#626](https://github.com/cowcfj/save-to-notion/issues/626)) ([1fe5d5a](https://github.com/cowcfj/save-to-notion/commit/1fe5d5a6c26404e555e313ab954061beb8f5d733))
+* simplify metadata extraction logic ([#630](https://github.com/cowcfj/save-to-notion/issues/630)) ([bb43bfb](https://github.com/cowcfj/save-to-notion/commit/bb43bfb7a1fc2867b105d3a6830d5490fd21e905))
+* simplify options management logic ([#627](https://github.com/cowcfj/save-to-notion/issues/627)) ([da19739](https://github.com/cowcfj/save-to-notion/commit/da19739718eddf37bf6c8a15b17295d8eccb57d2))
+* simplify page content service complexity ([#632](https://github.com/cowcfj/save-to-notion/issues/632)) ([8836912](https://github.com/cowcfj/save-to-notion/commit/88369126b84355f1bbafe3d1de249c8d28c42810))
+* simplify save handlers complexity ([#623](https://github.com/cowcfj/save-to-notion/issues/623)) ([77fe4ac](https://github.com/cowcfj/save-to-notion/commit/77fe4ac5dfb485cb2cbd5dbd65cda197d7d9fda2))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump the babel group with 2 updates ([#616](https://github.com/cowcfj/save-to-notion/issues/616)) ([9d42764](https://github.com/cowcfj/save-to-notion/commit/9d427643f190cd44f82cd4c0f8ce7d8326c6ad2d))
+* **deps-dev:** bump the linters group with 2 updates ([#615](https://github.com/cowcfj/save-to-notion/issues/615)) ([f237c56](https://github.com/cowcfj/save-to-notion/commit/f237c565204374feb623a25aec8e83ae065918ac))
+* **deps-dev:** bump the rollup group across 1 directory with 2 updates ([#617](https://github.com/cowcfj/save-to-notion/issues/617)) ([d484df0](https://github.com/cowcfj/save-to-notion/commit/d484df0252c9b53644ec7d04c8a43a5e81571f39))
+
 ## [2.76.0](https://github.com/cowcfj/save-to-notion/compare/v2.75.3...v2.76.0) (2026-05-30)
 
 
