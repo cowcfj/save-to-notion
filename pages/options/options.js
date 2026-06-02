@@ -23,7 +23,7 @@ import { DATA_SOURCE_KEYS } from '../../scripts/config/shared/storage.js';
 import { refreshCloudSyncCard } from './DriveCloudSyncController.js';
 import {
   AccountGatedDestinationEntitlementProvider,
-  DESTINATION_PROFILE_ERRORS,
+  DESTINATION_PROFILE_ERROR_CODES,
   LocalDestinationProfileRepository,
 } from '../../scripts/destinations/ProfileStore.js';
 import { ProfileManager } from '../../scripts/destinations/ProfileManager.js';
@@ -84,7 +84,7 @@ function clearDestinationProfileNameInput(nameInput) {
 }
 
 function resolveCreateDestinationProfileErrorMessage(error) {
-  return error?.message === DESTINATION_PROFILE_ERRORS.LIMIT_REACHED
+  return error?.code === DESTINATION_PROFILE_ERROR_CODES.LIMIT_REACHED
     ? UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED
     : UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED;
 }

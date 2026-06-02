@@ -1,6 +1,7 @@
 import {
   ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
   AccountGatedDestinationEntitlementProvider,
+  DESTINATION_PROFILE_ERROR_CODES,
   DESTINATION_PROFILE_ERRORS,
   DESTINATION_PROFILE_STORAGE_KEYS,
   LocalDestinationProfileRepository,
@@ -186,7 +187,10 @@ describe('Destination profile domain services', () => {
         notionDataSourceId: 'source-2',
         notionDataSourceType: 'page',
       })
-    ).rejects.toThrow('已達目的地數量上限');
+    ).rejects.toMatchObject({
+      message: DESTINATION_PROFILE_ERRORS.LIMIT_REACHED,
+      code: DESTINATION_PROFILE_ERROR_CODES.LIMIT_REACHED,
+    });
   });
 
   it('createProfile 會拒絕 caller-provided duplicate id', async () => {

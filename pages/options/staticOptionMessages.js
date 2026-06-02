@@ -4,22 +4,23 @@ import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
  * 解析 UI 訊息路徑，取得 messages.js 中對應的文字
  *
  * @param {string} path 點分路徑 (e.g. 'OPTIONS.TITLE')
+ * @param {string} [fallback=''] 找不到文案時回傳的 fallback
  * @returns {string} 對應的文字
  */
-function resolveUiMessage(path) {
+export function resolveUiMessage(path, fallback = '') {
   if (typeof path !== 'string' || !path) {
-    return '';
+    return fallback;
   }
 
   let value = UI_MESSAGES;
   for (const key of path.split('.')) {
     if (!value || typeof value !== 'object') {
-      return '';
+      return fallback;
     }
     value = value[key];
   }
 
-  return typeof value === 'string' ? value : '';
+  return typeof value === 'string' ? value : fallback;
 }
 
 /**
@@ -32,11 +33,11 @@ const COMPOSITE_HANDLERS = {
       return;
     }
     element.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
+      document.createTextNode(resolveUiMessage('OPTIONS.DESTINATION.HELP_PREFIX')),
       link,
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
+      document.createTextNode(resolveUiMessage('OPTIONS.DESTINATION.HELP_SUFFIX'))
     );
-    link.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
+    link.textContent = resolveUiMessage('OPTIONS.DESTINATION.HELP_LINK_TEXT');
   },
 
   'guide-shortcut-desc': element => {
@@ -45,14 +46,14 @@ const COMPOSITE_HANDLERS = {
       return;
     }
     const [ctrlCode, cmdCode] = codes;
-    ctrlCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY;
-    cmdCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY;
+    ctrlCode.textContent = resolveUiMessage('OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY');
+    cmdCode.textContent = resolveUiMessage('OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY');
     element.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX),
+      document.createTextNode(resolveUiMessage('OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX')),
       ctrlCode,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE),
+      document.createTextNode(resolveUiMessage('OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE')),
       cmdCode,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX)
+      document.createTextNode(resolveUiMessage('OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX'))
     );
   },
 
@@ -61,11 +62,11 @@ const COMPOSITE_HANDLERS = {
     if (!code) {
       return;
     }
-    code.textContent = UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE;
+    code.textContent = resolveUiMessage('OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE');
     element.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX),
+      document.createTextNode(resolveUiMessage('OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX')),
       code,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX)
+      document.createTextNode(resolveUiMessage('OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX'))
     );
   },
 };
@@ -77,19 +78,31 @@ const COMPOSITE_HANDLERS = {
  */
 export function applyStaticOptionMessages(root = document) {
   for (const element of root.querySelectorAll('[data-ui-message]')) {
-    element.textContent = resolveUiMessage(element.dataset.uiMessage);
+    const message = resolveUiMessage(element.dataset.uiMessage);
+    if (message) {
+      element.textContent = message;
+    }
   }
 
   for (const element of root.querySelectorAll('[data-ui-placeholder]')) {
-    element.setAttribute('placeholder', resolveUiMessage(element.dataset.uiPlaceholder));
+    const placeholder = resolveUiMessage(element.dataset.uiPlaceholder);
+    if (placeholder) {
+      element.setAttribute('placeholder', placeholder);
+    }
   }
 
   for (const element of root.querySelectorAll('[data-ui-title]')) {
-    element.setAttribute('title', resolveUiMessage(element.dataset.uiTitle));
+    const title = resolveUiMessage(element.dataset.uiTitle);
+    if (title) {
+      element.setAttribute('title', title);
+    }
   }
 
   for (const element of root.querySelectorAll('[data-ui-aria-label]')) {
-    element.setAttribute('aria-label', resolveUiMessage(element.dataset.uiAriaLabel));
+    const ariaLabel = resolveUiMessage(element.dataset.uiAriaLabel);
+    if (ariaLabel) {
+      element.setAttribute('aria-label', ariaLabel);
+    }
   }
 
   for (const element of root.querySelectorAll('[data-ui-composite]')) {

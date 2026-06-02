@@ -92,14 +92,14 @@ function showLogExportSuccess(statusEl, count) {
  * @param {Error|any} error
  */
 function showLogExportError(statusEl, error) {
+  const safeReason = sanitizeApiError(error, 'export_debug_logs');
   Logger.error('Log export failed', {
-    action: 'setupLogExport',
-    error: error.message || error,
-    stack: error.stack,
+    action: 'exportLog',
+    result: 'failed',
+    error: safeReason,
   });
 
   // 使用標準化的錯誤處理機制
-  const safeReason = sanitizeApiError(error, 'export_debug_logs');
   const userFriendlyMsg = ErrorHandler.formatUserMessage(safeReason);
 
   // 組合最終訊息

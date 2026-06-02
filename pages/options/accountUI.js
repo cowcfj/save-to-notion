@@ -248,6 +248,7 @@ function bindAccountLoginButton() {
       const errorMessage = 'Account login failed';
       Logger.error(errorMessage, {
         action: 'initAccountUI',
+        result: startUrlResult.result || 'failed',
         reason: startUrlResult.reason,
       });
       setAccountStatus(statusEl, startUrlResult.error, 'error');
@@ -279,7 +280,7 @@ function bindAccountLogoutButton() {
       setAccountStatus(statusEl, UI_MESSAGES.ACCOUNT.LOGOUT_SUCCESS, 'success');
       clearAccountStatusLater(statusEl, 3000);
     } catch (error) {
-      Logger.error('Account logout failed', { error });
+      Logger.error('Account logout failed', { action: 'logout', result: 'failure', error });
       setAccountStatus(statusEl, UI_MESSAGES.ACCOUNT.LOGOUT_FAILED, 'error');
     }
   });
