@@ -72,46 +72,61 @@ const ImageCollector = {
    */
   _collectFeaturedFromDOM() {
     for (const selector of FEATURED_IMAGE_SELECTORS) {
-      try {
-        const img = cachedQuery(selector, document, { single: true });
-        if (!img) {
-          continue;
-        }
-
-        // 排除側邊欄和非主文章區域的圖片
-        if (img.closest('aside, [role="complementary"], .sidebar, .side-bar, [class*="rhs"]')) {
-          Logger.log('跳過側邊欄圖片', { action: 'collectFeaturedImage', selector });
-          continue;
-        }
-
-        const src = extractImageSrc?.(img);
-        if (!src || !isValidImageUrl?.(src)) {
-          continue;
-        }
-
-        // 標準化 URL，確保與後續圖片的去重比較一致
-        const absoluteUrl = new URL(src, document.baseURI).href;
-        const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
-        // 阻擋 temporary / signed URL 進入 Notion page cover
-        if (isTemporaryImageUrl?.(cleanedUrl)) {
-          Logger.log('跳過 temporary 圖片 URL (DOM 封面)', {
-            action: 'collectFeaturedImage',
-            selector,
-            url: sanitizeUrlForLogging(cleanedUrl),
-          });
-          continue;
-        }
-        Logger.log('找到特色圖片 (DOM)', {
-          action: 'collectFeaturedImage',
-          selector,
-          url: sanitizeUrlForLogging(cleanedUrl),
-        });
-        return cleanedUrl;
-      } catch (error) {
-        this._handleFeaturedImageError(error, selector);
+      const imageUrl = this._collectFeaturedFromDOMSelector(selector);
+      if (imageUrl) {
+        return imageUrl;
       }
     }
     return null;
+  },
+
+  _collectFeaturedFromDOMSelector(selector) {
+    try {
+      const img = cachedQuery(selector, document, { single: true });
+      return this._getFeaturedDOMImageUrl(img, selector);
+    } catch (error) {
+      this._handleFeaturedImageError(error, selector);
+      return null;
+    }
+  },
+
+  _getFeaturedDOMImageUrl(img, selector) {
+    if (!img) {
+      return null;
+    }
+    if (this._isSidebarFeaturedImage(img, selector)) {
+      return null;
+    }
+
+    const src = extractImageSrc?.(img);
+    if (!this._isValidFeaturedImageSource(src)) {
+      return null;
+    }
+
+    const cleanedUrl = this._normalizeFeaturedImageUrl(src);
+    if (
+      this._shouldSkipTemporaryFeaturedImage(cleanedUrl, '跳過 temporary 圖片 URL (DOM 封面)', {
+        selector,
+      })
+    ) {
+      return null;
+    }
+
+    Logger.log('找到特色圖片 (DOM)', {
+      action: 'collectFeaturedImage',
+      selector,
+      url: sanitizeUrlForLogging(cleanedUrl),
+    });
+    return cleanedUrl;
+  },
+
+  _isSidebarFeaturedImage(img, selector) {
+    if (!img.closest('aside, [role="complementary"], .sidebar, .side-bar, [class*="rhs"]')) {
+      return false;
+    }
+
+    Logger.log('跳過側邊欄圖片', { action: 'collectFeaturedImage', selector });
+    return true;
   },
 
   /**
@@ -140,38 +155,73 @@ const ImageCollector = {
     const metaSelectors = ['meta[property="og:image"]', 'meta[name="twitter:image"]'];
 
     for (const selector of metaSelectors) {
-      try {
-        const meta = document.querySelector(selector);
-        const content = meta?.content;
-
-        if (content && isValidImageUrl?.(content)) {
-          const absoluteUrl = new URL(content, document.baseURI).href;
-          const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
-          // 阻擋 temporary / signed URL 進入 Notion page cover
-          if (isTemporaryImageUrl?.(cleanedUrl)) {
-            Logger.log('跳過 temporary 圖片 URL (Meta 封面)', {
-              action: 'collectFeaturedImage',
-              source: selector,
-              url: sanitizeUrlForLogging(cleanedUrl),
-            });
-            continue;
-          }
-          Logger.log('找到特色圖片 (Meta)', {
-            action: 'collectFeaturedImage',
-            source: selector,
-            url: sanitizeUrlForLogging(cleanedUrl),
-          });
-          return cleanedUrl;
-        }
-      } catch (error) {
-        Logger.warn('解析 meta 圖片出錯', {
-          action: 'collectFeaturedImage',
-          selector,
-          error: error.message,
-        });
+      const imageUrl = this._collectFeaturedFromMetaSelector(selector);
+      if (imageUrl) {
+        return imageUrl;
       }
     }
     return null;
+  },
+
+  _collectFeaturedFromMetaSelector(selector) {
+    try {
+      const meta = document.querySelector(selector);
+      return this._getFeaturedMetaImageUrl(meta?.content, selector);
+    } catch (error) {
+      Logger.warn('解析 meta 圖片出錯', {
+        action: 'collectFeaturedImage',
+        selector,
+        error: error.message,
+      });
+      return null;
+    }
+  },
+
+  _getFeaturedMetaImageUrl(content, selector) {
+    if (!this._isValidFeaturedImageSource(content)) {
+      return null;
+    }
+
+    const cleanedUrl = this._normalizeFeaturedImageUrl(content);
+    if (
+      this._shouldSkipTemporaryFeaturedImage(cleanedUrl, '跳過 temporary 圖片 URL (Meta 封面)', {
+        source: selector,
+      })
+    ) {
+      return null;
+    }
+
+    Logger.log('找到特色圖片 (Meta)', {
+      action: 'collectFeaturedImage',
+      source: selector,
+      url: sanitizeUrlForLogging(cleanedUrl),
+    });
+    return cleanedUrl;
+  },
+
+  _isValidFeaturedImageSource(src) {
+    if (!src) {
+      return false;
+    }
+    return Boolean(isValidImageUrl?.(src));
+  },
+
+  _normalizeFeaturedImageUrl(src) {
+    const absoluteUrl = new URL(src, document.baseURI).href;
+    return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+  },
+
+  _shouldSkipTemporaryFeaturedImage(cleanedUrl, message, metadata) {
+    if (!isTemporaryImageUrl?.(cleanedUrl)) {
+      return false;
+    }
+
+    Logger.log(message, {
+      action: 'collectFeaturedImage',
+      ...metadata,
+      url: sanitizeUrlForLogging(cleanedUrl),
+    });
+    return true;
   },
 
   /**
@@ -195,35 +245,41 @@ const ImageCollector = {
     Logger.log('開始收集圖集圖片', { action: 'collectFromGalleries' });
 
     for (const selector of GALLERY_SELECTORS) {
-      try {
-        const elements = cachedQuery(selector, document, { all: true });
-        if (!elements || elements.length === 0) {
-          continue;
-        }
-
-        Logger.log(`找到圖集元素: ${selector}`, { count: elements.length });
-
-        elements.forEach((el, index) => {
-          // 對於圖集，我們希望收集所有高解析度圖片，所以給予較高的優先級
-          // 並且放寬一些限制（例如 display:none 的容器內的圖片）
-
-          // ImageUtils.extractImageSrc 已經支持從 anchor href 提取
-          const imageObj = this.processImageForCollection(el, index, featuredImage);
-
-          if (imageObj?.image?.external) {
-            const url = imageObj.image.external.url;
-            if (!processedUrls.has(url)) {
-              processedUrls.add(url);
-              images.push(imageObj);
-            }
-          }
-        });
-      } catch (error) {
-        Logger.warn('圖集收集錯誤', { selector, error: error.message });
-      }
+      this._appendGallerySelectorImages(selector, featuredImage, processedUrls, images);
     }
 
     return images;
+  },
+
+  _appendGallerySelectorImages(selector, featuredImage, processedUrls, images) {
+    try {
+      const elements = cachedQuery(selector, document, { all: true });
+      if (!elements || elements.length === 0) {
+        return;
+      }
+
+      Logger.log(`找到圖集元素: ${selector}`, { count: elements.length });
+      this._appendUniqueGalleryImages(elements, featuredImage, processedUrls, images);
+    } catch (error) {
+      Logger.warn('圖集收集錯誤', { selector, error: error.message });
+    }
+  },
+
+  _appendUniqueGalleryImages(elements, featuredImage, processedUrls, images) {
+    elements.forEach((el, index) => {
+      const imageObj = this.processImageForCollection(el, index, featuredImage);
+      const url = this._extractImageBlockUrl(imageObj);
+      if (!url || processedUrls.has(url)) {
+        return;
+      }
+
+      processedUrls.add(url);
+      images.push(imageObj);
+    });
+  },
+
+  _extractImageBlockUrl(block) {
+    return block?.image?.external?.url || null;
   },
 
   /**
@@ -354,6 +410,69 @@ const ImageCollector = {
     };
   },
 
+  _evaluateImageUrlForCollection(img, src, featuredImage) {
+    const cleanedImageUrl = this._normalizeCandidateImageUrl(img, src);
+
+    if (featuredImage && cleanedImageUrl === featuredImage) {
+      Logger.log('跳過重複的特色圖片', {
+        action: 'processImageForCollection',
+        url: sanitizeUrlForLogging(cleanedImageUrl),
+      });
+      return { status: 'duplicate_featured' };
+    }
+
+    if (!isValidCleanedImageUrl?.(cleanedImageUrl)) {
+      Logger.log('無效或不相容的圖片 URL', {
+        action: 'processImageForCollection',
+        url: sanitizeUrlForLogging(cleanedImageUrl),
+      });
+      return { status: 'invalid_url' };
+    }
+
+    if (isTemporaryImageUrl?.(cleanedImageUrl)) {
+      Logger.log('偵測到 temporary 圖片 URL，改以提示區塊取代', {
+        action: 'processImageForCollection',
+        url: sanitizeUrlForLogging(cleanedImageUrl),
+      });
+      return {
+        status: 'temporary_replaced',
+        image: buildTemporaryImagePlaceholderBlock(cleanedImageUrl, { alt: img.alt || '' }),
+      };
+    }
+
+    return { status: 'accepted', cleanedImageUrl };
+  },
+
+  _hasKnownImageDimensions({ width, height }) {
+    if (width <= 0) {
+      return false;
+    }
+    return height > 0;
+  },
+
+  _evaluateImageSizeForCollection(dimensions) {
+    if (!this._hasKnownImageDimensions(dimensions)) {
+      Logger.log('圖片尺寸未知 (0)，跳過尺寸檢查', {
+        action: 'processImageForCollection',
+        width: dimensions.width,
+        height: dimensions.height,
+      });
+      return { status: 'accepted' };
+    }
+
+    if (this._isImageBelowMinimumSize(dimensions)) {
+      Logger.log('圖片尺寸太小', {
+        action: 'processImageForCollection',
+        width: dimensions.width,
+        height: dimensions.height,
+        source: dimensions.source,
+      });
+      return { status: 'filtered_by_size' };
+    }
+
+    return { status: 'accepted' };
+  },
+
   _evaluateImageForCollection(img, index, featuredImage) {
     const src = extractImageSrc?.(img);
     if (!src) {
@@ -362,65 +481,20 @@ const ImageCollector = {
     }
 
     try {
-      // 1. 清理 URL
-      const cleanedImageUrl = this._normalizeCandidateImageUrl(img, src);
-
-      // 2. 檢查是否與特色圖片重複
-      if (featuredImage && cleanedImageUrl === featuredImage) {
-        Logger.log('跳過重複的特色圖片', {
-          action: 'processImageForCollection',
-          url: sanitizeUrlForLogging(cleanedImageUrl),
-        });
-        return { status: 'duplicate_featured' };
+      const urlOutcome = this._evaluateImageUrlForCollection(img, src, featuredImage);
+      if (urlOutcome.status !== 'accepted') {
+        return urlOutcome;
       }
 
-      // 3. 驗證圖片 URL
-      if (!isValidCleanedImageUrl?.(cleanedImageUrl)) {
-        Logger.log('無效或不相容的圖片 URL', {
-          action: 'processImageForCollection',
-          url: sanitizeUrlForLogging(cleanedImageUrl),
-        });
-        return { status: 'invalid_url' };
-      }
-
-      // 3b. 偵測 temporary / signed URL，改以 paragraph block 取代以避免 broken image
-      if (isTemporaryImageUrl?.(cleanedImageUrl)) {
-        Logger.log('偵測到 temporary 圖片 URL，改以提示區塊取代', {
-          action: 'processImageForCollection',
-          url: sanitizeUrlForLogging(cleanedImageUrl),
-        });
-        return {
-          status: 'temporary_replaced',
-          image: buildTemporaryImagePlaceholderBlock(cleanedImageUrl, { alt: img.alt || '' }),
-        };
-      }
-
-      // 4. 檢查尺寸過濾小圖
       const dimensions = this._getImageDimensions(img);
-
-      // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
-      if (dimensions.width > 0 && dimensions.height > 0) {
-        if (this._isImageBelowMinimumSize(dimensions)) {
-          Logger.log('圖片尺寸太小', {
-            action: 'processImageForCollection',
-            width: dimensions.width,
-            height: dimensions.height,
-            source: dimensions.source,
-          });
-          return { status: 'filtered_by_size' };
-        }
-      } else {
-        // Dimensions are unknown (0), we allow it to pass but log it
-        Logger.log('圖片尺寸未知 (0)，跳過尺寸檢查', {
-          action: 'processImageForCollection',
-          width: dimensions.width,
-          height: dimensions.height,
-        });
+      const sizeOutcome = this._evaluateImageSizeForCollection(dimensions);
+      if (sizeOutcome.status !== 'accepted') {
+        return sizeOutcome;
       }
 
       return {
         status: 'accepted',
-        image: this._buildExternalImageBlock(img, src, cleanedImageUrl),
+        image: this._buildExternalImageBlock(img, src, urlOutcome.cleanedImageUrl),
       };
     } catch (error) {
       Logger.warn('處理圖片失敗', {
