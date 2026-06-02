@@ -260,33 +260,57 @@ const ImageCollector = {
   },
 
   /**
-   * 依優先級獲取圖片尺寸：
-   * 1. naturalWidth/naturalHeight (已載入的圖片)
-   * 2. HTML width/height 屬性 (處理懶加載圖片)
-   * 3. data-width/data-height (處理懶加載圖片)
-   * 4. data-resolvedWidth/resolvedHeight (前置批次解析結果)
-   * Fallback: 0
+   * 從已按優先級排列的候選值中取第一個正數尺寸
+   *
+   * @param {number[]} values - 尺寸候選值
+   * @returns {number} 第一個正數尺寸，沒有則回傳 0
+   * @private
+   */
+  _selectFirstPositiveDimensionValue(values) {
+    for (const value of values) {
+      if (value > 0) {
+        return value;
+      }
+    }
+    return 0;
+  },
+
+  /**
+   * 判斷圖片尺寸資訊來源
+   *
+   * @param {Element} img - 圖片元素
+   * @returns {string} 尺寸來源描述
+   * @private
+   */
+  _getImageDimensionSource(img) {
+    if (img.naturalWidth > 0) {
+      return 'naturalSize';
+    }
+    return 'htmlAttribute';
+  },
+
+  /**
+   * 依優先級獲取圖片尺寸
    *
    * @param {Element} img - 圖片元素
    * @returns {{width: number, height: number, source: string}} 尺寸與來源描述
    * @private
    */
   _getImageDimensions(img) {
-    const width =
-      img.naturalWidth ||
-      Number.parseInt(img.getAttribute('width'), 10) ||
-      Number.parseInt(img.dataset.width, 10) ||
-      Number.parseInt(img.dataset.resolvedWidth, 10) ||
-      0;
-    const height =
-      img.naturalHeight ||
-      Number.parseInt(img.getAttribute('height'), 10) ||
-      Number.parseInt(img.dataset.height, 10) ||
-      Number.parseInt(img.dataset.resolvedHeight, 10) ||
-      0;
-    const source = img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute';
+    const width = this._selectFirstPositiveDimensionValue([
+      img.naturalWidth,
+      Number.parseInt(img.getAttribute('width'), 10),
+      Number.parseInt(img.dataset.width, 10),
+      Number.parseInt(img.dataset.resolvedWidth, 10),
+    ]);
+    const height = this._selectFirstPositiveDimensionValue([
+      img.naturalHeight,
+      Number.parseInt(img.getAttribute('height'), 10),
+      Number.parseInt(img.dataset.height, 10),
+      Number.parseInt(img.dataset.resolvedHeight, 10),
+    ]);
 
-    return { width, height, source };
+    return { width, height, source: this._getImageDimensionSource(img) };
   },
 
   /**
@@ -1262,42 +1286,57 @@ const ImageCollector = {
     }
   },
 
-  async _processImages(allImages, featuredImage, additionalImages) {
-    const context = this._createImageProcessingContext(additionalImages, featuredImage);
-
-    const shouldBatch =
-      batchProcess !== undefined && allImages.length > IMAGE_LIMITS.BATCH_PROCESS_THRESHOLD;
-    if (shouldBatch) {
-      Logger.log('對圖片使用批次處理', {
-        action: 'collectAdditionalImages',
-        count: allImages.length,
-      });
-
-      const indexedImages = this._createIndexedImageItems(allImages);
-
-      if (typeof batchProcessWithRetry === 'function') {
-        const success = await this._processImagesWithRetry(indexedImages, context, featuredImage);
-        if (success) {
-          return context.stats;
-        }
-      } else {
-        const success = await this._processImagesWithSimpleBatch(
-          indexedImages,
-          context,
-          featuredImage
-        );
-        if (success) {
-          return context.stats;
-        }
-      }
+  _getImageBatchProcessingRunner(allImages) {
+    if (batchProcess === undefined) {
+      return null;
     }
+    if (allImages.length <= IMAGE_LIMITS.BATCH_PROCESS_THRESHOLD) {
+      return null;
+    }
+    if (typeof batchProcessWithRetry === 'function') {
+      return this._processImagesWithRetry.bind(this);
+    }
+    return this._processImagesWithSimpleBatch.bind(this);
+  },
 
-    // 順序處理 (Fallback 或 non-batch 情況)
+  _processImagesSequentialFallback(allImages, featuredImage, additionalImages, context) {
     return ImageCollector.processImagesSequentially(
       allImages,
       featuredImage,
       additionalImages,
       context.processedUrls
+    );
+  },
+
+  async _processImages(allImages, featuredImage, additionalImages) {
+    const context = this._createImageProcessingContext(additionalImages, featuredImage);
+    const batchRunner = this._getImageBatchProcessingRunner(allImages);
+
+    if (!batchRunner) {
+      return this._processImagesSequentialFallback(
+        allImages,
+        featuredImage,
+        additionalImages,
+        context
+      );
+    }
+
+    Logger.log('對圖片使用批次處理', {
+      action: 'collectAdditionalImages',
+      count: allImages.length,
+    });
+
+    const indexedImages = this._createIndexedImageItems(allImages);
+    const success = await batchRunner(indexedImages, context, featuredImage);
+    if (success) {
+      return context.stats;
+    }
+
+    return this._processImagesSequentialFallback(
+      allImages,
+      featuredImage,
+      additionalImages,
+      context
     );
   },
 };
