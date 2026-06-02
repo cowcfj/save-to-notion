@@ -48,6 +48,30 @@ const extractFirstMetaContent = (doc, selectors) => {
   return null;
 };
 
+const extractDirectImageSrcAttribute = img => {
+  for (const attr of IMAGE_SRC_ATTRIBUTES) {
+    const value = img.getAttribute(attr);
+    if (value?.trim() && !value.startsWith('data:')) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const extractPictureSourceCandidate = img => {
+  const source = img.closest('picture')?.querySelector('source');
+  const srcset = source?.getAttribute('srcset') || source?.dataset.srcset;
+  if (!srcset) {
+    return null;
+  }
+
+  const [firstCandidate] = srcset.split(',').map(str => str.trim().split(' ')[0]);
+  if (!firstCandidate || firstCandidate.startsWith('data:')) {
+    return null;
+  }
+  return firstCandidate;
+};
+
 const MetadataExtractor = {
   /**
    * 提取頁面元數據（完整版本）
@@ -256,31 +280,7 @@ const MetadataExtractor = {
    * @returns {string|null} 圖片 URL
    */
   extractImageSrc(img) {
-    const srcAttributes = IMAGE_SRC_ATTRIBUTES;
-
-    for (const attr of srcAttributes) {
-      const value = img.getAttribute(attr);
-      if (value?.trim() && !value.startsWith('data:')) {
-        return value.trim();
-      }
-    }
-
-    // 檢查 picture 元素
-    const picture = img.closest('picture');
-    if (picture) {
-      const source = picture.querySelector('source');
-      if (source) {
-        const srcset = source.getAttribute('srcset') || source.dataset.srcset;
-        if (srcset) {
-          const urls = srcset.split(',').map(str => str.trim().split(' ')[0]);
-          if (urls.length > 0 && !urls[0].startsWith('data:')) {
-            return urls[0];
-          }
-        }
-      }
-    }
-
-    return null;
+    return extractDirectImageSrcAttribute(img) || extractPictureSourceCandidate(img);
   },
 
   /**
