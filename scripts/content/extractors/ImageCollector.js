@@ -278,12 +278,24 @@ const ImageCollector = {
     });
   },
 
-  _extractImageBlockUrl(block) {
+  _extractPlaceholderImageBlockUrl(block) {
     // Temporary placeholder paragraphs have no image URL; use originalSrc as the gallery dedupe key.
     if (block?._meta?.placeholder) {
       return block._meta.originalSrc || null;
     }
+    return null;
+  },
+
+  _extractExternalImageBlockUrl(block) {
     return block?.image?.external?.url || null;
+  },
+
+  _extractImageBlockUrl(block) {
+    const placeholderUrl = this._extractPlaceholderImageBlockUrl(block);
+    if (placeholderUrl) {
+      return placeholderUrl;
+    }
+    return this._extractExternalImageBlockUrl(block);
   },
 
   /**
