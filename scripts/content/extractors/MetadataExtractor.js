@@ -76,40 +76,45 @@ const normalizeIconFormatUrl = url => {
   return url.split(/[?#]/)[0].toLowerCase();
 };
 
-const resolveIconFormatScore = (url, type) => {
-  if (url.endsWith('.svg') || url.includes('image/svg') || type.includes('svg')) {
-    return 1000;
-  }
-  if (url.endsWith('.png') || type.includes('png')) {
-    return 500;
-  }
-  if (url.endsWith('.ico') || type.includes('ico')) {
-    return 100;
-  }
-  if (url.endsWith('.jpg') || url.endsWith('.jpeg') || type.includes('jpeg')) {
-    return 200;
-  }
-  return 0;
+const ICON_FORMAT_SCORE_RULES = [
+  { score: 1000, extensions: ['.svg'], urlNeedles: ['image/svg'], typeNeedle: 'svg' },
+  { score: 500, extensions: ['.png'], urlNeedles: [], typeNeedle: 'png' },
+  { score: 100, extensions: ['.ico'], urlNeedles: [], typeNeedle: 'ico' },
+  { score: 200, extensions: ['.jpg', '.jpeg'], urlNeedles: [], typeNeedle: 'jpeg' },
+];
+
+const ICON_SIZE_SCORE_RULES = [
+  { score: 500, min: 999, max: 999 },
+  { score: 300, min: 180, max: 256 },
+  { score: 200, min: 257, max: Infinity },
+  { score: 100, min: 120, max: Infinity },
+  { score: 50, min: 1, max: Infinity },
+];
+
+const ICON_TYPE_SCORE = {
+  'apple-touch': 50,
 };
 
-const resolveIconSizeScore = size => {
-  if (size === 999) {
-    return 500;
-  }
-  if (size >= 180 && size <= 256) {
-    return 300;
-  }
-  if (size > 256) {
-    return 200;
-  }
-  if (size >= 120) {
-    return 100;
-  }
-  if (size > 0) {
-    return 50;
-  }
-  return 0;
-};
+const endsWithAny = (value, suffixes) => suffixes.some(suffix => value.endsWith(suffix));
+
+const includesAny = (value, needles) => needles.some(needle => value.includes(needle));
+
+const matchesIconFormatRule = (url, type, rule) =>
+  [
+    endsWithAny(url, rule.extensions),
+    includesAny(url, rule.urlNeedles),
+    type.includes(rule.typeNeedle),
+  ].some(Boolean);
+
+const matchesIconSizeRule = (size, rule) => [size >= rule.min, size <= rule.max].every(Boolean);
+
+const resolveIconFormatScore = (url, type) =>
+  ICON_FORMAT_SCORE_RULES.find(rule => matchesIconFormatRule(url, type, rule))?.score || 0;
+
+const resolveIconSizeScore = size =>
+  ICON_SIZE_SCORE_RULES.find(rule => matchesIconSizeRule(size, rule))?.score || 0;
+
+const resolveIconTypeScore = iconType => ICON_TYPE_SCORE[iconType] || 0;
 
 const MetadataExtractor = {
   /**
@@ -494,7 +499,7 @@ const MetadataExtractor = {
     return (
       resolveIconFormatScore(url, type) +
       resolveIconSizeScore(size) +
-      (iconInput.iconType === 'apple-touch' ? 50 : 0) +
+      resolveIconTypeScore(iconInput.iconType) +
       (10 - iconInput.priority) * 10
     );
   },

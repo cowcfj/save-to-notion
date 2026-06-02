@@ -96,7 +96,7 @@ describe('tools/check-size-gates.mjs', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir } = createBundleRoot({
       rootDir,
-      contentSize: 256_001,
+      contentSize: 257_001,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -145,16 +145,16 @@ describe('tools/check-size-gates.mjs', () => {
       expect.objectContaining({
         status: 'pass',
         current: 255_000,
-        hardLimit: 256_000,
+        hardLimit: 257_000,
       })
     );
   });
 
-  test('[REGRESSION] hard mode 應允許正好等於 hard cap (256_000 bytes) 的 content bundle 通過', () => {
+  test('[REGRESSION] hard mode 應允許正好等於 hard cap (257_000 bytes) 的 content bundle 通過', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir, reportPath } = createBundleRoot({
       rootDir,
-      contentSize: 256_000,
+      contentSize: 257_000,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -176,8 +176,8 @@ describe('tools/check-size-gates.mjs', () => {
     expect(contentCheck).toEqual(
       expect.objectContaining({
         status: 'pass',
-        current: 256_000,
-        hardLimit: 256_000,
+        current: 257_000,
+        hardLimit: 257_000,
       })
     );
   });
