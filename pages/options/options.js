@@ -53,7 +53,10 @@ const DEFAULT_DESTINATION_ENTITLEMENT = {
   accountSignedIn: false,
   source: 'fallback',
 };
-const NOTION_ID_SEGMENT_LENGTHS = new Set([32, 36]);
+const NOTION_ID_LENGTH = 32;
+const NOTION_UUID_SEGMENT_LENGTH = 36;
+const NOTION_ID_SEGMENT_LENGTHS = new Set([NOTION_ID_LENGTH, NOTION_UUID_SEGMENT_LENGTH]);
+const NOTION_ID_HEX_DIGITS = new Set('0123456789abcdefABCDEF'.split(''));
 let destinationProfilesUIController = null;
 
 function resolveUiMessage(path) {
@@ -188,7 +191,11 @@ function activateSidebarSection(sectionName, navItems, sections) {
   const targetItem = Array.from(navItems).find(item => item.dataset.section === sectionName);
   const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
 
-  if (!targetItem || !targetExists) {
+  if (!targetItem) {
+    return false;
+  }
+
+  if (!targetExists) {
     return false;
   }
 
@@ -997,6 +1004,29 @@ function initAccountUI() {
   renderAccountUI().catch(() => {});
 }
 
+function hasMissingSidebarNavigationElements(navItems, sections) {
+  if (navItems.length === 0) {
+    return true;
+  }
+  return sections.length === 0;
+}
+
+function activateInitialSidebarSection(navItems, sections) {
+  const initialSection = new URLSearchParams(globalThis.location.search).get('section');
+  if (!initialSection) {
+    return;
+  }
+
+  if (activateSidebarSection(initialSection, navItems, sections)) {
+    return;
+  }
+
+  Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_TARGET_NOT_FOUND, {
+    action: 'setupSidebarNavigation',
+    targetId: initialSection,
+  });
+}
+
 /**
  * 設置側邊欄導航
  */
@@ -1004,7 +1034,7 @@ function setupSidebarNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.settings-section');
 
-  if (navItems.length === 0 || sections.length === 0) {
+  if (hasMissingSidebarNavigationElements(navItems, sections)) {
     Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_MISSING_ITEMS, {
       action: 'setupSidebarNavigation',
       reason: 'missing_dom_elements',
@@ -1041,17 +1071,28 @@ function setupSidebarNavigation() {
     });
   });
 
-  const initialSection = new URLSearchParams(globalThis.location.search).get('section');
-  if (initialSection && !activateSidebarSection(initialSection, navItems, sections)) {
-    Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_TARGET_NOT_FOUND, {
-      action: 'setupSidebarNavigation',
-      targetId: initialSection,
-    });
-  }
+  activateInitialSidebarSection(navItems, sections);
 }
 
 function isPotentialNotionIdSegment(segment) {
   return NOTION_ID_SEGMENT_LENGTHS.has(segment?.length);
+}
+
+function stripNotionUrlSuffix(value) {
+  const suffixIndexes = [value.indexOf('#'), value.indexOf('?')].filter(index => index >= 0);
+  const endIndex = suffixIndexes.length > 0 ? Math.min(...suffixIndexes) : value.length;
+  return value.slice(0, endIndex);
+}
+
+function extractCandidateNotionIdSegment(value) {
+  return stripNotionUrlSuffix(value).split('/').at(-1);
+}
+
+function hasValidNotionIdFormat(value) {
+  if (value.length !== NOTION_ID_LENGTH) {
+    return false;
+  }
+  return Array.from(value).every(character => NOTION_ID_HEX_DIGITS.has(character));
 }
 
 /**
@@ -1076,8 +1117,7 @@ export function cleanDatabaseId(input) {
 
   // Notion ID 可能是 32 位純字串或 36 位帶橫線的 UUID
   // 我們從路徑中尋找長度匹配的片段
-  const pathParts = cleaned.split(/[#?]/)[0].split('/');
-  const lastPathPart = pathParts.at(-1);
+  const lastPathPart = extractCandidateNotionIdSegment(cleaned);
 
   if (isPotentialNotionIdSegment(lastPathPart)) {
     cleaned = lastPathPart;
@@ -1087,7 +1127,7 @@ export function cleanDatabaseId(input) {
   cleaned = cleaned.replaceAll('-', '');
 
   // 驗證格式：應該是 32 字符的十六進制字符串
-  if (!/^[\da-f]{32}$/i.test(cleaned)) {
+  if (!hasValidNotionIdFormat(cleaned)) {
     return '';
   }
 

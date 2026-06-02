@@ -164,6 +164,11 @@ describe('options.js', () => {
       expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
     });
 
+    it('應從帶 hash fragment 的 URL 中提取 ID', () => {
+      const url = 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890#block';
+      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
+    });
+
     it('應處理已清理的 ID', () => {
       expect(cleanDatabaseId('a1b2c3d4e5f67890abcdef1234567890')).toBe(
         'a1b2c3d4e5f67890abcdef1234567890'
