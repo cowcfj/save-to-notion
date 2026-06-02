@@ -118,11 +118,14 @@ describe('tools/check-size-gates.mjs', () => {
     expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/content\.bundle\.js/);
   });
 
-  test('[REGRESSION] hard mode 應允許 255_000 bytes 的 content bundle 通過', () => {
+  test.each([
+    ['接近 hard cap', 255_000],
+    ['正好等於 hard cap', 257_000],
+  ])('[REGRESSION] hard mode 應允許 content bundle %s (%i bytes) 通過', (_label, contentSize) => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir, reportPath } = createBundleRoot({
       rootDir,
-      contentSize: 255_000,
+      contentSize,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -144,39 +147,7 @@ describe('tools/check-size-gates.mjs', () => {
     expect(contentCheck).toEqual(
       expect.objectContaining({
         status: 'pass',
-        current: 255_000,
-        hardLimit: 257_000,
-      })
-    );
-  });
-
-  test('[REGRESSION] hard mode 應允許正好等於 hard cap (257_000 bytes) 的 content bundle 通過', () => {
-    const rootDir = path.join(tempRoot, 'current');
-    const { unpackedDir, reportPath } = createBundleRoot({
-      rootDir,
-      contentSize: 257_000,
-      backgroundSize: 1024,
-      migrationSize: 1024,
-      unpackedSize: 2048,
-    });
-
-    runCli([
-      '--mode=hard',
-      '--scope=bundle',
-      `--root=${rootDir}`,
-      `--unpacked-dir=${unpackedDir}`,
-      `--report-file=${reportPath}`,
-    ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    const contentCheck = report.checks.find(check => check.key === 'content_bundle');
-
-    expect(report.failed).toBe(false);
-    expect(contentCheck).toEqual(
-      expect.objectContaining({
-        status: 'pass',
-        current: 257_000,
+        current: contentSize,
         hardLimit: 257_000,
       })
     );
