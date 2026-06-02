@@ -58,6 +58,49 @@ describe('tools/check-size-gates.mjs', () => {
     };
   };
 
+  const runHardBundleReport = ({
+    rootDir,
+    contentSize = 1024,
+    backgroundSize = 1024,
+    migrationSize = 1024,
+    unpackedSize = 2048,
+  }) => {
+    const { unpackedDir, reportPath } = createBundleRoot({
+      rootDir,
+      contentSize,
+      backgroundSize,
+      migrationSize,
+      unpackedSize,
+    });
+
+    runCli([
+      '--mode=hard',
+      '--scope=bundle',
+      `--root=${rootDir}`,
+      `--unpacked-dir=${unpackedDir}`,
+      `--report-file=${reportPath}`,
+    ]);
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    return JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  };
+
+  const expectHardBundleCheckPass = ({ sizes = {}, checkKey, expected }) => {
+    const report = runHardBundleReport({
+      rootDir: path.join(tempRoot, 'current'),
+      ...sizes,
+    });
+    const check = report.checks.find(check => check.key === checkKey);
+
+    expect(report.failed).toBe(false);
+    expect(check).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        ...expected,
+      })
+    );
+  };
+
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'size-gates-'));
   });
@@ -122,67 +165,29 @@ describe('tools/check-size-gates.mjs', () => {
     ['接近 hard cap', 255_000],
     ['正好等於 hard cap', 257_000],
   ])('[REGRESSION] hard mode 應允許 content bundle %s (%i bytes) 通過', (_label, contentSize) => {
-    const rootDir = path.join(tempRoot, 'current');
-    const { unpackedDir, reportPath } = createBundleRoot({
-      rootDir,
-      contentSize,
-      backgroundSize: 1024,
-      migrationSize: 1024,
-      unpackedSize: 2048,
-    });
+    expect.assertions(2);
 
-    runCli([
-      '--mode=hard',
-      '--scope=bundle',
-      `--root=${rootDir}`,
-      `--unpacked-dir=${unpackedDir}`,
-      `--report-file=${reportPath}`,
-    ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    const contentCheck = report.checks.find(check => check.key === 'content_bundle');
-
-    expect(report.failed).toBe(false);
-    expect(contentCheck).toEqual(
-      expect.objectContaining({
-        status: 'pass',
+    expectHardBundleCheckPass({
+      sizes: { contentSize },
+      checkKey: 'content_bundle',
+      expected: {
         current: contentSize,
         hardLimit: 257_000,
-      })
-    );
+      },
+    });
   });
 
   test('[REGRESSION] hard mode 應允許 background bundle 在 delta gate 內自然成長', () => {
-    const rootDir = path.join(tempRoot, 'current');
-    const { unpackedDir, reportPath } = createBundleRoot({
-      rootDir,
-      contentSize: 1024,
-      backgroundSize: 243_500,
-      migrationSize: 1024,
-      unpackedSize: 2048,
-    });
+    expect.assertions(2);
 
-    runCli([
-      '--mode=hard',
-      '--scope=bundle',
-      `--root=${rootDir}`,
-      `--unpacked-dir=${unpackedDir}`,
-      `--report-file=${reportPath}`,
-    ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    const backgroundCheck = report.checks.find(check => check.key === 'background_bundle');
-
-    expect(report.failed).toBe(false);
-    expect(backgroundCheck).toEqual(
-      expect.objectContaining({
-        status: 'pass',
+    expectHardBundleCheckPass({
+      sizes: { backgroundSize: 243_500 },
+      checkKey: 'background_bundle',
+      expected: {
         current: 243_500,
         hardLimit: 245_000,
-      })
-    );
+      },
+    });
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {
