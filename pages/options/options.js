@@ -1,4 +1,7 @@
 /* global chrome */
+import { applyStaticOptionMessages } from './staticOptionMessages.js';
+export { applyStaticOptionMessages } from './staticOptionMessages.js';
+
 import { UIManager } from './UIManager.js';
 import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
@@ -58,92 +61,6 @@ const NOTION_UUID_SEGMENT_LENGTH = 36;
 const NOTION_ID_SEGMENT_LENGTHS = new Set([NOTION_ID_LENGTH, NOTION_UUID_SEGMENT_LENGTH]);
 const NOTION_ID_HEX_DIGITS = new Set('0123456789abcdefABCDEF'.split(''));
 let destinationProfilesUIController = null;
-
-function resolveUiMessage(path) {
-  if (typeof path !== 'string' || !path) {
-    return '';
-  }
-
-  let value = UI_MESSAGES;
-  for (const key of path.split('.')) {
-    if (!value || typeof value !== 'object') {
-      return '';
-    }
-    value = value[key];
-  }
-
-  return typeof value === 'string' ? value : '';
-}
-
-const COMPOSITE_HANDLERS = {
-  'destination-target-help': element => {
-    const link = element.querySelector('a');
-    if (!link) {
-      return;
-    }
-    element.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_PREFIX),
-      link,
-      document.createTextNode(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX)
-    );
-    link.textContent = UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT;
-  },
-
-  'guide-shortcut-desc': element => {
-    const codes = element.querySelectorAll('code.kbd');
-    if (codes.length !== 2) {
-      return;
-    }
-    const [ctrlCode, cmdCode] = codes;
-    ctrlCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CTRL_KEY;
-    cmdCode.textContent = UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_CMD_KEY;
-    element.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_PREFIX),
-      ctrlCode,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_MIDDLE),
-      cmdCode,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FEATURES_SHORTCUT_DESC_SUFFIX)
-    );
-  },
-
-  'guide-faq-token-answer': element => {
-    const code = element.querySelector('code.inline-code');
-    if (!code) {
-      return;
-    }
-    code.textContent = UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_CODE;
-    element.replaceChildren(
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_PREFIX),
-      code,
-      document.createTextNode(UI_MESSAGES.OPTIONS.GUIDE.FAQ_TOKEN_ANSWER_SUFFIX)
-    );
-  },
-};
-
-export function applyStaticOptionMessages(root = document) {
-  for (const element of root.querySelectorAll('[data-ui-message]')) {
-    element.textContent = resolveUiMessage(element.dataset.uiMessage);
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-placeholder]')) {
-    element.setAttribute('placeholder', resolveUiMessage(element.dataset.uiPlaceholder));
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-title]')) {
-    element.setAttribute('title', resolveUiMessage(element.dataset.uiTitle));
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-aria-label]')) {
-    element.setAttribute('aria-label', resolveUiMessage(element.dataset.uiAriaLabel));
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-composite]')) {
-    const handler = COMPOSITE_HANDLERS[element.dataset.uiComposite];
-    if (handler) {
-      handler(element);
-    }
-  }
-}
 
 function normalizeDestinationProfileName(value) {
   return typeof value === 'string'
