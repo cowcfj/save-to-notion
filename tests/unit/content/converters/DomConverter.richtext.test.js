@@ -101,5 +101,33 @@ describe('DomConverter 富文字處理', () => {
       expect(result).toHaveLength(1);
       expect(result[0].text.content).toBe('\n  const answer = 42;\n');
     });
+
+    test('重構 context 後仍保留 code whitespace 且符合 boundary trim semantics', () => {
+      const input = [
+        {
+          type: 'text',
+          text: { content: '  ' },
+          annotations: { code: true },
+        },
+        {
+          type: 'text',
+          text: { content: '\n  code_here();\n' },
+          annotations: { code: true },
+        },
+      ];
+      const result = DomConverter._processRichTextArray(input);
+      expect(result).toHaveLength(2);
+      expect(result[0].text.content).toBe('  ');
+      expect(result[1].text.content).toBe('\n  code_here();\n');
+    });
+
+    test('重構 context 後仍不 mutate original rich text item', () => {
+      const input = [{ type: 'text', text: { content: '  Hello  ' }, annotations: { bold: true } }];
+      const clonedInput = structuredClone(input);
+
+      const result = DomConverter._processRichTextArray(input);
+      expect(input).toEqual(clonedInput);
+      expect(result[0].text.content).toBe('Hello');
+    });
   });
 });

@@ -118,11 +118,25 @@ function resolveStyle(styleKey, highlight) {
  * @returns {number} 比對分數
  */
 function scoreCandidate(fullText, idx, text, context) {
-  const { prefix, suffix } = context;
+  const indexedFullText = buildSearchIndex(fullText);
+  const normalizedText = normalizeTextForSearch(text);
+  const candidate =
+    findCandidateMatches(indexedFullText, normalizedText).find(match => match.start === idx) ??
+    createFallbackCandidate(idx, normalizedText);
+
+  return scoreCandidateMatch(indexedFullText, candidate, context);
+}
+
+function scoreCandidateMatch(indexedFullText, candidate, context) {
+  const prefix = normalizeTextForSearch(context.prefix, { trim: false });
+  const suffix = normalizeTextForSearch(context.suffix, { trim: false });
   let score = 0;
 
   if (prefix) {
-    const actualPrefix = fullText.slice(Math.max(0, idx - prefix.length), idx);
+    const actualPrefix = indexedFullText.text.slice(
+      Math.max(0, candidate.normalizedStart - prefix.length),
+      candidate.normalizedStart
+    );
     if (actualPrefix.endsWith(prefix)) {
       score += HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
     } else if (
@@ -133,7 +147,10 @@ function scoreCandidate(fullText, idx, text, context) {
   }
 
   if (suffix) {
-    const actualSuffix = fullText.slice(idx + text.length, idx + text.length + suffix.length);
+    const actualSuffix = indexedFullText.text.slice(
+      candidate.normalizedEnd,
+      candidate.normalizedEnd + suffix.length
+    );
     if (actualSuffix.startsWith(suffix)) {
       score += HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
     } else if (
@@ -146,15 +163,63 @@ function scoreCandidate(fullText, idx, text, context) {
   return score;
 }
 
-function findCandidatePositions(fullText, text) {
+function normalizeTextForSearch(text, options = {}) {
+  if (typeof text !== 'string') {
+    return '';
+  }
+
+  const normalized = text.replaceAll(/\s+/g, ' ');
+  return options.trim === false ? normalized : normalized.trim();
+}
+
+function createFallbackCandidate(idx, normalizedText) {
+  return {
+    start: idx,
+    end: idx + normalizedText.length,
+    normalizedStart: idx,
+    normalizedEnd: idx + normalizedText.length,
+  };
+}
+
+function buildSearchIndex(fullText) {
+  const charMap = [];
+  let text = '';
+  let index = 0;
+
+  while (index < fullText.length) {
+    if (/\s/.test(fullText[index])) {
+      const whitespaceStart = index;
+      while (index < fullText.length && /\s/.test(fullText[index])) {
+        index++;
+      }
+      text += ' ';
+      charMap.push({ start: whitespaceStart, end: index });
+      continue;
+    }
+
+    text += fullText[index];
+    charMap.push({ start: index, end: index + 1 });
+    index++;
+  }
+
+  return { text, charMap };
+}
+
+function findCandidateMatches(indexedFullText, normalizedText) {
   const candidates = [];
   let searchStart = 0;
-  while (searchStart < fullText.length) {
-    const idx = fullText.indexOf(text, searchStart);
+  while (searchStart < indexedFullText.text.length) {
+    const idx = indexedFullText.text.indexOf(normalizedText, searchStart);
     if (idx === -1) {
       break;
     }
-    candidates.push(idx);
+    const lastCharMap = indexedFullText.charMap[idx + normalizedText.length - 1];
+    candidates.push({
+      start: indexedFullText.charMap[idx].start,
+      end: lastCharMap.end,
+      normalizedStart: idx,
+      normalizedEnd: idx + normalizedText.length,
+    });
     searchStart = idx + 1;
   }
   return candidates;
@@ -172,7 +237,11 @@ function findCandidatePositions(fullText, text) {
 function extractContextFromRangeInfo(rangeInfo) {
   const prefix = rangeInfo?.prefix || '';
   const suffix = rangeInfo?.suffix || '';
-  return { prefix, suffix, hasContext: Boolean(prefix || suffix) };
+  return {
+    prefix,
+    suffix,
+    hasContext: Boolean(normalizeTextForSearch(prefix) || normalizeTextForSearch(suffix)),
+  };
 }
 
 /**
@@ -181,17 +250,16 @@ function extractContextFromRangeInfo(rangeInfo) {
  * 無上下文資訊時直接接受;有上下文資訊時要求 prefix/suffix 至少部分重合,
  * 否則視為跨段落殘留誤命中而拒絕。
  *
- * @param {string} fullText - 拼接後的純文本
- * @param {number} idx - 唯一候選的位置索引
- * @param {string} text - 標註文字
+ * @param {{ text: string, charMap: Array<{start: number, end: number}> }} indexedFullText - 正規化文字索引
+ * @param {{ start: number, end: number, normalizedStart: number, normalizedEnd: number }} candidate - 候選匹配
  * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
- * @returns {number} 接受時為 idx,拒絕時為 -1
+ * @returns {object|null} 接受時為候選匹配，拒絕時為 null
  */
-function resolveSingleCandidate(fullText, idx, text, context) {
+function resolveSingleCandidate(indexedFullText, candidate, context) {
   if (!context.hasContext) {
-    return idx;
+    return candidate;
   }
-  return scoreCandidate(fullText, idx, text, context) > 0 ? idx : -1;
+  return scoreCandidateMatch(indexedFullText, candidate, context) > 0 ? candidate : null;
 }
 
 /**
@@ -199,28 +267,27 @@ function resolveSingleCandidate(fullText, idx, text, context) {
  *
  * 相同分數回退到第一個候選;有上下文資訊但全部候選評分為 0 時拒絕匹配。
  *
- * @param {string} fullText - 拼接後的純文本
- * @param {Array<number>} candidates - 候選位置索引陣列(MUST length > 0)
- * @param {string} text - 標註文字
+ * @param {{ text: string, charMap: Array<{start: number, end: number}> }} indexedFullText - 正規化文字索引
+ * @param {Array<{ start: number, end: number, normalizedStart: number, normalizedEnd: number }>} candidates - 候選匹配陣列(MUST length > 0)
  * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
- * @returns {number} 最佳候選位置;若有上下文但無任何候選分數 > 0 則回 -1
+ * @returns {object|null} 最佳候選匹配;若有上下文但無任何候選分數 > 0 則回 null
  */
-function resolveBestScoringCandidate(fullText, candidates, text, context) {
-  let bestIdx = candidates[0];
+function resolveBestScoringCandidate(indexedFullText, candidates, context) {
+  let bestCandidate = candidates[0];
   let bestScore = -1;
 
-  for (const idx of candidates) {
-    const score = scoreCandidate(fullText, idx, text, context);
+  for (const candidate of candidates) {
+    const score = scoreCandidateMatch(indexedFullText, candidate, context);
     if (score > bestScore) {
       bestScore = score;
-      bestIdx = idx;
+      bestCandidate = candidate;
     }
   }
 
   if (context.hasContext && bestScore === 0) {
-    return -1;
+    return null;
   }
-  return bestIdx;
+  return bestCandidate;
 }
 
 // ============================================================================
@@ -239,32 +306,39 @@ function resolveBestScoringCandidate(fullText, candidates, text, context) {
  * @returns {number} 匹配到的字符偏移量（在拼接純文本中），-1 表示未找到
  */
 function findHighlightPosition(richTextArray, highlight, fullText) {
+  const match = findHighlightMatch(richTextArray, highlight, fullText);
+  return match ? match.start : -1;
+}
+
+function findHighlightMatch(richTextArray, highlight, fullText) {
   if (!Array.isArray(richTextArray)) {
-    return -1;
+    return null;
   }
   if (typeof fullText !== 'string') {
     throw new TypeError('[HighlightMerger] fullText is required');
   }
 
   const { text, rangeInfo } = highlight;
-  if (!text || fullText.length === 0) {
-    return -1;
+  const normalizedText = normalizeTextForSearch(text);
+  if (!normalizedText || fullText.length === 0) {
+    return null;
   }
 
   const context = extractContextFromRangeInfo(rangeInfo);
+  const indexedFullText = buildSearchIndex(fullText);
 
   // 2. 找出所有匹配位置
-  const candidates = findCandidatePositions(fullText, text);
+  const candidates = findCandidateMatches(indexedFullText, normalizedText);
 
   if (candidates.length === 0) {
-    return -1;
+    return null;
   }
   if (candidates.length === 1) {
-    return resolveSingleCandidate(fullText, candidates[0], text, context);
+    return resolveSingleCandidate(indexedFullText, candidates[0], context);
   }
 
   // 3. prefix/suffix 計分消歧義：取最高分的候選
-  return resolveBestScoringCandidate(fullText, candidates, text, context);
+  return resolveBestScoringCandidate(indexedFullText, candidates, context);
 }
 
 /**
@@ -407,9 +481,9 @@ function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
     if (consumed?.has(key)) {
       continue;
     }
-    const pos = findHighlightPosition(richTextArray, hl, fullText);
-    if (pos !== -1) {
-      matches.push({ start: pos, end: pos + hl.text.length, highlight: hl });
+    const match = findHighlightMatch(richTextArray, hl, fullText);
+    if (match) {
+      matches.push({ start: match.start, end: match.end, highlight: hl });
       if (consumed) {
         consumed.add(key);
       }

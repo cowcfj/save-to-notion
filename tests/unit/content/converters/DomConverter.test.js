@@ -245,6 +245,40 @@ describe('DomConverter', () => {
       expect(blocks[0].image.external.url).toBe(src);
     });
 
+    test('should keep resolved absolute URL when cleanImageUrl throws for relative src', () => {
+      const src = '/images/error.jpg';
+      const expectedUrl = new URL(src, document.baseURI).href;
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+      globalThis.ImageUtils.cleanImageUrl.mockImplementationOnce(() => {
+        throw new Error('Clean Error');
+      });
+
+      const html = `<img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].image.external.url).toBe(expectedUrl);
+    });
+
+    test('should keep resolved absolute URL when cleanImageUrl is unavailable', () => {
+      const src = '/images/no-cleaner.jpg';
+      const expectedUrl = new URL(src, document.baseURI).href;
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+      const originalCleanImageUrl = globalThis.ImageUtils.cleanImageUrl;
+
+      try {
+        globalThis.ImageUtils.cleanImageUrl = null;
+
+        const html = `<img src="${src}" />`;
+        const blocks = domConverter.convert(html);
+
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].image.external.url).toBe(expectedUrl);
+      } finally {
+        globalThis.ImageUtils.cleanImageUrl = originalCleanImageUrl;
+      }
+    });
+
     test('should drop image if validCleanedImageUrl returns false', () => {
       const src = 'https://example.com/invalid.jpg';
       globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
