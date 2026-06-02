@@ -86,6 +86,36 @@ describe('ContentBridge', () => {
       expect(result.title).toBe('Article Title');
     });
 
+    test('應處理 null metadata 並從 rawArticle 回退標題', () => {
+      const extractedContent = {
+        content: '<p>Test</p>',
+        type: 'html',
+        metadata: null,
+        rawArticle: { title: 'Article Title' },
+      };
+
+      const mockConverter = {
+        convert: jest.fn(() => [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: { rich_text: [{ type: 'text', text: { content: 'Test' } }] },
+          },
+        ]),
+      };
+
+      const result = bridgeContentToBlocks(extractedContent, {
+        htmlConverter: mockConverter,
+        includeTitle: true,
+        includeFeaturedImage: true,
+      });
+
+      expect(result.title).toBe('Article Title');
+      expect(result.siteIcon).toBeNull();
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].type).toBe('paragraph');
+    });
+
     test('應調用 HTML 轉換器處理 HTML 內容', () => {
       const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
       const mockConverter = {
