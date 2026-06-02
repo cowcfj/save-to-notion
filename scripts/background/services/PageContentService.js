@@ -29,6 +29,95 @@ const CONTENT_EXTRACTION_SCRIPTS = [
   'dist/content.bundle.js',
 ];
 
+async function extractPageContentInPage(defaultPageTitle) {
+  /* eslint-disable unicorn/consistent-function-scoping -- chrome.scripting.executeScript 序列化限制：func 無法捕獲外部閉包，必須內聯定義 */
+  // 此函數在頁面上下文中執行
+  const PageLogger = globalThis.Logger || console;
+
+  // Helper: 建立 fallback paragraph block
+  function buildParagraphBlock(message) {
+    return {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: message },
+          },
+        ],
+      },
+    };
+  }
+
+  // Helper: 建立 failed / fallback result
+  function buildPageFallbackResult(titleFallback, message) {
+    return {
+      extractionStatus: 'failed',
+      title: document.title || titleFallback,
+      blocks: [buildParagraphBlock(message)],
+      siteIcon: null,
+      coverImage: null,
+    };
+  }
+
+  function resolveExtractedPageTitle(extractResult, titleFallback) {
+    return extractResult.title || document.title || titleFallback;
+  }
+
+  function resolveExtractedSiteIcon(metadata) {
+    return metadata?.siteIcon || metadata?.favicon || null;
+  }
+
+  function buildMergedExtractedBlocks(extractResult) {
+    const contentBlocks = extractResult.blocks || [];
+    const imageBlocks = extractResult.additionalImages || [];
+
+    return [...contentBlocks, ...imageBlocks];
+  }
+
+  // Helper: 標準化提取結果
+  function normalizeExtractPageContentResult(extractResult, titleFallback) {
+    const coverImage = extractResult.coverImage || null;
+
+    return {
+      extractionStatus: extractResult.extractionStatus || 'success',
+      title: resolveExtractedPageTitle(extractResult, titleFallback),
+      blocks: buildMergedExtractedBlocks(extractResult),
+      siteIcon: resolveExtractedSiteIcon(extractResult.metadata),
+      coverImage,
+    };
+  }
+  /* eslint-enable unicorn/consistent-function-scoping */
+
+  try {
+    PageLogger.log?.('[PageContentService] 調用 extractPageContent');
+
+    // Guard: extractPageContent 不可用
+    if (typeof globalThis.extractPageContent !== 'function') {
+      PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
+      return buildPageFallbackResult(
+        defaultPageTitle,
+        'Content extraction: extractPageContent not available.'
+      );
+    }
+
+    const extractResult = await globalThis.extractPageContent();
+    const normalized = normalizeExtractPageContentResult(extractResult, defaultPageTitle);
+
+    PageLogger.log?.('✅ [PageContentService] 提取成功', {
+      contentBlocks: (extractResult.blocks || []).length,
+      imageBlocks: (extractResult.additionalImages || []).length,
+      hasCoverImage: Boolean(extractResult.coverImage),
+    });
+
+    return normalized;
+  } catch (error) {
+    PageLogger.error?.('[PageContentService] 提取失敗', { error });
+    return buildPageFallbackResult(defaultPageTitle, `Extraction failed: ${error.message}`);
+  }
+}
+
 /**
  * PageContentService 類
  */
@@ -61,136 +150,89 @@ class PageContentService {
       // 注入 bundle 並執行提取
       const result = await this.injectionService.injectWithResponse(
         tabId,
-        async defaultPageTitle => {
-          // 此函數在頁面上下文中執行
-          const PageLogger = globalThis.Logger || console;
-
-          try {
-            PageLogger.log?.('[PageContentService] 調用 extractPageContent');
-
-            // 使用 content.bundle.js 暴露的 extractPageContent
-            if (typeof globalThis.extractPageContent === 'function') {
-              const extractResult = await globalThis.extractPageContent();
-
-              const contentBlocks = extractResult.blocks || [];
-              const imageBlocks = extractResult.additionalImages || [];
-              const coverImage = extractResult.coverImage || null;
-
-              PageLogger.log?.('✅ [PageContentService] 提取成功', {
-                contentBlocks: contentBlocks.length,
-                imageBlocks: imageBlocks.length,
-                hasCoverImage: Boolean(coverImage),
-              });
-
-              // 適配返回格式：添加 siteIcon 和 coverImage
-              return {
-                extractionStatus: extractResult.extractionStatus || 'success',
-                title: extractResult.title || document.title || defaultPageTitle,
-                blocks: [...contentBlocks, ...imageBlocks],
-                siteIcon:
-                  extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
-                coverImage, // 封面圖片 URL（供 Notion cover 使用）
-              };
-            }
-
-            // Fallback: 基本提取
-            PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
-            return {
-              extractionStatus: 'failed',
-              title: document.title || defaultPageTitle,
-              blocks: [
-                {
-                  object: 'block',
-                  type: 'paragraph',
-                  paragraph: {
-                    rich_text: [
-                      {
-                        type: 'text',
-                        text: { content: 'Content extraction: extractPageContent not available.' },
-                      },
-                    ],
-                  },
-                },
-              ],
-              siteIcon: null,
-              coverImage: null,
-            };
-          } catch (error) {
-            PageLogger.error?.('[PageContentService] 提取失敗', { error });
-            return {
-              extractionStatus: 'failed',
-              title: document.title || defaultPageTitle,
-              blocks: [
-                {
-                  object: 'block',
-                  type: 'paragraph',
-                  paragraph: {
-                    rich_text: [
-                      {
-                        type: 'text',
-                        text: { content: `Extraction failed: ${error.message}` },
-                      },
-                    ],
-                  },
-                },
-              ],
-              siteIcon: null,
-              coverImage: null,
-            };
-          }
-        },
+        extractPageContentInPage,
         CONTENT_EXTRACTION_SCRIPTS,
         [CONTENT_QUALITY.DEFAULT_PAGE_TITLE]
       );
 
       // 處理注入結果
-      // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
-      if (result?.extractionStatus === 'failed' && result?.title && Array.isArray(result?.blocks)) {
-        this.logger.warn?.('[PageContentService] 提取失敗結果已返回', {
-          title: result.title,
-          blockCount: result.blocks.length,
-          error: result.error || null,
-        });
-        return result;
-      }
-
-      if (
-        result?.extractionStatus === 'success' &&
-        result?.title &&
-        Array.isArray(result?.blocks)
-      ) {
-        this.logger.success?.('[PageContentService] 提取成功', {
-          title: result.title,
-          blockCount: result.blocks.length,
-          hasSiteIcon: Boolean(result.siteIcon),
-          hasCoverImage: Boolean(result.coverImage),
-        });
-        return result;
-      }
-
-      // 結果無效
-      this.logger.warn?.('[PageContentService] 提取結果無效', {
-        resultKeys: Object.keys(result || {}),
-      });
-      return {
-        extractionStatus: 'failed',
-        title: CONTENT_QUALITY.DEFAULT_PAGE_TITLE,
-        blocks: [
-          {
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [{ type: 'text', text: { content: 'Invalid extraction result.' } }],
-            },
-          },
-        ],
-        siteIcon: null,
-        coverImage: null,
-      };
+      return this._handleExtractionResult(result);
     } catch (error) {
       this.logger.error?.('[PageContentService] 注入失敗', { error });
       throw error;
     }
+  }
+
+  /**
+   * 判斷結果是否為完整有效的提取結構
+   *
+   * @param {object} result - 提取結果
+   * @param {string} status - 期望的 extractionStatus ('success' 或 'failed')
+   * @returns {boolean}
+   * @private
+   */
+  _isCompleteExtractionResult(result, status) {
+    return result?.extractionStatus === status && result?.title && Array.isArray(result?.blocks);
+  }
+
+  /**
+   * 建立無效提取結果的回退結構
+   *
+   * @returns {object}
+   * @private
+   */
+  _buildInvalidExtractionResult() {
+    return {
+      extractionStatus: 'failed',
+      title: CONTENT_QUALITY.DEFAULT_PAGE_TITLE,
+      blocks: [
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [{ type: 'text', text: { content: 'Invalid extraction result.' } }],
+          },
+        },
+      ],
+      siteIcon: null,
+      coverImage: null,
+    };
+  }
+
+  /**
+   * 處理提取結果，處理 Logging 副作用並返回最終格式
+   *
+   * @param {object} result - 注入腳本返回的結果
+   * @returns {object}
+   * @private
+   */
+  _handleExtractionResult(result) {
+    // 1. 失敗但完整的結果
+    if (this._isCompleteExtractionResult(result, 'failed')) {
+      this.logger.warn?.('[PageContentService] 提取失敗結果已返回', {
+        title: result.title,
+        blockCount: result.blocks.length,
+        error: result.error || null,
+      });
+      return result;
+    }
+
+    // 2. 成功的結果
+    if (this._isCompleteExtractionResult(result, 'success')) {
+      this.logger.success?.('[PageContentService] 提取成功', {
+        title: result.title,
+        blockCount: result.blocks.length,
+        hasSiteIcon: Boolean(result.siteIcon),
+        hasCoverImage: Boolean(result.coverImage),
+      });
+      return result;
+    }
+
+    // 3. 無效的結果
+    this.logger.warn?.('[PageContentService] 提取結果無效', {
+      resultKeys: Object.keys(result || {}),
+    });
+    return this._buildInvalidExtractionResult();
   }
 
   /**
