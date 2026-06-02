@@ -35,8 +35,9 @@ function createDeferred() {
 }
 
 async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
 }
 
 describe('Content Script Entry (index.js)', () => {
