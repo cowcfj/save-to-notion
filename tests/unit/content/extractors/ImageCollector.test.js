@@ -1035,6 +1035,31 @@ describe('ImageCollector', () => {
       expect(allImages).toHaveLength(1);
       expect(allImages[0]).toBe(mockImg1);
     });
+
+    test('_collectFromExpansion should request iterable exclusion results from cachedQuery', () => {
+      const mockImg1 = document.createElement('img'); // valid
+      const mockImg2 = document.createElement('img'); // inside ad
+      const adEl = document.createElement('div');
+      adEl.className = 'ad';
+      adEl.append(mockImg2);
+
+      cachedQuery.mockImplementation((selector, _context, options = {}) => {
+        if (selector === 'img') {
+          return [mockImg1, mockImg2];
+        }
+        if (selector === '.ad img') {
+          return options.all ? [mockImg2] : mockImg2;
+        }
+        return [];
+      });
+
+      const allImages = [];
+      expect(() => ImageCollector._collectFromExpansion(allImages)).not.toThrow();
+
+      expect(cachedQuery).toHaveBeenCalledWith('.ad img', document, { all: true });
+      expect(allImages).toHaveLength(1);
+      expect(allImages[0]).toBe(mockImg1);
+    });
   });
 
   describe('_processImages native batch behaviors', () => {

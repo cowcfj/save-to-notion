@@ -916,7 +916,7 @@ const ImageCollector = {
    */
   _isImageExcludedFromExpansion(img) {
     for (const selector of EXCLUSION_SELECTORS) {
-      const excludeElements = cachedQuery(selector, document);
+      const excludeElements = cachedQuery(selector, document, { all: true });
       for (const excludeEl of excludeElements) {
         if (excludeEl.contains(img)) {
           return true;
