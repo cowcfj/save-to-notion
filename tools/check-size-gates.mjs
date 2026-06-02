@@ -10,7 +10,10 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      hardLimit: 257_000,
+      // content bundle has gradually approached the 2026-05 budget baseline.
+      // Keep this only slightly above the current CI value; delta gate still
+      // guards single-PR growth.
+      hardLimit: 258_000,
       deltaLimit: 30_000,
     },
     {

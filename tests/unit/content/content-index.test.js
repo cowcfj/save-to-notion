@@ -35,8 +35,9 @@ function createDeferred() {
 }
 
 async function flushPromises() {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
 }
 
 describe('Content Script Entry (index.js)', () => {
@@ -125,6 +126,17 @@ describe('Content Script Entry (index.js)', () => {
           nextRouteInfo: expect.objectContaining({ page: '/p1' }),
         })
       );
+    });
+
+    test('[REGRESSION] malformed runtime messages should be ignored without throwing', () => {
+      const sendResponse = jest.fn();
+
+      expect(() => {
+        messageHandler(null, {}, sendResponse);
+      }).not.toThrow();
+      expect(messageHandler(null, {}, sendResponse)).toBe(false);
+      expect(messageHandler(undefined, {}, sendResponse)).toBe(false);
+      expect(sendResponse).not.toHaveBeenCalled();
     });
 
     test('showHighlighter 應優先調用 rail.show', () => {
@@ -643,7 +655,7 @@ describe('Content Script Entry (index.js)', () => {
       globalThis.chrome.runtime.lastError = null;
     });
 
-    test('應該處理重放事件', () => {
+    test('應該處理重放事件', async () => {
       const rail = {
         show: jest.fn(),
         activateHighlighting: jest.fn(),
@@ -658,6 +670,7 @@ describe('Content Script Entry (index.js)', () => {
       const replayCallback = replayCall[1];
 
       replayCallback({ events: [{ type: 'shortcut' }] });
+      await flushPromises();
 
       expect(rail.show).toHaveBeenCalled();
       expect(rail.activateHighlighting).toHaveBeenCalledWith();
@@ -680,7 +693,59 @@ describe('Content Script Entry (index.js)', () => {
       );
     });
 
-    test('重放 shortcut 事件失敗時應記錄警告並繼續', () => {
+    test('重放 shortcut 事件應使用標準 rail reveal flow 喚回 dismissed rail', async () => {
+      const rail = {
+        stateManager: { isDismissed: true },
+        undismiss: jest.fn(),
+        show: jest.fn(),
+        activateHighlighting: jest.fn(),
+      };
+      globalThis.HighlighterV2 = { rail };
+
+      const replayCall = sendMessageMock.mock.calls.find(
+        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
+      );
+      const replayCallback = replayCall[1];
+
+      replayCallback({ events: [{ type: 'shortcut' }] });
+      await flushPromises();
+
+      expect(rail.undismiss).toHaveBeenCalledWith();
+      expect(rail.show).not.toHaveBeenCalled();
+      expect(rail.activateHighlighting).toHaveBeenCalledWith();
+
+      delete globalThis.HighlighterV2;
+    });
+
+    test('重放 shortcut 事件應等待 async rail reveal 後再啟動標註', async () => {
+      const undismissDeferred = createDeferred();
+      const rail = {
+        stateManager: { isDismissed: true },
+        undismiss: jest.fn(() => undismissDeferred.promise),
+        activateHighlighting: jest.fn(),
+      };
+      globalThis.HighlighterV2 = { rail };
+
+      const replayCall = sendMessageMock.mock.calls.find(
+        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
+      );
+      const replayCallback = replayCall[1];
+
+      replayCallback({ events: [{ type: 'shortcut' }] });
+      await flushPromises();
+
+      expect(rail.undismiss).toHaveBeenCalledWith();
+      expect(rail.activateHighlighting).not.toHaveBeenCalled();
+
+      undismissDeferred.resolve();
+      await flushPromises();
+
+      expect(rail.activateHighlighting).toHaveBeenCalledWith();
+
+      delete globalThis.HighlighterV2;
+    });
+
+    test('重放 shortcut 事件失敗時應記錄警告並繼續', async () => {
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn(() => {
@@ -696,6 +761,7 @@ describe('Content Script Entry (index.js)', () => {
       const replayCallback = replayCall[1];
 
       replayCallback({ events: [{ type: 'shortcut' }] });
+      await flushPromises();
 
       expect(Logger.warn).toHaveBeenCalledWith(
         '重放快捷鍵事件失敗，繼續處理後續事件',
@@ -724,8 +790,9 @@ describe('Content Script Entry (index.js)', () => {
           sendResponse
         );
 
-        expect(result).toBe(false); // Handler finishes synchronously
+        expect(result).toBe(true);
         expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/?p=123');
+        expect(sendResponse).toHaveBeenCalledWith({ success: true });
       });
 
       test('應該接受帶有具體路徑的 URL', () => {
@@ -736,8 +803,9 @@ describe('Content Script Entry (index.js)', () => {
           sendResponse
         );
 
-        expect(result).toBe(false); // Handler finishes synchronously
+        expect(result).toBe(true);
         expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/posts/123/');
+        expect(sendResponse).toHaveBeenCalledWith({ success: true });
       });
 
       test('應該拒絕純首頁（無路徑無 query）', () => {
@@ -749,8 +817,12 @@ describe('Content Script Entry (index.js)', () => {
           sendResponse
         );
 
-        expect(result).toBe(false); // Rejected
+        expect(result).toBe(true);
         expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
+        expect(sendResponse).toHaveBeenCalledWith({
+          success: false,
+          error: 'INVALID_STABLE_URL',
+        });
         expect(Logger.debug).toHaveBeenCalledWith(
           '拒絕設置首頁 URL 為穩定 URL',
           expect.any(Object)
@@ -766,12 +838,40 @@ describe('Content Script Entry (index.js)', () => {
           sendResponse
         );
 
-        expect(result).toBe(false); // Rejected
+        expect(result).toBe(true);
         expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
+        expect(sendResponse).toHaveBeenCalledWith({
+          success: false,
+          error: 'INVALID_STABLE_URL',
+        });
         expect(Logger.debug).toHaveBeenCalledWith(
           '拒絕設置無效 URL 為穩定 URL',
           expect.any(Object)
         );
+      });
+
+      test('GET_STABLE_URL 應回傳目前 stableUrl', () => {
+        globalThis.__NOTION_STABLE_URL__ = 'https://example.com/posts/123/';
+        const sendResponse = jest.fn();
+
+        const result = messageHandler({ action: 'GET_STABLE_URL' }, {}, sendResponse);
+
+        expect(result).toBe(true);
+        expect(sendResponse).toHaveBeenCalledWith({
+          stableUrl: 'https://example.com/posts/123/',
+        });
+      });
+
+      test('INIT_BUNDLE 應回傳 bundle ready 狀態與 bufferedEvents', () => {
+        const sendResponse = jest.fn();
+
+        const result = messageHandler({ action: 'INIT_BUNDLE' }, {}, sendResponse);
+
+        expect(result).toBe(true);
+        expect(sendResponse).toHaveBeenCalledWith({
+          ready: true,
+          bufferedEvents: expect.any(Number),
+        });
       });
     });
 
@@ -827,6 +927,14 @@ describe('Content Script Entry (index.js)', () => {
       expect(result.debug.imageMetrics.candidateCount).toBe(3);
       expect(result.debug.imageMetrics.hasCoverImage).toBe(true);
       expect(result.debug.imageMetrics.durationMs).toBeGreaterThanOrEqual(0);
+      expect(Logger.info).toHaveBeenCalledWith('正在將內容轉換為 Notion 區塊', {
+        action: 'extractPageContent',
+        type: 'readability',
+      });
+      expect(Logger.info).toHaveBeenCalledWith('內容轉換完成', {
+        action: 'extractPageContent',
+        blockCount: 1,
+      });
     });
 
     test('應該在圖片收集失敗時仍返回成功結果且 imageMetrics 為 null', async () => {
@@ -907,6 +1015,20 @@ describe('Content Script Entry (index.js)', () => {
       const result = await extractPageContent();
 
       expect(result.blocks[0]).toEqual(leadImg);
+      expect(Logger.log).toHaveBeenCalledWith(
+        '正文無圖片，已將首張額外圖片插入文章開頭',
+        expect.objectContaining({
+          action: 'extractPageContent',
+          hasLeadImage: true,
+          sourceType: 'image',
+        })
+      );
+      expect(Logger.log).not.toHaveBeenCalledWith(
+        '正文無圖片，已將首張額外圖片插入文章開頭',
+        expect.objectContaining({
+          imageUrl: expect.any(String),
+        })
+      );
     });
 
     test('應優先使用預提取 blocks，並將 nextjs blocks 傳給 ImageCollector', async () => {
@@ -943,6 +1065,12 @@ describe('Content Script Entry (index.js)', () => {
           imageMetrics: { candidateCount: 0, finalCount: 0 },
         })
       );
+      expect(Logger.info).toHaveBeenCalledWith('使用預提取的 Notion 區塊', {
+        action: 'extractPageContent',
+        type: 'nextjs',
+        count: 2,
+        imageCount: 1,
+      });
     });
 
     test('應該在提取不到內容時返回後備區塊', async () => {
@@ -953,7 +1081,9 @@ describe('Content Script Entry (index.js)', () => {
 
       const result = await extractPageContent();
 
-      expect(result.blocks[0].paragraph.rich_text[0].text.content).toMatch(/failed/i);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe(
+        '擷取內容失敗。頁面可能為空白或受保護。'
+      );
       expect(result.extractionStatus).toBe('failed');
     });
 
@@ -962,7 +1092,10 @@ describe('Content Script Entry (index.js)', () => {
 
       const result = await extractPageContent();
 
-      expect(result.error).toBe('Unexpected crash');
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe(
+        '擷取發生錯誤，請稍後再試。'
+      );
+      expect(result).not.toHaveProperty('error');
       expect(result.extractionStatus).toBe('failed');
     });
 
