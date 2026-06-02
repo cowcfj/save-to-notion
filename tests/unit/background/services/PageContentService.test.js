@@ -154,6 +154,30 @@ describe('PageContentService', () => {
         })
       );
     });
+
+    test('應原樣返回失敗提取結果，若該結果具備 title 與 blocks，並記錄警告日誌', async () => {
+      const mockResult = {
+        extractionStatus: 'failed',
+        title: 'Failed Test Page',
+        blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
+        siteIcon: null,
+        error: 'Some content parse error',
+      };
+
+      mockInjectionService.injectWithResponse.mockResolvedValue(mockResult);
+
+      const result = await service.extractContent(TEST_TAB_ID);
+
+      expect(result).toBe(mockResult);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('提取失敗結果已返回'),
+        expect.objectContaining({
+          title: 'Failed Test Page',
+          blockCount: 1,
+          error: 'Some content parse error',
+        })
+      );
+    });
   });
 
   describe('getRequiredScripts', () => {
@@ -299,6 +323,53 @@ describe('PageContentService', () => {
         'Extraction failed: Injected Error'
       );
       expect(result.extractionStatus).toBe('failed');
+    });
+
+    test('extractPageContent 應該在 blocks 後方附加 additionalImages', async () => {
+      const mockInjector = createMockInjector(global => {
+        global.extractPageContent = jest.fn().mockResolvedValue({
+          extractionStatus: 'success',
+          title: 'Main Title',
+          blocks: [
+            { type: 'paragraph', paragraph: { rich_text: [{ text: { content: 'Main' } }] } },
+          ],
+          additionalImages: [
+            { type: 'image', image: { type: 'external', external: { url: 'img.png' } } },
+          ],
+          metadata: { siteIcon: 'icon.png' },
+        });
+      });
+
+      const injectedService = new PageContentService({
+        injectionService: mockInjector,
+        logger: mockLogger,
+      });
+
+      const result = await injectedService.extractContent(TEST_TAB_ID);
+
+      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('Main');
+      expect(result.blocks[1].type).toBe('image');
+    });
+
+    test('siteIcon 應該在 metadata.siteIcon 缺失時，回退至 metadata.favicon', async () => {
+      const mockInjector = createMockInjector(global => {
+        global.extractPageContent = jest.fn().mockResolvedValue({
+          extractionStatus: 'success',
+          title: 'Favicon Title',
+          blocks: [],
+          metadata: { favicon: 'favicon.ico' },
+        });
+      });
+
+      const injectedService = new PageContentService({
+        injectionService: mockInjector,
+        logger: mockLogger,
+      });
+
+      const result = await injectedService.extractContent(TEST_TAB_ID);
+
+      expect(result.siteIcon).toBe('favicon.ico');
     });
   });
 });
