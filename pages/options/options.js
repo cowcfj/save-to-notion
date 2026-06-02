@@ -121,28 +121,28 @@ const COMPOSITE_HANDLERS = {
 };
 
 export function applyStaticOptionMessages(root = document) {
-  root.querySelectorAll('[data-ui-message]').forEach(element => {
+  for (const element of root.querySelectorAll('[data-ui-message]')) {
     element.textContent = resolveUiMessage(element.dataset.uiMessage);
-  });
+  }
 
-  root.querySelectorAll('[data-ui-placeholder]').forEach(element => {
+  for (const element of root.querySelectorAll('[data-ui-placeholder]')) {
     element.setAttribute('placeholder', resolveUiMessage(element.dataset.uiPlaceholder));
-  });
+  }
 
-  root.querySelectorAll('[data-ui-title]').forEach(element => {
+  for (const element of root.querySelectorAll('[data-ui-title]')) {
     element.setAttribute('title', resolveUiMessage(element.dataset.uiTitle));
-  });
+  }
 
-  root.querySelectorAll('[data-ui-aria-label]').forEach(element => {
+  for (const element of root.querySelectorAll('[data-ui-aria-label]')) {
     element.setAttribute('aria-label', resolveUiMessage(element.dataset.uiAriaLabel));
-  });
+  }
 
-  root.querySelectorAll('[data-ui-composite]').forEach(element => {
+  for (const element of root.querySelectorAll('[data-ui-composite]')) {
     const handler = COMPOSITE_HANDLERS[element.dataset.uiComposite];
     if (handler) {
       handler(element);
     }
-  });
+  }
 }
 
 function normalizeDestinationProfileName(value) {
