@@ -240,6 +240,16 @@ describe('findHighlightPosition', () => {
     expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(6);
   });
 
+  test('英文標註文字含換行時應匹配提取後的單空格文字', () => {
+    const richTextArray = [makeRT('The chasm between US and Chinese tech titans is widening.')];
+    const hl = {
+      text: 'US\nand Chinese tech',
+      rangeInfo: { prefix: 'between ', suffix: ' titans' },
+    };
+    const fullText = buildFullText(richTextArray);
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(18);
+  });
+
   test('空文字返回 -1', () => {
     const richTextArray = [makeRT('這篇文章')];
     const hl = { text: '', rangeInfo: {} };
@@ -434,6 +444,28 @@ describe('mergeHighlightsWithStyle — 核心功能', () => {
     );
     expect(highlighted).toBeDefined();
     expect(highlighted?.text.content).toBe('Markdown');
+  });
+
+  test('英文標註文字含換行時應把樣式套回提取後的單空格原文', () => {
+    const blocks = [
+      makeParagraphBlock([makeRT('The chasm between US and Chinese tech titans is widening.')]),
+    ];
+    const highlights = [
+      {
+        id: 'hl-english-whitespace',
+        text: 'US\nand Chinese tech',
+        color: 'yellow',
+        rangeInfo: { prefix: 'between ', suffix: ' titans' },
+      },
+    ];
+
+    const result = mergeHighlightsWithStyle(blocks, highlights, 'COLOR_SYNC');
+    const highlightedText = result[0].paragraph.rich_text
+      .filter(rt => rt.annotations?.color === 'yellow_background')
+      .map(rt => rt.text.content)
+      .join('');
+
+    expect(highlightedText).toBe('US and Chinese tech');
   });
 });
 
