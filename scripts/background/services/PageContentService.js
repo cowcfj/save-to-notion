@@ -61,17 +61,30 @@ async function extractPageContentInPage(defaultPageTitle) {
     };
   }
 
-  // Helper: 標準化提取結果
-  function normalizeExtractPageContentResult(extractResult, titleFallback) {
+  function resolveExtractedPageTitle(extractResult, titleFallback) {
+    return extractResult.title || document.title || titleFallback;
+  }
+
+  function resolveExtractedSiteIcon(metadata) {
+    return metadata?.siteIcon || metadata?.favicon || null;
+  }
+
+  function buildMergedExtractedBlocks(extractResult) {
     const contentBlocks = extractResult.blocks || [];
     const imageBlocks = extractResult.additionalImages || [];
+
+    return [...contentBlocks, ...imageBlocks];
+  }
+
+  // Helper: 標準化提取結果
+  function normalizeExtractPageContentResult(extractResult, titleFallback) {
     const coverImage = extractResult.coverImage || null;
 
     return {
       extractionStatus: extractResult.extractionStatus || 'success',
-      title: extractResult.title || document.title || titleFallback,
-      blocks: [...contentBlocks, ...imageBlocks],
-      siteIcon: extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
+      title: resolveExtractedPageTitle(extractResult, titleFallback),
+      blocks: buildMergedExtractedBlocks(extractResult),
+      siteIcon: resolveExtractedSiteIcon(extractResult.metadata),
       coverImage,
     };
   }
