@@ -65,6 +65,7 @@ jest.mock('../../../../scripts/config/shared/content.js', () => ({
     MAX_GALLERY_IMAGES: 6,
     MIN_IMAGES_FOR_ARTICLE_SEARCH: 3,
     MAX_IMAGES_FROM_ARTICLE_SEARCH: 5,
+    MAX_IMAGES_FROM_EXPANSION: 3,
     BATCH_PROCESS_THRESHOLD: 5,
   },
   IMAGE_SIZE_RESOLVE: {
@@ -822,6 +823,30 @@ describe('ImageCollector', () => {
 
       expect(results).toHaveLength(1);
     });
+
+    test('_collectFromGalleries should keep temporary image placeholder blocks', () => {
+      const patreonUrl = 'https://example.patreonusercontent.com/temp-gallery.jpg';
+      const mockImg = document.createElement('img');
+      mockImg.src = patreonUrl;
+      mockImg.alt = 'Gallery temp image';
+
+      cachedQuery.mockReturnValue([mockImg]);
+      extractImageSrc.mockReturnValue(patreonUrl);
+      isTemporaryImageUrl.mockReturnValue(true);
+
+      const results = ImageCollector._collectFromGalleries(null);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual(
+        expect.objectContaining({
+          type: 'paragraph',
+          _meta: expect.objectContaining({
+            placeholder: true,
+            originalSrc: patreonUrl,
+          }),
+        })
+      );
+    });
   });
 
   describe('collectAdditionalImages extra coverage', () => {
@@ -1059,6 +1084,22 @@ describe('ImageCollector', () => {
       expect(cachedQuery).toHaveBeenCalledWith('.ad img', document, { all: true });
       expect(allImages).toHaveLength(1);
       expect(allImages[0]).toBe(mockImg1);
+    });
+
+    test('_collectFromExpansion should use configured expansion limit', () => {
+      const imgs = Array.from({ length: 4 }, () => document.createElement('img'));
+
+      cachedQuery.mockImplementation(selector => {
+        if (selector === 'img') {
+          return imgs;
+        }
+        return [];
+      });
+
+      const allImages = [];
+      ImageCollector._collectFromExpansion(allImages);
+
+      expect(allImages).toHaveLength(3);
     });
   });
 

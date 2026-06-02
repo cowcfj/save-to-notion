@@ -279,6 +279,10 @@ const ImageCollector = {
   },
 
   _extractImageBlockUrl(block) {
+    // Temporary placeholder paragraphs have no image URL; use originalSrc as the gallery dedupe key.
+    if (block?._meta?.placeholder) {
+      return block._meta.originalSrc || null;
+    }
     return block?.image?.external?.url || null;
   },
 
@@ -935,7 +939,7 @@ const ImageCollector = {
 
     let addedFromExpansion = 0;
     for (const img of docImages) {
-      if (addedFromExpansion >= 10) {
+      if (addedFromExpansion >= IMAGE_LIMITS.MAX_IMAGES_FROM_EXPANSION) {
         break;
       }
       if (allImages.includes(img)) {
