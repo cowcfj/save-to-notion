@@ -147,6 +147,34 @@ function normalizeDestinationProfileName(value) {
     : '';
 }
 
+function resolveDestinationTargetInputId() {
+  return cleanDatabaseId(
+    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID)?.value || ''
+  );
+}
+
+function resolveDestinationTargetInputType() {
+  const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
+  return rawType === 'page' ? 'page' : 'database';
+}
+
+function resolveNewDestinationProfileName(nameInput) {
+  const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
+  return explicitName || `保存目標 ${Date.now().toString().slice(-4)}`;
+}
+
+function clearDestinationProfileNameInput(nameInput) {
+  if (nameInput) {
+    nameInput.value = '';
+  }
+}
+
+function resolveCreateDestinationProfileErrorMessage(error) {
+  return error?.message === '已達目的地數量上限'
+    ? '已達目的地數量上限。'
+    : '新增保存目標失敗，請稍後再試。';
+}
+
 function createDestinationProfileService() {
   return new ProfileManager({
     repository: new LocalDestinationProfileRepository(),
@@ -184,16 +212,12 @@ function activateSidebarSection(sectionName, navItems, sections) {
 }
 
 /**
- * Options Page Main Controller
- * 負責協調各个模組，處理全域事件與設置保存
+ * 建立 Options 頁面的各個管理器
+ *
+ * @returns {object} 包含各管理器的對象
  */
-export function initOptions() {
-  applyStaticOptionMessages();
-
-  // 1. 初始化各管理器
-  injectIcons(UI_ICONS); // Inject SVG sprites (Shared System)
+function createOptionsPageManagers() {
   const ui = new UIManager();
-
   const auth = new AuthManager(ui);
   const dataSource = new DataSourceManager(ui, async () => {
     const activeAuth = await AuthManager.getActiveNotionToken();
@@ -205,10 +229,13 @@ export function initOptions() {
   const storage = new StorageManager(ui);
   const migration = new MigrationTool(ui);
 
-  // 2. 注入依賴並啟動
-  ui.init();
+  return { ui, auth, dataSource, storage, migration };
+}
 
-  // OAuth 功能開關：OSS 版本隱藏 OAuth UI
+/**
+ * 當禁用 OAuth 時隱藏對應的控制元件
+ */
+function hideOAuthControlsWhenDisabled() {
   if (!BUILD_ENV.ENABLE_OAUTH) {
     const oauthConnectBtn = document.querySelector('#oauth-connect-button');
     const oauthDisconnectBtn = document.querySelector('#oauth-disconnect-button');
@@ -219,15 +246,35 @@ export function initOptions() {
       oauthDisconnectBtn.classList.add('hidden');
     }
   }
+}
 
-  // AuthManager 需要 DataSourceManager 來載入資料來源列表
+/**
+ * 按順序初始化各個管理器
+ *
+ * @param {object} managers - 包含管理器實例的對象
+ * @param managers.ui
+ * @param managers.auth
+ * @param managers.dataSource
+ * @param managers.storage
+ * @param managers.migration
+ */
+function initializeOptionsManagers({ ui, auth, dataSource, storage, migration }) {
+  ui.init();
+  hideOAuthControlsWhenDisabled();
   auth.init({
     loadDataSources: dataSource.loadDataSources.bind(dataSource),
   });
-
   dataSource.init();
   storage.init();
   migration.init();
+}
+
+/**
+ * 重新整理保存目標 UI
+ *
+ * @param {UIManager} ui
+ */
+function refreshDestinationProfilesUI(ui) {
   initDestinationProfilesUI(ui).catch(error => {
     const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
     Logger.warn('初始化保存目標 UI 失敗', {
@@ -235,11 +282,16 @@ export function initOptions() {
       error: safeError,
     });
   });
+}
 
-  // 3. 初始狀態檢查
-  auth.checkAuthStatus();
-
-  // 4. 全域事件監聽：OAuth 回調
+/**
+ * 綁定 Options 頁面的 Chrome runtime 訊息監聽器
+ *
+ * @param {object} params
+ * @param {AuthManager} params.auth
+ * @param {UIManager} params.ui
+ */
+function bindOptionsRuntimeMessages({ auth, ui }) {
   chrome.runtime.onMessage.addListener(request => {
     switch (request.action) {
       case RUNTIME_ACTIONS.OAUTH_SUCCESS: {
@@ -253,19 +305,11 @@ export function initOptions() {
       }
       case RUNTIME_ACTIONS.ACCOUNT_SESSION_UPDATED:
       case RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED: {
-        // account session 已更新或清除，重新讀取 profile 刷新 UI
         renderAccountUI().catch(() => {});
-        initDestinationProfilesUI(ui).catch(error => {
-          const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
-          Logger.warn('初始化保存目標 UI 失敗', {
-            action: 'initDestinationProfilesUI',
-            error: safeError,
-          });
-        });
+        refreshDestinationProfilesUI(ui);
         break;
       }
       case RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED: {
-        // Drive 同步狀態已更新，刷新 Cloud Sync card
         refreshCloudSyncCard().catch(() => {});
         break;
       }
@@ -274,16 +318,15 @@ export function initOptions() {
       }
     }
   });
+}
 
-  // 4.1 初始化 account UI（與 Notion OAuth UI 完整分開）
-  initAccountUI();
-
-  // 5. 全域事件監聽：儲存使用量更新 (由 MigrationTool 觸發)
-  document.addEventListener('storageUsageUpdate', () => {
-    storage.updateStorageUsage();
-  });
-
-  // 6. 保存設置邏輯
+/**
+ * 綁定保存按鈕事件
+ *
+ * @param {UIManager} ui
+ * @param {AuthManager} auth
+ */
+function bindOptionsSaveButtons(ui, auth) {
   const saveButton = document.querySelector('#save-button');
   if (saveButton) {
     saveButton.addEventListener('click', () => saveSettings(ui, auth, 'status'));
@@ -293,42 +336,75 @@ export function initOptions() {
   if (saveTemplatesButton) {
     saveTemplatesButton.addEventListener('click', () => saveSettings(ui, auth, 'template-status'));
   }
+}
 
-  // 7. 標題模板預覽邏輯
-  setupTemplatePreview();
-
-  // 8. 側邊欄導航邏輯
-  setupSidebarNavigation();
-
-  // 9. 顯示動態版本號
-  displayAppVersion();
-
-  // 10. 設置日誌導出
-  setupLogExport();
-
-  // 11. 初始化介面縮放
+/**
+ * 初始化介面縮放偏好設定
+ */
+function initializeZoomPreference() {
   const zoomSelect = document.querySelector('#ui-zoom-level');
   if (zoomSelect) {
-    // 讀取設定
     chrome.storage.sync.get(['uiZoomLevel'], result => {
       const zoom = String(result.uiZoomLevel || '1');
       document.body.style.zoom = zoom;
       zoomSelect.value = zoom;
     });
 
-    // 即時預覽
     zoomSelect.addEventListener('change', () => {
       document.body.style.zoom = zoomSelect.value;
     });
   }
+}
 
-  // 12. 初始化 Notion 同步樣式選單
+/**
+ * 初始化高亮與 Notion 同步樣式偏好設定
+ */
+function initializeHighlightContentStylePreference() {
   const highlightContentStyleSelect = document.querySelector('#highlight-content-style');
   if (highlightContentStyleSelect) {
     chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' }, result => {
       highlightContentStyleSelect.value = result.highlightContentStyle;
     });
   }
+}
+
+/**
+ * Options Page Main Controller
+ * 負責協調各个模組，處理全域事件與設置保存
+ */
+export function initOptions() {
+  applyStaticOptionMessages();
+
+  // 1. 初始化各管理器
+  injectIcons(UI_ICONS); // Inject SVG sprites (Shared System)
+  const managers = createOptionsPageManagers();
+
+  // 2. 注入依賴並啟動
+  initializeOptionsManagers(managers);
+  refreshDestinationProfilesUI(managers.ui);
+
+  // 3. 初始狀態檢查
+  managers.auth.checkAuthStatus();
+
+  // 4. 全域事件監聽與初始化
+  bindOptionsRuntimeMessages(managers);
+  initAccountUI();
+
+  // 5. 全域事件監聽：儲存使用量更新 (由 MigrationTool 觸發)
+  document.addEventListener('storageUsageUpdate', () => {
+    managers.storage.updateStorageUsage();
+  });
+
+  // 6. 保存設置與其它邏輯
+  bindOptionsSaveButtons(managers.ui, managers.auth);
+  setupTemplatePreview();
+  setupSidebarNavigation();
+  displayAppVersion();
+  setupLogExport();
+
+  // 7. 偏好設定初始化
+  initializeZoomPreference();
+  initializeHighlightContentStylePreference();
 }
 
 async function initDestinationProfilesUI(ui) {
@@ -462,7 +538,7 @@ async function initDestinationProfilesUI(ui) {
     addButton.title = limitMessage;
   };
 
-  const render = async () => {
+  const renderDestinationProfiles = async () => {
     let profiles = cachedProfiles;
     let entitlement = DEFAULT_DESTINATION_ENTITLEMENT;
 
@@ -505,6 +581,79 @@ async function initDestinationProfilesUI(ui) {
     updateDestinationLimitState(profiles, entitlement);
   };
 
+  const enterDestinationProfileNameEdit = async profileId => {
+    const profile = await service.getProfile(profileId);
+    editingProfileId = profile.id;
+    draftProfileName = profile.name || '預設';
+    await renderDestinationProfiles();
+    list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
+  };
+
+  const cancelDestinationProfileNameEdit = async () => {
+    editingProfileId = null;
+    draftProfileName = '';
+    await renderDestinationProfiles();
+  };
+
+  const saveDestinationProfileName = async profileId => {
+    const input = list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`);
+    const nextName = normalizeDestinationProfileName(input?.value || '');
+    if (!nextName) {
+      showNameError();
+      return;
+    }
+    await service.updateProfile(profileId, { name: nextName });
+    editingProfileId = null;
+    draftProfileName = '';
+    await renderDestinationProfiles();
+  };
+
+  const applyDestinationProfileToForm = async profileId => {
+    const profile = await service.getProfile(profileId);
+    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
+      profile.notionDataSourceId;
+    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
+      profile.notionDataSourceType;
+    ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
+  };
+
+  const deleteDestinationProfile = async profileId => {
+    await service.deleteProfile(profileId);
+    await renderDestinationProfiles();
+  };
+
+  const createDestinationProfileFromForm = async () => {
+    try {
+      const databaseId = resolveDestinationTargetInputId();
+      if (!databaseId) {
+        ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
+        return;
+      }
+      await service.createProfile({
+        name: resolveNewDestinationProfileName(nameInput),
+        notionDataSourceId: databaseId,
+        notionDataSourceType: resolveDestinationTargetInputType(),
+      });
+      clearDestinationProfileNameInput(nameInput);
+      await renderDestinationProfiles();
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'createDestinationProfile');
+      Logger.warn('新增保存目標失敗', {
+        action: 'createDestinationProfile',
+        error: safeError,
+      });
+      ui.showStatus(resolveCreateDestinationProfileErrorMessage(error), 'error');
+    }
+  };
+
+  const destinationProfileActionHandlers = {
+    [DESTINATION_PROFILE_ACTIONS.RENAME]: enterDestinationProfileNameEdit,
+    [DESTINATION_PROFILE_ACTIONS.CANCEL_NAME]: cancelDestinationProfileNameEdit,
+    [DESTINATION_PROFILE_ACTIONS.SAVE_NAME]: saveDestinationProfileName,
+    [DESTINATION_PROFILE_ACTIONS.EDIT]: applyDestinationProfileToForm,
+    [DESTINATION_PROFILE_ACTIONS.DELETE]: deleteDestinationProfile,
+  };
+
   list.addEventListener('click', async event => {
     try {
       const button = event.target?.closest?.('button[data-action]');
@@ -513,47 +662,9 @@ async function initDestinationProfilesUI(ui) {
       }
       const profileId = button.dataset.profileId;
       const action = button.dataset.action;
-      if (action === DESTINATION_PROFILE_ACTIONS.RENAME) {
-        const profile = await service.getProfile(profileId);
-        editingProfileId = profile.id;
-        draftProfileName = profile.name || '預設';
-        await render();
-        list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
-        return;
-      }
-      if (action === DESTINATION_PROFILE_ACTIONS.CANCEL_NAME) {
-        editingProfileId = null;
-        draftProfileName = '';
-        await render();
-        return;
-      }
-      if (action === DESTINATION_PROFILE_ACTIONS.SAVE_NAME) {
-        const input = list.querySelector(
-          `input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`
-        );
-        const nextName = normalizeDestinationProfileName(input?.value || '');
-        if (!nextName) {
-          showNameError();
-          return;
-        }
-        await service.updateProfile(profileId, { name: nextName });
-        editingProfileId = null;
-        draftProfileName = '';
-        await render();
-        return;
-      }
-      if (action === DESTINATION_PROFILE_ACTIONS.EDIT) {
-        const profile = await service.getProfile(profileId);
-        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
-          profile.notionDataSourceId;
-        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
-          profile.notionDataSourceType;
-        ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
-        return;
-      }
-      if (action === DESTINATION_PROFILE_ACTIONS.DELETE) {
-        await service.deleteProfile(profileId);
-        await render();
+      const handler = destinationProfileActionHandlers[action];
+      if (handler) {
+        await handler(profileId);
       }
     } catch (error) {
       const safeError = sanitizeApiError(error, 'destinationProfileAction');
@@ -565,43 +676,11 @@ async function initDestinationProfilesUI(ui) {
     }
   });
 
-  addButton.addEventListener('click', async () => {
-    try {
-      const databaseId = cleanDatabaseId(
-        document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID)?.value || ''
-      );
-      if (!databaseId) {
-        ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
-        return;
-      }
-      const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
-      const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
-      await service.createProfile({
-        name: explicitName || `保存目標 ${Date.now().toString().slice(-4)}`,
-        notionDataSourceId: databaseId,
-        notionDataSourceType: rawType === 'page' ? 'page' : 'database',
-      });
-      if (nameInput) {
-        nameInput.value = '';
-      }
-      await render();
-    } catch (error) {
-      const safeError = sanitizeApiError(error, 'createDestinationProfile');
-      Logger.warn('新增保存目標失敗', {
-        action: 'createDestinationProfile',
-        error: safeError,
-      });
-      const message =
-        error?.message === '已達目的地數量上限'
-          ? '已達目的地數量上限。'
-          : '新增保存目標失敗，請稍後再試。';
-      ui.showStatus(message, 'error');
-    }
-  });
+  addButton.addEventListener('click', createDestinationProfileFromForm);
 
-  destinationProfilesUIController = { list, addButton, render };
+  destinationProfilesUIController = { list, addButton, render: renderDestinationProfiles };
   await service.ensureMigratedDefaultProfile();
-  await render();
+  await renderDestinationProfiles();
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -767,6 +846,121 @@ async function renderAccountUI() {
 }
 
 /**
+ * 當帳號功能被禁用時隱藏相關 UI
+ *
+ * @param {object} params
+ * @param {Element} params.accountCard
+ * @param {Element} params.advancedTab
+ * @param {Element} params.advancedSection
+ * @returns {boolean} 是否隱藏成功
+ */
+function hideAccountUIWhenDisabled({ accountCard, advancedTab, advancedSection }) {
+  if (!BUILD_ENV.ENABLE_ACCOUNT) {
+    accountCard.classList.add('hidden');
+    if (advancedTab) {
+      advancedTab.classList.add('hidden');
+    }
+    if (advancedSection) {
+      advancedSection.classList.add('hidden');
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 顯示帳號卡片
+ *
+ * @param {Element} accountCard
+ */
+function showAccountCard(accountCard) {
+  accountCard.classList.remove('hidden');
+}
+
+/**
+ * 設定帳號狀態訊息與樣式
+ *
+ * @param {Element} statusEl
+ * @param {string} message
+ * @param {string} type - 'success' | 'error' | ''
+ */
+function setAccountStatus(statusEl, message, type) {
+  if (!statusEl) {
+    return;
+  }
+  statusEl.textContent = message;
+  statusEl.className = type ? `${UI_CLASS_STATUS_MSG} ${type}` : UI_CLASS_STATUS_MSG;
+}
+
+/**
+ * 延遲清除帳號狀態訊息
+ *
+ * @param {Element} statusEl
+ * @param {number} [timeoutMs=3000]
+ */
+function clearAccountStatusLater(statusEl, timeoutMs = 3000) {
+  if (!statusEl) {
+    return;
+  }
+  setTimeout(() => {
+    setAccountStatus(statusEl, '', '');
+  }, timeoutMs);
+}
+
+/**
+ * 綁定登入按鈕事件
+ */
+function bindAccountLoginButton() {
+  const loginBtn = document.querySelector('#account-login-button');
+  if (!loginBtn) {
+    return;
+  }
+
+  loginBtn.addEventListener('click', () => {
+    const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
+    const startUrlResult = buildAccountLoginStartUrl();
+    if (!startUrlResult.success) {
+      const errorMessage = 'Account login failed';
+      Logger.error(errorMessage, {
+        action: 'initAccountUI',
+        reason: startUrlResult.reason,
+      });
+      setAccountStatus(statusEl, startUrlResult.error, 'error');
+      return;
+    }
+    chrome.tabs.create({ url: startUrlResult.url });
+  });
+}
+
+/**
+ * 綁定登出按鈕事件
+ */
+function bindAccountLogoutButton() {
+  const logoutBtn = document.querySelector('#account-logout-button');
+  if (!logoutBtn) {
+    return;
+  }
+
+  logoutBtn.addEventListener('click', async () => {
+    const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
+    try {
+      await clearAccountSession();
+      chrome.runtime
+        .sendMessage({
+          action: RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED,
+        })
+        .catch(() => {});
+      await renderAccountUI();
+      setAccountStatus(statusEl, '已成功登出', 'success');
+      clearAccountStatusLater(statusEl, 3000);
+    } catch (error) {
+      Logger.error('Account logout failed', { error });
+      setAccountStatus(statusEl, '登出失敗，請重試', 'error');
+    }
+  });
+}
+
+/**
  * 初始化 account UI。
  *
  * - 若 BUILD_ENV.ENABLE_ACCOUNT === false，隱藏整個 advanced tab 與對應 section
@@ -782,73 +976,17 @@ function initAccountUI() {
     return;
   }
 
-  // feature flag 檢查
-  if (!BUILD_ENV.ENABLE_ACCOUNT) {
-    accountCard.classList.add('hidden');
-    if (advancedTab) {
-      advancedTab.classList.add('hidden');
-    }
-    if (advancedSection) {
-      advancedSection.classList.add('hidden');
-    }
+  // feature flag 檢查與隱藏
+  if (hideAccountUIWhenDisabled({ accountCard, advancedTab, advancedSection })) {
     return;
   }
 
   // 顯示 account card
-  accountCard.classList.remove('hidden');
+  showAccountCard(accountCard);
 
-  // 登入按鈕：開新 tab 到 /v1/account/google/start?ext_id=<chrome.runtime.id>
-  const loginBtn = document.querySelector('#account-login-button');
-  if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
-      const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
-      const startUrlResult = buildAccountLoginStartUrl();
-      if (!startUrlResult.success) {
-        const errorMessage = 'Account login failed';
-        Logger.error(errorMessage, {
-          action: 'initAccountUI',
-          reason: startUrlResult.reason,
-        });
-        if (statusEl) {
-          statusEl.textContent = startUrlResult.error;
-          statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
-        }
-        return;
-      }
-      chrome.tabs.create({ url: startUrlResult.url });
-    });
-  }
-
-  // 登出按鈕：local-only clear
-  const logoutBtn = document.querySelector('#account-logout-button');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      const statusEl = document.querySelector(ACCOUNT_STATUS_SELECTOR);
-      try {
-        await clearAccountSession();
-        chrome.runtime
-          .sendMessage({
-            action: RUNTIME_ACTIONS.ACCOUNT_SESSION_CLEARED,
-          })
-          .catch(() => {});
-        await renderAccountUI();
-        if (statusEl) {
-          statusEl.textContent = '已成功登出';
-          statusEl.className = `${UI_CLASS_STATUS_MSG} success`;
-          setTimeout(() => {
-            statusEl.textContent = '';
-            statusEl.className = UI_CLASS_STATUS_MSG;
-          }, 3000);
-        }
-      } catch (error) {
-        Logger.error('Account logout failed', { error });
-        if (statusEl) {
-          statusEl.textContent = '登出失敗，請重試';
-          statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
-        }
-      }
-    });
-  }
+  // 綁定按鈕
+  bindAccountLoginButton();
+  bindAccountLogoutButton();
 
   showCloudSyncLoadingState(UI_MESSAGES.CLOUD_SYNC.LOADING_ACCOUNT_STATUS);
 
@@ -949,6 +1087,181 @@ export function cleanDatabaseId(input) {
   return cleaned;
 }
 
+/**
+ * 讀取表單所有欄位值
+ *
+ * @returns {object} 表單欄位值對象
+ */
+function readOptionsFormValues() {
+  const apiKey = document.querySelector('#api-key').value.trim();
+  const rawDatabaseId = document.querySelector('#database-id').value;
+  const titleTemplate = document.querySelector('#title-template').value;
+  const addSource = document.querySelector('#add-source').checked;
+  const addTimestamp = document.querySelector('#add-timestamp').checked;
+  const typeInput = document.querySelector('#database-type');
+  const uiZoomLevel = document.querySelector('#ui-zoom-level')?.value;
+
+  // 標註樣式
+  const highlightStyleEl = document.querySelector('#highlight-style');
+  const highlightContentStyleEl = document.querySelector('#highlight-content-style');
+
+  // Floating Rail 設定
+  const floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
+  const floatingRailPositionSelect = document.querySelector('#floating-rail-position');
+  const floatingRailSizeSelect = document.querySelector('#floating-rail-size');
+
+  return {
+    apiKey,
+    rawDatabaseId,
+    titleTemplate,
+    addSource,
+    addTimestamp,
+    rawDataSourceType: typeInput?.value,
+    uiZoomLevel,
+    highlightStyle: highlightStyleEl ? highlightStyleEl.value : undefined,
+    highlightContentStyle: highlightContentStyleEl ? highlightContentStyleEl.value : undefined,
+    floatingRailEnabled: floatingRailCheckbox ? floatingRailCheckbox.checked : undefined,
+    floatingRailPosition: floatingRailPositionSelect ? floatingRailPositionSelect.value : undefined,
+    floatingRailSize: floatingRailSizeSelect ? floatingRailSizeSelect.value : undefined,
+  };
+}
+
+/**
+ * 驗證表單輸入值
+ *
+ * @param {object} formValues
+ * @param {string} formValues.apiKey
+ * @param {string} formValues.rawDatabaseId
+ * @param {AuthManager} auth
+ * @param {UIManager} ui
+ * @param {string} statusId
+ * @returns {object} { success: boolean, databaseId?: string }
+ */
+function validateOptionsFormValues({ apiKey, rawDatabaseId }, auth, ui, statusId) {
+  // 驗證 API Key，但如果是在 OAuth 模式下就忽略 API Key 檢查
+  if (!apiKey && auth.currentAuthMode !== AuthMode.OAUTH) {
+    ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error', statusId);
+    return { success: false };
+  }
+
+  // 清理並驗證 Database ID
+  const databaseId = cleanDatabaseId(rawDatabaseId);
+  if (!databaseId) {
+    ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error', statusId);
+    return { success: false };
+  }
+
+  return { success: true, databaseId };
+}
+
+/**
+ * 解析並正規化資料來源類型
+ *
+ * @param {string} rawDataSourceType
+ * @returns {string} 'database' | 'page'
+ */
+function resolveDataSourceType(rawDataSourceType) {
+  const allowedDataSourceTypes = ['database', 'page'];
+  return allowedDataSourceTypes.includes(rawDataSourceType) ? rawDataSourceType : 'database';
+}
+
+/**
+ * 構建儲存設置對象
+ *
+ * @param {object} formValues
+ * @param {string} databaseId
+ * @returns {object} { localSettings, syncSettings, dataSourceType }
+ */
+function buildOptionsStorageSettings(formValues, databaseId) {
+  const [dataSourceIdKey, databaseIdKey, dataSourceTypeKey] = DATA_SOURCE_KEYS;
+  const dataSourceType = resolveDataSourceType(formValues.rawDataSourceType);
+
+  const localSettings = {
+    // 為了兼容性，同時保存兩種 ID 格式
+    [databaseIdKey]: databaseId,
+    [dataSourceIdKey]: databaseId, // 統一存到兩個欄位，確保兼容
+    [dataSourceTypeKey]: dataSourceType,
+  };
+
+  const syncSettings = {
+    notionApiKey: formValues.apiKey,
+    titleTemplate: formValues.titleTemplate,
+    addSource: formValues.addSource,
+    addTimestamp: formValues.addTimestamp,
+    uiZoomLevel: formValues.uiZoomLevel || '1',
+  };
+
+  if (formValues.highlightStyle !== undefined) {
+    syncSettings.highlightStyle = formValues.highlightStyle;
+  }
+  if (formValues.highlightContentStyle !== undefined) {
+    syncSettings.highlightContentStyle = formValues.highlightContentStyle;
+  }
+  if (formValues.floatingRailEnabled !== undefined) {
+    syncSettings.floatingRailEnabled = formValues.floatingRailEnabled;
+  }
+  if (formValues.floatingRailPosition !== undefined) {
+    syncSettings.floatingRailPosition = formValues.floatingRailPosition;
+  }
+  if (formValues.floatingRailSize !== undefined) {
+    syncSettings.floatingRailSize = formValues.floatingRailSize;
+  }
+
+  return { localSettings, syncSettings, dataSourceType };
+}
+
+/**
+ * 擷取預設保存目標設定的初始狀態（用於錯誤時還原）
+ *
+ * @param {DestinationProfileService} destinationProfileService
+ * @returns {Promise<object>}
+ */
+async function captureDefaultDestinationProfileState(destinationProfileService) {
+  const profiles = await destinationProfileService.ensureMigratedDefaultProfile();
+  const originalProfile = profiles[0] || {};
+  const defaultProfileId = originalProfile.id || 'default';
+  const originalDataSourceId = originalProfile.notionDataSourceId ?? null;
+  const originalDataSourceType = originalProfile.notionDataSourceType ?? 'database';
+  return {
+    defaultProfileId,
+    originalDataSourceId,
+    originalDataSourceType,
+    hasOriginalProfileState: true,
+  };
+}
+
+/**
+ * 持久化選項設置
+ *
+ * @param {object} params
+ * @param {DestinationProfileService} params.destinationProfileService
+ * @param {string} params.defaultProfileId
+ * @param {string} params.databaseId
+ * @param {string} params.dataSourceType
+ * @param {object} params.localSettings
+ * @param {object} params.syncSettings
+ * @returns {Promise<void>}
+ */
+async function persistOptionsSettings({
+  destinationProfileService,
+  defaultProfileId,
+  databaseId,
+  dataSourceType,
+  localSettings,
+  syncSettings,
+}) {
+  await destinationProfileService.updateProfile(defaultProfileId, {
+    notionDataSourceId: databaseId,
+    notionDataSourceType: dataSourceType,
+  });
+
+  await Promise.all([
+    chrome.storage.local.set(localSettings),
+    chrome.storage.sync.set(syncSettings),
+    chrome.storage.sync.remove(DATA_SOURCE_KEYS),
+  ]);
+}
+
 async function rollbackDefaultDestinationProfile({
   destinationProfileService,
   defaultProfileId,
@@ -982,79 +1295,18 @@ async function rollbackDefaultDestinationProfile({
  * @param {string} [statusId='status']
  */
 export async function saveSettings(ui, auth, statusId = 'status') {
-  const apiKey = document.querySelector('#api-key').value.trim();
-  const rawDatabaseId = document.querySelector('#database-id').value;
-  const titleTemplate = document.querySelector('#title-template').value;
-  const addSource = document.querySelector('#add-source').checked;
-  const addTimestamp = document.querySelector('#add-timestamp').checked;
-  const typeInput = document.querySelector('#database-type');
-  const uiZoomLevel = document.querySelector('#ui-zoom-level')?.value;
+  const formValues = readOptionsFormValues();
 
-  // 驗證 API Key，但如果是在 OAuth 模式下就忽略 API Key 檢查
-  if (!apiKey && auth.currentAuthMode !== AuthMode.OAUTH) {
-    ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error', statusId);
+  const validation = validateOptionsFormValues(formValues, auth, ui, statusId);
+  if (!validation.success) {
     return;
   }
+  const { databaseId } = validation;
 
-  // 清理並驗證 Database ID
-  const databaseId = cleanDatabaseId(rawDatabaseId);
-  if (!databaseId) {
-    ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error', statusId);
-    return;
-  }
-
-  // 從集中配置取得 storage key 名稱
-  const [dataSourceIdKey, databaseIdKey, dataSourceTypeKey] = DATA_SOURCE_KEYS;
-
-  // 構建完整的設置對象
-  const localSettings = {
-    // 為了兼容性，同時保存兩種 ID 格式
-    // notionDatabaseId 是舊版 (僅支援 Database)
-    // notionDataSourceId 是新版 (支援 Page 和 Database)
-    [databaseIdKey]: databaseId,
-    [dataSourceIdKey]: databaseId, // 統一存到兩個欄位，確保兼容
-  };
-
-  const syncSettings = {
-    notionApiKey: apiKey,
-    titleTemplate,
-    addSource,
-    addTimestamp,
-    uiZoomLevel: uiZoomLevel || '1',
-  };
-
-  // 如果類型欄位存在，一併保存並驗證
-  const allowedDataSourceTypes = ['database', 'page'];
-  const rawDataSourceType = typeInput?.value;
-  localSettings[dataSourceTypeKey] = allowedDataSourceTypes.includes(rawDataSourceType)
-    ? rawDataSourceType
-    : 'database';
-
-  // 保存標註樣式
-  const highlightStyle = document.querySelector('#highlight-style');
-  if (highlightStyle) {
-    syncSettings.highlightStyle = highlightStyle.value;
-  }
-
-  // 保存 Notion 同步樣式
-  const highlightContentStyle = document.querySelector('#highlight-content-style');
-  if (highlightContentStyle) {
-    syncSettings.highlightContentStyle = highlightContentStyle.value;
-  }
-
-  // 保存 Floating Rail 設定
-  const floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
-  if (floatingRailCheckbox) {
-    syncSettings.floatingRailEnabled = floatingRailCheckbox.checked;
-  }
-  const floatingRailPositionSelect = document.querySelector('#floating-rail-position');
-  if (floatingRailPositionSelect) {
-    syncSettings.floatingRailPosition = floatingRailPositionSelect.value;
-  }
-  const floatingRailSizeSelect = document.querySelector('#floating-rail-size');
-  if (floatingRailSizeSelect) {
-    syncSettings.floatingRailSize = floatingRailSizeSelect.value;
-  }
+  const { localSettings, syncSettings, dataSourceType } = buildOptionsStorageSettings(
+    formValues,
+    databaseId
+  );
 
   let destinationProfileService = null;
   let defaultProfileId = 'default';
@@ -1062,26 +1314,22 @@ export async function saveSettings(ui, auth, statusId = 'status') {
   let originalDataSourceType = 'database';
   let hasOriginalProfileState = false;
 
-  // 分離儲存至 local 與 sync（同時清除 sync 中的舊資料來源 key，防止跨裝置同步汙染）
   try {
     destinationProfileService = createDestinationProfileService();
-    const profiles = await destinationProfileService.ensureMigratedDefaultProfile();
-    const originalProfile = profiles[0] || {};
-    defaultProfileId = originalProfile.id || 'default';
-    originalDataSourceId = originalProfile.notionDataSourceId ?? null;
-    originalDataSourceType = originalProfile.notionDataSourceType ?? 'database';
-    hasOriginalProfileState = true;
+    const originalState = await captureDefaultDestinationProfileState(destinationProfileService);
+    defaultProfileId = originalState.defaultProfileId;
+    originalDataSourceId = originalState.originalDataSourceId;
+    originalDataSourceType = originalState.originalDataSourceType;
+    hasOriginalProfileState = originalState.hasOriginalProfileState;
 
-    await destinationProfileService.updateProfile(defaultProfileId, {
-      notionDataSourceId: databaseId,
-      notionDataSourceType: localSettings[dataSourceTypeKey],
+    await persistOptionsSettings({
+      destinationProfileService,
+      defaultProfileId,
+      databaseId,
+      dataSourceType,
+      localSettings,
+      syncSettings,
     });
-
-    await Promise.all([
-      chrome.storage.local.set(localSettings),
-      chrome.storage.sync.set(syncSettings),
-      chrome.storage.sync.remove(DATA_SOURCE_KEYS),
-    ]);
 
     ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 
@@ -1184,6 +1432,114 @@ function displayAppVersion() {
 }
 
 /**
+ * 發送訊息給 Background 請求導出日誌
+ *
+ * @returns {Promise<object>} response
+ */
+async function requestDebugLogExport() {
+  return chrome.runtime.sendMessage({
+    action: RUNTIME_ACTIONS.EXPORT_DEBUG_LOGS,
+    format: 'json',
+  });
+}
+
+/**
+ * 驗證導出的日誌回應並回傳合法的 data
+ *
+ * @param {object} response
+ * @returns {object} response.data
+ */
+function resolveValidLogExportData(response) {
+  if (!response) {
+    throw new Error(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
+  }
+
+  // 檢查 error 屬性 (優先處理明確的錯誤訊息)
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  // 檢查 success 欄位
+  if (!response.success) {
+    throw new Error(ERROR_MESSAGES.TECHNICAL.LOG_EXPORT_FAILED);
+  }
+
+  const data = response.data;
+
+  // 審核要求：驗證外部輸入
+  validateLogExportData(data);
+
+  return data;
+}
+
+/**
+ * 觸發日誌下載流程
+ *
+ * @param {object} params
+ * @param {string} params.filename
+ * @param {string} params.content
+ * @param {string} params.mimeType
+ */
+function downloadLogExportData({ filename, content, mimeType }) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const downloadLink = document.createElement('a');
+  downloadLink.href = url;
+  downloadLink.download = filename;
+  document.body.append(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+/**
+ * 顯示日誌導出成功狀態
+ *
+ * @param {Element} statusEl
+ * @param {number} count
+ */
+function showLogExportSuccess(statusEl, count) {
+  statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
+  statusEl.className = `${UI_CLASS_STATUS_MSG} success`;
+
+  // 3秒後清除成功訊息
+  setTimeout(() => {
+    statusEl.textContent = '';
+    statusEl.className = UI_CLASS_STATUS_MSG;
+  }, 3000);
+}
+
+/**
+ * 顯示日誌導出失敗狀態
+ *
+ * @param {Element} statusEl
+ * @param {Error|any} error
+ */
+function showLogExportError(statusEl, error) {
+  Logger.error('Log export failed', {
+    action: 'setupLogExport',
+    error: error.message || error,
+    stack: error.stack,
+  });
+
+  // 使用標準化的錯誤處理機制
+  const safeReason = sanitizeApiError(error, 'export_debug_logs');
+  const userFriendlyMsg = ErrorHandler.formatUserMessage(safeReason);
+
+  // 組合最終訊息
+  const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX}${userFriendlyMsg}`;
+
+  statusEl.textContent = errorMessage;
+  statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
+
+  // 5秒後清除錯誤訊息
+  setTimeout(() => {
+    statusEl.textContent = '';
+    statusEl.className = UI_CLASS_STATUS_MSG;
+  }, 5000);
+}
+
+/**
  * 設置日誌導出
  */
 function setupLogExport() {
@@ -1195,75 +1551,13 @@ function setupLogExport() {
       try {
         exportBtn.disabled = true;
 
-        // 發送訊息給 Background
-        const response = await chrome.runtime.sendMessage({
-          action: RUNTIME_ACTIONS.EXPORT_DEBUG_LOGS,
-          format: 'json',
-        });
+        const response = await requestDebugLogExport();
+        const data = resolveValidLogExportData(response);
 
-        if (!response) {
-          throw new Error(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
-        }
-
-        // 檢查 error 屬性 (優先處理明確的錯誤訊息)
-        if (response.error) {
-          throw new Error(response.error);
-        }
-
-        // 檢查 success 欄位
-        if (!response.success) {
-          throw new Error(ERROR_MESSAGES.TECHNICAL.LOG_EXPORT_FAILED);
-        }
-
-        // 審核要求：驗證外部輸入 (Security-First Input Validation)
-        const data = response.data;
-
-        // 使用 securityUtils 中的集中驗證邏輯
-        validateLogExportData(data);
-
-        const { filename, content, mimeType, count } = data;
-
-        // 觸發下載
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = filename;
-        document.body.append(downloadLink);
-        downloadLink.click();
-        downloadLink.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-
-        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
-        statusEl.className = `${UI_CLASS_STATUS_MSG} success`;
-
-        // 3秒後清除成功訊息
-        setTimeout(() => {
-          statusEl.textContent = '';
-          statusEl.className = UI_CLASS_STATUS_MSG;
-        }, 3000);
+        downloadLogExportData(data);
+        showLogExportSuccess(statusEl, data.count);
       } catch (error) {
-        Logger.error('Log export failed', {
-          action: 'setupLogExport',
-          error: error.message || error,
-          stack: error.stack,
-        });
-
-        // 使用標準化的錯誤處理機制
-        const safeReason = sanitizeApiError(error, 'export_debug_logs');
-        const userFriendlyMsg = ErrorHandler.formatUserMessage(safeReason);
-
-        // 組合最終訊息
-        const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX}${userFriendlyMsg}`;
-
-        statusEl.textContent = errorMessage;
-        statusEl.className = `${UI_CLASS_STATUS_MSG} error`;
-
-        // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
-        setTimeout(() => {
-          statusEl.textContent = '';
-          statusEl.className = UI_CLASS_STATUS_MSG;
-        }, 5000);
+        showLogExportError(statusEl, error);
       } finally {
         exportBtn.disabled = false;
       }
