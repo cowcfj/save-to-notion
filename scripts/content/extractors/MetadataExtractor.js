@@ -51,6 +51,17 @@ const selectFirstValidImageCandidate = candidates => {
   return null;
 };
 
+const parseSrcsetCandidates = srcset => srcset.split(/,\s+/).map(str => str.trim().split(' ')[0]);
+
+const extractSourceCandidate = source => {
+  const srcset = source.getAttribute('srcset') || source.dataset.srcset;
+  if (srcset) {
+    return selectFirstValidImageCandidate(parseSrcsetCandidates(srcset));
+  }
+  const src = source.getAttribute('src') || source.dataset.src;
+  return selectFirstValidImageCandidate([src]);
+};
+
 const extractPictureSourceCandidate = img => {
   const sources = img.closest('picture')?.querySelectorAll('source');
   if (!sources?.length) {
@@ -58,10 +69,7 @@ const extractPictureSourceCandidate = img => {
   }
 
   for (const source of sources) {
-    const srcset = source.getAttribute('srcset') || source.dataset.srcset;
-    const candidate = srcset
-      ? selectFirstValidImageCandidate(srcset.split(/,\s+/).map(str => str.trim().split(' ')[0]))
-      : selectFirstValidImageCandidate([source.getAttribute('src') || source.dataset.src]);
+    const candidate = extractSourceCandidate(source);
     if (candidate) {
       return candidate;
     }
