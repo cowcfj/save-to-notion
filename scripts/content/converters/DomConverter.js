@@ -933,16 +933,6 @@ class DomConverter {
     return { firstNonEmptyIndex, lastNonEmptyIndex };
   }
 
-  static _buildRichTextFormatContext(index, totalCount, bounds, preserveCodeWhitespace) {
-    return {
-      index,
-      totalCount,
-      firstNonEmptyIndex: bounds.firstNonEmptyIndex,
-      lastNonEmptyIndex: bounds.lastNonEmptyIndex,
-      preserveCodeWhitespace,
-    };
-  }
-
   static _cloneRichTextWithContent(rt, content) {
     return {
       ...rt,
@@ -984,13 +974,14 @@ class DomConverter {
     const bounds = DomConverter._findRichTextContentBounds(richTextArray);
 
     for (const [index, rt] of richTextArray.entries()) {
-      const context = DomConverter._buildRichTextFormatContext(
+      const content = DomConverter._formatRichTextContent(
+        rt.text?.content ?? '',
         index,
         count,
-        bounds,
+        bounds.firstNonEmptyIndex,
+        bounds.lastNonEmptyIndex,
         preserveCodeWhitespace
       );
-      const content = DomConverter._formatRichTextContent(rt.text?.content ?? '', context);
       const appendResult = DomConverter._appendFormattedRichText(
         processed,
         rt,
@@ -1007,64 +998,42 @@ class DomConverter {
     return processed;
   }
 
-  static _formatRichTextContent(content, context) {
+  static _formatRichTextContent(
+    content,
+    index,
+    totalCount,
+    firstNonEmptyIndex,
+    lastNonEmptyIndex,
+    preserveCodeWhitespace
+  ) {
     // code rich_text 的前後空白與換行是有語意的，需保留原始內容；
     // 但若整組內容都只有空白，仍維持既有 fallback 路徑，由 _cleanRichText 補單一空格。
-    if (context.preserveCodeWhitespace) {
-      return DomConverter._formatCodeRichTextContent(content, context);
+    if (preserveCodeWhitespace) {
+      return firstNonEmptyIndex === -1 ? '' : content;
     }
 
     // 邊界之外的純空白節點：直接返回空字串（會被過濾掉）
-    if (DomConverter._isOutsideRichTextBounds(context)) {
+    if (index < firstNonEmptyIndex || index > lastNonEmptyIndex) {
       return '';
     }
 
-    const formatted = DomConverter._trimRichTextBoundaryContent(content, context);
-    if (DomConverter._shouldUseSingleWhitespaceFallback(formatted, context.totalCount)) {
-      return ' ';
-    }
-
-    return formatted;
-  }
-
-  static _formatCodeRichTextContent(content, context) {
-    if (context.firstNonEmptyIndex === -1) {
-      return '';
-    }
-
-    return content;
-  }
-
-  static _isOutsideRichTextBounds(context) {
-    if (context.index < context.firstNonEmptyIndex) {
-      return true;
-    }
-
-    return context.index > context.lastNonEmptyIndex;
-  }
-
-  static _trimRichTextBoundaryContent(content, context) {
     let formatted = content;
 
     // 只對第一個非空白元素做 trimStart
-    if (context.index === context.firstNonEmptyIndex) {
+    if (index === firstNonEmptyIndex) {
       formatted = formatted.trimStart();
     }
 
     // 只對最後一個非空白元素做 trimEnd
-    if (context.index === context.lastNonEmptyIndex) {
+    if (index === lastNonEmptyIndex) {
       formatted = formatted.trimEnd();
     }
 
-    return formatted;
-  }
-
-  static _shouldUseSingleWhitespaceFallback(formatted, totalCount) {
-    if (formatted.trim()) {
-      return false;
+    if (!formatted.trim() && totalCount === 1) {
+      return ' ';
     }
 
-    return totalCount === 1;
+    return formatted;
   }
 
   static _isUnsafeListChild(child) {
