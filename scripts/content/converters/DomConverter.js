@@ -973,14 +973,14 @@ class DomConverter {
     const bounds = DomConverter._findRichTextContentBounds(richTextArray);
 
     for (const [index, rt] of richTextArray.entries()) {
-      const content = DomConverter._formatRichTextContent(
-        rt.text?.content ?? '',
+      const context = {
         index,
-        count,
-        bounds.firstNonEmptyIndex,
-        bounds.lastNonEmptyIndex,
-        preserveCodeWhitespace
-      );
+        totalCount: count,
+        firstNonEmptyIndex: bounds.firstNonEmptyIndex,
+        lastNonEmptyIndex: bounds.lastNonEmptyIndex,
+        preserveCodeWhitespace,
+      };
+      const content = DomConverter._formatRichTextContent(rt.text?.content ?? '', context);
       const appendResult = DomConverter._appendFormattedRichText(
         processed,
         rt,
@@ -997,38 +997,35 @@ class DomConverter {
     return processed;
   }
 
-  static _formatRichTextContent(
-    content,
-    index,
-    totalCount,
-    firstNonEmptyIndex,
-    lastNonEmptyIndex,
-    preserveCodeWhitespace
-  ) {
+  static _formatRichTextContent(content, context) {
     // code rich_text 的前後空白與換行是有語意的，需保留原始內容；
     // 但若整組內容都只有空白，仍維持既有 fallback 路徑，由 _cleanRichText 補單一空格。
-    if (preserveCodeWhitespace) {
-      return firstNonEmptyIndex === -1 ? '' : content;
+    if (context.preserveCodeWhitespace) {
+      return context.firstNonEmptyIndex === -1 ? '' : content;
     }
 
     // 邊界之外的純空白節點：直接返回空字串（會被過濾掉）
-    if (index < firstNonEmptyIndex || index > lastNonEmptyIndex) {
+    if (context.index < context.firstNonEmptyIndex || context.index > context.lastNonEmptyIndex) {
       return '';
     }
 
+    return DomConverter._formatBoundaryRichTextContent(content, context);
+  }
+
+  static _formatBoundaryRichTextContent(content, context) {
     let formatted = content;
 
     // 只對第一個非空白元素做 trimStart
-    if (index === firstNonEmptyIndex) {
+    if (context.index === context.firstNonEmptyIndex) {
       formatted = formatted.trimStart();
     }
 
     // 只對最後一個非空白元素做 trimEnd
-    if (index === lastNonEmptyIndex) {
+    if (context.index === context.lastNonEmptyIndex) {
       formatted = formatted.trimEnd();
     }
 
-    if (!formatted.trim() && totalCount === 1) {
+    if (!formatted.trim() && context.totalCount === 1) {
       return ' ';
     }
 
