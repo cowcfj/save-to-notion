@@ -79,8 +79,8 @@ describe('contentSafe config', () => {
 
     expect(Object.isFrozen(CONTENT_EXTRACTION_MESSAGES)).toBe(true);
     expect(CONTENT_EXTRACTION_MESSAGES).toEqual({
-      EMPTY_FALLBACK: '內容提取失敗。此頁面可能為空白或受保護。',
-      ERROR_FALLBACK: '內容提取發生錯誤，請稍後再試。',
+      EMPTY_FALLBACK: '擷取內容失敗。頁面可能為空白或受保護。',
+      ERROR_FALLBACK: '擷取發生錯誤，請稍後再試。',
     });
     expect(CONTENT_EXTRACTION_MESSAGES.EMPTY_FALLBACK).not.toMatch(/content extraction failed/i);
     expect(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK).not.toMatch(/extraction error/i);

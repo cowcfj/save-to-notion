@@ -197,16 +197,37 @@ function isValidStableUrl(url) {
 }
 
 /**
- * 處理設置穩定 URL 請求（同步處理，不需要 sendResponse）
+ * 處理設置穩定 URL 請求
  *
  * @param {string|undefined} stableUrl - 穩定 URL
+ * @param {Function} sendResponse - 回應函數
  */
-function handleSetStableUrl(stableUrl) {
+function handleSetStableUrl(stableUrl, sendResponse) {
   if (!stableUrl || !isValidStableUrl(stableUrl)) {
+    sendResponse({ success: false, error: 'INVALID_STABLE_URL' });
     return;
   }
   globalThis.__NOTION_STABLE_URL__ = stableUrl;
   Logger.debug('已接收並設置穩定 URL', { action: 'setStableUrl', stableUrl });
+  sendResponse({ success: true });
+}
+
+/**
+ * 處理讀取穩定 URL 請求
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleGetStableUrl(sendResponse) {
+  sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
+}
+
+/**
+ * 處理 bundle 初始化握手
+ *
+ * @param {Function} sendResponse - 回應函數
+ */
+function handleInitBundle(sendResponse) {
+  sendResponse({ ready: true, bufferedEvents: 0 });
 }
 
 const runtimeMessageHandlers = {
@@ -234,9 +255,17 @@ const runtimeMessageHandlers = {
     handleRemoveHighlightDom(request.highlightId, sendResponse);
     return true;
   },
-  [CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL]: request => {
-    handleSetStableUrl(request.stableUrl);
-    return false;
+  [CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL]: (request, sendResponse) => {
+    handleSetStableUrl(request.stableUrl, sendResponse);
+    return true;
+  },
+  [CONTENT_BRIDGE_ACTIONS.GET_STABLE_URL]: (_request, sendResponse) => {
+    handleGetStableUrl(sendResponse);
+    return true;
+  },
+  [CONTENT_BRIDGE_ACTIONS.INIT_BUNDLE]: (_request, sendResponse) => {
+    handleInitBundle(sendResponse);
+    return true;
   },
 };
 
@@ -259,7 +288,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) =>
 // ============================================================
 // 重放 Preloader 緩衝事件
 // ============================================================
-function replayShortcutBufferedEvent() {
+async function replayShortcutBufferedEvent() {
   const rail = globalThis.HighlighterV2?.rail;
   if (!rail) {
     Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
@@ -268,8 +297,7 @@ function replayShortcutBufferedEvent() {
 
   try {
     Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
-    rail.show();
-    rail.activateHighlighting();
+    await activateFloatingRailHighlighting(rail);
   } catch (error) {
     Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
       action: 'replayEvents',
@@ -346,15 +374,13 @@ function createEmptyExtractionResult() {
 /**
  * 建立提取錯誤結果
  *
- * @param {Error} error - 錯誤物件
  * @returns {object} - 失敗提取結果
  */
-function createExtractionErrorResult(error) {
+function createExtractionErrorResult() {
   return {
     extractionStatus: 'failed',
     title: document.title || DEFAULT_PAGE_TITLE,
     blocks: [createParagraphFallbackBlock(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK)],
-    error: error?.message,
     additionalImages: [],
     coverImage: null,
   };
@@ -388,19 +414,31 @@ function resolveExtractedBlocks({ content, type, preExtractedBlocks }) {
   let mainImageCount = 0;
 
   if (hasBlocks) {
-    Logger.log('使用預提取的 Notion 區塊', {
-      action: 'extractPageContent',
-      type,
-      count: preExtractedBlocks.length,
-    });
     blocks = preExtractedBlocks;
     mainImageCount = blocks.filter(block => block.type === 'image').length;
+    Logger.info('使用預提取的 Notion 區塊', {
+      action: 'extractPageContent',
+      result: 'preExtracted',
+      type,
+      count: preExtractedBlocks.length,
+      blockCount: blocks.length,
+      imageCount: mainImageCount,
+    });
   } else {
-    Logger.log('正在將內容轉換為 Notion 區塊', { action: 'extractPageContent', type });
+    Logger.info('正在將內容轉換為 Notion 區塊', {
+      action: 'extractPageContent',
+      result: 'converted',
+      type,
+    });
     const converter = ConverterFactory.getConverter(type);
     blocks = converter.convert(content);
     mainImageCount = converter.imageCount || 0;
-    Logger.log('內容轉換完成', { action: 'extractPageContent', blockCount: blocks.length });
+    Logger.info('內容轉換完成', {
+      action: 'extractPageContent',
+      result: 'converted',
+      blockCount: blocks.length,
+      imageCount: mainImageCount,
+    });
   }
 
   return { blocks, mainImageCount };
@@ -447,7 +485,8 @@ function promoteLeadImageIfNeeded(blocks, additionalImages, mainImageCount) {
     blocks.unshift(leadImage);
     Logger.log('正文無圖片，已將首張額外圖片插入文章開頭', {
       action: 'extractPageContent',
-      imageUrl: `${leadImage?.image?.external?.url?.slice(0, 50)}...`,
+      hasLeadImage: true,
+      sourceType: leadImage?.type || 'external',
     });
   }
 }
@@ -573,11 +612,10 @@ async function extractPageContent() {
   } catch (error) {
     Logger.error('內容提取發生異常', {
       action: 'extractPageContent',
-      error: error.message,
-      stack: error.stack,
+      error,
     });
 
-    return createExtractionErrorResult(error);
+    return createExtractionErrorResult();
   }
 }
 
