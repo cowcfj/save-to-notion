@@ -349,6 +349,10 @@ const MetadataExtractor = {
    * @returns {boolean} 是否為頭像
    */
   isAvatarImage(img) {
+    if (!img) {
+      return false;
+    }
+
     return [
       MetadataExtractor.hasAvatarKeywordInImageIdentity(img),
       MetadataExtractor.hasAvatarKeywordInAncestorIdentity(img),
@@ -508,17 +512,19 @@ const MetadataExtractor = {
    * @returns {number}
    */
   _calculateIconScore(icon) {
+    const iconInput = icon || {};
     const normalizedIcon = {
-      ...icon,
-      url: icon.url.toLowerCase(),
+      ...iconInput,
+      url: typeof iconInput.url === 'string' ? iconInput.url.toLowerCase() : '',
+      type: typeof iconInput.type === 'string' ? iconInput.type.toLowerCase() : '',
     };
-    const size = icon.size || 0;
+    const size = iconInput.size || 0;
 
     return (
       resolveIconFormatScore(normalizedIcon) +
       resolveIconSizeScore(size) +
-      resolveIconTypeScore(icon) +
-      resolveIconPriorityScore(icon)
+      resolveIconTypeScore(normalizedIcon) +
+      resolveIconPriorityScore(normalizedIcon)
     );
   },
 };

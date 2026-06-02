@@ -178,6 +178,15 @@ describe('MetadataExtractor', () => {
       const result = MetadataExtractor.selectBestIcon(candidates);
       expect(result.url).toBe('https://example.com/icon-180.png');
     });
+
+    test('should tolerate candidates missing url or type', () => {
+      const candidates = [
+        { priority: 1, size: 180 },
+        { url: 'https://example.com/icon.webp', priority: 2, size: 180 },
+      ];
+
+      expect(() => MetadataExtractor.selectBestIcon(candidates)).not.toThrow();
+    });
   });
 
   describe('isValidImageUrl', () => {
@@ -268,6 +277,11 @@ describe('MetadataExtractor', () => {
       const img = document.createElement('img');
 
       expect(MetadataExtractor.isAvatarImage(img)).toBe(false);
+    });
+
+    test('should return false when image is missing', () => {
+      expect(MetadataExtractor.isAvatarImage(null)).toBe(false);
+      expect(MetadataExtractor.isAvatarImage(undefined)).toBe(false);
     });
   });
 
