@@ -53,6 +53,7 @@ const DEFAULT_DESTINATION_ENTITLEMENT = {
   accountSignedIn: false,
   source: 'fallback',
 };
+const NOTION_ID_SEGMENT_LENGTHS = new Set([32, 36]);
 let destinationProfilesUIController = null;
 
 function resolveUiMessage(path) {
@@ -252,11 +253,11 @@ function hideOAuthControlsWhenDisabled() {
  * 按順序初始化各個管理器
  *
  * @param {object} managers - 包含管理器實例的對象
- * @param managers.ui
- * @param managers.auth
- * @param managers.dataSource
- * @param managers.storage
- * @param managers.migration
+ * @param {UIManager} managers.ui
+ * @param {AuthManager} managers.auth
+ * @param {DataSourceManager} managers.dataSource
+ * @param {StorageManager} managers.storage
+ * @param {MigrationTool} managers.migration
  */
 function initializeOptionsManagers({ ui, auth, dataSource, storage, migration }) {
   ui.init();
@@ -692,6 +693,34 @@ document.addEventListener('DOMContentLoaded', initOptions);
 
 const ACCOUNT_STATUS_SELECTOR = '#account-status';
 
+function setElementHidden(element, hidden) {
+  element?.classList.toggle('hidden', hidden);
+}
+
+function setOptionalTextContent(element, text) {
+  if (element) {
+    element.textContent = text;
+  }
+}
+
+function showProfileAvatar(avatarImgEl, avatarFallbackEl, avatarUrl) {
+  if (avatarImgEl) {
+    avatarImgEl.src = avatarUrl;
+    avatarImgEl.alt = UI_MESSAGES.ACCOUNT.AVATAR_ALT;
+    avatarImgEl.classList.remove('hidden');
+  }
+  setElementHidden(avatarFallbackEl, true);
+}
+
+function showProfileAvatarFallback(avatarImgEl, avatarFallbackEl, avatarFallbackInitial) {
+  if (avatarImgEl) {
+    avatarImgEl.removeAttribute('src');
+  }
+  setElementHidden(avatarImgEl, true);
+  setOptionalTextContent(avatarFallbackEl, avatarFallbackInitial);
+  setElementHidden(avatarFallbackEl, false);
+}
+
 /**
  * 更新 Profile DOM 的顯示內容
  *
@@ -709,31 +738,13 @@ function updateProfileDOM(profile) {
 
   const { email, displayLabel, avatarFallbackInitial } = resolveAccountDisplayProfile(profile);
 
-  if (nameEl) {
-    nameEl.textContent = displayLabel;
-  }
-  if (emailEl) {
-    emailEl.textContent = email;
-  }
+  setOptionalTextContent(nameEl, displayLabel);
+  setOptionalTextContent(emailEl, email);
 
   if (profile.avatarUrl) {
-    if (avatarImgEl) {
-      avatarImgEl.src = profile.avatarUrl;
-      avatarImgEl.alt = UI_MESSAGES.ACCOUNT.AVATAR_ALT;
-      avatarImgEl.classList.remove('hidden');
-    }
-    if (avatarFallbackEl) {
-      avatarFallbackEl.classList.add('hidden');
-    }
+    showProfileAvatar(avatarImgEl, avatarFallbackEl, profile.avatarUrl);
   } else {
-    if (avatarImgEl) {
-      avatarImgEl.removeAttribute('src');
-      avatarImgEl.classList.add('hidden');
-    }
-    if (avatarFallbackEl) {
-      avatarFallbackEl.textContent = avatarFallbackInitial;
-      avatarFallbackEl.classList.remove('hidden');
-    }
+    showProfileAvatarFallback(avatarImgEl, avatarFallbackEl, avatarFallbackInitial);
   }
 }
 
@@ -771,12 +782,8 @@ function updateAccountLoginState(isActive, profile) {
   const loggedInEl = document.querySelector('#account-logged-in');
 
   if (isActive) {
-    if (loggedOutEl) {
-      loggedOutEl.classList.add('hidden');
-    }
-    if (loggedInEl) {
-      loggedInEl.classList.remove('hidden');
-    }
+    setElementHidden(loggedOutEl, true);
+    setElementHidden(loggedInEl, false);
 
     if (profile) {
       updateProfileDOM(profile);
@@ -784,12 +791,8 @@ function updateAccountLoginState(isActive, profile) {
     updateLockedFeatures(false);
   } else {
     // 未登入狀態
-    if (loggedOutEl) {
-      loggedOutEl.classList.remove('hidden');
-    }
-    if (loggedInEl) {
-      loggedInEl.classList.add('hidden');
-    }
+    setElementHidden(loggedOutEl, false);
+    setElementHidden(loggedInEl, true);
 
     updateLockedFeatures(true);
   }
@@ -1047,6 +1050,10 @@ function setupSidebarNavigation() {
   }
 }
 
+function isPotentialNotionIdSegment(segment) {
+  return NOTION_ID_SEGMENT_LENGTHS.has(segment?.length);
+}
+
 /**
  * 清理並標準化 Database/Page ID
  * - 移除 URL 前綴和查詢參數
@@ -1072,7 +1079,7 @@ export function cleanDatabaseId(input) {
   const pathParts = cleaned.split(/[#?]/)[0].split('/');
   const lastPathPart = pathParts.at(-1);
 
-  if (lastPathPart && (lastPathPart.length === 36 || lastPathPart.length === 32)) {
+  if (isPotentialNotionIdSegment(lastPathPart)) {
     cleaned = lastPathPart;
   }
 
