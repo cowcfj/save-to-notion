@@ -11,6 +11,17 @@ import {
 const { ImageCollector, cachedQuery, extractImageSrc, isTemporaryImageUrl } =
   imageCollectorTestModules;
 
+const extractElementSrc = img => img?.src ?? null;
+const isPatreonImageUrl = url => typeof url === 'string' && url.includes('patreonusercontent.com');
+const findBlockByType = (blocks, type) => blocks.find(block => block.type === type);
+
+function mockAllImageQueries(resultsBySelector) {
+  cachedQuery.mockImplementation((selector, _context, options = {}) => {
+    const queryMode = options.all ? 'all' : 'single';
+    return resultsBySelector.get(`${queryMode}:${selector}`) ?? null;
+  });
+}
+
 describe('ImageCollector temporary image URL handling', () => {
   setupImageCollectorTestLifecycle();
 
@@ -105,22 +116,14 @@ describe('ImageCollector temporary image URL handling', () => {
     Object.defineProperty(galleryImg, 'naturalWidth', { value: 1024 });
     Object.defineProperty(galleryImg, 'naturalHeight', { value: 768 });
 
-    extractImageSrc.mockImplementation(img => img?.src ?? null);
-    isTemporaryImageUrl.mockImplementation(
-      url => typeof url === 'string' && url.includes('patreonusercontent.com')
+    extractImageSrc.mockImplementation(extractElementSrc);
+    isTemporaryImageUrl.mockImplementation(isPatreonImageUrl);
+    mockAllImageQueries(
+      new Map([
+        ['all:.gallery img', [galleryImg]],
+        ['all:img', [patreonImg]],
+      ])
     );
-
-    cachedQuery.mockImplementation((selector, _context, options) => {
-      if (options?.all) {
-        if (selector === '.gallery img') {
-          return [galleryImg];
-        }
-        if (selector === 'img') {
-          return [patreonImg];
-        }
-      }
-      return null;
-    });
 
     const contentElement = document.createElement('div');
 
@@ -129,11 +132,11 @@ describe('ImageCollector temporary image URL handling', () => {
     // 兩種 block 應同時保留:Patreon 降級為 paragraph,gallery 維持 image block
     expect(result.images).toHaveLength(2);
 
-    const placeholderBlock = result.images.find(b => b.type === 'paragraph');
+    const placeholderBlock = findBlockByType(result.images, 'paragraph');
     expect(placeholderBlock).toBeDefined();
     expect(placeholderBlock._meta?.originalSrc).toBe(PATREON_URL);
 
-    const galleryBlock = result.images.find(b => b.type === 'image');
+    const galleryBlock = findBlockByType(result.images, 'image');
     expect(galleryBlock).toBeDefined();
     expect(galleryBlock.image?.external?.url).toBe('https://example.com/gallery1.jpg');
   });
