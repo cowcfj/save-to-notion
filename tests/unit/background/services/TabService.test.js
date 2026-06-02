@@ -200,6 +200,35 @@ describe('TabService', () => {
         recovered: false,
       });
     });
+
+    it('should use the latest clearNotionState in fallback clearNotionStateWithRetry', async () => {
+      const initialClearNotionState = jest.fn().mockResolvedValue({ cleared: true });
+      const replacementClearNotionState = jest
+        .fn()
+        .mockResolvedValue({ skipped: true, reason: 'pageId_mismatch' });
+      const fallbackService = new TabService({ clearNotionState: initialClearNotionState });
+      const options = {
+        source: 'TabService.test',
+        expectedPageId: 'page-123',
+      };
+
+      fallbackService.clearNotionState = replacementClearNotionState;
+
+      const result = await fallbackService.clearNotionStateWithRetry(
+        'https://example.com',
+        options
+      );
+
+      expect(initialClearNotionState).not.toHaveBeenCalled();
+      expect(replacementClearNotionState).toHaveBeenCalledWith('https://example.com', options);
+      expect(result).toEqual({
+        cleared: false,
+        skipped: true,
+        reason: 'pageId_mismatch',
+        attempts: 1,
+        recovered: false,
+      });
+    });
   });
 
   describe('updateTabStatus', () => {
@@ -214,6 +243,18 @@ describe('TabService', () => {
     it('should skip restricted URLs', async () => {
       await service.updateTabStatus(1, 'chrome://extensions');
 
+      expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
+    });
+
+    it('should call restricted URL dependency with the service context', async () => {
+      service.isRestrictedUrl = jest.fn(function () {
+        return this === service;
+      });
+
+      await service.updateTabStatus(1, 'https://example.com');
+
+      expect(service.isRestrictedUrl).toHaveBeenCalledWith('https://example.com');
+      expect(service.getSavedPageData).not.toHaveBeenCalled();
       expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
     });
 
