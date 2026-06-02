@@ -74,6 +74,79 @@ const extractPictureSourceCandidate = img => {
   return firstCandidate;
 };
 
+const ICON_FORMAT_SCORE_RULES = [
+  {
+    score: ICON_SCORE.SVG_FORMAT,
+    urlChecks: [url => url.endsWith('.svg'), url => url.includes('image/svg')],
+    typeChecks: [type => type.includes('svg')],
+  },
+  {
+    score: ICON_SCORE.PNG_FORMAT,
+    urlChecks: [url => url.endsWith('.png')],
+    typeChecks: [type => type.includes('png')],
+  },
+  {
+    score: ICON_SCORE.ICO_FORMAT,
+    urlChecks: [url => url.endsWith('.ico')],
+    typeChecks: [type => type.includes('ico')],
+  },
+  {
+    score: ICON_SCORE.JPEG_FORMAT,
+    urlChecks: [url => url.endsWith('.jpg'), url => url.endsWith('.jpeg')],
+    typeChecks: [type => type.includes('jpeg')],
+  },
+];
+
+const ICON_SIZE_SCORE_RULES = [
+  {
+    score: ICON_SCORE.SCALABLE_SIZE,
+    matches: size => size === ICON_SIZE_SCALABLE_SENTINEL,
+  },
+  {
+    score: ICON_SCORE.IDEAL_SIZE,
+    matches: size => size >= 180 && size <= 256,
+  },
+  {
+    score: ICON_SCORE.LARGE_SIZE,
+    matches: size => size > 256,
+  },
+  {
+    score: ICON_SCORE.MEDIUM_SIZE,
+    matches: size => size >= 120,
+  },
+  {
+    score: ICON_SCORE.SMALL_SIZE,
+    matches: size => size > 0,
+  },
+];
+
+const matchesIconFormatRule = (icon, rule) => {
+  if (rule.urlChecks.some(checkUrl => checkUrl(icon.url))) {
+    return true;
+  }
+  return rule.typeChecks.some(checkType => checkType(icon.type));
+};
+
+const resolveIconFormatScore = icon => {
+  const rule = ICON_FORMAT_SCORE_RULES.find(formatRule => matchesIconFormatRule(icon, formatRule));
+  return rule ? rule.score : 0;
+};
+
+const resolveIconSizeScore = size => {
+  const rule = ICON_SIZE_SCORE_RULES.find(sizeRule => sizeRule.matches(size));
+  return rule ? rule.score : 0;
+};
+
+const resolveIconTypeScore = icon => {
+  if (icon.iconType === 'apple-touch') {
+    return ICON_SCORE.APPLE_TOUCH_TYPE;
+  }
+  return 0;
+};
+
+const resolveIconPriorityScore = icon =>
+  (ICON_SCORE.MAX_PRIORITY_BASE - icon.priority) * ICON_SCORE.PRIORITY_MULTIPLIER;
+
 const MetadataExtractor = {
   /**
    * 提取頁面元數據（完整版本）
@@ -105,7 +178,10 @@ const MetadataExtractor = {
     const docTitle = doc.title || '';
     const readabilityTitle = normalizeReadabilityTitleCandidate(readabilityArticle);
 
-    if (readabilityTitle && isTitleConsistent(readabilityTitle, docTitle)) {
+    if (!readabilityTitle) {
+      return docTitle || 'Untitled Page';
+    }
+    if (isTitleConsistent(readabilityTitle, docTitle)) {
       return readabilityTitle;
     }
     return docTitle || 'Untitled Page';
@@ -235,8 +311,9 @@ const MetadataExtractor = {
   },
 
   _elementIdentityContainsAvatarKeyword(element, attributes) {
+    const identityValues = attributes.map(attr => (element[attr] || '').toLowerCase());
     return AVATAR_KEYWORDS.some(keyword =>
-      attributes.some(attr => (element[attr] || '').toLowerCase().includes(keyword))
+      identityValues.some(identityValue => identityValue.includes(keyword))
     );
   },
 
@@ -258,7 +335,11 @@ const MetadataExtractor = {
   isSmallAvatarLikeImage(img) {
     const width = img.naturalWidth || img.width || 0;
     const height = img.naturalHeight || img.height || 0;
-    return width > 0 && height > 0 && width < AVATAR_MAX_DIMENSION && height < AVATAR_MAX_DIMENSION;
+    const hasResolvedSize = width > 0 && height > 0;
+    if (!hasResolvedSize) {
+      return false;
+    }
+    return width < AVATAR_MAX_DIMENSION && height < AVATAR_MAX_DIMENSION;
   },
 
   /**
@@ -268,11 +349,11 @@ const MetadataExtractor = {
    * @returns {boolean} 是否為頭像
    */
   isAvatarImage(img) {
-    return (
-      MetadataExtractor.hasAvatarKeywordInImageIdentity(img) ||
-      MetadataExtractor.hasAvatarKeywordInAncestorIdentity(img) ||
-      MetadataExtractor.isSmallAvatarLikeImage(img)
-    );
+    return [
+      MetadataExtractor.hasAvatarKeywordInImageIdentity(img),
+      MetadataExtractor.hasAvatarKeywordInAncestorIdentity(img),
+      MetadataExtractor.isSmallAvatarLikeImage(img),
+    ].some(Boolean);
   },
 
   /**
@@ -427,43 +508,18 @@ const MetadataExtractor = {
    * @returns {number}
    */
   _calculateIconScore(icon) {
-    let score = 0;
-    const url = icon.url.toLowerCase();
-
-    // 格式評分
-    if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
-      score += ICON_SCORE.SVG_FORMAT; // SVG 矢量圖
-    } else if (url.endsWith('.png') || icon.type.includes('png')) {
-      score += ICON_SCORE.PNG_FORMAT;
-    } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
-      score += ICON_SCORE.ICO_FORMAT;
-    } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
-      score += ICON_SCORE.JPEG_FORMAT;
-    }
-
-    // 尺寸評分
+    const normalizedIcon = {
+      ...icon,
+      url: icon.url.toLowerCase(),
+    };
     const size = icon.size || 0;
-    if (size === ICON_SIZE_SCALABLE_SENTINEL) {
-      score += ICON_SCORE.SCALABLE_SIZE; // SVG "any"
-    } else if (size >= 180 && size <= 256) {
-      score += ICON_SCORE.IDEAL_SIZE; // 理想尺寸
-    } else if (size > 256) {
-      score += ICON_SCORE.LARGE_SIZE;
-    } else if (size >= 120) {
-      score += ICON_SCORE.MEDIUM_SIZE;
-    } else if (size > 0) {
-      score += ICON_SCORE.SMALL_SIZE;
-    }
 
-    // 類型評分
-    if (icon.iconType === 'apple-touch') {
-      score += ICON_SCORE.APPLE_TOUCH_TYPE;
-    }
-
-    // 優先級評分
-    score += (ICON_SCORE.MAX_PRIORITY_BASE - icon.priority) * ICON_SCORE.PRIORITY_MULTIPLIER;
-
-    return score;
+    return (
+      resolveIconFormatScore(normalizedIcon) +
+      resolveIconSizeScore(size) +
+      resolveIconTypeScore(icon) +
+      resolveIconPriorityScore(icon)
+    );
   },
 };
 
