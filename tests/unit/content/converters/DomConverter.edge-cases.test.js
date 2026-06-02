@@ -101,6 +101,29 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks[0].type).toBe('image');
     });
 
+    test('段落只包含多張圖片時應返回多個圖片 Block', () => {
+      const html =
+        '<p><img src="https://example.com/image-1.jpg" alt="first"><img src="https://example.com/image-2.jpg" alt="second"></p>';
+      const blocks = converter.convert(html);
+
+      expect(blocks).toHaveLength(2);
+      expect(blocks.map(block => block.type)).toEqual(['image', 'image']);
+      expect(blocks.map(block => block.image.external.url)).toEqual([
+        'https://example.com/image-1.jpg',
+        'https://example.com/image-2.jpg',
+      ]);
+    });
+
+    test('段落只包含被連結包住的圖片時仍應返回圖片 Block', () => {
+      const html =
+        '<p><a href="https://example.com/article"><img src="https://example.com/wrapped.jpg" alt="wrapped"></a></p>';
+      const blocks = converter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('image');
+      expect(blocks[0].image.external.url).toBe('https://example.com/wrapped.jpg');
+    });
+
     test('段落包含圖片和文字時應返回段落', () => {
       const html = '<p><img src="https://example.com/image.jpg">Some text</p>';
       const blocks = converter.convert(html);

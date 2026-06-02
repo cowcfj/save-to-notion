@@ -349,11 +349,12 @@ class DomConverter {
   }
 
   createParagraphBlock(node) {
-    // 檢查是否包含圖片（Image inside P）
-    const img = node.querySelector('img');
-    // 如果段落只包含圖片，直接返回圖片 Block
-    if (DomConverter._isImageOnlyParagraph(node, img)) {
-      return this.createImageBlock(img);
+    const imageOnlyParagraphImages = DomConverter._getImageOnlyParagraphImages(node);
+    if (imageOnlyParagraphImages.length === 1) {
+      return this.createImageBlock(imageOnlyParagraphImages[0]);
+    }
+    if (imageOnlyParagraphImages.length > 1) {
+      return imageOnlyParagraphImages.map(img => this.createImageBlock(img)).filter(Boolean);
     }
 
     // 檢查是否是 "偽裝列表" (List-like paragraph)
@@ -373,12 +374,12 @@ class DomConverter {
     };
   }
 
-  static _isImageOnlyParagraph(node, img) {
-    if (!img) {
-      return false;
+  static _getImageOnlyParagraphImages(node) {
+    if (node.textContent.trim().length > 0) {
+      return [];
     }
 
-    return node.textContent.trim().length === 0;
+    return Array.from(node.querySelectorAll('img'));
   }
 
   processDiv(node) {
@@ -536,11 +537,21 @@ class DomConverter {
   }
 
   _resolveImageExternalUrl(src, cleanImageUrl) {
+    let resolved;
     try {
-      const resolved = new URL(src, document.baseURI).href;
-      return cleanImageUrl ? cleanImageUrl(resolved) : resolved;
+      resolved = new URL(src, document.baseURI).href;
     } catch {
       return src;
+    }
+
+    if (typeof cleanImageUrl !== 'function') {
+      return resolved;
+    }
+
+    try {
+      return cleanImageUrl(resolved);
+    } catch {
+      return resolved;
     }
   }
 
