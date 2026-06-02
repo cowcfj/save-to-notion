@@ -881,6 +881,65 @@ const ImageCollector = {
     return fakeImg;
   },
 
+  _resolveNextJsImageBlocks(preExtractedBlocks) {
+    if (preExtractedBlocks) {
+      Logger.log('使用預提取的 Next.js 區塊進行圖片收集', {
+        count: preExtractedBlocks.length,
+      });
+      return preExtractedBlocks;
+    }
+
+    if (!NextJsExtractor.detect(document)) {
+      return null;
+    }
+
+    const result = NextJsExtractor.extract(document);
+    if (!result?.blocks) {
+      Logger.log('Next.js Data 提取結果為空', { action: 'collectAdditionalImages' });
+      return null;
+    }
+
+    return result.blocks;
+  },
+
+  _collectExistingImageUrls(allImages) {
+    const seenUrls = new Set();
+    for (const img of allImages) {
+      if (img.src) {
+        seenUrls.add(img.src);
+      }
+    }
+    return seenUrls;
+  },
+
+  _shouldAddNextJsImageUrl(url, seenUrls) {
+    if (!url) {
+      return false;
+    }
+    if (seenUrls.has(url)) {
+      return false;
+    }
+    return Boolean(isValidImageUrl?.(url));
+  },
+
+  _appendNextJsImageBlocks(allImages, blocks, seenUrls) {
+    let addedCount = 0;
+
+    for (const block of blocks) {
+      const url = this._extractNextJsImageUrl(block);
+      if (!this._shouldAddNextJsImageUrl(url, seenUrls)) {
+        continue;
+      }
+
+      const fakeImg = this._createNextJsImageElement(block, url);
+      allImages.push(fakeImg);
+      seenUrls.add(url);
+      addedCount++;
+    }
+
+    return addedCount;
+  },
+
   /**
    * 從 Next.js 的 hydration data (__NEXT_DATA__) 中提取圖片
    * 委託 NextJsExtractor 處理解析
@@ -891,49 +950,13 @@ const ImageCollector = {
   _collectFromNextJsData(allImages, preExtractedBlocks) {
     Logger.log('圖片收集策略：Next.js Data', { action: 'collectAdditionalImages' });
 
-    let blocks = preExtractedBlocks;
-
-    // 如果沒有預先提取的區塊，則嘗試解析
-    if (blocks) {
-      Logger.log('使用預提取的 Next.js 區塊進行圖片收集', {
-        count: blocks.length,
-      });
-    } else {
-      // 使用 NextJsExtractor 進行檢測與提取
-      if (!NextJsExtractor.detect(document)) {
-        return;
-      }
-
-      const result = NextJsExtractor.extract(document);
-      if (!result?.blocks) {
-        Logger.log('Next.js Data 提取結果為空', { action: 'collectAdditionalImages' });
-        return;
-      }
-      blocks = result.blocks;
-    }
-
+    const blocks = this._resolveNextJsImageBlocks(preExtractedBlocks);
     if (!Array.isArray(blocks)) {
       return;
     }
 
-    let addedCount = 0;
-    const seenUrls = new Set();
-    for (const img of allImages) {
-      if (img.src) {
-        seenUrls.add(img.src);
-      }
-    }
-
-    // 從轉換後的 Notion Blocks 中提取圖片
-    blocks.forEach(block => {
-      const url = this._extractNextJsImageUrl(block);
-      if (url && !seenUrls.has(url) && isValidImageUrl?.(url)) {
-        const fakeImg = this._createNextJsImageElement(block, url);
-        allImages.push(fakeImg);
-        seenUrls.add(url);
-        addedCount++;
-      }
-    });
+    const seenUrls = this._collectExistingImageUrls(allImages);
+    const addedCount = this._appendNextJsImageBlocks(allImages, blocks, seenUrls);
 
     Logger.log('從 Next.js Data 添加了新圖片', { count: addedCount });
   },
