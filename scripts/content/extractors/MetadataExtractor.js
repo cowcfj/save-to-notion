@@ -18,6 +18,34 @@ import {
 } from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
+const AUTHOR_META_SELECTORS = [
+  'meta[name="author"]',
+  'meta[property="article:author"]',
+  'meta[name="twitter:creator"]',
+];
+
+const DESCRIPTION_META_SELECTORS = [
+  'meta[name="description"]',
+  'meta[property="og:description"]',
+  'meta[name="twitter:description"]',
+];
+
+const normalizeReadabilityTitleCandidate = readabilityArticle => {
+  const title = readabilityArticle?.title;
+  return typeof title === 'string' && title ? title : null;
+};
+
+const extractFirstMetaContent = (doc, selectors) => {
+  for (const selector of selectors) {
+    const meta = doc.querySelector(selector);
+    const content = meta?.getAttribute('content');
+    if (content) {
+      return content;
+    }
+  }
+  return null;
+};
+
 const MetadataExtractor = {
   /**
    * 提取頁面元數據（完整版本）
@@ -47,10 +75,10 @@ const MetadataExtractor = {
    */
   extractTitle(doc, readabilityArticle) {
     const docTitle = doc.title || '';
-    const rTitle = readabilityArticle?.title;
+    const readabilityTitle = normalizeReadabilityTitleCandidate(readabilityArticle);
 
-    if (rTitle && typeof rTitle === 'string' && isTitleConsistent(rTitle, docTitle)) {
-      return rTitle;
+    if (readabilityTitle && isTitleConsistent(readabilityTitle, docTitle)) {
+      return readabilityTitle;
     }
     return docTitle || 'Untitled Page';
   },
@@ -68,12 +96,7 @@ const MetadataExtractor = {
       return readabilityArticle.byline;
     }
 
-    const authorMeta =
-      doc.querySelector('meta[name="author"]') ||
-      doc.querySelector('meta[property="article:author"]') ||
-      doc.querySelector('meta[name="twitter:creator"]');
-
-    return authorMeta ? authorMeta.getAttribute('content') : null;
+    return extractFirstMetaContent(doc, AUTHOR_META_SELECTORS);
   },
 
   /**
@@ -89,12 +112,7 @@ const MetadataExtractor = {
       return readabilityArticle.excerpt;
     }
 
-    const descMeta =
-      doc.querySelector('meta[name="description"]') ||
-      doc.querySelector('meta[property="og:description"]') ||
-      doc.querySelector('meta[name="twitter:description"]');
-
-    return descMeta ? descMeta.getAttribute('content') : null;
+    return extractFirstMetaContent(doc, DESCRIPTION_META_SELECTORS);
   },
 
   /**
