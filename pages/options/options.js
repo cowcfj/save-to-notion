@@ -199,14 +199,14 @@ function activateSidebarSection(sectionName, navItems, sections) {
     return false;
   }
 
-  navItems.forEach(nav => {
+  for (const nav of navItems) {
     nav.classList.remove('active');
     nav.setAttribute('aria-selected', 'false');
-  });
+  }
   targetItem.classList.add('active');
   targetItem.setAttribute('aria-selected', 'true');
 
-  sections.forEach(section => {
+  for (const section of sections) {
     if (section.id === targetSectionId) {
       section.classList.add('active');
       section.setAttribute('aria-hidden', 'false');
@@ -214,7 +214,7 @@ function activateSidebarSection(sectionName, navItems, sections) {
       section.classList.remove('active');
       section.setAttribute('aria-hidden', 'true');
     }
-  });
+  }
 
   return true;
 }
