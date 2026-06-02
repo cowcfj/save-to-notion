@@ -418,16 +418,13 @@ function resolveExtractedBlocks({ content, type, preExtractedBlocks }) {
     mainImageCount = blocks.filter(block => block.type === 'image').length;
     Logger.info('使用預提取的 Notion 區塊', {
       action: 'extractPageContent',
-      result: 'preExtracted',
       type,
       count: preExtractedBlocks.length,
-      blockCount: blocks.length,
       imageCount: mainImageCount,
     });
   } else {
     Logger.info('正在將內容轉換為 Notion 區塊', {
       action: 'extractPageContent',
-      result: 'converted',
       type,
     });
     const converter = ConverterFactory.getConverter(type);
@@ -435,9 +432,7 @@ function resolveExtractedBlocks({ content, type, preExtractedBlocks }) {
     mainImageCount = converter.imageCount || 0;
     Logger.info('內容轉換完成', {
       action: 'extractPageContent',
-      result: 'converted',
       blockCount: blocks.length,
-      imageCount: mainImageCount,
     });
   }
 

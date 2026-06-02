@@ -929,14 +929,11 @@ describe('Content Script Entry (index.js)', () => {
       expect(result.debug.imageMetrics.durationMs).toBeGreaterThanOrEqual(0);
       expect(Logger.info).toHaveBeenCalledWith('正在將內容轉換為 Notion 區塊', {
         action: 'extractPageContent',
-        result: 'converted',
         type: 'readability',
       });
       expect(Logger.info).toHaveBeenCalledWith('內容轉換完成', {
         action: 'extractPageContent',
-        result: 'converted',
         blockCount: 1,
-        imageCount: 0,
       });
     });
 
@@ -1070,10 +1067,8 @@ describe('Content Script Entry (index.js)', () => {
       );
       expect(Logger.info).toHaveBeenCalledWith('使用預提取的 Notion 區塊', {
         action: 'extractPageContent',
-        result: 'preExtracted',
         type: 'nextjs',
         count: 2,
-        blockCount: 2,
         imageCount: 1,
       });
     });

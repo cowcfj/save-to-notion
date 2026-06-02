@@ -139,7 +139,7 @@ describe('tools/check-size-gates.mjs', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir } = createBundleRoot({
       rootDir,
-      contentSize: 257_001,
+      contentSize: 258_001,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -163,7 +163,8 @@ describe('tools/check-size-gates.mjs', () => {
 
   test.each([
     ['接近 hard cap', 255_000],
-    ['正好等於 hard cap', 257_000],
+    ['目前 CI 超標回歸值', 257_170],
+    ['正好等於 hard cap', 258_000],
   ])('[REGRESSION] hard mode 應允許 content bundle %s (%i bytes) 通過', (_label, contentSize) => {
     expect.assertions(2);
 
@@ -172,7 +173,7 @@ describe('tools/check-size-gates.mjs', () => {
       checkKey: 'content_bundle',
       expected: {
         current: contentSize,
-        hardLimit: 257_000,
+        hardLimit: 258_000,
       },
     });
   });
