@@ -10,19 +10,7 @@
 
 // ImageUtils 由 Rollup intro 從 window.ImageUtils 注入
 // 使用 getter 函數以支持測試時的 mock 覆蓋
-const hasWindowScope = () => globalThis.window !== undefined;
-const hasGlobalScope = () => globalThis.global !== undefined;
-const getImageUtils = () => {
-  if (hasWindowScope()) {
-    return globalThis.ImageUtils ?? {};
-  }
-
-  if (hasGlobalScope()) {
-    return globalThis.ImageUtils ?? {};
-  }
-
-  return {};
-};
+const getImageUtils = () => globalThis.ImageUtils ?? {};
 
 import Logger from '../../utils/Logger.js';
 
