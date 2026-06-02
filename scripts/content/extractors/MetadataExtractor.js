@@ -14,33 +14,13 @@ import {
   FEATURED_IMAGE_SELECTORS,
   SITE_ICON_SELECTORS,
   AVATAR_KEYWORDS,
-  AVATAR_ANCESTOR_SCAN_DEPTH,
-  AVATAR_MAX_DIMENSION,
   IMAGE_SRC_ATTRIBUTES,
-  ICON_SIZE_SCALABLE_SENTINEL,
-  ICON_SCORE,
 } from '../../config/shared/content.js';
-import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
-const AUTHOR_META_SELECTORS = [
-  'meta[name="author"]',
-  'meta[property="article:author"]',
-  'meta[name="twitter:creator"]',
-];
+const UNTITLED_PAGE_LABEL = '未命名頁面';
 
-const DESCRIPTION_META_SELECTORS = [
-  'meta[name="description"]',
-  'meta[property="og:description"]',
-  'meta[name="twitter:description"]',
-];
-
-const normalizeReadabilityTitleCandidate = readabilityArticle => {
-  const title = readabilityArticle?.title;
-  return typeof title === 'string' && title ? title : null;
-};
-
-const extractFirstMetaContent = (doc, selectors) => {
+const extractFirstMetaContent = (doc, ...selectors) => {
   for (const selector of selectors) {
     const meta = doc.querySelector(selector);
     const content = meta?.getAttribute('content');
@@ -71,17 +51,6 @@ const selectFirstValidImageCandidate = candidates => {
   return null;
 };
 
-const parseSrcsetCandidates = srcset => srcset.split(/,\s+/).map(str => str.trim().split(' ')[0]);
-
-const extractSourceCandidate = source => {
-  const srcset = source.getAttribute('srcset') || source.dataset.srcset;
-  if (srcset) {
-    return selectFirstValidImageCandidate(parseSrcsetCandidates(srcset));
-  }
-  const src = source.getAttribute('src') || source.dataset.src;
-  return selectFirstValidImageCandidate([src]);
-};
-
 const extractPictureSourceCandidate = img => {
   const sources = img.closest('picture')?.querySelectorAll('source');
   if (!sources?.length) {
@@ -89,7 +58,10 @@ const extractPictureSourceCandidate = img => {
   }
 
   for (const source of sources) {
-    const candidate = extractSourceCandidate(source);
+    const srcset = source.getAttribute('srcset') || source.dataset.srcset;
+    const candidate = srcset
+      ? selectFirstValidImageCandidate(srcset.split(/,\s+/).map(str => str.trim().split(' ')[0]))
+      : selectFirstValidImageCandidate([source.getAttribute('src') || source.dataset.src]);
     if (candidate) {
       return candidate;
     }
@@ -101,85 +73,43 @@ const normalizeIconFormatUrl = url => {
   if (typeof url !== 'string') {
     return '';
   }
-  try {
-    return new URL(url, 'https://example.invalid').pathname.toLowerCase();
-  } catch {
-    return url.split(/[?#]/)[0].toLowerCase();
+  return url.split(/[?#]/)[0].toLowerCase();
+};
+
+const resolveIconFormatScore = (url, type) => {
+  if (url.endsWith('.svg') || url.includes('image/svg') || type.includes('svg')) {
+    return 1000;
   }
-};
-
-const ICON_FORMAT_SCORE_RULES = [
-  {
-    score: ICON_SCORE.SVG_FORMAT,
-    urlChecks: [url => url.endsWith('.svg'), url => url.includes('image/svg')],
-    typeChecks: [type => type && type.includes('svg')],
-  },
-  {
-    score: ICON_SCORE.PNG_FORMAT,
-    urlChecks: [url => url.endsWith('.png')],
-    typeChecks: [type => type && type.includes('png')],
-  },
-  {
-    score: ICON_SCORE.ICO_FORMAT,
-    urlChecks: [url => url.endsWith('.ico')],
-    typeChecks: [type => type && type.includes('ico')],
-  },
-  {
-    score: ICON_SCORE.JPEG_FORMAT,
-    urlChecks: [url => url.endsWith('.jpg'), url => url.endsWith('.jpeg')],
-    typeChecks: [type => type && type.includes('jpeg')],
-  },
-];
-
-const ICON_SIZE_SCORE_RULES = [
-  {
-    score: ICON_SCORE.SCALABLE_SIZE,
-    matches: size => size === ICON_SIZE_SCALABLE_SENTINEL,
-  },
-  {
-    score: ICON_SCORE.IDEAL_SIZE,
-    matches: size => size >= 180 && size <= 256,
-  },
-  {
-    score: ICON_SCORE.LARGE_SIZE,
-    matches: size => size > 256,
-  },
-  {
-    score: ICON_SCORE.MEDIUM_SIZE,
-    matches: size => size >= 120,
-  },
-  {
-    score: ICON_SCORE.SMALL_SIZE,
-    matches: size => size > 0,
-  },
-];
-
-const matchesIconFormatRule = (icon, rule) => {
-  if (rule.urlChecks.some(checkUrl => checkUrl(icon.url))) {
-    return true;
+  if (url.endsWith('.png') || type.includes('png')) {
+    return 500;
   }
-  return rule.typeChecks.some(checkType => checkType(icon.type));
-};
-
-const resolveIconFormatScore = icon => {
-  const rule = ICON_FORMAT_SCORE_RULES.find(formatRule => matchesIconFormatRule(icon, formatRule));
-  return rule ? rule.score : 0;
-};
-
-const resolveIconSizeScore = size => {
-  const rule = ICON_SIZE_SCORE_RULES.find(sizeRule => sizeRule.matches(size));
-  return rule ? rule.score : 0;
-};
-
-const resolveIconTypeScore = icon => {
-  if (icon.iconType === 'apple-touch') {
-    return ICON_SCORE.APPLE_TOUCH_TYPE;
+  if (url.endsWith('.ico') || type.includes('ico')) {
+    return 100;
+  }
+  if (url.endsWith('.jpg') || url.endsWith('.jpeg') || type.includes('jpeg')) {
+    return 200;
   }
   return 0;
 };
 
-const resolveIconPriorityScore = icon =>
-  (ICON_SCORE.MAX_PRIORITY_BASE - icon.priority) * ICON_SCORE.PRIORITY_MULTIPLIER;
+const resolveIconSizeScore = size => {
+  if (size === 999) {
+    return 500;
+  }
+  if (size >= 180 && size <= 256) {
+    return 300;
+  }
+  if (size > 256) {
+    return 200;
+  }
+  if (size >= 120) {
+    return 100;
+  }
+  if (size > 0) {
+    return 50;
+  }
+  return 0;
+};
 
 const MetadataExtractor = {
   /**
@@ -210,15 +140,15 @@ const MetadataExtractor = {
    */
   extractTitle(doc, readabilityArticle) {
     const docTitle = doc.title || '';
-    const readabilityTitle = normalizeReadabilityTitleCandidate(readabilityArticle);
+    const readabilityTitle = readabilityArticle?.title;
 
-    if (!readabilityTitle) {
-      return docTitle || UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE;
+    if (typeof readabilityTitle !== 'string' || !readabilityTitle) {
+      return docTitle || UNTITLED_PAGE_LABEL;
     }
     if (isTitleConsistent(readabilityTitle, docTitle)) {
       return readabilityTitle;
     }
-    return docTitle || UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE;
+    return docTitle || UNTITLED_PAGE_LABEL;
   },
 
   /**
@@ -234,7 +164,12 @@ const MetadataExtractor = {
       return readabilityArticle.byline;
     }
 
-    return extractFirstMetaContent(doc, AUTHOR_META_SELECTORS);
+    return extractFirstMetaContent(
+      doc,
+      'meta[name="author"]',
+      'meta[property="article:author"]',
+      'meta[name="twitter:creator"]'
+    );
   },
 
   /**
@@ -250,7 +185,12 @@ const MetadataExtractor = {
       return readabilityArticle.excerpt;
     }
 
-    return extractFirstMetaContent(doc, DESCRIPTION_META_SELECTORS);
+    return extractFirstMetaContent(
+      doc,
+      'meta[name="description"]',
+      'meta[property="og:description"]',
+      'meta[name="twitter:description"]'
+    );
   },
 
   /**
@@ -357,7 +297,7 @@ const MetadataExtractor = {
 
   hasAvatarKeywordInAncestorIdentity(img) {
     let parent = img.parentElement;
-    for (let level = 0; level < AVATAR_ANCESTOR_SCAN_DEPTH && parent; level++) {
+    for (let level = 0; level < 3 && parent; level++) {
       if (MetadataExtractor._elementIdentityContainsAvatarKeyword(parent, ['className', 'id'])) {
         return true;
       }
@@ -373,7 +313,7 @@ const MetadataExtractor = {
     if (!hasResolvedSize) {
       return false;
     }
-    return width < AVATAR_MAX_DIMENSION && height < AVATAR_MAX_DIMENSION;
+    return width < 200 && height < 200;
   },
 
   /**
@@ -437,7 +377,7 @@ const MetadataExtractor = {
 
     // 處理 "any" 格式（通常是 SVG）
     if (trimmed.toLowerCase() === 'any') {
-      return ICON_SIZE_SCALABLE_SENTINEL;
+      return 999;
     }
 
     // 處理 "180x180" 格式
@@ -547,18 +487,15 @@ const MetadataExtractor = {
    */
   _calculateIconScore(icon) {
     const iconInput = icon || {};
-    const normalizedIcon = {
-      ...iconInput,
-      url: normalizeIconFormatUrl(iconInput.url),
-      type: typeof iconInput.type === 'string' ? iconInput.type.toLowerCase() : '',
-    };
+    const url = normalizeIconFormatUrl(iconInput.url);
+    const type = typeof iconInput.type === 'string' ? iconInput.type.toLowerCase() : '';
     const size = iconInput.size || 0;
 
     return (
-      resolveIconFormatScore(normalizedIcon) +
+      resolveIconFormatScore(url, type) +
       resolveIconSizeScore(size) +
-      resolveIconTypeScore(normalizedIcon) +
-      resolveIconPriorityScore(normalizedIcon)
+      (iconInput.iconType === 'apple-touch' ? 50 : 0) +
+      (10 - iconInput.priority) * 10
     );
   },
 };
