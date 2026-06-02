@@ -22,6 +22,7 @@ import { ImageCollector } from './extractors/ImageCollector.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
+import { CONTENT_EXTRACTION_MESSAGES } from '../config/contentSafe/contentExtractionMessages.js';
 import {
   formatRuntimeErrorMessage,
   revealFloatingRail,
@@ -240,7 +241,7 @@ const runtimeMessageHandlers = {
 };
 
 function handleRuntimeMessage(request, sendResponse) {
-  const handler = runtimeMessageHandlers[request.action];
+  const handler = runtimeMessageHandlers[request?.action];
   if (!handler) {
     return false;
   }
@@ -336,11 +337,7 @@ function createEmptyExtractionResult() {
   return {
     extractionStatus: 'failed',
     title: document.title || DEFAULT_PAGE_TITLE,
-    blocks: [
-      createParagraphFallbackBlock(
-        'Content extraction failed. The page may be empty or protected.'
-      ),
-    ],
+    blocks: [createParagraphFallbackBlock(CONTENT_EXTRACTION_MESSAGES.EMPTY_FALLBACK)],
     additionalImages: [],
     coverImage: null,
   };
@@ -356,8 +353,8 @@ function createExtractionErrorResult(error) {
   return {
     extractionStatus: 'failed',
     title: document.title || DEFAULT_PAGE_TITLE,
-    blocks: [createParagraphFallbackBlock(`Extraction error: ${error.message || 'Unknown error'}`)],
-    error: error.message,
+    blocks: [createParagraphFallbackBlock(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK)],
+    error: error?.message,
     additionalImages: [],
     coverImage: null,
   };

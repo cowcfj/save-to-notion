@@ -12,7 +12,12 @@ describe('contentSafe config', () => {
   const contentSafeDir = path.join(projectRoot, 'scripts/config/contentSafe');
 
   test('應提供 contentSafe toolbar config 檔案', () => {
-    const expectedFiles = ['toolbarSelectors.js', 'toolbarIcons.js', 'toolbarMessages.js'];
+    const expectedFiles = [
+      'toolbarSelectors.js',
+      'toolbarIcons.js',
+      'toolbarMessages.js',
+      'contentExtractionMessages.js',
+    ];
 
     const missingFiles = expectedFiles
       .map(file => path.join(contentSafeDir, file))
@@ -65,5 +70,19 @@ describe('contentSafe config', () => {
     });
     expect(TOOLBAR_MESSAGES).not.toHaveProperty('LOADING');
     expect(TOOLBAR_MESSAGES).not.toHaveProperty('OAUTH_ACTION_CONNECT');
+  });
+
+  test('contentExtractionMessages 應只暴露內容提取 fallback 訊息', async () => {
+    const modulePath = path.join(contentSafeDir, 'contentExtractionMessages.js');
+    const moduleUrl = pathToFileURL(modulePath);
+    const { CONTENT_EXTRACTION_MESSAGES } = await import(moduleUrl.href);
+
+    expect(Object.isFrozen(CONTENT_EXTRACTION_MESSAGES)).toBe(true);
+    expect(CONTENT_EXTRACTION_MESSAGES).toEqual({
+      EMPTY_FALLBACK: '內容提取失敗。此頁面可能為空白或受保護。',
+      ERROR_FALLBACK: '內容提取發生錯誤，請稍後再試。',
+    });
+    expect(CONTENT_EXTRACTION_MESSAGES.EMPTY_FALLBACK).not.toMatch(/content extraction failed/i);
+    expect(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK).not.toMatch(/extraction error/i);
   });
 });

@@ -128,6 +128,17 @@ describe('Content Script Entry (index.js)', () => {
       );
     });
 
+    test('[REGRESSION] malformed runtime messages should be ignored without throwing', () => {
+      const sendResponse = jest.fn();
+
+      expect(() => {
+        messageHandler(null, {}, sendResponse);
+      }).not.toThrow();
+      expect(messageHandler(null, {}, sendResponse)).toBe(false);
+      expect(messageHandler(undefined, {}, sendResponse)).toBe(false);
+      expect(sendResponse).not.toHaveBeenCalled();
+    });
+
     test('showHighlighter 應優先調用 rail.show', () => {
       const showMock = jest.fn();
       globalThis.HighlighterV2 = { rail: { show: showMock } };
@@ -954,7 +965,9 @@ describe('Content Script Entry (index.js)', () => {
 
       const result = await extractPageContent();
 
-      expect(result.blocks[0].paragraph.rich_text[0].text.content).toMatch(/failed/i);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe(
+        '內容提取失敗。此頁面可能為空白或受保護。'
+      );
       expect(result.extractionStatus).toBe('failed');
     });
 
@@ -963,6 +976,9 @@ describe('Content Script Entry (index.js)', () => {
 
       const result = await extractPageContent();
 
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe(
+        '內容提取發生錯誤，請稍後再試。'
+      );
       expect(result.error).toBe('Unexpected crash');
       expect(result.extractionStatus).toBe('failed');
     });
