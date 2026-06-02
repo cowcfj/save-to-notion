@@ -20,6 +20,7 @@ import {
   ICON_SIZE_SCALABLE_SENTINEL,
   ICON_SCORE,
 } from '../../config/shared/content.js';
+import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 const AUTHOR_META_SELECTORS = [
@@ -60,40 +61,67 @@ const extractDirectImageSrcAttribute = img => {
   return null;
 };
 
+const selectFirstValidImageCandidate = candidates => {
+  for (const candidate of candidates) {
+    const value = candidate?.trim();
+    if (value && !value.startsWith('data:')) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const parseSrcsetCandidates = srcset => srcset.split(/,\s+/).map(str => str.trim().split(' ')[0]);
+
 const extractPictureSourceCandidate = img => {
-  const source = img.closest('picture')?.querySelector('source');
-  const srcset = source?.getAttribute('srcset') || source?.dataset.srcset;
-  if (!srcset) {
+  const sources = img.closest('picture')?.querySelectorAll('source');
+  if (!sources?.length) {
     return null;
   }
 
-  const [firstCandidate] = srcset.split(',').map(str => str.trim().split(' ')[0]);
-  if (!firstCandidate || firstCandidate.startsWith('data:')) {
-    return null;
+  for (const source of sources) {
+    const srcset = source.getAttribute('srcset') || source.dataset.srcset;
+    const src = source.getAttribute('src') || source.dataset.src;
+    const candidates = srcset ? parseSrcsetCandidates(srcset) : [src];
+    const candidate = selectFirstValidImageCandidate(candidates);
+    if (candidate) {
+      return candidate;
+    }
   }
-  return firstCandidate;
+  return null;
+};
+
+const normalizeIconFormatUrl = url => {
+  if (typeof url !== 'string') {
+    return '';
+  }
+  try {
+    return new URL(url, 'https://example.invalid').pathname.toLowerCase();
+  } catch {
+    return url.split(/[?#]/)[0].toLowerCase();
+  }
 };
 
 const ICON_FORMAT_SCORE_RULES = [
   {
     score: ICON_SCORE.SVG_FORMAT,
     urlChecks: [url => url.endsWith('.svg'), url => url.includes('image/svg')],
-    typeChecks: [type => type.includes('svg')],
+    typeChecks: [type => type && type.includes('svg')],
   },
   {
     score: ICON_SCORE.PNG_FORMAT,
     urlChecks: [url => url.endsWith('.png')],
-    typeChecks: [type => type.includes('png')],
+    typeChecks: [type => type && type.includes('png')],
   },
   {
     score: ICON_SCORE.ICO_FORMAT,
     urlChecks: [url => url.endsWith('.ico')],
-    typeChecks: [type => type.includes('ico')],
+    typeChecks: [type => type && type.includes('ico')],
   },
   {
     score: ICON_SCORE.JPEG_FORMAT,
     urlChecks: [url => url.endsWith('.jpg'), url => url.endsWith('.jpeg')],
-    typeChecks: [type => type.includes('jpeg')],
+    typeChecks: [type => type && type.includes('jpeg')],
   },
 ];
 
@@ -168,7 +196,7 @@ const MetadataExtractor = {
   },
   /**
    * 提取標題
-   * 優先級: Readability.title > document.title > 'Untitled Page'
+   * 優先級: Readability.title > document.title > 未命名頁面
    *
    * @param {Document} doc - DOM Document 對象
    * @param {object} [readabilityArticle] - Readability 解析結果
@@ -179,12 +207,12 @@ const MetadataExtractor = {
     const readabilityTitle = normalizeReadabilityTitleCandidate(readabilityArticle);
 
     if (!readabilityTitle) {
-      return docTitle || 'Untitled Page';
+      return docTitle || UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE;
     }
     if (isTitleConsistent(readabilityTitle, docTitle)) {
       return readabilityTitle;
     }
-    return docTitle || 'Untitled Page';
+    return docTitle || UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE;
   },
 
   /**
@@ -515,7 +543,7 @@ const MetadataExtractor = {
     const iconInput = icon || {};
     const normalizedIcon = {
       ...iconInput,
-      url: typeof iconInput.url === 'string' ? iconInput.url.toLowerCase() : '',
+      url: normalizeIconFormatUrl(iconInput.url),
       type: typeof iconInput.type === 'string' ? iconInput.type.toLowerCase() : '',
     };
     const size = iconInput.size || 0;

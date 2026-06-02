@@ -3,6 +3,7 @@
  */
 
 import { MetadataExtractor } from '../../../../scripts/content/extractors/MetadataExtractor.js';
+import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 
 describe('MetadataExtractor', () => {
   beforeEach(() => {
@@ -33,7 +34,7 @@ describe('MetadataExtractor', () => {
 
     test('should fallback to default if no title', () => {
       const result = MetadataExtractor.extractTitle(document, {});
-      expect(result).toBe('Untitled Page');
+      expect(result).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
     });
 
     test('should accept short titles without consistency check', () => {
@@ -187,6 +188,17 @@ describe('MetadataExtractor', () => {
 
       expect(() => MetadataExtractor.selectBestIcon(candidates)).not.toThrow();
     });
+
+    test('should score icon format from URL path when query or hash is present', () => {
+      const candidates = [
+        { url: 'https://example.com/icon.png', priority: 1, size: 180, type: 'image/png' },
+        { url: 'https://example.com/icon.svg?v=2#sprite', priority: 2, size: 180 },
+      ];
+
+      const result = MetadataExtractor.selectBestIcon(candidates);
+
+      expect(result.url).toBe('https://example.com/icon.svg?v=2#sprite');
+    });
   });
 
   describe('isValidImageUrl', () => {
@@ -243,6 +255,21 @@ describe('MetadataExtractor', () => {
       const result = MetadataExtractor.extractImageSrc(img);
 
       expect(result).toBe('https://example.com/large.jpg');
+    });
+
+    test('should continue through picture sources until a valid candidate is found', () => {
+      document.body.innerHTML = `
+        <picture>
+          <source srcset="data:image/gif;base64,abc">
+          <source data-srcset="https://example.com/fallback.webp 1x">
+          <img alt="Hero">
+        </picture>
+      `;
+      const img = document.querySelector('img');
+
+      const result = MetadataExtractor.extractImageSrc(img);
+
+      expect(result).toBe('https://example.com/fallback.webp');
     });
   });
 
