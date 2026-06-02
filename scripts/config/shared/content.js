@@ -206,6 +206,23 @@ export const SITE_ICON_SELECTORS = [
   { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
 ];
 
+export const ICON_SIZE_SCALABLE_SENTINEL = 999;
+
+export const ICON_SCORE = {
+  SVG_FORMAT: 1000,
+  PNG_FORMAT: 500,
+  ICO_FORMAT: 100,
+  JPEG_FORMAT: 200,
+  SCALABLE_SIZE: 500,
+  IDEAL_SIZE: 300,
+  LARGE_SIZE: 200,
+  MEDIUM_SIZE: 100,
+  SMALL_SIZE: 50,
+  APPLE_TOUCH_TYPE: 50,
+  PRIORITY_MULTIPLIER: 10,
+  MAX_PRIORITY_BASE: 10,
+};
+
 export const AVATAR_ANCESTOR_SCAN_DEPTH = 3;
 export const AVATAR_MAX_DIMENSION = 200;
 

@@ -17,6 +17,8 @@ import {
   AVATAR_ANCESTOR_SCAN_DEPTH,
   AVATAR_MAX_DIMENSION,
   IMAGE_SRC_ATTRIBUTES,
+  ICON_SIZE_SCALABLE_SENTINEL,
+  ICON_SCORE,
 } from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
@@ -316,7 +318,7 @@ const MetadataExtractor = {
 
     // 處理 "any" 格式（通常是 SVG）
     if (trimmed.toLowerCase() === 'any') {
-      return 999;
+      return ICON_SIZE_SCALABLE_SENTINEL;
     }
 
     // 處理 "180x180" 格式
@@ -336,23 +338,10 @@ const MetadataExtractor = {
   },
 
   /**
-   * 解析尺寸字符串（內部輔助）
-   *
-   * @param {string} sizeStr
-   * @returns {number}
-   */
-  _parseAnySize(sizeStr) {
-    if (sizeStr.toLowerCase() === 'any') {
-      return 999;
-    }
-    return 0;
-  },
-
-  /**
    * 從候選 icons 中智能選擇最佳的
    *
    * @param {Array} candidates - 候選 icon 列表
-   * @returns {object | null} 最佳 icon
+   * @returns {object|null} 最佳 icon
    */
   selectBestIcon(candidates) {
     if (candidates.length === 0) {
@@ -380,11 +369,11 @@ const MetadataExtractor = {
   _collectSiteIconCandidates(doc) {
     const candidates = [];
 
-    for (const { selector, attr, priority, iconType } of SITE_ICON_SELECTORS) {
+    for (const iconSource of SITE_ICON_SELECTORS) {
       try {
-        const elements = doc.querySelectorAll(selector);
+        const elements = doc.querySelectorAll(iconSource.selector);
         for (const element of elements) {
-          const candidate = this._processIconElement(element, doc, attr, priority, iconType);
+          const candidate = this._buildSiteIconCandidate(element, doc, iconSource);
           if (candidate) {
             candidates.push(candidate);
           }
@@ -402,13 +391,11 @@ const MetadataExtractor = {
    *
    * @param {Element} element - DOM 元素
    * @param {Document} doc - 文檔對象
-   * @param {string} attr - 屬性名
-   * @param {number} priority - 優先級
-   * @param {string} iconType - 圖標類型
+   * @param {object} iconSource - 圖標來源配置
    * @returns {object|null} 處理後的圖標對象或 null
    */
-  _processIconElement(element, doc, attr, priority, iconType) {
-    const iconUrl = element.getAttribute(attr);
+  _buildSiteIconCandidate(element, doc, iconSource) {
+    const iconUrl = element.getAttribute(iconSource.attr);
     if (!iconUrl?.trim() || iconUrl.startsWith('data:')) {
       return null;
     }
@@ -421,12 +408,12 @@ const MetadataExtractor = {
 
       return {
         url: absoluteUrl,
-        priority,
+        priority: iconSource.priority,
         size,
         type,
-        iconType,
+        iconType: iconSource.iconType,
         sizes,
-        selector: attr,
+        selector: iconSource.selector,
       };
     } catch {
       return null;
@@ -445,36 +432,36 @@ const MetadataExtractor = {
 
     // 格式評分
     if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
-      score += 1000; // SVG 矢量圖
+      score += ICON_SCORE.SVG_FORMAT; // SVG 矢量圖
     } else if (url.endsWith('.png') || icon.type.includes('png')) {
-      score += 500;
+      score += ICON_SCORE.PNG_FORMAT;
     } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
-      score += 100;
+      score += ICON_SCORE.ICO_FORMAT;
     } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
-      score += 200;
+      score += ICON_SCORE.JPEG_FORMAT;
     }
 
     // 尺寸評分
     const size = icon.size || 0;
-    if (size === 999) {
-      score += 500; // SVG "any"
+    if (size === ICON_SIZE_SCALABLE_SENTINEL) {
+      score += ICON_SCORE.SCALABLE_SIZE; // SVG "any"
     } else if (size >= 180 && size <= 256) {
-      score += 300; // 理想尺寸
+      score += ICON_SCORE.IDEAL_SIZE; // 理想尺寸
     } else if (size > 256) {
-      score += 200;
+      score += ICON_SCORE.LARGE_SIZE;
     } else if (size >= 120) {
-      score += 100;
+      score += ICON_SCORE.MEDIUM_SIZE;
     } else if (size > 0) {
-      score += 50;
+      score += ICON_SCORE.SMALL_SIZE;
     }
 
     // 類型評分
     if (icon.iconType === 'apple-touch') {
-      score += 50;
+      score += ICON_SCORE.APPLE_TOUCH_TYPE;
     }
 
     // 優先級評分
-    score += (10 - icon.priority) * 10;
+    score += (ICON_SCORE.MAX_PRIORITY_BASE - icon.priority) * ICON_SCORE.PRIORITY_MULTIPLIER;
 
     return score;
   },
