@@ -80,6 +80,9 @@ jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
 jest.mock('../../../scripts/destinations/ProfileStore.js', () => ({
   LocalDestinationProfileRepository: jest.fn(),
   AccountGatedDestinationEntitlementProvider: jest.fn(),
+  DESTINATION_PROFILE_ERRORS: {
+    LIMIT_REACHED: '已達目的地數量上限',
+  },
 }));
 
 function appendSaveFormFields() {
@@ -1879,7 +1882,10 @@ describe('Destination profile options UI', () => {
       notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
       notionDataSourceType: 'page',
     });
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已達目的地數量上限。', 'error');
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED,
+      'error'
+    );
     expect(nameInput.value).toBe('  Team Inbox  ');
   });
 
@@ -1907,7 +1913,7 @@ describe('Destination profile options UI', () => {
       expect.objectContaining({ error: createError })
     );
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '新增保存目標失敗，請稍後再試。',
+      UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED,
       'error'
     );
     expect(nameInput.value).toBe('  Team Inbox  ');
@@ -1989,7 +1995,10 @@ describe('Destination profile options UI', () => {
 
     expect(document.querySelector('#database-id').value).toBe('target-page-id');
     expect(document.querySelector('#database-type').value).toBe('page');
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已套用 Second 到編輯欄位', 'info');
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS('Second'),
+      'info'
+    );
 
     document.querySelector('button[data-action="delete"][data-profile-id="profile-2"]').click();
     await flushAsyncClick();
@@ -2029,7 +2038,7 @@ describe('Destination profile options UI', () => {
     await flushAsyncClick();
 
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '保存目標操作失敗，請稍後再試。',
+      UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED,
       'error'
     );
     expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
@@ -2052,7 +2061,7 @@ describe('Destination profile options UI', () => {
     await flushAsyncClick();
 
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '保存目標操作失敗，請稍後再試。',
+      UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED,
       'error'
     );
     expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
@@ -2346,7 +2355,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
 
       const statusEl = document.querySelector('#account-status');
-      expect(statusEl.textContent).toContain('登出');
+      expect(statusEl.textContent).toContain(UI_MESSAGES.ACCOUNT.LOGOUT_SUCCESS);
       expect(statusEl.className).toContain('success');
 
       jest.advanceTimersByTime(3000);
@@ -2365,7 +2374,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
 
       const statusEl = document.querySelector('#account-status');
-      expect(statusEl.textContent).toContain('失敗');
+      expect(statusEl.textContent).toContain(UI_MESSAGES.ACCOUNT.LOGOUT_FAILED);
       expect(statusEl.className).toContain('error');
       expect(Logger.error).toHaveBeenCalled();
     });

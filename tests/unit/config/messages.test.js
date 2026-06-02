@@ -20,6 +20,8 @@ describe('配置模組 - messages.js 動態函式', () => {
   const DEBUG_LOGS_TOGGLE_FAILED_REASON = '權限不足';
   const DISCONNECT_FAILED_REASON = '逾時';
   const OPEN_NOTION_FAILED_REASON = '找不到分頁';
+  const DESTINATION_NAME_SUFFIX = '1234';
+  const DESTINATION_PROFILE_NAME = 'Second';
   const CLEAR_SUCCESS_COUNT = 3;
   const REMAINING_COUNT = 7;
   const PAGE_COUNT = 2;
@@ -64,6 +66,16 @@ describe('配置模組 - messages.js 動態函式', () => {
       path: 'AUTH.OPEN_NOTION_FAILED',
       fn: UI_MESSAGES.AUTH.OPEN_NOTION_FAILED,
       arg: OPEN_NOTION_FAILED_REASON,
+    },
+    {
+      path: 'OPTIONS.DESTINATION.DEFAULT_NAME',
+      fn: UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_NAME,
+      arg: DESTINATION_NAME_SUFFIX,
+    },
+    {
+      path: 'OPTIONS.DESTINATION.APPLY_SUCCESS',
+      fn: UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS,
+      arg: DESTINATION_PROFILE_NAME,
     },
     { path: 'POPUP.CLEAR_SUCCESS', fn: UI_MESSAGES.POPUP.CLEAR_SUCCESS, arg: CLEAR_SUCCESS_COUNT },
     {
@@ -209,9 +221,14 @@ describe('配置模組 - messages.js 動態函式', () => {
         expect.objectContaining({
           DESTINATION: expect.objectContaining({
             SEARCH_PLACEHOLDER: '搜尋保存目標...',
+            DEFAULT_NAME: expect.any(Function),
             MANUAL_ID_LABEL: '或貼上 ID',
             HELP_LINK_TEXT: '手動輸入 ID',
             ADD_BUTTON: '新增保存目標',
+            CREATE_LIMIT_REACHED: '已達目的地數量上限。',
+            CREATE_FAILED: '新增保存目標失敗，請稍後再試。',
+            APPLY_SUCCESS: expect.any(Function),
+            ACTION_FAILED: '保存目標操作失敗，請稍後再試。',
           }),
           INTERFACE: expect.objectContaining({
             ZOOM_LABEL: '介面縮放',

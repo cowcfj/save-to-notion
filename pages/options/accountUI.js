@@ -276,11 +276,11 @@ function bindAccountLogoutButton() {
         })
         .catch(() => {});
       await renderAccountUI();
-      setAccountStatus(statusEl, '已成功登出', 'success');
+      setAccountStatus(statusEl, UI_MESSAGES.ACCOUNT.LOGOUT_SUCCESS, 'success');
       clearAccountStatusLater(statusEl, 3000);
     } catch (error) {
       Logger.error('Account logout failed', { error });
-      setAccountStatus(statusEl, '登出失敗，請重試', 'error');
+      setAccountStatus(statusEl, UI_MESSAGES.ACCOUNT.LOGOUT_FAILED, 'error');
     }
   });
 }

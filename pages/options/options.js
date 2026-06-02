@@ -23,6 +23,7 @@ import { DATA_SOURCE_KEYS } from '../../scripts/config/shared/storage.js';
 import { refreshCloudSyncCard } from './DriveCloudSyncController.js';
 import {
   AccountGatedDestinationEntitlementProvider,
+  DESTINATION_PROFILE_ERRORS,
   LocalDestinationProfileRepository,
 } from '../../scripts/destinations/ProfileStore.js';
 import { ProfileManager } from '../../scripts/destinations/ProfileManager.js';
@@ -71,7 +72,9 @@ function resolveDestinationTargetInputType() {
 
 function resolveNewDestinationProfileName(nameInput) {
   const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
-  return explicitName || `保存目標 ${Date.now().toString().slice(-4)}`;
+  return (
+    explicitName || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_NAME(Date.now().toString().slice(-4))
+  );
 }
 
 function clearDestinationProfileNameInput(nameInput) {
@@ -81,9 +84,9 @@ function clearDestinationProfileNameInput(nameInput) {
 }
 
 function resolveCreateDestinationProfileErrorMessage(error) {
-  return error?.message === '已達目的地數量上限'
-    ? '已達目的地數量上限。'
-    : '新增保存目標失敗，請稍後再試。';
+  return error?.message === DESTINATION_PROFILE_ERRORS.LIMIT_REACHED
+    ? UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED
+    : UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED;
 }
 
 function createDestinationProfileService() {
@@ -529,7 +532,7 @@ async function initDestinationProfilesUI(ui) {
       profile.notionDataSourceId;
     document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
       profile.notionDataSourceType;
-    ui.showStatus(`已套用 ${profile.name} 到編輯欄位`, 'info');
+    ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS(profile.name), 'info');
   };
 
   const deleteDestinationProfile = async profileId => {
@@ -587,7 +590,7 @@ async function initDestinationProfilesUI(ui) {
         action: 'destinationProfileAction',
         error: safeError,
       });
-      ui.showStatus('保存目標操作失敗，請稍後再試。', 'error');
+      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED, 'error');
     }
   });
 
