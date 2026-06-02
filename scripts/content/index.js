@@ -90,28 +90,43 @@ async function handleShowHighlighter(sendResponse) {
 }
 
 /**
+ * 顯示或喚回 Floating Rail 後執行指定動作
+ *
+ * @param {object} rail - Floating Rail instance
+ * @param {Function} onRevealed - rail 已顯示後執行的動作
+ * @returns {void|Promise<void>}
+ */
+function runAfterFloatingRailReveal(rail, onRevealed) {
+  const revealResult = revealFloatingRail(rail);
+  if (Boolean(revealResult) && typeof revealResult.then === 'function') {
+    return revealResult.then(onRevealed);
+  }
+
+  return onRevealed();
+}
+
+/**
+ * 啟動已顯示 Floating Rail 的標註模式
+ *
+ * @param {object} rail - Floating Rail instance
+ * @returns {void|Promise<void>}
+ */
+function activateRevealedFloatingRailHighlighting(rail) {
+  if (typeof rail?.activateHighlighting !== 'function') {
+    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
+  }
+
+  return rail.activateHighlighting();
+}
+
+/**
  * 啟動 Floating Rail 標註模式
  *
  * @param {object} rail - Floating Rail instance
  * @returns {void|Promise<void>}
  */
 function activateFloatingRailHighlighting(rail) {
-  const revealResult = revealFloatingRail(rail);
-  if (Boolean(revealResult) && typeof revealResult.then === 'function') {
-    return revealResult.then(() => {
-      if (typeof rail?.activateHighlighting !== 'function') {
-        throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
-      }
-
-      return rail.activateHighlighting();
-    });
-  }
-
-  if (typeof rail?.activateHighlighting !== 'function') {
-    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
-  }
-
-  return rail.activateHighlighting();
+  return runAfterFloatingRailReveal(rail, () => activateRevealedFloatingRailHighlighting(rail));
 }
 
 /**
