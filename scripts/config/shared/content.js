@@ -206,6 +206,9 @@ export const SITE_ICON_SELECTORS = [
   { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
 ];
 
+export const AVATAR_ANCESTOR_SCAN_DEPTH = 3;
+export const AVATAR_MAX_DIMENSION = 200;
+
 export const AVATAR_KEYWORDS = [
   'avatar',
   'profile',

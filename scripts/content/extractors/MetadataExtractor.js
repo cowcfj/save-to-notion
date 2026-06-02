@@ -14,6 +14,8 @@ import {
   FEATURED_IMAGE_SELECTORS,
   SITE_ICON_SELECTORS,
   AVATAR_KEYWORDS,
+  AVATAR_ANCESTOR_SCAN_DEPTH,
+  AVATAR_MAX_DIMENSION,
   IMAGE_SRC_ATTRIBUTES,
 } from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
@@ -206,6 +208,33 @@ const MetadataExtractor = {
     return null;
   },
 
+  _elementIdentityContainsAvatarKeyword(element, attributes) {
+    return AVATAR_KEYWORDS.some(keyword =>
+      attributes.some(attr => (element[attr] || '').toLowerCase().includes(keyword))
+    );
+  },
+
+  hasAvatarKeywordInImageIdentity(img) {
+    return MetadataExtractor._elementIdentityContainsAvatarKeyword(img, ['className', 'id', 'alt']);
+  },
+
+  hasAvatarKeywordInAncestorIdentity(img) {
+    let parent = img.parentElement;
+    for (let level = 0; level < AVATAR_ANCESTOR_SCAN_DEPTH && parent; level++) {
+      if (MetadataExtractor._elementIdentityContainsAvatarKeyword(parent, ['className', 'id'])) {
+        return true;
+      }
+      parent = parent.parentElement;
+    }
+    return false;
+  },
+
+  isSmallAvatarLikeImage(img) {
+    const width = img.naturalWidth || img.width || 0;
+    const height = img.naturalHeight || img.height || 0;
+    return width > 0 && height > 0 && width < AVATAR_MAX_DIMENSION && height < AVATAR_MAX_DIMENSION;
+  },
+
   /**
    * 檢查圖片是否為作者頭像/Logo
    *
@@ -213,36 +242,11 @@ const MetadataExtractor = {
    * @returns {boolean} 是否為頭像
    */
   isAvatarImage(img) {
-    const imgClass = (img.className || '').toLowerCase();
-    const imgId = (img.id || '').toLowerCase();
-    const imgAlt = (img.alt || '').toLowerCase();
-
-    // 檢查圖片本身的屬性
-    for (const keyword of AVATAR_KEYWORDS) {
-      if (imgClass.includes(keyword) || imgId.includes(keyword) || imgAlt.includes(keyword)) {
-        return true;
-      }
-    }
-
-    // 檢查父元素（向上最多 3 層）
-    let parent = img.parentElement;
-    for (let level = 0; level < 3 && parent; level++) {
-      const parentClass = (parent.className || '').toLowerCase();
-      const parentId = (parent.id || '').toLowerCase();
-
-      for (const keyword of AVATAR_KEYWORDS) {
-        if (parentClass.includes(keyword) || parentId.includes(keyword)) {
-          return true;
-        }
-      }
-      parent = parent.parentElement;
-    }
-
-    // 檢查尺寸（頭像通常 < 200x200）
-    const width = img.naturalWidth || img.width || 0;
-    const height = img.naturalHeight || img.height || 0;
-
-    return width > 0 && height > 0 && width < 200 && height < 200;
+    return (
+      MetadataExtractor.hasAvatarKeywordInImageIdentity(img) ||
+      MetadataExtractor.hasAvatarKeywordInAncestorIdentity(img) ||
+      MetadataExtractor.isSmallAvatarLikeImage(img)
+    );
   },
 
   /**
