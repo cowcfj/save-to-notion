@@ -338,10 +338,7 @@ class DomConverter {
 
   createParagraphBlock(node) {
     const imageOnlyParagraphImages = DomConverter._getImageOnlyParagraphImages(node);
-    if (imageOnlyParagraphImages.length === 1) {
-      return this.createImageBlock(imageOnlyParagraphImages[0]);
-    }
-    if (imageOnlyParagraphImages.length > 1) {
+    if (imageOnlyParagraphImages.length > 0) {
       return imageOnlyParagraphImages.map(img => this.createImageBlock(img)).filter(Boolean);
     }
 
@@ -352,14 +349,16 @@ class DomConverter {
 
     const richText = this.parseRichText(node);
     if (richText.length === 0) {
-      return null;
+      return [];
     }
 
-    return {
-      object: 'block',
-      type: 'paragraph',
-      paragraph: { rich_text: richText },
-    };
+    return [
+      {
+        object: 'block',
+        type: 'paragraph',
+        paragraph: { rich_text: richText },
+      },
+    ];
   }
 
   static _getImageOnlyParagraphImages(node) {

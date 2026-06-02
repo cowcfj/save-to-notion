@@ -92,6 +92,23 @@ describe('DomConverter 覆蓋率補強', () => {
     });
   });
 
+  describe('createParagraphBlock return type', () => {
+    const paragraphFrom = html =>
+      new DOMParser().parseFromString(html, 'text/html').body.firstElementChild;
+
+    test('always returns an array', () => {
+      const textParagraph = converter.createParagraphBlock(paragraphFrom('<p>Hello</p>'));
+      const emptyParagraph = converter.createParagraphBlock(paragraphFrom('<p></p>'));
+      const imageOnlyParagraph = converter.createParagraphBlock(
+        paragraphFrom('<p><img src="https://example.com/image.jpg" alt="test"></p>')
+      );
+
+      expect(Array.isArray(textParagraph)).toBe(true);
+      expect(Array.isArray(emptyParagraph)).toBe(true);
+      expect(Array.isArray(imageOnlyParagraph)).toBe(true);
+    });
+  });
+
   describe('createParagraphBlock 段落內圖片', () => {
     test('段落只包含圖片時應返回圖片 Block', () => {
       const html = '<p><img src="https://example.com/image.jpg" alt="test"></p>';
