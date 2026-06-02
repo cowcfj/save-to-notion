@@ -33,7 +33,7 @@ describe('MetadataExtractor', () => {
 
     test('should fallback to default if no title', () => {
       const result = MetadataExtractor.extractTitle(document, {});
-      expect(result).toBe('Untitled Page');
+      expect(result).toBe('未命名頁面');
     });
 
     test('should accept short titles without consistency check', () => {
@@ -68,6 +68,18 @@ describe('MetadataExtractor', () => {
       const result = MetadataExtractor.extractAuthor(document, {});
       expect(result).toBe('Author Name');
     });
+
+    test('should preserve author selector priority over DOM order', () => {
+      document.head.innerHTML = `
+        <meta name="twitter:creator" content="@later">
+        <meta property="article:author" content="Article Author">
+        <meta name="author" content="Priority Author">
+      `;
+
+      const result = MetadataExtractor.extractAuthor(document, {});
+
+      expect(result).toBe('Priority Author');
+    });
   });
 
   describe('extractDescription', () => {
@@ -84,6 +96,18 @@ describe('MetadataExtractor', () => {
 
       const result = MetadataExtractor.extractDescription(document, {});
       expect(result).toBe('Meta description');
+    });
+
+    test('should preserve description selector priority over DOM order', () => {
+      document.head.innerHTML = `
+        <meta name="twitter:description" content="Twitter description">
+        <meta property="og:description" content="OG description">
+        <meta name="description" content="Priority description">
+      `;
+
+      const result = MetadataExtractor.extractDescription(document, {});
+
+      expect(result).toBe('Priority description');
     });
   });
 
@@ -154,6 +178,26 @@ describe('MetadataExtractor', () => {
       const result = MetadataExtractor.selectBestIcon(candidates);
       expect(result.url).toBe('https://example.com/icon-180.png');
     });
+
+    test('should tolerate candidates missing url or type', () => {
+      const candidates = [
+        { priority: 1, size: 180 },
+        { url: 'https://example.com/icon.webp', priority: 2, size: 180 },
+      ];
+
+      expect(() => MetadataExtractor.selectBestIcon(candidates)).not.toThrow();
+    });
+
+    test('should score icon format from URL path when query or hash is present', () => {
+      const candidates = [
+        { url: 'https://example.com/icon.png', priority: 1, size: 180, type: 'image/png' },
+        { url: 'https://example.com/icon.svg?v=2#sprite', priority: 2, size: 180 },
+      ];
+
+      const result = MetadataExtractor.selectBestIcon(candidates);
+
+      expect(result.url).toBe('https://example.com/icon.svg?v=2#sprite');
+    });
   });
 
   describe('isValidImageUrl', () => {
@@ -197,6 +241,35 @@ describe('MetadataExtractor', () => {
       const result = MetadataExtractor.extractImageSrc(img);
       expect(result).toBeNull();
     });
+
+    test('should extract first picture source srcset candidate', () => {
+      document.body.innerHTML = `
+        <picture>
+          <source srcset="https://example.com/large.jpg 2x, https://example.com/small.jpg 1x">
+          <img alt="Hero">
+        </picture>
+      `;
+      const img = document.querySelector('img');
+
+      const result = MetadataExtractor.extractImageSrc(img);
+
+      expect(result).toBe('https://example.com/large.jpg');
+    });
+
+    test('should continue through picture sources until a valid candidate is found', () => {
+      document.body.innerHTML = `
+        <picture>
+          <source srcset="data:image/gif;base64,abc">
+          <source data-srcset="https://example.com/fallback.webp 1x">
+          <img alt="Hero">
+        </picture>
+      `;
+      const img = document.querySelector('img');
+
+      const result = MetadataExtractor.extractImageSrc(img);
+
+      expect(result).toBe('https://example.com/fallback.webp');
+    });
   });
 
   describe('isAvatarImage', () => {
@@ -225,6 +298,17 @@ describe('MetadataExtractor', () => {
 
       expect(MetadataExtractor.isAvatarImage(img)).toBe(false);
     });
+
+    test('should not treat zero-size jsdom images as small avatars', () => {
+      const img = document.createElement('img');
+
+      expect(MetadataExtractor.isAvatarImage(img)).toBe(false);
+    });
+
+    test('should return false when image is missing', () => {
+      expect(MetadataExtractor.isAvatarImage(null)).toBe(false);
+      expect(MetadataExtractor.isAvatarImage(undefined)).toBe(false);
+    });
   });
 
   describe('extractSiteIcon', () => {
@@ -242,6 +326,22 @@ describe('MetadataExtractor', () => {
     test('should fallback to favicon.ico', () => {
       const result = MetadataExtractor.extractSiteIcon(document);
       expect(result).toMatch(/\/favicon\.ico$/);
+    });
+
+    test('should ignore data URL site icon candidates', () => {
+      document.head.innerHTML = '<link rel="icon" href="data:image/png;base64,abc">';
+
+      const result = MetadataExtractor.extractSiteIcon(document);
+
+      expect(result).toMatch(/\/favicon\.ico$/);
+    });
+
+    test('should resolve relative site icon URLs against document base URI', () => {
+      document.head.innerHTML = '<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">';
+
+      const result = MetadataExtractor.extractSiteIcon(document);
+
+      expect(result).toBe('http://localhost/assets/icon.svg');
     });
   });
 
