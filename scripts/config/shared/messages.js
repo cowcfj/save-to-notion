@@ -100,12 +100,17 @@ const OPTIONS = {
     REFRESH_TITLE: '重新整理',
     LOADING_INLINE: '載入中...',
     FALLBACK_OPTION: '選擇資料來源...',
+    DEFAULT_NAME: suffix => `保存目標 ${suffix}`,
     MANUAL_ID_LABEL: '或貼上 ID',
     MANUAL_ID_PLACEHOLDER: '輸入 Page ID 或 Database ID',
     HELP_PREFIX: '找不到目標時，可在「或貼上 ID」欄位輸入 Page ID 或 Database ID；需要協助可參考',
     HELP_LINK_TEXT: '手動輸入 ID',
     HELP_SUFFIX: '。',
     ADD_BUTTON: '新增保存目標',
+    CREATE_LIMIT_REACHED: '已達目的地數量上限。',
+    CREATE_FAILED: '新增保存目標失敗，請稍後再試。',
+    APPLY_SUCCESS: profileName => `已套用 ${profileName} 到編輯欄位`,
+    ACTION_FAILED: '保存目標操作失敗，請稍後再試。',
   },
   INTERFACE: {
     SECTION_TITLE: '介面設定',
@@ -422,6 +427,8 @@ const ACCOUNT = {
   LOCKED_LOGIN_REQUIRED: '需先登入 Google 帳號。',
   LOCKED_COMING_SOON: '功能即將推出。',
   TRANSIENT_REFRESH_ERROR: '無法更新登入狀態，將稍後自動重試。',
+  LOGOUT_SUCCESS: '已成功登出',
+  LOGOUT_FAILED: '登出失敗，請重試',
 };
 
 const AUTH_BRIDGE = {

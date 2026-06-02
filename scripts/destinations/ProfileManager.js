@@ -7,6 +7,7 @@ import {
   CREATE_PROFILE_COLORS,
   DEFAULT_PROFILE_ICON,
   DEFAULT_PROFILE_ID,
+  DESTINATION_PROFILE_ERROR_CODES,
   DESTINATION_PROFILE_ERRORS,
   ensureMigratedDefaultProfile,
   LocalDestinationProfileRepository,
@@ -68,7 +69,9 @@ export class ProfileManager {
     const profiles = await this.listProfiles();
     const entitlement = await this.getDestinationEntitlement();
     if (profiles.length >= entitlement.maxProfiles) {
-      throw new Error(DESTINATION_PROFILE_ERRORS.LIMIT_REACHED);
+      const error = new Error(DESTINATION_PROFILE_ERRORS.LIMIT_REACHED);
+      error.code = DESTINATION_PROFILE_ERROR_CODES.LIMIT_REACHED;
+      throw error;
     }
 
     const timestamp = nowTimestamp();

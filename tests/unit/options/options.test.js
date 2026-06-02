@@ -12,6 +12,7 @@ import {
   initOptions,
   applyStaticOptionMessages,
 } from '../../../pages/options/options.js';
+import { resolveUiMessage } from '../../../pages/options/staticOptionMessages.js';
 
 import { UIManager } from '../../../pages/options/UIManager.js';
 import { AuthManager } from '../../../pages/options/AuthManager.js';
@@ -80,6 +81,12 @@ jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
 jest.mock('../../../scripts/destinations/ProfileStore.js', () => ({
   LocalDestinationProfileRepository: jest.fn(),
   AccountGatedDestinationEntitlementProvider: jest.fn(),
+  DESTINATION_PROFILE_ERRORS: {
+    LIMIT_REACHED: '已達目的地數量上限',
+  },
+  DESTINATION_PROFILE_ERROR_CODES: {
+    LIMIT_REACHED: 'DESTINATION_LIMIT_REACHED',
+  },
 }));
 
 function appendSaveFormFields() {
@@ -164,6 +171,11 @@ describe('options.js', () => {
       expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
     });
 
+    it('應從帶 hash fragment 的 URL 中提取 ID', () => {
+      const url = 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890#block';
+      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
+    });
+
     it('應處理已清理的 ID', () => {
       expect(cleanDatabaseId('a1b2c3d4e5f67890abcdef1234567890')).toBe(
         'a1b2c3d4e5f67890abcdef1234567890'
@@ -233,6 +245,33 @@ describe('options.js', () => {
       expect(helpText.textContent).toContain(UI_MESSAGES.OPTIONS.DESTINATION.HELP_SUFFIX);
       expect(helpLink.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.HELP_LINK_TEXT);
       expect(helpLink.getAttribute('href')).toBe('https://example.test');
+    });
+
+    it('resolveUiMessage 應解析已知 key，缺失 key 則回傳 fallback 或空字串', () => {
+      expect(resolveUiMessage('OPTIONS.SETTINGS.SAVE_BUTTON')).toBe(
+        UI_MESSAGES.OPTIONS.SETTINGS.SAVE_BUTTON
+      );
+      expect(resolveUiMessage('OPTIONS.NEVER_EXISTS', 'fallback text')).toBe('fallback text');
+      expect(resolveUiMessage('OPTIONS.NEVER_EXISTS')).toBe('');
+      expect(resolveUiMessage()).toBe('');
+    });
+
+    it('缺失 data-ui-* key 時應保留既有 HTML fallback 內容與屬性', () => {
+      document.body.innerHTML = `
+        <button id="message" data-ui-message="OPTIONS.NEVER_EXISTS">Fallback label</button>
+        <input id="placeholder" data-ui-placeholder="OPTIONS.NEVER_EXISTS" placeholder="Fallback placeholder" />
+        <button id="title" data-ui-title="OPTIONS.NEVER_EXISTS" title="Fallback title"></button>
+        <button id="aria" data-ui-aria-label="OPTIONS.NEVER_EXISTS" aria-label="Fallback aria"></button>
+      `;
+
+      applyStaticOptionMessages();
+
+      expect(document.querySelector('#message').textContent).toBe('Fallback label');
+      expect(document.querySelector('#placeholder').getAttribute('placeholder')).toBe(
+        'Fallback placeholder'
+      );
+      expect(document.querySelector('#title').getAttribute('title')).toBe('Fallback title');
+      expect(document.querySelector('#aria').getAttribute('aria-label')).toBe('Fallback aria');
     });
 
     it('options.html 內所有 data-ui-* 綁定 key 皆能解析為非空字串', () => {
@@ -351,6 +390,39 @@ describe('options.js', () => {
       // 既有 code 文字應保留（handler 偵測到 length !== 2 直接跳過）
       const code = document.querySelector('[data-ui-composite="guide-shortcut-desc"] code.kbd');
       expect(code.textContent).toBe('X');
+    });
+
+    it('guide-shortcut-desc 經 resolver 取值，缺失文案時不應注入 undefined', () => {
+      jest.isolateModules(() => {
+        jest.doMock('../../../scripts/config/shared/messages.js', () => ({
+          UI_MESSAGES: {
+            OPTIONS: {
+              GUIDE: {
+                FEATURES_SHORTCUT_CTRL_KEY: 'Ctrl',
+                FEATURES_SHORTCUT_CMD_KEY: 'Cmd',
+                FEATURES_SHORTCUT_DESC_PREFIX: 'Use ',
+                FEATURES_SHORTCUT_DESC_SUFFIX: ' to save.',
+              },
+            },
+          },
+        }));
+        const {
+          applyStaticOptionMessages: applyWithMissingMessage,
+        } = require('../../../pages/options/staticOptionMessages.js');
+
+        document.body.innerHTML = `
+          <div data-ui-composite="guide-shortcut-desc">
+            舊文字 <code class="kbd">OLD-CTRL</code> 中間舊文字 <code class="kbd">OLD-CMD</code> 舊尾
+          </div>
+        `;
+
+        applyWithMissingMessage();
+      });
+
+      const container = document.querySelector('[data-ui-composite="guide-shortcut-desc"]');
+      expect(container.textContent).not.toContain('undefined');
+      expect(container.querySelectorAll('code.kbd')).toHaveLength(2);
+      jest.dontMock('../../../scripts/config/shared/messages.js');
     });
 
     it('應重組 guide-faq-token-answer 的 token 格式說明', () => {
@@ -1375,6 +1447,35 @@ describe('options.js', () => {
       expect(Logger.error).toHaveBeenCalled();
     });
 
+    it('日誌導出失敗時應先 sanitize error 並只記錄安全 payload', async () => {
+      const rawError = new Error('Secret token api_key=abc123');
+      rawError.stack = 'Error: Secret token api_key=abc123\n    at private';
+      mockSendMessage.mockRejectedValue(rawError);
+
+      initOptions();
+
+      document.querySelector('#export-logs-button').click();
+      await flushAsyncClick();
+
+      expect(Logger.error).toHaveBeenCalledWith('Log export failed', {
+        action: 'exportLog',
+        result: 'failed',
+        error: sanitizeApiError(rawError, 'export_debug_logs'),
+      });
+      expect(Logger.error).not.toHaveBeenCalledWith(
+        'Log export failed',
+        expect.objectContaining({
+          error: expect.stringContaining('api_key'),
+        })
+      );
+      expect(Logger.error).not.toHaveBeenCalledWith(
+        'Log export failed',
+        expect.objectContaining({
+          stack: expect.stringContaining('api_key'),
+        })
+      );
+    });
+
     it('當背景頁返回明確錯誤時應顯示錯誤訊息', async () => {
       mockSendMessage.mockResolvedValue({ error: 'custom export error' });
 
@@ -1856,7 +1957,11 @@ describe('Destination profile options UI', () => {
         notionDataSourceType: 'database',
       }),
       updateProfile: jest.fn(),
-      createProfile: jest.fn().mockRejectedValue(new Error('已達目的地數量上限')),
+      createProfile: jest.fn().mockRejectedValue(
+        Object.assign(new Error('Storage layer translated message'), {
+          code: 'DESTINATION_LIMIT_REACHED',
+        })
+      ),
       deleteProfile: jest.fn(),
     };
     ProfileManager.mockImplementationOnce(() => service);
@@ -1874,8 +1979,31 @@ describe('Destination profile options UI', () => {
       notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
       notionDataSourceType: 'page',
     });
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已達目的地數量上限。', 'error');
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED,
+      'error'
+    );
     expect(nameInput.value).toBe('  Team Inbox  ');
+  });
+
+  it('新增保存目標上游只回傳舊版中文 message 時應顯示通用錯誤', async () => {
+    const service = buildProfileManagerMock({
+      createProfile: jest.fn().mockRejectedValue(new Error('已達目的地數量上限')),
+    });
+    ProfileManager.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    const nameInput = document.querySelector('#destination-profile-name');
+    nameInput.value = '  Team Inbox  ';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED,
+      'error'
+    );
   });
 
   it('新增保存目標遇到一般錯誤時應顯示通用錯誤且記錄警告', async () => {
@@ -1902,7 +2030,7 @@ describe('Destination profile options UI', () => {
       expect.objectContaining({ error: createError })
     );
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '新增保存目標失敗，請稍後再試。',
+      UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED,
       'error'
     );
     expect(nameInput.value).toBe('  Team Inbox  ');
@@ -1984,7 +2112,10 @@ describe('Destination profile options UI', () => {
 
     expect(document.querySelector('#database-id').value).toBe('target-page-id');
     expect(document.querySelector('#database-type').value).toBe('page');
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith('已套用 Second 到編輯欄位', 'info');
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS('Second'),
+      'info'
+    );
 
     document.querySelector('button[data-action="delete"][data-profile-id="profile-2"]').click();
     await flushAsyncClick();
@@ -2024,7 +2155,7 @@ describe('Destination profile options UI', () => {
     await flushAsyncClick();
 
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '保存目標操作失敗，請稍後再試。',
+      UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED,
       'error'
     );
     expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
@@ -2047,7 +2178,7 @@ describe('Destination profile options UI', () => {
     await flushAsyncClick();
 
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      '保存目標操作失敗，請稍後再試。',
+      UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED,
       'error'
     );
     expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
@@ -2287,6 +2418,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         'Account login failed',
         expect.objectContaining({
           action: 'initAccountUI',
+          result: 'failed',
           reason: 'missing_base_url',
         })
       );
@@ -2341,7 +2473,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
 
       const statusEl = document.querySelector('#account-status');
-      expect(statusEl.textContent).toContain('登出');
+      expect(statusEl.textContent).toContain(UI_MESSAGES.ACCOUNT.LOGOUT_SUCCESS);
       expect(statusEl.className).toContain('success');
 
       jest.advanceTimersByTime(3000);
@@ -2349,7 +2481,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     });
 
     it('clearAccountSession 拋錯時應顯示錯誤訊息', async () => {
-      clearAccountSession.mockRejectedValue(new Error('clear failed'));
+      const clearError = new Error('clear failed');
+      clearAccountSession.mockRejectedValue(clearError);
       initOptions();
       await Promise.resolve();
 
@@ -2360,9 +2493,13 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await Promise.resolve();
 
       const statusEl = document.querySelector('#account-status');
-      expect(statusEl.textContent).toContain('失敗');
+      expect(statusEl.textContent).toContain(UI_MESSAGES.ACCOUNT.LOGOUT_FAILED);
       expect(statusEl.className).toContain('error');
-      expect(Logger.error).toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith('Account logout failed', {
+        action: 'logout',
+        result: 'failure',
+        error: clearError,
+      });
     });
   });
 

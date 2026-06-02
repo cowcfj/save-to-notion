@@ -37,6 +37,10 @@ export const DESTINATION_PROFILE_ERRORS = {
   DUPLICATE_ID: '保存目標 ID 已存在',
 };
 
+export const DESTINATION_PROFILE_ERROR_CODES = {
+  LIMIT_REACHED: 'DESTINATION_LIMIT_REACHED',
+};
+
 export function normalizeDataSourceType(type) {
   return type === 'page' ? 'page' : 'database';
 }
