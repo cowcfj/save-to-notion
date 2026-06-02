@@ -71,44 +71,58 @@ const COMPOSITE_HANDLERS = {
   },
 };
 
+const STATIC_MESSAGE_BINDINGS = [
+  {
+    selector: '[data-ui-message]',
+    datasetKey: 'uiMessage',
+    apply: (element, message) => {
+      element.textContent = message;
+    },
+  },
+  {
+    selector: '[data-ui-placeholder]',
+    datasetKey: 'uiPlaceholder',
+    apply: (element, message) => {
+      element.setAttribute('placeholder', message);
+    },
+  },
+  {
+    selector: '[data-ui-title]',
+    datasetKey: 'uiTitle',
+    apply: (element, message) => {
+      element.setAttribute('title', message);
+    },
+  },
+  {
+    selector: '[data-ui-aria-label]',
+    datasetKey: 'uiAriaLabel',
+    apply: (element, message) => {
+      element.setAttribute('aria-label', message);
+    },
+  },
+];
+
+function applyStaticMessageBinding(root, binding) {
+  for (const element of root.querySelectorAll(binding.selector)) {
+    const message = resolveUiMessage(element.dataset[binding.datasetKey]);
+    if (!message) {
+      continue;
+    }
+    binding.apply(element, message);
+  }
+}
+
 /**
  * 掃描並注入靜態 UI 訊息到包含 data-ui-* 屬性的 DOM 元素中
  *
  * @param {Document|HTMLElement} root 掃描的根節點，預設為 document
  */
 export function applyStaticOptionMessages(root = document) {
-  for (const element of root.querySelectorAll('[data-ui-message]')) {
-    const message = resolveUiMessage(element.dataset.uiMessage);
-    if (message) {
-      element.textContent = message;
-    }
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-placeholder]')) {
-    const placeholder = resolveUiMessage(element.dataset.uiPlaceholder);
-    if (placeholder) {
-      element.setAttribute('placeholder', placeholder);
-    }
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-title]')) {
-    const title = resolveUiMessage(element.dataset.uiTitle);
-    if (title) {
-      element.setAttribute('title', title);
-    }
-  }
-
-  for (const element of root.querySelectorAll('[data-ui-aria-label]')) {
-    const ariaLabel = resolveUiMessage(element.dataset.uiAriaLabel);
-    if (ariaLabel) {
-      element.setAttribute('aria-label', ariaLabel);
-    }
+  for (const binding of STATIC_MESSAGE_BINDINGS) {
+    applyStaticMessageBinding(root, binding);
   }
 
   for (const element of root.querySelectorAll('[data-ui-composite]')) {
-    const handler = COMPOSITE_HANDLERS[element.dataset.uiComposite];
-    if (handler) {
-      handler(element);
-    }
+    COMPOSITE_HANDLERS[element.dataset.uiComposite]?.(element);
   }
 }
