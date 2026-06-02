@@ -45,7 +45,8 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
     return createFallbackResult('Untitled', 'No content was extracted.');
   }
 
-  const { content, type, metadata = {}, rawArticle } = extractedContent;
+  const { content, type, metadata: extractedMetadata, rawArticle } = extractedContent;
+  const metadata = extractedMetadata ?? {};
 
   // 1. 提取標題
   const title = _extractTitle(metadata, rawArticle);
@@ -82,11 +83,11 @@ function _ensureBlocks(blocks) {
 }
 
 function _extractSiteIcon(metadata) {
-  if (metadata.siteIcon) {
+  if (metadata?.siteIcon) {
     return metadata.siteIcon;
   }
 
-  if (metadata.favicon) {
+  if (metadata?.favicon) {
     return metadata.favicon;
   }
 
@@ -95,7 +96,7 @@ function _extractSiteIcon(metadata) {
 
 function _extractTitle(metadata, rawArticle) {
   return (
-    metadata.title ||
+    metadata?.title ||
     rawArticle?.title ||
     (typeof document === 'undefined' ? '' : document.title) ||
     'Untitled'
@@ -164,11 +165,12 @@ function _insertTitleBlock(blocks, metadata, includeTitle) {
     return;
   }
 
-  if (!metadata.title) {
+  const title = metadata?.title;
+  if (!title) {
     return;
   }
 
-  const truncatedTitle = _truncateRichText(metadata.title);
+  const truncatedTitle = _truncateRichText(title);
   if (_hasHeadingTitle(blocks, truncatedTitle)) {
     return;
   }
@@ -206,7 +208,7 @@ function _insertFeaturedImageBlock(blocks, metadata, includeFeaturedImage) {
     return;
   }
 
-  const featuredImageUrl = metadata.featuredImage;
+  const featuredImageUrl = metadata?.featuredImage;
   if (!featuredImageUrl) {
     return;
   }
