@@ -29,6 +29,82 @@ const CONTENT_EXTRACTION_SCRIPTS = [
   'dist/content.bundle.js',
 ];
 
+async function extractPageContentInPage(defaultPageTitle) {
+  /* eslint-disable unicorn/consistent-function-scoping -- chrome.scripting.executeScript 序列化限制：func 無法捕獲外部閉包，必須內聯定義 */
+  // 此函數在頁面上下文中執行
+  const PageLogger = globalThis.Logger || console;
+
+  // Helper: 建立 fallback paragraph block
+  function buildParagraphBlock(message) {
+    return {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: message },
+          },
+        ],
+      },
+    };
+  }
+
+  // Helper: 建立 failed / fallback result
+  function buildPageFallbackResult(titleFallback, message) {
+    return {
+      extractionStatus: 'failed',
+      title: document.title || titleFallback,
+      blocks: [buildParagraphBlock(message)],
+      siteIcon: null,
+      coverImage: null,
+    };
+  }
+
+  // Helper: 標準化提取結果
+  function normalizeExtractPageContentResult(extractResult, titleFallback) {
+    const contentBlocks = extractResult.blocks || [];
+    const imageBlocks = extractResult.additionalImages || [];
+    const coverImage = extractResult.coverImage || null;
+
+    return {
+      extractionStatus: extractResult.extractionStatus || 'success',
+      title: extractResult.title || document.title || titleFallback,
+      blocks: [...contentBlocks, ...imageBlocks],
+      siteIcon: extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
+      coverImage,
+    };
+  }
+  /* eslint-enable unicorn/consistent-function-scoping */
+
+  try {
+    PageLogger.log?.('[PageContentService] 調用 extractPageContent');
+
+    // Guard: extractPageContent 不可用
+    if (typeof globalThis.extractPageContent !== 'function') {
+      PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
+      return buildPageFallbackResult(
+        defaultPageTitle,
+        'Content extraction: extractPageContent not available.'
+      );
+    }
+
+    const extractResult = await globalThis.extractPageContent();
+    const normalized = normalizeExtractPageContentResult(extractResult, defaultPageTitle);
+
+    PageLogger.log?.('✅ [PageContentService] 提取成功', {
+      contentBlocks: (extractResult.blocks || []).length,
+      imageBlocks: (extractResult.additionalImages || []).length,
+      hasCoverImage: Boolean(extractResult.coverImage),
+    });
+
+    return normalized;
+  } catch (error) {
+    PageLogger.error?.('[PageContentService] 提取失敗', { error });
+    return buildPageFallbackResult(defaultPageTitle, `Extraction failed: ${error.message}`);
+  }
+}
+
 /**
  * PageContentService 類
  */
@@ -61,81 +137,7 @@ class PageContentService {
       // 注入 bundle 並執行提取
       const result = await this.injectionService.injectWithResponse(
         tabId,
-        async defaultPageTitle => {
-          /* eslint-disable unicorn/consistent-function-scoping */
-          // 此函數在頁面上下文中執行
-          const PageLogger = globalThis.Logger || console;
-
-          // Helper: 建立 fallback paragraph block
-          function buildParagraphBlock(message) {
-            return {
-              object: 'block',
-              type: 'paragraph',
-              paragraph: {
-                rich_text: [
-                  {
-                    type: 'text',
-                    text: { content: message },
-                  },
-                ],
-              },
-            };
-          }
-
-          // Helper: 建立 failed / fallback result
-          function buildPageFallbackResult(titleFallback, message) {
-            return {
-              extractionStatus: 'failed',
-              title: document.title || titleFallback,
-              blocks: [buildParagraphBlock(message)],
-              siteIcon: null,
-              coverImage: null,
-            };
-          }
-
-          // Helper: 標準化提取結果
-          function normalizeExtractPageContentResult(extractResult, titleFallback) {
-            const contentBlocks = extractResult.blocks || [];
-            const imageBlocks = extractResult.additionalImages || [];
-            const coverImage = extractResult.coverImage || null;
-
-            return {
-              extractionStatus: extractResult.extractionStatus || 'success',
-              title: extractResult.title || document.title || titleFallback,
-              blocks: [...contentBlocks, ...imageBlocks],
-              siteIcon: extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
-              coverImage,
-            };
-          }
-
-          try {
-            PageLogger.log?.('[PageContentService] 調用 extractPageContent');
-
-            // 1. Guard: extractPageContent 不可用
-            if (typeof globalThis.extractPageContent !== 'function') {
-              PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
-              return buildPageFallbackResult(
-                defaultPageTitle,
-                'Content extraction: extractPageContent not available.'
-              );
-            }
-
-            // 2. 正常提取路徑
-            const extractResult = await globalThis.extractPageContent();
-            const normalized = normalizeExtractPageContentResult(extractResult, defaultPageTitle);
-
-            PageLogger.log?.('✅ [PageContentService] 提取成功', {
-              contentBlocks: (extractResult.blocks || []).length,
-              imageBlocks: (extractResult.additionalImages || []).length,
-              hasCoverImage: Boolean(extractResult.coverImage),
-            });
-
-            return normalized;
-          } catch (error) {
-            PageLogger.error?.('[PageContentService] 提取失敗', { error });
-            return buildPageFallbackResult(defaultPageTitle, `Extraction failed: ${error.message}`);
-          }
-        },
+        extractPageContentInPage,
         CONTENT_EXTRACTION_SCRIPTS,
         [CONTENT_QUALITY.DEFAULT_PAGE_TITLE]
       );
