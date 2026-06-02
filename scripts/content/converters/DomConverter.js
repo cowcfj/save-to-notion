@@ -10,10 +10,19 @@
 
 // ImageUtils 由 Rollup intro 從 window.ImageUtils 注入
 // 使用 getter 函數以支持測試時的 mock 覆蓋
-const getImageUtils = () =>
-  (globalThis.window !== undefined && globalThis.ImageUtils) ||
-  (globalThis.global !== undefined && globalThis.ImageUtils) ||
-  {};
+const hasWindowScope = () => globalThis.window !== undefined;
+const hasGlobalScope = () => globalThis.global !== undefined;
+const getImageUtils = () => {
+  if (hasWindowScope()) {
+    return globalThis.ImageUtils ?? {};
+  }
+
+  if (hasGlobalScope()) {
+    return globalThis.ImageUtils ?? {};
+  }
+
+  return {};
+};
 
 import Logger from '../../utils/Logger.js';
 
@@ -109,6 +118,40 @@ const UNSAFE_LIST_CHILDREN_FOR_FLATTENING = new Set([
 ]);
 
 /**
+ * HTML 標籤到 Notion Rich Text Annotations 屬性名稱的映射表
+ */
+const INLINE_ANNOTATION_BY_TAG = {
+  B: 'bold',
+  STRONG: 'bold',
+  I: 'italic',
+  EM: 'italic',
+  U: 'underline',
+  INS: 'underline',
+  S: 'strikethrough',
+  DEL: 'strikethrough',
+  STRIKE: 'strikethrough',
+  CODE: 'code',
+  KBD: 'code',
+  SAMP: 'code',
+  TT: 'code',
+};
+
+/**
+ * 用於搜尋代碼語言提示的 HTML 屬性清單
+ */
+const CODE_LANGUAGE_HINT_ATTRIBUTES = ['data-language', 'data-lang', 'language', 'lang'];
+
+/**
+ * 用於搜尋代碼語言提示的 class 名稱前綴清單
+ */
+const CODE_LANGUAGE_CLASS_PREFIXES = ['language-', 'lang-'];
+
+/**
+ * Notion block children 遞迴保留深度上限
+ */
+const MAX_BLOCK_CHILD_DEPTH = 1;
+
+/**
  * DomConverter 類
  * 負責將 HTML DOM 節點轉換為 Notion Blocks
  */
@@ -193,20 +236,38 @@ class DomConverter {
     const blocks = [];
     parentNode.childNodes.forEach(child => {
       const result = this.processNode(child);
-      if (result) {
-        if (Array.isArray(result)) {
-          // 只 push 有效的 blocks（必須有 type）
-          result.forEach(item => {
-            if (item && typeof item === 'object' && item.type) {
-              blocks.push(item);
-            }
-          });
-        } else if (typeof result === 'object' && result.type) {
-          blocks.push(result);
-        }
+      if (!result) {
+        return;
       }
+
+      if (Array.isArray(result)) {
+        result.forEach(item => DomConverter._appendValidBlock(blocks, item));
+        return;
+      }
+
+      DomConverter._appendValidBlock(blocks, result);
     });
     return blocks;
+  }
+
+  static _appendValidBlock(blocks, item) {
+    if (!DomConverter._isBlockLike(item)) {
+      return;
+    }
+
+    blocks.push(item);
+  }
+
+  static _isBlockLike(item) {
+    if (!item) {
+      return false;
+    }
+
+    if (typeof item !== 'object') {
+      return false;
+    }
+
+    return Boolean(item.type);
   }
 
   /**
@@ -220,8 +281,7 @@ class DomConverter {
       return null;
     }
 
-    // 忽略隱藏元素
-    if (node.style?.display === 'none' || node.style?.visibility === 'hidden') {
+    if (DomConverter._isHiddenElement(node)) {
       return null;
     }
 
@@ -235,6 +295,14 @@ class DomConverter {
     // 但如果是 inline 元素被當作 block，可能需要包裝成 paragraph？
     // 這裡我們簡單地採用穿透策略，嘗試提取有用的子 Block
     return this.processChildren(node);
+  }
+
+  static _isHiddenElement(node) {
+    if (node.style?.display === 'none') {
+      return true;
+    }
+
+    return node.style?.visibility === 'hidden';
   }
 
   processListItem(node) {
@@ -284,7 +352,7 @@ class DomConverter {
     // 檢查是否包含圖片（Image inside P）
     const img = node.querySelector('img');
     // 如果段落只包含圖片，直接返回圖片 Block
-    if (img && node.textContent.trim().length === 0) {
+    if (DomConverter._isImageOnlyParagraph(node, img)) {
       return this.createImageBlock(img);
     }
 
@@ -305,36 +373,48 @@ class DomConverter {
     };
   }
 
+  static _isImageOnlyParagraph(node, img) {
+    if (!img) {
+      return false;
+    }
+
+    return node.textContent.trim().length === 0;
+  }
+
   processDiv(node) {
     // Div 是一個通用容器。
     // 策略：直接處理子節點 (Unwrap)
     return this.processChildren(node);
   }
 
+  _appendBlocks(blocks, result) {
+    if (!result) {
+      return;
+    }
+    if (Array.isArray(result)) {
+      blocks.push(...result);
+    } else {
+      blocks.push(result);
+    }
+  }
+
+  _appendConvertedListChild(blocks, child, type) {
+    if (child.nodeName === 'LI') {
+      const liBlock = this.createListItemBlock(child, type);
+      if (liBlock) {
+        blocks.push(liBlock);
+      }
+    } else {
+      const result = this.processNode(child);
+      this._appendBlocks(blocks, result);
+    }
+  }
+
   processList(node, type) {
     const blocks = [];
-
-    // 遍歷子節點，只處理 LI
     node.childNodes.forEach(child => {
-      if (child.nodeName === 'LI') {
-        // 處理 LI
-        const liBlock = this.createListItemBlock(child, type);
-        if (liBlock) {
-          blocks.push(liBlock);
-        }
-      } else {
-        // 處理非 LI 直接子節點 (可能是嵌套錯誤的 HTML，嘗試穿透)
-        const result = this.processNode(child);
-        if (result) {
-          if (Array.isArray(result)) {
-            blocks.push(...result);
-          } else {
-            blocks.push(result);
-          }
-        }
-      }
+      this._appendConvertedListChild(blocks, child, type);
     });
-
     return blocks;
   }
 
@@ -381,11 +461,19 @@ class DomConverter {
     } else if (child.nodeName === 'P') {
       const pRichText = this.parseRichText(child);
       richTexts.push(...pRichText);
-    } else if (child.nodeType !== Node.ELEMENT_NODE || DomConverter.isInlineNode(child)) {
+    } else if (DomConverter._isListItemInlineContent(child)) {
       this._processTextInsideItem(child, richTexts);
     } else {
       this._processBlockInsideItem(child, childrenBlocks);
     }
+  }
+
+  static _isListItemInlineContent(child) {
+    if (child.nodeType !== Node.ELEMENT_NODE) {
+      return true;
+    }
+
+    return DomConverter.isInlineNode(child);
   }
 
   _processListInsideItem(child, childrenBlocks) {
@@ -398,7 +486,7 @@ class DomConverter {
 
   _processTextInsideItem(child, richTexts) {
     const rt = this.processInlineNode(child);
-    if (rt && rt.length > 0) {
+    if (DomConverter._hasRichTextItems(rt)) {
       richTexts.push(...rt);
     }
   }
@@ -431,8 +519,8 @@ class DomConverter {
 
   static createCodeBlock(node) {
     // PRE 通常包含 CODE
-    const codeNode = node.querySelector('code') || node;
-    const text = codeNode.textContent || '';
+    const codeNode = node.querySelector('code') ?? node;
+    const text = codeNode.textContent ?? '';
     const language = DomConverter.extractCodeLanguage(node, codeNode);
 
     return {
@@ -443,6 +531,27 @@ class DomConverter {
           { type: 'text', text: { content: text.slice(0, Math.max(0, MAX_TEXT_LENGTH)) } },
         ],
         language,
+      },
+    };
+  }
+
+  _resolveImageExternalUrl(src, cleanImageUrl) {
+    try {
+      const resolved = new URL(src, document.baseURI).href;
+      return cleanImageUrl ? cleanImageUrl(resolved) : resolved;
+    } catch {
+      return src;
+    }
+  }
+
+  _buildImageBlock(finalUrl, alt) {
+    return {
+      object: 'block',
+      type: 'image',
+      image: {
+        type: 'external',
+        external: { url: finalUrl },
+        caption: alt ? [{ type: 'text', text: { content: alt } }] : [],
       },
     };
   }
@@ -464,16 +573,10 @@ class DomConverter {
       return null;
     }
 
-    let finalUrl = src;
-    try {
-      finalUrl = new URL(src, document.baseURI).href;
-      finalUrl = cleanImageUrl?.(finalUrl) ?? finalUrl;
-    } catch {
-      // ignore invalid url
-    }
+    const finalUrl = this._resolveImageExternalUrl(src, cleanImageUrl);
 
     // 使用已清理的 URL 進行驗證，避免重複標準化
-    if (isValidCleanedImageUrl && !isValidCleanedImageUrl(finalUrl)) {
+    if (DomConverter._isInvalidCleanedImageUrl(isValidCleanedImageUrl, finalUrl)) {
       Logger.warn('[Content] Dropping invalid image to ensure page save', {
         action: 'createImageBlock',
         url: sanitizeUrlForLogging(finalUrl),
@@ -481,37 +584,39 @@ class DomConverter {
       return null;
     }
 
-    const alt = node.getAttribute('alt') || '';
-
-    const block = {
-      object: 'block',
-      type: 'image',
-      image: {
-        type: 'external',
-        external: { url: finalUrl },
-        caption: alt ? [{ type: 'text', text: { content: alt } }] : [],
-      },
-    };
+    const alt = node.getAttribute('alt') ?? '';
+    const block = this._buildImageBlock(finalUrl, alt);
 
     this.imageCount++; // Increment counter
     return block;
   }
 
-  processFigure(node) {
-    // 處理 Figure，通常包含 Img 和 Figcaption
-    const img = node.querySelector('img');
-    if (img) {
-      const block = this.createImageBlock(img);
-      const caption = node.querySelector('figcaption');
-      if (block && caption) {
-        const captionText = caption.textContent.trim();
-        if (captionText) {
-          block.image.caption = [{ type: 'text', text: { content: captionText } }];
-        }
-      }
-      return block;
+  static _isInvalidCleanedImageUrl(isValidCleanedImageUrl, finalUrl) {
+    if (!isValidCleanedImageUrl) {
+      return false;
     }
-    return null;
+
+    return !isValidCleanedImageUrl(finalUrl);
+  }
+
+  processFigure(node) {
+    const img = node.querySelector('img');
+    if (!img) {
+      return null;
+    }
+
+    const block = this.createImageBlock(img);
+    if (!block) {
+      return null;
+    }
+
+    const figcaption = node.querySelector('figcaption');
+    const captionText = figcaption?.textContent.trim();
+    if (captionText) {
+      block.image.caption = [{ type: 'text', text: { content: captionText } }];
+    }
+
+    return block;
   }
 
   // --- Rich Text Parsing ---
@@ -520,7 +625,7 @@ class DomConverter {
     const richTexts = [];
     node.childNodes.forEach(child => {
       const rt = this.processInlineNode(child);
-      if (rt && rt.length > 0) {
+      if (DomConverter._hasRichTextItems(rt)) {
         richTexts.push(...rt);
       }
     });
@@ -546,7 +651,7 @@ class DomConverter {
     const childrenRichTexts = [];
     node.childNodes.forEach(child => {
       const rt = this.processInlineNode(child, newAnnotations);
-      if (rt && rt.length > 0) {
+      if (DomConverter._hasRichTextItems(rt)) {
         if (link) {
           this._applyLinkToRichTexts(rt, link);
         }
@@ -573,36 +678,34 @@ class DomConverter {
 
   _mergeAnnotations(node, annotations) {
     const newAnnotations = { ...annotations };
-    const tagName = node.tagName;
-
-    if (['B', 'STRONG'].includes(tagName)) {
-      newAnnotations.bold = true;
-    } else if (['I', 'EM'].includes(tagName)) {
-      newAnnotations.italic = true;
-    } else if (['U', 'INS'].includes(tagName)) {
-      newAnnotations.underline = true;
-    } else if (['S', 'DEL', 'STRIKE'].includes(tagName)) {
-      newAnnotations.strikethrough = true;
-    } else if (['CODE', 'KBD', 'SAMP', 'TT'].includes(tagName)) {
-      newAnnotations.code = true;
+    const prop = INLINE_ANNOTATION_BY_TAG[node.tagName];
+    if (prop) {
+      newAnnotations[prop] = true;
     }
-
     return newAnnotations;
   }
 
+  _isSupportedLinkProtocol(url) {
+    return ['http:', 'https:'].includes(url.protocol);
+  }
+
   _extractLink(node) {
-    if (node.tagName === 'A') {
-      const href = node.getAttribute('href');
-      if (href) {
-        try {
-          const url = new URL(href, document.baseURI);
-          if (['http:', 'https:'].includes(url.protocol)) {
-            return { url: url.href };
-          }
-        } catch {
-          /* ignore */
-        }
+    if (node.tagName !== 'A') {
+      return null;
+    }
+
+    const href = node.getAttribute('href');
+    if (!href) {
+      return null;
+    }
+
+    try {
+      const url = new URL(href, document.baseURI);
+      if (this._isSupportedLinkProtocol(url)) {
+        return { url: url.href };
       }
+    } catch {
+      // ignore
     }
     return null;
   }
@@ -623,6 +726,14 @@ class DomConverter {
     return inlineTags.includes(node.nodeName);
   }
 
+  static _hasRichTextItems(richTextItems) {
+    if (!richTextItems) {
+      return false;
+    }
+
+    return richTextItems.length > 0;
+  }
+
   static mergeRichText(richTextArray) {
     if (richTextArray.length === 0) {
       return [];
@@ -634,10 +745,7 @@ class DomConverter {
     for (let i = 1; i < richTextArray.length; i++) {
       const next = richTextArray[i];
       // 如果樣式和連結完全相同，則合併文本
-      if (
-        DomConverter.areAnnotationsEqual(current.annotations, next.annotations) &&
-        DomConverter.areLinksEqual(current.text?.link, next.text?.link)
-      ) {
+      if (DomConverter._canMergeRichText(current, next)) {
         current.text.content += next.text.content;
       } else {
         merged.push(current);
@@ -646,6 +754,14 @@ class DomConverter {
     }
     merged.push(current);
     return merged;
+  }
+
+  static _canMergeRichText(current, next) {
+    if (!DomConverter.areAnnotationsEqual(current.annotations, next.annotations)) {
+      return false;
+    }
+
+    return DomConverter.areLinksEqual(current.text?.link, next.text?.link);
   }
 
   static areAnnotationsEqual(a1 = {}, a2 = {}) {
@@ -670,6 +786,41 @@ class DomConverter {
     return NOTION_CODE_LANGUAGE_PLAIN_TEXT;
   }
 
+  static _addCodeLanguageAttributeHints(hints, node) {
+    CODE_LANGUAGE_HINT_ATTRIBUTES.forEach(attr => {
+      const value = node.getAttribute(attr);
+      const normalizedValue = DomConverter._normalizeCodeLanguageHintValue(value);
+      if (normalizedValue) {
+        hints.add(normalizedValue);
+      }
+    });
+  }
+
+  static _normalizeCodeLanguageHintValue(value) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalizedValue = value.trim();
+    if (!normalizedValue) {
+      return null;
+    }
+
+    return normalizedValue;
+  }
+
+  static _addCodeLanguageClassHints(hints, node) {
+    Array.from(node.classList ?? []).forEach(token => {
+      const normalizedToken = token.toLowerCase();
+      for (const prefix of CODE_LANGUAGE_CLASS_PREFIXES) {
+        if (normalizedToken.startsWith(prefix)) {
+          hints.add(normalizedToken.slice(prefix.length));
+          break;
+        }
+      }
+    });
+  }
+
   static collectCodeLanguageHints(...nodes) {
     const hints = new Set();
 
@@ -678,21 +829,8 @@ class DomConverter {
         return;
       }
 
-      ['data-language', 'data-lang', 'language', 'lang'].forEach(attr => {
-        const value = node.getAttribute(attr);
-        if (typeof value === 'string' && value.trim()) {
-          hints.add(value.trim());
-        }
-      });
-
-      Array.from(node.classList || []).forEach(token => {
-        const normalizedToken = token.toLowerCase();
-        if (normalizedToken.startsWith('language-')) {
-          hints.add(normalizedToken.slice('language-'.length));
-        } else if (normalizedToken.startsWith('lang-')) {
-          hints.add(normalizedToken.slice('lang-'.length));
-        }
-      });
+      DomConverter._addCodeLanguageAttributeHints(hints, node);
+      DomConverter._addCodeLanguageClassHints(hints, node);
     });
 
     return [...hints];
@@ -708,12 +846,12 @@ class DomConverter {
       return null;
     }
 
-    const mapped = CODE_LANGUAGE_MAP[normalized] || normalized;
+    const mapped = CODE_LANGUAGE_MAP[normalized] ?? normalized;
     return NOTION_SUPPORTED_LANGUAGES.has(mapped) ? mapped : null;
   }
 
   static mapLanguage(lang) {
-    return DomConverter.resolveLanguageHint(lang) || NOTION_CODE_LANGUAGE_PLAIN_TEXT;
+    return DomConverter.resolveLanguageHint(lang) ?? NOTION_CODE_LANGUAGE_PLAIN_TEXT;
   }
 
   /**
@@ -726,13 +864,13 @@ class DomConverter {
    * @returns {Array} 清洗後的區塊陣列
    */
   static cleanBlocks(blocks, depth = 0) {
-    if (!blocks || !Array.isArray(blocks)) {
+    if (!DomConverter._isBlockArray(blocks)) {
       return [];
     }
 
     return blocks.flatMap(block => {
       // 1. Basic Validation
-      if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
+      if (!DomConverter._isCleanableBlock(block)) {
         return [];
       }
 
@@ -744,11 +882,27 @@ class DomConverter {
     });
   }
 
+  static _isBlockArray(blocks) {
+    if (!blocks) {
+      return false;
+    }
+
+    return Array.isArray(blocks);
+  }
+
+  static _isCleanableBlock(block) {
+    if (!DomConverter._isBlockLike(block)) {
+      return false;
+    }
+
+    return Boolean(block[block.type]);
+  }
+
   static _cleanRichText(block) {
     const type = block.type;
     const blockData = block[type];
 
-    if (!blockData.rich_text || blockData.rich_text.length === 0) {
+    if (!DomConverter._hasRichTextItems(blockData.rich_text)) {
       // Ensure rich_text exists if property is present?
       // Note: Some blocks might imply rich_text.
       // Original code checked block[type].rich_text existence.
@@ -765,17 +919,11 @@ class DomConverter {
     }
   }
 
-  static _processRichTextArray(richTextArray) {
-    let totalLength = 0;
-    const processed = [];
-    const count = richTextArray.length;
-    const preserveCodeWhitespace = richTextArray.some(rt => rt.annotations?.code === true);
-
-    // 找出第一個和最後一個非空白元素的索引
+  static _findRichTextContentBounds(richTextArray) {
     let firstNonEmptyIndex = -1;
     let lastNonEmptyIndex = -1;
-    for (let i = 0; i < count; i++) {
-      const content = richTextArray[i].text?.content || '';
+    for (const [i, rt] of richTextArray.entries()) {
+      const content = rt.text?.content ?? '';
       if (content.trim()) {
         if (firstNonEmptyIndex === -1) {
           firstNonEmptyIndex = i;
@@ -783,96 +931,186 @@ class DomConverter {
         lastNonEmptyIndex = i;
       }
     }
+    return { firstNonEmptyIndex, lastNonEmptyIndex };
+  }
+
+  static _buildRichTextFormatContext(index, totalCount, bounds, preserveCodeWhitespace) {
+    return {
+      index,
+      totalCount,
+      firstNonEmptyIndex: bounds.firstNonEmptyIndex,
+      lastNonEmptyIndex: bounds.lastNonEmptyIndex,
+      preserveCodeWhitespace,
+    };
+  }
+
+  static _cloneRichTextWithContent(rt, content) {
+    return {
+      ...rt,
+      text: {
+        ...rt.text,
+        content,
+      },
+    };
+  }
+
+  static _appendFormattedRichText(processed, rt, content, availableLength) {
+    if (!content) {
+      return { addedLength: 0, shouldContinue: true };
+    }
+
+    if (content.length > availableLength) {
+      DomConverter._appendTruncatedRichText(processed, rt, content, availableLength);
+      return { addedLength: Math.max(0, availableLength), shouldContinue: false };
+    }
+
+    processed.push(DomConverter._cloneRichTextWithContent(rt, content));
+    return { addedLength: content.length, shouldContinue: true };
+  }
+
+  static _appendTruncatedRichText(processed, rt, content, availableLength) {
+    if (availableLength <= 0) {
+      return;
+    }
+
+    processed.push(DomConverter._cloneRichTextWithContent(rt, content.slice(0, availableLength)));
+  }
+
+  static _processRichTextArray(richTextArray) {
+    let totalLength = 0;
+    const processed = [];
+    const count = richTextArray.length;
+    const preserveCodeWhitespace = richTextArray.some(rt => rt.annotations?.code === true);
+
+    const bounds = DomConverter._findRichTextContentBounds(richTextArray);
 
     for (const [index, rt] of richTextArray.entries()) {
-      const content = DomConverter._formatRichTextContent(
-        rt.text?.content || '',
+      const context = DomConverter._buildRichTextFormatContext(
         index,
         count,
-        firstNonEmptyIndex,
-        lastNonEmptyIndex,
+        bounds,
         preserveCodeWhitespace
       );
+      const content = DomConverter._formatRichTextContent(rt.text?.content ?? '', context);
+      const appendResult = DomConverter._appendFormattedRichText(
+        processed,
+        rt,
+        content,
+        MAX_TEXT_LENGTH - totalLength
+      );
 
-      if (totalLength + content.length > MAX_TEXT_LENGTH) {
-        const remaining = Math.max(0, MAX_TEXT_LENGTH - totalLength);
-        if (remaining > 0) {
-          // 建立副本避免污染原始輸入
-          const cloned = { ...rt, text: { ...rt.text, content: content.slice(0, remaining) } };
-          processed.push(cloned);
-        }
-        break; // Max reached
-      } else if (content) {
-        // 建立副本避免污染原始輸入
-        const cloned = { ...rt, text: { ...rt.text, content } };
-        totalLength += content.length;
-        processed.push(cloned);
+      totalLength += appendResult.addedLength;
+      if (!appendResult.shouldContinue) {
+        break;
       }
     }
 
     return processed;
   }
 
-  static _formatRichTextContent(
-    content,
-    index,
-    totalCount,
-    firstNonEmptyIndex,
-    lastNonEmptyIndex,
-    preserveCodeWhitespace = false
-  ) {
-    let formatted = content;
-
+  static _formatRichTextContent(content, context) {
     // code rich_text 的前後空白與換行是有語意的，需保留原始內容；
     // 但若整組內容都只有空白，仍維持既有 fallback 路徑，由 _cleanRichText 補單一空格。
-    if (preserveCodeWhitespace) {
-      return firstNonEmptyIndex === -1 ? '' : formatted;
+    if (context.preserveCodeWhitespace) {
+      return DomConverter._formatCodeRichTextContent(content, context);
     }
 
     // 邊界之外的純空白節點：直接返回空字串（會被過濾掉）
-    if (index < firstNonEmptyIndex || index > lastNonEmptyIndex) {
+    if (DomConverter._isOutsideRichTextBounds(context)) {
       return '';
     }
 
-    // 只對第一個非空白元素做 trimStart
-    if (index === firstNonEmptyIndex) {
-      formatted = formatted.trimStart();
-    }
-
-    // 只對最後一個非空白元素做 trimEnd
-    if (index === lastNonEmptyIndex) {
-      formatted = formatted.trimEnd();
-    }
-
-    // 如果只有一個元素且為空，保留一個空格
-    // 防禦性後備：當 totalCount === 1 且內容為空白時保留單一空格
-    // 註：正常情況下 firstNonEmptyIndex === -1 時會在上方邊界檢查返回空字串
-    // 此分支保留作為防禦性措施，處理意外輸入或未來邏輯變更的情況
-    if (!formatted.trim() && totalCount === 1) {
-      formatted = ' ';
+    const formatted = DomConverter._trimRichTextBoundaryContent(content, context);
+    if (DomConverter._shouldUseSingleWhitespaceFallback(formatted, context.totalCount)) {
+      return ' ';
     }
 
     return formatted;
   }
 
+  static _formatCodeRichTextContent(content, context) {
+    if (context.firstNonEmptyIndex === -1) {
+      return '';
+    }
+
+    return content;
+  }
+
+  static _isOutsideRichTextBounds(context) {
+    if (context.index < context.firstNonEmptyIndex) {
+      return true;
+    }
+
+    return context.index > context.lastNonEmptyIndex;
+  }
+
+  static _trimRichTextBoundaryContent(content, context) {
+    let formatted = content;
+
+    // 只對第一個非空白元素做 trimStart
+    if (context.index === context.firstNonEmptyIndex) {
+      formatted = formatted.trimStart();
+    }
+
+    // 只對最後一個非空白元素做 trimEnd
+    if (context.index === context.lastNonEmptyIndex) {
+      formatted = formatted.trimEnd();
+    }
+
+    return formatted;
+  }
+
+  static _shouldUseSingleWhitespaceFallback(formatted, totalCount) {
+    if (formatted.trim()) {
+      return false;
+    }
+
+    return totalCount === 1;
+  }
+
+  static _isUnsafeListChild(child) {
+    if (!child) {
+      return false;
+    }
+
+    return UNSAFE_LIST_CHILDREN_FOR_FLATTENING.has(child.type);
+  }
+
+  static _hasUnsafeListChild(children) {
+    return children.some(child => DomConverter._isUnsafeListChild(child));
+  }
+
+  static _isUnsafeListContainer(type, hasUnsafeChild) {
+    if (!hasUnsafeChild) {
+      return false;
+    }
+
+    return type.includes('list_item');
+  }
+
+  static _shouldFlattenChildren(type, depth, hasUnsafeChild) {
+    if (!BLOCKS_SUPPORTING_CHILDREN.has(type)) {
+      return true;
+    }
+
+    if (depth > MAX_BLOCK_CHILD_DEPTH) {
+      return true;
+    }
+
+    return DomConverter._isUnsafeListContainer(type, hasUnsafeChild);
+  }
+
   static _cleanBlockChildren(block, depth) {
     const type = block.type;
     const blockTypeData = block[type];
-    const hasChildren = blockTypeData?.children && blockTypeData.children.length > 0;
+    const hasChildren = DomConverter._hasBlockChildren(blockTypeData);
 
     if (!hasChildren) {
       return [block];
     }
 
-    const MAX_DEPTH = 1;
-    const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.has(type);
-
-    const hasUnsafeChild = blockTypeData.children.some(
-      child => child && UNSAFE_LIST_CHILDREN_FOR_FLATTENING.has(child.type)
-    );
-
-    const shouldFlatten =
-      !isSupportedType || depth > MAX_DEPTH || (block.type.includes('list_item') && hasUnsafeChild);
+    const hasUnsafeChild = DomConverter._hasUnsafeListChild(blockTypeData.children);
+    const shouldFlatten = DomConverter._shouldFlattenChildren(type, depth, hasUnsafeChild);
 
     if (!shouldFlatten) {
       blockTypeData.children = DomConverter.cleanBlocks(blockTypeData.children, depth + 1);
@@ -888,6 +1126,14 @@ class DomConverter {
     const cleanChildren = DomConverter.cleanBlocks(children, depth);
 
     return [block, ...cleanChildren];
+  }
+
+  static _hasBlockChildren(blockTypeData) {
+    if (!blockTypeData?.children) {
+      return false;
+    }
+
+    return blockTypeData.children.length > 0;
   }
 }
 

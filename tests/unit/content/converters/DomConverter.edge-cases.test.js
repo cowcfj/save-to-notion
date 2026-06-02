@@ -442,6 +442,53 @@ describe('DomConverter 覆蓋率補強', () => {
     });
   });
 
+  describe('重構風險與邊界情況保護', () => {
+    test('figure 同時有 alt 與 figcaption 時，figcaption 應該覆蓋 image caption', () => {
+      const html =
+        '<figure><img src="https://example.com/image.jpg" alt="Alt text"><figcaption>Figcaption text</figcaption></figure>';
+      const blocks = converter.convert(html);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('image');
+      expect(blocks[0].image.caption).toEqual([
+        { type: 'text', text: { content: 'Figcaption text' } },
+      ]);
+    });
+
+    test('nested list 內含 unsafe child block 時，cleanBlocks flatten 後仍保留 parent list item rich text', () => {
+      const blocks = [
+        {
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: [{ type: 'text', text: { content: 'Parent Item' } }],
+            children: [
+              {
+                type: 'image',
+                image: { type: 'external', external: { url: 'https://example.com/a.png' } },
+              },
+            ],
+          },
+        },
+      ];
+      const cleaned = DomConverter.cleanBlocks(blocks);
+      expect(cleaned).toHaveLength(2);
+      expect(cleaned[0].type).toBe('bulleted_list_item');
+      expect(cleaned[0].bulleted_list_item.rich_text).toEqual([
+        { type: 'text', text: { content: 'Parent Item' } },
+      ]);
+      expect(cleaned[1].type).toBe('image');
+    });
+
+    test('collectCodeLanguageHints 保持 code node hint 優先於 pre node hint', () => {
+      const pre = document.createElement('pre');
+      pre.setAttribute('class', 'language-css');
+      const code = document.createElement('code');
+      code.setAttribute('class', 'language-js');
+
+      const hints = DomConverter.collectCodeLanguageHints(code, pre);
+      expect(hints).toEqual(['js', 'css']);
+    });
+  });
+
   describe('domConverter 單例', () => {
     test('domConverter 應該是 DomConverter 實例', () => {
       expect(domConverter).toBeInstanceOf(DomConverter);
