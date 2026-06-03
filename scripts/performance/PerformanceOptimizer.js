@@ -69,7 +69,18 @@ function validateSafeDomElement(element, contextDocument, expectedSelector) {
     return false;
   }
 
-  if (!element.isConnected) {
+  let isConnected = false;
+  if (typeof element.isConnected === 'boolean') {
+    isConnected = element.isConnected;
+  } else {
+    try {
+      isConnected = Boolean((contextDocument || element.ownerDocument)?.contains?.(element));
+    } catch {
+      isConnected = false;
+    }
+  }
+
+  if (!isConnected) {
     return false;
   }
 
@@ -807,7 +818,7 @@ class PerformanceOptimizer {
     document.addEventListener(PRELOADER_EVENTS.RESPONSE, responseHandler, { once: true });
     document.dispatchEvent(new CustomEvent(PRELOADER_EVENTS.REQUEST));
 
-    // 1. 基礎結構驗證：使用 securityUtils 檢查
+    // 1. 基礎結構驗證：使用本檔的 validatePreloaderCache 檢查 preloaderCache
     if (!validatePreloaderCache(preloaderCache)) {
       if (preloaderCache) {
         // 只有當它存在但無效時才記錄 Warning

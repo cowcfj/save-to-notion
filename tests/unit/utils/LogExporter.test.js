@@ -76,6 +76,22 @@ describe('LogExporter', () => {
     expect(parsedContent.logs).toEqual([]);
   });
 
+  test('should export logs correctly in txt format', () => {
+    const mockLogs = [
+      { level: 'info', message: 'test log 1' },
+      { level: 'error', message: 'test log 2' },
+    ];
+    mockBuffer.getAll.mockReturnValue(mockLogs);
+
+    const result = LogExporter.exportLogs({ format: 'txt' });
+
+    expect(result.count).toBe(2);
+    expect(result.mimeType).toBe('text/plain');
+    expect(result.filename).toBe('logs.txt');
+    expect(result.content).toContain('info\ttest log 1');
+    expect(result.content).toContain('error\ttest log 2');
+  });
+
   test('should throw error if buffer is not initialized', () => {
     Logger.getBuffer.mockReturnValue(null);
 

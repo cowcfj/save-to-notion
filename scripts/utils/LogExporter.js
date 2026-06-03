@@ -6,7 +6,7 @@ export const LogExporter = {
    * 導出偵錯日誌
    *
    * @param {object} options
-   * @param {string} options.format - 'json' | 'text' (目前主要支援 json)
+   * @param {string} options.format - 'json' | 'txt'
    * @returns {object} { filename, content, mimeType, count }
    */
   exportLogs({ format = 'json' } = {}) {
@@ -57,6 +57,10 @@ export const LogExporter = {
         filename = 'notion-debug.json';
       }
       mimeType = 'application/json';
+    } else if (format === 'txt') {
+      content = safeLogs.map(log => formatPlainTextLogEntry(log)).join('\n');
+      filename = 'logs.txt';
+      mimeType = 'text/plain';
     } else {
       throw new Error(`Unsupported format: ${format}`);
     }
@@ -69,3 +73,11 @@ export const LogExporter = {
     };
   },
 };
+
+function formatPlainTextLogEntry(log) {
+  if (!log || typeof log !== 'object') {
+    return String(log);
+  }
+
+  return [log.timestamp, log.level, log.message].filter(value => value !== undefined).join('\t');
+}

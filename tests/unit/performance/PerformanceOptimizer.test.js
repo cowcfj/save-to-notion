@@ -569,6 +569,25 @@ describe('PerformanceOptimizer', () => {
       expect(cachedArticle).toBe(article);
     });
 
+    test('isConnected 不是 boolean 時應退回 document.contains 並接管有效元素', () => {
+      const article = document.createElement('article');
+      document.body.append(article);
+      Object.defineProperty(article, 'isConnected', {
+        value: undefined,
+        configurable: true,
+      });
+
+      mockPreloader({
+        timestamp: Date.now(),
+        article,
+      });
+
+      const result = optimizer.takeoverPreloaderCache();
+
+      expect(result.taken).toBe(1);
+      expect(optimizer.cachedQuery('article', document, { single: true })).toBe(article);
+    });
+
     test('應該拒絕未連接到 DOM 的元素 (isConnected: false)', () => {
       const article = document.createElement('article');
       // 不執行 document.body.appendChild(article)

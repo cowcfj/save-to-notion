@@ -26,7 +26,6 @@ describe('LogExportValidator', () => {
     test('無效的文件名應拋出錯誤', () => {
       const invalidFilenames = [
         '../passwd', // Path traversal
-        'logs.txt', // 錯誤的副檔名
         'logs.json.exe', // 雙重副檔名
         'logs;rm -rf', // Shell 注入字元
         '', // 空值
@@ -41,6 +40,16 @@ describe('LogExportValidator', () => {
           })
         ).toThrow('Invalid filename format');
       });
+    });
+
+    test('txt 導出數據應通過驗證', () => {
+      const txtExportData = {
+        filename: 'logs.txt',
+        content: '[]',
+        mimeType: 'text/plain',
+      };
+
+      expect(() => validateLogExportData(txtExportData)).not.toThrow();
     });
 
     test('非字串內容應拋出錯誤', () => {

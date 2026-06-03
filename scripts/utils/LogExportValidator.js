@@ -6,7 +6,11 @@
  * @module utils/LogExportValidator
  */
 
-const LOG_EXPORT_FILENAME_PATTERN = /^[\w.-]+\.json$/i;
+const LOG_EXPORT_FILENAME_PATTERN = /^[\w.-]+\.(?:json|txt)$/i;
+const LOG_EXPORT_MIME_BY_EXTENSION = {
+  json: 'application/json',
+  txt: 'text/plain',
+};
 
 /**
  * 驗證日誌導出數據的安全性
@@ -33,7 +37,7 @@ const LOG_EXPORT_VALIDATION_RULES = [
     () => new TypeError('Security check failed: Invalid content type'),
   ],
   [
-    data => data.mimeType !== 'application/json',
+    data => !_isValidLogExportMimeType(data.filename, data.mimeType),
     () => new Error('Security check failed: Invalid MIME type'),
   ],
 ];
@@ -65,4 +69,13 @@ function _isValidLogExportFilename(filename) {
   }
 
   return LOG_EXPORT_FILENAME_PATTERN.test(filename);
+}
+
+function _isValidLogExportMimeType(filename, mimeType) {
+  if (!_isValidLogExportFilename(filename)) {
+    return false;
+  }
+
+  const extension = filename.split('.').pop().toLowerCase();
+  return mimeType === LOG_EXPORT_MIME_BY_EXTENSION[extension];
 }

@@ -180,6 +180,26 @@ describe('logHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
+    test('exportDebugLogs 應接受 txt 格式並回傳可下載內容', () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'mock-extension-id' };
+      const txtExport = {
+        filename: 'logs.txt',
+        content: 'level\tmessage\ninfo\ttest',
+        mimeType: 'text/plain',
+        count: 1,
+      };
+      LogExporter.exportLogs.mockReturnValue(txtExport);
+
+      handlers.exportDebugLogs({ format: 'txt' }, sender, sendResponse);
+
+      expect(LogExporter.exportLogs).toHaveBeenCalledWith({ format: 'txt' });
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        data: txtExport,
+      });
+    });
+
     test('exportDebugLogs 在 Exporter 拋出錯誤時應回傳錯誤格式', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'mock-extension-id' };
