@@ -3,7 +3,8 @@ import { UI_MESSAGES, ERROR_MESSAGES } from '../../scripts/config/shared/message
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError, validateLogExportData } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
+import { validateLogExportData } from '../../scripts/utils/LogExportValidator.js';
 
 const UI_CLASS_STATUS_MSG = 'status-message';
 

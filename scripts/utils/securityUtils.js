@@ -11,11 +11,15 @@
 import Logger from './Logger.js';
 import { SECURITY_CONSTANTS } from '../config/shared/core.js';
 
-import {
-  API_ERROR_PATTERNS,
-  SECURITY_ERROR_MESSAGES,
-  ERROR_MESSAGES,
-} from '../config/shared/messages.js';
+import { SECURITY_ERROR_MESSAGES, ERROR_MESSAGES } from '../config/shared/messages.js';
+
+const NOTION_ALLOWED_DOMAINS = new Set([
+  'notion.so',
+  'www.notion.so',
+  'notion.com',
+  'www.notion.com',
+]);
+const NOTION_ALLOWED_SUFFIXES = ['.notion.so', '.notion.com'];
 
 // ============================================================================
 // URL 驗證函數
@@ -30,7 +34,7 @@ import {
 export function isValidUrl(urlString) {
   try {
     const url = new URL(urlString);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    return ['http:', 'https:'].includes(url.protocol);
   } catch {
     return false;
   }
@@ -51,24 +55,29 @@ export function isValidNotionUrl(urlString) {
       return false;
     }
 
-    // Notion 網域白名單
-    const allowedDomains = ['notion.so', 'www.notion.so', 'notion.com', 'www.notion.com'];
-
-    // 規範化 hostname：轉小寫並移除 trailing dot
-    let hostname = url.hostname.toLowerCase();
-    while (hostname.endsWith('.')) {
-      hostname = hostname.slice(0, -1);
-    }
-
-    // 允許 notion.so 和 notion.com 的子網域（例如 app.notion.com, xxx.notion.so）
-    return (
-      allowedDomains.includes(hostname) ||
-      hostname.endsWith('.notion.so') ||
-      hostname.endsWith('.notion.com')
-    );
+    const hostname = _normalizeHostname(url.hostname);
+    return _isAllowedNotionHostname(hostname);
   } catch {
     return false;
   }
+}
+
+// === URL 驗證私有輔助函數 ===
+
+function _normalizeHostname(hostname) {
+  let normalized = String(hostname ?? '').toLowerCase();
+  while (normalized.endsWith('.')) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
+function _isAllowedNotionHostname(hostname) {
+  if (NOTION_ALLOWED_DOMAINS.has(hostname)) {
+    return true;
+  }
+
+  return NOTION_ALLOWED_SUFFIXES.some(suffix => hostname.endsWith(suffix));
 }
 
 // ============================================================================
@@ -82,13 +91,11 @@ export function isValidNotionUrl(urlString) {
  * @returns {object|null} 錯誤對象或 null（驗證通過）
  */
 export function validateInternalRequest(sender) {
-  // 來源驗證：必須來自擴充功能內部
-  const isExtensionOrigin = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+  if (!_isExtensionSender(sender)) {
+    return { success: false, error: SECURITY_ERROR_MESSAGES.INTERNAL_ONLY };
+  }
 
-  // 允許的情況：
-  // 1. 沒有 tab 對象 (Popup, Background) 且 ID 匹配
-  // 2. 有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
-  if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
+  if (sender.tab && !_isExtensionPageSender(sender)) {
     return { success: false, error: SECURITY_ERROR_MESSAGES.INTERNAL_ONLY };
   }
 
@@ -102,11 +109,7 @@ export function validateInternalRequest(sender) {
  * @returns {object|null} 錯誤對象或 null（驗證通過）
  */
 export function validateContentScriptRequest(sender) {
-  // Content script 的特徵：
-  // 1. sender.id 必須是我們的擴充功能
-  // 2. sender.tab 必須存在（在網頁上下文中）
-
-  if (sender.id !== chrome.runtime.id) {
+  if (!_isExtensionSender(sender)) {
     return { success: false, error: SECURITY_ERROR_MESSAGES.CONTENT_SCRIPT_ONLY };
   }
 
@@ -117,272 +120,23 @@ export function validateContentScriptRequest(sender) {
   return null; // 驗證通過
 }
 
+// === 請求來源驗證私有輔助函數 ===
+
+function _isExtensionSender(sender) {
+  return sender?.id === chrome.runtime.id;
+}
+
+function _isExtensionPageSender(sender) {
+  return sender?.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+}
+
 // ============================================================================
 // 日誌安全函數（防止敏感資訊洩露）
 // ============================================================================
 
-// [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
-export { sanitizeUrlForLogging } from './LogSanitizer.js';
-
 // [REMOVED] maskSensitiveString moved to LogSanitizer.js
 
 // [REMOVED] escapeHtml as it is no longer needed with DOM API refactoring
-
-/**
- * 內部 API 錯誤分類器 (私有實現，引用純配置數據)
- *
- * @param {string} lowerMessage - 已轉小寫的錯誤訊息
- * @returns {string|null} 分類後的錯誤關鍵字
- */
-function _classifyApiError(lowerMessage) {
-  const {
-    AUTH,
-    AUTH_DISCONNECTED,
-    AUTH_INVALID,
-    AUTH_FORBIDDEN,
-    PERMISSION,
-    PERMISSION_DB,
-    RATE_LIMIT,
-    NOT_FOUND,
-    ACTIVE_TAB,
-    TAB_NOT_FOUND,
-    RUNTIME_DISCONNECTED,
-    CONNECTION_NOT_ESTABLISHED,
-    DATA_SOURCE,
-    VALIDATION,
-    TIMEOUT,
-    NETWORK,
-    SERVER_ERROR,
-  } = API_ERROR_PATTERNS;
-
-  // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
-  // 使用 Array of Tuples 而非 Object literal，將「順序 = 優先級」這個合約從
-  // 隱性（依賴 Object key insertion order）提升為顯性（list 結構本身即代表 ordered priority），
-  // 避免 IDE 排序、ESLint sort-keys、Prettier plugin 等工具自動打亂優先級。
-  // 注意：TIMEOUT 必須早於 NETWORK_ERROR 檢查，否則 'timeout' 等關鍵字會被歸類為
-  // NETWORK_ERROR 而喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
-  // 注意：chrome.tabs / runtime 三條 mapping 必須早於 MISSING_PAGE_ID：
-  // NOT_FOUND 含 'does not exist'，會搶吃 'Receiving end does not exist'。
-  // RUNTIME_DISCONNECTED 早於 CONNECTION_NOT_ESTABLISHED：chrome 複合訊息
-  // 'Could not establish connection. Receiving end does not exist.' 兩段都命中時，
-  // 更具體的「content script 已 unmount」axis 應勝出。
-  const directMatch = _checkSimpleMappings(lowerMessage, [
-    ['RATE_LIMITED', RATE_LIMIT],
-    ['NO_TAB_WITH_ID', TAB_NOT_FOUND],
-    ['CONTENT_SCRIPT_NOT_READY', RUNTIME_DISCONNECTED],
-    ['TAB_COMMUNICATION_FAILED', CONNECTION_NOT_ESTABLISHED],
-    ['MISSING_PAGE_ID', NOT_FOUND],
-    ['NO_ACTIVE_TAB', ACTIVE_TAB],
-    ['TIMEOUT', TIMEOUT],
-    ['NETWORK_ERROR', NETWORK],
-  ]);
-  if (directMatch) {
-    return directMatch;
-  }
-
-  // 2. 認證與權限 (Auth & Permission) - 優先檢查
-  const authResult = _checkAuthErrors(
-    lowerMessage,
-    AUTH,
-    AUTH_DISCONNECTED,
-    AUTH_INVALID,
-    AUTH_FORBIDDEN
-  );
-  if (authResult) {
-    return authResult;
-  }
-
-  // 2.5 驗證錯誤 (Validation) - 降級檢查順序
-  // 防止 'api key is invalid' 等認證錯誤被誤判為 VALIDATION_ERROR
-  if (VALIDATION.some(k => lowerMessage.includes(k))) {
-    return 'VALIDATION_ERROR';
-  }
-
-  // 3. 權限檢查 (Permission)
-  // 必須早於 DATA_SOURCE 檢查：DATA_SOURCE 含 'database' 關鍵字，
-  // 否則 'database permission denied' 會被誤判為 MISSING_DATA_SOURCE。
-  if (PERMISSION.some(k => lowerMessage.includes(k))) {
-    return PERMISSION_DB.some(k => lowerMessage.includes(k))
-      ? 'DATABASE_ACCESS_DENIED'
-      : 'TAB_RESTRICTED_PAGE';
-  }
-
-  // 3.5 資料源錯誤 (Data Source) - 必須在 PERMISSION 之後
-  if (DATA_SOURCE.some(k => lowerMessage.includes(k))) {
-    return 'MISSING_DATA_SOURCE';
-  }
-
-  // 4. 服務器錯誤 (Server Error)
-  if (SERVER_ERROR.some(k => lowerMessage.includes(k))) {
-    return _checkServerError(lowerMessage);
-  }
-
-  return null;
-}
-
-// === 輔助函數 (降低 Cognitive Complexity) ===
-
-function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidden) {
-  const isGenericAuth = patterns.some(k => lowerMessage.includes(k));
-  const isDisconnected = disconnected.some(k => lowerMessage.includes(k));
-  const isInvalid = invalid.some(k => lowerMessage.includes(k));
-  const isForbidden = forbidden?.some(k => lowerMessage.includes(k));
-
-  if (!isGenericAuth && !isDisconnected && !isInvalid && !isForbidden) {
-    return null;
-  }
-
-  if (isDisconnected) {
-    return 'INTEGRATION_DISCONNECTED';
-  }
-  if (isInvalid) {
-    return 'INVALID_API_KEY_FORMAT';
-  }
-  if (isForbidden) {
-    return 'INTEGRATION_FORBIDDEN';
-  }
-
-  // Default to generic API Key error if matched main AUTH pattern
-  return 'API_KEY_NOT_CONFIGURED';
-}
-
-function _checkSimpleMappings(lowerMessage, mappings) {
-  for (const [result, patterns] of mappings) {
-    if (patterns.some(k => lowerMessage.includes(k))) {
-      return result;
-    }
-  }
-  return null;
-}
-
-function _checkServerError(lowerMessage) {
-  const isInternal = lowerMessage.includes('internal') && lowerMessage.includes('error');
-  const isUnavailable = lowerMessage.includes('service') && lowerMessage.includes('unavailable');
-  if (isInternal || isUnavailable) {
-    return 'INTERNAL_SERVER_ERROR';
-  }
-  return null;
-}
-
-/**
- * 清理外部 API 錯誤訊息，防止洩露技術細節並標準化錯誤分類
- *
- * 安全與架構考量：
- * 1. 職責分離：此函數僅負責「分類」與「清洗」，不包含 UI 文案。
- * 2. 縱深防禦：防止內部實現細節、Stack Traces 等洩露。
- * 3. 翻譯橋接：返回的關鍵字（如 'API_KEY_NOT_CONFIGURED'）由 ErrorHandler 轉換為友善語句。
- * 4. Boundary 約定：SDK 原始 code（snake_case）在此函數入口統一轉為內部 SCREAMING_SNAKE_CASE
- *    vocabulary，輸出後所有消費端皆與 PATTERNS key 對齊。
- *
- * @param {string | object} apiError - API 錯誤訊息或錯誤對象
- * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
- * @returns {string | object} 錯誤代碼或清洗後的結構化錯誤對象
- */
-export function sanitizeApiError(apiError, context = 'operation') {
-  // 1. [SDK Support] 優先處理 SDK 錯誤碼
-  if (apiError && apiError.code) {
-    // 支援 Notion SDK 的標準錯誤碼
-    if (apiError.code === 'validation_error') {
-      const msg = (apiError.message || '').toLowerCase();
-      if (msg.includes('image') || msg.includes('media')) {
-        return 'IMAGE_VALIDATION_ERROR';
-      }
-      return 'VALIDATION_ERROR';
-    }
-    // Boundary 轉換：SDK 原始 snake_case code → 內部 SCREAMING_SNAKE_CASE vocabulary
-    return typeof apiError.code === 'string' ? apiError.code.toUpperCase() : apiError.code;
-  }
-
-  const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
-
-  // Fast-path: 內部 token 已是 PATTERNS key 時直接回傳，避免再走 keyword 比對而誤判為 UNKNOWN_ERROR。
-  if (errorMessage && Object.hasOwn(ERROR_MESSAGES.PATTERNS, errorMessage)) {
-    return errorMessage;
-  }
-
-  const lowerMessage = errorMessage.toLowerCase();
-
-  // 1. 使用內部解析器進行分類 (引用配置)
-  const classification = _classifyApiError(lowerMessage);
-  if (classification) {
-    return classification;
-  }
-
-  // 2. 處理中文字串 (友善訊息)
-  // 限制檢查長度防止 ReDoS
-  if (/\p{Unified_Ideograph}/u.test(errorMessage.slice(0, 500))) {
-    return errorMessage;
-  }
-
-  // 3. 結構化兜底處理
-  Logger.warn(
-    `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
-  );
-
-  return 'UNKNOWN_ERROR';
-}
-
-// ============================================================================
-// DOM 安全驗證函數
-// ============================================================================
-
-/**
- * 驗證 DOM 元素的安全性和有效性
- * 防禦第三方腳本篡改或無效的 DOM 引用
- *
- * @param {Element} element - 待驗證的 DOM 元素
- * @param {Document} contextDocument - 預期的文檔上下文（通常是 document）
- * @param {string} [expectedSelector] - 預期的 CSS 選擇器（可選）
- * @returns {boolean} 是否為安全有效的元素
- */
-export function validateSafeDomElement(element, contextDocument, expectedSelector) {
-  // 1. 基礎類型檢查
-  if (!element || typeof element !== 'object' || element.nodeType !== 1) {
-    Logger.debug('[Security] Invalid element type:', element);
-    return false;
-  }
-
-  // 2. 防篡改：必須屬於當前文檔上下文
-  // 防止惡意腳本注入來自 iframe 或其他上下文的元素
-  if (contextDocument && element.ownerDocument !== contextDocument) {
-    return false;
-  }
-
-  // 3. 防過期：必須連接到 DOM 樹
-  // 防止引用已被移除的節點（避免內存洩漏和邏輯錯誤）
-  if (!element.isConnected) {
-    return false;
-  }
-
-  // 4. 正確性：如果提供了選擇器，必須匹配
-  // 防止元素標籤或屬性被篡改
-  if (
-    expectedSelector &&
-    typeof element.matches === 'function' &&
-    !element.matches(expectedSelector)
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * 驗證 Preloader 快取對象的結構完整性
- *
- * @param {object} cache - 待驗證的快取對象
- * @returns {boolean} 是否為有效的快取結構
- */
-export function validatePreloaderCache(cache) {
-  // Check 1: Must be non-null object
-  if (!cache || typeof cache !== 'object') {
-    return false;
-  }
-
-  // Check 2: timestamp must be a valid finite number
-  // 使用 Number.isFinite 比 !isNaN 更嚴格，排除 Infinity
-  return typeof cache.timestamp === 'number' && Number.isFinite(cache.timestamp);
-}
 
 /**
  * 驗證 SVG 內容是否安全（防止 XSS 攻擊）
@@ -417,73 +171,66 @@ export function validateSafeSvg(svgContent) {
     return true; // 空內容視為安全（會被忽略）
   }
 
-  const trimmedContent = svgContent.trim();
-
-  // 只驗證 SVG 標籤
-  if (!trimmedContent.startsWith('<svg')) {
+  if (!_isSvgContent(svgContent)) {
     return true; // 非 SVG 內容不在此函數驗證範圍
   }
 
-  // ============================================================================
-  // 防禦性檢查 1：格式完整性驗證
-  // ============================================================================
-  // 審核建議：驗證 SVG 是否真的以 <svg 開頭且以 </svg> 結尾
-  if (!trimmedContent.endsWith('</svg>')) {
+  const trimmedContent = svgContent.trim();
+
+  // 1. 格式完整性驗證
+  if (!_isCompleteSvgMarkup(trimmedContent)) {
     Logger.warn('[Security] SVG 格式不完整（缺少結束標籤），已拒絕', svgContent);
     return false;
   }
 
-  // ============================================================================
-  // 防禦性檢查 2：危險模式偵測（擴展清單）
-  // ============================================================================
-  // 危險模式列表（擴展版）：
-  // - <script> 標籤：可執行 JavaScript
-  // - <embed>, <object>, <iframe>：可嵌入外部資源
-  // - javascript: 協議：可在事件或連結中執行 JavaScript
-  // - data: 協議：可能包含 base64 編碼的惡意代碼
-  // - on* 事件處理器：
-  //   - onclick, onload, onerror, onmouseover（常見）
-  //   - onanimationstart, onanimationend（CSS 動畫觸發）
-  //   - ontransitionend（CSS 過渡觸發）
-  //   - onfocus, onblur（焦點事件）
-  // - <foreignObject>：可嵌入 HTML 內容（潛在風險）
-  const dangerousPatterns =
-    /<script|<embed|<object|<iframe|<foreignobject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
-
-  const hasDangerousContent = dangerousPatterns.test(svgContent);
-
-  if (hasDangerousContent) {
+  // 2. 危險模式偵測
+  if (_hasDangerousSvgContent(svgContent)) {
     Logger.warn('[Security] 偵測到可疑的 SVG 內容（包含危險模式），已拒絕', svgContent);
     return false;
   }
 
-  // ============================================================================
-  // 防禦性檢查 3：白名單機制（基礎實現）
-  // ============================================================================
-  // 允許的 SVG 標籤（常見且安全的圖形元素）
-  // 注意：這是基礎白名單，可根據實際需求擴展
-  const allowedTags = SECURITY_CONSTANTS.SVG_ALLOWED_TAGS;
-
-  // 提取所有標籤名稱（簡化驗證，不使用完整 XML 解析器）
-  // 正則說明：匹配 <tagname 或 </tagname 格式，支援駝峰命名
-  const tagPattern = /<\/?([a-z][\da-z]*)/gi;
-  const foundTags = new Set();
-  let match = null;
-
-  while ((match = tagPattern.exec(svgContent)) !== null) {
-    foundTags.add(match[1].toLowerCase()); // 轉為小寫進行比較
+  // 3. 白名單機制
+  const disallowedTag = _findDisallowedSvgTag(svgContent);
+  if (disallowedTag) {
+    Logger.warn(`[Security] SVG 包含未在白名單中的標籤 <${disallowedTag}>,已拒絕`, svgContent);
+    return false;
   }
 
-  // 檢查是否所有標籤都在白名單中
-  for (const tag of foundTags) {
+  return true;
+}
+
+// === SVG 驗證私有輔助常置與函數 ===
+
+const SVG_DANGEROUS_PATTERNS =
+  /<script|<embed|<object|<iframe|<foreignobject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
+
+function _isSvgContent(svgContent) {
+  if (typeof svgContent !== 'string') {
+    return false;
+  }
+
+  return svgContent.trim().startsWith('<svg');
+}
+
+function _isCompleteSvgMarkup(trimmedContent) {
+  return trimmedContent.endsWith('</svg>');
+}
+
+function _hasDangerousSvgContent(svgContent) {
+  return SVG_DANGEROUS_PATTERNS.test(svgContent);
+}
+
+function _findDisallowedSvgTag(svgContent) {
+  const allowedTags = SECURITY_CONSTANTS.SVG_ALLOWED_TAGS;
+  const tagPattern = /<\/?([a-z][\da-z]*)/gi;
+  let match = null;
+  while ((match = tagPattern.exec(svgContent)) !== null) {
+    const tag = match[1].toLowerCase();
     if (!allowedTags.includes(tag)) {
-      Logger.warn(`[Security] SVG 包含未在白名單中的標籤 <${tag}>,已拒絕`, svgContent);
-      return false;
+      return tag;
     }
   }
-
-  // 通過所有安全檢查
-  return true;
+  return null;
 }
 
 /**
@@ -552,86 +299,72 @@ export function separateIconAndText(message) {
  */
 export const createSafeIcon = svgString => {
   if (!svgString?.startsWith('<svg')) {
-    const span = document.createElement('span');
-    span.textContent = svgString || '';
-    return span;
+    return _createTextIconSpan(svgString);
   }
 
-  // Defense in Depth: 在解析前先驗證內容安全性
-  // 這可以防止惡意構造的 SVG 繞過後續處理，或利用解析器的漏洞
   if (!validateSafeSvg(svgString)) {
-    // validateSafeSvg 內部已經會記錄警告日誌
-    return document.createElement('span');
+    return _createEmptyIconSpan();
   }
 
-  // 確保 SVG 具有 XML 命名空間，這對於 DOMParser ('image/svg+xml') 是必須的
-  let validSvgString = svgString;
-  if (!validSvgString.includes('xmlns=')) {
-    validSvgString = validSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-  }
-
+  const validSvgString = _normalizeSvgNamespace(svgString);
   const parser = new DOMParser();
   const doc = parser.parseFromString(validSvgString, 'image/svg+xml');
+  const svgElement = _getValidatedParsedSvgElement(doc, svgString);
+
+  if (!svgElement) {
+    return _createEmptyIconSpan();
+  }
+
+  if (!svgElement.classList.contains('icon-svg')) {
+    svgElement.classList.add('icon-svg');
+  }
+
+  const span = document.createElement('span');
+  span.className = 'icon';
+  span.append(svgElement);
+  return span;
+};
+
+// === 安全圖示創建私有輔助函數 ===
+
+function _createEmptyIconSpan() {
+  return document.createElement('span');
+}
+
+function _createTextIconSpan(svgString) {
+  const span = document.createElement('span');
+  span.textContent = svgString || '';
+  return span;
+}
+
+function _normalizeSvgNamespace(svgString) {
+  if (!svgString.includes('xmlns=')) {
+    return svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+  return svgString;
+}
+
+function _getValidatedParsedSvgElement(doc, originalSvg) {
   const svgElement = doc.documentElement;
 
   if (svgElement.tagName === 'parsererror') {
     Logger.warn(ERROR_MESSAGES.TECHNICAL.SVG_PARSE_ERROR, {
       action: 'create_safe_icon',
       reason: 'xml_parser_error',
-      content: svgString,
+      content: originalSvg,
     });
-    return document.createElement('span');
+    return null;
   }
 
-  // 額外的安全性檢查：確保解析出的確實是 SVG 元素
   if (svgElement.tagName !== 'svg') {
     Logger.warn('[Security] Parsed element is not an SVG', {
       action: 'create_safe_icon',
-      content: svgString,
+      content: originalSvg,
     });
-    return document.createElement('span');
+    return null;
   }
 
-  // 標準化：為 SVG 添加 CSS 類以便正確樣式化
-  if (!svgElement.classList.contains('icon-svg')) {
-    svgElement.classList.add('icon-svg');
-  }
-
-  const span = document.createElement('span');
-  span.className = 'icon'; // 使用標準的 icon 類別
-  span.append(svgElement);
-  return span;
-};
-
-/**
- * 驗證日誌導出數據的安全性
- * 確保從 Background 返回的數據結構符合預期且不包含惡意內容
- *
- * @param {object} data - 待驗證的數據對象
- * @throws {Error} 如果驗證失敗，拋出具體錯誤
- */
-export function validateLogExportData(data) {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid response format: missing data object');
-  }
-
-  const { filename, content, mimeType } = data;
-
-  // 1. 驗證文件名 (防止 Path Traversal 或惡意擴展名)
-  // 僅允許字母、數字、點、下劃線、連字符，且必須以 .json 結尾
-  if (!filename || typeof filename !== 'string' || !/^[\w.-]+\.json$/i.test(filename)) {
-    throw new TypeError('Security check failed: Invalid filename format');
-  }
-
-  // 2. 驗證內容 (必須是字串)
-  if (typeof content !== 'string') {
-    throw new TypeError('Security check failed: Invalid content type');
-  }
-
-  // 3. 驗證 MIME 類型 (僅允許 application/json)
-  if (mimeType !== 'application/json') {
-    throw new Error('Security check failed: Invalid MIME type');
-  }
+  return svgElement;
 }
 
 /**
@@ -651,30 +384,54 @@ export function isSafeSvgAttribute(name, value) {
   }
 
   // 白名單屬性檢查
-  const allowedAttrs = SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.map(attr => attr.toLowerCase());
-  if (!allowedAttrs.includes(attrName)) {
+  if (!_isSvgAttributeAllowed(attrName)) {
     return false;
   }
 
   // URL 相關屬性需要協議安全檢查
-  if (/(?:^|:)href$|^src$/i.test(attrName)) {
-    const attrValue = String(value || '').trim();
-    // 明確阻擋 javascript: 與 data:text/html
-    if (/^\s*javascript:/i.test(attrValue) || /^\s*data:text\/html/i.test(attrValue)) {
-      return false;
-    }
-    try {
-      const url = new URL(attrValue, 'https://example.com');
-      if (!SECURITY_CONSTANTS.SAFE_URL_PROTOCOLS.includes(url.protocol)) {
-        return false;
-      }
-    } catch {
-      // 非法 URL 字串：視為不安全
-      return false;
-    }
+  if (_isSvgUrlAttribute(attrName)) {
+    return _isSafeSvgUrlAttributeValue(value);
   }
 
   return true;
+}
+
+// === SVG 屬性驗證私有輔助函數 ===
+
+function _isSvgAttributeAllowed(attrName) {
+  const allowedAttrs = SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.map(attr => attr.toLowerCase());
+  return allowedAttrs.includes(attrName);
+}
+
+// Match namespace href or standard href/src.
+function _isSvgUrlAttribute(attrName) {
+  return /(?:^|:)href$|^src$/i.test(attrName);
+}
+
+function _isSafeSvgUrlAttributeValue(value) {
+  const attrValue = String(value || '').trim();
+  if (_hasUnsafeSvgUrlScheme(attrValue)) {
+    return false;
+  }
+
+  return _hasSafeSvgUrlProtocol(attrValue);
+}
+
+function _hasUnsafeSvgUrlScheme(attrValue) {
+  if (/^\s*javascript:/i.test(attrValue)) {
+    return true;
+  }
+
+  return /^\s*data:text\/html/i.test(attrValue);
+}
+
+function _hasSafeSvgUrlProtocol(attrValue) {
+  try {
+    const url = new URL(attrValue, 'https://example.com');
+    return SECURITY_CONSTANTS.SAFE_URL_PROTOCOLS.includes(url.protocol);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -688,21 +445,19 @@ export function validateBackupData(backup) {
     throw new Error('Invalid backup format: root must be an object');
   }
 
-  // 1. 必要欄位檢查
-  if (!backup.version || typeof backup.version !== 'string') {
-    throw new Error('Invalid backup version');
-  }
-
-  if (!backup.timestamp || typeof backup.timestamp !== 'string') {
-    throw new Error('Invalid backup timestamp');
-  }
-
-  if (!backup.data || typeof backup.data !== 'object') {
-    // 這裡我們直接使用字串，避免引入 ERROR_MESSAGES 的循環依賴風險，如果它沒被正確導出
-    throw new Error('Invalid backup data structure');
-  }
+  _assertRequiredBackupField(backup.version, 'string', 'Invalid backup version');
+  _assertRequiredBackupField(backup.timestamp, 'string', 'Invalid backup timestamp');
+  _assertRequiredBackupField(backup.data, 'object', 'Invalid backup data structure');
 
   _checkForbiddenKeys(backup.data);
+}
+
+// === 備份數據驗證私有輔助函數 ===
+
+function _assertRequiredBackupField(field, expectedType, errorMessage) {
+  if (!field || typeof field !== expectedType) {
+    throw new Error(errorMessage);
+  }
 }
 
 /**
@@ -726,7 +481,7 @@ function _checkForbiddenKeys(obj) {
       throw new Error(`Security Alert: Malicious key detected (${key})`);
     }
 
-    // 遞歸檢查值 (如果是對象或陣列)
+    // 遞歸檢查值 (如果是對象 or 陣列)
     const value = obj[key];
     if (value && typeof value === 'object') {
       _checkForbiddenKeys(value);

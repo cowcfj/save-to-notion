@@ -24,7 +24,7 @@ import {
   URL_ALIAS_PREFIX,
 } from '../../../../scripts/config/shared/storage.js';
 import Logger from '../../../../scripts/utils/Logger.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
 describe('Highlighter HighlightStorageGateway', () => {

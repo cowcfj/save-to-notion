@@ -11,7 +11,7 @@ import { renderColorPicker } from './components/ColorPicker.js';
 import { TOOLBAR_SELECTORS } from '../../config/contentSafe/toolbarSelectors.js';
 import { TOOLBAR_MESSAGES } from '../../config/contentSafe/toolbarMessages.js';
 import { PAGE_SAVE_ACTIONS } from '../../config/runtimeActions/pageSaveActions.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
 import {

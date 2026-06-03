@@ -43,7 +43,7 @@ import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import { isSavedStatusResponse } from '../../scripts/config/saveStatus.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../scripts/config/shared/messages.js';
-import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 
 const DEFAULT_ERROR = 'Unknown Error';
 
@@ -222,7 +222,7 @@ export async function initPopup() {
       setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`);
       Logger.error('Failed to start highlight mode', {
         action: 'startHighlight',
-        error: response?.error,
+        error: safe,
       });
     }
 

@@ -15,7 +15,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
+import { sanitizeApiError } from '../utils/ApiErrorSanitizer.js';
 import { isNonEmptyString, getNextAuthEpoch } from '../utils/notionAuth.js';
 import { AuthMode } from '../config/extension/authMode.js';
 import { NOTION_OAUTH } from '../config/extension/notionAuth.js';

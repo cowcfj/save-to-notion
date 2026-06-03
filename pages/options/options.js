@@ -17,7 +17,7 @@ import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import { injectIcons } from '../../scripts/utils/uiUtils.js';
 import Logger from '../../scripts/utils/Logger.js';
 
-import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 import { ErrorHandler, ErrorTypes } from '../../scripts/utils/ErrorHandler.js';
 import { DATA_SOURCE_KEYS } from '../../scripts/config/shared/storage.js';
 import { refreshCloudSyncCard } from './DriveCloudSyncController.js';

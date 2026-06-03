@@ -20,7 +20,7 @@
 
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { compareKeysAlphabetically } from '../../utils/keyOrdering.js';
 import {
   LOCAL_STORAGE_KEYS,

@@ -16,7 +16,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   },
 }));
 
-jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
+jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => `safe://${url}`),
 }));
 

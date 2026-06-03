@@ -9,7 +9,7 @@
 
 /* global Logger */
 
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { pMap } from '../../utils/concurrencyUtils.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
