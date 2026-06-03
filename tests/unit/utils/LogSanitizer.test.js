@@ -201,6 +201,17 @@ describe('LogSanitizer', () => {
       expect(stack).not.toContain('/home/user/project/');
     });
 
+    test('should strip a relative directory path that has no "at " prefix', () => {
+      const error = new Error('boom');
+      // 相對路徑（無前導 "/"、無 "at " 前綴）：目錄段應被捨棄，
+      // 不可與檔名黏合成 "subdirworker.js"
+      error.stack = 'subdir/worker.js:10:5';
+      const logs = [{ message: 'relative path', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const stack = sanitized[0].context.error.stack;
+      expect(stack).toBe('worker.js:10:5');
+    });
+
     test('should redact sensitive key names', () => {
       const logs = [
         {
@@ -360,6 +371,17 @@ describe('LogSanitizer', () => {
       expect(sanitizedStack).not.toContain('/home/user/project/');
       // 應保留錯誤前綴
       expect(sanitizedStack).toContain('Error: ENOENT:');
+    });
+
+    test('should sanitize a relative path embedded in an error message line', () => {
+      const error = new Error('boom');
+      // 錯誤訊息（stack 首行）內含相對路徑：目錄段應壓縮為檔名，
+      // 不可黏合成 "configsettings.json"
+      error.stack = 'Error: Failed to load config/settings.json';
+      const logs = [{ message: 'config error', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const sanitizedStack = sanitized[0].context.error.stack;
+      expect(sanitizedStack).toBe('Error: Failed to load settings.json');
     });
 
     describe('Advanced Pattern Redaction', () => {

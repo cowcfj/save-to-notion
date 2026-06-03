@@ -302,9 +302,14 @@ function _stripBareFilePath(line) {
   if (prefixEnd !== -1) {
     return line.slice(0, Math.max(0, prefixEnd + 3)) + line.slice(Math.max(0, lastSep + 1));
   }
-  // 無 "at " 前綴時，保留路徑前文字並移除目錄部分只保留檔名
-  const firstSep = line.indexOf('/');
-  return line.slice(0, Math.max(0, firstSep)) + line.slice(Math.max(0, lastSep + 1));
+  // 無 "at " 前綴時：路徑 token 從「lastSep 之前最後一個空白」之後開始，
+  // 保留該空白（含）之前的文字，捨棄目錄部分只留檔名。
+  // 以「路徑前最後空白」而非「第一個 '/'」當邊界，才能正確處理相對路徑
+  // 以及訊息內夾帶的相對路徑（如 "Error: Failed to load config/x.json"）。
+  const beforePath = line.slice(0, Math.max(0, lastSep));
+  const lastWsIdx = beforePath.search(/\s(?=\S*$)/);
+  const pathStart = lastWsIdx === -1 ? 0 : lastWsIdx + 1;
+  return line.slice(0, pathStart) + line.slice(Math.max(0, lastSep + 1));
 }
 
 /**
