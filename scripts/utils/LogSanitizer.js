@@ -237,6 +237,26 @@ export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
   return `${start}***${end}`;
 }
 
+function _isNonNullObject(val) {
+  return typeof val === 'object' && val !== null;
+}
+
+function _isHeadersField(key, val) {
+  return key.toLowerCase() === 'headers' && _isNonNullObject(val);
+}
+
+function _isUrlField(key, val) {
+  return /url/i.test(key) && typeof val === 'string';
+}
+
+function _isTitleOrNameField(key, val) {
+  return /^(?:title|name)$/i.test(key) && typeof val === 'string';
+}
+
+function _isPropertiesField(key) {
+  return /^properties$/i.test(key);
+}
+
 export const LogSanitizer = {
   /**
    * 清洗單條日誌條目
@@ -390,30 +410,44 @@ export const LogSanitizer = {
   _sanitizeObject(obj, depth, seen, options) {
     const safeObj = {};
     for (const [key, val] of Object.entries(obj)) {
-      // 1. 檢查鍵名是否為敏感鍵（優先級最高）
-      if (SENSITIVE_KEY_PATTERN.test(key)) {
-        safeObj[key] = '[REDACTED_SENSITIVE_KEY]';
-        continue;
-      }
-
-      // 2. 特殊處理 headers 物件
-      if (key.toLowerCase() === 'headers' && typeof val === 'object' && val !== null) {
-        safeObj[key] = this._sanitizeHeaders(val);
-        continue;
-      }
-
-      // 3. 特定字段名的特殊處理
-      if (/url/i.test(key) && typeof val === 'string') {
-        safeObj[key] = sanitizeUrlForLogging(val);
-      } else if (/^(?:title|name)$/i.test(key) && typeof val === 'string') {
-        safeObj[key] = '[REDACTED_TITLE]';
-      } else if (/^properties$/i.test(key)) {
-        safeObj[key] = '[REDACTED_PROPERTIES]';
-      } else {
-        safeObj[key] = this._sanitizeValue(val, depth + 1, seen, options);
-      }
+      safeObj[key] = this._sanitizeObjectField(key, val, depth, seen, options);
     }
     return safeObj;
+  },
+
+  /**
+   * 清理物件中的單一欄位值，封裝欄位清洗的 early-return guards。
+   *
+   * @param {string} key
+   * @param {*} val
+   * @param {number} depth
+   * @param {WeakSet} seen
+   * @param {object} options
+   * @returns {*} 清理後的欄位值
+   */
+  _sanitizeObjectField(key, val, depth, seen, options) {
+    // 1. 敏感鍵名（優先級最高）
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
+      return '[REDACTED_SENSITIVE_KEY]';
+    }
+    // 2. headers 物件白名單清洗
+    if (_isHeadersField(key, val)) {
+      return this._sanitizeHeaders(val);
+    }
+    // 3. url 欄位
+    if (_isUrlField(key, val)) {
+      return sanitizeUrlForLogging(val);
+    }
+    // 4. title / name 欄位
+    if (_isTitleOrNameField(key, val)) {
+      return '[REDACTED_TITLE]';
+    }
+    // 5. properties 欄位
+    if (_isPropertiesField(key)) {
+      return '[REDACTED_PROPERTIES]';
+    }
+    // 6. 一般值遞迴清理
+    return this._sanitizeValue(val, depth + 1, seen, options);
   },
 
   /**
