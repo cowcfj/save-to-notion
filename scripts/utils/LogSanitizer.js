@@ -145,29 +145,57 @@ function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LAB
  */
 const LOG_FALLBACK_BASE_ORIGIN = 'http://localhost';
 
+/**
+ * @param {string} url
+ * @returns {boolean}
+ */
+function _hasUrlScheme(url) {
+  return /^[a-zA-Z][\w+.-]*:/.test(url);
+}
+
+/**
+ * @param {string} url
+ * @param {boolean} hasScheme
+ * @returns {boolean}
+ */
+function _isRelativePathLike(url, hasScheme) {
+  return /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
+}
+
+/**
+ * 解析日誌 URL：依是否含 scheme 選擇直接解析或以 base origin 解析。
+ * 解析失敗時 throw，由 caller 統一回 [invalid-url]。
+ *
+ * @param {string} url
+ * @param {boolean} hasScheme
+ * @param {string} baseOrigin
+ * @returns {URL}
+ */
+function _resolveLoggingUrlObject(url, hasScheme, baseOrigin) {
+  if (hasScheme) {
+    return new URL(url);
+  }
+  let safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
+  try {
+    safeBaseOrigin = new URL(baseOrigin).origin;
+  } catch {
+    safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
+  }
+  return new URL(url, safeBaseOrigin);
+}
+
 export function sanitizeUrlForLogging(url, baseOrigin = LOG_FALLBACK_BASE_ORIGIN) {
   if (!url || typeof url !== 'string') {
     return '[empty-url]';
   }
 
-  const hasScheme = /^[a-zA-Z][\w+.-]*:/.test(url);
-  const isRelativePath = /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
+  const hasScheme = _hasUrlScheme(url);
+  if (!hasScheme && !_isRelativePathLike(url, hasScheme)) {
+    return '[invalid-url]';
+  }
 
   try {
-    if (!hasScheme && !isRelativePath) {
-      return '[invalid-url]';
-    }
-
-    let safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
-    if (!hasScheme) {
-      try {
-        safeBaseOrigin = new URL(baseOrigin).origin;
-      } catch {
-        safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
-      }
-    }
-
-    const urlObj = hasScheme ? new URL(url) : new URL(url, safeBaseOrigin);
+    const urlObj = _resolveLoggingUrlObject(url, hasScheme, baseOrigin);
     // 移除 URL userinfo 防止認證資訊洩漏
     urlObj.username = '';
     urlObj.password = '';
