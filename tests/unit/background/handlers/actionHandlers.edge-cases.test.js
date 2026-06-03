@@ -70,6 +70,9 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
     return null;
   }),
   isValidNotionUrl: jest.fn(() => true),
+}));
+
+jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => url),
 }));
 

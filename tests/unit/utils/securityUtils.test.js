@@ -475,6 +475,27 @@ describe('securityUtils', () => {
         expect(result.icon).toBe('🎉');
         expect(result.text).toBe(' 慶祝成功');
       });
+
+      test('應處理 ZWJ family emoji 序列', () => {
+        const message = '👨‍👩‍👧‍👦 家庭設定已更新';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('👨‍👩‍👧‍👦');
+        expect(result.text).toBe(' 家庭設定已更新');
+      });
+
+      test('應處理膚色修飾符與 ZWJ emoji 序列', () => {
+        const message = '👩🏽‍⚕️ 健康資料已同步';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('👩🏽‍⚕️');
+        expect(result.text).toBe(' 健康資料已同步');
+      });
+
+      test('應處理 regional indicator pair 旗幟 emoji', () => {
+        const message = '🇺🇸 英文內容已保存';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('🇺🇸');
+        expect(result.text).toBe(' 英文內容已保存');
+      });
     });
 
     describe('純文本消息', () => {
@@ -490,6 +511,20 @@ describe('securityUtils', () => {
         const result = separateIconAndText(message);
         expect(result.icon).toBe('');
         expect(result.text).toBe('文本 <svg> 標籤');
+      });
+
+      test('應處理中間包含現代 Emoji 序列的消息（不應分離）', () => {
+        const message = '狀態 👩🏽‍⚕️ 已同步';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('狀態 👩🏽‍⚕️ 已同步');
+      });
+
+      test('應處理文字後接旗幟 Emoji 的消息（不應分離）', () => {
+        const message = '地區 🇺🇸 已設定';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('地區 🇺🇸 已設定');
       });
     });
 
@@ -522,6 +557,13 @@ describe('securityUtils', () => {
         const result = separateIconAndText('<svg></svg>');
         expect(result.icon).toBe('<svg></svg>');
         expect(result.text).toBe('');
+      });
+
+      test('SVG 前綴後接 Emoji 序列時應維持 SVG 分離邏輯', () => {
+        const svgIcon = '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>';
+        const result = separateIconAndText(`${svgIcon} 👩🏽‍⚕️ 已同步`);
+        expect(result.icon).toBe(svgIcon);
+        expect(result.text).toBe(' 👩🏽‍⚕️ 已同步');
       });
     });
   });
