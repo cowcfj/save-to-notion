@@ -102,10 +102,10 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       expect(performSmartCleaning('')).toBe('');
     });
 
-    test('應保留普通內容', () => {
+    test('應保留普通內容 (但不保留 class 等不允許屬性)', () => {
       const html = '<div class="content">Hello World</div>';
       const result = performSmartCleaning(html, null);
-      expect(result).toBe(html); // Or structure equivalence
+      expect(result).toBe('<div>Hello World</div>');
     });
   });
 
@@ -120,12 +120,12 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       const result = performSmartCleaning(html, null);
 
       // Check removed
-      expect(result).not.toContain('class="ad"');
-      expect(result).not.toContain('class="promo"');
-      expect(result).not.toContain('id="remove-me"');
+      expect(result).not.toContain('Ad');
+      expect(result).not.toContain('Promo');
+      expect(result).not.toContain('Remove Me');
 
       // Check kept
-      expect(result).toContain('class="content"');
+      expect(result).toContain('<div>Content</div>');
     });
   });
 
@@ -170,7 +170,7 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
 
       expect(result).not.toContain('sharedaddy');
       expect(result).not.toContain('jp-relatedposts');
-      expect(result).toContain('class="content"');
+      expect(result).toContain('<div>Content</div>');
     });
 
     test('應移除指定 CMS 的特定元素 (Drupal)', () => {
@@ -181,18 +181,18 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       const result = performSmartCleaning(html, 'drupal');
 
       expect(result).not.toContain('drupal-ads');
-      expect(result).toContain('class="content"');
+      expect(result).toContain('<div>Content</div>');
     });
 
     test('不應移除不匹配 CMS 的元素', () => {
       const html = `
-        <div class="content">Content</div>
-        <div class="sharedaddy">Share Buttons (should keep if not wordpress)</div>
+        <div>Content</div>
+        <div>Share Buttons (should keep if not wordpress)</div>
       `;
       // Pass null or a different CMS type
       const result = performSmartCleaning(html, 'drupal');
 
-      expect(result).toContain('sharedaddy');
+      expect(result).toContain('Share Buttons (should keep if not wordpress)');
     });
   });
 
@@ -341,7 +341,7 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       expect(bodyHtml).toContain('main-article');
       expect(bodyHtml).not.toContain('sidebar');
       expect(bodyHtml).not.toContain('footer');
-      expect(result.content).toBe('<div class="main-article">正文內容</div>');
+      expect(result.content).toBe('<div>正文內容</div>');
     });
 
     test('當 domainRules.container 存在但在文檔中找不到時，應回退使用完整文檔', () => {
@@ -379,7 +379,7 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       expect(bodyHtml).toContain('沒有目標容器');
       expect(bodyHtml).toContain('sidebar');
       expect(bodyHtml).toContain('footer');
-      expect(result.content).toBe('<div class="main-article">正文內容</div>'); // Mock 寫死的返回值
+      expect(result.content).toBe('<div>正文內容</div>'); // Mock 寫死的返回值
     });
 
     test('當克隆文檔缺少 body 時，應跳過容器聚焦並繼續解析', () => {
@@ -404,7 +404,7 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
 
       const result = parseArticleWithReadability(fakeDoc);
 
-      expect(result.content).toBe('<div class="main-article">正文內容</div>');
+      expect(result.content).toBe('<div>正文內容</div>');
       expect(mockCapture.doc).toBe(clonedDocWithoutBody);
       expect(Logger.warn).toHaveBeenCalledWith(
         '克隆文檔缺少 body，跳過網域容器聚焦',

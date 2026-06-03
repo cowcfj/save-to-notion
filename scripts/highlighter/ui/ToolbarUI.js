@@ -8,7 +8,7 @@
 import { TOOLBAR_SELECTORS } from '../../config/contentSafe/toolbarSelectors.js';
 import { TOOLBAR_ICONS } from '../../config/contentSafe/toolbarIcons.js';
 import { TOOLBAR_MESSAGES } from '../../config/contentSafe/toolbarMessages.js';
-import { createSafeIcon } from '../../utils/securityUtils.js';
+import { createSafeIcon } from '../utils/safeIcon.js';
 
 const STYLE_INLINE_BLOCK = 'inline-block';
 const STYLE_TEXT_BOTTOM = 'text-bottom';
