@@ -257,6 +257,52 @@ function _isPropertiesField(key) {
   return /^properties$/i.test(key);
 }
 
+/**
+ * 壓縮含協議（如 chrome-extension://）的 stack trace 行：
+ * 保留 protocol + host，移除中間路徑，只留最後的檔名與行號。
+ *
+ * @param {string} line
+ * @returns {string}
+ */
+function _stripProtocolUrlPath(line) {
+  const protocolIdx = line.indexOf('://');
+  if (protocolIdx === -1) {
+    return line;
+  }
+  const protocolAndHostEnd = line.indexOf('/', protocolIdx + 3);
+  if (protocolAndHostEnd === -1) {
+    return line;
+  }
+  const pathAndSuffix = line.slice(Math.max(0, protocolAndHostEnd + 1));
+  const lastPathSep = pathAndSuffix.lastIndexOf('/');
+  if (lastPathSep === -1) {
+    return line;
+  }
+  const protocolPart = line.slice(0, Math.max(0, protocolAndHostEnd));
+  return `${protocolPart}/${pathAndSuffix.slice(Math.max(0, lastPathSep + 1))}`;
+}
+
+/**
+ * 壓縮無協議的檔案路徑行（如 "at /a/b/c.js" 或裸 "/a/b/c.js"）：
+ * 移除目錄部分只保留檔名，保留 "at " 前綴或行首文字。
+ *
+ * @param {string} line
+ * @returns {string}
+ */
+function _stripBareFilePath(line) {
+  const lastSep = line.lastIndexOf('/');
+  if (lastSep === -1) {
+    return line;
+  }
+  const prefixEnd = line.lastIndexOf('at ', lastSep);
+  if (prefixEnd !== -1) {
+    return line.slice(0, Math.max(0, prefixEnd + 3)) + line.slice(Math.max(0, lastSep + 1));
+  }
+  // 無 "at " 前綴時，保留路徑前文字並移除目錄部分只保留檔名
+  const firstSep = line.indexOf('/');
+  return line.slice(0, Math.max(0, firstSep)) + line.slice(Math.max(0, lastSep + 1));
+}
+
 export const LogSanitizer = {
   /**
    * 清洗單條日誌條目
@@ -476,61 +522,36 @@ export const LogSanitizer = {
    * @param {object} [_options] - 配置選項（保留供未來擴展使用）
    * @returns {string} 清洗後的 stack trace
    */
+  /**
+   * 清洗單行 stack trace：壓縮路徑並遮蔽 Extension ID。
+   *
+   * @param {string} line
+   * @returns {string}
+   */
+  _sanitizeStackTraceLine(line) {
+    let sanitized = line.includes('://') ? _stripProtocolUrlPath(line) : line;
+    if (!line.includes('://') && sanitized.includes('/')) {
+      sanitized = _stripBareFilePath(sanitized);
+    }
+
+    // 2. 移除 Extension ID（chrome-extension://xxx）
+    sanitized = sanitized.replaceAll(/chrome-extension:\/\/[\da-z]+/gi, 'chrome-extension://[ID]');
+
+    // 3. 移除精確的行號和列號（:16:13），只保留檔案名
+    // [Security Policy] 根據新架構，生產環境保留行號以協助除錯 (詳見 SECURE_LOGGING_ARCHITECTURE.md)
+
+    return sanitized;
+  },
+
   _sanitizeStackTrace(stack, _options = {}) {
     if (!stack || typeof stack !== 'string') {
       return stack;
     }
 
-    // 清洗每一行 stack trace
-    const lines = stack.split('\n');
-    const sanitizedLines = lines.map(line => {
-      let sanitized = line;
-
-      // 1. 處理檔案路徑：移除完整路徑，只保留檔案名稱
-      // 邏輯：保留協議部分（如果是 chrome-extension://），移除中間路徑，保留檔案名及行號
-      if (sanitized.includes('://')) {
-        const protocolIdx = sanitized.indexOf('://');
-        if (protocolIdx !== -1) {
-          const protocolAndHostEnd = sanitized.indexOf('/', protocolIdx + 3);
-          if (protocolAndHostEnd !== -1) {
-            const protocolPart = sanitized.slice(0, Math.max(0, protocolAndHostEnd));
-            const pathAndSuffix = sanitized.slice(Math.max(0, protocolAndHostEnd + 1));
-
-            // 找出最後一個檔案名部分 (通常包含 .js)
-            const lastPathSep = pathAndSuffix.lastIndexOf('/');
-            if (lastPathSep !== -1) {
-              sanitized = `${protocolPart}/${pathAndSuffix.slice(Math.max(0, lastPathSep + 1))}`;
-            }
-          }
-        }
-      } else if (sanitized.includes('/')) {
-        const lastSep = sanitized.lastIndexOf('/');
-        const prefixEnd = sanitized.lastIndexOf('at ', lastSep);
-        if (lastSep !== -1 && prefixEnd !== -1) {
-          sanitized =
-            sanitized.slice(0, Math.max(0, prefixEnd + 3)) +
-            sanitized.slice(Math.max(0, lastSep + 1));
-        } else if (lastSep !== -1) {
-          // 無 "at " 前綴時，保留路徑前文字並移除目錄部分只保留檔名
-          const firstSep = sanitized.indexOf('/');
-          sanitized =
-            sanitized.slice(0, Math.max(0, firstSep)) + sanitized.slice(Math.max(0, lastSep + 1));
-        }
-      }
-
-      // 2. 移除 Extension ID（chrome-extension://xxx）
-      sanitized = sanitized.replaceAll(
-        /chrome-extension:\/\/[\da-z]+/gi,
-        'chrome-extension://[ID]'
-      );
-
-      // 3. 移除精確的行號和列號（:16:13），只保留檔案名
-      // [Security Policy] 根據新架構，生產環境保留行號以協助除錯 (詳見 SECURE_LOGGING_ARCHITECTURE.md)
-
-      return sanitized;
-    });
-
-    return sanitizedLines.join('\n');
+    return stack
+      .split('\n')
+      .map(line => this._sanitizeStackTraceLine(line))
+      .join('\n');
   },
 
   /**
