@@ -296,27 +296,41 @@ export const LogSanitizer = {
       return '[Function]';
     }
 
-    // 處理循環引用（僅適用於物件）
-    if (typeof value === 'object') {
-      if (seen.has(value)) {
-        return '[Circular]';
-      }
-      seen.add(value);
-    }
-
     if (typeof value === 'string') {
       return this._sanitizeString(value);
     }
+
+    if (typeof value === 'object') {
+      return this._sanitizeObjectLike(value, depth, seen, options);
+    }
+
+    // 其餘原始型別（number / boolean / bigint / symbol）原樣回傳
+    return value;
+  },
+
+  /**
+   * 處理物件型別（array / Error / 一般物件）的遞迴清理，
+   * 並維護 seen 的 DFS 加入/回溯，避免共享引用被誤判為循環。
+   *
+   * @param {object} value
+   * @param {number} depth
+   * @param {WeakSet} seen
+   * @param {object} options
+   * @returns {*}
+   */
+  _sanitizeObjectLike(value, depth, seen, options) {
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
 
     let result;
     if (Array.isArray(value)) {
       result = this._sanitizeArray(value, depth, seen, options);
     } else if (value instanceof Error) {
       result = this._sanitizeError(value, depth, seen, options);
-    } else if (typeof value === 'object') {
-      result = this._sanitizeObject(value, depth, seen, options);
     } else {
-      return value;
+      result = this._sanitizeObject(value, depth, seen, options);
     }
 
     // DFS 回溯：處理完畢後移除，避免共享引用被誤判為循環
