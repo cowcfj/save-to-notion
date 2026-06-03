@@ -303,6 +303,52 @@ function _stripBareFilePath(line) {
   return line.slice(0, Math.max(0, firstSep)) + line.slice(Math.max(0, lastSep + 1));
 }
 
+/**
+ * 驗證並脫敏 JWT 候選字串
+ *
+ * @param {string} match
+ * @returns {string}
+ */
+function _redactJwtCandidate(match) {
+  if (match.split('.').length === 3) {
+    return '[REDACTED_JWT]';
+  }
+  return match;
+}
+
+/**
+ * 驗證是否為標準 UUID 格式 (8-4-4-4-12) 的連字號位置
+ *
+ * @param {string} match
+ * @returns {boolean}
+ */
+function _isStandardUuidShape(match) {
+  return match[8] === '-' && match[13] === '-' && match[18] === '-' && match[23] === '-';
+}
+
+/**
+ * 驗證並截斷 UUID 候選字串
+ *
+ * @param {string} match
+ * @returns {string}
+ */
+function _redactUuidCandidate(match) {
+  if (_isStandardUuidShape(match)) {
+    return `${match.slice(0, 8)}***`;
+  }
+  return match;
+}
+
+/**
+ * 脫敏 Email 匹配項
+ *
+ * @param {string} email
+ * @returns {string}
+ */
+function _maskEmailMatch(email) {
+  return maskSensitiveString(email, 1, 4);
+}
+
 export const LogSanitizer = {
   /**
    * 清洗單條日誌條目
@@ -591,13 +637,7 @@ export const LogSanitizer = {
 
     // 3. JWT Tokens (eyJ...)
     // 策略：使用簡單線性正則匹配候選者，在 JS 中驗證結構以避免 ReDoS
-    safeStr = safeStr.replaceAll(/\beyJ[\w.-]+\b/g, match => {
-      // 驗證是否為三段式結構 (Header.Payload.Signature)
-      if (match.split('.').length === 3) {
-        return '[REDACTED_JWT]';
-      }
-      return match;
-    });
+    safeStr = safeStr.replaceAll(/\beyJ[\w.-]+\b/g, _redactJwtCandidate);
 
     // 4. 常見 API Key 格式 (sk-, gh-, key-)
     safeStr = safeStr.replaceAll(
@@ -609,19 +649,11 @@ export const LogSanitizer = {
     safeStr = safeStr.replaceAll(/secret_[\dA-Za-z]+/g, SANITIZED_LABEL);
 
     // 6. Email 脫敏 (使用簡單且安全的匹配模式)
-    safeStr = safeStr.replaceAll(/\b[\w%+.-]+@[\d.A-Za-z-]+\.[A-Za-z]{2,}\b/g, email => {
-      return maskSensitiveString(email, 1, 4);
-    });
+    safeStr = safeStr.replaceAll(/\b[\w%+.-]+@[\d.A-Za-z-]+\.[A-Za-z]{2,}\b/g, _maskEmailMatch);
 
     // 7. UUID 截斷
     // 策略：匹配 36 位 Hex/連字號字串，在 JS 中驗證格式
-    safeStr = safeStr.replaceAll(/\b[\dA-Fa-f-]{36}\b/g, match => {
-      // 驗證標準 UUID 格式 (8-4-4-4-12) 的連字號位置
-      if (match[8] === '-' && match[13] === '-' && match[18] === '-' && match[23] === '-') {
-        return `${match.slice(0, 8)}***`;
-      }
-      return match;
-    });
+    safeStr = safeStr.replaceAll(/\b[\dA-Fa-f-]{36}\b/g, _redactUuidCandidate);
 
     return safeStr;
   },
