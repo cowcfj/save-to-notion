@@ -1,4 +1,6 @@
 /* eslint-disable sonarjs/dompurify-unsafe-config */
+// Runtime boundary: content bundle only. Background service workers must not import this module,
+// because DOMPurify and entity decoding rely on DOM APIs that are unavailable in MV3 workers.
 import DOMPurify from 'dompurify';
 
 // 允許的文章 HTML 標籤
