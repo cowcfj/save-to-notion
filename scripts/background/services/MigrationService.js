@@ -1,5 +1,5 @@
 import Logger from '../../utils/Logger.js';
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { isRootUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { hasNotionData, isSameNotionPage } from '../utils/migrationMetadataUtils.js';

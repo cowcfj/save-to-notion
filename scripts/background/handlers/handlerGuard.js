@@ -11,9 +11,9 @@
 import {
   isValidUrl,
   sanitizeApiError,
-  sanitizeUrlForLogging,
   validateInternalRequest,
 } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';

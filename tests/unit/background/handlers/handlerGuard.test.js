@@ -14,16 +14,19 @@ import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import {
   isValidUrl,
   sanitizeApiError,
-  sanitizeUrlForLogging,
   validateInternalRequest,
 } from '../../../../scripts/utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
   sanitizeApiError: jest.fn(),
-  sanitizeUrlForLogging: jest.fn(url => `safe:${url}`),
   validateInternalRequest: jest.fn(),
   isValidUrl: jest.fn(url => typeof url === 'string' && url.startsWith('https://')),
+}));
+
+jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
+  sanitizeUrlForLogging: jest.fn(url => `safe:${url}`),
 }));
 
 jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({

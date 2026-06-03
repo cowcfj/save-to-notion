@@ -24,7 +24,6 @@ const NOTION_ALLOWED_DOMAINS = new Set([
   'www.notion.com',
 ]);
 const NOTION_ALLOWED_SUFFIXES = ['.notion.so', '.notion.com'];
-const LOG_EXPORT_FILENAME_PATTERN = /^[\w.-]+\.json$/i;
 
 // ============================================================================
 // URL 驗證函數
@@ -138,9 +137,6 @@ function _isExtensionPageSender(sender) {
 // ============================================================================
 // 日誌安全函數（防止敏感資訊洩露）
 // ============================================================================
-
-// [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
-export { sanitizeUrlForLogging } from './LogSanitizer.js';
 
 // [REMOVED] maskSensitiveString moved to LogSanitizer.js
 
@@ -621,65 +617,6 @@ function _getValidatedParsedSvgElement(doc, originalSvg) {
   }
 
   return svgElement;
-}
-
-/**
- * 驗證日誌導出數據的安全性
- * 確保從 Background 返回的數據結構符合預期且不包含惡意內容
- *
- * @param {object} data - 待驗證的數據對象
- * @throws {Error} 如果驗證失敗，拋出具體錯誤
- */
-export function validateLogExportData(data) {
-  const validationError = _getLogExportValidationError(data);
-  if (validationError) {
-    throw validationError;
-  }
-}
-
-const LOG_EXPORT_VALIDATION_RULES = [
-  [_isMissingLogExportDataObject, () => new Error('Invalid response format: missing data object')],
-  [
-    data => !_isValidLogExportFilename(data.filename),
-    () => new TypeError('Security check failed: Invalid filename format'),
-  ],
-  [
-    data => typeof data.content !== 'string',
-    () => new TypeError('Security check failed: Invalid content type'),
-  ],
-  [
-    data => data.mimeType !== 'application/json',
-    () => new Error('Security check failed: Invalid MIME type'),
-  ],
-];
-
-function _getLogExportValidationError(data) {
-  for (const [isInvalid, createError] of LOG_EXPORT_VALIDATION_RULES) {
-    if (isInvalid(data)) {
-      return createError();
-    }
-  }
-  return null;
-}
-
-function _isMissingLogExportDataObject(data) {
-  if (!data) {
-    return true;
-  }
-
-  return typeof data !== 'object';
-}
-
-function _isValidLogExportFilename(filename) {
-  if (!filename) {
-    return false;
-  }
-
-  if (typeof filename !== 'string') {
-    return false;
-  }
-
-  return LOG_EXPORT_FILENAME_PATTERN.test(filename);
 }
 
 /**

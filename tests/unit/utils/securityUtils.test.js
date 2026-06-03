@@ -13,11 +13,9 @@ import {
   isValidNotionUrl,
   validateInternalRequest,
   validateContentScriptRequest,
-  sanitizeUrlForLogging,
   sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
-  validateLogExportData,
   isSafeSvgAttribute,
   validateBackupData,
   createSafeIcon,
@@ -31,6 +29,13 @@ describe('securityUtils', () => {
     test('content performance validation helpers 不應由 securityUtils 匯出', () => {
       expect(securityUtilsExports).not.toHaveProperty('validateSafeDomElement');
       expect(securityUtilsExports).not.toHaveProperty('validatePreloaderCache');
+    });
+
+    test('日誌脫敏與日誌導出驗證工具不應由 securityUtils 匯出', () => {
+      expect(securityUtilsExports).not.toHaveProperty('sanitizeUrlForLogging');
+      expect(securityUtilsExports).not.toHaveProperty('maskSensitiveString');
+      expect(securityUtilsExports).not.toHaveProperty('LogSanitizer');
+      expect(securityUtilsExports).not.toHaveProperty('validateLogExportData');
     });
   });
 
@@ -205,46 +210,6 @@ describe('securityUtils', () => {
       const result = validateContentScriptRequest(sender);
       expect(result).not.toBeNull();
       expect(result.success).toBe(false);
-    });
-  });
-
-  describe('sanitizeUrlForLogging', () => {
-    test('應移除追蹤參數但保留無害參數', () => {
-      // 模擬帶有隱私參數與追蹤參數的 URL。因為 securityUtils.js 定義的 LOG_TRACKING_PARAMS 不含 sig 或 token (因為那通常被其他字串置換器砍掉)
-      // 若該檔使用 LOG_TRACKING_PARAMS 僅移除了特定 utm_ 等字眼，那麼 token / sig 會被完整地保留成為 url 參數的一部分。
-      // 因此在這一層我們只要測 Tracking_params 就好。
-      const result = sanitizeUrlForLogging(
-        'https://api.example.com/data?utm_source=fb&gclid=123&page=2'
-      );
-      expect(result).toBe('https://api.example.com/data?page=2');
-      expect(result).not.toContain('utm_source');
-      expect(result).not.toContain('gclid');
-    });
-
-    test('應移除 fragment', () => {
-      const result = sanitizeUrlForLogging('https://example.com/page#section-1');
-      expect(result).toBe('https://example.com/page');
-    });
-
-    test('應保留協議、主機名和路徑', () => {
-      const result = sanitizeUrlForLogging('https://example.com/path/to/resource');
-      expect(result).toBe('https://example.com/path/to/resource');
-    });
-
-    test('無效 URL 應返回 [invalid-url]', () => {
-      expect(sanitizeUrlForLogging('not-a-valid-url')).toBe('[invalid-url]');
-    });
-
-    test('空字串應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging('')).toBe('[empty-url]');
-    });
-
-    test('null 應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging(null)).toBe('[empty-url]');
-    });
-
-    test('undefined 應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging()).toBe('[empty-url]');
     });
   });
 
@@ -823,60 +788,6 @@ describe('securityUtils', () => {
         expect(result.icon).toBe('<svg></svg>');
         expect(result.text).toBe('');
       });
-    });
-  });
-
-  describe('validateLogExportData', () => {
-    test('有效的導出數據應通過驗證', () => {
-      const validData = {
-        filename: 'debug_logs_2023.json',
-        content: '{"logs":[]}',
-        mimeType: 'application/json',
-      };
-      expect(() => validateLogExportData(validData)).not.toThrow();
-    });
-
-    test('缺少數據對象應拋出錯誤', () => {
-      expect(() => validateLogExportData(null)).toThrow('missing data object');
-      expect(() => validateLogExportData()).toThrow('missing data object');
-    });
-
-    test('無效的文件名應拋出錯誤', () => {
-      const invalidFilenames = [
-        '../passwd', // Path traversal
-        'logs.txt', // Wrong extension
-        'logs.json.exe', // Double extension
-        'logs;rm -rf', // Shell injection chars
-        '', // Empty
-        null,
-      ];
-      invalidFilenames.forEach(filename => {
-        expect(() =>
-          validateLogExportData({
-            filename,
-            content: '{}',
-            mimeType: 'application/json',
-          })
-        ).toThrow('Invalid filename format');
-      });
-    });
-
-    test('非字串內容應拋出錯誤', () => {
-      const invalidContent = {
-        filename: 'logs.json',
-        content: null, // Not a string
-        mimeType: 'application/json',
-      };
-      expect(() => validateLogExportData(invalidContent)).toThrow('Invalid content type');
-    });
-
-    test('錯誤的 MIME 類型應拋出錯誤', () => {
-      const invalidMime = {
-        filename: 'logs.json',
-        content: '{}',
-        mimeType: 'text/plain', // Wrong MIME
-      };
-      expect(() => validateLogExportData(invalidMime)).toThrow('Invalid MIME type');
     });
   });
 

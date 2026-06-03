@@ -12,7 +12,7 @@
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({

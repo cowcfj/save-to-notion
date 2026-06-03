@@ -4,11 +4,8 @@
  */
 
 import Logger from '../../scripts/utils/Logger.js';
-import {
-  createSafeIcon,
-  sanitizeApiError,
-  sanitizeUrlForLogging,
-} from '../../scripts/utils/securityUtils.js';
+import { createSafeIcon, sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../scripts/utils/LogSanitizer.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { UI_ICONS } from '../../scripts/config/icons.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';

@@ -19,7 +19,8 @@ import {
 import { RESTRICTED_PROTOCOLS } from '../../scripts/config/shared/core.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
-import { sanitizeApiError, sanitizeUrlForLogging } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../scripts/utils/LogSanitizer.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import Logger from '../../scripts/utils/Logger.js';
 import * as UI from './sidepanelUI.js';
