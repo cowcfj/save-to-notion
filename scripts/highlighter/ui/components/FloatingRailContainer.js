@@ -6,7 +6,7 @@
 
 import { COLORS } from '../../utils/color.js';
 import { UI_MESSAGES } from '../../../config/shared/messages.js';
-import { createSafeIcon } from '../../../utils/securityUtils.js';
+import { createSafeIcon } from '../../utils/safeIcon.js';
 
 const ARIA_LABEL = 'aria-label';
 const ACTION_BTN_CLASS = 'rail-action-btn';
