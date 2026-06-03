@@ -97,24 +97,23 @@ async function resolveSavedPageForHighlightUpdate({
     migrated,
   } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
-  let savedData = await storageService.getSavedPageData(normUrl);
-  const foundViaStableUrl = Boolean(savedData?.notionPageId);
+  // stable URL 命中即採用：早返同時定出 savedData 與 resolvedUrl，
+  // 省去 foundViaStableUrl 旗標與末端三元
+  const stableData = await storageService.getSavedPageData(normUrl);
+  if (stableData?.notionPageId) {
+    return { found: true, savedData: stableData, resolvedUrl: normUrl };
+  }
 
   // 雙查安全網：遷移失敗且 stable/原始 URL 分歧時，回退查詢原始 URL
-  const stableLookupMissedDistinctUrl = !foundViaStableUrl && !migrated && normUrl !== originalUrl;
-  if (stableLookupMissedDistinctUrl) {
-    savedData = await storageService.getSavedPageData(originalUrl);
+  const shouldRetryOriginalUrl = !migrated && normUrl !== originalUrl;
+  if (shouldRetryOriginalUrl) {
+    const originalData = await storageService.getSavedPageData(originalUrl);
+    if (originalData?.notionPageId) {
+      return { found: true, savedData: originalData, resolvedUrl: originalUrl };
+    }
   }
 
-  if (!savedData?.notionPageId) {
-    return { found: false };
-  }
-
-  return {
-    found: true,
-    savedData,
-    resolvedUrl: foundViaStableUrl ? normUrl : originalUrl,
-  };
+  return { found: false };
 }
 
 /**
@@ -147,7 +146,9 @@ async function reconcileRemotePageMissing({
     return null;
   }
 
-  const shortPageId = pageId?.slice(0, 4) ?? 'unknown';
+  // pageId 經上游 resolveSavedPageForHighlightUpdate 的 found-guard 後保證為非空字串
+  // （與下方 confirmRemotePageMissing(pageId) 的直接使用一致），log 短碼不需 optional/fallback
+  const shortPageId = pageId.slice(0, 4);
   const deletionCheck = tabService.confirmRemotePageMissing(pageId);
 
   if (!deletionCheck.shouldDelete) {
