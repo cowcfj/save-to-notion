@@ -212,6 +212,16 @@ describe('LogSanitizer', () => {
       expect(stack).toBe('worker.js:10:5');
     });
 
+    test('should preserve function names in parenthesized V8 stack frames', () => {
+      const error = new Error('boom');
+      error.stack = '    at loadConfig (/home/user/project/src/load-config.js:42:7)';
+      const logs = [{ message: 'v8 frame', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const stack = sanitized[0].context.error.stack;
+      expect(stack).toBe('    at loadConfig (load-config.js:42:7)');
+      expect(stack).not.toContain('/home/user/project/src/');
+    });
+
     test('should redact sensitive key names', () => {
       const logs = [
         {
@@ -352,7 +362,7 @@ describe('LogSanitizer', () => {
       expect(sanitizedStack).toContain('exportDebugLogs');
     });
 
-    test('should sanitize file paths without "at " prefix in stack traces', () => {
+    test('should not sanitize non-stack message lines that contain bare paths', () => {
       const error = new Error('ENOENT');
       error.stack = 'Error: ENOENT: /home/user/project/file.js';
 
@@ -366,22 +376,16 @@ describe('LogSanitizer', () => {
       const sanitized = LogSanitizer.sanitize(logs);
       const sanitizedStack = sanitized[0].context.error.stack;
 
-      // 應移除目錄路徑，只保留檔名
-      expect(sanitizedStack).toContain('file.js');
-      expect(sanitizedStack).not.toContain('/home/user/project/');
-      // 應保留錯誤前綴
-      expect(sanitizedStack).toContain('Error: ENOENT:');
+      expect(sanitizedStack).toBe('Error: ENOENT: /home/user/project/file.js');
     });
 
-    test('should sanitize a relative path embedded in an error message line', () => {
+    test('should not sanitize a relative path embedded in an error message line', () => {
       const error = new Error('boom');
-      // 錯誤訊息（stack 首行）內含相對路徑：目錄段應壓縮為檔名，
-      // 不可黏合成 "configsettings.json"
       error.stack = 'Error: Failed to load config/settings.json';
       const logs = [{ message: 'config error', context: { error } }];
       const sanitized = LogSanitizer.sanitize(logs);
       const sanitizedStack = sanitized[0].context.error.stack;
-      expect(sanitizedStack).toBe('Error: Failed to load settings.json');
+      expect(sanitizedStack).toBe('Error: Failed to load config/settings.json');
     });
 
     describe('Advanced Pattern Redaction', () => {

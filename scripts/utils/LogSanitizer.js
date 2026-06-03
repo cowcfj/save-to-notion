@@ -30,6 +30,11 @@ const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 // 其餘自定義屬性才需遞迴清洗
 const RESERVED_ERROR_KEYS = new Set(['message', 'stack', 'name']);
 
+const STACK_FRAME_AT_PREFIX_PATTERN = /^\s*at\s+/;
+const STACK_FRAME_POSITION_SUFFIX_PATTERN = /:\d+:\d+\s*\)?$/;
+const PATH_POSITION_SUFFIX_PATTERN = /:\d+:\d+\s*$/;
+const WHITESPACE_PATTERN = /\s/;
+
 /**
  * 日誌脫敏中需移除的追蹤參數
  * 維護說明：此清單與 config/extraction.js 的 URL_NORMALIZATION.TRACKING_PARAMS 保持同步。
@@ -286,30 +291,69 @@ function _stripProtocolUrlPath(line) {
   return `${protocolPart}/${pathAndSuffix.slice(Math.max(0, lastPathSep + 1))}`;
 }
 
+function _isPathWithPosition(value) {
+  const trimmed = value.trim();
+  return (
+    trimmed.includes('/') &&
+    PATH_POSITION_SUFFIX_PATTERN.test(trimmed) &&
+    !WHITESPACE_PATTERN.test(trimmed)
+  );
+}
+
+function _stripDirectoryFromPathToken(pathToken) {
+  const trimmedEndLength = pathToken.trimEnd().length;
+  const trailingWhitespace = pathToken.slice(trimmedEndLength);
+  const path = pathToken.slice(0, trimmedEndLength);
+  const lastSep = path.lastIndexOf('/');
+  if (lastSep === -1) {
+    return pathToken;
+  }
+  return `${path.slice(lastSep + 1)}${trailingWhitespace}`;
+}
+
 /**
- * 壓縮無協議的檔案路徑行（如 "at /a/b/c.js" 或裸 "/a/b/c.js"）：
- * 移除目錄部分只保留檔名，保留 "at " 前綴或行首文字。
+ * 壓縮無協議的 stack frame 路徑（如 "at fn (/a/b/c.js:1:2)" 或裸
+ * "/a/b/c.js:1:2"）：移除目錄部分只保留檔名，保留 frame 前綴。
  *
  * @param {string} line
  * @returns {string}
  */
 function _stripBareFilePath(line) {
-  const lastSep = line.lastIndexOf('/');
-  if (lastSep === -1) {
+  const openParen = line.lastIndexOf('(');
+  const closeParen = line.lastIndexOf(')');
+  if (openParen !== -1 && closeParen > openParen) {
+    const pathToken = line.slice(openParen + 1, closeParen);
+    if (_isPathWithPosition(pathToken)) {
+      return `${line.slice(0, openParen + 1)}${_stripDirectoryFromPathToken(
+        pathToken
+      )}${line.slice(closeParen)}`;
+    }
+  }
+
+  const atMatch = STACK_FRAME_AT_PREFIX_PATTERN.exec(line);
+  if (atMatch) {
+    const pathToken = line.slice(atMatch[0].length);
+    if (_isPathWithPosition(pathToken)) {
+      return `${atMatch[0]}${_stripDirectoryFromPathToken(pathToken)}`;
+    }
     return line;
   }
-  const prefixEnd = line.lastIndexOf('at ', lastSep);
-  if (prefixEnd !== -1) {
-    return line.slice(0, Math.max(0, prefixEnd + 3)) + line.slice(Math.max(0, lastSep + 1));
+
+  if (_isPathWithPosition(line)) {
+    const leadingWhitespaceLength = line.length - line.trimStart().length;
+    const leadingWhitespace = line.slice(0, leadingWhitespaceLength);
+    return `${leadingWhitespace}${_stripDirectoryFromPathToken(line.trimStart())}`;
   }
-  // 無 "at " 前綴時：路徑 token 從「lastSep 之前最後一個空白」之後開始，
-  // 保留該空白（含）之前的文字，捨棄目錄部分只留檔名。
-  // 以「路徑前最後空白」而非「第一個 '/'」當邊界，才能正確處理相對路徑
-  // 以及訊息內夾帶的相對路徑（如 "Error: Failed to load config/x.json"）。
-  const beforePath = line.slice(0, Math.max(0, lastSep));
-  const lastWsIdx = beforePath.search(/\s(?=\S*$)/);
-  const pathStart = lastWsIdx === -1 ? 0 : lastWsIdx + 1;
-  return line.slice(0, pathStart) + line.slice(Math.max(0, lastSep + 1));
+
+  return line;
+}
+
+function _isBareFilePathStackFrame(line) {
+  return (
+    line.includes('/') &&
+    STACK_FRAME_POSITION_SUFFIX_PATTERN.test(line) &&
+    (STACK_FRAME_AT_PREFIX_PATTERN.test(line) || _isPathWithPosition(line))
+  );
 }
 
 /**
@@ -576,7 +620,7 @@ export const LogSanitizer = {
    */
   _sanitizeStackTraceLine(line) {
     let sanitized = line.includes('://') ? _stripProtocolUrlPath(line) : line;
-    if (!line.includes('://') && sanitized.includes('/')) {
+    if (!line.includes('://') && _isBareFilePathStackFrame(sanitized)) {
       sanitized = _stripBareFilePath(sanitized);
     }
 
