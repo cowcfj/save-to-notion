@@ -501,7 +501,23 @@ describe('popup.js Controller', () => {
       );
       expect(Logger.error).toHaveBeenCalledWith('Failed to start highlight mode', {
         action: 'startHighlight',
-        error: 'Highlight failed',
+        error: 'UNKNOWN_ERROR',
+      });
+    });
+
+    it('highlight 啟動失敗且 error 為 object 時，應記錄 sanitized error 避免 [object Object]', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      startHighlight.mockResolvedValue({
+        success: false,
+        error: { code: 'network_error', message: 'debug detail' },
+      });
+
+      await triggerEvent(mockElements.highlightButton);
+
+      expect(Logger.error).toHaveBeenCalledWith('Failed to start highlight mode', {
+        action: 'startHighlight',
+        error: 'NETWORK_ERROR',
       });
     });
 

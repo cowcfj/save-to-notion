@@ -202,9 +202,9 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   return result;
 }
 
-async function sendActionMessageToTab(tabId, action) {
+async function sendActionMessageToTab(tabId, action, payload = {}) {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, { action }, result => {
+    chrome.tabs.sendMessage(tabId, { action, ...payload }, result => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
       } else {
@@ -458,12 +458,13 @@ async function dispatchFloatingRailActivation(
   tabId,
   action,
   sendResponse,
-  { onSuccess, onUnsuccessful }
+  { onSuccess, onUnsuccessful, payload = {} }
 ) {
   try {
     const response = await sendActionMessageToTab(
       tabId,
-      RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT
+      RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT,
+      payload
     );
     if (response?.success === true) {
       Logger.success('成功啟動浮動側欄標註', { action });
@@ -591,6 +592,7 @@ async function handleStartHighlight(services, request, sender, sendResponse) {
     await dispatchFloatingRailActivation(ctx.activeTab.id, 'startHighlight', sendResponse, {
       onSuccess: () => ({ success: true }),
       onUnsuccessful: response => normalizeContentResponse(response),
+      payload: { sessionOverride: true },
     });
   } catch (error) {
     Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });

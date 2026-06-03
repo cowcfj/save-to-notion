@@ -222,7 +222,7 @@ export async function initPopup() {
       setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`);
       Logger.error('Failed to start highlight mode', {
         action: 'startHighlight',
-        error: response?.error,
+        error: safe,
       });
     }
 

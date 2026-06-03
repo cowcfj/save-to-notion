@@ -450,7 +450,7 @@ describe('highlightHandlers', () => {
       expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
-        { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT },
+        { action: RUNTIME_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
         expect.any(Function)
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });

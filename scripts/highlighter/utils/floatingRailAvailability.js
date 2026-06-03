@@ -96,18 +96,41 @@ async function createDynamicRailInitPromise(manager) {
   }
 }
 
-async function awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse) {
+async function recoverReadyFailureWithDynamicRail(onRailReady, sendResponse) {
+  const manager = globalThis.HighlighterV2?.manager;
+  if (!manager) {
+    return false;
+  }
+
+  const recoveryPromise = createDynamicRailInitPromise(manager);
+  globalThis.__NOTION_RAIL_READY__ = recoveryPromise;
+  await awaitReadyAndAct(recoveryPromise, onRailReady, sendResponse, { sessionOverride: false });
+  return true;
+}
+
+async function awaitReadyAndAct(
+  railReadyPromise,
+  onRailReady,
+  sendResponse,
+  { sessionOverride = false } = {}
+) {
   let readyResult;
   try {
     readyResult = await railReadyPromise;
   } catch {
     resetFloatingRailReady();
+    if (sessionOverride && (await recoverReadyFailureWithDynamicRail(onRailReady, sendResponse))) {
+      return;
+    }
     sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
     return;
   }
 
   if (!readyResult?.success || !readyResult.rail) {
     resetFloatingRailReady();
+    if (sessionOverride && (await recoverReadyFailureWithDynamicRail(onRailReady, sendResponse))) {
+      return;
+    }
     sendResponse({
       success: false,
       error: formatRuntimeErrorMessage(
@@ -135,8 +158,9 @@ async function awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse) {
  *
  * @param {Function} sendResponse - 回應函數
  * @param {(rail: object) => (void|Promise<void>)} onRailReady - rail action callback
+ * @param {{sessionOverride?: boolean}} [options] - popup user action 可要求本 tab 動態喚回 rail
  */
-export async function withAvailableFloatingRail(sendResponse, onRailReady) {
+export async function withAvailableFloatingRail(sendResponse, onRailReady, options = {}) {
   const activeRail = globalThis.HighlighterV2?.rail;
   if (activeRail) {
     await runActiveRailAction(activeRail, onRailReady, sendResponse);
@@ -154,5 +178,5 @@ export async function withAvailableFloatingRail(sendResponse, onRailReady) {
     globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
   }
 
-  await awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse);
+  await awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse, options);
 }
