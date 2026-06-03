@@ -72,20 +72,24 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
 }
 
 /**
- * 執行標註更新的核心邏輯
+ * 定位待更新標註的已存頁面
  *
- * @param {object} services - 服務實例集合
- * @param {chrome.tabs.Tab} activeTab - 當前標籤頁
- * @param {Array} highlights - 標註數據
- * @returns {Promise<object>} 更新結果
+ * 統一解析 tab URL（含自動遷移），並以「stable URL → 原始 URL」雙查安全網
+ * 找出對應的 Notion 頁面綁定。遷移失敗且 stable/原始 URL 分歧時才回退查詢。
+ *
+ * @param {object} params
+ * @param {chrome.tabs.Tab} params.activeTab - 當前標籤頁
+ * @param {object} params.tabService
+ * @param {object} params.storageService
+ * @param {object} params.migrationService
+ * @returns {Promise<{found: boolean, savedData?: object, resolvedUrl?: string}>}
  */
-
-async function performHighlightUpdate(services, activeTab, highlights) {
-  const { storageService, notionService, tabService, migrationService } = services;
-
-  // 1. 確保有 API Key
-  const apiKey = await ensureNotionApiKey();
-
+async function resolveSavedPageForHighlightUpdate({
+  activeTab,
+  tabService,
+  storageService,
+  migrationService,
+}) {
   // Phase 2: 統一 URL 解析 + 自動遷移
   const {
     stableUrl: normUrl,
@@ -96,25 +100,149 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   let savedData = await storageService.getSavedPageData(normUrl);
   const foundViaStableUrl = Boolean(savedData?.notionPageId);
 
-  // 雙查安全網：遷移失敗時回退查詢原始 URL
-  if (!foundViaStableUrl && !migrated && normUrl !== originalUrl) {
+  // 雙查安全網：遷移失敗且 stable/原始 URL 分歧時，回退查詢原始 URL
+  const stableLookupMissedDistinctUrl = !foundViaStableUrl && !migrated && normUrl !== originalUrl;
+  if (stableLookupMissedDistinctUrl) {
     savedData = await storageService.getSavedPageData(originalUrl);
   }
 
   if (!savedData?.notionPageId) {
+    return { found: false };
+  }
+
+  return {
+    found: true,
+    savedData,
+    resolvedUrl: foundViaStableUrl ? normUrl : originalUrl,
+  };
+}
+
+/**
+ * 核對 Notion 更新失敗是否代表遠端頁面已被刪除，並據此清理本地綁定
+ *
+ * 僅處理「fetch_blocks 階段的 OBJECT_NOT_FOUND」失敗，其他情況回傳 null 交由
+ * 呼叫端依正常流程繼續。採兩段式確認：首次僅標記 pending，再次才清除本地綁定；
+ * 清除失敗時 re-arm pending token 供下次 sync 立即重試。
+ *
+ * @param {object} params
+ * @param {object} params.result - notionService.updateHighlightsSection 回傳結果
+ * @param {string} params.pageId - 本地綁定的 Notion pageId
+ * @param {string} params.resolvedUrl - 已解析的頁面 URL
+ * @param {object} params.tabService
+ * @param {object} params.storageService
+ * @returns {Promise<object|null>} 需直接回傳給用戶的 response，或 null 表示非刪除情境
+ */
+async function reconcileRemotePageMissing({
+  result,
+  pageId,
+  resolvedUrl,
+  tabService,
+  storageService,
+}) {
+  const isFetchBlocksObjectNotFound =
+    !result.success &&
+    result.error === 'OBJECT_NOT_FOUND' &&
+    result.details?.phase === 'fetch_blocks';
+  if (!isFetchBlocksObjectNotFound) {
+    return null;
+  }
+
+  const shortPageId = pageId?.slice(0, 4) ?? 'unknown';
+  const deletionCheck = tabService.confirmRemotePageMissing(pageId);
+
+  if (!deletionCheck.shouldDelete) {
+    Logger.warn('同步標註時首次發現遠端頁面疑似已刪除，暫不清除本地 notion 綁定', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      pageId: shortPageId,
+      result: 'pending',
+    });
+
+    return {
+      ...result,
+      errorCode: 'PAGE_DELETION_PENDING',
+      error: UI_MESSAGES.POPUP.DELETION_PENDING,
+    };
+  }
+
+  Logger.warn('同步標註時確認遠端頁面已刪除，清除本地 notion 綁定', {
+    action: 'performHighlightUpdate',
+    url: sanitizeUrlForLogging(resolvedUrl),
+    pageId: shortPageId,
+    result: 'confirmed_deleted',
+  });
+
+  const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
+    source: 'highlightHandlers.performHighlightUpdate',
+    expectedPageId: pageId,
+  });
+
+  if (clearResult.skipped) {
+    Logger.warn('清除本地 notion 綁定時偵測到 pageId 已變更，取消 PAGE_DELETED 狀態切換', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      pageId: shortPageId,
+      reason: clearResult.reason,
+      result: 'cleanup_skipped',
+    });
+
+    return {
+      ...result,
+      error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+    };
+  }
+
+  if (!clearResult.cleared) {
+    Logger.error('清除本地 Notion 狀態失敗', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      attempts: clearResult.attempts,
+      error: clearResult.error,
+    });
+
+    // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
+    tabService.confirmRemotePageMissing(pageId);
+  }
+
+  return {
+    ...result,
+    errorCode: 'PAGE_DELETED',
+    error: UI_MESSAGES.POPUP.DELETED_PAGE,
+  };
+}
+
+/**
+ * 執行標註更新的核心邏輯
+ *
+ * @param {object} services - 服務實例集合
+ * @param {chrome.tabs.Tab} activeTab - 當前標籤頁
+ * @param {Array} highlights - 標註數據
+ * @returns {Promise<object>} 更新結果
+ */
+async function performHighlightUpdate(services, activeTab, highlights) {
+  const { storageService, notionService, tabService, migrationService } = services;
+
+  // 1. 確保有 API Key
+  const apiKey = await ensureNotionApiKey();
+
+  // 2. 定位已存頁面（URL 解析 + 雙查安全網）
+  const located = await resolveSavedPageForHighlightUpdate({
+    activeTab,
+    tabService,
+    storageService,
+    migrationService,
+  });
+  if (!located.found) {
     return {
       success: false,
       errorCode: 'PAGE_NOT_SAVED',
       error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
     };
   }
+  const { savedData, resolvedUrl } = located;
 
-  const resolvedUrl = foundViaStableUrl ? normUrl : originalUrl;
-
-  // 轉換標記為 Blocks
+  // 3. 轉換標記為 Blocks 並調用 NotionService 更新
   const highlightBlocks = buildHighlightBlocks(highlights);
-
-  // 調用 NotionService 更新標記
   const result = await notionService.updateHighlightsSection(
     savedData.notionPageId,
     highlightBlocks,
@@ -123,72 +251,16 @@ async function performHighlightUpdate(services, activeTab, highlights) {
     }
   );
 
-  if (
-    !result.success &&
-    result.error === 'OBJECT_NOT_FOUND' &&
-    result.details?.phase === 'fetch_blocks'
-  ) {
-    const deletionCheck = tabService.confirmRemotePageMissing(savedData.notionPageId);
-
-    if (!deletionCheck.shouldDelete) {
-      Logger.warn('同步標註時首次發現遠端頁面疑似已刪除，暫不清除本地 notion 綁定', {
-        action: 'performHighlightUpdate',
-        url: sanitizeUrlForLogging(resolvedUrl),
-        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-        result: 'pending',
-      });
-
-      return {
-        ...result,
-        errorCode: 'PAGE_DELETION_PENDING',
-        error: UI_MESSAGES.POPUP.DELETION_PENDING,
-      };
-    }
-
-    Logger.warn('同步標註時確認遠端頁面已刪除，清除本地 notion 綁定', {
-      action: 'performHighlightUpdate',
-      url: sanitizeUrlForLogging(resolvedUrl),
-      pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-      result: 'confirmed_deleted',
-    });
-
-    const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
-      source: 'highlightHandlers.performHighlightUpdate',
-      expectedPageId: savedData.notionPageId,
-    });
-
-    if (clearResult.skipped) {
-      Logger.warn('清除本地 notion 綁定時偵測到 pageId 已變更，取消 PAGE_DELETED 狀態切換', {
-        action: 'performHighlightUpdate',
-        url: sanitizeUrlForLogging(resolvedUrl),
-        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-        reason: clearResult.reason,
-        result: 'cleanup_skipped',
-      });
-
-      return {
-        ...result,
-        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
-      };
-    }
-
-    if (!clearResult.cleared) {
-      Logger.error('清除本地 Notion 狀態失敗', {
-        action: 'performHighlightUpdate',
-        url: sanitizeUrlForLogging(resolvedUrl),
-        attempts: clearResult.attempts,
-        error: clearResult.error,
-      });
-
-      // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
-      tabService.confirmRemotePageMissing(savedData.notionPageId);
-    }
-
-    return {
-      ...result,
-      errorCode: 'PAGE_DELETED',
-      error: UI_MESSAGES.POPUP.DELETED_PAGE,
-    };
+  // 4. 核對遠端頁面是否已刪除（僅 fetch_blocks 階段的 OBJECT_NOT_FOUND）
+  const deletionResponse = await reconcileRemotePageMissing({
+    result,
+    pageId: savedData.notionPageId,
+    resolvedUrl,
+    tabService,
+    storageService,
+  });
+  if (deletionResponse) {
+    return deletionResponse;
   }
 
   tabService.resetRemotePageMissingState(savedData.notionPageId);
