@@ -8,7 +8,7 @@
 import { UI_MESSAGES } from '../../config/shared/messages.js';
 import { COLORS } from '../utils/color.js';
 import { hexToRgba } from '../../../styles/ui-token-constants.js';
-import { createSafeIcon } from '../../utils/securityUtils.js';
+import { createSafeIcon } from '../utils/safeIcon.js';
 import { RAIL_ICONS } from './components/FloatingRailContainer.js';
 
 export function getRailElements(container) {

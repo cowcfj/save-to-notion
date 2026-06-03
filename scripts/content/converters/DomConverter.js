@@ -13,6 +13,7 @@
 const getImageUtils = () => globalThis.ImageUtils ?? {};
 
 import Logger from '../../utils/Logger.js';
+import { sanitizeArticleHtml } from '../sanitizers/htmlSanitizer.js';
 
 import { IMAGE_LIMITS } from '../../config/shared/content.js';
 import {
@@ -203,8 +204,9 @@ class DomConverter {
     this.imageCount = 0; // Reset counter for new conversion
     let rootNode = null;
     if (typeof htmlOrNode === 'string') {
+      const sanitizedHtml = sanitizeArticleHtml(htmlOrNode);
       const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlOrNode, 'text/html');
+      const doc = parser.parseFromString(sanitizedHtml, 'text/html');
       rootNode = doc.body;
     } else {
       rootNode = htmlOrNode;
@@ -781,7 +783,8 @@ class DomConverter {
         return resolved;
       }
     }
-    return NOTION_CODE_LANGUAGE_PLAIN_TEXT;
+    // 依據安全計畫，若無程式碼語言提示，則 fallback 使用 'javascript' 語法高亮，提供更好的閱讀體驗
+    return 'javascript';
   }
 
   static _addCodeLanguageAttributeHints(hints, node) {

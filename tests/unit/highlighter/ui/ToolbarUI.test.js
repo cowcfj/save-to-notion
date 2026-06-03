@@ -5,14 +5,15 @@ import {
 } from '../../../../scripts/highlighter/ui/ToolbarUI.js';
 import { TOOLBAR_ICONS } from '../../../../scripts/config/contentSafe/toolbarIcons.js';
 import { TOOLBAR_SELECTORS } from '../../../../scripts/config/contentSafe/toolbarSelectors.js';
-import { createSafeIcon } from '../../../../scripts/utils/securityUtils.js';
+import { createSafeIcon } from '../../../../scripts/highlighter/utils/safeIcon.js';
 
-jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
+jest.mock('../../../../scripts/highlighter/utils/safeIcon.js', () => ({
   createSafeIcon: jest.fn(),
 }));
 
 describe('ToolbarUI', () => {
   beforeEach(() => {
+    createSafeIcon.mockClear();
     createSafeIcon.mockImplementation(() => {
       const el = document.createElement('span');
       const textNode = document.createTextNode('');

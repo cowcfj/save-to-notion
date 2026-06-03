@@ -372,6 +372,15 @@ describe('DomConverter 覆蓋率補強', () => {
 
       expect(DomConverter.extractCodeLanguage(preNode, codeNode)).toBe('javascript');
     });
+
+    test('無語言提示時應依 ADR 0012 fallback 到 javascript', () => {
+      document.body.innerHTML = '<pre><code>tail -f app.log</code></pre>';
+
+      const preNode = document.querySelector('pre');
+      const codeNode = document.querySelector('code');
+
+      expect(DomConverter.extractCodeLanguage(preNode, codeNode)).toBe('javascript');
+    });
   });
 
   describe('cleanBlocks', () => {

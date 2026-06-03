@@ -394,4 +394,56 @@ describe('DomConverter', () => {
       expect(blocks[0].bulleted_list_item.rich_text[0].text.content).toHaveLength(1500);
     });
   });
+
+  describe('Sanitization & Security Alignment', () => {
+    test('should prevent XSS vectors like scripts or inline handler attributes', () => {
+      const html = `
+        <div>
+          <script>alert("XSS")</script>
+          <p onclick="alert(1)">Safe text</p>
+        </div>
+      `;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('paragraph');
+      expect(blocks[0].paragraph.rich_text[0].text.content).toBe('Safe text');
+    });
+
+    test('should preserve rich text annotations for kbd and ins tags', () => {
+      const html = '<div><p><kbd>Ctrl</kbd> <ins>new</ins></p></div>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('paragraph');
+      const richText = blocks[0].paragraph.rich_text;
+
+      expect(richText[0].text.content).toBe('Ctrl');
+      expect(richText[0].annotations.code).toBe(true);
+
+      expect(richText[1].text.content).toBe(' ');
+
+      expect(richText[2].text.content).toBe('new');
+      expect(richText[2].annotations.underline).toBe(true);
+    });
+
+    test('should fallback code language to javascript when class and lang are stripped', () => {
+      const html = '<pre><code class="language-python" lang="py">console.log(1)</code></pre>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('code');
+      expect(blocks[0].code.language).toBe('javascript'); // 因為 class/lang 被過濾，所以使用 fallback javascript 語言
+      expect(blocks[0].code.rich_text[0].text.content).toBe('console.log(1)');
+    });
+
+    test('should traverse through article, section and main structural containers', () => {
+      const html = '<article><section><main><p>Body text</p></main></section></article>';
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('paragraph');
+      expect(blocks[0].paragraph.rich_text[0].text.content).toBe('Body text');
+    });
+  });
 });
