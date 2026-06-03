@@ -66,14 +66,17 @@ function resetFloatingRailReady() {
   globalThis.__NOTION_RAIL_READY__ = undefined;
 }
 
-async function runActiveRailAction(activeRail, onRailReady, sendResponse) {
+function noop() {}
+
+async function runFloatingRailAction(rail, onRailReady, sendResponse, beforeErrorResponse = noop) {
   try {
-    const activeResult = onRailReady(activeRail);
-    if (isPromiseLike(activeResult)) {
-      await activeResult;
+    const actionResult = onRailReady(rail);
+    if (isPromiseLike(actionResult)) {
+      await actionResult;
     }
     sendResponse({ success: true });
   } catch (error) {
+    beforeErrorResponse();
     sendFloatingRailError(sendResponse, error);
   }
 }
@@ -123,19 +126,6 @@ async function recoverOrSendReadyFailure({ onRailReady, sendResponse, sessionOve
   sendReadyFailureResponse(sendResponse, error);
 }
 
-async function runReadyRailAction(rail, onRailReady, sendResponse) {
-  try {
-    const readyActionResult = onRailReady(rail);
-    if (isPromiseLike(readyActionResult)) {
-      await readyActionResult;
-    }
-    sendResponse({ success: true });
-  } catch (error) {
-    resetFloatingRailReady();
-    sendFloatingRailError(sendResponse, error);
-  }
-}
-
 async function awaitReadyAndAct(
   railReadyPromise,
   onRailReady,
@@ -167,7 +157,7 @@ async function awaitReadyAndAct(
     return;
   }
 
-  await runReadyRailAction(readyResult.rail, onRailReady, sendResponse);
+  await runFloatingRailAction(readyResult.rail, onRailReady, sendResponse, resetFloatingRailReady);
 }
 
 /**
@@ -180,7 +170,7 @@ async function awaitReadyAndAct(
 export async function withAvailableFloatingRail(sendResponse, onRailReady, options = {}) {
   const activeRail = globalThis.HighlighterV2?.rail;
   if (activeRail) {
-    await runActiveRailAction(activeRail, onRailReady, sendResponse);
+    await runFloatingRailAction(activeRail, onRailReady, sendResponse);
     return;
   }
 
