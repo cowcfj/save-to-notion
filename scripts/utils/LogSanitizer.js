@@ -311,6 +311,47 @@ function _stripDirectoryFromPathToken(pathToken) {
   return `${path.slice(lastSep + 1)}${trailingWhitespace}`;
 }
 
+function _stripParenthesizedBareFilePath(line) {
+  const openParen = line.lastIndexOf('(');
+  const closeParen = line.lastIndexOf(')');
+  if (openParen === -1 || closeParen <= openParen) {
+    return null;
+  }
+
+  const pathToken = line.slice(openParen + 1, closeParen);
+  if (!_isPathWithPosition(pathToken)) {
+    return null;
+  }
+
+  return `${line.slice(0, openParen + 1)}${_stripDirectoryFromPathToken(
+    pathToken
+  )}${line.slice(closeParen)}`;
+}
+
+function _stripAtBareFilePath(line) {
+  const atMatch = STACK_FRAME_AT_PREFIX_PATTERN.exec(line);
+  if (!atMatch) {
+    return null;
+  }
+
+  const pathToken = line.slice(atMatch[0].length);
+  if (!_isPathWithPosition(pathToken)) {
+    return line;
+  }
+
+  return `${atMatch[0]}${_stripDirectoryFromPathToken(pathToken)}`;
+}
+
+function _stripBarePathLine(line) {
+  if (!_isPathWithPosition(line)) {
+    return line;
+  }
+
+  const leadingWhitespaceLength = line.length - line.trimStart().length;
+  const leadingWhitespace = line.slice(0, leadingWhitespaceLength);
+  return `${leadingWhitespace}${_stripDirectoryFromPathToken(line.trimStart())}`;
+}
+
 /**
  * 壓縮無協議的 stack frame 路徑（如 "at fn (/a/b/c.js:1:2)" 或裸
  * "/a/b/c.js:1:2"）：移除目錄部分只保留檔名，保留 frame 前綴。
@@ -319,33 +360,12 @@ function _stripDirectoryFromPathToken(pathToken) {
  * @returns {string}
  */
 function _stripBareFilePath(line) {
-  const openParen = line.lastIndexOf('(');
-  const closeParen = line.lastIndexOf(')');
-  if (openParen !== -1 && closeParen > openParen) {
-    const pathToken = line.slice(openParen + 1, closeParen);
-    if (_isPathWithPosition(pathToken)) {
-      return `${line.slice(0, openParen + 1)}${_stripDirectoryFromPathToken(
-        pathToken
-      )}${line.slice(closeParen)}`;
-    }
+  const stackFrameResult = _stripParenthesizedBareFilePath(line) ?? _stripAtBareFilePath(line);
+  if (stackFrameResult !== null) {
+    return stackFrameResult;
   }
 
-  const atMatch = STACK_FRAME_AT_PREFIX_PATTERN.exec(line);
-  if (atMatch) {
-    const pathToken = line.slice(atMatch[0].length);
-    if (_isPathWithPosition(pathToken)) {
-      return `${atMatch[0]}${_stripDirectoryFromPathToken(pathToken)}`;
-    }
-    return line;
-  }
-
-  if (_isPathWithPosition(line)) {
-    const leadingWhitespaceLength = line.length - line.trimStart().length;
-    const leadingWhitespace = line.slice(0, leadingWhitespaceLength);
-    return `${leadingWhitespace}${_stripDirectoryFromPathToken(line.trimStart())}`;
-  }
-
-  return line;
+  return _stripBarePathLine(line);
 }
 
 function _isBareFilePathStackFrame(line) {
