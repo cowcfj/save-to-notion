@@ -66,9 +66,10 @@ export function sanitizeSvgIcon(svgString) {
  * @returns {HTMLElement} 包含 SVG 的 span 元素
  */
 export function createSafeIcon(svgString) {
+  const span = document.createElement('span');
+  span.className = 'icon';
+
   if (!svgString?.startsWith('<svg')) {
-    const span = document.createElement('span');
-    span.className = 'icon';
     span.textContent = svgString || '';
     return span;
   }
@@ -77,8 +78,6 @@ export function createSafeIcon(svgString) {
 
   // 如果消毒後為空，返回空 span
   if (!sanitized) {
-    const span = document.createElement('span');
-    span.className = 'icon';
     return span;
   }
 
@@ -98,8 +97,6 @@ export function createSafeIcon(svgString) {
       reason: 'xml_parser_error',
       content: svgString,
     });
-    const span = document.createElement('span');
-    span.className = 'icon';
     return span;
   }
 
@@ -108,18 +105,11 @@ export function createSafeIcon(svgString) {
       action: 'create_safe_icon',
       content: svgString,
     });
-    const span = document.createElement('span');
-    span.className = 'icon';
     return span;
   }
 
   // 標準化：為 SVG 添加 CSS 類以便正確樣式化
-  if (!svgElement.classList.contains('icon-svg')) {
-    svgElement.classList.add('icon-svg');
-  }
-
-  const span = document.createElement('span');
-  span.className = 'icon'; // 使用標準的 icon 類別
+  svgElement.classList.add('icon-svg');
   span.append(svgElement);
   return span;
 }
