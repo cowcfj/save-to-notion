@@ -9,7 +9,8 @@ import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError, createSafeIcon } from '../../scripts/utils/securityUtils.js';
+import { createSafeIcon } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 import { MigrationScanner } from './MigrationScanner.js';
 
 /**

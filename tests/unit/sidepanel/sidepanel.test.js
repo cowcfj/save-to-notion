@@ -4,7 +4,7 @@ import path from 'node:path';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
-import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 import { sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import {

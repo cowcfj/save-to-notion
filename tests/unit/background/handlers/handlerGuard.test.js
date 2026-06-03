@@ -11,18 +11,18 @@ import {
 } from '../../../../scripts/background/handlers/handlerGuard.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import {
-  isValidUrl,
-  sanitizeApiError,
-  validateInternalRequest,
-} from '../../../../scripts/utils/securityUtils.js';
+import { isValidUrl, validateInternalRequest } from '../../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
-  sanitizeApiError: jest.fn(),
   validateInternalRequest: jest.fn(),
   isValidUrl: jest.fn(url => typeof url === 'string' && url.startsWith('https://')),
+}));
+
+jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+  sanitizeApiError: jest.fn(),
 }));
 
 jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({

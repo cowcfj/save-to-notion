@@ -11,8 +11,8 @@
 import {
   validateInternalRequest,
   validateContentScriptRequest,
-  sanitizeApiError,
 } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';

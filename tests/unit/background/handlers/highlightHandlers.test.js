@@ -5,9 +5,9 @@ import { CONTENT_BRIDGE_ACTIONS } from '../../../../scripts/config/runtimeAction
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,
-  sanitizeApiError,
   validateInternalRequest,
 } from '../../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
   '../../../../scripts/utils/ErrorHandler.js'
@@ -19,6 +19,7 @@ import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js
 jest.mock('../../../../scripts/utils/Logger.js');
 jest.mock('../../../../scripts/background/services/InjectionService.js');
 jest.mock('../../../../scripts/utils/securityUtils.js');
+jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js');
 jest.mock('../../../../scripts/utils/ErrorHandler.js');
 jest.mock('../../../../scripts/utils/urlUtils.js');
 jest.mock('../../../../scripts/utils/notionAuth.js');

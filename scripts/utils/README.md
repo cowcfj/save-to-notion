@@ -12,7 +12,8 @@
 
 - `Logger.js`: 全域日誌工具
 - `ErrorHandler.js`: 統一錯誤處理
-- `securityUtils.js`: 請求與來源驗證、URL 安全檢查、API 錯誤標準化、SVG 驗證與備份安全驗證等
+- `securityUtils.js`: 請求與來源驗證、URL 安全檢查、SVG 驗證與備份安全驗證等
+- `ApiErrorSanitizer.js`: API 錯誤與執行期錯誤之安全性標準化與分類
 - `LogSanitizer.js`: 跨環境的日誌清理與脫敏工具
 - `urlUtils.js`: URL 解析與正規化
 

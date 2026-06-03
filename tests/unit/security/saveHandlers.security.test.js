@@ -51,14 +51,16 @@ const mockMigrationService = {
   migrateStorageKey: jest.fn().mockResolvedValue(false),
 };
 
-// Security Utils Mock
 jest.mock('../../../scripts/utils/securityUtils.js', () => ({
   validateInternalRequest: jest.fn(),
   validateContentScriptRequest: jest.fn(),
   isValidNotionUrl: jest.fn().mockReturnValue(true),
-  sanitizeApiError: jest.fn(err => err),
   sanitizeUrlForLogging: jest.fn(url => url),
   normalizeUrl: jest.fn(url => url),
+}));
+
+jest.mock('../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+  sanitizeApiError: jest.fn(err => err),
 }));
 
 jest.mock('../../../scripts/utils/notionAuth.js', () => ({
