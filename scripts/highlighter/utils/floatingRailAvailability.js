@@ -108,6 +108,34 @@ async function recoverReadyFailureWithDynamicRail(onRailReady, sendResponse) {
   return true;
 }
 
+function sendReadyFailureResponse(sendResponse, error) {
+  sendResponse({
+    success: false,
+    error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED),
+  });
+}
+
+async function recoverOrSendReadyFailure({ onRailReady, sendResponse, sessionOverride, error }) {
+  if (sessionOverride && (await recoverReadyFailureWithDynamicRail(onRailReady, sendResponse))) {
+    return;
+  }
+
+  sendReadyFailureResponse(sendResponse, error);
+}
+
+async function runReadyRailAction(rail, onRailReady, sendResponse) {
+  try {
+    const readyActionResult = onRailReady(rail);
+    if (isPromiseLike(readyActionResult)) {
+      await readyActionResult;
+    }
+    sendResponse({ success: true });
+  } catch (error) {
+    resetFloatingRailReady();
+    sendFloatingRailError(sendResponse, error);
+  }
+}
+
 async function awaitReadyAndAct(
   railReadyPromise,
   onRailReady,
@@ -119,38 +147,27 @@ async function awaitReadyAndAct(
     readyResult = await railReadyPromise;
   } catch {
     resetFloatingRailReady();
-    if (sessionOverride && (await recoverReadyFailureWithDynamicRail(onRailReady, sendResponse))) {
-      return;
-    }
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
+    await recoverOrSendReadyFailure({
+      onRailReady,
+      sendResponse,
+      sessionOverride,
+      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+    });
     return;
   }
 
   if (!readyResult?.success || !readyResult.rail) {
     resetFloatingRailReady();
-    if (sessionOverride && (await recoverReadyFailureWithDynamicRail(onRailReady, sendResponse))) {
-      return;
-    }
-    sendResponse({
-      success: false,
-      error: formatRuntimeErrorMessage(
-        readyResult?.error,
-        RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED
-      ),
+    await recoverOrSendReadyFailure({
+      onRailReady,
+      sendResponse,
+      sessionOverride,
+      error: readyResult?.error,
     });
     return;
   }
 
-  try {
-    const readyActionResult = onRailReady(readyResult.rail);
-    if (isPromiseLike(readyActionResult)) {
-      await readyActionResult;
-    }
-    sendResponse({ success: true });
-  } catch (error) {
-    resetFloatingRailReady();
-    sendFloatingRailError(sendResponse, error);
-  }
+  await runReadyRailAction(readyResult.rail, onRailReady, sendResponse);
 }
 
 /**
