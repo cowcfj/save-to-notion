@@ -112,6 +112,7 @@
 - **Next.js原生支持**：深度解析 **Next.js (App Router/Pages Router)** 網站數據，精準還原高品質內容
 - **深度優化**：針對 **BBC、HK01、明報、Yahoo HK** 等複雜網站特別優化，提供網域專屬清洗規則支援完整、乾淨的內容保存
 - **Mozilla Readability**：智能提取文章主要內容，支持多種 CMS 系統
+- **DOMPurify 安全消毒**：集中清洗 HTML 與 SVG，移除不安全標籤、屬性與協定，降低 XSS 風險
 - **自動過濾**：自動過濾廣告和無關內容
 - **完整保存**：支持超長文章（8000+ 字），自動分批處理
 
@@ -404,3 +405,7 @@ This extension relies on the following open-source projects:
   Used for extracting main content from web pages.
   Licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
   Copyright (c) 2010 Arc90 Inc.
+
+- **[DOMPurify](https://github.com/cure53/DOMPurify)**
+  Used for HTML and SVG sanitization to help prevent XSS in content extraction and highlighter UI paths.
+  Licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) or [Mozilla Public License 2.0](https://www.mozilla.org/en-US/MPL/2.0/).
