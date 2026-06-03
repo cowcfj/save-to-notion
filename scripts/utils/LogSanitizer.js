@@ -26,6 +26,10 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 // 安全的 HTTP Headers 白名單 Set（為了性能而在內部轉換）
 const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
+// Error 物件中已被獨立處理的保留欄位：name 於初始化、message / stack 於迴圈後，
+// 其餘自定義屬性才需遞迴清洗
+const RESERVED_ERROR_KEYS = new Set(['message', 'stack', 'name']);
+
 /**
  * 日誌脫敏中需移除的追蹤參數
  * 維護說明：此清單與 config/extraction.js 的 URL_NORMALIZATION.TRACKING_PARAMS 保持同步。
@@ -479,7 +483,7 @@ export const LogSanitizer = {
 
     // 嘗試保留其他自定義屬性
     for (const key of Object.keys(error)) {
-      if (key !== 'message' && key !== 'stack' && key !== 'name') {
+      if (!RESERVED_ERROR_KEYS.has(key)) {
         sanitized[key] = this._sanitizeValue(error[key], depth + 1, seen, options);
       }
     }
