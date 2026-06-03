@@ -20,6 +20,7 @@ import {
   DOMAIN_CLEANING_RULES,
 } from '../../config/shared/content.js';
 import { IMAGE_ATTRIBUTES } from '../../utils/imageUtils.js';
+import { sanitizeArticleHtml } from '../sanitizers/htmlSanitizer.js';
 
 /**
  * 列表處理的預編譯正則表達式模式
@@ -841,23 +842,6 @@ function removeDisplayNoneElements(root) {
 }
 
 /**
- * 移除元素中的所有 inline 事件處理器屬性 (如 onclick, onload 等 on* 屬性)
- *
- * @param {Element} root - 起始查詢的根節點
- */
-function stripEventHandlerAttributes(root) {
-  const allElements = root.querySelectorAll('*');
-  allElements.forEach(el => {
-    const attributes = Array.from(el.attributes);
-    attributes.forEach(attr => {
-      if (attr.name.toLowerCase().startsWith('on')) {
-        el.removeAttribute(attr.name);
-      }
-    });
-  });
-}
-
-/**
  * 執行智慧清洗 (Smart Cleaning)
  * 在 Readability 解析後，針對特定 CMS 或通用雜訊進行二次清理
  *
@@ -899,8 +883,8 @@ function performSmartCleaning(articleContent, cmsType, domainRules = null) {
     });
   }
 
-  // 4. 輕量級屬性清理 (Lightweight Attribute Sanitization)
-  stripEventHandlerAttributes(tempDiv);
+  // 4. 使用 DOMPurify 進行安全過濾與消毒收口 (XSS Sanitizer Boundary)
+  const sanitizedHtml = sanitizeArticleHtml(tempDiv.innerHTML);
 
   Logger.log('智慧清洗完成', {
     action: 'performSmartCleaning',
@@ -908,7 +892,7 @@ function performSmartCleaning(articleContent, cmsType, domainRules = null) {
     removedCount,
   });
 
-  return tempDiv.innerHTML;
+  return sanitizedHtml;
 }
 
 /**

@@ -84,8 +84,25 @@ const FORBIDDEN_TAGS = [
 // 禁用屬性，確保安全防線
 const FORBIDDEN_ATTR = ['style', 'srcset', 'formaction', 'action'];
 
-// 僅允許 http, https 與相對路徑的 URI 正規表達式 (a-zA-Z 簡化為 a-z 因有 i 旗標)
-const SAFE_URI_REGEXP = /^(?:https?|http):|^(?![a-z][-a-z0-9+.]*:)/i;
+// 僅允許 http, https、安全 data: 協定（如 image/*, application/pdf）與相對路徑的 URI 正規表達式
+const SAFE_URI_REGEXP =
+  /^https?:|^data:(?:image\/(?:jpeg|png|gif|webp|svg\+xml)|application\/pdf)[;,]|^(?![a-z][-a-z0-9+.]*:)/i;
+
+// 註冊 hook 以對 data: URI 進行更嚴格、更安全的縱深防禦過濾（避免 DOMPurify 預設對 img src 放行 data:text/html 等不安全類型）
+DOMPurify.addHook('afterSanitizeAttributes', node => {
+  if (node.hasAttribute('src')) {
+    const src = node.getAttribute('src');
+    if (src && src.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(src)) {
+      node.removeAttribute('src');
+    }
+  }
+  if (node.hasAttribute('href')) {
+    const href = node.getAttribute('href');
+    if (href && href.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(href)) {
+      node.removeAttribute('href');
+    }
+  }
+});
 
 /**
  * 消毒文章 HTML 字串
