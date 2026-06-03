@@ -88,20 +88,28 @@ const FORBIDDEN_ATTR = ['style', 'srcset', 'formaction', 'action'];
 const SAFE_URI_REGEXP =
   /^https?:|^data:(?:image\/(?:jpeg|png|gif|webp|svg\+xml)|application\/pdf)[;,]|^(?![a-z][-a-z0-9+.]*:)/i;
 
+const EMPTY_HTML_INPUTS = new Set([null, undefined, '']);
+
+function isEmptyHtmlInput(html) {
+  return EMPTY_HTML_INPUTS.has(html);
+}
+
+function isUnsafeDataUri(value) {
+  return Boolean(value && value.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(value));
+}
+
+function removeUnsafeDataUriAttribute(node, attributeName) {
+  const value = node.getAttribute(attributeName);
+
+  if (isUnsafeDataUri(value)) {
+    node.removeAttribute(attributeName);
+  }
+}
+
 // 註冊 hook 以對 data: URI 進行更嚴格、更安全的縱深防禦過濾（避免 DOMPurify 預設對 img src 放行 data:text/html 等不安全類型）
 DOMPurify.addHook('afterSanitizeAttributes', node => {
-  if (node.hasAttribute('src')) {
-    const src = node.getAttribute('src');
-    if (src && src.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(src)) {
-      node.removeAttribute('src');
-    }
-  }
-  if (node.hasAttribute('href')) {
-    const href = node.getAttribute('href');
-    if (href && href.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(href)) {
-      node.removeAttribute('href');
-    }
-  }
+  removeUnsafeDataUriAttribute(node, 'src');
+  removeUnsafeDataUriAttribute(node, 'href');
 });
 
 /**
@@ -111,7 +119,7 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
  * @returns {string} 消毒後的 HTML 字串
  */
 export function sanitizeArticleHtml(html) {
-  if (html === null || html === undefined || html === '') {
+  if (isEmptyHtmlInput(html)) {
     return '';
   }
 
@@ -138,7 +146,7 @@ export function sanitizeArticleHtml(html) {
 export function sanitizeAiOutputHtml(html, options = {}) {
   const maxLength = options.maxLength || 100_000;
 
-  if (html === null || html === undefined || html === '') {
+  if (isEmptyHtmlInput(html)) {
     return {
       success: false,
       reason: 'empty',
@@ -186,7 +194,7 @@ export function sanitizeAiOutputHtml(html, options = {}) {
  * @returns {string} 純文字字串
  */
 export function sanitizeHtmlToText(html) {
-  if (html === null || html === undefined || html === '') {
+  if (isEmptyHtmlInput(html)) {
     return '';
   }
 

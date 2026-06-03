@@ -62,6 +62,22 @@ describe('htmlSanitizer', () => {
       expect(output).toContain('href="https://google.com"');
     });
 
+    test('應移除 img src 中不安全的 data URI', () => {
+      const input = '<p><img src="data:text/html,<html>" alt="bad"></p>';
+      const output = sanitizeArticleHtml(input);
+      expect(output).toBe('<p><img alt="bad"></p>');
+    });
+
+    test('應保留安全 data URI、http、https 與相對 URL', () => {
+      const input =
+        '<p><img src="data:image/png;base64,abc" alt="image"><a href="/docs">Relative</a><a href="https://example.com">HTTPS</a><a href="http://example.com">HTTP</a></p>';
+      const output = sanitizeArticleHtml(input);
+      expect(output).toContain('src="data:image/png;base64,abc"');
+      expect(output).toContain('href="/docs"');
+      expect(output).toContain('href="https://example.com"');
+      expect(output).toContain('href="http://example.com"');
+    });
+
     test('應保留支援的結構與格式化標籤', () => {
       const input =
         '<article><h1>Title</h1><p>Paragraph with <strong>strong</strong>, <em>em</em>, <kbd>kbd</kbd>, <ins>ins</ins>, <tt>tt</tt> and <strike>strike</strike></p></article>';
