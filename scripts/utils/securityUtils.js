@@ -709,27 +709,43 @@ function _getValidatedParsedSvgElement(doc, originalSvg) {
  * @throws {Error} 如果驗證失敗，拋出具體錯誤
  */
 export function validateLogExportData(data) {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid response format: missing data object');
+  const validationError = _getLogExportValidationError(data);
+  if (validationError) {
+    throw validationError;
+  }
+}
+
+const LOG_EXPORT_VALIDATION_RULES = [
+  [_isMissingLogExportDataObject, () => new Error('Invalid response format: missing data object')],
+  [
+    data => !_isValidLogExportFilename(data.filename),
+    () => new TypeError('Security check failed: Invalid filename format'),
+  ],
+  [
+    data => typeof data.content !== 'string',
+    () => new TypeError('Security check failed: Invalid content type'),
+  ],
+  [
+    data => data.mimeType !== 'application/json',
+    () => new Error('Security check failed: Invalid MIME type'),
+  ],
+];
+
+function _getLogExportValidationError(data) {
+  for (const [isInvalid, createError] of LOG_EXPORT_VALIDATION_RULES) {
+    if (isInvalid(data)) {
+      return createError();
+    }
+  }
+  return null;
+}
+
+function _isMissingLogExportDataObject(data) {
+  if (!data) {
+    return true;
   }
 
-  const { filename, content, mimeType } = data;
-
-  // 1. 驗證文件名 (防止 Path Traversal 或惡意擴展名)
-  // 僅允許字母、數字、點、下劃線、連字符，且必須以 .json 結尾
-  if (!_isValidLogExportFilename(filename)) {
-    throw new TypeError('Security check failed: Invalid filename format');
-  }
-
-  // 2. 驗證內容 (必須是字串)
-  if (typeof content !== 'string') {
-    throw new TypeError('Security check failed: Invalid content type');
-  }
-
-  // 3. 驗證 MIME 類型 (僅允許 application/json)
-  if (mimeType !== 'application/json') {
-    throw new Error('Security check failed: Invalid MIME type');
-  }
+  return typeof data !== 'object';
 }
 
 function _isValidLogExportFilename(filename) {
