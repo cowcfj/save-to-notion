@@ -10,7 +10,6 @@ import {
 } from '../config/shared/content.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
 
 export const PERFORMANCE_OPTIMIZER = {
   // Cache settings
@@ -35,6 +34,55 @@ export const PRELOADER_EVENTS = {
   REQUEST: 'notion-preloader-request',
   RESPONSE: 'notion-preloader-response',
 };
+
+function isValidDomElementObject(element) {
+  if (!element) {
+    return false;
+  }
+
+  if (typeof element !== 'object') {
+    return false;
+  }
+
+  return element.nodeType === 1;
+}
+
+function matchesExpectedSelector(element, expectedSelector) {
+  if (!expectedSelector) {
+    return true;
+  }
+
+  if (typeof element.matches !== 'function') {
+    return false;
+  }
+
+  return element.matches(expectedSelector);
+}
+
+function validateSafeDomElement(element, contextDocument, expectedSelector) {
+  if (!isValidDomElementObject(element)) {
+    Logger.debug('[PerformanceOptimizer] Invalid preloader cache element:', element);
+    return false;
+  }
+
+  if (contextDocument && element.ownerDocument !== contextDocument) {
+    return false;
+  }
+
+  if (!element.isConnected) {
+    return false;
+  }
+
+  return matchesExpectedSelector(element, expectedSelector);
+}
+
+function validatePreloaderCache(cache) {
+  if (!cache || typeof cache !== 'object') {
+    return false;
+  }
+
+  return typeof cache.timestamp === 'number' && Number.isFinite(cache.timestamp);
+}
 
 /**
  * 性能優化器類
@@ -119,7 +167,7 @@ class PerformanceOptimizer {
    * @returns {boolean} 是否遷移成功
    */
   _migrateCacheItem(element, selector, timestamp) {
-    // SECURITY: 使用共享的安全驗證函數進行檢查
+    // SECURITY: 驗證 preloader cache item 未跨 document、未過期且符合預期 selector。
     // 包含：類型檢查、防篡改 (ownerDocument)、防過期 (isConnected)、選擇器匹配
     if (!validateSafeDomElement(element, document, selector)) {
       Logger.warn('拒絕接管不安全的 preloader 快取', {

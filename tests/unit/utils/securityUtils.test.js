@@ -18,16 +18,22 @@ import {
   validateSafeSvg,
   separateIconAndText,
   validateLogExportData,
-  validateSafeDomElement,
-  validatePreloaderCache,
   isSafeSvgAttribute,
   validateBackupData,
   createSafeIcon,
 } from '../../../scripts/utils/securityUtils.js';
+import * as securityUtilsExports from '../../../scripts/utils/securityUtils.js';
 import { maskSensitiveString } from '../../../scripts/utils/LogSanitizer.js';
 import { SECURITY_CONSTANTS } from '../../../scripts/config/shared/core.js';
 
 describe('securityUtils', () => {
+  describe('export surface', () => {
+    test('content performance validation helpers 不應由 securityUtils 匯出', () => {
+      expect(securityUtilsExports).not.toHaveProperty('validateSafeDomElement');
+      expect(securityUtilsExports).not.toHaveProperty('validatePreloaderCache');
+    });
+  });
+
   describe('isValidUrl', () => {
     test('有效的 HTTP URL 應返回 true', () => {
       expect(isValidUrl('http://example.com')).toBe(true);
@@ -871,61 +877,6 @@ describe('securityUtils', () => {
         mimeType: 'text/plain', // Wrong MIME
       };
       expect(() => validateLogExportData(invalidMime)).toThrow('Invalid MIME type');
-    });
-  });
-
-  describe('validateSafeDomElement', () => {
-    test('非 DOM 元素或無效類型應返回 false', () => {
-      expect(validateSafeDomElement(null, document)).toBe(false);
-      expect(validateSafeDomElement({}, document)).toBe(false);
-      expect(validateSafeDomElement('string', document)).toBe(false);
-    });
-
-    test('元素屬於另一個文件時應返回 false', () => {
-      const otherDocument = document.implementation.createHTMLDocument('Other Document');
-      const el = otherDocument.createElement('div');
-      otherDocument.body.append(el);
-
-      expect(el.isConnected).toBe(true);
-      expect(validateSafeDomElement(el, document)).toBe(false);
-    });
-
-    test('未連接到 DOM 樹 (isConnected = false) 應返回 false', () => {
-      const el = document.createElement('div');
-      // by default, a newly created element is disconnected
-      expect(validateSafeDomElement(el, document)).toBe(false);
-    });
-
-    test('選擇器不匹配應返回 false', () => {
-      const el = document.createElement('div');
-      document.body.append(el);
-      expect(validateSafeDomElement(el, document, '.my-class')).toBe(false);
-      el.remove();
-    });
-
-    test('合法且連接的 DOM 元素應返回 true', () => {
-      const el = document.createElement('div');
-      el.className = 'my-class';
-      document.body.append(el);
-      expect(validateSafeDomElement(el, document, '.my-class')).toBe(true);
-      el.remove();
-    });
-  });
-
-  describe('validatePreloaderCache', () => {
-    test('無效快取對象應返回 false', () => {
-      expect(validatePreloaderCache(null)).toBe(false);
-      expect(validatePreloaderCache('string')).toBe(false);
-    });
-
-    test('無效的時間戳 (NaN, Infinity, 字串) 應返回 false', () => {
-      expect(validatePreloaderCache({ timestamp: Number.NaN })).toBe(false);
-      expect(validatePreloaderCache({ timestamp: Infinity })).toBe(false);
-      expect(validatePreloaderCache({ timestamp: '123456789' })).toBe(false);
-    });
-
-    test('有效的時間戳應返回 true', () => {
-      expect(validatePreloaderCache({ timestamp: 1_612_345_678_901 })).toBe(true);
     });
   });
 

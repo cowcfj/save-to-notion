@@ -23,7 +23,7 @@ import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/shared/messages.js';
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
 import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import {
   resolveKeys as resolveHighlightLookupKeys,
   getAliasLookupKeys,

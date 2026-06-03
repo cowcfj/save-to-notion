@@ -509,6 +509,29 @@ describe('PerformanceOptimizer', () => {
       expect(result).toEqual({ taken: 0 });
     });
 
+    test('應該拒絕非物件 preloader 快取', () => {
+      mockPreloader('invalid-cache');
+
+      const result = optimizer.takeoverPreloaderCache();
+
+      expect(result).toEqual({ taken: 0 });
+      expect(Logger.warn).toHaveBeenCalledWith('Preloader 快取結構無效，拒絕接管', {
+        action: 'takeoverPreloaderCache',
+      });
+    });
+
+    test('應該拒絕 timestamp 不是有限數字的 preloader 快取', () => {
+      const invalidTimestamps = [Number.NaN, Infinity, '123456789'];
+
+      invalidTimestamps.forEach(timestamp => {
+        mockPreloader({ timestamp });
+
+        const result = optimizer.takeoverPreloaderCache();
+
+        expect(result).toEqual({ taken: 0 });
+      });
+    });
+
     test('如果快取已過期應返回 expired', () => {
       mockPreloader({
         timestamp: Date.now() - 60_000, // 1 分鐘前

@@ -5,7 +5,7 @@
 
 /* global SrcsetParser */
 
-import { sanitizeUrlForLogging } from './securityUtils.js';
+import { sanitizeUrlForLogging } from './LogSanitizer.js';
 import Logger from './Logger.js';
 import {
   EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX,

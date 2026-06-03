@@ -19,7 +19,7 @@ import {
 import { isTemporaryImageUrl } from '../../utils/temporaryImageUrl.js';
 // Content-only helper: 隔離大型中文 placeholder 字串避免被打包進 background bundle
 import { buildTemporaryImagePlaceholderBlock } from './temporaryImagePlaceholder.js';
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import Logger from '../../utils/Logger.js';
 
 // Remove legacy getter
