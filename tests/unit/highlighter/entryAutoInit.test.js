@@ -5,7 +5,7 @@ jest.mock('../../../scripts/highlighter/index.js', () => ({
   setupHighlighter: jest.fn(),
 }));
 
-jest.mock('../../../scripts/utils/securityUtils.js', () => ({
+jest.mock('../../../scripts/utils/LogSanitizer.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => `sanitized:${url}`),
 }));
 
@@ -373,7 +373,7 @@ describe('entryAutoInit', () => {
 
   test('初始化 stableUrl 日誌應使用脫敏後的 URL', async () => {
     const rawStableUrl = 'https://test.com/post?id=123#token=secret';
-    const { sanitizeUrlForLogging } = require('../../../scripts/utils/securityUtils.js');
+    const { sanitizeUrlForLogging } = require('../../../scripts/utils/LogSanitizer.js');
 
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
       isSaved: true,

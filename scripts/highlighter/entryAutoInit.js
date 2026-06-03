@@ -22,7 +22,7 @@ import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.j
 import { VALID_STYLES } from './utils/color.js';
 import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingRailAvailability.js';
 import Logger from '../utils/Logger.js';
-import { sanitizeUrlForLogging } from '../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';
 
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {

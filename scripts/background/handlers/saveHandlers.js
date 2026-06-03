@@ -13,9 +13,9 @@ import {
   validateInternalRequest,
   validateContentScriptRequest,
   isValidNotionUrl,
-  sanitizeApiError,
-  sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { parseArgsToContext } from '../../utils/Logger.js';
 import {

@@ -13,7 +13,7 @@ import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.j
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/extension/driveSyncErrorCodes.js';
 
 async function flushAsyncWork() {

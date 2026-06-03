@@ -8,7 +8,8 @@
 
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
-import { sanitizeApiError, validateInternalRequest } from '../../utils/securityUtils.js';
+import { validateInternalRequest } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import {
   getActiveNotionToken,
   refreshOAuthToken as refreshOAuthTokenCoordinator,

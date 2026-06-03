@@ -509,6 +509,29 @@ describe('PerformanceOptimizer', () => {
       expect(result).toEqual({ taken: 0 });
     });
 
+    test('應該拒絕非物件 preloader 快取', () => {
+      mockPreloader('invalid-cache');
+
+      const result = optimizer.takeoverPreloaderCache();
+
+      expect(result).toEqual({ taken: 0 });
+      expect(Logger.warn).toHaveBeenCalledWith('Preloader 快取結構無效，拒絕接管', {
+        action: 'takeoverPreloaderCache',
+      });
+    });
+
+    test('應該拒絕 timestamp 不是有限數字的 preloader 快取', () => {
+      const invalidTimestamps = [Number.NaN, Infinity, '123456789'];
+
+      invalidTimestamps.forEach(timestamp => {
+        mockPreloader({ timestamp });
+
+        const result = optimizer.takeoverPreloaderCache();
+
+        expect(result).toEqual({ taken: 0 });
+      });
+    });
+
     test('如果快取已過期應返回 expired', () => {
       mockPreloader({
         timestamp: Date.now() - 60_000, // 1 分鐘前
@@ -544,6 +567,25 @@ describe('PerformanceOptimizer', () => {
       // 驗證能否從快取讀取
       const cachedArticle = optimizer.cachedQuery('article', document, { single: true });
       expect(cachedArticle).toBe(article);
+    });
+
+    test('isConnected 不是 boolean 時應退回 document.contains 並接管有效元素', () => {
+      const article = document.createElement('article');
+      document.body.append(article);
+      Object.defineProperty(article, 'isConnected', {
+        value: undefined,
+        configurable: true,
+      });
+
+      mockPreloader({
+        timestamp: Date.now(),
+        article,
+      });
+
+      const result = optimizer.takeoverPreloaderCache();
+
+      expect(result.taken).toBe(1);
+      expect(optimizer.cachedQuery('article', document, { single: true })).toBe(article);
     });
 
     test('應該拒絕未連接到 DOM 的元素 (isConnected: false)', () => {

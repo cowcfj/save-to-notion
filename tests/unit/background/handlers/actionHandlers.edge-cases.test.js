@@ -69,9 +69,15 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
     }
     return null;
   }),
-  sanitizeApiError: jest.fn(err => (err instanceof Error ? err.message : String(err))),
   isValidNotionUrl: jest.fn(() => true),
+}));
+
+jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => url),
+}));
+
+jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+  sanitizeApiError: jest.fn(err => (err instanceof Error ? err.message : String(err))),
 }));
 
 // 引入測試所需模組

@@ -4,7 +4,8 @@ import path from 'node:path';
 import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
-import { sanitizeApiError, sanitizeUrlForLogging } from '../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
+import { sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import {
   SYNC_BUTTON_DEBOUNCE_MS,
@@ -36,6 +37,11 @@ jest.mock('../../../scripts/utils/urlUtils.js', () => ({
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
   },

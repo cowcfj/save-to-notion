@@ -12,7 +12,9 @@
 
 - `Logger.js`: 全域日誌工具
 - `ErrorHandler.js`: 統一錯誤處理
-- `securityUtils.js`: 安全性檢查、API 錯誤處理等
+- `securityUtils.js`: 請求與來源驗證、URL 安全檢查、SVG 驗證與備份安全驗證等
+- `ApiErrorSanitizer.js`: API 錯誤與執行期錯誤之安全性標準化與分類
+- `LogSanitizer.js`: 跨環境的日誌清理與脫敏工具
 - `urlUtils.js`: URL 解析與正規化
 
 > **🚨 開發預警 / Warning**
@@ -34,5 +36,5 @@
 - `RetryManager.js`: 僅 Background 的網頁請求重試管理
 - `LogBuffer.js`: 僅 Background 的日誌緩衝區
 - `LogExporter.js`: 僅 Background 的日誌匯出器
-- `LogSanitizer.js`: 僅 Background 的日誌清理與脫敏工具
+- `LogExportValidator.js`: 日誌導出數據的安全性與結構驗證工具
 - `concurrencyUtils.js`: 僅 Background 的並行控制工具 (pMap)

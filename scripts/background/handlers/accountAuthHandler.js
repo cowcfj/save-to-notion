@@ -2,7 +2,7 @@
 
 import { ACCOUNT_API } from '../../config/extension/accountApi.js';
 import { BUILD_ENV } from '../../config/env/index.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 
 /**
  * 建立 account callback bridge handler。

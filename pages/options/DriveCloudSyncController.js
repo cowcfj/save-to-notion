@@ -34,7 +34,7 @@ import {
 } from '../../scripts/auth/driveClient.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
-import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 
 const DRIVE_SYNC_IDENTITY_INIT_FAILED = 'drive_sync_identity_init_failed';
 

@@ -23,7 +23,7 @@ import {
   syncHighlights,
   openSidePanel,
 } from './FloatingRailRuntime.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
 import { HIGHLIGHT_ERROR_CODES, UI_MESSAGES } from '../../config/shared/messages.js';

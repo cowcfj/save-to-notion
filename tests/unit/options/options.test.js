@@ -24,7 +24,7 @@ import Logger from '../../../scripts/utils/Logger.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
-import { sanitizeApiError } from '../../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env/index.js', () => ({

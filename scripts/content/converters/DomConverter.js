@@ -22,7 +22,7 @@ import {
   NOTION_CODE_LANGUAGE_PLAIN_TEXT,
   NOTION_SUPPORTED_LANGUAGES,
 } from '../../config/notionCodeLanguages.js';
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 /**
  * Notion API 文本長度限制

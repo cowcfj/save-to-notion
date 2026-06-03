@@ -5,7 +5,7 @@
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
-import { sanitizeApiError } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 

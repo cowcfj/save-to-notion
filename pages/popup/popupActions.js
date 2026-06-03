@@ -6,11 +6,9 @@
 
 /* global chrome */
 
-import {
-  isValidNotionUrl,
-  sanitizeApiError,
-  sanitizeUrlForLogging,
-} from '../../scripts/utils/securityUtils.js';
+import { isValidNotionUrl } from '../../scripts/utils/securityUtils.js';
+import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
+import { sanitizeUrlForLogging } from '../../scripts/utils/LogSanitizer.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { AuthMode } from '../../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../../scripts/config/env/index.js';

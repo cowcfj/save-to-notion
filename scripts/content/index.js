@@ -142,10 +142,13 @@ async function handleShowFloatingRail(sendResponse) {
 /**
  * 處理啟動 Floating Rail 標註模式請求
  *
+ * @param {object} request - runtime message payload
  * @param {Function} sendResponse - 回應函數
  */
-async function handleActivateFloatingRailHighlight(sendResponse) {
-  await withAvailableFloatingRail(sendResponse, activateFloatingRailHighlighting);
+async function handleActivateFloatingRailHighlight(request, sendResponse) {
+  await withAvailableFloatingRail(sendResponse, activateFloatingRailHighlighting, {
+    sessionOverride: request?.sessionOverride === true,
+  });
 }
 
 /**
@@ -247,8 +250,8 @@ const runtimeMessageHandlers = {
     globalThis.HighlighterV2?.toast?.show(request.messageKey, { level: request.level });
     return false;
   },
-  [HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT]: (_request, sendResponse) => {
-    handleActivateFloatingRailHighlight(sendResponse);
+  [HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT]: (request, sendResponse) => {
+    handleActivateFloatingRailHighlight(request, sendResponse);
     return true;
   },
   [HIGHLIGHTER_ACTIONS.REMOVE_HIGHLIGHT_DOM]: (request, sendResponse) => {

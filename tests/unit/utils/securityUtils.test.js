@@ -13,21 +13,34 @@ import {
   isValidNotionUrl,
   validateInternalRequest,
   validateContentScriptRequest,
-  sanitizeUrlForLogging,
-  sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
-  validateLogExportData,
-  validateSafeDomElement,
-  validatePreloaderCache,
   isSafeSvgAttribute,
   validateBackupData,
   createSafeIcon,
 } from '../../../scripts/utils/securityUtils.js';
+import * as securityUtilsExports from '../../../scripts/utils/securityUtils.js';
 import { maskSensitiveString } from '../../../scripts/utils/LogSanitizer.js';
 import { SECURITY_CONSTANTS } from '../../../scripts/config/shared/core.js';
 
 describe('securityUtils', () => {
+  describe('export surface', () => {
+    test('sanitizeApiError 不應由 securityUtils 匯出', () => {
+      expect(securityUtilsExports).not.toHaveProperty('sanitizeApiError');
+    });
+    test('content performance validation helpers 不應由 securityUtils 匯出', () => {
+      expect(securityUtilsExports).not.toHaveProperty('validateSafeDomElement');
+      expect(securityUtilsExports).not.toHaveProperty('validatePreloaderCache');
+    });
+
+    test('日誌脫敏與日誌導出驗證工具不應由 securityUtils 匯出', () => {
+      expect(securityUtilsExports).not.toHaveProperty('sanitizeUrlForLogging');
+      expect(securityUtilsExports).not.toHaveProperty('maskSensitiveString');
+      expect(securityUtilsExports).not.toHaveProperty('LogSanitizer');
+      expect(securityUtilsExports).not.toHaveProperty('validateLogExportData');
+    });
+  });
+
   describe('isValidUrl', () => {
     test('有效的 HTTP URL 應返回 true', () => {
       expect(isValidUrl('http://example.com')).toBe(true);
@@ -202,46 +215,6 @@ describe('securityUtils', () => {
     });
   });
 
-  describe('sanitizeUrlForLogging', () => {
-    test('應移除追蹤參數但保留無害參數', () => {
-      // 模擬帶有隱私參數與追蹤參數的 URL。因為 securityUtils.js 定義的 LOG_TRACKING_PARAMS 不含 sig 或 token (因為那通常被其他字串置換器砍掉)
-      // 若該檔使用 LOG_TRACKING_PARAMS 僅移除了特定 utm_ 等字眼，那麼 token / sig 會被完整地保留成為 url 參數的一部分。
-      // 因此在這一層我們只要測 Tracking_params 就好。
-      const result = sanitizeUrlForLogging(
-        'https://api.example.com/data?utm_source=fb&gclid=123&page=2'
-      );
-      expect(result).toBe('https://api.example.com/data?page=2');
-      expect(result).not.toContain('utm_source');
-      expect(result).not.toContain('gclid');
-    });
-
-    test('應移除 fragment', () => {
-      const result = sanitizeUrlForLogging('https://example.com/page#section-1');
-      expect(result).toBe('https://example.com/page');
-    });
-
-    test('應保留協議、主機名和路徑', () => {
-      const result = sanitizeUrlForLogging('https://example.com/path/to/resource');
-      expect(result).toBe('https://example.com/path/to/resource');
-    });
-
-    test('無效 URL 應返回 [invalid-url]', () => {
-      expect(sanitizeUrlForLogging('not-a-valid-url')).toBe('[invalid-url]');
-    });
-
-    test('空字串應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging('')).toBe('[empty-url]');
-    });
-
-    test('null 應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging(null)).toBe('[empty-url]');
-    });
-
-    test('undefined 應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging()).toBe('[empty-url]');
-    });
-  });
-
   describe('maskSensitiveString', () => {
     test('應正確遮蔽中間部分', () => {
       const result = maskSensitiveString('secret-token-example-1234567890');
@@ -273,273 +246,6 @@ describe('securityUtils', () => {
     test('剛好等於可見長度的字串應全部遮蔽', () => {
       const result = maskSensitiveString('12345678', 4, 4);
       expect(result).toBe('***');
-    });
-  });
-
-  describe('sanitizeApiError', () => {
-    describe('API Key 格式無效', () => {
-      test('"api key is invalid" 應返回 API Key（因為包含 api key）', () => {
-        const result = sanitizeApiError('api key is invalid');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"malformed: api_key" 應返回 API Key', () => {
-        const result = sanitizeApiError('malformed: api_key');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-    });
-
-    describe('Integration 連接斷開', () => {
-      test('"unauthorized: API token is invalid" 應返回 API Key', () => {
-        const result = sanitizeApiError('unauthorized: API token is invalid');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"unauthorized: integration not found" 應返回 Page ID is missing', () => {
-        const result = sanitizeApiError('unauthorized: integration not found');
-        expect(result).toBe('MISSING_PAGE_ID');
-      });
-    });
-
-    describe('一般認證錯誤', () => {
-      test.each([['Unauthorized access'], ['authentication failed'], ['api key required']])(
-        '"%s" 應返回 API Key 錯誤訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('API_KEY_NOT_CONFIGURED');
-        }
-      );
-    });
-
-    describe('資料庫權限不足', () => {
-      // AUTH_FORBIDDEN 優先於 DATA_SOURCE：'forbidden' / 'permission denied'
-      // 是更精確的權限訊號，會被歸為 INTEGRATION_FORBIDDEN。
-      test.each([['database forbidden'], ['database permission denied']])(
-        '"%s" 應返回 INTEGRATION_FORBIDDEN（AUTH_FORBIDDEN 優先）',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('INTEGRATION_FORBIDDEN');
-        }
-      );
-
-      // 'access denied' 不屬於 AUTH_FORBIDDEN，但含 'database'：
-      // PERMISSION + PERMISSION_DB → DATABASE_ACCESS_DENIED。
-      test('"database access denied" 應返回 DATABASE_ACCESS_DENIED', () => {
-        const result = sanitizeApiError('database access denied');
-        expect(result).toBe('DATABASE_ACCESS_DENIED');
-      });
-    });
-
-    describe('一般權限不足錯誤 (Forbidden/Auth)', () => {
-      test.each([['forbidden: access denied'], ['Forbidden'], ['permission denied']])(
-        '"%s" 應返回資料庫權限不足訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('INTEGRATION_FORBIDDEN');
-        }
-      );
-    });
-
-    describe('一般權限不足錯誤 (Access Denied)', () => {
-      test.each([['access denied to resource']])('"%s" 應返回不能存取內容訊息', input => {
-        const result = sanitizeApiError(input);
-        expect(result).toBe('TAB_RESTRICTED_PAGE');
-      });
-    });
-
-    describe('優先順序邊緣情況', () => {
-      test('"unauthorized: invalid token" 應返回 API Key（Auth 優先於 Validation）', () => {
-        const result = sanitizeApiError('unauthorized: invalid token');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"database permission denied" 應返回 INTEGRATION_FORBIDDEN（AUTH_FORBIDDEN 優先於 DATA_SOURCE）', () => {
-        const result = sanitizeApiError('database permission denied');
-        expect(result).toBe('INTEGRATION_FORBIDDEN');
-      });
-
-      test('"unauthorized" 純粹無其他關鍵字應返回 API Key', () => {
-        const result = sanitizeApiError('unauthorized');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"invalid token" (通用 token) 應返回 validation_error (不再是 Auth 若無其他 Auth 關鍵字)', () => {
-        const result = sanitizeApiError('invalid token provided');
-        expect(result).toBe('VALIDATION_ERROR');
-      });
-
-      test('"invalid api token" 應返回 API Key', () => {
-        const result = sanitizeApiError('invalid api token provided');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-    });
-
-    describe('速率限制錯誤', () => {
-      test.each([['rate limit exceeded'], ['too many requests'], ['Rate Limit']])(
-        '"%s" 應返回速率限制訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('RATE_LIMITED');
-        }
-      );
-    });
-
-    describe('資源不存在錯誤', () => {
-      test.each([['not found'], ['resource does not exist'], ['page not found']])(
-        '"%s" 應返回資源不存在訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('MISSING_PAGE_ID');
-        }
-      );
-    });
-
-    describe('驗證錯誤', () => {
-      test.each([['validation failed'], ['invalid image url'], ['media upload failed']])(
-        '"%s" 應返回數據格式訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('VALIDATION_ERROR');
-        }
-      );
-    });
-
-    describe('網絡錯誤', () => {
-      test.each([['network error'], ['fetch failed'], ['ENOTFOUND api.notion.com']])(
-        '"%s" 應返回網絡錯誤訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('NETWORK_ERROR');
-        }
-      );
-    });
-
-    describe('超時錯誤', () => {
-      // 超時錯誤必須先於 NETWORK_ERROR 識別，否則會被「網路連線異常」訊息覆蓋
-      // 喪失「請求超時」的精確語意（PATTERNS.TIMEOUT vs PATTERNS.NETWORK_ERROR）。
-      test.each([['timeout waiting for response'], ['Request timeout'], ['connection timed out']])(
-        '"%s" 應返回 TIMEOUT 分類',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('TIMEOUT');
-        }
-      );
-
-      test('內部 TIMEOUT token 應 fast-path 原樣回傳', () => {
-        expect(sanitizeApiError('TIMEOUT')).toBe('TIMEOUT');
-      });
-    });
-
-    describe('服務錯誤', () => {
-      test.each([['service unavailable'], ['internal error occurred']])(
-        '"%s" 應返回服務不可用訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('INTERNAL_SERVER_ERROR');
-        }
-      );
-    });
-
-    describe('chrome.tabs 錯誤', () => {
-      test.each([
-        ['No tab with id: 1234'],
-        ['no tab with id: 5678'],
-        ['Error: No tab with id: 999'],
-      ])('"%s" 應返回 NO_TAB_WITH_ID', input => {
-        expect(sanitizeApiError(input)).toBe('NO_TAB_WITH_ID');
-      });
-    });
-
-    describe('chrome.runtime content-script 未就緒', () => {
-      test.each([['Receiving end does not exist'], ['Error: Receiving end does not exist.']])(
-        '"%s" 應返回 CONTENT_SCRIPT_NOT_READY',
-        input => {
-          expect(sanitizeApiError(input)).toBe('CONTENT_SCRIPT_NOT_READY');
-        }
-      );
-
-      // chrome 實際拋出的複合訊息：'Could not establish connection. Receiving end does not exist.'
-      // 兩條 mapping 同時命中時，priority 必須給更具體的 receiving-end axis（content script 已 unmount）。
-      test('chrome 複合訊息應命中 CONTENT_SCRIPT_NOT_READY（更具體 axis 勝出）', () => {
-        const composite = 'Could not establish connection. Receiving end does not exist.';
-        expect(sanitizeApiError(composite)).toBe('CONTENT_SCRIPT_NOT_READY');
-      });
-
-      // Priority guard：NOT_FOUND keyword 含 'does not exist'，是 'receiving end does not exist'
-      // 的子串。若 _checkSimpleMappings priority 被未來 PR 倒置，此測試會失敗並明確報告誤分類。
-      test('priority guard：receiving-end 訊息 MUST NOT 落到 MISSING_PAGE_ID', () => {
-        expect(sanitizeApiError('Receiving end does not exist')).not.toBe('MISSING_PAGE_ID');
-      });
-    });
-
-    describe('chrome.runtime 連線失敗', () => {
-      test.each([
-        ['Could not establish connection'],
-        ['could not establish connection. unknown extension.'],
-      ])('"%s" 應返回 TAB_COMMUNICATION_FAILED', input => {
-        expect(sanitizeApiError(input)).toBe('TAB_COMMUNICATION_FAILED');
-      });
-    });
-
-    describe('數據庫錯誤', () => {
-      test('數據庫相關錯誤（帶頁面上下文）應返回權限提示', () => {
-        const result = sanitizeApiError('database not accessible', 'create_page');
-        expect(result).toBe('MISSING_DATA_SOURCE');
-      });
-    });
-
-    describe('通用錯誤', () => {
-      test('未知錯誤應返回通用訊息', () => {
-        const result = sanitizeApiError('some unknown error xyz');
-        expect(result).toBe('UNKNOWN_ERROR');
-      });
-
-      test('錯誤對象應被正確處理', () => {
-        const result = sanitizeApiError({ message: 'unauthorized' });
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('空錯誤應返回通用訊息', () => {
-        const result = sanitizeApiError({});
-        expect(result).toBe('UNKNOWN_ERROR');
-      });
-
-      test('內部 PATTERNS key 應 fast-path 原樣回傳（避免 keyword 比對誤判為 UNKNOWN_ERROR）', () => {
-        // 模擬 handlerUtils.getActiveTab 拋出 new Error(TECHNICAL.NO_ACTIVE_TAB) 的情境：
-        // Phase 2 後 TECHNICAL value 從英文短語升級為 SCREAMING_SNAKE token，
-        // sanitizer 必須認得這是內部 vocabulary 而非外部訊息，直接回傳同一個 token。
-        expect(sanitizeApiError('NO_ACTIVE_TAB')).toBe('NO_ACTIVE_TAB');
-        expect(sanitizeApiError('API_KEY_NOT_CONFIGURED')).toBe('API_KEY_NOT_CONFIGURED');
-        expect(sanitizeApiError(new Error('NO_ACTIVE_TAB'))).toBe('NO_ACTIVE_TAB');
-      });
-    });
-
-    describe('XSS 防護', () => {
-      test('包含中文的惡意字串應被轉義', () => {
-        const malicious = '發生錯誤<script>alert("XSS")</script>';
-        const result = sanitizeApiError(malicious);
-        expect(result).toBe(malicious); // 根據新的設計，sanitizeApiError 不再轉義，而是依賴 UI 層的 textContent
-        expect(result).toContain('<script>');
-      });
-
-      test('包含中文的 img onerror 攻擊應被轉義', () => {
-        const malicious = '請稍後再試<img src=x onerror=alert(1)>';
-        const result = sanitizeApiError(malicious);
-        expect(result).toContain('<img');
-        expect(result).not.toContain('&lt;img');
-      });
-
-      test('純中文字串應保持不變', () => {
-        const chinese = '這是一段中文錯誤訊息';
-        const result = sanitizeApiError(chinese);
-        expect(result).toBe(chinese);
-      });
-
-      test('含特殊字符的中文訊息應被轉義', () => {
-        const withSpecialChars = '錯誤: "a" & "b"';
-        const result = sanitizeApiError(withSpecialChars);
-        expect(result).toBe(withSpecialChars);
-      });
     });
   });
 
@@ -769,6 +475,27 @@ describe('securityUtils', () => {
         expect(result.icon).toBe('🎉');
         expect(result.text).toBe(' 慶祝成功');
       });
+
+      test('應處理 ZWJ family emoji 序列', () => {
+        const message = '👨‍👩‍👧‍👦 家庭設定已更新';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('👨‍👩‍👧‍👦');
+        expect(result.text).toBe(' 家庭設定已更新');
+      });
+
+      test('應處理膚色修飾符與 ZWJ emoji 序列', () => {
+        const message = '👩🏽‍⚕️ 健康資料已同步';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('👩🏽‍⚕️');
+        expect(result.text).toBe(' 健康資料已同步');
+      });
+
+      test('應處理 regional indicator pair 旗幟 emoji', () => {
+        const message = '🇺🇸 英文內容已保存';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('🇺🇸');
+        expect(result.text).toBe(' 英文內容已保存');
+      });
     });
 
     describe('純文本消息', () => {
@@ -784,6 +511,20 @@ describe('securityUtils', () => {
         const result = separateIconAndText(message);
         expect(result.icon).toBe('');
         expect(result.text).toBe('文本 <svg> 標籤');
+      });
+
+      test('應處理中間包含現代 Emoji 序列的消息（不應分離）', () => {
+        const message = '狀態 👩🏽‍⚕️ 已同步';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('狀態 👩🏽‍⚕️ 已同步');
+      });
+
+      test('應處理文字後接旗幟 Emoji 的消息（不應分離）', () => {
+        const message = '地區 🇺🇸 已設定';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('地區 🇺🇸 已設定');
       });
     });
 
@@ -817,115 +558,13 @@ describe('securityUtils', () => {
         expect(result.icon).toBe('<svg></svg>');
         expect(result.text).toBe('');
       });
-    });
-  });
 
-  describe('validateLogExportData', () => {
-    test('有效的導出數據應通過驗證', () => {
-      const validData = {
-        filename: 'debug_logs_2023.json',
-        content: '{"logs":[]}',
-        mimeType: 'application/json',
-      };
-      expect(() => validateLogExportData(validData)).not.toThrow();
-    });
-
-    test('缺少數據對象應拋出錯誤', () => {
-      expect(() => validateLogExportData(null)).toThrow('missing data object');
-      expect(() => validateLogExportData()).toThrow('missing data object');
-    });
-
-    test('無效的文件名應拋出錯誤', () => {
-      const invalidFilenames = [
-        '../passwd', // Path traversal
-        'logs.txt', // Wrong extension
-        'logs.json.exe', // Double extension
-        'logs;rm -rf', // Shell injection chars
-        '', // Empty
-        null,
-      ];
-      invalidFilenames.forEach(filename => {
-        expect(() =>
-          validateLogExportData({
-            filename,
-            content: '{}',
-            mimeType: 'application/json',
-          })
-        ).toThrow('Invalid filename format');
+      test('SVG 前綴後接 Emoji 序列時應維持 SVG 分離邏輯', () => {
+        const svgIcon = '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>';
+        const result = separateIconAndText(`${svgIcon} 👩🏽‍⚕️ 已同步`);
+        expect(result.icon).toBe(svgIcon);
+        expect(result.text).toBe(' 👩🏽‍⚕️ 已同步');
       });
-    });
-
-    test('非字串內容應拋出錯誤', () => {
-      const invalidContent = {
-        filename: 'logs.json',
-        content: null, // Not a string
-        mimeType: 'application/json',
-      };
-      expect(() => validateLogExportData(invalidContent)).toThrow('Invalid content type');
-    });
-
-    test('錯誤的 MIME 類型應拋出錯誤', () => {
-      const invalidMime = {
-        filename: 'logs.json',
-        content: '{}',
-        mimeType: 'text/plain', // Wrong MIME
-      };
-      expect(() => validateLogExportData(invalidMime)).toThrow('Invalid MIME type');
-    });
-  });
-
-  describe('validateSafeDomElement', () => {
-    test('非 DOM 元素或無效類型應返回 false', () => {
-      expect(validateSafeDomElement(null, document)).toBe(false);
-      expect(validateSafeDomElement({}, document)).toBe(false);
-      expect(validateSafeDomElement('string', document)).toBe(false);
-    });
-
-    test('元素屬於另一個文件時應返回 false', () => {
-      const otherDocument = document.implementation.createHTMLDocument('Other Document');
-      const el = otherDocument.createElement('div');
-      otherDocument.body.append(el);
-
-      expect(el.isConnected).toBe(true);
-      expect(validateSafeDomElement(el, document)).toBe(false);
-    });
-
-    test('未連接到 DOM 樹 (isConnected = false) 應返回 false', () => {
-      const el = document.createElement('div');
-      // by default, a newly created element is disconnected
-      expect(validateSafeDomElement(el, document)).toBe(false);
-    });
-
-    test('選擇器不匹配應返回 false', () => {
-      const el = document.createElement('div');
-      document.body.append(el);
-      expect(validateSafeDomElement(el, document, '.my-class')).toBe(false);
-      el.remove();
-    });
-
-    test('合法且連接的 DOM 元素應返回 true', () => {
-      const el = document.createElement('div');
-      el.className = 'my-class';
-      document.body.append(el);
-      expect(validateSafeDomElement(el, document, '.my-class')).toBe(true);
-      el.remove();
-    });
-  });
-
-  describe('validatePreloaderCache', () => {
-    test('無效快取對象應返回 false', () => {
-      expect(validatePreloaderCache(null)).toBe(false);
-      expect(validatePreloaderCache('string')).toBe(false);
-    });
-
-    test('無效的時間戳 (NaN, Infinity, 字串) 應返回 false', () => {
-      expect(validatePreloaderCache({ timestamp: Number.NaN })).toBe(false);
-      expect(validatePreloaderCache({ timestamp: Infinity })).toBe(false);
-      expect(validatePreloaderCache({ timestamp: '123456789' })).toBe(false);
-    });
-
-    test('有效的時間戳應返回 true', () => {
-      expect(validatePreloaderCache({ timestamp: 1_612_345_678_901 })).toBe(true);
     });
   });
 

@@ -33,7 +33,7 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   },
 }));
 
-jest.mock('../../../scripts/utils/securityUtils.js', () => ({
+jest.mock('../../../scripts/utils/ApiErrorSanitizer.js', () => ({
   sanitizeApiError: jest.fn(error => error?.message ?? 'unknown'),
 }));
 

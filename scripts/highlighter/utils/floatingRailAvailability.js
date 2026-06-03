@@ -66,14 +66,17 @@ function resetFloatingRailReady() {
   globalThis.__NOTION_RAIL_READY__ = undefined;
 }
 
-async function runActiveRailAction(activeRail, onRailReady, sendResponse) {
+function noop() {}
+
+async function runFloatingRailAction(rail, onRailReady, sendResponse, beforeErrorResponse = noop) {
   try {
-    const activeResult = onRailReady(activeRail);
-    if (isPromiseLike(activeResult)) {
-      await activeResult;
+    const actionResult = onRailReady(rail);
+    if (isPromiseLike(actionResult)) {
+      await actionResult;
     }
     sendResponse({ success: true });
   } catch (error) {
+    beforeErrorResponse();
     sendFloatingRailError(sendResponse, error);
   }
 }
@@ -96,38 +99,65 @@ async function createDynamicRailInitPromise(manager) {
   }
 }
 
-async function awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse) {
+async function recoverReadyFailureWithDynamicRail(onRailReady, sendResponse) {
+  const manager = globalThis.HighlighterV2?.manager;
+  if (!manager) {
+    return false;
+  }
+
+  const recoveryPromise = createDynamicRailInitPromise(manager);
+  globalThis.__NOTION_RAIL_READY__ = recoveryPromise;
+  await awaitReadyAndAct(recoveryPromise, onRailReady, sendResponse, { sessionOverride: false });
+  return true;
+}
+
+function sendReadyFailureResponse(sendResponse, error) {
+  sendResponse({
+    success: false,
+    error: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED),
+  });
+}
+
+async function recoverOrSendReadyFailure({ onRailReady, sendResponse, sessionOverride, error }) {
+  if (sessionOverride && (await recoverReadyFailureWithDynamicRail(onRailReady, sendResponse))) {
+    return;
+  }
+
+  sendReadyFailureResponse(sendResponse, error);
+}
+
+async function awaitReadyAndAct(
+  railReadyPromise,
+  onRailReady,
+  sendResponse,
+  { sessionOverride = false } = {}
+) {
   let readyResult;
   try {
     readyResult = await railReadyPromise;
   } catch {
     resetFloatingRailReady();
-    sendResponse({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
+    await recoverOrSendReadyFailure({
+      onRailReady,
+      sendResponse,
+      sessionOverride,
+      error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+    });
     return;
   }
 
   if (!readyResult?.success || !readyResult.rail) {
     resetFloatingRailReady();
-    sendResponse({
-      success: false,
-      error: formatRuntimeErrorMessage(
-        readyResult?.error,
-        RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED
-      ),
+    await recoverOrSendReadyFailure({
+      onRailReady,
+      sendResponse,
+      sessionOverride,
+      error: readyResult?.error,
     });
     return;
   }
 
-  try {
-    const readyActionResult = onRailReady(readyResult.rail);
-    if (isPromiseLike(readyActionResult)) {
-      await readyActionResult;
-    }
-    sendResponse({ success: true });
-  } catch (error) {
-    resetFloatingRailReady();
-    sendFloatingRailError(sendResponse, error);
-  }
+  await runFloatingRailAction(readyResult.rail, onRailReady, sendResponse, resetFloatingRailReady);
 }
 
 /**
@@ -135,11 +165,12 @@ async function awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse) {
  *
  * @param {Function} sendResponse - 回應函數
  * @param {(rail: object) => (void|Promise<void>)} onRailReady - rail action callback
+ * @param {{sessionOverride?: boolean}} [options] - popup user action 可要求本 tab 動態喚回 rail
  */
-export async function withAvailableFloatingRail(sendResponse, onRailReady) {
+export async function withAvailableFloatingRail(sendResponse, onRailReady, options = {}) {
   const activeRail = globalThis.HighlighterV2?.rail;
   if (activeRail) {
-    await runActiveRailAction(activeRail, onRailReady, sendResponse);
+    await runFloatingRailAction(activeRail, onRailReady, sendResponse);
     return;
   }
 
@@ -154,5 +185,5 @@ export async function withAvailableFloatingRail(sendResponse, onRailReady) {
     globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
   }
 
-  await awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse);
+  await awaitReadyAndAct(railReadyPromise, onRailReady, sendResponse, options);
 }
