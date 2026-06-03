@@ -238,6 +238,14 @@ describe('ApiErrorSanitizer', () => {
         expect(result).toBe('API_KEY_NOT_CONFIGURED');
       });
 
+      test.each([{ message: 123 }, { message: {} }])(
+        '非字串 message 應回退為 UNKNOWN_ERROR 而非拋出 TypeError: %p',
+        input => {
+          expect(() => sanitizeApiError(input)).not.toThrow();
+          expect(sanitizeApiError(input)).toBe('UNKNOWN_ERROR');
+        }
+      );
+
       test('空錯誤應返回通用訊息', () => {
         const result = sanitizeApiError({});
         expect(result).toBe('UNKNOWN_ERROR');

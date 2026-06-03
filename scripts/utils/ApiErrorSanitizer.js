@@ -229,7 +229,7 @@ function _getApiErrorMessage(apiError) {
     return apiError;
   }
 
-  return apiError?.message ?? '';
+  return String(apiError?.message ?? '');
 }
 
 function _isImageValidationMessage(message) {
