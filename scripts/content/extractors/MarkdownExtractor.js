@@ -85,6 +85,11 @@ export const MarkdownExtractor = {
       'meta',
       'link',
       'base',
+      'form',
+      'button',
+      'input',
+      'select',
+      'textarea',
 
       // Copy Buttons & Toolbars
       '.clipboard-button',

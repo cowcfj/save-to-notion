@@ -13,6 +13,7 @@ jest.mock('../../../../scripts/highlighter/utils/safeIcon.js', () => ({
 
 describe('ToolbarUI', () => {
   beforeEach(() => {
+    createSafeIcon.mockClear();
     createSafeIcon.mockImplementation(() => {
       const el = document.createElement('span');
       const textNode = document.createTextNode('');

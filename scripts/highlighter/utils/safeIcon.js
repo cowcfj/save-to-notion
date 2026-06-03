@@ -27,6 +27,8 @@ export function sanitizeSvgIcon(svgString) {
       'stroke-width',
       'stroke-linecap',
       'stroke-linejoin',
+      'fill-rule',
+      'clip-rule',
       'cx',
       'cy',
       'r',
@@ -57,6 +59,15 @@ export function sanitizeSvgIcon(svgString) {
     ALLOW_ARIA_ATTR: false,
     RETURN_TRUSTED_TYPE: false,
   });
+}
+
+function buildSvgLogMetadata(svgString, reason) {
+  return {
+    action: 'createSafeIcon',
+    result: 'failure',
+    reason,
+    svgLength: typeof svgString === 'string' ? svgString.length : 0,
+  };
 }
 
 /**
@@ -93,17 +104,15 @@ export function createSafeIcon(svgString) {
 
   if (svgElement.tagName === 'parsererror') {
     Logger.warn('SVG parse error in safeIcon helper', {
-      action: 'create_safe_icon',
-      reason: 'xml_parser_error',
-      content: svgString,
+      ...buildSvgLogMetadata(svgString, 'xml_parser_error'),
     });
     return span;
   }
 
   if (svgElement.tagName !== 'svg') {
     Logger.warn('[Security] Parsed element is not an SVG', {
-      action: 'create_safe_icon',
-      content: svgString,
+      ...buildSvgLogMetadata(svgString, 'unexpected_root_element'),
+      rootTag: svgElement.tagName,
     });
     return span;
   }

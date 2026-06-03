@@ -116,8 +116,8 @@ describe('MarkdownExtractor', () => {
       expect(cleaned.querySelector('form')).toBeNull();
       expect(cleaned.querySelector('button')).toBeNull();
       expect(cleaned.querySelector('input')).toBeNull();
-      expect(cleaned.textContent.trim()).toContain('Bad');
-      expect(cleaned.textContent.trim()).toContain('Safe');
+      expect(cleaned.textContent.trim()).not.toContain('Bad');
+      expect(cleaned.textContent.trim()).not.toContain('Safe');
     });
 
     it('should completely remove forms and buttons to prevent form hijacking', () => {
@@ -134,7 +134,8 @@ describe('MarkdownExtractor', () => {
       expect(cleaned.querySelectorAll('form')).toHaveLength(0);
       expect(cleaned.querySelectorAll('button')).toHaveLength(0);
 
-      expect(cleaned.textContent.trim()).toContain('Safe');
+      expect(cleaned.textContent.trim()).not.toContain('Bad');
+      expect(cleaned.textContent.trim()).not.toContain('Safe');
     });
 
     it('should remove data:text/html URLs from href and src', () => {

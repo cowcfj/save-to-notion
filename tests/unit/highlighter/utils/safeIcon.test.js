@@ -3,6 +3,7 @@
  */
 
 import { sanitizeSvgIcon, createSafeIcon } from '../../../../scripts/highlighter/utils/safeIcon.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 describe('highlighter safeIcon utility', () => {
   describe('sanitizeSvgIcon', () => {
@@ -26,6 +27,15 @@ describe('highlighter safeIcon utility', () => {
       expect(sanitizeSvgIcon('')).toBe('');
       expect(sanitizeSvgIcon(null)).toBe('');
       expect(sanitizeSvgIcon(undefined)).toBe('');
+    });
+
+    test('應保留 SVG path fill-rule 與 clip-rule 屬性', () => {
+      const input =
+        '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M1 1" /></svg>';
+      const output = sanitizeSvgIcon(input);
+
+      expect(output).toContain('fill-rule="evenodd"');
+      expect(output).toContain('clip-rule="evenodd"');
     });
   });
 
@@ -67,6 +77,7 @@ describe('highlighter safeIcon utility', () => {
 
     test('對於無效的 XML (parsererror)，應記錄警告並返回空 span 節點', () => {
       const originalParse = DOMParser.prototype.parseFromString;
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
       DOMParser.prototype.parseFromString = function (str, type) {
         if (type === 'image/svg+xml' && str.includes('parsererror-trigger')) {
           return {
@@ -83,8 +94,56 @@ describe('highlighter safeIcon utility', () => {
         expect(span.tagName).toBe('SPAN');
         expect(span.className).toBe('icon');
         expect(span.children).toHaveLength(0);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            action: 'createSafeIcon',
+            result: 'failure',
+            reason: 'xml_parser_error',
+          })
+        );
+        expect(warnSpy.mock.calls[0][1]).not.toHaveProperty('content');
       } finally {
         DOMParser.prototype.parseFromString = originalParse;
+        warnSpy.mockRestore();
+      }
+    });
+
+    test('解析結果不是 svg 時應記錄安全 metadata 而非原始 SVG', () => {
+      const originalParse = DOMParser.prototype.parseFromString;
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      let parseCount = 0;
+      DOMParser.prototype.parseFromString = function () {
+        parseCount += 1;
+        if (parseCount === 1) {
+          return Reflect.apply(originalParse, this, arguments);
+        }
+
+        return {
+          documentElement: {
+            tagName: 'html',
+          },
+        };
+      };
+
+      try {
+        const input = '<svg><path d="M1" /></svg>';
+        const span = createSafeIcon(input);
+        expect(span.tagName).toBe('SPAN');
+        expect(span.children).toHaveLength(0);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            action: 'createSafeIcon',
+            result: 'failure',
+            reason: 'unexpected_root_element',
+            svgLength: input.length,
+          })
+        );
+        expect(warnSpy.mock.calls[0][1]).not.toHaveProperty('content');
+      } finally {
+        DOMParser.prototype.parseFromString = originalParse;
+        warnSpy.mockRestore();
       }
     });
   });
