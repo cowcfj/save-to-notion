@@ -17,6 +17,15 @@ import {
   ERROR_MESSAGES,
 } from '../config/shared/messages.js';
 
+const NOTION_ALLOWED_DOMAINS = new Set([
+  'notion.so',
+  'www.notion.so',
+  'notion.com',
+  'www.notion.com',
+]);
+const NOTION_ALLOWED_SUFFIXES = ['.notion.so', '.notion.com'];
+const LOG_EXPORT_FILENAME_PATTERN = /^[\w.-]+\.json$/i;
+
 // ============================================================================
 // URL 驗證函數
 // ============================================================================
@@ -30,7 +39,7 @@ import {
 export function isValidUrl(urlString) {
   try {
     const url = new URL(urlString);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    return ['http:', 'https:'].includes(url.protocol);
   } catch {
     return false;
   }
@@ -61,7 +70,7 @@ export function isValidNotionUrl(urlString) {
 // === URL 驗證私有輔助函數 ===
 
 function _normalizeHostname(hostname) {
-  let normalized = (hostname || '').toLowerCase();
+  let normalized = String(hostname ?? '').toLowerCase();
   while (normalized.endsWith('.')) {
     normalized = normalized.slice(0, -1);
   }
@@ -69,12 +78,11 @@ function _normalizeHostname(hostname) {
 }
 
 function _isAllowedNotionHostname(hostname) {
-  const allowedDomains = ['notion.so', 'www.notion.so', 'notion.com', 'www.notion.com'];
-  return (
-    allowedDomains.includes(hostname) ||
-    hostname.endsWith('.notion.so') ||
-    hostname.endsWith('.notion.com')
-  );
+  if (NOTION_ALLOWED_DOMAINS.has(hostname)) {
+    return true;
+  }
+
+  return NOTION_ALLOWED_SUFFIXES.some(suffix => hostname.endsWith(suffix));
 }
 
 // ============================================================================
@@ -183,7 +191,11 @@ function _classifyApiError(lowerMessage) {
 // === API 錯誤分類私有輔助函數 ===
 
 function _hasPatternMatch(lowerMessage, patterns) {
-  return Boolean(patterns && patterns.some(k => lowerMessage.includes(k)));
+  if (!patterns) {
+    return false;
+  }
+
+  return patterns.some(k => lowerMessage.includes(k));
 }
 
 function _classifyDirectApiError(lowerMessage, patterns) {
@@ -260,14 +272,23 @@ function _classifyDataSourceApiError(lowerMessage, patterns) {
 }
 
 function _classifyServerApiError(lowerMessage, patterns) {
-  if (_hasPatternMatch(lowerMessage, patterns.SERVER_ERROR)) {
-    const isInternal = lowerMessage.includes('internal') && lowerMessage.includes('error');
-    const isUnavailable = lowerMessage.includes('service') && lowerMessage.includes('unavailable');
-    if (isInternal || isUnavailable) {
-      return 'INTERNAL_SERVER_ERROR';
-    }
+  if (!_hasPatternMatch(lowerMessage, patterns.SERVER_ERROR)) {
+    return null;
   }
+
+  if (_messageIncludesAll(lowerMessage, ['internal', 'error'])) {
+    return 'INTERNAL_SERVER_ERROR';
+  }
+
+  if (_messageIncludesAll(lowerMessage, ['service', 'unavailable'])) {
+    return 'INTERNAL_SERVER_ERROR';
+  }
+
   return null;
+}
+
+function _messageIncludesAll(message, fragments) {
+  return fragments.every(fragment => message.includes(fragment));
 }
 
 /**
@@ -291,7 +312,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return sdkResult;
   }
 
-  const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
+  const errorMessage = _getApiErrorMessage(apiError);
 
   // 2. Fast-path: 內部 token 已是 PATTERNS key 時直接回傳，避免再走 keyword 比對而誤判為 UNKNOWN_ERROR。
   if (_isInternalErrorToken(errorMessage)) {
@@ -322,13 +343,16 @@ export function sanitizeApiError(apiError, context = 'operation') {
 // === API 錯誤清理私有輔助函數 ===
 
 function _normalizeSdkApiError(apiError) {
-  if (!apiError || !apiError.code) {
+  if (!apiError) {
+    return null;
+  }
+
+  if (!apiError.code) {
     return null;
   }
 
   if (apiError.code === 'validation_error') {
-    const msg = (apiError.message || '').toLowerCase();
-    if (msg.includes('image') || msg.includes('media')) {
+    if (_isImageValidationMessage(apiError.message)) {
       return 'IMAGE_VALIDATION_ERROR';
     }
     return 'VALIDATION_ERROR';
@@ -337,8 +361,29 @@ function _normalizeSdkApiError(apiError) {
   return typeof apiError.code === 'string' ? apiError.code.toUpperCase() : apiError.code;
 }
 
+function _getApiErrorMessage(apiError) {
+  if (typeof apiError === 'string') {
+    return apiError;
+  }
+
+  return apiError?.message ?? '';
+}
+
+function _isImageValidationMessage(message) {
+  const lowerMessage = String(message ?? '').toLowerCase();
+  if (lowerMessage.includes('image')) {
+    return true;
+  }
+
+  return lowerMessage.includes('media');
+}
+
 function _isInternalErrorToken(errorMessage) {
-  return Boolean(errorMessage && Object.hasOwn(ERROR_MESSAGES.PATTERNS, errorMessage));
+  if (!errorMessage) {
+    return false;
+  }
+
+  return Object.hasOwn(ERROR_MESSAGES.PATTERNS, errorMessage);
 }
 
 function _isLocalizedUserMessage(errorMessage) {
@@ -386,14 +431,27 @@ export function validateSafeDomElement(element, contextDocument, expectedSelecto
 // === DOM 驗證私有輔助函數 ===
 
 function _isValidDomElementObject(element) {
-  return Boolean(element && typeof element === 'object' && element.nodeType === 1);
+  if (!element) {
+    return false;
+  }
+
+  if (typeof element !== 'object') {
+    return false;
+  }
+
+  return element.nodeType === 1;
 }
 
 function _matchesExpectedSelector(element, expectedSelector) {
-  return (
-    !expectedSelector ||
-    (typeof element.matches === 'function' && element.matches(expectedSelector))
-  );
+  if (!expectedSelector) {
+    return true;
+  }
+
+  if (typeof element.matches !== 'function') {
+    return false;
+  }
+
+  return element.matches(expectedSelector);
 }
 
 /**
@@ -481,7 +539,11 @@ const SVG_DANGEROUS_PATTERNS =
   /<script|<embed|<object|<iframe|<foreignobject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
 
 function _isSvgContent(svgContent) {
-  return typeof svgContent === 'string' && svgContent.trim().startsWith('<svg');
+  if (typeof svgContent !== 'string') {
+    return false;
+  }
+
+  return svgContent.trim().startsWith('<svg');
 }
 
 function _isCompleteSvgMarkup(trimmedContent) {
@@ -655,7 +717,7 @@ export function validateLogExportData(data) {
 
   // 1. 驗證文件名 (防止 Path Traversal 或惡意擴展名)
   // 僅允許字母、數字、點、下劃線、連字符，且必須以 .json 結尾
-  if (!filename || typeof filename !== 'string' || !/^[\w.-]+\.json$/i.test(filename)) {
+  if (!_isValidLogExportFilename(filename)) {
     throw new TypeError('Security check failed: Invalid filename format');
   }
 
@@ -668,6 +730,18 @@ export function validateLogExportData(data) {
   if (mimeType !== 'application/json') {
     throw new Error('Security check failed: Invalid MIME type');
   }
+}
+
+function _isValidLogExportFilename(filename) {
+  if (!filename) {
+    return false;
+  }
+
+  if (typeof filename !== 'string') {
+    return false;
+  }
+
+  return LOG_EXPORT_FILENAME_PATTERN.test(filename);
 }
 
 /**
@@ -693,13 +767,7 @@ export function isSafeSvgAttribute(name, value) {
 
   // URL 相關屬性需要協議安全檢查
   if (_isSvgUrlAttribute(attrName)) {
-    const attrValue = String(value || '').trim();
-    if (_hasUnsafeSvgUrlScheme(attrValue)) {
-      return false;
-    }
-    if (!_hasSafeSvgUrlProtocol(attrValue)) {
-      return false;
-    }
+    return _isSafeSvgUrlAttributeValue(value);
   }
 
   return true;
@@ -712,13 +780,26 @@ function _isSvgAttributeAllowed(attrName) {
   return allowedAttrs.includes(attrName);
 }
 
-// [FIXED] match namespace href or standard href/src
+// Match namespace href or standard href/src.
 function _isSvgUrlAttribute(attrName) {
   return /(?:^|:)href$|^src$/i.test(attrName);
 }
 
+function _isSafeSvgUrlAttributeValue(value) {
+  const attrValue = String(value || '').trim();
+  if (_hasUnsafeSvgUrlScheme(attrValue)) {
+    return false;
+  }
+
+  return _hasSafeSvgUrlProtocol(attrValue);
+}
+
 function _hasUnsafeSvgUrlScheme(attrValue) {
-  return /^\s*javascript:/i.test(attrValue) || /^\s*data:text\/html/i.test(attrValue);
+  if (/^\s*javascript:/i.test(attrValue)) {
+    return true;
+  }
+
+  return /^\s*data:text\/html/i.test(attrValue);
 }
 
 function _hasSafeSvgUrlProtocol(attrValue) {
