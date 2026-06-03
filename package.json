@@ -96,7 +96,8 @@
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
-    "@notionhq/client": "5.11.0"
+    "@notionhq/client": "5.11.0",
+    "dompurify": "^3.4.7"
   },
   "overrides": {
     "glob@7": {
