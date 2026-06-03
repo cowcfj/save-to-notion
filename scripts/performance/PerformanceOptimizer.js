@@ -59,6 +59,18 @@ function matchesExpectedSelector(element, expectedSelector) {
   return element.matches(expectedSelector);
 }
 
+function isElementConnectedForValidation(element, contextDocument) {
+  if (typeof element.isConnected === 'boolean') {
+    return element.isConnected;
+  }
+
+  try {
+    return Boolean((contextDocument || element.ownerDocument)?.contains?.(element));
+  } catch {
+    return false;
+  }
+}
+
 function validateSafeDomElement(element, contextDocument, expectedSelector) {
   if (!isValidDomElementObject(element)) {
     Logger.debug('[PerformanceOptimizer] Invalid preloader cache element:', element);
@@ -69,18 +81,7 @@ function validateSafeDomElement(element, contextDocument, expectedSelector) {
     return false;
   }
 
-  let isConnected = false;
-  if (typeof element.isConnected === 'boolean') {
-    isConnected = element.isConnected;
-  } else {
-    try {
-      isConnected = Boolean((contextDocument || element.ownerDocument)?.contains?.(element));
-    } catch {
-      isConnected = false;
-    }
-  }
-
-  if (!isConnected) {
+  if (!isElementConnectedForValidation(element, contextDocument)) {
     return false;
   }
 
