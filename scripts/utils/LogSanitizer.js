@@ -26,6 +26,15 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 // 安全的 HTTP Headers 白名單 Set（為了性能而在內部轉換）
 const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
+// Error 物件中已被獨立處理的保留欄位：name 於初始化、message / stack 於迴圈後，
+// 其餘自定義屬性才需遞迴清洗
+const RESERVED_ERROR_KEYS = new Set(['message', 'stack', 'name']);
+
+const STACK_FRAME_AT_PREFIX_PATTERN = /^\s*at\s+/;
+const STACK_FRAME_POSITION_SUFFIX_PATTERN = /:\d+:\d+\s*\)?$/;
+const PATH_POSITION_SUFFIX_PATTERN = /:\d+:\d+\s*$/;
+const WHITESPACE_PATTERN = /\s/;
+
 /**
  * 日誌脫敏中需移除的追蹤參數
  * 維護說明：此清單與 config/extraction.js 的 URL_NORMALIZATION.TRACKING_PARAMS 保持同步。
@@ -145,29 +154,57 @@ function _redactSensitiveQueryInUrlString(urlObj, sanitizedLabel = SANITIZED_LAB
  */
 const LOG_FALLBACK_BASE_ORIGIN = 'http://localhost';
 
+/**
+ * @param {string} url
+ * @returns {boolean}
+ */
+function _hasUrlScheme(url) {
+  return /^[a-zA-Z][\w+.-]*:/.test(url);
+}
+
+/**
+ * @param {string} url
+ * @param {boolean} hasScheme
+ * @returns {boolean}
+ */
+function _isRelativePathLike(url, hasScheme) {
+  return /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
+}
+
+/**
+ * 解析日誌 URL：依是否含 scheme 選擇直接解析或以 base origin 解析。
+ * 解析失敗時 throw，由 caller 統一回 [invalid-url]。
+ *
+ * @param {string} url
+ * @param {boolean} hasScheme
+ * @param {string} baseOrigin
+ * @returns {URL}
+ */
+function _resolveLoggingUrlObject(url, hasScheme, baseOrigin) {
+  if (hasScheme) {
+    return new URL(url);
+  }
+  let safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
+  try {
+    safeBaseOrigin = new URL(baseOrigin).origin;
+  } catch {
+    safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
+  }
+  return new URL(url, safeBaseOrigin);
+}
+
 export function sanitizeUrlForLogging(url, baseOrigin = LOG_FALLBACK_BASE_ORIGIN) {
   if (!url || typeof url !== 'string') {
     return '[empty-url]';
   }
 
-  const hasScheme = /^[a-zA-Z][\w+.-]*:/.test(url);
-  const isRelativePath = /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
+  const hasScheme = _hasUrlScheme(url);
+  if (!hasScheme && !_isRelativePathLike(url, hasScheme)) {
+    return '[invalid-url]';
+  }
 
   try {
-    if (!hasScheme && !isRelativePath) {
-      return '[invalid-url]';
-    }
-
-    let safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
-    if (!hasScheme) {
-      try {
-        safeBaseOrigin = new URL(baseOrigin).origin;
-      } catch {
-        safeBaseOrigin = LOG_FALLBACK_BASE_ORIGIN;
-      }
-    }
-
-    const urlObj = hasScheme ? new URL(url) : new URL(url, safeBaseOrigin);
+    const urlObj = _resolveLoggingUrlObject(url, hasScheme, baseOrigin);
     // 移除 URL userinfo 防止認證資訊洩漏
     urlObj.username = '';
     urlObj.password = '';
@@ -207,6 +244,182 @@ export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
   const start = text.slice(0, Math.max(0, visibleStart));
   const end = text.slice(Math.max(0, text.length - visibleEnd));
   return `${start}***${end}`;
+}
+
+function _isNonNullObject(val) {
+  return typeof val === 'object' && val !== null;
+}
+
+function _isHeadersField(key, val) {
+  return key.toLowerCase() === 'headers' && _isNonNullObject(val);
+}
+
+function _isUrlField(key, val) {
+  return /url/i.test(key) && typeof val === 'string';
+}
+
+function _isTitleOrNameField(key, val) {
+  return /^(?:title|name)$/i.test(key) && typeof val === 'string';
+}
+
+function _isPropertiesField(key) {
+  return /^properties$/i.test(key);
+}
+
+/**
+ * 壓縮含協議（如 chrome-extension://）的 stack trace 行：
+ * 保留 protocol + host，移除中間路徑，只留最後的檔名與行號。
+ *
+ * @param {string} line
+ * @returns {string}
+ */
+function _stripProtocolUrlPath(line) {
+  const protocolIdx = line.indexOf('://');
+  if (protocolIdx === -1) {
+    return line;
+  }
+  const protocolAndHostEnd = line.indexOf('/', protocolIdx + 3);
+  if (protocolAndHostEnd === -1) {
+    return line;
+  }
+  const pathAndSuffix = line.slice(Math.max(0, protocolAndHostEnd + 1));
+  const lastPathSep = pathAndSuffix.lastIndexOf('/');
+  if (lastPathSep === -1) {
+    return line;
+  }
+  const protocolPart = line.slice(0, Math.max(0, protocolAndHostEnd));
+  return `${protocolPart}/${pathAndSuffix.slice(Math.max(0, lastPathSep + 1))}`;
+}
+
+function _isPathWithPosition(value) {
+  const trimmed = value.trim();
+  return (
+    trimmed.includes('/') &&
+    PATH_POSITION_SUFFIX_PATTERN.test(trimmed) &&
+    !WHITESPACE_PATTERN.test(trimmed)
+  );
+}
+
+function _stripDirectoryFromPathToken(pathToken) {
+  const trimmedEndLength = pathToken.trimEnd().length;
+  const trailingWhitespace = pathToken.slice(trimmedEndLength);
+  const path = pathToken.slice(0, trimmedEndLength);
+  const lastSep = path.lastIndexOf('/');
+  if (lastSep === -1) {
+    return pathToken;
+  }
+  return `${path.slice(lastSep + 1)}${trailingWhitespace}`;
+}
+
+function _stripParenthesizedBareFilePath(line) {
+  const openParen = line.lastIndexOf('(');
+  const closeParen = line.lastIndexOf(')');
+  if (openParen === -1 || closeParen <= openParen) {
+    return null;
+  }
+
+  const pathToken = line.slice(openParen + 1, closeParen);
+  if (!_isPathWithPosition(pathToken)) {
+    return null;
+  }
+
+  return `${line.slice(0, openParen + 1)}${_stripDirectoryFromPathToken(
+    pathToken
+  )}${line.slice(closeParen)}`;
+}
+
+function _stripAtBareFilePath(line) {
+  const atMatch = STACK_FRAME_AT_PREFIX_PATTERN.exec(line);
+  if (!atMatch) {
+    return null;
+  }
+
+  const pathToken = line.slice(atMatch[0].length);
+  if (!_isPathWithPosition(pathToken)) {
+    return line;
+  }
+
+  return `${atMatch[0]}${_stripDirectoryFromPathToken(pathToken)}`;
+}
+
+function _stripBarePathLine(line) {
+  if (!_isPathWithPosition(line)) {
+    return line;
+  }
+
+  const leadingWhitespaceLength = line.length - line.trimStart().length;
+  const leadingWhitespace = line.slice(0, leadingWhitespaceLength);
+  return `${leadingWhitespace}${_stripDirectoryFromPathToken(line.trimStart())}`;
+}
+
+/**
+ * 壓縮無協議的 stack frame 路徑（如 "at fn (/a/b/c.js:1:2)" 或裸
+ * "/a/b/c.js:1:2"）：移除目錄部分只保留檔名，保留 frame 前綴。
+ *
+ * @param {string} line
+ * @returns {string}
+ */
+function _stripBareFilePath(line) {
+  const stackFrameResult = _stripParenthesizedBareFilePath(line) ?? _stripAtBareFilePath(line);
+  if (stackFrameResult !== null) {
+    return stackFrameResult;
+  }
+
+  return _stripBarePathLine(line);
+}
+
+function _isBareFilePathStackFrame(line) {
+  return (
+    line.includes('/') &&
+    STACK_FRAME_POSITION_SUFFIX_PATTERN.test(line) &&
+    (STACK_FRAME_AT_PREFIX_PATTERN.test(line) || _isPathWithPosition(line))
+  );
+}
+
+/**
+ * 驗證並脫敏 JWT 候選字串
+ *
+ * @param {string} match
+ * @returns {string}
+ */
+function _redactJwtCandidate(match) {
+  if (match.split('.').length === 3) {
+    return '[REDACTED_JWT]';
+  }
+  return match;
+}
+
+/**
+ * 驗證是否為標準 UUID 格式 (8-4-4-4-12) 的連字號位置
+ *
+ * @param {string} match
+ * @returns {boolean}
+ */
+function _isStandardUuidShape(match) {
+  return match[8] === '-' && match[13] === '-' && match[18] === '-' && match[23] === '-';
+}
+
+/**
+ * 驗證並截斷 UUID 候選字串
+ *
+ * @param {string} match
+ * @returns {string}
+ */
+function _redactUuidCandidate(match) {
+  if (_isStandardUuidShape(match)) {
+    return `${match.slice(0, 8)}***`;
+  }
+  return match;
+}
+
+/**
+ * 脫敏 Email 匹配項
+ *
+ * @param {string} email
+ * @returns {string}
+ */
+function _maskEmailMatch(email) {
+  return maskSensitiveString(email, 1, 4);
 }
 
 export const LogSanitizer = {
@@ -268,27 +481,41 @@ export const LogSanitizer = {
       return '[Function]';
     }
 
-    // 處理循環引用（僅適用於物件）
-    if (typeof value === 'object') {
-      if (seen.has(value)) {
-        return '[Circular]';
-      }
-      seen.add(value);
-    }
-
     if (typeof value === 'string') {
       return this._sanitizeString(value);
     }
+
+    if (typeof value === 'object') {
+      return this._sanitizeObjectLike(value, depth, seen, options);
+    }
+
+    // 其餘原始型別（number / boolean / bigint / symbol）原樣回傳
+    return value;
+  },
+
+  /**
+   * 處理物件型別（array / Error / 一般物件）的遞迴清理，
+   * 並維護 seen 的 DFS 加入/回溯，避免共享引用被誤判為循環。
+   *
+   * @param {object} value
+   * @param {number} depth
+   * @param {WeakSet} seen
+   * @param {object} options
+   * @returns {*}
+   */
+  _sanitizeObjectLike(value, depth, seen, options) {
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
 
     let result;
     if (Array.isArray(value)) {
       result = this._sanitizeArray(value, depth, seen, options);
     } else if (value instanceof Error) {
       result = this._sanitizeError(value, depth, seen, options);
-    } else if (typeof value === 'object') {
-      result = this._sanitizeObject(value, depth, seen, options);
     } else {
-      return value;
+      result = this._sanitizeObject(value, depth, seen, options);
     }
 
     // DFS 回溯：處理完畢後移除，避免共享引用被誤判為循環
@@ -325,7 +552,7 @@ export const LogSanitizer = {
 
     // 嘗試保留其他自定義屬性
     for (const key of Object.keys(error)) {
-      if (key !== 'message' && key !== 'stack' && key !== 'name') {
+      if (!RESERVED_ERROR_KEYS.has(key)) {
         sanitized[key] = this._sanitizeValue(error[key], depth + 1, seen, options);
       }
     }
@@ -348,28 +575,33 @@ export const LogSanitizer = {
   _sanitizeObject(obj, depth, seen, options) {
     const safeObj = {};
     for (const [key, val] of Object.entries(obj)) {
-      // 1. 檢查鍵名是否為敏感鍵（優先級最高）
+      // 1. 敏感鍵名（優先級最高）
       if (SENSITIVE_KEY_PATTERN.test(key)) {
         safeObj[key] = '[REDACTED_SENSITIVE_KEY]';
         continue;
       }
-
-      // 2. 特殊處理 headers 物件
-      if (key.toLowerCase() === 'headers' && typeof val === 'object' && val !== null) {
+      // 2. headers 物件白名單清洗
+      if (_isHeadersField(key, val)) {
         safeObj[key] = this._sanitizeHeaders(val);
         continue;
       }
-
-      // 3. 特定字段名的特殊處理
-      if (/url/i.test(key) && typeof val === 'string') {
+      // 3. url 欄位
+      if (_isUrlField(key, val)) {
         safeObj[key] = sanitizeUrlForLogging(val);
-      } else if (/^(?:title|name)$/i.test(key) && typeof val === 'string') {
-        safeObj[key] = '[REDACTED_TITLE]';
-      } else if (/^properties$/i.test(key)) {
-        safeObj[key] = '[REDACTED_PROPERTIES]';
-      } else {
-        safeObj[key] = this._sanitizeValue(val, depth + 1, seen, options);
+        continue;
       }
+      // 4. title / name 欄位
+      if (_isTitleOrNameField(key, val)) {
+        safeObj[key] = '[REDACTED_TITLE]';
+        continue;
+      }
+      // 5. properties 欄位
+      if (_isPropertiesField(key)) {
+        safeObj[key] = '[REDACTED_PROPERTIES]';
+        continue;
+      }
+      // 6. 一般值遞迴清理
+      safeObj[key] = this._sanitizeValue(val, depth + 1, seen, options);
     }
     return safeObj;
   },
@@ -400,61 +632,36 @@ export const LogSanitizer = {
    * @param {object} [_options] - 配置選項（保留供未來擴展使用）
    * @returns {string} 清洗後的 stack trace
    */
+  /**
+   * 清洗單行 stack trace：壓縮路徑並遮蔽 Extension ID。
+   *
+   * @param {string} line
+   * @returns {string}
+   */
+  _sanitizeStackTraceLine(line) {
+    let sanitized = line.includes('://') ? _stripProtocolUrlPath(line) : line;
+    if (!line.includes('://') && _isBareFilePathStackFrame(sanitized)) {
+      sanitized = _stripBareFilePath(sanitized);
+    }
+
+    // 2. 移除 Extension ID（chrome-extension://xxx）
+    sanitized = sanitized.replaceAll(/chrome-extension:\/\/[\da-z]+/gi, 'chrome-extension://[ID]');
+
+    // 3. 移除精確的行號和列號（:16:13），只保留檔案名
+    // [Security Policy] 根據新架構，生產環境保留行號以協助除錯 (詳見 SECURE_LOGGING_ARCHITECTURE.md)
+
+    return sanitized;
+  },
+
   _sanitizeStackTrace(stack, _options = {}) {
     if (!stack || typeof stack !== 'string') {
       return stack;
     }
 
-    // 清洗每一行 stack trace
-    const lines = stack.split('\n');
-    const sanitizedLines = lines.map(line => {
-      let sanitized = line;
-
-      // 1. 處理檔案路徑：移除完整路徑，只保留檔案名稱
-      // 邏輯：保留協議部分（如果是 chrome-extension://），移除中間路徑，保留檔案名及行號
-      if (sanitized.includes('://')) {
-        const protocolIdx = sanitized.indexOf('://');
-        if (protocolIdx !== -1) {
-          const protocolAndHostEnd = sanitized.indexOf('/', protocolIdx + 3);
-          if (protocolAndHostEnd !== -1) {
-            const protocolPart = sanitized.slice(0, Math.max(0, protocolAndHostEnd));
-            const pathAndSuffix = sanitized.slice(Math.max(0, protocolAndHostEnd + 1));
-
-            // 找出最後一個檔案名部分 (通常包含 .js)
-            const lastPathSep = pathAndSuffix.lastIndexOf('/');
-            if (lastPathSep !== -1) {
-              sanitized = `${protocolPart}/${pathAndSuffix.slice(Math.max(0, lastPathSep + 1))}`;
-            }
-          }
-        }
-      } else if (sanitized.includes('/')) {
-        const lastSep = sanitized.lastIndexOf('/');
-        const prefixEnd = sanitized.lastIndexOf('at ', lastSep);
-        if (lastSep !== -1 && prefixEnd !== -1) {
-          sanitized =
-            sanitized.slice(0, Math.max(0, prefixEnd + 3)) +
-            sanitized.slice(Math.max(0, lastSep + 1));
-        } else if (lastSep !== -1) {
-          // 無 "at " 前綴時，保留路徑前文字並移除目錄部分只保留檔名
-          const firstSep = sanitized.indexOf('/');
-          sanitized =
-            sanitized.slice(0, Math.max(0, firstSep)) + sanitized.slice(Math.max(0, lastSep + 1));
-        }
-      }
-
-      // 2. 移除 Extension ID（chrome-extension://xxx）
-      sanitized = sanitized.replaceAll(
-        /chrome-extension:\/\/[\da-z]+/gi,
-        'chrome-extension://[ID]'
-      );
-
-      // 3. 移除精確的行號和列號（:16:13），只保留檔案名
-      // [Security Policy] 根據新架構，生產環境保留行號以協助除錯 (詳見 SECURE_LOGGING_ARCHITECTURE.md)
-
-      return sanitized;
-    });
-
-    return sanitizedLines.join('\n');
+    return stack
+      .split('\n')
+      .map(line => this._sanitizeStackTraceLine(line))
+      .join('\n');
   },
 
   /**
@@ -494,13 +701,7 @@ export const LogSanitizer = {
 
     // 3. JWT Tokens (eyJ...)
     // 策略：使用簡單線性正則匹配候選者，在 JS 中驗證結構以避免 ReDoS
-    safeStr = safeStr.replaceAll(/\beyJ[\w.-]+\b/g, match => {
-      // 驗證是否為三段式結構 (Header.Payload.Signature)
-      if (match.split('.').length === 3) {
-        return '[REDACTED_JWT]';
-      }
-      return match;
-    });
+    safeStr = safeStr.replaceAll(/\beyJ[\w.-]+\b/g, _redactJwtCandidate);
 
     // 4. 常見 API Key 格式 (sk-, gh-, key-)
     safeStr = safeStr.replaceAll(
@@ -512,19 +713,11 @@ export const LogSanitizer = {
     safeStr = safeStr.replaceAll(/secret_[\dA-Za-z]+/g, SANITIZED_LABEL);
 
     // 6. Email 脫敏 (使用簡單且安全的匹配模式)
-    safeStr = safeStr.replaceAll(/\b[\w%+.-]+@[\d.A-Za-z-]+\.[A-Za-z]{2,}\b/g, email => {
-      return maskSensitiveString(email, 1, 4);
-    });
+    safeStr = safeStr.replaceAll(/\b[\w%+.-]+@[\d.A-Za-z-]+\.[A-Za-z]{2,}\b/g, _maskEmailMatch);
 
     // 7. UUID 截斷
     // 策略：匹配 36 位 Hex/連字號字串，在 JS 中驗證格式
-    safeStr = safeStr.replaceAll(/\b[\dA-Fa-f-]{36}\b/g, match => {
-      // 驗證標準 UUID 格式 (8-4-4-4-12) 的連字號位置
-      if (match[8] === '-' && match[13] === '-' && match[18] === '-' && match[23] === '-') {
-        return `${match.slice(0, 8)}***`;
-      }
-      return match;
-    });
+    safeStr = safeStr.replaceAll(/\b[\dA-Fa-f-]{36}\b/g, _redactUuidCandidate);
 
     return safeStr;
   },

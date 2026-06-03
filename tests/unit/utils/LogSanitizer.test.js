@@ -183,6 +183,45 @@ describe('LogSanitizer', () => {
       expect(headers.Cookie).toBe('[REDACTED_HEADER]');
     });
 
+    test('should treat a null "headers" value as a normal value (not header whitelisting)', () => {
+      const logs = [{ context: { headers: null, other: 'safe' } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      // headers 為 null 時不進入 _sanitizeHeaders，應原樣保留 null
+      expect(sanitized[0].context.headers).toBeNull();
+      expect(sanitized[0].context.other).toBe('safe');
+    });
+
+    test('should strip a bare directory path that has no "at " prefix and no leading text', () => {
+      const error = new Error('boom');
+      error.stack = '/home/user/project/worker.js:10:5';
+      const logs = [{ message: 'bare path', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const stack = sanitized[0].context.error.stack;
+      expect(stack).toContain('worker.js');
+      expect(stack).not.toContain('/home/user/project/');
+    });
+
+    test('should strip a relative directory path that has no "at " prefix', () => {
+      const error = new Error('boom');
+      // 相對路徑（無前導 "/"、無 "at " 前綴）：目錄段應被捨棄，
+      // 不可與檔名黏合成 "subdirworker.js"
+      error.stack = 'subdir/worker.js:10:5';
+      const logs = [{ message: 'relative path', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const stack = sanitized[0].context.error.stack;
+      expect(stack).toBe('worker.js:10:5');
+    });
+
+    test('should preserve function names in parenthesized V8 stack frames', () => {
+      const error = new Error('boom');
+      error.stack = '    at loadConfig (/home/user/project/src/load-config.js:42:7)';
+      const logs = [{ message: 'v8 frame', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const stack = sanitized[0].context.error.stack;
+      expect(stack).toBe('    at loadConfig (load-config.js:42:7)');
+      expect(stack).not.toContain('/home/user/project/src/');
+    });
+
     test('should redact sensitive key names', () => {
       const logs = [
         {
@@ -323,7 +362,7 @@ describe('LogSanitizer', () => {
       expect(sanitizedStack).toContain('exportDebugLogs');
     });
 
-    test('should sanitize file paths without "at " prefix in stack traces', () => {
+    test('should not sanitize non-stack message lines that contain bare paths', () => {
       const error = new Error('ENOENT');
       error.stack = 'Error: ENOENT: /home/user/project/file.js';
 
@@ -337,11 +376,16 @@ describe('LogSanitizer', () => {
       const sanitized = LogSanitizer.sanitize(logs);
       const sanitizedStack = sanitized[0].context.error.stack;
 
-      // 應移除目錄路徑，只保留檔名
-      expect(sanitizedStack).toContain('file.js');
-      expect(sanitizedStack).not.toContain('/home/user/project/');
-      // 應保留錯誤前綴
-      expect(sanitizedStack).toContain('Error: ENOENT:');
+      expect(sanitizedStack).toBe('Error: ENOENT: /home/user/project/file.js');
+    });
+
+    test('should not sanitize a relative path embedded in an error message line', () => {
+      const error = new Error('boom');
+      error.stack = 'Error: Failed to load config/settings.json';
+      const logs = [{ message: 'config error', context: { error } }];
+      const sanitized = LogSanitizer.sanitize(logs);
+      const sanitizedStack = sanitized[0].context.error.stack;
+      expect(sanitizedStack).toBe('Error: Failed to load config/settings.json');
     });
 
     describe('Advanced Pattern Redaction', () => {
