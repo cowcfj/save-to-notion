@@ -1,5 +1,19 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.77.0](https://github.com/cowcfj/save-to-notion/compare/v2.76.1...v2.77.0) (2026-06-03)
+
+
+### ✨ 新功能
+
+* introduce DOMPurify for HTML sanitization ([#634](https://github.com/cowcfj/save-to-notion/issues/634)) ([650a072](https://github.com/cowcfj/save-to-notion/commit/650a0729c8d3ef4b8453eb846060f3dc9959f44e))
+* 增加 DOMPurify 進行 HTML 和 SVG 安全消毒 ([c22d3dd](https://github.com/cowcfj/save-to-notion/commit/c22d3ddae598fbe76828fead7947f0dffa8a7cfa))
+
+
+### ♻️ 代碼重構
+
+* simplify LogSanitizer logic and improve readability ([#637](https://github.com/cowcfj/save-to-notion/issues/637)) ([a96c6be](https://github.com/cowcfj/save-to-notion/commit/a96c6be1f6d36b47d5a5ca05e3889ed67edb65cc))
+* simplify security utilities and improve complexity ([#636](https://github.com/cowcfj/save-to-notion/issues/636)) ([7040d1f](https://github.com/cowcfj/save-to-notion/commit/7040d1f322cb9b1ab5ed37f2611fb4941ff3d29e))
+
 ## [2.76.1](https://github.com/cowcfj/save-to-notion/compare/v2.76.0...v2.76.1) (2026-06-02)
 
 
