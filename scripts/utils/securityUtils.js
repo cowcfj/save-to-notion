@@ -214,27 +214,24 @@ function _classifyDirectApiError(lowerMessage, patterns) {
 }
 
 function _classifyAuthApiError(lowerMessage, patterns) {
-  const isGenericAuth = _hasPatternMatch(lowerMessage, patterns.AUTH);
-  const isDisconnected = _hasPatternMatch(lowerMessage, patterns.AUTH_DISCONNECTED);
-  const isInvalid = _hasPatternMatch(lowerMessage, patterns.AUTH_INVALID);
-  const isForbidden = _hasPatternMatch(lowerMessage, patterns.AUTH_FORBIDDEN);
+  const authClassifiers = [
+    ['INTEGRATION_DISCONNECTED', patterns.AUTH_DISCONNECTED],
+    ['INVALID_API_KEY_FORMAT', patterns.AUTH_INVALID],
+    ['INTEGRATION_FORBIDDEN', patterns.AUTH_FORBIDDEN],
+  ];
 
-  if (!isGenericAuth && !isDisconnected && !isInvalid && !isForbidden) {
-    return null;
-  }
-
-  if (isDisconnected) {
-    return 'INTEGRATION_DISCONNECTED';
-  }
-  if (isInvalid) {
-    return 'INVALID_API_KEY_FORMAT';
-  }
-  if (isForbidden) {
-    return 'INTEGRATION_FORBIDDEN';
+  for (const [result, keyPatterns] of authClassifiers) {
+    if (_hasPatternMatch(lowerMessage, keyPatterns)) {
+      return result;
+    }
   }
 
   // Default to generic API Key error if matched main AUTH pattern
-  return 'API_KEY_NOT_CONFIGURED';
+  if (_hasPatternMatch(lowerMessage, patterns.AUTH)) {
+    return 'API_KEY_NOT_CONFIGURED';
+  }
+
+  return null;
 }
 
 function _classifyValidationApiError(lowerMessage, patterns) {
