@@ -19,7 +19,6 @@ const { color, spacing, radius, shadow, theme } = UI_TOKENS;
 export function getRailThemeVars() {
   return `
     :host {
-      /* 平色 token */
       --rail-color-text: ${color.text};
       --rail-color-text-muted: ${color.textMuted};
       --rail-color-white: ${color.white};
@@ -33,7 +32,6 @@ export function getRailThemeVars() {
       --rail-color-primary: ${color.primary};
       --rail-color-danger: ${color.danger};
 
-      /* 計算值：JS 預算成具名 var */
       --rail-glow-brand: ${hexToRgba(color.brand, 0.35)};
       --rail-glow-action-save: ${hexToRgba(color.actionSave, 0.35)};
       --rail-glow-action-manage: ${hexToRgba(color.actionManage, 0.35)};
@@ -45,7 +43,6 @@ export function getRailThemeVars() {
       --rail-border-white-a60: ${hexToRgba(color.white, 0.6)};
       --rail-border-white-a88: ${hexToRgba(color.white, 0.88)};
 
-      /* dual-mode 語意 token */
       --rail-surface: ${theme.light.surface};
       --rail-border: ${theme.light.border};
       --rail-icon-muted: ${theme.light.iconMuted};
@@ -321,7 +318,6 @@ export function getFloatingRailCSS() {
     }
 
     .rail-highlight-toggle[data-highlight-state="inactive"] {
-      /* Fallback first for browsers without color-mix(); supported browsers override with the color-mix() line. */
       background: var(--rail-highlight-tint, var(--rail-color-primary-a40));
       background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 40%, transparent);
       color: var(--rail-icon-muted);
@@ -330,7 +326,6 @@ export function getFloatingRailCSS() {
 
     .rail-highlight-toggle[data-highlight-state="inactive"]:hover,
     .rail-highlight-toggle[data-highlight-state="inactive"]:focus-visible {
-      /* Fallback first for browsers without color-mix(); supported browsers override with the color-mix() line. */
       background: var(--rail-highlight-tint, var(--rail-color-primary-a55));
       background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 55%, transparent);
       transform: translateY(-1px);
