@@ -40,6 +40,8 @@ import {
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
 import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
 import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
 const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
@@ -181,7 +183,7 @@ describe('FloatingRail', () => {
       expect(rail.host).toBe(existingHost);
     });
 
-    test('應該重用既有 host 內的 rail container', () => {
+    test('重用既有 host 時應建立 fresh rail container 並移除舊 container', () => {
       const existingHost = document.createElement('div');
       existingHost.id = TEST_RAIL_HOST_ID;
       existingHost.dataset.railOwner = 'true';
@@ -192,8 +194,12 @@ describe('FloatingRail', () => {
 
       const rail = new FloatingRail(manager);
 
-      expect(rail.container).toBe(existingContainer);
-      expect(createFloatingRailContainer).not.toHaveBeenCalled();
+      expect(rail.container).not.toBe(existingContainer);
+      expect(existingContainer.isConnected).toBe(false);
+      expect(shadowRoot.querySelectorAll('.rail-container')).toHaveLength(1);
+      expect(createFloatingRailContainer).toHaveBeenCalledWith({
+        selectedColor: rail.stateManager.selectedColor,
+      });
     });
 
     test('不應重用無 owner 標記的同 ID 元素', () => {
@@ -300,26 +306,41 @@ describe('FloatingRail', () => {
       expect(manager.startHighlighting).not.toHaveBeenCalled();
     });
 
-    test('[REGRESSION] initialize 應等待頁面狀態刷新完成後才綁定事件', async () => {
+    test('[REGRESSION] initialize 不應等待頁面狀態刷新完成才綁定事件', async () => {
       let resolveStatus;
       const pageStatusPromise = new Promise(resolve => {
         resolveStatus = resolve;
       });
       checkPageStatus.mockReturnValue(pageStatusPromise);
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({});
       savePageFromRail.mockResolvedValue({ success: true });
 
       const rail = new FloatingRail(manager);
       const initPromise = rail.initialize();
       const saveBtn = rail.container.querySelector('[data-action="save"]');
+      const initializeSettledPromise = initPromise.then(() => true).catch(() => false);
 
-      saveBtn.click();
-      expect(savePageFromRail).not.toHaveBeenCalled();
-      expect(rail._eventsBound).toBe(false);
+      try {
+        await chrome.storage.sync.get.mock.results.at(-1).value;
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
 
-      resolveStatus({ isSaved: true, canSave: false });
-      await initPromise;
+        await expect(
+          Promise.race([initializeSettledPromise, Promise.resolve(false)])
+        ).resolves.toBe(true);
+        saveBtn.click();
+        expect(savePageFromRail).toHaveBeenCalledTimes(1);
+        expect(rail._eventsBound).toBe(true);
+        expect(rail._initialized).toBe(true);
+        expect(rail._pageStatus).toBeNull();
+      } finally {
+        resolveStatus({ isSaved: true, canSave: false });
+        await initPromise.catch(() => undefined);
+        await pageStatusPromise;
+        await Promise.resolve();
+      }
 
-      expect(rail._eventsBound).toBe(true);
       expect(rail._pageStatus).toEqual({ isSaved: true, canSave: false });
     });
 
@@ -342,6 +363,19 @@ describe('FloatingRail', () => {
       expect(rail._initialized).toBe(false);
       expect(rail._eventsBound).toBe(false);
       expect(manager.handleDocumentClick).not.toHaveBeenCalled();
+    });
+
+    test('chrome.storage.onChanged 不可用時 initialize 與 destroy 不應拋錯', async () => {
+      const originalOnChanged = globalThis.chrome.storage.onChanged;
+      delete globalThis.chrome.storage.onChanged;
+
+      try {
+        const rail = new FloatingRail(manager);
+        await expect(rail.initialize()).resolves.toBeUndefined();
+        expect(() => rail.destroy()).not.toThrow();
+      } finally {
+        globalThis.chrome.storage.onChanged = originalOnChanged;
+      }
     });
 
     test('[REGRESSION] dismissed 狀態初始化後，undismiss 仍應保有事件綁定', async () => {
@@ -524,7 +558,13 @@ describe('FloatingRail', () => {
 
       expect(playLaunchAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
       const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
-      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
+      expect(playFailAnimation).toHaveBeenCalledWith(
+        rail.elements.saveBtn,
+        errorTooltip,
+        ErrorHandler.formatUserMessage(
+          sanitizeApiError(new Error('network error'), 'rail_save_sync')
+        )
+      );
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
 
@@ -659,6 +699,27 @@ describe('FloatingRail', () => {
       expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
       expect(refreshSpy).not.toHaveBeenCalled();
       expect(playFireworkAnimation).not.toHaveBeenCalled();
+    });
+
+    test('syncHighlights 拋出可格式化錯誤時，fail 動畫應顯示友善訊息', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockRejectedValue({
+        code: 'NETWORK_ERROR',
+        message: 'network error',
+      });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(
+        rail.elements.saveBtn,
+        errorTooltip,
+        ErrorHandler.formatUserMessage(
+          sanitizeApiError({ code: 'NETWORK_ERROR', message: 'network error' }, 'rail_save_sync')
+        )
+      );
     });
   });
 
@@ -1078,12 +1139,32 @@ describe('FloatingRail', () => {
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
+      await Promise.resolve();
 
       expect(warnSpy).toHaveBeenCalledWith(
         '[FloatingRail] 無法取得頁面狀態',
         expect.objectContaining({
           action: '_refreshPageStatus',
           operation: 'checkPageStatus',
+        })
+      );
+      expect(rail._initialized).toBe(true);
+      expect(rail._eventsBound).toBe(true);
+    });
+
+    test('initialize 背景頁面狀態刷新出現未預期 rejection 時應記錄警告', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      const rail = new FloatingRail(manager);
+      jest.spyOn(rail, '_refreshPageStatus').mockRejectedValueOnce(new Error('unexpected'));
+
+      await rail.initialize();
+      await Promise.resolve();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 背景頁面狀態刷新失敗',
+        expect.objectContaining({
+          action: 'initialize',
+          operation: 'refreshPageStatusInBackground',
         })
       );
       expect(rail._initialized).toBe(true);
@@ -1320,6 +1401,13 @@ describe('FloatingRail', () => {
       );
       expect(rail.host.style.getPropertyValue('--rail-top')).toBe('25%');
       expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+    });
+
+    test('_isDisplaySettingChange 對空值 changes 應回傳 false', () => {
+      const rail = new FloatingRail(manager);
+
+      expect(rail._isDisplaySettingChange(null, 'sync')).toBe(false);
+      expect(rail._isDisplaySettingChange(undefined, 'sync')).toBe(false);
     });
 
     test('listener ignores changes from non-sync areas', async () => {

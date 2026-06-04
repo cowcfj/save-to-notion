@@ -10,10 +10,10 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      // DOMPurify sanitizer boundary moved the 2026-06 content baseline to
-      // ~284KB. Keep the cap only slightly above current CI; delta gate still
-      // guards single-PR growth.
-      hardLimit: 286_000,
+      // DOMPurify plus Floating Rail complexity refactors moved the 2026-06
+      // content baseline to ~287KB. Keep the cap only slightly above current
+      // CI; delta gate still guards single-PR growth.
+      hardLimit: 290_000,
       deltaLimit: 30_000,
     },
     {
