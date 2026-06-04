@@ -852,23 +852,39 @@ export class FloatingRail {
   destroy() {
     this._destroyed = true;
     this._clearDragArtifacts();
+    this._removeAppendHostListener();
+    this._removeDeleteShortcutHandler();
+    this._removeDisplaySettingsChangeListener();
+    this._removeHost();
+    this._initialized = false;
+    this._eventsBound = false;
+  }
+
+  _removeAppendHostListener() {
     if (this._appendHostListener) {
       document.removeEventListener('DOMContentLoaded', this._appendHostListener);
       this._appendHostListener = null;
     }
+  }
+
+  _removeDeleteShortcutHandler() {
     if (this._deleteShortcutHandler) {
       document.removeEventListener('click', this._deleteShortcutHandler);
       this._deleteShortcutHandler = null;
     }
+  }
+
+  _removeDisplaySettingsChangeListener() {
     if (this._displaySettingsChangeListener) {
       globalThis.chrome?.storage?.onChanged?.removeListener?.(this._displaySettingsChangeListener);
       this._displaySettingsChangeListener = null;
     }
+  }
+
+  _removeHost() {
     // 所有 listeners 綁定在 shadow DOM 內部元素，host 移除後隨 GC 回收
     if (this.host?.parentNode) {
       this.host.remove();
     }
-    this._initialized = false;
-    this._eventsBound = false;
   }
 }
