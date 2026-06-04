@@ -27,21 +27,8 @@ export function getToastThemeVars() {
   `;
 }
 
-/**
- * 取得 Toast 的完整 CSS 字串，供 Shadow DOM 使用。
- *
- * 設計重點：
- * - `:host` 用 `all: initial` 隔離宿主頁面 CSS
- * - `:host` 設 `pointer-events: none`，避免覆蓋住底層內容；container 自己再開 `pointer-events: auto`
- * - 用 `transition` + `.toast--visible` modifier 控制顯示/淡出，避免 `@keyframes` 在生命週期切換時造成的 race
- * - 三組 status modifier（success/warning/error）共用 token registry
- *
- * @returns {string} CSS 字串
- */
-export function getToastCSS() {
+function getToastBaseCSS() {
   return `
-        ${getToastThemeVars()}
-
         :host {
             all: initial;
             position: fixed;
@@ -101,7 +88,11 @@ export function getToastCSS() {
             flex: 1;
             word-break: break-word;
         }
+  `;
+}
 
+function getToastStatusModifierCSS() {
+  return `
         .toast--success {
             background: var(--toast-color-success-bg);
             color: var(--toast-color-success-text);
@@ -119,13 +110,37 @@ export function getToastCSS() {
             color: var(--toast-color-error-text);
             border-color: var(--toast-color-error-border);
         }
+  `;
+}
 
+function getToastMotionCSS() {
+  return `
         @media (prefers-reduced-motion: reduce) {
             .toast-container {
                 transition: none;
                 transform: none;
             }
         }
+  `;
+}
+
+/**
+ * 取得 Toast 的完整 CSS 字串，供 Shadow DOM 使用。
+ *
+ * 設計重點：
+ * - `:host` 用 `all: initial` 隔離宿主頁面 CSS
+ * - `:host` 設 `pointer-events: none`，避免覆蓋住底層內容；container 自己再開 `pointer-events: auto`
+ * - 用 `transition` + `.toast--visible` modifier 控制顯示/淡出，避免 `@keyframes` 在生命週期切換時造成的 race
+ * - 三組 status modifier（success/warning/error）共用 token registry
+ *
+ * @returns {string} CSS 字串
+ */
+export function getToastCSS() {
+  return `
+        ${getToastThemeVars()}
+        ${getToastBaseCSS()}
+        ${getToastStatusModifierCSS()}
+        ${getToastMotionCSS()}
     `;
 }
 
