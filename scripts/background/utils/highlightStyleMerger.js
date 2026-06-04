@@ -98,6 +98,19 @@ function resolveHighlightColor(highlight) {
   return 'yellow';
 }
 
+const STYLE_RESOLVERS = {
+  [HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC]: highlight => {
+    const color = resolveHighlightColor(highlight);
+    return { color: `${color}_background` };
+  },
+  [HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT]: highlight => {
+    const color = resolveHighlightColor(highlight);
+    return { color };
+  },
+  [HIGHLIGHT_STYLE_OPTIONS.BOLD]: () => ({ bold: true }),
+  [HIGHLIGHT_STYLE_OPTIONS.NONE]: () => null,
+};
+
 /**
  * 根據 styleKey 和 highlight 數據獲取實際的 Notion annotation 樣式
  *
@@ -106,22 +119,9 @@ function resolveHighlightColor(highlight) {
  * @returns {object|null} Notion annotation 物件，或 null（關閉時）
  */
 function resolveStyle(styleKey, highlight) {
-  const resolvers = {
-    [HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC]: () => {
-      const color = resolveHighlightColor(highlight);
-      return { color: `${color}_background` };
-    },
-    [HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT]: () => {
-      const color = resolveHighlightColor(highlight);
-      return { color };
-    },
-    [HIGHLIGHT_STYLE_OPTIONS.BOLD]: () => ({ bold: true }),
-    [HIGHLIGHT_STYLE_OPTIONS.NONE]: () => null,
-  };
-
-  const resolver = resolvers[styleKey];
+  const resolver = STYLE_RESOLVERS[styleKey];
   if (resolver) {
-    return resolver();
+    return resolver(highlight);
   }
   return null;
 }
@@ -146,18 +146,11 @@ function resolveStyle(styleKey, highlight) {
 function scoreCandidate(fullText, idx, text, context) {
   const indexedFullText = buildSearchIndex(fullText);
   const normalizedText = normalizeTextForSearch(text);
-  const candidate = findCandidateMatches(indexedFullText, normalizedText).find(
-    match => match.start === idx
-  );
+  const candidate =
+    findCandidateMatches(indexedFullText, normalizedText).find(match => match.start === idx) ??
+    createFallbackCandidate(idx, normalizedText);
 
-  if (candidate) {
-    return scoreCandidateMatch(indexedFullText, candidate, context);
-  }
-  return scoreCandidateMatch(
-    indexedFullText,
-    createFallbackCandidate(idx, normalizedText),
-    context
-  );
+  return scoreCandidateMatch(indexedFullText, candidate, context);
 }
 
 /**
