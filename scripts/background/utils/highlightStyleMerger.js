@@ -617,9 +617,21 @@ function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
  * @returns {object} 處理後的 block 或原始 block
  */
 function safelyApplyHighlightsToBlock(block, highlights, styleKey, consumed) {
+  const consumedSnapshot = new Set(consumed);
   try {
     return applyHighlightsToBlock(block, highlights, styleKey, consumed);
-  } catch {
+  } catch (error) {
+    consumed.clear();
+    for (const key of consumedSnapshot) {
+      consumed.add(key);
+    }
+    if (typeof Logger !== 'undefined' && Logger.debug) {
+      Logger.debug('[HighlightMerger] 單個 block 套用標註樣式失敗，保留原始 block', {
+        action: 'safelyApplyHighlightsToBlock',
+        result: 'error',
+        error,
+      });
+    }
     return block;
   }
 }
