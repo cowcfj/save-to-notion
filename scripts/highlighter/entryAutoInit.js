@@ -220,16 +220,19 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     return new Promise(resolve => {
       let resolved = false;
 
+      const settle = value => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
+        resolve(value);
+      };
+
       // 監聽 SET_STABLE_URL 訊息
       const handler = request => {
-        if (
-          request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL &&
-          request.stableUrl &&
-          !resolved
-        ) {
-          resolved = true;
-          globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
-          resolve(request.stableUrl);
+        if (request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL && request.stableUrl) {
+          settle(request.stableUrl);
         }
       };
 
@@ -240,12 +243,10 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       // 超時保護：避免無限等待
       setTimeout(() => {
         if (!resolved) {
-          resolved = true;
-          globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
           Logger.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
             action: 'waitForStableUrl',
           });
-          resolve(null);
+          settle(null);
         }
       }, timeoutMs);
     });
