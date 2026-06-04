@@ -61,6 +61,7 @@ module.exports = {
     '!<rootDir>/scripts/config/extraction.js',         // 純選擇器與數值常量
     '!<rootDir>/scripts/config/highlightConstants.js', // 純數值常量
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
+    '!<rootDir>/scripts/config/extension/**/*.js',     // extension-only 純常量配置與 re-export
     // Toolbar 鏈：DCE guard 位於 scripts/highlighter/windowAPI.js
     // (TOOLBAR_TEST_FIXTURE_ENABLED 與 ensureToolbar(state))，而非 Toolbar files 本身。
     // rollup/content.config.mjs 將 globalThis.__UNIT_TESTING__ 替換為 false，
