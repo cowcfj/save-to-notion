@@ -565,6 +565,41 @@ describe('mergeHighlightsWithStyle — 降級安全', () => {
     expect(result[1].paragraph.rich_text).toHaveLength(1);
     expect(result[1].paragraph.rich_text[0].text.content).toBe('第二段沒有標註');
   });
+
+  test('單個 block 套樣式失敗時不應消耗 highlight，後續 block 仍可套用', () => {
+    const splitError = new Error('annotations unavailable');
+    const blockWithSplitError = makeParagraphBlock([
+      {
+        type: 'text',
+        text: { content: '重要概念' },
+        get annotations() {
+          throw splitError;
+        },
+      },
+    ]);
+    const nextBlock = makeParagraphBlock([makeRT('第二段重要概念')]);
+    const highlights = [{ id: 'hl-shared', text: '重要概念', color: 'yellow', rangeInfo: {} }];
+
+    const result = mergeHighlightsWithStyle(
+      [blockWithSplitError, nextBlock],
+      highlights,
+      'COLOR_SYNC'
+    );
+
+    expect(result[0]).toBe(blockWithSplitError);
+    const highlighted = result[1].paragraph.rich_text.find(
+      rt => rt.annotations?.color === 'yellow_background'
+    );
+    expect(highlighted?.text.content).toBe('重要概念');
+    expect(globalThis.Logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('[HighlightMerger]'),
+      expect.objectContaining({
+        action: 'safelyApplyHighlightsToBlock',
+        result: 'error',
+        error: splitError,
+      })
+    );
+  });
 });
 
 // ============================================================================

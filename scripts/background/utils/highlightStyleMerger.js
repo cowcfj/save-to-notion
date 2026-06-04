@@ -54,9 +54,18 @@ const HIGHLIGHT_STYLE_OPTIONS = {
  * @returns {string|object} 去重鍵
  */
 function getHighlightKey(highlight) {
-  const id =
-    typeof highlight?.id === 'string' && highlight.id.trim().length > 0 ? highlight.id : null;
-  return id ?? highlight;
+  const id = highlight?.id;
+  if (isUsableHighlightId(id)) {
+    return id;
+  }
+  return highlight;
+}
+
+function isUsableHighlightId(id) {
+  if (typeof id !== 'string') {
+    return false;
+  }
+  return id.trim().length > 0;
 }
 
 /**
@@ -75,6 +84,34 @@ function _createRichText(content, annotations) {
 }
 
 /**
+ * 獲取並驗證 highlight 的顏色，不合法的顏色回退到 yellow
+ *
+ * @private
+ * @param {object} highlight - 標註數據
+ * @returns {string} 驗證後的顏色
+ */
+function resolveHighlightColor(highlight) {
+  const rawColor = highlight?.color ?? 'yellow';
+  if (VALID_HIGHLIGHT_COLORS.has(rawColor)) {
+    return rawColor;
+  }
+  return 'yellow';
+}
+
+const STYLE_RESOLVERS = {
+  [HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC]: highlight => {
+    const color = resolveHighlightColor(highlight);
+    return { color: `${color}_background` };
+  },
+  [HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT]: highlight => {
+    const color = resolveHighlightColor(highlight);
+    return { color };
+  },
+  [HIGHLIGHT_STYLE_OPTIONS.BOLD]: () => ({ bold: true }),
+  [HIGHLIGHT_STYLE_OPTIONS.NONE]: () => null,
+};
+
+/**
  * 根據 styleKey 和 highlight 數據獲取實際的 Notion annotation 樣式
  *
  * @param {string} styleKey - 用戶選擇的樣式類型（'COLOR_SYNC' | 'COLOR_TEXT' | 'BOLD' | 'NONE'）
@@ -82,20 +119,9 @@ function _createRichText(content, annotations) {
  * @returns {object|null} Notion annotation 物件，或 null（關閉時）
  */
 function resolveStyle(styleKey, highlight) {
-  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC) {
-    const rawColor = highlight.color || 'yellow';
-    // 白名單驗證：不合法的顏色回退到 yellow
-    const color = VALID_HIGHLIGHT_COLORS.has(rawColor) ? rawColor : 'yellow';
-    return { color: `${color}_background` };
-  }
-  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT) {
-    const rawColor = highlight.color || 'yellow';
-    // 白名單驗證：文字顏色同樣回退到 yellow
-    const color = VALID_HIGHLIGHT_COLORS.has(rawColor) ? rawColor : 'yellow';
-    return { color };
-  }
-  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.BOLD) {
-    return { bold: true };
+  const resolver = STYLE_RESOLVERS[styleKey];
+  if (resolver) {
+    return resolver(highlight);
   }
   return null;
 }
@@ -127,40 +153,65 @@ function scoreCandidate(fullText, idx, text, context) {
   return scoreCandidateMatch(indexedFullText, candidate, context);
 }
 
+/**
+ * 計算前綴上下文匹配分數
+ *
+ * @private
+ * @param {object} indexedFullText - 索引純文本
+ * @param {number} candidateStart - 候選匹配起點
+ * @param {string} prefix - 前綴
+ * @returns {number} 前綴匹配分數
+ */
+function scorePrefixContextMatch(indexedFullText, candidateStart, prefix) {
+  if (!prefix) {
+    return 0;
+  }
+  const actualPrefix = indexedFullText.text.slice(
+    Math.max(0, candidateStart - prefix.length),
+    candidateStart
+  );
+  if (actualPrefix.endsWith(prefix)) {
+    return HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
+  }
+  const partialPrefixTarget = prefix.slice(-HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_WINDOW);
+  if (actualPrefix.endsWith(partialPrefixTarget)) {
+    return HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_SCORE;
+  }
+  return 0;
+}
+
+/**
+ * 計算後綴上下文匹配分數
+ *
+ * @private
+ * @param {object} indexedFullText - 索引純文本
+ * @param {number} candidateEnd - 候選匹配終點
+ * @param {string} suffix - 後綴
+ * @returns {number} 後綴匹配分數
+ */
+function scoreSuffixContextMatch(indexedFullText, candidateEnd, suffix) {
+  if (!suffix) {
+    return 0;
+  }
+  const actualSuffix = indexedFullText.text.slice(candidateEnd, candidateEnd + suffix.length);
+  if (actualSuffix.startsWith(suffix)) {
+    return HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
+  }
+  const partialSuffixTarget = suffix.slice(0, HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_WINDOW);
+  if (actualSuffix.startsWith(partialSuffixTarget)) {
+    return HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_SCORE;
+  }
+  return 0;
+}
+
 function scoreCandidateMatch(indexedFullText, candidate, context) {
   const prefix = normalizeTextForSearch(context.prefix, { trim: false });
   const suffix = normalizeTextForSearch(context.suffix, { trim: false });
-  let score = 0;
 
-  if (prefix) {
-    const actualPrefix = indexedFullText.text.slice(
-      Math.max(0, candidate.normalizedStart - prefix.length),
-      candidate.normalizedStart
-    );
-    if (actualPrefix.endsWith(prefix)) {
-      score += HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
-    } else if (
-      actualPrefix.endsWith(prefix.slice(-HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_WINDOW))
-    ) {
-      score += HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_SCORE;
-    }
-  }
-
-  if (suffix) {
-    const actualSuffix = indexedFullText.text.slice(
-      candidate.normalizedEnd,
-      candidate.normalizedEnd + suffix.length
-    );
-    if (actualSuffix.startsWith(suffix)) {
-      score += HIGHLIGHT_MATCH_SCORING.EXACT_CONTEXT_SCORE;
-    } else if (
-      actualSuffix.startsWith(suffix.slice(0, HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_WINDOW))
-    ) {
-      score += HIGHLIGHT_MATCH_SCORING.PARTIAL_CONTEXT_SCORE;
-    }
-  }
-
-  return score;
+  return (
+    scorePrefixContextMatch(indexedFullText, candidate.normalizedStart, prefix) +
+    scoreSuffixContextMatch(indexedFullText, candidate.normalizedEnd, suffix)
+  );
 }
 
 function normalizeTextForSearch(text, options = {}) {
@@ -169,7 +220,10 @@ function normalizeTextForSearch(text, options = {}) {
   }
 
   const normalized = text.replaceAll(/\s+/g, ' ');
-  return options.trim === false ? normalized : normalized.trim();
+  if (options.trim === false) {
+    return normalized;
+  }
+  return normalized.trim();
 }
 
 function createFallbackCandidate(idx, normalizedText) {
@@ -189,7 +243,7 @@ function buildSearchIndex(fullText) {
   while (index < fullText.length) {
     if (/\s/.test(fullText[index])) {
       const whitespaceStart = index;
-      while (index < fullText.length && /\s/.test(fullText[index])) {
+      while (isWhitespaceAt(fullText, index)) {
         index++;
       }
       text += ' ';
@@ -203,6 +257,13 @@ function buildSearchIndex(fullText) {
   }
 
   return { text, charMap };
+}
+
+function isWhitespaceAt(text, index) {
+  if (index >= text.length) {
+    return false;
+  }
+  return /\s/.test(text[index]);
 }
 
 function findCandidateMatches(indexedFullText, normalizedText) {
@@ -235,13 +296,20 @@ function findCandidateMatches(indexedFullText, normalizedText) {
  * @returns {{ prefix: string, suffix: string, hasContext: boolean }}
  */
 function extractContextFromRangeInfo(rangeInfo) {
-  const prefix = rangeInfo?.prefix || '';
-  const suffix = rangeInfo?.suffix || '';
+  const prefix = rangeInfo?.prefix ?? '';
+  const suffix = rangeInfo?.suffix ?? '';
   return {
     prefix,
     suffix,
-    hasContext: Boolean(normalizeTextForSearch(prefix) || normalizeTextForSearch(suffix)),
+    hasContext: hasRangeContext(prefix, suffix),
   };
+}
+
+function hasRangeContext(prefix, suffix) {
+  if (normalizeTextForSearch(prefix)) {
+    return true;
+  }
+  return Boolean(normalizeTextForSearch(suffix));
 }
 
 /**
@@ -259,7 +327,10 @@ function resolveSingleCandidate(indexedFullText, candidate, context) {
   if (!context.hasContext) {
     return candidate;
   }
-  return scoreCandidateMatch(indexedFullText, candidate, context) > 0 ? candidate : null;
+  if (scoreCandidateMatch(indexedFullText, candidate, context) > 0) {
+    return candidate;
+  }
+  return null;
 }
 
 /**
@@ -284,7 +355,10 @@ function resolveBestScoringCandidate(indexedFullText, candidates, context) {
     }
   }
 
-  if (context.hasContext && bestScore === 0) {
+  if (!context.hasContext) {
+    return bestCandidate;
+  }
+  if (bestScore === 0) {
     return null;
   }
   return bestCandidate;
@@ -307,7 +381,10 @@ function resolveBestScoringCandidate(indexedFullText, candidates, context) {
  */
 function findHighlightPosition(richTextArray, highlight, fullText) {
   const match = findHighlightMatch(richTextArray, highlight, fullText);
-  return match ? match.start : -1;
+  if (match) {
+    return match.start;
+  }
+  return -1;
 }
 
 function findHighlightMatch(richTextArray, highlight, fullText) {
@@ -320,7 +397,10 @@ function findHighlightMatch(richTextArray, highlight, fullText) {
 
   const { text, rangeInfo } = highlight;
   const normalizedText = normalizeTextForSearch(text);
-  if (!normalizedText || fullText.length === 0) {
+  if (!normalizedText) {
+    return null;
+  }
+  if (fullText.length === 0) {
     return null;
   }
 
@@ -344,28 +424,31 @@ function findHighlightMatch(richTextArray, highlight, fullText) {
 /**
  * 處理單個 rich_text 片段中與 match 的交集部分
  *
- * @param {string} text - 當前片段的文字內容
- * @param {object} baseAnnotations - 當前片段的原有樣式
+ * @param {{ text: string, baseAnnotations: object, start: number, end: number }} segment - 當前片段上下文物件
  * @param {object} match - 當前匹配 { start, end, highlight }
- * @param {number} segStart - 當前片段在拼接文本中的起始位置
  * @param {number} localCursor - 片段內的游標位置
  * @param {string} styleKey - 樣式鍵
  * @returns {{ parts: Array<object>, newCursor: number }} 新增的 rich_text 片段與更新後的游標
  */
-function processMatchInSegment(text, baseAnnotations, match, segStart, localCursor, styleKey) {
+function processMatchInSegment(segment, match, localCursor, styleKey) {
   const parts = [];
-  const overlapStart = Math.max(match.start - segStart, localCursor);
-  const overlapEnd = Math.min(match.end - segStart, text.length);
+  const overlapStart = Math.max(match.start - segment.start, localCursor);
+  const overlapEnd = Math.min(match.end - segment.start, segment.text.length);
 
   // 前段（未標註部分）
   if (overlapStart > localCursor) {
-    parts.push(_createRichText(text.slice(localCursor, overlapStart), baseAnnotations));
+    parts.push(
+      _createRichText(segment.text.slice(localCursor, overlapStart), segment.baseAnnotations)
+    );
   }
 
   // 標註段（帶樣式）
   const style = resolveStyle(styleKey, match.highlight);
   parts.push(
-    _createRichText(text.slice(overlapStart, overlapEnd), { ...baseAnnotations, ...style })
+    _createRichText(segment.text.slice(overlapStart, overlapEnd), {
+      ...segment.baseAnnotations,
+      ...style,
+    })
   );
 
   return { parts, newCursor: overlapEnd };
@@ -374,36 +457,31 @@ function processMatchInSegment(text, baseAnnotations, match, segStart, localCurs
 /**
  * 處理單個 rich_text 片段（用於 splitRichTextByMatches）
  *
- * @param {string} text - 當前片段的文字內容
- * @param {object} baseAnnotations - 當前片段的原有樣式
- * @param {number} segStart - 當前片段在拼接文本中的起始位置
+ * @param {{ text: string, baseAnnotations: object, start: number, end: number }} segment - 當前片段上下文物件
  * @param {Array<{start: number, end: number, highlight: object}>} matches - 排序後的匹配陣列
  * @param {{ idx: number }} state - 可變狀態物件，持有當前 matchIdx
  * @param {string} styleKey - 樣式鍵
  * @returns {Array<object>} 此片段產生的 rich_text 陣列
  */
-function processSegment(text, baseAnnotations, segStart, matches, state, styleKey) {
-  const segEnd = segStart + text.length;
+function processSegment(segment, matches, state, styleKey) {
   const parts = [];
   let localCursor = 0;
 
   while (state.idx < matches.length) {
     const match = matches[state.idx];
 
-    if (match.start >= segEnd) {
+    if (match.start >= segment.end) {
       break; // 此 match 在後面的片段中
     }
 
-    if (match.end <= segStart + localCursor) {
+    if (match.end <= segment.start + localCursor) {
       state.idx++;
       continue; // 已處理完的 match
     }
 
     const { parts: newParts, newCursor } = processMatchInSegment(
-      text,
-      baseAnnotations,
+      segment,
       match,
-      segStart,
       localCursor,
       styleKey
     );
@@ -413,7 +491,7 @@ function processSegment(text, baseAnnotations, segStart, matches, state, styleKe
     }
     localCursor = newCursor;
 
-    if (match.end <= segEnd) {
+    if (match.end <= segment.end) {
       state.idx++;
     } else {
       break; // match 延伸到下一個片段
@@ -421,8 +499,8 @@ function processSegment(text, baseAnnotations, segStart, matches, state, styleKe
   }
 
   // 片段尾段（未被任何 match 覆蓋的部分）
-  if (localCursor < text.length) {
-    parts.push(_createRichText(text.slice(localCursor), baseAnnotations));
+  if (localCursor < segment.text.length) {
+    parts.push(_createRichText(segment.text.slice(localCursor), segment.baseAnnotations));
   }
 
   return parts;
@@ -446,8 +524,14 @@ function splitRichTextByMatches(richTextArray, matches, styleKey) {
 
   for (const rt of richTextArray) {
     const text = rt.text.content;
-    const baseAnnotations = rt.annotations || {};
-    const parts = processSegment(text, baseAnnotations, globalOffset, matches, state, styleKey);
+    const baseAnnotations = rt.annotations ?? {};
+    const segment = {
+      text,
+      baseAnnotations,
+      start: globalOffset,
+      end: globalOffset + text.length,
+    };
+    const parts = processSegment(segment, matches, state, styleKey);
     for (const part of parts) {
       result.push(part);
     }
@@ -458,37 +542,51 @@ function splitRichTextByMatches(richTextArray, matches, styleKey) {
 }
 
 /**
- * 在單個 block 上套用標註樣式
+ * 收集並記錄此 block 中所有匹配的標註位置，並標記為已消耗
  *
- * @param {object} block - Notion block 物件
- * @param {Array<{text: string, color: string, rangeInfo?: object}>} highlights - 標註數據
- * @param {string} styleKey - 樣式鍵
- * @param {Set<string|object>} [consumed] - 已消耗的 highlight 集合
- * @returns {object} 處理後的 block
+ * @private
+ * @param {Array<object>} richTextArray - block 的 rich_text 陣列
+ * @param {Array<object>} highlights - 標註數據陣列
+ * @param {string} fullText - 拼接後的純文本
+ * @param {Set<string|object>} consumed - 已消耗標註的去重 Set
+ * @returns {Array<{start: number, end: number, highlight: object}>} 匹配的 offset 陣列
  */
-function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
-  const richTextArray = block[block.type]?.rich_text;
-  if (!richTextArray || richTextArray.length === 0) {
-    return block;
-  }
-
-  const fullText = richTextArray.map(rt => rt.text.content).join('');
-
-  // 收集所有在此 block 中匹配的標註位置（block 層級操作）
+function collectBlockHighlightMatches(richTextArray, highlights, fullText, consumed) {
   const matches = [];
   for (const hl of highlights) {
     const key = getHighlightKey(hl);
-    if (consumed?.has(key)) {
+    if (consumed.has(key)) {
       continue;
     }
     const match = findHighlightMatch(richTextArray, hl, fullText);
     if (match) {
       matches.push({ start: match.start, end: match.end, highlight: hl });
-      if (consumed) {
-        consumed.add(key);
-      }
+      consumed.add(key);
     }
   }
+  return matches;
+}
+
+/**
+ * 在單個 block 上套用標註樣式
+ *
+ * @param {object} block - Notion block 物件
+ * @param {Array<{text: string, color: string, rangeInfo?: object}>} highlights - 標註數據
+ * @param {string} styleKey - 樣式鍵
+ * @param {Set<string|object>} consumed - 已消耗的 highlight 集合
+ * @returns {object} 處理後的 block
+ */
+function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
+  const richTextArray = block[block.type]?.rich_text;
+  if (!richTextArray) {
+    return block;
+  }
+  if (richTextArray.length === 0) {
+    return block;
+  }
+
+  const fullText = richTextArray.map(rt => rt.text.content).join('');
+  const matches = collectBlockHighlightMatches(richTextArray, highlights, fullText, consumed);
 
   if (matches.length === 0) {
     return block;
@@ -509,6 +607,46 @@ function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
 // ============================================================================
 
 /**
+ * 安全地在單個 block 上套用標註樣式，出錯時降級返回原始 block
+ *
+ * @private
+ * @param {object} block - Notion block 物件
+ * @param {Array<object>} highlights - 標註數據
+ * @param {string} styleKey - 樣式鍵
+ * @param {Set<string|object>} consumed - 已消耗的 highlight 集合
+ * @returns {object} 處理後的 block 或原始 block
+ */
+function safelyApplyHighlightsToBlock(block, highlights, styleKey, consumed) {
+  const consumedSnapshot = new Set(consumed);
+  try {
+    return applyHighlightsToBlock(block, highlights, styleKey, consumed);
+  } catch (error) {
+    consumed.clear();
+    for (const key of consumedSnapshot) {
+      consumed.add(key);
+    }
+    if (typeof Logger !== 'undefined' && Logger.debug) {
+      Logger.debug('[HighlightMerger] 單個 block 套用標註樣式失敗，保留原始 block', {
+        action: 'safelyApplyHighlightsToBlock',
+        result: 'error',
+        error,
+      });
+    }
+    return block;
+  }
+}
+
+function shouldSkipHighlightMerge(blocks, highlights, styleKey) {
+  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.NONE) {
+    return true;
+  }
+  if (!highlights?.length) {
+    return true;
+  }
+  return !blocks?.length;
+}
+
+/**
  * 將標註樣式合併到 Notion blocks（僅首次保存時調用）
  *
  * 核心策略：block 層級「先拼後找」
@@ -527,20 +665,14 @@ function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
  */
 function mergeHighlightsWithStyle(blocks, highlights, styleKey = 'COLOR_SYNC') {
   // 快速退出：功能關閉或無標註
-  if (styleKey === 'NONE' || !highlights?.length || !blocks?.length) {
+  if (shouldSkipHighlightMerge(blocks, highlights, styleKey)) {
     return blocks;
   }
 
   const consumed = new Set();
 
   try {
-    return blocks.map(block => {
-      try {
-        return applyHighlightsToBlock(block, highlights, styleKey, consumed);
-      } catch {
-        return block; // 單個 block 失敗：保留原始
-      }
-    });
+    return blocks.map(block => safelyApplyHighlightsToBlock(block, highlights, styleKey, consumed));
   } catch (error) {
     if (typeof Logger !== 'undefined') {
       Logger.warn('[HighlightMerger] 標註樣式合併失敗，使用原始模式:', {
