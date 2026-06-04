@@ -23,6 +23,7 @@ import { VALID_STYLES } from './utils/color.js';
 import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingRailAvailability.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';
+import { createRailInitializationController } from './autoInit/railInitialization.js';
 
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
@@ -45,49 +46,8 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     return 'background';
   }
 
-  let railReadyResolve;
-  let isRailReadySettled = false;
-  const railReadyPromise = new Promise(resolve => {
-    railReadyResolve = resolve;
-  });
-  globalThis.__NOTION_RAIL_READY__ = railReadyPromise;
-
-  function settleRailReady(result) {
-    if (isRailReadySettled) {
-      return;
-    }
-    isRailReadySettled = true;
-    if (!result?.success) {
-      globalThis.__NOTION_RAIL_READY__ = undefined;
-    }
-    railReadyResolve(result);
-  }
-
-  function failRailReady(error, fallbackMessage) {
-    settleRailReady({
-      success: false,
-      error: fallbackMessage || error?.message,
-    });
-  }
-
-  async function initializeFloatingRail(manager, autoShowRail) {
-    try {
-      const { FloatingRail } = await import('./ui/FloatingRail.js');
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
-      globalThis.HighlighterV2.rail = rail;
-      if (!autoShowRail) {
-        rail.hide();
-      }
-      settleRailReady({ success: true, rail });
-    } catch (railError) {
-      Logger.warn('[Highlighter] Floating Rail 初始化失敗', {
-        action: 'initializeExtension',
-        error: railError?.message,
-      });
-      failRailReady(railError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
-    }
-  }
+  const railInitialization = createRailInitializationController();
+  const { failRailReady, initializeFloatingRail, settleRailReady } = railInitialization;
 
   function fallbackInitialize(cause) {
     try {
