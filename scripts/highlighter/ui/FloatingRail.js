@@ -301,7 +301,7 @@ export class FloatingRail {
 
     this._bindTriggerEvents(closeBtn, trigger);
     this._bindContainerEvents(colorPalette);
-    this._bindActionEvents(saveBtn, highlightToggle, highlightBtn, colorPalette, manageBtn);
+    this._bindActionEvents({ saveBtn, highlightToggle, highlightBtn, colorPalette, manageBtn });
     this._bindDocumentDeleteShortcut();
 
     this._eventsBound = true;
@@ -351,7 +351,7 @@ export class FloatingRail {
     });
   }
 
-  _bindActionEvents(saveBtn, highlightToggle, highlightBtn, colorPalette, manageBtn) {
+  _bindActionEvents({ saveBtn, highlightToggle, highlightBtn, colorPalette, manageBtn }) {
     if (saveBtn) {
       saveBtn.addEventListener('click', () => this._handleSaveSync());
     }
