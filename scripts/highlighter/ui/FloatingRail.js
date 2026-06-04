@@ -626,11 +626,14 @@ export class FloatingRail {
         });
       }
     };
-    chrome.storage.onChanged.addListener(this._displaySettingsChangeListener);
+    globalThis.chrome?.storage?.onChanged?.addListener?.(this._displaySettingsChangeListener);
   }
 
   _isDisplaySettingChange(changes, areaName) {
     if (areaName !== 'sync') {
+      return false;
+    }
+    if (!changes || typeof changes !== 'object') {
       return false;
     }
     return RAIL_DISPLAY_SETTING_KEYS.some(key => key in changes);
@@ -773,12 +776,14 @@ export class FloatingRail {
 
   async _handleSaveSyncCatch(error, operation, uiContext) {
     uiContext.launchAnim?.cancel();
-    await this._playSaveFailAnimation(uiContext);
     const sanitizedError = sanitizeApiError(error, 'rail_save_sync');
+    const formattedError = ErrorHandler.formatUserMessage(sanitizedError);
+    const failMessage = sanitizedError === 'UNKNOWN_ERROR' ? undefined : formattedError;
+    await this._playSaveFailAnimation(uiContext, failMessage);
     Logger.warn('[FloatingRail] 保存/同步失敗', {
       action: '_handleSaveSync',
       operation,
-      sanitizedError: ErrorHandler.formatUserMessage(sanitizedError),
+      sanitizedError: formattedError,
     });
   }
 
@@ -853,7 +858,7 @@ export class FloatingRail {
       this._deleteShortcutHandler = null;
     }
     if (this._displaySettingsChangeListener) {
-      chrome.storage.onChanged.removeListener(this._displaySettingsChangeListener);
+      globalThis.chrome?.storage?.onChanged?.removeListener?.(this._displaySettingsChangeListener);
       this._displaySettingsChangeListener = null;
     }
     // 所有 listeners 綁定在 shadow DOM 內部元素，host 移除後隨 GC 回收

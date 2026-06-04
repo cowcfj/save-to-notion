@@ -40,6 +40,8 @@ import {
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
 import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
 import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
 const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
@@ -344,6 +346,19 @@ describe('FloatingRail', () => {
       expect(manager.handleDocumentClick).not.toHaveBeenCalled();
     });
 
+    test('chrome.storage.onChanged 不可用時 initialize 與 destroy 不應拋錯', async () => {
+      const originalOnChanged = globalThis.chrome.storage.onChanged;
+      delete globalThis.chrome.storage.onChanged;
+
+      try {
+        const rail = new FloatingRail(manager);
+        await expect(rail.initialize()).resolves.toBeUndefined();
+        expect(() => rail.destroy()).not.toThrow();
+      } finally {
+        globalThis.chrome.storage.onChanged = originalOnChanged;
+      }
+    });
+
     test('[REGRESSION] dismissed 狀態初始化後，undismiss 仍應保有事件綁定', async () => {
       sessionStorage.setItem(TEST_RAIL_DISMISSED_KEY, 'true');
 
@@ -524,7 +539,13 @@ describe('FloatingRail', () => {
 
       expect(playLaunchAnimation).toHaveBeenCalledWith(rail.elements.saveBtn);
       const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
-      expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
+      expect(playFailAnimation).toHaveBeenCalledWith(
+        rail.elements.saveBtn,
+        errorTooltip,
+        ErrorHandler.formatUserMessage(
+          sanitizeApiError(new Error('network error'), 'rail_save_sync')
+        )
+      );
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
 
@@ -659,6 +680,27 @@ describe('FloatingRail', () => {
       expect(playFailAnimation).toHaveBeenCalledWith(rail.elements.saveBtn, errorTooltip);
       expect(refreshSpy).not.toHaveBeenCalled();
       expect(playFireworkAnimation).not.toHaveBeenCalled();
+    });
+
+    test('syncHighlights 拋出可格式化錯誤時，fail 動畫應顯示友善訊息', async () => {
+      checkPageStatus.mockResolvedValue({ isSaved: true, canSave: false });
+      syncHighlights.mockRejectedValue({
+        code: 'NETWORK_ERROR',
+        message: 'network error',
+      });
+
+      const rail = new FloatingRail(manager);
+      await rail.initialize();
+      await rail._handleSaveSync();
+
+      const errorTooltip = rail.container.querySelector('.rail-error-tooltip');
+      expect(playFailAnimation).toHaveBeenCalledWith(
+        rail.elements.saveBtn,
+        errorTooltip,
+        ErrorHandler.formatUserMessage(
+          sanitizeApiError({ code: 'NETWORK_ERROR', message: 'network error' }, 'rail_save_sync')
+        )
+      );
     });
   });
 
@@ -1320,6 +1362,13 @@ describe('FloatingRail', () => {
       );
       expect(rail.host.style.getPropertyValue('--rail-top')).toBe('25%');
       expect(rail.host.style.getPropertyValue('--rail-btn-size')).toBe('28px');
+    });
+
+    test('_isDisplaySettingChange 對空值 changes 應回傳 false', () => {
+      const rail = new FloatingRail(manager);
+
+      expect(rail._isDisplaySettingChange(null, 'sync')).toBe(false);
+      expect(rail._isDisplaySettingChange(undefined, 'sync')).toBe(false);
     });
 
     test('listener ignores changes from non-sync areas', async () => {
