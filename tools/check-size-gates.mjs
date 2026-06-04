@@ -10,10 +10,10 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      // DOMPurify plus Floating Rail complexity refactors moved the 2026-06
-      // content baseline to ~287KB. Keep the cap only slightly above current
-      // CI; delta gate still guards single-PR growth.
-      hardLimit: 290_000,
+      // Floating Rail CSS decomposition with reduced-motion support moved the
+      // 2026-06-05 content baseline to 290,041 bytes. Bump hard cap slightly to
+      // 292KB to allow reasonable headroom; delta gate still guards single-PR growth.
+      hardLimit: 292_000,
       deltaLimit: 30_000,
     },
     {
