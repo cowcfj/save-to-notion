@@ -109,46 +109,63 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     await withAvailableFloatingRail(sendResponse, revealFloatingRail);
   }
 
+  function handleLateStableUrlRestore(request, sendResponse) {
+    globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
+
+    const manager = globalThis.HighlighterV2?.manager;
+    const restoreManager = globalThis.HighlighterV2?.restoreManager;
+    const hasSkipRestoreFlag =
+      shouldSkipLateRestore ||
+      globalThis.HighlighterV2?.skipRestore === true ||
+      globalThis.HighlighterV2?.wasDeleted === true;
+    const hasNoHighlights = typeof manager?.getCount === 'function' && manager.getCount() === 0;
+
+    if (
+      !hasRetriedLateStableRestore &&
+      !hasSkipRestoreFlag &&
+      hasNoHighlights &&
+      typeof restoreManager?.restore === 'function'
+    ) {
+      hasRetriedLateStableRestore = true;
+      restoreManager
+        .restore()
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch(error => {
+          Logger.warn('[Highlighter] 延後收到穩定 URL，重試恢復標註失敗', {
+            action: 'SET_STABLE_URL',
+            error,
+            errorMessage: error?.message ?? String(error),
+          });
+          sendResponse({ success: false, error: String(error) });
+        });
+      return true; // 異步回應
+    }
+
+    sendResponse({ success: true });
+    return true;
+  }
+
+  function handleGetStableUrl(sendResponse) {
+    sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
+    return true;
+  }
+
+  function handleStorageStyleChange(changes, namespace) {
+    if (namespace === 'sync' && changes.highlightStyle) {
+      const newStyle = changes.highlightStyle.newValue;
+      if (newStyle && VALID_STYLES.includes(newStyle) && globalThis.HighlighterV2?.manager) {
+        globalThis.HighlighterV2.manager.updateStyleMode(newStyle);
+      }
+    }
+  }
+
   const registerPersistentListeners = () => {
     if (!persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.addListener) {
       persistentMessageHandler = (request, _sender, sendResponse) => {
         if (request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL && request.stableUrl) {
-          globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
-
-          const manager = globalThis.HighlighterV2?.manager;
-          const restoreManager = globalThis.HighlighterV2?.restoreManager;
-          const hasSkipRestoreFlag =
-            shouldSkipLateRestore ||
-            globalThis.HighlighterV2?.skipRestore === true ||
-            globalThis.HighlighterV2?.wasDeleted === true;
-          const hasNoHighlights =
-            typeof manager?.getCount === 'function' && manager.getCount() === 0;
-
-          if (
-            !hasRetriedLateStableRestore &&
-            !hasSkipRestoreFlag &&
-            hasNoHighlights &&
-            typeof restoreManager?.restore === 'function'
-          ) {
-            hasRetriedLateStableRestore = true;
-            restoreManager
-              .restore()
-              .then(() => {
-                sendResponse({ success: true });
-              })
-              .catch(error => {
-                Logger.warn('[Highlighter] 延後收到穩定 URL，重試恢復標註失敗', {
-                  action: 'SET_STABLE_URL',
-                  error,
-                  errorMessage: error?.message ?? String(error),
-                });
-                sendResponse({ success: false, error: String(error) });
-              });
-            return true; // 異步回應
-          }
-
-          sendResponse({ success: true });
-          return true;
+          return handleLateStableUrlRestore(request, sendResponse);
         }
 
         if (request.action === HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR) {
@@ -157,8 +174,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         }
 
         if (request.action === CONTENT_BRIDGE_ACTIONS.GET_STABLE_URL) {
-          sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
-          return true;
+          return handleGetStableUrl(sendResponse);
         }
 
         return undefined;
@@ -169,12 +185,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
     if (!persistentStorageHandler && globalThis.chrome?.storage?.onChanged?.addListener) {
       persistentStorageHandler = (changes, namespace) => {
-        if (namespace === 'sync' && changes.highlightStyle) {
-          const newStyle = changes.highlightStyle.newValue;
-          if (newStyle && VALID_STYLES.includes(newStyle) && globalThis.HighlighterV2?.manager) {
-            globalThis.HighlighterV2.manager.updateStyleMode(newStyle);
-          }
-        }
+        handleStorageStyleChange(changes, namespace);
       };
 
       globalThis.chrome.storage.onChanged.addListener(persistentStorageHandler);
