@@ -16,7 +16,6 @@
 
 import { setupHighlighter } from './index.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
-import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { PAGE_SAVE_ACTIONS } from '../config/runtimeActions/pageSaveActions.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { VALID_STYLES } from './utils/color.js';
@@ -24,14 +23,13 @@ import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingR
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';
 import { createRailInitializationController } from './autoInit/railInitialization.js';
+import { createPersistentListeners } from './autoInit/persistentListeners.js';
 
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   let hasRetriedLateStableRestore = false;
   let shouldSkipLateRestore = false;
   const STABLE_URL_TIMEOUT_MS = 1000;
-  let persistentMessageHandler = null;
-  let persistentStorageHandler = null;
 
   function resolveStyleMode(settings) {
     if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
@@ -124,124 +122,19 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     return true; // 異步回應
   }
 
-  function handleGetStableUrl(sendResponse) {
-    sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
-    return true;
+  const persistentListeners = createPersistentListeners({
+    onSetStableUrl: handleLateStableUrlRestore,
+    onShowToolbar: handleShowToolbarMessage,
+    getStableUrl: () => globalThis.__NOTION_STABLE_URL__,
+  });
+
+  function registerPersistentListeners() {
+    persistentListeners.register();
   }
 
-  function handleStorageStyleChange(changes, namespace) {
-    if (namespace !== 'sync') {
-      return;
-    }
-
-    const changedStyle = changes.highlightStyle;
-    if (!changedStyle) {
-      return;
-    }
-
-    const newStyle = changedStyle.newValue;
-    if (!newStyle) {
-      return;
-    }
-
-    if (!VALID_STYLES.includes(newStyle)) {
-      return;
-    }
-
-    const manager = globalThis.HighlighterV2?.manager;
-    if (!manager) {
-      return;
-    }
-
-    manager.updateStyleMode(newStyle);
+  function unregisterPersistentListeners() {
+    persistentListeners.unregister();
   }
-
-  function handleSetStableUrlMessage(request, sendResponse) {
-    if (!request.stableUrl) {
-      return undefined;
-    }
-    return handleLateStableUrlRestore(request, sendResponse);
-  }
-
-  function handlePersistentShowToolbarMessage(_request, sendResponse) {
-    handleShowToolbarMessage(sendResponse);
-    return true;
-  }
-
-  const PERSISTENT_MESSAGE_HANDLERS = {
-    [CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL]: handleSetStableUrlMessage,
-    [HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR]: handlePersistentShowToolbarMessage,
-    [CONTENT_BRIDGE_ACTIONS.GET_STABLE_URL]: (_request, sendResponse) =>
-      handleGetStableUrl(sendResponse),
-  };
-
-  function handlePersistentMessage(request, _sender, sendResponse) {
-    const handler = PERSISTENT_MESSAGE_HANDLERS[request.action];
-    if (!handler) {
-      return undefined;
-    }
-    return handler(request, sendResponse);
-  }
-
-  function registerPersistentMessageListener(onMessage) {
-    if (persistentMessageHandler) {
-      return;
-    }
-    if (!onMessage?.addListener) {
-      return;
-    }
-
-    persistentMessageHandler = handlePersistentMessage;
-    onMessage.addListener(persistentMessageHandler);
-  }
-
-  function registerPersistentStorageChangeListener(onChanged) {
-    if (persistentStorageHandler) {
-      return;
-    }
-    if (!onChanged?.addListener) {
-      return;
-    }
-
-    persistentStorageHandler = handleStorageStyleChange;
-    onChanged.addListener(persistentStorageHandler);
-  }
-
-  const registerPersistentListeners = () => {
-    const onMessage = globalThis.chrome?.runtime?.onMessage;
-    const onChanged = globalThis.chrome?.storage?.onChanged;
-
-    registerPersistentMessageListener(onMessage);
-    registerPersistentStorageChangeListener(onChanged);
-  };
-
-  const unregisterPersistentListeners = () => {
-    const listeners = [
-      {
-        target: globalThis.chrome?.runtime?.onMessage,
-        handler: persistentMessageHandler,
-        clear: () => {
-          persistentMessageHandler = null;
-        },
-      },
-      {
-        target: globalThis.chrome?.storage?.onChanged,
-        handler: persistentStorageHandler,
-        clear: () => {
-          persistentStorageHandler = null;
-        },
-      },
-    ];
-
-    for (const { target, handler, clear } of listeners) {
-      // handler 非 null ⇒ 註冊時 target 通過了 addListener 檢查（見 registerPersistent*），
-      // 故 target 必然有效且具備 removeListener；target?. 僅作不可達狀態的防護。
-      if (handler) {
-        target?.removeListener(handler);
-        clear();
-      }
-    }
-  };
 
   function awaitStableUrlMessage(onMessage, timeoutMs) {
     return new Promise(resolve => {
