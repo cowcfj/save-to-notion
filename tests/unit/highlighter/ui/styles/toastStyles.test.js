@@ -33,33 +33,6 @@ const toastStatusCases = [
   },
 ];
 
-const toastStatusFallbackCases = [
-  {
-    modifier: 'success',
-    fallback: {
-      bg: '#dcfce7',
-      text: '#166534',
-      border: '#bbf7d0',
-    },
-  },
-  {
-    modifier: 'warning',
-    fallback: {
-      bg: '#fef3c7',
-      text: '#92400e',
-      border: '#fcd34d',
-    },
-  },
-  {
-    modifier: 'error',
-    fallback: {
-      bg: '#fee2e2',
-      text: '#991b1b',
-      border: '#fecaca',
-    },
-  },
-];
-
 describe('toastStyles', () => {
   describe('getToastCSS', () => {
     const css = getToastCSS();
@@ -76,47 +49,36 @@ describe('toastStyles', () => {
     });
 
     test.each(toastStatusCases)(
-      '$modifier modifier 應使用對應 status.*Bg/Text/Border 變數並以 var() 引用',
+      '$modifier modifier 應於 :host 定義 status 變數並以無 fallback 的 var() 引用',
       ({ modifier, statusKeys }) => {
         expect(css).toContain(`--toast-color-${modifier}-bg: ${status[statusKeys.bg]}`);
         expect(css).toContain(`--toast-color-${modifier}-text: ${status[statusKeys.text]}`);
         expect(css).toContain(`--toast-color-${modifier}-border: ${status[statusKeys.border]}`);
         expect(css).toMatch(
           new RegExp(
-            String.raw`\.toast--${modifier}\s*\{[\s\S]*?background:\s*var\(--toast-color-${modifier}-bg,`
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?background:\s*var\(--toast-color-${modifier}-bg\)`
           )
         );
         expect(css).toMatch(
           new RegExp(
-            String.raw`\.toast--${modifier}\s*\{[\s\S]*?color:\s*var\(--toast-color-${modifier}-text,`
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?color:\s*var\(--toast-color-${modifier}-text\)`
           )
         );
         expect(css).toMatch(
           new RegExp(
-            String.raw`\.toast--${modifier}\s*\{[\s\S]*?border-color:\s*var\(--toast-color-${modifier}-border,`
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?border-color:\s*var\(--toast-color-${modifier}-border\)`
           )
         );
       }
     );
 
-    test.each(toastStatusFallbackCases)(
-      '$modifier modifier 應在 var() 內提供 status fallback 色',
-      ({ modifier, fallback }) => {
-        expect(css).toMatch(
-          new RegExp(
-            String.raw`\.toast--${modifier}\s*\{[\s\S]*?background:\s*var\(--toast-color-${modifier}-bg,\s*${fallback.bg}\)`
-          )
-        );
-        expect(css).toMatch(
-          new RegExp(
-            String.raw`\.toast--${modifier}\s*\{[\s\S]*?color:\s*var\(--toast-color-${modifier}-text,\s*${fallback.text}\)`
-          )
-        );
-        expect(css).toMatch(
-          new RegExp(
-            String.raw`\.toast--${modifier}\s*\{[\s\S]*?border-color:\s*var\(--toast-color-${modifier}-border,\s*${fallback.border}\)`
-          )
-        );
+    test.each(toastStatusCases)(
+      '$modifier modifier 規則不得殘留 raw hex（no-raw-hex-leak，色值只存在於 :host 變數定義）',
+      ({ modifier }) => {
+        const ruleBody = css.match(new RegExp(String.raw`\.toast--${modifier}\s*\{([\s\S]*?)\}`));
+        const modifierRuleBody = ruleBody?.[1];
+        expect(modifierRuleBody).toEqual(expect.any(String));
+        expect(modifierRuleBody).not.toMatch(/#[0-9a-fA-F]{3,6}/);
       }
     );
 
