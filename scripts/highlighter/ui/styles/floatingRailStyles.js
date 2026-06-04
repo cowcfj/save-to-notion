@@ -58,10 +58,8 @@ export function getRailThemeVars() {
   `;
 }
 
-export function getFloatingRailCSS() {
+export function getRailBaseCSS() {
   return `
-    ${getRailThemeVars()}
-
     :host {
       all: initial;
       display: block;
@@ -95,7 +93,11 @@ export function getFloatingRailCSS() {
       font-family: inherit;
       font-size: inherit;
     }
+  `;
+}
 
+export function getRailContainerCSS() {
+  return `
     .rail-container {
       position: relative;
       display: flex;
@@ -163,22 +165,11 @@ export function getFloatingRailCSS() {
       fill: currentColor;
       stroke: currentColor;
     }
+  `;
+}
 
-    @media (prefers-reduced-motion: reduce) {
-      .rail-container {
-        transition: none;
-      }
-      .rail-container.collapsed .rail-actions {
-        transition: none;
-      }
-      .color-palette {
-        transition: none;
-      }
-      .rail-close-btn {
-        transition: none;
-      }
-    }
-
+export function getRailActionsAnimationCSS() {
+  return `
     .rail-container.collapsed .rail-actions {
       max-height: 0;
       opacity: 0;
@@ -194,6 +185,11 @@ export function getFloatingRailCSS() {
       transition: max-height 0.2s ease, opacity 0.15s ease 0.05s;
     }
 
+  `;
+}
+
+export function getRailTriggerCSS() {
+  return `
     .rail-trigger {
       width: var(--rail-btn-size, 34px);
       height: var(--rail-btn-size, 34px);
@@ -242,7 +238,11 @@ export function getFloatingRailCSS() {
       fill: currentColor;
       stroke: currentColor;
     }
+  `;
+}
 
+export function getRailActionButtonsCSS() {
+  return `
     .rail-actions {
       position: relative;
       overflow: visible;
@@ -312,7 +312,11 @@ export function getFloatingRailCSS() {
       fill: currentColor;
       stroke: currentColor;
     }
+  `;
+}
 
+export function getRailHighlightToggleCSS() {
+  return `
     .rail-highlight-toggle {
       border: 1px solid transparent;
     }
@@ -352,7 +356,11 @@ export function getFloatingRailCSS() {
       fill: currentColor;
       stroke: currentColor;
     }
+  `;
+}
 
+export function getRailActionTooltipCSS() {
+  return `
     .rail-action-btn[aria-label]::after {
       content: attr(aria-label);
       position: absolute;
@@ -374,7 +382,11 @@ export function getFloatingRailCSS() {
     .rail-action-btn:focus-visible[aria-label]::after {
       opacity: 1;
     }
+  `;
+}
 
+export function getRailColorCSS() {
+  return `
     .color-indicator {
       width: 14px;
       height: 14px;
@@ -431,7 +443,11 @@ export function getFloatingRailCSS() {
     .color-swatch.selected {
       border-color: var(--rail-color-brand);
     }
+  `;
+}
 
+export function getRailStatusAndTooltipCSS() {
+  return `
     .rail-status {
       font-size: 11px;
       color: var(--rail-color-text-muted);
@@ -465,12 +481,71 @@ export function getFloatingRailCSS() {
       pointer-events: auto;
     }
 
+  `;
+}
+
+// 順序敏感：reduced-motion override 必須位於所有常規 transition 之後，避免同 specificity 下被後續規則覆蓋。
+export function getRailReducedMotionCSS() {
+  return `
     @media (prefers-reduced-motion: reduce) {
+      .rail-container {
+        transition: none;
+      }
+
+      .rail-close-btn {
+        transition: none;
+      }
+
+      .rail-container.collapsed .rail-actions {
+        transition: none;
+      }
+
+      .rail-container.expanded .rail-actions,
+      .rail-container.highlighting .rail-actions {
+        transition: none;
+      }
+
+      .rail-trigger {
+        transition: none;
+      }
+
+      .rail-action-btn {
+        transition: none;
+      }
+
+      .rail-action-btn[aria-label]::after {
+        transition: none;
+      }
+
+      .color-indicator {
+        transition: none;
+      }
+
+      .color-palette {
+        transition: none;
+      }
+
       .rail-error-tooltip {
         transition: none;
         transform: translateY(-50%) translateX(0);
       }
     }
+  `;
+}
+
+export function getFloatingRailCSS() {
+  return `
+    ${getRailThemeVars()}
+    ${getRailBaseCSS()}
+    ${getRailContainerCSS()}
+    ${getRailActionsAnimationCSS()}
+    ${getRailTriggerCSS()}
+    ${getRailActionButtonsCSS()}
+    ${getRailHighlightToggleCSS()}
+    ${getRailActionTooltipCSS()}
+    ${getRailColorCSS()}
+    ${getRailStatusAndTooltipCSS()}
+    ${getRailReducedMotionCSS()}
   `;
 }
 
