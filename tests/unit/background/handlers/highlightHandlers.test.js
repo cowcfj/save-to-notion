@@ -284,6 +284,16 @@ describe('highlightHandlers', () => {
       );
       // Re-arm: confirmRemotePageMissing 被呼叫兩次（初始確認 + 清除失敗後 re-arm）
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
+      expect(globalThis.Logger.error).toHaveBeenCalledWith(
+        '清除本地 Notion 狀態失敗',
+        expect.objectContaining({
+          action: 'performHighlightUpdate',
+          url: 'https://example.com/',
+          attempts: 2,
+          error: expect.any(Error),
+          result: 'cleanup_failed',
+        })
+      );
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,

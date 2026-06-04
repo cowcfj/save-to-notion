@@ -199,6 +199,7 @@ async function reconcileRemotePageMissing({
       url: sanitizeUrlForLogging(resolvedUrl),
       attempts: clearResult.attempts,
       error: clearResult.error,
+      result: 'cleanup_failed',
     });
 
     // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
