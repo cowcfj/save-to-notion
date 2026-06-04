@@ -57,6 +57,7 @@ const RAIL_SIZE_TO_DIMENSIONS = {
 
 const RAIL_POSITION_DEFAULT = 'middle';
 const RAIL_SIZE_DEFAULT = 'large';
+const RAIL_DISPLAY_SETTING_KEYS = ['floatingRailPosition', 'floatingRailSize'];
 
 const RAIL_SAVE_ERROR_LOOKUP = {
   PAGE_DELETED: {
@@ -464,10 +465,7 @@ export class FloatingRail {
 
     const deltaX = moveEvent.clientX - this._dragState.startX;
     const deltaY = moveEvent.clientY - this._dragState.startY;
-    if (
-      Math.abs(deltaX) > RAIL_DRAG_MOVE_THRESHOLD_PX ||
-      Math.abs(deltaY) > RAIL_DRAG_MOVE_THRESHOLD_PX
-    ) {
+    if (FloatingRail._isDragMoveBeyondThreshold(deltaX, deltaY)) {
       this._dragState.moved = true;
     }
 
@@ -515,10 +513,7 @@ export class FloatingRail {
     }
 
     try {
-      if (
-        typeof capture.trigger.hasPointerCapture === 'function' &&
-        !capture.trigger.hasPointerCapture(capture.pointerId)
-      ) {
+      if (!FloatingRail._hasActivePointerCapture(capture)) {
         return;
       }
       capture.trigger.releasePointerCapture(capture.pointerId);
@@ -548,24 +543,39 @@ export class FloatingRail {
   }
 
   _readCurrentPosition(event) {
+    const storedPosition = this._readStoredPosition();
+    if (storedPosition) {
+      return storedPosition;
+    }
+
+    const viewportWidth = FloatingRail._getViewportWidth();
+    const rectPosition = this._readRectPosition(viewportWidth);
+    if (rectPosition) {
+      return rectPosition;
+    }
+
+    return FloatingRail._getPointerPosition(event, viewportWidth);
+  }
+
+  _readStoredPosition() {
     const storedTop = Number.parseFloat(this.host.style.top);
     const storedRight = Number.parseFloat(this.host.style.right);
     if (Number.isFinite(storedTop) && Number.isFinite(storedRight)) {
       return { top: storedTop, right: storedRight };
     }
 
+    return null;
+  }
+
+  _readRectPosition(viewportWidth) {
     const rect = this.host.getBoundingClientRect?.();
-    const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || 0;
-    if (rect && (rect.width > 0 || rect.height > 0)) {
-      return {
-        top: rect.top,
-        right: Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - rect.right),
-      };
+    if (!FloatingRail._hasRectSize(rect)) {
+      return null;
     }
 
     return {
-      top: event.clientY,
-      right: Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - event.clientX),
+      top: rect.top,
+      right: Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - rect.right),
     };
   }
 
@@ -623,7 +633,7 @@ export class FloatingRail {
     if (areaName !== 'sync') {
       return false;
     }
-    return 'floatingRailPosition' in changes || 'floatingRailSize' in changes;
+    return RAIL_DISPLAY_SETTING_KEYS.some(key => key in changes);
   }
 
   _applyPosition(position) {
@@ -666,47 +676,104 @@ export class FloatingRail {
     return Math.min(Math.max(number, min), max);
   }
 
+  static _getViewportWidth() {
+    return globalThis.innerWidth || document.documentElement.clientWidth || 0;
+  }
+
+  static _getPointerPosition(event, viewportWidth) {
+    return {
+      top: event.clientY,
+      right: Math.max(RAIL_EDGE_MARGIN_PX, viewportWidth - event.clientX),
+    };
+  }
+
+  static _hasRectSize(rect) {
+    if (!rect) {
+      return false;
+    }
+    return [rect.width, rect.height].some(size => size > 0);
+  }
+
+  static _isDragMoveBeyondThreshold(deltaX, deltaY) {
+    return [deltaX, deltaY].some(delta => Math.abs(delta) > RAIL_DRAG_MOVE_THRESHOLD_PX);
+  }
+
+  static _hasActivePointerCapture({ trigger, pointerId }) {
+    if (typeof trigger.hasPointerCapture !== 'function') {
+      return true;
+    }
+    return trigger.hasPointerCapture(pointerId);
+  }
+
+  static _isSuccessfulSaveResponse(response) {
+    return response?.success === true;
+  }
+
+  static _hasSaveFailTarget({ saveBtn, errorTooltip }) {
+    return [saveBtn, errorTooltip].every(Boolean);
+  }
+
   async _handleSaveSync() {
     if (this._isSaving) {
       return;
     }
-    this._isSaving = true;
-    const { saveBtn } = this.elements;
-    const errorTooltip = this.container.querySelector('.rail-error-tooltip');
-    if (saveBtn) {
-      saveBtn.disabled = true;
-    }
 
-    const launchAnim = saveBtn ? playLaunchAnimation(saveBtn) : null;
-    const uiContext = { saveBtn, errorTooltip, launchAnim };
-    const operation = this._pageStatus?.isSaved ? 'syncHighlights' : 'savePageFromRail';
+    const uiContext = this._createSaveUiContext();
+    this._setSaveInProgress(uiContext.saveBtn, true);
+    const operation = this._getSaveOperation();
     try {
       const response = await this._executeSaveOrSync(operation);
 
       const handled = await this._handleSaveErrorResponse(response, uiContext);
-      if (!handled) {
-        launchAnim?.cancel();
-        if (saveBtn) {
-          await playFireworkAnimation(saveBtn);
-        }
-        await this._refreshPageStatus();
+      if (handled) {
+        return;
       }
+      await this._handleSaveSuccess(uiContext);
     } catch (error) {
       await this._handleSaveSyncCatch(error, operation, uiContext);
     } finally {
-      this._isSaving = false;
-      if (saveBtn) {
-        saveBtn.disabled = false;
-      }
+      this._setSaveInProgress(uiContext.saveBtn, false);
     }
   }
 
-  async _handleSaveSyncCatch(error, operation, uiContext) {
-    const { saveBtn, errorTooltip, launchAnim } = uiContext;
-    launchAnim?.cancel();
-    if (saveBtn && errorTooltip) {
-      await playFailAnimation(saveBtn, errorTooltip);
+  _createSaveUiContext() {
+    const { saveBtn } = this.elements;
+    return {
+      saveBtn,
+      errorTooltip: this.container.querySelector('.rail-error-tooltip'),
+      launchAnim: this._startSaveLaunchAnimation(saveBtn),
+    };
+  }
+
+  _startSaveLaunchAnimation(saveBtn) {
+    if (!saveBtn) {
+      return null;
     }
+    return playLaunchAnimation(saveBtn);
+  }
+
+  _setSaveInProgress(saveBtn, isSaving) {
+    this._isSaving = isSaving;
+    if (saveBtn) {
+      saveBtn.disabled = isSaving;
+    }
+  }
+
+  _getSaveOperation() {
+    return this._pageStatus?.isSaved ? 'syncHighlights' : 'savePageFromRail';
+  }
+
+  async _handleSaveSuccess(uiContext) {
+    uiContext.launchAnim?.cancel();
+    if (uiContext.saveBtn) {
+      await playFireworkAnimation(uiContext.saveBtn);
+    }
+    await this._refreshPageStatus();
+  }
+
+  async _handleSaveSyncCatch(error, operation, uiContext) {
+    uiContext.launchAnim?.cancel();
+    await this._playSaveFailAnimation(uiContext);
     const sanitizedError = sanitizeApiError(error, 'rail_save_sync');
     Logger.warn('[FloatingRail] 保存/同步失敗', {
       action: '_handleSaveSync',
@@ -724,30 +791,41 @@ export class FloatingRail {
   }
 
   async _handleSaveErrorResponse(response, uiContext) {
-    if (response?.success === true) {
+    if (FloatingRail._isSuccessfulSaveResponse(response)) {
       return false;
     }
 
     const errorCode = response?.errorCode;
-    const errorConfig = RAIL_SAVE_ERROR_LOOKUP[errorCode];
+    if (errorCode === HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE) {
+      return false;
+    }
 
+    const errorConfig = RAIL_SAVE_ERROR_LOOKUP[errorCode];
     if (errorConfig) {
-      const { saveBtn, errorTooltip, launchAnim } = uiContext;
-      launchAnim?.cancel();
-      if (saveBtn && errorTooltip) {
-        await playFailAnimation(saveBtn, errorTooltip, errorConfig.message);
-      }
-      if (errorConfig.shouldRefresh) {
-        await this._refreshPageStatus();
-      }
+      await this._handleConfiguredSaveError(errorConfig, uiContext);
       return true;
     }
 
-    if (errorCode !== HIGHLIGHT_ERROR_CODES.DELETE_INCOMPLETE) {
-      throw new Error(response?.error || 'sync_failed');
-    }
+    throw new Error(response?.error || 'sync_failed');
+  }
 
-    return false;
+  async _handleConfiguredSaveError(errorConfig, uiContext) {
+    uiContext.launchAnim?.cancel();
+    await this._playSaveFailAnimation(uiContext, errorConfig.message);
+    if (errorConfig.shouldRefresh) {
+      await this._refreshPageStatus();
+    }
+  }
+
+  async _playSaveFailAnimation(uiContext, message) {
+    if (!FloatingRail._hasSaveFailTarget(uiContext)) {
+      return;
+    }
+    if (message === undefined) {
+      await playFailAnimation(uiContext.saveBtn, uiContext.errorTooltip);
+      return;
+    }
+    await playFailAnimation(uiContext.saveBtn, uiContext.errorTooltip, message);
   }
 
   async _handleManage() {
