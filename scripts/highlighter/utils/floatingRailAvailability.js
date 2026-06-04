@@ -86,14 +86,14 @@ async function createDynamicRailInitPromise(manager) {
     const { FloatingRail } = await import('../ui/FloatingRail.js');
     const rail = new FloatingRail(manager);
     const initResult = await rail.initialize();
-    if (initResult?.success) {
-      globalThis.HighlighterV2.rail = rail;
-      return { success: true, rail };
+    if (initResult?.success === false) {
+      return {
+        success: false,
+        error: initResult?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+      };
     }
-    return {
-      success: false,
-      error: initResult?.error || RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
-    };
+    globalThis.HighlighterV2.rail = rail;
+    return { success: true, rail };
   } catch (error) {
     return { success: false, error };
   }

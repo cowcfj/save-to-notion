@@ -6,6 +6,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { HighlightStorageGateway } from './HighlightStorageGateway.js';
 
 /**
@@ -119,20 +120,30 @@ export class HighlightStorage {
    * @returns {Array} 標註數據數組
    */
   collectForNotion() {
-    if (
-      !this.manager ||
-      !this.manager.highlights ||
-      typeof this.manager.highlights.values !== 'function'
-    ) {
+    const highlights = this.manager?.highlights;
+
+    if (!highlights) {
       return [];
     }
-    return Array.from(this.manager.highlights.values()).map(highlight => ({
-      id: highlight.id,
-      text: highlight.text,
-      color: highlight.color,
-      timestamp: highlight.timestamp,
-      ...(highlight.rangeInfo === undefined ? {} : { rangeInfo: highlight.rangeInfo }),
-    }));
+
+    if (typeof highlights.values !== 'function') {
+      return [];
+    }
+
+    return Array.from(highlights.values()).map(highlight => {
+      const notionHighlight = {
+        id: highlight.id,
+        text: highlight.text,
+        color: highlight.color,
+        timestamp: highlight.timestamp,
+      };
+
+      if (highlight.rangeInfo !== undefined) {
+        notionHighlight.rangeInfo = highlight.rangeInfo;
+      }
+
+      return notionHighlight;
+    });
   }
 
   // ========== 保留：隱藏工具欄 ==========
@@ -194,8 +205,7 @@ export class HighlightStorage {
       stableUrlGlobal: globalThis.__NOTION_STABLE_URL__ || 'undefined',
     });
 
-    const data = await HighlightStorageGateway.loadHighlights(currentUrl);
-    const highlights = Array.isArray(data) ? data : data?.highlights || [];
+    const highlights = await HighlightStorageGateway.loadHighlights(currentUrl);
 
     // 若找到標註，直接返回
     if (highlights.length > 0) {
@@ -203,25 +213,30 @@ export class HighlightStorage {
     }
 
     // [Phase 2 Fix] 回退邏輯：若使用穩定 URL 未找到標註，嘗試使用原始 URL
-    if (globalThis.__NOTION_STABLE_URL__) {
-      const originalUrl = globalThis.normalizeUrl
-        ? globalThis.normalizeUrl(globalThis.location.href)
-        : globalThis.location.href;
-
-      if (originalUrl !== currentUrl) {
-        const fallbackData = await HighlightStorageGateway.loadHighlights(originalUrl);
-        const fallbackHighlights = Array.isArray(fallbackData)
-          ? fallbackData
-          : fallbackData?.highlights || [];
-
-        if (fallbackHighlights.length > 0) {
-          Logger.info('[HighlightStorage] Found highlights via fallback URL', { originalUrl });
-          return fallbackHighlights;
-        }
-      }
+    if (!globalThis.__NOTION_STABLE_URL__) {
+      return [];
     }
 
-    return [];
+    const originalUrl = globalThis.normalizeUrl
+      ? globalThis.normalizeUrl(globalThis.location.href)
+      : globalThis.location.href;
+
+    if (originalUrl === currentUrl) {
+      return [];
+    }
+
+    const fallbackHighlights = await HighlightStorageGateway.loadHighlights(originalUrl);
+
+    if (fallbackHighlights.length === 0) {
+      return [];
+    }
+
+    Logger.info('[HighlightStorage] Found highlights via fallback URL', {
+      action: 'findHighlightsFallback',
+      result: 'found',
+      sanitizedUrl: sanitizeUrlForLogging(originalUrl),
+    });
+    return fallbackHighlights;
   }
 }
 

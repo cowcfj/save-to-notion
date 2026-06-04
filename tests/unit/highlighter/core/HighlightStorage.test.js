@@ -3,6 +3,7 @@
  */
 
 import Logger from '../../../../scripts/utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import {
   HighlightStorage,
   RestoreManager,
@@ -195,6 +196,41 @@ describe('core/HighlightStorage', () => {
         expect.objectContaining({ text: 'Fallback' })
       );
       expect(result).toBe(true);
+    });
+
+    test('should log fallback lookup result without raw original URL', async () => {
+      const rawOriginalUrl =
+        'https://example.com/article?utm_source=newsletter&session_token=secret-value#section';
+      globalThis.__NOTION_STABLE_URL__ = 'https://stable.url';
+      globalThis.normalizeUrl.mockReturnValue(rawOriginalUrl);
+
+      HighlightStorageGateway.loadHighlights.mockImplementation(async url => {
+        if (url === 'https://stable.url') {
+          return [];
+        }
+        if (url === rawOriginalUrl) {
+          return [{ id: 'h1', text: 'Fallback' }];
+        }
+        return [];
+      });
+
+      await storage.restore();
+
+      const fallbackLogCall = Logger.info.mock.calls.find(
+        ([message]) => message === '[HighlightStorage] Found highlights via fallback URL'
+      );
+
+      expect(fallbackLogCall).toEqual([
+        '[HighlightStorage] Found highlights via fallback URL',
+        {
+          action: 'findHighlightsFallback',
+          result: 'found',
+          sanitizedUrl: sanitizeUrlForLogging(rawOriginalUrl),
+        },
+      ]);
+      expect(fallbackLogCall[1]).not.toHaveProperty('originalUrl');
+      expect(fallbackLogCall[1].sanitizedUrl).not.toContain('utm_source=');
+      expect(fallbackLogCall[1].sanitizedUrl).not.toContain('secret-value');
     });
   });
 
