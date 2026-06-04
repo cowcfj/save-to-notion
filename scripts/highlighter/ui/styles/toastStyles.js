@@ -3,6 +3,31 @@ import { UI_TOKENS } from '../../../../styles/ui-token-constants.js';
 const { status, spacing, radius, shadow } = UI_TOKENS;
 
 /**
+ * 取得 Toast 的色彩 CSS 變數定義。
+ *
+ * 邊界規則：色彩類 token 走 var bridge，維度 token (spacing, radius, shadow) 仍走 JS 內插。
+ *
+ * @returns {string} CSS 變數字串
+ */
+export function getToastThemeVars() {
+  return `
+    :host {
+      --toast-color-success-bg: ${status.successBg};
+      --toast-color-success-text: ${status.successText};
+      --toast-color-success-border: ${status.successBorder};
+
+      --toast-color-warning-bg: ${status.warningBg};
+      --toast-color-warning-text: ${status.warningText};
+      --toast-color-warning-border: ${status.warningBorder};
+
+      --toast-color-error-bg: ${status.errorBg};
+      --toast-color-error-text: ${status.errorText};
+      --toast-color-error-border: ${status.errorBorder};
+    }
+  `;
+}
+
+/**
  * 取得 Toast 的完整 CSS 字串，供 Shadow DOM 使用。
  *
  * 設計重點：
@@ -15,6 +40,8 @@ const { status, spacing, radius, shadow } = UI_TOKENS;
  */
 export function getToastCSS() {
   return `
+        ${getToastThemeVars()}
+
         :host {
             all: initial;
             position: fixed;
@@ -76,21 +103,21 @@ export function getToastCSS() {
         }
 
         .toast--success {
-            background: ${status.successBg};
-            color: ${status.successText};
-            border-color: ${status.successBorder};
+            background: var(--toast-color-success-bg);
+            color: var(--toast-color-success-text);
+            border-color: var(--toast-color-success-border);
         }
 
         .toast--warning {
-            background: ${status.warningBg};
-            color: ${status.warningText};
-            border-color: ${status.warningBorder};
+            background: var(--toast-color-warning-bg);
+            color: var(--toast-color-warning-text);
+            border-color: var(--toast-color-warning-border);
         }
 
         .toast--error {
-            background: ${status.errorBg};
-            color: ${status.errorText};
-            border-color: ${status.errorBorder};
+            background: var(--toast-color-error-bg);
+            color: var(--toast-color-error-text);
+            border-color: var(--toast-color-error-border);
         }
 
         @media (prefers-reduced-motion: reduce) {
