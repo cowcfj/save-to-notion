@@ -54,9 +54,18 @@ const HIGHLIGHT_STYLE_OPTIONS = {
  * @returns {string|object} 去重鍵
  */
 function getHighlightKey(highlight) {
-  const id =
-    typeof highlight?.id === 'string' && highlight.id.trim().length > 0 ? highlight.id : null;
-  return id ?? highlight;
+  const id = highlight?.id;
+  if (isUsableHighlightId(id)) {
+    return id;
+  }
+  return highlight;
+}
+
+function isUsableHighlightId(id) {
+  if (typeof id !== 'string') {
+    return false;
+  }
+  return id.trim().length > 0;
 }
 
 /**
@@ -82,8 +91,11 @@ function _createRichText(content, annotations) {
  * @returns {string} 驗證後的顏色
  */
 function resolveHighlightColor(highlight) {
-  const rawColor = highlight?.color || 'yellow';
-  return VALID_HIGHLIGHT_COLORS.has(rawColor) ? rawColor : 'yellow';
+  const rawColor = highlight?.color ?? 'yellow';
+  if (VALID_HIGHLIGHT_COLORS.has(rawColor)) {
+    return rawColor;
+  }
+  return 'yellow';
 }
 
 /**
@@ -108,7 +120,10 @@ function resolveStyle(styleKey, highlight) {
   };
 
   const resolver = resolvers[styleKey];
-  return resolver ? resolver() : null;
+  if (resolver) {
+    return resolver();
+  }
+  return null;
 }
 
 // ============================================================================
@@ -131,11 +146,18 @@ function resolveStyle(styleKey, highlight) {
 function scoreCandidate(fullText, idx, text, context) {
   const indexedFullText = buildSearchIndex(fullText);
   const normalizedText = normalizeTextForSearch(text);
-  const candidate =
-    findCandidateMatches(indexedFullText, normalizedText).find(match => match.start === idx) ??
-    createFallbackCandidate(idx, normalizedText);
+  const candidate = findCandidateMatches(indexedFullText, normalizedText).find(
+    match => match.start === idx
+  );
 
-  return scoreCandidateMatch(indexedFullText, candidate, context);
+  if (candidate) {
+    return scoreCandidateMatch(indexedFullText, candidate, context);
+  }
+  return scoreCandidateMatch(
+    indexedFullText,
+    createFallbackCandidate(idx, normalizedText),
+    context
+  );
 }
 
 /**
@@ -205,7 +227,10 @@ function normalizeTextForSearch(text, options = {}) {
   }
 
   const normalized = text.replaceAll(/\s+/g, ' ');
-  return options.trim === false ? normalized : normalized.trim();
+  if (options.trim === false) {
+    return normalized;
+  }
+  return normalized.trim();
 }
 
 function createFallbackCandidate(idx, normalizedText) {
@@ -225,7 +250,7 @@ function buildSearchIndex(fullText) {
   while (index < fullText.length) {
     if (/\s/.test(fullText[index])) {
       const whitespaceStart = index;
-      while (index < fullText.length && /\s/.test(fullText[index])) {
+      while (isWhitespaceAt(fullText, index)) {
         index++;
       }
       text += ' ';
@@ -239,6 +264,13 @@ function buildSearchIndex(fullText) {
   }
 
   return { text, charMap };
+}
+
+function isWhitespaceAt(text, index) {
+  if (index >= text.length) {
+    return false;
+  }
+  return /\s/.test(text[index]);
 }
 
 function findCandidateMatches(indexedFullText, normalizedText) {
@@ -271,13 +303,20 @@ function findCandidateMatches(indexedFullText, normalizedText) {
  * @returns {{ prefix: string, suffix: string, hasContext: boolean }}
  */
 function extractContextFromRangeInfo(rangeInfo) {
-  const prefix = rangeInfo?.prefix || '';
-  const suffix = rangeInfo?.suffix || '';
+  const prefix = rangeInfo?.prefix ?? '';
+  const suffix = rangeInfo?.suffix ?? '';
   return {
     prefix,
     suffix,
-    hasContext: Boolean(normalizeTextForSearch(prefix) || normalizeTextForSearch(suffix)),
+    hasContext: hasRangeContext(prefix, suffix),
   };
+}
+
+function hasRangeContext(prefix, suffix) {
+  if (normalizeTextForSearch(prefix)) {
+    return true;
+  }
+  return Boolean(normalizeTextForSearch(suffix));
 }
 
 /**
@@ -295,7 +334,10 @@ function resolveSingleCandidate(indexedFullText, candidate, context) {
   if (!context.hasContext) {
     return candidate;
   }
-  return scoreCandidateMatch(indexedFullText, candidate, context) > 0 ? candidate : null;
+  if (scoreCandidateMatch(indexedFullText, candidate, context) > 0) {
+    return candidate;
+  }
+  return null;
 }
 
 /**
@@ -320,7 +362,10 @@ function resolveBestScoringCandidate(indexedFullText, candidates, context) {
     }
   }
 
-  if (context.hasContext && bestScore === 0) {
+  if (!context.hasContext) {
+    return bestCandidate;
+  }
+  if (bestScore === 0) {
     return null;
   }
   return bestCandidate;
@@ -343,7 +388,10 @@ function resolveBestScoringCandidate(indexedFullText, candidates, context) {
  */
 function findHighlightPosition(richTextArray, highlight, fullText) {
   const match = findHighlightMatch(richTextArray, highlight, fullText);
-  return match ? match.start : -1;
+  if (match) {
+    return match.start;
+  }
+  return -1;
 }
 
 function findHighlightMatch(richTextArray, highlight, fullText) {
@@ -356,7 +404,10 @@ function findHighlightMatch(richTextArray, highlight, fullText) {
 
   const { text, rangeInfo } = highlight;
   const normalizedText = normalizeTextForSearch(text);
-  if (!normalizedText || fullText.length === 0) {
+  if (!normalizedText) {
+    return null;
+  }
+  if (fullText.length === 0) {
     return null;
   }
 
@@ -480,7 +531,7 @@ function splitRichTextByMatches(richTextArray, matches, styleKey) {
 
   for (const rt of richTextArray) {
     const text = rt.text.content;
-    const baseAnnotations = rt.annotations || {};
+    const baseAnnotations = rt.annotations ?? {};
     const segment = {
       text,
       baseAnnotations,
@@ -534,7 +585,10 @@ function collectBlockHighlightMatches(richTextArray, highlights, fullText, consu
  */
 function applyHighlightsToBlock(block, highlights, styleKey, consumed) {
   const richTextArray = block[block.type]?.rich_text;
-  if (!richTextArray || richTextArray.length === 0) {
+  if (!richTextArray) {
+    return block;
+  }
+  if (richTextArray.length === 0) {
     return block;
   }
 
@@ -577,6 +631,16 @@ function safelyApplyHighlightsToBlock(block, highlights, styleKey, consumed) {
   }
 }
 
+function shouldSkipHighlightMerge(blocks, highlights, styleKey) {
+  if (styleKey === HIGHLIGHT_STYLE_OPTIONS.NONE) {
+    return true;
+  }
+  if (!highlights?.length) {
+    return true;
+  }
+  return !blocks?.length;
+}
+
 /**
  * 將標註樣式合併到 Notion blocks（僅首次保存時調用）
  *
@@ -596,7 +660,7 @@ function safelyApplyHighlightsToBlock(block, highlights, styleKey, consumed) {
  */
 function mergeHighlightsWithStyle(blocks, highlights, styleKey = 'COLOR_SYNC') {
   // 快速退出：功能關閉或無標註
-  if (styleKey === 'NONE' || !highlights?.length || !blocks?.length) {
+  if (shouldSkipHighlightMerge(blocks, highlights, styleKey)) {
     return blocks;
   }
 
