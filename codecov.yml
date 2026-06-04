@@ -1,6 +1,6 @@
 # Codecov Configuration
 # 文檔: https://docs.codecov.com/docs/codecov-yaml
-# 最後更新: 2025-12-20 - 清理 testable 檔案後更新
+# 最後更新: 2026-06-04 - 修正 flag paths 漏收 pages/（目錄重構後同步）
 
 # 覆蓋率設置
 coverage:
@@ -55,22 +55,18 @@ flags:
   unit:
     paths:
       - scripts/
-      - options/
-      - popup/
-      - sidepanel/
+      - pages/
     carryforward: true # 允許攜帶上次覆蓋率
 
   e2e:
     paths:
       - scripts/
-      - options/
-      - popup/
-      - sidepanel/
+      - pages/
     carryforward: true # 允許攜帶上次覆蓋率
 
 
 # 說明：
-# - 所有生產代碼位於 scripts/ 目錄
+# - 生產代碼位於 scripts/（背景 / 內容 / 工具邏輯）與 pages/（options / popup / sidepanel 等頁面 UI）
 # - tests/helpers/ 僅包含測試工具（如 mock helpers），不計入覆蓋率
 #
 # 覆蓋率歷史變更：
@@ -96,4 +92,10 @@ flags:
 #   - tests/unit/utils.test.js (256 行) 已移至 internal/archive/
 #   - 該測試測試的是已拆分的舊 scripts/utils.js
 #   - 已被 storageUtil.test.js 和 Logger.test.js 的更完善測試取代
+#
+# - 2026-06-04: 修正 flag paths 漏收 pages/ 覆蓋率
+#   - options/popup/sidepanel 已於 v2.74.0 搬至 pages/ 下，但 unit/e2e flag paths 未同步
+#   - 舊 paths（root 層 options/popup/sidepanel）不匹配 pages/**，
+#     導致 lcov 內 pages/ 檔案的覆蓋率被 Codecov flag 白名單濾掉，UI 只顯示 scripts/
+#   - 改為 scripts/ + pages/，對齊 jest.config.js 的 collectCoverageFrom
 
