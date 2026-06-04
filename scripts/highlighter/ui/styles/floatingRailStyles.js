@@ -9,8 +9,59 @@ import { UI_TOKENS, hexToRgba } from '../../../../styles/ui-token-constants.js';
 
 const { color, spacing, radius, shadow, theme } = UI_TOKENS;
 
+/**
+ * 取得 Floating Rail 的色彩 CSS 變數定義。
+ *
+ * 邊界規則：色彩類 token 走 var bridge，維度 token (spacing, radius, shadow) 仍走 JS 內插。
+ *
+ * @returns {string} CSS 變數字串
+ */
+export function getRailThemeVars() {
+  return `
+    :host {
+      --rail-color-text: ${color.text};
+      --rail-color-text-muted: ${color.textMuted};
+      --rail-color-white: ${color.white};
+      --rail-color-brand: ${color.brand};
+      --rail-color-brand-hover: ${color.brandHover};
+      --rail-color-icon-on-accent: ${color.iconOnAccent};
+      --rail-color-action-save: ${color.actionSave};
+      --rail-color-action-save-hover: ${color.actionSaveHover};
+      --rail-color-action-manage: ${color.actionManage};
+      --rail-color-action-manage-hover: ${color.actionManageHover};
+      --rail-color-primary: ${color.primary};
+      --rail-color-danger: ${color.danger};
+
+      --rail-glow-brand: ${hexToRgba(color.brand, 0.35)};
+      --rail-glow-action-save: ${hexToRgba(color.actionSave, 0.35)};
+      --rail-glow-action-manage: ${hexToRgba(color.actionManage, 0.35)};
+      --rail-color-primary-a40: ${hexToRgba(color.primary, 0.4)};
+      --rail-color-primary-a55: ${hexToRgba(color.primary, 0.55)};
+      --rail-ring-white-strong: ${hexToRgba(color.white, 0.45)};
+      --rail-ring-white-weak: ${hexToRgba(color.white, 0.25)};
+      --rail-shadow-black-a18: ${hexToRgba(color.black, 0.18)};
+      --rail-border-white-a60: ${hexToRgba(color.white, 0.6)};
+      --rail-border-white-a88: ${hexToRgba(color.white, 0.88)};
+
+      --rail-surface: ${theme.light.surface};
+      --rail-border: ${theme.light.border};
+      --rail-icon-muted: ${theme.light.iconMuted};
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :host {
+        --rail-surface: ${theme.dark.surface};
+        --rail-border: ${theme.dark.border};
+        --rail-icon-muted: ${theme.dark.iconMuted};
+      }
+    }
+  `;
+}
+
 export function getFloatingRailCSS() {
   return `
+    ${getRailThemeVars()}
+
     :host {
       all: initial;
       display: block;
@@ -22,7 +73,7 @@ export function getFloatingRailCSS() {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       font-size: 14px;
       line-height: 1.5;
-      color: ${color.text};
+      color: var(--rail-color-text);
     }
 
     :host *,
@@ -52,15 +103,14 @@ export function getFloatingRailCSS() {
       align-items: center;
       gap: ${spacing.xs};
       padding: ${spacing.xs};
-      background: ${theme.light.surface};
-      border: 1px solid ${theme.light.border};
+      background: var(--rail-surface);
+      border: 1px solid var(--rail-border);
       border-right: none;
       border-radius: ${radius.lg} 0 0 ${radius.lg};
       box-shadow: ${shadow.md};
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       transition: opacity 0.2s ease, transform 0.2s ease;
-      --rail-icon-muted: ${theme.light.iconMuted};
     }
 
     .rail-close-btn {
@@ -70,8 +120,8 @@ export function getFloatingRailCSS() {
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: ${color.text};
-      color: ${color.white};
+      background: var(--rail-color-text);
+      color: var(--rail-color-white);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -94,7 +144,7 @@ export function getFloatingRailCSS() {
     .rail-close-btn:focus-visible {
       opacity: 1 !important;
       pointer-events: auto;
-      outline: 2px solid ${color.brand};
+      outline: 2px solid var(--rail-color-brand);
       outline-offset: 1px;
     }
 
@@ -112,14 +162,6 @@ export function getFloatingRailCSS() {
       color: currentColor;
       fill: currentColor;
       stroke: currentColor;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .rail-container {
-        background: ${theme.dark.surface};
-        border-color: ${theme.dark.border};
-        --rail-icon-muted: ${theme.dark.iconMuted};
-      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -156,8 +198,8 @@ export function getFloatingRailCSS() {
       width: var(--rail-btn-size, 34px);
       height: var(--rail-btn-size, 34px);
       border-radius: 9px;
-      background: ${color.brand};
-      color: ${color.iconOnAccent};
+      background: var(--rail-color-brand);
+      color: var(--rail-color-icon-on-accent);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -166,23 +208,23 @@ export function getFloatingRailCSS() {
         background 0.16s ease,
         transform 0.16s ease,
         box-shadow 0.16s ease;
-      --rail-brand-fill: ${color.brand};
+      --rail-brand-fill: var(--rail-color-brand);
     }
 
     .rail-trigger:hover,
     .rail-trigger:focus-visible {
-      background: ${color.brandHover};
+      background: var(--rail-color-brand-hover);
       transform: translateY(-1px);
-      box-shadow: 0 2px 6px ${hexToRgba(color.brand, 0.35)};
+      box-shadow: 0 2px 6px var(--rail-glow-brand);
     }
 
     :host([data-dragging="true"]) .rail-trigger {
       cursor: grabbing;
-      background: ${color.brandHover};
+      background: var(--rail-color-brand-hover);
     }
 
     .rail-trigger:hover {
-      --rail-brand-fill: ${color.brandHover};
+      --rail-brand-fill: var(--rail-color-brand-hover);
     }
 
     .rail-trigger > .icon {
@@ -222,7 +264,7 @@ export function getFloatingRailCSS() {
       height: var(--rail-btn-size, 34px);
       border-radius: 9px;
       position: relative;
-      color: ${color.iconOnAccent};
+      color: var(--rail-color-icon-on-accent);
       transition:
         background 0.16s ease,
         border-color 0.16s ease,
@@ -232,27 +274,27 @@ export function getFloatingRailCSS() {
 
     .rail-action-btn[data-action="save"],
     .rail-action-btn[data-action="sync"] {
-      background: ${color.actionSave};
+      background: var(--rail-color-action-save);
     }
 
     .rail-action-btn[data-action="save"]:hover,
     .rail-action-btn[data-action="save"]:focus-visible,
     .rail-action-btn[data-action="sync"]:hover,
     .rail-action-btn[data-action="sync"]:focus-visible {
-      background: ${color.actionSaveHover};
+      background: var(--rail-color-action-save-hover);
       transform: translateY(-1px);
-      box-shadow: 0 2px 6px ${hexToRgba(color.actionSave, 0.35)};
+      box-shadow: 0 2px 6px var(--rail-glow-action-save);
     }
 
     .rail-action-btn[data-action="manage"] {
-      background: ${color.actionManage};
+      background: var(--rail-color-action-manage);
     }
 
     .rail-action-btn[data-action="manage"]:hover,
     .rail-action-btn[data-action="manage"]:focus-visible {
-      background: ${color.actionManageHover};
+      background: var(--rail-color-action-manage-hover);
       transform: translateY(-1px);
-      box-shadow: 0 2px 6px ${hexToRgba(color.actionManage, 0.35)};
+      box-shadow: 0 2px 6px var(--rail-glow-action-manage);
     }
 
     .rail-action-btn > .icon {
@@ -276,33 +318,33 @@ export function getFloatingRailCSS() {
     }
 
     .rail-highlight-toggle[data-highlight-state="inactive"] {
-      background: var(--rail-highlight-tint, ${hexToRgba(color.primary, 0.4)});
-      background: color-mix(in srgb, var(--rail-highlight-color, ${color.primary}) 40%, transparent);
-      color: var(--rail-icon-muted, ${theme.light.iconMuted});
-      box-shadow: inset 0 0 0 1px ${hexToRgba(color.white, 0.45)};
+      background: var(--rail-highlight-tint, var(--rail-color-primary-a40));
+      background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 40%, transparent);
+      color: var(--rail-icon-muted);
+      box-shadow: inset 0 0 0 1px var(--rail-ring-white-strong);
     }
 
     .rail-highlight-toggle[data-highlight-state="inactive"]:hover,
     .rail-highlight-toggle[data-highlight-state="inactive"]:focus-visible {
-      background: var(--rail-highlight-tint, ${hexToRgba(color.primary, 0.55)});
-      background: color-mix(in srgb, var(--rail-highlight-color, ${color.primary}) 55%, transparent);
+      background: var(--rail-highlight-tint, var(--rail-color-primary-a55));
+      background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 55%, transparent);
       transform: translateY(-1px);
     }
 
     .rail-highlight-toggle[data-highlight-state="active"] {
-      background: var(--rail-highlight-color, ${color.primary});
-      border-color: var(--rail-highlight-color, ${color.primary});
+      background: var(--rail-highlight-color, var(--rail-color-primary));
+      border-color: var(--rail-highlight-color, var(--rail-color-primary));
       color: rgba(0, 0, 0, 0.78);
-      box-shadow: inset 0 0 0 1px ${hexToRgba(color.white, 0.25)};
+      box-shadow: inset 0 0 0 1px var(--rail-ring-white-weak);
       transform: translateY(-1px);
     }
 
     .rail-highlight-toggle[data-highlight-state="active"]:hover,
     .rail-highlight-toggle[data-highlight-state="active"]:focus-visible {
-      background: var(--rail-highlight-color, ${color.primary});
+      background: var(--rail-highlight-color, var(--rail-color-primary));
       box-shadow:
-        inset 0 0 0 1px ${hexToRgba(color.white, 0.25)},
-        0 2px 6px ${hexToRgba(color.black, 0.18)};
+        inset 0 0 0 1px var(--rail-ring-white-weak),
+        0 2px 6px var(--rail-shadow-black-a18);
     }
 
     .rail-highlight-toggle svg {
@@ -317,8 +359,8 @@ export function getFloatingRailCSS() {
       right: calc(100% + ${spacing.sm});
       top: 50%;
       transform: translateY(-50%);
-      background: ${color.text};
-      color: ${color.white};
+      background: var(--rail-color-text);
+      color: var(--rail-color-white);
       padding: 2px ${spacing.sm};
       border-radius: ${radius.sm};
       font-size: 12px;
@@ -337,7 +379,7 @@ export function getFloatingRailCSS() {
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      border: 2px solid ${hexToRgba(color.white, 0.6)};
+      border: 2px solid var(--rail-border-white-a60);
       transition:
         background 0.16s ease,
         border-color 0.16s ease,
@@ -345,7 +387,7 @@ export function getFloatingRailCSS() {
     }
 
     .rail-highlight-toggle[data-highlight-state="active"] .color-indicator {
-      border-color: ${hexToRgba(color.white, 0.88)};
+      border-color: var(--rail-border-white-a88);
       transform: scale(0.86);
     }
 
@@ -357,8 +399,8 @@ export function getFloatingRailCSS() {
       display: flex;
       gap: ${spacing.xs};
       padding: ${spacing.xs};
-      background: ${theme.light.surface};
-      border: 1px solid ${theme.light.border};
+      background: var(--rail-surface);
+      border: 1px solid var(--rail-border);
       border-radius: ${radius.md};
       box-shadow: ${shadow.sm};
       backdrop-filter: blur(12px);
@@ -366,13 +408,6 @@ export function getFloatingRailCSS() {
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.15s ease;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .color-palette {
-        background: ${theme.dark.surface};
-        border-color: ${theme.dark.border};
-      }
     }
 
     .color-palette.visible {
@@ -390,16 +425,16 @@ export function getFloatingRailCSS() {
 
     .color-swatch:hover,
     .color-swatch:focus-visible {
-      border-color: ${color.brand};
+      border-color: var(--rail-color-brand);
     }
 
     .color-swatch.selected {
-      border-color: ${color.brand};
+      border-color: var(--rail-color-brand);
     }
 
     .rail-status {
       font-size: 11px;
-      color: ${color.textMuted};
+      color: var(--rail-color-text-muted);
       text-align: center;
       max-width: 34px;
       overflow: hidden;
@@ -413,8 +448,8 @@ export function getFloatingRailCSS() {
       right: calc(100% + ${spacing.sm});
       top: 50%;
       transform: translateY(-50%) translateX(4px);
-      background: ${color.danger};
-      color: ${color.white};
+      background: var(--rail-color-danger);
+      color: var(--rail-color-white);
       padding: 4px ${spacing.sm};
       border-radius: ${radius.sm};
       font-size: 12px;

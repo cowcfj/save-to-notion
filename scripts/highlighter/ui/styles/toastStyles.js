@@ -3,17 +3,31 @@ import { UI_TOKENS } from '../../../../styles/ui-token-constants.js';
 const { status, spacing, radius, shadow } = UI_TOKENS;
 
 /**
- * 取得 Toast 的完整 CSS 字串，供 Shadow DOM 使用。
+ * 取得 Toast 的色彩 CSS 變數定義。
  *
- * 設計重點：
- * - `:host` 用 `all: initial` 隔離宿主頁面 CSS
- * - `:host` 設 `pointer-events: none`，避免覆蓋住底層內容；container 自己再開 `pointer-events: auto`
- * - 用 `transition` + `.toast--visible` modifier 控制顯示/淡出，避免 `@keyframes` 在生命週期切換時造成的 race
- * - 三組 status modifier（success/warning/error）共用 token registry
+ * 邊界規則：色彩類 token 走 var bridge，維度 token (spacing, radius, shadow) 仍走 JS 內插。
  *
- * @returns {string} CSS 字串
+ * @returns {string} CSS 變數字串
  */
-export function getToastCSS() {
+export function getToastThemeVars() {
+  return `
+    :host {
+      --toast-color-success-bg: ${status.successBg};
+      --toast-color-success-text: ${status.successText};
+      --toast-color-success-border: ${status.successBorder};
+
+      --toast-color-warning-bg: ${status.warningBg};
+      --toast-color-warning-text: ${status.warningText};
+      --toast-color-warning-border: ${status.warningBorder};
+
+      --toast-color-error-bg: ${status.errorBg};
+      --toast-color-error-text: ${status.errorText};
+      --toast-color-error-border: ${status.errorBorder};
+    }
+  `;
+}
+
+function getToastBaseCSS() {
   return `
         :host {
             all: initial;
@@ -74,31 +88,59 @@ export function getToastCSS() {
             flex: 1;
             word-break: break-word;
         }
+  `;
+}
 
+function getToastStatusModifierCSS() {
+  return `
         .toast--success {
-            background: ${status.successBg};
-            color: ${status.successText};
-            border-color: ${status.successBorder};
+            background: var(--toast-color-success-bg, #dcfce7);
+            color: var(--toast-color-success-text, #166534);
+            border-color: var(--toast-color-success-border, #bbf7d0);
         }
 
         .toast--warning {
-            background: ${status.warningBg};
-            color: ${status.warningText};
-            border-color: ${status.warningBorder};
+            background: var(--toast-color-warning-bg, #fef3c7);
+            color: var(--toast-color-warning-text, #92400e);
+            border-color: var(--toast-color-warning-border, #fcd34d);
         }
 
         .toast--error {
-            background: ${status.errorBg};
-            color: ${status.errorText};
-            border-color: ${status.errorBorder};
+            background: var(--toast-color-error-bg, #fee2e2);
+            color: var(--toast-color-error-text, #991b1b);
+            border-color: var(--toast-color-error-border, #fecaca);
         }
+  `;
+}
 
+function getToastMotionCSS() {
+  return `
         @media (prefers-reduced-motion: reduce) {
             .toast-container {
                 transition: none;
                 transform: none;
             }
         }
+  `;
+}
+
+/**
+ * 取得 Toast 的完整 CSS 字串，供 Shadow DOM 使用。
+ *
+ * 設計重點：
+ * - `:host` 用 `all: initial` 隔離宿主頁面 CSS
+ * - `:host` 設 `pointer-events: none`，避免覆蓋住底層內容；container 自己再開 `pointer-events: auto`
+ * - 用 `transition` + `.toast--visible` modifier 控制顯示/淡出，避免 `@keyframes` 在生命週期切換時造成的 race
+ * - 三組 status modifier（success/warning/error）共用 token registry
+ *
+ * @returns {string} CSS 字串
+ */
+export function getToastCSS() {
+  return `
+        ${getToastThemeVars()}
+        ${getToastBaseCSS()}
+        ${getToastStatusModifierCSS()}
+        ${getToastMotionCSS()}
     `;
 }
 

@@ -20,20 +20,24 @@ describe('floatingRailStyles', () => {
       expect(css).toContain(UI_TOKENS.theme.dark.border);
     });
 
-    test('trigger tile 應套用 brand 色與 white icon 色', () => {
-      expect(css).toMatch(/\.rail-trigger\s*\{[\s\S]*?background:\s*#F47565/);
-      expect(css).toMatch(/\.rail-trigger\s*\{[\s\S]*?color:\s*#FFFFFF/);
+    test('trigger tile 應套用 brand 色與 white icon 色變數並以 var() 引用', () => {
+      expect(css).toMatch(/--rail-color-brand:\s*#F47565/i);
+      expect(css).toMatch(/--rail-color-icon-on-accent:\s*#FFFFFF/i);
+      expect(css).toMatch(/\.rail-trigger\s*\{[\s\S]*?background:\s*var\(--rail-color-brand\)/);
+      expect(css).toMatch(/\.rail-trigger\s*\{[\s\S]*?color:\s*var\(--rail-color-icon-on-accent\)/);
     });
 
-    test('save / sync tile 應套用 actionSave 色', () => {
+    test('save / sync tile 應套用 actionSave 色變數並以 var() 引用', () => {
+      expect(css).toMatch(/--rail-color-action-save:\s*#0A84FF/i);
       expect(css).toMatch(
-        /\.rail-action-btn\[data-action="save"\][^{]*,\s*\.rail-action-btn\[data-action="sync"\][^{]*\{[\s\S]*?background:\s*#0A84FF/
+        /\.rail-action-btn\[data-action="save"\][^{]*,\s*\.rail-action-btn\[data-action="sync"\][^{]*\{[\s\S]*?background:\s*var\(--rail-color-action-save\)/
       );
     });
 
-    test('manage tile 應套用 actionManage violet 色，避免與 light/dark 容器底色混同', () => {
+    test('manage tile 應套用 actionManage violet 色變數並以 var() 引用，避免與 light/dark 容器底色混同', () => {
+      expect(css).toMatch(/--rail-color-action-manage:\s*#8B5CF6/i);
       expect(css).toMatch(
-        /\.rail-action-btn\[data-action="manage"\]\s*\{[\s\S]*?background:\s*#8B5CF6/
+        /\.rail-action-btn\[data-action="manage"\]\s*\{[\s\S]*?background:\s*var\(--rail-color-action-manage\)/
       );
     });
 
@@ -43,8 +47,15 @@ describe('floatingRailStyles', () => {
       );
     });
 
-    test('highlight tile inactive 應使用 0.40 alpha tint 與 muted icon 色', () => {
-      expect(css).toMatch(/\[data-highlight-state="inactive"\]\s*\{[\s\S]*?background:[^;]*0\.4/);
+    test('highlight tile inactive 應使用 0.40 alpha tint 變數、muted icon 色變數與 ring 變數', () => {
+      expect(css).toMatch(/--rail-color-primary-a40:\s*rgba\(37,\s*99,\s*235,\s*0\.4\)/i);
+      expect(css).toMatch(/--rail-ring-white-strong:\s*rgba\(255,\s*255,\s*255,\s*0\.45\)/i);
+      expect(css).toMatch(
+        /\[data-highlight-state="inactive"\]\s*\{[\s\S]*?background:\s*var\(--rail-highlight-tint,\s*var\(--rail-color-primary-a40\)\)/
+      );
+      expect(css).toMatch(
+        /\[data-highlight-state="inactive"\]\s*\{[\s\S]*?box-shadow:\s*inset\s+0\s+0\s+0\s+1px\s+var\(--rail-ring-white-strong\)/
+      );
       expect(css).toMatch(
         /\[data-highlight-state="inactive"\]\s*\{[\s\S]*?color:\s*var\(--rail-icon-muted/
       );
@@ -52,15 +63,17 @@ describe('floatingRailStyles', () => {
 
     test('highlight tile active 應使用實色背景與深色 icon stroke', () => {
       expect(css).toMatch(
-        /\[data-highlight-state="active"\]\s*\{[\s\S]*?background:\s*var\(--rail-highlight-color/
+        /\[data-highlight-state="active"\]\s*\{[\s\S]*?background:\s*var\(--rail-highlight-color,\s*var\(--rail-color-primary\)\)/
       );
       expect(css).toMatch(
         /\[data-highlight-state="active"\]\s*\{[\s\S]*?color:\s*rgba\(0,\s*0,\s*0,\s*0\.78\)/
       );
     });
 
-    test('color-swatch selected 應使用 brand 色而非 text 色', () => {
-      expect(css).toMatch(/\.color-swatch\.selected\s*\{[\s\S]*?border-color:\s*#F47565/);
+    test('color-swatch selected 應使用 brand 色變數並以 var() 引用', () => {
+      expect(css).toMatch(
+        /\.color-swatch\.selected\s*\{[\s\S]*?border-color:\s*var\(--rail-color-brand\)/
+      );
     });
 
     test('應包含 .rail-error-tooltip 樣式', () => {

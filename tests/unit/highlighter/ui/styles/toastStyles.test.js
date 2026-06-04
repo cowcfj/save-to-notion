@@ -4,6 +4,62 @@ import {
 } from '../../../../../scripts/highlighter/ui/styles/toastStyles.js';
 import { UI_TOKENS } from '../../../../../styles/ui-token-constants.js';
 
+const { status } = UI_TOKENS;
+
+const toastStatusCases = [
+  {
+    modifier: 'success',
+    statusKeys: {
+      bg: 'successBg',
+      text: 'successText',
+      border: 'successBorder',
+    },
+  },
+  {
+    modifier: 'warning',
+    statusKeys: {
+      bg: 'warningBg',
+      text: 'warningText',
+      border: 'warningBorder',
+    },
+  },
+  {
+    modifier: 'error',
+    statusKeys: {
+      bg: 'errorBg',
+      text: 'errorText',
+      border: 'errorBorder',
+    },
+  },
+];
+
+const toastStatusFallbackCases = [
+  {
+    modifier: 'success',
+    fallback: {
+      bg: '#dcfce7',
+      text: '#166534',
+      border: '#bbf7d0',
+    },
+  },
+  {
+    modifier: 'warning',
+    fallback: {
+      bg: '#fef3c7',
+      text: '#92400e',
+      border: '#fcd34d',
+    },
+  },
+  {
+    modifier: 'error',
+    fallback: {
+      bg: '#fee2e2',
+      text: '#991b1b',
+      border: '#fecaca',
+    },
+  },
+];
+
 describe('toastStyles', () => {
   describe('getToastCSS', () => {
     const css = getToastCSS();
@@ -19,23 +75,50 @@ describe('toastStyles', () => {
       expect(css).toMatch(/\.toast-container\s*\{[\s\S]*?pointer-events:\s*auto/);
     });
 
-    test('success modifier 應使用 status.successBg/Text/Border', () => {
-      expect(css).toContain(UI_TOKENS.status.successBg);
-      expect(css).toContain(UI_TOKENS.status.successText);
-      expect(css).toContain(UI_TOKENS.status.successBorder);
-    });
+    test.each(toastStatusCases)(
+      '$modifier modifier 應使用對應 status.*Bg/Text/Border 變數並以 var() 引用',
+      ({ modifier, statusKeys }) => {
+        expect(css).toContain(`--toast-color-${modifier}-bg: ${status[statusKeys.bg]}`);
+        expect(css).toContain(`--toast-color-${modifier}-text: ${status[statusKeys.text]}`);
+        expect(css).toContain(`--toast-color-${modifier}-border: ${status[statusKeys.border]}`);
+        expect(css).toMatch(
+          new RegExp(
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?background:\s*var\(--toast-color-${modifier}-bg,`
+          )
+        );
+        expect(css).toMatch(
+          new RegExp(
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?color:\s*var\(--toast-color-${modifier}-text,`
+          )
+        );
+        expect(css).toMatch(
+          new RegExp(
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?border-color:\s*var\(--toast-color-${modifier}-border,`
+          )
+        );
+      }
+    );
 
-    test('warning modifier 應使用 status.warningBg/Text/Border', () => {
-      expect(css).toContain(UI_TOKENS.status.warningBg);
-      expect(css).toContain(UI_TOKENS.status.warningText);
-      expect(css).toContain(UI_TOKENS.status.warningBorder);
-    });
-
-    test('error modifier 應使用 status.errorBg/Text/Border', () => {
-      expect(css).toContain(UI_TOKENS.status.errorBg);
-      expect(css).toContain(UI_TOKENS.status.errorText);
-      expect(css).toContain(UI_TOKENS.status.errorBorder);
-    });
+    test.each(toastStatusFallbackCases)(
+      '$modifier modifier 應在 var() 內提供 status fallback 色',
+      ({ modifier, fallback }) => {
+        expect(css).toMatch(
+          new RegExp(
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?background:\s*var\(--toast-color-${modifier}-bg,\s*${fallback.bg}\)`
+          )
+        );
+        expect(css).toMatch(
+          new RegExp(
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?color:\s*var\(--toast-color-${modifier}-text,\s*${fallback.text}\)`
+          )
+        );
+        expect(css).toMatch(
+          new RegExp(
+            String.raw`\.toast--${modifier}\s*\{[\s\S]*?border-color:\s*var\(--toast-color-${modifier}-border,\s*${fallback.border}\)`
+          )
+        );
+      }
+    );
 
     test('應定義 .toast--success/.toast--warning/.toast--error 三組 modifier', () => {
       expect(css).toMatch(/\.toast--success\s*\{/);
