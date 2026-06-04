@@ -223,19 +223,36 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     return handler(request, sendResponse);
   }
 
+  function registerPersistentMessageListener(onMessage) {
+    if (persistentMessageHandler) {
+      return;
+    }
+    if (!onMessage?.addListener) {
+      return;
+    }
+
+    persistentMessageHandler = handlePersistentMessage;
+    onMessage.addListener(persistentMessageHandler);
+  }
+
+  function registerPersistentStorageChangeListener(onChanged) {
+    if (persistentStorageHandler) {
+      return;
+    }
+    if (!onChanged?.addListener) {
+      return;
+    }
+
+    persistentStorageHandler = handleStorageStyleChange;
+    onChanged.addListener(persistentStorageHandler);
+  }
+
   const registerPersistentListeners = () => {
-    if (!persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.addListener) {
-      persistentMessageHandler = handlePersistentMessage;
-      globalThis.chrome.runtime.onMessage.addListener(persistentMessageHandler);
-    }
+    const onMessage = globalThis.chrome?.runtime?.onMessage;
+    const onChanged = globalThis.chrome?.storage?.onChanged;
 
-    if (!persistentStorageHandler && globalThis.chrome?.storage?.onChanged?.addListener) {
-      persistentStorageHandler = (changes, namespace) => {
-        handleStorageStyleChange(changes, namespace);
-      };
-
-      globalThis.chrome.storage.onChanged.addListener(persistentStorageHandler);
-    }
+    registerPersistentMessageListener(onMessage);
+    registerPersistentStorageChangeListener(onChanged);
   };
 
   const unregisterPersistentListeners = () => {
