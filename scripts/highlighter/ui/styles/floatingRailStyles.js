@@ -168,24 +168,9 @@ export function getRailContainerCSS() {
   `;
 }
 
-// 順序敏感：中段 reduced-motion 區塊必須原地保留，不可與結尾的 motion 合併，以防 collapsed 狀態 transition 規則 precedence 覆蓋 Regression
+// 順序敏感：reduced-motion override 必須位於常規 transition 之後，避免同 specificity 下被後續規則覆蓋。
 export function getRailActionsAnimationCSS() {
   return `
-    @media (prefers-reduced-motion: reduce) {
-      .rail-container {
-        transition: none;
-      }
-      .rail-container.collapsed .rail-actions {
-        transition: none;
-      }
-      .color-palette {
-        transition: none;
-      }
-      .rail-close-btn {
-        transition: none;
-      }
-    }
-
     .rail-container.collapsed .rail-actions {
       max-height: 0;
       opacity: 0;
@@ -199,6 +184,25 @@ export function getRailActionsAnimationCSS() {
       max-height: 300px;
       opacity: 1;
       transition: max-height 0.2s ease, opacity 0.15s ease 0.05s;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .rail-container {
+        transition: none;
+      }
+
+      .rail-container.collapsed .rail-actions {
+        transition: none;
+      }
+
+      .rail-container.expanded .rail-actions,
+      .rail-container.highlighting .rail-actions {
+        transition: none;
+      }
+
+      .rail-close-btn {
+        transition: none;
+      }
     }
   `;
 }
@@ -440,6 +444,12 @@ export function getRailColorCSS() {
     .color-palette.visible {
       opacity: 1;
       pointer-events: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .color-palette {
+        transition: none;
+      }
     }
 
     .color-swatch {
