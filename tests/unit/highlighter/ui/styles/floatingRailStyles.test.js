@@ -8,6 +8,9 @@ function normalizeRailCSS(cssString) {
   return cssString.replaceAll(/\s+/g, ' ').trim();
 }
 
+// 假設輸入為 normalizeRailCSS 正規化後、僅含單層 flat 規則的 CSS：以 indexOf(' }', startIndex)
+// 定位規則結尾。遇 @keyframes 或其他巢狀大括號時，會在第一個內層 ' }' 提前截斷區塊。
+// 巢狀區塊請改用 extractBlockAt（依大括號深度配對），勿未調整解析邏輯即沿用 findRuleBlock。
 function findRuleBlock(normalizedCss, selector, predicate = () => true) {
   const rulePrefix = `${selector} {`;
   let searchFrom = 0;
