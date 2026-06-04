@@ -76,8 +76,9 @@ describe('toastStyles', () => {
       '$modifier modifier 規則不得殘留 raw hex（no-raw-hex-leak，色值只存在於 :host 變數定義）',
       ({ modifier }) => {
         const ruleBody = css.match(new RegExp(String.raw`\.toast--${modifier}\s*\{([\s\S]*?)\}`));
-        expect(ruleBody).not.toBeNull();
-        expect(ruleBody[1]).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+        const modifierRuleBody = ruleBody?.[1];
+        expect(modifierRuleBody).toEqual(expect.any(String));
+        expect(modifierRuleBody).not.toMatch(/#[0-9a-fA-F]{3,6}/);
       }
     );
 
