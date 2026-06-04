@@ -94,21 +94,21 @@ function getToastBaseCSS() {
 function getToastStatusModifierCSS() {
   return `
         .toast--success {
-            background: var(--toast-color-success-bg);
-            color: var(--toast-color-success-text);
-            border-color: var(--toast-color-success-border);
+            background: var(--toast-color-success-bg, #dcfce7);
+            color: var(--toast-color-success-text, #166534);
+            border-color: var(--toast-color-success-border, #bbf7d0);
         }
 
         .toast--warning {
-            background: var(--toast-color-warning-bg);
-            color: var(--toast-color-warning-text);
-            border-color: var(--toast-color-warning-border);
+            background: var(--toast-color-warning-bg, #fef3c7);
+            color: var(--toast-color-warning-text, #92400e);
+            border-color: var(--toast-color-warning-border, #fcd34d);
         }
 
         .toast--error {
-            background: var(--toast-color-error-bg);
-            color: var(--toast-color-error-text);
-            border-color: var(--toast-color-error-border);
+            background: var(--toast-color-error-bg, #fee2e2);
+            color: var(--toast-color-error-text, #991b1b);
+            border-color: var(--toast-color-error-border, #fecaca);
         }
   `;
 }

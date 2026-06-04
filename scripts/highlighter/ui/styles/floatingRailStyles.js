@@ -321,6 +321,7 @@ export function getFloatingRailCSS() {
     }
 
     .rail-highlight-toggle[data-highlight-state="inactive"] {
+      /* Fallback first for browsers without color-mix(); supported browsers override with the color-mix() line. */
       background: var(--rail-highlight-tint, var(--rail-color-primary-a40));
       background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 40%, transparent);
       color: var(--rail-icon-muted);
@@ -329,6 +330,7 @@ export function getFloatingRailCSS() {
 
     .rail-highlight-toggle[data-highlight-state="inactive"]:hover,
     .rail-highlight-toggle[data-highlight-state="inactive"]:focus-visible {
+      /* Fallback first for browsers without color-mix(); supported browsers override with the color-mix() line. */
       background: var(--rail-highlight-tint, var(--rail-color-primary-a55));
       background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 55%, transparent);
       transform: translateY(-1px);
