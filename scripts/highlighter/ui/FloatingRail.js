@@ -58,6 +58,17 @@ const RAIL_SIZE_TO_DIMENSIONS = {
 const RAIL_POSITION_DEFAULT = 'middle';
 const RAIL_SIZE_DEFAULT = 'large';
 
+const RAIL_SAVE_ERROR_LOOKUP = {
+  PAGE_DELETED: {
+    message: UI_MESSAGES.POPUP.DELETED_PAGE,
+    shouldRefresh: true,
+  },
+  PAGE_DELETION_PENDING: {
+    message: UI_MESSAGES.POPUP.DELETION_PENDING,
+    shouldRefresh: false,
+  },
+};
+
 export class FloatingRail {
   constructor(manager) {
     if (!manager) {
@@ -78,8 +89,16 @@ export class FloatingRail {
     this._appendHostListener = null;
     this._isSaving = false;
 
+    const reusingHost = this._initializeHost();
+    this._initializeContainer(reusingHost);
+    this.elements = getRailElements(this.container);
+    this._restorePosition();
+  }
+
+  _initializeHost() {
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
     const reusingHost = Boolean(existingHost);
+
     if (existingHost) {
       this.host = existingHost;
       this.shadowRoot = this.host.shadowRoot || this.host.attachShadow({ mode: 'open' });
@@ -88,19 +107,7 @@ export class FloatingRail {
       this.host.id = RAIL_HOST_ID;
       this.host.setAttribute(RAIL_HOST_OWNER_ATTR, RAIL_HOST_OWNER_VALUE);
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
-      const appendHost = () => {
-        this._appendHostListener = null;
-        if (this._destroyed || !document.body) {
-          return;
-        }
-        document.body.append(this.host);
-      };
-      if (document.body) {
-        appendHost();
-      } else {
-        this._appendHostListener = appendHost;
-        document.addEventListener('DOMContentLoaded', this._appendHostListener, { once: true });
-      }
+      this._appendHostToBody();
     }
 
     if (this.host.dataset.railStylesInjected !== 'true') {
@@ -108,6 +115,27 @@ export class FloatingRail {
       this.host.dataset.railStylesInjected = 'true';
     }
 
+    return reusingHost;
+  }
+
+  _appendHostToBody() {
+    const appendHost = () => {
+      this._appendHostListener = null;
+      if (this._destroyed || !document.body) {
+        return;
+      }
+      document.body.append(this.host);
+    };
+
+    if (document.body) {
+      appendHost();
+    } else {
+      this._appendHostListener = appendHost;
+      document.addEventListener('DOMContentLoaded', this._appendHostListener, { once: true });
+    }
+  }
+
+  _initializeContainer(reusingHost) {
     const existingContainer = reusingHost ? this.shadowRoot.querySelector('.rail-container') : null;
     if (existingContainer) {
       this.container = existingContainer;
@@ -117,8 +145,6 @@ export class FloatingRail {
       });
       this.shadowRoot.append(this.container);
     }
-    this.elements = getRailElements(this.container);
-    this._restorePosition();
   }
 
   async initialize() {
@@ -126,6 +152,19 @@ export class FloatingRail {
       return;
     }
 
+    await this._loadDisplaySettings();
+    this._listenToDisplaySettingsChanges();
+    this._applyInitialState();
+
+    await this._refreshPageStatus();
+    if (this._destroyed) {
+      return;
+    }
+    this._bindEvents();
+    this._initialized = true;
+  }
+
+  async _loadDisplaySettings() {
     try {
       const stored = await chrome.storage.sync.get(['floatingRailPosition', 'floatingRailSize']);
       this._applyDisplaySettings({
@@ -141,9 +180,9 @@ export class FloatingRail {
       });
       this._applyDisplaySettings({});
     }
+  }
 
-    this._listenToDisplaySettingsChanges();
-
+  _applyInitialState() {
     this.stateManager.initialize();
 
     if (this.stateManager.isDismissed) {
@@ -163,13 +202,6 @@ export class FloatingRail {
     ) {
       this.manager.startHighlighting(this.stateManager.selectedColor);
     }
-
-    await this._refreshPageStatus();
-    if (this._destroyed) {
-      return;
-    }
-    this._bindEvents();
-    this._initialized = true;
   }
 
   show() {
@@ -267,31 +299,26 @@ export class FloatingRail {
     const { trigger, closeBtn, saveBtn, highlightBtn, highlightToggle, manageBtn, colorPalette } =
       this.elements;
 
-    // Close button: dismiss rail for this page session
+    this._bindTriggerEvents(closeBtn, trigger);
+    this._bindContainerEvents(colorPalette);
+    this._bindActionEvents(saveBtn, highlightToggle, highlightBtn, colorPalette, manageBtn);
+    this._bindDocumentDeleteShortcut();
+
+    this._eventsBound = true;
+  }
+
+  _bindTriggerEvents(closeBtn, trigger) {
     if (closeBtn) {
-      closeBtn.addEventListener('click', event => {
-        event.stopPropagation();
-        this.dismiss();
-      });
+      closeBtn.addEventListener('click', event => this._handleCloseClick(event));
     }
 
-    // Trigger: expand/collapse
     if (trigger) {
       this._bindDragEvents(trigger);
-      trigger.addEventListener('click', () => {
-        if (this._suppressNextTriggerClick) {
-          this._suppressNextTriggerClick = false;
-          return;
-        }
-        if (this.stateManager.currentState === RailStates.COLLAPSED) {
-          this.expand();
-        } else {
-          this.collapse();
-        }
-      });
+      trigger.addEventListener('click', () => this._handleTriggerClick());
     }
+  }
 
-    // Hover expand/collapse
+  _bindContainerEvents(colorPalette) {
     this.container.addEventListener('mouseenter', () => {
       if (this.stateManager.currentState === RailStates.COLLAPSED) {
         this.expand();
@@ -308,7 +335,6 @@ export class FloatingRail {
       hideColorPalette(colorPalette);
     });
 
-    // Focus expand/collapse
     this.container.addEventListener('focusin', () => {
       if (this.stateManager.currentState === RailStates.COLLAPSED) {
         this.expand();
@@ -323,21 +349,15 @@ export class FloatingRail {
         this.collapse();
       }
     });
+  }
 
-    // Save/Sync action
+  _bindActionEvents(saveBtn, highlightToggle, highlightBtn, colorPalette, manageBtn) {
     if (saveBtn) {
       saveBtn.addEventListener('click', () => this._handleSaveSync());
     }
 
-    // Highlight toggle
     if (highlightToggle) {
-      highlightToggle.addEventListener('click', () => {
-        if (this.stateManager.isHighlighting) {
-          this.deactivateHighlighting();
-        } else {
-          this.activateHighlighting();
-        }
-      });
+      highlightToggle.addEventListener('click', () => this._toggleHighlighting());
     }
 
     if (highlightBtn) {
@@ -345,30 +365,55 @@ export class FloatingRail {
       highlightBtn.addEventListener('focusin', () => showColorPalette(colorPalette));
     }
 
-    // Color palette
     if (colorPalette) {
-      colorPalette.addEventListener('click', event => {
-        event.stopPropagation();
-        const swatch = event.target.closest('.color-swatch');
-        if (swatch?.dataset.color) {
-          this.setColor(swatch.dataset.color);
-        }
-      });
+      colorPalette.addEventListener('click', event => this._handleColorPaletteClick(event));
     }
 
-    // Manage action
     if (manageBtn) {
       manageBtn.addEventListener('click', () => this._handleManage());
     }
+  }
 
+  _bindDocumentDeleteShortcut() {
     if (!this._deleteShortcutHandler && this.manager.handleDocumentClick) {
       this._deleteShortcutHandler = event => {
         this.manager.handleDocumentClick(event);
       };
       document.addEventListener('click', this._deleteShortcutHandler);
     }
+  }
 
-    this._eventsBound = true;
+  _handleCloseClick(event) {
+    event.stopPropagation();
+    this.dismiss();
+  }
+
+  _handleTriggerClick() {
+    if (this._suppressNextTriggerClick) {
+      this._suppressNextTriggerClick = false;
+      return;
+    }
+    if (this.stateManager.currentState === RailStates.COLLAPSED) {
+      this.expand();
+    } else {
+      this.collapse();
+    }
+  }
+
+  _toggleHighlighting() {
+    if (this.stateManager.isHighlighting) {
+      this.deactivateHighlighting();
+    } else {
+      this.activateHighlighting();
+    }
+  }
+
+  _handleColorPaletteClick(event) {
+    event.stopPropagation();
+    const swatch = event.target.closest('.color-swatch');
+    if (swatch?.dataset.color) {
+      this.setColor(swatch.dataset.color);
+    }
   }
 
   _bindDragEvents(trigger) {
@@ -398,41 +443,8 @@ export class FloatingRail {
         trigger.setAttribute('aria-pressed', 'true');
       }, RAIL_DRAG_LONG_PRESS_MS);
 
-      const onMove = moveEvent => {
-        if (!this._dragState?.active) {
-          return;
-        }
-
-        const deltaX = moveEvent.clientX - this._dragState.startX;
-        const deltaY = moveEvent.clientY - this._dragState.startY;
-        if (
-          Math.abs(deltaX) > RAIL_DRAG_MOVE_THRESHOLD_PX ||
-          Math.abs(deltaY) > RAIL_DRAG_MOVE_THRESHOLD_PX
-        ) {
-          this._dragState.moved = true;
-        }
-
-        if (moveEvent.cancelable) {
-          moveEvent.preventDefault();
-        }
-
-        this._applyPosition({
-          top: this._dragState.top + deltaY,
-          right: this._dragState.right - deltaX,
-        });
-      };
-
-      const onEnd = () => {
-        const wasDragging = this._dragState?.active;
-        const moved = this._dragState?.moved;
-        if (wasDragging) {
-          this._suppressNextTriggerClick = true;
-        }
-        if (moved) {
-          this._persistPosition();
-        }
-        this._clearDragArtifacts();
-      };
+      const onMove = moveEvent => this._handleDragMove(moveEvent);
+      const onEnd = () => this._handleDragEnd();
 
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onEnd);
@@ -443,6 +455,42 @@ export class FloatingRail {
         document.removeEventListener('pointercancel', onEnd);
       };
     });
+  }
+
+  _handleDragMove(moveEvent) {
+    if (!this._dragState?.active) {
+      return;
+    }
+
+    const deltaX = moveEvent.clientX - this._dragState.startX;
+    const deltaY = moveEvent.clientY - this._dragState.startY;
+    if (
+      Math.abs(deltaX) > RAIL_DRAG_MOVE_THRESHOLD_PX ||
+      Math.abs(deltaY) > RAIL_DRAG_MOVE_THRESHOLD_PX
+    ) {
+      this._dragState.moved = true;
+    }
+
+    if (moveEvent.cancelable) {
+      moveEvent.preventDefault();
+    }
+
+    this._applyPosition({
+      top: this._dragState.top + deltaY,
+      right: this._dragState.right - deltaX,
+    });
+  }
+
+  _handleDragEnd() {
+    const wasDragging = this._dragState?.active;
+    const moved = this._dragState?.moved;
+    if (wasDragging) {
+      this._suppressNextTriggerClick = true;
+    }
+    if (moved) {
+      this._persistPosition();
+    }
+    this._clearDragArtifacts();
   }
 
   _setDragPointerCapture(trigger, event) {
@@ -550,10 +598,7 @@ export class FloatingRail {
 
   _listenToDisplaySettingsChanges() {
     this._displaySettingsChangeListener = async (changes, areaName) => {
-      if (areaName !== 'sync') {
-        return;
-      }
-      if (!('floatingRailPosition' in changes) && !('floatingRailSize' in changes)) {
+      if (!this._isDisplaySettingChange(changes, areaName)) {
         return;
       }
       try {
@@ -572,6 +617,13 @@ export class FloatingRail {
       }
     };
     chrome.storage.onChanged.addListener(this._displaySettingsChangeListener);
+  }
+
+  _isDisplaySettingChange(changes, areaName) {
+    if (areaName !== 'sync') {
+      return false;
+    }
+    return 'floatingRailPosition' in changes || 'floatingRailSize' in changes;
   }
 
   _applyPosition(position) {
@@ -632,32 +684,35 @@ export class FloatingRail {
       const response = await this._executeSaveOrSync(operation);
 
       const handled = await this._handleSaveErrorResponse(response, uiContext);
-      if (handled) {
-        return;
+      if (!handled) {
+        launchAnim?.cancel();
+        if (saveBtn) {
+          await playFireworkAnimation(saveBtn);
+        }
+        await this._refreshPageStatus();
       }
-
-      launchAnim?.cancel();
-      if (saveBtn) {
-        await playFireworkAnimation(saveBtn);
-      }
-      await this._refreshPageStatus();
     } catch (error) {
-      launchAnim?.cancel();
-      if (saveBtn && errorTooltip) {
-        await playFailAnimation(saveBtn, errorTooltip);
-      }
-      const sanitizedError = sanitizeApiError(error, 'rail_save_sync');
-      Logger.warn('[FloatingRail] 保存/同步失敗', {
-        action: '_handleSaveSync',
-        operation,
-        sanitizedError: ErrorHandler.formatUserMessage(sanitizedError),
-      });
+      await this._handleSaveSyncCatch(error, operation, uiContext);
     } finally {
       this._isSaving = false;
       if (saveBtn) {
         saveBtn.disabled = false;
       }
     }
+  }
+
+  async _handleSaveSyncCatch(error, operation, uiContext) {
+    const { saveBtn, errorTooltip, launchAnim } = uiContext;
+    launchAnim?.cancel();
+    if (saveBtn && errorTooltip) {
+      await playFailAnimation(saveBtn, errorTooltip);
+    }
+    const sanitizedError = sanitizeApiError(error, 'rail_save_sync');
+    Logger.warn('[FloatingRail] 保存/同步失敗', {
+      action: '_handleSaveSync',
+      operation,
+      sanitizedError: ErrorHandler.formatUserMessage(sanitizedError),
+    });
   }
 
   async _executeSaveOrSync(operation) {
@@ -674,21 +729,16 @@ export class FloatingRail {
     }
 
     const errorCode = response?.errorCode;
-    const { saveBtn, errorTooltip, launchAnim } = uiContext;
+    const errorConfig = RAIL_SAVE_ERROR_LOOKUP[errorCode];
 
-    if (errorCode === 'PAGE_DELETED') {
+    if (errorConfig) {
+      const { saveBtn, errorTooltip, launchAnim } = uiContext;
       launchAnim?.cancel();
       if (saveBtn && errorTooltip) {
-        await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETED_PAGE);
+        await playFailAnimation(saveBtn, errorTooltip, errorConfig.message);
       }
-      await this._refreshPageStatus();
-      return true;
-    }
-
-    if (errorCode === 'PAGE_DELETION_PENDING') {
-      launchAnim?.cancel();
-      if (saveBtn && errorTooltip) {
-        await playFailAnimation(saveBtn, errorTooltip, UI_MESSAGES.POPUP.DELETION_PENDING);
+      if (errorConfig.shouldRefresh) {
+        await this._refreshPageStatus();
       }
       return true;
     }
