@@ -119,20 +119,30 @@ export class HighlightStorage {
    * @returns {Array} 標註數據數組
    */
   collectForNotion() {
-    if (
-      !this.manager ||
-      !this.manager.highlights ||
-      typeof this.manager.highlights.values !== 'function'
-    ) {
+    const highlights = this.manager?.highlights;
+
+    if (!highlights) {
       return [];
     }
-    return Array.from(this.manager.highlights.values()).map(highlight => ({
-      id: highlight.id,
-      text: highlight.text,
-      color: highlight.color,
-      timestamp: highlight.timestamp,
-      ...(highlight.rangeInfo === undefined ? {} : { rangeInfo: highlight.rangeInfo }),
-    }));
+
+    if (typeof highlights.values !== 'function') {
+      return [];
+    }
+
+    return Array.from(highlights.values()).map(highlight => {
+      const notionHighlight = {
+        id: highlight.id,
+        text: highlight.text,
+        color: highlight.color,
+        timestamp: highlight.timestamp,
+      };
+
+      if (highlight.rangeInfo !== undefined) {
+        notionHighlight.rangeInfo = highlight.rangeInfo;
+      }
+
+      return notionHighlight;
+    });
   }
 
   // ========== 保留：隱藏工具欄 ==========
@@ -167,6 +177,25 @@ export class HighlightStorage {
   }
 
   /**
+   * 解析儲存的標註資料
+   *
+   * @param {any} data - 從 Gateway 載入的原始資料
+   * @returns {Array} 標註陣列
+   * @private
+   */
+  static _parseStoredHighlights(data) {
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    if (data && Array.isArray(data.highlights)) {
+      return data.highlights;
+    }
+
+    return [];
+  }
+
+  /**
    * 獲取標準化 URL
    *
    * @returns {string}
@@ -195,7 +224,7 @@ export class HighlightStorage {
     });
 
     const data = await HighlightStorageGateway.loadHighlights(currentUrl);
-    const highlights = Array.isArray(data) ? data : data?.highlights || [];
+    const highlights = HighlightStorage._parseStoredHighlights(data);
 
     // 若找到標註，直接返回
     if (highlights.length > 0) {
@@ -203,25 +232,27 @@ export class HighlightStorage {
     }
 
     // [Phase 2 Fix] 回退邏輯：若使用穩定 URL 未找到標註，嘗試使用原始 URL
-    if (globalThis.__NOTION_STABLE_URL__) {
-      const originalUrl = globalThis.normalizeUrl
-        ? globalThis.normalizeUrl(globalThis.location.href)
-        : globalThis.location.href;
-
-      if (originalUrl !== currentUrl) {
-        const fallbackData = await HighlightStorageGateway.loadHighlights(originalUrl);
-        const fallbackHighlights = Array.isArray(fallbackData)
-          ? fallbackData
-          : fallbackData?.highlights || [];
-
-        if (fallbackHighlights.length > 0) {
-          Logger.info('[HighlightStorage] Found highlights via fallback URL', { originalUrl });
-          return fallbackHighlights;
-        }
-      }
+    if (!globalThis.__NOTION_STABLE_URL__) {
+      return [];
     }
 
-    return [];
+    const originalUrl = globalThis.normalizeUrl
+      ? globalThis.normalizeUrl(globalThis.location.href)
+      : globalThis.location.href;
+
+    if (originalUrl === currentUrl) {
+      return [];
+    }
+
+    const fallbackData = await HighlightStorageGateway.loadHighlights(originalUrl);
+    const fallbackHighlights = HighlightStorage._parseStoredHighlights(fallbackData);
+
+    if (fallbackHighlights.length === 0) {
+      return [];
+    }
+
+    Logger.info('[HighlightStorage] Found highlights via fallback URL', { originalUrl });
+    return fallbackHighlights;
   }
 }
 

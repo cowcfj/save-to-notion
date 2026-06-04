@@ -196,6 +196,49 @@ describe('core/HighlightStorage', () => {
       );
       expect(result).toBe(true);
     });
+
+    test('should restore highlights from object payload shape', async () => {
+      // 測試從物件格式 (object payload shape) 恢復標註
+      HighlightStorageGateway.loadHighlights.mockResolvedValue({
+        highlights: [{ id: 'h1', text: 'Object payload', color: 'yellow' }],
+      });
+      mockManager.restoreLocalHighlight = jest.fn().mockResolvedValue(true);
+
+      const result = await storage.restore();
+
+      expect(mockManager.restoreLocalHighlight).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'h1', text: 'Object payload' })
+      );
+      expect(result).toBe(true);
+    });
+
+    test('should restore fallback highlights from object payload shape', async () => {
+      // 測試在回退邏輯中，從物件格式恢復標註
+      globalThis.__NOTION_STABLE_URL__ = 'https://stable.url';
+      globalThis.normalizeUrl.mockReturnValue('https://original.url');
+
+      HighlightStorageGateway.loadHighlights.mockImplementation(async url => {
+        if (url === 'https://stable.url') {
+          return [];
+        }
+        if (url === 'https://original.url') {
+          return {
+            highlights: [{ id: 'h1', text: 'Fallback object payload', color: 'yellow' }],
+          };
+        }
+        return [];
+      });
+      mockManager.restoreLocalHighlight = jest.fn().mockResolvedValue(true);
+
+      const result = await storage.restore();
+
+      expect(HighlightStorageGateway.loadHighlights).toHaveBeenCalledWith('https://stable.url');
+      expect(HighlightStorageGateway.loadHighlights).toHaveBeenCalledWith('https://original.url');
+      expect(mockManager.restoreLocalHighlight).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'h1', text: 'Fallback object payload' })
+      );
+      expect(result).toBe(true);
+    });
   });
 
   describe('collectForNotion', () => {
