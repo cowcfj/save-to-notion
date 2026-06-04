@@ -20,6 +20,7 @@ jest.mock('../../../../scripts/highlighter/ui/FloatingRail.js', () => {
         manager,
         initialize: mockInitialize,
         show: jest.fn().mockResolvedValue(true),
+        activateHighlighting: jest.fn(),
       };
       return mockFloatingRailInstance;
     }),
@@ -82,6 +83,38 @@ describe('floatingRailAvailability', () => {
       globalThis.HighlighterV2 = originalHighlighterV2;
       globalThis.__NOTION_RAIL_READY__ = originalNotionRailReady;
     });
+
+    function setHighlighterManager() {
+      globalThis.HighlighterV2 = {
+        manager: { some: 'manager_state' },
+        rail: undefined,
+      };
+    }
+
+    async function expectDynamicRailCallback(params = {}) {
+      const hasInitializeResult = Object.prototype.hasOwnProperty.call(params, 'initializeResult');
+      const initializeResult = hasInitializeResult ? params.initializeResult : { success: true };
+      const sendResponse = jest.fn();
+      const onRailReady = params.activate
+        ? jest.fn(rail => rail.activateHighlighting())
+        : jest.fn().mockResolvedValue();
+
+      setHighlighterManager();
+      if (params.existingReadyResult) {
+        globalThis.__NOTION_RAIL_READY__ = Promise.resolve(params.existingReadyResult);
+      }
+      mockInitialize.mockResolvedValue(initializeResult);
+
+      await withAvailableFloatingRail(sendResponse, onRailReady, { sessionOverride: true });
+
+      expect(mockInitialize).toHaveBeenCalled();
+      expect(globalThis.HighlighterV2.rail).toBe(mockFloatingRailInstance);
+      expect(onRailReady).toHaveBeenCalledWith(mockFloatingRailInstance);
+      if (params.activate) {
+        expect(mockFloatingRailInstance.activateHighlighting).toHaveBeenCalledWith();
+      }
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    }
 
     test('當 HighlighterV2.manager 存在，但 active rail 與 ready promise 都不存在時，應動態建立 FloatingRail，執行 callback，並掛回 HighlighterV2.rail', async () => {
       const sendResponse = jest.fn();
@@ -146,26 +179,33 @@ describe('floatingRailAvailability', () => {
     });
 
     test('sessionOverride=true 時，既有 ready promise 失敗後應動態建立 rail 並執行 callback', async () => {
-      const sendResponse = jest.fn();
-      const onRailReady = jest.fn().mockResolvedValue();
-      const existingReadyPromise = Promise.resolve({
-        success: false,
-        error: '浮動側欄初始化已略過',
+      expect.hasAssertions();
+      await expectDynamicRailCallback({
+        existingReadyResult: {
+          success: false,
+          error: '浮動側欄初始化已略過',
+        },
       });
+    });
 
-      globalThis.HighlighterV2 = {
-        manager: { some: 'manager_state' },
-        rail: undefined,
-      };
-      globalThis.__NOTION_RAIL_READY__ = existingReadyPromise;
-      mockInitialize.mockResolvedValue({ success: true });
+    test('[REGRESSION] dynamic rail initialize 回傳 undefined 時應視為成功並啟動 callback', async () => {
+      expect.hasAssertions();
+      await expectDynamicRailCallback({
+        activate: true,
+        initializeResult: undefined,
+      });
+    });
 
-      await withAvailableFloatingRail(sendResponse, onRailReady, { sessionOverride: true });
-
-      expect(mockInitialize).toHaveBeenCalled();
-      expect(globalThis.HighlighterV2.rail).toBe(mockFloatingRailInstance);
-      expect(onRailReady).toHaveBeenCalledWith(mockFloatingRailInstance);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    test('[REGRESSION] sessionOverride recovery 的 initialize 回傳 undefined 時仍應啟動 callback', async () => {
+      expect.hasAssertions();
+      await expectDynamicRailCallback({
+        activate: true,
+        initializeResult: undefined,
+        existingReadyResult: {
+          success: false,
+          error: '浮動側欄初始化失敗',
+        },
+      });
     });
 
     test('當 HighlighterV2.manager 不存在時，應回傳 FLOATING_RAIL_NOT_INITIALIZED', async () => {
