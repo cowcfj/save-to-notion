@@ -90,15 +90,14 @@ export class FloatingRail {
     this._appendHostListener = null;
     this._isSaving = false;
 
-    const reusingHost = this._initializeHost();
-    this._initializeContainer(reusingHost);
+    this._initializeHost();
+    this._initializeContainer();
     this.elements = getRailElements(this.container);
     this._restorePosition();
   }
 
   _initializeHost() {
     const existingHost = document.querySelector(RAIL_OWNED_HOST_SELECTOR);
-    const reusingHost = Boolean(existingHost);
 
     if (existingHost) {
       this.host = existingHost;
@@ -115,8 +114,6 @@ export class FloatingRail {
       injectRailStylesIntoShadowRoot(this.shadowRoot);
       this.host.dataset.railStylesInjected = 'true';
     }
-
-    return reusingHost;
   }
 
   _appendHostToBody() {
@@ -136,16 +133,12 @@ export class FloatingRail {
     }
   }
 
-  _initializeContainer(reusingHost) {
-    const existingContainer = reusingHost ? this.shadowRoot.querySelector('.rail-container') : null;
-    if (existingContainer) {
-      this.container = existingContainer;
-    } else {
-      this.container = createFloatingRailContainer({
-        selectedColor: this.stateManager.selectedColor,
-      });
-      this.shadowRoot.append(this.container);
-    }
+  _initializeContainer() {
+    this.shadowRoot.querySelectorAll('.rail-container').forEach(container => container.remove());
+    this.container = createFloatingRailContainer({
+      selectedColor: this.stateManager.selectedColor,
+    });
+    this.shadowRoot.append(this.container);
   }
 
   async initialize() {
@@ -157,12 +150,19 @@ export class FloatingRail {
     this._listenToDisplaySettingsChanges();
     this._applyInitialState();
 
-    await this._refreshPageStatus();
     if (this._destroyed) {
       return;
     }
     this._bindEvents();
     this._initialized = true;
+    this._refreshPageStatus().catch(error => {
+      const sanitizedError = sanitizeApiError(error, 'rail_check_page_status_background');
+      Logger.warn('[FloatingRail] 背景頁面狀態刷新失敗', {
+        action: 'initialize',
+        operation: 'refreshPageStatusInBackground',
+        sanitizedError,
+      });
+    });
   }
 
   async _loadDisplaySettings() {
@@ -273,6 +273,9 @@ export class FloatingRail {
   }
 
   async _refreshPageStatus() {
+    if (this._destroyed) {
+      return;
+    }
     try {
       const pageStatus = await checkPageStatus();
       if (this._destroyed) {

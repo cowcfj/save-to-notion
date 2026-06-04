@@ -183,7 +183,7 @@ describe('FloatingRail', () => {
       expect(rail.host).toBe(existingHost);
     });
 
-    test('應該重用既有 host 內的 rail container', () => {
+    test('重用既有 host 時應建立 fresh rail container 並移除舊 container', () => {
       const existingHost = document.createElement('div');
       existingHost.id = TEST_RAIL_HOST_ID;
       existingHost.dataset.railOwner = 'true';
@@ -194,8 +194,12 @@ describe('FloatingRail', () => {
 
       const rail = new FloatingRail(manager);
 
-      expect(rail.container).toBe(existingContainer);
-      expect(createFloatingRailContainer).not.toHaveBeenCalled();
+      expect(rail.container).not.toBe(existingContainer);
+      expect(existingContainer.isConnected).toBe(false);
+      expect(shadowRoot.querySelectorAll('.rail-container')).toHaveLength(1);
+      expect(createFloatingRailContainer).toHaveBeenCalledWith({
+        selectedColor: rail.stateManager.selectedColor,
+      });
     });
 
     test('不應重用無 owner 標記的同 ID 元素', () => {
@@ -302,26 +306,41 @@ describe('FloatingRail', () => {
       expect(manager.startHighlighting).not.toHaveBeenCalled();
     });
 
-    test('[REGRESSION] initialize 應等待頁面狀態刷新完成後才綁定事件', async () => {
+    test('[REGRESSION] initialize 不應等待頁面狀態刷新完成才綁定事件', async () => {
       let resolveStatus;
       const pageStatusPromise = new Promise(resolve => {
         resolveStatus = resolve;
       });
       checkPageStatus.mockReturnValue(pageStatusPromise);
+      chrome.storage.sync.get = jest.fn().mockResolvedValue({});
       savePageFromRail.mockResolvedValue({ success: true });
 
       const rail = new FloatingRail(manager);
       const initPromise = rail.initialize();
       const saveBtn = rail.container.querySelector('[data-action="save"]');
+      const initializeSettledPromise = initPromise.then(() => true).catch(() => false);
 
-      saveBtn.click();
-      expect(savePageFromRail).not.toHaveBeenCalled();
-      expect(rail._eventsBound).toBe(false);
+      try {
+        await chrome.storage.sync.get.mock.results.at(-1).value;
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
 
-      resolveStatus({ isSaved: true, canSave: false });
-      await initPromise;
+        await expect(
+          Promise.race([initializeSettledPromise, Promise.resolve(false)])
+        ).resolves.toBe(true);
+        saveBtn.click();
+        expect(savePageFromRail).toHaveBeenCalledTimes(1);
+        expect(rail._eventsBound).toBe(true);
+        expect(rail._initialized).toBe(true);
+        expect(rail._pageStatus).toBeNull();
+      } finally {
+        resolveStatus({ isSaved: true, canSave: false });
+        await initPromise.catch(() => undefined);
+        await pageStatusPromise;
+        await Promise.resolve();
+      }
 
-      expect(rail._eventsBound).toBe(true);
       expect(rail._pageStatus).toEqual({ isSaved: true, canSave: false });
     });
 
@@ -1120,12 +1139,32 @@ describe('FloatingRail', () => {
 
       const rail = new FloatingRail(manager);
       await rail.initialize();
+      await Promise.resolve();
 
       expect(warnSpy).toHaveBeenCalledWith(
         '[FloatingRail] 無法取得頁面狀態',
         expect.objectContaining({
           action: '_refreshPageStatus',
           operation: 'checkPageStatus',
+        })
+      );
+      expect(rail._initialized).toBe(true);
+      expect(rail._eventsBound).toBe(true);
+    });
+
+    test('initialize 背景頁面狀態刷新出現未預期 rejection 時應記錄警告', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+      const rail = new FloatingRail(manager);
+      jest.spyOn(rail, '_refreshPageStatus').mockRejectedValueOnce(new Error('unexpected'));
+
+      await rail.initialize();
+      await Promise.resolve();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FloatingRail] 背景頁面狀態刷新失敗',
+        expect.objectContaining({
+          action: 'initialize',
+          operation: 'refreshPageStatusInBackground',
         })
       );
       expect(rail._initialized).toBe(true);
