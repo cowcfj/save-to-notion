@@ -6,6 +6,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { HighlightStorageGateway } from './HighlightStorageGateway.js';
 
 /**
@@ -230,7 +231,11 @@ export class HighlightStorage {
       return [];
     }
 
-    Logger.info('[HighlightStorage] Found highlights via fallback URL', { originalUrl });
+    Logger.info('[HighlightStorage] Found highlights via fallback URL', {
+      action: 'findHighlightsFallback',
+      result: 'found',
+      sanitizedUrl: sanitizeUrlForLogging(originalUrl),
+    });
     return fallbackHighlights;
   }
 }
