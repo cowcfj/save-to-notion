@@ -177,25 +177,6 @@ export class HighlightStorage {
   }
 
   /**
-   * 解析儲存的標註資料
-   *
-   * @param {any} data - 從 Gateway 載入的原始資料
-   * @returns {Array} 標註陣列
-   * @private
-   */
-  static _parseStoredHighlights(data) {
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    if (data && Array.isArray(data.highlights)) {
-      return data.highlights;
-    }
-
-    return [];
-  }
-
-  /**
    * 獲取標準化 URL
    *
    * @returns {string}
@@ -223,8 +204,7 @@ export class HighlightStorage {
       stableUrlGlobal: globalThis.__NOTION_STABLE_URL__ || 'undefined',
     });
 
-    const data = await HighlightStorageGateway.loadHighlights(currentUrl);
-    const highlights = HighlightStorage._parseStoredHighlights(data);
+    const highlights = await HighlightStorageGateway.loadHighlights(currentUrl);
 
     // 若找到標註，直接返回
     if (highlights.length > 0) {
@@ -244,8 +224,7 @@ export class HighlightStorage {
       return [];
     }
 
-    const fallbackData = await HighlightStorageGateway.loadHighlights(originalUrl);
-    const fallbackHighlights = HighlightStorage._parseStoredHighlights(fallbackData);
+    const fallbackHighlights = await HighlightStorageGateway.loadHighlights(originalUrl);
 
     if (fallbackHighlights.length === 0) {
       return [];
