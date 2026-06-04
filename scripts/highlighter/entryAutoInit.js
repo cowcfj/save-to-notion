@@ -285,6 +285,66 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   }
 
+  function resolveStableUrlForInit(pageStatus, runtimeStableUrlPromise) {
+    const pendingRuntimeStableUrl = Symbol('pending_runtime_stable_url');
+    return Promise.race([runtimeStableUrlPromise, Promise.resolve(pendingRuntimeStableUrl)]).then(
+      runtimeStableUrlResult => {
+        const runtimeStableUrl =
+          runtimeStableUrlResult === pendingRuntimeStableUrl ? null : runtimeStableUrlResult;
+
+        // 設置穩定 URL 優先權（Phase 3 regression fix）：
+        // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
+        // 代表最新且最權威的 canonical source。
+        // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
+        const resolvedStableUrl =
+          globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl || pageStatus?.stableUrl || null;
+        const stableUrlSource =
+          globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl
+            ? 'SET_STABLE_URL'
+            : 'checkPageStatus';
+
+        return { resolvedStableUrl, stableUrlSource };
+      }
+    );
+  }
+
+  function applyResolvedStableUrl(resolvedStableUrl, stableUrlSource) {
+    if (resolvedStableUrl) {
+      globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
+      Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
+        action: 'initializeExtension',
+        stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
+        source: stableUrlSource,
+      });
+    }
+  }
+
+  function initializeHighlighterAndRail({ skipRestore, styleMode, autoShowRail }) {
+    if (skipRestore) {
+      Logger.info('[Highlighter] 頁面已刪除，略過工具列與標註恢復', {
+        action: 'initializeExtension',
+      });
+    }
+
+    // 初始化 Highlighter（Phase 1: 始終 skipToolbar）
+    shouldSkipLateRestore = skipRestore;
+    setupHighlighter({ skipRestore, skipToolbar: true, styleMode });
+    if (globalThis.HighlighterV2) {
+      globalThis.HighlighterV2.skipRestore = skipRestore;
+      globalThis.HighlighterV2.wasDeleted = skipRestore;
+    }
+
+    if (skipRestore) {
+      settleRailReady({ success: false, error: '浮動側欄初始化已略過' });
+      return null;
+    }
+    if (globalThis.HighlighterV2?.manager) {
+      return initializeFloatingRail(globalThis.HighlighterV2.manager, autoShowRail);
+    }
+    settleRailReady({ success: false, error: '浮動側欄初始化缺少 manager' });
+    return null;
+  }
+
   // 🔑 異步初始化：runtime stable URL 與 pageStatus/settings 並行收集。
   // 若 pageStatus 已提供 stableUrl，不等待 waitForStableUrl timeout。
   /* eslint-disable unicorn/prefer-top-level-await -- content bundle outputs UMD; top-level await breaks Rollup */
@@ -300,55 +360,24 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       });
 
       const [pageStatus, settings] = await Promise.all([fetchPageStatus(), fetchSettings()]);
-      const pendingRuntimeStableUrl = Symbol('pending_runtime_stable_url');
-      const runtimeStableUrlResult = await Promise.race([
-        runtimeStableUrlPromise,
-        Promise.resolve(pendingRuntimeStableUrl),
-      ]);
-      const runtimeStableUrl =
-        runtimeStableUrlResult === pendingRuntimeStableUrl ? null : runtimeStableUrlResult;
-      // 設置穩定 URL 優先權（Phase 3 regression fix）：
-      // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
-      // 代表最新且最權威的 canonical source。
-      // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
-      const resolvedStableUrl =
-        globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl || pageStatus?.stableUrl || null;
-      const stableUrlSource =
-        globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl ? 'SET_STABLE_URL' : 'checkPageStatus';
-      if (resolvedStableUrl) {
-        globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
-        Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
-          action: 'initializeExtension',
-          stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-          source: stableUrlSource,
-        });
-      }
+
+      const { resolvedStableUrl, stableUrlSource } = await resolveStableUrlForInit(
+        pageStatus,
+        runtimeStableUrlPromise
+      );
+      applyResolvedStableUrl(resolvedStableUrl, stableUrlSource);
 
       const styleMode = resolveStyleMode(settings);
       const skipRestore = pageStatus?.wasDeleted === true;
-
-      if (skipRestore) {
-        Logger.info('[Highlighter] 頁面已刪除，略過工具列與標註恢復', {
-          action: 'initializeExtension',
-        });
-      }
-
       const autoShowRail = settings?.floatingRailEnabled !== false;
 
-      // 初始化 Highlighter（Phase 1: 始終 skipToolbar）
-      shouldSkipLateRestore = skipRestore;
-      setupHighlighter({ skipRestore, skipToolbar: true, styleMode });
-      if (globalThis.HighlighterV2) {
-        globalThis.HighlighterV2.skipRestore = skipRestore;
-        globalThis.HighlighterV2.wasDeleted = skipRestore;
-      }
-
-      if (skipRestore) {
-        settleRailReady({ success: false, error: '浮動側欄初始化已略過' });
-      } else if (globalThis.HighlighterV2?.manager) {
-        await initializeFloatingRail(globalThis.HighlighterV2.manager, autoShowRail);
-      } else {
-        settleRailReady({ success: false, error: '浮動側欄初始化缺少 manager' });
+      const initRailPromise = initializeHighlighterAndRail({
+        skipRestore,
+        styleMode,
+        autoShowRail,
+      });
+      if (initRailPromise) {
+        await initRailPromise;
       }
 
       registerPersistentListeners();
