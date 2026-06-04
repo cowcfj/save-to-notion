@@ -256,16 +256,66 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   };
 
   const unregisterPersistentListeners = () => {
-    if (persistentMessageHandler && globalThis.chrome?.runtime?.onMessage?.removeListener) {
-      globalThis.chrome.runtime.onMessage.removeListener(persistentMessageHandler);
-      persistentMessageHandler = null;
-    }
+    const listeners = [
+      {
+        target: globalThis.chrome?.runtime?.onMessage,
+        handler: persistentMessageHandler,
+        clear: () => {
+          persistentMessageHandler = null;
+        },
+      },
+      {
+        target: globalThis.chrome?.storage?.onChanged,
+        handler: persistentStorageHandler,
+        clear: () => {
+          persistentStorageHandler = null;
+        },
+      },
+    ];
 
-    if (persistentStorageHandler && globalThis.chrome?.storage?.onChanged?.removeListener) {
-      globalThis.chrome.storage.onChanged.removeListener(persistentStorageHandler);
-      persistentStorageHandler = null;
+    for (const { target, handler, clear } of listeners) {
+      // handler 非 null ⇒ 註冊時 target 通過了 addListener 檢查（見 registerPersistent*），
+      // 故 target 必然有效且具備 removeListener；target?. 僅作不可達狀態的防護。
+      if (handler) {
+        target?.removeListener(handler);
+        clear();
+      }
     }
   };
+
+  function awaitStableUrlMessage(onMessage, timeoutMs) {
+    return new Promise(resolve => {
+      let resolved = false;
+
+      const settle = value => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        onMessage?.removeListener(handler);
+        resolve(value);
+      };
+
+      // 監聽 SET_STABLE_URL 訊息
+      const handler = request => {
+        if (request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL && request.stableUrl) {
+          settle(request.stableUrl);
+        }
+      };
+
+      onMessage?.addListener(handler);
+
+      // 超時保護：避免無限等待
+      setTimeout(() => {
+        if (!resolved) {
+          Logger.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
+            action: 'waitForStableUrl',
+          });
+          settle(null);
+        }
+      }, timeoutMs);
+    });
+  }
 
   /**
    * 等待 Background Script 通過 SET_STABLE_URL 訊息發送穩定 URL。
@@ -280,39 +330,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       return Promise.resolve(globalThis.__NOTION_STABLE_URL__);
     }
 
-    return new Promise(resolve => {
-      let resolved = false;
-
-      const settle = value => {
-        if (resolved) {
-          return;
-        }
-        resolved = true;
-        globalThis.chrome?.runtime?.onMessage?.removeListener(handler);
-        resolve(value);
-      };
-
-      // 監聽 SET_STABLE_URL 訊息
-      const handler = request => {
-        if (request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL && request.stableUrl) {
-          settle(request.stableUrl);
-        }
-      };
-
-      if (globalThis.chrome?.runtime?.onMessage) {
-        globalThis.chrome.runtime.onMessage.addListener(handler);
-      }
-
-      // 超時保護：避免無限等待
-      setTimeout(() => {
-        if (!resolved) {
-          Logger.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
-            action: 'waitForStableUrl',
-          });
-          settle(null);
-        }
-      }, timeoutMs);
-    });
+    return awaitStableUrlMessage(globalThis.chrome?.runtime?.onMessage, timeoutMs);
   };
 
   async function fetchPageStatus() {
