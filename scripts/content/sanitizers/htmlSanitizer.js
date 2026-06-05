@@ -97,7 +97,7 @@ function isEmptyHtmlInput(html) {
 }
 
 function isUnsafeDataUri(value) {
-  return Boolean(value && value.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(value));
+  return Boolean(value?.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(value));
 }
 
 function removeUnsafeDataUriAttribute(node, attributeName) {
