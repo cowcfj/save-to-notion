@@ -54,32 +54,45 @@ export const KEY_PREFIX = Object.freeze({
  * @returns {HighlightLookupContract}
  */
 export function resolveKeys(normalizedUrl, aliasCandidate = null) {
-  if (!normalizedUrl || typeof normalizedUrl !== 'string') {
+  const isNonEmptyString = typeof normalizedUrl === 'string' && normalizedUrl.length > 0;
+  if (!isNonEmptyString) {
     throw new TypeError('[HighlightLookupResolver] normalizedUrl 必須是非空字串');
   }
 
-  // 計算 stableUrl：若 aliasCandidate 有效，採用之；否則等同 normalizedUrl
-  const stableUrl =
-    aliasCandidate && aliasCandidate !== normalizedUrl ? aliasCandidate : normalizedUrl;
-  const aliasUsed = stableUrl !== normalizedUrl;
+  // aliasUsed：aliasCandidate 有值且與 normalizedUrl 不同時才採用為 stableUrl
+  const aliasUsed =
+    typeof aliasCandidate === 'string' &&
+    aliasCandidate.length > 0 &&
+    aliasCandidate !== normalizedUrl;
+  const stableUrl = aliasUsed ? aliasCandidate : normalizedUrl;
 
   // 建立各 key
   const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
   const normalizedPageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-  const legacyNormKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
   const legacyStableKey = `${HIGHLIGHTS_PREFIX}${stableUrl}`;
+  const legacyNormKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
 
   // Lookup order（計劃 §8 最小查找順序）：
-  // 1. page_<stableUrl>          — alias 命中的 canonical key（若 aliasUsed）
-  // 2. page_<normalizedUrl>      — 資料可能仍在 original permalink
-  // 3. highlights_<stableUrl>    — 舊格式 alias-resolved URL（若 aliasUsed）
-  // 4. highlights_<normalizedUrl> — 舊格式回退（正規化後的 URL）
+  // 1. page_<stableUrl>           — alias 命中的 canonical key
+  // 2. page_<normalizedUrl>       — 資料可能仍在 original permalink（僅 aliasUsed）
+  // 3. highlights_<stableUrl>     — 舊格式 alias-resolved URL
+  // 4. highlights_<normalizedUrl> — 舊格式回退（僅 aliasUsed）
   //
-  // 去重：若 stableUrl === normalizedUrl，page_* / highlights_* 各只放一次
-  const pageKeys = aliasUsed ? [stablePageKey, normalizedPageKey] : [normalizedPageKey];
+  // 去重：!aliasUsed 時 stableUrl === normalizedUrl，故 stablePageKey === normalizedPageKey、
+  //       legacyStableKey === legacyNormKey，page_* / highlights_* 各只放一次；
+  //       aliasUsed 時才在下方 if 內補上 normalizedUrl 變體。
+  const pageKeys = [stablePageKey];
+  const legacyKeys = [legacyStableKey];
 
-  // 舊格式：alias 命中時同時涵蓋兩個 URL 的 highlights_* key
-  const legacyKeys = aliasUsed ? [legacyStableKey, legacyNormKey] : [legacyNormKey];
+  // Legacy cleanup：mutation 後應清理（若存在）的 key（不含 mutationTargetKey 本身）
+  const legacyCleanupKeys = [];
+
+  if (aliasUsed) {
+    // alias 命中：normalizedUrl 的 page_* / highlights_* 一併納入查找與清理名單
+    pageKeys.push(normalizedPageKey);
+    legacyKeys.push(legacyNormKey);
+    legacyCleanupKeys.push(normalizedPageKey);
+  }
 
   const lookupOrder = [...pageKeys, ...legacyKeys];
 
@@ -88,14 +101,6 @@ export function resolveKeys(normalizedUrl, aliasCandidate = null) {
   //       應優先在此寫入，避免 normalizedUrl 與 stableUrl 並存產生雙 canonical
   const mutationTargetKey = stablePageKey;
 
-  // Legacy cleanup：mutation 後應清理（若存在）的 key（不含 mutationTargetKey 本身）
-  // 若 stableUrl === normalizedUrl，則 normalizedPageKey === stablePageKey，不需清理自己
-  const legacyCleanupKeys = [];
-
-  if (aliasUsed) {
-    // stableUrl 與 normalizedUrl 不同時，normalizedUrl 的 page_* 可能需要清理
-    legacyCleanupKeys.push(normalizedPageKey);
-  }
   // 舊格式 highlights_* 永遠在 cleanup 名單（若存在才清理）
   legacyCleanupKeys.push(...legacyKeys);
 
@@ -129,8 +134,10 @@ export function getAliasLookupKeys(normalizedUrl, rawUrl = null) {
 
   const keys = [`${URL_ALIAS_PREFIX}${normalizedUrl}`];
 
-  // 若 rawUrl 與 normalizedUrl 不同，也查詢 rawUrl 版本的 alias
-  if (rawUrl && typeof rawUrl === 'string' && rawUrl !== normalizedUrl) {
+  // rawUrl 為非空字串且與 normalizedUrl 不同時，一併查詢 rawUrl 版本的 alias
+  const hasDistinctRawUrl =
+    typeof rawUrl === 'string' && rawUrl.length > 0 && rawUrl !== normalizedUrl;
+  if (hasDistinctRawUrl) {
     keys.push(`${URL_ALIAS_PREFIX}${rawUrl}`);
   }
 
@@ -151,20 +158,40 @@ export function getAliasLookupKeys(normalizedUrl, rawUrl = null) {
  * @returns {string | null} 有效的 alias candidate，或 null
  */
 export function pickAliasCandidate(aliasData, normalizedUrl, rawUrl = null) {
-  if (!aliasData || typeof aliasData !== 'object') {
+  const isPlainObject = Boolean(aliasData) && typeof aliasData === 'object';
+  if (!isPlainObject) {
     return null;
   }
 
-  const normalizedAliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
-  const hasRawKey = rawUrl && rawUrl !== normalizedUrl;
-  const rawAliasKey = hasRawKey ? `${URL_ALIAS_PREFIX}${rawUrl}` : null;
-
-  // 優先取 normalizedUrl 版本，次取 rawUrl 版本
-  const fromNorm = aliasData[normalizedAliasKey];
-  const fromRaw = rawAliasKey ? aliasData[rawAliasKey] : null;
-  const candidate = fromNorm ?? fromRaw ?? null;
-
+  const candidate = _readAliasCandidate(aliasData, normalizedUrl, rawUrl);
   return isValidAliasCandidate(candidate) ? candidate : null;
+}
+
+/**
+ * 依優先序（normalizedUrl 版本 → rawUrl 版本）從 alias 資料中讀取原始 candidate。
+ *
+ * 封裝 pickAliasCandidate 的查找步驟，集中 key 組合與 fallback 邏輯，
+ * 讓公開函數只保留「型別 guard → 讀取 → 驗證」三步驟。
+ *
+ * @param {object} aliasData      - chrome.storage.local.get 的結果（呼叫端已確保為物件）
+ * @param {string} normalizedUrl  - 已標準化的頁面 URL
+ * @param {string | null} rawUrl  - 原始頁面 URL
+ * @returns {any} 原始 alias 值（未驗證），或 null
+ * @private
+ */
+function _readAliasCandidate(aliasData, normalizedUrl, rawUrl) {
+  const fromNorm = aliasData[`${URL_ALIAS_PREFIX}${normalizedUrl}`];
+  if (fromNorm != null) {
+    return fromNorm;
+  }
+
+  const hasDistinctRaw =
+    typeof rawUrl === 'string' && rawUrl.length > 0 && rawUrl !== normalizedUrl;
+  if (!hasDistinctRaw) {
+    return null;
+  }
+
+  return aliasData[`${URL_ALIAS_PREFIX}${rawUrl}`] ?? null;
 }
 
 /**
@@ -216,6 +243,24 @@ function _parseLegacyHighlights(value) {
 }
 
 /**
+ * 依 key 前綴選擇對應的 parser，回傳解析後的 highlights 陣列。
+ *
+ * @param {string} key   - storage key（page_* 或 highlights_*）
+ * @param {any} value    - 該 key 對應的 storage 值
+ * @returns {any[] | null} 解析出的 highlights 陣列；此 key 無法解析時為 null
+ * @private
+ */
+function _parseHighlightsByKey(key, value) {
+  if (key.startsWith(PAGE_PREFIX)) {
+    return _parsePageHighlights(value);
+  }
+  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+    return _parseLegacyHighlights(value);
+  }
+  return null;
+}
+
+/**
  * 從 storage 查詢結果中，依 lookupOrder 取出第一個有效的 highlights 陣列。
  *
  * 此為便利 helper，消費者可直接使用，也可自行依 lookupOrder 查詢。
@@ -225,7 +270,8 @@ function _parseLegacyHighlights(value) {
  * @returns {{ highlights: any[] | null, resolvedKey: string | null }} highlights 陣列（null 表示未找到）與命中的 key
  */
 export function pickHighlightsFromStorage(contract, storageData) {
-  if (!storageData || typeof storageData !== 'object') {
+  const isPlainObject = Boolean(storageData) && typeof storageData === 'object';
+  if (!isPlainObject) {
     return { highlights: null, resolvedKey: null };
   }
 
@@ -235,19 +281,9 @@ export function pickHighlightsFromStorage(contract, storageData) {
       continue;
     }
 
-    if (key.startsWith(PAGE_PREFIX)) {
-      const highlights = _parsePageHighlights(value);
-      if (highlights !== null) {
-        return { highlights, resolvedKey: key };
-      }
-      continue;
-    }
-
-    if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-      const highlights = _parseLegacyHighlights(value);
-      if (highlights !== null) {
-        return { highlights, resolvedKey: key };
-      }
+    const highlights = _parseHighlightsByKey(key, value);
+    if (highlights !== null) {
+      return { highlights, resolvedKey: key };
     }
   }
 

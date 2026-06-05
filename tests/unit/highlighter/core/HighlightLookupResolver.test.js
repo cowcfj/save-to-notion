@@ -164,6 +164,14 @@ describe('resolveKeys()', () => {
   });
 
   describe('輸入驗證', () => {
+    test('aliasCandidate 為 truthy 非字串時，應視為無 alias', () => {
+      const contract = resolveKeys(NORM_URL, 123);
+      expect(contract.aliasUsed).toBe(false);
+      expect(contract.stableUrl).toBe(NORM_URL);
+      expect(contract.lookupOrder).toEqual([PAGE_NORM, HL_NORM]);
+      expect(contract.mutationTargetKey).toBe(PAGE_NORM);
+    });
+
     test('normalizedUrl 為 null 應 throw TypeError', () => {
       expect(() => resolveKeys(null)).toThrow(TypeError);
     });
@@ -221,6 +229,13 @@ describe('pickAliasCandidate()', () => {
     const aliasData = { [ALIAS_RAW]: STABLE_URL };
     const result = pickAliasCandidate(aliasData, NORM_URL, RAW_URL);
     expect(result).toBe(STABLE_URL);
+  });
+
+  test('rawUrl 為非字串時，不應 fallback 到 coercion 後的 rawUrl alias key', () => {
+    const rawUrlObject = { toString: () => RAW_URL };
+    const aliasData = { [ALIAS_RAW]: STABLE_URL };
+    const result = pickAliasCandidate(aliasData, NORM_URL, rawUrlObject);
+    expect(result).toBeNull();
   });
 
   test('alias 值為非法 URL 時，回傳 null', () => {
