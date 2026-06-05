@@ -245,6 +245,79 @@ describe('windowAPI', () => {
       expect(matched).toBeUndefined();
     });
 
+    test('isActive() 在 rail collapsed 或 hidden 時應回 false', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      globalThis.HighlighterV2.rail = {
+        stateManager: { currentState: 'collapsed' },
+        host: { style: { display: 'block' } },
+      };
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+      globalThis.HighlighterV2.rail.stateManager.currentState = 'hidden';
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+    });
+
+    test('isActive() 在 rail display none 或 state 缺失時應回 false', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      globalThis.HighlighterV2.rail = {
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'none' } },
+      };
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+      globalThis.HighlighterV2.rail = {
+        stateManager: {},
+        host: { style: { display: 'block' } },
+      };
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+    });
+
+    test('toggle() 在 rail collapsed 或 display none 時應呼叫 show()', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      const railShow = jest.fn();
+      const railHide = jest.fn();
+      globalThis.HighlighterV2.rail = {
+        show: railShow,
+        hide: railHide,
+        stateManager: { currentState: 'collapsed' },
+        host: { style: { display: 'block' } },
+      };
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railShow).toHaveBeenCalledTimes(1);
+      expect(railHide).not.toHaveBeenCalled();
+
+      globalThis.HighlighterV2.rail.stateManager.currentState = 'visible';
+      globalThis.HighlighterV2.rail.host.style.display = 'none';
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railShow).toHaveBeenCalledTimes(2);
+      expect(railHide).not.toHaveBeenCalled();
+    });
+
+    test('toggle() 在 rail visible 時應呼叫 hide()', () => {
+      prodMountWindowAPI(prodManager, null, prodStorage);
+      const railShow = jest.fn();
+      const railHide = jest.fn();
+      globalThis.HighlighterV2.rail = {
+        show: railShow,
+        hide: railHide,
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'block' } },
+      };
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railHide).toHaveBeenCalledTimes(1);
+      expect(railShow).not.toHaveBeenCalled();
+    });
+
     test('minimize() 在 rail-only 環境下應呼叫 rail.collapse()', () => {
       prodMountWindowAPI(prodManager, null, prodStorage);
       const railCollapse = jest.fn();
