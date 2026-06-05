@@ -124,7 +124,7 @@ function getPersistentMessageHandler(handlers, action) {
     return undefined;
   }
 
-  if (!Object.prototype.hasOwnProperty.call(handlers, action)) {
+  if (!Object.hasOwn(handlers, action)) {
     return undefined;
   }
 
