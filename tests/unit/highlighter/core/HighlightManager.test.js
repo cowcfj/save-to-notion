@@ -338,6 +338,31 @@ describe('core/HighlightManager', () => {
       }
     });
 
+    test('startHighlighting 應忽略 extension UI mouseup 且不讀取 selection', () => {
+      const getSelection = jest.spyOn(globalThis, 'getSelection').mockReturnValue({
+        isCollapsed: false,
+        toString: () => 'Ignored',
+        getRangeAt: jest.fn(),
+        removeAllRanges: jest.fn(),
+      });
+      const host = document.createElement('div');
+      host.id = 'notion-floating-rail-host';
+      document.body.append(host);
+
+      const event = new MouseEvent('mouseup', { bubbles: true });
+      Object.defineProperty(event, 'composedPath', {
+        value: () => [host],
+      });
+
+      manager.startHighlighting('yellow');
+      document.dispatchEvent(event);
+
+      expect(getSelection).not.toHaveBeenCalled();
+      expect(manager.highlights.size).toBe(0);
+
+      getSelection.mockRestore();
+    });
+
     test('setHighlightColor 應更新目前標註顏色', () => {
       manager.setHighlightColor('blue');
 
@@ -535,6 +560,32 @@ describe('core/HighlightManager', () => {
 
       // 清理
       div.remove();
+    });
+
+    test('getSafeExtensionStorage should return null outside extension runtime', () => {
+      const originalChrome = globalThis.chrome;
+      globalThis.chrome = undefined;
+
+      try {
+        expect(HighlightManager.getSafeExtensionStorage()).toBeNull();
+      } finally {
+        globalThis.chrome = originalChrome;
+      }
+    });
+
+    test('getSafeExtensionStorage should return chrome.storage.local inside extension runtime', () => {
+      const originalChrome = globalThis.chrome;
+      const localStorageArea = { get: jest.fn() };
+      globalThis.chrome = {
+        runtime: { id: 'extension-id' },
+        storage: { local: localStorageArea },
+      };
+
+      try {
+        expect(HighlightManager.getSafeExtensionStorage()).toBe(localStorageArea);
+      } finally {
+        globalThis.chrome = originalChrome;
+      }
     });
   });
 
@@ -891,6 +942,10 @@ describe('core/HighlightManager', () => {
       document.body.append(div);
 
       expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [div] })).toBe(false);
+    });
+
+    test('應在 event 缺少 composedPath 時回傳 false', () => {
+      expect(HighlightManager._isExtensionUiEvent({})).toBe(false);
     });
   });
 });
