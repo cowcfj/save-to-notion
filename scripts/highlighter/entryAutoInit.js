@@ -24,6 +24,11 @@ import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';
 import { createRailInitializationController } from './autoInit/railInitialization.js';
 import { createPersistentListeners } from './autoInit/persistentListeners.js';
+import {
+  applyResolvedStableUrl,
+  resolveStableUrlForInit,
+  waitForStableUrl,
+} from './autoInit/stableUrlResolution.js';
 
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
@@ -136,56 +141,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     persistentListeners.unregister();
   }
 
-  function awaitStableUrlMessage(onMessage, timeoutMs) {
-    return new Promise(resolve => {
-      let resolved = false;
-
-      const settle = value => {
-        if (resolved) {
-          return;
-        }
-        resolved = true;
-        onMessage?.removeListener(handler);
-        resolve(value);
-      };
-
-      // 監聽 SET_STABLE_URL 訊息
-      const handler = request => {
-        if (request.action === CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL && request.stableUrl) {
-          settle(request.stableUrl);
-        }
-      };
-
-      onMessage?.addListener(handler);
-
-      // 超時保護：避免無限等待
-      setTimeout(() => {
-        if (!resolved) {
-          Logger.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
-            action: 'waitForStableUrl',
-          });
-          settle(null);
-        }
-      }, timeoutMs);
-    });
-  }
-
-  /**
-   * 等待 Background Script 通過 SET_STABLE_URL 訊息發送穩定 URL。
-   * 帶超時保護：若超時未收到，返回 null（頁面可能無穩定 URL）。
-   *
-   * @param {number} timeoutMs - 超時毫秒數
-   * @returns {Promise<string|null>}
-   */
-  const waitForStableUrl = (timeoutMs = STABLE_URL_TIMEOUT_MS) => {
-    // 如果已經通過其他途徑設置了，直接返回
-    if (globalThis.__NOTION_STABLE_URL__) {
-      return Promise.resolve(globalThis.__NOTION_STABLE_URL__);
-    }
-
-    return awaitStableUrlMessage(globalThis.chrome?.runtime?.onMessage, timeoutMs);
-  };
-
   async function fetchPageStatus() {
     if (!globalThis.chrome?.runtime?.sendMessage) {
       return null;
@@ -220,40 +175,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   }
 
-  function resolveStableUrlForInit(pageStatus, runtimeStableUrlPromise) {
-    const pendingRuntimeStableUrl = Symbol('pending_runtime_stable_url');
-    return Promise.race([runtimeStableUrlPromise, Promise.resolve(pendingRuntimeStableUrl)]).then(
-      runtimeStableUrlResult => {
-        const runtimeStableUrl =
-          runtimeStableUrlResult === pendingRuntimeStableUrl ? null : runtimeStableUrlResult;
-
-        // 設置穩定 URL 優先權（Phase 3 regression fix）：
-        // SET_STABLE_URL 是 Background 在 preloader 解析完成後主動推送的，
-        // 代表最新且最權威的 canonical source。
-        // checkPageStatus 的 stableUrl 可能來自較舊的快取，優先級較低。
-        const resolvedStableUrl =
-          globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl || pageStatus?.stableUrl || null;
-        const stableUrlSource =
-          globalThis.__NOTION_STABLE_URL__ || runtimeStableUrl
-            ? 'SET_STABLE_URL'
-            : 'checkPageStatus';
-
-        return { resolvedStableUrl, stableUrlSource };
-      }
-    );
-  }
-
-  function applyResolvedStableUrl(resolvedStableUrl, stableUrlSource) {
-    if (resolvedStableUrl) {
-      globalThis.__NOTION_STABLE_URL__ = resolvedStableUrl;
-      Logger.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
-        action: 'initializeExtension',
-        stableUrl: sanitizeUrlForLogging(resolvedStableUrl),
-        source: stableUrlSource,
-      });
-    }
-  }
-
   function initializeHighlighterAndRail({ skipRestore, styleMode, autoShowRail }) {
     if (skipRestore) {
       Logger.info('[Highlighter] 頁面已刪除，略過工具列與標註恢復', {
@@ -285,7 +206,12 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   /* eslint-disable unicorn/prefer-top-level-await -- content bundle outputs UMD; top-level await breaks Rollup */
   void (async () => {
     try {
-      const runtimeStableUrlPromise = waitForStableUrl().catch(error => {
+      const runtimeStableUrlPromise = waitForStableUrl({
+        globalScope: globalThis,
+        timeoutMs: STABLE_URL_TIMEOUT_MS,
+        contentBridgeActions: CONTENT_BRIDGE_ACTIONS,
+        logger: Logger,
+      }).catch(error => {
         Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
           action: 'waitForStableUrl',
           error,
@@ -296,11 +222,18 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
       const [pageStatus, settings] = await Promise.all([fetchPageStatus(), fetchSettings()]);
 
-      const { resolvedStableUrl, stableUrlSource } = await resolveStableUrlForInit(
+      const { resolvedStableUrl, stableUrlSource } = await resolveStableUrlForInit({
+        globalScope: globalThis,
         pageStatus,
-        runtimeStableUrlPromise
-      );
-      applyResolvedStableUrl(resolvedStableUrl, stableUrlSource);
+        runtimeStableUrlPromise,
+      });
+      applyResolvedStableUrl({
+        globalScope: globalThis,
+        resolvedStableUrl,
+        stableUrlSource,
+        logger: Logger,
+        sanitizeUrlForLogging,
+      });
 
       const styleMode = resolveStyleMode(settings);
       const skipRestore = pageStatus?.wasDeleted === true;
