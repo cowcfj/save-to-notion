@@ -15,6 +15,10 @@ jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
 describe('windowAPI', () => {
   let mockManager, mockStorage;
 
+  function mountWithMocks() {
+    mountWindowAPI({ manager: mockManager, toolbar: null, storage: mockStorage });
+  }
+
   beforeEach(() => {
     mockManager = {
       collectHighlightsForNotion: jest.fn().mockReturnValue(['mock-highlight']),
@@ -35,7 +39,7 @@ describe('windowAPI', () => {
   });
 
   test('mountWindowAPI 應掛載 API 並提供輔助方法', () => {
-    mountWindowAPI(mockManager, null, mockStorage);
+    mountWithMocks();
 
     expect(globalThis.HighlighterV2).toBeDefined();
     expect(globalThis.notionHighlighter).toBeDefined();
@@ -45,8 +49,16 @@ describe('windowAPI', () => {
     expect(globalThis.HighlighterV2.getToolbar()).toBeNull();
   });
 
+  test('mountWindowAPI 在 fns 為 null 時仍應正常掛載', () => {
+    mountWindowAPI({ manager: mockManager, toolbar: null, storage: mockStorage, fns: null });
+
+    expect(globalThis.HighlighterV2).toBeDefined();
+    expect(globalThis.HighlighterV2.init).toBeUndefined();
+    expect(globalThis.HighlighterV2.initWithToolbar).toBeUndefined();
+  });
+
   test('ensureToolbar 和 notionHighlighter 方法應能正確運作 (toggle/hide/minimize)', () => {
-    mountWindowAPI(mockManager, null, mockStorage);
+    mountWithMocks();
 
     expect(() => globalThis.notionHighlighter.minimize()).not.toThrow();
 
@@ -64,8 +76,22 @@ describe('windowAPI', () => {
     expect(tbInstance.minimize).toHaveBeenCalled();
   });
 
+  test('isActive() 應將 toolbar collapsed 視為 inactive', () => {
+    mountWithMocks();
+
+    globalThis.notionHighlighter.show();
+    const tbInstance = globalThis.HighlighterV2.getToolbar();
+    tbInstance.stateManager.currentState = 'collapsed';
+
+    expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+    tbInstance.stateManager.currentState = 'visible';
+
+    expect(globalThis.notionHighlighter.isActive()).toBe(true);
+  });
+
   test('ensureToolbar 防止並行創建', () => {
-    mountWindowAPI(mockManager, null, mockStorage);
+    mountWithMocks();
     // Simulate concurrent creation in ensureToolbar
     Toolbar.mockImplementationOnce(() => {
       // While creating, try to call toggle which calls ensureToolbar again
@@ -89,7 +115,7 @@ describe('windowAPI', () => {
   });
 
   test('notionHighlighter 其他委派方法', () => {
-    mountWindowAPI(mockManager, null, mockStorage);
+    mountWithMocks();
     globalThis.notionHighlighter.collectHighlights();
     expect(mockManager.collectHighlightsForNotion).toHaveBeenCalled();
 
@@ -103,7 +129,7 @@ describe('windowAPI', () => {
   });
 
   test('全球向後兼容別名方法', () => {
-    mountWindowAPI(mockManager, null, mockStorage);
+    mountWithMocks();
 
     // Uncovered: 149-152 initHighlighter
     globalThis.initHighlighter();
@@ -130,7 +156,7 @@ describe('windowAPI', () => {
     // So we just simulate them not existing or existing but without notionHighlighter
 
     // We mount it but then wipe the global
-    mountWindowAPI(mockManager, null, mockStorage);
+    mountWithMocks();
     const notionHL = globalThis.notionHighlighter;
     delete globalThis.notionHighlighter;
 
@@ -147,6 +173,10 @@ describe('windowAPI', () => {
     let prodMountWindowAPI;
     let prodManager;
     let prodStorage;
+
+    function prodMountWithMocks() {
+      prodMountWindowAPI({ manager: prodManager, toolbar: null, storage: prodStorage });
+    }
 
     beforeEach(() => {
       jest.resetModules();
@@ -189,7 +219,7 @@ describe('windowAPI', () => {
     });
 
     test('show() 在 toolbar 與 rail 皆缺席時應 Logger.warn 一次並帶 metadata', () => {
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
       // 確保 rail 不存在
       delete globalThis.HighlighterV2.rail;
 
@@ -210,7 +240,7 @@ describe('windowAPI', () => {
     });
 
     test('isActive() 在 toolbar state 與 rail 皆缺席時應 Logger.warn 一次並回 false', () => {
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
       delete globalThis.HighlighterV2.rail;
 
       const result = globalThis.notionHighlighter.isActive();
@@ -225,12 +255,13 @@ describe('windowAPI', () => {
         expect.objectContaining({
           action: 'isActive',
           reason: 'toolbar_disabled_and_rail_missing',
+          result: 'blocked',
         })
       );
     });
 
     test('isActive() 在 rail 存在時不應觸發 warn', () => {
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
       globalThis.HighlighterV2.rail = {
         stateManager: { currentState: 'visible' },
         host: { style: { display: 'block' } },
@@ -245,8 +276,89 @@ describe('windowAPI', () => {
       expect(matched).toBeUndefined();
     });
 
+    test('isActive() 在 rail collapsed 或 hidden 時應回 false', () => {
+      prodMountWithMocks();
+      globalThis.HighlighterV2.rail = {
+        stateManager: { currentState: 'collapsed' },
+        host: { style: { display: 'block' } },
+      };
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+      globalThis.HighlighterV2.rail.stateManager.currentState = 'hidden';
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+    });
+
+    test('isActive() 在 rail display none 或 state 缺失時應回 false', () => {
+      prodMountWithMocks();
+      globalThis.HighlighterV2.rail = {
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'none' } },
+      };
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+      globalThis.HighlighterV2.rail = {
+        stateManager: {},
+        host: { style: { display: 'block' } },
+      };
+
+      expect(globalThis.notionHighlighter.isActive()).toBe(false);
+    });
+
+    test('toggle() 在 rail collapsed 或 display none 時應呼叫 show()', () => {
+      prodMountWithMocks();
+      const railShow = jest.fn();
+      const railHide = jest.fn();
+      globalThis.HighlighterV2.rail = {
+        show: railShow,
+        hide: railHide,
+        stateManager: { currentState: 'collapsed' },
+        host: { style: { display: 'block' } },
+      };
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railShow).toHaveBeenCalledTimes(1);
+      expect(railHide).not.toHaveBeenCalled();
+
+      globalThis.HighlighterV2.rail.stateManager.currentState = 'visible';
+      globalThis.HighlighterV2.rail.host.style.display = 'none';
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railShow).toHaveBeenCalledTimes(2);
+      expect(railHide).not.toHaveBeenCalled();
+
+      globalThis.HighlighterV2.rail.stateManager = {};
+      globalThis.HighlighterV2.rail.host.style.display = 'block';
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railShow).toHaveBeenCalledTimes(3);
+      expect(railHide).not.toHaveBeenCalled();
+    });
+
+    test('toggle() 在 rail visible 時應呼叫 hide()', () => {
+      prodMountWithMocks();
+      const railShow = jest.fn();
+      const railHide = jest.fn();
+      globalThis.HighlighterV2.rail = {
+        show: railShow,
+        hide: railHide,
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'block' } },
+      };
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railHide).toHaveBeenCalledTimes(1);
+      expect(railShow).not.toHaveBeenCalled();
+    });
+
     test('minimize() 在 rail-only 環境下應呼叫 rail.collapse()', () => {
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
       const railCollapse = jest.fn();
       globalThis.HighlighterV2.rail = {
         collapse: railCollapse,
@@ -261,7 +373,7 @@ describe('windowAPI', () => {
 
     test('Branch A indirect alive: notionHighlighter.collectHighlights() 應委派到 manager', () => {
       prodManager.collectHighlightsForNotion.mockReturnValue([{ id: 'mock' }]);
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
 
       const result = globalThis.notionHighlighter.collectHighlights();
 
@@ -270,7 +382,7 @@ describe('windowAPI', () => {
     });
 
     test('Branch A indirect alive: notionHighlighter.clearAll() 應委派到 manager', () => {
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
 
       globalThis.notionHighlighter.clearAll();
 
@@ -279,7 +391,7 @@ describe('windowAPI', () => {
 
     test('Branch A direct alive: globalThis.collectHighlights() 應透過 alias 委派到 manager (executeScript page-context contract)', () => {
       prodManager.collectHighlightsForNotion.mockReturnValue([{ id: 'via-alias' }]);
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
 
       const result = globalThis.collectHighlights();
 
@@ -288,7 +400,7 @@ describe('windowAPI', () => {
     });
 
     test('Branch A direct alive: globalThis.clearPageHighlights() 應透過 alias 委派到 manager (executeScript page-context contract)', () => {
-      prodMountWindowAPI(prodManager, null, prodStorage);
+      prodMountWithMocks();
 
       globalThis.clearPageHighlights();
 

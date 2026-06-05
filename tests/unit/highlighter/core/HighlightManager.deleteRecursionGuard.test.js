@@ -98,7 +98,7 @@ describe('HighlightManager delete recursion guard', () => {
       rangeInfo: {},
     });
 
-    mountWindowAPI(manager, null, storage);
+    mountWindowAPI({ manager, toolbar: null, storage });
   });
 
   afterEach(() => {

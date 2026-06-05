@@ -61,7 +61,7 @@ describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   });
 
   test('globalThis.clearPageHighlights() 應走 skipStorage 路徑、不觸發 storage.save', () => {
-    mountWindowAPI(manager, null, mockStorage);
+    mountWindowAPI({ manager, toolbar: null, storage: mockStorage });
 
     globalThis.clearPageHighlights();
 
@@ -71,7 +71,7 @@ describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   });
 
   test('notionHighlighter.clearAll() 預設行為（無參）仍會觸發 storage.save', () => {
-    mountWindowAPI(manager, null, mockStorage);
+    mountWindowAPI({ manager, toolbar: null, storage: mockStorage });
 
     globalThis.notionHighlighter.clearAll();
 
@@ -81,7 +81,7 @@ describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   });
 
   test('notionHighlighter.clearAll({ skipStorage: true }) 應跳過 storage.save', () => {
-    mountWindowAPI(manager, null, mockStorage);
+    mountWindowAPI({ manager, toolbar: null, storage: mockStorage });
 
     globalThis.notionHighlighter.clearAll({ skipStorage: true });
 

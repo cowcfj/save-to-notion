@@ -26,11 +26,11 @@ import { mountWindowAPI } from './windowAPI.js';
 function remountWindowAPI(manager, toolbar, storage) {
   // toast 由 manager.setDependencies 注入，這裡統一從 manager 讀取，
   // 避免每個 call site 各自把 toast 拼進 state object。
-  mountWindowAPI(
+  mountWindowAPI({
     manager,
     toolbar,
     storage,
-    {
+    fns: {
       init: opts => {
         const nextManager = initHighlighter(opts);
         remountWindowAPI(nextManager, null, nextManager.storage);
@@ -42,8 +42,8 @@ function remountWindowAPI(manager, toolbar, storage) {
         return nextState;
       },
     },
-    manager.toast
-  );
+    toast: manager.toast,
+  });
 }
 
 /**
