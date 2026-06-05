@@ -16,12 +16,16 @@
 
 import { setupHighlighter } from './index.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
-import { PAGE_SAVE_ACTIONS } from '../config/runtimeActions/pageSaveActions.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
-import { VALID_STYLES } from './utils/color.js';
 import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingRailAvailability.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';
+import {
+  fetchHighlighterSettings,
+  fetchPageStatus,
+  resolveStyleMode,
+} from './autoInit/initializationInputs.js';
+import { createLateStableUrlRestoreController } from './autoInit/lateStableUrlRestore.js';
 import { createRailInitializationController } from './autoInit/railInitialization.js';
 import { createPersistentListeners } from './autoInit/persistentListeners.js';
 import {
@@ -32,29 +36,15 @@ import {
 
 // 防止重複初始化（例如 HMR 或多次 import）
 if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
-  let hasRetriedLateStableRestore = false;
-  let shouldSkipLateRestore = false;
   const STABLE_URL_TIMEOUT_MS = 1000;
-
-  function resolveStyleMode(settings) {
-    if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
-      return settings.highlightStyle;
-    }
-    if (settings?.highlightStyle) {
-      Logger.warn('[Highlighter] highlightStyle 設定值無效', {
-        value: settings.highlightStyle,
-        action: 'initializeExtension',
-      });
-    }
-    return 'background';
-  }
 
   const railInitialization = createRailInitializationController();
   const { initializeFloatingRail, settleRailReady } = railInitialization;
+  const lateStableUrlRestore = createLateStableUrlRestoreController();
 
   function fallbackInitialize() {
     try {
-      shouldSkipLateRestore = true;
+      lateStableUrlRestore.markSkipLateRestore(true);
       setupHighlighter({ skipRestore: true, skipToolbar: true });
       if (globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = true;
@@ -72,99 +62,11 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     await withAvailableFloatingRail(sendResponse, revealFloatingRail);
   }
 
-  function hasHighlighterSkipRestoreFlag() {
-    if (shouldSkipLateRestore) {
-      return true;
-    }
-    if (globalThis.HighlighterV2?.skipRestore === true) {
-      return true;
-    }
-    return globalThis.HighlighterV2?.wasDeleted === true;
-  }
-
-  function canRetryLateStableUrlRestore(manager, restoreManager) {
-    if (hasRetriedLateStableRestore) {
-      return false;
-    }
-    if (hasHighlighterSkipRestoreFlag()) {
-      return false;
-    }
-    if (typeof manager?.getCount !== 'function') {
-      return false;
-    }
-    if (manager.getCount() !== 0) {
-      return false;
-    }
-    return typeof restoreManager?.restore === 'function';
-  }
-
-  function handleLateStableUrlRestore(request, sendResponse) {
-    globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
-
-    const manager = globalThis.HighlighterV2?.manager;
-    const restoreManager = globalThis.HighlighterV2?.restoreManager;
-
-    if (!canRetryLateStableUrlRestore(manager, restoreManager)) {
-      sendResponse({ success: true });
-      return true;
-    }
-
-    hasRetriedLateStableRestore = true;
-    restoreManager
-      .restore()
-      .then(() => {
-        sendResponse({ success: true });
-      })
-      .catch(error => {
-        Logger.warn('[Highlighter] 延後收到穩定 URL，重試恢復標註失敗', {
-          action: 'SET_STABLE_URL',
-          error,
-        });
-        sendResponse({ success: false, error: String(error) });
-      });
-
-    return true; // 異步回應
-  }
-
   const persistentListeners = createPersistentListeners({
-    onSetStableUrl: handleLateStableUrlRestore,
+    onSetStableUrl: lateStableUrlRestore.handleSetStableUrl,
     onShowToolbar: handleShowToolbarMessage,
     getStableUrl: () => globalThis.__NOTION_STABLE_URL__,
   });
-
-  async function fetchPageStatus() {
-    if (!globalThis.chrome?.runtime?.sendMessage) {
-      return null;
-    }
-    try {
-      return await globalThis.chrome.runtime.sendMessage({
-        action: PAGE_SAVE_ACTIONS.CHECK_PAGE_STATUS,
-      });
-    } catch (error) {
-      Logger.warn('[Highlighter] checkPageStatus 失敗', {
-        error: error?.message,
-        action: 'checkPageStatus',
-      });
-      return null;
-    }
-  }
-
-  async function fetchSettings() {
-    if (!globalThis.chrome?.storage?.sync) {
-      return {};
-    }
-    try {
-      return (
-        (await globalThis.chrome.storage.sync.get(['highlightStyle', 'floatingRailEnabled'])) || {}
-      );
-    } catch (error) {
-      Logger.warn('[Highlighter] 載入設定失敗', {
-        error: error?.message,
-        action: 'initializeExtension',
-      });
-      return {};
-    }
-  }
 
   function initializeHighlighterAndRail(skipRestore, styleMode, autoShowRail) {
     if (skipRestore) {
@@ -174,7 +76,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
 
     // 初始化 Highlighter（Phase 1: 始終 skipToolbar）
-    shouldSkipLateRestore = skipRestore;
+    lateStableUrlRestore.markSkipLateRestore(skipRestore);
     setupHighlighter({ skipRestore, skipToolbar: true, styleMode });
     if (globalThis.HighlighterV2) {
       globalThis.HighlighterV2.skipRestore = skipRestore;
@@ -210,7 +112,10 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         return null;
       });
 
-      const [pageStatus, settings] = await Promise.all([fetchPageStatus(), fetchSettings()]);
+      const [pageStatus, settings] = await Promise.all([
+        fetchPageStatus(),
+        fetchHighlighterSettings(),
+      ]);
 
       const { resolvedStableUrl, stableUrlSource } = await resolveStableUrlForInit({
         globalScope: globalThis,
