@@ -119,7 +119,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         Logger.warn('[Highlighter] 延後收到穩定 URL，重試恢復標註失敗', {
           action: 'SET_STABLE_URL',
           error,
-          errorMessage: error?.message ?? String(error),
         });
         sendResponse({ success: false, error: String(error) });
       });
@@ -215,7 +214,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         Logger.warn('[Highlighter] waitForStableUrl 發生未預期錯誤', {
           action: 'waitForStableUrl',
           error,
-          errorMessage: error?.message ?? String(error),
         });
         return null;
       });
