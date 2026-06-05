@@ -23,6 +23,11 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
 }));
 
+jest.mock('../../../scripts/highlighter/ui/FloatingRail.js', () => ({
+  FloatingRail: jest.fn(),
+  __esModule: true,
+}));
+
 const ENTRY_AUTO_INIT_PATH = path.resolve(
   __dirname,
   '../../../scripts/highlighter/entryAutoInit.js'
@@ -49,6 +54,7 @@ const hasTopLevelInitializeAwait = source =>
 describe('entryAutoInit', () => {
   let mockSetupHighlighter;
   let mockLogger;
+  let mockFloatingRail;
   let runtimeMessageHandlers;
   let storageChangeHandlers;
 
@@ -228,6 +234,12 @@ describe('entryAutoInit', () => {
     const indexMock = require('../../../scripts/highlighter/index.js');
     mockSetupHighlighter = indexMock.setupHighlighter;
     mockLogger = require('../../../scripts/utils/Logger.js').default;
+    mockFloatingRail = require('../../../scripts/highlighter/ui/FloatingRail.js').FloatingRail;
+    mockFloatingRail.mockImplementation(() => ({
+      initialize: jest.fn().mockResolvedValue(undefined),
+      hide: jest.fn(),
+      show: jest.fn(),
+    }));
   });
 
   afterEach(() => {
@@ -351,6 +363,43 @@ describe('entryAutoInit', () => {
     });
   });
 
+  test('highlightStyle 無效時應使用 background 並記錄 warning', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ isSaved: true });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'invalid-style' });
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: false,
+      skipToolbar: true,
+      styleMode: 'background',
+    });
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      '[Highlighter] highlightStyle 設定值無效',
+      expect.objectContaining({
+        action: 'initializeExtension',
+        value: 'invalid-style',
+      })
+    );
+  });
+
+  test('chrome status 與 sync API 不可用時應以預設值初始化', async () => {
+    globalThis.chrome.runtime.sendMessage = undefined;
+    globalThis.chrome.storage.sync = undefined;
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    expect(mockSetupHighlighter).toHaveBeenCalledWith({
+      skipRestore: false,
+      skipToolbar: true,
+      styleMode: 'background',
+    });
+  });
+
   test('如果 setupHighlighter 拋錯應能捕獲', async () => {
     mockSetupHighlighter.mockImplementationOnce(() => {
       throw new Error('Initial fail');
@@ -381,6 +430,24 @@ describe('entryAutoInit', () => {
       error: '浮動側欄初始化失敗',
     });
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
+  });
+
+  test('fallbackInitialize 成功時應同步標記 HighlighterV2 skipRestore', async () => {
+    mockSetupHighlighter
+      .mockImplementationOnce(() => {
+        throw new Error('Initial fail');
+      })
+      .mockImplementationOnce(() => {
+        globalThis.HighlighterV2 = {};
+      });
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    expect(globalThis.HighlighterV2.skipRestore).toBe(true);
   });
 
   test('[REGRESSION] fallbackInitialize 成功時 rail-ready promise 應回傳失敗 contract', async () => {
@@ -593,6 +660,181 @@ describe('entryAutoInit', () => {
     expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
   });
 
+  test('晚到的 SET_STABLE_URL 可在尚無 highlights 時重試 restore', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://example.com/original',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const restore = jest.fn().mockResolvedValue(undefined);
+    globalThis.HighlighterV2 = {
+      skipRestore: false,
+      wasDeleted: false,
+      manager: {
+        getCount: jest.fn().mockReturnValue(0),
+      },
+      restoreManager: {
+        restore,
+      },
+    };
+
+    const persistentHandler = runtimeMessageHandlers.at(-1);
+    const sendResponseMock = jest.fn();
+    const result = persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/stable',
+      },
+      {},
+      sendResponseMock
+    );
+    await flushAsyncSetup();
+
+    expect(result).toBe(true);
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
+    expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
+  });
+
+  test('晚到的 SET_STABLE_URL restore 失敗時應回傳錯誤並記錄 warning', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://example.com/original',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const restoreError = new Error('restore failed');
+    globalThis.HighlighterV2 = {
+      skipRestore: false,
+      wasDeleted: false,
+      manager: {
+        getCount: jest.fn().mockReturnValue(0),
+      },
+      restoreManager: {
+        restore: jest.fn().mockRejectedValue(restoreError),
+      },
+    };
+
+    const persistentHandler = runtimeMessageHandlers.at(-1);
+    const sendResponseMock = jest.fn();
+    persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/stable',
+      },
+      {},
+      sendResponseMock
+    );
+    await flushAsyncSetup();
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      '[Highlighter] 延後收到穩定 URL，重試恢復標註失敗',
+      expect.objectContaining({
+        action: 'SET_STABLE_URL',
+        error: restoreError,
+      })
+    );
+    expect(sendResponseMock).toHaveBeenCalledWith({
+      success: false,
+      error: String(restoreError),
+    });
+  });
+
+  test('晚到的 SET_STABLE_URL 已重試一次後不應再次 restore', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://example.com/original',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const restore = jest.fn().mockResolvedValue(undefined);
+    globalThis.HighlighterV2 = {
+      skipRestore: false,
+      wasDeleted: false,
+      manager: {
+        getCount: jest.fn().mockReturnValue(0),
+      },
+      restoreManager: {
+        restore,
+      },
+    };
+
+    const persistentHandler = runtimeMessageHandlers.at(-1);
+    persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/first-stable',
+      },
+      {},
+      jest.fn()
+    );
+    await flushAsyncSetup();
+
+    const secondSendResponseMock = jest.fn();
+    persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/second-stable',
+      },
+      {},
+      secondSendResponseMock
+    );
+
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(secondSendResponseMock).toHaveBeenCalledWith({ success: true });
+  });
+
+  test('晚到的 SET_STABLE_URL 已有 highlights 時不應重試 restore', async () => {
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+      isSaved: true,
+      stableUrl: 'https://example.com/original',
+    });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    const restore = jest.fn().mockResolvedValue(undefined);
+    globalThis.HighlighterV2 = {
+      skipRestore: false,
+      wasDeleted: false,
+      manager: {
+        getCount: jest.fn().mockReturnValue(1),
+      },
+      restoreManager: {
+        restore,
+      },
+    };
+
+    const persistentHandler = runtimeMessageHandlers.at(-1);
+    const sendResponseMock = jest.fn();
+    persistentHandler(
+      {
+        action: 'SET_STABLE_URL',
+        stableUrl: 'https://example.com/stable',
+      },
+      {},
+      sendResponseMock
+    );
+
+    expect(restore).not.toHaveBeenCalled();
+    expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
+  });
+
   test('sendMessage 接收 GET_STABLE_URL & showToolbar', async () => {
     globalThis.__NOTION_STABLE_URL__ = 'https://existing.com';
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
@@ -666,6 +908,44 @@ describe('entryAutoInit', () => {
 
     expect(showMock).toHaveBeenCalled();
     expect(sendResponseMock).toHaveBeenCalledWith({ success: true });
+  });
+
+  test('setupHighlighter 建立 manager 時應初始化 floating rail 並套用 disabled 設定', async () => {
+    const railInstance = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      hide: jest.fn(),
+      show: jest.fn(),
+    };
+    mockFloatingRail.mockImplementationOnce(() => railInstance);
+    const manager = { getCount: jest.fn().mockReturnValue(0) };
+    mockSetupHighlighter.mockImplementationOnce(() => {
+      globalThis.HighlighterV2 = { manager };
+    });
+    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ isSaved: true });
+    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({
+      floatingRailEnabled: false,
+    });
+
+    require('../../../scripts/highlighter/entryAutoInit.js');
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+
+    await expect(capturedPromise).resolves.toEqual({
+      success: true,
+      rail: railInstance,
+    });
+    expect(mockFloatingRail).toHaveBeenCalledWith(manager);
+    expect(railInstance.initialize).toHaveBeenCalledTimes(1);
+    expect(railInstance.hide).toHaveBeenCalledTimes(1);
+    expect(globalThis.HighlighterV2).toEqual(
+      expect.objectContaining({
+        manager,
+        rail: railInstance,
+        skipRestore: false,
+        wasDeleted: false,
+      })
+    );
   });
 
   test('chrome.storage.onChanged 更新標籤樣式', async () => {
