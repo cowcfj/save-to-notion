@@ -9,28 +9,42 @@
  * - 寫入全域 __NOTION_STABLE_URL__ 並以安全（去敏感）日誌記錄解析來源。
  */
 
-function removeStableUrlListener({ onMessage, handler, logger }) {
-  try {
-    onMessage?.removeListener(handler);
-  } catch (error) {
-    logger?.warn('[Highlighter] 移除 SET_STABLE_URL 監聽器失敗', {
-      action: 'waitForStableUrl',
-      error: error?.message,
-    });
+function runStableUrlListenerOperation({ onMessage, handler, logger, methodName, failureMessage }) {
+  const listenerOperation = onMessage?.[methodName];
+  if (typeof listenerOperation !== 'function') {
+    return true;
   }
-}
 
-function registerStableUrlListener({ onMessage, handler, logger }) {
   try {
-    onMessage?.addListener(handler);
+    listenerOperation.call(onMessage, handler);
     return true;
   } catch (error) {
-    logger?.warn('[Highlighter] 註冊 SET_STABLE_URL 監聽器失敗', {
+    logger?.warn(failureMessage, {
       action: 'waitForStableUrl',
       error: error?.message,
     });
     return false;
   }
+}
+
+function registerStableUrlListener({ onMessage, handler, logger }) {
+  return runStableUrlListenerOperation({
+    onMessage,
+    handler,
+    methodName: 'addListener',
+    logger,
+    failureMessage: '[Highlighter] 註冊 SET_STABLE_URL 監聽器失敗',
+  });
+}
+
+function removeStableUrlListener({ onMessage, handler, logger }) {
+  runStableUrlListenerOperation({
+    onMessage,
+    handler,
+    methodName: 'removeListener',
+    logger,
+    failureMessage: '[Highlighter] 移除 SET_STABLE_URL 監聽器失敗',
+  });
 }
 
 function isStableUrlMessage(request, contentBridgeActions) {
