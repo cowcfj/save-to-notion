@@ -285,8 +285,8 @@ describe('Highlighter Index', () => {
 
         expect(windowAPIMock.mountWindowAPI).toHaveBeenCalled();
 
-        const mountCallArgs = windowAPIMock.mountWindowAPI.mock.calls[0];
-        const funcs = mountCallArgs[3];
+        const mountOptions = windowAPIMock.mountWindowAPI.mock.calls[0][0];
+        const funcs = mountOptions.fns;
 
         funcs.init();
         expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(2);

@@ -121,7 +121,7 @@ function isLegacyUiHiddenOrCollapsed(legacyUi) {
   return LEGACY_INACTIVE_UI_STATES.has(legacyUi.stateManager?.currentState);
 }
 
-function buildHighlighterV2API(manager, toolbar, restoreManager, toast, fns, state) {
+function buildHighlighterV2API({ manager, toolbar, restoreManager, toast, fns, state }) {
   const api = {
     manager,
     toolbar,
@@ -212,15 +212,16 @@ function buildLegacyHighlighterAPI(manager, restoreManager, state) {
 /**
  * 將 Highlighter V2 API 掛載到 globalThis
  *
- * @param {import('./core/HighlightManager.js').HighlightManager} manager
- * @param {import('./ui/Toolbar.js').Toolbar|null} toolbar
- * @param {import('./core/HighlightStorage.js').HighlightStorage} storage
- * @param {{ init?: Function, initWithToolbar?: Function }} [fns={}] - 可選函數導入層，避免循環依賴
- * @param {import('./ui/Toast.js').Toast|null} [toast=null] - 可選的 Toast 實例；
+ * @param {object} options
+ * @param {import('./core/HighlightManager.js').HighlightManager} options.manager
+ * @param {import('./ui/Toolbar.js').Toolbar|null} [options.toolbar=null]
+ * @param {import('./core/HighlightStorage.js').HighlightStorage} options.storage
+ * @param {{ init?: Function, initWithToolbar?: Function }} [options.fns={}] - 可選函數導入層，避免循環依賴
+ * @param {import('./ui/Toast.js').Toast|null} [options.toast=null] - 可選的 Toast 實例；
  *   若提供，會暴露在 `HighlighterV2.toast` 供 dev tools / cleanup 使用，
  *   業務邏輯（addHighlight / removeHighlight）已透過 manager 注入直接觸發。
  */
-export function mountWindowAPI(manager, toolbar, storage, fns = {}, toast = null) {
+export function mountWindowAPI({ manager, toolbar = null, storage, fns = {}, toast = null }) {
   const restoreManager = storage;
   const state = {
     currentToolbar: toolbar,
@@ -230,14 +231,14 @@ export function mountWindowAPI(manager, toolbar, storage, fns = {}, toast = null
   };
 
   // 新版 HighlighterV2 API
-  globalThis.HighlighterV2 = buildHighlighterV2API(
+  globalThis.HighlighterV2 = buildHighlighterV2API({
     manager,
     toolbar,
     restoreManager,
     toast,
     fns,
-    state
-  );
+    state,
+  });
 
   // 🔑 向後兼容：設置舊版 notionHighlighter API
   globalThis.notionHighlighter = buildLegacyHighlighterAPI(manager, restoreManager, state);
