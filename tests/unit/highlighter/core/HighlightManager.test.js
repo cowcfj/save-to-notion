@@ -936,6 +936,17 @@ describe('core/HighlightManager', () => {
       );
     });
 
+    test('應認可 Floating Rail dynamic host id 與後代元素', () => {
+      const railHost = document.createElement('div');
+      railHost.id = 'notion-floating-rail-host-extension-id';
+      const child = document.createElement('span');
+      railHost.append(child);
+      document.body.append(railHost);
+
+      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [railHost] })).toBe(true);
+      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [child] })).toBe(true);
+    });
+
     test('應拒絕非 extension UI 元素', () => {
       const div = document.createElement('div');
       div.id = 'random-page-element';

@@ -8,20 +8,38 @@ import { COLORS, convertBgColorToName } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightInteraction } from './HighlightInteraction.js';
 
-const EXTENSION_UI_HOST_IDS = new Set([
+const EXTENSION_UI_HOST_ID_PREFIXES = [
   'notion-floating-rail-host',
   'notion-highlighter-host',
   'notion-toast-host',
-]);
-const EXTENSION_UI_SELECTOR =
-  '#notion-floating-rail-host, #notion-highlighter-host, #notion-toast-host';
+];
+const EXTENSION_UI_SELECTOR = EXTENSION_UI_HOST_ID_PREFIXES.flatMap(prefix => [
+  `#${prefix}`,
+  `[id^="${prefix}-"]`,
+]).join(', ');
+
+function matchesExtensionUiHostPrefix(id, prefix) {
+  if (id === prefix) {
+    return true;
+  }
+
+  return id.startsWith(`${prefix}-`);
+}
+
+function isExtensionUiHostId(id) {
+  if (!id) {
+    return false;
+  }
+
+  return EXTENSION_UI_HOST_ID_PREFIXES.some(prefix => matchesExtensionUiHostPrefix(id, prefix));
+}
 
 function isExtensionUiElement(element) {
   if (!element) {
     return false;
   }
 
-  if (EXTENSION_UI_HOST_IDS.has(element.id)) {
+  if (isExtensionUiHostId(element.id)) {
     return true;
   }
 
