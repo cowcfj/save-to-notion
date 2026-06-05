@@ -27,9 +27,16 @@ const ENTRY_AUTO_INIT_PATH = path.resolve(
   __dirname,
   '../../../scripts/highlighter/entryAutoInit.js'
 );
+const PERSISTENT_LISTENERS_PATH = path.resolve(
+  __dirname,
+  '../../../scripts/highlighter/autoInit/persistentListeners.js'
+);
 const ASYNC_AUTO_INIT_IIFE_PATTERN = /\bvoid[ \t]*\([ \t]*async[ \t]*\([ \t]*\)[ \t]*=>[ \t]*\{/;
+const CHANNEL_SPECIFIC_REGISTER_HELPER_PATTERN =
+  /function registerPersistent(?:Message|StorageChange)Listener\b/;
 
 const readEntryAutoInitSource = () => fs.readFileSync(ENTRY_AUTO_INIT_PATH, 'utf8');
+const readPersistentListenersSource = () => fs.readFileSync(PERSISTENT_LISTENERS_PATH, 'utf8');
 
 const sourceLines = source => source.split(/\r?\n/);
 
@@ -72,6 +79,13 @@ describe('entryAutoInit', () => {
 
     expect(hasTopLevelInitializeAwait(source)).toBe(true);
     expect(hasTopLevelInitializeAwait('await initializeExtension();')).toBe(true);
+  });
+
+  test('[REGRESSION] persistent listener registration should use a shared lifecycle controller', () => {
+    const source = readPersistentListenersSource();
+
+    expect(source).toContain('function createPersistentListenerController');
+    expect(source).not.toMatch(CHANNEL_SPECIFIC_REGISTER_HELPER_PATTERN);
   });
 
   beforeEach(() => {

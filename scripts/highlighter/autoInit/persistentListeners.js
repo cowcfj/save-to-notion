@@ -8,6 +8,32 @@ import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridg
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
 import { VALID_STYLES } from '../utils/color.js';
 
+function createPersistentListenerController(handler) {
+  let registeredHandler = null;
+
+  return {
+    register(target) {
+      if (registeredHandler) {
+        return;
+      }
+      if (!target?.addListener) {
+        return;
+      }
+
+      registeredHandler = handler;
+      target.addListener(registeredHandler);
+    },
+    unregister(target) {
+      if (!registeredHandler) {
+        return;
+      }
+
+      target?.removeListener(registeredHandler);
+      registeredHandler = null;
+    },
+  };
+}
+
 /**
  * 建立持久性監聽器控制器
  *
@@ -24,9 +50,6 @@ export function createPersistentListeners({
   onSetStableUrl,
   onShowToolbar,
 }) {
-  let persistentMessageHandler = null;
-  let persistentStorageHandler = null;
-
   /**
    * 處理樣式設定變更
    *
@@ -94,29 +117,8 @@ export function createPersistentListeners({
     return handler(request, sendResponse);
   }
 
-  function registerPersistentMessageListener(onMessage) {
-    if (persistentMessageHandler) {
-      return;
-    }
-    if (!onMessage?.addListener) {
-      return;
-    }
-
-    persistentMessageHandler = handlePersistentMessage;
-    onMessage.addListener(persistentMessageHandler);
-  }
-
-  function registerPersistentStorageChangeListener(onChanged) {
-    if (persistentStorageHandler) {
-      return;
-    }
-    if (!onChanged?.addListener) {
-      return;
-    }
-
-    persistentStorageHandler = handleStorageStyleChange;
-    onChanged.addListener(persistentStorageHandler);
-  }
+  const persistentMessageListener = createPersistentListenerController(handlePersistentMessage);
+  const persistentStorageListener = createPersistentListenerController(handleStorageStyleChange);
 
   /**
    * 註冊持久性監聽器
@@ -125,37 +127,16 @@ export function createPersistentListeners({
     const onMessage = globalScope.chrome?.runtime?.onMessage;
     const onChanged = globalScope.chrome?.storage?.onChanged;
 
-    registerPersistentMessageListener(onMessage);
-    registerPersistentStorageChangeListener(onChanged);
+    persistentMessageListener.register(onMessage);
+    persistentStorageListener.register(onChanged);
   }
 
   /**
    * 移除持久性監聽器並清理變數參照
    */
   function unregister() {
-    const listeners = [
-      {
-        target: globalScope.chrome?.runtime?.onMessage,
-        handler: persistentMessageHandler,
-        clear: () => {
-          persistentMessageHandler = null;
-        },
-      },
-      {
-        target: globalScope.chrome?.storage?.onChanged,
-        handler: persistentStorageHandler,
-        clear: () => {
-          persistentStorageHandler = null;
-        },
-      },
-    ];
-
-    for (const { target, handler, clear } of listeners) {
-      if (handler) {
-        target?.removeListener(handler);
-        clear();
-      }
-    }
+    persistentMessageListener.unregister(globalScope.chrome?.runtime?.onMessage);
+    persistentStorageListener.unregister(globalScope.chrome?.storage?.onChanged);
   }
 
   return {
