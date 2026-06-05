@@ -60,7 +60,10 @@ export function resolveKeys(normalizedUrl, aliasCandidate = null) {
   }
 
   // aliasUsed：aliasCandidate 有值且與 normalizedUrl 不同時才採用為 stableUrl
-  const aliasUsed = Boolean(aliasCandidate) && aliasCandidate !== normalizedUrl;
+  const aliasUsed =
+    typeof aliasCandidate === 'string' &&
+    aliasCandidate.length > 0 &&
+    aliasCandidate !== normalizedUrl;
   const stableUrl = aliasUsed ? aliasCandidate : normalizedUrl;
 
   // 建立各 key
@@ -182,7 +185,8 @@ function _readAliasCandidate(aliasData, normalizedUrl, rawUrl) {
     return fromNorm;
   }
 
-  const hasDistinctRaw = Boolean(rawUrl) && rawUrl !== normalizedUrl;
+  const hasDistinctRaw =
+    typeof rawUrl === 'string' && rawUrl.length > 0 && rawUrl !== normalizedUrl;
   if (!hasDistinctRaw) {
     return null;
   }
