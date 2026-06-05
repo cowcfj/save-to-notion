@@ -92,7 +92,8 @@ export class HighlightManager {
    */
   async initialize(skipRestore = false) {
     try {
-      if (!this.migration || !this.storage || !this.styleManager) {
+      const requiredDependencies = [this.migration, this.storage, this.styleManager];
+      if (requiredDependencies.some(dependency => !dependency)) {
         throw new Error('依賴未注入，初始化中止');
       }
 
