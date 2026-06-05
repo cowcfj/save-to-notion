@@ -49,6 +49,14 @@ describe('windowAPI', () => {
     expect(globalThis.HighlighterV2.getToolbar()).toBeNull();
   });
 
+  test('mountWindowAPI 在 fns 為 null 時仍應正常掛載', () => {
+    mountWindowAPI({ manager: mockManager, toolbar: null, storage: mockStorage, fns: null });
+
+    expect(globalThis.HighlighterV2).toBeDefined();
+    expect(globalThis.HighlighterV2.init).toBeUndefined();
+    expect(globalThis.HighlighterV2.initWithToolbar).toBeUndefined();
+  });
+
   test('ensureToolbar 和 notionHighlighter 方法應能正確運作 (toggle/hide/minimize)', () => {
     mountWithMocks();
 

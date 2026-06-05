@@ -122,6 +122,7 @@ function isLegacyUiHiddenOrCollapsed(legacyUi) {
 }
 
 function buildHighlighterV2API({ manager, toolbar, restoreManager, toast, fns, state }) {
+  const apiFns = fns ?? {};
   const api = {
     manager,
     toolbar,
@@ -152,11 +153,11 @@ function buildHighlighterV2API({ manager, toolbar, restoreManager, toast, fns, s
   };
 
   // 可選函數（將 initHighlighter / initHighlighterWithToolbar 從 index.js 導入）
-  if (fns.init) {
-    api.init = fns.init;
+  if (apiFns.init) {
+    api.init = apiFns.init;
   }
-  if (fns.initWithToolbar) {
-    api.initWithToolbar = fns.initWithToolbar;
+  if (apiFns.initWithToolbar) {
+    api.initWithToolbar = apiFns.initWithToolbar;
   }
 
   return api;
