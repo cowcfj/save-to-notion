@@ -9,9 +9,14 @@ import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActi
 import Logger from '../../utils/Logger.js';
 import { VALID_STYLES } from '../utils/color.js';
 
-function runPersistentListenerOperation({ target, handler, methodName, failureMessage }) {
+function getListenerOperation(target, methodName) {
   const listenerOperation = target?.[methodName];
-  if (typeof listenerOperation !== 'function') {
+  return typeof listenerOperation === 'function' ? listenerOperation : null;
+}
+
+function runPersistentListenerOperation({ target, handler, methodName, failureMessage }) {
+  const listenerOperation = getListenerOperation(target, methodName);
+  if (!listenerOperation) {
     return false;
   }
 
@@ -34,9 +39,6 @@ function createPersistentListenerController(handler) {
   return {
     register(target) {
       if (registeredHandler) {
-        return;
-      }
-      if (!target?.addListener) {
         return;
       }
 
@@ -71,6 +73,65 @@ function createPersistentListenerController(handler) {
   };
 }
 
+function getRuntimeMessageListenerTarget(globalScope) {
+  return globalScope.chrome?.runtime?.onMessage;
+}
+
+function getStorageChangeListenerTarget(globalScope) {
+  return globalScope.chrome?.storage?.onChanged;
+}
+
+function getValidChangedStyle(changes, namespace) {
+  if (namespace !== 'sync') {
+    return null;
+  }
+
+  const newStyle = changes.highlightStyle?.newValue;
+  if (!VALID_STYLES.includes(newStyle)) {
+    return null;
+  }
+
+  return newStyle;
+}
+
+function getHighlighterManager(globalScope) {
+  return globalScope.HighlighterV2?.manager;
+}
+
+function updateHighlighterStyleMode(manager, newStyle) {
+  if (!newStyle) {
+    return;
+  }
+
+  if (!manager) {
+    return;
+  }
+
+  manager.updateStyleMode(newStyle);
+}
+
+function getPersistentMessageAction(request) {
+  if (!request || typeof request !== 'object') {
+    return null;
+  }
+
+  const { action } = request;
+  return typeof action === 'string' ? action : null;
+}
+
+function getPersistentMessageHandler(handlers, action) {
+  if (!action) {
+    return undefined;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(handlers, action)) {
+    return undefined;
+  }
+
+  const handler = handlers[action];
+  return typeof handler === 'function' ? handler : undefined;
+}
+
 /**
  * 建立持久性監聽器控制器
  *
@@ -94,30 +155,9 @@ export function createPersistentListeners({
    * @param {string} namespace
    */
   function handleStorageStyleChange(changes, namespace) {
-    if (namespace !== 'sync') {
-      return;
-    }
-
-    const changedStyle = changes.highlightStyle;
-    if (!changedStyle) {
-      return;
-    }
-
-    const newStyle = changedStyle.newValue;
-    if (!newStyle) {
-      return;
-    }
-
-    if (!VALID_STYLES.includes(newStyle)) {
-      return;
-    }
-
-    const manager = globalScope.HighlighterV2?.manager;
-    if (!manager) {
-      return;
-    }
-
-    manager.updateStyleMode(newStyle);
+    const newStyle = getValidChangedStyle(changes, namespace);
+    const manager = getHighlighterManager(globalScope);
+    updateHighlighterStyleMode(manager, newStyle);
   }
 
   const PERSISTENT_MESSAGE_HANDLERS = {
@@ -147,19 +187,9 @@ export function createPersistentListeners({
    * @returns {boolean|undefined}
    */
   function handlePersistentMessage(request, _sender, sendResponse) {
-    if (!request || typeof request !== 'object') {
-      return undefined;
-    }
-
-    const { action } = request;
-    if (typeof action !== 'string') {
-      return undefined;
-    }
-
-    const handler = Object.prototype.hasOwnProperty.call(PERSISTENT_MESSAGE_HANDLERS, action)
-      ? PERSISTENT_MESSAGE_HANDLERS[action]
-      : undefined;
-    if (typeof handler !== 'function') {
+    const action = getPersistentMessageAction(request);
+    const handler = getPersistentMessageHandler(PERSISTENT_MESSAGE_HANDLERS, action);
+    if (!handler) {
       return undefined;
     }
     return handler(request, sendResponse);
@@ -172,19 +202,16 @@ export function createPersistentListeners({
    * 註冊持久性監聽器
    */
   function register() {
-    const onMessage = globalScope.chrome?.runtime?.onMessage;
-    const onChanged = globalScope.chrome?.storage?.onChanged;
-
-    persistentMessageListener.register(onMessage);
-    persistentStorageListener.register(onChanged);
+    persistentMessageListener.register(getRuntimeMessageListenerTarget(globalScope));
+    persistentStorageListener.register(getStorageChangeListenerTarget(globalScope));
   }
 
   /**
    * 移除持久性監聽器並清理變數參照
    */
   function unregister() {
-    persistentMessageListener.unregister(globalScope.chrome?.runtime?.onMessage);
-    persistentStorageListener.unregister(globalScope.chrome?.storage?.onChanged);
+    persistentMessageListener.unregister(getRuntimeMessageListenerTarget(globalScope));
+    persistentStorageListener.unregister(getStorageChangeListenerTarget(globalScope));
   }
 
   return {
