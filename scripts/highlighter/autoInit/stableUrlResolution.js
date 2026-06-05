@@ -9,6 +9,58 @@
  * - 寫入全域 __NOTION_STABLE_URL__ 並以安全（去敏感）日誌記錄解析來源。
  */
 
+function removeStableUrlListener({ onMessage, handler, logger }) {
+  try {
+    onMessage?.removeListener(handler);
+  } catch (error) {
+    logger?.warn('[Highlighter] 移除 SET_STABLE_URL 監聽器失敗', {
+      action: 'waitForStableUrl',
+      error: error?.message,
+    });
+  }
+}
+
+function registerStableUrlListener({ onMessage, handler, logger }) {
+  try {
+    onMessage?.addListener(handler);
+    return true;
+  } catch (error) {
+    logger?.warn('[Highlighter] 註冊 SET_STABLE_URL 監聽器失敗', {
+      action: 'waitForStableUrl',
+      error: error?.message,
+    });
+    return false;
+  }
+}
+
+function isStableUrlMessage(request, contentBridgeActions) {
+  if (request?.action !== contentBridgeActions?.SET_STABLE_URL) {
+    return false;
+  }
+  return Boolean(request?.stableUrl);
+}
+
+function createStableUrlMessageHandler({ contentBridgeActions, settle }) {
+  return request => {
+    if (!isStableUrlMessage(request, contentBridgeActions)) {
+      return;
+    }
+    settle(request.stableUrl);
+  };
+}
+
+function scheduleStableUrlTimeout({ timeoutMs, isResolved, logger, settle }) {
+  setTimeout(() => {
+    if (isResolved()) {
+      return;
+    }
+    logger?.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
+      action: 'waitForStableUrl',
+    });
+    settle(null);
+  }, timeoutMs);
+}
+
 /**
  * 監聽單次 SET_STABLE_URL 訊息的內部輔助函數
  *
@@ -28,44 +80,23 @@ function awaitStableUrlMessage({ onMessage, timeoutMs, contentBridgeActions, log
         return;
       }
       resolved = true;
-      try {
-        onMessage?.removeListener(handler);
-      } catch (error) {
-        logger?.warn('[Highlighter] 移除 SET_STABLE_URL 監聽器失敗', {
-          action: 'waitForStableUrl',
-          error: error?.message,
-        });
-      }
+      removeStableUrlListener({ onMessage, handler, logger });
       resolve(value);
     };
 
-    // 監聽 SET_STABLE_URL 訊息
-    const handler = request => {
-      if (request?.action === contentBridgeActions?.SET_STABLE_URL && request?.stableUrl) {
-        settle(request.stableUrl);
-      }
-    };
+    const handler = createStableUrlMessageHandler({ contentBridgeActions, settle });
 
-    try {
-      onMessage?.addListener(handler);
-    } catch (error) {
-      logger?.warn('[Highlighter] 註冊 SET_STABLE_URL 監聽器失敗', {
-        action: 'waitForStableUrl',
-        error: error?.message,
-      });
+    if (!registerStableUrlListener({ onMessage, handler, logger })) {
       settle(null);
       return;
     }
 
-    // 超時保護：避免無限等待
-    setTimeout(() => {
-      if (!resolved) {
-        logger?.debug('[Highlighter] 等待 SET_STABLE_URL 超時，將在沒有穩定 URL 的情況下繼續', {
-          action: 'waitForStableUrl',
-        });
-        settle(null);
-      }
-    }, timeoutMs);
+    scheduleStableUrlTimeout({
+      timeoutMs,
+      isResolved: () => resolved,
+      logger,
+      settle,
+    });
   });
 }
 
