@@ -50,21 +50,21 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   }
 
   const railInitialization = createRailInitializationController();
-  const { failRailReady, initializeFloatingRail, settleRailReady } = railInitialization;
+  const { initializeFloatingRail, settleRailReady } = railInitialization;
 
-  function fallbackInitialize(cause) {
+  function fallbackInitialize() {
     try {
       shouldSkipLateRestore = true;
       setupHighlighter({ skipRestore: true, skipToolbar: true });
       if (globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = true;
       }
-      registerPersistentListeners();
-      failRailReady(cause, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
+      persistentListeners.register();
+      settleRailReady({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
     } catch (fallbackError) {
-      unregisterPersistentListeners();
+      persistentListeners.unregister();
       Logger.error('回退初始化失敗', { action: 'setupHighlighter', error: fallbackError });
-      failRailReady(fallbackError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
+      settleRailReady({ success: false, error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED });
     }
   }
 
@@ -132,14 +132,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     getStableUrl: () => globalThis.__NOTION_STABLE_URL__,
   });
 
-  function registerPersistentListeners() {
-    persistentListeners.register();
-  }
-
-  function unregisterPersistentListeners() {
-    persistentListeners.unregister();
-  }
-
   async function fetchPageStatus() {
     if (!globalThis.chrome?.runtime?.sendMessage) {
       return null;
@@ -174,7 +166,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   }
 
-  function initializeHighlighterAndRail({ skipRestore, styleMode, autoShowRail }) {
+  function initializeHighlighterAndRail(skipRestore, styleMode, autoShowRail) {
     if (skipRestore) {
       Logger.info('[Highlighter] 頁面已刪除，略過工具列與標註恢復', {
         action: 'initializeExtension',
@@ -237,20 +229,16 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       const skipRestore = pageStatus?.wasDeleted === true;
       const autoShowRail = settings?.floatingRailEnabled !== false;
 
-      const initRailPromise = initializeHighlighterAndRail({
-        skipRestore,
-        styleMode,
-        autoShowRail,
-      });
+      const initRailPromise = initializeHighlighterAndRail(skipRestore, styleMode, autoShowRail);
       if (initRailPromise) {
         await initRailPromise;
       }
 
-      registerPersistentListeners();
+      persistentListeners.register();
     } catch (error) {
-      unregisterPersistentListeners();
+      persistentListeners.unregister();
       Logger.error('初始化失敗', { action: 'initializeExtension', error });
-      fallbackInitialize(error);
+      fallbackInitialize();
     }
   })();
   /* eslint-enable unicorn/prefer-top-level-await */

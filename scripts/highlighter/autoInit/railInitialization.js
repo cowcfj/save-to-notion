@@ -12,7 +12,7 @@ import Logger from '../../utils/Logger.js';
  *
  * @param {object} options
  * @param {object} options.globalScope - 全域作用域物件（預設為 globalThis）
- * @returns {object} { failRailReady, initializeFloatingRail, settleRailReady }
+ * @returns {object} { initializeFloatingRail, settleRailReady }
  */
 export function createRailInitializationController({ globalScope = globalThis } = {}) {
   let railReadyResolve;
@@ -45,19 +45,6 @@ export function createRailInitializationController({ globalScope = globalThis } 
   }
 
   /**
-   * 標記 rail 狀態為失敗
-   *
-   * @param {Error} error
-   * @param {string} [fallbackMessage]
-   */
-  function failRailReady(error, fallbackMessage) {
-    settleRailReady({
-      success: false,
-      error: fallbackMessage || error?.message,
-    });
-  }
-
-  /**
    * 動態載入並初始化 Floating Rail
    *
    * @param {object} manager - Highlighter manager 實例
@@ -82,12 +69,14 @@ export function createRailInitializationController({ globalScope = globalThis } 
         action: 'initializeExtension',
         error: railError?.message,
       });
-      failRailReady(railError, RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED);
+      settleRailReady({
+        success: false,
+        error: RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_INIT_FAILED,
+      });
     }
   }
 
   return {
-    failRailReady,
     initializeFloatingRail,
     settleRailReady,
   };
