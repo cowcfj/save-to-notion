@@ -76,6 +76,20 @@ describe('windowAPI', () => {
     expect(tbInstance.minimize).toHaveBeenCalled();
   });
 
+  test('isActive() 應將 toolbar collapsed 視為 inactive', () => {
+    mountWithMocks();
+
+    globalThis.notionHighlighter.show();
+    const tbInstance = globalThis.HighlighterV2.getToolbar();
+    tbInstance.stateManager.currentState = 'collapsed';
+
+    expect(globalThis.notionHighlighter.isActive()).toBe(false);
+
+    tbInstance.stateManager.currentState = 'visible';
+
+    expect(globalThis.notionHighlighter.isActive()).toBe(true);
+  });
+
   test('ensureToolbar 防止並行創建', () => {
     mountWithMocks();
     // Simulate concurrent creation in ensureToolbar
@@ -241,6 +255,7 @@ describe('windowAPI', () => {
         expect.objectContaining({
           action: 'isActive',
           reason: 'toolbar_disabled_and_rail_missing',
+          result: 'blocked',
         })
       );
     });
@@ -314,6 +329,14 @@ describe('windowAPI', () => {
       globalThis.notionHighlighter.toggle();
 
       expect(railShow).toHaveBeenCalledTimes(2);
+      expect(railHide).not.toHaveBeenCalled();
+
+      globalThis.HighlighterV2.rail.stateManager = {};
+      globalThis.HighlighterV2.rail.host.style.display = 'block';
+
+      globalThis.notionHighlighter.toggle();
+
+      expect(railShow).toHaveBeenCalledTimes(3);
       expect(railHide).not.toHaveBeenCalled();
     });
 

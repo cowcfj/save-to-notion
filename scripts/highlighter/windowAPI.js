@@ -90,35 +90,28 @@ function resolveToolbarActiveState(state) {
   if (typeof toolbarState !== 'string') {
     return null;
   }
-  return toolbarState !== 'hidden';
+  return !LEGACY_INACTIVE_UI_STATES.has(toolbarState);
 }
 
 function warnMissingActiveUi() {
   Logger.warn('[Highlighter] isActive 在無 UI 時被調用', {
     action: 'isActive',
     reason: 'toolbar_disabled_and_rail_missing',
+    result: 'blocked',
   });
 }
 
-function isRailActive(rail) {
-  if (rail.host?.style?.display === 'none') {
-    return false;
-  }
-
-  const railState = rail.stateManager?.currentState;
-  if (typeof railState !== 'string') {
-    return false;
-  }
-
-  return !LEGACY_INACTIVE_UI_STATES.has(railState);
-}
-
-function isLegacyUiHiddenOrCollapsed(legacyUi) {
+function isLegacyUiActive(legacyUi) {
   if (legacyUi.host?.style?.display === 'none') {
-    return true;
+    return false;
   }
 
-  return LEGACY_INACTIVE_UI_STATES.has(legacyUi.stateManager?.currentState);
+  const uiState = legacyUi.stateManager?.currentState;
+  if (typeof uiState !== 'string') {
+    return false;
+  }
+
+  return !LEGACY_INACTIVE_UI_STATES.has(uiState);
 }
 
 function buildHighlighterV2API({ manager, toolbar, restoreManager, toast, fns, state }) {
@@ -188,7 +181,7 @@ function buildLegacyHighlighterAPI(manager, restoreManager, state) {
         return false;
       }
 
-      return isRailActive(rail);
+      return isLegacyUiActive(rail);
     },
     toggle: () => {
       const legacyUi = getLegacyUiController(state);
@@ -196,12 +189,12 @@ function buildLegacyHighlighterAPI(manager, restoreManager, state) {
         return;
       }
 
-      if (isLegacyUiHiddenOrCollapsed(legacyUi)) {
-        legacyUi.show?.();
+      if (isLegacyUiActive(legacyUi)) {
+        legacyUi.hide?.();
         return;
       }
 
-      legacyUi.hide?.();
+      legacyUi.show?.();
     },
     collectHighlights: () => manager.collectHighlightsForNotion(),
     clearAll: (options = {}) => manager.clearAll(options),
