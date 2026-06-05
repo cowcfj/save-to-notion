@@ -1,6 +1,12 @@
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
     warn: jest.fn(),
+    error: jest.fn(),
   },
   __esModule: true,
 }));
