@@ -88,6 +88,101 @@ describe('entryAutoInit', () => {
     expect(source).not.toMatch(CHANNEL_SPECIFIC_REGISTER_HELPER_PATTERN);
   });
 
+  test('[REGRESSION] persistent listener registration should tolerate invalidated addListener', () => {
+    const {
+      createPersistentListeners,
+    } = require('../../../scripts/highlighter/autoInit/persistentListeners.js');
+    const onMessage = {
+      addListener: jest.fn(() => {
+        throw new Error('Extension context invalidated');
+      }),
+      removeListener: jest.fn(),
+    };
+    const controller = createPersistentListeners({
+      globalScope: {
+        chrome: {
+          runtime: { onMessage },
+          storage: {},
+        },
+      },
+      getStableUrl: jest.fn(),
+      onSetStableUrl: jest.fn(),
+      onShowToolbar: jest.fn(),
+    });
+
+    expect(() => controller.register()).not.toThrow();
+
+    onMessage.addListener.mockImplementation(jest.fn());
+    controller.register();
+
+    expect(onMessage.addListener).toHaveBeenCalledTimes(2);
+  });
+
+  test('[REGRESSION] persistent listener unregister should tolerate invalidated removeListener', () => {
+    const {
+      createPersistentListeners,
+    } = require('../../../scripts/highlighter/autoInit/persistentListeners.js');
+    const onMessage = {
+      addListener: jest.fn(),
+      removeListener: jest.fn(() => {
+        throw new Error('Extension context invalidated');
+      }),
+    };
+    const controller = createPersistentListeners({
+      globalScope: {
+        chrome: {
+          runtime: { onMessage },
+          storage: {},
+        },
+      },
+      getStableUrl: jest.fn(),
+      onSetStableUrl: jest.fn(),
+      onShowToolbar: jest.fn(),
+    });
+
+    controller.register();
+
+    expect(() => controller.unregister()).not.toThrow();
+
+    controller.register();
+
+    expect(onMessage.addListener).toHaveBeenCalledTimes(2);
+    expect(onMessage.removeListener).toHaveBeenCalledTimes(1);
+  });
+
+  test('[REGRESSION] persistent message handler should ignore invalid request payloads', () => {
+    const {
+      createPersistentListeners,
+    } = require('../../../scripts/highlighter/autoInit/persistentListeners.js');
+    let messageHandler;
+    const sendResponse = jest.fn();
+    const controller = createPersistentListeners({
+      globalScope: {
+        chrome: {
+          runtime: {
+            onMessage: {
+              addListener: jest.fn(handler => {
+                messageHandler = handler;
+              }),
+              removeListener: jest.fn(),
+            },
+          },
+          storage: {},
+        },
+      },
+      getStableUrl: jest.fn(),
+      onSetStableUrl: jest.fn(),
+      onShowToolbar: jest.fn(),
+    });
+
+    controller.register();
+
+    expect(messageHandler(null, {}, sendResponse)).toBeUndefined();
+    expect(messageHandler(undefined, {}, sendResponse)).toBeUndefined();
+    expect(messageHandler({ action: '__proto__' }, {}, sendResponse)).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();

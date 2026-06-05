@@ -6,7 +6,27 @@
 
 import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
+import Logger from '../../utils/Logger.js';
 import { VALID_STYLES } from '../utils/color.js';
+
+function runPersistentListenerOperation({ target, handler, methodName, failureMessage }) {
+  const listenerOperation = target?.[methodName];
+  if (typeof listenerOperation !== 'function') {
+    return false;
+  }
+
+  try {
+    listenerOperation.call(target, handler);
+    return true;
+  } catch (error) {
+    Logger.warn(failureMessage, {
+      action: 'createPersistentListenerController',
+      operation: methodName,
+      error: error?.message ?? String(error),
+    });
+    return false;
+  }
+}
 
 function createPersistentListenerController(handler) {
   let registeredHandler = null;
@@ -20,16 +40,33 @@ function createPersistentListenerController(handler) {
         return;
       }
 
-      registeredHandler = handler;
-      target.addListener(registeredHandler);
+      if (
+        runPersistentListenerOperation({
+          target,
+          handler,
+          methodName: 'addListener',
+          failureMessage: '[Highlighter] 註冊持久監聽器失敗',
+        })
+      ) {
+        registeredHandler = handler;
+      }
     },
     unregister(target) {
       if (!registeredHandler) {
         return;
       }
 
-      target?.removeListener(registeredHandler);
-      registeredHandler = null;
+      const handlerToRemove = registeredHandler;
+      try {
+        runPersistentListenerOperation({
+          target,
+          handler: handlerToRemove,
+          methodName: 'removeListener',
+          failureMessage: '[Highlighter] 移除持久監聽器失敗',
+        });
+      } finally {
+        registeredHandler = null;
+      }
     },
   };
 }
@@ -110,8 +147,19 @@ export function createPersistentListeners({
    * @returns {boolean|undefined}
    */
   function handlePersistentMessage(request, _sender, sendResponse) {
-    const handler = PERSISTENT_MESSAGE_HANDLERS[request.action];
-    if (!handler) {
+    if (!request || typeof request !== 'object') {
+      return undefined;
+    }
+
+    const { action } = request;
+    if (typeof action !== 'string') {
+      return undefined;
+    }
+
+    const handler = Object.prototype.hasOwnProperty.call(PERSISTENT_MESSAGE_HANDLERS, action)
+      ? PERSISTENT_MESSAGE_HANDLERS[action]
+      : undefined;
+    if (typeof handler !== 'function') {
       return undefined;
     }
     return handler(request, sendResponse);
