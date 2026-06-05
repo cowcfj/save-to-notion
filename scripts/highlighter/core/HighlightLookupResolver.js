@@ -131,8 +131,10 @@ export function getAliasLookupKeys(normalizedUrl, rawUrl = null) {
 
   const keys = [`${URL_ALIAS_PREFIX}${normalizedUrl}`];
 
-  // 若 rawUrl 與 normalizedUrl 不同，也查詢 rawUrl 版本的 alias
-  if (rawUrl && typeof rawUrl === 'string' && rawUrl !== normalizedUrl) {
+  // rawUrl 為非空字串且與 normalizedUrl 不同時，一併查詢 rawUrl 版本的 alias
+  const hasDistinctRawUrl =
+    typeof rawUrl === 'string' && rawUrl.length > 0 && rawUrl !== normalizedUrl;
+  if (hasDistinctRawUrl) {
     keys.push(`${URL_ALIAS_PREFIX}${rawUrl}`);
   }
 
