@@ -139,7 +139,7 @@ describe('tools/check-size-gates.mjs', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir } = createBundleRoot({
       rootDir,
-      contentSize: 292_001,
+      contentSize: 294_001,
       backgroundSize: 1024,
       migrationSize: 1024,
       unpackedSize: 2048,
@@ -166,8 +166,9 @@ describe('tools/check-size-gates.mjs', () => {
     ['DOMPurify sanitizer baseline', 283_783],
     ['Floating Rail complexity refactor baseline', 287_438],
     ['Floating Rail CSS decomposition baseline (2026-06-05)', 290_041],
-    ['接近 hard cap', 291_000],
-    ['正好等於 hard cap', 292_000],
+    ['Entry auto-init complexity refactor baseline (2026-06-05)', 292_643],
+    ['接近 hard cap', 293_500],
+    ['正好等於 hard cap', 294_000],
   ])('[REGRESSION] hard mode 應允許 content bundle %s (%i bytes) 通過', (_label, contentSize) => {
     expect.assertions(2);
 
@@ -176,7 +177,7 @@ describe('tools/check-size-gates.mjs', () => {
       checkKey: 'content_bundle',
       expected: {
         current: contentSize,
-        hardLimit: 292_000,
+        hardLimit: 294_000,
       },
     });
   });

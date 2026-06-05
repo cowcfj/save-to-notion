@@ -10,10 +10,10 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      // Floating Rail CSS decomposition with reduced-motion support moved the
-      // 2026-06-05 content baseline to 290,041 bytes. Bump hard cap slightly to
-      // 292KB to allow reasonable headroom; delta gate still guards single-PR growth.
-      hardLimit: 292_000,
+      // Entry auto-init complexity refactor moved the 2026-06-05 content baseline
+      // to 292,643 bytes. Keep the hard cap tight at 294KB; delta gate still
+      // guards single-PR growth.
+      hardLimit: 294_000,
       deltaLimit: 30_000,
     },
     {

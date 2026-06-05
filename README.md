@@ -219,10 +219,10 @@ notion-chrome/
 │   │   ├── extractors/    # 提取層 (ContentExtractor, ReadabilityAdapter, ImageCollector 等)
 │   │   ├── converters/    # 轉換層 (ConverterFactory, DomConverter)
 │   │   └── adapters/      # 適配層 (整合 Readability.js 等)
-│   ├── config/            # 集中化配置管理 (常量、DOM選擇器、正則匹配、開關等)
+│   ├── config/            # 跨模組共享配置 (shared constants, DOM selectors, runtime actions, storage keys)
 │   ├── highlighter/       # 基於 CSS Highlight API 的新一代標註引擎 (產出: dist/highlighter-v2.bundle.js)
 │   │   ├── core/          # 核心模組 (Range, HighlightManager, Storage 等)
-│   │   ├── ui/            # UI 組件 (Toolbar, Components, Styles)
+│   │   ├── ui/            # Content UI (Floating Rail, legacy Toolbar fallback, components, styles)
 │   │   └── utils/         # 工具模組 (color, dom, textSearch 等)
 │   ├── performance/       # 性能優化模組
 │   └── utils/             # 工具模組 (Logger, Security, ErrorHandler, ImageUtils)
