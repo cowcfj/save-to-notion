@@ -12,6 +12,7 @@ const {
 const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 const fs = require('node:fs');
 const path = require('node:path');
+const { deepFreeze } = require('../../../scripts/config/shared/deepFreeze.js');
 
 function readProjectSource(relativePath) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -48,6 +49,30 @@ describe('配置模組 - messages.js 動態函式', () => {
   const HEALTH_MIGRATION_LEFTOVER_SIZE = 512;
   const TIMESTAMP_VALUE = '2026/04/19 20:00';
   const TIMEZONE_LABEL = 'Asia/Hong_Kong';
+
+  describe('deepFreeze helper', () => {
+    test('應遞迴凍結 object 與 function object，primitive 則原樣回傳', () => {
+      function formatter() {
+        return 'ok';
+      }
+      formatter.meta = { label: 'format' };
+
+      const target = {
+        nested: { enabled: true },
+        formatter,
+      };
+
+      const result = deepFreeze(target);
+
+      expect(result).toBe(target);
+      expect(Object.isFrozen(result)).toBe(true);
+      expect(Object.isFrozen(result.nested)).toBe(true);
+      expect(Object.isFrozen(result.formatter)).toBe(true);
+      expect(Object.isFrozen(result.formatter.meta)).toBe(true);
+      expect(deepFreeze('copy')).toBe('copy');
+      expect(deepFreeze(null)).toBeNull();
+    });
+  });
 
   const singleParamFunctions = [
     { path: 'DATA_SOURCE.SEARCHING', fn: UI_MESSAGES.DATA_SOURCE.SEARCHING, arg: SEARCH_TERM },

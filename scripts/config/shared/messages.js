@@ -5,30 +5,7 @@
 import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
 import { HIGHLIGHTER_MESSAGES } from '../contentSafe/highlighterMessages.js';
 import { BACKGROUND_MESSAGES } from './backgroundMessages.js';
-
-const FREEZABLE_TYPES = new Set(['object', 'function']);
-
-function isFreezableValue(value) {
-  return value !== null && FREEZABLE_TYPES.has(typeof value);
-}
-
-function deepFreeze(target) {
-  if (!isFreezableValue(target)) {
-    return target;
-  }
-
-  if (Object.isFrozen(target)) {
-    return target;
-  }
-
-  for (const value of Object.values(target)) {
-    if (isFreezableValue(value)) {
-      deepFreeze(value);
-    }
-  }
-
-  return Object.freeze(target);
-}
+import { deepFreeze } from './deepFreeze.js';
 
 const AUTH = {
   STATUS_CONNECTED: '已連接到 Notion',

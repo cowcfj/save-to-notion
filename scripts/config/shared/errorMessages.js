@@ -2,29 +2,7 @@
  * Canonical error registries for the extension, supporting tree-shaking by avoiding the UI_MESSAGES monolith.
  */
 
-const FREEZABLE_TYPES = new Set(['object', 'function']);
-
-function isFreezableValue(value) {
-  return value !== null && FREEZABLE_TYPES.has(typeof value);
-}
-
-function deepFreeze(target) {
-  if (!isFreezableValue(target)) {
-    return target;
-  }
-
-  if (Object.isFrozen(target)) {
-    return target;
-  }
-
-  for (const value of Object.values(target)) {
-    if (isFreezableValue(value)) {
-      deepFreeze(value);
-    }
-  }
-
-  return Object.freeze(target);
-}
+import { deepFreeze } from './deepFreeze.js';
 
 const TECHNICAL = {
   NO_ACTIVE_TAB: 'NO_ACTIVE_TAB',
