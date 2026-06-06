@@ -9,6 +9,8 @@ import {
   createContentRuntimeMessageHandler,
 } from '../../../scripts/content/runtimeMessageHandlers.js';
 
+const { createLoggerMock } = require('../../helpers/loggerMock.js');
+
 function createRouter(overrides = {}) {
   const dependencies = {
     getPreloaderCache: jest.fn(() => null),
@@ -16,11 +18,7 @@ function createRouter(overrides = {}) {
     getStableUrl: jest.fn(() => undefined),
     setStableUrl: jest.fn(),
     getHighlighterRuntime: jest.fn(() => undefined),
-    logger: {
-      debug: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    },
+    logger: createLoggerMock(),
     withAvailableFloatingRail: jest.fn(),
     revealFloatingRail: jest.fn(),
     formatRuntimeErrorMessage: jest.fn((_error, fallback) => fallback),

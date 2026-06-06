@@ -8,8 +8,7 @@ function normalizeCoveragePattern(pattern) {
     .trim()
     .replace(/^!/, '')
     .replace(/^<rootDir>\//, '')
-    .replace(/^\*\*\//, '')
-    .replace(/\/\*\*$/, '/**');
+    .replace(/^\*\*\//, '');
 }
 
 function readSonarCoverageExclusions() {

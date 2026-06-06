@@ -3,6 +3,7 @@ import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { revealFloatingRail as defaultRevealFloatingRail } from '../highlighter/utils/floatingRailAvailability.js';
 import { isRootUrl } from '../utils/urlUtils.js';
+import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';
 
 /**
  * 顯示或喚回 Floating Rail 後執行指定動作。
@@ -67,7 +68,10 @@ function isValidStableUrl(url, logger) {
   }
 
   if (isRootUrl(url)) {
-    logger.debug('拒絕設置首頁 URL 為穩定 URL', { action: 'setStableUrl', rejected: url });
+    logger.debug('拒絕設置首頁 URL 為穩定 URL', {
+      action: 'setStableUrl',
+      rejected: sanitizeUrlForLogging(url),
+    });
     return false;
   }
 
@@ -75,7 +79,10 @@ function isValidStableUrl(url, logger) {
     new URL(url);
     return true;
   } catch {
-    logger.debug('拒絕設置無效 URL 為穩定 URL', { action: 'setStableUrl', rejected: url });
+    logger.debug('拒絕設置無效 URL 為穩定 URL', {
+      action: 'setStableUrl',
+      rejected: sanitizeUrlForLogging(url),
+    });
     return false;
   }
 }
@@ -119,7 +126,10 @@ function handleSetStableUrl({ logger, setStableUrl }, stableUrl, sendResponse) {
   }
 
   setStableUrl(stableUrl);
-  logger.debug('已接收並設置穩定 URL', { action: 'setStableUrl', stableUrl });
+  logger.debug('已接收並設置穩定 URL', {
+    action: 'setStableUrl',
+    stableUrl: sanitizeUrlForLogging(stableUrl),
+  });
   sendResponse({ success: true });
 }
 
