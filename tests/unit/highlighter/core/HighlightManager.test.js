@@ -40,6 +40,44 @@ describe('core/HighlightManager', () => {
   let mockInteraction = null;
   let mockMigration = null;
 
+  function createTextRange(text, start = 0, end = text.length) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    document.body.append(div);
+
+    const range = document.createRange();
+    range.setStart(div.firstChild, start);
+    range.setEnd(div.firstChild, end);
+    return range;
+  }
+
+  function withChromeApi(chromeApi, assertion) {
+    const originalChrome = globalThis.chrome;
+    globalThis.chrome = chromeApi;
+
+    try {
+      return assertion();
+    } finally {
+      globalThis.chrome = originalChrome;
+    }
+  }
+
+  function createRestoreItem(overrides = {}) {
+    return {
+      id: 'h1',
+      text: 'test',
+      color: 'yellow',
+      rangeInfo: { startContainer: [], endContainer: [] },
+      ...overrides,
+    };
+  }
+
+  function mockRestoredRange() {
+    const range = document.createRange();
+    jest.mocked(restoreRangeWithRetry).mockResolvedValue(range);
+    return range;
+  }
+
   beforeEach(() => {
     document.body.innerHTML = '';
 
@@ -117,6 +155,11 @@ describe('core/HighlightManager', () => {
   });
 
   describe('addHighlight', () => {
+    test('should return null when range is missing', () => {
+      expect(manager.addHighlight(null)).toBeNull();
+      expect(manager.highlights.size).toBe(0);
+    });
+
     test('should add a highlight with valid range', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World';
@@ -226,9 +269,40 @@ describe('core/HighlightManager', () => {
       const id2 = manager.addHighlight(range, 'yellow');
       expect(id2).toBe(`h${initialId + 1}`);
     });
+
+    test.each([
+      ['empty color', '', 'blue'],
+      ['non-string color', { name: 'yellow' }, 'blue'],
+      ['string color', 'green', 'green'],
+    ])('should resolve %s without styleManager', (_caseName, requestedColor, expectedColor) => {
+      const noStyleManager = new HighlightManager({ defaultColor: 'blue' });
+      jest.spyOn(noStyleManager, 'applyHighlightAPI').mockReturnValue(true);
+
+      const id = noStyleManager.addHighlight(createTextRange('No style manager'), requestedColor);
+
+      expect(id).toBe('h1');
+      expect(noStyleManager.highlights.get(id)?.color).toBe(expectedColor);
+
+      noStyleManager.cleanup();
+      noStyleManager.applyHighlightAPI.mockRestore();
+    });
   });
 
   describe('rail highlight interaction', () => {
+    test('startHighlighting should update color when already active', () => {
+      manager.startHighlighting('yellow');
+      const initialHandler = manager.selectionHandler;
+
+      manager.startHighlighting('blue');
+
+      expect(manager.currentColor).toBe('blue');
+      expect(manager.selectionHandler).toBe(initialHandler);
+    });
+
+    test('selection mouseup guard should ignore events when inactive', () => {
+      expect(manager._shouldIgnoreSelectionMouseUp({ composedPath: () => [] })).toBe(true);
+    });
+
     test('[REGRESSION] startHighlighting 應從目前 selection 建立標註並清除選取', () => {
       jest.useFakeTimers();
       try {
@@ -361,6 +435,85 @@ describe('core/HighlightManager', () => {
       expect(manager.highlights.size).toBe(0);
 
       getSelection.mockRestore();
+    });
+
+    test('startHighlighting 應忽略缺少、collapsed 或空白 selection', () => {
+      const addHighlight = jest.spyOn(manager, 'addHighlight');
+      const getSelection = jest.spyOn(globalThis, 'getSelection');
+
+      for (const selection of [
+        null,
+        {
+          isCollapsed: true,
+          toString: () => 'Ignored',
+          getRangeAt: jest.fn(),
+          removeAllRanges: jest.fn(),
+        },
+        {
+          isCollapsed: false,
+          toString: () => '   ',
+          getRangeAt: jest.fn(),
+          removeAllRanges: jest.fn(),
+        },
+      ]) {
+        getSelection.mockReturnValue(selection);
+        manager.startHighlighting('yellow');
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        manager.stopHighlighting();
+      }
+
+      expect(addHighlight).not.toHaveBeenCalled();
+
+      getSelection.mockRestore();
+      addHighlight.mockRestore();
+    });
+
+    test('startHighlighting 應在 selection range 複製失敗時記錄錯誤並忽略', () => {
+      const getSelection = jest.spyOn(globalThis, 'getSelection').mockReturnValue({
+        isCollapsed: false,
+        toString: () => 'Broken selection',
+        getRangeAt: jest.fn(() => {
+          throw new Error('range unavailable');
+        }),
+        removeAllRanges: jest.fn(),
+      });
+
+      manager.startHighlighting('yellow');
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+      expect(manager.highlights.size).toBe(0);
+      expect(Logger.error).toHaveBeenCalledWith(
+        '添加標註失敗',
+        expect.objectContaining({ action: 'railSelectionHandler' })
+      );
+
+      getSelection.mockRestore();
+    });
+
+    test('startHighlighting 應在 addHighlight 拋錯時記錄錯誤並保留 selection', () => {
+      const removeAllRanges = jest.fn();
+      const range = createTextRange('Add failure');
+      const getSelection = jest.spyOn(globalThis, 'getSelection').mockReturnValue({
+        isCollapsed: false,
+        toString: () => 'Add failure',
+        getRangeAt: () => range,
+        removeAllRanges,
+      });
+      jest.spyOn(manager, 'addHighlight').mockImplementation(() => {
+        throw new Error('add failed');
+      });
+
+      manager.startHighlighting('yellow');
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+      expect(removeAllRanges).not.toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith(
+        '添加標註失敗',
+        expect.objectContaining({ action: 'railSelectionHandler' })
+      );
+
+      getSelection.mockRestore();
+      manager.addHighlight.mockRestore();
     });
 
     test('setHighlightColor 應更新目前標註顏色', () => {
@@ -563,29 +716,34 @@ describe('core/HighlightManager', () => {
     });
 
     test('getSafeExtensionStorage should return null outside extension runtime', () => {
-      const originalChrome = globalThis.chrome;
-      globalThis.chrome = undefined;
-
-      try {
+      withChromeApi(undefined, () => {
         expect(HighlightManager.getSafeExtensionStorage()).toBeNull();
-      } finally {
-        globalThis.chrome = originalChrome;
-      }
+      });
     });
 
-    test('getSafeExtensionStorage should return chrome.storage.local inside extension runtime', () => {
-      const originalChrome = globalThis.chrome;
-      const localStorageArea = { get: jest.fn() };
-      globalThis.chrome = {
-        runtime: { id: 'extension-id' },
-        storage: { local: localStorageArea },
-      };
-
-      try {
-        expect(HighlightManager.getSafeExtensionStorage()).toBe(localStorageArea);
-      } finally {
-        globalThis.chrome = originalChrome;
+    test.each([
+      ['runtime', { storage: { local: { get: jest.fn() } } }],
+      ['storage', { runtime: { id: 'extension-id' } }],
+    ])(
+      'getSafeExtensionStorage should return null when chrome.%s is missing',
+      (_field, chromeApi) => {
+        withChromeApi(chromeApi, () => {
+          expect(HighlightManager.getSafeExtensionStorage()).toBeNull();
+        });
       }
+    );
+
+    test('getSafeExtensionStorage should return chrome.storage.local inside extension runtime', () => {
+      const localStorageArea = { get: jest.fn() };
+      withChromeApi(
+        {
+          runtime: { id: 'extension-id' },
+          storage: { local: localStorageArea },
+        },
+        () => {
+          expect(HighlightManager.getSafeExtensionStorage()).toBe(localStorageArea);
+        }
+      );
     });
   });
 
@@ -670,16 +828,8 @@ describe('core/HighlightManager', () => {
 
   describe('restoreLocalHighlight', () => {
     test('should restore highlight from valid item', async () => {
-      const item = {
-        id: 'h1',
-        text: 'test',
-        color: 'yellow',
-        rangeInfo: { startContainer: [], endContainer: [] }, // simplified mock
-      };
-
-      // Mock restoreRangeWithRetry
-      const mockRange = document.createRange();
-      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      const item = createRestoreItem();
+      mockRestoredRange();
 
       const result = await manager.restoreLocalHighlight(item);
 
@@ -690,14 +840,12 @@ describe('core/HighlightManager', () => {
     });
 
     test('should auto-generate ID when item.id is undefined', async () => {
-      const item = {
+      const item = createRestoreItem({
+        id: undefined,
         text: 'auto-id test',
         color: 'blue',
-        rangeInfo: { startContainer: [], endContainer: [] },
-      };
-
-      const mockRange = document.createRange();
-      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      });
+      mockRestoredRange();
 
       const initialNextId = manager.nextId;
       const result = await manager.restoreLocalHighlight(item);
@@ -710,7 +858,7 @@ describe('core/HighlightManager', () => {
     });
 
     test('should return false if range creation fails', async () => {
-      const item = { id: 'h1', text: 'test' };
+      const item = createRestoreItem();
       jest.mocked(restoreRangeWithRetry).mockResolvedValue(null);
 
       const result = await manager.restoreLocalHighlight(item);
@@ -718,15 +866,12 @@ describe('core/HighlightManager', () => {
     });
 
     test('should rollback highlight when applyHighlightAPI returns false', async () => {
-      const item = {
+      const item = createRestoreItem({
         id: 'h5',
         text: 'rollback test',
         color: 'invalid-color',
-        rangeInfo: { startContainer: [], endContainer: [] },
-      };
-
-      const mockRange = document.createRange();
-      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      });
+      mockRestoredRange();
       jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
       const result = await manager.restoreLocalHighlight(item);
@@ -738,15 +883,12 @@ describe('core/HighlightManager', () => {
     });
 
     test('should retry with fallback color when original color cannot be applied', async () => {
-      const item = {
+      const item = createRestoreItem({
         id: 'h8',
         text: 'fallback test',
         color: 'blue',
-        rangeInfo: { startContainer: [], endContainer: [] },
-      };
-
-      const mockRange = document.createRange();
-      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      });
+      mockRestoredRange();
 
       jest
         .spyOn(manager, 'applyHighlightAPI')
@@ -762,15 +904,12 @@ describe('core/HighlightManager', () => {
     });
 
     test('should rebuild style objects and retry when initial attempts fail', async () => {
-      const item = {
+      const item = createRestoreItem({
         id: 'h9',
         text: 'rebuild style test',
         color: 'blue',
-        rangeInfo: { startContainer: [], endContainer: [] },
-      };
-
-      const mockRange = document.createRange();
-      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      });
+      mockRestoredRange();
 
       jest
         .spyOn(manager, 'applyHighlightAPI')
@@ -787,15 +926,12 @@ describe('core/HighlightManager', () => {
     });
 
     test('should cleanup stale entry when applyHighlightAPI throws', async () => {
-      const item = {
+      const item = createRestoreItem({
         id: 'h7',
         text: 'throw test',
         color: 'yellow',
-        rangeInfo: { startContainer: [], endContainer: [] },
-      };
-
-      const mockRange = document.createRange();
-      jest.mocked(restoreRangeWithRetry).mockResolvedValue(mockRange);
+      });
+      mockRestoredRange();
       jest.spyOn(manager, 'applyHighlightAPI').mockImplementation(() => {
         throw new Error('styleManager failure');
       });
@@ -806,6 +942,47 @@ describe('core/HighlightManager', () => {
       expect(manager.highlights.size).toBe(0);
 
       manager.applyHighlightAPI.mockRestore();
+    });
+
+    test('should cancel restore when styles cannot be reinitialized', async () => {
+      const item = createRestoreItem({
+        id: 'h10',
+        text: 'no reinitialize test',
+        color: 'blue',
+      });
+      mockRestoredRange();
+      mockStyleManager.initialize = undefined;
+      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
+
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(false);
+      expect(manager.highlights.has('h10')).toBe(false);
+
+      manager.applyHighlightAPI.mockRestore();
+    });
+
+    test('should cleanup restored entry when restore flow throws after ID resolution', async () => {
+      const item = createRestoreItem({
+        id: 'h11',
+        text: 'cleanup throw test',
+        color: 'yellow',
+      });
+      mockRestoredRange();
+      jest.spyOn(manager, '_applyHighlightWithRestoreFallback').mockImplementation(() => {
+        throw new Error('unexpected restore failure');
+      });
+
+      const result = await manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(false);
+      expect(manager.highlights.has('h11')).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '恢復標註失敗',
+        expect.objectContaining({ action: 'restoreLocalHighlight', id: 'h11' })
+      );
+
+      manager._applyHighlightWithRestoreFallback.mockRestore();
     });
   });
 
