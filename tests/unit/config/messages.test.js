@@ -401,13 +401,8 @@ describe('配置模組 - messages.js 動態函式', () => {
       );
     });
 
-    test('highlighter toolbar 訊息應與 UI_MESSAGES.TOOLBAR 一致', () => {
-      expect(UI_MESSAGES.TOOLBAR.SYNCING).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNCING);
-      expect(UI_MESSAGES.TOOLBAR.SYNC_SUCCESS).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNC_SUCCESS);
-      expect(UI_MESSAGES.TOOLBAR.SYNC_FAILED).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNC_FAILED);
-      expect(UI_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT).toBe(
-        HIGHLIGHTER_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT
-      );
+    test('TOOLBAR 欄位應該與 HIGHLIGHTER_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.TOOLBAR).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR);
     });
 
     test('門面 re-exports 的 error registry 欄位應與 errorMessages.js 完全一致', () => {
