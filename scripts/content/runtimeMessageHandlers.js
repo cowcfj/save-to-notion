@@ -70,6 +70,7 @@ function isValidStableUrl(url, logger) {
   if (isRootUrl(url)) {
     logger.debug('拒絕設置首頁 URL 為穩定 URL', {
       action: 'setStableUrl',
+      result: 'rejected',
       rejected: sanitizeUrlForLogging(url),
     });
     return false;
@@ -81,6 +82,7 @@ function isValidStableUrl(url, logger) {
   } catch {
     logger.debug('拒絕設置無效 URL 為穩定 URL', {
       action: 'setStableUrl',
+      result: 'rejected',
       rejected: sanitizeUrlForLogging(url),
     });
     return false;
@@ -91,6 +93,7 @@ function handlePing({ getPreloaderCache, isBundleReady }, sendResponse) {
   const preloaderCache = getPreloaderCache();
   sendResponse({
     status: isBundleReady() ? 'bundle_ready' : 'preloader_only',
+    hasCache: Boolean(preloaderCache),
     hasPreloaderCache: Boolean(preloaderCache),
     nextRouteInfo: preloaderCache?.nextRouteInfo || null,
     shortlink: preloaderCache?.shortlink || null,
@@ -128,6 +131,7 @@ function handleSetStableUrl({ logger, setStableUrl }, stableUrl, sendResponse) {
   setStableUrl(stableUrl);
   logger.debug('已接收並設置穩定 URL', {
     action: 'setStableUrl',
+    result: 'accepted',
     stableUrl: sanitizeUrlForLogging(stableUrl),
   });
   sendResponse({ success: true });

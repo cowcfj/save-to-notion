@@ -59,6 +59,7 @@ describe('content runtime message router', () => {
     expect(result).toBe(true);
     expect(sendResponse).toHaveBeenCalledWith({
       status: 'bundle_ready',
+      hasCache: true,
       hasPreloaderCache: true,
       nextRouteInfo: { page: '/article' },
       shortlink: 'https://wp.me/p1',
@@ -83,6 +84,38 @@ describe('content runtime message router', () => {
       success: false,
       error: 'INVALID_STABLE_URL',
     });
+    expect(dependencies.logger.debug).toHaveBeenCalledWith(
+      '拒絕設置首頁 URL 為穩定 URL',
+      expect.objectContaining({
+        action: 'setStableUrl',
+        result: 'rejected',
+      })
+    );
+  });
+
+  test('SET_STABLE_URL malformed URL logs rejected result', () => {
+    const { handler, dependencies } = createRouter();
+    const sendResponse = jest.fn();
+
+    const result = handler(
+      { action: CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL, stableUrl: 'not-a-url' },
+      {},
+      sendResponse
+    );
+
+    expect(result).toBe(true);
+    expect(dependencies.setStableUrl).not.toHaveBeenCalled();
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: false,
+      error: 'INVALID_STABLE_URL',
+    });
+    expect(dependencies.logger.debug).toHaveBeenCalledWith(
+      '拒絕設置無效 URL 為穩定 URL',
+      expect.objectContaining({
+        action: 'setStableUrl',
+        result: 'rejected',
+      })
+    );
   });
 
   test('SET_STABLE_URL valid input updates stable URL', () => {
@@ -101,6 +134,13 @@ describe('content runtime message router', () => {
     expect(result).toBe(true);
     expect(dependencies.setStableUrl).toHaveBeenCalledWith(
       'https://example.com/posts/123?ref=clipper'
+    );
+    expect(dependencies.logger.debug).toHaveBeenCalledWith(
+      '已接收並設置穩定 URL',
+      expect.objectContaining({
+        action: 'setStableUrl',
+        result: 'accepted',
+      })
     );
     expect(sendResponse).toHaveBeenCalledWith({ success: true });
   });

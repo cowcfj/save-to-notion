@@ -2,6 +2,8 @@
  * Shared content extraction 配置
  */
 
+import { UI_MESSAGES } from './messages.js';
+
 export const NEXTJS_CONFIG = {
   ARTICLE_PATHS: [
     'props.pageProps.pageData',
@@ -412,7 +414,7 @@ export const CONTENT_QUALITY = {
   MIN_CONTENT_LENGTH: 250,
   MAX_LINK_DENSITY: 0.25,
   LIST_EXCEPTION_THRESHOLD: 8,
-  DEFAULT_PAGE_TITLE: '未命名頁面',
+  DEFAULT_PAGE_TITLE: UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE,
 };
 
 export const URL_NORMALIZATION = {
