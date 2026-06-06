@@ -9,6 +9,7 @@ import { ImageCollector } from '../../../scripts/content/extractors/ImageCollect
 import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { CONTENT_QUALITY } from '../../../scripts/config/shared/content.js';
+import { DATA_SOURCE_MESSAGES } from '../../../scripts/config/shared/dataSourceMessages.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
@@ -44,7 +45,8 @@ async function flushPromises() {
 
 describe('Content Script Entry (index.js)', () => {
   test('content default page title uses centralized zh-TW fallback copy', () => {
-    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
+    expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
   });
 
   beforeEach(() => {

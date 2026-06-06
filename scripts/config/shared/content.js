@@ -2,7 +2,7 @@
  * Shared content extraction 配置
  */
 
-import { UI_MESSAGES } from './messages.js';
+import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
 
 export const NEXTJS_CONFIG = {
   ARTICLE_PATHS: [
@@ -414,7 +414,7 @@ export const CONTENT_QUALITY = {
   MIN_CONTENT_LENGTH: 250,
   MAX_LINK_DENSITY: 0.25,
   LIST_EXCEPTION_THRESHOLD: 8,
-  DEFAULT_PAGE_TITLE: UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE,
+  DEFAULT_PAGE_TITLE: DATA_SOURCE_MESSAGES.UNTITLED_PAGE,
 };
 
 export const URL_NORMALIZATION = {
