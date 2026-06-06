@@ -43,15 +43,7 @@ jest.mock('../../../pages/options/StorageManager.js');
 jest.mock('../../../pages/options/MigrationTool.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
+  default: require('../../helpers/loggerMock.js').createLoggerMock(),
 }));
 jest.mock('../../../scripts/auth/accountSession.js', () => ({
   getAccountProfile: jest.fn(),
@@ -149,8 +141,8 @@ describe('options.js', () => {
 
       const previewDiv = document.querySelector('#template-preview');
       expect(previewDiv.classList.contains('hidden')).toBe(false);
-      expect(previewDiv.textContent).toContain('預覽結果：');
-      expect(previewDiv.textContent).toContain('範例網頁標題');
+      expect(previewDiv.textContent).toContain(UI_MESSAGES.OPTIONS.TEMPLATES.PREVIEW_RESULT_LABEL);
+      expect(previewDiv.textContent).toContain(UI_MESSAGES.OPTIONS.TEMPLATES.PREVIEW_SAMPLE_TITLE);
     });
   });
 
@@ -485,6 +477,28 @@ describe('options.js', () => {
           type: typeof value,
           nonEmpty: typeof value === 'string' && value.length > 0,
         }).toEqual({ path, type: 'string', nonEmpty: true });
+      });
+    });
+
+    it('options.js 不應直接硬編碼 destination profile 與 template preview UI 文案', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const source = fs.readFileSync(
+        path.join(__dirname, '../../../pages/options/options.js'),
+        'utf8'
+      );
+      const hardcodedUserFacingCopy = [
+        '保存目標名稱不可為空白。',
+        '保存目標名稱',
+        '重新命名',
+        '登入帳號後可建立第二個保存目標。',
+        '更多保存目標會在付費方案開放。',
+        '範例網頁標題 - Notion Clipper',
+        '預覽結果：',
+      ];
+
+      hardcodedUserFacingCopy.forEach(copy => {
+        expect({ copy, present: source.includes(copy) }).toEqual({ copy, present: false });
       });
     });
   });
@@ -1724,8 +1738,8 @@ describe('Destination profile options UI', () => {
     const status = document.querySelector('#destination-profile-status');
     expect(addButton.disabled).toBe(true);
     expect(addButton.getAttribute('aria-describedby')).toBe('destination-profile-status');
-    expect(addButton.title).toContain('登入帳號後可建立第二個保存目標');
-    expect(status.textContent).toContain('登入帳號後可建立第二個保存目標');
+    expect(addButton.title).toBe(UI_MESSAGES.OPTIONS.DESTINATION.LIMIT_ACCOUNT_SIGN_IN);
+    expect(status.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.LIMIT_ACCOUNT_SIGN_IN);
   });
 
   it('render 應在 entitlement 讀取失敗時仍渲染 profiles 並記錄警告', async () => {
@@ -1795,8 +1809,8 @@ describe('Destination profile options UI', () => {
     const addButton = document.querySelector('#add-destination-profile');
     const status = document.querySelector('#destination-profile-status');
     expect(addButton.disabled).toBe(true);
-    expect(addButton.title).toContain('更多保存目標會在付費方案開放');
-    expect(status.textContent).toContain('更多保存目標會在付費方案開放');
+    expect(addButton.title).toBe(UI_MESSAGES.OPTIONS.DESTINATION.LIMIT_PAID_PLAN);
+    expect(status.textContent).toBe(UI_MESSAGES.OPTIONS.DESTINATION.LIMIT_PAID_PLAN);
   });
 
   it('點擊保存目標列表非按鈕元素時不應呼叫 action service', async () => {

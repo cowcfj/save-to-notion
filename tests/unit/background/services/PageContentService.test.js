@@ -5,6 +5,7 @@ import {
   PageContentService,
   CONTENT_EXTRACTION_SCRIPTS,
 } from '../../../../scripts/background/services/PageContentService.js';
+import { CONTENT_QUALITY } from '../../../../scripts/config/shared/content.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
 const TEST_TAB_ID = 123;
@@ -76,7 +77,7 @@ describe('PageContentService', () => {
         TEST_TAB_ID,
         expect.any(Function),
         CONTENT_EXTRACTION_SCRIPTS,
-        ['Untitled'] // CONTENT_QUALITY.DEFAULT_PAGE_TITLE resolve to 'Untitled'
+        [CONTENT_QUALITY.DEFAULT_PAGE_TITLE]
       );
       expect(result.title).toBe('Test Page');
       expect(result.blocks).toHaveLength(1);
@@ -90,7 +91,7 @@ describe('PageContentService', () => {
 
       const result = await service.extractContent(TEST_TAB_ID);
 
-      expect(result.title).toBe('Untitled');
+      expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
       expect(result.blocks).toHaveLength(1);
       expect(result.siteIcon).toBeNull();
       expect(result.extractionStatus).toBe('failed');
@@ -102,7 +103,7 @@ describe('PageContentService', () => {
 
       const result = await service.extractContent(TEST_TAB_ID);
 
-      expect(result.title).toBe('Untitled');
+      expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
       expect(result.blocks).toHaveLength(1);
       expect(result.extractionStatus).toBe('failed');
     });
@@ -112,7 +113,7 @@ describe('PageContentService', () => {
 
       const result = await service.extractContent(TEST_TAB_ID);
 
-      expect(result.title).toBe('Untitled');
+      expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
       expect(result.blocks).toHaveLength(1);
       expect(result.extractionStatus).toBe('failed');
     });

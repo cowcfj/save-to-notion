@@ -20,7 +20,6 @@ import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
-import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
 import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
 import { CONTENT_EXTRACTION_MESSAGES } from '../config/contentSafe/contentExtractionMessages.js';
 import {
@@ -28,8 +27,11 @@ import {
   revealFloatingRail,
   withAvailableFloatingRail,
 } from '../highlighter/utils/floatingRailAvailability.js';
+import {
+  activateFloatingRailHighlighting,
+  createContentRuntimeMessageHandler,
+} from './runtimeMessageHandlers.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
-import { isRootUrl } from '../utils/urlUtils.js';
 // 載入 Highlighter runtime side-effect entry。
 // 自動初始化邏輯已從 highlighter/index.js 拆分至 entryAutoInit.js。
 import '../highlighter/entryAutoInit.js';
@@ -63,230 +65,23 @@ if (preloaderCache) {
 // 標記 Bundle 已就緒（供 Preloader 和 InjectionService 檢測）
 globalThis.__NOTION_BUNDLE_READY__ = true;
 
-// ============================================================
-// 訊息處理器（抽取以降低認知複雜度）
-// ============================================================
-
-/**
- * 處理 PING 請求，回報 bundle 狀態
- *
- * @param {Function} sendResponse - 回應函數
- */
-function handlePing(sendResponse) {
-  sendResponse({
-    status: globalThis.__NOTION_BUNDLE_READY__ ? 'bundle_ready' : 'preloader_only',
-    hasPreloaderCache: Boolean(preloaderCache),
-    nextRouteInfo: preloaderCache?.nextRouteInfo || null,
-    shortlink: preloaderCache?.shortlink || null,
-  });
-}
-
-/**
- * 處理顯示 Highlighter 請求（legacy alias → rail）
- *
- * @param {Function} sendResponse - 回應函數
- */
-async function handleShowHighlighter(sendResponse) {
-  await withAvailableFloatingRail(sendResponse, revealFloatingRail);
-}
-
-/**
- * 顯示或喚回 Floating Rail 後執行指定動作
- *
- * @param {object} rail - Floating Rail instance
- * @param {Function} onRevealed - rail 已顯示後執行的動作
- * @returns {void|Promise<void>}
- */
-function runAfterFloatingRailReveal(rail, onRevealed) {
-  const revealResult = revealFloatingRail(rail);
-  if (Boolean(revealResult) && typeof revealResult.then === 'function') {
-    return revealResult.then(onRevealed);
-  }
-
-  return onRevealed();
-}
-
-/**
- * 啟動已顯示 Floating Rail 的標註模式
- *
- * @param {object} rail - Floating Rail instance
- * @returns {void|Promise<void>}
- */
-function activateRevealedFloatingRailHighlighting(rail) {
-  if (typeof rail?.activateHighlighting !== 'function') {
-    throw new TypeError(RUNTIME_ERROR_MESSAGES.FLOATING_RAIL_ACTIVATE_METHOD_MISSING);
-  }
-
-  return rail.activateHighlighting();
-}
-
-/**
- * 啟動 Floating Rail 標註模式
- *
- * @param {object} rail - Floating Rail instance
- * @returns {void|Promise<void>}
- */
-function activateFloatingRailHighlighting(rail) {
-  return runAfterFloatingRailReveal(rail, () => activateRevealedFloatingRailHighlighting(rail));
-}
-
-/**
- * 處理顯示 Floating Rail 請求
- *
- * @param {Function} sendResponse - 回應函數
- */
-async function handleShowFloatingRail(sendResponse) {
-  await withAvailableFloatingRail(sendResponse, revealFloatingRail);
-}
-
-/**
- * 處理啟動 Floating Rail 標註模式請求
- *
- * @param {object} request - runtime message payload
- * @param {Function} sendResponse - 回應函數
- */
-async function handleActivateFloatingRailHighlight(request, sendResponse) {
-  await withAvailableFloatingRail(sendResponse, activateFloatingRailHighlighting, {
-    sessionOverride: request?.sessionOverride === true,
-  });
-}
-
-/**
- * 處理移除標註 DOM 請求
- *
- * @param {string} highlightId - 標註 ID
- * @param {Function} sendResponse - 回應函數
- */
-function handleRemoveHighlightDom(highlightId, sendResponse) {
-  try {
-    const removed = globalThis.HighlighterV2?.manager?.removeHighlight?.(highlightId);
-
-    if (removed === undefined) {
-      Logger.warn('Highlighter 尚未初始化，略過移除標註 DOM', {
-        action: 'REMOVE_HIGHLIGHT_DOM',
-        highlightId,
-      });
-      sendResponse({ success: false, error: 'Highlighter 尚未初始化' });
-    } else {
-      sendResponse({ success: Boolean(removed) });
-    }
-  } catch (error) {
-    Logger.error('移除標註 DOM 失敗', { action: 'REMOVE_HIGHLIGHT_DOM', error });
-    sendResponse({
-      success: false,
-      error: error?.message ?? '移除標註 DOM 失敗',
-    });
-  }
-}
-
-/**
- * 驗證 URL 是否可作為穩定 URL
- *
- * @param {string} url - 待驗證的 URL
- * @returns {boolean} - true 表示有效，false 表示無效
- */
-function isValidStableUrl(url) {
-  if (isRootUrl(url)) {
-    Logger.debug('拒絕設置首頁 URL 為穩定 URL', { action: 'setStableUrl', rejected: url });
-    return false;
-  }
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    Logger.debug('拒絕設置無效 URL 為穩定 URL', { action: 'setStableUrl', rejected: url });
-    return false;
-  }
-}
-
-/**
- * 處理設置穩定 URL 請求
- *
- * @param {string|undefined} stableUrl - 穩定 URL
- * @param {Function} sendResponse - 回應函數
- */
-function handleSetStableUrl(stableUrl, sendResponse) {
-  if (!stableUrl || !isValidStableUrl(stableUrl)) {
-    sendResponse({ success: false, error: 'INVALID_STABLE_URL' });
-    return;
-  }
-  globalThis.__NOTION_STABLE_URL__ = stableUrl;
-  Logger.debug('已接收並設置穩定 URL', { action: 'setStableUrl', stableUrl });
-  sendResponse({ success: true });
-}
-
-/**
- * 處理讀取穩定 URL 請求
- *
- * @param {Function} sendResponse - 回應函數
- */
-function handleGetStableUrl(sendResponse) {
-  sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
-}
-
-/**
- * 處理 bundle 初始化握手
- *
- * @param {Function} sendResponse - 回應函數
- */
-function handleInitBundle(sendResponse) {
-  sendResponse({ ready: true, bufferedEvents: 0 });
-}
-
-const runtimeMessageHandlers = {
-  [CONTENT_BRIDGE_ACTIONS.PING]: (_request, sendResponse) => {
-    handlePing(sendResponse);
-    return true;
+const handleRuntimeMessage = createContentRuntimeMessageHandler({
+  getPreloaderCache: () => preloaderCache,
+  isBundleReady: () => Boolean(globalThis.__NOTION_BUNDLE_READY__),
+  getStableUrl: () => globalThis.__NOTION_STABLE_URL__,
+  setStableUrl: stableUrl => {
+    globalThis.__NOTION_STABLE_URL__ = stableUrl;
   },
-  [HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER]: (_request, sendResponse) => {
-    handleShowHighlighter(sendResponse);
-    return true;
-  },
-  [CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL]: (_request, sendResponse) => {
-    handleShowFloatingRail(sendResponse);
-    return true;
-  },
-  [CONTENT_BRIDGE_ACTIONS.SHOW_TOAST]: request => {
-    globalThis.HighlighterV2?.toast?.show(request.messageKey, { level: request.level });
-    return false;
-  },
-  [HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT]: (request, sendResponse) => {
-    handleActivateFloatingRailHighlight(request, sendResponse);
-    return true;
-  },
-  [HIGHLIGHTER_ACTIONS.REMOVE_HIGHLIGHT_DOM]: (request, sendResponse) => {
-    handleRemoveHighlightDom(request.highlightId, sendResponse);
-    return true;
-  },
-  [CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL]: (request, sendResponse) => {
-    handleSetStableUrl(request.stableUrl, sendResponse);
-    return true;
-  },
-  [CONTENT_BRIDGE_ACTIONS.GET_STABLE_URL]: (_request, sendResponse) => {
-    handleGetStableUrl(sendResponse);
-    return true;
-  },
-  [CONTENT_BRIDGE_ACTIONS.INIT_BUNDLE]: (_request, sendResponse) => {
-    handleInitBundle(sendResponse);
-    return true;
-  },
-};
-
-function handleRuntimeMessage(request, sendResponse) {
-  const handler = runtimeMessageHandlers[request?.action];
-  if (!handler) {
-    return false;
-  }
-
-  return handler(request, sendResponse);
-}
+  getHighlighterRuntime: () => globalThis.HighlighterV2,
+  logger: Logger,
+  withAvailableFloatingRail,
+  revealFloatingRail,
+});
 
 // ============================================================
 // PING 響應機制（供 InjectionService.ensureBundleInjected 使用）
 // ============================================================
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) =>
-  handleRuntimeMessage(request, sendResponse)
-);
+chrome.runtime.onMessage.addListener(handleRuntimeMessage);
 
 // ============================================================
 // 重放 Preloader 緩衝事件
@@ -294,18 +89,29 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) =>
 async function replayShortcutBufferedEvent() {
   const rail = globalThis.HighlighterV2?.rail;
   if (!rail) {
-    Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
+    Logger.warn('Highlighter 不可用，無法重放', {
+      action: 'replayEvents',
+      result: 'skipped',
+      reason: 'highlighter_unavailable',
+    });
     return;
   }
 
   try {
-    Logger.log('重放快捷鍵事件，啟動浮動側欄標註', { action: 'replayEvents' });
+    Logger.log('重放快捷鍵事件，啟動浮動側欄標註', {
+      action: 'replayEvents',
+      result: 'started',
+    });
     await activateFloatingRailHighlighting(rail);
   } catch (error) {
     Logger.warn('重放快捷鍵事件失敗，繼續處理後續事件', {
       action: 'replayEvents',
+      result: 'failed',
       error,
-      errorMessage: formatRuntimeErrorMessage(error, RUNTIME_ERROR_MESSAGES.SHORTCUT_REPLAY_FAILED),
+      safeRuntimeError: formatRuntimeErrorMessage(
+        error,
+        RUNTIME_ERROR_MESSAGES.SHORTCUT_REPLAY_FAILED
+      ),
     });
   }
 }
@@ -324,13 +130,17 @@ chrome.runtime.sendMessage({ action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVEN
 
   const events = response?.events;
   if (Array.isArray(events) && events.length > 0) {
-    Logger.log('正在重放緩衝事件', { action: 'replayEvents', count: events.length });
+    Logger.log('正在重放緩衝事件', {
+      action: 'replayEvents',
+      result: 'started',
+      count: events.length,
+    });
     events.forEach(event => replayBufferedEvent(event));
   }
 });
 
 // 立即打印日誌證明腳本已加載
-Logger.log('Content Bundle 已載入', { action: 'loadBundle' });
+Logger.log('Content Bundle 已載入', { action: 'loadBundle', result: 'loaded' });
 
 // ============================================================
 // 內容提取與輔助函數
@@ -522,7 +332,11 @@ async function collectPageImages({ content, type, preExtractedBlocks, blocks, ma
 
     return { additionalImages, coverImage, imageMetrics: metrics };
   } catch (imageError) {
-    Logger.warn('圖片收集失敗', { action: 'extractPageContent', error: imageError.message });
+    Logger.warn('圖片收集失敗', {
+      action: 'extractPageContent',
+      result: 'failed',
+      error: imageError,
+    });
     return { additionalImages: [], coverImage: null, imageMetrics: null };
   }
 }
@@ -610,6 +424,7 @@ async function extractPageContent() {
   } catch (error) {
     Logger.error('內容提取發生異常', {
       action: 'extractPageContent',
+      result: 'failed',
       error,
     });
 

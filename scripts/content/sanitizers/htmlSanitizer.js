@@ -97,7 +97,11 @@ function isEmptyHtmlInput(html) {
 }
 
 function isUnsafeDataUri(value) {
-  return Boolean(value?.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(value));
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return value.toLowerCase().startsWith('data:') && !SAFE_URI_REGEXP.test(value);
 }
 
 function removeUnsafeDataUriAttribute(node, attributeName) {

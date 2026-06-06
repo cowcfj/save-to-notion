@@ -2,6 +2,8 @@
  * Shared messaging 配置
  */
 
+import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
+
 function deepFreeze(target) {
   if (!target || (typeof target !== 'object' && typeof target !== 'function')) {
     return target;
@@ -66,28 +68,7 @@ const SETTINGS = {
   TESTING_LABEL: '測試中...',
 };
 
-const DATA_SOURCE = {
-  LOADING: '正在載入保存目標列表...',
-  SEARCHING: keyword => `正在搜尋 "${keyword}"...`,
-  SELECT_REMINDER: '保存目標已選擇，請點擊保存設置',
-  LOAD_SUCCESS: count => `已成功載入 ${count} 個保存目標`,
-  FOUND_COUNT: count => `找到 ${count} 個保存目標，請從下拉選單中選擇`,
-  NO_RESULT: keyword => `未找到 "${keyword}" 相關的保存目標`,
-  NO_DATA_SOURCE_FOUND:
-    '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料庫',
-  LOAD_FAILED: error => `載入保存目標失敗: ${error}`,
-  DEFAULT_OPTION: '選擇保存目標...',
-  SEARCH_PLACEHOLDER: '搜尋保存目標...',
-  SEARCHING_PREFIX: '正在搜尋「',
-  SEARCHING_SUFFIX: '」...',
-  NO_MATCH_FOUND: '未找到匹配的資料來源',
-  TRY_DIFFERENT_KEYWORD: '嘗試使用不同的關鍵字搜尋',
-  LABEL_DATA_SOURCE: '保存目標',
-  LABEL_SEARCH_RESULT: '搜尋結果',
-  UNTITLED_PAGE: '未命名頁面',
-  UNTITLED_DATA_SOURCE: '未命名資料來源',
-  UNKNOWN_ERROR_LOG: '未知錯誤',
-};
+const DATA_SOURCE = DATA_SOURCE_MESSAGES;
 
 const OPTIONS = {
   DESTINATION: {
@@ -100,7 +81,17 @@ const OPTIONS = {
     REFRESH_TITLE: '重新整理',
     LOADING_INLINE: '載入中...',
     FALLBACK_OPTION: '選擇資料來源...',
+    DEFAULT_PROFILE_NAME: '預設',
     DEFAULT_NAME: suffix => `保存目標 ${suffix}`,
+    PROFILE_NAME_REQUIRED: '保存目標名稱不可為空白。',
+    PROFILE_NAME_ARIA_LABEL: '保存目標名稱',
+    ACTION_SAVE_NAME: '儲存',
+    ACTION_CANCEL_NAME: '取消',
+    ACTION_RENAME: '重新命名',
+    ACTION_APPLY: '套用',
+    ACTION_DELETE: '刪除',
+    LIMIT_ACCOUNT_SIGN_IN: '登入帳號後可建立第二個保存目標。',
+    LIMIT_PAID_PLAN: '更多保存目標會在付費方案開放。',
     MANUAL_ID_LABEL: '或貼上 ID',
     MANUAL_ID_PLACEHOLDER: '輸入 Page ID 或 Database ID',
     HELP_PREFIX: '找不到目標時，可在「或貼上 ID」欄位輸入 Page ID 或 Database ID；需要協助可參考',
@@ -148,6 +139,8 @@ const OPTIONS = {
     TITLE_TEMPLATE_PLACEHOLDER: '{title} - {date}',
     TITLE_TEMPLATE_HELP: '可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}',
     PREVIEW_BUTTON: '預覽效果',
+    PREVIEW_RESULT_LABEL: '預覽結果：',
+    PREVIEW_SAMPLE_TITLE: '範例網頁標題 - Notion Clipper',
     ADD_SOURCE_LABEL: '在內容末尾添加來源連結',
     ADD_TIMESTAMP_LABEL: '在內容開頭添加保存時間',
     APPEARANCE_TITLE: '外觀設定',

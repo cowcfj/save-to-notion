@@ -56,6 +56,30 @@ describe('LogSanitizer', () => {
       expect(ctx.url).toBe('https://notion.so/my-page-123'); // Path is preserved by default sanitizeUrl logic unless specific rules apply
     });
 
+    test('should redact token query values in nested external image URLs', () => {
+      const rawImageUrl =
+        'https://cdn.example.com/image.png?token=secret_abc&utm_source=newsletter&width=1200#preview';
+      const sanitized = LogSanitizer.sanitize([
+        {
+          message: 'Image block check',
+          context: {
+            image: {
+              external: {
+                url: rawImageUrl,
+              },
+            },
+          },
+        },
+      ]);
+
+      const safeUrl = sanitized[0].context.image.external.url;
+      expect(safeUrl).toContain('token=[REDACTED_TOKEN]');
+      expect(safeUrl).toContain('width=1200');
+      expect(safeUrl).not.toContain('secret_abc');
+      expect(safeUrl).not.toContain('utm_source=');
+      expect(safeUrl).not.toContain('#preview');
+    });
+
     test('should handle arrays in context', () => {
       const logs = [
         {

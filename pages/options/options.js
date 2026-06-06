@@ -350,7 +350,7 @@ async function initDestinationProfilesUI(ui) {
   addButton.setAttribute('aria-describedby', 'destination-profile-status');
 
   const showNameError = () => {
-    ui.showStatus('保存目標名稱不可為空白。', 'error');
+    ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_REQUIRED, 'error');
   };
 
   const createDestinationActionButton = ({
@@ -377,15 +377,19 @@ async function initDestinationProfilesUI(ui) {
       titleInput.type = 'text';
       titleInput.className = 'destination-profile-name-input';
       titleInput.dataset.role = DESTINATION_PROFILE_NAME_EDIT_ROLE;
-      titleInput.value = draftProfileName || profile.name || '預設';
+      titleInput.value =
+        draftProfileName || profile.name || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME;
       titleInput.maxLength = DESTINATION_PROFILE_NAME_MAX_LENGTH;
-      titleInput.setAttribute('aria-label', '保存目標名稱');
+      titleInput.setAttribute(
+        'aria-label',
+        UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_ARIA_LABEL
+      );
       titleEdit.append(titleInput);
       content.append(titleEdit);
     } else {
       const title = document.createElement('p');
       title.className = 'destination-profile-title';
-      title.textContent = profile.name || '預設';
+      title.textContent = profile.name || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME;
       content.append(title);
     }
     const meta = document.createElement('p');
@@ -403,12 +407,12 @@ async function initDestinationProfilesUI(ui) {
         createDestinationActionButton({
           action: DESTINATION_PROFILE_ACTIONS.SAVE_NAME,
           profileId: profile.id,
-          text: '儲存',
+          text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_SAVE_NAME,
         }),
         createDestinationActionButton({
           action: DESTINATION_PROFILE_ACTIONS.CANCEL_NAME,
           profileId: profile.id,
-          text: '取消',
+          text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_CANCEL_NAME,
         })
       );
       return actions;
@@ -418,12 +422,12 @@ async function initDestinationProfilesUI(ui) {
       createDestinationActionButton({
         action: DESTINATION_PROFILE_ACTIONS.RENAME,
         profileId: profile.id,
-        text: '重新命名',
+        text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_RENAME,
       }),
       createDestinationActionButton({
         action: DESTINATION_PROFILE_ACTIONS.EDIT,
         profileId: profile.id,
-        text: '套用',
+        text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_APPLY,
       })
     );
 
@@ -432,7 +436,7 @@ async function initDestinationProfilesUI(ui) {
         createDestinationActionButton({
           action: DESTINATION_PROFILE_ACTIONS.DELETE,
           profileId: profile.id,
-          text: '刪除',
+          text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_DELETE,
           className: 'btn-danger',
         })
       );
@@ -448,9 +452,9 @@ async function initDestinationProfilesUI(ui) {
     }
     let limitMessage = '';
     if (limitReached && entitlement.maxProfiles <= 1) {
-      limitMessage = '登入帳號後可建立第二個保存目標。';
+      limitMessage = UI_MESSAGES.OPTIONS.DESTINATION.LIMIT_ACCOUNT_SIGN_IN;
     } else if (limitReached) {
-      limitMessage = '更多保存目標會在付費方案開放。';
+      limitMessage = UI_MESSAGES.OPTIONS.DESTINATION.LIMIT_PAID_PLAN;
     }
     status.textContent = limitMessage;
     addButton.title = limitMessage;
@@ -502,7 +506,7 @@ async function initDestinationProfilesUI(ui) {
   const enterDestinationProfileNameEdit = async profileId => {
     const profile = await service.getProfile(profileId);
     editingProfileId = profile.id;
-    draftProfileName = profile.name || '預設';
+    draftProfileName = profile.name || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME;
     await renderDestinationProfiles();
     list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
   };
@@ -1017,7 +1021,7 @@ export function setupTemplatePreview() {
       const now = new Date();
 
       const variables = {
-        title: '範例網頁標題 - Notion Clipper',
+        title: UI_MESSAGES.OPTIONS.TEMPLATES.PREVIEW_SAMPLE_TITLE,
         date: now.toLocaleDateString('zh-TW'),
         time: now.toLocaleTimeString('zh-TW'),
         datetime: now.toLocaleString('zh-TW'),
@@ -1030,7 +1034,7 @@ export function setupTemplatePreview() {
       // 安全地構建 DOM 以防止 XSS
       previewDiv.textContent = '';
       const strong = document.createElement('strong');
-      strong.textContent = '預覽結果：';
+      strong.textContent = UI_MESSAGES.OPTIONS.TEMPLATES.PREVIEW_RESULT_LABEL;
       const br = document.createElement('br');
       const previewText = document.createTextNode(preview);
 

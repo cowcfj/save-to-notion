@@ -8,6 +8,9 @@ import { ConverterFactory } from '../../../scripts/content/converters/ConverterF
 import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
 import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { CONTENT_QUALITY } from '../../../scripts/config/shared/content.js';
+import { DATA_SOURCE_MESSAGES } from '../../../scripts/config/shared/dataSourceMessages.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
@@ -21,6 +24,8 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   error: jest.fn(),
   debug: jest.fn(),
   success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 }));
 
 function createDeferred() {
@@ -41,6 +46,11 @@ async function flushPromises() {
 }
 
 describe('Content Script Entry (index.js)', () => {
+  test('content default page title uses centralized zh-TW fallback copy', () => {
+    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
+    expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     delete globalThis.HighlighterV2;
@@ -601,6 +611,7 @@ describe('Content Script Entry (index.js)', () => {
         'Highlighter 尚未初始化，略過移除標註 DOM',
         expect.objectContaining({
           action: 'REMOVE_HIGHLIGHT_DOM',
+          result: 'uninitialized',
           highlightId: 'hl-undefined',
         })
       );
@@ -624,7 +635,11 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(Logger.error).toHaveBeenCalledWith(
         '移除標註 DOM 失敗',
-        expect.objectContaining({ action: 'REMOVE_HIGHLIGHT_DOM', error: expect.any(Error) })
+        expect.objectContaining({
+          action: 'REMOVE_HIGHLIGHT_DOM',
+          result: 'failed',
+          error: expect.any(Error),
+        })
       );
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
@@ -768,7 +783,7 @@ describe('Content Script Entry (index.js)', () => {
         expect.objectContaining({
           action: 'replayEvents',
           error: expect.objectContaining({ message: 'shortcut failed' }),
-          errorMessage: '重放快捷鍵事件失敗',
+          safeRuntimeError: '重放快捷鍵事件失敗',
         })
       );
     });
@@ -1096,6 +1111,8 @@ describe('Content Script Entry (index.js)', () => {
         '擷取發生錯誤，請稍後再試。'
       );
       expect(result).not.toHaveProperty('error');
+      expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
+      expect(JSON.stringify(result)).not.toContain('Unexpected crash');
       expect(result.extractionStatus).toBe('failed');
     });
 

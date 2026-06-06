@@ -9,6 +9,7 @@
 
 // 導入統一配置（從統一入口點導入，保持一致性）
 import { TEXT_PROCESSING } from '../../config/index.js';
+import { CONTENT_EXTRACTION_MESSAGES } from '../../config/contentSafe/contentExtractionMessages.js';
 import { NOTION_API } from '../../config/extension/notionApi.js';
 import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../config/notionCodeLanguages.js';
 
@@ -355,7 +356,7 @@ function textToParagraphs(text, options = {}) {
  * @param {string} message - 錯誤訊息
  * @returns {Array} 包含錯誤訊息的 blocks 數組
  */
-function createFallbackBlocks(message = 'Content extraction failed.') {
+function createFallbackBlocks(message = CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK) {
   return [createParagraph(message)];
 }
 

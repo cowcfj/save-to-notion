@@ -3,6 +3,7 @@
  */
 
 const { processContentResult } = require('../../../scripts/background/handlers/saveHandlers.js');
+const { CONTENT_QUALITY } = require('../../../scripts/config/shared/content.js');
 const {
   HIGHLIGHT_STYLE_OPTIONS,
 } = require('../../../scripts/background/utils/highlightStyleMerger.js');
@@ -11,7 +12,7 @@ describe('processContentResult', () => {
   it('should return default content for null input', () => {
     const result = processContentResult(null, []);
 
-    expect(result.title).toBe('Untitled');
+    expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
     expect(result.blocks).toEqual([]);
     expect(result.siteIcon).toBeNull();
   });
@@ -19,7 +20,7 @@ describe('processContentResult', () => {
   it('should return default content for undefined input', () => {
     const result = processContentResult(undefined, []);
 
-    expect(result.title).toBe('Untitled');
+    expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
     expect(result.blocks).toEqual([]);
   });
 

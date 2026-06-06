@@ -5,12 +5,7 @@
 // Mock Logger（保留 parseArgsToContext 的真實實作，因為它是純函數）
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    addLogToBuffer: jest.fn(),
-  },
+  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
   parseArgsToContext: args => {
     if (!Array.isArray(args) || args.length === 0) {
       return {};

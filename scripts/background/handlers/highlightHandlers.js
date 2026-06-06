@@ -323,8 +323,8 @@ async function ensureBundleInjectedAndReady(injectionService, tabId, action) {
   } catch (injectionError) {
     Logger.error('Bundle 注入失敗', {
       action,
-      error: injectionError.message,
-      stack: injectionError.stack,
+      result: 'failed',
+      error: injectionError,
     });
     return { ok: false, reason: 'inject_failed', error: injectionError };
   }
@@ -354,6 +354,8 @@ async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
   if (!cleanupMethod) {
     Logger.warn('Bundle 初始化超時且無可用 cleanup API，可能留下半初始化 bundle', {
       action,
+      result: 'skipped',
+      reason: 'cleanup_api_missing',
       tabId,
       state: 'half_initialized_bundle',
     });
@@ -365,10 +367,10 @@ async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
   } catch (cleanupError) {
     Logger.error('Bundle 初始化超時後清理失敗', {
       action,
+      result: 'failed',
       tabId,
       cleanupMethod,
-      error: cleanupError?.message,
-      stack: cleanupError?.stack,
+      error: cleanupError,
     });
   }
 }
@@ -384,7 +386,7 @@ function acceptContentScriptInjectionContext(sender, action, { logRestricted = f
     };
   }
   if (!sender.tab?.id) {
-    Logger.warn('缺少標籤頁上下文', { action });
+    Logger.warn('缺少標籤頁上下文', { action, result: 'failed', reason: 'no_tab' });
     return { ok: false, kind: 'no_tab' };
   }
   const { id: tabId, url: tabUrl } = sender.tab;
@@ -437,6 +439,8 @@ function extractContentScriptSyncTab(sender, action) {
   if (!activeTab?.id || !activeTab?.url) {
     Logger.warn('syncHighlights: 缺少標籤頁上下文', {
       action,
+      result: 'failed',
+      reason: 'no_tab',
       senderId: sender?.id,
     });
     return { ok: false, kind: 'no_tab' };
@@ -519,7 +523,7 @@ function respondWithPrepFailure(prep, sendResponse, action, tabId) {
     sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
     return;
   }
-  Logger.warn('Bundle 初始化超時', { action, tabId });
+  Logger.warn('Bundle 初始化超時', { action, result: 'failed', reason: 'timeout', tabId });
   sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT });
 }
 
@@ -541,18 +545,19 @@ async function dispatchFloatingRailActivation(
       payload
     );
     if (response?.success === true) {
-      Logger.success('成功啟動浮動側欄標註', { action });
+      Logger.success('成功啟動浮動側欄標註', { action, result: 'success' });
       sendResponse(onSuccess(response));
       return;
     }
     Logger.warn('啟動浮動側欄標註失敗', {
       action,
+      result: 'failed',
       responseSuccess: response?.success,
       responseError: response?.error,
     });
     sendResponse(onUnsuccessful(response));
   } catch (error) {
-    Logger.warn('啟動浮動側欄標註失敗', { action, error: error.message });
+    Logger.warn('啟動浮動側欄標註失敗', { action, result: 'failed', error });
     respondWithSanitizedError(sendResponse, error, 'activate_floating_rail_highlight');
   }
 }
@@ -591,7 +596,8 @@ async function handleShowFloatingRail(services, request, sender, sendResponse) {
   } catch (error) {
     Logger.warn('顯示 Floating Rail 失敗', {
       action: 'SHOW_FLOATING_RAIL',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error,
     });
     respondWithSanitizedError(sendResponse, error, 'show_floating_rail');
   }
@@ -608,7 +614,11 @@ async function handleUserActivateShortcut(services, request, sender, sendRespons
       return;
     }
 
-    Logger.start('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId: ctx.tabId });
+    Logger.start('觸發快捷鍵激活', {
+      action: 'USER_ACTIVATE_SHORTCUT',
+      result: 'started',
+      tabId: ctx.tabId,
+    });
 
     const prep = await ensureBundleInjectedAndReady(
       injectionService,
@@ -627,7 +637,8 @@ async function handleUserActivateShortcut(services, request, sender, sendRespons
   } catch (error) {
     Logger.error('執行快捷鍵激活時發生意外錯誤', {
       action: 'USER_ACTIVATE_SHORTCUT',
-      error: error.message,
+      result: 'failed',
+      error,
     });
     respondWithSanitizedError(sendResponse, error, 'user_activate_shortcut');
   }
@@ -669,7 +680,7 @@ async function handleStartHighlight(services, request, sender, sendResponse) {
       payload: { sessionOverride: true },
     });
   } catch (error) {
-    Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });
+    Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', result: 'failed', error });
     respondWithSanitizedError(sendResponse, error, 'start_highlight');
   }
 }
@@ -705,12 +716,13 @@ async function handleUpdateRemoteHighlights(services, request, sender, sendRespo
       result.highlightCount = highlights.length;
       Logger.success('成功更新標註', {
         action: 'updateHighlights',
+        result: 'success',
         count: highlights.length,
       });
     }
     sendResponse(result);
   } catch (error) {
-    Logger.error('更新標註時出錯', { action: 'updateHighlights', error: error.message });
+    Logger.error('更新標註時出錯', { action: 'updateHighlights', result: 'failed', error });
     const safeMessage = sanitizeApiError(error, 'update_highlights');
     sendResponse({
       success: false,
@@ -740,7 +752,11 @@ async function handleSyncHighlights(services, request, sender, sendResponse) {
 
     const result = await performHighlightUpdate(services, ctx.activeTab, highlights);
     if (result.success) {
-      Logger.success('成功同步標註', { action: 'syncHighlights', count: highlights.length });
+      Logger.success('成功同步標註', {
+        action: 'syncHighlights',
+        result: 'success',
+        count: highlights.length,
+      });
       result.highlightCount = highlights.length;
       result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
     } else {
@@ -750,14 +766,19 @@ async function handleSyncHighlights(services, request, sender, sendResponse) {
   } catch (error) {
     Logger.error('執行 syncHighlights 時出錯', {
       action: 'syncHighlights',
-      error: error.message,
+      result: 'failed',
+      error,
     });
     respondWithSanitizedError(sendResponse, error, 'sync_highlights');
   }
 }
 
 function handleSyncFailure(result, sender) {
-  Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
+  Logger.error('同步標註失敗', {
+    action: 'syncHighlights',
+    result: 'failed',
+    error: result.error,
+  });
   const toastKey = classifyErrorForToast(result.errorCode);
   if (toastKey) {
     sendToastToTab(sender.tab.id, toastKey, 'error');
@@ -793,13 +814,15 @@ async function handleUpdateHighlights(services, request, sender, sendResponse) {
 
     Logger.log('Phase 3: UPDATE_HIGHLIGHTS 成功', {
       action: 'UPDATE_HIGHLIGHTS',
+      result: 'success',
       count: highlights.length,
     });
     sendResponse({ success: true });
   } catch (error) {
     Logger.error('Phase 3: UPDATE_HIGHLIGHTS 失敗', {
       action: 'UPDATE_HIGHLIGHTS',
-      error: error.message,
+      result: 'failed',
+      error,
     });
     sendResponse({
       success: false,
@@ -818,6 +841,7 @@ async function clearTabVisualHighlights(injectionService, targetTabId) {
   } catch (error) {
     Logger.warn('Phase 3: CLEAR_HIGHLIGHTS 視覺清除失敗，但 storage 已更新', {
       action: 'CLEAR_HIGHLIGHTS',
+      result: 'failed',
       tabId: targetTabId,
       error,
     });
@@ -842,13 +866,15 @@ async function handleClearHighlights(services, request, sender, sendResponse) {
 
     Logger.log('Phase 3: CLEAR_HIGHLIGHTS 成功', {
       action: 'CLEAR_HIGHLIGHTS',
+      result: 'success',
       url: sanitizeUrlForLogging(ctx.url),
     });
     sendResponse({ success: true, clearedCount, visualCleared });
   } catch (error) {
     Logger.error('Phase 3: CLEAR_HIGHLIGHTS 失敗', {
       action: 'CLEAR_HIGHLIGHTS',
-      error: error.message,
+      result: 'failed',
+      error,
     });
     sendResponse({
       success: false,

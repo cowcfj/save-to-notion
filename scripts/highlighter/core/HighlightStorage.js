@@ -52,13 +52,25 @@ export class HighlightStorage {
     try {
       if (data.highlights.length === 0) {
         await HighlightStorageGateway.clearHighlights(currentUrl);
-        Logger.info('[HighlightStorage] 已刪除空白標註記錄');
+        Logger.info('[HighlightStorage] 已刪除空白標註記錄', {
+          action: 'saveHighlights',
+          result: 'cleared',
+          count: 0,
+        });
       } else {
         await HighlightStorageGateway.saveHighlights(currentUrl, data);
-        Logger.info(`[HighlightStorage] 已保存 ${data.highlights.length} 個標註`);
+        Logger.info('[HighlightStorage] 已保存標註', {
+          action: 'saveHighlights',
+          result: 'saved',
+          count: data.highlights.length,
+        });
       }
     } catch (error) {
-      Logger.error('[HighlightStorage] 保存標註失敗:', error);
+      Logger.error('[HighlightStorage] 保存標註失敗', {
+        action: 'saveHighlights',
+        result: 'failed',
+        error,
+      });
     }
   }
 
@@ -72,7 +84,11 @@ export class HighlightStorage {
   async restore() {
     // 確保必要的依賴已準備就緒
     if (!this.manager) {
-      Logger.warn('[HighlightStorage] HighlightManager 未提供，無法恢復標註');
+      Logger.warn('[HighlightStorage] HighlightManager 未提供，無法恢復標註', {
+        action: 'restoreHighlights',
+        result: 'skipped',
+        reason: 'missing_manager',
+      });
       return false;
     }
 
@@ -80,7 +96,11 @@ export class HighlightStorage {
       const highlights = await this._loadHighlightsWithFallback();
 
       if (highlights.length === 0) {
-        Logger.info('[HighlightStorage] 無標註可恢復');
+        Logger.info('[HighlightStorage] 無標註可恢復', {
+          action: 'restoreHighlights',
+          result: 'skipped',
+          reason: 'empty',
+        });
         return false;
       }
 
@@ -94,7 +114,12 @@ export class HighlightStorage {
           const result = await this.manager.restoreLocalHighlight(item);
           return result ? 1 : 0;
         } catch (error) {
-          Logger.warn(`Failed to restore highlight ${item.id}`, error);
+          Logger.warn('[HighlightStorage] 單筆標註恢復失敗', {
+            action: 'restoreHighlightItem',
+            result: 'failed',
+            id: item.id,
+            error,
+          });
           return 0;
         }
       });
@@ -102,12 +127,20 @@ export class HighlightStorage {
       const results = await Promise.all(restorePromises);
       const successCount = results.reduce((sum, count) => sum + count, 0);
 
-      Logger.info(`[HighlightStorage] Restored ${successCount} highlights`);
+      Logger.info('[HighlightStorage] 標註恢復完成', {
+        action: 'restoreHighlights',
+        result: 'restored',
+        count: successCount,
+      });
       this.isRestored = true;
       this.hideToolbarAfterRestore();
       return true;
     } catch (error) {
-      Logger.error('[HighlightStorage] 標註恢復過程中出錯:', error);
+      Logger.error('[HighlightStorage] 標註恢復過程中出錯', {
+        action: 'restoreHighlights',
+        result: 'failed',
+        error,
+      });
       return false;
     }
   }
@@ -160,10 +193,17 @@ export class HighlightStorage {
     setTimeout(() => {
       try {
         this.toolbar.hide();
-        Logger.info('🎨 [HighlightStorage] 工具欄已隱藏');
+        Logger.info('[HighlightStorage] 工具欄已隱藏', {
+          action: 'hideToolbarAfterRestore',
+          result: 'hidden',
+        });
       } catch (error) {
         // 隱藏失敗不應阻斷流程，只記錄錯誤
-        Logger.error('[HighlightStorage] 隱藏工具欄時出錯:', error);
+        Logger.error('[HighlightStorage] 隱藏工具欄時出錯', {
+          action: 'hideToolbarAfterRestore',
+          result: 'failed',
+          error,
+        });
       }
     }, this.HIDE_TOOLBAR_DELAY_MS);
   }
@@ -200,9 +240,11 @@ export class HighlightStorage {
    */
   async _loadHighlightsWithFallback() {
     const currentUrl = HighlightStorage._getNormalizedUrl();
-    Logger.debug(`[HighlightStorage] Loading highlights. Current URL: "${currentUrl}"`, {
+    Logger.debug('[HighlightStorage] Loading highlights', {
       action: '_loadHighlightsWithFallback',
-      stableUrlGlobal: globalThis.__NOTION_STABLE_URL__ || 'undefined',
+      result: 'started',
+      hasStableUrl: Boolean(globalThis.__NOTION_STABLE_URL__),
+      sanitizedUrl: sanitizeUrlForLogging(currentUrl),
     });
 
     const highlights = await HighlightStorageGateway.loadHighlights(currentUrl);
