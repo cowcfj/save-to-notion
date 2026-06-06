@@ -2,139 +2,122 @@
 
 ## [2.77.0](https://github.com/cowcfj/save-to-notion/compare/v2.76.1...v2.77.0) (2026-06-03)
 
-
 ### ✨ 新功能
 
-* introduce DOMPurify for HTML sanitization ([#634](https://github.com/cowcfj/save-to-notion/issues/634)) ([650a072](https://github.com/cowcfj/save-to-notion/commit/650a0729c8d3ef4b8453eb846060f3dc9959f44e))
-* 增加 DOMPurify 進行 HTML 和 SVG 安全消毒 ([c22d3dd](https://github.com/cowcfj/save-to-notion/commit/c22d3ddae598fbe76828fead7947f0dffa8a7cfa))
-
+- introduce DOMPurify for HTML sanitization ([#634](https://github.com/cowcfj/save-to-notion/issues/634)) ([650a072](https://github.com/cowcfj/save-to-notion/commit/650a0729c8d3ef4b8453eb846060f3dc9959f44e))
+- 增加 DOMPurify 進行 HTML 和 SVG 安全消毒 ([c22d3dd](https://github.com/cowcfj/save-to-notion/commit/c22d3ddae598fbe76828fead7947f0dffa8a7cfa))
 
 ### ♻️ 代碼重構
 
-* simplify LogSanitizer logic and improve readability ([#637](https://github.com/cowcfj/save-to-notion/issues/637)) ([a96c6be](https://github.com/cowcfj/save-to-notion/commit/a96c6be1f6d36b47d5a5ca05e3889ed67edb65cc))
-* simplify security utilities and improve complexity ([#636](https://github.com/cowcfj/save-to-notion/issues/636)) ([7040d1f](https://github.com/cowcfj/save-to-notion/commit/7040d1f322cb9b1ab5ed37f2611fb4941ff3d29e))
+- simplify LogSanitizer logic and improve readability ([#637](https://github.com/cowcfj/save-to-notion/issues/637)) ([a96c6be](https://github.com/cowcfj/save-to-notion/commit/a96c6be1f6d36b47d5a5ca05e3889ed67edb65cc))
+- simplify security utilities and improve complexity ([#636](https://github.com/cowcfj/save-to-notion/issues/636)) ([7040d1f](https://github.com/cowcfj/save-to-notion/commit/7040d1f322cb9b1ab5ed37f2611fb4941ff3d29e))
 
 ## [2.76.1](https://github.com/cowcfj/save-to-notion/compare/v2.76.0...v2.76.1) (2026-06-02)
 
-
 ### ♻️ 代碼重構
 
-* reduce complexity in ReadabilityAdapter ([#622](https://github.com/cowcfj/save-to-notion/issues/622)) ([a27001b](https://github.com/cowcfj/save-to-notion/commit/a27001b7b2e95725a99987964c4ccf9df34b5f64))
-* reduce content bridge complexity ([#629](https://github.com/cowcfj/save-to-notion/issues/629)) ([739a01c](https://github.com/cowcfj/save-to-notion/commit/739a01cd468acac360e761b343df72cbe05a24e1))
-* reduce DomConverter complexity ([#628](https://github.com/cowcfj/save-to-notion/issues/628)) ([e401a06](https://github.com/cowcfj/save-to-notion/commit/e401a06eaf7d2f5e0d76d7012ece32a4a68f11af))
-* reduce notion service complexity ([#624](https://github.com/cowcfj/save-to-notion/issues/624)) ([47ac223](https://github.com/cowcfj/save-to-notion/commit/47ac22348f99b3689d303d30e3eb4ec666a5d282))
-* reduce tab service complexity ([#625](https://github.com/cowcfj/save-to-notion/issues/625)) ([4ae9b4e](https://github.com/cowcfj/save-to-notion/commit/4ae9b4e41e08010a2143dbf7b8d54bb8b3a734fd))
-* simplify content index and floating rail activation ([#631](https://github.com/cowcfj/save-to-notion/issues/631)) ([7ff40cf](https://github.com/cowcfj/save-to-notion/commit/7ff40cfedf38bfccb6ebe1a753cbea9757055865))
-* simplify image collector logic ([#626](https://github.com/cowcfj/save-to-notion/issues/626)) ([1fe5d5a](https://github.com/cowcfj/save-to-notion/commit/1fe5d5a6c26404e555e313ab954061beb8f5d733))
-* simplify metadata extraction logic ([#630](https://github.com/cowcfj/save-to-notion/issues/630)) ([bb43bfb](https://github.com/cowcfj/save-to-notion/commit/bb43bfb7a1fc2867b105d3a6830d5490fd21e905))
-* simplify options management logic ([#627](https://github.com/cowcfj/save-to-notion/issues/627)) ([da19739](https://github.com/cowcfj/save-to-notion/commit/da19739718eddf37bf6c8a15b17295d8eccb57d2))
-* simplify page content service complexity ([#632](https://github.com/cowcfj/save-to-notion/issues/632)) ([8836912](https://github.com/cowcfj/save-to-notion/commit/88369126b84355f1bbafe3d1de249c8d28c42810))
-* simplify save handlers complexity ([#623](https://github.com/cowcfj/save-to-notion/issues/623)) ([77fe4ac](https://github.com/cowcfj/save-to-notion/commit/77fe4ac5dfb485cb2cbd5dbd65cda197d7d9fda2))
-
+- reduce complexity in ReadabilityAdapter ([#622](https://github.com/cowcfj/save-to-notion/issues/622)) ([a27001b](https://github.com/cowcfj/save-to-notion/commit/a27001b7b2e95725a99987964c4ccf9df34b5f64))
+- reduce content bridge complexity ([#629](https://github.com/cowcfj/save-to-notion/issues/629)) ([739a01c](https://github.com/cowcfj/save-to-notion/commit/739a01cd468acac360e761b343df72cbe05a24e1))
+- reduce DomConverter complexity ([#628](https://github.com/cowcfj/save-to-notion/issues/628)) ([e401a06](https://github.com/cowcfj/save-to-notion/commit/e401a06eaf7d2f5e0d76d7012ece32a4a68f11af))
+- reduce notion service complexity ([#624](https://github.com/cowcfj/save-to-notion/issues/624)) ([47ac223](https://github.com/cowcfj/save-to-notion/commit/47ac22348f99b3689d303d30e3eb4ec666a5d282))
+- reduce tab service complexity ([#625](https://github.com/cowcfj/save-to-notion/issues/625)) ([4ae9b4e](https://github.com/cowcfj/save-to-notion/commit/4ae9b4e41e08010a2143dbf7b8d54bb8b3a734fd))
+- simplify content index and floating rail activation ([#631](https://github.com/cowcfj/save-to-notion/issues/631)) ([7ff40cf](https://github.com/cowcfj/save-to-notion/commit/7ff40cfedf38bfccb6ebe1a753cbea9757055865))
+- simplify image collector logic ([#626](https://github.com/cowcfj/save-to-notion/issues/626)) ([1fe5d5a](https://github.com/cowcfj/save-to-notion/commit/1fe5d5a6c26404e555e313ab954061beb8f5d733))
+- simplify metadata extraction logic ([#630](https://github.com/cowcfj/save-to-notion/issues/630)) ([bb43bfb](https://github.com/cowcfj/save-to-notion/commit/bb43bfb7a1fc2867b105d3a6830d5490fd21e905))
+- simplify options management logic ([#627](https://github.com/cowcfj/save-to-notion/issues/627)) ([da19739](https://github.com/cowcfj/save-to-notion/commit/da19739718eddf37bf6c8a15b17295d8eccb57d2))
+- simplify page content service complexity ([#632](https://github.com/cowcfj/save-to-notion/issues/632)) ([8836912](https://github.com/cowcfj/save-to-notion/commit/88369126b84355f1bbafe3d1de249c8d28c42810))
+- simplify save handlers complexity ([#623](https://github.com/cowcfj/save-to-notion/issues/623)) ([77fe4ac](https://github.com/cowcfj/save-to-notion/commit/77fe4ac5dfb485cb2cbd5dbd65cda197d7d9fda2))
 
 ### 🧹 其他變更
 
-* **deps-dev:** bump the babel group with 2 updates ([#616](https://github.com/cowcfj/save-to-notion/issues/616)) ([9d42764](https://github.com/cowcfj/save-to-notion/commit/9d427643f190cd44f82cd4c0f8ce7d8326c6ad2d))
-* **deps-dev:** bump the linters group with 2 updates ([#615](https://github.com/cowcfj/save-to-notion/issues/615)) ([f237c56](https://github.com/cowcfj/save-to-notion/commit/f237c565204374feb623a25aec8e83ae065918ac))
-* **deps-dev:** bump the rollup group across 1 directory with 2 updates ([#617](https://github.com/cowcfj/save-to-notion/issues/617)) ([d484df0](https://github.com/cowcfj/save-to-notion/commit/d484df0252c9b53644ec7d04c8a43a5e81571f39))
+- **deps-dev:** bump the babel group with 2 updates ([#616](https://github.com/cowcfj/save-to-notion/issues/616)) ([9d42764](https://github.com/cowcfj/save-to-notion/commit/9d427643f190cd44f82cd4c0f8ce7d8326c6ad2d))
+- **deps-dev:** bump the linters group with 2 updates ([#615](https://github.com/cowcfj/save-to-notion/issues/615)) ([f237c56](https://github.com/cowcfj/save-to-notion/commit/f237c565204374feb623a25aec8e83ae065918ac))
+- **deps-dev:** bump the rollup group across 1 directory with 2 updates ([#617](https://github.com/cowcfj/save-to-notion/issues/617)) ([d484df0](https://github.com/cowcfj/save-to-notion/commit/d484df0252c9b53644ec7d04c8a43a5e81571f39))
 
 ## [2.76.0](https://github.com/cowcfj/save-to-notion/compare/v2.75.3...v2.76.0) (2026-05-30)
 
-
 ### ✨ 新功能
 
-* add performance testing framework and helpers ([#608](https://github.com/cowcfj/save-to-notion/issues/608)) ([fbcfa82](https://github.com/cowcfj/save-to-notion/commit/fbcfa824c59a4444848bf5f8404450b8c0ad3aec))
-* Enhance highlight tool initialization and error handling ([#613](https://github.com/cowcfj/save-to-notion/issues/613)) ([1ce5e69](https://github.com/cowcfj/save-to-notion/commit/1ce5e696677cfa7704030dbe0e4930a5034f6d8b))
-
+- add performance testing framework and helpers ([#608](https://github.com/cowcfj/save-to-notion/issues/608)) ([fbcfa82](https://github.com/cowcfj/save-to-notion/commit/fbcfa824c59a4444848bf5f8404450b8c0ad3aec))
+- Enhance highlight tool initialization and error handling ([#613](https://github.com/cowcfj/save-to-notion/issues/613)) ([1ce5e69](https://github.com/cowcfj/save-to-notion/commit/1ce5e696677cfa7704030dbe0e4930a5034f6d8b))
 
 ### ♻️ 代碼重構
 
-* Adjust TabService status update delay to improve IPC ordering ([#610](https://github.com/cowcfj/save-to-notion/issues/610)) ([3a30be4](https://github.com/cowcfj/save-to-notion/commit/3a30be4b9401247a8a9bd61eb547d576f6f2ec2d))
-* Consolidate image URL processing logic ([#614](https://github.com/cowcfj/save-to-notion/issues/614)) ([ecc5171](https://github.com/cowcfj/save-to-notion/commit/ecc5171cdf172286903f804a850ed8dc5a33dff2))
-* 重構 imageUtils.js 降低 CodeScene 圈複雜度 ([#612](https://github.com/cowcfj/save-to-notion/issues/612)) ([d551b71](https://github.com/cowcfj/save-to-notion/commit/d551b71c515066abfa59bf8b793aa541954e4ffe))
-
+- Adjust TabService status update delay to improve IPC ordering ([#610](https://github.com/cowcfj/save-to-notion/issues/610)) ([3a30be4](https://github.com/cowcfj/save-to-notion/commit/3a30be4b9401247a8a9bd61eb547d576f6f2ec2d))
+- Consolidate image URL processing logic ([#614](https://github.com/cowcfj/save-to-notion/issues/614)) ([ecc5171](https://github.com/cowcfj/save-to-notion/commit/ecc5171cdf172286903f804a850ed8dc5a33dff2))
+- 重構 imageUtils.js 降低 CodeScene 圈複雜度 ([#612](https://github.com/cowcfj/save-to-notion/issues/612)) ([d551b71](https://github.com/cowcfj/save-to-notion/commit/d551b71c515066abfa59bf8b793aa541954e4ffe))
 
 ### ⚡ 效能優化
 
-* **content:** zero-grace stability check for NextJs fallback (P1) ([1aad29e](https://github.com/cowcfj/save-to-notion/commit/1aad29e306e8bc1eef5a9ca050a15ea264ed6819))
-* optimize DOM stability check for NextJs fallback ([#611](https://github.com/cowcfj/save-to-notion/issues/611)) ([1aad29e](https://github.com/cowcfj/save-to-notion/commit/1aad29e306e8bc1eef5a9ca050a15ea264ed6819))
+- **content:** zero-grace stability check for NextJs fallback (P1) ([1aad29e](https://github.com/cowcfj/save-to-notion/commit/1aad29e306e8bc1eef5a9ca050a15ea264ed6819))
+- optimize DOM stability check for NextJs fallback ([#611](https://github.com/cowcfj/save-to-notion/issues/611)) ([1aad29e](https://github.com/cowcfj/save-to-notion/commit/1aad29e306e8bc1eef5a9ca050a15ea264ed6819))
 
 ## [2.75.3](https://github.com/cowcfj/save-to-notion/compare/v2.75.2...v2.75.3) (2026-05-29)
 
-
 ### 🐛 Bug 修復
 
-* Enhance highlight position logic to handle context disambiguation ([#605](https://github.com/cowcfj/save-to-notion/issues/605)) ([bae4306](https://github.com/cowcfj/save-to-notion/commit/bae43068192a04d084b2b95ea49d7b02d399c1cf))
-
+- Enhance highlight position logic to handle context disambiguation ([#605](https://github.com/cowcfj/save-to-notion/issues/605)) ([bae4306](https://github.com/cowcfj/save-to-notion/commit/bae43068192a04d084b2b95ea49d7b02d399c1cf))
 
 ### ♻️ 代碼重構
 
-* clean up E2E test scenarios ([#606](https://github.com/cowcfj/save-to-notion/issues/606)) ([5ef617c](https://github.com/cowcfj/save-to-notion/commit/5ef617c467ccbb1e897e962fa0a9d3a52fccf34b))
-* migrate rollup configurations to shared factories ([#607](https://github.com/cowcfj/save-to-notion/issues/607)) ([dea217f](https://github.com/cowcfj/save-to-notion/commit/dea217f4681d06f9a232b060b9c11ca57f8c5bba))
-* Remove named exports from imageUtils.js and add internal comments ([#603](https://github.com/cowcfj/save-to-notion/issues/603)) ([ef254cb](https://github.com/cowcfj/save-to-notion/commit/ef254cb232d31ca1a535ca856916d9251de22c7a))
-* 移除不必要的測試常數和環境輔助工具 ([260ac7b](https://github.com/cowcfj/save-to-notion/commit/260ac7bbba1f872e9fff6fd04a0325ccb07cdda3))
-* 降低 StorageService 圈複雜度並修復 E2E 測試路徑 ([#595](https://github.com/cowcfj/save-to-notion/issues/595)) ([959e361](https://github.com/cowcfj/save-to-notion/commit/959e36163407c190946d5ae7f1737f7235a351fb))
-
+- clean up E2E test scenarios ([#606](https://github.com/cowcfj/save-to-notion/issues/606)) ([5ef617c](https://github.com/cowcfj/save-to-notion/commit/5ef617c467ccbb1e897e962fa0a9d3a52fccf34b))
+- migrate rollup configurations to shared factories ([#607](https://github.com/cowcfj/save-to-notion/issues/607)) ([dea217f](https://github.com/cowcfj/save-to-notion/commit/dea217f4681d06f9a232b060b9c11ca57f8c5bba))
+- Remove named exports from imageUtils.js and add internal comments ([#603](https://github.com/cowcfj/save-to-notion/issues/603)) ([ef254cb](https://github.com/cowcfj/save-to-notion/commit/ef254cb232d31ca1a535ca856916d9251de22c7a))
+- 移除不必要的測試常數和環境輔助工具 ([260ac7b](https://github.com/cowcfj/save-to-notion/commit/260ac7bbba1f872e9fff6fd04a0325ccb07cdda3))
+- 降低 StorageService 圈複雜度並修復 E2E 測試路徑 ([#595](https://github.com/cowcfj/save-to-notion/issues/595)) ([959e361](https://github.com/cowcfj/save-to-notion/commit/959e36163407c190946d5ae7f1737f7235a351fb))
 
 ### 🧹 其他變更
 
-* declare eslint as direct devDependency ([#602](https://github.com/cowcfj/save-to-notion/issues/602)) ([58c8833](https://github.com/cowcfj/save-to-notion/commit/58c88331f557c539f6a805ed7e665ad15f9f3129))
-* **knip:** introduce knip static analysis tool and clean unused exports ([#598](https://github.com/cowcfj/save-to-notion/issues/598)) ([ac30b34](https://github.com/cowcfj/save-to-notion/commit/ac30b3451fa99b6deb2ccb99c42a7e384aa8ede8))
-* update devDependencies and remove unused default exports ([#597](https://github.com/cowcfj/save-to-notion/issues/597)) ([c142418](https://github.com/cowcfj/save-to-notion/commit/c14241802b5fb32d0349adb5fb6fa2e328b3f246))
+- declare eslint as direct devDependency ([#602](https://github.com/cowcfj/save-to-notion/issues/602)) ([58c8833](https://github.com/cowcfj/save-to-notion/commit/58c88331f557c539f6a805ed7e665ad15f9f3129))
+- **knip:** introduce knip static analysis tool and clean unused exports ([#598](https://github.com/cowcfj/save-to-notion/issues/598)) ([ac30b34](https://github.com/cowcfj/save-to-notion/commit/ac30b3451fa99b6deb2ccb99c42a7e384aa8ede8))
+- update devDependencies and remove unused default exports ([#597](https://github.com/cowcfj/save-to-notion/issues/597)) ([c142418](https://github.com/cowcfj/save-to-notion/commit/c14241802b5fb32d0349adb5fb6fa2e328b3f246))
 
 ## [2.75.2](https://github.com/cowcfj/save-to-notion/compare/v2.75.1...v2.75.2) (2026-05-27)
 
-
 ### 🐛 Bug 修復
 
-* 修正可搜索資料來源選擇器的顯示邏輯 ([#593](https://github.com/cowcfj/save-to-notion/issues/593)) ([20c7b5f](https://github.com/cowcfj/save-to-notion/commit/20c7b5f19651c1d1892333a07adaebab4111e8b6))
+- 修正可搜索資料來源選擇器的顯示邏輯 ([#593](https://github.com/cowcfj/save-to-notion/issues/593)) ([20c7b5f](https://github.com/cowcfj/save-to-notion/commit/20c7b5f19651c1d1892333a07adaebab4111e8b6))
 
 ## [2.75.1](https://github.com/cowcfj/save-to-notion/compare/v2.75.0...v2.75.1) (2026-05-26)
 
-
 ### ♻️ 代碼重構
 
-* abstract BBC and StoryAtoms conversion logic into modules ([#590](https://github.com/cowcfj/save-to-notion/issues/590)) ([6c915f4](https://github.com/cowcfj/save-to-notion/commit/6c915f40f61ad674139965d71177ad0db690da46))
-* Improve readability and maintainability of NextJsExtractor ([#587](https://github.com/cowcfj/save-to-notion/issues/587)) ([3c49bc8](https://github.com/cowcfj/save-to-notion/commit/3c49bc84863b8335ac60bd4d031e53573e424aca))
-* reduce complexity in FloatingRail._handleSaveSync ([#581](https://github.com/cowcfj/save-to-notion/issues/581)) ([193e99c](https://github.com/cowcfj/save-to-notion/commit/193e99c6675517280a85a5daa48a42765c1cc011))
-* Simplify NextJsExtractor logic and improve maintainability ([#592](https://github.com/cowcfj/save-to-notion/issues/592)) ([80a87f4](https://github.com/cowcfj/save-to-notion/commit/80a87f42068caa52741140fa3eb6f09a66b74852))
-
+- abstract BBC and StoryAtoms conversion logic into modules ([#590](https://github.com/cowcfj/save-to-notion/issues/590)) ([6c915f4](https://github.com/cowcfj/save-to-notion/commit/6c915f40f61ad674139965d71177ad0db690da46))
+- Improve readability and maintainability of NextJsExtractor ([#587](https://github.com/cowcfj/save-to-notion/issues/587)) ([3c49bc8](https://github.com/cowcfj/save-to-notion/commit/3c49bc84863b8335ac60bd4d031e53573e424aca))
+- reduce complexity in FloatingRail.\_handleSaveSync ([#581](https://github.com/cowcfj/save-to-notion/issues/581)) ([193e99c](https://github.com/cowcfj/save-to-notion/commit/193e99c6675517280a85a5daa48a42765c1cc011))
+- Simplify NextJsExtractor logic and improve maintainability ([#592](https://github.com/cowcfj/save-to-notion/issues/592)) ([80a87f4](https://github.com/cowcfj/save-to-notion/commit/80a87f42068caa52741140fa3eb6f09a66b74852))
 
 ### 🧹 其他變更
 
-* reduce Complex Conditional weight for NextJsExtractor.js ([#589](https://github.com/cowcfj/save-to-notion/issues/589)) ([df95ea9](https://github.com/cowcfj/save-to-notion/commit/df95ea92eeb973052c5f1f413751804dd48052f8))
-* 更新代碼健康規則以包含整體代碼複雜度權重 ([b24f392](https://github.com/cowcfj/save-to-notion/commit/b24f39279a9627dd7e65a65193299416645cb101))
+- reduce Complex Conditional weight for NextJsExtractor.js ([#589](https://github.com/cowcfj/save-to-notion/issues/589)) ([df95ea9](https://github.com/cowcfj/save-to-notion/commit/df95ea92eeb973052c5f1f413751804dd48052f8))
+- 更新代碼健康規則以包含整體代碼複雜度權重 ([b24f392](https://github.com/cowcfj/save-to-notion/commit/b24f39279a9627dd7e65a65193299416645cb101))
 
 ## [2.75.0](https://github.com/cowcfj/save-to-notion/compare/v2.74.0...v2.75.0) (2026-05-23)
 
-
 ### ✨ 新功能
 
-* add pMap utility and refactor migration handler ([#573](https://github.com/cowcfj/save-to-notion/issues/573)) ([e828a63](https://github.com/cowcfj/save-to-notion/commit/e828a63d417857cd78762f329fcf97e86f3cf185))
-* Enhance security validation and error handling for background processes ([#562](https://github.com/cowcfj/save-to-notion/issues/562)) ([9ead40c](https://github.com/cowcfj/save-to-notion/commit/9ead40cc414ba658e25a2bd5a0393a657f054b04))
-* Improve batch deletion logic to handle exceptions ([#577](https://github.com/cowcfj/save-to-notion/issues/577)) ([7451295](https://github.com/cowcfj/save-to-notion/commit/74512956ddb15eca6f3a53990883050a368f17d3))
-* Refactor batch delete logic and improve test coverage ([#574](https://github.com/cowcfj/save-to-notion/issues/574)) ([2379a0b](https://github.com/cowcfj/save-to-notion/commit/2379a0bf78b0e11450a80ffe61b8b4307a92637c))
-* Update batch delete response structure for partial success ([#576](https://github.com/cowcfj/save-to-notion/issues/576)) ([d4e38f8](https://github.com/cowcfj/save-to-notion/commit/d4e38f8ab6e85abe7a7778e1c216c34852384c40))
-* 更新失敗動畫的變換邏輯 ([218a576](https://github.com/cowcfj/save-to-notion/commit/218a5764361f1c24cd8db303f611f56df1757ba6))
-* 為目的地幫助連結添加可存取名稱和 i18n 綁定 ([4d55c92](https://github.com/cowcfj/save-to-notion/commit/4d55c9267f45d9382c0853e1b045fd0041a58e39))
-
+- add pMap utility and refactor migration handler ([#573](https://github.com/cowcfj/save-to-notion/issues/573)) ([e828a63](https://github.com/cowcfj/save-to-notion/commit/e828a63d417857cd78762f329fcf97e86f3cf185))
+- Enhance security validation and error handling for background processes ([#562](https://github.com/cowcfj/save-to-notion/issues/562)) ([9ead40c](https://github.com/cowcfj/save-to-notion/commit/9ead40cc414ba658e25a2bd5a0393a657f054b04))
+- Improve batch deletion logic to handle exceptions ([#577](https://github.com/cowcfj/save-to-notion/issues/577)) ([7451295](https://github.com/cowcfj/save-to-notion/commit/74512956ddb15eca6f3a53990883050a368f17d3))
+- Refactor batch delete logic and improve test coverage ([#574](https://github.com/cowcfj/save-to-notion/issues/574)) ([2379a0b](https://github.com/cowcfj/save-to-notion/commit/2379a0bf78b0e11450a80ffe61b8b4307a92637c))
+- Update batch delete response structure for partial success ([#576](https://github.com/cowcfj/save-to-notion/issues/576)) ([d4e38f8](https://github.com/cowcfj/save-to-notion/commit/d4e38f8ab6e85abe7a7778e1c216c34852384c40))
+- 更新失敗動畫的變換邏輯 ([218a576](https://github.com/cowcfj/save-to-notion/commit/218a5764361f1c24cd8db303f611f56df1757ba6))
+- 為目的地幫助連結添加可存取名稱和 i18n 綁定 ([4d55c92](https://github.com/cowcfj/save-to-notion/commit/4d55c9267f45d9382c0853e1b045fd0041a58e39))
 
 ### 🐛 Bug 修復
 
-* 🔒 sanitize MarkdownExtractor cleanDOM to prevent XSS via innerHTML ([#566](https://github.com/cowcfj/save-to-notion/issues/566)) ([3ba4a92](https://github.com/cowcfj/save-to-notion/commit/3ba4a92de2b77141f05b71b8e697280093b5954a))
-* 修正 flush 函數中的邏輯判斷 ([567574c](https://github.com/cowcfj/save-to-notion/commit/567574cbd12436ec4252e39fdfa03cdbcb68ab1e))
-
+- 🔒 sanitize MarkdownExtractor cleanDOM to prevent XSS via innerHTML ([#566](https://github.com/cowcfj/save-to-notion/issues/566)) ([3ba4a92](https://github.com/cowcfj/save-to-notion/commit/3ba4a92de2b77141f05b71b8e697280093b5954a))
+- 修正 flush 函數中的邏輯判斷 ([567574c](https://github.com/cowcfj/save-to-notion/commit/567574cbd12436ec4252e39fdfa03cdbcb68ab1e))
 
 ### ♻️ 代碼重構
 
-* 🧹 Replace console.error with Logger.error in saveHandlers ([#569](https://github.com/cowcfj/save-to-notion/issues/569)) ([0324381](https://github.com/cowcfj/save-to-notion/commit/0324381802a88e16519564b68ab767b2edc84f24))
-* **performance:** 🧹 extract validity logic for DOM results ([#568](https://github.com/cowcfj/save-to-notion/issues/568)) ([2838580](https://github.com/cowcfj/save-to-notion/commit/2838580479421a6292d748148fb5d2021b5677bf))
-* **performance:** abstract truthy logic for valid DOM results ([2838580](https://github.com/cowcfj/save-to-notion/commit/2838580479421a6292d748148fb5d2021b5677bf))
-
+- 🧹 Replace console.error with Logger.error in saveHandlers ([#569](https://github.com/cowcfj/save-to-notion/issues/569)) ([0324381](https://github.com/cowcfj/save-to-notion/commit/0324381802a88e16519564b68ab767b2edc84f24))
+- **performance:** 🧹 extract validity logic for DOM results ([#568](https://github.com/cowcfj/save-to-notion/issues/568)) ([2838580](https://github.com/cowcfj/save-to-notion/commit/2838580479421a6292d748148fb5d2021b5677bf))
+- **performance:** abstract truthy logic for valid DOM results ([2838580](https://github.com/cowcfj/save-to-notion/commit/2838580479421a6292d748148fb5d2021b5677bf))
 
 ### ⚡ 效能優化
 
-* ⚡ Bolt: 平行化標註數據批量遷移以提升效能 ([#565](https://github.com/cowcfj/save-to-notion/issues/565)) ([826ea74](https://github.com/cowcfj/save-to-notion/commit/826ea74a85d7dc0de5a75a7454fb40f8cd3fb6af))
+- ⚡ Bolt: 平行化標註數據批量遷移以提升效能 ([#565](https://github.com/cowcfj/save-to-notion/issues/565)) ([826ea74](https://github.com/cowcfj/save-to-notion/commit/826ea74a85d7dc0de5a75a7454fb40f8cd3fb6af))
 
 ## [2.74.0](https://github.com/cowcfj/save-to-notion/compare/v2.73.0...v2.74.0) (2026-05-20)
 

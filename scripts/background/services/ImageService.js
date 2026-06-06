@@ -8,7 +8,7 @@
  */
 
 // 導入統一配置
-import { IMAGE_VALIDATION_CONFIG } from '../../config/index.js';
+import { IMAGE_VALIDATION_CONFIG } from '../../config/shared/content.js';
 import { IMAGE_EXTENSIONS, IMAGE_PATH_PATTERNS } from '../../utils/imageUtils.js';
 
 // 從配置獲取默認值

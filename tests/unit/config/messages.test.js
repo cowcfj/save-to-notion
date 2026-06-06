@@ -304,4 +304,74 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(ErrorHandler.formatUserMessage(null)).toBe(ERROR_MESSAGES.DEFAULT);
     });
   });
+
+  describe('Leaf 模組與 UI_MESSAGES facade 相容性', () => {
+    const { BACKGROUND_MESSAGES } = require('../../../scripts/config/shared/backgroundMessages.js');
+    const {
+      HIGHLIGHTER_MESSAGES,
+    } = require('../../../scripts/config/contentSafe/highlighterMessages.js');
+    const {
+      DATA_SOURCE_MESSAGES,
+    } = require('../../../scripts/config/shared/dataSourceMessages.js');
+
+    test('各個 Leaf 模組應該被凍結', () => {
+      expect(Object.isFrozen(BACKGROUND_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(HIGHLIGHTER_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(DATA_SOURCE_MESSAGES)).toBe(true);
+    });
+
+    test('UI_MESSAGES 應該被凍結', () => {
+      expect(Object.isFrozen(UI_MESSAGES)).toBe(true);
+    });
+
+    test('DATA_SOURCE 應該指向同一個 DATA_SOURCE_MESSAGES 物件', () => {
+      expect(UI_MESSAGES.DATA_SOURCE).toBe(DATA_SOURCE_MESSAGES);
+    });
+
+    test('FLOATING_RAIL 欄位應該與 HIGHLIGHTER_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.FLOATING_RAIL).toEqual(HIGHLIGHTER_MESSAGES.FLOATING_RAIL);
+    });
+
+    test('TOAST 欄位應該與 HIGHLIGHTER_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.TOAST).toEqual(HIGHLIGHTER_MESSAGES.TOAST);
+    });
+
+    test('BACKGROUND POPUP 欄位應該完全一致', () => {
+      expect(UI_MESSAGES.POPUP.DELETION_PENDING).toBe(BACKGROUND_MESSAGES.POPUP.DELETION_PENDING);
+      expect(UI_MESSAGES.POPUP.DELETED_PAGE).toBe(BACKGROUND_MESSAGES.POPUP.DELETED_PAGE);
+    });
+
+    test('HIGHLIGHTS 欄位應該與 BACKGROUND_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.HIGHLIGHTS).toBe(BACKGROUND_MESSAGES.HIGHLIGHTS);
+    });
+
+    test('BACKGROUND STORAGE 欄位應該完全一致', () => {
+      expect(UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(5)).toBe(
+        BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(5)
+      );
+      expect(UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(5, 2)).toBe(
+        BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(5, 2)
+      );
+    });
+  });
+
+  describe('Inline 解耦字串不變量 (Invariant) 保護', () => {
+    test('UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME 應為 預設', () => {
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME).toBe('預設');
+    });
+
+    test('UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED 應為 已達目的地數量上限。', () => {
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED).toBe('已達目的地數量上限。');
+    });
+
+    test('UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR 應為 臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。', () => {
+      expect(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR).toBe(
+        '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。'
+      );
+    });
+
+    test('UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED 應為 無法開啟登入頁面，請稍後再試', () => {
+      expect(UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED).toBe('無法開啟登入頁面，請稍後再試');
+    });
+  });
 });

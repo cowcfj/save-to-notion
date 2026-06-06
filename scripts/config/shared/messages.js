@@ -3,6 +3,8 @@
  */
 
 import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../contentSafe/highlighterMessages.js';
+import { BACKGROUND_MESSAGES } from './backgroundMessages.js';
 
 function deepFreeze(target) {
   if (!target || (typeof target !== 'object' && typeof target !== 'function')) {
@@ -231,9 +233,8 @@ const STORAGE = {
 
   MIGRATION_DELETE_PARTIAL_COMPLETE: '部分刪除完成',
   MIGRATION_DELETE_FAILED: '刪除失敗',
-  MIGRATION_BATCH_DELETE_SUCCESS: success => `成功刪除 ${success} 個頁面的標註數據`,
-  MIGRATION_BATCH_DELETE_PARTIAL: (success, failed) =>
-    `成功刪除 ${success} 個頁面，${failed} 個失敗`,
+  MIGRATION_BATCH_DELETE_SUCCESS: BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS,
+  MIGRATION_BATCH_DELETE_PARTIAL: BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL,
   MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
     `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
 
@@ -269,8 +270,8 @@ const POPUP = {
   HIGHLIGHT_FAILED_PREFIX: '啟動標註失敗：',
   PAGE_READY: '頁面已儲存，可開始標註。',
   START_HIGHLIGHT: '開始標註',
-  DELETED_PAGE: '原頁面已刪除，請重新儲存。',
-  DELETION_PENDING: '正在確認原頁面是否已刪除，請稍後再試。',
+  DELETED_PAGE: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
+  DELETION_PENDING: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
   SAVE_SUCCESS: '儲存成功！',
   RECREATED: '重建成功 (原頁面已刪除)',
   HIGHLIGHTS_UPDATED: '標註已更新',
@@ -297,10 +298,7 @@ const SIDEPANEL = {
   HIGHLIGHT_COUNT: count => `${count} 個標註`,
 };
 
-const HIGHLIGHTS = {
-  NO_NEW_TO_SYNC: '沒有新標註需要同步',
-  SYNC_SUCCESS_COUNT: count => `成功同步 ${count} 個標註`,
-};
+const HIGHLIGHTS = BACKGROUND_MESSAGES.HIGHLIGHTS;
 
 const TOOLBAR = {
   SYNCING: '正在同步...',
@@ -308,38 +306,12 @@ const TOOLBAR = {
   SYNC_FAILED: '同步失敗',
   SYNC_FAILED_PREFIX: '同步失敗：',
   PAGE_NOT_SAVED_HINT: '請先保存頁面到 Notion',
-  COLOR_PICKER_NAMES: {
-    yellow: '黃',
-    green: '綠',
-    blue: '藍',
-    red: '紅',
-  },
-  COLOR_PICKER_TITLE: colorName => `${colorName}色標註`,
-  COLOR_PICKER_ARIA_LABEL: colorName => `選擇${colorName}色標註`,
+  ...HIGHLIGHTER_MESSAGES.TOOLBAR,
 };
 
-const FLOATING_RAIL = {
-  CONTAINER_LABEL: 'Save to Notion 工具列',
-  TRIGGER_LABEL: '展開工具列，長按可拖曳',
-  SAVE_LABEL: '保存網頁',
-  SYNC_LABEL: '同步標註',
-  HIGHLIGHT_LABEL: '開始標註',
-  STOP_HIGHLIGHT_LABEL: '停止標註',
-  COLOR_PALETTE_LABEL: '標註顏色',
-  MANAGE_LABEL: '管理標註',
-  SAVE_FAILED: '保存失敗',
-  CLOSE_LABEL: '關閉本頁工具列',
-};
+const FLOATING_RAIL = HIGHLIGHTER_MESSAGES.FLOATING_RAIL;
 
-const TOAST = {
-  HIGHLIGHT_DELETED: '標註已刪除',
-  HIGHLIGHT_DUPLICATE: '此文字已標註',
-  HIGHLIGHT_FAILED: '標註失敗，請重試',
-  SYNC_FAILED_AUTH: '同步失敗：Notion 授權已失效，請重新連接',
-  SYNC_FAILED_RATE_LIMIT: '同步失敗：請求過於頻繁，請稍後再試',
-  SYNC_FAILED_NETWORK: '同步失敗：網路連線異常，請檢查網路',
-  SYNC_FAILED_PAGE: '同步失敗：找不到目標頁面，請確認頁面存在',
-};
+const TOAST = HIGHLIGHTER_MESSAGES.TOAST;
 
 const CLOUD_SYNC_DOWNLOAD_CONFIRM_DESCRIPTION =
   '從 Google Drive 還原資料會把雲端版本合併到本機，雲端有的項目會新增或覆蓋，本機獨有項目會保留。';
@@ -457,180 +429,11 @@ export const UI_MESSAGES = deepFreeze({
   CLOUD_SYNC,
 });
 
-const TECHNICAL = {
-  NO_ACTIVE_TAB: 'NO_ACTIVE_TAB',
-  MISSING_API_KEY: 'API_KEY_NOT_CONFIGURED',
-  MISSING_DATA_SOURCE: 'MISSING_DATA_SOURCE',
-  MISSING_PAGE_ID: 'MISSING_PAGE_ID',
-  PAGE_NOT_SAVED: 'PAGE_NOT_SAVED',
-  API_KEY_NOT_CONFIGURED: 'API_KEY_NOT_CONFIGURED',
-  GET_VERSION_FAILED: '無法獲取應用程式版本號',
-  NAV_MISSING_ITEMS: '設定頁面：找不到導航項目或設定區塊',
-  NAV_MISSING_ATTR: '設定頁面：導航項目缺少 data-section 屬性',
-  NAV_TARGET_NOT_FOUND: '設定頁面：找不到目標區塊',
-  TOOLBAR_SHOW_FAILED: 'Failed to show toolbar after save',
-  BACKGROUND_NO_RESPONSE: '未收到背景頁回應',
-  LOG_EXPORT_FAILED: '日誌導出失敗',
-  SVG_PARSE_ERROR: 'SVG parse error',
-  CHROME_STORAGE_UNAVAILABLE: 'Chrome storage not available',
-  INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
-  LOG_INVALID_URL: '無效的 URL 參數',
-  CLEAR_NOTION_STATE_FAILED: '清除本地 Notion 狀態失敗',
-};
-
-export const LOG_LEVELS = deepFreeze({
-  DEBUG: 0,
-  LOG: 1,
-  INFO: 2,
-  WARN: 3,
-  ERROR: 4,
-});
-
-export const ERROR_TYPES = deepFreeze({
-  EXTRACTION_FAILED: 'extraction_failed',
-  INVALID_URL: 'invalid_url',
-  NETWORK_ERROR: 'network_error',
-  PARSING_ERROR: 'parsing_error',
-  PERFORMANCE_WARNING: 'performance_warning',
-  DOM_ERROR: 'dom_error',
-  VALIDATION_ERROR: 'validation_error',
-  TIMEOUT_ERROR: 'timeout_error',
-  STORAGE: 'storage',
-  NOTION_API: 'notion_api',
-  INJECTION: 'injection',
-  PERMISSION: 'permission',
-  INTERNAL: 'internal',
-});
-
-const USER_MESSAGES = {
-  PAGE_NOT_SAVED_TO_NOTION: '頁面尚未保存到 Notion，請先點擊「保存頁面」',
-  NO_NOTION_PAGE_URL: '無法獲取 Notion 頁面 URL',
-
-  HIGHLIGHT_NOT_SUPPORTED: '此頁面不支援標註功能（系統頁面或受限網址）',
-  BUNDLE_INIT_TIMEOUT: 'Bundle 初始化超時，請重試或刷新頁面',
-
-  SAVE_NOT_SUPPORTED_RESTRICTED_PAGE: '此頁面無法保存（受限頁面不支援擴展運作）',
-
-  INVALID_URL_PROTOCOL: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL',
-  INVALID_URLS_IN_BATCH: '拒絕訪問：包含無效或不支持的 URL',
-  NOTION_DOMAIN_ONLY: '安全性錯誤：僅允許打開 Notion 官方網域的頁面',
-
-  MISSING_URL: '缺少 URL 參數',
-
-  NO_HIGHLIGHT_DATA: '找不到該頁面的標註數據',
-
-  MIGRATION_EXECUTOR_NOT_LOADED: 'MigrationExecutor 未載入',
-  HIGHLIGHTER_MANAGER_NOT_INITIALIZED: 'HighlighterV2.manager 未初始化',
-
-  CHECK_PAGE_EXISTENCE_FAILED: '檢查頁面狀態時發生網路錯誤或服務不可用，請稍後再試。',
-  CONTENT_EXTRACTION_FAILED: '內容提取失敗，請查看瀏覽器控制台或稍後再試。',
-  CONTENT_PARSE_FAILED: '無法解析頁面內容，請查看瀏覽器控制台或稍後再試。',
-  CONTENT_TITLE_MISSING: '無法獲取頁面標題，請查看瀏覽器控制台。',
-  CONTENT_BLOCKS_MISSING: '無法獲取頁面內容區塊，請查看瀏覽器控制台。',
-
-  API_VALIDATION_FAILED: '資料驗證失敗，請確認設定正確後再試',
-
-  INVALID_API_KEY_FORMAT: 'API Key 格式無效，請確認是否完整複製',
-  DATABASE_ACCESS_DENIED: '無法存取此資料庫，請確認已授權擴展存取權限',
-  INTEGRATION_DISCONNECTED: '與 Notion 的連接已斷開，請重新授權',
-
-  SETUP_KEY_NOT_CONFIGURED: '請先在設定頁面配置 Notion API Key',
-  SETUP_MISSING_DATA_SOURCE: '請先在設定頁面選擇 Notion 資料庫',
-};
-
-export const SECURITY_ERROR_MESSAGES = deepFreeze({
-  TAB_CONTEXT_REQUIRED: '拒絕訪問：此操作必須在標籤頁上下文中調用',
-  INTERNAL_ONLY: '拒絕訪問：此操作僅限擴充功能內部調用',
-  CONTENT_SCRIPT_ONLY: '拒絕訪問：僅限本擴充功能的 content script 調用',
-});
-
-const NOTION_SERVICE_UNAVAILABLE_MESSAGE = 'Notion 服務暫時不可用，請稍後再試';
-
-const PATTERNS = {
-  NO_TAB_WITH_ID: '頁面狀態已變更，請重新整理頁面後再試',
-  NO_ACTIVE_TAB: '無法獲取當前分頁，請確保擴展有權限存取此頁面',
-  TAB_RESTRICTED_PAGE: '無法存取此頁面內容，可能是受保護的系統頁面',
-  CONTENT_SCRIPT_NOT_READY: '頁面載入中，請稍候再試',
-  TAB_COMMUNICATION_FAILED: '頁面通訊失敗，請重新整理頁面',
-  OAUTH_IDENTITY_UNAVAILABLE: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
-
-  API_KEY_NOT_CONFIGURED: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
-  INVALID_API_KEY_FORMAT: USER_MESSAGES.INVALID_API_KEY_FORMAT,
-  MISSING_DATA_SOURCE: USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
-  DATABASE_ACCESS_DENIED: USER_MESSAGES.DATABASE_ACCESS_DENIED,
-  INTEGRATION_DISCONNECTED: USER_MESSAGES.INTEGRATION_DISCONNECTED,
-  INTEGRATION_FORBIDDEN: USER_MESSAGES.DATABASE_ACCESS_DENIED,
-  MISSING_PAGE_ID: '無法識別頁面，請重回 Notion 頁面再試',
-  PAGE_NOT_SAVED: '頁面尚未保存，請先保存頁面',
-  INVALID_REQUEST: USER_MESSAGES.CONTENT_PARSE_FAILED,
-  VALIDATION_ERROR: USER_MESSAGES.API_VALIDATION_FAILED,
-  IMAGE_VALIDATION_ERROR: '圖片驗證失敗 (Notion API 拒絕)。如有需要，請導出偵錯日誌以查看詳情。',
-  HIGHLIGHT_SECTION_DELETE_INCOMPLETE: '標註同步未完成，請稍後再試',
-  MIGRATION_BATCH_DELETE_PARTIAL_FAILURE: '部分標註數據刪除失敗，請稍後再試',
-  NOTIONHQ_CLIENT_RESPONSE_ERROR: 'Notion API 請求失敗，請稍後再試',
-
-  RATE_LIMITED: '請求過於頻繁，請稍後再試',
-  CONFLICT_ERROR: '發生資料衝突，請稍後重試',
-  OBJECT_NOT_FOUND: '找不到目標頁面或資料庫，請確認資源存在且已授權',
-  UNAUTHORIZED: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
-  INVALID_REQUEST_URL: '請求的 URL 無效，請確認頁面網址正確',
-  INVALID_JSON: '資料格式錯誤，請稍後再試',
-  SERVICE_UNAVAILABLE: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
-  INTERNAL_SERVER_ERROR: NOTION_SERVICE_UNAVAILABLE_MESSAGE,
-
-  NETWORK_ERROR: '網路連線異常，請檢查網路後重試',
-  TIMEOUT: '請求超時，請檢查網路連線',
-
-  UNKNOWN_ERROR: '發生未知錯誤，請稍後再試',
-
-  DESTINATION_PROFILE_NOT_FOUND: '找不到指定的保存目的地，請重新整理後再試。',
-  DESTINATION_PROFILE_NOT_CONFIGURED: '尚未設定保存目的地，請先到設定頁完成設定。',
-  DESTINATION_PROFILE_NOT_ALLOWED: '此保存目的地目前不可使用，請改用其他保存目標。',
-  UNKNOWN_DESTINATION_PROFILE_ERROR: '保存目的地無法使用，請重新整理後再試。',
-};
-
-const DEFAULT = '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
-
-export const API_ERROR_PATTERNS = deepFreeze({
-  AUTH: [
-    'unauthorized',
-    'authentication',
-    'api key',
-    'api_key',
-    'api_token',
-    'api token',
-    'bearer token',
-  ],
-  AUTH_DISCONNECTED: ['integration disconnected', 'invalid_token'],
-  AUTH_INVALID: ['invalid api key', 'malformed_token'],
-  AUTH_FORBIDDEN: ['forbidden', 'permission_denied', 'permission denied'],
-
-  PERMISSION: ['permission', 'access denied'],
-  PERMISSION_DB: ['database'],
-
-  RATE_LIMIT: ['rate limit', 'too many requests'],
-  NOT_FOUND: ['not found', 'does not exist'],
-  ACTIVE_TAB: ['active tab'],
-  TAB_NOT_FOUND: ['no tab with id'],
-  RUNTIME_DISCONNECTED: ['receiving end does not exist'],
-  CONNECTION_NOT_ESTABLISHED: ['could not establish connection'],
-  DATA_SOURCE: ['database', 'object_not_found'],
-
-  VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
-  TIMEOUT: ['timeout', 'timed out'],
-  NETWORK: ['network', 'fetch', 'enotfound'],
-
-  SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
-});
-
-export const HIGHLIGHT_ERROR_CODES = deepFreeze({
-  DELETE_INCOMPLETE: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
-  PHASE_DELETE: 'delete_highlight_section',
-});
-
-export const ERROR_MESSAGES = deepFreeze({
-  TECHNICAL,
-  USER_MESSAGES,
-  PATTERNS,
-  DEFAULT,
-});
+export {
+  LOG_LEVELS,
+  ERROR_TYPES,
+  SECURITY_ERROR_MESSAGES,
+  API_ERROR_PATTERNS,
+  HIGHLIGHT_ERROR_CODES,
+  ERROR_MESSAGES,
+} from './errorMessages.js';

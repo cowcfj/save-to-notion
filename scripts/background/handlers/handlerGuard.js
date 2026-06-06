@@ -12,7 +12,7 @@ import { isValidUrl, validateInternalRequest } from '../../utils/securityUtils.j
 import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 
 export const validatePrivilegedRequest = (sender, url = null) => {

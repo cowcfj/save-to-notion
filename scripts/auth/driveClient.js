@@ -36,7 +36,6 @@
 import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../config/extension/driveSyncErrorCodes.js';
-import { UI_MESSAGES } from '../config/shared/messages.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
 import Logger from '../utils/Logger.js';
 
@@ -371,7 +370,7 @@ function coalesce(source, ...keys) {
 async function requireAccountAuthHeaders() {
   const headers = await buildAccountAuthHeaders();
   if (typeof headers.Authorization !== 'string' || headers.Authorization.trim() === '') {
-    throw new Error(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR);
+    throw new Error('臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。');
   }
   return headers;
 }

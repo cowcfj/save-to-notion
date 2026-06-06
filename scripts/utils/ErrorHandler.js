@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, ERROR_TYPES } from '../config/shared/messages.js';
+import { ERROR_MESSAGES, ERROR_TYPES } from '../config/shared/errorMessages.js';
 // [REMOVED] escapeHtml as it is no longer needed
 // import { escapeHtml } from './securityUtils.js';
 
@@ -11,9 +11,9 @@ import { ERROR_MESSAGES, ERROR_TYPES } from '../config/shared/messages.js';
  * 錯誤類型枚舉
  */
 /**
- * 錯誤類型枚舉 (已移至 messages.js)
+ * 錯誤類型枚舉 (已移至 errorMessages.js)
  *
- * @type {import('../config/shared/messages.js').ERROR_TYPES}
+ * @type {import('../config/shared/errorMessages.js').ERROR_TYPES}
  */
 const ErrorTypes = ERROR_TYPES;
 

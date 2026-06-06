@@ -3,7 +3,7 @@
  * 負責渲染顏色選擇按鈕並處理選擇事件
  */
 
-import { UI_MESSAGES } from '../../../config/shared/messages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../../config/contentSafe/highlighterMessages.js';
 
 /**
  * 獲取顏色的中文名稱
@@ -12,7 +12,7 @@ import { UI_MESSAGES } from '../../../config/shared/messages.js';
  * @returns {string} 顏色的中文名稱
  */
 function getColorName(color) {
-  return UI_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES[color] || color;
+  return HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES[color] || color;
 }
 
 /**
@@ -44,8 +44,11 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
     button.className = color === currentColor ? 'nh-color-btn active' : 'nh-color-btn';
     button.dataset.color = color;
     button.style.background = colors[color];
-    button.title = UI_MESSAGES.TOOLBAR.COLOR_PICKER_TITLE(colorName);
-    button.setAttribute('aria-label', UI_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(colorName));
+    button.title = HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_TITLE(colorName);
+    button.setAttribute(
+      'aria-label',
+      HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(colorName)
+    );
 
     container.append(button);
   });

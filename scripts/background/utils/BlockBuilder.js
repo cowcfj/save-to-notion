@@ -8,7 +8,7 @@
  */
 
 // 導入統一配置（從統一入口點導入，保持一致性）
-import { TEXT_PROCESSING } from '../../config/index.js';
+import { TEXT_PROCESSING } from '../../config/shared/content.js';
 import { CONTENT_EXTRACTION_MESSAGES } from '../../config/contentSafe/contentExtractionMessages.js';
 import { NOTION_API } from '../../config/extension/notionApi.js';
 import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../config/notionCodeLanguages.js';

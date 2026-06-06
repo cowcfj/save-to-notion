@@ -5,7 +5,7 @@
  * 負責 Rail container 的 DOM 查詢與狀態渲染。
  */
 
-import { UI_MESSAGES } from '../../config/shared/messages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
 import { COLORS } from '../utils/color.js';
 import { hexToRgba } from '../../../styles/ui-token-constants.js';
 import { createSafeIcon } from '../utils/safeIcon.js';
@@ -47,7 +47,9 @@ export function applySaveActionVisibility(saveBtn, pageStatus) {
 
   saveBtn.setAttribute(
     'aria-label',
-    isSaved ? UI_MESSAGES.FLOATING_RAIL.SYNC_LABEL : UI_MESSAGES.FLOATING_RAIL.SAVE_LABEL
+    isSaved
+      ? HIGHLIGHTER_MESSAGES.FLOATING_RAIL.SYNC_LABEL
+      : HIGHLIGHTER_MESSAGES.FLOATING_RAIL.SAVE_LABEL
   );
   saveBtn.dataset.action = isSaved ? 'sync' : 'save';
 
@@ -104,8 +106,8 @@ export function applyHighlightActive(highlightBtn, isActive) {
   highlightBtn.setAttribute(
     'aria-label',
     isActive
-      ? UI_MESSAGES.FLOATING_RAIL.STOP_HIGHLIGHT_LABEL
-      : UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL
+      ? HIGHLIGHTER_MESSAGES.FLOATING_RAIL.STOP_HIGHLIGHT_LABEL
+      : HIGHLIGHTER_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL
   );
 }
 

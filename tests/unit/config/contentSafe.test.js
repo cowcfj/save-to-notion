@@ -17,6 +17,7 @@ describe('contentSafe config', () => {
       'toolbarIcons.js',
       'toolbarMessages.js',
       'contentExtractionMessages.js',
+      'highlighterMessages.js',
     ];
 
     const missingFiles = expectedFiles
@@ -84,5 +85,26 @@ describe('contentSafe config', () => {
     });
     expect(CONTENT_EXTRACTION_MESSAGES.EMPTY_FALLBACK).not.toMatch(/content extraction failed/i);
     expect(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK).not.toMatch(/extraction error/i);
+  });
+
+  test('highlighterMessages 應只暴露 highlighter 需要的訊息', async () => {
+    const modulePath = path.join(contentSafeDir, 'highlighterMessages.js');
+    const moduleUrl = pathToFileURL(modulePath);
+    const { HIGHLIGHTER_MESSAGES } = await import(moduleUrl.href);
+
+    expect(Object.isFrozen(HIGHLIGHTER_MESSAGES)).toBe(true);
+    expect(HIGHLIGHTER_MESSAGES.FLOATING_RAIL).toEqual(UI_MESSAGES.FLOATING_RAIL);
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES).toEqual(
+      UI_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES
+    );
+    expect(HIGHLIGHTER_MESSAGES.POPUP.DELETED_PAGE).toEqual(UI_MESSAGES.POPUP.DELETED_PAGE);
+    expect(HIGHLIGHTER_MESSAGES.POPUP.DELETION_PENDING).toEqual(UI_MESSAGES.POPUP.DELETION_PENDING);
+    expect(HIGHLIGHTER_MESSAGES.TOAST).toEqual(UI_MESSAGES.TOAST);
+
+    expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('OPTIONS');
+    expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('CLOUD_SYNC');
+    expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('AUTH_BRIDGE');
+    expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('STORAGE');
+    expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('ACCOUNT');
   });
 });

@@ -17,7 +17,8 @@ import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/shared/core.js';
-import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
+import { BACKGROUND_MESSAGES } from '../../config/shared/backgroundMessages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../../config/runtimeActions/contentBridgeActions.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
@@ -162,7 +163,7 @@ async function reconcileRemotePageMissing({
     return {
       ...result,
       errorCode: 'PAGE_DELETION_PENDING',
-      error: UI_MESSAGES.POPUP.DELETION_PENDING,
+      error: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
     };
   }
 
@@ -209,7 +210,7 @@ async function reconcileRemotePageMissing({
   return {
     ...result,
     errorCode: 'PAGE_DELETED',
-    error: UI_MESSAGES.POPUP.DELETED_PAGE,
+    error: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
   };
 }
 
@@ -744,7 +745,7 @@ async function handleSyncHighlights(services, request, sender, sendResponse) {
     if (highlights.length === 0) {
       sendResponse({
         success: true,
-        message: UI_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
+        message: BACKGROUND_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
         highlightCount: 0,
       });
       return;
@@ -758,7 +759,7 @@ async function handleSyncHighlights(services, request, sender, sendResponse) {
         count: highlights.length,
       });
       result.highlightCount = highlights.length;
-      result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
+      result.message = BACKGROUND_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
     } else {
       handleSyncFailure(result, sender);
     }
