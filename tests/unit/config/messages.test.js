@@ -333,6 +333,10 @@ describe('配置模組 - messages.js 動態函式', () => {
 
     test('UI_MESSAGES 應該被凍結', () => {
       expect(Object.isFrozen(UI_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.OPTIONS)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.OPTIONS.DESTINATION)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.STORAGE)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.TOOLBAR)).toBe(true);
     });
 
     test('DATA_SOURCE 應該指向同一個 DATA_SOURCE_MESSAGES 物件', () => {

@@ -6,8 +6,14 @@ import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
 import { HIGHLIGHTER_MESSAGES } from '../contentSafe/highlighterMessages.js';
 import { BACKGROUND_MESSAGES } from './backgroundMessages.js';
 
+const FREEZABLE_TYPES = new Set(['object', 'function']);
+
+function isFreezableValue(value) {
+  return value !== null && FREEZABLE_TYPES.has(typeof value);
+}
+
 function deepFreeze(target) {
-  if (!target || (typeof target !== 'object' && typeof target !== 'function')) {
+  if (!isFreezableValue(target)) {
     return target;
   }
 
@@ -16,7 +22,7 @@ function deepFreeze(target) {
   }
 
   for (const value of Object.values(target)) {
-    if (value && (typeof value === 'object' || typeof value === 'function')) {
+    if (isFreezableValue(value)) {
       deepFreeze(value);
     }
   }
