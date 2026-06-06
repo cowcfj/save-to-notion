@@ -811,7 +811,7 @@ export class HighlightManager {
       return null;
     }
 
-    if (!chromeApi.runtime || !chromeApi.runtime.id) {
+    if (!chromeApi.runtime?.id) {
       return null;
     }
 
