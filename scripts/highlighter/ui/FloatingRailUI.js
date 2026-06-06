@@ -5,7 +5,7 @@
  * 負責 Rail container 的 DOM 查詢與狀態渲染。
  */
 
-import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/messages/highlighterMessages.js';
 import { COLORS } from '../utils/color.js';
 import { hexToRgba } from '../../../styles/ui-token-constants.js';
 import { createSafeIcon } from '../utils/safeIcon.js';

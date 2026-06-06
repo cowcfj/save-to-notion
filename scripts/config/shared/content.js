@@ -2,7 +2,7 @@
  * Shared content extraction 配置
  */
 
-import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
+import { DATA_SOURCE_MESSAGES } from '../messages/dataSourceMessages.js';
 
 export const NEXTJS_CONFIG = {
   ARTICLE_PATHS: [

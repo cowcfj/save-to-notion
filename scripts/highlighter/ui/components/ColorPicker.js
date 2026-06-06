@@ -3,7 +3,7 @@
  * 負責渲染顏色選擇按鈕並處理選擇事件
  */
 
-import { HIGHLIGHTER_MESSAGES } from '../../../config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../../config/messages/highlighterMessages.js';
 
 /**
  * 獲取顏色的中文名稱

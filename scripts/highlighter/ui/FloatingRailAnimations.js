@@ -5,7 +5,7 @@
  * 所有動畫綁定在傳入的 DOM 元素上，不持有外部狀態。
  */
 
-import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/messages/highlighterMessages.js';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 

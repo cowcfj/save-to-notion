@@ -11,8 +11,8 @@
 
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { pMap } from '../../utils/concurrencyUtils.js';
-import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
-import { BACKGROUND_MESSAGES } from '../../config/shared/backgroundMessages.js';
+import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
+import { BACKGROUND_MESSAGES } from '../../config/messages/backgroundMessages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 import {

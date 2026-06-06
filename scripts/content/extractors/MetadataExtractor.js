@@ -16,7 +16,7 @@ import {
   AVATAR_KEYWORDS,
   IMAGE_SRC_ATTRIBUTES,
 } from '../../config/shared/content.js';
-import { DATA_SOURCE_MESSAGES } from '../../config/shared/dataSourceMessages.js';
+import { DATA_SOURCE_MESSAGES } from '../../config/messages/dataSourceMessages.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 const UNTITLED_PAGE_LABEL = DATA_SOURCE_MESSAGES.UNTITLED_PAGE;

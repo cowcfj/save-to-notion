@@ -5,7 +5,7 @@
 /* global chrome */
 
 import { getAccountSession, isAccountSessionExpired } from '../auth/accountSession.js';
-import { BACKGROUND_MESSAGES } from '../config/shared/backgroundMessages.js';
+import { BACKGROUND_MESSAGES } from '../config/messages/backgroundMessages.js';
 import Logger from '../utils/Logger.js';
 
 export const DESTINATION_PROFILE_STORAGE_KEYS = {

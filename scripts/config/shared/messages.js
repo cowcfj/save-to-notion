@@ -2,9 +2,9 @@
  * Shared messaging 配置
  */
 
-import { DATA_SOURCE_MESSAGES } from './dataSourceMessages.js';
-import { HIGHLIGHTER_MESSAGES } from '../contentSafe/highlighterMessages.js';
-import { BACKGROUND_MESSAGES } from './backgroundMessages.js';
+import { DATA_SOURCE_MESSAGES } from '../messages/dataSourceMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../messages/highlighterMessages.js';
+import { BACKGROUND_MESSAGES } from '../messages/backgroundMessages.js';
 import { deepFreeze } from './deepFreeze.js';
 
 const AUTH = {
@@ -419,4 +419,4 @@ export {
   API_ERROR_PATTERNS,
   HIGHLIGHT_ERROR_CODES,
   ERROR_MESSAGES,
-} from './errorMessages.js';
+} from '../messages/errorMessages.js';

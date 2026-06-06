@@ -1,6 +1,6 @@
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../config/runtimeActions/highlighterActions.js';
-import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/messages/runtimeErrorMessages.js';
 import { revealFloatingRail as defaultRevealFloatingRail } from '../highlighter/utils/floatingRailAvailability.js';
 import { isRootUrl } from '../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';

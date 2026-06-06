@@ -8,7 +8,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { BACKGROUND_MESSAGES } from '../config/shared/backgroundMessages.js';
+import { BACKGROUND_MESSAGES } from '../config/messages/backgroundMessages.js';
 import { buildAccountLoginStartUrl } from './accountLogin.js';
 
 /**

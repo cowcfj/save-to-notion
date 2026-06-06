@@ -18,7 +18,7 @@ import { URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
-import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
+import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
 import {
   KEY_PREFIX as HIGHLIGHT_KEY_PREFIX,
   resolveKeys as resolveHighlightLookupKeys,

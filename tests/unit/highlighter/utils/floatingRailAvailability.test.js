@@ -8,7 +8,7 @@ const {
 } = require('../../../../scripts/highlighter/utils/floatingRailAvailability.js');
 const {
   RUNTIME_ERROR_MESSAGES,
-} = require('../../../../scripts/config/runtimeActions/errorMessages.js');
+} = require('../../../../scripts/config/messages/runtimeErrorMessages.js');
 
 let mockFloatingRailInstance;
 const mockInitialize = jest.fn();

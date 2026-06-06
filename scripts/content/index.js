@@ -20,8 +20,8 @@ import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
-import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
-import { CONTENT_EXTRACTION_MESSAGES } from '../config/contentSafe/contentExtractionMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/messages/runtimeErrorMessages.js';
+import { EXTRACTION_FALLBACK_MESSAGES } from '../config/messages/extractionFallbackMessages.js';
 import {
   formatRuntimeErrorMessage,
   revealFloatingRail,
@@ -178,7 +178,7 @@ function createEmptyExtractionResult() {
   return {
     extractionStatus: 'failed',
     title: document.title || DEFAULT_PAGE_TITLE,
-    blocks: [createParagraphFallbackBlock(CONTENT_EXTRACTION_MESSAGES.EMPTY_FALLBACK)],
+    blocks: [createParagraphFallbackBlock(EXTRACTION_FALLBACK_MESSAGES.EMPTY_FALLBACK)],
     additionalImages: [],
     coverImage: null,
   };
@@ -193,7 +193,7 @@ function createExtractionErrorResult() {
   return {
     extractionStatus: 'failed',
     title: document.title || DEFAULT_PAGE_TITLE,
-    blocks: [createParagraphFallbackBlock(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK)],
+    blocks: [createParagraphFallbackBlock(EXTRACTION_FALLBACK_MESSAGES.ERROR_FALLBACK)],
     additionalImages: [],
     coverImage: null,
   };

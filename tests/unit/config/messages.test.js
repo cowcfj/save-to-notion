@@ -13,7 +13,7 @@ const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 const fs = require('node:fs');
 const path = require('node:path');
 const { deepFreeze } = require('../../../scripts/config/shared/deepFreeze.js');
-const { BACKGROUND_MESSAGES } = require('../../../scripts/config/shared/backgroundMessages.js');
+const { BACKGROUND_MESSAGES } = require('../../../scripts/config/messages/backgroundMessages.js');
 
 function readProjectSource(relativePath) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -349,10 +349,10 @@ describe('配置模組 - messages.js 動態函式', () => {
   describe('Leaf 模組與 UI_MESSAGES facade 相容性', () => {
     const {
       HIGHLIGHTER_MESSAGES,
-    } = require('../../../scripts/config/contentSafe/highlighterMessages.js');
+    } = require('../../../scripts/config/messages/highlighterMessages.js');
     const {
       DATA_SOURCE_MESSAGES,
-    } = require('../../../scripts/config/shared/dataSourceMessages.js');
+    } = require('../../../scripts/config/messages/dataSourceMessages.js');
 
     test('各個 Leaf 模組應該被凍結', () => {
       expect(Object.isFrozen(BACKGROUND_MESSAGES)).toBe(true);
@@ -399,6 +399,67 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(5, 2)).toBe(
         BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(5, 2)
       );
+    });
+
+    test('highlighter toolbar 訊息應與 UI_MESSAGES.TOOLBAR 一致', () => {
+      expect(UI_MESSAGES.TOOLBAR.SYNCING).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNCING);
+      expect(UI_MESSAGES.TOOLBAR.SYNC_SUCCESS).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNC_SUCCESS);
+      expect(UI_MESSAGES.TOOLBAR.SYNC_FAILED).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNC_FAILED);
+      expect(UI_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT).toBe(
+        HIGHLIGHTER_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT
+      );
+    });
+
+    test('門面 re-exports 的 error registry 欄位應與 errorMessages.js 完全一致', () => {
+      const errorMessagesModule = require('../../../scripts/config/messages/errorMessages.js');
+      const facadeModule = require('../../../scripts/config/shared/messages.js');
+
+      expect(facadeModule.LOG_LEVELS).toBe(errorMessagesModule.LOG_LEVELS);
+      expect(facadeModule.ERROR_TYPES).toBe(errorMessagesModule.ERROR_TYPES);
+      expect(facadeModule.SECURITY_ERROR_MESSAGES).toBe(
+        errorMessagesModule.SECURITY_ERROR_MESSAGES
+      );
+      expect(facadeModule.API_ERROR_PATTERNS).toBe(errorMessagesModule.API_ERROR_PATTERNS);
+      expect(facadeModule.HIGHLIGHT_ERROR_CODES).toBe(errorMessagesModule.HIGHLIGHT_ERROR_CODES);
+      expect(facadeModule.ERROR_MESSAGES).toBe(errorMessagesModule.ERROR_MESSAGES);
+    });
+
+    test('生產程式碼不應引用舊的訊息葉路徑', () => {
+      const fs = require('node:fs');
+      const projectRoot = path.resolve(__dirname, '../../..');
+      const scriptsDir = path.join(projectRoot, 'scripts');
+
+      function scanDir(dir) {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        const files = fs.readdirSync(dir);
+        let results = [];
+        for (const file of files) {
+          const fullPath = path.join(dir, file);
+          // eslint-disable-next-line security/detect-non-literal-fs-filename
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            results = results.concat(scanDir(fullPath));
+          } else if (file.endsWith('.js')) {
+            results.push(fullPath);
+          }
+        }
+        return results;
+      }
+
+      const jsFiles = scanDir(scriptsDir);
+      const oldPathsRegex =
+        /config\/(?:shared\/(?:errorMessages|backgroundMessages|dataSourceMessages)|runtimeActions\/errorMessages|contentSafe\/(?:contentExtractionMessages|highlighterMessages|toolbarMessages))\.js/;
+
+      const violations = [];
+      for (const file of jsFiles) {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        const content = fs.readFileSync(file, 'utf8');
+        if (oldPathsRegex.test(content)) {
+          violations.push(path.relative(projectRoot, file));
+        }
+      }
+
+      expect(violations).toEqual([]);
     });
   });
 

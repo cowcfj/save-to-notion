@@ -4,7 +4,7 @@
  * 管理 __NOTION_RAIL_READY__ 的 Promise 生命週期與 Floating Rail 的動態載入與初始化。
  */
 
-import { RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../../config/messages/runtimeErrorMessages.js';
 import Logger from '../../utils/Logger.js';
 
 /**

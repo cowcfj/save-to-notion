@@ -12,7 +12,7 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { ERROR_MESSAGES, HIGHLIGHT_ERROR_CODES } from '../../config/shared/errorMessages.js';
+import { ERROR_MESSAGES, HIGHLIGHT_ERROR_CODES } from '../../config/messages/errorMessages.js';
 import { CONTENT_QUALITY } from '../../config/shared/content.js';
 import { NOTION_API } from '../../config/extension/notionApi.js';
 import { AuthMode } from '../../config/extension/authMode.js';

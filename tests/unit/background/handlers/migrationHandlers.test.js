@@ -11,7 +11,7 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
-import { BACKGROUND_MESSAGES } from '../../../../scripts/config/shared/backgroundMessages.js';
+import { BACKGROUND_MESSAGES } from '../../../../scripts/config/messages/backgroundMessages.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 

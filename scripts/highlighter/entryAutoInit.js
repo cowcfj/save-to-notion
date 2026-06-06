@@ -16,7 +16,7 @@
 
 import { setupHighlighter } from './index.js';
 import { CONTENT_BRIDGE_ACTIONS } from '../config/runtimeActions/contentBridgeActions.js';
-import { RUNTIME_ERROR_MESSAGES } from '../config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../config/messages/runtimeErrorMessages.js';
 import { revealFloatingRail, withAvailableFloatingRail } from './utils/floatingRailAvailability.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../utils/LogSanitizer.js';

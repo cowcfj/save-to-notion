@@ -3,7 +3,7 @@
  */
 
 import { createFloatingRailContainer } from '../../../../../scripts/highlighter/ui/components/FloatingRailContainer.js';
-import { HIGHLIGHTER_MESSAGES } from '../../../../../scripts/config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../../../../scripts/config/messages/highlighterMessages.js';
 
 describe('FloatingRailContainer', () => {
   test('color swatches should use localized aria-labels while keeping color keys', () => {

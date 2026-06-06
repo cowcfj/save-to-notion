@@ -2,7 +2,7 @@
  * Background-safe UI response messages, supporting tree-shaking for background handlers.
  */
 
-import { deepFreeze } from './deepFreeze.js';
+import { deepFreeze } from '../shared/deepFreeze.js';
 
 export const BACKGROUND_MESSAGES = deepFreeze({
   POPUP: {

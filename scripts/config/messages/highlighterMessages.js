@@ -1,5 +1,5 @@
 /**
- * Highlighter-safe UI messages, supporting tree-shaking for content-injected modules.
+ * 高亮安全 UI 訊息，支援內容注入模組的 tree-shaking。
  */
 
 import { deepFreeze } from '../shared/deepFreeze.js';
@@ -26,6 +26,12 @@ export const HIGHLIGHTER_MESSAGES = deepFreeze({
     },
     COLOR_PICKER_TITLE: colorName => `${colorName}色標註`,
     COLOR_PICKER_ARIA_LABEL: colorName => `選擇${colorName}色標註`,
+    SYNCING: '正在同步...',
+    SYNC_SUCCESS: '同步成功',
+    SYNC_FAILED: '同步失敗',
+    DELETED_PAGE: '原頁面已刪除，請重新儲存。',
+    DELETION_PENDING: '正在確認原頁面是否已刪除，請稍後再試。',
+    PAGE_NOT_SAVED_HINT: '請先保存頁面到 Notion',
   },
   POPUP: {
     DELETED_PAGE: '原頁面已刪除，請重新儲存。',
