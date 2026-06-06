@@ -66,7 +66,7 @@ const OPTIONS = {
     REFRESH_TITLE: '重新整理',
     LOADING_INLINE: '載入中...',
     FALLBACK_OPTION: '選擇資料來源...',
-    DEFAULT_PROFILE_NAME: '預設',
+    DEFAULT_PROFILE_NAME: BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
     DEFAULT_NAME: suffix => `保存目標 ${suffix}`,
     PROFILE_NAME_REQUIRED: '保存目標名稱不可為空白。',
     PROFILE_NAME_ARIA_LABEL: '保存目標名稱',
@@ -83,7 +83,7 @@ const OPTIONS = {
     HELP_LINK_TEXT: '手動輸入 ID',
     HELP_SUFFIX: '。',
     ADD_BUTTON: '新增保存目標',
-    CREATE_LIMIT_REACHED: '已達目的地數量上限。',
+    CREATE_LIMIT_REACHED: BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
     CREATE_FAILED: '新增保存目標失敗，請稍後再試。',
     APPLY_SUCCESS: profileName => `已套用 ${profileName} 到編輯欄位`,
     ACTION_FAILED: '保存目標操作失敗，請稍後再試。',
@@ -354,7 +354,7 @@ const CLOUD_SYNC = {
   SOURCE_WARNING: '⚠️ 目前雲端備份來自其他裝置或擴展安裝',
   CONFIRM_CROSS_INSTALL_UPLOAD:
     '目前雲端備份來自其他裝置或擴展安裝。\n\n若繼續上載，可能覆蓋該裝置最近的備份。確定要繼續嗎？',
-  TRANSIENT_AUTH_ERROR: '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。',
+  TRANSIENT_AUTH_ERROR: BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR,
 };
 
 const LOGS = {

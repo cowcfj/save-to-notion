@@ -18,4 +18,11 @@ export const BACKGROUND_MESSAGES = deepFreeze({
     MIGRATION_BATCH_DELETE_PARTIAL: (success, failed) =>
       `成功刪除 ${success} 個頁面，${failed} 個失敗`,
   },
+  DESTINATION_PROFILE: {
+    DEFAULT_PROFILE_NAME: '預設',
+    CREATE_LIMIT_REACHED: '已達目的地數量上限。',
+  },
+  DRIVE_SYNC: {
+    TRANSIENT_AUTH_ERROR: '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。',
+  },
 });

@@ -13,6 +13,7 @@ const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 const fs = require('node:fs');
 const path = require('node:path');
 const { deepFreeze } = require('../../../scripts/config/shared/deepFreeze.js');
+const { BACKGROUND_MESSAGES } = require('../../../scripts/config/shared/backgroundMessages.js');
 
 function readProjectSource(relativePath) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -346,7 +347,6 @@ describe('配置模組 - messages.js 動態函式', () => {
   });
 
   describe('Leaf 模組與 UI_MESSAGES facade 相容性', () => {
-    const { BACKGROUND_MESSAGES } = require('../../../scripts/config/shared/backgroundMessages.js');
     const {
       HIGHLIGHTER_MESSAGES,
     } = require('../../../scripts/config/contentSafe/highlighterMessages.js');
@@ -411,9 +411,24 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED).toBe('已達目的地數量上限。');
     });
 
+    test('UI_MESSAGES.OPTIONS.DESTINATION 應 re-use BACKGROUND_MESSAGES destination profile leaf', () => {
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME).toBe(
+        BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME
+      );
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED).toBe(
+        BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED
+      );
+    });
+
     test('UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR 應為 臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。', () => {
       expect(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR).toBe(
         '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。'
+      );
+    });
+
+    test('UI_MESSAGES.CLOUD_SYNC 應 re-use BACKGROUND_MESSAGES drive sync leaf', () => {
+      expect(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR).toBe(
+        BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR
       );
     });
 
@@ -429,21 +444,21 @@ describe('配置模組 - messages.js 動態函式', () => {
       },
       {
         path: 'scripts/auth/driveClient.js',
-        message: UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR,
-        reference: 'UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR',
+        message: BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR,
+        reference: 'BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR',
       },
       {
         path: 'scripts/destinations/ProfileStore.js',
-        message: UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME,
-        reference: 'UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME',
+        message: BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
+        reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME',
       },
       {
         path: 'scripts/destinations/ProfileStore.js',
-        message: UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED,
-        reference: 'UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED',
+        message: BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
+        reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED',
       },
     ])(
-      '$path 應引用 UI_MESSAGES 而不是直接內嵌 "$message"',
+      '$path 應引用 bundle-safe message leaf 而不是直接內嵌 "$message"',
       ({ path: filePath, message, reference }) => {
         const source = readProjectSource(filePath);
         expect(source).toContain(reference);
