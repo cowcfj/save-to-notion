@@ -24,6 +24,8 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   error: jest.fn(),
   debug: jest.fn(),
   success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 }));
 
 function createDeferred() {
@@ -609,6 +611,7 @@ describe('Content Script Entry (index.js)', () => {
         'Highlighter 尚未初始化，略過移除標註 DOM',
         expect.objectContaining({
           action: 'REMOVE_HIGHLIGHT_DOM',
+          result: 'uninitialized',
           highlightId: 'hl-undefined',
         })
       );
@@ -632,7 +635,11 @@ describe('Content Script Entry (index.js)', () => {
 
       expect(Logger.error).toHaveBeenCalledWith(
         '移除標註 DOM 失敗',
-        expect.objectContaining({ action: 'REMOVE_HIGHLIGHT_DOM', error: expect.any(Error) })
+        expect.objectContaining({
+          action: 'REMOVE_HIGHLIGHT_DOM',
+          result: 'failed',
+          error: expect.any(Error),
+        })
       );
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,

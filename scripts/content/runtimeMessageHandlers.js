@@ -107,6 +107,7 @@ function handleRemoveHighlightDom({ getHighlighterRuntime, logger }, highlightId
     if (removed === undefined) {
       logger.warn('Highlighter 尚未初始化，略過移除標註 DOM', {
         action: 'REMOVE_HIGHLIGHT_DOM',
+        result: 'uninitialized',
         highlightId,
       });
       sendResponse({ success: false, error: 'Highlighter 尚未初始化' });
@@ -114,7 +115,11 @@ function handleRemoveHighlightDom({ getHighlighterRuntime, logger }, highlightId
       sendResponse({ success: Boolean(removed) });
     }
   } catch (error) {
-    logger.error('移除標註 DOM 失敗', { action: 'REMOVE_HIGHLIGHT_DOM', error });
+    logger.error('移除標註 DOM 失敗', {
+      action: 'REMOVE_HIGHLIGHT_DOM',
+      result: 'failed',
+      error,
+    });
     sendResponse({
       success: false,
       error: error?.message ?? '移除標註 DOM 失敗',
