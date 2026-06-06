@@ -8,6 +8,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
+import { UI_MESSAGES } from '../config/shared/messages.js';
 import { buildAccountLoginStartUrl } from './accountLogin.js';
 
 /**
@@ -32,6 +33,6 @@ export async function startAccountLogin() {
       action: 'startAccountLogin',
       error,
     });
-    return { success: false, error: '無法開啟登入頁面，請稍後再試' };
+    return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
   }
 }

@@ -10,6 +10,13 @@ const {
   API_ERROR_PATTERNS,
 } = require('../../../scripts/config/shared/messages.js');
 const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
+const fs = require('node:fs');
+const path = require('node:path');
+
+function readProjectSource(relativePath) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.readFileSync(path.resolve(__dirname, '../../..', relativePath), 'utf8');
+}
 
 describe('配置模組 - messages.js 動態函式', () => {
   const SEARCH_TERM = '測試關鍵字';
@@ -388,5 +395,35 @@ describe('配置模組 - messages.js 動態函式', () => {
     test('UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED 應為 無法開啟登入頁面，請稍後再試', () => {
       expect(UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED).toBe('無法開啟登入頁面，請稍後再試');
     });
+
+    test.each([
+      {
+        path: 'scripts/auth/accountLoginInitiator.js',
+        message: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED,
+        reference: 'UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED',
+      },
+      {
+        path: 'scripts/auth/driveClient.js',
+        message: UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR,
+        reference: 'UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR',
+      },
+      {
+        path: 'scripts/destinations/ProfileStore.js',
+        message: UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME,
+        reference: 'UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME',
+      },
+      {
+        path: 'scripts/destinations/ProfileStore.js',
+        message: UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED,
+        reference: 'UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED',
+      },
+    ])(
+      '$path 應引用 UI_MESSAGES 而不是直接內嵌 "$message"',
+      ({ path: filePath, message, reference }) => {
+        const source = readProjectSource(filePath);
+        expect(source).toContain(reference);
+        expect(source).not.toContain(`'${message}'`);
+      }
+    );
   });
 });
