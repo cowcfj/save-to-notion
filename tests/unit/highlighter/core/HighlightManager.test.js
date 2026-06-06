@@ -771,6 +771,15 @@ describe('core/HighlightManager', () => {
       }
     );
 
+    test.each([
+      ['missing runtime.id', { runtime: {}, storage: { local: { get: jest.fn() } } }],
+      ['empty runtime.id', { runtime: { id: '' }, storage: { local: { get: jest.fn() } } }],
+    ])('getSafeExtensionStorage should return null when %s', (_caseName, chromeApi) => {
+      withChromeApi(chromeApi, () => {
+        expect(HighlightManager.getSafeExtensionStorage()).toBeNull();
+      });
+    });
+
     test('getSafeExtensionStorage should return chrome.storage.local inside extension runtime', () => {
       const localStorageArea = { get: jest.fn() };
       withChromeApi(
