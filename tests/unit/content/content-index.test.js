@@ -8,6 +8,8 @@ import { ConverterFactory } from '../../../scripts/content/converters/ConverterF
 import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
 import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { CONTENT_QUALITY } from '../../../scripts/config/shared/content.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
@@ -41,6 +43,10 @@ async function flushPromises() {
 }
 
 describe('Content Script Entry (index.js)', () => {
+  test('content default page title uses centralized zh-TW fallback copy', () => {
+    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     delete globalThis.HighlighterV2;
@@ -768,7 +774,7 @@ describe('Content Script Entry (index.js)', () => {
         expect.objectContaining({
           action: 'replayEvents',
           error: expect.objectContaining({ message: 'shortcut failed' }),
-          errorMessage: '重放快捷鍵事件失敗',
+          safeRuntimeError: '重放快捷鍵事件失敗',
         })
       );
     });
@@ -1096,6 +1102,8 @@ describe('Content Script Entry (index.js)', () => {
         '擷取發生錯誤，請稍後再試。'
       );
       expect(result).not.toHaveProperty('error');
+      expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
+      expect(JSON.stringify(result)).not.toContain('Unexpected crash');
       expect(result.extractionStatus).toBe('failed');
     });
 

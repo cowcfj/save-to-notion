@@ -1,3 +1,5 @@
+import { UI_MESSAGES } from './messages.js';
+
 /**
  * Shared content extraction 配置
  */
@@ -412,7 +414,7 @@ export const CONTENT_QUALITY = {
   MIN_CONTENT_LENGTH: 250,
   MAX_LINK_DENSITY: 0.25,
   LIST_EXCEPTION_THRESHOLD: 8,
-  DEFAULT_PAGE_TITLE: 'Untitled',
+  DEFAULT_PAGE_TITLE: UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE,
 };
 
 export const URL_NORMALIZATION = {

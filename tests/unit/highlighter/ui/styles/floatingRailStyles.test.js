@@ -8,31 +8,8 @@ function normalizeRailCSS(cssString) {
   return cssString.replaceAll(/\s+/g, ' ').trim();
 }
 
-// 假設輸入為 normalizeRailCSS 正規化後、僅含單層 flat 規則的 CSS：以 indexOf(' }', startIndex)
-// 定位規則結尾。遇 @keyframes 或其他巢狀大括號時，會在第一個內層 ' }' 提前截斷區塊。
-// 巢狀區塊請改用 extractBlockAt（依大括號深度配對），勿未調整解析邏輯即沿用 findRuleBlock。
-function findRuleBlock(normalizedCss, selector, predicate = () => true) {
-  const rulePrefix = `${selector} {`;
-  let searchFrom = 0;
-
-  while (searchFrom < normalizedCss.length) {
-    const startIndex = normalizedCss.indexOf(rulePrefix, searchFrom);
-
-    if (startIndex === -1) {
-      return { index: -1, block: '' };
-    }
-
-    const endIndex = normalizedCss.indexOf(' }', startIndex);
-    const block = normalizedCss.slice(startIndex, endIndex + 2);
-
-    if (predicate(block)) {
-      return { index: startIndex, block };
-    }
-
-    searchFrom = endIndex + 2;
-  }
-
-  return { index: -1, block: '' };
+function escapeRegExp(value) {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 function extractBlockAt(normalizedCss, blockStartIndex) {
@@ -59,6 +36,49 @@ function extractBlockAt(normalizedCss, blockStartIndex) {
   return '';
 }
 
+function extractRuleBlock(css, selector, startIndex = 0) {
+  const normalizedCss = normalizeRailCSS(css);
+  const rulePrefix = `${selector} {`;
+  const startIndexFound = normalizedCss.indexOf(rulePrefix, startIndex);
+
+  if (startIndexFound === -1) {
+    throw new Error(`CSS rule not found for selector: ${selector}`);
+  }
+
+  const block = extractBlockAt(normalizedCss, startIndexFound);
+  if (!block) {
+    throw new Error(`CSS rule block could not be extracted for selector: ${selector}`);
+  }
+
+  return { index: startIndexFound, block };
+}
+
+function extractMediaBlock(css, mediaQuery) {
+  const normalizedCss = normalizeRailCSS(css);
+  const mediaPrefix = `@media ${mediaQuery}`;
+  const startIndex = normalizedCss.indexOf(mediaPrefix);
+
+  if (startIndex === -1) {
+    throw new Error(`CSS media block not found: ${mediaQuery}`);
+  }
+
+  const block = extractBlockAt(normalizedCss, startIndex);
+  if (!block) {
+    throw new Error(`CSS media block could not be extracted: ${mediaQuery}`);
+  }
+
+  return { index: startIndex, block };
+}
+
+function expectRuleContains(cssBlock, selector, declarationPattern) {
+  const { block } = extractRuleBlock(cssBlock, selector);
+  if (!declarationPattern.test(block)) {
+    throw new Error(
+      `Expected CSS rule "${selector}" to contain declaration matching ${declarationPattern}`
+    );
+  }
+}
+
 const EXPECTED_FLOATING_RAIL_CSS_NORMALIZED =
   ':host { --rail-color-text: #1e293b; --rail-color-text-muted: #64748b; --rail-color-white: #ffffff; --rail-color-brand: #F47565; --rail-color-brand-hover: #E66651; --rail-color-icon-on-accent: #FFFFFF; --rail-color-action-save: #0A84FF; --rail-color-action-save-hover: #0070E5; --rail-color-action-manage: #8B5CF6; --rail-color-action-manage-hover: #7C3AED; --rail-color-primary: #2563eb; --rail-color-danger: #ef4444; --rail-glow-brand: rgba(244, 117, 101, 0.35); --rail-glow-action-save: rgba(10, 132, 255, 0.35); --rail-glow-action-manage: rgba(139, 92, 246, 0.35); --rail-color-primary-a40: rgba(37, 99, 235, 0.4); --rail-color-primary-a55: rgba(37, 99, 235, 0.55); --rail-ring-white-strong: rgba(255, 255, 255, 0.45); --rail-ring-white-weak: rgba(255, 255, 255, 0.25); --rail-shadow-black-a18: rgba(0, 0, 0, 0.18); --rail-border-white-a60: rgba(255, 255, 255, 0.6); --rail-border-white-a88: rgba(255, 255, 255, 0.88); --rail-surface: rgba(244, 244, 247, 0.82); --rail-border: rgba(0, 0, 0, 0.06); --rail-icon-muted: rgba(31, 33, 38, 0.78); } @media (prefers-color-scheme: dark) { :host { --rail-surface: rgba(22, 24, 30, 0.78); --rail-border: rgba(255, 255, 255, 0.10); --rail-icon-muted: rgba(240, 243, 247, 0.88); } } :host { all: initial; display: block; position: fixed; top: var(--rail-top, 50%); right: 0; transform: translateY(-50%); z-index: 2147483646; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: var(--rail-color-text); } :host *, :host *::before, :host *::after { box-sizing: border-box; margin: 0; padding: 0; } :host :where(button) { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1.5; font-family: inherit; font-size: inherit; } .rail-container { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; background: var(--rail-surface); border: 1px solid var(--rail-border); border-right: none; border-radius: 12px 0 0 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: opacity 0.2s ease, transform 0.2s ease; } .rail-close-btn { position: absolute; top: -6px; left: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--rail-color-text); color: var(--rail-color-white); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.12s ease; z-index: 1; } .rail-container:hover .rail-close-btn { opacity: 0.7; pointer-events: auto; } .rail-close-btn:hover { opacity: 1 !important; transform: scale(1.15); } .rail-close-btn:focus-visible { opacity: 1 !important; pointer-events: auto; outline: 2px solid var(--rail-color-brand); outline-offset: 1px; } .rail-close-btn > .icon { display: inline-flex; align-items: center; justify-content: center; width: var(--rail-close-icon-size, 12px); height: var(--rail-close-icon-size, 12px); } .rail-close-btn svg { width: 100%; height: 100%; color: currentColor; fill: currentColor; stroke: currentColor; } .rail-container.collapsed .rail-actions { max-height: 0; opacity: 0; overflow: hidden; padding: 0; transition: max-height 0.2s ease, opacity 0.15s ease; } .rail-container.expanded .rail-actions, .rail-container.highlighting .rail-actions { max-height: 300px; opacity: 1; transition: max-height 0.2s ease, opacity 0.15s ease 0.05s; } .rail-trigger { width: var(--rail-btn-size, 34px); height: var(--rail-btn-size, 34px); border-radius: 9px; background: var(--rail-color-brand); color: var(--rail-color-icon-on-accent); display: flex; align-items: center; justify-content: center; cursor: grab; transition: background 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease; --rail-brand-fill: var(--rail-color-brand); } .rail-trigger:hover, .rail-trigger:focus-visible { background: var(--rail-color-brand-hover); transform: translateY(-1px); box-shadow: 0 2px 6px var(--rail-glow-brand); } :host([data-dragging="true"]) .rail-trigger { cursor: grabbing; background: var(--rail-color-brand-hover); } .rail-trigger:hover { --rail-brand-fill: var(--rail-color-brand-hover); } .rail-trigger > .icon { display: inline-flex; align-items: center; justify-content: center; width: var(--rail-trigger-icon-size, 22px); height: var(--rail-trigger-icon-size, 22px); } .rail-trigger svg { width: 100%; height: 100%; color: currentColor; fill: currentColor; stroke: currentColor; } .rail-actions { position: relative; overflow: visible; display: flex; flex-direction: column; gap: 4px; padding: 4px 0; } .rail-highlight-group { position: relative; display: flex; align-items: center; justify-content: center; } .rail-action-btn { width: var(--rail-btn-size, 34px); height: var(--rail-btn-size, 34px); border-radius: 9px; position: relative; color: var(--rail-color-icon-on-accent); transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; } .rail-action-btn[data-action="save"], .rail-action-btn[data-action="sync"] { background: var(--rail-color-action-save); } .rail-action-btn[data-action="save"]:hover, .rail-action-btn[data-action="save"]:focus-visible, .rail-action-btn[data-action="sync"]:hover, .rail-action-btn[data-action="sync"]:focus-visible { background: var(--rail-color-action-save-hover); transform: translateY(-1px); box-shadow: 0 2px 6px var(--rail-glow-action-save); } .rail-action-btn[data-action="manage"] { background: var(--rail-color-action-manage); } .rail-action-btn[data-action="manage"]:hover, .rail-action-btn[data-action="manage"]:focus-visible { background: var(--rail-color-action-manage-hover); transform: translateY(-1px); box-shadow: 0 2px 6px var(--rail-glow-action-manage); } .rail-action-btn > .icon { display: inline-flex; align-items: center; justify-content: center; width: var(--rail-action-icon-size, 18px); height: var(--rail-action-icon-size, 18px); } .rail-action-btn svg { width: 100%; height: 100%; color: currentColor; fill: currentColor; stroke: currentColor; } .rail-highlight-toggle { border: 1px solid transparent; } .rail-highlight-toggle[data-highlight-state="inactive"] { background: var(--rail-highlight-tint, var(--rail-color-primary-a40)); background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 40%, transparent); color: var(--rail-icon-muted); box-shadow: inset 0 0 0 1px var(--rail-ring-white-strong); } .rail-highlight-toggle[data-highlight-state="inactive"]:hover, .rail-highlight-toggle[data-highlight-state="inactive"]:focus-visible { background: var(--rail-highlight-tint, var(--rail-color-primary-a55)); background: color-mix(in srgb, var(--rail-highlight-color, var(--rail-color-primary)) 55%, transparent); transform: translateY(-1px); } .rail-highlight-toggle[data-highlight-state="active"] { background: var(--rail-highlight-color, var(--rail-color-primary)); border-color: var(--rail-highlight-color, var(--rail-color-primary)); color: rgba(0, 0, 0, 0.78); box-shadow: inset 0 0 0 1px var(--rail-ring-white-weak); transform: translateY(-1px); } .rail-highlight-toggle[data-highlight-state="active"]:hover, .rail-highlight-toggle[data-highlight-state="active"]:focus-visible { background: var(--rail-highlight-color, var(--rail-color-primary)); box-shadow: inset 0 0 0 1px var(--rail-ring-white-weak), 0 2px 6px var(--rail-shadow-black-a18); } .rail-highlight-toggle svg { color: currentColor; fill: currentColor; stroke: currentColor; } .rail-action-btn[aria-label]::after { content: attr(aria-label); position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: var(--rail-color-text); color: var(--rail-color-white); padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s ease; } .rail-action-btn:hover[aria-label]::after, .rail-action-btn:focus-visible[aria-label]::after { opacity: 1; } .color-indicator { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--rail-border-white-a60); transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease; } .rail-highlight-toggle[data-highlight-state="active"] .color-indicator { border-color: var(--rail-border-white-a88); transform: scale(0.86); } .color-palette { position: absolute; right: calc(100% + 4px); top: 50%; transform: translateY(-50%); display: flex; gap: 4px; padding: 4px; background: var(--rail-surface); border: 1px solid var(--rail-border); border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); opacity: 0; pointer-events: none; transition: opacity 0.15s ease; } .color-palette.visible { opacity: 1; pointer-events: auto; } .color-swatch { width: 20px; height: 20px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; } .color-swatch:hover, .color-swatch:focus-visible { border-color: var(--rail-color-brand); } .color-swatch.selected { border-color: var(--rail-color-brand); } .rail-status { font-size: 11px; color: var(--rail-color-text-muted); text-align: center; max-width: 34px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; } .rail-error-tooltip { position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%) translateX(4px); background: var(--rail-color-danger); color: var(--rail-color-white); padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; } .rail-error-tooltip.visible { opacity: 1; transform: translateY(-50%) translateX(0); pointer-events: auto; } @media (prefers-reduced-motion: reduce) { .rail-container { transition: none; } .rail-close-btn { transition: none; } .rail-container.collapsed .rail-actions { transition: none; } .rail-container.expanded .rail-actions, .rail-container.highlighting .rail-actions { transition: none; } .rail-trigger { transition: none; } .rail-action-btn { transition: none; } .rail-action-btn[aria-label]::after { transition: none; } .color-indicator { transition: none; } .color-palette { transition: none; } .rail-error-tooltip { transition: none; transform: translateY(-50%) translateX(0); } }';
 
@@ -74,15 +94,25 @@ describe('floatingRailStyles', () => {
 
     test('應有 prefers-color-scheme: dark media query 並切換 surface', () => {
       expect(css).toMatch(/@media\s*\(prefers-color-scheme:\s*dark\)/);
-      expect(css).toContain(UI_TOKENS.theme.dark.surface);
-      expect(css).toContain(UI_TOKENS.theme.dark.border);
+      const { block: darkModeBlock } = extractMediaBlock(css, '(prefers-color-scheme: dark)');
+      expectRuleContains(
+        darkModeBlock,
+        ':host',
+        new RegExp(String.raw`--rail-surface:\s*${escapeRegExp(UI_TOKENS.theme.dark.surface)}`)
+      );
+      expectRuleContains(
+        darkModeBlock,
+        ':host',
+        new RegExp(String.raw`--rail-border:\s*${escapeRegExp(UI_TOKENS.theme.dark.border)}`)
+      );
     });
 
     test('trigger tile 應套用 brand 色與 white icon 色變數並以 var() 引用', () => {
-      expect(css).toMatch(/--rail-color-brand:\s*#F47565/i);
-      expect(css).toMatch(/--rail-color-icon-on-accent:\s*#FFFFFF/i);
-      expect(css).toMatch(/\.rail-trigger\s*\{[\s\S]*?background:\s*var\(--rail-color-brand\)/);
-      expect(css).toMatch(/\.rail-trigger\s*\{[\s\S]*?color:\s*var\(--rail-color-icon-on-accent\)/);
+      const { block: hostBlock } = extractRuleBlock(css, ':host');
+      expect(hostBlock).toMatch(/--rail-color-brand:\s*#F47565/i);
+      expect(hostBlock).toMatch(/--rail-color-icon-on-accent:\s*#FFFFFF/i);
+      expectRuleContains(css, '.rail-trigger', /background:\s*var\(--rail-color-brand\)/);
+      expectRuleContains(css, '.rail-trigger', /color:\s*var\(--rail-color-icon-on-accent\)/);
     });
 
     test('save / sync tile 應套用 actionSave 色變數並以 var() 引用', () => {
@@ -148,8 +178,10 @@ describe('floatingRailStyles', () => {
     test('reduced-motion 規則順序應晚於所有常規 transition 規則', () => {
       const normalized = normalizeRailCSS(css);
       const reducedMotionQuery = '@media (prefers-reduced-motion: reduce)';
-      const reducedMotionIndex = normalized.indexOf(reducedMotionQuery);
-      const reducedMotionBlock = extractBlockAt(normalized, reducedMotionIndex);
+      const { index: reducedMotionIndex, block: reducedMotionBlock } = extractMediaBlock(
+        css,
+        '(prefers-reduced-motion: reduce)'
+      );
       const lastRegularTransitionIndex = normalized
         .slice(0, reducedMotionIndex)
         .lastIndexOf('transition:');
@@ -166,21 +198,15 @@ describe('floatingRailStyles', () => {
         '.rail-error-tooltip',
       ];
 
-      expect(reducedMotionIndex).toBeGreaterThan(-1);
       expect(reducedMotionIndex).toBe(normalized.lastIndexOf(reducedMotionQuery));
-      expect(reducedMotionBlock).not.toBe('');
       expect(reducedMotionIndex).toBeGreaterThan(lastRegularTransitionIndex);
 
       for (const selector of transitionSelectors) {
-        const regularRule = findRuleBlock(normalized, selector, block =>
-          /transition:\s*(?!none)/.test(block)
-        );
-        const reducedRule = findRuleBlock(reducedMotionBlock, selector, block =>
-          /transition:\s*none/.test(block)
-        );
+        const regularRule = extractRuleBlock(normalized, selector);
+        const reducedRule = extractRuleBlock(reducedMotionBlock, selector);
 
-        expect(regularRule.index).toBeGreaterThan(-1);
-        expect(reducedRule.index).toBeGreaterThan(-1);
+        expect(regularRule.block).toMatch(/transition:\s*(?!none)/);
+        expect(reducedRule.block).toMatch(/transition:\s*none/);
         expect(reducedMotionIndex + reducedRule.index).toBeGreaterThan(regularRule.index);
       }
     });

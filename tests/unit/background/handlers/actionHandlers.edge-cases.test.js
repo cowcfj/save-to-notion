@@ -271,7 +271,8 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該處理 null/undefined 輸入', () => {
       const result = processContentResult(null, null);
-      expect(result.title).toBe('Untitled');
+      const { CONTENT_QUALITY } = require('../../../../scripts/config/shared/content.js');
+      expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
       expect(result.blocks).toEqual([]);
       expect(result.siteIcon).toBeNull();
     });

@@ -78,6 +78,27 @@ describe('htmlSanitizer', () => {
       expect(output).toContain('href="http://example.com"');
     });
 
+    test('non-string attribute values at the hook boundary should not throw', () => {
+      const originalGetAttribute = Element.prototype.getAttribute;
+      const nonStringValue = { value: 'data:text/html,<html>' };
+      const getAttributeSpy = jest
+        .spyOn(Element.prototype, 'getAttribute')
+        .mockImplementation(function getAttribute(attributeName) {
+          if (attributeName === 'src') {
+            return nonStringValue;
+          }
+          return originalGetAttribute.call(this, attributeName);
+        });
+
+      try {
+        expect(() =>
+          sanitizeArticleHtml('<p><img src="data:text/html,<html>" alt="bad"></p>')
+        ).not.toThrow();
+      } finally {
+        getAttributeSpy.mockRestore();
+      }
+    });
+
     test('應保留支援的結構與格式化標籤', () => {
       const input =
         '<article><h1>Title</h1><p>Paragraph with <strong>strong</strong>, <em>em</em>, <kbd>kbd</kbd>, <ins>ins</ins>, <tt>tt</tt> and <strike>strike</strike></p></article>';

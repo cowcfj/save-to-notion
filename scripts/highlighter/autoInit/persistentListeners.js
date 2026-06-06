@@ -27,6 +27,7 @@ function runPersistentListenerOperation({ target, handler, methodName, failureMe
     Logger.warn(failureMessage, {
       action: 'createPersistentListenerController',
       operation: methodName,
+      result: 'failed',
       error: error?.message ?? String(error),
     });
     return false;

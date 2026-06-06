@@ -18,13 +18,10 @@ jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () 
   },
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-  debug: jest.fn(),
-}));
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const { createLoggerMock } = require('../../../helpers/loggerMock.js');
+  return createLoggerMock();
+});
 
 describe('core/HighlightStorage', () => {
   let storage = null;
@@ -92,6 +89,11 @@ describe('core/HighlightStorage', () => {
           highlights: expect.arrayContaining([expect.objectContaining({ id: 'h1', text: 'Test' })]),
         })
       );
+      expect(Logger.info).toHaveBeenCalledWith('[HighlightStorage] 已保存標註', {
+        action: 'saveHighlights',
+        result: 'saved',
+        count: 1,
+      });
     });
 
     test('should clear highlights when empty', async () => {
@@ -99,6 +101,11 @@ describe('core/HighlightStorage', () => {
       await storage.save();
 
       expect(HighlightStorageGateway.clearHighlights).toHaveBeenCalled();
+      expect(Logger.info).toHaveBeenCalledWith('[HighlightStorage] 已刪除空白標註記錄', {
+        action: 'saveHighlights',
+        result: 'cleared',
+        count: 0,
+      });
     });
 
     test('should handle save errors gracefully', async () => {
@@ -108,10 +115,11 @@ describe('core/HighlightStorage', () => {
       await storage.save();
 
       // Ensure error is logged
-      expect(Logger.error).toHaveBeenCalledWith(
-        '[HighlightStorage] 保存標註失敗:',
-        expect.any(Error)
-      );
+      expect(Logger.error).toHaveBeenCalledWith('[HighlightStorage] 保存標註失敗', {
+        action: 'saveHighlights',
+        result: 'failed',
+        error: expect.any(Error),
+      });
     });
 
     test('should use global stable URL if available', async () => {
@@ -155,18 +163,53 @@ describe('core/HighlightStorage', () => {
 
       expect(result).toBe(false);
       expect(mockManager.restoreLocalHighlight).not.toHaveBeenCalled();
+      expect(Logger.info).toHaveBeenCalledWith('[HighlightStorage] 無標註可恢復', {
+        action: 'restoreHighlights',
+        result: 'skipped',
+        reason: 'empty',
+      });
     });
 
     test('should return false when manager is null', async () => {
       storage.manager = null;
       const result = await storage.restore();
       expect(result).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '[HighlightStorage] HighlightManager 未提供，無法恢復標註',
+        {
+          action: 'restoreHighlights',
+          result: 'skipped',
+          reason: 'missing_manager',
+        }
+      );
     });
 
     test('should handle restore errors gracefully', async () => {
       HighlightStorageGateway.loadHighlights.mockRejectedValue(new Error('Load failed'));
       const result = await storage.restore();
       expect(result).toBe(false);
+      expect(Logger.error).toHaveBeenCalledWith('[HighlightStorage] 標註恢復過程中出錯', {
+        action: 'restoreHighlights',
+        result: 'failed',
+        error: expect.any(Error),
+      });
+    });
+
+    test('should log highlight lookup debug context without raw URL', async () => {
+      const sensitiveStableUrl =
+        'https://example.com/article?token=secret-value&utm_source=newsletter#section';
+      globalThis.__NOTION_STABLE_URL__ = sensitiveStableUrl;
+      HighlightStorageGateway.loadHighlights.mockResolvedValue([]);
+
+      await storage.restore();
+
+      expect(Logger.debug).toHaveBeenCalledWith('[HighlightStorage] Loading highlights', {
+        action: '_loadHighlightsWithFallback',
+        result: 'started',
+        hasStableUrl: true,
+        sanitizedUrl: sanitizeUrlForLogging(sensitiveStableUrl),
+      });
+      expect(Logger.debug.mock.calls.flat()).not.toContain(sensitiveStableUrl);
     });
 
     test('should fallback to original URL if stable URL yields no highlights', async () => {
@@ -347,10 +390,11 @@ describe('core/HighlightStorage', () => {
       jest.advanceTimersByTime(500);
 
       // Ensure error is logged
-      expect(Logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('隱藏工具欄時出錯'),
-        expect.any(Error)
-      );
+      expect(Logger.error).toHaveBeenCalledWith('[HighlightStorage] 隱藏工具欄時出錯', {
+        action: 'hideToolbarAfterRestore',
+        result: 'failed',
+        error: expect.any(Error),
+      });
     });
   });
 

@@ -550,8 +550,9 @@ describe('highlightHandlers', () => {
         'Bundle 初始化超時後清理失敗',
         expect.objectContaining({
           action: 'startHighlight',
+          result: 'failed',
           tabId: 1,
-          error: cleanupError.message,
+          error: cleanupError,
         })
       );
       expect(sendResponse).toHaveBeenCalledWith(
