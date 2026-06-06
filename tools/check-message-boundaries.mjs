@@ -61,38 +61,38 @@ const BOUNDARY_RULES = {
   },
 };
 
-export function checkBoundaries(rootDir) {
-  let hasFailed = false;
-  console.log('開始進行 Bundle 訊息邊界檢查 (check-message-boundaries)...');
+// 印出單一 bundle 的邊界檢查結果（PASS 或 FAIL 明細）
+function reportBoundaryResult(relativePath, failures) {
+  if (failures.length === 0) {
+    console.log(`[PASS] ${relativePath} 邊界檢查通過。`);
+    return;
+  }
+  console.error(`[FAIL] ${relativePath} 包含了禁用的 sentinel(s):`);
+  failures.forEach((fail) => console.error(`  - "${fail}"`));
+}
 
-  for (const [relativePath, rule] of Object.entries(BOUNDARY_RULES)) {
-    const filePath = path.join(rootDir, relativePath);
-    if (!fs.existsSync(filePath)) {
-      console.warn(`[WARN] 找不到檔案: ${relativePath}，跳過。`);
-      continue;
-    }
-
-    const content = fs.readFileSync(filePath, 'utf8');
-    const failures = [];
-
-    for (const sentinel of rule.forbidden) {
-      if (content.includes(sentinel)) {
-        failures.push(sentinel);
-      }
-    }
-
-    if (failures.length > 0) {
-      console.error(`[FAIL] ${relativePath} 包含了禁用的 sentinel(s):`);
-      for (const fail of failures) {
-        console.error(`  - "${fail}"`);
-      }
-      hasFailed = true;
-    } else {
-      console.log(`[PASS] ${relativePath} 邊界檢查通過。`);
-    }
+// 檢查單一 bundle 是否守住訊息邊界；通過（或檔案不存在而跳過）回傳 true
+function checkSingleBoundary(rootDir, relativePath, forbidden) {
+  const filePath = path.join(rootDir, relativePath);
+  if (!fs.existsSync(filePath)) {
+    console.warn(`[WARN] 找不到檔案: ${relativePath}，跳過。`);
+    return true;
   }
 
-  return !hasFailed;
+  const content = fs.readFileSync(filePath, 'utf8');
+  const failures = forbidden.filter((sentinel) => content.includes(sentinel));
+  reportBoundaryResult(relativePath, failures);
+  return failures.length === 0;
+}
+
+export function checkBoundaries(rootDir) {
+  console.log('開始進行 Bundle 訊息邊界檢查 (check-message-boundaries)...');
+
+  const results = Object.entries(BOUNDARY_RULES).map(([relativePath, rule]) =>
+    checkSingleBoundary(rootDir, relativePath, rule.forbidden),
+  );
+
+  return results.every(Boolean);
 }
 
 // 支援直接執行模式
