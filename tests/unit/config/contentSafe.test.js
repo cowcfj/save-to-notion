@@ -93,6 +93,10 @@ describe('contentSafe config', () => {
     const { HIGHLIGHTER_MESSAGES } = await import(moduleUrl.href);
 
     expect(Object.isFrozen(HIGHLIGHTER_MESSAGES)).toBe(true);
+    expect(Object.isFrozen(HIGHLIGHTER_MESSAGES.FLOATING_RAIL)).toBe(true);
+    expect(Object.isFrozen(HIGHLIGHTER_MESSAGES.TOOLBAR)).toBe(true);
+    expect(Object.isFrozen(HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES)).toBe(true);
+    expect(Object.isFrozen(HIGHLIGHTER_MESSAGES.TOAST)).toBe(true);
     expect(HIGHLIGHTER_MESSAGES.FLOATING_RAIL).toEqual(UI_MESSAGES.FLOATING_RAIL);
     expect(HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES).toEqual(
       UI_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES
