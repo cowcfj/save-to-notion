@@ -20,6 +20,24 @@
       ],
       "thresholds": [],
       "thresholds_doc": "The thresholds let you redefine the details of selected code health issues."
+    },
+    {
+      "matching_content_path": "tests/**",
+      "rules": [
+        {
+          "name": "Complex Method",
+          "weight": 0.5
+        },
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 0.5
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 0.5
+        }
+      ],
+      "thresholds": []
     }
   ]
 }

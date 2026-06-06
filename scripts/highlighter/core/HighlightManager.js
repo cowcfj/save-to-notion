@@ -8,6 +8,60 @@ import { COLORS, convertBgColorToName } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightInteraction } from './HighlightInteraction.js';
 
+const EXTENSION_UI_OWNER_VALUE = 'true';
+const EXTENSION_UI_HOSTS = [
+  { idPrefix: 'notion-floating-rail-host', ownerAttr: 'data-rail-owner' },
+  { idPrefix: 'notion-highlighter-host', ownerAttr: 'data-highlighter-owner' },
+  { idPrefix: 'notion-toast-host', ownerAttr: 'data-toast-owner' },
+];
+const EXTENSION_UI_SELECTOR = EXTENSION_UI_HOSTS.flatMap(({ idPrefix, ownerAttr }) => [
+  `#${idPrefix}[${ownerAttr}="${EXTENSION_UI_OWNER_VALUE}"]`,
+  `[id^="${idPrefix}-"][${ownerAttr}="${EXTENSION_UI_OWNER_VALUE}"]`,
+]).join(', ');
+
+function matchesExtensionUiHostPrefix(id, prefix) {
+  if (!id) {
+    return false;
+  }
+
+  if (id === prefix) {
+    return true;
+  }
+
+  return id.startsWith(`${prefix}-`);
+}
+
+function hasExtensionUiOwner(element, ownerAttr) {
+  if (typeof element.getAttribute !== 'function') {
+    return false;
+  }
+
+  return element.getAttribute(ownerAttr) === EXTENSION_UI_OWNER_VALUE;
+}
+
+function isExtensionUiHostElement(element) {
+  return EXTENSION_UI_HOSTS.some(
+    ({ idPrefix, ownerAttr }) =>
+      matchesExtensionUiHostPrefix(element.id, idPrefix) && hasExtensionUiOwner(element, ownerAttr)
+  );
+}
+
+function isExtensionUiElement(element) {
+  if (!element) {
+    return false;
+  }
+
+  if (isExtensionUiHostElement(element)) {
+    return true;
+  }
+
+  if (typeof element.closest !== 'function') {
+    return false;
+  }
+
+  return Boolean(element.closest(EXTENSION_UI_SELECTOR));
+}
+
 /**
  * HighlightManager
  * 管理所有標註操作，採用組合模式委託具體職責給子模組。
@@ -68,7 +122,8 @@ export class HighlightManager {
    */
   async initialize(skipRestore = false) {
     try {
-      if (!this.migration || !this.storage || !this.styleManager) {
+      const requiredDependencies = [this.migration, this.storage, this.styleManager];
+      if (requiredDependencies.some(dependency => !dependency)) {
         throw new Error('依賴未注入，初始化中止');
       }
 
@@ -101,34 +156,23 @@ export class HighlightManager {
    * @returns {string|null} 標註 ID
    */
   addHighlight(range, color = this.currentColor) {
-    if (!range || range.collapsed || range.toString().trim().length === 0) {
+    if (!HighlightManager._isHighlightableRange(range)) {
       return null;
     }
 
-    // 驗證顏色：確保 styleManager 支援該顏色
-    let validatedColor = color;
-    if (this.styleManager) {
-      const style = this.styleManager.getHighlightObject(color);
-      if (!style) {
-        Logger.warn('顏色無效，回退到預設顏色', {
-          action: 'addHighlight',
-          color,
-          fallback: this.currentColor,
-        });
-        validatedColor = this.currentColor;
-      }
-    } else if (!color || typeof color !== 'string') {
-      // 無 styleManager 時的基本驗證
-      validatedColor = this.currentColor;
-    }
+    const validatedColor = this._resolveAddHighlightColor(color);
 
     try {
-      const id = `h${this.nextId++}`;
       const text = range.toString();
-
-      // 序列化 Range 用於存儲
       const rangeInfo = serializeRange(range);
 
+      // 先套用視覺效果，成功後才建立 ID 與 Map entry，避免失敗路徑留下 stale state。
+      const applied = this.applyHighlightAPI(range, validatedColor);
+      if (!applied) {
+        return this._cancelFailedHighlightCreation();
+      }
+
+      const id = `h${this.nextId++}`;
       const highlight = {
         id,
         range,
@@ -139,20 +183,6 @@ export class HighlightManager {
       };
 
       this.highlights.set(id, highlight);
-
-      // 應用視覺效果
-      const applied = this.applyHighlightAPI(range, validatedColor);
-      if (!applied) {
-        // 如果視覺效果應用失敗，回滾標註添加
-        this.highlights.delete(id);
-
-        // 不回收 ID (this.nextId--) 以保持 ID 單調遞增，避免並發問題
-        Logger.warn('無法應用視覺效果，標註已取消', { action: 'addHighlight' });
-        // 失敗路徑統一回報 HIGHLIGHT_FAILED；HIGHLIGHT_DUPLICATE 預留給未來
-        // 重複偵測能力（需要先定義 duplicate 判定規則），目前 addHighlight 不做去重。
-        this.toast?.show('HIGHLIGHT_FAILED', { level: 'error' });
-        return null;
-      }
 
       Logger.debug('已添加標註', { action: 'addHighlight', id, color: validatedColor });
 
@@ -166,6 +196,60 @@ export class HighlightManager {
       Logger.error('添加標註失敗', { action: 'addHighlight', error });
       return null;
     }
+  }
+
+  static _isHighlightableRange(range) {
+    if (!range) {
+      return false;
+    }
+
+    if (range.collapsed) {
+      return false;
+    }
+
+    return range.toString().trim().length > 0;
+  }
+
+  _resolveAddHighlightColor(color) {
+    if (!this.styleManager) {
+      return HighlightManager._resolveAddColorWithoutStyleManager(color, this.currentColor);
+    }
+
+    const style = this.styleManager.getHighlightObject(color);
+    if (style) {
+      return color;
+    }
+
+    Logger.warn('顏色無效，回退到預設顏色', {
+      action: 'addHighlight',
+      color,
+      fallback: this.currentColor,
+    });
+    return this.currentColor;
+  }
+
+  static _resolveAddColorWithoutStyleManager(color, fallbackColor) {
+    if (!color) {
+      return fallbackColor;
+    }
+
+    if (typeof color !== 'string') {
+      return fallbackColor;
+    }
+
+    return color;
+  }
+
+  _cancelFailedHighlightCreation(id = null) {
+    if (id) {
+      this.highlights.delete(id);
+    }
+    Logger.warn('無法應用視覺效果，標註已取消', { action: 'addHighlight' });
+
+    // 失敗路徑統一回報 HIGHLIGHT_FAILED；HIGHLIGHT_DUPLICATE 預留給未來
+    // 重複偵測能力（需要先定義 duplicate 判定規則），目前 addHighlight 不做去重。
+    this.toast?.show('HIGHLIGHT_FAILED', { level: 'error' });
+    return null;
   }
 
   /**
@@ -295,45 +379,75 @@ export class HighlightManager {
     this.setHighlightColor(color);
     this.isHighlighting = true;
     this.selectionHandler = event => {
-      if (!this.isHighlighting || HighlightManager._isExtensionUiEvent(event)) {
-        return;
-      }
-
-      const selection = globalThis.getSelection?.();
-      if (!selection || selection.isCollapsed) {
-        return;
-      }
-
-      const text = selection.toString().trim();
-      if (!text) {
-        return;
-      }
-
-      let rangeSnapshot = null;
-      try {
-        rangeSnapshot = selection.getRangeAt(0).cloneRange();
-      } catch (error) {
-        Logger.error('添加標註失敗', {
-          action: 'railSelectionHandler',
-          error,
-        });
-        return;
-      }
-
-      try {
-        const id = this.addHighlight(rangeSnapshot, this.currentColor);
-        if (id) {
-          selection.removeAllRanges?.();
-        }
-      } catch (error) {
-        Logger.error('添加標註失敗', {
-          action: 'railSelectionHandler',
-          error,
-        });
-      }
+      this._handleSelectionMouseUp(event);
     };
 
     document.addEventListener('mouseup', this.selectionHandler);
+  }
+
+  _handleSelectionMouseUp(event) {
+    if (this._shouldIgnoreSelectionMouseUp(event)) {
+      return;
+    }
+
+    const selection = this._getActiveTextSelection();
+    if (!selection) {
+      return;
+    }
+
+    const rangeSnapshot = this._cloneSelectionRange(selection);
+    if (!rangeSnapshot) {
+      return;
+    }
+
+    try {
+      const id = this.addHighlight(rangeSnapshot, this.currentColor);
+      if (id) {
+        selection.removeAllRanges?.();
+      }
+    } catch (error) {
+      Logger.error('添加標註失敗', {
+        action: 'railSelectionHandler',
+        error,
+      });
+    }
+  }
+
+  _shouldIgnoreSelectionMouseUp(event) {
+    if (!this.isHighlighting) {
+      return true;
+    }
+
+    return HighlightManager._isExtensionUiEvent(event);
+  }
+
+  _getActiveTextSelection() {
+    const selection = globalThis.getSelection?.();
+    if (!selection) {
+      return null;
+    }
+
+    if (selection.isCollapsed) {
+      return null;
+    }
+
+    if (!selection.toString().trim()) {
+      return null;
+    }
+
+    return selection;
+  }
+
+  _cloneSelectionRange(selection) {
+    try {
+      return selection.getRangeAt(0).cloneRange();
+    } catch (error) {
+      Logger.error('添加標註失敗', {
+        action: 'railSelectionHandler',
+        error,
+      });
+      return null;
+    }
   }
 
   /**
@@ -365,13 +479,7 @@ export class HighlightManager {
    */
   static _isExtensionUiEvent(event) {
     const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-    return path.some(
-      el =>
-        el?.id === 'notion-floating-rail-host' ||
-        el?.id === 'notion-highlighter-host' ||
-        el?.id === 'notion-toast-host' ||
-        el?.closest?.('#notion-floating-rail-host, #notion-highlighter-host, #notion-toast-host')
-    );
+    return path.some(element => isExtensionUiElement(element));
   }
 
   // ========== 委託方法 (Delegation) ==========
@@ -534,6 +642,32 @@ export class HighlightManager {
     }
   }
 
+  static _buildUniqueColorAttempts(colors) {
+    const attempts = [];
+
+    for (const color of colors) {
+      if (!attempts.includes(color)) {
+        attempts.push(color);
+      }
+    }
+
+    return attempts;
+  }
+
+  _tryRestoreColorAttempts(range, colors) {
+    for (const color of colors) {
+      if (this._tryApplyHighlight(range, color)) {
+        return { applied: true, color };
+      }
+    }
+
+    return null;
+  }
+
+  _canReinitializeStyles() {
+    return Boolean(this.styleManager && typeof this.styleManager.initialize === 'function');
+  }
+
   /**
    * 恢復流程的樣式套用重試鏈
    * 1) 原顏色
@@ -548,27 +682,27 @@ export class HighlightManager {
   _applyHighlightWithRestoreFallback(range, preferredColor) {
     const normalizedColor = this._normalizeRestoreColor(preferredColor);
     const fallbackColor = this._normalizeRestoreColor(this.currentColor);
-
-    if (this._tryApplyHighlight(range, normalizedColor)) {
-      return { applied: true, color: normalizedColor };
-    }
-
-    if (fallbackColor !== normalizedColor && this._tryApplyHighlight(range, fallbackColor)) {
-      return { applied: true, color: fallbackColor };
+    const initialAttempts = HighlightManager._buildUniqueColorAttempts([
+      normalizedColor,
+      fallbackColor,
+    ]);
+    const initialResult = this._tryRestoreColorAttempts(range, initialAttempts);
+    if (initialResult) {
+      return initialResult;
     }
 
     // 最後嘗試：重建 style objects 後再重試
-    if (this.styleManager?.initialize) {
-      this.styleManager.initialize();
-      if (this._tryApplyHighlight(range, fallbackColor)) {
-        return { applied: true, color: fallbackColor };
-      }
-      if (fallbackColor !== normalizedColor && this._tryApplyHighlight(range, normalizedColor)) {
-        return { applied: true, color: normalizedColor };
-      }
+    if (!this._canReinitializeStyles()) {
+      return { applied: false, color: normalizedColor };
     }
 
-    return { applied: false, color: normalizedColor };
+    this.styleManager.initialize();
+    const retryAttempts = HighlightManager._buildUniqueColorAttempts([
+      fallbackColor,
+      normalizedColor,
+    ]);
+    const retryResult = this._tryRestoreColorAttempts(range, retryAttempts);
+    return retryResult || { applied: false, color: normalizedColor };
   }
 
   // --- Restoration Implementation ---
@@ -593,55 +727,74 @@ export class HighlightManager {
     let id;
     try {
       // 確保 id 存在且為字串，若無則生成新 ID
-      id = item.id ? String(item.id) : `h${this.nextId++}`;
+      id = this._resolveRestoreHighlightId(item);
 
       // 使用 restoreRangeWithRetry：含 expectedText 驗證、prefix/suffix消歧義、DOM穩定性重試
       const range = await restoreRangeWithRetry(item.rangeInfo, item.text);
-
-      if (range) {
-        const normalizedColor = this._normalizeRestoreColor(item.color || 'yellow');
-
-        // 重建 highlight
-        const highlight = {
-          id,
-          range,
-          color: normalizedColor,
-          text: item.text,
-          timestamp: item.timestamp || Date.now(),
-          rangeInfo: item.rangeInfo,
-        };
-
-        this.highlights.set(id, highlight);
-
-        // 應用視覺效果，失敗時走 fallback + style 重建重試鏈
-        const { applied, color } = this._applyHighlightWithRestoreFallback(range, highlight.color);
-        if (!applied) {
-          this.highlights.delete(id);
-          Logger.warn('無法應用視覺效果，恢復標註已取消', { action: 'restoreLocalHighlight', id });
-          return false;
-        }
-        highlight.color = color;
-
-        // 更新 nextId 以避免衝突
-        const numId = Number.parseInt(id.replace('h', ''), 10);
-        if (!Number.isNaN(numId) && numId >= this.nextId) {
-          this.nextId = numId + 1;
-        }
-
-        return true;
+      if (!range) {
+        return false;
       }
+
+      const highlight = this._buildRestoredHighlight(item, id, range);
+      this.highlights.set(id, highlight);
+
+      // 應用視覺效果，失敗時走 fallback + style 重建重試鏈
+      const { applied, color } = this._applyHighlightWithRestoreFallback(range, highlight.color);
+      if (!applied) {
+        return this._cancelFailedRestore(id);
+      }
+
+      highlight.color = color;
+      this._advanceNextIdFromHighlightId(id);
+      return true;
     } catch (error) {
       // 清理可能殘留的 Map 條目（防止 applyHighlightAPI 拋出異常時的殘留）
-      if (id) {
-        this.highlights.delete(id);
-      }
+      this._cleanupRestoreEntry(id);
       Logger.warn('恢復標註失敗', {
         action: 'restoreLocalHighlight',
         id,
         error,
       });
+      return false;
     }
+  }
+
+  _resolveRestoreHighlightId(item) {
+    if (item.id) {
+      return String(item.id);
+    }
+
+    return `h${this.nextId++}`;
+  }
+
+  _buildRestoredHighlight(item, id, range) {
+    return {
+      id,
+      range,
+      color: this._normalizeRestoreColor(item.color || 'yellow'),
+      text: item.text,
+      timestamp: item.timestamp || Date.now(),
+      rangeInfo: item.rangeInfo,
+    };
+  }
+
+  _cancelFailedRestore(id) {
+    this.highlights.delete(id);
+    Logger.warn('無法應用視覺效果，恢復標註已取消', { action: 'restoreLocalHighlight', id });
     return false;
+  }
+
+  _advanceNextIdFromHighlightId(id) {
+    const numId = Number.parseInt(id.replace('h', ''), 10);
+    if (!Number.isNaN(numId) && numId >= this.nextId) {
+      this.nextId = numId + 1;
+    }
+  }
+
+  _cleanupRestoreEntry(id) {
+    if (id) {
+      this.highlights.delete(id);
+    }
   }
 
   // --- Migration ---
@@ -660,9 +813,23 @@ export class HighlightManager {
   }
 
   static getSafeExtensionStorage() {
-    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.id) {
-      return globalThis.chrome.storage?.local || null;
+    if (globalThis.window === undefined) {
+      return null;
     }
-    return null;
+
+    const chromeApi = globalThis.chrome;
+    if (!chromeApi) {
+      return null;
+    }
+
+    if (!chromeApi.runtime?.id) {
+      return null;
+    }
+
+    if (!chromeApi.storage) {
+      return null;
+    }
+
+    return chromeApi.storage.local || null;
   }
 }
