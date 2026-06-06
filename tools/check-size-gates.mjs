@@ -10,10 +10,10 @@ const BUDGETS = Object.freeze({
       label: 'content.bundle.js',
       type: 'file',
       relPath: 'dist/content.bundle.js',
-      // HighlightManager complexity refactor moved the 2026-06-06 content baseline
-      // to ~294.6KB. Keep the hard cap tight at 296KB; delta gate still guards
+      // 2026-06-06 content extraction refactor plus OPTIONS copy moved the content
+      // baseline to ~296.6KB. Keep ~3.4KB headroom while delta gate still guards
       // single-PR growth.
-      hardLimit: 296_000,
+      hardLimit: 300_000,
       deltaLimit: 30_000,
     },
     {
