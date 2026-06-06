@@ -324,6 +324,9 @@ describe('配置模組 - messages.js 動態函式', () => {
 
     test('各個 Leaf 模組應該被凍結', () => {
       expect(Object.isFrozen(BACKGROUND_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(BACKGROUND_MESSAGES.POPUP)).toBe(true);
+      expect(Object.isFrozen(BACKGROUND_MESSAGES.HIGHLIGHTS)).toBe(true);
+      expect(Object.isFrozen(BACKGROUND_MESSAGES.STORAGE)).toBe(true);
       expect(Object.isFrozen(HIGHLIGHTER_MESSAGES)).toBe(true);
       expect(Object.isFrozen(DATA_SOURCE_MESSAGES)).toBe(true);
     });
