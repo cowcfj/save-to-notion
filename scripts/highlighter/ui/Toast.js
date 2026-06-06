@@ -14,7 +14,7 @@ const VISIBLE_CLASS = 'toast--visible';
  * - 單例 host：第一次 `show()` lazy 建立 `<div id="notion-toast-host">` 並標記 `data-toast-owner="true"`，
  *   第二次起復用同一 host（避免 DOM 累積）。
  * - Override 模式：連續 `show()` 不排隊，後者直接取代前者並重置倒數計時。
- * - `messageKey` 解析：先從 `HIGHLIGHTER_MESSAGES.TOAST[key]` 查；找不到 → `Logger.warn` + 用 key 字面值 fallback。
+ * - `messageKey` 解析：先從 `HIGHLIGHTER_MESSAGES.TOAST[key]` 查；找不到 → `Logger.warn` + 中文預設 fallback。
  * - `customMessage` 優先於 `messageKey`。
  * - `cleanup()` / `hide()` 在未顯示時皆為 no-op，不應拋例外。
  *
@@ -145,7 +145,7 @@ export class Toast {
       result: 'unknown_message_key',
       messageKey,
     });
-    return messageKey;
+    return HIGHLIGHTER_MESSAGES?.TOAST?.DEFAULT || '發生錯誤，請稍後再試';
   }
 
   _cancelTimers() {

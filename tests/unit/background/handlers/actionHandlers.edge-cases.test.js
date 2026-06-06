@@ -937,7 +937,9 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
       await handlers.syncHighlights({ highlights: [{ text: 'hi' }] }, csSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, count: 1, highlightCount: 1 })
+      );
     });
   });
 

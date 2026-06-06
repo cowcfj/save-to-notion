@@ -31,6 +31,7 @@ export async function startAccountLogin() {
   } catch (error) {
     Logger.warn('startAccountLogin failed', {
       action: 'startAccountLogin',
+      result: 'failed',
       error,
     });
     return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };

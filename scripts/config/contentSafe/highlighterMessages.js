@@ -54,6 +54,7 @@ export const HIGHLIGHTER_MESSAGES = deepFreeze({
     DELETION_PENDING: '正在確認原頁面是否已刪除，請稍後再試。',
   },
   TOAST: {
+    DEFAULT: '發生錯誤，請稍後再試',
     HIGHLIGHT_DELETED: '標註已刪除',
     HIGHLIGHT_DUPLICATE: '此文字已標註',
     HIGHLIGHT_FAILED: '標註失敗，請重試',

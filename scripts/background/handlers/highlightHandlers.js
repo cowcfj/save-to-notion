@@ -746,6 +746,7 @@ async function handleSyncHighlights(services, request, sender, sendResponse) {
       sendResponse({
         success: true,
         message: BACKGROUND_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
+        count: 0,
         highlightCount: 0,
       });
       return;
@@ -758,6 +759,7 @@ async function handleSyncHighlights(services, request, sender, sendResponse) {
         result: 'success',
         count: highlights.length,
       });
+      result.count = highlights.length;
       result.highlightCount = highlights.length;
       result.message = BACKGROUND_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
     } else {

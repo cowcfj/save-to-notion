@@ -358,6 +358,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          count: 0,
           highlightCount: 0,
         })
       );

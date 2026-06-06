@@ -380,6 +380,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: true,
+        count: 0,
         highlightCount: 0,
         message: expect.stringMatching(/沒有新標註需要同步/u),
       })
