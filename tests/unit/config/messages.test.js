@@ -436,11 +436,17 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED).toBe('無法開啟登入頁面，請稍後再試');
     });
 
+    test('UI_MESSAGES.ACCOUNT 應 re-use BACKGROUND_MESSAGES account leaf', () => {
+      expect(UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED).toBe(
+        BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED
+      );
+    });
+
     test.each([
       {
         path: 'scripts/auth/accountLoginInitiator.js',
-        message: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED,
-        reference: 'UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED',
+        message: BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED,
+        reference: 'BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED',
       },
       {
         path: 'scripts/auth/driveClient.js',

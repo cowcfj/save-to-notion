@@ -25,4 +25,7 @@ export const BACKGROUND_MESSAGES = deepFreeze({
   DRIVE_SYNC: {
     TRANSIENT_AUTH_ERROR: '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。',
   },
+  ACCOUNT: {
+    LOGIN_PAGE_OPEN_FAILED: '無法開啟登入頁面，請稍後再試',
+  },
 });
