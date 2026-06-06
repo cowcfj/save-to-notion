@@ -78,6 +78,18 @@ describe('core/HighlightManager', () => {
     return range;
   }
 
+  function createOwnedExtensionHost(id, ownerDatasetKey) {
+    const host = document.createElement('div');
+    host.id = id;
+    host.dataset[ownerDatasetKey] = 'true';
+    document.body.append(host);
+    return host;
+  }
+
+  function createComposedPathEvent(...elements) {
+    return { composedPath: () => elements };
+  }
+
   beforeEach(() => {
     document.body.innerHTML = '';
 
@@ -1104,55 +1116,40 @@ describe('core/HighlightManager', () => {
 
   describe('_isExtensionUiEvent allowlist', () => {
     test('應認可帶 owner 標記的 #notion-toast-host', () => {
-      const host = document.createElement('div');
-      host.id = 'notion-toast-host';
-      host.dataset.toastOwner = 'true';
-      document.body.append(host);
-
-      const event = { composedPath: () => [host] };
+      const host = createOwnedExtensionHost('notion-toast-host', 'toastOwner');
+      const event = createComposedPathEvent(host);
 
       expect(HighlightManager._isExtensionUiEvent(event)).toBe(true);
     });
 
     test('應認可帶 owner 標記的 #notion-toast-host 後代元素（closest 路徑）', () => {
-      const host = document.createElement('div');
-      host.id = 'notion-toast-host';
-      host.dataset.toastOwner = 'true';
+      const host = createOwnedExtensionHost('notion-toast-host', 'toastOwner');
       const child = document.createElement('span');
       host.append(child);
-      document.body.append(host);
 
-      const event = { composedPath: () => [child] };
+      const event = createComposedPathEvent(child);
 
       expect(HighlightManager._isExtensionUiEvent(event)).toBe(true);
     });
 
     test('應認可既有 #notion-floating-rail-host 與 #notion-highlighter-host（regression）', () => {
-      const railHost = document.createElement('div');
-      railHost.id = 'notion-floating-rail-host';
-      railHost.dataset.railOwner = 'true';
-      document.body.append(railHost);
-      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [railHost] })).toBe(true);
+      const railHost = createOwnedExtensionHost('notion-floating-rail-host', 'railOwner');
+      expect(HighlightManager._isExtensionUiEvent(createComposedPathEvent(railHost))).toBe(true);
 
-      const toolbarHost = document.createElement('div');
-      toolbarHost.id = 'notion-highlighter-host';
-      toolbarHost.dataset.highlighterOwner = 'true';
-      document.body.append(toolbarHost);
-      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [toolbarHost] })).toBe(
-        true
-      );
+      const toolbarHost = createOwnedExtensionHost('notion-highlighter-host', 'highlighterOwner');
+      expect(HighlightManager._isExtensionUiEvent(createComposedPathEvent(toolbarHost))).toBe(true);
     });
 
     test('應認可 Floating Rail dynamic host id 與後代元素', () => {
-      const railHost = document.createElement('div');
-      railHost.id = 'notion-floating-rail-host-extension-id';
-      railHost.dataset.railOwner = 'true';
+      const railHost = createOwnedExtensionHost(
+        'notion-floating-rail-host-extension-id',
+        'railOwner'
+      );
       const child = document.createElement('span');
       railHost.append(child);
-      document.body.append(railHost);
 
-      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [railHost] })).toBe(true);
-      expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [child] })).toBe(true);
+      expect(HighlightManager._isExtensionUiEvent(createComposedPathEvent(railHost))).toBe(true);
+      expect(HighlightManager._isExtensionUiEvent(createComposedPathEvent(child))).toBe(true);
     });
 
     test('應拒絕同 ID 但缺少 owner 標記的 host 頁面元素', () => {
