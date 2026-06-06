@@ -12,13 +12,7 @@ describe('contentSafe config', () => {
   const contentSafeDir = path.join(projectRoot, 'scripts/config/contentSafe');
 
   test('應提供 contentSafe toolbar config 檔案', () => {
-    const expectedFiles = [
-      'toolbarSelectors.js',
-      'toolbarIcons.js',
-      'toolbarMessages.js',
-      'contentExtractionMessages.js',
-      'highlighterMessages.js',
-    ];
+    const expectedFiles = ['toolbarSelectors.js', 'toolbarIcons.js'];
 
     const missingFiles = expectedFiles
       .map(file => path.join(contentSafeDir, file))
@@ -55,40 +49,24 @@ describe('contentSafe config', () => {
     expect(TOOLBAR_ICONS).not.toHaveProperty('SETUP_GUIDE');
   });
 
-  test('toolbarMessages 應只暴露 toolbar/content 路徑需要的訊息', async () => {
-    const modulePath = path.join(contentSafeDir, 'toolbarMessages.js');
+  test('extractionFallbackMessages 應只暴露內容提取 fallback 訊息', async () => {
+    const messagesDir = path.join(projectRoot, 'scripts/config/messages');
+    const modulePath = path.join(messagesDir, 'extractionFallbackMessages.js');
     const moduleUrl = pathToFileURL(modulePath);
-    const { TOOLBAR_MESSAGES } = await import(moduleUrl.href);
+    const { EXTRACTION_FALLBACK_MESSAGES } = await import(moduleUrl.href);
 
-    expect(Object.isFrozen(TOOLBAR_MESSAGES)).toBe(true);
-    expect(TOOLBAR_MESSAGES).toEqual({
-      SYNCING: UI_MESSAGES.TOOLBAR.SYNCING,
-      SYNC_SUCCESS: UI_MESSAGES.TOOLBAR.SYNC_SUCCESS,
-      SYNC_FAILED: UI_MESSAGES.TOOLBAR.SYNC_FAILED,
-      DELETED_PAGE: UI_MESSAGES.POPUP.DELETED_PAGE,
-      DELETION_PENDING: UI_MESSAGES.POPUP.DELETION_PENDING,
-      PAGE_NOT_SAVED_HINT: UI_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT,
-    });
-    expect(TOOLBAR_MESSAGES).not.toHaveProperty('LOADING');
-    expect(TOOLBAR_MESSAGES).not.toHaveProperty('OAUTH_ACTION_CONNECT');
-  });
-
-  test('contentExtractionMessages 應只暴露內容提取 fallback 訊息', async () => {
-    const modulePath = path.join(contentSafeDir, 'contentExtractionMessages.js');
-    const moduleUrl = pathToFileURL(modulePath);
-    const { CONTENT_EXTRACTION_MESSAGES } = await import(moduleUrl.href);
-
-    expect(Object.isFrozen(CONTENT_EXTRACTION_MESSAGES)).toBe(true);
-    expect(CONTENT_EXTRACTION_MESSAGES).toEqual({
+    expect(Object.isFrozen(EXTRACTION_FALLBACK_MESSAGES)).toBe(true);
+    expect(EXTRACTION_FALLBACK_MESSAGES).toEqual({
       EMPTY_FALLBACK: '擷取內容失敗。頁面可能為空白或受保護。',
       ERROR_FALLBACK: '擷取發生錯誤，請稍後再試。',
     });
-    expect(CONTENT_EXTRACTION_MESSAGES.EMPTY_FALLBACK).not.toMatch(/content extraction failed/i);
-    expect(CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK).not.toMatch(/extraction error/i);
+    expect(EXTRACTION_FALLBACK_MESSAGES.EMPTY_FALLBACK).not.toMatch(/content extraction failed/i);
+    expect(EXTRACTION_FALLBACK_MESSAGES.ERROR_FALLBACK).not.toMatch(/extraction error/i);
   });
 
-  test('highlighterMessages 應只暴露 highlighter 需要的訊息', async () => {
-    const modulePath = path.join(contentSafeDir, 'highlighterMessages.js');
+  test('highlighterMessages 應只暴露 highlighter 需要的訊息（含合併後的 toolbar 訊息）', async () => {
+    const messagesDir = path.join(projectRoot, 'scripts/config/messages');
+    const modulePath = path.join(messagesDir, 'highlighterMessages.js');
     const moduleUrl = pathToFileURL(modulePath);
     const { HIGHLIGHTER_MESSAGES } = await import(moduleUrl.href);
 
@@ -104,6 +82,16 @@ describe('contentSafe config', () => {
     expect(HIGHLIGHTER_MESSAGES.POPUP.DELETED_PAGE).toEqual(UI_MESSAGES.POPUP.DELETED_PAGE);
     expect(HIGHLIGHTER_MESSAGES.POPUP.DELETION_PENDING).toEqual(UI_MESSAGES.POPUP.DELETION_PENDING);
     expect(HIGHLIGHTER_MESSAGES.TOAST).toEqual(UI_MESSAGES.TOAST);
+
+    // 驗證合併入 HIGHLIGHTER_MESSAGES.TOOLBAR 的 toolbar 訊息正確性
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNCING).toBe(UI_MESSAGES.TOOLBAR.SYNCING);
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNC_SUCCESS).toBe(UI_MESSAGES.TOOLBAR.SYNC_SUCCESS);
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.SYNC_FAILED).toBe(UI_MESSAGES.TOOLBAR.SYNC_FAILED);
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.DELETED_PAGE).toBe(UI_MESSAGES.POPUP.DELETED_PAGE);
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.DELETION_PENDING).toBe(UI_MESSAGES.POPUP.DELETION_PENDING);
+    expect(HIGHLIGHTER_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT).toBe(
+      UI_MESSAGES.TOOLBAR.PAGE_NOT_SAVED_HINT
+    );
 
     expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('OPTIONS');
     expect(HIGHLIGHTER_MESSAGES).not.toHaveProperty('CLOUD_SYNC');

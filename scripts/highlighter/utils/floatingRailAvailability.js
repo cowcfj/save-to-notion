@@ -1,4 +1,4 @@
-import { RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../../config/messages/runtimeErrorMessages.js';
 
 const ALLOWED_RUNTIME_ERROR_MESSAGES = new Set([
   RUNTIME_ERROR_MESSAGES.EXTENSION_UNAVAILABLE,

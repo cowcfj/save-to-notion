@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { RUNTIME_ERROR_MESSAGES } from '../../../../scripts/config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../../../../scripts/config/messages/runtimeErrorMessages.js';
 
 describe('FloatingRailRuntime (node env — no window)', () => {
   it('window 不存在時拋 EXTENSION_UNAVAILABLE', async () => {

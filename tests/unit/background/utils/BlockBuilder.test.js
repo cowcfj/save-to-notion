@@ -31,8 +31,8 @@ const {
   NOTION_CODE_LANGUAGE_PLAIN_TEXT,
 } = require('../../../../scripts/config/notionCodeLanguages.js');
 const {
-  CONTENT_EXTRACTION_MESSAGES,
-} = require('../../../../scripts/config/contentSafe/contentExtractionMessages.js');
+  EXTRACTION_FALLBACK_MESSAGES,
+} = require('../../../../scripts/config/messages/extractionFallbackMessages.js');
 
 const blockBuilderPath = path.resolve(
   __dirname,
@@ -360,7 +360,7 @@ describe('BlockBuilder', () => {
       const result = createFallbackBlocks();
       expect(result).toHaveLength(1);
       expect(result[0].paragraph.rich_text[0].text.content).toBe(
-        CONTENT_EXTRACTION_MESSAGES.ERROR_FALLBACK
+        EXTRACTION_FALLBACK_MESSAGES.ERROR_FALLBACK
       );
     });
 

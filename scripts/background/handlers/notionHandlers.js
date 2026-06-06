@@ -14,7 +14,7 @@ import {
   getActiveNotionToken,
   refreshOAuthToken as refreshOAuthTokenCoordinator,
 } from '../../utils/notionAuth.js';
-import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
+import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
 
 export function createNotionHandlers({ notionService }) {
   return {

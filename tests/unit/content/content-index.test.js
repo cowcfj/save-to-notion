@@ -9,7 +9,7 @@ import { ImageCollector } from '../../../scripts/content/extractors/ImageCollect
 import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { CONTENT_QUALITY } from '../../../scripts/config/shared/content.js';
-import { DATA_SOURCE_MESSAGES } from '../../../scripts/config/shared/dataSourceMessages.js';
+import { DATA_SOURCE_MESSAGES } from '../../../scripts/config/messages/dataSourceMessages.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 // Mock dependencies

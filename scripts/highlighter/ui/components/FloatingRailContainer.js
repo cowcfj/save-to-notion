@@ -5,7 +5,7 @@
  */
 
 import { COLORS } from '../../utils/color.js';
-import { HIGHLIGHTER_MESSAGES } from '../../../config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../../config/messages/highlighterMessages.js';
 import { createSafeIcon } from '../../utils/safeIcon.js';
 
 const ARIA_LABEL = 'aria-label';

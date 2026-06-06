@@ -36,7 +36,7 @@
 import { BUILD_ENV } from '../config/env/index.js';
 import { ACCOUNT_API } from '../config/extension/accountApi.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../config/extension/driveSyncErrorCodes.js';
-import { BACKGROUND_MESSAGES } from '../config/shared/backgroundMessages.js';
+import { BACKGROUND_MESSAGES } from '../config/messages/backgroundMessages.js';
 import { buildAccountAuthHeaders } from './accountSession.js';
 import Logger from '../utils/Logger.js';
 

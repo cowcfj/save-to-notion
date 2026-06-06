@@ -7,7 +7,7 @@
  */
 
 import Logger from './Logger.js';
-import { API_ERROR_PATTERNS, ERROR_MESSAGES } from '../config/shared/errorMessages.js';
+import { API_ERROR_PATTERNS, ERROR_MESSAGES } from '../config/messages/errorMessages.js';
 
 /**
  * 內部 API 錯誤分類器 (私有實現，引用純配置數據)

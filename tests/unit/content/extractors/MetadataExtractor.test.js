@@ -3,7 +3,7 @@
  */
 
 import { MetadataExtractor } from '../../../../scripts/content/extractors/MetadataExtractor.js';
-import { DATA_SOURCE_MESSAGES } from '../../../../scripts/config/shared/dataSourceMessages.js';
+import { DATA_SOURCE_MESSAGES } from '../../../../scripts/config/messages/dataSourceMessages.js';
 
 describe('MetadataExtractor', () => {
   beforeEach(() => {

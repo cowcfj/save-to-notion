@@ -7,7 +7,8 @@
 
 import { TOOLBAR_SELECTORS } from '../../config/contentSafe/toolbarSelectors.js';
 import { TOOLBAR_ICONS } from '../../config/contentSafe/toolbarIcons.js';
-import { TOOLBAR_MESSAGES } from '../../config/contentSafe/toolbarMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/messages/highlighterMessages.js';
+const TOOLBAR_MESSAGES = HIGHLIGHTER_MESSAGES.TOOLBAR;
 import { createSafeIcon } from '../utils/safeIcon.js';
 
 const STYLE_INLINE_BLOCK = 'inline-block';

@@ -11,7 +11,7 @@
 import Logger from './Logger.js';
 import { SECURITY_CONSTANTS } from '../config/shared/core.js';
 
-import { SECURITY_ERROR_MESSAGES, ERROR_MESSAGES } from '../config/shared/errorMessages.js';
+import { SECURITY_ERROR_MESSAGES, ERROR_MESSAGES } from '../config/messages/errorMessages.js';
 
 const NOTION_ALLOWED_DOMAINS = new Set([
   'notion.so',

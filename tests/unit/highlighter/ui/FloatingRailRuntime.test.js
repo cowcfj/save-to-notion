@@ -17,7 +17,7 @@ import {
 } from '../../../../scripts/highlighter/ui/FloatingRailRuntime.js';
 import { HIGHLIGHTER_ACTIONS } from '../../../../scripts/config/runtimeActions/highlighterActions.js';
 import { PAGE_SAVE_ACTIONS } from '../../../../scripts/config/runtimeActions/pageSaveActions.js';
-import { RUNTIME_ERROR_MESSAGES } from '../../../../scripts/config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../../../../scripts/config/messages/runtimeErrorMessages.js';
 
 describe('FloatingRailRuntime', () => {
   let originalSendMessage;

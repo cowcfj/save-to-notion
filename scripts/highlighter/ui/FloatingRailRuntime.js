@@ -7,7 +7,7 @@
 
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
 import { PAGE_SAVE_ACTIONS } from '../../config/runtimeActions/pageSaveActions.js';
-import { RUNTIME_ERROR_MESSAGES } from '../../config/runtimeActions/errorMessages.js';
+import { RUNTIME_ERROR_MESSAGES } from '../../config/messages/runtimeErrorMessages.js';
 
 function ensureChromeRuntimeAvailable() {
   if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {

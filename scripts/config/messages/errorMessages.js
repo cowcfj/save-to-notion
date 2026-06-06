@@ -2,7 +2,7 @@
  * Canonical error registries for the extension, supporting tree-shaking by avoiding the UI_MESSAGES monolith.
  */
 
-import { deepFreeze } from './deepFreeze.js';
+import { deepFreeze } from '../shared/deepFreeze.js';
 
 const TECHNICAL = {
   NO_ACTIVE_TAB: 'NO_ACTIVE_TAB',

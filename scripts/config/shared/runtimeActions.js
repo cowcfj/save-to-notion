@@ -789,4 +789,4 @@ export const RUNTIME_ACTIONS = Object.freeze({
   ...DIAGNOSTICS_ACTIONS,
 });
 
-export { RUNTIME_ERROR_MESSAGES } from '../runtimeActions/errorMessages.js';
+export { RUNTIME_ERROR_MESSAGES } from '../messages/runtimeErrorMessages.js';

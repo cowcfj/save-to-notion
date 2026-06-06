@@ -26,8 +26,8 @@ import {
 import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
-import { HIGHLIGHT_ERROR_CODES } from '../../config/shared/errorMessages.js';
-import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHT_ERROR_CODES } from '../../config/messages/errorMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/messages/highlighterMessages.js';
 import {
   playLaunchAnimation,
   playFireworkAnimation,

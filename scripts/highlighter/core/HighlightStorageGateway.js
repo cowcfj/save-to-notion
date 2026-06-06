@@ -20,7 +20,7 @@
 
 import { isSafeStableUrl, normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
-import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
+import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
 import { HIGHLIGHTER_ACTIONS } from '../../config/runtimeActions/highlighterActions.js';
 import { HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX } from '../../config/shared/storage.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';

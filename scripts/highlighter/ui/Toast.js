@@ -1,5 +1,5 @@
 import Logger from '../../utils/Logger.js';
-import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/messages/highlighterMessages.js';
 import { createToastContainer } from './components/ToastContainer.js';
 import { injectToastStylesIntoShadowRoot } from './styles/toastStyles.js';
 
