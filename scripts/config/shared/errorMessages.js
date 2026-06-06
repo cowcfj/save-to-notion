@@ -2,8 +2,14 @@
  * Canonical error registries for the extension, supporting tree-shaking by avoiding the UI_MESSAGES monolith.
  */
 
+const FREEZABLE_TYPES = new Set(['object', 'function']);
+
+function isFreezableValue(value) {
+  return value !== null && FREEZABLE_TYPES.has(typeof value);
+}
+
 function deepFreeze(target) {
-  if (!target || (typeof target !== 'object' && typeof target !== 'function')) {
+  if (!isFreezableValue(target)) {
     return target;
   }
 
@@ -12,7 +18,7 @@ function deepFreeze(target) {
   }
 
   for (const value of Object.values(target)) {
-    if (value && (typeof value === 'object' || typeof value === 'function')) {
+    if (isFreezableValue(value)) {
       deepFreeze(value);
     }
   }

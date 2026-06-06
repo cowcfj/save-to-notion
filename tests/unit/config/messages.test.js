@@ -7,6 +7,7 @@ const {
   UI_MESSAGES,
   ERROR_MESSAGES,
   ERROR_TYPES,
+  API_ERROR_PATTERNS,
 } = require('../../../scripts/config/shared/messages.js');
 const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
 
@@ -283,6 +284,13 @@ describe('配置模組 - messages.js 動態函式', () => {
     test('ERROR_MESSAGES.PATTERNS 應包含錯誤映射', () => {
       expect(typeof ERROR_MESSAGES.PATTERNS).toBe('object');
       expect(Object.keys(ERROR_MESSAGES.PATTERNS).length).toBeGreaterThan(0);
+    });
+
+    test('ERROR_MESSAGES nested registries 應為遞迴凍結物件', () => {
+      expect(Object.isFrozen(ERROR_MESSAGES.TECHNICAL)).toBe(true);
+      expect(Object.isFrozen(ERROR_MESSAGES.USER_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(ERROR_MESSAGES.PATTERNS)).toBe(true);
+      expect(Object.isFrozen(API_ERROR_PATTERNS.AUTH)).toBe(true);
     });
 
     test('ERROR_MESSAGES.DEFAULT 應為字串', () => {
