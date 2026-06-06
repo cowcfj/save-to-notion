@@ -162,11 +162,11 @@ export function createContentRuntimeMessageHandler(dependencies) {
       return true;
     },
     [HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER]: (_request, sendResponse) => {
-      void withAvailableFloatingRail(sendResponse, revealFloatingRail);
+      withAvailableFloatingRail(sendResponse, revealFloatingRail);
       return true;
     },
     [CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL]: (_request, sendResponse) => {
-      void withAvailableFloatingRail(sendResponse, revealFloatingRail);
+      withAvailableFloatingRail(sendResponse, revealFloatingRail);
       return true;
     },
     [CONTENT_BRIDGE_ACTIONS.SHOW_TOAST]: request => {
@@ -174,7 +174,7 @@ export function createContentRuntimeMessageHandler(dependencies) {
       return false;
     },
     [HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT]: (request, sendResponse) => {
-      void withAvailableFloatingRail(sendResponse, activateFloatingRail, {
+      withAvailableFloatingRail(sendResponse, activateFloatingRail, {
         sessionOverride: request?.sessionOverride === true,
       });
       return true;
