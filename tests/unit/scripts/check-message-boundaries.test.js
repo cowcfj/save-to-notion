@@ -115,4 +115,32 @@ describe('tools/check-message-boundaries.mjs', () => {
     expect(output).toContain('[WARN] 找不到檔案: dist/scripts/background.js，跳過');
     expect(output).toContain('dist/content.bundle.js 邊界檢查通過');
   });
+
+  test('當啟用 --require-all 且缺少預期 bundle 時，應失敗並回傳 1', () => {
+    // 僅寫入 content，其餘 3 個預期 bundle 缺失；--require-all 下缺檔即視為失敗
+    writeFakeBundle('dist/content.bundle.js', 'console.log("Hello Content");');
+
+    let thrownError;
+    try {
+      runCli(['--require-all']);
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeDefined();
+    const fullOutput = `${thrownError.stdout}${thrownError.stderr}`;
+    expect(fullOutput).toContain('缺少預期的 bundle');
+    expect(fullOutput).toContain('dist/scripts/background.js');
+    expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
+  });
+
+  test('當啟用 --require-all 且所有預期 bundle 齊全且乾淨時，應通過檢查', () => {
+    writeFakeBundle('dist/content.bundle.js', 'console.log("Hello Content");');
+    writeFakeBundle('dist/scripts/background.js', 'console.log("Hello Background");');
+    writeFakeBundle('dist/migration-executor.js', 'console.log("Hello Migration");');
+    writeFakeBundle('dist/preloader.js', 'console.log("Hello Preloader");');
+
+    const output = runCli(['--require-all']);
+    expect(output).toContain('Bundle 訊息邊界檢查成功');
+  });
 });
