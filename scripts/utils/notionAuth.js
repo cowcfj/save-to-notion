@@ -5,7 +5,7 @@ import { NOTION_OAUTH } from '../config/extension/notionAuth.js';
 import { BUILD_ENV } from '../config/env/index.js';
 import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { sanitizeApiError } from './ApiErrorSanitizer.js';
-import { ERROR_MESSAGES } from '../config/shared/messages.js';
+import { ERROR_MESSAGES } from '../config/shared/errorMessages.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';
 

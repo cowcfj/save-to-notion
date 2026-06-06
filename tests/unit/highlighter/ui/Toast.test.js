@@ -71,12 +71,12 @@ describe('Toast', () => {
       expect(messageEl.textContent).toBe('自訂訊息');
     });
 
-    test('未知 messageKey 應 Logger.warn 並 fallback 為 messageKey 字面值', () => {
+    test('未知 messageKey 應 Logger.warn 並 fallback 為中文預設訊息', () => {
       toast.show('UNKNOWN_KEY', { level: 'success' });
 
       expect(Logger.warn).toHaveBeenCalled();
       const messageEl = getShadow().querySelector('.toast-message');
-      expect(messageEl.textContent).toBe('UNKNOWN_KEY');
+      expect(messageEl.textContent).toBe('發生錯誤，請稍後再試');
     });
 
     test('連續 show() 應覆蓋舊 toast，cancel 舊 timer', () => {

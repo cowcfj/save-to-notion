@@ -1,5 +1,5 @@
 import Logger from '../../utils/Logger.js';
-import { UI_MESSAGES } from '../../config/shared/messages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
 import { createToastContainer } from './components/ToastContainer.js';
 import { injectToastStylesIntoShadowRoot } from './styles/toastStyles.js';
 
@@ -14,7 +14,7 @@ const VISIBLE_CLASS = 'toast--visible';
  * - 單例 host：第一次 `show()` lazy 建立 `<div id="notion-toast-host">` 並標記 `data-toast-owner="true"`，
  *   第二次起復用同一 host（避免 DOM 累積）。
  * - Override 模式：連續 `show()` 不排隊，後者直接取代前者並重置倒數計時。
- * - `messageKey` 解析：先從 `UI_MESSAGES.TOAST[key]` 查；找不到 → `Logger.warn` + 用 key 字面值 fallback。
+ * - `messageKey` 解析：先從 `HIGHLIGHTER_MESSAGES.TOAST[key]` 查；找不到 → `Logger.warn` + 中文預設 fallback。
  * - `customMessage` 優先於 `messageKey`。
  * - `cleanup()` / `hide()` 在未顯示時皆為 no-op，不應拋例外。
  *
@@ -38,7 +38,7 @@ export class Toast {
   /**
    * 顯示 Toast。連續呼叫採 override 模式：取消舊 timer、取代舊 container。
    *
-   * @param {string} messageKey - `UI_MESSAGES.TOAST` 的 key（如 `'HIGHLIGHT_DELETED'`）
+   * @param {string} messageKey - `HIGHLIGHTER_MESSAGES.TOAST` 的 key（如 `'HIGHLIGHT_DELETED'`）
    * @param {object} [options]
    * @param {'success'|'warning'|'error'} [options.level='success']
    * @param {string} [options.customMessage] - 若提供，覆蓋 messageKey 解析結果
@@ -136,7 +136,7 @@ export class Toast {
   }
 
   _resolveMessage(messageKey) {
-    const message = UI_MESSAGES?.TOAST?.[messageKey];
+    const message = HIGHLIGHTER_MESSAGES?.TOAST?.[messageKey];
     if (typeof message === 'string') {
       return message;
     }
@@ -145,7 +145,7 @@ export class Toast {
       result: 'unknown_message_key',
       messageKey,
     });
-    return messageKey;
+    return HIGHLIGHTER_MESSAGES?.TOAST?.DEFAULT || '發生錯誤，請稍後再試';
   }
 
   _cancelTimers() {

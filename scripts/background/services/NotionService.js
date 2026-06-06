@@ -12,7 +12,8 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { ERROR_MESSAGES, CONTENT_QUALITY, HIGHLIGHT_ERROR_CODES } from '../../config/index.js';
+import { ERROR_MESSAGES, HIGHLIGHT_ERROR_CODES } from '../../config/shared/errorMessages.js';
+import { CONTENT_QUALITY } from '../../config/shared/content.js';
 import { NOTION_API } from '../../config/extension/notionApi.js';
 import { AuthMode } from '../../config/extension/authMode.js';
 // 導入安全工具

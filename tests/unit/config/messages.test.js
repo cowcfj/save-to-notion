@@ -7,8 +7,18 @@ const {
   UI_MESSAGES,
   ERROR_MESSAGES,
   ERROR_TYPES,
+  API_ERROR_PATTERNS,
 } = require('../../../scripts/config/shared/messages.js');
 const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
+const fs = require('node:fs');
+const path = require('node:path');
+const { deepFreeze } = require('../../../scripts/config/shared/deepFreeze.js');
+const { BACKGROUND_MESSAGES } = require('../../../scripts/config/shared/backgroundMessages.js');
+
+function readProjectSource(relativePath) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.readFileSync(path.resolve(__dirname, '../../..', relativePath), 'utf8');
+}
 
 describe('配置模組 - messages.js 動態函式', () => {
   const SEARCH_TERM = '測試關鍵字';
@@ -40,6 +50,30 @@ describe('配置模組 - messages.js 動態函式', () => {
   const HEALTH_MIGRATION_LEFTOVER_SIZE = 512;
   const TIMESTAMP_VALUE = '2026/04/19 20:00';
   const TIMEZONE_LABEL = 'Asia/Hong_Kong';
+
+  describe('deepFreeze helper', () => {
+    test('應遞迴凍結 object 與 function object，primitive 則原樣回傳', () => {
+      function formatter() {
+        return 'ok';
+      }
+      formatter.meta = { label: 'format' };
+
+      const target = {
+        nested: { enabled: true },
+        formatter,
+      };
+
+      const result = deepFreeze(target);
+
+      expect(result).toBe(target);
+      expect(Object.isFrozen(result)).toBe(true);
+      expect(Object.isFrozen(result.nested)).toBe(true);
+      expect(Object.isFrozen(result.formatter)).toBe(true);
+      expect(Object.isFrozen(result.formatter.meta)).toBe(true);
+      expect(deepFreeze('copy')).toBe('copy');
+      expect(deepFreeze(null)).toBeNull();
+    });
+  });
 
   const singleParamFunctions = [
     { path: 'DATA_SOURCE.SEARCHING', fn: UI_MESSAGES.DATA_SOURCE.SEARCHING, arg: SEARCH_TERM },
@@ -285,6 +319,13 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(Object.keys(ERROR_MESSAGES.PATTERNS).length).toBeGreaterThan(0);
     });
 
+    test('ERROR_MESSAGES nested registries 應為遞迴凍結物件', () => {
+      expect(Object.isFrozen(ERROR_MESSAGES.TECHNICAL)).toBe(true);
+      expect(Object.isFrozen(ERROR_MESSAGES.USER_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(ERROR_MESSAGES.PATTERNS)).toBe(true);
+      expect(Object.isFrozen(API_ERROR_PATTERNS.AUTH)).toBe(true);
+    });
+
     test('ERROR_MESSAGES.DEFAULT 應為字串', () => {
       expect(typeof ERROR_MESSAGES.DEFAULT).toBe('string');
     });
@@ -303,5 +344,132 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(ErrorHandler.formatUserMessage(undefined)).toBe(ERROR_MESSAGES.DEFAULT);
       expect(ErrorHandler.formatUserMessage(null)).toBe(ERROR_MESSAGES.DEFAULT);
     });
+  });
+
+  describe('Leaf 模組與 UI_MESSAGES facade 相容性', () => {
+    const {
+      HIGHLIGHTER_MESSAGES,
+    } = require('../../../scripts/config/contentSafe/highlighterMessages.js');
+    const {
+      DATA_SOURCE_MESSAGES,
+    } = require('../../../scripts/config/shared/dataSourceMessages.js');
+
+    test('各個 Leaf 模組應該被凍結', () => {
+      expect(Object.isFrozen(BACKGROUND_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(BACKGROUND_MESSAGES.POPUP)).toBe(true);
+      expect(Object.isFrozen(BACKGROUND_MESSAGES.HIGHLIGHTS)).toBe(true);
+      expect(Object.isFrozen(BACKGROUND_MESSAGES.STORAGE)).toBe(true);
+      expect(Object.isFrozen(HIGHLIGHTER_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(DATA_SOURCE_MESSAGES)).toBe(true);
+    });
+
+    test('UI_MESSAGES 應該被凍結', () => {
+      expect(Object.isFrozen(UI_MESSAGES)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.OPTIONS)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.OPTIONS.DESTINATION)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.STORAGE)).toBe(true);
+      expect(Object.isFrozen(UI_MESSAGES.TOOLBAR)).toBe(true);
+    });
+
+    test('DATA_SOURCE 應該指向同一個 DATA_SOURCE_MESSAGES 物件', () => {
+      expect(UI_MESSAGES.DATA_SOURCE).toBe(DATA_SOURCE_MESSAGES);
+    });
+
+    test('FLOATING_RAIL 欄位應該與 HIGHLIGHTER_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.FLOATING_RAIL).toEqual(HIGHLIGHTER_MESSAGES.FLOATING_RAIL);
+    });
+
+    test('TOAST 欄位應該與 HIGHLIGHTER_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.TOAST).toEqual(HIGHLIGHTER_MESSAGES.TOAST);
+    });
+
+    test('BACKGROUND POPUP 欄位應該完全一致', () => {
+      expect(UI_MESSAGES.POPUP.DELETION_PENDING).toBe(BACKGROUND_MESSAGES.POPUP.DELETION_PENDING);
+      expect(UI_MESSAGES.POPUP.DELETED_PAGE).toBe(BACKGROUND_MESSAGES.POPUP.DELETED_PAGE);
+    });
+
+    test('HIGHLIGHTS 欄位應該與 BACKGROUND_MESSAGES 一致', () => {
+      expect(UI_MESSAGES.HIGHLIGHTS).toBe(BACKGROUND_MESSAGES.HIGHLIGHTS);
+    });
+
+    test('BACKGROUND STORAGE 欄位應該完全一致', () => {
+      expect(UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(5)).toBe(
+        BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(5)
+      );
+      expect(UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(5, 2)).toBe(
+        BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(5, 2)
+      );
+    });
+  });
+
+  describe('Inline 解耦字串不變量 (Invariant) 保護', () => {
+    test('UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME 應為 預設', () => {
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME).toBe('預設');
+    });
+
+    test('UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED 應為 已達目的地數量上限。', () => {
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED).toBe('已達目的地數量上限。');
+    });
+
+    test('UI_MESSAGES.OPTIONS.DESTINATION 應 re-use BACKGROUND_MESSAGES destination profile leaf', () => {
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME).toBe(
+        BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME
+      );
+      expect(UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED).toBe(
+        BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED
+      );
+    });
+
+    test('UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR 應為 臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。', () => {
+      expect(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR).toBe(
+        '臨時登入失效，請重新登入 Google 帳號或刷新 token 後再試。'
+      );
+    });
+
+    test('UI_MESSAGES.CLOUD_SYNC 應 re-use BACKGROUND_MESSAGES drive sync leaf', () => {
+      expect(UI_MESSAGES.CLOUD_SYNC.TRANSIENT_AUTH_ERROR).toBe(
+        BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR
+      );
+    });
+
+    test('UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED 應為 無法開啟登入頁面，請稍後再試', () => {
+      expect(UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED).toBe('無法開啟登入頁面，請稍後再試');
+    });
+
+    test('UI_MESSAGES.ACCOUNT 應 re-use BACKGROUND_MESSAGES account leaf', () => {
+      expect(UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED).toBe(
+        BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED
+      );
+    });
+
+    test.each([
+      {
+        path: 'scripts/auth/accountLoginInitiator.js',
+        message: BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED,
+        reference: 'BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED',
+      },
+      {
+        path: 'scripts/auth/driveClient.js',
+        message: BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR,
+        reference: 'BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR',
+      },
+      {
+        path: 'scripts/destinations/ProfileStore.js',
+        message: BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
+        reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME',
+      },
+      {
+        path: 'scripts/destinations/ProfileStore.js',
+        message: BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
+        reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED',
+      },
+    ])(
+      '$path 應引用 bundle-safe message leaf 而不是直接內嵌 "$message"',
+      ({ path: filePath, message, reference }) => {
+        const source = readProjectSource(filePath);
+        expect(source).toContain(reference);
+        expect(source).not.toContain(`'${message}'`);
+      }
+    );
   });
 });

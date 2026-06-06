@@ -8,7 +8,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { UI_MESSAGES } from '../config/shared/messages.js';
+import { BACKGROUND_MESSAGES } from '../config/shared/backgroundMessages.js';
 import { buildAccountLoginStartUrl } from './accountLogin.js';
 
 /**
@@ -31,8 +31,9 @@ export async function startAccountLogin() {
   } catch (error) {
     Logger.warn('startAccountLogin failed', {
       action: 'startAccountLogin',
+      result: 'failed',
       error,
     });
-    return { success: false, error: UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
+    return { success: false, error: BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED };
   }
 }

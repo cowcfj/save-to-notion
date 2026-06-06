@@ -16,10 +16,10 @@ import {
   AVATAR_KEYWORDS,
   IMAGE_SRC_ATTRIBUTES,
 } from '../../config/shared/content.js';
-import { UI_MESSAGES } from '../../config/shared/messages.js';
+import { DATA_SOURCE_MESSAGES } from '../../config/shared/dataSourceMessages.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 
-const UNTITLED_PAGE_LABEL = UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE;
+const UNTITLED_PAGE_LABEL = DATA_SOURCE_MESSAGES.UNTITLED_PAGE;
 
 const extractFirstMetaContent = (doc, ...selectors) => {
   for (const selector of selectors) {

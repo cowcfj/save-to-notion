@@ -5,7 +5,7 @@
 /* global chrome */
 
 import { getAccountSession, isAccountSessionExpired } from '../auth/accountSession.js';
-import { UI_MESSAGES } from '../config/shared/messages.js';
+import { BACKGROUND_MESSAGES } from '../config/shared/backgroundMessages.js';
 import Logger from '../utils/Logger.js';
 
 export const DESTINATION_PROFILE_STORAGE_KEYS = {
@@ -22,7 +22,7 @@ export const LEGACY_DATA_SOURCE_KEYS = [
 
 export const CURRENT_DESTINATION_PROFILE_VERSION = 1;
 export const DEFAULT_PROFILE_ID = 'default';
-export const DEFAULT_PROFILE_NAME = UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME;
+export const DEFAULT_PROFILE_NAME = BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME;
 export const DEFAULT_PROFILE_ICON = 'bookmark';
 export const DEFAULT_PROFILE_COLOR = '#2563eb';
 export const CREATE_PROFILE_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed'];
@@ -30,7 +30,7 @@ export const ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE = 'account_gated_founda
 
 export const DESTINATION_PROFILE_ERRORS = {
   NOT_FOUND: '找不到目的地設定檔',
-  LIMIT_REACHED: UI_MESSAGES.OPTIONS.DESTINATION.CREATE_LIMIT_REACHED,
+  LIMIT_REACHED: BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
   TARGET_REQUIRED: '保存目標需要有效的 Notion 目標',
   LAST_DELETE: '無法刪除最後一個保存目標',
   NOT_CONFIGURED: '尚未設定保存目標',

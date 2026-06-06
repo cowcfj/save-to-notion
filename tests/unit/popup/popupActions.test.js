@@ -612,6 +612,7 @@ describe('popupActions.js', () => {
       expect(result.success).toBe(false);
       expect(Logger.warn).toHaveBeenCalledWith('startAccountLogin failed', {
         action: 'startAccountLogin',
+        result: 'failed',
         error,
       });
     });

@@ -3,7 +3,7 @@
  */
 
 import { MetadataExtractor } from '../../../../scripts/content/extractors/MetadataExtractor.js';
-import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
+import { DATA_SOURCE_MESSAGES } from '../../../../scripts/config/shared/dataSourceMessages.js';
 
 describe('MetadataExtractor', () => {
   beforeEach(() => {
@@ -34,7 +34,7 @@ describe('MetadataExtractor', () => {
 
     test('should fallback to default if no title', () => {
       const result = MetadataExtractor.extractTitle(document, {});
-      expect(result).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+      expect(result).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
     });
 
     test('should accept short titles without consistency check', () => {

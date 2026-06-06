@@ -190,6 +190,8 @@ jobs:
           echo "Building production bundle..."
           prepare_build_env
           npm run build:prod
+          echo "Checking message bundle boundaries..."
+          node tools/check-message-boundaries.mjs --require-all
           bash tools/package-extension.sh "ci-current" --unpacked-dir="$CURRENT_UNPACKED_DIR"
           node tools/check-size-gates.mjs \
             --mode=hard \

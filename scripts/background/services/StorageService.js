@@ -29,7 +29,7 @@ import {
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
 } from '../../config/shared/storage.js';
-import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
 import {
   resolveKeys as resolveHighlightLookupKeys,
   getAliasLookupKeys,

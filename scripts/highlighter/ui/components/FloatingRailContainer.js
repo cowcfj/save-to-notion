@@ -5,11 +5,17 @@
  */
 
 import { COLORS } from '../../utils/color.js';
-import { UI_MESSAGES } from '../../../config/shared/messages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../../config/contentSafe/highlighterMessages.js';
 import { createSafeIcon } from '../../utils/safeIcon.js';
 
 const ARIA_LABEL = 'aria-label';
 const ACTION_BTN_CLASS = 'rail-action-btn';
+
+function getLocalizedColorAriaLabel(colorName) {
+  const localizedColorName =
+    HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_NAMES[colorName] || colorName;
+  return HIGHLIGHTER_MESSAGES.TOOLBAR.COLOR_PICKER_ARIA_LABEL(localizedColorName);
+}
 
 export const RAIL_ICONS = {
   CLOSE:
@@ -33,12 +39,12 @@ export function createFloatingRailContainer(options = {}) {
   const container = document.createElement('div');
   container.className = 'rail-container collapsed';
   container.setAttribute('role', 'toolbar');
-  container.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CONTAINER_LABEL);
+  container.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.CONTAINER_LABEL);
 
   // Close button (visible on hover, top-right corner)
   const closeBtn = document.createElement('button');
   closeBtn.className = 'rail-close-btn';
-  closeBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.CLOSE_LABEL);
+  closeBtn.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.CLOSE_LABEL);
   closeBtn.dataset.action = 'close';
   const closeIcon = createSafeIcon(RAIL_ICONS.CLOSE);
   closeBtn.append(closeIcon);
@@ -47,7 +53,7 @@ export function createFloatingRailContainer(options = {}) {
   // Trigger button (always visible)
   const trigger = document.createElement('button');
   trigger.className = 'rail-trigger';
-  trigger.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.TRIGGER_LABEL);
+  trigger.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.TRIGGER_LABEL);
   trigger.setAttribute('aria-expanded', 'false');
   trigger.setAttribute('aria-pressed', 'false');
   const logoIcon = createSafeIcon(RAIL_ICONS.LOGO);
@@ -61,7 +67,7 @@ export function createFloatingRailContainer(options = {}) {
   // Save/Sync button
   const saveBtn = document.createElement('button');
   saveBtn.className = ACTION_BTN_CLASS;
-  saveBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.SAVE_LABEL);
+  saveBtn.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.SAVE_LABEL);
   saveBtn.dataset.action = 'save';
   const saveIcon = createSafeIcon(RAIL_ICONS.NOTION);
   saveBtn.append(saveIcon);
@@ -80,7 +86,7 @@ export function createFloatingRailContainer(options = {}) {
   const highlightToggle = document.createElement('button');
   highlightToggle.className = `${ACTION_BTN_CLASS} rail-highlight-toggle`;
   highlightToggle.dataset.action = 'highlight';
-  highlightToggle.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
+  highlightToggle.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.HIGHLIGHT_LABEL);
   highlightToggle.setAttribute('aria-pressed', 'false');
   highlightToggle.dataset.highlightState = 'inactive';
   highlightToggle.style.setProperty(
@@ -98,7 +104,7 @@ export function createFloatingRailContainer(options = {}) {
   const palette = document.createElement('div');
   palette.className = 'color-palette';
   palette.setAttribute('role', 'radiogroup');
-  palette.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.COLOR_PALETTE_LABEL);
+  palette.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.COLOR_PALETTE_LABEL);
 
   for (const [name, hex] of Object.entries(COLORS)) {
     const swatch = document.createElement('button');
@@ -106,7 +112,7 @@ export function createFloatingRailContainer(options = {}) {
     swatch.style.backgroundColor = hex;
     swatch.setAttribute('role', 'radio');
     swatch.setAttribute('aria-checked', name === selectedColor ? 'true' : 'false');
-    swatch.setAttribute(ARIA_LABEL, name);
+    swatch.setAttribute(ARIA_LABEL, getLocalizedColorAriaLabel(name));
     swatch.dataset.color = name;
     palette.append(swatch);
   }
@@ -117,7 +123,7 @@ export function createFloatingRailContainer(options = {}) {
   // Manage button
   const manageBtn = document.createElement('button');
   manageBtn.className = ACTION_BTN_CLASS;
-  manageBtn.setAttribute(ARIA_LABEL, UI_MESSAGES.FLOATING_RAIL.MANAGE_LABEL);
+  manageBtn.setAttribute(ARIA_LABEL, HIGHLIGHTER_MESSAGES.FLOATING_RAIL.MANAGE_LABEL);
   manageBtn.dataset.action = 'manage';
   const manageIcon = createSafeIcon(RAIL_ICONS.MANAGE);
   manageBtn.append(manageIcon);

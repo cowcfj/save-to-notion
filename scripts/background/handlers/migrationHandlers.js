@@ -11,7 +11,8 @@
 
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { pMap } from '../../utils/concurrencyUtils.js';
-import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/shared/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
+import { BACKGROUND_MESSAGES } from '../../config/shared/backgroundMessages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 import {
@@ -345,8 +346,8 @@ export function createMigrationHandlers(services) {
         const failedCount = cleanupResults.length - successCount;
         const message =
           failedCount === 0
-            ? UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(successCount)
-            : UI_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(successCount, failedCount);
+            ? BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_SUCCESS(successCount)
+            : BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(successCount, failedCount);
         let result = 'partial';
         if (failedCount === 0) {
           result = 'success';

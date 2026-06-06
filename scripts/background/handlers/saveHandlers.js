@@ -24,7 +24,7 @@ import {
 } from '../utils/highlightStyleMerger.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { CONTENT_QUALITY } from '../../config/shared/content.js';
-import { ERROR_MESSAGES } from '../../config/shared/messages.js';
+import { ERROR_MESSAGES } from '../../config/shared/errorMessages.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 import { SAVE_STATUS_KINDS, createSaveStatusResponse } from '../../config/saveStatus.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';

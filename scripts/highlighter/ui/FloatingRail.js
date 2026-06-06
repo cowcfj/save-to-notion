@@ -26,7 +26,8 @@ import {
 import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
-import { HIGHLIGHT_ERROR_CODES, UI_MESSAGES } from '../../config/shared/messages.js';
+import { HIGHLIGHT_ERROR_CODES } from '../../config/shared/errorMessages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
 import {
   playLaunchAnimation,
   playFireworkAnimation,
@@ -61,11 +62,11 @@ const RAIL_DISPLAY_SETTING_KEYS = ['floatingRailPosition', 'floatingRailSize'];
 
 const RAIL_SAVE_ERROR_LOOKUP = {
   PAGE_DELETED: {
-    message: UI_MESSAGES.POPUP.DELETED_PAGE,
+    message: HIGHLIGHTER_MESSAGES.POPUP.DELETED_PAGE,
     shouldRefresh: true,
   },
   PAGE_DELETION_PENDING: {
-    message: UI_MESSAGES.POPUP.DELETION_PENDING,
+    message: HIGHLIGHTER_MESSAGES.POPUP.DELETION_PENDING,
     shouldRefresh: false,
   },
 };

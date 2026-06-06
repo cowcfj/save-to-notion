@@ -5,7 +5,7 @@
  * 所有動畫綁定在傳入的 DOM 元素上，不持有外部狀態。
  */
 
-import { UI_MESSAGES } from '../../config/shared/messages.js';
+import { HIGHLIGHTER_MESSAGES } from '../../config/contentSafe/highlighterMessages.js';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -154,13 +154,13 @@ const _failHideTimers = new WeakMap();
 /**
  * @param {HTMLElement} button
  * @param {HTMLElement} tooltip - .rail-error-tooltip 元素
- * @param {string} [message] - 自訂錯誤提示文字，預設為 UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED
+ * @param {string} [message] - 自訂錯誤提示文字，預設為 HIGHLIGHTER_MESSAGES.FLOATING_RAIL.SAVE_FAILED
  * @returns {Promise<void>}
  */
 export async function playFailAnimation(
   button,
   tooltip,
-  message = UI_MESSAGES.FLOATING_RAIL.SAVE_FAILED
+  message = HIGHLIGHTER_MESSAGES.FLOATING_RAIL.SAVE_FAILED
 ) {
   const shake = prefersReducedMotion()
     ? null
