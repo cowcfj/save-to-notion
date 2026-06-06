@@ -29,7 +29,7 @@ const {
 } = require('../../../../scripts/background/utils/BlockBuilder');
 const {
   NOTION_CODE_LANGUAGE_PLAIN_TEXT,
-} = require('../../../../scripts/config/notionCodeLanguages.js');
+} = require('../../../../scripts/config/shared/notionCodeLanguages.js');
 const {
   EXTRACTION_FALLBACK_MESSAGES,
 } = require('../../../../scripts/config/messages/extractionFallbackMessages.js');

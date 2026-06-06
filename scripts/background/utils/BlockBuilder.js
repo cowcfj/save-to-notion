@@ -11,7 +11,7 @@
 import { TEXT_PROCESSING } from '../../config/shared/content.js';
 import { EXTRACTION_FALLBACK_MESSAGES } from '../../config/messages/extractionFallbackMessages.js';
 import { NOTION_API } from '../../config/extension/notionApi.js';
-import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../config/notionCodeLanguages.js';
+import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../config/shared/notionCodeLanguages.js';
 
 /**
  * 文本內容最大長度（從統一配置獲取）

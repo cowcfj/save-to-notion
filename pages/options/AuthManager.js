@@ -4,7 +4,7 @@ import { createSafeIcon } from '../../scripts/utils/securityUtils.js';
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
-import { UI_ICONS } from '../../scripts/config/icons.js';
+import { UI_ICONS } from '../../scripts/config/shared/ui.js';
 import { AuthMode } from '../../scripts/config/extension/authMode.js';
 import {
   getActiveNotionToken,

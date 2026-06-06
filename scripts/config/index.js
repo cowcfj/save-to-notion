@@ -7,12 +7,6 @@
  * 以確保 Content Script bundle 不會誤帶入 extension pages / Background 專用常量。
  */
 
-// Highlight 專用常量
-export * from './highlightConstants.js';
-
-// Notion Code 語言白名單與 fallback 常數
-export * from './notionCodeLanguages.js';
-
 // Content-safe shared configs (core, storage, ui, messaging, content)
 export * from './shared/index.js';
 
