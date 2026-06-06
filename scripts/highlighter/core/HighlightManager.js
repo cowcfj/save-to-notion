@@ -8,17 +8,22 @@ import { COLORS, convertBgColorToName } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightInteraction } from './HighlightInteraction.js';
 
-const EXTENSION_UI_HOST_ID_PREFIXES = [
-  'notion-floating-rail-host',
-  'notion-highlighter-host',
-  'notion-toast-host',
+const EXTENSION_UI_OWNER_VALUE = 'true';
+const EXTENSION_UI_HOSTS = [
+  { idPrefix: 'notion-floating-rail-host', ownerAttr: 'data-rail-owner' },
+  { idPrefix: 'notion-highlighter-host', ownerAttr: 'data-highlighter-owner' },
+  { idPrefix: 'notion-toast-host', ownerAttr: 'data-toast-owner' },
 ];
-const EXTENSION_UI_SELECTOR = EXTENSION_UI_HOST_ID_PREFIXES.flatMap(prefix => [
-  `#${prefix}`,
-  `[id^="${prefix}-"]`,
+const EXTENSION_UI_SELECTOR = EXTENSION_UI_HOSTS.flatMap(({ idPrefix, ownerAttr }) => [
+  `#${idPrefix}[${ownerAttr}="${EXTENSION_UI_OWNER_VALUE}"]`,
+  `[id^="${idPrefix}-"][${ownerAttr}="${EXTENSION_UI_OWNER_VALUE}"]`,
 ]).join(', ');
 
 function matchesExtensionUiHostPrefix(id, prefix) {
+  if (!id) {
+    return false;
+  }
+
   if (id === prefix) {
     return true;
   }
@@ -26,12 +31,19 @@ function matchesExtensionUiHostPrefix(id, prefix) {
   return id.startsWith(`${prefix}-`);
 }
 
-function isExtensionUiHostId(id) {
-  if (!id) {
+function hasExtensionUiOwner(element, ownerAttr) {
+  if (typeof element.getAttribute !== 'function') {
     return false;
   }
 
-  return EXTENSION_UI_HOST_ID_PREFIXES.some(prefix => matchesExtensionUiHostPrefix(id, prefix));
+  return element.getAttribute(ownerAttr) === EXTENSION_UI_OWNER_VALUE;
+}
+
+function isExtensionUiHostElement(element) {
+  return EXTENSION_UI_HOSTS.some(
+    ({ idPrefix, ownerAttr }) =>
+      matchesExtensionUiHostPrefix(element.id, idPrefix) && hasExtensionUiOwner(element, ownerAttr)
+  );
 }
 
 function isExtensionUiElement(element) {
@@ -39,7 +51,7 @@ function isExtensionUiElement(element) {
     return false;
   }
 
-  if (isExtensionUiHostId(element.id)) {
+  if (isExtensionUiHostElement(element)) {
     return true;
   }
 
@@ -151,12 +163,16 @@ export class HighlightManager {
     const validatedColor = this._resolveAddHighlightColor(color);
 
     try {
-      const id = `h${this.nextId++}`;
       const text = range.toString();
-
-      // 序列化 Range 用於存儲
       const rangeInfo = serializeRange(range);
 
+      // 先套用視覺效果，成功後才建立 ID 與 Map entry，避免失敗路徑留下 stale state。
+      const applied = this.applyHighlightAPI(range, validatedColor);
+      if (!applied) {
+        return this._cancelFailedHighlightCreation();
+      }
+
+      const id = `h${this.nextId++}`;
       const highlight = {
         id,
         range,
@@ -167,12 +183,6 @@ export class HighlightManager {
       };
 
       this.highlights.set(id, highlight);
-
-      // 應用視覺效果
-      const applied = this.applyHighlightAPI(range, validatedColor);
-      if (!applied) {
-        return this._cancelFailedHighlightCreation(id);
-      }
 
       Logger.debug('已添加標註', { action: 'addHighlight', id, color: validatedColor });
 
@@ -230,9 +240,10 @@ export class HighlightManager {
     return color;
   }
 
-  _cancelFailedHighlightCreation(id) {
-    // 不回收 ID (this.nextId--) 以保持 ID 單調遞增，避免並發問題。
-    this.highlights.delete(id);
+  _cancelFailedHighlightCreation(id = null) {
+    if (id) {
+      this.highlights.delete(id);
+    }
     Logger.warn('無法應用視覺效果，標註已取消', { action: 'addHighlight' });
 
     // 失敗路徑統一回報 HIGHLIGHT_FAILED；HIGHLIGHT_DUPLICATE 預留給未來

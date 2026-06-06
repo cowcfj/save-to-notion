@@ -232,16 +232,7 @@ describe('core/HighlightManager', () => {
       );
     });
 
-    test('should NOT reclaim ID when highlight addition fails', () => {
-      // 模擬 applyHighlightAPI 失敗
-      mockStyleManager.getHighlightObject.mockReturnValue({
-        add: () => {
-          throw new Error('Failed to add range');
-        },
-      });
-
-      // 讓我們模擬一個情境：applyHighlightAPI 返回 false。
-      // 可以通過 spyOn manager.applyHighlightAPI
+    test('should not advance nextId or keep stale entry when highlight addition returns false', () => {
       jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
       const div = document.createElement('div');
@@ -258,16 +249,50 @@ describe('core/HighlightManager', () => {
       const id1 = manager.addHighlight(range, 'yellow');
       expect(id1).toBeNull();
 
-      // 驗證 ID 已增加 (因為我們不回收)
-      expect(manager.nextId).toBe(initialId + 1);
+      expect(manager.highlights.size).toBe(0);
+      expect(manager.nextId).toBe(initialId);
 
-      // 下一次添加應該使用新 ID
-      manager.applyHighlightAPI.mockRestore(); // 恢復正常
-      // Reset mockStyleManager to default behavior
+      manager.applyHighlightAPI.mockRestore();
       mockStyleManager.getHighlightObject.mockReturnValue({ add: jest.fn() });
 
       const id2 = manager.addHighlight(range, 'yellow');
-      expect(id2).toBe(`h${initialId + 1}`);
+      expect(id2).toBe(`h${initialId}`);
+      expect(manager.nextId).toBe(initialId + 1);
+    });
+
+    test('should not advance nextId or keep stale entry when applyHighlightAPI throws', () => {
+      jest.spyOn(manager, 'applyHighlightAPI').mockImplementation(() => {
+        throw new Error('styleManager failure');
+      });
+
+      const range = createTextRange('Throw Test');
+      const initialId = manager.nextId;
+
+      const id = manager.addHighlight(range, 'yellow');
+
+      expect(id).toBeNull();
+      expect(manager.highlights.size).toBe(0);
+      expect(manager.nextId).toBe(initialId);
+      expect(Logger.error).toHaveBeenCalledWith(
+        '添加標註失敗',
+        expect.objectContaining({ action: 'addHighlight' })
+      );
+
+      manager.applyHighlightAPI.mockRestore();
+    });
+
+    test('should not create highlight when styleManager is missing', () => {
+      const noStyleManager = new HighlightManager();
+      const range = createTextRange('Missing style manager');
+      const initialId = noStyleManager.nextId;
+
+      const id = noStyleManager.addHighlight(range, 'yellow');
+
+      expect(id).toBeNull();
+      expect(noStyleManager.highlights.size).toBe(0);
+      expect(noStyleManager.nextId).toBe(initialId);
+
+      noStyleManager.cleanup();
     });
 
     test.each([
@@ -421,6 +446,7 @@ describe('core/HighlightManager', () => {
       });
       const host = document.createElement('div');
       host.id = 'notion-floating-rail-host';
+      host.dataset.railOwner = 'true';
       document.body.append(host);
 
       const event = new MouseEvent('mouseup', { bubbles: true });
@@ -1077,9 +1103,10 @@ describe('core/HighlightManager', () => {
   });
 
   describe('_isExtensionUiEvent allowlist', () => {
-    test('應認可 #notion-toast-host', () => {
+    test('應認可帶 owner 標記的 #notion-toast-host', () => {
       const host = document.createElement('div');
       host.id = 'notion-toast-host';
+      host.dataset.toastOwner = 'true';
       document.body.append(host);
 
       const event = { composedPath: () => [host] };
@@ -1087,9 +1114,10 @@ describe('core/HighlightManager', () => {
       expect(HighlightManager._isExtensionUiEvent(event)).toBe(true);
     });
 
-    test('應認可 #notion-toast-host 後代元素（closest 路徑）', () => {
+    test('應認可帶 owner 標記的 #notion-toast-host 後代元素（closest 路徑）', () => {
       const host = document.createElement('div');
       host.id = 'notion-toast-host';
+      host.dataset.toastOwner = 'true';
       const child = document.createElement('span');
       host.append(child);
       document.body.append(host);
@@ -1102,11 +1130,13 @@ describe('core/HighlightManager', () => {
     test('應認可既有 #notion-floating-rail-host 與 #notion-highlighter-host（regression）', () => {
       const railHost = document.createElement('div');
       railHost.id = 'notion-floating-rail-host';
+      railHost.dataset.railOwner = 'true';
       document.body.append(railHost);
       expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [railHost] })).toBe(true);
 
       const toolbarHost = document.createElement('div');
       toolbarHost.id = 'notion-highlighter-host';
+      toolbarHost.dataset.highlighterOwner = 'true';
       document.body.append(toolbarHost);
       expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [toolbarHost] })).toBe(
         true
@@ -1116,12 +1146,30 @@ describe('core/HighlightManager', () => {
     test('應認可 Floating Rail dynamic host id 與後代元素', () => {
       const railHost = document.createElement('div');
       railHost.id = 'notion-floating-rail-host-extension-id';
+      railHost.dataset.railOwner = 'true';
       const child = document.createElement('span');
       railHost.append(child);
       document.body.append(railHost);
 
       expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [railHost] })).toBe(true);
       expect(HighlightManager._isExtensionUiEvent({ composedPath: () => [child] })).toBe(true);
+    });
+
+    test('應拒絕同 ID 但缺少 owner 標記的 host 頁面元素', () => {
+      const railHostCollision = document.createElement('div');
+      railHostCollision.id = 'notion-floating-rail-host-extension-id';
+      document.body.append(railHostCollision);
+
+      const toolbarHostCollision = document.createElement('div');
+      toolbarHostCollision.id = 'notion-highlighter-host';
+      document.body.append(toolbarHostCollision);
+
+      expect(
+        HighlightManager._isExtensionUiEvent({ composedPath: () => [railHostCollision] })
+      ).toBe(false);
+      expect(
+        HighlightManager._isExtensionUiEvent({ composedPath: () => [toolbarHostCollision] })
+      ).toBe(false);
     });
 
     test('應拒絕非 extension UI 元素', () => {
