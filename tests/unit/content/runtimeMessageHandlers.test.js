@@ -241,12 +241,29 @@ describe('content runtime message router', () => {
 });
 
 describe('activateFloatingRailHighlighting', () => {
-  test('reveals the rail before activating highlighting', async () => {
+  test.each([
+    {
+      name: 'reveals the rail before activating highlighting',
+      createShowMock: calls =>
+        jest.fn(() => {
+          calls.push('show');
+        }),
+      expectedCalls: ['show', 'activate'],
+    },
+    {
+      name: 'waits for async reveal before activating highlighting',
+      createShowMock: calls =>
+        jest.fn(async () => {
+          calls.push('show-start');
+          await Promise.resolve();
+          calls.push('show-end');
+        }),
+      expectedCalls: ['show-start', 'show-end', 'activate'],
+    },
+  ])('$name', async ({ createShowMock, expectedCalls }) => {
     const calls = [];
     const rail = {
-      show: jest.fn(() => {
-        calls.push('show');
-      }),
+      show: createShowMock(calls),
       activateHighlighting: jest.fn(() => {
         calls.push('activate');
       }),
@@ -254,25 +271,7 @@ describe('activateFloatingRailHighlighting', () => {
 
     await activateFloatingRailHighlighting(rail);
 
-    expect(calls).toEqual(['show', 'activate']);
+    expect(calls).toEqual(expectedCalls);
     expect(rail.activateHighlighting).toHaveBeenCalledWith();
-  });
-
-  test('waits for async reveal before activating highlighting', async () => {
-    const calls = [];
-    const rail = {
-      show: jest.fn(async () => {
-        calls.push('show-start');
-        await Promise.resolve();
-        calls.push('show-end');
-      }),
-      activateHighlighting: jest.fn(() => {
-        calls.push('activate');
-      }),
-    };
-
-    await activateFloatingRailHighlighting(rail);
-
-    expect(calls).toEqual(['show-start', 'show-end', 'activate']);
   });
 });
