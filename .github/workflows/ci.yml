@@ -34,39 +34,65 @@ jobs:
         uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050 # v3
         with:
           filters: |
-            source-changed:
+            test-changed:
               - 'scripts/**'
               - 'pages/**'
-              - 'styles/**'
               - 'tests/**'
-              - 'tools/**'
-              - 'rollup/**'
-              - 'icons/**'
-              - 'auth.html'
-              - 'manifest.json'
               - 'babel.config.js'
               - 'jest.config.js'
               - 'jest.config.*.js'
               - 'package.json'
               - 'package-lock.json'
+              - 'sonar-project.properties'
+              - 'codecov.yml'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/sonarcloud.yml'
+            bundle-changed:
+              - 'scripts/**'
+              - 'pages/**'
+              - 'styles/**'
+              - 'rollup/**'
+              - 'tools/package-extension.sh'
+              - 'tools/check-message-boundaries.mjs'
+              - 'tools/check-size-gates.mjs'
+              - 'icons/**'
+              - 'auth.html'
+              - 'manifest.json'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+            ci-changed:
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/sonarcloud.yml'
+              - 'jest.config.js'
+              - 'jest.config.*.js'
+              - 'sonar-project.properties'
+              - 'codecov.yml'
+
+      - name: Report skipped heavy CI
+        if: steps.changes.outputs.test-changed != 'true' && steps.changes.outputs.bundle-changed != 'true' && steps.changes.outputs.ci-changed != 'true'
+        run: echo "::notice::Skipped Node install, tests, lint, and production build because no extension source/test/CI files changed."
 
       - name: Setup Node.js ${{ matrix.node-version }}
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Upgrade npm
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: npm install -g npm@11.8.0 --ignore-scripts
 
       - name: Install dependencies
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         env:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: npm ci --ignore-scripts
 
       - name: Enforce minimatch security floor (ReDoS guard)
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -125,17 +151,19 @@ jobs:
           NODE
 
       - name: Node.js 20.x compatibility check
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: |
           echo "Node.js version: $(node --version)"
           echo "npm version: $(npm --version)"
           echo "Jest version: $(npm list jest | grep jest)"
 
       - name: Lint (non-blocking)
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: npm run lint
         continue-on-error: true
 
       - name: Prepare build env for tests
-        if: steps.changes.outputs.source-changed == 'true'
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: |
           if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
             cp scripts/config/env/build.example.js scripts/config/env/build.js
@@ -143,7 +171,7 @@ jobs:
           fi
 
       - name: Cache jest transform output
-        if: steps.changes.outputs.source-changed == 'true'
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: .jest-cache
@@ -151,11 +179,11 @@ jobs:
           restore-keys: ${{ runner.os }}-jest-
 
       - name: Jest unit tests with coverage
-        if: steps.changes.outputs.source-changed == 'true'
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: npm run test:ci
 
       - name: Upload jest coverage artifact
-        if: steps.changes.outputs.source-changed == 'true'
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jest-coverage-${{ github.event.pull_request.head.sha || github.sha }}
@@ -167,11 +195,11 @@ jobs:
       # （Chromium Issue #41309918）。E2E 可在本地用 npm run test:e2e 跑（headed 模式）。
 
       - name: Verify Production Build
-        if: steps.changes.outputs.source-changed == 'true'
+        if: steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         env:
           EXTENSION_API_KEY: ${{ secrets.EXTENSION_API_KEY }}
           EVENT_NAME: ${{ github.event_name }}
-          BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
+          BEFORE_SHA: ${{ github.event.before || '' }}
         run: |
           CURRENT_UNPACKED_DIR=".tmp/ci-extension-current"
           CURRENT_REPORT_FILE=".tmp/size-report-current.json"
@@ -200,11 +228,12 @@ jobs:
             --unpacked-dir="$CURRENT_UNPACKED_DIR" \
             --report-file="$CURRENT_REPORT_FILE"
 
-          # 相對增量只在 PR 執行，避免每次 push 都重建 base bundle 影響效率
-          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$BASE_REF" ]; then
+          # Delta Size Gate 移出 PR 熱路徑，改在 main/develop push 時或具備 valid BEFORE_SHA 時進行
+          if [ "$EVENT_NAME" = "push" ] && [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            echo "Performing post-merge delta size gate check against prior commit: $BEFORE_SHA"
             TMP_BASE=$(mktemp -d)
-            git fetch --no-tags --depth=1 origin "$BASE_REF"
-            git archive "origin/$BASE_REF" | tar -x -C "$TMP_BASE"
+            git fetch --no-tags --depth=1 origin "$BEFORE_SHA"
+            git archive "$BEFORE_SHA" | tar -x -C "$TMP_BASE"
 
             (
               cd "$TMP_BASE"
@@ -225,11 +254,11 @@ jobs:
               --base-unpacked-dir="$TMP_BASE/.tmp/ci-extension-base" \
               --report-file="$DELTA_REPORT_FILE"
           else
-            echo "ℹ️ Skipping relative growth check for non-PR events."
+            echo "::notice::Skipping relative growth check for non-push events, unavailable before SHA, or initial/force pushes."
           fi
 
       - name: Upload Size Reports
-        if: always() && steps.changes.outputs.source-changed == 'true'
+        if: always() && (steps.changes.outputs.bundle-changed == 'true' || steps.changes.outputs.ci-changed == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: size-reports
@@ -240,7 +269,7 @@ jobs:
 
       - name: Validate coverage file
         id: validate-coverage
-        if: steps.changes.outputs.source-changed == 'true'
+        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
         run: |
           LCOV_FILE="coverage/jest/lcov.info"
           if [ ! -f "$LCOV_FILE" ]; then
@@ -261,7 +290,7 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        if: steps.changes.outputs.source-changed == 'true' && steps.validate-coverage.outputs.valid == 'true'
+        if: (steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true') && steps.validate-coverage.outputs.valid == 'true'
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
         with:
           files: ${{ steps.validate-coverage.outputs.file }}
