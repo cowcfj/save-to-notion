@@ -1,5 +1,41 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.78.0](https://github.com/cowcfj/save-to-notion/compare/v2.77.0...v2.78.0) (2026-06-07)
+
+
+### ✨ 新功能
+
+* implement full-bundle rollup for page scripts ([#658](https://github.com/cowcfj/save-to-notion/issues/658)) ([77bd0c7](https://github.com/cowcfj/save-to-notion/commit/77bd0c774fd72df1a643c193f4e485249ad244cc))
+
+
+### 🐛 Bug 修復
+
+* correct coverage collection for pages directory ([#640](https://github.com/cowcfj/save-to-notion/issues/640)) ([898013f](https://github.com/cowcfj/save-to-notion/commit/898013f61be7e3c87f7e2583dc44d150d56f7613))
+* use optional chaining in sanitizer URI check ([#648](https://github.com/cowcfj/save-to-notion/issues/648)) ([b3c939a](https://github.com/cowcfj/save-to-notion/commit/b3c939a03da280506d0341ba4edff4411e02ab70))
+
+
+### ♻️ 代碼重構
+
+* centralize message catalog layout ([#655](https://github.com/cowcfj/save-to-notion/issues/655)) ([225565c](https://github.com/cowcfj/save-to-notion/commit/225565cf313960fc9f3e5539e0b46d9f3966fd43))
+* decompose Floating Rail CSS structure ([#646](https://github.com/cowcfj/save-to-notion/issues/646)) ([48c5e67](https://github.com/cowcfj/save-to-notion/commit/48c5e672c19d8f443273a834d93c179885fa52a1))
+* flatten config facade ([#656](https://github.com/cowcfj/save-to-notion/issues/656)) ([655935e](https://github.com/cowcfj/save-to-notion/commit/655935e0b7ec3345ee2897e6d869c622f20b47ad))
+* implement CSS Token-Var Bridge for toast styles ([#644](https://github.com/cowcfj/save-to-notion/issues/644)) ([7aaa2be](https://github.com/cowcfj/save-to-notion/commit/7aaa2bed32a7cc82acb31d1979a31ba8e34b8736))
+* improve cohesion in highlight update logic ([#638](https://github.com/cowcfj/save-to-notion/issues/638)) ([402fac5](https://github.com/cowcfj/save-to-notion/commit/402fac5a2c0539b3bb37b6492ae2d11a6883fe26))
+* reduce complexity of highlight style merger ([#641](https://github.com/cowcfj/save-to-notion/issues/641)) ([9f25962](https://github.com/cowcfj/save-to-notion/commit/9f2596201ab65c9dfac7df04595ab3c2a1ff1e08))
+* reduce cyclomatic complexity in HighlightLookupResolver ([#650](https://github.com/cowcfj/save-to-notion/issues/650)) ([0f8ada1](https://github.com/cowcfj/save-to-notion/commit/0f8ada1ab8a3c6eb04c2c6843598b683d62c4369))
+* reduce highlight storage complexity ([#642](https://github.com/cowcfj/save-to-notion/issues/642)) ([73b9df8](https://github.com/cowcfj/save-to-notion/commit/73b9df80d1265335cfe6e4274d1392c9e38a1272))
+* remove redundant hex fallbacks in toast styles ([#645](https://github.com/cowcfj/save-to-notion/issues/645)) ([9bd333d](https://github.com/cowcfj/save-to-notion/commit/9bd333d2190ce1b449b1c67585646ec41f4e2a95))
+* restructure message module for tree-shaking and highlighting ([#654](https://github.com/cowcfj/save-to-notion/issues/654)) ([68ed45a](https://github.com/cowcfj/save-to-notion/commit/68ed45a8e11bc04c61bb64dd9b950631b6db785e))
+* simplify FloatingRail complexity ([#643](https://github.com/cowcfj/save-to-notion/issues/643)) ([9e757b2](https://github.com/cowcfj/save-to-notion/commit/9e757b20c2671ec8c0b7c05223161dfb0aff50c9))
+* simplify highlight manager complexity ([#651](https://github.com/cowcfj/save-to-notion/issues/651)) ([d81a25a](https://github.com/cowcfj/save-to-notion/commit/d81a25a3521b7edde51644ed7fdf49dcc035beb8))
+* simplify highlighter initialization and listener management ([#647](https://github.com/cowcfj/save-to-notion/issues/647)) ([8ed0f54](https://github.com/cowcfj/save-to-notion/commit/8ed0f54c751023380be4c43f0dd9b6ee5a378fba))
+* simplify window API structure ([#649](https://github.com/cowcfj/save-to-notion/issues/649)) ([42a3d40](https://github.com/cowcfj/save-to-notion/commit/42a3d40fb52dc45f532182c04102c7641c6cccdf))
+
+
+### 🧹 其他變更
+
+* add review pattern guardrails and deduplicate tests ([#652](https://github.com/cowcfj/save-to-notion/issues/652)) ([2b4abe6](https://github.com/cowcfj/save-to-notion/commit/2b4abe61cf555ea5e2c5b118020b8e2c10eb5e61))
+
 ## [2.77.0](https://github.com/cowcfj/save-to-notion/compare/v2.76.1...v2.77.0) (2026-06-03)
 
 ### ✨ 新功能
