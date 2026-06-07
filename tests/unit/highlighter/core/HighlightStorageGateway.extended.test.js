@@ -380,6 +380,49 @@ describe('Highlighter HighlightStorageGateway', () => {
       });
     });
 
+    test('fallback 直接保存時應保留既有 page state 的自定義欄位', async () => {
+      delete mockChrome.runtime.sendMessage;
+
+      const pageUrl = 'https://example.com/custom-state';
+      const pageKey = `${PAGE_PREFIX}${pageUrl}`;
+      const testData = [{ text: 'new highlight', color: 'blue' }];
+      const customState = {
+        syncState: { dirty: true, revision: 7 },
+        tags: ['research', 'later'],
+      };
+
+      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        if (keyList.length === 1 && keyList[0] === pageKey) {
+          return Promise.resolve({
+            [pageKey]: {
+              notion: { pageId: 'page-custom' },
+              highlights: [{ text: 'old' }],
+              metadata: { createdAt: 789 },
+              ...customState,
+            },
+          });
+        }
+
+        return Promise.resolve({});
+      });
+
+      await HighlightStorageGateway.saveHighlights(pageUrl, testData);
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        [pageKey]: expect.objectContaining({
+          notion: { pageId: 'page-custom' },
+          highlights: testData,
+          metadata: expect.objectContaining({
+            createdAt: 789,
+            lastUpdated: expect.any(Number),
+          }),
+          ...customState,
+        }),
+      });
+    });
+
     test('fallback 直接保存時應忽略被污染的 alias value，回退到 normalized page key', async () => {
       delete mockChrome.runtime.sendMessage;
 

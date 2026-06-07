@@ -213,9 +213,9 @@ const HighlightStorageGateway = {
       const existingPageState = await this._loadExistingPageState(pageKey);
 
       await this._saveToChromeStorage(pageKey, {
-        notion: existingPageState.notion,
+        ...existingPageState,
         highlights,
-        metadata: { ...existingPageState.metadata, lastUpdated: Date.now() },
+        metadata: { ...existingPageState?.metadata, lastUpdated: Date.now() },
       });
     } catch (error) {
       Logger.warn('Chrome Storage 不可用，回退到 localStorage', {
@@ -236,24 +236,24 @@ const HighlightStorageGateway = {
   },
 
   /**
-   * 讀取既有 page_* 狀態，以便 fallback save 保留 notion 與 metadata。
+   * 讀取既有 page_* 狀態，以便 fallback save 保留完整 page state。
    *
    * @param {string} pageKey
-   * @returns {Promise<{notion: object|null, metadata: object}>}
+   * @returns {Promise<object|null>}
    * @private
    */
   async _loadExistingPageState(pageKey) {
     const storage = getChromeLocalStorage();
     if (!storage) {
-      return { notion: null, metadata: {} };
+      return null;
     }
 
     const data = await storage.get([pageKey]);
     const existingPage = data?.[pageKey];
-    return {
-      notion: existingPage?.notion || null,
-      metadata: existingPage?.metadata || {},
-    };
+    if (!existingPage || typeof existingPage !== 'object' || Array.isArray(existingPage)) {
+      return null;
+    }
+    return existingPage;
   },
 
   /**
