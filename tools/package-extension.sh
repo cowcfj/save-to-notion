@@ -102,56 +102,14 @@ cp -a pages "$RM_DIR/"             # extension page bundle（popup / options / s
 cp -a styles "$RM_DIR/"            # callback bridge 共用 CSS
 cp -a dist "$RM_DIR/"
 
-# Copy scripts directory, excluding test-only and bundled directories
-rsync -a \
-    --exclude='.DS_Store' \
-    --exclude='__mocks__' \
-    --exclude='background' \
-    --exclude='background.js' \
-    --exclude='config/contentSafe/toolbarIcons.js' \
-    --exclude='config/contentSafe/toolbarMessages.js' \
-    --exclude='config/patterns.js' \
-    --exclude='config/ui-selectors.js' \
-    --exclude='config/README.md' \
-    --exclude='content' \
-    --exclude='destinations/ProfileResolver.js' \
-    --exclude='config/env/build.example.js' \
-    --exclude='config/extension/index.js' \
-    --exclude='highlighter' \
-    --exclude='legacy' \
-    --exclude='config/runtimeActions/contentBridgeActions.js' \
-    --exclude='config/runtimeActions/highlighterActions.js' \
-    --exclude='config/runtimeActions/pageSaveActions.js' \
-    --exclude='config/runtimeActions/preloaderActions.js' \
-    --exclude='config/shared/highlightConstants.js' \
-    --exclude='config/shared/index.js' \
-    --exclude='config/shared/notionCodeLanguages.js' \
-    --exclude='utils/contentUtils.js' \
-    --exclude='utils/imageUtils.js' \
-    --exclude='utils/pageComplexityDetector.js' \
-    --exclude='utils/README.md' \
-    --exclude='config/highlightConstants.js' \
-    --exclude='config/index.js' \
-    --exclude='config/notionCodeLanguages.js' \
-    --exclude='performance' \
-    --exclude='postinstall.js' \
-    --exclude='sync' \
-    --exclude='utils/LogExporter.js' \
-    --exclude='utils/RetryManager.js' \
-    scripts/ "$RM_DIR/scripts/"
-
-# Sidepanel 直接依賴 HighlightLookupResolver 與 highlightCleanupHelper，需顯式補回 package。
-mkdir -p "$RM_DIR/scripts/highlighter/core"
-cp -a scripts/highlighter/core/HighlightLookupResolver.js "$RM_DIR/scripts/highlighter/core/"
-cp -a scripts/highlighter/core/highlightCleanupHelper.js "$RM_DIR/scripts/highlighter/core/"
-
 # 清理 macOS metadata，避免從 cp -a 帶入 release package。
 find "$RM_DIR" -name '.DS_Store' -delete
 # production 不打包任何殘留 sourcemap。
 find "$RM_DIR/dist" -name '*.map' -delete
 
-echo "📂 Scripts folder content:"
-ls -R "$RM_DIR/scripts/"
+echo "📂 Package dist/pages/ content:"
+ls -R "$RM_DIR/dist/pages/"
+
 
 # 驗證 ES 模組匯入鏈 — 確保套件中無遺失檔案
 echo "🔍 驗證 ES 模組匯入鏈..."
