@@ -201,7 +201,18 @@ notion-chrome/
 ├── .github/               # CI 與 workflow（ci.yml、release-please.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── rollup/                # Rollup 構建配置（all/content/background/migration + shared factories）
-├── dist/                  # 打包產物（preloader.js, content.bundle.js, migration-executor.js, pages/*.js）
+├── dist/                  # 打包產物
+│   ├── preloader.js              # 全域輕量預載腳本
+│   ├── content.bundle.js         # Content Script 統一打包版
+│   ├── migration-executor.js     # Migration 執行入口
+│   ├── scripts/background.js     # Background service worker bundle
+│   └── pages/                    # Extension pages final entry points
+│       ├── popup.js
+│       ├── options.js
+│       ├── sidepanel.js
+│       ├── onboarding.js
+│       ├── update-notification.js
+│       └── auth.js
 ├── pages/                 # 擴展頁面集合（popup / sidepanel / options / onboarding / update-notification）
 │   ├── popup/             # 彈出窗口 UI（處理 API 調用與 DOM 更新）
 │   ├── sidepanel/         # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
@@ -226,10 +237,6 @@ notion-chrome/
 │   │   └── utils/         # 工具模組 (color, dom, textSearch 等)
 │   ├── performance/       # 性能優化模組
 │   └── utils/             # 工具模組 (Logger, Security, ErrorHandler, ImageUtils)
-
-├── dist/                  # 構建產物
-│   ├── content.bundle.js         # Content Script 統一打包版
-│   └── *.js.map           # Source maps
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
 ├── tests/                 # 測試文件（2500+ tests）

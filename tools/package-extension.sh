@@ -107,8 +107,12 @@ find "$RM_DIR" -name '.DS_Store' -delete
 # production 不打包任何殘留 sourcemap。
 find "$RM_DIR/dist" -name '*.map' -delete
 
-echo "📂 Package dist/pages/ content:"
-ls -R "$RM_DIR/dist/pages/"
+echo "📂 套件 dist/pages/ 內容："
+if [ -d "$RM_DIR/dist/pages" ]; then
+    ls -R "$RM_DIR/dist/pages/"
+else
+    echo "⚠️  目錄不存在：dist/pages"
+fi
 
 
 # 驗證 ES 模組匯入鏈 — 確保套件中無遺失檔案
