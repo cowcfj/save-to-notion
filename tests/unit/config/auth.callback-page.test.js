@@ -1,7 +1,7 @@
 /**
  * auth callback page regression tests
  *
- * 驗證 auth.html 會以 ES module 載入 auth.js，
+ * 驗證 auth.html 會以 ES module 載入 bundled auth.js，
  * 且 auth.js 會讀取 ../config/env/index.js 的設定。
  */
 
@@ -17,8 +17,10 @@ describe('auth callback page regressions', () => {
     authJs = fs.readFileSync(path.resolve(__dirname, '../../../scripts/auth/auth.js'), 'utf8');
   });
 
-  test('auth.html 應以 module script 載入 auth.js', () => {
-    expect(authHtml).toMatch(/<script\s+src="scripts\/auth\/auth\.js"\s+type="module"><\/script>/);
+  test('auth.html 應以 module script 載入 bundled auth.js', () => {
+    expect(authHtml).toMatch(
+      /<script\b(?=[^>]*\bsrc="dist\/pages\/auth\.js")(?=[^>]*\btype="module")[^>]*><\/script>/
+    );
   });
 
   test('auth.js 應從 env/index.js 讀取 BUILD_ENV', () => {
