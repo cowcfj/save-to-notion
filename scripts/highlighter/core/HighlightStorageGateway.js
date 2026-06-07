@@ -16,8 +16,6 @@
  * @module core/HighlightStorageGateway
  */
 
-/* global chrome */
-
 import { isSafeStableUrl, normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
@@ -37,6 +35,42 @@ export const STORAGE_GATEWAY_RETRY = Object.freeze({
   maxAttempts: 3,
   delayMs: 500,
 });
+const HIGHLIGHT_STORAGE_KEY_PREFIXES = Object.freeze([
+  PAGE_PREFIX,
+  HIGHLIGHTS_PREFIX,
+  URL_ALIAS_PREFIX,
+]);
+
+const HIGHLIGHT_STORAGE_KEY_LOGGING_RULES = Object.freeze(
+  HIGHLIGHT_STORAGE_KEY_PREFIXES.map(prefix => ({ prefix }))
+);
+
+function getChromeRuntimeWithSendMessage() {
+  const runtime = globalThis.chrome?.runtime;
+  return typeof runtime?.sendMessage === 'function' ? runtime : null;
+}
+
+function getChromeLocalStorage() {
+  return globalThis.chrome?.storage?.local ?? null;
+}
+
+function isValidPageUrl(pageUrl) {
+  return typeof pageUrl === 'string' && pageUrl.length > 0;
+}
+
+function createInvalidPageUrlError(action) {
+  const error = new Error(MESSAGES.INVALID_PAGE_URL);
+  Logger.error(MESSAGES.LOG_INVALID_URL, { action, error: error.message });
+  return error;
+}
+
+function resolveAliasCandidate(stableUrl, normalizedUrl) {
+  return stableUrl === normalizedUrl ? null : stableUrl;
+}
+
+function isHighlightStorageKey(key) {
+  return HIGHLIGHT_STORAGE_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
+}
 
 /**
  * 共用的 Background 重試 helper
@@ -47,10 +81,7 @@ export const STORAGE_GATEWAY_RETRY = Object.freeze({
  * @private
  */
 async function _withBackgroundRetry(actionFn, actionName) {
-  const canRetryBackground =
-    typeof chrome !== 'undefined' &&
-    chrome?.runtime &&
-    typeof chrome.runtime.sendMessage === 'function';
+  const canRetryBackground = Boolean(getChromeRuntimeWithSendMessage());
   const attemptLimit = canRetryBackground ? STORAGE_GATEWAY_RETRY.maxAttempts : 1;
 
   for (let attempt = 1; attempt <= attemptLimit; attempt++) {
@@ -73,19 +104,11 @@ function sanitizeHighlightStorageKeyForLogging(key) {
     return '[invalid-storage-key]';
   }
 
-  if (key.startsWith(PAGE_PREFIX)) {
-    return `${PAGE_PREFIX}${sanitizeUrlForLogging(key.slice(PAGE_PREFIX.length))}`;
-  }
+  const rule = HIGHLIGHT_STORAGE_KEY_LOGGING_RULES.find(({ prefix }) => key.startsWith(prefix));
 
-  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-    return `${HIGHLIGHTS_PREFIX}${sanitizeUrlForLogging(key.slice(HIGHLIGHTS_PREFIX.length))}`;
-  }
-
-  if (key.startsWith(URL_ALIAS_PREFIX)) {
-    return `${URL_ALIAS_PREFIX}${sanitizeUrlForLogging(key.slice(URL_ALIAS_PREFIX.length))}`;
-  }
-
-  return '[non-highlight-storage-key]';
+  return rule
+    ? `${rule.prefix}${sanitizeUrlForLogging(key.slice(rule.prefix.length))}`
+    : '[non-highlight-storage-key]';
 }
 
 function isSafeStableAliasUrl(candidate) {
@@ -107,10 +130,8 @@ const HighlightStorageGateway = {
    * @returns {Promise<void>}
    */
   async saveHighlights(pageUrl, highlightData) {
-    if (!pageUrl || typeof pageUrl !== 'string') {
-      const error = new Error(MESSAGES.INVALID_PAGE_URL);
-      Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'saveHighlights', error: error.message });
-      throw error;
+    if (!isValidPageUrl(pageUrl)) {
+      throw createInvalidPageUrlError('saveHighlights');
     }
 
     const highlights = Array.isArray(highlightData)
@@ -145,16 +166,13 @@ const HighlightStorageGateway = {
    * @private
    */
   async _tryBackgroundUpdate(pageUrl, highlights) {
-    if (
-      typeof chrome === 'undefined' ||
-      !chrome?.runtime ||
-      typeof chrome.runtime.sendMessage !== 'function'
-    ) {
+    const runtime = getChromeRuntimeWithSendMessage();
+    if (!runtime) {
       return false;
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await runtime.sendMessage({
         action: HIGHLIGHTER_ACTIONS.UPDATE_HIGHLIGHTS,
         url: pageUrl,
         highlights,
@@ -192,25 +210,12 @@ const HighlightStorageGateway = {
     try {
       const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
       const pageKey = `${PAGE_PREFIX}${stableUrl}`;
-
-      // 讀取現有資料以保留 notion 物件及已有 metadata 欄位
-      let preservedNotionOrNull = null;
-      let existingMetadata = {};
-      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        const data = await chrome.storage.local.get([pageKey]);
-        const existingPage = data?.[pageKey];
-        if (existingPage?.notion) {
-          preservedNotionOrNull = existingPage.notion;
-        }
-        if (existingPage?.metadata) {
-          existingMetadata = existingPage.metadata;
-        }
-      }
+      const existingPageState = await this._loadExistingPageState(pageKey);
 
       await this._saveToChromeStorage(pageKey, {
-        notion: preservedNotionOrNull,
+        notion: existingPageState.notion,
         highlights,
-        metadata: { ...existingMetadata, lastUpdated: Date.now() },
+        metadata: { ...existingPageState.metadata, lastUpdated: Date.now() },
       });
     } catch (error) {
       Logger.warn('Chrome Storage 不可用，回退到 localStorage', {
@@ -231,6 +236,27 @@ const HighlightStorageGateway = {
   },
 
   /**
+   * 讀取既有 page_* 狀態，以便 fallback save 保留 notion 與 metadata。
+   *
+   * @param {string} pageKey
+   * @returns {Promise<{notion: object|null, metadata: object}>}
+   * @private
+   */
+  async _loadExistingPageState(pageKey) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
+      return { notion: null, metadata: {} };
+    }
+
+    const data = await storage.get([pageKey]);
+    const existingPage = data?.[pageKey];
+    return {
+      notion: existingPage?.notion || null,
+      metadata: existingPage?.metadata || {},
+    };
+  },
+
+  /**
    * 保存到 Chrome Storage
    *
    * @param {string} key - 鍵名
@@ -239,10 +265,11 @@ const HighlightStorageGateway = {
    * @private
    */
   async _saveToChromeStorage(key, data) {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
-    await chrome.storage.local.set({ [key]: data });
+    await storage.set({ [key]: data });
   },
 
   /**
@@ -273,10 +300,8 @@ const HighlightStorageGateway = {
    * @returns {Promise<Array>}
    */
   async loadHighlights(pageUrl) {
-    if (!pageUrl || typeof pageUrl !== 'string') {
-      const error = new Error(MESSAGES.INVALID_PAGE_URL);
-      Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'loadHighlights', error: error.message });
-      throw error;
+    if (!isValidPageUrl(pageUrl)) {
+      throw createInvalidPageUrlError('loadHighlights');
     }
     const normalizedUrl = normalizeUrl(pageUrl);
     const legacyKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
@@ -312,7 +337,8 @@ const HighlightStorageGateway = {
    * @private
    */
   async _loadBothFormats(pageUrl, normalizedUrl) {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
 
@@ -321,11 +347,11 @@ const HighlightStorageGateway = {
     // 使用 resolver contract，統一 lookupOrder：
     //   有 alias: page_<stable> → page_<norm> → highlights_<stable> → highlights_<norm>
     //   無 alias: page_<norm> → highlights_<norm>
-    const aliasCandidate = stableUrl === normalizedUrl ? null : stableUrl;
+    const aliasCandidate = resolveAliasCandidate(stableUrl, normalizedUrl);
     const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
 
     // 一次 get 批量讀取所有 lookupOrder 中的 keys
-    const data = await chrome.storage.local.get(contract.lookupOrder);
+    const data = await storage.get(contract.lookupOrder);
 
     // 依 contract 順序取出第一個有效 highlights
     const { highlights } = pickHighlightsFromStorage(contract, data);
@@ -404,10 +430,8 @@ const HighlightStorageGateway = {
    * @returns {Promise<void>}
    */
   async clearHighlights(pageUrl) {
-    if (!pageUrl || typeof pageUrl !== 'string') {
-      const error = new Error(MESSAGES.INVALID_PAGE_URL);
-      Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'clearHighlights', error: error.message });
-      throw error;
+    if (!isValidPageUrl(pageUrl)) {
+      throw createInvalidPageUrlError('clearHighlights');
     }
 
     // 透過共用 helper 進行 Background 重試
@@ -435,16 +459,13 @@ const HighlightStorageGateway = {
    * @private
    */
   async _tryBackgroundClear(pageUrl) {
-    if (
-      typeof chrome === 'undefined' ||
-      !chrome?.runtime ||
-      typeof chrome.runtime.sendMessage !== 'function'
-    ) {
+    const runtime = getChromeRuntimeWithSendMessage();
+    if (!runtime) {
       return false;
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await runtime.sendMessage({
         action: HIGHLIGHTER_ACTIONS.CLEAR_HIGHLIGHTS,
         url: pageUrl,
       });
@@ -484,37 +505,8 @@ const HighlightStorageGateway = {
       pageKey: `${PAGE_PREFIX}${sanitizeUrlForLogging(normalizedUrl)}`,
     });
 
-    const clearChromeStorageViaContract = async () => {
-      if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-        throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
-      }
-
-      // 解析 alias → 透過 resolver 取得 contract（mutationTargetKey + legacyCleanupKeys）
-      const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
-      const aliasCandidate = stableUrl === normalizedUrl ? null : stableUrl;
-      const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
-
-      // Snapshot 涵蓋 canonical + 所有 legacy cleanup 候選 key（一次 get）
-      const snapshotKeys = Array.from(
-        new Set([contract.mutationTargetKey, ...contract.legacyCleanupKeys])
-      );
-      const snapshot = await chrome.storage.local.get(snapshotKeys);
-
-      // 共享 cleanup helper：純函數產出 set / remove 計劃
-      const plan = planClearCleanup(contract, snapshot);
-
-      const ops = [];
-      if (Object.keys(plan.set).length > 0) {
-        ops.push(chrome.storage.local.set(plan.set));
-      }
-      if (plan.remove.length > 0) {
-        ops.push(chrome.storage.local.remove(plan.remove));
-      }
-      await Promise.all(ops);
-    };
-
     const results = await Promise.allSettled([
-      clearChromeStorageViaContract(),
+      this._clearChromeStorageViaContract(pageUrl, normalizedUrl),
       this._clearFromLocalStorage(legacyKeyForLocalStorage),
     ]);
 
@@ -536,6 +528,56 @@ const HighlightStorageGateway = {
   },
 
   /**
+   * 依 resolver contract 清理 Chrome Storage 中的 canonical / legacy highlight keys。
+   *
+   * @param {string} pageUrl
+   * @param {string} normalizedUrl
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _clearChromeStorageViaContract(pageUrl, normalizedUrl) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
+      throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
+    }
+
+    // 解析 alias → 透過 resolver 取得 contract（mutationTargetKey + legacyCleanupKeys）
+    const stableUrl = await this._resolveStableUrl(pageUrl, normalizedUrl);
+    const aliasCandidate = resolveAliasCandidate(stableUrl, normalizedUrl);
+    const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+
+    // Snapshot 涵蓋 canonical + 所有 legacy cleanup 候選 key（一次 get）
+    const snapshotKeys = Array.from(
+      new Set([contract.mutationTargetKey, ...contract.legacyCleanupKeys])
+    );
+    const snapshot = await storage.get(snapshotKeys);
+
+    // 共享 cleanup helper：純函數產出 set / remove 計劃
+    const plan = planClearCleanup(contract, snapshot);
+    const ops = this._buildClearChromeStorageOperations(storage, plan);
+    await Promise.all(ops);
+  },
+
+  /**
+   * 將 cleanup plan 轉為 Chrome Storage operations。
+   *
+   * @param {object} storage
+   * @param {{set: object, remove: string[]}} plan
+   * @returns {Promise<void>[]}
+   * @private
+   */
+  _buildClearChromeStorageOperations(storage, plan) {
+    const ops = [];
+    if (Object.keys(plan.set).length > 0) {
+      ops.push(storage.set(plan.set));
+    }
+    if (plan.remove.length > 0) {
+      ops.push(storage.remove(plan.remove));
+    }
+    return ops;
+  },
+
+  /**
    * 從 Chrome Storage 清除數據
    *
    * @param {string} key - 鍵名
@@ -543,10 +585,11 @@ const HighlightStorageGateway = {
    * @private
    */
   async _clearFromChromeStorage(key) {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
       throw new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE);
     }
-    await chrome.storage.local.remove([key]);
+    await storage.remove([key]);
   },
 
   /**
@@ -576,23 +619,18 @@ const HighlightStorageGateway = {
    * @private
    */
   async _resolveStableUrl(pageUrl, normalizedUrl = normalizeUrl(pageUrl)) {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
       return normalizedUrl;
     }
+    const rawUrl = typeof pageUrl === 'string' ? pageUrl : null;
 
     // 使用 resolver helper 計算 alias keys（統一 API）
-    const aliasKeys = getAliasLookupKeys(
-      normalizedUrl,
-      typeof pageUrl === 'string' ? pageUrl : null
-    );
-    const aliasData = await chrome.storage.local.get(aliasKeys);
+    const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
+    const aliasData = await storage.get(aliasKeys);
 
     // 取優先 alias candidate（normalizedUrl 版本 > rawUrl 版本），與 resolver 共用同一契約
-    const aliasCandidate = pickAliasCandidate(
-      aliasData,
-      normalizedUrl,
-      typeof pageUrl === 'string' ? pageUrl : null
-    );
+    const aliasCandidate = pickAliasCandidate(aliasData, normalizedUrl, rawUrl);
 
     if (!aliasCandidate) {
       return normalizedUrl;
@@ -603,13 +641,24 @@ const HighlightStorageGateway = {
       return aliasCandidate;
     }
 
+    this._logInvalidStableAlias(normalizedUrl, aliasCandidate);
+    return normalizedUrl;
+  },
+
+  /**
+   * 記錄被 gateway 嚴格 alias policy 拒絕的 stable URL。
+   *
+   * @param {string} normalizedUrl
+   * @param {string} aliasCandidate
+   * @private
+   */
+  _logInvalidStableAlias(normalizedUrl, aliasCandidate) {
     Logger.warn('[HighlightStorageGateway] Ignored invalid stable URL alias value', {
       action: '_resolveStableUrl',
       aliasKey: sanitizeHighlightStorageKeyForLogging(`${URL_ALIAS_PREFIX}${normalizedUrl}`),
       stableUrl: sanitizeUrlForLogging(aliasCandidate),
       fallbackUrl: sanitizeUrlForLogging(normalizedUrl),
     });
-    return normalizedUrl;
   },
 
   /**
@@ -618,17 +667,13 @@ const HighlightStorageGateway = {
    * @returns {Promise<void>}
    */
   async debugListAllKeys() {
-    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+    const storage = getChromeLocalStorage();
+    if (!storage) {
       Logger.warn('Chrome Storage 不可用', { action: 'debugListAllKeys' });
       return;
     }
-    const allData = await chrome.storage.local.get(null);
-    const highlightKeys = Object.keys(allData).filter(
-      key =>
-        key.startsWith(PAGE_PREFIX) ||
-        key.startsWith(HIGHLIGHTS_PREFIX) ||
-        key.startsWith(URL_ALIAS_PREFIX)
-    );
+    const allData = await storage.get(null);
+    const highlightKeys = Object.keys(allData).filter(key => isHighlightStorageKey(key));
     const prefixCounts = {
       page: highlightKeys.filter(key => key.startsWith(PAGE_PREFIX)).length,
       highlights: highlightKeys.filter(key => key.startsWith(HIGHLIGHTS_PREFIX)).length,
