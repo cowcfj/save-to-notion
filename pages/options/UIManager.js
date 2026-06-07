@@ -8,9 +8,8 @@ import {
   separateIconAndText,
   createSafeIcon,
 } from '../../scripts/utils/securityUtils.js';
-import { UI_ICONS } from '../../scripts/config/icons.js';
 import { NOTION_API } from '../../scripts/config/extension/notionApi.js';
-import { UI_STATUS_TYPES } from '../../scripts/config/shared/ui.js';
+import { UI_ICONS, UI_STATUS_TYPES } from '../../scripts/config/shared/ui.js';
 
 /**
  * 選項頁面的 UI 選擇器常數

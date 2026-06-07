@@ -14,7 +14,7 @@
 import {
   HIGHLIGHT_COLOR_WHITELIST,
   HIGHLIGHT_MATCH_SCORING,
-} from '../../config/highlightConstants.js';
+} from '../../config/shared/highlightConstants.js';
 
 // ============================================================================
 // 常量定義

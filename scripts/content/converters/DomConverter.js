@@ -21,7 +21,7 @@ import {
   NOTION_CODE_LANGUAGE_OBJECTIVE_C,
   NOTION_CODE_LANGUAGE_PLAIN_TEXT,
   NOTION_SUPPORTED_LANGUAGES,
-} from '../../config/notionCodeLanguages.js';
+} from '../../config/shared/notionCodeLanguages.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 /**

@@ -24,7 +24,7 @@ import {
   formatSaveSuccessMessage,
 } from './popupUI.js';
 import { injectIcons } from '../../scripts/utils/uiUtils.js';
-import { UI_ICONS } from '../../scripts/config/icons.js';
+import { UI_ICONS } from '../../scripts/config/shared/ui.js';
 import {
   checkSettings,
   checkPageStatus,
@@ -40,7 +40,7 @@ import {
 import Logger from '../../scripts/utils/Logger.js';
 import { BUILD_ENV } from '../../scripts/config/env/index.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
-import { isSavedStatusResponse } from '../../scripts/config/saveStatus.js';
+import { isSavedStatusResponse } from '../../scripts/config/shared/saveStatus.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';

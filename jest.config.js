@@ -55,11 +55,6 @@ module.exports = {
   collectCoverageFrom: [
     '<rootDir>/scripts/**/*.js',
     '<rootDir>/pages/**/*.js',
-    '!<rootDir>/scripts/config/app.js',                // 純常量配置
-    '!<rootDir>/scripts/config/icons.js',              // 純 SVG 字串常量
-    '!<rootDir>/scripts/config/ui.js',                 // 純 CSS 選擇器與類名常量
-    '!<rootDir>/scripts/config/extraction.js',         // 純選擇器與數值常量
-    '!<rootDir>/scripts/config/highlightConstants.js', // 純數值常量
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
     '!<rootDir>/scripts/config/extension/**/*.js',     // extension-only 純常量配置與 re-export
     // Toolbar 鏈：DCE guard 位於 scripts/highlighter/windowAPI.js

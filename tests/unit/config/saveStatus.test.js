@@ -1,7 +1,7 @@
 import {
   isSavedStatusResponse,
   createSaveStatusResponse,
-} from '../../../scripts/config/saveStatus.js';
+} from '../../../scripts/config/shared/saveStatus.js';
 
 describe('saveStatus 邊界情境', () => {
   test('isSavedStatusResponse 對 null 狀態應回傳 false', () => {

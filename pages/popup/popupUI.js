@@ -4,7 +4,7 @@
  * 提供純函數來更新 Popup UI 狀態，便於單元測試。
  * 這些函數不直接依賴 Chrome API，僅操作 DOM 元素。
  */
-import { UI_ICONS } from '../../scripts/config/icons.js';
+import { UI_ICONS } from '../../scripts/config/shared/ui.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import { resolveAccountDisplayProfile } from '../../scripts/utils/accountDisplayUtils.js';
 

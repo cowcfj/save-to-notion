@@ -41,11 +41,6 @@ describe('coverage exclusion contract', () => {
     const jestExclusions = readJestCoverageExclusions();
     const sonarExclusions = readSonarCoverageExclusions();
     const productionCoverageExclusions = [
-      'scripts/config/app.js',
-      'scripts/config/icons.js',
-      'scripts/config/ui.js',
-      'scripts/config/extraction.js',
-      'scripts/config/highlightConstants.js',
       'scripts/config/index.js',
       'scripts/config/extension/**/*.js',
       'scripts/highlighter/ui/Toolbar.js',

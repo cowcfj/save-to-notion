@@ -12,7 +12,7 @@ import { MigrationTool } from './MigrationTool.js';
 import { AuthMode } from '../../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../../scripts/config/env/index.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../scripts/config/shared/messages.js';
-import { UI_ICONS } from '../../scripts/config/icons.js';
+import { UI_ICONS } from '../../scripts/config/shared/ui.js';
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import { injectIcons } from '../../scripts/utils/uiUtils.js';
 import Logger from '../../scripts/utils/Logger.js';
