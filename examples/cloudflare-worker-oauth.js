@@ -10,7 +10,8 @@
  * 3. 在 Worker 的 Settings > Variables 頁面加入以下環境變數 (Environment Variables)：
  *    - OAUTH_CLIENT_ID: 您的 Notion Public Integration Client ID
  *    - OAUTH_CLIENT_SECRET: 您的 Notion Public Integration Client Secret (⚠️ 設定為 Encrypt)
- *    - EXTENSION_API_KEY: 您自訂的安全金鑰，用於防止他人濫用這個代理伺服器 (⚠️ 設定為 Encrypt)
+ *    - EXTENSION_API_KEY: 您自訂的防濫用過濾值（anti-abuse filter），用於擋下對此代理伺服器的廉價濫用。
+ *      ⚠️ Worker 端請設定為 Encrypt；但它會隨擴充功能打包公開分發，並非真正 secret，無法單獨作為身份驗證。
  * 4. 將 Worker 的網址（例如 https://notion-proxy.your-name.workers.dev）填入本地 scripts/config/env/build.js 的 OAUTH_SERVER_URL 中
  * 5. 將上述的 EXTENSION_API_KEY 填入本地 scripts/config/env/build.js 的 EXTENSION_API_KEY 中
  */
@@ -29,7 +30,7 @@ export default {
       });
     }
 
-    // 1. 驗證擴充功能送來的安全金鑰，防止他人濫用此 Worker API
+    // 1. 驗證擴充功能送來的防濫用過濾值（anti-abuse filter），擋下對此 Worker API 的廉價濫用
     const extKey = request.headers.get('X-Extension-Key');
     if (!extKey || extKey !== env.EXTENSION_API_KEY) {
       return Response.json(

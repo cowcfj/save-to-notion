@@ -14,6 +14,8 @@ export const BUILD_ENV = Object.freeze({
   ENABLE_ACCOUNT: false,
   OAUTH_SERVER_URL: '',
   OAUTH_CLIENT_ID: '',
+  // public anti-abuse filter：隨 client bundle 公開分發，並非 secret；
+  // 僅用於擋廉價濫用，真正的刷新防護是後端 refresh_proof。
   EXTENSION_API_KEY: '',
 });
 // Trigger release please pipeline

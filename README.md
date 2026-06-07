@@ -376,7 +376,7 @@ vim scripts/highlighter/core/Range.js
        ENABLE_ACCOUNT: true, // 👈 將此設為 true 以在設定頁顯示帳號登入按鈕
        OAUTH_SERVER_URL: 'https://your-oauth-proxy-url.com', // 👈 填寫您的後端代理伺服器網址
        OAUTH_CLIENT_ID: 'your-notion-client-id', // 👈 填寫您的 Notion Client ID
-       EXTENSION_API_KEY: 'your-custom-header-key', // 👈 填入您在步驟 1 中自訂的 API Key。擴充功能會在發送請求時，自動將其附加至 `X-Extension-Key` Header 中。
+       EXTENSION_API_KEY: 'your-custom-header-key', // 👈 步驟 1 自訂的防濫用過濾值，會以 `X-Extension-Key` Header 送出。注意它隨擴充功能公開打包、非真正 secret，僅用於擋廉價濫用。
      });
      ```
 4. **重新打包並載入**：若您處於 `npm run dev` 開發模式，存檔後即會自動重新打包。刷新擴充功能後，即可在設定頁中看到生效的 OAuth 登入選項。
