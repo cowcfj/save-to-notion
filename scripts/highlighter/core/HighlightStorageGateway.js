@@ -58,6 +58,16 @@ function isValidPageUrl(pageUrl) {
   return typeof pageUrl === 'string' && pageUrl.length > 0;
 }
 
+function isPageStateObject(value) {
+  if (!value) {
+    return false;
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  return !Array.isArray(value);
+}
+
 function createInvalidPageUrlError(action) {
   const error = new Error(MESSAGES.INVALID_PAGE_URL);
   Logger.error(MESSAGES.LOG_INVALID_URL, { action, error: error.message });
@@ -250,7 +260,7 @@ const HighlightStorageGateway = {
 
     const data = await storage.get([pageKey]);
     const existingPage = data?.[pageKey];
-    if (!existingPage || typeof existingPage !== 'object' || Array.isArray(existingPage)) {
+    if (!isPageStateObject(existingPage)) {
       return null;
     }
     return existingPage;
