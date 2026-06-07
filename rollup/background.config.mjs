@@ -25,7 +25,7 @@ export default {
     json(),
     !isDev &&
       createTerserPlugin({
-        pureFuncs: ['console.log', 'console.debug', 'console.info'],
+        pureFuncs: ['console.debug', 'console.info'],
       }),
     createVisualizerPlugin('background-bundle', 'Background Bundle Analysis'),
   ].filter(Boolean),

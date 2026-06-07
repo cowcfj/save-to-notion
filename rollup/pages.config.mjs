@@ -35,7 +35,6 @@ export default {
     !isDev &&
       createTerserPlugin({
         pureFuncs: [
-          'console.log',
           'console.debug',
           'console.info',
           'Logger.debug',
