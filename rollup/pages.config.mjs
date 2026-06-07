@@ -1,38 +1,39 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import replace from '@rollup/plugin-replace';
+import json from '@rollup/plugin-json';
 import { createVisualizerPlugin } from './visualizer.config.mjs';
 import { isDev } from './shared/env.mjs';
 import { createTerserPlugin } from './shared/terser.mjs';
 import { createOnWarn } from './shared/onwarn.mjs';
 import { stripTestConfig } from './plugins/stripTestConfig.mjs';
-import { assertTestFixtureDce } from './plugins/assertTestFixtureDce.mjs';
 
 export default {
-  input: 'scripts/content/index.js',
+  input: {
+    popup: 'pages/popup/popup.js',
+    options: 'pages/options/options.js',
+    sidepanel: 'pages/sidepanel/sidepanel.js',
+    onboarding: 'pages/onboarding/onboarding.js',
+    'update-notification': 'pages/update-notification/update-notification.js',
+    auth: 'scripts/auth/auth.js',
+  },
   output: {
-    file: 'dist/content.bundle.js',
-    format: 'umd',
-    name: 'ContentScript',
+    dir: 'dist/pages',
+    format: 'es', // Use ES modules for page scripts
     sourcemap: isDev ? 'inline' : false,
-    banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
-    inlineDynamicImports: true,
+    banner: '/* eslint-disable */\n/* Save to Notion - Page Bundle */',
+    entryFileNames: '[name].js',
+    chunkFileNames: 'shared/[name].js',
   },
   plugins: [
     !isDev && stripTestConfig(),
-    resolve(),
+    resolve({
+      browser: true,
+      preferBuiltins: false,
+    }),
     commonjs(),
-    !isDev &&
-      replace({
-        preventAssignment: true,
-        values: {
-          'globalThis.__UNIT_TESTING__': 'false',
-          'globalThis.__CONTENT_SCRIPT_BUILD__': 'true',
-        },
-      }),
+    json(),
     !isDev &&
       createTerserPlugin({
-        passes: 2,
         pureFuncs: [
           'console.debug',
           'console.info',
@@ -40,10 +41,8 @@ export default {
           'Logger.log',
           'Logger.info',
         ],
-        mangleReserved: ['ContentScript', 'extractPageContent', 'Logger'],
       }),
-    createVisualizerPlugin('content-bundle', 'Content Bundle Analysis'),
-    !isDev && assertTestFixtureDce(),
+    createVisualizerPlugin('pages-bundle', 'Pages Bundle Analysis'),
   ].filter(Boolean),
   onwarn: createOnWarn({ circular: 'log' }),
 };

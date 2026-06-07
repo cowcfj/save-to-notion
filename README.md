@@ -201,7 +201,18 @@ notion-chrome/
 ├── .github/               # CI 與 workflow（ci.yml、release-please.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── rollup/                # Rollup 構建配置（all/content/background/migration + shared factories）
-├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
+├── dist/                  # 打包產物
+│   ├── preloader.js              # 全域輕量預載腳本
+│   ├── content.bundle.js         # Content Script 統一打包版
+│   ├── migration-executor.js     # Migration 執行入口
+│   ├── scripts/background.js     # Background service worker bundle
+│   └── pages/                    # Extension pages final entry points
+│       ├── popup.js
+│       ├── options.js
+│       ├── sidepanel.js
+│       ├── onboarding.js
+│       ├── update-notification.js
+│       └── auth.js
 ├── pages/                 # 擴展頁面集合（popup / sidepanel / options / onboarding / update-notification）
 │   ├── popup/             # 彈出窗口 UI（處理 API 調用與 DOM 更新）
 │   ├── sidepanel/         # 側邊欄 UI（常駐顯示保存狀態、支援快速操作與頁面同步）
@@ -226,10 +237,6 @@ notion-chrome/
 │   │   └── utils/         # 工具模組 (color, dom, textSearch 等)
 │   ├── performance/       # 性能優化模組
 │   └── utils/             # 工具模組 (Logger, Security, ErrorHandler, ImageUtils)
-
-├── dist/                  # 構建產物
-│   ├── content.bundle.js         # Content Script 統一打包版
-│   └── *.js.map           # Source maps
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
 ├── tests/                 # 測試文件（2500+ tests）
@@ -301,22 +308,23 @@ npm run lint
 **自動構建機制**：
 
 - ✅ `npm install` 後自動執行 `npm run build`
-- ✅ `npm run package:local-unpacked` 可生成本地測試用的最小載入目錄
+- ✅ `npm run package:local-unpacked` 可生成本地測試用的最小載入目錄（完全排除 `scripts/` 原始碼，大幅減少 package 體積，消除雙軌）
 - ✅ `dist/` 目錄不被追蹤（在 `.gitignore` 中）
 
 **開發時的最佳實踐**：
 
 ```bash
-# 1. 開啟實時編譯（推薦）
+# 1. 開啟實時編譯（推薦，會自動涵蓋所有 pages 打包）
 npm run dev
 
-# 2. 修改代碼
+# 2. 修改代碼（可修改 content script、highlighter、或頁面 JS）
 vim scripts/highlighter/core/Range.js
-# 或 vim scripts/content/converters/DomConverter.js
+# 或修改頁面 JS
+vim pages/popup/popup.js
 
 # 3. 查看 Terminal 確認重新打包
 # ✅ created dist/content.bundle.js in 40ms
-# ✅ created dist/highlighter-v2.bundle.js in 55ms
+# ✅ created dist/pages in 530ms
 
 # 4. 重新載入 Extension（Chrome Extension 頁面點擊刷新圖標）
 ```
