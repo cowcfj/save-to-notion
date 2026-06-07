@@ -386,27 +386,19 @@ describe('Highlighter HighlightStorageGateway', () => {
       const pageUrl = 'https://example.com/custom-state';
       const pageKey = `${PAGE_PREFIX}${pageUrl}`;
       const testData = [{ text: 'new highlight', color: 'blue' }];
-      const customState = {
-        syncState: { dirty: true, revision: 7 },
-        tags: ['research', 'later'],
-      };
+      const customState = { syncState: { dirty: true, revision: 7 }, tags: ['research', 'later'] };
 
-      mockChrome.storage.local.get = jest.fn().mockImplementation(keys => {
-        const keyList = Array.isArray(keys) ? keys : [keys];
-
-        if (keyList.length === 1 && keyList[0] === pageKey) {
-          return Promise.resolve({
-            [pageKey]: {
-              notion: { pageId: 'page-custom' },
-              highlights: [{ text: 'old' }],
-              metadata: { createdAt: 789 },
-              ...customState,
-            },
-          });
-        }
-
-        return Promise.resolve({});
-      });
+      mockChrome.storage.local.get = jest
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({
+          [pageKey]: {
+            notion: { pageId: 'page-custom' },
+            highlights: [{ text: 'old' }],
+            metadata: { createdAt: 789 },
+            ...customState,
+          },
+        });
 
       await HighlightStorageGateway.saveHighlights(pageUrl, testData);
 
