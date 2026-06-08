@@ -419,39 +419,37 @@ function initGlobalErrorHandlers() {
   }
 
   // 1. 監聽未捕獲的異常 (Synchronous + Asynchronous)
-  if (globalThis.self) {
-    self.addEventListener('error', event => {
-      try {
-        const { message, filename, lineno, colno, error } = event;
-        Logger.error(`${GLOBAL_ERROR_PREFIXES.UNCAUGHT_EXCEPTION} ${message}`, {
-          filename,
-          lineno,
-          colno,
-          stack: error?.stack,
-        });
-      } catch (error) {
-        console.error('Failed to log uncaught exception:', error);
-      }
-    });
+  globalThis.self?.addEventListener('error', event => {
+    try {
+      const { message, filename, lineno, colno, error } = event;
+      Logger.error(`${GLOBAL_ERROR_PREFIXES.UNCAUGHT_EXCEPTION} ${message}`, {
+        filename,
+        lineno,
+        colno,
+        stack: error?.stack,
+      });
+    } catch (error) {
+      console.error('Failed to log uncaught exception:', error);
+    }
+  });
 
-    // 2. 監聽未處理的 Promise Rejection
-    self.addEventListener('unhandledrejection', event => {
-      try {
-        const reason = event.reason;
-        const msg = reason instanceof Error ? reason.message : String(reason);
-        const stack = reason instanceof Error ? reason.stack : null;
-        // 正確處理 null：typeof null === 'object' 為 true，需要額外檢查
-        const reasonField = reason !== null && typeof reason === 'object' ? reason : String(reason);
+  // 2. 監聽未處理的 Promise Rejection
+  globalThis.self?.addEventListener('unhandledrejection', event => {
+    try {
+      const reason = event.reason;
+      const msg = reason instanceof Error ? reason.message : String(reason);
+      const stack = reason instanceof Error ? reason.stack : null;
+      // 正確處理 null：typeof null === 'object' 為 true，需要額外檢查
+      const reasonField = reason !== null && typeof reason === 'object' ? reason : String(reason);
 
-        Logger.error(`${GLOBAL_ERROR_PREFIXES.UNHANDLED_REJECTION} ${msg}`, {
-          reason: reasonField,
-          stack,
-        });
-      } catch (error) {
-        console.error('Failed to log unhandled rejection:', error);
-      }
-    });
-  }
+      Logger.error(`${GLOBAL_ERROR_PREFIXES.UNHANDLED_REJECTION} ${msg}`, {
+        reason: reasonField,
+        stack,
+      });
+    } catch (error) {
+      console.error('Failed to log unhandled rejection:', error);
+    }
+  });
 }
 
 /**
