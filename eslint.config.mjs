@@ -117,6 +117,7 @@ export default [
       'dot-notation': 'warn',
       'no-else-return': 'warn',
       'no-lonely-if': 'warn',
+      complexity: ['warn', { max: 10 }],
 
       // --- Plugin Rules ---
 
@@ -290,6 +291,7 @@ export default [
       'id-length': 'off',
       'sonarjs/no-duplicate-string': 'off',
       'sonarjs/cognitive-complexity': 'off',
+      complexity: 'off',
       'sonarjs/no-identical-functions': 'off',
       'sonarjs/no-unused-collection': 'off',
       'security/detect-object-injection': 'off',
