@@ -172,7 +172,7 @@ export const NextJsExtractor = {
       }
 
       // 檢查 Pages Router 數據是否因 SPA 導航而過期
-      if (extractionSource === PAGES_ROUTER && !this._validatePagesRouterData(rawData, doc)) {
+      if (this._shouldSkipPagesRouterData(rawData, extractionSource, doc)) {
         return null;
       }
 
@@ -184,6 +184,13 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  _shouldSkipPagesRouterData(rawData, extractionSource, doc) {
+    if (extractionSource !== PAGES_ROUTER) {
+      return false;
+    }
+    return !this._validatePagesRouterData(rawData, doc);
   },
 
   /**
@@ -287,19 +294,26 @@ export const NextJsExtractor = {
   _findFirstComponentWithProps(components, preferredKeys) {
     for (const key of preferredKeys) {
       const pageProps = getComponentPageProps(components[key]);
-      if (pageProps && Object.keys(pageProps).length > 0) {
+      if (this._hasPageProps(pageProps)) {
         return { props: { pageProps } };
       }
     }
 
     for (const [, comp] of Object.entries(components)) {
       const pageProps = getComponentPageProps(comp);
-      if (pageProps && Object.keys(pageProps).length > 0) {
+      if (this._hasPageProps(pageProps)) {
         return { props: { pageProps } };
       }
     }
 
     return null;
+  },
+
+  _hasPageProps(pageProps) {
+    if (!pageProps) {
+      return false;
+    }
+    return Object.keys(pageProps).length > 0;
   },
 
   /**
@@ -434,14 +448,23 @@ export const NextJsExtractor = {
    * @returns {boolean}
    */
   _isSpaNavigationFromHome(rawData, currentPath) {
-    if (!rawData?.page || !currentPath) {
+    if (!rawData?.page) {
       return false;
     }
-    return rawData.page === '/' && currentPath !== '/';
+    if (!currentPath) {
+      return false;
+    }
+    if (rawData.page !== '/') {
+      return false;
+    }
+    return currentPath !== '/';
   },
 
   _isAsPathStale(rawData, currentPath) {
-    if (!rawData?.asPath || !currentPath) {
+    if (!rawData?.asPath) {
+      return false;
+    }
+    if (!currentPath) {
       return false;
     }
     return !this._isAsPathMatch(rawData.asPath, currentPath);
@@ -676,11 +699,11 @@ export const NextJsExtractor = {
     const rawBlocks = [...this._getStructuredContentBlocks(articleData)];
 
     // [BBC] 偵測 BBC {type, model} 巢狀格式，使用專用轉換器
-    if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
+    if (this._shouldUseBbcConverter(rawBlocks)) {
       return this._convertBbcBlocks(rawBlocks);
     }
 
-    if (rawBlocks.length === 0 && this._hasStoryAtoms(articleData)) {
+    if (this._shouldUseStoryAtomsFallback(articleData, rawBlocks)) {
       return this._convertStoryAtoms(articleData.storyAtoms);
     }
 
@@ -696,6 +719,20 @@ export const NextJsExtractor = {
     }
 
     return this.convertBlocks(rawBlocks);
+  },
+
+  _shouldUseBbcConverter(rawBlocks) {
+    if (rawBlocks.length === 0) {
+      return false;
+    }
+    return this._isBbcFormat(rawBlocks);
+  },
+
+  _shouldUseStoryAtomsFallback(articleData, rawBlocks) {
+    if (rawBlocks.length > 0) {
+      return false;
+    }
+    return this._hasStoryAtoms(articleData);
   },
 
   /**
@@ -816,21 +853,31 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _searchByKnownPaths(targets) {
-    for (const target of targets) {
-      if (!target || typeof target !== 'object') {
-        continue;
-      }
-
-      for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
-        const result = this._getValueByPath(target, path);
-
-        if (result && this._resultHasUsableContent(result)) {
-          Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
-          return result;
-        }
-      }
+    const match = targets.map(target => this._findKnownPathMatch(target)).find(Boolean);
+    if (!match) {
+      return null;
     }
-    return null;
+
+    Logger.log(`NextJsExtractor: 使用路徑 "${match.path}" 提取成功`);
+    return match.result;
+  },
+
+  _findKnownPathMatch(target) {
+    if (!this._isSearchableTarget(target)) {
+      return null;
+    }
+
+    return NEXTJS_CONFIG.ARTICLE_PATHS.map(path => ({
+      path,
+      result: this._getValueByPath(target, path),
+    })).find(({ result }) => this._resultHasUsableContent(result));
+  },
+
+  _isSearchableTarget(target) {
+    if (!target) {
+      return false;
+    }
+    return typeof target === 'object';
   },
 
   /**
@@ -904,13 +951,20 @@ export const NextJsExtractor = {
 
     try {
       const args = JSON.parse(part.slice(0, lastParen));
-      if (!Array.isArray(args) || args.length <= 1) {
+      if (!this._hasAppRouterPushPayload(args)) {
         return null;
       }
       return args[1];
     } catch {
       return null;
     }
+  },
+
+  _hasAppRouterPushPayload(args) {
+    if (!Array.isArray(args)) {
+      return false;
+    }
+    return args.length > 1;
   },
 
   _parseAppRouterScript(content) {
@@ -1037,10 +1091,13 @@ export const NextJsExtractor = {
    */
   _tryParseRscLine(line) {
     const parsed = this._parseStructuredRscPayload(line);
-    if (parsed && typeof parsed === 'object') {
-      return parsed;
+    if (!parsed) {
+      return null;
     }
-    return null;
+    if (typeof parsed !== 'object') {
+      return null;
+    }
+    return parsed;
   },
 
   /**
@@ -1066,11 +1123,22 @@ export const NextJsExtractor = {
     }
     // RSC 陣列格式: ["$", "$L...", null, { actualData }]
     // 檢查 index 3 是否為對象
-    if (parsed.length >= 4 && typeof parsed[3] === 'object' && parsed[3] !== null) {
-      return parsed[3];
+    const indexedData = this._getIndexedRscDataObject(parsed);
+    if (indexedData) {
+      return indexedData;
     }
     // 有時數據在其他索引位置，搜索第一個有意義的對象
     return parsed.find(item => this._isMeaningfulObject(item)) ?? null;
+  },
+
+  _getIndexedRscDataObject(parsed) {
+    if (parsed.length < 4) {
+      return null;
+    }
+    if (!this._isMeaningfulObject(parsed[3])) {
+      return null;
+    }
+    return parsed[3];
   },
 
   /**
@@ -1098,7 +1166,10 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _heuristicSearch(root, depth = 0, maxDepth = 6) {
-    if (depth > maxDepth || !root || typeof root !== 'object') {
+    if (depth > maxDepth) {
+      return null;
+    }
+    if (!this._isObjectLike(root)) {
       return null;
     }
 
@@ -1123,21 +1194,26 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _searchChildren(root, depth, maxDepth) {
-    for (const key in root) {
-      if (this._shouldSkipKey(key)) {
-        continue;
-      }
+    let matchedCandidate = null;
+    this._getSearchableChildValues(root).some(value => {
+      matchedCandidate = this._heuristicSearch(value, depth + 1, maxDepth);
+      return Boolean(matchedCandidate);
+    });
+    return matchedCandidate;
+  },
 
-      const value = root[key];
-      // 只遍歷物件或陣列
-      if (typeof value === 'object' && value !== null) {
-        const candidate = this._heuristicSearch(value, depth + 1, maxDepth);
-        if (candidate) {
-          return candidate;
-        }
-      }
+  _getSearchableChildValues(root) {
+    return Object.entries(root)
+      .filter(([key]) => !this._shouldSkipKey(key))
+      .map(([, value]) => value)
+      .filter(value => this._isObjectLike(value));
+  },
+
+  _isObjectLike(value) {
+    if (value === null) {
+      return false;
     }
-    return null;
+    return typeof value === 'object';
   },
 
   /**
@@ -1494,19 +1570,27 @@ export const NextJsExtractor = {
    * @returns {Array|null}
    */
   _convertSummaryBlock(block) {
-    if (block.blockType === 'summary' && Array.isArray(block.summary)) {
-      const summaryText = block.summary.join('\n');
-      return [
-        {
-          object: 'block',
-          type: 'quote',
-          quote: {
-            rich_text: this._createRichTextChunks(summaryText),
-          },
-        },
-      ];
+    if (!this._isSummaryBlock(block)) {
+      return null;
     }
-    return null;
+
+    const summaryText = block.summary.join('\n');
+    return [
+      {
+        object: 'block',
+        type: 'quote',
+        quote: {
+          rich_text: this._createRichTextChunks(summaryText),
+        },
+      },
+    ];
+  },
+
+  _isSummaryBlock(block) {
+    if (block.blockType !== 'summary') {
+      return false;
+    }
+    return Array.isArray(block.summary);
   },
 
   /**
@@ -1550,13 +1634,20 @@ export const NextJsExtractor = {
   },
 
   _convertHtmlTokensBlock(block) {
-    if (block.blockType !== 'text' || !Array.isArray(block.htmlTokens)) {
+    if (!this._isHtmlTokensBlock(block)) {
       return null;
     }
 
     return block.htmlTokens
       .map(tokenGroup => this._buildHtmlTokenParagraph(tokenGroup))
       .filter(Boolean);
+  },
+
+  _isHtmlTokensBlock(block) {
+    if (block.blockType !== 'text') {
+      return false;
+    }
+    return Array.isArray(block.htmlTokens);
   },
 
   /**
@@ -1566,17 +1657,25 @@ export const NextJsExtractor = {
    * @returns {Array|null}
    */
   _convertListBlock(block) {
-    if (block.blockType === 'list' && Array.isArray(block.items)) {
-      const listType = block.ordered ? 'numbered_list_item' : 'bulleted_list_item';
-      return block.items.map(item => ({
-        object: 'block',
-        type: listType,
-        [listType]: {
-          rich_text: this._createRichTextChunks(this._stripHtml(item)),
-        },
-      }));
+    if (!this._isListBlock(block)) {
+      return null;
     }
-    return null;
+
+    const listType = block.ordered ? 'numbered_list_item' : 'bulleted_list_item';
+    return block.items.map(item => ({
+      object: 'block',
+      type: listType,
+      [listType]: {
+        rich_text: this._createRichTextChunks(this._stripHtml(item)),
+      },
+    }));
+  },
+
+  _isListBlock(block) {
+    if (block.blockType !== 'list') {
+      return false;
+    }
+    return Array.isArray(block.items);
   },
 
   /**
