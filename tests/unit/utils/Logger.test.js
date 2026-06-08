@@ -476,6 +476,42 @@ describe('Logger', () => {
       expect(sentArgs[0]).toEqual({ func: '[Function]' });
     });
 
+    test('應該遞迴保留 Date 與 RegExp 的可診斷值', () => {
+      const occurredAt = new Date('2026-06-08T10:11:12.000Z');
+      const matcher = /save-to-notion/gi;
+
+      Logger.warn('Built-in object test', {
+        occurredAt,
+        matcher,
+      });
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual({
+        occurredAt: '2026-06-08T10:11:12.000Z',
+        matcher: '/save-to-notion/gi',
+      });
+    });
+
+    test('getter 屬性拋錯時應只 fallback 該欄位並保留其他欄位', () => {
+      const logContext = {
+        stable: 'kept',
+        nested: { ok: true },
+        get broken() {
+          throw new Error('getter failed');
+        },
+      };
+
+      Logger.warn('Throwing getter test', logContext);
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual({
+        stable: 'kept',
+        nested: { ok: true },
+        broken: '[Unserializable Object]',
+      });
+    });
+
     test('應該將 function 參數序列化為 "[Function]"', () => {
       Logger.warn('Function test', () => {});
 

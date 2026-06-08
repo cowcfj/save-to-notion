@@ -127,8 +127,9 @@ function _serializePlainObjectForIpc(object, seen) {
 
   const serialized = {};
   seen.set(object, serialized);
-  for (const [key, value] of Object.entries(object)) {
+  for (const key of Object.keys(object)) {
     try {
+      const value = object[key];
       serialized[key] = _serializeValueForIpc(value, seen);
     } catch {
       serialized[key] = UNSERIALIZABLE_OBJECT_PLACEHOLDER;
@@ -148,6 +149,12 @@ function _serializePlainObjectForIpc(object, seen) {
 function _serializeValueForIpc(value, seen) {
   if (value instanceof Error) {
     return _serializeErrorForIpc(value, seen);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value instanceof RegExp) {
+    return value.toString();
   }
   // Function / Symbol 無法通過 Chrome IPC (structuredClone / JSON)，需提前轉換
   if (typeof value === 'function') {
