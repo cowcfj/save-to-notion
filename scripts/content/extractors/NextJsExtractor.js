@@ -990,7 +990,10 @@ export const NextJsExtractor = {
    * @returns {any}
    */
   _parseRscJsonPayload(payload) {
-    if (!payload || (!payload.startsWith('{') && !payload.startsWith('['))) {
+    if (!payload) {
+      return null;
+    }
+    if (!this._isRscJsonPayload(payload)) {
       return null;
     }
 
@@ -999,6 +1002,16 @@ export const NextJsExtractor = {
     } catch {
       return null;
     }
+  },
+
+  /**
+   * 判定 RSC payload 是否為可直接 JSON.parse 的物件或陣列文字
+   *
+   * @param {string} payload
+   * @returns {boolean}
+   */
+  _isRscJsonPayload(payload) {
+    return ['{', '['].includes(payload[0]);
   },
 
   /**
