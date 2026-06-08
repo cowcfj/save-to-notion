@@ -182,6 +182,22 @@ function _hasPageKey(entry) {
 }
 
 /**
+ * 判斷 snapshot 是否有可套用的 payload。
+ *
+ * @param {unknown} snapshot
+ * @returns {boolean}
+ */
+function _hasDriveSnapshotPayload(snapshot) {
+  if (!snapshot) {
+    return false;
+  }
+  if (typeof snapshot !== 'object') {
+    return false;
+  }
+  return Boolean(snapshot.payload);
+}
+
+/**
  * 將 saved_* legacy format 正規化為 NotionMeta
  *
  * @param {object} saved
@@ -800,7 +816,7 @@ function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys, pageS
  * @returns {Promise<{ writtenKeys: string[]; removedKeys: string[] }>}
  */
 export async function applyDriveSnapshotToLocalStorage(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || !snapshot.payload) {
+  if (!_hasDriveSnapshotPayload(snapshot)) {
     throw new Error('INVALID_SNAPSHOT: snapshot 缺少 payload 欄位');
   }
 
