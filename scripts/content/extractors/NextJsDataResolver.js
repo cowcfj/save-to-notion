@@ -345,13 +345,21 @@ export function scoreStructuralDimension(node) {
 
 export function scoreContentDimension(node) {
   let score = 0;
-  if (node.text && typeof node.text === 'string' && node.id) {
+  if (hasIdentifiedText(node)) {
     score += 15;
   }
-  if (node.content && typeof node.content === 'string' && node.content.length > 100) {
+  if (hasLongContent(node)) {
     score += 20;
   }
   return score;
+}
+
+function hasIdentifiedText(node) {
+  return node.text && typeof node.text === 'string' && node.id;
+}
+
+function hasLongContent(node) {
+  return node.content && typeof node.content === 'string' && node.content.length > 100;
 }
 
 export function scoreStructureAndText(node) {
@@ -364,16 +372,28 @@ export function scoreStructureAndText(node) {
 
 function scoreSpecialCmsFields(node) {
   let score = 0;
-  if (node.body && typeof node.body === 'string' && node.body.length > 200) {
+  if (hasLongBody(node)) {
     score += 40;
   }
-  if (node.markup && typeof node.markup === 'string') {
+  if (hasMarkup(node)) {
     score += 35;
   }
-  if (Array.isArray(node.storyAtoms) && node.storyAtoms.length > 0) {
+  if (hasStoryAtoms(node)) {
     score += 60;
   }
   return score;
+}
+
+function hasLongBody(node) {
+  return node.body && typeof node.body === 'string' && node.body.length > 200;
+}
+
+function hasMarkup(node) {
+  return node.markup && typeof node.markup === 'string';
+}
+
+function hasStoryAtoms(node) {
+  return Array.isArray(node.storyAtoms) && node.storyAtoms.length > 0;
 }
 
 export function getValueByPath(obj, path) {
