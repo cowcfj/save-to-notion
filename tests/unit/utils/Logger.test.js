@@ -140,6 +140,22 @@ describe('Logger', () => {
       Logger.error(error);
       expect(consoleSpy.error).not.toHaveBeenCalled();
     });
+
+    test('error 不應該忽略包含 global error 前綴的 Frame 移除錯誤', () => {
+      Logger.error('[Uncaught Exception] Frame with ID 0 was removed');
+      expect(consoleSpy.error).toHaveBeenCalled();
+      expect(consoleSpy.error.mock.calls[0].join(' ')).toContain(
+        '[Uncaught Exception] Frame with ID 0 was removed'
+      );
+
+      consoleSpy.error.mockClear();
+
+      Logger.error('[Unhandled Rejection] Frame with ID 0 was removed');
+      expect(consoleSpy.error).toHaveBeenCalled();
+      expect(consoleSpy.error.mock.calls[0].join(' ')).toContain(
+        '[Unhandled Rejection] Frame with ID 0 was removed'
+      );
+    });
   });
 
   describe('在模擬擴展環境中（開發版本）', () => {
@@ -301,6 +317,17 @@ describe('Logger', () => {
 
       // 模擬 local storage 變更（不應影響 debugEnabled）
       onChangedCallback({ enableDebugLogs: { newValue: false } }, 'local');
+      expect(Logger.debugEnabled).toBe(true);
+    });
+
+    test('onChanged 回調應該在 enableDebugLogs 缺失時不改 debugEnabled 狀態', () => {
+      const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
+
+      onChangedCallback({ enableDebugLogs: { newValue: true } }, 'sync');
+      expect(Logger.debugEnabled).toBe(true);
+
+      // 觸發一個 missing key (沒有 enableDebugLogs) 的 onChanged
+      onChangedCallback({ otherKey: { newValue: false } }, 'sync');
       expect(Logger.debugEnabled).toBe(true);
     });
   });
