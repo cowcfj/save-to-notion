@@ -202,18 +202,20 @@ export const NextJsExtractor = {
         return null;
       }
 
-      if (extractionSource === PAGES_ROUTER) {
-        const validation = this._validatePagesRouterDataDetailed(rawData, doc);
-        if (!validation.isValid) {
-          if (validation.reason !== 'stale') {
-            return null;
-          }
-          const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
-          return fallbackResult || null;
-        }
+      if (extractionSource !== PAGES_ROUTER) {
+        return this._extractFromRawData(rawData, extractionSource, doc, action);
       }
 
-      return this._extractFromRawData(rawData, extractionSource, doc, action);
+      const validation = this._validatePagesRouterDataDetailed(rawData, doc);
+      if (validation.isValid) {
+        return this._extractFromRawData(rawData, extractionSource, doc, action);
+      }
+      if (validation.reason !== 'stale') {
+        return null;
+      }
+
+      const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
+      return fallbackResult || null;
     } catch (error) {
       Logger.error('Next.js 提取過程發生錯誤', {
         action,
@@ -432,20 +434,17 @@ export const NextJsExtractor = {
    * @returns {boolean}
    */
   _isSpaNavigationFromHome(rawData, currentPath) {
-    return Boolean(rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/');
+    if (!rawData?.page || !currentPath) {
+      return false;
+    }
+    return rawData.page === '/' && currentPath !== '/';
   },
 
-  /**
-   * SPA stale 偵測：__NEXT_DATA__.asPath 與當前路徑不匹配
-   *
-   * @param {object} rawData
-   * @param {string} currentPath
-   * @returns {boolean}
-   */
   _isAsPathStale(rawData, currentPath) {
-    return Boolean(
-      rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)
-    );
+    if (!rawData?.asPath || !currentPath) {
+      return false;
+    }
+    return !this._isAsPathMatch(rawData.asPath, currentPath);
   },
 
   /**
@@ -681,10 +680,11 @@ export const NextJsExtractor = {
       return this._convertBbcBlocks(rawBlocks);
     }
 
+    if (rawBlocks.length === 0 && this._hasStoryAtoms(articleData)) {
+      return this._convertStoryAtoms(articleData.storyAtoms);
+    }
+
     if (rawBlocks.length === 0) {
-      if (this._hasStoryAtoms(articleData)) {
-        return this._convertStoryAtoms(articleData.storyAtoms);
-      }
       this._appendYahooBodyOrMarkupBlock(articleData, rawBlocks);
     }
 
@@ -846,18 +846,19 @@ export const NextJsExtractor = {
     }
 
     const jsonData = script.textContent;
-    if (jsonData && jsonData.length <= NEXTJS_CONFIG.MAX_JSON_SIZE) {
-      try {
-        return JSON.parse(jsonData);
-      } catch (error) {
-        Logger.warn('解析 __NEXT_DATA__ 失敗', { error: error.message });
-      }
-    } else {
+    if (!jsonData || jsonData.length > NEXTJS_CONFIG.MAX_JSON_SIZE) {
       Logger.warn('Next.js 數據過大或為空', {
         length: jsonData?.length,
       });
+      return null;
     }
-    return null;
+
+    try {
+      return JSON.parse(jsonData);
+    } catch (error) {
+      Logger.warn('解析 __NEXT_DATA__ 失敗', { error: error.message });
+      return null;
+    }
   },
 
   /**
@@ -889,35 +890,40 @@ export const NextJsExtractor = {
    * @param {string} content
    * @returns {Array} fragments
    */
+  /**
+   * 提取 App Router push payload
+   *
+   * @param {string} part
+   * @returns {any}
+   */
+  _extractAppRouterPushPayload(part) {
+    const lastParen = part.lastIndexOf(')');
+    if (lastParen === -1) {
+      return null;
+    }
+
+    try {
+      const args = JSON.parse(part.slice(0, lastParen));
+      if (!Array.isArray(args) || args.length <= 1) {
+        return null;
+      }
+      return args[1];
+    } catch {
+      return null;
+    }
+  },
+
   _parseAppRouterScript(content) {
     if (!content?.includes('self.__next_f.push')) {
       return [];
     }
 
-    const fragments = [];
-    const parts = content.split('self.__next_f.push(');
-
-    // 第一個 part 是 push 之前的內容 (通常是空的或 misc)，跳過
-    for (let i = 1; i < parts.length; i++) {
-      const part = parts[i];
-      // part 應該是以 JSON 開始，後面跟著 ')' 和可能的 ';' 或換行
-      // 我們需要找到最後一個 ')'
-      const lastParen = part.lastIndexOf(')');
-
-      if (lastParen !== -1) {
-        const potentialJson = part.slice(0, lastParen);
-        try {
-          const args = JSON.parse(potentialJson);
-          if (Array.isArray(args) && args.length > 1) {
-            fragments.push(this._parseRscPayload(args[1]));
-          }
-        } catch {
-          // 忽略解析錯誤
-        }
-      }
-    }
-
-    return fragments;
+    return content
+      .split('self.__next_f.push(')
+      .slice(1)
+      .map(part => this._extractAppRouterPushPayload(part))
+      .filter(payload => payload !== null && payload !== undefined)
+      .map(payload => this._parseRscPayload(payload));
   },
 
   /**
@@ -964,30 +970,62 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 提取冒號後的 payload 內容
+   *
+   * @param {string} chunk
+   * @returns {string|null}
+   */
+  _extractColonPayload(chunk) {
+    const colonIndex = chunk.indexOf(':');
+    if (colonIndex === -1) {
+      return null;
+    }
+    return chunk.slice(colonIndex + 1);
+  },
+
+  /**
+   * 解析 RSC JSON payload
+   *
+   * @param {string} payload
+   * @returns {any}
+   */
+  _parseRscJsonPayload(payload) {
+    if (!payload || (!payload.startsWith('{') && !payload.startsWith('['))) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 解析結構化 RSC payload
+   *
+   * @param {string} chunk
+   * @returns {any}
+   */
+  _parseStructuredRscPayload(chunk) {
+    const payload = this._extractColonPayload(chunk);
+    const parsed = this._parseRscJsonPayload(payload);
+    if (parsed === null) {
+      return null;
+    }
+    return this._extractRscDataObject(parsed) || parsed;
+  },
+
+  /**
    * 嘗試解析單行 RSC
    *
    * @param {string} line
    * @returns {object|null}
    */
   _tryParseRscLine(line) {
-    try {
-      const colonIndex = line.indexOf(':');
-      if (colonIndex !== -1) {
-        const payload = line.slice(colonIndex + 1);
-        if (payload.startsWith('{') || payload.startsWith('[')) {
-          const parsed = JSON.parse(payload);
-          const extracted = this._extractRscDataObject(parsed);
-
-          if (extracted) {
-            return extracted;
-          }
-          if (typeof parsed === 'object' && parsed !== null) {
-            return parsed;
-          }
-        }
-      }
-    } catch {
-      // 忽略單行解析錯誤
+    const parsed = this._parseStructuredRscPayload(line);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
     }
     return null;
   },
@@ -999,20 +1037,7 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _fallbackParseRsc(chunk) {
-    try {
-      const colonIndex = chunk.indexOf(':');
-      if (colonIndex !== -1) {
-        const payload = chunk.slice(colonIndex + 1);
-        if (payload.startsWith('{') || payload.startsWith('[')) {
-          const parsed = JSON.parse(payload);
-          const extracted = this._extractRscDataObject(parsed);
-          return extracted || parsed;
-        }
-      }
-    } catch {
-      // 解析失敗
-    }
-    return null;
+    return this._parseStructuredRscPayload(chunk);
   },
 
   /**
@@ -1477,33 +1502,48 @@ export const NextJsExtractor = {
    * @param {object} block
    * @returns {Array|null}
    */
-  _convertHtmlTokensBlock(block) {
-    if (block.blockType === 'text' && Array.isArray(block.htmlTokens)) {
-      const paragraphs = [];
-      block.htmlTokens.forEach(tokenGroup => {
-        if (Array.isArray(tokenGroup)) {
-          let paragraphText = '';
-          tokenGroup.forEach(token => {
-            // 處理所有包含 content 的 token 類型 (e.g. text, specific-link, boldLink)
-            if (token.content) {
-              paragraphText += token.content;
-            }
-          });
-
-          if (paragraphText.trim()) {
-            paragraphs.push({
-              object: 'block',
-              type: 'paragraph',
-              paragraph: {
-                rich_text: this._createRichTextChunks(paragraphText),
-              },
-            });
-          }
-        }
-      });
-      return paragraphs;
+  /**
+   * 提取 HTML token 組的文字內容
+   *
+   * @param {Array} tokenGroup
+   * @returns {string}
+   */
+  _extractHtmlTokenGroupText(tokenGroup) {
+    if (!Array.isArray(tokenGroup)) {
+      return '';
     }
-    return null;
+    return tokenGroup.map(token => token?.content || '').join('');
+  },
+
+  /**
+   * 建立 HTML token 的段落區塊
+   *
+   * @param {Array} tokenGroup
+   * @returns {object|null}
+   */
+  _buildHtmlTokenParagraph(tokenGroup) {
+    const paragraphText = this._extractHtmlTokenGroupText(tokenGroup);
+    if (!paragraphText.trim()) {
+      return null;
+    }
+
+    return {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: this._createRichTextChunks(paragraphText),
+      },
+    };
+  },
+
+  _convertHtmlTokensBlock(block) {
+    if (block.blockType !== 'text' || !Array.isArray(block.htmlTokens)) {
+      return null;
+    }
+
+    return block.htmlTokens
+      .map(tokenGroup => this._buildHtmlTokenParagraph(tokenGroup))
+      .filter(Boolean);
   },
 
   /**
