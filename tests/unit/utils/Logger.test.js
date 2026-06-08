@@ -525,6 +525,21 @@ describe('Logger', () => {
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs[0]).toBe('Symbol(mySymbol)');
     });
+
+    test('應該遞迴序列化陣列中的特殊值', () => {
+      const occurredAt = new Date('2026-06-08T10:11:12.000Z');
+      const matcher = /logger/gi;
+
+      Logger.warn('Array special values test', [occurredAt, matcher, () => {}, Symbol('flag')]);
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual([
+        '2026-06-08T10:11:12.000Z',
+        '/logger/gi',
+        '[Function]',
+        'Symbol(flag)',
+      ]);
+    });
   });
 
   describe('語法糖方法 (success, start, ready)', () => {

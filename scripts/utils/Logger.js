@@ -139,14 +139,34 @@ function _serializePlainObjectForIpc(object, seen) {
 }
 
 /**
- * 遞迴序列化日誌值，確保可透過 Chrome IPC 傳遞。
+ * 序列化非物件類型的日誌值（如 function、symbol）。
  *
  * @param {any} value - 原始值
- * @param {WeakMap<object, any>} seen - 已處理物件映射
  * @returns {any} 序列化後的安全值
  * @private
  */
-function _serializeValueForIpc(value, seen) {
+function _serializeNonObjectValueForIpc(value) {
+  if (typeof value === 'function') {
+    return '[Function]';
+  }
+  if (typeof value === 'symbol') {
+    return value.toString();
+  }
+  return value;
+}
+
+/**
+ * 序列化物件類型的日誌值（如 Error、Date、RegExp、陣列與一般物件）。
+ *
+ * @param {any} value - 原始物件
+ * @param {WeakMap<object, any>} seen - 已處理物件映射
+ * @returns {any} 序列化後的安全物件
+ * @private
+ */
+function _serializeObjectValueForIpc(value, seen) {
+  if (value === null) {
+    return value;
+  }
   if (value instanceof Error) {
     return _serializeErrorForIpc(value, seen);
   }
@@ -156,20 +176,25 @@ function _serializeValueForIpc(value, seen) {
   if (value instanceof RegExp) {
     return value.toString();
   }
-  // Function / Symbol 無法通過 Chrome IPC (structuredClone / JSON)，需提前轉換
-  if (typeof value === 'function') {
-    return '[Function]';
-  }
-  if (typeof value === 'symbol') {
-    return value.toString();
-  }
   if (Array.isArray(value)) {
     return _serializeArrayForIpc(value, seen);
   }
-  if (typeof value === 'object' && value !== null) {
-    return _serializePlainObjectForIpc(value, seen);
+  return _serializePlainObjectForIpc(value, seen);
+}
+
+/**
+ * 遞迴序列化日誌值，確保可透過 Chrome IPC 傳遞。
+ *
+ * @param {any} value - 原始值
+ * @param {WeakMap<object, any>} seen - 已處理物件映射
+ * @returns {any} 序列化後的安全值
+ * @private
+ */
+function _serializeValueForIpc(value, seen) {
+  if (typeof value !== 'object') {
+    return _serializeNonObjectValueForIpc(value);
   }
-  return value;
+  return _serializeObjectValueForIpc(value, seen);
 }
 
 /**
