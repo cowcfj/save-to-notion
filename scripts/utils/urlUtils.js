@@ -109,6 +109,104 @@ export const STABLE_URL_RULES = [
   },
 ];
 
+const NEXT_DYNAMIC_SEGMENT_PATTERN = /\[(\w+)\]/g;
+const ROUTE_SLUG_KEY_PATTERN = /slug|title/i;
+const ROUTE_STABLE_KEY_PATTERN = /category|section|channel|topic|tag/i;
+const NUMERIC_STRING_PATTERN = /^\d+$/;
+const NON_ASCII_PATTERN = /[^\u0020-\u007E]/;
+const HTTP_PROTOCOLS = new Set(['http:', 'https:']);
+
+function isAbsoluteUrlString(rawUrl) {
+  return Boolean(rawUrl && typeof rawUrl === 'string' && rawUrl.includes('://'));
+}
+
+function isStableRuleHostMatch(hostname, hostPattern) {
+  const host = hostname.toLowerCase();
+  const pattern = hostPattern.toLowerCase();
+
+  return host === pattern || host.endsWith(`.${pattern}`);
+}
+
+function isStableRulePathMatch(rule, pathname) {
+  if (rule.pathRequires && !pathname.includes(rule.pathRequires)) {
+    return false;
+  }
+
+  return rule.pathPattern.test(pathname);
+}
+
+function getNextDynamicSegments(page) {
+  return [...page.matchAll(NEXT_DYNAMIC_SEGMENT_PATTERN)].map(match => match[1]);
+}
+
+function isNumericString(value) {
+  return typeof value === 'string' && NUMERIC_STRING_PATTERN.test(value);
+}
+
+function isUnstableRouteSegment(key, value) {
+  if (ROUTE_SLUG_KEY_PATTERN.test(key)) {
+    return !isNumericString(value);
+  }
+
+  if (ROUTE_STABLE_KEY_PATTERN.test(key)) {
+    return false;
+  }
+
+  return typeof value === 'string' && NON_ASCII_PATTERN.test(value);
+}
+
+function removeDynamicRouteSegment(stablePath, key) {
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  return stablePath.replace(new RegExp(String.raw`/\[${key}\]`), '');
+}
+
+function applyDynamicRouteSegment(stablePath, key, query, slugKeySet) {
+  if (slugKeySet.has(key)) {
+    return removeDynamicRouteSegment(stablePath, key);
+  }
+
+  return stablePath.replace(`[${key}]`, () => String(query[key] ?? ''));
+}
+
+function buildNextStablePath(page, query) {
+  // 找出所有動態段（如 [id], [slug], [category]）
+  const dynamicSegments = getNextDynamicSegments(page);
+  if (dynamicSegments.length === 0) {
+    return null; // 無動態段 → 非動態路由，不需處理
+  }
+
+  // 識別「不穩定」的段（即 slug）
+  const slugKeys = dynamicSegments.filter(key => isUnstableRouteSegment(key, query[key]));
+
+  // 無法識別任何 slug → 放棄，避免誤判
+  if (slugKeys.length === 0) {
+    return null;
+  }
+
+  // 安全閥：當所有動態段都是 slug 時，移除後只剩靜態路由殼
+  // （如 /posts），無法唯一識別頁面 → 放棄，讓 resolveStorageUrl 回退 normalizeUrl
+  if (slugKeys.length === dynamicSegments.length) {
+    return null;
+  }
+
+  const slugKeySet = new Set(slugKeys);
+  let stablePath = page;
+  for (const key of dynamicSegments) {
+    stablePath = applyDynamicRouteSegment(stablePath, key, query, slugKeySet);
+  }
+
+  return { stablePath, slugKeys };
+}
+
+function parseHttpUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    return HTTP_PROTOCOLS.has(parsedUrl.protocol) ? parsedUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 計算穩定 URL — 對已知網站移除可變的 slug 段
  * 純字串操作，不需 DOM 訪問，適用於零延遲場景
@@ -117,7 +215,7 @@ export const STABLE_URL_RULES = [
  * @returns {string|null} 穩定 URL，若無匹配規則返回 null
  */
 export function computeStableUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.includes('://')) {
+  if (!isAbsoluteUrlString(rawUrl)) {
     return null;
   }
 
@@ -126,24 +224,16 @@ export function computeStableUrl(rawUrl) {
     const { hostname, pathname } = urlObj;
 
     for (const rule of STABLE_URL_RULES) {
-      const pattern = rule.hostPattern.toLowerCase();
-      const host = hostname.toLowerCase();
-
-      // 嚴格域名檢查：必須完全匹配或為子域名
-      if (host !== pattern && !host.endsWith(`.${pattern}`)) {
+      if (!isStableRuleHostMatch(hostname, rule.hostPattern)) {
         continue;
       }
 
-      // 檢查 path 是否包含必要字串（如果有指定）
-      if (rule.pathRequires && !pathname.includes(rule.pathRequires)) {
+      if (!isStableRulePathMatch(rule, pathname)) {
         continue;
       }
 
-      // 嘗試匹配 path pattern
-      if (rule.pathPattern.test(pathname)) {
-        urlObj.pathname = pathname.replace(rule.pathPattern, rule.stablePath);
-        return normalizeUrl(urlObj.toString());
-      }
+      urlObj.pathname = pathname.replace(rule.pathPattern, rule.stablePath);
+      return normalizeUrl(urlObj.toString());
     }
   } catch (error) {
     Logger.error?.('computeStableUrl 失敗', { action: 'computeStableUrl', error });
@@ -172,56 +262,12 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
 
   try {
     const { page, query } = routeInfo;
-
-    // 找出所有動態段（如 [id], [slug], [category]）
-    const dynamicSegments = [...page.matchAll(/\[(\w+)\]/g)].map(match => match[1]);
-    if (dynamicSegments.length === 0) {
-      return null; // 無動態段 → 非動態路由，不需處理
-    }
-
-    // 識別「不穩定」的段（即 slug）
-    const slugKeys = dynamicSegments.filter(key => {
-      const value = query[key];
-
-      // 1. 欄位名明確包含 slug 或 title -> 判定為不穩定
-      //    1a. 豁免：若值為純數字（如 "10615"），視為穩定資料庫 ID，不移除
-      if (/slug|title/i.test(key)) {
-        return !(typeof value === 'string' && /^\d+$/.test(value));
-      }
-
-      // 2. 欄位名明確包含分類/頻道等穩定段 -> 判定為穩定 (即使含非 ASCII)
-      if (/category|section|channel|topic|tag/i.test(key)) {
-        return false;
-      }
-
-      // 3. 值包含非 ASCII 字符（中文、日文等）且非已知穩定段 -> 判定為標題 / slug
-      return typeof value === 'string' && /[^\u0020-\u007E]/.test(value);
-    });
-
-    // 無法識別任何 slug → 放棄，避免誤判
-    if (slugKeys.length === 0) {
+    const stableRoute = buildNextStablePath(page, query);
+    if (!stableRoute) {
       return null;
     }
 
-    // 安全閥：當所有動態段都是 slug 時，移除後只剩靜態路由殼
-    // （如 /posts），無法唯一識別頁面 → 放棄，讓 resolveStorageUrl 回退 normalizeUrl
-    if (slugKeys.length === dynamicSegments.length) {
-      return null;
-    }
-
-    // 構建穩定路徑：保留穩定段，移除 slug 段
-    let stablePath = page;
-    for (const key of dynamicSegments) {
-      if (slugKeys.includes(key)) {
-        // 移除 slug 段（包含前面的 /）
-        // eslint-disable-next-line security/detect-non-literal-regexp
-        stablePath = stablePath.replace(new RegExp(String.raw`/\[${key}\]`), '');
-      } else {
-        // 替換為實際值，使用函數形式避免 $ 解釋
-        stablePath = stablePath.replace(`[${key}]`, () => String(query[key] ?? ''));
-      }
-    }
-
+    const { stablePath, slugKeys } = stableRoute;
     const origin = new URL(originalUrl).origin;
     const stableUrl = normalizeUrl(`${origin}${stablePath}`);
 
@@ -312,12 +358,8 @@ export function isSafeStableUrl(url, options = {}) {
     return false;
   }
 
-  try {
-    const parsedUrl = new URL(requireNormalized ? url : normalizedUrl);
-    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      return false;
-    }
-  } catch {
+  const urlToValidate = requireNormalized ? url : normalizedUrl;
+  if (!parseHttpUrl(urlToValidate)) {
     return false;
   }
 
