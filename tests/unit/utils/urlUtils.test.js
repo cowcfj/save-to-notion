@@ -7,6 +7,7 @@ import {
   computeStableUrl,
   resolveStorageUrl,
   buildStableUrlFromNextData,
+  hasSameOrigin,
   isRootUrl,
   isSafeStableUrl,
 } from '../../../scripts/utils/urlUtils.js';
@@ -444,6 +445,52 @@ describe('urlUtils', () => {
     it('應該保留根路徑的斜杠', () => {
       const url = 'https://example.com/';
       expect(normalizeUrl(url)).toBe('https://example.com/');
+    });
+
+    it('應該處理空值輸入', () => {
+      expect(normalizeUrl(null)).toBe('');
+      expect(normalizeUrl('')).toBe('');
+      expect(normalizeUrl(undefined)).toBe('');
+    });
+
+    it('應該將非字串輸入轉換為字串', () => {
+      // 傳入一個自定義 toString 的物件，使其在轉換為字串後能被視為相對 URL
+      const obj = { toString: () => '/relative/path' };
+      expect(normalizeUrl(obj)).toBe('/relative/path');
+
+      // 數字會被轉為字串
+      expect(normalizeUrl(12345)).toBe('12345');
+    });
+
+    it('應該返回原始輸入對於無法解析的 URL（如惡意/無效格式）', () => {
+      // 在 node 的 URL 實作中，某些格式會拋出錯誤
+      const invalidUrl = 'http://%';
+      expect(normalizeUrl(invalidUrl)).toBe(invalidUrl);
+    });
+  });
+
+  describe('hasSameOrigin', () => {
+    it('應該對相同來源的 URL 返回 true', () => {
+      expect(hasSameOrigin('https://example.com/page1', 'https://example.com/page2')).toBe(true);
+      expect(hasSameOrigin('http://test.com:8080/a', 'http://test.com:8080/b')).toBe(true);
+    });
+
+    it('應該對不同來源的 URL 返回 false', () => {
+      expect(hasSameOrigin('https://example.com/page1', 'http://example.com/page2')).toBe(false); // protocol 不同
+      expect(hasSameOrigin('https://a.example.com', 'https://b.example.com')).toBe(false); // subdomain 不同
+      expect(hasSameOrigin('https://example.com:8080', 'https://example.com:8081')).toBe(false); // port 不同
+    });
+
+    it('應該處理空值', () => {
+      expect(hasSameOrigin('', 'https://example.com')).toBe(false);
+      expect(hasSameOrigin('https://example.com', null)).toBe(false);
+      expect(hasSameOrigin(undefined, undefined)).toBe(false);
+    });
+
+    it('應該處理無效 URL 導致解析失敗的情況', () => {
+      expect(hasSameOrigin('invalid-url-1', 'https://example.com')).toBe(false);
+      expect(hasSameOrigin('https://example.com', 'invalid-url-2')).toBe(false);
+      expect(hasSameOrigin('http://%', 'http://%')).toBe(false);
     });
   });
 
