@@ -117,7 +117,7 @@ export default [
       'dot-notation': 'warn',
       'no-else-return': 'warn',
       'no-lonely-if': 'warn',
-      complexity: ['warn', 10],
+      complexity: ['warn', { max: 10 }],
 
       // --- Plugin Rules ---
 
