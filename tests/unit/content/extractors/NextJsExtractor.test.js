@@ -4,6 +4,7 @@
 
 import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
+import * as NextJsDataResolver from '../../../../scripts/content/extractors/NextJsDataResolver.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
 import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
 import yahooNewsRscFixture from '../../../fixtures/json/nextjs-rsc-yahoo-news.json';
@@ -944,58 +945,58 @@ describe('NextJsExtractor', () => {
     describe('_scoreKeysDimension', () => {
       it('同時包含合法的 title 和 author 時加 15 分', () => {
         const node = { title: 'Some Title', author: 'Some Author' };
-        expect(NextJsExtractor._scoreKeysDimension(node)).toBe(15);
+        expect(NextJsDataResolver.scoreKeysDimension(node)).toBe(15);
       });
 
       it('僅包含合法的 title 時加 10 分', () => {
         const node = { title: 'Some Title' };
-        expect(NextJsExtractor._scoreKeysDimension(node)).toBe(10);
+        expect(NextJsDataResolver.scoreKeysDimension(node)).toBe(10);
       });
 
       it('僅包含合法的 author 時加 5 分', () => {
         const node = { author: 'Some Author' };
-        expect(NextJsExtractor._scoreKeysDimension(node)).toBe(5);
+        expect(NextJsDataResolver.scoreKeysDimension(node)).toBe(5);
       });
 
       it('空節點或無匹配特徵時得 0 分', () => {
         const node = {};
-        expect(NextJsExtractor._scoreKeysDimension(node)).toBe(0);
+        expect(NextJsDataResolver.scoreKeysDimension(node)).toBe(0);
       });
     });
 
     describe('_scoreStructuralDimension', () => {
       it('包含非空 paragraphs 陣列時加 40 分', () => {
         const node = { paragraphs: ['Para 1'] };
-        expect(NextJsExtractor._scoreStructuralDimension(node)).toBe(40);
+        expect(NextJsDataResolver.scoreStructuralDimension(node)).toBe(40);
       });
 
       it('paragraphs 陣列為空或非陣列時得 0 分', () => {
-        expect(NextJsExtractor._scoreStructuralDimension({ paragraphs: [] })).toBe(0);
-        expect(NextJsExtractor._scoreStructuralDimension({})).toBe(0);
+        expect(NextJsDataResolver.scoreStructuralDimension({ paragraphs: [] })).toBe(0);
+        expect(NextJsDataResolver.scoreStructuralDimension({})).toBe(0);
       });
     });
 
     describe('_scoreContentDimension', () => {
       it('包含 text (字串) 且有 id 時加 15 分', () => {
         const node = { text: 'Some text', id: '123' };
-        expect(NextJsExtractor._scoreContentDimension(node)).toBe(15);
+        expect(NextJsDataResolver.scoreContentDimension(node)).toBe(15);
       });
 
       it('包含 content (字串且長度 > 100) 時加 20 分', () => {
         const longContent = 'A'.repeat(101);
         const node = { content: longContent };
-        expect(NextJsExtractor._scoreContentDimension(node)).toBe(20);
+        expect(NextJsDataResolver.scoreContentDimension(node)).toBe(20);
       });
 
       it('同時滿足 text+id 與 content (> 100) 時累加 35 分', () => {
         const longContent = 'A'.repeat(101);
         const node = { text: 'Some text', id: '123', content: longContent };
-        expect(NextJsExtractor._scoreContentDimension(node)).toBe(35);
+        expect(NextJsDataResolver.scoreContentDimension(node)).toBe(35);
       });
 
       it('條件不滿足時得 0 分', () => {
-        expect(NextJsExtractor._scoreContentDimension({ text: 'Some text' })).toBe(0); // 缺 id
-        expect(NextJsExtractor._scoreContentDimension({ content: 'short content' })).toBe(0); // 長度 <= 100
+        expect(NextJsDataResolver.scoreContentDimension({ text: 'Some text' })).toBe(0); // 缺 id
+        expect(NextJsDataResolver.scoreContentDimension({ content: 'short content' })).toBe(0); // 長度 <= 100
       });
     });
 
@@ -1010,7 +1011,7 @@ describe('NextJsExtractor', () => {
           content: 'C'.repeat(105),
         };
         // Keys (15) + Structural (40) + Content (35) = 90
-        expect(NextJsExtractor._scoreStructureAndText(node)).toBe(90);
+        expect(NextJsDataResolver.scoreStructureAndText(node)).toBe(90);
       });
     });
   });
@@ -1409,113 +1410,117 @@ describe('NextJsExtractor', () => {
   describe('RSC payload parsing helpers', () => {
     describe('_extractRscDataObject', () => {
       it('should return null for non-array input', () => {
-        expect(NextJsExtractor._extractRscDataObject(null)).toBeNull();
-        expect(NextJsExtractor._extractRscDataObject({})).toBeNull();
-        expect(NextJsExtractor._extractRscDataObject('not an array')).toBeNull();
+        expect(NextJsDataResolver.extractRscDataObject(null)).toBeNull();
+        expect(NextJsDataResolver.extractRscDataObject({})).toBeNull();
+        expect(NextJsDataResolver.extractRscDataObject('not an array')).toBeNull();
       });
 
       it('should fallback to search loop and find object when array length is less than 4', () => {
         const input = [{ target: 'found' }];
-        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+        expect(NextJsDataResolver.extractRscDataObject(input)).toEqual({ target: 'found' });
       });
 
       it('should return index 3 item when length >= 4 and index 3 is a plain object', () => {
         const input = ['$', '$L2a', null, { pageData: { atoms: [] } }];
-        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ pageData: { atoms: [] } });
+        expect(NextJsDataResolver.extractRscDataObject(input)).toEqual({
+          pageData: { atoms: [] },
+        });
       });
 
       it('should fallback to search loop when index 3 is null', () => {
         const input = ['$', '$L2a', null, null, { pageData: { atoms: [] } }];
-        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ pageData: { atoms: [] } });
+        expect(NextJsDataResolver.extractRscDataObject(input)).toEqual({
+          pageData: { atoms: [] },
+        });
       });
 
       it('should return the first non-null plain object found in the array', () => {
         const input = [null, 'string', { target: 'found' }, null, { second: 'ignored' }];
-        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+        expect(NextJsDataResolver.extractRscDataObject(input)).toEqual({ target: 'found' });
       });
 
       it('should return null if no plain object is found', () => {
         const input = [null, 'string', 123, true];
-        expect(NextJsExtractor._extractRscDataObject(input)).toBeNull();
+        expect(NextJsDataResolver.extractRscDataObject(input)).toBeNull();
       });
 
       it('should skip nested arrays during fallback search', () => {
         const input = [null, ['nested-array'], { target: 'found' }];
-        expect(NextJsExtractor._extractRscDataObject(input)).toEqual({ target: 'found' });
+        expect(NextJsDataResolver.extractRscDataObject(input)).toEqual({ target: 'found' });
       });
     });
 
     describe('_tryParseRscLine', () => {
       it('should return null when no colon is present', () => {
-        expect(NextJsExtractor._tryParseRscLine('no colon here')).toBeNull();
+        expect(NextJsDataResolver.tryParseRscLine('no colon here')).toBeNull();
       });
 
       it('should return null when payload does not start with { or [', () => {
-        expect(NextJsExtractor._tryParseRscLine('1:invalid')).toBeNull();
+        expect(NextJsDataResolver.tryParseRscLine('1:invalid')).toBeNull();
       });
 
       it('should return inner object when payload is a valid RSC wrapper', () => {
         const line = '4:["$", "$L2a", null, {"pageData": {"atoms": []}}]';
-        expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ pageData: { atoms: [] } });
+        expect(NextJsDataResolver.tryParseRscLine(line)).toEqual({ pageData: { atoms: [] } });
       });
 
       it('should return the parsed object or array when it is not a classic RSC wrapper', () => {
         const line = '4:[1, 2, 3]';
-        expect(NextJsExtractor._tryParseRscLine(line)).toEqual([1, 2, 3]);
+        expect(NextJsDataResolver.tryParseRscLine(line)).toEqual([1, 2, 3]);
 
         const lineWithObj = '4:[1, 2, {"target":"found"}]';
-        expect(NextJsExtractor._tryParseRscLine(lineWithObj)).toEqual({ target: 'found' });
+        expect(NextJsDataResolver.tryParseRscLine(lineWithObj)).toEqual({ target: 'found' });
       });
 
       it('should return the parsed object when payload is a simple plain object JSON', () => {
         const line = '3:{"someNoise": true}';
-        expect(NextJsExtractor._tryParseRscLine(line)).toEqual({ someNoise: true });
+        expect(NextJsDataResolver.tryParseRscLine(line)).toEqual({ someNoise: true });
       });
 
       it('should return null on malformed JSON instead of throwing error', () => {
         const line = '3:{"malformed"';
-        expect(NextJsExtractor._tryParseRscLine(line)).toBeNull();
+        expect(NextJsDataResolver.tryParseRscLine(line)).toBeNull();
       });
     });
 
     describe('_fallbackParseRsc', () => {
       it('should return null when chunk has no colon', () => {
-        expect(NextJsExtractor._fallbackParseRsc('no colon')).toBeNull();
+        expect(NextJsDataResolver.fallbackParseRsc('no colon')).toBeNull();
       });
 
       it('should return null on JSON parse failure', () => {
-        expect(NextJsExtractor._fallbackParseRsc('1:{"bad"')).toBeNull();
+        expect(NextJsDataResolver.fallbackParseRsc('1:{"bad"')).toBeNull();
       });
 
       it('should return inner object of a single-line RSC wrapper', () => {
         const chunk = '4:["$", "$L2a", null, {"key": "val"}]';
-        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ key: 'val' });
+        expect(NextJsDataResolver.fallbackParseRsc(chunk)).toEqual({ key: 'val' });
       });
 
       it('should return parsed object when chunk is plain object', () => {
         const chunk = '3:{"key": "val"}';
-        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ key: 'val' });
+        expect(NextJsDataResolver.fallbackParseRsc(chunk)).toEqual({ key: 'val' });
       });
 
       it('should return parsed object if _extractRscDataObject returns null but parsed is an object', () => {
         const chunk = '1:{"foo": "bar"}';
-        expect(NextJsExtractor._fallbackParseRsc(chunk)).toEqual({ foo: 'bar' });
+        expect(NextJsDataResolver.fallbackParseRsc(chunk)).toEqual({ foo: 'bar' });
       });
     });
 
     describe('_parseMultiLineRsc', () => {
       it('should return empty array for empty string', () => {
-        expect(NextJsExtractor._parseMultiLineRsc('')).toEqual([]);
+        expect(NextJsDataResolver.parseMultiLineRsc('')).toEqual([]);
       });
 
       it('should parse single line rsc', () => {
         const input = '3:{"someNoise":true}';
-        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([{ someNoise: true }]);
+        expect(NextJsDataResolver.parseMultiLineRsc(input)).toEqual([{ someNoise: true }]);
       });
 
       it('should filter out unparsable lines', () => {
         const input = '3:{"someNoise":true}\n5:bad-line\n4:{"valid":true}';
-        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([
+        expect(NextJsDataResolver.parseMultiLineRsc(input)).toEqual([
           { someNoise: true },
           { valid: true },
         ]);
@@ -1523,25 +1528,25 @@ describe('NextJsExtractor', () => {
 
       it('should return empty array when all lines are unparsable', () => {
         const input = 'bad-line\nanother-bad';
-        expect(NextJsExtractor._parseMultiLineRsc(input)).toEqual([]);
+        expect(NextJsDataResolver.parseMultiLineRsc(input)).toEqual([]);
       });
     });
 
     describe('_parseAppRouterScript', () => {
       it('should return empty array for script content without push calls', () => {
-        expect(NextJsExtractor._parseAppRouterScript('')).toEqual([]);
-        expect(NextJsExtractor._parseAppRouterScript('console.log("hello")')).toEqual([]);
+        expect(NextJsDataResolver.parseAppRouterScript('')).toEqual([]);
+        expect(NextJsDataResolver.parseAppRouterScript('console.log("hello")')).toEqual([]);
       });
 
       it('should parse script with single push call', () => {
         const script = 'self.__next_f.push([1, "3:{\\\"someNoise\\\":true}\\n"])';
-        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([{ someNoise: true }]);
+        expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([{ someNoise: true }]);
       });
 
       it('should parse script with multiple push calls', () => {
         const script =
           'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n"])\nself.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])';
-        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([
+        expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([
           '1:I["noise"]\n',
           { valid: true },
         ]);
@@ -1550,12 +1555,12 @@ describe('NextJsExtractor', () => {
       it('should skip malformed JSON inside push calls', () => {
         const script =
           'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])\nself.__next_f.push(invalid_json_here)';
-        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([{ valid: true }]);
+        expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([{ valid: true }]);
       });
 
       it('should skip pushing when closing parenthesis is missing', () => {
         const script = 'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"';
-        expect(NextJsExtractor._parseAppRouterScript(script)).toEqual([]);
+        expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([]);
       });
     });
   });

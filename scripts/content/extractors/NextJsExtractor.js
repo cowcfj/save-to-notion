@@ -13,6 +13,7 @@ import { NEXTJS_CONFIG } from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import * as BbcBlockConverter from './blocks/BbcBlockConverter.js';
+import * as NextJsDataResolver from './NextJsDataResolver.js';
 import * as StoryAtomsConverter from './blocks/StoryAtomsConverter.js';
 
 const PAGES_ROUTER = 'pages-router';
@@ -239,12 +240,12 @@ export const NextJsExtractor = {
    * @returns {{ rawData: object|null, extractionSource: string }}
    */
   _resolveInitialData(doc) {
-    const rawPagesData = this._getPagesRouterData(doc);
+    const rawPagesData = NextJsDataResolver.getPagesRouterData(doc);
     if (rawPagesData) {
       return { rawData: rawPagesData, extractionSource: PAGES_ROUTER };
     }
 
-    const rawAppData = this._getAppRouterData(doc);
+    const rawAppData = NextJsDataResolver.getAppRouterData(doc);
     if (rawAppData) {
       return { rawData: rawAppData, extractionSource: APP_ROUTER };
     }
@@ -292,6 +293,13 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _findFirstComponentWithProps(components, preferredKeys) {
+    return (
+      this._findComponentByPreferredKeys(components, preferredKeys) ||
+      this._findFirstComponentEntryWithProps(components)
+    );
+  },
+
+  _findComponentByPreferredKeys(components, preferredKeys) {
     for (const key of preferredKeys) {
       const pageProps = getComponentPageProps(components[key]);
       if (this._hasPageProps(pageProps)) {
@@ -299,6 +307,10 @@ export const NextJsExtractor = {
       }
     }
 
+    return null;
+  },
+
+  _findFirstComponentEntryWithProps(components) {
     for (const [, comp] of Object.entries(components)) {
       const pageProps = getComponentPageProps(comp);
       if (this._hasPageProps(pageProps)) {
@@ -480,7 +492,7 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _extractFromRawData(rawData, extractionSource, doc, action = 'NextJsExtractor.extract') {
-    const articleData = this._findArticleData(rawData);
+    const articleData = NextJsDataResolver.findArticleData(rawData);
 
     if (!articleData) {
       Logger.info('在數據中未找到結構化文章內容，將使用標準提取', {
@@ -525,7 +537,7 @@ export const NextJsExtractor = {
     const metadata = Object.fromEntries(
       Object.entries(ARTICLE_METADATA_PATHS).map(([field, paths]) => [
         field,
-        paths.map(path => this._getValueByPath(articleData, path)).find(Boolean),
+        paths.map(path => NextJsDataResolver.getValueByPath(articleData, path)).find(Boolean),
       ])
     );
 
@@ -679,7 +691,7 @@ export const NextJsExtractor = {
    */
   _buildNormalizedProps(payload) {
     const pageProps =
-      PAYLOAD_PAGEPROPS_PATHS.map(path => this._getValueByPath(payload, path)).find(
+      PAYLOAD_PAGEPROPS_PATHS.map(path => NextJsDataResolver.getValueByPath(payload, path)).find(
         value => value !== undefined && value !== null
       ) ?? payload;
 
@@ -796,586 +808,6 @@ export const NextJsExtractor = {
         .replaceAll(/<br\s*\/?>/gi, '\n')
         .trim(),
     });
-  },
-
-  /**
-   * 遞歸查找文章數據
-   *
-   * @param {object} data
-   * @returns {object|null}
-   */
-  _findArticleData(data) {
-    if (!data) {
-      return null;
-    }
-
-    // 1. 嘗試已知路徑 (Fast Path)
-    // 對於 App Router，需要在每個 fragment 中搜索
-    const searchTargets = data.appRouterFragments ? [...data.appRouterFragments, data] : [data];
-
-    const result = this._searchByKnownPaths(searchTargets);
-    if (result) {
-      return result;
-    }
-
-    // 2. 啟發式搜索 (Slow Path / Deep Search)
-    Logger.log('NextJsExtractor: 使用啟發式搜索');
-    return this._heuristicSearch(data);
-  },
-
-  /**
-   * 檢查提取到的結果是否含有可用的文章內容結構
-   *
-   * @param {object} result
-   * @returns {boolean}
-   */
-  _resultHasUsableContent(result) {
-    if (!result) {
-      return false;
-    }
-
-    const detectors = [
-      () => Array.isArray(result.blocks),
-      () => Array.isArray(result.content?.model?.blocks),
-      () => typeof result.content === 'string',
-      () => typeof result.body === 'string',
-      () => typeof result.markup === 'string',
-      () => Array.isArray(result.storyAtoms),
-    ];
-
-    return detectors.some(detect => detect());
-  },
-
-  /**
-   * 在目標對象列表中使用已知路徑搜索數據
-   *
-   * @param {Array<object>} targets
-   * @returns {object|null}
-   */
-  _searchByKnownPaths(targets) {
-    const match = targets.map(target => this._findKnownPathMatch(target)).find(Boolean);
-    if (!match) {
-      return null;
-    }
-
-    Logger.log(`NextJsExtractor: 使用路徑 "${match.path}" 提取成功`);
-    return match.result;
-  },
-
-  _findKnownPathMatch(target) {
-    if (!this._isSearchableTarget(target)) {
-      return null;
-    }
-
-    return NEXTJS_CONFIG.ARTICLE_PATHS.map(path => ({
-      path,
-      result: this._getValueByPath(target, path),
-    })).find(({ result }) => this._resultHasUsableContent(result));
-  },
-
-  _isSearchableTarget(target) {
-    if (!target) {
-      return false;
-    }
-    return typeof target === 'object';
-  },
-
-  /**
-   * 獲取 Pages Router 數據
-   *
-   * @param {Document} doc
-   * @returns {object|null}
-   */
-  _getPagesRouterData(doc) {
-    const script = doc.querySelector('#__NEXT_DATA__');
-    if (!script) {
-      return null;
-    }
-
-    const jsonData = script.textContent;
-    if (!jsonData || jsonData.length > NEXTJS_CONFIG.MAX_JSON_SIZE) {
-      Logger.warn('Next.js 數據過大或為空', {
-        length: jsonData?.length,
-      });
-      return null;
-    }
-
-    try {
-      return JSON.parse(jsonData);
-    } catch (error) {
-      Logger.warn('解析 __NEXT_DATA__ 失敗', { error: error.message });
-      return null;
-    }
-  },
-
-  /**
-   * App Router 數據提取
-   * 解析 self.__next_f.push 的內容
-   *
-   * @param {Document} doc
-   * @returns {object|null}
-   */
-  _getAppRouterData(doc) {
-    const scripts = doc.querySelectorAll(NEXTJS_CONFIG.APP_ROUTER_SELECTOR);
-    const fragments = [];
-
-    scripts.forEach(script => {
-      const scriptFragments = this._parseAppRouterScript(script.textContent);
-      fragments.push(...scriptFragments);
-    });
-
-    if (fragments.length === 0) {
-      return null;
-    }
-
-    return { appRouterFragments: fragments };
-  },
-
-  /**
-   * 解析 App Router 腳本內容
-   *
-   * @param {string} content
-   * @returns {Array} fragments
-   */
-  /**
-   * 提取 App Router push payload
-   *
-   * @param {string} part
-   * @returns {any}
-   */
-  _extractAppRouterPushPayload(part) {
-    const lastParen = part.lastIndexOf(')');
-    if (lastParen === -1) {
-      return null;
-    }
-
-    try {
-      const args = JSON.parse(part.slice(0, lastParen));
-      if (!this._hasAppRouterPushPayload(args)) {
-        return null;
-      }
-      return args[1];
-    } catch {
-      return null;
-    }
-  },
-
-  _hasAppRouterPushPayload(args) {
-    if (!Array.isArray(args)) {
-      return false;
-    }
-    return args.length > 1;
-  },
-
-  _parseAppRouterScript(content) {
-    if (!content?.includes('self.__next_f.push')) {
-      return [];
-    }
-
-    return content
-      .split('self.__next_f.push(')
-      .slice(1)
-      .map(part => this._extractAppRouterPushPayload(part))
-      .filter(payload => payload !== null && payload !== undefined)
-      .map(payload => this._parseRscPayload(payload));
-  },
-
-  /**
-   * 解析 RSC Payload
-   * 嘗試將 "1:{"... 格式的字串解析為對象
-   *
-   * @param {any} chunk
-   * @returns {any}
-   */
-  _parseRscPayload(chunk) {
-    if (typeof chunk !== 'string') {
-      return chunk;
-    }
-
-    const objects = this._parseMultiLineRsc(chunk);
-
-    if (objects.length > 1) {
-      return { _rscItems: objects };
-    }
-    if (objects.length === 1) {
-      return objects[0];
-    }
-
-    return this._fallbackParseRsc(chunk) || chunk;
-  },
-
-  /**
-   * 解析多行 RSC 內容
-   *
-   * @param {string} chunk
-   * @returns {Array<object>}
-   */
-  _parseMultiLineRsc(chunk) {
-    const lines = chunk.split('\n').filter(line => line.trim());
-    const objects = [];
-
-    for (const line of lines) {
-      const parsed = this._tryParseRscLine(line);
-      if (parsed) {
-        objects.push(parsed);
-      }
-    }
-    return objects;
-  },
-
-  /**
-   * 提取冒號後的 payload 內容
-   *
-   * @param {string} chunk
-   * @returns {string|null}
-   */
-  _extractColonPayload(chunk) {
-    const colonIndex = chunk.indexOf(':');
-    if (colonIndex === -1) {
-      return null;
-    }
-    return chunk.slice(colonIndex + 1);
-  },
-
-  /**
-   * 解析 RSC JSON payload
-   *
-   * @param {string} payload
-   * @returns {any}
-   */
-  _parseRscJsonPayload(payload) {
-    if (!payload) {
-      return null;
-    }
-    if (!this._isRscJsonPayload(payload)) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(payload);
-    } catch {
-      return null;
-    }
-  },
-
-  /**
-   * 判定 RSC payload 是否為可直接 JSON.parse 的物件或陣列文字
-   *
-   * @param {string} payload
-   * @returns {boolean}
-   */
-  _isRscJsonPayload(payload) {
-    return ['{', '['].includes(payload[0]);
-  },
-
-  /**
-   * 解析結構化 RSC payload
-   *
-   * @param {string} chunk
-   * @returns {any}
-   */
-  _parseStructuredRscPayload(chunk) {
-    const payload = this._extractColonPayload(chunk);
-    const parsed = this._parseRscJsonPayload(payload);
-    if (parsed === null) {
-      return null;
-    }
-    return this._extractRscDataObject(parsed) || parsed;
-  },
-
-  /**
-   * 嘗試解析單行 RSC
-   *
-   * @param {string} line
-   * @returns {object|null}
-   */
-  _tryParseRscLine(line) {
-    const parsed = this._parseStructuredRscPayload(line);
-    if (!parsed) {
-      return null;
-    }
-    if (typeof parsed !== 'object') {
-      return null;
-    }
-    return parsed;
-  },
-
-  /**
-   * 回退：嘗試解析整個 chunk
-   *
-   * @param {string} chunk
-   * @returns {object|null}
-   */
-  _fallbackParseRsc(chunk) {
-    return this._parseStructuredRscPayload(chunk);
-  },
-
-  /**
-   * 提取 RSC 陣列中的數據對象
-   * Yahoo RSC 格式: ["$", "$L2a", null, { pageData: {...} }]
-   *
-   * @param {any} parsed
-   * @returns {object|null}
-   */
-  _extractRscDataObject(parsed) {
-    if (!Array.isArray(parsed)) {
-      return null;
-    }
-    // RSC 陣列格式: ["$", "$L...", null, { actualData }]
-    // 檢查 index 3 是否為對象
-    const indexedData = this._getIndexedRscDataObject(parsed);
-    if (indexedData) {
-      return indexedData;
-    }
-    // 有時數據在其他索引位置，搜索第一個有意義的對象
-    return parsed.find(item => this._isMeaningfulObject(item)) ?? null;
-  },
-
-  _getIndexedRscDataObject(parsed) {
-    if (parsed.length < 4) {
-      return null;
-    }
-    if (!this._isMeaningfulObject(parsed[3])) {
-      return null;
-    }
-    return parsed[3];
-  },
-
-  /**
-   * 判定是否為有意義的非空、非 array 物件（RSC payload 候選）
-   *
-   * @param {any} value
-   * @returns {boolean}
-   */
-  _isMeaningfulObject(value) {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      Object.keys(value).length > 0
-    );
-  },
-
-  /**
-   * 啟發式搜索
-   * 遞歸遍歷物件，尋找最像文章數據的節點
-   *
-   * @param {object} root
-   * @param {number} depth
-   * @param {number} maxDepth
-   * @returns {object|null}
-   */
-  _heuristicSearch(root, depth = 0, maxDepth = 6) {
-    if (depth > maxDepth) {
-      return null;
-    }
-    if (!this._isObjectLike(root)) {
-      return null;
-    }
-
-    // 1. 計算當前節點分數
-    const score = this._calculateScore(root);
-
-    if (score >= 35) {
-      Logger.log(`NextJsExtractor: 找到高可信度節點 (分數=${score})`);
-      return root;
-    }
-
-    // 2. 遞歸遍歷子節點
-    return this._searchChildren(root, depth, maxDepth);
-  },
-
-  /**
-   * 遞歸遍歷子節點
-   *
-   * @param {object} root
-   * @param {number} depth
-   * @param {number} maxDepth
-   * @returns {object|null}
-   */
-  _searchChildren(root, depth, maxDepth) {
-    let matchedCandidate = null;
-    this._getSearchableChildValues(root).some(value => {
-      matchedCandidate = this._heuristicSearch(value, depth + 1, maxDepth);
-      return Boolean(matchedCandidate);
-    });
-    return matchedCandidate;
-  },
-
-  _getSearchableChildValues(root) {
-    return Object.entries(root)
-      .filter(([key]) => !this._shouldSkipKey(key))
-      .map(([, value]) => value)
-      .filter(value => this._isObjectLike(value));
-  },
-
-  _isObjectLike(value) {
-    if (value === null) {
-      return false;
-    }
-    return typeof value === 'object';
-  },
-
-  /**
-   * 檢查是否應跳過遍歷該鍵
-   *
-   * @param {string} key
-   * @returns {boolean}
-   */
-  _shouldSkipKey(key) {
-    const lowerKey = key.toLowerCase();
-    return NEXTJS_CONFIG.HEURISTIC_PATTERNS.EXCLUDE_KEYS.some(exclude => {
-      const lowerExclude = exclude.toLowerCase();
-      // 統一轉為小寫比對，確保像 'MyPOSTARTICLESTREAMData' 這樣的大小寫混合鍵名也能被過濾
-      return lowerKey === lowerExclude || lowerKey.includes(lowerExclude);
-    });
-  },
-
-  /**
-   * 計算節點分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _calculateScore(node) {
-    if (!node || typeof node !== 'object') {
-      return 0;
-    }
-
-    let score = 0;
-    score += this._scoreStandardBlocks(node);
-    score += this._scoreStructureAndText(node);
-    score += this._scoreSpecialCmsFields(node);
-
-    return score;
-  },
-
-  /**
-   * 計算標準區塊分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreStandardBlocks(node) {
-    let score = 0;
-    // 規則 1: 包含 blocks 陣列且非空
-    if (Array.isArray(node.blocks) && node.blocks.length > 0) {
-      score += 50;
-    }
-    // 規則 2: 包含 htmlTokens (HK01 特有)
-    // 提高權重，因為這通常是我們想要的內容
-    if (Array.isArray(node.htmlTokens) && node.htmlTokens.length > 0) {
-      score += 60;
-    }
-    // 規則 3: 包含 rich_text (Notion 格式)
-    if (Array.isArray(node.rich_text)) {
-      score += 30;
-    }
-    return score;
-  },
-
-  /**
-   * 計算鍵名（標題、作者）維度的特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreKeysDimension(node) {
-    let score = 0;
-    if (node.title && typeof node.title === 'string') {
-      score += 10;
-    }
-    if (node.author) {
-      score += 5;
-    }
-    return score;
-  },
-
-  /**
-   * 計算文章結構維度（如段落陣列）的特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreStructuralDimension(node) {
-    let score = 0;
-    if (Array.isArray(node.paragraphs) && node.paragraphs.length > 0) {
-      score += 40;
-    }
-    return score;
-  },
-
-  /**
-   * 計算文本與內文維度（如 text 或 content 長度）的特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreContentDimension(node) {
-    let score = 0;
-    if (node.text && typeof node.text === 'string' && node.id) {
-      score += 15;
-    }
-    if (node.content && typeof node.content === 'string' && node.content.length > 100) {
-      score += 20;
-    }
-    return score;
-  },
-
-  /**
-   * 計算結構和文本特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreStructureAndText(node) {
-    let score = 0;
-    score += this._scoreKeysDimension(node);
-    score += this._scoreStructuralDimension(node);
-    score += this._scoreContentDimension(node);
-    return score;
-  },
-
-  /**
-   * 計算特殊 CMS 欄位分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreSpecialCmsFields(node) {
-    let score = 0;
-    // 規則 6: Yahoo 風格的 body 欄位（HTML 字串）
-    if (node.body && typeof node.body === 'string' && node.body.length > 200) {
-      score += 40;
-    }
-    // 規則 7: 包含 markup 欄位
-    if (node.markup && typeof node.markup === 'string') {
-      score += 35;
-    }
-    // 規則 8: Yahoo storyAtoms
-    if (Array.isArray(node.storyAtoms) && node.storyAtoms.length > 0) {
-      score += 60;
-    }
-    return score;
-  },
-
-  /**
-   * 根據路徑獲取對象值
-   *
-   * @param {object} obj
-   * @param {string} path 'a.b.c'
-   * @returns {any}
-   */
-  _getValueByPath(obj, path) {
-    const parts = path.split('.');
-    let current = obj;
-    for (const part of parts) {
-      if (current === null || current === undefined) {
-        return undefined;
-      }
-      current = current[part];
-    }
-    return current;
   },
 
   /**
