@@ -99,17 +99,24 @@ import {
  * }} payload
  */
 
+/**
+ * @typedef {object} SnapshotWriteContext
+ * @property {number} now
+ * @property {Record<string, unknown>} toWrite
+ * @property {Set<string>} snapshotStorageKeys
+ */
+
 // =============================================================================
-// 內部工具函數
+// 內部工具與 Predicates 函數 (Task 2)
 // =============================================================================
 
 /**
- * 判斷 page_* entry 是否符合最小合法結構
+ * 判斷 value 是否為 plain object（非 null、非陣列、非字串／其他原始型別）
  *
  * @param {unknown} value
  * @returns {boolean}
  */
-function _isValidPageEntry(value) {
+function _isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
@@ -123,7 +130,7 @@ function _extractHighlights(value) {
   if (Array.isArray(value)) {
     return value;
   }
-  if (value && typeof value === 'object' && Array.isArray(value.highlights)) {
+  if (_isPlainObject(value) && Array.isArray(value.highlights)) {
     return value.highlights;
   }
   return null;
@@ -136,9 +143,16 @@ function _extractHighlights(value) {
  * @returns {boolean}
  */
 function _isValidSavedEntry(value) {
-  return Boolean(value) && typeof value === 'object' && Boolean(value.pageId || value.id);
+  return _isPlainObject(value) && Boolean(value.pageId || value.id);
 }
 
+/**
+ * 將數值轉換為有限數，或回傳 fallback。
+ *
+ * @param {unknown} value
+ * @param {number} [fallback]
+ * @returns {number | undefined}
+ */
 function _toFiniteNumber(value, fallback) {
   if (value === null || value === undefined) {
     return fallback;
@@ -148,13 +162,23 @@ function _toFiniteNumber(value, fallback) {
 }
 
 /**
- * 判斷 value 是否為 plain object（非 null、非陣列、非字串／其他原始型別）
+ * 判斷 value 是否為非空字串
  *
  * @param {unknown} value
  * @returns {boolean}
  */
-function _isPlainObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+function _isNonEmptyString(value) {
+  return typeof value === 'string' && value !== '';
+}
+
+/**
+ * 判斷 payload 項目是否包含 page_key
+ *
+ * @param {unknown} entry
+ * @returns {boolean}
+ */
+function _hasPageKey(entry) {
+  return _isPlainObject(entry) && _isNonEmptyString(entry.page_key);
 }
 
 /**
@@ -175,7 +199,7 @@ function _normalizeSavedState(saved) {
 }
 
 // =============================================================================
-// Step 3a 內部子函數（拆分 Cognitive Complexity）
+// Local Storage Merge Helpers (Task 3)
 // =============================================================================
 
 /**
@@ -191,7 +215,7 @@ function _processPageEntries(raw, pages) {
     }
 
     const url = key.slice(PAGE_PREFIX.length);
-    if (!url || !_isValidPageEntry(value)) {
+    if (!url || !_isPlainObject(value)) {
       continue;
     }
 
@@ -199,6 +223,33 @@ function _processPageEntries(raw, pages) {
       url,
       notion: value.notion ?? null,
       highlights: Array.isArray(value.highlights) ? value.highlights : [],
+    });
+  }
+}
+
+/**
+ * 將 saved_state 應用於指定的頁面 map
+ *
+ * @param {string} url
+ * @param {unknown} value
+ * @param {Map<string, UnifiedPageState>} pages
+ */
+function _applySavedStateToPages(url, value, pages) {
+  const hasValidPageId = _isValidSavedEntry(value);
+  if (!hasValidPageId) {
+    return;
+  }
+
+  const existing = pages.get(url);
+  if (existing) {
+    if (!existing.notion) {
+      existing.notion = _normalizeSavedState(value);
+    }
+  } else {
+    pages.set(url, {
+      url,
+      notion: _normalizeSavedState(value),
+      highlights: [],
     });
   }
 }
@@ -220,20 +271,33 @@ function _processSavedEntries(raw, pages) {
       continue;
     }
 
-    const existing = pages.get(url);
-    const hasValidPageId = _isValidSavedEntry(value);
+    _applySavedStateToPages(url, value, pages);
+  }
+}
 
-    if (existing) {
-      if (!existing.notion && hasValidPageId) {
-        existing.notion = _normalizeSavedState(value);
-      }
-    } else if (hasValidPageId) {
-      pages.set(url, {
-        url,
-        notion: _normalizeSavedState(value),
-        highlights: [],
-      });
+/**
+ * 將 highlights 應用於指定的頁面 map
+ *
+ * @param {string} url
+ * @param {HighlightItem[] | null} rawHighlights
+ * @param {Map<string, UnifiedPageState>} pages
+ */
+function _applyHighlightsToPages(url, rawHighlights, pages) {
+  if (!rawHighlights || rawHighlights.length === 0) {
+    return;
+  }
+
+  const existing = pages.get(url);
+  if (existing) {
+    if (existing.highlights.length === 0) {
+      existing.highlights = rawHighlights;
     }
+  } else {
+    pages.set(url, {
+      url,
+      notion: null,
+      highlights: rawHighlights,
+    });
   }
 }
 
@@ -255,23 +319,7 @@ function _processHighlightEntries(raw, pages) {
     }
 
     const rawHighlights = _extractHighlights(value);
-    if (!rawHighlights) {
-      continue;
-    }
-
-    const existing = pages.get(url);
-
-    if (existing) {
-      if (existing.highlights.length === 0 && rawHighlights.length > 0) {
-        existing.highlights = rawHighlights;
-      }
-    } else if (rawHighlights.length > 0) {
-      pages.set(url, {
-        url,
-        notion: null,
-        highlights: rawHighlights,
-      });
-    }
+    _applyHighlightsToPages(url, rawHighlights, pages);
   }
 }
 
@@ -286,7 +334,7 @@ function _processAliasEntries(raw, urlAliases) {
     if (!key.startsWith(URL_ALIAS_PREFIX)) {
       continue;
     }
-    if (typeof value !== 'string' || !value) {
+    if (!_isNonEmptyString(value)) {
       continue;
     }
 
@@ -298,7 +346,7 @@ function _processAliasEntries(raw, urlAliases) {
 }
 
 // =============================================================================
-// Step 3a：buildUnifiedPageStateFromLocalStorage（主入口）
+// buildUnifiedPageStateFromLocalStorage（主入口）
 // =============================================================================
 
 /**
@@ -325,10 +373,6 @@ export async function buildUnifiedPageStateFromLocalStorage() {
 
   return { pages, urlAliases };
 }
-
-// =============================================================================
-// Step 3b：buildDriveSnapshot
-// =============================================================================
 
 // =============================================================================
 // Alias Referential Integrity 工具函數（upload + download 共用）
@@ -376,6 +420,108 @@ async function _sha256Hex(input) {
     .join('');
 }
 
+// =============================================================================
+// Snapshot Serialization Helpers (Task 4)
+// =============================================================================
+
+/**
+ * 判斷 unified page state 是否為空。
+ *
+ * @param {UnifiedPageState} state
+ * @returns {boolean}
+ */
+function _isSnapshotPageStateEmpty(state) {
+  return !state.notion && (!Array.isArray(state.highlights) || state.highlights.length === 0);
+}
+
+/**
+ * 格式化單個 snapshot 儲存狀態項目。
+ *
+ * @param {string} url
+ * @param {NotionMeta} notion
+ * @returns {DriveSnapshotSavedStateItem}
+ */
+function _formatSnapshotSavedState(url, notion) {
+  return {
+    page_key: url,
+    notion_page_id: notion.pageId ?? null,
+    notion_url: notion.url ?? null,
+    title: notion.title ?? null,
+    saved_at: notion.savedAt ?? null,
+    last_verified_at: notion.lastVerifiedAt ?? null,
+  };
+}
+
+/**
+ * 格式化單個 snapshot 螢光筆項目。
+ *
+ * @param {string} url
+ * @param {HighlightItem} highlight
+ * @returns {DriveSnapshotHighlightItem}
+ */
+function _formatSnapshotHighlight(url, highlight) {
+  return {
+    page_key: url,
+    highlight_id: String(highlight.id ?? ''),
+    text: highlight.text ?? '',
+    color: highlight.color ?? null,
+    range_info: _isPlainObject(highlight.rangeInfo) ? highlight.rangeInfo : null,
+    created_at: highlight.timestamp ?? null,
+    updated_at: highlight.updatedAt ?? null,
+  };
+}
+
+/**
+ * 建立 Snapshot Payload（過濾空頁面與處理 Alias Gate）。
+ *
+ * @param {Map<string, UnifiedPageState>} pages
+ * @param {Map<string, string>} urlAliases
+ * @returns {{ highlights: DriveSnapshotHighlightItem[], saved_states: DriveSnapshotSavedStateItem[], url_aliases: Record<string, string> }}
+ */
+function _buildSnapshotPayload(pages, urlAliases) {
+  /** @type {DriveSnapshotHighlightItem[]} */
+  const highlights = [];
+  /** @type {DriveSnapshotSavedStateItem[]} */
+  const savedStates = [];
+
+  for (const [url, state] of pages) {
+    if (_isSnapshotPageStateEmpty(state)) {
+      continue;
+    }
+
+    if (state.notion) {
+      savedStates.push(_formatSnapshotSavedState(url, state.notion));
+    }
+
+    for (const highlight of state.highlights) {
+      highlights.push(_formatSnapshotHighlight(url, highlight));
+    }
+  }
+
+  /** @type {Record<string, string>} */
+  const aliasRecord = {};
+
+  // Upload 路徑 Alias Gate：僅允許 target 存在於本次 payload 的 alias 進入 snapshot。
+  const reachableUrls = new Set([
+    ...savedStates.map(state => state.page_key),
+    ...highlights.map(hl => hl.page_key),
+  ]);
+  const filteredAliases = _filterValidUrlAliases(urlAliases, reachableUrls);
+  for (const [normalizedUrl, stableUrl] of filteredAliases) {
+    aliasRecord[normalizedUrl] = stableUrl;
+  }
+
+  return {
+    highlights,
+    saved_states: savedStates,
+    url_aliases: aliasRecord,
+  };
+}
+
+// =============================================================================
+// buildDriveSnapshot（主入口）
+// =============================================================================
+
 /**
  * 將 unified page state 序列化為後端要求的 Drive snapshot 格式。
  *
@@ -387,63 +533,7 @@ async function _sha256Hex(input) {
  * @returns {Promise<DriveSnapshotDocument>}
  */
 export async function buildDriveSnapshot(pages, urlAliases, identity = {}) {
-  /** @type {DriveSnapshotHighlightItem[]} */
-  const highlights = [];
-  /** @type {DriveSnapshotSavedStateItem[]} */
-  const savedStates = [];
-
-  for (const [url, state] of pages) {
-    if (!state.notion && state.highlights.length === 0) {
-      continue;
-    }
-
-    if (state.notion) {
-      savedStates.push({
-        page_key: url,
-        notion_page_id: state.notion.pageId ?? null,
-        notion_url: state.notion.url ?? null,
-        title: state.notion.title ?? null,
-        saved_at: state.notion.savedAt ?? null,
-        last_verified_at: state.notion.lastVerifiedAt ?? null,
-      });
-    }
-
-    for (const highlight of state.highlights) {
-      highlights.push({
-        page_key: url,
-        highlight_id: String(highlight.id ?? ''),
-        text: highlight.text ?? '',
-        color: highlight.color ?? null,
-        range_info:
-          highlight.rangeInfo && typeof highlight.rangeInfo === 'object'
-            ? highlight.rangeInfo
-            : null,
-        created_at: highlight.timestamp ?? null,
-        updated_at: highlight.updatedAt ?? null,
-      });
-    }
-  }
-
-  /** @type {Record<string, string>} */
-  const aliasRecord = {};
-
-  // Upload 路徑 Alias Gate：僅允許 target 存在於本次 payload 的 alias 進入 snapshot。
-  // reachableUrls 基於實際落地頁面集合（saved_states + highlights 的 page_key），
-  // 而非全量 pages.keys()（後者含空頁面，不應被 alias 引用）。
-  const reachableUrls = new Set([
-    ...savedStates.map(state => state.page_key),
-    ...highlights.map(hl => hl.page_key),
-  ]);
-  const filteredAliases = _filterValidUrlAliases(urlAliases, reachableUrls);
-  for (const [normalizedUrl, stableUrl] of filteredAliases) {
-    aliasRecord[normalizedUrl] = stableUrl;
-  }
-
-  const payload = {
-    highlights,
-    saved_states: savedStates,
-    url_aliases: aliasRecord,
-  };
+  const payload = _buildSnapshotPayload(pages, urlAliases);
   const payloadHash = await _sha256Hex(JSON.stringify(payload));
   const updatedAt = new Date().toISOString();
 
@@ -456,8 +546,8 @@ export async function buildDriveSnapshot(pages, urlAliases, identity = {}) {
       source_profile_id: identity.profileId || 'unknown-profile',
       payload_hash: payloadHash,
       item_counts: {
-        highlights: highlights.length,
-        saved_states: savedStates.length,
+        highlights: payload.highlights.length,
+        saved_states: payload.saved_states.length,
       },
     },
     payload,
@@ -465,8 +555,81 @@ export async function buildDriveSnapshot(pages, urlAliases, identity = {}) {
 }
 
 // =============================================================================
-// Step 5 內部子函數
+// Download Page State Assembly Helpers (Task 5)
 // =============================================================================
+
+/**
+ * 從物件取得特定 key 的陣列 payload，若非陣列則回傳空陣列
+ *
+ * @param {unknown} payload
+ * @param {string} key
+ * @returns {any[]}
+ */
+function _getSnapshotArrayPayload(payload, key) {
+  return _isPlainObject(payload) && Array.isArray(payload[key]) ? payload[key] : [];
+}
+
+/**
+ * 取得或建立單個頁面狀態的 fallback 物件
+ *
+ * @param {Map<string, { notion: object | null; highlights: HighlightItem[] }>} pageStates
+ * @param {string} pageKey
+ * @returns {{ notion: object | null; highlights: HighlightItem[] }}
+ */
+function _getOrCreateSnapshotPageState(pageStates, pageKey) {
+  const existing = pageStates.get(pageKey);
+  if (existing) {
+    return existing;
+  }
+  const state = { notion: null, highlights: [] };
+  pageStates.set(pageKey, state);
+  return state;
+}
+
+/**
+ * 將下載下來的 Notion state 格式化
+ *
+ * @param {DriveSnapshotSavedStateItem} entry
+ * @param {number} now
+ * @returns {object}
+ */
+function _formatDownloadedNotionState(entry, now) {
+  return {
+    pageId: entry.notion_page_id ?? '',
+    url: entry.notion_url ?? '',
+    title: entry.title ?? '',
+    savedAt: _toFiniteNumber(entry.saved_at, now),
+    lastVerifiedAt:
+      entry.last_verified_at === undefined || entry.last_verified_at === null
+        ? undefined
+        : _toFiniteNumber(entry.last_verified_at),
+  };
+}
+
+/**
+ * 將下載下來的 Highlight 格式化
+ *
+ * @param {DriveSnapshotHighlightItem} item
+ * @returns {HighlightItem}
+ */
+function _formatDownloadedHighlight(item) {
+  const highlight = {
+    id: item.highlight_id,
+    text: item.text,
+    color: item.color ?? '',
+    rangeInfo: _isPlainObject(item.range_info) ? item.range_info : {},
+    timestamp: _toFiniteNumber(item.created_at, Date.now()),
+  };
+
+  if (item.updated_at !== undefined && item.updated_at !== null) {
+    const updatedAt = _toFiniteNumber(item.updated_at);
+    if (updatedAt !== undefined) {
+      highlight.updatedAt = updatedAt;
+    }
+  }
+
+  return highlight;
+}
 
 /**
  * 從 snapshot 的 payload.saved_states 建立要寫入的 storage key-value pairs
@@ -480,22 +643,12 @@ function _buildSavedStateWriteEntries(savedStates) {
   const pageStates = new Map();
 
   for (const entry of savedStates) {
-    if (!entry || typeof entry !== 'object' || !entry.page_key) {
+    if (!_hasPageKey(entry)) {
       continue;
     }
 
-    const pageState = pageStates.get(entry.page_key) ?? { notion: null, highlights: [] };
-    pageState.notion = {
-      pageId: entry.notion_page_id ?? '',
-      url: entry.notion_url ?? '',
-      title: entry.title ?? '',
-      savedAt: _toFiniteNumber(entry.saved_at, now),
-      lastVerifiedAt:
-        entry.last_verified_at === undefined || entry.last_verified_at === null
-          ? undefined
-          : _toFiniteNumber(entry.last_verified_at),
-    };
-    pageStates.set(entry.page_key, pageState);
+    const pageState = _getOrCreateSnapshotPageState(pageStates, entry.page_key);
+    pageState.notion = _formatDownloadedNotionState(entry, now);
   }
 
   return { now, pageStates };
@@ -509,29 +662,73 @@ function _buildSavedStateWriteEntries(savedStates) {
  */
 function _mergeHighlightEntries(highlights, pageStates) {
   for (const item of highlights) {
-    if (!item || typeof item !== 'object' || !item.page_key) {
+    if (!_hasPageKey(item)) {
       continue;
     }
 
-    const pageState = pageStates.get(item.page_key) ?? { notion: null, highlights: [] };
-    const highlight = {
-      id: item.highlight_id,
-      text: item.text,
-      color: item.color ?? '',
-      rangeInfo: item.range_info && typeof item.range_info === 'object' ? item.range_info : {},
-      timestamp: _toFiniteNumber(item.created_at, Date.now()),
-    };
-
-    if (item.updated_at !== undefined) {
-      const updatedAt = _toFiniteNumber(item.updated_at);
-      if (updatedAt !== undefined) {
-        highlight.updatedAt = updatedAt;
-      }
-    }
-
-    pageState.highlights.push(highlight);
-    pageStates.set(item.page_key, pageState);
+    const pageState = _getOrCreateSnapshotPageState(pageStates, item.page_key);
+    pageState.highlights.push(_formatDownloadedHighlight(item));
   }
+}
+
+// =============================================================================
+// Storage Write Entry Builders (Task 6)
+// =============================================================================
+
+/**
+ * 寫入 canonical page_* 項目
+ *
+ * @param {string} url
+ * @param {{ notion: object | null; highlights: HighlightItem[] }} state
+ * @param {SnapshotWriteContext} context
+ */
+function _writeCanonicalPageEntry(url, state, context) {
+  const { now, toWrite, snapshotStorageKeys } = context;
+  const pageKey = `${PAGE_PREFIX}${url}`;
+  toWrite[pageKey] = {
+    notion: state.notion,
+    highlights: state.highlights,
+    metadata: {
+      createdAt: now,
+      lastUpdated: now,
+      migratedFrom: 'drive_snapshot',
+    },
+  };
+  snapshotStorageKeys.add(pageKey);
+}
+
+/**
+ * 寫入 compatibility saved_* 項目
+ *
+ * @param {string} url
+ * @param {any} notion
+ * @param {SnapshotWriteContext} context
+ */
+function _writeSavedMirrorEntry(url, notion, context) {
+  const { toWrite, snapshotStorageKeys } = context;
+  const savedKey = `${SAVED_PREFIX}${url}`;
+  toWrite[savedKey] = {
+    pageId: notion.pageId,
+    url: notion.url,
+    title: notion.title,
+    savedAt: notion.savedAt,
+    lastVerifiedAt: notion.lastVerifiedAt,
+  };
+  snapshotStorageKeys.add(savedKey);
+}
+
+/**
+ * 寫入 compatibility highlights_* 項目
+ *
+ * @param {string} url
+ * @param {HighlightItem[]} highlights
+ * @param {SnapshotWriteContext} context
+ */
+function _writeHighlightMirrorEntry(url, highlights, context) {
+  const { toWrite, snapshotStorageKeys } = context;
+  const hlKey = `${HIGHLIGHTS_PREFIX}${url}`;
+  toWrite[hlKey] = highlights;
+  snapshotStorageKeys.add(hlKey);
 }
 
 /**
@@ -543,39 +740,21 @@ function _mergeHighlightEntries(highlights, pageStates) {
  * @param {Set<string>} snapshotStorageKeys
  */
 function _buildPageWriteEntries(pageStates, now, toWrite, snapshotStorageKeys) {
+  const writeContext = { now, toWrite, snapshotStorageKeys };
+
   for (const [url, state] of pageStates) {
     if (!url) {
       continue;
     }
 
-    const pageKey = `${PAGE_PREFIX}${url}`;
-    toWrite[pageKey] = {
-      notion: state.notion,
-      highlights: state.highlights,
-      metadata: {
-        createdAt: now,
-        lastUpdated: now,
-        migratedFrom: 'drive_snapshot',
-      },
-    };
-    snapshotStorageKeys.add(pageKey);
+    _writeCanonicalPageEntry(url, state, writeContext);
 
     if (state.notion) {
-      const savedKey = `${SAVED_PREFIX}${url}`;
-      toWrite[savedKey] = {
-        pageId: state.notion.pageId,
-        url: state.notion.url,
-        title: state.notion.title,
-        savedAt: state.notion.savedAt,
-        lastVerifiedAt: state.notion.lastVerifiedAt,
-      };
-      snapshotStorageKeys.add(savedKey);
+      _writeSavedMirrorEntry(url, state.notion, writeContext);
     }
 
-    if (state.highlights.length > 0) {
-      const hlKey = `${HIGHLIGHTS_PREFIX}${url}`;
-      toWrite[hlKey] = state.highlights;
-      snapshotStorageKeys.add(hlKey);
+    if (Array.isArray(state.highlights) && state.highlights.length > 0) {
+      _writeHighlightMirrorEntry(url, state.highlights, writeContext);
     }
   }
 }
@@ -594,12 +773,10 @@ function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys, pageS
   }
 
   // Download 路徑 Alias Prune：二次驗證 alias target 是否存在於本次 pageStates。
-  // 僅寫入有效 alias；無效 alias 不加入 snapshotStorageKeys，
-  // 使其能被後續 toRemove 邏輯清除（若本地已存在舊孤兒 alias）。
   const reachableUrls = new Set(pageStates.keys());
 
   for (const [normalizedUrl, stableUrl] of Object.entries(urlAliases)) {
-    if (!normalizedUrl || typeof stableUrl !== 'string') {
+    if (!normalizedUrl || !_isNonEmptyString(stableUrl)) {
       continue;
     }
     if (!_isAliasTargetReachable(stableUrl, reachableUrls)) {
@@ -613,7 +790,7 @@ function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys, pageS
 }
 
 // =============================================================================
-// Step 5：applyDriveSnapshotToLocalStorage（Compatibility Mirror Apply）
+// applyDriveSnapshotToLocalStorage（Compatibility Mirror Apply）
 // =============================================================================
 
 /**
@@ -633,13 +810,11 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
   /** @type {Set<string>} */
   const snapshotStorageKeys = new Set();
 
-  const { now, pageStates } = _buildSavedStateWriteEntries(
-    Array.isArray(snapshot.payload.saved_states) ? snapshot.payload.saved_states : []
-  );
-  _mergeHighlightEntries(
-    Array.isArray(snapshot.payload.highlights) ? snapshot.payload.highlights : [],
-    pageStates
-  );
+  const savedStates = _getSnapshotArrayPayload(snapshot.payload, 'saved_states');
+  const highlights = _getSnapshotArrayPayload(snapshot.payload, 'highlights');
+
+  const { now, pageStates } = _buildSavedStateWriteEntries(savedStates);
+  _mergeHighlightEntries(highlights, pageStates);
   _buildPageWriteEntries(pageStates, now, toWrite, snapshotStorageKeys);
   _buildAliasWriteEntries(
     snapshot.payload.url_aliases ?? {},
@@ -698,8 +873,22 @@ async function _commitSnapshotWrite(toWrite, toRemove) {
 }
 
 // =============================================================================
-// 工具函數（供外部讀取 snapshot 摘要）
+// 工具函數與 Summary (Task 6)
 // =============================================================================
+
+/**
+ * 輔助從 payload 項目收集頁面 key。
+ *
+ * @param {any[]} items
+ * @param {Set<string>} pageKeys
+ */
+function _collectPageKeysFromPayloadItems(items, pageKeys) {
+  for (const item of items) {
+    if (item?.page_key) {
+      pageKeys.add(item.page_key);
+    }
+  }
+}
 
 /**
  * 取得遠端 snapshot 的摘要資訊（顯示給使用者確認用）。
@@ -712,22 +901,12 @@ export function getDriveSnapshotSummary(snapshot) {
     return { pageCount: 0, highlightCount: 0, snapshotCreatedAt: null };
   }
 
-  const savedStates = Array.isArray(snapshot.payload.saved_states)
-    ? snapshot.payload.saved_states
-    : [];
-  const highlights = Array.isArray(snapshot.payload.highlights) ? snapshot.payload.highlights : [];
+  const savedStates = _getSnapshotArrayPayload(snapshot.payload, 'saved_states');
+  const highlights = _getSnapshotArrayPayload(snapshot.payload, 'highlights');
   const pageKeys = new Set();
 
-  for (const item of savedStates) {
-    if (item?.page_key) {
-      pageKeys.add(item.page_key);
-    }
-  }
-  for (const item of highlights) {
-    if (item?.page_key) {
-      pageKeys.add(item.page_key);
-    }
-  }
+  _collectPageKeysFromPayloadItems(savedStates, pageKeys);
+  _collectPageKeysFromPayloadItems(highlights, pageKeys);
 
   return {
     pageCount: pageKeys.size,
