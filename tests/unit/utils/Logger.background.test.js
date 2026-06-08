@@ -216,6 +216,22 @@ describe('Logger (背景環境整合測試)', () => {
       expect(entry.source).toBe('background');
     });
 
+    test('writeToBuffer 寫入 buffer 時，應該將多個額外參數正確解析至 context 並保留 details', () => {
+      const buffer = TestLogger.getBuffer();
+      expect(buffer).not.toBeNull();
+
+      const spyWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const extraObj = { meta: 'info' };
+      TestLogger.warn('buffer details test', extraObj, 'detail-arg');
+      spyWarn.mockRestore();
+
+      const logs = buffer.getAll();
+      const entry = logs.find(log => log.message.includes('buffer details test'));
+      expect(entry).toBeDefined();
+      expect(entry.context.meta).toBe('info');
+      expect(entry.context.details).toEqual(['detail-arg']);
+    });
+
     test('writeToBuffer 發生錯誤時應捕獲並記錄到 console.error', () => {
       const buffer = TestLogger.getBuffer();
       const spyError = jest.spyOn(console, 'error').mockImplementation(() => {});
