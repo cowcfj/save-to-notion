@@ -28,6 +28,12 @@ const LOG_LEVELS = {
   ERROR: 4,
 };
 
+const DEBUG_LEVEL_LOG_CONFIG = {
+  DEBUG: { level: 'debug', levelConst: LOG_LEVELS.DEBUG, consoleMethod: 'debug' },
+  LOG: { level: 'log', levelConst: LOG_LEVELS.LOG, consoleMethod: 'log' },
+  INFO: { level: 'info', levelConst: LOG_LEVELS.INFO, consoleMethod: 'info' },
+};
+
 const DEFAULT_BUFFER_CAPACITY = 500;
 
 // 全域錯誤前綴常量（用於 initGlobalErrorHandlers 和 error 方法的過濾邏輯）
@@ -507,18 +513,20 @@ function isIgnoredFrameRemovalError(errorMsg) {
 /**
  * 發送 debug 等級的日誌
  *
- * @param {string} level - 日誌級別字串
- * @param {number} levelConst - 日誌級別常量
- * @param {string} consoleMethod - 控制台方法名
+ * @param {object} config - 日誌等級設定
+ * @param {string} config.level - 日誌級別字串
+ * @param {number} config.levelConst - 日誌級別常量
+ * @param {string} config.consoleMethod - 控制台方法名
  * @param {string} message - 日誌消息
  * @param {Array} args - 額外參數
  * @private
  */
-function emitDebugLevelLog(level, levelConst, consoleMethod, message, args) {
+function emitDebugLevelLog(config, message, args) {
   if (isContentScriptBuild || !Logger.debugEnabled) {
     return;
   }
 
+  const { level, levelConst, consoleMethod } = config;
   writeToBuffer(level, message, args);
   console[consoleMethod](...formatMessage(levelConst, [message, ...args]));
   _queueForBackground(level, message, args);
@@ -581,15 +589,15 @@ const Logger = {
   },
 
   debug(message, ...args) {
-    emitDebugLevelLog('debug', LOG_LEVELS.DEBUG, 'debug', message, args);
+    emitDebugLevelLog(DEBUG_LEVEL_LOG_CONFIG.DEBUG, message, args);
   },
 
   log(message, ...args) {
-    emitDebugLevelLog('log', LOG_LEVELS.LOG, 'log', message, args);
+    emitDebugLevelLog(DEBUG_LEVEL_LOG_CONFIG.LOG, message, args);
   },
 
   info(message, ...args) {
-    emitDebugLevelLog('info', LOG_LEVELS.INFO, 'info', message, args);
+    emitDebugLevelLog(DEBUG_LEVEL_LOG_CONFIG.INFO, message, args);
   },
 
   /**
