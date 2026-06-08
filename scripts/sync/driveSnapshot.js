@@ -188,13 +188,22 @@ function _hasPageKey(entry) {
  * @returns {boolean}
  */
 function _hasDriveSnapshotPayload(snapshot) {
-  if (!snapshot) {
+  if (!_isPlainObject(snapshot)) {
     return false;
   }
-  if (typeof snapshot !== 'object') {
+
+  const { payload } = snapshot;
+  if (!_isPlainObject(payload)) {
     return false;
   }
-  return Boolean(snapshot.payload);
+  if (!Array.isArray(payload.saved_states) || !Array.isArray(payload.highlights)) {
+    return false;
+  }
+  if (payload.url_aliases !== undefined && !_isPlainObject(payload.url_aliases)) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -590,14 +599,22 @@ function _getSnapshotArrayPayload(payload, key) {
  *
  * @param {Map<string, { notion: object | null; highlights: HighlightItem[] }>} pageStates
  * @param {string} pageKey
+ * @param {Record<string, unknown>} [existingLocalState]
  * @returns {{ notion: object | null; highlights: HighlightItem[] }}
  */
-function _getOrCreateSnapshotPageState(pageStates, pageKey) {
+function _getOrCreateSnapshotPageState(pageStates, pageKey, existingLocalState = {}) {
   const existing = pageStates.get(pageKey);
   if (existing) {
     return existing;
   }
-  const state = { notion: null, highlights: [] };
+  const localPageState = existingLocalState[`${PAGE_PREFIX}${pageKey}`];
+  const state = {
+    notion: _isPlainObject(localPageState) ? (localPageState.notion ?? null) : null,
+    highlights:
+      _isPlainObject(localPageState) && Array.isArray(localPageState.highlights)
+        ? localPageState.highlights
+        : [],
+  };
   pageStates.set(pageKey, state);
   return state;
 }
@@ -651,9 +668,10 @@ function _formatDownloadedHighlight(item) {
  * 從 snapshot 的 payload.saved_states 建立要寫入的 storage key-value pairs
  *
  * @param {DriveSnapshotSavedStateItem[]} savedStates
+ * @param {Record<string, unknown>} [existingLocalState]
  * @returns {{ now: number; pageStates: Map<string, { notion: object | null; highlights: HighlightItem[] }> }}
  */
-function _buildSavedStateWriteEntries(savedStates) {
+function _buildSavedStateWriteEntries(savedStates, existingLocalState = {}) {
   const now = Date.now();
   /** @type {Map<string, { notion: object | null; highlights: HighlightItem[] }>} */
   const pageStates = new Map();
@@ -663,7 +681,7 @@ function _buildSavedStateWriteEntries(savedStates) {
       continue;
     }
 
-    const pageState = _getOrCreateSnapshotPageState(pageStates, entry.page_key);
+    const pageState = _getOrCreateSnapshotPageState(pageStates, entry.page_key, existingLocalState);
     pageState.notion = _formatDownloadedNotionState(entry, now);
   }
 
@@ -675,14 +693,21 @@ function _buildSavedStateWriteEntries(savedStates) {
  *
  * @param {DriveSnapshotHighlightItem[]} highlights
  * @param {Map<string, { notion: object | null; highlights: HighlightItem[] }>} pageStates
+ * @param {Record<string, unknown>} [existingLocalState]
  */
-function _mergeHighlightEntries(highlights, pageStates) {
+function _mergeHighlightEntries(highlights, pageStates, existingLocalState = {}) {
+  const remoteHighlightPages = new Set();
+
   for (const item of highlights) {
     if (!_hasPageKey(item)) {
       continue;
     }
 
-    const pageState = _getOrCreateSnapshotPageState(pageStates, item.page_key);
+    const pageState = _getOrCreateSnapshotPageState(pageStates, item.page_key, existingLocalState);
+    if (!remoteHighlightPages.has(item.page_key)) {
+      pageState.highlights = [];
+      remoteHighlightPages.add(item.page_key);
+    }
     pageState.highlights.push(_formatDownloadedHighlight(item));
   }
 }
@@ -805,6 +830,19 @@ function _buildAliasWriteEntries(urlAliases, toWrite, snapshotStorageKeys, pageS
   }
 }
 
+/**
+ * 找出本地既有、但本次有效 snapshot 沒有保留的 url_alias:* keys。
+ *
+ * @param {Record<string, unknown>} existingLocalState
+ * @param {Set<string>} snapshotStorageKeys
+ * @returns {string[]}
+ */
+function _getAliasKeysToRemove(existingLocalState, snapshotStorageKeys) {
+  return Object.keys(existingLocalState).filter(
+    key => key.startsWith(URL_ALIAS_PREFIX) && !snapshotStorageKeys.has(key)
+  );
+}
+
 // =============================================================================
 // applyDriveSnapshotToLocalStorage（Compatibility Mirror Apply）
 // =============================================================================
@@ -828,9 +866,10 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
 
   const savedStates = _getSnapshotArrayPayload(snapshot.payload, 'saved_states');
   const highlights = _getSnapshotArrayPayload(snapshot.payload, 'highlights');
+  const existingLocalState = await chrome.storage.local.get(null);
 
-  const { now, pageStates } = _buildSavedStateWriteEntries(savedStates);
-  _mergeHighlightEntries(highlights, pageStates);
+  const { now, pageStates } = _buildSavedStateWriteEntries(savedStates, existingLocalState);
+  _mergeHighlightEntries(highlights, pageStates, existingLocalState);
   _buildPageWriteEntries(pageStates, now, toWrite, snapshotStorageKeys);
   _buildAliasWriteEntries(
     snapshot.payload.url_aliases ?? {},
@@ -839,7 +878,7 @@ export async function applyDriveSnapshotToLocalStorage(snapshot) {
     pageStates
   );
 
-  const toRemove = [];
+  const toRemove = _getAliasKeysToRemove(existingLocalState, snapshotStorageKeys);
 
   await _commitSnapshotWrite(toWrite, toRemove);
 
