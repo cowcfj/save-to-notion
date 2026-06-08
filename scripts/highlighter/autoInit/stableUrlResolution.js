@@ -210,5 +210,16 @@ export function applyResolvedStableUrl({
       stableUrl: loggedUrl,
       source: stableUrlSource,
     });
+
+    // 設置穩定 URL 優先權（Phase 3 regression fix）：
+    // Highlighter 需要知道到底該用哪個 URL 來儲存/讀取標註
+    if (globalScope.HighlighterAPI?.setStableUrl) {
+      globalScope.HighlighterAPI.setStableUrl(resolvedStableUrl);
+    }
+  } else {
+    // 如果 Background 返回 null 或 url 為空，說明沒有穩定 URL，繼續使用原始 URL
+    logger?.debug('[Highlighter] Background 返回無效的 stable URL，將使用原始 URL', {
+      action: 'initialization_complete_no_stable_url',
+    });
   }
 }
