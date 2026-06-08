@@ -223,7 +223,7 @@ export const NextJsExtractor = {
       }
 
       const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
-      return fallbackResult || null;
+      return fallbackResult;
     } catch (error) {
       Logger.error('Next.js 提取過程發生錯誤', {
         action,

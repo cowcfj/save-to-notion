@@ -3,6 +3,45 @@
  */
 
 import * as NextJsDataResolver from '../../../../scripts/content/extractors/NextJsDataResolver.js';
+import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
+import Logger from '../../../../scripts/utils/Logger.js';
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
+}));
+
+describe('NextJsDataResolver getPagesRouterData logging', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('logs structured context when __NEXT_DATA__ is empty or too large', () => {
+    document.body.innerHTML = `<script id="__NEXT_DATA__">${'a'.repeat(
+      NEXTJS_CONFIG.MAX_JSON_SIZE + 1
+    )}</script>`;
+
+    expect(NextJsDataResolver.getPagesRouterData(document)).toBeNull();
+
+    expect(Logger.warn).toHaveBeenCalledWith('Next.js 數據過大或為空', {
+      action: 'getPagesRouterData',
+      result: 'failed',
+      length: NEXTJS_CONFIG.MAX_JSON_SIZE + 1,
+    });
+  });
+
+  it('logs structured context when __NEXT_DATA__ JSON parsing fails', () => {
+    document.body.innerHTML = '<script id="__NEXT_DATA__">{"broken"</script>';
+
+    expect(NextJsDataResolver.getPagesRouterData(document)).toBeNull();
+
+    expect(Logger.warn).toHaveBeenCalledWith('解析 __NEXT_DATA__ 失敗', {
+      action: 'getPagesRouterData',
+      result: 'failed',
+      error: expect.any(String),
+    });
+  });
+});
 
 describe('NextJsDataResolver RSC Payload Parsing Helpers', () => {
   describe('_extractRscDataObject', () => {

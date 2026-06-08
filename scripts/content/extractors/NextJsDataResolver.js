@@ -70,6 +70,8 @@ export function getPagesRouterData(doc) {
   const jsonData = script.textContent;
   if (!jsonData || jsonData.length > NEXTJS_CONFIG.MAX_JSON_SIZE) {
     Logger.warn('Next.js 數據過大或為空', {
+      action: 'getPagesRouterData',
+      result: 'failed',
       length: jsonData?.length,
     });
     return null;
@@ -78,7 +80,11 @@ export function getPagesRouterData(doc) {
   try {
     return JSON.parse(jsonData);
   } catch (error) {
-    Logger.warn('解析 __NEXT_DATA__ 失敗', { error: error.message });
+    Logger.warn('解析 __NEXT_DATA__ 失敗', {
+      action: 'getPagesRouterData',
+      result: 'failed',
+      error: error.message,
+    });
     return null;
   }
 }
