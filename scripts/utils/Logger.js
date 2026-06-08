@@ -36,6 +36,9 @@ const DEBUG_LEVEL_LOG_CONFIG = {
 
 const DEFAULT_BUFFER_CAPACITY = 500;
 
+const UNSERIALIZABLE_OBJECT_PLACEHOLDER = '[Unserializable Object]';
+const SERIALIZED_ERROR_RESERVED_KEYS = new Set(['message', 'stack', 'name']);
+
 // 全域錯誤前綴常量（用於 initGlobalErrorHandlers 和 error 方法的過濾邏輯）
 const GLOBAL_ERROR_PREFIXES = {
   UNCAUGHT_EXCEPTION: '[Uncaught Exception]',
@@ -55,6 +58,114 @@ const _pendingLogs = []; // 待發送的日誌佇列（mutation only，不重賦
 let _flushTimer = null; // 發送計時器
 
 /**
+ * 序列化 Error 物件，保留標準欄位與自訂 own properties。
+ *
+ * @param {Error} error - 原始 Error 物件
+ * @param {WeakMap<object, any>} seen - 已處理物件映射，用於保留循環引用
+ * @returns {object|string} 序列化後的 Error 資料
+ * @private
+ */
+function _serializeErrorForIpc(error, seen) {
+  if (seen.has(error)) {
+    return seen.get(error);
+  }
+
+  const serialized = {
+    message: error.message,
+    stack: error.stack,
+    name: error.name,
+  };
+  seen.set(error, serialized);
+
+  for (const key of Object.getOwnPropertyNames(error)) {
+    if (SERIALIZED_ERROR_RESERVED_KEYS.has(key)) {
+      continue;
+    }
+    try {
+      serialized[key] = _serializeValueForIpc(error[key], seen);
+    } catch {
+      serialized[key] = UNSERIALIZABLE_OBJECT_PLACEHOLDER;
+    }
+  }
+
+  return serialized;
+}
+
+/**
+ * 序列化陣列，並保留循環引用拓撲。
+ *
+ * @param {Array} array - 原始陣列
+ * @param {WeakMap<object, any>} seen - 已處理物件映射
+ * @returns {Array} 序列化後的陣列
+ * @private
+ */
+function _serializeArrayForIpc(array, seen) {
+  if (seen.has(array)) {
+    return seen.get(array);
+  }
+
+  const serialized = [];
+  seen.set(array, serialized);
+  for (const item of array) {
+    serialized.push(_serializeValueForIpc(item, seen));
+  }
+  return serialized;
+}
+
+/**
+ * 序列化一般物件，並保留循環引用拓撲。
+ *
+ * @param {object} object - 原始物件
+ * @param {WeakMap<object, any>} seen - 已處理物件映射
+ * @returns {object} 序列化後的物件
+ * @private
+ */
+function _serializePlainObjectForIpc(object, seen) {
+  if (seen.has(object)) {
+    return seen.get(object);
+  }
+
+  const serialized = {};
+  seen.set(object, serialized);
+  for (const [key, value] of Object.entries(object)) {
+    try {
+      serialized[key] = _serializeValueForIpc(value, seen);
+    } catch {
+      serialized[key] = UNSERIALIZABLE_OBJECT_PLACEHOLDER;
+    }
+  }
+  return serialized;
+}
+
+/**
+ * 遞迴序列化日誌值，確保可透過 Chrome IPC 傳遞。
+ *
+ * @param {any} value - 原始值
+ * @param {WeakMap<object, any>} seen - 已處理物件映射
+ * @returns {any} 序列化後的安全值
+ * @private
+ */
+function _serializeValueForIpc(value, seen) {
+  if (value instanceof Error) {
+    return _serializeErrorForIpc(value, seen);
+  }
+  // Function / Symbol 無法通過 Chrome IPC (structuredClone / JSON)，需提前轉換
+  if (typeof value === 'function') {
+    return '[Function]';
+  }
+  if (typeof value === 'symbol') {
+    return value.toString();
+  }
+  if (Array.isArray(value)) {
+    return _serializeArrayForIpc(value, seen);
+  }
+  if (typeof value === 'object' && value !== null) {
+    return _serializePlainObjectForIpc(value, seen);
+  }
+  return value;
+}
+
+/**
  * 序列化單一日誌參數，確保可透過 Chrome IPC 傳遞
  *
  * @param {any} arg - 原始參數
@@ -63,22 +174,9 @@ let _flushTimer = null; // 發送計時器
  */
 function _serializeSingleArg(arg) {
   try {
-    if (arg instanceof Error) {
-      return { message: arg.message, stack: arg.stack, name: arg.name };
-    }
-    // Function / Symbol 無法通過 Chrome IPC (structuredClone / JSON)，需提前轉換
-    if (typeof arg === 'function') {
-      return '[Function]';
-    }
-    if (typeof arg === 'symbol') {
-      return arg.toString();
-    }
-    if (typeof arg === 'object' && arg !== null) {
-      return structuredClone(arg);
-    }
-    return arg;
+    return _serializeValueForIpc(arg, new WeakMap());
   } catch {
-    return '[Unserializable Object]';
+    return UNSERIALIZABLE_OBJECT_PLACEHOLDER;
   }
 }
 

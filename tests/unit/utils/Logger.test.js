@@ -407,6 +407,44 @@ describe('Logger', () => {
       );
     });
 
+    test('應該保留 Error 對象的自訂屬性', () => {
+      const testError = new Error('API failed');
+      testError.code = 'ERR_API';
+      testError.statusCode = 503;
+      testError.metadata = { retryable: true };
+
+      Logger.warn('Error occurred', testError);
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual(
+        expect.objectContaining({
+          message: 'API failed',
+          name: 'Error',
+          code: 'ERR_API',
+          statusCode: 503,
+          metadata: { retryable: true },
+        })
+      );
+    });
+
+    test('應該遞迴保留物件內 Error 的自訂屬性', () => {
+      const testError = new Error('Nested failure');
+      testError.code = 'ERR_NESTED';
+      testError.statusCode = 429;
+
+      Logger.warn('Nested Error occurred', { error: testError });
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0].error).toEqual(
+        expect.objectContaining({
+          message: 'Nested failure',
+          name: 'Error',
+          code: 'ERR_NESTED',
+          statusCode: 429,
+        })
+      );
+    });
+
     test('應該正確處理純量參數 (數字, 字串)', () => {
       // warn/error 使用即時發送路徑（sendToBackground），適合此測試
       // info/log/debug 使用批量模式（_queueForBackground），不會立即觸發 sendMessage
@@ -429,13 +467,13 @@ describe('Logger', () => {
       expect(cloned.myself).toBe(cloned);
     });
 
-    test('當 structuredClone 無法處理對象時應該 fallback 為 "[Unserializable Object]"', () => {
+    test('當對象包含無法透過 IPC 傳遞的值時應該遞迴 fallback 該欄位', () => {
       const unserializable = { func: () => {} };
 
       Logger.warn('Clone fail test', unserializable);
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
-      expect(sentArgs[0]).toBe('[Unserializable Object]');
+      expect(sentArgs[0]).toEqual({ func: '[Function]' });
     });
 
     test('應該將 function 參數序列化為 "[Function]"', () => {
@@ -559,14 +597,14 @@ describe('Logger', () => {
       expect(cloned.myself).toBe(cloned);
     });
 
-    test('_queueForBackground 在 structuredClone 無法處理對象時會 fallback', () => {
+    test('_queueForBackground 對物件內無法透過 IPC 傳遞的值會遞迴 fallback 該欄位', () => {
       const unserializable = { func: () => {} };
 
       Logger.info('Unserializable test', unserializable);
       jest.advanceTimersByTime(500);
 
       const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
-      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+      expect(sentLogs[0].args[0]).toEqual({ func: '[Function]' });
     });
 
     test('在 sendMessage 失敗時應優雅忽略', () => {
