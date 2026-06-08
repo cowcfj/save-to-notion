@@ -29,6 +29,34 @@ const Logger = (globalThis.self !== undefined && globalThis.Logger) || {
 // 從配置導出 TRACKING_PARAMS（維持向後兼容）
 export const TRACKING_PARAMS = URL_NORMALIZATION.TRACKING_PARAMS;
 
+function removeHashFragment(urlObj) {
+  if (urlObj.hash) {
+    urlObj.hash = '';
+  }
+}
+
+function removeTrackingParams(urlObj) {
+  TRACKING_PARAMS.forEach(param => {
+    if (urlObj.searchParams.has(param)) {
+      urlObj.searchParams.delete(param);
+    }
+  });
+}
+
+function shouldTrimTrailingPathSlash(pathname) {
+  if (pathname.length <= 1) {
+    return false;
+  }
+
+  return pathname.endsWith('/');
+}
+
+function trimTrailingPathSlashes(urlObj) {
+  while (shouldTrimTrailingPathSlash(urlObj.pathname)) {
+    urlObj.pathname = urlObj.pathname.slice(0, -1);
+  }
+}
+
 /**
  * 標準化 URL，用於生成一致的存儲鍵
  *
@@ -36,45 +64,28 @@ export const TRACKING_PARAMS = URL_NORMALIZATION.TRACKING_PARAMS;
  * @returns {string} 標準化後的 URL，相對/無效 URL 返回原始輸入
  */
 export function normalizeUrl(rawUrl) {
-  // 空值檢查
   if (!rawUrl) {
     return '';
   }
 
-  // 確保轉換為字符串
   if (typeof rawUrl !== 'string') {
     rawUrl = String(rawUrl);
   }
 
-  // 快速檢查：相對 URL 直接返回（不進行標準化）
   if (!rawUrl.includes('://')) {
     return rawUrl;
   }
 
   try {
     const urlObj = new URL(rawUrl);
-
-    // 1. 移除 fragment (hash)
-    if (urlObj.hash) {
-      urlObj.hash = '';
-    }
-
-    // 2. 移除常見的追蹤參數
-    TRACKING_PARAMS.forEach(param => {
-      if (urlObj.searchParams.has(param)) {
-        urlObj.searchParams.delete(param);
-      }
-    });
-
-    // 3. 標準化尾部斜杠（保留根路徑 "/"）
-    while (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
-      urlObj.pathname = urlObj.pathname.slice(0, -1);
-    }
+    removeHashFragment(urlObj);
+    removeTrackingParams(urlObj);
+    trimTrailingPathSlashes(urlObj);
 
     return urlObj.toString();
   } catch (error) {
     Logger.error?.('normalizeUrl 標準化失敗', { action: 'normalizeUrl', error });
-    return rawUrl || '';
+    return rawUrl;
   }
 }
 
@@ -115,20 +126,37 @@ const ROUTE_STABLE_KEY_PATTERN = /category|section|channel|topic|tag/i;
 const NUMERIC_STRING_PATTERN = /^\d+$/;
 const NON_ASCII_PATTERN = /[^\u0020-\u007E]/;
 const HTTP_PROTOCOLS = new Set(['http:', 'https:']);
+const ROOT_PATHS = new Set(['/', '']);
 
 function isAbsoluteUrlString(rawUrl) {
-  return Boolean(rawUrl && typeof rawUrl === 'string' && rawUrl.includes('://'));
+  if (!rawUrl) {
+    return false;
+  }
+
+  if (typeof rawUrl !== 'string') {
+    return false;
+  }
+
+  return rawUrl.includes('://');
 }
 
 function isStableRuleHostMatch(hostname, hostPattern) {
   const host = hostname.toLowerCase();
   const pattern = hostPattern.toLowerCase();
 
-  return host === pattern || host.endsWith(`.${pattern}`);
+  if (host === pattern) {
+    return true;
+  }
+
+  return host.endsWith(`.${pattern}`);
 }
 
 function isStableRulePathMatch(rule, pathname) {
-  if (rule.pathRequires && !pathname.includes(rule.pathRequires)) {
+  if (!rule.pathRequires) {
+    return rule.pathPattern.test(pathname);
+  }
+
+  if (!pathname.includes(rule.pathRequires)) {
     return false;
   }
 
@@ -140,7 +168,11 @@ function getNextDynamicSegments(page) {
 }
 
 function isNumericString(value) {
-  return typeof value === 'string' && NUMERIC_STRING_PATTERN.test(value);
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return NUMERIC_STRING_PATTERN.test(value);
 }
 
 function isUnstableRouteSegment(key, value) {
@@ -152,7 +184,11 @@ function isUnstableRouteSegment(key, value) {
     return false;
   }
 
-  return typeof value === 'string' && NON_ASCII_PATTERN.test(value);
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return NON_ASCII_PATTERN.test(value);
 }
 
 function removeDynamicRouteSegment(stablePath, key) {
@@ -207,6 +243,98 @@ function parseHttpUrl(url) {
   }
 }
 
+function buildNormalizedUrlFromNextRoute(routeInfo, originalUrl) {
+  const { page, query } = routeInfo;
+  const stableRoute = buildNextStablePath(page, query);
+  if (!stableRoute) {
+    return null;
+  }
+
+  const { stablePath, slugKeys } = stableRoute;
+  const origin = new URL(originalUrl).origin;
+
+  return {
+    page,
+    stablePath,
+    slugKeys,
+    stableUrl: normalizeUrl(`${origin}${stablePath}`),
+  };
+}
+
+function hasNextStableRouteInput(routeInfo, originalUrl) {
+  if (!routeInfo?.page) {
+    return false;
+  }
+
+  if (!routeInfo.query) {
+    return false;
+  }
+
+  return Boolean(originalUrl);
+}
+
+function logNextStableUrlResolved(resolvedRoute) {
+  Logger.debug?.('buildStableUrlFromNextData 成功', {
+    action: 'buildStableUrlFromNextData',
+    page: resolvedRoute.page,
+    stablePath: resolvedRoute.stablePath,
+    slugKeys: resolvedRoute.slugKeys,
+  });
+}
+
+function isInvalidStableUrlInput(url) {
+  if (typeof url !== 'string') {
+    return true;
+  }
+
+  return url.trim() === '';
+}
+
+function isAlreadyNormalizedWhenRequired(url, normalizedUrl, requireNormalized) {
+  if (!requireNormalized) {
+    return true;
+  }
+
+  return normalizedUrl === url;
+}
+
+function getStableUrlValidationTarget(url, normalizedUrl, requireNormalized) {
+  return requireNormalized ? url : normalizedUrl;
+}
+
+function buildNextStableUrl(preloaderData, rawUrl) {
+  if (!preloaderData?.nextRouteInfo) {
+    return null;
+  }
+
+  return buildStableUrlFromNextData(preloaderData.nextRouteInfo, rawUrl);
+}
+
+function getSameOriginShortlink(shortlink, rawUrl) {
+  if (!shortlink) {
+    return null;
+  }
+
+  if (!hasSameOrigin(shortlink, rawUrl)) {
+    return null;
+  }
+
+  try {
+    const shortlinkUrl = new URL(shortlink);
+    return shortlinkUrl.search.length > 0 ? shortlink : null;
+  } catch {
+    return null;
+  }
+}
+
+function isRootPathWithoutQuery(path, hasQuery) {
+  if (hasQuery) {
+    return false;
+  }
+
+  return ROOT_PATHS.has(path);
+}
+
 /**
  * 計算穩定 URL — 對已知網站移除可變的 slug 段
  * 純字串操作，不需 DOM 訪問，適用於零延遲場景
@@ -256,29 +384,18 @@ export function computeStableUrl(rawUrl) {
  * @returns {string|null} 穩定 URL，若無法識別 slug 則返回 null
  */
 export function buildStableUrlFromNextData(routeInfo, originalUrl) {
-  if (!routeInfo?.page || !routeInfo?.query || !originalUrl) {
+  if (!hasNextStableRouteInput(routeInfo, originalUrl)) {
     return null;
   }
 
   try {
-    const { page, query } = routeInfo;
-    const stableRoute = buildNextStablePath(page, query);
-    if (!stableRoute) {
+    const resolvedRoute = buildNormalizedUrlFromNextRoute(routeInfo, originalUrl);
+    if (!resolvedRoute) {
       return null;
     }
 
-    const { stablePath, slugKeys } = stableRoute;
-    const origin = new URL(originalUrl).origin;
-    const stableUrl = normalizeUrl(`${origin}${stablePath}`);
-
-    Logger.debug?.('buildStableUrlFromNextData 成功', {
-      action: 'buildStableUrlFromNextData',
-      page,
-      stablePath,
-      slugKeys,
-    });
-
-    return stableUrl;
+    logNextStableUrlResolved(resolvedRoute);
+    return resolvedRoute.stableUrl;
   } catch (error) {
     Logger.error?.('buildStableUrlFromNextData 失敗', {
       action: 'buildStableUrlFromNextData',
@@ -296,7 +413,11 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
  * @returns {boolean} 是否相同來源
  */
 export function hasSameOrigin(url1, url2) {
-  if (!url1 || !url2) {
+  if (!url1) {
+    return false;
+  }
+
+  if (!url2) {
     return false;
   }
 
@@ -332,7 +453,7 @@ export function isRootUrl(url) {
     const path = urlObj.pathname;
     const hasQuery = urlObj.search.length > 0;
     // 根路徑：pathname 為 "/" 且沒有查詢參數
-    return (path === '/' || path === '') && !hasQuery;
+    return isRootPathWithoutQuery(path, hasQuery);
   } catch {
     return false;
   }
@@ -348,17 +469,17 @@ export function isRootUrl(url) {
 export function isSafeStableUrl(url, options = {}) {
   const { requireNormalized = false } = options;
 
-  if (typeof url !== 'string' || url.trim() === '') {
+  if (isInvalidStableUrlInput(url)) {
     return false;
   }
 
   const normalizedUrl = normalizeUrl(url);
 
-  if (requireNormalized && normalizedUrl !== url) {
+  if (!isAlreadyNormalizedWhenRequired(url, normalizedUrl, requireNormalized)) {
     return false;
   }
 
-  const urlToValidate = requireNormalized ? url : normalizedUrl;
+  const urlToValidate = getStableUrlValidationTarget(url, normalizedUrl, requireNormalized);
   if (!parseHttpUrl(urlToValidate)) {
     return false;
   }
@@ -388,25 +509,17 @@ export function resolveStorageUrl(rawUrl, preloaderData) {
   }
 
   // Phase 2a: Next.js 路由
-  if (preloaderData?.nextRouteInfo) {
-    const phase2a = buildStableUrlFromNextData(preloaderData.nextRouteInfo, rawUrl);
-    if (phase2a) {
-      return phase2a;
-    }
+  const phase2a = buildNextStableUrl(preloaderData, rawUrl);
+  if (phase2a) {
+    return phase2a;
   }
 
   // Phase 2a+: WordPress shortlink（?p=ID 格式）
   // 合法的 WordPress shortlink 一定有 query 參數（?p=12345 等），
   // 指向首頁的無效 shortlink 則沒有 query 參數。
-  if (preloaderData?.shortlink && hasSameOrigin(preloaderData.shortlink, rawUrl)) {
-    try {
-      const shortlinkUrl = new URL(preloaderData.shortlink);
-      if (shortlinkUrl.search.length > 0) {
-        return preloaderData.shortlink;
-      }
-    } catch {
-      // 無效 URL，跳過
-    }
+  const phase2aPlus = getSameOriginShortlink(preloaderData?.shortlink, rawUrl);
+  if (phase2aPlus) {
+    return phase2aPlus;
   }
 
   // 最終回退
