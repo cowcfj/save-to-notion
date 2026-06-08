@@ -925,6 +925,10 @@ export const NextJsExtractor = {
    * @returns {Array<object>|object}
    */
   _convertSingleBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return [];
+    }
+
     const preConverted =
       this._convertSummaryBlock(block) ||
       this._convertHtmlTokensBlock(block) ||
@@ -1019,6 +1023,10 @@ export const NextJsExtractor = {
   },
 
   _isSummaryBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+
     if (block.blockType !== 'summary') {
       return false;
     }
@@ -1076,6 +1084,10 @@ export const NextJsExtractor = {
   },
 
   _isHtmlTokensBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+
     if (block.blockType !== 'text') {
       return false;
     }
@@ -1104,6 +1116,10 @@ export const NextJsExtractor = {
   },
 
   _isListBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+
     if (block.blockType !== 'list') {
       return false;
     }

@@ -962,6 +962,11 @@ describe('NextJsExtractor', () => {
         const node = {};
         expect(NextJsDataResolver.scoreKeysDimension(node)).toBe(0);
       });
+
+      it('非物件節點時得 0 分', () => {
+        expect(NextJsDataResolver.scoreKeysDimension(null)).toBe(0);
+        expect(NextJsDataResolver.scoreKeysDimension(undefined)).toBe(0);
+      });
     });
 
     describe('_scoreStructuralDimension', () => {
@@ -973,6 +978,11 @@ describe('NextJsExtractor', () => {
       it('paragraphs 陣列為空或非陣列時得 0 分', () => {
         expect(NextJsDataResolver.scoreStructuralDimension({ paragraphs: [] })).toBe(0);
         expect(NextJsDataResolver.scoreStructuralDimension({})).toBe(0);
+      });
+
+      it('非物件節點時得 0 分', () => {
+        expect(NextJsDataResolver.scoreStructuralDimension(null)).toBe(0);
+        expect(NextJsDataResolver.scoreStructuralDimension(undefined)).toBe(0);
       });
     });
 
@@ -997,6 +1007,11 @@ describe('NextJsExtractor', () => {
       it('條件不滿足時得 0 分', () => {
         expect(NextJsDataResolver.scoreContentDimension({ text: 'Some text' })).toBe(0); // 缺 id
         expect(NextJsDataResolver.scoreContentDimension({ content: 'short content' })).toBe(0); // 長度 <= 100
+      });
+
+      it('非物件節點時得 0 分', () => {
+        expect(NextJsDataResolver.scoreContentDimension(null)).toBe(0);
+        expect(NextJsDataResolver.scoreContentDimension(undefined)).toBe(0);
       });
     });
 
@@ -1257,6 +1272,15 @@ describe('NextJsExtractor', () => {
 
     it('should return empty array for empty array input', () => {
       expect(NextJsExtractor.convertBlocks([])).toEqual([]);
+    });
+
+    it('should skip malformed block items', () => {
+      const input = [null, undefined, 'bad-block', { blockType: 'paragraph', text: 'Valid' }];
+      const output = NextJsExtractor.convertBlocks(input);
+
+      expect(output).toHaveLength(1);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe('Valid');
     });
 
     it('should convert heading blocks', () => {

@@ -325,6 +325,10 @@ function scoreStandardBlocks(node) {
 }
 
 export function scoreKeysDimension(node) {
+  if (!node || typeof node !== 'object') {
+    return 0;
+  }
+
   let score = 0;
   if (node.title && typeof node.title === 'string') {
     score += 10;
@@ -336,6 +340,10 @@ export function scoreKeysDimension(node) {
 }
 
 export function scoreStructuralDimension(node) {
+  if (!node || typeof node !== 'object') {
+    return 0;
+  }
+
   let score = 0;
   if (Array.isArray(node.paragraphs) && node.paragraphs.length > 0) {
     score += 40;
@@ -344,6 +352,10 @@ export function scoreStructuralDimension(node) {
 }
 
 export function scoreContentDimension(node) {
+  if (!node || typeof node !== 'object') {
+    return 0;
+  }
+
   let score = 0;
   if (hasIdentifiedText(node)) {
     score += 15;
