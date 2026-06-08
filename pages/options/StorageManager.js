@@ -30,7 +30,7 @@ import {
  * @returns {boolean}
  */
 function isBackupDataObject(data) {
-  return [Boolean(data), typeof data === 'object', !Array.isArray(data)].every(Boolean);
+  return data !== null && typeof data === 'object' && !Array.isArray(data);
 }
 
 const STATUS_TYPE_ICONS = {
@@ -41,10 +41,10 @@ const STATUS_TYPE_ICONS = {
 };
 
 const CLEANUP_SUMMARY_DESCRIPTORS = [
-  { key: 'emptyRecords', label: '個空記錄' },
-  { key: 'orphanRecords', label: '個孤兒資料' },
-  { key: 'migrationLeftovers', label: '個升級殘留' },
-  { key: 'corruptedRecords', label: '個損壞項目' },
+  { key: 'emptyRecords', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_EMPTY_RECORDS },
+  { key: 'orphanRecords', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_ORPHAN_RECORDS },
+  { key: 'migrationLeftovers', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_MIGRATION_LEFTOVERS },
+  { key: 'corruptedRecords', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_CORRUPTED_RECORDS },
 ];
 
 /**

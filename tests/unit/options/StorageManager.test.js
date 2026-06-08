@@ -851,7 +851,12 @@ describe('StorageManager — 使用量與健康狀態', () => {
 
       const btn = storageManager.elements.executeCleanupButton;
       expect(btn.classList.contains('hidden')).toBe(false);
-      expect(storageManager.elements.healthStatus.textContent).toContain('可清理：1 個空記錄');
+      expect(storageManager.elements.healthStatus.textContent).toContain(
+        UI_MESSAGES.STORAGE.CLEANUP_SUMMARY(
+          [`1 ${UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_EMPTY_RECORDS}`],
+          '0.1'
+        )
+      );
     });
 
     test('無可清理項目時應隱藏「執行清理」按鈕', () => {
