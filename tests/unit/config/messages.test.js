@@ -180,6 +180,13 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(result).toContain(String(CLEANUP_SUMMARY_SIZE));
     });
 
+    test('STORAGE cleanup summary label keys 應集中提供清理項目文案', () => {
+      expect(UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_EMPTY_RECORDS).toBe('個空記錄');
+      expect(UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_ORPHAN_RECORDS).toBe('個孤兒資料');
+      expect(UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_MIGRATION_LEFTOVERS).toBe('個升級殘留');
+      expect(UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_CORRUPTED_RECORDS).toBe('個損壞項目');
+    });
+
     test('STORAGE.HEALTH_MIGRATION_LEFTOVERS 應包含數量與大小', () => {
       const result = UI_MESSAGES.STORAGE.HEALTH_MIGRATION_LEFTOVERS(
         HEALTH_MIGRATION_LEFTOVER_COUNT,
