@@ -435,6 +435,27 @@ async function handleStartHighlightClick() {
 }
 
 /**
+ * 分類 save page 的錯誤來源
+ *
+ * @param {object} response
+ * @returns {string}
+ */
+function classifySavePageError(response) {
+  if (response?.success && response?.statusKind) {
+    return `Unexpected statusKind: ${response.statusKind}`;
+  }
+  return sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page');
+}
+
+/**
+ * 顯示同步失敗訊息並還原按鈕狀態
+ */
+function handleSyncFailure() {
+  showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
+  applySyncButtonSavedState(currentPageHasSavedData);
+}
+
+/**
  * 點擊同步按鈕
  */
 async function handleSyncClick() {
@@ -443,13 +464,12 @@ async function handleSyncClick() {
 
   try {
     const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
-    if (response?.success && response?.statusKind === 'saved') {
+    const isSaveSuccess = response?.success && response?.statusKind === 'saved';
+
+    if (isSaveSuccess) {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
-      const errorContext =
-        response?.success && response?.statusKind
-          ? `Unexpected statusKind: ${response.statusKind}`
-          : sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page');
+      const errorContext = classifySavePageError(response);
       Logger.error('[SidePanel] savePage failed', {
         action: 'savePage',
         result: 'failure',
@@ -457,8 +477,7 @@ async function handleSyncClick() {
         statusKind: response?.statusKind,
         success: response?.success,
       });
-      showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
-      applySyncButtonSavedState(currentPageHasSavedData);
+      handleSyncFailure();
     }
   } catch (error) {
     Logger.error('[SidePanel] savePage failed', {
@@ -466,8 +485,7 @@ async function handleSyncClick() {
       result: 'failure',
       error: sanitizeApiError(error, 'save_page'),
     });
-    showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
-    applySyncButtonSavedState(currentPageHasSavedData);
+    handleSyncFailure();
   }
 }
 

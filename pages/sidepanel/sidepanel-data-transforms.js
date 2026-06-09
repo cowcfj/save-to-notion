@@ -341,6 +341,26 @@ export function _groupStorageEntries(allStorageData, aliasMap) {
 }
 
 /**
+ * 嘗試從 page descriptor 建立有效的 owner descriptor。
+ *
+ * @param {{key:string, url:string, value:any}} page
+ * @returns {{ownerKey: string, ownerUrl: string, ownerValue: any, format: 'page'} | null}
+ * @private
+ */
+export function _tryBuildValidPageOwner(page) {
+  const entry = buildPageEntry(page.key, page.url, page.value);
+  if (!entry) {
+    return null;
+  }
+  return {
+    ownerKey: page.key,
+    ownerUrl: page.url,
+    ownerValue: page.value,
+    format: 'page',
+  };
+}
+
+/**
  * 從同一 canonical URL 的 group 中選出最優先的 owner descriptor。
  *
  * @param {string} canonicalUrl
@@ -351,24 +371,17 @@ export function _groupStorageEntries(allStorageData, aliasMap) {
 export function _pickGroupOwner(canonicalUrl, group) {
   // Priority 1: page_<canonical> that can build a valid entry
   const canonicalPage = group.pages.find(page => page.url === canonicalUrl);
-  if (canonicalPage) {
-    const entry = buildPageEntry(canonicalPage.key, canonicalPage.url, canonicalPage.value);
-    if (entry) {
-      return {
-        ownerKey: canonicalPage.key,
-        ownerUrl: canonicalPage.url,
-        ownerValue: canonicalPage.value,
-        format: 'page',
-      };
-    }
+  const canonicalOwner = canonicalPage ? _tryBuildValidPageOwner(canonicalPage) : null;
+  if (canonicalOwner) {
+    return canonicalOwner;
   }
 
   // Priority 2: 任意其他 page_* 可建立有效 entry（例如 alias 指向空 stable key 時的 page_<original>）
-  for (const page of group.pages) {
-    const entry = buildPageEntry(page.key, page.url, page.value);
-    if (entry) {
-      return { ownerKey: page.key, ownerUrl: page.url, ownerValue: page.value, format: 'page' };
-    }
+  const anyPageOwner = group.pages
+    .map(page => _tryBuildValidPageOwner(page))
+    .find(owner => owner !== null);
+  if (anyPageOwner) {
+    return anyPageOwner;
   }
 
   // Priority 3: highlights_*（舊格式）
