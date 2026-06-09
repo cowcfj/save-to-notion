@@ -488,32 +488,82 @@ async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
   }
 }
 
+/**
+ * 建構驗證失敗的 context
+ *
+ * @param {string} action
+ * @param {object} sender
+ * @param {string} validationError
+ * @returns {object}
+ */
+
+function buildValidationFailureContext(action, sender, validationError) {
+  return {
+    ok: false,
+    kind: 'validation',
+    validationError,
+    guardMeta: buildContentScriptGuardMeta({ action, sender, validationError }),
+  };
+}
+
+/**
+ * 建構缺少標籤頁的 context
+ *
+ * @param {string} action
+ * @returns {object}
+ */
+
+function buildNoTabContext(action) {
+  Logger.warn('缺少標籤頁上下文', { action, result: 'failed', reason: 'no_tab' });
+  return { ok: false, kind: 'no_tab' };
+}
+
+/**
+ * 建構受限頁面的 context
+ *
+ * @param {string} action
+ * @param {string} tabUrl
+ * @param {boolean} logRestricted
+ * @returns {object}
+ */
+
+function buildRestrictedContext(action, tabUrl, logRestricted) {
+  if (logRestricted) {
+    Logger.warn('受限頁面無法使用標註', {
+      action,
+      url: sanitizeUrlForLogging(tabUrl),
+      result: 'blocked',
+      reason: 'restricted_url',
+    });
+  }
+  return { ok: false, kind: 'restricted' };
+}
+
+/**
+ * 驗證並接受 content script 的注入上下文
+ *
+ * @param {object} sender
+ * @param {string} action
+ * @param {object} options
+ * @param {boolean} options.logRestricted - 是否記錄受限頁面警告
+ * @returns {object} 驗證結果 context
+ */
+
 function acceptContentScriptInjectionContext(sender, action, { logRestricted = false } = {}) {
   const validationError = validateContentScriptRequest(sender);
   if (validationError) {
-    return {
-      ok: false,
-      kind: 'validation',
-      validationError,
-      guardMeta: buildContentScriptGuardMeta({ action, sender, validationError }),
-    };
+    return buildValidationFailureContext(action, sender, validationError);
   }
+
   if (!sender.tab?.id) {
-    Logger.warn('缺少標籤頁上下文', { action, result: 'failed', reason: 'no_tab' });
-    return { ok: false, kind: 'no_tab' };
+    return buildNoTabContext(action);
   }
+
   const { id: tabId, url: tabUrl } = sender.tab;
   if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
-    if (logRestricted) {
-      Logger.warn('受限頁面無法使用標註', {
-        action,
-        url: sanitizeUrlForLogging(tabUrl),
-        result: 'blocked',
-        reason: 'restricted_url',
-      });
-    }
-    return { ok: false, kind: 'restricted' };
+    return buildRestrictedContext(action, tabUrl, logRestricted);
   }
+
   return { ok: true, tabId, tabUrl };
 }
 
