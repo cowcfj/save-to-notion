@@ -257,7 +257,7 @@ function getHighlightList(value) {
   if (Array.isArray(value)) {
     return value;
   }
-  const highlights = value && value.highlights;
+  const highlights = value?.highlights;
   return Array.isArray(highlights) ? highlights : [];
 }
 
@@ -278,8 +278,7 @@ function buildHighlightSummary(highlights) {
  * @returns {boolean}
  */
 function hasSyncedPageValue(value) {
-  const notion = value && value.notion;
-  return Boolean(notion && notion.pageId);
+  return Boolean(value?.notion?.pageId);
 }
 
 /**
@@ -288,12 +287,12 @@ function hasSyncedPageValue(value) {
  * @returns {string}
  */
 function resolvePageEntryTitle(value, url) {
-  const notion = value && value.notion;
-  if (notion && notion.title) {
+  const notion = value?.notion;
+  if (notion?.title) {
     return notion.title;
   }
-  const metadata = value && value.metadata;
-  if (metadata && metadata.title) {
+  const metadata = value?.metadata;
+  if (metadata?.title) {
     return metadata.title;
   }
   return UI.extractDomain(url);
@@ -304,8 +303,7 @@ function resolvePageEntryTitle(value, url) {
  * @returns {number}
  */
 function resolvePageLastUpdated(value) {
-  const metadata = value && value.metadata;
-  return metadata && metadata.lastUpdated ? metadata.lastUpdated : 0;
+  return value?.metadata?.lastUpdated || 0;
 }
 
 /**
@@ -344,12 +342,12 @@ function buildPageEntry(key, url, value) {
  */
 function resolveLegacySavedState(all, url, canonicalUrl) {
   const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
-  if (savedDataOriginal && savedDataOriginal.notionPageId) {
+  if (savedDataOriginal?.notionPageId) {
     return { isSaved: true, savedData: savedDataOriginal };
   }
 
   const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
-  if (savedDataCanonical && savedDataCanonical.notionPageId) {
+  if (savedDataCanonical?.notionPageId) {
     return { isSaved: true, savedData: savedDataCanonical };
   }
 
@@ -363,10 +361,10 @@ function resolveLegacySavedState(all, url, canonicalUrl) {
  * @returns {string}
  */
 function resolveLegacyEntryTitle(savedData, value, url) {
-  if (savedData && savedData.title) {
+  if (savedData?.title) {
     return savedData.title;
   }
-  if (value && value.title) {
+  if (value?.title) {
     return value.title;
   }
   return UI.extractDomain(url);
@@ -377,7 +375,7 @@ function resolveLegacyEntryTitle(savedData, value, url) {
  * @returns {number}
  */
 function resolveLegacyLastUpdated(value) {
-  return value && value.updatedAt ? value.updatedAt : 0;
+  return value?.updatedAt || 0;
 }
 
 /**
@@ -713,7 +711,7 @@ async function resolveCurrentTab(specificTabId) {
  * @returns {boolean}
  */
 function isUnsupportedTab(tab) {
-  if (!tab || !tab.url) {
+  if (!tab?.url) {
     return true;
   }
   return RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol);
