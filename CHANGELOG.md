@@ -1,5 +1,41 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.79.0](https://github.com/cowcfj/save-to-notion/compare/v2.78.0...v2.79.0) (2026-06-09)
+
+
+### ✨ 新功能
+
+* Enhance error serialization for IPC with custom properties ([#668](https://github.com/cowcfj/save-to-notion/issues/668)) ([8ce24ed](https://github.com/cowcfj/save-to-notion/commit/8ce24ed74428545f34f588c668e6a607e785113e))
+* Optimize CI process and test reporting ([#661](https://github.com/cowcfj/save-to-notion/issues/661)) ([3d6d48f](https://github.com/cowcfj/save-to-notion/commit/3d6d48f74b599d86a443a574849e9e5d4591ba69))
+* 優化 CI 流程與測試報告 ([3d6d48f](https://github.com/cowcfj/save-to-notion/commit/3d6d48f74b599d86a443a574849e9e5d4591ba69))
+
+
+### 🐛 Bug 修復
+
+* 🐛 restore stable URL priority logging and fallback (Phase 3 regression) ([#670](https://github.com/cowcfj/save-to-notion/issues/670)) ([0437251](https://github.com/cowcfj/save-to-notion/commit/043725142e80901bfa6931b53773494f3fadbae2))
+* accept long text highlights even with context mismatch ([53224e6](https://github.com/cowcfj/save-to-notion/commit/53224e6c402ca6501c81a8e8875db77e53cae02f))
+* accept long text highlights with context mismatch ([#676](https://github.com/cowcfj/save-to-notion/issues/676)) ([53224e6](https://github.com/cowcfj/save-to-notion/commit/53224e6c402ca6501c81a8e8875db77e53cae02f))
+* clear highlights using tab URL for content requests ([#674](https://github.com/cowcfj/save-to-notion/issues/674)) ([f71f728](https://github.com/cowcfj/save-to-notion/commit/f71f728aba6d9e060f158c2fd0f85b4e15251b32))
+* use Object.hasOwn in highlight handler ([#675](https://github.com/cowcfj/save-to-notion/issues/675)) ([87a99f1](https://github.com/cowcfj/save-to-notion/commit/87a99f17a4c3ac5160e121f8ba40c4d345824d86))
+* use optional chaining in logger debug storage ([#672](https://github.com/cowcfj/save-to-notion/issues/672)) ([29b3a98](https://github.com/cowcfj/save-to-notion/commit/29b3a984852034bcb44c3c098b6129cb05e75935))
+
+
+### ♻️ 代碼重構
+
+* reduce sidepanel complexity ([#673](https://github.com/cowcfj/save-to-notion/issues/673)) ([5701bb5](https://github.com/cowcfj/save-to-notion/commit/5701bb538d61f5629988571b0fc6a33a588a194f))
+* reduce storage gateway complexity ([#659](https://github.com/cowcfj/save-to-notion/issues/659)) ([a0985a3](https://github.com/cowcfj/save-to-notion/commit/a0985a36f0de9885ca0558894c44d0399b628776))
+* simplify drive snapshot complexity and validation ([#662](https://github.com/cowcfj/save-to-notion/issues/662)) ([bdc36e8](https://github.com/cowcfj/save-to-notion/commit/bdc36e89d5014a70a0b629b7c2ebbbcbd536e61c))
+* simplify logger implementation ([#667](https://github.com/cowcfj/save-to-notion/issues/667)) ([c0aa50a](https://github.com/cowcfj/save-to-notion/commit/c0aa50aaf20b280ca625f3c1c80d14f08781b8a3))
+* simplify Next.js extractor complexity ([#666](https://github.com/cowcfj/save-to-notion/issues/666)) ([ff80ee6](https://github.com/cowcfj/save-to-notion/commit/ff80ee6fee9e1a3eceb716a58463559f2342d6f4))
+* simplify StorageManager logic and structure ([#663](https://github.com/cowcfj/save-to-notion/issues/663)) ([9b8dc62](https://github.com/cowcfj/save-to-notion/commit/9b8dc623b5c0ad6ddc7a6abdafb3299b8bc1992b))
+* simplify url utility functions ([#671](https://github.com/cowcfj/save-to-notion/issues/671)) ([b1f0f2f](https://github.com/cowcfj/save-to-notion/commit/b1f0f2fd27b1e220d973ab6476489be2a7e2daa7))
+
+
+### 🧹 其他變更
+
+* enable cyclomatic complexity warning ([#664](https://github.com/cowcfj/save-to-notion/issues/664)) ([6fc8335](https://github.com/cowcfj/save-to-notion/commit/6fc8335ae3412f30471e6e0ee4514fd043581172))
+* remove sanitizer debug scratch ([#665](https://github.com/cowcfj/save-to-notion/issues/665)) ([7e535d9](https://github.com/cowcfj/save-to-notion/commit/7e535d94b73460cad47a050a6ee901fd886f3736))
+
 ## [2.78.0](https://github.com/cowcfj/save-to-notion/compare/v2.77.0...v2.78.0) (2026-06-07)
 
 
