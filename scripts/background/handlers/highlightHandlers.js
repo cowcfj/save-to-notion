@@ -73,6 +73,75 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
 }
 
 /**
+ * 判斷頁面資料是否包含有效的 notionPageId
+ *
+ * @param {object} pageData
+ * @returns {boolean}
+ */
+function hasSavedPage(pageData) {
+  return pageData?.notionPageId;
+}
+
+/**
+ * 判斷是否應回退查詢原始 URL
+ *
+ * @param {boolean} migrated - URL 是否已成功遷移
+ * @param {string} normUrl - 正規化 URL
+ * @param {string} originalUrl - 原始 URL
+ * @returns {boolean}
+ */
+function shouldFallbackToOriginalUrl(migrated, normUrl, originalUrl) {
+  return !migrated && normUrl !== originalUrl;
+}
+
+/**
+ * 查詢 URL 對應的已存頁面資料
+ *
+ * @param {string} url
+ * @param {object} storageService
+ * @returns {Promise<object|null>}
+ */
+async function queryPageDataByUrl(url, storageService) {
+  const pageData = await storageService.getSavedPageData(url);
+  return hasSavedPage(pageData) ? pageData : null;
+}
+
+/**
+ * 嘗試從指定 URL 查詢頁面並回傳成功結果
+ *
+ * @param {string} url
+ * @param {object} storageService
+ * @returns {Promise<object|null>} 成功時回傳 {found: true, savedData, resolvedUrl}，失敗時 null
+ */
+async function tryResolveFromUrl(url, storageService) {
+  const savedData = await queryPageDataByUrl(url, storageService);
+  if (savedData) {
+    return { found: true, savedData, resolvedUrl: url };
+  }
+  return null;
+}
+
+/**
+ * 以雙查安全網策略解析頁面：優先 stable URL，失敗時回退 original URL
+ *
+ * @param {string} normUrl - 正規化 URL
+ * @param {string} originalUrl - 原始 URL
+ * @param {boolean} migrated - URL 是否已成功遷移
+ * @param {object} storageService
+ * @returns {Promise<object|null>}
+ */
+async function resolveWithFallback(normUrl, originalUrl, migrated, storageService) {
+  const stableResult = await tryResolveFromUrl(normUrl, storageService);
+  if (stableResult) {
+    return stableResult;
+  }
+  if (shouldFallbackToOriginalUrl(migrated, normUrl, originalUrl)) {
+    return await tryResolveFromUrl(originalUrl, storageService);
+  }
+  return null;
+}
+
+/**
  * 定位待更新標註的已存頁面
  *
  * 統一解析 tab URL（含自動遷移），並以「stable URL → 原始 URL」雙查安全網
@@ -98,23 +167,144 @@ async function resolveSavedPageForHighlightUpdate({
     migrated,
   } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
-  // stable URL 命中即採用：早返同時定出 savedData 與 resolvedUrl，
-  // 省去 foundViaStableUrl 旗標與末端三元
-  const stableData = await storageService.getSavedPageData(normUrl);
-  if (stableData?.notionPageId) {
-    return { found: true, savedData: stableData, resolvedUrl: normUrl };
-  }
+  const result = await resolveWithFallback(normUrl, originalUrl, migrated, storageService);
+  return result || { found: false };
+}
 
-  // 雙查安全網：遷移失敗且 stable/原始 URL 分歧時，回退查詢原始 URL
-  const shouldRetryOriginalUrl = !migrated && normUrl !== originalUrl;
-  if (shouldRetryOriginalUrl) {
-    const originalData = await storageService.getSavedPageData(originalUrl);
-    if (originalData?.notionPageId) {
-      return { found: true, savedData: originalData, resolvedUrl: originalUrl };
+/**
+ * 判斷是否應核對遠端頁面刪除狀態
+ *
+ * @param {object} result - notionService 回傳結果
+ * @returns {boolean}
+ */
+function shouldReconcilePageDeletion(result) {
+  return (
+    !result.success &&
+    result.error === 'OBJECT_NOT_FOUND' &&
+    result.details?.phase === 'fetch_blocks'
+  );
+}
+
+const USER_RESPONSE_FIELDS = [
+  'success',
+  'status',
+  'errorCode',
+  'error',
+  'id',
+  'url',
+  'count',
+  'highlightCount',
+  'highlightsUpdated',
+];
+
+/**
+ * 從 internal result 建立可回傳給 UI/content script 的 public response。
+ *
+ * @param {object} result - 原始 result 物件
+ * @param {object} overrides - 對外 response override 欄位
+ * @returns {object}
+ */
+function buildPublicDeletionResponse(result, overrides = {}) {
+  const response = {};
+
+  for (const field of USER_RESPONSE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(result, field)) {
+      response[field] = result[field];
     }
   }
 
-  return { found: false };
+  return {
+    ...response,
+    ...overrides,
+  };
+}
+
+/**
+ * 建構待確認刪除的 response
+ *
+ * @param {object} result - 原始 result 物件
+ * @returns {object}
+ */
+function buildPendingDeletionResponse(result) {
+  return buildPublicDeletionResponse(result, {
+    errorCode: 'PAGE_DELETION_PENDING',
+    error: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
+  });
+}
+
+/**
+ * 建構已確認刪除的 response
+ *
+ * @param {object} result - 原始 result 物件
+ * @returns {object}
+ */
+function buildConfirmedDeletionResponse(result) {
+  return buildPublicDeletionResponse(result, {
+    errorCode: 'PAGE_DELETED',
+    error: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
+  });
+}
+
+/**
+ * 處理已確認的遠端頁面刪除
+ *
+ * @param {object} params
+ * @param {object} params.result - 原始 result 物件
+ * @param {string} params.pageId - Notion pageId
+ * @param {string} params.resolvedUrl - 已解析的頁面 URL
+ * @param {string} params.shortPageId - pageId 短碼（前 4 個字符）
+ * @param {object} params.tabService
+ * @param {object} params.storageService
+ * @returns {Promise<object>}
+ */
+async function handleConfirmedDeletion({
+  result,
+  pageId,
+  resolvedUrl,
+  shortPageId,
+  tabService,
+  storageService,
+}) {
+  Logger.warn('同步標註時確認遠端頁面已刪除，清除本地 notion 綁定', {
+    action: 'performHighlightUpdate',
+    url: sanitizeUrlForLogging(resolvedUrl),
+    pageId: shortPageId,
+    result: 'confirmed_deleted',
+  });
+
+  const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
+    source: 'highlightHandlers.performHighlightUpdate',
+    expectedPageId: pageId,
+  });
+
+  if (clearResult.skipped) {
+    Logger.warn('清除本地 notion 綁定時偵測到 pageId 已變更，取消 PAGE_DELETED 狀態切換', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      pageId: shortPageId,
+      reason: clearResult.reason,
+      result: 'cleanup_skipped',
+    });
+
+    return buildPublicDeletionResponse(result, {
+      error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+    });
+  }
+
+  if (!clearResult.cleared) {
+    Logger.error('清除本地 Notion 狀態失敗', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      attempts: clearResult.attempts,
+      error: clearResult.error,
+      result: 'cleanup_failed',
+    });
+
+    // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
+    tabService.confirmRemotePageMissing(pageId);
+  }
+
+  return buildConfirmedDeletionResponse(result);
 }
 
 /**
@@ -139,16 +329,10 @@ async function reconcileRemotePageMissing({
   tabService,
   storageService,
 }) {
-  const isFetchBlocksObjectNotFound =
-    !result.success &&
-    result.error === 'OBJECT_NOT_FOUND' &&
-    result.details?.phase === 'fetch_blocks';
-  if (!isFetchBlocksObjectNotFound) {
+  if (!shouldReconcilePageDeletion(result)) {
     return null;
   }
 
-  // pageId 經上游 resolveSavedPageForHighlightUpdate 的 found-guard 後保證為非空字串
-  // （與下方 confirmRemotePageMissing(pageId) 的直接使用一致），log 短碼不需 optional/fallback
   const shortPageId = pageId.slice(0, 4);
   const deletionCheck = tabService.confirmRemotePageMissing(pageId);
 
@@ -160,58 +344,17 @@ async function reconcileRemotePageMissing({
       result: 'pending',
     });
 
-    return {
-      ...result,
-      errorCode: 'PAGE_DELETION_PENDING',
-      error: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
-    };
+    return buildPendingDeletionResponse(result);
   }
 
-  Logger.warn('同步標註時確認遠端頁面已刪除，清除本地 notion 綁定', {
-    action: 'performHighlightUpdate',
-    url: sanitizeUrlForLogging(resolvedUrl),
-    pageId: shortPageId,
-    result: 'confirmed_deleted',
+  return await handleConfirmedDeletion({
+    result,
+    pageId,
+    resolvedUrl,
+    shortPageId,
+    tabService,
+    storageService,
   });
-
-  const clearResult = await storageService.clearNotionStateWithRetry(resolvedUrl, {
-    source: 'highlightHandlers.performHighlightUpdate',
-    expectedPageId: pageId,
-  });
-
-  if (clearResult.skipped) {
-    Logger.warn('清除本地 notion 綁定時偵測到 pageId 已變更，取消 PAGE_DELETED 狀態切換', {
-      action: 'performHighlightUpdate',
-      url: sanitizeUrlForLogging(resolvedUrl),
-      pageId: shortPageId,
-      reason: clearResult.reason,
-      result: 'cleanup_skipped',
-    });
-
-    return {
-      ...result,
-      error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
-    };
-  }
-
-  if (!clearResult.cleared) {
-    Logger.error('清除本地 Notion 狀態失敗', {
-      action: 'performHighlightUpdate',
-      url: sanitizeUrlForLogging(resolvedUrl),
-      attempts: clearResult.attempts,
-      error: clearResult.error,
-      result: 'cleanup_failed',
-    });
-
-    // Re-arm: 清除失敗，恢復 pending token 供下次 sync 立即重試清除
-    tabService.confirmRemotePageMissing(pageId);
-  }
-
-  return {
-    ...result,
-    errorCode: 'PAGE_DELETED',
-    error: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
-  };
 }
 
 /**
@@ -376,32 +519,82 @@ async function cleanupBundleAfterReadyTimeout(injectionService, tabId, action) {
   }
 }
 
+/**
+ * 建構驗證失敗的 context
+ *
+ * @param {string} action
+ * @param {object} sender
+ * @param {string} validationError
+ * @returns {object}
+ */
+
+function buildValidationFailureContext(action, sender, validationError) {
+  return {
+    ok: false,
+    kind: 'validation',
+    validationError,
+    guardMeta: buildContentScriptGuardMeta({ action, sender, validationError }),
+  };
+}
+
+/**
+ * 建構缺少標籤頁的 context
+ *
+ * @param {string} action
+ * @returns {object}
+ */
+
+function buildNoTabContext(action) {
+  Logger.warn('缺少標籤頁上下文', { action, result: 'failed', reason: 'no_tab' });
+  return { ok: false, kind: 'no_tab' };
+}
+
+/**
+ * 建構受限頁面的 context
+ *
+ * @param {string} action
+ * @param {string} tabUrl
+ * @param {boolean} logRestricted
+ * @returns {object}
+ */
+
+function buildRestrictedContext(action, tabUrl, logRestricted) {
+  if (logRestricted) {
+    Logger.warn('受限頁面無法使用標註', {
+      action,
+      url: sanitizeUrlForLogging(tabUrl),
+      result: 'blocked',
+      reason: 'restricted_url',
+    });
+  }
+  return { ok: false, kind: 'restricted' };
+}
+
+/**
+ * 驗證並接受 content script 的注入上下文
+ *
+ * @param {object} sender
+ * @param {string} action
+ * @param {object} options
+ * @param {boolean} options.logRestricted - 是否記錄受限頁面警告
+ * @returns {object} 驗證結果 context
+ */
+
 function acceptContentScriptInjectionContext(sender, action, { logRestricted = false } = {}) {
   const validationError = validateContentScriptRequest(sender);
   if (validationError) {
-    return {
-      ok: false,
-      kind: 'validation',
-      validationError,
-      guardMeta: buildContentScriptGuardMeta({ action, sender, validationError }),
-    };
+    return buildValidationFailureContext(action, sender, validationError);
   }
+
   if (!sender.tab?.id) {
-    Logger.warn('缺少標籤頁上下文', { action, result: 'failed', reason: 'no_tab' });
-    return { ok: false, kind: 'no_tab' };
+    return buildNoTabContext(action);
   }
+
   const { id: tabId, url: tabUrl } = sender.tab;
   if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
-    if (logRestricted) {
-      Logger.warn('受限頁面無法使用標註', {
-        action,
-        url: sanitizeUrlForLogging(tabUrl),
-        result: 'blocked',
-        reason: 'restricted_url',
-      });
-    }
-    return { ok: false, kind: 'restricted' };
+    return buildRestrictedContext(action, tabUrl, logRestricted);
   }
+
   return { ok: true, tabId, tabUrl };
 }
 
@@ -457,6 +650,13 @@ function pickClearGuardReason(isContentScript) {
   return isContentScript ? 'invalid_content_script_request' : 'invalid_internal_request';
 }
 
+function resolveClearStorageUrl(isContentScript, sender, request) {
+  if (!isContentScript || !sender?.tab?.url) {
+    return request.url;
+  }
+  return sender.tab.url;
+}
+
 function validateClearRequest(sender, request) {
   const isContentScript = Boolean(sender?.tab);
   const validate = pickClearRequestValidator(isContentScript);
@@ -476,7 +676,8 @@ function validateClearRequest(sender, request) {
   if (!request.url) {
     return { ok: false, kind: 'missing_url' };
   }
-  return { ok: true, url: request.url, targetTabId: sender?.tab?.id || request.tabId };
+  const storageUrl = resolveClearStorageUrl(isContentScript, sender, request);
+  return { ok: true, url: storageUrl, targetTabId: sender?.tab?.id || request.tabId };
 }
 
 function rejectShowOrUserActivateContext(ctx, sendResponse) {
