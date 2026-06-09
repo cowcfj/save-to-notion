@@ -183,6 +183,20 @@ describe('findHighlightPosition', () => {
     expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(-1);
   });
 
+  test('長文字（>= 50 字符）即使 context 不匹配也應接受唯一候選', () => {
+    const longText =
+      'The spotlight belonged exclusively to Jensen Huang and Elon Musk—the two brightest rockstars in the tech pantheon.';
+    const richTextArray = [makeRT(`At the event, ${longText} It was quite a show.`)];
+    const hl = {
+      text: longText,
+      // 故意提供不匹配的 context（模擬 DOM 結構差異導致的上下文提取不一致）
+      rangeInfo: { prefix: 'wrong prefix ', suffix: ' wrong suffix' },
+    };
+    const fullText = buildFullText(richTextArray);
+    // 應該成功找到位置，因為文字長度 >= 50 且是唯一候選
+    expect(findHighlightPosition(richTextArray, hl, fullText)).toBe(14);
+  });
+
   test('有 context 且單一候選，雖然 prefix/suffix 只是部分匹配（但評分 > 0）應返回正確位置', () => {
     const richTextArray = [makeRT('a reason Markdown is being discussed.')];
     const hl = {
