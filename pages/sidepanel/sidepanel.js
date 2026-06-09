@@ -502,6 +502,35 @@ function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
 }
 
 /**
+ * @param {string} key
+ * @param {*} value
+ * @returns {{key:string,url:string,value:any,format:'page'|'legacy'} | null}
+ * @private
+ */
+function _parseHighlightStorageEntry(key, value) {
+  if (key.startsWith(PAGE_PREFIX)) {
+    return { key, url: key.slice(PAGE_PREFIX.length), value, format: 'page' };
+  }
+  if (key.startsWith(HIGHLIGHTS_PREFIX)) {
+    return { key, url: key.slice(HIGHLIGHTS_PREFIX.length), value, format: 'legacy' };
+  }
+  return null;
+}
+
+/**
+ * @param {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>} groups
+ * @param {string} canonical
+ * @returns {{pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}}
+ * @private
+ */
+function _ensureStorageEntryGroup(groups, canonical) {
+  if (!groups.has(canonical)) {
+    groups.set(canonical, { pages: [], legacies: [] });
+  }
+  return groups.get(canonical);
+}
+
+/**
  * 將 allStorageData 中的 page_* / highlights_* 按 canonical URL 分群。
  *
  * @param {Record<string, any>} allStorageData
@@ -513,27 +542,17 @@ function _groupStorageEntries(allStorageData, aliasMap) {
   /** @type {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>} */
   const groups = new Map();
   for (const [key, value] of Object.entries(allStorageData)) {
-    let url;
-    let format;
-    if (key.startsWith(PAGE_PREFIX)) {
-      url = key.slice(PAGE_PREFIX.length);
-      format = 'page';
-    } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-      url = key.slice(HIGHLIGHTS_PREFIX.length);
-      format = 'legacy';
-    } else {
+    const entry = _parseHighlightStorageEntry(key, value);
+    if (!entry) {
       continue;
     }
 
-    const canonical = aliasMap.get(url) || url;
-    if (!groups.has(canonical)) {
-      groups.set(canonical, { pages: [], legacies: [] });
-    }
-    const group = groups.get(canonical);
-    if (format === 'page') {
-      group.pages.push({ key, url, value });
+    const canonical = aliasMap.get(entry.url) || entry.url;
+    const group = _ensureStorageEntryGroup(groups, canonical);
+    if (entry.format === 'page') {
+      group.pages.push({ key: entry.key, url: entry.url, value: entry.value });
     } else {
-      group.legacies.push({ key, url, value });
+      group.legacies.push({ key: entry.key, url: entry.url, value: entry.value });
     }
   }
   return groups;
@@ -782,6 +801,35 @@ async function getStableUrlForTab(tabId, url) {
 }
 
 /**
+ * @param {string} targetKey
+ * @returns {Promise<boolean>}
+ */
+async function hasStoredPageNotionData(targetKey) {
+  const result = await chrome.storage.local.get(targetKey);
+  return Boolean(result[targetKey]?.notion?.pageId);
+}
+
+/**
+ * @param {string} targetKey
+ * @returns {string|null}
+ */
+function resolveLegacySavedKey(targetKey) {
+  if (!targetKey.startsWith(HIGHLIGHTS_PREFIX)) {
+    return null;
+  }
+  return targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
+}
+
+/**
+ * @param {string} savedKey
+ * @returns {Promise<boolean>}
+ */
+async function hasStoredLegacySavedData(savedKey) {
+  const savedResult = await chrome.storage.local.get(savedKey);
+  return Boolean(savedResult[savedKey]);
+}
+
+/**
  * 判斷頁面是否已儲存到 Notion
  *
  * @param {*} notionData - page_*.notion（或 null 疋於未升級）
@@ -798,17 +846,15 @@ async function checkSavedData(notionData, targetKey) {
 
   // Phase 3 新格式：若剛新增標註但尚未同步，notionData 為 null，但稍後同步時 storage 會更新
   if (targetKey.startsWith(PAGE_PREFIX)) {
-    const result = await chrome.storage.local.get(targetKey);
-    return Boolean(result[targetKey]?.notion?.pageId);
+    return hasStoredPageNotionData(targetKey);
   }
 
   // 舊格式：僅當 targetKey 以 HIGHLIGHTS_PREFIX 開頭才對應查詢 saved_* key
-  if (!targetKey.startsWith(HIGHLIGHTS_PREFIX)) {
+  const savedKey = resolveLegacySavedKey(targetKey);
+  if (!savedKey) {
     return false;
   }
-  const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
-  const savedResult = await chrome.storage.local.get(savedKey);
-  return Boolean(savedResult[savedKey]);
+  return hasStoredLegacySavedData(savedKey);
 }
 
 /**
@@ -1002,6 +1048,33 @@ function _touchMetadata(data) {
 }
 
 /**
+ * @param {object} data
+ * @param {string} highlightId
+ * @returns {Array}
+ * @private
+ */
+function _removeHighlightFromObjectData(data, highlightId) {
+  const highlights = Array.isArray(data.highlights) ? data.highlights : [];
+  return highlights.filter(hl => hl.id !== highlightId);
+}
+
+/**
+ * @param {object} data
+ * @param {string} highlightId
+ * @param {boolean} keepWhenNotionExists
+ * @returns {{ newData: object, shouldRemove: boolean }}
+ * @private
+ */
+function _computeObjectDeleteResult(data, highlightId, keepWhenNotionExists) {
+  data.highlights = _removeHighlightFromObjectData(data, highlightId);
+  const shouldRemove = data.highlights.length === 0 && !(keepWhenNotionExists && data.notion);
+  if (!shouldRemove) {
+    _touchMetadata(data);
+  }
+  return { newData: data, shouldRemove };
+}
+
+/**
  * 根據資料格式計算刪除後的結果
  *
  * @param {object|Array} data - 目前 storage 中的資料
@@ -1012,28 +1085,12 @@ function _touchMetadata(data) {
 function _computeDeleteResult(data, highlightId, storageKey) {
   if (storageKey.startsWith(PAGE_PREFIX)) {
     // Phase 3：page_* 新格式的 partial 刪除
-    if (!Array.isArray(data.highlights)) {
-      data.highlights = [];
-    }
-    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
-    const shouldRemove = data.highlights.length === 0 && !data.notion;
-    if (!shouldRemove) {
-      _touchMetadata(data);
-    }
-    return { newData: data, shouldRemove };
+    return _computeObjectDeleteResult(data, highlightId, true);
   }
 
   if (data.highlights) {
     // 舊格式：有 highlights 物件結構
-    if (!Array.isArray(data.highlights)) {
-      data.highlights = [];
-    }
-    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
-    const shouldRemove = data.highlights.length === 0;
-    if (!shouldRemove) {
-      _touchMetadata(data);
-    }
-    return { newData: data, shouldRemove };
+    return _computeObjectDeleteResult(data, highlightId, false);
   }
 
   if (Array.isArray(data)) {
@@ -1089,6 +1146,43 @@ async function _resolvePageDeletionKeys(pageUrl, fallbackKey) {
 }
 
 /**
+ * @param {string} storageKey
+ * @returns {Promise<void>}
+ * @private
+ */
+async function _removeStorageKeyWithCanonicalCleanup(storageKey) {
+  const pageUrl = _extractUrlFromStorageKey(storageKey);
+  if (!pageUrl) {
+    await chrome.storage.local.remove(storageKey);
+    return;
+  }
+
+  const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
+  await chrome.storage.local.remove(keysToRemove.length > 0 ? keysToRemove : storageKey);
+}
+
+/**
+ * @param {string} highlightId
+ * @returns {Promise<void>}
+ * @private
+ */
+async function _notifyActiveTabHighlightRemoved(highlightId) {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tabs?.[0]?.id) {
+    return;
+  }
+
+  await chrome.tabs
+    .sendMessage(tabs[0].id, {
+      action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+      highlightId,
+    })
+    .catch(error => {
+      Logger.error('Failed to send remove highlight DOM message', { error });
+    });
+}
+
+/**
  * 刪除單個標註
  *
  * Phase 4：當刪除導致整個 storageKey 不再有意義（無 highlights 且無 notion），
@@ -1113,34 +1207,13 @@ async function handleDelete(highlightId, storageKey) {
 
     if (shouldRemove) {
       // Phase 4：透過 helper 找出所有相關 legacy key 一併移除
-      const pageUrl = _extractUrlFromStorageKey(storageKey);
-      if (pageUrl) {
-        const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
-        if (keysToRemove.length > 0) {
-          await chrome.storage.local.remove(keysToRemove);
-        } else {
-          // 防禦回退：snapshot 全空時，仍移除呼叫端傳入的 key
-          await chrome.storage.local.remove(storageKey);
-        }
-      } else {
-        await chrome.storage.local.remove(storageKey);
-      }
+      await _removeStorageKeyWithCanonicalCleanup(storageKey);
     } else {
       await chrome.storage.local.set({ [storageKey]: newData });
     }
 
     // 通知 Content script 清除 DOM 高亮
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs?.[0]?.id) {
-      await chrome.tabs
-        .sendMessage(tabs[0].id, {
-          action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
-          highlightId,
-        })
-        .catch(error => {
-          Logger.error('Failed to send remove highlight DOM message', { error });
-        });
-    }
+    await _notifyActiveTabHighlightRemoved(highlightId);
   } catch (error) {
     Logger.error('Failed to delete highlight', { error });
   }
@@ -1255,6 +1328,36 @@ async function handleOpenNotionClick() {
 }
 
 /**
+ * @param {string} key
+ * @returns {boolean}
+ */
+function isSidepanelRefreshStorageKey(key) {
+  return (
+    key.startsWith(PAGE_PREFIX) || key.startsWith(HIGHLIGHTS_PREFIX) || key.startsWith(SAVED_PREFIX)
+  );
+}
+
+function scheduleUnsyncedBadgeRefresh() {
+  clearTimeout(unsyncedBadgeTimer);
+  unsyncedBadgeTimer = setTimeout(() => {
+    refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed after storage change');
+  }, 300);
+}
+
+function reloadCurrentViewAfterStorageChange() {
+  // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
+  if (cachedStableUrl && cachedTabUrl) {
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl, beginCurrentViewRequest()).catch(error =>
+      Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
+    );
+    return;
+  }
+
+  // 初始狀態尚無快取，走完整路徑
+  loadCurrentTab(null, beginCurrentViewRequest());
+}
+
+/**
  * 處理 Storage 變化
  * 使用快取 URL 避免重新查詢 tab 和 sendMessage，大幅降低延遲
  *
@@ -1266,33 +1369,15 @@ function handleStorageChange(changes, namespace) {
     return;
   }
   // Phase 3：只要 page_*、highlights_* 或 saved_* 有變，就重整當前頁面資料
-  const hasRelevantChanges = Object.keys(changes).some(
-    key =>
-      key.startsWith(PAGE_PREFIX) ||
-      key.startsWith(HIGHLIGHTS_PREFIX) ||
-      key.startsWith(SAVED_PREFIX)
-  );
+  const hasRelevantChanges = Object.keys(changes).some(key => isSidepanelRefreshStorageKey(key));
 
   if (!hasRelevantChanges) {
     return;
   }
 
   // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
-  clearTimeout(unsyncedBadgeTimer);
-  unsyncedBadgeTimer = setTimeout(() => {
-    refreshUnsyncedBadge('[SidePanel] refreshUnsyncedBadge failed after storage change');
-  }, 300);
-
-  // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
-  if (cachedStableUrl && cachedTabUrl) {
-    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl, beginCurrentViewRequest()).catch(error =>
-      Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
-    );
-    return;
-  }
-
-  // 初始狀態尚無快取，走完整路徑
-  loadCurrentTab(null, beginCurrentViewRequest());
+  scheduleUnsyncedBadgeRefresh();
+  reloadCurrentViewAfterStorageChange();
 }
 
 // 啟動
@@ -1401,6 +1486,48 @@ function loadMoreCards() {
 }
 
 /**
+ * @param {string} storageKey
+ */
+function removeUnsyncedPageFromCache(storageKey) {
+  cachedUnsyncedPages = cachedUnsyncedPages.filter(page => page.storageKey !== storageKey);
+  displayedCardCount = Math.max(0, Math.min(displayedCardCount - 1, cachedUnsyncedPages.length));
+}
+
+/**
+ * @param {HTMLElement} cardEl
+ */
+function animateUnsyncedCardRemoval(cardEl) {
+  cardEl.classList.add('card-removing');
+  cardEl.addEventListener('animationend', () => cardEl.remove(), { once: true });
+}
+
+function updateUnsyncedToolbarAfterDeletion() {
+  const count = cachedUnsyncedPages.length;
+  if (els.unsyncedCountLabel) {
+    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
+  }
+  if (count > 0) {
+    return;
+  }
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  if (els.loadMoreBtn) {
+    els.loadMoreBtn.style.display = 'none';
+  }
+  UI.renderUnsyncedEmptyState(els);
+}
+
+function backfillUnsyncedCardAfterDeletion() {
+  if (cachedUnsyncedPages.length === 0) {
+    return;
+  }
+  if (displayedCardCount < cachedUnsyncedPages.length) {
+    appendNextUnsyncedBatch(1);
+  }
+}
+
+/**
  * 刪除單一頁面的所有標注
  *
  * Phase 4：透過共享 cleanup helper（planDeleteCleanup）取得 canonical-aware
@@ -1412,49 +1539,45 @@ function loadMoreCards() {
  */
 async function deleteUnsyncedPage(storageKey, cardEl) {
   try {
-    const pageUrl = _extractUrlFromStorageKey(storageKey);
-    if (pageUrl) {
-      const keysToRemove = await _resolvePageDeletionKeys(pageUrl, storageKey);
-      if (keysToRemove.length > 0) {
-        await chrome.storage.local.remove(keysToRemove);
-      } else {
-        // 防禦回退：snapshot 全空時仍嘗試刪除呼叫端傳入的 key
-        await chrome.storage.local.remove(storageKey);
-      }
-    } else {
-      await chrome.storage.local.remove(storageKey);
-    }
+    await _removeStorageKeyWithCanonicalCleanup(storageKey);
   } catch (error) {
     Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', { error });
     return; // bail out — don't mutate UI if storage failed
   }
 
   // 從快取移除
-  cachedUnsyncedPages = cachedUnsyncedPages.filter(page => page.storageKey !== storageKey);
-  displayedCardCount = Math.max(0, Math.min(displayedCardCount - 1, cachedUnsyncedPages.length));
+  removeUnsyncedPageFromCache(storageKey);
 
   // 移除 DOM 卡片（fade out）
-  cardEl.classList.add('card-removing');
-  cardEl.addEventListener('animationend', () => cardEl.remove(), { once: true });
+  animateUnsyncedCardRemoval(cardEl);
 
   // 更新工具列計數和 badge
-  const count = cachedUnsyncedPages.length;
-  if (els.unsyncedCountLabel) {
-    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
-  }
-  if (count === 0) {
-    if (els.unsyncedToolbar) {
-      els.unsyncedToolbar.style.display = 'none';
-    }
-    if (els.loadMoreBtn) {
-      els.loadMoreBtn.style.display = 'none';
-    }
-    UI.renderUnsyncedEmptyState(els);
-  }
-  if (count > 0 && displayedCardCount < cachedUnsyncedPages.length) {
-    appendNextUnsyncedBatch(1);
-  }
+  updateUnsyncedToolbarAfterDeletion();
+  backfillUnsyncedCardAfterDeletion();
   UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+}
+
+/**
+ * @param {object} page
+ * @returns {string[]}
+ */
+function resolveUnsyncedPageDeletionKeys(page) {
+  if (Array.isArray(page.deletionKeys) && page.deletionKeys.length > 0) {
+    return page.deletionKeys;
+  }
+  return [page.storageKey];
+}
+
+/**
+ * @param {Set<string>} aggregatedKeys
+ * @param {string[]} keys
+ */
+function addValidStorageKeys(aggregatedKeys, keys) {
+  for (const key of keys) {
+    if (typeof key === 'string' && key.length > 0) {
+      aggregatedKeys.add(key);
+    }
+  }
 }
 
 /**
@@ -1464,15 +1587,7 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
 function collectUnsyncedDeletionKeys(unsyncedPages) {
   const aggregatedKeys = new Set();
   for (const page of unsyncedPages) {
-    const perEntryKeys =
-      Array.isArray(page.deletionKeys) && page.deletionKeys.length > 0
-        ? page.deletionKeys
-        : [page.storageKey];
-    for (const key of perEntryKeys) {
-      if (typeof key === 'string' && key.length > 0) {
-        aggregatedKeys.add(key);
-      }
-    }
+    addValidStorageKeys(aggregatedKeys, resolveUnsyncedPageDeletionKeys(page));
   }
   return [...aggregatedKeys];
 }
