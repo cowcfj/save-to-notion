@@ -73,6 +73,75 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
 }
 
 /**
+ * 判斷頁面資料是否包含有效的 notionPageId
+ *
+ * @param {object} pageData
+ * @returns {boolean}
+ */
+function hasSavedPage(pageData) {
+  return pageData?.notionPageId;
+}
+
+/**
+ * 判斷是否應回退查詢原始 URL
+ *
+ * @param {boolean} migrated - URL 是否已成功遷移
+ * @param {string} normUrl - 正規化 URL
+ * @param {string} originalUrl - 原始 URL
+ * @returns {boolean}
+ */
+function shouldFallbackToOriginalUrl(migrated, normUrl, originalUrl) {
+  return !migrated && normUrl !== originalUrl;
+}
+
+/**
+ * 查詢 URL 對應的已存頁面資料
+ *
+ * @param {string} url
+ * @param {object} storageService
+ * @returns {Promise<object|null>}
+ */
+async function queryPageDataByUrl(url, storageService) {
+  const pageData = await storageService.getSavedPageData(url);
+  return hasSavedPage(pageData) ? pageData : null;
+}
+
+/**
+ * 嘗試從指定 URL 查詢頁面並回傳成功結果
+ *
+ * @param {string} url
+ * @param {object} storageService
+ * @returns {Promise<object|null>} 成功時回傳 {found: true, savedData, resolvedUrl}，失敗時 null
+ */
+async function tryResolveFromUrl(url, storageService) {
+  const savedData = await queryPageDataByUrl(url, storageService);
+  if (savedData) {
+    return { found: true, savedData, resolvedUrl: url };
+  }
+  return null;
+}
+
+/**
+ * 以雙查安全網策略解析頁面：優先 stable URL，失敗時回退 original URL
+ *
+ * @param {string} normUrl - 正規化 URL
+ * @param {string} originalUrl - 原始 URL
+ * @param {boolean} migrated - URL 是否已成功遷移
+ * @param {object} storageService
+ * @returns {Promise<object|null>}
+ */
+async function resolveWithFallback(normUrl, originalUrl, migrated, storageService) {
+  const stableResult = await tryResolveFromUrl(normUrl, storageService);
+  if (stableResult) {
+    return stableResult;
+  }
+  if (shouldFallbackToOriginalUrl(migrated, normUrl, originalUrl)) {
+    return await tryResolveFromUrl(originalUrl, storageService);
+  }
+  return null;
+}
+
+/**
  * 定位待更新標註的已存頁面
  *
  * 統一解析 tab URL（含自動遷移），並以「stable URL → 原始 URL」雙查安全網
@@ -98,23 +167,8 @@ async function resolveSavedPageForHighlightUpdate({
     migrated,
   } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
-  // stable URL 命中即採用：早返同時定出 savedData 與 resolvedUrl，
-  // 省去 foundViaStableUrl 旗標與末端三元
-  const stableData = await storageService.getSavedPageData(normUrl);
-  if (stableData?.notionPageId) {
-    return { found: true, savedData: stableData, resolvedUrl: normUrl };
-  }
-
-  // 雙查安全網：遷移失敗且 stable/原始 URL 分歧時，回退查詢原始 URL
-  const shouldRetryOriginalUrl = !migrated && normUrl !== originalUrl;
-  if (shouldRetryOriginalUrl) {
-    const originalData = await storageService.getSavedPageData(originalUrl);
-    if (originalData?.notionPageId) {
-      return { found: true, savedData: originalData, resolvedUrl: originalUrl };
-    }
-  }
-
-  return { found: false };
+  const result = await resolveWithFallback(normUrl, originalUrl, migrated, storageService);
+  return result || { found: false };
 }
 
 /**
