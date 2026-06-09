@@ -338,12 +338,84 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
       expect(mockStorageLocal.set).toHaveBeenCalledWith({});
     });
 
+    it('should merge partial remote page data with existing local canonical subfields', async () => {
+      const snapshot = {
+        metadata: {
+          updated_at: new Date().toISOString(),
+        },
+        payload: {
+          saved_states: [
+            {
+              page_key: 'url-with-local-highlights',
+              notion_page_id: 'remote-page',
+              notion_url: 'https://remote-page',
+              title: 'Remote page',
+              saved_at: 123,
+            },
+          ],
+          highlights: [
+            {
+              page_key: 'url-with-local-notion',
+              highlight_id: 'remote-highlight',
+              text: 'remote highlight',
+              color: 'yellow',
+              range_info: {},
+              created_at: 456,
+            },
+          ],
+          url_aliases: {},
+        },
+      };
+
+      mockStorageLocal.get.mockResolvedValue({
+        [`${PAGE_PREFIX}url-with-local-highlights`]: {
+          notion: { pageId: 'local-page', title: 'Local page', savedAt: 1 },
+          highlights: [{ id: 'local-highlight', text: 'local highlight', timestamp: 1 }],
+        },
+        [`${PAGE_PREFIX}url-with-local-notion`]: {
+          notion: { pageId: 'local-notion', title: 'Local notion', savedAt: 2 },
+          highlights: [],
+        },
+      });
+
+      await applyDriveSnapshotToLocalStorage(snapshot);
+
+      const toWrite = mockStorageLocal.set.mock.calls[0][0];
+      expect(toWrite[`${PAGE_PREFIX}url-with-local-highlights`].notion.pageId).toBe('remote-page');
+      expect(toWrite[`${PAGE_PREFIX}url-with-local-highlights`].highlights).toEqual([
+        { id: 'local-highlight', text: 'local highlight', timestamp: 1 },
+      ]);
+      expect(toWrite[`${HIGHLIGHTS_PREFIX}url-with-local-highlights`]).toEqual([
+        { id: 'local-highlight', text: 'local highlight', timestamp: 1 },
+      ]);
+
+      expect(toWrite[`${PAGE_PREFIX}url-with-local-notion`].notion.pageId).toBe('local-notion');
+      expect(toWrite[`${PAGE_PREFIX}url-with-local-notion`].highlights).toEqual([
+        expect.objectContaining({ id: 'remote-highlight', text: 'remote highlight' }),
+      ]);
+      expect(toWrite[`${SAVED_PREFIX}url-with-local-notion`].pageId).toBe('local-notion');
+    });
+
     it('should throw error on invalid snapshot', async () => {
       await expect(applyDriveSnapshotToLocalStorage(null)).rejects.toThrow('INVALID_SNAPSHOT');
       await expect(applyDriveSnapshotToLocalStorage({})).rejects.toThrow('INVALID_SNAPSHOT');
       await expect(applyDriveSnapshotToLocalStorage({ payload: null })).rejects.toThrow(
         'INVALID_SNAPSHOT'
       );
+      await expect(applyDriveSnapshotToLocalStorage({ payload: [] })).rejects.toThrow(
+        'INVALID_SNAPSHOT'
+      );
+      await expect(
+        applyDriveSnapshotToLocalStorage({ payload: { saved_states: {}, highlights: [] } })
+      ).rejects.toThrow('INVALID_SNAPSHOT');
+      await expect(
+        applyDriveSnapshotToLocalStorage({ payload: { saved_states: [], highlights: {} } })
+      ).rejects.toThrow('INVALID_SNAPSHOT');
+      await expect(
+        applyDriveSnapshotToLocalStorage({
+          payload: { saved_states: [], highlights: [], url_aliases: [] },
+        })
+      ).rejects.toThrow('INVALID_SNAPSHOT');
     });
   });
 
@@ -430,7 +502,7 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
         expect(toWrite).not.toHaveProperty(`${URL_ALIAS_PREFIX}normOrphan`);
       });
 
-      it('本地已存在孤兒 alias 時，download 不應刪除本地既有 alias', async () => {
+      it('本地已存在孤兒 alias 時，download 應刪除本地既有 alias', async () => {
         const snapshot = {
           metadata: { updated_at: new Date().toISOString() },
           payload: {
@@ -451,8 +523,8 @@ describe('Drive Snapshot Canonicalization & Serialization', () => {
 
         const result = await applyDriveSnapshotToLocalStorage(snapshot);
 
-        expect(result.removedKeys).toEqual([]);
-        expect(mockStorageLocal.remove).not.toHaveBeenCalled();
+        expect(result.removedKeys).toEqual([`${URL_ALIAS_PREFIX}normOrphan`]);
+        expect(mockStorageLocal.remove).toHaveBeenCalledWith([`${URL_ALIAS_PREFIX}normOrphan`]);
         const toWrite = mockStorageLocal.set.mock.calls[0][0];
         expect(toWrite).not.toHaveProperty(`${URL_ALIAS_PREFIX}normOrphan`);
       });

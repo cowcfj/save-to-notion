@@ -212,6 +212,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETION_PENDING',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('第二次命中 object_not_found 時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
@@ -250,6 +252,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('cleanup retry 最終失敗時仍應回傳 PAGE_DELETED', async () => {
@@ -300,6 +304,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('cleanup skipped 時不應回傳 PAGE_DELETED 或重新標記 deletionPending', async () => {
@@ -346,6 +352,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('應該在沒有新高亮時直接返回成功', async () => {
@@ -1065,6 +1073,30 @@ describe('highlightHandlers', () => {
         []
       );
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: true,
+      });
+    });
+
+    it('content script request URL 是 shortlink 時，應以實際 tab URL 清除 permalink storage', async () => {
+      const sendResponse = jest.fn();
+      const permalinkUrl = 'https://www.rapbull.net/posts/3033/slug';
+      const shortlinkUrl = 'https://www.rapbull.net/?p=3033';
+      const sender = { id: 'test-id', tab: { id: 1, url: permalinkUrl } };
+      const request = { url: shortlinkUrl };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+
+      expect(mockServices.storageService.getHighlights).toHaveBeenCalledWith(permalinkUrl);
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(permalinkUrl, []);
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalledWith(
+        shortlinkUrl,
+        []
+      );
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
         clearedCount: 2,

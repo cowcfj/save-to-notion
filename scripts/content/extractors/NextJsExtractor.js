@@ -13,6 +13,7 @@ import { NEXTJS_CONFIG } from '../../config/shared/content.js';
 import { isTitleConsistent } from '../../utils/contentUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import * as BbcBlockConverter from './blocks/BbcBlockConverter.js';
+import * as NextJsDataResolver from './NextJsDataResolver.js';
 import * as StoryAtomsConverter from './blocks/StoryAtomsConverter.js';
 
 const PAGES_ROUTER = 'pages-router';
@@ -172,7 +173,7 @@ export const NextJsExtractor = {
       }
 
       // 檢查 Pages Router 數據是否因 SPA 導航而過期
-      if (extractionSource === PAGES_ROUTER && !this._validatePagesRouterData(rawData, doc)) {
+      if (this._shouldSkipPagesRouterData(rawData, extractionSource, doc)) {
         return null;
       }
 
@@ -184,6 +185,13 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  _shouldSkipPagesRouterData(rawData, extractionSource, doc) {
+    if (extractionSource !== PAGES_ROUTER) {
+      return false;
+    }
+    return !this._validatePagesRouterData(rawData, doc);
   },
 
   /**
@@ -202,18 +210,20 @@ export const NextJsExtractor = {
         return null;
       }
 
-      if (extractionSource === PAGES_ROUTER) {
-        const validation = this._validatePagesRouterDataDetailed(rawData, doc);
-        if (!validation.isValid) {
-          if (validation.reason !== 'stale') {
-            return null;
-          }
-          const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
-          return fallbackResult || null;
-        }
+      if (extractionSource !== PAGES_ROUTER) {
+        return this._extractFromRawData(rawData, extractionSource, doc, action);
       }
 
-      return this._extractFromRawData(rawData, extractionSource, doc, action);
+      const validation = this._validatePagesRouterDataDetailed(rawData, doc);
+      if (validation.isValid) {
+        return this._extractFromRawData(rawData, extractionSource, doc, action);
+      }
+      if (validation.reason !== 'stale') {
+        return null;
+      }
+
+      const fallbackResult = await this._handleStalePagesRouterData(doc, rawData, action);
+      return fallbackResult;
     } catch (error) {
       Logger.error('Next.js 提取過程發生錯誤', {
         action,
@@ -230,12 +240,12 @@ export const NextJsExtractor = {
    * @returns {{ rawData: object|null, extractionSource: string }}
    */
   _resolveInitialData(doc) {
-    const rawPagesData = this._getPagesRouterData(doc);
+    const rawPagesData = NextJsDataResolver.getPagesRouterData(doc);
     if (rawPagesData) {
       return { rawData: rawPagesData, extractionSource: PAGES_ROUTER };
     }
 
-    const rawAppData = this._getAppRouterData(doc);
+    const rawAppData = NextJsDataResolver.getAppRouterData(doc);
     if (rawAppData) {
       return { rawData: rawAppData, extractionSource: APP_ROUTER };
     }
@@ -283,21 +293,39 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _findFirstComponentWithProps(components, preferredKeys) {
+    return (
+      this._findComponentByPreferredKeys(components, preferredKeys) ||
+      this._findFirstComponentEntryWithProps(components)
+    );
+  },
+
+  _findComponentByPreferredKeys(components, preferredKeys) {
     for (const key of preferredKeys) {
       const pageProps = getComponentPageProps(components[key]);
-      if (pageProps && Object.keys(pageProps).length > 0) {
-        return { props: { pageProps } };
-      }
-    }
-
-    for (const [, comp] of Object.entries(components)) {
-      const pageProps = getComponentPageProps(comp);
-      if (pageProps && Object.keys(pageProps).length > 0) {
+      if (this._hasPageProps(pageProps)) {
         return { props: { pageProps } };
       }
     }
 
     return null;
+  },
+
+  _findFirstComponentEntryWithProps(components) {
+    for (const [, comp] of Object.entries(components)) {
+      const pageProps = getComponentPageProps(comp);
+      if (this._hasPageProps(pageProps)) {
+        return { props: { pageProps } };
+      }
+    }
+
+    return null;
+  },
+
+  _hasPageProps(pageProps) {
+    if (!pageProps) {
+      return false;
+    }
+    return Object.keys(pageProps).length > 0;
   },
 
   /**
@@ -432,20 +460,26 @@ export const NextJsExtractor = {
    * @returns {boolean}
    */
   _isSpaNavigationFromHome(rawData, currentPath) {
-    return Boolean(rawData?.page && currentPath && rawData.page === '/' && currentPath !== '/');
+    if (!rawData?.page) {
+      return false;
+    }
+    if (!currentPath) {
+      return false;
+    }
+    if (rawData.page !== '/') {
+      return false;
+    }
+    return currentPath !== '/';
   },
 
-  /**
-   * SPA stale 偵測：__NEXT_DATA__.asPath 與當前路徑不匹配
-   *
-   * @param {object} rawData
-   * @param {string} currentPath
-   * @returns {boolean}
-   */
   _isAsPathStale(rawData, currentPath) {
-    return Boolean(
-      rawData?.asPath && currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)
-    );
+    if (!rawData?.asPath) {
+      return false;
+    }
+    if (!currentPath) {
+      return false;
+    }
+    return !this._isAsPathMatch(rawData.asPath, currentPath);
   },
 
   /**
@@ -458,7 +492,7 @@ export const NextJsExtractor = {
    * @returns {object|null}
    */
   _extractFromRawData(rawData, extractionSource, doc, action = 'NextJsExtractor.extract') {
-    const articleData = this._findArticleData(rawData);
+    const articleData = NextJsDataResolver.findArticleData(rawData);
 
     if (!articleData) {
       Logger.info('在數據中未找到結構化文章內容，將使用標準提取', {
@@ -503,7 +537,7 @@ export const NextJsExtractor = {
     const metadata = Object.fromEntries(
       Object.entries(ARTICLE_METADATA_PATHS).map(([field, paths]) => [
         field,
-        paths.map(path => this._getValueByPath(articleData, path)).find(Boolean),
+        paths.map(path => NextJsDataResolver.getValueByPath(articleData, path)).find(Boolean),
       ])
     );
 
@@ -657,7 +691,7 @@ export const NextJsExtractor = {
    */
   _buildNormalizedProps(payload) {
     const pageProps =
-      PAYLOAD_PAGEPROPS_PATHS.map(path => this._getValueByPath(payload, path)).find(
+      PAYLOAD_PAGEPROPS_PATHS.map(path => NextJsDataResolver.getValueByPath(payload, path)).find(
         value => value !== undefined && value !== null
       ) ?? payload;
 
@@ -677,14 +711,15 @@ export const NextJsExtractor = {
     const rawBlocks = [...this._getStructuredContentBlocks(articleData)];
 
     // [BBC] 偵測 BBC {type, model} 巢狀格式，使用專用轉換器
-    if (rawBlocks.length > 0 && this._isBbcFormat(rawBlocks)) {
+    if (this._shouldUseBbcConverter(rawBlocks)) {
       return this._convertBbcBlocks(rawBlocks);
     }
 
+    if (this._shouldUseStoryAtomsFallback(articleData, rawBlocks)) {
+      return this._convertStoryAtoms(articleData.storyAtoms);
+    }
+
     if (rawBlocks.length === 0) {
-      if (this._hasStoryAtoms(articleData)) {
-        return this._convertStoryAtoms(articleData.storyAtoms);
-      }
       this._appendYahooBodyOrMarkupBlock(articleData, rawBlocks);
     }
 
@@ -696,6 +731,20 @@ export const NextJsExtractor = {
     }
 
     return this.convertBlocks(rawBlocks);
+  },
+
+  _shouldUseBbcConverter(rawBlocks) {
+    if (rawBlocks.length === 0) {
+      return false;
+    }
+    return this._isBbcFormat(rawBlocks);
+  },
+
+  _shouldUseStoryAtomsFallback(articleData, rawBlocks) {
+    if (rawBlocks.length > 0) {
+      return false;
+    }
+    return this._hasStoryAtoms(articleData);
   },
 
   /**
@@ -759,509 +808,6 @@ export const NextJsExtractor = {
         .replaceAll(/<br\s*\/?>/gi, '\n')
         .trim(),
     });
-  },
-
-  /**
-   * 遞歸查找文章數據
-   *
-   * @param {object} data
-   * @returns {object|null}
-   */
-  _findArticleData(data) {
-    if (!data) {
-      return null;
-    }
-
-    // 1. 嘗試已知路徑 (Fast Path)
-    // 對於 App Router，需要在每個 fragment 中搜索
-    const searchTargets = data.appRouterFragments ? [...data.appRouterFragments, data] : [data];
-
-    const result = this._searchByKnownPaths(searchTargets);
-    if (result) {
-      return result;
-    }
-
-    // 2. 啟發式搜索 (Slow Path / Deep Search)
-    Logger.log('NextJsExtractor: 使用啟發式搜索');
-    return this._heuristicSearch(data);
-  },
-
-  /**
-   * 檢查提取到的結果是否含有可用的文章內容結構
-   *
-   * @param {object} result
-   * @returns {boolean}
-   */
-  _resultHasUsableContent(result) {
-    if (!result) {
-      return false;
-    }
-
-    const detectors = [
-      () => Array.isArray(result.blocks),
-      () => Array.isArray(result.content?.model?.blocks),
-      () => typeof result.content === 'string',
-      () => typeof result.body === 'string',
-      () => typeof result.markup === 'string',
-      () => Array.isArray(result.storyAtoms),
-    ];
-
-    return detectors.some(detect => detect());
-  },
-
-  /**
-   * 在目標對象列表中使用已知路徑搜索數據
-   *
-   * @param {Array<object>} targets
-   * @returns {object|null}
-   */
-  _searchByKnownPaths(targets) {
-    for (const target of targets) {
-      if (!target || typeof target !== 'object') {
-        continue;
-      }
-
-      for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
-        const result = this._getValueByPath(target, path);
-
-        if (result && this._resultHasUsableContent(result)) {
-          Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
-          return result;
-        }
-      }
-    }
-    return null;
-  },
-
-  /**
-   * 獲取 Pages Router 數據
-   *
-   * @param {Document} doc
-   * @returns {object|null}
-   */
-  _getPagesRouterData(doc) {
-    const script = doc.querySelector('#__NEXT_DATA__');
-    if (!script) {
-      return null;
-    }
-
-    const jsonData = script.textContent;
-    if (jsonData && jsonData.length <= NEXTJS_CONFIG.MAX_JSON_SIZE) {
-      try {
-        return JSON.parse(jsonData);
-      } catch (error) {
-        Logger.warn('解析 __NEXT_DATA__ 失敗', { error: error.message });
-      }
-    } else {
-      Logger.warn('Next.js 數據過大或為空', {
-        length: jsonData?.length,
-      });
-    }
-    return null;
-  },
-
-  /**
-   * App Router 數據提取
-   * 解析 self.__next_f.push 的內容
-   *
-   * @param {Document} doc
-   * @returns {object|null}
-   */
-  _getAppRouterData(doc) {
-    const scripts = doc.querySelectorAll(NEXTJS_CONFIG.APP_ROUTER_SELECTOR);
-    const fragments = [];
-
-    scripts.forEach(script => {
-      const scriptFragments = this._parseAppRouterScript(script.textContent);
-      fragments.push(...scriptFragments);
-    });
-
-    if (fragments.length === 0) {
-      return null;
-    }
-
-    return { appRouterFragments: fragments };
-  },
-
-  /**
-   * 解析 App Router 腳本內容
-   *
-   * @param {string} content
-   * @returns {Array} fragments
-   */
-  _parseAppRouterScript(content) {
-    if (!content?.includes('self.__next_f.push')) {
-      return [];
-    }
-
-    const fragments = [];
-    const parts = content.split('self.__next_f.push(');
-
-    // 第一個 part 是 push 之前的內容 (通常是空的或 misc)，跳過
-    for (let i = 1; i < parts.length; i++) {
-      const part = parts[i];
-      // part 應該是以 JSON 開始，後面跟著 ')' 和可能的 ';' 或換行
-      // 我們需要找到最後一個 ')'
-      const lastParen = part.lastIndexOf(')');
-
-      if (lastParen !== -1) {
-        const potentialJson = part.slice(0, lastParen);
-        try {
-          const args = JSON.parse(potentialJson);
-          if (Array.isArray(args) && args.length > 1) {
-            fragments.push(this._parseRscPayload(args[1]));
-          }
-        } catch {
-          // 忽略解析錯誤
-        }
-      }
-    }
-
-    return fragments;
-  },
-
-  /**
-   * 解析 RSC Payload
-   * 嘗試將 "1:{"... 格式的字串解析為對象
-   *
-   * @param {any} chunk
-   * @returns {any}
-   */
-  _parseRscPayload(chunk) {
-    if (typeof chunk !== 'string') {
-      return chunk;
-    }
-
-    const objects = this._parseMultiLineRsc(chunk);
-
-    if (objects.length > 1) {
-      return { _rscItems: objects };
-    }
-    if (objects.length === 1) {
-      return objects[0];
-    }
-
-    return this._fallbackParseRsc(chunk) || chunk;
-  },
-
-  /**
-   * 解析多行 RSC 內容
-   *
-   * @param {string} chunk
-   * @returns {Array<object>}
-   */
-  _parseMultiLineRsc(chunk) {
-    const lines = chunk.split('\n').filter(line => line.trim());
-    const objects = [];
-
-    for (const line of lines) {
-      const parsed = this._tryParseRscLine(line);
-      if (parsed) {
-        objects.push(parsed);
-      }
-    }
-    return objects;
-  },
-
-  /**
-   * 嘗試解析單行 RSC
-   *
-   * @param {string} line
-   * @returns {object|null}
-   */
-  _tryParseRscLine(line) {
-    try {
-      const colonIndex = line.indexOf(':');
-      if (colonIndex !== -1) {
-        const payload = line.slice(colonIndex + 1);
-        if (payload.startsWith('{') || payload.startsWith('[')) {
-          const parsed = JSON.parse(payload);
-          const extracted = this._extractRscDataObject(parsed);
-
-          if (extracted) {
-            return extracted;
-          }
-          if (typeof parsed === 'object' && parsed !== null) {
-            return parsed;
-          }
-        }
-      }
-    } catch {
-      // 忽略單行解析錯誤
-    }
-    return null;
-  },
-
-  /**
-   * 回退：嘗試解析整個 chunk
-   *
-   * @param {string} chunk
-   * @returns {object|null}
-   */
-  _fallbackParseRsc(chunk) {
-    try {
-      const colonIndex = chunk.indexOf(':');
-      if (colonIndex !== -1) {
-        const payload = chunk.slice(colonIndex + 1);
-        if (payload.startsWith('{') || payload.startsWith('[')) {
-          const parsed = JSON.parse(payload);
-          const extracted = this._extractRscDataObject(parsed);
-          return extracted || parsed;
-        }
-      }
-    } catch {
-      // 解析失敗
-    }
-    return null;
-  },
-
-  /**
-   * 提取 RSC 陣列中的數據對象
-   * Yahoo RSC 格式: ["$", "$L2a", null, { pageData: {...} }]
-   *
-   * @param {any} parsed
-   * @returns {object|null}
-   */
-  _extractRscDataObject(parsed) {
-    if (!Array.isArray(parsed)) {
-      return null;
-    }
-    // RSC 陣列格式: ["$", "$L...", null, { actualData }]
-    // 檢查 index 3 是否為對象
-    if (parsed.length >= 4 && typeof parsed[3] === 'object' && parsed[3] !== null) {
-      return parsed[3];
-    }
-    // 有時數據在其他索引位置，搜索第一個有意義的對象
-    return parsed.find(item => this._isMeaningfulObject(item)) ?? null;
-  },
-
-  /**
-   * 判定是否為有意義的非空、非 array 物件（RSC payload 候選）
-   *
-   * @param {any} value
-   * @returns {boolean}
-   */
-  _isMeaningfulObject(value) {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      Object.keys(value).length > 0
-    );
-  },
-
-  /**
-   * 啟發式搜索
-   * 遞歸遍歷物件，尋找最像文章數據的節點
-   *
-   * @param {object} root
-   * @param {number} depth
-   * @param {number} maxDepth
-   * @returns {object|null}
-   */
-  _heuristicSearch(root, depth = 0, maxDepth = 6) {
-    if (depth > maxDepth || !root || typeof root !== 'object') {
-      return null;
-    }
-
-    // 1. 計算當前節點分數
-    const score = this._calculateScore(root);
-
-    if (score >= 35) {
-      Logger.log(`NextJsExtractor: 找到高可信度節點 (分數=${score})`);
-      return root;
-    }
-
-    // 2. 遞歸遍歷子節點
-    return this._searchChildren(root, depth, maxDepth);
-  },
-
-  /**
-   * 遞歸遍歷子節點
-   *
-   * @param {object} root
-   * @param {number} depth
-   * @param {number} maxDepth
-   * @returns {object|null}
-   */
-  _searchChildren(root, depth, maxDepth) {
-    for (const key in root) {
-      if (this._shouldSkipKey(key)) {
-        continue;
-      }
-
-      const value = root[key];
-      // 只遍歷物件或陣列
-      if (typeof value === 'object' && value !== null) {
-        const candidate = this._heuristicSearch(value, depth + 1, maxDepth);
-        if (candidate) {
-          return candidate;
-        }
-      }
-    }
-    return null;
-  },
-
-  /**
-   * 檢查是否應跳過遍歷該鍵
-   *
-   * @param {string} key
-   * @returns {boolean}
-   */
-  _shouldSkipKey(key) {
-    const lowerKey = key.toLowerCase();
-    return NEXTJS_CONFIG.HEURISTIC_PATTERNS.EXCLUDE_KEYS.some(exclude => {
-      const lowerExclude = exclude.toLowerCase();
-      // 統一轉為小寫比對，確保像 'MyPOSTARTICLESTREAMData' 這樣的大小寫混合鍵名也能被過濾
-      return lowerKey === lowerExclude || lowerKey.includes(lowerExclude);
-    });
-  },
-
-  /**
-   * 計算節點分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _calculateScore(node) {
-    if (!node || typeof node !== 'object') {
-      return 0;
-    }
-
-    let score = 0;
-    score += this._scoreStandardBlocks(node);
-    score += this._scoreStructureAndText(node);
-    score += this._scoreSpecialCmsFields(node);
-
-    return score;
-  },
-
-  /**
-   * 計算標準區塊分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreStandardBlocks(node) {
-    let score = 0;
-    // 規則 1: 包含 blocks 陣列且非空
-    if (Array.isArray(node.blocks) && node.blocks.length > 0) {
-      score += 50;
-    }
-    // 規則 2: 包含 htmlTokens (HK01 特有)
-    // 提高權重，因為這通常是我們想要的內容
-    if (Array.isArray(node.htmlTokens) && node.htmlTokens.length > 0) {
-      score += 60;
-    }
-    // 規則 3: 包含 rich_text (Notion 格式)
-    if (Array.isArray(node.rich_text)) {
-      score += 30;
-    }
-    return score;
-  },
-
-  /**
-   * 計算鍵名（標題、作者）維度的特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreKeysDimension(node) {
-    let score = 0;
-    if (node.title && typeof node.title === 'string') {
-      score += 10;
-    }
-    if (node.author) {
-      score += 5;
-    }
-    return score;
-  },
-
-  /**
-   * 計算文章結構維度（如段落陣列）的特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreStructuralDimension(node) {
-    let score = 0;
-    if (Array.isArray(node.paragraphs) && node.paragraphs.length > 0) {
-      score += 40;
-    }
-    return score;
-  },
-
-  /**
-   * 計算文本與內文維度（如 text 或 content 長度）的特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreContentDimension(node) {
-    let score = 0;
-    if (node.text && typeof node.text === 'string' && node.id) {
-      score += 15;
-    }
-    if (node.content && typeof node.content === 'string' && node.content.length > 100) {
-      score += 20;
-    }
-    return score;
-  },
-
-  /**
-   * 計算結構和文本特徵分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreStructureAndText(node) {
-    let score = 0;
-    score += this._scoreKeysDimension(node);
-    score += this._scoreStructuralDimension(node);
-    score += this._scoreContentDimension(node);
-    return score;
-  },
-
-  /**
-   * 計算特殊 CMS 欄位分數
-   *
-   * @param {object} node
-   * @returns {number}
-   */
-  _scoreSpecialCmsFields(node) {
-    let score = 0;
-    // 規則 6: Yahoo 風格的 body 欄位（HTML 字串）
-    if (node.body && typeof node.body === 'string' && node.body.length > 200) {
-      score += 40;
-    }
-    // 規則 7: 包含 markup 欄位
-    if (node.markup && typeof node.markup === 'string') {
-      score += 35;
-    }
-    // 規則 8: Yahoo storyAtoms
-    if (Array.isArray(node.storyAtoms) && node.storyAtoms.length > 0) {
-      score += 60;
-    }
-    return score;
-  },
-
-  /**
-   * 根據路徑獲取對象值
-   *
-   * @param {object} obj
-   * @param {string} path 'a.b.c'
-   * @returns {any}
-   */
-  _getValueByPath(obj, path) {
-    const parts = path.split('.');
-    let current = obj;
-    for (const part of parts) {
-      if (current === null || current === undefined) {
-        return undefined;
-      }
-      current = current[part];
-    }
-    return current;
   },
 
   /**
@@ -1379,6 +925,10 @@ export const NextJsExtractor = {
    * @returns {Array<object>|object}
    */
   _convertSingleBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return [];
+    }
+
     const preConverted =
       this._convertSummaryBlock(block) ||
       this._convertHtmlTokensBlock(block) ||
@@ -1456,19 +1006,31 @@ export const NextJsExtractor = {
    * @returns {Array|null}
    */
   _convertSummaryBlock(block) {
-    if (block.blockType === 'summary' && Array.isArray(block.summary)) {
-      const summaryText = block.summary.join('\n');
-      return [
-        {
-          object: 'block',
-          type: 'quote',
-          quote: {
-            rich_text: this._createRichTextChunks(summaryText),
-          },
-        },
-      ];
+    if (!this._isSummaryBlock(block)) {
+      return null;
     }
-    return null;
+
+    const summaryText = block.summary.join('\n');
+    return [
+      {
+        object: 'block',
+        type: 'quote',
+        quote: {
+          rich_text: this._createRichTextChunks(summaryText),
+        },
+      },
+    ];
+  },
+
+  _isSummaryBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+
+    if (block.blockType !== 'summary') {
+      return false;
+    }
+    return Array.isArray(block.summary);
   },
 
   /**
@@ -1477,33 +1039,59 @@ export const NextJsExtractor = {
    * @param {object} block
    * @returns {Array|null}
    */
-  _convertHtmlTokensBlock(block) {
-    if (block.blockType === 'text' && Array.isArray(block.htmlTokens)) {
-      const paragraphs = [];
-      block.htmlTokens.forEach(tokenGroup => {
-        if (Array.isArray(tokenGroup)) {
-          let paragraphText = '';
-          tokenGroup.forEach(token => {
-            // 處理所有包含 content 的 token 類型 (e.g. text, specific-link, boldLink)
-            if (token.content) {
-              paragraphText += token.content;
-            }
-          });
-
-          if (paragraphText.trim()) {
-            paragraphs.push({
-              object: 'block',
-              type: 'paragraph',
-              paragraph: {
-                rich_text: this._createRichTextChunks(paragraphText),
-              },
-            });
-          }
-        }
-      });
-      return paragraphs;
+  /**
+   * 提取 HTML token 組的文字內容
+   *
+   * @param {Array} tokenGroup
+   * @returns {string}
+   */
+  _extractHtmlTokenGroupText(tokenGroup) {
+    if (!Array.isArray(tokenGroup)) {
+      return '';
     }
-    return null;
+    return tokenGroup.map(token => token?.content || '').join('');
+  },
+
+  /**
+   * 建立 HTML token 的段落區塊
+   *
+   * @param {Array} tokenGroup
+   * @returns {object|null}
+   */
+  _buildHtmlTokenParagraph(tokenGroup) {
+    const paragraphText = this._extractHtmlTokenGroupText(tokenGroup);
+    if (!paragraphText.trim()) {
+      return null;
+    }
+
+    return {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: this._createRichTextChunks(paragraphText),
+      },
+    };
+  },
+
+  _convertHtmlTokensBlock(block) {
+    if (!this._isHtmlTokensBlock(block)) {
+      return null;
+    }
+
+    return block.htmlTokens
+      .map(tokenGroup => this._buildHtmlTokenParagraph(tokenGroup))
+      .filter(Boolean);
+  },
+
+  _isHtmlTokensBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+
+    if (block.blockType !== 'text') {
+      return false;
+    }
+    return Array.isArray(block.htmlTokens);
   },
 
   /**
@@ -1513,17 +1101,29 @@ export const NextJsExtractor = {
    * @returns {Array|null}
    */
   _convertListBlock(block) {
-    if (block.blockType === 'list' && Array.isArray(block.items)) {
-      const listType = block.ordered ? 'numbered_list_item' : 'bulleted_list_item';
-      return block.items.map(item => ({
-        object: 'block',
-        type: listType,
-        [listType]: {
-          rich_text: this._createRichTextChunks(this._stripHtml(item)),
-        },
-      }));
+    if (!this._isListBlock(block)) {
+      return null;
     }
-    return null;
+
+    const listType = block.ordered ? 'numbered_list_item' : 'bulleted_list_item';
+    return block.items.map(item => ({
+      object: 'block',
+      type: listType,
+      [listType]: {
+        rich_text: this._createRichTextChunks(this._stripHtml(item)),
+      },
+    }));
+  },
+
+  _isListBlock(block) {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+
+    if (block.blockType !== 'list') {
+      return false;
+    }
+    return Array.isArray(block.items);
   },
 
   /**

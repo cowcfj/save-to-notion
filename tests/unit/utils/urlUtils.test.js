@@ -294,6 +294,33 @@ describe('urlUtils', () => {
         const routeInfo = { page: '/[id]/[slug]', query: { id: '1', slug: 'test' } };
         expect(buildStableUrlFromNextData(routeInfo, 'not-a-url')).toBeNull();
       });
+
+      it('應該拒絕相對 originalUrl 且不記錄錯誤', () => {
+        const routeInfo = { page: '/[id]/[slug]', query: { id: '1', slug: 'test' } };
+        const originalSelf = globalThis.self;
+
+        try {
+          globalThis.self = globalThis;
+          globalThis.Logger.error.mockClear();
+          jest.resetModules();
+          const {
+            buildStableUrlFromNextData: buildStableUrlWithLogger,
+          } = require('../../../scripts/utils/urlUtils.js');
+
+          expect(buildStableUrlWithLogger(routeInfo, '/news/1/test')).toBeNull();
+          expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
+            'buildStableUrlFromNextData 失敗',
+            expect.anything()
+          );
+        } finally {
+          if (originalSelf === undefined) {
+            delete globalThis.self;
+          } else {
+            globalThis.self = originalSelf;
+          }
+          jest.resetModules();
+        }
+      });
     });
   });
 

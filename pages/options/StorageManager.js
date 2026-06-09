@@ -24,6 +24,117 @@ import {
 } from './storageDataUtils.js';
 
 /**
+ * 驗證備份數據是否為合法的非陣列物件
+ *
+ * @param {any} data
+ * @returns {boolean}
+ */
+function isBackupDataObject(data) {
+  return data !== null && typeof data === 'object' && !Array.isArray(data);
+}
+
+const STATUS_TYPE_ICONS = {
+  success: UI_ICONS.SUCCESS,
+  error: UI_ICONS.ERROR,
+  warning: UI_ICONS.WARNING,
+  info: UI_ICONS.INFO,
+};
+
+const CLEANUP_SUMMARY_DESCRIPTORS = [
+  { key: 'emptyRecords', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_EMPTY_RECORDS },
+  { key: 'orphanRecords', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_ORPHAN_RECORDS },
+  { key: 'migrationLeftovers', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_MIGRATION_LEFTOVERS },
+  { key: 'corruptedRecords', label: UI_MESSAGES.STORAGE.CLEANUP_SUMMARY_CORRUPTED_RECORDS },
+];
+
+/**
+ * 解析存儲空間使用狀態（樣式類與顯示狀態）
+ *
+ * @param {number} usedMB
+ * @param {string} displayUsedMB
+ * @returns {{fillClass: 'danger'|'warning'|null, statusType: 'error'|'warning'|null, statusMessage: string|null}}
+ */
+function resolveUsageDisplayState(usedMB, displayUsedMB) {
+  if (usedMB > 100) {
+    const alertIcon = UI_ICONS.WARNING;
+    return {
+      fillClass: 'danger',
+      statusType: 'error',
+      statusMessage: `${alertIcon} ${UI_MESSAGES.STORAGE.USAGE_TOO_LARGE(displayUsedMB)}`,
+    };
+  }
+  if (usedMB > 80) {
+    const icon = UI_ICONS.WARNING;
+    return {
+      fillClass: 'danger',
+      statusType: 'warning',
+      statusMessage: `${icon} ${UI_MESSAGES.STORAGE.USAGE_LARGE(displayUsedMB)}`,
+    };
+  }
+  if (usedMB > 50) {
+    return {
+      fillClass: 'warning',
+      statusType: null,
+      statusMessage: null,
+    };
+  }
+  return {
+    fillClass: null,
+    statusType: null,
+    statusMessage: null,
+  };
+}
+
+/**
+ * 依優先序解析健康度主狀態
+ *
+ * @param {object} report
+ * @returns {{ className: 'health-error'|'health-warning'|'health-ok', message: string }}
+ */
+function resolveHealthMainStatus(report) {
+  const { corruptedData, migrationKeys, migrationDataSize, cleanupPlan } = report;
+
+  if (corruptedData.length > 0) {
+    return {
+      className: 'health-error',
+      message: UI_MESSAGES.STORAGE.HEALTH_CORRUPTED(corruptedData.length),
+    };
+  }
+
+  if (migrationKeys > 0) {
+    const migrationSizeKB = (migrationDataSize / 1024).toFixed(1);
+    return {
+      className: 'health-warning',
+      message: UI_MESSAGES.STORAGE.HEALTH_MIGRATION_LEFTOVERS(migrationKeys, migrationSizeKB),
+    };
+  }
+
+  if (cleanupPlan.totalKeys > 0) {
+    return {
+      className: 'health-warning',
+      message: UI_MESSAGES.STORAGE.HEALTH_NEEDS_CLEANUP,
+    };
+  }
+
+  return {
+    className: 'health-ok',
+    message: UI_MESSAGES.STORAGE.HEALTH_OK,
+  };
+}
+
+/**
+ * 建立清理摘要的部分字串
+ *
+ * @param {object} summary
+ * @returns {string[]}
+ */
+function buildCleanupSummaryParts(summary) {
+  return CLEANUP_SUMMARY_DESCRIPTORS.filter(({ key }) => summary[key] > 0).map(
+    ({ key, label }) => `${summary[key]} ${label}`
+  );
+}
+
+/**
  * 管理存儲空間的 UI 控制層
  * 負責展示、事件纁定與用戶交互。
  * 純數據邏輯請參閱 storageDataUtils.js
@@ -138,8 +249,7 @@ export class StorageManager {
       const backup = JSON.parse(text);
 
       // 防呆檢查：確保是有效的備份格式（基本結構檢查）
-      // 要求 backup.data 必須存在，必須是物件，且不能是陣列
-      if (!backup?.data || typeof backup.data !== 'object' || Array.isArray(backup.data)) {
+      if (!isBackupDataObject(backup?.data)) {
         throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
       }
 
@@ -238,9 +348,64 @@ export class StorageManager {
    */
   _cancelImport() {
     this.showDataStatus(UI_MESSAGES.STORAGE.IMPORT_CANCELED, 'info');
+    this._clearImportFileInput();
+  }
+
+  /**
+   * 清除匯入檔案輸入框的選取值
+   *
+   * @private
+   */
+  _clearImportFileInput() {
     if (this.elements.importFile) {
       this.elements.importFile.value = '';
     }
+  }
+
+  /**
+   * 判定並回傳無需進行任何匯入操作時的無效操作訊息
+   *
+   * @private
+   * @param {object} params
+   * @param {number} params.effectiveNewCount
+   * @param {number} params.conflictSkipCount
+   * @returns {string}
+   */
+  _resolveImportNoWorkMessage({ effectiveNewCount, conflictSkipCount }) {
+    return effectiveNewCount === 0 && conflictSkipCount > 0
+      ? UI_MESSAGES.STORAGE.IMPORT_NEW_ONLY_ALL_CONFLICTS(conflictSkipCount)
+      : UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO;
+  }
+
+  /**
+   * 完成成功匯入後的狀態顯示、日誌記錄與頁面重整排程
+   *
+   * @private
+   * @param {object} params
+   * @param {number} params.effectiveNewCount
+   * @param {number} params.effectiveOverwriteCount
+   * @param {number} params.displaySkipCount
+   */
+  _finishSuccessfulImport({ effectiveNewCount, effectiveOverwriteCount, displaySkipCount }) {
+    const icon = UI_ICONS.SUCCESS;
+    this.showDataStatus(
+      `${icon} ${UI_MESSAGES.STORAGE.IMPORT_SUCCESS(effectiveNewCount, effectiveOverwriteCount, displaySkipCount)}`,
+      'success'
+    );
+    Logger.success('匯入完成', {
+      action: 'import_backup',
+      result: 'success',
+      addedCount: effectiveNewCount,
+      overwrittenCount: effectiveOverwriteCount,
+      skippedCount: displaySkipCount,
+    });
+
+    this._clearImportFileInput();
+
+    // 保留現行為：2 秒後 reload，讓統計與健康度反映新資料
+    setTimeout(() => {
+      globalThis.location.reload();
+    }, 2000);
   }
 
   /**
@@ -268,14 +433,12 @@ export class StorageManager {
 
       if (!hasWork) {
         // 區分「真正無差異」與「new-only 模式下全為衝突」兩種 no-op 情境
-        const message =
-          effectiveNewCount === 0 && conflictSkipCount > 0
-            ? UI_MESSAGES.STORAGE.IMPORT_NEW_ONLY_ALL_CONFLICTS(conflictSkipCount)
-            : UI_MESSAGES.STORAGE.IMPORT_NOTHING_TO_DO;
+        const message = this._resolveImportNoWorkMessage({
+          effectiveNewCount,
+          conflictSkipCount,
+        });
         this.showDataStatus(message, 'info');
-        if (this.elements.importFile) {
-          this.elements.importFile.value = '';
-        }
+        this._clearImportFileInput();
         return;
       }
 
@@ -302,27 +465,11 @@ export class StorageManager {
         }
       }
 
-      const icon = UI_ICONS.SUCCESS;
-      this.showDataStatus(
-        `${icon} ${UI_MESSAGES.STORAGE.IMPORT_SUCCESS(effectiveNewCount, effectiveOverwriteCount, displaySkipCount)}`,
-        'success'
-      );
-      Logger.success('匯入完成', {
-        action: 'import_backup',
-        result: 'success',
-        addedCount: effectiveNewCount,
-        overwrittenCount: effectiveOverwriteCount,
-        skippedCount: displaySkipCount,
+      this._finishSuccessfulImport({
+        effectiveNewCount,
+        effectiveOverwriteCount,
+        displaySkipCount,
       });
-
-      if (this.elements.importFile) {
-        this.elements.importFile.value = '';
-      }
-
-      // 保留現行為：2 秒後 reload，讓統計與健康度反映新資料
-      setTimeout(() => {
-        globalThis.location.reload();
-      }, 2000);
     } catch (error) {
       this._handleImportFailure(error);
     }
@@ -340,9 +487,7 @@ export class StorageManager {
     const safeMessage = sanitizeApiError(error, 'import_backup');
     const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
     this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.IMPORT_FAILED}${errorMsg}`, 'error');
-    if (this.elements.importFile) {
-      this.elements.importFile.value = '';
-    }
+    this._clearImportFileInput();
   }
 
   /**
@@ -457,34 +602,23 @@ export class StorageManager {
     const usedMB = Number.parseFloat(usage.usedMB);
 
     this.elements.usageFill.className = 'usage-fill';
-    if (usedMB > 80) {
-      this.elements.usageFill.classList.add('danger');
-    } else if (usedMB > 50) {
-      this.elements.usageFill.classList.add('warning');
+    const { fillClass, statusType, statusMessage } = resolveUsageDisplayState(usedMB, usage.usedMB);
+    if (fillClass) {
+      this.elements.usageFill.classList.add(fillClass);
     }
 
     this.elements.usagePercentage.textContent = `${usage.percentage}%`;
 
-    if (usage.isUnlimited) {
-      this.elements.usageDetails.textContent = `${usage.usedMB} MB（無限存儲）`;
-    } else {
-      this.elements.usageDetails.textContent = `${usage.usedMB} MB`;
-    }
+    this.elements.usageDetails.textContent = usage.isUnlimited
+      ? `${usage.usedMB} MB（無限存儲）`
+      : `${usage.usedMB} MB`;
 
     this.elements.pagesCount.textContent = usage.pages.toLocaleString();
     this.elements.highlightsCount.textContent = usage.highlights.toLocaleString();
     this.elements.configCount.textContent = usage.configs;
 
-    // 條件判斷順序：先檢查更高的閾值（>100MB），再檢查較低的閾值（>80MB）
-    if (usedMB > 100) {
-      const alertIcon = UI_ICONS.WARNING;
-      this.showDataStatus(
-        `${alertIcon} ${UI_MESSAGES.STORAGE.USAGE_TOO_LARGE(usage.usedMB)}`,
-        'error'
-      );
-    } else if (usedMB > 80) {
-      const icon = UI_ICONS.WARNING;
-      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.USAGE_LARGE(usage.usedMB)}`, 'warning');
+    if (statusMessage) {
+      this.showDataStatus(statusMessage, statusType);
     }
   }
 
@@ -502,10 +636,9 @@ export class StorageManager {
     el.textContent = '';
     el.className = 'health-status';
 
-    const { corruptedData, migrationKeys, migrationDataSize, legacySavedKeys, cleanupPlan } =
-      report;
+    const { legacySavedKeys, cleanupPlan } = report;
 
-    this._renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize, cleanupPlan);
+    this._renderHealthMainStatus(el, report);
     this._renderLegacySavedInfo(el, legacySavedKeys);
     this._renderCleanupSummary(el, cleanupPlan);
   }
@@ -519,40 +652,17 @@ export class StorageManager {
    * 3. cleanupPlan.totalKeys > 0 → warning（HEALTH_NEEDS_CLEANUP）
    * 否則 → HEALTH_OK
    *
-   * migrationKeys 必須先於 cleanupPlan.totalKeys / cleanupPlan.items 檢查，
-   * 確保 migration leftover 顯示 HEALTH_MIGRATION_LEFTOVERS，而不是一般 HEALTH_NEEDS_CLEANUP。
-   * 上述規則確保「有可清理項目時 MUST NOT 顯示 HEALTH_OK」，消除 UI 語意衝突。
-   *
    * @private
    * @param {HTMLElement} el 容器元素
-   * @param {Array} corruptedData 損壞數據清單
-   * @param {number} migrationKeys 升級殘留數量
-   * @param {number} migrationDataSize 升級殘留大小（bytes）
-   * @param {{ totalKeys: number }} cleanupPlan 清理計劃
+   * @param {object} report 健康度報告
    */
-  _renderHealthMainStatus(el, corruptedData, migrationKeys, migrationDataSize, cleanupPlan) {
-    const HEALTH_ITEM_CLASS = 'health-item';
-    const item = document.createElement('div');
-    item.className = HEALTH_ITEM_CLASS;
+  _renderHealthMainStatus(el, report) {
+    const { className, message } = resolveHealthMainStatus(report);
+    el.classList.add(className);
 
-    if (corruptedData.length > 0) {
-      el.classList.add('health-error');
-      item.textContent = UI_MESSAGES.STORAGE.HEALTH_CORRUPTED(corruptedData.length);
-    } else if (migrationKeys > 0) {
-      el.classList.add('health-warning');
-      const migrationSizeKB = (migrationDataSize / 1024).toFixed(1);
-      item.textContent = UI_MESSAGES.STORAGE.HEALTH_MIGRATION_LEFTOVERS(
-        migrationKeys,
-        migrationSizeKB
-      );
-    } else if (cleanupPlan.totalKeys > 0) {
-      // 有孤兒 / 空記錄等可清理項目，但無損壞也無 migration leftover：顯示 warning 而非 HEALTH_OK
-      el.classList.add('health-warning');
-      item.textContent = UI_MESSAGES.STORAGE.HEALTH_NEEDS_CLEANUP;
-    } else {
-      el.classList.add('health-ok');
-      item.textContent = UI_MESSAGES.STORAGE.HEALTH_OK;
-    }
+    const item = document.createElement('div');
+    item.className = 'health-item';
+    item.textContent = message;
     el.append(item);
   }
 
@@ -595,19 +705,7 @@ export class StorageManager {
     const summaryEl = document.createElement('div');
     summaryEl.className = 'health-item health-cleanup-summary';
 
-    const parts = [];
-    if (summary.emptyRecords > 0) {
-      parts.push(`${summary.emptyRecords} 個空記錄`);
-    }
-    if (summary.orphanRecords > 0) {
-      parts.push(`${summary.orphanRecords} 個孤兒資料`);
-    }
-    if (summary.migrationLeftovers > 0) {
-      parts.push(`${summary.migrationLeftovers} 個升級殘留`);
-    }
-    if (summary.corruptedRecords > 0) {
-      parts.push(`${summary.corruptedRecords} 個損壞項目`);
-    }
+    const parts = buildCleanupSummaryParts(summary);
 
     summaryEl.textContent = UI_MESSAGES.STORAGE.CLEANUP_SUMMARY(parts, spaceKB);
     el.append(summaryEl);
@@ -615,6 +713,63 @@ export class StorageManager {
     if (btn) {
       btn.classList.remove('hidden');
     }
+  }
+
+  /**
+   * 驗證最新與快照清理項，回傳有效的待清理項目
+   *
+   * @private
+   * @param {Array} cachedItems
+   * @param {Array} latestItems
+   * @returns {Array}
+   */
+  _resolveValidatedCleanupItems(cachedItems, latestItems) {
+    const latestItemsByKey = new Map(latestItems.map(item => [item.key, item]));
+    return cachedItems.map(item => latestItemsByKey.get(item.key)).filter(Boolean);
+  }
+
+  /**
+   * 將待清理 keys 從 storage 中移除
+   *
+   * @private
+   * @param {string[]} keysToRemove
+   * @returns {Promise<void>}
+   */
+  _removeStorageKeys(keysToRemove) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.remove(keysToRemove, () => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * 計算已釋放的總空間大小 (bytes)
+   *
+   * @private
+   * @param {Array} items
+   * @returns {number}
+   */
+  _calculateCleanupFreedBytes(items) {
+    return items.reduce(
+      (total, item) => total + (typeof item.size === 'number' ? item.size : 0),
+      0
+    );
+  }
+
+  /**
+   * 當發現無需任何清理時，更新健康度顯示並顯示無須清理狀態
+   *
+   * @private
+   * @param {object} latestReport
+   */
+  _showNoCleanupNeededFromLatestReport(latestReport) {
+    this.updateHealthDisplay(latestReport);
+    this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info', 'cleanupStatus');
   }
 
   /**
@@ -639,16 +794,13 @@ export class StorageManager {
       const latestReport = await getStorageHealthReport();
       this._lastHealthReport = latestReport;
 
-      const latestItemsByKey = new Map(
-        latestReport.cleanupPlan.items.map(item => [item.key, item])
+      const validatedItems = this._resolveValidatedCleanupItems(
+        cachedPlan.items,
+        latestReport.cleanupPlan.items
       );
-      const validatedItems = cachedPlan.items
-        .map(item => latestItemsByKey.get(item.key))
-        .filter(Boolean);
 
       if (validatedItems.length === 0) {
-        this.updateHealthDisplay(latestReport);
-        this.showDataStatus(UI_MESSAGES.STORAGE.NO_CLEANUP_NEEDED, 'info', 'cleanupStatus');
+        this._showNoCleanupNeededFromLatestReport(latestReport);
         return;
       }
 
@@ -660,20 +812,9 @@ export class StorageManager {
 
       const keysToRemove = validatedItems.map(item => item.key);
 
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.remove(keysToRemove, () => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        });
-      });
+      await this._removeStorageKeys(keysToRemove);
 
-      const actualFreed = validatedItems.reduce(
-        (total, item) => total + (typeof item.size === 'number' ? item.size : 0),
-        0
-      );
+      const actualFreed = this._calculateCleanupFreedBytes(validatedItems);
       const spaceKB = (actualFreed / 1024).toFixed(1);
       Logger.success('統一清理完成', {
         action: 'executeUnifiedCleanup',
@@ -723,92 +864,94 @@ export class StorageManager {
       return;
     }
 
-    // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
     const { icon, text } = separateIconAndText(message);
+    const safeIcon = this._resolveSafeStatusIcon(icon, type);
 
-    // SVG 安全驗證：使用 securityUtils 統一處理
-    // 即使預期只接收內部生成的 SVG，仍進行驗證作為縱深防禦
-    let safeIcon = icon;
-    if (icon && !validateSafeSvg(icon)) {
-      safeIcon = ''; // 拒絕不安全的 SVG
-    }
-
-    // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
-    if (!safeIcon) {
-      switch (type) {
-        case 'success': {
-          safeIcon = UI_ICONS.SUCCESS;
-          break;
-        }
-        case 'error': {
-          safeIcon = UI_ICONS.ERROR;
-          break;
-        }
-        case 'warning': {
-          safeIcon = UI_ICONS.WARNING;
-          break;
-        }
-        case 'info': {
-          safeIcon = UI_ICONS.INFO;
-          break;
-        }
-        default: {
-          safeIcon = UI_ICONS.INFO;
-          break;
-        }
-      }
-    }
-
-    // 清空內容
     targetElement.textContent = '';
 
-    // 如果有圖標，插入圖標
+    this._appendStatusIcon(targetElement, safeIcon);
+    this._appendStatusText(targetElement, text);
+
+    targetElement.classList.remove('success', 'error', 'info', 'warning');
+    targetElement.classList.add('status-message', type);
+  }
+
+  /**
+   * 解析出安全的狀態圖標，若不合法或不存在則套用 type 預設圖標
+   *
+   * @private
+   * @param {string} icon
+   * @param {string} type
+   * @returns {string}
+   */
+  _resolveSafeStatusIcon(icon, type) {
+    const safeIcon = icon && !validateSafeSvg(icon) ? '' : icon;
+    return safeIcon || STATUS_TYPE_ICONS[type] || UI_ICONS.INFO;
+  }
+
+  /**
+   * 將安全圖標附加至目標容器
+   *
+   * @private
+   * @param {HTMLElement} targetElement
+   * @param {string} safeIcon
+   */
+  _appendStatusIcon(targetElement, safeIcon) {
     if (safeIcon) {
       const iconSpan = createSafeIcon(safeIcon);
       iconSpan.className = 'status-icon';
       targetElement.append(iconSpan);
     }
+  }
 
-    // 使用 textContent 設置文本（防止 XSS），並支持換行
-    if (text) {
-      const textSpan = document.createElement('span');
-      textSpan.className = 'status-text';
-
-      // 處理換行符：將文本按 \n 分割，並插入 <br> 標籤
-      const lines = text.split('\n');
-      const numberRegex = /^\d+$/; // 嚴格匹配純數字
-
-      lines.forEach((line, index) => {
-        // Tokenization: 將字串分割為 [文字, 數字, 文字...]
-        // 使用 capture group Keeping the separator in the result
-        const tokens = line.split(/(\d+)/);
-
-        tokens.forEach(token => {
-          if (!token) {
-            return;
-          } // 忽略空字串
-
-          if (numberRegex.test(token)) {
-            // 如果是純數字，這是我們生成的數據，安全地套用樣式
-            const numSpan = document.createElement('span');
-            numSpan.className = 'highlight-primary';
-            numSpan.textContent = token; // 使用 textContent
-            textSpan.append(numSpan);
-          } else {
-            // 其他文字，使用 TextNode 自動轉義
-            textSpan.append(document.createTextNode(token));
-          }
-        });
-
-        if (index < lines.length - 1) {
-          textSpan.append(document.createElement('br'));
-        }
-      });
-
-      targetElement.append(textSpan);
+  /**
+   * 將狀態文本格式化（支援換行與數字高亮）並附加至目標容器
+   *
+   * @private
+   * @param {HTMLElement} targetElement
+   * @param {string} text
+   */
+  _appendStatusText(targetElement, text) {
+    if (!text) {
+      return;
     }
+    const textSpan = document.createElement('span');
+    textSpan.className = 'status-text';
 
-    targetElement.classList.remove('success', 'error', 'info', 'warning');
-    targetElement.classList.add('status-message', type);
+    const lines = text.split('\n');
+    lines.forEach((line, index) => {
+      this._appendTokenizedStatusLine(textSpan, line);
+      if (index < lines.length - 1) {
+        textSpan.append(document.createElement('br'));
+      }
+    });
+
+    targetElement.append(textSpan);
+  }
+
+  /**
+   * 將單行文本分詞，對其中的純數字套用高亮樣式後追加至 textSpan
+   *
+   * @private
+   * @param {HTMLElement} textSpan
+   * @param {string} line
+   */
+  _appendTokenizedStatusLine(textSpan, line) {
+    const tokens = line.split(/(\d+)/);
+    const numberRegex = /^\d+$/;
+
+    tokens.forEach(token => {
+      if (!token) {
+        return;
+      }
+      if (numberRegex.test(token)) {
+        const numSpan = document.createElement('span');
+        numSpan.className = 'highlight-primary';
+        numSpan.textContent = token;
+        textSpan.append(numSpan);
+      } else {
+        textSpan.append(document.createTextNode(token));
+      }
+    });
   }
 }
