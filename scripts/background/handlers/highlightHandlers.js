@@ -118,55 +118,67 @@ async function resolveSavedPageForHighlightUpdate({
 }
 
 /**
- * 核對 Notion 更新失敗是否代表遠端頁面已被刪除，並據此清理本地綁定
+ * 判斷是否應核對遠端頁面刪除狀態
  *
- * 僅處理「fetch_blocks 階段的 OBJECT_NOT_FOUND」失敗，其他情況回傳 null 交由
- * 呼叫端依正常流程繼續。採兩段式確認：首次僅標記 pending，再次才清除本地綁定；
- * 清除失敗時 re-arm pending token 供下次 sync 立即重試。
+ * @param {object} result - notionService 回傳結果
+ * @returns {boolean}
+ */
+function shouldReconcilePageDeletion(result) {
+  return (
+    !result.success &&
+    result.error === 'OBJECT_NOT_FOUND' &&
+    result.details?.phase === 'fetch_blocks'
+  );
+}
+
+/**
+ * 建構待確認刪除的 response
+ *
+ * @param {object} result - 原始 result 物件
+ * @returns {object}
+ */
+function buildPendingDeletionResponse(result) {
+  return {
+    ...result,
+    errorCode: 'PAGE_DELETION_PENDING',
+    error: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
+  };
+}
+
+/**
+ * 建構已確認刪除的 response
+ *
+ * @param {object} result - 原始 result 物件
+ * @returns {object}
+ */
+function buildConfirmedDeletionResponse(result) {
+  return {
+    ...result,
+    errorCode: 'PAGE_DELETED',
+    error: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
+  };
+}
+
+/**
+ * 處理已確認的遠端頁面刪除
  *
  * @param {object} params
- * @param {object} params.result - notionService.updateHighlightsSection 回傳結果
- * @param {string} params.pageId - 本地綁定的 Notion pageId
+ * @param {object} params.result - 原始 result 物件
+ * @param {string} params.pageId - Notion pageId
  * @param {string} params.resolvedUrl - 已解析的頁面 URL
+ * @param {string} params.shortPageId - pageId 短碼（前 4 個字符）
  * @param {object} params.tabService
  * @param {object} params.storageService
- * @returns {Promise<object|null>} 需直接回傳給用戶的 response，或 null 表示非刪除情境
+ * @returns {Promise<object>}
  */
-async function reconcileRemotePageMissing({
+async function handleConfirmedDeletion({
   result,
   pageId,
   resolvedUrl,
+  shortPageId,
   tabService,
   storageService,
 }) {
-  const isFetchBlocksObjectNotFound =
-    !result.success &&
-    result.error === 'OBJECT_NOT_FOUND' &&
-    result.details?.phase === 'fetch_blocks';
-  if (!isFetchBlocksObjectNotFound) {
-    return null;
-  }
-
-  // pageId 經上游 resolveSavedPageForHighlightUpdate 的 found-guard 後保證為非空字串
-  // （與下方 confirmRemotePageMissing(pageId) 的直接使用一致），log 短碼不需 optional/fallback
-  const shortPageId = pageId.slice(0, 4);
-  const deletionCheck = tabService.confirmRemotePageMissing(pageId);
-
-  if (!deletionCheck.shouldDelete) {
-    Logger.warn('同步標註時首次發現遠端頁面疑似已刪除，暫不清除本地 notion 綁定', {
-      action: 'performHighlightUpdate',
-      url: sanitizeUrlForLogging(resolvedUrl),
-      pageId: shortPageId,
-      result: 'pending',
-    });
-
-    return {
-      ...result,
-      errorCode: 'PAGE_DELETION_PENDING',
-      error: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
-    };
-  }
-
   Logger.warn('同步標註時確認遠端頁面已刪除，清除本地 notion 綁定', {
     action: 'performHighlightUpdate',
     url: sanitizeUrlForLogging(resolvedUrl),
@@ -207,11 +219,57 @@ async function reconcileRemotePageMissing({
     tabService.confirmRemotePageMissing(pageId);
   }
 
-  return {
-    ...result,
-    errorCode: 'PAGE_DELETED',
-    error: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
-  };
+  return buildConfirmedDeletionResponse(result);
+}
+
+/**
+ * 核對 Notion 更新失敗是否代表遠端頁面已被刪除，並據此清理本地綁定
+ *
+ * 僅處理「fetch_blocks 階段的 OBJECT_NOT_FOUND」失敗，其他情況回傳 null 交由
+ * 呼叫端依正常流程繼續。採兩段式確認：首次僅標記 pending，再次才清除本地綁定；
+ * 清除失敗時 re-arm pending token 供下次 sync 立即重試。
+ *
+ * @param {object} params
+ * @param {object} params.result - notionService.updateHighlightsSection 回傳結果
+ * @param {string} params.pageId - 本地綁定的 Notion pageId
+ * @param {string} params.resolvedUrl - 已解析的頁面 URL
+ * @param {object} params.tabService
+ * @param {object} params.storageService
+ * @returns {Promise<object|null>} 需直接回傳給用戶的 response，或 null 表示非刪除情境
+ */
+async function reconcileRemotePageMissing({
+  result,
+  pageId,
+  resolvedUrl,
+  tabService,
+  storageService,
+}) {
+  if (!shouldReconcilePageDeletion(result)) {
+    return null;
+  }
+
+  const shortPageId = pageId.slice(0, 4);
+  const deletionCheck = tabService.confirmRemotePageMissing(pageId);
+
+  if (!deletionCheck.shouldDelete) {
+    Logger.warn('同步標註時首次發現遠端頁面疑似已刪除，暫不清除本地 notion 綁定', {
+      action: 'performHighlightUpdate',
+      url: sanitizeUrlForLogging(resolvedUrl),
+      pageId: shortPageId,
+      result: 'pending',
+    });
+
+    return buildPendingDeletionResponse(result);
+  }
+
+  return await handleConfirmedDeletion({
+    result,
+    pageId,
+    resolvedUrl,
+    shortPageId,
+    tabService,
+    storageService,
+  });
 }
 
 /**
