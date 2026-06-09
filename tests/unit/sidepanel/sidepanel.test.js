@@ -270,6 +270,44 @@ describe('Sidepanel JS Logic', () => {
       expect(syncButton.disabled).toBe(true);
     });
 
+    it('[REGRESSION] 切換到不支援的分頁時應停用並清空 Open in Notion 按鈕', async () => {
+      const stableUrl = 'https://example.js/stable';
+      const originalTabUrl = 'https://example.js/saved-page';
+
+      chrome.tabs.get.mockResolvedValueOnce({ id: 299, url: originalTabUrl });
+      chrome.tabs.sendMessage.mockResolvedValueOnce({ stableUrl });
+      chrome.storage.local.get.mockImplementation(async key => {
+        if (Array.isArray(key)) {
+          return {
+            [`page_${stableUrl}`]: {
+              notion: { pageId: 'saved-page-123' },
+              highlights: [],
+            },
+          };
+        }
+        return {};
+      });
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 299 });
+      await flushMicrotasks();
+
+      const openNotionButton = document.querySelector('#open-notion-button');
+      expect(openNotionButton.style.display).toBe('inline-flex');
+      expect(openNotionButton.disabled).toBe(false);
+      expect(openNotionButton.dataset.targetUrl).toBe(originalTabUrl);
+
+      chrome.tabs.get.mockResolvedValueOnce({ id: 300, url: 'chrome://extensions' });
+      await onActivated({ tabId: 300 });
+      await flushMicrotasks();
+
+      expect(openNotionButton.style.display).toBe('none');
+      expect(openNotionButton.disabled).toBe(true);
+      expect(openNotionButton.dataset.targetUrl).toBeUndefined();
+      expect(openNotionButton.title).toBe('');
+      expect(openNotionButton.getAttribute('aria-label')).toBeNull();
+    });
+
     it('[REGRESSION] loadCurrentTab 失敗時應隱藏 banner 而非殘留先前狀態', async () => {
       expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
 
@@ -1869,6 +1907,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
   describe('deleteUnsyncedPage', () => {
     it('should remove the page from storage, cache, and DOM', async () => {
       const mockKey = 'highlights_https://example.com/delete-test';
+      const mockUrl = 'https://example.com/delete-test';
       const mockHl = { text: 'delete me', color: 'yellow', id: '1' };
 
       // 使用 initModule 正確初始化 sidepanel 的 DOM 與內部資源
@@ -1885,6 +1924,8 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
       // 模擬 Storage 剛好被清空的狀態（因為只有一台），使後續 getUnsyncedPages 回傳空陣列
       chrome.storage.local.get.mockResolvedValue({});
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+      chrome.tabs.query.mockResolvedValue([{ id: 777, url: mockUrl }]);
 
       // Action: 點擊刪除
       deleteBtn.click();
@@ -1892,6 +1933,15 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
       // Assert storage
       expect(chrome.storage.local.remove).toHaveBeenCalledWith(mockKey);
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+        url: mockUrl,
+        tabId: 777,
+      });
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(777, {
+        action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+        url: mockUrl,
+      });
 
       // Get the current unsynced count label
       const countLabel = document.querySelector('#unsynced-count-label');

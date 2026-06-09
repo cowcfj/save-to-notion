@@ -172,6 +172,7 @@ function resetSyncButtonForNoPage() {
   }
   if (els.openNotionButton) {
     els.openNotionButton.style.display = 'none';
+    els.openNotionButton.disabled = true;
     if (els.openNotionButton.dataset.targetUrl) {
       delete els.openNotionButton.dataset.targetUrl;
     }

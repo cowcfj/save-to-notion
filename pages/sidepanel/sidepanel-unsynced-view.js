@@ -42,6 +42,47 @@ function getStorageKeyType(storageKey) {
   return 'unknown';
 }
 
+async function getActiveTabIdForHighlightCleanup(pageUrl) {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tabs?.[0]?.id;
+  } catch (error) {
+    Logger.warn('[SidePanel] deleteUnsyncedPage: active tab lookup failed', {
+      action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+      result: 'failure',
+      error,
+      url: sanitizeUrlForLogging(pageUrl),
+    });
+    return undefined;
+  }
+}
+
+async function clearDeletedPageHighlights(pageUrl) {
+  if (!pageUrl) {
+    return;
+  }
+
+  const tabId = await getActiveTabIdForHighlightCleanup(pageUrl);
+  const message = {
+    action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+    url: pageUrl,
+  };
+  if (tabId) {
+    message.tabId = tabId;
+  }
+
+  try {
+    await chrome.runtime.sendMessage(message);
+  } catch (error) {
+    Logger.warn('[SidePanel] deleteUnsyncedPage: background CLEAR_HIGHLIGHTS failed', {
+      action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+      result: 'failure',
+      error,
+      url: sanitizeUrlForLogging(pageUrl),
+    });
+  }
+}
+
 /**
  * @param {Set<string>} aggregatedKeys
  * @param {string[]} keys
@@ -367,42 +408,8 @@ export async function deleteUnsyncedPage(context, storageKey, cardEl) {
     return; // bail out — don't mutate UI if storage failed
   }
 
-  // 透過 background 執行 canonical CLEAR_HIGHLIGHTS 路徑
-  if (pageUrl) {
-    chrome.runtime
-      .sendMessage({
-        action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
-        url: pageUrl,
-      })
-      .catch(error => {
-        Logger.warn('[SidePanel] deleteUnsyncedPage: background CLEAR_HIGHLIGHTS failed', {
-          action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
-          result: 'failure',
-          error,
-          url: sanitizeUrlForLogging(pageUrl),
-        });
-      });
-
-    // Best-effort foreground 清理：嘗試通知 active tab 清除視覺高亮
-    chrome.tabs
-      .query({ active: true, currentWindow: true })
-      .then(tabs => {
-        if (tabs?.[0]?.id) {
-          return chrome.tabs.sendMessage(tabs[0].id, {
-            action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
-            url: pageUrl,
-          });
-        }
-      })
-      .catch(error => {
-        Logger.warn('[SidePanel] deleteUnsyncedPage: foreground cleanup failed', {
-          action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
-          result: 'failure',
-          error,
-          url: sanitizeUrlForLogging(pageUrl),
-        });
-      });
-  }
+  // 透過 background 執行 canonical CLEAR_HIGHLIGHTS 路徑；tabId 讓 background 順手清理頁面視覺狀態。
+  await clearDeletedPageHighlights(pageUrl);
 
   // 從快取移除
   removeUnsyncedPageFromCache(context, storageKey);

@@ -168,6 +168,7 @@ export async function loadCurrentTab(
 export function applyCurrentPageTargets(context, targetUrl, originalTabUrl, hasSavedData) {
   context.els.syncButton.dataset.targetUrl = targetUrl;
   context.els.openNotionButton.dataset.targetUrl = originalTabUrl;
+  context.els.openNotionButton.disabled = !hasSavedData;
 
   context.currentPageHasSavedData = hasSavedData;
   context.applySyncButtonSavedState(hasSavedData);
