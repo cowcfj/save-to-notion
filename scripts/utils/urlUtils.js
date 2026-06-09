@@ -37,9 +37,7 @@ function removeHashFragment(urlObj) {
 
 function removeTrackingParams(urlObj) {
   TRACKING_PARAMS.forEach(param => {
-    if (urlObj.searchParams.has(param)) {
-      urlObj.searchParams.delete(param);
-    }
+    urlObj.searchParams.delete(param);
   });
 }
 
