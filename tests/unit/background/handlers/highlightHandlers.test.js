@@ -212,6 +212,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETION_PENDING',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('第二次命中 object_not_found 時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
@@ -250,6 +252,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('cleanup retry 最終失敗時仍應回傳 PAGE_DELETED', async () => {
@@ -300,6 +304,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('cleanup skipped 時不應回傳 PAGE_DELETED 或重新標記 deletionPending', async () => {
@@ -346,6 +352,8 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
+      const response = sendResponse.mock.calls[0][0];
+      expect(response).not.toHaveProperty('details');
     });
 
     it('應該在沒有新高亮時直接返回成功', async () => {

@@ -185,6 +185,40 @@ function shouldReconcilePageDeletion(result) {
   );
 }
 
+const USER_RESPONSE_FIELDS = [
+  'success',
+  'status',
+  'errorCode',
+  'error',
+  'id',
+  'url',
+  'count',
+  'highlightCount',
+  'highlightsUpdated',
+];
+
+/**
+ * 從 internal result 建立可回傳給 UI/content script 的 public response。
+ *
+ * @param {object} result - 原始 result 物件
+ * @param {object} overrides - 對外 response override 欄位
+ * @returns {object}
+ */
+function buildPublicDeletionResponse(result, overrides = {}) {
+  const response = {};
+
+  for (const field of USER_RESPONSE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(result, field)) {
+      response[field] = result[field];
+    }
+  }
+
+  return {
+    ...response,
+    ...overrides,
+  };
+}
+
 /**
  * 建構待確認刪除的 response
  *
@@ -192,11 +226,10 @@ function shouldReconcilePageDeletion(result) {
  * @returns {object}
  */
 function buildPendingDeletionResponse(result) {
-  return {
-    ...result,
+  return buildPublicDeletionResponse(result, {
     errorCode: 'PAGE_DELETION_PENDING',
     error: BACKGROUND_MESSAGES.POPUP.DELETION_PENDING,
-  };
+  });
 }
 
 /**
@@ -206,11 +239,10 @@ function buildPendingDeletionResponse(result) {
  * @returns {object}
  */
 function buildConfirmedDeletionResponse(result) {
-  return {
-    ...result,
+  return buildPublicDeletionResponse(result, {
     errorCode: 'PAGE_DELETED',
     error: BACKGROUND_MESSAGES.POPUP.DELETED_PAGE,
-  };
+  });
 }
 
 /**
@@ -254,10 +286,9 @@ async function handleConfirmedDeletion({
       result: 'cleanup_skipped',
     });
 
-    return {
-      ...result,
+    return buildPublicDeletionResponse(result, {
       error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
-    };
+    });
   }
 
   if (!clearResult.cleared) {
