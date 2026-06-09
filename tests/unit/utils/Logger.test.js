@@ -292,6 +292,17 @@ describe('Logger', () => {
       expect(globalThis.chrome.storage.onChanged.addListener).toHaveBeenCalled();
     });
 
+    test('初始 storage 設定應該記錄套用的 debug 狀態', () => {
+      expect(consoleSpy.info).toHaveBeenCalledWith(
+        '調試模式狀態變更',
+        expect.objectContaining({
+          action: 'initDebugState',
+          source: 'initial storage',
+          debugEnabled: true,
+        })
+      );
+    });
+
     test('onChanged 回調應該更新 debugEnabled 狀態', () => {
       // 捕獲傳遞給 addListener 的回調函數
       const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
@@ -329,6 +340,46 @@ describe('Logger', () => {
       // 觸發一個 missing key (沒有 enableDebugLogs) 的 onChanged
       onChangedCallback({ otherKey: { newValue: false } }, 'sync');
       expect(Logger.debugEnabled).toBe(true);
+    });
+  });
+
+  describe('Storage 初始化錯誤防禦', () => {
+    test('storage.sync.get callback 遇到 runtime.lastError 時應讀取並忽略結果', () => {
+      let lastErrorWasRead = false;
+      const runtime = {
+        id: 'test-extension-id',
+        getManifest: jest.fn().mockReturnValue({
+          version: '2.0.0',
+          version_name: '2.0.0',
+        }),
+        sendMessage: jest.fn(),
+      };
+      Object.defineProperty(runtime, 'lastError', {
+        get() {
+          lastErrorWasRead = true;
+          return { message: 'Extension context invalidated.' };
+        },
+      });
+
+      globalThis.chrome = {
+        runtime,
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => {
+              callback({ enableDebugLogs: true });
+            }),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      Logger = globalThis.window.Logger;
+
+      expect(lastErrorWasRead).toBe(true);
+      expect(Logger.debugEnabled).toBe(false);
     });
   });
 

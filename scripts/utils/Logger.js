@@ -497,6 +497,22 @@ function isDebugStorageChange(changes, area) {
 }
 
 /**
+ * 記錄 debug storage 套用狀態
+ *
+ * @param {string} source - debug 狀態來源
+ * @private
+ */
+function logDebugStorageState(source) {
+  // 在控制台輸出狀態變更，方便調試
+  console.info('調試模式狀態變更', {
+    action: 'initDebugState',
+    source,
+    debugEnabled: _debugEnabled,
+    status: _debugEnabled ? 'ENABLED' : 'DISABLED',
+  });
+}
+
+/**
  * 應用 debug storage 的 newValue
  *
  * @param {any} value - 變更值
@@ -504,11 +520,38 @@ function isDebugStorageChange(changes, area) {
  */
 function applyDebugStorageValue(value) {
   _debugEnabled = Boolean(value);
-  // 在控制台輸出狀態變更，方便調試
-  console.info('調試模式狀態變更', {
-    action: 'initDebugState',
-    status: _debugEnabled ? 'ENABLED' : 'DISABLED',
-  });
+  logDebugStorageState('storage change');
+}
+
+/**
+ * 套用初始 debug storage 設定
+ *
+ * @param {object | undefined} result - chrome.storage.sync.get 回傳結果
+ * @private
+ */
+function applyInitialDebugStorageValue(result) {
+  // 忽略 lastError
+  if (chrome.runtime.lastError) {
+    return;
+  }
+
+  if (result?.enableDebugLogs !== undefined) {
+    _debugEnabled = Boolean(result.enableDebugLogs);
+    logDebugStorageState('initial storage');
+  }
+}
+
+/**
+ * 處理 debug storage 變更
+ *
+ * @param {object} changes - chrome.storage.onChanged 變更集
+ * @param {string} area - storage area
+ * @private
+ */
+function handleDebugStorageChange(changes, area) {
+  if (isDebugStorageChange(changes, area)) {
+    applyDebugStorageValue(changes.enableDebugLogs.newValue);
+  }
 }
 
 /**
@@ -543,19 +586,11 @@ function registerDebugStorageSync() {
   }
 
   // 初始讀取
-  chrome.storage.sync.get(['enableDebugLogs'], result => {
-    if (result && result.enableDebugLogs !== undefined) {
-      _debugEnabled = Boolean(result.enableDebugLogs);
-    }
-  });
+  chrome.storage.sync.get(['enableDebugLogs'], applyInitialDebugStorageValue);
 
   // 監聽變更（防禦性檢查 onChanged 是否存在）
   if (chrome.storage.onChanged) {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (isDebugStorageChange(changes, area)) {
-        applyDebugStorageValue(changes.enableDebugLogs.newValue);
-      }
-    });
+    chrome.storage.onChanged.addListener(handleDebugStorageChange);
   }
 }
 
