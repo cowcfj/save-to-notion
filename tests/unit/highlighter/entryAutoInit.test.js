@@ -657,6 +657,40 @@ describe('entryAutoInit', () => {
     expect(globalScope.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
   });
 
+  test('applyResolvedStableUrl 遇到 HighlighterAPI.setStableUrl throw 應記錄 warning 並繼續', () => {
+    const {
+      applyResolvedStableUrl,
+    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+    const compatibilityError = new Error('compatibility callback failed');
+    const globalScope = {
+      HighlighterAPI: {
+        setStableUrl: jest.fn(() => {
+          throw compatibilityError;
+        }),
+      },
+    };
+
+    expect(() => {
+      applyResolvedStableUrl({
+        globalScope,
+        resolvedStableUrl: 'https://example.com/stable',
+        stableUrlSource: 'SET_STABLE_URL',
+        logger: mockLogger,
+        sanitizeUrlForLogging: url => url,
+      });
+    }).not.toThrow();
+    expect(globalScope.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      '[Highlighter] HighlighterAPI.setStableUrl 相容層呼叫失敗，繼續初始化',
+      expect.objectContaining({
+        action: 'initializeExtension',
+        operation: 'HighlighterAPI.setStableUrl',
+        result: 'failed',
+        error: compatibilityError,
+      })
+    );
+  });
+
   test('applyResolvedStableUrl 無 stableUrl 時應記錄 fallback 到原始 URL', () => {
     const {
       applyResolvedStableUrl,
@@ -674,9 +708,10 @@ describe('entryAutoInit', () => {
     expect(globalScope.__NOTION_STABLE_URL__).toBeUndefined();
     expect(mockLogger.debug).toHaveBeenCalledWith(
       '[Highlighter] Background 返回無效的 stable URL，將使用原始 URL',
-      {
-        action: 'initialization_complete_no_stable_url',
-      }
+      expect.objectContaining({
+        action: 'initializeExtension',
+        result: 'no_stable_url_fallback',
+      })
     );
   });
 

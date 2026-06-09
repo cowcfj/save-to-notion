@@ -214,12 +214,23 @@ export function applyResolvedStableUrl({
     // 設置穩定 URL 優先權（Phase 3 regression fix）：
     // Highlighter 需要知道到底該用哪個 URL 來儲存/讀取標註
     if (typeof globalScope.HighlighterAPI?.setStableUrl === 'function') {
-      globalScope.HighlighterAPI.setStableUrl(resolvedStableUrl);
+      try {
+        globalScope.HighlighterAPI.setStableUrl(resolvedStableUrl);
+      } catch (error) {
+        logger?.warn('[Highlighter] HighlighterAPI.setStableUrl 相容層呼叫失敗，繼續初始化', {
+          action: 'initializeExtension',
+          operation: 'HighlighterAPI.setStableUrl',
+          result: 'failed',
+          error,
+        });
+      }
     }
   } else {
     // 如果 Background 返回 null 或 url 為空，說明沒有穩定 URL，繼續使用原始 URL
     logger?.debug('[Highlighter] Background 返回無效的 stable URL，將使用原始 URL', {
-      action: 'initialization_complete_no_stable_url',
+      action: 'initializeExtension',
+      operation: 'initialization_complete_no_stable_url',
+      result: 'no_stable_url_fallback',
     });
   }
 }
