@@ -544,6 +544,11 @@ function registerDebugStorageSync() {
 
   // 初始讀取
   chrome.storage.sync.get(['enableDebugLogs'], result => {
+    // 忽略 lastError
+    if (chrome.runtime.lastError) {
+      return;
+    }
+
     if (result?.enableDebugLogs !== undefined) {
       _debugEnabled = Boolean(result.enableDebugLogs);
     }

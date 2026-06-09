@@ -332,6 +332,46 @@ describe('Logger', () => {
     });
   });
 
+  describe('Storage 初始化錯誤防禦', () => {
+    test('storage.sync.get callback 遇到 runtime.lastError 時應讀取並忽略結果', () => {
+      let lastErrorWasRead = false;
+      const runtime = {
+        id: 'test-extension-id',
+        getManifest: jest.fn().mockReturnValue({
+          version: '2.0.0',
+          version_name: '2.0.0',
+        }),
+        sendMessage: jest.fn(),
+      };
+      Object.defineProperty(runtime, 'lastError', {
+        get() {
+          lastErrorWasRead = true;
+          return { message: 'Extension context invalidated.' };
+        },
+      });
+
+      globalThis.chrome = {
+        runtime,
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => {
+              callback({ enableDebugLogs: true });
+            }),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      Logger = globalThis.window.Logger;
+
+      expect(lastErrorWasRead).toBe(true);
+      expect(Logger.debugEnabled).toBe(false);
+    });
+  });
+
   describe('消息格式化', () => {
     beforeEach(() => {
       globalThis.chrome = undefined;
