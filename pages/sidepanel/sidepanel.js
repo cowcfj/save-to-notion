@@ -250,6 +250,65 @@ function requireElement(element, elementName) {
 // === 業務邏輯 ===
 
 /**
+ * @param {*} value
+ * @returns {Array}
+ */
+function getHighlightList(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  const highlights = value && value.highlights;
+  return Array.isArray(highlights) ? highlights : [];
+}
+
+/**
+ * @param {Array} highlights
+ * @returns {object}
+ */
+function buildHighlightSummary(highlights) {
+  return {
+    highlightCount: highlights.length,
+    previewHighlights: UI.buildPreviewHighlights(highlights),
+    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
+  };
+}
+
+/**
+ * @param {object} value
+ * @returns {boolean}
+ */
+function hasSyncedPageValue(value) {
+  const notion = value && value.notion;
+  return Boolean(notion && notion.pageId);
+}
+
+/**
+ * @param {object} value
+ * @param {string} url
+ * @returns {string}
+ */
+function resolvePageEntryTitle(value, url) {
+  const notion = value && value.notion;
+  if (notion && notion.title) {
+    return notion.title;
+  }
+  const metadata = value && value.metadata;
+  if (metadata && metadata.title) {
+    return metadata.title;
+  }
+  return UI.extractDomain(url);
+}
+
+/**
+ * @param {object} value
+ * @returns {number}
+ */
+function resolvePageLastUpdated(value) {
+  const metadata = value && value.metadata;
+  return metadata && metadata.lastUpdated ? metadata.lastUpdated : 0;
+}
+
+/**
  * 從 page_* 對象建立頁面條目（新格式）
  *
  * @param {string} key - storage key
@@ -258,22 +317,67 @@ function requireElement(element, elementName) {
  * @returns {object|null} 頁面條目，若應跳過則返回 null
  */
 function buildPageEntry(key, url, value) {
-  if (value.notion?.pageId || isRootUrl(url)) {
+  if (hasSyncedPageValue(value)) {
+    return null; // 已同步，跳過
+  }
+  if (isRootUrl(url)) {
     return null; // 已同步或根路徑，跳過
   }
-  const highlights = Array.isArray(value.highlights) ? value.highlights : [];
+  const highlights = getHighlightList(value);
   if (highlights.length === 0) {
     return null; // 無標註不顯示
   }
   return {
     url,
     storageKey: key,
-    title: value.notion?.title || value.metadata?.title || UI.extractDomain(url),
-    highlightCount: highlights.length,
-    lastUpdated: value.metadata?.lastUpdated || 0,
-    previewHighlights: UI.buildPreviewHighlights(highlights),
-    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
+    title: resolvePageEntryTitle(value, url),
+    lastUpdated: resolvePageLastUpdated(value),
+    ...buildHighlightSummary(highlights),
   };
+}
+
+/**
+ * @param {object} all
+ * @param {string} url
+ * @param {string} canonicalUrl
+ * @returns {{isSaved: boolean, savedData: any}}
+ */
+function resolveLegacySavedState(all, url, canonicalUrl) {
+  const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
+  if (savedDataOriginal && savedDataOriginal.notionPageId) {
+    return { isSaved: true, savedData: savedDataOriginal };
+  }
+
+  const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
+  if (savedDataCanonical && savedDataCanonical.notionPageId) {
+    return { isSaved: true, savedData: savedDataCanonical };
+  }
+
+  return { isSaved: false, savedData: savedDataOriginal || savedDataCanonical };
+}
+
+/**
+ * @param {*} savedData
+ * @param {*} value
+ * @param {string} url
+ * @returns {string}
+ */
+function resolveLegacyEntryTitle(savedData, value, url) {
+  if (savedData && savedData.title) {
+    return savedData.title;
+  }
+  if (value && value.title) {
+    return value.title;
+  }
+  return UI.extractDomain(url);
+}
+
+/**
+ * @param {*} value
+ * @returns {number}
+ */
+function resolveLegacyLastUpdated(value) {
+  return value && value.updatedAt ? value.updatedAt : 0;
 }
 
 /**
@@ -282,33 +386,29 @@ function buildPageEntry(key, url, value) {
  * @param {string} key - storage key
  * @param {string} url - normalized url
  * @param {*} value - highlights_* 值
- * @param {object} all - 完整 storage 資料
- * @param {Map} aliasMap - alias 映射
+ * @param {{all: object, aliasMap: Map}} context
  * @returns {object|null}
  */
-function buildLegacyPageEntry(key, url, value, all, aliasMap) {
+function buildLegacyPageEntry(key, url, value, context) {
   if (isRootUrl(url)) {
     return null;
   }
+  const { all, aliasMap } = context;
   const canonicalUrl = aliasMap.get(url) || url;
-  const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
-  const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
-  if (savedDataOriginal?.notionPageId || savedDataCanonical?.notionPageId) {
+  const { isSaved, savedData } = resolveLegacySavedState(all, url, canonicalUrl);
+  if (isSaved) {
     return null; // 已同步
   }
-  const savedData = savedDataOriginal || savedDataCanonical;
-  const highlights = Array.isArray(value) ? value : value?.highlights || [];
+  const highlights = getHighlightList(value);
   if (highlights.length === 0) {
     return null;
   }
   return {
     url,
     storageKey: key,
-    title: savedData?.title || value?.title || UI.extractDomain(url),
-    highlightCount: highlights.length,
-    lastUpdated: value?.updatedAt || 0,
-    previewHighlights: UI.buildPreviewHighlights(highlights),
-    remainingCount: Math.max(0, highlights.length - UI.PREVIEW_HIGHLIGHT_COUNT),
+    title: resolveLegacyEntryTitle(savedData, value, url),
+    lastUpdated: resolveLegacyLastUpdated(value),
+    ...buildHighlightSummary(highlights),
   };
 }
 
@@ -514,7 +614,10 @@ async function getUnsyncedPages() {
     if (owner.format === 'page') {
       entry = buildPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue);
     } else {
-      entry = buildLegacyPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue, all, aliasMap);
+      entry = buildLegacyPageEntry(owner.ownerKey, owner.ownerUrl, owner.ownerValue, {
+        all,
+        aliasMap,
+      });
     }
     if (entry) {
       // Phase 4 follow-up（2026-05-03 plan §3）：每筆 entry 預先計算 canonical-aware deletionKeys,
@@ -575,6 +678,39 @@ async function handleTabChange(activeInfo) {
 }
 
 /**
+ * @param {number|null} specificTabId
+ * @returns {Promise<chrome.tabs.Tab|undefined>}
+ */
+async function resolveCurrentTab(specificTabId) {
+  if (specificTabId) {
+    return chrome.tabs.get(specificTabId);
+  }
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tabs[0];
+}
+
+/**
+ * @param {chrome.tabs.Tab|undefined} tab
+ * @returns {boolean}
+ */
+function isUnsupportedTab(tab) {
+  if (!tab || !tab.url) {
+    return true;
+  }
+  return RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol);
+}
+
+/**
+ * @param {number} requestId
+ * @param {string} message
+ */
+function showCurrentViewEmptyIfActive(requestId, message) {
+  if (isCurrentViewRequestActive(requestId)) {
+    UI.showEmpty(els, message);
+  }
+}
+
+/**
  * 主要載入流程
  *
  * @param {number|null} specificTabId
@@ -590,18 +726,9 @@ async function loadCurrentTab(specificTabId = null, requestId = beginCurrentView
   }
 
   try {
-    let tab;
-    if (specificTabId) {
-      tab = await chrome.tabs.get(specificTabId);
-    } else {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      tab = tabs[0];
-    }
-
-    if (!tab?.url || RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol)) {
-      if (isCurrentViewRequestActive(requestId)) {
-        UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
-      }
+    const tab = await resolveCurrentTab(specificTabId);
+    if (isUnsupportedTab(tab)) {
+      showCurrentViewEmptyIfActive(requestId, UI_MESSAGES.SIDEPANEL.NOT_SUPPORTED);
       return;
     }
 
@@ -620,9 +747,7 @@ async function loadCurrentTab(specificTabId = null, requestId = beginCurrentView
     await renderHighlightsForUrl(stableUrl, tab.url, requestId);
   } catch (error) {
     Logger.error('[SidePanel] Failed to load tab', { error });
-    if (isCurrentViewRequestActive(requestId)) {
-      UI.showEmpty(els, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
-    }
+    showCurrentViewEmptyIfActive(requestId, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
   }
 }
 
@@ -778,6 +903,51 @@ function findPageStateFromStorage(contract, storageData) {
 }
 
 /**
+ * @param {string|null|undefined} targetKey
+ * @returns {string}
+ */
+function resolveTargetUrlFromKey(targetKey) {
+  if (!targetKey) {
+    return '';
+  }
+  if (targetKey.startsWith(PAGE_PREFIX)) {
+    return targetKey.slice(PAGE_PREFIX.length);
+  }
+  return targetKey.replace(HIGHLIGHTS_PREFIX, '');
+}
+
+/**
+ * @param {string} targetUrl
+ * @param {string} originalTabUrl
+ * @param {boolean} hasSavedData
+ */
+function applyCurrentPageTargets(targetUrl, originalTabUrl, hasSavedData) {
+  els.syncButton.dataset.targetUrl = targetUrl;
+  els.openNotionButton.dataset.targetUrl = originalTabUrl;
+
+  currentPageHasSavedData = hasSavedData;
+  applySyncButtonSavedState(hasSavedData);
+}
+
+/**
+ * @param {boolean} hasSavedData
+ */
+function renderCurrentEmptyState(hasSavedData) {
+  UI.showEmpty(els);
+  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
+}
+
+/**
+ * @param {Array} highlights
+ * @param {string|null|undefined} targetKey
+ * @param {boolean} hasSavedData
+ */
+function renderCurrentHighlightList(highlights, targetKey, hasSavedData) {
+  UI.renderList(els, highlights, targetKey, handleDelete);
+  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
+}
+
+/**
  * 根據 URL 渲染標註列表
  * Phase 3：優先讀取 page_* 新格式，再回退 highlights_*。
  *
@@ -802,34 +972,21 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
     return;
   }
 
-  const highlights = Array.isArray(rawHighlights) ? rawHighlights : rawHighlights?.highlights || [];
+  const highlights = getHighlightList(rawHighlights);
   const hasSavedData = await checkSavedData(notionData, targetKey);
 
   if (!isCurrentViewRequestActive(requestId)) {
     return;
   }
 
-  const targetUrl = targetKey?.startsWith(PAGE_PREFIX)
-    ? targetKey.slice(PAGE_PREFIX.length)
-    : (targetKey?.replace(HIGHLIGHTS_PREFIX, '') ?? '');
-
-  els.syncButton.dataset.targetUrl = targetUrl;
-  els.openNotionButton.dataset.targetUrl = originalTabUrl;
-
-  // 根據保存狀態設定同步按鈕
-  currentPageHasSavedData = hasSavedData;
-  applySyncButtonSavedState(hasSavedData);
+  applyCurrentPageTargets(resolveTargetUrlFromKey(targetKey), originalTabUrl, hasSavedData);
 
   if (highlights.length === 0) {
-    if (isCurrentViewRequestActive(requestId)) {
-      UI.showEmpty(els);
-      els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
-    }
+    renderCurrentEmptyState(hasSavedData);
     return;
   }
 
-  UI.renderList(els, highlights, targetKey, handleDelete);
-  els.openNotionButton.style.display = hasSavedData ? 'inline-flex' : 'none';
+  renderCurrentHighlightList(highlights, targetKey, hasSavedData);
 }
 
 /**
@@ -1167,6 +1324,36 @@ function handleViewTabClick(event) {
 }
 
 /**
+ * @param {HTMLElement|null|undefined} loadMoreBtn
+ */
+function renderUnsyncedEmptyPages(loadMoreBtn) {
+  UI.renderUnsyncedEmptyState(els);
+  if (loadMoreBtn) {
+    loadMoreBtn.style.display = 'none';
+  }
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+}
+
+function renderUnsyncedPageToolbar() {
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'flex';
+  }
+  if (els.unsyncedCountLabel) {
+    const count = cachedUnsyncedPages.length;
+    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
+  }
+}
+
+function renderUnsyncedPageList() {
+  renderUnsyncedPageToolbar();
+  appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
+  UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+}
+
+/**
  * 渲染「待同步」視圖（含分頁）
  *
  * @param {string} [logMessage] - 失敗時使用的日誌訊息
@@ -1189,28 +1376,11 @@ async function renderUnsyncedView(
     els.unsyncedView.textContent = '';
 
     if (cachedUnsyncedPages.length === 0) {
-      UI.renderUnsyncedEmptyState(els);
-      if (loadMoreBtn) {
-        loadMoreBtn.style.display = 'none';
-      }
-      if (els.unsyncedToolbar) {
-        els.unsyncedToolbar.style.display = 'none';
-      }
-      UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+      renderUnsyncedEmptyPages(loadMoreBtn);
       return;
     }
 
-    // 顯示工具列並更新計數
-    if (els.unsyncedToolbar) {
-      els.unsyncedToolbar.style.display = 'flex';
-    }
-    if (els.unsyncedCountLabel) {
-      const count = cachedUnsyncedPages.length;
-      els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
-    }
-
-    appendNextUnsyncedBatch(UI.PAGE_BATCH_SIZE);
-    UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+    renderUnsyncedPageList();
   } catch (error) {
     if (!isUnsyncedViewRequestActive(requestId)) {
       return;
@@ -1288,19 +1458,12 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
 }
 
 /**
- * 刪除所有未同步頁面的標注
- *
- * Phase 4 follow-up（2026-05-03 plan §3）：使用每筆 entry 預先計算的 deletionKeys，
- * 確保整批清除涵蓋同 canonical group 的全部 member（page_<other> / highlights_<other>），
- * 與 deleteUnsyncedPage 共用同一條 cleanup 規則。
+ * @param {Array<object>} unsyncedPages
+ * @returns {string[]}
  */
-async function deleteAllUnsyncedPages() {
-  if (!cachedUnsyncedPages || cachedUnsyncedPages.length === 0) {
-    return;
-  }
-
+function collectUnsyncedDeletionKeys(unsyncedPages) {
   const aggregatedKeys = new Set();
-  for (const page of cachedUnsyncedPages) {
+  for (const page of unsyncedPages) {
     const perEntryKeys =
       Array.isArray(page.deletionKeys) && page.deletionKeys.length > 0
         ? page.deletionKeys
@@ -1311,14 +1474,10 @@ async function deleteAllUnsyncedPages() {
       }
     }
   }
+  return [...aggregatedKeys];
+}
 
-  try {
-    await chrome.storage.local.remove([...aggregatedKeys]);
-  } catch (error) {
-    Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', { error });
-    return; // bail out — don't mutate UI if storage failed
-  }
-
+function renderClearedUnsyncedPages() {
   cachedUnsyncedPages = [];
   displayedCardCount = 0;
 
@@ -1331,4 +1490,28 @@ async function deleteAllUnsyncedPages() {
   UI.renderUnsyncedEmptyState(els);
 
   UI.updateUnsyncedBadge(els, cachedUnsyncedPages);
+}
+
+/**
+ * 刪除所有未同步頁面的標注
+ *
+ * Phase 4 follow-up（2026-05-03 plan §3）：使用每筆 entry 預先計算的 deletionKeys，
+ * 確保整批清除涵蓋同 canonical group 的全部 member（page_<other> / highlights_<other>），
+ * 與 deleteUnsyncedPage 共用同一條 cleanup 規則。
+ */
+async function deleteAllUnsyncedPages() {
+  if (!cachedUnsyncedPages || cachedUnsyncedPages.length === 0) {
+    return;
+  }
+
+  const keysToRemove = collectUnsyncedDeletionKeys(cachedUnsyncedPages);
+
+  try {
+    await chrome.storage.local.remove(keysToRemove);
+  } catch (error) {
+    Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', { error });
+    return; // bail out — don't mutate UI if storage failed
+  }
+
+  renderClearedUnsyncedPages();
 }
