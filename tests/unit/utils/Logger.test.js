@@ -140,6 +140,22 @@ describe('Logger', () => {
       Logger.error(error);
       expect(consoleSpy.error).not.toHaveBeenCalled();
     });
+
+    test('error 不應該忽略包含 global error 前綴的 Frame 移除錯誤', () => {
+      Logger.error('[Uncaught Exception] Frame with ID 0 was removed');
+      expect(consoleSpy.error).toHaveBeenCalled();
+      expect(consoleSpy.error.mock.calls[0].join(' ')).toContain(
+        '[Uncaught Exception] Frame with ID 0 was removed'
+      );
+
+      consoleSpy.error.mockClear();
+
+      Logger.error('[Unhandled Rejection] Frame with ID 0 was removed');
+      expect(consoleSpy.error).toHaveBeenCalled();
+      expect(consoleSpy.error.mock.calls[0].join(' ')).toContain(
+        '[Unhandled Rejection] Frame with ID 0 was removed'
+      );
+    });
   });
 
   describe('在模擬擴展環境中（開發版本）', () => {
@@ -276,6 +292,17 @@ describe('Logger', () => {
       expect(globalThis.chrome.storage.onChanged.addListener).toHaveBeenCalled();
     });
 
+    test('初始 storage 設定應該記錄套用的 debug 狀態', () => {
+      expect(consoleSpy.info).toHaveBeenCalledWith(
+        '調試模式狀態變更',
+        expect.objectContaining({
+          action: 'initDebugState',
+          source: 'initial storage',
+          debugEnabled: true,
+        })
+      );
+    });
+
     test('onChanged 回調應該更新 debugEnabled 狀態', () => {
       // 捕獲傳遞給 addListener 的回調函數
       const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
@@ -302,6 +329,57 @@ describe('Logger', () => {
       // 模擬 local storage 變更（不應影響 debugEnabled）
       onChangedCallback({ enableDebugLogs: { newValue: false } }, 'local');
       expect(Logger.debugEnabled).toBe(true);
+    });
+
+    test('onChanged 回調應該在 enableDebugLogs 缺失時不改 debugEnabled 狀態', () => {
+      const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
+
+      onChangedCallback({ enableDebugLogs: { newValue: true } }, 'sync');
+      expect(Logger.debugEnabled).toBe(true);
+
+      // 觸發一個 missing key (沒有 enableDebugLogs) 的 onChanged
+      onChangedCallback({ otherKey: { newValue: false } }, 'sync');
+      expect(Logger.debugEnabled).toBe(true);
+    });
+  });
+
+  describe('Storage 初始化錯誤防禦', () => {
+    test('storage.sync.get callback 遇到 runtime.lastError 時應讀取並忽略結果', () => {
+      let lastErrorWasRead = false;
+      const runtime = {
+        id: 'test-extension-id',
+        getManifest: jest.fn().mockReturnValue({
+          version: '2.0.0',
+          version_name: '2.0.0',
+        }),
+        sendMessage: jest.fn(),
+      };
+      Object.defineProperty(runtime, 'lastError', {
+        get() {
+          lastErrorWasRead = true;
+          return { message: 'Extension context invalidated.' };
+        },
+      });
+
+      globalThis.chrome = {
+        runtime,
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => {
+              callback({ enableDebugLogs: true });
+            }),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      Logger = globalThis.window.Logger;
+
+      expect(lastErrorWasRead).toBe(true);
+      expect(Logger.debugEnabled).toBe(false);
     });
   });
 
@@ -380,6 +458,44 @@ describe('Logger', () => {
       );
     });
 
+    test('應該保留 Error 對象的自訂屬性', () => {
+      const testError = new Error('API failed');
+      testError.code = 'ERR_API';
+      testError.statusCode = 503;
+      testError.metadata = { retryable: true };
+
+      Logger.warn('Error occurred', testError);
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual(
+        expect.objectContaining({
+          message: 'API failed',
+          name: 'Error',
+          code: 'ERR_API',
+          statusCode: 503,
+          metadata: { retryable: true },
+        })
+      );
+    });
+
+    test('應該遞迴保留物件內 Error 的自訂屬性', () => {
+      const testError = new Error('Nested failure');
+      testError.code = 'ERR_NESTED';
+      testError.statusCode = 429;
+
+      Logger.warn('Nested Error occurred', { error: testError });
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0].error).toEqual(
+        expect.objectContaining({
+          message: 'Nested failure',
+          name: 'Error',
+          code: 'ERR_NESTED',
+          statusCode: 429,
+        })
+      );
+    });
+
     test('應該正確處理純量參數 (數字, 字串)', () => {
       // warn/error 使用即時發送路徑（sendToBackground），適合此測試
       // info/log/debug 使用批量模式（_queueForBackground），不會立即觸發 sendMessage
@@ -402,13 +518,49 @@ describe('Logger', () => {
       expect(cloned.myself).toBe(cloned);
     });
 
-    test('當 structuredClone 無法處理對象時應該 fallback 為 "[Unserializable Object]"', () => {
+    test('當對象包含無法透過 IPC 傳遞的值時應該遞迴 fallback 該欄位', () => {
       const unserializable = { func: () => {} };
 
       Logger.warn('Clone fail test', unserializable);
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
-      expect(sentArgs[0]).toBe('[Unserializable Object]');
+      expect(sentArgs[0]).toEqual({ func: '[Function]' });
+    });
+
+    test('應該遞迴保留 Date 與 RegExp 的可診斷值', () => {
+      const occurredAt = new Date('2026-06-08T10:11:12.000Z');
+      const matcher = /save-to-notion/gi;
+
+      Logger.warn('Built-in object test', {
+        occurredAt,
+        matcher,
+      });
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual({
+        occurredAt: '2026-06-08T10:11:12.000Z',
+        matcher: '/save-to-notion/gi',
+      });
+    });
+
+    test('getter 屬性拋錯時應只 fallback 該欄位並保留其他欄位', () => {
+      const logContext = {
+        stable: 'kept',
+        nested: { ok: true },
+        get broken() {
+          throw new Error('getter failed');
+        },
+      };
+
+      Logger.warn('Throwing getter test', logContext);
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual({
+        stable: 'kept',
+        nested: { ok: true },
+        broken: '[Unserializable Object]',
+      });
     });
 
     test('應該將 function 參數序列化為 "[Function]"', () => {
@@ -423,6 +575,21 @@ describe('Logger', () => {
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs[0]).toBe('Symbol(mySymbol)');
+    });
+
+    test('應該遞迴序列化陣列中的特殊值', () => {
+      const occurredAt = new Date('2026-06-08T10:11:12.000Z');
+      const matcher = /logger/gi;
+
+      Logger.warn('Array special values test', [occurredAt, matcher, () => {}, Symbol('flag')]);
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toEqual([
+        '2026-06-08T10:11:12.000Z',
+        '/logger/gi',
+        '[Function]',
+        'Symbol(flag)',
+      ]);
     });
   });
 
@@ -532,14 +699,14 @@ describe('Logger', () => {
       expect(cloned.myself).toBe(cloned);
     });
 
-    test('_queueForBackground 在 structuredClone 無法處理對象時會 fallback', () => {
+    test('_queueForBackground 對物件內無法透過 IPC 傳遞的值會遞迴 fallback 該欄位', () => {
       const unserializable = { func: () => {} };
 
       Logger.info('Unserializable test', unserializable);
       jest.advanceTimersByTime(500);
 
       const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
-      expect(sentLogs[0].args[0]).toBe('[Unserializable Object]');
+      expect(sentLogs[0].args[0]).toEqual({ func: '[Function]' });
     });
 
     test('在 sendMessage 失敗時應優雅忽略', () => {

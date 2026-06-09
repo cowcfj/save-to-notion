@@ -245,3 +245,7 @@ scripts/config/env/build.js
 # 替換歷史逐檔規則為目錄級 ignore,確保新增構建產物不會漏 ignore。
 release-package/
 .antigravitycli/5c437353-ee07-48da-939d-8ad77dc27875.json
+.agents/evals/complexity-reduction/eval.yaml
+.agents/evals/complexity-reduction/tasks/negative-trigger-1.yaml
+.agents/evals/complexity-reduction/tasks/positive-trigger-1.yaml
+.agents/evals/complexity-reduction/tasks/positive-trigger-2.yaml

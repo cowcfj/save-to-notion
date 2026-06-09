@@ -210,6 +210,10 @@ const STORAGE = {
   CLEANUP_EXECUTING: '正在執行數據優化...',
   UNIFIED_CLEANUP_SUCCESS: (keys, size) =>
     `數據優化完成！已清理 ${keys} 個項目，釋放 ${size} KB 空間`,
+  CLEANUP_SUMMARY_EMPTY_RECORDS: '個空記錄',
+  CLEANUP_SUMMARY_ORPHAN_RECORDS: '個孤兒資料',
+  CLEANUP_SUMMARY_MIGRATION_LEFTOVERS: '個升級殘留',
+  CLEANUP_SUMMARY_CORRUPTED_RECORDS: '個損壞項目',
   CLEANUP_SUMMARY: (parts, spaceKB) => `可清理：${parts.join('、')}，預計釋放 ${spaceKB} KB`,
   NO_CLEANUP_NEEDED: '無可清理項目',
   CLEANUP_FAILED: errorMsg => `清理失敗：${errorMsg}`,
