@@ -512,6 +512,36 @@ function applyDebugStorageValue(value) {
 }
 
 /**
+ * 套用初始 debug storage 設定
+ *
+ * @param {object | undefined} result - chrome.storage.sync.get 回傳結果
+ * @private
+ */
+function applyInitialDebugStorageValue(result) {
+  // 忽略 lastError
+  if (chrome.runtime.lastError) {
+    return;
+  }
+
+  if (result?.enableDebugLogs !== undefined) {
+    _debugEnabled = Boolean(result.enableDebugLogs);
+  }
+}
+
+/**
+ * 處理 debug storage 變更
+ *
+ * @param {object} changes - chrome.storage.onChanged 變更集
+ * @param {string} area - storage area
+ * @private
+ */
+function handleDebugStorageChange(changes, area) {
+  if (isDebugStorageChange(changes, area)) {
+    applyDebugStorageValue(changes.enableDebugLogs.newValue);
+  }
+}
+
+/**
  * 從 Manifest 初始化 Debug 狀態
  *
  * @private
@@ -543,24 +573,11 @@ function registerDebugStorageSync() {
   }
 
   // 初始讀取
-  chrome.storage.sync.get(['enableDebugLogs'], result => {
-    // 忽略 lastError
-    if (chrome.runtime.lastError) {
-      return;
-    }
-
-    if (result?.enableDebugLogs !== undefined) {
-      _debugEnabled = Boolean(result.enableDebugLogs);
-    }
-  });
+  chrome.storage.sync.get(['enableDebugLogs'], applyInitialDebugStorageValue);
 
   // 監聽變更（防禦性檢查 onChanged 是否存在）
   if (chrome.storage.onChanged) {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (isDebugStorageChange(changes, area)) {
-        applyDebugStorageValue(changes.enableDebugLogs.newValue);
-      }
-    });
+    chrome.storage.onChanged.addListener(handleDebugStorageChange);
   }
 }
 
