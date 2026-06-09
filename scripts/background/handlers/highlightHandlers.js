@@ -208,7 +208,7 @@ function buildPublicDeletionResponse(result, overrides = {}) {
   const response = {};
 
   for (const field of USER_RESPONSE_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(result, field)) {
+    if (Object.hasOwn(result, field)) {
       response[field] = result[field];
     }
   }
