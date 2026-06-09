@@ -318,12 +318,24 @@ function hasRangeContext(prefix, suffix) {
  * 無上下文資訊時直接接受;有上下文資訊時要求 prefix/suffix 至少部分重合,
  * 否則視為跨段落殘留誤命中而拒絕。
  *
+ * 特殊處理：當匹配文字本身很長（>= 50 字符）時，文字的長度和唯一性本身
+ * 已是強有力的證據，即使上下文不完全匹配也接受。這避免了因 DOM 結構差異、
+ * 標點符號轉換等導致的上下文提取不一致而錯誤拒絕正確匹配。
+ *
  * @param {{ text: string, charMap: Array<{start: number, end: number}> }} indexedFullText - 正規化文字索引
  * @param {{ start: number, end: number, normalizedStart: number, normalizedEnd: number }} candidate - 候選匹配
  * @param {{ prefix: string, suffix: string, hasContext: boolean }} context - 消歧義上下文
  * @returns {object|null} 接受時為候選匹配，拒絕時為 null
  */
 function resolveSingleCandidate(indexedFullText, candidate, context) {
+  const matchLength = candidate.normalizedEnd - candidate.normalizedStart;
+  const isLongText = matchLength >= 50;
+
+  // 長文字的唯一性本身就是強證據，直接接受
+  if (isLongText) {
+    return candidate;
+  }
+
   if (!context.hasContext) {
     return candidate;
   }
