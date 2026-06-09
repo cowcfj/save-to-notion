@@ -457,6 +457,13 @@ function pickClearGuardReason(isContentScript) {
   return isContentScript ? 'invalid_content_script_request' : 'invalid_internal_request';
 }
 
+function resolveClearStorageUrl(isContentScript, sender, request) {
+  if (!isContentScript || !sender?.tab?.url) {
+    return request.url;
+  }
+  return sender.tab.url;
+}
+
 function validateClearRequest(sender, request) {
   const isContentScript = Boolean(sender?.tab);
   const validate = pickClearRequestValidator(isContentScript);
@@ -476,7 +483,8 @@ function validateClearRequest(sender, request) {
   if (!request.url) {
     return { ok: false, kind: 'missing_url' };
   }
-  return { ok: true, url: request.url, targetTabId: sender?.tab?.id || request.tabId };
+  const storageUrl = resolveClearStorageUrl(isContentScript, sender, request);
+  return { ok: true, url: storageUrl, targetTabId: sender?.tab?.id || request.tabId };
 }
 
 function rejectShowOrUserActivateContext(ctx, sendResponse) {

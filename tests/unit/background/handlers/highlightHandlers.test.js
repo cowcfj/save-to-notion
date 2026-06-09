@@ -1072,6 +1072,30 @@ describe('highlightHandlers', () => {
       });
     });
 
+    it('content script request URL 是 shortlink 時，應以實際 tab URL 清除 permalink storage', async () => {
+      const sendResponse = jest.fn();
+      const permalinkUrl = 'https://www.rapbull.net/posts/3033/slug';
+      const shortlinkUrl = 'https://www.rapbull.net/?p=3033';
+      const sender = { id: 'test-id', tab: { id: 1, url: permalinkUrl } };
+      const request = { url: shortlinkUrl };
+
+      mockServices.storageService.updateHighlights.mockResolvedValue();
+
+      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+
+      expect(mockServices.storageService.getHighlights).toHaveBeenCalledWith(permalinkUrl);
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(permalinkUrl, []);
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalledWith(
+        shortlinkUrl,
+        []
+      );
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        clearedCount: 2,
+        visualCleared: true,
+      });
+    });
+
     it('頁面視覺清除失敗時仍應回報 storage 清除成功', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
