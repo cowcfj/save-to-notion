@@ -152,7 +152,12 @@ export async function loadCurrentTab(
     // 獲取資料
     await context.renderHighlightsForUrl(stableUrl, tab.url, requestId);
   } catch (error) {
-    Logger.error('[SidePanel] Failed to load tab', { error });
+    Logger.error('[SidePanel] Failed to load tab', {
+      action: 'loadCurrentTab',
+      result: 'failure',
+      error,
+      requestId,
+    });
     showCurrentViewEmptyIfActive(context, requestId, UI_MESSAGES.SIDEPANEL.LOAD_FAILED);
   }
 }

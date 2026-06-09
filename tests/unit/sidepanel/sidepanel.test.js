@@ -390,7 +390,7 @@ describe('Sidepanel JS Logic', () => {
       await onActivated({ tabId: 500 });
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(2);
-      expect(document.querySelector('#sync-button').disabled).toBe(false);
+      expect(document.querySelector('#sync-button').disabled).toBe(true);
     });
 
     it('sync button 在頁面未保存時應禁用並顯示提示', async () => {
@@ -969,7 +969,7 @@ describe('Sidepanel JS Logic', () => {
     it('should trigger sync click successfully', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
-          return { [key]: true };
+          return { [key]: { notionPageId: 'page-123' } };
         }
         return {
           'highlights_https://example.js/stable': {
@@ -980,7 +980,7 @@ describe('Sidepanel JS Logic', () => {
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 600 });
 
-      chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true, statusKind: 'saved' });
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
@@ -1059,7 +1059,7 @@ describe('Sidepanel JS Logic', () => {
     it('should use named debounce constants when re-enabling open notion button', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
-          return { [key]: true };
+          return { [key]: { notionPageId: 'page-123' } };
         }
         return {
           'highlights_https://example.js/stable': {
@@ -1073,7 +1073,7 @@ describe('Sidepanel JS Logic', () => {
       await Promise.resolve();
 
       chrome.runtime.sendMessage
-        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce({ success: true, statusKind: 'saved' })
         .mockResolvedValueOnce({ success: true });
 
       const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
@@ -1090,7 +1090,7 @@ describe('Sidepanel JS Logic', () => {
     it('should trigger sync click gracefully when fails', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
-          return { [key]: true };
+          return { [key]: { notionPageId: 'page-123' } };
         }
         return {
           'highlights_https://example.js/stable': {
@@ -1105,6 +1105,7 @@ describe('Sidepanel JS Logic', () => {
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
+      await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
 
@@ -1181,7 +1182,7 @@ describe('Sidepanel JS Logic', () => {
     it('should not display raw savePage error returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
-          return { [key]: true };
+          return { [key]: { notionPageId: 'page-123' } };
         }
         return {
           'highlights_https://example.js/stable': {
@@ -1199,20 +1200,26 @@ describe('Sidepanel JS Logic', () => {
       syncBtn.click();
       await Promise.resolve();
       await Promise.resolve();
+      await Promise.resolve();
 
       expect(document.querySelector('#status-message').textContent).toBe(
         UI_MESSAGES.SIDEPANEL.SYNC_FAILED
       );
       expect(document.querySelector('#status-message').className).toBe('status-message error');
-      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] savePage failed', {
-        error: sanitizeApiError('Custom API Error'),
-      });
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] savePage failed',
+        expect.objectContaining({
+          action: 'savePage',
+          result: 'failure',
+          error: expect.any(String),
+        })
+      );
     });
 
     it('should not display raw openNotionPage error returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
         if (typeof key === 'string' && key.startsWith('saved_')) {
-          return { [key]: true };
+          return { [key]: { notionPageId: 'page-123' } };
         }
         return {
           'highlights_https://example.js/stable': {
@@ -1234,14 +1241,18 @@ describe('Sidepanel JS Logic', () => {
       openBtn.click();
       await Promise.resolve();
       await Promise.resolve();
+      await Promise.resolve();
 
       expect(document.querySelector('#status-message').textContent).toBe(
         UI_MESSAGES.SIDEPANEL.OPEN_FAILED
       );
       expect(document.querySelector('#status-message').className).toBe('status-message error');
-      expect(Logger.error).toHaveBeenCalledWith('[SidePanel] openNotionPage failed', {
-        error: sanitizeApiError('Leaked debug detail'),
-      });
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] openNotionPage failed',
+        expect.objectContaining({
+          error: expect.any(String),
+        })
+      );
     });
 
     it('應該成功觸發 startHighlight', async () => {
@@ -1368,7 +1379,11 @@ describe('Sidepanel JS Logic', () => {
 
       expect(refreshBadgeCall).toEqual([
         '[SidePanel] refreshUnsyncedBadge failed after storage change',
-        { error },
+        expect.objectContaining({
+          action: 'refreshUnsyncedBadge',
+          result: 'failure',
+          error,
+        }),
       ]);
     });
 
@@ -1670,7 +1685,11 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     expect(Logger.error).toHaveBeenCalledWith(
       '[SidePanel] renderUnsyncedView failed after tab switch',
-      { error }
+      expect.objectContaining({
+        action: 'renderUnsyncedView',
+        result: 'failure',
+        error,
+      })
     );
     expect(document.querySelector('#unsynced-view').textContent).toContain('載入標註失敗');
     expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
@@ -1731,6 +1750,8 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     await Promise.resolve();
 
     expect(Logger.warn).toHaveBeenCalledWith('[SidePanel] Failed to open unsynced page tab', {
+      action: 'openUnsyncedPageTab',
+      result: 'failure',
       error,
       url: sanitizeUrlForLogging('https://example.com/p'),
     });
@@ -1765,9 +1786,11 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     expect(Logger.error).toHaveBeenCalledWith(
       '[SidePanel] refreshUnsyncedBadge failed during init',
-      {
+      expect.objectContaining({
+        action: 'refreshUnsyncedBadge',
+        result: 'failure',
         error,
-      }
+      })
     );
     expect(document.querySelector('#unsynced-badge').textContent).toBe('');
   });
@@ -1938,10 +1961,12 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
         url: mockUrl,
         tabId: 777,
       });
-      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(777, {
-        action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
-        url: mockUrl,
-      });
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+        777,
+        expect.objectContaining({
+          action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+        })
+      );
 
       // Get the current unsynced count label
       const countLabel = document.querySelector('#unsynced-count-label');

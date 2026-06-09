@@ -349,12 +349,26 @@ export function _groupStorageEntries(allStorageData, aliasMap) {
  * @private
  */
 export function _pickGroupOwner(canonicalUrl, group) {
-  // Priority 1: page_<canonical>
-  const chosen = group.pages.find(page => page.url === canonicalUrl) ?? group.pages[0];
+  // Priority 1: page_<canonical> that can build a valid entry
+  const canonicalPage = group.pages.find(page => page.url === canonicalUrl);
+  if (canonicalPage) {
+    const entry = buildPageEntry(canonicalPage.key, canonicalPage.url, canonicalPage.value);
+    if (entry) {
+      return {
+        ownerKey: canonicalPage.key,
+        ownerUrl: canonicalPage.url,
+        ownerValue: canonicalPage.value,
+        format: 'page',
+      };
+    }
+  }
 
-  // Priority 2: 任意其他 page_*（例如 alias 指向空 stable key 時的 page_<original>）
-  if (chosen) {
-    return { ownerKey: chosen.key, ownerUrl: chosen.url, ownerValue: chosen.value, format: 'page' };
+  // Priority 2: 任意其他 page_* 可建立有效 entry（例如 alias 指向空 stable key 時的 page_<original>）
+  for (const page of group.pages) {
+    const entry = buildPageEntry(page.key, page.url, page.value);
+    if (entry) {
+      return { ownerKey: page.key, ownerUrl: page.url, ownerValue: page.value, format: 'page' };
+    }
   }
 
   // Priority 3: highlights_*（舊格式）

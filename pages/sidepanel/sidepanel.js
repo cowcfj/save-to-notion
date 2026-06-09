@@ -443,17 +443,27 @@ async function handleSyncClick() {
 
   try {
     const response = await chrome.runtime.sendMessage({ action: RUNTIME_ACTIONS.SAVE_PAGE });
-    if (response?.success) {
+    if (response?.success && response?.statusKind === 'saved') {
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_SUCCESS, 'success');
     } else {
+      const errorContext =
+        response?.success && response?.statusKind
+          ? `Unexpected statusKind: ${response.statusKind}`
+          : sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page');
       Logger.error('[SidePanel] savePage failed', {
-        error: sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page'),
+        action: 'savePage',
+        result: 'failure',
+        error: errorContext,
+        statusKind: response?.statusKind,
+        success: response?.success,
       });
       showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
       applySyncButtonSavedState(currentPageHasSavedData);
     }
   } catch (error) {
     Logger.error('[SidePanel] savePage failed', {
+      action: 'savePage',
+      result: 'failure',
       error: sanitizeApiError(error, 'save_page'),
     });
     showTimedMessage(UI_MESSAGES.SIDEPANEL.SYNC_FAILED, 'error');
@@ -511,7 +521,13 @@ function reloadCurrentViewAfterStorageChange() {
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
   if (cachedStableUrl && cachedTabUrl) {
     renderHighlightsForUrl(cachedStableUrl, cachedTabUrl, beginCurrentViewRequest(context)).catch(
-      error => Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
+      error =>
+        Logger.error('[SidePanel] renderHighlightsForUrl failed', {
+          action: 'renderHighlightsForUrl',
+          result: 'failure',
+          error,
+          cachedStableUrl,
+        })
     );
     return;
   }
@@ -540,7 +556,10 @@ function handleStorageChange(changes, namespace) {
 
   // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
   scheduleUnsyncedBadgeRefresh(context);
-  reloadCurrentViewAfterStorageChange();
+  // Only reload current view if unsynced view is not active (refreshUnsyncedViewIfActive handles it)
+  if (currentActiveView !== 'unsynced') {
+    reloadCurrentViewAfterStorageChange();
+  }
   refreshUnsyncedViewIfActive(context);
 }
 

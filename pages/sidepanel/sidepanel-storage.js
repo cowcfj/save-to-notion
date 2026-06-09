@@ -72,7 +72,8 @@ export function resolveLegacySavedKey(targetKey) {
  */
 export async function hasStoredLegacySavedData(savedKey) {
   const savedResult = await chrome.storage.local.get(savedKey);
-  return Boolean(savedResult[savedKey]);
+  const savedData = savedResult[savedKey];
+  return Boolean(savedData?.notionPageId);
 }
 
 /**
@@ -211,7 +212,10 @@ export function _removeHighlightFromObjectData(data, highlightId) {
  */
 export function _computeObjectDeleteResult(data, highlightId, keepWhenNotionExists) {
   const highlights = _removeHighlightFromObjectData(data, highlightId);
-  const shouldRemove = highlights.length === 0 && !(keepWhenNotionExists && data.notion);
+  const hasValidNotion = Boolean(
+    keepWhenNotionExists && data.notion && typeof data.notion === 'object' && data.notion.pageId
+  );
+  const shouldRemove = highlights.length === 0 && !hasValidNotion;
   const newData = {
     ...data,
     highlights,

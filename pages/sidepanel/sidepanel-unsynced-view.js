@@ -161,7 +161,11 @@ export async function refreshUnsyncedBadge(
     const pages = await getUnsyncedPages(context);
     UI.updateUnsyncedBadge(context.els, pages);
   } catch (error) {
-    Logger.error(logMessage, { error });
+    Logger.error(logMessage, {
+      action: 'refreshUnsyncedBadge',
+      result: 'failure',
+      error,
+    });
     UI.updateUnsyncedBadge(context.els, []);
   }
 }
@@ -182,6 +186,8 @@ export function appendNextUnsyncedBatch(context, count) {
       onOpen: url => {
         chrome.tabs.create({ url }).catch(error => {
           Logger.warn('[SidePanel] Failed to open unsynced page tab', {
+            action: 'openUnsyncedPageTab',
+            result: 'failure',
             error,
             url: sanitizeUrlForLogging(url),
           });
@@ -191,6 +197,8 @@ export function appendNextUnsyncedBatch(context, count) {
         const page = context.cachedUnsyncedPages?.find(item => item.storageKey === storageKey);
         deleteUnsyncedPage(context, storageKey, card).catch(error => {
           Logger.warn('[SidePanel] Failed to delete unsynced page card', {
+            action: 'deleteUnsyncedPage',
+            result: 'failure',
             error,
             storageKeyType: getStorageKeyType(storageKey),
             url: sanitizeUrlForLogging(page?.url),
@@ -330,7 +338,11 @@ export async function renderUnsyncedView(
     if (!isUnsyncedViewRequestActive(context, requestId)) {
       return;
     }
-    Logger.error(logMessage, { error });
+    Logger.error(logMessage, {
+      action: 'renderUnsyncedView',
+      result: 'failure',
+      error,
+    });
     renderUnsyncedFallbackState(context);
   }
 }
@@ -401,15 +413,20 @@ export async function deleteUnsyncedPage(context, storageKey, cardEl) {
   // 抽取 URL 用於後續的 background cleanup 與 foreground 清理
   const pageUrl = _extractUrlFromStorageKey(storageKey);
 
+  // 先執行視覺與 background tab 清理，避免後續 CLEAR_HIGHLIGHTS handler 重新寫入 storage
+  await clearDeletedPageHighlights(pageUrl);
+
   try {
     await _removeStorageKeyWithCanonicalCleanup(storageKey);
   } catch (error) {
-    Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', { error });
+    Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', {
+      action: 'deleteUnsyncedPage',
+      result: 'failure',
+      error,
+      storageKeyType: getStorageKeyType(storageKey),
+    });
     return; // bail out — don't mutate UI if storage failed
   }
-
-  // 透過 background 執行 canonical CLEAR_HIGHLIGHTS 路徑；tabId 讓 background 順手清理頁面視覺狀態。
-  await clearDeletedPageHighlights(pageUrl);
 
   // 從快取移除
   removeUnsyncedPageFromCache(context, storageKey);
@@ -481,7 +498,12 @@ export async function deleteAllUnsyncedPages(context) {
   try {
     await chrome.storage.local.remove(keysToRemove);
   } catch (error) {
-    Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', { error });
+    Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', {
+      action: 'deleteAllUnsyncedPages',
+      result: 'failure',
+      error,
+      keysCount: keysToRemove.length,
+    });
     return; // bail out — don't mutate UI if storage failed
   }
 
