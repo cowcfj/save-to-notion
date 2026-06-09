@@ -270,7 +270,7 @@ function hasNextStableRouteInput(routeInfo, originalUrl) {
     return false;
   }
 
-  return Boolean(originalUrl);
+  return isAbsoluteUrlString(originalUrl);
 }
 
 function logNextStableUrlResolved(resolvedRoute) {
