@@ -497,6 +497,22 @@ function isDebugStorageChange(changes, area) {
 }
 
 /**
+ * 記錄 debug storage 套用狀態
+ *
+ * @param {string} source - debug 狀態來源
+ * @private
+ */
+function logDebugStorageState(source) {
+  // 在控制台輸出狀態變更，方便調試
+  console.info('調試模式狀態變更', {
+    action: 'initDebugState',
+    source,
+    debugEnabled: _debugEnabled,
+    status: _debugEnabled ? 'ENABLED' : 'DISABLED',
+  });
+}
+
+/**
  * 應用 debug storage 的 newValue
  *
  * @param {any} value - 變更值
@@ -504,11 +520,7 @@ function isDebugStorageChange(changes, area) {
  */
 function applyDebugStorageValue(value) {
   _debugEnabled = Boolean(value);
-  // 在控制台輸出狀態變更，方便調試
-  console.info('調試模式狀態變更', {
-    action: 'initDebugState',
-    status: _debugEnabled ? 'ENABLED' : 'DISABLED',
-  });
+  logDebugStorageState('storage change');
 }
 
 /**
@@ -525,6 +537,7 @@ function applyInitialDebugStorageValue(result) {
 
   if (result?.enableDebugLogs !== undefined) {
     _debugEnabled = Boolean(result.enableDebugLogs);
+    logDebugStorageState('initial storage');
   }
 }
 

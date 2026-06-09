@@ -292,6 +292,17 @@ describe('Logger', () => {
       expect(globalThis.chrome.storage.onChanged.addListener).toHaveBeenCalled();
     });
 
+    test('初始 storage 設定應該記錄套用的 debug 狀態', () => {
+      expect(consoleSpy.info).toHaveBeenCalledWith(
+        '調試模式狀態變更',
+        expect.objectContaining({
+          action: 'initDebugState',
+          source: 'initial storage',
+          debugEnabled: true,
+        })
+      );
+    });
+
     test('onChanged 回調應該更新 debugEnabled 狀態', () => {
       // 捕獲傳遞給 addListener 的回調函數
       const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
