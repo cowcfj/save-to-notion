@@ -254,7 +254,13 @@ function requireElement(element, elementName) {
  * @returns {Record<string, any>}
  */
 function normalizeStorageSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+  if (!snapshot) {
+    return {};
+  }
+  if (typeof snapshot !== 'object') {
+    return {};
+  }
+  if (Array.isArray(snapshot)) {
     return {};
   }
   return snapshot;
