@@ -156,6 +156,14 @@ function resetSyncButtonForNoPage() {
     els.syncButton.disabled = true;
     els.syncButton.title = '';
   }
+  if (els.openNotionButton) {
+    els.openNotionButton.style.display = 'none';
+    if (els.openNotionButton.dataset.targetUrl) {
+      delete els.openNotionButton.dataset.targetUrl;
+    }
+    els.openNotionButton.title = '';
+    els.openNotionButton.removeAttribute('aria-label');
+  }
   UI.applyUnsavedPageNotice(els, true);
   currentPageHasSavedData = false;
 }
@@ -1198,7 +1206,12 @@ async function _notifyActiveTabHighlightRemoved(highlightId) {
       highlightId,
     })
     .catch(error => {
-      Logger.error('Failed to send remove highlight DOM message', { error });
+      Logger.error('Failed to send remove highlight DOM message', {
+        action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+        result: 'failure',
+        error,
+        description: 'Content script message delivery failed',
+      });
     });
 }
 
@@ -1353,7 +1366,10 @@ async function handleOpenNotionClick() {
  */
 function isSidepanelRefreshStorageKey(key) {
   return (
-    key.startsWith(PAGE_PREFIX) || key.startsWith(HIGHLIGHTS_PREFIX) || key.startsWith(SAVED_PREFIX)
+    key.startsWith(PAGE_PREFIX) ||
+    key.startsWith(HIGHLIGHTS_PREFIX) ||
+    key.startsWith(SAVED_PREFIX) ||
+    key.startsWith(URL_ALIAS_PREFIX)
   );
 }
 
@@ -1378,6 +1394,18 @@ function reloadCurrentViewAfterStorageChange() {
 }
 
 /**
+ * 當使用者在 unsynced tab 時，重新渲染 unsynced 列表以反映 storage 變更。
+ */
+function refreshUnsyncedViewIfActive() {
+  if (currentActiveView === 'unsynced') {
+    renderUnsyncedView(
+      '[SidePanel] renderUnsyncedView failed after storage change',
+      beginUnsyncedViewRequest()
+    );
+  }
+}
+
+/**
  * 處理 Storage 變化
  * 使用快取 URL 避免重新查詢 tab 和 sendMessage，大幅降低延遲
  *
@@ -1388,7 +1416,7 @@ function handleStorageChange(changes, namespace) {
   if (namespace !== 'local') {
     return;
   }
-  // Phase 3：只要 page_*、highlights_* 或 saved_* 有變，就重整當前頁面資料
+  // Phase 3：只要 page_*、highlights_*、saved_* 或 url_alias:* 有變，就重整當前頁面資料
   const hasRelevantChanges = Object.keys(changes).some(key => isSidepanelRefreshStorageKey(key));
 
   if (!hasRelevantChanges) {
@@ -1398,6 +1426,7 @@ function handleStorageChange(changes, namespace) {
   // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
   scheduleUnsyncedBadgeRefresh();
   reloadCurrentViewAfterStorageChange();
+  refreshUnsyncedViewIfActive();
 }
 
 // 啟動
@@ -1558,11 +1587,51 @@ function backfillUnsyncedCardAfterDeletion() {
  * @param {HTMLElement} cardEl 對應的卡片 DOM 節點（用於移除）
  */
 async function deleteUnsyncedPage(storageKey, cardEl) {
+  // 抽取 URL 用於後續的 background cleanup 與 foreground 清理
+  const pageUrl = _extractUrlFromStorageKey(storageKey);
+
   try {
     await _removeStorageKeyWithCanonicalCleanup(storageKey);
   } catch (error) {
     Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', { error });
     return; // bail out — don't mutate UI if storage failed
+  }
+
+  // 透過 background 執行 canonical CLEAR_HIGHLIGHTS 路徑
+  if (pageUrl) {
+    chrome.runtime
+      .sendMessage({
+        action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+        url: pageUrl,
+      })
+      .catch(error => {
+        Logger.warn('[SidePanel] deleteUnsyncedPage: background CLEAR_HIGHLIGHTS failed', {
+          action: RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS,
+          result: 'failure',
+          error,
+          url: sanitizeUrlForLogging(pageUrl),
+        });
+      });
+
+    // Best-effort foreground 清理：嘗試通知 active tab 清除視覺高亮
+    chrome.tabs
+      .query({ active: true, currentWindow: true })
+      .then(tabs => {
+        if (tabs?.[0]?.id) {
+          return chrome.tabs.sendMessage(tabs[0].id, {
+            action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+            url: pageUrl,
+          });
+        }
+      })
+      .catch(error => {
+        Logger.warn('[SidePanel] deleteUnsyncedPage: foreground cleanup failed', {
+          action: RUNTIME_ACTIONS.REMOVE_HIGHLIGHT_DOM,
+          result: 'failure',
+          error,
+          url: sanitizeUrlForLogging(pageUrl),
+        });
+      });
   }
 
   // 從快取移除
