@@ -486,12 +486,12 @@ describe('urlUtils', () => {
       expect(normalizeUrl(obj)).toBe('/relative/path');
 
       // 數字會被轉為字串
-      expect(normalizeUrl(12345)).toBe('12345');
+      expect(normalizeUrl(12_345)).toBe('12345');
     });
 
     it('應該返回原始輸入對於無法解析的 URL（如惡意/無效格式）', () => {
       // 在 node 的 URL 實作中，某些格式會拋出錯誤
-      const invalidUrl = 'http://%';
+      const invalidUrl = 'https://%';
       expect(normalizeUrl(invalidUrl)).toBe(invalidUrl);
     });
   });
@@ -517,7 +517,17 @@ describe('urlUtils', () => {
     it('應該處理無效 URL 導致解析失敗的情況', () => {
       expect(hasSameOrigin('invalid-url-1', 'https://example.com')).toBe(false);
       expect(hasSameOrigin('https://example.com', 'invalid-url-2')).toBe(false);
-      expect(hasSameOrigin('http://%', 'http://%')).toBe(false);
+      expect(hasSameOrigin('https://%', 'https://%')).toBe(false);
+    });
+
+    it('應該對相對路徑返回 false', () => {
+      expect(hasSameOrigin('/path1', '/path2')).toBe(false);
+      expect(hasSameOrigin('path1', 'path2')).toBe(false);
+    });
+
+    it('應該以 URL origin 規則忽略協定與主機名稱大小寫', () => {
+      expect(hasSameOrigin('HTTPS://EXAMPLE.COM/page', 'https://example.com/page')).toBe(true);
+      expect(hasSameOrigin('https://EXAMPLE.com', 'https://example.com')).toBe(true);
     });
   });
 
