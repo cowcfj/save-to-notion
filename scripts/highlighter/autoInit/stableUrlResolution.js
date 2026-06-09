@@ -213,7 +213,7 @@ export function applyResolvedStableUrl({
 
     // 設置穩定 URL 優先權（Phase 3 regression fix）：
     // Highlighter 需要知道到底該用哪個 URL 來儲存/讀取標註
-    if (globalScope.HighlighterAPI?.setStableUrl) {
+    if (typeof globalScope.HighlighterAPI?.setStableUrl === 'function') {
       globalScope.HighlighterAPI.setStableUrl(resolvedStableUrl);
     }
   } else {

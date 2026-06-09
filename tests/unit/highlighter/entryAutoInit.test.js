@@ -612,6 +612,74 @@ describe('entryAutoInit', () => {
     expect(globalThis.__NOTION_STABLE_URL__).toBe(rawStableUrl);
   });
 
+  test('applyResolvedStableUrl 應只在 HighlighterAPI.setStableUrl 是函式時呼叫', () => {
+    const {
+      applyResolvedStableUrl,
+    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+    const setStableUrl = jest.fn();
+    const globalScope = {
+      HighlighterAPI: {
+        setStableUrl,
+      },
+    };
+
+    applyResolvedStableUrl({
+      globalScope,
+      resolvedStableUrl: 'https://example.com/stable',
+      stableUrlSource: 'SET_STABLE_URL',
+      logger: mockLogger,
+      sanitizeUrlForLogging: url => url,
+    });
+
+    expect(globalScope.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
+    expect(setStableUrl).toHaveBeenCalledWith('https://example.com/stable');
+  });
+
+  test('applyResolvedStableUrl 遇到非函式 HighlighterAPI.setStableUrl 不應中斷初始化', () => {
+    const {
+      applyResolvedStableUrl,
+    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+    const globalScope = {
+      HighlighterAPI: {
+        setStableUrl: 'not-a-function',
+      },
+    };
+
+    expect(() => {
+      applyResolvedStableUrl({
+        globalScope,
+        resolvedStableUrl: 'https://example.com/stable',
+        stableUrlSource: 'SET_STABLE_URL',
+        logger: mockLogger,
+        sanitizeUrlForLogging: url => url,
+      });
+    }).not.toThrow();
+    expect(globalScope.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
+  });
+
+  test('applyResolvedStableUrl 無 stableUrl 時應記錄 fallback 到原始 URL', () => {
+    const {
+      applyResolvedStableUrl,
+    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+    const globalScope = {};
+
+    applyResolvedStableUrl({
+      globalScope,
+      resolvedStableUrl: null,
+      stableUrlSource: 'checkPageStatus',
+      logger: mockLogger,
+      sanitizeUrlForLogging: url => url,
+    });
+
+    expect(globalScope.__NOTION_STABLE_URL__).toBeUndefined();
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      '[Highlighter] Background 返回無效的 stable URL，將使用原始 URL',
+      {
+        action: 'initialization_complete_no_stable_url',
+      }
+    );
+  });
+
   test('waitForStableUrl 應由臨時 SET_STABLE_URL 監聽器處理訊息', async () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
