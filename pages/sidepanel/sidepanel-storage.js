@@ -205,6 +205,37 @@ export function _removeHighlightFromObjectData(data, highlightId) {
 }
 
 /**
+ * 檢查資料是否包含有效的 Notion 頁面資訊
+ *
+ * @param {object} data - 資料物件
+ * @param {boolean} keepWhenNotionExists - 是否在 Notion 資料存在時保留
+ * @returns {boolean}
+ */
+function _hasValidNotionData(data, keepWhenNotionExists) {
+  if (!keepWhenNotionExists) {
+    return false;
+  }
+  if (!data.notion || typeof data.notion !== 'object') {
+    return false;
+  }
+  return Boolean(data.notion.pageId);
+}
+
+/**
+ * 更新資料的 metadata.lastUpdated
+ *
+ * @param {object} data - 資料物件
+ * @returns {object} 更新後的 metadata
+ */
+function _updateMetadataTimestamp(data) {
+  const metadata = data.metadata && typeof data.metadata === 'object' ? data.metadata : {};
+  return {
+    ...metadata,
+    lastUpdated: Date.now(),
+  };
+}
+
+/**
  * @param {object} data
  * @param {string} highlightId
  * @param {boolean} keepWhenNotionExists
@@ -212,23 +243,59 @@ export function _removeHighlightFromObjectData(data, highlightId) {
  */
 export function _computeObjectDeleteResult(data, highlightId, keepWhenNotionExists) {
   const highlights = _removeHighlightFromObjectData(data, highlightId);
-  const hasValidNotion = Boolean(
-    keepWhenNotionExists && data.notion && typeof data.notion === 'object' && data.notion.pageId
-  );
+  const hasValidNotion = _hasValidNotionData(data, keepWhenNotionExists);
   const shouldRemove = highlights.length === 0 && !hasValidNotion;
   const newData = {
     ...data,
     highlights,
   };
   if (!shouldRemove) {
-    const metadata = data.metadata && typeof data.metadata === 'object' ? data.metadata : {};
-    newData.metadata = {
-      ...metadata,
-      lastUpdated: Date.now(),
-    };
+    newData.metadata = _updateMetadataTimestamp(data);
   }
   return { newData, shouldRemove };
 }
+
+/**
+ * 刪除策略：針對不同格式定義刪除行為
+ */
+const DELETION_STRATEGIES = {
+  /**
+   * page_* 新格式：保留 notion 資訊
+   *
+   * @param {object} data
+   * @param {string} highlightId
+   * @returns {{ newData: object, shouldRemove: boolean }}
+   */
+  page: (data, highlightId) => _computeObjectDeleteResult(data, highlightId, true),
+
+  /**
+   * 舊格式物件結構：不保留 notion 資訊
+   *
+   * @param {object} data
+   * @param {string} highlightId
+   * @returns {{ newData: object, shouldRemove: boolean }}
+   */
+  object: (data, highlightId) => _computeObjectDeleteResult(data, highlightId, false),
+
+  /**
+   * 舊版 array 格式
+   *
+   * @param {Array} data
+   * @param {string} highlightId
+   * @returns {{ newData: Array, shouldRemove: boolean }}
+   */
+  array: (data, highlightId) => {
+    const newData = data.filter(hl => hl.id !== highlightId);
+    return { newData, shouldRemove: newData.length === 0 };
+  },
+
+  /**
+   * 無法識別的格式
+   *
+   * @returns {{ newData: undefined, shouldRemove: boolean }}
+   */
+  unknown: () => ({ newData: undefined, shouldRemove: true }),
+};
 
 /**
  * 根據資料格式計算刪除後的結果
@@ -239,24 +306,17 @@ export function _computeObjectDeleteResult(data, highlightId, keepWhenNotionExis
  * @returns {{ newData: any, shouldRemove: boolean }}
  */
 export function _computeDeleteResult(data, highlightId, storageKey) {
+  let strategyKey = 'unknown';
+
   if (storageKey.startsWith(PAGE_PREFIX)) {
-    // Phase 3：page_* 新格式的 partial 刪除
-    return _computeObjectDeleteResult(data, highlightId, true);
+    strategyKey = 'page';
+  } else if (data.highlights) {
+    strategyKey = 'object';
+  } else if (Array.isArray(data)) {
+    strategyKey = 'array';
   }
 
-  if (data.highlights) {
-    // 舊格式：有 highlights 物件結構
-    return _computeObjectDeleteResult(data, highlightId, false);
-  }
-
-  if (Array.isArray(data)) {
-    // 舊版 array 格式
-    const newData = data.filter(hl => hl.id !== highlightId);
-    return { newData, shouldRemove: newData.length === 0 };
-  }
-
-  // 無法識別的格式，安全地移除
-  return { newData: undefined, shouldRemove: true };
+  return DELETION_STRATEGIES[strategyKey](data, highlightId);
 }
 
 /**
