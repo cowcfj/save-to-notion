@@ -24,13 +24,7 @@ import * as UI from './sidepanelUI.js';
  * @returns {Record<string, any>}
  */
 export function normalizeStorageSnapshot(snapshot) {
-  if (!snapshot) {
-    return {};
-  }
-  if (typeof snapshot !== 'object') {
-    return {};
-  }
-  if (Array.isArray(snapshot)) {
+  if (Object.prototype.toString.call(snapshot) !== '[object Object]') {
     return {};
   }
   return snapshot;
@@ -234,19 +228,7 @@ export function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, alias
   const aliasCandidate = pickAliasCandidate(synthAliasData, pageUrl);
   const contract = resolveHighlightLookupKeys(pageUrl, aliasCandidate);
 
-  // Reverse alias：找 aliasMap 中所有 value === contract.canonicalUrl 的 from-URL,
-  // 收集對應的 page_<other> / highlights_<other>（不在 contract 內,但屬同 canonical group）
-  const reverseMembers = [];
-  for (const [aliasFromUrl, aliasToUrl] of aliasMap) {
-    if (typeof aliasToUrl !== 'string' || aliasToUrl !== contract.canonicalUrl) {
-      continue;
-    }
-    if (aliasFromUrl === contract.canonicalUrl || aliasFromUrl === pageUrl) {
-      // 已涵蓋於 contract（forward path 與 normalizedUrl）
-      continue;
-    }
-    reverseMembers.push(`${PAGE_PREFIX}${aliasFromUrl}`, `${HIGHLIGHTS_PREFIX}${aliasFromUrl}`);
-  }
+  const reverseMembers = _buildReverseAliasDeletionKeys(aliasMap, contract.canonicalUrl, pageUrl);
 
   // 候選集 = contract.mutationTargetKey + contract.legacyCleanupKeys + reverseMembers + fallbackKey
   const candidateSet = new Set([
@@ -262,6 +244,42 @@ export function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, alias
   );
 
   return result.toSorted(compareKeysAlphabetically);
+}
+
+/**
+ * Reverse alias：找 aliasMap 中所有 value === canonicalUrl 的 from-URL,
+ * 收集對應的 page_<other> / highlights_<other>（不在 contract 內,但屬同 canonical group）。
+ *
+ * @param {Map<string, string>} aliasMap
+ * @param {string} canonicalUrl
+ * @param {string} pageUrl
+ * @returns {string[]}
+ * @private
+ */
+export function _buildReverseAliasDeletionKeys(aliasMap, canonicalUrl, pageUrl) {
+  const reverseMembers = [];
+  for (const [aliasFromUrl, aliasToUrl] of aliasMap) {
+    if (!_isReverseAliasMember(aliasFromUrl, aliasToUrl, canonicalUrl, pageUrl)) {
+      continue;
+    }
+    reverseMembers.push(`${PAGE_PREFIX}${aliasFromUrl}`, `${HIGHLIGHTS_PREFIX}${aliasFromUrl}`);
+  }
+  return reverseMembers;
+}
+
+/**
+ * @param {string} aliasFromUrl
+ * @param {*} aliasToUrl
+ * @param {string} canonicalUrl
+ * @param {string} pageUrl
+ * @returns {boolean}
+ * @private
+ */
+export function _isReverseAliasMember(aliasFromUrl, aliasToUrl, canonicalUrl, pageUrl) {
+  if (typeof aliasToUrl !== 'string' || aliasToUrl !== canonicalUrl) {
+    return false;
+  }
+  return ![canonicalUrl, pageUrl].includes(aliasFromUrl);
 }
 
 /**
@@ -332,29 +350,25 @@ export function _groupStorageEntries(allStorageData, aliasMap) {
  */
 export function _pickGroupOwner(canonicalUrl, group) {
   // Priority 1: page_<canonical>
-  let chosen = group.pages.find(page => page.url === canonicalUrl) || null;
+  const chosen = group.pages.find(page => page.url === canonicalUrl) ?? group.pages[0];
 
   // Priority 2: 任意其他 page_*（例如 alias 指向空 stable key 時的 page_<original>）
-  if (!chosen && group.pages.length > 0) {
-    chosen = group.pages[0];
-  }
-
   if (chosen) {
     return { ownerKey: chosen.key, ownerUrl: chosen.url, ownerValue: chosen.value, format: 'page' };
   }
 
   // Priority 3: highlights_*（舊格式）
-  if (group.legacies.length > 0) {
-    const legacy = group.legacies[0];
-    return {
-      ownerKey: legacy.key,
-      ownerUrl: legacy.url,
-      ownerValue: legacy.value,
-      format: 'legacy',
-    };
+  const legacy = group.legacies[0];
+  if (!legacy) {
+    return null;
   }
 
-  return null;
+  return {
+    ownerKey: legacy.key,
+    ownerUrl: legacy.url,
+    ownerValue: legacy.value,
+    format: 'legacy',
+  };
 }
 
 /**
@@ -363,10 +377,6 @@ export function _pickGroupOwner(canonicalUrl, group) {
  */
 export function resolveUnsyncedOwnership(allStorageData) {
   const storageSnapshot = normalizeStorageSnapshot(allStorageData);
-  if (Object.keys(storageSnapshot).length === 0) {
-    return new Map();
-  }
-
   const aliasMap = _buildAliasMap(storageSnapshot);
   const groups = _groupStorageEntries(storageSnapshot, aliasMap);
 
