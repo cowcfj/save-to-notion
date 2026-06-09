@@ -250,6 +250,17 @@ function requireElement(element, elementName) {
 // === 業務邏輯 ===
 
 /**
+ * @param {*} snapshot
+ * @returns {Record<string, any>}
+ */
+function normalizeStorageSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return {};
+  }
+  return snapshot;
+}
+
+/**
  * @param {*} value
  * @returns {Array}
  */
@@ -341,12 +352,13 @@ function buildPageEntry(key, url, value) {
  * @returns {{isSaved: boolean, savedData: any}}
  */
 function resolveLegacySavedState(all, url, canonicalUrl) {
-  const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
+  const storageSnapshot = normalizeStorageSnapshot(all);
+  const savedDataOriginal = storageSnapshot[`${SAVED_PREFIX}${url}`];
   if (savedDataOriginal?.notionPageId) {
     return { isSaved: true, savedData: savedDataOriginal };
   }
 
-  const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
+  const savedDataCanonical = storageSnapshot[`${SAVED_PREFIX}${canonicalUrl}`];
   if (savedDataCanonical?.notionPageId) {
     return { isSaved: true, savedData: savedDataCanonical };
   }
@@ -435,8 +447,9 @@ function buildLegacyPageEntry(key, url, value, context) {
  * @private
  */
 function _buildAliasMap(allStorageData) {
+  const storageSnapshot = normalizeStorageSnapshot(allStorageData);
   const aliasMap = new Map();
-  for (const [key, value] of Object.entries(allStorageData)) {
+  for (const [key, value] of Object.entries(storageSnapshot)) {
     if (key.startsWith(URL_ALIAS_PREFIX)) {
       aliasMap.set(key.slice(URL_ALIAS_PREFIX.length), value);
     }
@@ -462,6 +475,7 @@ function _buildAliasMap(allStorageData) {
  * @returns {string[]} 應呼叫 chrome.storage.local.remove 的 key 清單（已字典序）
  */
 function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
+  const storageSnapshot = normalizeStorageSnapshot(allStorageData);
   // Forward alias：用 pickAliasCandidate 走相同的 alias validation 規則
   const synthAliasData = {
     [`${URL_ALIAS_PREFIX}${pageUrl}`]: aliasMap.get(pageUrl) ?? null,
@@ -493,7 +507,7 @@ function _collectDeletionKeys(pageUrl, fallbackKey, allStorageData, aliasMap) {
 
   // 僅保留 snapshot 中實際存在的 key（避免無謂 remove）
   const result = [...candidateSet].filter(
-    k => typeof k === 'string' && allStorageData[k] !== undefined && allStorageData[k] !== null
+    k => typeof k === 'string' && storageSnapshot[k] !== undefined && storageSnapshot[k] !== null
   );
 
   return result.toSorted(compareKeysAlphabetically);
@@ -537,9 +551,10 @@ function _ensureStorageEntryGroup(groups, canonical) {
  * @private
  */
 function _groupStorageEntries(allStorageData, aliasMap) {
+  const storageSnapshot = normalizeStorageSnapshot(allStorageData);
   /** @type {Map<string, {pages: Array<{key:string,url:string,value:any}>, legacies: Array<{key:string,url:string,value:any}>}>} */
   const groups = new Map();
-  for (const [key, value] of Object.entries(allStorageData)) {
+  for (const [key, value] of Object.entries(storageSnapshot)) {
     const entry = _parseHighlightStorageEntry(key, value);
     if (!entry) {
       continue;
@@ -592,12 +607,13 @@ function _pickGroupOwner(canonicalUrl, group) {
 }
 
 function resolveUnsyncedOwnership(allStorageData) {
-  if (!allStorageData || typeof allStorageData !== 'object') {
+  const storageSnapshot = normalizeStorageSnapshot(allStorageData);
+  if (Object.keys(storageSnapshot).length === 0) {
     return new Map();
   }
 
-  const aliasMap = _buildAliasMap(allStorageData);
-  const groups = _groupStorageEntries(allStorageData, aliasMap);
+  const aliasMap = _buildAliasMap(storageSnapshot);
+  const groups = _groupStorageEntries(storageSnapshot, aliasMap);
 
   const owners = new Map();
   for (const [canonicalUrl, group] of groups) {
@@ -619,7 +635,7 @@ function resolveUnsyncedOwnership(allStorageData) {
  * @returns {Promise<Array<{url, storageKey, title, highlightCount, lastUpdated, previewHighlights, remainingCount}>>}
  */
 async function getUnsyncedPages() {
-  const all = await chrome.storage.local.get(null);
+  const all = normalizeStorageSnapshot(await chrome.storage.local.get(null));
   const owners = resolveUnsyncedOwnership(all);
 
   // alias map：buildLegacyPageEntry 仍需用以查詢 saved_<canonical>，避免重複建構
@@ -714,7 +730,11 @@ function isUnsupportedTab(tab) {
   if (!tab?.url) {
     return true;
   }
-  return RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol);
+  try {
+    return RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol);
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -1034,18 +1054,6 @@ async function renderHighlightsForUrl(url, originalTabUrl, requestId) {
 }
 
 /**
- * 更新物件的 metadata.lastUpdated 時間戳
- *
- * @param {object} data
- */
-function _touchMetadata(data) {
-  if (!data.metadata) {
-    data.metadata = {};
-  }
-  data.metadata.lastUpdated = Date.now();
-}
-
-/**
  * @param {object} data
  * @param {string} highlightId
  * @returns {Array}
@@ -1064,12 +1072,20 @@ function _removeHighlightFromObjectData(data, highlightId) {
  * @private
  */
 function _computeObjectDeleteResult(data, highlightId, keepWhenNotionExists) {
-  data.highlights = _removeHighlightFromObjectData(data, highlightId);
-  const shouldRemove = data.highlights.length === 0 && !(keepWhenNotionExists && data.notion);
+  const highlights = _removeHighlightFromObjectData(data, highlightId);
+  const shouldRemove = highlights.length === 0 && !(keepWhenNotionExists && data.notion);
+  const newData = {
+    ...data,
+    highlights,
+  };
   if (!shouldRemove) {
-    _touchMetadata(data);
+    const metadata = data.metadata && typeof data.metadata === 'object' ? data.metadata : {};
+    newData.metadata = {
+      ...metadata,
+      lastUpdated: Date.now(),
+    };
   }
-  return { newData: data, shouldRemove };
+  return { newData, shouldRemove };
 }
 
 /**
@@ -1138,7 +1154,7 @@ function _extractUrlFromStorageKey(storageKey) {
  * @private
  */
 async function _resolvePageDeletionKeys(pageUrl, fallbackKey) {
-  const all = await chrome.storage.local.get(null);
+  const all = normalizeStorageSnapshot(await chrome.storage.local.get(null));
   const aliasMap = _buildAliasMap(all);
   return _collectDeletionKeys(pageUrl, fallbackKey, all, aliasMap);
 }

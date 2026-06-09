@@ -284,6 +284,24 @@ describe('Sidepanel JS Logic', () => {
       expect(syncButton.disabled).toBe(true);
     });
 
+    it('[REGRESSION] malformed tab URLs should be treated as unsupported pages', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 303, url: 'https://[malformed' });
+      chrome.tabs.sendMessage.mockClear();
+      Logger.error.mockClear();
+
+      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+      await onActivated({ tabId: 303 });
+      await flushMicrotasks();
+
+      const emptyP = document.querySelector('#empty-state p');
+      expect(emptyP.textContent).toBe('不支援此頁面');
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(Logger.error).not.toHaveBeenCalledWith(
+        '[SidePanel] Failed to load tab',
+        expect.any(Object)
+      );
+    });
+
     it('should resolve tab url via computeStableUrl fallback if content script rejects', async () => {
       chrome.tabs.sendMessage.mockRejectedValueOnce(new Error('Extension context invalidated'));
       computeStableUrl.mockReturnValueOnce('https://example.com/computed');
@@ -690,6 +708,7 @@ describe('Sidepanel JS Logic', () => {
             { id: '1', text: 'hello', color: 'yellow' },
             { id: '2', text: 'world', color: 'blue' },
           ],
+          metadata: { lastUpdated: 1000, title: 'Example' },
         },
       };
 
@@ -707,6 +726,17 @@ describe('Sidepanel JS Logic', () => {
       expect(chrome.storage.local.set).toHaveBeenCalled();
       const args = chrome.storage.local.set.mock.calls[0][0];
       expect(args['highlights_https://example.js/stable'].highlights).toHaveLength(1);
+      expect(args['highlights_https://example.js/stable']).not.toBe(
+        currentMockData['highlights_https://example.js/stable']
+      );
+      expect(args['highlights_https://example.js/stable'].metadata).not.toBe(
+        currentMockData['highlights_https://example.js/stable'].metadata
+      );
+      expect(currentMockData['highlights_https://example.js/stable'].highlights).toHaveLength(2);
+      expect(currentMockData['highlights_https://example.js/stable'].metadata).toEqual({
+        lastUpdated: 1000,
+        title: 'Example',
+      });
     });
 
     it('在新的 page_* 格式上應能正確處理 handleDelete（部分刪除與完全移除）', async () => {
@@ -1489,6 +1519,25 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     const cards = document.querySelectorAll('#unsynced-view .page-card');
     expect(cards).toHaveLength(1);
     expect(cards[0].querySelector('.page-title').textContent).toContain('b.com');
+  });
+
+  it('[REGRESSION] should treat a non-object storage snapshot as an empty unsynced list', async () => {
+    await initModule(async key => {
+      if (key === null) {
+        return null;
+      }
+      return {};
+    });
+    Logger.error.mockClear();
+
+    await clickUnsyncedTab();
+
+    const emptyMessage = document.querySelector('#unsynced-view .unsynced-empty');
+    expect(emptyMessage.textContent).toBe(UI_MESSAGES.SIDEPANEL.ALL_SYNCED);
+    expect(Logger.error).not.toHaveBeenCalledWith(
+      '[SidePanel] renderUnsyncedView failed after tab switch',
+      expect.any(Object)
+    );
   });
 
   it('should show preview text truncated to 80 chars', async () => {
