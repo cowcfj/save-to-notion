@@ -180,6 +180,31 @@ export function resolveStableUrlForInit({
   );
 }
 
+function getLoggedStableUrl({ resolvedStableUrl, sanitizeUrlForLogging }) {
+  if (typeof sanitizeUrlForLogging === 'function') {
+    return sanitizeUrlForLogging(resolvedStableUrl);
+  }
+  return resolvedStableUrl;
+}
+
+function notifyLegacyStableUrlApi({ globalScope, resolvedStableUrl, logger }) {
+  const setStableUrl = globalScope.HighlighterAPI?.setStableUrl;
+  if (typeof setStableUrl !== 'function') {
+    return;
+  }
+
+  try {
+    setStableUrl.call(globalScope.HighlighterAPI, resolvedStableUrl);
+  } catch (error) {
+    logger?.warn('[Highlighter] HighlighterAPI.setStableUrl 相容層呼叫失敗，繼續初始化', {
+      action: 'initializeExtension',
+      operation: 'HighlighterAPI.setStableUrl',
+      result: 'failed',
+      error,
+    });
+  }
+}
+
 /**
  * 套用解析後的穩定 URL，並記錄去敏感日誌。
  *
@@ -197,18 +222,22 @@ export function applyResolvedStableUrl({
   logger,
   sanitizeUrlForLogging,
 }) {
-  if (resolvedStableUrl) {
-    globalScope.__NOTION_STABLE_URL__ = resolvedStableUrl;
-
-    const loggedUrl =
-      typeof sanitizeUrlForLogging === 'function'
-        ? sanitizeUrlForLogging(resolvedStableUrl)
-        : resolvedStableUrl;
-
-    logger?.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
+  if (!resolvedStableUrl) {
+    // 如果 Background 返回 null 或 url 為空，說明沒有穩定 URL，繼續使用原始 URL
+    logger?.debug('[Highlighter] Background 返回無效的 stable URL，將使用原始 URL', {
       action: 'initializeExtension',
-      stableUrl: loggedUrl,
-      source: stableUrlSource,
+      operation: 'initialization_complete_no_stable_url',
+      result: 'no_stable_url_fallback',
     });
+    return;
   }
+
+  globalScope.__NOTION_STABLE_URL__ = resolvedStableUrl;
+  const loggedUrl = getLoggedStableUrl({ resolvedStableUrl, sanitizeUrlForLogging });
+  logger?.debug('[Highlighter] 已使用穩定 URL 完成初始化', {
+    action: 'initializeExtension',
+    stableUrl: loggedUrl,
+    source: stableUrlSource,
+  });
+  notifyLegacyStableUrlApi({ globalScope, resolvedStableUrl, logger });
 }
