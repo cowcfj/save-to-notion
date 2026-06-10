@@ -18,13 +18,13 @@
       "completion": "May use Lite Completion Path; doc_impact_matrix.json is not required."
     },
     "standard": {
-      "use_for": ["general features", "multi-file bug fixes", "general refactors"],
+      "use_for": ["general features", "same-module multi-file bug fixes", "general refactors"],
       "persistence": "required",
       "format": "implementation plan document in docs/plans"
     },
     "deep": {
       "use_for": [
-        "cross-module changes",
+        "cross-module changes across distinct business-logic boundaries or independent runtime boundaries",
         "contract changes",
         "storage or message bus schema changes",
         "backend-boundary investigations",
