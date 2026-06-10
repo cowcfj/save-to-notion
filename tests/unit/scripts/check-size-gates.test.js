@@ -159,6 +159,9 @@ describe('tools/check-size-gates.mjs', () => {
 
     expect(thrownError).toBeDefined();
     expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/content\.bundle\.js/);
+    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(
+      /content\.bundle\.js 超過硬性上限/
+    );
   });
 
   test.each([
@@ -230,7 +233,9 @@ describe('tools/check-size-gates.mjs', () => {
     }
 
     expect(thrownError).toBeDefined();
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/delta limit/i);
+    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(
+      /content\.bundle\.js 超出差異限制/
+    );
   });
 
   test('[REGRESSION] delta mode 應允許 Floating Rail 已核准的 content bundle 增量', () => {

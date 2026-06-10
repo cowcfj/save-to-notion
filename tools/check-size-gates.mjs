@@ -54,6 +54,43 @@ const BUDGETS = Object.freeze({
   ],
 });
 
+// 每個旗標對應一個賦值處理器；需要絕對路徑的旗標在此包一層 path.resolve。
+const ARG_HANDLERS = Object.freeze({
+  '--mode': (options, value) => {
+    options.mode = value;
+  },
+  '--scope': (options, value) => {
+    options.scope = value;
+  },
+  '--root': (options, value) => {
+    options.root = path.resolve(value);
+  },
+  '--base-root': (options, value) => {
+    options.baseRoot = path.resolve(value);
+  },
+  '--unpacked-dir': (options, value) => {
+    options.unpackedDir = path.resolve(value);
+  },
+  '--base-unpacked-dir': (options, value) => {
+    options.baseUnpackedDir = path.resolve(value);
+  },
+  '--report-file': (options, value) => {
+    options.reportFile = path.resolve(value);
+  },
+});
+
+function assertValidOptions(options) {
+  if (!['hard', 'delta'].includes(options.mode)) {
+    throw new Error(`不支援的 mode：${options.mode}`);
+  }
+  if (!['bundle', 'package', 'all'].includes(options.scope)) {
+    throw new Error(`不支援的 scope：${options.scope}`);
+  }
+  if (options.mode === 'delta' && !options.baseRoot) {
+    throw new Error('delta 模式必須提供 --base-root');
+  }
+}
+
 function parseArgs(argv) {
   const options = {
     mode: 'hard',
@@ -67,44 +104,14 @@ function parseArgs(argv) {
 
   for (const arg of argv) {
     const [rawKey, ...rawValueParts] = arg.split('=');
-    const value = rawValueParts.join('=');
-    switch (rawKey) {
-      case '--mode':
-        options.mode = value;
-        break;
-      case '--scope':
-        options.scope = value;
-        break;
-      case '--root':
-        options.root = path.resolve(value);
-        break;
-      case '--base-root':
-        options.baseRoot = path.resolve(value);
-        break;
-      case '--unpacked-dir':
-        options.unpackedDir = path.resolve(value);
-        break;
-      case '--base-unpacked-dir':
-        options.baseUnpackedDir = path.resolve(value);
-        break;
-      case '--report-file':
-        options.reportFile = path.resolve(value);
-        break;
-      default:
-        throw new Error(`未知參數：${arg}`);
+    const handler = ARG_HANDLERS[rawKey];
+    if (!handler) {
+      throw new Error(`未知參數：${arg}`);
     }
+    handler(options, rawValueParts.join('='));
   }
 
-  if (!['hard', 'delta'].includes(options.mode)) {
-    throw new Error(`不支援的 mode：${options.mode}`);
-  }
-  if (!['bundle', 'package', 'all'].includes(options.scope)) {
-    throw new Error(`不支援的 scope：${options.scope}`);
-  }
-  if (options.mode === 'delta' && !options.baseRoot) {
-    throw new Error('delta 模式必須提供 --base-root');
-  }
-
+  assertValidOptions(options);
   return options;
 }
 
@@ -157,49 +164,53 @@ function extractZipToTemp(zipPath) {
   return tempDir;
 }
 
+const MEASURE_HANDLERS = Object.freeze({
+  file: (rootDir, target) => {
+    const absolutePath = path.join(rootDir, target.relPath);
+    if (!fs.existsSync(absolutePath)) {
+      return { found: false };
+    }
+    return { found: true, value: fs.statSync(absolutePath).size };
+  },
+  zip: rootDir => {
+    const zipPath = getLatestZipPath(rootDir);
+    if (!zipPath) {
+      return { found: false };
+    }
+    return { found: true, value: fs.statSync(zipPath).size, metadata: { zipPath } };
+  },
+  dir: (rootDir, _target, unpackedDirOverride) => {
+    if (unpackedDirOverride) {
+      if (!fs.existsSync(unpackedDirOverride)) {
+        return { found: false };
+      }
+      return { found: true, value: getDirectorySizeBytes(unpackedDirOverride) };
+    }
+
+    const zipPath = getLatestZipPath(rootDir);
+    if (!zipPath) {
+      return { found: false };
+    }
+
+    const tempDir = extractZipToTemp(zipPath);
+    try {
+      return {
+        found: true,
+        value: getDirectorySizeBytes(tempDir),
+        metadata: { extractedFrom: zipPath },
+      };
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  },
+});
+
 function measureTarget(rootDir, target, unpackedDirOverride = '') {
-  switch (target.type) {
-    case 'file': {
-      const absolutePath = path.join(rootDir, target.relPath);
-      if (!fs.existsSync(absolutePath)) {
-        return { found: false };
-      }
-      return { found: true, value: fs.statSync(absolutePath).size };
-    }
-    case 'zip': {
-      const zipPath = getLatestZipPath(rootDir);
-      if (!zipPath) {
-        return { found: false };
-      }
-      return { found: true, value: fs.statSync(zipPath).size, metadata: { zipPath } };
-    }
-    case 'dir': {
-      if (unpackedDirOverride) {
-        if (!fs.existsSync(unpackedDirOverride)) {
-          return { found: false };
-        }
-        return { found: true, value: getDirectorySizeBytes(unpackedDirOverride) };
-      }
-
-      const zipPath = getLatestZipPath(rootDir);
-      if (!zipPath) {
-        return { found: false };
-      }
-
-      const tempDir = extractZipToTemp(zipPath);
-      try {
-        return {
-          found: true,
-          value: getDirectorySizeBytes(tempDir),
-          metadata: { extractedFrom: zipPath },
-        };
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      }
-    }
-    default:
-      throw new Error(`未知 target type：${target.type}`);
+  const handler = MEASURE_HANDLERS[target.type];
+  if (!handler) {
+    throw new Error(`未知 target type：${target.type}`);
   }
+  return handler(rootDir, target, unpackedDirOverride);
 }
 
 function createCheckResult(target, currentMeasurement, baseMeasurement, mode) {
@@ -229,30 +240,46 @@ function createCheckResult(target, currentMeasurement, baseMeasurement, mode) {
 
   if (currentMeasurement.value > target.hardLimit) {
     result.status = 'failed';
-    result.message = `${target.label} exceeds hard limit`;
+    result.message = `${target.label} 超過硬性上限`;
     return result;
   }
 
-  if (mode === 'delta') {
-    if (!baseMeasurement?.found) {
-      result.status = 'skipped';
-      result.message = `${target.label} 缺少 base 產物，略過 delta 檢查`;
-      return result;
-    }
+  if (mode !== 'delta') {
+    return result;
+  }
 
-    result.base = baseMeasurement.value;
-    result.delta = currentMeasurement.value - baseMeasurement.value;
-    if (baseMeasurement.metadata) {
-      result.baseMeta = baseMeasurement.metadata;
-    }
+  if (!baseMeasurement?.found) {
+    result.status = 'skipped';
+    result.message = `${target.label} 缺少 base 產物，略過 delta 檢查`;
+    return result;
+  }
 
-    if (result.delta > target.deltaLimit) {
-      result.status = 'failed';
-      result.message = `${target.label} exceeds delta limit`;
-    }
+  result.base = baseMeasurement.value;
+  result.delta = currentMeasurement.value - baseMeasurement.value;
+  if (baseMeasurement.metadata) {
+    result.baseMeta = baseMeasurement.metadata;
+  }
+
+  if (result.delta > target.deltaLimit) {
+    result.status = 'failed';
+    result.message = `${target.label} 超出差異限制`;
   }
 
   return result;
+}
+
+function formatCheckLine(check) {
+  const parts = [`[${check.status.toUpperCase()}]`, check.label];
+  if (typeof check.current === 'number') {
+    parts.push(`current=${check.current}`);
+  }
+  if (typeof check.base === 'number') {
+    parts.push(`base=${check.base}`, `delta=${check.delta}`);
+  }
+  if (check.message) {
+    parts.push(check.message);
+  }
+  return parts.join(' ');
 }
 
 function main() {
@@ -285,17 +312,7 @@ function main() {
   }
 
   for (const check of checks) {
-    const parts = [`[${check.status.toUpperCase()}]`, check.label];
-    if (typeof check.current === 'number') {
-      parts.push(`current=${check.current}`);
-    }
-    if (typeof check.base === 'number') {
-      parts.push(`base=${check.base}`, `delta=${check.delta}`);
-    }
-    if (check.message) {
-      parts.push(check.message);
-    }
-    console.log(parts.join(' '));
+    console.log(formatCheckLine(check));
   }
 
   if (report.failed) {
