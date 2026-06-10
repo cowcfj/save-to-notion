@@ -90,76 +90,102 @@ async function triggerEvent(element, eventType = 'click') {
   await handler({ target: element });
 }
 
+function createDeferred() {
+  let resolveDeferred;
+  let rejectDeferred;
+  const promise = new Promise((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+  return { promise, resolve: resolveDeferred, reject: rejectDeferred };
+}
+
+async function flushAsyncHandlers() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function createPopupButton(overrides = {}) {
+  return { addEventListener: jest.fn(), style: {}, dataset: {}, disabled: false, ...overrides };
+}
+
+function createPopupMockElements() {
+  return {
+    saveButton: createPopupButton(),
+    highlightButton: createPopupButton(),
+    manageButton: createPopupButton(),
+    openNotionButton: createPopupButton({
+      getAttribute: jest.fn(),
+      dataset: { url: 'https://notion.so/new' },
+    }),
+    accountSection: { style: { display: 'none' } },
+    accountButton: createPopupButton({
+      querySelector: jest.fn(),
+    }),
+    accountSummary: { textContent: '' },
+    accountEmail: { textContent: '', style: {} },
+    accountStatus: { textContent: '', style: {} },
+    destinationSection: { style: {} },
+    destinationCurrent: { textContent: '', dataset: {}, style: {} },
+    destinationToggle: createPopupButton(),
+    destinationMenu: { addEventListener: jest.fn(), style: {} },
+    status: { textContent: '', style: {} },
+    clearHighlightsButton: null,
+    modal: null,
+    modalMessage: null,
+    modalConfirm: null,
+    modalCancel: null,
+  };
+}
+
+function configureDefaultPopupMocks(mockElements) {
+  getElements.mockReturnValue(mockElements);
+  setButtonState.mockImplementation((button, disabled) => {
+    if (button) {
+      button.disabled = disabled;
+    }
+  });
+
+  checkSettings.mockResolvedValue({ valid: true });
+  checkPageStatus.mockResolvedValue({
+    success: true,
+    statusKind: 'saved',
+    isSaved: true,
+    canSave: false,
+    canSyncHighlights: true,
+  });
+  getPopupAccountState.mockResolvedValue({
+    enabled: true,
+    isLoggedIn: false,
+    profile: null,
+    transientRefreshError: false,
+  });
+  getDestinationState.mockResolvedValue({
+    profiles: [{ id: 'default', name: 'Default' }],
+    selectedProfileId: 'default',
+    entitlement: { maxProfiles: 1 },
+  });
+}
+
+function installChromePopupMocks() {
+  globalThis.chrome = {
+    tabs: {
+      query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
+      sendMessage: jest.fn().mockResolvedValue({}),
+      onActivated: { addListener: jest.fn() },
+    },
+    sidePanel: {
+      open: jest.fn(),
+    },
+  };
+  globalThis.window.close = jest.fn();
+}
+
 describe('popup.js Controller', () => {
   const setup = () => {
-    const mockElements = {
-      saveButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      manageButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      openNotionButton: {
-        addEventListener: jest.fn(),
-        getAttribute: jest.fn(),
-        style: {},
-        dataset: { url: 'https://notion.so/new' },
-      },
-      accountSection: { style: { display: 'none' } },
-      accountButton: {
-        addEventListener: jest.fn(),
-        style: {},
-        dataset: {},
-        querySelector: jest.fn(),
-      },
-      accountSummary: { textContent: '' },
-      accountEmail: { textContent: '', style: {} },
-      accountStatus: { textContent: '', style: {} },
-      destinationSection: { style: {} },
-      destinationCurrent: { textContent: '', dataset: {}, style: {} },
-      destinationToggle: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      destinationMenu: { addEventListener: jest.fn(), style: {} },
-      status: { textContent: '', style: {} },
-      clearHighlightsButton: null,
-      modal: null,
-      modalMessage: null,
-      modalConfirm: null,
-      modalCancel: null,
-    };
-
-    getElements.mockReturnValue(mockElements);
-
-    // Default mocks
-    checkSettings.mockResolvedValue({ valid: true });
-    checkPageStatus.mockResolvedValue({
-      success: true,
-      statusKind: 'saved',
-      isSaved: true,
-      canSave: false,
-      canSyncHighlights: true,
-    });
-    getPopupAccountState.mockResolvedValue({
-      enabled: true,
-      isLoggedIn: false,
-      profile: null,
-      transientRefreshError: false,
-    });
-    getDestinationState.mockResolvedValue({
-      profiles: [{ id: 'default', name: 'Default' }],
-      selectedProfileId: 'default',
-      entitlement: { maxProfiles: 1 },
-    });
-
-    // Mock global chrome
-    globalThis.chrome = {
-      tabs: {
-        query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
-        sendMessage: jest.fn().mockResolvedValue({}),
-        onActivated: { addListener: jest.fn() },
-      },
-      sidePanel: {
-        open: jest.fn(),
-      },
-    };
-    globalThis.window.close = jest.fn();
-
+    const mockElements = createPopupMockElements();
+    configureDefaultPopupMocks(mockElements);
+    installChromePopupMocks();
     return { mockElements };
   };
 
@@ -257,65 +283,137 @@ describe('popup.js Controller', () => {
     expect(updateUIForSavedPage).not.toHaveBeenCalled();
   });
 
-  it('當缺少 API Key 時應正確處理', async () => {
-    const { mockElements } = setup();
-    checkSettings.mockResolvedValue({
-      valid: false,
-      apiKey: undefined,
-      dataSourceId: undefined,
-      missingReason: 'missing_auth',
+  it('初始化保存目標失敗時應只記錄 sanitized logging context', async () => {
+    setup();
+    const rawError = new Error(
+      'backend leaked token secret_abc and url https://example.com/private?token=secret'
+    );
+    getDestinationState.mockRejectedValue(rawError);
+
+    await initPopup();
+
+    expect(Logger.warn).toHaveBeenCalledWith('[Popup] Failed to initialize destination selector', {
+      action: 'initDestinationSelector',
+      result: 'failure',
+      sanitizedError: 'UNKNOWN_ERROR',
+    });
+    expect(Logger.warn).not.toHaveBeenCalledWith(
+      '[Popup] Failed to initialize destination selector',
+      { error: rawError }
+    );
+  });
+
+  it('初始化保存狀態成功時應避免記錄 raw pageStatus payload', async () => {
+    setup();
+    checkPageStatus.mockResolvedValue({
+      success: true,
+      statusKind: 'saved',
+      isSaved: true,
+      canSave: false,
+      canSyncHighlights: true,
+      notionPageId: 'notion-page-123',
+      notionUrl: 'https://notion.so/private?token=secret',
+      stableUrl: 'https://example.com/private?email=user@example.com',
+      title: 'Sensitive page title',
     });
 
     await initPopup();
 
+    expect(Logger.success).toHaveBeenCalledWith('[Popup] Initialization complete', {
+      action: 'initializePageStatus',
+      result: 'success',
+      pageStatusId: 'notion-page-123',
+      statusCode: 'saved',
+    });
+
+    const successCall = Logger.success.mock.calls.find(
+      ([message]) => message === '[Popup] Initialization complete'
+    );
+    expect(successCall?.[1]).not.toHaveProperty('pageStatus');
+    expect(JSON.stringify(successCall?.[1])).not.toContain('Sensitive page title');
+    expect(JSON.stringify(successCall?.[1])).not.toContain('token=secret');
+    expect(JSON.stringify(successCall?.[1])).not.toContain('user@example.com');
+  });
+
+  it.each([
+    {
+      name: '當缺少 API Key 時應正確處理',
+      settings: {
+        valid: false,
+        apiKey: undefined,
+        dataSourceId: undefined,
+        missingReason: 'missing_auth',
+      },
+      expectedMessage: ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+      expectPrimaryActionsDisabled: true,
+    },
+    {
+      name: '當已有 API Key 但缺少 Data Source ID 時應正確處理',
+      settings: {
+        valid: false,
+        apiKey: 'test-api-key',
+        dataSourceId: undefined,
+        missingReason: 'missing_data_source',
+      },
+      expectedMessage: ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
+      expectPrimaryActionsDisabled: true,
+    },
+    {
+      name: '當 OAuth 已連接但缺少保存目標時應顯示保存目標提示而非 API Key 提示',
+      settings: {
+        valid: false,
+        apiKey: undefined,
+        dataSourceId: undefined,
+        missingReason: 'missing_data_source',
+        authMode: 'oauth',
+        hasOAuthToken: true,
+      },
+      expectedMessage: ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
+      unexpectedMessage: ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+    },
+  ])(
+    '$name',
+    async ({ settings, expectedMessage, unexpectedMessage, expectPrimaryActionsDisabled }) => {
+      const { mockElements } = setup();
+      checkSettings.mockResolvedValue(settings);
+
+      await initPopup();
+
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining(expectedMessage)
+      );
+      if (unexpectedMessage) {
+        expect(setStatus).not.toHaveBeenCalledWith(
+          mockElements,
+          expect.stringContaining(unexpectedMessage)
+        );
+      }
+      if (expectPrimaryActionsDisabled) {
+        expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
+        expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
+      }
+    }
+  );
+
+  it('initPopup 頂層初始化失敗時應顯示 fallback UI 並禁用主要操作', async () => {
+    const { mockElements } = setup();
+    checkSettings.mockRejectedValue(new Error('settings load leaked secret_token'));
+
+    await expect(initPopup()).resolves.toBeUndefined();
+
+    expect(Logger.error).toHaveBeenCalledWith('[Popup] Initialization failed', {
+      action: 'initPopup',
+      result: 'failure',
+      sanitizedError: 'UNKNOWN_ERROR',
+    });
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED)
+      expect.stringContaining('發生未知錯誤'),
+      '#d63384'
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
-  });
-
-  it('當已有 API Key 但缺少 Data Source ID 時應正確處理', async () => {
-    const { mockElements } = setup();
-    checkSettings.mockResolvedValue({
-      valid: false,
-      apiKey: 'test-api-key',
-      dataSourceId: undefined,
-      missingReason: 'missing_data_source',
-    });
-
-    await initPopup();
-
-    expect(setStatus).toHaveBeenCalledWith(
-      mockElements,
-      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE)
-    );
-    expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
-    expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
-  });
-
-  it('當 OAuth 已連接但缺少保存目標時應顯示保存目標提示而非 API Key 提示', async () => {
-    const { mockElements } = setup();
-    checkSettings.mockResolvedValue({
-      valid: false,
-      apiKey: undefined,
-      dataSourceId: undefined,
-      missingReason: 'missing_data_source',
-      authMode: 'oauth',
-      hasOAuthToken: true,
-    });
-
-    await initPopup();
-
-    expect(setStatus).toHaveBeenCalledWith(
-      mockElements,
-      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE)
-    );
-    expect(setStatus).not.toHaveBeenCalledWith(
-      mockElements,
-      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED)
-    );
   });
 
   it('初始化失敗時應正確處理錯誤', async () => {
@@ -457,35 +555,27 @@ describe('popup.js Controller', () => {
       expect(setStatus).toHaveBeenCalledWith(mockElements, expect.stringContaining('發生未知錯誤'));
     });
 
-    it('當頁面已保存時，點擊 highlightButton 應啟動標註', async () => {
+    it.each([
+      {
+        name: '當頁面已保存時，點擊 highlightButton 應啟動標註',
+        pageStatus: { isSaved: true },
+        expectedStatus: UI_MESSAGES.POPUP.HIGHLIGHT_STARTING,
+      },
+      {
+        name: '即使頁面未保存，點擊 highlightButton 也應啟動標註',
+        pageStatus: { isSaved: false },
+        expectedStatus: UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED,
+      },
+    ])('$name', async ({ pageStatus, expectedStatus }) => {
       const { mockElements } = setup();
       await initPopup();
-      checkPageStatus.mockResolvedValue({ isSaved: true });
+      checkPageStatus.mockResolvedValue(pageStatus);
       startHighlight.mockResolvedValue({ success: true });
 
       await triggerEvent(mockElements.highlightButton);
 
-      expect(setStatus).toHaveBeenCalledWith(
-        mockElements,
-        expect.stringContaining(UI_MESSAGES.POPUP.HIGHLIGHT_STARTING)
-      );
       expect(startHighlight).toHaveBeenCalled();
-    });
-
-    it('即使頁面未保存，點擊 highlightButton 也應啟動標註', async () => {
-      const { mockElements } = setup();
-      await initPopup();
-      checkPageStatus.mockResolvedValue({ isSaved: false });
-      startHighlight.mockResolvedValue({ success: true });
-
-      await triggerEvent(mockElements.highlightButton);
-
-      // Highlight-First：不再檢查 isSaved，直接啟動標註
-      expect(startHighlight).toHaveBeenCalled();
-      expect(setStatus).toHaveBeenCalledWith(
-        mockElements,
-        expect.stringContaining(UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED)
-      );
+      expect(setStatus).toHaveBeenCalledWith(mockElements, expect.stringContaining(expectedStatus));
     });
 
     it('highlight 啟動失敗時應顯示錯誤並記錄 structured context', async () => {
@@ -572,17 +662,34 @@ describe('popup.js Controller', () => {
       expect(globalThis.window.close).toHaveBeenCalled();
     });
 
-    it('tabs.onActivated 觸發後應使用最新 currentTab 開啟側邊欄', async () => {
+    it.each([
+      {
+        name: 'tabs.onActivated 觸發後應直接使用 activeInfo.tabId 開啟側邊欄',
+        activeInfo: { tabId: 888, windowId: 10 },
+        expectedTabId: 888,
+        expectNoTabQuery: true,
+      },
+      {
+        name: 'tabs.onActivated 觸發於其他 window 時不應覆蓋 popup 的 currentTab',
+        activeInfo: { tabId: 888, windowId: 20 },
+        expectedTabId: 777,
+      },
+    ])('$name', async ({ activeInfo, expectedTabId, expectNoTabQuery }) => {
       const { mockElements } = setup();
-      getActiveTab.mockResolvedValue({ id: 777, url: 'https://example.com/old' });
-      globalThis.chrome.tabs.query.mockResolvedValue([{ id: 888, url: 'https://example.com/new' }]);
+      getActiveTab.mockResolvedValue({ id: 777, windowId: 10, url: 'https://example.com/old' });
       await initPopup();
+      if (expectNoTabQuery) {
+        globalThis.chrome.tabs.query.mockClear();
+      }
 
       const [onActivatedHandler] = globalThis.chrome.tabs.onActivated.addListener.mock.calls[0];
-      await onActivatedHandler();
+      await onActivatedHandler(activeInfo);
       await triggerEvent(mockElements.manageButton);
 
-      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 888 });
+      if (expectNoTabQuery) {
+        expect(globalThis.chrome.tabs.query).not.toHaveBeenCalled();
+      }
+      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: expectedTabId });
     });
 
     it('當前分頁不可用時，點擊 manageButton 應顯示錯誤', async () => {
@@ -635,6 +742,30 @@ describe('popup.js Controller', () => {
 
       expect(startAccountLogin).toHaveBeenCalled();
       expect(openAccountManagement).not.toHaveBeenCalled();
+    });
+
+    it('accountButton 非同步操作期間應禁用並阻止重複點擊', async () => {
+      const { mockElements } = setup();
+      const loginStart = createDeferred();
+      startAccountLogin.mockReturnValue(loginStart.promise);
+      await initPopup();
+
+      const firstClick = triggerEvent(mockElements.accountButton);
+      await flushAsyncHandlers();
+
+      expect(setButtonState).toHaveBeenCalledWith(mockElements.accountButton, true);
+      expect(mockElements.accountButton.disabled).toBe(true);
+
+      const secondClick = triggerEvent(mockElements.accountButton);
+      await flushAsyncHandlers();
+
+      expect(startAccountLogin).toHaveBeenCalledTimes(1);
+
+      loginStart.resolve({ success: true });
+      await Promise.all([firstClick, secondClick]);
+
+      expect(setButtonState).toHaveBeenLastCalledWith(mockElements.accountButton, false);
+      expect(mockElements.accountButton.disabled).toBe(false);
     });
 
     it('已登入時點擊 accountButton 應開啟帳號管理', async () => {
@@ -721,6 +852,56 @@ describe('popup.js Controller', () => {
       await triggerEvent(mockElements.accountButton);
 
       expect(setAccountStatusError).toHaveBeenCalledWith(mockElements, '無法開啟帳號管理頁');
+    });
+
+    it('點擊 destinationToggle 時應切換 menu 顯示與 aria-expanded', async () => {
+      const { mockElements } = setup();
+      mockElements.destinationToggle.setAttribute = jest.fn();
+      await initPopup();
+
+      await triggerEvent(mockElements.destinationToggle);
+      expect(mockElements.destinationMenu.style.display).toBe('block');
+      expect(mockElements.destinationToggle.setAttribute).toHaveBeenCalledWith(
+        'aria-expanded',
+        'true'
+      );
+
+      await triggerEvent(mockElements.destinationToggle);
+      expect(mockElements.destinationMenu.style.display).toBe('none');
+      expect(mockElements.destinationToggle.setAttribute).toHaveBeenCalledWith(
+        'aria-expanded',
+        'false'
+      );
+    });
+
+    it('點擊 destinationMenu profile item 時應更新 selected profile 並重渲染 selector', async () => {
+      const { mockElements } = setup();
+      getDestinationState.mockResolvedValue({
+        profiles: [
+          { id: 'default', name: 'Default' },
+          { id: 'work', name: 'Work' },
+        ],
+        selectedProfileId: 'default',
+        entitlement: { maxProfiles: 2 },
+      });
+      await initPopup();
+
+      const handler = mockElements.destinationMenu.addEventListener.mock.calls.find(
+        call => call[0] === 'click'
+      )[1];
+      await handler({ target: { dataset: { profileId: 'work' } } });
+
+      expect(renderDestinationSelector).toHaveBeenLastCalledWith(mockElements, {
+        profiles: [
+          { id: 'default', name: 'Default' },
+          { id: 'work', name: 'Work' },
+        ],
+        selectedProfileId: 'work',
+      });
+
+      savePage.mockResolvedValue({ success: false, error: 'Save failed' });
+      await triggerEvent(mockElements.saveButton);
+      expect(savePage).toHaveBeenCalledWith('work');
     });
   });
 });
