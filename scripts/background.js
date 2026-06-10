@@ -13,6 +13,7 @@ import { getActiveNotionToken } from './utils/notionAuth.js';
 
 // Import Services
 import { StorageService } from './background/services/StorageService.js';
+import { StorageMigrationScanner } from './background/services/StorageMigrationScanner.js';
 import { NotionService } from './background/services/NotionService.js';
 import {
   InjectionService,
@@ -63,6 +64,7 @@ const pageContentService = new PageContentService({
   logger: Logger,
 });
 const storageService = new StorageService({ logger: Logger });
+const migrationScanner = new StorageMigrationScanner({ logger: Logger });
 const notionService = new NotionService({ logger: Logger });
 const destinationProfileResolver = new ProfileResolver({
   repository: new LocalDestinationProfileRepository(),
@@ -151,6 +153,7 @@ const actionHandlers = {
     storageService,
     notionService,
     migrationService,
+    migrationScanner,
   }),
   ...createLogHandlers(),
   ...createNotionHandlers({ notionService }),

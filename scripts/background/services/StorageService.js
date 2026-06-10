@@ -13,6 +13,10 @@
  * - 讀取時先查 page_*，沒有才查舊格式，找到舊格式則觸發讀時升級
  * - _withLock 確保同一 URL 的 read-modify-write 序列化
  *
+ * ⚠️ Deprecation Note:
+ * Migration 掃描（getAllHighlights / getAllSavedPageUrls）已遷移至 StorageMigrationScanner
+ * 詳見：scripts/background/services/StorageMigrationScanner.js
+ *
  * @module services/StorageService
  */
 
@@ -595,50 +599,6 @@ class StorageService {
   }
 
   /**
-   * 從全量儲存空間數據中收集新格式 page_* 的 highlights 資料
-   *
-   * @param {object} allData - 全量數據
-   * @returns {Record<string, object>} 收集結果
-   * @private
-   */
-  _collectPageHighlights(allData) {
-    const result = {};
-    for (const [key, value] of Object.entries(allData)) {
-      if (!key.startsWith(PAGE_PREFIX)) {
-        continue;
-      }
-      if (!value || typeof value !== 'object') {
-        this.logger.warn?.('[StorageService] page_* entry has invalid shape, skipped', { key });
-        continue;
-      }
-      const url = key.slice(PAGE_PREFIX.length);
-      result[url] = { url, highlights: Array.isArray(value.highlights) ? value.highlights : [] };
-    }
-    return result;
-  }
-
-  /**
-   * 從全量儲存空間數據中收集舊格式 highlights_* 的 highlights 資料，且不覆寫已存在的 result
-   *
-   * @param {object} allData - 全量數據
-   * @param {Record<string, object>} existingResult - 已收集到的 highlights 結果
-   * @returns {Record<string, object>} 補充過渡期格式後的完整收集結果
-   * @private
-   */
-  _collectLegacyHighlights(allData, existingResult) {
-    const result = { ...existingResult };
-    for (const [key, value] of Object.entries(allData)) {
-      if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-        const url = key.slice(HIGHLIGHTS_PREFIX.length);
-        if (!result[url]) {
-          result[url] = this._normalizeLegacyHighlight(value);
-        }
-      }
-    }
-    return result;
-  }
-
-  /**
    * 將內部儲存的 notion 欄位映射為公開的預期欄位名
    *
    * @param {object|null} notion - 內部儲存的 notion 資料
@@ -657,26 +617,6 @@ class StorageService {
       lastVerifiedAt: notion.lastVerifiedAt ?? null,
       destinationProfileId: notion.destinationProfileId ?? null,
     };
-  }
-
-  /**
-   * 從儲存體項目的鍵名與值中解析並提取已保存的頁面 URL
-   *
-   * @param {string} key - 儲存體鍵名
-   * @param {any} value - 儲存體值
-   * @returns {string|null} 提取出的頁面 URL，若未保存則為 null
-   * @private
-   */
-  _extractSavedUrlFromEntry(key, value) {
-    if (key.startsWith(PAGE_PREFIX) && value?.notion) {
-      // 新格式：有 notion 欄位代表已保存
-      return key.slice(PAGE_PREFIX.length);
-    }
-    if (key.startsWith(SAVED_PREFIX)) {
-      // 舊格式（過渡期）
-      return key.slice(SAVED_PREFIX.length);
-    }
-    return null;
   }
 
   /**
@@ -1648,79 +1588,6 @@ class StorageService {
   }
 
   /**
-   * 檢查資料是否已是規範化的 highlights 物件形狀
-   *
-   * @param {any} value - 待檢查的值
-   * @returns {boolean} 是否為規範化物件
-   * @private
-   */
-  _isNormalizedHighlightObject(value) {
-    return value && typeof value === 'object' && 'highlights' in value;
-  }
-
-  /**
-   * 規範化舊格式標註資料，確保回傳形狀一律為 { highlights: [...] }
-   *
-   * @param {any} value - 原始儲存值（可能是陣列或含 highlights 欄位的物件）
-   * @returns {object} 統一為 { highlights: [...] } 格式
-   * @private
-   */
-  _normalizeLegacyHighlight(value) {
-    if (this._isNormalizedHighlightObject(value)) {
-      return value;
-    }
-    return { highlights: Array.isArray(value) ? value : [] };
-  }
-
-  /**
-   * 共用全量儲存空間讀取
-   *
-   * @returns {Promise<object>}
-   * @private
-   */
-  async _getAllStorageData() {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-    return await this.storage.local.get(null);
-  }
-
-  /**
-   * 獲取所有 highlights_* 和 page_* 的資料（用於遷移掃描）
-   *
-   * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
-   * 屬於昂貴的一次性 migration-only helper，不應在 hot paths 或頻繁觸發的流程中使用。
-   * 若需讀取單一 URL 的標註，請改用 `getHighlights(pageUrl)`。
-   *
-   * Phase 3：同時掃描 page_* + highlights_*，去重（同 URL 優先用 page_* 資料）。
-   *
-   * 回傳格式：
-   * ```
-   * {
-   *   "https://example.com": { url, highlights: [...] },
-   *   ...
-   * }
-   * ```
-   *
-   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
-   * @returns {Promise<Record<string, object>>} key 為 URL，value 為完整標註資料
-   */
-  async getAllHighlights(allData = null) {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-
-    try {
-      const data = allData || (await this._getAllStorageData());
-      const pageResult = this._collectPageHighlights(data);
-      return this._collectLegacyHighlights(data, pageResult);
-    } catch (error) {
-      this.logger.error?.('[StorageService] getAllHighlights failed', { error });
-      throw error;
-    }
-  }
-
-  /**
    * 更新指定 URL 的標註陣列（Phase 4：contract-driven mutation + canonical-lock）
    *
    * 流程：
@@ -1780,48 +1647,6 @@ class StorageService {
       this.logger.error?.('[StorageService] updateHighlights failed', { error });
       throw error;
     }
-  }
-
-  /**
-   * 獲取所有已保存頁面的 URL
-   *
-   * Phase 3：合併 page_*（notion 非 null）+ saved_* 的 URLs（去重）。
-   *
-   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
-   * @returns {Promise<string[]>}
-   */
-  async getAllSavedPageUrls(allData = null) {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-
-    try {
-      const result = allData || (await this._getAllStorageData());
-      return this._extractUrlsFromStorageData(result);
-    } catch (error) {
-      this.logger.error?.('[StorageService] getAllSavedPageUrls failed', { error });
-      throw error;
-    }
-  }
-
-  /**
-   * 從儲存數據中提取所有已保存的 URL
-   *
-   * @param {object} result - 儲存數據
-   * @returns {string[]}
-   * @private
-   */
-  _extractUrlsFromStorageData(result) {
-    const urlSet = new Set();
-
-    for (const [key, value] of Object.entries(result)) {
-      const url = this._extractSavedUrlFromEntry(key, value);
-      if (url) {
-        urlSet.add(url);
-      }
-    }
-
-    return Array.from(urlSet);
   }
 }
 

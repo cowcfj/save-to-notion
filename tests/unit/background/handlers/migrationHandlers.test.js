@@ -32,6 +32,7 @@ describe('migrationHandlers', () => {
   let handlers = null;
   let mockServices = null;
   let mockStorageService = null;
+  let mockMigrationScanner = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -49,12 +50,17 @@ describe('migrationHandlers', () => {
       setUrlAlias: jest.fn().mockResolvedValue(),
     };
 
+    mockMigrationScanner = {
+      getAllHighlights: jest.fn().mockResolvedValue({}),
+    };
+
     mockServices = {
       migrationService: {
         executeContentMigration: jest.fn(),
         migrateStorageKey: jest.fn().mockResolvedValue(true),
       },
       storageService: mockStorageService,
+      migrationScanner: mockMigrationScanner,
     };
     handlers = createMigrationHandlers(mockServices);
   });
@@ -459,8 +465,8 @@ describe('migrationHandlers', () => {
     test('應該正確回收待處理和失敗的項目', async () => {
       const sendResponse = jest.fn();
 
-      // 改用 storageService.getAllHighlights（Phase 1）
-      mockStorageService.getAllHighlights.mockResolvedValue({
+      // 改用 migrationScanner.getAllHighlights()
+      mockMigrationScanner.getAllHighlights.mockResolvedValue({
         'https://pending.com': { highlights: [{ id: 'p1', needsRangeInfo: true }] },
         'https://failed.com': { highlights: [{ id: 'f1', migrationFailed: true }] },
       });
@@ -479,7 +485,7 @@ describe('migrationHandlers', () => {
 
     test('如果 getAllHighlights 拋出錯誤，應該捕捉並回傳錯誤訊息', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getAllHighlights.mockRejectedValue(new Error('Storage Error'));
+      mockMigrationScanner.getAllHighlights.mockRejectedValue(new Error('Storage Error'));
 
       await handlers.migration_get_pending({}, defaultSender, sendResponse);
 
