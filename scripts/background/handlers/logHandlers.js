@@ -89,7 +89,7 @@ export const handleDevLogSink = (message, sender, sendResponse) => {
       level,
       message: logMessage,
       context,
-      source: sender.url ? new URL(sender.url).pathname : 'unknown_external',
+      source: (function() { try { return sender.url ? new URL(sender.url).pathname : 'unknown_external'; } catch { return sender.url || 'unknown_external'; } })(),
       timestamp: new Date().toISOString(),
     });
 
@@ -128,7 +128,7 @@ export const handleDevLogSinkBatch = (message, sender, sendResponse) => {
     // 防禦性限制：截斷超過 MAX_BATCH_SIZE 的批次，避免處理過量日誌
     const safeLogs = logs.length > MAX_BATCH_SIZE ? logs.slice(0, MAX_BATCH_SIZE) : logs;
 
-    const sourcePath = sender.url ? new URL(sender.url).pathname : 'unknown_external';
+    const sourcePath = (function() { try { return sender.url ? new URL(sender.url).pathname : 'unknown_external'; } catch { return sender.url || 'unknown_external'; } })();
 
     for (const entry of safeLogs) {
       const { level, message: logMessage, args = [] } = entry;

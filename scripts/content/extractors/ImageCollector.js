@@ -90,7 +90,7 @@ const ImageCollector = {
         }
 
         // 標準化 URL，確保與後續圖片的去重比較一致
-        const absoluteUrl = new URL(src, document.baseURI).href;
+        let absoluteUrl; try { absoluteUrl = new URL(src, document.baseURI).href; } catch { Logger.warn('無效的圖片 URL (DOM)', { action: 'collectFeaturedImage', src }); continue; }
         const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
         // 阻擋 temporary / signed URL 進入 Notion page cover
         if (isTemporaryImageUrl?.(cleanedUrl)) {
@@ -145,7 +145,7 @@ const ImageCollector = {
         const content = meta?.content;
 
         if (content && isValidImageUrl?.(content)) {
-          const absoluteUrl = new URL(content, document.baseURI).href;
+          let absoluteUrl; try { absoluteUrl = new URL(content, document.baseURI).href; } catch { Logger.warn('無效的圖片 URL (Meta)', { action: 'collectFeaturedImage', content }); continue; }
           const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
           // 阻擋 temporary / signed URL 進入 Notion page cover
           if (isTemporaryImageUrl?.(cleanedUrl)) {

@@ -1509,3 +1509,55 @@ describe('ImageCollector', () => {
     });
   });
 });
+
+describe('ImageCollector robustness', () => {
+  let collector;
+
+  beforeEach(() => {
+    collector = require('../../../../scripts/content/extractors/ImageCollector.js').default || require('../../../../scripts/content/extractors/ImageCollector.js').ImageCollector;
+    // jest.clearAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  it('_collectFeaturedFromDOM should gracefully handle malformed URLs that crash new URL()', () => {
+    const originalBaseURI = document.baseURI;
+    Object.defineProperty(document, 'baseURI', {
+      value: 'invalid-base-uri',
+      configurable: true
+    });
+
+    const img = document.createElement('img');
+    img.src = 'malformed_url_without_protocol';
+    document.body.append(img);
+
+    const result = collector._collectFeaturedFromDOM();
+    expect(result).toBeNull(); // Should not throw
+
+    Object.defineProperty(document, 'baseURI', {
+      value: originalBaseURI,
+      configurable: true
+    });
+  });
+
+  it('_collectFeaturedFromMeta should gracefully handle malformed URLs', () => {
+    const originalBaseURI = document.baseURI;
+    Object.defineProperty(document, 'baseURI', {
+      value: 'invalid-base-uri',
+      configurable: true
+    });
+
+    const meta = document.createElement('meta');
+    meta.setAttribute('property', 'og:image');
+    meta.setAttribute('content', 'malformed_url_without_protocol');
+    document.head.append(meta);
+
+    const result = collector._collectFeaturedFromMeta();
+    expect(result).toBeNull(); // Should not throw
+
+    Object.defineProperty(document, 'baseURI', {
+      value: originalBaseURI,
+      configurable: true
+    });
+    document.head.innerHTML = '';
+  });
+});

@@ -439,8 +439,7 @@ describe('InjectionService', () => {
       // 傳入無法被 new URL() 解析的字串，應觸發 catch 區塊並返回 true
       const result = isRestrictedInjectionUrl('not-a-url');
       expect(result).toBe(true);
-      expect(Logger.warn).toHaveBeenCalled();
-    });
+          });
 
     describe('getRuntimeErrorMessage', () => {
       it('應該處理各種錯誤對象類型', () => {

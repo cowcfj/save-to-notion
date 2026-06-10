@@ -302,3 +302,36 @@ describe('logHandlers', () => {
     });
   });
 });
+
+describe('logHandlers robustness', () => {
+  let handlers;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    handlers = require('../../../../scripts/background/handlers/logHandlers.js').createLogHandlers();
+  });
+
+  it('handleDevLogSink should gracefully handle malformed sender.url', () => {
+    const sendResponse = jest.fn();
+    const csSender = { id: 'mock-extension-id', tab: { id: 1 }, url: 'malformed_url_without_protocol' };
+
+    handlers.devLogSink({ level: 'info', message: 'test', args: [] }, csSender, sendResponse);
+
+    expect(require('../../../../scripts/utils/Logger.js').default.addLogToBuffer).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'malformed_url_without_protocol' })
+    );
+    expect(sendResponse).toHaveBeenCalledWith({ success: true });
+  });
+
+  it('handleDevLogSinkBatch should gracefully handle malformed sender.url', () => {
+    const sendResponse = jest.fn();
+    const csSender = { id: 'mock-extension-id', tab: { id: 1 }, url: 'malformed_url_without_protocol' };
+
+    handlers.devLogSinkBatch({ logs: [{ level: 'info', message: 'test' }] }, csSender, sendResponse);
+
+    expect(require('../../../../scripts/utils/Logger.js').default.addLogToBuffer).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'malformed_url_without_protocol' })
+    );
+    expect(sendResponse).toHaveBeenCalledWith({ success: true });
+  });
+});

@@ -90,7 +90,7 @@ function isRestrictedInjectionUrl(url) {
     }
 
     // 解析 URL 檢查特定域名
-    const urlObj = new URL(url);
+    let urlObj; try { urlObj = new URL(url); } catch { return true; }
 
     // 檢查受限域名列表
     const blockedHosts = [
