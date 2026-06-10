@@ -164,49 +164,53 @@ function extractZipToTemp(zipPath) {
   return tempDir;
 }
 
+const MEASURE_HANDLERS = Object.freeze({
+  file: (rootDir, target) => {
+    const absolutePath = path.join(rootDir, target.relPath);
+    if (!fs.existsSync(absolutePath)) {
+      return { found: false };
+    }
+    return { found: true, value: fs.statSync(absolutePath).size };
+  },
+  zip: rootDir => {
+    const zipPath = getLatestZipPath(rootDir);
+    if (!zipPath) {
+      return { found: false };
+    }
+    return { found: true, value: fs.statSync(zipPath).size, metadata: { zipPath } };
+  },
+  dir: (rootDir, _target, unpackedDirOverride) => {
+    if (unpackedDirOverride) {
+      if (!fs.existsSync(unpackedDirOverride)) {
+        return { found: false };
+      }
+      return { found: true, value: getDirectorySizeBytes(unpackedDirOverride) };
+    }
+
+    const zipPath = getLatestZipPath(rootDir);
+    if (!zipPath) {
+      return { found: false };
+    }
+
+    const tempDir = extractZipToTemp(zipPath);
+    try {
+      return {
+        found: true,
+        value: getDirectorySizeBytes(tempDir),
+        metadata: { extractedFrom: zipPath },
+      };
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  },
+});
+
 function measureTarget(rootDir, target, unpackedDirOverride = '') {
-  switch (target.type) {
-    case 'file': {
-      const absolutePath = path.join(rootDir, target.relPath);
-      if (!fs.existsSync(absolutePath)) {
-        return { found: false };
-      }
-      return { found: true, value: fs.statSync(absolutePath).size };
-    }
-    case 'zip': {
-      const zipPath = getLatestZipPath(rootDir);
-      if (!zipPath) {
-        return { found: false };
-      }
-      return { found: true, value: fs.statSync(zipPath).size, metadata: { zipPath } };
-    }
-    case 'dir': {
-      if (unpackedDirOverride) {
-        if (!fs.existsSync(unpackedDirOverride)) {
-          return { found: false };
-        }
-        return { found: true, value: getDirectorySizeBytes(unpackedDirOverride) };
-      }
-
-      const zipPath = getLatestZipPath(rootDir);
-      if (!zipPath) {
-        return { found: false };
-      }
-
-      const tempDir = extractZipToTemp(zipPath);
-      try {
-        return {
-          found: true,
-          value: getDirectorySizeBytes(tempDir),
-          metadata: { extractedFrom: zipPath },
-        };
-      } finally {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      }
-    }
-    default:
-      throw new Error(`未知 target type：${target.type}`);
+  const handler = MEASURE_HANDLERS[target.type];
+  if (!handler) {
+    throw new Error(`未知 target type：${target.type}`);
   }
+  return handler(rootDir, target, unpackedDirOverride);
 }
 
 function createCheckResult(target, currentMeasurement, baseMeasurement, mode) {
@@ -240,26 +244,42 @@ function createCheckResult(target, currentMeasurement, baseMeasurement, mode) {
     return result;
   }
 
-  if (mode === 'delta') {
-    if (!baseMeasurement?.found) {
-      result.status = 'skipped';
-      result.message = `${target.label} 缺少 base 產物，略過 delta 檢查`;
-      return result;
-    }
+  if (mode !== 'delta') {
+    return result;
+  }
 
-    result.base = baseMeasurement.value;
-    result.delta = currentMeasurement.value - baseMeasurement.value;
-    if (baseMeasurement.metadata) {
-      result.baseMeta = baseMeasurement.metadata;
-    }
+  if (!baseMeasurement?.found) {
+    result.status = 'skipped';
+    result.message = `${target.label} 缺少 base 產物，略過 delta 檢查`;
+    return result;
+  }
 
-    if (result.delta > target.deltaLimit) {
-      result.status = 'failed';
-      result.message = `${target.label} exceeds delta limit`;
-    }
+  result.base = baseMeasurement.value;
+  result.delta = currentMeasurement.value - baseMeasurement.value;
+  if (baseMeasurement.metadata) {
+    result.baseMeta = baseMeasurement.metadata;
+  }
+
+  if (result.delta > target.deltaLimit) {
+    result.status = 'failed';
+    result.message = `${target.label} exceeds delta limit`;
   }
 
   return result;
+}
+
+function formatCheckLine(check) {
+  const parts = [`[${check.status.toUpperCase()}]`, check.label];
+  if (typeof check.current === 'number') {
+    parts.push(`current=${check.current}`);
+  }
+  if (typeof check.base === 'number') {
+    parts.push(`base=${check.base}`, `delta=${check.delta}`);
+  }
+  if (check.message) {
+    parts.push(check.message);
+  }
+  return parts.join(' ');
 }
 
 function main() {
@@ -292,17 +312,7 @@ function main() {
   }
 
   for (const check of checks) {
-    const parts = [`[${check.status.toUpperCase()}]`, check.label];
-    if (typeof check.current === 'number') {
-      parts.push(`current=${check.current}`);
-    }
-    if (typeof check.base === 'number') {
-      parts.push(`base=${check.base}`, `delta=${check.delta}`);
-    }
-    if (check.message) {
-      parts.push(check.message);
-    }
-    console.log(parts.join(' '));
+    console.log(formatCheckLine(check));
   }
 
   if (report.failed) {
