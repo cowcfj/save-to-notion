@@ -337,15 +337,7 @@ class StorageService {
    */
   async _runLegacyKeyCleanup(targetKey, candidateKeys, existing, forceIncludePrefixes = []) {
     const cleanupKeys = candidateKeys
-      .filter(k => {
-        if (k === targetKey) {
-          return false;
-        }
-        if (Object.hasOwn(existing, k)) {
-          return true;
-        }
-        return forceIncludePrefixes.some(prefix => k.startsWith(prefix));
-      })
+      .filter(k => this._shouldCleanupKey(k, targetKey, existing, forceIncludePrefixes))
       .toSorted(compareKeysAlphabetically);
 
     if (cleanupKeys.length > 0) {
@@ -356,6 +348,26 @@ class StorageService {
         });
       });
     }
+  }
+
+  /**
+   * 判斷 key 是否應該被清理
+   *
+   * @param {string} key - 候選 key
+   * @param {string} targetKey - 當前寫入的主鍵名
+   * @param {object} existing - 既有數據字典
+   * @param {Array<string>} forceIncludePrefixes - 強制包含的鍵名首碼
+   * @returns {boolean}
+   * @private
+   */
+  _shouldCleanupKey(key, targetKey, existing, forceIncludePrefixes) {
+    if (key === targetKey) {
+      return false;
+    }
+    if (Object.hasOwn(existing, key)) {
+      return true;
+    }
+    return forceIncludePrefixes.some(prefix => key.startsWith(prefix));
   }
 
   /**
