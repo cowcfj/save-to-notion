@@ -164,6 +164,32 @@ describe('logHandlers', () => {
   });
 
   describe('Action Logic', () => {
+    const createContentScriptSender = url => ({
+      id: 'mock-extension-id',
+      tab: { id: 1 },
+      url,
+    });
+
+    const expectBufferedSource = ({
+      handlerName,
+      message,
+      sender,
+      expectedSource,
+      excludedRawSource,
+    }) => {
+      const sendResponse = jest.fn();
+
+      handlers[handlerName](message, sender, sendResponse);
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({ source: expectedSource })
+      );
+      if (excludedRawSource) {
+        expect(JSON.stringify(Logger.addLogToBuffer.mock.calls)).not.toContain(excludedRawSource);
+      }
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    };
+
     test('exportDebugLogs 應在合法請求時調用 Exporter', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'mock-extension-id' };
@@ -317,61 +343,41 @@ describe('logHandlers', () => {
     });
 
     test('devLogSink 應安全處理 malformed sender.url 且不保存 raw source', () => {
-      const sendResponse = jest.fn();
-      const sender = {
-        id: 'mock-extension-id',
-        tab: { id: 1 },
-        url: 'malformed_url_without_protocol?token=secret',
-      };
+      expect.hasAssertions();
+      const sender = createContentScriptSender('malformed_url_without_protocol?token=secret');
 
-      handlers.devLogSink({ level: 'info', message: 'bad url', args: [] }, sender, sendResponse);
-
-      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
-        expect.objectContaining({ source: 'malformed_external' })
-      );
-      expect(JSON.stringify(Logger.addLogToBuffer.mock.calls)).not.toContain(sender.url);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+      expectBufferedSource({
+        handlerName: 'devLogSink',
+        message: { level: 'info', message: 'bad url', args: [] },
+        sender,
+        expectedSource: 'malformed_external',
+        excludedRawSource: sender.url,
+      });
     });
 
     test('devLogSinkBatch 應安全處理 malformed sender.url 且不保存 raw source', () => {
-      const sendResponse = jest.fn();
-      const sender = {
-        id: 'mock-extension-id',
-        tab: { id: 1 },
-        url: 'malformed_url_without_protocol?token=secret',
-      };
+      expect.hasAssertions();
+      const sender = createContentScriptSender('malformed_url_without_protocol?token=secret');
 
-      handlers.devLogSinkBatch(
-        { logs: [{ level: 'info', message: 'bad batch', args: [] }] },
+      expectBufferedSource({
+        handlerName: 'devLogSinkBatch',
+        message: { logs: [{ level: 'info', message: 'bad batch', args: [] }] },
         sender,
-        sendResponse
-      );
-
-      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
-        expect.objectContaining({ source: 'malformed_external' })
-      );
-      expect(JSON.stringify(Logger.addLogToBuffer.mock.calls)).not.toContain(sender.url);
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        expectedSource: 'malformed_external',
+        excludedRawSource: sender.url,
+      });
     });
 
     test('devLogSinkBatch 應保留 valid sender.url 的 pathname source', () => {
-      const sendResponse = jest.fn();
-      const sender = {
-        id: 'mock-extension-id',
-        tab: { id: 1 },
-        url: 'https://example.com/page1?token=secret',
-      };
+      expect.hasAssertions();
+      const sender = createContentScriptSender('https://example.com/page1?token=secret');
 
-      handlers.devLogSinkBatch(
-        { logs: [{ level: 'info', message: 'valid', args: [] }] },
+      expectBufferedSource({
+        handlerName: 'devLogSinkBatch',
+        message: { logs: [{ level: 'info', message: 'valid', args: [] }] },
         sender,
-        sendResponse
-      );
-
-      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
-        expect.objectContaining({ source: '/page1' })
-      );
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        expectedSource: '/page1',
+      });
     });
   });
 });
