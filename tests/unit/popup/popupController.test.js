@@ -722,5 +722,55 @@ describe('popup.js Controller', () => {
 
       expect(setAccountStatusError).toHaveBeenCalledWith(mockElements, '無法開啟帳號管理頁');
     });
+
+    it('點擊 destinationToggle 時應切換 menu 顯示與 aria-expanded', async () => {
+      const { mockElements } = setup();
+      mockElements.destinationToggle.setAttribute = jest.fn();
+      await initPopup();
+
+      await triggerEvent(mockElements.destinationToggle);
+      expect(mockElements.destinationMenu.style.display).toBe('block');
+      expect(mockElements.destinationToggle.setAttribute).toHaveBeenCalledWith(
+        'aria-expanded',
+        'true'
+      );
+
+      await triggerEvent(mockElements.destinationToggle);
+      expect(mockElements.destinationMenu.style.display).toBe('none');
+      expect(mockElements.destinationToggle.setAttribute).toHaveBeenCalledWith(
+        'aria-expanded',
+        'false'
+      );
+    });
+
+    it('點擊 destinationMenu profile item 時應更新 selected profile 並重渲染 selector', async () => {
+      const { mockElements } = setup();
+      getDestinationState.mockResolvedValue({
+        profiles: [
+          { id: 'default', name: 'Default' },
+          { id: 'work', name: 'Work' },
+        ],
+        selectedProfileId: 'default',
+        entitlement: { maxProfiles: 2 },
+      });
+      await initPopup();
+
+      const handler = mockElements.destinationMenu.addEventListener.mock.calls.find(
+        call => call[0] === 'click'
+      )[1];
+      await handler({ target: { dataset: { profileId: 'work' } } });
+
+      expect(renderDestinationSelector).toHaveBeenLastCalledWith(mockElements, {
+        profiles: [
+          { id: 'default', name: 'Default' },
+          { id: 'work', name: 'Work' },
+        ],
+        selectedProfileId: 'work',
+      });
+
+      savePage.mockResolvedValue({ success: false, error: 'Save failed' });
+      await triggerEvent(mockElements.saveButton);
+      expect(savePage).toHaveBeenCalledWith('work');
+    });
   });
 });

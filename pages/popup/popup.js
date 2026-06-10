@@ -66,37 +66,25 @@ async function initAccountSection(elements) {
   setAccountSectionVisible(elements, false);
 }
 
-// Export initialization function for testing
-export async function initPopup() {
-  Logger.start('[Popup] Initializing...');
-
-  // 注入 SVG 圖標
-  injectIcons(UI_ICONS);
-
-  // 獲取所有 DOM 元素
-  const elements = getElements();
-  initializePopupStaticText(elements);
-  await initAccountSection(elements);
-
-  // 檢查設置
-  const settings = await checkSettings();
-  if (!settings.valid) {
-    // 根據實際缺失的設定顯示對應的提示訊息
-    let msg = UI_MESSAGES.SETUP.MISSING_CONFIG;
-    if (settings.missingReason === 'missing_data_source') {
-      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
-    } else if (settings.missingReason === 'missing_auth') {
-      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED;
-    } else if (!settings.dataSourceId) {
-      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
-    }
-    setStatus(elements, msg);
-    setButtonState(elements.saveButton, true);
-    setButtonState(elements.highlightButton, true);
-    return;
+function resolveMissingSettingsMessage(settings) {
+  if (settings.missingReason === 'missing_data_source') {
+    return ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
   }
+  if (settings.missingReason === 'missing_auth') {
+    return ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED;
+  }
+  if (!settings.dataSourceId) {
+    return ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
+  }
+  return UI_MESSAGES.SETUP.MISSING_CONFIG;
+}
 
-  // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
+function disablePrimaryPopupActions(elements) {
+  setButtonState(elements.saveButton, true);
+  setButtonState(elements.highlightButton, true);
+}
+
+async function initializeDestinationSelectorState(elements) {
   let selectedDestinationProfileId = null;
   let destinationProfiles = [];
   try {
@@ -107,7 +95,10 @@ export async function initPopup() {
   } catch (error) {
     Logger.warn('[Popup] Failed to initialize destination selector', { error });
   }
+  return { selectedDestinationProfileId, destinationProfiles };
+}
 
+async function initializePageStatus(elements) {
   try {
     const pageStatus = await checkPageStatus();
 
@@ -121,23 +112,60 @@ export async function initPopup() {
     }
   } catch (error) {
     Logger.error('Failed to initialize popup:', error);
-    // 將實際錯誤經過 sanitizeApiError 清洗後再格式化，提供更精確的錯誤提示
     const safeMessage = sanitizeApiError(error, 'popup_init');
     const msg = ErrorHandler.formatUserMessage(safeMessage);
     setStatus(elements, msg, '#d63384');
   }
+}
 
-  // 預取目前分頁資訊，供 manage button 同步呼叫 sidePanel.open() 使用
-  // 使用 let 以便 tabs.onActivated 監聽器可以更新它
+async function registerActiveTabTracking() {
   let currentTab = await getActiveTab();
-
-  // ========== 事件監聽器 ==========
-
-  // 當使用者切換分頁時更新 currentTab，避免舊的 tabId 導致 sidePanel 開到錯誤的分頁
   chrome.tabs.onActivated.addListener(async () => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTab = tabs[0] ?? null;
   });
+  return {
+    getCurrentTab: () => currentTab,
+  };
+}
+
+async function handleAccountManagementClick(elements) {
+  const result = await openAccountManagement();
+  if (!result?.success) {
+    setAccountStatusError(
+      elements,
+      result?.error || UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
+    );
+  }
+}
+
+async function handleAccountLoginClick(elements) {
+  const result = await startAccountLogin();
+  if (!result?.success) {
+    setAccountStatusError(elements, result?.error || UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED);
+  }
+}
+
+async function handleAccountButtonClick(elements) {
+  const accountState = BUILD_ENV.ENABLE_ACCOUNT
+    ? await getPopupAccountState()
+    : { enabled: false, isLoggedIn: false };
+
+  if (!accountState.enabled) {
+    return;
+  }
+
+  if (accountState.isLoggedIn) {
+    await handleAccountManagementClick(elements);
+    return;
+  }
+
+  await handleAccountLoginClick(elements);
+}
+
+function registerPopupEventListeners(elements, context) {
+  let { selectedDestinationProfileId } = context;
+  const { destinationProfiles, getCurrentTab } = context;
 
   // 保存按鈕
   elements.saveButton.addEventListener('click', async () => {
@@ -249,11 +277,9 @@ export async function initPopup() {
   });
 
   // 管理標註按鈕 (開啟 Side Panel)
-  // 注意：sidePanel.open() 必須在使用者手勢上下文中同步呼叫，
-  // 因此直接在 Popup 頁面呼叫，不經由 background 轉發，
-  // 並使用初始化時預取的 currentTab.id（由 tabs.onActivated 保持最新）。
   if (elements.manageButton) {
     elements.manageButton.addEventListener('click', () => {
+      const currentTab = getCurrentTab();
       if (currentTab?.id) {
         chrome.sidePanel.open({ tabId: currentTab.id });
         window.close();
@@ -266,34 +292,45 @@ export async function initPopup() {
 
   if (elements.accountButton) {
     elements.accountButton.addEventListener('click', async () => {
-      const accountState = BUILD_ENV.ENABLE_ACCOUNT
-        ? await getPopupAccountState()
-        : { enabled: false, isLoggedIn: false };
-
-      if (!accountState.enabled) {
-        return;
-      }
-
-      if (accountState.isLoggedIn) {
-        const result = await openAccountManagement();
-        if (!result?.success) {
-          setAccountStatusError(
-            elements,
-            result?.error || UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED
-          );
-        }
-        return;
-      }
-
-      const result = await startAccountLogin();
-      if (!result?.success) {
-        setAccountStatusError(
-          elements,
-          result?.error || UI_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED
-        );
-      }
+      await handleAccountButtonClick(elements);
     });
   }
+}
+
+// Export initialization function for testing
+export async function initPopup() {
+  Logger.start('[Popup] Initializing...');
+
+  // 注入 SVG 圖標
+  injectIcons(UI_ICONS);
+
+  // 獲取所有 DOM 元素
+  const elements = getElements();
+  initializePopupStaticText(elements);
+  await initAccountSection(elements);
+
+  // 檢查設置
+  const settings = await checkSettings();
+  if (!settings.valid) {
+    setStatus(elements, resolveMissingSettingsMessage(settings));
+    disablePrimaryPopupActions(elements);
+    return;
+  }
+
+  // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
+  const destinationState = await initializeDestinationSelectorState(elements);
+  const selectedDestinationProfileId = destinationState.selectedDestinationProfileId;
+  const destinationProfiles = destinationState.destinationProfiles;
+
+  await initializePageStatus(elements);
+
+  const tabTracker = await registerActiveTabTracking();
+
+  registerPopupEventListeners(elements, {
+    selectedDestinationProfileId,
+    destinationProfiles,
+    getCurrentTab: tabTracker.getCurrentTab,
+  });
 }
 
 // Initialize when DOM is ready
