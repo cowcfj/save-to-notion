@@ -120,9 +120,15 @@ async function initializePageStatus(elements) {
 
 async function registerActiveTabTracking() {
   let currentTab = await getActiveTab();
-  chrome.tabs.onActivated.addListener(async () => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    currentTab = tabs[0] ?? null;
+  const trackedWindowId = currentTab?.windowId;
+  chrome.tabs.onActivated.addListener(activeInfo => {
+    if (trackedWindowId !== undefined && activeInfo.windowId !== trackedWindowId) {
+      return;
+    }
+    currentTab = {
+      id: activeInfo.tabId,
+      windowId: activeInfo.windowId,
+    };
   });
   return {
     getCurrentTab: () => currentTab,
@@ -147,20 +153,30 @@ async function handleAccountLoginClick(elements) {
 }
 
 async function handleAccountButtonClick(elements) {
-  const accountState = BUILD_ENV.ENABLE_ACCOUNT
-    ? await getPopupAccountState()
-    : { enabled: false, isLoggedIn: false };
-
-  if (!accountState.enabled) {
+  if (elements.accountButton?.disabled) {
     return;
   }
 
-  if (accountState.isLoggedIn) {
-    await handleAccountManagementClick(elements);
-    return;
-  }
+  setButtonState(elements.accountButton, true);
 
-  await handleAccountLoginClick(elements);
+  try {
+    const accountState = BUILD_ENV.ENABLE_ACCOUNT
+      ? await getPopupAccountState()
+      : { enabled: false, isLoggedIn: false };
+
+    if (!accountState.enabled) {
+      return;
+    }
+
+    if (accountState.isLoggedIn) {
+      await handleAccountManagementClick(elements);
+      return;
+    }
+
+    await handleAccountLoginClick(elements);
+  } finally {
+    setButtonState(elements.accountButton, false);
+  }
 }
 
 function registerPopupEventListeners(elements, context) {

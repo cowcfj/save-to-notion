@@ -90,17 +90,33 @@ async function triggerEvent(element, eventType = 'click') {
   await handler({ target: element });
 }
 
+function createDeferred() {
+  let resolveDeferred;
+  let rejectDeferred;
+  const promise = new Promise((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+  return { promise, resolve: resolveDeferred, reject: rejectDeferred };
+}
+
+async function flushAsyncHandlers() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe('popup.js Controller', () => {
   const setup = () => {
     const mockElements = {
-      saveButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
-      manageButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      saveButton: { addEventListener: jest.fn(), style: {}, dataset: {}, disabled: false },
+      highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {}, disabled: false },
+      manageButton: { addEventListener: jest.fn(), style: {}, dataset: {}, disabled: false },
       openNotionButton: {
         addEventListener: jest.fn(),
         getAttribute: jest.fn(),
         style: {},
         dataset: { url: 'https://notion.so/new' },
+        disabled: false,
       },
       accountSection: { style: { display: 'none' } },
       accountButton: {
@@ -108,6 +124,7 @@ describe('popup.js Controller', () => {
         style: {},
         dataset: {},
         querySelector: jest.fn(),
+        disabled: false,
       },
       accountSummary: { textContent: '' },
       accountEmail: { textContent: '', style: {} },
@@ -125,6 +142,11 @@ describe('popup.js Controller', () => {
     };
 
     getElements.mockReturnValue(mockElements);
+    setButtonState.mockImplementation((button, disabled) => {
+      if (button) {
+        button.disabled = disabled;
+      }
+    });
 
     // Default mocks
     checkSettings.mockResolvedValue({ valid: true });
@@ -572,17 +594,30 @@ describe('popup.js Controller', () => {
       expect(globalThis.window.close).toHaveBeenCalled();
     });
 
-    it('tabs.onActivated 觸發後應使用最新 currentTab 開啟側邊欄', async () => {
+    it('tabs.onActivated 觸發後應直接使用 activeInfo.tabId 開啟側邊欄', async () => {
       const { mockElements } = setup();
-      getActiveTab.mockResolvedValue({ id: 777, url: 'https://example.com/old' });
-      globalThis.chrome.tabs.query.mockResolvedValue([{ id: 888, url: 'https://example.com/new' }]);
+      getActiveTab.mockResolvedValue({ id: 777, windowId: 10, url: 'https://example.com/old' });
+      await initPopup();
+      globalThis.chrome.tabs.query.mockClear();
+
+      const [onActivatedHandler] = globalThis.chrome.tabs.onActivated.addListener.mock.calls[0];
+      await onActivatedHandler({ tabId: 888, windowId: 10 });
+      await triggerEvent(mockElements.manageButton);
+
+      expect(globalThis.chrome.tabs.query).not.toHaveBeenCalled();
+      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 888 });
+    });
+
+    it('tabs.onActivated 觸發於其他 window 時不應覆蓋 popup 的 currentTab', async () => {
+      const { mockElements } = setup();
+      getActiveTab.mockResolvedValue({ id: 777, windowId: 10, url: 'https://example.com/old' });
       await initPopup();
 
       const [onActivatedHandler] = globalThis.chrome.tabs.onActivated.addListener.mock.calls[0];
-      await onActivatedHandler();
+      await onActivatedHandler({ tabId: 888, windowId: 20 });
       await triggerEvent(mockElements.manageButton);
 
-      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 888 });
+      expect(globalThis.chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 777 });
     });
 
     it('當前分頁不可用時，點擊 manageButton 應顯示錯誤', async () => {
@@ -635,6 +670,30 @@ describe('popup.js Controller', () => {
 
       expect(startAccountLogin).toHaveBeenCalled();
       expect(openAccountManagement).not.toHaveBeenCalled();
+    });
+
+    it('accountButton 非同步操作期間應禁用並阻止重複點擊', async () => {
+      const { mockElements } = setup();
+      const loginStart = createDeferred();
+      startAccountLogin.mockReturnValue(loginStart.promise);
+      await initPopup();
+
+      const firstClick = triggerEvent(mockElements.accountButton);
+      await flushAsyncHandlers();
+
+      expect(setButtonState).toHaveBeenCalledWith(mockElements.accountButton, true);
+      expect(mockElements.accountButton.disabled).toBe(true);
+
+      const secondClick = triggerEvent(mockElements.accountButton);
+      await flushAsyncHandlers();
+
+      expect(startAccountLogin).toHaveBeenCalledTimes(1);
+
+      loginStart.resolve({ success: true });
+      await Promise.all([firstClick, secondClick]);
+
+      expect(setButtonState).toHaveBeenLastCalledWith(mockElements.accountButton, false);
+      expect(mockElements.accountButton.disabled).toBe(false);
     });
 
     it('已登入時點擊 accountButton 應開啟帳號管理', async () => {
