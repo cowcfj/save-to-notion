@@ -279,6 +279,58 @@ describe('popup.js Controller', () => {
     expect(updateUIForSavedPage).not.toHaveBeenCalled();
   });
 
+  it('初始化保存目標失敗時應只記錄 sanitized logging context', async () => {
+    setup();
+    const rawError = new Error(
+      'backend leaked token secret_abc and url https://example.com/private?token=secret'
+    );
+    getDestinationState.mockRejectedValue(rawError);
+
+    await initPopup();
+
+    expect(Logger.warn).toHaveBeenCalledWith('[Popup] Failed to initialize destination selector', {
+      action: 'initDestinationSelector',
+      result: 'failure',
+      sanitizedError: 'UNKNOWN_ERROR',
+    });
+    expect(Logger.warn).not.toHaveBeenCalledWith(
+      '[Popup] Failed to initialize destination selector',
+      { error: rawError }
+    );
+  });
+
+  it('初始化保存狀態成功時應避免記錄 raw pageStatus payload', async () => {
+    setup();
+    checkPageStatus.mockResolvedValue({
+      success: true,
+      statusKind: 'saved',
+      isSaved: true,
+      canSave: false,
+      canSyncHighlights: true,
+      notionPageId: 'notion-page-123',
+      notionUrl: 'https://notion.so/private?token=secret',
+      stableUrl: 'https://example.com/private?email=user@example.com',
+      title: 'Sensitive page title',
+    });
+
+    await initPopup();
+
+    expect(Logger.success).toHaveBeenCalledWith('[Popup] Initialization complete', {
+      action: 'initializePageStatus',
+      result: 'success',
+      pageStatusId: 'notion-page-123',
+      statusCode: 'saved',
+    });
+
+    const successCall = Logger.success.mock.calls.find(
+      ([message]) => message === '[Popup] Initialization complete'
+    );
+    expect(successCall?.[1]).not.toHaveProperty('pageStatus');
+    expect(JSON.stringify(successCall?.[1])).not.toContain('Sensitive page title');
+    expect(JSON.stringify(successCall?.[1])).not.toContain('token=secret');
+    expect(JSON.stringify(successCall?.[1])).not.toContain('user@example.com');
+  });
+
   it('當缺少 API Key 時應正確處理', async () => {
     const { mockElements } = setup();
     checkSettings.mockResolvedValue({
@@ -293,6 +345,26 @@ describe('popup.js Controller', () => {
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
       expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED)
+    );
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
+  });
+
+  it('initPopup 頂層初始化失敗時應顯示 fallback UI 並禁用主要操作', async () => {
+    const { mockElements } = setup();
+    checkSettings.mockRejectedValue(new Error('settings load leaked secret_token'));
+
+    await expect(initPopup()).resolves.toBeUndefined();
+
+    expect(Logger.error).toHaveBeenCalledWith('[Popup] Initialization failed', {
+      action: 'initPopup',
+      result: 'failure',
+      sanitizedError: 'UNKNOWN_ERROR',
+    });
+    expect(setStatus).toHaveBeenCalledWith(
+      mockElements,
+      expect.stringContaining('發生未知錯誤'),
+      '#d63384'
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);

@@ -84,6 +84,28 @@ function disablePrimaryPopupActions(elements) {
   setButtonState(elements.highlightButton, true);
 }
 
+function createSanitizedFailureContext(action, error) {
+  return {
+    action,
+    result: 'failure',
+    sanitizedError: sanitizeApiError(error, action),
+  };
+}
+
+function createPageStatusLogContext(pageStatus) {
+  const context = {
+    action: 'initializePageStatus',
+    result: 'success',
+  };
+
+  if (pageStatus?.notionPageId) {
+    context.pageStatusId = pageStatus.notionPageId;
+  }
+
+  context.statusCode = pageStatus?.statusCode ?? pageStatus?.statusKind ?? 'unknown';
+  return context;
+}
+
 async function initializeDestinationSelectorState(elements) {
   let selectedDestinationProfileId = null;
   let destinationProfiles = [];
@@ -93,7 +115,10 @@ async function initializeDestinationSelectorState(elements) {
     destinationProfiles = destinationState.profiles || [];
     renderDestinationSelector(elements, destinationState);
   } catch (error) {
-    Logger.warn('[Popup] Failed to initialize destination selector', { error });
+    Logger.warn(
+      '[Popup] Failed to initialize destination selector',
+      createSanitizedFailureContext('initDestinationSelector', error)
+    );
   }
   return { selectedDestinationProfileId, destinationProfiles };
 }
@@ -108,11 +133,15 @@ async function initializePageStatus(elements) {
       } else {
         updateUIForUnsavedPage(elements, pageStatus);
       }
-      Logger.success('[Popup] Initialization complete', { pageStatus });
+      Logger.success('[Popup] Initialization complete', createPageStatusLogContext(pageStatus));
     }
   } catch (error) {
-    Logger.error('Failed to initialize popup:', error);
     const safeMessage = sanitizeApiError(error, 'popup_init');
+    Logger.error('Failed to initialize popup:', {
+      action: 'initializePageStatus',
+      result: 'failure',
+      sanitizedError: safeMessage,
+    });
     const msg = ErrorHandler.formatUserMessage(safeMessage);
     setStatus(elements, msg, '#d63384');
   }
@@ -317,36 +346,47 @@ function registerPopupEventListeners(elements, context) {
 export async function initPopup() {
   Logger.start('[Popup] Initializing...');
 
-  // 注入 SVG 圖標
-  injectIcons(UI_ICONS);
+  let elements;
+  try {
+    // 注入 SVG 圖標
+    injectIcons(UI_ICONS);
 
-  // 獲取所有 DOM 元素
-  const elements = getElements();
-  initializePopupStaticText(elements);
-  await initAccountSection(elements);
+    // 獲取所有 DOM 元素
+    elements = getElements();
+    initializePopupStaticText(elements);
+    await initAccountSection(elements);
 
-  // 檢查設置
-  const settings = await checkSettings();
-  if (!settings.valid) {
-    setStatus(elements, resolveMissingSettingsMessage(settings));
-    disablePrimaryPopupActions(elements);
-    return;
+    // 檢查設置
+    const settings = await checkSettings();
+    if (!settings.valid) {
+      setStatus(elements, resolveMissingSettingsMessage(settings));
+      disablePrimaryPopupActions(elements);
+      return;
+    }
+
+    // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
+    const destinationState = await initializeDestinationSelectorState(elements);
+    const selectedDestinationProfileId = destinationState.selectedDestinationProfileId;
+    const destinationProfiles = destinationState.destinationProfiles;
+
+    await initializePageStatus(elements);
+
+    const tabTracker = await registerActiveTabTracking();
+
+    registerPopupEventListeners(elements, {
+      selectedDestinationProfileId,
+      destinationProfiles,
+      getCurrentTab: tabTracker.getCurrentTab,
+    });
+  } catch (error) {
+    const context = createSanitizedFailureContext('initPopup', error);
+    Logger.error('[Popup] Initialization failed', context);
+
+    if (elements) {
+      setStatus(elements, ErrorHandler.formatUserMessage(context.sanitizedError), '#d63384');
+      disablePrimaryPopupActions(elements);
+    }
   }
-
-  // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
-  const destinationState = await initializeDestinationSelectorState(elements);
-  const selectedDestinationProfileId = destinationState.selectedDestinationProfileId;
-  const destinationProfiles = destinationState.destinationProfiles;
-
-  await initializePageStatus(elements);
-
-  const tabTracker = await registerActiveTabTracking();
-
-  registerPopupEventListeners(elements, {
-    selectedDestinationProfileId,
-    destinationProfiles,
-    getCurrentTab: tabTracker.getCurrentTab,
-  });
 }
 
 // Initialize when DOM is ready
