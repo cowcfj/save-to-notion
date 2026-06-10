@@ -20,6 +20,7 @@ const MAX_BATCH_SIZE = 20;
 
 const UNKNOWN_EXTERNAL_SOURCE = 'unknown_external';
 const MALFORMED_EXTERNAL_SOURCE = 'malformed_external';
+const LOCAL_FILE_SOURCE = 'local_file';
 
 /**
  * 安全解析日誌來源路徑，避免 invalid URL 拋出異常或洩漏隱私。
@@ -33,7 +34,11 @@ function resolveLogSourcePath(senderUrl) {
   }
 
   try {
-    return new URL(senderUrl).pathname;
+    const parsedUrl = new URL(senderUrl);
+    if (parsedUrl.protocol === 'file:') {
+      return LOCAL_FILE_SOURCE;
+    }
+    return parsedUrl.pathname;
   } catch {
     return MALFORMED_EXTERNAL_SOURCE;
   }

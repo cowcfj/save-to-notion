@@ -368,6 +368,32 @@ describe('logHandlers', () => {
       });
     });
 
+    test('devLogSink 應將 file sender.url 標記為 local_file 且不保存本機路徑', () => {
+      expect.hasAssertions();
+      const sender = createContentScriptSender('file:///Users/alice/Secrets/report.html');
+
+      expectBufferedSource({
+        handlerName: 'devLogSink',
+        message: { level: 'info', message: 'local file', args: [] },
+        sender,
+        expectedSource: 'local_file',
+        excludedRawSource: '/Users/alice/Secrets/report.html',
+      });
+    });
+
+    test('devLogSinkBatch 應將 file sender.url 標記為 local_file 且不保存本機路徑', () => {
+      expect.hasAssertions();
+      const sender = createContentScriptSender('file:///C:/Users/Alice/Documents/report.html');
+
+      expectBufferedSource({
+        handlerName: 'devLogSinkBatch',
+        message: { logs: [{ level: 'info', message: 'local file batch', args: [] }] },
+        sender,
+        expectedSource: 'local_file',
+        excludedRawSource: '/C:/Users/Alice/Documents/report.html',
+      });
+    });
+
     test('devLogSinkBatch 應保留 valid sender.url 的 pathname source', () => {
       expect.hasAssertions();
       const sender = createContentScriptSender('https://example.com/page1?token=secret');
