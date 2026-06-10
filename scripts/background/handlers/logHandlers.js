@@ -18,6 +18,32 @@ import Logger, { parseArgsToContext } from '../../utils/Logger.js';
 /** 接收端批量日誌的最大數量限制，防禦過量批次 */
 const MAX_BATCH_SIZE = 20;
 
+const UNKNOWN_EXTERNAL_SOURCE = 'unknown_external';
+const MALFORMED_EXTERNAL_SOURCE = 'malformed_external';
+const LOCAL_FILE_SOURCE = 'local_file';
+
+/**
+ * 安全解析日誌來源路徑，避免 invalid URL 拋出異常或洩漏隱私。
+ *
+ * @param {string} senderUrl - 傳送者的 URL
+ * @returns {string} 來源路徑
+ */
+function resolveLogSourcePath(senderUrl) {
+  if (!senderUrl) {
+    return UNKNOWN_EXTERNAL_SOURCE;
+  }
+
+  try {
+    const parsedUrl = new URL(senderUrl);
+    if (parsedUrl.protocol === 'file:') {
+      return LOCAL_FILE_SOURCE;
+    }
+    return parsedUrl.pathname;
+  } catch {
+    return MALFORMED_EXTERNAL_SOURCE;
+  }
+}
+
 /**
  * 處理導出除錯日誌的請求
  *
@@ -89,7 +115,7 @@ export const handleDevLogSink = (message, sender, sendResponse) => {
       level,
       message: logMessage,
       context,
-      source: sender.url ? new URL(sender.url).pathname : 'unknown_external',
+      source: resolveLogSourcePath(sender.url),
       timestamp: new Date().toISOString(),
     });
 
@@ -128,7 +154,7 @@ export const handleDevLogSinkBatch = (message, sender, sendResponse) => {
     // 防禦性限制：截斷超過 MAX_BATCH_SIZE 的批次，避免處理過量日誌
     const safeLogs = logs.length > MAX_BATCH_SIZE ? logs.slice(0, MAX_BATCH_SIZE) : logs;
 
-    const sourcePath = sender.url ? new URL(sender.url).pathname : 'unknown_external';
+    const sourcePath = resolveLogSourcePath(sender.url);
 
     for (const entry of safeLogs) {
       const { level, message: logMessage, args = [] } = entry;

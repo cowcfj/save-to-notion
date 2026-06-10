@@ -21,6 +21,39 @@ describe('ImageCollector', () => {
   setupImageCollectorTestLifecycle();
 
   describe('collectFeaturedImage', () => {
+    const MALFORMED_FEATURED_IMAGE_URL = 'malformed_url_without_protocol?token=secret';
+    const INVALID_DOCUMENT_BASE_URI = 'invalid-base-uri';
+    const SANITIZED_INVALID_IMAGE_URL = '[invalid-url]';
+
+    const withInvalidDocumentBaseURI = runTest => {
+      const originalBaseURI = document.baseURI;
+      Object.defineProperty(document, 'baseURI', {
+        value: INVALID_DOCUMENT_BASE_URI,
+        configurable: true,
+      });
+
+      try {
+        return runTest();
+      } finally {
+        Object.defineProperty(document, 'baseURI', {
+          value: originalBaseURI,
+          configurable: true,
+        });
+      }
+    };
+
+    const expectMalformedFeaturedImageWarning = expectedContext => {
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '無效的圖片 URL',
+        expect.objectContaining({
+          action: 'collectFeaturedImage',
+          ...expectedContext,
+          url: SANITIZED_INVALID_IMAGE_URL,
+        })
+      );
+      expect(JSON.stringify(Logger.warn.mock.calls)).not.toContain(MALFORMED_FEATURED_IMAGE_URL);
+    };
+
     test('should return valid featured image src (DOM fallback)', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/featured.jpg';
@@ -105,6 +138,53 @@ describe('ImageCollector', () => {
       cachedQuery.mockReturnValue(null);
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
+    });
+
+    test.each([
+      {
+        label: 'DOM featured image 遇到 malformed URL 時應回傳 null 且記錄 sanitized URL',
+        setupImageSource: () => {
+          const mockImg = document.createElement('img');
+          cachedQuery.mockImplementation((_selector, _context, options) => {
+            if (options?.single) {
+              return mockImg;
+            }
+            return null;
+          });
+          extractImageSrc.mockReturnValue(MALFORMED_FEATURED_IMAGE_URL);
+        },
+        collectFeaturedImage: () => ImageCollector._collectFeaturedFromDOM(),
+        expectedLogContext: {
+          source: 'dom',
+          selector: '.featured-image img',
+        },
+      },
+      {
+        label: 'meta featured image 遇到 malformed URL 時應回傳 null 且記錄 sanitized URL',
+        setupImageSource: () => {
+          const mockMeta = document.createElement('meta');
+          mockMeta.content = MALFORMED_FEATURED_IMAGE_URL;
+          trackSpy(document, 'querySelector').mockImplementation(selector => {
+            if (selector === 'meta[property="og:image"]') {
+              return mockMeta;
+            }
+            return null;
+          });
+        },
+        collectFeaturedImage: () => ImageCollector._collectFeaturedFromMeta(),
+        expectedLogContext: {
+          source: 'meta[property="og:image"]',
+        },
+      },
+    ])('$label', ({ setupImageSource, collectFeaturedImage, expectedLogContext }) => {
+      withInvalidDocumentBaseURI(() => {
+        setupImageSource();
+
+        const result = collectFeaturedImage();
+
+        expect(result).toBeNull();
+        expectMalformedFeaturedImageWarning(expectedLogContext);
+      });
     });
   });
 

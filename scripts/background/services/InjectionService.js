@@ -13,6 +13,7 @@
 /* global chrome */
 
 import Logger from '../../utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { RESTRICTED_PROTOCOLS } from '../../config/shared/core.js';
 import { RUNTIME_ACTIONS } from '../../config/shared/runtimeActions.js';
 
@@ -120,10 +121,11 @@ function isRestrictedInjectionUrl(url) {
       domain => urlObj.host === domain || urlObj.host.endsWith(`.${domain}`)
     );
   } catch (error) {
+    const sanitizedErrorMsg = String(error.message).replaceAll(url, '[invalid-url]');
     Logger.warn('[Injection:Utils] Failed to parse URL when checking restrictions', {
       action: 'isRestrictedInjectionUrl',
-      url,
-      error: error.message,
+      url: sanitizeUrlForLogging(url),
+      error: sanitizedErrorMsg,
     });
     return true;
   }

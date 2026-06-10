@@ -164,6 +164,32 @@ describe('logHandlers', () => {
   });
 
   describe('Action Logic', () => {
+    const createContentScriptSender = url => ({
+      id: 'mock-extension-id',
+      tab: { id: 1 },
+      url,
+    });
+
+    const expectBufferedSource = ({
+      handlerName,
+      message,
+      sender,
+      expectedSource,
+      excludedRawSource,
+    }) => {
+      const sendResponse = jest.fn();
+
+      handlers[handlerName](message, sender, sendResponse);
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({ source: expectedSource })
+      );
+      if (excludedRawSource) {
+        expect(JSON.stringify(Logger.addLogToBuffer.mock.calls)).not.toContain(excludedRawSource);
+      }
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    };
+
     test('exportDebugLogs 應在合法請求時調用 Exporter', () => {
       const sendResponse = jest.fn();
       const sender = { id: 'mock-extension-id' };
@@ -314,6 +340,59 @@ describe('logHandlers', () => {
         expect.objectContaining({ source: 'unknown_external' })
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test.each([
+      {
+        name: 'devLogSink 應安全處理 malformed sender.url 且不保存 raw source',
+        handlerName: 'devLogSink',
+        message: { level: 'info', message: 'bad url', args: [] },
+        senderUrl: 'malformed_url_without_protocol?token=secret',
+        expectedSource: 'malformed_external',
+        excludedRawSource: 'malformed_url_without_protocol?token=secret',
+      },
+      {
+        name: 'devLogSinkBatch 應安全處理 malformed sender.url 且不保存 raw source',
+        handlerName: 'devLogSinkBatch',
+        message: { logs: [{ level: 'info', message: 'bad batch', args: [] }] },
+        senderUrl: 'malformed_url_without_protocol?token=secret',
+        expectedSource: 'malformed_external',
+        excludedRawSource: 'malformed_url_without_protocol?token=secret',
+      },
+      {
+        name: 'devLogSink 應將 file sender.url 標記為 local_file 且不保存本機路徑',
+        handlerName: 'devLogSink',
+        message: { level: 'info', message: 'local file', args: [] },
+        senderUrl: 'file:///Users/alice/Secrets/report.html',
+        expectedSource: 'local_file',
+        excludedRawSource: '/Users/alice/Secrets/report.html',
+      },
+      {
+        name: 'devLogSinkBatch 應將 file sender.url 標記為 local_file 且不保存本機路徑',
+        handlerName: 'devLogSinkBatch',
+        message: { logs: [{ level: 'info', message: 'local file batch', args: [] }] },
+        senderUrl: 'file:///C:/Users/Alice/Documents/report.html',
+        expectedSource: 'local_file',
+        excludedRawSource: '/C:/Users/Alice/Documents/report.html',
+      },
+      {
+        name: 'devLogSinkBatch 應保留 valid sender.url 的 pathname source',
+        handlerName: 'devLogSinkBatch',
+        message: { logs: [{ level: 'info', message: 'valid', args: [] }] },
+        senderUrl: 'https://example.com/page1?token=secret',
+        expectedSource: '/page1',
+      },
+    ])('$name', ({ handlerName, message, senderUrl, expectedSource, excludedRawSource }) => {
+      expect.hasAssertions();
+      const sender = createContentScriptSender(senderUrl);
+
+      expectBufferedSource({
+        handlerName,
+        message,
+        sender,
+        expectedSource,
+        excludedRawSource,
+      });
     });
   });
 });
