@@ -70,6 +70,7 @@ const mockLogger = {
   warn: jest.fn(),
   error: jest.fn(),
   success: jest.fn(),
+  start: jest.fn(),
 };
 
 describe('InjectionService', () => {
@@ -165,10 +166,12 @@ describe('InjectionService', () => {
       await expect(service.injectAndExecute(1, ['file.js'])).rejects.toThrow('Injection failed');
     });
 
-    it('應在注入失敗時於日誌 context 中包含 stack trace', async () => {
+    it('應在注入失敗時只記錄脫敏後的短錯誤訊息', async () => {
       const injectionError = new Error('Injection failed');
       injectionError.stack =
-        'Error: Injection failed\n    at inject (InjectionService.test.js:1:1)';
+        'Error: Injection failed for https://private.example.com/path?token=secret_abc&keep=value\n    at https://private.example.com/script.js?access_token=abc:1:1';
+      injectionError.message =
+        'Injection failed for https://private.example.com/path?token=secret_abc&keep=value with Bearer secret_abc';
       chrome.runtime.lastError = injectionError;
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
 
@@ -179,14 +182,19 @@ describe('InjectionService', () => {
       );
 
       expect(injectErrorCall).toBeDefined();
-      expect(injectErrorCall[0]).toContain('Script injection failed: Injection failed');
+      expect(injectErrorCall[0]).toContain('Script injection failed: Error: Injection failed');
       expect(injectErrorCall[1]).toEqual(
         expect.objectContaining({
           action: 'injectAndExecute',
+          result: 'failure',
           files: ['file.js'],
-          error: expect.any(Error),
+          error: expect.stringContaining('[URL]'),
         })
       );
+      expect(JSON.stringify(injectErrorCall)).not.toContain('private.example.com');
+      expect(JSON.stringify(injectErrorCall)).not.toContain('secret_abc');
+      expect(JSON.stringify(injectErrorCall)).not.toContain('access_token=abc');
+      expect(JSON.stringify(injectErrorCall)).not.toContain('\n    at ');
     });
 
     it('should resolve recoverable errors without throwing', async () => {
@@ -195,7 +203,13 @@ describe('InjectionService', () => {
 
       await expect(service.injectAndExecute(1, ['file.js'])).resolves.toBeUndefined();
       // Default logErrors is true, recoverable error should log debug instead of warn
-      expect(mockLogger.debug).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('File injection skipped'),
+        expect.objectContaining({
+          action: 'injectAndExecute',
+          result: 'skipped',
+        })
+      );
       expect(mockLogger.warn).not.toHaveBeenCalled();
     });
   });
@@ -295,7 +309,10 @@ describe('InjectionService', () => {
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.success).toHaveBeenCalledWith(
         expect.stringContaining('Bundle already exists'),
-        expect.anything()
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          result: 'success',
+        })
       );
     });
 
@@ -341,6 +358,7 @@ describe('InjectionService', () => {
         expect.stringContaining('Injecting Content Bundle'),
         expect.objectContaining({
           action: 'ensureBundleInjected',
+          result: 'started',
           tabId: 1,
         })
       );
@@ -348,23 +366,17 @@ describe('InjectionService', () => {
         expect.stringContaining('Content Bundle injected'),
         expect.objectContaining({
           action: 'ensureBundleInjected',
+          result: 'success',
           tabId: 1,
         })
       );
     });
 
     it('應在權限受限頁面時返回 false', async () => {
-      // PING 請求根本就無法送達（sendMessage 靜默失敗）
-      // → 流程繼續嘗試注入，注入也遇到可恢復錯誤 → 返回 false
+      // PING 請求根本就無法送達，應直接分類為 unreachable，不再繼續注入。
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
-        // PING 失敗：用 resolve(null)（新行為）
         chrome.runtime.lastError = { message: 'Cannot access contents of page' };
         callback();
-      });
-      // 注入也遇到可恢復錯誤（模擬頁面權限受限）
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
-        cb();
       });
 
       // Act
@@ -372,13 +384,13 @@ describe('InjectionService', () => {
 
       // Assert
       expect(result).toBe(false);
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle injection skipped'),
+        expect.stringContaining('PING failed with recoverable error'),
         expect.objectContaining({
           action: 'ensureBundleInjected',
-          error: expect.objectContaining({
-            message: 'Cannot access contents of page',
-          }),
+          result: 'failure',
+          error: expect.stringContaining('Cannot access contents of page'),
         })
       );
     });
@@ -411,22 +423,16 @@ describe('InjectionService', () => {
         callback();
       });
 
-      // Promise.race 遇到 chrome.runtime.lastError 會 resolve(null)，因此需讓注入階段回報相同錯誤以覆蓋 recoverable path。
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-        chrome.runtime.lastError = { message: 'Receiving end does not exist' };
-        cb();
-      });
-
       const result = await service.ensureBundleInjected(1);
 
       expect(result).toBe(false);
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle injection skipped'),
+        expect.stringContaining('PING failed with recoverable error'),
         expect.objectContaining({
           action: 'ensureBundleInjected',
-          error: expect.objectContaining({
-            message: expect.stringContaining('Receiving end does not exist'),
-          }),
+          result: 'failure',
+          error: expect.stringContaining('Receiving end does not exist'),
         })
       );
     });
@@ -440,26 +446,14 @@ describe('InjectionService', () => {
       await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Native Error');
     });
 
-    it('應在 injectAndExecute 內部拋出不可恢復異常時向外拋出', async () => {
+    it('應在 PING 回傳不可恢復 lastError 時向外拋出', async () => {
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
-        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
+        chrome.runtime.lastError = { message: 'Fatal Ping Error' };
         callback();
       });
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-        chrome.runtime.lastError = { message: 'Fatal Extension Error' };
-        cb();
-      });
 
-      await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Extension Error');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle injection failed'),
-        expect.objectContaining({
-          action: 'ensureBundleInjected',
-          error: expect.objectContaining({
-            message: 'Fatal Extension Error',
-          }),
-        })
-      );
+      await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Ping Error');
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
     });
   });
 
@@ -517,9 +511,11 @@ describe('InjectionService', () => {
       expect(result).toEqual([{ result: { success: true } }]);
     });
 
-    it('應該在拋出異常時記錄錯誤並返回 null', async () => {
+    it('應該在拋出異常時記錄脫敏後的錯誤並返回 null', async () => {
       chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
-        chrome.runtime.lastError = { message: 'Fatal' };
+        chrome.runtime.lastError = {
+          message: 'Fatal https://example.com/private?token=secret_abc',
+        };
         cb();
       });
 
@@ -528,17 +524,22 @@ describe('InjectionService', () => {
       expect(result).toBeNull();
       // 錯誤訊息應嵌入到日誌字串中，不再是 [object Object]
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('injectWithResponse failed: Fatal'),
+        expect.stringContaining('injectWithResponse failed: Error: Fatal [URL]'),
         expect.objectContaining({
           action: 'injectWithResponse',
-          error: expect.any(Error),
+          result: 'failure',
+          error: expect.stringContaining('[URL]'),
         })
       );
+      expect(JSON.stringify(mockLogger.error.mock.calls)).not.toContain('secret_abc');
+      expect(JSON.stringify(mockLogger.error.mock.calls)).not.toContain('example.com');
     });
 
-    it('應在 injectWithResponse 失敗時於日誌 context 中包含 stack trace', async () => {
+    it('應在 injectWithResponse 失敗時避免記錄 raw stack trace', async () => {
       const runtimeError = new Error('Fatal');
-      runtimeError.stack = 'Error: Fatal\n    at injectWithResponse (InjectionService.test.js:1:1)';
+      runtimeError.stack =
+        'Error: Fatal https://example.com/private?token=secret_abc\n    at https://example.com/script.js?access_token=abc:1:1';
+      runtimeError.message = 'Fatal https://example.com/private?token=secret_abc';
 
       chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
         chrome.runtime.lastError = runtimeError;
@@ -553,13 +554,19 @@ describe('InjectionService', () => {
       );
 
       expect(injectWithResponseErrorCall).toBeDefined();
-      expect(injectWithResponseErrorCall[0]).toContain('injectWithResponse failed: Fatal');
+      expect(injectWithResponseErrorCall[0]).toContain(
+        'injectWithResponse failed: Error: Fatal [URL]'
+      );
       expect(injectWithResponseErrorCall[1]).toEqual(
         expect.objectContaining({
           action: 'injectWithResponse',
-          error: expect.any(Error),
+          result: 'failure',
+          error: expect.stringContaining('[URL]'),
         })
       );
+      expect(JSON.stringify(injectWithResponseErrorCall)).not.toContain('example.com');
+      expect(JSON.stringify(injectWithResponseErrorCall)).not.toContain('secret_abc');
+      expect(JSON.stringify(injectWithResponseErrorCall)).not.toContain('\n    at ');
     });
 
     it('應該只觸發一條 ERROR 日誌而非三條', async () => {
@@ -645,9 +652,8 @@ describe('InjectionService', () => {
         expect.stringContaining('[Injection] inject failed'),
         expect.objectContaining({
           action: 'inject',
-          error: expect.objectContaining({
-            message: 'Fatal crash',
-          }),
+          result: 'failure',
+          error: 'Error: Fatal crash',
         })
       );
     });

@@ -26,6 +26,15 @@ const INJECTION_CONFIG = {
   CONTENT_BUNDLE_PATH: 'dist/content.bundle.js',
 };
 
+const ERROR_DETAIL_MAX_LENGTH = 160;
+const ERROR_URL_PATTERN = /(?:https?|chrome-extension|file|ftp):\/\/[^\s"',)]+/gi;
+const ERROR_AUTH_HEADER_PATTERN = /(?:Bearer|Basic)\s+[\w+./~-]+=*/gi;
+const ERROR_JWT_PATTERN = /\beyJ[\w.-]+\b/g;
+const ERROR_API_KEY_PATTERN = /\b(?:sk|ghp|gho|xoxb|xoxp|key)-[\dA-Za-z]{20,}\b/g;
+const ERROR_NOTION_TOKEN_PATTERN = /secret_[\dA-Za-z]+/g;
+const ERROR_SENSITIVE_ASSIGNMENT_PATTERN =
+  /\b([\w.-]*(?:token|secret|password|credential|authorization|session|api[_-]?key)[\w.-]*)=(?:[^\s&"',)]+)/gi;
+
 async function activateFloatingRailInPage() {
   const timeout = 2000;
   const interval = 100;
@@ -124,6 +133,7 @@ function isRestrictedInjectionUrl(url) {
     const sanitizedErrorMsg = String(error.message).replaceAll(url, '[invalid-url]');
     Logger.warn('[Injection:Utils] Failed to parse URL when checking restrictions', {
       action: 'isRestrictedInjectionUrl',
+      result: 'failure',
       url: sanitizeUrlForLogging(url),
       error: sanitizedErrorMsg,
     });
@@ -155,6 +165,7 @@ function getRuntimeErrorMessage(runtimeError) {
   } catch (error) {
     Logger.warn('[Injection:Utils] Unable to stringify runtime error', {
       action: 'getRuntimeErrorMessage',
+      result: 'failure',
       error: error.message,
     });
     return `[Runtime Error: ${Object.prototype.toString.call(runtimeError)}]`;
@@ -219,13 +230,58 @@ function normalizeLogger(logger) {
 }
 
 /**
- * 格式化錯誤，獲取錯誤訊息文字
+ * 格式化錯誤，獲取適合日誌使用的安全短訊息
  *
  * @param {any} error - 錯誤對象
  * @returns {string} 錯誤詳細訊息
  */
 function getErrorDetail(error) {
-  return error?.message || String(error);
+  const rawMessage = getRawErrorMessage(error);
+  const sanitizedMessage = sanitizeErrorMessage(rawMessage);
+  const identifier = getErrorIdentifier(error);
+  return `${identifier}: ${sanitizedMessage || 'Unknown error'}`;
+}
+
+function getRawErrorMessage(error) {
+  if (!error) {
+    return '';
+  }
+
+  if (typeof error?.message === 'string') {
+    return error.message;
+  }
+
+  try {
+    return String(error);
+  } catch {
+    return 'Unknown error';
+  }
+}
+
+function getErrorIdentifier(error) {
+  const identifier = error?.code || error?.name;
+  if (typeof identifier === 'string' && identifier.trim()) {
+    return identifier.trim();
+  }
+  return 'Error';
+}
+
+function sanitizeErrorMessage(message) {
+  const firstLine = String(message || '')
+    .split(/\r?\n/u)[0]
+    .trim();
+  const sanitized = firstLine
+    .replaceAll(ERROR_URL_PATTERN, '[URL]')
+    .replaceAll(ERROR_AUTH_HEADER_PATTERN, '[REDACTED_AUTH_HEADER]')
+    .replaceAll(ERROR_JWT_PATTERN, '[REDACTED_TOKEN]')
+    .replaceAll(ERROR_API_KEY_PATTERN, '[REDACTED_API_KEY]')
+    .replaceAll(ERROR_NOTION_TOKEN_PATTERN, '[REDACTED_TOKEN]')
+    .replaceAll(ERROR_SENSITIVE_ASSIGNMENT_PATTERN, '$1=[REDACTED]');
+
+  if (sanitized.length <= ERROR_DETAIL_MAX_LENGTH) {
+    return sanitized;
+  }
+  return `${sanitized.slice(0, ERROR_DETAIL_MAX_LENGTH - 3)}...`;
 }
 
 /**
@@ -284,8 +340,9 @@ class InjectionService {
         const errorDetail = getErrorDetail(error);
         this.logger.error(`[Injection] ${options.errorMessage}: ${errorDetail}`, {
           action: 'injectAndExecute',
+          result: 'failure',
           files,
-          error,
+          error: errorDetail,
         });
       }
       throw error;
@@ -367,7 +424,10 @@ class InjectionService {
   _handleInjectionSuccess(resolve, options, isFunction, results) {
     const shouldLogSuccess = isFunction && options.successMessage && options.logErrors;
     if (shouldLogSuccess) {
-      this.logger.success(`[Injection] ${options.successMessage}`);
+      this.logger.success(`[Injection] ${options.successMessage}`, {
+        action: 'injectAndExecute',
+        result: 'success',
+      });
     }
     const result = (options.returnResult && results?.[0]?.result) ?? null;
     resolve(result);
@@ -390,9 +450,11 @@ class InjectionService {
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
     this.logger.debug(`[Injection] ${msgPrefix} skipped (recoverable)`, {
-      action: 'logInjectionStatus',
+      action: 'injectAndExecute',
       operation: isFunction ? 'executeFunction' : 'injectFiles',
-      error: errMsg,
+      result: 'skipped',
+      reason: 'recoverable_error',
+      error: getErrorDetail(new Error(errMsg)),
     });
   }
 
@@ -408,13 +470,13 @@ class InjectionService {
       // 發送 PING 檢查 Bundle 是否存在（帶超時保護）
       const response = await Promise.race([
         new Promise(resolve => {
-          // 使用 resolve(null) 而非 reject：
+          // 使用 sentinel resolve 而非 reject：
           // 若 timeout 先贏得 race，這個 Promise 可能在之後才 settle。
           // 用 reject 會在「已無人監聽」時產生 Unhandled Rejection；
-          // 改為 resolve(null) 讓它靜默關閉，PING 錯誤由外層 try/catch 統一處理。
+          // sentinel 讓外層保留 lastError 分類，同時避免 race 後續 reject。
           chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
             if (chrome.runtime.lastError) {
-              resolve(null); // 靜默：錯誤已由 timeout race 或後續注入流程處理
+              resolve({ lastError: getRuntimeErrorMessage(chrome.runtime.lastError) });
             } else {
               resolve(result);
             }
@@ -428,9 +490,14 @@ class InjectionService {
         ),
       ]);
 
+      if (response?.lastError) {
+        throw new Error(response.lastError);
+      }
+
       if (response?.status === 'bundle_ready') {
         this.logger.success(`[Injection] Bundle already exists in tab ${tabId}`, {
           action: 'ensureBundleInjected',
+          result: 'success',
           tabId,
         });
         return 'ready';
@@ -442,6 +509,8 @@ class InjectionService {
         if (error.message.includes(INJECTION_CONFIG.PING_TIMEOUT_ERROR)) {
           this.logger.warn(`[Injection] PING timed out, proceeding with injection anyway`, {
             action: 'ensureBundleInjected',
+            result: 'failure',
+            reason: 'ping_timeout',
             tabId,
           });
           return 'missing';
@@ -449,8 +518,10 @@ class InjectionService {
 
         this.logger.warn(`[Injection] PING failed with recoverable error, returning false`, {
           action: 'ensureBundleInjected',
+          result: 'failure',
+          reason: 'ping_unreachable',
           tabId,
-          error,
+          error: getErrorDetail(error),
         });
         return 'unreachable';
       }
@@ -469,6 +540,7 @@ class InjectionService {
     try {
       this.logger.start(`[Injection] Injecting Content Bundle into tab ${tabId}`, {
         action: 'ensureBundleInjected',
+        result: 'started',
         tabId,
       });
 
@@ -490,6 +562,7 @@ class InjectionService {
 
       this.logger.success(`[Injection] Content Bundle injected into tab ${tabId}`, {
         action: 'ensureBundleInjected',
+        result: 'success',
         tabId,
       });
       return true;
@@ -499,13 +572,15 @@ class InjectionService {
       if (isRecoverableInjectionError(errorMessage)) {
         this.logger.warn(`[Injection] Bundle injection skipped (recoverable)`, {
           action: 'ensureBundleInjected',
-          error,
+          result: 'skipped',
+          error: errorMessage,
         });
         return false;
       }
       this.logger.error(`[Injection] Bundle injection failed`, {
         action: 'ensureBundleInjected',
-        error,
+        result: 'failure',
+        error: errorMessage,
       });
       throw error;
     }
@@ -640,9 +715,11 @@ class InjectionService {
 
       return null;
     } catch (error) {
-      this.logger.error(`[Injection] injectWithResponse failed: ${getErrorDetail(error)}`, {
+      const errorDetail = getErrorDetail(error);
+      this.logger.error(`[Injection] injectWithResponse failed: ${errorDetail}`, {
         action: 'injectWithResponse',
-        error,
+        result: 'failure',
+        error: errorDetail,
       });
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
@@ -666,7 +743,8 @@ class InjectionService {
     } catch (error) {
       this.logger.error('[Injection] inject failed', {
         action: 'inject',
-        error,
+        result: 'failure',
+        error: getErrorDetail(error),
       });
       throw error;
     }
