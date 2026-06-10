@@ -103,7 +103,10 @@ const ImageCollector = {
       return null;
     }
 
-    const cleanedUrl = this._normalizeFeaturedImageUrl(src);
+    const cleanedUrl = this._normalizeFeaturedImageUrl(src, { selector, source: 'dom' });
+    if (!cleanedUrl) {
+      return null;
+    }
     if (
       this._shouldSkipTemporaryFeaturedImage(cleanedUrl, '跳過 temporary 圖片 URL (DOM 封面)', {
         selector,
@@ -182,7 +185,10 @@ const ImageCollector = {
       return null;
     }
 
-    const cleanedUrl = this._normalizeFeaturedImageUrl(content);
+    const cleanedUrl = this._normalizeFeaturedImageUrl(content, { source: selector });
+    if (!cleanedUrl) {
+      return null;
+    }
     if (
       this._shouldSkipTemporaryFeaturedImage(cleanedUrl, '跳過 temporary 圖片 URL (Meta 封面)', {
         source: selector,
@@ -206,9 +212,18 @@ const ImageCollector = {
     return Boolean(isValidImageUrl?.(src));
   },
 
-  _normalizeFeaturedImageUrl(src) {
-    const absoluteUrl = new URL(src, document.baseURI).href;
-    return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+  _normalizeFeaturedImageUrl(src, metadata = {}) {
+    try {
+      const absoluteUrl = new URL(src, document.baseURI).href;
+      return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+    } catch {
+      Logger.warn('無效的圖片 URL', {
+        action: 'collectFeaturedImage',
+        ...metadata,
+        url: sanitizeUrlForLogging(src),
+      });
+      return null;
+    }
   },
 
   _shouldSkipTemporaryFeaturedImage(cleanedUrl, message, metadata) {

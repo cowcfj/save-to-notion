@@ -106,6 +106,85 @@ describe('ImageCollector', () => {
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
     });
+
+    test('DOM featured image 遇到 malformed URL 時應回傳 null 且記錄 sanitized URL', () => {
+      const originalBaseURI = document.baseURI;
+      Object.defineProperty(document, 'baseURI', {
+        value: 'invalid-base-uri',
+        configurable: true,
+      });
+
+      try {
+        const mockImg = document.createElement('img');
+        cachedQuery.mockImplementation((_selector, _context, options) => {
+          if (options?.single) {
+            return mockImg;
+          }
+          return null;
+        });
+        extractImageSrc.mockReturnValue('malformed_url_without_protocol?token=secret');
+
+        const result = ImageCollector._collectFeaturedFromDOM();
+
+        expect(result).toBeNull();
+        expect(Logger.warn).toHaveBeenCalledWith(
+          '無效的圖片 URL',
+          expect.objectContaining({
+            action: 'collectFeaturedImage',
+            source: 'dom',
+            selector: '.featured-image img',
+            url: '[invalid-url]',
+          })
+        );
+        expect(JSON.stringify(Logger.warn.mock.calls)).not.toContain(
+          'malformed_url_without_protocol?token=secret'
+        );
+      } finally {
+        Object.defineProperty(document, 'baseURI', {
+          value: originalBaseURI,
+          configurable: true,
+        });
+      }
+    });
+
+    test('meta featured image 遇到 malformed URL 時應回傳 null 且記錄 sanitized URL', () => {
+      const originalBaseURI = document.baseURI;
+      Object.defineProperty(document, 'baseURI', {
+        value: 'invalid-base-uri',
+        configurable: true,
+      });
+
+      try {
+        const mockMeta = document.createElement('meta');
+        mockMeta.content = 'malformed_url_without_protocol?token=secret';
+        trackSpy(document, 'querySelector').mockImplementation(selector => {
+          if (selector === 'meta[property="og:image"]') {
+            return mockMeta;
+          }
+          return null;
+        });
+
+        const result = ImageCollector._collectFeaturedFromMeta();
+
+        expect(result).toBeNull();
+        expect(Logger.warn).toHaveBeenCalledWith(
+          '無效的圖片 URL',
+          expect.objectContaining({
+            action: 'collectFeaturedImage',
+            source: 'meta[property="og:image"]',
+            url: '[invalid-url]',
+          })
+        );
+        expect(JSON.stringify(Logger.warn.mock.calls)).not.toContain(
+          'malformed_url_without_protocol?token=secret'
+        );
+      } finally {
+        Object.defineProperty(document, 'baseURI', {
+          value: originalBaseURI,
+          configurable: true,
+        });
+      }
+    });
   });
 
   describe('processImageForCollection', () => {
