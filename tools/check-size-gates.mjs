@@ -54,6 +54,43 @@ const BUDGETS = Object.freeze({
   ],
 });
 
+// 每個旗標對應一個賦值處理器；需要絕對路徑的旗標在此包一層 path.resolve。
+const ARG_HANDLERS = Object.freeze({
+  '--mode': (options, value) => {
+    options.mode = value;
+  },
+  '--scope': (options, value) => {
+    options.scope = value;
+  },
+  '--root': (options, value) => {
+    options.root = path.resolve(value);
+  },
+  '--base-root': (options, value) => {
+    options.baseRoot = path.resolve(value);
+  },
+  '--unpacked-dir': (options, value) => {
+    options.unpackedDir = path.resolve(value);
+  },
+  '--base-unpacked-dir': (options, value) => {
+    options.baseUnpackedDir = path.resolve(value);
+  },
+  '--report-file': (options, value) => {
+    options.reportFile = path.resolve(value);
+  },
+});
+
+function assertValidOptions(options) {
+  if (!['hard', 'delta'].includes(options.mode)) {
+    throw new Error(`不支援的 mode：${options.mode}`);
+  }
+  if (!['bundle', 'package', 'all'].includes(options.scope)) {
+    throw new Error(`不支援的 scope：${options.scope}`);
+  }
+  if (options.mode === 'delta' && !options.baseRoot) {
+    throw new Error('delta 模式必須提供 --base-root');
+  }
+}
+
 function parseArgs(argv) {
   const options = {
     mode: 'hard',
@@ -67,44 +104,14 @@ function parseArgs(argv) {
 
   for (const arg of argv) {
     const [rawKey, ...rawValueParts] = arg.split('=');
-    const value = rawValueParts.join('=');
-    switch (rawKey) {
-      case '--mode':
-        options.mode = value;
-        break;
-      case '--scope':
-        options.scope = value;
-        break;
-      case '--root':
-        options.root = path.resolve(value);
-        break;
-      case '--base-root':
-        options.baseRoot = path.resolve(value);
-        break;
-      case '--unpacked-dir':
-        options.unpackedDir = path.resolve(value);
-        break;
-      case '--base-unpacked-dir':
-        options.baseUnpackedDir = path.resolve(value);
-        break;
-      case '--report-file':
-        options.reportFile = path.resolve(value);
-        break;
-      default:
-        throw new Error(`未知參數：${arg}`);
+    const handler = ARG_HANDLERS[rawKey];
+    if (!handler) {
+      throw new Error(`未知參數：${arg}`);
     }
+    handler(options, rawValueParts.join('='));
   }
 
-  if (!['hard', 'delta'].includes(options.mode)) {
-    throw new Error(`不支援的 mode：${options.mode}`);
-  }
-  if (!['bundle', 'package', 'all'].includes(options.scope)) {
-    throw new Error(`不支援的 scope：${options.scope}`);
-  }
-  if (options.mode === 'delta' && !options.baseRoot) {
-    throw new Error('delta 模式必須提供 --base-root');
-  }
-
+  assertValidOptions(options);
   return options;
 }
 
