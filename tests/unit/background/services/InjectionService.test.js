@@ -324,6 +324,35 @@ describe('InjectionService', () => {
       );
     });
 
+    it('未傳入 logger 時應使用專案 Logger fallback', async () => {
+      const serviceWithDefaultLogger = new InjectionService();
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'preloader_only' });
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback();
+      });
+
+      await serviceWithDefaultLogger.ensureBundleInjected(1);
+
+      expect(Logger.start).toHaveBeenCalledWith(
+        expect.stringContaining('Injecting Content Bundle'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          tabId: 1,
+        })
+      );
+      expect(Logger.success).toHaveBeenCalledWith(
+        expect.stringContaining('Content Bundle injected'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          tabId: 1,
+        })
+      );
+    });
+
     it('應在權限受限頁面時返回 false', async () => {
       // PING 請求根本就無法送達（sendMessage 靜默失敗）
       // → 流程繼續嘗試注入，注入也遇到可恢復錯誤 → 返回 false

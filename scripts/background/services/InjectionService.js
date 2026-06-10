@@ -210,7 +210,7 @@ const LOGGER_METHODS = ['debug', 'warn', 'error', 'success', 'start'];
  * @returns {object} 標準化後的 logger 對象
  */
 function normalizeLogger(logger) {
-  const base = logger || console;
+  const base = logger || Logger;
   const normalized = {};
   for (const method of LOGGER_METHODS) {
     normalized[method] = typeof base[method] === 'function' ? base[method].bind(base) : () => {};
