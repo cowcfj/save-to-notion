@@ -342,67 +342,56 @@ describe('logHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    test('devLogSink 應安全處理 malformed sender.url 且不保存 raw source', () => {
-      expect.hasAssertions();
-      const sender = createContentScriptSender('malformed_url_without_protocol?token=secret');
-
-      expectBufferedSource({
+    test.each([
+      {
+        name: 'devLogSink 應安全處理 malformed sender.url 且不保存 raw source',
         handlerName: 'devLogSink',
         message: { level: 'info', message: 'bad url', args: [] },
-        sender,
+        senderUrl: 'malformed_url_without_protocol?token=secret',
         expectedSource: 'malformed_external',
-        excludedRawSource: sender.url,
-      });
-    });
-
-    test('devLogSinkBatch 應安全處理 malformed sender.url 且不保存 raw source', () => {
-      expect.hasAssertions();
-      const sender = createContentScriptSender('malformed_url_without_protocol?token=secret');
-
-      expectBufferedSource({
+        excludedRawSource: 'malformed_url_without_protocol?token=secret',
+      },
+      {
+        name: 'devLogSinkBatch 應安全處理 malformed sender.url 且不保存 raw source',
         handlerName: 'devLogSinkBatch',
         message: { logs: [{ level: 'info', message: 'bad batch', args: [] }] },
-        sender,
+        senderUrl: 'malformed_url_without_protocol?token=secret',
         expectedSource: 'malformed_external',
-        excludedRawSource: sender.url,
-      });
-    });
-
-    test('devLogSink 應將 file sender.url 標記為 local_file 且不保存本機路徑', () => {
-      expect.hasAssertions();
-      const sender = createContentScriptSender('file:///Users/alice/Secrets/report.html');
-
-      expectBufferedSource({
+        excludedRawSource: 'malformed_url_without_protocol?token=secret',
+      },
+      {
+        name: 'devLogSink 應將 file sender.url 標記為 local_file 且不保存本機路徑',
         handlerName: 'devLogSink',
         message: { level: 'info', message: 'local file', args: [] },
-        sender,
+        senderUrl: 'file:///Users/alice/Secrets/report.html',
         expectedSource: 'local_file',
         excludedRawSource: '/Users/alice/Secrets/report.html',
-      });
-    });
-
-    test('devLogSinkBatch 應將 file sender.url 標記為 local_file 且不保存本機路徑', () => {
-      expect.hasAssertions();
-      const sender = createContentScriptSender('file:///C:/Users/Alice/Documents/report.html');
-
-      expectBufferedSource({
+      },
+      {
+        name: 'devLogSinkBatch 應將 file sender.url 標記為 local_file 且不保存本機路徑',
         handlerName: 'devLogSinkBatch',
         message: { logs: [{ level: 'info', message: 'local file batch', args: [] }] },
-        sender,
+        senderUrl: 'file:///C:/Users/Alice/Documents/report.html',
         expectedSource: 'local_file',
         excludedRawSource: '/C:/Users/Alice/Documents/report.html',
-      });
-    });
-
-    test('devLogSinkBatch 應保留 valid sender.url 的 pathname source', () => {
-      expect.hasAssertions();
-      const sender = createContentScriptSender('https://example.com/page1?token=secret');
-
-      expectBufferedSource({
+      },
+      {
+        name: 'devLogSinkBatch 應保留 valid sender.url 的 pathname source',
         handlerName: 'devLogSinkBatch',
         message: { logs: [{ level: 'info', message: 'valid', args: [] }] },
-        sender,
+        senderUrl: 'https://example.com/page1?token=secret',
         expectedSource: '/page1',
+      },
+    ])('$name', ({ handlerName, message, senderUrl, expectedSource, excludedRawSource }) => {
+      expect.hasAssertions();
+      const sender = createContentScriptSender(senderUrl);
+
+      expectBufferedSource({
+        handlerName,
+        message,
+        sender,
+        expectedSource,
+        excludedRawSource,
       });
     });
   });
