@@ -435,11 +435,20 @@ describe('InjectionService', () => {
   });
 
   describe('Edge Case Utilities', () => {
-    it('isRestrictedInjectionUrl 應處理無法解析的 URL 字符串', () => {
+    it('isRestrictedInjectionUrl 應處理無法解析的 URL 字符串且不記錄 raw URL', () => {
       // 傳入無法被 new URL() 解析的字串，應觸發 catch 區塊並返回 true
-      const result = isRestrictedInjectionUrl('not-a-url');
+      const rawUrl = 'not-a-url?token=secret';
+      const result = isRestrictedInjectionUrl(rawUrl);
       expect(result).toBe(true);
-      expect(Logger.warn).toHaveBeenCalled();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '[Injection:Utils] Failed to parse URL when checking restrictions',
+        expect.objectContaining({
+          action: 'isRestrictedInjectionUrl',
+          url: '[invalid-url]',
+          error: expect.any(String),
+        })
+      );
+      expect(JSON.stringify(Logger.warn.mock.calls)).not.toContain(rawUrl);
     });
 
     describe('getRuntimeErrorMessage', () => {
