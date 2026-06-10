@@ -935,18 +935,30 @@ class StorageService {
         return null;
       }
 
-      if (state.format === 'new') {
-        return this._mapNotionToPublic(state.data.notion);
-      }
-
-      // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
-      const targetUrl = state.resolvedUrl || normalizedUrl;
-      this._triggerReadTimeUpgrade(targetUrl, state.savedData, state.savedKey);
-      return state.savedData;
+      return this._resolveSavedPageDataFromState(state, normalizedUrl);
     } catch (error) {
       this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
     }
+  }
+
+  /**
+   * 從頁面狀態解析保存數據
+   *
+   * @param {object} state - 頁面狀態
+   * @param {string} normalizedUrl - 正規化 URL
+   * @returns {object|null}
+   * @private
+   */
+  _resolveSavedPageDataFromState(state, normalizedUrl) {
+    if (state.format === 'new') {
+      return this._mapNotionToPublic(state.data.notion);
+    }
+
+    // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
+    const targetUrl = state.resolvedUrl || normalizedUrl;
+    this._triggerReadTimeUpgrade(targetUrl, state.savedData, state.savedKey);
+    return state.savedData;
   }
 
   /**
@@ -1038,23 +1050,37 @@ class StorageService {
     const targetKey = contract.mutationTargetKey;
 
     return this._withLock(lockKey, async () => {
-      try {
-        // 鎖內讀取 lookupOrder 與 legacyCleanupKeys 一次,作為 cleanup 計算依據。
-        const readKeys = Array.from(
-          new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
-        );
-        const existing = await this.storage.local.get(readKeys);
-
-        const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
-        await this.storage.local.set({ [targetKey]: pageObj });
-
-        // Cleanup legacy keys（與 updateHighlights 同 pattern）：實際存在 + 字典序
-        await this._runLegacyKeyCleanup(targetKey, contract.legacyCleanupKeys, existing);
-      } catch (error) {
-        this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
-        throw error;
-      }
+      await this._savePageDataAndHighlightsUnderLock(targetKey, contract, pageData, highlights);
     });
+  }
+
+  /**
+   * 在鎖保護下執行 savePageDataAndHighlights 寫入
+   *
+   * @param {string} targetKey - 目標寫入 key
+   * @param {object} contract - canonical lock contract
+   * @param {object|null} pageData - 頁面數據
+   * @param {Array|null} highlights - 標註數據
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _savePageDataAndHighlightsUnderLock(targetKey, contract, pageData, highlights) {
+    try {
+      // 鎖內讀取 lookupOrder 與 legacyCleanupKeys 一次,作為 cleanup 計算依據。
+      const readKeys = Array.from(
+        new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
+      );
+      const existing = await this.storage.local.get(readKeys);
+
+      const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
+      await this.storage.local.set({ [targetKey]: pageObj });
+
+      // Cleanup legacy keys（與 updateHighlights 同 pattern）：實際存在 + 字典序
+      await this._runLegacyKeyCleanup(targetKey, contract.legacyCleanupKeys, existing);
+    } catch (error) {
+      this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
+      throw error;
+    }
   }
 
   /**
@@ -1771,20 +1797,31 @@ class StorageService {
 
     try {
       const result = allData || (await this._getAllStorageData());
-      const urlSet = new Set();
-
-      for (const [key, value] of Object.entries(result)) {
-        const url = this._extractSavedUrlFromEntry(key, value);
-        if (url) {
-          urlSet.add(url);
-        }
-      }
-
-      return Array.from(urlSet);
+      return this._extractUrlsFromStorageData(result);
     } catch (error) {
       this.logger.error?.('[StorageService] getAllSavedPageUrls failed', { error });
       throw error;
     }
+  }
+
+  /**
+   * 從儲存數據中提取所有已保存的 URL
+   *
+   * @param {object} result - 儲存數據
+   * @returns {string[]}
+   * @private
+   */
+  _extractUrlsFromStorageData(result) {
+    const urlSet = new Set();
+
+    for (const [key, value] of Object.entries(result)) {
+      const url = this._extractSavedUrlFromEntry(key, value);
+      if (url) {
+        urlSet.add(url);
+      }
+    }
+
+    return Array.from(urlSet);
   }
 }
 
