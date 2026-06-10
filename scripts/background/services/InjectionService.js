@@ -201,6 +201,33 @@ function isRecoverableInjectionError(message) {
   return patterns.some(pattern => message.includes(pattern));
 }
 
+const LOGGER_METHODS = ['debug', 'warn', 'error', 'success', 'start'];
+
+/**
+ * 將傳入的 logger 標準化，確保其包含所有必要的日誌方法，缺少的則靜默處理 (no-op)
+ *
+ * @param {object} logger - 原始 logger 對象
+ * @returns {object} 標準化後的 logger 對象
+ */
+function normalizeLogger(logger) {
+  const base = logger || console;
+  const normalized = {};
+  for (const method of LOGGER_METHODS) {
+    normalized[method] = typeof base[method] === 'function' ? base[method].bind(base) : () => {};
+  }
+  return normalized;
+}
+
+/**
+ * 格式化錯誤，獲取錯誤訊息文字
+ *
+ * @param {any} error - 錯誤對象
+ * @returns {string} 錯誤詳細訊息
+ */
+function getErrorDetail(error) {
+  return error?.message || String(error);
+}
+
 /**
  * InjectionService 類
  */
@@ -210,7 +237,7 @@ class InjectionService {
    * @param {object} options.logger - 日誌對象
    */
   constructor(options = {}) {
-    this.logger = options.logger || console;
+    this.logger = normalizeLogger(options.logger);
   }
 
   /**
@@ -254,15 +281,12 @@ class InjectionService {
       }
     } catch (error) {
       if (options.logErrors !== false) {
-        const errorDetail = error?.message || String(error);
-        this.logger.error?.(
-          `[Injection] ${options.errorMessage || 'Script injection failed'}: ${errorDetail}`,
-          {
-            action: 'injectAndExecute',
-            files,
-            error,
-          }
-        );
+        const errorDetail = getErrorDetail(error);
+        this.logger.error(`[Injection] ${options.errorMessage}: ${errorDetail}`, {
+          action: 'injectAndExecute',
+          files,
+          error,
+        });
       }
       throw error;
     }
@@ -282,7 +306,7 @@ class InjectionService {
   async _injectFiles(tabId, files, options) {
     return new Promise((resolve, reject) => {
       chrome.scripting.executeScript({ target: { tabId }, files }, () =>
-        this._handleScriptResult(resolve, reject, options, false)
+        this._handleScriptResult({ resolve, reject }, options, false)
       );
     });
   }
@@ -294,12 +318,13 @@ class InjectionService {
         injection.args = options.args;
       }
       chrome.scripting.executeScript(injection, results =>
-        this._handleScriptResult(resolve, reject, options, true, results)
+        this._handleScriptResult({ resolve, reject }, options, true, results)
       );
     });
   }
 
-  _handleScriptResult(resolve, reject, options, isFunction, results = null) {
+  _handleScriptResult(promiseHandlers, options, isFunction, results = null) {
+    const { resolve, reject } = promiseHandlers;
     if (chrome.runtime.lastError) {
       return this._handleInjectionError(resolve, reject, options, isFunction);
     }
@@ -340,8 +365,9 @@ class InjectionService {
    * @private
    */
   _handleInjectionSuccess(resolve, options, isFunction, results) {
-    if (isFunction && options.successMessage && options.logErrors) {
-      this.logger.success?.(`[Injection] ${options.successMessage}`);
+    const shouldLogSuccess = isFunction && options.successMessage && options.logErrors;
+    if (shouldLogSuccess) {
+      this.logger.success(`[Injection] ${options.successMessage}`);
     }
     const result = (options.returnResult && results?.[0]?.result) ?? null;
     resolve(result);
@@ -363,7 +389,7 @@ class InjectionService {
     }
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
-    this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
+    this.logger.debug(`[Injection] ${msgPrefix} skipped (recoverable)`, {
       action: 'logInjectionStatus',
       operation: isFunction ? 'executeFunction' : 'injectFiles',
       error: errMsg,
@@ -371,13 +397,13 @@ class InjectionService {
   }
 
   /**
-   * 確保 Content Bundle 已注入到指定標籤頁
-   * 使用 PING 機制檢測 Bundle 是否存在，若無則注入
+   * 探測目標標籤頁的 Content Bundle 狀態
    *
    * @param {number} tabId - 目標標籤頁 ID
-   * @returns {Promise<boolean>} 若已注入或成功注入返回 true
+   * @returns {Promise<'ready' | 'unreachable' | 'missing'>} 狀態值
+   * @private
    */
-  async ensureBundleInjected(tabId) {
+  async _probeBundleStatus(tabId) {
     try {
       // 發送 PING 檢查 Bundle 是否存在（帶超時保護）
       const response = await Promise.race([
@@ -403,36 +429,45 @@ class InjectionService {
       ]);
 
       if (response?.status === 'bundle_ready') {
-        this.logger.success?.(`[Injection] Bundle already exists in tab ${tabId}`, {
+        this.logger.success(`[Injection] Bundle already exists in tab ${tabId}`, {
           action: 'ensureBundleInjected',
           tabId,
         });
-        return true; // Bundle 已存在
+        return 'ready';
       }
+      return 'missing';
     } catch (error) {
       if (isRecoverableInjectionError(error.message)) {
         // 特別處理 PING 超時：視為頁面反應慢，但不代表不能注入，所以不 return false 而是記錄警告後繼續
         if (error.message.includes(INJECTION_CONFIG.PING_TIMEOUT_ERROR)) {
-          this.logger.warn?.(`[Injection] PING timed out, proceeding with injection anyway`, {
+          this.logger.warn(`[Injection] PING timed out, proceeding with injection anyway`, {
             action: 'ensureBundleInjected',
             tabId,
           });
-        } else {
-          this.logger.warn?.(`[Injection] PING failed with recoverable error, returning false`, {
-            action: 'ensureBundleInjected',
-            tabId,
-            error,
-          });
-          return false;
+          return 'missing';
         }
-      } else {
-        throw error;
-      }
-    }
 
+        this.logger.warn(`[Injection] PING failed with recoverable error, returning false`, {
+          action: 'ensureBundleInjected',
+          tabId,
+          error,
+        });
+        return 'unreachable';
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 注入 Content Bundle 到目標標籤頁
+   *
+   * @param {number} tabId - 目標標籤頁 ID
+   * @returns {Promise<boolean>} 是否成功注入
+   * @private
+   */
+  async _injectContentBundle(tabId) {
     try {
-      // Bundle 不存在，注入主程式
-      this.logger.start?.(`[Injection] Injecting Content Bundle into tab ${tabId}`, {
+      this.logger.start(`[Injection] Injecting Content Bundle into tab ${tabId}`, {
         action: 'ensureBundleInjected',
         tabId,
       });
@@ -453,27 +488,48 @@ class InjectionService {
         );
       });
 
-      this.logger.success?.(`[Injection] Content Bundle injected into tab ${tabId}`, {
+      this.logger.success(`[Injection] Content Bundle injected into tab ${tabId}`, {
         action: 'ensureBundleInjected',
         tabId,
       });
       return true;
     } catch (error) {
       // 處理錯誤（如無法連接、權限受限）
-      const errorMessage = error?.message || String(error);
+      const errorMessage = getErrorDetail(error);
       if (isRecoverableInjectionError(errorMessage)) {
-        this.logger.warn?.(`[Injection] Bundle injection skipped (recoverable)`, {
+        this.logger.warn(`[Injection] Bundle injection skipped (recoverable)`, {
           action: 'ensureBundleInjected',
           error,
         });
         return false;
       }
-      this.logger.error?.(`[Injection] Bundle injection failed`, {
+      this.logger.error(`[Injection] Bundle injection failed`, {
         action: 'ensureBundleInjected',
         error,
       });
       throw error;
     }
+  }
+
+  /**
+   * 確保 Content Bundle 已注入到指定標籤頁
+   * 使用 PING 機制檢測 Bundle 是否存在，若無則注入
+   *
+   * @param {number} tabId - 目標標籤頁 ID
+   * @returns {Promise<boolean>} 若已注入或成功注入返回 true
+   */
+  async ensureBundleInjected(tabId) {
+    const status = await this._probeBundleStatus(tabId);
+
+    if (status === 'ready') {
+      return true;
+    }
+
+    if (status === 'unreachable') {
+      return false;
+    }
+
+    return this._injectContentBundle(tabId);
   }
 
   /**
@@ -564,8 +620,9 @@ class InjectionService {
    */
   async injectWithResponse(tabId, func, files = [], args = []) {
     try {
+      const hasFilesToInject = files?.length > 0;
       // 如果有文件需要注入，先注入文件（由外層 catch 統一記錄，避免重複日誌）
-      if (files && files.length > 0) {
+      if (hasFilesToInject) {
         await this.injectAndExecute(tabId, files, null, { logErrors: false });
       }
 
@@ -576,20 +633,17 @@ class InjectionService {
           logErrors: false,
           args,
         });
-      } else if (files && files.length > 0) {
+      } else if (hasFilesToInject) {
         // 如果只注入文件而不執行函數，等待注入完成後返回成功標記
         return [{ result: { success: true } }];
       }
 
       return null;
     } catch (error) {
-      this.logger.error?.(
-        `[Injection] injectWithResponse failed: ${error?.message || String(error)}`,
-        {
-          action: 'injectWithResponse',
-          error,
-        }
-      );
+      this.logger.error(`[Injection] injectWithResponse failed: ${getErrorDetail(error)}`, {
+        action: 'injectWithResponse',
+        error,
+      });
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
     }
@@ -610,7 +664,7 @@ class InjectionService {
         logErrors: true,
       });
     } catch (error) {
-      this.logger.error?.('[Injection] inject failed', {
+      this.logger.error('[Injection] inject failed', {
         action: 'inject',
         error,
       });
