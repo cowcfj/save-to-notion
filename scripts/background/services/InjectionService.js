@@ -284,6 +284,26 @@ function sanitizeErrorMessage(message) {
   return `${sanitized.slice(0, ERROR_DETAIL_MAX_LENGTH - 3)}...`;
 }
 
+function readBundlePingResult(result) {
+  if (chrome.runtime.lastError) {
+    return { lastError: getRuntimeErrorMessage(chrome.runtime.lastError) };
+  }
+  return result;
+}
+
+function createBundlePingTimeout() {
+  return new Promise((resolve, reject) =>
+    setTimeout(
+      () => reject(new Error(INJECTION_CONFIG.PING_TIMEOUT_ERROR)),
+      INJECTION_CONFIG.PING_TIMEOUT_MS
+    )
+  );
+}
+
+function isBundlePingTimeoutError(error) {
+  return error.message.includes(INJECTION_CONFIG.PING_TIMEOUT_ERROR);
+}
+
 /**
  * InjectionService 類
  */
@@ -467,66 +487,78 @@ class InjectionService {
    */
   async _probeBundleStatus(tabId) {
     try {
-      // 發送 PING 檢查 Bundle 是否存在（帶超時保護）
-      const response = await Promise.race([
-        new Promise(resolve => {
-          // 使用 sentinel resolve 而非 reject：
-          // 若 timeout 先贏得 race，這個 Promise 可能在之後才 settle。
-          // 用 reject 會在「已無人監聽」時產生 Unhandled Rejection；
-          // sentinel 讓外層保留 lastError 分類，同時避免 race 後續 reject。
-          chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
-            if (chrome.runtime.lastError) {
-              resolve({ lastError: getRuntimeErrorMessage(chrome.runtime.lastError) });
-            } else {
-              resolve(result);
-            }
-          });
-        }),
-        new Promise((resolve, reject) =>
-          setTimeout(
-            () => reject(new Error(INJECTION_CONFIG.PING_TIMEOUT_ERROR)),
-            INJECTION_CONFIG.PING_TIMEOUT_MS
-          )
-        ),
-      ]);
-
-      if (response?.lastError) {
-        throw new Error(response.lastError);
-      }
-
-      if (response?.status === 'bundle_ready') {
-        this.logger.success(`[Injection] Bundle already exists in tab ${tabId}`, {
-          action: 'ensureBundleInjected',
-          result: 'success',
-          tabId,
-        });
-        return 'ready';
-      }
-      return 'missing';
+      const response = await this._sendBundlePing(tabId);
+      return this._resolveBundlePingStatus(response, tabId);
     } catch (error) {
-      if (isRecoverableInjectionError(error.message)) {
-        // 特別處理 PING 超時：視為頁面反應慢，但不代表不能注入，所以不 return false 而是記錄警告後繼續
-        if (error.message.includes(INJECTION_CONFIG.PING_TIMEOUT_ERROR)) {
-          this.logger.warn(`[Injection] PING timed out, proceeding with injection anyway`, {
-            action: 'ensureBundleInjected',
-            result: 'failure',
-            reason: 'ping_timeout',
-            tabId,
-          });
-          return 'missing';
-        }
+      return this._handleBundlePingError(error, tabId);
+    }
+  }
 
-        this.logger.warn(`[Injection] PING failed with recoverable error, returning false`, {
-          action: 'ensureBundleInjected',
-          result: 'failure',
-          reason: 'ping_unreachable',
-          tabId,
-          error: getErrorDetail(error),
-        });
-        return 'unreachable';
-      }
+  _sendBundlePing(tabId) {
+    return Promise.race([this._sendBundlePingMessage(tabId), createBundlePingTimeout()]);
+  }
+
+  _sendBundlePingMessage(tabId) {
+    return new Promise(resolve => {
+      // 使用 sentinel resolve 而非 reject：
+      // 若 timeout 先贏得 race，這個 Promise 可能在之後才 settle。
+      // 用 reject 會在「已無人監聽」時產生 Unhandled Rejection；
+      // sentinel 讓外層保留 lastError 分類，同時避免 race 後續 reject。
+      chrome.tabs.sendMessage(tabId, { action: RUNTIME_ACTIONS.PING }, result => {
+        resolve(readBundlePingResult(result));
+      });
+    });
+  }
+
+  _resolveBundlePingStatus(response, tabId) {
+    if (response?.lastError) {
+      throw new Error(response.lastError);
+    }
+
+    if (response?.status !== 'bundle_ready') {
+      return 'missing';
+    }
+
+    this.logger.success(`[Injection] Bundle already exists in tab ${tabId}`, {
+      action: 'ensureBundleInjected',
+      result: 'success',
+      tabId,
+    });
+    return 'ready';
+  }
+
+  _handleBundlePingError(error, tabId) {
+    if (!isRecoverableInjectionError(error.message)) {
       throw error;
     }
+
+    if (isBundlePingTimeoutError(error)) {
+      return this._handleBundlePingTimeout(tabId);
+    }
+
+    return this._handleBundlePingUnreachable(error, tabId);
+  }
+
+  _handleBundlePingTimeout(tabId) {
+    // PING 超時：頁面反應慢不代表不能注入，所以記錄警告後繼續。
+    this.logger.warn(`[Injection] PING timed out, proceeding with injection anyway`, {
+      action: 'ensureBundleInjected',
+      result: 'failure',
+      reason: 'ping_timeout',
+      tabId,
+    });
+    return 'missing';
+  }
+
+  _handleBundlePingUnreachable(error, tabId) {
+    this.logger.warn(`[Injection] PING failed with recoverable error, returning false`, {
+      action: 'ensureBundleInjected',
+      result: 'failure',
+      reason: 'ping_unreachable',
+      tabId,
+      error: getErrorDetail(error),
+    });
+    return 'unreachable';
   }
 
   /**
