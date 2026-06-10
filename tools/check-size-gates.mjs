@@ -240,7 +240,7 @@ function createCheckResult(target, currentMeasurement, baseMeasurement, mode) {
 
   if (currentMeasurement.value > target.hardLimit) {
     result.status = 'failed';
-    result.message = `${target.label} exceeds hard limit`;
+    result.message = `${target.label} 超過硬性上限`;
     return result;
   }
 
@@ -262,7 +262,7 @@ function createCheckResult(target, currentMeasurement, baseMeasurement, mode) {
 
   if (result.delta > target.deltaLimit) {
     result.status = 'failed';
-    result.message = `${target.label} exceeds delta limit`;
+    result.message = `${target.label} 超出差異限制`;
   }
 
   return result;
