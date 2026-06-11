@@ -13,6 +13,10 @@
  * - 讀取時先查 page_*，沒有才查舊格式，找到舊格式則觸發讀時升級
  * - _withLock 確保同一 URL 的 read-modify-write 序列化
  *
+ * ⚠️ Deprecation Note:
+ * Migration 掃描（getAllHighlights / getAllSavedPageUrls）已遷移至 StorageMigrationScanner
+ * 詳見：scripts/background/services/StorageMigrationScanner.js
+ *
  * @module services/StorageService
  */
 
@@ -162,7 +166,7 @@ class StorageService {
    */
   async _resolveCanonicalLockKey(normalizedUrl, rawUrl = null) {
     const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
-    const aliasResult = aliasKeys.length > 0 ? await this.storage.local.get(aliasKeys) : {};
+    const aliasResult = aliasKeys.length > 0 ? (await this.storage.local.get(aliasKeys)) || {} : {};
     const aliasCandidate = pickAliasCandidate(aliasResult, normalizedUrl, rawUrl);
     const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
     return { lockKey: contract.mutationTargetKey, aliasCandidate, contract };
@@ -183,7 +187,7 @@ class StorageService {
     const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
     const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
 
-    const result = await this.storage.local.get([pageKey, savedKey, aliasKey]);
+    const result = (await this.storage.local.get([pageKey, savedKey, aliasKey])) || {};
 
     // 已是新格式（page_*）
     if (result[pageKey]) {
@@ -195,7 +199,7 @@ class StorageService {
     if (stableUrl) {
       const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
       const stableSavedKey = `${SAVED_PREFIX}${stableUrl}`;
-      const r2 = await this.storage.local.get([stablePageKey, stableSavedKey]);
+      const r2 = (await this.storage.local.get([stablePageKey, stableSavedKey])) || {};
       if (r2[stablePageKey]) {
         return { format: 'new', key: stablePageKey, data: r2[stablePageKey] };
       }
@@ -337,15 +341,7 @@ class StorageService {
    */
   async _runLegacyKeyCleanup(targetKey, candidateKeys, existing, forceIncludePrefixes = []) {
     const cleanupKeys = candidateKeys
-      .filter(k => {
-        if (k === targetKey) {
-          return false;
-        }
-        if (Object.hasOwn(existing, k)) {
-          return true;
-        }
-        return forceIncludePrefixes.some(prefix => k.startsWith(prefix));
-      })
+      .filter(k => this._shouldCleanupKey(k, targetKey, existing, forceIncludePrefixes))
       .toSorted(compareKeysAlphabetically);
 
     if (cleanupKeys.length > 0) {
@@ -356,6 +352,26 @@ class StorageService {
         });
       });
     }
+  }
+
+  /**
+   * 判斷 key 是否應該被清理
+   *
+   * @param {string} key - 候選 key
+   * @param {string} targetKey - 當前寫入的主鍵名
+   * @param {object} existing - 既有數據字典
+   * @param {Array<string>} forceIncludePrefixes - 強制包含的鍵名首碼
+   * @returns {boolean}
+   * @private
+   */
+  _shouldCleanupKey(key, targetKey, existing, forceIncludePrefixes) {
+    if (key === targetKey) {
+      return false;
+    }
+    if (Object.hasOwn(existing, key)) {
+      return true;
+    }
+    return forceIncludePrefixes.some(prefix => key.startsWith(prefix));
   }
 
   /**
@@ -575,55 +591,11 @@ class StorageService {
     }
 
     if (extraKeys.length > 0) {
-      const extra = await this.storage.local.get(extraKeys);
+      const extra = (await this.storage.local.get(extraKeys)) || {};
       return { ...preloadResult, ...extra };
     }
 
     return preloadResult;
-  }
-
-  /**
-   * 從全量儲存空間數據中收集新格式 page_* 的 highlights 資料
-   *
-   * @param {object} allData - 全量數據
-   * @returns {Record<string, object>} 收集結果
-   * @private
-   */
-  _collectPageHighlights(allData) {
-    const result = {};
-    for (const [key, value] of Object.entries(allData)) {
-      if (!key.startsWith(PAGE_PREFIX)) {
-        continue;
-      }
-      if (!value || typeof value !== 'object') {
-        this.logger.warn?.('[StorageService] page_* entry has invalid shape, skipped', { key });
-        continue;
-      }
-      const url = key.slice(PAGE_PREFIX.length);
-      result[url] = { url, highlights: Array.isArray(value.highlights) ? value.highlights : [] };
-    }
-    return result;
-  }
-
-  /**
-   * 從全量儲存空間數據中收集舊格式 highlights_* 的 highlights 資料，且不覆寫已存在的 result
-   *
-   * @param {object} allData - 全量數據
-   * @param {Record<string, object>} existingResult - 已收集到的 highlights 結果
-   * @returns {Record<string, object>} 補充過渡期格式後的完整收集結果
-   * @private
-   */
-  _collectLegacyHighlights(allData, existingResult) {
-    const result = { ...existingResult };
-    for (const [key, value] of Object.entries(allData)) {
-      if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-        const url = key.slice(HIGHLIGHTS_PREFIX.length);
-        if (!result[url]) {
-          result[url] = this._normalizeLegacyHighlight(value);
-        }
-      }
-    }
-    return result;
   }
 
   /**
@@ -645,26 +617,6 @@ class StorageService {
       lastVerifiedAt: notion.lastVerifiedAt ?? null,
       destinationProfileId: notion.destinationProfileId ?? null,
     };
-  }
-
-  /**
-   * 從儲存體項目的鍵名與值中解析並提取已保存的頁面 URL
-   *
-   * @param {string} key - 儲存體鍵名
-   * @param {any} value - 儲存體值
-   * @returns {string|null} 提取出的頁面 URL，若未保存則為 null
-   * @private
-   */
-  _extractSavedUrlFromEntry(key, value) {
-    if (key.startsWith(PAGE_PREFIX) && value?.notion) {
-      // 新格式：有 notion 欄位代表已保存
-      return key.slice(PAGE_PREFIX.length);
-    }
-    if (key.startsWith(SAVED_PREFIX)) {
-      // 舊格式（過渡期）
-      return key.slice(SAVED_PREFIX.length);
-    }
-    return null;
   }
 
   /**
@@ -839,9 +791,6 @@ class StorageService {
       return;
     }
 
-    const pageKey = `${PAGE_PREFIX}${targetUrl}`;
-    const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
-
     // Phase 4 follow-up（Lite plan 2026-05-04）：lock key 改採 canonical helper,
     // 與其他 page-state writers 共用同一條 lock namespace。
     // 注意:此 function 對 caller 仍為 fire-and-forget;_withLock 內的工作 MAY 在 caller 已返回後才完成。
@@ -856,33 +805,49 @@ class StorageService {
 
     // 在鎖的保護下進行升級，避免併發覆蓋
     this._withLock(lockKey, async () => {
-      const lockNow = Date.now();
-      if (!this._canRetryUpgrade(targetUrl, lockNow)) {
-        return;
-      }
-
-      // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
-      try {
-        const readResult = await this.storage.local.get([pageKey, highlightKey]);
-        const existingPage = readResult[pageKey];
-        const highlightData = readResult[highlightKey];
-        const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
-
-        // 若已有較新的 page_* 資料（以 metadata.lastUpdated 判斷），合併而非覆寫
-        const finalObj = this._isExistingPageNewer(existingPage, builtObj)
-          ? this._mergeUpgradePage(existingPage, builtObj)
-          : builtObj;
-
-        await this.storage.local.set({ [pageKey]: finalObj });
-        await this.storage.local.remove([savedKey, highlightKey]);
-        this._clearUpgradeFailure(targetUrl);
-      } catch (error) {
-        this._recordUpgradeFailure(targetUrl, Date.now());
-        throw error;
-      }
+      await this._executeUpgradeUnderLock(targetUrl, savedData, savedKey);
     }).catch(error => {
       this.logger.warn?.('[StorageService] 讀時升級失敗', { error });
     });
+  }
+
+  /**
+   * 在鎖保護下執行讀時升級邏輯
+   *
+   * @param {string} targetUrl - 目標 URL
+   * @param {object} savedData - 舊資料
+   * @param {string} savedKey - 舊 key
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _executeUpgradeUnderLock(targetUrl, savedData, savedKey) {
+    const lockNow = Date.now();
+    if (!this._canRetryUpgrade(targetUrl, lockNow)) {
+      return;
+    }
+
+    const pageKey = `${PAGE_PREFIX}${targetUrl}`;
+    const highlightKey = `${HIGHLIGHTS_PREFIX}${targetUrl}`;
+
+    try {
+      // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
+      const readResult = (await this.storage.local.get([pageKey, highlightKey])) || {};
+      const existingPage = readResult[pageKey];
+      const highlightData = readResult[highlightKey];
+      const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
+
+      // 若已有較新的 page_* 資料（以 metadata.lastUpdated 判斷），合併而非覆寫
+      const finalObj = this._isExistingPageNewer(existingPage, builtObj)
+        ? this._mergeUpgradePage(existingPage, builtObj)
+        : builtObj;
+
+      await this.storage.local.set({ [pageKey]: finalObj });
+      await this.storage.local.remove([savedKey, highlightKey]);
+      this._clearUpgradeFailure(targetUrl);
+    } catch (error) {
+      this._recordUpgradeFailure(targetUrl, Date.now());
+      throw error;
+    }
   }
 
   /**
@@ -910,18 +875,30 @@ class StorageService {
         return null;
       }
 
-      if (state.format === 'new') {
-        return this._mapNotionToPublic(state.data.notion);
-      }
-
-      // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
-      const targetUrl = state.resolvedUrl || normalizedUrl;
-      this._triggerReadTimeUpgrade(targetUrl, state.savedData, state.savedKey);
-      return state.savedData;
+      return this._resolveSavedPageDataFromState(state, normalizedUrl);
     } catch (error) {
       this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
     }
+  }
+
+  /**
+   * 從頁面狀態解析保存數據
+   *
+   * @param {object} state - 頁面狀態
+   * @param {string} normalizedUrl - 正規化 URL
+   * @returns {object|null}
+   * @private
+   */
+  _resolveSavedPageDataFromState(state, normalizedUrl) {
+    if (state.format === 'new') {
+      return this._mapNotionToPublic(state.data.notion);
+    }
+
+    // 舊格式：觸發讀時升級（非阻塞），返回舊資料維持向後兼容
+    const targetUrl = state.resolvedUrl || normalizedUrl;
+    this._triggerReadTimeUpgrade(targetUrl, state.savedData, state.savedKey);
+    return state.savedData;
   }
 
   /**
@@ -950,7 +927,7 @@ class StorageService {
       // 步驟 1：批量讀取所有需要的 keys（包含 alias + 所有可能的 page_* 和 highlights_*）
       const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
       const preloadKeys = this._buildHighlightsPreloadKeys(normalizedUrl, rawUrl, aliasKeys);
-      const preloadResult = await this.storage.local.get(preloadKeys);
+      const preloadResult = (await this.storage.local.get(preloadKeys)) || {};
 
       // 步驟 2：從讀取結果選出 alias candidate
       const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
@@ -1013,23 +990,37 @@ class StorageService {
     const targetKey = contract.mutationTargetKey;
 
     return this._withLock(lockKey, async () => {
-      try {
-        // 鎖內讀取 lookupOrder 與 legacyCleanupKeys 一次,作為 cleanup 計算依據。
-        const readKeys = Array.from(
-          new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
-        );
-        const existing = await this.storage.local.get(readKeys);
-
-        const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
-        await this.storage.local.set({ [targetKey]: pageObj });
-
-        // Cleanup legacy keys（與 updateHighlights 同 pattern）：實際存在 + 字典序
-        await this._runLegacyKeyCleanup(targetKey, contract.legacyCleanupKeys, existing);
-      } catch (error) {
-        this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
-        throw error;
-      }
+      await this._savePageDataAndHighlightsUnderLock(targetKey, contract, pageData, highlights);
     });
+  }
+
+  /**
+   * 在鎖保護下執行 savePageDataAndHighlights 寫入
+   *
+   * @param {string} targetKey - 目標寫入 key
+   * @param {object} contract - canonical lock contract
+   * @param {object|null} pageData - 頁面數據
+   * @param {Array|null} highlights - 標註數據
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _savePageDataAndHighlightsUnderLock(targetKey, contract, pageData, highlights) {
+    try {
+      // 鎖內讀取 lookupOrder 與 legacyCleanupKeys 一次,作為 cleanup 計算依據。
+      const readKeys = Array.from(
+        new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
+      );
+      const existing = (await this.storage.local.get(readKeys)) || {};
+
+      const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
+      await this.storage.local.set({ [targetKey]: pageObj });
+
+      // Cleanup legacy keys（與 updateHighlights 同 pattern）：實際存在 + 字典序
+      await this._runLegacyKeyCleanup(targetKey, contract.legacyCleanupKeys, existing);
+    } catch (error) {
+      this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
+      throw error;
+    }
   }
 
   /**
@@ -1053,22 +1044,10 @@ class StorageService {
     return this._withLock(lockKey, async () => {
       try {
         const state = await this._getPageState(normalizedUrl);
-        const fallbackTargetUrl = this._resolvePageStateTargetUrl(state, normalizedUrl);
-        const fallbackPageKey = `${PAGE_PREFIX}${fallbackTargetUrl}`;
-        const fallbackHlKey = `${HIGHLIGHTS_PREFIX}${fallbackTargetUrl}`;
-        const normalizedHlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+        const { fallbackPageKey, fallbackHlKey, normalizedHlKey, readKeys } =
+          this._resolveSavedPageDependencies(normalizedUrl, state, targetKey, contract);
 
-        // 一次讀取所有可能來源:canonical target、fallback page、相關 highlights_*。
-        const readKeys = Array.from(
-          new Set([
-            targetKey,
-            fallbackPageKey,
-            fallbackHlKey,
-            normalizedHlKey,
-            ...contract.legacyCleanupKeys,
-          ])
-        );
-        const existing = await this.storage.local.get(readKeys);
+        const existing = (await this.storage.local.get(readKeys)) || {};
 
         // current 優先取 canonical;若 canonical 尚不存在,fallback 至 _getPageState 命中的 page_*。
         const current = this._resolveCurrentPageState(existing, state, targetKey, fallbackPageKey);
@@ -1096,14 +1075,12 @@ class StorageService {
 
         // Cleanup:saved_<targetUrl>、saved_<normalizedUrl>(過渡期殘留)、
         // contract.legacyCleanupKeys(含 page_<other> 與 highlights_*)、_getPageState 返回的 legacy savedKey。
-        const targetUrl = targetKey.slice(PAGE_PREFIX.length);
-        const candidateKeys = [`${SAVED_PREFIX}${targetUrl}`, `${SAVED_PREFIX}${normalizedUrl}`];
-        if (state?.format === 'legacy' && state.savedKey) {
-          candidateKeys.push(state.savedKey);
-        }
-        for (const key of contract.legacyCleanupKeys) {
-          candidateKeys.push(key);
-        }
+        const candidateKeys = this._collectSetSavedCleanupKeys(
+          state,
+          contract,
+          targetKey,
+          normalizedUrl
+        );
 
         await this._runLegacyKeyCleanup(targetKey, candidateKeys, existing, [SAVED_PREFIX]);
       } catch (error) {
@@ -1111,6 +1088,61 @@ class StorageService {
         throw error;
       }
     });
+  }
+
+  /**
+   * 解析 setSavedPageData 所需的依賴 keys
+   *
+   * @param {string} normalizedUrl - 正規化 URL
+   * @param {object} state - 頁面狀態
+   * @param {string} targetKey - 目標寫入 key
+   * @param {object} contract - canonical lock contract
+   * @returns {{fallbackPageKey: string, fallbackHlKey: string, normalizedHlKey: string, readKeys: string[]}}
+   * @private
+   */
+  _resolveSavedPageDependencies(normalizedUrl, state, targetKey, contract) {
+    const fallbackTargetUrl = this._resolvePageStateTargetUrl(state, normalizedUrl);
+    const fallbackPageKey = `${PAGE_PREFIX}${fallbackTargetUrl}`;
+    const fallbackHlKey = `${HIGHLIGHTS_PREFIX}${fallbackTargetUrl}`;
+    const normalizedHlKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+    // 一次讀取所有可能來源:canonical target、fallback page、相關 highlights_*。
+    const readKeys = Array.from(
+      new Set([
+        targetKey,
+        fallbackPageKey,
+        fallbackHlKey,
+        normalizedHlKey,
+        ...contract.legacyCleanupKeys,
+      ])
+    );
+
+    return { fallbackPageKey, fallbackHlKey, normalizedHlKey, readKeys };
+  }
+
+  /**
+   * 收集 setSavedPageData 的 cleanup keys
+   *
+   * @param {object} state - 頁面狀態
+   * @param {object} contract - canonical lock contract
+   * @param {string} targetKey - 目標寫入 key
+   * @param {string} normalizedUrl - 正規化 URL
+   * @returns {string[]}
+   * @private
+   */
+  _collectSetSavedCleanupKeys(state, contract, targetKey, normalizedUrl) {
+    const targetUrl = targetKey.slice(PAGE_PREFIX.length);
+    const candidateKeys = [`${SAVED_PREFIX}${targetUrl}`, `${SAVED_PREFIX}${normalizedUrl}`];
+
+    if (state?.format === 'legacy' && state.savedKey) {
+      candidateKeys.push(state.savedKey);
+    }
+
+    for (const key of contract.legacyCleanupKeys) {
+      candidateKeys.push(key);
+    }
+
+    return candidateKeys;
   }
 
   /**
@@ -1160,7 +1192,7 @@ class StorageService {
     return this._withLock(lockKey, async () => {
       try {
         const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const existing = await this.storage.local.get([pageKey]);
+        const existing = (await this.storage.local.get([pageKey])) || {};
         const current = existing[pageKey];
 
         await this._removeSavedPageLocal(pageKey, current);
@@ -1234,13 +1266,9 @@ class StorageService {
       const state = await this._getPageState(normalizedUrl);
 
       if (state?.format === 'new') {
-        if (this._isMismatchedPageId(state, expectedPageId)) {
-          this.logger.warn?.('[StorageService] clearNotionState skipped: pageId mismatch', {
-            expectedPageId: expectedPageId.slice(0, 4),
-            foundPageId: state.data.notion.pageId.slice(0, 4),
-            url: sanitizeUrlForLogging(normalizedUrl),
-          });
-          return { skipped: true, reason: 'pageId_mismatch' };
+        const skipResult = this._shouldSkipClearNotionState(state, expectedPageId, normalizedUrl);
+        if (skipResult) {
+          return skipResult;
         }
 
         const clearPayload = this._clearNotionFromPage(state, Date.now());
@@ -1257,6 +1285,32 @@ class StorageService {
 
       return { cleared: true };
     });
+  }
+
+  /**
+   * 檢查是否應跳過 clearNotionState（pageId 不匹配時）
+   *
+   * @param {object} state - 頁面狀態
+   * @param {string} expectedPageId - 預期的 pageId
+   * @param {string} normalizedUrl - 正規化的 URL
+   * @returns {{skipped: true, reason: string} | null}
+   * @private
+   */
+  _shouldSkipClearNotionState(state, expectedPageId, normalizedUrl) {
+    if (!this._isMismatchedPageId(state, expectedPageId)) {
+      return null;
+    }
+
+    const shortExpected = expectedPageId ? expectedPageId.slice(0, 4) : 'none';
+    const shortFound = state.data?.notion?.pageId?.slice(0, 4) || 'unknown';
+
+    this.logger.warn?.('[StorageService] clearNotionState skipped: pageId mismatch', {
+      expectedPageId: shortExpected,
+      foundPageId: shortFound,
+      url: sanitizeUrlForLogging(normalizedUrl),
+    });
+
+    return { skipped: true, reason: 'pageId_mismatch' };
   }
 
   /**
@@ -1472,7 +1526,7 @@ class StorageService {
     try {
       const [syncConfig, localConfig] = await Promise.all([
         this.storage.sync.get(keys),
-        this.storage.local.get(keys),
+        this.storage.local.get(keys).then(result => result || {}),
       ]);
       return { ...syncConfig, ...localConfig };
     } catch (error) {
@@ -1534,79 +1588,6 @@ class StorageService {
   }
 
   /**
-   * 檢查資料是否已是規範化的 highlights 物件形狀
-   *
-   * @param {any} value - 待檢查的值
-   * @returns {boolean} 是否為規範化物件
-   * @private
-   */
-  _isNormalizedHighlightObject(value) {
-    return value && typeof value === 'object' && 'highlights' in value;
-  }
-
-  /**
-   * 規範化舊格式標註資料，確保回傳形狀一律為 { highlights: [...] }
-   *
-   * @param {any} value - 原始儲存值（可能是陣列或含 highlights 欄位的物件）
-   * @returns {object} 統一為 { highlights: [...] } 格式
-   * @private
-   */
-  _normalizeLegacyHighlight(value) {
-    if (this._isNormalizedHighlightObject(value)) {
-      return value;
-    }
-    return { highlights: Array.isArray(value) ? value : [] };
-  }
-
-  /**
-   * 共用全量儲存空間讀取
-   *
-   * @returns {Promise<object>}
-   * @private
-   */
-  async _getAllStorageData() {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-    return await this.storage.local.get(null);
-  }
-
-  /**
-   * 獲取所有 highlights_* 和 page_* 的資料（用於遷移掃描）
-   *
-   * ⚠️ **效能警告**：此方法透過 `storage.local.get(null)` 讀取整個 chrome.storage.local，
-   * 屬於昂貴的一次性 migration-only helper，不應在 hot paths 或頻繁觸發的流程中使用。
-   * 若需讀取單一 URL 的標註，請改用 `getHighlights(pageUrl)`。
-   *
-   * Phase 3：同時掃描 page_* + highlights_*，去重（同 URL 優先用 page_* 資料）。
-   *
-   * 回傳格式：
-   * ```
-   * {
-   *   "https://example.com": { url, highlights: [...] },
-   *   ...
-   * }
-   * ```
-   *
-   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
-   * @returns {Promise<Record<string, object>>} key 為 URL，value 為完整標註資料
-   */
-  async getAllHighlights(allData = null) {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-
-    try {
-      const data = allData || (await this._getAllStorageData());
-      const pageResult = this._collectPageHighlights(data);
-      return this._collectLegacyHighlights(data, pageResult);
-    } catch (error) {
-      this.logger.error?.('[StorageService] getAllHighlights failed', { error });
-      throw error;
-    }
-  }
-
-  /**
    * 更新指定 URL 的標註陣列（Phase 4：contract-driven mutation + canonical-lock）
    *
    * 流程：
@@ -1644,7 +1625,7 @@ class StorageService {
         const readKeys = Array.from(
           new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
         );
-        const existing = await this.storage.local.get(readKeys);
+        const existing = (await this.storage.local.get(readKeys)) || {};
         const canonicalCurrent = existing[targetKey];
 
         // 嘗試從 lookupOrder 找出第一個有資料的 key 作為遷移來源
@@ -1664,37 +1645,6 @@ class StorageService {
       });
     } catch (error) {
       this.logger.error?.('[StorageService] updateHighlights failed', { error });
-      throw error;
-    }
-  }
-
-  /**
-   * 獲取所有已保存頁面的 URL
-   *
-   * Phase 3：合併 page_*（notion 非 null）+ saved_* 的 URLs（去重）。
-   *
-   * @param {object} [allData] - 外部提供的全量儲存空間數據，若未提供則從 storage 讀取
-   * @returns {Promise<string[]>}
-   */
-  async getAllSavedPageUrls(allData = null) {
-    if (!this.storage) {
-      throw new Error(STORAGE_ERROR);
-    }
-
-    try {
-      const result = allData || (await this._getAllStorageData());
-      const urlSet = new Set();
-
-      for (const [key, value] of Object.entries(result)) {
-        const url = this._extractSavedUrlFromEntry(key, value);
-        if (url) {
-          urlSet.add(url);
-        }
-      }
-
-      return Array.from(urlSet);
-    } catch (error) {
-      this.logger.error?.('[StorageService] getAllSavedPageUrls failed', { error });
       throw error;
     }
   }

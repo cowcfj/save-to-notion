@@ -37,7 +37,7 @@ function sanitizeBatchDeleteFailureReason(error) {
  * @returns {object} 遷移處理函數映射
  */
 export function createMigrationHandlers(services) {
-  const { migrationService, storageService } = services;
+  const { migrationService, storageService, migrationScanner } = services;
 
   return {
     /**
@@ -408,8 +408,8 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        // 使用 StorageService.getAllHighlights() 取代直接操作 chrome.storage.local
-        const allHighlights = await storageService.getAllHighlights();
+        // 使用 StorageMigrationScanner.getAllHighlights() 取代直接操作 chrome.storage.local
+        const allHighlights = await migrationScanner.getAllHighlights();
         const pendingItems = [];
         const failedItems = [];
 
