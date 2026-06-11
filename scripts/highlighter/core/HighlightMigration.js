@@ -38,10 +38,6 @@ export class HighlightMigration {
    * @returns {Array|null} 解析後的非空陣列，或 null
    */
   static _tryParseHighlightArray(raw) {
-    if (!raw) {
-      return null;
-    }
-
     try {
       const data = JSON.parse(raw);
       return Array.isArray(data) && data.length > 0 ? data : null;
@@ -170,16 +166,11 @@ export class HighlightMigration {
       return { text: null, color: 'yellow' };
     }
 
-    const text = oldItem.text || oldItem.content;
-    let color = 'yellow';
+    const color = convertBgColorToName(
+      [oldItem.color, oldItem.bgColor, oldItem.backgroundColor].find(Boolean)
+    );
 
-    if (oldItem.color) {
-      color = convertBgColorToName(oldItem.color);
-    } else if (oldItem.bgColor || oldItem.backgroundColor) {
-      color = convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
-    }
-
-    return { text, color };
+    return { text: oldItem.text || oldItem.content, color };
   }
 
   /**
@@ -258,24 +249,17 @@ export class HighlightMigration {
       const baseId = this.manager.nextId;
       this.manager.nextId += legacyData.length;
 
-      let successCount = 0;
-      let failCount = 0;
-      const migratedHighlights = [];
-
-      for (const [i, oldItem] of legacyData.entries()) {
-        try {
-          const result = HighlightMigration._migrateItem(oldItem, `h${baseId + i}`);
-
-          if (result) {
-            migratedHighlights.push(result);
-            successCount++;
-          } else {
-            failCount++;
+      const migratedHighlights = legacyData
+        .map((oldItem, i) => {
+          try {
+            return HighlightMigration._migrateItem(oldItem, `h${baseId + i}`);
+          } catch {
+            return null;
           }
-        } catch {
-          failCount++;
-        }
-      }
+        })
+        .filter(Boolean);
+      const successCount = migratedHighlights.length;
+      const failCount = legacyData.length - successCount;
 
       if (successCount > 0) {
         await HighlightStorageGateway.saveHighlights(safeNormalizedUrl, {
@@ -287,13 +271,13 @@ export class HighlightMigration {
         localStorage.removeItem(oldKey);
 
         // 標記遷移完成
-        await HighlightMigration._markMigrationComplete(
+        await HighlightMigration._markMigrationComplete({
           oldKey,
           safeNormalizedUrl,
-          legacyData.length,
+          totalCount: legacyData.length,
           successCount,
-          failCount
-        );
+          failCount,
+        });
       }
 
       Logger.info('數據遷移完成', { action: 'migrateToNewFormat', successCount, failCount });
@@ -307,20 +291,25 @@ export class HighlightMigration {
   /**
    * 標記遷移完成
    *
-   * @param {string} oldKey - 舊 key
-   * @param {string} normalizedUrl - 標準化後的 URL
-   * @param {number} totalCount - 總項目數
-   * @param {number} successCount - 成功數
-   * @param {number} failCount - 失敗數
+   * @param {object} completion - 遷移完成摘要
+   * @param {string} completion.oldKey - 舊 key
+   * @param {string} completion.safeNormalizedUrl - 標準化後的 URL
+   * @param {number} completion.totalCount - 總項目數
+   * @param {number} completion.successCount - 成功數
+   * @param {number} completion.failCount - 失敗數
    */
-  static async _markMigrationComplete(oldKey, normalizedUrl, totalCount, successCount, failCount) {
+  static async _markMigrationComplete(completion) {
+    const {
+      oldKey,
+      safeNormalizedUrl: normalizedUrl,
+      totalCount,
+      successCount,
+      failCount,
+    } = completion;
     const storage = HighlightManager.getSafeExtensionStorage();
-    if (!storage) {
-      return;
-    }
 
     try {
-      await storage.set({
+      await storage?.set({
         [`migration_completed_${normalizedUrl}`]: {
           timestamp: Date.now(),
           oldKey,
