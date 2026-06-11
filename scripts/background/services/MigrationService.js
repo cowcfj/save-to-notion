@@ -111,7 +111,13 @@ export class MigrationService {
    * @private
    */
   _isInvalidMigrationTarget(stableUrl, legacyUrl) {
-    return !stableUrl || !legacyUrl || stableUrl === legacyUrl;
+    if (!stableUrl) {
+      return true;
+    }
+    if (!legacyUrl) {
+      return true;
+    }
+    return stableUrl === legacyUrl;
   }
 
   /**
@@ -123,7 +129,10 @@ export class MigrationService {
    * @private
    */
   _isNoDataToMigrate(pageData, legacyHighlights) {
-    return !pageData && legacyHighlights.length === 0;
+    if (pageData) {
+      return false;
+    }
+    return legacyHighlights.length === 0;
   }
 
   /**
@@ -135,7 +144,10 @@ export class MigrationService {
    * @private
    */
   _hasExistingData(existingHighlights, existingPageData) {
-    return existingHighlights.length > 0 || existingPageData;
+    if (existingHighlights.length > 0) {
+      return true;
+    }
+    return Boolean(existingPageData);
   }
 
   /**
@@ -227,7 +239,7 @@ export class MigrationService {
 
     if (this._shouldSupplement(hasStableNotion, hasLegacyNotion)) {
       await this.storageService.setSavedPageData(stableUrl, legacySavedData);
-      Logger.info(logMessages.supplemented || 'Supplemented notion metadata on stable URL', {
+      Logger.info(logMessages.supplemented ?? 'Supplemented notion metadata on stable URL', {
         stable: sanitizeUrlForLogging(stableUrl),
         legacy: sanitizeUrlForLogging(legacyUrl),
         ...logContext,
@@ -238,7 +250,7 @@ export class MigrationService {
     const samePage = isSameNotionPage(stableSavedData, legacySavedData);
     if (this._hasConflict(hasStableNotion, hasLegacyNotion, samePage)) {
       Logger.warn(
-        logMessages.conflict || 'Stable/legacy notion metadata conflict, keeping stable data',
+        logMessages.conflict ?? 'Stable/legacy notion metadata conflict, keeping stable data',
         {
           stable: sanitizeUrlForLogging(stableUrl),
           legacy: sanitizeUrlForLogging(legacyUrl),
@@ -259,7 +271,10 @@ export class MigrationService {
    * @private
    */
   _shouldSupplement(hasStable, hasLegacy) {
-    return !hasStable && hasLegacy;
+    if (hasStable) {
+      return false;
+    }
+    return hasLegacy;
   }
 
   /**
@@ -272,7 +287,13 @@ export class MigrationService {
    * @private
    */
   _hasConflict(hasStable, hasLegacy, samePage) {
-    return hasStable && hasLegacy && samePage === false;
+    if (!hasStable) {
+      return false;
+    }
+    if (!hasLegacy) {
+      return false;
+    }
+    return samePage === false;
   }
 
   /**
@@ -310,7 +331,13 @@ export class MigrationService {
     if (Array.isArray(value)) {
       return value;
     }
-    if (value && typeof value === 'object' && Array.isArray(value.highlights)) {
+    if (!value) {
+      return [];
+    }
+    if (typeof value !== 'object') {
+      return [];
+    }
+    if (Array.isArray(value.highlights)) {
       return value.highlights;
     }
     return [];
@@ -334,8 +361,7 @@ export class MigrationService {
     stableUrl,
     legacyUrl,
   }) {
-    const canConvert = convertFormat && Array.isArray(highlights) && highlights.length > 0;
-    if (!canConvert) {
+    if (!this._hasHighlightsToConvert(convertFormat, highlights)) {
       return { migratedHighlights: highlights, formatConverted: false };
     }
 
@@ -353,6 +379,24 @@ export class MigrationService {
     }
 
     return { migratedHighlights, formatConverted: true };
+  }
+
+  /**
+   * 判斷是否有 highlights 需要格式轉換。
+   *
+   * @param {boolean} convertFormat - 是否啟用格式轉換
+   * @param {Array} highlights - 待遷移標註
+   * @returns {boolean} 是否需要轉換
+   * @private
+   */
+  _hasHighlightsToConvert(convertFormat, highlights) {
+    if (!convertFormat) {
+      return false;
+    }
+    if (!Array.isArray(highlights)) {
+      return false;
+    }
+    return highlights.length > 0;
   }
 
   /**
@@ -534,7 +578,7 @@ export class MigrationService {
       throw new Error(migrationExecutionError);
     }
 
-    return migrationResult?.statistics || {};
+    return migrationResult?.statistics ?? {};
   }
 
   /**
@@ -554,8 +598,8 @@ export class MigrationService {
 
     return {
       success: true,
-      count: stats.newHighlightsCreated || 0,
-      message: `Successfully migrated ${stats.newHighlightsCreated || 0} highlights`,
+      count: stats.newHighlightsCreated ?? 0,
+      message: `Successfully migrated ${stats.newHighlightsCreated ?? 0} highlights`,
       statistics: stats,
     };
   }
@@ -609,8 +653,9 @@ export class MigrationService {
           tabId,
           () => ({
             ready:
-              globalThis.MigrationExecutor !== undefined &&
-              globalThis.HighlighterV2?.manager !== undefined,
+              globalThis.MigrationExecutor === undefined
+                ? false
+                : globalThis.HighlighterV2?.manager !== undefined,
           }),
           [],
           []
@@ -680,11 +725,12 @@ export class MigrationService {
    */
   async _buildStorageSnapshot(url) {
     const stableUrl = computeStableUrl(url);
-    const hasStableUrl = Boolean(stableUrl && stableUrl !== url);
+    const hasStableUrl = this._hasStableUrlCandidate(url, stableUrl);
     const [legacyData, stableData] = await Promise.all([
       this.storageService.getHighlights(url),
       hasStableUrl ? this.storageService.getHighlights(stableUrl) : Promise.resolve(null),
     ]);
+    const shouldMigrateToStable = this._shouldMigrateSnapshotToStable(hasStableUrl, stableData);
 
     return {
       stableUrl,
@@ -693,8 +739,38 @@ export class MigrationService {
       // 僅在 stable key 完全不存在時（null）才遷移。
       // 若 stable 已有資料（即使是 []），不應覆蓋——
       // 這樣可以區分「stable 鍵未設定」和「highlights 已清空」兩種語義。
-      shouldMigrateToStable: Boolean(hasStableUrl && stableData == null),
+      shouldMigrateToStable,
     };
+  }
+
+  /**
+   * 判斷 URL 是否有不同於原始 URL 的 stable URL 候選。
+   *
+   * @param {string} originalUrl
+   * @param {string} stableUrl
+   * @returns {boolean}
+   * @private
+   */
+  _hasStableUrlCandidate(originalUrl, stableUrl) {
+    if (!stableUrl) {
+      return false;
+    }
+    return stableUrl !== originalUrl;
+  }
+
+  /**
+   * 判斷 storage snapshot 是否應遷移到 stable URL。
+   *
+   * @param {boolean} hasStableUrl
+   * @param {any} stableData
+   * @returns {boolean}
+   * @private
+   */
+  _shouldMigrateSnapshotToStable(hasStableUrl, stableData) {
+    if (!hasStableUrl) {
+      return false;
+    }
+    return stableData == null;
   }
 
   /**
@@ -768,7 +844,13 @@ export class MigrationService {
    * @private
    */
   _isValidStableAliasTarget(originalUrl, stableUrl) {
-    return Boolean(stableUrl && stableUrl !== originalUrl && !isRootUrl(stableUrl));
+    if (!stableUrl) {
+      return false;
+    }
+    if (stableUrl === originalUrl) {
+      return false;
+    }
+    return !isRootUrl(stableUrl);
   }
 
   /**
