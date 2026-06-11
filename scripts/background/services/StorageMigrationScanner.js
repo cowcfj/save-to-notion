@@ -30,7 +30,7 @@ export class StorageMigrationScanner {
    * @private
    */
   _isNormalizedHighlightObject(value) {
-    return value && typeof value === 'object' && 'highlights' in value;
+    return this._isStorageObjectValue(value) && 'highlights' in value;
   }
 
   /**
@@ -72,6 +72,17 @@ export class StorageMigrationScanner {
   }
 
   /**
+   * 取得外部提供或 storage 內的完整掃描資料
+   *
+   * @param {object|null} allData - 外部提供的全量儲存空間數據
+   * @returns {Promise<object>} 可供掃描的完整 storage snapshot
+   * @private
+   */
+  async _resolveStorageSnapshot(allData) {
+    return allData || (await this._getAllStorageData());
+  }
+
+  /**
    * 從全量儲存空間數據中收集新格式 page_* 的 highlights 資料
    *
    * @param {object} allData - 全量數據
@@ -108,7 +119,7 @@ export class StorageMigrationScanner {
    * @private
    */
   _collectLegacyHighlights(allData, existingResult) {
-    if (!allData || typeof allData !== 'object') {
+    if (!this._isStorageObjectValue(allData)) {
       return existingResult;
     }
     const result = { ...existingResult };
@@ -150,7 +161,7 @@ export class StorageMigrationScanner {
     }
 
     try {
-      const data = allData || (await this._getAllStorageData());
+      const data = await this._resolveStorageSnapshot(allData);
       const pageResult = this._collectPageHighlights(data);
       return this._collectLegacyHighlights(data, pageResult);
     } catch (error) {
@@ -173,7 +184,7 @@ export class StorageMigrationScanner {
     }
 
     try {
-      const result = allData || (await this._getAllStorageData());
+      const result = await this._resolveStorageSnapshot(allData);
       return this._extractUrlsFromStorageData(result);
     } catch (error) {
       this.logger.error?.('[StorageMigrationScanner] getAllSavedPageUrls failed', { error });
@@ -189,7 +200,7 @@ export class StorageMigrationScanner {
    * @private
    */
   _extractUrlsFromStorageData(result) {
-    if (!result || typeof result !== 'object') {
+    if (!this._isStorageObjectValue(result)) {
       return [];
     }
     const urlSet = new Set();
