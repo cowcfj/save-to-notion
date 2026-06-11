@@ -207,6 +207,14 @@ describe('StorageService', () => {
       expect(result).toBeNull();
     });
 
+    it('storage.local.get 回傳 null 時應視為空結果', async () => {
+      mockStorage.local.get.mockResolvedValue(null);
+
+      const result = await service.getSavedPageData('https://example.com/page');
+
+      expect(result).toBeNull();
+    });
+
     it('應該在 page_* 的 notion 為 null 時返回 null', async () => {
       mockStorage.local.get.mockResolvedValue({
         [`${PAGE_PREFIX}https://example.com/page`]: {

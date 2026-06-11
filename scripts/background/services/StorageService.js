@@ -166,7 +166,7 @@ class StorageService {
    */
   async _resolveCanonicalLockKey(normalizedUrl, rawUrl = null) {
     const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
-    const aliasResult = aliasKeys.length > 0 ? await this.storage.local.get(aliasKeys) : {};
+    const aliasResult = aliasKeys.length > 0 ? (await this.storage.local.get(aliasKeys)) || {} : {};
     const aliasCandidate = pickAliasCandidate(aliasResult, normalizedUrl, rawUrl);
     const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
     return { lockKey: contract.mutationTargetKey, aliasCandidate, contract };
@@ -187,7 +187,7 @@ class StorageService {
     const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
     const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
 
-    const result = await this.storage.local.get([pageKey, savedKey, aliasKey]);
+    const result = (await this.storage.local.get([pageKey, savedKey, aliasKey])) || {};
 
     // 已是新格式（page_*）
     if (result[pageKey]) {
@@ -199,7 +199,7 @@ class StorageService {
     if (stableUrl) {
       const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
       const stableSavedKey = `${SAVED_PREFIX}${stableUrl}`;
-      const r2 = await this.storage.local.get([stablePageKey, stableSavedKey]);
+      const r2 = (await this.storage.local.get([stablePageKey, stableSavedKey])) || {};
       if (r2[stablePageKey]) {
         return { format: 'new', key: stablePageKey, data: r2[stablePageKey] };
       }
@@ -591,7 +591,7 @@ class StorageService {
     }
 
     if (extraKeys.length > 0) {
-      const extra = await this.storage.local.get(extraKeys);
+      const extra = (await this.storage.local.get(extraKeys)) || {};
       return { ...preloadResult, ...extra };
     }
 
@@ -927,7 +927,7 @@ class StorageService {
       // 步驟 1：批量讀取所有需要的 keys（包含 alias + 所有可能的 page_* 和 highlights_*）
       const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
       const preloadKeys = this._buildHighlightsPreloadKeys(normalizedUrl, rawUrl, aliasKeys);
-      const preloadResult = await this.storage.local.get(preloadKeys);
+      const preloadResult = (await this.storage.local.get(preloadKeys)) || {};
 
       // 步驟 2：從讀取結果選出 alias candidate
       const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
@@ -1047,7 +1047,7 @@ class StorageService {
         const { fallbackPageKey, fallbackHlKey, normalizedHlKey, readKeys } =
           this._resolveSavedPageDependencies(normalizedUrl, state, targetKey, contract);
 
-        const existing = await this.storage.local.get(readKeys);
+        const existing = (await this.storage.local.get(readKeys)) || {};
 
         // current 優先取 canonical;若 canonical 尚不存在,fallback 至 _getPageState 命中的 page_*。
         const current = this._resolveCurrentPageState(existing, state, targetKey, fallbackPageKey);
@@ -1192,7 +1192,7 @@ class StorageService {
     return this._withLock(lockKey, async () => {
       try {
         const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-        const existing = await this.storage.local.get([pageKey]);
+        const existing = (await this.storage.local.get([pageKey])) || {};
         const current = existing[pageKey];
 
         await this._removeSavedPageLocal(pageKey, current);
@@ -1526,7 +1526,7 @@ class StorageService {
     try {
       const [syncConfig, localConfig] = await Promise.all([
         this.storage.sync.get(keys),
-        this.storage.local.get(keys),
+        this.storage.local.get(keys).then(result => result || {}),
       ]);
       return { ...syncConfig, ...localConfig };
     } catch (error) {
@@ -1625,7 +1625,7 @@ class StorageService {
         const readKeys = Array.from(
           new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
         );
-        const existing = await this.storage.local.get(readKeys);
+        const existing = (await this.storage.local.get(readKeys)) || {};
         const canonicalCurrent = existing[targetKey];
 
         // 嘗試從 lookupOrder 找出第一個有資料的 key 作為遷移來源
