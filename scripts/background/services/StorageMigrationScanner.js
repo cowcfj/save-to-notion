@@ -68,6 +68,9 @@ export class StorageMigrationScanner {
    * @private
    */
   _collectPageHighlights(allData) {
+    if (!allData || typeof allData !== 'object') {
+      return {};
+    }
     const result = {};
     for (const [key, value] of Object.entries(allData)) {
       if (!key.startsWith(PAGE_PREFIX)) {
@@ -94,6 +97,9 @@ export class StorageMigrationScanner {
    * @private
    */
   _collectLegacyHighlights(allData, existingResult) {
+    if (!allData || typeof allData !== 'object') {
+      return existingResult;
+    }
     const result = { ...existingResult };
     for (const [key, value] of Object.entries(allData)) {
       if (key.startsWith(HIGHLIGHTS_PREFIX)) {
@@ -171,6 +177,9 @@ export class StorageMigrationScanner {
    * @private
    */
   _extractUrlsFromStorageData(result) {
+    if (!result || typeof result !== 'object') {
+      return [];
+    }
     const urlSet = new Set();
 
     for (const [key, value] of Object.entries(result)) {

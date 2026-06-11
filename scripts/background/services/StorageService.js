@@ -831,7 +831,7 @@ class StorageService {
 
     try {
       // 同時讀取現有 page_* 和 highlights_*，防止覆寫鎖等待期間寫入的較新資料
-      const readResult = await this.storage.local.get([pageKey, highlightKey]);
+      const readResult = (await this.storage.local.get([pageKey, highlightKey])) || {};
       const existingPage = readResult[pageKey];
       const highlightData = readResult[highlightKey];
       const builtObj = this._buildPageObject(savedData, highlightData, targetUrl, savedKey);
@@ -1010,7 +1010,7 @@ class StorageService {
       const readKeys = Array.from(
         new Set([targetKey, ...contract.lookupOrder, ...contract.legacyCleanupKeys])
       );
-      const existing = await this.storage.local.get(readKeys);
+      const existing = (await this.storage.local.get(readKeys)) || {};
 
       const pageObj = this._buildPageObject(pageData, highlights || [], contract.canonicalUrl);
       await this.storage.local.set({ [targetKey]: pageObj });
