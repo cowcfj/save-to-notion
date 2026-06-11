@@ -61,6 +61,17 @@ export class StorageMigrationScanner {
   }
 
   /**
+   * 檢查 storage entry value 是否可當作物件讀取
+   *
+   * @param {any} value - 待檢查的 storage value
+   * @returns {boolean} 是否可作為 page state 物件處理
+   * @private
+   */
+  _isStorageObjectValue(value) {
+    return Boolean(value) && typeof value === 'object';
+  }
+
+  /**
    * 從全量儲存空間數據中收集新格式 page_* 的 highlights 資料
    *
    * @param {object} allData - 全量數據
@@ -68,7 +79,7 @@ export class StorageMigrationScanner {
    * @private
    */
   _collectPageHighlights(allData) {
-    if (!allData || typeof allData !== 'object') {
+    if (!this._isStorageObjectValue(allData)) {
       return {};
     }
     const result = {};
@@ -76,7 +87,7 @@ export class StorageMigrationScanner {
       if (!key.startsWith(PAGE_PREFIX)) {
         continue;
       }
-      if (!value || typeof value !== 'object') {
+      if (!this._isStorageObjectValue(value)) {
         this.logger.warn?.('[StorageMigrationScanner] page_* entry has invalid shape, skipped', {
           key,
         });
@@ -105,7 +116,8 @@ export class StorageMigrationScanner {
       if (key.startsWith(HIGHLIGHTS_PREFIX)) {
         const url = key.slice(HIGHLIGHTS_PREFIX.length);
         if (!result[url]) {
-          result[url] = this._normalizeLegacyHighlight(value);
+          const normalized = this._normalizeLegacyHighlight(value);
+          result[url] = { ...normalized, url };
         }
       }
     }

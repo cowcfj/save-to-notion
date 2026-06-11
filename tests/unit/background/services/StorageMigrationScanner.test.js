@@ -28,6 +28,11 @@ describe('StorageMigrationScanner', () => {
 
     mockLogger = {
       log: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
     };
@@ -205,12 +210,14 @@ describe('StorageMigrationScanner', () => {
       const originalChrome = globalThis.chrome;
       delete globalThis.chrome;
 
-      const scannerNoStorage = new StorageMigrationScanner({ chromeStorage: null });
+      try {
+        const scannerNoStorage = new StorageMigrationScanner({ chromeStorage: null });
 
-      await expect(scannerNoStorage.getAllSavedPageUrls()).rejects.toThrow(STORAGE_ERROR);
-      await expect(scannerNoStorage.getAllHighlights()).rejects.toThrow(STORAGE_ERROR);
-
-      globalThis.chrome = originalChrome;
+        await expect(scannerNoStorage.getAllSavedPageUrls()).rejects.toThrow(STORAGE_ERROR);
+        await expect(scannerNoStorage.getAllHighlights()).rejects.toThrow(STORAGE_ERROR);
+      } finally {
+        globalThis.chrome = originalChrome;
+      }
     });
 
     it('應該在 getAllSavedPageUrls 失敗時記錄錯誤並拋出', async () => {
