@@ -83,6 +83,23 @@ export class StorageMigrationScanner {
   }
 
   /**
+   * 逐筆列出指定 prefix 的 storage entries
+   *
+   * @param {object} allData - 全量 storage snapshot
+   * @param {string} prefix - 目標 storage key prefix
+   * @returns {Generator<[string, any]>} 符合 prefix 的 storage entries
+   * @yields {[string, any]} 符合 prefix 的 storage entry
+   * @private
+   */
+  *_storageEntriesWithPrefix(allData, prefix) {
+    for (const [key, value] of Object.entries(allData)) {
+      if (key.startsWith(prefix)) {
+        yield [key, value];
+      }
+    }
+  }
+
+  /**
    * 從全量儲存空間數據中收集新格式 page_* 的 highlights 資料
    *
    * @param {object} allData - 全量數據
@@ -94,10 +111,7 @@ export class StorageMigrationScanner {
       return {};
     }
     const result = {};
-    for (const [key, value] of Object.entries(allData)) {
-      if (!key.startsWith(PAGE_PREFIX)) {
-        continue;
-      }
+    for (const [key, value] of this._storageEntriesWithPrefix(allData, PAGE_PREFIX)) {
       if (!this._isStorageObjectValue(value)) {
         this.logger.warn?.('[StorageMigrationScanner] page_* entry has invalid shape, skipped', {
           key,
@@ -123,13 +137,11 @@ export class StorageMigrationScanner {
       return existingResult;
     }
     const result = { ...existingResult };
-    for (const [key, value] of Object.entries(allData)) {
-      if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-        const url = key.slice(HIGHLIGHTS_PREFIX.length);
-        if (!result[url]) {
-          const normalized = this._normalizeLegacyHighlight(value);
-          result[url] = { ...normalized, url };
-        }
+    for (const [key, value] of this._storageEntriesWithPrefix(allData, HIGHLIGHTS_PREFIX)) {
+      const url = key.slice(HIGHLIGHTS_PREFIX.length);
+      if (!result[url]) {
+        const normalized = this._normalizeLegacyHighlight(value);
+        result[url] = { ...normalized, url };
       }
     }
     return result;
