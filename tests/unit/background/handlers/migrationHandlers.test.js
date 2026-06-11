@@ -153,6 +153,29 @@ describe('migrationHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
+    test('刪除現有數據時應使用 structured logger 並標記 result', async () => {
+      const url = 'https://example.com/data?private_token=secret-token#section';
+      const safeUrl = sanitizeUrlForLogging(url);
+      const sendResponse = jest.fn();
+
+      mockStorageService.getHighlights.mockResolvedValue({ url, highlights: [{ id: '1' }] });
+
+      await handlers.migration_delete({ url }, defaultSender, sendResponse);
+
+      expect(Logger.start).toHaveBeenCalledWith('開始刪除', {
+        action: 'migration_delete',
+        url: safeUrl,
+        result: 'started',
+      });
+      expect(Logger.success).toHaveBeenCalledWith('刪除完成', {
+        action: 'migration_delete',
+        url: safeUrl,
+        result: 'success',
+      });
+      expect(Logger.log).not.toHaveBeenCalledWith('開始刪除', expect.anything());
+      expect(Logger.log).not.toHaveBeenCalledWith('刪除完成', expect.anything());
+    });
+
     test('數據不存在時應返回成功訊息', async () => {
       const url = 'https://example.com/no-data';
       const sendResponse = jest.fn();
@@ -394,6 +417,37 @@ describe('migrationHandlers', () => {
       );
     });
 
+    test('成功 detail 與 log 應回傳 sanitized URL', async () => {
+      const rawUrl =
+        'https://a.com/original-slug?private_token=secret-token&utm_source=newsletter#frag';
+      const safeUrl = sanitizeUrlForLogging(rawUrl);
+      const sendResponse = jest.fn();
+
+      mockServices.migrationService.migrateBatchUrl.mockResolvedValueOnce({
+        status: 'success',
+        url: rawUrl,
+        count: 1,
+        pending: 1,
+      });
+
+      await handlers.migration_batch({ urls: [rawUrl] }, defaultSender, sendResponse);
+
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.results.details[0]).toEqual(
+        expect.objectContaining({ status: 'success', url: safeUrl })
+      );
+      expect(response.results.details[0].url).not.toBe(rawUrl);
+      expect(Logger.success).toHaveBeenCalledWith(
+        '批量遷移成功',
+        expect.objectContaining({
+          action: 'migration_batch',
+          result: 'success',
+          url: safeUrl,
+        })
+      );
+      expect(Logger.log).not.toHaveBeenCalledWith('批量遷移成功', expect.anything());
+    });
+
     test('migrateBatchUrl 拋錯時應標記為 failed item', async () => {
       const oldUrl = 'https://a.com/original-slug';
       const sendResponse = jest.fn();
@@ -418,6 +472,35 @@ describe('migrationHandlers', () => {
         '批量遷移失敗',
         expect.objectContaining({ action: 'migration_batch' })
       );
+    });
+
+    test('migrateBatchUrl 拋錯時應清洗 detail reason 與 log error', async () => {
+      const oldUrl =
+        'https://a.com/original-slug?private_token=secret-token&utm_source=newsletter#frag';
+      const safeUrl = sanitizeUrlForLogging(oldUrl);
+      const sendResponse = jest.fn();
+      const rawReason = `failed for ${oldUrl} with secret_1234567890 and user@example.com`;
+
+      mockServices.migrationService.migrateBatchUrl.mockRejectedValueOnce(new Error(rawReason));
+
+      await handlers.migration_batch({ urls: [oldUrl] }, defaultSender, sendResponse);
+
+      const detail = sendResponse.mock.calls[0][0].results.details[0];
+      expect(detail).toEqual(
+        expect.objectContaining({
+          status: 'failed',
+          url: safeUrl,
+        })
+      );
+      expect(detail.reason).not.toContain(oldUrl);
+      expect(detail.reason).not.toContain('secret_1234567890');
+      expect(detail.reason).not.toContain('user@example.com');
+      expect(Logger.error).toHaveBeenCalledWith('批量遷移失敗', {
+        action: 'migration_batch',
+        result: 'failed',
+        url: safeUrl,
+        error: detail.reason,
+      });
     });
 
     test('應將單一 URL 嚴格委託給 migrateBatchUrl 並回傳原始 detail', async () => {
@@ -720,7 +803,7 @@ describe('migrationHandlers', () => {
           },
         })
       );
-      expect(Logger.log).toHaveBeenCalledWith(
+      expect(Logger.ready).toHaveBeenCalledWith(
         '批量刪除完成',
         expect.objectContaining({
           action: 'migration_batch_delete',
