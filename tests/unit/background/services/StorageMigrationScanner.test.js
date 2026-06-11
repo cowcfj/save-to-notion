@@ -220,26 +220,18 @@ describe('StorageMigrationScanner', () => {
       }
     });
 
-    it('應該在 getAllSavedPageUrls 失敗時記錄錯誤並拋出', async () => {
-      mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
-      await expect(scanner.getAllSavedPageUrls()).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageMigrationScanner'),
-        {
-          error: expect.any(Error),
-        }
-      );
-    });
-
-    it('應該在 getAllHighlights 失敗時記錄錯誤並拋出', async () => {
-      mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
-      await expect(scanner.getAllHighlights()).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageMigrationScanner'),
-        {
-          error: expect.any(Error),
-        }
-      );
-    });
+    it.each(['getAllSavedPageUrls', 'getAllHighlights'])(
+      '應該在 %s 失敗時記錄錯誤並拋出',
+      async methodName => {
+        mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
+        await expect(scanner[methodName]()).rejects.toThrow('Storage fail');
+        expect(mockLogger.error).toHaveBeenCalledWith(
+          expect.stringContaining('StorageMigrationScanner'),
+          {
+            error: expect.any(Error),
+          }
+        );
+      }
+    );
   });
 });
