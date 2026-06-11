@@ -9,7 +9,7 @@
 
 /* global Logger */
 
-import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
+import { LogSanitizer, sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 import { pMap } from '../../utils/concurrencyUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
 import { BACKGROUND_MESSAGES } from '../../config/messages/backgroundMessages.js';
@@ -26,9 +26,20 @@ import {
 
 const MIGRATION_BATCH_CONCURRENCY = 5;
 
-function sanitizeBatchDeleteFailureReason(error) {
+function sanitizeMigrationFailureReason(error) {
   const rawReason = error?.message ?? String(error);
-  return String(rawReason).replaceAll(/https?:\/\/[^\s"',)]+/g, url => sanitizeUrlForLogging(url));
+  return LogSanitizer.sanitizeEntry('', { reason: rawReason }).context.reason;
+}
+
+function sanitizeBatchMigrationResult(result) {
+  if (!result || typeof result.url !== 'string') {
+    return result;
+  }
+
+  return {
+    ...result,
+    url: sanitizeUrlForLogging(result.url),
+  };
 }
 
 function sendMigrationGuardFailure({ validationError, sendResponse, action, sender, url }) {
@@ -86,26 +97,29 @@ function groupBatchMigrationUrls(urls) {
 async function migrateOneBatchUrl(migrationService, url) {
   try {
     const itemResult = await migrationService.migrateBatchUrl(url);
-    if (itemResult.status === 'success') {
-      Logger.log('批量遷移成功', {
+    const safeItemResult = sanitizeBatchMigrationResult(itemResult);
+    if (safeItemResult.status === 'success') {
+      Logger.success('批量遷移成功', {
         action: 'migration_batch',
         result: 'success',
-        url: itemResult.url,
-        highlightCount: itemResult.count,
+        url: safeItemResult.url,
+        highlightCount: safeItemResult.count,
       });
     }
-    return itemResult;
+    return safeItemResult;
   } catch (itemError) {
+    const safeUrl = sanitizeUrlForLogging(url);
+    const safeReason = sanitizeMigrationFailureReason(itemError);
     Logger.error('批量遷移失敗', {
       action: 'migration_batch',
       result: 'failed',
-      url: sanitizeUrlForLogging(url),
-      error: itemError?.message ?? String(itemError),
+      url: safeUrl,
+      error: safeReason,
     });
     return {
-      url: sanitizeUrlForLogging(url),
+      url: safeUrl,
       status: 'failed',
-      reason: itemError?.message ?? String(itemError),
+      reason: safeReason,
     };
   }
 }
@@ -153,7 +167,7 @@ async function deleteOneLegacyMigrationUrl(storageService, urlItem) {
     return {
       status: 'failed',
       url: safeUrl,
-      reason: sanitizeBatchDeleteFailureReason(error),
+      reason: sanitizeMigrationFailureReason(error),
     };
   }
 }
@@ -164,7 +178,7 @@ function buildBatchDeleteMessage(successCount, failedCount) {
     : BACKGROUND_MESSAGES.STORAGE.MIGRATION_BATCH_DELETE_PARTIAL(successCount, failedCount);
 }
 
-function resolveBatchDeleteResultLabel(successCount, failedCount) {
+function resolveBatchResultLabel(successCount, failedCount) {
   if (failedCount === 0) {
     return 'success';
   }
@@ -184,7 +198,7 @@ function buildBatchDeleteSummary(cleanupResults) {
     successCount,
     failedCount,
     message: buildBatchDeleteMessage(successCount, failedCount),
-    result: resolveBatchDeleteResultLabel(successCount, failedCount),
+    result: resolveBatchResultLabel(successCount, failedCount),
   };
 }
 
@@ -266,18 +280,25 @@ function createMigrationDeleteHandler({ storageService }) {
         return;
       }
 
-      Logger.log('開始刪除', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
+      const safeUrl = sanitizeUrlForLogging(url);
+      Logger.start('開始刪除', { action: 'migration_delete', url: safeUrl, result: 'started' });
 
       const cleanupTargets = resolveLegacyCleanupTargets(url);
       const hasAnyData = await hasLegacyMigrationData(storageService, cleanupTargets);
       if (!hasAnyData) {
+        Logger.info('刪除略過', {
+          action: 'migration_delete',
+          url: safeUrl,
+          result: 'skipped',
+          reason: 'no_legacy_data',
+        });
         sendResponse({ success: true, message: '數據不存在，無需刪除' });
         return;
       }
 
       await clearLegacyMigrationTargets(storageService, cleanupTargets);
 
-      Logger.log('刪除完成', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
+      Logger.success('刪除完成', { action: 'migration_delete', url: safeUrl, result: 'success' });
       sendResponse({
         success: true,
         message: '成功刪除標註數據',
@@ -315,7 +336,11 @@ function createMigrationBatchHandler({ migrationService }) {
         return;
       }
 
-      Logger.log('開始批量遷移', { action: 'migration_batch', pageCount: urls.length });
+      Logger.start('開始批量遷移', {
+        action: 'migration_batch',
+        result: 'started',
+        pageCount: urls.length,
+      });
 
       const groupedUrls = groupBatchMigrationUrls(urls);
       const groupOutputs = await pMap(
@@ -326,8 +351,9 @@ function createMigrationBatchHandler({ migrationService }) {
       const details = buildOrderedBatchDetails(urls, groupOutputs);
       const results = buildBatchMigrationResults(details);
 
-      Logger.log('批量遷移完成', {
+      Logger.ready('批量遷移完成', {
         action: 'migration_batch',
+        result: resolveBatchResultLabel(results.success, results.failed),
         successCount: results.success,
         failedCount: results.failed,
       });
@@ -365,7 +391,11 @@ function createMigrationBatchDeleteHandler({ storageService }) {
         return;
       }
 
-      Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
+      Logger.start('開始批量刪除', {
+        action: 'migration_batch_delete',
+        result: 'started',
+        pageCount: urls.length,
+      });
 
       const cleanupResults = await pMap(
         urls,
@@ -375,7 +405,7 @@ function createMigrationBatchDeleteHandler({ storageService }) {
       const { successCount, failedCount, message, result } =
         buildBatchDeleteSummary(cleanupResults);
 
-      Logger.log('批量刪除完成', {
+      Logger.ready('批量刪除完成', {
         action: 'migration_batch_delete',
         result,
         successCount,
@@ -421,8 +451,9 @@ function createMigrationGetPendingHandler({ migrationScanner }) {
       const allHighlights = await migrationScanner.getAllHighlights();
       const { pendingItems, failedItems } = buildPendingMigrationLists(allHighlights);
 
-      Logger.log('查詢待完成項目', {
+      Logger.info('查詢待完成項目', {
         action: 'migration_get_pending',
+        result: 'success',
         pendingPages: pendingItems.length,
         failedPages: failedItems.length,
       });
@@ -479,8 +510,9 @@ function createMigrationDeleteFailedHandler({ storageService }) {
 
       await storageService.updateHighlights(url, remainingHighlights);
 
-      Logger.log('刪除失敗標註', {
+      Logger.success('刪除失敗標註', {
         action: 'migration_delete_failed',
+        result: 'success',
         url: sanitizeUrlForLogging(url),
         deletedCount,
       });
