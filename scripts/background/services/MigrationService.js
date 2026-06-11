@@ -27,14 +27,10 @@ export class MigrationService {
    * @param {string} stableUrl - 新的穩定 URL (目標 Key)
    * @param {string} legacyUrl - 舊的 URL (來源 Key)
    * @param {object} [options={}] - 遷移選項
-   * @param {boolean} [options.convertFormat=false] - 是否在遷移時轉換 highlights 格式
-   * @param {Function|null} [options.formatConverter=null] - highlights 格式轉換函式（可為 sync 或 async）
    * @returns {Promise<boolean>} - 是否執行了遷移
    */
   async migrateStorageKey(stableUrl, legacyUrl, options = {}) {
-    const { convertFormat = false, formatConverter = null } = options;
-
-    if (!stableUrl || !legacyUrl || stableUrl === legacyUrl) {
+    if (this._isInvalidMigrationTarget(stableUrl, legacyUrl)) {
       return false;
     }
 
@@ -56,7 +52,7 @@ export class MigrationService {
       const legacyHighlights = this._normalizeHighlights(legacyHighlightsRaw);
 
       // 兩者皆無 → 不需遷移
-      if (!pageData && legacyHighlights.length === 0) {
+      if (this._isNoDataToMigrate(pageData, legacyHighlights)) {
         return false;
       }
 
@@ -66,30 +62,20 @@ export class MigrationService {
         this.storageService.getSavedPageData(stableUrl),
       ]);
       const existingHighlights = this._normalizeHighlights(existingHighlightsRaw);
-      if (existingHighlights.length > 0 || existingPageData) {
-        const supplementedNotion = await this._supplementStableNotionIfNeeded({
+      if (this._hasExistingData(existingHighlights, existingPageData)) {
+        return this._handleMigrationTargetConflict({
           stableUrl,
           legacyUrl,
-          stableSavedData: existingPageData,
-          legacySavedData: pageData,
-        });
-
-        await this._setUrlAliasSafe(legacyUrl, stableUrl);
-
-        Logger.warn('Migration target already has data, skipping highlight overwrite', {
-          stable: sanitizeUrlForLogging(stableUrl),
-          legacy: sanitizeUrlForLogging(legacyUrl),
+          existingPageData,
+          pageData,
           existingHighlightsCount: existingHighlights.length,
-          hasExistingPageData: Boolean(existingPageData),
-          supplementedNotion,
         });
-        return supplementedNotion;
       }
 
       const { migratedHighlights, formatConverted } = await this._resolveMigratedHighlights({
         highlights: legacyHighlights,
-        convertFormat,
-        formatConverter,
+        convertFormat: options.convertFormat,
+        formatConverter: options.formatConverter,
         stableUrl,
         legacyUrl,
       });
@@ -102,19 +88,7 @@ export class MigrationService {
         formatConverted,
       });
 
-      // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
-      await this.storageService.savePageDataAndHighlights(stableUrl, pageData, migratedHighlights);
-
-      await this._setUrlAliasSafe(legacyUrl, stableUrl);
-
-      // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
-      // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
-      // 不會呼叫 computeStableUrl，確保不會與新寫入的 stableUrl key 衝突
-      await this.storageService.clearLegacyKeys(legacyUrl);
-
-      Logger.info('Migration successful', {
-        url: sanitizeUrlForLogging(stableUrl),
-      });
+      await this._applyMigrationWriteAndCleanup(stableUrl, legacyUrl, pageData, migratedHighlights);
 
       return true;
     } catch (error) {
@@ -129,14 +103,114 @@ export class MigrationService {
   }
 
   /**
+   * 判斷是否為無效的遷移目標
+   *
+   * @param {string} stableUrl - 目標穩定 URL
+   * @param {string} legacyUrl - 來源舊版 URL
+   * @returns {boolean} 是否無效
+   * @private
+   */
+  _isInvalidMigrationTarget(stableUrl, legacyUrl) {
+    return !stableUrl || !legacyUrl || stableUrl === legacyUrl;
+  }
+
+  /**
+   * 判斷是否無數據需要遷移
+   *
+   * @param {object|null} pageData - 頁面數據
+   * @param {Array} legacyHighlights - 標註數據
+   * @returns {boolean} 是否無數據
+   * @private
+   */
+  _isNoDataToMigrate(pageData, legacyHighlights) {
+    return !pageData && legacyHighlights.length === 0;
+  }
+
+  /**
+   * 判斷目標 key 是否已有數據
+   *
+   * @param {Array} existingHighlights - 目標已有標註
+   * @param {object|null} existingPageData - 目標已有頁面數據
+   * @returns {boolean} 是否已有數據
+   * @private
+   */
+  _hasExistingData(existingHighlights, existingPageData) {
+    return existingHighlights.length > 0 || existingPageData;
+  }
+
+  /**
+   * 處理遷移目標已有數據之衝突（輔助函式）
+   *
+   * @param {object} params - 參數對象
+   * @param {string} params.stableUrl - 目標穩定 URL
+   * @param {string} params.legacyUrl - 來源舊版 URL
+   * @param {object|null} params.existingPageData - 目標已有頁面數據
+   * @param {object|null} params.pageData - 來源頁面數據
+   * @param {number} params.existingHighlightsCount - 目標已有標註數量
+   * @returns {Promise<boolean>} 是否有補遷移 saved metadata
+   * @private
+   */
+  async _handleMigrationTargetConflict({
+    stableUrl,
+    legacyUrl,
+    existingPageData,
+    pageData,
+    existingHighlightsCount,
+  }) {
+    const supplementedNotion = await this._supplementStableNotionIfNeeded({
+      stableUrl,
+      legacyUrl,
+      stableSavedData: existingPageData,
+      legacySavedData: pageData,
+    });
+
+    await this._setUrlAliasSafe(legacyUrl, stableUrl);
+
+    Logger.warn('Migration target already has data, skipping highlight overwrite', {
+      stable: sanitizeUrlForLogging(stableUrl),
+      legacy: sanitizeUrlForLogging(legacyUrl),
+      existingHighlightsCount,
+      hasExistingPageData: Boolean(existingPageData),
+      supplementedNotion,
+    });
+    return supplementedNotion;
+  }
+
+  /**
+   * 執行遷移數據寫入與清除舊 Key（輔助函式）
+   *
+   * @param {string} stableUrl - 目標穩定 URL
+   * @param {string} legacyUrl - 來源舊版 URL
+   * @param {object|null} pageData - 頁面數據
+   * @param {Array} migratedHighlights - 遷移後標註
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _applyMigrationWriteAndCleanup(stableUrl, legacyUrl, pageData, migratedHighlights) {
+    // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
+    await this.storageService.savePageDataAndHighlights(stableUrl, pageData, migratedHighlights);
+
+    await this._setUrlAliasSafe(legacyUrl, stableUrl);
+
+    // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
+    // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
+    // 不會呼叫 computeStableUrl，確保不會與新寫入的 stableUrl key 衝突
+    await this.storageService.clearLegacyKeys(legacyUrl);
+
+    Logger.info('Migration successful', {
+      url: sanitizeUrlForLogging(stableUrl),
+    });
+  }
+
+  /**
    * stable 已有 highlights 時，只補 notion metadata（不覆寫 highlights）
    *
-   * @param {object} params
-   * @param {string} params.stableUrl
-   * @param {string} params.legacyUrl
-   * @param {object|null} params.stableSavedData
-   * @param {object|null} params.legacySavedData
-   * @param {object} [options={}]
+   * @param {object} params - 參數對象
+   * @param {string} params.stableUrl - 目標穩定 URL
+   * @param {string} params.legacyUrl - 來源舊版 URL
+   * @param {object|null} params.stableSavedData - 目標頁面數據
+   * @param {object|null} params.legacySavedData - 來源頁面數據
+   * @param {object} [options={}] - 其他選項
    * @param {object} [options.logContext={}] - 額外日志上下文
    * @param {object} [options.logMessages={}] - 自訂日志文案
    * @param {string} [options.logMessages.supplemented] - 補遷移成功文案
@@ -147,17 +221,13 @@ export class MigrationService {
   async _supplementStableNotionIfNeeded(params, options = {}) {
     const { stableUrl, legacyUrl, stableSavedData, legacySavedData } = params;
     const { logContext = {}, logMessages = {} } = options;
-    const supplementedMessage =
-      logMessages.supplemented ?? 'Supplemented notion metadata on stable URL';
-    const conflictMessage =
-      logMessages.conflict ?? 'Stable/legacy notion metadata conflict, keeping stable data';
 
     const hasStableNotion = hasNotionData(stableSavedData);
     const hasLegacyNotion = hasNotionData(legacySavedData);
 
-    if (!hasStableNotion && hasLegacyNotion) {
+    if (this._shouldSupplement(hasStableNotion, hasLegacyNotion)) {
       await this.storageService.setSavedPageData(stableUrl, legacySavedData);
-      Logger.info(supplementedMessage, {
+      Logger.info(logMessages.supplemented || 'Supplemented notion metadata on stable URL', {
         stable: sanitizeUrlForLogging(stableUrl),
         legacy: sanitizeUrlForLogging(legacyUrl),
         ...logContext,
@@ -166,22 +236,50 @@ export class MigrationService {
     }
 
     const samePage = isSameNotionPage(stableSavedData, legacySavedData);
-    if (hasStableNotion && hasLegacyNotion && samePage === false) {
-      Logger.warn(conflictMessage, {
-        stable: sanitizeUrlForLogging(stableUrl),
-        legacy: sanitizeUrlForLogging(legacyUrl),
-        ...logContext,
-      });
+    if (this._hasConflict(hasStableNotion, hasLegacyNotion, samePage)) {
+      Logger.warn(
+        logMessages.conflict || 'Stable/legacy notion metadata conflict, keeping stable data',
+        {
+          stable: sanitizeUrlForLogging(stableUrl),
+          legacy: sanitizeUrlForLogging(legacyUrl),
+          ...logContext,
+        }
+      );
     }
 
     return false;
   }
 
   /**
+   * 判斷是否需要補 Notion 詮釋數據
+   *
+   * @param {boolean} hasStable - 目標是否有 Notion 數據
+   * @param {boolean} hasLegacy - 來源是否有 Notion 數據
+   * @returns {boolean} 是否需要補詮釋數據
+   * @private
+   */
+  _shouldSupplement(hasStable, hasLegacy) {
+    return !hasStable && hasLegacy;
+  }
+
+  /**
+   * 判斷 Notion 詮釋數據是否衝突
+   *
+   * @param {boolean} hasStable - 目標是否有 Notion 數據
+   * @param {boolean} hasLegacy - 來源是否有 Notion 數據
+   * @param {boolean} samePage - 是否為相同頁面
+   * @returns {boolean} 是否衝突
+   * @private
+   */
+  _hasConflict(hasStable, hasLegacy, samePage) {
+    return hasStable && hasLegacy && samePage === false;
+  }
+
+  /**
    * 設定 url_alias（失敗不阻斷主流程）
    *
-   * @param {string} legacyUrl
-   * @param {string} stableUrl
+   * @param {string} legacyUrl - 來源舊版 URL
+   * @param {string} stableUrl - 目標穩定 URL
    * @returns {Promise<void>}
    * @private
    */
@@ -287,114 +385,192 @@ export class MigrationService {
       }
 
       // 2. Find or create tab
-      // 使用 queryTabs({}) 獲取所有 tabs 後手動過濾，避免 chrome.tabs.query({ url }) 的 match patterns 行為
-      // 導致特殊字符 URL 匹配失敗或誤匹配
-      const tabs = await this.tabService.queryTabs({});
-      let targetTab = tabs.find(tab => tab.url === url);
+      const tabResolution = await this._resolveMigrationTab(url);
+      const targetTab = tabResolution.tab;
+      createdTabId = tabResolution.createdTabId;
 
-      if (targetTab) {
-        Logger.log('Using existing tab', {
-          action: 'executeContentMigration',
-          tabId: targetTab.id,
-        });
-      } else {
-        targetTab = await this.tabService.createTab({
-          url,
-          active: false,
-        });
-        createdTabId = targetTab.id;
-        Logger.log('Created new tab', { action: 'executeContentMigration', tabId: targetTab.id });
-
-        // Wait for tab to load if not already complete
-        // 即使 createTab 返回時 status 為 complete，仍建議確保其內容腳本環境準備就緒
-        if (targetTab.status !== 'complete') {
-          await this.tabService.waitForTabComplete(targetTab.id);
-        }
-      }
-
-      // 3. Inject migration-executor.js using InjectionService
-      // We rely on InjectionService to handle the injection details
-      Logger.log('Injecting migration executor', {
-        action: 'executeContentMigration',
-        tabId: targetTab.id,
-      });
-      await this.injectionService.injectAndExecute(
-        targetTab.id,
-        ['dist/migration-executor.js'],
-        null,
-        { errorMessage: 'Failed to inject migration executor' }
-      );
-
-      // Wait for script readiness
-      await this._waitForScriptReady(targetTab.id);
+      // 3. Inject migration-executor.js and wait for readiness
+      await this._injectAndVerifyExecutor(targetTab.id);
 
       // 4. Execute migration
-      Logger.log('Executing DOM migration', {
-        action: 'executeContentMigration',
-        tabId: targetTab.id,
-      });
-      const migrationResult = await this.injectionService.injectWithResponse(
-        targetTab.id,
-        async (executorErrorMsg, managerErrorMsg) => {
-          // Execute in page context
-          if (!globalThis.MigrationExecutor) {
-            return { error: executorErrorMsg };
-          }
+      const stats = await this._runPageMigration(targetTab.id);
 
-          if (!globalThis.HighlighterV2?.manager) {
-            return { error: managerErrorMsg };
-          }
-
-          const executor = new globalThis.MigrationExecutor();
-          const manager = globalThis.HighlighterV2.manager;
-
-          const outcome = await executor.migrate(manager);
-          const stats = executor.getStatistics();
-
-          return {
-            success: true,
-            result: outcome,
-            statistics: stats,
-          };
-        },
-        [],
-        [
-          ERROR_MESSAGES.USER_MESSAGES.MIGRATION_EXECUTOR_NOT_LOADED,
-          ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHTER_MANAGER_NOT_INITIALIZED,
-        ]
-      );
-
-      if (migrationResult?.error) {
-        throw new Error(migrationResult.error);
-      }
-      const migrationExecutionError = this._resolveMigrationExecutionError(migrationResult);
-      if (migrationExecutionError) {
-        throw new Error(migrationExecutionError);
-      }
-
-      const stats = migrationResult?.statistics || {};
-      Logger.log('Migration completed', {
-        action: 'executeContentMigration',
-        url: sanitizeUrlForLogging(url),
-        ...stats,
-      });
-
-      return {
-        success: true,
-        count: stats.newHighlightsCreated || 0,
-        message: `Successfully migrated ${stats.newHighlightsCreated || 0} highlights`,
-        statistics: stats,
-      };
+      return this._formatMigrationSuccessResponse(url, stats);
     } catch (error) {
       const errorMsg = error?.message ?? String(error);
       Logger.error('Migration failed', { action: 'executeContentMigration', error: errorMsg });
       throw error; // Re-throw to let handler handle the error response format
     } finally {
       // 5. Cleanup
-      if (createdTabId) {
-        Logger.log('Closing tab', { action: 'executeContentMigration', tabId: createdTabId });
-        await this.tabService.removeTab(createdTabId).catch(() => {});
-      }
+      await this._cleanupMigrationTabSafe(createdTabId);
+    }
+  }
+
+  /**
+   * 取得或建立用於遷移的分頁（輔助函式）
+   *
+   * @param {string} url - 目標遷移網址
+   * @returns {Promise<{ tab: object, createdTabId: number|null }>} 包含分頁對象與新建分頁 ID
+   * @private
+   */
+  async _resolveMigrationTab(url) {
+    // 使用 queryTabs({}) 獲取所有 tabs 後手動過濾，避免 chrome.tabs.query({ url }) 的 match patterns 行為
+    // 導致特殊字符 URL 匹配失敗或誤匹配
+    const tabs = await this.tabService.queryTabs({});
+    const existingTab = tabs.find(tab => tab.url === url);
+
+    if (existingTab) {
+      Logger.log('Using existing tab', {
+        action: 'executeContentMigration',
+        tabId: existingTab.id,
+      });
+      return { tab: existingTab, createdTabId: null };
+    }
+
+    const newTab = await this.tabService.createTab({
+      url,
+      active: false,
+    });
+    Logger.log('Created new tab', { action: 'executeContentMigration', tabId: newTab.id });
+
+    // Wait for tab to load if not already complete
+    // 即使 createTab 返回時 status 為 complete，仍建議確保其內容腳本環境準備就緒
+    if (newTab.status !== 'complete') {
+      await this.tabService.waitForTabComplete(newTab.id);
+    }
+
+    return { tab: newTab, createdTabId: newTab.id };
+  }
+
+  /**
+   * 注入並驗證 migration-executor（輔助函式）
+   *
+   * @param {number} tabId - 分頁 ID
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _injectAndVerifyExecutor(tabId) {
+    Logger.log('Injecting migration executor', {
+      action: 'executeContentMigration',
+      tabId,
+    });
+    await this.injectionService.injectAndExecute(tabId, ['dist/migration-executor.js'], null, {
+      errorMessage: 'Failed to inject migration executor',
+    });
+
+    // Wait for script readiness
+    await this._waitForScriptReady(tabId);
+  }
+
+  /**
+   * 在頁面端執行 DOM 遷移（輔助函式）
+   *
+   * @param {number} tabId - 分頁 ID
+   * @returns {Promise<object>} 頁面端返回之統計數據
+   * @private
+   */
+  async _runPageMigration(tabId) {
+    Logger.log('Executing DOM migration', {
+      action: 'executeContentMigration',
+      tabId,
+    });
+    const migrationResult = await this.injectionService.injectWithResponse(
+      tabId,
+      MigrationService._executeMigrationInPage,
+      [],
+      [
+        ERROR_MESSAGES.USER_MESSAGES.MIGRATION_EXECUTOR_NOT_LOADED,
+        ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHTER_MANAGER_NOT_INITIALIZED,
+      ]
+    );
+
+    return this._extractSuccessfulMigrationStats(migrationResult);
+  }
+
+  /**
+   * 在頁面 context 中執行 DOM 遷移。此函式會被 chrome scripting 序列化，必須保持自足。
+   *
+   * @param {string} executorErrorMsg - executor 未載入時的錯誤訊息
+   * @param {string} managerErrorMsg - highlighter manager 未初始化時的錯誤訊息
+   * @returns {Promise<object>} 頁面端遷移結果
+   * @private
+   */
+  static async _executeMigrationInPage(executorErrorMsg, managerErrorMsg) {
+    if (!globalThis.MigrationExecutor) {
+      return { error: executorErrorMsg };
+    }
+
+    if (!globalThis.HighlighterV2?.manager) {
+      return { error: managerErrorMsg };
+    }
+
+    const executor = new globalThis.MigrationExecutor();
+    const manager = globalThis.HighlighterV2.manager;
+
+    const outcome = await executor.migrate(manager);
+    const stats = executor.getStatistics();
+
+    return {
+      success: true,
+      result: outcome,
+      statistics: stats,
+    };
+  }
+
+  /**
+   * 驗證頁面端遷移結果並取出統計數據。
+   *
+   * @param {object} migrationResult - 頁面端遷移結果
+   * @returns {object} 遷移統計數據
+   * @throws {Error} 當頁面端回傳錯誤或 rollback 結果時拋出
+   * @private
+   */
+  _extractSuccessfulMigrationStats(migrationResult) {
+    if (migrationResult?.error) {
+      throw new Error(migrationResult.error);
+    }
+    const migrationExecutionError = this._resolveMigrationExecutionError(migrationResult);
+    if (migrationExecutionError) {
+      throw new Error(migrationExecutionError);
+    }
+
+    return migrationResult?.statistics || {};
+  }
+
+  /**
+   * 格式化成功的遷移響應結果（輔助函式）
+   *
+   * @param {string} url - 遷移目標網址
+   * @param {object} stats - 遷移統計數據
+   * @returns {object} 響應結果
+   * @private
+   */
+  _formatMigrationSuccessResponse(url, stats) {
+    Logger.log('Migration completed', {
+      action: 'executeContentMigration',
+      url: sanitizeUrlForLogging(url),
+      ...stats,
+    });
+
+    return {
+      success: true,
+      count: stats.newHighlightsCreated || 0,
+      message: `Successfully migrated ${stats.newHighlightsCreated || 0} highlights`,
+      statistics: stats,
+    };
+  }
+
+  /**
+   * 安全關閉為遷移而建立的分頁（輔助函式）
+   *
+   * @param {number|null} createdTabId - 建立的分頁 ID
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _cleanupMigrationTabSafe(createdTabId) {
+    if (createdTabId) {
+      Logger.log('Closing tab', { action: 'executeContentMigration', tabId: createdTabId });
+      await this.tabService.removeTab(createdTabId).catch(() => {});
     }
   }
 
