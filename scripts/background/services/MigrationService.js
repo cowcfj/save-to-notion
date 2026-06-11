@@ -653,9 +653,8 @@ export class MigrationService {
           tabId,
           () => ({
             ready:
-              globalThis.MigrationExecutor === undefined
-                ? false
-                : globalThis.HighlighterV2?.manager !== undefined,
+              globalThis.MigrationExecutor !== undefined &&
+              globalThis.HighlighterV2?.manager !== undefined,
           }),
           [],
           []
