@@ -8,6 +8,10 @@ import { findTextInPage, HIGHLIGHT_ANCHORING } from '../utils/textSearch.js';
 import { waitForDOMStability } from '../utils/domStability.js';
 
 const { CONTEXT_LENGTH } = HIGHLIGHT_ANCHORING;
+const CONTEXT_DIRECTION = {
+  PREFIX: 'prefix',
+  SUFFIX: 'suffix',
+};
 
 const BLOCK_BOUNDARY_TAGS = new Set([
   'ADDRESS',
@@ -56,36 +60,114 @@ function createBoundaryRange(container, startOffset, endOffset) {
   return boundaryRange;
 }
 
-function extractElementPrefix(container, offset) {
-  let startOffset = 0;
-  for (let i = offset - 1; i >= 0; i--) {
-    if (isBlockBoundaryNode(container.childNodes[i])) {
-      startOffset = i + 1;
-      break;
-    }
-  }
-
-  const text = createBoundaryRange(container, startOffset, offset).toString();
-  if (text.trim().length === 0) {
-    return '';
-  }
-  return text.slice(Math.max(0, text.length - CONTEXT_LENGTH));
+function isPrefixContext(direction) {
+  return direction === CONTEXT_DIRECTION.PREFIX;
 }
 
-function extractElementSuffix(container, offset) {
-  let endOffset = container.childNodes.length;
-  for (let i = offset; i < container.childNodes.length; i++) {
-    if (isBlockBoundaryNode(container.childNodes[i])) {
-      endOffset = i;
-      break;
-    }
+function getElementContextSearchWindow(childNodes, offset, direction) {
+  const children = Array.from(childNodes);
+  if (!isPrefixContext(direction)) {
+    return children.slice(offset);
   }
 
-  const text = createBoundaryRange(container, offset, endOffset).toString();
+  const previousChildren = [];
+  for (let index = offset - 1; index >= 0; index--) {
+    previousChildren.push(children[index]);
+  }
+  return previousChildren;
+}
+
+function resolveDefaultElementBoundary(childNodes, direction) {
+  return isPrefixContext(direction) ? 0 : childNodes.length;
+}
+
+function resolveMatchedElementBoundary(offset, relativeIndex, direction) {
+  return isPrefixContext(direction) ? offset - relativeIndex : offset + relativeIndex;
+}
+
+function findElementContextBoundary(childNodes, offset, direction) {
+  const relativeIndex = getElementContextSearchWindow(childNodes, offset, direction).findIndex(
+    node => isBlockBoundaryNode(node)
+  );
+
+  if (relativeIndex === -1) {
+    return resolveDefaultElementBoundary(childNodes, direction);
+  }
+
+  return resolveMatchedElementBoundary(offset, relativeIndex, direction);
+}
+
+function createElementContextText(container, offset, direction) {
+  const boundaryOffset = findElementContextBoundary(container.childNodes, offset, direction);
+  const startOffset = isPrefixContext(direction) ? boundaryOffset : offset;
+  const endOffset = isPrefixContext(direction) ? offset : boundaryOffset;
+
+  return createBoundaryRange(container, startOffset, endOffset).toString();
+}
+
+function sliceContextText(text, offset, direction) {
+  if (isPrefixContext(direction)) {
+    return text.slice(Math.max(0, offset - CONTEXT_LENGTH), offset);
+  }
+  return text.slice(offset, Math.min(text.length, offset + CONTEXT_LENGTH));
+}
+
+function trimElementContextText(text, direction) {
   if (text.trim().length === 0) {
     return '';
   }
-  return text.slice(0, CONTEXT_LENGTH);
+  return isPrefixContext(direction)
+    ? text.slice(Math.max(0, text.length - CONTEXT_LENGTH))
+    : text.slice(0, CONTEXT_LENGTH);
+}
+
+function extractTextContext(text, offset, direction) {
+  return sliceContextText(text, offset, direction);
+}
+
+function extractElementContext(container, offset, direction) {
+  const text = createElementContextText(container, offset, direction);
+  return trimElementContextText(text, direction);
+}
+
+function extractRangeContext(container, offset, direction) {
+  if (container.nodeType === Node.TEXT_NODE) {
+    return extractTextContext(container.textContent, offset, direction);
+  }
+  try {
+    return extractElementContext(container, offset, direction);
+  } catch {
+    return '';
+  }
+}
+
+function resolveSerializedRangeNodes(rangeInfo) {
+  const startNode = getNodeByPath(rangeInfo.startContainerPath);
+  const endNode = getNodeByPath(rangeInfo.endContainerPath);
+
+  return startNode && endNode ? { startNode, endNode } : null;
+}
+
+function createRangeFromSerializedNodes(rangeInfo, nodes) {
+  const range = document.createRange();
+  range.setStart(nodes.startNode, rangeInfo.startOffset);
+  range.setEnd(nodes.endNode, rangeInfo.endOffset);
+  return range;
+}
+
+function matchExpectedRangeText(range, expectedText) {
+  return range.toString() === expectedText ? range : null;
+}
+
+function safelyDeserializeRange(rangeInfo, expectedText) {
+  try {
+    const nodes = resolveSerializedRangeNodes(rangeInfo);
+    return nodes
+      ? matchExpectedRangeText(createRangeFromSerializedNodes(rangeInfo, nodes), expectedText)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -95,42 +177,13 @@ function extractElementSuffix(container, offset) {
  * @returns {object} 序列化的 Range 資訊
  */
 export function serializeRange(range) {
-  let prefix = '';
-  if (range.startContainer.nodeType === Node.TEXT_NODE) {
-    const text = range.startContainer.textContent;
-    prefix = text.slice(Math.max(0, range.startOffset - CONTEXT_LENGTH), range.startOffset);
-  } else {
-    // Element-node offsets are child indexes; clip context to the current text run
-    // so adjacent block text does not become a misleading prefix.
-    try {
-      prefix = extractElementPrefix(range.startContainer, range.startOffset);
-    } catch {
-      prefix = '';
-    }
-  }
-
-  // 提取後文 (suffix)
-  let suffix = '';
-  if (range.endContainer.nodeType === Node.TEXT_NODE) {
-    const text = range.endContainer.textContent;
-    suffix = text.slice(range.endOffset, Math.min(text.length, range.endOffset + CONTEXT_LENGTH));
-  } else {
-    // Element-node offsets are child indexes; clip context to the current text run
-    // so adjacent block text does not become a misleading suffix.
-    try {
-      suffix = extractElementSuffix(range.endContainer, range.endOffset);
-    } catch {
-      suffix = '';
-    }
-  }
-
   return {
     startContainerPath: getNodePath(range.startContainer),
     startOffset: range.startOffset,
     endContainerPath: getNodePath(range.endContainer),
     endOffset: range.endOffset,
-    prefix, // 新增：用於模糊匹配消歧義
-    suffix, // 新增：用於模糊匹配消歧義
+    prefix: extractRangeContext(range.startContainer, range.startOffset, CONTEXT_DIRECTION.PREFIX), // 新增：用於模糊匹配消歧義
+    suffix: extractRangeContext(range.endContainer, range.endOffset, CONTEXT_DIRECTION.SUFFIX), // 新增：用於模糊匹配消歧義
   };
 }
 
@@ -142,32 +195,60 @@ export function serializeRange(range) {
  * @returns {Range|null} 恢復的 Range 或 null
  */
 export function deserializeRange(rangeInfo, expectedText) {
-  if (!rangeInfo) {
+  return rangeInfo ? safelyDeserializeRange(rangeInfo, expectedText) : null;
+}
+
+/**
+ * 在 DOM 穩定後重試反序列化 Range
+ *
+ * @param {object} rangeInfo - Range 資訊
+ * @param {string} text - 文本內容
+ * @returns {Promise<Range|null>}
+ */
+async function retryDeserializeAfterDOMStability(rangeInfo, text) {
+  const isStable = await waitForDOMStability({
+    stabilityThresholdMs: 150,
+    maxWaitMs: 2000,
+  });
+
+  if (!isStable) {
     return null;
   }
 
-  try {
-    const startNode = getNodeByPath(rangeInfo.startContainerPath);
-    const endNode = getNodeByPath(rangeInfo.endContainerPath);
+  return deserializeRange(rangeInfo, text);
+}
 
-    if (!startNode || !endNode) {
-      return null;
+/**
+ * 使用序列化的上下文查找 Range
+ *
+ * @param {object} rangeInfo - Range 資訊
+ * @param {string} text - 文本內容
+ * @returns {Range|null}
+ */
+function findRangeByTextWithSerializedContext(rangeInfo, text) {
+  return findTextInPage(text, {
+    prefix: rangeInfo?.prefix,
+    suffix: rangeInfo?.suffix,
+  });
+}
+
+async function restoreRangeAttempt(rangeInfo, text, isFinalAttempt) {
+  const retriedRange = await retryDeserializeAfterDOMStability(rangeInfo, text);
+
+  return (
+    retriedRange || (isFinalAttempt ? findRangeByTextWithSerializedContext(rangeInfo, text) : null)
+  );
+}
+
+async function restoreRangeWithDOMRetries(rangeInfo, text, maxRetries) {
+  for (let retryIndex = 0; retryIndex < maxRetries; retryIndex++) {
+    const range = await restoreRangeAttempt(rangeInfo, text, retryIndex === maxRetries - 1);
+    if (range) {
+      return range;
     }
-
-    const range = document.createRange();
-    range.setStart(startNode, rangeInfo.startOffset);
-    range.setEnd(endNode, rangeInfo.endOffset);
-
-    // 驗證文本
-    const actualText = range.toString();
-    if (actualText !== expectedText) {
-      return null;
-    }
-
-    return range;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 /**
@@ -180,41 +261,9 @@ export function deserializeRange(rangeInfo, expectedText) {
  */
 export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
   // 嘗試直接反序列化
-  let range = deserializeRange(rangeInfo, text);
-  if (range) {
-    return range;
-  }
-
-  // 提取上下文，以便在文本搜索時進行消歧義
-  const context = {
-    prefix: rangeInfo?.prefix,
-    suffix: rangeInfo?.suffix,
-  };
-
-  // 等待 DOM 穩定後重試
-  for (let i = 0; i < maxRetries; i++) {
-    const isStable = await waitForDOMStability({
-      stabilityThresholdMs: 150,
-      maxWaitMs: 2000,
-    });
-
-    if (isStable) {
-      range = deserializeRange(rangeInfo, text);
-      if (range) {
-        return range;
-      }
-    }
-
-    // 最後嘗試：使用文本搜索（傳入上下文交由 findTextInPage 處理）
-    if (i === maxRetries - 1) {
-      range = findTextInPage(text, context);
-      if (range) {
-        return range;
-      }
-    }
-  }
-
-  return null;
+  return (
+    deserializeRange(rangeInfo, text) || restoreRangeWithDOMRetries(rangeInfo, text, maxRetries)
+  );
 }
 
 /**

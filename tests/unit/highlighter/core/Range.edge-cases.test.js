@@ -67,6 +67,36 @@ describe('Range Module Coverage Tests', () => {
       });
       expect(pathUtils.getNodePath).toHaveBeenCalledTimes(2);
     });
+
+    test('should extract element-node prefix when toReversed is unavailable', () => {
+      const toReversedDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'toReversed');
+      const article = document.createElement('article');
+      article.innerHTML = '<span>Lead context </span><span>Target</span><span> tail</span>';
+      document.body.append(article);
+
+      Object.defineProperty(Array.prototype, 'toReversed', {
+        configurable: true,
+        value: undefined,
+        writable: true,
+      });
+
+      try {
+        const range = document.createRange();
+        range.setStart(article, 1);
+        range.setEnd(article, 2);
+
+        pathUtils.getNodePath
+          .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
+          .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
+
+        const serialized = serializeRange(range);
+
+        expect(serialized.prefix).toBe('Lead context ');
+        expect(serialized.suffix).toBe(' tail');
+      } finally {
+        Object.defineProperty(Array.prototype, 'toReversed', toReversedDescriptor);
+      }
+    });
   });
 
   describe('deserializeRange', () => {
@@ -145,6 +175,31 @@ describe('Range Module Coverage Tests', () => {
   });
 
   describe('restoreRangeWithRetry', () => {
+    function createElementContainerFallbackFixture() {
+      const article = document.createElement('article');
+      article.innerHTML = [
+        '<p>Outside previous Target.</p>',
+        '<span>before </span>',
+        '<span>Target</span>',
+        '<span> after</span>',
+        '<p>Outside next Target.</p>',
+      ].join('');
+      document.body.append(article);
+
+      const selectedRange = document.createRange();
+      selectedRange.setStart(article, 2);
+      selectedRange.setEnd(article, 3);
+
+      pathUtils.getNodePath
+        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
+        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
+
+      return {
+        article,
+        rangeInfo: serializeRange(selectedRange),
+      };
+    }
+
     test('should restore range on first try', async () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
@@ -220,6 +275,38 @@ describe('Range Module Coverage Tests', () => {
       });
     });
 
+    test('should restore an element-container range through final text search fallback', async () => {
+      const { article, rangeInfo } = createElementContainerFallbackFixture();
+
+      const fallbackRange = document.createRange();
+      fallbackRange.setStart(article.children[2].firstChild, 0);
+      fallbackRange.setEnd(article.children[2].firstChild, 'Target'.length);
+
+      pathUtils.getNodeByPath.mockReturnValue(null);
+      domStabilityUtils.waitForDOMStability.mockResolvedValue(false);
+      textSearchUtils.findTextInPage.mockReturnValue(fallbackRange);
+
+      const restoredRange = await restoreRangeWithRetry(rangeInfo, 'Target', 1);
+
+      expect(restoredRange).toBe(fallbackRange);
+      expect(restoredRange.toString()).toBe('Target');
+    });
+
+    test('should pass serialized prefix and suffix to final text search fallback', async () => {
+      const { rangeInfo } = createElementContainerFallbackFixture();
+
+      pathUtils.getNodeByPath.mockReturnValue(null);
+      domStabilityUtils.waitForDOMStability.mockResolvedValue(false);
+      textSearchUtils.findTextInPage.mockReturnValue(null);
+
+      await restoreRangeWithRetry(rangeInfo, 'Target', 1);
+
+      expect(textSearchUtils.findTextInPage).toHaveBeenCalledWith('Target', {
+        prefix: 'before ',
+        suffix: ' after',
+      });
+    });
+
     test('should return null after all retries fail', async () => {
       const rangeInfo = {
         startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
@@ -235,6 +322,25 @@ describe('Range Module Coverage Tests', () => {
       const range = await restoreRangeWithRetry(rangeInfo, 'Test', 3);
 
       expect(range).toBeNull();
+    });
+
+    test('should not attempt DOM stability or text search when maxRetries is zero', async () => {
+      const rangeInfo = {
+        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
+        startOffset: 0,
+        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
+        endOffset: 4,
+        prefix: 'before',
+        suffix: 'after',
+      };
+
+      pathUtils.getNodeByPath.mockReturnValue(null);
+
+      const range = await restoreRangeWithRetry(rangeInfo, 'Test', 0);
+
+      expect(range).toBeNull();
+      expect(domStabilityUtils.waitForDOMStability).not.toHaveBeenCalled();
+      expect(textSearchUtils.findTextInPage).not.toHaveBeenCalled();
     });
   });
 
