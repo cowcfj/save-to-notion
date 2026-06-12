@@ -17,6 +17,18 @@ const MAX_COMBINED_NODES = 5;
 const SEARCH_LOG_TAG = '[textSearch]';
 
 /**
+ * 記錄 text search 錯誤
+ *
+ * @param {string} message - 錯誤訊息
+ * @param {Error} error - 原始錯誤
+ */
+function logTextSearchError(message, error) {
+  if (globalThis.Logger !== undefined) {
+    globalThis.Logger?.error(SEARCH_LOG_TAG, message, error);
+  }
+}
+
+/**
  * 在頁面中查找文本並返回 Range
  * 使用多種策略：window.find()、TreeWalker、模糊匹配
  *
@@ -119,9 +131,7 @@ export function findTextInPage(textToFind, context = {}) {
 
     return findTextWithoutContextFallback(cleanText, context);
   } catch (error) {
-    if (globalThis.Logger !== undefined) {
-      globalThis.Logger?.error(SEARCH_LOG_TAG, '查找文本失敗:', error);
-    }
+    logTextSearchError('查找文本失敗:', error);
     return null;
   }
 }
@@ -299,9 +309,7 @@ export function findTextWithTreeWalker(textToFind) {
     // 嘗試跨文本節點匹配
     return findRangeAcrossNodes(textToFind, textNodes);
   } catch (error) {
-    if (globalThis.Logger !== undefined) {
-      globalThis.Logger?.error(SEARCH_LOG_TAG, 'findTextWithTreeWalker error:', error);
-    }
+    logTextSearchError('findTextWithTreeWalker error:', error);
     return null;
   }
 }
@@ -527,6 +535,42 @@ function shouldReportFuzzyDisambiguationFailure(maxScore, context) {
 }
 
 /**
+ * 取得可選上下文文字長度
+ *
+ * @param {string|undefined} text - 上下文文字
+ * @returns {number}
+ */
+function getOptionalTextLength(text) {
+  return text ? text.length : 0;
+}
+
+/**
+ * 取得最佳候選者 Range 文字長度
+ *
+ * @param {object} bestCandidate - 最佳候選者
+ * @returns {number}
+ */
+function getBestCandidateRangeLength(bestCandidate) {
+  const range = bestCandidate.range;
+  if (!range || typeof range.toString !== 'function') {
+    return 0;
+  }
+  return range.toString().length;
+}
+
+/**
+ * 建立候選者偵錯摘要
+ *
+ * @param {object} candidateInfo - 候選者
+ * @returns {object}
+ */
+function buildCandidateDebugInfo(candidateInfo) {
+  return {
+    matchIndex: candidateInfo.matchIndex,
+  };
+}
+
+/**
  * 記錄模糊匹配消歧義失敗的偵錯日誌
  *
  * @param {Array} candidates - 候選者
@@ -539,15 +583,13 @@ function logFuzzyDisambiguationFailure(candidates, bestCandidate, maxScore, cont
     SEARCH_LOG_TAG,
     'calculateCandidateScore failed to disambiguate. maxScore <= 0.',
     {
-      prefixLength: context.prefix?.length || 0,
-      suffixLength: context.suffix?.length || 0,
+      prefixLength: getOptionalTextLength(context.prefix),
+      suffixLength: getOptionalTextLength(context.suffix),
       candidateCount: candidates.length,
-      bestCandidateRangeLength: bestCandidate.range?.toString?.()?.length || 0,
+      bestCandidateRangeLength: getBestCandidateRangeLength(bestCandidate),
       maxScore,
       scoringFunction: calculateCandidateScore.name,
-      candidatesInfo: candidates.map(candidateInfo => ({
-        matchIndex: candidateInfo.matchIndex,
-      })),
+      candidatesInfo: candidates.map(candidateInfo => buildCandidateDebugInfo(candidateInfo)),
     }
   );
 }
@@ -586,9 +628,7 @@ export function findTextFuzzy(textToFind, context = {}) {
 
     return bestCandidate.range;
   } catch (error) {
-    if (globalThis.Logger !== undefined) {
-      globalThis.Logger?.error(SEARCH_LOG_TAG, 'findTextFuzzy error:', error);
-    }
+    logTextSearchError('findTextFuzzy error:', error);
     return null;
   }
 }
