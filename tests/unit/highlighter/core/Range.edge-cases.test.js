@@ -175,6 +175,31 @@ describe('Range Module Coverage Tests', () => {
   });
 
   describe('restoreRangeWithRetry', () => {
+    function createElementContainerFallbackFixture() {
+      const article = document.createElement('article');
+      article.innerHTML = [
+        '<p>Outside previous Target.</p>',
+        '<span>before </span>',
+        '<span>Target</span>',
+        '<span> after</span>',
+        '<p>Outside next Target.</p>',
+      ].join('');
+      document.body.append(article);
+
+      const selectedRange = document.createRange();
+      selectedRange.setStart(article, 2);
+      selectedRange.setEnd(article, 3);
+
+      pathUtils.getNodePath
+        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
+        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
+
+      return {
+        article,
+        rangeInfo: serializeRange(selectedRange),
+      };
+    }
+
     test('should restore range on first try', async () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
@@ -251,24 +276,7 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should restore an element-container range through final text search fallback', async () => {
-      const article = document.createElement('article');
-      article.innerHTML = [
-        '<p>Outside previous Target.</p>',
-        '<span>before </span>',
-        '<span>Target</span>',
-        '<span> after</span>',
-        '<p>Outside next Target.</p>',
-      ].join('');
-      document.body.append(article);
-
-      const selectedRange = document.createRange();
-      selectedRange.setStart(article, 2);
-      selectedRange.setEnd(article, 3);
-
-      pathUtils.getNodePath
-        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
-        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
-      const rangeInfo = serializeRange(selectedRange);
+      const { article, rangeInfo } = createElementContainerFallbackFixture();
 
       const fallbackRange = document.createRange();
       fallbackRange.setStart(article.children[2].firstChild, 0);
@@ -285,24 +293,7 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should pass serialized prefix and suffix to final text search fallback', async () => {
-      const article = document.createElement('article');
-      article.innerHTML = [
-        '<p>Outside previous Target.</p>',
-        '<span>before </span>',
-        '<span>Target</span>',
-        '<span> after</span>',
-        '<p>Outside next Target.</p>',
-      ].join('');
-      document.body.append(article);
-
-      const selectedRange = document.createRange();
-      selectedRange.setStart(article, 2);
-      selectedRange.setEnd(article, 3);
-
-      pathUtils.getNodePath
-        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
-        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
-      const rangeInfo = serializeRange(selectedRange);
+      const { rangeInfo } = createElementContainerFallbackFixture();
 
       pathUtils.getNodeByPath.mockReturnValue(null);
       domStabilityUtils.waitForDOMStability.mockResolvedValue(false);
