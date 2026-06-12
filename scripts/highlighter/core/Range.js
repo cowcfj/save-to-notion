@@ -8,6 +8,10 @@ import { findTextInPage, HIGHLIGHT_ANCHORING } from '../utils/textSearch.js';
 import { waitForDOMStability } from '../utils/domStability.js';
 
 const { CONTEXT_LENGTH } = HIGHLIGHT_ANCHORING;
+const CONTEXT_DIRECTION = {
+  PREFIX: 'prefix',
+  SUFFIX: 'suffix',
+};
 
 const BLOCK_BOUNDARY_TAGS = new Set([
   'ADDRESS',
@@ -88,35 +92,26 @@ function extractElementSuffix(container, offset) {
   return text.slice(0, CONTEXT_LENGTH);
 }
 
-function extractTextPrefix(text, offset) {
-  return text.slice(Math.max(0, offset - CONTEXT_LENGTH), offset);
-}
-
-function extractTextSuffix(text, offset) {
+function extractTextContext(text, offset, direction) {
+  if (direction === CONTEXT_DIRECTION.PREFIX) {
+    return text.slice(Math.max(0, offset - CONTEXT_LENGTH), offset);
+  }
   return text.slice(offset, Math.min(text.length, offset + CONTEXT_LENGTH));
 }
 
-function extractRangePrefix(range) {
-  const container = range.startContainer;
-  const offset = range.startOffset;
-  if (container.nodeType === Node.TEXT_NODE) {
-    return extractTextPrefix(container.textContent, offset);
-  }
-  try {
+function extractElementContext(container, offset, direction) {
+  if (direction === CONTEXT_DIRECTION.PREFIX) {
     return extractElementPrefix(container, offset);
-  } catch {
-    return '';
   }
+  return extractElementSuffix(container, offset);
 }
 
-function extractRangeSuffix(range) {
-  const container = range.endContainer;
-  const offset = range.endOffset;
+function extractRangeContext(container, offset, direction) {
   if (container.nodeType === Node.TEXT_NODE) {
-    return extractTextSuffix(container.textContent, offset);
+    return extractTextContext(container.textContent, offset, direction);
   }
   try {
-    return extractElementSuffix(container, offset);
+    return extractElementContext(container, offset, direction);
   } catch {
     return '';
   }
@@ -134,8 +129,8 @@ export function serializeRange(range) {
     startOffset: range.startOffset,
     endContainerPath: getNodePath(range.endContainer),
     endOffset: range.endOffset,
-    prefix: extractRangePrefix(range), // 新增：用於模糊匹配消歧義
-    suffix: extractRangeSuffix(range), // 新增：用於模糊匹配消歧義
+    prefix: extractRangeContext(range.startContainer, range.startOffset, CONTEXT_DIRECTION.PREFIX), // 新增：用於模糊匹配消歧義
+    suffix: extractRangeContext(range.endContainer, range.endOffset, CONTEXT_DIRECTION.SUFFIX), // 新增：用於模糊匹配消歧義
   };
 }
 
