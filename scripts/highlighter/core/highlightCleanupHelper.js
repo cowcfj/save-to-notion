@@ -22,6 +22,12 @@
 
 import { compareKeysAlphabetically } from '../../utils/keyOrdering.js';
 
+const CLEAR_CANONICAL_ACTION = Object.freeze({
+  NONE: 'none',
+  REMOVE: 'remove',
+  SET: 'set',
+});
+
 /**
  * @typedef {object} HighlightCleanupPlan
  * @property {string[]} remove - 應呼叫 `storage.remove()` 的 key 清單（已字典序）
@@ -40,7 +46,8 @@ import { compareKeysAlphabetically } from '../../utils/keyOrdering.js';
 function _existingLegacyKeysSorted(contract, snapshot) {
   const target = contract.mutationTargetKey;
   return contract.legacyCleanupKeys
-    .filter(k => k !== target && snapshot?.[k] !== undefined && snapshot?.[k] !== null)
+    .filter(key => key !== target)
+    .filter(key => _hasSnapshotValue(snapshot, key))
     .toSorted(compareKeysAlphabetically);
 }
 
@@ -52,10 +59,177 @@ function _existingLegacyKeysSorted(contract, snapshot) {
  * @private
  */
 function _normalizePageObject(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
+  return _isPageStateObject(value) ? value : null;
+}
+
+/**
+ * @param {Record<string, any>} snapshot
+ * @param {string} key
+ * @returns {boolean}
+ * @private
+ */
+function _hasSnapshotValue(snapshot, key) {
+  return snapshot[key] != null;
+}
+
+/**
+ * @param {any} value
+ * @returns {boolean}
+ * @private
+ */
+function _isObjectValue(value) {
+  return ![Object(value) === value, typeof value !== 'function'].includes(false);
+}
+
+/**
+ * @param {any} contract
+ * @returns {void}
+ * @private
+ */
+function _assertCleanupContract(contract) {
+  if (!_isObjectValue(contract)) {
+    throw new TypeError('[highlightCleanupHelper] contract 必須是 object');
   }
-  return value;
+}
+
+/**
+ * @param {any} value
+ * @returns {boolean}
+ * @private
+ */
+function _isPageStateObject(value) {
+  return ![_isObjectValue(value), !Array.isArray(value)].includes(false);
+}
+
+/**
+ * @param {any} value
+ * @returns {Record<string, any>}
+ * @private
+ */
+function _normalizeSnapshot(value) {
+  return _isPageStateObject(value) ? value : {};
+}
+
+/**
+ * @param {object|null} pageState
+ * @returns {boolean}
+ * @private
+ */
+function _hasNotionState(pageState) {
+  return Boolean(pageState?.notion);
+}
+
+/**
+ * @param {object} pageState
+ * @returns {object}
+ * @private
+ */
+function _buildClearedPageState(pageState) {
+  return {
+    ...pageState,
+    highlights: [],
+    metadata: { ...pageState.metadata, lastUpdated: Date.now() },
+  };
+}
+
+/**
+ * @param {string[]} remove
+ * @param {string} target
+ * @returns {string[]}
+ * @private
+ */
+function _withSortedRemoveTarget(remove, target) {
+  return [...remove, target].toSorted(compareKeysAlphabetically);
+}
+
+/**
+ * @param {string[]} remove
+ * @param {Record<string, any>} set
+ * @returns {HighlightCleanupPlan}
+ * @private
+ */
+function _keepClearPlan(remove, set) {
+  return { remove, set };
+}
+
+/**
+ * @param {string[]} remove
+ * @param {Record<string, any>} set
+ * @param {string} target
+ * @param {object} canonical
+ * @returns {HighlightCleanupPlan}
+ * @private
+ */
+function _setClearedCanonicalPlan(remove, set, target, canonical) {
+  return {
+    remove,
+    set: {
+      ...set,
+      [target]: _buildClearedPageState(canonical),
+    },
+  };
+}
+
+/**
+ * @param {string[]} remove
+ * @param {Record<string, any>} set
+ * @param {string} target
+ * @returns {HighlightCleanupPlan}
+ * @private
+ */
+function _removeCanonicalPlan(remove, set, target) {
+  return { remove: _withSortedRemoveTarget(remove, target), set };
+}
+
+const CLEAR_CANONICAL_PLAN_BUILDERS = Object.freeze({
+  [CLEAR_CANONICAL_ACTION.NONE]: ({ remove, set }) => _keepClearPlan(remove, set),
+  [CLEAR_CANONICAL_ACTION.SET]: ({ remove, set, target, canonical }) =>
+    _setClearedCanonicalPlan(remove, set, target, canonical),
+  [CLEAR_CANONICAL_ACTION.REMOVE]: ({ remove, set, target }) =>
+    _removeCanonicalPlan(remove, set, target),
+});
+
+const CLEAR_CANONICAL_ACTION_RULES = Object.freeze([
+  { action: CLEAR_CANONICAL_ACTION.NONE, matches: canonical => canonical === null },
+  { action: CLEAR_CANONICAL_ACTION.SET, matches: _hasNotionState },
+  { action: CLEAR_CANONICAL_ACTION.REMOVE, matches: () => true },
+]);
+
+/**
+ * @param {object|null} canonical
+ * @returns {string}
+ * @private
+ */
+function _resolveClearCanonicalAction(canonical) {
+  const rule = CLEAR_CANONICAL_ACTION_RULES.find(({ matches }) => matches(canonical));
+  return rule.action;
+}
+
+/**
+ * @param {object} context
+ * @param {object|null} context.canonical
+ * @param {string[]} context.remove
+ * @param {Record<string, any>} context.set
+ * @param {string} context.target
+ * @returns {HighlightCleanupPlan}
+ * @private
+ */
+function _buildClearPlanForCanonical(context) {
+  const action = _resolveClearCanonicalAction(context.canonical);
+  return CLEAR_CANONICAL_PLAN_BUILDERS[action](context);
+}
+
+/**
+ * @param {Record<string, any>} snapshot
+ * @param {string} target
+ * @param {string[]} remove
+ * @returns {boolean}
+ * @private
+ */
+function _shouldRemoveCanonicalTarget(snapshot, target, remove) {
+  return ![Boolean(target), _hasSnapshotValue(snapshot, target), !remove.includes(target)].includes(
+    false
+  );
 }
 
 /**
@@ -73,33 +247,16 @@ function _normalizePageObject(value) {
  * @returns {HighlightCleanupPlan}
  */
 export function planClearCleanup(contract, snapshot) {
-  if (!contract || typeof contract !== 'object') {
-    throw new TypeError('[highlightCleanupHelper] contract 必須是 object');
-  }
+  _assertCleanupContract(contract);
 
-  const safeSnapshot = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  const safeSnapshot = _normalizeSnapshot(snapshot);
   const target = contract.mutationTargetKey;
   const remove = _existingLegacyKeysSorted(contract, safeSnapshot);
   /** @type {Record<string, any>} */
   const set = {};
 
   const canonical = _normalizePageObject(safeSnapshot[target]);
-  if (canonical) {
-    if (canonical.notion) {
-      // 保留 notion 與其他欄位，僅 highlights 清空
-      set[target] = {
-        ...canonical,
-        highlights: [],
-        metadata: { ...canonical.metadata, lastUpdated: Date.now() },
-      };
-    } else {
-      // 無 notion 也無有意義內容 → 直接 remove
-      remove.push(target);
-      remove.sort(compareKeysAlphabetically); // 就地排序：此時陣列已是 planClearCleanup 本地變數，安全
-    }
-  }
-
-  return { remove, set };
+  return _buildClearPlanForCanonical({ canonical, remove, set, target });
 }
 
 /**
@@ -115,22 +272,14 @@ export function planClearCleanup(contract, snapshot) {
  * @returns {HighlightCleanupPlan}
  */
 export function planDeleteCleanup(contract, snapshot) {
-  if (!contract || typeof contract !== 'object') {
-    throw new TypeError('[highlightCleanupHelper] contract 必須是 object');
-  }
+  _assertCleanupContract(contract);
 
-  const safeSnapshot = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  const safeSnapshot = _normalizeSnapshot(snapshot);
   const target = contract.mutationTargetKey;
-  const remove = _existingLegacyKeysSorted(contract, safeSnapshot);
+  let remove = _existingLegacyKeysSorted(contract, safeSnapshot);
 
-  if (
-    target &&
-    safeSnapshot[target] !== undefined &&
-    safeSnapshot[target] !== null &&
-    !remove.includes(target)
-  ) {
-    remove.push(target);
-    remove.sort(compareKeysAlphabetically);
+  if (_shouldRemoveCanonicalTarget(safeSnapshot, target, remove)) {
+    remove = _withSortedRemoveTarget(remove, target);
   }
 
   return { remove, set: {} };
