@@ -66,9 +66,15 @@ function isPrefixContext(direction) {
 
 function getElementContextSearchWindow(childNodes, offset, direction) {
   const children = Array.from(childNodes);
-  return isPrefixContext(direction)
-    ? children.slice(0, offset).toReversed()
-    : children.slice(offset);
+  if (!isPrefixContext(direction)) {
+    return children.slice(offset);
+  }
+
+  const previousChildren = [];
+  for (let index = offset - 1; index >= 0; index--) {
+    previousChildren.push(children[index]);
+  }
+  return previousChildren;
 }
 
 function resolveDefaultElementBoundary(childNodes, direction) {
