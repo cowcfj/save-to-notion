@@ -78,7 +78,7 @@ function _hasSnapshotValue(snapshot, key) {
  * @private
  */
 function _isObjectValue(value) {
-  return ![Object(value) === value, typeof value !== 'function'].includes(false);
+  return Object(value) === value && typeof value !== 'function';
 }
 
 /**
@@ -98,7 +98,7 @@ function _assertCleanupContract(contract) {
  * @private
  */
 function _isPageStateObject(value) {
-  return ![_isObjectValue(value), !Array.isArray(value)].includes(false);
+  return _isObjectValue(value) && !Array.isArray(value);
 }
 
 /**
@@ -227,9 +227,7 @@ function _buildClearPlanForCanonical(context) {
  * @private
  */
 function _shouldRemoveCanonicalTarget(snapshot, target, remove) {
-  return ![Boolean(target), _hasSnapshotValue(snapshot, target), !remove.includes(target)].includes(
-    false
-  );
+  return Boolean(target) && _hasSnapshotValue(snapshot, target) && !remove.includes(target);
 }
 
 /**
