@@ -236,6 +236,25 @@ describe('Range Module Coverage Tests', () => {
 
       expect(range).toBeNull();
     });
+
+    test('should not attempt DOM stability or text search when maxRetries is zero', async () => {
+      const rangeInfo = {
+        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
+        startOffset: 0,
+        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
+        endOffset: 4,
+        prefix: 'before',
+        suffix: 'after',
+      };
+
+      pathUtils.getNodeByPath.mockReturnValue(null);
+
+      const range = await restoreRangeWithRetry(rangeInfo, 'Test', 0);
+
+      expect(range).toBeNull();
+      expect(domStabilityUtils.waitForDOMStability).not.toHaveBeenCalled();
+      expect(textSearchUtils.findTextInPage).not.toHaveBeenCalled();
+    });
   });
 
   describe('findRangeByTextContent', () => {

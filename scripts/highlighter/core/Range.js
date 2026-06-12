@@ -88,6 +88,40 @@ function extractElementSuffix(container, offset) {
   return text.slice(0, CONTEXT_LENGTH);
 }
 
+function extractTextPrefix(text, offset) {
+  return text.slice(Math.max(0, offset - CONTEXT_LENGTH), offset);
+}
+
+function extractTextSuffix(text, offset) {
+  return text.slice(offset, Math.min(text.length, offset + CONTEXT_LENGTH));
+}
+
+function extractRangePrefix(range) {
+  const container = range.startContainer;
+  const offset = range.startOffset;
+  if (container.nodeType === Node.TEXT_NODE) {
+    return extractTextPrefix(container.textContent, offset);
+  }
+  try {
+    return extractElementPrefix(container, offset);
+  } catch {
+    return '';
+  }
+}
+
+function extractRangeSuffix(range) {
+  const container = range.endContainer;
+  const offset = range.endOffset;
+  if (container.nodeType === Node.TEXT_NODE) {
+    return extractTextSuffix(container.textContent, offset);
+  }
+  try {
+    return extractElementSuffix(container, offset);
+  } catch {
+    return '';
+  }
+}
+
 /**
  * 序列化 Range 對象
  *
@@ -95,42 +129,13 @@ function extractElementSuffix(container, offset) {
  * @returns {object} 序列化的 Range 資訊
  */
 export function serializeRange(range) {
-  let prefix = '';
-  if (range.startContainer.nodeType === Node.TEXT_NODE) {
-    const text = range.startContainer.textContent;
-    prefix = text.slice(Math.max(0, range.startOffset - CONTEXT_LENGTH), range.startOffset);
-  } else {
-    // Element-node offsets are child indexes; clip context to the current text run
-    // so adjacent block text does not become a misleading prefix.
-    try {
-      prefix = extractElementPrefix(range.startContainer, range.startOffset);
-    } catch {
-      prefix = '';
-    }
-  }
-
-  // 提取後文 (suffix)
-  let suffix = '';
-  if (range.endContainer.nodeType === Node.TEXT_NODE) {
-    const text = range.endContainer.textContent;
-    suffix = text.slice(range.endOffset, Math.min(text.length, range.endOffset + CONTEXT_LENGTH));
-  } else {
-    // Element-node offsets are child indexes; clip context to the current text run
-    // so adjacent block text does not become a misleading suffix.
-    try {
-      suffix = extractElementSuffix(range.endContainer, range.endOffset);
-    } catch {
-      suffix = '';
-    }
-  }
-
   return {
     startContainerPath: getNodePath(range.startContainer),
     startOffset: range.startOffset,
     endContainerPath: getNodePath(range.endContainer),
     endOffset: range.endOffset,
-    prefix, // 新增：用於模糊匹配消歧義
-    suffix, // 新增：用於模糊匹配消歧義
+    prefix: extractRangePrefix(range), // 新增：用於模糊匹配消歧義
+    suffix: extractRangeSuffix(range), // 新增：用於模糊匹配消歧義
   };
 }
 
@@ -171,6 +176,40 @@ export function deserializeRange(rangeInfo, expectedText) {
 }
 
 /**
+ * 在 DOM 穩定後重試反序列化 Range
+ *
+ * @param {object} rangeInfo - Range 資訊
+ * @param {string} text - 文本內容
+ * @returns {Promise<Range|null>}
+ */
+async function retryDeserializeAfterDOMStability(rangeInfo, text) {
+  const isStable = await waitForDOMStability({
+    stabilityThresholdMs: 150,
+    maxWaitMs: 2000,
+  });
+
+  if (!isStable) {
+    return null;
+  }
+
+  return deserializeRange(rangeInfo, text);
+}
+
+/**
+ * 使用序列化的上下文查找 Range
+ *
+ * @param {object} rangeInfo - Range 資訊
+ * @param {string} text - 文本內容
+ * @returns {Range|null}
+ */
+function findRangeByTextWithSerializedContext(rangeInfo, text) {
+  return findTextInPage(text, {
+    prefix: rangeInfo?.prefix,
+    suffix: rangeInfo?.suffix,
+  });
+}
+
+/**
  * 帶重試機制的 Range 恢復
  *
  * @param {object} rangeInfo - Range 資訊
@@ -180,36 +219,23 @@ export function deserializeRange(rangeInfo, expectedText) {
  */
 export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
   // 嘗試直接反序列化
-  let range = deserializeRange(rangeInfo, text);
+  const range = deserializeRange(rangeInfo, text);
   if (range) {
     return range;
   }
 
-  // 提取上下文，以便在文本搜索時進行消歧義
-  const context = {
-    prefix: rangeInfo?.prefix,
-    suffix: rangeInfo?.suffix,
-  };
-
   // 等待 DOM 穩定後重試
   for (let i = 0; i < maxRetries; i++) {
-    const isStable = await waitForDOMStability({
-      stabilityThresholdMs: 150,
-      maxWaitMs: 2000,
-    });
-
-    if (isStable) {
-      range = deserializeRange(rangeInfo, text);
-      if (range) {
-        return range;
-      }
+    const retriedRange = await retryDeserializeAfterDOMStability(rangeInfo, text);
+    if (retriedRange) {
+      return retriedRange;
     }
 
     // 最後嘗試：使用文本搜索（傳入上下文交由 findTextInPage 處理）
     if (i === maxRetries - 1) {
-      range = findTextInPage(text, context);
-      if (range) {
-        return range;
+      const fallbackRange = findRangeByTextWithSerializedContext(rangeInfo, text);
+      if (fallbackRange) {
+        return fallbackRange;
       }
     }
   }
