@@ -14,6 +14,11 @@ const MIGRATION_WRITE_RESULTS = Object.freeze({
   CLEANUP_NEEDED: 'cleanup_needed',
 });
 
+const MIGRATION_CONFLICT_RESULTS = Object.freeze({
+  STABLE_KEPT: 'stable_kept',
+  SUPPLEMENTED: 'supplemented',
+});
+
 /**
  * Migration 服務
  * 負責處理跨版本升級的數據遷移與初始化
@@ -127,7 +132,7 @@ export class MigrationService {
     });
 
     if (this._hasExistingHighlights(existingHighlights)) {
-      return this._handleMigrationTargetConflict({
+      const conflictResult = await this._handleMigrationTargetConflict({
         stableUrl,
         legacyUrl,
         existingPageData,
@@ -136,6 +141,7 @@ export class MigrationService {
         migratedHighlights,
         existingHighlightsCount: existingHighlights.length,
       });
+      return Boolean(conflictResult);
     }
 
     await this._writeMigrationData({
@@ -302,7 +308,7 @@ export class MigrationService {
    * @param {Array} params.existingHighlights - 目標已有標註
    * @param {Array} params.migratedHighlights - 來源遷移後標註
    * @param {number} params.existingHighlightsCount - 目標已有標註數量
-   * @returns {Promise<boolean>} 是否有補遷移 saved metadata
+   * @returns {Promise<boolean|string>} 是否已完成衝突處理
    * @private
    */
   async _handleMigrationTargetConflict({
@@ -345,7 +351,9 @@ export class MigrationService {
       hasExistingPageData: Boolean(existingPageData),
       supplementedNotion,
     });
-    return supplementedNotion;
+    return supplementedNotion
+      ? MIGRATION_CONFLICT_RESULTS.SUPPLEMENTED
+      : MIGRATION_CONFLICT_RESULTS.STABLE_KEPT;
   }
 
   /**
@@ -432,14 +440,12 @@ export class MigrationService {
     const existingIds = this._extractHighlightIds(existingHighlights);
     const migratedIds = this._extractHighlightIds(migratedHighlights);
     if (existingIds && migratedIds) {
-      return this._haveSameHighlightIds(existingIds, migratedIds);
+      return this._haveSameHighlightIds(existingIds, migratedIds)
+        ? this._haveEquivalentHighlightPayloads(existingHighlights, migratedHighlights)
+        : false;
     }
 
-    try {
-      return JSON.stringify(existingHighlights) === JSON.stringify(migratedHighlights);
-    } catch {
-      return false;
-    }
+    return this._areValuesEquivalent(existingHighlights, migratedHighlights);
   }
 
   /**
@@ -467,6 +473,33 @@ export class MigrationService {
       return false;
     }
     return firstIds.every(id => secondSet.has(id));
+  }
+
+  /**
+   * @param {Array} existingHighlights
+   * @param {Array} migratedHighlights
+   * @returns {boolean}
+   * @private
+   */
+  _haveEquivalentHighlightPayloads(existingHighlights, migratedHighlights) {
+    const migratedById = new Map(migratedHighlights.map(highlight => [highlight.id, highlight]));
+    return existingHighlights.every(existingHighlight =>
+      this._areValuesEquivalent(existingHighlight, migratedById.get(existingHighlight.id))
+    );
+  }
+
+  /**
+   * @param {any} firstValue
+   * @param {any} secondValue
+   * @returns {boolean}
+   * @private
+   */
+  _areValuesEquivalent(firstValue, secondValue) {
+    try {
+      return JSON.stringify(firstValue) === JSON.stringify(secondValue);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -568,7 +601,8 @@ export class MigrationService {
     if (typeof this.storageService.setUrlAlias !== 'function') {
       return;
     }
-    await Promise.resolve(this.storageService.setUrlAlias(legacyUrl, stableUrl))
+    await Promise.resolve()
+      .then(() => this.storageService.setUrlAlias(legacyUrl, stableUrl))
       .then(() => {
         Logger.info('Set URL alias during migration', {
           action: 'migrate:set-alias',
@@ -699,7 +733,7 @@ export class MigrationService {
       const data = await this.storageService.getHighlights(url);
 
       if (!data) {
-        return { success: true, message: 'No data to migrate' };
+        return { success: true, message: '沒有可遷移的資料' };
       }
 
       // 2. Find or create tab
@@ -888,7 +922,7 @@ export class MigrationService {
     return {
       success: true,
       count: stats.newHighlightsCreated ?? 0,
-      message: `Successfully migrated ${stats.newHighlightsCreated ?? 0} highlights`,
+      message: `已成功遷移 ${stats.newHighlightsCreated ?? 0} 筆標註`,
       statistics: stats,
     };
   }
