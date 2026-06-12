@@ -60,50 +60,68 @@ function createBoundaryRange(container, startOffset, endOffset) {
   return boundaryRange;
 }
 
-function extractElementPrefix(container, offset) {
-  let startOffset = 0;
-  for (let i = offset - 1; i >= 0; i--) {
-    if (isBlockBoundaryNode(container.childNodes[i])) {
-      startOffset = i + 1;
-      break;
-    }
-  }
-
-  const text = createBoundaryRange(container, startOffset, offset).toString();
-  if (text.trim().length === 0) {
-    return '';
-  }
-  return text.slice(Math.max(0, text.length - CONTEXT_LENGTH));
+function isPrefixContext(direction) {
+  return direction === CONTEXT_DIRECTION.PREFIX;
 }
 
-function extractElementSuffix(container, offset) {
-  let endOffset = container.childNodes.length;
-  for (let i = offset; i < container.childNodes.length; i++) {
-    if (isBlockBoundaryNode(container.childNodes[i])) {
-      endOffset = i;
-      break;
-    }
-  }
-
-  const text = createBoundaryRange(container, offset, endOffset).toString();
-  if (text.trim().length === 0) {
-    return '';
-  }
-  return text.slice(0, CONTEXT_LENGTH);
+function getElementContextSearchWindow(childNodes, offset, direction) {
+  const children = Array.from(childNodes);
+  return isPrefixContext(direction)
+    ? children.slice(0, offset).toReversed()
+    : children.slice(offset);
 }
 
-function extractTextContext(text, offset, direction) {
-  if (direction === CONTEXT_DIRECTION.PREFIX) {
+function resolveDefaultElementBoundary(childNodes, direction) {
+  return isPrefixContext(direction) ? 0 : childNodes.length;
+}
+
+function resolveMatchedElementBoundary(offset, relativeIndex, direction) {
+  return isPrefixContext(direction) ? offset - relativeIndex : offset + relativeIndex;
+}
+
+function findElementContextBoundary(childNodes, offset, direction) {
+  const relativeIndex = getElementContextSearchWindow(childNodes, offset, direction).findIndex(
+    node => isBlockBoundaryNode(node)
+  );
+
+  if (relativeIndex === -1) {
+    return resolveDefaultElementBoundary(childNodes, direction);
+  }
+
+  return resolveMatchedElementBoundary(offset, relativeIndex, direction);
+}
+
+function createElementContextText(container, offset, direction) {
+  const boundaryOffset = findElementContextBoundary(container.childNodes, offset, direction);
+  const startOffset = isPrefixContext(direction) ? boundaryOffset : offset;
+  const endOffset = isPrefixContext(direction) ? offset : boundaryOffset;
+
+  return createBoundaryRange(container, startOffset, endOffset).toString();
+}
+
+function sliceContextText(text, offset, direction) {
+  if (isPrefixContext(direction)) {
     return text.slice(Math.max(0, offset - CONTEXT_LENGTH), offset);
   }
   return text.slice(offset, Math.min(text.length, offset + CONTEXT_LENGTH));
 }
 
-function extractElementContext(container, offset, direction) {
-  if (direction === CONTEXT_DIRECTION.PREFIX) {
-    return extractElementPrefix(container, offset);
+function trimElementContextText(text, direction) {
+  if (text.trim().length === 0) {
+    return '';
   }
-  return extractElementSuffix(container, offset);
+  return isPrefixContext(direction)
+    ? text.slice(Math.max(0, text.length - CONTEXT_LENGTH))
+    : text.slice(0, CONTEXT_LENGTH);
+}
+
+function extractTextContext(text, offset, direction) {
+  return sliceContextText(text, offset, direction);
+}
+
+function extractElementContext(container, offset, direction) {
+  const text = createElementContextText(container, offset, direction);
+  return trimElementContextText(text, direction);
 }
 
 function extractRangeContext(container, offset, direction) {
@@ -114,6 +132,35 @@ function extractRangeContext(container, offset, direction) {
     return extractElementContext(container, offset, direction);
   } catch {
     return '';
+  }
+}
+
+function resolveSerializedRangeNodes(rangeInfo) {
+  const startNode = getNodeByPath(rangeInfo.startContainerPath);
+  const endNode = getNodeByPath(rangeInfo.endContainerPath);
+
+  return startNode && endNode ? { startNode, endNode } : null;
+}
+
+function createRangeFromSerializedNodes(rangeInfo, nodes) {
+  const range = document.createRange();
+  range.setStart(nodes.startNode, rangeInfo.startOffset);
+  range.setEnd(nodes.endNode, rangeInfo.endOffset);
+  return range;
+}
+
+function matchExpectedRangeText(range, expectedText) {
+  return range.toString() === expectedText ? range : null;
+}
+
+function safelyDeserializeRange(rangeInfo, expectedText) {
+  try {
+    const nodes = resolveSerializedRangeNodes(rangeInfo);
+    return nodes
+      ? matchExpectedRangeText(createRangeFromSerializedNodes(rangeInfo, nodes), expectedText)
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -142,32 +189,7 @@ export function serializeRange(range) {
  * @returns {Range|null} 恢復的 Range 或 null
  */
 export function deserializeRange(rangeInfo, expectedText) {
-  if (!rangeInfo) {
-    return null;
-  }
-
-  try {
-    const startNode = getNodeByPath(rangeInfo.startContainerPath);
-    const endNode = getNodeByPath(rangeInfo.endContainerPath);
-
-    if (!startNode || !endNode) {
-      return null;
-    }
-
-    const range = document.createRange();
-    range.setStart(startNode, rangeInfo.startOffset);
-    range.setEnd(endNode, rangeInfo.endOffset);
-
-    // 驗證文本
-    const actualText = range.toString();
-    if (actualText !== expectedText) {
-      return null;
-    }
-
-    return range;
-  } catch {
-    return null;
-  }
+  return rangeInfo ? safelyDeserializeRange(rangeInfo, expectedText) : null;
 }
 
 /**
@@ -204,6 +226,25 @@ function findRangeByTextWithSerializedContext(rangeInfo, text) {
   });
 }
 
+async function restoreRangeAttempt(rangeInfo, text, isFinalAttempt) {
+  const retriedRange = await retryDeserializeAfterDOMStability(rangeInfo, text);
+
+  return (
+    retriedRange || (isFinalAttempt ? findRangeByTextWithSerializedContext(rangeInfo, text) : null)
+  );
+}
+
+async function restoreRangeWithDOMRetries(rangeInfo, text, maxRetries) {
+  for (let retryIndex = 0; retryIndex < maxRetries; retryIndex++) {
+    const range = await restoreRangeAttempt(rangeInfo, text, retryIndex === maxRetries - 1);
+    if (range) {
+      return range;
+    }
+  }
+
+  return null;
+}
+
 /**
  * 帶重試機制的 Range 恢復
  *
@@ -214,28 +255,9 @@ function findRangeByTextWithSerializedContext(rangeInfo, text) {
  */
 export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
   // 嘗試直接反序列化
-  const range = deserializeRange(rangeInfo, text);
-  if (range) {
-    return range;
-  }
-
-  // 等待 DOM 穩定後重試
-  for (let i = 0; i < maxRetries; i++) {
-    const retriedRange = await retryDeserializeAfterDOMStability(rangeInfo, text);
-    if (retriedRange) {
-      return retriedRange;
-    }
-
-    // 最後嘗試：使用文本搜索（傳入上下文交由 findTextInPage 處理）
-    if (i === maxRetries - 1) {
-      const fallbackRange = findRangeByTextWithSerializedContext(rangeInfo, text);
-      if (fallbackRange) {
-        return fallbackRange;
-      }
-    }
-  }
-
-  return null;
+  return (
+    deserializeRange(rangeInfo, text) || restoreRangeWithDOMRetries(rangeInfo, text, maxRetries)
+  );
 }
 
 /**
