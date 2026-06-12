@@ -15,6 +15,7 @@ const PARTIAL_MATCH_LENGTH = 10;
 const MAX_COMBINED_NODES = 5;
 
 const SEARCH_LOG_TAG = '[textSearch]';
+const SKIPPED_SEARCH_PARENT_TAGS = new Set(['SCRIPT', 'STYLE']);
 
 /**
  * 記錄 text search 錯誤
@@ -48,7 +49,13 @@ function logTextSearchError(message, error) {
  * @returns {boolean}
  */
 function hasContextAnchors(context) {
-  return Boolean(context && (context.prefix || context.suffix));
+  if (!context) {
+    return false;
+  }
+  if (context.prefix) {
+    return true;
+  }
+  return Boolean(context.suffix);
 }
 
 /**
@@ -60,19 +67,20 @@ function hasContextAnchors(context) {
 function findTextWithWindowSelection(cleanText) {
   const selection = globalThis.getSelection();
   selection.removeAllRanges();
-  let matchedRange = null;
 
   try {
     const found = globalThis.find(cleanText, false, false, false, false, true, false);
-    if (found && selection.rangeCount > 0) {
-      matchedRange = selection.getRangeAt(0).cloneRange();
+    if (!found) {
+      return null;
     }
+    if (selection.rangeCount === 0) {
+      return null;
+    }
+    return selection.getRangeAt(0).cloneRange();
   } finally {
     // 覆蓋 getRangeAt/cloneRange 例外與一般路徑，確保選區副作用被清理
     selection.removeAllRanges();
   }
-
-  return matchedRange;
 }
 
 /**
@@ -142,13 +150,26 @@ export function findTextInPage(textToFind, context = {}) {
  */
 const SEARCH_NODE_FILTER = {
   acceptNode(node) {
-    const parent = node.parentElement;
-    if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
+    if (shouldSkipSearchTextNode(node)) {
       return NodeFilter.FILTER_SKIP;
     }
     return NodeFilter.FILTER_ACCEPT;
   },
 };
+
+/**
+ * 判斷文字節點是否位於不應搜尋的父元素中
+ *
+ * @param {Node} node - 文字節點
+ * @returns {boolean}
+ */
+function shouldSkipSearchTextNode(node) {
+  const parent = node.parentElement;
+  if (!parent) {
+    return false;
+  }
+  return SKIPPED_SEARCH_PARENT_TAGS.has(parent.tagName);
+}
 
 /**
  * 獲取頁面中用於搜索的所有文本節點，過濾掉不需要的元素
@@ -214,13 +235,27 @@ function findNodeForOffset(nodesInRange, targetOffset) {
       // 在嚴格的大於判斷下可以微調，這裡採取統一計算：偏移 = 總目標 - 已走過長度
       const offset = targetOffset - currentLength;
       // 確保偏移不會超過節點內容，或為負數
-      if (offset >= 0 && offset <= nodeLength) {
+      if (isOffsetWithinNode(offset, nodeLength)) {
         return { node, offset };
       }
     }
     currentLength += nodeLength;
   }
   return null;
+}
+
+/**
+ * 判斷偏移量是否位於單一文字節點範圍內
+ *
+ * @param {number} offset - 節點內偏移量
+ * @param {number} nodeLength - 節點文字長度
+ * @returns {boolean}
+ */
+function isOffsetWithinNode(offset, nodeLength) {
+  if (offset < 0) {
+    return false;
+  }
+  return offset <= nodeLength;
 }
 
 /**
@@ -266,23 +301,54 @@ function createRangeFromNodesMatch(nodesInRange, matchIndex, textLength) {
  */
 function findRangeAcrossNodes(textToFind, textNodes) {
   for (let i = 0; i < textNodes.length; i++) {
-    let combinedText = '';
-    const nodesInRange = [];
-
-    for (let j = i; j < Math.min(i + MAX_COMBINED_NODES, textNodes.length); j++) {
-      combinedText += textNodes[j].textContent;
-      nodesInRange.push(textNodes[j]);
-
-      const matchIndex = combinedText.indexOf(textToFind);
-      if (matchIndex !== -1) {
-        const range = createRangeFromNodesMatch(nodesInRange, matchIndex, textToFind.length);
-        if (range) {
-          return range;
-        }
-      }
+    const range = findRangeStartingAtNode(textToFind, textNodes, i);
+    if (range) {
+      return range;
     }
   }
   return null;
+}
+
+/**
+ * 從指定文字節點開始嘗試建立跨節點 Range
+ *
+ * @param {string} textToFind - 要查找的文本
+ * @param {Node[]} textNodes - 文本節點陣列
+ * @param {number} startIndex - 起始節點索引
+ * @returns {Range|null}
+ */
+function findRangeStartingAtNode(textToFind, textNodes, startIndex) {
+  let combinedText = '';
+  const nodesInRange = [];
+  const endIndex = Math.min(startIndex + MAX_COMBINED_NODES, textNodes.length);
+
+  for (let nodeIndex = startIndex; nodeIndex < endIndex; nodeIndex++) {
+    combinedText += textNodes[nodeIndex].textContent;
+    nodesInRange.push(textNodes[nodeIndex]);
+
+    const range = createRangeFromCombinedText(textToFind, nodesInRange, combinedText);
+    if (range) {
+      return range;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 從合併文字建立匹配 Range
+ *
+ * @param {string} textToFind - 要查找的文本
+ * @param {Node[]} nodesInRange - 範圍內的節點陣列
+ * @param {string} combinedText - 已合併的節點文字
+ * @returns {Range|null}
+ */
+function createRangeFromCombinedText(textToFind, nodesInRange, combinedText) {
+  const matchIndex = combinedText.indexOf(textToFind);
+  if (matchIndex === -1) {
+    return null;
+  }
+  return createRangeFromNodesMatch(nodesInRange, matchIndex, textToFind.length);
 }
 
 /**
@@ -361,7 +427,10 @@ function getPrefixFromNodes(textNodes, nodeIndex, initialText) {
   let prefixText = initialText;
   let idx = nodeIndex - 1;
 
-  while (prefixText.length < CONTEXT_SEARCH_WINDOW && idx >= 0) {
+  while (prefixText.length < CONTEXT_SEARCH_WINDOW) {
+    if (idx < 0) {
+      break;
+    }
     const nodeText = textNodes[idx].textContent;
     const missingLength = CONTEXT_SEARCH_WINDOW - prefixText.length;
     prefixText =
@@ -384,7 +453,10 @@ function getSuffixFromNodes(textNodes, nodeIndex, initialText) {
   let suffixText = initialText;
   let idx = nodeIndex + 1;
 
-  while (suffixText.length < CONTEXT_SEARCH_WINDOW && idx < textNodes.length) {
+  while (suffixText.length < CONTEXT_SEARCH_WINDOW) {
+    if (idx >= textNodes.length) {
+      break;
+    }
     const nodeText = textNodes[idx].textContent;
     const missingLength = CONTEXT_SEARCH_WINDOW - suffixText.length;
     suffixText += nodeText.length > missingLength ? nodeText.slice(0, missingLength) : nodeText;
@@ -497,7 +569,10 @@ function createWhitespaceFlexibleRegex(cleanText) {
  * @returns {boolean}
  */
 function shouldUseFirstFuzzyCandidate(candidates, context) {
-  return candidates.length === 1 || !hasContextAnchors(context);
+  if (candidates.length === 1) {
+    return true;
+  }
+  return !hasContextAnchors(context);
 }
 
 /**
@@ -531,7 +606,13 @@ function selectBestFuzzyCandidate(candidates, context, textNodes) {
  * @returns {boolean}
  */
 function shouldReportFuzzyDisambiguationFailure(maxScore, context) {
-  return maxScore <= 0 && hasContextAnchors(context) && globalThis.Logger !== undefined;
+  if (maxScore > 0) {
+    return false;
+  }
+  if (!hasContextAnchors(context)) {
+    return false;
+  }
+  return globalThis.Logger !== undefined;
 }
 
 /**
@@ -552,7 +633,10 @@ function getOptionalTextLength(text) {
  */
 function getBestCandidateRangeLength(bestCandidate) {
   const range = bestCandidate.range;
-  if (!range || typeof range.toString !== 'function') {
+  if (!range) {
+    return 0;
+  }
+  if (typeof range.toString !== 'function') {
     return 0;
   }
   return range.toString().length;
