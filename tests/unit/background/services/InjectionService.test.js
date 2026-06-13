@@ -4,6 +4,7 @@ import {
   isRecoverableInjectionError,
   getRuntimeErrorMessage,
 } from '../../../../scripts/background/services/InjectionService.js';
+import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
@@ -86,7 +87,12 @@ describe('InjectionService', () => {
     delete globalThis.HighlighterV2;
     delete globalThis.notionHighlighter;
     delete globalThis.__NOTION_RAIL_READY__;
-    chrome.runtime.lastError = null;
+    Object.defineProperty(chrome.runtime, 'lastError', {
+      value: null,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
   });
 
   describe('isRestrictedInjectionUrl', () => {
@@ -306,6 +312,11 @@ describe('InjectionService', () => {
 
       // Assert
       expect(result).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.success).toHaveBeenCalledWith(
         expect.stringContaining('Bundle already exists'),
@@ -333,6 +344,11 @@ describe('InjectionService', () => {
 
       // Assert
       expect(result).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
       expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
         expect.objectContaining({
           files: ['dist/content.bundle.js'],
@@ -354,6 +370,11 @@ describe('InjectionService', () => {
 
       await serviceWithDefaultLogger.ensureBundleInjected(1);
 
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
       expect(Logger.start).toHaveBeenCalledWith(
         expect.stringContaining('Injecting Content Bundle'),
         expect.objectContaining({
@@ -374,8 +395,16 @@ describe('InjectionService', () => {
 
     it('應在權限受限頁面時返回 false', async () => {
       // PING 請求根本就無法送達，應直接分類為 unreachable，不再繼續注入。
+      let lastErrorAccessed = false;
+      Object.defineProperty(chrome.runtime, 'lastError', {
+        get: () => {
+          lastErrorAccessed = true;
+          return { message: 'Cannot access contents of page' };
+        },
+        configurable: true,
+      });
+
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
-        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
         callback();
       });
 
@@ -385,6 +414,12 @@ describe('InjectionService', () => {
       // Assert
       expect(result).toBe(false);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+      expect(lastErrorAccessed).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('PING failed with recoverable error'),
         expect.objectContaining({
@@ -412,14 +447,28 @@ describe('InjectionService', () => {
 
         const result = await promise;
         expect(result).toBe(true);
+        expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+          1,
+          { action: RUNTIME_ACTIONS.PING },
+          expect.any(Function)
+        );
         expect(chrome.scripting.executeScript).toHaveBeenCalled();
       } finally {
         jest.useRealTimers();
       }
     });
+
     it('應在 PING 觸發 receiving end does not exist 時返回 false (可恢復錯誤)', async () => {
+      let lastErrorAccessed = false;
+      Object.defineProperty(chrome.runtime, 'lastError', {
+        get: () => {
+          lastErrorAccessed = true;
+          return { message: 'Receiving end does not exist' };
+        },
+        configurable: true,
+      });
+
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
-        chrome.runtime.lastError = { message: 'Receiving end does not exist' };
         callback();
       });
 
@@ -427,6 +476,12 @@ describe('InjectionService', () => {
 
       expect(result).toBe(false);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+      expect(lastErrorAccessed).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('PING failed with recoverable error'),
         expect.objectContaining({
@@ -444,16 +499,35 @@ describe('InjectionService', () => {
       });
 
       await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Native Error');
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
     });
 
     it('應在 PING 回傳不可恢復 lastError 時向外拋出', async () => {
+      let lastErrorAccessed = false;
+      Object.defineProperty(chrome.runtime, 'lastError', {
+        get: () => {
+          lastErrorAccessed = true;
+          return { message: 'Fatal Ping Error' };
+        },
+        configurable: true,
+      });
+
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
-        chrome.runtime.lastError = { message: 'Fatal Ping Error' };
         callback();
       });
 
       await expect(service.ensureBundleInjected(1)).rejects.toThrow('Fatal Ping Error');
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+      expect(lastErrorAccessed).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
     });
   });
 
