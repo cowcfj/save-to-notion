@@ -2,38 +2,72 @@
  * 重試管理器
  * 專門處理網絡請求和異步操作的重試邏輯
  */
+const RETRYABLE_NETWORK_ERROR_NAMES = new Set(['NetworkError', 'TimeoutError']);
+const RETRYABLE_HTTP_STATUS_CODES = new Set([408, 429]);
+const DOM_READY_ERROR_NAMES = new Set(['InvalidStateError']);
+const DOM_TRANSIENT_ERROR_NAMES = new Set(['NotFoundError']);
+const DOM_READY_MESSAGE_FRAGMENTS = ['not ready', 'loading'];
+const DOM_TRANSIENT_MESSAGE_FRAGMENTS = ['not found'];
+
+function hasLogErrorMethod(ref) {
+  if (!ref) {
+    return false;
+  }
+  return typeof ref.logError === 'function';
+}
+
+function isErrorHandlerInstance(ref) {
+  if (typeof ref !== 'object') {
+    return false;
+  }
+  return hasLogErrorMethod(ref);
+}
+
+function isErrorHandlerClass(ref) {
+  if (typeof ref !== 'function') {
+    return false;
+  }
+  if (!ref.prototype) {
+    return false;
+  }
+  return hasLogErrorMethod(ref.prototype);
+}
+
+function messageIncludesAny(message, fragments) {
+  return fragments.some(fragment => message.includes(fragment));
+}
+
 /**
  * 獲取錯誤處理器
  *
  * @returns {object|null} ErrorHandler 實例
  */
 function getErrorHandler() {
+  if (typeof globalThis === 'undefined') {
+    return null;
+  }
+
   // 於瀏覽器環境優先使用全域 ErrorHandler，以便在 runtime 覆蓋
-  const globalRef = typeof globalThis === 'undefined' ? null : globalThis.ErrorHandler;
-  const ref = globalRef || null; // 避免引用模組級符號造成遮蔽/循環
+  const ref = globalThis.ErrorHandler; // 避免引用模組級符號造成遮蔽/循環
   if (!ref) {
     return null;
   }
 
   // 若已是實例（具備 logError 方法）
-  if (typeof ref === 'object' && typeof ref.logError === 'function') {
+  if (isErrorHandlerInstance(ref)) {
     return ref;
   }
 
   // 若是類別（原型上有 logError），則嘗試實例化
-  if (
-    typeof globalRef === 'function' &&
-    globalRef.prototype &&
-    typeof globalRef.prototype.logError === 'function'
-  ) {
-    try {
-      return Reflect.construct(globalRef, []);
-    } catch {
-      return null;
-    }
+  if (!isErrorHandlerClass(ref)) {
+    return null;
   }
 
-  return null;
+  try {
+    return Reflect.construct(ref, []);
+  } catch {
+    return null;
+  }
 }
 /**
  * 獲取日誌記錄器
@@ -42,10 +76,13 @@ function getErrorHandler() {
  */
 function getLogger() {
   // 統一取得 Logger，若無則返回 null（避免使用 console.* 以符合生產規範）
-  if (typeof globalThis !== 'undefined' && globalThis.Logger) {
-    return globalThis.Logger;
+  if (typeof globalThis === 'undefined') {
+    return null;
   }
-  return null;
+  if (!globalThis.Logger) {
+    return null;
+  }
+  return globalThis.Logger;
 }
 class RetryManager {
   /**
@@ -88,7 +125,11 @@ class RetryManager {
         this._recordSuccessContext(attempt, config, totalDelayMs);
         return result;
       } catch (error) {
-        if (attempt > config.maxRetries || !this._shouldRetry(error, config)) {
+        if (attempt > config.maxRetries) {
+          this._recordFailureContext(error, attempt, config, totalDelayMs);
+          throw error;
+        }
+        if (!this._shouldRetry(error, config)) {
           this._recordFailureContext(error, attempt, config, totalDelayMs);
           throw error;
         }
@@ -96,13 +137,13 @@ class RetryManager {
         const delay = this._determineDelay(error, attempt, config);
         this._checkTimeout(startTime, delay, config, attempt);
 
-        RetryManager._logRetryAttempt(
+        RetryManager._logRetryAttempt({
           error,
           attempt,
-          config.maxRetries + 1,
+          maxAttempts: config.maxRetries + 1,
           delay,
-          config.contextType
-        );
+          contextType: config.contextType,
+        });
 
         await RetryManager._delay(delay, config.signal);
         totalDelayMs += delay;
@@ -128,10 +169,7 @@ class RetryManager {
         },
         {
           contextType: 'network',
-          shouldRetry: error =>
-            typeof retryOptions.shouldRetry === 'function'
-              ? retryOptions.shouldRetry.call(this, error)
-              : RetryManager._shouldRetryNetworkError(error),
+          shouldRetry: error => this._shouldRetryFetchError(error, retryOptions),
           ...retryOptions,
         }
       );
@@ -173,6 +211,13 @@ class RetryManager {
     return RetryManager._shouldRetryNetworkError(error);
   }
 
+  _shouldRetryFetchError(error, retryOptions) {
+    if (typeof retryOptions.shouldRetry === 'function') {
+      return retryOptions.shouldRetry.call(this, error);
+    }
+    return RetryManager._shouldRetryNetworkError(error);
+  }
+
   /**
    * 判斷網絡錯誤是否應該重試
    *
@@ -186,7 +231,7 @@ class RetryManager {
     }
 
     const name = error.name;
-    if (name === 'NetworkError' || name === 'TimeoutError') {
+    if (RETRYABLE_NETWORK_ERROR_NAMES.has(name)) {
       return true;
     }
 
@@ -197,8 +242,7 @@ class RetryManager {
 
     const status = error.status;
     if (typeof status === 'number') {
-      // 5xx 服務器錯誤、429 Too Many Requests、408 Request Timeout 可以重試
-      return Math.floor(status / 100) === 5 || status === 429 || status === 408;
+      return RetryManager._isRetryableHttpStatus(status);
     }
 
     return false;
@@ -216,12 +260,19 @@ class RetryManager {
     const msg = String(error?.message || '');
 
     // DOM 還未準備好
-    if (name === 'InvalidStateError' || msg.includes('not ready') || msg.includes('loading')) {
+    if (DOM_READY_ERROR_NAMES.has(name)) {
+      return true;
+    }
+    if (messageIncludesAny(msg, DOM_READY_MESSAGE_FRAGMENTS)) {
       return true;
     }
 
     // 元素暫時不可訪問
-    return name === 'NotFoundError' || msg.includes('not found');
+    if (DOM_TRANSIENT_ERROR_NAMES.has(name)) {
+      return true;
+    }
+
+    return messageIncludesAny(msg, DOM_TRANSIENT_MESSAGE_FRAGMENTS);
   }
 
   /**
@@ -241,7 +292,7 @@ class RetryManager {
 
     // 添加隨機抖動以避免雷群效應（可注入隨機來源以利測試）
     if (config.jitter) {
-      const rnd = typeof config.random === 'function' ? config.random() : RetryManager._random();
+      const rnd = RetryManager._resolveRandomValue(config);
       delay = delay * (0.5 + rnd * 0.5);
     }
 
@@ -302,13 +353,14 @@ class RetryManager {
    * 記錄重試嘗試
    *
    * @private
-   * @param {Error} error - 錯誤對象
-   * @param {number} attempt - 當前嘗試次數
-   * @param {number} maxAttempts - 最大嘗試次數
-   * @param {number} delay - 延遲時間
-   * @param {string} contextType - 上下文類型
+   * @param {object} details - 重試嘗試資訊
+   * @param {Error} details.error - 錯誤對象
+   * @param {number} details.attempt - 當前嘗試次數
+   * @param {number} details.maxAttempts - 最大嘗試次數
+   * @param {number} details.delay - 延遲時間
+   * @param {string} details.contextType - 上下文類型
    */
-  static _logRetryAttempt(error, attempt, maxAttempts, delay, contextType = 'network') {
+  static _logRetryAttempt({ error, attempt, maxAttempts, delay, contextType = 'network' }) {
     const logger = getLogger();
     const msg = String(error?.message || '');
     const message = `[重試] 第 ${attempt}/${maxAttempts} 次，延遲 ${delay}ms：${msg}`;
@@ -317,7 +369,7 @@ class RetryManager {
     const safeError = RetryManager._sanitizeErrorForLog(error);
 
     // 使用 Logger（若不可用則在非生產環境降級到 console）
-    if (logger && typeof logger.warn === 'function') {
+    if (RetryManager._hasLogMethod(logger, 'warn')) {
       logger.warn(message, { error: safeError, attempt, maxAttempts, delay, contextType });
     } else {
       RetryManager._logToConsoleInDev(message);
@@ -340,9 +392,11 @@ class RetryManager {
   static _logRetrySuccess(totalRetries, contextType = 'network') {
     const logger = getLogger();
     const message = `[重試] 已成功，經歷 ${totalRetries} 次重試（${contextType}）`;
-    if (logger && typeof logger.success === 'function') {
+    if (RetryManager._hasLogMethod(logger, 'success')) {
       logger.success(message, { totalRetries, contextType });
-    } else if (logger && typeof logger.info === 'function') {
+      return;
+    }
+    if (RetryManager._hasLogMethod(logger, 'info')) {
       logger.info(message, { totalRetries, contextType });
     }
   }
@@ -358,7 +412,7 @@ class RetryManager {
    */
   static _logRetryFailure(error, totalRetries, contextType = 'network', options = {}) {
     // 如果提供了 shouldLogFailure 且返回 false，則不記錄錯誤日誌
-    if (typeof options.shouldLogFailure === 'function' && !options.shouldLogFailure(error)) {
+    if (!RetryManager._shouldLogRetryFailure(error, options)) {
       return;
     }
 
@@ -369,7 +423,7 @@ class RetryManager {
     // 安全過濾
     const safeError = RetryManager._sanitizeErrorForLog(error);
 
-    if (logger && typeof logger.error === 'function') {
+    if (RetryManager._hasLogMethod(logger, 'error')) {
       logger.error(message, { error: safeError, totalRetries, contextType });
     }
 
@@ -389,7 +443,10 @@ class RetryManager {
    * @returns {object} 安全的錯誤資訊物件
    */
   static _sanitizeErrorForLog(error) {
-    if (!error || typeof error !== 'object') {
+    if (!error) {
+      return { message: String(error) };
+    }
+    if (typeof error !== 'object') {
       return { message: String(error) };
     }
 
@@ -422,14 +479,16 @@ class RetryManager {
    */
   static _reportToErrorHandler(contextType, context, error) {
     const handler = getErrorHandler();
-    if (handler && typeof handler.logError === 'function') {
-      handler.logError({
-        type: contextType === 'dom' ? 'dom_error' : 'network_error',
-        context,
-        originalError: error,
-        timestamp: Date.now(),
-      });
+    if (!hasLogErrorMethod(handler)) {
+      return;
     }
+
+    handler.logError({
+      type: RetryManager._resolveErrorHandlerType(contextType),
+      context,
+      originalError: error,
+      timestamp: Date.now(),
+    });
   }
 
   /**
@@ -507,9 +566,10 @@ class RetryManager {
 
   _determineDelay(error, attempt, config) {
     const retryAfter = typeof error?.retryAfterMs === 'number' ? error.retryAfterMs : undefined;
-    return typeof retryAfter === 'number'
-      ? retryAfter
-      : RetryManager._calculateDelay(attempt, config);
+    if (typeof retryAfter === 'number') {
+      return retryAfter;
+    }
+    return RetryManager._calculateDelay(attempt, config);
   }
 
   _checkTimeout(startTime, delay, config, attempt) {
@@ -531,68 +591,143 @@ class RetryManager {
   }
 
   static _validateFetchResponse(res, retryOptions) {
-    if (!res || typeof res.status !== 'number') {
+    const status = RetryManager._getResponseStatus(res);
+    if (status === null) {
       return;
     }
 
-    const status = res.status;
-    const isDefaultRetryable = (status >= 500 && status < 600) || status === 429 || status === 408;
-
-    let shouldRetryResp = isDefaultRetryable;
-    if (typeof retryOptions.shouldRetryResponse === 'function') {
-      try {
-        shouldRetryResp = Boolean(retryOptions.shouldRetryResponse(res));
-      } catch {
-        shouldRetryResp = isDefaultRetryable;
-      }
+    if (!RetryManager._shouldRetryFetchResponse(res, retryOptions, status)) {
+      return;
     }
 
-    if (shouldRetryResp) {
-      const err = new Error(`可重試的 HTTP 狀態：${status}`);
-      err.name = 'HttpError';
-      err.status = status;
-      err.response = res;
-
-      const ra = RetryManager._parseRetryAfterHeader(res);
-      if (ra > 0) {
-        err.retryAfterMs = ra;
-      }
-
-      throw err;
-    }
+    throw RetryManager._createRetryableHttpError(status, res);
   }
 
   static _parseRetryAfterHeader(res) {
     try {
-      if (!res?.headers || typeof res.headers.get !== 'function') {
-        return 0;
-      }
-      const ra = res.headers.get('Retry-After');
+      const ra = RetryManager._getRetryAfterHeader(res);
       if (!ra) {
         return 0;
       }
 
-      const sec = Number(ra);
-      if (Number.isNaN(sec)) {
-        const dateMs = Date.parse(ra);
-        if (!Number.isNaN(dateMs)) {
-          const delta = dateMs - Date.now();
-          return Math.max(delta, 0);
-        }
-      } else {
-        return Math.max(0, Math.floor(sec * 1000));
-      }
+      return RetryManager._parseRetryAfterValue(ra);
     } catch {
       return 0;
     }
-    return 0;
+  }
+
+  static _isRetryableHttpStatus(status) {
+    if (RETRYABLE_HTTP_STATUS_CODES.has(status)) {
+      return true;
+    }
+    if (status < 500) {
+      return false;
+    }
+    return status < 600;
+  }
+
+  static _hasLogMethod(logger, methodName) {
+    if (!logger) {
+      return false;
+    }
+    return typeof logger[methodName] === 'function';
+  }
+
+  static _shouldLogRetryFailure(error, options) {
+    if (typeof options.shouldLogFailure !== 'function') {
+      return true;
+    }
+    return options.shouldLogFailure(error);
+  }
+
+  static _resolveErrorHandlerType(contextType) {
+    if (contextType === 'dom') {
+      return 'dom_error';
+    }
+    return 'network_error';
+  }
+
+  static _resolveRandomValue(config) {
+    if (typeof config.random === 'function') {
+      return config.random();
+    }
+    return RetryManager._random();
+  }
+
+  static _getResponseStatus(res) {
+    if (!res) {
+      return null;
+    }
+    if (typeof res.status !== 'number') {
+      return null;
+    }
+    return res.status;
+  }
+
+  static _shouldRetryFetchResponse(res, retryOptions, status) {
+    const isDefaultRetryable = RetryManager._isRetryableHttpStatus(status);
+    if (typeof retryOptions.shouldRetryResponse !== 'function') {
+      return isDefaultRetryable;
+    }
+
+    try {
+      return Boolean(retryOptions.shouldRetryResponse(res));
+    } catch {
+      return isDefaultRetryable;
+    }
+  }
+
+  static _createRetryableHttpError(status, res) {
+    const err = new Error(`可重試的 HTTP 狀態：${status}`);
+    err.name = 'HttpError';
+    err.status = status;
+    err.response = res;
+
+    const retryAfterMs = RetryManager._parseRetryAfterHeader(res);
+    if (retryAfterMs > 0) {
+      err.retryAfterMs = retryAfterMs;
+    }
+
+    return err;
+  }
+
+  static _getRetryAfterHeader(res) {
+    if (!res) {
+      return null;
+    }
+    const { headers } = res;
+    if (!headers) {
+      return null;
+    }
+    if (typeof headers.get !== 'function') {
+      return null;
+    }
+    return headers.get('Retry-After');
+  }
+
+  static _parseRetryAfterValue(retryAfter) {
+    const seconds = Number(retryAfter);
+    if (!Number.isNaN(seconds)) {
+      return Math.max(0, Math.floor(seconds * 1000));
+    }
+
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isNaN(dateMs)) {
+      return 0;
+    }
+
+    const delta = dateMs - Date.now();
+    return Math.max(delta, 0);
   }
 
   static _random() {
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      return crypto.getRandomValues(new Uint32Array(1))[0] / 4_294_967_295;
+    if (typeof crypto === 'undefined') {
+      return Math.random(); // eslint-disable-line sonarjs/pseudo-random
     }
-    return Math.random(); // eslint-disable-line sonarjs/pseudo-random
+    if (!crypto.getRandomValues) {
+      return Math.random(); // eslint-disable-line sonarjs/pseudo-random
+    }
+    return crypto.getRandomValues(new Uint32Array(1))[0] / 4_294_967_295;
   }
 }
 
@@ -624,7 +759,13 @@ function fetchWithRetry(url, options = {}, retryOptions = {}) {
 }
 
 // 導出類和函數
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module === 'undefined') {
+  if (globalThis.window !== undefined) {
+    globalThis.RetryManager = RetryManager;
+    globalThis.withRetry = withRetry;
+    globalThis.fetchWithRetry = fetchWithRetry;
+  }
+} else if (module.exports) {
   module.exports = { RetryManager, withRetry, fetchWithRetry };
 } else if (globalThis.window !== undefined) {
   globalThis.RetryManager = RetryManager;

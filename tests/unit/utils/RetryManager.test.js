@@ -352,7 +352,12 @@ describe('RetryManager', () => {
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
       try {
         delete globalThis.Logger;
-        RetryManager._logRetryAttempt(new Error('test'), 1, 3, 100);
+        RetryManager._logRetryAttempt({
+          error: new Error('test'),
+          attempt: 1,
+          maxAttempts: 3,
+          delay: 100,
+        });
         expect(consoleWarnSpy).toHaveBeenCalled();
       } finally {
         consoleWarnSpy.mockRestore();
@@ -862,7 +867,7 @@ describe('RetryManager Comprehensive Tests', () => {
 
       const error = new Error('Test error');
 
-      RetryManager._logRetryAttempt(error, 1, 3, 100);
+      RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('重試'),
@@ -889,7 +894,7 @@ describe('RetryManager Comprehensive Tests', () => {
         };
 
         const error = new Error('Test error');
-        RetryManager._logRetryAttempt(error, 1, 3, 100);
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
         expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
       } finally {
@@ -914,7 +919,7 @@ describe('RetryManager Comprehensive Tests', () => {
         globalThis.ErrorHandler = MockErrorHandler;
 
         const error = new Error('Test error');
-        RetryManager._logRetryAttempt(error, 1, 3, 100);
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
         expect(logErrorSpy).toHaveBeenCalled();
       } finally {
@@ -1188,7 +1193,12 @@ describe('RetryManager Security Tests', () => {
       },
     };
 
-    RetryManager._logRetryAttempt(sensitiveError, 1, 3, 100);
+    RetryManager._logRetryAttempt({
+      error: sensitiveError,
+      attempt: 1,
+      maxAttempts: 3,
+      delay: 100,
+    });
 
     expect(mockLogger.warn).toHaveBeenCalledTimes(1);
     const logCall = mockLogger.warn.mock.calls[0];
