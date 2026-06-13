@@ -112,41 +112,20 @@ class RetryManager {
   async execute(operation, options = {}) {
     // 確保 this.options 中的 random 能覆蓋默認值
     const config = { ...this.options, ...options };
-    let totalDelayMs = 0;
-    const startTime = Date.now();
+    const retryState = {
+      totalDelayMs: 0,
+      startTime: Date.now(),
+    };
 
     for (let attempt = 1; attempt <= config.maxRetries + 1; attempt++) {
-      if (config.signal?.aborted) {
-        throw RetryManager._createAbortError();
-      }
+      RetryManager._throwIfAborted(config.signal);
 
       try {
         const result = await operation();
-        this._recordSuccessContext(attempt, config, totalDelayMs);
+        this._recordSuccessContext(attempt, config, retryState.totalDelayMs);
         return result;
       } catch (error) {
-        if (attempt > config.maxRetries) {
-          this._recordFailureContext(error, attempt, config, totalDelayMs);
-          throw error;
-        }
-        if (!this._shouldRetry(error, config)) {
-          this._recordFailureContext(error, attempt, config, totalDelayMs);
-          throw error;
-        }
-
-        const delay = this._determineDelay(error, attempt, config);
-        this._checkTimeout(startTime, delay, config, attempt);
-
-        RetryManager._logRetryAttempt({
-          error,
-          attempt,
-          maxAttempts: config.maxRetries + 1,
-          delay,
-          contextType: config.contextType,
-        });
-
-        await RetryManager._delay(delay, config.signal);
-        totalDelayMs += delay;
+        await this._handleFailedAttempt(error, attempt, config, retryState);
       }
     }
     // 迴圈內確保了最終會拋出錯誤，此處代碼不可達
@@ -538,6 +517,31 @@ class RetryManager {
 
   // --- Helpers ---
 
+  async _handleFailedAttempt(error, attempt, config, retryState) {
+    if (attempt > config.maxRetries) {
+      this._recordFailureContext(error, attempt, config, retryState.totalDelayMs);
+      throw error;
+    }
+    if (!this._shouldRetry(error, config)) {
+      this._recordFailureContext(error, attempt, config, retryState.totalDelayMs);
+      throw error;
+    }
+
+    const delay = this._determineDelay(error, attempt, config);
+    this._checkTimeout(retryState.startTime, delay, config, attempt);
+
+    RetryManager._logRetryAttempt({
+      error,
+      attempt,
+      maxAttempts: config.maxRetries + 1,
+      delay,
+      contextType: config.contextType,
+    });
+
+    await RetryManager._delay(delay, config.signal);
+    retryState.totalDelayMs += delay;
+  }
+
   _recordSuccessContext(attempt, config, totalDelayMs) {
     if (attempt > 1) {
       RetryManager._logRetrySuccess(attempt - 1, config.contextType);
@@ -588,6 +592,16 @@ class RetryManager {
     const abortErr = new Error('已取消（AbortSignal）');
     abortErr.name = 'AbortError';
     return abortErr;
+  }
+
+  static _throwIfAborted(signal) {
+    if (!signal) {
+      return;
+    }
+    if (!signal.aborted) {
+      return;
+    }
+    throw RetryManager._createAbortError();
   }
 
   static _validateFetchResponse(res, retryOptions) {
