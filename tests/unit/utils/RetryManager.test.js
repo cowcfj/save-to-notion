@@ -1011,7 +1011,10 @@ describe('RetryManager Comprehensive Tests', () => {
         {
           loggerMethod: 'info',
           contextType: 'network',
-          logger: { info: jest.fn() },
+          logger: {
+            ...createLoggerWithMethods(['info']),
+            success: undefined,
+          },
         },
       ];
 
@@ -1155,6 +1158,8 @@ describe('RetryManager Comprehensive Tests', () => {
         expect(sandbox.window).toBeUndefined();
         if (expectsSelf) {
           expect(sandbox.self).toBe(sandbox);
+        } else {
+          expect(sandbox.self).toBeUndefined();
         }
         expect(sandbox.RetryManager).toEqual(expect.any(Function));
         expect(sandbox.withRetry).toEqual(expect.any(Function));
