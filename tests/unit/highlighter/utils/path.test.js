@@ -66,6 +66,16 @@ describe('utils/path', () => {
       const path = getNodePath(el);
       expect(path).toBe('my-widget[0]');
     });
+
+    test('should stop path building for unsupported node types', () => {
+      const div = document.createElement('div');
+      const comment = document.createComment('metadata');
+      div.append(comment);
+      document.body.append(div);
+
+      const path = getNodePath(comment);
+      expect(path).toBe('');
+    });
   });
 
   describe('parsePathFromString', () => {
@@ -177,6 +187,12 @@ describe('utils/path', () => {
       expect(node).not.toBe(null);
       expect(node.tagName.toLowerCase()).toBe('p');
     });
+
+    test('should return null for unknown path step type', () => {
+      const node = getNodeByPath([{ type: 'comment', index: 0 }]);
+
+      expect(node).toBeNull();
+    });
   });
 
   describe('resolveElementNode', () => {
@@ -226,6 +242,24 @@ describe('utils/path', () => {
       expect(result).not.toBeNull();
       expect(result.tagName.toLowerCase()).toBe('p');
       expect(result.textContent).toBe('Right');
+    });
+
+    test('should return null for negative element index', () => {
+      document.body.innerHTML = '<div><p>First</p></div>';
+      const div = document.body.firstElementChild;
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'p', index: -1 });
+
+      expect(result).toBeNull();
+    });
+
+    test('should return null for non-integer element index', () => {
+      document.body.innerHTML = '<div><p>First</p></div>';
+      const div = document.body.firstElementChild;
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'p', index: 0.5 });
+
+      expect(result).toBeNull();
     });
   });
 
