@@ -591,6 +591,97 @@ describe('Logger', () => {
         'Symbol(flag)',
       ]);
     });
+
+    test('Logger IPC Serialization Matrix 必須符合安全與診斷契約', () => {
+      // 1. Error standard fields + custom own properties
+      const customErr = new Error('matrix error');
+      customErr.customProp = 'customVal';
+
+      // 2. nested Date
+      const dateVal = new Date('2026-06-13T12:00:00.000Z');
+
+      // 3. nested RegExp
+      const regexVal = /test-pattern/i;
+
+      // 4. function
+      const funcVal = () => {};
+
+      // 5. symbol
+      const symbolVal = Symbol('matrixSymbol');
+
+      // 6. circular object topology
+      const circularObj = { name: 'circular' };
+      circularObj.self = circularObj;
+
+      // 7. throwing getter
+      const throwingObj = {
+        normal: 'ok',
+        get broke() {
+          throw new Error('getter throw');
+        },
+      };
+
+      // 8. Map / Set (unsupported plain-object fallback contract, 不外洩 iterable 內容)
+      const mapVal = new Map([['key', 'secretValue']]);
+      const setVal = new Set(['secretMember']);
+
+      const payload = {
+        error: customErr,
+        nested: {
+          date: dateVal,
+          regex: regexVal,
+          func: funcVal,
+          sym: symbolVal,
+        },
+        circular: circularObj,
+        throwing: throwingObj,
+        unsupported: {
+          map: mapVal,
+          set: setVal,
+        },
+      };
+
+      Logger.warn('Matrix Test', payload);
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      const serialized = sentArgs[0];
+
+      // Assertions
+      // 1. Error standard fields + custom own properties
+      expect(serialized.error).toEqual(
+        expect.objectContaining({
+          message: 'matrix error',
+          name: 'Error',
+          customProp: 'customVal',
+        })
+      );
+      expect(typeof serialized.error.stack).toBe('string');
+
+      // 2. nested Date
+      expect(serialized.nested.date).toBe('2026-06-13T12:00:00.000Z');
+
+      // 3. nested RegExp
+      expect(serialized.nested.regex).toBe('/test-pattern/i');
+
+      // 4. function
+      expect(serialized.nested.func).toBe('[Function]');
+
+      // 5. symbol
+      expect(serialized.nested.sym).toBe('Symbol(matrixSymbol)');
+
+      // 6. circular topology
+      expect(serialized.circular.name).toBe('circular');
+      expect(serialized.circular.self).toBe(serialized.circular);
+
+      // 7. throwing getter
+      expect(serialized.throwing.normal).toBe('ok');
+      expect(serialized.throwing.broke).toBe('[Unserializable Object]');
+
+      // 8. Map / Set plain-object fallback (empty objects {}, avoiding leaking secret contents)
+      expect(serialized.unsupported.map).toEqual({});
+      expect(serialized.unsupported.set).toEqual({});
+    });
   });
 
   describe('語法糖方法 (success, start, ready)', () => {

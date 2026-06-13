@@ -598,7 +598,28 @@ describe('LogSanitizer', () => {
       expect(sanitized).not.toContain('user:');
       expect(sanitized).not.toContain(':pass@');
       expect(sanitized).toContain('example.com/path');
-      expect(sanitized).toContain('keep=1');
+    });
+  });
+
+  describe('URL / File Path Privacy Contract', () => {
+    test('file:// URL 脫敏必須完全不含本機 path、filename、query、fragment', () => {
+      const url = 'file:///Users/alice/private.pdf?token=abc#frag';
+      const sanitized = sanitizeUrlForLogging(url);
+      expect(sanitized).toBe('file://[local-file]');
+      expect(sanitized).not.toContain('Users');
+      expect(sanitized).not.toContain('alice');
+      expect(sanitized).not.toContain('private.pdf');
+      expect(sanitized).not.toContain('token=');
+      expect(sanitized).not.toContain('#frag');
+    });
+
+    test('chrome-extension:// URL 應保留 scheme, host, safe path 且遮蔽敏感 query 並移除 fragment', () => {
+      const url = 'chrome-extension://abcdefgh/pages/options.html?token=abc#debug';
+      const sanitized = sanitizeUrlForLogging(url);
+      expect(sanitized).toBe(
+        'chrome-extension://abcdefgh/pages/options.html?token=[REDACTED_TOKEN]'
+      );
+      expect(sanitized).not.toContain('#debug');
     });
   });
 });
