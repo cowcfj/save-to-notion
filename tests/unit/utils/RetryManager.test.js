@@ -721,20 +721,33 @@ describe('RetryManager Comprehensive Tests', () => {
       expect(mockFetch).toHaveBeenCalledWith('https://example.com', fetchOptions);
     });
 
-    test('應該在網絡錯誤時重試並支持自定義重試選項', async () => {
+    test('應該在網絡錯誤時使用自定義 maxRetries 重試到成功', async () => {
       const error = new Error('Network error');
       error.name = 'NetworkError';
 
-      const mockFetch = jest.fn().mockRejectedValueOnce(error).mockResolvedValue({ ok: true });
+      const mockFetch = jest
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockRejectedValueOnce(error)
+        .mockRejectedValueOnce(error)
+        .mockRejectedValueOnce(error)
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce({ ok: true });
 
       const wrappedFetch = retryManager.wrapFetch(mockFetch, {
         maxRetries: 5,
+        baseDelay: 0,
       });
 
       const result = await wrappedFetch('https://example.com');
 
       expect(result).toEqual({ ok: true });
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(retryManager.getLastStats()).toMatchObject({
+        lastTotalRetries: 5,
+        lastSucceeded: true,
+        contextType: 'network',
+      });
     });
   });
 
