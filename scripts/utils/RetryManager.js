@@ -183,7 +183,20 @@ class RetryManager {
   _shouldRetry(error, config) {
     // 使用自定義的重試判斷函數
     if (typeof config.shouldRetry === 'function') {
-      return config.shouldRetry.call(this, error);
+      try {
+        return config.shouldRetry.call(this, error);
+      } catch (hookError) {
+        // Hook 異常不應覆蓋原始錯誤，回退到預設邏輯
+        const logger = getLogger();
+        if (RetryManager._hasLogMethod(logger, 'warn')) {
+          logger.warn('[RetryManager] shouldRetry hook 拋出異常，回退到預設邏輯', {
+            action: 'shouldRetry',
+            result: 'hook_error',
+            hookError: RetryManager._sanitizeErrorForLog(hookError),
+          });
+        }
+        return RetryManager._shouldRetryNetworkError(error);
+      }
     }
 
     // 默認重試邏輯
@@ -192,7 +205,20 @@ class RetryManager {
 
   _shouldRetryFetchError(error, retryOptions = {}) {
     if (typeof retryOptions.shouldRetry === 'function') {
-      return retryOptions.shouldRetry.call(this, error);
+      try {
+        return retryOptions.shouldRetry.call(this, error);
+      } catch (hookError) {
+        // Hook 異常不應覆蓋原始錯誤，回退到預設邏輯
+        const logger = getLogger();
+        if (RetryManager._hasLogMethod(logger, 'warn')) {
+          logger.warn('[RetryManager] shouldRetry hook 拋出異常，回退到預設邏輯', {
+            action: 'shouldRetryFetchError',
+            result: 'hook_error',
+            hookError: RetryManager._sanitizeErrorForLog(hookError),
+          });
+        }
+        return RetryManager._shouldRetryNetworkError(error);
+      }
     }
     return RetryManager._shouldRetryNetworkError(error);
   }
@@ -349,7 +375,15 @@ class RetryManager {
 
     // 使用 Logger（若不可用則在非生產環境降級到 console）
     if (RetryManager._hasLogMethod(logger, 'warn')) {
-      logger.warn(message, { error: safeError, attempt, maxAttempts, delay, contextType });
+      logger.warn(message, {
+        action: 'retryOperation',
+        result: 'warning',
+        error: safeError,
+        attempt,
+        maxAttempts,
+        delay,
+        contextType,
+      });
     } else {
       RetryManager._logToConsoleInDev(message);
     }
@@ -372,11 +406,21 @@ class RetryManager {
     const logger = getLogger();
     const message = `[重試] 已成功，經歷 ${totalRetries} 次重試（${contextType}）`;
     if (RetryManager._hasLogMethod(logger, 'success')) {
-      logger.success(message, { totalRetries, contextType });
+      logger.success(message, {
+        action: 'retryOperation',
+        result: 'success',
+        totalRetries,
+        contextType,
+      });
       return;
     }
     if (RetryManager._hasLogMethod(logger, 'info')) {
-      logger.info(message, { totalRetries, contextType });
+      logger.info(message, {
+        action: 'retryOperation',
+        result: 'success',
+        totalRetries,
+        contextType,
+      });
     }
   }
 
@@ -403,7 +447,13 @@ class RetryManager {
     const safeError = RetryManager._sanitizeErrorForLog(error);
 
     if (RetryManager._hasLogMethod(logger, 'error')) {
-      logger.error(message, { error: safeError, totalRetries, contextType });
+      logger.error(message, {
+        action: 'retryOperation',
+        result: 'failure',
+        error: safeError,
+        totalRetries,
+        contextType,
+      });
     }
 
     RetryManager._reportToErrorHandler(
@@ -569,8 +619,8 @@ class RetryManager {
   }
 
   _determineDelay(error, attempt, config) {
-    const retryAfter = typeof error?.retryAfterMs === 'number' ? error.retryAfterMs : undefined;
-    if (typeof retryAfter === 'number') {
+    const retryAfter = Number(error?.retryAfterMs);
+    if (Number.isFinite(retryAfter) && retryAfter >= 0) {
       return retryAfter;
     }
     return RetryManager._calculateDelay(attempt, config);
@@ -651,7 +701,20 @@ class RetryManager {
     if (typeof options.shouldLogFailure !== 'function') {
       return true;
     }
-    return options.shouldLogFailure(error);
+    try {
+      return options.shouldLogFailure(error);
+    } catch (hookError) {
+      // Hook 異常不應影響日誌記錄，回退到預設行為（記錄日誌）
+      const logger = getLogger();
+      if (RetryManager._hasLogMethod(logger, 'warn')) {
+        logger.warn('[RetryManager] shouldLogFailure hook 拋出異常，回退到預設行為', {
+          action: 'shouldLogFailure',
+          result: 'hook_error',
+          hookError: RetryManager._sanitizeErrorForLog(hookError),
+        });
+      }
+      return true;
+    }
   }
 
   static _resolveErrorHandlerType(contextType) {
