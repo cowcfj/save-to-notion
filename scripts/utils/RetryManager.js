@@ -775,7 +775,7 @@ function fetchWithRetry(url, options = {}, retryOptions = {}) {
 // 導出類和函數
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { RetryManager, withRetry, fetchWithRetry };
-} else if (typeof globalThis !== 'undefined' && globalThis.window !== undefined) {
+} else {
   globalThis.RetryManager = RetryManager;
   globalThis.withRetry = withRetry;
   globalThis.fetchWithRetry = fetchWithRetry;

@@ -3,7 +3,26 @@
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
 const { RetryManager, withRetry, fetchWithRetry } = require('../../../scripts/utils/RetryManager');
+
+const retryManagerSourcePath = path.resolve(__dirname, '../../../scripts/utils/RetryManager.js');
+
+function evaluateRetryManagerWithoutModule() {
+  const sandbox = { console };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+
+  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for isolated global export testing.
+  vm.runInContext(fs.readFileSync(retryManagerSourcePath, 'utf8'), sandbox, {
+    filename: retryManagerSourcePath,
+  });
+
+  return sandbox;
+}
 
 // 簡易 Headers 模擬
 class MockHeaders {
@@ -1172,6 +1191,16 @@ describe('RetryManager Comprehensive Tests', () => {
       expect(exported.RetryManager).toBeDefined();
       expect(exported.withRetry).toBeDefined();
       expect(exported.fetchWithRetry).toBeDefined();
+    });
+
+    test('沒有 module.exports 且沒有 window 時應掛到 globalThis', () => {
+      const sandbox = evaluateRetryManagerWithoutModule();
+
+      expect(sandbox.module).toBeUndefined();
+      expect(sandbox.window).toBeUndefined();
+      expect(sandbox.RetryManager).toEqual(expect.any(Function));
+      expect(sandbox.withRetry).toEqual(expect.any(Function));
+      expect(sandbox.fetchWithRetry).toEqual(expect.any(Function));
     });
   });
 });
