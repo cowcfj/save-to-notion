@@ -30,6 +30,24 @@ describe('TextSearch Utils Coverage Tests', () => {
   });
 
   describe('findTextInPage', () => {
+    function createSelectionWithoutRange() {
+      return {
+        removeAllRanges: jest.fn(),
+        rangeCount: 0,
+      };
+    }
+
+    function expectTreeWalkerFallback(configureFallback) {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      const state = configureFallback();
+      const range = findTextInPage('Test');
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+      return state;
+    }
+
     test('should find simple text using window.find', () => {
       document.body.innerHTML = '<p>Hello World</p>';
 
@@ -127,86 +145,68 @@ describe('TextSearch Utils Coverage Tests', () => {
       expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
     });
 
-    test('should fallback to TreeWalker when window.find fails', () => {
-      document.body.innerHTML = '<p>Test content</p>';
-
-      const mockSelection = {
-        removeAllRanges: jest.fn(),
-        rangeCount: 0,
-      };
-
-      globalThis.getSelection = jest.fn(() => mockSelection);
-      globalThis.find = jest.fn(() => false);
-
-      const range = findTextInPage('Test');
-
-      expect(range).not.toBeNull();
-      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
-    });
-
-    test('should fallback to TreeWalker when getSelection returns null', () => {
-      document.body.innerHTML = '<p>Test content</p>';
-
-      globalThis.getSelection = jest.fn(() => null);
-      globalThis.find = jest.fn(() => true);
-
-      const range = findTextInPage('Test');
-
-      expect(range).not.toBeNull();
-      expect(range.toString()).toBe('Test');
-      expect(globalThis.find).not.toHaveBeenCalled();
-    });
-
-    test('should fallback to TreeWalker when getSelection is unavailable', () => {
-      document.body.innerHTML = '<p>Test content</p>';
-
-      const originalGetSelection = globalThis.getSelection;
-      globalThis.getSelection = undefined;
-      globalThis.find = jest.fn(() => true);
-
-      const range = findTextInPage('Test');
-
-      globalThis.getSelection = originalGetSelection;
-
-      expect(range).not.toBeNull();
-      expect(range.toString()).toBe('Test');
-      expect(globalThis.find).not.toHaveBeenCalled();
-    });
-
-    test('should fallback to TreeWalker when window.find is unavailable', () => {
-      document.body.innerHTML = '<p>Test content</p>';
-
-      const mockSelection = {
-        removeAllRanges: jest.fn(),
-        rangeCount: 0,
-      };
-
-      globalThis.getSelection = jest.fn(() => mockSelection);
-      globalThis.find = undefined;
-
-      const range = findTextInPage('Test');
-
-      expect(range).not.toBeNull();
-      expect(range.toString()).toBe('Test');
-      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
-    });
-
-    test('should fallback to TreeWalker when window.find leaves no selection range', () => {
-      document.body.innerHTML = '<p>Test content</p>';
-
-      const mockSelection = {
-        removeAllRanges: jest.fn(),
-        rangeCount: 0,
-      };
-
-      globalThis.getSelection = jest.fn(() => mockSelection);
-      globalThis.find = jest.fn(() => true);
-
-      const range = findTextInPage('Test');
-
-      expect(range).not.toBeNull();
-      expect(range.toString()).toBe('Test');
-      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+    test.each([
+      [
+        'window.find fails',
+        () => {
+          const mockSelection = createSelectionWithoutRange();
+          globalThis.getSelection = jest.fn(() => mockSelection);
+          globalThis.find = jest.fn(() => false);
+          return { mockSelection };
+        },
+        ({ mockSelection }) => {
+          expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+        },
+      ],
+      [
+        'getSelection returns null',
+        () => {
+          globalThis.getSelection = jest.fn(() => null);
+          globalThis.find = jest.fn(() => true);
+          return {};
+        },
+        () => {
+          expect(globalThis.find).not.toHaveBeenCalled();
+        },
+      ],
+      [
+        'getSelection is unavailable',
+        () => {
+          globalThis.getSelection = undefined;
+          globalThis.find = jest.fn(() => true);
+          return {};
+        },
+        () => {
+          expect(globalThis.find).not.toHaveBeenCalled();
+        },
+      ],
+      [
+        'window.find is unavailable',
+        () => {
+          const mockSelection = createSelectionWithoutRange();
+          globalThis.getSelection = jest.fn(() => mockSelection);
+          globalThis.find = undefined;
+          return { mockSelection };
+        },
+        ({ mockSelection }) => {
+          expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+        },
+      ],
+      [
+        'window.find leaves no selection range',
+        () => {
+          const mockSelection = createSelectionWithoutRange();
+          globalThis.getSelection = jest.fn(() => mockSelection);
+          globalThis.find = jest.fn(() => true);
+          return { mockSelection };
+        },
+        ({ mockSelection }) => {
+          expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+        },
+      ],
+    ])('should fallback to TreeWalker when %s', (_name, configureFallback, assertFallback) => {
+      const state = expectTreeWalkerFallback(configureFallback);
+      assertFallback(state);
     });
 
     test('should cleanup selection and fallback to TreeWalker when cloneRange throws', () => {
