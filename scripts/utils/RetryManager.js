@@ -190,7 +190,7 @@ class RetryManager {
     return RetryManager._shouldRetryNetworkError(error);
   }
 
-  _shouldRetryFetchError(error, retryOptions) {
+  _shouldRetryFetchError(error, retryOptions = {}) {
     if (typeof retryOptions.shouldRetry === 'function') {
       return retryOptions.shouldRetry.call(this, error);
     }
@@ -647,7 +647,7 @@ class RetryManager {
     return typeof logger[methodName] === 'function';
   }
 
-  static _shouldLogRetryFailure(error, options) {
+  static _shouldLogRetryFailure(error, options = {}) {
     if (typeof options.shouldLogFailure !== 'function') {
       return true;
     }
@@ -678,7 +678,7 @@ class RetryManager {
     return res.status;
   }
 
-  static _shouldRetryFetchResponse(res, retryOptions, status) {
+  static _shouldRetryFetchResponse(res, retryOptions = {}, status) {
     const isDefaultRetryable = RetryManager._isRetryableHttpStatus(status);
     if (typeof retryOptions.shouldRetryResponse !== 'function') {
       return isDefaultRetryable;
@@ -773,18 +773,10 @@ function fetchWithRetry(url, options = {}, retryOptions = {}) {
 }
 
 // 導出類和函數
-if (typeof module === 'undefined') {
-  if (globalThis.window !== undefined) {
-    globalThis.RetryManager = RetryManager;
-    globalThis.withRetry = withRetry;
-    globalThis.fetchWithRetry = fetchWithRetry;
-  }
-} else if (module.exports) {
+if (typeof module !== 'undefined' && module.exports) {
   module.exports = { RetryManager, withRetry, fetchWithRetry };
-} else if (globalThis.window !== undefined) {
+} else if (typeof globalThis !== 'undefined' && globalThis.window !== undefined) {
   globalThis.RetryManager = RetryManager;
   globalThis.withRetry = withRetry;
   globalThis.fetchWithRetry = fetchWithRetry;
 }
-
-// 觸發 release-please 的空白變更

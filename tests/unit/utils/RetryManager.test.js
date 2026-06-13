@@ -854,6 +854,30 @@ describe('RetryManager Comprehensive Tests', () => {
     });
   });
 
+  describe('防禦性 options 處理', () => {
+    test('_shouldRetryFetchError 缺少 retryOptions 時應使用默認網絡重試判斷', () => {
+      const error = new Error('Failed to fetch');
+
+      const result = retryManager._shouldRetryFetchError(error);
+
+      expect(result).toBe(true);
+    });
+
+    test('_shouldLogRetryFailure 缺少 options 時應默認記錄失敗', () => {
+      const result = RetryManager._shouldLogRetryFailure(new Error('Final error'));
+
+      expect(result).toBe(true);
+    });
+
+    test('_shouldRetryFetchResponse 缺少 retryOptions 時應使用默認 HTTP 狀態判斷', () => {
+      const retryable = RetryManager._shouldRetryFetchResponse({ status: 503 }, undefined, 503);
+      const notRetryable = RetryManager._shouldRetryFetchResponse({ status: 404 }, undefined, 404);
+
+      expect(retryable).toBe(true);
+      expect(notRetryable).toBe(false);
+    });
+  });
+
   describe('_logRetryAttempt - 記錄重試嘗試', () => {
     test('應該記錄重試嘗試信息', () => {
       // 模擬 Logger 對象
