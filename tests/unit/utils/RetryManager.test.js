@@ -889,8 +889,8 @@ describe('RetryManager Comprehensive Tests', () => {
     });
 
     test('_shouldRetryFetchResponse 缺少 retryOptions 時應使用默認 HTTP 狀態判斷', () => {
-      const retryable = RetryManager._shouldRetryFetchResponse({ status: 503 }, undefined, 503);
-      const notRetryable = RetryManager._shouldRetryFetchResponse({ status: 404 }, undefined, 404);
+      const retryable = RetryManager._shouldRetryFetchResponse({ status: 503 }, 503);
+      const notRetryable = RetryManager._shouldRetryFetchResponse({ status: 404 }, 404);
 
       expect(retryable).toBe(true);
       expect(notRetryable).toBe(false);

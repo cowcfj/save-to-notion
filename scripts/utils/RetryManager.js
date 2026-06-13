@@ -610,7 +610,7 @@ class RetryManager {
       return;
     }
 
-    if (!RetryManager._shouldRetryFetchResponse(res, retryOptions, status)) {
+    if (!RetryManager._shouldRetryFetchResponse(res, status, retryOptions)) {
       return;
     }
 
@@ -678,7 +678,7 @@ class RetryManager {
     return res.status;
   }
 
-  static _shouldRetryFetchResponse(res, retryOptions = {}, status) {
+  static _shouldRetryFetchResponse(res, status, retryOptions = {}) {
     const isDefaultRetryable = RetryManager._isRetryableHttpStatus(status);
     if (typeof retryOptions.shouldRetryResponse !== 'function') {
       return isDefaultRetryable;
