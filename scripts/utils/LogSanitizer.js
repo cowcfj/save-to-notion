@@ -205,6 +205,9 @@ export function sanitizeUrlForLogging(url, baseOrigin = LOG_FALLBACK_BASE_ORIGIN
 
   try {
     const urlObj = _resolveLoggingUrlObject(url, hasScheme, baseOrigin);
+    if (urlObj.protocol === 'file:') {
+      return 'file://[local-file]';
+    }
     // 移除 URL userinfo 防止認證資訊洩漏
     urlObj.username = '';
     urlObj.password = '';
