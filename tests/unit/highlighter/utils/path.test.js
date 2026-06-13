@@ -76,6 +76,36 @@ describe('utils/path', () => {
       const path = getNodePath(comment);
       expect(path).toBe('');
     });
+
+    test('should stop path building when an element is missing from its parent children', () => {
+      const parent = document.createElement('div');
+      const child = document.createElement('span');
+      parent.append(child);
+      document.body.append(parent);
+
+      Object.defineProperty(parent, 'children', {
+        value: [],
+        configurable: true,
+      });
+
+      const path = getNodePath(child);
+      expect(path).toBe('');
+    });
+
+    test('should stop path building when a text node is missing from its parent childNodes', () => {
+      const parent = document.createElement('div');
+      const textNode = document.createTextNode('Hello');
+      parent.append(textNode);
+      document.body.append(parent);
+
+      Object.defineProperty(parent, 'childNodes', {
+        value: [],
+        configurable: true,
+      });
+
+      const path = getNodePath(textNode);
+      expect(path).toBe('');
+    });
   });
 
   describe('parsePathFromString', () => {
@@ -193,6 +223,11 @@ describe('utils/path', () => {
 
       expect(node).toBeNull();
     });
+
+    test('should return null for unsupported path input objects', () => {
+      expect(() => getNodeByPath({})).not.toThrow();
+      expect(getNodeByPath({})).toBeNull();
+    });
   });
 
   describe('resolveElementNode', () => {
@@ -260,6 +295,15 @@ describe('utils/path', () => {
       const result = resolveElementNode(div, { type: 'element', tag: 'p', index: 0.5 });
 
       expect(result).toBeNull();
+    });
+
+    test('should skip missing children while fuzzy matching by tag', () => {
+      const paragraph = document.createElement('p');
+      const current = { children: [null, paragraph] };
+
+      const result = resolveElementNode(current, { type: 'element', tag: 'p', index: 0 });
+
+      expect(result).toBe(paragraph);
     });
   });
 

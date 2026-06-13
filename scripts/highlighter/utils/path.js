@@ -13,12 +13,18 @@ function isTextNode(node) {
 function buildTextNodePathStep(parent, node) {
   const textNodes = Array.from(parent.childNodes).filter(childNode => isTextNode(childNode));
   const index = textNodes.indexOf(node);
+  if (index === -1) {
+    return null;
+  }
   return `text[${index}]`;
 }
 
 function buildElementPathStep(parent, node) {
   const siblings = Array.from(parent.children);
   const index = siblings.indexOf(node);
+  if (index === -1) {
+    return null;
+  }
   return `${node.tagName.toLowerCase()}[${index}]`;
 }
 
@@ -29,11 +35,13 @@ function buildNodePathStep(node) {
   }
 
   if (isTextNode(node)) {
-    return { parent, step: buildTextNodePathStep(parent, node) };
+    const step = buildTextNodePathStep(parent, node);
+    return step ? { parent, step } : null;
   }
 
   if (node.nodeType === Node.ELEMENT_NODE) {
-    return { parent, step: buildElementPathStep(parent, node) };
+    const step = buildElementPathStep(parent, node);
+    return step ? { parent, step } : null;
   }
 
   return null;
@@ -129,7 +137,7 @@ function normalizePathTag(tag) {
 }
 
 function getElementTagName(element) {
-  return element.tagName?.toLowerCase();
+  return element?.tagName?.toLowerCase();
 }
 
 function getIndexedElementMatch(children, index, tag) {
@@ -196,12 +204,20 @@ export function resolveTextNode(current, step) {
 }
 
 function parsePathInput(path) {
-  if (typeof path !== 'string') {
+  if (typeof path === 'string') {
+    const steps = parsePathFromString(path);
+    return { isValid: steps !== null, steps };
+  }
+
+  if (Array.isArray(path)) {
     return { isValid: true, steps: path };
   }
 
-  const steps = parsePathFromString(path);
-  return { isValid: steps !== null, steps };
+  if (path == null) {
+    return { isValid: true, steps: [] };
+  }
+
+  return { isValid: false, steps: null };
 }
 
 const PATH_STEP_RESOLVERS = {
