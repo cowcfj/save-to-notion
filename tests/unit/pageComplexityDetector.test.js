@@ -98,6 +98,36 @@ describe('頁面複雜度檢測器', () => {
       expect(result.isDoc).toBe(true);
       expect(result.matched.path).toBe(true);
     });
+
+    test('should treat empty URL and title as provided values', () => {
+      const originalTitle = document.title;
+      const originalPath = globalThis.location.pathname;
+
+      try {
+        document.title = 'API Documentation';
+        globalThis.history.pushState({}, '', '/docs/current');
+
+        const result = isDocumentation({ url: '', title: '' });
+
+        expect(result.isDoc).toBe(false);
+        expect(result.isTechnical).toBe(false);
+        expect(result.matched.path).toBe(false);
+        expect(result.matched.techTitle).toBe(false);
+      } finally {
+        document.title = originalTitle;
+        globalThis.history.pushState({}, '', originalPath || '/');
+      }
+    });
+
+    test('should ignore non-string URL and title inputs safely', () => {
+      expect(() =>
+        isDocumentation({ url: 42, title: { text: 'API Documentation' } })
+      ).not.toThrow();
+
+      const result = isDocumentation({ url: 42, title: { text: 'API Documentation' } });
+      expect(result.isDoc).toBe(false);
+      expect(result.isTechnical).toBe(false);
+    });
   });
 
   describe('技術文檔頁面檢測', () => {
@@ -595,6 +625,59 @@ describe('頁面複雜度檢測器', () => {
       // 5 words total, 0 technical terms
       expect(result.technicalFeatures.technicalTermCount).toBe(0);
       expect(result.technicalFeatures.technicalRatio).toBe(0);
+    });
+
+    test('Unicode surrogate pairs should be processed once per code point', () => {
+      const text = '😀 function class';
+      const codePointSpy = jest.spyOn(String.prototype, 'codePointAt');
+
+      try {
+        document.documentElement.innerHTML = `<body><p>${text}</p></body>`;
+
+        detectPageComplexity(document);
+
+        expect(codePointSpy).toHaveBeenCalledTimes([...text.toLowerCase()].length);
+      } finally {
+        codePointSpy.mockRestore();
+      }
+    });
+
+    test('non-global technical term matcher should be evaluated once', () => {
+      const NativeRegExp = globalThis.RegExp;
+
+      function OneShotRegExp(pattern, flags) {
+        const native = new NativeRegExp(pattern, String(flags || '').replaceAll('g', ''));
+        let matchedOnce = false;
+        return {
+          global: false,
+          lastIndex: 0,
+          test(text) {
+            native.lastIndex = 0;
+            const didMatch = native.test(text);
+            if (didMatch && matchedOnce) {
+              throw new Error('non-global matcher was evaluated repeatedly');
+            }
+            matchedOnce ||= didMatch;
+            return didMatch;
+          },
+        };
+      }
+
+      try {
+        globalThis.RegExp = OneShotRegExp;
+        jest.isolateModules(() => {
+          const {
+            detectPageComplexity: detectWithOneShotMatcher,
+          } = require('../../scripts/utils/pageComplexityDetector.js');
+
+          document.documentElement.innerHTML = '<body><p>function plain text</p></body>';
+          const result = detectWithOneShotMatcher(document);
+
+          expect(result.technicalFeatures.technicalTermCount).toBe(1);
+        });
+      } finally {
+        globalThis.RegExp = NativeRegExp;
+      }
     });
 
     test('extractor selection stability: non-technical content without clean layout selects readability', () => {

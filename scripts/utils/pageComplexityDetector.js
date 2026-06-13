@@ -112,7 +112,7 @@ const SPACES_SET = new Set([
 ]);
 
 function _resolveCurrentLocationHref() {
-  if (globalThis.window === undefined) {
+  if (typeof globalThis.location?.href !== 'string') {
     return '';
   }
   return globalThis.location.href;
@@ -126,10 +126,7 @@ function _resolveCurrentDocumentTitle() {
 }
 
 function _resolvePreferredValue(value, fallback) {
-  if (value) {
-    return value;
-  }
-  return fallback;
+  return value ?? fallback;
 }
 
 function _isRelativePathUrl(urlStr) {
@@ -172,8 +169,11 @@ function _isRelativePathUrl(urlStr) {
  * @returns {{hostname: string, pathname: string, urlStr: string, title: string}} 解析後的 URL 與標題資訊
  */
 function _parseUrlAndTitle(options) {
-  const urlStr = _resolvePreferredValue(options.url, _resolveCurrentLocationHref());
-  const title = _resolvePreferredValue(options.title, _resolveCurrentDocumentTitle()).toLowerCase();
+  const safeOptions = options ?? {};
+  const resolvedUrl = _resolvePreferredValue(safeOptions.url, _resolveCurrentLocationHref());
+  const urlStr = typeof resolvedUrl === 'string' ? resolvedUrl : '';
+  const resolvedTitle = _resolvePreferredValue(safeOptions.title, _resolveCurrentDocumentTitle());
+  const title = typeof resolvedTitle === 'string' ? resolvedTitle.toLowerCase() : '';
 
   let hostname = '';
   let pathname = '';
@@ -202,10 +202,12 @@ function _parseUrlAndTitle(options) {
  * @returns {{host: boolean, path: boolean, techUrl: boolean, techTitle: boolean}} 匹配結果旗標
  */
 function _matchDocPatterns(hostname, pathname, urlStr, title) {
+  const normalizedUrl = typeof urlStr === 'string' ? urlStr.toLowerCase() : '';
+  const normalizedTitle = typeof title === 'string' ? title : '';
   const isDocHost = DOC_HOST_PATTERNS.some(pattern => pattern.test(hostname));
   const isDocPath = DOC_PATH_PATTERNS.some(pattern => pattern.test(pathname));
-  const isTechUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(urlStr.toLowerCase()));
-  const isTechTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(title));
+  const isTechUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(normalizedUrl));
+  const isTechTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(normalizedTitle));
 
   return {
     host: isDocHost,
@@ -286,6 +288,10 @@ function _countRegexMatches(regex, text) {
   if (!regex) {
     return 0;
   }
+  if (!regex.global) {
+    regex.lastIndex = 0;
+    return regex.test(text) ? 1 : 0;
+  }
   regex.lastIndex = 0;
   let count = 0;
   while (regex.test(text)) {
@@ -344,8 +350,8 @@ function _isWordSeparatorCodePoint(code) {
 function _countWords(textContent) {
   let wordCount = 0;
   let inWord = false;
-  for (let i = 0; i < textContent.length; i++) {
-    const code = textContent.codePointAt(i);
+  for (const char of textContent) {
+    const code = char.codePointAt(0);
     if (_isWordSeparatorCodePoint(code)) {
       inWord = false;
     } else if (!inWord) {
@@ -357,7 +363,8 @@ function _countWords(textContent) {
 }
 
 function _getDocumentBodyText(document) {
-  return _resolvePreferredValue(document?.body?.textContent, '');
+  const textContent = _resolvePreferredValue(document?.body?.textContent, '');
+  return typeof textContent === 'string' ? textContent : '';
 }
 
 function _isTechnicalText(technicalRatio, technicalTermCount) {
@@ -397,7 +404,7 @@ function _resolveDocumentUrl(document) {
   if (document?.URL) {
     return document.URL;
   }
-  return globalThis.location.href;
+  return _resolveCurrentLocationHref();
 }
 
 /**
@@ -409,7 +416,8 @@ function _resolveDocumentUrl(document) {
  */
 function _resolvePageUrlAndTitle(document) {
   const url = _resolveDocumentUrl(document);
-  const title = _resolvePreferredValue(document?.title, '');
+  const resolvedTitle = _resolvePreferredValue(document?.title, '');
+  const title = typeof resolvedTitle === 'string' ? resolvedTitle : '';
   return { url, title };
 }
 
