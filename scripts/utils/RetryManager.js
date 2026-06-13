@@ -181,32 +181,24 @@ class RetryManager {
    * @returns {boolean} 是否應該重試
    */
   static _shouldRetryNetworkError(error) {
-    const name = String(error?.name || '');
-    const msg = String(error?.message || '');
+    if (!error) {
+      return false;
+    }
 
-    // 網絡相關錯誤
-    if (name === 'NetworkError' || name === 'TimeoutError' || msg.includes('fetch')) {
+    const name = error.name;
+    if (name === 'NetworkError' || name === 'TimeoutError') {
       return true;
     }
 
-    // HTTP 狀態碼判斷
-    if (typeof error?.status === 'number') {
-      // 5xx 服務器錯誤可以重試
-      if (error.status >= 500 && error.status < 600) {
-        return true;
-      }
-      // 429 Too Many Requests 可以重試
-      if (error.status === 429) {
-        return true;
-      }
-      // 408 Request Timeout 可以重試
-      if (error.status === 408) {
-        return true;
-      }
-      // 4xx 客戶端錯誤通常不重試
-      if (error.status >= 400 && error.status < 500) {
-        return false;
-      }
+    const msg = String(error.message || '');
+    if (msg.includes('fetch')) {
+      return true;
+    }
+
+    const status = error.status;
+    if (typeof status === 'number') {
+      // 5xx 服務器錯誤、429 Too Many Requests、408 Request Timeout 可以重試
+      return Math.floor(status / 100) === 5 || status === 429 || status === 408;
     }
 
     return false;
@@ -327,25 +319,15 @@ class RetryManager {
     // 使用 Logger（若不可用則在非生產環境降級到 console）
     if (logger && typeof logger.warn === 'function') {
       logger.warn(message, { error: safeError, attempt, maxAttempts, delay, contextType });
-    } else if (
-      typeof process !== 'undefined' &&
-      process.env &&
-      process.env.NODE_ENV !== 'production'
-    ) {
-      // 開發/測試環境降級：避免完全靜默
-      // eslint-disable-next-line no-console
-      console.warn(message);
+    } else {
+      RetryManager._logToConsoleInDev(message);
     }
 
-    const handler = getErrorHandler();
-    if (handler && typeof handler.logError === 'function') {
-      handler.logError({
-        type: contextType === 'dom' ? 'dom_error' : 'network_error',
-        context: `retry attempt ${attempt}/${maxAttempts} (delay ${delay}ms)`,
-        originalError: error, // ErrorHandler 內部應負責進一步處理或儲存（假設它是安全的後端存儲）
-        timestamp: Date.now(),
-      });
-    }
+    RetryManager._reportToErrorHandler(
+      contextType,
+      `retry attempt ${attempt}/${maxAttempts} (delay ${delay}ms)`,
+      error
+    );
   }
 
   /**
@@ -375,12 +357,12 @@ class RetryManager {
    * @param {object} [options] - 其他選項 (例如 shouldLogFailure)
    */
   static _logRetryFailure(error, totalRetries, contextType = 'network', options = {}) {
-    const logger = getLogger();
-
     // 如果提供了 shouldLogFailure 且返回 false，則不記錄錯誤日誌
     if (typeof options.shouldLogFailure === 'function' && !options.shouldLogFailure(error)) {
       return;
     }
+
+    const logger = getLogger();
     const msg = String(error?.message || '');
     const message = `[重試] 失敗（${contextType}），共重試 ${totalRetries} 次：${msg}`;
 
@@ -391,15 +373,11 @@ class RetryManager {
       logger.error(message, { error: safeError, totalRetries, contextType });
     }
 
-    const handler = getErrorHandler();
-    if (handler && typeof handler.logError === 'function') {
-      handler.logError({
-        type: contextType === 'dom' ? 'dom_error' : 'network_error',
-        context: `final failure after ${totalRetries} retries`,
-        originalError: error,
-        timestamp: Date.now(),
-      });
-    }
+    RetryManager._reportToErrorHandler(
+      contextType,
+      `final failure after ${totalRetries} retries`,
+      error
+    );
   }
 
   /**
@@ -432,6 +410,47 @@ class RetryManager {
     }
 
     return safeError;
+  }
+
+  /**
+   * 將錯誤回報給 ErrorHandler
+   *
+   * @private
+   * @param {string} contextType - 上下文類型
+   * @param {string} context - 重試嘗試或失敗的上下文描述
+   * @param {Error} error - 原始錯誤物件
+   */
+  static _reportToErrorHandler(contextType, context, error) {
+    const handler = getErrorHandler();
+    if (handler && typeof handler.logError === 'function') {
+      handler.logError({
+        type: contextType === 'dom' ? 'dom_error' : 'network_error',
+        context,
+        originalError: error,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  /**
+   * 在非生產環境（開發或測試）輸出警告訊息到控制台
+   *
+   * @private
+   * @param {string} message - 警告訊息
+   */
+  static _logToConsoleInDev(message) {
+    if (typeof process === 'undefined') {
+      return;
+    }
+    if (!process.env) {
+      return;
+    }
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    // eslint-disable-next-line no-console
+    console.warn(message);
   }
 
   /**
