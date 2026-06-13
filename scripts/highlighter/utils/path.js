@@ -6,6 +6,47 @@
 /** 匹配路徑步驟格式 'tagName[index]' 的正則表達式（支援含連字號的自訂元素，如 my-widget） */
 const PATH_REGEX = /^([\w-]+)\[(\d+)\]$/;
 
+function isTextNode(node) {
+  return node.nodeType === Node.TEXT_NODE;
+}
+
+function buildTextNodePathStep(parent, node) {
+  const textNodes = Array.from(parent.childNodes).filter(childNode => isTextNode(childNode));
+  const index = textNodes.indexOf(node);
+  if (index === -1) {
+    return null;
+  }
+  return `text[${index}]`;
+}
+
+function buildElementPathStep(parent, node) {
+  const siblings = Array.from(parent.children);
+  const index = siblings.indexOf(node);
+  if (index === -1) {
+    return null;
+  }
+  return `${node.tagName.toLowerCase()}[${index}]`;
+}
+
+function buildNodePathStep(node) {
+  const parent = node.parentNode;
+  if (!parent) {
+    return null;
+  }
+
+  if (isTextNode(node)) {
+    const step = buildTextNodePathStep(parent, node);
+    return step ? { parent, step } : null;
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const step = buildElementPathStep(parent, node);
+    return step ? { parent, step } : null;
+  }
+
+  return null;
+}
+
 /**
  * 獲取節點的路徑（從當前節點到 document.body）
  *
@@ -24,35 +65,13 @@ export function getNodePath(node) {
   let current = node;
 
   while (current && current !== document.body) {
-    if (current.nodeType === Node.TEXT_NODE) {
-      // 文本節點：記錄所在位置
-      const parent = current.parentNode;
-      if (parent) {
-        const textNodes = Array.from(parent.childNodes).filter(
-          childNode => childNode.nodeType === Node.TEXT_NODE
-        );
-        const index = textNodes.indexOf(current);
-        pathSteps.unshift(`text[${index}]`);
-        current = parent;
-      } else {
-        // 文本節點沒有父節點，終止迴圈
-        break;
-      }
-    } else if (current.nodeType === Node.ELEMENT_NODE) {
-      // 元素節點:記錄標籤名和在父節點中的索引
-      const parent = current.parentNode;
-      if (parent) {
-        const siblings = Array.from(parent.children);
-        const index = siblings.indexOf(current);
-        pathSteps.unshift(`${current.tagName.toLowerCase()}[${index}]`);
-        current = parent;
-      } else {
-        // 元素節點沒有父節點，終止迴圈
-        break;
-      }
-    } else {
+    const pathStep = buildNodePathStep(current);
+    if (!pathStep) {
       break;
     }
+
+    pathSteps.unshift(pathStep.step);
+    current = pathStep.parent;
   }
 
   // 返回字符串格式 "div[0]/p[2]/text[0]"
@@ -105,6 +124,35 @@ export function parsePathFromString(pathString) {
   return path;
 }
 
+function getElementChildren(current) {
+  return current?.children ? Array.from(current.children) : null;
+}
+
+function isValidPathIndex(index) {
+  return Number.isInteger(index) && index >= 0;
+}
+
+function normalizePathTag(tag) {
+  return tag?.toLowerCase();
+}
+
+function getElementTagName(element) {
+  return element?.tagName?.toLowerCase();
+}
+
+function getIndexedElementMatch(children, index, tag) {
+  if (index >= children.length) {
+    return null;
+  }
+
+  const child = children[index];
+  return getElementTagName(child) === tag ? child : null;
+}
+
+function findFirstElementByTag(children, tag) {
+  return children.find(child => getElementTagName(child) === tag) || null;
+}
+
 /**
  * 根據 element 類型的路徑步驟，從當前節點導覽到下一個子元素
  *
@@ -114,24 +162,15 @@ export function parsePathFromString(pathString) {
  */
 export function resolveElementNode(current, step) {
   try {
-    if (!current?.children) {
+    const children = getElementChildren(current);
+    if (!children || !isValidPathIndex(step.index)) {
       return null;
     }
 
-    if (!Number.isInteger(step.index) || step.index < 0) {
-      return null;
-    }
-
-    const children = Array.from(current.children);
-    const tag = step.tag?.toLowerCase();
-
-    if (step.index < children.length && children[step.index].tagName?.toLowerCase() === tag) {
-      return children[step.index];
-    }
-
-    // 模糊匹配：查找具有相同標籤名的元素
-    const matchingElements = children.filter(child => child.tagName?.toLowerCase() === tag);
-    return matchingElements.length > 0 ? matchingElements[0] : null;
+    const tag = normalizePathTag(step.tag);
+    return (
+      getIndexedElementMatch(children, step.index, tag) || findFirstElementByTag(children, tag)
+    );
   } catch {
     return null;
   }
@@ -164,6 +203,46 @@ export function resolveTextNode(current, step) {
   }
 }
 
+function parsePathInput(path) {
+  if (typeof path === 'string') {
+    const steps = parsePathFromString(path);
+    return { isValid: steps !== null, steps };
+  }
+
+  if (Array.isArray(path)) {
+    return { isValid: true, steps: path };
+  }
+
+  if (path == null) {
+    return { isValid: true, steps: [] };
+  }
+
+  return { isValid: false, steps: null };
+}
+
+const PATH_STEP_RESOLVERS = {
+  element: resolveElementNode,
+  text: resolveTextNode,
+};
+
+function resolvePathStep(current, step) {
+  const resolver = PATH_STEP_RESOLVERS[step.type];
+  return resolver ? resolver(current, step) : null;
+}
+
+function resolvePathSteps(startNode, path) {
+  let current = startNode;
+
+  for (const step of path) {
+    current = resolvePathStep(current, step);
+    if (!current) {
+      return null;
+    }
+  }
+
+  return current;
+}
+
 /**
  * 根據路徑對象數組獲取 DOM 節點
  *
@@ -173,40 +252,17 @@ export function resolveTextNode(current, step) {
  * const node = getNodeByPath('div[0]/p[2]/text[0]');
  */
 export function getNodeByPath(path) {
-  // 如果是字符串格式，先解析
-  if (typeof path === 'string') {
-    path = parsePathFromString(path);
-    if (!path) {
-      return null;
-    }
-  }
+  const { isValid, steps } = parsePathInput(path);
 
-  // 確保 document.body 存在
-  if (!document?.body) {
+  if (!isValid || !document?.body) {
     return null;
   }
 
-  // 空路徑返回 document.body
-  if (!path || path.length === 0) {
+  if (!steps || steps.length === 0) {
     return document.body;
   }
 
-  let current = document.body;
-
-  for (const step of path) {
-    if (step.type === 'element') {
-      current = resolveElementNode(current, step);
-    } else if (step.type === 'text') {
-      current = resolveTextNode(current, step);
-    } else {
-      return null;
-    }
-    if (!current) {
-      return null;
-    }
-  }
-
-  return current;
+  return resolvePathSteps(document.body, steps);
 }
 
 /**
