@@ -20,12 +20,17 @@ const SKIPPED_SEARCH_PARENT_TAGS = new Set(['SCRIPT', 'STYLE']);
 /**
  * 記錄 text search 錯誤
  *
+ * @param {string} action - 發生錯誤的搜尋動作
  * @param {string} message - 錯誤訊息
  * @param {Error} error - 原始錯誤
  */
-function logTextSearchError(message, error) {
+function logTextSearchError(action, message, error) {
   if (globalThis.Logger !== undefined) {
-    globalThis.Logger?.error(SEARCH_LOG_TAG, message, error);
+    globalThis.Logger?.error(`${SEARCH_LOG_TAG} ${message}`, {
+      action,
+      result: 'failed',
+      error,
+    });
   }
 }
 
@@ -65,10 +70,24 @@ function hasContextAnchors(context) {
  * @returns {Range|null}
  */
 function findTextWithWindowSelection(cleanText) {
-  const selection = globalThis.getSelection();
-  selection.removeAllRanges();
+  let selection = null;
 
   try {
+    if (typeof globalThis.getSelection !== 'function') {
+      return null;
+    }
+
+    selection = globalThis.getSelection();
+    if (!selection) {
+      return null;
+    }
+
+    clearSelection(selection);
+
+    if (typeof globalThis.find !== 'function') {
+      return null;
+    }
+
     const found = globalThis.find(cleanText, false, false, false, false, true, false);
     if (!found) {
       return null;
@@ -77,9 +96,19 @@ function findTextWithWindowSelection(cleanText) {
       return null;
     }
     return selection.getRangeAt(0).cloneRange();
+  } catch {
+    return null;
   } finally {
     // 覆蓋 getRangeAt/cloneRange 例外與一般路徑，確保選區副作用被清理
-    selection.removeAllRanges();
+    clearSelection(selection);
+  }
+}
+
+function clearSelection(selection) {
+  try {
+    selection?.removeAllRanges?.();
+  } catch {
+    // Selection cleanup failure should not block the fallback search chain.
   }
 }
 
@@ -139,7 +168,7 @@ export function findTextInPage(textToFind, context = {}) {
 
     return findTextWithoutContextFallback(cleanText, context);
   } catch (error) {
-    logTextSearchError('查找文本失敗:', error);
+    logTextSearchError('findTextInPage', '查找文本失敗:', error);
     return null;
   }
 }
@@ -375,7 +404,7 @@ export function findTextWithTreeWalker(textToFind) {
     // 嘗試跨文本節點匹配
     return findRangeAcrossNodes(textToFind, textNodes);
   } catch (error) {
-    logTextSearchError('findTextWithTreeWalker error:', error);
+    logTextSearchError('findTextWithTreeWalker', 'findTextWithTreeWalker error:', error);
     return null;
   }
 }
@@ -664,9 +693,10 @@ function buildCandidateDebugInfo(candidateInfo) {
  */
 function logFuzzyDisambiguationFailure(candidates, bestCandidate, maxScore, context) {
   globalThis.Logger?.debug(
-    SEARCH_LOG_TAG,
-    'calculateCandidateScore failed to disambiguate. maxScore <= 0.',
+    `${SEARCH_LOG_TAG} calculateCandidateScore failed to disambiguate. maxScore <= 0.`,
     {
+      action: 'findTextFuzzy',
+      result: 'disambiguation_failed',
       prefixLength: getOptionalTextLength(context.prefix),
       suffixLength: getOptionalTextLength(context.suffix),
       candidateCount: candidates.length,
@@ -712,7 +742,7 @@ export function findTextFuzzy(textToFind, context = {}) {
 
     return bestCandidate.range;
   } catch (error) {
-    logTextSearchError('findTextFuzzy error:', error);
+    logTextSearchError('findTextFuzzy', 'findTextFuzzy error:', error);
     return null;
   }
 }

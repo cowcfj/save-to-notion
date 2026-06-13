@@ -74,6 +74,30 @@ describe('TextSearch Utils Coverage Tests', () => {
       expect(range).toBeNull();
     });
 
+    test('should treat null context as no context', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      const mockSelection = {
+        removeAllRanges: jest.fn(),
+        getRangeAt: jest.fn(() => {
+          const range = document.createRange();
+          const textNode = document.body.firstChild.firstChild;
+          range.setStart(textNode, 0);
+          range.setEnd(textNode, 4);
+          return range;
+        }),
+        rangeCount: 1,
+      };
+
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = jest.fn(() => true);
+
+      const range = findTextInPage('Test', null);
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+    });
+
     test('should clean text before searching', () => {
       document.body.innerHTML = '<p>Hello World</p>';
 
@@ -120,7 +144,72 @@ describe('TextSearch Utils Coverage Tests', () => {
       expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
     });
 
-    test('should cleanup selection when cloneRange throws', () => {
+    test('should fallback to TreeWalker when getSelection returns null', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      globalThis.getSelection = jest.fn(() => null);
+      globalThis.find = jest.fn(() => true);
+
+      const range = findTextInPage('Test');
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+      expect(globalThis.find).not.toHaveBeenCalled();
+    });
+
+    test('should fallback to TreeWalker when getSelection is unavailable', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      const originalGetSelection = globalThis.getSelection;
+      globalThis.getSelection = undefined;
+      globalThis.find = jest.fn(() => true);
+
+      const range = findTextInPage('Test');
+
+      globalThis.getSelection = originalGetSelection;
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+      expect(globalThis.find).not.toHaveBeenCalled();
+    });
+
+    test('should fallback to TreeWalker when window.find is unavailable', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      const mockSelection = {
+        removeAllRanges: jest.fn(),
+        rangeCount: 0,
+      };
+
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = undefined;
+
+      const range = findTextInPage('Test');
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+    });
+
+    test('should fallback to TreeWalker when window.find leaves no selection range', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
+      const mockSelection = {
+        removeAllRanges: jest.fn(),
+        rangeCount: 0,
+      };
+
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = jest.fn(() => true);
+
+      const range = findTextInPage('Test');
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+      expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
+    });
+
+    test('should cleanup selection and fallback to TreeWalker when cloneRange throws', () => {
       document.body.innerHTML = '<p>Test content</p>';
 
       const mockSelection = {
@@ -138,20 +227,31 @@ describe('TextSearch Utils Coverage Tests', () => {
 
       const range = findTextInPage('Test');
 
-      expect(range).toBeNull();
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
       expect(mockSelection.removeAllRanges).toHaveBeenCalledTimes(2);
-      expect(globalThis.Logger.error).toHaveBeenCalled();
     });
 
-    test('should handle errors gracefully', () => {
+    test('should continue fallback search when getSelection throws', () => {
+      document.body.innerHTML = '<p>Test content</p>';
+
       globalThis.getSelection = jest.fn(() => {
         throw new Error('Test error');
       });
 
       const range = findTextInPage('Test');
 
-      expect(range).toBeNull();
-      expect(globalThis.Logger.error).toHaveBeenCalled();
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Test');
+    });
+
+    test('should fallback to TreeWalker when contextual fuzzy search misses', () => {
+      document.body.innerHTML = '<p><span>Test</span><span>ing</span></p>';
+
+      const range = findTextInPage('Testing', { prefix: 'missing-prefix' });
+
+      expect(range).not.toBeNull();
+      expect(range.toString()).toBe('Testing');
     });
   });
 
@@ -240,6 +340,27 @@ describe('TextSearch Utils Coverage Tests', () => {
 
       document.createRange = originalCreateRange;
     });
+
+    test('should log structured context when TreeWalker search throws', () => {
+      const treeWalkerError = new Error('TreeWalker error');
+      const originalCreateTreeWalker = document.createTreeWalker;
+      document.createTreeWalker = jest.fn(() => {
+        throw treeWalkerError;
+      });
+
+      const range = findTextWithTreeWalker('Test');
+      document.createTreeWalker = originalCreateTreeWalker;
+
+      expect(range).toBeNull();
+      expect(globalThis.Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('[textSearch] findTextWithTreeWalker error:'),
+        expect.objectContaining({
+          action: 'findTextWithTreeWalker',
+          result: 'failed',
+          error: treeWalkerError,
+        })
+      );
+    });
   });
 
   describe('findTextFuzzy', () => {
@@ -281,6 +402,26 @@ describe('TextSearch Utils Coverage Tests', () => {
       const range = findTextFuzzy('Test content');
 
       expect(range).not.toBeNull();
+    });
+
+    test('should log structured context when fuzzy disambiguation fails', () => {
+      document.body.innerHTML = '<p>target middle target</p>';
+
+      const range = findTextFuzzy('target', {
+        prefix: 'missing-prefix',
+        suffix: 'missing-suffix',
+      });
+
+      expect(range).not.toBeNull();
+      expect(globalThis.Logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('[textSearch]'),
+        expect.objectContaining({
+          action: 'findTextFuzzy',
+          result: 'disambiguation_failed',
+          candidateCount: 2,
+          maxScore: 0,
+        })
+      );
     });
   });
 });
