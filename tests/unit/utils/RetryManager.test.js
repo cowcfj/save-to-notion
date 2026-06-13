@@ -86,6 +86,44 @@ async function advance(ms) {
   await Promise.resolve();
 }
 
+function restoreGlobalProperty(name, originalValue) {
+  if (originalValue === undefined) {
+    delete globalThis[name];
+    return;
+  }
+  globalThis[name] = originalValue;
+}
+
+function withGlobalTestDouble(name, value, assertionBlock) {
+  const originalValue = globalThis[name];
+  globalThis[name] = value;
+  try {
+    assertionBlock(value);
+  } finally {
+    restoreGlobalProperty(name, originalValue);
+  }
+}
+
+function createLoggerWithMethods(methodNames) {
+  return Object.fromEntries(methodNames.map(methodName => [methodName, jest.fn()]));
+}
+
+function expectStructuredRetryLog(logMethod, messageFragment, metadata) {
+  expect(logMethod).toHaveBeenCalledWith(expect.stringContaining(messageFragment), metadata);
+}
+
+function expectRetryLogReportsToErrorHandler(triggerLog) {
+  const errorHandler = {
+    logError: jest.fn(),
+  };
+
+  withGlobalTestDouble('ErrorHandler', errorHandler, () => {
+    triggerLog();
+
+    expect(errorHandler.logError).toHaveBeenCalled();
+  });
+}
+
 describe('RetryManager', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -899,58 +937,38 @@ describe('RetryManager Comprehensive Tests', () => {
 
   describe('_logRetryAttempt - 記錄重試嘗試', () => {
     test('應該記錄重試嘗試信息', () => {
-      // 模擬 Logger 對象
-      const mockLogger = {
-        log: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-      };
-      globalThis.Logger = mockLogger;
+      const logger = createLoggerWithMethods(['warn']);
 
-      const error = new Error('Test error');
+      withGlobalTestDouble('Logger', logger, mockLogger => {
+        const error = new Error('Test error');
 
-      RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('重試'),
-        expect.objectContaining({
+        expectStructuredRetryLog(mockLogger.warn, '重試', {
+          action: 'retryOperation',
+          result: 'warning',
           error: expect.objectContaining({
             message: 'Test error',
             name: 'Error',
           }),
           attempt: 1,
           maxAttempts: 3,
-        })
-      );
-
-      // 清理
-      delete globalThis.Logger;
+          delay: 100,
+          contextType: 'network',
+        });
+      });
     });
 
     test('應該使用 ErrorHandler 如果可用', () => {
-      const originalErrorHandler = globalThis.ErrorHandler;
+      expect.hasAssertions();
 
-      try {
-        globalThis.ErrorHandler = {
-          logError: jest.fn(),
-        };
-
+      expectRetryLogReportsToErrorHandler(() => {
         const error = new Error('Test error');
         RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
-
-        expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
-      } finally {
-        if (originalErrorHandler === undefined) {
-          delete globalThis.ErrorHandler;
-        } else {
-          globalThis.ErrorHandler = originalErrorHandler;
-        }
-      }
+      });
     });
 
     test('應該使用 ErrorHandler 類別實例', () => {
-      const originalErrorHandler = globalThis.ErrorHandler;
       const logErrorSpy = jest.fn();
       class MockErrorHandler {
         logError(payload) {
@@ -958,110 +976,73 @@ describe('RetryManager Comprehensive Tests', () => {
         }
       }
 
-      try {
-        globalThis.ErrorHandler = MockErrorHandler;
-
+      withGlobalTestDouble('ErrorHandler', MockErrorHandler, () => {
         const error = new Error('Test error');
         RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
         expect(logErrorSpy).toHaveBeenCalled();
-      } finally {
-        if (originalErrorHandler === undefined) {
-          delete globalThis.ErrorHandler;
-        } else {
-          globalThis.ErrorHandler = originalErrorHandler;
-        }
-      }
+      });
     });
   });
 
   describe('_logRetrySuccess - 記錄重試成功', () => {
-    test('應該記錄成功信息', () => {
-      // 模擬 Logger 對象
-      const mockLogger = {
-        log: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-      };
-      globalThis.Logger = mockLogger;
+    function expectRetrySuccessLog(loggerMethod, contextType) {
+      const logger = createLoggerWithMethods([loggerMethod]);
 
-      RetryManager._logRetrySuccess(2);
+      withGlobalTestDouble('Logger', logger, mockLogger => {
+        RetryManager._logRetrySuccess(2, contextType);
 
-      // 驗證 Logger.log 或 Logger.info 被調用
-      const logCalled = mockLogger.log.mock.calls.some(
-        call => call[0].includes('已成功') && call[0].includes('2 次重試')
-      );
-      const infoCalled = mockLogger.info.mock.calls.some(
-        call => call[0].includes('已成功') && call[0].includes('2 次重試')
-      );
+        expectStructuredRetryLog(mockLogger[loggerMethod], '已成功', {
+          action: 'retryOperation',
+          result: 'success',
+          totalRetries: 2,
+          contextType,
+        });
+      });
+    }
 
-      expect(logCalled || infoCalled).toBe(true);
+    test('應該在 Logger 支援 success 時呼叫 success 且符合結構化日誌契約', () => {
+      expect.hasAssertions();
 
-      // 檢查調用參數中是否包含結構化對象
-      const logArgs =
-        mockLogger.log.mock.calls.find(call => call[0].includes('已成功')) ||
-        mockLogger.info.mock.calls.find(call => call[0].includes('已成功'));
+      expectRetrySuccessLog('success', 'dom');
+    });
 
-      if (
-        logArgs && // 如果傳遞了第二個參數，驗證它是結構化對象
-        logArgs.length > 1
-      ) {
-        expect(logArgs[1]).toEqual(
-          expect.objectContaining({
-            totalRetries: expect.anything(),
-            contextType: expect.anything(),
-          })
-        );
-      }
+    test('應該在 Logger 僅支援 info 時呼叫 info 且符合結構化日誌契約', () => {
+      expect.hasAssertions();
 
-      // 清理
-      delete globalThis.Logger;
+      expectRetrySuccessLog('info', 'network');
     });
   });
 
   describe('_logRetryFailure - 記錄重試失敗', () => {
     test('應該記錄失敗信息', () => {
-      // 模擬 Logger 對象
-      const mockLogger = {
-        log: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-      };
-      globalThis.Logger = mockLogger;
+      const logger = createLoggerWithMethods(['error']);
 
-      const error = new Error('Final error');
+      withGlobalTestDouble('Logger', logger, mockLogger => {
+        const error = new Error('Final error');
 
-      RetryManager._logRetryFailure(error, 3);
+        RetryManager._logRetryFailure(error, 3);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('失敗'),
-        expect.objectContaining({
+        expectStructuredRetryLog(mockLogger.error, '失敗', {
+          action: 'retryOperation',
+          result: 'failure',
           error: expect.objectContaining({
             message: 'Final error',
             name: 'Error',
           }),
           totalRetries: 3,
           contextType: 'network',
-        })
-      );
-
-      // 清理
-      delete globalThis.Logger;
+        });
+      });
     });
 
     test('應該使用 ErrorHandler 如果可用', () => {
-      globalThis.ErrorHandler = {
-        logError: jest.fn(),
-      };
+      expect.hasAssertions();
 
-      const error = new Error('Final error');
-      RetryManager._logRetryFailure(error, 3);
-
-      expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
-
-      delete globalThis.ErrorHandler;
+      expectRetryLogReportsToErrorHandler(() => {
+        const error = new Error('Final error');
+        RetryManager._logRetryFailure(error, 3);
+      });
     });
   });
 
