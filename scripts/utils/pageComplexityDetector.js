@@ -99,6 +99,46 @@ const MEDIUM_MATHEMATICAL_SPACE_CODE_POINT = 0x20_5f;
 const IDEOGRAPHIC_SPACE_CODE_POINT = 0x30_00;
 const ZERO_WIDTH_NO_BREAK_SPACE_CODE_POINT = 0xfe_ff;
 
+/** 用於高效匹配 Unicode 空白字元的 Set */
+const SPACES_SET = new Set([
+  160,
+  OGHAM_SPACE_MARK_CODE_POINT,
+  LINE_SEPARATOR_CODE_POINT,
+  PARAGRAPH_SEPARATOR_CODE_POINT,
+  NARROW_NO_BREAK_SPACE_CODE_POINT,
+  MEDIUM_MATHEMATICAL_SPACE_CODE_POINT,
+  IDEOGRAPHIC_SPACE_CODE_POINT,
+  ZERO_WIDTH_NO_BREAK_SPACE_CODE_POINT,
+]);
+
+function _resolveCurrentLocationHref() {
+  if (globalThis.window === undefined) {
+    return '';
+  }
+  return globalThis.location.href;
+}
+
+function _resolveCurrentDocumentTitle() {
+  if (typeof document === 'undefined') {
+    return '';
+  }
+  return document.title;
+}
+
+function _resolvePreferredValue(value, fallback) {
+  if (value) {
+    return value;
+  }
+  return fallback;
+}
+
+function _isRelativePathUrl(urlStr) {
+  if (typeof urlStr !== 'string') {
+    return false;
+  }
+  return urlStr.startsWith('/');
+}
+
 /**
  * 頁面複雜度檢測器
  *
@@ -124,11 +164,16 @@ const ZERO_WIDTH_NO_BREAK_SPACE_CODE_POINT = 0xfe_ff;
  * @param {string} options.title - 頁面標題 (可選，默認使用 document.title)
  * @returns {{isDoc: boolean, isTechnical: boolean, matched: {host: boolean, path: boolean, techUrl: boolean, techTitle: boolean}}}
  */
-export function isDocumentation(options = {}) {
-  const urlStr = options.url || (globalThis.window === undefined ? '' : globalThis.location.href);
-  const title = (
-    options.title || (typeof document === 'undefined' ? '' : document.title)
-  ).toLowerCase();
+/**
+ * 預解析 URL 與標題以利後作判斷
+ *
+ * @private
+ * @param {object} options - 檢測選項
+ * @returns {{hostname: string, pathname: string, urlStr: string, title: string}} 解析後的 URL 與標題資訊
+ */
+function _parseUrlAndTitle(options) {
+  const urlStr = _resolvePreferredValue(options.url, _resolveCurrentLocationHref());
+  const title = _resolvePreferredValue(options.title, _resolveCurrentDocumentTitle()).toLowerCase();
 
   let hostname = '';
   let pathname = '';
@@ -138,31 +183,66 @@ export function isDocumentation(options = {}) {
     hostname = url.hostname.toLowerCase();
     pathname = url.pathname.toLowerCase();
   } catch {
-    if (typeof urlStr === 'string' && urlStr.startsWith('/')) {
+    if (_isRelativePathUrl(urlStr)) {
       pathname = urlStr.toLowerCase();
     }
   }
 
-  // 1. 檢測通用文檔特徵
+  return { hostname, pathname, urlStr, title };
+}
+
+/**
+ * 比對文檔模式並回傳匹配結果旗標
+ *
+ * @private
+ * @param {string} hostname - 主機名稱
+ * @param {string} pathname - 路徑名稱
+ * @param {string} urlStr - 原始 URL 屬性
+ * @param {string} title - 小寫化後的標題
+ * @returns {{host: boolean, path: boolean, techUrl: boolean, techTitle: boolean}} 匹配結果旗標
+ */
+function _matchDocPatterns(hostname, pathname, urlStr, title) {
   const isDocHost = DOC_HOST_PATTERNS.some(pattern => pattern.test(hostname));
   const isDocPath = DOC_PATH_PATTERNS.some(pattern => pattern.test(pathname));
-
-  // 2. 檢測技術文檔特徵
   const isTechUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(urlStr.toLowerCase()));
   const isTechTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(title));
 
-  const isTechnical = isTechUrl || isTechTitle;
-  const isDoc = isDocHost || isDocPath || isTechnical;
+  return {
+    host: isDocHost,
+    path: isDocPath,
+    techUrl: isTechUrl,
+    techTitle: isTechTitle,
+  };
+}
+
+function _matchesEitherTechnicalDocSource(matched) {
+  if (matched.techUrl) {
+    return true;
+  }
+  return matched.techTitle;
+}
+
+function _matchesAnyDocumentationSource(matched) {
+  if (matched.host) {
+    return true;
+  }
+  if (matched.path) {
+    return true;
+  }
+  return _matchesEitherTechnicalDocSource(matched);
+}
+
+export function isDocumentation(options = {}) {
+  const { hostname, pathname, urlStr, title } = _parseUrlAndTitle(options);
+  const matched = _matchDocPatterns(hostname, pathname, urlStr, title);
+
+  const isTechnical = _matchesEitherTechnicalDocSource(matched);
+  const isDoc = _matchesAnyDocumentationSource(matched);
 
   return {
     isDoc,
     isTechnical,
-    matched: {
-      host: isDocHost,
-      path: isDocPath,
-      techUrl: isTechUrl,
-      techTitle: isTechTitle,
-    },
+    matched,
   };
 }
 
@@ -195,6 +275,99 @@ function countElements(container, selector) {
 }
 
 /**
+ * 統計 regex 在文字中匹配的次數，並確保 lastIndex 被重置
+ *
+ * @private
+ * @param {RegExp|null} regex - 正則表達式
+ * @param {string} text - 待統計的文字
+ * @returns {number} 匹配次數
+ */
+function _countRegexMatches(regex, text) {
+  if (!regex) {
+    return 0;
+  }
+  regex.lastIndex = 0;
+  let count = 0;
+  while (regex.test(text)) {
+    count++;
+  }
+  return count;
+}
+
+/**
+ * 統計所有技術詞彙在原始/小寫化文本中的出現次數
+ *
+ * @private
+ * @param {string} rawText - 原始本文
+ * @param {string} textContent - 小寫化文本
+ * @returns {number} 技術詞彙總出現次數
+ */
+function _countTechnicalTerms(rawText, textContent) {
+  let count = 0;
+  count += _countRegexMatches(WORD_TERMS_REGEX, textContent);
+  count += _countRegexMatches(CASE_SENSITIVE_WORD_REGEX, rawText);
+  count += _countRegexMatches(SPECIAL_TERMS_REGEX, textContent);
+  return count;
+}
+
+function _isEnQuadToHairSpace(code) {
+  if (code < EN_QUAD_CODE_POINT) {
+    return false;
+  }
+  return code <= HAIR_SPACE_CODE_POINT;
+}
+
+/**
+ * 判斷一個 code point 是否為單字分隔符號（空白字元等）
+ *
+ * @private
+ * @param {number} code - 字元的 code point
+ * @returns {boolean} 是否為分隔符號
+ */
+function _isWordSeparatorCodePoint(code) {
+  if (code <= 32) {
+    return true;
+  }
+  if (_isEnQuadToHairSpace(code)) {
+    return true;
+  }
+  return SPACES_SET.has(code);
+}
+
+/**
+ * 使用高效字元迴圈統計文字中的單字數量，避免昂貴的 split
+ *
+ * @private
+ * @param {string} textContent - 待統計的文字
+ * @returns {number} 單字數量
+ */
+function _countWords(textContent) {
+  let wordCount = 0;
+  let inWord = false;
+  for (let i = 0; i < textContent.length; i++) {
+    const code = textContent.codePointAt(i);
+    if (_isWordSeparatorCodePoint(code)) {
+      inWord = false;
+    } else if (!inWord) {
+      inWord = true;
+      wordCount++;
+    }
+  }
+  return wordCount;
+}
+
+function _getDocumentBodyText(document) {
+  return _resolvePreferredValue(document?.body?.textContent, '');
+}
+
+function _isTechnicalText(technicalRatio, technicalTermCount) {
+  if (technicalRatio > 0.02) {
+    return true;
+  }
+  return technicalTermCount > 10;
+}
+
+/**
  * 檢測技術內容特徵
  * 檢查頁面是否包含大量技術相關的內容
  *
@@ -202,129 +375,182 @@ function countElements(container, selector) {
  * @returns {{technicalTermCount: number, technicalRatio: number, isTechnical: boolean}} 技術特徵分析結果
  */
 function hasTechnicalFeatures(document) {
-  const rawText = document.body?.textContent || '';
+  const rawText = _getDocumentBodyText(document);
   const textContent = rawText.toLowerCase();
 
-  let technicalTermCount = 0;
-  if (WORD_TERMS_REGEX) {
-    WORD_TERMS_REGEX.lastIndex = 0;
-    while (WORD_TERMS_REGEX.test(textContent)) {
-      technicalTermCount++;
-    }
-  }
-  if (CASE_SENSITIVE_WORD_REGEX) {
-    CASE_SENSITIVE_WORD_REGEX.lastIndex = 0;
-    while (CASE_SENSITIVE_WORD_REGEX.test(rawText)) {
-      technicalTermCount++;
-    }
-  }
-  if (SPECIAL_TERMS_REGEX) {
-    SPECIAL_TERMS_REGEX.lastIndex = 0;
-    while (SPECIAL_TERMS_REGEX.test(textContent)) {
-      technicalTermCount++;
-    }
-  }
-
-  // Optimize word counting: avoid expensive .split(/\s+/) which creates huge arrays
-  // by using a fast ASCII-based character loop over the string
-  let wordCount = 0;
-  let inWord = false;
-  for (let i = 0; i < textContent.length; i++) {
-    const code = textContent.codePointAt(i);
-    if (
-      code <= 32 ||
-      code === 160 ||
-      code === OGHAM_SPACE_MARK_CODE_POINT ||
-      (code >= EN_QUAD_CODE_POINT && code <= HAIR_SPACE_CODE_POINT) ||
-      code === LINE_SEPARATOR_CODE_POINT ||
-      code === PARAGRAPH_SEPARATOR_CODE_POINT ||
-      code === NARROW_NO_BREAK_SPACE_CODE_POINT ||
-      code === MEDIUM_MATHEMATICAL_SPACE_CODE_POINT ||
-      code === IDEOGRAPHIC_SPACE_CODE_POINT ||
-      code === ZERO_WIDTH_NO_BREAK_SPACE_CODE_POINT
-    ) {
-      inWord = false;
-    } else if (!inWord) {
-      inWord = true;
-      wordCount++;
-    }
-  }
+  const technicalTermCount = _countTechnicalTerms(rawText, textContent);
+  const wordCount = _countWords(textContent);
 
   const technicalRatio = technicalTermCount / Math.max(wordCount, 1);
 
   return {
     technicalTermCount,
     technicalRatio,
-    isTechnical: technicalRatio > 0.02 || technicalTermCount > 10,
+    isTechnical: _isTechnicalText(technicalRatio, technicalTermCount),
+  };
+}
+
+function _resolveDocumentUrl(document) {
+  if (document?.location?.href) {
+    return document.location.href;
+  }
+  if (document?.URL) {
+    return document.URL;
+  }
+  return globalThis.location.href;
+}
+
+/**
+ * 解析 document 的 URL 與標題資訊，提供 Location 回退
+ *
+ * @private
+ * @param {Document} document - DOM 文檔對象
+ * @returns {{url: string, title: string}} 解析後的 URL 與標題
+ */
+function _resolvePageUrlAndTitle(document) {
+  const url = _resolveDocumentUrl(document);
+  const title = _resolvePreferredValue(document?.title, '');
+  return { url, title };
+}
+
+/**
+ * 統計頁面的各項基礎指標
+ *
+ * @private
+ * @param {Document} document - DOM 文檔對象
+ * @returns {object} 統計後的指標對象
+ */
+function _buildPageMetrics(document) {
+  const { url, title } = _resolvePageUrlAndTitle(document);
+  const isDocSite = isDocumentation({ url, title }).isDoc;
+
+  return {
+    isDocSite,
+    adElements: countElements(document, AD_SELECTORS.join(', ')),
+    navElements: countElements(document, 'nav, header, footer, aside, .sidebar, .navigation'),
+    contentElements: countElements(document, 'article, main, .content, .post, .entry, section'),
+    codeBlocks: countElements(document, 'pre, code, .highlight, .codehilite'),
+    markdownContainers: countElements(document, TECHNICAL_CONTENT_SELECTORS.join(', ')),
+    images: countElements(document, 'img'),
+    videos: countElements(document, 'video, iframe[src*="youtube"], iframe[src*="vimeo"]'),
+    textLength: _getDocumentBodyText(document).trim().length,
   };
 }
 
 /**
- * 檢測頁面複雜度
- * 分析頁面結構，返回複雜度指標
+ * 判斷頁面結構是否符合乾淨內容頁的基礎條件
  *
- * @param {Document} [document=globalThis.document] - DOM 文檔對象
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @returns {boolean} 是否為乾淨內容結構
+ */
+function _hasCleanContentStructure(metrics) {
+  if (metrics.adElements > 2) {
+    return false;
+  }
+  if (metrics.navElements > 3) {
+    return false;
+  }
+  return metrics.contentElements >= 1;
+}
+
+/**
+ * 判斷頁面是否應視為乾淨頁面
+ *
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @returns {boolean} 是否為乾淨頁面
+ */
+function _isCleanPage(metrics) {
+  if (metrics.isDocSite) {
+    return true;
+  }
+  return _hasCleanContentStructure(metrics);
+}
+
+/**
+ * 判斷頁面是否具有 Markdown / 技術文檔結構特徵
+ *
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @returns {boolean} 是否具有 Markdown 結構特徵
+ */
+function _hasMarkdownFeatures(metrics) {
+  if (metrics.codeBlocks >= 3) {
+    return true;
+  }
+  return metrics.markdownContainers > 0;
+}
+
+/**
+ * 判斷導覽元素是否相對正文過於密集
+ *
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @returns {boolean} 是否為導覽密集型佈局
+ */
+function _hasNavigationDenseLayout(metrics) {
+  if (metrics.contentElements <= 0) {
+    return false;
+  }
+  return metrics.navElements / metrics.contentElements > 3;
+}
+
+/**
+ * 判斷頁面是否屬於複雜佈局
+ *
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @returns {boolean} 是否為複雜佈局
+ */
+function _isComplexLayout(metrics) {
+  if (metrics.navElements > 5) {
+    return true;
+  }
+  return _hasNavigationDenseLayout(metrics);
+}
+
+/**
+ * 判斷頁面是否包含大量媒體內容
+ *
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @returns {boolean} 是否包含大量媒體內容
+ */
+function _hasRichMedia(metrics) {
+  if (metrics.images > 10) {
+    return true;
+  }
+  return metrics.videos > 2;
+}
+
+/**
+ * 根據基礎指標與技術特徵推導複雜度旗標
+ *
+ * @private
+ * @param {object} metrics - 基礎指標對象
+ * @param {object} technicalFeatures - 技術特徵對象
  * @returns {object} 複雜度分析結果
  */
+function _deriveComplexityFlags(metrics, technicalFeatures) {
+  return {
+    isClean: _isCleanPage(metrics),
+    hasMarkdownFeatures: _hasMarkdownFeatures(metrics),
+    hasTechnicalContent: technicalFeatures.isTechnical,
+    hasAds: metrics.adElements > 3,
+    isComplexLayout: _isComplexLayout(metrics),
+    isLongForm: metrics.textLength > 5000,
+    hasRichMedia: _hasRichMedia(metrics),
+    metrics,
+    technicalFeatures,
+  };
+}
+
 export function detectPageComplexity(document = globalThis.document) {
   try {
-    // 基礎指標統計
-    const metrics = {
-      // 網站類型
-      isDocSite: isDocumentation({
-        url: document?.location?.href || document?.URL || globalThis.location.href,
-        title: document?.title,
-      }).isDoc,
-
-      // 廣告元素檢測（使用統一配置 ../config/shared/content.js）
-      adElements: countElements(document, AD_SELECTORS.join(', ')),
-      navElements: countElements(document, 'nav, header, footer, aside, .sidebar, .navigation'),
-      contentElements: countElements(document, 'article, main, .content, .post, .entry, section'),
-
-      // Markdown/技術文檔特徵
-      codeBlocks: countElements(document, 'pre, code, .highlight, .codehilite'),
-      // Markdown 容器檢測（GitHub, GitBook 等 Markdown 渲染頁面）
-      // 注意：必須保持與 ../config/shared/content.js 中的 TECHNICAL_CONTENT_SELECTORS 一致
-      markdownContainers: countElements(document, TECHNICAL_CONTENT_SELECTORS.join(', ')),
-
-      // 媒體內容
-      images: countElements(document, 'img'),
-      videos: countElements(document, 'video, iframe[src*="youtube"], iframe[src*="vimeo"]'),
-
-      // 文字內容
-      textLength: (document.body?.textContent?.trim() || '').length,
-    };
-
-    // 技術特徵檢測
+    const metrics = _buildPageMetrics(document);
     const technicalFeatures = hasTechnicalFeatures(document);
-
-    // 計算複雜度評分
-    const complexity = {
-      // 簡潔度指標 (越高越簡潔)
-      isClean:
-        metrics.isDocSite ||
-        (metrics.adElements <= 2 && metrics.navElements <= 3 && metrics.contentElements >= 1),
-
-      // 技術文檔特徵
-      hasMarkdownFeatures: metrics.codeBlocks >= 3 || metrics.markdownContainers > 0,
-      hasTechnicalContent: technicalFeatures.isTechnical,
-
-      // 干擾因素
-      hasAds: metrics.adElements > 3,
-      isComplexLayout:
-        metrics.navElements > 5 ||
-        (metrics.contentElements > 0 && metrics.navElements / metrics.contentElements > 3),
-
-      // 內容特徵
-      isLongForm: metrics.textLength > 5000,
-      hasRichMedia: metrics.images > 10 || metrics.videos > 2,
-
-      // 原始指標
-      metrics,
-      technicalFeatures,
-    };
-
-    return complexity;
+    return _deriveComplexityFlags(metrics, technicalFeatures);
   } catch (error) {
     Logger.error('頁面複雜度檢測失敗', { action: 'detectPageComplexity', error });
     // 回退到安全的預設值
@@ -374,7 +600,12 @@ export function selectExtractor(complexity) {
 
   // Determine extractor and gather reasons
   const { hasAds, isComplexLayout, hasRichMedia, isLongForm } = complexity;
-  const requireReadability = hasAds || isComplexLayout || hasRichMedia || isLongForm;
+  const requireReadability = _requiresReadabilityExtractor({
+    hasAds,
+    isComplexLayout,
+    hasRichMedia,
+    isLongForm,
+  });
 
   const selectedExtractor = requireReadability ? 'readability' : 'markdown';
 
@@ -390,6 +621,19 @@ export function selectExtractor(complexity) {
     confidence: calculateConfidence(complexity, selectedExtractor),
     fallbackRequired: shouldUseFallback(complexity),
   };
+}
+
+function _requiresReadabilityExtractor({ hasAds, isComplexLayout, hasRichMedia, isLongForm }) {
+  if (hasAds) {
+    return true;
+  }
+  if (isComplexLayout) {
+    return true;
+  }
+  if (hasRichMedia) {
+    return true;
+  }
+  return isLongForm;
 }
 
 /**
@@ -442,10 +686,17 @@ function getReadabilityConfidence(complexity) {
   if (isLongForm) {
     score += 10;
   }
-  if (isClean && !hasAds) {
+  if (_shouldPenalizeReadabilityForCleanPage({ isClean, hasAds })) {
     score -= 15;
   }
   return score;
+}
+
+function _shouldPenalizeReadabilityForCleanPage({ isClean, hasAds }) {
+  if (!isClean) {
+    return false;
+  }
+  return !hasAds;
 }
 
 /**
@@ -476,10 +727,20 @@ function calculateConfidence(complexity, selectedExtractor) {
  */
 function shouldUseFallback(complexity) {
   // 如果頁面特徵不明顯，建議使用備用方案驗證
-  return (
-    complexity.metrics.textLength < 500 || // 內容過短
-    (complexity.hasAds && complexity.hasTechnicalContent) // 技術文檔但有廣告干擾
-  );
+  if (complexity.metrics.textLength < 500) {
+    return true;
+  }
+  if (complexity.hasAds) {
+    return complexity.hasTechnicalContent;
+  }
+  return false;
+}
+
+function _isNewsOrBlogPage(complexity) {
+  if (complexity.isClean) {
+    return false;
+  }
+  return complexity.isLongForm;
 }
 
 /**
@@ -498,7 +759,7 @@ export function getAnalysisReport(complexity, selection) {
     pageType: {
       isDocumentationSite: complexity.metrics.isDocSite,
       isTechnicalContent: complexity.hasTechnicalContent,
-      isNewsOrBlog: !complexity.isClean && complexity.isLongForm,
+      isNewsOrBlog: _isNewsOrBlogPage(complexity),
     },
 
     metrics: complexity.metrics,
@@ -530,15 +791,29 @@ function generateRecommendations(complexity, selection) {
     recommendations.push('建議使用備用提取器驗證結果品質');
   }
 
-  if (complexity.isClean && selection.extractor === 'readability') {
+  if (_shouldRecommendMarkdownForCleanPage(complexity, selection)) {
     recommendations.push('簡潔頁面建議優先嘗試 @markdown 以獲得更好速度');
   }
 
-  if (complexity.hasAds && selection.extractor === 'markdown') {
+  if (_shouldWarnMarkdownAdInterference(complexity, selection)) {
     recommendations.push('檢測到廣告內容，@markdown 可能無法完全過濾');
   }
 
   return recommendations;
+}
+
+function _shouldRecommendMarkdownForCleanPage(complexity, selection) {
+  if (!complexity.isClean) {
+    return false;
+  }
+  return selection.extractor === 'readability';
+}
+
+function _shouldWarnMarkdownAdInterference(complexity, selection) {
+  if (!complexity.hasAds) {
+    return false;
+  }
+  return selection.extractor === 'markdown';
 }
 
 /**
@@ -582,9 +857,19 @@ function _addMarkdownReasons(reasons, complexity) {
   if (hasTechnicalContent) {
     reasons.push('技術文檔內容');
   }
-  if (!isClean && !hasMarkdownFeatures && !hasTechnicalContent) {
+  if (_shouldUseGeneralPageReason({ isClean, hasMarkdownFeatures, hasTechnicalContent })) {
     reasons.push('一般頁面');
   }
+}
+
+function _shouldUseGeneralPageReason({ isClean, hasMarkdownFeatures, hasTechnicalContent }) {
+  if (isClean) {
+    return false;
+  }
+  if (hasMarkdownFeatures) {
+    return false;
+  }
+  return !hasTechnicalContent;
 }
 
 /**

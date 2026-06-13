@@ -92,6 +92,12 @@ describe('頁面複雜度檢測器', () => {
       const result = isDocumentation({});
       expect(result.isTechnical).toBe(false);
     });
+
+    test('should handle relative path with startsWith / correctly', () => {
+      const result = isDocumentation({ url: '/docs/getting-started' });
+      expect(result.isDoc).toBe(true);
+      expect(result.matched.path).toBe(true);
+    });
   });
 
   describe('技術文檔頁面檢測', () => {
