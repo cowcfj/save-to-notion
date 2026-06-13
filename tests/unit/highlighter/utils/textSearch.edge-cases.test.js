@@ -323,43 +323,53 @@ describe('TextSearch Utils Coverage Tests', () => {
     test('should log warning when creating cross-node range fails', () => {
       document.body.innerHTML = '<p><span>Test</span><span>content</span></p>';
 
-      // Mock Range.setStart to throw error
+      const setStartError = new Error('setStart error');
       const originalCreateRange = document.createRange;
-      document.createRange = jest.fn(() => {
+      const createRangeSpy = jest.spyOn(document, 'createRange').mockImplementation(() => {
         const range = originalCreateRange.call(document);
         range.setStart = jest.fn(() => {
-          throw new Error('setStart error');
+          throw setStartError;
         });
         return range;
       });
 
-      findTextWithTreeWalker('Testcontent');
+      try {
+        const range = findTextWithTreeWalker('Testcontent');
 
-      // Should try and fail, logging warning
-      expect(globalThis.Logger.warn).toHaveBeenCalled();
-
-      document.createRange = originalCreateRange;
+        expect(range).toBeNull();
+        expect(globalThis.Logger.warn).toHaveBeenCalledWith('[textSearch] 創建跨節點 Range 失敗:', {
+          action: 'createRangeFromNodesMatch',
+          result: 'failed',
+          error: setStartError,
+        });
+      } finally {
+        createRangeSpy.mockRestore();
+      }
     });
 
     test('should log structured context when TreeWalker search throws', () => {
       const treeWalkerError = new Error('TreeWalker error');
-      const originalCreateTreeWalker = document.createTreeWalker;
-      document.createTreeWalker = jest.fn(() => {
-        throw treeWalkerError;
-      });
+      const createTreeWalkerSpy = jest
+        .spyOn(document, 'createTreeWalker')
+        .mockImplementation(() => {
+          throw treeWalkerError;
+        });
 
-      const range = findTextWithTreeWalker('Test');
-      document.createTreeWalker = originalCreateTreeWalker;
+      try {
+        const range = findTextWithTreeWalker('Test');
 
-      expect(range).toBeNull();
-      expect(globalThis.Logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[textSearch] findTextWithTreeWalker error:'),
-        expect.objectContaining({
-          action: 'findTextWithTreeWalker',
-          result: 'failed',
-          error: treeWalkerError,
-        })
-      );
+        expect(range).toBeNull();
+        expect(globalThis.Logger.error).toHaveBeenCalledWith(
+          expect.stringContaining('[textSearch] findTextWithTreeWalker error:'),
+          expect.objectContaining({
+            action: 'findTextWithTreeWalker',
+            result: 'failed',
+            error: treeWalkerError,
+          })
+        );
+      } finally {
+        createTreeWalkerSpy.mockRestore();
+      }
     });
   });
 

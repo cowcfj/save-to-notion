@@ -315,7 +315,11 @@ function createRangeFromNodesMatch(nodesInRange, matchIndex, textLength) {
     return range;
   } catch (error) {
     if (globalThis.Logger !== undefined) {
-      globalThis.Logger?.warn(SEARCH_LOG_TAG, '創建跨節點 Range 失敗:', error);
+      globalThis.Logger?.warn(`${SEARCH_LOG_TAG} 創建跨節點 Range 失敗:`, {
+        action: 'createRangeFromNodesMatch',
+        result: 'failed',
+        error,
+      });
     }
     return null;
   }
