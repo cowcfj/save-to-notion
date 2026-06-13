@@ -3,7 +3,26 @@
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
 const { RetryManager, withRetry, fetchWithRetry } = require('../../../scripts/utils/RetryManager');
+
+const retryManagerSourcePath = path.resolve(__dirname, '../../../scripts/utils/RetryManager.js');
+
+function evaluateRetryManagerWithoutModule() {
+  const sandbox = { console };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+
+  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for isolated global export testing.
+  vm.runInContext(fs.readFileSync(retryManagerSourcePath, 'utf8'), sandbox, {
+    filename: retryManagerSourcePath,
+  });
+
+  return sandbox;
+}
 
 // 簡易 Headers 模擬
 class MockHeaders {
@@ -352,7 +371,12 @@ describe('RetryManager', () => {
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
       try {
         delete globalThis.Logger;
-        RetryManager._logRetryAttempt(new Error('test'), 1, 3, 100);
+        RetryManager._logRetryAttempt({
+          error: new Error('test'),
+          attempt: 1,
+          maxAttempts: 3,
+          delay: 100,
+        });
         expect(consoleWarnSpy).toHaveBeenCalled();
       } finally {
         consoleWarnSpy.mockRestore();
@@ -849,6 +873,30 @@ describe('RetryManager Comprehensive Tests', () => {
     });
   });
 
+  describe('防禦性 options 處理', () => {
+    test('_shouldRetryFetchError 缺少 retryOptions 時應使用默認網絡重試判斷', () => {
+      const error = new Error('Failed to fetch');
+
+      const result = retryManager._shouldRetryFetchError(error);
+
+      expect(result).toBe(true);
+    });
+
+    test('_shouldLogRetryFailure 缺少 options 時應默認記錄失敗', () => {
+      const result = RetryManager._shouldLogRetryFailure(new Error('Final error'));
+
+      expect(result).toBe(true);
+    });
+
+    test('_shouldRetryFetchResponse 缺少 retryOptions 時應使用默認 HTTP 狀態判斷', () => {
+      const retryable = RetryManager._shouldRetryFetchResponse({ status: 503 }, 503);
+      const notRetryable = RetryManager._shouldRetryFetchResponse({ status: 404 }, 404);
+
+      expect(retryable).toBe(true);
+      expect(notRetryable).toBe(false);
+    });
+  });
+
   describe('_logRetryAttempt - 記錄重試嘗試', () => {
     test('應該記錄重試嘗試信息', () => {
       // 模擬 Logger 對象
@@ -862,7 +910,7 @@ describe('RetryManager Comprehensive Tests', () => {
 
       const error = new Error('Test error');
 
-      RetryManager._logRetryAttempt(error, 1, 3, 100);
+      RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('重試'),
@@ -889,7 +937,7 @@ describe('RetryManager Comprehensive Tests', () => {
         };
 
         const error = new Error('Test error');
-        RetryManager._logRetryAttempt(error, 1, 3, 100);
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
         expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
       } finally {
@@ -914,7 +962,7 @@ describe('RetryManager Comprehensive Tests', () => {
         globalThis.ErrorHandler = MockErrorHandler;
 
         const error = new Error('Test error');
-        RetryManager._logRetryAttempt(error, 1, 3, 100);
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
 
         expect(logErrorSpy).toHaveBeenCalled();
       } finally {
@@ -1144,6 +1192,16 @@ describe('RetryManager Comprehensive Tests', () => {
       expect(exported.withRetry).toBeDefined();
       expect(exported.fetchWithRetry).toBeDefined();
     });
+
+    test('沒有 module.exports 且沒有 window 時應掛到 globalThis', () => {
+      const sandbox = evaluateRetryManagerWithoutModule();
+
+      expect(sandbox.module).toBeUndefined();
+      expect(sandbox.window).toBeUndefined();
+      expect(sandbox.RetryManager).toEqual(expect.any(Function));
+      expect(sandbox.withRetry).toEqual(expect.any(Function));
+      expect(sandbox.fetchWithRetry).toEqual(expect.any(Function));
+    });
   });
 });
 
@@ -1188,7 +1246,12 @@ describe('RetryManager Security Tests', () => {
       },
     };
 
-    RetryManager._logRetryAttempt(sensitiveError, 1, 3, 100);
+    RetryManager._logRetryAttempt({
+      error: sensitiveError,
+      attempt: 1,
+      maxAttempts: 3,
+      delay: 100,
+    });
 
     expect(mockLogger.warn).toHaveBeenCalledTimes(1);
     const logCall = mockLogger.warn.mock.calls[0];
