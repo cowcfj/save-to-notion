@@ -45,12 +45,27 @@ async function handleResponseError(res, prefix) {
 }
 
 /**
+ * 驗證 data 是否為有效的物件（非 null、非陣列、非 primitive）。
+ *
+ * @param {any} data
+ * @param {string} context
+ * @throws {Error} 若 data 不是有效的物件
+ */
+function ensureValidObject(data, context) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(`${context} response is not a valid object`);
+  }
+}
+
+/**
  * 驗證並正規化 exchange ticket 的回應資料。
  *
  * @param {any} data
  * @returns {{accessToken: string; refreshToken: string; expiresAt: number; userId: string}}
  */
 function normalizeExchangeResponse(data) {
+  ensureValidObject(data, 'Exchange');
+
   if (!data.access_token) {
     throw new Error('Exchange response missing required field (access_token)');
   }
@@ -75,6 +90,8 @@ function normalizeExchangeResponse(data) {
  * @returns {{userId: string; email: string; displayName: string | null; avatarUrl: string | null}}
  */
 function normalizeMeResponse(data) {
+  ensureValidObject(data, 'Account/me');
+
   if (!data.email) {
     throw new Error('Account/me response missing required field (email)');
   }
