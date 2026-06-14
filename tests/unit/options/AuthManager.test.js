@@ -261,6 +261,35 @@ describe('AuthManager Extended', () => {
       expect(setupSpy).toHaveBeenCalledTimes(1);
       await initPromise;
     });
+
+    test('API Key 輸入應使用類別常數控制資料來源載入門檻與防抖延遲', () => {
+      const originalMinLength = AuthManager.MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD;
+      const originalDebounceMs = AuthManager.API_KEY_INPUT_DEBOUNCE_MS;
+      jest.useFakeTimers();
+
+      try {
+        AuthManager.MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD = 3;
+        AuthManager.API_KEY_INPUT_DEBOUNCE_MS = 25;
+        const apiKeyInput = document.querySelector('#api-key');
+
+        apiKeyInput.value = 'abc';
+        apiKeyInput.dispatchEvent(new Event('input'));
+        jest.advanceTimersByTime(AuthManager.API_KEY_INPUT_DEBOUNCE_MS);
+        expect(mockLoadDatabases).not.toHaveBeenCalled();
+
+        apiKeyInput.value = 'abcd';
+        apiKeyInput.dispatchEvent(new Event('input'));
+        jest.advanceTimersByTime(AuthManager.API_KEY_INPUT_DEBOUNCE_MS - 1);
+        expect(mockLoadDatabases).not.toHaveBeenCalled();
+
+        jest.advanceTimersByTime(1);
+        expect(mockLoadDatabases).toHaveBeenCalledWith('abcd');
+      } finally {
+        AuthManager.MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD = originalMinLength;
+        AuthManager.API_KEY_INPUT_DEBOUNCE_MS = originalDebounceMs;
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('handleConnectedState', () => {
@@ -579,6 +608,26 @@ describe('AuthManager Extended', () => {
       });
     });
 
+    test('OAuth 模式 loadDataSources 同步拋錯時應由資料來源載入流程攔截', async () => {
+      chrome.storage.local.get.mockResolvedValue({
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'oauth_token_123',
+        notionWorkspaceName: 'My Workspace',
+      });
+      chrome.storage.sync.get.mockResolvedValue({});
+      mockLoadDatabases.mockImplementationOnce(() => {
+        throw new Error('sync oauth load failed');
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
+        action: 'loadDataSourcesOAuth',
+        error: expect.any(String),
+      });
+      expect(Logger.error).not.toHaveBeenCalledWith('[Auth] 讀取授權狀態失敗', expect.any(Object));
+    });
+
     test('手動模式 loadDataSources 拋錯時應攔截並記錄', async () => {
       chrome.storage.local.get.mockResolvedValue({});
       chrome.storage.sync.get.mockResolvedValue({
@@ -594,6 +643,15 @@ describe('AuthManager Extended', () => {
         action: 'loadDataSourcesManual',
         error: expect.any(String),
       });
+    });
+
+    test('OAuth 錯誤映射應忽略 prototype chain 上的 error code', () => {
+      const message = authManager._resolveOAuthErrorMessage(
+        new Error('invalid redirect_uri provided by OAuth server'),
+        'constructor'
+      );
+
+      expect(message).toBe(UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI);
     });
 
     test('應從 sync storage 載入 floatingRailPosition 與 floatingRailSize', async () => {

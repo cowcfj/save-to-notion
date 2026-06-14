@@ -33,6 +33,8 @@ export class AuthManager {
   // 將常數綁定到類別上供實例使用
   static CLASS_AUTH_SUCCESS = 'auth-status success';
   static CLASS_AUTH_STATUS = 'auth-status';
+  static MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD = 20;
+  static API_KEY_INPUT_DEBOUNCE_MS = 1000;
 
   /**
    * @param {import('./UIManager.js').UIManager} uiManager
@@ -116,65 +118,169 @@ export class AuthManager {
   }
 
   setupEventListeners() {
-    // OAuth 一鍵連接按鈕
-    this.elements.oauthConnectButton?.addEventListener('click', () => this.startOAuthFlow());
+    this._bindAuthActionButtons();
+    this._bindApiKeyDataSourceLoader();
+    this._bindDebugToggle();
+  }
 
-    // OAuth 斷開按鈕
-    this.elements.oauthDisconnectButton?.addEventListener('click', () => this.disconnectOAuth());
+  /**
+   * 綁定授權相關按鈕事件
+   *
+   * @private
+   */
+  _bindAuthActionButtons() {
+    const clickBindings = [
+      [this.elements.oauthConnectButton, () => this.startOAuthFlow()],
+      [this.elements.oauthDisconnectButton, () => this.disconnectOAuth()],
+      [this.elements.oauthButton, () => this.startNotionSetup()],
+      [this.elements.disconnectButton, () => this.disconnectFromNotion()],
+      [this.elements.testApiButton, () => this.testApiKey()],
+    ];
 
-    // 手動模式：保留現有的設定指南按鈕
-    this.elements.oauthButton?.addEventListener('click', () => this.startNotionSetup());
-    this.elements.disconnectButton?.addEventListener('click', () => this.disconnectFromNotion());
-    this.elements.testApiButton?.addEventListener('click', () => this.testApiKey());
+    for (const [element, handler] of clickBindings) {
+      this._bindClickListener(element, handler);
+    }
+  }
 
-    // API Key 輸入防抖動處理
-    if (this.elements.apiKeyInput) {
-      let timeout = null;
-      /**
-       * 處理 API Key 輸入變更（防抖動）
-       */
-      const handleInput = () => {
-        const apiKey = this.elements.apiKeyInput.value.trim();
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-
-        if (apiKey && apiKey.length > 20) {
-          timeout = setTimeout(() => {
-            this.dependencies.loadDataSources?.(apiKey);
-          }, 1000);
-        }
-      };
-
-      this.elements.apiKeyInput.addEventListener('input', handleInput);
-      this.elements.apiKeyInput.addEventListener('blur', handleInput);
+  /**
+   * 綁定 click listener，缺少元素時略過
+   *
+   * @private
+   * @param {HTMLElement|null} element
+   * @param {Function} handler
+   */
+  _bindClickListener(element, handler) {
+    if (!element) {
+      return;
     }
 
-    // 日誌模式切換
-    if (this.elements.debugToggle) {
-      this.elements.debugToggle.addEventListener('change', async () => {
-        try {
-          await chrome.storage.sync.set({
-            enableDebugLogs: Boolean(this.elements.debugToggle.checked),
-          });
+    element.addEventListener('click', handler);
+  }
 
-          this.ui.showStatus(
-            this.elements.debugToggle.checked
-              ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
-              : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
-            'success'
-          );
-        } catch (error) {
-          Logger.error('[存儲] 切換日誌模式失敗', {
-            action: 'toggleDebugLogs',
-            error: sanitizeApiError(error, 'toggle_debug_logs'),
-          });
-          const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
-          const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-          this.ui.showStatus(UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED(errorMsg), 'error');
-        }
+  /**
+   * 綁定 API Key 輸入防抖動資料來源載入
+   *
+   * @private
+   */
+  _bindApiKeyDataSourceLoader() {
+    const apiKeyInput = this.elements.apiKeyInput;
+    if (!apiKeyInput) {
+      return;
+    }
+
+    let timeout = null;
+    const handleInput = () => {
+      timeout = this._clearPendingDataSourceLoad(timeout);
+      const apiKey = apiKeyInput.value.trim();
+
+      if (this._shouldLoadDataSourcesForApiKey(apiKey)) {
+        timeout = setTimeout(
+          () => this._loadDataSourcesFromApiKey(apiKey),
+          AuthManager.API_KEY_INPUT_DEBOUNCE_MS
+        );
+      }
+    };
+
+    apiKeyInput.addEventListener('input', handleInput);
+    apiKeyInput.addEventListener('blur', handleInput);
+  }
+
+  /**
+   * 清除待執行的資料來源載入 timer
+   *
+   * @private
+   * @param {number|null} timeout
+   * @returns {null}
+   */
+  _clearPendingDataSourceLoad(timeout) {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+
+    return null;
+  }
+
+  /**
+   * 判斷 API Key 是否足以觸發資料來源載入
+   *
+   * @private
+   * @param {string} apiKey
+   * @returns {boolean}
+   */
+  _shouldLoadDataSourcesForApiKey(apiKey) {
+    return apiKey.length > AuthManager.MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD;
+  }
+
+  /**
+   * 依 API Key 載入資料來源
+   *
+   * @private
+   * @param {string} apiKey
+   */
+  _loadDataSourcesFromApiKey(apiKey) {
+    this.dependencies.loadDataSources?.(apiKey);
+  }
+
+  /**
+   * 綁定 debug log toggle
+   *
+   * @private
+   */
+  _bindDebugToggle() {
+    const debugToggle = this.elements.debugToggle;
+    if (!debugToggle) {
+      return;
+    }
+
+    debugToggle.addEventListener('change', () => this._handleDebugToggleChange(debugToggle));
+  }
+
+  /**
+   * 處理 debug log toggle 變更
+   *
+   * @private
+   * @param {HTMLInputElement} debugToggle
+   */
+  async _handleDebugToggleChange(debugToggle) {
+    try {
+      await chrome.storage.sync.set({
+        enableDebugLogs: Boolean(debugToggle.checked),
       });
+
+      this._showDebugToggleStatus(debugToggle.checked);
+    } catch (error) {
+      this._handleDebugToggleFailure(error);
     }
+  }
+
+  /**
+   * 顯示 debug log toggle 成功狀態
+   *
+   * @private
+   * @param {boolean} enabled
+   */
+  _showDebugToggleStatus(enabled) {
+    const message = enabled
+      ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
+      : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED;
+
+    this.ui.showStatus(message, 'success');
+  }
+
+  /**
+   * 顯示 debug log toggle 失敗狀態
+   *
+   * @private
+   * @param {Error} error
+   */
+  _handleDebugToggleFailure(error) {
+    Logger.error('[存儲] 切換日誌模式失敗', {
+      action: 'toggleDebugLogs',
+      error: sanitizeApiError(error, 'toggle_debug_logs'),
+    });
+    const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
+    const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+    this.ui.showStatus(UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED(errorMsg), 'error');
   }
 
   // ==========================================
@@ -227,6 +333,112 @@ export class AuthManager {
   }
 
   /**
+   * 渲染連接成功的狀態
+   *
+   * @private
+   * @param {HTMLElement} element - 狀態元素
+   * @param {string} text - 顯示文字
+   */
+  _renderConnectedStatus(element, text) {
+    if (!element) {
+      return;
+    }
+    element.textContent = '';
+    element.append(createSafeIcon(UI_ICONS.SUCCESS));
+    const textSpan = document.createElement('span');
+    textSpan.textContent = text;
+    element.append(textSpan);
+    element.className = AuthManager.CLASS_AUTH_SUCCESS;
+  }
+
+  /**
+   * 解析已儲存的資料來源 ID
+   *
+   * @private
+   * @param {object} sourceData
+   * @returns {{storedDataSourceId: string, storedLegacyId: string, resolvedId: string}}
+   */
+  _resolveStoredDataSourceIds(sourceData) {
+    const data = sourceData || {};
+    const storedDataSourceId = data.notionDataSourceId || '';
+    const storedLegacyId = data.notionDatabaseId || '';
+
+    return {
+      storedDataSourceId,
+      storedLegacyId,
+      resolvedId: storedDataSourceId || storedLegacyId,
+    };
+  }
+
+  /**
+   * 同步資料來源輸入欄位的顯示值
+   *
+   * @private
+   * @param {string} resolvedId
+   */
+  _syncDataSourceInputValue(resolvedId) {
+    if (this.elements.databaseIdInput) {
+      this.elements.databaseIdInput.value = resolvedId;
+    }
+  }
+
+  /**
+   * 根據 legacy data source 狀態更新升級提示
+   *
+   * @private
+   * @param {string} storedLegacyId
+   * @param {string} storedDataSourceId
+   */
+  _updateDataSourceUpgradeNotice(storedLegacyId, storedDataSourceId) {
+    if (storedLegacyId && !storedDataSourceId) {
+      this.ui.showDataSourceUpgradeNotice?.(storedLegacyId);
+      return;
+    }
+
+    this.ui.hideDataSourceUpgradeNotice?.();
+  }
+
+  /**
+   * 解析資料來源 ID 並處理升級提示與輸入值
+   *
+   * @private
+   * @param {object} sourceData
+   * @returns {string} 解析出的資料來源 ID
+   */
+  _resolveDataSourceIdAndNotice(sourceData) {
+    const { storedDataSourceId, storedLegacyId, resolvedId } =
+      this._resolveStoredDataSourceIds(sourceData);
+
+    this._syncDataSourceInputValue(resolvedId);
+    this._updateDataSourceUpgradeNotice(storedLegacyId, storedDataSourceId);
+
+    return resolvedId;
+  }
+
+  /**
+   * 載入資料來源並記錄錯誤
+   *
+   * @private
+   * @param {string} token
+   * @param {string} action
+   * @param {string} errorType
+   * @returns {Promise<void>}
+   */
+  async _loadDataSourcesSafely(token, action, errorType) {
+    if (!token) {
+      return;
+    }
+    try {
+      await this.dependencies.loadDataSources?.(token);
+    } catch (error) {
+      Logger.error('[Auth] 載入資料來源失敗', {
+        action,
+        error: sanitizeApiError(error, errorType),
+      });
+    }
+  }
+
+  /**
    * OAuth 已連接的 UI 狀態
    *
    * @param {object} localData - 本地存儲的資料
@@ -237,14 +449,7 @@ export class AuthManager {
     const workspaceName = localData.notionWorkspaceName || 'Notion 工作區';
 
     // 更新 OAuth 狀態區域
-    if (this.elements.oauthStatus) {
-      this.elements.oauthStatus.textContent = '';
-      this.elements.oauthStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
-      const textSpan = document.createElement('span');
-      textSpan.textContent = `已連接 — ${workspaceName}`;
-      this.elements.oauthStatus.append(textSpan);
-      this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
-    }
+    this._renderConnectedStatus(this.elements.oauthStatus, `已連接 — ${workspaceName}`);
 
     // OAuth 按鈕切換為已連接狀態
     if (this.elements.oauthConnectButton) {
@@ -255,43 +460,20 @@ export class AuthManager {
     }
 
     // 手動模式區域顯示提示（OAuth 已連接）
-    if (this.elements.authStatus) {
-      this.elements.authStatus.textContent = '';
-      this.elements.authStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
-      const textSpan = document.createElement('span');
-      textSpan.textContent = UI_MESSAGES.AUTH.STATUS_CONNECTED;
-      this.elements.authStatus.append(textSpan);
-      this.elements.authStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
-    }
+    this._renderConnectedStatus(this.elements.authStatus, UI_MESSAGES.AUTH.STATUS_CONNECTED);
 
-    const storedDataSourceId = sourceData?.notionDataSourceId || '';
-    const storedLegacyId = sourceData?.notionDatabaseId || '';
-    const resolvedId = storedDataSourceId || storedLegacyId;
-
-    if (this.elements.databaseIdInput) {
-      this.elements.databaseIdInput.value = resolvedId;
-    }
-
-    if (storedLegacyId && !storedDataSourceId) {
-      this.ui.showDataSourceUpgradeNotice?.(storedLegacyId);
-    } else {
-      this.ui.hideDataSourceUpgradeNotice?.();
-    }
+    const resolvedId = this._resolveDataSourceIdAndNotice(sourceData);
 
     if (!resolvedId) {
       this.ui.showStatus(UI_MESSAGES.AUTH.OAUTH_TARGET_REQUIRED, 'info');
     }
 
     // 載入 OAuth 模式的資料來源
-    const token = localData.notionOAuthToken;
-    if (token) {
-      Promise.resolve(this.dependencies.loadDataSources?.(token)).catch(error => {
-        Logger.error('[Auth] 載入資料來源失敗', {
-          action: 'loadDataSourcesOAuth',
-          error: sanitizeApiError(error, 'load_datasources_oauth'),
-        });
-      });
-    }
+    this._loadDataSourcesSafely(
+      localData.notionOAuthToken,
+      'loadDataSourcesOAuth',
+      'load_datasources_oauth'
+    );
   }
 
   /**
@@ -303,14 +485,7 @@ export class AuthManager {
    */
   _handleManualConnectedState(syncData, sourceData = syncData) {
     // 沿用原本的 handleConnectedState 邏輯
-    if (this.elements.authStatus) {
-      this.elements.authStatus.textContent = '';
-      this.elements.authStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
-      const textSpan = document.createElement('span');
-      textSpan.textContent = UI_MESSAGES.AUTH.STATUS_CONNECTED;
-      this.elements.authStatus.append(textSpan);
-      this.elements.authStatus.className = AuthManager.CLASS_AUTH_SUCCESS;
-    }
+    this._renderConnectedStatus(this.elements.authStatus, UI_MESSAGES.AUTH.STATUS_CONNECTED);
     this._updateButtonContent(
       this.elements.oauthButton,
       UI_ICONS.REFRESH,
@@ -324,19 +499,7 @@ export class AuthManager {
       this.elements.apiKeyInput.value = syncData.notionApiKey;
     }
 
-    const storedDataSourceId = sourceData.notionDataSourceId || '';
-    const storedLegacyId = sourceData.notionDatabaseId || '';
-    const resolvedId = storedDataSourceId || storedLegacyId;
-
-    if (this.elements.databaseIdInput) {
-      this.elements.databaseIdInput.value = resolvedId || '';
-    }
-
-    if (storedLegacyId && !storedDataSourceId) {
-      this.ui.showDataSourceUpgradeNotice(storedLegacyId);
-    } else {
-      this.ui.hideDataSourceUpgradeNotice();
-    }
+    this._resolveDataSourceIdAndNotice(sourceData);
 
     // OAuth 區域顯示未連接
     if (this.elements.oauthStatus) {
@@ -351,12 +514,11 @@ export class AuthManager {
     }
 
     // 載入資料來源列表
-    Promise.resolve(this.dependencies.loadDataSources?.(syncData.notionApiKey)).catch(error => {
-      Logger.error('[Auth] 載入資料來源失敗', {
-        action: 'loadDataSourcesManual',
-        error: sanitizeApiError(error, 'load_datasources_manual'),
-      });
-    });
+    this._loadDataSourcesSafely(
+      syncData.notionApiKey,
+      'loadDataSourcesManual',
+      'load_datasources_manual'
+    );
   }
 
   /**
@@ -366,29 +528,37 @@ export class AuthManager {
    * @private
    */
   _loadGeneralSettings(syncData) {
-    if (this.elements.titleTemplateInput) {
-      this.elements.titleTemplateInput.value = syncData.titleTemplate || '{title}';
-    }
-    if (this.elements.addSourceCheckbox) {
-      this.elements.addSourceCheckbox.checked = syncData.addSource !== false;
-    }
-    if (this.elements.addTimestampCheckbox) {
-      this.elements.addTimestampCheckbox.checked = syncData.addTimestamp !== false;
-    }
-    if (this.elements.highlightStyleSelect) {
-      this.elements.highlightStyleSelect.value = syncData.highlightStyle || 'background';
-    }
-    if (this.elements.floatingRailCheckbox) {
-      this.elements.floatingRailCheckbox.checked = syncData.floatingRailEnabled !== false;
-    }
-    if (this.elements.floatingRailPositionSelect) {
-      this.elements.floatingRailPositionSelect.value = syncData.floatingRailPosition || 'middle';
-    }
-    if (this.elements.floatingRailSizeSelect) {
-      this.elements.floatingRailSizeSelect.value = syncData.floatingRailSize || 'large';
-    }
-    if (this.elements.debugToggle) {
-      this.elements.debugToggle.checked = Boolean(syncData.enableDebugLogs);
+    const data = syncData || {};
+    const settings = [
+      { key: 'titleTemplateInput', prop: 'titleTemplate', type: 'value', def: '{title}' },
+      { key: 'addSourceCheckbox', prop: 'addSource', type: 'bool-true' },
+      { key: 'addTimestampCheckbox', prop: 'addTimestamp', type: 'bool-true' },
+      { key: 'highlightStyleSelect', prop: 'highlightStyle', type: 'value', def: 'background' },
+      { key: 'floatingRailCheckbox', prop: 'floatingRailEnabled', type: 'bool-true' },
+      {
+        key: 'floatingRailPositionSelect',
+        prop: 'floatingRailPosition',
+        type: 'value',
+        def: 'middle',
+      },
+      { key: 'floatingRailSizeSelect', prop: 'floatingRailSize', type: 'value', def: 'large' },
+      { key: 'debugToggle', prop: 'enableDebugLogs', type: 'bool-false' },
+    ];
+
+    for (const setting of settings) {
+      const el = this.elements[setting.key];
+      if (!el) {
+        continue;
+      }
+
+      const rawVal = data[setting.prop];
+      if (setting.type === 'value') {
+        el.value = rawVal || setting.def;
+      } else if (setting.type === 'bool-true') {
+        el.checked = rawVal !== false;
+      } else {
+        el.checked = Boolean(rawVal);
+      }
     }
   }
 
@@ -494,6 +664,43 @@ export class AuthManager {
   }
 
   /**
+   * 映射 OAuth Callback Error
+   *
+   * @private
+   * @param {object} error
+   * @returns {string}
+   */
+  _mapCallbackError(error) {
+    const cause = error?.cause;
+    const oauthError = typeof cause === 'string' ? cause : '';
+
+    if (oauthError === 'access_denied') {
+      return UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED;
+    }
+    if (oauthError === 'canceled' || oauthError === 'cancelled') {
+      return UI_MESSAGES.AUTH.OAUTH_REDIRECT_URI_FORMAT_MISMATCH;
+    }
+    return UI_MESSAGES.AUTH.OAUTH_CALLBACK_ERROR_GENERIC(oauthError || 'unknown');
+  }
+
+  /**
+   * 處理未知的 OAuth 錯誤
+   *
+   * @private
+   * @param {object} error
+   * @returns {string}
+   */
+  _fallbackOAuthErrorMessage(error) {
+    const msg = error?.message || '';
+    const msgLower = msg.toLowerCase();
+
+    if (msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect')) {
+      return UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
+    }
+    return ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
+  }
+
+  /**
    * 將 OAuth 錯誤映射為使用者可見的文案。主分派走 `error.code`；
    * 對於沒有 code 但 message 仍透露 redirect 線索的舊路徑保留 fallback heuristic。
    *
@@ -503,38 +710,22 @@ export class AuthManager {
    * @returns {string}
    */
   _resolveOAuthErrorMessage(error, errorCode) {
-    switch (errorCode) {
-      case 'OAUTH_IDENTITY_UNAVAILABLE': {
-        return UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE;
-      }
-      case 'OAUTH_FLOW_CANCELLED': {
-        return UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED;
-      }
-      case 'SERVER_MISCONFIGURATION': {
-        return UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION;
-      }
-      case 'INVALID_REDIRECT_URI': {
-        return UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
-      }
-      case 'OAUTH_CALLBACK_ERROR': {
-        const oauthError = typeof error?.cause === 'string' ? error.cause : '';
-        if (oauthError === 'access_denied') {
-          return UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED;
-        }
-        if (oauthError === 'canceled' || oauthError === 'cancelled') {
-          return UI_MESSAGES.AUTH.OAUTH_REDIRECT_URI_FORMAT_MISMATCH;
-        }
-        return UI_MESSAGES.AUTH.OAUTH_CALLBACK_ERROR_GENERIC(oauthError || 'unknown');
-      }
-      default: {
-        const msg = error?.message ?? '';
-        const msgLower = msg.toLowerCase();
-        if (msgLower.includes('redirect_uri') || msgLower.includes('invalid redirect')) {
-          return UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI;
-        }
-        return ErrorHandler.formatUserMessage(sanitizeApiError(error, 'oauth_flow'));
-      }
+    const errorMap = {
+      OAUTH_IDENTITY_UNAVAILABLE: UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE,
+      OAUTH_FLOW_CANCELLED: UI_MESSAGES.AUTH.OAUTH_USER_CANCELLED,
+      SERVER_MISCONFIGURATION: UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION,
+      INVALID_REDIRECT_URI: UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI,
+    };
+
+    if (Object.hasOwn(errorMap, errorCode)) {
+      return errorMap[errorCode];
     }
+
+    if (errorCode === 'OAUTH_CALLBACK_ERROR') {
+      return this._mapCallbackError(error);
+    }
+
+    return this._fallbackOAuthErrorMessage(error);
   }
 
   /**
