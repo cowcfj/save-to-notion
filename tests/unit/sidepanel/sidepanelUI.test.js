@@ -87,6 +87,30 @@ function makePage(i) {
   };
 }
 
+function appendPageCardsForTest({
+  pages = [makePage(1)],
+  startIndex = 0,
+  count = pages.length,
+  callbacks = {},
+} = {}) {
+  const elements = getElements();
+  const resolvedCallbacks = {
+    onOpen: jest.fn(),
+    onDelete: jest.fn(),
+    ...callbacks,
+  };
+
+  const renderedCount = appendCards({
+    elements,
+    pages,
+    startIndex,
+    count,
+    callbacks: resolvedCallbacks,
+  });
+
+  return { elements, renderedCount };
+}
+
 // ---- 測試 ----
 
 describe('sidepanelUI', () => {
@@ -377,33 +401,17 @@ describe('sidepanelUI', () => {
 
     it('切換到 current 時應重設按鈕顯示狀態', () => {
       const elements = getElements();
-      if (elements.syncButton) {
-        elements.syncButton.style.display = 'none';
-      }
-      if (elements.openNotionButton) {
-        elements.openNotionButton.style.display = 'none';
-      }
-      if (elements.loadMoreBtn) {
-        elements.loadMoreBtn.style.display = 'block';
-      }
-      if (elements.unsyncedToolbar) {
-        elements.unsyncedToolbar.style.display = 'block';
-      }
+      elements.syncButton.style.display = 'none';
+      elements.openNotionButton.style.display = 'none';
+      elements.loadMoreBtn.style.display = 'block';
+      elements.unsyncedToolbar.style.display = 'block';
 
       switchView(elements, 'current');
 
-      if (elements.syncButton) {
-        expect(elements.syncButton.style.display).toBe('');
-      }
-      if (elements.openNotionButton) {
-        expect(elements.openNotionButton.style.display).toBe('');
-      }
-      if (elements.loadMoreBtn) {
-        expect(elements.loadMoreBtn.style.display).toBe('none');
-      }
-      if (elements.unsyncedToolbar) {
-        expect(elements.unsyncedToolbar.style.display).toBe('none');
-      }
+      expect(elements.syncButton.style.display).toBe('');
+      expect(elements.openNotionButton.style.display).toBe('');
+      expect(elements.loadMoreBtn.style.display).toBe('none');
+      expect(elements.unsyncedToolbar.style.display).toBe('none');
     });
 
     it('switchView 不應觸發 loadCurrentTab 或 renderUnsyncedView', () => {
@@ -438,73 +446,44 @@ describe('sidepanelUI', () => {
     });
 
     it('應渲染指定範圍的卡片並回傳 renderedCount', () => {
-      const elements = getElements();
       const pages = [makePage(1), makePage(2), makePage(3)];
-
-      const result = appendCards({
-        elements,
+      const { elements, renderedCount } = appendPageCardsForTest({
         pages,
-        startIndex: 0,
         count: 2,
-        callbacks: {
-          onOpen: jest.fn(),
-          onDelete: jest.fn(),
-        },
       });
 
-      expect(result).toBe(2);
+      expect(renderedCount).toBe(2);
       expect(elements.unsyncedView.querySelectorAll('.page-card')).toHaveLength(2);
     });
 
     it('當還有更多卡片時應顯示 loadMoreBtn', () => {
-      const elements = getElements();
       const pages = [makePage(1), makePage(2), makePage(3)];
 
-      appendCards({
-        elements,
+      const { elements } = appendPageCardsForTest({
         pages,
-        startIndex: 0,
         count: 2,
-        callbacks: {
-          onOpen: jest.fn(),
-          onDelete: jest.fn(),
-        },
       });
 
       expect(elements.loadMoreBtn.style.display).toBe('block');
     });
 
     it('當已渲染全部卡片時應隱藏 loadMoreBtn', () => {
-      const elements = getElements();
       const pages = [makePage(1), makePage(2)];
 
-      appendCards({
-        elements,
+      const { elements } = appendPageCardsForTest({
         pages,
-        startIndex: 0,
         count: 10,
-        callbacks: {
-          onOpen: jest.fn(),
-          onDelete: jest.fn(),
-        },
       });
 
       expect(elements.loadMoreBtn.style.display).toBe('none');
     });
 
     it('點擊開啟按鈕應呼叫 onOpen 回調', () => {
-      const elements = getElements();
       const onOpen = jest.fn();
-      const pages = [makePage(1)];
 
-      appendCards({
-        elements,
-        pages,
-        startIndex: 0,
-        count: 1,
+      const { elements } = appendPageCardsForTest({
         callbacks: {
           onOpen,
-          onDelete: jest.fn(),
         },
       });
 
@@ -515,17 +494,10 @@ describe('sidepanelUI', () => {
     });
 
     it('點擊刪除按鈕應呼叫 onDelete 回調並傳入正確參數', () => {
-      const elements = getElements();
       const onDelete = jest.fn();
-      const pages = [makePage(1)];
 
-      appendCards({
-        elements,
-        pages,
-        startIndex: 0,
-        count: 1,
+      const { elements } = appendPageCardsForTest({
         callbacks: {
-          onOpen: jest.fn(),
           onDelete,
         },
       });
@@ -538,7 +510,6 @@ describe('sidepanelUI', () => {
     });
 
     it('應將非法 preview 顏色回退為 yellow class', () => {
-      const elements = getElements();
       const pages = [
         {
           ...makePage(1),
@@ -546,15 +517,8 @@ describe('sidepanelUI', () => {
         },
       ];
 
-      appendCards({
-        elements,
+      const { elements } = appendPageCardsForTest({
         pages,
-        startIndex: 0,
-        count: 1,
-        callbacks: {
-          onOpen: jest.fn(),
-          onDelete: jest.fn(),
-        },
       });
 
       const previewRow = elements.unsyncedView.querySelector('.preview-row');
