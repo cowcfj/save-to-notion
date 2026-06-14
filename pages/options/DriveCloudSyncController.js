@@ -800,27 +800,30 @@ async function handleUpload(force = false) {
 }
 
 /**
- * 處理手動下載（含二次確認）
+ * 顯示手動下載確認訊息，使用者取消或確認訊息建立失敗時清除 loading。
+ *
+ * @returns {Promise<boolean>}
  */
-async function handleDownload() {
+async function _confirmManualDownload() {
   showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_STATUS_SYNC);
 
-  let confirmed = false;
+  let isDownloadConfirmed = false;
   try {
     const confirmationMessage = await buildDownloadConfirmationMessage();
-    confirmed = globalThis.confirm(confirmationMessage);
+    isDownloadConfirmed = globalThis.confirm(confirmationMessage);
+    return isDownloadConfirmed;
   } finally {
-    if (!confirmed) {
+    if (!isDownloadConfirmed) {
       hideLoading();
     }
   }
+}
 
-  if (!confirmed) {
-    return;
-  }
-
+/**
+ * @returns {Promise<boolean>}
+ */
+async function _sendManualDownloadRequest() {
   showLoading(UI_MESSAGES.CLOUD_SYNC.LOADING_DOWNLOAD);
-  let downloadSucceeded = false;
   try {
     const response = await chrome.runtime.sendMessage({
       action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
@@ -834,7 +837,7 @@ async function handleDownload() {
     }
 
     showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_SUCCESS, 'success');
-    downloadSucceeded = true;
+    return true;
   } catch (error) {
     Logger.error('[CloudSync] Download failed', {
       error: getSafeError(error, 'drive_sync_download'),
@@ -843,11 +846,23 @@ async function handleDownload() {
       `${UI_MESSAGES.CLOUD_SYNC.DOWNLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_sync_download')}`,
       'error'
     );
+    return false;
   } finally {
     hideLoading();
   }
+}
 
-  if (!downloadSucceeded) {
+/**
+ * 處理手動下載（含二次確認）
+ */
+async function handleDownload() {
+  const isDownloadConfirmed = await _confirmManualDownload();
+  if (!isDownloadConfirmed) {
+    return;
+  }
+
+  const wasDownloadSuccessful = await _sendManualDownloadRequest();
+  if (!wasDownloadSuccessful) {
     return;
   }
 
