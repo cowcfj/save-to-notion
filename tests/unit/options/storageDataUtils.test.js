@@ -577,6 +577,13 @@ describe('storageDataUtils — Legacy / 輔助函數', () => {
   // ── sanitizeBackupData ───────────────────────────────────────────────
 
   describe('sanitizeBackupData', () => {
+    test('非 object snapshot 應回傳空物件', () => {
+      expect(sanitizeBackupData()).toEqual({});
+      expect(sanitizeBackupData(null)).toEqual({});
+      expect(sanitizeBackupData([])).toEqual({});
+      expect(sanitizeBackupData('not a snapshot')).toEqual({});
+    });
+
     test('應保留 page_* key', () => {
       const result = sanitizeBackupData({ 'page_example.com': { notion: null, highlights: [] } });
       expect(Object.keys(result)).toContain('page_example.com');

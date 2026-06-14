@@ -53,9 +53,31 @@ export const MIGRATION_LEFTOVER_PREFIXES = [
 ];
 
 function _isCorruptedPageEntry(value) {
-  return (
-    !value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.highlights)
-  );
+  if (!value) {
+    return true;
+  }
+
+  if (typeof value !== 'object') {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return true;
+  }
+
+  return !Array.isArray(value.highlights);
+}
+
+function _isBackupSnapshotObject(data) {
+  if (!data) {
+    return false;
+  }
+
+  if (typeof data !== 'object') {
+    return false;
+  }
+
+  return !Array.isArray(data);
 }
 
 /**
@@ -65,7 +87,7 @@ function _isCorruptedPageEntry(value) {
  * @returns {object} 過濾後的備份數據
  */
 export function sanitizeBackupData(data) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+  if (!_isBackupSnapshotObject(data)) {
     return {};
   }
 
