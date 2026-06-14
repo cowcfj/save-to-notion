@@ -62,6 +62,16 @@ const TERMINAL_REFRESH_ERROR_CODES = new Set([
 ]);
 
 const REFRESH_REQUEST_TIMEOUT_MS = 10_000;
+const REFRESH_RESPONSE_BODY_OBJECT_ERROR =
+  '[accountSession] refresh response body must be an object';
+const REFRESH_RESPONSE_MISSING_EXPIRES_AT_ERROR =
+  '[accountSession] refresh response missing expiresAt';
+
+const REFRESH_SUCCESS_PAYLOAD_FIELDS = /** @type {const} */ ({
+  ACCESS_TOKEN: ['access_token', 'accessToken'],
+  REFRESH_TOKEN: ['refresh_token', 'refreshToken'],
+  EXPIRES_AT: ['expires_at', 'expiresAt'],
+});
 
 /**
  * Single-flight in-flight promise。
@@ -312,6 +322,97 @@ function getRefreshLogError(error) {
 }
 
 /**
+ * 判斷 refresh success payload 是否可以用 object 欄位解析。
+ *
+ * @param {unknown} body
+ * @returns {boolean}
+ */
+function isRefreshPayloadObject(body) {
+  if (body === null) {
+    return false;
+  }
+  if (typeof body !== 'object') {
+    return false;
+  }
+  return !Array.isArray(body);
+}
+
+/**
+ * 確認 refresh success payload 可以用 object 欄位解析。
+ *
+ * @param {unknown} body
+ * @throws {Error}
+ */
+function assertRefreshPayloadObject(body) {
+  if (!isRefreshPayloadObject(body)) {
+    throw new Error(REFRESH_RESPONSE_BODY_OBJECT_ERROR);
+  }
+}
+
+/**
+ * 讀取第一個型別為 string 的 refresh success 欄位。
+ *
+ * @param {object} body
+ * @param {readonly string[]} fieldNames
+ * @param {string | null} fallback
+ * @returns {string | null}
+ */
+function readRefreshStringField(body, fieldNames, fallback = null) {
+  for (const fieldName of fieldNames) {
+    const value = body[fieldName];
+    if (typeof value === 'string') {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+/**
+ * 讀取第一個型別為 number 的 refresh success 欄位。
+ *
+ * @param {object} body
+ * @param {readonly string[]} fieldNames
+ * @returns {number | undefined}
+ */
+function readRefreshNumberField(body, fieldNames) {
+  for (const fieldName of fieldNames) {
+    const value = body[fieldName];
+    if (typeof value === 'number') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 判斷 refresh success expiresAt 欄位是否可寫入 storage。
+ *
+ * @param {number | undefined} expiresAt
+ * @returns {boolean}
+ */
+function isValidRefreshExpiresAt(expiresAt) {
+  if (typeof expiresAt !== 'number') {
+    return false;
+  }
+  if (!Number.isFinite(expiresAt)) {
+    return false;
+  }
+  return expiresAt > 0;
+}
+
+/**
+ * 驗證 refresh success expiresAt 欄位是可寫入 storage 的 timestamp。
+ *
+ * @param {number | undefined} expiresAt
+ * @throws {Error}
+ */
+function assertValidRefreshExpiresAt(expiresAt) {
+  if (!isValidRefreshExpiresAt(expiresAt)) {
+    throw new Error(REFRESH_RESPONSE_MISSING_EXPIRES_AT_ERROR);
+  }
+}
+
+/**
  * 驗證 refresh response payload 是否完整。
  *
  * @param {unknown} body
@@ -319,41 +420,29 @@ function getRefreshLogError(error) {
  * @throws {Error}
  */
 function validateRefreshSuccessPayload(body) {
-  if (typeof body !== 'object' || body === null) {
-    throw new Error('[accountSession] refresh response body must be an object');
-  }
+  assertRefreshPayloadObject(body);
 
-  let accessTokenRaw = '';
-  if (typeof body.access_token === 'string') {
-    accessTokenRaw = body.access_token;
-  } else if (typeof body.accessToken === 'string') {
-    accessTokenRaw = body.accessToken;
-  }
+  const accessTokenRaw = readRefreshStringField(
+    body,
+    REFRESH_SUCCESS_PAYLOAD_FIELDS.ACCESS_TOKEN,
+    ''
+  );
   const accessToken = accessTokenRaw.trim();
-
-  let refreshToken = null;
-  if (typeof body.refresh_token === 'string') {
-    refreshToken = body.refresh_token;
-  } else if (typeof body.refreshToken === 'string') {
-    refreshToken = body.refreshToken;
-  }
-
-  let expiresAt;
-  if (typeof body.expires_at === 'number') {
-    expiresAt = body.expires_at;
-  } else if (typeof body.expiresAt === 'number') {
-    expiresAt = body.expiresAt;
-  }
+  const refreshTokenRaw = readRefreshStringField(
+    body,
+    REFRESH_SUCCESS_PAYLOAD_FIELDS.REFRESH_TOKEN,
+    ''
+  );
+  const refreshToken = typeof refreshTokenRaw === 'string' ? refreshTokenRaw.trim() : '';
+  const expiresAt = readRefreshNumberField(body, REFRESH_SUCCESS_PAYLOAD_FIELDS.EXPIRES_AT);
 
   if (!accessToken) {
     throw new Error('[accountSession] refresh response missing accessToken');
   }
-  if (typeof refreshToken !== 'string') {
-    throw new TypeError('[accountSession] refresh response missing refreshToken');
+  if (!refreshToken) {
+    throw new Error('[accountSession] refresh response missing refreshToken');
   }
-  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || expiresAt <= 0) {
-    throw new Error('[accountSession] refresh response missing expiresAt');
-  }
+  assertValidRefreshExpiresAt(expiresAt);
 
   return { accessToken, refreshToken, expiresAt };
 }
@@ -432,6 +521,109 @@ export function isTerminalRefreshFailure(httpStatus, errorCode) {
 }
 
 /**
+ * 送出 refresh request 並解析 JSON body。
+ *
+ * @param {{ baseUrl: string; refreshToken: string }} params
+ * @returns {Promise<{ response: Response; body: unknown }>}
+ * @throws {Error} network / timeout / JSON parse failure 時拋出原始錯誤
+ */
+async function requestRefreshSession({ baseUrl, refreshToken }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, REFRESH_REQUEST_TIMEOUT_MS);
+
+  let response;
+
+  try {
+    response = await fetch(`${baseUrl}/v1/account/session/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: controller.signal,
+    });
+
+    const body = await response.json();
+    return { response, body };
+  } catch (error) {
+    logRefreshFailure({
+      reason: classifyFetchError(error, response),
+      httpStatus: response?.status,
+      error,
+    });
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * 處理 refresh HTTP failure，區分 terminal 與 transient failure。
+ *
+ * @param {Response} response
+ * @param {unknown} body
+ * @returns {Promise<null>}
+ * @throws {Error} transient HTTP failure 時拋出錯誤
+ */
+async function handleRefreshHttpFailure(response, body) {
+  const errorCode = extractRefreshErrorCode(body);
+
+  if (isTerminalRefreshFailure(response.status, errorCode)) {
+    Logger.warn('[accountSession] refresh terminal failure, clearing session', {
+      action: 'refreshAccountSession',
+      result: 'cleared',
+      reason: errorCode,
+      httpStatus: response.status,
+    });
+    await clearAccountSession();
+    return null;
+  }
+
+  const error = new Error(`[accountSession] refresh transient failure, HTTP ${response.status}`);
+  logRefreshFailure({
+    reason: errorCode ?? 'HTTP_ERROR',
+    httpStatus: response.status,
+    error,
+  });
+  throw error;
+}
+
+/**
+ * 驗證 refresh success payload，並保留原有 transient failure logging。
+ *
+ * @param {unknown} body
+ * @param {number} httpStatus
+ * @returns {{ accessToken: string; refreshToken: string; expiresAt: number }}
+ * @throws {Error}
+ */
+function readValidatedRefreshPayload(body, httpStatus) {
+  try {
+    return validateRefreshSuccessPayload(body);
+  } catch (error) {
+    logRefreshFailure({
+      reason: 'INVALID_RESPONSE_PAYLOAD',
+      httpStatus,
+      error,
+    });
+    throw error;
+  }
+}
+
+/**
+ * 寫入 refresh 成功後的 token storage keys，保留 profile snapshot。
+ *
+ * @param {{ accessToken: string; refreshToken: string; expiresAt: number }} payload
+ * @returns {Promise<void>}
+ */
+async function commitRefreshSuccessPayload(payload) {
+  await chrome.storage.local.set({
+    [ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]: payload.accessToken,
+    [ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]: payload.refreshToken,
+    [ACCOUNT_STORAGE_KEYS.EXPIRES_AT]: payload.expiresAt,
+  });
+}
+
+/**
  * 呼叫後端 POST /v1/account/session/refresh，嘗試刷新 access token。
  *
  * 成功時：
@@ -462,79 +654,17 @@ export async function refreshAccountSession() {
     throw new Error('[accountSession] OAUTH_SERVER_URL 未設定，無法執行 refresh');
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, REFRESH_REQUEST_TIMEOUT_MS);
-
-  let response;
-  let body;
-
-  try {
-    response = await fetch(`${baseUrl}/v1/account/session/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: session.refreshToken }),
-      signal: controller.signal,
-    });
-
-    body = await response.json();
-  } catch (error) {
-    const reason = classifyFetchError(error, response);
-
-    logRefreshFailure({
-      reason,
-      httpStatus: response?.status,
-      error,
-    });
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const { response, body } = await requestRefreshSession({
+    baseUrl,
+    refreshToken: session.refreshToken,
+  });
 
   if (!response.ok) {
-    const errorCode = extractRefreshErrorCode(body);
-
-    if (isTerminalRefreshFailure(response.status, errorCode)) {
-      // Terminal failure：清 session，回 null
-      Logger.warn('[accountSession] refresh terminal failure, clearing session', {
-        action: 'refreshAccountSession',
-        result: 'cleared',
-        reason: errorCode,
-        httpStatus: response.status,
-      });
-      await clearAccountSession();
-      return null;
-    }
-
-    // Transient failure：5xx 等
-    const error = new Error(`[accountSession] refresh transient failure, HTTP ${response.status}`);
-    logRefreshFailure({
-      reason: errorCode ?? 'HTTP_ERROR',
-      httpStatus: response.status,
-      error,
-    });
-    throw error;
+    return handleRefreshHttpFailure(response, body);
   }
 
-  let payload;
-  try {
-    payload = validateRefreshSuccessPayload(body);
-  } catch (error) {
-    logRefreshFailure({
-      reason: 'INVALID_RESPONSE_PAYLOAD',
-      httpStatus: response.status,
-      error,
-    });
-    throw error;
-  }
-
-  // 成功：只覆寫 token 相關 key，MUST NOT 清 profile snapshot
-  await chrome.storage.local.set({
-    [ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]: payload.accessToken,
-    [ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]: payload.refreshToken,
-    [ACCOUNT_STORAGE_KEYS.EXPIRES_AT]: payload.expiresAt,
-  });
+  const payload = readValidatedRefreshPayload(body, response.status);
+  await commitRefreshSuccessPayload(payload);
 
   Logger.success('[accountSession] refresh succeeded', {
     action: 'refreshAccountSession',

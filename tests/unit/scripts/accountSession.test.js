@@ -865,4 +865,74 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(snakeExpiresAt);
     });
   });
+
+  // ──── Payload Validation Tests ────
+  describe('Payload Validation：防禦性驗證', () => {
+    beforeEach(async () => {
+      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+    });
+
+    test('應拒絕陣列型別的 response body', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ['not', 'an', 'object'],
+      });
+
+      await expect(refreshAccountSession()).rejects.toThrow(
+        'refresh response body must be an object'
+      );
+    });
+
+    test('應拒絕空白字串的 accessToken', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: '   ',
+          refresh_token: 'valid_refresh',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        }),
+      });
+
+      await expect(refreshAccountSession()).rejects.toThrow('refresh response missing accessToken');
+    });
+
+    test('應拒絕空白字串的 refreshToken', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: 'valid_access',
+          refresh_token: '   ',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        }),
+      });
+
+      await expect(refreshAccountSession()).rejects.toThrow(
+        'refresh response missing refreshToken'
+      );
+    });
+
+    test('應 trim accessToken 與 refreshToken 的前後空白', async () => {
+      const trimmedAccess = 'trimmed_access';
+      const trimmedRefresh = 'trimmed_refresh';
+      const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+
+      globalThis.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: `  ${trimmedAccess}  `,
+          refresh_token: `  ${trimmedRefresh}  `,
+          expires_at: expiresAt,
+        }),
+      });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(trimmedAccess);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(trimmedRefresh);
+    });
+  });
 });
