@@ -33,6 +33,8 @@ export class AuthManager {
   // 將常數綁定到類別上供實例使用
   static CLASS_AUTH_SUCCESS = 'auth-status success';
   static CLASS_AUTH_STATUS = 'auth-status';
+  static MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD = 20;
+  static API_KEY_INPUT_DEBOUNCE_MS = 1000;
 
   /**
    * @param {import('./UIManager.js').UIManager} uiManager
@@ -172,7 +174,10 @@ export class AuthManager {
       const apiKey = apiKeyInput.value.trim();
 
       if (this._shouldLoadDataSourcesForApiKey(apiKey)) {
-        timeout = setTimeout(() => this._loadDataSourcesFromApiKey(apiKey), 1000);
+        timeout = setTimeout(
+          () => this._loadDataSourcesFromApiKey(apiKey),
+          AuthManager.API_KEY_INPUT_DEBOUNCE_MS
+        );
       }
     };
 
@@ -203,7 +208,7 @@ export class AuthManager {
    * @returns {boolean}
    */
   _shouldLoadDataSourcesForApiKey(apiKey) {
-    return apiKey.length > 20;
+    return apiKey.length > AuthManager.MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD;
   }
 
   /**
@@ -417,17 +422,20 @@ export class AuthManager {
    * @param {string} token
    * @param {string} action
    * @param {string} errorType
+   * @returns {Promise<void>}
    */
-  _loadDataSourcesSafely(token, action, errorType) {
+  async _loadDataSourcesSafely(token, action, errorType) {
     if (!token) {
       return;
     }
-    Promise.resolve(this.dependencies.loadDataSources?.(token)).catch(error => {
+    try {
+      await this.dependencies.loadDataSources?.(token);
+    } catch (error) {
       Logger.error('[Auth] 載入資料來源失敗', {
         action,
         error: sanitizeApiError(error, errorType),
       });
-    });
+    }
   }
 
   /**
@@ -709,7 +717,7 @@ export class AuthManager {
       INVALID_REDIRECT_URI: UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI,
     };
 
-    if (errorCode in errorMap) {
+    if (Object.hasOwn(errorMap, errorCode)) {
       return errorMap[errorCode];
     }
 
