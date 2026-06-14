@@ -67,59 +67,130 @@ function formatDestinationLabel(profile) {
 }
 
 /**
+ * 獲取有效的儲存目標 Profiles 列表
+ *
+ * @param {object} state - UI 狀態
+ * @returns {Array<object>}
+ */
+function getDestinationProfiles(state) {
+  return Array.isArray(state?.profiles) ? state.profiles : [];
+}
+
+/**
+ * 判斷是否可渲染儲存目標選擇器
+ *
+ * @param {PopupElements} elements - DOM 元素集合
+ * @param {Array<object>} profiles - Profiles 列表
+ * @param {object|null} selectedProfile - 已選擇的 Profile
+ * @returns {boolean}
+ */
+function canRenderDestinationSelector(elements, profiles, selectedProfile) {
+  return Boolean(elements.destinationSection && profiles.length > 0 && selectedProfile);
+}
+
+/**
+ * 隱藏儲存目標區域
+ *
+ * @param {HTMLElement} destinationSection - 儲存目標容器
+ */
+function hideDestinationSection(destinationSection) {
+  if (destinationSection) {
+    destinationSection.style.display = 'none';
+  }
+}
+
+/**
+ * 渲染當前儲存目標標籤
+ *
+ * @param {HTMLElement} destinationCurrent - 當前儲存目標元素
+ * @param {object} selectedProfile - 已選擇的 Profile
+ */
+function renderDestinationCurrent(destinationCurrent, selectedProfile) {
+  if (destinationCurrent) {
+    destinationCurrent.textContent = `${
+      UI_MESSAGES.POPUP.DESTINATION_LABEL_PREFIX
+    }${formatDestinationLabel(selectedProfile)}`;
+    destinationCurrent.dataset.profileId = selectedProfile.id;
+    destinationCurrent.style.borderColor = selectedProfile.color || '';
+  }
+}
+
+/**
+ * 渲染儲存目標切換按鈕
+ *
+ * @param {HTMLButtonElement} destinationToggle - 切換按鈕元素
+ * @param {object} selectedProfile - 已選擇的 Profile
+ * @param {number} profileCount - Profiles 數量
+ */
+function renderDestinationToggle(destinationToggle, selectedProfile, profileCount) {
+  if (destinationToggle) {
+    destinationToggle.style.display = profileCount > 1 ? 'inline-flex' : 'none';
+    destinationToggle.disabled = profileCount <= 1;
+    destinationToggle.dataset.profileId = selectedProfile.id;
+    destinationToggle.setAttribute?.('aria-expanded', 'false');
+  }
+}
+
+/**
+ * 建立儲存目標選單單一按鈕
+ *
+ * @param {object} profile - Profile 資料
+ * @param {string} selectedProfileId - 已選擇的 Profile ID
+ * @returns {HTMLButtonElement}
+ */
+function createDestinationMenuItem(profile, selectedProfileId) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'destination-menu-item';
+  item.dataset.profileId = profile.id;
+  item.textContent = formatDestinationLabel(profile);
+  item.setAttribute('aria-pressed', String(profile.id === selectedProfileId));
+  return item;
+}
+
+/**
+ * 渲染儲存目標下拉選單
+ *
+ * @param {HTMLElement} destinationMenu - 選單元素
+ * @param {Array<object>} profiles - Profiles 列表
+ * @param {string} selectedProfileId - 已選擇的 Profile ID
+ */
+function renderDestinationMenu(destinationMenu, profiles, selectedProfileId) {
+  if (!destinationMenu) {
+    return;
+  }
+
+  destinationMenu.replaceChildren();
+  destinationMenu.style.display = 'none';
+
+  const fragment = document.createDocumentFragment();
+
+  for (const profile of profiles) {
+    fragment.append(createDestinationMenuItem(profile, selectedProfileId));
+  }
+
+  destinationMenu.append(fragment);
+}
+
+/**
  * Render popup destination selector.
  *
  * @param {PopupElements} elements
  * @param {{profiles: Array<object>, selectedProfileId?: string|null}} state
  */
 export function renderDestinationSelector(elements, state) {
-  const profiles = Array.isArray(state?.profiles) ? state.profiles : [];
+  const profiles = getDestinationProfiles(state);
   const selectedProfile = getSelectedDestinationProfile(profiles, state?.selectedProfileId);
 
-  if (!elements.destinationSection || profiles.length === 0 || !selectedProfile) {
-    if (elements.destinationSection) {
-      elements.destinationSection.style.display = 'none';
-    }
+  if (!canRenderDestinationSelector(elements, profiles, selectedProfile)) {
+    hideDestinationSection(elements.destinationSection);
     return;
   }
 
   elements.destinationSection.style.display = 'block';
-
-  if (elements.destinationCurrent) {
-    elements.destinationCurrent.textContent = `${
-      UI_MESSAGES.POPUP.DESTINATION_LABEL_PREFIX
-    }${formatDestinationLabel(selectedProfile)}`;
-    elements.destinationCurrent.dataset.profileId = selectedProfile.id;
-    elements.destinationCurrent.style.borderColor = selectedProfile.color || '';
-  }
-
-  if (elements.destinationToggle) {
-    elements.destinationToggle.style.display = profiles.length > 1 ? 'inline-flex' : 'none';
-    elements.destinationToggle.disabled = profiles.length <= 1;
-    elements.destinationToggle.dataset.profileId = selectedProfile.id;
-    elements.destinationToggle.setAttribute?.('aria-expanded', 'false');
-  }
-
-  if (!elements.destinationMenu) {
-    return;
-  }
-
-  elements.destinationMenu.replaceChildren();
-  elements.destinationMenu.style.display = 'none';
-
-  const fragment = document.createDocumentFragment();
-
-  for (const profile of profiles) {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'destination-menu-item';
-    item.dataset.profileId = profile.id;
-    item.textContent = formatDestinationLabel(profile);
-    item.setAttribute('aria-pressed', profile.id === selectedProfile.id ? 'true' : 'false');
-    fragment.append(item);
-  }
-
-  elements.destinationMenu.append(fragment);
+  renderDestinationCurrent(elements.destinationCurrent, selectedProfile);
+  renderDestinationToggle(elements.destinationToggle, selectedProfile, profiles.length);
+  renderDestinationMenu(elements.destinationMenu, profiles, selectedProfile.id);
 }
 
 /**

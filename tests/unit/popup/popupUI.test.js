@@ -124,6 +124,49 @@ describe('popupUI.js', () => {
       expect(menuItems[1].dataset.profileId).toBe('profile-2');
       createElementSpy.mockRestore();
     });
+
+    it('沒有 profiles 時應隱藏 destination section 並不渲染 menu', () => {
+      renderDestinationSelector(mockElements, { profiles: [], selectedProfileId: null });
+
+      expect(mockElements.destinationSection.style.display).toBe('none');
+      expect(mockElements.destinationMenu.replaceChildren).not.toHaveBeenCalled();
+      expect(mockElements.destinationMenu.append).not.toHaveBeenCalled();
+    });
+
+    it('selectedProfileId 不存在時應 fallback 到第一個 profile', () => {
+      const menuItems = [];
+      const createElementSpy = jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        const element = {
+          tagName,
+          textContent: '',
+          className: '',
+          type: '',
+          dataset: {},
+          style: {},
+          setAttribute: jest.fn(),
+          append: jest.fn(),
+        };
+        if (tagName === 'button') {
+          menuItems.push(element);
+        }
+        return element;
+      });
+
+      renderDestinationSelector(mockElements, {
+        profiles: [
+          { id: 'default', name: 'Default', color: '#2563eb' },
+          { id: 'profile-2', name: 'Research', color: '#16a34a' },
+        ],
+        selectedProfileId: 'missing',
+      });
+
+      expect(mockElements.destinationCurrent.textContent).toContain('Default');
+      expect(mockElements.destinationCurrent.dataset.profileId).toBe('default');
+      expect(menuItems[0].setAttribute).toHaveBeenCalledWith('aria-pressed', 'true');
+      expect(menuItems[1].setAttribute).toHaveBeenCalledWith('aria-pressed', 'false');
+
+      createElementSpy.mockRestore();
+    });
   });
 
   describe('initializePopupStaticText', () => {
