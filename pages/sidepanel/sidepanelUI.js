@@ -316,50 +316,78 @@ export function renderList(elements, highlights, storageKey, onDelete) {
 // === 待同步視圖 ===
 
 /**
- * 切換視圖，只負責 DOM 顯隱與 tab active class，不觸發任何資料載入
+ * 設定 DOM 元素的顯示狀態 (如果元素存在)
+ *
+ * @param {HTMLElement|null} element
+ * @param {string} display
+ */
+function setElementDisplay(element, display) {
+  if (element) {
+    element.style.display = display;
+  }
+}
+
+/**
+ * 切換到「本頁標註」視圖的 DOM 狀態
  *
  * @param {SidePanelElements} elements
- * @param {'current'|'unsynced'} viewName
  */
-export function switchView(elements, viewName) {
+function showCurrentView(elements) {
+  setElementDisplay(elements.unsyncedView, 'none');
+  setElementDisplay(elements.syncButton, '');
+  setElementDisplay(elements.openNotionButton, '');
+  setElementDisplay(elements.loadMoreBtn, 'none');
+  setElementDisplay(elements.unsyncedToolbar, 'none');
+}
+
+/**
+ * 切換到「待同步」視圖的 DOM 狀態
+ *
+ * @param {SidePanelElements} elements
+ */
+function showUnsyncedView(elements) {
   const currentViewEls = [
     elements.loadingState,
     elements.emptyState,
     elements.highlightsList,
     elements.statusMessage,
   ];
+  currentViewEls.forEach(el => setElementDisplay(el, 'none'));
+  setElementDisplay(elements.syncButton, 'none');
+  setElementDisplay(elements.openNotionButton, 'none');
+  setElementDisplay(elements.unsyncedView, 'block');
+}
 
-  if (viewName === 'unsynced') {
-    currentViewEls.forEach(el => el && (el.style.display = 'none'));
-    if (elements.syncButton) {
-      elements.syncButton.style.display = 'none';
-    }
-    if (elements.openNotionButton) {
-      elements.openNotionButton.style.display = 'none';
-    }
-    elements.unsyncedView.style.display = 'block';
-  } else {
-    elements.unsyncedView.style.display = 'none';
-    if (elements.syncButton) {
-      elements.syncButton.style.display = '';
-    }
-    if (elements.openNotionButton) {
-      elements.openNotionButton.style.display = '';
-    }
-    if (elements.loadMoreBtn) {
-      elements.loadMoreBtn.style.display = 'none';
-    }
-    if (elements.unsyncedToolbar) {
-      elements.unsyncedToolbar.style.display = 'none';
-    }
+/**
+ * 更新 Tab 的選取與 active 樣式
+ *
+ * @param {NodeList|Array} tabs
+ * @param {string} activeViewName
+ */
+function updateViewTabs(tabs, activeViewName) {
+  if (!tabs) {
+    return;
   }
-
-  // 更新 tab 的 active 樣式
-  elements.viewTabs.forEach(tab => {
-    const isActive = tab.dataset.view === viewName;
+  tabs.forEach(tab => {
+    const isActive = tab.dataset.view === activeViewName;
     tab.classList.toggle('active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
   });
+}
+
+/**
+ * 切換視圖，只負責 DOM 顯隱與 tab active class，不觸發任何資料載入
+ *
+ * @param {SidePanelElements} elements
+ * @param {'current'|'unsynced'} viewName
+ */
+export function switchView(elements, viewName) {
+  if (viewName === 'unsynced') {
+    showUnsyncedView(elements);
+  } else {
+    showCurrentView(elements);
+  }
+  updateViewTabs(elements.viewTabs, viewName);
 }
 
 /**
@@ -396,16 +424,106 @@ export function updateUnsyncedBadge(elements, pages) {
 }
 
 /**
+ * 渲染卡片的標註預覽行
+ *
+ * @param {HTMLElement} card
+ * @param {Array|null} previewHighlights
+ */
+function renderCardPreviews(card, previewHighlights) {
+  const previewContainer = card.querySelector('.page-card-previews');
+  if (!previewContainer) {
+    return;
+  }
+
+  const highlights = Array.isArray(previewHighlights) ? previewHighlights : [];
+  highlights.forEach(highlight => {
+    const row = document.createElement('p');
+    row.className = `preview-row color-${normalizeHighlightColor(highlight?.color)}`;
+    row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
+    previewContainer.append(row);
+  });
+}
+
+/**
+ * 渲染卡片的剩餘標註數量 (+N more)
+ *
+ * @param {HTMLElement} card
+ * @param {number} remainingCount
+ */
+function renderCardRemainingCount(card, remainingCount) {
+  const remainingEl = card.querySelector('.page-card-remaining');
+  if (remainingEl && remainingCount > 0) {
+    remainingEl.textContent = UI_MESSAGES.SIDEPANEL.REMAINING_COUNT(remainingCount);
+  }
+}
+
+/**
+ * 綁定卡片的「開啟」與「刪除」按鈕事件
+ *
+ * @param {HTMLElement} card
+ * @param {object} page
+ * @param {{ onOpen: (url: string) => void, onDelete: (storageKey: string, card: HTMLElement) => void }} callbacks
+ */
+function bindCardButtons(card, page, callbacks) {
+  const openButton = card.querySelector('.page-open-button');
+  if (openButton && typeof callbacks.onOpen === 'function') {
+    openButton.addEventListener('click', () => {
+      callbacks.onOpen(page.url);
+    });
+  }
+
+  const deleteButton = card.querySelector('.page-delete-button');
+  if (deleteButton && typeof callbacks.onDelete === 'function') {
+    deleteButton.addEventListener('click', () => {
+      callbacks.onDelete(page.storageKey, card);
+    });
+  }
+}
+
+/**
+ * 為單一頁面建立 Unsynced Page Card DOM 元素
+ *
+ * @param {HTMLTemplateElement} template
+ * @param {object} page
+ * @param {{ onOpen: (url: string) => void, onDelete: (storageKey: string, card: HTMLElement) => void }} callbacks
+ * @returns {HTMLElement|null}
+ */
+function createUnsyncedPageCard(template, page, callbacks) {
+  const cardNode = template.content.cloneNode(true);
+  const card = cardNode.querySelector('.page-card');
+  if (!card) {
+    return null;
+  }
+
+  const titleEl = card.querySelector('.page-title');
+  if (titleEl) {
+    titleEl.textContent = page.title;
+  }
+
+  const metaEl = card.querySelector('.page-meta');
+  if (metaEl) {
+    metaEl.textContent = `${extractDomain(page.url)} • ${UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT(page.highlightCount)}`;
+  }
+
+  renderCardPreviews(card, page.previewHighlights);
+  renderCardRemainingCount(card, page.remainingCount);
+  bindCardButtons(card, page, callbacks);
+
+  return card;
+}
+
+/**
  * 從 pages 取出指定範圍的卡片並插入 unsyncedView 容器
  *
- * @param {SidePanelElements} elements
- * @param {Array} pages - 完整的未同步頁面陣列
- * @param {number} startIndex - 起始索引
- * @param {number} count - 本次渲染數量
- * @param {{ onOpen: (url: string) => void, onDelete: (storageKey: string, card: HTMLElement) => void }} callbacks
+ * @param {object} request
+ * @param {SidePanelElements} request.elements
+ * @param {Array} request.pages - 完整的未同步頁面陣列
+ * @param {number} request.startIndex - 起始索引
+ * @param {number} request.count - 本次渲染數量
+ * @param {{ onOpen: (url: string) => void, onDelete: (storageKey: string, card: HTMLElement) => void }} request.callbacks
  * @returns {number} 本次渲染的卡片數量
  */
-export function appendCards(elements, pages, startIndex, count, callbacks) {
+export function appendCards({ elements, pages, startIndex, count, callbacks }) {
   const container = elements.unsyncedView;
   const template = elements.pageCardTemplate;
   if (!container || !template?.content) {
@@ -415,57 +533,10 @@ export function appendCards(elements, pages, startIndex, count, callbacks) {
   const fragment = document.createDocumentFragment();
 
   batch.forEach(page => {
-    const cardNode = template.content.cloneNode(true);
-    const card = cardNode.querySelector('.page-card');
-    if (!card) {
-      return;
+    const card = createUnsyncedPageCard(template, page, callbacks);
+    if (card) {
+      fragment.append(card);
     }
-
-    const titleEl = card.querySelector('.page-title');
-    if (titleEl) {
-      titleEl.textContent = page.title;
-    }
-
-    const metaEl = card.querySelector('.page-meta');
-    if (metaEl) {
-      metaEl.textContent = `${extractDomain(page.url)} • ${UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT(page.highlightCount)}`;
-    }
-
-    // 標註預覽
-    const previewContainer = card.querySelector('.page-card-previews');
-    if (previewContainer) {
-      const previewHighlights = Array.isArray(page.previewHighlights) ? page.previewHighlights : [];
-      previewHighlights.forEach(highlight => {
-        const row = document.createElement('p');
-        row.className = `preview-row color-${normalizeHighlightColor(highlight?.color)}`;
-        row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
-        previewContainer.append(row);
-      });
-    }
-
-    // +N more
-    const remainingEl = card.querySelector('.page-card-remaining');
-    if (remainingEl && page.remainingCount > 0) {
-      remainingEl.textContent = UI_MESSAGES.SIDEPANEL.REMAINING_COUNT(page.remainingCount);
-    }
-
-    // 開啟頁面
-    const openButton = card.querySelector('.page-open-button');
-    if (openButton && typeof callbacks.onOpen === 'function') {
-      openButton.addEventListener('click', () => {
-        callbacks.onOpen(page.url);
-      });
-    }
-
-    // 刪除單頁標注
-    const deleteButton = card.querySelector('.page-delete-button');
-    if (deleteButton && typeof callbacks.onDelete === 'function') {
-      deleteButton.addEventListener('click', () => {
-        callbacks.onDelete(page.storageKey, card);
-      });
-    }
-
-    fragment.append(card);
   });
 
   container.append(fragment);
