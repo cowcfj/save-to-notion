@@ -234,6 +234,48 @@ describe('popupUI.js', () => {
       ).toBe(true);
       expect(mockElements.status.append.mock.calls[2][0].textContent).toBe(' with warning');
     });
+
+    it('應過濾掉 SVG 中的危險標籤（<script>）', () => {
+      setStatus(mockElements, [
+        'Status: ',
+        { type: 'svg', content: '<svg><script>alert("XSS")</script><path d="M0 0"/></svg>' },
+      ]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      expect(mockElements.status.append).toHaveBeenCalledTimes(2);
+
+      const svgContainer = mockElements.status.append.mock.calls[1][0];
+      expect(svgContainer.classList.contains('status-icon-inline')).toBe(true);
+
+      // DOMPurify 應該已移除 <script> 標籤
+      const svgElement = svgContainer.querySelector('svg');
+      if (svgElement) {
+        expect(svgElement.querySelector('script')).toBeNull();
+      }
+    });
+
+    it('應過濾掉 SVG 中的危險屬性（onload）', () => {
+      setStatus(mockElements, [
+        { type: 'svg', content: '<svg onload="alert(1)"><path d="M0 0"/></svg>' },
+      ]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      const svgContainer = mockElements.status.append.mock.calls[0][0];
+      const svgElement = svgContainer.querySelector('svg');
+
+      if (svgElement) {
+        expect(svgElement.hasAttribute('onload')).toBe(false);
+      }
+    });
+
+    it('當 SVG 內容無效時應返回空的 status-icon-inline span', () => {
+      setStatus(mockElements, [{ type: 'svg', content: '' }]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      const svgContainer = mockElements.status.append.mock.calls[0][0];
+      expect(svgContainer.classList.contains('status-icon-inline')).toBe(true);
+      expect(svgContainer.querySelector('svg')).toBeNull();
+    });
   });
 
   describe('setButtonState', () => {

@@ -7,6 +7,7 @@
 import { UI_ICONS } from '../../scripts/config/shared/ui.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import { resolveAccountDisplayProfile } from '../../scripts/utils/accountDisplayUtils.js';
+import { sanitizeSvgIcon } from '../../scripts/highlighter/utils/safeIcon.js';
 
 const ACCOUNT_STATUS_ERROR_CLASS = 'account-status-error';
 const ARIA_LABEL_ATTR = 'aria-label';
@@ -179,17 +180,33 @@ function getParsedSvgElement(svgDoc) {
   return svgDoc.documentElement || null;
 }
 
+/**
+ * 建立安全的 SVG 狀態圖標容器
+ *
+ * 使用 DOMPurify 消毒 SVG 內容以防止 XSS 攻擊。
+ * 雖然當前僅用於 UI_ICONS 硬編碼常量，但防禦性措施確保未來擴展時的安全性。
+ *
+ * @param {string} content - SVG 字串（將被消毒處理）
+ * @returns {HTMLSpanElement} 包含安全 SVG 的 span 元素
+ */
 function createStatusSvgPart(content) {
   const span = document.createElement('span');
+  span.classList.add('status-icon-inline');
+
+  // 使用現有的 DOMPurify 消毒邏輯
+  const sanitized = sanitizeSvgIcon(content);
+  if (!sanitized) {
+    return span;
+  }
+
   const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(content, 'image/svg+xml');
+  const svgDoc = parser.parseFromString(sanitized, 'image/svg+xml');
   const svgElement = getParsedSvgElement(svgDoc);
 
   if (svgElement) {
     span.append(svgElement);
   }
 
-  span.classList.add('status-icon-inline');
   return span;
 }
 
