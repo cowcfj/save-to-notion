@@ -331,7 +331,10 @@ function isRefreshPayloadObject(body) {
   if (body === null) {
     return false;
   }
-  return typeof body === 'object';
+  if (typeof body !== 'object') {
+    return false;
+  }
+  return !Array.isArray(body);
 }
 
 /**
@@ -425,14 +428,19 @@ function validateRefreshSuccessPayload(body) {
     ''
   );
   const accessToken = accessTokenRaw.trim();
-  const refreshToken = readRefreshStringField(body, REFRESH_SUCCESS_PAYLOAD_FIELDS.REFRESH_TOKEN);
+  const refreshTokenRaw = readRefreshStringField(
+    body,
+    REFRESH_SUCCESS_PAYLOAD_FIELDS.REFRESH_TOKEN,
+    ''
+  );
+  const refreshToken = typeof refreshTokenRaw === 'string' ? refreshTokenRaw.trim() : '';
   const expiresAt = readRefreshNumberField(body, REFRESH_SUCCESS_PAYLOAD_FIELDS.EXPIRES_AT);
 
   if (!accessToken) {
     throw new Error('[accountSession] refresh response missing accessToken');
   }
-  if (typeof refreshToken !== 'string') {
-    throw new TypeError('[accountSession] refresh response missing refreshToken');
+  if (!refreshToken) {
+    throw new Error('[accountSession] refresh response missing refreshToken');
   }
   assertValidRefreshExpiresAt(expiresAt);
 
