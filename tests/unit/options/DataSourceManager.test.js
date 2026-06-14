@@ -607,6 +607,19 @@ describe('DataSourceManager', () => {
       SearchableDatabaseSelectorMock.mockClear();
     });
 
+    const expectDataSourceSelectPopulation = ({
+      dataSources,
+      isSearchResult,
+      expectedStatusMessage,
+    }) => {
+      dataSourceManager.populateDataSourceSelect(dataSources, isSearchResult);
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(expectedStatusMessage, 'success');
+
+      const mockInstance = SearchableDatabaseSelectorMock.mock.instances[0];
+      expect(mockInstance.populateDataSources).toHaveBeenCalledWith(dataSources, isSearchResult);
+    };
+
     test('使用注入的 getApiKey 函式建立 SearchableDatabaseSelector', () => {
       const customGetApiKey = () => 'custom-key';
       const manager = new DataSourceManager(mockUiManager, customGetApiKey);
@@ -656,15 +669,11 @@ describe('DataSourceManager', () => {
 
     test('非搜尋結果且資料來源非空時，顯示成功載入狀態並填充 selector', () => {
       const mockData = [{ id: 'db-1', object: 'database' }];
-      dataSourceManager.populateDataSourceSelect(mockData, false);
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(1),
-        'success'
-      );
-
-      const mockInstance = SearchableDatabaseSelectorMock.mock.instances[0];
-      expect(mockInstance.populateDataSources).toHaveBeenCalledWith(mockData, false);
+      expectDataSourceSelectPopulation({
+        dataSources: mockData,
+        isSearchResult: false,
+        expectedStatusMessage: UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(1),
+      });
     });
 
     test('搜尋結果且資料來源非空時，顯示尋獲數量狀態', () => {
@@ -672,15 +681,11 @@ describe('DataSourceManager', () => {
         { id: 'db-1', object: 'database' },
         { id: 'db-2', object: 'database' },
       ];
-      dataSourceManager.populateDataSourceSelect(mockData, true);
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(2),
-        'success'
-      );
-
-      const mockInstance = SearchableDatabaseSelectorMock.mock.instances[0];
-      expect(mockInstance.populateDataSources).toHaveBeenCalledWith(mockData, true);
+      expectDataSourceSelectPopulation({
+        dataSources: mockData,
+        isSearchResult: true,
+        expectedStatusMessage: UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(2),
+      });
     });
 
     test('防禦性檢查：資料來源為空時，顯示無資料來源錯誤狀態', () => {
