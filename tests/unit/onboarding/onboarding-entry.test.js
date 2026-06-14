@@ -117,6 +117,91 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
   };
 
+  const flushPendingPromises = () => new Promise(process.nextTick);
+
+  const getActionButton = action => root.querySelector(`[data-action="${action}"]`);
+
+  const clickAction = action => {
+    const button = getActionButton(action);
+    button.click();
+    return button;
+  };
+
+  const clickActionAndFlush = async action => {
+    const button = clickAction(action);
+    await flushPendingPromises();
+    return button;
+  };
+
+  const getErrorElement = errorKey => root.querySelector(`[data-error="${errorKey}"]`);
+
+  const getStep3State = state => root.querySelector(`[data-step3-state="${state}"]`);
+
+  const loadDatabasesByRetry = async databases => {
+    isNotionConnected.mockResolvedValue(true);
+    fetchNotionDatabases.mockResolvedValue(databases);
+
+    loadEntryScript();
+    await clickActionAndFlush('retry-databases');
+
+    return root.querySelector('[data-database-list]');
+  };
+
+  const loadDatabasesAndSelectFirst = async databases => {
+    const listEl = await loadDatabasesByRetry(databases);
+    const firstItem = listEl.children[0];
+    firstItem.click();
+
+    return {
+      listEl,
+      firstItem,
+      confirmBtn: root.querySelector('[data-step3-confirm]'),
+    };
+  };
+
+  const completeFirstDatabaseSelection = async () => {
+    const { confirmBtn } = await loadDatabasesAndSelectFirst([{ id: 'db-1', title: 'DB One' }]);
+
+    selectDataSource.mockResolvedValue(undefined);
+    confirmBtn.click();
+    await flushPendingPromises();
+  };
+
+  const startAccountLoginAndCaptureListener = async () => {
+    let addedListener = null;
+    globalThis.chrome.storage.onChanged.addListener.mockImplementation(listener => {
+      addedListener = listener;
+    });
+
+    isAccountFeatureEnabled.mockReturnValue(true);
+    isAccountLoggedIn.mockResolvedValue(false);
+    startAccountLogin.mockResolvedValue({ success: true });
+
+    loadEntryScript();
+    const loginBtn = await clickActionAndFlush('login-account');
+
+    return {
+      addedListener,
+      loginBtn,
+      waitingEl: root.querySelector('[data-step4-state="waiting"]'),
+    };
+  };
+
+  const showConnectNotionError = async error => {
+    runNotionOAuthFlow.mockRejectedValue(error);
+
+    loadEntryScript();
+    await clickActionAndFlush('connect-notion');
+
+    return getErrorElement('connect-notion');
+  };
+
+  const mockFetchThroughRuntimeSendMessage = () => {
+    fetchNotionDatabases.mockImplementation(async ({ sendMessage }) => {
+      await sendMessage({ action: 'test' });
+    });
+  };
+
   it('載入時應初始化步驟 1 並綁定 actions', () => {
     loadEntryScript();
     expect(showStep).toHaveBeenCalledWith(root, 1);
@@ -126,8 +211,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     loadEntryScript();
     nextStep.mockReturnValue(5);
 
-    const nextBtn = root.querySelector('[data-action="next"]');
-    nextBtn.click();
+    clickAction('next');
 
     expect(nextStep).toHaveBeenCalledWith(root);
   });
@@ -136,8 +220,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     loadEntryScript();
     skipToEnd.mockReturnValue(6);
 
-    const skipBtn = root.querySelector('[data-action="skip"]');
-    skipBtn.click();
+    clickAction('skip');
 
     expect(skipToEnd).toHaveBeenCalledWith(root);
   });
@@ -145,8 +228,7 @@ describe('onboarding entry script (onboarding.js)', () => {
   it('點擊 finish 應關閉視窗', () => {
     loadEntryScript();
 
-    const finishBtn = root.querySelector('[data-action="finish"]');
-    finishBtn.click();
+    clickAction('finish');
 
     expect(window.close).toHaveBeenCalled();
   });
@@ -161,8 +243,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       runNotionOAuthFlow.mockResolvedValue(undefined);
       nextStep.mockReturnValue(3);
 
-      const connectBtn = root.querySelector('[data-action="connect-notion"]');
-      await connectBtn.click();
+      await clickActionAndFlush('connect-notion');
 
       expect(runNotionOAuthFlow).toHaveBeenCalled();
       expect(nextStep).toHaveBeenCalledWith(root);
@@ -174,14 +255,12 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const connectBtn = root.querySelector('[data-action="connect-notion"]');
+      const connectBtn = getActionButton('connect-notion');
       const originalText = connectBtn.textContent;
 
-      connectBtn.click();
+      await clickActionAndFlush('connect-notion');
 
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="connect-notion"]');
+      const errorEl = getErrorElement('connect-notion');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('oauth_error');
       expect(connectBtn.disabled).toBe(false);
@@ -191,54 +270,33 @@ describe('onboarding entry script (onboarding.js)', () => {
 
   describe('Step 3: Database Selection', () => {
     it('加載資料庫為空時應顯示空狀態', async () => {
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([]);
+      await loadDatabasesByRetry([]);
 
-      loadEntryScript();
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const emptyState = root.querySelector('[data-step3-state="empty"]');
+      const emptyState = getStep3State('empty');
       expect(emptyState.hidden).toBe(false);
     });
 
     it('載入資料庫成功時，應渲染列表並支援選取與確認', async () => {
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([
+      const { listEl, firstItem, confirmBtn } = await loadDatabasesAndSelectFirst([
         { id: 'db-1', title: 'DB One' },
         { id: 'db-2', title: 'DB Two' },
       ]);
 
-      loadEntryScript();
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const listState = root.querySelector('[data-step3-state="list"]');
+      const listState = getStep3State('list');
       expect(listState.hidden).toBe(false);
 
-      const listEl = root.querySelector('[data-database-list]');
       expect(listEl.children).toHaveLength(2);
-
-      const firstItem = listEl.children[0];
-      firstItem.click();
 
       expect(firstItem.classList.contains('selected')).toBe(true);
       expect(firstItem.getAttribute('aria-checked')).toBe('true');
 
-      const confirmBtn = root.querySelector('[data-step3-confirm]');
       expect(confirmBtn.disabled).toBe(false);
 
       selectDataSource.mockResolvedValue(undefined);
       nextStep.mockReturnValue(4);
       confirmBtn.click();
 
-      await new Promise(process.nextTick);
+      await flushPendingPromises();
       expect(selectDataSource).toHaveBeenCalledWith({
         storage: globalThis.chrome.storage.local,
         dataSourceId: 'db-1',
@@ -250,16 +308,12 @@ describe('onboarding entry script (onboarding.js)', () => {
       fetchNotionDatabases.mockRejectedValue(new Error('network_error'));
 
       loadEntryScript();
+      await clickActionAndFlush('retry-databases');
 
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const errorState = root.querySelector('[data-step3-state="error"]');
+      const errorState = getStep3State('error');
       expect(errorState.hidden).toBe(false);
 
-      const errorEl = root.querySelector('[data-error="fetch-databases"]');
+      const errorEl = getErrorElement('fetch-databases');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('network_error');
     });
@@ -267,27 +321,12 @@ describe('onboarding entry script (onboarding.js)', () => {
 
   describe('Step 4: Account Login', () => {
     it('點擊登入應啟動登入流，設置 listener，並在儲存 accountEmail 後進入下一步', async () => {
-      isAccountFeatureEnabled.mockReturnValue(true);
-      isAccountLoggedIn.mockResolvedValue(false);
-      startAccountLogin.mockResolvedValue({ success: true });
-
-      let addedListener = null;
-      globalThis.chrome.storage.onChanged.addListener.mockImplementation(listener => {
-        addedListener = listener;
-      });
-
-      loadEntryScript();
-
-      const loginBtn = root.querySelector('[data-action="login-account"]');
-      loginBtn.click();
-
-      await new Promise(process.nextTick);
+      const { addedListener, waitingEl } = await startAccountLoginAndCaptureListener();
 
       expect(startAccountLogin).toHaveBeenCalled();
       expect(globalThis.chrome.storage.onChanged.addListener).toHaveBeenCalled();
       expect(addedListener).not.toBeNull();
 
-      const waitingEl = root.querySelector('[data-step4-state="waiting"]');
       expect(waitingEl.hidden).toBe(false);
 
       nextStep.mockReturnValue(5);
@@ -310,13 +349,11 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const loginBtn = root.querySelector('[data-action="login-account"]');
+      const loginBtn = getActionButton('login-account');
       const originalText = loginBtn.textContent;
-      loginBtn.click();
+      await clickActionAndFlush('login-account');
 
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="login-account"]');
+      const errorEl = getErrorElement('login-account');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('auth_api_down');
       expect(loginBtn.disabled).toBe(false);
@@ -331,65 +368,23 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const loginBtn = root.querySelector('[data-action="login-account"]');
-      loginBtn.click();
+      const loginBtn = await clickActionAndFlush('login-account');
 
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="login-account"]');
+      const errorEl = getErrorElement('login-account');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('login_failed');
       expect(loginBtn.disabled).toBe(false);
       expect(globalThis.chrome.storage.onChanged.removeListener).toHaveBeenCalled();
     });
 
-    it('storage listener 收到非 accountEmail 變更應忽略', async () => {
-      isAccountFeatureEnabled.mockReturnValue(true);
-      isAccountLoggedIn.mockResolvedValue(false);
-      startAccountLogin.mockResolvedValue({ success: true });
-
-      let addedListener = null;
-      globalThis.chrome.storage.onChanged.addListener.mockImplementation(listener => {
-        addedListener = listener;
-      });
-
-      loadEntryScript();
-
-      const loginBtn = root.querySelector('[data-action="login-account"]');
-      loginBtn.click();
-
-      await new Promise(process.nextTick);
-
+    it.each([
+      ['非 accountEmail 變更', { otherKey: { newValue: 'value' } }, 'local'],
+      ['sync 區域變更', { accountEmail: { newValue: 'user@example.com' } }, 'sync'],
+    ])('storage listener 收到%s應忽略', async (_label, changes, areaName) => {
+      const { addedListener } = await startAccountLoginAndCaptureListener();
       nextStep.mockClear();
 
-      // 傳送不相關的 storage 變更
-      await addedListener({ otherKey: { newValue: 'value' } }, 'local');
-
-      expect(nextStep).not.toHaveBeenCalled();
-      expect(globalThis.chrome.storage.onChanged.removeListener).not.toHaveBeenCalled();
-    });
-
-    it('storage listener 收到 sync 區域變更應忽略', async () => {
-      isAccountFeatureEnabled.mockReturnValue(true);
-      isAccountLoggedIn.mockResolvedValue(false);
-      startAccountLogin.mockResolvedValue({ success: true });
-
-      let addedListener = null;
-      globalThis.chrome.storage.onChanged.addListener.mockImplementation(listener => {
-        addedListener = listener;
-      });
-
-      loadEntryScript();
-
-      const loginBtn = root.querySelector('[data-action="login-account"]');
-      loginBtn.click();
-
-      await new Promise(process.nextTick);
-
-      nextStep.mockClear();
-
-      // 傳送 sync 區域變更
-      await addedListener({ accountEmail: { newValue: 'user@example.com' } }, 'sync');
+      await addedListener(changes, areaName);
 
       expect(nextStep).not.toHaveBeenCalled();
       expect(globalThis.chrome.storage.onChanged.removeListener).not.toHaveBeenCalled();
@@ -397,65 +392,30 @@ describe('onboarding entry script (onboarding.js)', () => {
   });
 
   describe('formatError 函數行為', () => {
-    it('formatError 應處理字串類型錯誤', async () => {
-      runNotionOAuthFlow.mockRejectedValue('string_error');
+    it.each([
+      ['字串類型錯誤', 'string_error', 'string_error'],
+      ['null/undefined 錯誤', null, '未知錯誤'],
+      ['非 Error 物件', 12_345, '未知錯誤'],
+    ])('formatError 應處理%s', async (_label, thrownError, expectedMessage) => {
+      const errorEl = await showConnectNotionError(thrownError);
 
-      loadEntryScript();
-
-      const connectBtn = root.querySelector('[data-action="connect-notion"]');
-      connectBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="connect-notion"]');
-      expect(errorEl.textContent).toContain('string_error');
-    });
-
-    it('formatError 應處理 null/undefined 錯誤', async () => {
-      runNotionOAuthFlow.mockRejectedValue(null);
-
-      loadEntryScript();
-
-      const connectBtn = root.querySelector('[data-action="connect-notion"]');
-      connectBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="connect-notion"]');
-      expect(errorEl.textContent).toContain('未知錯誤');
-    });
-
-    it('formatError 應處理非 Error 物件', async () => {
-      runNotionOAuthFlow.mockRejectedValue(12_345);
-
-      loadEntryScript();
-
-      const connectBtn = root.querySelector('[data-action="connect-notion"]');
-      connectBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="connect-notion"]');
-      expect(errorEl.textContent).toContain('未知錯誤');
+      expect(errorEl.textContent).toContain(expectedMessage);
     });
   });
 
   describe('防禦性檢查', () => {
     it('setError 找不到 error 元素時應不拋錯', async () => {
       // 移除 error 元素
-      const errorEl = root.querySelector('[data-error="connect-notion"]');
+      const errorEl = getErrorElement('connect-notion');
       errorEl.remove();
 
       runNotionOAuthFlow.mockRejectedValue(new Error('test_error'));
 
       loadEntryScript();
 
-      const connectBtn = root.querySelector('[data-action="connect-notion"]');
-
       // 應該不拋錯
       await expect(async () => {
-        connectBtn.click();
-        await new Promise(process.nextTick);
+        await clickActionAndFlush('connect-notion');
       }).not.toThrow();
     });
 
@@ -469,12 +429,9 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-
       // 應該不拋錯
       await expect(async () => {
-        retryBtn.click();
-        await new Promise(process.nextTick);
+        await clickActionAndFlush('retry-databases');
       }).not.toThrow();
     });
 
@@ -485,7 +442,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       confirmBtn.disabled = false;
       confirmBtn.click();
 
-      await new Promise(process.nextTick);
+      await flushPendingPromises();
 
       // selectDataSource 不應被調用
       expect(selectDataSource).not.toHaveBeenCalled();
@@ -511,10 +468,7 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const nextBtn = root.querySelector('[data-action="next"]');
-      nextBtn.click();
-
-      await new Promise(process.nextTick);
+      await clickActionAndFlush('next');
 
       expect(isNotionConnected).toHaveBeenCalled();
       expect(nextStep).toHaveBeenCalledWith(root);
@@ -525,12 +479,9 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const nextBtn = root.querySelector('[data-action="next"]');
-
       // 應該不拋錯
       await expect(async () => {
-        nextBtn.click();
-        await new Promise(process.nextTick);
+        await clickActionAndFlush('next');
       }).not.toThrow();
     });
 
@@ -540,11 +491,9 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const nextBtn = root.querySelector('[data-action="next"]');
       nextStep.mockReturnValue(3);
-      nextBtn.click();
 
-      await new Promise(process.nextTick);
+      await clickActionAndFlush('next');
 
       const confirmBtn = root.querySelector('[data-step3-confirm]');
       expect(confirmBtn.hidden).toBe(true);
@@ -556,11 +505,9 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const nextBtn = root.querySelector('[data-action="next"]');
       nextStep.mockReturnValue(3);
-      nextBtn.click();
 
-      await new Promise(process.nextTick);
+      await clickActionAndFlush('next');
 
       const confirmBtn = root.querySelector('[data-step3-confirm]');
       expect(confirmBtn.hidden).toBe(true);
@@ -572,26 +519,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       // 模擬從 Step 3 進入 Step 4
       nextStep.mockReturnValueOnce(4).mockReturnValueOnce(5);
 
-      loadEntryScript();
-
-      // 模擬完成 Step 3 (選擇資料庫)
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([{ id: 'db-1', title: 'DB One' }]);
-      selectDataSource.mockResolvedValue(undefined);
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const listEl = root.querySelector('[data-database-list]');
-      const firstItem = listEl.children[0];
-      firstItem.click();
-
-      const confirmBtn = root.querySelector('[data-step3-confirm]');
-      confirmBtn.click();
-
-      await new Promise(process.nextTick);
+      await completeFirstDatabaseSelection();
 
       expect(isAccountFeatureEnabled).toHaveBeenCalled();
       expect(nextStep).toHaveBeenCalledTimes(2); // Step 3->4, Step 4->5
@@ -604,26 +532,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       // 模擬從 Step 3 進入 Step 4
       nextStep.mockReturnValueOnce(4).mockReturnValueOnce(5);
 
-      loadEntryScript();
-
-      // 模擬完成 Step 3 (選擇資料庫)
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([{ id: 'db-1', title: 'DB One' }]);
-      selectDataSource.mockResolvedValue(undefined);
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const listEl = root.querySelector('[data-database-list]');
-      const firstItem = listEl.children[0];
-      firstItem.click();
-
-      const confirmBtn = root.querySelector('[data-step3-confirm]');
-      confirmBtn.click();
-
-      await new Promise(process.nextTick);
+      await completeFirstDatabaseSelection();
 
       expect(isAccountLoggedIn).toHaveBeenCalled();
       expect(nextStep).toHaveBeenCalledTimes(2); // Step 3->4, Step 4->5
@@ -636,12 +545,9 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const nextBtn = root.querySelector('[data-action="next"]');
-
       // 應該不拋錯
       await expect(async () => {
-        nextBtn.click();
-        await new Promise(process.nextTick);
+        await clickActionAndFlush('next');
       }).not.toThrow();
     });
 
@@ -652,12 +558,9 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       loadEntryScript();
 
-      const skipBtn = root.querySelector('[data-action="skip"]');
-
       // 應該不拋錯
       await expect(async () => {
-        skipBtn.click();
-        await new Promise(process.nextTick);
+        await clickActionAndFlush('skip');
       }).not.toThrow();
 
       expect(markCompleted).toHaveBeenCalled();
@@ -666,25 +569,13 @@ describe('onboarding entry script (onboarding.js)', () => {
 
   describe('資料庫選取與切換', () => {
     it('選取第二個資料庫時應移除第一個的 selected 狀態', async () => {
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([
+      const { listEl, firstItem } = await loadDatabasesAndSelectFirst([
         { id: 'db-1', title: 'DB One' },
         { id: 'db-2', title: 'DB Two' },
       ]);
 
-      loadEntryScript();
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const listEl = root.querySelector('[data-database-list]');
-      const firstItem = listEl.children[0];
       const secondItem = listEl.children[1];
 
-      // 選取第一個
-      firstItem.click();
       expect(firstItem.classList.contains('selected')).toBe(true);
       expect(firstItem.getAttribute('aria-checked')).toBe('true');
 
@@ -697,32 +588,19 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
 
     it('selectDataSource 失敗時應顯示錯誤並保留按鈕狀態', async () => {
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([{ id: 'db-1', title: 'DB One' }]);
-
-      loadEntryScript();
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const listEl = root.querySelector('[data-database-list]');
-      const firstItem = listEl.children[0];
-      firstItem.click();
+      const { confirmBtn } = await loadDatabasesAndSelectFirst([{ id: 'db-1', title: 'DB One' }]);
 
       selectDataSource.mockRejectedValue(new Error('storage_error'));
 
-      const confirmBtn = root.querySelector('[data-step3-confirm]');
       confirmBtn.click();
 
-      await new Promise(process.nextTick);
+      await flushPendingPromises();
 
-      const errorEl = root.querySelector('[data-error="fetch-databases"]');
+      const errorEl = getErrorElement('fetch-databases');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('storage_error');
 
-      const errorState = root.querySelector('[data-step3-state="error"]');
+      const errorState = getStep3State('error');
       expect(errorState.hidden).toBe(false);
     });
   });
@@ -733,60 +611,36 @@ describe('onboarding entry script (onboarding.js)', () => {
         callback({ success: true, data: [] });
       });
 
-      isNotionConnected.mockResolvedValue(true);
-      fetchNotionDatabases.mockResolvedValue([]);
-
-      loadEntryScript();
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
+      await loadDatabasesByRetry([]);
 
       // 成功載入（空列表）
-      const emptyState = root.querySelector('[data-step3-state="empty"]');
+      const emptyState = getStep3State('empty');
       expect(emptyState.hidden).toBe(false);
     });
 
-    it('sendMessage 觸發 chrome.runtime.lastError 應拋出錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-        globalThis.chrome.runtime.lastError = { message: 'runtime_error' };
-        callback();
-        delete globalThis.chrome.runtime.lastError;
-      });
-
-      fetchNotionDatabases.mockImplementation(async ({ sendMessage }) => {
-        await sendMessage({ action: 'test' });
-      });
-
-      loadEntryScript();
-
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="fetch-databases"]');
-      expect(errorEl.hidden).toBe(false);
-    });
-
-    it('sendMessage 同步拋出錯誤應被捕獲', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation(() => {
-        throw new Error('sync_error');
-      });
-
-      fetchNotionDatabases.mockImplementation(async ({ sendMessage }) => {
-        await sendMessage({ action: 'test' });
-      });
+    it.each([
+      [
+        '觸發 chrome.runtime.lastError 應拋出錯誤',
+        (_msg, callback) => {
+          globalThis.chrome.runtime.lastError = { message: 'runtime_error' };
+          callback();
+          delete globalThis.chrome.runtime.lastError;
+        },
+      ],
+      [
+        '同步拋出錯誤應被捕獲',
+        () => {
+          throw new Error('sync_error');
+        },
+      ],
+    ])('sendMessage %s', async (_label, sendMessageImplementation) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation(sendMessageImplementation);
+      mockFetchThroughRuntimeSendMessage();
 
       loadEntryScript();
+      await clickActionAndFlush('retry-databases');
 
-      const retryBtn = root.querySelector('[data-action="retry-databases"]');
-      retryBtn.click();
-
-      await new Promise(process.nextTick);
-
-      const errorEl = root.querySelector('[data-error="fetch-databases"]');
+      const errorEl = getErrorElement('fetch-databases');
       expect(errorEl.hidden).toBe(false);
     });
   });
