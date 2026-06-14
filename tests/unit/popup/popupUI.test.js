@@ -453,8 +453,8 @@ describe('popupUI.js', () => {
       const msg = formatSaveSuccessMessage(response);
       expect(Array.isArray(msg)).toBe(true);
       expect(msg[0]).toContain('建立成功');
-      expect(msg[0]).toContain('5 blocks');
-      expect(msg[0]).toContain('2 images');
+      expect(msg[0]).toContain('5 個區塊');
+      expect(msg[0]).toContain('2 張圖片');
     });
 
     it('應該格式化 Updated 訊息', () => {
@@ -462,8 +462,8 @@ describe('popupUI.js', () => {
       const msg = formatSaveSuccessMessage(response);
       expect(Array.isArray(msg)).toBe(true);
       expect(msg[0]).toContain('更新成功');
-      expect(msg[0]).toContain('1 block');
-      expect(msg[0]).toContain('0 images');
+      expect(msg[0]).toContain('1 個區塊');
+      expect(msg[0]).toContain('0 張圖片');
     });
 
     it('應該格式化 Highlights updated 訊息', () => {
@@ -471,7 +471,7 @@ describe('popupUI.js', () => {
       const msg = formatSaveSuccessMessage(response);
       expect(Array.isArray(msg)).toBe(true);
       expect(msg[0]).toContain('標註已更新');
-      expect(msg[0]).toContain('3 highlights');
+      expect(msg[0]).toContain('3 條標註');
     });
 
     it('應該格式化 Recreated 訊息', () => {

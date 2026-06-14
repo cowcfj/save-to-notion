@@ -524,14 +524,14 @@ function formatCount(count, singular, plural) {
 function formatBlockImageDetails(response) {
   const imageCount = response.imageCount || 0;
   const blockCount = response.blockCount || 0;
-  const imagesText = formatCount(imageCount, 'image', 'images');
-  const blocksText = formatCount(blockCount, 'block', 'blocks');
+  const imagesText = formatCount(imageCount, '張圖片', '張圖片');
+  const blocksText = formatCount(blockCount, '個區塊', '個區塊');
   return `(${blocksText}, ${imagesText})`;
 }
 
 function formatHighlightDetails(response) {
   const highlightCount = response.highlightCount || 0;
-  const highlightsText = formatCount(highlightCount, 'highlight', 'highlights');
+  const highlightsText = formatCount(highlightCount, '條標註', '條標註');
   return `(${highlightsText})`;
 }
 
