@@ -276,4 +276,58 @@ describe('auth.js', () => {
     expect(document.querySelector('#status-area').textContent).toContain('user_id');
     expect(globalThis.close).not.toHaveBeenCalled();
   });
+
+  it('exchangeTicket 失敗時應顯示錯誤且不寫入 storage', async () => {
+    globalThis.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      text: async () => 'invalid ticket',
+    });
+
+    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+
+    await loadAuthModule();
+    await dispatchDomReady();
+
+    expect(mockSetAccountSession).not.toHaveBeenCalled();
+    expect(mockSetAccountProfile).not.toHaveBeenCalled();
+    expect(mockClearAccountSession).not.toHaveBeenCalled();
+    expect(document.querySelector('#status-area').className).toContain('status-error');
+    expect(document.querySelector('#status-area').textContent).toContain('無法完成 Session 交換');
+    expect(globalThis.close).not.toHaveBeenCalled();
+  });
+
+  it('寫入 storage 失敗時應清除 session 並顯示錯誤', async () => {
+    globalThis.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'access_123',
+          refresh_token: 'refresh_123',
+          expires_at: 1_700_000_000,
+          user_id: 'user_123',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user_id: 'user_123',
+          email: 'user@example.com',
+          display_name: 'Test User',
+          avatar_url: 'https://cdn.example.com/avatar.png',
+        }),
+      });
+
+    mockSetAccountSession.mockRejectedValueOnce(new Error('storage quota exceeded'));
+
+    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+
+    await loadAuthModule();
+    await dispatchDomReady();
+
+    expect(mockClearAccountSession).toHaveBeenCalled();
+    expect(document.querySelector('#status-area').className).toContain('status-error');
+    expect(document.querySelector('#status-area').textContent).toContain('無法儲存 Session');
+    expect(globalThis.close).not.toHaveBeenCalled();
+  });
 });

@@ -6,7 +6,7 @@
  * 2. POST /v1/account/session/exchange → 取得 tokens
  * 3. GET /v1/account/me → 取得 profile
  * 4. 成功：寫入 account session + profile，發送 account_session_updated，關閉頁面
- * 5. 任一步驟失敗：清除已取得的 token，顯示錯誤頁面，不關閉
+ * 5. 任一步驟失敗：清除已取得 spacing/tokens，顯示錯誤頁面，不關閉
  *
  * 設計原則（MUST NOT 違反）：
  * - 不使用任何 Notion OAuth 邏輯
@@ -25,6 +25,72 @@ import { RUNTIME_ACTIONS } from '../config/shared/runtimeActions.js';
 import { setAccountSession, setAccountProfile, clearAccountSession } from './accountSession.js';
 import { buildAccountApiUrl } from './accountLogin.js';
 import { showError, showLoading, showSuccess } from './callbackStatusView.js';
+
+// =============================================================================
+// Helper Functions (Network & Parsing)
+// =============================================================================
+
+/**
+ * 處理 HTTP 錯誤回應並拋出帶有詳細錯誤資訊的 Error。
+ *
+ * @param {Response} res
+ * @param {string} prefix
+ * @returns {Promise<never>}
+ * @throws {Error}
+ */
+async function handleResponseError(res, prefix) {
+  const errText = await res.text().catch(() => '');
+  const detail = errText ? ` — ${errText}` : '';
+  throw new Error(`${prefix}: HTTP ${res.status}${detail}`);
+}
+
+/**
+ * 驗證並正規化 exchange ticket 的回應資料。
+ *
+ * @param {any} data
+ * @returns {{accessToken: string; refreshToken: string; expiresAt: number; userId: string}}
+ */
+function normalizeExchangeResponse(data) {
+  if (!data.access_token) {
+    throw new Error('Exchange response missing required field (access_token)');
+  }
+
+  const expiresAt = Number(data.expires_at);
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    throw new Error('Exchange response contains invalid expires_at');
+  }
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token ?? '',
+    expiresAt,
+    userId: data.user_id ?? '',
+  };
+}
+
+/**
+ * 驗證並正規化 account/me 的回應資料。
+ *
+ * @param {any} data
+ * @returns {{userId: string; email: string; displayName: string | null; avatarUrl: string | null}}
+ */
+function normalizeMeResponse(data) {
+  if (!data.email) {
+    throw new Error('Account/me response missing required field (email)');
+  }
+
+  const userId = data.user_id ?? data.userId;
+  if (!userId) {
+    throw new Error('Account/me response missing required field (user_id)');
+  }
+
+  return {
+    userId,
+    email: data.email,
+    displayName: data.display_name ?? data.displayName ?? null,
+    avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
+  };
+}
 
 // =============================================================================
 // Auth flow
@@ -74,29 +140,11 @@ async function exchangeTicket(ticket, baseUrl) {
   });
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    const detail = errText ? ` — ${errText}` : '';
-    throw new Error(`Exchange failed: HTTP ${res.status}${detail}`);
+    await handleResponseError(res, 'Exchange failed');
   }
 
   const data = await res.json();
-
-  // 驗證必要欄位
-  if (!data.access_token) {
-    throw new Error('Exchange response missing required field (access_token)');
-  }
-
-  const expiresAt = Number(data.expires_at);
-  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
-    throw new Error('Exchange response contains invalid expires_at');
-  }
-
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token ?? '',
-    expiresAt,
-    userId: data.user_id ?? '',
-  };
+  return normalizeExchangeResponse(data);
 }
 
 /**
@@ -116,28 +164,11 @@ async function fetchAccountMe(accessToken, baseUrl) {
   });
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    const detail = errText ? ` — ${errText}` : '';
-    throw new Error(`Account/me failed: HTTP ${res.status}${detail}`);
+    await handleResponseError(res, 'Account/me failed');
   }
 
   const data = await res.json();
-
-  if (!data.email) {
-    throw new Error('Account/me response missing required field (email)');
-  }
-
-  const userId = data.user_id ?? data.userId;
-  if (!userId) {
-    throw new Error('Account/me response missing required field (user_id)');
-  }
-
-  return {
-    userId,
-    email: data.email,
-    displayName: data.display_name ?? data.displayName ?? null,
-    avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
-  };
+  return normalizeMeResponse(data);
 }
 
 /**
@@ -156,6 +187,97 @@ function broadcastSessionUpdated(userId, email) {
     .catch(() => {
       // background 若未就緒，忽略錯誤；options 頁自行監聽 storage 變化
     });
+}
+
+// =============================================================================
+// Stage-level Orchestration Helpers
+// =============================================================================
+
+/**
+ * 執行票據交換階段。
+ * 若失敗，顯示錯誤並回傳 null。
+ *
+ * @param {string} ticket
+ * @param {string} baseUrl
+ * @param {any} messages
+ * @returns {Promise<any | null>}
+ */
+async function performTicketExchange(ticket, baseUrl, messages) {
+  showLoading(messages.STATUS_VERIFYING);
+  try {
+    return await exchangeTicket(ticket, baseUrl);
+  } catch (error) {
+    showError(
+      messages.TITLE_EXCHANGE_FAILED,
+      error instanceof Error ? error.message : String(error)
+    );
+    return null;
+  }
+}
+
+/**
+ * 載入帳號 profile 階段。
+ * 若失敗，清除 session、顯示錯誤並回傳 null。
+ *
+ * @param {string} accessToken
+ * @param {string} baseUrl
+ * @param {any} messages
+ * @returns {Promise<any | null>}
+ */
+async function performProfileLoading(accessToken, baseUrl, messages) {
+  showLoading(messages.STATUS_FETCHING_PROFILE);
+  try {
+    return await fetchAccountMe(accessToken, baseUrl);
+  } catch (error) {
+    await clearAccountSession().catch(() => {});
+    showError(
+      messages.TITLE_PROFILE_FAILED,
+      error instanceof Error ? error.message : String(error)
+    );
+    return null;
+  }
+}
+
+/**
+ * 持久化儲存帳號 Session 與 Profile，並發送廣播。
+ * 若失敗，清除 session、顯示錯誤並回傳 false。
+ *
+ * @param {any} tokens
+ * @param {any} profile
+ * @param {any} messages
+ * @returns {Promise<boolean>}
+ */
+async function persistAccountSession(tokens, profile, messages) {
+  try {
+    const resolvedUserId = profile.userId || tokens.userId;
+
+    await setAccountSession({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      userId: resolvedUserId,
+      email: profile.email,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    });
+
+    await setAccountProfile({
+      userId: resolvedUserId,
+      email: profile.email,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    });
+
+    broadcastSessionUpdated(resolvedUserId, profile.email);
+    return true;
+  } catch (error) {
+    await clearAccountSession().catch(() => {});
+    showError(
+      messages.TITLE_STORAGE_FAILED,
+      error instanceof Error ? error.message : String(error)
+    );
+    return false;
+  }
 }
 
 /**
@@ -177,70 +299,21 @@ async function runAuthFlow() {
     return;
   }
 
-  showLoading(messages.STATUS_VERIFYING);
-
-  let tokens;
-
   // 步驟 2：exchange ticket → tokens
-  try {
-    tokens = await exchangeTicket(ticket, baseUrl);
-  } catch (error) {
-    showError(
-      messages.TITLE_EXCHANGE_FAILED,
-      error instanceof Error ? error.message : String(error)
-    );
-    return; // 無 token，無需清理
-  }
-
-  showLoading(messages.STATUS_FETCHING_PROFILE);
-
-  let profile;
-
-  // 步驟 3：GET /v1/account/me
-  try {
-    profile = await fetchAccountMe(tokens.accessToken, baseUrl);
-  } catch (error) {
-    // Phase 1 保守策略：account/me 失敗 → 清除已取得的 token，回退未登入狀態
-    // （token 尚未寫入 storage，此處僅做防禦性清除）
-    await clearAccountSession().catch(() => {});
-    showError(
-      messages.TITLE_PROFILE_FAILED,
-      error instanceof Error ? error.message : String(error)
-    );
+  const tokens = await performTicketExchange(ticket, baseUrl, messages);
+  if (!tokens) {
     return;
   }
 
-  // 步驟 4：合併寫入 storage
-  // 由於上方 account/me 已成功，此時可安全寫入，不留下半登入狀態
-  try {
-    const resolvedUserId = profile.userId || tokens.userId;
+  // 步驟 3：GET /v1/account/me
+  const profile = await performProfileLoading(tokens.accessToken, baseUrl, messages);
+  if (!profile) {
+    return;
+  }
 
-    await setAccountSession({
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: tokens.expiresAt,
-      userId: resolvedUserId,
-      email: profile.email,
-      displayName: profile.displayName,
-      avatarUrl: profile.avatarUrl,
-    });
-
-    await setAccountProfile({
-      userId: resolvedUserId,
-      email: profile.email,
-      displayName: profile.displayName,
-      avatarUrl: profile.avatarUrl,
-    });
-
-    // 步驟 5：廣播 account_session_updated
-    broadcastSessionUpdated(resolvedUserId, profile.email);
-  } catch (error) {
-    // 寫入 storage 失敗：清除確保不留下半登入狀態
-    await clearAccountSession().catch(() => {});
-    showError(
-      messages.TITLE_STORAGE_FAILED,
-      error instanceof Error ? error.message : String(error)
-    );
+  // 步驟 4 & 5：合併寫入 storage 與廣播
+  const success = await persistAccountSession(tokens, profile, messages);
+  if (!success) {
     return;
   }
 
