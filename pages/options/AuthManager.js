@@ -116,65 +116,166 @@ export class AuthManager {
   }
 
   setupEventListeners() {
-    // OAuth 一鍵連接按鈕
-    this.elements.oauthConnectButton?.addEventListener('click', () => this.startOAuthFlow());
+    this._bindAuthActionButtons();
+    this._bindApiKeyDataSourceLoader();
+    this._bindDebugToggle();
+  }
 
-    // OAuth 斷開按鈕
-    this.elements.oauthDisconnectButton?.addEventListener('click', () => this.disconnectOAuth());
+  /**
+   * 綁定授權相關按鈕事件
+   *
+   * @private
+   */
+  _bindAuthActionButtons() {
+    const clickBindings = [
+      [this.elements.oauthConnectButton, () => this.startOAuthFlow()],
+      [this.elements.oauthDisconnectButton, () => this.disconnectOAuth()],
+      [this.elements.oauthButton, () => this.startNotionSetup()],
+      [this.elements.disconnectButton, () => this.disconnectFromNotion()],
+      [this.elements.testApiButton, () => this.testApiKey()],
+    ];
 
-    // 手動模式：保留現有的設定指南按鈕
-    this.elements.oauthButton?.addEventListener('click', () => this.startNotionSetup());
-    this.elements.disconnectButton?.addEventListener('click', () => this.disconnectFromNotion());
-    this.elements.testApiButton?.addEventListener('click', () => this.testApiKey());
+    for (const [element, handler] of clickBindings) {
+      this._bindClickListener(element, handler);
+    }
+  }
 
-    // API Key 輸入防抖動處理
-    if (this.elements.apiKeyInput) {
-      let timeout = null;
-      /**
-       * 處理 API Key 輸入變更（防抖動）
-       */
-      const handleInput = () => {
-        const apiKey = this.elements.apiKeyInput.value.trim();
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-
-        if (apiKey && apiKey.length > 20) {
-          timeout = setTimeout(() => {
-            this.dependencies.loadDataSources?.(apiKey);
-          }, 1000);
-        }
-      };
-
-      this.elements.apiKeyInput.addEventListener('input', handleInput);
-      this.elements.apiKeyInput.addEventListener('blur', handleInput);
+  /**
+   * 綁定 click listener，缺少元素時略過
+   *
+   * @private
+   * @param {HTMLElement|null} element
+   * @param {Function} handler
+   */
+  _bindClickListener(element, handler) {
+    if (!element) {
+      return;
     }
 
-    // 日誌模式切換
-    if (this.elements.debugToggle) {
-      this.elements.debugToggle.addEventListener('change', async () => {
-        try {
-          await chrome.storage.sync.set({
-            enableDebugLogs: Boolean(this.elements.debugToggle.checked),
-          });
+    element.addEventListener('click', handler);
+  }
 
-          this.ui.showStatus(
-            this.elements.debugToggle.checked
-              ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
-              : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
-            'success'
-          );
-        } catch (error) {
-          Logger.error('[存儲] 切換日誌模式失敗', {
-            action: 'toggleDebugLogs',
-            error: sanitizeApiError(error, 'toggle_debug_logs'),
-          });
-          const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
-          const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-          this.ui.showStatus(UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED(errorMsg), 'error');
-        }
+  /**
+   * 綁定 API Key 輸入防抖動資料來源載入
+   *
+   * @private
+   */
+  _bindApiKeyDataSourceLoader() {
+    const apiKeyInput = this.elements.apiKeyInput;
+    if (!apiKeyInput) {
+      return;
+    }
+
+    let timeout = null;
+    const handleInput = () => {
+      timeout = this._clearPendingDataSourceLoad(timeout);
+      const apiKey = apiKeyInput.value.trim();
+
+      if (this._shouldLoadDataSourcesForApiKey(apiKey)) {
+        timeout = setTimeout(() => this._loadDataSourcesFromApiKey(apiKey), 1000);
+      }
+    };
+
+    apiKeyInput.addEventListener('input', handleInput);
+    apiKeyInput.addEventListener('blur', handleInput);
+  }
+
+  /**
+   * 清除待執行的資料來源載入 timer
+   *
+   * @private
+   * @param {number|null} timeout
+   * @returns {null}
+   */
+  _clearPendingDataSourceLoad(timeout) {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+
+    return null;
+  }
+
+  /**
+   * 判斷 API Key 是否足以觸發資料來源載入
+   *
+   * @private
+   * @param {string} apiKey
+   * @returns {boolean}
+   */
+  _shouldLoadDataSourcesForApiKey(apiKey) {
+    return apiKey.length > 20;
+  }
+
+  /**
+   * 依 API Key 載入資料來源
+   *
+   * @private
+   * @param {string} apiKey
+   */
+  _loadDataSourcesFromApiKey(apiKey) {
+    this.dependencies.loadDataSources?.(apiKey);
+  }
+
+  /**
+   * 綁定 debug log toggle
+   *
+   * @private
+   */
+  _bindDebugToggle() {
+    const debugToggle = this.elements.debugToggle;
+    if (!debugToggle) {
+      return;
+    }
+
+    debugToggle.addEventListener('change', () => this._handleDebugToggleChange(debugToggle));
+  }
+
+  /**
+   * 處理 debug log toggle 變更
+   *
+   * @private
+   * @param {HTMLInputElement} debugToggle
+   */
+  async _handleDebugToggleChange(debugToggle) {
+    try {
+      await chrome.storage.sync.set({
+        enableDebugLogs: Boolean(debugToggle.checked),
       });
+
+      this._showDebugToggleStatus(debugToggle.checked);
+    } catch (error) {
+      this._handleDebugToggleFailure(error);
     }
+  }
+
+  /**
+   * 顯示 debug log toggle 成功狀態
+   *
+   * @private
+   * @param {boolean} enabled
+   */
+  _showDebugToggleStatus(enabled) {
+    const message = enabled
+      ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
+      : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED;
+
+    this.ui.showStatus(message, 'success');
+  }
+
+  /**
+   * 顯示 debug log toggle 失敗狀態
+   *
+   * @private
+   * @param {Error} error
+   */
+  _handleDebugToggleFailure(error) {
+    Logger.error('[存儲] 切換日誌模式失敗', {
+      action: 'toggleDebugLogs',
+      error: sanitizeApiError(error, 'toggle_debug_logs'),
+    });
+    const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
+    const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+    this.ui.showStatus(UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED(errorMsg), 'error');
   }
 
   // ==========================================
