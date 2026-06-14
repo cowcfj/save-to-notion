@@ -596,4 +596,105 @@ describe('DataSourceManager', () => {
       expect(DataSourceManager.isSavedWebPage(page)).toBe(false);
     });
   });
+
+  describe('populateDataSourceSelect', () => {
+    let SearchableDatabaseSelectorMock;
+
+    beforeEach(() => {
+      SearchableDatabaseSelectorMock = jest.requireMock(
+        '../../../pages/options/SearchableDatabaseSelector.js'
+      ).SearchableDatabaseSelector;
+      SearchableDatabaseSelectorMock.mockClear();
+    });
+
+    const expectDataSourceSelectPopulation = ({
+      dataSources,
+      isSearchResult,
+      expectedStatusMessage,
+    }) => {
+      dataSourceManager.populateDataSourceSelect(dataSources, isSearchResult);
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(expectedStatusMessage, 'success');
+
+      const mockInstance = SearchableDatabaseSelectorMock.mock.instances[0];
+      expect(mockInstance.populateDataSources).toHaveBeenCalledWith(dataSources, isSearchResult);
+    };
+
+    test('使用注入的 getApiKey 函式建立 SearchableDatabaseSelector', () => {
+      const customGetApiKey = () => 'custom-key';
+      const manager = new DataSourceManager(mockUiManager, customGetApiKey);
+
+      const mockData = [{ id: 'db-1', object: 'database' }];
+      manager.populateDataSourceSelect(mockData);
+
+      expect(SearchableDatabaseSelectorMock).toHaveBeenCalledTimes(1);
+      const constructorConfig = SearchableDatabaseSelectorMock.mock.calls[0][0];
+      expect(constructorConfig.getApiKey()).toBe('custom-key');
+    });
+
+    test('無注入 getApiKey 時，fallback 到 DOM 查詢（且有 API Key）', () => {
+      const manager = new DataSourceManager(mockUiManager, null);
+
+      const input = document.createElement('input');
+      input.id = 'api-key';
+      input.value = 'dom-api-key';
+      document.body.append(input);
+
+      try {
+        const mockData = [{ id: 'db-1', object: 'database' }];
+        manager.populateDataSourceSelect(mockData);
+
+        expect(SearchableDatabaseSelectorMock).toHaveBeenCalledTimes(1);
+        const constructorConfig = SearchableDatabaseSelectorMock.mock.calls[0][0];
+
+        const apiKey = constructorConfig.getApiKey();
+        expect(apiKey).toBe('dom-api-key');
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Fallback to DOM query for API Key')
+        );
+      } finally {
+        input.remove();
+      }
+    });
+
+    test('無注入 getApiKey 且 DOM 中無 #api-key 時，fallback 返回空字串', () => {
+      const manager = new DataSourceManager(mockUiManager, null);
+      const mockData = [{ id: 'db-1', object: 'database' }];
+      manager.populateDataSourceSelect(mockData);
+
+      const constructorConfig = SearchableDatabaseSelectorMock.mock.calls[0][0];
+      const apiKey = constructorConfig.getApiKey();
+      expect(apiKey).toBe('');
+    });
+
+    test('非搜尋結果且資料來源非空時，顯示成功載入狀態並填充 selector', () => {
+      const mockData = [{ id: 'db-1', object: 'database' }];
+      expectDataSourceSelectPopulation({
+        dataSources: mockData,
+        isSearchResult: false,
+        expectedStatusMessage: UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(1),
+      });
+    });
+
+    test('搜尋結果且資料來源非空時，顯示尋獲數量狀態', () => {
+      const mockData = [
+        { id: 'db-1', object: 'database' },
+        { id: 'db-2', object: 'database' },
+      ];
+      expectDataSourceSelectPopulation({
+        dataSources: mockData,
+        isSearchResult: true,
+        expectedStatusMessage: UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(2),
+      });
+    });
+
+    test('防禦性檢查：資料來源為空時，顯示無資料來源錯誤狀態', () => {
+      dataSourceManager.populateDataSourceSelect([], false);
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND,
+        'error'
+      );
+    });
+  });
 });
