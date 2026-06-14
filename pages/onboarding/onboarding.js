@@ -34,6 +34,68 @@ const ARIA_CHECKED = 'aria-checked';
 
 let selectedDatabaseId = null;
 
+/**
+ * 格式化錯誤訊息，優先使用錯誤內容本身，次之使用 defaultText
+ *
+ * @param {any} error 錯誤物件、字串或其他值
+ * @param {string} [defaultText] 預設訊息
+ * @returns {string} 格式化後的字串
+ */
+function formatError(error, defaultText = null) {
+  // 若 error 本身就是非空字串，直接回傳
+  if (typeof error === 'string' && error) {
+    return error;
+  }
+
+  // 若 error 是 Error object 且有 message，回傳 message
+  if (error?.message) {
+    return error.message;
+  }
+
+  // 若 error 是 null/undefined，回傳 defaultText 或通用訊息
+  if (error == null) {
+    return defaultText || '未知錯誤';
+  }
+
+  // 其他情況：回傳 defaultText 或嘗試轉字串
+  return defaultText || String(error);
+}
+
+/**
+ * 檢查 storage 變更是否代表已完成 account 登入
+ *
+ * @param {object} changes Storage 變更
+ * @param {string} areaName 儲存區域名稱
+ * @returns {boolean}
+ */
+function hasCompletedAccountLogin(changes, areaName) {
+  return areaName === 'local' && Boolean(changes.accountEmail?.newValue);
+}
+
+/**
+ * 還原步驟 4 的登入按鈕狀態與隱藏等待中文字
+ *
+ * @param {HTMLButtonElement} button 登入按鈕
+ * @param {string} originalText 按鈕原本的文字
+ */
+function restoreStep4LoginButton(button, originalText) {
+  button.disabled = false;
+  button.textContent = originalText;
+  setStep4WaitingVisible(false);
+}
+
+/**
+ * 驗證 account 登入結果，若失敗則拋出錯誤
+ *
+ * @param {object} result 登入結果
+ * @throws {Error}
+ */
+function assertAccountLoginStarted(result) {
+  if (!result?.success) {
+    throw new Error(result?.error || 'login_failed');
+  }
+}
+
 function setError(scope, message) {
   const errorEl = root.querySelector(`[data-error="${scope}"]`);
   if (!errorEl) {
@@ -129,11 +191,12 @@ async function loadDatabasesForStep3() {
   } catch (error) {
     Logger.warn('[Onboarding] 拉取 database 列表失敗', {
       action: 'fetchNotionDatabases',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
     setError(
       ERROR_SCOPE_FETCH_DATABASES,
-      `載入失敗：${error?.message ?? '未知錯誤'}，請重試或稍後再說`
+      `載入失敗：${formatError(error, '未知錯誤')}，請重試或稍後再說`
     );
     setStep3State('error');
   }
@@ -149,7 +212,8 @@ async function handleStep2Entered() {
   } catch (error) {
     Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
       action: 'isNotionConnected',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
   }
 }
@@ -161,7 +225,8 @@ async function handleStep3Entered() {
   } catch (error) {
     Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
       action: 'isNotionConnected',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
   }
   if (!connected) {
@@ -187,7 +252,8 @@ async function handleStep4Entered() {
   } catch (error) {
     Logger.warn('[Onboarding] 偵測 account 登入狀態失敗', {
       action: 'isAccountLoggedIn',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
   }
 }
@@ -198,7 +264,8 @@ async function handleStepCompleted() {
   } catch (error) {
     Logger.warn('[Onboarding] 寫入完成旗標失敗', {
       action: 'markCompleted',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
   }
 }
@@ -237,11 +304,12 @@ async function handleConnectNotion(button) {
   } catch (error) {
     Logger.warn('[Onboarding] Notion OAuth 連接失敗', {
       action: 'runNotionOAuthFlow',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
     setError(
       ERROR_SCOPE_CONNECT_NOTION,
-      `連接失敗：${error?.message ?? '未知錯誤'}，請重試或稍後再說`
+      `連接失敗：${formatError(error, '未知錯誤')}，請重試或稍後再說`
     );
     button.disabled = false;
     button.textContent = originalText;
@@ -264,9 +332,10 @@ async function handleConfirmDatabase(button) {
   } catch (error) {
     Logger.warn('[Onboarding] 寫入 notionDataSourceId 失敗', {
       action: 'selectDataSource',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
-    setError(ERROR_SCOPE_FETCH_DATABASES, `儲存失敗：${error?.message ?? '未知錯誤'}，請重試`);
+    setError(ERROR_SCOPE_FETCH_DATABASES, `儲存失敗：${formatError(error, '未知錯誤')}，請重試`);
     setStep3State('error');
     button.disabled = originalDisabled;
   }
@@ -285,14 +354,9 @@ async function handleLoginAccount(button) {
   button.textContent = '登入中...';
   setError(ERROR_SCOPE_LOGIN_ACCOUNT, '');
 
-  // 設置 storage listener 偵測登入完成（accountEmail 寫入）
-  const restoreButton = () => {
-    button.disabled = false;
-    button.textContent = originalText;
-    setStep4WaitingVisible(false);
-  };
+  const restoreButton = () => restoreStep4LoginButton(button, originalText);
   const onChanged = async (changes, areaName) => {
-    if (areaName !== 'local' || !changes.accountEmail?.newValue) {
+    if (!hasCompletedAccountLogin(changes, areaName)) {
       return;
     }
     chrome.storage.onChanged.removeListener(onChanged);
@@ -304,74 +368,83 @@ async function handleLoginAccount(button) {
 
   try {
     const result = await startAccountLogin();
-    if (!result?.success) {
-      throw new Error(result?.error || 'login_failed');
-    }
+    assertAccountLoginStarted(result);
     setStep4WaitingVisible(true);
   } catch (error) {
     chrome.storage.onChanged.removeListener(onChanged);
     Logger.warn('[Onboarding] account 登入觸發失敗', {
       action: 'startAccountLogin',
-      error: error?.message ?? String(error),
+      result: 'failed',
+      error: formatError(error),
     });
     setError(
       ERROR_SCOPE_LOGIN_ACCOUNT,
-      `登入失敗：${error?.message ?? '未知錯誤'}，請重試或稍後再說`
+      `登入失敗：${formatError(error, '未知錯誤')}，請重試或稍後再說`
     );
     restoreButton();
   }
 }
 
+/**
+ * Onboarding click action 對應表
+ */
+const ACTION_HANDLERS = {
+  next: async () => {
+    const step = nextStep(root);
+    await handleStepEntered(step);
+  },
+  skip: async () => {
+    const step = skipToEnd(root);
+    await handleStepEntered(step);
+  },
+  'connect-notion': async trigger => {
+    await handleConnectNotion(trigger);
+  },
+  'login-account': async trigger => {
+    await handleLoginAccount(trigger);
+  },
+  'confirm-database': async trigger => {
+    await handleConfirmDatabase(trigger);
+  },
+  'retry-databases': async () => {
+    await loadDatabasesForStep3();
+  },
+  finish: () => {
+    window.close();
+  },
+};
+
+/**
+ * 處理 onboarding 按鈕點擊的分發
+ *
+ * @param {MouseEvent} event 點擊事件
+ */
+async function handleOnboardingClick(event) {
+  const { target } = event;
+  if (!(target instanceof Element)) {
+    return;
+  }
+
+  const databaseItem = target.closest('.database-item[data-database-id]');
+  if (databaseItem) {
+    selectDatabaseItem(databaseItem);
+    return;
+  }
+  const trigger = target.closest('[data-action]');
+  if (!trigger) {
+    return;
+  }
+  const action = trigger.dataset.action;
+  const handler = ACTION_HANDLERS[action];
+  if (handler) {
+    await handler(trigger);
+  }
+}
+
 function bindActions() {
-  root.addEventListener('click', async event => {
-    const databaseItem = event.target.closest('.database-item[data-database-id]');
-    if (databaseItem) {
-      selectDatabaseItem(databaseItem);
-      return;
-    }
-    const trigger = event.target.closest('[data-action]');
-    if (!trigger) {
-      return;
-    }
-    const action = trigger.dataset.action;
-    switch (action) {
-      case 'next': {
-        const step = nextStep(root);
-        await handleStepEntered(step);
-        break;
-      }
-      case 'skip': {
-        const step = skipToEnd(root);
-        await handleStepEntered(step);
-        break;
-      }
-      case 'connect-notion': {
-        await handleConnectNotion(trigger);
-        break;
-      }
-      case 'login-account': {
-        await handleLoginAccount(trigger);
-        break;
-      }
-      case 'confirm-database': {
-        await handleConfirmDatabase(trigger);
-        break;
-      }
-      case 'retry-databases': {
-        await loadDatabasesForStep3();
-        break;
-      }
-      case 'finish': {
-        window.close();
-        break;
-      }
-      default: {
-        break;
-      }
-    }
-  });
+  root.addEventListener('click', handleOnboardingClick);
 }
 
 showStep(root, 1);
 bindActions();
-Logger.ready('[Onboarding] entry loaded', { action: 'onboarding_init' });
+Logger.ready('[Onboarding] entry loaded', { action: 'onboarding_init', result: 'success' });
