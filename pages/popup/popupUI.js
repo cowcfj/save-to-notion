@@ -172,6 +172,77 @@ function renderDestinationMenu(destinationMenu, profiles, selectedProfileId) {
   destinationMenu.append(fragment);
 }
 
+function getParsedSvgElement(svgDoc) {
+  if (svgDoc.querySelector('parsererror')) {
+    return null;
+  }
+  return svgDoc.documentElement || null;
+}
+
+function createStatusSvgPart(content) {
+  const span = document.createElement('span');
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(content, 'image/svg+xml');
+  const svgElement = getParsedSvgElement(svgDoc);
+
+  if (svgElement) {
+    span.append(svgElement);
+  }
+
+  span.classList.add('status-icon-inline');
+  return span;
+}
+
+function renderTextStatus(status, content) {
+  status.textContent = content;
+}
+
+const STATUS_CONTENT_RENDERERS = [
+  {
+    matches: content => typeof content === 'string',
+    render: renderTextStatus,
+  },
+  {
+    matches: Array.isArray,
+    render: appendStructuredStatus,
+  },
+];
+
+const STATUS_PART_RENDERERS = [
+  {
+    matches: part => typeof part === 'string',
+    createNode: part => document.createTextNode(part),
+  },
+  {
+    matches: part => part?.type === 'svg',
+    createNode: part => createStatusSvgPart(part.content),
+  },
+];
+
+function createStatusPartNode(part) {
+  const renderer = STATUS_PART_RENDERERS.find(({ matches }) => matches(part));
+  return renderer?.createNode(part) || null;
+}
+
+function appendStatusPart(status, part) {
+  const node = createStatusPartNode(part);
+
+  if (!node) {
+    return;
+  }
+
+  status.append(node);
+}
+
+function appendStructuredStatus(status, parts) {
+  parts.forEach(part => appendStatusPart(status, part));
+}
+
+function renderStatusContent(status, content) {
+  const renderer = STATUS_CONTENT_RENDERERS.find(({ matches }) => matches(content));
+  renderer?.render(status, content);
+}
+
 /**
  * Render popup destination selector.
  *
@@ -201,42 +272,15 @@ export function renderDestinationSelector(elements, state) {
  * @param {string} [color=''] - 文字顏色（可選）
  */
 export function setStatus(elements, content, color = '') {
-  if (elements.status) {
-    elements.status.replaceChildren();
-    elements.status.style.color = color;
+  const status = elements.status;
 
-    // Support simple string
-    if (typeof content === 'string') {
-      elements.status.textContent = content;
-      return;
-    }
-
-    // Support structured content (array of parts)
-    if (Array.isArray(content)) {
-      content.forEach(part => {
-        if (typeof part === 'string') {
-          // Pure text part -> safe textContent
-          elements.status.append(document.createTextNode(part));
-        } else if (part?.type === 'svg') {
-          // 結構化 SVG 部分 -> 特殊處理
-          const span = document.createElement('span');
-
-          // 使用 DOMParser 安全地解析 SVG 字串，取代 innerHTML
-          const parser = new DOMParser();
-          const svgDoc = parser.parseFromString(part.content, 'image/svg+xml');
-
-          // 確保解析成功且無錯誤
-          if (!svgDoc.querySelector('parsererror') && svgDoc.documentElement) {
-            span.append(svgDoc.documentElement);
-          }
-
-          // 加入基本樣式以對齊
-          span.classList.add('status-icon-inline');
-          elements.status.append(span);
-        }
-      });
-    }
+  if (!status) {
+    return;
   }
+
+  status.replaceChildren();
+  status.style.color = color;
+  renderStatusContent(status, content);
 }
 
 /**
@@ -460,6 +504,64 @@ function formatCount(count, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function formatBlockImageDetails(response) {
+  const imageCount = response.imageCount || 0;
+  const blockCount = response.blockCount || 0;
+  const imagesText = formatCount(imageCount, 'image', 'images');
+  const blocksText = formatCount(blockCount, 'block', 'blocks');
+  return `(${blocksText}, ${imagesText})`;
+}
+
+function formatHighlightDetails(response) {
+  const highlightCount = response.highlightCount || 0;
+  const highlightsText = formatCount(highlightCount, 'highlight', 'highlights');
+  return `(${highlightsText})`;
+}
+
+function resolveSaveSuccessMessageParts(response) {
+  const blockImageDetails = formatBlockImageDetails(response);
+  const rules = [
+    {
+      matches: response.recreated,
+      action: UI_MESSAGES.POPUP.RECREATED,
+      details: blockImageDetails,
+    },
+    {
+      matches: response.highlightsUpdated,
+      action: UI_MESSAGES.POPUP.HIGHLIGHTS_UPDATED,
+      details: formatHighlightDetails(response),
+    },
+    {
+      matches: response.updated,
+      action: UI_MESSAGES.POPUP.UPDATED,
+      details: blockImageDetails,
+    },
+    {
+      matches: response.created,
+      action: UI_MESSAGES.POPUP.CREATED,
+      details: blockImageDetails,
+      warning: response.warning,
+    },
+  ];
+
+  return (
+    rules.find(rule => rule.matches) || {
+      action: UI_MESSAGES.POPUP.SAVE_SUCCESS,
+      details: '',
+    }
+  );
+}
+
+function buildSaveSuccessMessage({ action, details, warning }) {
+  const message = [action, details].filter(Boolean).join(' ');
+
+  if (!warning) {
+    return message;
+  }
+
+  return [message, { type: 'svg', content: UI_ICONS.WARNING }, warning];
+}
+
 /**
  * 格式化保存成功訊息
  *
@@ -467,43 +569,5 @@ function formatCount(count, singular, plural) {
  * @returns {string|Array<string|{type: string, content: string}>} 格式化的訊息或結構化內容（含 SVG 警告）
  */
 export function formatSaveSuccessMessage(response) {
-  let action = UI_MESSAGES.POPUP.SAVE_SUCCESS;
-  let details = '';
-
-  const imageCount = response.imageCount || 0;
-  const blockCount = response.blockCount || 0;
-
-  const imagesText = formatCount(imageCount, 'image', 'images');
-  const blocksText = formatCount(blockCount, 'block', 'blocks');
-  const countsDetails = `(${blocksText}, ${imagesText})`;
-
-  if (response.recreated) {
-    action = UI_MESSAGES.POPUP.RECREATED;
-    details = countsDetails;
-  } else if (response.highlightsUpdated) {
-    action = UI_MESSAGES.POPUP.HIGHLIGHTS_UPDATED;
-    const highlightCount = response.highlightCount || 0;
-    const highlightsText = formatCount(highlightCount, 'highlight', 'highlights');
-    details = `(${highlightsText})`;
-  } else if (response.updated) {
-    action = UI_MESSAGES.POPUP.UPDATED;
-    details = countsDetails;
-  } else if (response.created) {
-    action = UI_MESSAGES.POPUP.CREATED;
-    details = countsDetails;
-
-    if (response.warning) {
-      const warnIcon = UI_ICONS.WARNING;
-
-      // Return structured array for safe rendering
-      return [
-        [action, details].filter(Boolean).join(' '),
-        { type: 'svg', content: warnIcon },
-        response.warning,
-      ];
-    }
-  }
-
-  // Default return string
-  return [action, details].filter(Boolean).join(' ');
+  return buildSaveSuccessMessage(resolveSaveSuccessMessageParts(response));
 }

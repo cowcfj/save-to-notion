@@ -218,6 +218,22 @@ describe('popupUI.js', () => {
       const elementsWithoutStatus = { ...mockElements, status: null };
       expect(() => setStatus(elementsWithoutStatus, 'Test')).not.toThrow();
     });
+
+    it('應安全渲染結構化文字與 SVG 狀態內容', () => {
+      setStatus(mockElements, [
+        'Saved ',
+        { type: 'svg', content: '<svg><path d="M0 0h1v1z"/></svg>' },
+        ' with warning',
+      ]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      expect(mockElements.status.append).toHaveBeenCalledTimes(3);
+      expect(mockElements.status.append.mock.calls[0][0].textContent).toBe('Saved ');
+      expect(
+        mockElements.status.append.mock.calls[1][0].classList.contains('status-icon-inline')
+      ).toBe(true);
+      expect(mockElements.status.append.mock.calls[2][0].textContent).toBe(' with warning');
+    });
   });
 
   describe('setButtonState', () => {
