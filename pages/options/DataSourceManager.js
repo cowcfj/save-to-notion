@@ -12,6 +12,65 @@ import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 const MAX_SEARCH_RESULTS = 100;
 const MESSAGE_TIMEOUT_MS = 30_000; // 30 seconds
 
+const VALID_OBJECT_TYPES = new Set(['page', 'database', 'data_source']);
+const DB_OBJECT_TYPES = new Set(['database', 'data_source']);
+const DB_CHILD_PARENT_TYPES = new Set(['database_id', 'data_source_id']);
+
+/**
+ * 判斷物件是否為支援的 Notion 物件類型
+ *
+ * @param {object} item - Notion 物件項目
+ * @returns {boolean} 是否為支援的類型
+ */
+function isValidObjectType(item) {
+  return VALID_OBJECT_TYPES.has(item.object);
+}
+
+/**
+ * 判斷物件是否為資料庫或資料來源
+ *
+ * @param {object} item - Notion 物件項目
+ * @returns {boolean} 是否為資料庫或資料來源
+ */
+function isDatabaseOrDataSource(item) {
+  return DB_OBJECT_TYPES.has(item.object);
+}
+
+/**
+ * 判斷頁面是否為資料庫子頁面
+ *
+ * @param {object} page - Notion 頁面物件
+ * @returns {boolean} 是否為資料庫子頁面
+ */
+function isDbChildPage(page) {
+  const parentType = page.parent?.type;
+  return DB_CHILD_PARENT_TYPES.has(parentType);
+}
+
+/**
+ * 根據物件特徵，決定其分類桶名稱
+ *
+ * @param {object} item - Notion 物件項目
+ * @returns {string} 分類桶名稱
+ */
+function resolveCategoryBucket(item) {
+  if (isDatabaseOrDataSource(item)) {
+    return DataSourceManager.hasUrlProperty(item) ? 'urlDataSources' : 'otherDataSources';
+  }
+
+  if (item.object === 'page') {
+    const parentType = item.parent?.type;
+    if (parentType === 'workspace') {
+      return 'workspacePages';
+    }
+    if (parentType === 'page_id') {
+      return 'categoryPages';
+    }
+  }
+
+  return 'otherPages';
+}
+
 /**
  * 資料來源管理器
  * 負責從 Notion API 載入、篩選和處理資料來源與頁面清單
@@ -252,109 +311,124 @@ export class DataSourceManager {
       isSearchResult,
     });
 
+    const selector = this._getOrCreateSelector();
+    selector.populateDataSources(dataSources, isSearchResult);
+
+    this._showPopulateStatus(dataSources.length, isSearchResult);
+  }
+
+  /**
+   * 取得或建立可搜尋的資料來源選擇器組件
+   *
+   * @returns {SearchableDatabaseSelector} 可搜尋的資料來源選擇器組件
+   * @private
+   */
+  _getOrCreateSelector() {
     if (!this.selector) {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDataSources: this.loadDataSources.bind(this),
-        // 優先使用注入的 getApiKey，fallback 到 DOM 查詢以保持向後相容
-        getApiKey:
-          this.getApiKey ||
-          (() => {
-            Logger.warn('[DataSource] Fallback to DOM query for API Key (Deprecated)');
-            return document.querySelector('#api-key')?.value || '';
-          }),
+        getApiKey: this.getApiKey || (() => this._fallbackGetApiKey()),
       });
     }
+    return this.selector;
+  }
 
-    this.selector.populateDataSources(dataSources, isSearchResult);
+  /**
+   * 備用的 API Key 取得方式（Deprecated）
+   *
+   * @returns {string} API Key
+   * @private
+   */
+  _fallbackGetApiKey() {
+    Logger.warn('[DataSource] Fallback to DOM query for API Key (Deprecated)');
+    return document.querySelector('#api-key')?.value || '';
+  }
 
-    if (dataSources.length > 0) {
+  /**
+   * 顯示資料來源填充狀態
+   *
+   * @param {number} count - 資料來源數量
+   * @param {boolean} isSearchResult - 是否為搜尋結果
+   * @private
+   */
+  _showPopulateStatus(count, isSearchResult) {
+    if (count > 0) {
       const message = isSearchResult
-        ? UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length)
-        : UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(dataSources.length);
+        ? UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(count)
+        : UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(count);
       this.ui.showStatus(message, 'success');
     } else {
-      // 防禦性檢查：雖然當前呼叫點（Line 184-185）已確保非空陣列，
-      // 但保留此分支以處理未來可能的其他呼叫路徑
+      // 防禦性檢查：雖然當前呼叫點已確保非空陣列，但保留此分支以處理未來可能的其他呼叫路徑
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }
   }
 
+  /**
+   * 過濾並排序搜尋結果
+   *
+   * @param {Array} results - 原始搜尋結果
+   * @param {number} maxResults - 最大結果數量限制
+   * @param {boolean} preserveOrder - 是否保持原始順序
+   * @returns {Array} 過濾與排序後的結果
+   */
   static filterAndSortResults(results, maxResults = MAX_SEARCH_RESULTS, preserveOrder = false) {
-    const validItems = [];
-
-    for (const item of results) {
-      if (item.object !== 'page' && item.object !== 'database' && item.object !== 'data_source') {
-        continue;
-      }
-      if (DataSourceManager.isSavedWebPage(item)) {
-        continue;
-      }
-      validItems.push(item);
-    }
+    const validItems = results.filter(
+      item => isValidObjectType(item) && !DataSourceManager.isSavedWebPage(item)
+    );
 
     if (preserveOrder) {
       return validItems.slice(0, maxResults);
     }
 
-    const workspacePages = [];
-    const urlDataSources = [];
-    const categoryPages = [];
-    const otherDataSources = [];
-    const otherPages = [];
+    const buckets = {
+      workspacePages: [],
+      urlDataSources: [],
+      categoryPages: [],
+      otherDataSources: [],
+      otherPages: [],
+    };
 
     validItems.forEach(item => {
-      if (item.object === 'database' || item.object === 'data_source') {
-        if (DataSourceManager.hasUrlProperty(item)) {
-          urlDataSources.push(item);
-        } else {
-          otherDataSources.push(item);
-        }
-      } else if (item.object === 'page') {
-        if (item.parent?.type === 'workspace') {
-          workspacePages.push(item);
-        } else if (item.parent?.type === 'page_id') {
-          categoryPages.push(item);
-        } else {
-          otherPages.push(item);
-        }
-      }
+      const bucketName = resolveCategoryBucket(item);
+      buckets[bucketName].push(item);
     });
 
     return [
-      ...workspacePages,
-      ...urlDataSources,
-      ...categoryPages,
-      ...otherDataSources,
-      ...otherPages,
+      ...buckets.workspacePages,
+      ...buckets.urlDataSources,
+      ...buckets.categoryPages,
+      ...buckets.otherDataSources,
+      ...buckets.otherPages,
     ].slice(0, maxResults);
   }
 
+  /**
+   * 檢查資料庫或資料來源是否具有 URL 屬性
+   *
+   * @param {object} dataSource - 資料庫或資料來源物件
+   * @returns {boolean} 是否具有 URL 屬性
+   */
   static hasUrlProperty(dataSource) {
-    if (
-      (dataSource.object !== 'database' && dataSource.object !== 'data_source') ||
-      !dataSource.properties
-    ) {
+    if (!isDatabaseOrDataSource(dataSource) || !dataSource.properties) {
       return false;
     }
     return Object.values(dataSource.properties).some(prop => prop.type === 'url');
   }
 
+  /**
+   * 判斷頁面是否為已保存的網頁
+   *
+   * @param {object} page - 頁面物件
+   * @returns {boolean} 是否為已保存網頁
+   */
   static isSavedWebPage(page) {
     if (page.object !== 'page') {
       return false;
     }
 
-    // 檢查頁面是否為資料庫或 DataSource 的子項目
-    // 'database_id': 標準 Notion Database 子頁面（最常見）
-    // 'data_source_id': DataSource 類型子頁面
-    const parentType = page.parent?.type;
-    const isDbChildPage = parentType === 'database_id' || parentType === 'data_source_id';
-
-    if (isDbChildPage && page.properties) {
-      return Object.values(page.properties).some(prop => {
-        return prop.type === 'url';
-      });
+    if (isDbChildPage(page) && page.properties) {
+      return Object.values(page.properties).some(prop => prop.type === 'url');
     }
     return false;
   }
