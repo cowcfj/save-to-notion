@@ -556,7 +556,7 @@ function buildSaveSuccessMessage({ action, details, warning }) {
   const message = [action, details].filter(Boolean).join(' ');
 
   if (!warning) {
-    return message;
+    return [message];
   }
 
   return [message, { type: 'svg', content: UI_ICONS.WARNING }, warning];
@@ -566,7 +566,7 @@ function buildSaveSuccessMessage({ action, details, warning }) {
  * 格式化保存成功訊息
  *
  * @param {object} response - 保存響應
- * @returns {string|Array<string|{type: string, content: string}>} 格式化的訊息或結構化內容（含 SVG 警告）
+ * @returns {Array<string|{type: string, content: string}>} 結構化內容數組（可含 SVG 警告）
  */
 export function formatSaveSuccessMessage(response) {
   return buildSaveSuccessMessage(resolveSaveSuccessMessageParts(response));

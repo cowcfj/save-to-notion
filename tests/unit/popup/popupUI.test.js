@@ -409,30 +409,34 @@ describe('popupUI.js', () => {
     it('應該格式化 Created 訊息', () => {
       const response = { created: true, blockCount: 5, imageCount: 2 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('建立成功');
-      expect(msg).toContain('5 blocks');
-      expect(msg).toContain('2 images');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('建立成功');
+      expect(msg[0]).toContain('5 blocks');
+      expect(msg[0]).toContain('2 images');
     });
 
     it('應該格式化 Updated 訊息', () => {
       const response = { updated: true, blockCount: 1, imageCount: 0 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('更新成功');
-      expect(msg).toContain('1 block');
-      expect(msg).toContain('0 images');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('更新成功');
+      expect(msg[0]).toContain('1 block');
+      expect(msg[0]).toContain('0 images');
     });
 
     it('應該格式化 Highlights updated 訊息', () => {
       const response = { highlightsUpdated: true, highlightCount: 3 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('標註已更新');
-      expect(msg).toContain('3 highlights');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('標註已更新');
+      expect(msg[0]).toContain('3 highlights');
     });
 
     it('應該格式化 Recreated 訊息', () => {
       const response = { recreated: true, blockCount: 10, imageCount: 5 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('重建成功 (原頁面已刪除)');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('重建成功 (原頁面已刪除)');
     });
 
     it('應該包含警告圖標（如果存在 warning）', () => {
@@ -450,8 +454,9 @@ describe('popupUI.js', () => {
     it('預設路徑不應產生尾部空格', () => {
       const response = {};
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).not.toMatch(/\s$/);
-      expect(msg).toBe('儲存成功！');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).not.toMatch(/\s$/);
+      expect(msg[0]).toBe('儲存成功！');
     });
   });
 });
