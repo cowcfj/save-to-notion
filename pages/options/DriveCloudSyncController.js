@@ -718,6 +718,8 @@ async function _ensureManualUploadPreflightAllowsUpload(force) {
 /**
  * @param {{ success?: boolean; errorCode?: string; error?: string } | undefined | null} response
  * @returns {'success' | 'conflict'}
+ * @throws {Error} When response is null/undefined (missing background response)
+ * @throws {Error} When upload fails with error details (non-success, non-conflict cases)
  */
 function _resolveManualUploadOutcome(response) {
   if (!response) {
