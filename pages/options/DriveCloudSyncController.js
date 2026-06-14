@@ -37,6 +37,11 @@ import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 
 const DRIVE_SYNC_IDENTITY_INIT_FAILED = 'drive_sync_identity_init_failed';
+const MANUAL_UPLOAD_OUTCOME = {
+  CONFLICT: 'conflict',
+  FAILED: 'failed',
+  SUCCESS: 'success',
+};
 
 // =============================================================================
 // DOM ID 常量
@@ -563,6 +568,32 @@ function _updateSourceWarning(snapshotStatus, localInstallationId) {
 }
 
 /**
+ * @param {{ connectionEmail?: string | null; needsManualReview?: boolean } | null | undefined} metadata
+ * @param {boolean} transientAuthError
+ * @returns {'disconnected' | 'connected' | 'conflict'}
+ */
+function _resolveCloudSyncPanelState(metadata, transientAuthError) {
+  if (transientAuthError || !metadata?.connectionEmail) {
+    return 'disconnected';
+  }
+  return metadata?.needsManualReview ? 'conflict' : 'connected';
+}
+
+/**
+ * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null; lastErrorCode?: string | null; lastErrorAt?: string | null; needsManualReview?: boolean; frequency?: string; installationId?: string | null }} metadata
+ * @param {{ snapshotStatus?: { sourceInstallationId?: string | null } | null }} options
+ * @param {'connected' | 'conflict'} panelState
+ */
+function _renderConnectedCloudSyncDetails(metadata, options, panelState) {
+  _updateConnectedInfo(metadata);
+  _updateAutoSyncStatus(metadata);
+  const snapshotStatus =
+    options.snapshotStatus === undefined ? lastSnapshotStatus : options.snapshotStatus;
+  _updateSourceWarning(snapshotStatus, metadata.installationId ?? null);
+  _updateConflictRemoteTime(panelState === 'conflict' ? metadata : null);
+}
+
+/**
  * 根據 metadata 渲染 Cloud Sync card
  *
  * @param {{ connectionEmail?: string | null; lastSuccessfulUploadAt?: string | null; lastErrorCode?: string | null; lastErrorAt?: string | null; needsManualReview?: boolean; frequency?: string; installationId?: string | null }} metadata
@@ -570,26 +601,14 @@ function _updateSourceWarning(snapshotStatus, localInstallationId) {
  */
 export function renderCloudSyncCard(metadata, options = {}) {
   const transientAuthError = options.transientAuthError === true;
-  const isConnected = !transientAuthError && Boolean(metadata?.connectionEmail);
-  const needsReview = metadata?.needsManualReview ?? false;
-  let panelState = 'disconnected';
-
-  if (isConnected) {
-    panelState = needsReview ? 'conflict' : 'connected';
-  }
-
+  const panelState = _resolveCloudSyncPanelState(metadata, transientAuthError);
   _updateStatePanels(panelState);
 
-  if (isConnected) {
-    _updateConnectedInfo(metadata);
-    _updateAutoSyncStatus(metadata);
-    const snapshotStatus =
-      options.snapshotStatus === undefined ? lastSnapshotStatus : options.snapshotStatus;
-    _updateSourceWarning(snapshotStatus, metadata.installationId ?? null);
-    _updateConflictRemoteTime(panelState === 'conflict' ? metadata : null);
-  } else {
+  if (panelState === 'disconnected') {
     _updateSourceWarning(null, null);
     _updateConflictRemoteTime(null);
+  } else {
+    _renderConnectedCloudSyncDetails(metadata, options, panelState);
   }
 
   _updateErrorBanner(metadata);
@@ -675,6 +694,77 @@ async function _checkCrossInstallAndConfirm() {
 }
 
 /**
+ * @param {boolean} force
+ * @returns {Promise<boolean>}
+ */
+async function _ensureManualUploadPreflightAllowsUpload(force) {
+  if (force) {
+    return true;
+  }
+
+  try {
+    const shouldProceed = await _checkCrossInstallAndConfirm();
+    if (shouldProceed) {
+      return true;
+    }
+    hideLoading();
+    return false;
+  } catch (error) {
+    hideLoading();
+    throw error;
+  }
+}
+
+/**
+ * @param {{ success?: boolean; errorCode?: string; error?: string } | undefined | null} response
+ * @returns {'success' | 'conflict'}
+ */
+function _resolveManualUploadOutcome(response) {
+  if (!response) {
+    throw new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE);
+  }
+
+  if (response.success) {
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS, 'success');
+    return MANUAL_UPLOAD_OUTCOME.SUCCESS;
+  }
+
+  if (response.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
+    showSyncStatus('', '');
+    return MANUAL_UPLOAD_OUTCOME.CONFLICT;
+  }
+
+  throw new Error(
+    response.error ?? response.errorCode ?? UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_GENERIC
+  );
+}
+
+/**
+ * @param {boolean} force
+ * @returns {Promise<'success' | 'conflict' | 'failed'>}
+ */
+async function _sendManualUploadRequest(force) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+      force,
+    });
+    return _resolveManualUploadOutcome(response);
+  } catch (error) {
+    Logger.error('[CloudSync] Upload failed', {
+      error: getSafeError(error, 'drive_sync_upload'),
+    });
+    showSyncStatus(
+      `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_sync_upload')}`,
+      'error'
+    );
+    return MANUAL_UPLOAD_OUTCOME.FAILED;
+  } finally {
+    hideLoading();
+  }
+}
+
+/**
  * 處理手動上傳
  *
  * 流程：
@@ -690,56 +780,13 @@ async function handleUpload(force = false) {
     force ? UI_MESSAGES.CLOUD_SYNC.LOADING_FORCE_UPLOAD : UI_MESSAGES.CLOUD_SYNC.LOADING_UPLOAD
   );
 
-  // preflight 跨安裝檢查（僅在 force === false 時執行）
-  if (force === false) {
-    try {
-      const shouldProceed = await _checkCrossInstallAndConfirm();
-      if (shouldProceed === false) {
-        hideLoading();
-        return;
-      }
-    } catch (error) {
-      hideLoading();
-      throw error;
-    }
+  const canUpload = await _ensureManualUploadPreflightAllowsUpload(force);
+  if (!canUpload) {
+    return;
   }
 
-  let uploadSucceeded = false;
-  let conflictDetected = false;
-  try {
-    const response = await chrome.runtime.sendMessage({
-      action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
-      force,
-    });
-
-    if (!response) {
-      throw new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE);
-    }
-
-    if (response.success) {
-      showSyncStatus(UI_MESSAGES.CLOUD_SYNC.UPLOAD_SUCCESS, 'success');
-      uploadSucceeded = true;
-    } else if (response.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
-      showSyncStatus('', '');
-      conflictDetected = true;
-    } else {
-      throw new Error(
-        response.error ?? response.errorCode ?? UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_GENERIC
-      );
-    }
-  } catch (error) {
-    Logger.error('[CloudSync] Upload failed', {
-      error: getSafeError(error, 'drive_sync_upload'),
-    });
-    showSyncStatus(
-      `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_sync_upload')}`,
-      'error'
-    );
-  } finally {
-    hideLoading();
-  }
-
-  if (!uploadSucceeded && !conflictDetected) {
+  const outcome = await _sendManualUploadRequest(force);
+  if (outcome === MANUAL_UPLOAD_OUTCOME.FAILED) {
     return;
   }
 
