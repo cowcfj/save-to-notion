@@ -87,6 +87,30 @@ function makePage(i) {
   };
 }
 
+function appendPageCardsForTest({
+  pages = [makePage(1)],
+  startIndex = 0,
+  count = pages.length,
+  callbacks = {},
+} = {}) {
+  const elements = getElements();
+  const resolvedCallbacks = {
+    onOpen: jest.fn(),
+    onDelete: jest.fn(),
+    ...callbacks,
+  };
+
+  const renderedCount = appendCards({
+    elements,
+    pages,
+    startIndex,
+    count,
+    callbacks: resolvedCallbacks,
+  });
+
+  return { elements, renderedCount };
+}
+
 // ---- 測試 ----
 
 describe('sidepanelUI', () => {
@@ -375,6 +399,21 @@ describe('sidepanelUI', () => {
       expect(currentTab.getAttribute('aria-selected')).toBe('true');
     });
 
+    it('切換到 current 時應重設按鈕顯示狀態', () => {
+      const elements = getElements();
+      elements.syncButton.style.display = 'none';
+      elements.openNotionButton.style.display = 'none';
+      elements.loadMoreBtn.style.display = 'block';
+      elements.unsyncedToolbar.style.display = 'block';
+
+      switchView(elements, 'current');
+
+      expect(elements.syncButton.style.display).toBe('');
+      expect(elements.openNotionButton.style.display).toBe('');
+      expect(elements.loadMoreBtn.style.display).toBe('none');
+      expect(elements.unsyncedToolbar.style.display).toBe('none');
+    });
+
     it('switchView 不應觸發 loadCurrentTab 或 renderUnsyncedView', () => {
       // 此測試確保 switchView 是純 DOM 操作
       // 若它不呼叫任何外部函數，就不會拋出 ReferenceError
@@ -385,49 +424,68 @@ describe('sidepanelUI', () => {
   });
 
   describe('appendCards', () => {
-    it('應渲染指定範圍的卡片並回傳 renderedCount', () => {
+    it('當缺少 pageCardTemplate 時應回傳 0', () => {
       const elements = getElements();
-      const pages = [makePage(1), makePage(2), makePage(3)];
+      const originalTemplate = elements.pageCardTemplate;
+      elements.pageCardTemplate = null;
 
-      const result = appendCards(elements, pages, 0, 2, {
-        onOpen: jest.fn(),
-        onDelete: jest.fn(),
+      const pages = [makePage(1)];
+      const result = appendCards({
+        elements,
+        pages,
+        startIndex: 0,
+        count: 1,
+        callbacks: {
+          onOpen: jest.fn(),
+          onDelete: jest.fn(),
+        },
       });
 
-      expect(result).toBe(2);
+      expect(result).toBe(0);
+      elements.pageCardTemplate = originalTemplate;
+    });
+
+    it('應渲染指定範圍的卡片並回傳 renderedCount', () => {
+      const pages = [makePage(1), makePage(2), makePage(3)];
+      const { elements, renderedCount } = appendPageCardsForTest({
+        pages,
+        count: 2,
+      });
+
+      expect(renderedCount).toBe(2);
       expect(elements.unsyncedView.querySelectorAll('.page-card')).toHaveLength(2);
     });
 
     it('當還有更多卡片時應顯示 loadMoreBtn', () => {
-      const elements = getElements();
       const pages = [makePage(1), makePage(2), makePage(3)];
 
-      appendCards(elements, pages, 0, 2, {
-        onOpen: jest.fn(),
-        onDelete: jest.fn(),
+      const { elements } = appendPageCardsForTest({
+        pages,
+        count: 2,
       });
 
       expect(elements.loadMoreBtn.style.display).toBe('block');
     });
 
     it('當已渲染全部卡片時應隱藏 loadMoreBtn', () => {
-      const elements = getElements();
       const pages = [makePage(1), makePage(2)];
 
-      appendCards(elements, pages, 0, 10, {
-        onOpen: jest.fn(),
-        onDelete: jest.fn(),
+      const { elements } = appendPageCardsForTest({
+        pages,
+        count: 10,
       });
 
       expect(elements.loadMoreBtn.style.display).toBe('none');
     });
 
     it('點擊開啟按鈕應呼叫 onOpen 回調', () => {
-      const elements = getElements();
       const onOpen = jest.fn();
-      const pages = [makePage(1)];
 
-      appendCards(elements, pages, 0, 1, { onOpen, onDelete: jest.fn() });
+      const { elements } = appendPageCardsForTest({
+        callbacks: {
+          onOpen,
+        },
+      });
 
       const openBtn = elements.unsyncedView.querySelector('.page-open-button');
       openBtn.click();
@@ -436,11 +494,13 @@ describe('sidepanelUI', () => {
     });
 
     it('點擊刪除按鈕應呼叫 onDelete 回調並傳入正確參數', () => {
-      const elements = getElements();
       const onDelete = jest.fn();
-      const pages = [makePage(1)];
 
-      appendCards(elements, pages, 0, 1, { onOpen: jest.fn(), onDelete });
+      const { elements } = appendPageCardsForTest({
+        callbacks: {
+          onDelete,
+        },
+      });
 
       const card = elements.unsyncedView.querySelector('.page-card');
       const delBtn = card.querySelector('.page-delete-button');
@@ -450,7 +510,6 @@ describe('sidepanelUI', () => {
     });
 
     it('應將非法 preview 顏色回退為 yellow class', () => {
-      const elements = getElements();
       const pages = [
         {
           ...makePage(1),
@@ -458,7 +517,9 @@ describe('sidepanelUI', () => {
         },
       ];
 
-      appendCards(elements, pages, 0, 1, { onOpen: jest.fn(), onDelete: jest.fn() });
+      const { elements } = appendPageCardsForTest({
+        pages,
+      });
 
       const previewRow = elements.unsyncedView.querySelector('.preview-row');
       expect(previewRow.className).toContain('color-yellow');
@@ -474,9 +535,15 @@ describe('sidepanelUI', () => {
       const pages = [makePage(1)];
 
       expect(() =>
-        appendCards(elements, pages, 0, 1, {
-          onOpen: jest.fn(),
-          onDelete: jest.fn(),
+        appendCards({
+          elements,
+          pages,
+          startIndex: 0,
+          count: 1,
+          callbacks: {
+            onOpen: jest.fn(),
+            onDelete: jest.fn(),
+          },
         })
       ).not.toThrow();
       expect(elements.unsyncedView.querySelectorAll('.page-card')).toHaveLength(1);

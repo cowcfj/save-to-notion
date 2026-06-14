@@ -177,12 +177,12 @@ export async function refreshUnsyncedBadge(
  * @param {number} count - 本次渲染數量
  */
 export function appendNextUnsyncedBatch(context, count) {
-  const renderedCount = UI.appendCards(
-    context.els,
-    context.cachedUnsyncedPages,
-    context.displayedCardCount,
+  const renderedCount = UI.appendCards({
+    elements: context.els,
+    pages: context.cachedUnsyncedPages,
+    startIndex: context.displayedCardCount,
     count,
-    {
+    callbacks: {
       onOpen: url => {
         chrome.tabs.create({ url }).catch(error => {
           Logger.warn('[SidePanel] Failed to open unsynced page tab', {
@@ -205,8 +205,8 @@ export function appendNextUnsyncedBatch(context, count) {
           });
         });
       },
-    }
-  );
+    },
+  });
 
   context.displayedCardCount += renderedCount;
 }
