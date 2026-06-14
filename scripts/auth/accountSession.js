@@ -62,6 +62,16 @@ const TERMINAL_REFRESH_ERROR_CODES = new Set([
 ]);
 
 const REFRESH_REQUEST_TIMEOUT_MS = 10_000;
+const REFRESH_RESPONSE_BODY_OBJECT_ERROR =
+  '[accountSession] refresh response body must be an object';
+const REFRESH_RESPONSE_MISSING_EXPIRES_AT_ERROR =
+  '[accountSession] refresh response missing expiresAt';
+
+const REFRESH_SUCCESS_PAYLOAD_FIELDS = /** @type {const} */ ({
+  ACCESS_TOKEN: ['access_token', 'accessToken'],
+  REFRESH_TOKEN: ['refresh_token', 'refreshToken'],
+  EXPIRES_AT: ['expires_at', 'expiresAt'],
+});
 
 /**
  * Single-flight in-flight promise。
@@ -312,6 +322,94 @@ function getRefreshLogError(error) {
 }
 
 /**
+ * 判斷 refresh success payload 是否可以用 object 欄位解析。
+ *
+ * @param {unknown} body
+ * @returns {boolean}
+ */
+function isRefreshPayloadObject(body) {
+  if (body === null) {
+    return false;
+  }
+  return typeof body === 'object';
+}
+
+/**
+ * 確認 refresh success payload 可以用 object 欄位解析。
+ *
+ * @param {unknown} body
+ * @throws {Error}
+ */
+function assertRefreshPayloadObject(body) {
+  if (!isRefreshPayloadObject(body)) {
+    throw new Error(REFRESH_RESPONSE_BODY_OBJECT_ERROR);
+  }
+}
+
+/**
+ * 讀取第一個型別為 string 的 refresh success 欄位。
+ *
+ * @param {object} body
+ * @param {readonly string[]} fieldNames
+ * @param {string | null} fallback
+ * @returns {string | null}
+ */
+function readRefreshStringField(body, fieldNames, fallback = null) {
+  for (const fieldName of fieldNames) {
+    const value = body[fieldName];
+    if (typeof value === 'string') {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+/**
+ * 讀取第一個型別為 number 的 refresh success 欄位。
+ *
+ * @param {object} body
+ * @param {readonly string[]} fieldNames
+ * @returns {number | undefined}
+ */
+function readRefreshNumberField(body, fieldNames) {
+  for (const fieldName of fieldNames) {
+    const value = body[fieldName];
+    if (typeof value === 'number') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 判斷 refresh success expiresAt 欄位是否可寫入 storage。
+ *
+ * @param {number | undefined} expiresAt
+ * @returns {boolean}
+ */
+function isValidRefreshExpiresAt(expiresAt) {
+  if (typeof expiresAt !== 'number') {
+    return false;
+  }
+  if (!Number.isFinite(expiresAt)) {
+    return false;
+  }
+  return expiresAt > 0;
+}
+
+/**
+ * 驗證 refresh success expiresAt 欄位是可寫入 storage 的 timestamp。
+ *
+ * @param {number | undefined} expiresAt
+ * @throws {Error}
+ */
+function assertValidRefreshExpiresAt(expiresAt) {
+  if (!isValidRefreshExpiresAt(expiresAt)) {
+    throw new Error(REFRESH_RESPONSE_MISSING_EXPIRES_AT_ERROR);
+  }
+}
+
+/**
  * 驗證 refresh response payload 是否完整。
  *
  * @param {unknown} body
@@ -319,31 +417,16 @@ function getRefreshLogError(error) {
  * @throws {Error}
  */
 function validateRefreshSuccessPayload(body) {
-  if (typeof body !== 'object' || body === null) {
-    throw new Error('[accountSession] refresh response body must be an object');
-  }
+  assertRefreshPayloadObject(body);
 
-  let accessTokenRaw = '';
-  if (typeof body.access_token === 'string') {
-    accessTokenRaw = body.access_token;
-  } else if (typeof body.accessToken === 'string') {
-    accessTokenRaw = body.accessToken;
-  }
+  const accessTokenRaw = readRefreshStringField(
+    body,
+    REFRESH_SUCCESS_PAYLOAD_FIELDS.ACCESS_TOKEN,
+    ''
+  );
   const accessToken = accessTokenRaw.trim();
-
-  let refreshToken = null;
-  if (typeof body.refresh_token === 'string') {
-    refreshToken = body.refresh_token;
-  } else if (typeof body.refreshToken === 'string') {
-    refreshToken = body.refreshToken;
-  }
-
-  let expiresAt;
-  if (typeof body.expires_at === 'number') {
-    expiresAt = body.expires_at;
-  } else if (typeof body.expiresAt === 'number') {
-    expiresAt = body.expiresAt;
-  }
+  const refreshToken = readRefreshStringField(body, REFRESH_SUCCESS_PAYLOAD_FIELDS.REFRESH_TOKEN);
+  const expiresAt = readRefreshNumberField(body, REFRESH_SUCCESS_PAYLOAD_FIELDS.EXPIRES_AT);
 
   if (!accessToken) {
     throw new Error('[accountSession] refresh response missing accessToken');
@@ -351,9 +434,7 @@ function validateRefreshSuccessPayload(body) {
   if (typeof refreshToken !== 'string') {
     throw new TypeError('[accountSession] refresh response missing refreshToken');
   }
-  if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt) || expiresAt <= 0) {
-    throw new Error('[accountSession] refresh response missing expiresAt');
-  }
+  assertValidRefreshExpiresAt(expiresAt);
 
   return { accessToken, refreshToken, expiresAt };
 }
