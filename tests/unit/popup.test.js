@@ -130,31 +130,36 @@ describe('popupUI', () => {
     test('應格式化創建成功訊息 (複數)', () => {
       const response = { success: true, created: true, blockCount: 5, imageCount: 2 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('建立成功 (5 blocks, 2 images)');
+      expect(Array.isArray(message)).toBe(true);
+      expect(message[0]).toBe('建立成功 (5 個區塊, 2 張圖片)');
     });
 
     test('應格式化創建成功訊息 (單數)', () => {
       const response = { success: true, created: true, blockCount: 1, imageCount: 1 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('建立成功 (1 block, 1 image)');
+      expect(Array.isArray(message)).toBe(true);
+      expect(message[0]).toBe('建立成功 (1 個區塊, 1 張圖片)');
     });
 
     test('應格式化更新成功訊息 (混合單複數)', () => {
       const response = { success: true, updated: true, blockCount: 1, imageCount: 2 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('更新成功 (1 block, 2 images)');
+      expect(Array.isArray(message)).toBe(true);
+      expect(message[0]).toBe('更新成功 (1 個區塊, 2 張圖片)');
     });
 
     test('應格式化標記更新訊息', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 10 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('標註已更新 (10 highlights)');
+      expect(Array.isArray(message)).toBe(true);
+      expect(message[0]).toBe('標註已更新 (10 條標註)');
     });
 
     test('應格式化高亮更新訊息 (單數)', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 1 };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toBe('標註已更新 (1 highlight)');
+      expect(Array.isArray(message)).toBe(true);
+      expect(message[0]).toBe('標註已更新 (1 條標註)');
     });
 
     test('應包含警告訊息', () => {

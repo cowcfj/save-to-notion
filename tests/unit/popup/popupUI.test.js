@@ -124,6 +124,49 @@ describe('popupUI.js', () => {
       expect(menuItems[1].dataset.profileId).toBe('profile-2');
       createElementSpy.mockRestore();
     });
+
+    it('沒有 profiles 時應隱藏 destination section 並不渲染 menu', () => {
+      renderDestinationSelector(mockElements, { profiles: [], selectedProfileId: null });
+
+      expect(mockElements.destinationSection.style.display).toBe('none');
+      expect(mockElements.destinationMenu.replaceChildren).not.toHaveBeenCalled();
+      expect(mockElements.destinationMenu.append).not.toHaveBeenCalled();
+    });
+
+    it('selectedProfileId 不存在時應 fallback 到第一個 profile', () => {
+      const menuItems = [];
+      const createElementSpy = jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        const element = {
+          tagName,
+          textContent: '',
+          className: '',
+          type: '',
+          dataset: {},
+          style: {},
+          setAttribute: jest.fn(),
+          append: jest.fn(),
+        };
+        if (tagName === 'button') {
+          menuItems.push(element);
+        }
+        return element;
+      });
+
+      renderDestinationSelector(mockElements, {
+        profiles: [
+          { id: 'default', name: 'Default', color: '#2563eb' },
+          { id: 'profile-2', name: 'Research', color: '#16a34a' },
+        ],
+        selectedProfileId: 'missing',
+      });
+
+      expect(mockElements.destinationCurrent.textContent).toContain('Default');
+      expect(mockElements.destinationCurrent.dataset.profileId).toBe('default');
+      expect(menuItems[0].setAttribute).toHaveBeenCalledWith('aria-pressed', 'true');
+      expect(menuItems[1].setAttribute).toHaveBeenCalledWith('aria-pressed', 'false');
+
+      createElementSpy.mockRestore();
+    });
   });
 
   describe('initializePopupStaticText', () => {
@@ -174,6 +217,64 @@ describe('popupUI.js', () => {
     it('如果 status 元素不存在，不應該報錯', () => {
       const elementsWithoutStatus = { ...mockElements, status: null };
       expect(() => setStatus(elementsWithoutStatus, 'Test')).not.toThrow();
+    });
+
+    it('應安全渲染結構化文字與 SVG 狀態內容', () => {
+      setStatus(mockElements, [
+        'Saved ',
+        { type: 'svg', content: '<svg><path d="M0 0h1v1z"/></svg>' },
+        ' with warning',
+      ]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      expect(mockElements.status.append).toHaveBeenCalledTimes(3);
+      expect(mockElements.status.append.mock.calls[0][0].textContent).toBe('Saved ');
+      expect(
+        mockElements.status.append.mock.calls[1][0].classList.contains('status-icon-inline')
+      ).toBe(true);
+      expect(mockElements.status.append.mock.calls[2][0].textContent).toBe(' with warning');
+    });
+
+    it('應過濾掉 SVG 中的危險標籤（<script>）', () => {
+      setStatus(mockElements, [
+        'Status: ',
+        { type: 'svg', content: '<svg><script>alert("XSS")</script><path d="M0 0"/></svg>' },
+      ]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      expect(mockElements.status.append).toHaveBeenCalledTimes(2);
+
+      const svgContainer = mockElements.status.append.mock.calls[1][0];
+      expect(svgContainer.classList.contains('status-icon-inline')).toBe(true);
+
+      // DOMPurify 應該已移除 <script> 標籤
+      const svgElement = svgContainer.querySelector('svg');
+      if (svgElement) {
+        expect(svgElement.querySelector('script')).toBeNull();
+      }
+    });
+
+    it('應過濾掉 SVG 中的危險屬性（onload）', () => {
+      setStatus(mockElements, [
+        { type: 'svg', content: '<svg onload="alert(1)"><path d="M0 0"/></svg>' },
+      ]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      const svgContainer = mockElements.status.append.mock.calls[0][0];
+      const svgElement = svgContainer.querySelector('svg');
+
+      if (svgElement) {
+        expect(svgElement.hasAttribute('onload')).toBe(false);
+      }
+    });
+
+    it('當 SVG 內容無效時應返回空的 status-icon-inline span', () => {
+      setStatus(mockElements, [{ type: 'svg', content: '' }]);
+
+      expect(mockElements.status.replaceChildren).toHaveBeenCalled();
+      const svgContainer = mockElements.status.append.mock.calls[0][0];
+      expect(svgContainer.classList.contains('status-icon-inline')).toBe(true);
+      expect(svgContainer.querySelector('svg')).toBeNull();
     });
   });
 
@@ -350,30 +451,34 @@ describe('popupUI.js', () => {
     it('應該格式化 Created 訊息', () => {
       const response = { created: true, blockCount: 5, imageCount: 2 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('建立成功');
-      expect(msg).toContain('5 blocks');
-      expect(msg).toContain('2 images');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('建立成功');
+      expect(msg[0]).toContain('5 個區塊');
+      expect(msg[0]).toContain('2 張圖片');
     });
 
     it('應該格式化 Updated 訊息', () => {
       const response = { updated: true, blockCount: 1, imageCount: 0 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('更新成功');
-      expect(msg).toContain('1 block');
-      expect(msg).toContain('0 images');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('更新成功');
+      expect(msg[0]).toContain('1 個區塊');
+      expect(msg[0]).toContain('0 張圖片');
     });
 
     it('應該格式化 Highlights updated 訊息', () => {
       const response = { highlightsUpdated: true, highlightCount: 3 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('標註已更新');
-      expect(msg).toContain('3 highlights');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('標註已更新');
+      expect(msg[0]).toContain('3 條標註');
     });
 
     it('應該格式化 Recreated 訊息', () => {
       const response = { recreated: true, blockCount: 10, imageCount: 5 };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('重建成功 (原頁面已刪除)');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('重建成功 (原頁面已刪除)');
     });
 
     it('應該包含警告圖標（如果存在 warning）', () => {
@@ -391,8 +496,9 @@ describe('popupUI.js', () => {
     it('預設路徑不應產生尾部空格', () => {
       const response = {};
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).not.toMatch(/\s$/);
-      expect(msg).toBe('儲存成功！');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).not.toMatch(/\s$/);
+      expect(msg[0]).toBe('儲存成功！');
     });
   });
 });

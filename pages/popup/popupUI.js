@@ -7,6 +7,7 @@
 import { UI_ICONS } from '../../scripts/config/shared/ui.js';
 import { UI_MESSAGES } from '../../scripts/config/shared/messages.js';
 import { resolveAccountDisplayProfile } from '../../scripts/utils/accountDisplayUtils.js';
+import { sanitizeSvgIcon } from '../../scripts/highlighter/utils/safeIcon.js';
 
 const ACCOUNT_STATUS_ERROR_CLASS = 'account-status-error';
 const ARIA_LABEL_ATTR = 'aria-label';
@@ -67,59 +68,217 @@ function formatDestinationLabel(profile) {
 }
 
 /**
+ * 獲取有效的儲存目標 Profiles 列表
+ *
+ * @param {object} state - UI 狀態
+ * @returns {Array<object>}
+ */
+function getDestinationProfiles(state) {
+  return Array.isArray(state?.profiles) ? state.profiles : [];
+}
+
+/**
+ * 判斷是否可渲染儲存目標選擇器
+ *
+ * @param {PopupElements} elements - DOM 元素集合
+ * @param {Array<object>} profiles - Profiles 列表
+ * @param {object|null} selectedProfile - 已選擇的 Profile
+ * @returns {boolean}
+ */
+function canRenderDestinationSelector(elements, profiles, selectedProfile) {
+  return Boolean(elements.destinationSection && profiles.length > 0 && selectedProfile);
+}
+
+/**
+ * 隱藏儲存目標區域
+ *
+ * @param {HTMLElement} destinationSection - 儲存目標容器
+ */
+function hideDestinationSection(destinationSection) {
+  if (destinationSection) {
+    destinationSection.style.display = 'none';
+  }
+}
+
+/**
+ * 渲染當前儲存目標標籤
+ *
+ * @param {HTMLElement} destinationCurrent - 當前儲存目標元素
+ * @param {object} selectedProfile - 已選擇的 Profile
+ */
+function renderDestinationCurrent(destinationCurrent, selectedProfile) {
+  if (destinationCurrent) {
+    destinationCurrent.textContent = `${
+      UI_MESSAGES.POPUP.DESTINATION_LABEL_PREFIX
+    }${formatDestinationLabel(selectedProfile)}`;
+    destinationCurrent.dataset.profileId = selectedProfile.id;
+    destinationCurrent.style.borderColor = selectedProfile.color || '';
+  }
+}
+
+/**
+ * 渲染儲存目標切換按鈕
+ *
+ * @param {HTMLButtonElement} destinationToggle - 切換按鈕元素
+ * @param {object} selectedProfile - 已選擇的 Profile
+ * @param {number} profileCount - Profiles 數量
+ */
+function renderDestinationToggle(destinationToggle, selectedProfile, profileCount) {
+  if (destinationToggle) {
+    destinationToggle.style.display = profileCount > 1 ? 'inline-flex' : 'none';
+    destinationToggle.disabled = profileCount <= 1;
+    destinationToggle.dataset.profileId = selectedProfile.id;
+    destinationToggle.setAttribute?.('aria-expanded', 'false');
+  }
+}
+
+/**
+ * 建立儲存目標選單單一按鈕
+ *
+ * @param {object} profile - Profile 資料
+ * @param {string} selectedProfileId - 已選擇的 Profile ID
+ * @returns {HTMLButtonElement}
+ */
+function createDestinationMenuItem(profile, selectedProfileId) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'destination-menu-item';
+  item.dataset.profileId = profile.id;
+  item.textContent = formatDestinationLabel(profile);
+  item.setAttribute('aria-pressed', String(profile.id === selectedProfileId));
+  return item;
+}
+
+/**
+ * 渲染儲存目標下拉選單
+ *
+ * @param {HTMLElement} destinationMenu - 選單元素
+ * @param {Array<object>} profiles - Profiles 列表
+ * @param {string} selectedProfileId - 已選擇的 Profile ID
+ */
+function renderDestinationMenu(destinationMenu, profiles, selectedProfileId) {
+  if (!destinationMenu) {
+    return;
+  }
+
+  destinationMenu.replaceChildren();
+  destinationMenu.style.display = 'none';
+
+  const fragment = document.createDocumentFragment();
+
+  for (const profile of profiles) {
+    fragment.append(createDestinationMenuItem(profile, selectedProfileId));
+  }
+
+  destinationMenu.append(fragment);
+}
+
+function getParsedSvgElement(svgDoc) {
+  if (svgDoc.querySelector('parsererror')) {
+    return null;
+  }
+  return svgDoc.documentElement || null;
+}
+
+/**
+ * 建立安全的 SVG 狀態圖標容器
+ *
+ * 使用 DOMPurify 消毒 SVG 內容以防止 XSS 攻擊。
+ * 雖然當前僅用於 UI_ICONS 硬編碼常量，但防禦性措施確保未來擴展時的安全性。
+ *
+ * @param {string} content - SVG 字串（將被消毒處理）
+ * @returns {HTMLSpanElement} 包含安全 SVG 的 span 元素
+ */
+function createStatusSvgPart(content) {
+  const span = document.createElement('span');
+  span.classList.add('status-icon-inline');
+
+  // 使用現有的 DOMPurify 消毒邏輯
+  const sanitized = sanitizeSvgIcon(content);
+  if (!sanitized) {
+    return span;
+  }
+
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(sanitized, 'image/svg+xml');
+  const svgElement = getParsedSvgElement(svgDoc);
+
+  if (svgElement) {
+    span.append(svgElement);
+  }
+
+  return span;
+}
+
+function renderTextStatus(status, content) {
+  status.textContent = content;
+}
+
+const STATUS_CONTENT_RENDERERS = [
+  {
+    matches: content => typeof content === 'string',
+    render: renderTextStatus,
+  },
+  {
+    matches: Array.isArray,
+    render: appendStructuredStatus,
+  },
+];
+
+const STATUS_PART_RENDERERS = [
+  {
+    matches: part => typeof part === 'string',
+    createNode: part => document.createTextNode(part),
+  },
+  {
+    matches: part => part?.type === 'svg',
+    createNode: part => createStatusSvgPart(part.content),
+  },
+];
+
+function createStatusPartNode(part) {
+  const renderer = STATUS_PART_RENDERERS.find(({ matches }) => matches(part));
+  return renderer?.createNode(part) || null;
+}
+
+function appendStatusPart(status, part) {
+  const node = createStatusPartNode(part);
+
+  if (!node) {
+    return;
+  }
+
+  status.append(node);
+}
+
+function appendStructuredStatus(status, parts) {
+  parts.forEach(part => appendStatusPart(status, part));
+}
+
+function renderStatusContent(status, content) {
+  const renderer = STATUS_CONTENT_RENDERERS.find(({ matches }) => matches(content));
+  renderer?.render(status, content);
+}
+
+/**
  * Render popup destination selector.
  *
  * @param {PopupElements} elements
  * @param {{profiles: Array<object>, selectedProfileId?: string|null}} state
  */
 export function renderDestinationSelector(elements, state) {
-  const profiles = Array.isArray(state?.profiles) ? state.profiles : [];
+  const profiles = getDestinationProfiles(state);
   const selectedProfile = getSelectedDestinationProfile(profiles, state?.selectedProfileId);
 
-  if (!elements.destinationSection || profiles.length === 0 || !selectedProfile) {
-    if (elements.destinationSection) {
-      elements.destinationSection.style.display = 'none';
-    }
+  if (!canRenderDestinationSelector(elements, profiles, selectedProfile)) {
+    hideDestinationSection(elements.destinationSection);
     return;
   }
 
   elements.destinationSection.style.display = 'block';
-
-  if (elements.destinationCurrent) {
-    elements.destinationCurrent.textContent = `${
-      UI_MESSAGES.POPUP.DESTINATION_LABEL_PREFIX
-    }${formatDestinationLabel(selectedProfile)}`;
-    elements.destinationCurrent.dataset.profileId = selectedProfile.id;
-    elements.destinationCurrent.style.borderColor = selectedProfile.color || '';
-  }
-
-  if (elements.destinationToggle) {
-    elements.destinationToggle.style.display = profiles.length > 1 ? 'inline-flex' : 'none';
-    elements.destinationToggle.disabled = profiles.length <= 1;
-    elements.destinationToggle.dataset.profileId = selectedProfile.id;
-    elements.destinationToggle.setAttribute?.('aria-expanded', 'false');
-  }
-
-  if (!elements.destinationMenu) {
-    return;
-  }
-
-  elements.destinationMenu.replaceChildren();
-  elements.destinationMenu.style.display = 'none';
-
-  const fragment = document.createDocumentFragment();
-
-  for (const profile of profiles) {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'destination-menu-item';
-    item.dataset.profileId = profile.id;
-    item.textContent = formatDestinationLabel(profile);
-    item.setAttribute('aria-pressed', profile.id === selectedProfile.id ? 'true' : 'false');
-    fragment.append(item);
-  }
-
-  elements.destinationMenu.append(fragment);
+  renderDestinationCurrent(elements.destinationCurrent, selectedProfile);
+  renderDestinationToggle(elements.destinationToggle, selectedProfile, profiles.length);
+  renderDestinationMenu(elements.destinationMenu, profiles, selectedProfile.id);
 }
 
 /**
@@ -130,42 +289,15 @@ export function renderDestinationSelector(elements, state) {
  * @param {string} [color=''] - 文字顏色（可選）
  */
 export function setStatus(elements, content, color = '') {
-  if (elements.status) {
-    elements.status.replaceChildren();
-    elements.status.style.color = color;
+  const status = elements.status;
 
-    // Support simple string
-    if (typeof content === 'string') {
-      elements.status.textContent = content;
-      return;
-    }
-
-    // Support structured content (array of parts)
-    if (Array.isArray(content)) {
-      content.forEach(part => {
-        if (typeof part === 'string') {
-          // Pure text part -> safe textContent
-          elements.status.append(document.createTextNode(part));
-        } else if (part?.type === 'svg') {
-          // 結構化 SVG 部分 -> 特殊處理
-          const span = document.createElement('span');
-
-          // 使用 DOMParser 安全地解析 SVG 字串，取代 innerHTML
-          const parser = new DOMParser();
-          const svgDoc = parser.parseFromString(part.content, 'image/svg+xml');
-
-          // 確保解析成功且無錯誤
-          if (!svgDoc.querySelector('parsererror') && svgDoc.documentElement) {
-            span.append(svgDoc.documentElement);
-          }
-
-          // 加入基本樣式以對齊
-          span.classList.add('status-icon-inline');
-          elements.status.append(span);
-        }
-      });
-    }
+  if (!status) {
+    return;
   }
+
+  status.replaceChildren();
+  status.style.color = color;
+  renderStatusContent(status, content);
 }
 
 /**
@@ -389,50 +521,70 @@ function formatCount(count, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function formatBlockImageDetails(response) {
+  const imageCount = response.imageCount || 0;
+  const blockCount = response.blockCount || 0;
+  const imagesText = formatCount(imageCount, '張圖片', '張圖片');
+  const blocksText = formatCount(blockCount, '個區塊', '個區塊');
+  return `(${blocksText}, ${imagesText})`;
+}
+
+function formatHighlightDetails(response) {
+  const highlightCount = response.highlightCount || 0;
+  const highlightsText = formatCount(highlightCount, '條標註', '條標註');
+  return `(${highlightsText})`;
+}
+
+function resolveSaveSuccessMessageParts(response) {
+  const blockImageDetails = formatBlockImageDetails(response);
+  const rules = [
+    {
+      matches: response.recreated,
+      action: UI_MESSAGES.POPUP.RECREATED,
+      details: blockImageDetails,
+    },
+    {
+      matches: response.highlightsUpdated,
+      action: UI_MESSAGES.POPUP.HIGHLIGHTS_UPDATED,
+      details: formatHighlightDetails(response),
+    },
+    {
+      matches: response.updated,
+      action: UI_MESSAGES.POPUP.UPDATED,
+      details: blockImageDetails,
+    },
+    {
+      matches: response.created,
+      action: UI_MESSAGES.POPUP.CREATED,
+      details: blockImageDetails,
+      warning: response.warning,
+    },
+  ];
+
+  return (
+    rules.find(rule => rule.matches) || {
+      action: UI_MESSAGES.POPUP.SAVE_SUCCESS,
+      details: '',
+    }
+  );
+}
+
+function buildSaveSuccessMessage({ action, details, warning }) {
+  const message = [action, details].filter(Boolean).join(' ');
+
+  if (!warning) {
+    return [message];
+  }
+
+  return [message, { type: 'svg', content: UI_ICONS.WARNING }, warning];
+}
+
 /**
  * 格式化保存成功訊息
  *
  * @param {object} response - 保存響應
- * @returns {string|Array<string|{type: string, content: string}>} 格式化的訊息或結構化內容（含 SVG 警告）
+ * @returns {Array<string|{type: string, content: string}>} 結構化內容數組（可含 SVG 警告）
  */
 export function formatSaveSuccessMessage(response) {
-  let action = UI_MESSAGES.POPUP.SAVE_SUCCESS;
-  let details = '';
-
-  const imageCount = response.imageCount || 0;
-  const blockCount = response.blockCount || 0;
-
-  const imagesText = formatCount(imageCount, 'image', 'images');
-  const blocksText = formatCount(blockCount, 'block', 'blocks');
-  const countsDetails = `(${blocksText}, ${imagesText})`;
-
-  if (response.recreated) {
-    action = UI_MESSAGES.POPUP.RECREATED;
-    details = countsDetails;
-  } else if (response.highlightsUpdated) {
-    action = UI_MESSAGES.POPUP.HIGHLIGHTS_UPDATED;
-    const highlightCount = response.highlightCount || 0;
-    const highlightsText = formatCount(highlightCount, 'highlight', 'highlights');
-    details = `(${highlightsText})`;
-  } else if (response.updated) {
-    action = UI_MESSAGES.POPUP.UPDATED;
-    details = countsDetails;
-  } else if (response.created) {
-    action = UI_MESSAGES.POPUP.CREATED;
-    details = countsDetails;
-
-    if (response.warning) {
-      const warnIcon = UI_ICONS.WARNING;
-
-      // Return structured array for safe rendering
-      return [
-        [action, details].filter(Boolean).join(' '),
-        { type: 'svg', content: warnIcon },
-        response.warning,
-      ];
-    }
-  }
-
-  // Default return string
-  return [action, details].filter(Boolean).join(' ');
+  return buildSaveSuccessMessage(resolveSaveSuccessMessageParts(response));
 }
