@@ -35,18 +35,30 @@ const ARIA_CHECKED = 'aria-checked';
 let selectedDatabaseId = null;
 
 /**
- * 格式化錯誤訊息，若 error 無 message 則轉為字串
- * 若指定了 defaultText 且無 error.message，則傳回 defaultText
+ * 格式化錯誤訊息，優先使用錯誤內容本身，次之使用 defaultText
  *
- * @param {any} error 錯誤物件
+ * @param {any} error 錯誤物件、字串或其他值
  * @param {string} [defaultText] 預設訊息
  * @returns {string} 格式化後的字串
  */
 function formatError(error, defaultText = null) {
-  if (defaultText) {
-    return error?.message ?? defaultText;
+  // 若 error 本身就是非空字串，直接回傳
+  if (typeof error === 'string' && error) {
+    return error;
   }
-  return error?.message ?? String(error);
+
+  // 若 error 是 Error object 且有 message，回傳 message
+  if (error?.message) {
+    return error.message;
+  }
+
+  // 若 error 是 null/undefined，回傳 defaultText 或通用訊息
+  if (error == null) {
+    return defaultText || '未知錯誤';
+  }
+
+  // 其他情況：回傳 defaultText 或嘗試轉字串
+  return defaultText || String(error);
 }
 
 /**
