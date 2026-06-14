@@ -283,8 +283,9 @@ export async function getStorageHealthReport() {
   };
 
   // 單次遍歷：同時更新使用量計數、健康度、清理計劃
+  const healthContext = { data, pageUrls };
   for (const [key, value] of Object.entries(data)) {
-    _analyzeHealthEntry(key, value, report, pageUrls, data);
+    _analyzeHealthEntry(key, value, report, healthContext);
   }
 
   report.cleanupPlan.totalKeys = report.cleanupPlan.items.length;
@@ -297,24 +298,34 @@ export async function getStorageHealthReport() {
  * @param {string} key 鍵名
  * @param {any} value 值
  * @param {object} report 統一報告
- * @param {Set<string>} pageUrls page_* 前綴的 URL 集合
- * @param {object} data 完整 storage 快照（供孤兒檢查用）
+ * @param {{pageUrls: Set<string>, data: object}} context 健康檢查上下文
  */
-function _analyzeHealthEntry(key, value, report, pageUrls, data) {
+function _analyzeHealthEntry(key, value, report, context) {
   if (key.startsWith(PAGE_PREFIX)) {
     _analyzePageEntry(key, value, report);
   } else if (key.startsWith(HIGHLIGHTS_PREFIX)) {
-    _analyzeHighlightsEntry(key, value, report, pageUrls, data);
+    _analyzeHighlightsEntry(key, value, report, context);
   } else if (key.startsWith(SAVED_PREFIX)) {
     report.legacySavedKeys++;
   } else if (key.startsWith(URL_ALIAS_PREFIX)) {
-    _analyzeAliasEntry(key, value, report, data);
+    _analyzeAliasEntry(key, value, report, context.data);
   } else if (MIGRATION_LEFTOVER_PREFIXES.some(prefix => key.startsWith(prefix))) {
     // ⚠️ 使用明確前綴判定，避免一般業務 key 含 migration/_v1_/_backup_ 字樣時被誤判
     _analyzeMigrationEntry(key, value, report);
   } else if (key.startsWith(CONFIG_PREFIX) || key.includes(CONFIG_KEY_SUBSTR)) {
     report.configs++;
   }
+}
+
+function _getEntrySize(key, value) {
+  return new Blob([JSON.stringify({ [key]: value })]).size;
+}
+
+function _addCleanupPlanItem(report, item, summaryKey) {
+  const plan = report.cleanupPlan;
+  plan.items.push(item);
+  plan.spaceFreed += item.size;
+  plan.summary[summaryKey]++;
 }
 
 /**
@@ -325,17 +336,16 @@ function _analyzeHealthEntry(key, value, report, pageUrls, data) {
  * @param {object} report 統一報告
  */
 function _analyzePageEntry(key, value, report) {
-  const plan = report.cleanupPlan;
-
   // 結構破損 → 加入清理計劃
   const isCorrupted = _isCorruptedPageEntry(value);
 
   if (isCorrupted) {
     report.corruptedData.push(key);
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.items.push({ key, size, reason: '損壞的頁面數據' });
-    plan.spaceFreed += size;
-    plan.summary.corruptedRecords++;
+    _addCleanupPlanItem(
+      report,
+      { key, size: _getEntrySize(key, value), reason: '損壞的頁面數據' },
+      'corruptedRecords'
+    );
     return;
   }
 
@@ -350,11 +360,29 @@ function _analyzePageEntry(key, value, report) {
 
   // 空 page_*（無標注且無 Notion 綁定）→ 加入清理計劃
   if (!hasHighlights && !hasNotion) {
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.items.push({ key, size, reason: '空記錄（無標注且無保存）' });
-    plan.spaceFreed += size;
-    plan.summary.emptyRecords++;
+    _addCleanupPlanItem(
+      report,
+      { key, size: _getEntrySize(key, value), reason: '空記錄（無標注且無保存）' },
+      'emptyRecords'
+    );
   }
+}
+
+function _resolveHighlightsList(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (!value) {
+    return null;
+  }
+
+  return Array.isArray(value.highlights) ? value.highlights : null;
+}
+
+function _isOrphanHighlightsEntry(highlights, hasSaved, hasPage) {
+  const relatedRecords = [highlights.length > 0, hasSaved, hasPage];
+  return relatedRecords.every(hasRelatedRecord => !hasRelatedRecord);
 }
 
 /**
@@ -363,42 +391,40 @@ function _analyzePageEntry(key, value, report) {
  * @param {string} key 鍵名
  * @param {any} value 值
  * @param {object} report 統一報告
- * @param {Set<string>} pageUrls page_* 前綴的 URL 集合
- * @param {object} data 完整 storage 快照
+ * @param {{pageUrls: Set<string>, data: object}} context 健康檢查上下文
  */
-function _analyzeHighlightsEntry(key, value, report, pageUrls, data) {
-  const plan = report.cleanupPlan;
+function _analyzeHighlightsEntry(key, value, report, context) {
+  const { data, pageUrls } = context;
   const url = key.slice(HIGHLIGHTS_PREFIX.length);
+  const highlights = _resolveHighlightsList(value);
 
   // 結構破損 → 加入清理計劃
-  const isValid = Array.isArray(value) || (value && Array.isArray(value.highlights));
-  if (!isValid) {
+  if (!highlights) {
     report.corruptedData.push(key);
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.items.push({ key, url, size, reason: '損壞的標注數據' });
-    plan.spaceFreed += size;
-    plan.summary.corruptedRecords++;
+    _addCleanupPlanItem(
+      report,
+      { key, url, size: _getEntrySize(key, value), reason: '損壞的標注數據' },
+      'corruptedRecords'
+    );
     return;
   }
 
   // 使用量計數（僅在無對應 page_* 時計入，避免重複）
-  if (!pageUrls.has(url)) {
+  const hasPage = pageUrls.has(url);
+  if (!hasPage) {
     report.pages++;
-    const hl = Array.isArray(value) ? value : value.highlights;
-    report.highlights += hl.length;
+    report.highlights += highlights.length;
   }
 
   // 孤兒 highlights_*（既無有效標注，也無對應記錄）→ 加入清理計劃
-  const highlights = Array.isArray(value) ? value : value.highlights;
-  const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
   const hasSaved = Object.hasOwn(data, `${SAVED_PREFIX}${url}`);
-  const hasPage = pageUrls.has(url);
 
-  if (!hasHighlights && !hasSaved && !hasPage) {
-    const size = new Blob([JSON.stringify({ [key]: value })]).size;
-    plan.items.push({ key, url, size, reason: '孤兒資料（無標注且無對應記錄）' });
-    plan.spaceFreed += size;
-    plan.summary.orphanRecords++;
+  if (_isOrphanHighlightsEntry(highlights, hasSaved, hasPage)) {
+    _addCleanupPlanItem(
+      report,
+      { key, url, size: _getEntrySize(key, value), reason: '孤兒資料（無標注且無對應記錄）' },
+      'orphanRecords'
+    );
   }
 }
 
@@ -411,19 +437,18 @@ function _analyzeHighlightsEntry(key, value, report, pageUrls, data) {
  * @param {object} data 完整 storage 快照
  */
 function _analyzeAliasEntry(key, normUrl, report, data) {
-  const plan = report.cleanupPlan;
-
   if (typeof normUrl !== 'string' || normUrl === '') {
     const rawUrl = normUrl === '' ? key : String(normUrl ?? key);
-    const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
-    plan.items.push({
-      key,
-      url: encodeURIComponent(rawUrl),
-      size,
-      reason: '無效的 URL 別名',
-    });
-    plan.spaceFreed += size;
-    plan.summary.orphanRecords++;
+    _addCleanupPlanItem(
+      report,
+      {
+        key,
+        url: encodeURIComponent(rawUrl),
+        size: _getEntrySize(key, normUrl),
+        reason: '無效的 URL 別名',
+      },
+      'orphanRecords'
+    );
     return;
   }
 
@@ -433,10 +458,16 @@ function _analyzeAliasEntry(key, normUrl, report, data) {
     Object.hasOwn(data, `${SAVED_PREFIX}${normUrl}`);
 
   if (!hasTarget) {
-    const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
-    plan.items.push({ key, url: encodeURIComponent(normUrl), size, reason: '孤兒 URL 別名' });
-    plan.spaceFreed += size;
-    plan.summary.orphanRecords++;
+    _addCleanupPlanItem(
+      report,
+      {
+        key,
+        url: encodeURIComponent(normUrl),
+        size: _getEntrySize(key, normUrl),
+        reason: '孤兒 URL 別名',
+      },
+      'orphanRecords'
+    );
   }
 }
 
@@ -449,11 +480,8 @@ function _analyzeAliasEntry(key, normUrl, report, data) {
  */
 function _analyzeMigrationEntry(key, value, report) {
   report.migrationKeys++;
-  const size = new Blob([JSON.stringify({ [key]: value })]).size;
+  const size = _getEntrySize(key, value);
   report.migrationDataSize += size;
 
-  const plan = report.cleanupPlan;
-  plan.items.push({ key, size, reason: '舊版格式升級殘留' });
-  plan.spaceFreed += size;
-  plan.summary.migrationLeftovers++;
+  _addCleanupPlanItem(report, { key, size, reason: '舊版格式升級殘留' }, 'migrationLeftovers');
 }

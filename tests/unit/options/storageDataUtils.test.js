@@ -450,6 +450,23 @@ describe('getStorageHealthReport', () => {
     expect(report.cleanupPlan.items.some(i => i.key === 'highlights_orphan.com')).toBe(true);
   });
 
+  test('有 saved_* 對應的 object-format highlights_* 應計入使用量但不視為孤兒', async () => {
+    mockGet.mockImplementation((k, cb) =>
+      cb({
+        'highlights_saved.com': { highlights: [{ id: '1' }, { id: '2' }] },
+        'saved_saved.com': { notionPageId: 'p1' },
+      })
+    );
+
+    const report = await getStorageHealthReport();
+
+    expect(report.pages).toBe(1);
+    expect(report.highlights).toBe(2);
+    expect(report.legacySavedKeys).toBe(1);
+    expect(report.cleanupPlan.summary.orphanRecords).toBe(0);
+    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_saved.com')).toBe(false);
+  });
+
   test('損壞的 highlights_* 不應增加 pages 或 highlights，但仍應進入清理計劃', async () => {
     mockGet.mockImplementation((k, cb) =>
       cb({
