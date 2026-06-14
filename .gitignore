@@ -249,3 +249,7 @@ release-package/
 .agents/evals/complexity-reduction/tasks/negative-trigger-1.yaml
 .agents/evals/complexity-reduction/tasks/positive-trigger-1.yaml
 .agents/evals/complexity-reduction/tasks/positive-trigger-2.yaml
+.gemini/
+.cursor/
+.mcp.json
+.codegraph/
