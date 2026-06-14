@@ -191,6 +191,7 @@ async function loadDatabasesForStep3() {
   } catch (error) {
     Logger.warn('[Onboarding] 拉取 database 列表失敗', {
       action: 'fetchNotionDatabases',
+      result: 'failed',
       error: formatError(error),
     });
     setError(
@@ -211,6 +212,7 @@ async function handleStep2Entered() {
   } catch (error) {
     Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
       action: 'isNotionConnected',
+      result: 'failed',
       error: formatError(error),
     });
   }
@@ -223,6 +225,7 @@ async function handleStep3Entered() {
   } catch (error) {
     Logger.warn('[Onboarding] 偵測 Notion 授權狀態失敗', {
       action: 'isNotionConnected',
+      result: 'failed',
       error: formatError(error),
     });
   }
@@ -249,6 +252,7 @@ async function handleStep4Entered() {
   } catch (error) {
     Logger.warn('[Onboarding] 偵測 account 登入狀態失敗', {
       action: 'isAccountLoggedIn',
+      result: 'failed',
       error: formatError(error),
     });
   }
@@ -260,6 +264,7 @@ async function handleStepCompleted() {
   } catch (error) {
     Logger.warn('[Onboarding] 寫入完成旗標失敗', {
       action: 'markCompleted',
+      result: 'failed',
       error: formatError(error),
     });
   }
@@ -299,6 +304,7 @@ async function handleConnectNotion(button) {
   } catch (error) {
     Logger.warn('[Onboarding] Notion OAuth 連接失敗', {
       action: 'runNotionOAuthFlow',
+      result: 'failed',
       error: formatError(error),
     });
     setError(
@@ -326,6 +332,7 @@ async function handleConfirmDatabase(button) {
   } catch (error) {
     Logger.warn('[Onboarding] 寫入 notionDataSourceId 失敗', {
       action: 'selectDataSource',
+      result: 'failed',
       error: formatError(error),
     });
     setError(ERROR_SCOPE_FETCH_DATABASES, `儲存失敗：${formatError(error, '未知錯誤')}，請重試`);
@@ -367,6 +374,7 @@ async function handleLoginAccount(button) {
     chrome.storage.onChanged.removeListener(onChanged);
     Logger.warn('[Onboarding] account 登入觸發失敗', {
       action: 'startAccountLogin',
+      result: 'failed',
       error: formatError(error),
     });
     setError(
@@ -412,12 +420,17 @@ const ACTION_HANDLERS = {
  * @param {MouseEvent} event 點擊事件
  */
 async function handleOnboardingClick(event) {
-  const databaseItem = event.target.closest('.database-item[data-database-id]');
+  const { target } = event;
+  if (!(target instanceof Element)) {
+    return;
+  }
+
+  const databaseItem = target.closest('.database-item[data-database-id]');
   if (databaseItem) {
     selectDatabaseItem(databaseItem);
     return;
   }
-  const trigger = event.target.closest('[data-action]');
+  const trigger = target.closest('[data-action]');
   if (!trigger) {
     return;
   }
@@ -434,4 +447,4 @@ function bindActions() {
 
 showStep(root, 1);
 bindActions();
-Logger.ready('[Onboarding] entry loaded', { action: 'onboarding_init' });
+Logger.ready('[Onboarding] entry loaded', { action: 'onboarding_init', result: 'success' });

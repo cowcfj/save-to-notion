@@ -25,6 +25,11 @@ jest.mock('../../../scripts/auth/accountLoginInitiator.js', () => ({
   startAccountLogin: jest.fn(),
 }));
 
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: require('../../helpers/loggerMock.js').createLoggerMock(),
+}));
+
 import {
   showStep,
   nextStep,
@@ -37,6 +42,7 @@ import {
   isAccountLoggedIn,
 } from '../../../pages/onboarding/onboardingController.js';
 import { startAccountLogin } from '../../../scripts/auth/accountLoginInitiator.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 describe('onboarding entry script (onboarding.js)', () => {
   let root;
@@ -86,6 +92,8 @@ describe('onboarding entry script (onboarding.js)', () => {
     `;
     root = document.querySelector('#onboarding-root');
 
+    globalThis.chrome = {};
+
     // Mock chrome storage
     globalThis.chrome.storage = {
       local: {},
@@ -120,6 +128,11 @@ describe('onboarding entry script (onboarding.js)', () => {
   const flushPendingPromises = () => new Promise(process.nextTick);
 
   const getActionButton = action => root.querySelector(`[data-action="${action}"]`);
+
+  const expectLoggerWarnResult = action => {
+    const call = Logger.warn.mock.calls.find(([, context]) => context?.action === action);
+    expect(call?.[1]).toEqual(expect.objectContaining({ action, result: 'failed' }));
+  };
 
   const clickAction = action => {
     const button = getActionButton(action);
@@ -205,6 +218,10 @@ describe('onboarding entry script (onboarding.js)', () => {
   it('載入時應初始化步驟 1 並綁定 actions', () => {
     loadEntryScript();
     expect(showStep).toHaveBeenCalledWith(root, 1);
+    expect(Logger.ready).toHaveBeenCalledWith('[Onboarding] entry loaded', {
+      action: 'onboarding_init',
+      result: 'success',
+    });
   });
 
   it('點擊 next 應調用 nextStep', () => {
@@ -265,6 +282,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       expect(errorEl.textContent).toContain('oauth_error');
       expect(connectBtn.disabled).toBe(false);
       expect(connectBtn.textContent).toBe(originalText);
+      expectLoggerWarnResult('runNotionOAuthFlow');
     });
   });
 
@@ -316,6 +334,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       const errorEl = getErrorElement('fetch-databases');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('network_error');
+      expectLoggerWarnResult('fetchNotionDatabases');
     });
   });
 
@@ -359,6 +378,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       expect(loginBtn.disabled).toBe(false);
       expect(loginBtn.textContent).toBe(originalText);
       expect(globalThis.chrome.storage.onChanged.removeListener).toHaveBeenCalled();
+      expectLoggerWarnResult('startAccountLogin');
     });
 
     it('startAccountLogin 回傳 success:false 應視為失敗並顯示錯誤', async () => {
@@ -414,9 +434,11 @@ describe('onboarding entry script (onboarding.js)', () => {
       loadEntryScript();
 
       // 應該不拋錯
-      await expect(async () => {
-        await clickActionAndFlush('connect-notion');
-      }).not.toThrow();
+      await expect(
+        (async () => {
+          await clickActionAndFlush('connect-notion');
+        })()
+      ).resolves.toBeUndefined();
     });
 
     it('renderDatabaseList 找不到 list 元素時應不拋錯', async () => {
@@ -430,9 +452,11 @@ describe('onboarding entry script (onboarding.js)', () => {
       loadEntryScript();
 
       // 應該不拋錯
-      await expect(async () => {
-        await clickActionAndFlush('retry-databases');
-      }).not.toThrow();
+      await expect(
+        (async () => {
+          await clickActionAndFlush('retry-databases');
+        })()
+      ).resolves.toBeUndefined();
     });
 
     it('handleConfirmDatabase 未選資料庫時應直接返回', async () => {
@@ -458,6 +482,19 @@ describe('onboarding entry script (onboarding.js)', () => {
       expect(nextStep).not.toHaveBeenCalled();
       expect(skipToEnd).not.toHaveBeenCalled();
     });
+
+    it('event.target 不是 Element 時應忽略 click', async () => {
+      loadEntryScript();
+
+      const textNode = document.createTextNode('plain text');
+      root.append(textNode);
+      textNode.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      await flushPendingPromises();
+
+      expect(nextStep).not.toHaveBeenCalled();
+      expect(skipToEnd).not.toHaveBeenCalled();
+    });
   });
 
   describe('步驟自動跳轉與錯誤處理', () => {
@@ -480,9 +517,12 @@ describe('onboarding entry script (onboarding.js)', () => {
       loadEntryScript();
 
       // 應該不拋錯
-      await expect(async () => {
-        await clickActionAndFlush('next');
-      }).not.toThrow();
+      await expect(
+        (async () => {
+          await clickActionAndFlush('next');
+        })()
+      ).resolves.toBeUndefined();
+      expectLoggerWarnResult('isNotionConnected');
     });
 
     it('進入 Step 3 時若未連接 Notion 應顯示 needs-auth 狀態', async () => {
@@ -511,6 +551,7 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       const confirmBtn = root.querySelector('[data-step3-confirm]');
       expect(confirmBtn.hidden).toBe(true);
+      expectLoggerWarnResult('isNotionConnected');
     });
 
     it('進入 Step 4 時若功能關閉應自動跳到 Step 5', async () => {
@@ -546,9 +587,12 @@ describe('onboarding entry script (onboarding.js)', () => {
       loadEntryScript();
 
       // 應該不拋錯
-      await expect(async () => {
-        await clickActionAndFlush('next');
-      }).not.toThrow();
+      await expect(
+        (async () => {
+          await clickActionAndFlush('next');
+        })()
+      ).resolves.toBeUndefined();
+      expectLoggerWarnResult('isAccountLoggedIn');
     });
 
     it('進入 Step 6 (完成) 時 markCompleted 失敗應記錄但不阻斷', async () => {
@@ -559,11 +603,14 @@ describe('onboarding entry script (onboarding.js)', () => {
       loadEntryScript();
 
       // 應該不拋錯
-      await expect(async () => {
-        await clickActionAndFlush('skip');
-      }).not.toThrow();
+      await expect(
+        (async () => {
+          await clickActionAndFlush('skip');
+        })()
+      ).resolves.toBeUndefined();
 
       expect(markCompleted).toHaveBeenCalled();
+      expectLoggerWarnResult('markCompleted');
     });
   });
 
@@ -599,6 +646,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       const errorEl = getErrorElement('fetch-databases');
       expect(errorEl.hidden).toBe(false);
       expect(errorEl.textContent).toContain('storage_error');
+      expectLoggerWarnResult('selectDataSource');
 
       const errorState = getStep3State('error');
       expect(errorState.hidden).toBe(false);
