@@ -4,8 +4,6 @@
 
 import {
   AccountGatedDestinationEntitlementProvider,
-  CREATE_PROFILE_COLORS,
-  DEFAULT_PROFILE_ICON,
   DEFAULT_PROFILE_ID,
   DESTINATION_PROFILE_ERROR_CODES,
   DESTINATION_PROFILE_ERRORS,
@@ -178,8 +176,8 @@ function buildProfileCreationDraft(input, profiles, timestamp) {
     {
       id: profileId,
       name: draft.name,
-      icon: draft.icon || DEFAULT_PROFILE_ICON,
-      color: draft.color || CREATE_PROFILE_COLORS[profiles.length % CREATE_PROFILE_COLORS.length],
+      icon: draft.icon,
+      color: draft.color,
       notionDataSourceId: draft.notionDataSourceId,
       notionDataSourceType: draft.notionDataSourceType,
       createdAt: timestamp,
