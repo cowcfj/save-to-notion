@@ -68,35 +68,11 @@ export class ProfileManager {
   async createProfile(input) {
     const profiles = await this.listProfiles();
     const entitlement = await this.getDestinationEntitlement();
-    if (profiles.length >= entitlement.maxProfiles) {
-      const error = new Error(DESTINATION_PROFILE_ERRORS.LIMIT_REACHED);
-      error.code = DESTINATION_PROFILE_ERROR_CODES.LIMIT_REACHED;
-      throw error;
-    }
+
+    assertProfileCreationAllowed(profiles, entitlement);
 
     const timestamp = nowTimestamp();
-    const profileId = pickNonEmptyString(input?.id) || createProfileId();
-    if (profiles.some(profile => profile.id === profileId)) {
-      throw new Error(DESTINATION_PROFILE_ERRORS.DUPLICATE_ID);
-    }
-    const profile = normalizeProfile(
-      {
-        id: profileId,
-        name: input?.name,
-        icon: input?.icon || DEFAULT_PROFILE_ICON,
-        color:
-          input?.color || CREATE_PROFILE_COLORS[profiles.length % CREATE_PROFILE_COLORS.length],
-        notionDataSourceId: input?.notionDataSourceId,
-        notionDataSourceType: input?.notionDataSourceType,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      profiles.length
-    );
-
-    if (!profile) {
-      throw new Error(DESTINATION_PROFILE_ERRORS.TARGET_REQUIRED);
-    }
+    const profile = buildProfileCreationDraft(input, profiles, timestamp);
 
     const nextProfiles = [...profiles, profile];
     await this.repository.writeProfiles(nextProfiles);
@@ -154,4 +130,67 @@ export class ProfileManager {
     });
     return nextProfiles;
   }
+}
+
+/**
+ * Asserts that profile creation is allowed under the current entitlement limit.
+ *
+ * @param {Array} profiles
+ * @param {object} entitlement
+ * @throws {Error} LIMIT_REACHED if limit is exceeded
+ */
+function assertProfileCreationAllowed(profiles, entitlement) {
+  if (profiles.length >= entitlement.maxProfiles) {
+    const error = new Error(DESTINATION_PROFILE_ERRORS.LIMIT_REACHED);
+    error.code = DESTINATION_PROFILE_ERROR_CODES.LIMIT_REACHED;
+    throw error;
+  }
+}
+
+/**
+ * Asserts that the requested profile ID is not already in use.
+ *
+ * @param {Array} profiles
+ * @param {string} profileId
+ * @throws {Error} DUPLICATE_ID if the ID is already taken
+ */
+function assertProfileIdAvailable(profiles, profileId) {
+  if (profiles.some(profile => profile.id === profileId)) {
+    throw new Error(DESTINATION_PROFILE_ERRORS.DUPLICATE_ID);
+  }
+}
+
+/**
+ * Builds and normalizes a next profile draft.
+ *
+ * @param {object} input
+ * @param {Array} profiles
+ * @param {number} timestamp
+ * @returns {object} Normalized profile
+ * @throws {Error} TARGET_REQUIRED if normalization fails
+ */
+function buildProfileCreationDraft(input, profiles, timestamp) {
+  const draft = input || {};
+  const profileId = pickNonEmptyString(draft.id) || createProfileId();
+  assertProfileIdAvailable(profiles, profileId);
+
+  const profile = normalizeProfile(
+    {
+      id: profileId,
+      name: draft.name,
+      icon: draft.icon || DEFAULT_PROFILE_ICON,
+      color: draft.color || CREATE_PROFILE_COLORS[profiles.length % CREATE_PROFILE_COLORS.length],
+      notionDataSourceId: draft.notionDataSourceId,
+      notionDataSourceType: draft.notionDataSourceType,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    profiles.length
+  );
+
+  if (!profile) {
+    throw new Error(DESTINATION_PROFILE_ERRORS.TARGET_REQUIRED);
+  }
+
+  return profile;
 }
