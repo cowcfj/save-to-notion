@@ -745,17 +745,6 @@ describe('saveHandlers savePage', () => {
       return sendResponse;
     };
 
-    const expectToastSent = messageKey => {
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-        5,
-        expect.objectContaining({
-          action: 'SHOW_TOAST',
-          messageKey,
-          level: 'error',
-        })
-      );
-    };
-
     beforeEach(() => {
       context.mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
@@ -779,7 +768,14 @@ describe('saveHandlers savePage', () => {
 
       await saveFromToolbarAction(action);
 
-      expectToastSent('SYNC_FAILED_AUTH');
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_AUTH',
+          level: 'error',
+        })
+      );
     });
 
     test.each([
@@ -803,7 +799,14 @@ describe('saveHandlers savePage', () => {
 
       await saveFromToolbarAction();
 
-      expectToastSent(messageKey);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey,
+          level: 'error',
+        })
+      );
     });
 
     test('不在映射表的 errorCode → 不推送 toast', async () => {
