@@ -32,6 +32,14 @@ describe('StorageService - Read Write Upgrade', () => {
   });
 
   describe('getSavedPageData', () => {
+    const LEGACY_TITLE = 'legacy title';
+    const READ_UPGRADE_FAILURE_TTL_MS = 30 * 60 * 1000;
+
+    const buildOriginalStableUrls = () => ({
+      originalUrl: 'https://example.com/original',
+      stableUrl: 'https://example.com/stable',
+    });
+
     const setupLegacyReadPath = ({ url, savedData, highlightData = [] }) => {
       const normalizedUrl = normalizeUrl(url);
       const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
@@ -46,6 +54,97 @@ describe('StorageService - Read Write Upgrade', () => {
       mockStorageLookup(mockStorage, legacyReadData);
 
       return { normalizedUrl, pageKey, savedKey, highlightKey };
+    };
+
+    const setupLegacySavedPageRead = ({ slug, notionPageId }) => {
+      const url = `https://example.com/${slug}`;
+      const savedData = { notionPageId, title: LEGACY_TITLE };
+      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+
+      return { url, savedData, normalizedUrl };
+    };
+
+    const readOriginalSavedPageFromStorage = ({ originalUrl, storageData }) => {
+      mockStorageLookup(mockStorage, storageData);
+
+      return service.getSavedPageData(originalUrl);
+    };
+
+    const mockNow = now => {
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+    };
+
+    const mockUpgradeWriteFailure = message => {
+      mockStorage.local.set.mockRejectedValue(new Error(message));
+    };
+
+    const mockUpgradeWriteSuccess = () => {
+      mockStorage.local.set.mockResolvedValue();
+      mockStorage.local.remove.mockResolvedValue();
+    };
+
+    const seedFailedUpgradeAttempt = (normalizedUrl, now, overrides = {}) => {
+      service._failedUpgradeAttempts.set(normalizedUrl, {
+        attempts: 1,
+        firstFailureAt: now - 1000,
+        lastFailureAt: now - 1000,
+        nextRetryAt: now - 1,
+        ...overrides,
+      });
+    };
+
+    const readSavedPageAndFlushUpgrade = async url => {
+      const result = await service.getSavedPageData(url);
+      await flushReadTimeUpgrade();
+
+      return result;
+    };
+
+    const mockOptionalRandom = random => {
+      if (random === undefined) {
+        return;
+      }
+
+      jest.spyOn(Math, 'random').mockReturnValue(random);
+    };
+
+    const seedOptionalFailedUpgradeAttempt = ({ normalizedUrl, now, retryState }) => {
+      if (!retryState) {
+        return;
+      }
+
+      seedFailedUpgradeAttempt(normalizedUrl, now, retryState);
+    };
+
+    const mockUpgradeWriteOutcome = ({ writeFailureMessage, writesSucceed }) => {
+      if (writeFailureMessage) {
+        mockUpgradeWriteFailure(writeFailureMessage);
+      }
+      if (writesSucceed) {
+        mockUpgradeWriteSuccess();
+      }
+    };
+
+    const runLegacyReadUpgradeScenario = async ({
+      slug,
+      notionPageId,
+      now,
+      random,
+      retryState,
+      writeFailureMessage,
+      writesSucceed = false,
+    }) => {
+      const context = setupLegacySavedPageRead({ slug, notionPageId });
+
+      mockNow(now);
+      mockOptionalRandom(random);
+      seedOptionalFailedUpgradeAttempt({ normalizedUrl: context.normalizedUrl, now, retryState });
+      mockUpgradeWriteOutcome({ writeFailureMessage, writesSucceed });
+
+      const result = await readSavedPageAndFlushUpgrade(context.url);
+      expect(result).toEqual(context.savedData);
+
+      return context;
     };
 
     it('應該正確獲取保存的頁面數據（page_* 新格式）', async () => {
@@ -118,77 +217,63 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('缺少 alias 時，不應把孤立的 stable page_* 視為 original URL 的已保存狀態', async () => {
-      const originalUrl = 'https://example.com/original';
-      const stableUrl = 'https://example.com/stable';
-      const storageData = buildStaleStableState({
-        originalUrl,
-        stableUrl,
-        includeAlias: false,
-      });
+      const urls = buildOriginalStableUrls();
 
-      mockStorageLookup(mockStorage, storageData);
-
-      const result = await service.getSavedPageData(originalUrl);
-
-      expect(result).toBeNull();
+      await expect(
+        readOriginalSavedPageFromStorage({
+          originalUrl: urls.originalUrl,
+          storageData: buildStaleStableState({
+            ...urls,
+            includeAlias: false,
+          }),
+        })
+      ).resolves.toBeNull();
     });
 
     it('alias 指向 notion:null 的 stable page_* 時，應回傳 null 而非已保存', async () => {
-      const originalUrl = 'https://example.com/original';
-      const stableUrl = 'https://example.com/stable';
-      const storageData = buildDeletedState({
-        originalUrl,
-        stableUrl,
-        highlights: [buildHighlight()],
-      });
+      const urls = buildOriginalStableUrls();
 
-      mockStorageLookup(mockStorage, storageData);
-
-      const result = await service.getSavedPageData(originalUrl);
-
-      expect(result).toBeNull();
+      await expect(
+        readOriginalSavedPageFromStorage({
+          originalUrl: urls.originalUrl,
+          storageData: buildDeletedState({
+            ...urls,
+            highlights: [buildHighlight()],
+          }),
+        })
+      ).resolves.toBeNull();
     });
 
     it('讀時升級第一次失敗後，應記錄重試狀態與 nextRetryAt', async () => {
-      const url = 'https://example.com/retry-first-failure';
-      const savedData = { notionPageId: 'legacy-1', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
+      const now = 1_700_000_000_000;
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-first-failure',
+        notionPageId: 'legacy-1',
+        now,
+        random: 0,
+        writeFailureMessage: 'upgrade write failed',
+      });
 
-      jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
-      jest.spyOn(Math, 'random').mockReturnValue(0);
-      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed'));
-
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       const retryState = service._failedUpgradeAttempts.get(normalizedUrl);
       expect(retryState).toEqual({
         attempts: 1,
-        firstFailureAt: 1_700_000_000_000,
-        lastFailureAt: 1_700_000_000_000,
-        nextRetryAt: 1_700_000_000_500,
+        firstFailureAt: now,
+        lastFailureAt: now,
+        nextRetryAt: now + 500,
       });
     });
 
     it('尚未到達 nextRetryAt 時，應跳過重試', async () => {
-      const url = 'https://example.com/retry-skip-before-next-window';
-      const savedData = { notionPageId: 'legacy-2', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
-
       const now = 1_700_000_001_000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-      service._failedUpgradeAttempts.set(normalizedUrl, {
-        attempts: 1,
-        firstFailureAt: now - 1000,
-        lastFailureAt: now - 1000,
-        nextRetryAt: now + 30_000,
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-skip-before-next-window',
+        notionPageId: 'legacy-2',
+        now,
+        retryState: {
+          nextRetryAt: now + 30_000,
+        },
       });
 
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       expect(mockStorage.local.set).not.toHaveBeenCalled();
       expect(mockStorage.local.remove).not.toHaveBeenCalled();
       expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
@@ -200,25 +285,20 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('超過 nextRetryAt 後，應允許再次嘗試讀時升級', async () => {
-      const url = 'https://example.com/retry-after-next-window';
-      const savedData = { notionPageId: 'legacy-3', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
-
       const now = 1_700_000_002_000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-      jest.spyOn(Math, 'random').mockReturnValue(0);
-      service._failedUpgradeAttempts.set(normalizedUrl, {
-        attempts: 1,
-        firstFailureAt: now - 2000,
-        lastFailureAt: now - 1500,
-        nextRetryAt: now - 1,
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-after-next-window',
+        notionPageId: 'legacy-3',
+        now,
+        random: 0,
+        retryState: {
+          attempts: 1,
+          firstFailureAt: now - 2000,
+          lastFailureAt: now - 1500,
+        },
+        writeFailureMessage: 'upgrade write failed again',
       });
-      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed again'));
 
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
       expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
         attempts: 2,
@@ -229,48 +309,35 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('讀時升級成功後，應清除失敗追蹤狀態', async () => {
-      const url = 'https://example.com/retry-clear-on-success';
-      const savedData = { notionPageId: 'legacy-4', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
-
       const now = 1_700_000_003_000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-      service._failedUpgradeAttempts.set(normalizedUrl, {
-        attempts: 2,
-        firstFailureAt: now - 5000,
-        lastFailureAt: now - 1000,
-        nextRetryAt: now - 1,
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-clear-on-success',
+        notionPageId: 'legacy-4',
+        now,
+        retryState: {
+          attempts: 2,
+          firstFailureAt: now - 5000,
+        },
+        writesSucceed: true,
       });
-      mockStorage.local.set.mockResolvedValue();
-      mockStorage.local.remove.mockResolvedValue();
 
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
       expect(mockStorage.local.remove).toHaveBeenCalledTimes(1);
       expect(service._failedUpgradeAttempts.has(normalizedUrl)).toBe(false);
     });
 
     it('達到 maxAttempts 且仍在 TTL 內時，應跳過重試', async () => {
-      const url = 'https://example.com/retry-max-attempts';
-      const savedData = { notionPageId: 'legacy-5', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
-
       const now = 1_700_000_004_000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-      service._failedUpgradeAttempts.set(normalizedUrl, {
-        attempts: 5,
-        firstFailureAt: now - 10_000,
-        lastFailureAt: now - 1000,
-        nextRetryAt: now - 1,
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-max-attempts',
+        notionPageId: 'legacy-5',
+        now,
+        retryState: {
+          attempts: 5,
+          firstFailureAt: now - 10_000,
+        },
       });
 
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       expect(mockStorage.local.set).not.toHaveBeenCalled();
       expect(mockStorage.local.remove).not.toHaveBeenCalled();
       expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
@@ -281,57 +348,45 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL', async () => {
-      const url = 'https://example.com/retry-hit-max-attempt';
-      const savedData = { notionPageId: 'legacy-7', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
-
       const now = 1_700_000_004_500;
-      const ttlMs = 30 * 60 * 1000;
       const firstFailureAt = now - 20_000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-
-      service._failedUpgradeAttempts.set(normalizedUrl, {
-        attempts: 4,
-        firstFailureAt,
-        lastFailureAt: now - 1000,
-        nextRetryAt: now - 1,
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-hit-max-attempt',
+        notionPageId: 'legacy-7',
+        now,
+        retryState: {
+          attempts: 4,
+          firstFailureAt,
+          lastFailureAt: now - 1000,
+        },
+        writeFailureMessage: 'upgrade write failed at attempt 5',
       });
-      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed at attempt 5'));
 
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
       expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
         attempts: 5,
         firstFailureAt,
         lastFailureAt: now,
-        nextRetryAt: firstFailureAt + ttlMs,
+        nextRetryAt: firstFailureAt + READ_UPGRADE_FAILURE_TTL_MS,
       });
     });
 
     it('超過 TTL 後，應重置並允許新一輪嘗試', async () => {
-      const url = 'https://example.com/retry-reset-after-ttl';
-      const savedData = { notionPageId: 'legacy-6', title: 'legacy title' };
-      const { normalizedUrl } = setupLegacyReadPath({ url, savedData });
-
       const now = 1_700_000_005_000;
-      const ttlMs = 30 * 60 * 1000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-      jest.spyOn(Math, 'random').mockReturnValue(0);
-      service._failedUpgradeAttempts.set(normalizedUrl, {
-        attempts: 5,
-        firstFailureAt: now - ttlMs - 1,
-        lastFailureAt: now - ttlMs - 1,
-        nextRetryAt: now + 999_999,
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: 'retry-reset-after-ttl',
+        notionPageId: 'legacy-6',
+        now,
+        random: 0,
+        retryState: {
+          attempts: 5,
+          firstFailureAt: now - READ_UPGRADE_FAILURE_TTL_MS - 1,
+          lastFailureAt: now - READ_UPGRADE_FAILURE_TTL_MS - 1,
+          nextRetryAt: now + 999_999,
+        },
+        writeFailureMessage: 'upgrade write failed after ttl',
       });
-      mockStorage.local.set.mockRejectedValue(new Error('upgrade write failed after ttl'));
 
-      const result = await service.getSavedPageData(url);
-      await flushReadTimeUpgrade();
-
-      expect(result).toEqual(savedData);
       expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
       expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
         attempts: 1,
