@@ -240,6 +240,7 @@ function registerPopupEventListeners(elements, context) {
         // 如果 Content Script 尚未注入，忽略錯誤
         Logger.warn(ERROR_MESSAGES.TECHNICAL.TOOLBAR_SHOW_FAILED, {
           action: 'showFloatingRail',
+          result: 'failed',
           error,
         });
       }

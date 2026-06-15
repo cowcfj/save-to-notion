@@ -523,6 +523,7 @@ describe('popup.js Controller', () => {
 
       expect(Logger.warn).toHaveBeenCalledWith(ERROR_MESSAGES.TECHNICAL.TOOLBAR_SHOW_FAILED, {
         action: 'showFloatingRail',
+        result: 'failed',
         error: toolbarError,
       });
       expect(updateUIForSavedPage).toHaveBeenCalledWith(
