@@ -297,8 +297,9 @@ describe('StorageService - Highlights', () => {
     });
 
     it('如果有舊版 highlights_* 資料，應該升級到 page_* 格式並刪除舊 key', async () => {
+      const legacyKey = `${HIGHLIGHTS_PREFIX}https://example.com/page`;
       mockStorageLookup(mockStorage, {
-        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: ['old_h1'],
+        [legacyKey]: ['old_h1'],
       });
 
       const newHighlights = ['h1'];
@@ -310,6 +311,11 @@ describe('StorageService - Highlights', () => {
           highlights: newHighlights,
         }),
       });
+
+      await new Promise(process.nextTick);
+
+      const removedKeys = mockStorage.local.remove.mock.calls.flatMap(args => args[0]);
+      expect(removedKeys).toContain(legacyKey);
     });
 
     it('應該在刪除舊 highlights_* key 失敗時記錄 debug 日誌', async () => {

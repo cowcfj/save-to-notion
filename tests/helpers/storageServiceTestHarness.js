@@ -24,6 +24,10 @@ export function createStorageServiceHarness(StorageService) {
     success: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
   };
   const service = new StorageService({
     chromeStorage: mockStorage,
