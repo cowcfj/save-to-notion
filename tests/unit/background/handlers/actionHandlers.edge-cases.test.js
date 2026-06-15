@@ -726,6 +726,13 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, createInternalSender(), sendResponse);
       expectFailureResponse(sendResponse, expect.stringContaining('必須在標籤頁上下文中'));
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        '安全性阻擋',
+        expect.objectContaining({
+          action: 'SAVE_PAGE_FROM_TOOLBAR',
+          result: 'blocked',
+        })
+      );
     });
 
     test('應該在缺少 sender.tab 時回傳 NO_ACTIVE_TAB 友善訊息', async () => {
@@ -826,6 +833,13 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       await handlers.SAVE_PAGE_FROM_RAIL({}, createInternalSender(), sendResponse);
       expectFailureResponse(sendResponse, expect.stringContaining('必須在標籤頁上下文中'));
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        '安全性阻擋',
+        expect.objectContaining({
+          action: 'SAVE_PAGE_FROM_RAIL',
+          result: 'blocked',
+        })
+      );
     });
 
     test('應該在缺少 sender.tab 時回傳 NO_ACTIVE_TAB 友善訊息', async () => {

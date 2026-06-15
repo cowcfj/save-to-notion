@@ -30,7 +30,9 @@ jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
 jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
   __esModule: true,
   ErrorHandler: {
-    formatUserMessage: jest.fn(msg => msg),
+    formatUserMessage: jest.fn(
+      jest.requireActual('../../../../scripts/utils/ErrorHandler.js').ErrorHandler.formatUserMessage
+    ),
   },
 }));
 

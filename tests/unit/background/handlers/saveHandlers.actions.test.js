@@ -304,13 +304,31 @@ describe('saveHandlers security and actions', () => {
       const levels = ['log', 'info', 'warn', 'error', 'debug'];
       levels.forEach(level => {
         context.handlers.devLogSink({ level, message: 'test' }, validSender, jest.fn());
-        expect(Logger[level]).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+        expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context: expect.objectContaining({
+              action: 'devLogSink',
+              result: 'success',
+            }),
+            message: '[ClientLog] test',
+            level,
+          })
+        );
       });
     });
 
     test('should fallback to log for invalid level', () => {
       context.handlers.devLogSink({ level: 'invalid', message: 'test' }, validSender, jest.fn());
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({
+            action: 'devLogSink',
+            result: 'success',
+          }),
+          message: '[ClientLog] test',
+          level: 'log',
+        })
+      );
     });
 
     test('should fallback to log for non-function property access', () => {
@@ -319,7 +337,16 @@ describe('saveHandlers security and actions', () => {
         validSender,
         jest.fn()
       );
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({
+            action: 'devLogSink',
+            result: 'success',
+          }),
+          message: '[ClientLog] test',
+          level: 'log',
+        })
+      );
     });
 
     test('should fallback to log for prototype property access', () => {
@@ -328,7 +355,16 @@ describe('saveHandlers security and actions', () => {
         validSender,
         jest.fn()
       );
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({
+            action: 'devLogSink',
+            result: 'success',
+          }),
+          message: '[ClientLog] test',
+          level: 'log',
+        })
+      );
     });
   });
 
@@ -374,7 +410,7 @@ describe('saveHandlers security and actions', () => {
         level: 'info',
       };
       if (expectedContext !== undefined) {
-        expectedObject.context = expectedContext;
+        expectedObject.context = expect.objectContaining(expectedContext);
       }
 
       expect(globalThis.Logger.addLogToBuffer).toHaveBeenCalledWith(

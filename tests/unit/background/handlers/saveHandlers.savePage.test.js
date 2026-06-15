@@ -533,7 +533,7 @@ describe('saveHandlers savePage', () => {
         },
         expectedLastResponse: {
           success: false,
-          error: expect.stringContaining('create_failed'),
+          error: ERROR_MESSAGES.DEFAULT,
         },
         unexpectedLastResponse: {
           error: '清除本地 Notion 狀態失敗',
@@ -686,7 +686,7 @@ describe('saveHandlers savePage', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('API_KEY_NOT_CONFIGURED'),
+          error: ERROR_MESSAGES.PATTERNS.API_KEY_NOT_CONFIGURED,
         })
       );
     });

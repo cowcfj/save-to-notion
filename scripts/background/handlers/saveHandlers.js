@@ -402,6 +402,7 @@ function logInvalidContentScriptSaveRequest(
     error: validationError.error,
     senderId: sender?.id,
     tabId: sender?.tab?.id,
+    result: 'blocked',
   });
 }
 
@@ -1242,6 +1243,50 @@ export function createSaveHandlers(services) {
     });
   }
 
+  async function _handleContentScriptSave({
+    sender,
+    sendResponse,
+    actionName,
+    errorScope,
+    logMessage,
+  }) {
+    try {
+      const configData = await _validateContentScriptSaveRequestAndGetConfig(
+        sender,
+        sendResponse,
+        { requireDataSource: false },
+        actionName
+      );
+      if (!configData) {
+        return;
+      }
+
+      const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
+      if (!destinationProfile) {
+        return;
+      }
+
+      await _runSaveFlow(
+        configData.activeTab,
+        {
+          ...configData,
+          destinationProfile,
+          dataSourceId: destinationProfile.notionDataSourceId,
+          dataSourceType: destinationProfile.notionDataSourceType,
+        },
+        sendResponse
+      );
+    } catch (error) {
+      Logger.error(logMessage, {
+        action: actionName,
+        error: error?.message ?? error,
+        result: 'failed',
+      });
+      const safeMessage = sanitizeApiError(error, errorScope);
+      sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+    }
+  }
+
   return {
     /**
      * 保存頁面
@@ -1297,41 +1342,13 @@ export function createSaveHandlers(services) {
      * @param {Function} sendResponse - 回應函數
      */
     [RUNTIME_ACTIONS.SAVE_PAGE_FROM_TOOLBAR]: async (request, sender, sendResponse) => {
-      try {
-        const configData = await _validateContentScriptSaveRequestAndGetConfig(
-          sender,
-          sendResponse,
-          { requireDataSource: false },
-          'SAVE_PAGE_FROM_TOOLBAR'
-        );
-        if (!configData) {
-          return;
-        }
-
-        const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
-        if (!destinationProfile) {
-          return;
-        }
-
-        // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        await _runSaveFlow(
-          configData.activeTab,
-          {
-            ...configData,
-            destinationProfile,
-            dataSourceId: destinationProfile.notionDataSourceId,
-            dataSourceType: destinationProfile.notionDataSourceType,
-          },
-          sendResponse
-        );
-      } catch (error) {
-        Logger.error('從 Toolbar 保存頁面時發生錯誤', {
-          action: 'SAVE_PAGE_FROM_TOOLBAR',
-          error: error?.message ?? error,
-        });
-        const safeMessage = sanitizeApiError(error, 'save_page_toolbar');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
+      await _handleContentScriptSave({
+        sender,
+        sendResponse,
+        actionName: 'SAVE_PAGE_FROM_TOOLBAR',
+        errorScope: 'save_page_toolbar',
+        logMessage: '從 Toolbar 保存頁面時發生錯誤',
+      });
     },
 
     /**
@@ -1343,41 +1360,13 @@ export function createSaveHandlers(services) {
      * @param {Function} sendResponse - 回應函數
      */
     [RUNTIME_ACTIONS.SAVE_PAGE_FROM_RAIL]: async (request, sender, sendResponse) => {
-      try {
-        const configData = await _validateContentScriptSaveRequestAndGetConfig(
-          sender,
-          sendResponse,
-          { requireDataSource: false },
-          'SAVE_PAGE_FROM_RAIL'
-        );
-        if (!configData) {
-          return;
-        }
-
-        const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
-        if (!destinationProfile) {
-          return;
-        }
-
-        // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        await _runSaveFlow(
-          configData.activeTab,
-          {
-            ...configData,
-            destinationProfile,
-            dataSourceId: destinationProfile.notionDataSourceId,
-            dataSourceType: destinationProfile.notionDataSourceType,
-          },
-          sendResponse
-        );
-      } catch (error) {
-        Logger.error('從 Floating Rail 保存頁面時發生錯誤', {
-          action: 'SAVE_PAGE_FROM_RAIL',
-          error: error?.message ?? error,
-        });
-        const safeMessage = sanitizeApiError(error, 'save_page_rail');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
+      await _handleContentScriptSave({
+        sender,
+        sendResponse,
+        actionName: 'SAVE_PAGE_FROM_RAIL',
+        errorScope: 'save_page_rail',
+        logMessage: '從 Floating Rail 保存頁面時發生錯誤',
+      });
     },
 
     /**
@@ -1573,10 +1562,15 @@ function normalizeClientLogLevel(level) {
 function forwardClientLog(level, message, args) {
   const logMessage = `[ClientLog] ${message}`;
   Logger[level](logMessage, ...args);
+  const context = {
+    action: 'devLogSink',
+    result: 'success',
+    ...parseArgsToContext(args),
+  };
   Logger.addLogToBuffer({
     level,
     message: logMessage,
-    context: parseArgsToContext(args),
+    context,
     source: 'content_script',
   });
 }
