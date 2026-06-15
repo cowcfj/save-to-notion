@@ -317,44 +317,13 @@ describe('saveHandlers security and actions', () => {
       });
     });
 
-    test('should fallback to log for invalid level', () => {
-      context.handlers.devLogSink({ level: 'invalid', message: 'test' }, validSender, jest.fn());
-      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: expect.objectContaining({
-            action: 'devLogSink',
-            result: 'success',
-          }),
-          message: '[ClientLog] test',
-          level: 'log',
-        })
-      );
-    });
+    it.each([
+      ['invalid level', 'invalid'],
+      ['non-function property access', 'addLogToBuffer'],
+      ['prototype property access', 'constructor'],
+    ])('should fallback to log for %s', (_caseName, level) => {
+      context.handlers.devLogSink({ level, message: 'test' }, validSender, jest.fn());
 
-    test('should fallback to log for non-function property access', () => {
-      context.handlers.devLogSink(
-        { level: 'addLogToBuffer', message: 'test' },
-        validSender,
-        jest.fn()
-      );
-      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: expect.objectContaining({
-            action: 'devLogSink',
-            result: 'success',
-          }),
-          message: '[ClientLog] test',
-          level: 'log',
-        })
-      );
-    });
-
-    test('should fallback to log for prototype property access', () => {
-      context.handlers.devLogSink(
-        { level: 'constructor', message: 'test' },
-        validSender,
-        jest.fn()
-      );
       expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
         expect.objectContaining({
           context: expect.objectContaining({
