@@ -43,46 +43,67 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
 }));
 
-jest.mock('../../../../scripts/utils/securityUtils.js', () => {
-  const mockSecurityExtensionId = 'mock-ext-id';
-  const mockSecurityErrorMessages = {
+function mockSecurityFailure(error) {
+  return { success: false, error };
+}
+
+function mockResolveSender(sender) {
+  return sender ?? {};
+}
+
+function mockIsWrongExtension(sender) {
+  const { id } = mockResolveSender(sender);
+  return id !== 'mock-ext-id';
+}
+
+function mockIsTabSenderOutsideExtension(sender) {
+  const { tab, url = '' } = mockResolveSender(sender);
+
+  if (!tab) {
+    return false;
+  }
+
+  return !url.startsWith('chrome-extension://');
+}
+
+function mockMissingTabContext(sender) {
+  return !sender?.tab?.id;
+}
+
+function mockEvaluateSecurityRules(sender, rules) {
+  const failedRule = rules.find(({ rejects }) => rejects(sender));
+  return failedRule ? mockSecurityFailure(failedRule.error) : null;
+}
+
+function mockCreateSenderValidator(rules) {
+  return jest.fn(sender => mockEvaluateSecurityRules(sender, rules));
+}
+
+function mockCreateSecurityUtilsMock() {
+  const errorMessages = {
     internalOnly: '拒絕訪問：此操作僅限擴充功能內部調用',
     contentScriptOnly: '拒絕訪問：僅限本擴充功能的 content script 調用',
     tabContextRequired: '拒絕訪問：此操作必須在標籤頁上下文中調用',
     privilegedOnly: '拒絕訪問',
   };
 
-  const mockSecurityFailure = error => ({ success: false, error });
-  const mockIsWrongExtension = sender => sender?.id !== mockSecurityExtensionId;
-  const mockHasTabContext = sender => Boolean(sender?.tab);
-  const mockHasExtensionUrl = sender => sender?.url?.startsWith('chrome-extension://');
-  const mockIsTabSenderOutsideExtension = sender =>
-    mockHasTabContext(sender) && !mockHasExtensionUrl(sender);
-  const mockMissingTabContext = sender => !sender?.tab?.id;
-  const mockCreateSenderValidator = rules =>
-    jest.fn(sender => {
-      const failedRule = rules.find(({ rejects }) => rejects(sender));
-      return failedRule ? mockSecurityFailure(failedRule.error) : null;
-    });
-  const mockInternalRequestRules = [
-    { rejects: mockIsWrongExtension, error: mockSecurityErrorMessages.internalOnly },
-    { rejects: mockIsTabSenderOutsideExtension, error: mockSecurityErrorMessages.internalOnly },
-  ];
-  const mockContentScriptRequestRules = [
-    { rejects: mockIsWrongExtension, error: mockSecurityErrorMessages.contentScriptOnly },
-    { rejects: mockMissingTabContext, error: mockSecurityErrorMessages.tabContextRequired },
-  ];
-  const mockPrivilegedRequestRules = [
-    { rejects: mockIsWrongExtension, error: mockSecurityErrorMessages.privilegedOnly },
-  ];
-
   return {
-    validateInternalRequest: mockCreateSenderValidator(mockInternalRequestRules),
-    validateContentScriptRequest: mockCreateSenderValidator(mockContentScriptRequestRules),
-    validatePrivilegedRequest: mockCreateSenderValidator(mockPrivilegedRequestRules),
+    validateInternalRequest: mockCreateSenderValidator([
+      { rejects: mockIsWrongExtension, error: errorMessages.internalOnly },
+      { rejects: mockIsTabSenderOutsideExtension, error: errorMessages.internalOnly },
+    ]),
+    validateContentScriptRequest: mockCreateSenderValidator([
+      { rejects: mockIsWrongExtension, error: errorMessages.contentScriptOnly },
+      { rejects: mockMissingTabContext, error: errorMessages.tabContextRequired },
+    ]),
+    validatePrivilegedRequest: mockCreateSenderValidator([
+      { rejects: mockIsWrongExtension, error: errorMessages.privilegedOnly },
+    ]),
     isValidNotionUrl: jest.fn(() => true),
   };
-});
+}
+
+jest.mock('../../../../scripts/utils/securityUtils.js', () => mockCreateSecurityUtilsMock());
 
 jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => url),
@@ -378,6 +399,47 @@ describe('actionHandlers 覆蓋率補強', () => {
     chrome.runtime.lastError = null;
   });
 
+  function arrangeMissingApiKeyConfig() {
+    mockStorageService.getConfig.mockResolvedValue({});
+    getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+  }
+
+  function arrangeExistingRemotePage({ highlights, pageId = EXISTING_PAGE_ID } = {}) {
+    mockStorageService.getSavedPageData.mockResolvedValue(
+      createSavedPageData({ notionPageId: pageId })
+    );
+    mockNotionService.checkPageExists.mockResolvedValue(true);
+    mockInjectionService.collectHighlights.mockResolvedValue(highlights);
+  }
+
+  function arrangeDeletedRemotePage({ pageId = 'deleted-id', createdPageId = 'new-id' } = {}) {
+    mockStorageService.getSavedPageData.mockResolvedValue(
+      createSavedPageData({ notionPageId: pageId })
+    );
+    mockNotionService.checkPageExists.mockResolvedValue(false);
+    mockTabService.confirmRemotePageMissing.mockReturnValue({
+      shouldDelete: true,
+      deletionPending: false,
+    });
+    mockNotionService.createPage.mockResolvedValue(createPageSuccess({ pageId: createdPageId }));
+  }
+
+  function arrangeSavedPageForRemoteHighlightUpdate() {
+    chrome.tabs.query.mockResolvedValue([createTabContext(HTTP_TEST_URL)]);
+    mockStorageService.getConfig.mockResolvedValue({ notionApiKey: VALID_API_KEY });
+    mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: SIMPLE_PAGE_ID });
+    mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
+  }
+
+  function arrangeExpiredPageStatusCheck() {
+    chrome.tabs.query.mockResolvedValue([createTabContext()]);
+    mockStorageService.getConfig.mockResolvedValue({ notionApiKey: PAGE_STATUS_API_KEY });
+    mockStorageService.getSavedPageData.mockResolvedValue({
+      notionPageId: SAVED_PAGE_ID,
+      lastVerifiedAt: 0,
+    });
+  }
+
   describe('processContentResult', () => {
     test('應該在沒有標註時返回原始 blocks', () => {
       const result = processContentResult({ title: 'Test', blocks: [{ type: 'paragraph' }] }, []);
@@ -463,8 +525,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在缺少 API Key 時失敗', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getConfig.mockResolvedValue({});
-      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+      arrangeMissingApiKeyConfig();
 
       await handlers.savePage({}, internalSender, sendResponse);
       expectFailureResponse(
@@ -571,9 +632,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     // 測試 determineAndExecuteSaveAction：已有頁面流程 - 更新標註
     test('已有頁面：有新標註時應該調用 updateHighlightsSection', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(createSavedPageData());
-      mockNotionService.checkPageExists.mockResolvedValue(true);
-      mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'new highlight' }]);
+      arrangeExistingRemotePage({ highlights: [{ text: 'new highlight' }] });
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
       await handlers.savePage({}, internalSender, sendResponse);
@@ -588,9 +647,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('已有頁面：標註更新失敗時應走統一錯誤回應', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(createSavedPageData());
-      mockNotionService.checkPageExists.mockResolvedValue(true);
-      mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'new highlight' }]);
+      arrangeExistingRemotePage({ highlights: [{ text: 'new highlight' }] });
       mockNotionService.updateHighlightsSection.mockResolvedValue({
         success: false,
         error: 'Update failed',
@@ -608,9 +665,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     // 測試 determineAndExecuteSaveAction：已有頁面流程 - 刷新內容
     test('已有頁面：無新標註時應該調用 refreshPageContent', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(createSavedPageData());
-      mockNotionService.checkPageExists.mockResolvedValue(true);
-      mockInjectionService.collectHighlights.mockResolvedValue([]); // No highlights
+      arrangeExistingRemotePage({ highlights: [] });
       mockNotionService.refreshPageContent.mockResolvedValue({ success: true });
 
       await handlers.savePage({}, internalSender, sendResponse);
@@ -622,15 +677,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     // 測試 determineAndExecuteSaveAction：頁面已刪除
     test('已有頁面但 Notion 中已刪除：應該重新創建頁面', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(
-        createSavedPageData({ notionPageId: 'deleted-id' })
-      );
-      mockNotionService.checkPageExists.mockResolvedValue(false); // Page deleted
-      mockTabService.confirmRemotePageMissing.mockReturnValue({
-        shouldDelete: true,
-        deletionPending: false,
-      });
-      mockNotionService.createPage.mockResolvedValue(createPageSuccess({ pageId: 'new-id' }));
+      arrangeDeletedRemotePage();
 
       await handlers.savePage({}, internalSender, sendResponse);
 
@@ -656,15 +703,7 @@ describe('actionHandlers 覆蓋率補強', () => {
      */
     test('頁面已刪除時應清理狀態並重新創建', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(
-        createSavedPageData({ notionPageId: 'deleted-id' })
-      );
-      mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
-      mockTabService.confirmRemotePageMissing.mockReturnValue({
-        shouldDelete: true,
-        deletionPending: false,
-      });
-      mockNotionService.createPage.mockResolvedValue(createPageSuccess({ pageId: 'new-id' }));
+      arrangeDeletedRemotePage();
 
       await handlers.savePage({}, internalSender, sendResponse);
 
@@ -736,8 +775,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在缺少 API Key 時失敗', async () => {
       const sendResponse = jest.fn();
-      mockStorageService.getConfig.mockResolvedValue({});
-      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+      arrangeMissingApiKeyConfig();
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
       expectFailureResponse(
         sendResponse,
@@ -938,10 +976,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該成功同步', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockResolvedValue([createTabContext(HTTP_TEST_URL)]);
-      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: VALID_API_KEY });
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: SIMPLE_PAGE_ID });
-      mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
+      arrangeSavedPageForRemoteHighlightUpdate();
 
       await handlers.syncHighlights({ highlights: [{ text: 'hi' }] }, csSender, sendResponse);
       expectResponseContaining(sendResponse, { success: true, count: 1, highlightCount: 1 });
@@ -967,17 +1002,8 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在 API 檢查返回 null 時進行重試', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockResolvedValue([createTabContext()]);
-      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: PAGE_STATUS_API_KEY });
-      // 緩存過期
-      mockStorageService.getSavedPageData.mockResolvedValue({
-        notionPageId: SAVED_PAGE_ID,
-        lastVerifiedAt: 0,
-      });
-
-      // 第一次返回 null (失敗)
+      arrangeExpiredPageStatusCheck();
       mockNotionService.checkPageExists.mockResolvedValueOnce(null);
-      // 第二次返回 true (成功)
       mockNotionService.checkPageExists.mockResolvedValueOnce(true);
 
       await handlers.checkPageStatus({}, internalSender, sendResponse);
@@ -987,14 +1013,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     });
     test('checkPageStatus 在重試後仍返回 null 應暫時假設本地狀態正確', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockResolvedValue([createTabContext()]);
-      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: PAGE_STATUS_API_KEY });
-      mockStorageService.getSavedPageData.mockResolvedValue({
-        notionPageId: SAVED_PAGE_ID,
-        lastVerifiedAt: 0,
-      });
-
-      // 一直返回 null
+      arrangeExpiredPageStatusCheck();
       mockNotionService.checkPageExists.mockResolvedValue(null);
 
       await handlers.checkPageStatus({}, internalSender, sendResponse);
@@ -1042,11 +1061,8 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('updateHighlights handler', () => {
     test('應該處理完整更新流程', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockResolvedValue([createTabContext(HTTP_TEST_URL)]);
-      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: VALID_API_KEY });
-      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: SIMPLE_PAGE_ID });
+      arrangeSavedPageForRemoteHighlightUpdate();
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);
-      mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
       await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, internalSender, sendResponse);
       expectResponseContaining(sendResponse, { success: true, highlightCount: 1 });
