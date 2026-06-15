@@ -60,6 +60,28 @@ describe('saveHandlers', () => {
   let handlers = null;
   let mockServices = null;
 
+  const setupSavedRemoteDeletedPage = (overrides = {}) => {
+    mockServices.storageService.getSavedPageData.mockResolvedValue({
+      notionPageId: 'page123',
+      notionUrl: 'https://notion.so/page123',
+      ...overrides,
+    });
+    mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+    mockServices.notionService.checkPageExists.mockResolvedValue(false);
+  };
+
+  const expectDeletedRemoteResponse = (sendResponse, overrides = {}) => {
+    expect(sendResponse).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        success: true,
+        statusKind: 'deleted_remote',
+        isSaved: false,
+        wasDeleted: true,
+        ...overrides,
+      })
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'valid-key', mode: 'manual' });
@@ -173,10 +195,19 @@ describe('saveHandlers', () => {
       );
     });
 
-    test('checkNotionPageExists 缺少 pageId 時應返回錯誤', async () => {
+    test.each([
+      {
+        action: 'checkNotionPageExists',
+        blockedService: ['notionService', 'checkPageExists'],
+      },
+      {
+        action: 'openNotionPage',
+        blockedService: ['storageService', 'getSavedPageData'],
+      },
+    ])('$action 缺少必要參數時應返回錯誤', async ({ action, blockedService }) => {
       const sendResponse = jest.fn();
 
-      await handlers.checkNotionPageExists({}, validSender, sendResponse);
+      await handlers[action]({}, validSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -184,7 +215,7 @@ describe('saveHandlers', () => {
           error: expect.any(String),
         })
       );
-      expect(mockServices.notionService.checkPageExists).not.toHaveBeenCalled();
+      expect(mockServices[blockedService[0]][blockedService[1]]).not.toHaveBeenCalled();
     });
 
     // ===== savePage Tests =====
@@ -295,47 +326,32 @@ describe('saveHandlers', () => {
       expect(mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
     });
 
-    test('savePage: 已保存頁改存到另一個 profile 時應建立新 Notion page', async () => {
-      const sendResponse = jest.fn();
-      mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue(
-        buildDestinationProfile({
-          id: 'profile-2',
-          name: 'Research',
-          notionDataSourceId: 'research-target',
-          notionDataSourceType: 'page',
-        })
-      );
-      mockServices.storageService.getSavedPageData.mockResolvedValue(
-        buildSavedPageState({
+    test.each([
+      {
+        title: '已保存頁改存到另一個 profile 時應建立新 Notion page',
+        savedPageData: buildSavedPageState({
           notionPageId: 'existing-id',
           notionUrl: 'https://notion.so/existing-id',
           destinationProfileId: 'default',
-        })
-      );
-      mockServices.notionService.createPage.mockResolvedValue(
-        buildCreatePageResult({
+        }),
+        createPageResult: buildCreatePageResult({
           pageId: 'new-page-id',
           url: 'https://notion.so/new-page',
-        })
-      );
-
-      await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
-
-      expect(mockServices.notionService.checkPageExists).not.toHaveBeenCalled();
-      expect(mockServices.notionService.createPage).toHaveBeenCalled();
-      expect(mockServices.storageService.setSavedPageData).toHaveBeenCalledWith(
-        'https://example.com',
-        expect.objectContaining({
-          notionPageId: 'new-page-id',
-          destinationProfileId: 'profile-2',
-        })
-      );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true, destinationProfileId: 'profile-2' })
-      );
-    });
-
-    test('savePage: legacy 已保存頁缺少 destinationProfileId 且改存 profile 時應建立新 Notion page', async () => {
+        }),
+      },
+      {
+        title: 'legacy 已保存頁缺少 destinationProfileId 且改存 profile 時應建立新 Notion page',
+        savedPageData: {
+          notionPageId: 'existing-id',
+          notionUrl: 'https://notion.so/existing-id',
+        },
+        createPageResult: {
+          success: true,
+          pageId: 'new-page-id',
+          url: 'https://notion.so/new-page',
+        },
+      },
+    ])('savePage: $title', async ({ savedPageData, createPageResult }) => {
       const sendResponse = jest.fn();
       mockServices.destinationProfileResolver.resolveProfileForSave.mockResolvedValue(
         buildDestinationProfile({
@@ -345,15 +361,8 @@ describe('saveHandlers', () => {
           notionDataSourceType: 'page',
         })
       );
-      mockServices.storageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'existing-id',
-        notionUrl: 'https://notion.so/existing-id',
-      });
-      mockServices.notionService.createPage.mockResolvedValue({
-        success: true,
-        pageId: 'new-page-id',
-        url: 'https://notion.so/new-page',
-      });
+      mockServices.storageService.getSavedPageData.mockResolvedValue(savedPageData);
+      mockServices.notionService.createPage.mockResolvedValue(createPageResult);
 
       await handlers.savePage({ profileId: 'profile-2' }, validSender, sendResponse);
 
@@ -613,39 +622,39 @@ describe('saveHandlers', () => {
       );
     });
 
-    test('savePage: 已有頁面且有新標註，應更新標註', async () => {
-      const sendResponse = jest.fn();
-      mockServices.storageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'existing-id',
-        destinationProfileId: 'default',
-      });
-      mockServices.notionService.checkPageExists.mockResolvedValue(true);
-      mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'highlight' }]);
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+    test.each([
+      {
+        title: '已有頁面且有新標註，應更新標註',
+        highlights: [{ text: 'highlight' }],
+        serviceMethod: 'updateHighlightsSection',
+        serviceResult: { success: true },
+        expectedResponse: { highlightsUpdated: true },
+      },
+      {
+        title: '已有頁面且無新標註，應刷新內容',
+        highlights: [],
+        serviceMethod: 'refreshPageContent',
+        serviceResult: { success: true },
+        expectedResponse: { updated: true },
+      },
+    ])(
+      'savePage: $title',
+      async ({ highlights, serviceMethod, serviceResult, expectedResponse }) => {
+        const sendResponse = jest.fn();
+        mockServices.storageService.getSavedPageData.mockResolvedValue({
+          notionPageId: 'existing-id',
+          destinationProfileId: 'default',
+        });
+        mockServices.notionService.checkPageExists.mockResolvedValue(true);
+        mockServices.injectionService.collectHighlights.mockResolvedValue(highlights);
+        mockServices.notionService[serviceMethod].mockResolvedValue(serviceResult);
 
-      await handlers.savePage({}, validSender, sendResponse);
+        await handlers.savePage({}, validSender, sendResponse);
 
-      expect(mockServices.notionService.updateHighlightsSection).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ highlightsUpdated: true })
-      );
-    });
-
-    test('savePage: 已有頁面且無新標註，應刷新內容', async () => {
-      const sendResponse = jest.fn();
-      mockServices.storageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'existing-id',
-        destinationProfileId: 'default',
-      });
-      mockServices.notionService.checkPageExists.mockResolvedValue(true);
-      mockServices.injectionService.collectHighlights.mockResolvedValue([]); // No highlights
-      mockServices.notionService.refreshPageContent.mockResolvedValue({ success: true });
-
-      await handlers.savePage({}, validSender, sendResponse);
-
-      expect(mockServices.notionService.refreshPageContent).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
-    });
+        expect(mockServices.notionService[serviceMethod]).toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining(expectedResponse));
+      }
+    );
 
     test('savePage: pageExists 連續兩次 false 才應清理並重建', async () => {
       const sendResponse = jest.fn();
@@ -693,67 +702,50 @@ describe('saveHandlers', () => {
         });
       };
 
-      test('cleanup failure 不應外露，create 成功時仍應回傳重建成功', async () => {
-        const sendResponse = jest.fn();
-        setupCleanupFailureRecreateFlow();
-        mockServices.notionService.createPage.mockResolvedValue({
-          success: true,
-          pageId: 'new-page-id',
-          url: 'https://notion.so/new-page-id',
-        });
-
-        await handlers.savePage({}, validSender, sendResponse);
-        await handlers.savePage({}, validSender, sendResponse);
-
-        expect(sendResponse).toHaveBeenLastCalledWith(
-          expect.objectContaining({
+      test.each([
+        {
+          title: 'cleanup failure 不應外露，create 成功時仍應回傳重建成功',
+          createPageResult: {
+            success: true,
+            pageId: 'new-page-id',
+            url: 'https://notion.so/new-page-id',
+          },
+          expectedLastResponse: {
             success: true,
             recreated: true,
-          })
-        );
-        expect(sendResponse).not.toHaveBeenLastCalledWith(
-          expect.objectContaining({
+          },
+          unexpectedLastResponse: {
             success: false,
             error: '清除本地 Notion 狀態失敗',
-          })
-        );
-        expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith(
-          'existing-id'
-        );
-        expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(3);
-        expect(Logger.error).toHaveBeenCalledWith(
-          '重建頁面前清除本地 Notion 狀態失敗，改以內部自癒處理',
-          expect.objectContaining({
-            action: 'recreatePage',
-            operation: 'clearNotionStateWithCanonicalPath',
-            url: expect.any(String),
-            attempts: 2,
-            error: expect.any(Object),
-          })
-        );
-      });
-
-      test('cleanup failure 不應覆蓋真正的 createPage 錯誤', async () => {
+          },
+        },
+        {
+          title: 'cleanup failure 不應覆蓋真正的 createPage 錯誤',
+          createPageResult: {
+            success: false,
+            error: 'create_failed',
+          },
+          expectedLastResponse: {
+            success: false,
+            error: expect.stringContaining('create_failed'),
+          },
+          unexpectedLastResponse: {
+            error: '清除本地 Notion 狀態失敗',
+          },
+        },
+      ])('$title', async ({ createPageResult, expectedLastResponse, unexpectedLastResponse }) => {
         const sendResponse = jest.fn();
         setupCleanupFailureRecreateFlow();
-        mockServices.notionService.createPage.mockResolvedValue({
-          success: false,
-          error: 'create_failed',
-        });
+        mockServices.notionService.createPage.mockResolvedValue(createPageResult);
 
         await handlers.savePage({}, validSender, sendResponse);
         await handlers.savePage({}, validSender, sendResponse);
 
         expect(sendResponse).toHaveBeenLastCalledWith(
-          expect.objectContaining({
-            success: false,
-            error: expect.stringContaining('create_failed'),
-          })
+          expect.objectContaining(expectedLastResponse)
         );
         expect(sendResponse).not.toHaveBeenLastCalledWith(
-          expect.objectContaining({
-            error: '清除本地 Notion 狀態失敗',
-          })
+          expect.objectContaining(unexpectedLastResponse)
         );
         expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith(
           'existing-id'
@@ -851,20 +843,6 @@ describe('saveHandlers', () => {
         expect.objectContaining({ url: 'https://notion.so/page-123' })
       );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-    });
-
-    test('openNotionPage: 缺少 url 時應返回錯誤', async () => {
-      const sendResponse = jest.fn();
-
-      await handlers.openNotionPage({}, validSender, sendResponse);
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.any(String),
-        })
-      );
-      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
     });
 
     test('openNotionPage: 缺少 notionUrl 時應生成 URL，若非法則拒絕打開', async () => {
@@ -1362,14 +1340,7 @@ describe('saveHandlers', () => {
       const sender = { id: 'mock-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'page123',
-        notionUrl: 'https://notion.so/page123',
-      });
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
-
-      // 模擬頁面已刪除
-      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      setupSavedRemoteDeletedPage();
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
@@ -1393,12 +1364,7 @@ describe('saveHandlers', () => {
       const sender = { id: 'mock-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'page123',
-        notionUrl: 'https://notion.so/page123',
-      });
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
-      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      setupSavedRemoteDeletedPage();
 
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
@@ -1412,14 +1378,7 @@ describe('saveHandlers', () => {
         })
       );
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
-      expect(sendResponse).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          success: true,
-          statusKind: 'deleted_remote',
-          isSaved: false,
-          wasDeleted: true,
-        })
-      );
+      expectDeletedRemoteResponse(sendResponse);
     });
 
     it('checkPageStatus cleanup failure 不應外露，仍應維持 deleted state', async () => {
@@ -1427,12 +1386,7 @@ describe('saveHandlers', () => {
       const sender = { id: 'mock-extension-id', tab: { id: 1 } };
       const rawUrl = 'https://example.com';
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'page123',
-        notionUrl: 'https://notion.so/page123',
-      });
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
-      mockServices.notionService.checkPageExists.mockResolvedValue(false);
+      setupSavedRemoteDeletedPage();
       mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
         cleared: false,
         attempts: 2,
@@ -1442,14 +1396,7 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
       await handlers.checkPageStatus({ url: rawUrl }, sender, sendResponse);
 
-      expect(sendResponse).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          success: true,
-          statusKind: 'deleted_remote',
-          isSaved: false,
-          wasDeleted: true,
-        })
-      );
+      expectDeletedRemoteResponse(sendResponse);
       expect(sendResponse).not.toHaveBeenLastCalledWith(
         expect.objectContaining({
           success: false,
@@ -1568,15 +1515,7 @@ describe('saveHandlers', () => {
           expectedPageId: 'page123',
         })
       );
-      expect(sendResponse).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          success: true,
-          statusKind: 'deleted_remote',
-          isSaved: false,
-          wasDeleted: true,
-          stableUrl,
-        })
-      );
+      expectDeletedRemoteResponse(sendResponse, { stableUrl });
     });
 
     it('checkPageStatus 重新解析 cleanup URL 失敗時應記錄原始 Error 並回退既有路徑', async () => {
@@ -1630,15 +1569,7 @@ describe('saveHandlers', () => {
           error: refreshError,
         })
       );
-      expect(sendResponse).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          success: true,
-          statusKind: 'deleted_remote',
-          isSaved: false,
-          wasDeleted: true,
-          stableUrl: rawUrl,
-        })
-      );
+      expectDeletedRemoteResponse(sendResponse, { stableUrl: rawUrl });
     });
 
     it('checkPageStatus 在 cleanup 後再次查詢，仍應保持未保存狀態', async () => {
@@ -1798,7 +1729,13 @@ describe('saveHandlers', () => {
       });
     });
 
-    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Toolbar)', async () => {
+    test.each([
+      [
+        'SAVE_PAGE_FROM_TOOLBAR',
+        'auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Toolbar)',
+      ],
+      ['SAVE_PAGE_FROM_RAIL', 'auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Rail)'],
+    ])('%s', async (action, _title) => {
       mockServices.notionService.createPage.mockResolvedValue({
         success: false,
         error: 'unauthorized',
@@ -1806,27 +1743,7 @@ describe('saveHandlers', () => {
       });
 
       const sendResponse = jest.fn();
-      await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
-
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-        5,
-        expect.objectContaining({
-          action: 'SHOW_TOAST',
-          messageKey: 'SYNC_FAILED_AUTH',
-          level: 'error',
-        })
-      );
-    });
-
-    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Rail)', async () => {
-      mockServices.notionService.createPage.mockResolvedValue({
-        success: false,
-        error: 'unauthorized',
-        errorCode: 'UNAUTHORIZED',
-      });
-
-      const sendResponse = jest.fn();
-      await handlers.SAVE_PAGE_FROM_RAIL({}, toolbarSender, sendResponse);
+      await handlers[action]({}, toolbarSender, sendResponse);
 
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
         5,
