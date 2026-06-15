@@ -78,7 +78,7 @@ export function initHighlighter(options = {}) {
   createAndInjectDependencies(manager, options);
 
   // 自動執行初始化
-  manager.initializationComplete = manager.initialize();
+  manager.initializationComplete = manager.initialize(options.skipRestore);
 
   return manager;
 }
