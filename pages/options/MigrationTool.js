@@ -12,6 +12,26 @@ import { createSafeIcon } from '../../scripts/utils/securityUtils.js';
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 import { MigrationScanner } from './MigrationScanner.js';
 
+const BATCH_OPERATION_TYPES = Object.freeze({
+  MIGRATION: 'migration',
+  DELETION: 'deletion',
+});
+
+const BATCH_OPERATION_CONFIGS = Object.freeze({
+  migration: Object.freeze({
+    type: BATCH_OPERATION_TYPES.MIGRATION,
+    action: RUNTIME_ACTIONS.MIGRATION_BATCH,
+    progressText: '處理中...',
+    errorContext: 'batch_migration',
+  }),
+  deletion: Object.freeze({
+    type: BATCH_OPERATION_TYPES.DELETION,
+    action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE,
+    progressText: '刪除中...',
+    errorContext: 'batch_deletion',
+  }),
+});
+
 /**
  * 遷移工具類別
  * 負責協調舊版數據的掃描與遷移過程，並管理相關 UI
@@ -389,70 +409,93 @@ export class MigrationTool {
 
   /**
    * 執行選中項目的遷移（使用批量 API）
+   *
+   * @returns {Promise<void>}
    */
-  async performSelectedMigration() {
+  performSelectedMigration() {
+    return this.runSelectedBatchOperation(BATCH_OPERATION_CONFIGS.migration);
+  }
+
+  /**
+   * 執行選中項目的刪除（使用批量 API）
+   *
+   * @returns {Promise<void>}
+   */
+  performSelectedDeletion() {
+    if (!this.confirmSelectedDeletion()) {
+      return Promise.resolve();
+    }
+    return this.runSelectedBatchOperation(BATCH_OPERATION_CONFIGS.deletion);
+  }
+
+  /**
+   * 確認使用者是否要刪除目前選中的舊版標註資料
+   *
+   * @returns {boolean}
+   */
+  confirmSelectedDeletion() {
+    if (this.selectedUrls.size === 0) {
+      return false;
+    }
+    return globalThis.confirm(
+      `確定要刪除 ${this.selectedUrls.size} 個頁面的舊版標註數據嗎？\n此操作無法還原！`
+    );
+  }
+
+  /**
+   * 執行批量 migration/delete 共用流程
+   *
+   * @param {{type: string, action: string, progressText: string, errorContext: string}} operation
+   * @returns {Promise<void>}
+   */
+  async runSelectedBatchOperation(operation) {
     if (this.selectedUrls.size === 0) {
       return;
     }
 
     const urls = this.getSelectedUrls();
-
-    this.showBatchProgress('處理中...');
+    this.showBatchProgress(operation.progressText);
 
     try {
       const response = await chrome.runtime.sendMessage({
-        action: RUNTIME_ACTIONS.MIGRATION_BATCH,
+        action: operation.action,
         urls,
       });
 
-      this.completeBatchProgress('100%');
-      this.handleBatchMigrationResponse(response);
+      this.completeBatchProgress();
+      this.handleBatchOperationResponse(operation.type, response, urls);
     } catch (error) {
-      const safeMessage = sanitizeApiError(error, 'batch_migration');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showErrorResult(errorMsg);
+      this.showBatchOperationError(error, operation.errorContext);
     } finally {
       this.finishBatchOperation();
     }
   }
 
   /**
-   * 執行選中項目的刪除（使用批量 API）
+   * 依批量操作類型分派 API 回應處理
+   *
+   * @param {string} operationType 批量操作類型
+   * @param {object} response API 回應對象
+   * @param {string[]} urls 操作 URL 陣列
    */
-  async performSelectedDeletion() {
-    if (this.selectedUrls.size === 0) {
+  handleBatchOperationResponse(operationType, response, urls) {
+    if (operationType === BATCH_OPERATION_TYPES.MIGRATION) {
+      this.handleBatchMigrationResponse(response);
       return;
     }
+    this.handleBatchDeletionResponse(response, urls);
+  }
 
-    // 確認刪除（使用原生對話框確保用戶明確確認）
-
-    const confirmed = globalThis.confirm(
-      `確定要刪除 ${this.selectedUrls.size} 個頁面的舊版標註數據嗎？\n此操作無法還原！`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    const urls = this.getSelectedUrls();
-
-    this.showBatchProgress('刪除中...');
-
-    try {
-      const response = await chrome.runtime.sendMessage({
-        action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE,
-        urls,
-      });
-
-      this.completeBatchProgress('100%');
-      this.handleBatchDeletionResponse(response, urls);
-    } catch (error) {
-      const safeMessage = sanitizeApiError(error, 'batch_deletion');
-      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showErrorResult(errorMsg);
-    } finally {
-      this.finishBatchOperation();
-    }
+  /**
+   * 顯示批量操作錯誤
+   *
+   * @param {unknown} error 原始錯誤
+   * @param {string} errorContext 錯誤清理情境
+   */
+  showBatchOperationError(error, errorContext) {
+    const safeMessage = sanitizeApiError(error, errorContext);
+    const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+    this.showErrorResult(errorMsg);
   }
 
   /**
