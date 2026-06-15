@@ -858,6 +858,32 @@ describe('saveHandlers savePage', () => {
         })
       );
     });
+
+    test('SAVE_PAGE_FROM_RAIL: 保存流程非預期錯誤時應由 content-script save catch 回傳錯誤', async () => {
+      const sendResponse = jest.fn();
+      context.mockServices.tabService.resolveTabUrl.mockRejectedValue(new Error('resolve failed'));
+
+      await context.handlers.SAVE_PAGE_FROM_RAIL(
+        {},
+        { id: 'mock-extension-id', tab: { id: 2, url: 'https://example.com' } },
+        sendResponse
+      );
+
+      expect(Logger.error).toHaveBeenCalledWith(
+        '從 Floating Rail 保存頁面時發生錯誤',
+        expect.objectContaining({
+          action: 'SAVE_PAGE_FROM_RAIL',
+          result: 'failed',
+          error: 'resolve failed',
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
   });
 
   describe('toast 推送（save failure → SHOW_TOAST）', () => {
