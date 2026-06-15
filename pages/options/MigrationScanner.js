@@ -237,6 +237,11 @@ export class MigrationScanner {
    * @returns {string}
    */
   static truncateUrl(url, maxLength = 50) {
+    // 防禦性空值處理
+    if (!url || typeof url !== 'string') {
+      return '';
+    }
+
     if (url.length <= maxLength) {
       return url;
     }

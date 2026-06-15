@@ -237,5 +237,20 @@ describe('MigrationScanner', () => {
       const result = MigrationScanner.truncateUrl(shortUrl, 50);
       expect(result).toBe(shortUrl);
     });
+
+    it('should handle null URL', () => {
+      const result = MigrationScanner.truncateUrl(null, 30);
+      expect(result).toBe('');
+    });
+
+    it('should handle undefined URL', () => {
+      const result = MigrationScanner.truncateUrl(undefined, 30);
+      expect(result).toBe('');
+    });
+
+    it('should handle non-string URL', () => {
+      const result = MigrationScanner.truncateUrl(12_345, 30);
+      expect(result).toBe('');
+    });
   });
 });
