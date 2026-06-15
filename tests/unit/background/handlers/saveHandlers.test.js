@@ -1050,6 +1050,21 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('SAVE_PAGE_FROM_RAIL: 內部錯誤時應返回錯誤', async () => {
+      const sendResponse = jest.fn();
+
+      mockServices.pageContentService.extractContent.mockRejectedValue(new Error('Rail failed'));
+
+      await handlers.SAVE_PAGE_FROM_RAIL({}, validContentScriptSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
+
     test('SAVE_PAGE_FROM_TOOLBAR: 不應讀取 request.profileId 覆寫保存目標', async () => {
       const sendResponse = jest.fn();
       const toolbarSender = {
@@ -1935,7 +1950,7 @@ describe('saveHandlers', () => {
       });
     });
 
-    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast', async () => {
+    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Toolbar)', async () => {
       mockServices.notionService.createPage.mockResolvedValue({
         success: false,
         error: 'unauthorized',
@@ -1944,6 +1959,26 @@ describe('saveHandlers', () => {
 
       const sendResponse = jest.fn();
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey: 'SYNC_FAILED_AUTH',
+          level: 'error',
+        })
+      );
+    });
+
+    test('auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Rail)', async () => {
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: 'unauthorized',
+        errorCode: 'UNAUTHORIZED',
+      });
+
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_RAIL({}, toolbarSender, sendResponse);
 
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
         5,

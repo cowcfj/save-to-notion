@@ -47,6 +47,7 @@ describe('runtime action 模組拆分', () => {
         'CHECK_PAGE_STATUS',
         'SAVE_PAGE',
         'SAVE_PAGE_FROM_TOOLBAR',
+        'SAVE_PAGE_FROM_RAIL',
         'PAGE_SAVE_HINT',
         'OPEN_NOTION_PAGE',
         'OPEN_SIDE_PANEL',

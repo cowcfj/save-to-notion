@@ -23,7 +23,7 @@ export async function checkPageStatus() {
 
 export async function savePageFromRail() {
   const sendMessage = ensureChromeRuntimeAvailable();
-  return sendMessage({ action: PAGE_SAVE_ACTIONS.SAVE_PAGE_FROM_TOOLBAR });
+  return sendMessage({ action: PAGE_SAVE_ACTIONS.SAVE_PAGE_FROM_RAIL });
 }
 
 export async function syncHighlights(highlights) {
