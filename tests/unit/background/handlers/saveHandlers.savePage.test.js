@@ -627,6 +627,20 @@ describe('saveHandlers savePage', () => {
   // ===== openNotionPage Tests =====
 
   describe('Coverage Improvements', () => {
+    const activeTabSender = () => ({ id: chrome.runtime.id });
+
+    const savePageWithActiveTab = async ({ sender = activeTabSender(), tabUrl } = {}) => {
+      const sendResponse = jest.fn();
+
+      if (tabUrl) {
+        chrome.tabs.query.mockResolvedValue([{ id: 1, url: tabUrl }]);
+      }
+
+      await context.handlers.savePage({}, sender, sendResponse);
+
+      return sendResponse;
+    };
+
     beforeEach(() => {
       isRestrictedInjectionUrl.mockReturnValue(false);
       validateInternalRequest.mockReturnValue(null);
@@ -646,10 +660,7 @@ describe('saveHandlers savePage', () => {
 
     test('savePage: 應拒絕非法內部請求', async () => {
       validateInternalRequest.mockReturnValue({ error: 'Access denied' });
-      const sendResponse = jest.fn();
-      const sender = { id: 'wrong-id' };
-
-      await context.handlers.savePage({}, sender, sendResponse);
+      const sendResponse = await savePageWithActiveTab({ sender: { id: 'wrong-id' } });
 
       expect(validateInternalRequest).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
@@ -659,11 +670,7 @@ describe('saveHandlers savePage', () => {
 
     test('savePage: 應拒絕受限 URL', async () => {
       isRestrictedInjectionUrl.mockReturnValue(true);
-      const sendResponse = jest.fn();
-      const sender = { id: chrome.runtime.id };
-      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'chrome://settings' }]);
-
-      await context.handlers.savePage({}, sender, sendResponse);
+      const sendResponse = await savePageWithActiveTab({ tabUrl: 'chrome://settings' });
 
       expect(isRestrictedInjectionUrl).toHaveBeenCalledWith('chrome://settings');
       expect(sendResponse).toHaveBeenCalledWith(
@@ -677,11 +684,7 @@ describe('saveHandlers savePage', () => {
     test('savePage: API Key 缺失應報錯', async () => {
       context.mockServices.storageService.getConfig.mockResolvedValue({});
       getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
-      const sendResponse = jest.fn();
-      const sender = { id: chrome.runtime.id };
-      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
-
-      await context.handlers.savePage({}, sender, sendResponse);
+      const sendResponse = await savePageWithActiveTab({ tabUrl: 'https://example.com' });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -695,11 +698,7 @@ describe('saveHandlers savePage', () => {
       context.mockServices.pageContentService.extractContent.mockRejectedValue(
         new Error('Extract failed')
       );
-      const sendResponse = jest.fn();
-      const sender = { id: chrome.runtime.id };
-      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
-
-      await context.handlers.savePage({}, sender, sendResponse);
+      const sendResponse = await savePageWithActiveTab({ tabUrl: 'https://example.com' });
 
       expect(Logger.error).toHaveBeenCalledWith(
         expect.stringMatching(/內容提取失敗|驗證失敗/),
@@ -719,11 +718,7 @@ describe('saveHandlers savePage', () => {
         success: false,
         error: 'Create failed',
       });
-      const sendResponse = jest.fn();
-      const sender = { id: chrome.runtime.id };
-      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
-
-      await context.handlers.savePage({}, sender, sendResponse);
+      const sendResponse = await savePageWithActiveTab({ tabUrl: 'https://example.com' });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false }) // Relax expectation
@@ -733,6 +728,33 @@ describe('saveHandlers savePage', () => {
 
   describe('toast 推送（save failure → SHOW_TOAST）', () => {
     const toolbarSender = { id: 'mock-extension-id', tab: { id: 5, url: 'https://example.com' } };
+
+    const mockCreatePageFailure = ({ errorCode, errorText }) => {
+      context.mockServices.notionService.createPage.mockResolvedValue({
+        success: false,
+        error: errorText,
+        errorCode,
+      });
+    };
+
+    const saveFromToolbarAction = async (action = 'SAVE_PAGE_FROM_TOOLBAR') => {
+      const sendResponse = jest.fn();
+
+      await context.handlers[action]({}, toolbarSender, sendResponse);
+
+      return sendResponse;
+    };
+
+    const expectToastSent = messageKey => {
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          action: 'SHOW_TOAST',
+          messageKey,
+          level: 'error',
+        })
+      );
+    };
 
     beforeEach(() => {
       context.mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
@@ -753,23 +775,11 @@ describe('saveHandlers savePage', () => {
       ],
       ['SAVE_PAGE_FROM_RAIL', 'auth 失敗（UNAUTHORIZED）→ 推送 SYNC_FAILED_AUTH toast (Rail)'],
     ])('%s', async (action, _title) => {
-      context.mockServices.notionService.createPage.mockResolvedValue({
-        success: false,
-        error: 'unauthorized',
-        errorCode: 'UNAUTHORIZED',
-      });
+      mockCreatePageFailure({ errorCode: 'UNAUTHORIZED', errorText: 'unauthorized' });
 
-      const sendResponse = jest.fn();
-      await context.handlers[action]({}, toolbarSender, sendResponse);
+      await saveFromToolbarAction(action);
 
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-        5,
-        expect.objectContaining({
-          action: 'SHOW_TOAST',
-          messageKey: 'SYNC_FAILED_AUTH',
-          level: 'error',
-        })
-      );
+      expectToastSent('SYNC_FAILED_AUTH');
     });
 
     test.each([
@@ -789,34 +799,20 @@ describe('saveHandlers savePage', () => {
         messageKey: 'SYNC_FAILED_PAGE',
       },
     ])('$errorCode 失敗 → 推送 $messageKey toast', async ({ errorCode, errorText, messageKey }) => {
-      context.mockServices.notionService.createPage.mockResolvedValue({
-        success: false,
-        error: errorText,
-        errorCode,
-      });
+      mockCreatePageFailure({ errorCode, errorText });
 
-      const sendResponse = jest.fn();
-      await context.handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+      await saveFromToolbarAction();
 
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-        5,
-        expect.objectContaining({
-          action: 'SHOW_TOAST',
-          messageKey,
-          level: 'error',
-        })
-      );
+      expectToastSent(messageKey);
     });
 
     test('不在映射表的 errorCode → 不推送 toast', async () => {
-      context.mockServices.notionService.createPage.mockResolvedValue({
-        success: false,
-        error: 'some unknown error',
+      mockCreatePageFailure({
         errorCode: 'SOME_UNKNOWN_CODE',
+        errorText: 'some unknown error',
       });
 
-      const sendResponse = jest.fn();
-      await context.handlers.SAVE_PAGE_FROM_TOOLBAR({}, toolbarSender, sendResponse);
+      await saveFromToolbarAction();
 
       expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
         5,
