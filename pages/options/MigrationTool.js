@@ -647,6 +647,7 @@ export class MigrationTool {
     const link = document.createElement('a');
     link.href = url;
     link.target = '_blank';
+    link.rel = 'noopener noreferrer';
     link.className = 'open-page-link';
     link.textContent = '打開頁面';
     return link;

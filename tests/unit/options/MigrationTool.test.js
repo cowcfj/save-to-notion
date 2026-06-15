@@ -436,7 +436,11 @@ describe('MigrationTool Extended', () => {
       });
       expect(migrationTool.selectedUrls.size).toBe(0);
       expect(dispatchSpy).toHaveBeenCalledWith(expect.any(CustomEvent));
-      expect(dispatchSpy.mock.calls[0][0].type).toBe('storageUsageUpdate');
+      // 驗證任一 dispatch 包含正確的 event type，而非假設順序
+      const storageUpdateCalls = dispatchSpy.mock.calls.filter(
+        call => call[0]?.type === 'storageUsageUpdate'
+      );
+      expect(storageUpdateCalls.length).toBeGreaterThan(0);
 
       dispatchSpy.mockRestore();
     });
@@ -464,7 +468,10 @@ describe('MigrationTool Extended', () => {
       await migrationTool.performSelectedMigration();
 
       const migrationResult = document.querySelector('#migration-result');
-      expect(migrationResult.textContent).toBeTruthy();
+      // 驗證顯示完整的使用者友善錯誤訊息（經 sanitizeApiError + ErrorHandler.formatUserMessage 處理）
+      // 'Network error' → sanitizeApiError → 'NETWORK_ERROR' → formatUserMessage → 實際中文訊息
+      // showErrorResult 會在前面加上 " 操作失敗"（含前導空格來自 icon）
+      expect(migrationResult.textContent).toBe(' 操作失敗網路連線異常，請檢查網路後重試');
       expect(migrationTool.elements.progressContainer.style.display).toBe('none');
     });
   });
