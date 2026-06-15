@@ -145,33 +145,38 @@ describe('windowAPI (Rail-only)', () => {
     expect(matched).toBeUndefined();
   });
 
-  test('isActive() 在 rail collapsed 或 hidden 時應回 false', () => {
+  test.each([
+    [
+      'collapsed',
+      {
+        stateManager: { currentState: 'collapsed' },
+        host: { style: { display: 'block' } },
+      },
+    ],
+    [
+      'hidden',
+      {
+        stateManager: { currentState: 'hidden' },
+        host: { style: { display: 'block' } },
+      },
+    ],
+    [
+      'display none',
+      {
+        stateManager: { currentState: 'visible' },
+        host: { style: { display: 'none' } },
+      },
+    ],
+    [
+      'state missing',
+      {
+        stateManager: {},
+        host: { style: { display: 'block' } },
+      },
+    ],
+  ])('isActive() 在 rail %s 時應回 false', (_caseName, rail) => {
     mountWithMocks();
-    globalThis.HighlighterV2.rail = {
-      stateManager: { currentState: 'collapsed' },
-      host: { style: { display: 'block' } },
-    };
-
-    expect(globalThis.notionHighlighter.isActive()).toBe(false);
-
-    globalThis.HighlighterV2.rail.stateManager.currentState = 'hidden';
-
-    expect(globalThis.notionHighlighter.isActive()).toBe(false);
-  });
-
-  test('isActive() 在 rail display none 或 state 缺失時應回 false', () => {
-    mountWithMocks();
-    globalThis.HighlighterV2.rail = {
-      stateManager: { currentState: 'visible' },
-      host: { style: { display: 'none' } },
-    };
-
-    expect(globalThis.notionHighlighter.isActive()).toBe(false);
-
-    globalThis.HighlighterV2.rail = {
-      stateManager: {},
-      host: { style: { display: 'block' } },
-    };
+    globalThis.HighlighterV2.rail = rail;
 
     expect(globalThis.notionHighlighter.isActive()).toBe(false);
   });
