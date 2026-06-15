@@ -1563,9 +1563,9 @@ function forwardClientLog(level, message, args) {
   const logMessage = `[ClientLog] ${message}`;
   Logger[level](logMessage, ...args);
   const context = {
+    ...parseArgsToContext(args),
     action: 'devLogSink',
     result: 'success',
-    ...parseArgsToContext(args),
   };
   Logger.addLogToBuffer({
     level,

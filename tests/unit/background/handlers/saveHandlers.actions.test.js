@@ -457,5 +457,34 @@ describe('saveHandlers security and actions', () => {
       );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
+
+    it('應該防止 client 覆蓋 action 和 result 欄位', async () => {
+      const sendResponse = jest.fn();
+      // 嘗試用 client-supplied args 覆蓋關鍵欄位
+      await context.handlers.devLogSink(
+        {
+          message: 'malicious log',
+          level: 'info',
+          args: [{ action: 'FAKE_ACTION', result: 'FAKE_RESULT', userdata: 'real data' }],
+        },
+        sender,
+        sendResponse
+      );
+
+      // 驗證 action 和 result 欄位沒有被覆蓋
+      expect(globalThis.Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: '[ClientLog] malicious log',
+          level: 'info',
+          context: expect.objectContaining({
+            action: 'devLogSink', // 應保持為 'devLogSink'，不是 'FAKE_ACTION'
+            result: 'success', // 應保持為 'success'，不是 'FAKE_RESULT'
+            userdata: 'real data', // client 資料應該被保留
+          }),
+        })
+      );
+
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
   });
 });
