@@ -391,18 +391,23 @@ function sendRestrictedPageResponse(pageUrl, sendResponse, options = {}) {
   });
 }
 
-function logInvalidToolbarRequest(sender, validationError) {
+function logInvalidContentScriptSaveRequest(
+  sender,
+  validationError,
+  actionName = 'SAVE_PAGE_FROM_RAIL'
+) {
   Logger.warn('安全性阻擋', {
-    action: 'SAVE_PAGE_FROM_TOOLBAR',
+    action: actionName,
     reason: 'invalid_content_script_request',
     error: validationError.error,
     senderId: sender?.id,
     tabId: sender?.tab?.id,
+    result: 'blocked',
   });
 }
 
-function validateToolbarActiveTab(activeTab, sendResponse) {
-  if (isToolbarActiveTabUsable(activeTab)) {
+function validateContentScriptActiveTab(activeTab, sendResponse) {
+  if (isContentScriptActiveTabUsable(activeTab)) {
     return activeTab;
   }
 
@@ -410,7 +415,7 @@ function validateToolbarActiveTab(activeTab, sendResponse) {
   return null;
 }
 
-function isToolbarActiveTabUsable(activeTab) {
+function isContentScriptActiveTabUsable(activeTab) {
   return Boolean(activeTab && typeof activeTab.url === 'string' && activeTab.url.trim().length > 0);
 }
 
@@ -768,19 +773,25 @@ export function createSaveHandlers(services) {
    * @param {object} sender - 請求發送者
    * @param {Function} sendResponse - 回應函數
    * @param {{requireDataSource?: boolean}} [options] - 是否要求 legacy data source 設定
+   * @param {string} [actionName] - 動作名稱，預設為 'SAVE_PAGE_FROM_RAIL'
    * @returns {Promise<object|null>} 配置對象或 null
    */
-  async function _validateToolbarRequestAndGetConfig(sender, sendResponse, options = {}) {
+  async function _validateContentScriptSaveRequestAndGetConfig(
+    sender,
+    sendResponse,
+    options = {},
+    actionName = 'SAVE_PAGE_FROM_RAIL'
+  ) {
     const { requireDataSource = true } = options;
     // Content Script 安全性驗證
     const validationError = validateContentScriptRequest(sender);
     if (validationError) {
-      logInvalidToolbarRequest(sender, validationError);
+      logInvalidContentScriptSaveRequest(sender, validationError, actionName);
       sendResponse(validationError);
       return null;
     }
 
-    const activeTab = validateToolbarActiveTab(sender.tab, sendResponse);
+    const activeTab = validateContentScriptActiveTab(sender.tab, sendResponse);
     if (!activeTab) {
       return null;
     }
@@ -1232,6 +1243,50 @@ export function createSaveHandlers(services) {
     });
   }
 
+  async function _handleContentScriptSave({
+    sender,
+    sendResponse,
+    actionName,
+    errorScope,
+    logMessage,
+  }) {
+    try {
+      const configData = await _validateContentScriptSaveRequestAndGetConfig(
+        sender,
+        sendResponse,
+        { requireDataSource: false },
+        actionName
+      );
+      if (!configData) {
+        return;
+      }
+
+      const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
+      if (!destinationProfile) {
+        return;
+      }
+
+      await _runSaveFlow(
+        configData.activeTab,
+        {
+          ...configData,
+          destinationProfile,
+          dataSourceId: destinationProfile.notionDataSourceId,
+          dataSourceType: destinationProfile.notionDataSourceType,
+        },
+        sendResponse
+      );
+    } catch (error) {
+      Logger.error(logMessage, {
+        action: actionName,
+        error: error?.message ?? error,
+        result: 'failed',
+      });
+      const safeMessage = sanitizeApiError(error, errorScope);
+      sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+    }
+  }
+
   return {
     /**
      * 保存頁面
@@ -1279,46 +1334,39 @@ export function createSaveHandlers(services) {
     },
 
     /**
-     * 從 Toolbar (Content Script) 保存頁面
-     * 與 savePage 邏輯完全一致，但使用 Content Script 安全性驗證
+     * 從 Toolbar (Content Script) 保存頁面 (Legacy Alias)
+     * 與 SAVE_PAGE_FROM_RAIL 邏輯完全一致
      *
      * @param {object} request - 請求對象
      * @param {chrome.runtime.MessageSender} sender - 發送者信息
      * @param {Function} sendResponse - 回應函數
      */
     [RUNTIME_ACTIONS.SAVE_PAGE_FROM_TOOLBAR]: async (request, sender, sendResponse) => {
-      try {
-        const configData = await _validateToolbarRequestAndGetConfig(sender, sendResponse, {
-          requireDataSource: false,
-        });
-        if (!configData) {
-          return;
-        }
+      await _handleContentScriptSave({
+        sender,
+        sendResponse,
+        actionName: 'SAVE_PAGE_FROM_TOOLBAR',
+        errorScope: 'save_page_toolbar',
+        logMessage: '從 Toolbar 保存頁面時發生錯誤',
+      });
+    },
 
-        const destinationProfile = await resolveDestinationProfile({}, sendResponse, configData);
-        if (!destinationProfile) {
-          return;
-        }
-
-        // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
-        await _runSaveFlow(
-          configData.activeTab,
-          {
-            ...configData,
-            destinationProfile,
-            dataSourceId: destinationProfile.notionDataSourceId,
-            dataSourceType: destinationProfile.notionDataSourceType,
-          },
-          sendResponse
-        );
-      } catch (error) {
-        Logger.error('從 Toolbar 保存頁面時發生錯誤', {
-          action: 'SAVE_PAGE_FROM_TOOLBAR',
-          error: error?.message ?? error,
-        });
-        const safeMessage = sanitizeApiError(error, 'save_page_toolbar');
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
-      }
+    /**
+     * 從 Floating Rail 保存頁面
+     * 與 SAVE_PAGE_FROM_TOOLBAR 邏輯完全一致，但專為 Rail-native 呼叫設計
+     *
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
+     */
+    [RUNTIME_ACTIONS.SAVE_PAGE_FROM_RAIL]: async (request, sender, sendResponse) => {
+      await _handleContentScriptSave({
+        sender,
+        sendResponse,
+        actionName: 'SAVE_PAGE_FROM_RAIL',
+        errorScope: 'save_page_rail',
+        logMessage: '從 Floating Rail 保存頁面時發生錯誤',
+      });
     },
 
     /**
@@ -1514,10 +1562,15 @@ function normalizeClientLogLevel(level) {
 function forwardClientLog(level, message, args) {
   const logMessage = `[ClientLog] ${message}`;
   Logger[level](logMessage, ...args);
+  const context = {
+    ...parseArgsToContext(args),
+    action: 'devLogSink',
+    result: 'success',
+  };
   Logger.addLogToBuffer({
     level,
     message: logMessage,
-    context: parseArgsToContext(args),
+    context,
     source: 'content_script',
   });
 }

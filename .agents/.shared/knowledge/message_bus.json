@@ -31,7 +31,28 @@
         }
       },
       "SAVE_PAGE_FROM_TOOLBAR": {
-        "description": "從 Highlighter Toolbar 觸發保存流程",
+        "description": "從 Highlighter Toolbar 觸發保存流程 (Legacy compatibility alias, 內部邏輯與 SAVE_PAGE_FROM_RAIL 一致)",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "statusKind": "\"saved\" | \"unsaved\" | \"deletion_pending\" | \"deleted_remote\" | \"unverified_saved\" | \"error\" (optional)",
+          "isSaved": "boolean (optional)",
+          "canSave": "boolean (optional)",
+          "canSyncHighlights": "boolean (optional)",
+          "stableUrl": "string (optional)",
+          "url": "string (optional)",
+          "pageId": "string (optional)",
+          "notionPageId": "string (optional)",
+          "notionUrl": "string (optional)",
+          "title": "string (optional)",
+          "destinationProfileId": "string (optional)",
+          "destinationProfileName": "string (optional)",
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
+        }
+      },
+      "SAVE_PAGE_FROM_RAIL": {
+        "description": "從 Floating Rail 觸發保存流程 (Canonical Path)",
         "payload": {},
         "response": {
           "success": "boolean",

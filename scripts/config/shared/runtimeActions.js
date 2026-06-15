@@ -115,6 +115,30 @@ const PAGE_STATUS_ACTIONS = {
  */
 
 /**
+ * @typedef {object} SavePageFromRailRequest
+ * @property {'SAVE_PAGE_FROM_RAIL'} action
+ */
+
+/**
+ * @typedef {object} SavePageFromRailResponse
+ * @property {boolean} success
+ * @property {'saved'|'unsaved'|'deletion_pending'|'deleted_remote'|'unverified_saved'|'error'} [statusKind]
+ * @property {boolean} [isSaved]
+ * @property {boolean} [canSave]
+ * @property {boolean} [canSyncHighlights]
+ * @property {string} [stableUrl]
+ * @property {string} [url]
+ * @property {string} [pageId]
+ * @property {string} [notionPageId]
+ * @property {string} [notionUrl]
+ * @property {string} [title]
+ * @property {string} [destinationProfileId]
+ * @property {string} [destinationProfileName]
+ * @property {string} [errorCode]
+ * @property {string} [error]
+ */
+
+/**
  * @typedef {object} OpenNotionPageRequest
  * @property {'openNotionPage'} action
  * @property {string} url
@@ -162,6 +186,7 @@ const PAGE_STATUS_ACTIONS = {
 const SAVE_ACTIONS = {
   SAVE_PAGE: 'savePage',
   SAVE_PAGE_FROM_TOOLBAR: 'SAVE_PAGE_FROM_TOOLBAR',
+  SAVE_PAGE_FROM_RAIL: 'SAVE_PAGE_FROM_RAIL',
   OPEN_NOTION_PAGE: 'openNotionPage',
   CHECK_NOTION_PAGE_EXISTS: 'checkNotionPageExists',
   SEARCH_NOTION: 'searchNotion',
@@ -737,6 +762,7 @@ export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
  * @property {SetStableUrlRequest['action']} SET_STABLE_URL - Request: {@link SetStableUrlRequest}; Response: {@link SetStableUrlResponse}
  * @property {SavePageRequest['action']} SAVE_PAGE - Request: {@link SavePageRequest}; Response: {@link SavePageResponse}
  * @property {SavePageFromToolbarRequest['action']} SAVE_PAGE_FROM_TOOLBAR - Request: {@link SavePageFromToolbarRequest}; Response: {@link SavePageFromToolbarResponse}
+ * @property {SavePageFromRailRequest['action']} SAVE_PAGE_FROM_RAIL - Request: {@link SavePageFromRailRequest}; Response: {@link SavePageFromRailResponse}
  * @property {OpenNotionPageRequest['action']} OPEN_NOTION_PAGE - Request: {@link OpenNotionPageRequest}; Response: {@link OpenNotionPageResponse}
  * @property {CheckNotionPageExistsRequest['action']} CHECK_NOTION_PAGE_EXISTS - Request: {@link CheckNotionPageExistsRequest}; Response: {@link CheckNotionPageExistsResponse}
  * @property {SearchNotionRequest['action']} SEARCH_NOTION - Request: {@link SearchNotionRequest}; Response: {@link SearchNotionResponse}

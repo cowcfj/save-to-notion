@@ -726,6 +726,13 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, createInternalSender(), sendResponse);
       expectFailureResponse(sendResponse, expect.stringContaining('必須在標籤頁上下文中'));
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        '安全性阻擋',
+        expect.objectContaining({
+          action: 'SAVE_PAGE_FROM_TOOLBAR',
+          result: 'blocked',
+        })
+      );
     });
 
     test('應該在缺少 sender.tab 時回傳 NO_ACTIVE_TAB 友善訊息', async () => {
@@ -810,6 +817,52 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
 
       expectFailureResponse(sendResponse, ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED);
+    });
+  });
+
+  describe('SAVE_PAGE_FROM_RAIL Handler', () => {
+    const mockContentResult = createContentResult();
+
+    beforeEach(() => {
+      mockStorageService.getConfig.mockResolvedValue(createDefaultConfig());
+      mockInjectionService.collectHighlights.mockResolvedValue([]);
+      mockPageContentService.extractContent.mockResolvedValue(mockContentResult);
+    });
+
+    test('應該在不是 Content Script 的情況下拒絕', async () => {
+      const sendResponse = jest.fn();
+      await handlers.SAVE_PAGE_FROM_RAIL({}, createInternalSender(), sendResponse);
+      expectFailureResponse(sendResponse, expect.stringContaining('必須在標籤頁上下文中'));
+      expect(globalThis.Logger.warn).toHaveBeenCalledWith(
+        '安全性阻擋',
+        expect.objectContaining({
+          action: 'SAVE_PAGE_FROM_RAIL',
+          result: 'blocked',
+        })
+      );
+    });
+
+    test('應該在缺少 sender.tab 時回傳 NO_ACTIVE_TAB 友善訊息', async () => {
+      const sendResponse = jest.fn();
+      validateContentScriptRequest.mockReturnValueOnce(null);
+
+      await handlers.SAVE_PAGE_FROM_RAIL({}, createInternalSender(), sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+      });
+    });
+
+    test('正常保存新頁面', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
+      mockNotionService.createPage.mockResolvedValue(createPageSuccess());
+
+      await handlers.SAVE_PAGE_FROM_RAIL({}, csSender, sendResponse);
+
+      expect(mockNotionService.createPage).toHaveBeenCalled();
+      expectResponseContaining(sendResponse, { success: true, created: true });
     });
   });
 
