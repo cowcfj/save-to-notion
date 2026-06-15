@@ -39,13 +39,21 @@ export function createStorageServiceHarness(StorageService) {
 /**
  * 將給定的 storageData 模擬為 mockStorage.local.get 的查詢來源
  *
+ * 完整模擬 Chrome Storage API 規範：
+ * - keys 為 null、undefined 或空陣列時，回傳完整的 storageData
+ * - 否則只回傳指定 keys 的內容
+ *
  * @param {object} mockStorage - 模擬的 chromeStorage
  * @param {object} storageData - 查詢要回傳的 Key-Value 對照表
  */
 export function mockStorageLookup(mockStorage, storageData) {
   mockStorage.local.get.mockImplementation(keys => {
-    if (!keys) {
-      return Promise.resolve({});
+    // Chrome Storage API 規範：keys 為 null/undefined/空陣列時回傳完整內容
+    const isEmptyKeys = Array.isArray(keys) && keys.length === 0;
+    const shouldReturnAll = keys === null || keys === undefined || isEmptyKeys;
+
+    if (shouldReturnAll) {
+      return Promise.resolve({ ...storageData });
     }
     const keyList = Array.isArray(keys) ? keys : [keys];
     const result = {};
