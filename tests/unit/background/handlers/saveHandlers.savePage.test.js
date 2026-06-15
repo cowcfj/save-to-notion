@@ -337,6 +337,68 @@ describe('saveHandlers savePage', () => {
     expect(response).not.toHaveProperty('errorCode');
   });
 
+  test('savePage: 更新既有頁標註失敗時應回傳錯誤 envelope', async () => {
+    const sendResponse = jest.fn();
+    context.mockServices.storageService.getSavedPageData.mockResolvedValue({
+      notionPageId: 'existing-id',
+      destinationProfileId: 'default',
+      title: 'Existing Title',
+    });
+    context.mockServices.injectionService.collectHighlights.mockResolvedValue([
+      { text: 'highlight' },
+    ]);
+    context.mockServices.notionService.checkPageExists.mockResolvedValue(true);
+    context.mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      success: false,
+      error: 'update failed',
+      errorCode: 'NETWORK_ERROR',
+    });
+
+    await context.handlers.savePage({}, validSender, sendResponse);
+
+    expect(context.mockServices.notionService.updateHighlightsSection).toHaveBeenCalledWith(
+      'existing-id',
+      expect.any(Array),
+      { apiKey: 'valid-key' }
+    );
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        errorCode: 'NETWORK_ERROR',
+      })
+    );
+  });
+
+  test('savePage: 刷新既有頁內容失敗時應回傳錯誤 envelope', async () => {
+    const sendResponse = jest.fn();
+    context.mockServices.storageService.getSavedPageData.mockResolvedValue({
+      notionPageId: 'existing-id',
+      destinationProfileId: 'default',
+      title: 'Existing Title',
+    });
+    context.mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+    context.mockServices.notionService.checkPageExists.mockResolvedValue(true);
+    context.mockServices.notionService.refreshPageContent.mockResolvedValue({
+      success: false,
+      error: 'refresh failed',
+      errorCode: 'NETWORK_ERROR',
+    });
+
+    await context.handlers.savePage({}, validSender, sendResponse);
+
+    expect(context.mockServices.notionService.refreshPageContent).toHaveBeenCalledWith(
+      'existing-id',
+      expect.any(Array),
+      expect.objectContaining({ apiKey: 'valid-key' })
+    );
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        errorCode: 'NETWORK_ERROR',
+      })
+    );
+  });
+
   test('savePage: 提取結果為 failed 時不應建立 Notion 頁面', async () => {
     const sendResponse = jest.fn();
     context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
@@ -694,6 +756,26 @@ describe('saveHandlers savePage', () => {
       );
     });
 
+    test('savePage: data source 缺失且無 destination fallback 時應在 legacy config 驗證階段報錯', async () => {
+      const sendResponse = jest.fn();
+      context.mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+      });
+      context.mockServices.destinationProfileResolver.resolveProfileForSave.mockRejectedValue(
+        new Error('找不到目的地：default')
+      );
+
+      await context.handlers.savePage({}, validSender, sendResponse);
+
+      expect(context.mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorCode: 'DESTINATION_PROFILE_NOT_FOUND',
+        })
+      );
+    });
+
     test('savePage: 內容提取失敗應報錯', async () => {
       context.mockServices.pageContentService.extractContent.mockRejectedValue(
         new Error('Extract failed')
@@ -722,6 +804,58 @@ describe('saveHandlers savePage', () => {
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false }) // Relax expectation
+      );
+    });
+
+    test('SAVE_PAGE_FROM_RAIL: 非 content script 請求應被拒絕且不讀設定', async () => {
+      const sendResponse = jest.fn();
+
+      await context.handlers.SAVE_PAGE_FROM_RAIL({}, { id: 'mock-extension-id' }, sendResponse);
+
+      expect(context.mockServices.storageService.getConfig).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
+
+    test('SAVE_PAGE_FROM_RAIL: 受限 URL 應被拒絕且不提取內容', async () => {
+      const sendResponse = jest.fn();
+      isRestrictedInjectionUrl.mockReturnValue(true);
+
+      await context.handlers.SAVE_PAGE_FROM_RAIL(
+        {},
+        { id: 'mock-extension-id', tab: { id: 2, url: 'chrome://settings' } },
+        sendResponse
+      );
+
+      expect(context.mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
+
+    test('SAVE_PAGE_FROM_RAIL: token 缺失時應在 config 驗證階段報錯', async () => {
+      const sendResponse = jest.fn();
+      getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
+
+      await context.handlers.SAVE_PAGE_FROM_RAIL(
+        {},
+        { id: 'mock-extension-id', tab: { id: 2, url: 'https://example.com' } },
+        sendResponse
+      );
+
+      expect(context.mockServices.pageContentService.extractContent).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.PATTERNS.API_KEY_NOT_CONFIGURED,
+        })
       );
     });
   });

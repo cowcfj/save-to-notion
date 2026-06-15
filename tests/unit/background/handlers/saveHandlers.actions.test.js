@@ -227,6 +227,53 @@ describe('saveHandlers security and actions', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
+    test('openNotionPage: stable 與 original 都查無保存資料時應回傳未保存錯誤', async () => {
+      const sendResponse = jest.fn();
+      context.mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com/stable',
+        originalUrl: 'https://example.com/original',
+      });
+      context.mockServices.storageService.getSavedPageData
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      await context.handlers.openNotionPage(
+        { url: 'https://example.com/stable' },
+        validSender,
+        sendResponse
+      );
+
+      expect(context.mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
+      expect(chrome.tabs.create).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
+
+    test('openNotionPage: notionPageId 缺失時應回傳未保存錯誤且不開分頁', async () => {
+      const sendResponse = jest.fn();
+      context.mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionUrl: 'https://notion.so/missing-page-id',
+      });
+
+      await context.handlers.openNotionPage(
+        { url: 'https://example.com' },
+        validSender,
+        sendResponse
+      );
+
+      expect(chrome.tabs.create).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+        })
+      );
+    });
+
     test.each([
       {
         action: 'SAVE_PAGE_FROM_TOOLBAR',
