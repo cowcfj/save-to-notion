@@ -1,53 +1,74 @@
 import { createSaveHandlers } from '../../scripts/background/handlers/saveHandlers.js';
 
+const DELETION_CONFIRMED = { shouldDelete: true, deletionPending: false };
+const DELETION_NOT_PENDING = { shouldDelete: false, deletionPending: false };
+const DELETION_PENDING = { shouldDelete: false, deletionPending: true };
+
+function normalizePageId(notionPageId) {
+  return notionPageId ? String(notionPageId) : null;
+}
+
+function confirmMissingPage(deletionPendingPages, pageId) {
+  if (deletionPendingPages.has(pageId)) {
+    deletionPendingPages.delete(pageId);
+    return DELETION_CONFIRMED;
+  }
+
+  deletionPendingPages.set(pageId, Date.now());
+  return DELETION_PENDING;
+}
+
+function handleMissingPage(deletionPendingPages, notionPageId) {
+  const pageId = normalizePageId(notionPageId);
+  return pageId ? confirmMissingPage(deletionPendingPages, pageId) : DELETION_NOT_PENDING;
+}
+
+function resetMissingPage(deletionPendingPages, notionPageId) {
+  const pageId = normalizePageId(notionPageId);
+  if (pageId) {
+    deletionPendingPages.delete(pageId);
+  }
+  return DELETION_NOT_PENDING;
+}
+
+function consumeConfirmation(deletionPendingPages, notionPageId, exists) {
+  const pageId = normalizePageId(notionPageId);
+  if (!pageId) {
+    return DELETION_NOT_PENDING;
+  }
+
+  if (exists !== false) {
+    deletionPendingPages.delete(pageId);
+    return DELETION_NOT_PENDING;
+  }
+
+  return confirmMissingPage(deletionPendingPages, pageId);
+}
+
+function createDeletionPendingTracker() {
+  const deletionPendingPages = new Map();
+
+  return {
+    handleMissingPage: notionPageId => handleMissingPage(deletionPendingPages, notionPageId),
+    resetMissingPage: notionPageId => resetMissingPage(deletionPendingPages, notionPageId),
+    consumeConfirmation: (notionPageId, exists) =>
+      consumeConfirmation(deletionPendingPages, notionPageId, exists),
+    getPendingCount: () => deletionPendingPages.size,
+    clear: () => deletionPendingPages.clear(),
+  };
+}
+
 /**
  * 建立刪除確認的內部狀態機 (對應原本 test 的 Map 邏輯)
  */
 export function createDeletionConfirmationState() {
-  const deletionPendingPages = new Map();
+  const deletionTracker = createDeletionPendingTracker();
   return {
-    confirmRemotePageMissing: jest.fn().mockImplementation(notionPageId => {
-      const pageId = notionPageId ? String(notionPageId) : null;
-      if (!pageId) {
-        return { shouldDelete: false, deletionPending: false };
-      }
-
-      if (deletionPendingPages.has(pageId)) {
-        deletionPendingPages.delete(pageId);
-        return { shouldDelete: true, deletionPending: false };
-      }
-
-      deletionPendingPages.set(pageId, Date.now());
-      return { shouldDelete: false, deletionPending: true };
-    }),
-    resetRemotePageMissingState: jest.fn().mockImplementation(notionPageId => {
-      const pageId = notionPageId ? String(notionPageId) : null;
-      if (pageId) {
-        deletionPendingPages.delete(pageId);
-      }
-      return { shouldDelete: false, deletionPending: false };
-    }),
-    consumeDeletionConfirmation: jest.fn().mockImplementation((notionPageId, exists) => {
-      const pageId = notionPageId ? String(notionPageId) : null;
-      if (!pageId) {
-        return { shouldDelete: false, deletionPending: false };
-      }
-
-      if (exists !== false) {
-        deletionPendingPages.delete(pageId);
-        return { shouldDelete: false, deletionPending: false };
-      }
-
-      if (deletionPendingPages.has(pageId)) {
-        deletionPendingPages.delete(pageId);
-        return { shouldDelete: true, deletionPending: false };
-      }
-
-      deletionPendingPages.set(pageId, Date.now());
-      return { shouldDelete: false, deletionPending: true };
-    }),
-    getPendingCount: () => deletionPendingPages.size,
-    clear: () => deletionPendingPages.clear(),
+    confirmRemotePageMissing: jest.fn().mockImplementation(deletionTracker.handleMissingPage),
+    resetRemotePageMissingState: jest.fn().mockImplementation(deletionTracker.resetMissingPage),
+    consumeDeletionConfirmation: jest.fn().mockImplementation(deletionTracker.consumeConfirmation),
+    getPendingCount: deletionTracker.getPendingCount,
+    clear: deletionTracker.clear,
   };
 }
 
