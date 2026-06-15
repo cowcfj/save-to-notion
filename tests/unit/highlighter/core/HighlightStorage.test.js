@@ -26,7 +26,6 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
 describe('core/HighlightStorage', () => {
   let storage = null;
   let mockManager = null;
-  let mockToolbar = null;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -38,12 +37,7 @@ describe('core/HighlightStorage', () => {
       clearAll: jest.fn(),
     };
 
-    // 創建 mock toolbar
-    mockToolbar = {
-      hide: jest.fn(),
-    };
-
-    storage = new HighlightStorage(mockManager, mockToolbar);
+    storage = new HighlightStorage(mockManager);
 
     // Mock window objects
     globalThis.normalizeUrl = jest.fn(url => url);
@@ -60,13 +54,11 @@ describe('core/HighlightStorage', () => {
   });
 
   describe('constructor', () => {
-    test('should store manager and toolbar references', () => {
+    test('should store manager reference', () => {
       expect(storage.manager).toBe(mockManager);
-      expect(storage.toolbar).toBe(mockToolbar);
     });
 
     test('should initialize with default values', () => {
-      expect(storage.HIDE_TOOLBAR_DELAY_MS).toBe(500);
       expect(storage.isRestored).toBe(false);
     });
   });
@@ -361,40 +353,6 @@ describe('core/HighlightStorage', () => {
       expect(result[0]).not.toHaveProperty('other');
       expect(result[0]).not.toHaveProperty('range');
       expect(result[0]).not.toHaveProperty('rangeInfo');
-    });
-  });
-
-  describe('hideToolbarAfterRestore', () => {
-    test('should hide toolbar after delay', () => {
-      storage.hideToolbarAfterRestore();
-
-      expect(mockToolbar.hide).not.toHaveBeenCalled();
-
-      jest.advanceTimersByTime(500);
-
-      expect(mockToolbar.hide).toHaveBeenCalled();
-    });
-
-    test('should not throw when toolbar is null', () => {
-      storage.toolbar = null;
-
-      expect(() => storage.hideToolbarAfterRestore()).not.toThrow();
-    });
-
-    test('should handle hide errors gracefully', () => {
-      mockToolbar.hide.mockImplementation(() => {
-        throw new Error('Hide failed');
-      });
-
-      storage.hideToolbarAfterRestore();
-      jest.advanceTimersByTime(500);
-
-      // Ensure error is logged
-      expect(Logger.error).toHaveBeenCalledWith('[HighlightStorage] 隱藏工具欄時出錯', {
-        action: 'hideToolbarAfterRestore',
-        result: 'failed',
-        error: expect.any(Error),
-      });
     });
   });
 

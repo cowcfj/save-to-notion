@@ -7,7 +7,7 @@
  * - 等待穩定 URL（waitForStableUrl）
  * - 並行初始化：頁面狀態、樣式配置
  * - 呼叫 setupHighlighter() 完成初始化
- * - 監聽 Chrome runtime 訊息（SET_STABLE_URL / showToolbar / GET_STABLE_URL）
+ * - 監聽 Chrome runtime 訊息（SET_STABLE_URL / showToolbar (legacy) / GET_STABLE_URL）
  * - 監聽 chrome.storage.onChanged 以動態更新標註樣式
  *
  * ⚠️ 此模組包含 side effects，僅應由 scripts/content/index.js 引入。
@@ -45,7 +45,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   function fallbackInitialize() {
     try {
       lateStableUrlRestore.markSkipLateRestore(true);
-      setupHighlighter({ skipRestore: true, skipToolbar: true });
+      setupHighlighter({ skipRestore: true });
       if (globalThis.HighlighterV2) {
         globalThis.HighlighterV2.skipRestore = true;
       }
@@ -58,13 +58,13 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   }
 
-  async function handleShowToolbarMessage(sendResponse) {
+  async function handleLegacyShowToolbarMessage(sendResponse) {
     await withAvailableFloatingRail(sendResponse, revealFloatingRail);
   }
 
   const persistentListeners = createPersistentListeners({
     onSetStableUrl: lateStableUrlRestore.handleSetStableUrl,
-    onShowToolbar: handleShowToolbarMessage,
+    onLegacyShowToolbar: handleLegacyShowToolbarMessage,
     getStableUrl: () => globalThis.__NOTION_STABLE_URL__,
   });
 
@@ -77,7 +77,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
 
     // 初始化 Highlighter（Phase 1: 始終 skipToolbar）
     lateStableUrlRestore.markSkipLateRestore(skipRestore);
-    setupHighlighter({ skipRestore, skipToolbar: true, styleMode });
+    setupHighlighter({ skipRestore, styleMode });
     if (globalThis.HighlighterV2) {
       globalThis.HighlighterV2.skipRestore = skipRestore;
       globalThis.HighlighterV2.wasDeleted = skipRestore;

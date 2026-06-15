@@ -1,17 +1,6 @@
 import { mountWindowAPI } from '../../../scripts/highlighter/windowAPI.js';
 import { HighlightManager } from '../../../scripts/highlighter/core/HighlightManager.js';
 
-jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
-  Toolbar: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-    updateHighlightCount: jest.fn(),
-    show: jest.fn(),
-    hide: jest.fn(),
-    minimize: jest.fn(),
-    stateManager: { currentState: 'hidden' },
-  })),
-}));
-
 describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   let manager;
   let mockStorage;
@@ -61,7 +50,7 @@ describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   });
 
   test('globalThis.clearPageHighlights() 應走 skipStorage 路徑、不觸發 storage.save', () => {
-    mountWindowAPI({ manager, toolbar: null, storage: mockStorage });
+    mountWindowAPI({ manager, storage: mockStorage });
 
     globalThis.clearPageHighlights();
 
@@ -71,7 +60,7 @@ describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   });
 
   test('notionHighlighter.clearAll() 預設行為（無參）仍會觸發 storage.save', () => {
-    mountWindowAPI({ manager, toolbar: null, storage: mockStorage });
+    mountWindowAPI({ manager, storage: mockStorage });
 
     globalThis.notionHighlighter.clearAll();
 
@@ -81,7 +70,7 @@ describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   });
 
   test('notionHighlighter.clearAll({ skipStorage: true }) 應跳過 storage.save', () => {
-    mountWindowAPI({ manager, toolbar: null, storage: mockStorage });
+    mountWindowAPI({ manager, storage: mockStorage });
 
     globalThis.notionHighlighter.clearAll({ skipStorage: true });
 

@@ -23,14 +23,16 @@ function createController({ globalScope = {}, overrides = {} } = {}) {
   const dependencies = {
     getStableUrl: jest.fn(() => 'https://example.com/stable'),
     onSetStableUrl: jest.fn(() => true),
-    onShowToolbar: jest.fn(),
+    onLegacyShowToolbar: jest.fn(),
     ...overrides,
   };
 
   return {
     controller: createPersistentListeners({
       globalScope,
-      ...dependencies,
+      getStableUrl: dependencies.getStableUrl,
+      onSetStableUrl: dependencies.onSetStableUrl,
+      onLegacyShowToolbar: dependencies.onLegacyShowToolbar,
     }),
     dependencies,
   };
@@ -59,7 +61,7 @@ describe('createPersistentListeners', () => {
 
       expect(handler(request, {}, sendResponse)).toBeUndefined();
       expect(dependencies.onSetStableUrl).not.toHaveBeenCalled();
-      expect(dependencies.onShowToolbar).not.toHaveBeenCalled();
+      expect(dependencies.onLegacyShowToolbar).not.toHaveBeenCalled();
       expect(sendResponse).not.toHaveBeenCalled();
     }
   );
@@ -82,7 +84,7 @@ describe('createPersistentListeners', () => {
     expect(sendResponse).toHaveBeenCalledWith({ stableUrl: 'https://example.com/stable' });
 
     expect(handler({ action: HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR }, {}, sendResponse)).toBe(true);
-    expect(dependencies.onShowToolbar).toHaveBeenCalledWith(sendResponse);
+    expect(dependencies.onLegacyShowToolbar).toHaveBeenCalledWith(sendResponse);
 
     expect(
       handler(

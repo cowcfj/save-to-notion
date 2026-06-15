@@ -16,12 +16,9 @@ import { HighlightStorageGateway } from './HighlightStorageGateway.js';
 export class HighlightStorage {
   /**
    * @param {object} highlightManager - HighlightManager 實例
-   * @param {object | null} toolbar - Toolbar 實例（可選，用於恢復後隱藏）
    */
-  constructor(highlightManager, toolbar = null) {
+  constructor(highlightManager) {
     this.manager = highlightManager;
-    this.toolbar = toolbar;
-    this.HIDE_TOOLBAR_DELAY_MS = 500; // 與既有行為一致，避免改變 UX 時序
     this.isRestored = false;
   }
 
@@ -133,7 +130,6 @@ export class HighlightStorage {
         count: successCount,
       });
       this.isRestored = true;
-      this.hideToolbarAfterRestore();
       return true;
     } catch (error) {
       Logger.error('[HighlightStorage] 標註恢復過程中出錯', {
@@ -177,35 +173,6 @@ export class HighlightStorage {
 
       return notionHighlight;
     });
-  }
-
-  // ========== 保留：隱藏工具欄 ==========
-
-  /**
-   * 恢復後隱藏工具欄
-   * 保持原 500ms 延遲行為，避免改變既有使用者感受
-   */
-  hideToolbarAfterRestore() {
-    if (!this.toolbar || typeof this.toolbar.hide !== 'function') {
-      return;
-    }
-
-    setTimeout(() => {
-      try {
-        this.toolbar.hide();
-        Logger.info('[HighlightStorage] 工具欄已隱藏', {
-          action: 'hideToolbarAfterRestore',
-          result: 'hidden',
-        });
-      } catch (error) {
-        // 隱藏失敗不應阻斷流程，只記錄錯誤
-        Logger.error('[HighlightStorage] 隱藏工具欄時出錯', {
-          action: 'hideToolbarAfterRestore',
-          result: 'failed',
-          error,
-        });
-      }
-    }, this.HIDE_TOOLBAR_DELAY_MS);
   }
 
   /**

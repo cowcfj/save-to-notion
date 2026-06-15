@@ -7,7 +7,6 @@
  * 此模組為純掛載層，不包含任何業務邏輯，由 setupHighlighter() 呼叫。
  */
 
-import { Toolbar } from './ui/Toolbar.js';
 import {
   serializeRange,
   deserializeRange,
@@ -22,81 +21,24 @@ import { findTextInPage } from './utils/textSearch.js';
 import { waitForDOMStability } from './utils/domStability.js';
 import Logger from '../utils/Logger.js';
 
-// Test-only build-time gate. `globalThis.__UNIT_TESTING__` is replaced with
-// the literal `false` in production by [rollup/content.config.mjs](../../rollup/content.config.mjs),
-// so the entire toolbar branch below is dead-code-eliminated by terser. The
-// `Toolbar` import + `ensureToolbar` body only ship in test bundles. See
-// [docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md](../../docs/plans/2026-05-14-windowapi-legacy-compat-hardening-plan.md).
-const TOOLBAR_TEST_FIXTURE_ENABLED = globalThis.__UNIT_TESTING__ !== false;
 const LEGACY_INACTIVE_UI_STATES = new Set(['hidden', 'collapsed']);
 
-function ensureToolbar(state) {
-  if (!TOOLBAR_TEST_FIXTURE_ENABLED) {
-    return null;
-  }
-
-  if (state.currentToolbar) {
-    return state.currentToolbar;
-  }
-
-  // 防止重複創建（理論上在同步代碼中不會發生，但作為防禦性編程）
-  if (state.isCreatingToolbar) {
-    throw new Error('Toolbar is being created, please wait');
-  }
-
-  try {
-    state.isCreatingToolbar = true;
-
-    // 動態創建 Toolbar
-    state.currentToolbar = new Toolbar(state.manager);
-    state.currentToolbar.initialize();
-    state.currentToolbar.updateHighlightCount();
-
-    // 更新 storage 的 toolbar 引用 (如果需要)
-    if (state.storage) {
-      state.storage.toolbar = state.currentToolbar;
-    }
-
-    // 更新 window.HighlighterV2.toolbar 引用
-    if (globalThis.HighlighterV2) {
-      globalThis.HighlighterV2.toolbar = state.currentToolbar;
-    }
-
-    return state.currentToolbar;
-  } finally {
-    state.isCreatingToolbar = false;
-  }
-}
-
-function getLegacyUiController(state) {
-  const toolbar = ensureToolbar(state);
-  if (toolbar) {
-    return toolbar;
-  }
+function getLegacyUiController() {
   const rail = globalThis.HighlighterV2?.rail;
   if (rail) {
     return rail;
   }
   Logger.warn('[Highlighter] 舊版 UI 控制器不可用', {
     action: 'getLegacyUiController',
-    reason: 'toolbar_disabled_and_rail_missing',
-    toolbarTestFixtureEnabled: TOOLBAR_TEST_FIXTURE_ENABLED,
+    reason: 'rail_missing',
   });
   return null;
-}
-
-function resolveToolbarActiveState(state) {
-  const toolbarState = state.currentToolbar?.stateManager?.currentState;
-  if (typeof toolbarState !== 'string') {
-    return null;
-  }
-  return !LEGACY_INACTIVE_UI_STATES.has(toolbarState);
 }
 
 function warnMissingActiveUi() {
   Logger.warn('[Highlighter] isActive 在無 UI 時被調用', {
     action: 'isActive',
-    reason: 'toolbar_disabled_and_rail_missing',
+    reason: 'rail_missing',
     result: 'blocked',
   });
 }
@@ -114,11 +56,10 @@ function isLegacyUiActive(legacyUi) {
   return !LEGACY_INACTIVE_UI_STATES.has(uiState);
 }
 
-function buildHighlighterV2API({ manager, toolbar, restoreManager, toast, fns, state }) {
+function buildHighlighterV2API({ manager, restoreManager, toast, fns }) {
   const apiFns = fns ?? {};
   const api = {
     manager,
-    toolbar,
     restoreManager,
     toast,
 
@@ -141,40 +82,31 @@ function buildHighlighterV2API({ manager, toolbar, restoreManager, toast, fns, s
 
     // Convenience methods
     getInstance: () => manager,
-    getToolbar: () => state.currentToolbar,
     getRestoreManager: () => restoreManager,
   };
 
-  // 可選函數（將 initHighlighter / initHighlighterWithToolbar 從 index.js 導入）
+  // 可選函數（將 initHighlighter 從 index.js 導入）
   if (apiFns.init) {
     api.init = apiFns.init;
-  }
-  if (apiFns.initWithToolbar) {
-    api.initWithToolbar = apiFns.initWithToolbar;
   }
 
   return api;
 }
 
-function buildLegacyHighlighterAPI(manager, restoreManager, state) {
+function buildLegacyHighlighterAPI(manager, restoreManager) {
   return {
     manager,
     restoreManager,
     show: () => {
-      getLegacyUiController(state)?.show?.();
+      getLegacyUiController()?.show?.();
     },
-    hide: () => getLegacyUiController(state)?.hide?.(),
+    hide: () => getLegacyUiController()?.hide?.(),
     minimize: () => {
-      const legacyUi = getLegacyUiController(state);
+      const legacyUi = getLegacyUiController();
       legacyUi?.minimize?.();
       legacyUi?.collapse?.();
     },
     isActive: () => {
-      const toolbarActiveState = resolveToolbarActiveState(state);
-      if (toolbarActiveState !== null) {
-        return toolbarActiveState;
-      }
-
       const rail = globalThis.HighlighterV2?.rail;
       if (!rail) {
         warnMissingActiveUi();
@@ -184,7 +116,7 @@ function buildLegacyHighlighterAPI(manager, restoreManager, state) {
       return isLegacyUiActive(rail);
     },
     toggle: () => {
-      const legacyUi = getLegacyUiController(state);
+      const legacyUi = getLegacyUiController();
       if (!legacyUi) {
         return;
       }
@@ -208,34 +140,25 @@ function buildLegacyHighlighterAPI(manager, restoreManager, state) {
  *
  * @param {object} options
  * @param {import('./core/HighlightManager.js').HighlightManager} options.manager
- * @param {import('./ui/Toolbar.js').Toolbar|null} [options.toolbar=null]
  * @param {import('./core/HighlightStorage.js').HighlightStorage} options.storage
- * @param {{ init?: Function, initWithToolbar?: Function }} [options.fns={}] - 可選函數導入層，避免循環依賴
+ * @param {{ init?: Function }} [options.fns={}] - 可選函數導入層，避免循環依賴
  * @param {import('./ui/Toast.js').Toast|null} [options.toast=null] - 可選的 Toast 實例；
  *   若提供，會暴露在 `HighlighterV2.toast` 供 dev tools / cleanup 使用，
  *   業務邏輯（addHighlight / removeHighlight）已透過 manager 注入直接觸發。
  */
-export function mountWindowAPI({ manager, toolbar = null, storage, fns = {}, toast = null }) {
+export function mountWindowAPI({ manager, storage, fns = {}, toast = null }) {
   const restoreManager = storage;
-  const state = {
-    currentToolbar: toolbar,
-    isCreatingToolbar: false,
-    manager,
-    storage,
-  };
 
   // 新版 HighlighterV2 API
   globalThis.HighlighterV2 = buildHighlighterV2API({
     manager,
-    toolbar,
     restoreManager,
     toast,
     fns,
-    state,
   });
 
   // 🔑 向後兼容：設置舊版 notionHighlighter API
-  globalThis.notionHighlighter = buildLegacyHighlighterAPI(manager, restoreManager, state);
+  globalThis.notionHighlighter = buildLegacyHighlighterAPI(manager, restoreManager);
 
   // 🔑 全域函數別名（向後兼容）
   globalThis.initHighlighter = () => {

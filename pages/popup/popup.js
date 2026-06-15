@@ -228,7 +228,7 @@ function registerPopupEventListeners(elements, context) {
       updateUIForSavedPage(elements, response);
       Logger.success('[Popup] Page saved successfully', { url: response.url });
 
-      // 🔑 保存完成後，通知 Content Script 創建並顯示 Toolbar
+      // 🔑 保存完成後，通知 Content Script 顯示 Floating Rail
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
@@ -239,7 +239,7 @@ function registerPopupEventListeners(elements, context) {
       } catch (error) {
         // 如果 Content Script 尚未注入，忽略錯誤
         Logger.warn(ERROR_MESSAGES.TECHNICAL.TOOLBAR_SHOW_FAILED, {
-          action: 'showToolbar',
+          action: 'showFloatingRail',
           error,
         });
       }

@@ -132,7 +132,7 @@
         }
       },
       "showHighlighter": {
-        "description": "要求已注入的 content bundle 顯示 highlighter",
+        "description": "（Legacy compatibility shim）要求 content script 顯示/啟用標註工具。此 API 僅會顯示 Floating Rail，不得建立或顯示 full toolbar",
         "payload": {},
         "response": {
           "success": "boolean",
@@ -140,7 +140,7 @@
         }
       },
       "showToolbar": {
-        "description": "（Phase 1 legacy alias）要求已初始化的 Highlighter 顯示 UI；優先 redirect 到 Floating Rail",
+        "description": "（Legacy compatibility shim alias）要求 content script 顯示標註 UI。此 API 僅會顯示 Floating Rail，不得建立或顯示 full toolbar",
         "payload": {},
         "response": {
           "success": "boolean",
