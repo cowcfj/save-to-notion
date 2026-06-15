@@ -1,12 +1,13 @@
+import { createLoggerMock as mockCreateLoggerMock } from '../../../helpers/loggerMock.js';
+import Logger from '../../../../scripts/utils/Logger.js';
+import {
+  createLateStableUrlRestoreController,
+} from '../../../../scripts/highlighter/autoInit/lateStableUrlRestore.js';
+
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
+  default: mockCreateLoggerMock(),
   __esModule: true,
 }));
-
-const Logger = require('../../../../scripts/utils/Logger.js').default;
-const {
-  createLateStableUrlRestoreController,
-} = require('../../../../scripts/highlighter/autoInit/lateStableUrlRestore.js');
 
 const flushPromises = async () => {
   await Promise.resolve();

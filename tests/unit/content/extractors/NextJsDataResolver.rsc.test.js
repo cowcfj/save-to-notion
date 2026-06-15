@@ -2,13 +2,14 @@
  * @jest-environment jsdom
  */
 
+import { createLoggerMock as mockCreateLoggerMock } from '../../../helpers/loggerMock.js';
 import * as NextJsDataResolver from '../../../../scripts/content/extractors/NextJsDataResolver.js';
 import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
+  default: mockCreateLoggerMock(),
 }));
 
 describe('NextJsDataResolver getPagesRouterData logging', () => {

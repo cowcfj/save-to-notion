@@ -2,10 +2,12 @@
  * @jest-environment jsdom
  */
 
+import { createLoggerMock as mockCreateLoggerMock } from '../../../helpers/loggerMock.js';
+
 // Mock Logger（保留 parseArgsToContext 的真實實作，因為它是純函數）
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
+  default: mockCreateLoggerMock(),
   parseArgsToContext: args => {
     if (!Array.isArray(args) || args.length === 0) {
       return {};

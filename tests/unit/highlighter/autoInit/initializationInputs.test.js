@@ -1,14 +1,15 @@
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
-  __esModule: true,
-}));
-
-const Logger = require('../../../../scripts/utils/Logger.js').default;
-const {
+import { createLoggerMock as mockCreateLoggerMock } from '../../../helpers/loggerMock.js';
+import Logger from '../../../../scripts/utils/Logger.js';
+import {
   fetchHighlighterSettings,
   fetchPageStatus,
   resolveStyleMode,
-} = require('../../../../scripts/highlighter/autoInit/initializationInputs.js');
+} from '../../../../scripts/highlighter/autoInit/initializationInputs.js';
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  default: mockCreateLoggerMock(),
+  __esModule: true,
+}));
 
 describe('autoInit/initializationInputs', () => {
   beforeEach(() => {
