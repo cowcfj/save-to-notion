@@ -395,6 +395,80 @@ describe('MigrationTool Extended', () => {
     });
   });
 
+  describe('performSelectedMigration', () => {
+    beforeEach(() => {
+      chrome.runtime.sendMessage.mockClear();
+    });
+
+    test('no selection 應不呼叫 chrome.runtime.sendMessage', async () => {
+      migrationTool.selectedUrls = new Set();
+      await migrationTool.performSelectedMigration();
+      expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('success response 應送出正確 action 且顯示 success result，清空 selectedUrls，dispatch storageUsageUpdate', async () => {
+      jest.spyOn(migrationTool, 'showBatchMigrationResult').mockImplementation(() => {});
+      const dispatchSpy = jest.spyOn(document, 'dispatchEvent');
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: true,
+        results: {
+          success: 2,
+          failed: 0,
+          total: 2,
+          details: [],
+        },
+      });
+
+      migrationTool.selectedUrls = new Set(['https://example.com/one', 'https://example.com/two']);
+
+      await migrationTool.performSelectedMigration();
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.MIGRATION_BATCH,
+        urls: ['https://example.com/one', 'https://example.com/two'],
+      });
+      expect(migrationTool.showBatchMigrationResult).toHaveBeenCalledWith({
+        success: 2,
+        failed: 0,
+        total: 2,
+        details: [],
+      });
+      expect(migrationTool.selectedUrls.size).toBe(0);
+      expect(dispatchSpy).toHaveBeenCalledWith(expect.any(CustomEvent));
+      expect(dispatchSpy.mock.calls[0][0].type).toBe('storageUsageUpdate');
+
+      dispatchSpy.mockRestore();
+    });
+
+    test('unsuccessful response 應顯示錯誤，且保留 selected state 以便重試', async () => {
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: false,
+        error: '測試遷移失敗',
+      });
+
+      migrationTool.selectedUrls = new Set(['https://example.com/one', 'https://example.com/two']);
+
+      await migrationTool.performSelectedMigration();
+
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.textContent).toContain('測試遷移失敗');
+      expect(migrationTool.selectedUrls.size).toBe(2);
+    });
+
+    test('thrown error 應經 sanitize/format 後顯示，並執行 cleanup', async () => {
+      chrome.runtime.sendMessage.mockRejectedValue(new Error('Network error'));
+
+      migrationTool.selectedUrls = new Set(['https://example.com/one']);
+
+      await migrationTool.performSelectedMigration();
+
+      const migrationResult = document.querySelector('#migration-result');
+      expect(migrationResult.textContent).toBeTruthy();
+      expect(migrationTool.elements.progressContainer.style.display).toBe('none');
+    });
+  });
+
   describe('truncateUrl extended (委託 MigrationScanner)', () => {
     test('應處理空 URL', () => {
       const result = MigrationScanner.truncateUrl('', 60);

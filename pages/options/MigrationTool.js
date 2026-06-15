@@ -395,22 +395,9 @@ export class MigrationTool {
       return;
     }
 
-    const urls = Array.from(this.selectedUrls);
-    const { progressContainer, progressBar, progressText } = this.elements;
+    const urls = this.getSelectedUrls();
 
-    // 禁用按鈕
-    this.setButtonsDisabled(true);
-
-    // 顯示進度（批量操作很快，顯示不確定進度）
-    if (progressContainer) {
-      progressContainer.style.display = 'block';
-    }
-    if (progressBar) {
-      progressBar.style.width = '50%';
-    }
-    if (progressText) {
-      progressText.textContent = '處理中...';
-    }
+    this.showBatchProgress('處理中...');
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -418,37 +405,14 @@ export class MigrationTool {
         urls,
       });
 
-      // 完成進度
-      if (progressBar) {
-        progressBar.style.width = '100%';
-      }
-      if (progressText) {
-        progressText.textContent = '100%';
-      }
-
-      if (response?.success) {
-        this.showBatchMigrationResult(response.results);
-        this.selectedUrls.clear();
-        // 不自動重新掃描，讓用戶能看到結果連結
-        // 用戶可點擊連結打開頁面完成 rangeInfo 生成
-        // 或手動點擊掃描按鈕重新掃描
-      } else {
-        this.showErrorResult(response?.error || '批量遷移失敗');
-      }
+      this.completeBatchProgress('100%');
+      this.handleBatchMigrationResponse(response);
     } catch (error) {
       const safeMessage = sanitizeApiError(error, 'batch_migration');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.showErrorResult(errorMsg);
     } finally {
-      // 隱藏進度條
-      if (progressContainer) {
-        progressContainer.style.display = 'none';
-      }
-      // 根據實際選擇狀態更新按鈕（而非無條件啟用）
-      this.updateActionButtons();
-
-      // 觸發刷新儲存使用量
-      document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
+      this.finishBatchOperation();
     }
   }
 
@@ -470,22 +434,9 @@ export class MigrationTool {
       return;
     }
 
-    const urls = Array.from(this.selectedUrls);
-    const { progressContainer, progressBar, progressText } = this.elements;
+    const urls = this.getSelectedUrls();
 
-    // 禁用按鈕
-    this.setButtonsDisabled(true);
-
-    // 顯示進度
-    if (progressContainer) {
-      progressContainer.style.display = 'block';
-    }
-    if (progressBar) {
-      progressBar.style.width = '50%';
-    }
-    if (progressText) {
-      progressText.textContent = '刪除中...';
-    }
+    this.showBatchProgress('刪除中...');
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -493,46 +444,237 @@ export class MigrationTool {
         urls,
       });
 
-      // 完成進度
-      if (progressBar) {
-        progressBar.style.width = '100%';
-      }
-      if (progressText) {
-        progressText.textContent = '100%';
-      }
-
-      const results = response?.results;
-      if (response?.success && results) {
-        if ((results.failed ?? 0) > 0) {
-          this.showPartialDeleteResult(
-            results.success ?? 0,
-            results.failed,
-            results.total ?? urls.length
-          );
-        } else {
-          this.showDeleteResult(results.success ?? 0);
-        }
-        this.selectedUrls.clear();
-        // 延遲後重新掃描
-        setTimeout(() => this.scanForLegacyHighlights(), 1500);
-      } else {
-        this.showErrorResult(response?.error || '批量刪除失敗');
-      }
+      this.completeBatchProgress('100%');
+      this.handleBatchDeletionResponse(response, urls);
     } catch (error) {
       const safeMessage = sanitizeApiError(error, 'batch_deletion');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.showErrorResult(errorMsg);
     } finally {
-      // 隱藏進度條
-      if (progressContainer) {
-        progressContainer.style.display = 'none';
-      }
-      // 根據實際選擇狀態更新按鈕（而非無條件啟用）
-      this.updateActionButtons();
-
-      // 觸發刷新儲存使用量
-      document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
+      this.finishBatchOperation();
     }
+  }
+
+  /**
+   * 顯示批量操作進度，並禁用相關按鈕
+   *
+   * @param {string} text 進度顯示文字
+   */
+  showBatchProgress(text) {
+    const { progressContainer, progressBar, progressText } = this.elements;
+    this.setButtonsDisabled(true);
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+    }
+    if (progressBar) {
+      progressBar.style.width = '50%';
+    }
+    if (progressText) {
+      progressText.textContent = text;
+    }
+  }
+
+  /**
+   * 將進度更新為 100%
+   *
+   * @param {string} percentText 顯示的百分比文字
+   */
+  completeBatchProgress(percentText = '100%') {
+    const { progressBar, progressText } = this.elements;
+    if (progressBar) {
+      progressBar.style.width = '100%';
+    }
+    if (progressText) {
+      progressText.textContent = percentText;
+    }
+  }
+
+  /**
+   * 結束批量操作，隱藏進度條、更新按鈕狀態並觸發儲存更新事件
+   */
+  finishBatchOperation() {
+    const { progressContainer } = this.elements;
+    if (progressContainer) {
+      progressContainer.style.display = 'none';
+    }
+    this.updateActionButtons();
+    document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
+  }
+
+  /**
+   * 取得已選取的 URL 陣列
+   *
+   * @returns {string[]}
+   */
+  getSelectedUrls() {
+    return Array.from(this.selectedUrls);
+  }
+
+  /**
+   * 處理批量遷移的 API 回應
+   *
+   * @param {object} response API 回應對象
+   */
+  handleBatchMigrationResponse(response) {
+    if (response?.success) {
+      this.showBatchMigrationResult(response.results);
+      this.selectedUrls.clear();
+    } else {
+      this.showErrorResult(response?.error || '批量遷移失敗');
+    }
+  }
+
+  /**
+   * 處理批量刪除的 API 回應
+   *
+   * @param {object} response API 回應對象
+   * @param {string[]} urls 被刪除的 URL 陣列
+   */
+  handleBatchDeletionResponse(response, urls) {
+    const results = response?.results;
+    if (response?.success && results) {
+      this.showDeletionResponseResult(results, urls.length);
+      this.selectedUrls.clear();
+      this.scheduleLegacyHighlightsRescan();
+    } else {
+      this.showErrorResult(response?.error || '批量刪除失敗');
+    }
+  }
+
+  /**
+   * 顯示批量刪除的詳細結果
+   *
+   * @param {object} results 刪除結果統計對象
+   * @param {number} fallbackTotal 總數 fallback 值
+   */
+  showDeletionResponseResult(results, fallbackTotal) {
+    if ((results.failed ?? 0) > 0) {
+      this.showPartialDeleteResult(
+        results.success ?? 0,
+        results.failed,
+        results.total ?? fallbackTotal
+      );
+    } else {
+      this.showDeleteResult(results.success ?? 0);
+    }
+  }
+
+  /**
+   * 安排在延遲後重新掃描舊版標註
+   */
+  scheduleLegacyHighlightsRescan() {
+    setTimeout(() => this.scanForLegacyHighlights(), 1500);
+  }
+
+  /**
+   * 建立帶有圖示和計數 Badge 的 URL Label 元素
+   *
+   * @param {string} url URL 網址
+   * @param {string} icon 圖示 HTML
+   * @param {string} badgeText Badge 顯示文字
+   * @param {string} extraBadgeClass 額外的 Badge CSS class
+   * @returns {HTMLSpanElement}
+   */
+  createResultUrlLabel(url, icon, badgeText, extraBadgeClass = '') {
+    const spanUrl = document.createElement('span');
+    spanUrl.className = COMMON_CSS_CLASSES.RESULT_URL;
+    spanUrl.title = url;
+
+    const iconSpan = createSafeIcon(icon);
+    spanUrl.append(iconSpan);
+    spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(url, 60)}`));
+
+    const badge = document.createElement('span');
+    badge.className = extraBadgeClass
+      ? `${COMMON_CSS_CLASSES.COUNT_BADGE} ${extraBadgeClass}`
+      : COMMON_CSS_CLASSES.COUNT_BADGE;
+    badge.textContent = badgeText;
+    spanUrl.append(badge);
+
+    return spanUrl;
+  }
+
+  /**
+   * 建立在新分頁打開網頁的連結元素
+   *
+   * @param {string} url URL 網址
+   * @returns {HTMLAnchorElement}
+   */
+  createOpenPageLink(url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.className = 'open-page-link';
+    link.textContent = '打開頁面';
+    return link;
+  }
+
+  /**
+   * 建立批量遷移結果的單個列表項目元素
+   *
+   * @param {object} detail 遷移結果詳意
+   * @returns {HTMLDivElement}
+   */
+  createBatchMigrationResultItem(detail) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = COMMON_CSS_CLASSES.RESULT_ITEM;
+
+    const url = detail.url || '';
+    const pendingCount = detail.pending ?? 0;
+    const pendingText = pendingCount > 0 ? `，${pendingCount} 待完成` : '';
+    const badgeText = `${detail.count ?? 0} 個標註${pendingText}`;
+
+    const spanUrl = this.createResultUrlLabel(url, UI_ICONS.CHECK, badgeText);
+    itemDiv.append(spanUrl);
+
+    const link = this.createOpenPageLink(url);
+    itemDiv.append(link);
+
+    return itemDiv;
+  }
+
+  /**
+   * 建立待完成遷移的單個列表項目元素
+   *
+   * @param {object} item 待完成項目資料
+   * @returns {HTMLDivElement}
+   */
+  createPendingMigrationItem(item) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = COMMON_CSS_CLASSES.RESULT_ITEM;
+
+    const badgeText = `${item.pendingCount} / ${item.totalCount} 待完成`;
+    const spanUrl = this.createResultUrlLabel(item.url, UI_ICONS.STAR, badgeText);
+    itemDiv.append(spanUrl);
+
+    const link = this.createOpenPageLink(item.url);
+    itemDiv.append(link);
+
+    return itemDiv;
+  }
+
+  /**
+   * 建立失敗遷移的單個列表項目元素
+   *
+   * @param {object} item 失敗項目資料
+   * @returns {HTMLDivElement}
+   */
+  createFailedMigrationItem(item) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = `${COMMON_CSS_CLASSES.RESULT_ITEM} failed-item`;
+
+    const badgeText = `${item.failedCount} 個無法恢復`;
+    const spanUrl = this.createResultUrlLabel(item.url, UI_ICONS.WARNING, badgeText, 'failed');
+    itemDiv.append(spanUrl);
+
+    const button = document.createElement('button');
+    button.className = 'btn-danger btn-small delete-failed-btn';
+    button.dataset.url = item.url;
+    button.textContent = '刪除';
+    button.addEventListener('click', () => this.deleteFailedHighlights(item.url));
+    itemDiv.append(button);
+
+    return itemDiv;
   }
 
   /**
@@ -694,34 +836,7 @@ export class MigrationTool {
       listDiv.className = 'result-list';
 
       successItems.forEach(detail => {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = COMMON_CSS_CLASSES.RESULT_ITEM;
-
-        const spanUrl = document.createElement('span');
-        spanUrl.className = COMMON_CSS_CLASSES.RESULT_URL;
-        const urlTitle = detail.url || '';
-        spanUrl.title = urlTitle;
-
-        const checkIcon = createSafeIcon(UI_ICONS.CHECK);
-        spanUrl.append(checkIcon);
-        spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(urlTitle, 60)}`));
-
-        const badge = document.createElement('span');
-        badge.className = COMMON_CSS_CLASSES.COUNT_BADGE;
-        const pendingCount = detail.pending ?? 0;
-        const pendingText = pendingCount > 0 ? `，${pendingCount} 待完成` : '';
-        badge.textContent = `${detail.count ?? 0} 個標註${pendingText}`;
-        spanUrl.append(badge);
-
-        itemDiv.append(spanUrl);
-
-        const link = document.createElement('a');
-        link.href = urlTitle;
-        link.target = '_blank';
-        link.className = 'open-page-link';
-        link.textContent = '打開頁面';
-        itemDiv.append(link);
-
+        const itemDiv = this.createBatchMigrationResultItem(detail);
         listDiv.append(itemDiv);
       });
       box.append(listDiv);
@@ -883,31 +998,7 @@ export class MigrationTool {
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = COMMON_CSS_CLASSES.RESULT_ITEM;
-
-      const spanUrl = document.createElement('span');
-      spanUrl.className = COMMON_CSS_CLASSES.RESULT_URL;
-      spanUrl.title = item.url;
-
-      const iconSpan = createSafeIcon(UI_ICONS.STAR);
-      spanUrl.append(iconSpan);
-      spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(item.url, 60)}`));
-
-      const badge = document.createElement('span');
-      badge.className = COMMON_CSS_CLASSES.COUNT_BADGE;
-      badge.textContent = `${item.pendingCount} / ${item.totalCount} 待完成`;
-      spanUrl.append(badge);
-
-      itemDiv.append(spanUrl);
-
-      const link = document.createElement('a');
-      link.href = item.url;
-      link.target = '_blank';
-      link.className = 'open-page-link';
-      link.textContent = '打開頁面';
-      itemDiv.append(link);
-
+      const itemDiv = this.createPendingMigrationItem(item);
       fragment.append(itemDiv);
     });
 
@@ -939,33 +1030,7 @@ export class MigrationTool {
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = `${COMMON_CSS_CLASSES.RESULT_ITEM} failed-item`;
-
-      const spanUrl = document.createElement('span');
-      spanUrl.className = COMMON_CSS_CLASSES.RESULT_URL;
-      spanUrl.title = item.url;
-
-      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
-      spanUrl.append(iconSpan);
-      spanUrl.append(document.createTextNode(` ${MigrationScanner.truncateUrl(item.url, 60)}`));
-
-      const badge = document.createElement('span');
-      badge.className = `${COMMON_CSS_CLASSES.COUNT_BADGE} failed`;
-      badge.textContent = `${item.failedCount} 個無法恢復`;
-      spanUrl.append(badge);
-
-      itemDiv.append(spanUrl);
-
-      const button = document.createElement('button');
-      button.className = 'btn-danger btn-small delete-failed-btn';
-      button.dataset.url = item.url;
-      button.textContent = '刪除';
-      // 直接綁定事件
-      button.addEventListener('click', () => this.deleteFailedHighlights(item.url));
-
-      itemDiv.append(button);
-
+      const itemDiv = this.createFailedMigrationItem(item);
       fragment.append(itemDiv);
     });
 
