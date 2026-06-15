@@ -3,6 +3,7 @@
  */
 
 /* global chrome */
+/* eslint jest/expect-expect: ["warn", { "assertFunctionNames": ["expect", "expectResponseContaining", "expectFailureResponse"] }] */
 
 /* skipcq: JS-0255
  * Chrome 擴展 API 使用 chrome.runtime.lastError 而非 error-first callback 模式，
@@ -43,40 +44,42 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
 }));
 
 jest.mock('../../../../scripts/utils/securityUtils.js', () => {
-  const mockExtensionId = 'mock-ext-id';
-  const isWrongExtension = sender => sender?.id !== mockExtensionId;
-  const hasTabContext = sender => Boolean(sender?.tab);
-  const hasExtensionUrl = sender => sender?.url?.startsWith('chrome-extension://');
+  const mockSecurityExtensionId = 'mock-ext-id';
+  const mockSecurityErrorMessages = {
+    internalOnly: '拒絕訪問：此操作僅限擴充功能內部調用',
+    contentScriptOnly: '拒絕訪問：僅限本擴充功能的 content script 調用',
+    tabContextRequired: '拒絕訪問：此操作必須在標籤頁上下文中調用',
+    privilegedOnly: '拒絕訪問',
+  };
+
+  const mockSecurityFailure = error => ({ success: false, error });
+  const mockIsWrongExtension = sender => sender?.id !== mockSecurityExtensionId;
+  const mockHasTabContext = sender => Boolean(sender?.tab);
+  const mockHasExtensionUrl = sender => sender?.url?.startsWith('chrome-extension://');
+  const mockIsTabSenderOutsideExtension = sender =>
+    mockHasTabContext(sender) && !mockHasExtensionUrl(sender);
+  const mockMissingTabContext = sender => !sender?.tab?.id;
+  const mockCreateSenderValidator = rules =>
+    jest.fn(sender => {
+      const failedRule = rules.find(({ rejects }) => rejects(sender));
+      return failedRule ? mockSecurityFailure(failedRule.error) : null;
+    });
+  const mockInternalRequestRules = [
+    { rejects: mockIsWrongExtension, error: mockSecurityErrorMessages.internalOnly },
+    { rejects: mockIsTabSenderOutsideExtension, error: mockSecurityErrorMessages.internalOnly },
+  ];
+  const mockContentScriptRequestRules = [
+    { rejects: mockIsWrongExtension, error: mockSecurityErrorMessages.contentScriptOnly },
+    { rejects: mockMissingTabContext, error: mockSecurityErrorMessages.tabContextRequired },
+  ];
+  const mockPrivilegedRequestRules = [
+    { rejects: mockIsWrongExtension, error: mockSecurityErrorMessages.privilegedOnly },
+  ];
 
   return {
-    validateInternalRequest: jest.fn(sender => {
-      if (isWrongExtension(sender)) {
-        return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
-      }
-
-      if (hasTabContext(sender) && !hasExtensionUrl(sender)) {
-        return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
-      }
-
-      return null;
-    }),
-    validateContentScriptRequest: jest.fn(sender => {
-      // 模擬真實行為: 1. 檢查是否為 Extension (ID)
-      if (isWrongExtension(sender)) {
-        return { success: false, error: '拒絕訪問：僅限本擴充功能的 content script 調用' };
-      }
-      // 2. 檢查是否有 Tab
-      if (!sender?.tab?.id) {
-        return { success: false, error: '拒絕訪問：此操作必須在標籤頁上下文中調用' };
-      }
-      return null;
-    }),
-    validatePrivilegedRequest: jest.fn(sender => {
-      if (isWrongExtension(sender)) {
-        return { success: false, error: '拒絕訪問' };
-      }
-      return null;
-    }),
+    validateInternalRequest: mockCreateSenderValidator(mockInternalRequestRules),
+    validateContentScriptRequest: mockCreateSenderValidator(mockContentScriptRequestRules),
+    validatePrivilegedRequest: mockCreateSenderValidator(mockPrivilegedRequestRules),
     isValidNotionUrl: jest.fn(() => true),
   };
 });
@@ -326,6 +329,14 @@ function createActionHandlerBundle(services) {
   };
 }
 
+function expectResponseContaining(sendResponse, partialResponse) {
+  expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining(partialResponse));
+}
+
+function expectFailureResponse(sendResponse, error) {
+  expectResponseContaining(sendResponse, { success: false, error });
+}
+
 describe('actionHandlers 覆蓋率補強', () => {
   // Mock services
   let mockNotionService = null;
@@ -433,11 +444,9 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.query.mockResolvedValue([createMockTab({ url: RESTRICTED_EXTENSIONS_URL })]);
 
       await handlers.savePage({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
-        })
+      expectFailureResponse(
+        sendResponse,
+        ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE
       );
     });
 
@@ -446,11 +455,9 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.query.mockResolvedValue([]);
 
       await handlers.savePage({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
-        })
+      expectFailureResponse(
+        sendResponse,
+        ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB)
       );
     });
 
@@ -460,11 +467,9 @@ describe('actionHandlers 覆蓋率補強', () => {
       getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
 
       await handlers.savePage({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-        })
+      expectFailureResponse(
+        sendResponse,
+        ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY)
       );
     });
 
@@ -476,12 +481,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
 
       await handlers.savePage({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: '尚未設定保存目的地，請先到設定頁完成設定。',
-        })
-      );
+      expectFailureResponse(sendResponse, '尚未設定保存目的地，請先到設定頁完成設定。');
     });
 
     test('應該在內容提取失敗時失敗', async () => {
@@ -490,12 +490,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, internalSender, sendResponse);
       // 修正斷言：當 extract 拋出異常時，會返回 'Content extraction script returned no result.'
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED,
-        })
-      );
+      expectFailureResponse(sendResponse, ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED);
     });
 
     // 測試 determineAndExecuteSaveAction：新頁面流程
@@ -511,9 +506,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         EXAMPLE_URL,
         expect.objectContaining({ notionPageId: NEW_PAGE_ID })
       );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, created: true });
     });
 
     test('新頁面保存成功時，PAGE_SAVE_HINT 失敗不應中斷主流程', async () => {
@@ -529,9 +522,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         DEFAULT_TAB_ID,
         expect.objectContaining({ action: 'PAGE_SAVE_HINT', isSaved: true })
       );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, created: true });
     });
 
     test('setUrlAlias 失敗時應忽略錯誤並保持成功回應', async () => {
@@ -553,9 +544,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         `${EXAMPLE_URL}/original`,
         `${EXAMPLE_URL}/stable`
       );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, created: true });
     });
 
     test('清理 originalUrl 舊資料失敗時應忽略錯誤並保持成功回應', async () => {
@@ -576,9 +565,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(mockStorageService.removeSavedPageData).toHaveBeenCalledWith(
         `${EXAMPLE_URL}/original-cleanup`
       );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, created: true });
     });
 
     // 測試 determineAndExecuteSaveAction：已有頁面流程 - 更新標註
@@ -596,9 +583,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         expect.any(Array),
         { apiKey: TEST_API_KEY }
       );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ highlightsUpdated: true })
-      );
+      expectResponseContaining(sendResponse, { highlightsUpdated: true });
     });
 
     test('已有頁面：標註更新失敗時應走統一錯誤回應', async () => {
@@ -614,11 +599,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, internalSender, sendResponse);
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.stringContaining('在 updateHighlightsSection 階段'),
-        })
+      expectFailureResponse(
+        sendResponse,
+        expect.stringContaining('在 updateHighlightsSection 階段')
       );
     });
 
@@ -633,7 +616,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.savePage({}, internalSender, sendResponse);
 
       expect(mockNotionService.refreshPageContent).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+      expectResponseContaining(sendResponse, { updated: true });
     });
 
     // 測試 determineAndExecuteSaveAction：頁面已刪除
@@ -653,9 +636,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       expect(mockStorageService.clearNotionStateWithRetry).toHaveBeenCalled();
       expect(mockNotionService.createPage).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ created: true, recreated: true })
-      );
+      expectResponseContaining(sendResponse, { created: true, recreated: true });
     });
 
     test('檢查頁面存在性失敗時應報錯', async () => {
@@ -666,12 +647,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.checkPageExists.mockResolvedValue(null); // Network error
 
       await handlers.savePage({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
-        })
-      );
+      expectFailureResponse(sendResponse, ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED);
     });
 
     /**
@@ -694,9 +670,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       expect(mockStorageService.clearNotionStateWithRetry).toHaveBeenCalled();
       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ created: true, recreated: true })
-      );
+      expectResponseContaining(sendResponse, { created: true, recreated: true });
     });
   });
 
@@ -712,12 +686,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在不是 Content Script 的情況下拒絕', async () => {
       const sendResponse = jest.fn();
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, createInternalSender(), sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.stringContaining('必須在標籤頁上下文中'),
-        })
-      );
+      expectFailureResponse(sendResponse, expect.stringContaining('必須在標籤頁上下文中'));
     });
 
     test('應該在缺少 sender.tab 時回傳 NO_ACTIVE_TAB 友善訊息', async () => {
@@ -759,11 +728,9 @@ describe('actionHandlers 覆蓋率補強', () => {
         }),
         sendResponse
       );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
-        })
+      expectFailureResponse(
+        sendResponse,
+        ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE
       );
     });
 
@@ -772,11 +739,9 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockStorageService.getConfig.mockResolvedValue({});
       getActiveNotionToken.mockResolvedValueOnce({ token: null, mode: null });
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-        })
+      expectFailureResponse(
+        sendResponse,
+        ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY)
       );
     });
 
@@ -787,12 +752,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         new Error('尚未設定保存目標')
       );
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: '尚未設定保存目的地，請先到設定頁完成設定。',
-        })
-      );
+      expectFailureResponse(sendResponse, '尚未設定保存目的地，請先到設定頁完成設定。');
     });
 
     test('正常保存新頁面', async () => {
@@ -803,9 +763,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
 
       expect(mockNotionService.createPage).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, created: true });
     });
 
     test('保存時內容提取失敗', async () => {
@@ -813,12 +771,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockPageContentService.extractContent.mockRejectedValue(new Error('Extract failed'));
       await handlers.SAVE_PAGE_FROM_TOOLBAR({}, csSender, sendResponse);
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED,
-        })
-      );
+      expectFailureResponse(sendResponse, ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED);
     });
   });
 
@@ -874,11 +827,9 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該在缺少參數時報錯', async () => {
       const sendResponse = jest.fn();
       await handlers.checkNotionPageExists({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID),
-        })
+      expectFailureResponse(
+        sendResponse,
+        ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID)
       );
     });
 
@@ -900,12 +851,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.checkNotionPageExists({ pageId: '123' }, internalSender, sendResponse);
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: formattedMessage,
-        })
-      );
+      expectFailureResponse(sendResponse, formattedMessage);
     });
   });
 
@@ -914,7 +860,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue(null);
       await handlers.openNotionPage({ url: HTTP_TEST_URL }, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+      expectResponseContaining(sendResponse, { success: false });
     });
 
     test('應該打開 Notion 頁面', async () => {
@@ -935,7 +881,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([]);
       await handlers.startHighlight({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+      expectResponseContaining(sendResponse, { success: false });
     });
 
     test('應該成功注入並啟動', async () => {
@@ -972,9 +918,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.startHighlight({}, internalSender, sendResponse);
 
       expect(mockInjectionService.injectHighlighter).not.toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.any(String) })
-      );
+      expectFailureResponse(sendResponse, expect.any(String));
     });
   });
 
@@ -989,7 +933,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         csSender,
         sendResponse
       );
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+      expectResponseContaining(sendResponse, { success: false });
     });
 
     test('應該成功同步', async () => {
@@ -1000,9 +944,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
       await handlers.syncHighlights({ highlights: [{ text: 'hi' }] }, csSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: 1, highlightCount: 1 })
-      );
+      expectResponseContaining(sendResponse, { success: true, count: 1, highlightCount: 1 });
     });
   });
 
@@ -1020,9 +962,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       });
 
       await handlers.checkPageStatus({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ isSaved: true, title: 'Start' })
-      );
+      expectResponseContaining(sendResponse, { isSaved: true, title: 'Start' });
     });
 
     test('應該在 API 檢查返回 null 時進行重試', async () => {
@@ -1043,9 +983,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.checkPageStatus({}, internalSender, sendResponse);
 
       expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, isSaved: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, isSaved: true });
     });
     test('checkPageStatus 在重試後仍返回 null 應暫時假設本地狀態正確', async () => {
       const sendResponse = jest.fn();
@@ -1062,9 +1000,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.checkPageStatus({}, internalSender, sendResponse);
 
       expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, isSaved: true })
-      );
+      expectResponseContaining(sendResponse, { success: true, isSaved: true });
     });
 
     test('當 migratedFromOldKey 為 true 時應略過 TTL 快取並驗證頁面存在性', async () => {
@@ -1095,13 +1031,11 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       // 驗證：即使快取有效，仍應呼叫 checkPageExists（略過快取）
       expect(mockNotionService.checkPageExists).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          isSaved: true,
-          notionPageId: SAVED_PAGE_ID,
-        })
-      );
+      expectResponseContaining(sendResponse, {
+        success: true,
+        isSaved: true,
+        notionPageId: SAVED_PAGE_ID,
+      });
     });
   });
 
@@ -1115,9 +1049,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
       await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, internalSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, highlightCount: 1 })
-      );
+      expectResponseContaining(sendResponse, { success: true, highlightCount: 1 });
     });
 
     test('應該在 API Key 未設置時報錯', async () => {
@@ -1132,12 +1064,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: SIMPLE_PAGE_ID });
       await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, internalSender, sendResponse);
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: formattedMessage,
-        })
-      );
+      expectFailureResponse(sendResponse, formattedMessage);
     });
   });
 
@@ -1153,21 +1080,14 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       // 模擬非 content script 請求 (缺少 tab)
       await handlers.USER_ACTIVATE_SHORTCUT({}, { id: WRONG_EXTENSION_ID }, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('拒絕訪問') })
-      );
+      expectFailureResponse(sendResponse, expect.stringContaining('拒絕訪問'));
     });
 
     test('應該處理缺少標籤頁上下文', async () => {
       const sendResponse = jest.fn();
       await handlers.USER_ACTIVATE_SHORTCUT({}, createInternalSender(), sendResponse);
       // 觸發 validateContentScriptRequest 失敗
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.stringContaining('必須在標籤頁上下文中調用'),
-        })
-      );
+      expectFailureResponse(sendResponse, expect.stringContaining('必須在標籤頁上下文中調用'));
     });
 
     test('應該在受限頁面返回錯誤', async () => {
@@ -1177,12 +1097,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         url: undefined,
       });
       await handlers.USER_ACTIVATE_SHORTCUT({}, restrictedSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
-        })
-      );
+      expectFailureResponse(sendResponse, ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED);
     });
 
     test('應該處理 Bundle 注入失敗', async () => {
@@ -1194,9 +1109,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.USER_ACTIVATE_SHORTCUT({}, mockSender, sendResponse);
 
       // sanitizeApiError('Injection failed') -> 'Invalid request'
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.any(String) })
-      );
+      expectFailureResponse(sendResponse, expect.any(String));
     });
 
     // 已在 highlightHandlers.minimal.test.js 補完覆蓋率，移除此處不穩定的測試
@@ -1216,9 +1129,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.USER_ACTIVATE_SHORTCUT({}, mockSender, sendResponse);
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.any(String) })
-      );
+      expectFailureResponse(sendResponse, expect.any(String));
     });
   });
 
@@ -1231,21 +1142,14 @@ describe('actionHandlers 覆蓋率補強', () => {
         url: undefined,
       });
       await handlers.startHighlight({}, evilSender, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('拒絕訪問') })
-      );
+      expectFailureResponse(sendResponse, expect.stringContaining('拒絕訪問'));
     });
 
     test('應該在受限頁面返回錯誤', async () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([createTabContext(CHROME_SETTINGS_URL)]);
       await handlers.startHighlight({}, createInternalSender(), sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
-        })
-      );
+      expectFailureResponse(sendResponse, ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED);
     });
   });
 });
