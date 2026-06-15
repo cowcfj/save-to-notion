@@ -71,7 +71,7 @@ describe('entryAutoInit', () => {
     storage = {},
     getStableUrl = jest.fn(),
     onSetStableUrl = jest.fn(),
-    onShowToolbar = jest.fn(),
+    onLegacyShowToolbar = jest.fn(),
   }) => {
     const {
       createPersistentListeners,
@@ -86,7 +86,7 @@ describe('entryAutoInit', () => {
       },
       getStableUrl,
       onSetStableUrl,
-      onShowToolbar,
+      onLegacyShowToolbar,
     });
   };
 
@@ -306,7 +306,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: true,
       styleMode: 'underline',
     });
     expect(globalThis.__NOTION_STABLE_URL__).toBe('https://test.com');
@@ -325,7 +324,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: true,
-      skipToolbar: true,
       styleMode: 'background',
     });
   });
@@ -381,7 +379,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: true,
       styleMode: 'underline',
     });
     expect(globalThis.__NOTION_STABLE_URL__).toBe('https://fast-page-status.com');
@@ -397,7 +394,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: true,
       styleMode: 'background', // fallback
     });
   });
@@ -412,7 +408,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: true,
       styleMode: 'background',
     });
     expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -434,7 +429,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: true,
       styleMode: 'background',
     });
   });
@@ -455,7 +449,6 @@ describe('entryAutoInit', () => {
     expect(mockSetupHighlighter).toHaveBeenCalledTimes(2);
     expect(mockSetupHighlighter).toHaveBeenNthCalledWith(2, {
       skipRestore: true,
-      skipToolbar: true,
     });
     expect(mockLogger.error).toHaveBeenCalledWith(
       '初始化失敗',
@@ -503,7 +496,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenNthCalledWith(2, {
       skipRestore: true,
-      skipToolbar: true,
     });
 
     const result = await capturedPromise;
@@ -762,7 +754,6 @@ describe('entryAutoInit', () => {
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
       skipRestore: false,
-      skipToolbar: true,
       styleMode: 'background',
     });
 

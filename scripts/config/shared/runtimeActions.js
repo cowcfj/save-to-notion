@@ -230,6 +230,7 @@ const SAVE_ACTIONS = {
 /**
  * @typedef {object} ShowToolbarRequest
  * @property {'showToolbar'} action
+ * @deprecated Legacy compatibility shim. Content script now only reveals the floating rail.
  */
 
 /**
@@ -264,6 +265,7 @@ const SAVE_ACTIONS = {
 /**
  * @typedef {object} ShowHighlighterRequest
  * @property {'showHighlighter'} action
+ * @deprecated Legacy compatibility shim. Content script now only reveals/activates the floating rail.
  */
 
 /**

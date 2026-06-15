@@ -1,7 +1,7 @@
 /**
  * Highlighter 專用 runtime actions
  *
- * 供 highlighter runtime、toolbar、floating rail 與 highlight storage 路徑使用。
+ * 供 highlighter runtime、floating rail 與 highlight storage 等路徑使用（包含 legacy toolbar 相容接口）。
  */
 export const HIGHLIGHTER_ACTIONS = Object.freeze({
   SHOW_TOOLBAR: 'showToolbar',

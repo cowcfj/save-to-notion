@@ -23,23 +23,17 @@ if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
 // globalThis 掛載層（新版 HighlighterV2 + 向後兼容 notionHighlighter）
 import { mountWindowAPI } from './windowAPI.js';
 
-function remountWindowAPI(manager, toolbar, storage) {
+function remountWindowAPI(manager, storage) {
   // toast 由 manager.setDependencies 注入，這裡統一從 manager 讀取，
   // 避免每個 call site 各自把 toast 拼進 state object。
   mountWindowAPI({
     manager,
-    toolbar,
     storage,
     fns: {
       init: opts => {
         const nextManager = initHighlighter(opts);
-        remountWindowAPI(nextManager, null, nextManager.storage);
+        remountWindowAPI(nextManager, nextManager.storage);
         return nextManager;
-      },
-      initWithToolbar: opts => {
-        const nextState = initHighlighterWithToolbar(opts);
-        remountWindowAPI(nextState.manager, nextState.toolbar, nextState.storage);
-        return nextState;
       },
     },
     toast: manager.toast,
@@ -51,16 +45,13 @@ function remountWindowAPI(manager, toolbar, storage) {
  *
  * @param {HighlightManager} manager - HighlightManager 實例
  * @param {object} options - 配置選項
- * @param {import('./ui/Toolbar.js').Toolbar|null} [toolbar=null] - 工具欄實例（可選）。
- *   僅由 HighlightStorage 使用，用於在恢復標註後自動隱藏工具欄。
- *   如果不需要此功能，可傳入 null 或省略此參數。
  * @returns {object} 包含所有創建的模組實例
  */
-function createAndInjectDependencies(manager, options, toolbar = null) {
+function createAndInjectDependencies(manager, options) {
   const styleManager = new StyleManager(options);
   const interaction = new HighlightInteraction(manager);
   const migration = new HighlightMigration(manager);
-  const storage = new HighlightStorage(manager, toolbar);
+  const storage = new HighlightStorage(manager);
   const toast = new Toast();
 
   manager.setDependencies({
@@ -87,47 +78,9 @@ export function initHighlighter(options = {}) {
   createAndInjectDependencies(manager, options);
 
   // 自動執行初始化
-  manager.initializationComplete = manager.initialize();
+  manager.initializationComplete = manager.initialize(options.skipRestore);
 
   return manager;
-}
-
-/**
- * 初始化 Highlighter V2 (包含工具欄)
- *
- * @param {object} [options] - 初始化選項
- * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
- * @param {boolean} [options.skipToolbar] - 已棄用/相容性參數 — 現為 no-op；
- *   toolbar 目前固定為 null，由 windowAPI 在需要時延遲建立。保留是為了維持舊 caller 的呼叫簽名相容。
- * @returns {{manager: HighlightManager, toolbar: import('./ui/Toolbar.js').Toolbar|null, storage: HighlightStorage}}
- *   返回值包含：
- *   - manager: HighlightManager 實例
- *   - toolbar: Phase 1 固定為 null；若未來恢復 toolbar，需改由動態載入路徑處理
- *   - storage: HighlightStorage 實例（v2.19+ 新增，用於 setupHighlighter 訪問恢復功能）
- */
-export function initHighlighterWithToolbar(options = {}) {
-  const manager = new HighlightManager(options);
-
-  // Phase 1: Toolbar 改由 windowAPI 需要時延遲建立，content entry 不再靜態實例化。
-  const toolbar = null;
-
-  // 注入依賴 (注意：HighlightStorage 需要 toolbar)
-  const { storage } = createAndInjectDependencies(manager, options, toolbar);
-
-  // 自動執行初始化
-  manager.initializationComplete = (async () => {
-    // 初始化 Manager
-    await manager.initialize(options.skipRestore);
-
-    // 如果有 Toolbar，初始化並更新計數
-    if (toolbar) {
-      toolbar.initialize();
-      toolbar.updateHighlightCount();
-    }
-  })();
-
-  // 附加 storage 到返回值，方便 setupHighlighter 使用
-  return { manager, toolbar, storage };
 }
 
 /**
@@ -140,31 +93,23 @@ export function initHighlighterWithToolbar(options = {}) {
  *
  * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
- * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
- * @returns {object} 包含 manager, toolbar, restoreManager 的對象
+ * @returns {object} 包含 manager, restoreManager 的對象
  */
 export function setupHighlighter(options = {}) {
   if (globalThis.window === undefined) {
     throw new TypeError('Highlighter V2 requires a browser environment');
   }
 
-  // 初始化 manager 和 toolbar
-  // 如果 skipRestore 為 true（頁面已刪除），同時跳過 Toolbar
-  const effectiveOptions = {
-    ...options,
-    skipToolbar: options.skipToolbar ?? options.skipRestore,
-  };
-
-  // initHighlighterWithToolbar 現在返回注入的 storage
-  const { manager, toolbar, storage } = initHighlighterWithToolbar(effectiveOptions);
+  // 初始化 manager
+  const manager = initHighlighter(options);
 
   // 使用已經創建並注入的 HighlighStorage 作為 restoreManager
-  const restoreManager = storage;
+  const restoreManager = manager.storage;
 
   // 掛載 globalThis API（新版 HighlighterV2 + 向後兼容 notionHighlighter）
-  remountWindowAPI(manager, toolbar, storage);
+  remountWindowAPI(manager, restoreManager);
 
-  return { manager, toolbar, restoreManager };
+  return { manager, restoreManager };
 }
 
 export { RestoreManager, HighlightStorage } from './core/HighlightStorage.js';

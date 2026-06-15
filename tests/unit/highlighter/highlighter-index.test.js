@@ -6,7 +6,7 @@
  * Highlighter Index (scripts/highlighter/index.js) 單元測試
  *
  * 測試 Highlighter 入口點的各種功能：
- * - initHighlighter / initHighlighterWithToolbar
+ * - initHighlighter
  * - setupHighlighter
  * - 全局 API 設置
  * - Chrome runtime message 監聽
@@ -42,7 +42,7 @@ globalThis.chrome = mockChrome;
 // Mock HighlightManager
 const mockManager = {
   initialize: jest.fn().mockResolvedValue(),
-  setDependencies: jest.fn(), // 添加依賴注入方法
+  setDependencies: jest.fn(),
   enable: jest.fn(),
   disable: jest.fn(),
   toggle: jest.fn(),
@@ -57,18 +57,9 @@ const mockManager = {
   initializationComplete: Promise.resolve(),
 };
 
-// Mock Toolbar
-const mockToolbar = {
-  initialize: jest.fn(),
-  show: jest.fn(),
-  hide: jest.fn(),
-  toggle: jest.fn(),
-  minimize: jest.fn(),
-  updateHighlightCount: jest.fn(),
-  stateManager: {
-    currentState: 'hidden',
-  },
-  isVisible: false,
+// Mock HighlightStorage
+const mockStorage = {
+  restore: jest.fn(),
 };
 
 // Mock modules
@@ -76,13 +67,13 @@ jest.mock('../../../scripts/highlighter/core/HighlightManager.js', () => ({
   HighlightManager: jest.fn(() => mockManager),
 }));
 
-jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
-  Toolbar: jest.fn(() => mockToolbar),
+jest.mock('../../../scripts/highlighter/core/HighlightStorage.js', () => ({
+  HighlightStorage: jest.fn(() => mockStorage),
+  RestoreManager: jest.fn(() => mockStorage),
 }));
 
 describe('Highlighter Index', () => {
   let initHighlighter = null;
-  let initHighlighterWithToolbar = null;
   let highlighterModule = null;
 
   beforeEach(() => {
@@ -105,7 +96,6 @@ describe('Highlighter Index', () => {
     // 載入模組
     highlighterModule = require('../../../scripts/highlighter/index.js');
     initHighlighter = highlighterModule.initHighlighter;
-    initHighlighterWithToolbar = highlighterModule.initHighlighterWithToolbar;
   });
 
   afterEach(() => {
@@ -125,28 +115,6 @@ describe('Highlighter Index', () => {
     });
   });
 
-  describe('initHighlighterWithToolbar', () => {
-    test('Phase 1 應保留 toolbar 欄位但固定回傳 null', async () => {
-      const { Toolbar } = require('../../../scripts/highlighter/ui/Toolbar.js');
-
-      const result = await initHighlighterWithToolbar();
-
-      expect(result.manager).toBeDefined();
-      expect(result.toolbar).toBeNull();
-      expect(Toolbar).not.toHaveBeenCalled();
-    });
-
-    test('應該初始化 Manager', async () => {
-      await initHighlighterWithToolbar();
-
-      expect(mockManager.initialize).toHaveBeenCalled();
-    });
-
-    test('不應從 highlighter entry re-export Toolbar', () => {
-      expect(highlighterModule.Toolbar).toBeUndefined();
-    });
-  });
-
   describe('setupHighlighter', () => {
     beforeEach(() => {
       highlighterModule.setupHighlighter();
@@ -158,9 +126,8 @@ describe('Highlighter Index', () => {
 
     test('window.HighlighterV2 應該包含所有必要的屬性', () => {
       expect(typeof globalThis.HighlighterV2.init).toBe('function');
-      expect(typeof globalThis.HighlighterV2.initWithToolbar).toBe('function');
       expect(typeof globalThis.HighlighterV2.getInstance).toBe('function');
-      expect(typeof globalThis.HighlighterV2.getToolbar).toBe('function');
+      expect(globalThis.HighlighterV2.getToolbar).toBeUndefined();
     });
 
     test('應該設置 window.notionHighlighter 兼容層', () => {
@@ -175,25 +142,6 @@ describe('Highlighter Index', () => {
       expect(typeof globalThis.notionHighlighter.collectHighlights).toBe('function');
       expect(typeof globalThis.notionHighlighter.clearAll).toBe('function');
       expect(typeof globalThis.notionHighlighter.getCount).toBe('function');
-    });
-
-    test('HighlighterV2.getToolbar 應該在延遲建立 Toolbar 後返回最新實例', () => {
-      delete globalThis.HighlighterV2;
-      delete globalThis.notionHighlighter;
-      delete globalThis.initHighlighter;
-      delete globalThis.collectHighlights;
-      delete globalThis.clearPageHighlights;
-
-      highlighterModule.setupHighlighter({ skipToolbar: true });
-
-      expect(globalThis.HighlighterV2.getToolbar()).toBeNull();
-      expect(globalThis.HighlighterV2.toolbar).toBeNull();
-
-      globalThis.notionHighlighter.show();
-
-      expect(globalThis.HighlighterV2.getToolbar()).toBe(mockToolbar);
-      expect(globalThis.HighlighterV2.toolbar).toBe(mockToolbar);
-      expect(mockToolbar.show).toHaveBeenCalled();
     });
   });
 
@@ -221,26 +169,6 @@ describe('Highlighter Index', () => {
       highlighterModule.setupHighlighter();
     });
 
-    test('show() 應該調用 toolbar.show()', async () => {
-      await globalThis.notionHighlighter.show();
-      expect(mockToolbar.show).toHaveBeenCalled();
-    });
-
-    test('hide() 應該調用 toolbar.hide()', async () => {
-      // 先調用 show() 確保 toolbar 已創建（currentToolbar 不為 null）
-      await globalThis.notionHighlighter.show();
-      jest.clearAllMocks(); // 清除 show 的調用記錄
-      await globalThis.notionHighlighter.hide();
-      expect(mockToolbar.hide).toHaveBeenCalled();
-    });
-
-    test('toggle() 在 hidden 狀態時應該調用 toolbar.show()', async () => {
-      // stateManager.currentState 預設為 'hidden'
-      await globalThis.notionHighlighter.toggle();
-      // 當 state === 'hidden' 時，應該調用 show()
-      expect(mockToolbar.show).toHaveBeenCalled();
-    });
-
     test('collectHighlights() 應該調用 manager.collectHighlightsForNotion()', async () => {
       const result = await globalThis.notionHighlighter.collectHighlights();
       expect(mockManager.collectHighlightsForNotion).toHaveBeenCalled();
@@ -257,22 +185,10 @@ describe('Highlighter Index', () => {
       expect(mockManager.getCount).toHaveBeenCalled();
       expect(count).toBe(5);
     });
-
-    test('isActive() 應該根據 toolbar state 回傳布林值', () => {
-      globalThis.notionHighlighter.show();
-
-      mockToolbar.stateManager.currentState = 'hidden';
-      expect(globalThis.notionHighlighter.isActive()).toBe(false);
-
-      mockToolbar.stateManager.currentState = 'expanded';
-      expect(globalThis.notionHighlighter.isActive()).toBe(true);
-    });
   });
-  describe('setupHighlighter Edge Cases', () => {
-    // 無 browser 環境會拋出錯誤的測試被移除，因為 JSDOM 中 globalThis.window 無法被重新定義 (non-configurable)
 
+  describe('setupHighlighter Edge Cases', () => {
     test('能正常初始化並傳遞正確參數，包含掛載別名函數', () => {
-      // Create a local mock for windowAPI just for this function
       jest.isolateModules(() => {
         jest.mock('../../../scripts/highlighter/windowAPI.js', () => ({
           mountWindowAPI: jest.fn(),
@@ -290,11 +206,7 @@ describe('Highlighter Index', () => {
 
         funcs.init();
         expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(2);
-        funcs.initWithToolbar();
-        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(3);
       });
     });
   });
-  // SET_STABLE_URL 晚到重試的測試已移至 tests/unit/highlighter/entryAutoInit.test.js
-  // 因為此監聽器邏輯已從 index.js 搬移到 entryAutoInit.js
 });

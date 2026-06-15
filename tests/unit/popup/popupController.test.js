@@ -522,7 +522,8 @@ describe('popup.js Controller', () => {
       await triggerEvent(mockElements.saveButton);
 
       expect(Logger.warn).toHaveBeenCalledWith(ERROR_MESSAGES.TECHNICAL.TOOLBAR_SHOW_FAILED, {
-        action: 'showToolbar',
+        action: 'showFloatingRail',
+        result: 'failed',
         error: toolbarError,
       });
       expect(updateUIForSavedPage).toHaveBeenCalledWith(

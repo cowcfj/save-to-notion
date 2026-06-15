@@ -140,14 +140,14 @@ function getPersistentMessageHandler(handlers, action) {
  * @param {object} options.globalScope - 全域作用域（預設為 globalThis）
  * @param {Function} options.getStableUrl - 獲取當前穩定 URL 的 callback
  * @param {Function} options.onSetStableUrl - 當收到 SET_STABLE_URL 訊息時的 callback (request, sendResponse) => boolean
- * @param {Function} options.onShowToolbar - 當收到 SHOW_TOOLBAR 訊息時的 callback (sendResponse) => void
+ * @param {Function} options.onLegacyShowToolbar - 當收到 SHOW_TOOLBAR 訊息時的 callback (sendResponse) => void
  * @returns {object} { register, unregister }
  */
 export function createPersistentListeners({
   globalScope = globalThis,
   getStableUrl,
   onSetStableUrl,
-  onShowToolbar,
+  onLegacyShowToolbar,
 }) {
   /**
    * 處理樣式設定變更
@@ -169,7 +169,7 @@ export function createPersistentListeners({
       return onSetStableUrl(request, sendResponse);
     },
     [HIGHLIGHTER_ACTIONS.SHOW_TOOLBAR]: (_request, sendResponse) => {
-      onShowToolbar(sendResponse);
+      onLegacyShowToolbar(sendResponse);
       return true;
     },
     [CONTENT_BRIDGE_ACTIONS.GET_STABLE_URL]: (_request, sendResponse) => {

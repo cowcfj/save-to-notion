@@ -88,8 +88,4 @@ export const UI_TOKENS = {
     lg: '0 8px 32px rgba(0, 0, 0, 0.12)',
     xl: '0 8px 24px rgba(0, 0, 0, 0.2)',
   },
-  toolbar: {
-    primary: '#2eaadc',
-    primaryHover: '#2590ba',
-  },
 };

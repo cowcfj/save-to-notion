@@ -6,17 +6,6 @@
  * 修復後：clearPageHighlights() 走 skipStorage: true，sendMessage 計數固定 = 1。
  */
 
-jest.mock('../../../../scripts/highlighter/ui/Toolbar.js', () => ({
-  Toolbar: jest.fn().mockImplementation(() => ({
-    initialize: jest.fn(),
-    updateHighlightCount: jest.fn(),
-    show: jest.fn(),
-    hide: jest.fn(),
-    minimize: jest.fn(),
-    stateManager: { currentState: 'hidden' },
-  })),
-}));
-
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
@@ -98,7 +87,7 @@ describe('HighlightManager delete recursion guard', () => {
       rangeInfo: {},
     });
 
-    mountWindowAPI({ manager, toolbar: null, storage });
+    mountWindowAPI({ manager, storage });
   });
 
   afterEach(() => {
