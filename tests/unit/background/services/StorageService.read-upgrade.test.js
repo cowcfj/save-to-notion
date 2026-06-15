@@ -22,6 +22,22 @@ describe('StorageService - Read Write Upgrade', () => {
   let mockStorage = null;
   let mockLogger = null;
 
+  const buildOriginalStableUrls = () => ({
+    originalUrl: 'https://example.com/original',
+    stableUrl: 'https://example.com/stable',
+  });
+
+  const buildAliasPageStorage = ({
+    originalUrl,
+    stableUrl,
+    notion,
+    highlights = [],
+    metadata = {},
+  }) => ({
+    [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+    [`${PAGE_PREFIX}${stableUrl}`]: { notion, highlights, metadata },
+  });
+
   beforeEach(() => {
     ({ service, mockStorage, mockLogger } = createStorageServiceHarness(StorageService));
   });
@@ -35,9 +51,20 @@ describe('StorageService - Read Write Upgrade', () => {
     const LEGACY_TITLE = 'legacy title';
     const READ_UPGRADE_FAILURE_TTL_MS = 30 * 60 * 1000;
 
-    const buildOriginalStableUrls = () => ({
-      originalUrl: 'https://example.com/original',
-      stableUrl: 'https://example.com/stable',
+    const buildSavedPageResult = ({
+      notionPageId,
+      title,
+      savedAt = null,
+      lastVerifiedAt = null,
+      destinationProfileId = null,
+      notionUrl = null,
+    }) => ({
+      notionPageId,
+      notionUrl,
+      title,
+      savedAt,
+      lastVerifiedAt,
+      destinationProfileId,
     });
 
     const setupLegacyReadPath = ({ url, savedData, highlightData = [] }) => {
@@ -147,6 +174,43 @@ describe('StorageService - Read Write Upgrade', () => {
       return context;
     };
 
+    const expectUpgradeWriteSkipped = (normalizedUrl, expectedRetryState) => {
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+      expect(mockStorage.local.remove).not.toHaveBeenCalled();
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
+        expect.objectContaining(expectedRetryState)
+      );
+    };
+
+    const skippedRetryScenarios = [
+      {
+        name: '尚未到達 nextRetryAt 時，應跳過重試',
+        slug: 'retry-skip-before-next-window',
+        notionPageId: 'legacy-2',
+        now: 1_700_000_001_000,
+        buildRetryState: now => ({
+          nextRetryAt: now + 30_000,
+        }),
+        buildExpectedRetryState: now => ({
+          attempts: 1,
+          nextRetryAt: now + 30_000,
+        }),
+      },
+      {
+        name: '達到 maxAttempts 且仍在 TTL 內時，應跳過重試',
+        slug: 'retry-max-attempts',
+        notionPageId: 'legacy-5',
+        now: 1_700_000_004_000,
+        buildRetryState: now => ({
+          attempts: 5,
+          firstFailureAt: now - 10_000,
+        }),
+        buildExpectedRetryState: () => ({
+          attempts: 5,
+        }),
+      },
+    ];
+
     it('應該正確獲取保存的頁面數據（page_* 新格式）', async () => {
       const notionData = { pageId: 'page-123', title: 'Test Page', savedAt: 12_345 };
       mockStorage.local.get.mockResolvedValue({
@@ -158,14 +222,13 @@ describe('StorageService - Read Write Upgrade', () => {
       });
 
       const result = await service.getSavedPageData('https://example.com/page');
-      expect(result).toEqual({
-        notionPageId: 'page-123',
-        notionUrl: null,
-        title: 'Test Page',
-        savedAt: 12_345,
-        lastVerifiedAt: null,
-        destinationProfileId: null,
-      });
+      expect(result).toEqual(
+        buildSavedPageResult({
+          notionPageId: 'page-123',
+          title: 'Test Page',
+          savedAt: 12_345,
+        })
+      );
     });
 
     it('應該在沒有數據時返回 null', async () => {
@@ -195,25 +258,22 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('應在直接查找失敗時嘗試使用 alias 查找（page_* 格式）', async () => {
-      const originalUrl = 'https://example.com/original';
-      const stableUrl = 'https://example.com/stable';
+      const { originalUrl, stableUrl } = buildOriginalStableUrls();
       const notionData = { pageId: 'page-abc', title: 'Test Page' };
 
-      mockStorageLookup(mockStorage, {
-        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
-        [`${PAGE_PREFIX}${stableUrl}`]: { notion: notionData, highlights: [], metadata: {} },
-      });
+      mockStorageLookup(
+        mockStorage,
+        buildAliasPageStorage({ originalUrl, stableUrl, notion: notionData })
+      );
 
       const result = await service.getSavedPageData(originalUrl);
 
-      expect(result).toEqual({
-        notionPageId: 'page-abc',
-        notionUrl: null,
-        title: 'Test Page',
-        savedAt: null,
-        lastVerifiedAt: null,
-        destinationProfileId: null,
-      });
+      expect(result).toEqual(
+        buildSavedPageResult({
+          notionPageId: 'page-abc',
+          title: 'Test Page',
+        })
+      );
     });
 
     it('缺少 alias 時，不應把孤立的 stable page_* 視為 original URL 的已保存狀態', async () => {
@@ -263,25 +323,18 @@ describe('StorageService - Read Write Upgrade', () => {
       });
     });
 
-    it('尚未到達 nextRetryAt 時，應跳過重試', async () => {
-      const now = 1_700_000_001_000;
+    it.each(skippedRetryScenarios)('$name', async scenario => {
+      expect.hasAssertions();
+
+      const { slug, notionPageId, now, buildRetryState, buildExpectedRetryState } = scenario;
       const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-skip-before-next-window',
-        notionPageId: 'legacy-2',
+        slug,
+        notionPageId,
         now,
-        retryState: {
-          nextRetryAt: now + 30_000,
-        },
+        retryState: buildRetryState(now),
       });
 
-      expect(mockStorage.local.set).not.toHaveBeenCalled();
-      expect(mockStorage.local.remove).not.toHaveBeenCalled();
-      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
-        expect.objectContaining({
-          attempts: 1,
-          nextRetryAt: now + 30_000,
-        })
-      );
+      expectUpgradeWriteSkipped(normalizedUrl, buildExpectedRetryState(now));
     });
 
     it('超過 nextRetryAt 後，應允許再次嘗試讀時升級', async () => {
@@ -324,27 +377,6 @@ describe('StorageService - Read Write Upgrade', () => {
       expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
       expect(mockStorage.local.remove).toHaveBeenCalledTimes(1);
       expect(service._failedUpgradeAttempts.has(normalizedUrl)).toBe(false);
-    });
-
-    it('達到 maxAttempts 且仍在 TTL 內時，應跳過重試', async () => {
-      const now = 1_700_000_004_000;
-      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-max-attempts',
-        notionPageId: 'legacy-5',
-        now,
-        retryState: {
-          attempts: 5,
-          firstFailureAt: now - 10_000,
-        },
-      });
-
-      expect(mockStorage.local.set).not.toHaveBeenCalled();
-      expect(mockStorage.local.remove).not.toHaveBeenCalled();
-      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
-        expect.objectContaining({
-          attempts: 5,
-        })
-      );
     });
 
     it('應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL', async () => {
@@ -447,20 +479,17 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('直接 page_* 查找失敗但 alias 存在時，set/get 應使用 alias stable URL', async () => {
-      const originalUrl = 'https://example.com/original';
-      const stableUrl = 'https://example.com/stable';
-      const storageData = {
-        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
-        [`${PAGE_PREFIX}${stableUrl}`]: {
-          notion: {
-            pageId: 'page-1',
-            title: 'Stable Page',
-            destinationProfileId: null,
-          },
-          highlights: [{ id: 'h1', text: 'highlight' }],
-          metadata: {},
+      const { originalUrl, stableUrl } = buildOriginalStableUrls();
+      const storageData = buildAliasPageStorage({
+        originalUrl,
+        stableUrl,
+        notion: {
+          pageId: 'page-1',
+          title: 'Stable Page',
+          destinationProfileId: null,
         },
-      };
+        highlights: [{ id: 'h1', text: 'highlight' }],
+      });
       mockStorageLookup(mockStorage, storageData);
 
       await expect(service.getSavedPageData(originalUrl)).resolves.toEqual(
@@ -481,8 +510,7 @@ describe('StorageService - Read Write Upgrade', () => {
     });
 
     it('alias 命中 legacy stable saved_* 時，set 應寫入 canonical stable page_* key', async () => {
-      const originalUrl = 'https://example.com/original';
-      const stableUrl = 'https://example.com/stable';
+      const { originalUrl, stableUrl } = buildOriginalStableUrls();
       const storageData = {
         [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
         [`${SAVED_PREFIX}${stableUrl}`]: {
