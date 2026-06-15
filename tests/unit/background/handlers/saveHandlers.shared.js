@@ -2,6 +2,12 @@
  * @jest-environment jsdom
  */
 
+import { createSaveHandlers } from '../../../../scripts/background/handlers/saveHandlers.js';
+import * as notionAuth from '../../../../scripts/utils/notionAuth.js';
+import { createSaveHandlersHarness } from '../../../helpers/saveHandlersTestHarness.js';
+
+export const { ensureNotionApiKey, getActiveNotionToken } = notionAuth;
+
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(),
 }));
@@ -36,21 +42,6 @@ jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
   },
 }));
 
-const { createSaveHandlers } = require('../../../../scripts/background/handlers/saveHandlers.js');
-const {
-  isRestrictedInjectionUrl,
-} = require('../../../../scripts/background/services/InjectionService.js');
-const {
-  validateInternalRequest,
-  isValidNotionUrl,
-} = require('../../../../scripts/utils/securityUtils.js');
-const { normalizeUrl, resolveStorageUrl } = require('../../../../scripts/utils/urlUtils.js');
-const {
-  getActiveNotionToken,
-  ensureNotionApiKey,
-} = require('../../../../scripts/utils/notionAuth.js');
-const { createSaveHandlersHarness } = require('../../../helpers/saveHandlersTestHarness.js');
-
 export function createSaveHandlersTestContext() {
   const context = {
     handlers: null,
@@ -59,8 +50,8 @@ export function createSaveHandlersTestContext() {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    getActiveNotionToken.mockResolvedValue({ token: 'valid-key', mode: 'manual' });
-    ensureNotionApiKey.mockResolvedValue('valid-key');
+    notionAuth.getActiveNotionToken.mockResolvedValue({ token: 'valid-key', mode: 'manual' });
+    notionAuth.ensureNotionApiKey.mockResolvedValue('valid-key');
     Object.assign(context, createSaveHandlersHarness());
   });
 
@@ -89,16 +80,12 @@ export function replaceSaveHandlers(context, services) {
   context.handlers = createSaveHandlers(services);
 }
 
+export { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 export {
-  isRestrictedInjectionUrl,
-  validateInternalRequest,
   isValidNotionUrl,
-  normalizeUrl,
-  resolveStorageUrl,
-  getActiveNotionToken,
-  ensureNotionApiKey,
-};
-
+  validateInternalRequest,
+} from '../../../../scripts/utils/securityUtils.js';
+export { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
 export const validSender = {
   id: 'mock-extension-id',
   origin: 'chrome-extension://mock-extension-id',
