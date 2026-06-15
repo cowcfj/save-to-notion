@@ -12,6 +12,7 @@ import {
   buildStaleStableState,
 } from '../../../helpers/status-fixtures.js';
 import {
+  buildAliasPageState,
   createStorageServiceHarness,
   mockStorageLookup,
   flushReadTimeUpgrade,
@@ -33,10 +34,12 @@ describe('StorageService - Read Write Upgrade', () => {
     notion,
     highlights = [],
     metadata = {},
-  }) => ({
-    [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
-    [`${PAGE_PREFIX}${stableUrl}`]: { notion, highlights, metadata },
-  });
+  }) =>
+    buildAliasPageState({
+      originalUrl,
+      stableUrl,
+      pageState: { notion, highlights, metadata },
+    });
 
   beforeEach(() => {
     ({ service, mockStorage, mockLogger } = createStorageServiceHarness(StorageService));
@@ -211,6 +214,112 @@ describe('StorageService - Read Write Upgrade', () => {
       },
     ];
 
+    const missingSavedStatusScenarios = [
+      {
+        name: '缺少 alias 時，不應把孤立的 stable page_* 視為 original URL 的已保存狀態',
+        buildStorageData: urls =>
+          buildStaleStableState({
+            ...urls,
+            includeAlias: false,
+          }),
+      },
+      {
+        name: 'alias 指向 notion:null 的 stable page_* 時，應回傳 null 而非已保存',
+        buildStorageData: urls =>
+          buildDeletedState({
+            ...urls,
+            highlights: [buildHighlight()],
+          }),
+      },
+    ];
+
+    const failedRetryScenarios = [
+      {
+        name: '讀時升級第一次失敗後，應記錄重試狀態與 nextRetryAt',
+        slug: 'retry-first-failure',
+        notionPageId: 'legacy-1',
+        now: 1_700_000_000_000,
+        random: 0,
+        writeFailureMessage: 'upgrade write failed',
+        buildExpectedRetryState: now => ({
+          attempts: 1,
+          firstFailureAt: now,
+          lastFailureAt: now,
+          nextRetryAt: now + 500,
+        }),
+      },
+      {
+        name: '超過 nextRetryAt 後，應允許再次嘗試讀時升級',
+        slug: 'retry-after-next-window',
+        notionPageId: 'legacy-3',
+        now: 1_700_000_002_000,
+        random: 0,
+        buildRetryState: now => ({
+          attempts: 1,
+          firstFailureAt: now - 2000,
+          lastFailureAt: now - 1500,
+        }),
+        writeFailureMessage: 'upgrade write failed again',
+        buildExpectedRetryState: now => ({
+          attempts: 2,
+          firstFailureAt: now - 2000,
+          lastFailureAt: now,
+          nextRetryAt: now + 1000,
+        }),
+      },
+      {
+        name: '應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL',
+        slug: 'retry-hit-max-attempt',
+        notionPageId: 'legacy-7',
+        now: 1_700_000_004_500,
+        buildRetryState: now => ({
+          attempts: 4,
+          firstFailureAt: now - 20_000,
+          lastFailureAt: now - 1000,
+        }),
+        writeFailureMessage: 'upgrade write failed at attempt 5',
+        buildExpectedRetryState: now => ({
+          attempts: 5,
+          firstFailureAt: now - 20_000,
+          lastFailureAt: now,
+          nextRetryAt: now - 20_000 + READ_UPGRADE_FAILURE_TTL_MS,
+        }),
+      },
+      {
+        name: '超過 TTL 後，應重置並允許新一輪嘗試',
+        slug: 'retry-reset-after-ttl',
+        notionPageId: 'legacy-6',
+        now: 1_700_000_005_000,
+        random: 0,
+        buildRetryState: now => ({
+          attempts: 5,
+          firstFailureAt: now - READ_UPGRADE_FAILURE_TTL_MS - 1,
+          lastFailureAt: now - READ_UPGRADE_FAILURE_TTL_MS - 1,
+          nextRetryAt: now + 999_999,
+        }),
+        writeFailureMessage: 'upgrade write failed after ttl',
+        buildExpectedRetryState: now => ({
+          attempts: 1,
+          firstFailureAt: now,
+          lastFailureAt: now,
+          nextRetryAt: now + 500,
+        }),
+      },
+    ];
+
+    const successfulRetryScenarios = [
+      {
+        name: '讀時升級成功後，應清除失敗追蹤狀態',
+        slug: 'retry-clear-on-success',
+        notionPageId: 'legacy-4',
+        now: 1_700_000_003_000,
+        buildRetryState: now => ({
+          attempts: 2,
+          firstFailureAt: now - 5000,
+        }),
+      },
+    ];
+
     it('應該正確獲取保存的頁面數據（page_* 新格式）', async () => {
       const notionData = { pageId: 'page-123', title: 'Test Page', savedAt: 12_345 };
       mockStorage.local.get.mockResolvedValue({
@@ -276,51 +385,49 @@ describe('StorageService - Read Write Upgrade', () => {
       );
     });
 
-    it('缺少 alias 時，不應把孤立的 stable page_* 視為 original URL 的已保存狀態', async () => {
+    it.each(missingSavedStatusScenarios)('$name', async ({ buildStorageData }) => {
       const urls = buildOriginalStableUrls();
 
       await expect(
         readOriginalSavedPageFromStorage({
           originalUrl: urls.originalUrl,
-          storageData: buildStaleStableState({
-            ...urls,
-            includeAlias: false,
-          }),
+          storageData: buildStorageData(urls),
         })
       ).resolves.toBeNull();
     });
 
-    it('alias 指向 notion:null 的 stable page_* 時，應回傳 null 而非已保存', async () => {
-      const urls = buildOriginalStableUrls();
+    it.each(failedRetryScenarios)('$name', async scenario => {
+      expect.hasAssertions();
 
-      await expect(
-        readOriginalSavedPageFromStorage({
-          originalUrl: urls.originalUrl,
-          storageData: buildDeletedState({
-            ...urls,
-            highlights: [buildHighlight()],
-          }),
-        })
-      ).resolves.toBeNull();
-    });
-
-    it('讀時升級第一次失敗後，應記錄重試狀態與 nextRetryAt', async () => {
-      const now = 1_700_000_000_000;
       const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-first-failure',
-        notionPageId: 'legacy-1',
-        now,
-        random: 0,
-        writeFailureMessage: 'upgrade write failed',
+        slug: scenario.slug,
+        notionPageId: scenario.notionPageId,
+        now: scenario.now,
+        random: scenario.random,
+        retryState: scenario.buildRetryState?.(scenario.now),
+        writeFailureMessage: scenario.writeFailureMessage,
       });
 
-      const retryState = service._failedUpgradeAttempts.get(normalizedUrl);
-      expect(retryState).toEqual({
-        attempts: 1,
-        firstFailureAt: now,
-        lastFailureAt: now,
-        nextRetryAt: now + 500,
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual(
+        scenario.buildExpectedRetryState(scenario.now)
+      );
+    });
+
+    it.each(successfulRetryScenarios)('$name', async scenario => {
+      expect.hasAssertions();
+
+      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
+        slug: scenario.slug,
+        notionPageId: scenario.notionPageId,
+        now: scenario.now,
+        retryState: scenario.buildRetryState(scenario.now),
+        writesSucceed: true,
       });
+
+      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
+      expect(mockStorage.local.remove).toHaveBeenCalledTimes(1);
+      expect(service._failedUpgradeAttempts.has(normalizedUrl)).toBe(false);
     });
 
     it.each(skippedRetryScenarios)('$name', async scenario => {
@@ -335,97 +442,6 @@ describe('StorageService - Read Write Upgrade', () => {
       });
 
       expectUpgradeWriteSkipped(normalizedUrl, buildExpectedRetryState(now));
-    });
-
-    it('超過 nextRetryAt 後，應允許再次嘗試讀時升級', async () => {
-      const now = 1_700_000_002_000;
-      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-after-next-window',
-        notionPageId: 'legacy-3',
-        now,
-        random: 0,
-        retryState: {
-          attempts: 1,
-          firstFailureAt: now - 2000,
-          lastFailureAt: now - 1500,
-        },
-        writeFailureMessage: 'upgrade write failed again',
-      });
-
-      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
-      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
-        attempts: 2,
-        firstFailureAt: now - 2000,
-        lastFailureAt: now,
-        nextRetryAt: now + 1000,
-      });
-    });
-
-    it('讀時升級成功後，應清除失敗追蹤狀態', async () => {
-      const now = 1_700_000_003_000;
-      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-clear-on-success',
-        notionPageId: 'legacy-4',
-        now,
-        retryState: {
-          attempts: 2,
-          firstFailureAt: now - 5000,
-        },
-        writesSucceed: true,
-      });
-
-      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
-      expect(mockStorage.local.remove).toHaveBeenCalledTimes(1);
-      expect(service._failedUpgradeAttempts.has(normalizedUrl)).toBe(false);
-    });
-
-    it('應在第 5 次失敗時將 nextRetryAt 設為 firstFailureAt + TTL', async () => {
-      const now = 1_700_000_004_500;
-      const firstFailureAt = now - 20_000;
-      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-hit-max-attempt',
-        notionPageId: 'legacy-7',
-        now,
-        retryState: {
-          attempts: 4,
-          firstFailureAt,
-          lastFailureAt: now - 1000,
-        },
-        writeFailureMessage: 'upgrade write failed at attempt 5',
-      });
-
-      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
-      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
-        attempts: 5,
-        firstFailureAt,
-        lastFailureAt: now,
-        nextRetryAt: firstFailureAt + READ_UPGRADE_FAILURE_TTL_MS,
-      });
-    });
-
-    it('超過 TTL 後，應重置並允許新一輪嘗試', async () => {
-      const now = 1_700_000_005_000;
-      const { normalizedUrl } = await runLegacyReadUpgradeScenario({
-        slug: 'retry-reset-after-ttl',
-        notionPageId: 'legacy-6',
-        now,
-        random: 0,
-        retryState: {
-          attempts: 5,
-          firstFailureAt: now - READ_UPGRADE_FAILURE_TTL_MS - 1,
-          lastFailureAt: now - READ_UPGRADE_FAILURE_TTL_MS - 1,
-          nextRetryAt: now + 999_999,
-        },
-        writeFailureMessage: 'upgrade write failed after ttl',
-      });
-
-      expect(mockStorage.local.set).toHaveBeenCalledTimes(1);
-      expect(service._failedUpgradeAttempts.get(normalizedUrl)).toEqual({
-        attempts: 1,
-        firstFailureAt: now,
-        lastFailureAt: now,
-        nextRetryAt: now + 500,
-      });
     });
   });
 
