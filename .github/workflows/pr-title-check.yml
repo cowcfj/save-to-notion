@@ -5,7 +5,7 @@ name: PR Title Check
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, reopened]
     branches: [main, develop]
 
 env:
