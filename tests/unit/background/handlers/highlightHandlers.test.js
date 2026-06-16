@@ -16,6 +16,25 @@ import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 
+const TEST_EXTENSION_ID = 'test-id';
+const TEST_TAB_ID = 1;
+const TOAST_TAB_ID = 7;
+const TEST_URL = 'https://example.com';
+const TEST_NOTION_PAGE_ID = 'page1';
+
+const createSendResponse = () => jest.fn();
+const createHighlights = () => [{ text: 'test' }];
+const createSyncRequest = (highlights = createHighlights()) => ({ highlights });
+const createUpdateHighlightsRequest = (highlights = [], url = TEST_URL) => ({ url, highlights });
+const createUrlRequest = overrides => ({ url: TEST_URL, ...overrides });
+const createDefaultSender = ({
+  id = TEST_EXTENSION_ID,
+  tabId = TEST_TAB_ID,
+  url = TEST_URL,
+  tab = { id: tabId, url },
+} = {}) => ({ id, tab });
+const createInternalSender = (id = TEST_EXTENSION_ID) => ({ id });
+
 jest.mock('../../../../scripts/utils/Logger.js');
 jest.mock('../../../../scripts/background/services/InjectionService.js');
 jest.mock('../../../../scripts/utils/securityUtils.js');
@@ -27,6 +46,18 @@ jest.mock('../../../../scripts/utils/notionAuth.js');
 describe('highlightHandlers', () => {
   let handlers;
   let mockServices;
+
+  const mockSavedPageData = (notionPageId = TEST_NOTION_PAGE_ID) => {
+    mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId });
+  };
+
+  const mockHighlightSectionResult = result => {
+    mockServices.notionService.updateHighlightsSection.mockResolvedValue(result);
+  };
+
+  const mockConfiguredNotionApiKey = (notionApiKey = 'key1') => {
+    mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey });
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -94,10 +125,10 @@ describe('highlightHandlers', () => {
 
     // Mock global chrome
     globalThis.chrome = {
-      runtime: { id: 'test-id', lastError: null },
+      runtime: { id: TEST_EXTENSION_ID, lastError: null },
       tabs: {
         sendMessage: jest.fn(),
-        query: jest.fn().mockResolvedValue([{ id: 1, url: 'https://example.com' }]),
+        query: jest.fn().mockResolvedValue([{ id: TEST_TAB_ID, url: TEST_URL }]),
       },
       action: { setBadgeText: jest.fn() },
     };
@@ -112,15 +143,15 @@ describe('highlightHandlers', () => {
 
   describe('updateHighlights', () => {
     it('應該成功更新高亮', async () => {
-      const sendResponse = jest.fn();
-      const sender = { tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [], notionPageId: 'page1' };
+      const sendResponse = createSendResponse();
+      const sender = { tab: { id: TEST_TAB_ID, url: TEST_URL } };
+      const request = { highlights: [], notionPageId: TEST_NOTION_PAGE_ID };
 
       // Mock dependencies for performHighlightUpdate
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockConfiguredNotionApiKey();
+      mockSavedPageData();
       mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+      mockHighlightSectionResult({ success: true });
 
       await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](request, sender, sendResponse);
 
@@ -130,13 +161,13 @@ describe('highlightHandlers', () => {
 
   describe('syncHighlights', () => {
     it('應該成功同步高亮', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+      mockConfiguredNotionApiKey();
+      mockSavedPageData();
+      mockHighlightSectionResult({ success: true });
 
       await handlers.syncHighlights(request, sender, sendResponse);
 
@@ -144,13 +175,13 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理 syncHighlights 失敗 (API 錯誤) 並透傳下游 errorCode (ADR 0007)', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockConfiguredNotionApiKey();
+      mockSavedPageData();
+      mockHighlightSectionResult({
         success: false,
         error: 'Sync failed',
         errorCode: 'highlight_sync_failed',
@@ -167,13 +198,13 @@ describe('highlightHandlers', () => {
     });
 
     it('highlight section retryable failure 應返回可重試的友善訊息', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockConfiguredNotionApiKey();
+      mockSavedPageData();
+      mockHighlightSectionResult({
         success: false,
         error: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
         details: { phase: 'delete_highlight_section', retryable: true },
@@ -190,12 +221,12 @@ describe('highlightHandlers', () => {
     });
 
     it('第一次命中 object_not_found 時應保留本地 notion 綁定並回傳 PAGE_DELETION_PENDING', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockSavedPageData();
+      mockHighlightSectionResult({
         success: false,
         error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
@@ -217,11 +248,11 @@ describe('highlightHandlers', () => {
     });
 
     it('第二次命中 object_not_found 時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockSavedPageData();
       mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
         cleared: true,
         attempts: 1,
@@ -230,7 +261,7 @@ describe('highlightHandlers', () => {
         shouldDelete: true,
         deletionPending: false,
       });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockHighlightSectionResult({
         success: false,
         error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
@@ -257,11 +288,11 @@ describe('highlightHandlers', () => {
     });
 
     it('cleanup retry 最終失敗時仍應回傳 PAGE_DELETED', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockSavedPageData();
       mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
         cleared: false,
         attempts: 2,
@@ -271,7 +302,7 @@ describe('highlightHandlers', () => {
         shouldDelete: true,
         deletionPending: false,
       });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockHighlightSectionResult({
         success: false,
         error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
@@ -309,11 +340,11 @@ describe('highlightHandlers', () => {
     });
 
     it('cleanup skipped 時不應回傳 PAGE_DELETED 或重新標記 deletionPending', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
+      mockSavedPageData();
       mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
         cleared: false,
         skipped: true,
@@ -325,7 +356,7 @@ describe('highlightHandlers', () => {
         shouldDelete: true,
         deletionPending: false,
       });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockHighlightSectionResult({
         success: false,
         error: 'OBJECT_NOT_FOUND',
         details: { phase: 'fetch_blocks' },
@@ -357,8 +388,8 @@ describe('highlightHandlers', () => {
     });
 
     it('應該在沒有新高亮時直接返回成功', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
       const request = { highlights: [] }; // Empty
 
       await handlers.syncHighlights(request, sender, sendResponse);
@@ -373,9 +404,9 @@ describe('highlightHandlers', () => {
     });
 
     it('savedData 缺 notionPageId 時 envelope 應帶 errorCode: PAGE_NOT_SAVED (ADR 0007)', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createSyncRequest();
 
       mockServices.storageService.getSavedPageData.mockResolvedValue(null);
 
@@ -391,9 +422,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少 sender.tab 的情況', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: null };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ tab: null });
+      const request = createSyncRequest();
 
       await handlers.syncHighlights(request, sender, sendResponse);
 
@@ -409,9 +440,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少 sender.tab.url 的情況', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1 } }; // Missing url
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ tab: { id: TEST_TAB_ID } }); // Missing url
+      const request = createSyncRequest();
 
       await handlers.syncHighlights(request, sender, sendResponse);
 
@@ -429,8 +460,8 @@ describe('highlightHandlers', () => {
 
   describe('startHighlight', () => {
     it('沒有 active tab 時應回傳 NO_ACTIVE_TAB 且不記錄 generic error', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
 
@@ -451,8 +482,8 @@ describe('highlightHandlers', () => {
     });
 
     it('應該透過 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動已注入的高亮工具', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
@@ -476,8 +507,8 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時，應回傳 BUNDLE_INIT_TIMEOUT 錯誤且不發送啟動訊息', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
@@ -509,8 +540,8 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時且 injection service 支援 cleanup，應先清理半初始化 bundle', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
       mockServices.injectionService.removeBundle = jest.fn().mockResolvedValue();
@@ -535,8 +566,8 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時且 cleanup 失敗，應記錄 cleanup error 並維持 timeout 回應', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
       const cleanupError = new Error('cleanup failed');
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
@@ -573,8 +604,8 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時且沒有 cleanup API，應記錄半初始化狀態警告', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
@@ -605,8 +636,8 @@ describe('highlightHandlers', () => {
     });
 
     it('[REGRESSION] 當 content script 初始化 Floating Rail 失敗時，應直接回傳 content script 的中文錯誤資訊，不應呼叫 injectHighlighter()', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       // Mock ensureBundleInjected 成功
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
@@ -636,8 +667,8 @@ describe('highlightHandlers', () => {
 
   describe('SHOW_FLOATING_RAIL', () => {
     it('[REGRESSION] preloader 觸發時應注入 bundle 並轉發 content bridge action 到目前 tab', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
@@ -666,8 +697,8 @@ describe('highlightHandlers', () => {
 
   describe('Coverage Improvements (Extended)', () => {
     it('should retry in ensureBundleReady and eventually succeed', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       // Mock chrome.tabs.sendMessage for PING retries
       let count = 0;
@@ -695,8 +726,8 @@ describe('highlightHandlers', () => {
     });
 
     it('should fail in ensureBundleReady if timeout reached', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       // Always return error for PING
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
@@ -720,8 +751,8 @@ describe('highlightHandlers', () => {
     });
 
     it('should handle missing API key in performHighlightUpdate', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       ensureNotionApiKey.mockRejectedValueOnce(
         new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED)
@@ -738,10 +769,10 @@ describe('highlightHandlers', () => {
     });
 
     it('UPDATE_REMOTE_HIGHLIGHTS catch fallback 應帶 errorCode: INTERNAL_ERROR (ADR 0007)', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
+      mockConfiguredNotionApiKey();
       mockServices.injectionService.collectHighlights.mockRejectedValue(
         new Error('Collection failed')
       );
@@ -761,8 +792,8 @@ describe('highlightHandlers', () => {
     });
 
     it('UPDATE_REMOTE_HIGHLIGHTS 沒有 active tab 時應回傳 NO_ACTIVE_TAB errorCode', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
 
       globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
 
@@ -783,12 +814,12 @@ describe('highlightHandlers', () => {
     });
 
     it('should use original URL if stable URL data not found (Double Check logic)', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com/stable-path' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ url: 'https://example.com/stable-path' });
 
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
+      mockConfiguredNotionApiKey();
 
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+      mockHighlightSectionResult({ success: true });
       mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'test' }]);
 
       // First call (stable URL) returns null, second call (original URL) returns data
@@ -816,9 +847,9 @@ describe('highlightHandlers', () => {
     it('should sync successfully when preloader fails (stableUrl equals originalUrl) but storage finds data', async () => {
       // Setup - Simulate Preloader failure causing stableUrl fall back to originalUrl
       const fullPath = 'https://example.com/full-path';
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: fullPath } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ url: fullPath });
+      const request = createSyncRequest();
 
       mockServices.tabService.resolveTabUrl.mockResolvedValue({
         stableUrl: fullPath,
@@ -832,7 +863,7 @@ describe('highlightHandlers', () => {
         notionPageId: 'page-123',
         title: 'Saved Page',
       });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+      mockHighlightSectionResult({ success: true });
 
       // Execution
       await handlers.syncHighlights(request, sender, sendResponse);
@@ -844,8 +875,8 @@ describe('highlightHandlers', () => {
     });
 
     it('should handle ACTIVATE_FLOATING_RAIL_HIGHLIGHT message failure in USER_ACTIVATE_SHORTCUT', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
@@ -865,8 +896,8 @@ describe('highlightHandlers', () => {
     });
 
     it('應該傳遞 content script 回報的 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 失敗結果', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
@@ -897,8 +928,8 @@ describe('highlightHandlers', () => {
         error: '安全性驗證失敗',
       });
 
-      const sendResponse = jest.fn();
-      const sender = { id: 'wrong-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ id: 'wrong-id' });
 
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
@@ -910,9 +941,9 @@ describe('highlightHandlers', () => {
 
     it('USER_ACTIVATE_SHORTCUT 應該處理受限 URL', async () => {
       isRestrictedInjectionUrl.mockReturnValue(true);
-      const sendResponse = jest.fn();
+      const sendResponse = createSendResponse();
       const blockedUrl = 'https://example.com/article?token=secret123&utm_source=test';
-      const sender = { id: 'test-id', tab: { id: 1, url: blockedUrl } };
+      const sender = createDefaultSender({ url: blockedUrl });
 
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
@@ -926,8 +957,8 @@ describe('highlightHandlers', () => {
     });
 
     it('USER_ACTIVATE_SHORTCUT 應該處理缺少分頁上下文', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: null };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ tab: null });
 
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
 
@@ -937,8 +968,8 @@ describe('highlightHandlers', () => {
     });
 
     it('USER_ACTIVATE_SHORTCUT 應該處理 Bundle 注入失敗', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
 
       mockServices.injectionService.ensureBundleInjected.mockRejectedValue(
         new Error('Bundle error')
@@ -957,8 +988,8 @@ describe('highlightHandlers', () => {
         error: '拒絕訪問',
       });
 
-      const sendResponse = jest.fn();
-      const sender = { id: 'wrong-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ id: 'wrong-id' });
 
       await handlers.startHighlight({}, sender, sendResponse);
 
@@ -972,25 +1003,24 @@ describe('highlightHandlers', () => {
 
   describe('UPDATE_HIGHLIGHTS', () => {
     it('應該成功更新標註', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com', highlights: [{ text: 'hl1' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUpdateHighlightsRequest([{ text: 'hl1' }]);
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
       await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
 
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
-        'https://example.com',
-        [{ text: 'hl1' }]
-      );
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, [
+        { text: 'hl1' },
+      ]);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
     it('應該處理缺少參數的情況', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com' }; // Missing highlights
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUrlRequest(); // Missing highlights
 
       await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
 
@@ -1003,9 +1033,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理 updateHighlights 失敗', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com', highlights: [] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUpdateHighlightsRequest();
 
       mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Update failed'));
 
@@ -1028,9 +1058,9 @@ describe('highlightHandlers', () => {
       };
       validateContentScriptRequest.mockReturnValueOnce(validationError);
 
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com' };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUrlRequest();
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
@@ -1047,9 +1077,9 @@ describe('highlightHandlers', () => {
       };
       validateInternalRequest.mockReturnValueOnce(validationError);
 
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
-      const request = { url: 'https://example.com', tabId: 1 };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
+      const request = createUrlRequest({ tabId: TEST_TAB_ID });
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
@@ -1060,18 +1090,15 @@ describe('highlightHandlers', () => {
     });
 
     it('應該成功清除標註', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com' };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUrlRequest();
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
-        'https://example.com',
-        []
-      );
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
@@ -1081,10 +1108,10 @@ describe('highlightHandlers', () => {
     });
 
     it('content script request URL 是 shortlink 時，應以實際 tab URL 清除 permalink storage', async () => {
-      const sendResponse = jest.fn();
+      const sendResponse = createSendResponse();
       const permalinkUrl = 'https://www.rapbull.net/posts/3033/slug';
       const shortlinkUrl = 'https://www.rapbull.net/?p=3033';
-      const sender = { id: 'test-id', tab: { id: 1, url: permalinkUrl } };
+      const sender = createDefaultSender({ url: permalinkUrl });
       const request = { url: shortlinkUrl };
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
@@ -1105,9 +1132,9 @@ describe('highlightHandlers', () => {
     });
 
     it('頁面視覺清除失敗時仍應回報 storage 清除成功', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com' };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUrlRequest();
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
       mockServices.injectionService.clearPageHighlights.mockRejectedValueOnce(
@@ -1116,10 +1143,7 @@ describe('highlightHandlers', () => {
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
-        'https://example.com',
-        []
-      );
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
@@ -1129,19 +1153,16 @@ describe('highlightHandlers', () => {
     });
 
     it('應該允許 popup/internal sender 清除標註並清頁面高亮', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id' };
-      const request = { url: 'https://example.com', tabId: 1 };
+      const sendResponse = createSendResponse();
+      const sender = createInternalSender();
+      const request = createUrlRequest({ tabId: TEST_TAB_ID });
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
       expect(validateInternalRequest).toHaveBeenCalledWith(sender);
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(
-        'https://example.com',
-        []
-      );
+      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
@@ -1151,8 +1172,8 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少 url 的情況', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
       const request = {};
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
@@ -1166,9 +1187,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理清除失敗', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };
-      const request = { url: 'https://example.com' };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender();
+      const request = createUrlRequest();
 
       mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Clear failed'));
 
@@ -1185,12 +1206,12 @@ describe('highlightHandlers', () => {
 
   describe('toast 推送（sync failure → SHOW_TOAST）', () => {
     it('SYNC_HIGHLIGHTS auth 失敗 → 應推送 SYNC_FAILED_AUTH toast', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ tabId: TOAST_TAB_ID });
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockSavedPageData();
+      mockHighlightSectionResult({
         success: false,
         error: 'unauthorized',
         errorCode: 'UNAUTHORIZED',
@@ -1199,7 +1220,7 @@ describe('highlightHandlers', () => {
       await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-        7,
+        TOAST_TAB_ID,
         expect.objectContaining({
           action: 'SHOW_TOAST',
           messageKey: 'SYNC_FAILED_AUTH',
@@ -1209,12 +1230,12 @@ describe('highlightHandlers', () => {
     });
 
     it('SYNC_HIGHLIGHTS HIGHLIGHT_SECTION_DELETE_INCOMPLETE → 不推送 toast', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ tabId: TOAST_TAB_ID });
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockSavedPageData();
+      mockHighlightSectionResult({
         success: false,
         error: 'partial',
         errorCode: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
@@ -1223,18 +1244,18 @@ describe('highlightHandlers', () => {
       await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
-        7,
+        TOAST_TAB_ID,
         expect.objectContaining({ action: 'SHOW_TOAST' })
       );
     });
 
     it('performHighlightUpdate 應透傳 errorCode 欄位至 response', async () => {
-      const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 7, url: 'https://example.com' } };
-      const request = { highlights: [{ text: 'test' }] };
+      const sendResponse = createSendResponse();
+      const sender = createDefaultSender({ tabId: TOAST_TAB_ID });
+      const request = createSyncRequest();
 
-      mockServices.storageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page1' });
-      mockServices.notionService.updateHighlightsSection.mockResolvedValue({
+      mockSavedPageData();
+      mockHighlightSectionResult({
         success: false,
         error: 'rate limited',
         errorCode: 'RATE_LIMITED',
