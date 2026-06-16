@@ -2,8 +2,7 @@
 response_language = "zh-TW"
 ignore_pr_title = [
   "^chore: release",
-  "^chore\\([^)]*\\): release",
-  "^chore\\(main\\): release"
+  "^chore\\([^)]*\\): release"
 ]
 ignore_pr_source_branches = ["^release-please--"]
 add_repo_metadata = true
