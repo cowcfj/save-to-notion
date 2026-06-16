@@ -41,6 +41,167 @@ function setupScriptMock(contentResult) {
   }
 }
 
+/**
+ * Helper to mock active tab query return value.
+ */
+function mockActiveTab({ id = 1, url, title = 'Article' } = {}) {
+  chrome.tabs.query.mockResolvedValue([{ id, url, title, active: true }]);
+}
+
+/**
+ * Helper to mock sync storage Notion settings.
+ */
+function mockNotionSettings(overrides = {}) {
+  const settings = {
+    notionApiKey: 'key',
+    notionDataSourceId: 'ds',
+    notionDatabaseId: 'db',
+    ...overrides,
+  };
+  chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
+    mockCb?.(settings);
+    return Promise.resolve(settings);
+  });
+}
+
+/**
+ * Helper to mock local storage saved page state.
+ */
+async function saveStoredNotionPage(url, pageState = {}) {
+  const savedKey = `saved_${url}`;
+  const data = {
+    notionPageId: 'page-xyz',
+    destinationProfileId: 'default',
+    ...pageState,
+  };
+  await new Promise(resolve => chrome.storage.local.set({ [savedKey]: data }, resolve));
+}
+
+/**
+ * Helper to build a standard Notion paragraph block.
+ */
+function buildParagraphBlock(text = 'p') {
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: { rich_text: [{ type: 'text', text: { content: text } }] },
+  };
+}
+
+/**
+ * Helper to build simulated extracted content.
+ */
+function buildExtractedPageContent({ title = 'T', text = 'p', blocks } = {}) {
+  return {
+    extractionStatus: 'success',
+    title,
+    blocks: blocks || [buildParagraphBlock(text)],
+  };
+}
+
+/**
+ * Helper to build a mock JSON response for fetch.
+ */
+function buildJsonResponse(body, { ok = true, status = 200 } = {}) {
+  const jsonStr = JSON.stringify(body);
+  return Promise.resolve({
+    ok,
+    status,
+    json: () => Promise.resolve(body),
+    text: () => Promise.resolve(jsonStr),
+  });
+}
+
+/**
+ * Helper to build a mock Notion page check response.
+ */
+function buildNotionPageExistsResponse() {
+  return buildJsonResponse({ archived: false });
+}
+
+/**
+ * Helper to build a mock empty children response.
+ */
+function buildEmptyChildrenResponse() {
+  return buildJsonResponse({ results: [] });
+}
+
+/**
+ * Helper to build a mock validation error response (e.g. for invalid images).
+ */
+function buildImageValidationErrorResponse() {
+  return buildJsonResponse(
+    { code: 'validation_error', message: 'image url invalid' },
+    { ok: false, status: 400 }
+  );
+}
+
+/**
+ * Helper to build a mock generic client response error.
+ */
+function buildGenericNotionClientErrorResponse(message = 'Invalid request') {
+  return buildJsonResponse({ message }, { ok: false, status: 400 });
+}
+
+/**
+ * Predict method from fetch init options.
+ */
+function getFetchMethod(init) {
+  return init?.method?.toUpperCase() || 'GET';
+}
+
+/**
+ * Predict if fetch request is Notion Page GET.
+ */
+function isNotionPageGet(requestUrl, init) {
+  return getFetchMethod(init) === 'GET' && /\/v1\/pages\//u.test(requestUrl);
+}
+
+/**
+ * Predict if fetch request is Notion Children GET.
+ */
+function isChildrenGet(requestUrl, init, pageIdPattern) {
+  if (getFetchMethod(init) !== 'GET') {
+    return false;
+  }
+  const regex = new RegExp(String.raw`\/v1\/blocks\/${pageIdPattern}\/children`, 'u');
+  return regex.test(requestUrl);
+}
+
+/**
+ * Predict if fetch request is Notion Children PATCH.
+ */
+function isChildrenPatch(requestUrl, init, pageIdPattern) {
+  if (getFetchMethod(init) !== 'PATCH') {
+    return false;
+  }
+  const regex = new RegExp(String.raw`\/v1\/blocks\/${pageIdPattern}\/children`, 'u');
+  return regex.test(requestUrl);
+}
+
+/**
+ * Helper to mock whole updateNotionPage fetch routing flow.
+ */
+function mockUpdatePageFetchFlow({ pageIdPattern, patchResponse, fallbackResponse }) {
+  globalThis.fetch = jest.fn((requestUrl, init) => {
+    if (isNotionPageGet(requestUrl, init)) {
+      return buildNotionPageExistsResponse();
+    }
+    if (isChildrenGet(requestUrl, init, pageIdPattern)) {
+      return buildEmptyChildrenResponse();
+    }
+    if (isChildrenPatch(requestUrl, init, pageIdPattern)) {
+      return typeof patchResponse === 'function' ? patchResponse() : patchResponse;
+    }
+    if (fallbackResponse) {
+      return typeof fallbackResponse === 'function'
+        ? fallbackResponse(requestUrl, init)
+        : fallbackResponse;
+    }
+    return buildJsonResponse({});
+  });
+}
+
 describe('background error branches (integration)', () => {
   let originalChrome = null;
   let originalFetch = null;
@@ -92,14 +253,43 @@ describe('background error branches (integration)', () => {
     url: 'https://example.com/page',
   };
 
-  test('startHighlight：無活動分頁 → 返回錯誤', async () => {
+  test.each([
+    {
+      name: 'startHighlight：無活動分頁 → 返回錯誤',
+      message: { action: 'startHighlight' },
+      expectedError: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+    },
+    {
+      name: 'savePage：無活動分頁 → 返回錯誤',
+      message: { action: 'savePage' },
+      expectedError: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+    },
+    {
+      name: 'checkNotionPageExists：缺少 pageId → 返回錯誤',
+      message: { action: 'checkNotionPageExists' },
+      expectedError: ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID,
+    },
+    {
+      name: 'checkNotionPageExists：未配置 API Key → 返回錯誤',
+      message: { action: 'checkNotionPageExists', pageId: 'pid-1' },
+      expectedError: ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY,
+    },
+    {
+      name: 'openNotionPage：缺少 URL → 返回錯誤',
+      message: { action: 'openNotionPage' },
+      expectedError: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL,
+      noFormat: true,
+    },
+  ])('$name', async ({ message, expectedError, noFormat }) => {
     const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'startHighlight' }, internalSender, sendResponse);
+    chrome.runtime.onMessage._emit(message, internalSender, sendResponse);
     await sendResponse.waitForCall();
+
+    const err = noFormat ? expectedError : ErrorHandler.formatUserMessage(expectedError);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+        error: err,
       })
     );
   });
@@ -174,50 +364,6 @@ describe('background error branches (integration)', () => {
     );
   });
 
-  test('checkNotionPageExists：缺少 pageId → 返回錯誤', async () => {
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit(
-      { action: 'checkNotionPageExists' },
-      internalSender,
-      sendResponse
-    );
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID),
-      })
-    );
-  });
-
-  test('checkNotionPageExists：未配置 API Key → 返回錯誤', async () => {
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit(
-      { action: 'checkNotionPageExists', pageId: 'pid-1' },
-      internalSender,
-      sendResponse
-    );
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-      })
-    );
-  });
-
-  test('openNotionPage：缺少 URL → 返回錯誤', async () => {
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'openNotionPage' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL,
-      })
-    );
-  });
-
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
     // 設置已保存的頁面數據
     const pageUrl = 'https://example.com/article-open';
@@ -268,17 +414,6 @@ describe('background error branches (integration)', () => {
   });
 
   // ===== savePage 錯誤分支 =====
-  test('savePage：無活動分頁 → 返回錯誤', async () => {
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
-      })
-    );
-  });
 
   test('savePage：缺少 API Key 或資料來源 ID → 返回錯誤', async () => {
     chrome.tabs.query.mockResolvedValueOnce([
@@ -464,32 +599,13 @@ describe('background error branches (integration)', () => {
   test('savePage：Notion API image validation_error → 返回友善錯誤（不自動重試）', async () => {
     jest.useFakeTimers();
 
-    // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article-retry';
-    chrome.tabs.query.mockResolvedValueOnce([{ id: 12, url, title: 'Article', active: true }]);
+    mockActiveTab({ id: 12, url });
+    mockNotionSettings();
 
-    // 使用 mockImplementation 確保此測試期間所有呼叫都能拿到 API Key
-    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-      const res = {
-        notionApiKey: 'key',
-        notionDataSourceId: 'ds',
-        notionDatabaseId: 'db',
-      };
-      mockCb?.(res);
-      return Promise.resolve(res);
-    });
-
-    // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
-    // 注入：Files -> Init -> Collect -> Extract (含圖片)
-    const contentResult = {
-      extractionStatus: 'success',
-      title: 'T',
+    const contentResult = buildExtractedPageContent({
       blocks: [
-        {
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] },
-        },
+        buildParagraphBlock('p'),
         {
           object: 'block',
           type: 'image',
@@ -499,42 +615,20 @@ describe('background error branches (integration)', () => {
           },
         },
       ],
-    };
+    });
     setupScriptMock(contentResult);
 
-    // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true（防呆：不應被呼叫）
     let fetchCall = 0;
     globalThis.fetch = jest.fn((requestUrl, init) => {
-      const method = init?.method?.toUpperCase() || 'GET';
-      // 1. 攔截 checkPageExists (GET)
+      const method = getFetchMethod(init);
       if (method === 'GET') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve(JSON.stringify({ archived: false })),
-        });
+        return buildNotionPageExistsResponse();
       }
-      // 2. 攔截建頁 (POST) -> 第1次 400, 第2次 200（現行行為下不應進入第2次）
       fetchCall += 1;
       if (fetchCall === 1) {
-        return Promise.resolve({
-          ok: false,
-          status: 400,
-          json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
-          text: () =>
-            Promise.resolve(
-              JSON.stringify({ code: 'validation_error', message: 'image url invalid' })
-            ),
-        });
+        return buildImageValidationErrorResponse();
       }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ id: 'new-page-id', url: 'https://www.notion.so/new' }),
-        text: () =>
-          Promise.resolve(JSON.stringify({ id: 'new-page-id', url: 'https://www.notion.so/new' })),
-      });
+      return buildJsonResponse({ id: 'new-page-id', url: 'https://www.notion.so/new' });
     });
 
     const sendResponse = createSendResponseWaiter();
@@ -549,82 +643,16 @@ describe('background error branches (integration)', () => {
   });
 
   test('updateNotionPage：validation_error（含 image）→ 返回友善錯誤訊息', async () => {
-    // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article-validation-image';
-    chrome.tabs.query.mockResolvedValueOnce([{ id: 21, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-      const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
-      mockCb?.(res);
-      return Promise.resolve(res);
-    });
+    mockActiveTab({ id: 21, url });
+    mockNotionSettings();
+    await saveStoredNotionPage(url, { notionPageId: 'page-validation-image' });
 
-    // 已保存頁面 → 走 updateNotionPage 分支
-    const savedKey = `saved_${url}`;
-    await new Promise(resolve =>
-      chrome.storage.local.set(
-        { [savedKey]: { notionPageId: 'page-validation-image', destinationProfileId: 'default' } },
-        resolve
-      )
-    );
+    setupScriptMock(buildExtractedPageContent({ text: 'x' }));
 
-    // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
-
-    const contentResult = {
-      extractionStatus: 'success',
-      title: 'T',
-      blocks: [
-        {
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: [{ type: 'text', text: { content: 'x' } }] },
-        },
-      ],
-    };
-    setupScriptMock(contentResult);
-
-    globalThis.fetch = jest.fn((requestUrl, init) => {
-      // 檢查頁面存在
-      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve(JSON.stringify({ archived: false })),
-        });
-      }
-      // 讀取既有內容
-      if (
-        /\/v1\/blocks\/page-validation-image\/children/u.test(requestUrl) &&
-        init?.method === 'GET'
-      ) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve(JSON.stringify({ results: [] })),
-        });
-      }
-      // 更新內容 → 返回 validation_error 且 message 含 image
-      if (
-        /\/v1\/blocks\/page-validation-image\/children/u.test(requestUrl) &&
-        init?.method === 'PATCH'
-      ) {
-        return Promise.resolve({
-          ok: false,
-          status: 400,
-          json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
-          text: () =>
-            Promise.resolve(
-              JSON.stringify({ code: 'validation_error', message: 'image url invalid' })
-            ),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({}),
-        text: () => Promise.resolve('ok'),
-      });
+    mockUpdatePageFetchFlow({
+      pageIdPattern: 'page-validation-image',
+      patchResponse: () => buildImageValidationErrorResponse(),
     });
 
     const sendResponse = createSendResponseWaiter();
@@ -640,65 +668,15 @@ describe('background error branches (integration)', () => {
 
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
     const url = 'https://example.com/article-400-gen';
-    chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article2', active: true }]);
-    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-      const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
-      mockCb?.(res);
-      return Promise.resolve(res);
-    });
+    mockActiveTab({ id: 22, url, title: 'Article2' });
+    mockNotionSettings();
+    await saveStoredNotionPage(url, { notionPageId: 'page-400-gen' });
 
-    const savedKey = `saved_${url}`;
-    await new Promise(resolve =>
-      chrome.storage.local.set(
-        { [savedKey]: { notionPageId: 'page-400-gen', destinationProfileId: 'default' } },
-        resolve
-      )
-    );
+    setupScriptMock(buildExtractedPageContent({ title: 'T2', text: 'y' }));
 
-    const contentResult = {
-      extractionStatus: 'success',
-      title: 'T2',
-      blocks: [
-        {
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: [{ type: 'text', text: { content: 'y' } }] },
-        },
-      ],
-    };
-    setupScriptMock(contentResult);
-
-    globalThis.fetch = jest.fn((requestUrl, init) => {
-      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve(JSON.stringify({ archived: false })),
-        });
-      }
-      if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve(JSON.stringify({ results: [] })),
-        });
-      }
-      if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'PATCH') {
-        return Promise.resolve({
-          ok: false,
-          status: 400,
-          json: () => Promise.resolve({ message: 'Invalid request' }),
-          text: () => Promise.resolve('Invalid request'),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({}),
-        text: () => Promise.resolve('ok'),
-      });
+    mockUpdatePageFetchFlow({
+      pageIdPattern: 'page-400-gen',
+      patchResponse: () => buildGenericNotionClientErrorResponse('Invalid request'),
     });
 
     const sendResponse = createSendResponseWaiter();
@@ -716,71 +694,22 @@ describe('background error branches (integration)', () => {
     const url = 'https://example.com/article-500';
     const pageId = 'page-500';
 
-    chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-      const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
-      mockCb?.(res);
-      return Promise.resolve(res);
-    });
-    await new Promise(resolve =>
-      chrome.storage.local.set(
-        { [`saved_${url}`]: { notionPageId: pageId, destinationProfileId: 'default' } },
-        resolve
-      )
-    );
+    mockActiveTab({ id: 22, url });
+    mockNotionSettings();
+    await saveStoredNotionPage(url, { notionPageId: pageId });
 
-    const contentResult = {
-      extractionStatus: 'success',
-      title: 'T2',
-      blocks: [
-        {
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: [{ type: 'text', text: { content: 'p2' } }] },
-        },
-      ],
-    };
-    setupScriptMock(contentResult);
+    setupScriptMock(buildExtractedPageContent({ title: 'T2', text: 'p2' }));
 
-    globalThis.fetch = jest.fn((requestUrl, init) => {
-      if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ archived: false }),
-          text: () => Promise.resolve(JSON.stringify({ archived: false })),
-        });
-      }
-      if (/\/v1\/blocks\/.+\/children(?:\?.*)?$/u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ results: [] }),
-          text: () => Promise.resolve(JSON.stringify({ results: [] })),
-        });
-      }
-      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
-        return Promise.resolve({
-          ok: false,
-          status: 500,
-          json: () => Promise.resolve({}),
-          text: () => Promise.resolve('Internal Server Error'),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({}),
-        text: () => Promise.resolve('ok'),
-      });
+    mockUpdatePageFetchFlow({
+      pageIdPattern: pageId,
+      patchResponse: () => buildJsonResponse({}, { ok: false, status: 500 }),
     });
 
     const sendResponse = createSendResponseWaiter(7000);
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
     await sendResponse.waitForCall();
     const resp = sendResponse.mock.calls[0]?.[0];
-    // 500 錯誤會觸發 fetchWithRetry 重試機制，最終可能超時
-    // 但如果成功回應，應該是失敗且包含預設錯誤訊息
+
     expect(sendResponse).toHaveBeenCalled();
     expect(resp).toBeDefined();
     expect(resp.success).toBe(false);
