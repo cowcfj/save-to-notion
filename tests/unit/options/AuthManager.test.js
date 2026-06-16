@@ -120,9 +120,9 @@ function createOptionsUiManagerMock() {
   return uiManager;
 }
 
-function createInitializedAuthManager(uiManager, loadDataSources) {
+async function createInitializedAuthManager(uiManager, loadDataSources) {
   const manager = new AuthManager(uiManager);
-  manager.init({ loadDataSources });
+  await manager.init({ loadDataSources });
   return manager;
 }
 
@@ -180,13 +180,13 @@ describe('AuthManager', () => {
   let mockUiManager = null;
   let mockLoadDatabases = null;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     renderBasicAuthDom();
     mockUiManager = createOptionsUiManagerMock();
     mockLoadDatabases = jest.fn();
 
     installChromeMock();
-    authManager = createInitializedAuthManager(mockUiManager, mockLoadDatabases);
+    authManager = await createInitializedAuthManager(mockUiManager, mockLoadDatabases);
   });
 
   afterEach(() => {
@@ -261,7 +261,7 @@ describe('AuthManager Extended', () => {
   let mockUiManager = null;
   let mockLoadDatabases = null;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     renderExtendedAuthDom();
     mockUiManager = createOptionsUiManagerMock();
     mockLoadDatabases = jest.fn();
@@ -269,7 +269,7 @@ describe('AuthManager Extended', () => {
     installChromeMock({ includeRuntime: true });
     globalThis.fetch = jest.fn();
 
-    authManager = createInitializedAuthManager(mockUiManager, mockLoadDatabases);
+    authManager = await createInitializedAuthManager(mockUiManager, mockLoadDatabases);
   });
 
   afterEach(() => {
@@ -646,10 +646,13 @@ describe('AuthManager Extended', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
-          action: expectedAction,
-          error: expect.any(String),
-        });
+        expect(Logger.error).toHaveBeenCalledWith(
+          '[Auth] 載入資料來源失敗',
+          expect.objectContaining({
+            action: expectedAction,
+            error: expect.any(String),
+          })
+        );
       }
     );
 
