@@ -127,7 +127,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     it('ENABLE_ACCOUNT=true 時應顯示 account card', async () => {
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
       expect(document.querySelector('#account-card').classList.contains('hidden')).toBe(false);
     });
   });
@@ -242,8 +242,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
         }),
       });
       initOptions();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expectAccountLoggedOut();
       expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
@@ -257,7 +256,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     it('點擊後應開新 tab 到 Google start URL（帶 ext_id 與 callback_mode=bridge）', async () => {
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       document.querySelector('#account-login-button').click();
 
@@ -272,7 +271,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     it('登入 URL 應使用 BUILD_ENV.OAUTH_SERVER_URL 作為 base', async () => {
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       document.querySelector('#account-login-button').click();
 
@@ -285,7 +284,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       BUILD_ENV.OAUTH_SERVER_URL = '';
       getAccountProfile.mockResolvedValue(null);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(() => {
         document.querySelector('#account-login-button').click();
@@ -323,12 +322,10 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     it('成功登出後應清除 account session 並廣播 cleared 訊息', async () => {
       clearAccountSession.mockResolvedValue();
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       document.querySelector('#account-logout-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(clearAccountSession).toHaveBeenCalled();
       expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -342,10 +339,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       await flushAsyncClick();
 
       document.querySelector('#account-logout-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushAsyncClick();
+      await flushAsyncClick();
       await Promise.resolve();
 
       const statusEl = document.querySelector('#account-status');
@@ -360,21 +355,22 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       const clearError = new Error('clear failed');
       clearAccountSession.mockRejectedValue(clearError);
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       document.querySelector('#account-logout-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       const statusEl = document.querySelector('#account-status');
       expect(statusEl.textContent).toContain(UI_MESSAGES.ACCOUNT.LOGOUT_FAILED);
       expect(statusEl.className).toContain('error');
-      expect(Logger.error).toHaveBeenCalledWith('Account logout failed', {
-        action: 'logout',
-        result: 'failure',
-        error: clearError,
-      });
+      expect(Logger.error).toHaveBeenCalledWith(
+        'Account logout failed',
+        expect.objectContaining({
+          action: 'logout',
+          result: 'failure',
+          error: clearError,
+        })
+      );
     });
   });
 
@@ -437,12 +433,11 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       });
       clearAccountSession.mockResolvedValue();
       initOptions();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       const syncSetSpy = globalThis.chrome.storage.sync.set;
       document.querySelector('#account-logout-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushAsyncClick();
 
       expect(syncSetSpy).not.toHaveBeenCalled();
     });

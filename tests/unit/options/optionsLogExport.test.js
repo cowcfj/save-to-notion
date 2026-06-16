@@ -193,7 +193,13 @@ describe('optionsLogExport', () => {
 
       expect(statusEl.textContent).toContain('匯出失敗');
       expect(exportBtn.disabled).toBe(false);
-      expect(Logger.error).toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith(
+        'Log export failed',
+        expect.objectContaining({
+          action: 'exportLog',
+          result: 'failed',
+        })
+      );
     });
 
     it('日誌導出失敗時應先 sanitize error 並只記錄安全 payload', async () => {
