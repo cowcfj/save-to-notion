@@ -4,6 +4,7 @@ import {
   RUNTIME_ACTIONS,
   RUNTIME_ERROR_MESSAGES,
 } from '../../../scripts/config/shared/runtimeActions.js';
+import { PAGE_SAVE_ACTIONS } from '../../../scripts/config/runtimeActions/pageSaveActions.js';
 
 describe('runtimeActions', () => {
   test('應集中收錄目前 extension 使用的 runtime action', () => {
@@ -90,6 +91,17 @@ describe('runtimeActions', () => {
     expect(source).not.toMatch(/const DIAGNOSTICS_ACTIONS = \{/);
     expect(source).toMatch(/\.{3}BRIDGE_ACTIONS,/);
     expect(source).toMatch(/\.{3}DIAGNOSTICS_ACTIONS,/);
+  });
+
+  test('OPEN_SIDE_PANEL 應來自 page save action module，不保留 deprecated sidepanel alias', () => {
+    const projectRoot = path.resolve(__dirname, '../../..');
+    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
+    const source = fs.readFileSync(registryFile, 'utf8');
+    const deprecatedAliasName = ['SIDE', 'PANEL_ACTIONS'].join('');
+
+    expect(RUNTIME_ACTIONS.OPEN_SIDE_PANEL).toBe(PAGE_SAVE_ACTIONS.OPEN_SIDE_PANEL);
+    expect(source).not.toMatch(new RegExp(String.raw`const ${deprecatedAliasName} = \{`));
+    expect(source).not.toContain(`...${deprecatedAliasName},`);
   });
 
   test('應暴露一致命名的 runtime 錯誤訊息', () => {
