@@ -34,6 +34,7 @@ describe('runtime action 模組拆分', () => {
         'SHOW_HIGHLIGHTER',
         'START_HIGHLIGHT',
         'SYNC_HIGHLIGHTS',
+        'UPDATE_REMOTE_HIGHLIGHTS',
         'UPDATE_HIGHLIGHTS',
         'CLEAR_HIGHLIGHTS',
         'REMOVE_HIGHLIGHT_DOM',

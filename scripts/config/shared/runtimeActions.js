@@ -340,12 +340,19 @@ const HIGHLIGHT_ACTIONS = {
   UPDATE_REMOTE_HIGHLIGHTS: 'updateHighlights',
   UPDATE_HIGHLIGHTS: 'UPDATE_HIGHLIGHTS',
   CLEAR_HIGHLIGHTS: 'CLEAR_HIGHLIGHTS',
-  SHOW_TOOLBAR: 'showToolbar',
-  SHOW_HIGHLIGHTER: 'showHighlighter',
   REMOVE_HIGHLIGHT_DOM: 'REMOVE_HIGHLIGHT_DOM',
   USER_ACTIVATE_SHORTCUT: 'USER_ACTIVATE_SHORTCUT',
   SHOW_FLOATING_RAIL: 'SHOW_FLOATING_RAIL',
   ACTIVATE_FLOATING_RAIL_HIGHLIGHT: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT',
+};
+
+/**
+ * @deprecated Legacy toolbar actions retained for backward compatibility.
+ * These are shimmed to floating rail in the handlers.
+ */
+const LEGACY_HIGHLIGHT_ACTIONS = {
+  SHOW_TOOLBAR: 'showToolbar',
+  SHOW_HIGHLIGHTER: 'showHighlighter',
 };
 
 /**
@@ -809,6 +816,7 @@ export const RUNTIME_ACTIONS = Object.freeze({
   ...PAGE_STATUS_ACTIONS,
   ...SAVE_ACTIONS,
   ...HIGHLIGHT_ACTIONS,
+  ...LEGACY_HIGHLIGHT_ACTIONS, // Retained for backward compatibility
   ...MIGRATION_ACTIONS,
   ...AUTH_ACTIONS,
   ...DRIVE_SYNC_ACTIONS,
