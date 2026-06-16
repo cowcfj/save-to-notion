@@ -43,6 +43,32 @@ const createMockResponse = (data, ok = true, status = 200) => ({
 });
 
 const mockFetchResponse = createMockResponse({});
+const TEST_OPERATION_LABEL = 'TestOperation';
+const OAUTH_OLD_TOKEN = 'oauth_old_token';
+const OAUTH_NEW_TOKEN = 'oauth_new_token';
+
+const callTestOperation = (service, options = {}) =>
+  service._callNotionApiWithRetry(jest.fn(), {
+    label: TEST_OPERATION_LABEL,
+    ...options,
+  });
+
+const mockUnauthorizedExecution = service => {
+  const unauthorizedError = buildUnauthorizedError();
+  const executeWithRetrySpy = jest
+    .spyOn(service, '_executeWithRetry')
+    .mockRejectedValueOnce(unauthorizedError);
+
+  return { unauthorizedError, executeWithRetrySpy };
+};
+
+const mockOAuthActiveToken = (token = OAUTH_OLD_TOKEN) => {
+  mockActiveToken(getActiveNotionToken, { token, mode: 'oauth' });
+};
+
+const mockManualActiveToken = token => {
+  mockActiveToken(getActiveNotionToken, { token, mode: 'manual' });
+};
 
 describe('NotionService - OAuth 401 retry flow', () => {
   let service = null;
@@ -74,20 +100,15 @@ describe('NotionService - OAuth 401 retry flow', () => {
   });
 
   it('401 + OAuth + refresh 成功時應重試一次', async () => {
-    const unauthorizedError = buildUnauthorizedError();
     const staleClient = { id: 'stale-client' };
+    const { executeWithRetrySpy } = mockUnauthorizedExecution(service);
+    executeWithRetrySpy.mockResolvedValueOnce({ ok: true });
 
-    const executeWithRetrySpy = jest
-      .spyOn(service, '_executeWithRetry')
-      .mockRejectedValueOnce(unauthorizedError)
-      .mockResolvedValueOnce({ ok: true });
+    mockOAuthActiveToken();
+    mockRefreshToken(refreshOAuthToken, OAUTH_NEW_TOKEN);
 
-    mockActiveToken(getActiveNotionToken, { token: 'oauth_old_token', mode: 'oauth' });
-    mockRefreshToken(refreshOAuthToken, 'oauth_new_token');
-
-    const result = await service._callNotionApiWithRetry(jest.fn(), {
-      apiKey: 'oauth_old_token',
-      label: 'TestOperation',
+    const result = await callTestOperation(service, {
+      apiKey: OAUTH_OLD_TOKEN,
       client: staleClient,
     });
 
@@ -98,107 +119,79 @@ describe('NotionService - OAuth 401 retry flow', () => {
       2,
       expect.any(Function),
       expect.objectContaining({
-        apiKey: 'oauth_new_token',
+        apiKey: OAUTH_NEW_TOKEN,
       })
     );
     expect(executeWithRetrySpy.mock.calls[1][1].client).toBeUndefined();
   });
 
   it('401 + OAuth + refresh 失敗時應拋出原錯誤', async () => {
-    const unauthorizedError = buildUnauthorizedError();
-
-    jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
-    mockActiveToken(getActiveNotionToken, { token: 'oauth_old_token', mode: 'oauth' });
+    const { unauthorizedError } = mockUnauthorizedExecution(service);
+    mockOAuthActiveToken();
     mockRefreshToken(refreshOAuthToken, null);
 
-    await expect(
-      service._callNotionApiWithRetry(jest.fn(), {
-        apiKey: 'oauth_old_token',
-        label: 'TestOperation',
-      })
-    ).rejects.toBe(unauthorizedError);
+    await expect(callTestOperation(service, { apiKey: OAUTH_OLD_TOKEN })).rejects.toBe(
+      unauthorizedError
+    );
     expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
   });
 
   it('401 + OAuth + refresh reject 時應保留原始 401 錯誤', async () => {
-    const unauthorizedError = buildUnauthorizedError();
     const refreshError = new Error('Refresh failed');
+    const { unauthorizedError } = mockUnauthorizedExecution(service);
 
-    jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
-    mockActiveToken(getActiveNotionToken, { token: 'oauth_old_token', mode: 'oauth' });
+    mockOAuthActiveToken();
     mockRefreshToken(refreshOAuthToken, refreshError);
 
-    await expect(
-      service._callNotionApiWithRetry(jest.fn(), {
-        apiKey: 'oauth_old_token',
-        label: 'TestOperation',
-      })
-    ).rejects.toBe(unauthorizedError);
+    await expect(callTestOperation(service, { apiKey: OAUTH_OLD_TOKEN })).rejects.toBe(
+      unauthorizedError
+    );
     expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
   });
 
   it('401 + 非 OAuth 模式時不應刷新 token', async () => {
-    const unauthorizedError = buildUnauthorizedError();
+    const manualKey = 'manual_key';
+    const { unauthorizedError } = mockUnauthorizedExecution(service);
 
-    jest.spyOn(service, '_executeWithRetry').mockRejectedValueOnce(unauthorizedError);
-    mockActiveToken(getActiveNotionToken, { token: 'manual_key', mode: 'manual' });
+    mockManualActiveToken(manualKey);
 
-    await expect(
-      service._callNotionApiWithRetry(jest.fn(), {
-        apiKey: 'manual_key',
-        label: 'TestOperation',
-      })
-    ).rejects.toBe(unauthorizedError);
+    await expect(callTestOperation(service, { apiKey: manualKey })).rejects.toBe(unauthorizedError);
     expect(refreshOAuthToken).not.toHaveBeenCalled();
   });
 
   it('使用全域 token 的 OAuth 請求在 refresh 成功後會更新全域 apiKey', async () => {
-    const unauthorizedError = buildUnauthorizedError();
+    const { executeWithRetrySpy } = mockUnauthorizedExecution(service);
+    executeWithRetrySpy.mockResolvedValueOnce({ ok: true });
 
-    jest
-      .spyOn(service, '_executeWithRetry')
-      .mockRejectedValueOnce(unauthorizedError)
-      .mockResolvedValueOnce({ ok: true });
+    service.apiKey = OAUTH_OLD_TOKEN;
+    mockOAuthActiveToken();
+    mockRefreshToken(refreshOAuthToken, OAUTH_NEW_TOKEN);
 
-    service.apiKey = 'oauth_old_token';
-    mockActiveToken(getActiveNotionToken, { token: 'oauth_old_token', mode: 'oauth' });
-    mockRefreshToken(refreshOAuthToken, 'oauth_new_token');
+    await callTestOperation(service);
 
-    await service._callNotionApiWithRetry(jest.fn(), {
-      label: 'TestOperation',
-    });
-
-    expect(service.apiKey).toBe('oauth_new_token');
+    expect(service.apiKey).toBe(OAUTH_NEW_TOKEN);
   });
 
   it('使用 scoped apiKey 的 OAuth 請求在 refresh 成功後不覆寫既有全域 apiKey', async () => {
-    const unauthorizedError = buildUnauthorizedError();
+    const scopedOldToken = 'oauth_old_scoped_token';
+    const scopedNewToken = 'oauth_new_scoped_token';
+    const globalManualToken = 'global_manual_token';
+    const { executeWithRetrySpy } = mockUnauthorizedExecution(service);
+    executeWithRetrySpy.mockResolvedValueOnce({ ok: true });
 
-    jest
-      .spyOn(service, '_executeWithRetry')
-      .mockRejectedValueOnce(unauthorizedError)
-      .mockResolvedValueOnce({ ok: true });
+    service.apiKey = globalManualToken;
+    mockOAuthActiveToken(scopedOldToken);
+    mockRefreshToken(refreshOAuthToken, scopedNewToken);
 
-    service.apiKey = 'global_manual_token';
-    mockActiveToken(getActiveNotionToken, { token: 'oauth_old_scoped_token', mode: 'oauth' });
-    mockRefreshToken(refreshOAuthToken, 'oauth_new_scoped_token');
+    await callTestOperation(service, { apiKey: scopedOldToken });
 
-    await service._callNotionApiWithRetry(jest.fn(), {
-      apiKey: 'oauth_old_scoped_token',
-      label: 'TestOperation',
-    });
-
-    expect(service.apiKey).toBe('global_manual_token');
+    expect(service.apiKey).toBe(globalManualToken);
   });
 
   it('client-only scoped request 401 時不應用全域 token 自動 refresh', async () => {
-    const unauthorizedError = buildUnauthorizedError();
+    const { unauthorizedError, executeWithRetrySpy } = mockUnauthorizedExecution(service);
 
-    const executeWithRetrySpy = jest
-      .spyOn(service, '_executeWithRetry')
-      .mockRejectedValueOnce(unauthorizedError);
-
-    mockActiveToken(getActiveNotionToken, { token: 'test-api-key', mode: 'oauth' });
+    mockOAuthActiveToken('test-api-key');
 
     await expect(
       service._callNotionApiWithRetry(jest.fn(), {
