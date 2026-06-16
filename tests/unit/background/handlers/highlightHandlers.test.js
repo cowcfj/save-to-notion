@@ -59,6 +59,52 @@ describe('highlightHandlers', () => {
     mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey });
   };
 
+  const executeHandler = async (
+    handler,
+    { request = {}, sender = createDefaultSender(), sendResponse = createSendResponse() } = {}
+  ) => {
+    await handler(request, sender, sendResponse);
+    return sendResponse;
+  };
+
+  const executeSyncHighlights = options =>
+    executeHandler(handlers.syncHighlights, {
+      request: createSyncRequest(),
+      ...options,
+    });
+
+  const executeStartHighlight = options =>
+    executeHandler(handlers.startHighlight, {
+      sender: createInternalSender(),
+      ...options,
+    });
+
+  const executeUpdateRemoteHighlights = options =>
+    executeHandler(handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS], options);
+
+  const executeUserActivateShortcut = options =>
+    executeHandler(handlers.USER_ACTIVATE_SHORTCUT, options);
+
+  const executeUpdateHighlights = options =>
+    executeHandler(handlers.UPDATE_HIGHLIGHTS, {
+      request: createUpdateHighlightsRequest(),
+      ...options,
+    });
+
+  const executeClearHighlights = options =>
+    executeHandler(handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS], {
+      request: createUrlRequest(),
+      ...options,
+    });
+
+  const executeToastSyncFailure = async sectionResult => {
+    mockSavedPageData();
+    mockHighlightSectionResult(sectionResult);
+    return executeSyncHighlights({
+      sender: createDefaultSender({ tabId: TOAST_TAB_ID }),
+    });
+  };
+
   beforeEach(() => {
     jest.resetAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'key1', mode: 'manual' });
@@ -175,10 +221,6 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理 syncHighlights 失敗 (API 錯誤) 並透傳下游 errorCode (ADR 0007)', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createSyncRequest();
-
       mockConfiguredNotionApiKey();
       mockSavedPageData();
       mockHighlightSectionResult({
@@ -187,7 +229,7 @@ describe('highlightHandlers', () => {
         errorCode: 'highlight_sync_failed',
       });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights();
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -198,10 +240,6 @@ describe('highlightHandlers', () => {
     });
 
     it('highlight section retryable failure 應返回可重試的友善訊息', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createSyncRequest();
-
       mockConfiguredNotionApiKey();
       mockSavedPageData();
       mockHighlightSectionResult({
@@ -210,7 +248,7 @@ describe('highlightHandlers', () => {
         details: { phase: 'delete_highlight_section', retryable: true },
       });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights();
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -288,10 +326,6 @@ describe('highlightHandlers', () => {
     });
 
     it('cleanup retry 最終失敗時仍應回傳 PAGE_DELETED', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createSyncRequest();
-
       mockSavedPageData();
       mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
         cleared: false,
@@ -308,7 +342,7 @@ describe('highlightHandlers', () => {
         details: { phase: 'fetch_blocks' },
       });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights();
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
@@ -340,10 +374,6 @@ describe('highlightHandlers', () => {
     });
 
     it('cleanup skipped 時不應回傳 PAGE_DELETED 或重新標記 deletionPending', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createSyncRequest();
-
       mockSavedPageData();
       mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
         cleared: false,
@@ -362,7 +392,7 @@ describe('highlightHandlers', () => {
         details: { phase: 'fetch_blocks' },
       });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights();
 
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
         'https://example.com',
@@ -422,11 +452,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少 sender.tab 的情況', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ tab: null });
-      const request = createSyncRequest();
-
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({
+        sender: createDefaultSender({ tab: null }),
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -440,11 +468,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少 sender.tab.url 的情況', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ tab: { id: TEST_TAB_ID } }); // Missing url
-      const request = createSyncRequest();
-
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({
+        sender: createDefaultSender({ tab: { id: TEST_TAB_ID } }),
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -460,12 +486,9 @@ describe('highlightHandlers', () => {
 
   describe('startHighlight', () => {
     it('沒有 active tab 時應回傳 NO_ACTIVE_TAB 且不記錄 generic error', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -792,12 +815,11 @@ describe('highlightHandlers', () => {
     });
 
     it('UPDATE_REMOTE_HIGHLIGHTS 沒有 active tab 時應回傳 NO_ACTIVE_TAB errorCode', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
 
-      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, sender, sendResponse);
+      const sendResponse = await executeUpdateRemoteHighlights({
+        sender: createInternalSender(),
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -875,9 +897,6 @@ describe('highlightHandlers', () => {
     });
 
     it('should handle ACTIVATE_FLOATING_RAIL_HIGHLIGHT message failure in USER_ACTIVATE_SHORTCUT', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
@@ -890,15 +909,12 @@ describe('highlightHandlers', () => {
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue();
 
-      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+      const sendResponse = await executeUserActivateShortcut();
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
     it('應該傳遞 content script 回報的 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 失敗結果', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
         if (msg.action === 'PING') {
           cb({ status: 'bundle_ready' });
@@ -909,7 +925,7 @@ describe('highlightHandlers', () => {
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue();
 
-      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+      const sendResponse = await executeUserActivateShortcut();
 
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
@@ -1003,13 +1019,11 @@ describe('highlightHandlers', () => {
 
   describe('UPDATE_HIGHLIGHTS', () => {
     it('應該成功更新標註', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = createUpdateHighlightsRequest([{ text: 'hl1' }]);
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
-      await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
+      const sendResponse = await executeUpdateHighlights({ request });
 
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, [
         { text: 'hl1' },
@@ -1018,11 +1032,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少參數的情況', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = createUrlRequest(); // Missing highlights
 
-      await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
+      const sendResponse = await executeUpdateHighlights({ request });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1033,13 +1045,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理 updateHighlights 失敗', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createUpdateHighlightsRequest();
-
       mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Update failed'));
 
-      await handlers.UPDATE_HIGHLIGHTS(request, sender, sendResponse);
+      const sendResponse = await executeUpdateHighlights();
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1062,7 +1070,7 @@ describe('highlightHandlers', () => {
       const sender = createDefaultSender();
       const request = createUrlRequest();
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      await executeClearHighlights({ request, sender, sendResponse });
 
       expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
       expect(validateInternalRequest).not.toHaveBeenCalled();
@@ -1081,7 +1089,7 @@ describe('highlightHandlers', () => {
       const sender = createInternalSender();
       const request = createUrlRequest({ tabId: TEST_TAB_ID });
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      await executeClearHighlights({ request, sender, sendResponse });
 
       expect(validateInternalRequest).toHaveBeenCalledWith(sender);
       expect(validateContentScriptRequest).not.toHaveBeenCalled();
@@ -1090,13 +1098,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該成功清除標註', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createUrlRequest();
-
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      const sendResponse = await executeClearHighlights();
 
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
@@ -1132,16 +1136,12 @@ describe('highlightHandlers', () => {
     });
 
     it('頁面視覺清除失敗時仍應回報 storage 清除成功', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createUrlRequest();
-
       mockServices.storageService.updateHighlights.mockResolvedValue();
       mockServices.injectionService.clearPageHighlights.mockRejectedValueOnce(
         new Error('Visual cleanup failed')
       );
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      const sendResponse = await executeClearHighlights();
 
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
       expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
@@ -1153,13 +1153,12 @@ describe('highlightHandlers', () => {
     });
 
     it('應該允許 popup/internal sender 清除標註並清頁面高亮', async () => {
-      const sendResponse = createSendResponse();
       const sender = createInternalSender();
       const request = createUrlRequest({ tabId: TEST_TAB_ID });
 
       mockServices.storageService.updateHighlights.mockResolvedValue();
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      const sendResponse = await executeClearHighlights({ request, sender });
 
       expect(validateInternalRequest).toHaveBeenCalledWith(sender);
       expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
@@ -1172,11 +1171,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理缺少 url 的情況', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = {};
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      const sendResponse = await executeClearHighlights({ request });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1187,13 +1184,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該處理清除失敗', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-      const request = createUrlRequest();
-
       mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Clear failed'));
 
-      await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
+      const sendResponse = await executeClearHighlights();
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1206,18 +1199,11 @@ describe('highlightHandlers', () => {
 
   describe('toast 推送（sync failure → SHOW_TOAST）', () => {
     it('SYNC_HIGHLIGHTS auth 失敗 → 應推送 SYNC_FAILED_AUTH toast', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ tabId: TOAST_TAB_ID });
-      const request = createSyncRequest();
-
-      mockSavedPageData();
-      mockHighlightSectionResult({
+      await executeToastSyncFailure({
         success: false,
         error: 'unauthorized',
         errorCode: 'UNAUTHORIZED',
       });
-
-      await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
         TOAST_TAB_ID,
@@ -1230,18 +1216,11 @@ describe('highlightHandlers', () => {
     });
 
     it('SYNC_HIGHLIGHTS HIGHLIGHT_SECTION_DELETE_INCOMPLETE → 不推送 toast', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ tabId: TOAST_TAB_ID });
-      const request = createSyncRequest();
-
-      mockSavedPageData();
-      mockHighlightSectionResult({
+      await executeToastSyncFailure({
         success: false,
         error: 'partial',
         errorCode: 'HIGHLIGHT_SECTION_DELETE_INCOMPLETE',
       });
-
-      await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
         TOAST_TAB_ID,
@@ -1250,18 +1229,11 @@ describe('highlightHandlers', () => {
     });
 
     it('performHighlightUpdate 應透傳 errorCode 欄位至 response', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ tabId: TOAST_TAB_ID });
-      const request = createSyncRequest();
-
-      mockSavedPageData();
-      mockHighlightSectionResult({
+      const sendResponse = await executeToastSyncFailure({
         success: false,
         error: 'rate limited',
         errorCode: 'RATE_LIMITED',
       });
-
-      await handlers.syncHighlights(request, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ errorCode: 'RATE_LIMITED' })
