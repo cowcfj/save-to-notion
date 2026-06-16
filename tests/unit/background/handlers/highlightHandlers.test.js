@@ -284,7 +284,6 @@ describe('highlightHandlers', () => {
 
   describe('updateHighlights', () => {
     it('應該成功更新高亮', async () => {
-      const sendResponse = createSendResponse();
       const sender = { tab: { id: TEST_TAB_ID, url: TEST_URL } };
       const request = { highlights: [], notionPageId: TEST_NOTION_PAGE_ID };
 
@@ -294,7 +293,7 @@ describe('highlightHandlers', () => {
       mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);
       mockHighlightSectionResult({ success: true });
 
-      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](request, sender, sendResponse);
+      const sendResponse = await executeUpdateRemoteHighlights({ request, sender });
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
@@ -302,15 +301,13 @@ describe('highlightHandlers', () => {
 
   describe('syncHighlights', () => {
     it('應該成功同步高亮', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = createSyncRequest();
 
       mockConfiguredNotionApiKey();
       mockSavedPageData();
       mockHighlightSectionResult({ success: true });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({ request });
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
@@ -354,8 +351,6 @@ describe('highlightHandlers', () => {
     });
 
     it('第一次命中 object_not_found 時應保留本地 notion 綁定並回傳 PAGE_DELETION_PENDING', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = createSyncRequest();
 
       mockSavedPageData();
@@ -365,7 +360,7 @@ describe('highlightHandlers', () => {
         details: { phase: 'fetch_blocks' },
       });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({ request });
 
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
       expect(mockServices.storageService.clearNotionState).not.toHaveBeenCalled();
@@ -381,8 +376,6 @@ describe('highlightHandlers', () => {
     });
 
     it('第二次命中 object_not_found 時應清除本地 notion 綁定並回傳 PAGE_DELETED', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = createSyncRequest();
 
       mockSavedPageData();
@@ -400,7 +393,7 @@ describe('highlightHandlers', () => {
         details: { phase: 'fetch_blocks' },
       });
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({ request });
 
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledWith('page1');
       expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
@@ -479,11 +472,9 @@ describe('highlightHandlers', () => {
     });
 
     it('應該在沒有新高亮時直接返回成功', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = { highlights: [] }; // Empty
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({ request });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -495,13 +486,11 @@ describe('highlightHandlers', () => {
     });
 
     it('savedData 缺 notionPageId 時 envelope 應帶 errorCode: PAGE_NOT_SAVED (ADR 0007)', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
       const request = createSyncRequest();
 
       mockServices.storageService.getSavedPageData.mockResolvedValue(null);
 
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({ request });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -538,9 +527,6 @@ describe('highlightHandlers', () => {
     });
 
     it('應該透過 ACTIVATE_FLOATING_RAIL_HIGHLIGHT 啟動已注入的高亮工具', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
@@ -551,7 +537,7 @@ describe('highlightHandlers', () => {
         }
       });
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
       expect(globalThis.chrome.tabs.sendMessage).toHaveBeenCalledWith(
@@ -563,9 +549,6 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時，應回傳 BUNDLE_INIT_TIMEOUT 錯誤且不發送啟動訊息', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
       // 模擬 PING 永遠回傳 error 導致超時
@@ -579,7 +562,7 @@ describe('highlightHandlers', () => {
         }
       });
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
       expect(globalThis.chrome.tabs.sendMessage).not.toHaveBeenCalledWith(
@@ -596,9 +579,6 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時且 injection service 支援 cleanup，應先清理半初始化 bundle', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
       mockServices.injectionService.removeBundle = jest.fn().mockResolvedValue();
 
@@ -610,7 +590,7 @@ describe('highlightHandlers', () => {
         }
       });
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       expect(mockServices.injectionService.removeBundle).toHaveBeenCalledWith(1);
       expect(sendResponse).toHaveBeenCalledWith(
@@ -622,8 +602,6 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時且 cleanup 失敗，應記錄 cleanup error 並維持 timeout 回應', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
       const cleanupError = new Error('cleanup failed');
 
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
@@ -639,7 +617,7 @@ describe('highlightHandlers', () => {
         }
       });
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       expect(mockServices.injectionService.cleanupInjectedBundle).toHaveBeenCalledWith(1);
       expect(globalThis.Logger.error).toHaveBeenCalledWith(
@@ -660,9 +638,6 @@ describe('highlightHandlers', () => {
     });
 
     it('如果 Bundle 初始化超時且沒有 cleanup API，應記錄半初始化狀態警告', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
       globalThis.chrome.tabs.sendMessage.mockImplementation((_id, msg, cb) => {
@@ -673,7 +648,7 @@ describe('highlightHandlers', () => {
         }
       });
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       expect(globalThis.Logger.warn).toHaveBeenCalledWith(
         'Bundle 初始化超時且無可用 cleanup API，可能留下半初始化 bundle',
@@ -692,9 +667,6 @@ describe('highlightHandlers', () => {
     });
 
     it('[REGRESSION] 當 content script 初始化 Floating Rail 失敗時，應直接回傳 content script 的中文錯誤資訊，不應呼叫 injectHighlighter()', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createInternalSender();
-
       // Mock ensureBundleInjected 成功
       mockServices.injectionService.ensureBundleInjected.mockResolvedValue(true);
 
@@ -707,7 +679,7 @@ describe('highlightHandlers', () => {
         }
       });
 
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight();
 
       // 應呼叫 ensureBundleInjected，但不應呼叫 injectHighlighter
       expect(mockServices.injectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
@@ -807,14 +779,11 @@ describe('highlightHandlers', () => {
     });
 
     it('should handle missing API key in performHighlightUpdate', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-
       ensureNotionApiKey.mockRejectedValueOnce(
         new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED)
       );
 
-      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS]({}, sender, sendResponse);
+      const sendResponse = await executeUpdateRemoteHighlights();
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -825,19 +794,14 @@ describe('highlightHandlers', () => {
     });
 
     it('UPDATE_REMOTE_HIGHLIGHTS catch fallback 應帶 errorCode: INTERNAL_ERROR (ADR 0007)', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-
       mockConfiguredNotionApiKey();
       mockServices.injectionService.collectHighlights.mockRejectedValue(
         new Error('Collection failed')
       );
 
-      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](
-        { highlights: [] },
-        sender,
-        sendResponse
-      );
+      const sendResponse = await executeUpdateRemoteHighlights({
+        request: { highlights: [] },
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -861,9 +825,6 @@ describe('highlightHandlers', () => {
     });
 
     it('should use original URL if stable URL data not found (Double Check logic)', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ url: 'https://example.com/stable-path' });
-
       mockConfiguredNotionApiKey();
 
       mockHighlightSectionResult({ success: true });
@@ -881,11 +842,10 @@ describe('highlightHandlers', () => {
         migrated: false,
       });
 
-      await handlers[RUNTIME_ACTIONS.UPDATE_REMOTE_HIGHLIGHTS](
-        { highlights: [] },
-        sender,
-        sendResponse
-      );
+      const sendResponse = await executeUpdateRemoteHighlights({
+        request: { highlights: [] },
+        sender: createDefaultSender({ url: 'https://example.com/stable-path' }),
+      });
 
       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
@@ -894,8 +854,6 @@ describe('highlightHandlers', () => {
     it('should sync successfully when preloader fails (stableUrl equals originalUrl) but storage finds data', async () => {
       // Setup - Simulate Preloader failure causing stableUrl fall back to originalUrl
       const fullPath = 'https://example.com/full-path';
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ url: fullPath });
       const request = createSyncRequest();
 
       mockServices.tabService.resolveTabUrl.mockResolvedValue({
@@ -905,7 +863,7 @@ describe('highlightHandlers', () => {
       });
 
       // Mock required config & services
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockConfiguredNotionApiKey('test-key');
       mockServices.storageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'page-123',
         title: 'Saved Page',
@@ -913,7 +871,10 @@ describe('highlightHandlers', () => {
       mockHighlightSectionResult({ success: true });
 
       // Execution
-      await handlers.syncHighlights(request, sender, sendResponse);
+      const sendResponse = await executeSyncHighlights({
+        request,
+        sender: createDefaultSender({ url: fullPath }),
+      });
 
       // Verification
       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(1);
@@ -969,10 +930,9 @@ describe('highlightHandlers', () => {
         error: '安全性驗證失敗',
       });
 
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ id: 'wrong-id' });
-
-      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+      const sendResponse = await executeUserActivateShortcut({
+        sender: createDefaultSender({ id: 'wrong-id' }),
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false, error: '安全性驗證失敗' })
@@ -982,11 +942,11 @@ describe('highlightHandlers', () => {
 
     it('USER_ACTIVATE_SHORTCUT 應該處理受限 URL', async () => {
       isRestrictedInjectionUrl.mockReturnValue(true);
-      const sendResponse = createSendResponse();
       const blockedUrl = 'https://example.com/article?token=secret123&utm_source=test';
-      const sender = createDefaultSender({ url: blockedUrl });
 
-      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+      const sendResponse = await executeUserActivateShortcut({
+        sender: createDefaultSender({ url: blockedUrl }),
+      });
 
       expect(globalThis.Logger.warn).toHaveBeenCalledWith(
         '受限頁面無法使用標註',
@@ -998,10 +958,9 @@ describe('highlightHandlers', () => {
     });
 
     it('USER_ACTIVATE_SHORTCUT 應該處理缺少分頁上下文', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ tab: null });
-
-      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+      const sendResponse = await executeUserActivateShortcut({
+        sender: createDefaultSender({ tab: null }),
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ error: expect.any(String) })
@@ -1009,14 +968,11 @@ describe('highlightHandlers', () => {
     });
 
     it('USER_ACTIVATE_SHORTCUT 應該處理 Bundle 注入失敗', async () => {
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender();
-
       mockServices.injectionService.ensureBundleInjected.mockRejectedValue(
         new Error('Bundle error')
       );
 
-      await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
+      const sendResponse = await executeUserActivateShortcut();
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
@@ -1029,10 +985,9 @@ describe('highlightHandlers', () => {
         error: '拒絕訪問',
       });
 
-      const sendResponse = createSendResponse();
-      const sender = createDefaultSender({ id: 'wrong-id' });
-
-      await handlers.startHighlight({}, sender, sendResponse);
+      const sendResponse = await executeStartHighlight({
+        sender: createDefaultSender({ id: 'wrong-id' }),
+      });
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false, error: '拒絕訪問' })
