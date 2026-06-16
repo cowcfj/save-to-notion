@@ -1,22 +1,15 @@
 // NotionService.auth-retry.test.js
 // 1. Mocks MUST be at the very top
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    debug: jest.fn(),
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const loggerMock = require('../../../helpers/loggerMock.js').createLoggerMock({
     debugEnabled: true,
-  },
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  debug: jest.fn(),
-  debugEnabled: true,
-}));
+  });
+  return {
+    __esModule: true,
+    default: loggerMock,
+    ...loggerMock,
+  };
+});
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
   getActiveNotionToken: jest.fn(),
@@ -80,12 +73,9 @@ describe('NotionService - OAuth 401 retry flow', () => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
     refreshOAuthToken.mockResolvedValue(null);
-    mockLogger = {
-      log: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      success: jest.fn(),
-    };
+    mockLogger = require('../../../helpers/loggerMock.js').createLoggerMock({
+      debugEnabled: true,
+    });
     globalThis.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
 
     service = new NotionService({

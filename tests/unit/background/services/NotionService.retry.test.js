@@ -1,22 +1,15 @@
 // NotionService.retry.test.js
 // 1. Mocks MUST be at the very top
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    debug: jest.fn(),
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const loggerMock = require('../../../helpers/loggerMock.js').createLoggerMock({
     debugEnabled: true,
-  },
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  debug: jest.fn(),
-  debugEnabled: true,
-}));
+  });
+  return {
+    __esModule: true,
+    default: loggerMock,
+    ...loggerMock,
+  };
+});
 
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 

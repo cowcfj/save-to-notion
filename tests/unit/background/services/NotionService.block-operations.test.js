@@ -1,22 +1,15 @@
 // NotionService.block-operations.test.js
 // 1. Mocks MUST be at the very top
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    debug: jest.fn(),
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const loggerMock = require('../../../helpers/loggerMock.js').createLoggerMock({
     debugEnabled: true,
-  },
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  debug: jest.fn(),
-  debugEnabled: true,
-}));
+  });
+  return {
+    __esModule: true,
+    default: loggerMock,
+    ...loggerMock,
+  };
+});
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
   getActiveNotionToken: jest.fn(),
@@ -57,12 +50,9 @@ describe('NotionService - Block Operations', () => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
     refreshOAuthToken.mockResolvedValue(null);
-    mockLogger = {
-      log: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      success: jest.fn(),
-    };
+    mockLogger = require('../../../helpers/loggerMock.js').createLoggerMock({
+      debugEnabled: true,
+    });
     globalThis.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
 
     service = new NotionService({
@@ -382,7 +372,12 @@ describe('NotionService - Block Operations', () => {
         );
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分區塊添加失敗'),
-          expect.any(Object)
+          expect.objectContaining({
+            action: 'createPage',
+            phase: 'autoBatch',
+            addedCount: expect.any(Number),
+            totalCount: expect.any(Number),
+          })
         );
       });
     });
@@ -409,7 +404,11 @@ describe('NotionService - Block Operations', () => {
         await service.deleteAllBlocks('id');
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分區塊刪除失敗'),
-          expect.any(Object)
+          expect.objectContaining({
+            action: 'deleteAllBlocks',
+            result: 'partial_failure',
+            failureCount: 1,
+          })
         );
       });
     });
@@ -422,7 +421,10 @@ describe('NotionService - Block Operations', () => {
         await service.refreshPageContent('id', [], { updateTitle: true, title: 'T' });
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('標題更新失敗'),
-          expect.any(Object)
+          expect.objectContaining({
+            action: 'refreshPageContent',
+            phase: 'updateTitle',
+          })
         );
       });
     });
@@ -436,7 +438,11 @@ describe('NotionService - Block Operations', () => {
         const result = await service.updateHighlightsSection('id', []);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分標記區塊刪除失敗'),
-          expect.any(Object)
+          expect.objectContaining({
+            action: 'updateHighlightsSection',
+            result: 'partial_failure',
+            phase: 'delete',
+          })
         );
         expect(result.success).toBe(false);
       });

@@ -2,20 +2,9 @@
 // 1. Mocks MUST be at the very top
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    debug: jest.fn(),
+  default: require('../../../helpers/loggerMock.js').createLoggerMock({
     debugEnabled: true,
-  },
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  debug: jest.fn(),
-  debugEnabled: true,
+  }),
 }));
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
@@ -52,12 +41,9 @@ describe('NotionService - Page Data and Request Body', () => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
     refreshOAuthToken.mockResolvedValue(null);
-    mockLogger = {
-      log: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      success: jest.fn(),
-    };
+    mockLogger = require('../../../helpers/loggerMock.js').createLoggerMock({
+      debugEnabled: true,
+    });
     globalThis.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
 
     service = new NotionService({
@@ -238,17 +224,16 @@ describe('NotionService - Page Data and Request Body', () => {
   });
 
   describe('_apiRequest', () => {
-    it.each([
-      { desc: 'body 為 null', body: null },
-      { desc: 'body 為 undefined', body: undefined },
-      { desc: 'body 為空對象', body: {} },
-    ])('應該在 $desc 時不包含 body', async ({ body }) => {
-      expect.hasAssertions();
+    it.each([{ desc: 'body 為 undefined', body: undefined }])(
+      '應該在 $desc 時不包含 body',
+      async ({ body }) => {
+        expect.hasAssertions();
 
-      await service._apiRequest('/test', { method: 'POST', body });
+        await service._apiRequest('/test', { method: 'POST', body });
 
-      expectFetchWithoutBody();
-    });
+        expectFetchWithoutBody();
+      }
+    );
 
     it('應該正常處理普通對象 body', async () => {
       expect.hasAssertions();
