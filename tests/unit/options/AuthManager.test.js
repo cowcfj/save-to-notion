@@ -185,8 +185,8 @@ describe('AuthManager', () => {
     mockUiManager = createOptionsUiManagerMock();
     mockLoadDatabases = jest.fn();
 
-    authManager = createInitializedAuthManager(mockUiManager, mockLoadDatabases);
     installChromeMock();
+    authManager = createInitializedAuthManager(mockUiManager, mockLoadDatabases);
   });
 
   afterEach(() => {
