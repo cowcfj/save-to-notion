@@ -32,14 +32,42 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   },
 }));
 
-describe('AuthManager', () => {
-  let authManager = null;
-  let mockUiManager = null;
-  let mockLoadDatabases = null;
+const OAUTH_REDIRECT_ORIGIN = 'https://mocked.chromiumapp.org/';
 
-  beforeEach(() => {
-    // DOM Setup
-    document.body.innerHTML = `
+function createChromeStorageAreaMock() {
+  return {
+    get: jest.fn().mockResolvedValue({}),
+    set: jest.fn().mockResolvedValue(),
+    remove: jest.fn().mockResolvedValue(),
+  };
+}
+
+function installChromeMock({ includeRuntime = false } = {}) {
+  globalThis.chrome = {
+    storage: {
+      sync: createChromeStorageAreaMock(),
+      local: createChromeStorageAreaMock(),
+      session: createChromeStorageAreaMock(),
+    },
+    tabs: {
+      create: jest.fn().mockResolvedValue(),
+    },
+    identity: {
+      launchWebAuthFlow: jest.fn().mockResolvedValue(),
+      getRedirectURL: jest.fn().mockReturnValue(OAUTH_REDIRECT_ORIGIN),
+    },
+    ...(includeRuntime
+      ? {
+          runtime: {
+            lastError: null,
+          },
+        }
+      : {}),
+  };
+}
+
+function renderBasicAuthDom() {
+  document.body.innerHTML = `
         <div id="auth-status"></div>
         <button id="oauth-button"></button>
         <button id="disconnect-button"></button>
@@ -48,41 +76,117 @@ describe('AuthManager', () => {
         <button id="test-api-button"></button>
         <input type="checkbox" id="enable-debug-logs" />
     `;
+}
 
-    mockUiManager = new UIManager();
-    mockUiManager.showStatus = jest.fn();
+function renderExtendedAuthDom() {
+  document.body.innerHTML = `
+      <div id="auth-status"></div>
+      <div id="oauth-status"></div>
+      <button id="oauth-button"></button>
+      <button id="oauth-connect-button">${UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT}</button>
+      <button id="oauth-disconnect-button"></button>
+      <button id="disconnect-button"></button>
+      <input id="api-key" />
+      <input id="database-id" />
+      <input id="title-template" />
+      <input id="add-source" type="checkbox" />
+      <input id="add-timestamp" type="checkbox" />
+      <select id="highlight-style">
+        <option value="background">background</option>
+        <option value="underline">underline</option>
+      </select>
+      <input id="floating-rail-enabled" type="checkbox" />
+      <select id="floating-rail-position">
+        <option value="top">top</option>
+        <option value="middle">middle</option>
+        <option value="bottom">bottom</option>
+      </select>
+      <select id="floating-rail-size">
+        <option value="small">small</option>
+        <option value="medium">medium</option>
+        <option value="large">large</option>
+      </select>
+      <input id="enable-debug-logs" type="checkbox" />
+      <button id="test-api-button"></button>
+      <div id="connect-status"></div>
+    `;
+}
+
+function createOptionsUiManagerMock() {
+  const uiManager = new UIManager();
+  uiManager.showStatus = jest.fn();
+  uiManager.showDataSourceUpgradeNotice = jest.fn();
+  uiManager.hideDataSourceUpgradeNotice = jest.fn();
+  return uiManager;
+}
+
+async function createInitializedAuthManager(uiManager, loadDataSources) {
+  const manager = new AuthManager(uiManager);
+  await manager.init({ loadDataSources });
+  return manager;
+}
+
+async function changeDebugLogsToggle(checked) {
+  const toggle = document.querySelector('#enable-debug-logs');
+  toggle.checked = checked;
+  toggle.dispatchEvent(new Event('change'));
+  await new Promise(resolve => setTimeout(resolve, 0));
+}
+
+function setOAuthAuthStatusStorage({ local = {}, sync = {} } = {}) {
+  chrome.storage.local.get.mockResolvedValue({
+    notionAuthMode: 'oauth',
+    notionOAuthToken: 'oauth_token_123',
+    notionWorkspaceName: 'My Workspace',
+    ...local,
+  });
+  chrome.storage.sync.get.mockResolvedValue(sync);
+}
+
+function setManualAuthStatusStorage(sync = {}) {
+  chrome.storage.local.get.mockResolvedValue({});
+  chrome.storage.sync.get.mockResolvedValue({
+    notionApiKey: 'secret_manual_key',
+    ...sync,
+  });
+}
+
+function arrangeOAuthCodeCallback({ state, code = 'oauth_code_abc' }) {
+  jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(state);
+  chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+    `${OAUTH_REDIRECT_ORIGIN}?code=${code}&state=${state}`
+  );
+  chrome.storage.session.get.mockResolvedValueOnce({ oauthState: state });
+}
+
+function arrangeOAuthErrorCallback({ state, error }) {
+  jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(state);
+  chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
+    `${OAUTH_REDIRECT_ORIGIN}?error=${error}&state=${state}`
+  );
+  chrome.storage.session.get.mockResolvedValueOnce({ oauthState: state });
+}
+
+function mockTokenExchangeResponse(body, { ok = true, status } = {}) {
+  globalThis.fetch.mockResolvedValueOnce({
+    ok,
+    ...(status ? { status } : {}),
+    json: jest.fn().mockResolvedValue(body),
+  });
+}
+
+describe('AuthManager', () => {
+  let authManager = null;
+  let mockUiManager = null;
+  let mockLoadDatabases = null;
+
+  beforeEach(async () => {
+    renderBasicAuthDom();
+    mockUiManager = createOptionsUiManagerMock();
     mockLoadDatabases = jest.fn();
 
-    authManager = new AuthManager(mockUiManager);
-    authManager.init({ loadDataSources: mockLoadDatabases });
-
-    // Mock chrome storage
-    globalThis.chrome = {
-      storage: {
-        sync: {
-          get: jest.fn().mockResolvedValue({}),
-          set: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-        local: {
-          get: jest.fn().mockResolvedValue({}),
-          set: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-        session: {
-          get: jest.fn().mockResolvedValue({}),
-          set: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-      },
-      tabs: {
-        create: jest.fn().mockResolvedValue(),
-      },
-      identity: {
-        launchWebAuthFlow: jest.fn().mockResolvedValue(),
-        getRedirectURL: jest.fn().mockReturnValue('https://mocked.chromiumapp.org/'),
-      },
-    };
+    installChromeMock();
+    authManager = await createInitializedAuthManager(mockUiManager, mockLoadDatabases);
   });
 
   afterEach(() => {
@@ -130,12 +234,9 @@ describe('AuthManager', () => {
   });
 
   test('除錯切換成功顯示成功訊息', async () => {
-    const toggle = document.querySelector('#enable-debug-logs');
-    toggle.checked = true;
     chrome.storage.sync.set.mockResolvedValueOnce();
 
-    toggle.dispatchEvent(new Event('change'));
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await changeDebugLogsToggle(true);
 
     expect(mockUiManager.showStatus).toHaveBeenCalledWith(
       UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED,
@@ -144,12 +245,9 @@ describe('AuthManager', () => {
   });
 
   test('除錯切換失敗顯示錯誤訊息', async () => {
-    const toggle = document.querySelector('#enable-debug-logs');
-    toggle.checked = true;
     chrome.storage.sync.set.mockRejectedValueOnce(new Error('Storage error'));
 
-    toggle.dispatchEvent(new Event('change'));
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await changeDebugLogsToggle(true);
 
     expect(mockUiManager.showStatus).toHaveBeenCalledWith(
       expect.stringContaining('切換日誌模式失敗'),
@@ -163,79 +261,15 @@ describe('AuthManager Extended', () => {
   let mockUiManager = null;
   let mockLoadDatabases = null;
 
-  beforeEach(() => {
-    document.body.innerHTML = `
-      <div id="auth-status"></div>
-      <div id="oauth-status"></div>
-      <button id="oauth-button"></button>
-      <button id="oauth-connect-button">${UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT}</button>
-      <button id="oauth-disconnect-button"></button>
-      <button id="disconnect-button"></button>
-      <input id="api-key" />
-      <input id="database-id" />
-      <input id="title-template" />
-      <input id="add-source" type="checkbox" />
-      <input id="add-timestamp" type="checkbox" />
-      <select id="highlight-style">
-        <option value="background">background</option>
-        <option value="underline">underline</option>
-      </select>
-      <input id="floating-rail-enabled" type="checkbox" />
-      <select id="floating-rail-position">
-        <option value="top">top</option>
-        <option value="middle">middle</option>
-        <option value="bottom">bottom</option>
-      </select>
-      <select id="floating-rail-size">
-        <option value="small">small</option>
-        <option value="medium">medium</option>
-        <option value="large">large</option>
-      </select>
-      <input id="enable-debug-logs" type="checkbox" />
-      <button id="test-api-button"></button>
-      <div id="connect-status"></div>
-    `;
-
-    mockUiManager = new UIManager();
-    mockUiManager.showStatus = jest.fn();
-    mockUiManager.showDataSourceUpgradeNotice = jest.fn();
-    mockUiManager.hideDataSourceUpgradeNotice = jest.fn();
+  beforeEach(async () => {
+    renderExtendedAuthDom();
+    mockUiManager = createOptionsUiManagerMock();
     mockLoadDatabases = jest.fn();
 
-    globalThis.chrome = {
-      storage: {
-        sync: {
-          get: jest.fn().mockResolvedValue({}),
-          set: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-        local: {
-          get: jest.fn().mockResolvedValue({}),
-          set: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-        session: {
-          get: jest.fn().mockResolvedValue({}),
-          set: jest.fn().mockResolvedValue(),
-          remove: jest.fn().mockResolvedValue(),
-        },
-      },
-      tabs: {
-        create: jest.fn().mockResolvedValue(),
-      },
-      identity: {
-        launchWebAuthFlow: jest.fn().mockResolvedValue(),
-        getRedirectURL: jest.fn().mockReturnValue('https://mocked.chromiumapp.org/'),
-      },
-      runtime: {
-        lastError: null,
-      },
-    };
-
+    installChromeMock({ includeRuntime: true });
     globalThis.fetch = jest.fn();
 
-    authManager = new AuthManager(mockUiManager);
-    authManager.init({ loadDataSources: mockLoadDatabases });
+    authManager = await createInitializedAuthManager(mockUiManager, mockLoadDatabases);
   });
 
   afterEach(() => {
@@ -589,32 +623,41 @@ describe('AuthManager Extended', () => {
       });
     });
 
-    test('OAuth 模式 loadDataSources 拋錯時應攔截並記錄', async () => {
-      chrome.storage.local.get.mockResolvedValue({
-        notionAuthMode: 'oauth',
-        notionOAuthToken: 'oauth_token_123',
-        notionWorkspaceName: 'My Workspace',
-      });
-      chrome.storage.sync.get.mockResolvedValue({});
-      mockLoadDatabases.mockRejectedValueOnce(new Error('oauth load failed'));
+    test.each([
+      {
+        mode: 'OAuth',
+        setAuthStorage: setOAuthAuthStatusStorage,
+        loadErrorMessage: 'oauth load failed',
+        expectedAction: 'loadDataSourcesOAuth',
+      },
+      {
+        mode: '手動',
+        setAuthStorage: setManualAuthStatusStorage,
+        loadErrorMessage: 'manual load failed',
+        expectedAction: 'loadDataSourcesManual',
+      },
+    ])(
+      '$mode 模式 loadDataSources 拋錯時應攔截並記錄',
+      async ({ setAuthStorage, loadErrorMessage, expectedAction }) => {
+        setAuthStorage();
+        mockLoadDatabases.mockRejectedValueOnce(new Error(loadErrorMessage));
 
-      await authManager.checkAuthStatus();
-      await Promise.resolve();
-      await Promise.resolve();
+        await authManager.checkAuthStatus();
+        await Promise.resolve();
+        await Promise.resolve();
 
-      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
-        action: 'loadDataSourcesOAuth',
-        error: expect.any(String),
-      });
-    });
+        expect(Logger.error).toHaveBeenCalledWith(
+          '[Auth] 載入資料來源失敗',
+          expect.objectContaining({
+            action: expectedAction,
+            error: expect.any(String),
+          })
+        );
+      }
+    );
 
     test('OAuth 模式 loadDataSources 同步拋錯時應由資料來源載入流程攔截', async () => {
-      chrome.storage.local.get.mockResolvedValue({
-        notionAuthMode: 'oauth',
-        notionOAuthToken: 'oauth_token_123',
-        notionWorkspaceName: 'My Workspace',
-      });
-      chrome.storage.sync.get.mockResolvedValue({});
+      setOAuthAuthStatusStorage();
       mockLoadDatabases.mockImplementationOnce(() => {
         throw new Error('sync oauth load failed');
       });
@@ -628,23 +671,6 @@ describe('AuthManager Extended', () => {
       expect(Logger.error).not.toHaveBeenCalledWith('[Auth] 讀取授權狀態失敗', expect.any(Object));
     });
 
-    test('手動模式 loadDataSources 拋錯時應攔截並記錄', async () => {
-      chrome.storage.local.get.mockResolvedValue({});
-      chrome.storage.sync.get.mockResolvedValue({
-        notionApiKey: 'secret_manual_key',
-      });
-      mockLoadDatabases.mockRejectedValueOnce(new Error('manual load failed'));
-
-      await authManager.checkAuthStatus();
-      await Promise.resolve();
-      await Promise.resolve();
-
-      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
-        action: 'loadDataSourcesManual',
-        error: expect.any(String),
-      });
-    });
-
     test('OAuth 錯誤映射應忽略 prototype chain 上的 error code', () => {
       const message = authManager._resolveOAuthErrorMessage(
         new Error('invalid redirect_uri provided by OAuth server'),
@@ -655,9 +681,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('應從 sync storage 載入 floatingRailPosition 與 floatingRailSize', async () => {
-      chrome.storage.local.get.mockResolvedValue({});
-      chrome.storage.sync.get.mockResolvedValue({
-        notionApiKey: 'secret_manual_key',
+      setManualAuthStatusStorage({
         floatingRailPosition: 'top',
         floatingRailSize: 'small',
       });
@@ -669,10 +693,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('floatingRailPosition 與 floatingRailSize 缺值時應使用 middle/large 預設', async () => {
-      chrome.storage.local.get.mockResolvedValue({});
-      chrome.storage.sync.get.mockResolvedValue({
-        notionApiKey: 'secret_manual_key',
-      });
+      setManualAuthStatusStorage();
 
       await authManager.checkAuthStatus();
 
@@ -683,21 +704,14 @@ describe('AuthManager Extended', () => {
 
   describe('startOAuthFlow', () => {
     test('成功流程應儲存 token 並更新狀態', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-123');
       const checkAuthStatusSpy = jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-123'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-123' });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          access_token: 'oauth_access_token',
-          refresh_token: 'oauth_refresh_token',
-          workspace_id: 'workspace_id_1',
-          workspace_name: 'Workspace A',
-          bot_id: 'bot_1',
-        }),
+      arrangeOAuthCodeCallback({ state: 'state-123' });
+      mockTokenExchangeResponse({
+        access_token: 'oauth_access_token',
+        refresh_token: 'oauth_refresh_token',
+        workspace_id: 'workspace_id_1',
+        workspace_name: 'Workspace A',
+        bot_id: 'bot_1',
       });
 
       await authManager.startOAuthFlow();
@@ -745,42 +759,26 @@ describe('AuthManager Extended', () => {
       );
     });
 
-    test('token 回應缺少 access_token 時應中止存儲並顯示錯誤', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-no-access');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-no-access'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-no-access' });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
+    test.each([
+      {
+        missingField: 'access_token',
+        state: 'state-no-access',
+        tokenResponse: {
           refresh_token: 'oauth_refresh_token',
           workspace_name: 'Workspace A',
-        }),
-      });
-
-      await authManager.startOAuthFlow();
-
-      expect(chrome.storage.local.set).not.toHaveBeenCalled();
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('OAuth token 回應缺少必要欄位'),
-        'error'
-      );
-    });
-
-    test('token 回應缺少 refresh_token 時應中止存儲並顯示錯誤', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-no-refresh');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-no-refresh'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-no-refresh' });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
+        },
+      },
+      {
+        missingField: 'refresh_token',
+        state: 'state-no-refresh',
+        tokenResponse: {
           access_token: 'oauth_access_token',
           workspace_name: 'Workspace A',
-        }),
-      });
+        },
+      },
+    ])('token 回應缺少 $missingField 時應中止存儲並顯示錯誤', async ({ state, tokenResponse }) => {
+      arrangeOAuthCodeCallback({ state });
+      mockTokenExchangeResponse(tokenResponse);
 
       await authManager.startOAuthFlow();
 
@@ -792,21 +790,14 @@ describe('AuthManager Extended', () => {
     });
 
     test('清理舊 refresh_proof 失敗時仍應視為 OAuth 連接成功', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-remove-proof-failed');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_abc&state=state-remove-proof-failed'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-remove-proof-failed' });
+      arrangeOAuthCodeCallback({ state: 'state-remove-proof-failed' });
       chrome.storage.local.remove.mockRejectedValueOnce(new Error('remove proof failed'));
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          access_token: 'oauth_access_token',
-          refresh_token: 'oauth_refresh_token',
-          workspace_id: 'workspace_id',
-          workspace_name: 'Workspace A',
-          bot_id: 'bot_id',
-        }),
+      mockTokenExchangeResponse({
+        access_token: 'oauth_access_token',
+        refresh_token: 'oauth_refresh_token',
+        workspace_id: 'workspace_id',
+        workspace_name: 'Workspace A',
+        bot_id: 'bot_id',
       });
       jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
 
@@ -834,21 +825,17 @@ describe('AuthManager Extended', () => {
     });
 
     test('token 回應包含 refresh_proof 時應持久化 refresh proof', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-with-proof');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_with_proof&state=state-with-proof'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-with-proof' });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          access_token: 'oauth_access_token_proof',
-          refresh_token: 'oauth_refresh_token_proof',
-          refresh_proof: 'oauth_refresh_proof_value',
-          workspace_id: 'workspace_id_proof',
-          workspace_name: 'Workspace Proof',
-          bot_id: 'bot_id_proof',
-        }),
+      arrangeOAuthCodeCallback({
+        state: 'state-with-proof',
+        code: 'oauth_code_with_proof',
+      });
+      mockTokenExchangeResponse({
+        access_token: 'oauth_access_token_proof',
+        refresh_token: 'oauth_refresh_token_proof',
+        refresh_proof: 'oauth_refresh_proof_value',
+        workspace_id: 'workspace_id_proof',
+        workspace_name: 'Workspace Proof',
+        bot_id: 'bot_id_proof',
       });
       jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
 
@@ -876,53 +863,43 @@ describe('AuthManager Extended', () => {
       });
     });
 
-    test('token exchange 回傳 INVALID_REDIRECT_URI 時應顯示 redirect mismatch 訊息', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-invalid-redirect');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_invalid_redirect&state=state-invalid-redirect'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-invalid-redirect' });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
+    test.each([
+      {
+        errorCode: 'INVALID_REDIRECT_URI',
+        state: 'state-invalid-redirect',
+        code: 'oauth_code_invalid_redirect',
         status: 400,
-        json: jest.fn().mockResolvedValue({
-          error_code: 'INVALID_REDIRECT_URI',
-          message: 'Invalid redirect_uri',
-        }),
-      });
-
-      await authManager.startOAuthFlow();
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI}`,
-        'error'
-      );
-    });
-
-    test('token exchange 回傳 SERVER_MISCONFIGURATION 時應顯示伺服器設定異常訊息', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-server-misconfiguration');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?code=oauth_code_server_error&state=state-server-misconfiguration'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({
-        oauthState: 'state-server-misconfiguration',
-      });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
+        responseMessage: 'Invalid redirect_uri',
+        expectedMessage: UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI,
+      },
+      {
+        errorCode: 'SERVER_MISCONFIGURATION',
+        state: 'state-server-misconfiguration',
+        code: 'oauth_code_server_error',
         status: 500,
-        json: jest.fn().mockResolvedValue({
-          error_code: 'SERVER_MISCONFIGURATION',
-          message: 'Server misconfiguration: invalid NOTION_REDIRECT_URI',
-        }),
-      });
+        responseMessage: 'Server misconfiguration: invalid NOTION_REDIRECT_URI',
+        expectedMessage: UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION,
+      },
+    ])(
+      'token exchange 回傳 $errorCode 時應顯示對應錯誤訊息',
+      async ({ errorCode, state, code, status, responseMessage, expectedMessage }) => {
+        arrangeOAuthCodeCallback({ state, code });
+        mockTokenExchangeResponse(
+          {
+            error_code: errorCode,
+            message: responseMessage,
+          },
+          { ok: false, status }
+        );
 
-      await authManager.startOAuthFlow();
+        await authManager.startOAuthFlow();
 
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION}`,
-        'error'
-      );
-    });
+        expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+          `OAuth 連接失敗：${expectedMessage}`,
+          'error'
+        );
+      }
+    );
 
     test('CSRF 驗證失敗時應顯示錯誤且恢復按鈕', async () => {
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-abc');
@@ -997,11 +974,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('callback 帶 error=access_denied 時應顯示用戶取消文案', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-access-denied');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?error=access_denied&state=state-access-denied'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-access-denied' });
+      arrangeOAuthErrorCallback({ state: 'state-access-denied', error: 'access_denied' });
 
       await authManager.startOAuthFlow();
 
@@ -1013,11 +986,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('callback 帶 error=canceled 時應顯示 redirect_uri 格式不符文案', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-canceled');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?error=canceled&state=state-canceled'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-canceled' });
+      arrangeOAuthErrorCallback({ state: 'state-canceled', error: 'canceled' });
 
       await authManager.startOAuthFlow();
 
@@ -1028,11 +997,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('callback 帶其他 error 參數時應顯示通用 callback 失敗文案', async () => {
-      jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-misc');
-      chrome.identity.launchWebAuthFlow.mockResolvedValueOnce(
-        'https://mocked.chromiumapp.org/?error=temporarily_unavailable&state=state-misc'
-      );
-      chrome.storage.session.get.mockResolvedValueOnce({ oauthState: 'state-misc' });
+      arrangeOAuthErrorCallback({ state: 'state-misc', error: 'temporarily_unavailable' });
 
       await authManager.startOAuthFlow();
 
