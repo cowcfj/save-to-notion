@@ -5,6 +5,7 @@ import { PRELOADER_ACTIONS } from '../runtimeActions/preloaderActions.js';
 import { MIGRATION_ACTIONS } from '../runtimeActions/migrationActions.js';
 import { DRIVE_SYNC_ACTIONS } from '../runtimeActions/driveSyncActions.js';
 import { DIAGNOSTICS_ACTIONS } from '../runtimeActions/diagnosticsActions.js';
+import { AUTH_ACTIONS } from '../runtimeActions/authActions.js';
 
 /**
  * Shared runtime actions registry
@@ -517,14 +518,6 @@ const SAVE_ACTIONS = {
  * @typedef {object} AccountSessionClearedResponse
  * @property {boolean} [success]
  */
-
-const AUTH_ACTIONS = {
-  OAUTH_SUCCESS: 'oauth_success',
-  OAUTH_FAILED: 'oauth_failed',
-  REFRESH_OAUTH_TOKEN: 'refreshOAuthToken',
-  ACCOUNT_SESSION_UPDATED: 'account_session_updated',
-  ACCOUNT_SESSION_CLEARED: 'account_session_cleared',
-};
 
 /**
  * @typedef {object} DriveSyncStatusUpdatedRequest
