@@ -1,8 +1,8 @@
+export const DEV_LOG_SINK = 'devLogSink';
+export const DEV_LOG_SINK_BATCH = 'devLogSinkBatch';
+
 export const DIAGNOSTICS_ACTIONS = Object.freeze({
   EXPORT_DEBUG_LOGS: 'exportDebugLogs',
-  DEV_LOG_SINK: 'devLogSink',
-  DEV_LOG_SINK_BATCH: 'devLogSinkBatch',
+  DEV_LOG_SINK,
+  DEV_LOG_SINK_BATCH,
 });
-
-export const DEV_LOG_SINK = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK;
-export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
