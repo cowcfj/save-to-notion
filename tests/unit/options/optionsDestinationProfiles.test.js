@@ -100,6 +100,19 @@ describe('Destination profile options UI', () => {
     jest.clearAllMocks();
   });
 
+  async function renderDestinationProfilesWithService(service) {
+    ProfileManager.mockImplementationOnce(() => service);
+    initOptions();
+    await flushAsyncClick();
+  }
+
+  async function renderDestinationProfileRenameEditor(service) {
+    await renderDestinationProfilesWithService(service);
+    document.querySelector('button[data-action="rename"]').click();
+    await flushAsyncClick();
+    return document.querySelector('input[data-role="destination-profile-name-edit"]');
+  }
+
   it('未登入且已達上限時，新增保存目標按鈕應 disabled 並顯示原因', async () => {
     ProfileManager.mockImplementationOnce(() => ({
       ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
@@ -144,10 +157,8 @@ describe('Destination profile options UI', () => {
     const service = buildProfileManagerMock({
       getDestinationEntitlement: jest.fn().mockRejectedValue(entitlementError),
     });
-    ProfileManager.mockImplementationOnce(() => service);
 
-    initOptions();
-    await flushAsyncClick();
+    await renderDestinationProfilesWithService(service);
 
     expect(document.querySelector('.destination-profile-title').textContent).toBe('Default');
     expect(Logger.warn).toHaveBeenCalledWith('讀取保存目標權限失敗', {
@@ -161,10 +172,8 @@ describe('Destination profile options UI', () => {
     const service = buildProfileManagerMock({
       listProfiles: jest.fn().mockRejectedValue(listError),
     });
-    ProfileManager.mockImplementationOnce(() => service);
 
-    initOptions();
-    await flushAsyncClick();
+    await renderDestinationProfilesWithService(service);
 
     expect(document.querySelector('.destination-profile-row')).toBeNull();
     expect(Logger.warn).toHaveBeenCalledWith('讀取保存目標列表失敗', {
@@ -236,40 +245,11 @@ describe('Destination profile options UI', () => {
   });
 
   it('重新命名保存目標時應 trim 名稱並呼叫 updateProfile', async () => {
-    const service = {
-      ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-      listProfiles: jest.fn().mockResolvedValue([
-        {
-          id: 'default',
-          name: 'Default',
-          color: '#2563eb',
-          notionDataSourceId: 'source-1',
-          notionDataSourceType: 'database',
-        },
-      ]),
-      getDestinationEntitlement: jest.fn().mockResolvedValue({
-        maxProfiles: 2,
-        accountSignedIn: true,
-        source: 'test',
-      }),
-      getProfile: jest.fn().mockResolvedValue({
-        id: 'default',
-        name: 'Default',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-      }),
+    const service = buildProfileManagerMock({
       updateProfile: jest.fn().mockResolvedValue({ id: 'default', name: 'Inbox' }),
-      createProfile: jest.fn(),
-      deleteProfile: jest.fn(),
-    };
-    ProfileManager.mockImplementationOnce(() => service);
+    });
 
-    initOptions();
-    await flushAsyncClick();
-
-    document.querySelector('button[data-action="rename"]').click();
-    await flushAsyncClick();
-    const input = document.querySelector('input[data-role="destination-profile-name-edit"]');
+    const input = await renderDestinationProfileRenameEditor(service);
     input.value = '  Inbox  ';
     document.querySelector('button[data-action="save-name"]').click();
     await flushAsyncClick();
@@ -299,40 +279,11 @@ describe('Destination profile options UI', () => {
   });
 
   it('重新命名保存目標為空白時應顯示錯誤且不呼叫 updateProfile', async () => {
-    const service = {
-      ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-      listProfiles: jest.fn().mockResolvedValue([
-        {
-          id: 'default',
-          name: 'Default',
-          color: '#2563eb',
-          notionDataSourceId: 'source-1',
-          notionDataSourceType: 'database',
-        },
-      ]),
-      getDestinationEntitlement: jest.fn().mockResolvedValue({
-        maxProfiles: 2,
-        accountSignedIn: true,
-        source: 'test',
-      }),
-      getProfile: jest.fn().mockResolvedValue({
-        id: 'default',
-        name: 'Default',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-      }),
+    const service = buildProfileManagerMock({
       updateProfile: jest.fn(),
-      createProfile: jest.fn(),
-      deleteProfile: jest.fn(),
-    };
-    ProfileManager.mockImplementationOnce(() => service);
+    });
 
-    initOptions();
-    await flushAsyncClick();
-
-    document.querySelector('button[data-action="rename"]').click();
-    await flushAsyncClick();
-    const input = document.querySelector('input[data-role="destination-profile-name-edit"]');
+    const input = await renderDestinationProfileRenameEditor(service);
     input.value = '   ';
     document.querySelector('button[data-action="save-name"]').click();
     await flushAsyncClick();
