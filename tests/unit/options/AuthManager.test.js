@@ -623,19 +623,35 @@ describe('AuthManager Extended', () => {
       });
     });
 
-    test('OAuth 模式 loadDataSources 拋錯時應攔截並記錄', async () => {
-      setOAuthAuthStatusStorage();
-      mockLoadDatabases.mockRejectedValueOnce(new Error('oauth load failed'));
+    test.each([
+      {
+        mode: 'OAuth',
+        setAuthStorage: setOAuthAuthStatusStorage,
+        loadErrorMessage: 'oauth load failed',
+        expectedAction: 'loadDataSourcesOAuth',
+      },
+      {
+        mode: '手動',
+        setAuthStorage: setManualAuthStatusStorage,
+        loadErrorMessage: 'manual load failed',
+        expectedAction: 'loadDataSourcesManual',
+      },
+    ])(
+      '$mode 模式 loadDataSources 拋錯時應攔截並記錄',
+      async ({ setAuthStorage, loadErrorMessage, expectedAction }) => {
+        setAuthStorage();
+        mockLoadDatabases.mockRejectedValueOnce(new Error(loadErrorMessage));
 
-      await authManager.checkAuthStatus();
-      await Promise.resolve();
-      await Promise.resolve();
+        await authManager.checkAuthStatus();
+        await Promise.resolve();
+        await Promise.resolve();
 
-      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
-        action: 'loadDataSourcesOAuth',
-        error: expect.any(String),
-      });
-    });
+        expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
+          action: expectedAction,
+          error: expect.any(String),
+        });
+      }
+    );
 
     test('OAuth 模式 loadDataSources 同步拋錯時應由資料來源載入流程攔截', async () => {
       setOAuthAuthStatusStorage();
@@ -650,20 +666,6 @@ describe('AuthManager Extended', () => {
         error: expect.any(String),
       });
       expect(Logger.error).not.toHaveBeenCalledWith('[Auth] 讀取授權狀態失敗', expect.any(Object));
-    });
-
-    test('手動模式 loadDataSources 拋錯時應攔截並記錄', async () => {
-      setManualAuthStatusStorage();
-      mockLoadDatabases.mockRejectedValueOnce(new Error('manual load failed'));
-
-      await authManager.checkAuthStatus();
-      await Promise.resolve();
-      await Promise.resolve();
-
-      expect(Logger.error).toHaveBeenCalledWith('[Auth] 載入資料來源失敗', {
-        action: 'loadDataSourcesManual',
-        error: expect.any(String),
-      });
     });
 
     test('OAuth 錯誤映射應忽略 prototype chain 上的 error code', () => {
@@ -754,28 +756,26 @@ describe('AuthManager Extended', () => {
       );
     });
 
-    test('token 回應缺少 access_token 時應中止存儲並顯示錯誤', async () => {
-      arrangeOAuthCodeCallback({ state: 'state-no-access' });
-      mockTokenExchangeResponse({
-        refresh_token: 'oauth_refresh_token',
-        workspace_name: 'Workspace A',
-      });
-
-      await authManager.startOAuthFlow();
-
-      expect(chrome.storage.local.set).not.toHaveBeenCalled();
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('OAuth token 回應缺少必要欄位'),
-        'error'
-      );
-    });
-
-    test('token 回應缺少 refresh_token 時應中止存儲並顯示錯誤', async () => {
-      arrangeOAuthCodeCallback({ state: 'state-no-refresh' });
-      mockTokenExchangeResponse({
-        access_token: 'oauth_access_token',
-        workspace_name: 'Workspace A',
-      });
+    test.each([
+      {
+        missingField: 'access_token',
+        state: 'state-no-access',
+        tokenResponse: {
+          refresh_token: 'oauth_refresh_token',
+          workspace_name: 'Workspace A',
+        },
+      },
+      {
+        missingField: 'refresh_token',
+        state: 'state-no-refresh',
+        tokenResponse: {
+          access_token: 'oauth_access_token',
+          workspace_name: 'Workspace A',
+        },
+      },
+    ])('token 回應缺少 $missingField 時應中止存儲並顯示錯誤', async ({ state, tokenResponse }) => {
+      arrangeOAuthCodeCallback({ state });
+      mockTokenExchangeResponse(tokenResponse);
 
       await authManager.startOAuthFlow();
 
@@ -860,47 +860,43 @@ describe('AuthManager Extended', () => {
       });
     });
 
-    test('token exchange 回傳 INVALID_REDIRECT_URI 時應顯示 redirect mismatch 訊息', async () => {
-      arrangeOAuthCodeCallback({
+    test.each([
+      {
+        errorCode: 'INVALID_REDIRECT_URI',
         state: 'state-invalid-redirect',
         code: 'oauth_code_invalid_redirect',
-      });
-      mockTokenExchangeResponse(
-        {
-          error_code: 'INVALID_REDIRECT_URI',
-          message: 'Invalid redirect_uri',
-        },
-        { ok: false, status: 400 }
-      );
-
-      await authManager.startOAuthFlow();
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI}`,
-        'error'
-      );
-    });
-
-    test('token exchange 回傳 SERVER_MISCONFIGURATION 時應顯示伺服器設定異常訊息', async () => {
-      arrangeOAuthCodeCallback({
+        status: 400,
+        responseMessage: 'Invalid redirect_uri',
+        expectedMessage: UI_MESSAGES.AUTH.OAUTH_INVALID_REDIRECT_URI,
+      },
+      {
+        errorCode: 'SERVER_MISCONFIGURATION',
         state: 'state-server-misconfiguration',
         code: 'oauth_code_server_error',
-      });
-      mockTokenExchangeResponse(
-        {
-          error_code: 'SERVER_MISCONFIGURATION',
-          message: 'Server misconfiguration: invalid NOTION_REDIRECT_URI',
-        },
-        { ok: false, status: 500 }
-      );
+        status: 500,
+        responseMessage: 'Server misconfiguration: invalid NOTION_REDIRECT_URI',
+        expectedMessage: UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION,
+      },
+    ])(
+      'token exchange 回傳 $errorCode 時應顯示對應錯誤訊息',
+      async ({ errorCode, state, code, status, responseMessage, expectedMessage }) => {
+        arrangeOAuthCodeCallback({ state, code });
+        mockTokenExchangeResponse(
+          {
+            error_code: errorCode,
+            message: responseMessage,
+          },
+          { ok: false, status }
+        );
 
-      await authManager.startOAuthFlow();
+        await authManager.startOAuthFlow();
 
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_SERVER_MISCONFIGURATION}`,
-        'error'
-      );
-    });
+        expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+          `OAuth 連接失敗：${expectedMessage}`,
+          'error'
+        );
+      }
+    );
 
     test('CSRF 驗證失敗時應顯示錯誤且恢復按鈕', async () => {
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('state-abc');
