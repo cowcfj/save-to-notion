@@ -575,7 +575,8 @@
           "frequency": "\"off\" | \"daily\" | \"weekly\" | \"monthly\" — 自動同步頻率"
         },
         "response": {
-          "success": "boolean (optional)"
+          "success": "boolean",
+          "error": "string (optional) — 失敗時的錯誤訊息（invalid frequency / alarm setup failure）"
         }
       }
     }
