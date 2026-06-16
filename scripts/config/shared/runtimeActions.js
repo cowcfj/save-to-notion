@@ -1,3 +1,11 @@
+import { CONTENT_BRIDGE_ACTIONS } from '../runtimeActions/contentBridgeActions.js';
+import { HIGHLIGHTER_ACTIONS } from '../runtimeActions/highlighterActions.js';
+import { PAGE_SAVE_ACTIONS } from '../runtimeActions/pageSaveActions.js';
+import { PRELOADER_ACTIONS } from '../runtimeActions/preloaderActions.js';
+import { MIGRATION_ACTIONS } from '../runtimeActions/migrationActions.js';
+import { DRIVE_SYNC_ACTIONS } from '../runtimeActions/driveSyncActions.js';
+import { DIAGNOSTICS_ACTIONS } from '../runtimeActions/diagnosticsActions.js';
+
 /**
  * Shared runtime actions registry
  */
@@ -57,13 +65,6 @@
  * @property {boolean} [success]
  * @property {string} [error]
  */
-
-const PAGE_STATUS_ACTIONS = {
-  CHECK_PAGE_STATUS: 'checkPageStatus',
-  PAGE_SAVE_HINT: 'PAGE_SAVE_HINT',
-  GET_STABLE_URL: 'GET_STABLE_URL',
-  SET_STABLE_URL: 'SET_STABLE_URL',
-};
 
 /**
  * @typedef {object} SavePageRequest
@@ -184,10 +185,6 @@ const PAGE_STATUS_ACTIONS = {
  */
 
 const SAVE_ACTIONS = {
-  SAVE_PAGE: 'savePage',
-  SAVE_PAGE_FROM_TOOLBAR: 'SAVE_PAGE_FROM_TOOLBAR',
-  SAVE_PAGE_FROM_RAIL: 'SAVE_PAGE_FROM_RAIL',
-  OPEN_NOTION_PAGE: 'openNotionPage',
   CHECK_NOTION_PAGE_EXISTS: 'checkNotionPageExists',
   SEARCH_NOTION: 'searchNotion',
 };
@@ -334,27 +331,6 @@ const SAVE_ACTIONS = {
  * @property {string} [error]
  */
 
-const HIGHLIGHT_ACTIONS = {
-  START_HIGHLIGHT: 'startHighlight',
-  SYNC_HIGHLIGHTS: 'syncHighlights',
-  UPDATE_REMOTE_HIGHLIGHTS: 'updateHighlights',
-  UPDATE_HIGHLIGHTS: 'UPDATE_HIGHLIGHTS',
-  CLEAR_HIGHLIGHTS: 'CLEAR_HIGHLIGHTS',
-  REMOVE_HIGHLIGHT_DOM: 'REMOVE_HIGHLIGHT_DOM',
-  USER_ACTIVATE_SHORTCUT: 'USER_ACTIVATE_SHORTCUT',
-  SHOW_FLOATING_RAIL: 'SHOW_FLOATING_RAIL',
-  ACTIVATE_FLOATING_RAIL_HIGHLIGHT: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT',
-};
-
-/**
- * @deprecated Legacy toolbar actions retained for backward compatibility.
- * These are shimmed to floating rail in the handlers.
- */
-const LEGACY_HIGHLIGHT_ACTIONS = {
-  SHOW_TOOLBAR: 'showToolbar',
-  SHOW_HIGHLIGHTER: 'showHighlighter',
-};
-
 /**
  * @typedef {object} MigrationExecuteRequest
  * @property {'migration_execute'} action
@@ -488,15 +464,6 @@ const LEGACY_HIGHLIGHT_ACTIONS = {
  * @property {string} [error]
  */
 
-const MIGRATION_ACTIONS = {
-  MIGRATION_EXECUTE: 'migration_execute',
-  MIGRATION_DELETE: 'migration_delete',
-  MIGRATION_BATCH: 'migration_batch',
-  MIGRATION_BATCH_DELETE: 'migration_batch_delete',
-  MIGRATION_GET_PENDING: 'migration_get_pending',
-  MIGRATION_DELETE_FAILED: 'migration_delete_failed',
-};
-
 /**
  * @typedef {object} OAuthSuccessRequest
  * @property {'oauth_success'} action
@@ -621,14 +588,6 @@ const AUTH_ACTIONS = {
  * @property {boolean} [success]
  */
 
-const DRIVE_SYNC_ACTIONS = {
-  DRIVE_SYNC_STATUS_UPDATED: 'DRIVE_SYNC_STATUS_UPDATED',
-  DRIVE_SYNC_MANUAL_UPLOAD: 'DRIVE_SYNC_MANUAL_UPLOAD',
-  DRIVE_SYNC_MANUAL_DOWNLOAD: 'DRIVE_SYNC_MANUAL_DOWNLOAD',
-  DRIVE_SYNC_CONFLICT: 'DRIVE_SYNC_CONFLICT',
-  DRIVE_SYNC_SCHEDULE_UPDATED: 'DRIVE_SYNC_SCHEDULE_UPDATED',
-};
-
 /**
  * @typedef {object} OpenSidePanelRequest
  * @property {'OPEN_SIDE_PANEL'} action
@@ -745,21 +704,10 @@ const SIDEPANEL_ACTIONS = {
 };
 
 const BRIDGE_ACTIONS = {
-  PING: 'PING',
-  INIT_BUNDLE: 'INIT_BUNDLE',
-  REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',
-  CONTENT_BRIDGE_SHOW_FLOATING_RAIL: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
-  SHOW_TOAST: 'SHOW_TOAST',
+  CONTENT_BRIDGE_SHOW_FLOATING_RAIL: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL,
 };
 
-const DIAGNOSTICS_ACTIONS = {
-  EXPORT_DEBUG_LOGS: 'exportDebugLogs',
-  DEV_LOG_SINK: 'devLogSink',
-  DEV_LOG_SINK_BATCH: 'devLogSinkBatch',
-};
-
-export const DEV_LOG_SINK = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK;
-export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
+export { DEV_LOG_SINK, DEV_LOG_SINK_BATCH } from '../runtimeActions/diagnosticsActions.js';
 
 /**
  * @typedef {object} RuntimeActionsRegistry
@@ -813,16 +761,20 @@ export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
 
 /** @type {Readonly<RuntimeActionsRegistry>} */
 export const RUNTIME_ACTIONS = Object.freeze({
-  ...PAGE_STATUS_ACTIONS,
+  ...PAGE_SAVE_ACTIONS,
   ...SAVE_ACTIONS,
-  ...HIGHLIGHT_ACTIONS,
-  ...LEGACY_HIGHLIGHT_ACTIONS, // Retained for backward compatibility
+  ...HIGHLIGHTER_ACTIONS,
   ...MIGRATION_ACTIONS,
   ...AUTH_ACTIONS,
   ...DRIVE_SYNC_ACTIONS,
   ...SIDEPANEL_ACTIONS,
+  ...PRELOADER_ACTIONS,
+  ...CONTENT_BRIDGE_ACTIONS,
   ...BRIDGE_ACTIONS,
   ...DIAGNOSTICS_ACTIONS,
+  // 解決 key 衝突：確保 SHOW_FLOATING_RAIL 值為 highlighter 的 'SHOW_FLOATING_RAIL'，
+  // 避免被 contentBridge 的 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' 覆寫。
+  SHOW_FLOATING_RAIL: HIGHLIGHTER_ACTIONS.SHOW_FLOATING_RAIL,
 });
 
 export { RUNTIME_ERROR_MESSAGES } from '../messages/runtimeErrorMessages.js';

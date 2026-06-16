@@ -62,7 +62,18 @@ describe('runtimeActions', () => {
   });
 
   test('應維持唯一 action value 並凍結 registry', () => {
-    expect(new Set(Object.values(RUNTIME_ACTIONS)).size).toBe(Object.keys(RUNTIME_ACTIONS).length);
+    const keys = Object.keys(RUNTIME_ACTIONS);
+    const valueMap = {};
+    const duplicates = [];
+    for (const key of keys) {
+      const val = RUNTIME_ACTIONS[key];
+      if (valueMap[val]) {
+        duplicates.push(`${val} (keys: ${valueMap[val]} and ${key})`);
+      } else {
+        valueMap[val] = key;
+      }
+    }
+    expect(duplicates).toEqual([]);
     expect(Object.isFrozen(RUNTIME_ACTIONS)).toBe(true);
     expect(Object.isFrozen(RUNTIME_ERROR_MESSAGES)).toBe(true);
   });
@@ -74,15 +85,11 @@ describe('runtimeActions', () => {
 
     expect(source).toMatch(/const BRIDGE_ACTIONS = \{/);
     expect(source).toMatch(
-      /const BRIDGE_ACTIONS = \{[\s\S]*PING: 'PING',[\s\S]*INIT_BUNDLE: 'INIT_BUNDLE',[\s\S]*REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS',[\s\S]*\}/
+      /const BRIDGE_ACTIONS = \{[\s\S]*CONTENT_BRIDGE_SHOW_FLOATING_RAIL: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL[\s\S]*\}/
     );
-    expect(source).toMatch(
-      /const DIAGNOSTICS_ACTIONS = \{[\s\S]*EXPORT_DEBUG_LOGS: 'exportDebugLogs',[\s\S]*DEV_LOG_SINK: 'devLogSink',[\s\S]*DEV_LOG_SINK_BATCH: 'devLogSinkBatch',[\s\S]*\}/
-    );
-    expect(source).not.toMatch(
-      /const DIAGNOSTICS_ACTIONS = \{[\s\S]*PING: 'PING'[\s\S]*INIT_BUNDLE: 'INIT_BUNDLE'[\s\S]*REPLAY_BUFFERED_EVENTS: 'REPLAY_BUFFERED_EVENTS'[\s\S]*\}/
-    );
+    expect(source).not.toMatch(/const DIAGNOSTICS_ACTIONS = \{/);
     expect(source).toMatch(/\.{3}BRIDGE_ACTIONS,/);
+    expect(source).toMatch(/\.{3}DIAGNOSTICS_ACTIONS,/);
   });
 
   test('應暴露一致命名的 runtime 錯誤訊息', () => {
@@ -269,6 +276,9 @@ describe('runtimeActions', () => {
       'CONTENT_BRIDGE_ACTIONS',
       'HIGHLIGHTER_ACTIONS',
       'PAGE_SAVE_ACTIONS',
+      'DIAGNOSTICS_ACTIONS',
+      'MIGRATION_ACTIONS',
+      'DRIVE_SYNC_ACTIONS',
     ];
 
     const escapeRegex = value => value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);

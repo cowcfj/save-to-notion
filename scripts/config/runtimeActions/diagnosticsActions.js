@@ -1,7 +1,8 @@
-import { DEV_LOG_SINK, DEV_LOG_SINK_BATCH } from '../shared/runtimeActions.js';
-
 export const DIAGNOSTICS_ACTIONS = Object.freeze({
-  DEV_LOG_SINK,
-  DEV_LOG_SINK_BATCH,
+  EXPORT_DEBUG_LOGS: 'exportDebugLogs',
+  DEV_LOG_SINK: 'devLogSink',
+  DEV_LOG_SINK_BATCH: 'devLogSinkBatch',
 });
-export { DEV_LOG_SINK, DEV_LOG_SINK_BATCH } from '../shared/runtimeActions.js';
+
+export const DEV_LOG_SINK = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK;
+export const DEV_LOG_SINK_BATCH = DIAGNOSTICS_ACTIONS.DEV_LOG_SINK_BATCH;
