@@ -71,6 +71,38 @@ describe('NotionService - Page Data and Request Body', () => {
     jest.useRealTimers();
   });
 
+  const buildPageData = (overrides = {}) => service.buildPageData(buildPageDataOptions(overrides));
+
+  const expectExternalFile = (value, url) => {
+    expect(value).toEqual({
+      type: 'external',
+      external: { url },
+    });
+  };
+
+  const expectFetchRequest = expectedOptions => {
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/test'),
+      expectedOptions
+    );
+  };
+
+  const expectFetchWithoutBody = () => {
+    expectFetchRequest(
+      expect.not.objectContaining({
+        body: expect.anything(),
+      })
+    );
+  };
+
+  const expectFetchBody = body => {
+    expectFetchRequest(
+      expect.objectContaining({
+        body: JSON.stringify(body),
+      })
+    );
+  };
+
   describe('buildPageData', () => {
     it.each([
       {
@@ -95,13 +127,11 @@ describe('NotionService - Page Data and Request Body', () => {
         expectedId: 'page-456',
       },
     ])('$desc', ({ options, expectedType, expectedIdKey, expectedId }) => {
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          title: 'Test Title',
-          pageUrl: 'https://example.com',
-          ...options,
-        })
-      );
+      const result = buildPageData({
+        title: 'Test Title',
+        pageUrl: 'https://example.com',
+        ...options,
+      });
 
       expect(result.pageData.parent.type).toBe(expectedType);
       expect(result.pageData.parent[expectedIdKey]).toBe(expectedId);
@@ -112,13 +142,11 @@ describe('NotionService - Page Data and Request Body', () => {
     });
 
     it('page parent 應使用 Notion page title property，不應送出 data source schema properties', () => {
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          title: 'Child Page',
-          dataSourceId: 'page-456',
-          dataSourceType: 'page',
-        })
-      );
+      const result = buildPageData({
+        title: 'Child Page',
+        dataSourceId: 'page-456',
+        dataSourceType: 'page',
+      });
 
       expect(result.pageData.properties).toEqual({
         title: {
@@ -130,37 +158,29 @@ describe('NotionService - Page Data and Request Body', () => {
     });
 
     it('當提供時應該加入網站圖示', () => {
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          siteIcon: 'https://example.com/icon.png',
-        })
-      );
+      expect.hasAssertions();
 
-      expect(result.pageData.icon).toEqual({
-        type: 'external',
-        external: { url: 'https://example.com/icon.png' },
-      });
+      const url = 'https://example.com/icon.png';
+
+      const result = buildPageData({ siteIcon: url });
+
+      expectExternalFile(result.pageData.icon, url);
     });
 
     it('應該為一般 https URL 設定 page cover', () => {
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          coverImage: 'https://example.com/cover.jpg',
-        })
-      );
+      expect.hasAssertions();
 
-      expect(result.pageData.cover).toEqual({
-        type: 'external',
-        external: { url: 'https://example.com/cover.jpg' },
-      });
+      const url = 'https://example.com/cover.jpg';
+
+      const result = buildPageData({ coverImage: url });
+
+      expectExternalFile(result.pageData.cover, url);
     });
 
     it('應該忽略非字串 coverImage 而不拋出錯誤', () => {
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          coverImage: { url: 'https://example.com/cover.jpg' },
-        })
-      );
+      const result = buildPageData({
+        coverImage: { url: 'https://example.com/cover.jpg' },
+      });
 
       expect(result.pageData.cover).toBeUndefined();
     });
@@ -169,11 +189,7 @@ describe('NotionService - Page Data and Request Body', () => {
       const tempUrl =
         'https://c10.patreonusercontent.com/4/patreon-media/p/post/157239355/abc/eyJ3IjoxMDgwfQ==/1.png?token-hash=ABC123&token-time=1700000000';
 
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          coverImage: tempUrl,
-        })
-      );
+      const result = buildPageData({ coverImage: tempUrl });
 
       expect(result.pageData.cover).toBeUndefined();
     });
@@ -182,11 +198,7 @@ describe('NotionService - Page Data and Request Body', () => {
       const tempUrl =
         'https://c8.patreonusercontent.com/4/patreon-media/foo.png?token-time=1700000000';
 
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          coverImage: tempUrl,
-        })
-      );
+      const result = buildPageData({ coverImage: tempUrl });
 
       expect(result.pageData.cover).toBeUndefined();
     });
@@ -197,11 +209,7 @@ describe('NotionService - Page Data and Request Body', () => {
         { type: 'image', image: { external: { url: 'sftp://invalid.com/img.jpg' } } },
       ];
 
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          blocks,
-        })
-      );
+      const result = buildPageData({ blocks });
 
       expect(result.pageData.children).toHaveLength(2);
     });
@@ -212,11 +220,7 @@ describe('NotionService - Page Data and Request Body', () => {
         .fill(null)
         .map(() => ({ type: 'paragraph', paragraph: { rich_text: [] } }));
 
-      const result = service.buildPageData(
-        buildPageDataOptions({
-          blocks,
-        })
-      );
+      const result = buildPageData({ blocks });
 
       expect(result.pageData.children).toHaveLength(NOTION_API.BLOCKS_PER_BATCH);
     });
@@ -239,27 +243,21 @@ describe('NotionService - Page Data and Request Body', () => {
       { desc: 'body 為 undefined', body: undefined },
       { desc: 'body 為空對象', body: {} },
     ])('應該在 $desc 時不包含 body', async ({ body }) => {
+      expect.hasAssertions();
+
       await service._apiRequest('/test', { method: 'POST', body });
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/test'),
-        expect.not.objectContaining({
-          body: expect.anything(),
-        })
-      );
+      expectFetchWithoutBody();
     });
 
     it('應該正常處理普通對象 body', async () => {
+      expect.hasAssertions();
+
       const body = { key: 'value' };
 
       await service._apiRequest('/test', { method: 'POST', body });
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/test'),
-        expect.objectContaining({
-          body: JSON.stringify(body),
-        })
-      );
+      expectFetchBody(body);
     });
   });
 });
