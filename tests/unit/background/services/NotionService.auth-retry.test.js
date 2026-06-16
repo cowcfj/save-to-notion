@@ -125,23 +125,14 @@ describe('NotionService - OAuth 401 retry flow', () => {
     expect(executeWithRetrySpy.mock.calls[1][1].client).toBeUndefined();
   });
 
-  it('401 + OAuth + refresh 失敗時應拋出原錯誤', async () => {
-    const { unauthorizedError } = mockUnauthorizedExecution(service);
-    mockOAuthActiveToken();
-    mockRefreshToken(refreshOAuthToken, null);
-
-    await expect(callTestOperation(service, { apiKey: OAUTH_OLD_TOKEN })).rejects.toBe(
-      unauthorizedError
-    );
-    expect(refreshOAuthToken).toHaveBeenCalledTimes(1);
-  });
-
-  it('401 + OAuth + refresh reject 時應保留原始 401 錯誤', async () => {
-    const refreshError = new Error('Refresh failed');
+  it.each([
+    ['refresh 失敗時應拋出原錯誤', null],
+    ['refresh reject 時應保留原始 401 錯誤', new Error('Refresh failed')],
+  ])('401 + OAuth + %s', async (_description, refreshResult) => {
     const { unauthorizedError } = mockUnauthorizedExecution(service);
 
     mockOAuthActiveToken();
-    mockRefreshToken(refreshOAuthToken, refreshError);
+    mockRefreshToken(refreshOAuthToken, refreshResult);
 
     await expect(callTestOperation(service, { apiKey: OAUTH_OLD_TOKEN })).rejects.toBe(
       unauthorizedError
