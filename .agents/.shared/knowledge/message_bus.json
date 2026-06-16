@@ -567,6 +567,16 @@
         "response": {
           "success": "boolean (optional)"
         }
+      },
+      "DRIVE_SYNC_SCHEDULE_UPDATED": {
+        "description": "Options UI 要求 Background 更新自動同步頻率設定",
+        "direction": "options → background",
+        "payload": {
+          "frequency": "\"off\" | \"daily\" | \"weekly\" | \"monthly\" — 自動同步頻率"
+        },
+        "response": {
+          "success": "boolean (optional)"
+        }
       }
     }
   }
