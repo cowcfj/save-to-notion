@@ -204,7 +204,7 @@ function mockUpdatePageFetchFlow({ pageIdPattern, patchResponse, fallbackRespons
         ? fallbackResponse(requestUrl, init)
         : fallbackResponse;
     }
-    return buildJsonResponse({});
+    throw new Error(`Unexpected fetch call: ${requestUrl} with method ${getFetchMethod(init)}`);
   });
 }
 
