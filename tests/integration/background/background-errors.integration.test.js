@@ -166,7 +166,7 @@ function isNotionPageGet(requestUrl, init) {
 /**
  * Predict if fetch request is Notion Children GET.
  */
-function isChildrenGet(requestUrl, init, pageIdPattern) {
+function isChildrenGet(requestUrl, init, pageIdPattern = '.+') {
   if (getFetchMethod(init) !== 'GET') {
     return false;
   }
@@ -177,7 +177,7 @@ function isChildrenGet(requestUrl, init, pageIdPattern) {
 /**
  * Predict if fetch request is Notion Children PATCH.
  */
-function isChildrenPatch(requestUrl, init, pageIdPattern) {
+function isChildrenPatch(requestUrl, init, pageIdPattern = '.+') {
   if (getFetchMethod(init) !== 'PATCH') {
     return false;
   }
