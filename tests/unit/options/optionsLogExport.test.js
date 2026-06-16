@@ -97,7 +97,7 @@ describe('optionsLogExport', () => {
       globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
     });
 
-    const expectResolvedExportFailureToRestoreButton = async response => {
+    const runResolvedExportFailure = async response => {
       mockSendMessage.mockResolvedValue(response);
 
       initOptions();
@@ -107,9 +107,7 @@ describe('optionsLogExport', () => {
       await flushAsyncClick();
 
       const statusEl = document.querySelector('#export-status');
-      expect(statusEl.textContent).toContain('匯出失敗');
-      expect(exportBtn.disabled).toBe(false);
-      expect(Logger.error).toHaveBeenCalled();
+      return { exportBtn, statusEl };
     };
 
     it('should stay disabled while exporting and restore afterwards without changing text', async () => {
@@ -191,7 +189,11 @@ describe('optionsLogExport', () => {
         response: { success: false },
       },
     ])('$name', async ({ response }) => {
-      await expectResolvedExportFailureToRestoreButton(response);
+      const { exportBtn, statusEl } = await runResolvedExportFailure(response);
+
+      expect(statusEl.textContent).toContain('匯出失敗');
+      expect(exportBtn.disabled).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
     });
 
     it('日誌導出失敗時應先 sanitize error 並只記錄安全 payload', async () => {
