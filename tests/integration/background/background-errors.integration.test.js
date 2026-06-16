@@ -52,12 +52,18 @@ function mockActiveTab({ id = 1, url, title = 'Article' } = {}) {
  * Helper to mock sync storage Notion settings.
  */
 function mockNotionSettings(overrides = {}) {
-  const settings = {
+  mockSyncStorageSettings({
     notionApiKey: 'key',
     notionDataSourceId: 'ds',
     notionDatabaseId: 'db',
     ...overrides,
-  };
+  });
+}
+
+/**
+ * Helper to mock sync storage with an exact settings object.
+ */
+function mockSyncStorageSettings(settings) {
   chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
     mockCb?.(settings);
     return Promise.resolve(settings);
@@ -202,6 +208,18 @@ function mockUpdatePageFetchFlow({ pageIdPattern, patchResponse, fallbackRespons
   });
 }
 
+async function expectMessageFailure({ message, sender, expectedError, timeout }) {
+  const sendResponse = createSendResponseWaiter(timeout);
+  chrome.runtime.onMessage._emit(message, sender, sendResponse);
+  await sendResponse.waitForCall();
+  expect(sendResponse).toHaveBeenCalledWith(
+    expect.objectContaining({
+      success: false,
+      error: ErrorHandler.formatUserMessage(expectedError),
+    })
+  );
+}
+
 describe('background error branches (integration)', () => {
   let originalChrome = null;
   let originalFetch = null;
@@ -324,44 +342,51 @@ describe('background error branches (integration)', () => {
     chrome.runtime.lastError = null;
   });
 
-  test('updateHighlights：缺少 API Key → 返回錯誤', async () => {
-    // 有活動分頁
-    chrome.tabs.query.mockResolvedValueOnce([
-      { id: 1, url: 'https://example.com/page', title: 't', active: true },
-    ]);
-    // sync.get 已預設為返回 {}（無 notionApiKey）
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-      })
-    );
-  });
-
-  test('updateHighlights：頁面未保存 → 返回錯誤', async () => {
-    // 有活動分頁
-    chrome.tabs.query.mockResolvedValueOnce([
-      { id: 1, url: 'https://example.com/page', title: 't', active: true },
-    ]);
-    // 提供 notionApiKey 但不提供 saved_ 鍵 → 觸發 Page not saved yet
-    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-      const res = { notionApiKey: 'key' };
-      mockCb?.(res);
-      return Promise.resolve(res);
-    });
-
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
-      })
-    );
+  test.each([
+    {
+      name: 'updateHighlights：缺少 API Key → 返回錯誤',
+      tab: { id: 1, url: 'https://example.com/page', title: 't' },
+      message: { action: 'updateHighlights' },
+      sender: internalSender,
+      expectedError: ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY,
+    },
+    {
+      name: 'updateHighlights：頁面未保存 → 返回錯誤',
+      tab: { id: 1, url: 'https://example.com/page', title: 't' },
+      settings: { notionApiKey: 'key' },
+      message: { action: 'updateHighlights' },
+      sender: internalSender,
+      expectedError: ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED,
+    },
+    {
+      name: 'savePage：缺少 API Key 或資料來源 ID → 返回錯誤',
+      tab: { id: 7, url: 'https://example.com/a', title: 'A' },
+      message: { action: 'savePage' },
+      sender: internalSender,
+      expectedError: ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY,
+    },
+    {
+      name: 'syncHighlights：缺少 API Key → 返回錯誤',
+      tab: { id: 1, url: 'https://example.com/page', title: 'P' },
+      message: { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
+      sender: contentScriptSender,
+      expectedError: ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY,
+    },
+    {
+      name: 'syncHighlights：頁面未保存 → 返回錯誤',
+      tab: { id: 1, url: 'https://example.com/page', title: 'P' },
+      settings: { notionApiKey: 'key' },
+      message: { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
+      sender: contentScriptSender,
+      expectedError: ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED,
+    },
+  ])('$name', async ({ tab, settings, message, sender, expectedError }) => {
+    expect.hasAssertions();
+    mockActiveTab(tab);
+    if (settings) {
+      mockSyncStorageSettings(settings);
+    }
+    await expectMessageFailure({ message, sender, expectedError });
   });
 
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
@@ -413,24 +438,6 @@ describe('background error branches (integration)', () => {
     chrome.runtime.lastError = null;
   });
 
-  // ===== savePage 錯誤分支 =====
-
-  test('savePage：缺少 API Key 或資料來源 ID → 返回錯誤', async () => {
-    chrome.tabs.query.mockResolvedValueOnce([
-      { id: 7, url: 'https://example.com/a', title: 'A', active: true },
-    ]);
-    // 預設 sync.get 回傳 {}，觸發缺少 API Key/DB ID
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-      })
-    );
-  });
-
   // ===== syncHighlights 錯誤與邊界分支 =====
   test('syncHighlights：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = createSendResponseWaiter();
@@ -441,51 +448,6 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         error: SECURITY_ERROR_MESSAGES.TAB_CONTEXT_REQUIRED,
-      })
-    );
-  });
-
-  test('syncHighlights：缺少 API Key → 返回錯誤', async () => {
-    chrome.tabs.query.mockResolvedValueOnce([
-      { id: 1, url: 'https://example.com/page', title: 'P', active: true },
-    ]);
-    // sync.get 預設 {} → 缺少 API Key
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit(
-      { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
-      contentScriptSender,
-      sendResponse
-    );
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-      })
-    );
-  });
-
-  test('syncHighlights：頁面未保存 → 返回錯誤', async () => {
-    chrome.tabs.query.mockResolvedValueOnce([
-      { id: 1, url: 'https://example.com/page', title: 'P', active: true },
-    ]);
-    // 提供 notionApiKey，但不提供 saved_ 鍵
-    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-      const res = { notionApiKey: 'key' };
-      mockCb?.(res);
-      return Promise.resolve(res);
-    });
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit(
-      { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
-      contentScriptSender,
-      sendResponse
-    );
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
       })
     );
   });
@@ -642,77 +604,46 @@ describe('background error branches (integration)', () => {
     jest.useRealTimers();
   });
 
-  test('updateNotionPage：validation_error（含 image）→ 返回友善錯誤訊息', async () => {
-    const url = 'https://example.com/article-validation-image';
-    mockActiveTab({ id: 21, url });
-    mockNotionSettings();
-    await saveStoredNotionPage(url, { notionPageId: 'page-validation-image' });
-
-    setupScriptMock(buildExtractedPageContent({ text: 'x' }));
-
-    mockUpdatePageFetchFlow({
-      pageIdPattern: 'page-validation-image',
+  test.each([
+    {
+      name: 'updateNotionPage：validation_error（含 image）→ 返回友善錯誤訊息',
+      tab: { id: 21, url: 'https://example.com/article-validation-image' },
+      pageId: 'page-validation-image',
+      content: { text: 'x' },
       patchResponse: () => buildImageValidationErrorResponse(),
-    });
-
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage('IMAGE_VALIDATION_ERROR'),
-      })
-    );
-  });
-
-  test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
-    const url = 'https://example.com/article-400-gen';
-    mockActiveTab({ id: 22, url, title: 'Article2' });
-    mockNotionSettings();
-    await saveStoredNotionPage(url, { notionPageId: 'page-400-gen' });
-
-    setupScriptMock(buildExtractedPageContent({ title: 'T2', text: 'y' }));
-
-    mockUpdatePageFetchFlow({
-      pageIdPattern: 'page-400-gen',
+      expectedError: 'IMAGE_VALIDATION_ERROR',
+    },
+    {
+      name: 'updateNotionPage：一般 4xx 錯誤 → 返回原始訊息',
+      tab: { id: 22, url: 'https://example.com/article-400-gen', title: 'Article2' },
+      pageId: 'page-400-gen',
+      content: { title: 'T2', text: 'y' },
       patchResponse: () => buildGenericNotionClientErrorResponse('Invalid request'),
-    });
-
-    const sendResponse = createSendResponseWaiter();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: ErrorHandler.formatUserMessage('NOTIONHQ_CLIENT_RESPONSE_ERROR'),
-      })
-    );
-  });
-
-  test('updateNotionPage：PATCH 失敗無 message → 返回預設錯誤訊息', async () => {
-    const url = 'https://example.com/article-500';
-    const pageId = 'page-500';
-
-    mockActiveTab({ id: 22, url });
-    mockNotionSettings();
-    await saveStoredNotionPage(url, { notionPageId: pageId });
-
-    setupScriptMock(buildExtractedPageContent({ title: 'T2', text: 'p2' }));
-
-    mockUpdatePageFetchFlow({
-      pageIdPattern: pageId,
+      expectedError: 'NOTIONHQ_CLIENT_RESPONSE_ERROR',
+    },
+    {
+      name: 'updateNotionPage：PATCH 失敗無 message → 返回預設錯誤訊息',
+      tab: { id: 22, url: 'https://example.com/article-500' },
+      pageId: 'page-500',
+      content: { title: 'T2', text: 'p2' },
       patchResponse: () => buildJsonResponse({}, { ok: false, status: 500 }),
+      expectedError: 'NOTIONHQ_CLIENT_RESPONSE_ERROR',
+      timeout: 7000,
+    },
+  ])('$name', async ({ tab, pageId, content, patchResponse, expectedError, timeout }) => {
+    expect.hasAssertions();
+    mockActiveTab(tab);
+    mockNotionSettings();
+    await saveStoredNotionPage(tab.url, { notionPageId: pageId });
+
+    setupScriptMock(buildExtractedPageContent(content));
+    mockUpdatePageFetchFlow({ pageIdPattern: pageId, patchResponse });
+
+    await expectMessageFailure({
+      message: { action: 'savePage' },
+      sender: internalSender,
+      expectedError,
+      timeout,
     });
-
-    const sendResponse = createSendResponseWaiter(7000);
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await sendResponse.waitForCall();
-    const resp = sendResponse.mock.calls[0]?.[0];
-
-    expect(sendResponse).toHaveBeenCalled();
-    expect(resp).toBeDefined();
-    expect(resp.success).toBe(false);
-    expect(resp.error).toBe(ErrorHandler.formatUserMessage('NOTIONHQ_CLIENT_RESPONSE_ERROR'));
   });
 });
